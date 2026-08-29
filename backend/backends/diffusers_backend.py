@@ -42,6 +42,9 @@ class DiffusersBackend(GenerationBackend):
         self._lock = threading.Lock()
         self._call_params: set[str] = set()
         self._error: str | None = None
+        # diffusers draws its own tqdm bar per denoising loop. Kept on by
+        # default; the CLI turns it off because it renders its own status line.
+        self._console_progress = True
 
     # ---------------------------------------------------------------- loading
 
@@ -147,10 +150,23 @@ class DiffusersBackend(GenerationBackend):
                     except Exception:  # noqa: BLE001 - purely opportunistic
                         log.debug("%s unavailable", opt)
 
+            self._apply_console_progress(pipe)
             self._call_params = set(inspect.signature(pipe.__call__).parameters)
             self._pipe = pipe
             self._error = None
             log.info("model ready")
+
+    def _apply_console_progress(self, pipe: Any) -> None:
+        fn = getattr(pipe, "set_progress_bar_config", None)
+        if callable(fn):
+            fn(disable=not self._console_progress)
+
+    def set_console_progress(self, enabled: bool) -> None:
+        # Settable before the load as well as after it, so a CLI can ask for
+        # silence up front rather than racing the first generation.
+        self._console_progress = enabled
+        if self._pipe is not None:
+            self._apply_console_progress(self._pipe)
 
     def unload(self) -> None:
         with self._lock:

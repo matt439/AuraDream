@@ -65,6 +65,29 @@ loads them — expect several minutes. Subsequent loads read from the HF cache.
 `←` and `→` walk the strip it came from — the current run, or the gallery, which
 pages in more as you reach the end of it — and `Esc` closes it.
 
+## Headless
+
+No server, no browser — same backend, same seeds, same gallery:
+
+```powershell
+uv run python -m backend.generate "a lighthouse in fog"
+uv run python -m backend.generate "..." --aspect 16:9 --mp 4 --runs 12 --seed 42
+uv run python -m backend.generate "..." --width 1024 --height 1024 --batch 4
+uv run python -m backend.generate "..." --model krea/Krea-2-Turbo --quant int8
+uv run python -m backend.generate --help
+```
+
+Steps, CFG and mu default to the checkpoint's profile exactly as the UI's
+controls do, so the prompt is the only required argument. `--model`, `--quant`
+and `--offload` are the `KREA_*` variables under another name. `--dry-run`
+prints the resolved settings without loading the model; `--quiet` prints only
+the paths of the images it saved, one per line, so a shell can consume them.
+
+Each image is written and reported as it lands, and `Ctrl-C` stops at the end of
+the current step and keeps everything already saved — the same cooperative
+cancel the Cancel button uses. Exit status is 0 when every requested image was
+produced, 130 after a cancel, 2 for bad arguments, 1 for a failed load.
+
 ## Sizes
 
 Five aspect ratios across three megapixel tiers, picked independently — change

@@ -21,6 +21,7 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/main.py` — routes
+- `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `web/` — served as-is from `/static`
 
 ## Constraints that shaped the code
@@ -89,6 +90,14 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   images out of 16 GB: `num_images` holds the whole batch in VRAM at once, runs
   hold one. Each image is emitted as its own `image` SSE event as it lands, so a
   64-run sweep fills the page as it goes.
+- `generate.py` duplicates the sweep loop from `jobs._generate` rather than
+  importing it: that method is welded to a `Job`, an event loop and an SSE
+  queue, none of which exist in a CLI. The parts that *must* not drift — the
+  `seed + index * num_images` step, the per-image `seed + offset`, the
+  `save_image` call — are a dozen lines. What it does not duplicate is settings:
+  `--model/--quant/--offload` are written into `os.environ` *before* the first
+  import of `backend.config`, because `settings` is a frozen dataclass whose
+  fields are evaluated at import time.
 - `events()` opens with a `done` event, not `status`, for a job that has already
   finished — otherwise a stream attached after the fact (a reload, or a queued
   job the cancel endpoint ended) leaves the client waiting on an event that will

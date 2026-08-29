@@ -59,3 +59,14 @@ class GenerationBackend(abc.ABC):
     @abc.abstractmethod
     def describe(self) -> dict:
         """Backend/device metadata for the status endpoint."""
+
+    def set_console_progress(self, enabled: bool) -> None:
+        """Show or hide the engine's *own* console progress bar. Optional.
+
+        Only a caller that renders progress itself on the same terminal needs
+        this - the CLI, whose status line otherwise shares a line with the
+        engine's bar and is overwritten by it. The server never calls it: its
+        progress goes to the browser over SSE, and the bar in the log is
+        independently useful. Default is a no-op, so a backend that prints
+        nothing can ignore it.
+        """
