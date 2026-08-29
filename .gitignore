@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+outputs/
+*.db
+*.db-wal
+*.db-shm
+server.log
+server.err
+.env
+
+# HuggingFace tokens - never commit these
+*token*.txt
+*.token
+hf_token*
