@@ -44,6 +44,9 @@ class ImageRecord(BaseModel):
     height: int
     steps: int
     guidance_scale: float
+    # Persisted since the first release but never served, which left the UI
+    # unable to restore it - and on Turbo a different mu is a different image.
+    mu: float | None = None
     seed: int
     model_id: str
     duration_ms: int

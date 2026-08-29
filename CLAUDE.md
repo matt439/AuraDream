@@ -65,6 +65,15 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   storage of a tensor on device cuda:0 to a storage on different device cpu".
   This is also what the `Unable to import torchao Tensor objects` startup warning
   is pointing at.
+- A batch gets **one generator per image**, seeded `seed + i`. diffusers draws
+  each sample from its own generator and collapses a one-element list back to
+  the scalar path, so image *i* is identical whether it came out of a batch or
+  a solo run of its recorded seed. One shared generator made the per-image
+  seeds in the gallery unreproducible.
+- `mu` is part of the reproduction set, so `ImageRecord` carries it and the UI's
+  Reuse restores it. `/api/status` defaults are seeded once and never after the
+  user has touched a control — `describe()` reads CUDA memory and can answer
+  minutes late from behind a load.
 - Generation is serialized through a one-thread pool — the GPU cannot usefully
   run two at once.
 

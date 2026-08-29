@@ -204,8 +204,17 @@ class DiffusersBackend(GenerationBackend):
                 on_progress(step + 1, total)
             return cb_kwargs
 
-        # Seed on CPU so results reproduce regardless of offload placement.
-        generator = torch.Generator(device="cpu").manual_seed(seed)
+        # One generator per image, seeded seed+i to match the per-image seeds
+        # storage records. A single generator draws the whole batch's noise in
+        # one go, so image *i* depended on the batch size and re-running its
+        # recorded seed alone reproduced something else. diffusers collapses a
+        # one-element list back to the scalar path, so batches of 1 are
+        # unchanged. Seed on CPU so results reproduce regardless of offload
+        # placement.
+        generator = [
+            torch.Generator(device="cpu").manual_seed(seed + offset)
+            for offset in range(request.num_images)
+        ]
 
         kwargs: dict[str, Any] = {
             "prompt": request.prompt,

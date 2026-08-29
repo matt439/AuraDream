@@ -96,6 +96,8 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         height=row["height"],
         steps=row["steps"],
         guidance_scale=row["guidance_scale"],
+        # Databases written before mu was indexed have no such column.
+        mu=row["mu"] if "mu" in row.keys() else None,
         seed=row["seed"],
         model_id=row["model_id"],
         duration_ms=row["duration_ms"],

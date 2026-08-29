@@ -14,6 +14,7 @@ const els = {
   more: $('btn-more'), presets: $('presets'), sizeHint: $('size-hint'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
+  lbReuse: $('lb-reuse'),
 };
 
 const SIZES = [
@@ -25,6 +26,8 @@ let offset = 0;
 let total = 0;
 let busy = false;
 let defaultsApplied = false;
+let statusPending = false;
+let lightboxRec = null;
 
 // ------------------------------------------------------------------ helpers
 
@@ -87,7 +90,15 @@ function applyDefaults(d) {
   syncCfg();
 }
 
+// Anything the user picks - by hand or through Reuse - takes the controls off
+// the profile. /api/status reads CUDA memory, which stalls behind a model load,
+// so its reply can land minutes late and used to wipe steps/CFG/mu long after
+// the page had settled.
+function ownControls() { defaultsApplied = true; }
+
 async function refreshStatus() {
+  if (statusPending) return;  // a stalled poll must not queue more behind it
+  statusPending = true;
   try {
     const s = await api('/api/status');
     applyDefaults(s.defaults);
@@ -101,7 +112,7 @@ async function refreshStatus() {
     els.vram.textContent = s.vram_total_mb
       ? `${s.device_name ?? ''} · ${(s.vram_used_mb / 1024).toFixed(1)}/${(s.vram_total_mb / 1024).toFixed(1)} GB · ${s.quantization}`
       : '';
-  } catch { /* server not up yet */ }
+  } catch { /* server not up yet */ } finally { statusPending = false; }
 }
 
 // --------------------------------------------------------------- generation
@@ -251,12 +262,15 @@ function tool(label, title, onClick) {
 }
 
 function reuse(rec) {
+  ownControls();
   els.prompt.value = rec.prompt;
   els.negative.value = rec.negative_prompt ?? '';
   els.width.value = rec.width;
   els.height.value = rec.height;
   els.steps.value = rec.steps;
   els.cfg.value = rec.guidance_scale;
+  // Turbo's flow shift. Records from a pipeline that derives its own carry null.
+  els.mu.value = rec.mu ?? '';
   els.seed.value = rec.seed;
   syncSize();
   syncCfg();
@@ -266,14 +280,16 @@ function reuse(rec) {
 // ----------------------------------------------------------------- lightbox
 
 function openLightbox(rec) {
+  lightboxRec = rec;
   els.lbImg.src = rec.url;
   els.lbMeta.textContent =
     `${rec.prompt} — ${rec.width}×${rec.height}, ${rec.steps} steps, ` +
-    `CFG ${rec.guidance_scale}, seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`;
+    `CFG ${rec.guidance_scale}, ${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
+    `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`;
   els.lightbox.hidden = false;
 }
 
-function closeLightbox() { els.lightbox.hidden = true; els.lbImg.src = ''; }
+function closeLightbox() { els.lightbox.hidden = true; els.lbImg.src = ''; lightboxRec = null; }
 
 // --------------------------------------------------------------------- wire
 
@@ -286,10 +302,14 @@ els.unload.onclick = async () => {
 };
 els.more.onclick = loadGallery;
 els.width.oninput = els.height.oninput = syncSize;
-els.cfg.oninput = syncCfg;
+els.steps.oninput = els.mu.oninput = els.seed.oninput = ownControls;
+els.cfg.oninput = () => { ownControls(); syncCfg(); };
 els.favOnly.onchange = resetGallery;
 els.search.oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetGallery, 250); };
 els.lbClose.onclick = closeLightbox;
+// The just-generated image only exists in the viewer, so reuse has to be
+// reachable from the lightbox as well as from a gallery card.
+els.lbReuse.onclick = () => { if (lightboxRec) { reuse(lightboxRec); closeLightbox(); } };
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); };
 
 document.addEventListener('keydown', (e) => {
