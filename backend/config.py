@@ -18,7 +18,10 @@ def _env_bool(name: str, default: bool) -> bool:
 @dataclass(frozen=True)
 class Settings:
     # Which checkpoint to serve. Krea 2 Turbo is the 8-step distilled variant.
-    model_id: str = os.getenv("KREA_MODEL_ID", "krea/Krea-2-Turbo")
+
+    # krea/Krea-2-Turbo
+    # black-forest-labs/FLUX.1-Krea-dev
+    model_id: str = os.getenv("KREA_MODEL_ID", "black-forest-labs/FLUX.1-Krea-dev")
 
     # "fp8"  - torchao float8 weight-only on the transformer (~12GB, fits 16GB cards)
     # "int8" - torchao int8 weight-only, smaller still, slightly softer output
