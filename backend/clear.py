@@ -5,6 +5,9 @@
     uv run python -m backend.clear --keep-favorites # spare starred images
     uv run python -m backend.clear --dry-run        # report only
 
+Running the file directly (`python backend/clear.py`, or an editor's Run button)
+works too - see the sys.path bootstrap below.
+
 Safe to run while the server is up: rows are deleted rather than the database
 file, so no open handle is invalidated.
 """
@@ -12,9 +15,16 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
-from . import storage
-from .config import settings
+# Executed as a plain script there is no parent package, so `from . import ...`
+# raises ImportError. Put the project root on sys.path and import absolutely,
+# which works under both invocations.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from backend import storage
+from backend.config import settings
 
 
 def _human(n: int) -> str:

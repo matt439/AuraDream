@@ -5,6 +5,7 @@ import json
 import sqlite3
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -52,11 +53,35 @@ def _connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    # init_db() only runs at startup, but the file can disappear under a running
+    # server - deleted by hand, moved, restored from a backup. Without this the
+    # gallery 500s on every request until restart. The lookup is a sqlite_master
+    # hit, cheap enough to pay per connection.
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='images'"
+    ).fetchone() is None:
+        conn.executescript(_SCHEMA)
     return conn
 
 
+@contextmanager
+def _session():
+    """A connection that commits on success and is always closed.
+
+    `with sqlite3.connect(...) as conn` commits but does *not* close, which leaks
+    a handle per call and keeps the file locked on Windows - deleting or moving
+    krea.db then fails while the server runs.
+    """
+    conn = _connect()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
 def init_db() -> None:
-    with _connect() as conn:
+    with _session() as conn:
         conn.executescript(_SCHEMA)
 
 
@@ -112,7 +137,7 @@ def save_image(
     info.add_text("krea", json.dumps(meta))
     image.save(path, format="PNG", pnginfo=info, compress_level=4)
 
-    with _write_lock, _connect() as conn:
+    with _write_lock, _session() as conn:
         cur = conn.execute(
             """INSERT INTO images (filename, prompt, negative_prompt, width, height,
                                    steps, guidance_scale, mu, seed, model_id,
@@ -149,7 +174,7 @@ def list_images(
         params.append(" ".join(f'"{t}"' for t in search.split()))
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
-    with _connect() as conn:
+    with _session() as conn:
         try:
             total = conn.execute(f"SELECT COUNT(*) FROM images {clause}", params).fetchone()[0]
             rows = conn.execute(
@@ -171,13 +196,13 @@ def list_images(
 
 
 def get_image(image_id: int) -> ImageRecord | None:
-    with _connect() as conn:
+    with _session() as conn:
         row = conn.execute("SELECT * FROM images WHERE id = ?", (image_id,)).fetchone()
     return _row_to_record(row) if row else None
 
 
 def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
-    with _write_lock, _connect() as conn:
+    with _write_lock, _session() as conn:
         conn.execute("UPDATE images SET favorite = ? WHERE id = ?", (int(favorite), image_id))
     return get_image(image_id)
 
@@ -186,7 +211,7 @@ def delete_image(image_id: int) -> bool:
     record = get_image(image_id)
     if record is None:
         return False
-    with _write_lock, _connect() as conn:
+    with _write_lock, _session() as conn:
         conn.execute("DELETE FROM images WHERE id = ?", (image_id,))
     (settings.outputs_dir / record.filename).unlink(missing_ok=True)
     return True
@@ -194,7 +219,7 @@ def delete_image(image_id: int) -> bool:
 
 def summarise() -> dict[str, int]:
     """Counts for the clear-history preview."""
-    with _connect() as conn:
+    with _session() as conn:
         total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
         favorites = conn.execute("SELECT COUNT(*) FROM images WHERE favorite = 1").fetchone()[0]
     tracked = {r["filename"] for r in _tracked_files()}
@@ -209,7 +234,7 @@ def summarise() -> dict[str, int]:
 
 
 def _tracked_files():
-    with _connect() as conn:
+    with _session() as conn:
         return conn.execute("SELECT filename FROM images").fetchall()
 
 
@@ -221,7 +246,7 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
     locked handle on Windows and lose the schema.
     """
     where = " WHERE favorite = 0" if keep_favorites else ""
-    with _write_lock, _connect() as conn:
+    with _write_lock, _session() as conn:
         doomed = [r["filename"] for r in conn.execute(f"SELECT filename FROM images{where}")]
         conn.execute(f"DELETE FROM images{where}")
 
