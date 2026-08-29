@@ -18,6 +18,10 @@ class GenerateRequest(BaseModel):
     mu: float | None = Field(default=1.15, ge=0.0, le=10.0)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     num_images: int = Field(default=1, ge=1, le=8)
+    # Sequential passes. Each one is a separate pipeline call whose base seed is
+    # the previous run's plus `num_images`, so a long sweep costs no more VRAM
+    # than a single image - which is what makes 2K sweeps possible at all.
+    runs: int = Field(default=1, ge=1, le=64)
 
     @field_validator("width", "height")
     @classmethod

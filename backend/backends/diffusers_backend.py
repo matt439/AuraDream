@@ -18,7 +18,7 @@ import threading
 from typing import TYPE_CHECKING, Any
 
 from ..config import settings
-from .base import GenerationBackend, ProgressFn
+from .base import CancelFn, Cancelled, GenerationBackend, ProgressFn
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -191,6 +191,7 @@ class DiffusersBackend(GenerationBackend):
         request: "GenerateRequest",
         seed: int,
         on_progress: ProgressFn | None = None,
+        should_cancel: CancelFn | None = None,
     ) -> list["Image"]:
         if self._pipe is None:
             self.load()
@@ -199,9 +200,18 @@ class DiffusersBackend(GenerationBackend):
         pipe = self._pipe
         total = request.steps
 
+        if should_cancel is not None and should_cancel():
+            raise Cancelled
+
+        # `callback_on_step_end` is the only place the pipeline hands control back
+        # mid-generation, so it doubles as the cancellation point: raising here
+        # unwinds out of the denoising loop. The step is already finished by then,
+        # which is why a cancel lands within one step rather than instantly.
         def _step_end(_pipe, step: int, _timestep, cb_kwargs):
             if on_progress is not None:
                 on_progress(step + 1, total)
+            if should_cancel is not None and should_cancel():
+                raise Cancelled
             return cb_kwargs
 
         # One generator per image, seeded seed+i to match the per-image seeds

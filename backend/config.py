@@ -43,9 +43,13 @@ class Settings:
     host: str = os.getenv("KREA_HOST", "127.0.0.1")
     port: int = int(os.getenv("KREA_PORT", "7860"))
 
-    # Guard rails so a typo in the UI cannot ask for a 16k image.
-    max_side: int = 2048
-    max_pixels: int = 2048 * 2048
+    # Guard rails so a typo in the UI cannot ask for a 16k image. Both are set by
+    # the largest preset the UI offers rather than by what the GPU can take: the
+    # 4 MP tier reaches 2736 on the long side at 16:9, and 1776x2368 = 4,205,568
+    # pixels at 3:4. Every 4 MP preset is within 0.3% of 2048x2048, so they all
+    # cost what the old 2K preset cost.
+    max_side: int = 2816
+    max_pixels: int = 4_300_000
 
 
 settings = Settings()

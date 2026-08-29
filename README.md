@@ -1,6 +1,6 @@
 # Krea Local
 
-Run **Krea 2 Turbo** locally — 8-step, up to 2048×2048, on a single consumer GPU.
+Run **Krea 2 Turbo** locally — 8-step, up to 4 megapixels, on a single consumer GPU.
 FastAPI + diffusers backend, vanilla-JS frontend, SQLite gallery.
 
 ![stack](https://img.shields.io/badge/torch-2.13%2Bcu130-informational)
@@ -61,7 +61,44 @@ uv run python -m backend.main
 Open <http://127.0.0.1:7860>. The first generation downloads ~25 GB of weights and
 loads them — expect several minutes. Subsequent loads read from the HF cache.
 
-`Ctrl`/`Cmd` + `Enter` generates from anywhere in the page.
+`Ctrl`/`Cmd` + `Enter` generates from anywhere in the page. With an image open,
+`←` and `→` walk the strip it came from — the current run, or the gallery, which
+pages in more as you reach the end of it — and `Esc` closes it.
+
+## Sizes
+
+Five aspect ratios across three megapixel tiers, picked independently — change
+the aspect and the tier holds, change the tier and the framing holds.
+
+| | 1 MP | 2 MP | 4 MP |
+| --- | --- | --- | --- |
+| 1:1 | 1024×1024 | 1440×1440 | 2048×2048 |
+| 3:4 | 896×1200 | 1248×1664 | 1776×2368 |
+| 4:3 | 1200×896 | 1664×1248 | 2368×1776 |
+| 16:9 | 1360×768 | 1920×1088 | 2736×1536 |
+| 9:16 | 768×1360 | 1088×1920 | 1536×2736 |
+
+Every side is a multiple of 16, which is what the VAE wants. The whole 4 MP row
+is within 0.3% of 2048×2048 in pixel count, so it costs the same VRAM at any
+aspect — if the old 2K preset ran, all of these run. Both models are trained
+around 1 MP, so 4 MP buys detail at some risk of repeated elements in the
+composition.
+
+## Batch vs runs
+
+**Batch** produces N images in a single pipeline call, all resident in VRAM
+together. It is the fastest way to get a handful of 1024s and the reason a 2K
+batch does not fit at all.
+
+**Runs** produces N images one pipeline call after another, stepping the seed by
+the batch size each time, so a sweep costs no more VRAM than a single image.
+That is what makes an unattended run of large images possible: set Runs to 12 at
+2048×2048 and walk away. Leave the seed blank and the sweep starts from a random
+one; set it and the whole sweep is reproducible.
+
+**Cancel** appears next to the progress bar while a job is running. It stops at
+the end of the current step — within a second or two — and keeps every image the
+run had already finished.
 
 ## Settings
 

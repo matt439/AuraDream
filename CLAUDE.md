@@ -76,12 +76,31 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   minutes late from behind a load.
 - Generation is serialized through a one-thread pool — the GPU cannot usefully
   run two at once.
+- Cancellation is **cooperative**. A diffusion step cannot be interrupted from
+  outside, so `POST /api/jobs/{id}/cancel` only sets `Job.cancel_requested`; the
+  backend polls it from `callback_on_step_end` and raises `Cancelled`, which
+  unwinds out of the denoising loop. A cancel therefore lands within one step,
+  and everything already written to disk is kept and reported. A job still in
+  the queue is finished off by the endpoint itself rather than waiting for the
+  job ahead of it, so `_finish()` guards the terminal SSE event against being
+  emitted twice.
+- `request.runs` loops `jobs._generate` over N sequential pipeline calls with
+  base seed `seed + i * num_images`. That is the *only* way to get many 2K
+  images out of 16 GB: `num_images` holds the whole batch in VRAM at once, runs
+  hold one. Each image is emitted as its own `image` SSE event as it lands, so a
+  64-run sweep fills the page as it goes.
+- `events()` opens with a `done` event, not `status`, for a job that has already
+  finished — otherwise a stream attached after the fact (a reload, or a queued
+  job the cancel endpoint ended) leaves the client waiting on an event that will
+  never come.
 
 ## Adding a backend
 
 Implement `GenerationBackend` (`load`/`unload`/`is_ready`/`generate`/`describe`)
-and register it in `backend/backends/__init__.py:get_backend`. Nothing in the
-HTTP layer or the UI needs to change.
+and register it in `backend/backends/__init__.py:get_backend`. `generate()` is
+handed a `should_cancel` predicate and must poll it at every step boundary,
+raising `Cancelled` when it answers True. Nothing in the HTTP layer or the UI
+needs to change.
 
 ## Environment
 

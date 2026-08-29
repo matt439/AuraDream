@@ -6,28 +6,51 @@ const PAGE = 48;
 const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
-  mu: $('mu'), seed: $('seed'), batch: $('batch'),
+  mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'),
+  cancel: $('btn-cancel'),
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
   error: $('error'), viewer: $('viewer'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
-  more: $('btn-more'), presets: $('presets'), sizeHint: $('size-hint'),
+  more: $('btn-more'), presets: $('presets'), tiers: $('tiers'), sizeHint: $('size-hint'),
+  runHint: $('run-hint'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
-  lbReuse: $('lb-reuse'),
+  lbReuse: $('lb-reuse'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
 };
 
-const SIZES = [
-  ['1:1', 1024, 1024], ['3:4', 896, 1200], ['4:3', 1200, 896],
-  ['16:9', 1360, 768], ['9:16', 768, 1360], ['2K', 2048, 2048],
-];
+// Aspect × megapixel tier. Every side is a multiple of 16 (the VAE downsamples by
+// 16) and every entry lands within a few percent of its tier; 2 and 4 MP hit their
+// ratios exactly. The whole 4 MP row is within 0.3% of the old 2K preset's pixel
+// count, so it costs the same VRAM whichever framing you pick.
+const SIZES = {
+  '1:1':  { 1: [1024, 1024], 2: [1440, 1440], 4: [2048, 2048] },
+  '3:4':  { 1: [896, 1200],  2: [1248, 1664], 4: [1776, 2368] },
+  '4:3':  { 1: [1200, 896],  2: [1664, 1248], 4: [2368, 1776] },
+  '16:9': { 1: [1360, 768],  2: [1920, 1088], 4: [2736, 1536] },
+  '9:16': { 1: [768, 1360],  2: [1088, 1920], 4: [1536, 2736] },
+};
+const ASPECTS = Object.keys(SIZES);
+const TIERS = [1, 2, 4];
+
+// The two axes are picked independently - changing one holds the other - so the
+// same framing at three sizes is three clicks in the same place.
+let pickedAspect = '1:1';
+let pickedTier = 1;
 
 let offset = 0;
 let total = 0;
 let busy = false;
 let defaultsApplied = false;
 let statusPending = false;
-let lightboxRec = null;
+let currentJob = null;
+
+// The two strips the lightbox can walk: what this job produced, and what the
+// gallery has paged in so far. Both are kept in the order they are displayed.
+let viewerRecords = [];
+let galleryRecords = [];
+let lbList = [];
+let lbIndex = -1;
 
 // ------------------------------------------------------------------ helpers
 
@@ -41,29 +64,56 @@ async function api(path, options) {
   return res.status === 204 ? null : res.json();
 }
 
-function showError(message) {
+// `note` styles the same slot as muted rather than red, for outcomes that are
+// not failures - a cancelled run in particular.
+function showError(message, note = false) {
   els.error.textContent = message || '';
   els.error.hidden = !message;
+  els.error.classList.toggle('note', note);
 }
 
 // -------------------------------------------------------------------- sizes
 
 function buildPresets() {
-  SIZES.forEach(([label, w, h]) => {
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.onclick = () => { els.width.value = w; els.height.value = h; syncSize(); };
-    els.presets.appendChild(b);
+  ASPECTS.forEach((aspect) => {
+    els.presets.appendChild(presetButton(aspect, () => choose(aspect, pickedTier)));
   });
+  TIERS.forEach((tier) => {
+    els.tiers.appendChild(presetButton(`${tier} MP`, () => choose(pickedAspect, tier)));
+  });
+}
+
+function presetButton(label, onClick) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.onclick = onClick;
+  return b;
+}
+
+function choose(aspect, tier) {
+  [els.width.value, els.height.value] = SIZES[aspect][tier];
+  syncSize();
 }
 
 function syncSize() {
   const w = +els.width.value, h = +els.height.value;
+  // Recover which preset this is, so a reused or hand-typed size lights the
+  // buttons up too, and the next click off it starts from the right place.
+  const match = ASPECTS.flatMap((a) => TIERS.map((t) => [a, t]))
+    .find(([a, t]) => SIZES[a][t][0] === w && SIZES[a][t][1] === h);
+  if (match) [pickedAspect, pickedTier] = match;
+
   [...els.presets.children].forEach((b, i) => {
-    b.classList.toggle('active', SIZES[i][1] === w && SIZES[i][2] === h);
+    b.classList.toggle('active', !!match && ASPECTS[i] === match[0]);
   });
+  [...els.tiers.children].forEach((b, i) => {
+    b.classList.toggle('active', !!match && TIERS[i] === match[1]);
+    // Spell out what the tier means for the framing currently in play.
+    b.title = SIZES[pickedAspect][TIERS[i]].join(' × ');
+  });
+
   const tight = w * h > 1600 * 1600;
-  // 2K on a 16GB card is the edge of what fits once the DiT is resident.
+  // 4 MP on a 16GB card is the edge of what fits once the DiT is resident.
   els.sizeHint.textContent = `${((w * h) / 1e6).toFixed(1)} MP` +
     (tight ? ' — may run tight on 16GB VRAM' : '');
   els.sizeHint.classList.toggle('warn', tight);
@@ -73,6 +123,19 @@ function syncCfg() {
   const off = +els.cfg.value <= 1;
   els.negField.classList.toggle('disabled', off);
   els.negative.disabled = off;
+}
+
+// Batch holds every image in VRAM at once, which is what stops a 2K batch from
+// fitting. Runs trade that for wall-clock: one pipeline call each, seed stepped
+// by the batch size so nothing in the sweep repeats.
+function syncRuns() {
+  const runs = Math.max(1, +els.runs.value || 1);
+  const batch = Math.max(1, +els.batch.value || 1);
+  const seed = els.seed.value.trim();
+  els.runHint.textContent = runs === 1
+    ? (batch > 1 ? `${batch} images in one pass — all held in VRAM together.` : '')
+    : `${runs * batch} images over ${runs} passes, seed +${batch} each, ` +
+      (seed === '' ? 'from a random start.' : `from ${seed}.`);
 }
 
 // ------------------------------------------------------------------- status
@@ -129,6 +192,7 @@ function collect() {
     mu: els.mu.value === '' ? null : +els.mu.value,
     seed: seed === '' ? null : +seed,
     num_images: +els.batch.value,
+    runs: +els.runs.value,
   };
 }
 
@@ -137,7 +201,9 @@ function setBusy(on) {
   els.generate.disabled = on;
   els.generate.textContent = on ? 'Generating…' : 'Generate';
   els.progress.hidden = !on;
-  if (!on) { els.fill.style.width = '0%'; els.progressText.textContent = ''; }
+  els.cancel.disabled = !on;
+  els.cancel.textContent = 'Cancel';
+  if (!on) { els.fill.style.width = '0%'; els.progressText.textContent = ''; currentJob = null; }
 }
 
 async function generate() {
@@ -154,6 +220,7 @@ async function generate() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    currentJob = job_id;
     await streamJob(job_id);
   } catch (err) {
     showError(err.message);
@@ -161,22 +228,59 @@ async function generate() {
   }
 }
 
+// The server keeps whatever finished before the cancel landed, so this reports
+// a count rather than treating the run as lost.
+async function cancelJob() {
+  if (!currentJob) return;
+  els.cancel.disabled = true;
+  els.cancel.textContent = 'Stopping…';
+  try {
+    await api(`/api/jobs/${currentJob}/cancel`, { method: 'POST' });
+    els.progressText.textContent = 'finishing this step…';
+  } catch (err) {
+    showError(err.message);
+    els.cancel.disabled = false;
+    els.cancel.textContent = 'Cancel';
+  }
+}
+
 function streamJob(jobId) {
   return new Promise((resolve) => {
     const source = new EventSource(`/api/jobs/${jobId}/stream`);
+    // Results replace the viewer only once the first image of this job lands,
+    // so the previous one stays up through the queue wait and the model load.
+    let cleared = false;
+    const show = (rec) => {
+      if (!cleared) { clearResults(); cleared = true; }
+      appendResult(rec);
+    };
 
     source.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      const runs = data.total_runs || 1;
       if (data.type === 'progress') {
-        els.fill.style.width = `${(data.step / data.total_steps) * 100}%`;
-        els.progressText.textContent = `${data.step}/${data.total_steps}`;
+        const done = (data.run || 1) - 1;
+        els.fill.style.width = `${((done + data.step / data.total_steps) / runs) * 100}%`;
+        els.progressText.textContent = runs > 1
+          ? `run ${data.run}/${runs} · ${data.step}/${data.total_steps}`
+          : `${data.step}/${data.total_steps}`;
+      } else if (data.type === 'image') {
+        show(data.image);
       } else if (data.type === 'status' && data.status === 'running') {
-        els.progressText.textContent = 'denoising…';
+        els.progressText.textContent = runs > 1 && data.run
+          ? `run ${data.run}/${runs}…` : 'denoising…';
       } else if (data.type === 'done') {
         source.close();
         setBusy(false);
+        // A stream attached after the fact never saw the per-image events.
+        if (!cleared && data.images.length) data.images.forEach(show);
         if (data.status === 'error') showError(data.error);
-        else { showResults(data.images); resetGallery(); }
+        else if (data.status === 'cancelled') {
+          showError(data.images.length
+            ? `Cancelled — kept ${data.images.length} image${data.images.length === 1 ? '' : 's'}.`
+            : 'Cancelled before anything finished.', true);
+        }
+        if (data.images.length) resetGallery();
         resolve();
       }
     };
@@ -190,21 +294,33 @@ function streamJob(jobId) {
   });
 }
 
-function showResults(images) {
+function clearResults() {
+  viewerRecords = [];
   els.viewer.innerHTML = '';
-  els.viewer.classList.toggle('multi', images.length > 1);
-  images.forEach((rec) => {
-    const img = document.createElement('img');
-    img.src = rec.url;
-    img.alt = rec.prompt;
-    img.onclick = () => openLightbox(rec);
-    els.viewer.appendChild(img);
-  });
+  els.viewer.classList.remove('multi', 'many');
+}
+
+function appendResult(rec) {
+  viewerRecords.push(rec);
+  // Two size tiers, so a long sweep does not push the gallery a screen further
+  // down with every image it finishes. The lightbox is where they get looked at.
+  els.viewer.classList.toggle('multi', viewerRecords.length > 1);
+  els.viewer.classList.toggle('many', viewerRecords.length > 4);
+  const img = document.createElement('img');
+  img.src = rec.url;
+  img.alt = rec.prompt;
+  img.onclick = () => openLightbox(rec, viewerRecords);
+  els.viewer.appendChild(img);
 }
 
 // -------------------------------------------------------------------gallery
 
-function resetGallery() { offset = 0; els.gallery.innerHTML = ''; loadGallery(); }
+function resetGallery() {
+  offset = 0;
+  galleryRecords = [];
+  els.gallery.innerHTML = '';
+  return loadGallery();
+}
 
 async function loadGallery() {
   const params = new URLSearchParams({ limit: PAGE, offset });
@@ -214,7 +330,10 @@ async function loadGallery() {
   const page = await api(`/api/gallery?${params}`);
   total = page.total;
   els.count.textContent = total ? `(${total})` : '';
-  page.items.forEach((rec) => els.gallery.appendChild(card(rec)));
+  page.items.forEach((rec) => {
+    galleryRecords.push(rec);
+    els.gallery.appendChild(card(rec));
+  });
   offset += page.items.length;
   els.more.hidden = offset >= total;
 }
@@ -227,7 +346,7 @@ function card(rec) {
   img.src = rec.url;
   img.alt = rec.prompt;
   img.loading = 'lazy';
-  img.onclick = () => openLightbox(rec);
+  img.onclick = () => openLightbox(rec, galleryRecords);
 
   const star = tool(rec.favorite ? '★' : '☆', 'Favorite', async () => {
     await api(`/api/images/${rec.id}/favorite?value=${!rec.favorite}`, { method: 'POST' });
@@ -244,7 +363,11 @@ function card(rec) {
     tool('⌦', 'Delete', async () => {
       await api(`/api/images/${rec.id}`, { method: 'DELETE' });
       div.remove();
+      // Keep the strip the lightbox walks in step with the grid.
+      const at = galleryRecords.indexOf(rec);
+      if (at >= 0) galleryRecords.splice(at, 1);
       total -= 1;
+      offset -= 1;
       els.count.textContent = total ? `(${total})` : '';
     }),
   );
@@ -274,53 +397,97 @@ function reuse(rec) {
   els.seed.value = rec.seed;
   syncSize();
   syncCfg();
+  syncRuns();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ----------------------------------------------------------------- lightbox
 
-function openLightbox(rec) {
-  lightboxRec = rec;
+function openLightbox(rec, list) {
+  lbList = list && list.includes(rec) ? list : [rec];
+  lbIndex = lbList.indexOf(rec);
+  renderLightbox();
+}
+
+function renderLightbox() {
+  const rec = lbList[lbIndex];
+  if (!rec) { closeLightbox(); return; }
   els.lbImg.src = rec.url;
   els.lbMeta.textContent =
     `${rec.prompt} — ${rec.width}×${rec.height}, ${rec.steps} steps, ` +
     `CFG ${rec.guidance_scale}, ${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
-    `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`;
+    `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s` +
+    (lbList.length > 1 ? ` · ${lbIndex + 1}/${lbList.length}` : '');
+  els.lbPrev.disabled = lbIndex === 0;
+  els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
   els.lightbox.hidden = false;
 }
 
-function closeLightbox() { els.lightbox.hidden = true; els.lbImg.src = ''; lightboxRec = null; }
+// Only the gallery strip has more behind it, and only while a page is unread.
+function canPage() { return lbList === galleryRecords && offset < total; }
+
+async function stepLightbox(delta) {
+  if (els.lightbox.hidden) return;
+  const next = lbIndex + delta;
+  if (next < 0) return;
+  if (next >= lbList.length) {
+    // Walking off the end of the grid pulls the next page rather than stopping.
+    if (!canPage()) return;
+    await loadGallery();
+    if (next >= lbList.length) return;
+  }
+  lbIndex = next;
+  renderLightbox();
+}
+
+function closeLightbox() {
+  els.lightbox.hidden = true;
+  els.lbImg.src = '';
+  lbList = [];
+  lbIndex = -1;
+}
 
 // --------------------------------------------------------------------- wire
 
 let searchTimer;
 els.generate.onclick = generate;
-els.dice.onclick = () => { els.seed.value = ''; };
+els.cancel.onclick = cancelJob;
+els.dice.onclick = () => { els.seed.value = ''; syncRuns(); };
 els.unload.onclick = async () => {
   await api('/api/model/unload', { method: 'POST' });
   refreshStatus();
 };
 els.more.onclick = loadGallery;
 els.width.oninput = els.height.oninput = syncSize;
-els.steps.oninput = els.mu.oninput = els.seed.oninput = ownControls;
+els.steps.oninput = els.mu.oninput = ownControls;
+els.seed.oninput = () => { ownControls(); syncRuns(); };
+els.batch.oninput = els.runs.oninput = syncRuns;
 els.cfg.oninput = () => { ownControls(); syncCfg(); };
 els.favOnly.onchange = resetGallery;
 els.search.oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetGallery, 250); };
 els.lbClose.onclick = closeLightbox;
+els.lbPrev.onclick = () => stepLightbox(-1);
+els.lbNext.onclick = () => stepLightbox(1);
 // The just-generated image only exists in the viewer, so reuse has to be
 // reachable from the lightbox as well as from a gallery card.
-els.lbReuse.onclick = () => { if (lightboxRec) { reuse(lightboxRec); closeLightbox(); } };
+els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { reuse(rec); closeLightbox(); } };
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); };
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeLightbox();
   // Ctrl/Cmd+Enter generates from anywhere, including inside the prompt box.
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate();
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { generate(); return; }
+  if (els.lightbox.hidden) return;
+  // Arrows walk whichever strip the lightbox was opened from. Nothing else on
+  // the page reads them while it is up, so the caret keys are free to take.
+  if (e.key === 'Escape') closeLightbox();
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); }
 });
 
 buildPresets();
 syncSize();
 syncCfg();
+syncRuns();
 refreshStatus();
 loadGallery();
 setInterval(refreshStatus, 3000);

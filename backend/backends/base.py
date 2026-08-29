@@ -15,6 +15,17 @@ if TYPE_CHECKING:
 
 # (completed_steps, total_steps) -> None
 ProgressFn = Callable[[int, int], None]
+# Polled between denoising steps; True means stop.
+CancelFn = Callable[[], bool]
+
+
+class Cancelled(Exception):
+    """Raised out of `generate()` when the caller asked it to stop.
+
+    A diffusion step is not interruptible from the outside, so cancellation is
+    cooperative: the backend polls `should_cancel` at a step boundary and unwinds
+    from there. Whatever finished before that point is still valid output.
+    """
 
 
 class GenerationBackend(abc.ABC):
@@ -37,8 +48,13 @@ class GenerationBackend(abc.ABC):
         request: "GenerateRequest",
         seed: int,
         on_progress: ProgressFn | None = None,
+        should_cancel: CancelFn | None = None,
     ) -> list["Image"]:
-        """Run one synchronous generation. Called on a worker thread."""
+        """Run one synchronous generation. Called on a worker thread.
+
+        Poll `should_cancel` at every step boundary and raise `Cancelled` when it
+        answers True.
+        """
 
     @abc.abstractmethod
     def describe(self) -> dict:

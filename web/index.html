@@ -32,9 +32,10 @@
     <div class="field">
       <span>Size</span>
       <div class="presets" id="presets"></div>
+      <div class="presets tiers" id="tiers"></div>
       <div class="row">
-        <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="2048"></label>
-        <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="2048"></label>
+        <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="2816"></label>
+        <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="2816"></label>
       </div>
       <p class="hint" id="size-hint"></p>
     </div>
@@ -47,14 +48,17 @@
 
     <div class="row">
       <label class="sub grow"><i>Seed</i><input type="number" id="seed" placeholder="random" min="0"></label>
-      <label class="sub"><i>Batch</i><input type="number" id="batch" value="1" min="1" max="8"></label>
+      <label class="sub narrow"><i>Batch</i><input type="number" id="batch" value="1" min="1" max="8"></label>
+      <label class="sub narrow"><i>Runs</i><input type="number" id="runs" value="1" min="1" max="64"></label>
       <button class="ghost square" id="btn-dice" title="Clear seed (randomize)">🎲</button>
     </div>
+    <p class="hint" id="run-hint"></p>
 
     <button class="primary" id="btn-generate">Generate</button>
     <div class="progress" id="progress" hidden>
       <div class="bar"><div class="fill" id="progress-fill"></div></div>
       <span id="progress-text"></span>
+      <button class="ghost small" id="btn-cancel" title="Stop after the current step">Cancel</button>
     </div>
     <p class="error" id="error" hidden></p>
   </aside>
@@ -76,6 +80,8 @@
 
 <div class="lightbox" id="lightbox" hidden>
   <button class="close" id="lb-close">✕</button>
+  <button class="lb-nav prev" id="lb-prev" title="Previous (←)">‹</button>
+  <button class="lb-nav next" id="lb-next" title="Next (→)">›</button>
   <img id="lb-img" alt="">
   <div class="lb-meta" id="lb-meta"></div>
   <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>

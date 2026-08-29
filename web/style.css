@@ -98,6 +98,10 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .row { display: flex; gap: 8px; align-items: flex-end; }
 .sub { display: flex; flex-direction: column; gap: 4px; }
 .sub.grow { flex: 1; min-width: 0; }
+/* Small counters. Without a fixed width a number input claims ~20 characters of
+   intrinsic width and squeezes the seed field it shares a row with. */
+.sub.narrow { width: 62px; flex: none; }
+.sub.narrow input { padding-left: 6px; padding-right: 2px; }
 .sub i { font-style: normal; font-size: 11px; color: var(--muted); }
 
 .hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); min-height: 15px; }
@@ -117,6 +121,8 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 }
 .presets button:hover { color: var(--text); }
 .presets button.active { border-color: var(--accent); color: var(--text); background: #221c3d; }
+/* The megapixel row is a second axis over the same pills, not more aspect ratios. */
+.presets.tiers { margin-top: 2px; }
 
 /* ---------------------------------------------------------------- buttons */
 
@@ -143,14 +149,20 @@ button { font: inherit; cursor: pointer; }
 .ghost:hover { color: var(--text); border-color: var(--muted); }
 .ghost.square { padding: 8px 10px; }
 .ghost.wide { width: 100%; margin-top: 12px; }
+.ghost.small { padding: 3px 8px; font-size: 12px; flex: none; }
+.ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+.ghost.small:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
 
 /* --------------------------------------------------------------- progress */
 
 .progress { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--muted); }
 .bar { flex: 1; height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
 .fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.15s ease; }
+#progress-text { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .error { color: var(--danger); font-size: 12px; margin: 0; word-break: break-word; }
+/* A cancelled run is an outcome, not a failure - same slot, no alarm. */
+.error.note { color: var(--muted); }
 
 /* ------------------------------------------------------------------ stage */
 
@@ -176,6 +188,7 @@ button { font: inherit; cursor: pointer; }
   cursor: zoom-in;
 }
 .viewer.multi img { max-height: 34vh; }
+.viewer.many img { max-height: 20vh; }
 .placeholder { color: var(--muted); }
 
 .gallery-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -260,3 +273,24 @@ button { font: inherit; cursor: pointer; }
   color: var(--text);
   font-size: 22px;
 }
+
+/* Sit outside the image rather than over it, so a portrait crop is never
+   covered. The arrow keys do the same job; these are here for the mouse. */
+.lb-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
+  line-height: 1;
+  padding: 0 0 3px;
+}
+.lb-nav:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+.lb-nav:disabled { opacity: 0.2; cursor: default; }
+.lb-nav.prev { left: 18px; }
+.lb-nav.next { right: 18px; }
