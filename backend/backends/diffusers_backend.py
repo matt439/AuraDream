@@ -60,7 +60,12 @@ class DiffusersBackend(GenerationBackend):
 
         libraries: dict[str, str] = {}
         for name, spec in index.items():
+            # Only ["library", "ClassName"] pairs are components. Krea 2 also
+            # carries plain config values, and `text_encoder_select_layers`
+            # matches the prefix below without being a component at all.
             if name.startswith("_") or not isinstance(spec, (list, tuple)) or len(spec) != 2:
+                continue
+            if not all(isinstance(part, str) for part in spec):
                 continue
             if name.startswith(_QUANTIZABLE_PREFIXES) and spec[0]:
                 libraries[name] = spec[0]

@@ -23,8 +23,18 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from backend import storage
-from backend.config import settings
+try:
+    from backend import storage
+    from backend.config import settings
+except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
+    # Almost always `py clear.py` or a bare `python clear.py`, which picks the
+    # system interpreter rather than the project's .venv.
+    sys.exit(
+        f"Missing dependency: {exc.name}\n\n"
+        f"Running under: {sys.executable}\n"
+        "That interpreter is not the project environment. Use:\n\n"
+        "    uv run python -m backend.clear\n"
+    )
 
 
 def _human(n: int) -> str:
