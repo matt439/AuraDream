@@ -190,3 +190,64 @@ def delete_image(image_id: int) -> bool:
         conn.execute("DELETE FROM images WHERE id = ?", (image_id,))
     (settings.outputs_dir / record.filename).unlink(missing_ok=True)
     return True
+
+
+def summarise() -> dict[str, int]:
+    """Counts for the clear-history preview."""
+    with _connect() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
+        favorites = conn.execute("SELECT COUNT(*) FROM images WHERE favorite = 1").fetchone()[0]
+    tracked = {r["filename"] for r in _tracked_files()}
+    on_disk = {p.name for p in settings.outputs_dir.glob("*.png")}
+    return {
+        "records": total,
+        "favorites": favorites,
+        "files_on_disk": len(on_disk),
+        "orphan_files": len(on_disk - tracked),
+        "bytes_on_disk": sum(p.stat().st_size for p in settings.outputs_dir.glob("*.png")),
+    }
+
+
+def _tracked_files():
+    with _connect() as conn:
+        return conn.execute("SELECT filename FROM images").fetchall()
+
+
+def clear_history(keep_favorites: bool = False) -> dict[str, int]:
+    """Delete image records and the PNGs they point at.
+
+    Rows are deleted rather than the database file, so this is safe while the
+    server holds the connection open - dropping the file mid-run would leave a
+    locked handle on Windows and lose the schema.
+    """
+    where = " WHERE favorite = 0" if keep_favorites else ""
+    with _write_lock, _connect() as conn:
+        doomed = [r["filename"] for r in conn.execute(f"SELECT filename FROM images{where}")]
+        conn.execute(f"DELETE FROM images{where}")
+
+    removed = 0
+    for filename in doomed:
+        path = settings.outputs_dir / filename
+        if path.exists():
+            path.unlink()
+            removed += 1
+
+    # Anything left with no row behind it: earlier deletions, interrupted runs.
+    keep = {r["filename"] for r in _tracked_files()}
+    orphans = 0
+    for path in settings.outputs_dir.glob("*.png"):
+        if path.name not in keep:
+            path.unlink()
+            orphans += 1
+
+    return {"records": len(doomed), "files": removed, "orphans": orphans}
+
+
+def vacuum() -> None:
+    """Shrink the database file after a bulk delete."""
+    conn = _connect()
+    try:
+        conn.isolation_level = None  # VACUUM cannot run inside a transaction
+        conn.execute("VACUUM")
+    finally:
+        conn.close()

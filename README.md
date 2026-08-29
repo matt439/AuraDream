@@ -94,6 +94,21 @@ PNGs land in `outputs/` with generation parameters written into the PNG text
 chunks (both an A1111-style `parameters` block and a `krea` JSON blob), so the
 files stay self-describing outside the app. `krea.db` indexes them for search.
 
+## Clearing history
+
+```powershell
+uv run python -m backend.clear                   # preview, then confirm
+uv run python -m backend.clear --dry-run         # report only, change nothing
+uv run python -m backend.clear --keep-favorites  # spare starred images
+uv run python -m backend.clear --yes             # no prompt
+```
+
+Prints what it is about to remove and asks for confirmation before deleting
+anything. It clears database rows and the PNGs behind them, sweeps any PNG with
+no row left pointing at it, and vacuums the database afterwards. Safe to run
+while the server is up — rows go, the database file stays, so no open handle is
+invalidated.
+
 ## Licence
 
 Model weights are covered by the **Krea 2 Community License** — read it before any
