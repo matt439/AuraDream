@@ -11,13 +11,16 @@ can point at FLUX.1-Krea-dev or any other diffusers text-to-image repo.
 """
 from __future__ import annotations
 
+import functools
 import inspect
 import json
 import logging
 import threading
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 from ..config import settings
+from ..seeds import wrap_seed
 from .base import CancelFn, Cancelled, GenerationBackend, ProgressFn
 
 if TYPE_CHECKING:
@@ -185,14 +188,17 @@ class DiffusersBackend(GenerationBackend):
     def is_ready(self) -> bool:
         return self._pipe is not None
 
-    # ------------------------------------------------------------- generation
+    # -------------------------------------------------------------- schedule
 
     @staticmethod
     def _shifted_sigmas(steps: int, mu: float) -> list[float]:
-        """Krea's CLI exposes --mu; the diffusers pipeline exposes `sigmas`.
+        """The schedule a shift of `mu` produces, computed here rather than by the scheduler.
 
-        Reproduce flow-matching dynamic shifting explicitly:
             sigma' = e^mu / (e^mu + (1/sigma - 1))
+
+        which is `FlowMatchEulerDiscreteScheduler._time_shift_exponential` over
+        the default `linspace(1, 1/steps, steps)` ramp, to the byte. Only used
+        for a scheduler that does *not* shift on its own - see `_shifts_itself`.
         """
         import math
 
@@ -202,6 +208,62 @@ class DiffusersBackend(GenerationBackend):
             out.append(math.exp(mu) / (math.exp(mu) + (1.0 / sigma - 1.0)))
         return out
 
+    @staticmethod
+    def _shifts_itself(pipe: Any) -> bool:
+        """Does this pipeline's scheduler apply a shift of its own?
+
+        `sigmas` is not the final schedule. Every flow-matching pipeline here
+        derives a mu - 1.15 hard-coded for a distilled checkpoint, resolution
+        dependent otherwise - and hands it to `set_timesteps`, which shifts
+        whatever sigmas it was given whenever `use_dynamic_shifting` is set (it
+        is, in both shipped `scheduler_config.json`s). The shift multiplies the
+        odds sigma/(1-sigma) by e^mu, so two of them compose into a single shift
+        of `mu_a + mu_b`: passing a pre-shifted schedule does not replace the
+        pipeline's mu, it adds to it.
+        """
+        config = getattr(getattr(pipe, "scheduler", None), "config", None)
+        return bool(getattr(config, "use_dynamic_shifting", False))
+
+    @contextmanager
+    def _forced_mu(self, pipe: Any, mu: float | None):
+        """Run the pipeline with the scheduler shifted by `mu` and nothing else.
+
+        Krea's CLI exposes --mu as *the* shift, which is what it has to mean
+        here too. Intercepting the value on its way to the scheduler is the only
+        way to say that without re-deriving `calculate_shift` - and with it the
+        latent sequence length, VAE scale factor and patch size - outside the
+        pipeline that owns them.
+
+        `functools.wraps` is load-bearing: `retrieve_timesteps` reads
+        `inspect.signature(scheduler.set_timesteps)` to decide whether custom
+        sigmas are supported at all, and only finds the real signature by
+        following `__wrapped__`. Patching the instance is safe because
+        generation is serialized through a single worker thread.
+        """
+        scheduler = getattr(pipe, "scheduler", None)
+        original = getattr(scheduler, "set_timesteps", None)
+        signature = inspect.signature(original) if original is not None else None
+        if mu is None or signature is None or "mu" not in signature.parameters:
+            if mu is not None:
+                log.debug("scheduler takes no mu; ignoring mu=%s", mu)
+            yield
+            return
+
+        @functools.wraps(original)
+        def set_timesteps(*args: Any, **kwargs: Any):
+            bound = signature.bind(*args, **kwargs)
+            bound.arguments["mu"] = mu
+            return original(*bound.args, **bound.kwargs)
+
+        scheduler.set_timesteps = set_timesteps
+        try:
+            yield
+        finally:
+            # Drop the instance attribute; the class's bound method resurfaces.
+            scheduler.__dict__.pop("set_timesteps", None)
+
+    # ------------------------------------------------------------- generation
+
     def generate(
         self,
         request: "GenerateRequest",
@@ -210,7 +272,11 @@ class DiffusersBackend(GenerationBackend):
         should_cancel: CancelFn | None = None,
     ) -> list["Image"]:
         if self._pipe is None:
-            self.load()
+            # Loading happens in exactly one place - main.ensure_loaded() - which
+            # holds a lock across the whole load. Loading here instead would do
+            # it on the generation thread while it holds the job gate, which is
+            # the second load path that rule exists to prevent.
+            raise RuntimeError("model is not loaded")
         import torch
 
         pipe = self._pipe
@@ -237,8 +303,11 @@ class DiffusersBackend(GenerationBackend):
         # one-element list back to the scalar path, so batches of 1 are
         # unchanged. Seed on CPU so results reproduce regardless of offload
         # placement.
+        # `wrap_seed` here and at the storage call are the same helper on
+        # purpose: image *i* of a batch whose base sits near 2**63 must be drawn
+        # from the seed that gets written next to it.
         generator = [
-            torch.Generator(device="cpu").manual_seed(seed + offset)
+            torch.Generator(device="cpu").manual_seed(wrap_seed(seed + offset))
             for offset in range(request.num_images)
         ]
 
@@ -252,18 +321,28 @@ class DiffusersBackend(GenerationBackend):
             "generator": generator,
             "callback_on_step_end": _step_end,
         }
-        # CFG is inactive at or below 1.0, which is where Turbo runs, and a
-        # negative prompt there just costs a wasted text-encoder pass.
-        if request.negative_prompt and request.guidance_scale > 1.0:
+        # Where guidance switches on is a property of the pipeline, not a
+        # constant. On FLUX `guidance_scale` is a distilled conditioning value
+        # baked into the model, and a negative prompt is ignored until
+        # `true_cfg_scale` rises above 1.0 - costing a second forward pass per
+        # step. Krea 2 has no such parameter and guides from 0 up, where the
+        # old `> 1.0` gate dropped the negative prompt and the pipeline then ran
+        # the uncond pass against an empty string anyway. Below the threshold
+        # neither pipeline encodes a negative prompt at all, so nothing is saved
+        # by dropping it early - it is only ever dropped to keep the recorded
+        # settings honest about what ran.
+        threshold = 1.0 if "true_cfg_scale" in self._call_params else 0.0
+        if request.negative_prompt and request.guidance_scale > threshold:
             kwargs["negative_prompt"] = request.negative_prompt
-            # On FLUX, `guidance_scale` is a distilled conditioning value baked
-            # into the model, not classifier-free guidance -- a negative prompt
-            # is silently ignored unless true_cfg_scale rises above 1.0. Costs a
-            # second forward pass per step.
             if "true_cfg_scale" in self._call_params:
                 kwargs["true_cfg_scale"] = request.guidance_scale
-        if request.mu is not None:
-            kwargs["sigmas"] = self._shifted_sigmas(request.steps, request.mu)
+        # mu is the whole shift, not an addition to the pipeline's own. Where
+        # the scheduler shifts for itself, override the value it is given; only
+        # where it does not is an explicit pre-shifted schedule the right answer.
+        mu = request.mu
+        if mu is not None and not self._shifts_itself(pipe):
+            kwargs["sigmas"] = self._shifted_sigmas(request.steps, mu)
+            mu = None
 
         for key in set(kwargs) - self._call_params:
             log.debug("dropping unsupported pipeline arg %r", key)
@@ -277,11 +356,22 @@ class DiffusersBackend(GenerationBackend):
         #   "cuda:0" to a storage on different device "cpu"
         # no_grad avoids the functionalization path and is otherwise equivalent
         # here. Verified identical outputs for both fp8 and int8.
-        with torch.no_grad():
+        with torch.no_grad(), self._forced_mu(pipe, mu):
             result = pipe(**kwargs)
         return list(result.images)
 
     # ----------------------------------------------------------------- status
+
+    def cfg_threshold(self) -> float | None:
+        """Guidance scale above which a negative prompt does anything.
+
+        FLUX bakes `guidance_scale` into the model and only runs an uncond pass
+        when `true_cfg_scale > 1`; Krea 2 guides from 0 up. None until a pipeline
+        is loaded, since the parameter list is the only honest answer.
+        """
+        if self._pipe is None:
+            return None
+        return 1.0 if "true_cfg_scale" in self._call_params else 0.0
 
     def describe(self) -> dict:
         info: dict[str, Any] = {
@@ -291,6 +381,7 @@ class DiffusersBackend(GenerationBackend):
             "offload": settings.offload,
             "detail": self._error,
             "pipeline": type(self._pipe).__name__ if self._pipe is not None else None,
+            "cfg_threshold": self.cfg_threshold(),
         }
         try:
             import torch

@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import random
 import signal
 import sys
 import time
@@ -37,7 +36,9 @@ from types import SimpleNamespace
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-_MAX_SEED = 2**63 - 1
+# Imported up here rather than in _project(): it pulls in nothing but `random`,
+# so it is safe before _apply_env() has had its say about the KREA_* variables.
+from backend.seeds import random_seed, wrap_seed  # noqa: E402
 
 # The UI's preset table (web/app.js), kept in step with it. Aspect and megapixel
 # tier are independent: every side is a multiple of 16 for the VAE, and the whole
@@ -65,7 +66,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("prompt", help="what to draw")
     parser.add_argument(
-        "-n", "--negative", help="negative prompt; needs CFG above 1 to have any effect"
+        "-n",
+        "--negative",
+        help="negative prompt; ignored at or below the checkpoint's CFG threshold "
+        "(1 on FLUX, 0 on Krea 2)",
     )
 
     size = parser.add_argument_group("size")
@@ -181,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
 
     profile = p.defaults_for(p.settings.model_id)
     mu = None if args.no_mu else (args.mu if args.mu is not None else profile["mu"])
-    seed = args.seed if args.seed is not None else random.randint(0, _MAX_SEED)
+    seed = args.seed if args.seed is not None else random_seed()
 
     try:
         request = p.GenerateRequest(
@@ -216,7 +220,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"prompt   : {request.prompt}")
         if request.negative_prompt:
-            note = "" if request.guidance_scale > 1.0 else "  [ignored: CFG is at or below 1]"
+            # Where guidance switches on is a property of the checkpoint, not a
+            # constant: FLUX bakes guidance_scale into the model and needs true
+            # CFG above 1, Krea 2 guides from 0 up.
+            threshold = profile["cfg_threshold"]
+            note = (
+                ""
+                if request.guidance_scale > threshold
+                else f"  [ignored: CFG is at or below {threshold:g}]"
+            )
             print(f"negative : {request.negative_prompt}{note}")
         print(
             f"size     : {request.width}x{request.height} "
@@ -293,7 +305,7 @@ def main(argv: list[str] | None = None) -> int:
             # Step the seed past the whole of the previous batch so every image in
             # a sweep keeps a seed that reproduces it on its own. Wrap rather than
             # overflow the signed 64-bit seed column.
-            run_seed = (seed + index * request.num_images) % (_MAX_SEED + 1)
+            run_seed = wrap_seed(seed + index * request.num_images)
             run_index = index + 1
             if not args.quiet and not live:
                 print(f"  run {run_index}/{request.runs}  seed {run_seed}", flush=True)
@@ -313,11 +325,13 @@ def main(argv: list[str] | None = None) -> int:
                 print("\r" + " " * 40 + "\r", end="")
 
             for offset, image in enumerate(images):
-                # Each image in a batch gets its own reproducible seed.
+                # Each image in a batch gets its own reproducible seed, wrapped
+                # with the same helper the generator uses so the recorded seed
+                # and the seed actually drawn cannot disagree.
                 record = p.storage.save_image(
                     image,
                     request,
-                    seed=run_seed + offset,
+                    seed=wrap_seed(run_seed + offset),
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=p.settings.model_id,
                 )

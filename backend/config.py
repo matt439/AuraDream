@@ -43,6 +43,19 @@ class Settings:
     host: str = os.getenv("KREA_HOST", "127.0.0.1")
     port: int = int(os.getenv("KREA_PORT", "7860"))
 
+    # Host headers the API answers to, and with the port appended, the origins
+    # allowed to write to it. Binding to loopback stops another machine's TCP,
+    # not a browser on this one aimed at 127.0.0.1 by a hostile DNS record -
+    # once rebound the attacker's page is same-origin and CORS stops applying.
+    # Deliberately not derived from `host`: with KREA_HOST=0.0.0.0 the browser
+    # sends the machine's LAN address or name, never 0.0.0.0, so that case needs
+    # naming here (KREA_ALLOWED_HOSTS=my-box,192.168.1.20).
+    allowed_hosts: tuple[str, ...] = tuple(
+        part.strip()
+        for part in os.getenv("KREA_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+        if part.strip()
+    )
+
     # Guard rails so a typo in the UI cannot ask for a 16k image. Both are set by
     # the largest preset the UI offers rather than by what the GPU can take: the
     # 4 MP tier reaches 2736 on the long side at 16:9, and 1776x2368 = 4,205,568

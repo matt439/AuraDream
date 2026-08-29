@@ -116,6 +116,14 @@ def save_image(
     created = datetime.now(timezone.utc)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
     path = settings.outputs_dir / filename
+    # Written under a temporary name and renamed only once the row is committed.
+    # A 2048x2048 PNG takes ~240ms to encode and `_write_lock` means nothing to
+    # `clear.py`, which is a separate process: for that quarter second the file
+    # would otherwise be an untracked *.png for its orphan sweep to delete -
+    # taking a good image with it, or failing on the open handle with WinError
+    # 32 after the row DELETE had already committed. A *.png.part matches
+    # neither that glob nor the gallery's.
+    partial = path.with_name(path.name + ".part")
 
     meta: dict[str, Any] = {
         "prompt": request.prompt,
@@ -137,63 +145,91 @@ def save_image(
         f"Seed: {seed}, Size: {image.width}x{image.height}, Model: {model_id}",
     )
     info.add_text("krea", json.dumps(meta))
-    image.save(path, format="PNG", pnginfo=info, compress_level=4)
+    image.save(partial, format="PNG", pnginfo=info, compress_level=4)
 
-    with _write_lock, _session() as conn:
-        cur = conn.execute(
-            """INSERT INTO images (filename, prompt, negative_prompt, width, height,
-                                   steps, guidance_scale, mu, seed, model_id,
-                                   duration_ms, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                filename,
-                request.prompt,
-                request.negative_prompt,
-                image.width,
-                image.height,
-                request.steps,
-                request.guidance_scale,
-                request.mu,
-                seed,
-                model_id,
-                duration_ms,
-                created.isoformat(),
-            ),
-        )
-        row = conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
+    try:
+        with _write_lock, _session() as conn:
+            cur = conn.execute(
+                """INSERT INTO images (filename, prompt, negative_prompt, width, height,
+                                       steps, guidance_scale, mu, seed, model_id,
+                                       duration_ms, created_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    filename,
+                    request.prompt,
+                    request.negative_prompt,
+                    image.width,
+                    image.height,
+                    request.steps,
+                    request.guidance_scale,
+                    request.mu,
+                    seed,
+                    model_id,
+                    duration_ms,
+                    created.isoformat(),
+                ),
+            )
+            row = conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
+        partial.replace(path)
+    except BaseException:
+        # A failed INSERT must not leave a *.png.part behind for nobody - and
+        # tidying up must not replace the error that got us here.
+        _unlink(partial)
+        raise
     return _row_to_record(row)
+
+
+def _page(conn: sqlite3.Connection, clause: str, params: list, limit: int, offset: int):
+    """Count and fetch one page over the *same* predicate.
+
+    Both branches below go through here so the count badge, the grid and the
+    paging cannot end up reading different result sets - which is how the LIKE
+    fallback used to drop the favorites filter and then report a total for rows
+    it never showed.
+    """
+    total = conn.execute(f"SELECT COUNT(*) FROM images {clause}", params).fetchone()[0]
+    rows = conn.execute(
+        f"SELECT * FROM images {clause} ORDER BY id DESC LIMIT ? OFFSET ?",
+        (*params, limit, offset),
+    ).fetchall()
+    return total, rows
+
+
+def _like_escape(term: str) -> str:
+    r"""Neutralise LIKE wildcards, for use with ESCAPE '\'."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def list_images(
     limit: int = 50, offset: int = 0, search: str | None = None, favorites_only: bool = False
 ) -> tuple[list[ImageRecord], int]:
-    where, params = [], []
+    where: list[str] = []
+    params: list = []
     if favorites_only:
         where.append("favorite = 1")
     if search:
-        # Match the FTS index, falling back to a LIKE for punctuation-heavy input.
+        # Match the FTS index, falling back to LIKE for punctuation-heavy input.
+        # The search predicate is appended last; the fallback relies on that.
         where.append("id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
         params.append(" ".join(f'"{t}"' for t in search.split()))
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
     with _session() as conn:
         try:
-            total = conn.execute(f"SELECT COUNT(*) FROM images {clause}", params).fetchone()[0]
-            rows = conn.execute(
-                f"SELECT * FROM images {clause} ORDER BY id DESC LIMIT ? OFFSET ?",
-                (*params, limit, offset),
-            ).fetchall()
+            total, rows = _page(conn, clause, params, limit, offset)
         except sqlite3.OperationalError:
             if not search:
                 raise
-            like = f"%{search}%"
-            total = conn.execute(
-                "SELECT COUNT(*) FROM images WHERE prompt LIKE ?", (like,)
-            ).fetchone()[0]
-            rows = conn.execute(
-                "SELECT * FROM images WHERE prompt LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
-                (like, limit, offset),
-            ).fetchall()
+            # A token carrying an odd number of double quotes - 26", a 6" figure
+            # - quotes into a malformed MATCH. Swap *only* the search predicate
+            # so favorites and anything added later still applies, and AND one
+            # LIKE per token: FTS matches tokens in any order, where a single
+            # LIKE over the raw string would demand them contiguous.
+            terms = search.split()
+            where[-1:] = [r"prompt LIKE ? ESCAPE '\'"] * len(terms)
+            params[-1:] = [f"%{_like_escape(t)}%" for t in terms]
+            clause = f"WHERE {' AND '.join(where)}" if where else ""
+            total, rows = _page(conn, clause, params, limit, offset)
     return [_row_to_record(r) for r in rows], total
 
 
@@ -215,23 +251,56 @@ def delete_image(image_id: int) -> bool:
         return False
     with _write_lock, _session() as conn:
         conn.execute("DELETE FROM images WHERE id = ?", (image_id,))
-    (settings.outputs_dir / record.filename).unlink(missing_ok=True)
+    # The row is already gone, so a file someone else has open must not turn a
+    # delete that did happen into a 500. clear_history's orphan sweep collects
+    # whatever gets left behind.
+    _unlink(settings.outputs_dir / record.filename)
+    return True
+
+
+def _unlink(path) -> bool:
+    """Delete a file, tolerating both "already gone" and "someone has it open"."""
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:  # WinError 32, most often: another process is streaming it
+        return False
     return True
 
 
 def summarise() -> dict[str, int]:
-    """Counts for the clear-history preview."""
-    with _session() as conn:
-        total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
-        favorites = conn.execute("SELECT COUNT(*) FROM images WHERE favorite = 1").fetchone()[0]
-    tracked = {r["filename"] for r in _tracked_files()}
-    on_disk = {p.name for p in settings.outputs_dir.glob("*.png")}
+    """Counts for the clear-history preview.
+
+    An absent database reports as empty rather than being created on the spot:
+    `clear.py --dry-run` promises it changed nothing, and _connect() writes the
+    whole schema into any file it opens.
+    """
+    total = favorites = 0
+    tracked: set[str] = set()
+    if settings.db_path.exists():
+        with _session() as conn:
+            total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
+            favorites = conn.execute(
+                "SELECT COUNT(*) FROM images WHERE favorite = 1"
+            ).fetchone()[0]
+        tracked = {r["filename"] for r in _tracked_files()}
+    files = list(settings.outputs_dir.glob("*.png"))
+
+    total_bytes = 0
+    for path in files:
+        try:
+            total_bytes += path.stat().st_size
+        except OSError:
+            # Deleted between the glob and the stat, or locked. A summary is not
+            # worth raising over.
+            continue
+
+    on_disk = {p.name for p in files}
     return {
         "records": total,
         "favorites": favorites,
         "files_on_disk": len(on_disk),
         "orphan_files": len(on_disk - tracked),
-        "bytes_on_disk": sum(p.stat().st_size for p in settings.outputs_dir.glob("*.png")),
+        "bytes_on_disk": total_bytes,
     }
 
 
@@ -255,16 +324,16 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
     removed = 0
     for filename in doomed:
         path = settings.outputs_dir / filename
-        if path.exists():
-            path.unlink()
+        if path.exists() and _unlink(path):
             removed += 1
 
     # Anything left with no row behind it: earlier deletions, interrupted runs.
+    # An image still being written is a *.png.part and matches neither glob, so
+    # a clear during a sweep can no longer delete one out from under it.
     keep = {r["filename"] for r in _tracked_files()}
     orphans = 0
     for path in settings.outputs_dir.glob("*.png"):
-        if path.name not in keep:
-            path.unlink()
+        if path.name not in keep and _unlink(path):
             orphans += 1
 
     return {"records": len(doomed), "files": removed, "orphans": orphans}

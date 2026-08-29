@@ -1,7 +1,9 @@
 # Krea Local
 
-Run **Krea 2 Turbo** locally — 8-step, up to 4 megapixels, on a single consumer GPU.
-FastAPI + diffusers backend, vanilla-JS frontend, SQLite gallery.
+Run **Krea 2 Turbo** or **FLUX.1 Krea [dev]** locally — up to 4 megapixels on a
+single consumer GPU. FastAPI + diffusers backend, vanilla-JS frontend, SQLite
+gallery. FLUX is the default because its repo is click-through gated; Turbo
+needs approval first.
 
 ![stack](https://img.shields.io/badge/torch-2.13%2Bcu130-informational)
 ![stack](https://img.shields.io/badge/diffusers-0.40.0-informational)
@@ -36,10 +38,11 @@ uv run hf download krea/Krea-2-Turbo model_index.json
 ```
 
 `Access denied. This repository requires approval.` means the request is still
-pending. While you wait, FLUX.1 Krea [dev] runs through the same app:
+pending — which is why FLUX.1 Krea [dev] is the default. Point the app at Turbo
+once you are approved:
 
 ```powershell
-$env:KREA_MODEL_ID = "black-forest-labs/FLUX.1-Krea-dev"
+$env:KREA_MODEL_ID = "krea/Krea-2-Turbo"
 uv run python -m backend.main
 ```
 
@@ -80,13 +83,22 @@ uv run python -m backend.generate --help
 Steps, CFG and mu default to the checkpoint's profile exactly as the UI's
 controls do, so the prompt is the only required argument. `--model`, `--quant`
 and `--offload` are the `KREA_*` variables under another name. `--dry-run`
-prints the resolved settings without loading the model; `--quiet` prints only
-the paths of the images it saved, one per line, so a shell can consume them.
+prints the resolved settings without loading the model; `--quiet` drops
+everything but one `<path>  seed <n>` line per saved image.
 
 Each image is written and reported as it lands, and `Ctrl-C` stops at the end of
 the current step and keeps everything already saved — the same cooperative
 cancel the Cancel button uses. Exit status is 0 when every requested image was
 produced, 130 after a cancel, 2 for bad arguments, 1 for a failed load.
+
+## Tests
+
+```powershell
+uv run --group dev pytest
+```
+
+No GPU and no weights: the pipeline and the scheduler are stubbed, and the
+gallery runs against a temporary database.
 
 ## Sizes
 
@@ -129,11 +141,22 @@ All optional, set as environment variables:
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `KREA_MODEL_ID` | `krea/Krea-2-Turbo` | `krea/Krea-2-Raw` for the undistilled base (52 steps, CFG 3.5) |
+| `KREA_MODEL_ID` | `black-forest-labs/FLUX.1-Krea-dev` | `krea/Krea-2-Turbo`, or `krea/Krea-2-Raw` for the undistilled base (52 steps, CFG 3.5) |
 | `KREA_QUANT` | `fp8` | `int8`, or `none` for full bf16 (~25 GB VRAM) |
 | `KREA_OFFLOAD` | `model` | `sequential` (lower VRAM, slower) or `none` |
 | `KREA_PRELOAD` | `false` | Load weights at startup instead of on first request |
+| `KREA_DEVICE` | `cuda` | |
+| `KREA_HOST` | `127.0.0.1` | |
 | `KREA_PORT` | `7860` | |
+| `KREA_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Host headers the API answers to, and with the port, the origins allowed to write to it. Needed when `KREA_HOST` is `0.0.0.0`: the browser sends the machine's name or LAN address, never `0.0.0.0` |
+
+Everything else in `backend/config.py` — the output and web directories, the
+database path, the size limits — is code, not configuration.
+
+The API refuses requests whose `Host` header is not on that list, and
+state-changing requests announcing another origin. That is what stops a page on
+some other site, whose own hostname resolves to 127.0.0.1, from reading the
+gallery or deleting it.
 
 ## Defaults by checkpoint
 
@@ -145,8 +168,11 @@ Applied automatically; see `backend/model_defaults.py`.
 | Krea 2 Raw | 52 | 3.5 | — |
 | FLUX.1 Krea [dev] | 28 | 3.5 | — |
 
-A negative prompt needs CFG above 1 and roughly doubles generation time, because
-it adds a second forward pass per step.
+A negative prompt roughly doubles generation time, because it adds a second
+forward pass per step. It takes effect above CFG 1 on FLUX, where
+`guidance_scale` is a value baked into the model and only true CFG runs an
+uncond pass, and above CFG 0 on Krea 2. The panel's hint says which applies to
+the loaded checkpoint.
 
 ## Output
 
@@ -163,11 +189,13 @@ uv run python -m backend.clear --keep-favorites  # spare starred images
 uv run python -m backend.clear --yes             # no prompt
 ```
 
-Prints what it is about to remove and asks for confirmation before deleting
-anything. It clears database rows and the PNGs behind them, sweeps any PNG with
-no row left pointing at it, and vacuums the database afterwards. Safe to run
-while the server is up — rows go, the database file stays, so no open handle is
-invalidated.
+Prints what it is about to remove — records, files, and any PNG with no row
+left pointing at it — and asks for confirmation before deleting anything, then
+vacuums the database. `--keep-favorites` spares starred images, but an orphaned
+file has no row to carry a star and goes either way. Safe to run while the
+server is up: rows go and the database file stays, so no open handle is
+invalidated, and an image still being written is a `.png.part` that the orphan
+sweep does not touch.
 
 ## Licence
 

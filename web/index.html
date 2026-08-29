@@ -25,7 +25,7 @@
     </label>
 
     <label class="field" id="negative-field">
-      <span>Negative prompt <em id="neg-note">(needs CFG &gt; 1 &mdash; ~2&times; slower)</em></span>
+      <span>Negative prompt <em id="neg-note"></em></span>
       <textarea id="negative" rows="2" placeholder="blurry, watermark"></textarea>
     </label>
 
@@ -40,10 +40,14 @@
       <p class="hint" id="size-hint"></p>
     </div>
 
+    <!-- Placeholders only: app.js seeds all three from /api/status, which
+         answers with the loaded checkpoint's profile. They are the fallback
+         profile rather than Turbo's numbers, so a page acted on before the
+         first status lands is at worst generic, never wrong for the model. -->
     <div class="row">
-      <label class="sub grow"><i>Steps</i><input type="number" id="steps" value="8" min="1" max="100"></label>
-      <label class="sub grow"><i>CFG</i><input type="number" id="cfg" value="0" min="0" max="20" step="0.1"></label>
-      <label class="sub grow"><i>Mu</i><input type="number" id="mu" value="1.15" min="0" max="10" step="0.05"></label>
+      <label class="sub grow"><i>Steps</i><input type="number" id="steps" value="28" min="1" max="100"></label>
+      <label class="sub grow"><i>CFG</i><input type="number" id="cfg" value="3.5" min="0" max="20" step="0.1"></label>
+      <label class="sub grow"><i>Mu</i><input type="number" id="mu" min="0" max="10" step="0.05"></label>
     </div>
 
     <div class="row">

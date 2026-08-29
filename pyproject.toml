@@ -21,6 +21,10 @@ dependencies = [
     "torchao",
 ]
 
+[dependency-groups]
+# Nothing in the app imports these; `uv run --group dev pytest` gets them.
+dev = ["pytest>=8"]
+
 [tool.uv]
 # torch/torchvision come from the CUDA 13.0 index (Blackwell sm_120 support)
 
@@ -32,6 +36,9 @@ torchvision = { index = "pytorch-cu130" }
 name = "pytorch-cu130"
 url = "https://download.pytorch.org/whl/cu130"
 explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend"]

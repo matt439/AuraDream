@@ -3,25 +3,49 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .config import settings
+from .model_defaults import defaults_for
+from .seeds import MAX_SEED
+
 
 class GenerateRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
     negative_prompt: str | None = Field(default=None, max_length=4000)
     width: int = Field(default=1024, ge=256, le=settings.max_side)
     height: int = Field(default=1024, ge=256, le=settings.max_side)
-    steps: int = Field(default=8, ge=1, le=100)
-    guidance_scale: float = Field(default=0.0, ge=0.0, le=20.0)
-    # Flow-matching timestep shift. None lets the pipeline pick its own.
-    mu: float | None = Field(default=1.15, ge=0.0, le=10.0)
-    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # Sampling defaults are not constants: whether 8 steps at CFG 0 or 28 at 3.5
+    # is right depends on the checkpoint, and a copy of one profile frozen here
+    # is wrong for every other one - Turbo's numbers used to run on FLUX for any
+    # client that omitted them, /docs included. None means "not given"; the
+    # validator below fills those in from `model_defaults`.
+    steps: int | None = Field(default=None, ge=1, le=100)
+    guidance_scale: float | None = Field(default=None, ge=0.0, le=20.0)
+    # Flow-matching timestep shift. Explicit null means "no shift of ours at
+    # all", which is not the same as omitting it - see _profile_defaults.
+    mu: float | None = Field(default=None, ge=0.0, le=10.0)
+    seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=8)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
     # the previous run's plus `num_images`, so a long sweep costs no more VRAM
     # than a single image - which is what makes 2K sweeps possible at all.
     runs: int = Field(default=1, ge=1, le=64)
+
+    @model_validator(mode="after")
+    def _profile_defaults(self) -> "GenerateRequest":
+        profile = defaults_for(settings.model_id)
+        if self.steps is None:
+            self.steps = profile["steps"]
+        if self.guidance_scale is None:
+            self.guidance_scale = profile["guidance_scale"]
+        # Keyed off whether the field was *set*, not off None: the UI sends
+        # `mu: null` deliberately to mean "let the pipeline shift for itself",
+        # and filling that in would put Turbo's 1.15 back on an image the user
+        # asked to be free of it - and leave the record unable to reproduce it.
+        if "mu" not in self.model_fields_set:
+            self.mu = profile["mu"]
+        return self
 
     @field_validator("width", "height")
     @classmethod

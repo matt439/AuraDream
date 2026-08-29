@@ -60,7 +60,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    storage.init_db()
+    # A dry run reports; it does not create the database it is reporting on.
+    if not args.dry_run:
+        storage.init_db()
     before = storage.summarise()
 
     doomed = before["records"] - (before["favorites"] if args.keep_favorites else 0)
@@ -77,8 +79,14 @@ def main(argv: list[str] | None = None) -> int:
         print("Nothing to clear.")
         return 0
 
+    # Name the orphans here too. They are deleted either way - they have no row
+    # left to carry a favorite flag - and the line above the prompt is the last
+    # thing anyone reads before typing 'clear'.
     kept = before["favorites"] if args.keep_favorites else 0
-    print(f"Would delete {doomed} record(s) and their files" + (f", keeping {kept} favorite(s)." if kept else "."))
+    plan = f"Would delete {doomed} record(s) and their files"
+    if before["orphan_files"]:
+        plan += f", plus {before['orphan_files']} untracked PNG(s)"
+    print(plan + (f", keeping {kept} favorite(s)." if kept else "."))
 
     if args.dry_run:
         print("\nDry run - nothing changed.")

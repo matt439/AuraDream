@@ -5,6 +5,7 @@ const PAGE = 48;
 
 const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
+  negNote: $('neg-note'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'),
@@ -44,6 +45,15 @@ let busy = false;
 let defaultsApplied = false;
 let statusPending = false;
 let currentJob = null;
+// One gallery page in flight at a time, and a token so a page that was already
+// on its way when the filters changed can be dropped rather than appended.
+let galleryPending = null;
+let galleryEpoch = 0;
+// The CFG above which a negative prompt does anything: 1 on FLUX, where
+// guidance_scale is a conditioning value baked into the model and only
+// true_cfg_scale runs an uncond pass, 0 on Krea 2, which guides from 0 up. Not
+// a control, so unlike the seeded defaults it follows the server all session.
+let cfgThreshold = 1;
 
 // The two strips the lightbox can walk: what this job produced, and what the
 // gallery has paged in so far. Both are kept in the order they are displayed.
@@ -120,9 +130,10 @@ function syncSize() {
 }
 
 function syncCfg() {
-  const off = +els.cfg.value <= 1;
+  const off = +els.cfg.value <= cfgThreshold;
   els.negField.classList.toggle('disabled', off);
   els.negative.disabled = off;
+  els.negNote.textContent = `(needs CFG > ${cfgThreshold} — ~2× slower)`;
 }
 
 // Batch holds every image in VRAM at once, which is what stops a 2K batch from
@@ -165,6 +176,11 @@ async function refreshStatus() {
   try {
     const s = await api('/api/status');
     applyDefaults(s.defaults);
+    if (s.defaults && typeof s.defaults.cfg_threshold === 'number'
+        && s.defaults.cfg_threshold !== cfgThreshold) {
+      cfgThreshold = s.defaults.cfg_threshold;
+      syncCfg();
+    }
     els.dot.className = `dot ${s.state}`;
     els.statusText.textContent =
       s.state === 'ready' ? s.model_id.split('/').pop()
@@ -199,6 +215,9 @@ function collect() {
 function setBusy(on) {
   busy = on;
   els.generate.disabled = on;
+  // Unloading mid-job frees nothing - the worker holds its own reference to the
+  // pipeline - and the server refuses it with a 409 anyway.
+  els.unload.disabled = on;
   els.generate.textContent = on ? 'Generating…' : 'Generate';
   els.progress.hidden = !on;
   els.cancel.disabled = !on;
@@ -250,12 +269,19 @@ function streamJob(jobId) {
     // Results replace the viewer only once the first image of this job lands,
     // so the previous one stays up through the queue wait and the model load.
     let cleared = false;
+    let failures = 0;
+    // Every snapshot carries the whole accumulated list, and a stream that
+    // reattached missed the individual events, so images arrive by both routes.
+    const shown = new Set();
     const show = (rec) => {
+      if (shown.has(rec.id)) return;
+      shown.add(rec.id);
       if (!cleared) { clearResults(); cleared = true; }
       appendResult(rec);
     };
 
     source.onmessage = (event) => {
+      failures = 0;
       const data = JSON.parse(event.data);
       const runs = data.total_runs || 1;
       if (data.type === 'progress') {
@@ -266,14 +292,18 @@ function streamJob(jobId) {
           : `${data.step}/${data.total_steps}`;
       } else if (data.type === 'image') {
         show(data.image);
-      } else if (data.type === 'status' && data.status === 'running') {
-        els.progressText.textContent = runs > 1 && data.run
-          ? `run ${data.run}/${runs}…` : 'denoising…';
+      } else if (data.type === 'status') {
+        // Either the snapshot every stream opens with or the start of a run;
+        // both carry whatever landed while nobody was listening.
+        if (data.images) data.images.forEach(show);
+        els.progressText.textContent =
+          data.status === 'queued' ? 'waiting for the job ahead…'
+          : runs > 1 && data.run ? `run ${data.run}/${runs}…`
+          : 'denoising…';
       } else if (data.type === 'done') {
         source.close();
         setBusy(false);
-        // A stream attached after the fact never saw the per-image events.
-        if (!cleared && data.images.length) data.images.forEach(show);
+        if (data.images) data.images.forEach(show);
         if (data.status === 'error') showError(data.error);
         else if (data.status === 'cancelled') {
           showError(data.images.length
@@ -286,12 +316,37 @@ function streamJob(jobId) {
     };
 
     source.onerror = () => {
+      // EventSource reconnects on its own, and the server replays a snapshot to
+      // whoever attaches; close() cancels that retry for good, which is what
+      // used to strand a running sweep behind an idle-looking page. Ride out a
+      // few failures before giving up - and even then the job is still going,
+      // so a reload finds it again through /api/jobs.
+      if (source.readyState === EventSource.CONNECTING && ++failures <= 5) {
+        els.progressText.textContent = `reconnecting… (${failures})`;
+        return;
+      }
       source.close();
       setBusy(false);
-      showError('Lost connection to the generation stream.');
+      showError('Lost the generation stream. The run carries on — reload to pick it up.');
       resolve();
     };
   });
+}
+
+// A job outlives the page that started it: the id lives on the server, so a
+// reload - or a stream that gave up - can find its way back to a running sweep
+// instead of leaving it unreachable until the process is killed.
+async function resumeActiveJob() {
+  if (busy) return;
+  try {
+    const active = await api('/api/jobs');
+    const job = active[active.length - 1];
+    if (!job) return;
+    setBusy(true);
+    currentJob = job.job_id;
+    els.progressText.textContent = 'reattaching…';
+    await streamJob(job.job_id);
+  } catch { /* nothing running, or the server is not up yet */ }
 }
 
 function clearResults() {
@@ -316,26 +371,46 @@ function appendResult(rec) {
 // -------------------------------------------------------------------gallery
 
 function resetGallery() {
+  // Anything already in flight was fetched under the old filters and against
+  // the grid this is about to empty; the token tells it to drop itself.
+  galleryEpoch += 1;
   offset = 0;
   galleryRecords = [];
   els.gallery.innerHTML = '';
   return loadGallery();
 }
 
-async function loadGallery() {
+function loadGallery() {
+  // One page at a time. Nothing else serialises this - a double-clicked "Load
+  // more", or an arrow key held down in the lightbox - and two calls reading
+  // the same `offset` append the same 48 cards twice, then advance past a page
+  // that is never fetched.
+  if (galleryPending) return galleryPending;
+  const epoch = galleryEpoch;
   const params = new URLSearchParams({ limit: PAGE, offset });
   if (els.search.value.trim()) params.set('search', els.search.value.trim());
   if (els.favOnly.checked) params.set('favorites', 'true');
+  els.more.disabled = true;
+  els.lbNext.disabled = true;
 
-  const page = await api(`/api/gallery?${params}`);
-  total = page.total;
-  els.count.textContent = total ? `(${total})` : '';
-  page.items.forEach((rec) => {
-    galleryRecords.push(rec);
-    els.gallery.appendChild(card(rec));
-  });
-  offset += page.items.length;
-  els.more.hidden = offset >= total;
+  galleryPending = api(`/api/gallery?${params}`)
+    .then((page) => {
+      if (epoch !== galleryEpoch) return;  // superseded by a reset
+      total = page.total;
+      els.count.textContent = total ? `(${total})` : '';
+      page.items.forEach((rec) => {
+        galleryRecords.push(rec);
+        els.gallery.appendChild(card(rec));
+      });
+      offset += page.items.length;
+      els.more.hidden = offset >= total;
+    })
+    .finally(() => {
+      galleryPending = null;
+      els.more.disabled = false;
+      if (!els.lightbox.hidden) renderLightbox();  // re-derives the nav buttons
+    });
+  return galleryPending;
 }
 
 function card(rec) {
@@ -428,15 +503,19 @@ function canPage() { return lbList === galleryRecords && offset < total; }
 
 async function stepLightbox(delta) {
   if (els.lightbox.hidden) return;
-  const next = lbIndex + delta;
-  if (next < 0) return;
-  if (next >= lbList.length) {
+  const current = lbList[lbIndex];
+  if (lbIndex + delta < 0) return;
+  if (lbIndex + delta >= lbList.length) {
     // Walking off the end of the grid pulls the next page rather than stopping.
     if (!canPage()) return;
     await loadGallery();
-    if (next >= lbList.length) return;
+    // The strip can have moved during the await - a delete, another page - so
+    // step from where this image is now rather than from a stale index.
+    const at = lbList.indexOf(current);
+    if (at >= 0) lbIndex = at;
+    if (lbIndex + delta >= lbList.length) return;
   }
-  lbIndex = next;
+  lbIndex += delta;
   renderLightbox();
 }
 
@@ -454,10 +533,15 @@ els.generate.onclick = generate;
 els.cancel.onclick = cancelJob;
 els.dice.onclick = () => { els.seed.value = ''; syncRuns(); };
 els.unload.onclick = async () => {
-  await api('/api/model/unload', { method: 'POST' });
+  try {
+    await api('/api/model/unload', { method: 'POST' });
+    showError('');
+  } catch (err) {
+    showError(err.message);  // 409 while a job is still running
+  }
   refreshStatus();
 };
-els.more.onclick = loadGallery;
+els.more.onclick = () => loadGallery();
 els.width.oninput = els.height.oninput = syncSize;
 els.steps.oninput = els.mu.oninput = ownControls;
 els.seed.oninput = () => { ownControls(); syncRuns(); };
@@ -490,4 +574,5 @@ syncCfg();
 syncRuns();
 refreshStatus();
 loadGallery();
+resumeActiveJob();
 setInterval(refreshStatus, 3000);

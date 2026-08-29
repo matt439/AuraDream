@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import random
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -20,10 +19,9 @@ from . import storage
 from .backends import Cancelled, GenerationBackend
 from .config import settings
 from .schemas import GenerateRequest
+from .seeds import random_seed, wrap_seed
 
 log = logging.getLogger(__name__)
-
-_MAX_SEED = 2**63 - 1
 
 _TERMINAL = {"done", "error", "cancelled"}
 
@@ -56,10 +54,18 @@ class Job:
     total_runs: int = 1
     images: list[dict] = field(default_factory=list)
     error: str | None = None
-    queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    # One queue per attached stream. A single shared queue is destructive: a
+    # reconnecting client that overlaps the stream it replaces splits the events
+    # between the two readers, and only one of them ever sees `done`.
+    subscribers: list[asyncio.Queue] = field(default_factory=list)
     # Set from the event loop, read from the worker thread between steps.
     cancel_requested: bool = False
     done_sent: bool = False
+
+    def publish(self, event: dict) -> None:
+        """Hand an event to every attached stream. Event-loop thread only."""
+        for queue in self.subscribers:
+            queue.put_nowait(event)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -88,6 +94,31 @@ class JobManager:
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
+
+    def active(self) -> list[Job]:
+        """Jobs that have not reached a terminal state, newest last."""
+        return [job for job in self._jobs.values() if job.status not in _TERMINAL]
+
+    def busy(self) -> bool:
+        """True while anything is queued or running.
+
+        Wider than `self._gate.locked()` on purpose: a job still waiting its turn
+        starts on its own, so acting in front of it is the same mistake one step
+        later.
+        """
+        return bool(self.active())
+
+    async def shutdown(self) -> None:
+        """Stop every live job and wait for the worker thread to drain.
+
+        uvicorn does not wait for a generation thread, so without this a Ctrl-C
+        mid-sweep either hangs on an open SSE stream or has the weights pulled
+        out from under a running denoise. The cancel is the same cooperative one
+        the button uses, so it lands within a step and keeps what it finished.
+        """
+        for job in self.active():
+            job.cancel_requested = True
+        await asyncio.to_thread(self._pool.shutdown, True)
 
     async def submit(self, request: GenerateRequest) -> Job:
         job = Job(
@@ -122,7 +153,7 @@ class JobManager:
         return job
 
     def _emit(self, loop: asyncio.AbstractEventLoop, job: Job, event: dict) -> None:
-        loop.call_soon_threadsafe(job.queue.put_nowait, event)
+        loop.call_soon_threadsafe(job.publish, event)
 
     def _finish(self, loop: asyncio.AbstractEventLoop, job: Job) -> None:
         """Emit the terminal event exactly once.
@@ -169,7 +200,7 @@ class JobManager:
     def _generate(self, job: Job, loop: asyncio.AbstractEventLoop) -> None:
         """Run `request.runs` passes back to back, publishing images as they land."""
         req = job.request
-        base = req.seed if req.seed is not None else random.randint(0, _MAX_SEED)
+        base = req.seed if req.seed is not None else random_seed()
 
         def should_cancel() -> bool:
             return job.cancel_requested
@@ -194,7 +225,7 @@ class JobManager:
             # Each pass steps the seed past the whole of the previous batch, so
             # every image in a sweep keeps a seed that reproduces it on its own.
             # Wrap rather than overflow the signed 64-bit seed column.
-            seed = (base + index * req.num_images) % (_MAX_SEED + 1)
+            seed = wrap_seed(base + index * req.num_images)
             job.run, job.step = index + 1, 0
             self._emit(loop, job, {"type": "status", **job.snapshot()})
 
@@ -209,11 +240,13 @@ class JobManager:
             elapsed_ms = int((time.perf_counter() - started) * 1000)
 
             for offset, image in enumerate(images):
-                # Each image in a batch gets its own reproducible seed.
+                # Each image in a batch gets its own reproducible seed. Wrapped
+                # for the same reason the run seed is - and with the same helper
+                # the generator uses, so the two cannot disagree.
                 record = storage.save_image(
                     image,
                     req,
-                    seed=seed + offset,
+                    seed=wrap_seed(seed + offset),
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=settings.model_id,
                 )
@@ -232,16 +265,28 @@ class JobManager:
                 )
 
     async def events(self, job: Job):
-        """Yield SSE payloads until the job finishes."""
-        # A stream opened on a job that has already ended - a reload, or one the
-        # cancel endpoint finished off while it was still queued - gets the
-        # terminal event rather than a status snapshot it would then wait on.
-        done = job.status in _TERMINAL
-        yield {"type": "done" if done else "status", **job.snapshot()}
-        if done:
-            return
-        while True:
-            event = await job.queue.get()
-            yield event
-            if event.get("type") == "done":
+        """Yield SSE payloads until the job finishes.
+
+        Subscribing before the snapshot rather than after it: an event emitted
+        in between would otherwise fall down the gap. A duplicate is harmless -
+        the snapshot carries the accumulated images and the client keys them by
+        id - but a missed one is not.
+        """
+        queue: asyncio.Queue = asyncio.Queue()
+        job.subscribers.append(queue)
+        try:
+            # A stream opened on a job that has already ended - a reload, or one
+            # the cancel endpoint finished off while it was still queued - gets
+            # the terminal event rather than a status snapshot it would then
+            # wait on for good.
+            done = job.status in _TERMINAL
+            yield {"type": "done" if done else "status", **job.snapshot()}
+            if done:
                 return
+            while True:
+                event = await queue.get()
+                yield event
+                if event.get("type") == "done":
+                    return
+        finally:
+            job.subscribers.remove(queue)

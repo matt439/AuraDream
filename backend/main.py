@@ -6,9 +6,10 @@ import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import storage
 from .backends import get_backend
@@ -69,10 +70,41 @@ async def lifespan(app: FastAPI):
     if settings.load_on_startup:
         asyncio.create_task(_load_in_background())
     yield
+    # Stop the worker before dropping the weights it is using. unload() takes no
+    # part in the job gate, so on its own it would leave a generation running
+    # against a pipeline nobody can see any more.
+    await jobs.shutdown()
     backend.unload()
 
 
 app = FastAPI(title="Krea Local", version="0.1.0", lifespan=lifespan)
+
+# DNS rebinding: a hostile page served from evil.example, whose record is
+# re-answered as 127.0.0.1, talks to this API as same-origin - CORS never gets a
+# say. Starlette compares the Host header with the port stripped, and the UI
+# fetches only relative paths, so this costs nothing to have on.
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(settings.allowed_hosts))
+
+_ALLOWED_ORIGINS = {f"http://{host}:{settings.port}" for host in settings.allowed_hosts}
+
+
+@app.middleware("http")
+async def block_cross_site_writes(request: Request, call_next):
+    """Refuse a state-changing request that announces another origin.
+
+    /api/model/unload and /api/images/{id}/favorite carry no body - `value` is a
+    query parameter - which makes them CORS-simple: a cross-origin no-cors fetch,
+    or for favorite a plain form POST, reaches the handler, and the reply being
+    unreadable does not undo the write. Browsers attach Origin to every
+    cross-site write; curl and the CLI attach none, so both keep working.
+    """
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        origin = request.headers.get("origin")
+        if origin is not None and origin not in _ALLOWED_ORIGINS:
+            return JSONResponse({"detail": "cross-origin request refused"}, status_code=403)
+    return await call_next(request)
+
+
 app.mount("/outputs", StaticFiles(directory=settings.outputs_dir), name="outputs")
 app.mount("/static", StaticFiles(directory=settings.web_dir), name="static")
 
@@ -87,13 +119,20 @@ async def index() -> FileResponse:
 
 @app.get("/api/status", response_model=ModelStatus)
 async def status() -> ModelStatus:
-    info = backend.describe()
+    # describe() reads CUDA memory, which can queue behind a cold load for a
+    # good while; off the event loop it cannot stall the SSE stream with it.
+    info = await asyncio.to_thread(backend.describe)
     state = _load_state["state"]
     if state == "unloaded" and backend.is_ready():
         state = "ready"
+    defaults = defaults_for(info["model_id"])
+    # The profile's CFG threshold is a guess from the checkpoint id; once a
+    # pipeline is loaded its parameter list is the real answer.
+    if info.get("cfg_threshold") is not None:
+        defaults["cfg_threshold"] = info["cfg_threshold"]
     return ModelStatus(
         state=state,
-        defaults=defaults_for(info["model_id"]),
+        defaults=defaults,
         model_id=info["model_id"],
         quantization=info["quantization"],
         offload=info["offload"],
@@ -113,6 +152,11 @@ async def load_model() -> ModelStatus:
 
 @app.post("/api/model/unload", response_model=ModelStatus)
 async def unload_model() -> ModelStatus:
+    # Unloading under a running job frees nothing - the worker holds its own
+    # reference to the pipeline for the length of the call - while the status
+    # dot says "not loaded" with 13GB still resident.
+    if jobs.busy():
+        raise HTTPException(status_code=409, detail="a job is still running; cancel it first")
     await asyncio.to_thread(backend.unload)
     _load_state.update(state="unloaded", detail=None)
     return await status()
@@ -132,6 +176,22 @@ async def generate(request: GenerateRequest) -> JobAccepted:
     # granted repo access.
     job = await jobs.submit(request)
     return JobAccepted(job_id=job.id)
+
+
+@app.get("/api/jobs")
+async def active_jobs() -> list[dict]:
+    """Jobs that have not finished yet.
+
+    A job id is otherwise reachable only from the response that minted it, so a
+    reloaded page had no way back to the sweep it left running - and no way to
+    tell that the Generate it just fired is sitting behind one.
+    """
+    # Without the images: a long sweep accumulates hundreds of records, and a
+    # caller looking for something to reattach to needs the id and the counters.
+    return [
+        {key: value for key, value in job.snapshot().items() if key != "images"}
+        for job in jobs.active()
+    ]
 
 
 @app.get("/api/jobs/{job_id}")
