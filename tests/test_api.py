@@ -13,7 +13,7 @@ from backend import main
 from backend.backends.base import GenerationBackend
 from backend.config import settings
 from backend.jobs import JobManager
-from backend.model_defaults import defaults_for
+from backend.model_defaults import defaults_for, hints_for
 from backend.schemas import GenerateRequest
 
 ORIGIN = f"http://127.0.0.1:{settings.port}"
@@ -112,6 +112,29 @@ def test_a_bare_request_takes_the_checkpoints_profile(client, fake):
         profile["guidance_scale"],
         profile["mu"],
     )
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    ["krea/Krea-2-Turbo", "krea/Krea-2-Raw", "black-forest-labs/FLUX.1-Krea-dev", "nobody/whatever"],
+)
+def test_every_profile_explains_its_three_controls(model_id):
+    # The hints are format strings over the profile's own numbers, so they can
+    # never quote a value the controls are not seeded with - and a mu of None or
+    # a renamed key would blow up here rather than on the first hover.
+    hints = hints_for(model_id)
+    assert set(hints) == {"steps", "guidance_scale", "mu"}
+    assert all(text and "{" not in text for text in hints.values())
+
+
+def test_status_hints_quote_the_loaded_pipelines_threshold(client, fake, monkeypatch):
+    # Where guidance switches on is the pipeline's answer, not the id's guess.
+    # The tooltip and the greyed-out negative prompt field read the same number.
+    described = dict(fake.describe(), cfg_threshold=7.0)
+    monkeypatch.setattr(fake, "describe", lambda: described)
+    body = client.get("/api/status").json()
+    assert body["defaults"]["cfg_threshold"] == 7.0
+    assert "7" in body["hints"]["guidance_scale"]
 
 
 def test_an_explicit_null_mu_is_not_filled_in(client, fake):

@@ -74,6 +74,13 @@ main {
   gap: 14px;
   position: sticky;
   top: 68px;
+  /* `position: sticky` makes this its own stacking context, so a tooltip inside
+     it cannot out-z-index anything outside it however high it climbs - and the
+     gallery's cards are `position: relative` and later in the document, so they
+     painted straight over the help panels. The whole aside has to sit above the
+     stage instead. Below the topbar's 20 and the lightbox's 50, which both
+     legitimately cover it. */
+  z-index: 10;
 }
 
 /* ----------------------------------------------------------------- fields */
@@ -102,7 +109,32 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
    intrinsic width and squeezes the seed field it shares a row with. */
 .sub.narrow { width: 62px; flex: none; }
 .sub.narrow input { padding-left: 6px; padding-right: 2px; }
-.sub i { font-style: normal; font-size: 11px; color: var(--muted); }
+.sub i { font-style: normal; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+
+/* An explicit hover target for the per-checkpoint help. A native `title` is
+   invisible until you happen to rest on the right pixels, and plenty of setups
+   never show one at all - so this is a badge you can see and a panel we draw. */
+.help {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none; width: 14px; height: 14px;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--panel-2);
+  color: var(--muted); font-size: 10px; line-height: 1;
+  cursor: help; user-select: none;
+}
+.help:hover, .help:focus { color: var(--text); border-color: var(--accent); outline: none; }
+.tip {
+  display: none;
+  position: absolute; top: calc(100% + 7px); left: -6px; z-index: 30;
+  width: 240px; padding: 8px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  color: var(--text); font-size: 11px; line-height: 1.45; text-align: left; cursor: auto;
+}
+/* The rightmost badge's panel is wider than the field under it, so it hangs off
+   the other edge instead of out past the panel. */
+.help.end .tip { left: auto; right: -6px; }
+.help:hover .tip, .help:focus .tip { display: block; }
 
 .hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); min-height: 15px; }
 .hint.warn { color: #fbbf24; }
@@ -156,9 +188,15 @@ button { font: inherit; cursor: pointer; }
 /* --------------------------------------------------------------- progress */
 
 .progress { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--muted); }
+.progress .bars { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.progress .row { display: flex; align-items: center; gap: 9px; }
 .bar { flex: 1; height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
+.bar.thin { height: 3px; }
 .fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.15s ease; }
-#progress-text { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The steps bar restarts every run, so it stays the quieter of the two. */
+.fill.step { background: var(--accent-2); opacity: 0.65; }
+/* A shared width keeps the two bars ending at the same x as their labels change. */
+.pt { font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4.5em; text-align: right; }
 
 .error { color: var(--danger); font-size: 12px; margin: 0; word-break: break-word; }
 /* A cancelled run is an outcome, not a failure - same slot, no alarm. */

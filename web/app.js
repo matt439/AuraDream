@@ -8,9 +8,11 @@ const els = {
   negNote: $('neg-note'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
+  stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'),
   cancel: $('btn-cancel'),
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
+  stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
   error: $('error'), viewer: $('viewer'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'), sizeHint: $('size-hint'),
@@ -164,6 +166,18 @@ function applyDefaults(d) {
   syncCfg();
 }
 
+// What steps/CFG/mu mean depends on the checkpoint - 8 steps at CFG 0 is right
+// for Turbo and ruinous for FLUX - so the tooltips come from the same server
+// profile as the values, and unlike those values they keep following it: the
+// user owning the controls does not make the explanation stale.
+function applyHints(hints) {
+  if (!hints) return;
+  const tips = { steps: els.stepsTip, guidance_scale: els.cfgTip, mu: els.muTip };
+  for (const [key, el] of Object.entries(tips)) {
+    if (hints[key]) el.textContent = hints[key];
+  }
+}
+
 // Anything the user picks - by hand or through Reuse - takes the controls off
 // the profile. /api/status reads CUDA memory, which stalls behind a model load,
 // so its reply can land minutes late and used to wipe steps/CFG/mu long after
@@ -176,6 +190,7 @@ async function refreshStatus() {
   try {
     const s = await api('/api/status');
     applyDefaults(s.defaults);
+    applyHints(s.hints);
     if (s.defaults && typeof s.defaults.cfg_threshold === 'number'
         && s.defaults.cfg_threshold !== cfgThreshold) {
       cfgThreshold = s.defaults.cfg_threshold;
@@ -222,7 +237,17 @@ function setBusy(on) {
   els.progress.hidden = !on;
   els.cancel.disabled = !on;
   els.cancel.textContent = 'Cancel';
-  if (!on) { els.fill.style.width = '0%'; els.progressText.textContent = ''; currentJob = null; }
+  els.fill.style.width = '0%';
+  setStep(false);
+  if (!on) { els.progressText.textContent = ''; currentJob = null; }
+}
+
+// The second bar: where the current run is within its own steps. Hidden for a
+// single run, where it would only repeat the bar above it.
+function setStep(show, fraction = 0, text = '') {
+  els.stepRow.hidden = !show;
+  els.stepFill.style.width = `${fraction * 100}%`;
+  els.stepText.textContent = text;
 }
 
 async function generate() {
@@ -286,10 +311,12 @@ function streamJob(jobId) {
       const runs = data.total_runs || 1;
       if (data.type === 'progress') {
         const done = (data.run || 1) - 1;
-        els.fill.style.width = `${((done + data.step / data.total_steps) / runs) * 100}%`;
+        const within = data.step / data.total_steps;
+        els.fill.style.width = `${((done + within) / runs) * 100}%`;
         els.progressText.textContent = runs > 1
-          ? `run ${data.run}/${runs} · ${data.step}/${data.total_steps}`
+          ? `run ${data.run}/${runs}`
           : `${data.step}/${data.total_steps}`;
+        setStep(runs > 1, within, `${data.step}/${data.total_steps}`);
       } else if (data.type === 'image') {
         show(data.image);
       } else if (data.type === 'status') {
@@ -298,8 +325,11 @@ function streamJob(jobId) {
         if (data.images) data.images.forEach(show);
         els.progressText.textContent =
           data.status === 'queued' ? 'waiting for the job ahead…'
-          : runs > 1 && data.run ? `run ${data.run}/${runs}…`
+          : runs > 1 && data.run ? `run ${data.run}/${runs}`
           : 'denoising…';
+        // A run boundary, so the steps bar starts over rather than sitting full
+        // until the first callback of the next run lands.
+        setStep(runs > 1 && data.status !== 'queued' && !!data.run);
       } else if (data.type === 'done') {
         source.close();
         setBusy(false);
@@ -489,7 +519,10 @@ function renderLightbox() {
   if (!rec) { closeLightbox(); return; }
   els.lbImg.src = rec.url;
   els.lbMeta.textContent =
-    `${rec.prompt} — ${rec.width}×${rec.height}, ${rec.steps} steps, ` +
+    // The checkpoint is part of the reproduction set as much as the seed is -
+    // the same prompt and settings on Turbo and on FLUX are different images.
+    `${rec.prompt} — ${rec.model_id.split('/').pop()}, ` +
+    `${rec.width}×${rec.height}, ${rec.steps} steps, ` +
     `CFG ${rec.guidance_scale}, ${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s` +
     (lbList.length > 1 ? ` · ${lbIndex + 1}/${lbList.length}` : '');

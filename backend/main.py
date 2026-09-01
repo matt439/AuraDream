@@ -15,7 +15,7 @@ from . import storage
 from .backends import get_backend
 from .config import settings
 from .jobs import JobManager, short_error
-from .model_defaults import defaults_for
+from .model_defaults import defaults_for, hints_for
 from .schemas import GalleryPage, GenerateRequest, JobAccepted, ModelStatus
 
 logging.basicConfig(
@@ -133,6 +133,7 @@ async def status() -> ModelStatus:
     return ModelStatus(
         state=state,
         defaults=defaults,
+        hints=hints_for(info["model_id"], defaults["cfg_threshold"]),
         model_id=info["model_id"],
         quantization=info["quantization"],
         offload=info["offload"],
