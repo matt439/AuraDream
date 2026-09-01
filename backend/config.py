@@ -21,7 +21,7 @@ class Settings:
 
     # krea/Krea-2-Turbo
     # black-forest-labs/FLUX.1-Krea-dev
-    model_id: str = os.getenv("KREA_MODEL_ID", "black-forest-labs/FLUX.1-Krea-dev")
+    model_id: str = os.getenv("KREA_MODEL_ID", "krea/Krea-2-Turbo")
 
     # "fp8"  - torchao float8 weight-only on the transformer (~12GB, fits 16GB cards)
     # "int8" - torchao int8 weight-only, smaller still, slightly softer output
