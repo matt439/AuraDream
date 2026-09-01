@@ -27,6 +27,7 @@ import os
 import signal
 import sys
 import time
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -101,6 +102,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=1,
         metavar="N",
         help="consecutive seeds, each running the whole grid (default 1)",
+    )
+    sweep.add_argument(
+        "--resume",
+        action="store_true",
+        help="skip cells this prompt has already been rendered at, so a night "
+        "that died costs the cell it died on rather than the whole run",
     )
 
     volume = parser.add_argument_group("volume")
@@ -237,6 +244,9 @@ def main(argv: list[str] | None = None) -> int:
     gridding = bool(args.grid_steps or args.grid_cfg or args.grid_mu) or args.grid_seeds > 1
     if gridding and args.runs != 1:
         parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
+    if args.resume and args.seed is None:
+        # A fresh random base matches none of the night it is meant to continue.
+        parser.error("--resume needs --seed: the seed the run it continues was started from")
     try:
         cells = p.grid.expand(
             request,
@@ -248,6 +258,22 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 2
+
+    # Resume before the model loads: an already-finished grid should cost the
+    # database lookup and nothing else.
+    skipped = 0
+    if args.resume:
+        p.storage.init_db()
+        done = p.storage.completed_cells(
+            request.prompt,
+            request.negative_prompt,
+            request.width,
+            request.height,
+            p.settings.model_id,
+        )
+        before = len(cells)
+        cells = p.grid.prune_done(cells, done)
+        skipped = before - len(cells)
 
     total_images = len(cells) * request.num_images
     if not args.quiet:
@@ -283,6 +309,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {shown:<7}: {listed}")
             print(f"  seeds  : {args.grid_seeds} from {seed}")
             print(f"grid     : {p.grid.describe(values, args.grid_seeds)} = {len(cells)} cell(s)")
+        if skipped:
+            print(f"resume   : {skipped} cell(s) already rendered, skipping")
         print(
             f"output   : {total_images} image(s) - {len(cells)} run(s) x "
             f"{request.num_images} -> {p.settings.outputs_dir}"
@@ -293,7 +321,14 @@ def main(argv: list[str] | None = None) -> int:
         print("Dry run - nothing generated.")
         return 0
 
+    if not cells:
+        print("Nothing to do: every cell is already in the gallery.")
+        return 0
+
     p.storage.init_db()
+    # Every image of this invocation carries it, so a CLI grid groups in the
+    # gallery exactly as a browser one does.
+    job_id = uuid.uuid4().hex[:12]
     backend = p.get_backend("diffusers")
     # This process renders its own status line; the engine's bar would share the
     # line with it and win.
@@ -382,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
                     seed=wrap_seed(run_seed + offset),
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=p.settings.model_id,
+                    job_id=job_id,
                 )
                 saved += 1
                 print(

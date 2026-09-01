@@ -275,6 +275,41 @@ button { font: inherit; cursor: pointer; }
   gap: 10px;
 }
 
+/* --------------------------------------------------------- contact sheet */
+
+/* One run laid out as the grid that produced it: an axis across, an axis down,
+   anything else pinned. */
+.sheet { display: flex; flex-direction: column; gap: 12px; }
+.sheet-controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  font-size: 12px; color: var(--muted);
+}
+.sheet-pick { display: flex; align-items: center; gap: 6px; }
+.sheet-pick select {
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  border-radius: 6px; padding: 4px 6px; font: inherit;
+}
+/* Many columns scroll sideways rather than squeezing the thumbnails to nothing;
+   the page itself must never scroll horizontally. */
+.sheet-scroll { overflow-x: auto; }
+.sheet-grid { display: grid; gap: 6px; align-items: center; min-width: min-content; }
+.sheet-grid .head {
+  font-size: 11px; color: var(--muted); text-align: center; white-space: nowrap;
+  padding-bottom: 2px;
+}
+.sheet-grid .rowhead {
+  font-size: 11px; color: var(--muted); white-space: nowrap; padding-right: 6px;
+  text-align: right;
+}
+.sheet-cell {
+  aspect-ratio: 1; border-radius: 6px; overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.sheet-cell img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+/* A hole in the matrix - a cell the run never reached, or was cancelled before. */
+.sheet-cell.empty { opacity: 0.3; }
+.ghost.small.active { color: var(--accent); border-color: var(--accent); }
+
 .card {
   position: relative;
   border-radius: 8px;

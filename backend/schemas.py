@@ -75,11 +75,26 @@ class GridRequest(GenerateRequest):
     cfg_axis: str = Field(default="", max_length=200)
     mu_axis: str = Field(default="", max_length=200)
     seeds: int = Field(default=1, ge=1, le=256)
+    # Skip the cells this prompt has already been rendered at. What makes an
+    # overnight grid survivable: a crash costs the cell it died on, not the
+    # night. Matched on settings, not on the job that ran them.
+    resume: bool = False
 
     @model_validator(mode="after")
     def _runs_are_not_a_grid_axis(self) -> "GridRequest":
         if self.runs != 1:
             raise ValueError("a grid steps its own seeds; leave runs at 1")
+        return self
+
+    @model_validator(mode="after")
+    def _resume_needs_a_fixed_seed(self) -> "GridRequest":
+        # Without one the resumed grid draws a fresh random base, matches none
+        # of the night it is meant to continue, and quietly renders the whole
+        # thing again. Reuse any image of that run to recover its seed.
+        if self.resume and self.seed is None:
+            raise ValueError(
+                "resume needs the grid's seed - reuse it from any image of that run"
+            )
         return self
 
 
@@ -89,6 +104,9 @@ class GridPreview(BaseModel):
     values: dict[str, list[float | int | None]]
     cells: int
     images: int
+    # Cells dropped because the gallery already holds them; always 0 unless the
+    # request asked to resume.
+    skipped: int = 0
     summary: str
     # Null until the gallery holds an image at this size to measure against.
     seconds: float | None = None
@@ -109,6 +127,9 @@ class ImageRecord(BaseModel):
     mu: float | None = None
     seed: int
     model_id: str
+    # The run that made it: a grid, a sweep, or one CLI invocation. Null for
+    # anything written before runs were grouped.
+    job_id: str | None = None
     duration_ms: int
     created_at: str
     favorite: bool = False

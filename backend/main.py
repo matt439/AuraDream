@@ -202,11 +202,11 @@ def _detail(exc: ValueError) -> str:
     )
 
 
-def _expand(request: GridRequest) -> list[grid.Cell]:
-    """The grid as cells, or a 422 that names what is wrong with it."""
+def _expand(request: GridRequest) -> tuple[list[grid.Cell], int]:
+    """The grid as cells and the number resume dropped, or a 422 saying why not."""
     try:
         request.check_budget()
-        return grid.expand(
+        cells = grid.expand(
             request,
             steps=request.steps_axis,
             cfg=request.cfg_axis,
@@ -215,6 +215,17 @@ def _expand(request: GridRequest) -> list[grid.Cell]:
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=_detail(exc)) from exc
+    if not request.resume:
+        return cells, 0
+    done = storage.completed_cells(
+        request.prompt,
+        request.negative_prompt,
+        request.width,
+        request.height,
+        settings.model_id,
+    )
+    kept = grid.prune_done(cells, done)
+    return kept, len(cells) - len(kept)
 
 
 @app.post("/api/grid", response_model=JobAccepted)
@@ -224,7 +235,12 @@ async def run_grid(request: GridRequest) -> JobAccepted:
     One job rather than one per cell: a grid is a night's work, and it has to be
     cancellable, reattachable and ahead of nothing in the queue as a unit.
     """
-    job = await jobs.submit_cells(_expand(request))
+    cells, _ = _expand(request)
+    if not cells:
+        # Every cell is already in the gallery. Queueing an empty job would
+        # report "done" having rendered nothing, which reads like a failure.
+        raise HTTPException(status_code=409, detail="every cell is already rendered")
+    job = await jobs.submit_cells(cells)
     return JobAccepted(job_id=job.id)
 
 
@@ -235,7 +251,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     Same expansion as the real thing, so the count and the error messages the
     panel shows are the ones the run would have produced.
     """
-    cells = _expand(request)
+    cells, skipped = _expand(request)
     values = grid.axis_values(request, request.steps_axis, request.cfg_axis, request.mu_axis)
     # Cost is per step, and a grid's cells rarely agree on how many they take.
     per_step_ms = await asyncio.to_thread(storage.step_cost_ms, request.width, request.height)
@@ -244,6 +260,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
         values=values,
         cells=len(cells),
         images=len(cells) * request.num_images,
+        skipped=skipped,
         summary=grid.describe(values, request.seeds),
         seconds=None if per_step_ms is None else round(per_step_ms * total_steps / 1000, 1),
     )
@@ -304,14 +321,19 @@ async def job_stream(job_id: str) -> StreamingResponse:
 
 @app.get("/api/gallery", response_model=GalleryPage)
 async def gallery(
-    limit: int = Query(48, ge=1, le=200),
+    # A sheet asks for a whole run at once - up to a full grid - where the grid
+    # view pages. The rows are small; the thumbnails load lazily either way.
+    limit: int = Query(48, ge=1, le=1024),
     offset: int = Query(0, ge=0),
     search: str | None = None,
     favorites: bool = False,
 ) -> GalleryPage:
-    items, total = storage.list_images(
-        limit=limit, offset=offset, search=search, favorites_only=favorites
-    )
+    try:
+        items, total = storage.list_images(
+            limit=limit, offset=offset, search=search, favorites_only=favorites
+        )
+    except ValueError as exc:  # a filter term that is not a number
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return GalleryPage(items=items, total=total, limit=limit, offset=offset)
 
 

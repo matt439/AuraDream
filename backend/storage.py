@@ -34,9 +34,11 @@ CREATE TABLE IF NOT EXISTS images (
     model_id        TEXT    NOT NULL,
     duration_ms     INTEGER NOT NULL,
     favorite        INTEGER NOT NULL DEFAULT 0,
-    created_at      TEXT    NOT NULL
+    created_at      TEXT    NOT NULL,
+    job_id          TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
 CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
     USING fts5(prompt, content='images', content_rowid='id');
 CREATE TRIGGER IF NOT EXISTS images_ai AFTER INSERT ON images BEGIN
@@ -46,6 +48,33 @@ CREATE TRIGGER IF NOT EXISTS images_ad AFTER DELETE ON images BEGIN
     INSERT INTO images_fts(images_fts, rowid, prompt) VALUES('delete', old.id, old.prompt);
 END;
 """
+
+
+# Set once the running process has checked; the ALTER is a schema change, not
+# something to attempt on every connection.
+_migrated = False
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns that a database written by an older build has not got.
+
+    `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it was, so
+    a gallery from before this column simply never gains it - and every INSERT
+    then fails. Cheap enough to check once per process; the ALTER itself runs
+    at most once, and races with another process end in "duplicate column",
+    which is the outcome we wanted anyway.
+    """
+    global _migrated
+    if _migrated:
+        return
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
+    if "job_id" not in columns:
+        try:
+            conn.execute("ALTER TABLE images ADD COLUMN job_id TEXT")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id)")
+        except sqlite3.OperationalError:  # another process got there first
+            pass
+    _migrated = True
 
 
 def _connect() -> sqlite3.Connection:
@@ -61,6 +90,7 @@ def _connect() -> sqlite3.Connection:
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='images'"
     ).fetchone() is None:
         conn.executescript(_SCHEMA)
+    _migrate(conn)
     return conn
 
 
@@ -100,6 +130,8 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         mu=row["mu"] if "mu" in row.keys() else None,
         seed=row["seed"],
         model_id=row["model_id"],
+        # Rows written before runs were grouped belong to no job.
+        job_id=row["job_id"] if "job_id" in row.keys() else None,
         duration_ms=row["duration_ms"],
         created_at=row["created_at"],
         favorite=bool(row["favorite"]),
@@ -112,6 +144,7 @@ def save_image(
     seed: int,
     duration_ms: int,
     model_id: str,
+    job_id: str | None = None,
 ) -> ImageRecord:
     created = datetime.now(timezone.utc)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
@@ -133,6 +166,7 @@ def save_image(
         "mu": request.mu,
         "seed": seed,
         "model": model_id,
+        "job": job_id,
         "size": f"{image.width}x{image.height}",
     }
     info = PngImagePlugin.PngInfo()
@@ -152,8 +186,8 @@ def save_image(
             cur = conn.execute(
                 """INSERT INTO images (filename, prompt, negative_prompt, width, height,
                                        steps, guidance_scale, mu, seed, model_id,
-                                       duration_ms, created_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                       duration_ms, created_at, job_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     filename,
                     request.prompt,
@@ -167,6 +201,7 @@ def save_image(
                     model_id,
                     duration_ms,
                     created.isoformat(),
+                    job_id,
                 ),
             )
             row = conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -217,6 +252,69 @@ def _page(conn: sqlite3.Connection, clause: str, params: list, limit: int, offse
     return total, rows
 
 
+# `key:value` in the search box. The column, and what a bare value means.
+_FILTERS: dict[str, tuple[str, Any]] = {
+    "seed": ("seed", int),
+    "steps": ("steps", int),
+    "cfg": ("guidance_scale", float),
+    "mu": ("mu", float),
+    "model": ("model_id", str),
+    "job": ("job_id", str),
+}
+_COMPARISONS = ("<=", ">=", "<", ">")
+_NULL_TOKENS = {"none", "null", "off"}
+
+
+def _filter_clause(key: str, raw: str) -> tuple[str, list]:
+    """One `key:value` term as SQL. Raises ValueError on a value that is not one.
+
+    Exact (`cfg:0.5`), comparison (`steps:>=8`), range (`cfg:0-1`) or `none`,
+    which is the only way to ask for the images that ran without a mu at all -
+    `mu:0` is a different image and SQL will not match NULL with either.
+    """
+    column, cast = _FILTERS[key]
+    if cast is str:
+        return rf"{column} LIKE ? ESCAPE '\'", [f"%{_like_escape(raw)}%"]
+    if raw.lower() in _NULL_TOKENS:
+        return f"{column} IS NULL", []
+    for operator in _COMPARISONS:
+        if raw.startswith(operator):
+            return f"{column} {operator} ?", [_cast(cast, key, raw[len(operator):])]
+    # A range borrows the grid's own spelling, so `cfg:0-1` reads the same in
+    # the search box as it does in the axis that produced those images.
+    low, dash, high = raw.partition("-")
+    if dash and low and high:
+        return f"{column} BETWEEN ? AND ?", [_cast(cast, key, low), _cast(cast, key, high)]
+    return f"{column} = ?", [_cast(cast, key, raw)]
+
+
+def _cast(cast, key: str, raw: str):
+    try:
+        return cast(raw)
+    except ValueError:
+        raise ValueError(f"{key}: {raw!r} is not a number") from None
+
+
+def _split_search(search: str) -> tuple[list[str], list, str]:
+    """Split the box into SQL predicates and the words left over for FTS.
+
+    Anything that is not a known `key:value` stays free text, so a prompt that
+    happens to contain a colon still searches for itself.
+    """
+    clauses: list[str] = []
+    params: list = []
+    words: list[str] = []
+    for token in search.split():
+        key, sep, raw = token.partition(":")
+        if sep and raw and key.lower() in _FILTERS:
+            clause, values = _filter_clause(key.lower(), raw)
+            clauses.append(clause)
+            params.extend(values)
+        else:
+            words.append(token)
+    return clauses, params, " ".join(words)
+
+
 def _like_escape(term: str) -> str:
     r"""Neutralise LIKE wildcards, for use with ESCAPE '\'."""
     return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -229,30 +327,66 @@ def list_images(
     params: list = []
     if favorites_only:
         where.append("favorite = 1")
+    text = ""
     if search:
+        # `seed:42 cfg:<=0.5 fox` - the terms that name a column become real
+        # predicates, and only what is left goes to the full-text index.
+        filters, filter_params, text = _split_search(search)
+        where.extend(filters)
+        params.extend(filter_params)
+    if text:
         # Match the FTS index, falling back to LIKE for punctuation-heavy input.
         # The search predicate is appended last; the fallback relies on that.
         where.append("id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
-        params.append(" ".join(f'"{t}"' for t in search.split()))
+        params.append(" ".join(f'"{t}"' for t in text.split()))
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 
     with _session() as conn:
         try:
             total, rows = _page(conn, clause, params, limit, offset)
         except sqlite3.OperationalError:
-            if not search:
+            if not text:
                 raise
             # A token carrying an odd number of double quotes - 26", a 6" figure
             # - quotes into a malformed MATCH. Swap *only* the search predicate
             # so favorites and anything added later still applies, and AND one
             # LIKE per token: FTS matches tokens in any order, where a single
             # LIKE over the raw string would demand them contiguous.
-            terms = search.split()
+            terms = text.split()
             where[-1:] = [r"prompt LIKE ? ESCAPE '\'"] * len(terms)
             params[-1:] = [f"%{_like_escape(t)}%" for t in terms]
             clause = f"WHERE {' AND '.join(where)}" if where else ""
             total, rows = _page(conn, clause, params, limit, offset)
     return [_row_to_record(r) for r in rows], total
+
+
+def completed_cells(
+    prompt: str, negative_prompt: str | None, width: int, height: int, model_id: str
+) -> set[tuple[int, float, float | None, int]]:
+    """The (steps, CFG, mu, seed) of everything already rendered for this prompt.
+
+    What a resumed grid subtracts from its cells. Keyed on the settings that
+    make the image rather than on the job that made it, so a night that died
+    can be resumed by a *new* job - and a cell rendered by hand earlier counts
+    just the same. Rounded to the same six decimals the axis parser produces,
+    so a float that survived a round trip through SQLite still matches.
+    """
+    with _session() as conn:
+        rows = conn.execute(
+            """SELECT steps, guidance_scale, mu, seed FROM images
+               WHERE prompt = ? AND width = ? AND height = ? AND model_id = ?
+                 AND (negative_prompt IS ? OR negative_prompt = ?)""",
+            (prompt, width, height, model_id, negative_prompt, negative_prompt or ""),
+        ).fetchall()
+    return {
+        (
+            row["steps"],
+            round(row["guidance_scale"], 6),
+            None if row["mu"] is None else round(row["mu"], 6),
+            row["seed"],
+        )
+        for row in rows
+    }
 
 
 def get_image(image_id: int) -> ImageRecord | None:

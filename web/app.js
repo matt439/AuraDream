@@ -2,6 +2,10 @@
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 48;
+// A sheet wants the whole run in one go - it is a matrix, and a matrix with a
+// page boundary through it is a puzzle. The rows are small and the thumbnails
+// load lazily, so a full grid is cheaper than it sounds.
+const SHEET_PAGE = 1024;
 
 const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
@@ -20,6 +24,9 @@ const els = {
   error: $('error'), viewer: $('viewer'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'), sizeHint: $('size-hint'),
+  gridResume: $('grid-resume'),
+  sheetBtn: $('btn-sheet'), sheet: $('sheet'), sheetControls: $('sheet-controls'),
+  sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'),
   runHint: $('run-hint'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
@@ -67,6 +74,12 @@ let viewerRecords = [];
 let galleryRecords = [];
 let lbList = [];
 let lbIndex = -1;
+
+// Contact sheet. `sheetAxes` is what the user picked; null means "work it out
+// from the images", which is what happens on the first render of a new set.
+let sheetMode = false;
+let sheetAxes = { rows: null, cols: null, pins: {} };
+let sheetRecords = [];
 
 // ------------------------------------------------------------------ helpers
 
@@ -314,6 +327,7 @@ function gridPayload() {
     cfg_axis: els.gridCfg.value.trim(),
     mu_axis: els.gridMu.value.trim(),
     seeds: +els.gridSeeds.value || 1,
+    resume: els.gridResume.checked,
   };
 }
 
@@ -350,6 +364,7 @@ async function previewGrid() {
     // actually expanded to is the half of it that is easy to get wrong.
     els.gridPreview.textContent = [
       `${p.images} image${p.images === 1 ? '' : 's'} · ${p.summary}` +
+        (p.skipped ? ` · ${p.skipped} already done` : '') +
         (p.seconds ? ` · about ${humanTime(p.seconds)}` : ''),
       `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${axisText(p.values.mu)}`,
@@ -510,7 +525,7 @@ function loadGallery() {
   // that is never fetched.
   if (galleryPending) return galleryPending;
   const epoch = galleryEpoch;
-  const params = new URLSearchParams({ limit: PAGE, offset });
+  const params = new URLSearchParams({ limit: sheetMode ? SHEET_PAGE : PAGE, offset });
   if (els.search.value.trim()) params.set('search', els.search.value.trim());
   if (els.favOnly.checked) params.set('favorites', 'true');
   els.more.disabled = true;
@@ -523,10 +538,16 @@ function loadGallery() {
       els.count.textContent = total ? `(${total})` : '';
       page.items.forEach((rec) => {
         galleryRecords.push(rec);
-        els.gallery.appendChild(card(rec));
+        if (!sheetMode) els.gallery.appendChild(card(rec));
       });
       offset += page.items.length;
-      els.more.hidden = offset >= total;
+      els.more.hidden = sheetMode || offset >= total;
+      if (sheetMode) renderSheet();
+    })
+    .catch((err) => {
+      // A filter term that is not a number, most often: report it rather than
+      // leaving the gallery silently showing the last good page.
+      if (epoch === galleryEpoch) showError(err.message);
     })
     .finally(() => {
       galleryPending = null;
@@ -557,6 +578,14 @@ function card(rec) {
   tools.className = 'tools';
   tools.append(
     tool('↻', 'Reuse settings', () => reuse(rec)),
+    tool('⊞', 'Show this run as a sheet', () => {
+      if (!rec.job_id) {
+        showError('That image predates runs being grouped, so it belongs to no run.', true);
+        return;
+      }
+      els.search.value = `job:${rec.job_id}`;
+      setSheet(true);
+    }),
     star,
     tool('⌦', 'Delete', async () => {
       await api(`/api/images/${rec.id}`, { method: 'DELETE' });
@@ -597,6 +626,182 @@ function reuse(rec) {
   syncCfg();
   syncRuns();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ------------------------------------------------------------ contact sheet
+
+// Everything a grid can vary. `of` reads one off a record; mu's null is a real
+// value - "no shift of ours" - not a missing one, so it prints as `none`.
+const SHEET_AXES = [
+  { key: 'steps', label: 'Steps', of: (r) => r.steps },
+  { key: 'cfg', label: 'CFG', of: (r) => r.guidance_scale },
+  { key: 'mu', label: 'Mu', of: (r) => r.mu },
+  { key: 'seed', label: 'Seed', of: (r) => r.seed },
+];
+const axisByKey = (key) => SHEET_AXES.find((a) => a.key === key);
+const axisValue = (axis, rec) => axis.of(rec) ?? null;
+const valueText = (v) => (v === null ? 'none' : String(v));
+
+// The distinct values each axis takes across the loaded images, ascending.
+function sheetValues(records) {
+  const values = {};
+  for (const axis of SHEET_AXES) {
+    const seen = [];
+    for (const rec of records) {
+      const v = axisValue(axis, rec);
+      if (!seen.includes(v)) seen.push(v);
+    }
+    seen.sort((a, b) => (a === null ? -1 : b === null ? 1 : a - b));
+    values[axis.key] = seen;
+  }
+  return values;
+}
+
+// Columns and rows default to the two axes that actually vary, widest first.
+// A third varying axis becomes a pin rather than a third dimension: a flat
+// sheet that crosses everything at once is a wall nobody can read.
+function chooseAxes(values) {
+  const varying = SHEET_AXES
+    .filter((a) => values[a.key].length > 1)
+    .sort((a, b) => values[b.key].length - values[a.key].length);
+  const pins = {};
+  varying.slice(2).forEach((a) => { pins[a.key] = values[a.key][0]; });
+  return {
+    cols: varying[0] ? varying[0].key : null,
+    rows: varying[1] ? varying[1].key : null,
+    pins,
+  };
+}
+
+function headCell(text, className) {
+  const div = document.createElement('div');
+  div.className = className || 'head';
+  div.textContent = text;
+  return div;
+}
+
+function labelled(text, control) {
+  const wrap = document.createElement('label');
+  wrap.className = 'sheet-pick';
+  wrap.append(document.createTextNode(text), control);
+  return wrap;
+}
+
+function picker(options, selected, onPick) {
+  const select = document.createElement('select');
+  options.forEach(([value, text]) => {
+    const option = document.createElement('option');
+    option.value = String(value);
+    option.textContent = text;
+    option.selected = String(value) === String(selected);
+    select.appendChild(option);
+  });
+  select.onchange = () => onPick(select.value);
+  return select;
+}
+
+function renderSheet() {
+  sheetRecords = galleryRecords;
+  const values = sheetValues(sheetRecords);
+  // Re-derive the layout when the image set changes shape, and only then, so
+  // switching filters lands on something sensible while a hand-picked axis
+  // survives a redraw.
+  const signature = SHEET_AXES.map((a) => values[a.key].length).join('/');
+  if (sheetAxes.signature !== signature) sheetAxes = { ...chooseAxes(values), signature };
+
+  const axisOptions = [['', '—']].concat(
+    SHEET_AXES.filter((a) => values[a.key].length > 1).map((a) => [a.key, a.label]),
+  );
+  els.sheetControls.innerHTML = '';
+  els.sheetControls.append(
+    labelled('Columns', picker(axisOptions, sheetAxes.cols ?? '', (key) => {
+      // Swap rather than collapse: picking the axis already on the other side
+      // would otherwise leave the sheet with one dimension twice.
+      if (key && key === sheetAxes.rows) sheetAxes.rows = sheetAxes.cols;
+      sheetAxes.cols = key || null;
+      renderSheet();
+    })),
+    labelled('Rows', picker(axisOptions, sheetAxes.rows ?? '', (key) => {
+      if (key && key === sheetAxes.cols) sheetAxes.cols = sheetAxes.rows;
+      sheetAxes.rows = key || null;
+      renderSheet();
+    })),
+  );
+  for (const [key, pinned] of Object.entries(sheetAxes.pins)) {
+    const axis = axisByKey(key);
+    els.sheetControls.append(
+      labelled(axis.label, picker(
+        values[key].map((v) => [valueText(v), valueText(v)]),
+        valueText(pinned),
+        (picked) => {
+          sheetAxes.pins[key] = values[key].find((v) => valueText(v) === picked) ?? null;
+          renderSheet();
+        },
+      )),
+    );
+  }
+
+  const colValues = sheetAxes.cols ? values[sheetAxes.cols] : [null];
+  const rowValues = sheetAxes.rows ? values[sheetAxes.rows] : [null];
+  const shown = [];
+  const matches = (rec, rowValue, colValue) => {
+    for (const [key, pinned] of Object.entries(sheetAxes.pins)) {
+      if (axisValue(axisByKey(key), rec) !== pinned) return false;
+    }
+    if (sheetAxes.rows && axisValue(axisByKey(sheetAxes.rows), rec) !== rowValue) return false;
+    if (sheetAxes.cols && axisValue(axisByKey(sheetAxes.cols), rec) !== colValue) return false;
+    return true;
+  };
+
+  els.sheetGrid.innerHTML = '';
+  els.sheetGrid.style.gridTemplateColumns =
+    `auto repeat(${colValues.length}, minmax(96px, 1fr))`;
+  els.sheetGrid.appendChild(headCell(''));
+  const colAxis = sheetAxes.cols ? axisByKey(sheetAxes.cols) : null;
+  colValues.forEach((v) => {
+    els.sheetGrid.appendChild(headCell(colAxis ? `${colAxis.label} ${valueText(v)}` : ''));
+  });
+
+  const rowAxis = sheetAxes.rows ? axisByKey(sheetAxes.rows) : null;
+  rowValues.forEach((rowValue) => {
+    els.sheetGrid.appendChild(
+      headCell(rowAxis ? `${rowAxis.label} ${valueText(rowValue)}` : '', 'rowhead'),
+    );
+    colValues.forEach((colValue) => {
+      const rec = sheetRecords.find((r) => matches(r, rowValue, colValue));
+      const cell = document.createElement('div');
+      cell.className = rec ? 'sheet-cell' : 'sheet-cell empty';
+      if (rec) {
+        shown.push(rec);
+        const img = document.createElement('img');
+        img.src = rec.url;
+        img.alt = rec.prompt;
+        img.loading = 'lazy';
+        // `shown` is still filling, but it is the same array by the time
+        // anything can be clicked - so the arrows walk the sheet in reading
+        // order rather than the gallery's.
+        img.onclick = () => openLightbox(rec, shown);
+        cell.appendChild(img);
+      }
+      els.sheetGrid.appendChild(cell);
+    });
+  });
+
+  const pinned = Object.entries(sheetAxes.pins)
+    .map(([key, v]) => `${axisByKey(key).label.toLowerCase()} ${valueText(v)}`)
+    .join(', ');
+  els.sheetNote.textContent = sheetRecords.length === 0
+    ? 'Nothing matches. The filters above the sheet are the gallery search.'
+    : `${shown.length} of ${sheetRecords.length} loaded` + (pinned ? ` · pinned to ${pinned}` : '') +
+      (total > sheetRecords.length ? ` · ${total} match the search` : '');
+}
+
+function setSheet(on) {
+  sheetMode = on;
+  els.sheetBtn.classList.toggle('active', on);
+  els.sheet.hidden = !on;
+  els.gallery.hidden = on;
+  return resetGallery();
 }
 
 // ----------------------------------------------------------------- lightbox
@@ -682,6 +887,7 @@ els.seed.oninput = () => { ownControls(); syncRuns(); };
 els.batch.oninput = els.runs.oninput = syncRuns;
 els.cfg.oninput = () => { ownControls(); syncCfg(); };
 els.favOnly.onchange = resetGallery;
+els.sheetBtn.onclick = () => setSheet(!sheetMode);
 els.search.oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetGallery, 250); };
 els.lbClose.onclick = closeLightbox;
 els.lbPrev.onclick = () => stepLightbox(-1);

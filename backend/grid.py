@@ -136,6 +136,30 @@ def _label(steps: int, cfg: float, mu: float | None) -> str:
     return f"{steps} steps, CFG {cfg:g}, mu {'off' if mu is None else f'{mu:g}'}"
 
 
+def cell_key(cell: "Cell") -> tuple[int, float, float | None, int]:
+    """What identifies a cell in the gallery: its settings and its seed.
+
+    Rounded to the six decimals `parse_axis` produces, so a value that has been
+    through SQLite's REAL and back still matches the axis that generated it.
+    """
+    request = cell.request
+    return (
+        request.steps,
+        round(request.guidance_scale, 6),
+        None if request.mu is None else round(request.mu, 6),
+        cell.seed,
+    )
+
+
+def prune_done(cells: list[Cell], done: set[tuple[int, float, float | None, int]]) -> list[Cell]:
+    """Drop the cells already sitting in the gallery, keeping the order.
+
+    Order matters as much here as in `expand`: a resumed grid picks up where the
+    night stopped, so what it does first is still the earliest seed it is short.
+    """
+    return [cell for cell in cells if cell_key(cell) not in done]
+
+
 def expand(
     request: GenerateRequest,
     *,

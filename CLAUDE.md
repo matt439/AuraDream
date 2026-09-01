@@ -27,7 +27,7 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
 - `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
 - `backend/jobs.py` — single-worker queue, SSE progress
-- `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/storage.py` — SQLite index + PNGs with embedded metadata, search filters
 - `backend/main.py` — routes
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans
@@ -154,6 +154,32 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   duration estimate is per *step* (`storage.step_cost_ms`), measured from recent
   gallery rows at the same size: a grid's cells disagree about step count, so an
   average image duration would misstate most of them. No rows, no estimate.
+- **Resume keys on settings, not on the job.** `storage.completed_cells()` reads
+  back (steps, CFG, mu, seed) for a prompt at a size on a checkpoint, and
+  `grid.prune_done()` subtracts them, so a night that died is continued by a
+  *new* job and a cell rendered by hand earlier counts too. Both sides round to
+  the six decimals `parse_axis` produces, so a float that has been through
+  SQLite's REAL still matches. Resume **requires an explicit seed** — a random
+  base would match none of the run it means to continue and would silently
+  render the whole grid again — and an entirely-finished grid answers 409
+  rather than queueing a job that reports "done" having drawn nothing.
+- Every image records the `job_id` that made it: a browser job's id, or one
+  minted per CLI invocation. That is what groups a night's work, and the
+  gallery's `job:` filter is how you get it back. Rows written before the column
+  existed have NULL, so `_row_to_record` and the UI both tolerate its absence -
+  and `_migrate()` adds the column to an older database, because
+  `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it was.
+- The gallery search box is `key:value` terms plus free text: the terms become
+  SQL predicates (`seed:42`, `cfg:<=0.5`, `steps:8-12`, `mu:none`, `model:flux`,
+  `job:ab12cd`) and only what is left goes to the FTS index, so a prompt that
+  happens to contain a colon still searches for itself. `mu:none` is `IS NULL` -
+  no shift at all is a different image from `mu:0`, and SQL matches NULL with
+  neither.
+- The contact sheet (`web/app.js`, `renderSheet`) lays one run out as the grid
+  that made it: the two widest-varying axes become columns and rows, any third
+  becomes a pinned selector rather than a third dimension nobody can read. It
+  asks for the whole run in one page (`SHEET_PAGE`) because a matrix with a page
+  boundary through it is a puzzle.
 - `generate.py` duplicates the sweep loop from `jobs._generate` rather than
   importing it: that method is welded to a `Job`, an event loop and an SSE
   queue, none of which exist in a CLI. What it no longer duplicates is *which

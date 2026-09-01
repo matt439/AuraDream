@@ -47,7 +47,12 @@ class FakeBackend(GenerationBackend):
                 time.sleep(self.step_seconds)
             if on_progress is not None:
                 on_progress(step + 1, request.steps)
-        return [Image.new("RGB", (16, 16)) for _ in range(request.num_images)]
+        # At the size that was asked for: the row records the image's own
+        # dimensions, so anything matching on them - resume, the duration
+        # estimate - needs a double that does not quietly render 16x16.
+        return [
+            Image.new("RGB", (request.width, request.height)) for _ in range(request.num_images)
+        ]
 
     def describe(self) -> dict:
         return {
@@ -338,6 +343,72 @@ def test_runs_are_not_a_grid_axis(client):
         json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "runs": 4},
     )
     assert response.status_code == 422
+
+
+def test_every_image_of_a_run_carries_its_job(client, fake):
+    job_id, events = _grid(client, steps_axis="6,8", seed=5)
+    records = events[-1]["images"]
+    assert {r["job_id"] for r in records} == {job_id}
+    # And that id is what the gallery filter selects on, so a night's work is
+    # one search away rather than however far down the grid it has sunk.
+    page = client.get(f"/api/gallery?search=job:{job_id}").json()
+    assert page["total"] == len(records)
+
+
+def test_a_resumed_grid_skips_what_the_gallery_already_holds(client, fake):
+    body = {
+        "prompt": "a lighthouse in fog",
+        "width": 256,
+        "height": 256,
+        "steps_axis": "6,8,10",
+        "seed": 11,
+    }
+    _stream(client, client.post("/api/grid", json={**body, "steps_axis": "6"}).json()["job_id"])
+    assert len(fake.requests) == 1
+
+    preview = client.post("/api/grid/preview", json={**body, "resume": True}).json()
+    assert (preview["cells"], preview["skipped"]) == (2, 1)
+
+    _stream(client, client.post("/api/grid", json={**body, "resume": True}).json()["job_id"])
+    # The 6-step cell was not rendered twice, and the order of what remains is
+    # the order the grid would have reached it in.
+    assert [r.steps for r in fake.requests] == [6, 8, 10]
+
+
+def test_resuming_a_finished_grid_refuses_rather_than_running_nothing(client, fake):
+    body = {
+        "prompt": "a lighthouse in fog",
+        "width": 256,
+        "height": 256,
+        "steps_axis": "6,8",
+        "seed": 3,
+    }
+    _stream(client, client.post("/api/grid", json=body).json()["job_id"])
+    response = client.post("/api/grid", json={**body, "resume": True})
+    # An empty job would report "done" having drawn nothing, which reads as a
+    # failure; 409 says the work is already there.
+    assert response.status_code == 409
+    assert len(fake.requests) == 2
+
+
+def test_resume_without_a_seed_is_refused(client, fake):
+    # It would draw a fresh random base, match none of the night it is meant to
+    # continue, and render the whole grid again while reporting a resume.
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "resume": True},
+    )
+    assert response.status_code == 422
+    # A model validator lands in FastAPI's own structured 422 body rather than
+    # in one of ours, which the UI flattens back into a sentence.
+    assert "seed" in str(response.json()["detail"])
+    assert not fake.requests
+
+
+def test_a_bad_gallery_filter_is_a_422(client):
+    response = client.get("/api/gallery?search=seed:tuesday")
+    assert response.status_code == 422
+    assert "not a number" in response.json()["detail"]
 
 
 def test_the_pixel_budget_is_enforced(client):

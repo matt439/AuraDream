@@ -279,6 +279,7 @@ class JobManager:
                     seed=wrap_seed(seed + offset),
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=settings.model_id,
+                    job_id=job.id,
                 )
                 job.images.append(record.model_dump())
                 # Publish it now: a long sweep should fill the page as it goes
