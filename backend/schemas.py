@@ -62,6 +62,38 @@ class GenerateRequest(BaseModel):
             )
 
 
+class GridRequest(GenerateRequest):
+    """A sweep over the sampling axes, sitting on top of a normal request.
+
+    The inherited fields are the *base*: an axis left blank contributes the one
+    value already in the panel, so a grid with no axes set is the image Generate
+    would have made. `runs` has no meaning here - the seed axis is what a grid
+    steps through - and is rejected rather than silently multiplying the night.
+    """
+
+    steps_axis: str = Field(default="", max_length=200)
+    cfg_axis: str = Field(default="", max_length=200)
+    mu_axis: str = Field(default="", max_length=200)
+    seeds: int = Field(default=1, ge=1, le=256)
+
+    @model_validator(mode="after")
+    def _runs_are_not_a_grid_axis(self) -> "GridRequest":
+        if self.runs != 1:
+            raise ValueError("a grid steps its own seeds; leave runs at 1")
+        return self
+
+
+class GridPreview(BaseModel):
+    """What a grid would do, without queueing it."""
+
+    values: dict[str, list[float | int | None]]
+    cells: int
+    images: int
+    summary: str
+    # Null until the gallery holds an image at this size to measure against.
+    seconds: float | None = None
+
+
 class ImageRecord(BaseModel):
     id: int
     filename: str

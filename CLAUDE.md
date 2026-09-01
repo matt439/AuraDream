@@ -25,6 +25,7 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
+- `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/main.py` — routes
@@ -137,11 +138,30 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   images out of 16 GB: `num_images` holds the whole batch in VRAM at once, runs
   hold one. Each image is emitted as its own `image` SSE event as it lands, so a
   64-run sweep fills the page as it goes.
+- A job runs a **list of cells**, not a request and a run count. A plain request
+  expands to `runs` cells of identical settings; a grid (`POST /api/grid`) to
+  the cartesian product of its axes. `_generate` cannot tell them apart, so
+  cancellation, the progress events and the per-image seed maths are written
+  once. `Job.total_steps` is the *cell's*, since a grid varies it between them.
+- In a grid, **seeds are the outermost loop**. A night that ends early - a
+  cancel, a crash, a power cut - has then finished every parameter combination
+  for the seeds it reached, which is the comparison that was wanted; the other
+  order leaves every seed part-done and nothing comparable. Cells are built as
+  real `GenerateRequest`s, so an axis value outside the schema fails at submit
+  with the schema's own message rather than sixty images in.
+- `POST /api/grid/preview` runs the same expansion without queueing it, so the
+  panel's count, its resolved axes and its error text are the run's own. Its
+  duration estimate is per *step* (`storage.step_cost_ms`), measured from recent
+  gallery rows at the same size: a grid's cells disagree about step count, so an
+  average image duration would misstate most of them. No rows, no estimate.
 - `generate.py` duplicates the sweep loop from `jobs._generate` rather than
   importing it: that method is welded to a `Job`, an event loop and an SSE
-  queue, none of which exist in a CLI. The parts that *must* not drift — the
-  `seed + index * num_images` step, the per-image `seed + offset`, the
-  `save_image` call — are a dozen lines. What it does not duplicate is settings:
+  queue, none of which exist in a CLI. What it no longer duplicates is *which
+  images to make*: both call `grid.expand()`, which with no axes set yields
+  exactly the old runs loop (`seed + index * num_images`, same wrap helper), so
+  a cell in the browser and a cell in the terminal cannot drift apart. It still
+  owns the per-image `seed + offset` and the `save_image` call. Nor does it
+  duplicate settings:
   `--model/--quant/--offload` are written into `os.environ` *before* the first
   import of `backend.config`, because `settings` is a frozen dataclass whose
   fields are evaluated at import time.

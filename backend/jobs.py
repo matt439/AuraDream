@@ -18,6 +18,7 @@ from typing import Any
 from . import storage
 from .backends import Cancelled, GenerationBackend
 from .config import settings
+from .grid import Cell
 from .schemas import GenerateRequest
 from .seeds import random_seed, wrap_seed
 
@@ -46,12 +47,18 @@ def short_error(exc: BaseException, limit: int = 320) -> str:
 @dataclass
 class Job:
     id: str
+    # The first cell's settings. What the job actually runs is `cells`: a plain
+    # request expands to `runs` of them, a grid to its cartesian product, and
+    # nothing below this line needs to know which it was handed.
     request: GenerateRequest
+    cells: list[Cell] = field(default_factory=list)
     status: str = "queued"  # queued | running | done | error | cancelled
     step: int = 0
     total_steps: int = 0
     run: int = 0
     total_runs: int = 1
+    # What the current cell varies, for a grid; None for an ordinary sweep.
+    label: str | None = None
     images: list[dict] = field(default_factory=list)
     error: str | None = None
     # One queue per attached stream. A single shared queue is destructive: a
@@ -75,6 +82,7 @@ class Job:
             "total_steps": self.total_steps,
             "run": self.run,
             "total_runs": self.total_runs,
+            "label": self.label,
             "images": self.images,
             "error": self.error,
         }
@@ -121,11 +129,28 @@ class JobManager:
         await asyncio.to_thread(self._pool.shutdown, True)
 
     async def submit(self, request: GenerateRequest) -> Job:
+        """An ordinary request: `runs` passes of one setting, seed stepped.
+
+        Each pass steps the seed past the whole of the previous batch, so every
+        image in a sweep keeps a seed that reproduces it on its own. Wrapped
+        rather than allowed to overflow the signed 64-bit seed column.
+        """
+        base = request.seed if request.seed is not None else random_seed()
+        return await self.submit_cells(
+            [
+                Cell(request=request, seed=wrap_seed(base + index * request.num_images))
+                for index in range(request.runs)
+            ]
+        )
+
+    async def submit_cells(self, cells: list[Cell]) -> Job:
+        """Queue an already-expanded list of pipeline calls - a grid, usually."""
         job = Job(
             id=uuid.uuid4().hex[:12],
-            request=request,
-            total_steps=request.steps,
-            total_runs=request.runs,
+            request=cells[0].request,
+            cells=cells,
+            total_steps=cells[0].request.steps,
+            total_runs=len(cells),
         )
         self._jobs[job.id] = job
         # Keep the dict from growing without bound over a long session.
@@ -198,9 +223,12 @@ class JobManager:
             self._finish(loop, job)
 
     def _generate(self, job: Job, loop: asyncio.AbstractEventLoop) -> None:
-        """Run `request.runs` passes back to back, publishing images as they land."""
-        req = job.request
-        base = req.seed if req.seed is not None else random_seed()
+        """Run the job's cells back to back, publishing images as they land.
+
+        The loop cannot tell a sweep from a grid, which is the point: the
+        cancellation checks, the progress events and the per-image seed maths
+        are written once and both paths get them.
+        """
 
         def should_cancel() -> bool:
             return job.cancel_requested
@@ -216,17 +244,17 @@ class JobManager:
                     "total_steps": total,
                     "run": job.run,
                     "total_runs": job.total_runs,
+                    "label": job.label,
                 },
             )
 
-        for index in range(req.runs):
+        for index, cell in enumerate(job.cells):
             if job.cancel_requested:
                 break
-            # Each pass steps the seed past the whole of the previous batch, so
-            # every image in a sweep keeps a seed that reproduces it on its own.
-            # Wrap rather than overflow the signed 64-bit seed column.
-            seed = wrap_seed(base + index * req.num_images)
-            job.run, job.step = index + 1, 0
+            req, seed = cell.request, cell.seed
+            # A grid varies the step count between cells, so the totals the
+            # progress events carry are the cell's, not the job's.
+            job.run, job.step, job.total_steps, job.label = index + 1, 0, req.steps, cell.label
             self._emit(loop, job, {"type": "status", **job.snapshot()})
 
             started = time.perf_counter()
@@ -235,7 +263,9 @@ class JobManager:
                     req, seed=seed, on_progress=on_progress, should_cancel=should_cancel
                 )
             except Cancelled:
-                log.info("job %s cancelled during run %d/%d", job.id, index + 1, req.runs)
+                log.info(
+                    "job %s cancelled during run %d/%d", job.id, index + 1, len(job.cells)
+                )
                 break
             elapsed_ms = int((time.perf_counter() - started) * 1000)
 

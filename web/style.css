@@ -89,7 +89,7 @@ main {
 .field > span { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .field em { text-transform: none; font-style: normal; font-weight: 400; opacity: 0.65; letter-spacing: 0; }
 
-textarea, input[type="number"], input[type="search"] {
+textarea, input[type="number"], input[type="search"], input[type="text"] {
   background: var(--panel-2);
   border: 1px solid var(--line);
   color: var(--text);
@@ -138,6 +138,40 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 
 .hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); min-height: 15px; }
 .hint.warn { color: #fbbf24; }
+/* A preview that is one line of totals over one line of axes. */
+.hint.pre { white-space: pre-line; }
+
+/* ---------------------------------------------------------- grid search */
+
+/* Folded away: a grid is for leaving running overnight, not for the next image.
+   `display: flex` on a <details> still collapses to the summary when closed. */
+.section {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.section > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  list-style: none;
+}
+.section > summary::-webkit-details-marker { display: none; }
+.section > summary::before { content: "▸"; font-size: 10px; opacity: 0.7; }
+.section[open] > summary::before { content: "▾"; }
+.section > summary:hover { color: var(--text); }
+.section > summary em {
+  font-style: normal; font-weight: 400; text-transform: none;
+  letter-spacing: 0; opacity: 0.6;
+}
 
 #negative-field.disabled { opacity: 0.45; }
 

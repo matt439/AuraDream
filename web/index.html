@@ -98,7 +98,59 @@
       </div>
       <button class="ghost small" id="btn-cancel" title="Stop after the current step">Cancel</button>
     </div>
+    <!-- Which cell of a grid is running. Empty for an ordinary sweep, where the
+         settings never change and the counters say everything. -->
+    <p class="hint" id="cell-note"></p>
     <p class="error" id="error" hidden></p>
+
+    <!-- Folded away by default: a grid is an overnight tool, not the workflow. -->
+    <details class="section" id="grid-section">
+      <summary>Grid search <em>overnight sweeps</em></summary>
+      <p class="hint">
+        Ranges on top of the settings above. A blank axis keeps the single value
+        already in the panel, so only what you fill in varies.
+      </p>
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="grid-steps">Steps</label>
+            <span class="help" tabindex="0" role="note" aria-label="Steps range syntax">?<span
+              class="tip">One value, a list or a range:<br>
+              <b>8</b> · <b>6,8,10</b> · <b>6-12x2</b> — start-stop, step after the x, both
+              ends included.<br>Blank runs whatever Steps is set to above.</span></span></i>
+          <input type="text" id="grid-steps" placeholder="6-12x2" autocomplete="off">
+        </div>
+        <div class="sub grow">
+          <i><label for="grid-cfg">CFG</label>
+            <span class="help" tabindex="0" role="note" aria-label="CFG range syntax">?<span
+              class="tip">Same syntax, decimals allowed:<br>
+              <b>0,0.5,1</b> · <b>0-2x0.5</b> — start-stop, step after the x.<br>
+              Blank runs whatever CFG is set to above.</span></span></i>
+          <input type="text" id="grid-cfg" placeholder="0,0.5,1" autocomplete="off">
+        </div>
+      </div>
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="grid-mu">Mu</label>
+            <span class="help" tabindex="0" role="note" aria-label="Mu range syntax">?<span
+              class="tip">Same syntax:<br><b>1.1,1.15,1.3</b> · <b>1-1.4x0.1</b>.<br>
+              <b>none</b> is a cell with no shift of ours at all, so
+              <b>none,1.15</b> compares the pipeline's own against Turbo's.<br>
+              Blank runs whatever Mu is set to above.</span></span></i>
+          <input type="text" id="grid-mu" placeholder="none,1.15" autocomplete="off">
+        </div>
+        <div class="sub narrow">
+          <i><label for="grid-seeds">Seeds</label>
+            <span class="help end" tabindex="0" role="note" aria-label="Seeds">?<span
+              class="tip">How many consecutive seeds run the whole grid, counting up from the
+              Seed above (a random one when that is blank).<br>
+              Seeds are the outer loop: a grid stopped early has finished every setting for
+              the seeds it got to, rather than half of each.</span></span></i>
+          <input type="number" id="grid-seeds" value="1" min="1" max="256">
+        </div>
+      </div>
+      <p class="hint pre" id="grid-preview"></p>
+      <button class="primary" id="btn-grid">Run grid</button>
+    </details>
   </aside>
 
   <section class="stage">

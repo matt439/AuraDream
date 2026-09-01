@@ -241,6 +241,105 @@ def test_a_rebound_host_header_is_refused(client):
     assert client.get("/api/status", headers=allowed).status_code == 200
 
 
+# ---------------------------------------------------------------- grid search
+
+
+def _grid(client, **payload):
+    body = {"prompt": "a lighthouse in fog", "width": 256, "height": 256, **payload}
+    response = client.post("/api/grid", json=body)
+    assert response.status_code == 200, response.text
+    job_id = response.json()["job_id"]
+    return job_id, _stream(client, job_id)
+
+
+def test_a_grid_runs_every_cell_of_every_seed(client, fake):
+    _, events = _grid(client, steps_axis="6,8", cfg_axis="0,1", seeds=2, seed=42)
+
+    assert events[-1]["type"] == "done" and events[-1]["status"] == "done"
+    # Seeds outermost, then steps, then CFG - the order a half-finished grid
+    # depends on to still be a usable comparison.
+    assert [(r.steps, r.guidance_scale) for r in fake.requests] == [
+        (6, 0.0), (6, 1.0), (8, 0.0), (8, 1.0),
+        (6, 0.0), (6, 1.0), (8, 0.0), (8, 1.0),
+    ]
+    assert fake.seeds == [42, 42, 42, 42, 43, 43, 43, 43]
+    assert len(events[-1]["images"]) == 8
+
+
+def test_a_grid_says_which_cell_is_running(client, fake):
+    _, events = _grid(client, steps_axis="6,8", seed=1)
+    labels = [event["label"] for event in events if event.get("label")]
+    assert "6 steps, CFG 0, mu 1.15" in labels
+    # A plain request varies nothing, so it labels nothing.
+    _, plain = _run(client, runs=2)
+    assert not [event for event in plain if event.get("label")]
+
+
+def test_the_preview_expands_the_same_grid_it_would_run(client):
+    body = {
+        "prompt": "a lighthouse in fog",
+        "width": 256,
+        "height": 256,
+        "steps_axis": "6-10x2",
+        "mu_axis": "none,1.15",
+        "seeds": 2,
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["values"]["steps"] == [6, 8, 10]
+    assert preview["values"]["mu"] == [None, 1.15]
+    assert (preview["cells"], preview["images"]) == (12, 12)
+    # Nothing in the gallery at this size yet, so it promises no duration at all
+    # rather than guessing one.
+    assert preview["seconds"] is None
+
+
+def test_the_preview_estimates_from_what_the_gallery_measured(client, store):
+    # Half a second per step, measured at this size. The fake backend renders
+    # instantly, so the row has to be a real one to estimate from.
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="x", width=256, height=256, steps=8),
+        seed=1,
+        duration_ms=4000,
+        model_id="test/model",
+    )
+    preview = client.post(
+        "/api/grid/preview",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "8", "seeds": 4},
+    ).json()
+    # 0.5s x 8 steps x 4 cells. Per step, not per image: a grid whose cells
+    # disagree about the step count cannot be costed from an image average.
+    assert preview["seconds"] == pytest.approx(16.0)
+
+
+def test_a_bad_axis_is_refused_before_anything_runs(client, fake):
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "eight"},
+    )
+    assert response.status_code == 422
+    assert "not a number" in response.json()["detail"]
+    assert not fake.requests
+
+
+def test_a_grid_out_of_the_schemas_range_names_the_field(client):
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "90-120x10"},
+    )
+    assert response.status_code == 422
+    assert "steps" in response.json()["detail"]
+
+
+def test_runs_are_not_a_grid_axis(client):
+    # They would multiply the night behind the count the preview promised.
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "runs": 4},
+    )
+    assert response.status_code == 422
+
+
 def test_the_pixel_budget_is_enforced(client):
     response = client.post(
         "/api/generate", json={"prompt": "x", "width": 2816, "height": 2816}

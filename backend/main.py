@@ -11,12 +11,19 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import storage
+from . import grid, storage
 from .backends import get_backend
 from .config import settings
 from .jobs import JobManager, short_error
 from .model_defaults import defaults_for, hints_for
-from .schemas import GalleryPage, GenerateRequest, JobAccepted, ModelStatus
+from .schemas import (
+    GalleryPage,
+    GenerateRequest,
+    GridPreview,
+    GridRequest,
+    JobAccepted,
+    ModelStatus,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
@@ -177,6 +184,69 @@ async def generate(request: GenerateRequest) -> JobAccepted:
     # granted repo access.
     job = await jobs.submit(request)
     return JobAccepted(job_id=job.id)
+
+
+def _detail(exc: ValueError) -> str:
+    """One line out of an axis parser or out of pydantic, for the 422 body.
+
+    A cell that violates the schema - `--grid-steps 90-120` against the 100 cap -
+    raises a ValidationError, whose own str() is several lines of type and url
+    noise. The UI puts this straight under the field.
+    """
+    errors = getattr(exc, "errors", None)
+    if not callable(errors):
+        return str(exc)
+    return "; ".join(
+        f"{'.'.join(str(part) for part in error['loc']) or 'request'}: {error['msg']}"
+        for error in errors()
+    )
+
+
+def _expand(request: GridRequest) -> list[grid.Cell]:
+    """The grid as cells, or a 422 that names what is wrong with it."""
+    try:
+        request.check_budget()
+        return grid.expand(
+            request,
+            steps=request.steps_axis,
+            cfg=request.cfg_axis,
+            mu=request.mu_axis,
+            seeds=request.seeds,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=_detail(exc)) from exc
+
+
+@app.post("/api/grid", response_model=JobAccepted)
+async def run_grid(request: GridRequest) -> JobAccepted:
+    """Queue a sweep over the sampling axes as one job.
+
+    One job rather than one per cell: a grid is a night's work, and it has to be
+    cancellable, reattachable and ahead of nothing in the queue as a unit.
+    """
+    job = await jobs.submit_cells(_expand(request))
+    return JobAccepted(job_id=job.id)
+
+
+@app.post("/api/grid/preview", response_model=GridPreview)
+async def preview_grid(request: GridRequest) -> GridPreview:
+    """What that grid would do, without queueing it.
+
+    Same expansion as the real thing, so the count and the error messages the
+    panel shows are the ones the run would have produced.
+    """
+    cells = _expand(request)
+    values = grid.axis_values(request, request.steps_axis, request.cfg_axis, request.mu_axis)
+    # Cost is per step, and a grid's cells rarely agree on how many they take.
+    per_step_ms = await asyncio.to_thread(storage.step_cost_ms, request.width, request.height)
+    total_steps = sum(cell.request.steps for cell in cells) * request.num_images
+    return GridPreview(
+        values=values,
+        cells=len(cells),
+        images=len(cells) * request.num_images,
+        summary=grid.describe(values, request.seeds),
+        seconds=None if per_step_ms is None else round(per_step_ms * total_steps / 1000, 1),
+    )
 
 
 @app.get("/api/jobs")

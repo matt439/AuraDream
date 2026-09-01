@@ -87,6 +87,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sampling.add_argument("--seed", type=int, help="base seed; random when omitted")
 
+    sweep = parser.add_argument_group(
+        "grid search (overnight sweeps; each axis takes 8, or 6,8,10, or 6-12x2)"
+    )
+    sweep.add_argument("--grid-steps", metavar="SPEC", default="", help="step counts to sweep")
+    sweep.add_argument("--grid-cfg", metavar="SPEC", default="", help="guidance scales to sweep")
+    sweep.add_argument(
+        "--grid-mu", metavar="SPEC", default="", help="shifts to sweep; `none` for no shift"
+    )
+    sweep.add_argument(
+        "--grid-seeds",
+        type=int,
+        default=1,
+        metavar="N",
+        help="consecutive seeds, each running the whole grid (default 1)",
+    )
+
     volume = parser.add_argument_group("volume")
     volume.add_argument(
         "--batch",
@@ -147,7 +163,7 @@ def _apply_env(args: argparse.Namespace) -> None:
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import storage
+        from backend import grid, storage
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
@@ -162,6 +178,7 @@ def _project() -> SimpleNamespace:
             '    uv run python -m backend.generate "your prompt"\n'
         )
     return SimpleNamespace(
+        grid=grid,
         storage=storage,
         Cancelled=Cancelled,
         get_backend=get_backend,
@@ -212,7 +229,27 @@ def main(argv: list[str] | None = None) -> int:
             print(exc, file=sys.stderr)
         return 2
 
-    total_images = request.runs * request.num_images
+    # A grid and a plain sweep are the same list of pipeline calls; only the axes
+    # differ, and with none set `expand` yields exactly the runs loop this used to
+    # write by hand - `seed + index * batch`, wrapped by the same helper. Sharing
+    # it with the server is the point: a cell here and a cell there must be the
+    # same image.
+    gridding = bool(args.grid_steps or args.grid_cfg or args.grid_mu) or args.grid_seeds > 1
+    if gridding and args.runs != 1:
+        parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
+    try:
+        cells = p.grid.expand(
+            request,
+            steps=args.grid_steps,
+            cfg=args.grid_cfg,
+            mu=args.grid_mu,
+            seeds=args.grid_seeds if gridding else args.runs,
+        )
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+
+    total_images = len(cells) * request.num_images
     if not args.quiet:
         print(
             f"model    : {p.settings.model_id} (quant={p.settings.quantization}, "
@@ -239,8 +276,15 @@ def main(argv: list[str] | None = None) -> int:
             f"mu {'-' if request.mu is None else request.mu}"
         )
         print(f"seed     : {seed}" + ("" if args.seed is not None else "  (random)"))
+        if gridding:
+            values = p.grid.axis_values(request, args.grid_steps, args.grid_cfg, args.grid_mu)
+            for axis, shown in (("steps", "steps"), ("guidance_scale", "CFG"), ("mu", "mu")):
+                listed = ", ".join("off" if v is None else f"{v:g}" for v in values[axis])
+                print(f"  {shown:<7}: {listed}")
+            print(f"  seeds  : {args.grid_seeds} from {seed}")
+            print(f"grid     : {p.grid.describe(values, args.grid_seeds)} = {len(cells)} cell(s)")
         print(
-            f"output   : {total_images} image(s) - {request.runs} run(s) x "
+            f"output   : {total_images} image(s) - {len(cells)} run(s) x "
             f"{request.num_images} -> {p.settings.outputs_dir}"
         )
         print()
@@ -293,31 +337,35 @@ def main(argv: list[str] | None = None) -> int:
 
     def on_progress(step: int, total: int) -> None:
         if live:
-            print(f"\r  run {run_index}/{request.runs}  step {step}/{total}", end="", flush=True)
+            print(f"\r  run {run_index}/{len(cells)}  step {step}/{total}", end="", flush=True)
 
     def should_cancel() -> bool:
         return stop
 
     try:
-        for index in range(request.runs):
+        for index, cell in enumerate(cells):
             if stop:
                 break
-            # Step the seed past the whole of the previous batch so every image in
-            # a sweep keeps a seed that reproduces it on its own. Wrap rather than
-            # overflow the signed 64-bit seed column.
-            run_seed = wrap_seed(seed + index * request.num_images)
+            run_seed = cell.seed
             run_index = index + 1
+            # Every cell names its settings in a log - which is what an overnight
+            # grid writes to - so a night that ends badly still says what it got
+            # through and at which values.
             if not args.quiet and not live:
-                print(f"  run {run_index}/{request.runs}  seed {run_seed}", flush=True)
+                varied = f"  {cell.label}" if cell.label else ""
+                print(f"  run {run_index}/{len(cells)}  seed {run_seed}{varied}", flush=True)
 
             started = time.perf_counter()
             try:
                 images = backend.generate(
-                    request, seed=run_seed, on_progress=on_progress, should_cancel=should_cancel
+                    cell.request,
+                    seed=run_seed,
+                    on_progress=on_progress,
+                    should_cancel=should_cancel,
                 )
             except p.Cancelled:
                 if not args.quiet:
-                    label = f"  run {run_index}/{request.runs} cancelled"
+                    label = f"  run {run_index}/{len(cells)} cancelled"
                     print(("\r" + label + " " * 16) if live else label)
                 break
             elapsed_ms = int((time.perf_counter() - started) * 1000)
@@ -330,7 +378,7 @@ def main(argv: list[str] | None = None) -> int:
                 # and the seed actually drawn cannot disagree.
                 record = p.storage.save_image(
                     image,
-                    request,
+                    cell.request,
                     seed=wrap_seed(run_seed + offset),
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=p.settings.model_id,

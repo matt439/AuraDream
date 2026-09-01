@@ -179,6 +179,28 @@ def save_image(
     return _row_to_record(row)
 
 
+def step_cost_ms(width: int, height: int, sample: int = 20) -> float | None:
+    """Median milliseconds per denoising step at this size, from recent images.
+
+    Per *step*, not per image: a grid varies the step count across its cells, so
+    an average image duration would over- or under-state most of them. Matched
+    on exact dimensions - cost scales with pixels and offload behaviour, neither
+    of which extrapolates honestly from a different size. None when the gallery
+    has nothing to measure, which is the caller's cue to promise nothing.
+    """
+    with _session() as conn:
+        rows = conn.execute(
+            """SELECT duration_ms, steps FROM images
+               WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0
+               ORDER BY id DESC LIMIT ?""",
+            (width, height, sample),
+        ).fetchall()
+    if not rows:
+        return None
+    costs = sorted(row["duration_ms"] / row["steps"] for row in rows)
+    return costs[len(costs) // 2]
+
+
 def _page(conn: sqlite3.Connection, clause: str, params: list, limit: int, offset: int):
     """Count and fetch one page over the *same* predicate.
 

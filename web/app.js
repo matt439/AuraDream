@@ -13,6 +13,10 @@ const els = {
   cancel: $('btn-cancel'),
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
   stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
+  cellNote: $('cell-note'),
+  gridSection: $('grid-section'), gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
+  gridMu: $('grid-mu'), gridSeeds: $('grid-seeds'), gridPreview: $('grid-preview'),
+  gridRun: $('btn-grid'),
   error: $('error'), viewer: $('viewer'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'), sizeHint: $('size-hint'),
@@ -71,9 +75,22 @@ async function api(path, options) {
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail ?? detail; } catch { /* non-JSON body */ }
-    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    throw new Error(readableDetail(detail));
   }
   return res.status === 204 ? null : res.json();
+}
+
+// FastAPI's own 422s carry a list of {loc, msg, ctx, input} objects, which as
+// JSON.stringify is a wall of braces in the error slot. Ours are plain strings.
+function readableDetail(detail) {
+  if (typeof detail === 'string') return detail;
+  if (!Array.isArray(detail)) return JSON.stringify(detail);
+  return detail
+    .map((e) => {
+      const field = (e.loc ?? []).filter((part) => part !== 'body').join('.');
+      return field ? `${field}: ${e.msg}` : e.msg;
+    })
+    .join('; ');
 }
 
 // `note` styles the same slot as muted rather than red, for outcomes that are
@@ -230,6 +247,7 @@ function collect() {
 function setBusy(on) {
   busy = on;
   els.generate.disabled = on;
+  els.gridRun.disabled = on;
   // Unloading mid-job frees nothing - the worker holds its own reference to the
   // pipeline - and the server refuses it with a 409 anyway.
   els.unload.disabled = on;
@@ -239,7 +257,15 @@ function setBusy(on) {
   els.cancel.textContent = 'Cancel';
   els.fill.style.width = '0%';
   setStep(false);
+  els.cellNote.textContent = '';
   if (!on) { els.progressText.textContent = ''; currentJob = null; }
+}
+
+// Which cell of a grid is running, under the bars. A sweep sends no label -
+// its settings never change - and the line stays empty rather than repeating
+// the counters that are already there.
+function showCell(data) {
+  els.cellNote.textContent = data.label ? `cell ${data.run}/${data.total_runs} · ${data.label}` : '';
 }
 
 // The second bar: where the current run is within its own steps. Hidden for a
@@ -250,16 +276,17 @@ function setStep(show, fraction = 0, text = '') {
   els.stepText.textContent = text;
 }
 
-async function generate() {
+// Both buttons queue one job and then watch the same stream; only the endpoint
+// and the payload differ.
+async function startJob(path, payload) {
   if (busy) return;
-  const payload = collect();
   if (!payload.prompt) { showError('Enter a prompt first.'); return; }
   showError('');
   setBusy(true);
   els.progressText.textContent = 'queued…';
 
   try {
-    const { job_id } = await api('/api/generate', {
+    const { job_id } = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -271,6 +298,70 @@ async function generate() {
     setBusy(false);
   }
 }
+
+function generate() { return startJob('/api/generate', collect()); }
+
+// ------------------------------------------------------------- grid search
+
+// The axes sit on top of the panel's own settings, so a blank one contributes
+// the value already there. `runs` is not a grid axis - the seed count is - and
+// the server refuses a grid that sets both.
+function gridPayload() {
+  return {
+    ...collect(),
+    runs: 1,
+    steps_axis: els.gridSteps.value.trim(),
+    cfg_axis: els.gridCfg.value.trim(),
+    mu_axis: els.gridMu.value.trim(),
+    seeds: +els.gridSeeds.value || 1,
+  };
+}
+
+function humanTime(seconds) {
+  if (seconds < 90) return `${Math.round(seconds)}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+}
+
+const axisText = (values) => values.map((v) => (v === null ? 'none' : v)).join(', ');
+
+// The preview is the server's own expansion rather than a count worked out in
+// here: the syntax has one parser, and the message a bad axis produces is the
+// one the run itself would have refused with.
+async function previewGrid() {
+  if (!els.gridSection.open) return;
+  // Nothing to preview before there is something to render: the server needs a
+  // prompt to validate the request at all, and an untouched panel is not a
+  // mistake to be reported.
+  if (!els.prompt.value.trim()) {
+    els.gridPreview.classList.remove('warn');
+    els.gridPreview.textContent = 'Enter a prompt above to see what this grid would run.';
+    return;
+  }
+  try {
+    const p = await api('/api/grid/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(gridPayload()),
+    });
+    els.gridPreview.classList.remove('warn');
+    // Totals on the first line, the resolved axes on the second: what a range
+    // actually expanded to is the half of it that is easy to get wrong.
+    els.gridPreview.textContent = [
+      `${p.images} image${p.images === 1 ? '' : 's'} · ${p.summary}` +
+        (p.seconds ? ` · about ${humanTime(p.seconds)}` : ''),
+      `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
+        `  ·  mu ${axisText(p.values.mu)}`,
+    ].join('\n');  // .hint.pre renders the break
+  } catch (err) {
+    els.gridPreview.classList.add('warn');
+    els.gridPreview.textContent = err.message;
+  }
+}
+
+let gridTimer;
+function schedulePreview() { clearTimeout(gridTimer); gridTimer = setTimeout(previewGrid, 250); }
 
 // The server keeps whatever finished before the cancel landed, so this reports
 // a count rather than treating the run as lost.
@@ -317,6 +408,7 @@ function streamJob(jobId) {
           ? `run ${data.run}/${runs}`
           : `${data.step}/${data.total_steps}`;
         setStep(runs > 1, within, `${data.step}/${data.total_steps}`);
+        showCell(data);
       } else if (data.type === 'image') {
         show(data.image);
       } else if (data.type === 'status') {
@@ -330,6 +422,7 @@ function streamJob(jobId) {
         // A run boundary, so the steps bar starts over rather than sitting full
         // until the first callback of the next run lands.
         setStep(runs > 1 && data.status !== 'queued' && !!data.run);
+        showCell(data);
       } else if (data.type === 'done') {
         source.close();
         setBusy(false);
@@ -575,6 +668,14 @@ els.unload.onclick = async () => {
   refreshStatus();
 };
 els.more.onclick = () => loadGallery();
+els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
+// The preview reflects the panel as much as the axes: a blank axis is the
+// control's own value, and both the size and the batch move the totals.
+for (const el of [els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds, els.prompt,
+                  els.steps, els.cfg, els.mu, els.batch, els.width, els.height, els.seed]) {
+  el.addEventListener('input', schedulePreview);
+}
+els.gridSection.addEventListener('toggle', previewGrid);
 els.width.oninput = els.height.oninput = syncSize;
 els.steps.oninput = els.mu.oninput = ownControls;
 els.seed.oninput = () => { ownControls(); syncRuns(); };

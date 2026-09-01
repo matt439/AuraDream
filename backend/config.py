@@ -64,6 +64,11 @@ class Settings:
     max_side: int = 2816
     max_pixels: int = 4_300_000
 
+    # The most images one grid may queue. A grid is meant to be left running
+    # overnight, so this is generous - 1024 at ~30s is nine hours - but a
+    # four-axis product grows fast enough that a typo needs a ceiling.
+    max_grid_images: int = int(os.getenv("KREA_MAX_GRID_IMAGES", "1024"))
+
 
 settings = Settings()
 settings.outputs_dir.mkdir(parents=True, exist_ok=True)
