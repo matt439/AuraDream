@@ -8,13 +8,21 @@ one component is resident at a time. Peak VRAM lands near 13GB.
 Nothing here is Krea-specific: the pipeline class and the set of quantizable
 components are both read from the repo's `model_index.json`, so `KREA_MODEL_ID`
 can point at FLUX.1-Krea-dev or any other diffusers text-to-image repo.
+
+`KREA_QUANT=nunchaku` is the other way round: the checkpoint arrives already
+quantized (Nunchaku Lite, SVDQuant 4-bit weights and activations, with its own
+CUDA kernels) and names its quantizer in its own `config.json`s, so this backend
+passes diffusers no quantization config at all. Those kernels are published for
+Linux only, which on a Windows box means running the server from WSL 2.
 """
 from __future__ import annotations
 
 import functools
+import importlib.util
 import inspect
 import json
 import logging
+import sys
 import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
@@ -30,11 +38,28 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# torchao weight-only modes this backend applies itself while loading.
 _QUANT_BACKENDS = ("fp8", "int8")
+# A checkpoint quantized before upload. `transformer/config.json` carries this
+# `quant_method`, and diffusers picks the quantizer up from there on its own.
+_NUNCHAKU = "nunchaku"
+_NUNCHAKU_METHOD = "nunchaku_lite"
+_NUNCHAKU_EXAMPLE = "lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
 
 # Keys in model_index.json worth quantizing. The VAE stays in bf16: it is small
 # and quantizing it shows up as visible decode artefacts.
 _QUANTIZABLE_PREFIXES = ("transformer", "unet", "text_encoder")
+
+
+def _importable(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
+
+
+def _hub_file(model_id: str, filename: str) -> str:
+    """Path to one file of a Hub repo, downloading only that file."""
+    from huggingface_hub import hf_hub_download
+
+    return hf_hub_download(model_id, filename)
 
 
 class DiffusersBackend(GenerationBackend):
@@ -59,9 +84,7 @@ class DiffusersBackend(GenerationBackend):
         is exactly what decides whether a component needs the diffusers or the
         transformers flavour of TorchAoConfig.
         """
-        from huggingface_hub import hf_hub_download
-
-        with open(hf_hub_download(model_id, "model_index.json"), encoding="utf-8") as fh:
+        with open(_hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
             index = json.load(fh)
 
         libraries: dict[str, str] = {}
@@ -86,6 +109,10 @@ class DiffusersBackend(GenerationBackend):
         single `quant_backend=` shorthand raises on any pipeline whose text
         encoder is a transformers model, because those signatures disagree.
         """
+        if settings.quantization == _NUNCHAKU:
+            self._nunchaku_preflight()
+            log.info("%s is pre-quantized; loading with its own quantization config", settings.model_id)
+            return None
         if settings.quantization not in _QUANT_BACKENDS:
             return None
 
@@ -115,6 +142,38 @@ class DiffusersBackend(GenerationBackend):
             return None
         log.info("quantizing %s to %s", sorted(mapping), settings.quantization)
         return PipelineQuantizationConfig(quant_mapping=mapping)
+
+    @staticmethod
+    def _nunchaku_preflight() -> None:
+        """Refuse before the download, with the reason, when Nunchaku cannot run.
+
+        Each way the mode can be broken otherwise surfaces minutes into a load,
+        or not at all: the `kernels` package has no Windows builds and fails
+        from inside the weight loader; bitsandbytes holds these checkpoints'
+        NF4 text encoders; and a repo that is not pre-quantized loads without
+        complaint in full bf16 and runs out of memory at the first image.
+        """
+        if sys.platform != "linux":
+            raise RuntimeError(
+                "KREA_QUANT=nunchaku needs Linux: the Nunchaku Lite kernels are "
+                "published for x86_64 Linux only. On Windows, run the server from "
+                "WSL 2 (bash wsl/setup.sh, then bash wsl/serve.sh)."
+            )
+        missing = [name for name in ("kernels", "bitsandbytes") if not _importable(name)]
+        if missing:
+            raise RuntimeError(
+                f"KREA_QUANT=nunchaku needs {' and '.join(missing)}; "
+                "`uv sync` on Linux installs them."
+            )
+        with open(_hub_file(settings.model_id, "transformer/config.json"), encoding="utf-8") as fh:
+            method = (json.load(fh).get("quantization_config") or {}).get("quant_method")
+        if method != _NUNCHAKU_METHOD:
+            raise RuntimeError(
+                f"{settings.model_id} is not a Nunchaku Lite checkpoint (transformer "
+                f"quant_method={method!r}); under KREA_QUANT=nunchaku it would load in "
+                f"full bf16. Point KREA_MODEL_ID at a pre-quantized repo such as "
+                f"{_NUNCHAKU_EXAMPLE}."
+            )
 
     def load(self) -> None:
         with self._lock:

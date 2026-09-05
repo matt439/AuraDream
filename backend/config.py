@@ -21,11 +21,16 @@ class Settings:
 
     # krea/Krea-2-Turbo
     # black-forest-labs/FLUX.1-Krea-dev
-    model_id: str = os.getenv("KREA_MODEL_ID", "krea/Krea-2-Turbo")
+    model_id: str = os.getenv("KREA_MODEL_ID", "black-forest-labs/FLUX.1-Krea-dev")
 
     # "fp8"  - torchao float8 weight-only on the transformer (~12GB, fits 16GB cards)
     # "int8" - torchao int8 weight-only, smaller still, slightly softer output
     # "none" - full bfloat16, needs ~25GB VRAM
+    # "nunchaku" - a checkpoint that is already quantized (Nunchaku Lite, SVDQuant
+    #          4-bit, e.g. lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-
+    #          text-encoder). Nothing is quantized here: the repo's own configs
+    #          name the quantizer. Its CUDA kernels ship for Linux only, so on a
+    #          Windows machine this means WSL 2 - see wsl/ and the README.
     quantization: str = os.getenv("KREA_QUANT", "fp8")
 
     # "model"      - one component on the GPU at a time (recommended for <=16GB)
@@ -36,8 +41,12 @@ class Settings:
     device: str = os.getenv("KREA_DEVICE", "cuda")
     load_on_startup: bool = _env_bool("KREA_PRELOAD", False)
 
-    outputs_dir: Path = ROOT / "outputs"
-    db_path: Path = ROOT / "krea.db"
+    # Where the images and their index live. Overridable so a server run from
+    # WSL 2 against a checkout on the Windows drive can keep them on the Linux
+    # filesystem: /mnt/c is a 9P bridge, slow for writes and unsafe for SQLite's
+    # locks. The web directory stays code - it is read once, and small.
+    outputs_dir: Path = Path(os.getenv("KREA_OUTPUTS_DIR", ROOT / "outputs")).expanduser()
+    db_path: Path = Path(os.getenv("KREA_DB_PATH", ROOT / "krea.db")).expanduser()
     web_dir: Path = ROOT / "web"
 
     host: str = os.getenv("KREA_HOST", "127.0.0.1")
@@ -72,3 +81,12 @@ class Settings:
 
 settings = Settings()
 settings.outputs_dir.mkdir(parents=True, exist_ok=True)
+
+# Nunchaku Lite's kernels come from a Hub repo that diffusers does not list as a
+# trusted publisher, so it refuses to download and execute them unless told to.
+# Choosing KREA_QUANT=nunchaku is that choice. diffusers reads the flag once, at
+# import, and this module is imported before diffusers everywhere in the app -
+# the server, the CLI, the tests - which is why it is set here rather than in
+# the backend. setdefault, so an explicit "false" in the environment still wins.
+if settings.quantization == "nunchaku":
+    os.environ.setdefault("DIFFUSERS_TRUST_REMOTE_KERNELS", "true")

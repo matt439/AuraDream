@@ -1,0 +1,3 @@
+# The wsl/ scripts run under bash against a checkout made by Windows git, whose
+# autocrlf would otherwise hand bash a '\r' at the end of every line.
+*.sh text eol=lf

@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend import main
+from backend import grid, main
 from backend.backends.base import GenerationBackend
 from backend.config import settings
 from backend.jobs import JobManager
@@ -274,7 +274,10 @@ def test_a_grid_runs_every_cell_of_every_seed(client, fake):
 def test_a_grid_says_which_cell_is_running(client, fake):
     _, events = _grid(client, steps_axis="6,8", seed=1)
     labels = [event["label"] for event in events if event.get("label")]
-    assert "6 steps, CFG 0, mu 1.15" in labels
+    # The axes the grid did not vary are filled from the default checkpoint's
+    # profile, so the expected label follows whichever checkpoint that is.
+    profile = defaults_for(settings.model_id)
+    assert grid._label(6, profile["guidance_scale"], profile["mu"]) in labels
     # A plain request varies nothing, so it labels nothing.
     _, plain = _run(client, runs=2)
     assert not [event for event in plain if event.get("label")]

@@ -14,6 +14,11 @@ uv run python -m backend.main      # http://127.0.0.1:7860
 uv run --group dev pytest          # no GPU, no weights, a few seconds
 ```
 
+```bash
+bash wsl/setup.sh                  # WSL 2, once: Linux venv + CUDA check
+source wsl/env.sh && bash wsl/serve.sh   # 4-bit Nunchaku, same URL
+```
+
 The model is *not* loaded at startup. The first `POST /api/generate` (or
 `POST /api/model/load`) triggers a load that takes a few minutes.
 
@@ -32,6 +37,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans
 - `web/` — served as-is from `/static`
+- `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
+  `setup.sh`, `serve.sh`: running the same checkout from WSL 2
 
 ## Constraints that shaped the code
 
@@ -67,6 +74,39 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   CLI. Dropping the negative prompt below the threshold saves nothing - neither
   pipeline encodes it outside its guidance branch - it only keeps the recorded
   settings honest about what ran.
+- `KREA_QUANT=nunchaku` loads a checkpoint that is *already* quantized (Nunchaku
+  Lite, SVDQuant W4A4; `quant_method: nunchaku_lite` in the transformer's
+  `config.json`, bitsandbytes NF4 in the text encoder's) and passes diffusers no
+  quantization config at all - the repo's own configs name the quantizer, and
+  torchao on top would be wrong. The CUDA ops arrive through the `kernels`
+  package from `rootonchair/nunchaku-lite-kernels` (branch `v2`, pinned by
+  diffusers), which publishes x86_64 **Linux** builds only - torch 2.11-2.13 for
+  cu126/cu130/cu132 - so on this machine the mode means WSL 2. NVFP4 needs
+  Blackwell (sm_120 qualifies); the `int4` repos are for older cards.
+  `_nunchaku_preflight` refuses off Linux, without `kernels`/`bitsandbytes`, or
+  on a repo whose transformer is not pre-quantized, *before* any download: the
+  bf16 case otherwise loads fine and OOMs at the first image. diffusers reads
+  `DIFFUSERS_TRUST_REMOTE_KERNELS` once, at import, so `config.py` sets it
+  (`setdefault`) - it is imported before diffusers everywhere, the CLI included.
+  Under WSL, `wsl/env.sh` moves the venv (`UV_PROJECT_ENVIRONMENT`), the gallery
+  (`KREA_OUTPUTS_DIR`, `KREA_DB_PATH`) and the HF cache off `/mnt/c`: 9P is slow
+  and SQLite cannot lock over it. The original `nunchaku` engine is a different
+  package with its own transformer classes and no torch 2.13 wheel; not used.
+- **torch 2.13 runs some CUDA ops as Triton kernels in eager mode** (`torch._native`
+  overrides `aten::bmm` and others), and Triton compiles a C helper on first use.
+  A fresh WSL Ubuntu has no C compiler, so the Qwen3-VL text encoder's rotary
+  embedding died on the first step with "Failed to find C compiler". `wsl/env.sh`
+  sets `TORCH_DISABLE_NATIVE_JIT=1`, which torch honours by declaring those
+  overrides unavailable and dispatching to ATen. Verified 2026-09-05: Krea 2
+  Turbo NVFP4 via Nunchaku on the 5080, 8 steps, model offload: 1 MP in 15 s at
+  8.1 GiB peak, 2 MP in 24 s at 8.6 GiB. `KREA_OFFLOAD=none` does **not** fit
+  this checkpoint: 14.7 GiB at 1 MP, 18.7 at 2 MP, and the WDDM driver spills
+  the excess into system RAM through WSL just as it does natively - the images
+  then took 26 s and 72 s. Offload's per-image weight transfer costs ~5 s and is
+  the cheaper of the two. The same file pins the xet downloader's
+  concurrency (`HF_XET_CLIENT_ENABLE_ADAPTIVE_CONCURRENCY=false`), because its
+  adaptive controller collapsed to one connection and stalled a 12 GB checkpoint
+  twice on this connection.
 - Components are `text_encoder` (Qwen3-VL), `transformer` (Krea2Transformer2DModel),
   `vae` (AutoencoderKLQwenImage). Offload order is `text_encoder->transformer->vae`.
 - Loading happens in exactly one place: `main.ensure_loaded()`, which holds an

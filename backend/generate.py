@@ -128,7 +128,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     model = parser.add_argument_group("model (equivalent to the KREA_* variables)")
     model.add_argument("--model", metavar="ID", help="checkpoint id, e.g. krea/Krea-2-Turbo")
-    model.add_argument("--quant", choices=("fp8", "int8", "none"), help="weight quantization")
+    model.add_argument(
+        "--quant",
+        choices=("fp8", "int8", "none", "nunchaku"),
+        help="weight quantization; nunchaku = a pre-quantized Nunchaku Lite repo, Linux only",
+    )
     model.add_argument(
         "--offload", choices=("model", "sequential", "none"), help="offload strategy"
     )

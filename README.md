@@ -66,7 +66,76 @@ loads them — expect several minutes. Subsequent loads read from the HF cache.
 
 `Ctrl`/`Cmd` + `Enter` generates from anywhere in the page. With an image open,
 `←` and `→` walk the strip it came from — the current run, or the gallery, which
-pages in more as you reach the end of it — and `Esc` closes it.
+pages in more as you reach the end of it — `F` stars it, `Delete` removes it
+after asking, and `Esc` closes it. Both are also buttons under the image.
+
+## Run under WSL 2 (4-bit Nunchaku)
+
+The float8 path above is the fastest thing that runs on Windows. Nunchaku Lite —
+SVDQuant 4-bit weights *and* activations with its own CUDA kernels — is faster
+(1.35x measured at 1 MP on a Blackwell workstation card, 1.8x with
+`torch.compile`) and stores the transformer in a little over half the space,
+which is VRAM headroom for larger images. Its kernels are published for Linux
+only, so on a Windows machine that means WSL 2, where the GPU runs at native
+speed through the Windows driver. Nothing in the app changes: only where it
+runs and which checkpoint it loads.
+
+One-time, from a WSL shell at the repo root (the checkout can stay on `C:`):
+
+```bash
+bash wsl/setup.sh
+```
+
+That installs `uv` and Python 3.13 if missing, builds a Linux environment under
+`~/krea-local/.venv`, and checks that CUDA and the two extra packages are there.
+Then, in every new shell:
+
+```bash
+source wsl/env.sh
+bash wsl/serve.sh                  # or: uv run python -m backend.main
+```
+
+Open <http://127.0.0.1:7860> in a Windows browser as before; WSL forwards
+localhost. `wsl/env.sh` is what makes this work. It keeps the virtualenv, the
+gallery (`KREA_OUTPUTS_DIR`, `KREA_DB_PATH`) and the HuggingFace cache on the
+Linux filesystem — `/mnt/c` is a slow bridge and SQLite cannot lock across it —
+and sets `KREA_QUANT=nunchaku` with a pre-quantized checkpoint:
+
+| `KREA_MODEL_ID` | Card |
+| --- | --- |
+| `lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (default) | RTX 50 |
+| `lite-infer/flux.1-krea-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` | RTX 50 |
+| the same names with `int4` in place of `nvfp4` | RTX 20–40 |
+
+These are the official weights re-uploaded pre-quantized, and not gated. Any
+other `KREA_QUANT` value works from WSL too; set it before sourcing `env.sh`.
+
+Two things to know. The WSL gallery is separate from the Windows one — two
+databases, two output directories. And run `uv` from WSL only after sourcing
+`wsl/env.sh`: without it, uv finds the Windows `.venv` in the project directory,
+judges it broken, and replaces it.
+
+`KREA_QUANT=nunchaku` implies `DIFFUSERS_TRUST_REMOTE_KERNELS=true`. The kernels
+come from a Hub repo that diffusers does not list as a trusted publisher, and
+choosing the mode is choosing to download and run them. Setting the variable to
+`false` yourself still wins.
+
+`env.sh` also sets `TORCH_DISABLE_NATIVE_JIT=1`. torch 2.13 runs a few CUDA ops
+as Triton kernels even outside `torch.compile`, and Triton needs a C compiler
+the first time it runs; a fresh Ubuntu has none, and the text encoder hits one
+of those ops on the first step. The flag makes torch use its ordinary kernels
+instead, at no cost here. Install `gcc` and you can drop it. Measured on an
+RTX 5080 with Krea 2 Turbo, 8 steps, weights offloaded between images:
+
+| Size | Per image | Peak VRAM allocated |
+| --- | --- | --- |
+| 1024×1024 | 15 s | 8.1 GiB |
+| 1440×1440 (2 MP) | 24 s | 8.6 GiB |
+
+Leave `KREA_OFFLOAD` at `model`. With everything resident this checkpoint peaks
+at 14.7 GiB for 1 MP and 18.7 GiB for 2 MP, which the driver quietly spills into
+system memory — WSL spills just as Windows does — and the same images took 26 s
+and 72 s.
 
 ## Headless
 
@@ -142,16 +211,18 @@ All optional, set as environment variables:
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `KREA_MODEL_ID` | `black-forest-labs/FLUX.1-Krea-dev` | `krea/Krea-2-Turbo`, or `krea/Krea-2-Raw` for the undistilled base (52 steps, CFG 3.5) |
-| `KREA_QUANT` | `fp8` | `int8`, or `none` for full bf16 (~25 GB VRAM) |
+| `KREA_QUANT` | `fp8` | `int8`; `none` for full bf16 (~25 GB VRAM); `nunchaku` for a pre-quantized Nunchaku Lite repo (Linux only, see above) |
 | `KREA_OFFLOAD` | `model` | `sequential` (lower VRAM, slower) or `none` |
+| `KREA_OUTPUTS_DIR` | `outputs/` in the repo | Where PNGs are written. `wsl/env.sh` moves it onto the Linux filesystem |
+| `KREA_DB_PATH` | `krea.db` in the repo | The gallery index. Keep it off `/mnt/c` under WSL: SQLite cannot lock across the bridge |
 | `KREA_PRELOAD` | `false` | Load weights at startup instead of on first request |
 | `KREA_DEVICE` | `cuda` | |
 | `KREA_HOST` | `127.0.0.1` | |
 | `KREA_PORT` | `7860` | |
 | `KREA_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Host headers the API answers to, and with the port, the origins allowed to write to it. Needed when `KREA_HOST` is `0.0.0.0`: the browser sends the machine's name or LAN address, never `0.0.0.0` |
 
-Everything else in `backend/config.py` — the output and web directories, the
-database path, the size limits — is code, not configuration.
+Everything else in `backend/config.py` — the web directory, the size limits —
+is code, not configuration.
 
 The API refuses requests whose `Host` header is not on that list, and
 state-changing requests announcing another origin. That is what stops a page on
