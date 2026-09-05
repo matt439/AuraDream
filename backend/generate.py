@@ -291,11 +291,12 @@ def main(argv: list[str] | None = None) -> int:
             # constant: FLUX bakes guidance_scale into the model and needs true
             # CFG above 1, Krea 2 guides from 0 up.
             threshold = profile["cfg_threshold"]
-            note = (
-                ""
-                if request.guidance_scale > threshold
-                else f"  [ignored: CFG is at or below {threshold:g}]"
-            )
+            if not profile["negative_prompt_supported"]:
+                note = "  [ignored: this checkpoint takes no negative prompt]"
+            elif request.guidance_scale > threshold:
+                note = ""
+            else:
+                note = f"  [ignored: CFG is at or below {threshold:g}]"
             print(f"negative : {request.negative_prompt}{note}")
         print(
             f"size     : {request.width}x{request.height} "

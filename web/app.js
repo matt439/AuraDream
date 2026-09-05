@@ -68,6 +68,9 @@ let galleryEpoch = 0;
 // true_cfg_scale runs an uncond pass, 0 on Krea 2, which guides from 0 up. Not
 // a control, so unlike the seeded defaults it follows the server all session.
 let cfgThreshold = 1;
+// FLUX.2 klein's pipeline takes no negative prompt at any CFG; the field greys
+// out for the checkpoint rather than for the value.
+let negativeSupported = true;
 
 // The two strips the lightbox can walk: what this job produced, and what the
 // gallery has paged in so far. Both are kept in the order they are displayed.
@@ -163,10 +166,12 @@ function syncSize() {
 }
 
 function syncCfg() {
-  const off = +els.cfg.value <= cfgThreshold;
+  const off = !negativeSupported || +els.cfg.value <= cfgThreshold;
   els.negField.classList.toggle('disabled', off);
   els.negative.disabled = off;
-  els.negNote.textContent = `(needs CFG > ${cfgThreshold} — ~2× slower)`;
+  els.negNote.textContent = negativeSupported
+    ? `(needs CFG > ${cfgThreshold} — ~2× slower)`
+    : '(this checkpoint takes no negative prompt)';
 }
 
 // Batch holds every image in VRAM at once, which is what stops a 2K batch from
@@ -225,6 +230,11 @@ async function refreshStatus() {
     if (s.defaults && typeof s.defaults.cfg_threshold === 'number'
         && s.defaults.cfg_threshold !== cfgThreshold) {
       cfgThreshold = s.defaults.cfg_threshold;
+      syncCfg();
+    }
+    if (s.defaults && typeof s.defaults.negative_prompt_supported === 'boolean'
+        && s.defaults.negative_prompt_supported !== negativeSupported) {
+      negativeSupported = s.defaults.negative_prompt_supported;
       syncCfg();
     }
     els.dot.className = `dot ${s.state}`;

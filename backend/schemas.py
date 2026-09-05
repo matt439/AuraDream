@@ -144,7 +144,7 @@ class GalleryPage(BaseModel):
 
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
-    defaults: dict[str, float | int | None] = {}
+    defaults: dict[str, float | int | bool | None] = {}
     # Prose for the same profile, keyed by control name - what steps/CFG/mu mean
     # on *this* checkpoint. Unlike `defaults`, which the UI applies once, these
     # follow the server for the whole session.

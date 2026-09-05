@@ -105,6 +105,7 @@ and sets `KREA_QUANT=nunchaku` with a pre-quantized checkpoint:
 | --- | --- |
 | `lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (default) | RTX 50 |
 | `lite-infer/flux.1-krea-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` | RTX 50 |
+| `lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (also `9b`) | RTX 50 |
 | the same names with `int4` in place of `nvfp4` | RTX 20–40 |
 
 These are the official weights re-uploaded pre-quantized, and not gated. Any
@@ -238,12 +239,20 @@ Applied automatically; see `backend/model_defaults.py`.
 | Krea 2 Turbo | 8 | 0.0 | 1.15 |
 | Krea 2 Raw | 52 | 3.5 | — |
 | FLUX.1 Krea [dev] | 28 | 3.5 | — |
+| FLUX.2 [klein] 4B / 9B | 4 | 1.0 (ignored) | — |
+| FLUX.2 [klein] base 4B / 9B | 50 | 4.0 | — |
 
 A negative prompt roughly doubles generation time, because it adds a second
 forward pass per step. It takes effect above CFG 1 on FLUX, where
 `guidance_scale` is a value baked into the model and only true CFG runs an
-uncond pass, and above CFG 0 on Krea 2. The panel's hint says which applies to
+uncond pass, and above CFG 0 on Krea 2. FLUX.2 [klein] takes no negative prompt
+at all, and the field greys out for it. The panel's hint says which applies to
 the loaded checkpoint.
+
+FLUX.2 [klein] (`black-forest-labs/FLUX.2-klein-4B`, Apache 2.0 and not gated;
+the 9B and the undistilled `-base-` variants likewise) loads through the same
+`KREA_MODEL_ID`. It is a 4-step model with an 8 GB Qwen3 text encoder, so under
+`KREA_QUANT=fp8` the 4B fits with room to spare.
 
 ## Output
 

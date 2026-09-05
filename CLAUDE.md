@@ -130,6 +130,26 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - On FLUX, `guidance_scale` is a distilled conditioning value, **not** CFG - a
   negative prompt is silently ignored unless `true_cfg_scale > 1.0`. The backend
   sets `true_cfg_scale` from the request's CFG whenever the pipeline exposes it.
+- **FLUX.2 [klein]** (`Flux2KleinPipeline`, in diffusers 0.40) loads through the
+  same loader, but its ids contain `flux`, so `model_defaults.py` has `klein-base`
+  and `klein` entries *ahead of* `flux`: distilled klein is 4 steps and ignores
+  guidance (the pipeline warns above 1), base is 50 steps at real CFG 4.0. Its
+  `__call__` has **no `negative_prompt`** - only embeds, and base's uncond pass
+  runs against `""` - so the profile carries `negative_prompt_supported: False`,
+  `describe()` reports `"negative_prompt" in _call_params` once loaded,
+  `/api/status` merges it the way it merges `cfg_threshold`, and the UI greys the
+  field for the checkpoint rather than for the value. `cfg_threshold()` is now
+  three-way: `true_cfg_scale` present -> 1.0 (FLUX.1); else `negative_prompt`
+  present -> 0.0 (Krea 2 guides from 0); else 1.0 (klein's classic
+  `guidance_scale > 1` gate) - the old two-way rule read 0.0 for klein and the
+  tooltip said it warned above 0. Verified 2026-09-05 via Nunchaku NVFP4 on the
+  5080: 1 MP in 4.0 s at 2.9 GiB peak, 2 MP in 4.6 s at 3.4 GiB. Its pipeline also lacks
+  `enable_vae_tiling`/`enable_vae_slicing`; the loader falls through to the same
+  switches on `pipe.vae`. Its mu is empirical (sequence length and step count),
+  so the profile leaves mu null and `_forced_mu` stays out of the way. Text
+  encoder is a plain `Qwen3ForCausalLM` (transformers), so the fp8 path
+  quantizes it like any other; the 4B's is 8 GB in bf16, bigger than its
+  7.75 GB transformer.
 - **Use `torch.no_grad()`, never `torch.inference_mode()`, around the pipeline
   call.** Model offload moves components across devices inside `forward()`, and
   torchao's quantized tensor subclasses trip torch 2.13's storage-aliasing guard

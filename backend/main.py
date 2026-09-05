@@ -137,6 +137,8 @@ async def status() -> ModelStatus:
     # pipeline is loaded its parameter list is the real answer.
     if info.get("cfg_threshold") is not None:
         defaults["cfg_threshold"] = info["cfg_threshold"]
+    if info.get("negative_prompt_supported") is not None:
+        defaults["negative_prompt_supported"] = info["negative_prompt_supported"]
     return ModelStatus(
         state=state,
         defaults=defaults,

@@ -203,9 +203,12 @@ class DiffusersBackend(GenerationBackend):
             else:
                 pipe.to(settings.device)
 
-            # VAE decode at 2K is the other memory spike; slice and tile it.
-            for opt in ("enable_vae_slicing", "enable_vae_tiling"):
-                fn = getattr(pipe, opt, None)
+            # VAE decode at 2K is the other memory spike; slice and tile it. Most
+            # pipelines expose the switches themselves; FLUX.2 klein's does not,
+            # but its VAE has them, so fall through to the component.
+            vae = getattr(pipe, "vae", None)
+            for opt, on_vae in (("enable_vae_slicing", "enable_slicing"), ("enable_vae_tiling", "enable_tiling")):
+                fn = getattr(pipe, opt, None) or getattr(vae, on_vae, None)
                 if callable(fn):
                     try:
                         fn()
@@ -390,8 +393,14 @@ class DiffusersBackend(GenerationBackend):
         # neither pipeline encodes a negative prompt at all, so nothing is saved
         # by dropping it early - it is only ever dropped to keep the recorded
         # settings honest about what ran.
-        threshold = 1.0 if "true_cfg_scale" in self._call_params else 0.0
-        if request.negative_prompt and request.guidance_scale > threshold:
+        # FLUX.2 klein takes no negative prompt at all (`negative_prompt_embeds`
+        # only, and the base model's uncond pass runs against ""), so there the
+        # question of a threshold never arises.
+        threshold = self.cfg_threshold()
+        supported = "negative_prompt" in self._call_params
+        if request.negative_prompt and not supported:
+            log.info("this pipeline takes no negative prompt; ignoring it")
+        if supported and request.negative_prompt and request.guidance_scale > threshold:
             kwargs["negative_prompt"] = request.negative_prompt
             if "true_cfg_scale" in self._call_params:
                 kwargs["true_cfg_scale"] = request.guidance_scale
@@ -424,13 +433,19 @@ class DiffusersBackend(GenerationBackend):
     def cfg_threshold(self) -> float | None:
         """Guidance scale above which a negative prompt does anything.
 
-        FLUX bakes `guidance_scale` into the model and only runs an uncond pass
-        when `true_cfg_scale > 1`; Krea 2 guides from 0 up. None until a pipeline
-        is loaded, since the parameter list is the only honest answer.
+        FLUX.1 bakes `guidance_scale` into the model and only runs an uncond pass
+        when `true_cfg_scale > 1`; Krea 2 takes a negative prompt and guides from
+        0 up; a pipeline with neither parameter - FLUX.2 klein - has the classic
+        `guidance_scale > 1` gate (and, distilled, warns above it). None until a
+        pipeline is loaded, since the parameter list is the only honest answer.
         """
         if self._pipe is None:
             return None
-        return 1.0 if "true_cfg_scale" in self._call_params else 0.0
+        if "true_cfg_scale" in self._call_params:
+            return 1.0
+        if "negative_prompt" in self._call_params:
+            return 0.0
+        return 1.0
 
     def describe(self) -> dict:
         info: dict[str, Any] = {
@@ -441,6 +456,10 @@ class DiffusersBackend(GenerationBackend):
             "detail": self._error,
             "pipeline": type(self._pipe).__name__ if self._pipe is not None else None,
             "cfg_threshold": self.cfg_threshold(),
+            # None until loaded, like the threshold: the parameter list is the answer.
+            "negative_prompt_supported": (
+                "negative_prompt" in self._call_params if self._pipe is not None else None
+            ),
         }
         try:
             import torch

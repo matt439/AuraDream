@@ -142,6 +142,14 @@ def test_status_hints_quote_the_loaded_pipelines_threshold(client, fake, monkeyp
     assert "7" in body["hints"]["guidance_scale"]
 
 
+def test_status_says_whether_the_pipeline_takes_a_negative_prompt(client, fake, monkeypatch):
+    # The profile's guess until a pipeline is loaded, then the parameter list.
+    assert client.get("/api/status").json()["defaults"]["negative_prompt_supported"] is True
+    described = dict(fake.describe(), negative_prompt_supported=False)
+    monkeypatch.setattr(fake, "describe", lambda: described)
+    assert client.get("/api/status").json()["defaults"]["negative_prompt_supported"] is False
+
+
 def test_an_explicit_null_mu_is_not_filled_in(client, fake):
     # What the UI sends to mean "no shift of ours"; filling it from the profile
     # would put Turbo's 1.15 back on and leave the record unable to reproduce.

@@ -15,6 +15,13 @@ uncond pass when `true_cfg_scale > 1`, while Krea 2 guides from 0. It is a hint
 for clients that have not loaded a pipeline yet - `/api/status` replaces it with
 what the loaded pipeline actually exposes, and the backend gates on that.
 
+`negative_prompt_supported` says whether the pipeline takes a negative prompt at
+all. FLUX.2 [klein]'s does not - its `__call__` has no `negative_prompt`, and the
+undistilled base runs its uncond pass against an empty string - so the field is
+greyed out whatever the CFG, rather than promising an effect that cannot happen.
+Like the threshold, it is a guess from the id until a pipeline's parameter list
+replaces it.
+
 `hints` is the same knowledge as prose, for the UI's tooltips: what steps, CFG
 and mu mean *on this checkpoint*, which is not the same sentence twice. They are
 format strings over the profile's own numbers, so the text cannot drift from the
@@ -34,6 +41,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "guidance_scale": 0.0,
             "mu": 1.15,
             "cfg_threshold": 0.0,
+            "negative_prompt_supported": True,
             "hints": {
                 "steps": (
                     "Denoising steps. Turbo is distilled to resolve in {steps}; past "
@@ -61,6 +69,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "guidance_scale": 3.5,
             "mu": None,
             "cfg_threshold": 0.0,
+            "negative_prompt_supported": True,
             "hints": {
                 "steps": (
                     "Denoising steps. Raw is undistilled and wants around {steps}; well "
@@ -78,6 +87,60 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             },
         },
     ),
+    # Both klein entries must precede "flux": the ids are FLUX.2-klein-*.
+    (
+        "klein-base",
+        {
+            "steps": 50,
+            "guidance_scale": 4.0,
+            "mu": None,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": False,
+            "hints": {
+                "steps": (
+                    "Denoising steps. klein base is undistilled and wants around {steps}; "
+                    "well below that it stays soft."
+                ),
+                "guidance_scale": (
+                    "Real classifier-free guidance, {guidance_scale:g} recommended. Above "
+                    "{cfg_threshold:g} the pipeline runs an uncond pass per step (~2x "
+                    "slower) - against an empty prompt: this pipeline takes no negative "
+                    "prompt."
+                ),
+                "mu": (
+                    "Flow-matching timestep shift. klein derives its own from the image "
+                    "size and the step count; a value here overrides it outright. Leave "
+                    "blank."
+                ),
+            },
+        },
+    ),
+    (
+        "klein",
+        {
+            "steps": 4,
+            "guidance_scale": 1.0,
+            "mu": None,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": False,
+            "hints": {
+                "steps": (
+                    "Denoising steps. klein is distilled to resolve in {steps}; more adds "
+                    "time, not detail."
+                ),
+                "guidance_scale": (
+                    "Ignored on the distilled klein - guidance is baked into the model, "
+                    "and the pipeline warns above {cfg_threshold:g}. Leave it at "
+                    "{guidance_scale:g}. There is no negative prompt either."
+                ),
+                "mu": (
+                    "Flow-matching timestep shift. klein derives its own from the image "
+                    "size and the step count; a value here overrides it outright. Leave "
+                    "blank."
+                ),
+            },
+        },
+    ),
     (
         "flux",
         {
@@ -85,6 +148,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "guidance_scale": 3.5,
             "mu": None,
             "cfg_threshold": 1.0,
+            "negative_prompt_supported": True,
             "hints": {
                 "steps": (
                     "Denoising steps. FLUX is tuned around {steps}; below about 20 it "
@@ -110,6 +174,7 @@ _FALLBACK: dict[str, Any] = {
     "guidance_scale": 3.5,
     "mu": None,
     "cfg_threshold": 1.0,
+    "negative_prompt_supported": True,
     "hints": {
         "steps": (
             "Denoising steps. {steps} is a safe starting point for an unrecognised "
