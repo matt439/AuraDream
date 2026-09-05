@@ -42,8 +42,8 @@ pending — which is why FLUX.1 Krea [dev] is the default. Point the app at Turb
 once you are approved:
 
 ```powershell
-$env:KREA_MODEL_ID = "krea/Krea-2-Turbo"
-uv run python -m backend.main
+uv run python -m backend.main          # pick Krea 2 Turbo from the menu, or:
+uv run python -m backend.main --model krea/Krea-2-Turbo
 ```
 
 The UI seeds Steps/CFG/Mu from the checkpoint's profile on load, so there is
@@ -60,6 +60,20 @@ changes are needed to switch.
 uv sync                            # first time only
 uv run python -m backend.main
 ```
+
+Started bare on a terminal, it asks which checkpoint, quantization and offload
+to use - numbered lists, Enter keeps the marked default, and a repo id that is
+not listed can be pasted in. It then prints the `--model/--quant/--offload`
+line that would start the same thing without asking. Any argument at all
+skips the menu, and whatever it does not name comes from the `KREA_*`
+variables below:
+
+```powershell
+uv run python -m backend.main --defaults               # the environment, no questions
+uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8
+```
+
+A run whose stdin is not a terminal - a service, a script - never asks either.
 
 Open <http://127.0.0.1:7860>. The first generation downloads ~25 GB of weights and
 loads them — expect several minutes. Subsequent loads read from the HF cache.
@@ -94,6 +108,11 @@ Then, in every new shell:
 source wsl/env.sh
 bash wsl/serve.sh                  # or: uv run python -m backend.main
 ```
+
+`serve.sh` forwards its arguments, so bare it shows the same menu as on
+Windows - with the Nunchaku option and the lite-infer checkpoints on offer, and
+`env.sh`'s choices marked as the defaults - and `bash wsl/serve.sh --defaults`
+starts without asking.
 
 Open <http://127.0.0.1:7860> in a Windows browser as before; WSL forwards
 localhost. `wsl/env.sh` is what makes this work. It keeps the virtualenv, the

@@ -1,0 +1,182 @@
+"""The start-up menu: bare `python -m backend.main` asks, anything else does not.
+
+The menu writes KREA_* into the environment before config.py freezes them, so
+what these check is that the right variables come out of a given sequence of
+answers - and that no answer is ever waited for when there is an argument, or
+no terminal to ask on.
+"""
+from __future__ import annotations
+
+import io
+
+import pytest
+
+from backend import launch
+
+TURBO = "krea/Krea-2-Turbo"
+TURBO_LITE = "lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
+FLUX = "black-forest-labs/FLUX.1-Krea-dev"
+
+
+def answers(*lines: str):
+    """An `ask` that hands out the given answers in turn and refuses to be asked more."""
+    queue = list(lines)
+
+    def ask(_prompt: str) -> str:
+        assert queue, "the menu asked one question more than the test expected"
+        return queue.pop(0)
+
+    ask.remaining = queue  # type: ignore[attr-defined]
+    return ask
+
+
+def never_ask(_prompt: str) -> str:
+    raise AssertionError("the menu must not run")
+
+
+@pytest.fixture
+def clean_env(monkeypatch):
+    for name in ("KREA_MODEL_ID", "KREA_QUANT", "KREA_OFFLOAD"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_enter_three_times_keeps_the_shipped_defaults(clean_env):
+    choice = launch.prompt(ask=answers("", "", ""), out=io.StringIO(), env={}, linux=False)
+    assert choice == launch.Choice(FLUX, "fp8", "model")
+
+
+def test_the_environment_is_the_default(clean_env):
+    env = {"KREA_MODEL_ID": TURBO, "KREA_QUANT": "int8", "KREA_OFFLOAD": "sequential"}
+    choice = launch.prompt(ask=answers("", "", ""), out=io.StringIO(), env=env, linux=False)
+    assert choice == launch.Choice(TURBO, "int8", "sequential")
+
+
+def test_numbers_and_names_both_select(clean_env):
+    out = io.StringIO()
+    choice = launch.prompt(ask=answers("int8", "2", "none"), out=out, env={}, linux=False)
+    assert choice == launch.Choice(TURBO, "int8", "none")
+
+
+def test_a_bad_answer_is_asked_again(clean_env):
+    out = io.StringIO()
+    ask = answers("9", "fp9", "", "", "")
+    choice = launch.prompt(ask=ask, out=out, env={}, linux=False)
+    assert choice.quantization == "fp8"
+    assert "pick 1-" in out.getvalue()
+
+
+def test_nunchaku_lists_the_lite_repos_and_asks_the_format(clean_env):
+    out = io.StringIO()
+    # quant nunchaku, format nvfp4 (default), checkpoint Turbo, offload default
+    choice = launch.prompt(ask=answers("nunchaku", "", "2", ""), out=out, env={}, linux=True)
+    assert choice == launch.Choice(TURBO_LITE, "nunchaku", "model")
+    listing = out.getvalue()
+    assert "Krea 2 Raw" not in listing, "no Nunchaku Lite build exists for Raw"
+    assert "base 4B" not in listing
+
+
+def test_int4_names_the_older_cards_repo(clean_env):
+    choice = launch.prompt(ask=answers("nunchaku", "int4", "1", ""), out=io.StringIO(), env={}, linux=True)
+    assert choice.model_id == "lite-infer/flux.1-krea-dev-nunchaku-lite-int4_r32-bnb4-text-encoder"
+
+
+def test_a_lite_repo_in_the_environment_marks_its_family_and_format(clean_env):
+    env = {"KREA_MODEL_ID": TURBO_LITE.replace("nvfp4", "int4"), "KREA_QUANT": "nunchaku"}
+    out = io.StringIO()
+    choice = launch.prompt(ask=answers("", "", "", ""), out=out, env=env, linux=True)
+    assert choice.model_id == env["KREA_MODEL_ID"]
+    assert choice.quantization == "nunchaku"
+
+
+def test_nunchaku_is_not_offered_off_linux(clean_env):
+    out = io.StringIO()
+    choice = launch.prompt(
+        ask=answers("", "", ""), out=out, env={"KREA_QUANT": "nunchaku"}, linux=False
+    )
+    assert "nunchaku" not in out.getvalue().split("Checkpoint")[0]
+    assert choice.quantization == "fp8", "an unofferable default falls back to fp8"
+
+
+def test_another_repo_id_can_be_typed_or_pasted(clean_env):
+    typed = launch.prompt(
+        ask=answers("", "8", "nobody/whatever", ""), out=io.StringIO(), env={}, linux=False
+    )
+    assert typed.model_id == "nobody/whatever"
+    pasted = launch.prompt(ask=answers("", "some/repo", ""), out=io.StringIO(), env={}, linux=False)
+    assert pasted.model_id == "some/repo"
+
+
+def test_eof_takes_the_default(clean_env):
+    def ask(_prompt: str) -> str:
+        raise EOFError
+
+    choice = launch.prompt(ask=ask, out=io.StringIO(), env={}, linux=False)
+    assert choice == launch.Choice(FLUX, "fp8", "model")
+
+
+def test_ctrl_c_exits_130(clean_env):
+    def ask(_prompt: str) -> str:
+        raise KeyboardInterrupt
+
+    with pytest.raises(SystemExit) as exc:
+        launch.prompt(ask=ask, out=io.StringIO(), env={}, linux=False)
+    assert exc.value.code == 130
+
+
+def test_the_menu_prints_the_equivalent_command(clean_env):
+    out = io.StringIO()
+    launch.prompt(ask=answers("", "2", ""), out=out, env={}, linux=False)
+    assert f"--model {TURBO} --quant fp8 --offload model" in out.getvalue()
+
+
+# --- configure(): when the menu runs at all ----------------------------------
+
+
+def test_no_arguments_on_a_terminal_asks_and_sets_the_environment(clean_env, monkeypatch):
+    choice = launch.configure([], ask=answers("", "2", ""), out=io.StringIO(), interactive=True)
+    assert choice is not None
+    import os
+
+    assert os.environ["KREA_MODEL_ID"] == TURBO
+    assert os.environ["KREA_QUANT"] == "fp8"
+    assert os.environ["KREA_OFFLOAD"] == "model"
+
+
+def test_any_argument_skips_the_menu(clean_env):
+    import os
+
+    assert launch.configure(["--model", TURBO], ask=never_ask, interactive=True) is None
+    assert os.environ["KREA_MODEL_ID"] == TURBO
+    assert "KREA_QUANT" not in os.environ, "what the flags do not name is left to config.py"
+
+
+def test_defaults_flag_skips_the_menu_and_touches_nothing(clean_env):
+    import os
+
+    assert launch.configure(["--defaults"], ask=never_ask, interactive=True) is None
+    assert "KREA_MODEL_ID" not in os.environ
+
+
+def test_without_a_terminal_there_is_no_menu(clean_env):
+    assert launch.configure([], ask=never_ask, interactive=False) is None
+
+
+def test_a_bad_quant_flag_is_rejected_by_argparse(clean_env):
+    with pytest.raises(SystemExit) as exc:
+        launch.configure(["--quant", "fp4"], ask=never_ask, interactive=True)
+    assert exc.value.code == 2
+
+
+def test_the_cli_shares_the_flags(clean_env):
+    from backend import generate
+
+    parser = generate._build_parser()
+    args = parser.parse_args(["hello", "--model", TURBO, "--quant", "int8", "--offload", "none"])
+    launch.apply_env(args)
+    import os
+
+    assert (os.environ["KREA_MODEL_ID"], os.environ["KREA_QUANT"], os.environ["KREA_OFFLOAD"]) == (
+        TURBO,
+        "int8",
+        "none",
+    )

@@ -23,7 +23,6 @@ button) works too - see the sys.path bootstrap below.
 from __future__ import annotations
 
 import argparse
-import os
 import signal
 import sys
 import time
@@ -37,8 +36,10 @@ from types import SimpleNamespace
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# Imported up here rather than in _project(): it pulls in nothing but `random`,
-# so it is safe before _apply_env() has had its say about the KREA_* variables.
+# Imported up here rather than in _project(): neither pulls in config, so both
+# are safe before apply_env() has had its say about the KREA_* variables.
+# launch.py owns --model/--quant/--offload for the server and this CLI alike.
+from backend.launch import add_model_arguments, apply_env  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
 
 # The UI's preset table (web/app.js), kept in step with it. Aspect and megapixel
@@ -126,16 +127,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="sequential passes, one image's worth of VRAM each (default 1)",
     )
 
-    model = parser.add_argument_group("model (equivalent to the KREA_* variables)")
-    model.add_argument("--model", metavar="ID", help="checkpoint id, e.g. krea/Krea-2-Turbo")
-    model.add_argument(
-        "--quant",
-        choices=("fp8", "int8", "none", "nunchaku"),
-        help="weight quantization; nunchaku = a pre-quantized Nunchaku Lite repo, Linux only",
-    )
-    model.add_argument(
-        "--offload", choices=("model", "sequential", "none"), help="offload strategy"
-    )
+    add_model_arguments(parser)
 
     parser.add_argument("-q", "--quiet", action="store_true", help="only print saved filenames")
     parser.add_argument(
@@ -154,21 +146,6 @@ def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
             parser.error("--width and --height must be given together")
         return args.width, args.height
     return SIZES[args.aspect or "1:1"][args.mp or 1]
-
-
-def _apply_env(args: argparse.Namespace) -> None:
-    """Push model overrides into the environment before config is imported.
-
-    `settings` is a frozen dataclass whose fields are read from KREA_* at import
-    time, so --model and friends have to land in os.environ first.
-    """
-    for value, name in (
-        (args.model, "KREA_MODEL_ID"),
-        (args.quant, "KREA_QUANT"),
-        (args.offload, "KREA_OFFLOAD"),
-    ):
-        if value is not None:
-            os.environ[name] = value
 
 
 def _project() -> SimpleNamespace:
@@ -208,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     width, height = _resolve_size(args, parser)
-    _apply_env(args)
+    apply_env(args)
     p = _project()
 
     profile = p.defaults_for(p.settings.model_id)

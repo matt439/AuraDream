@@ -11,12 +11,21 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import grid, storage
-from .backends import get_backend
-from .config import settings
-from .jobs import JobManager, short_error
-from .model_defaults import defaults_for, hints_for
-from .schemas import (
+# Run as `python -m backend.main`, settle the checkpoint before `.config`
+# freezes it: the terminal menu when there are no arguments, the
+# --model/--quant/--offload flags otherwise. Imported by uvicorn or the tests
+# instead, this does nothing and the environment stands as it is.
+if __name__ == "__main__":
+    from .launch import configure
+
+    configure()
+
+from . import grid, storage  # noqa: E402
+from .backends import get_backend  # noqa: E402
+from .config import settings  # noqa: E402
+from .jobs import JobManager, short_error  # noqa: E402
+from .model_defaults import defaults_for, hints_for  # noqa: E402
+from .schemas import (  # noqa: E402
     GalleryPage,
     GenerateRequest,
     GridPreview,

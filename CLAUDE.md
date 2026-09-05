@@ -10,7 +10,8 @@ and needs manual approval on HuggingFace. Either runs unchanged - set
 ## Run
 
 ```powershell
-uv run python -m backend.main      # http://127.0.0.1:7860
+uv run python -m backend.main      # http://127.0.0.1:7860; bare on a terminal, asks
+uv run python -m backend.main --defaults   # KREA_* as set, no questions
 uv run --group dev pytest          # no GPU, no weights, a few seconds
 ```
 
@@ -25,6 +26,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 ## Layout
 
 - `backend/config.py` — settings, most overridable by `KREA_*` env vars
+- `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
+  flags, run before `config` is imported; the checkpoint catalogue lives here
 - `backend/schemas.py` — pydantic request/response models
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
@@ -150,6 +153,19 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   encoder is a plain `Qwen3ForCausalLM` (transformers), so the fp8 path
   quantizes it like any other; the 4B's is 8 GB in bf16, bigger than its
   7.75 GB transformer.
+- **A bare `python -m backend.main` on a terminal asks** which checkpoint,
+  quantization and offload to use; *any* argument (`--model`, `--quant`,
+  `--offload`, `--defaults`) or a non-tty stdin skips the menu, and what the
+  flags do not name comes from `KREA_*` as before. `settings` is frozen at
+  import, so `launch.configure()` runs from a `__name__ == "__main__"` guard
+  placed *before* `main.py`'s own package imports - the same reason
+  `generate.py` applies its flags before importing `backend.config`. Both entry
+  points take the flags from `launch.add_model_arguments`, so they cannot
+  drift. The menu asks quantization first because it decides the repo family:
+  `nunchaku` (offered on Linux only) lists the lite-infer re-uploads for the
+  families that have one and asks nvfp4 or int4; the environment's values are
+  the marked defaults, so `wsl/env.sh` still gets what it set on a bare Enter.
+  `wsl/serve.sh` forwards its arguments.
 - **Use `torch.no_grad()`, never `torch.inference_mode()`, around the pipeline
   call.** Model offload moves components across devices inside `forward()`, and
   torchao's quantized tensor subclasses trip torch 2.13's storage-aliasing guard
