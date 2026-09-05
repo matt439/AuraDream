@@ -371,6 +371,9 @@ button { font: inherit; cursor: pointer; }
   word-break: break-word;
   font-variant-numeric: tabular-nums;
 }
+.lb-actions { display: flex; gap: 8px; }
+#lb-fav.active { color: #fbbf24; border-color: #fbbf24; }
+#lb-delete:hover { color: var(--danger); border-color: var(--danger); }
 .close {
   position: absolute;
   top: 16px;

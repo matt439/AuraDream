@@ -31,6 +31,7 @@ const els = {
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
   lbReuse: $('lb-reuse'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
+  lbFav: $('lb-fav'), lbDelete: $('lb-delete'),
 };
 
 // Aspect × megapixel tier. Every side is a multiple of 16 (the VAE downsamples by
@@ -502,6 +503,7 @@ function appendResult(rec) {
   const img = document.createElement('img');
   img.src = rec.url;
   img.alt = rec.prompt;
+  img.dataset.id = rec.id;
   img.onclick = () => openLightbox(rec, viewerRecords);
   els.viewer.appendChild(img);
 }
@@ -560,6 +562,9 @@ function loadGallery() {
 function card(rec) {
   const div = document.createElement('div');
   div.className = `card${rec.favorite ? ' fav' : ''}`;
+  // Tagged by id so an action taken elsewhere - the lightbox, mostly - can
+  // find this card and keep it in step.
+  div.dataset.id = rec.id;
 
   const img = document.createElement('img');
   img.src = rec.url;
@@ -567,12 +572,8 @@ function card(rec) {
   img.loading = 'lazy';
   img.onclick = () => openLightbox(rec, galleryRecords);
 
-  const star = tool(rec.favorite ? '★' : '☆', 'Favorite', async () => {
-    await api(`/api/images/${rec.id}/favorite?value=${!rec.favorite}`, { method: 'POST' });
-    rec.favorite = !rec.favorite;
-    div.classList.toggle('fav', rec.favorite);
-    star.textContent = rec.favorite ? '★' : '☆';
-  });
+  const star = tool(rec.favorite ? '★' : '☆', 'Favorite', () => setFavorite(rec, !rec.favorite));
+  star.className = 'star';
 
   const tools = document.createElement('div');
   tools.className = 'tools';
@@ -587,16 +588,7 @@ function card(rec) {
       setSheet(true);
     }),
     star,
-    tool('⌦', 'Delete', async () => {
-      await api(`/api/images/${rec.id}`, { method: 'DELETE' });
-      div.remove();
-      // Keep the strip the lightbox walks in step with the grid.
-      const at = galleryRecords.indexOf(rec);
-      if (at >= 0) galleryRecords.splice(at, 1);
-      total -= 1;
-      offset -= 1;
-      els.count.textContent = total ? `(${total})` : '';
-    }),
+    tool('⌦', 'Delete', () => deleteImage(rec)),
   );
 
   div.append(img, tools);
@@ -609,6 +601,68 @@ function tool(label, title, onClick) {
   b.title = title;
   b.onclick = onClick;
   return b;
+}
+
+// The same image can be on the page more than once - in the viewer, in the
+// gallery grid, on the sheet, in the lightbox - as separate record objects
+// fetched at different times. So both actions apply by id: to every record
+// that carries it, and to every element tagged with it.
+function recordsWithId(id) {
+  return [...galleryRecords, ...viewerRecords, ...lbList].filter((r) => r.id === id);
+}
+
+async function setFavorite(rec, value) {
+  try {
+    await api(`/api/images/${rec.id}/favorite?value=${value}`, { method: 'POST' });
+  } catch (err) {
+    showError(err.message);
+    return;
+  }
+  recordsWithId(rec.id).forEach((r) => { r.favorite = value; });
+  document.querySelectorAll(`.card[data-id="${rec.id}"]`).forEach((div) => {
+    div.classList.toggle('fav', value);
+    div.querySelector('.star').textContent = value ? '★' : '☆';
+  });
+  if (!els.lightbox.hidden) renderLightbox();
+}
+
+// The delete removes the PNG as well as the row, and on a card the button sits
+// a few pixels from the star. Say which image, so a slip is caught here.
+function confirmDelete(rec) {
+  const snippet = rec.prompt.length > 60 ? `${rec.prompt.slice(0, 57)}…` : rec.prompt;
+  const what = `${rec.favorite ? 'favourite, ' : ''}seed ${rec.seed}`;
+  return window.confirm(`Delete this image (${what})?\n\n"${snippet}"\n\nThe file is removed from disk.`);
+}
+
+async function deleteImage(rec) {
+  if (!confirmDelete(rec)) return;
+  try {
+    await api(`/api/images/${rec.id}`, { method: 'DELETE' });
+  } catch (err) {
+    showError(err.message);
+    return;
+  }
+  document.querySelectorAll(`[data-id="${rec.id}"]`).forEach((el) => el.remove());
+  // Only the grid's counters mirror the server's: the viewer holds whatever
+  // this session made, and the sheet lays itself out from the grid's records.
+  const inGallery = galleryRecords.some((r) => r.id === rec.id);
+  for (const list of new Set([galleryRecords, viewerRecords, lbList])) {
+    const at = list.findIndex((r) => r.id === rec.id);
+    if (at >= 0) list.splice(at, 1);
+  }
+  if (inGallery) {
+    total -= 1;
+    offset -= 1;
+    els.count.textContent = total ? `(${total})` : '';
+  }
+  els.viewer.classList.toggle('multi', viewerRecords.length > 1);
+  els.viewer.classList.toggle('many', viewerRecords.length > 4);
+  if (sheetMode) renderSheet();
+  if (els.lightbox.hidden) return;
+  // The strip has closed up under the viewer: the next image already sits at
+  // this index, unless this was the last one.
+  if (!lbList.length) closeLightbox();
+  else { lbIndex = Math.min(lbIndex, lbList.length - 1); renderLightbox(); }
 }
 
 function reuse(rec) {
@@ -826,6 +880,8 @@ function renderLightbox() {
     (lbList.length > 1 ? ` · ${lbIndex + 1}/${lbList.length}` : '');
   els.lbPrev.disabled = lbIndex === 0;
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
+  els.lbFav.textContent = rec.favorite ? '★ Favourite' : '☆ Favourite';
+  els.lbFav.classList.toggle('active', !!rec.favorite);
   els.lightbox.hidden = false;
 }
 
@@ -895,6 +951,8 @@ els.lbNext.onclick = () => stepLightbox(1);
 // The just-generated image only exists in the viewer, so reuse has to be
 // reachable from the lightbox as well as from a gallery card.
 els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { reuse(rec); closeLightbox(); } };
+els.lbFav.onclick = () => { const rec = lbList[lbIndex]; if (rec) setFavorite(rec, !rec.favorite); };
+els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage(rec); };
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); };
 
 document.addEventListener('keydown', (e) => {
@@ -903,9 +961,14 @@ document.addEventListener('keydown', (e) => {
   if (els.lightbox.hidden) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
-  if (e.key === 'Escape') closeLightbox();
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); }
-  else if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); }
+  if (e.key === 'Escape') { closeLightbox(); return; }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); return; }
+  if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); return; }
+  // F and Delete act on the image in view - unless a text field still holds
+  // the caret, where they are typing.
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === 'f' || e.key === 'F') els.lbFav.click();
+  else if (e.key === 'Delete') els.lbDelete.click();
 });
 
 buildPresets();
