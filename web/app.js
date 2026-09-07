@@ -4,8 +4,10 @@ const $ = (id) => document.getElementById(id);
 const PAGE = 48;
 // A sheet wants the whole run in one go - it is a matrix, and a matrix with a
 // page boundary through it is a puzzle. The rows are small and the thumbnails
-// load lazily, so a full grid is cheaper than it sounds.
-const SHEET_PAGE = 1024;
+// load lazily, so a full grid is cheaper than it sounds. The size follows the
+// server's grid ceiling (/api/status), so a raised KREA_MAX_GRID_IMAGES does
+// not silently drop the earliest seeds off a sheet.
+let sheetPage = 1024;
 
 const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
@@ -22,7 +24,7 @@ const els = {
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridSeeds: $('grid-seeds'), gridPreview: $('grid-preview'),
   gridRun: $('btn-grid'),
-  error: $('error'), viewer: $('viewer'), gallery: $('gallery'),
+  error: $('error'), viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'), sizeHint: $('size-hint'),
   gridResume: $('grid-resume'),
@@ -247,6 +249,7 @@ async function refreshStatus() {
       negativeSupported = s.defaults.negative_prompt_supported;
       syncCfg();
     }
+    if (typeof s.max_grid_images === 'number') sheetPage = s.max_grid_images;
     els.dot.className = `dot ${s.state}`;
     els.statusText.textContent =
       s.state === 'ready' ? s.model_id.split('/').pop()
@@ -545,7 +548,13 @@ function clearResults() {
   viewerRecords = [];
   els.viewer.innerHTML = '';
   els.viewer.classList.remove('multi', 'many');
+  els.viewerNote.textContent = '';
 }
+
+// The most full-resolution images the strip keeps in the DOM. A 1024-cell
+// night at 4 MP is ~5 GB of PNG; the strip is for watching images land, and
+// the lightbox still walks every record of the run through `viewerRecords`.
+const VIEWER_MAX = 48;
 
 function appendResult(rec) {
   viewerRecords.push(rec);
@@ -553,12 +562,39 @@ function appendResult(rec) {
   // down with every image it finishes. The lightbox is where they get looked at.
   els.viewer.classList.toggle('multi', viewerRecords.length > 1);
   els.viewer.classList.toggle('many', viewerRecords.length > 4);
-  const img = document.createElement('img');
-  img.src = rec.url;
-  img.alt = rec.prompt;
-  img.dataset.id = rec.id;
-  img.onclick = () => openLightbox(rec, viewerRecords);
+  const img = thumb(rec, viewerRecords, rec.url);
   els.viewer.appendChild(img);
+  // Lazy on its own is not enough - the strip sets no height, so unloaded
+  // images stack inside the viewport and all become eligible at once. The cap
+  // is what bounds the fetches; the note lives outside the strip so it survives.
+  while (els.viewer.children.length > VIEWER_MAX) els.viewer.firstElementChild.remove();
+  const hidden = viewerRecords.length - els.viewer.children.length;
+  els.viewerNote.textContent = hidden > 0
+    ? `… and ${hidden} earlier image${hidden === 1 ? '' : 's'} this run — open one to walk them all`
+    : '';
+}
+
+// One <img> for every place a record is shown: the viewer strip, a gallery
+// card, a sheet cell. Lazy and async-decoded, since all three can hold hundreds
+// of them; a thumbnail derivative where one exists, the full PNG otherwise.
+// Focusable and activated by Enter or Space, so the lightbox - the only place
+// the full image and its metadata are shown - is reachable without a mouse.
+function thumb(rec, list, src = rec.thumb_url ?? rec.url) {
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = rec.prompt;
+  img.loading = 'lazy';
+  img.decoding = 'async';
+  img.dataset.id = rec.id;
+  img.tabIndex = 0;
+  img.setAttribute('role', 'button');
+  img.setAttribute('aria-label', `Open: ${rec.prompt}`);
+  const open = () => openLightbox(rec, list);
+  img.onclick = open;
+  img.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+  };
+  return img;
 }
 
 // -------------------------------------------------------------------gallery
@@ -570,7 +606,13 @@ function resetGallery() {
   offset = 0;
   galleryRecords = [];
   els.gallery.innerHTML = '';
-  return loadGallery();
+  // The fresh query has to be issued *after* an in-flight page settles rather
+  // than sharing its promise: that page carries the old epoch and drops
+  // itself, so sharing it left the gallery empty with nothing outstanding and
+  // nothing to retry. Its `.finally` nulls `galleryPending` first, so the
+  // chained call finds a free slot.
+  const pending = galleryPending;
+  return pending ? pending.then(loadGallery) : loadGallery();
 }
 
 function loadGallery() {
@@ -580,7 +622,7 @@ function loadGallery() {
   // that is never fetched.
   if (galleryPending) return galleryPending;
   const epoch = galleryEpoch;
-  const params = new URLSearchParams({ limit: sheetMode ? SHEET_PAGE : PAGE, offset });
+  const params = new URLSearchParams({ limit: sheetMode ? sheetPage : PAGE, offset });
   if (els.search.value.trim()) params.set('search', els.search.value.trim());
   if (els.favOnly.checked) params.set('favorites', 'true');
   els.more.disabled = true;
@@ -591,7 +633,12 @@ function loadGallery() {
       if (epoch !== galleryEpoch) return;  // superseded by a reset
       total = page.total;
       els.count.textContent = total ? `(${total})` : '';
+      // OFFSET paging over a table being inserted into: a row that landed at
+      // the top since the last page shifts every row down one, so the tail of
+      // the previous page comes back as the head of this one.
+      const have = new Set(galleryRecords.map((r) => r.id));
       page.items.forEach((rec) => {
+        if (have.has(rec.id)) return;
         galleryRecords.push(rec);
         if (!sheetMode) els.gallery.appendChild(card(rec));
       });
@@ -619,11 +666,7 @@ function card(rec) {
   // find this card and keep it in step.
   div.dataset.id = rec.id;
 
-  const img = document.createElement('img');
-  img.src = rec.url;
-  img.alt = rec.prompt;
-  img.loading = 'lazy';
-  img.onclick = () => openLightbox(rec, galleryRecords);
+  const img = thumb(rec, galleryRecords);
 
   const star = tool(rec.favorite ? '★' : '☆', 'Favorite', () => setFavorite(rec, !rec.favorite));
   star.className = 'star';
@@ -745,6 +788,10 @@ function reuse(rec) {
 // rather than printed - see promptLabels.
 const SHEET_AXES = [
   { key: 'prompt', label: 'Prompt', of: (r) => r.prompt },
+  // A `{name}` placeholder may live in the negative prompt alone, which is a
+  // legal axis the grid renders; without it here such a run collapsed to one
+  // cell, every other axis having a single value.
+  { key: 'negative', label: 'Negative', of: (r) => r.negative_prompt || null },
   { key: 'steps', label: 'Steps', of: (r) => r.steps },
   { key: 'cfg', label: 'CFG', of: (r) => r.guidance_scale },
   { key: 'mu', label: 'Mu', of: (r) => r.mu },
@@ -759,7 +806,7 @@ const axisValue = (axis, rec) => axis.of(rec) ?? null;
 let promptShort = new Map();
 const valueText = (v) => {
   if (v === null) return 'none';
-  if (typeof v === 'string') return promptShort.get(v) ?? v;
+  if (typeof v === 'string') return promptShort.get(v) ?? clip(v);
   return String(v);
 };
 
@@ -824,17 +871,46 @@ function sheetValues(records) {
 // Columns and rows default to the two axes that actually vary, widest first.
 // A third varying axis becomes a pin rather than a third dimension: a flat
 // sheet that crosses everything at once is a wall nobody can read.
-function chooseAxes(values) {
-  const varying = SHEET_AXES
-    .filter((a) => values[a.key].length > 1)
-    .sort((a, b) => values[b.key].length - values[a.key].length);
-  const pins = {};
-  varying.slice(2).forEach((a) => { pins[a.key] = values[a.key][0]; });
+function chooseAxes(values, count) {
+  let varying = SHEET_AXES.filter((a) => values[a.key].length > 1);
+  // An axis with one value per image is a list, not a dimension - the seed of
+  // a mixed gallery, mostly. It is dropped whenever anything else varies; a
+  // seeds-only run keeps it, since it is then the only dimension there is.
+  const listlike = varying.filter((a) => values[a.key].length === count);
+  if (listlike.length < varying.length) varying = varying.filter((a) => !listlike.includes(a));
+  varying.sort((a, b) => values[b.key].length - values[a.key].length);
   return {
     cols: varying[0] ? varying[0].key : null,
     rows: varying[1] ? varying[1].key : null,
-    pins,
+    pins: {},
   };
+}
+
+// Every varying axis is exactly one of columns, rows or a pin, and every pin
+// holds a value that is actually present. Run on every render: promoting a
+// pinned axis to Columns used to leave it in the pins too, so only one of its
+// columns could ever fill; and switching the search to another run of the same
+// shape kept a pin on a value the new records never had - a blank sheet under
+// a dropdown showing a different value than the one filtering it.
+function reconcileAxes(values) {
+  const pins = {};
+  for (const axis of SHEET_AXES) {
+    const key = axis.key;
+    if (values[key].length < 2 || key === sheetAxes.cols || key === sheetAxes.rows) continue;
+    const kept = sheetAxes.pins[key];
+    pins[key] = values[key].includes(kept) ? kept : values[key][0];
+  }
+  sheetAxes.pins = pins;
+}
+
+// Picking for one side the axis already on the other swaps them rather than
+// collapsing the sheet to one dimension twice; reconcileAxes then re-pins
+// whatever the swap displaced.
+function setAxis(side, key) {
+  const other = side === 'cols' ? 'rows' : 'cols';
+  if (key && key === sheetAxes[other]) sheetAxes[other] = sheetAxes[side];
+  sheetAxes[side] = key || null;
+  renderSheet();
 }
 
 function headCell(text, className) {
@@ -864,32 +940,29 @@ function picker(options, selected, onPick) {
   return select;
 }
 
+// Past this many cells the layout is a list, not a matrix - and each cell used
+// to cost a scan of every record, so the Sheet button over an unfiltered
+// gallery froze the tab for seconds and laid out a grid 100,000 px wide.
+const MAX_SHEET_CELLS = 4096;
 function renderSheet() {
   sheetRecords = galleryRecords;
   const values = sheetValues(sheetRecords);
-  // Re-derive the layout when the image set changes shape, and only then, so
-  // switching filters lands on something sensible while a hand-picked axis
-  // survives a redraw.
+  // Re-derive columns and rows when the image set changes shape, and only
+  // then, so switching filters lands on something sensible while a hand-picked
+  // axis survives a redraw. Pins are reconciled every time - see above.
   const signature = SHEET_AXES.map((a) => values[a.key].length).join('/');
-  if (sheetAxes.signature !== signature) sheetAxes = { ...chooseAxes(values), signature };
+  if (sheetAxes.signature !== signature) {
+    sheetAxes = { ...chooseAxes(values, sheetRecords.length), signature };
+  }
+  reconcileAxes(values);
 
   const axisOptions = [['', '—']].concat(
     SHEET_AXES.filter((a) => values[a.key].length > 1).map((a) => [a.key, a.label]),
   );
   els.sheetControls.innerHTML = '';
   els.sheetControls.append(
-    labelled('Columns', picker(axisOptions, sheetAxes.cols ?? '', (key) => {
-      // Swap rather than collapse: picking the axis already on the other side
-      // would otherwise leave the sheet with one dimension twice.
-      if (key && key === sheetAxes.rows) sheetAxes.rows = sheetAxes.cols;
-      sheetAxes.cols = key || null;
-      renderSheet();
-    })),
-    labelled('Rows', picker(axisOptions, sheetAxes.rows ?? '', (key) => {
-      if (key && key === sheetAxes.cols) sheetAxes.cols = sheetAxes.rows;
-      sheetAxes.rows = key || null;
-      renderSheet();
-    })),
+    labelled('Columns', picker(axisOptions, sheetAxes.cols ?? '', (key) => setAxis('cols', key))),
+    labelled('Rows', picker(axisOptions, sheetAxes.rows ?? '', (key) => setAxis('rows', key))),
   );
   for (const [key, pinned] of Object.entries(sheetAxes.pins)) {
     const axis = axisByKey(key);
@@ -908,62 +981,71 @@ function renderSheet() {
     );
   }
 
-  const colValues = sheetAxes.cols ? values[sheetAxes.cols] : [null];
-  const rowValues = sheetAxes.rows ? values[sheetAxes.rows] : [null];
-  const shown = [];
-  const matches = (rec, rowValue, colValue) => {
-    for (const [key, pinned] of Object.entries(sheetAxes.pins)) {
-      if (axisValue(axisByKey(key), rec) !== pinned) return false;
-    }
-    if (sheetAxes.rows && axisValue(axisByKey(sheetAxes.rows), rec) !== rowValue) return false;
-    if (sheetAxes.cols && axisValue(axisByKey(sheetAxes.cols), rec) !== colValue) return false;
-    return true;
-  };
-
+  const colAxis = sheetAxes.cols ? axisByKey(sheetAxes.cols) : null;
+  const rowAxis = sheetAxes.rows ? axisByKey(sheetAxes.rows) : null;
+  const colValues = colAxis ? values[colAxis.key] : [null];
+  const rowValues = rowAxis ? values[rowAxis.key] : [null];
   els.sheetGrid.innerHTML = '';
+  if (colValues.length * rowValues.length > MAX_SHEET_CELLS) {
+    els.sheetNote.textContent =
+      `${colValues.length} × ${rowValues.length} cells is a list, not a sheet. ` +
+      'Narrow the search to one run — the ⊞ button on a card does that.';
+    return;
+  }
+
+  // One pass over the records into a map keyed by (row, column), rather than a
+  // scan of every record per cell, so the sheet costs O(records + cells). The
+  // first record wins a cell; they arrive newest first.
+  const pins = Object.entries(sheetAxes.pins).map(([key, v]) => [axisByKey(key), v]);
+  const rowIndex = new Map(rowValues.map((v, i) => [v, i]));
+  const colIndex = new Map(colValues.map((v, i) => [v, i]));
+  const cellOf = new Map();
+  for (const rec of sheetRecords) {
+    if (pins.some(([axis, v]) => axisValue(axis, rec) !== v)) continue;
+    const r = rowAxis ? rowIndex.get(axisValue(rowAxis, rec)) : 0;
+    const c = colAxis ? colIndex.get(axisValue(colAxis, rec)) : 0;
+    const at = r * colValues.length + c;
+    if (!cellOf.has(at)) cellOf.set(at, rec);
+  }
+
+  const shown = [];
   els.sheetGrid.style.gridTemplateColumns =
     `auto repeat(${colValues.length}, minmax(96px, 1fr))`;
   els.sheetGrid.appendChild(headCell(''));
-  const colAxis = sheetAxes.cols ? axisByKey(sheetAxes.cols) : null;
   // A prompt label is prose rather than a number, so its header is allowed to
   // wrap; nowrap would push one column out to the width of the whole phrase.
-  const prose = (axis) => (axis && axis.key === 'prompt' ? ' text' : '');
+  const prose = (axis) => (axis && (axis.key === 'prompt' || axis.key === 'negative') ? ' text' : '');
   colValues.forEach((v) => {
     els.sheetGrid.appendChild(
       headCell(colAxis ? `${colAxis.label} ${valueText(v)}` : '', `head${prose(colAxis)}`),
     );
   });
 
-  const rowAxis = sheetAxes.rows ? axisByKey(sheetAxes.rows) : null;
-  rowValues.forEach((rowValue) => {
+  rowValues.forEach((rowValue, r) => {
     els.sheetGrid.appendChild(
       headCell(
         rowAxis ? `${rowAxis.label} ${valueText(rowValue)}` : '',
         `rowhead${prose(rowAxis)}`,
       ),
     );
-    colValues.forEach((colValue) => {
-      const rec = sheetRecords.find((r) => matches(r, rowValue, colValue));
+    colValues.forEach((_, c) => {
+      const rec = cellOf.get(r * colValues.length + c);
       const cell = document.createElement('div');
       cell.className = rec ? 'sheet-cell' : 'sheet-cell empty';
       if (rec) {
         shown.push(rec);
-        const img = document.createElement('img');
-        img.src = rec.url;
-        img.alt = rec.prompt;
-        img.loading = 'lazy';
         // `shown` is still filling, but it is the same array by the time
         // anything can be clicked - so the arrows walk the sheet in reading
         // order rather than the gallery's.
-        img.onclick = () => openLightbox(rec, shown);
-        cell.appendChild(img);
+        cell.appendChild(thumb(rec, shown));
+        cell.dataset.id = rec.id;
       }
       els.sheetGrid.appendChild(cell);
     });
   });
 
-  const pinned = Object.entries(sheetAxes.pins)
-    .map(([key, v]) => `${axisByKey(key).label.toLowerCase()} ${valueText(v)}`)
+  const pinned = pins
+    .map(([axis, v]) => `${axis.label.toLowerCase()} ${valueText(v)}`)
     .join(', ');
   els.sheetNote.textContent = sheetRecords.length === 0
     ? 'Nothing matches. The filters above the sheet are the gallery search.'
@@ -976,6 +1058,8 @@ function setSheet(on) {
   els.sheetBtn.classList.toggle('active', on);
   els.sheet.hidden = !on;
   els.gallery.hidden = on;
+  // Off is a real escape hatch: whatever layout and pins were picked go with it.
+  if (!on) sheetAxes = { rows: null, cols: null, pins: {} };
   return resetGallery();
 }
 

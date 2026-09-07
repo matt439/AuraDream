@@ -154,6 +154,9 @@ class ImageRecord(BaseModel):
     id: int
     filename: str
     url: str
+    # A ~384 px WEBP beside the PNG, for the cards and the sheet. Null for rows
+    # written before it existed; the client then shows the PNG.
+    thumb_url: str | None = None
     prompt: str
     negative_prompt: str | None
     width: int
@@ -199,6 +202,10 @@ class ModelStatus(BaseModel):
     quantization: str
     offload: str
     detail: str | None = None
+    # The most images one grid may queue, which is also the page size the
+    # contact sheet asks for: a matrix with a page boundary through it is a
+    # puzzle, so the client reads the ceiling from here rather than assuming it.
+    max_grid_images: int = settings.max_grid_images
     vram_total_mb: int | None = None
     vram_used_mb: int | None = None
     device_name: str | None = None

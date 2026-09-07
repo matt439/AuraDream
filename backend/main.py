@@ -357,7 +357,9 @@ async def job_stream(job_id: str) -> StreamingResponse:
 async def gallery(
     # A sheet asks for a whole run at once - up to a full grid - where the grid
     # view pages. The rows are small; the thumbnails load lazily either way.
-    limit: int = Query(48, ge=1, le=1024),
+    # The ceiling follows KREA_MAX_GRID_IMAGES, which /api/status publishes, so
+    # the sheet's one-page request cannot be refused by the server that sized it.
+    limit: int = Query(48, ge=1, le=max(1024, settings.max_grid_images)),
     offset: int = Query(0, ge=0),
     search: str | None = None,
     favorites: bool = False,

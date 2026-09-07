@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import uuid
@@ -19,7 +20,37 @@ if TYPE_CHECKING:
     from .grid import CellKey
     from .schemas import GenerateRequest
 
+log = logging.getLogger(__name__)
+
 _write_lock = threading.Lock()
+
+# The long side of the WEBP written beside every PNG. The gallery's cards are
+# 160 px and the sheet's cells 96 px; a 2048x2048 PNG is 5 MB on disk and 17 MB
+# decoded, and a page of 48 of them was 400 MB of bitmap to paint 48 squares.
+THUMB_SIDE = 384
+
+
+def _thumb_path(path):
+    return path.with_suffix(".webp")
+
+
+def _write_thumb(image: Image.Image, path) -> None:
+    """A small WEBP beside the PNG, for the cards and the sheet.
+
+    Written *after* the PNG's rename, so a failed INSERT leaves no thumbnail
+    for a row that never existed, and through the same `.part`-then-rename
+    step so the orphan sweep never sees a half-written one. A thumbnail that
+    fails costs bandwidth, not the image: the record falls back to the PNG.
+    """
+    partial = path.with_name(path.name + ".part")
+    try:
+        small = image.copy()
+        small.thumbnail((THUMB_SIDE, THUMB_SIDE))
+        small.save(partial, format="WEBP", quality=82, method=4)
+        partial.replace(path)
+    except Exception:  # noqa: BLE001 - the PNG and its row are already safe
+        log.warning("thumbnail for %s not written", path.name, exc_info=True)
+        _unlink(partial)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS images (
@@ -129,10 +160,14 @@ def init_db() -> None:
 
 
 def _row_to_record(row: sqlite3.Row) -> ImageRecord:
+    # Rows from before thumbnails were written have none; the client falls back
+    # to the PNG. One stat per row, cheap next to the query.
+    thumb = _thumb_path(settings.outputs_dir / row["filename"])
     return ImageRecord(
         id=row["id"],
         filename=row["filename"],
         url=f"/outputs/{row['filename']}",
+        thumb_url=f"/outputs/{thumb.name}" if thumb.exists() else None,
         prompt=row["prompt"],
         negative_prompt=row["negative_prompt"],
         width=row["width"],
@@ -241,6 +276,7 @@ def save_image(
         # tidying up must not replace the error that got us here.
         _unlink(partial)
         raise
+    _write_thumb(image, _thumb_path(path))
     return _row_to_record(row)
 
 
@@ -468,6 +504,7 @@ def delete_image(image_id: int) -> bool:
     # delete that did happen into a 500. clear_history's orphan sweep collects
     # whatever gets left behind.
     _unlink(settings.outputs_dir / record.filename)
+    _unlink(_thumb_path(settings.outputs_dir / record.filename))
     return True
 
 
@@ -489,6 +526,12 @@ def summarise() -> dict[str, int]:
     """
     total = favorites = 0
     tracked: set[str] = set()
+    # The directory first, the rows second: `save_image` commits before it
+    # renames, so a PNG the scan can see already has a row by the time the rows
+    # are read. The other order judged an image that landed in between as an
+    # orphan.
+    files = list(settings.outputs_dir.glob("*.png"))
+    thumbs = list(settings.outputs_dir.glob("*.webp"))
     if settings.db_path.exists():
         with _session() as conn:
             total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
@@ -496,10 +539,9 @@ def summarise() -> dict[str, int]:
                 "SELECT COUNT(*) FROM images WHERE favorite = 1"
             ).fetchone()[0]
         tracked = {r["filename"] for r in _tracked_files()}
-    files = list(settings.outputs_dir.glob("*.png"))
 
     total_bytes = 0
-    for path in files:
+    for path in files + thumbs:
         try:
             total_bytes += path.stat().st_size
         except OSError:
@@ -539,15 +581,25 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
         path = settings.outputs_dir / filename
         if path.exists() and _unlink(path):
             removed += 1
+        _unlink(_thumb_path(path))
 
     # Anything left with no row behind it: earlier deletions, interrupted runs.
     # An image still being written is a *.png.part and matches neither glob, so
-    # a clear during a sweep can no longer delete one out from under it.
+    # a clear during a sweep can no longer delete one out from under it. The
+    # scan is materialised *before* the rows are read: a save commits its row
+    # and then renames, so any PNG the scan saw has a row by the time `keep`
+    # is built - read the other way round, an image landing in between was
+    # deleted with its row left pointing at nothing.
+    files = list(settings.outputs_dir.glob("*.png"))
     keep = {r["filename"] for r in _tracked_files()}
     orphans = 0
-    for path in settings.outputs_dir.glob("*.png"):
+    for path in files:
         if path.name not in keep and _unlink(path):
             orphans += 1
+    # A thumbnail whose PNG is gone - deleted above, or by hand.
+    for path in settings.outputs_dir.glob("*.webp"):
+        if not path.with_suffix(".png").exists():
+            _unlink(path)
 
     return {"records": len(doomed), "files": removed, "orphans": orphans}
 

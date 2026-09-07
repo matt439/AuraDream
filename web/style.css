@@ -264,6 +264,13 @@ button { font: inherit; cursor: pointer; }
 .viewer.many img { max-height: 20vh; }
 .placeholder { color: var(--muted); }
 
+/* Every image that opens the lightbox is in the tab order; the ring says which
+   one Enter would open. Inset, since the card and the cell clip their overflow. */
+.viewer img:focus-visible, .card img:focus-visible, .sheet-cell img:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: -2px;
+}
+
 .gallery-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .gallery-head h2 { font-size: 15px; margin: 0; font-weight: 600; }
 #gallery-count { color: var(--muted); font-weight: 400; font-size: 13px; }

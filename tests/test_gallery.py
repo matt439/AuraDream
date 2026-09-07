@@ -27,6 +27,34 @@ def test_save_image_leaves_a_png_and_no_partial(store):
     assert store.summarise()["orphan_files"] == 0
 
 
+def test_save_image_writes_a_thumbnail_beside_the_png(store):
+    record = store.save_image(
+        Image.new("RGB", (1024, 768)),
+        GenerateRequest(prompt="big", width=1024, height=768),
+        seed=1,
+        duration_ms=100,
+        model_id="test/model",
+    )
+    thumb = store.settings.outputs_dir / record.filename.replace(".png", ".webp")
+    assert record.thumb_url == f"/outputs/{thumb.name}"
+    with Image.open(thumb) as small:
+        assert small.format == "WEBP"
+        assert max(small.size) == store.THUMB_SIDE
+    # The record read back from the gallery says the same, and one from before
+    # thumbnails existed says nothing rather than pointing at a 404.
+    assert store.list_images()[0][0].thumb_url == record.thumb_url
+    thumb.unlink()
+    assert store.list_images()[0][0].thumb_url is None
+
+
+def test_deleting_an_image_takes_its_thumbnail(store):
+    record = _add(store, "gone")
+    thumb = store.settings.outputs_dir / record.filename.replace(".png", ".webp")
+    assert thumb.exists()
+    assert store.delete_image(record.id)
+    assert not thumb.exists()
+
+
 def test_favorites_survive_the_like_fallback(store):
     # An odd number of double quotes is what pushes the query off FTS: the
     # tokens go into MATCH quoted, and `26"` closes a string it never opened.
@@ -84,14 +112,20 @@ def test_clear_history_keeps_favorites_and_their_files(store):
     assert (store.settings.outputs_dir / kept.filename).exists()
     assert not (store.settings.outputs_dir / gone.filename).exists()
     assert store.summarise()["records"] == 1
+    # Thumbnails follow their PNGs both ways.
+    outputs = store.settings.outputs_dir
+    assert (outputs / kept.filename.replace(".png", ".webp")).exists()
+    assert not (outputs / gone.filename.replace(".png", ".webp")).exists()
 
 
 def test_clear_history_sweeps_orphans_but_not_partials(store):
     _add(store, "tracked")
     (store.settings.outputs_dir / "orphan.png").write_bytes(b"not really a png")
+    (store.settings.outputs_dir / "orphan.webp").write_bytes(b"its thumbnail")
     # An image another process is part way through writing.
     (store.settings.outputs_dir / "inflight.png.part").write_bytes(b"half an image")
 
     result = store.clear_history()
     assert result["orphans"] == 1
+    assert not (store.settings.outputs_dir / "orphan.webp").exists()
     assert (store.settings.outputs_dir / "inflight.png.part").exists()
