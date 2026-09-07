@@ -425,11 +425,17 @@ function promptLines(prompts) {
 // The preview is the server's own expansion rather than a count worked out in
 // here: the syntax has one parser, and the message a bad axis produces is the
 // one the run itself would have refused with.
+// Preview replies can overtake each other across the server's one await (the
+// duration lookup), so a slow reply for the boxes as they *were* could land
+// after the reply for the boxes as they are. Same token the gallery uses.
+let previewEpoch = 0;
+
 async function previewGrid() {
   if (!els.gridSection.open) {
     if (gridMaxCfg !== null) { gridMaxCfg = null; syncCfg(); }
     return;
   }
+  const epoch = ++previewEpoch;
   // Nothing to preview before there is something to render: the server needs a
   // prompt to validate the request at all, and an untouched panel is not a
   // mistake to be reported.
@@ -444,6 +450,7 @@ async function previewGrid() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(gridPayload()),
     });
+    if (epoch !== previewEpoch) return;  // superseded while in flight
     els.gridPreview.classList.remove('warn');
     // The axis decides the negative prompt's reach - see syncCfg.
     const reach = Math.max(...p.values.guidance_scale.filter((v) => typeof v === 'number'));
@@ -460,6 +467,7 @@ async function previewGrid() {
       ...promptLines(p.values.prompt),
     ].join('\n');  // .hint.pre renders the breaks
   } catch (err) {
+    if (epoch !== previewEpoch) return;
     els.gridPreview.classList.add('warn');
     els.gridPreview.textContent = err.message;
   }
@@ -1165,6 +1173,10 @@ async function stepLightbox(delta) {
     // Walking off the end of the grid pulls the next page rather than stopping.
     if (!canPage()) return;
     await loadGallery();
+    // The user may have moved on during the await - ArrowLeft is synchronous -
+    // and this step then belongs to an image no longer in view: drop it rather
+    // than re-imposing its own start and landing two images ahead.
+    if (lbList[lbIndex] !== current) return;
     // The strip can have moved during the await - a delete, another page - so
     // step from where this image is now rather than from a stale index.
     const at = lbList.indexOf(current);

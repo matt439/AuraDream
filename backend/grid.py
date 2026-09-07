@@ -359,6 +359,21 @@ def prompts_of(cells: list[Cell]) -> list[str]:
     return list(dict.fromkeys(cell.request.prompt for cell in cells))
 
 
+def estimate_seconds(cells: list[Cell], per_step_ms: float | None) -> float | None:
+    """How long these cells will take to generate, from a per-step cost.
+
+    One helper for the preview and the CLI so the arithmetic is not written
+    twice. Per *step* times the cell's steps times its batch: a grid's cells
+    disagree about step count, so an average image duration would misstate
+    most of them. Generation time, not wall clock - the CLI pays a load per
+    invocation on top. None when there was nothing to measure from.
+    """
+    if per_step_ms is None:
+        return None
+    total_steps = sum(cell.request.steps * cell.request.num_images for cell in cells)
+    return round(per_step_ms * total_steps / 1000, 1)
+
+
 def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
     """A name for the run that is the same however many jobs it takes to finish.
 

@@ -264,8 +264,12 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   `Exception` after `Cancelled`, records it on the job (`failures`, `error`),
   skips the cell and continues; three failures in a row, or more than a third
   of the grid, re-raise and end the job. A finished job with failures reports
-  `done` with an `error` line the UI shows. `_generate` returns whether it left
-  the loop early, and the terminal status comes from that rather than from the
+  `done` with an `error` line the UI shows. Every job logs a line when queued,
+  one per cell and one at the end, and carries `created_at`/`started_at`/
+  `finished_at`/`last_progress_at` as float seconds in its snapshot
+  (json-native; a datetime would raise mid-job on the SSE path). `_generate`
+  returns whether it left the loop early, and the terminal status comes from
+  that rather than from the
   cancel flag - a cancel that lands after the last step used to relabel a
   complete run "cancelled". Every terminal transition goes through `_finish`,
   which owns the `done_sent` guard for state *and* event: a queued job the
@@ -376,11 +380,16 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `generate.py` duplicates the sweep loop from `jobs._generate` rather than
   importing it: that method is welded to a `Job`, an event loop and an SSE
   queue, none of which exist in a CLI. What it no longer duplicates is *which
-  images to make*: both call `grid.expand()`, which with no axes set yields
-  exactly the old runs loop (`seed + index * num_images`, same wrap helper), so
-  a cell in the browser and a cell in the terminal cannot drift apart. It still
-  owns the per-image `seed + offset` and the `save_image` call. Nor does it
-  duplicate settings:
+  images to make*: the CLI and `/api/grid` both call `grid.expand()`, which
+  with no axes set yields exactly the old runs loop (`seed + index *
+  num_images`, same wrap helper), so a grid cell in the browser and one in the
+  terminal cannot drift apart. **`jobs.submit()` - the plain `/api/generate`
+  path - is the one remaining copy of that seed loop**, kept inline
+  deliberately: routing it through `expand()` would apply the grid's
+  placeholder check to an ordinary prompt with braces in it. Its arithmetic is
+  asserted equal to the CLI's in `tests/test_cli.py`. The CLI still owns the
+  per-image `seed + offset` and the `save_image` call, and shares
+  `grid.estimate_seconds` with the preview. Nor does it duplicate settings:
   `--model/--quant/--offload` are written into `os.environ` *before* the first
   import of `backend.config`, because `settings` is a frozen dataclass whose
   fields are evaluated at import time.

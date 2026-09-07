@@ -230,6 +230,9 @@ def save_image(
     """
     created = datetime.now(timezone.utc)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
+    # The directory can disappear under a running server - renamed, deleted by
+    # hand - and the full denoise then died here. One mkdir per image is cheap.
+    ensure_outputs_dir()
     path = settings.outputs_dir / filename
     # Written under a temporary name and renamed only once the row is committed.
     # A 2048x2048 PNG takes ~240ms to encode and `_write_lock` means nothing to

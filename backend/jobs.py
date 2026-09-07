@@ -82,6 +82,13 @@ class Job:
     # Set from the event loop, read from the worker thread between steps.
     cancel_requested: bool = False
     done_sent: bool = False
+    # Unix seconds as floats - JSON-native, since snapshot() goes straight
+    # through json.dumps on the SSE path. `last_progress_at` is what tells a
+    # sweep that is moving from one wedged behind a hung load.
+    created_at: float = field(default_factory=time.time)
+    started_at: float | None = None
+    finished_at: float | None = None
+    last_progress_at: float | None = None
 
     def publish(self, event: dict) -> None:
         """Hand an event to every attached stream. Event-loop thread only."""
@@ -110,6 +117,10 @@ class Job:
             "label": self.label,
             "error": self.error,
             "failures": self.failures,
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "last_progress_at": self.last_progress_at,
         }
         if images:
             frame["images"] = list(self.images)
@@ -189,6 +200,14 @@ class JobManager:
             total_runs=len(cells),
         )
         self._jobs[job.id] = job
+        # A line at the start, one per cell and one at the end: an overnight
+        # grid started from the browser used to leave nothing in the log unless
+        # it broke, where the CLI writes one line per cell when redirected.
+        log.info(
+            "job %s queued: %d cell(s), run %s, seed %s, %dx%d",
+            job.id, len(cells), job.run_id, job.seed,
+            cells[0].request.width, cells[0].request.height,
+        )
         # Keep the dict from growing without bound over a long session.
         if len(self._jobs) > 200:
             for stale in list(self._jobs)[:-100]:
@@ -237,6 +256,13 @@ class JobManager:
         if error is not None:
             job.error = error
         job.done_sent = True
+        job.finished_at = time.time()
+        since = job.started_at or job.created_at
+        log.info(
+            "job %s %s: %d image(s) in %.0fs%s",
+            job.id, status, len(job.images), job.finished_at - since,
+            f", {job.failures} cell(s) failed" if job.failures else "",
+        )
         self._emit(loop, job, {"type": "done", **job.snapshot()})
 
     async def _run(self, job: Job) -> None:
@@ -256,6 +282,7 @@ class JobManager:
                 self._finish(loop, job, "cancelled")
                 return
             job.status = "running"
+            job.started_at = time.time()
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
             try:
                 stopped = await loop.run_in_executor(self._pool, self._generate, job, loop)
@@ -299,6 +326,7 @@ class JobManager:
 
         def on_progress(step: int, total: int) -> None:
             job.step, job.total_steps = step, total
+            job.last_progress_at = time.time()
             self._emit(
                 loop,
                 job,
@@ -321,6 +349,10 @@ class JobManager:
             # progress events carry are the cell's, not the job's. Without the
             # images: they were each delivered as their own event already.
             job.run, job.step, job.total_steps, job.label = index + 1, 0, req.steps, cell.label
+            log.info(
+                "job %s: cell %d/%d seed %d%s",
+                job.id, index + 1, len(job.cells), seed, f"  {cell.label}" if cell.label else "",
+            )
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
 
             started = time.perf_counter()

@@ -71,7 +71,18 @@ def _importable(name: str) -> bool:
 
 
 def _hub_file(model_id: str, filename: str) -> str:
-    """Path to one file of a Hub repo, downloading only that file."""
+    """Path to one file of a checkpoint, downloading only that file.
+
+    A local directory is resolved locally: `from_pretrained` branches on
+    `os.path.isdir` itself, but the two callers here run *before* it - the
+    fp8/int8 component scan and the Nunchaku preflight - and a directory id
+    handed to the Hub client died with a validation error naming the model id
+    and not the quantization.
+    """
+    import os
+
+    if os.path.isdir(model_id):
+        return os.path.join(model_id, filename)
     from huggingface_hub import hf_hub_download
 
     return hf_hub_download(model_id, filename)

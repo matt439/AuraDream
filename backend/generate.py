@@ -192,6 +192,9 @@ def _project() -> SimpleNamespace:
 
 def _duration(seconds: float) -> str:
     minutes, secs = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m"
     return f"{minutes}m{secs:02d}s" if minutes else f"{secs}s"
 
 
@@ -348,6 +351,18 @@ def main(argv: list[str] | None = None) -> int:
             f"output   : {total_images} image(s) - {len(cells)} run(s) x "
             f"{request.num_images} -> {p.settings.outputs_dir}"
         )
+        # The same estimate the browser's preview shows, from recent images at
+        # this size on this checkpoint - the one number that decides whether a
+        # night's grid is a night's grid. Only from an existing gallery: the
+        # lookup would otherwise write the schema into a new file, which a
+        # --dry-run promises not to do.
+        if p.settings.db_path.exists():
+            seconds = p.grid.estimate_seconds(
+                cells,
+                p.storage.step_cost_ms(request.width, request.height, p.settings.model_id),
+            )
+            if seconds is not None:
+                print(f"estimate : about {_duration(seconds)} of generation, plus the load")
         print()
 
     # To stderr: `--quiet > paths.txt` promises stdout holds nothing but paths.

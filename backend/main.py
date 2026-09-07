@@ -340,14 +340,13 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     per_step_ms = await asyncio.to_thread(
         storage.step_cost_ms, request.width, request.height, settings.model_id
     )
-    total_steps = sum(cell.request.steps for cell in cells) * request.num_images
     return GridPreview(
         values=values,
         cells=len(cells),
         images=len(cells) * request.num_images,
         skipped=skipped,
         summary=grid.describe(values, request.seeds),
-        seconds=None if per_step_ms is None else round(per_step_ms * total_steps / 1000, 1),
+        seconds=grid.estimate_seconds(cells, per_step_ms),
     )
 
 
