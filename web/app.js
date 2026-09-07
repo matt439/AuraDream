@@ -166,13 +166,22 @@ function syncSize() {
   els.sizeHint.classList.toggle('warn', tight);
 }
 
+// The highest CFG the open grid's axis reaches, from the last preview; null when
+// the grid section is closed or the axis is blank. A grid decides guidance per
+// cell, so the negative prompt has to be offered when *any* cell would apply
+// it, not only when the panel's single value would.
+let gridMaxCfg = null;
+
 function syncCfg() {
-  const off = !negativeSupported || +els.cfg.value <= cfgThreshold;
+  const reach = gridMaxCfg === null ? +els.cfg.value : Math.max(+els.cfg.value, gridMaxCfg);
+  const off = !negativeSupported || reach <= cfgThreshold;
   els.negField.classList.toggle('disabled', off);
   els.negative.disabled = off;
-  els.negNote.textContent = negativeSupported
-    ? `(needs CFG > ${cfgThreshold} — ~2× slower)`
-    : '(this checkpoint takes no negative prompt)';
+  els.negNote.textContent = !negativeSupported
+    ? '(this checkpoint takes no negative prompt)'
+    : gridMaxCfg !== null && +els.cfg.value <= cfgThreshold && reach > cfgThreshold
+      ? `(applies to the grid cells above CFG ${cfgThreshold} — ~2× slower there)`
+      : `(needs CFG > ${cfgThreshold} — ~2× slower)`;
 }
 
 // Batch holds every image in VRAM at once, which is what stops a 2K batch from
@@ -257,7 +266,9 @@ function collect() {
   const seed = els.seed.value.trim();
   return {
     prompt: els.prompt.value.trim(),
-    negative_prompt: els.negative.value.trim() || null,
+    // A greyed-out field has been told it cannot apply; sending its contents
+    // anyway put a negative prompt the pipeline never saw into every record.
+    negative_prompt: els.negative.disabled ? null : els.negative.value.trim() || null,
     width: +els.width.value,
     height: +els.height.value,
     steps: +els.steps.value,
@@ -379,7 +390,10 @@ function promptLines(prompts) {
 // here: the syntax has one parser, and the message a bad axis produces is the
 // one the run itself would have refused with.
 async function previewGrid() {
-  if (!els.gridSection.open) return;
+  if (!els.gridSection.open) {
+    if (gridMaxCfg !== null) { gridMaxCfg = null; syncCfg(); }
+    return;
+  }
   // Nothing to preview before there is something to render: the server needs a
   // prompt to validate the request at all, and an untouched panel is not a
   // mistake to be reported.
@@ -395,6 +409,10 @@ async function previewGrid() {
       body: JSON.stringify(gridPayload()),
     });
     els.gridPreview.classList.remove('warn');
+    // The axis decides the negative prompt's reach - see syncCfg.
+    const reach = Math.max(...p.values.guidance_scale.filter((v) => typeof v === 'number'));
+    gridMaxCfg = Number.isFinite(reach) ? reach : null;
+    syncCfg();
     // Totals on the first line, the resolved axes on the second: what a range
     // actually expanded to is the half of it that is easy to get wrong.
     els.gridPreview.textContent = [

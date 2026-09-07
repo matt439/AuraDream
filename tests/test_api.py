@@ -24,11 +24,19 @@ class FakeBackend(GenerationBackend):
 
     name = "fake"
 
-    def __init__(self, step_seconds: float = 0.0):
+    def __init__(self, step_seconds: float = 0.0, cfg_threshold: float | None = None):
         self.step_seconds = step_seconds
         self.requests: list[GenerateRequest] = []
         self.seeds: list[int] = []
         self.loaded = True
+        # None: apply everything as asked, like the base class. A number: behave
+        # like a pipeline whose negative prompt switches on above it.
+        self.cfg_threshold = cfg_threshold
+
+    def applied(self, request):
+        if self.cfg_threshold is None:
+            return request
+        return request.applied(negative_prompt_supported=True, cfg_threshold=self.cfg_threshold)
 
     def load(self) -> None:
         self.loaded = True
@@ -536,6 +544,29 @@ def test_a_resumed_grid_is_one_run_under_two_jobs(client, fake):
     assert page["total"] == 3
     assert {item["run_id"] for item in page["items"]} == {first["run_id"]}
     assert len({item["job_id"] for item in page["items"]}) == 2
+
+
+def test_the_record_carries_what_ran_not_what_was_asked(client, fake):
+    # Turbo at CFG 0 never sees a negative prompt; the row and the resume key
+    # used to carry it anyway, so clearing the greyed-out box before a resume
+    # matched nothing and re-rendered the whole grid.
+    fake.cfg_threshold = 0.0
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "cfg_axis": "0,1",
+        "seed": 5, "negative_prompt": "blurry",
+    }
+    images = _stream(client, client.post("/api/grid", json=body).json()["job_id"])[-1]["images"]
+    by_cfg = {record["guidance_scale"]: record["negative_prompt"] for record in images}
+    assert by_cfg == {0.0: None, 1.0: "blurry"}
+    assert {record["quantization"] for record in images} == {settings.quantization}
+    # Resubmitted with the box cleared, the CFG 0 cells count as done and only
+    # the guided cells - whose negative prompt did change - are outstanding.
+    preview = client.post(
+        "/api/grid/preview", json={**body, "negative_prompt": None, "resume": True}
+    ).json()
+    assert (preview["skipped"], preview["cells"]) == (2, 2)
+    # And resubmitted as it was, everything is.
+    assert client.post("/api/grid", json={**body, "resume": True}).status_code == 409
 
 
 def test_resume_without_a_seed_is_refused(client, fake):

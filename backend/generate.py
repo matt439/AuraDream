@@ -260,8 +260,14 @@ def main(argv: list[str] | None = None) -> int:
     # gallery's `run:` filter and on the contact sheet.
     run_id = p.grid.run_id(cells, p.settings.model_id, p.settings.quantization)
 
+    # Built before the load, and cheap to: unloaded, `applied()` answers from
+    # the checkpoint profile, which is what decides the resume comparison and
+    # the negative-prompt note below.
+    backend = p.get_backend("diffusers")
+
     # Resume before the model loads: an already-finished grid should cost the
-    # database lookup and nothing else.
+    # database lookup and nothing else. Compared as the pipeline would run each
+    # cell, since that is what the rows were written from.
     skipped = 0
     if args.resume:
         p.storage.init_db()
@@ -270,9 +276,16 @@ def main(argv: list[str] | None = None) -> int:
             request.width,
             request.height,
             p.settings.model_id,
+            p.settings.quantization,
         )
         before = len(cells)
-        cells = p.grid.prune_done(cells, done)
+        cells = [
+            cell
+            for cell in cells
+            if p.grid.prune_done(
+                [p.grid.Cell(request=backend.applied(cell.request), seed=cell.seed)], done
+            )
+        ]
         skipped = before - len(cells)
 
     total_images = len(cells) * request.num_images
@@ -285,14 +298,21 @@ def main(argv: list[str] | None = None) -> int:
         if request.negative_prompt:
             # Where guidance switches on is a property of the checkpoint, not a
             # constant: FLUX bakes guidance_scale into the model and needs true
-            # CFG above 1, Krea 2 guides from 0 up.
-            threshold = profile["cfg_threshold"]
+            # CFG above 1, Krea 2 guides from 0 up. Counted over the cells, not
+            # the base CFG: a `--grid-cfg` that crosses the threshold applies
+            # it to some cells and not others.
+            applying = sum(1 for cell in cells if backend.applied(cell.request).negative_prompt)
             if not profile["negative_prompt_supported"]:
                 note = "  [ignored: this checkpoint takes no negative prompt]"
-            elif request.guidance_scale > threshold:
+            elif applying == len(cells):
                 note = ""
+            elif applying == 0:
+                note = f"  [ignored: CFG is at or below {profile['cfg_threshold']:g}]"
             else:
-                note = f"  [ignored: CFG is at or below {threshold:g}]"
+                note = (
+                    f"  [applies to {applying} of {len(cells)} cells - the ones above "
+                    f"CFG {profile['cfg_threshold']:g}]"
+                )
             print(f"negative : {request.negative_prompt}{note}")
         print(
             f"size     : {request.width}x{request.height} "
@@ -341,7 +361,6 @@ def main(argv: list[str] | None = None) -> int:
     # Every image of this invocation carries it, so a CLI grid groups in the
     # gallery exactly as a browser one does.
     job_id = uuid.uuid4().hex[:12]
-    backend = p.get_backend("diffusers")
     # This process renders its own status line; the engine's bar would share the
     # line with it and win.
     backend.set_console_progress(False)
@@ -418,6 +437,8 @@ def main(argv: list[str] | None = None) -> int:
             elapsed_ms = int((time.perf_counter() - started) * 1000)
             if live:
                 print("\r" + " " * 40 + "\r", end="")
+            # What ran, not what was asked - the same rule the server follows.
+            ran = backend.applied(cell.request)
 
             for offset, image in enumerate(images):
                 # Each image in a batch gets its own reproducible seed, wrapped
@@ -425,12 +446,13 @@ def main(argv: list[str] | None = None) -> int:
                 # and the seed actually drawn cannot disagree.
                 record = p.storage.save_image(
                     image,
-                    cell.request,
+                    ran,
                     seed=wrap_seed(run_seed + offset),
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=p.settings.model_id,
                     job_id=job_id,
                     run_id=run_id,
+                    quantization=p.settings.quantization,
                 )
                 saved += 1
                 print(

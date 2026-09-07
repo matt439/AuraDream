@@ -245,13 +245,21 @@ def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int
     run_id = grid.run_id(cells, settings.model_id, settings.quantization)
     if not request.resume:
         return cells, values, 0, run_id
+    # Compare what the pipeline would *run*, not what the panel says: the rows
+    # were written from `backend.applied()`, so a negative prompt a Turbo cell
+    # at CFG 0 never saw is None on both sides rather than on one.
     done = storage.completed_cells(
         grid.prompts_of(cells),
         request.width,
         request.height,
         settings.model_id,
+        settings.quantization,
     )
-    kept = grid.prune_done(cells, done)
+    kept = [
+        cell
+        for cell in cells
+        if grid.prune_done([grid.Cell(request=backend.applied(cell.request), seed=cell.seed)], done)
+    ]
     return kept, values, len(cells) - len(kept), run_id
 
 

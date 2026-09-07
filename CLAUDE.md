@@ -75,8 +75,18 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   The backend keys the threshold off `"true_cfg_scale" in self._call_params`,
   and `/api/status` publishes it as `defaults.cfg_threshold` for the UI and the
   CLI. Dropping the negative prompt below the threshold saves nothing - neither
-  pipeline encodes it outside its guidance branch - it only keeps the recorded
-  settings honest about what ran.
+  pipeline encodes it outside its guidance branch - it exists to keep the
+  recorded settings honest about what ran, **and that only holds if the drop
+  reaches the row**: `GenerateRequest.applied()` is the one normalisation
+  (negative prompt gone where unsupported or at/below the threshold, mu gone
+  where the pipeline has no way to take one), `backend.applied()` answers it
+  from the loaded parameter list or, unloaded, from the profile, and both save
+  paths write `applied()` rather than the request. `main._expand` and the CLI
+  run the same normalisation over the cells before `prune_done`, so a resume
+  whose negative prompt the pipeline never saw still matches the rows it
+  wrote. The UI's `collect()` sends null for a greyed-out field, and the field
+  is gated on the highest CFG the open grid's axis reaches, not the panel's
+  single value - a grid decides guidance per cell.
 - `KREA_QUANT=nunchaku` loads a checkpoint that is *already* quantized (Nunchaku
   Lite, SVDQuant W4A4; `quant_method: nunchaku_lite` in the transformer's
   `config.json`, bitsandbytes NF4 in the text encoder's) and passes diffusers no
@@ -252,10 +262,15 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   average image duration would misstate most of them. No rows, no estimate.
 - **Resume keys on settings, not on the job.** `storage.completed_cells()` reads
   back (prompt, negative prompt, steps, CFG, mu, seed) for the *distinct
-  prompts* a grid resolved to, at a size on a checkpoint - a list, because a
-  prompt grid renders several - and
-  `grid.prune_done()` subtracts them, so a night that died is continued by a
-  *new* job and a cell rendered by hand earlier counts too. Both sides round to
+  prompts* a grid resolved to, at a size on a checkpoint **under a quantizer**
+  - a list, because a prompt grid renders several - and `grid.prune_done()`
+  subtracts them, so a night that died is continued by a *new* job and a cell
+  rendered by hand earlier counts too. A cell with `num_images > 1` is done
+  only when **every** per-image seed is present (`grid.cell_keys`): the rows
+  are per image, and one committed image of four used to mark the cell done.
+  Quantization is part of the reproduction set (same seed, different quantizer,
+  different pixels), so it is recorded on the row and in the PNG and scopes the
+  lookup; rows from before the column match any quantizer. Both sides round to
   the six decimals `parse_axis` produces, so a float that has been through
   SQLite's REAL still matches. Resume **requires an explicit seed** — a random
   base would match none of the run it means to continue and would silently

@@ -1,7 +1,7 @@
 """Request/response models for the HTTP API."""
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -60,6 +60,32 @@ class GenerateRequest(BaseModel):
             raise ValueError(
                 f"{self.width}x{self.height} exceeds the {settings.max_pixels:,} pixel budget"
             )
+
+    def applied(
+        self,
+        *,
+        negative_prompt_supported: bool,
+        cfg_threshold: float,
+        mu_supported: bool = True,
+    ) -> "GenerateRequest":
+        """This request as the pipeline will actually run it.
+
+        A negative prompt is dropped where it cannot apply - a pipeline that
+        takes none, or a guidance scale at or below the threshold where the
+        uncond pass switches on - and mu where the pipeline has no way to take
+        one. What comes back is what gets *recorded*: the gallery row, the PNG
+        and the resume key all describe the image that was made, not the boxes
+        that were filled in, so a resume whose negative prompt the pipeline never
+        saw still matches the rows it wrote, and Reuse restores what ran.
+        """
+        changes: dict[str, Any] = {}
+        if self.negative_prompt and (
+            not negative_prompt_supported or self.guidance_scale <= cfg_threshold
+        ):
+            changes["negative_prompt"] = None
+        if self.mu is not None and not mu_supported:
+            changes["mu"] = None
+        return self.model_copy(update=changes) if changes else self
 
 
 class GridRequest(GenerateRequest):
@@ -139,6 +165,10 @@ class ImageRecord(BaseModel):
     mu: float | None = None
     seed: int
     model_id: str
+    # fp8, int8, none, nunchaku: part of the reproduction set - the same seed
+    # through a different quantizer is a different picture - and so part of the
+    # resume key. Null for rows written before it was recorded.
+    quantization: str | None = None
     # The run that made it: a grid, a sweep, or one CLI invocation. Null for
     # anything written before runs were grouped.
     job_id: str | None = None

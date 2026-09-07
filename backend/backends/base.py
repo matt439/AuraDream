@@ -60,6 +60,14 @@ class GenerationBackend(abc.ABC):
     def describe(self) -> dict:
         """Backend/device metadata for the status endpoint."""
 
+    def applied(self, request: "GenerateRequest") -> "GenerateRequest":
+        """The request as this backend will actually run it - see
+        `GenerateRequest.applied`. What the callers record beside the image and
+        compare against for resume, so a backend that quietly drops a setting
+        must say so here. The default applies everything as given.
+        """
+        return request
+
     def set_console_progress(self, enabled: bool) -> None:
         """Show or hide the engine's *own* console progress bar. Optional.
 

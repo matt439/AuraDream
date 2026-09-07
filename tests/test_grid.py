@@ -249,6 +249,18 @@ def test_a_run_is_named_by_its_definition_not_its_job():
     )
 
 
+def test_a_batch_cell_is_not_done_until_every_image_is():
+    # Rows are per image; the base seed alone used to mark a four-image cell
+    # rendered the moment its first image committed.
+    cells = grid.expand(request(seed=1000, num_images=4), steps="8,10", seeds=2)
+    assert [c.seed for c in cells] == [1000, 1000, 1004, 1004]
+    first_only = {grid.cell_key(cells[0])}
+    assert grid.prune_done(cells, first_only) == cells
+    whole = set(grid.cell_keys(cells[0]))
+    assert [key[-1] for key in grid.cell_keys(cells[0])] == [1000, 1001, 1002, 1003]
+    assert grid.prune_done(cells, whole) == cells[1:]
+
+
 def test_resume_tells_two_prompts_apart():
     # The key carries the prompt, so finishing one prompt's cells does not
     # cancel the identical settings under another.

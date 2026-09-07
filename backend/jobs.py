@@ -283,6 +283,10 @@ class JobManager:
                 )
                 break
             elapsed_ms = int((time.perf_counter() - started) * 1000)
+            # Record what ran, not what was asked: a negative prompt the
+            # pipeline dropped below its threshold, or a mu it had no way to
+            # take, must not reach the row - resume compares against it.
+            ran = self.backend.applied(req)
 
             for offset, image in enumerate(images):
                 # Each image in a batch gets its own reproducible seed. Wrapped
@@ -290,12 +294,13 @@ class JobManager:
                 # the generator uses, so the two cannot disagree.
                 record = storage.save_image(
                     image,
-                    req,
+                    ran,
                     seed=wrap_seed(seed + offset),
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=settings.model_id,
                     job_id=job.id,
                     run_id=job.run_id,
+                    quantization=settings.quantization,
                 )
                 job.images.append(record.model_dump())
                 # Publish it now: a long sweep should fill the page as it goes

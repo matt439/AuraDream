@@ -301,13 +301,31 @@ def cell_key(cell: "Cell") -> CellKey:
     )
 
 
+def cell_keys(cell: "Cell") -> list[CellKey]:
+    """One key per image the cell will write - `seed + offset` for each of the batch.
+
+    `completed_cells` answers with one row per *image*, under the image's own
+    seed, so a cell is only done when every one of its images is there. Keying
+    on the base seed alone declared a four-image cell rendered the moment its
+    first image committed, and a resume then never drew the other three.
+    """
+    base = cell_key(cell)
+    return [
+        (*base[:-1], wrap_seed(cell.seed + offset)) for offset in range(cell.request.num_images)
+    ]
+
+
 def prune_done(cells: list[Cell], done: set[CellKey]) -> list[Cell]:
     """Drop the cells already sitting in the gallery, keeping the order.
+
+    A cell counts as done only when every image of its batch is in `done`; a
+    batch that was cut off part-way is rendered again in full, since the
+    pipeline draws a batch as one call and cannot resume from image two.
 
     Order matters as much here as in `expand`: a resumed grid picks up where the
     night stopped, so what it does first is still the earliest seed it is short.
     """
-    return [cell for cell in cells if cell_key(cell) not in done]
+    return [cell for cell in cells if not all(key in done for key in cell_keys(cell))]
 
 
 def prompts_of(cells: list[Cell]) -> list[str]:

@@ -42,6 +42,7 @@ def keep(store, prompt="a fox in the snow", **overrides):
     fields = {"prompt": prompt, "width": 256, "height": 256, "steps": 8, "guidance_scale": 0.0}
     job_id = overrides.pop("job_id", None)
     run_id = overrides.pop("run_id", None)
+    quantization = overrides.pop("quantization", None)
     seed = overrides.pop("seed", 1)
     fields.update(overrides)
     # The row records the *image's* size, not the request's, so the two have to
@@ -54,6 +55,7 @@ def keep(store, prompt="a fox in the snow", **overrides):
         model_id=fields.pop("model_id", "krea/Krea-2-Turbo"),
         job_id=job_id,
         run_id=run_id,
+        quantization=quantization,
     )
 
 
@@ -163,6 +165,28 @@ def test_completed_cells_answers_for_every_prompt_of_a_grid(store):
     done = store.completed_cells(["a big fox", "a small fox"], 256, 256, "krea/Krea-2-Turbo")
     assert {key[0] for key in done} == {"a big fox", "a small fox"}
     assert ("a big fox", None, 8, 0.0, None, 2) not in done
+
+
+def test_completed_cells_are_scoped_to_the_quantizer(store):
+    # The same seed through fp8 and int8 is two pictures; a resume under int8
+    # must not count the fp8 night as done. A row from before the column was
+    # recorded matches either, so an older gallery keeps resuming.
+    keep(store, seed=1, quantization="fp8")
+    keep(store, seed=2, quantization=None)
+    turbo = ("a fox in the snow", None, 8, 0.0, None)
+    fp8 = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo", "fp8")
+    int8 = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo", "int8")
+    assert {key[-1] for key in fp8} == {1, 2}
+    assert {key[-1] for key in int8} == {2}
+    assert (*turbo, 1) in fp8
+    # And the quantizer is searchable, and lands in the PNG.
+    assert [r.seed for r in store.list_images(search="quant:fp8")[0]] == [1]
+    record = store.list_images(search="quant:fp8")[0][0]
+    from PIL import Image as PILImage
+
+    with PILImage.open(store.settings.outputs_dir / record.filename) as png:
+        assert '"quantization": "fp8"' in png.info["krea"]
+        assert "Quantization: fp8" in png.info["parameters"]
 
 
 def test_a_mu_free_cell_comes_back_as_none(store):

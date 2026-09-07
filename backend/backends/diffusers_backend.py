@@ -28,6 +28,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 from ..config import settings
+from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
 from .base import CancelFn, Cancelled, GenerationBackend, ProgressFn
 
@@ -326,6 +327,41 @@ class DiffusersBackend(GenerationBackend):
 
     # ------------------------------------------------------------- generation
 
+    def _mu_supported(self, pipe: Any) -> bool:
+        """Can a requested mu reach this pipeline's schedule at all?
+
+        Two routes: a scheduler that shifts for itself takes the value through
+        `set_timesteps(mu=...)`, which `_forced_mu` intercepts; one that does not
+        takes an explicit pre-shifted `sigmas` list, which needs the pipeline to
+        accept `sigmas`. With neither, mu is dropped - and has to be recorded as
+        dropped, or the row claims a shift the image never had.
+        """
+        scheduler = getattr(pipe, "scheduler", None)
+        if self._shifts_itself(pipe):
+            original = getattr(scheduler, "set_timesteps", None)
+            return original is not None and "mu" in inspect.signature(original).parameters
+        return "sigmas" in self._call_params
+
+    def applied(self, request: "GenerateRequest") -> "GenerateRequest":
+        """What this pipeline will run, from its parameter list once loaded.
+
+        Before a load the checkpoint profile's guess stands in, which is what
+        `/api/status` serves the UI in the same state - so the resume prune and
+        the row a job later writes agree whether or not the weights were resident
+        when the grid was previewed.
+        """
+        if self._pipe is None:
+            profile = defaults_for(settings.model_id)
+            return request.applied(
+                negative_prompt_supported=profile["negative_prompt_supported"],
+                cfg_threshold=profile["cfg_threshold"],
+            )
+        return request.applied(
+            negative_prompt_supported="negative_prompt" in self._call_params,
+            cfg_threshold=self.cfg_threshold(),
+            mu_supported=self._mu_supported(self._pipe),
+        )
+
     def generate(
         self,
         request: "GenerateRequest",
@@ -342,6 +378,12 @@ class DiffusersBackend(GenerationBackend):
         import torch
 
         pipe = self._pipe
+        # Run what will be recorded: the negative prompt where the pipeline can
+        # apply it, mu where it can take one. Anything dropped here is dropped
+        # from the row too, since the callers save `applied()` as well.
+        if request.negative_prompt and "negative_prompt" not in self._call_params:
+            log.info("this pipeline takes no negative prompt; ignoring it")
+        request = self.applied(request)
         total = request.steps
 
         if should_cancel is not None and should_cancel():
@@ -391,16 +433,13 @@ class DiffusersBackend(GenerationBackend):
         # old `> 1.0` gate dropped the negative prompt and the pipeline then ran
         # the uncond pass against an empty string anyway. Below the threshold
         # neither pipeline encodes a negative prompt at all, so nothing is saved
-        # by dropping it early - it is only ever dropped to keep the recorded
-        # settings honest about what ran.
+        # by dropping it early - `applied()` drops it so that the recorded
+        # settings are honest about what ran, and it has already decided by
+        # this line.
         # FLUX.2 klein takes no negative prompt at all (`negative_prompt_embeds`
         # only, and the base model's uncond pass runs against ""), so there the
         # question of a threshold never arises.
-        threshold = self.cfg_threshold()
-        supported = "negative_prompt" in self._call_params
-        if request.negative_prompt and not supported:
-            log.info("this pipeline takes no negative prompt; ignoring it")
-        if supported and request.negative_prompt and request.guidance_scale > threshold:
+        if request.negative_prompt:
             kwargs["negative_prompt"] = request.negative_prompt
             if "true_cfg_scale" in self._call_params:
                 kwargs["true_cfg_scale"] = request.guidance_scale

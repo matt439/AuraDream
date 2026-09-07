@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS images (
     favorite        INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT    NOT NULL,
     job_id          TEXT,
-    run_id          TEXT
+    run_id          TEXT,
+    quantization    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -75,13 +76,15 @@ def _migrate(conn: sqlite3.Connection) -> None:
     added = (
         ("job_id", "TEXT", "idx_images_job"),
         ("run_id", "TEXT", "idx_images_run"),
+        ("quantization", "TEXT", None),
     )
     for column, kind, index in added:
         if column in columns:
             continue
         try:
             conn.execute(f"ALTER TABLE images ADD COLUMN {column} {kind}")
-            conn.execute(f"CREATE INDEX IF NOT EXISTS {index} ON images ({column})")
+            if index:
+                conn.execute(f"CREATE INDEX IF NOT EXISTS {index} ON images ({column})")
         except sqlite3.OperationalError:  # another process got there first
             pass
     _migrated = True
@@ -140,6 +143,7 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         mu=row["mu"] if "mu" in row.keys() else None,
         seed=row["seed"],
         model_id=row["model_id"],
+        quantization=row["quantization"] if "quantization" in row.keys() else None,
         # Rows written before runs were grouped belong to no job.
         job_id=row["job_id"] if "job_id" in row.keys() else None,
         run_id=row["run_id"] if "run_id" in row.keys() else None,
@@ -157,7 +161,12 @@ def save_image(
     model_id: str,
     job_id: str | None = None,
     run_id: str | None = None,
+    quantization: str | None = None,
 ) -> ImageRecord:
+    """Write the PNG and its row. `request` must be what actually ran -
+    `backend.applied()` - not what was asked for: a negative prompt the
+    pipeline never saw, recorded here, defeats resume and misleads Reuse.
+    """
     created = datetime.now(timezone.utc)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
     path = settings.outputs_dir / filename
@@ -178,18 +187,23 @@ def save_image(
         "mu": request.mu,
         "seed": seed,
         "model": model_id,
+        "quantization": quantization,
         "job": job_id,
         "run": run_id,
         "size": f"{image.width}x{image.height}",
     }
     info = PngImagePlugin.PngInfo()
     # A1111-style single-line block, so other tools can read the params back.
+    # Mu is not an A1111 key, but it is part of what reproduces the image, which
+    # is the reason the block exists.
     info.add_text(
         "parameters",
         f"{request.prompt}\n"
         f"Negative prompt: {request.negative_prompt or ''}\n"
         f"Steps: {request.steps}, CFG scale: {request.guidance_scale}, "
-        f"Seed: {seed}, Size: {image.width}x{image.height}, Model: {model_id}",
+        f"Seed: {seed}, Size: {image.width}x{image.height}, Model: {model_id}"
+        + (f", Mu: {request.mu}" if request.mu is not None else "")
+        + (f", Quantization: {quantization}" if quantization else ""),
     )
     info.add_text("krea", json.dumps(meta))
     image.save(partial, format="PNG", pnginfo=info, compress_level=4)
@@ -199,8 +213,9 @@ def save_image(
             cur = conn.execute(
                 """INSERT INTO images (filename, prompt, negative_prompt, width, height,
                                        steps, guidance_scale, mu, seed, model_id,
-                                       duration_ms, created_at, job_id, run_id)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                       duration_ms, created_at, job_id, run_id,
+                                       quantization)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     filename,
                     request.prompt,
@@ -216,6 +231,7 @@ def save_image(
                     created.isoformat(),
                     job_id,
                     run_id,
+                    quantization,
                 ),
             )
             row = conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -273,6 +289,7 @@ _FILTERS: dict[str, tuple[str, Any]] = {
     "cfg": ("guidance_scale", float),
     "mu": ("mu", float),
     "model": ("model_id", str),
+    "quant": ("quantization", str),
     "job": ("job_id", str),
     "run": ("run_id", str),
 }
@@ -376,7 +393,11 @@ def list_images(
 
 
 def completed_cells(
-    prompts: Sequence[str], width: int, height: int, model_id: str
+    prompts: Sequence[str],
+    width: int,
+    height: int,
+    model_id: str,
+    quantization: str | None = None,
 ) -> set[CellKey]:
     """The (prompt, negative, steps, CFG, mu, seed) of everything already rendered.
 
@@ -386,21 +407,28 @@ def completed_cells(
     just the same. Rounded to the same six decimals the axis parser produces,
     so a float that survived a round trip through SQLite still matches.
 
+    Scoped to the size, the checkpoint and - when given - the quantizer: the
+    same seed through fp8 and through int8 is two different pictures, and a
+    resume under the other one must not count the first as done. Rows that
+    predate the column match any quantizer, so an older gallery keeps resuming.
+
     `prompts` is a list because a grid may vary the prompt: the caller passes
     the distinct prompts its cells resolved to. Chunked, since SQLite's default
     ceiling on host parameters is 999 and a grid may queue more cells than that.
     """
     wanted = list(dict.fromkeys(prompts))
     keys: set[CellKey] = set()
+    scope = "AND (quantization IS NULL OR quantization = ?)" if quantization else ""
+    scope_params = (quantization,) if quantization else ()
     with _session() as conn:
         for start in range(0, len(wanted), 400):
             chunk = wanted[start : start + 400]
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, seed FROM images
-                    WHERE width = ? AND height = ? AND model_id = ?
+                    WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
-                (width, height, model_id, *chunk),
+                (width, height, model_id, *scope_params, *chunk),
             ).fetchall()
             keys.update(
                 (

@@ -115,6 +115,20 @@ def test_a_scheduler_that_does_not_shift_gets_an_explicit_schedule():
     assert _applied(scheduler) == _schedule(1.15)
 
 
+def test_applied_reports_what_the_pipeline_will_run():
+    # The stub takes a negative prompt and no true_cfg_scale, so it guides from
+    # 0 like Krea 2: a negative prompt at CFG 0 is dropped, at 0.5 it is kept,
+    # and mu reaches the scheduler either way.
+    scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
+    backend, _ = _backend(scheduler)
+    asked = _request(negative_prompt="blurry", guidance_scale=0.0, mu=1.15)
+    ran = backend.applied(asked)
+    assert (ran.negative_prompt, ran.mu) == (None, 1.15)
+    assert backend.applied(_request(negative_prompt="blurry", guidance_scale=0.5)).negative_prompt == "blurry"
+    # Unloaded, the checkpoint profile's guess stands in.
+    assert DiffusersBackend().applied(asked).prompt == asked.prompt
+
+
 def test_the_formula_matches_the_schedulers_own():
     scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
     ramp = np.linspace(1.0, 1 / STEPS, STEPS)
