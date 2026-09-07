@@ -96,10 +96,13 @@ class GridRequest(GenerateRequest):
     def _resume_needs_a_fixed_seed(self) -> "GridRequest":
         # Without one the resumed grid draws a fresh random base, matches none
         # of the night it is meant to continue, and quietly renders the whole
-        # thing again. Reuse any image of that run to recover its seed.
+        # thing again. The base seed is published when the grid is queued and
+        # written into the Seed box; failing that, the *oldest* image of the run
+        # carries it - the newest carries the highest seed the night reached.
         if self.resume and self.seed is None:
             raise ValueError(
-                "resume needs the grid's seed - reuse it from any image of that run"
+                "resume needs the seed the grid was started from - the Seed box shows it "
+                "after Run grid, and the oldest image of the run carries it"
             )
         return self
 
@@ -139,6 +142,10 @@ class ImageRecord(BaseModel):
     # The run that made it: a grid, a sweep, or one CLI invocation. Null for
     # anything written before runs were grouped.
     job_id: str | None = None
+    # The *definition* that made it - `grid.run_id`, the same across every job
+    # that worked on the grid, so a night resumed twice is still one run. Null
+    # for anything written before runs had one.
+    run_id: str | None = None
     duration_ms: int
     created_at: str
     favorite: bool = False
@@ -169,3 +176,8 @@ class ModelStatus(BaseModel):
 
 class JobAccepted(BaseModel):
     job_id: str
+    # The base seed the job drew or was given. A grid with a blank Seed box is
+    # otherwise unrecoverable: every image carries a *derived* seed, and resume
+    # needs the base.
+    seed: int
+    run_id: str

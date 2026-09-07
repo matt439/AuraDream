@@ -31,6 +31,8 @@ which is the comparison you wanted; the alternative leaves every seed half done.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -311,6 +313,32 @@ def prune_done(cells: list[Cell], done: set[CellKey]) -> list[Cell]:
 def prompts_of(cells: list[Cell]) -> list[str]:
     """The distinct prompts a grid would render, for the resume lookup."""
     return list(dict.fromkeys(cell.request.prompt for cell in cells))
+
+
+def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
+    """A name for the run that is the same however many jobs it takes to finish.
+
+    A job id is minted per submission, so a night that died and was resumed
+    carries two of them, and the search grammar cannot join them back into one
+    matrix. This is derived from the run's own definition instead - every cell
+    key of the *full* grid, before resume subtracts anything, plus the size,
+    the batch and the checkpoint that decide what the cells become - so the
+    resubmission that continues a grid recomputes the very same id, and the
+    contact sheet can ask for `run:<id>` and get the whole night.
+
+    Order-independent on purpose: two grids that render the same cells are the
+    same run however their axes were spelled.
+    """
+    first = cells[0].request
+    definition = {
+        "model": model_id,
+        "quant": quantization,
+        "size": [first.width, first.height],
+        "batch": first.num_images,
+        "cells": sorted(json.dumps(cell_key(cell)) for cell in cells),
+    }
+    digest = hashlib.sha1(json.dumps(definition, sort_keys=True).encode()).hexdigest()
+    return digest[:12]
 
 
 def expand(

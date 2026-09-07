@@ -37,10 +37,12 @@ CREATE TABLE IF NOT EXISTS images (
     duration_ms     INTEGER NOT NULL,
     favorite        INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT    NOT NULL,
-    job_id          TEXT
+    job_id          TEXT,
+    run_id          TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
+CREATE INDEX IF NOT EXISTS idx_images_run ON images (run_id);
 CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
     USING fts5(prompt, content='images', content_rowid='id');
 CREATE TRIGGER IF NOT EXISTS images_ai AFTER INSERT ON images BEGIN
@@ -70,10 +72,16 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if _migrated:
         return
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
-    if "job_id" not in columns:
+    added = (
+        ("job_id", "TEXT", "idx_images_job"),
+        ("run_id", "TEXT", "idx_images_run"),
+    )
+    for column, kind, index in added:
+        if column in columns:
+            continue
         try:
-            conn.execute("ALTER TABLE images ADD COLUMN job_id TEXT")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id)")
+            conn.execute(f"ALTER TABLE images ADD COLUMN {column} {kind}")
+            conn.execute(f"CREATE INDEX IF NOT EXISTS {index} ON images ({column})")
         except sqlite3.OperationalError:  # another process got there first
             pass
     _migrated = True
@@ -134,6 +142,7 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         model_id=row["model_id"],
         # Rows written before runs were grouped belong to no job.
         job_id=row["job_id"] if "job_id" in row.keys() else None,
+        run_id=row["run_id"] if "run_id" in row.keys() else None,
         duration_ms=row["duration_ms"],
         created_at=row["created_at"],
         favorite=bool(row["favorite"]),
@@ -147,6 +156,7 @@ def save_image(
     duration_ms: int,
     model_id: str,
     job_id: str | None = None,
+    run_id: str | None = None,
 ) -> ImageRecord:
     created = datetime.now(timezone.utc)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
@@ -169,6 +179,7 @@ def save_image(
         "seed": seed,
         "model": model_id,
         "job": job_id,
+        "run": run_id,
         "size": f"{image.width}x{image.height}",
     }
     info = PngImagePlugin.PngInfo()
@@ -188,8 +199,8 @@ def save_image(
             cur = conn.execute(
                 """INSERT INTO images (filename, prompt, negative_prompt, width, height,
                                        steps, guidance_scale, mu, seed, model_id,
-                                       duration_ms, created_at, job_id)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                       duration_ms, created_at, job_id, run_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     filename,
                     request.prompt,
@@ -204,6 +215,7 @@ def save_image(
                     duration_ms,
                     created.isoformat(),
                     job_id,
+                    run_id,
                 ),
             )
             row = conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -262,6 +274,7 @@ _FILTERS: dict[str, tuple[str, Any]] = {
     "mu": ("mu", float),
     "model": ("model_id", str),
     "job": ("job_id", str),
+    "run": ("run_id", str),
 }
 _COMPARISONS = ("<=", ">=", "<", ">")
 _NULL_TOKENS = {"none", "null", "off"}

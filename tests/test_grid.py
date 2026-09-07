@@ -229,6 +229,26 @@ def test_prompts_of_lists_each_one_once():
     ]
 
 
+# ------------------------------------------------------------------- run id
+
+
+def test_a_run_is_named_by_its_definition_not_its_job():
+    # The same grid spelled two ways is one run; a resume that recomputes the id
+    # from the full grid lands on the id the first job used.
+    full = grid.expand(request(seed=42), steps="6,8,10", seeds=2)
+    spelled = grid.expand(request(seed=42), steps="10,6-8x2", seeds=2)
+    assert grid.run_id(full, "m", "fp8") == grid.run_id(spelled, "m", "fp8")
+    # Anything that changes what the cells become is a different run.
+    assert grid.run_id(full, "m", "fp8") != grid.run_id(full, "other", "fp8")
+    assert grid.run_id(full, "m", "fp8") != grid.run_id(full, "m", "int8")
+    assert grid.run_id(full, "m", "fp8") != grid.run_id(
+        grid.expand(request(seed=43), steps="6,8,10", seeds=2), "m", "fp8"
+    )
+    assert grid.run_id(full, "m", "fp8") != grid.run_id(
+        grid.expand(request(seed=42, width=512), steps="6,8,10", seeds=2), "m", "fp8"
+    )
+
+
 def test_resume_tells_two_prompts_apart():
     # The key carries the prompt, so finishing one prompt's cells does not
     # cancel the identical settings under another.

@@ -194,7 +194,7 @@ async def generate(request: GenerateRequest) -> JobAccepted:
     # retried here rather than short-circuiting - the user may have just been
     # granted repo access.
     job = await jobs.submit(request)
-    return JobAccepted(job_id=job.id)
+    return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 
 def _detail(exc: ValueError) -> str:
@@ -213,12 +213,15 @@ def _detail(exc: ValueError) -> str:
     )
 
 
-def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int]:
-    """The grid as cells, its resolved axes, and the number resume dropped.
+def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int, str]:
+    """The grid as cells, its resolved axes, the number resume dropped, its run id.
 
     The axes come back from here rather than being resolved again by the
     preview, so a prompt whose placeholders do not line up with its variables
-    fails once, as a 422, instead of raising out of the response model.
+    fails once, as a 422, instead of raising out of the response model. The run
+    id is computed over the *whole* grid, before resume subtracts anything, so
+    the job that continues a night is stamped with the same id as the job that
+    started it.
     """
     try:
         request.check_budget()
@@ -239,8 +242,9 @@ def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=_detail(exc)) from exc
+    run_id = grid.run_id(cells, settings.model_id, settings.quantization)
     if not request.resume:
-        return cells, values, 0
+        return cells, values, 0, run_id
     done = storage.completed_cells(
         grid.prompts_of(cells),
         request.width,
@@ -248,7 +252,7 @@ def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int
         settings.model_id,
     )
     kept = grid.prune_done(cells, done)
-    return kept, values, len(cells) - len(kept)
+    return kept, values, len(cells) - len(kept), run_id
 
 
 @app.post("/api/grid", response_model=JobAccepted)
@@ -258,13 +262,13 @@ async def run_grid(request: GridRequest) -> JobAccepted:
     One job rather than one per cell: a grid is a night's work, and it has to be
     cancellable, reattachable and ahead of nothing in the queue as a unit.
     """
-    cells, _, _ = _expand(request)
+    cells, _, _, run_id = _expand(request)
     if not cells:
         # Every cell is already in the gallery. Queueing an empty job would
         # report "done" having rendered nothing, which reads like a failure.
         raise HTTPException(status_code=409, detail="every cell is already rendered")
-    job = await jobs.submit_cells(cells)
-    return JobAccepted(job_id=job.id)
+    job = await jobs.submit_cells(cells, run_id=run_id)
+    return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 
 @app.post("/api/grid/preview", response_model=GridPreview)
@@ -274,7 +278,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     Same expansion as the real thing, so the count and the error messages the
     panel shows are the ones the run would have produced.
     """
-    cells, values, skipped = _expand(request)
+    cells, values, skipped, _ = _expand(request)
     # Cost is per step, and a grid's cells rarely agree on how many they take.
     per_step_ms = await asyncio.to_thread(storage.step_cost_ms, request.width, request.height)
     total_steps = sum(cell.request.steps for cell in cells) * request.num_images

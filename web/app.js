@@ -311,12 +311,20 @@ async function startJob(path, payload) {
   els.progressText.textContent = 'queued…';
 
   try {
-    const { job_id } = await api(path, {
+    const { job_id, seed } = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     currentJob = job_id;
+    // A grid started from a blank Seed box drew its own base, and every image
+    // it produces carries a *derived* seed - so the base is written back here,
+    // where Resume will need it. Only for a grid: a plain Generate left blank is
+    // asking for a fresh seed every click.
+    if (path === '/api/grid' && els.seed.value.trim() === '' && seed != null) {
+      els.seed.value = seed;
+      syncRuns();
+    }
     await streamJob(job_id);
   } catch (err) {
     showError(err.message);
@@ -607,11 +615,13 @@ function card(rec) {
   tools.append(
     tool('↻', 'Reuse settings', () => reuse(rec)),
     tool('⊞', 'Show this run as a sheet', () => {
-      if (!rec.job_id) {
+      if (!rec.run_id && !rec.job_id) {
         showError('That image predates runs being grouped, so it belongs to no run.', true);
         return;
       }
-      els.search.value = `job:${rec.job_id}`;
+      // The run id spans every job that worked on the grid - a night that died
+      // and was resumed is one run - where the job id names only one of them.
+      els.search.value = rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`;
       setSheet(true);
     }),
     star,

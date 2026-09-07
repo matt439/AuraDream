@@ -291,9 +291,18 @@ nothing comparable. The prompt is the next loop in, for the same reason.
 same grid. It matches on the settings that make the image rather than on the job
 that ran them, so a *new* job continues a dead one and an image rendered by hand
 earlier counts too. Each prompt of a prompt grid counts on its own. It needs the
-Seed field filled in — a random base would match none of the run it is
-continuing and would quietly render the whole thing again; reuse any image of
-that run to recover its seed.
+Seed field filled in with the seed the grid was *started* from — a random base
+would match none of the run it is continuing and would quietly render the whole
+thing again. Run grid writes that seed into the box when it was left blank, and
+the queued job's response carries it. Failing both, the *oldest* image of the run
+has it: every image records a derived seed, the newest is the last seed the night
+reached, and with a batch above 1 only the first image of each batch is a cell's
+base.
+
+Every image also records a **run id** derived from the grid's definition, so a
+night that was resumed once or three times is still one run: the card's ⊞
+button and the `run:` search term show the whole matrix, where `job:` shows one
+submission of it.
 
 **Cancel** lands within a step, keeps everything already written, and a grid
 that is entirely finished is refused rather than queued to do nothing.

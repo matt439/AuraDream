@@ -260,16 +260,26 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   SQLite's REAL still matches. Resume **requires an explicit seed** — a random
   base would match none of the run it means to continue and would silently
   render the whole grid again — and an entirely-finished grid answers 409
-  rather than queueing a job that reports "done" having drawn nothing.
-- Every image records the `job_id` that made it: a browser job's id, or one
-  minted per CLI invocation. That is what groups a night's work, and the
-  gallery's `job:` filter is how you get it back. Rows written before the column
-  existed have NULL, so `_row_to_record` and the UI both tolerate its absence -
-  and `_migrate()` adds the column to an older database, because
-  `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it was.
+  rather than queueing a job that reports "done" having drawn nothing. The seed
+  is the one setting the client is never given back by the images: every row
+  carries a *derived* seed (`base + seed_index * num_images`, plus the batch
+  offset), so `JobAccepted` and `Job.snapshot()` publish the base, the UI
+  writes it into a blank Seed box after `Run grid`, and the recovery
+  instruction everywhere says the *oldest* image of the run, never "any".
+- Every image records the `job_id` that made it - a browser job's id, or one
+  minted per CLI invocation - **and the `run_id` of the grid it belongs to**
+  (`grid.run_id`: a hash of the checkpoint, quantization, size, batch and every
+  cell key of the *full* grid, computed in `main._expand` and `generate.py`
+  before resume prunes anything). A resumed night therefore lands under a second
+  job id but the same run id, and the gallery's `run:` filter - which is what
+  the card's ⊞ button sets - shows the whole matrix where `job:` shows one
+  submission. Rows written before either column existed have NULL, so
+  `_row_to_record` and the UI both tolerate their absence - and `_migrate()`
+  adds the columns to an older database, because `CREATE TABLE IF NOT EXISTS`
+  leaves an existing table exactly as it was.
 - The gallery search box is `key:value` terms plus free text: the terms become
   SQL predicates (`seed:42`, `cfg:<=0.5`, `steps:8-12`, `mu:none`, `model:flux`,
-  `job:ab12cd`) and only what is left goes to the FTS index, so a prompt that
+  `run:ab12cd`, `job:ab12cd`) and only what is left goes to the FTS index, so a prompt that
   happens to contain a colon still searches for itself. `mu:none` is `IS NULL` -
   no shift at all is a different image from `mu:0`, and SQL matches NULL with
   neither.

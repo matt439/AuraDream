@@ -18,7 +18,7 @@ from typing import Any
 from . import storage
 from .backends import Cancelled, GenerationBackend
 from .config import settings
-from .grid import Cell
+from .grid import Cell, run_id as _run_id
 from .schemas import GenerateRequest
 from .seeds import random_seed, wrap_seed
 
@@ -52,6 +52,11 @@ class Job:
     # nothing below this line needs to know which it was handed.
     request: GenerateRequest
     cells: list[Cell] = field(default_factory=list)
+    # The base seed of the first cell - the one the client has to be given back,
+    # because every image it will see carries a derived one - and the run the
+    # cells belong to, which a resume shares with the job it continues.
+    seed: int | None = None
+    run_id: str | None = None
     status: str = "queued"  # queued | running | done | error | cancelled
     step: int = 0
     total_steps: int = 0
@@ -77,6 +82,8 @@ class Job:
     def snapshot(self) -> dict[str, Any]:
         return {
             "job_id": self.id,
+            "run_id": self.run_id,
+            "seed": self.seed,
             "status": self.status,
             "step": self.step,
             "total_steps": self.total_steps,
@@ -143,12 +150,20 @@ class JobManager:
             ]
         )
 
-    async def submit_cells(self, cells: list[Cell]) -> Job:
-        """Queue an already-expanded list of pipeline calls - a grid, usually."""
+    async def submit_cells(self, cells: list[Cell], run_id: str | None = None) -> Job:
+        """Queue an already-expanded list of pipeline calls - a grid, usually.
+
+        `run_id` names the run the cells belong to. A resumed grid hands in the
+        id of the *whole* grid, computed before the finished cells were
+        subtracted, so its images join the night they continue; left out, the
+        cells themselves are the definition.
+        """
         job = Job(
             id=uuid.uuid4().hex[:12],
             request=cells[0].request,
             cells=cells,
+            seed=cells[0].seed,
+            run_id=run_id or _run_id(cells, settings.model_id, settings.quantization),
             total_steps=cells[0].request.steps,
             total_runs=len(cells),
         )
@@ -280,6 +295,7 @@ class JobManager:
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=settings.model_id,
                     job_id=job.id,
+                    run_id=job.run_id,
                 )
                 job.images.append(record.model_dump())
                 # Publish it now: a long sweep should fill the page as it goes

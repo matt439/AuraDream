@@ -41,6 +41,7 @@ def keep(store, prompt="a fox in the snow", **overrides):
     """Write one image, returning its record."""
     fields = {"prompt": prompt, "width": 256, "height": 256, "steps": 8, "guidance_scale": 0.0}
     job_id = overrides.pop("job_id", None)
+    run_id = overrides.pop("run_id", None)
     seed = overrides.pop("seed", 1)
     fields.update(overrides)
     # The row records the *image's* size, not the request's, so the two have to
@@ -52,6 +53,7 @@ def keep(store, prompt="a fox in the snow", **overrides):
         duration_ms=1000,
         model_id=fields.pop("model_id", "krea/Krea-2-Turbo"),
         job_id=job_id,
+        run_id=run_id,
     )
 
 
@@ -75,10 +77,10 @@ def test_a_database_from_before_job_ids_gains_the_column(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(storage, "_migrated", False)  # another test may have run first
 
-    record = keep(storage, job_id="abc123")
-    assert record.job_id == "abc123"
+    record = keep(storage, job_id="abc123", run_id="run001")
+    assert (record.job_id, record.run_id) == ("abc123", "run001")
     items, total = storage.list_images()
-    assert total == 1 and items[0].job_id == "abc123"
+    assert total == 1 and (items[0].job_id, items[0].run_id) == ("abc123", "run001")
 
 
 # -------------------------------------------------------------------- filters
@@ -129,6 +131,15 @@ def test_the_job_filter_selects_one_run(store):
     keep(store, seed=2, job_id="night01")
     keep(store, seed=3, job_id="night02")
     assert store.list_images(search="job:night01")[1] == 2
+
+
+def test_the_run_filter_joins_the_jobs_that_continued_it(store):
+    # A resumed grid lands under a second job id; the run id is the grid's own.
+    keep(store, seed=1, job_id="night01", run_id="grid-a")
+    keep(store, seed=2, job_id="night02", run_id="grid-a")
+    keep(store, seed=3, job_id="night03", run_id="grid-b")
+    assert store.list_images(search="run:grid-a")[1] == 2
+    assert store.list_images(search="job:night01")[1] == 1
 
 
 # --------------------------------------------------------------------- resume

@@ -485,6 +485,59 @@ def test_resuming_a_finished_grid_refuses_rather_than_running_nothing(client, fa
     assert len(fake.requests) == 2
 
 
+def test_a_grid_publishes_the_seed_it_drew(client, fake):
+    # A grid with a blank Seed box draws its own base and every image carries a
+    # *derived* seed - so the base has to come back in the response, or resume
+    # has nothing to key on.
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "seeds": 2},
+    )
+    accepted = response.json()
+    assert isinstance(accepted["seed"], int)
+    assert client.get(f"/api/jobs/{accepted['job_id']}").json()["seed"] == accepted["seed"]
+    events = _stream(client, accepted["job_id"])
+    # The base is the *oldest* image's seed, not the newest's.
+    assert events[-1]["images"][0]["seed"] == accepted["seed"]
+    assert events[-1]["images"][-1]["seed"] == accepted["seed"] + 1
+    # And resuming with it finds every cell done.
+    resume = client.post(
+        "/api/grid",
+        json={
+            "prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "seeds": 2,
+            "seed": accepted["seed"], "resume": True,
+        },
+    )
+    assert resume.status_code == 409
+
+
+def test_a_plain_request_publishes_its_seed_too(client):
+    accepted = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "seed": 77}
+    ).json()
+    assert accepted["seed"] == 77
+    assert accepted["run_id"]
+
+
+def test_a_resumed_grid_is_one_run_under_two_jobs(client, fake):
+    body = {"prompt": "a lighthouse in fog", "width": 256, "height": 256, "steps_axis": "6,8,10", "seed": 11}
+    first = client.post("/api/grid", json=body).json()
+    images = _stream(client, first["job_id"])[-1]["images"]
+    # Pretend the night died after one cell: lose the other two, then resume.
+    for record in images[1:]:
+        client.delete(f"/api/images/{record['id']}")
+    second = client.post("/api/grid", json={**body, "resume": True}).json()
+    _stream(client, second["job_id"])
+    assert second["job_id"] != first["job_id"]
+    # The run id is the whole grid's, so both halves carry it - and the sheet's
+    # `run:` filter returns the complete matrix where `job:` would return a part.
+    assert second["run_id"] == first["run_id"]
+    page = client.get(f"/api/gallery?search=run:{second['run_id']}").json()
+    assert page["total"] == 3
+    assert {item["run_id"] for item in page["items"]} == {first["run_id"]}
+    assert len({item["job_id"] for item in page["items"]}) == 2
+
+
 def test_resume_without_a_seed_is_refused(client, fake):
     # It would draw a fresh random base, match none of the night it is meant to
     # continue, and render the whole grid again while reporting a resume.

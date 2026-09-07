@@ -255,6 +255,11 @@ def main(argv: list[str] | None = None) -> int:
         print(exc, file=sys.stderr)
         return 2
 
+    # The run's name is the whole grid's, taken before resume subtracts anything,
+    # so a night continued from the terminal joins the one it continues - in the
+    # gallery's `run:` filter and on the contact sheet.
+    run_id = p.grid.run_id(cells, p.settings.model_id, p.settings.quantization)
+
     # Resume before the model loads: an already-finished grid should cost the
     # database lookup and nothing else.
     skipped = 0
@@ -298,6 +303,7 @@ def main(argv: list[str] | None = None) -> int:
             f"mu {'-' if request.mu is None else request.mu}"
         )
         print(f"seed     : {seed}" + ("" if args.seed is not None else "  (random)"))
+        print(f"run      : {run_id}")
         if gridding:
             values = p.grid.axis_values(
                 request, args.grid_steps, args.grid_cfg, args.grid_mu, prompt_axis
@@ -424,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
                     duration_ms=elapsed_ms // max(len(images), 1),
                     model_id=p.settings.model_id,
                     job_id=job_id,
+                    run_id=run_id,
                 )
                 saved += 1
                 print(

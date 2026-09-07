@@ -175,8 +175,10 @@
           finishing the big dog does not skip the small one.<br>
           A night that died at cell 300 of 480 costs the cell it died on, not the run:
           re-submit the same grid with this ticked.<br>
-          Needs the Seed field filled in — a random one would match none of the run it is
-          continuing. Reuse any image of that run to recover its seed.</span></span>
+          Needs the Seed field filled in with the seed the grid was <i>started</i> from —
+          Run grid writes it into the box when that was blank. Failing that, the oldest
+          image of the run carries it (the newest carries the last seed the night reached,
+          and with a batch above 1 only the first image of each batch is a cell's seed).</span></span>
       </label>
       <p class="hint pre" id="grid-preview"></p>
       <button class="primary" id="btn-grid">Run grid</button>
@@ -194,7 +196,9 @@
       <span class="help" tabindex="0" role="note" aria-label="Search syntax">?<span class="tip">
         Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
         <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>mu:none</b> ·
-        <b>model:flux</b> · <b>job:ab12cd</b><br>
+        <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b><br>
+        <b>run:</b> is a grid however many times it was resumed; <b>job:</b> is one
+        submission of it.<br>
         Numbers also take a comparison or a range: <b>cfg:&gt;=1</b> · <b>steps:8-12</b>.<br>
         <b>mu:none</b> is the images that ran with no shift at all — not the same as
         <b>mu:0</b>.</span></span>
