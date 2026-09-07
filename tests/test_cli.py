@@ -11,7 +11,7 @@ import signal
 import pytest
 
 import backend.backends as backends
-from backend import generate
+from backend import config, generate
 
 from tests.test_api import FakeBackend
 
@@ -19,8 +19,11 @@ from tests.test_api import FakeBackend
 @pytest.fixture
 def cli(store, monkeypatch):
     fake = FakeBackend()
-    # _project() imports get_backend at call time, so this is what main() sees.
+    # _project() imports get_backend and settings at call time, so these are
+    # what main() sees: the fake, and the throwaway gallery's paths rather than
+    # the real krea.db in the checkout.
     monkeypatch.setattr(backends, "get_backend", lambda name="diffusers": fake)
+    monkeypatch.setattr(config, "settings", store.settings)
     handler = signal.getsignal(signal.SIGINT)
     yield fake
     # main() installs a SIGINT handler and never removes it.
@@ -37,6 +40,16 @@ def test_a_dry_run_loads_and_writes_nothing(cli, store, capsys):
     out, err = capsys.readouterr()
     assert "seed     : 7" in out and "run      : " in out
     assert "Dry run" in err  # stderr, so `--quiet > paths.txt` stays paths
+
+
+def test_a_dry_run_with_resume_creates_no_database(cli, store):
+    # The resume lookup connects, and connecting writes the schema into any
+    # file it opens; a dry run against a gallery that does not exist yet used
+    # to leave a 40 KB krea.db behind.
+    store.settings.db_path.unlink()
+    code = generate.main(["a fox", "--dry-run", "--resume", "--seed", "1", "--grid-steps", "6,8", *SIZE])
+    assert code == 0
+    assert not store.settings.db_path.exists()
 
 
 def test_a_cli_sweep_writes_the_seeds_the_server_would(cli, store):

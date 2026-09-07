@@ -273,7 +273,10 @@ def main(argv: list[str] | None = None) -> int:
     # database lookup and nothing else. Compared as the pipeline would run each
     # cell, since that is what the rows were written from.
     skipped = 0
-    if args.resume:
+    # Only against a gallery that exists: `completed_cells` connects, and a
+    # connection writes the whole schema into any file it opens - which a
+    # --dry-run promises not to do. No database means nothing is done yet.
+    if args.resume and p.settings.db_path.exists():
         p.storage.init_db()
         done = p.storage.completed_cells(
             p.grid.prompts_of(cells),
