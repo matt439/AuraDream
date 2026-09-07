@@ -70,7 +70,16 @@ class GenerationBackend(abc.ABC):
 
     @abc.abstractmethod
     def describe(self) -> dict:
-        """Backend/device metadata for the status endpoint."""
+        """Metadata for `/api/status`.
+
+        Required keys, which `main.status()` indexes directly: `model_id`,
+        `quantization`, `offload`. Optional, merged when present:
+        `cfg_threshold` and `negative_prompt_supported` (None until a pipeline
+        is loaded - the parameter list is the answer), `device_name`,
+        `vram_total_mb`, `vram_used_mb`. Load errors are *not* reported here:
+        `main.ensure_loaded` records them, and that is what `ModelStatus.detail`
+        serves.
+        """
 
     def applied(self, request: "GenerateRequest") -> "GenerateRequest":
         """The request as this backend will actually run it - see

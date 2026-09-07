@@ -50,6 +50,28 @@ def test_prequantized_repo_gets_no_torchao_config(nunchaku):
     assert DiffusersBackend()._quantization_config() is None
 
 
+def test_fp8_refuses_a_prequantized_repo_before_the_download(monkeypatch, tmp_path):
+    # The mirror image of the Nunchaku preflight: `KREA_QUANT=fp8` on a lite
+    # repo used to download ~9 GB and die inside transformers.
+    monkeypatch.setattr(
+        module, "settings", dataclasses.replace(module.settings, quantization="fp8", model_id=MODEL)
+    )
+    files = {
+        "model_index.json": {"transformer": ["diffusers", "Krea2Transformer2DModel"]},
+        "transformer/config.json": PREQUANTIZED,
+    }
+
+    def hub_file(model_id, filename):
+        assert model_id == MODEL
+        path = tmp_path / filename.replace("/", "_")
+        path.write_text(json.dumps(files[filename]), encoding="utf-8")
+        return str(path)
+
+    monkeypatch.setattr(module, "_hub_file", hub_file)
+    with pytest.raises(RuntimeError, match="already quantized"):
+        DiffusersBackend()._quantization_config()
+
+
 def test_refuses_off_linux(nunchaku, monkeypatch):
     monkeypatch.setattr(sys, "platform", "win32")
     with pytest.raises(RuntimeError, match="WSL 2"):

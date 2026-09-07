@@ -83,12 +83,9 @@ class FakeBackend(GenerationBackend):
 
     def describe(self) -> dict:
         return {
-            "backend": self.name,
             "model_id": settings.model_id,
             "quantization": settings.quantization,
             "offload": settings.offload,
-            "detail": None,
-            "pipeline": "FakePipeline",
             "cfg_threshold": None,
         }
 

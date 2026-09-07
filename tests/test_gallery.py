@@ -27,6 +27,33 @@ def test_save_image_leaves_a_png_and_no_partial(store):
     assert store.summarise()["orphan_files"] == 0
 
 
+def test_the_png_carries_the_whole_reproduction_set(store):
+    # Key-set *equality*, not presence: the PNG is the only copy of these
+    # outside SQLite - the database is gitignored and clear.py deletes it
+    # wholesale - so adding a field to the reproduction set has to be a
+    # decision about the PNG too.
+    import json
+
+    record = store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="x", negative_prompt="y", width=256, height=256, mu=1.15, steps=8),
+        seed=5,
+        duration_ms=100,
+        model_id="test/model",
+        job_id="job1",
+        run_id="run1",
+        quantization="fp8",
+    )
+    with Image.open(store.settings.outputs_dir / record.filename) as png:
+        meta = json.loads(png.info["krea"])
+    assert set(meta) == {
+        "prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed",
+        "model", "quantization", "job", "run", "size",
+    }
+    assert (meta["seed"], meta["mu"], meta["run"], meta["quantization"]) == (5, 1.15, "run1", "fp8")
+    assert meta["size"] == "256x256"  # the image's, not the request's
+
+
 def test_save_image_writes_a_thumbnail_beside_the_png(store):
     record = store.save_image(
         Image.new("RGB", (1024, 768)),

@@ -95,7 +95,6 @@ class DiffusersBackend(GenerationBackend):
         self._pipe: Any = None
         self._lock = threading.Lock()
         self._call_params: set[str] = set()
-        self._error: str | None = None
         # diffusers draws its own tqdm bar per denoising loop. Kept on by
         # default; the CLI turns it off because it renders its own status line.
         self._console_progress = True
@@ -161,6 +160,7 @@ class DiffusersBackend(GenerationBackend):
             if cls is None:
                 log.warning("skipping %s: unknown library %r", component, library)
                 continue
+            self._refuse_prequantized(component)
             mapping[component] = cls(quant_type=make())
 
         if not mapping:
@@ -168,6 +168,27 @@ class DiffusersBackend(GenerationBackend):
             return None
         log.info("quantizing %s to %s", sorted(mapping), settings.quantization)
         return PipelineQuantizationConfig(quant_mapping=mapping)
+
+    @staticmethod
+    def _refuse_prequantized(component: str) -> None:
+        """The mirror image of `_nunchaku_preflight`: torchao on top of a repo
+        that is already quantized.
+
+        `KREA_QUANT=fp8` pointed at a Nunchaku Lite re-upload downloads ~9 GB and
+        then dies deep inside transformers ("quantized with BitsAndBytesConfig
+        but you are passing a TorchAoConfig"). One small config file says so up
+        front. Checked per quantizable component, since the text encoder and the
+        transformer name their quantizers separately.
+        """
+        with open(_hub_file(settings.model_id, f"{component}/config.json"), encoding="utf-8") as fh:
+            method = (json.load(fh).get("quantization_config") or {}).get("quant_method")
+        if method:
+            raise RuntimeError(
+                f"{settings.model_id} is already quantized ({component}: quant_method="
+                f"{method!r}); KREA_QUANT={settings.quantization} would stack torchao on top "
+                "and fail after the download. Use KREA_QUANT=nunchaku (Linux) for a Nunchaku "
+                "Lite repo, or point KREA_MODEL_ID at an unquantized checkpoint."
+            )
 
     @staticmethod
     def _nunchaku_preflight() -> None:
@@ -263,8 +284,7 @@ class DiffusersBackend(GenerationBackend):
             self._warn_about_schedule_post_processing(pipe)
             self._call_params = params
             self._pipe = pipe
-            self._error = None
-            log.info("model ready")
+            log.info("model ready: %s", type(pipe).__name__)
 
     def _apply_console_progress(self, pipe: Any) -> None:
         fn = getattr(pipe, "set_progress_bar_config", None)
@@ -603,12 +623,9 @@ class DiffusersBackend(GenerationBackend):
 
     def describe(self) -> dict:
         info: dict[str, Any] = {
-            "backend": self.name,
             "model_id": settings.model_id,
             "quantization": settings.quantization,
             "offload": settings.offload,
-            "detail": self._error,
-            "pipeline": type(self._pipe).__name__ if self._pipe is not None else None,
             "cfg_threshold": self.cfg_threshold(),
             # None until loaded, like the threshold: the parameter list is the answer.
             "negative_prompt_supported": (
