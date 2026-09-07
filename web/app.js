@@ -33,6 +33,7 @@ const els = {
   runHint: $('run-hint'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
+  lbError: $('lb-error'),
   lbReuse: $('lb-reuse'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
   lbFav: $('lb-fav'), lbDelete: $('lb-delete'),
 };
@@ -59,7 +60,14 @@ let pickedTier = 1;
 let offset = 0;
 let total = 0;
 let busy = false;
-let defaultsApplied = false;
+// Which sampling controls the user has taken off the checkpoint's profile.
+// Per control, not one flag for all three: touching Seed before the first
+// /api/status used to freeze steps, CFG and mu at the page's fallback numbers,
+// and on Turbo that is 28 steps at CFG 3.5 for a model trained for 8 at 0.
+const owned = { steps: false, cfg: false, mu: false };
+// The checkpoint the server is running, once /api/status has said. Reuse
+// compares a record against it: steps, CFG and mu are checkpoint-specific.
+let loadedModel = null;
 let statusPending = false;
 let currentJob = null;
 // One gallery page in flight at a time, and a token so a page that was already
@@ -116,9 +124,16 @@ function readableDetail(detail) {
 // `note` styles the same slot as muted rather than red, for outcomes that are
 // not failures - a cancelled run in particular.
 function showError(message, note = false) {
-  els.error.textContent = message || '';
+  // Unhide *before* writing: the slot is role=alert, and text written into a
+  // display:none node is never announced.
   els.error.hidden = !message;
+  els.error.textContent = message || '';
   els.error.classList.toggle('note', note);
+  // The lightbox covers the panel's slot; mirror into its own while it is up.
+  const mirror = els.lightbox.open;
+  els.lbError.hidden = !(mirror && message);
+  els.lbError.textContent = mirror ? message || '' : '';
+  els.lbError.classList.toggle('note', note);
 }
 
 // -------------------------------------------------------------------- sizes
@@ -142,6 +157,9 @@ function presetButton(label, onClick) {
 function choose(aspect, tier) {
   [els.width.value, els.height.value] = SIZES[aspect][tier];
   syncSize();
+  // Assigning .value fires no `input`, so the grid preview - whose duration
+  // estimate is priced per size - would keep the old numbers.
+  schedulePreview();
 }
 
 function syncSize() {
@@ -203,14 +221,14 @@ function syncRuns() {
 
 // Seed the controls from the server's profile for the loaded checkpoint. Turbo
 // wants 8 steps / CFG 0 / mu 1.15; FLUX wants 28 / 3.5 and no mu at all, since
-// it derives its own resolution-dependent shift. Applied once, before the user
-// has had a chance to touch anything.
+// it derives its own resolution-dependent shift. Each control follows the
+// profile until the user touches *that* control; the checkpoint cannot change
+// under a running server, so re-applying to an untouched box is idempotent.
 function applyDefaults(d) {
-  if (defaultsApplied || !d || d.steps === undefined) return;
-  defaultsApplied = true;
-  els.steps.value = d.steps;
-  els.cfg.value = d.guidance_scale;
-  els.mu.value = d.mu ?? '';
+  if (!d || d.steps === undefined) return;
+  if (!owned.steps) els.steps.value = d.steps;
+  if (!owned.cfg) els.cfg.value = d.guidance_scale;
+  if (!owned.mu) els.mu.value = d.mu ?? '';
   syncCfg();
 }
 
@@ -226,17 +244,19 @@ function applyHints(hints) {
   }
 }
 
-// Anything the user picks - by hand or through Reuse - takes the controls off
+// Anything the user picks - by hand or through Reuse - takes that control off
 // the profile. /api/status reads CUDA memory, which stalls behind a model load,
 // so its reply can land minutes late and used to wipe steps/CFG/mu long after
 // the page had settled.
-function ownControls() { defaultsApplied = true; }
+function own(...keys) { keys.forEach((key) => { owned[key] = true; }); }
+function ownControls() { own('steps', 'cfg', 'mu'); }
 
 async function refreshStatus() {
   if (statusPending) return;  // a stalled poll must not queue more behind it
   statusPending = true;
   try {
     const s = await api('/api/status');
+    loadedModel = s.model_id ?? loadedModel;
     applyDefaults(s.defaults);
     applyHints(s.hints);
     if (s.defaults && typeof s.defaults.cfg_threshold === 'number'
@@ -267,6 +287,11 @@ async function refreshStatus() {
 
 function collect() {
   const seed = els.seed.value.trim();
+  // An empty box is "not given", which the server fills from the checkpoint's
+  // profile - not 0, which `+''` produces and which the schema accepts for
+  // CFG, so a cleared box used to generate unguided. Size stays coerced: the
+  // presets always fill it, and a 422 beats a silent 1024.
+  const num = (el) => (el.value.trim() === '' ? undefined : +el.value);
   return {
     prompt: els.prompt.value.trim(),
     // A greyed-out field has been told it cannot apply; sending its contents
@@ -274,8 +299,8 @@ function collect() {
     negative_prompt: els.negative.disabled ? null : els.negative.value.trim() || null,
     width: +els.width.value,
     height: +els.height.value,
-    steps: +els.steps.value,
-    guidance_scale: +els.cfg.value,
+    steps: num(els.steps),
+    guidance_scale: num(els.cfg),
     mu: els.mu.value === '' ? null : +els.mu.value,
     seed: seed === '' ? null : +seed,
     num_images: +els.batch.value,
@@ -285,19 +310,27 @@ function collect() {
 
 function setBusy(on) {
   busy = on;
-  els.generate.disabled = on;
-  els.gridRun.disabled = on;
+  // aria-disabled, not disabled: a disabled element cannot hold focus, so the
+  // Enter that pressed Generate used to drop a keyboard user's place to <body>.
+  // startJob's own `if (busy) return` is what actually refuses a second press.
+  els.generate.setAttribute('aria-disabled', String(on));
+  els.gridRun.setAttribute('aria-disabled', String(on));
   // Unloading mid-job frees nothing - the worker holds its own reference to the
   // pipeline - and the server refuses it with a 409 anyway.
   els.unload.disabled = on;
   els.generate.textContent = on ? 'Generating…' : 'Generate';
   els.progress.hidden = !on;
-  els.cancel.disabled = !on;
+  els.cancel.setAttribute('aria-disabled', String(!on));
   els.cancel.textContent = 'Cancel';
-  els.fill.style.width = '0%';
+  setProgress(0);
   setStep(false);
   els.cellNote.textContent = '';
   if (!on) { els.progressText.textContent = ''; currentJob = null; }
+}
+
+function setProgress(fraction) {
+  els.fill.style.width = `${fraction * 100}%`;
+  els.fill.parentElement.setAttribute('aria-valuenow', String(Math.round(fraction * 100)));
 }
 
 // Which cell of a grid is running, under the bars. A sweep sends no label -
@@ -438,15 +471,15 @@ function schedulePreview() { clearTimeout(gridTimer); gridTimer = setTimeout(pre
 // The server keeps whatever finished before the cancel landed, so this reports
 // a count rather than treating the run as lost.
 async function cancelJob() {
-  if (!currentJob) return;
-  els.cancel.disabled = true;
+  if (!currentJob || els.cancel.getAttribute('aria-disabled') === 'true') return;
+  els.cancel.setAttribute('aria-disabled', 'true');
   els.cancel.textContent = 'Stopping…';
   try {
     await api(`/api/jobs/${currentJob}/cancel`, { method: 'POST' });
     els.progressText.textContent = 'finishing this step…';
   } catch (err) {
     showError(err.message);
-    els.cancel.disabled = false;
+    els.cancel.setAttribute('aria-disabled', 'false');
     els.cancel.textContent = 'Cancel';
   }
 }
@@ -475,7 +508,7 @@ function streamJob(jobId) {
       if (data.type === 'progress') {
         const done = (data.run || 1) - 1;
         const within = data.step / data.total_steps;
-        els.fill.style.width = `${((done + within) / runs) * 100}%`;
+        setProgress((done + within) / runs);
         els.progressText.textContent = runs > 1
           ? `run ${data.run}/${runs}`
           : `${data.step}/${data.total_steps}`;
@@ -539,11 +572,15 @@ async function resumeActiveJob() {
   if (busy) return;
   try {
     const active = await api('/api/jobs');
-    const job = active[active.length - 1];
+    // The one holding the GPU, not the newest: with two live jobs the newest is
+    // the queued one, and attaching to it made Cancel stop the wrong job while
+    // the running grid kept the card with no reachable id.
+    const job = active.find((j) => j.status === 'running') ?? active[active.length - 1];
     if (!job) return;
     setBusy(true);
     currentJob = job.job_id;
-    els.progressText.textContent = 'reattaching…';
+    const queued = active.length - 1;
+    els.progressText.textContent = queued > 0 ? `reattaching… (${queued} more queued)` : 'reattaching…';
     await streamJob(job.job_id);
   } catch { /* nothing running, or the server is not up yet */ }
 }
@@ -658,7 +695,7 @@ function loadGallery() {
     .finally(() => {
       galleryPending = null;
       els.more.disabled = false;
-      if (!els.lightbox.hidden) renderLightbox();  // re-derives the nav buttons
+      if (els.lightbox.open) renderLightbox();  // re-derives the nav buttons
     });
   return galleryPending;
 }
@@ -701,6 +738,10 @@ function tool(label, title, onClick) {
   const b = document.createElement('button');
   b.textContent = label;
   b.title = title;
+  // A button is named by its contents, and `title` is never exposed - so these
+  // announced as their glyph, or as a bare "button" for a glyph the screen
+  // reader has no word for. The fourth of them deletes the image.
+  b.setAttribute('aria-label', title);
   b.onclick = onClick;
   return b;
 }
@@ -723,9 +764,11 @@ async function setFavorite(rec, value) {
   recordsWithId(rec.id).forEach((r) => { r.favorite = value; });
   document.querySelectorAll(`.card[data-id="${rec.id}"]`).forEach((div) => {
     div.classList.toggle('fav', value);
-    div.querySelector('.star').textContent = value ? '★' : '☆';
+    const star = div.querySelector('.star');
+    star.textContent = value ? '★' : '☆';
+    star.setAttribute('aria-label', value ? 'Unfavorite' : 'Favorite');
   });
-  if (!els.lightbox.hidden) renderLightbox();
+  if (els.lightbox.open) renderLightbox();
 }
 
 // The delete removes the PNG as well as the row, and on a card the button sits
@@ -760,7 +803,7 @@ async function deleteImage(rec) {
   els.viewer.classList.toggle('multi', viewerRecords.length > 1);
   els.viewer.classList.toggle('many', viewerRecords.length > 4);
   if (sheetMode) renderSheet();
-  if (els.lightbox.hidden) return;
+  if (!els.lightbox.open) return;
   // The strip has closed up under the viewer: the next image already sits at
   // this index, unless this was the last one.
   if (!lbList.length) closeLightbox();
@@ -781,7 +824,23 @@ function reuse(rec) {
   syncSize();
   syncCfg();
   syncRuns();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  schedulePreview();
+  // Steps, CFG and mu are checkpoint-specific: Turbo's 8 / 0 / 1.15 on FLUX is
+  // a visibly broken image recorded under FLUX. The checkpoint is part of the
+  // reproduction set as much as the seed, so say so - as a note, not a failure.
+  const short = (id) => (id || '').split('/').pop();
+  if (loadedModel && rec.model_id !== loadedModel) {
+    showError(
+      `These settings were made on ${short(rec.model_id)}; the server is running ` +
+      `${short(loadedModel)}, whose steps, CFG and mu differ. Prompt, size and seed carry ` +
+      'over; check the three sampling boxes before generating.',
+      true,
+    );
+  } else {
+    showError('');
+  }
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
 }
 
 // ------------------------------------------------------------ contact sheet
@@ -1079,6 +1138,7 @@ function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
   els.lbImg.src = rec.url;
+  els.lbImg.alt = rec.prompt;
   els.lbMeta.textContent =
     // The checkpoint is part of the reproduction set as much as the seed is -
     // the same prompt and settings on Turbo and on FLUX are different images.
@@ -1091,14 +1151,14 @@ function renderLightbox() {
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
   els.lbFav.textContent = rec.favorite ? '★ Favourite' : '☆ Favourite';
   els.lbFav.classList.toggle('active', !!rec.favorite);
-  els.lightbox.hidden = false;
+  if (!els.lightbox.open) els.lightbox.showModal();
 }
 
 // Only the gallery strip has more behind it, and only while a page is unread.
 function canPage() { return lbList === galleryRecords && offset < total; }
 
 async function stepLightbox(delta) {
-  if (els.lightbox.hidden) return;
+  if (!els.lightbox.open) return;
   const current = lbList[lbIndex];
   if (lbIndex + delta < 0) return;
   if (lbIndex + delta >= lbList.length) {
@@ -1116,18 +1176,23 @@ async function stepLightbox(delta) {
 }
 
 function closeLightbox() {
-  els.lightbox.hidden = true;
+  // close() fires the dialog's `close` event, which is wired back here - the
+  // guard is what keeps that from recursing, and what makes a native Escape
+  // (which closes the dialog first) still reset the strip.
+  if (els.lightbox.open) els.lightbox.close();
   els.lbImg.src = '';
+  els.lbError.hidden = true;
   lbList = [];
   lbIndex = -1;
 }
+els.lightbox.addEventListener('close', closeLightbox);
 
 // --------------------------------------------------------------------- wire
 
 let searchTimer;
 els.generate.onclick = generate;
 els.cancel.onclick = cancelJob;
-els.dice.onclick = () => { els.seed.value = ''; syncRuns(); };
+els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); };
 els.unload.onclick = async () => {
   try {
     await api('/api/model/unload', { method: 'POST' });
@@ -1152,10 +1217,12 @@ for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gr
 els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
 els.width.oninput = els.height.oninput = syncSize;
-els.steps.oninput = els.mu.oninput = ownControls;
-els.seed.oninput = () => { ownControls(); syncRuns(); };
+els.steps.oninput = () => own('steps');
+els.mu.oninput = () => own('mu');
+// The seed is not a sampling value and has no business freezing the profile.
+els.seed.oninput = syncRuns;
 els.batch.oninput = els.runs.oninput = syncRuns;
-els.cfg.oninput = () => { ownControls(); syncCfg(); };
+els.cfg.oninput = () => { own('cfg'); syncCfg(); };
 els.favOnly.onchange = resetGallery;
 els.sheetBtn.onclick = () => setSheet(!sheetMode);
 els.search.oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetGallery, 250); };
@@ -1172,7 +1239,7 @@ els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); 
 document.addEventListener('keydown', (e) => {
   // Ctrl/Cmd+Enter generates from anywhere, including inside the prompt box.
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { generate(); return; }
-  if (els.lightbox.hidden) return;
+  if (!els.lightbox.open) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
   if (e.key === 'Escape') { closeLightbox(); return; }

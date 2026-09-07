@@ -205,9 +205,16 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   a solo run of its recorded seed. One shared generator made the per-image
   seeds in the gallery unreproducible.
 - `mu` is part of the reproduction set, so `ImageRecord` carries it and the UI's
-  Reuse restores it. `/api/status` defaults are seeded once and never after the
-  user has touched a control — `describe()` reads CUDA memory and can answer
-  minutes late from behind a load.
+  Reuse restores it. `/api/status` defaults are applied **per control**: each
+  of steps/CFG/mu follows the profile until the user touches *that* box
+  (`owned` in `web/app.js`) — `describe()` reads CUDA memory and can answer
+  minutes late from behind a load, and one flag for all three, wired to Seed
+  as well, used to freeze the panel at the fallback's 28 / 3.5 on a Turbo
+  server because the user pasted a seed in the first two seconds. Reuse owns
+  all three, and warns (as a note) when the record's checkpoint is not the one
+  the server is running: steps, CFG and mu are checkpoint-specific. An empty
+  Steps or CFG box is sent as *absent*, which the schema fills from the
+  profile; `+''` is 0, and 0 is a valid CFG that generates unguided.
 - Generation is serialized through a one-thread pool — the GPU cannot usefully
   run two at once.
 - A job outlives the page that started it. Each SSE stream gets **its own**

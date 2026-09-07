@@ -11,7 +11,7 @@
   <div class="brand">Krea<span>Local</span></div>
   <div class="status" id="status">
     <span class="dot" id="status-dot"></span>
-    <span id="status-text">checking…</span>
+    <span id="status-text" aria-live="polite">checking…</span>
   </div>
   <div class="vram" id="vram"></div>
   <button class="ghost" id="btn-unload" title="Free VRAM">Unload</button>
@@ -52,25 +52,25 @@
     <div class="row">
       <div class="sub grow">
         <i><label for="steps">Steps</label>
-          <span class="help" tabindex="0" role="note" aria-label="About steps">?<span
+          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
             class="tip" id="steps-tip">Denoising steps. 28 is a safe starting point for an
             unrecognised checkpoint; more steps cost proportionally more time.</span></span></i>
-        <input type="number" id="steps" value="28" min="1" max="100">
+        <input type="number" id="steps" value="28" min="1" max="100" aria-describedby="steps-tip">
       </div>
       <div class="sub grow">
         <i><label for="cfg">CFG</label>
-          <span class="help" tabindex="0" role="note" aria-label="About CFG">?<span
+          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
             class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
             negative prompt applies, at roughly 2x the time per step.</span></span></i>
-        <input type="number" id="cfg" value="3.5" min="0" max="20" step="0.1">
+        <input type="number" id="cfg" value="3.5" min="0" max="20" step="0.1" aria-describedby="cfg-tip">
       </div>
       <div class="sub grow">
         <i><label for="mu">Mu</label>
-          <span class="help end" tabindex="0" role="note" aria-label="About mu">?<span
+          <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
             class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
             checkpoint is known to want a fixed one - otherwise the pipeline derives its
             own.</span></span></i>
-        <input type="number" id="mu" min="0" max="10" step="0.05">
+        <input type="number" id="mu" min="0" max="10" step="0.05" aria-describedby="mu-tip">
       </div>
     </div>
 
@@ -78,7 +78,7 @@
       <label class="sub grow"><i>Seed</i><input type="number" id="seed" placeholder="random" min="0"></label>
       <label class="sub narrow"><i>Batch</i><input type="number" id="batch" value="1" min="1" max="8"></label>
       <label class="sub narrow"><i>Runs</i><input type="number" id="runs" value="1" min="1" max="64"></label>
-      <button class="ghost square" id="btn-dice" title="Clear seed (randomize)">🎲</button>
+      <button class="ghost square" id="btn-dice" title="Clear seed (randomize)" aria-label="Clear the seed, so the next run draws a random one">🎲</button>
     </div>
     <p class="hint" id="run-hint"></p>
 
@@ -86,8 +86,9 @@
     <div class="progress" id="progress" hidden>
       <div class="bars">
         <div class="row">
-          <div class="bar"><div class="fill" id="progress-fill"></div></div>
-          <span class="pt" id="progress-text"></span>
+          <div class="bar" role="progressbar" aria-label="Job progress" aria-valuemin="0"
+               aria-valuemax="100" aria-valuenow="0"><div class="fill" id="progress-fill"></div></div>
+          <span class="pt" id="progress-text" role="status"></span>
         </div>
         <!-- Steps inside the current run. Only shown for a sweep: with a single
              run the bar above is already stepping through the same numbers. -->
@@ -101,7 +102,10 @@
     <!-- Which cell of a grid is running. Empty for an ordinary sweep, where the
          settings never change and the counters say everything. -->
     <p class="hint" id="cell-note"></p>
-    <p class="error" id="error" hidden></p>
+    <!-- role=alert: a failure written here has to be announced, not just
+         painted. app.js unhides it *before* writing the text, since a node
+         still display:none announces nothing. -->
+    <p class="error" id="error" role="alert" hidden></p>
 
     <!-- Folded away by default: a grid is an overnight tool, not the workflow. -->
     <details class="section" id="grid-section">
@@ -113,8 +117,8 @@
       <div class="row">
         <div class="sub grow">
           <i><label for="grid-prompt">Prompt variables</label>
-            <span class="help" tabindex="0" role="note" aria-label="Prompt variable syntax">?<span
-              class="tip">Put <b>{name}</b> placeholders in the prompt above, then give each
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-prompt-tip">Put <b>{name}</b> placeholders in the prompt above, then give each
               one its values here, one variable per line:<br>
               <b>{size} dog sitting on {ground}</b><br>
               <b>size = big | small</b><br>
@@ -126,52 +130,52 @@
               not saying it.<br>
               Blank runs the prompt exactly as written — and is refused if the prompt
               still has <b>{placeholders}</b> in it, rather than rendering the braces.</span></span></i>
-          <textarea id="grid-prompt" rows="2" spellcheck="false"
+          <textarea id="grid-prompt" rows="2" spellcheck="false" aria-describedby="grid-prompt-tip"
             placeholder="size = big | small | none"></textarea>
         </div>
       </div>
       <div class="row">
         <div class="sub grow">
           <i><label for="grid-steps">Steps</label>
-            <span class="help" tabindex="0" role="note" aria-label="Steps range syntax">?<span
-              class="tip">One value, a list or a range:<br>
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-steps-tip">One value, a list or a range:<br>
               <b>8</b> · <b>6,8,10</b> · <b>6-12x2</b> — start-stop, step after the x, both
               ends included.<br>Blank runs whatever Steps is set to above.</span></span></i>
-          <input type="text" id="grid-steps" placeholder="6-12x2" autocomplete="off">
+          <input type="text" id="grid-steps" placeholder="6-12x2" autocomplete="off" aria-describedby="grid-steps-tip">
         </div>
         <div class="sub grow">
           <i><label for="grid-cfg">CFG</label>
-            <span class="help" tabindex="0" role="note" aria-label="CFG range syntax">?<span
-              class="tip">Same syntax, decimals allowed:<br>
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-cfg-tip">Same syntax, decimals allowed:<br>
               <b>0,0.5,1</b> · <b>0-2x0.5</b> — start-stop, step after the x.<br>
               Blank runs whatever CFG is set to above.</span></span></i>
-          <input type="text" id="grid-cfg" placeholder="0,0.5,1" autocomplete="off">
+          <input type="text" id="grid-cfg" placeholder="0,0.5,1" autocomplete="off" aria-describedby="grid-cfg-tip">
         </div>
       </div>
       <div class="row">
         <div class="sub grow">
           <i><label for="grid-mu">Mu</label>
-            <span class="help" tabindex="0" role="note" aria-label="Mu range syntax">?<span
-              class="tip">Same syntax:<br><b>1.1,1.15,1.3</b> · <b>1-1.4x0.1</b>.<br>
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-mu-tip">Same syntax:<br><b>1.1,1.15,1.3</b> · <b>1-1.4x0.1</b>.<br>
               <b>none</b> is a cell with no shift of ours at all, so
               <b>none,1.15</b> compares the pipeline's own against Turbo's.<br>
               Blank runs whatever Mu is set to above.</span></span></i>
-          <input type="text" id="grid-mu" placeholder="none,1.15" autocomplete="off">
+          <input type="text" id="grid-mu" placeholder="none,1.15" autocomplete="off" aria-describedby="grid-mu-tip">
         </div>
         <div class="sub narrow">
           <i><label for="grid-seeds">Seeds</label>
-            <span class="help end" tabindex="0" role="note" aria-label="Seeds">?<span
-              class="tip">How many consecutive seeds run the whole grid, counting up from the
+            <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-seeds-tip">How many consecutive seeds run the whole grid, counting up from the
               Seed above (a random one when that is blank).<br>
               Seeds are the outer loop: a grid stopped early has finished every setting for
               the seeds it got to, rather than half of each.</span></span></i>
-          <input type="number" id="grid-seeds" value="1" min="1" max="256">
+          <input type="number" id="grid-seeds" value="1" min="1" max="256" aria-describedby="grid-seeds-tip">
         </div>
       </div>
       <label class="check">
-        <input type="checkbox" id="grid-resume"> Resume
-        <span class="help" tabindex="0" role="note" aria-label="Resume">?<span
-          class="tip">Skip cells this prompt has already been rendered at, at this size and
+        <input type="checkbox" id="grid-resume" aria-describedby="grid-resume-tip"> Resume
+        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+          class="tip" id="grid-resume-tip">Skip cells this prompt has already been rendered at, at this size and
           on this checkpoint. Each prompt of a prompt grid counts on its own, so
           finishing the big dog does not skip the small one.<br>
           A night that died at cell 300 of 480 costs the cell it died on, not the run:
@@ -196,8 +200,8 @@
 
     <div class="gallery-head">
       <h2>Gallery <span id="gallery-count"></span></h2>
-      <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…">
-      <span class="help" tabindex="0" role="note" aria-label="Search syntax">?<span class="tip">
+      <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
+      <span class="help" tabindex="0" role="note" aria-label="Help">?<span class="tip" id="search-tip">
         Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
         <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>mu:none</b> ·
         <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b><br>
@@ -222,18 +226,24 @@
   </section>
 </main>
 
-<div class="lightbox" id="lightbox" hidden>
-  <button class="close" id="lb-close">✕</button>
-  <button class="lb-nav prev" id="lb-prev" title="Previous (←)">‹</button>
-  <button class="lb-nav next" id="lb-next" title="Next (→)">›</button>
+<!-- A <dialog> opened with showModal(): focus is trapped inside it, the page
+     behind it is inert, Escape closes it and focus returns to where it was.
+     Named by the metadata line, which carries the prompt. -->
+<dialog class="lightbox" id="lightbox" aria-labelledby="lb-meta">
+  <button class="close" id="lb-close" aria-label="Close (Escape)">✕</button>
+  <button class="lb-nav prev" id="lb-prev" title="Previous (←)" aria-label="Previous image">‹</button>
+  <button class="lb-nav next" id="lb-next" title="Next (→)" aria-label="Next image">›</button>
   <img id="lb-img" alt="">
   <div class="lb-meta" id="lb-meta"></div>
+  <!-- Failures raised from inside the lightbox land here, over the overlay,
+       rather than in the panel's slot underneath it. -->
+  <p class="error" id="lb-error" role="alert" hidden></p>
   <div class="lb-actions">
     <button class="ghost" id="lb-fav" title="Favourite (F)">☆ Favourite</button>
     <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
     <button class="ghost" id="lb-delete" title="Delete (Del)">⌦ Delete</button>
   </div>
-</div>
+</dialog>
 
 <script src="/static/app.js"></script>
 </body>

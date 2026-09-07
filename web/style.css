@@ -62,7 +62,15 @@ main {
   align-items: start;
 }
 
-@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+  /* One column gives the panel nothing to stick against. */
+  .panel { position: static; }
+}
+/* Sticky only where the whole panel fits: pinned at the top on a short screen,
+   everything past the fold - Generate, Cancel, the error line, Run grid - was
+   simply not reachable until the very end of the gallery released it. */
+@media (max-height: 900px) { .panel { position: static; } }
 
 .panel {
   background: var(--panel);
@@ -87,7 +95,10 @@ main {
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > span { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.field em { text-transform: none; font-style: normal; font-weight: 400; opacity: 0.65; letter-spacing: 0; }
+/* A colour, not an opacity: #a2a2b0 on the panel is 5.9:1, where the muted
+   token at 0.65 alpha composited to 3.0:1 - and to 1.55:1 once the field's own
+   dimming multiplied in, on the one line that explains why the field is off. */
+.field em { text-transform: none; font-style: normal; font-weight: 400; color: #a2a2b0; letter-spacing: 0; }
 
 textarea, input[type="number"], input[type="search"], input[type="text"] {
   background: var(--panel-2);
@@ -171,10 +182,12 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .section > summary:hover { color: var(--text); }
 .section > summary em {
   font-style: normal; font-weight: 400; text-transform: none;
-  letter-spacing: 0; opacity: 0.6;
+  letter-spacing: 0; color: #a2a2b0;
 }
 
-#negative-field.disabled { opacity: 0.45; }
+/* Dim the textarea, not the whole field: the label and the note that explain
+   the state have to stay legible. */
+#negative-field.disabled textarea { opacity: 0.45; }
 
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .presets button {
@@ -204,7 +217,9 @@ button { font: inherit; cursor: pointer; }
   font-weight: 600;
 }
 .primary:hover { filter: brightness(1.1); }
-.primary:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+/* aria-disabled rather than disabled: a disabled element cannot hold focus, so
+   pressing Enter on Generate used to drop a keyboard user's place to <body>. */
+.primary:disabled, .primary[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; filter: none; }
 
 .ghost {
   background: transparent;
@@ -217,8 +232,8 @@ button { font: inherit; cursor: pointer; }
 .ghost.square { padding: 8px 10px; }
 .ghost.wide { width: 100%; margin-top: 12px; }
 .ghost.small { padding: 3px 8px; font-size: 12px; flex: none; }
-.ghost:disabled { opacity: 0.45; cursor: not-allowed; }
-.ghost.small:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+.ghost:disabled, .ghost[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+.ghost.small:hover:not(:disabled):not([aria-disabled="true"]) { color: var(--danger); border-color: var(--danger); }
 
 /* --------------------------------------------------------------- progress */
 
@@ -342,7 +357,12 @@ button { font: inherit; cursor: pointer; }
   opacity: 0;
   transition: opacity 0.15s;
 }
-.card:hover .tools { opacity: 1; }
+/* Revealed by keyboard focus and on a coarse pointer too: hover alone left 192
+   invisible tab stops per page, the first of which overwrites the prompt and the
+   fourth of which deletes the image. */
+.card:hover .tools, .card:focus-within .tools { opacity: 1; }
+@media (pointer: coarse) { .card .tools { opacity: 1; } }
+.card .tools button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
 .card .tools button {
   background: rgba(0, 0, 0, 0.55);
   border: none;
@@ -363,9 +383,19 @@ button { font: inherit; cursor: pointer; }
 
 /* --------------------------------------------------------------- lightbox */
 
+/* A real <dialog>, opened with showModal(): the focus trap, the top layer, the
+   inert background and the focus restore all come with it. The UA sizes a
+   dialog to its content and centres it; this one is the whole viewport. */
 .lightbox {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: var(--text);
   background: rgba(0, 0, 0, 0.92);
   z-index: 50;
   display: flex;
@@ -375,6 +405,12 @@ button { font: inherit; cursor: pointer; }
   gap: 14px;
   padding: 28px;
 }
+/* Our `display: flex` would beat the UA's `dialog:not([open]) { display: none }`. */
+.lightbox:not([open]) { display: none; }
+.lightbox::backdrop { background: transparent; }
+/* Failures raised from inside the lightbox - a delete that 404s, a favourite
+   that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
+.lightbox .error { min-height: 1.2em; }
 .lightbox img { max-width: 92vw; max-height: 78vh; object-fit: contain; border-radius: 8px; }
 .lb-meta {
   color: var(--muted);
@@ -417,3 +453,12 @@ button { font: inherit; cursor: pointer; }
 .lb-nav:disabled { opacity: 0.2; cursor: default; }
 .lb-nav.prev { left: 18px; }
 .lb-nav.next { right: 18px; }
+
+/* --------------------------------------------------------------- motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
+  /* The load pulses for minutes; a steady dot says the same thing. */
+  .dot.loading { animation: none; opacity: 0.8; }
+}
