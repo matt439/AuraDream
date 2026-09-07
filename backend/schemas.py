@@ -67,10 +67,16 @@ class GridRequest(GenerateRequest):
 
     The inherited fields are the *base*: an axis left blank contributes the one
     value already in the panel, so a grid with no axes set is the image Generate
-    would have made. `runs` has no meaning here - the seed axis is what a grid
-    steps through - and is rejected rather than silently multiplying the night.
+    would have made. That holds for the prompt too: no variables, and every cell
+    carries the prompt as typed. `runs` has no meaning here - the seed axis is
+    what a grid steps through - and is rejected rather than silently multiplying
+    the night.
     """
 
+    # Named values for the placeholders in the prompt, one variable per line -
+    # `size = big | small`. Longer than the numeric axes because its values are
+    # prose, and split on `|` because a prompt is full of commas.
+    prompt_axis: str = Field(default="", max_length=2000)
     steps_axis: str = Field(default="", max_length=200)
     cfg_axis: str = Field(default="", max_length=200)
     mu_axis: str = Field(default="", max_length=200)
@@ -101,7 +107,10 @@ class GridRequest(GenerateRequest):
 class GridPreview(BaseModel):
     """What a grid would do, without queueing it."""
 
-    values: dict[str, list[float | int | None]]
+    # Keyed by axis: the numbers each one resolved to, and under `prompt` the
+    # finished prompt of every cell - the substitution is the half of a prompt
+    # grid that is easy to get wrong, so the panel shows what it produced.
+    values: dict[str, list[float | int | str | None]]
     cells: int
     images: int
     # Cells dropped because the gallery already holds them; always 0 unless the

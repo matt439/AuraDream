@@ -136,15 +136,25 @@ def test_the_job_filter_selects_one_run(store):
 
 def test_completed_cells_keys_on_the_settings_not_the_run(store):
     keep(store, seed=7, steps=8, guidance_scale=0.5, mu=1.15, job_id="first")
-    done = store.completed_cells("a fox in the snow", None, 256, 256, "krea/Krea-2-Turbo")
-    assert (8, 0.5, 1.15, 7) in done
+    done = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo")
+    assert ("a fox in the snow", None, 8, 0.5, 1.15, 7) in done
     # A different prompt, size or checkpoint is a different image entirely.
-    assert store.completed_cells("something else", None, 256, 256, "krea/Krea-2-Turbo") == set()
-    assert store.completed_cells("a fox in the snow", None, 512, 512, "krea/Krea-2-Turbo") == set()
-    assert store.completed_cells("a fox in the snow", None, 256, 256, "other/model") == set()
+    assert store.completed_cells(["something else"], 256, 256, "krea/Krea-2-Turbo") == set()
+    assert store.completed_cells(["a fox in the snow"], 512, 512, "krea/Krea-2-Turbo") == set()
+    assert store.completed_cells(["a fox in the snow"], 256, 256, "other/model") == set()
+
+
+def test_completed_cells_answers_for_every_prompt_of_a_grid(store):
+    # A prompt grid resumes on several prompts at once, and each row has to come
+    # back under the prompt that made it or the wrong cells get skipped.
+    keep(store, prompt="a big fox", seed=1)
+    keep(store, prompt="a small fox", seed=2)
+    done = store.completed_cells(["a big fox", "a small fox"], 256, 256, "krea/Krea-2-Turbo")
+    assert {key[0] for key in done} == {"a big fox", "a small fox"}
+    assert ("a big fox", None, 8, 0.0, None, 2) not in done
 
 
 def test_a_mu_free_cell_comes_back_as_none(store):
     keep(store, seed=3, mu=None)
-    done = store.completed_cells("a fox in the snow", None, 256, 256, "krea/Krea-2-Turbo")
-    assert (8, 0.0, None, 3) in done
+    done = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo")
+    assert ("a fox in the snow", None, 8, 0.0, None, 3) in done

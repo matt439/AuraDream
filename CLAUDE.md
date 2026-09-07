@@ -225,13 +225,35 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   order leaves every seed part-done and nothing comparable. Cells are built as
   real `GenerateRequest`s, so an axis value outside the schema fails at submit
   with the schema's own message rather than sixty images in.
+- **The prompt is an axis too**, through `{name}` placeholders and a block of
+  `size = big | small` lines (`grid.parse_variables`). Values split on `|`, not
+  on the comma the numeric axes use: `a big, fluffy dog` is one prompt fragment,
+  and splitting it the other way turns a value into two cells of nonsense. The
+  names cross with each other and with steps/CFG/mu, so two variables of two
+  values is four prompts. Both halves of a mismatch are refused at submit rather
+  than found in the morning: a variable no placeholder mentions multiplies the
+  night by a value that changes nothing, and a placeholder with no variable
+  renders the literal `{ground}` into every image of the run. `none` is a value
+  - the word is simply not said - and `substitute()` closes the gap it leaves,
+  so `{size} dog` is `dog` rather than ` dog`. The prompt loop sits just inside
+  the seed loop, for the reason seeds are outermost: a night that ends early has
+  swept every setting for the prompts it reached, which is a comparison.
+- The contact sheet's axes gained **Prompt**, whose labels are only the words
+  that vary across the run (`promptLabels` in `web/app.js`): a column header
+  repeating the forty words every cell shares is unreadable. Equal word counts
+  let the differing positions be picked out exactly; a `none` makes one prompt
+  shorter than its neighbours, and then the shared head and tail come off
+  instead. Pins address their values by position, because a shortened label is
+  not something that round-trips back to the prompt it came from.
 - `POST /api/grid/preview` runs the same expansion without queueing it, so the
   panel's count, its resolved axes and its error text are the run's own. Its
   duration estimate is per *step* (`storage.step_cost_ms`), measured from recent
   gallery rows at the same size: a grid's cells disagree about step count, so an
   average image duration would misstate most of them. No rows, no estimate.
 - **Resume keys on settings, not on the job.** `storage.completed_cells()` reads
-  back (steps, CFG, mu, seed) for a prompt at a size on a checkpoint, and
+  back (prompt, negative prompt, steps, CFG, mu, seed) for the *distinct
+  prompts* a grid resolved to, at a size on a checkpoint - a list, because a
+  prompt grid renders several - and
   `grid.prune_done()` subtracts them, so a night that died is continued by a
   *new* job and a cell rendered by hand earlier counts too. Both sides round to
   the six decimals `parse_axis` produces, so a float that has been through

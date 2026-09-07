@@ -285,7 +285,7 @@ def test_a_grid_says_which_cell_is_running(client, fake):
     # The axes the grid did not vary are filled from the default checkpoint's
     # profile, so the expected label follows whichever checkpoint that is.
     profile = defaults_for(settings.model_id)
-    assert grid._label(6, profile["guidance_scale"], profile["mu"]) in labels
+    assert grid._label({}, 6, profile["guidance_scale"], profile["mu"]) in labels
     # A plain request varies nothing, so it labels nothing.
     _, plain = _run(client, runs=2)
     assert not [event for event in plain if event.get("label")]
@@ -307,6 +307,89 @@ def test_the_preview_expands_the_same_grid_it_would_run(client):
     # Nothing in the gallery at this size yet, so it promises no duration at all
     # rather than guessing one.
     assert preview["seconds"] is None
+
+
+def test_a_grid_varies_the_prompt_through_its_placeholders(client, fake):
+    _, events = _grid(
+        client,
+        prompt="{size} dog sitting on {ground}",
+        prompt_axis="size = big | small | none\nground = grass",
+        seed=7,
+    )
+    assert events[-1]["type"] == "done" and events[-1]["status"] == "done"
+    assert [request.prompt for request in fake.requests] == [
+        "big dog sitting on grass",
+        "small dog sitting on grass",
+        # `none` is a value: the placeholder and the space it sat in both go.
+        "dog sitting on grass",
+    ]
+    # One prompt per cell, but one seed for all of them - the comparison is the
+    # same noise under a different word.
+    assert fake.seeds == [7, 7, 7]
+
+
+def test_the_preview_shows_the_prompts_it_would_render(client):
+    preview = client.post(
+        "/api/grid/preview",
+        json={
+            "prompt": "{size} dog on {ground}",
+            "width": 256,
+            "height": 256,
+            "prompt_axis": "size = big | small\nground = grass | dirt",
+            "steps_axis": "6,8",
+        },
+    ).json()
+    # The finished text, not the variables behind it: the substitution is the
+    # half of a prompt grid that is easy to get wrong.
+    assert preview["values"]["prompt"] == [
+        "big dog on grass",
+        "big dog on dirt",
+        "small dog on grass",
+        "small dog on dirt",
+    ]
+    assert (preview["cells"], preview["images"]) == (8, 8)
+    assert preview["summary"].startswith("4 prompts x 2 steps")
+
+
+def test_a_prompt_axis_that_does_not_line_up_is_a_422(client):
+    body = {"prompt": "a {size} dog", "width": 256, "height": 256}
+    unused = client.post("/api/grid/preview", json={**body, "prompt_axis": "colour = red"})
+    assert unused.status_code == 422
+    assert "{colour}" in unused.json()["detail"]
+    unfilled = client.post("/api/grid/preview", json={**body, "prompt_axis": ""})
+    # No variables at all is not an error: the prompt runs as written, braces
+    # and all, exactly as Generate would have run it.
+    assert unfilled.status_code == 200
+    assert unfilled.json()["values"]["prompt"] == ["a {size} dog"]
+
+
+def test_resume_skips_only_the_prompt_it_already_rendered(client, store):
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(
+            prompt="big dog on grass", width=256, height=256, steps=8, guidance_scale=0.0, mu=None
+        ),
+        seed=5,
+        duration_ms=100,
+        model_id=settings.model_id,
+    )
+    preview = client.post(
+        "/api/grid/preview",
+        json={
+            "prompt": "{size} dog on grass",
+            "width": 256,
+            "height": 256,
+            "prompt_axis": "size = big | small",
+            "steps_axis": "8",
+            "cfg_axis": "0",
+            "mu_axis": "none",
+            "seed": 5,
+            "resume": True,
+        },
+    ).json()
+    # The row matches one prompt of two; the other has never been rendered and
+    # the identical settings under it must not be skipped with it.
+    assert (preview["skipped"], preview["cells"]) == (1, 1)
 
 
 def test_the_preview_estimates_from_what_the_gallery_measured(client, store):

@@ -92,6 +92,14 @@ def _build_parser() -> argparse.ArgumentParser:
     sweep = parser.add_argument_group(
         "grid search (overnight sweeps; each axis takes 8, or 6,8,10, or 6-12x2)"
     )
+    sweep.add_argument(
+        "--grid-prompt",
+        metavar="NAME=A|B",
+        action="append",
+        default=[],
+        help="values for a {NAME} placeholder in the prompt, split on `|`; "
+        "repeat the flag for a second variable, and they cross like any other axes",
+    )
     sweep.add_argument("--grid-steps", metavar="SPEC", default="", help="step counts to sweep")
     sweep.add_argument("--grid-cfg", metavar="SPEC", default="", help="guidance scales to sweep")
     sweep.add_argument(
@@ -222,7 +230,13 @@ def main(argv: list[str] | None = None) -> int:
     # write by hand - `seed + index * batch`, wrapped by the same helper. Sharing
     # it with the server is the point: a cell here and a cell there must be the
     # same image.
-    gridding = bool(args.grid_steps or args.grid_cfg or args.grid_mu) or args.grid_seeds > 1
+    # One flag per variable on the command line, one line per variable in the
+    # browser: the same block reaches the same parser either way.
+    prompt_axis = "\n".join(args.grid_prompt)
+    gridding = (
+        bool(prompt_axis or args.grid_steps or args.grid_cfg or args.grid_mu)
+        or args.grid_seeds > 1
+    )
     if gridding and args.runs != 1:
         parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
     if args.resume and args.seed is None:
@@ -231,6 +245,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         cells = p.grid.expand(
             request,
+            prompt=prompt_axis,
             steps=args.grid_steps,
             cfg=args.grid_cfg,
             mu=args.grid_mu,
@@ -246,8 +261,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.resume:
         p.storage.init_db()
         done = p.storage.completed_cells(
-            request.prompt,
-            request.negative_prompt,
+            p.grid.prompts_of(cells),
             request.width,
             request.height,
             p.settings.model_id,
@@ -285,7 +299,17 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"seed     : {seed}" + ("" if args.seed is not None else "  (random)"))
         if gridding:
-            values = p.grid.axis_values(request, args.grid_steps, args.grid_cfg, args.grid_mu)
+            values = p.grid.axis_values(
+                request, args.grid_steps, args.grid_cfg, args.grid_mu, prompt_axis
+            )
+            if len(values["prompt"]) > 1:
+                # The substituted prompts, not the variables that made them:
+                # what went wrong in a prompt grid is visible in the result.
+                print(f"  prompts: {len(values['prompt'])}")
+                for text in values["prompt"][:4]:
+                    print(f"           {text}")
+                if len(values["prompt"]) > 4:
+                    print(f"           ... and {len(values['prompt']) - 4} more")
             for axis, shown in (("steps", "steps"), ("guidance_scale", "CFG"), ("mu", "mu")):
                 listed = ", ".join("off" if v is None else f"{v:g}" for v in values[axis])
                 print(f"  {shown:<7}: {listed}")

@@ -213,12 +213,25 @@ def _detail(exc: ValueError) -> str:
     )
 
 
-def _expand(request: GridRequest) -> tuple[list[grid.Cell], int]:
-    """The grid as cells and the number resume dropped, or a 422 saying why not."""
+def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int]:
+    """The grid as cells, its resolved axes, and the number resume dropped.
+
+    The axes come back from here rather than being resolved again by the
+    preview, so a prompt whose placeholders do not line up with its variables
+    fails once, as a 422, instead of raising out of the response model.
+    """
     try:
         request.check_budget()
+        values = grid.axis_values(
+            request,
+            request.steps_axis,
+            request.cfg_axis,
+            request.mu_axis,
+            request.prompt_axis,
+        )
         cells = grid.expand(
             request,
+            prompt=request.prompt_axis,
             steps=request.steps_axis,
             cfg=request.cfg_axis,
             mu=request.mu_axis,
@@ -227,16 +240,15 @@ def _expand(request: GridRequest) -> tuple[list[grid.Cell], int]:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=_detail(exc)) from exc
     if not request.resume:
-        return cells, 0
+        return cells, values, 0
     done = storage.completed_cells(
-        request.prompt,
-        request.negative_prompt,
+        grid.prompts_of(cells),
         request.width,
         request.height,
         settings.model_id,
     )
     kept = grid.prune_done(cells, done)
-    return kept, len(cells) - len(kept)
+    return kept, values, len(cells) - len(kept)
 
 
 @app.post("/api/grid", response_model=JobAccepted)
@@ -246,7 +258,7 @@ async def run_grid(request: GridRequest) -> JobAccepted:
     One job rather than one per cell: a grid is a night's work, and it has to be
     cancellable, reattachable and ahead of nothing in the queue as a unit.
     """
-    cells, _ = _expand(request)
+    cells, _, _ = _expand(request)
     if not cells:
         # Every cell is already in the gallery. Queueing an empty job would
         # report "done" having rendered nothing, which reads like a failure.
@@ -262,8 +274,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     Same expansion as the real thing, so the count and the error messages the
     panel shows are the ones the run would have produced.
     """
-    cells, skipped = _expand(request)
-    values = grid.axis_values(request, request.steps_axis, request.cfg_axis, request.mu_axis)
+    cells, values, skipped = _expand(request)
     # Cost is per step, and a grid's cells rarely agree on how many they take.
     per_step_ms = await asyncio.to_thread(storage.step_cost_ms, request.width, request.height)
     total_steps = sum(cell.request.steps for cell in cells) * request.num_images

@@ -117,3 +117,123 @@ def test_labels_stay_ascii():
     for cell in grid.expand(request(seed=1), steps="6,8", mu="none,1.15"):
         assert cell.label is not None
         cell.label.encode("ascii")
+
+
+# ------------------------------------------------------------- prompt axis
+
+DOG = dict(BASE, prompt="{size} dog sitting on {ground}")
+VARS = "size = big | small\nground = grass | dirt"
+
+
+def dog(**overrides) -> GenerateRequest:
+    return GenerateRequest(**{**DOG, **overrides})
+
+
+def test_variables_split_on_the_pipe_not_the_comma():
+    # `a big, fluffy dog` is one prompt fragment. Splitting it the way the
+    # numeric axes split would turn a value into two cells of nonsense.
+    assert grid.parse_variables("mood = a big, fluffy dog | a wet dog") == {
+        "mood": ["a big, fluffy dog", "a wet dog"]
+    }
+
+
+def test_a_variable_can_be_nothing_at_all():
+    # Saying nothing about the size is a comparison in its own right, and the
+    # prompt has to close over the gap the placeholder left.
+    values = grid.parse_variables("size = big | none")
+    assert values == {"size": ["big", ""]}
+    prompts = [c.request.prompt for c in grid.expand(dog(seed=1), prompt="size = big | none\nground = grass")]
+    assert prompts == ["big dog sitting on grass", "dog sitting on grass"]
+
+
+def test_the_prompt_crosses_with_the_sampling_axes():
+    cells = grid.expand(dog(seed=1), prompt=VARS, steps="6,8", seeds=2)
+    assert len(cells) == 2 * 2 * 2 * 2
+    assert {(c.request.prompt, c.request.steps) for c in cells} == {
+        (f"{size} dog sitting on {ground}", steps)
+        for size in ("big", "small")
+        for ground in ("grass", "dirt")
+        for steps in (6, 8)
+    }
+
+
+def test_the_prompt_is_the_outer_loop_under_the_seed():
+    # Same reason the seed is outermost: a night that stops early has finished
+    # every setting for the prompts it reached, rather than a slice of each.
+    cells = grid.expand(dog(seed=42), prompt="size = big | small\nground = grass", steps="6,8")
+    assert [(c.request.prompt, c.request.steps) for c in cells] == [
+        ("big dog sitting on grass", 6),
+        ("big dog sitting on grass", 8),
+        ("small dog sitting on grass", 6),
+        ("small dog sitting on grass", 8),
+    ]
+
+
+def test_every_cell_of_a_prompt_grid_shares_the_seed():
+    # The whole point of the comparison: the same noise, a different word.
+    cells = grid.expand(dog(seed=42), prompt=VARS)
+    assert {c.seed for c in cells} == {42}
+
+
+def test_the_negative_prompt_takes_the_same_variables():
+    cells = grid.expand(
+        dog(seed=1, negative_prompt="no {ground}", prompt="a dog on {ground}"),
+        prompt="ground = grass | dirt",
+    )
+    assert [(c.request.prompt, c.request.negative_prompt) for c in cells] == [
+        ("a dog on grass", "no grass"),
+        ("a dog on dirt", "no dirt"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("spec", "message"),
+    [
+        ("size big | small", "is not"),  # no `=`
+        ("size =", "no values"),  # nothing after it
+        ("size = big\nsize = small", "twice"),  # two lines, one name
+        ("colour = red | blue", "nothing in the prompt"),  # unused variable
+        ("size = big | small", "has no values"),  # {ground} left unfilled
+    ],
+)
+def test_a_prompt_that_does_not_line_up_is_refused(spec, message):
+    # Both halves matter: a variable with no placeholder multiplies the night
+    # by a value that changes nothing, and a placeholder with no variable
+    # renders the literal `{ground}` into every image of the run.
+    with pytest.raises(ValueError, match=message):
+        grid.expand(dog(seed=1), prompt=spec)
+
+
+def test_a_prompt_grid_counts_towards_the_ceiling():
+    values = " | ".join(str(n) for n in range(40))
+    with pytest.raises(ValueError, match="past the"):
+        grid.expand(dog(seed=1), prompt=f"size = {values}\nground = {values}")
+
+
+def test_prompt_labels_survive_a_locale_encoder():
+    for cell in grid.expand(dog(seed=1), prompt="size = café | none\nground = grass"):
+        assert cell.label is not None
+        cell.label.encode("ascii")
+    assert "size=none" in grid.expand(
+        dog(seed=1), prompt="size = none\nground = grass"
+    )[0].label
+
+
+def test_prompts_of_lists_each_one_once():
+    cells = grid.expand(dog(seed=1), prompt=VARS, steps="6,8", seeds=2)
+    assert grid.prompts_of(cells) == [
+        "big dog sitting on grass",
+        "big dog sitting on dirt",
+        "small dog sitting on grass",
+        "small dog sitting on dirt",
+    ]
+
+
+def test_resume_tells_two_prompts_apart():
+    # The key carries the prompt, so finishing one prompt's cells does not
+    # cancel the identical settings under another.
+    cells = grid.expand(dog(seed=1), prompt=VARS)
+    done = {grid.cell_key(cells[0])}
+    kept = grid.prune_done(cells, done)
+    assert len(kept) == len(cells) - 1
+    assert cells[0] not in kept

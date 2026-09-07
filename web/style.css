@@ -138,7 +138,8 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 
 .hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); min-height: 15px; }
 .hint.warn { color: #fbbf24; }
-/* A preview that is one line of totals over one line of axes. */
+/* A preview that is a line of totals, a line of axes, and then the prompts a
+   variable block resolved to, one per line. */
 .hint.pre { white-space: pre-line; }
 
 /* ---------------------------------------------------------- grid search */
@@ -301,6 +302,11 @@ button { font: inherit; cursor: pointer; }
   font-size: 11px; color: var(--muted); white-space: nowrap; padding-right: 6px;
   text-align: right;
 }
+/* The prompt axis. Its labels are the words that vary between the cells, which
+   is prose and occasionally a long phrase - so it wraps where a number never
+   needs to, and the row heading is capped rather than eating the sheet. */
+.sheet-grid .head.text { white-space: normal; }
+.sheet-grid .rowhead.text { white-space: normal; max-width: 170px; }
 .sheet-cell {
   aspect-ratio: 1; border-radius: 6px; overflow: hidden;
   background: var(--panel-2); border: 1px solid var(--line);

@@ -18,7 +18,8 @@ const els = {
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
   stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
   cellNote: $('cell-note'),
-  gridSection: $('grid-section'), gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
+  gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
+  gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridSeeds: $('grid-seeds'), gridPreview: $('grid-preview'),
   gridRun: $('btn-grid'),
   error: $('error'), viewer: $('viewer'), gallery: $('gallery'),
@@ -334,6 +335,7 @@ function gridPayload() {
   return {
     ...collect(),
     runs: 1,
+    prompt_axis: els.gridPrompt.value.trim(),
     steps_axis: els.gridSteps.value.trim(),
     cfg_axis: els.gridCfg.value.trim(),
     mu_axis: els.gridMu.value.trim(),
@@ -350,6 +352,20 @@ function humanTime(seconds) {
 }
 
 const axisText = (values) => values.map((v) => (v === null ? 'none' : v)).join(', ');
+
+// The prompts a variable block resolved to, a few of them. Substitution is the
+// half of a prompt grid that goes wrong quietly - a value that reads fine in the
+// box lands badly in the middle of a sentence - so the panel shows the finished
+// text rather than the variables that produced it.
+const PREVIEW_PROMPTS = 3;
+function promptLines(prompts) {
+  if (!prompts || prompts.length < 2) return [];
+  const lines = prompts.slice(0, PREVIEW_PROMPTS).map((text) => `· ${text}`);
+  if (prompts.length > PREVIEW_PROMPTS) {
+    lines.push(`· … and ${prompts.length - PREVIEW_PROMPTS} more`);
+  }
+  return lines;
+}
 
 // The preview is the server's own expansion rather than a count worked out in
 // here: the syntax has one parser, and the message a bad axis produces is the
@@ -379,7 +395,8 @@ async function previewGrid() {
         (p.seconds ? ` · about ${humanTime(p.seconds)}` : ''),
       `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${axisText(p.values.mu)}`,
-    ].join('\n');  // .hint.pre renders the break
+      ...promptLines(p.values.prompt),
+    ].join('\n');  // .hint.pre renders the breaks
   } catch (err) {
     els.gridPreview.classList.add('warn');
     els.gridPreview.textContent = err.message;
@@ -695,8 +712,11 @@ function reuse(rec) {
 // ------------------------------------------------------------ contact sheet
 
 // Everything a grid can vary. `of` reads one off a record; mu's null is a real
-// value - "no shift of ours" - not a missing one, so it prints as `none`.
+// value - "no shift of ours" - not a missing one, so it prints as `none`. The
+// prompt is the one axis whose values are prose, which is why it is labelled
+// rather than printed - see promptLabels.
 const SHEET_AXES = [
+  { key: 'prompt', label: 'Prompt', of: (r) => r.prompt },
   { key: 'steps', label: 'Steps', of: (r) => r.steps },
   { key: 'cfg', label: 'CFG', of: (r) => r.guidance_scale },
   { key: 'mu', label: 'Mu', of: (r) => r.mu },
@@ -704,7 +724,51 @@ const SHEET_AXES = [
 ];
 const axisByKey = (key) => SHEET_AXES.find((a) => a.key === key);
 const axisValue = (axis, rec) => axis.of(rec) ?? null;
-const valueText = (v) => (v === null ? 'none' : String(v));
+
+// Full prompt -> the words that make it different from its neighbours, filled
+// in by sheetValues. Only the prompt axis is in here, so anything else that is
+// a string prints as itself.
+let promptShort = new Map();
+const valueText = (v) => {
+  if (v === null) return 'none';
+  if (typeof v === 'string') return promptShort.get(v) ?? v;
+  return String(v);
+};
+
+const LABEL_CHARS = 44;
+const clip = (text) => (text.length > LABEL_CHARS ? `${text.slice(0, LABEL_CHARS - 1)}…` : text);
+
+// A header that repeats the forty words every prompt shares is unreadable, and
+// the two or three that differ are the whole comparison - so the label keeps
+// what varies and drops what does not.
+//
+// Same word count throughout means the varying positions can be picked out
+// exactly, which is what a two-variable grid produces. A value that was set to
+// `none` makes its prompt shorter than the others, and then the shared head and
+// tail come off instead - `big dog on grass` against `dog on grass` labels
+// itself `big` and `none`.
+function promptLabels(prompts) {
+  const words = prompts.map((p) => p.trim().split(/\s+/));
+  const width = words[0].length;
+  let kept;
+  if (words.every((w) => w.length === width)) {
+    const varies = [];
+    for (let i = 0; i < width; i++) {
+      if (!words.every((w) => w[i] === words[0][i])) varies.push(i);
+    }
+    kept = words.map((w) => varies.map((i) => w[i]));
+  } else {
+    let head = 0;
+    while (words.every((w) => head < w.length && w[head] === words[0][head])) head += 1;
+    let tail = 0;
+    const same = (w) => w[w.length - 1 - tail] === words[0][words[0].length - 1 - tail];
+    while (words.every((w) => tail < w.length - head && same(w))) tail += 1;
+    kept = words.map((w) => w.slice(head, w.length - tail));
+  }
+  // Nothing left means this cell is the one that dropped the word the others
+  // carry, which is a value in its own right and reads as one.
+  return kept.map((w) => clip(w.join(' ')) || 'none');
+}
 
 // The distinct values each axis takes across the loaded images, ascending.
 function sheetValues(records) {
@@ -715,9 +779,17 @@ function sheetValues(records) {
       const v = axisValue(axis, rec);
       if (!seen.includes(v)) seen.push(v);
     }
-    seen.sort((a, b) => (a === null ? -1 : b === null ? 1 : a - b));
+    seen.sort((a, b) => {
+      if (a === null) return -1;
+      if (b === null) return 1;
+      return typeof a === 'string' ? a.localeCompare(b) : a - b;
+    });
     values[axis.key] = seen;
   }
+  const labels = values.prompt.length > 1
+    ? promptLabels(values.prompt)
+    : values.prompt.map(clip);
+  promptShort = new Map(values.prompt.map((text, i) => [text, labels[i]]));
   return values;
 }
 
@@ -794,11 +866,14 @@ function renderSheet() {
   for (const [key, pinned] of Object.entries(sheetAxes.pins)) {
     const axis = axisByKey(key);
     els.sheetControls.append(
+      // By position, not by the text on the option: two prompts shorten to two
+      // different labels, but nothing guarantees a label round-trips back to
+      // the value it came from.
       labelled(axis.label, picker(
-        values[key].map((v) => [valueText(v), valueText(v)]),
-        valueText(pinned),
+        values[key].map((v, index) => [index, valueText(v)]),
+        values[key].indexOf(pinned),
         (picked) => {
-          sheetAxes.pins[key] = values[key].find((v) => valueText(v) === picked) ?? null;
+          sheetAxes.pins[key] = values[key][Number(picked)] ?? null;
           renderSheet();
         },
       )),
@@ -822,14 +897,22 @@ function renderSheet() {
     `auto repeat(${colValues.length}, minmax(96px, 1fr))`;
   els.sheetGrid.appendChild(headCell(''));
   const colAxis = sheetAxes.cols ? axisByKey(sheetAxes.cols) : null;
+  // A prompt label is prose rather than a number, so its header is allowed to
+  // wrap; nowrap would push one column out to the width of the whole phrase.
+  const prose = (axis) => (axis && axis.key === 'prompt' ? ' text' : '');
   colValues.forEach((v) => {
-    els.sheetGrid.appendChild(headCell(colAxis ? `${colAxis.label} ${valueText(v)}` : ''));
+    els.sheetGrid.appendChild(
+      headCell(colAxis ? `${colAxis.label} ${valueText(v)}` : '', `head${prose(colAxis)}`),
+    );
   });
 
   const rowAxis = sheetAxes.rows ? axisByKey(sheetAxes.rows) : null;
   rowValues.forEach((rowValue) => {
     els.sheetGrid.appendChild(
-      headCell(rowAxis ? `${rowAxis.label} ${valueText(rowValue)}` : '', 'rowhead'),
+      headCell(
+        rowAxis ? `${rowAxis.label} ${valueText(rowValue)}` : '',
+        `rowhead${prose(rowAxis)}`,
+      ),
     );
     colValues.forEach((colValue) => {
       const rec = sheetRecords.find((r) => matches(r, rowValue, colValue));
@@ -942,8 +1025,9 @@ els.more.onclick = () => loadGallery();
 els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // The preview reflects the panel as much as the axes: a blank axis is the
 // control's own value, and both the size and the batch move the totals.
-for (const el of [els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds, els.prompt,
-                  els.steps, els.cfg, els.mu, els.batch, els.width, els.height, els.seed]) {
+for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
+                  els.prompt, els.steps, els.cfg, els.mu, els.batch, els.width, els.height,
+                  els.seed]) {
   el.addEventListener('input', schedulePreview);
 }
 els.gridSection.addEventListener('toggle', previewGrid);

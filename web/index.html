@@ -112,6 +112,25 @@
       </p>
       <div class="row">
         <div class="sub grow">
+          <i><label for="grid-prompt">Prompt variables</label>
+            <span class="help" tabindex="0" role="note" aria-label="Prompt variable syntax">?<span
+              class="tip">Put <b>{name}</b> placeholders in the prompt above, then give each
+              one its values here, one variable per line:<br>
+              <b>{size} dog sitting on {ground}</b><br>
+              <b>size = big | small</b><br>
+              <b>ground = grass | dirt</b> — four prompts, and they cross with the
+              ranges below.<br>
+              Values split on <b>|</b>, not on commas: a comma belongs to the prompt.<br>
+              <b>none</b> is a value too — the word and its space come out
+              altogether, so <b>size = big | none</b> compares saying it against
+              not saying it.<br>
+              Blank runs the prompt exactly as written.</span></span></i>
+          <textarea id="grid-prompt" rows="2" spellcheck="false"
+            placeholder="size = big | small | none"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <div class="sub grow">
           <i><label for="grid-steps">Steps</label>
             <span class="help" tabindex="0" role="note" aria-label="Steps range syntax">?<span
               class="tip">One value, a list or a range:<br>
@@ -152,7 +171,8 @@
         <input type="checkbox" id="grid-resume"> Resume
         <span class="help" tabindex="0" role="note" aria-label="Resume">?<span
           class="tip">Skip cells this prompt has already been rendered at, at this size and
-          on this checkpoint.<br>
+          on this checkpoint. Each prompt of a prompt grid counts on its own, so
+          finishing the big dog does not skip the small one.<br>
           A night that died at cell 300 of 480 costs the cell it died on, not the run:
           re-submit the same grid with this ticked.<br>
           Needs the Seed field filled in — a random one would match none of the run it is

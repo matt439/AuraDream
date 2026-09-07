@@ -5,6 +5,7 @@ import json
 import sqlite3
 import threading
 import uuid
+from collections.abc import Sequence
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -15,6 +16,7 @@ from .config import settings
 from .schemas import ImageRecord
 
 if TYPE_CHECKING:
+    from .grid import CellKey
     from .schemas import GenerateRequest
 
 _write_lock = threading.Lock()
@@ -361,32 +363,46 @@ def list_images(
 
 
 def completed_cells(
-    prompt: str, negative_prompt: str | None, width: int, height: int, model_id: str
-) -> set[tuple[int, float, float | None, int]]:
-    """The (steps, CFG, mu, seed) of everything already rendered for this prompt.
+    prompts: Sequence[str], width: int, height: int, model_id: str
+) -> set[CellKey]:
+    """The (prompt, negative, steps, CFG, mu, seed) of everything already rendered.
 
     What a resumed grid subtracts from its cells. Keyed on the settings that
     make the image rather than on the job that made it, so a night that died
     can be resumed by a *new* job - and a cell rendered by hand earlier counts
     just the same. Rounded to the same six decimals the axis parser produces,
     so a float that survived a round trip through SQLite still matches.
+
+    `prompts` is a list because a grid may vary the prompt: the caller passes
+    the distinct prompts its cells resolved to. Chunked, since SQLite's default
+    ceiling on host parameters is 999 and a grid may queue more cells than that.
     """
+    wanted = list(dict.fromkeys(prompts))
+    keys: set[CellKey] = set()
     with _session() as conn:
-        rows = conn.execute(
-            """SELECT steps, guidance_scale, mu, seed FROM images
-               WHERE prompt = ? AND width = ? AND height = ? AND model_id = ?
-                 AND (negative_prompt IS ? OR negative_prompt = ?)""",
-            (prompt, width, height, model_id, negative_prompt, negative_prompt or ""),
-        ).fetchall()
-    return {
-        (
-            row["steps"],
-            round(row["guidance_scale"], 6),
-            None if row["mu"] is None else round(row["mu"], 6),
-            row["seed"],
-        )
-        for row in rows
-    }
+        for start in range(0, len(wanted), 400):
+            chunk = wanted[start : start + 400]
+            marks = ",".join("?" * len(chunk))
+            rows = conn.execute(
+                f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, seed FROM images
+                    WHERE width = ? AND height = ? AND model_id = ?
+                      AND prompt IN ({marks})""",
+                (width, height, model_id, *chunk),
+            ).fetchall()
+            keys.update(
+                (
+                    row["prompt"],
+                    # '' and NULL both mean "no negative prompt", and which one
+                    # a row holds depends on which client wrote it.
+                    row["negative_prompt"] or None,
+                    row["steps"],
+                    round(row["guidance_scale"], 6),
+                    None if row["mu"] is None else round(row["mu"], 6),
+                    row["seed"],
+                )
+                for row in rows
+            )
+    return keys
 
 
 def get_image(image_id: int) -> ImageRecord | None:
