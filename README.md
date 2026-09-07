@@ -169,6 +169,16 @@ uv run python -m backend.generate "..." --model krea/Krea-2-Turbo --quant int8
 uv run python -m backend.generate --help
 ```
 
+[Grid search](#grid-search) is here too, one flag per axis. Both sides expand
+the same specs into the same cells in the same order, so a sweep started in the
+terminal and one started in the browser cannot drift apart:
+
+```powershell
+uv run python -m backend.generate "{size} dog sitting on {ground}" `
+  --grid-prompt "size = big | small | none" --grid-prompt "ground = grass | dirt" `
+  --grid-steps 6-12x2 --grid-seeds 4 --seed 42 --resume
+```
+
 Steps, CFG and mu default to the checkpoint's profile exactly as the UI's
 controls do, so the prompt is the only required argument. `--model`, `--quant`
 and `--offload` are the `KREA_*` variables under another name. `--dry-run`
@@ -224,6 +234,90 @@ one; set it and the whole sweep is reproducible.
 the end of the current step — within a second or two — and keeps every image the
 run had already finished.
 
+## Grid search
+
+Folded away under the panel — a sweep over the things that make the image, run
+as one job and left overnight. Every axis sits on top of the settings above it,
+so a blank axis contributes the single value already in the panel and only what
+you fill in varies. An empty grid is exactly the image Generate would have made.
+
+| Axis | Takes | Example |
+| --- | --- | --- |
+| Prompt variables | `name = value \| value` lines, one variable per line | `size = big \| small` |
+| Steps | one value, a list, or a range | `6-12x2` — 6, 8, 10, 12 |
+| CFG | the same, decimals allowed | `0,0.5,1` or `0-2x0.5` |
+| Mu | the same, plus `none` for no shift of ours at all | `none,1.15` |
+| Seeds | how many consecutive seeds run the whole grid | `4` |
+
+They cross: two sizes, two grounds, four step counts and two seeds is 32 images.
+The panel previews what it would run before you commit to it — the resolved
+axes, the finished prompts, the image count, and once the gallery holds anything
+at that size to measure against, roughly how long. One grid is capped at
+`KREA_MAX_GRID_IMAGES` images and each axis at 64 values, because `1-1000` is
+eight characters.
+
+### Varying the prompt
+
+Put `{name}` placeholders in the prompt and give each one its values:
+
+```
+Prompt             {size} dog sitting on {ground}
+
+Prompt variables   size = big | small | none
+                   ground = grass | dirt
+```
+
+Six prompts, crossed with whatever the other axes do. Values split on `|` rather
+than on a comma, because `a big, fluffy dog` is one value and splitting it the
+other way makes two cells of nonsense.
+
+`none` is a value too — the word and the space it sat in both come out, so the
+third size is `dog sitting on grass`. That is how you compare saying something
+against not saying it at all.
+
+A variable no placeholder mentions is refused, and so is a placeholder with no
+variable: the first multiplies the night by a value that changes nothing, the
+second renders a literal `{ground}` into every image of the run. Both are caught
+when you submit, not at 3am.
+
+### Overnight, and picking it back up
+
+**Seeds are the outer loop.** A night that ends early — a cancel, a crash, a
+power cut — has then finished every combination for the seeds it reached, which
+is the comparison you wanted; the other order leaves every seed part-done and
+nothing comparable. The prompt is the next loop in, for the same reason.
+
+**Resume** skips the cells the gallery already holds: tick it and re-submit the
+same grid. It matches on the settings that make the image rather than on the job
+that ran them, so a *new* job continues a dead one and an image rendered by hand
+earlier counts too. Each prompt of a prompt grid counts on its own. It needs the
+Seed field filled in — a random base would match none of the run it is
+continuing and would quietly render the whole thing again; reuse any image of
+that run to recover its seed.
+
+**Cancel** lands within a step, keeps everything already written, and a grid
+that is entirely finished is refused rather than queued to do nothing.
+
+### Reading a run back
+
+Every image records the job that made it — a browser job or one CLI invocation —
+and the gallery search box is how you get one back. It takes `key:value` terms
+plus free text:
+
+```
+job:ab12cd        one night's work
+seed:42           steps:6-12       cfg:<=1        model:flux
+mu:none           the images that ran with no shift at all — not the same as mu:0
+a lighthouse      anything left over searches the prompt
+```
+
+**Sheet**, above the gallery, lays that run out as the grid that made it: the
+two widest-varying axes become the columns and rows, and a third becomes a
+selector rather than a dimension nobody can read. The Prompt axis is labelled
+with only the words that vary — `big grass`, `small dirt`, or `none` for the
+cell that left the word out — because a header repeating the whole sentence is
+unreadable.
+
 ## Settings
 
 All optional, set as environment variables:
@@ -235,6 +329,7 @@ All optional, set as environment variables:
 | `KREA_OFFLOAD` | `model` | `sequential` (lower VRAM, slower) or `none` |
 | `KREA_OUTPUTS_DIR` | `outputs/` in the repo | Where PNGs are written. `wsl/env.sh` moves it onto the Linux filesystem |
 | `KREA_DB_PATH` | `krea.db` in the repo | The gallery index. Keep it off `/mnt/c` under WSL: SQLite cannot lock across the bridge |
+| `KREA_MAX_GRID_IMAGES` | `1024` | The most images one grid search may queue — a guard rail against a typo becoming a week of GPU time |
 | `KREA_PRELOAD` | `false` | Load weights at startup instead of on first request |
 | `KREA_DEVICE` | `cuda` | |
 | `KREA_HOST` | `127.0.0.1` | |
