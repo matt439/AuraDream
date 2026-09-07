@@ -372,6 +372,18 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   out of a connection `_connect` opened, and that ran `_migrate` first. A new
   column needs a `_migrate` entry, not a `"x" in row.keys()` read guard - the
   guard would let the SELECT succeed and every INSERT after it fail.
+- **The lightbox zooms, and the view carries across cells.** `lbView` in
+  `web/app.js` is a scale relative to fit (never below 1) plus a pan, keyed on
+  the record's `width x height` and kept across records that share it, so the
+  arrows compare the identical crop at the identical magnification down a
+  steps or mu axis. The image is laid out with explicit width/height/left/top
+  inside a `flex: 1 1 auto; min-height: 0` stage - not a CSS transform, which
+  can composite a fit-size texture and scale it - and 1:1 divides by
+  `devicePixelRatio`, or Windows scaling makes it a 1.25x resample, exactly
+  the smoothing a sharpening sweep is judging. The wheel listener is
+  non-passive; the zoom keys sit below the `input, textarea` guard. A click on
+  the stage beside the image closes the lightbox only at fit: zoomed, the
+  stage is a pan surface and only Escape or the cross close it.
 - **The morning after has two sources.** `GET /api/runs` groups the gallery
   by `run_id` (`storage.runs`: images, favourites, distinct prompts, jobs,
   first/last timestamp, and the *oldest* image's prompt and seed - the base

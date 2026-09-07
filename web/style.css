@@ -427,7 +427,25 @@ button { font: inherit; cursor: pointer; }
 /* Failures raised from inside the lightbox - a delete that 404s, a favourite
    that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
 .lightbox .error { min-height: 1.2em; }
-.lightbox img { max-width: 92vw; max-height: 78vh; object-fit: contain; border-radius: 8px; }
+/* The stage takes whatever the meta line and the buttons leave, and clips.
+   `flex: 1 1 auto` with `min-height: 0` rather than a hard 92vw/78vh: flex
+   shrinking plus overflow: hidden would otherwise clip the fit view. The image
+   is positioned by app.js - explicit width, height, left and top - so 1:1 is
+   rasterised at 1:1 rather than being a texture scaled up by a transform,
+   which is precisely the smoothing a sharpening sweep is trying to judge. */
+.lb-stage {
+  flex: 1 1 auto; min-height: 0; align-self: stretch;
+  position: relative; overflow: hidden;
+  cursor: zoom-in; touch-action: none; user-select: none;
+}
+.lb-stage.zoomed { cursor: grab; }
+.lb-stage.dragging { cursor: grabbing; }
+.lightbox img {
+  position: absolute; max-width: none; max-height: none;
+  border-radius: 4px; user-select: none; -webkit-user-drag: none;
+}
+.lb-zoom-group { display: flex; align-items: center; gap: 8px; margin-left: 12px; }
+.lb-zoom { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 4em; }
 .lb-meta {
   color: var(--muted);
   font-size: 12px;
@@ -439,20 +457,24 @@ button { font: inherit; cursor: pointer; }
 .lb-actions { display: flex; gap: 8px; }
 #lb-fav.active { color: #fbbf24; border-color: #fbbf24; }
 #lb-delete:hover { color: var(--danger); border-color: var(--danger); }
+/* The cross and the arrows sit above the stage, which is a positioned element
+   later in the document and would otherwise paint over them. */
 .close {
   position: absolute;
   top: 16px;
   right: 20px;
+  z-index: 1;
   background: none;
   border: none;
   color: var(--text);
   font-size: 22px;
 }
 
-/* Sit outside the image rather than over it, so a portrait crop is never
-   covered. The arrow keys do the same job; these are here for the mouse. */
+/* At the stage's edges rather than over the image's centre, so a portrait crop
+   is never covered. The arrow keys do the same job; these are here for the mouse. */
 .lb-nav {
   position: absolute;
+  z-index: 1;
   top: 50%;
   transform: translateY(-50%);
   background: rgba(255, 255, 255, 0.06);

@@ -36,7 +36,8 @@ const els = {
   runList: $('run-list'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
-  lbError: $('lb-error'),
+  lbError: $('lb-error'), lbStage: $('lb-stage'), lbZoom: $('lb-zoom'),
+  lbFit: $('lb-fit'), lbOne: $('lb-one'),
   lbReuse: $('lb-reuse'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
   lbFav: $('lb-fav'), lbDelete: $('lb-delete'),
 };
@@ -1224,9 +1225,89 @@ function openLightbox(rec, list) {
   renderLightbox();
 }
 
+// The view: a scale relative to the fit size (1 = fit, never below), and the
+// image centre's offset from the stage centre in CSS pixels. It is keyed on the
+// image's dimensions and kept across records that share them, so the arrow keys
+// compare the identical crop at the identical magnification across the cells of
+// a sweep - the whole point of zooming in on a steps or mu axis. A record of
+// another size starts at fit; so does every fresh open.
+const lbView = { scale: 1, x: 0, y: 0, key: null };
+const ZOOM_STEP = 1.25;
+
+// Fit is "contain": the largest size that shows the whole image inside the
+// stage, taken from the record's own dimensions rather than the decoded image,
+// so the layout is right before the PNG has arrived.
+function fitSize(rec) {
+  const k = Math.min(els.lbStage.clientWidth / rec.width, els.lbStage.clientHeight / rec.height);
+  return [rec.width * k, rec.height * k];
+}
+
+// The scale at which one image pixel is one *device* pixel. Dividing by the
+// devicePixelRatio is load-bearing: at 125-150% Windows scaling a plain
+// natural-size image is a 1.25-1.5x resample, which is precisely the smoothing
+// a sharpening sweep is being judged on.
+function oneToOneScale(rec) {
+  return (rec.width / window.devicePixelRatio) / fitSize(rec)[0];
+}
+
+function layoutLightbox() {
+  const rec = lbList[lbIndex];
+  if (!rec || !els.lightbox.open) return;
+  const [fw, fh] = fitSize(rec);
+  const w = fw * lbView.scale, h = fh * lbView.scale;
+  const sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight;
+  // An image smaller than the stage on an axis is centred on it; one larger
+  // can be panned until its edge meets the stage's, and no further.
+  const maxX = Math.max(0, (w - sw) / 2), maxY = Math.max(0, (h - sh) / 2);
+  lbView.x = Math.min(maxX, Math.max(-maxX, lbView.x));
+  lbView.y = Math.min(maxY, Math.max(-maxY, lbView.y));
+  Object.assign(els.lbImg.style, {
+    width: `${w}px`, height: `${h}px`,
+    left: `${(sw - w) / 2 + lbView.x}px`, top: `${(sh - h) / 2 + lbView.y}px`,
+  });
+  const one = oneToOneScale(rec);
+  const percent = Math.round((lbView.scale / one) * 100);
+  els.lbZoom.textContent = lbView.scale <= 1 ? `fit · ${percent}%`
+    : Math.abs(lbView.scale - one) < 1e-3 ? '1:1' : `${percent}%`;
+  els.lbStage.classList.toggle('zoomed', lbView.scale > 1);
+}
+
+// Zoom by a factor about a point (cx, cy) given relative to the stage centre,
+// keeping the image under that point where it is - the wheel zooms about the
+// pointer, the keys about the middle. Never below fit; capped at 8x device
+// pixels, past which the picture is squares.
+function zoomLightbox(factor, cx = 0, cy = 0) {
+  const rec = lbList[lbIndex];
+  if (!rec) return;
+  const ceiling = Math.max(1, oneToOneScale(rec) * 8);
+  const next = Math.min(ceiling, Math.max(1, lbView.scale * factor));
+  const ratio = next / lbView.scale;
+  lbView.x = cx - ratio * (cx - lbView.x);
+  lbView.y = cy - ratio * (cy - lbView.y);
+  lbView.scale = next;
+  if (next <= 1) lbView.x = lbView.y = 0;
+  layoutLightbox();
+}
+
+function zoomFit() { lbView.scale = 1; lbView.x = lbView.y = 0; layoutLightbox(); }
+function zoomOneToOne(cx = 0, cy = 0) {
+  const rec = lbList[lbIndex];
+  if (rec) zoomLightbox(oneToOneScale(rec) / lbView.scale, cx, cy);
+}
+
+// Pointer position relative to the stage centre, for zooming about it.
+function stagePoint(e) {
+  const box = els.lbStage.getBoundingClientRect();
+  return [e.clientX - box.left - box.width / 2, e.clientY - box.top - box.height / 2];
+}
+
 function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
+  const key = `${rec.width}x${rec.height}`;
+  if (lbView.key !== key) {
+    lbView.scale = 1; lbView.x = lbView.y = 0; lbView.key = key;
+  }
   els.lbImg.src = rec.url;
   els.lbImg.alt = rec.prompt;
   els.lbMeta.textContent =
@@ -1241,7 +1322,9 @@ function renderLightbox() {
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
   els.lbFav.textContent = rec.favorite ? '★ Favourite' : '☆ Favourite';
   els.lbFav.classList.toggle('active', !!rec.favorite);
+  // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();
+  layoutLightbox();
 }
 
 // Only the gallery strip has more behind it, and only while the server says so.
@@ -1278,8 +1361,55 @@ function closeLightbox() {
   els.lbError.hidden = true;
   lbList = [];
   lbIndex = -1;
+  // A fresh open starts at fit; the view is only carried between images of a
+  // walk, not between sessions of looking.
+  lbView.key = null;
 }
 els.lightbox.addEventListener('close', closeLightbox);
+
+// Wheel: zoom about the pointer. Non-passive, or the page behind the dialog
+// scrolls with it.
+els.lbStage.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  zoomLightbox(Math.exp(-e.deltaY * 0.002), ...stagePoint(e));
+}, { passive: false });
+
+// Drag to pan. A press that never moved is a click: on the stage beside the
+// image, it closes the lightbox - but only at the fit size, where nothing is
+// being panned and the stage is the backdrop it used to be. Zoomed in, the
+// whole stage is a pan surface and only Escape or the cross close it.
+let lbDrag = null;
+els.lbStage.onpointerdown = (e) => {
+  if (e.button !== 0) return;
+  lbDrag = { x: e.clientX, y: e.clientY, moved: false };
+  els.lbStage.setPointerCapture(e.pointerId);
+};
+els.lbStage.onpointermove = (e) => {
+  if (!lbDrag) return;
+  const dx = e.clientX - lbDrag.x, dy = e.clientY - lbDrag.y;
+  if (!lbDrag.moved && Math.hypot(dx, dy) < 4) return;  // a jittery click is a click
+  lbDrag.moved = true;
+  els.lbStage.classList.add('dragging');
+  lbView.x += dx; lbView.y += dy;
+  lbDrag.x = e.clientX; lbDrag.y = e.clientY;
+  layoutLightbox();
+};
+els.lbStage.onpointerup = (e) => {
+  const drag = lbDrag;
+  lbDrag = null;
+  els.lbStage.classList.remove('dragging');
+  if (!drag || drag.moved) return;
+  if (e.target === els.lbStage && lbView.scale <= 1) closeLightbox();
+};
+els.lbStage.onpointercancel = () => { lbDrag = null; els.lbStage.classList.remove('dragging'); };
+// Double-click: 1:1 about the point, or back to fit from anywhere else.
+els.lbImg.ondblclick = (e) => {
+  if (lbView.scale > 1) zoomFit();
+  else zoomOneToOne(...stagePoint(e));
+};
+els.lbFit.onclick = zoomFit;
+els.lbOne.onclick = () => zoomOneToOne();
+window.addEventListener('resize', layoutLightbox);
 
 // --------------------------------------------------------------------- wire
 
@@ -1347,11 +1477,15 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { closeLightbox(); return; }
   if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); return; }
   if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); return; }
-  // F and Delete act on the image in view - unless a text field still holds
-  // the caret, where they are typing.
+  // F, Delete and the zoom keys act on the image in view - unless a text field
+  // still holds the caret, where they are typing.
   if (e.target.matches('input, textarea')) return;
   if (e.key === 'f' || e.key === 'F') els.lbFav.click();
   else if (e.key === 'Delete') els.lbDelete.click();
+  else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomLightbox(ZOOM_STEP); }
+  else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomLightbox(1 / ZOOM_STEP); }
+  else if (e.key === '0') zoomFit();
+  else if (e.key === '1') zoomOneToOne();
 });
 
 buildPresets();

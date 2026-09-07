@@ -248,7 +248,16 @@
   <button class="close" id="lb-close" aria-label="Close (Escape)">✕</button>
   <button class="lb-nav prev" id="lb-prev" title="Previous (←)" aria-label="Previous image">‹</button>
   <button class="lb-nav next" id="lb-next" title="Next (→)" aria-label="Next image">›</button>
-  <img id="lb-img" alt="">
+  <!-- The stage fills what the meta line and the buttons leave. The image is
+       laid out inside it by app.js at an explicit size and position - a real
+       width, not a transform, so the browser rasterises at the displayed scale
+       and 1:1 is one image pixel per device pixel. The wheel zooms about the
+       pointer, dragging pans, and a click on the stage beside the image closes
+       the lightbox only while it is at the fit size: zoomed in, the stage is a
+       pan surface and only Escape or the cross close it. -->
+  <div class="lb-stage" id="lb-stage" title="Scroll to zoom, drag to pan, double-click for 1:1">
+    <img id="lb-img" alt="" draggable="false">
+  </div>
   <div class="lb-meta" id="lb-meta"></div>
   <!-- Failures raised from inside the lightbox land here, over the overlay,
        rather than in the panel's slot underneath it. -->
@@ -257,6 +266,11 @@
     <button class="ghost" id="lb-fav" title="Favourite (F)">☆ Favourite</button>
     <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
     <button class="ghost" id="lb-delete" title="Delete (Del)">⌦ Delete</button>
+    <span class="lb-zoom-group">
+      <button class="ghost" id="lb-fit" title="Fit to the window (0)">Fit</button>
+      <button class="ghost" id="lb-one" title="One image pixel per screen pixel (1)">1:1</button>
+      <span class="lb-zoom" id="lb-zoom" aria-live="polite"></span>
+    </span>
   </div>
 </dialog>
 

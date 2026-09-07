@@ -89,6 +89,14 @@ loads them — expect several minutes. Subsequent loads read from the HF cache.
 pages in more as you reach the end of it — `F` stars it, `Delete` removes it
 after asking, and `Esc` closes it. Both are also buttons under the image.
 
+The image opens at the fit size. The mouse wheel zooms about the pointer,
+dragging pans, `+`/`-` zoom about the centre, `0` fits again and `1` (or a
+double-click) shows one image pixel per screen pixel — corrected for the
+display scaling, so a sharpening sweep is judged on its own pixels rather than
+on a 125% resample. The zoom and the crop carry across images of the same size
+as you walk with the arrows, which is what makes a steps or mu axis comparable:
+the same detail, at the same magnification, in every cell.
+
 ## Run under WSL 2 (4-bit Nunchaku)
 
 The float8 path above is the fastest thing that runs on Windows. Nunchaku Lite —
