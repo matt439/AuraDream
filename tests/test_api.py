@@ -734,6 +734,26 @@ def test_resume_without_a_seed_is_refused(client, fake):
     assert not fake.requests
 
 
+def test_the_gallery_pages_by_id_and_knows_when_it_is_done(client, store):
+    for seed in range(5):
+        store.save_image(
+            Image.new("RGB", (16, 16)),
+            GenerateRequest(prompt="x", width=256, height=256),
+            seed=seed, duration_ms=1, model_id="m",
+        )
+    first = client.get("/api/gallery?limit=2").json()
+    assert [r["seed"] for r in first["items"]] == [4, 3]
+    # Exact, from a row fetched past the page - not `offset < total`, which a
+    # growing total keeps true after the last old row has been shown.
+    assert first["has_more"] is True
+    second = client.get(f"/api/gallery?limit=2&before={first['items'][-1]['id']}").json()
+    assert [r["seed"] for r in second["items"]] == [2, 1]
+    third = client.get(f"/api/gallery?limit=2&before={second['items'][-1]['id']}").json()
+    assert [r["seed"] for r in third["items"]] == [0]
+    assert third["has_more"] is False
+    assert third["total"] == 5
+
+
 def test_a_bad_gallery_filter_is_a_422(client):
     response = client.get("/api/gallery?search=seed:tuesday")
     assert response.status_code == 422

@@ -17,7 +17,7 @@ from pathlib import Path
 import diffusers
 import pytest
 
-from backend import generate, launch
+from backend import generate, launch, sizes
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.model_defaults import _FALLBACK, _profile_for, defaults_for
@@ -70,10 +70,42 @@ def test_the_size_table_is_the_same_in_the_browser_and_the_cli():
     # between the two makes --resume unable to continue a browser grid.
     src = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     block = re.search(r"const SIZES = \{(.*?)\n\};", src, re.S).group(1)
-    sizes = {}
+    found = {}
     for aspect, body in re.findall(r"'([\d:]+)':\s*\{([^}]*)\}", block):
-        sizes[aspect] = {
+        found[aspect] = {
             int(tier): tuple(int(n) for n in re.findall(r"\d+", dims))
             for tier, dims in re.findall(r"(\d): \[([^\]]*)\]", body)
         }
-    assert sizes == generate.SIZES
+    assert found == sizes.SIZES
+    assert generate.SIZES is sizes.SIZES
+
+
+def test_the_readme_size_table_matches_the_code():
+    # The fourth copy. Rows read `| 16:9 | 1360×768 | 1920×1088 | 2736×1536 |`.
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    table = re.search(r"## Sizes.*?\n\n(\|.*?)\n\n", text, re.S).group(1)
+    found = {}
+    for line in table.splitlines()[2:]:
+        aspect, *cells = [cell.strip() for cell in line.strip("|").split("|")]
+        found[aspect] = {
+            tier: tuple(int(n) for n in re.findall(r"\d+", cell))
+            for tier, cell in zip(sizes.TIERS, cells)
+        }
+    assert found == sizes.SIZES
+
+
+def test_the_size_guard_rails_are_the_largest_preset():
+    # config.py used to derive these in prose and then hard-code rounder
+    # numbers; the HTML's `max` on the two boxes is the same bound by hand.
+    from backend.config import settings
+
+    assert settings.max_side == max(max(size) for size in sizes.every_size()) == 2736
+    assert settings.max_pixels == max(w * h for w, h in sizes.every_size()) == 1776 * 2368
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    bounds = re.findall(r'id="(?:width|height)"[^>]*max="(\d+)"', html)
+    assert bounds == [str(settings.max_side)] * 2
+    # Every preset passes the budget it defines.
+    from backend.schemas import GenerateRequest
+
+    for width, height in sizes.every_size():
+        GenerateRequest(prompt="x", width=width, height=height).check_budget()

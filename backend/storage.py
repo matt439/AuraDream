@@ -186,6 +186,15 @@ def init_db() -> None:
 
 
 def _row_to_record(row: sqlite3.Row) -> ImageRecord:
+    """A gallery row as the record the API serves.
+
+    Every column is read unguarded. Rows only ever come out of a connection
+    `_connect` opened, and `_connect` runs `_migrate` first, so a database from
+    an older build has every column by the time a row is fetched - NULL where
+    the build that wrote it knew nothing of the field. A new column therefore
+    needs an entry in `_migrate`, not a read guard here: a guard would let the
+    SELECT succeed and every INSERT after it fail on the missing column.
+    """
     # Rows from before thumbnails were written have none; the client falls back
     # to the PNG. One stat per row, cheap next to the query.
     thumb = _thumb_path(settings.outputs_dir / row["filename"])
@@ -200,14 +209,12 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         height=row["height"],
         steps=row["steps"],
         guidance_scale=row["guidance_scale"],
-        # Databases written before mu was indexed have no such column.
-        mu=row["mu"] if "mu" in row.keys() else None,
+        mu=row["mu"],
         seed=row["seed"],
         model_id=row["model_id"],
-        quantization=row["quantization"] if "quantization" in row.keys() else None,
-        # Rows written before runs were grouped belong to no job.
-        job_id=row["job_id"] if "job_id" in row.keys() else None,
-        run_id=row["run_id"] if "run_id" in row.keys() else None,
+        quantization=row["quantization"],
+        job_id=row["job_id"],
+        run_id=row["run_id"],
         duration_ms=row["duration_ms"],
         created_at=row["created_at"],
         favorite=bool(row["favorite"]),
@@ -376,18 +383,37 @@ def step_cost_ms(
     return costs[len(costs) // 2]
 
 
-def _page(conn: sqlite3.Connection, clause: str, params: list, limit: int, offset: int):
+def _page(
+    conn: sqlite3.Connection,
+    clause: str,
+    params: list,
+    limit: int,
+    offset: int,
+    before: int | None = None,
+):
     """Count and fetch one page over the *same* predicate.
 
     Both branches below go through here so the count badge, the grid and the
     paging cannot end up reading different result sets - which is how the LIKE
     fallback used to drop the favorites filter and then report a total for rows
     it never showed.
+
+    `before` is keyset paging: rows with an id below it, newest first. OFFSET
+    over a table being inserted into is wrong in both directions - a row
+    landing at the top shifts every fetched row down one, so the tail of the
+    last page comes back as the head of the next and as many older rows are
+    skipped for good. An id is stable under inserts and deletes alike. The
+    count is over the whole predicate either way: it is the badge's number,
+    not the page's.
     """
     total = conn.execute(f"SELECT COUNT(*) FROM images {clause}", params).fetchone()[0]
+    page_clause, page_params = clause, list(params)
+    if before is not None:
+        page_clause = f"{clause} AND id < ?" if clause else "WHERE id < ?"
+        page_params.append(before)
     rows = conn.execute(
-        f"SELECT * FROM images {clause} ORDER BY id DESC LIMIT ? OFFSET ?",
-        (*params, limit, offset),
+        f"SELECT * FROM images {page_clause} ORDER BY id DESC LIMIT ? OFFSET ?",
+        (*page_params, limit, offset),
     ).fetchall()
     return total, rows
 
@@ -463,8 +489,18 @@ def _like_escape(term: str) -> str:
 
 
 def list_images(
-    limit: int = 50, offset: int = 0, search: str | None = None, favorites_only: bool = False
+    limit: int = 50,
+    offset: int = 0,
+    search: str | None = None,
+    favorites_only: bool = False,
+    before: int | None = None,
 ) -> tuple[list[ImageRecord], int]:
+    """One page of the gallery and the total the filters match.
+
+    `before` pages by id rather than by offset - see `_page`. The two compose,
+    but a client wants one or the other: the browser carries the last id it
+    was shown, and `offset` stays for anyone scripting against the API.
+    """
     where: list[str] = []
     params: list = []
     if favorites_only:
@@ -485,7 +521,7 @@ def list_images(
 
     with _session() as conn:
         try:
-            total, rows = _page(conn, clause, params, limit, offset)
+            total, rows = _page(conn, clause, params, limit, offset, before)
         except sqlite3.OperationalError:
             if not text:
                 raise
@@ -498,7 +534,7 @@ def list_images(
             where[-1:] = [r"prompt LIKE ? ESCAPE '\'"] * len(terms)
             params[-1:] = [f"%{_like_escape(t)}%" for t in terms]
             clause = f"WHERE {' AND '.join(where)}" if where else ""
-            total, rows = _page(conn, clause, params, limit, offset)
+            total, rows = _page(conn, clause, params, limit, offset, before)
     return [_row_to_record(r) for r in rows], total
 
 

@@ -130,6 +130,26 @@ def test_paging_agrees_with_the_count(store):
     assert {r.id for r in first}.isdisjoint({r.id for r in second})
 
 
+def test_paging_by_id_survives_an_insert_between_pages(store):
+    # OFFSET paging over a table being written into: three images landing at
+    # the top between two pages shifted every row down three, so the tail of
+    # page one came back as the head of page two and three older images were
+    # never shown. An id is stable under inserts and deletes alike.
+    ids = [_add(store, f"image {i}").id for i in range(6)]
+    first, _ = store.list_images(limit=2)
+    assert [r.id for r in first] == [ids[5], ids[4]]
+    _add(store, "landed since")
+    _add(store, "and another")
+    second, total = store.list_images(limit=2, before=first[-1].id)
+    assert [r.id for r in second] == [ids[3], ids[2]]
+    assert total == 8  # the badge counts everything the filters match
+    # The anchor composes with the filters rather than replacing them.
+    store.set_favorite(ids[1], True)
+    store.set_favorite(ids[5], True)
+    starred, _ = store.list_images(limit=5, favorites_only=True, before=ids[5])
+    assert [r.id for r in starred] == [ids[1]]
+
+
 def test_clear_history_keeps_favorites_and_their_files(store):
     kept = _add(store, "keep me", favorite=True)
     gone = _add(store, "clear me")

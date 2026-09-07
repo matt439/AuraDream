@@ -210,9 +210,14 @@ class ImageRecord(BaseModel):
 
 class GalleryPage(BaseModel):
     items: list[ImageRecord]
+    # Everything the filters match, not the page: the badge's number.
     total: int
     limit: int
     offset: int
+    # Whether a row older than this page exists under the same filters. Exact -
+    # the server fetched one row past the page to know - where `offset < total`
+    # is not, once rows have landed at the top since the first page.
+    has_more: bool = False
 
 
 class ModelStatus(BaseModel):

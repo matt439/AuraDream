@@ -31,6 +31,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/schemas.py` — pydantic request/response models
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
+- `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
+  `max_side`/`max_pixels`, `web/app.js`'s copy, `index.html`'s `max=` and the
+  README table are all held to it by `tests/test_profiles.py`
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
 - `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared

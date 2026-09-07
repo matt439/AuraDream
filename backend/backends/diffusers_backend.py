@@ -253,12 +253,20 @@ class DiffusersBackend(GenerationBackend):
             pipe = DiffusionPipeline.from_pretrained(settings.model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 
+            # The offload hooks resolve their own accelerator when given none,
+            # which is always GPU 0: `KREA_DEVICE=cuda:1` used to load onto
+            # cuda:0 while describe() reported that card's name and memory, so
+            # nothing on screen said the setting had been dropped. Only a CUDA
+            # device is passed through - offload cannot target the CPU, and
+            # the preflight above has already insisted on an accelerator.
+            device = torch.device(settings.device)
+            target = device if device.type == "cuda" else None
             if settings.offload == "sequential":
-                pipe.enable_sequential_cpu_offload()
+                pipe.enable_sequential_cpu_offload(device=target)
             elif settings.offload == "model":
-                pipe.enable_model_cpu_offload()
+                pipe.enable_model_cpu_offload(device=target)
             else:
-                pipe.to(settings.device)
+                pipe.to(device)
 
             # VAE decode at 2K is the other memory spike; slice and tile it. Most
             # pipelines expose the switches themselves; FLUX.2 klein's does not,
@@ -635,9 +643,14 @@ class DiffusersBackend(GenerationBackend):
         try:
             import torch
 
-            if torch.cuda.is_available():
-                free, total = torch.cuda.mem_get_info()
-                info["device_name"] = torch.cuda.get_device_name(0)
+            # The card the weights are on, not GPU 0: with offload the
+            # components live on `KREA_DEVICE` between moves, and a status
+            # line reporting another card's memory hides a dropped setting.
+            device = torch.device(settings.device)
+            if torch.cuda.is_available() and (device.type == "cuda" or settings.offload != "none"):
+                index = device.index if device.type == "cuda" and device.index is not None else 0
+                free, total = torch.cuda.mem_get_info(index)
+                info["device_name"] = torch.cuda.get_device_name(index)
                 info["vram_total_mb"] = total // (1024 * 1024)
                 info["vram_used_mb"] = (total - free) // (1024 * 1024)
         except Exception:  # noqa: BLE001 - status must never raise

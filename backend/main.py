@@ -408,6 +408,10 @@ async def gallery(
     # the sheet's one-page request cannot be refused by the server that sized it.
     limit: int = Query(48, ge=1, le=max(1024, settings.max_grid_images)),
     offset: int = Query(0, ge=0),
+    # Keyset paging: rows older than this id. What the browser sends, because
+    # an offset over a gallery a sweep is writing into repeats the tail of one
+    # page at the head of the next and skips as many older rows for good.
+    before: int | None = Query(None, ge=1),
     search: str | None = None,
     favorites: bool = False,
 ) -> GalleryPage:
@@ -416,16 +420,21 @@ async def gallery(
     # while `clear.py` holds the file would otherwise freeze the SSE stream,
     # the cancel endpoint and the status poll for that long.
     try:
+        # One row past the page, so `has_more` is a fact rather than a guess
+        # from a total that keeps growing while the page is read.
         items, total = await asyncio.to_thread(
             storage.list_images,
-            limit=limit,
+            limit=limit + 1,
             offset=offset,
             search=search,
             favorites_only=favorites,
+            before=before,
         )
     except ValueError as exc:  # a filter term that is not a number
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return GalleryPage(items=items, total=total, limit=limit, offset=offset)
+    return GalleryPage(
+        items=items[:limit], total=total, limit=limit, offset=offset, has_more=len(items) > limit
+    )
 
 
 @app.post("/api/images/{image_id}/favorite")

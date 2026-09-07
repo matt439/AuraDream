@@ -156,6 +156,44 @@ def test_load_refuses_a_pipeline_without_the_callback_or_generator(monkeypatch):
         DiffusersBackend().load()
 
 
+class OffloadingPipeline(KleinLikePipeline):
+    """Records the device the offload hooks were told to use."""
+
+    def __init__(self):
+        super().__init__()
+        self.offload_device = "unset"
+
+    def enable_model_cpu_offload(self, gpu_id=None, device=None):
+        self.offload_device = device
+
+
+def test_load_offloads_onto_the_configured_device(monkeypatch):
+    # Given no device, diffusers resolves its own accelerator - always GPU 0 -
+    # so `KREA_DEVICE=cuda:1` loaded onto cuda:0 while describe() reported
+    # that card, and nothing on screen said the setting was dropped.
+    import diffusers
+    import torch
+
+    pipe = OffloadingPipeline()
+    monkeypatch.setattr(diffusers.DiffusionPipeline, "from_pretrained", lambda *a, **k: pipe)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(
+        module,
+        "settings",
+        dataclasses.replace(module.settings, quantization="none", offload="model", device="cuda:1"),
+    )
+    DiffusersBackend().load()
+    assert pipe.offload_device == torch.device("cuda:1")
+
+    # And the status line reads that card's name and memory, not GPU 0's.
+    asked = []
+    monkeypatch.setattr(torch.cuda, "mem_get_info", lambda index: (asked.append(index), (1 << 30, 2 << 30))[1])
+    monkeypatch.setattr(torch.cuda, "get_device_name", lambda index: f"card {index}")
+    info = DiffusersBackend().describe()
+    assert info["device_name"] == "card 1" and asked == [1]
+    assert (info["vram_total_mb"], info["vram_used_mb"]) == (2048, 1024)
+
+
 def test_load_reaches_for_the_vaes_own_tiling_switches(monkeypatch):
     import diffusers
 

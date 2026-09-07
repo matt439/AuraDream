@@ -36,23 +36,13 @@ from types import SimpleNamespace
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# Imported up here rather than in _project(): neither pulls in config, so both
-# are safe before apply_env() has had its say about the KREA_* variables.
-# launch.py owns --model/--quant/--offload for the server and this CLI alike.
+# Imported up here rather than in _project(): none of these pulls in config, so
+# all are safe before apply_env() has had its say about the KREA_* variables.
+# launch.py owns --model/--quant/--offload for the server and this CLI alike;
+# sizes.py owns the preset table the browser's copy is asserted against.
 from backend.launch import add_model_arguments, apply_env  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
-
-# The UI's preset table (web/app.js), kept in step with it. Aspect and megapixel
-# tier are independent: every side is a multiple of 16 for the VAE, and the whole
-# 4 MP row costs what 2048x2048 costs.
-SIZES: dict[str, dict[int, tuple[int, int]]] = {
-    "1:1": {1: (1024, 1024), 2: (1440, 1440), 4: (2048, 2048)},
-    "3:4": {1: (896, 1200), 2: (1248, 1664), 4: (1776, 2368)},
-    "4:3": {1: (1200, 896), 2: (1664, 1248), 4: (2368, 1776)},
-    "16:9": {1: (1360, 768), 2: (1920, 1088), 4: (2736, 1536)},
-    "9:16": {1: (768, 1360), 2: (1088, 1920), 4: (1536, 2736)},
-}
-TIERS = (1, 2, 4)
+from backend.sizes import SIZES, TIERS  # noqa: E402
 
 
 def _build_parser() -> argparse.ArgumentParser:

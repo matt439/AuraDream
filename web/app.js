@@ -57,7 +57,12 @@ const TIERS = [1, 2, 4];
 let pickedAspect = '1:1';
 let pickedTier = 1;
 
-let offset = 0;
+// Paging is by id, not by offset: the gallery is a table a sweep is inserting
+// into, and an offset over it repeats the tail of one page at the head of the
+// next and skips as many older rows for good. The anchor is the smallest id on
+// the page (the last record - they arrive newest first), and the server says
+// whether anything older exists, exactly.
+let galleryMore = false;
 let total = 0;
 let busy = false;
 // Which sampling controls the user has taken off the checkpoint's profile.
@@ -652,7 +657,7 @@ function resetGallery() {
   // Anything already in flight was fetched under the old filters and against
   // the grid this is about to empty; the token tells it to drop itself.
   galleryEpoch += 1;
-  offset = 0;
+  galleryMore = false;
   galleryRecords = [];
   els.gallery.innerHTML = '';
   // The fresh query has to be issued *after* an in-flight page settles rather
@@ -667,11 +672,13 @@ function resetGallery() {
 function loadGallery() {
   // One page at a time. Nothing else serialises this - a double-clicked "Load
   // more", or an arrow key held down in the lightbox - and two calls reading
-  // the same `offset` append the same 48 cards twice, then advance past a page
-  // that is never fetched.
+  // the same anchor append the same 48 cards twice.
   if (galleryPending) return galleryPending;
   const epoch = galleryEpoch;
-  const params = new URLSearchParams({ limit: sheetMode ? sheetPage : PAGE, offset });
+  const params = new URLSearchParams({ limit: sheetMode ? sheetPage : PAGE });
+  // The sheet asks for the whole run at once, so only the grid ever pages.
+  const last = galleryRecords[galleryRecords.length - 1];
+  if (!sheetMode && last) params.set('before', last.id);
   if (els.search.value.trim()) params.set('search', els.search.value.trim());
   if (els.favOnly.checked) params.set('favorites', 'true');
   els.more.disabled = true;
@@ -682,17 +689,16 @@ function loadGallery() {
       if (epoch !== galleryEpoch) return;  // superseded by a reset
       total = page.total;
       els.count.textContent = total ? `(${total})` : '';
-      // OFFSET paging over a table being inserted into: a row that landed at
-      // the top since the last page shifts every row down one, so the tail of
-      // the previous page comes back as the head of this one.
+      // Keyset paging cannot repeat a row; the guard stays for a stream that
+      // reattaches and a page that overlap through the viewer's records.
       const have = new Set(galleryRecords.map((r) => r.id));
       page.items.forEach((rec) => {
         if (have.has(rec.id)) return;
         galleryRecords.push(rec);
         if (!sheetMode) els.gallery.appendChild(card(rec));
       });
-      offset += page.items.length;
-      els.more.hidden = sheetMode || offset >= total;
+      galleryMore = !!page.has_more;
+      els.more.hidden = sheetMode || !galleryMore;
       if (sheetMode) renderSheet();
     })
     .catch((err) => {
@@ -803,9 +809,10 @@ async function deleteImage(rec) {
     const at = list.findIndex((r) => r.id === rec.id);
     if (at >= 0) list.splice(at, 1);
   }
+  // The badge follows the server's count; the page anchor is an id, which a
+  // delete does not move.
   if (inGallery) {
     total -= 1;
-    offset -= 1;
     els.count.textContent = total ? `(${total})` : '';
   }
   els.viewer.classList.toggle('multi', viewerRecords.length > 1);
@@ -1162,8 +1169,8 @@ function renderLightbox() {
   if (!els.lightbox.open) els.lightbox.showModal();
 }
 
-// Only the gallery strip has more behind it, and only while a page is unread.
-function canPage() { return lbList === galleryRecords && offset < total; }
+// Only the gallery strip has more behind it, and only while the server says so.
+function canPage() { return lbList === galleryRecords && galleryMore; }
 
 async function stepLightbox(delta) {
   if (!els.lightbox.open) return;

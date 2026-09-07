@@ -230,7 +230,10 @@ Every side is a multiple of 16, which is what the VAE wants. The whole 4 MP row
 is within 0.3% of 2048×2048 in pixel count, so it costs the same VRAM at any
 aspect — if the old 2K preset ran, all of these run. Both models are trained
 around 1 MP, so 4 MP buys detail at some risk of repeated elements in the
-composition.
+composition. A hand-typed size is accepted up to the largest preset - 2736 on
+a side, 1776×2368 in pixels - and refused past it; the table in
+`backend/sizes.py` is the one source, and the CLI, the browser and this README
+are held to it by a test.
 
 ## Batch vs runs
 
@@ -359,7 +362,7 @@ All optional, set as environment variables:
 | `KREA_DB_PATH` | `krea.db` in the repo | The gallery index. Keep it off `/mnt/c` under WSL: SQLite cannot lock across the bridge |
 | `KREA_MAX_GRID_IMAGES` | `1024` | The most images one grid search may queue — a guard rail against a typo becoming a week of GPU time |
 | `KREA_PRELOAD` | `false` | Load weights at startup instead of on first request |
-| `KREA_DEVICE` | `cuda` | |
+| `KREA_DEVICE` | `cuda` | `cuda:1` puts the weights on the second card, offload included, and the status line reports that card |
 | `KREA_HOST` | `127.0.0.1` | |
 | `KREA_PORT` | `7860` | |
 | `KREA_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Host headers the API answers to, and with the port, the origins allowed to write to it. Needed when `KREA_HOST` is `0.0.0.0`: the browser sends the machine's name or LAN address, never `0.0.0.0` |

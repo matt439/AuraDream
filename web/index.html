@@ -34,8 +34,10 @@
       <div class="presets" id="presets"></div>
       <div class="presets tiers" id="tiers"></div>
       <div class="row">
-        <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="2816"></label>
-        <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="2816"></label>
+        <!-- max is the longest side of any preset - backend/sizes.py, which
+             tests/test_profiles.py holds this to. -->
+        <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="2736"></label>
+        <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="2736"></label>
       </div>
       <p class="hint" id="size-hint"></p>
     </div>

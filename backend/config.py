@@ -12,6 +12,7 @@ from .model_defaults import (
     OFFLOAD_MODES,
     QUANT_MODES,
 )
+from .sizes import largest_pixels, largest_side
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -76,19 +77,20 @@ class Settings:
         if part.strip()
     )
 
-    # Guard rails so a typo in the UI cannot ask for a 16k image. Both are set by
-    # the largest preset the UI offers rather than by what the GPU can take: the
-    # 4 MP tier reaches 2736 on the long side at 16:9, and 1776x2368 = 4,205,568
-    # pixels at 3:4. Every 4 MP preset is within 0.3% of 2048x2048, so they all
-    # cost what the old 2K preset cost.
-    max_side: int = 2816
-    max_pixels: int = 4_300_000
+    # Guard rails so a typo in the UI cannot ask for a 16k image. Both are the
+    # largest preset the UI offers, read off the table in `sizes.py` rather
+    # than by what the GPU can take: 2736 on the long side (16:9 and 9:16 at
+    # 4 MP) and 1776x2368 = 4,205,568 pixels (3:4). They used to be rounder
+    # numbers derived from the table in prose and then typed in by hand, which
+    # is how a table change would have left them describing nothing.
+    max_side: int = largest_side()
+    max_pixels: int = largest_pixels()
     # The pixels one *batch* may hold at once - `num_images` forward passes in a
     # single call, all resident together. A typo guard, not a VRAM model: it
     # is two 4 MP images, which is about what the 16 GB fp8 path can hold, and
     # it stops `2048x2048 x 8` from passing the per-image check on its way to
     # an OOM after a multi-minute load. Runs are the way to make many.
-    max_batch_pixels: int = int(os.getenv("KREA_MAX_BATCH_PIXELS", str(2 * 4_300_000)))
+    max_batch_pixels: int = int(os.getenv("KREA_MAX_BATCH_PIXELS", str(2 * largest_pixels())))
 
     # The most images one grid may queue. A grid is meant to be left running
     # overnight, so this is generous - 1024 at ~30s is nine hours - but a
