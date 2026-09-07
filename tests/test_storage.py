@@ -212,6 +212,29 @@ def test_the_run_filter_joins_the_jobs_that_continued_it(store):
     assert store.list_images(search="job:night01")[1] == 1
 
 
+# ----------------------------------------------------------------------- runs
+
+
+def test_runs_group_the_gallery_by_run_newest_first(store):
+    # A resumed grid is two jobs under one run; a row from before runs had an
+    # id belongs to none. The oldest image carries the base seed and the prompt.
+    keep(store, prompt="a big fox", seed=100, job_id="night01", run_id="grid-a")
+    keep(store, prompt="a small fox", seed=100, job_id="night01", run_id="grid-a")
+    keep(store, prompt="a big fox", seed=101, job_id="night02", run_id="grid-a")
+    keep(store, seed=7, job_id="solo", run_id="grid-b")
+    keep(store, seed=8)  # no run
+    store.set_favorite(store.list_images(search="seed:101")[0][0].id, True)
+
+    runs = store.runs()
+    assert [r.run_id for r in runs] == ["grid-b", "grid-a"]
+    grid_a = runs[1]
+    assert (grid_a.images, grid_a.favorites, grid_a.prompts, grid_a.jobs) == (3, 1, 2, 2)
+    assert (grid_a.prompt, grid_a.seed) == ("a big fox", 100)
+    assert (grid_a.width, grid_a.height, grid_a.model_id) == (256, 256, "krea/Krea-2-Turbo")
+    assert grid_a.started_at <= grid_a.finished_at
+    assert store.runs(limit=1)[0].run_id == "grid-b"
+
+
 # --------------------------------------------------------------------- resume
 
 

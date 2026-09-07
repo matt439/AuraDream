@@ -338,6 +338,13 @@ mu:none           the images that ran with no shift at all — not the same as m
 a lighthouse      anything left over searches the prompt
 ```
 
+**Runs**, the picker beside the search box, lists the gallery one line per run
+- when it started, how many images, how many starred, the prompt - newest
+first; picking one searches for it and opens the sheet. And a page opened
+after a run has ended says so under the panel: when it finished or stopped,
+how many images and cells it reached, and the error if there was one - the
+server keeps that for as long as it is up, and the note is shown once.
+
 **Sheet**, above the gallery, lays that run out as the grid that made it: the
 two widest-varying axes become the columns and rows, and a third becomes a
 selector rather than a dimension nobody can read. The Prompt axis is labelled

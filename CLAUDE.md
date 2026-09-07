@@ -365,10 +365,36 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   before resume prunes anything). A resumed night therefore lands under a second
   job id but the same run id, and the gallery's `run:` filter - which is what
   the card's ⊞ button sets - shows the whole matrix where `job:` shows one
-  submission. Rows written before either column existed have NULL, so
-  `_row_to_record` and the UI both tolerate their absence - and `_migrate()`
-  adds the columns to an older database, because `CREATE TABLE IF NOT EXISTS`
-  leaves an existing table exactly as it was.
+  submission. Rows written before either column existed have NULL, which the
+  UI tolerates - and `_migrate()` adds the columns to an older database,
+  because `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it
+  was. `_row_to_record` reads every column **unguarded**: rows only ever come
+  out of a connection `_connect` opened, and that ran `_migrate` first. A new
+  column needs a `_migrate` entry, not a `"x" in row.keys()` read guard - the
+  guard would let the SELECT succeed and every INSERT after it fail.
+- **The morning after has two sources.** `GET /api/runs` groups the gallery
+  by `run_id` (`storage.runs`: images, favourites, distinct prompts, jobs,
+  first/last timestamp, and the *oldest* image's prompt and seed - the base
+  seed a resume needs); it outlives the process and answers "how many and
+  when". `GET /api/jobs?include_finished=true` adds the terminal jobs from
+  memory (`jobs.finished()`, newest-finished first, `image_count` in every
+  snapshot) and is the only thing that answers "why" - a cancel, an OOM, the
+  cell it stopped at - for as long as the server is up. The UI reads the
+  first into the Runs picker over the gallery (pick one: `run:<id>` search
+  plus the sheet) and the second into a banner under the panel when nothing
+  is live, gated to a job finished within 24 h and announced once per job
+  per browser (`localStorage`, every access in try/catch).
+- The gallery pages **by id, not by offset**: `GET /api/gallery?before=<id>`
+  returns rows older than that id and `has_more`, which the server knows
+  exactly by fetching one row past the page. OFFSET over a table a sweep is
+  inserting into repeated the tail of one page at the head of the next and
+  skipped as many older rows for good; `offset` stays for scripts. The
+  browser's anchor is the last record it holds, so a delete moves nothing.
+- The offload hooks are handed `KREA_DEVICE` explicitly (when it is a CUDA
+  device) and `describe()` reads that card's name and memory: given no device,
+  diffusers resolves its own accelerator, which is always GPU 0, so `cuda:1`
+  used to load onto cuda:0 while the status line described cuda:0 as if that
+  were the setting.
 - The gallery search box is `key:value` terms plus free text: the terms become
   SQL predicates (`seed:42`, `cfg:<=0.5`, `steps:8-12`, `mu:none`, `model:flux`,
   `run:ab12cd`, `job:ab12cd`) and only what is left goes to the FTS index, so a prompt that

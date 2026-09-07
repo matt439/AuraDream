@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, PngImagePlugin
 
 from .config import settings
-from .schemas import ImageRecord
+from .schemas import ImageRecord, RunSummary
 
 if TYPE_CHECKING:
     from .grid import CellKey
@@ -590,6 +590,56 @@ def completed_cells(
                 for row in rows
             )
     return keys
+
+
+def runs(limit: int = 20) -> list[RunSummary]:
+    """The gallery grouped by run, the most recently written first.
+
+    What `GET /api/runs` serves and the Runs picker lists: the night's output
+    as one line per grid rather than 480 cards to scroll past. Rows written
+    before runs had an id are not a run and are left out. Size, checkpoint and
+    quantizer are constant within a run - `run_id` hashes them - so they are
+    read off the oldest image along with its prompt and its seed, which is the
+    base seed the grid was started from.
+    """
+    with _session() as conn:
+        groups = conn.execute(
+            """SELECT run_id, COUNT(*) AS images, SUM(favorite) AS favorites,
+                      COUNT(DISTINCT prompt) AS prompts, COUNT(DISTINCT job_id) AS jobs,
+                      MIN(id) AS first_id, MAX(id) AS last_id,
+                      MIN(created_at) AS started_at, MAX(created_at) AS finished_at
+               FROM images WHERE run_id IS NOT NULL
+               GROUP BY run_id ORDER BY last_id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        firsts: dict[int, sqlite3.Row] = {}
+        if groups:
+            marks = ",".join("?" * len(groups))
+            for row in conn.execute(
+                f"SELECT * FROM images WHERE id IN ({marks})", [g["first_id"] for g in groups]
+            ):
+                firsts[row["id"]] = row
+    summaries = []
+    for group in groups:
+        first = firsts[group["first_id"]]
+        summaries.append(
+            RunSummary(
+                run_id=group["run_id"],
+                images=group["images"],
+                favorites=group["favorites"],
+                prompts=group["prompts"],
+                jobs=group["jobs"],
+                prompt=first["prompt"],
+                seed=first["seed"],
+                model_id=first["model_id"],
+                quantization=first["quantization"],
+                width=first["width"],
+                height=first["height"],
+                started_at=group["started_at"],
+                finished_at=group["finished_at"],
+            )
+        )
+    return summaries
 
 
 def get_image(image_id: int) -> ImageRecord | None:

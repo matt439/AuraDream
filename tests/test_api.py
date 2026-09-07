@@ -734,6 +734,26 @@ def test_resume_without_a_seed_is_refused(client, fake):
     assert not fake.requests
 
 
+def test_finished_jobs_are_listed_on_request_with_their_outcome(client, fake):
+    # The morning after: /api/jobs alone is empty once the night is over, and
+    # nothing said whether the grid finished, stopped or died - or how much it
+    # made. Newest finished first, counters and error but no records.
+    fake.fail_on = {2}
+    job_id, events = _grid(client, steps_axis="6,8,10", seed=1)
+    assert client.get("/api/jobs").json() == []
+    listed = client.get("/api/jobs?include_finished=true").json()
+    assert [job["job_id"] for job in listed] == [job_id]
+    job = listed[0]
+    assert (job["status"], job["failures"], job["image_count"]) == ("done", 1, 2)
+    assert (job["run"], job["total_runs"]) == (3, 3)
+    assert job["finished_at"] >= job["started_at"] >= job["created_at"]
+    assert "blew up" in job["error"] and "images" not in job
+    # And the gallery's own account of the run, which outlives the process.
+    runs = client.get("/api/runs").json()
+    assert len(runs) == 1
+    assert (runs[0]["run_id"], runs[0]["images"], runs[0]["seed"]) == (job["run_id"], 2, 1)
+
+
 def test_the_gallery_pages_by_id_and_knows_when_it_is_done(client, store):
     for seed in range(5):
         store.save_image(

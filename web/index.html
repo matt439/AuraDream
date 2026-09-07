@@ -108,6 +108,14 @@
          painted. app.js unhides it *before* writing the text, since a node
          still display:none announces nothing. -->
     <p class="error" id="error" role="alert" hidden></p>
+    <!-- The morning after: the newest finished job, while the server still
+         holds it. Announced once per job per browser, and only within a day of
+         its end, so a three-day-old failure is not re-read forever. -->
+    <div class="last-run" id="last-run" role="status" hidden>
+      <span id="last-run-text"></span>
+      <button class="ghost small" id="last-run-show" title="Search for this run and lay it out as a sheet">Show run</button>
+      <button class="ghost small" id="last-run-dismiss" aria-label="Dismiss">✕</button>
+    </div>
 
     <!-- Folded away by default: a grid is an overnight tool, not the workflow. -->
     <details class="section" id="grid-section">
@@ -202,6 +210,11 @@
 
     <div class="gallery-head">
       <h2>Gallery <span id="gallery-count"></span></h2>
+      <!-- One line per night's grid, newest first; picking one searches for
+           `run:<id>` and opens the sheet. -->
+      <select id="run-list" class="runs" aria-label="Recent runs" disabled>
+        <option value="">Runs…</option>
+      </select>
       <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
       <span class="help" tabindex="0" role="note" aria-label="Help">?<span class="tip" id="search-tip">
         Bare words match the prompt. <b>key:value</b> filters the numbers:<br>

@@ -208,6 +208,30 @@ class ImageRecord(BaseModel):
     favorite: bool = False
 
 
+class RunSummary(BaseModel):
+    """One run of the gallery - a grid, a sweep, a CLI invocation - as a line.
+
+    What the morning after needs: how many images a night produced, over how
+    many jobs (a resumed grid is two), between when and when, and enough of
+    its definition to recognise it. `seed` is the *oldest* image's, which is
+    the base seed the grid was started from - the one a resume needs.
+    """
+
+    run_id: str
+    images: int
+    favorites: int
+    prompts: int
+    jobs: int
+    prompt: str
+    seed: int
+    model_id: str
+    quantization: str | None = None
+    width: int
+    height: int
+    started_at: str
+    finished_at: str
+
+
 class GalleryPage(BaseModel):
     items: list[ImageRecord]
     # Everything the filters match, not the page: the badge's number.

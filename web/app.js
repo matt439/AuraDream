@@ -31,6 +31,9 @@ const els = {
   sheetBtn: $('btn-sheet'), sheet: $('sheet'), sheetControls: $('sheet-controls'),
   sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'),
   runHint: $('run-hint'),
+  lastRun: $('last-run'), lastRunText: $('last-run-text'),
+  lastRunShow: $('last-run-show'), lastRunDismiss: $('last-run-dismiss'),
+  runList: $('run-list'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
   lbError: $('lb-error'),
@@ -555,7 +558,7 @@ function streamJob(jobId) {
           // says so, rather than dropping the rest of the night.
           showError(data.error);
         }
-        if (data.images.length) resetGallery();
+        if (data.images.length) { resetGallery(); loadRuns(); }
         resolve();
       }
     };
@@ -589,13 +592,85 @@ async function resumeActiveJob() {
     // the queued one, and attaching to it made Cancel stop the wrong job while
     // the running grid kept the card with no reachable id.
     const job = active.find((j) => j.status === 'running') ?? active[active.length - 1];
-    if (!job) return;
+    // Nothing live: say what the last one did instead, if the server still knows.
+    if (!job) { announceLastRun(); return; }
     setBusy(true);
     currentJob = job.job_id;
     const queued = active.length - 1;
     els.progressText.textContent = queued > 0 ? `reattaching… (${queued} more queued)` : 'reattaching…';
     await streamJob(job.job_id);
   } catch { /* nothing running, or the server is not up yet */ }
+}
+
+// ------------------------------------------------------------ the morning after
+
+// localStorage is a per-browser convenience here and nothing more: it can be
+// absent (a private window), blocked, or throw on access, and the page has to
+// work the same without it.
+function remembered(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function remember(key, value) { try { localStorage.setItem(key, value); } catch { /* unavailable */ } }
+
+const ANNOUNCED_KEY = 'krea.announced-job';
+const ANNOUNCE_WINDOW_MS = 24 * 3600 * 1000;
+const when = (ms) => new Date(ms).toLocaleString([], {
+  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+});
+
+// The newest finished job, while the server still holds it. A 480-cell grid
+// that stopped at cell 300 used to leave an idle Generate button and a gallery
+// with 299 more images in it, and nothing anywhere saying when or why. Once per
+// job per browser, and only within a day of its end.
+async function announceLastRun() {
+  let jobs;
+  try { jobs = await api('/api/jobs?include_finished=true'); } catch { return; }
+  const last = jobs
+    .filter((j) => j.finished_at && ['done', 'error', 'cancelled'].includes(j.status))
+    .sort((a, b) => b.finished_at - a.finished_at)[0];
+  if (!last) return;
+  if (Date.now() - last.finished_at * 1000 > ANNOUNCE_WINDOW_MS) return;
+  if (remembered(ANNOUNCED_KEY) === last.job_id) return;
+
+  const images = `${last.image_count} image${last.image_count === 1 ? '' : 's'}`;
+  const cells = last.total_runs > 1 ? ` (${last.run}/${last.total_runs} cells)` : '';
+  const outcome = last.status === 'cancelled' ? 'was cancelled'
+    : last.status === 'error' ? 'failed'
+    : last.error ? 'finished with failures'
+    : 'finished';
+  els.lastRunText.textContent =
+    `Last run ${outcome} at ${when(last.finished_at * 1000)}: ${images}${cells}.` +
+    (last.error ? ` ${last.error}` : '');
+  els.lastRun.classList.toggle('bad', last.status === 'error');
+  els.lastRun.dataset.job = last.job_id;
+  els.lastRun.dataset.run = last.run_id || '';
+  els.lastRunShow.hidden = !last.image_count;
+  els.lastRun.hidden = false;
+}
+
+function dismissLastRun() {
+  remember(ANNOUNCED_KEY, els.lastRun.dataset.job || '');
+  els.lastRun.hidden = true;
+}
+
+// One line per run in the gallery, newest first. Picking one is the card's ⊞
+// button without having to find a card: it searches for the run and lays it
+// out as a sheet.
+async function loadRuns() {
+  let runs;
+  try { runs = await api('/api/runs?limit=20'); } catch { return; }
+  els.runList.innerHTML = '';
+  els.runList.append(new Option(runs.length ? 'Runs…' : 'No runs yet', ''));
+  for (const run of runs) {
+    const stars = run.favorites ? ` · ${run.favorites}★` : '';
+    const label = `${when(Date.parse(run.started_at))} · ${run.images} img${stars} · ${clip(run.prompt)}`;
+    els.runList.append(new Option(label, run.run_id));
+  }
+  els.runList.disabled = !runs.length;
+}
+
+function showRun(runId) {
+  if (!runId) return;
+  els.search.value = `run:${runId}`;
+  setSheet(true);
 }
 
 function clearResults() {
@@ -1244,6 +1319,14 @@ els.batch.oninput = els.runs.oninput = syncRuns;
 els.cfg.oninput = () => { own('cfg'); syncCfg(); };
 els.favOnly.onchange = resetGallery;
 els.sheetBtn.onclick = () => setSheet(!sheetMode);
+els.runList.onchange = () => { showRun(els.runList.value); els.runList.value = ''; };
+els.lastRunShow.onclick = () => {
+  const { run, job } = els.lastRun.dataset;
+  if (run) showRun(run);
+  else if (job) { els.search.value = `job:${job}`; setSheet(true); }
+  dismissLastRun();
+};
+els.lastRunDismiss.onclick = dismissLastRun;
 els.search.oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetGallery, 250); };
 els.lbClose.onclick = closeLightbox;
 els.lbPrev.onclick = () => stepLightbox(-1);
@@ -1277,5 +1360,6 @@ syncCfg();
 syncRuns();
 refreshStatus();
 loadGallery();
+loadRuns();
 resumeActiveJob();
 setInterval(refreshStatus, 3000);

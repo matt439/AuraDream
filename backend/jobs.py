@@ -117,6 +117,10 @@ class Job:
             "label": self.label,
             "error": self.error,
             "failures": self.failures,
+            # The count travels even when the records do not: a listing of
+            # finished jobs has to say how much a night produced without
+            # carrying the night.
+            "image_count": len(self.images),
             "created_at": self.created_at,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
@@ -145,6 +149,16 @@ class JobManager:
     def active(self) -> list[Job]:
         """Jobs that have not reached a terminal state, newest last."""
         return [job for job in self._jobs.values() if job.status not in _TERMINAL]
+
+    def finished(self) -> list[Job]:
+        """Jobs that have ended, the most recently finished first.
+
+        In memory only, so it answers "what happened to last night's run" for
+        as long as this server process is up - the gallery's rows answer "how
+        many and when" for good, but never "why".
+        """
+        done = [job for job in self._jobs.values() if job.status in _TERMINAL]
+        return sorted(done, key=lambda job: job.finished_at or 0.0, reverse=True)
 
     def busy(self) -> bool:
         """True while anything is queued or running.

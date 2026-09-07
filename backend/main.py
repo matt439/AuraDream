@@ -33,6 +33,7 @@ from .schemas import (  # noqa: E402
     GridRequest,
     JobAccepted,
     ModelStatus,
+    RunSummary,
     error_detail,
 )
 
@@ -351,16 +352,27 @@ async def preview_grid(request: GridRequest) -> GridPreview:
 
 
 @app.get("/api/jobs")
-async def active_jobs() -> list[dict]:
-    """Jobs that have not finished yet.
+async def active_jobs(include_finished: bool = False) -> list[dict]:
+    """Jobs that have not finished yet - and, on request, the ones that have.
 
     A job id is otherwise reachable only from the response that minted it, so a
     reloaded page had no way back to the sweep it left running - and no way to
-    tell that the Generate it just fired is sitting behind one.
+    tell that the Generate it just fired is sitting behind one. The finished
+    ones are what the morning after reads: a 480-cell grid that stopped at
+    cell 300 used to leave an idle Generate button and nothing anywhere saying
+    when or why. They live in memory, so the answer lasts as long as the
+    process does.
     """
     # Without the images: a long sweep accumulates hundreds of records, and a
     # caller looking for something to reattach to needs the id and the counters.
-    return [job.snapshot(images=False) for job in jobs.active()]
+    listed = jobs.active() + (jobs.finished() if include_finished else [])
+    return [job.snapshot(images=False) for job in listed]
+
+
+@app.get("/api/runs", response_model=list[RunSummary])
+async def recent_runs(limit: int = Query(20, ge=1, le=200)) -> list[RunSummary]:
+    """The gallery grouped by run, newest first - one line per night's grid."""
+    return await asyncio.to_thread(storage.runs, limit)
 
 
 @app.get("/api/jobs/{job_id}")
