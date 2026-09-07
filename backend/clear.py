@@ -73,9 +73,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {before['files_on_disk']:>6} PNG files, {_human(before['bytes_on_disk'])}")
     if before["orphan_files"]:
         print(f"  {before['orphan_files']:>6} of those have no database row")
+    if before["partial_files"]:
+        print(
+            f"  {before['partial_files']:>6} stale .part file(s) from interrupted writes"
+        )
     print()
 
-    if before["records"] == 0 and before["files_on_disk"] == 0:
+    if before["records"] == 0 and before["files_on_disk"] == 0 and not before["partial_files"]:
         print("Nothing to clear.")
         return 0
 
@@ -86,6 +90,8 @@ def main(argv: list[str] | None = None) -> int:
     plan = f"Would delete {doomed} record(s) and their files"
     if before["orphan_files"]:
         plan += f", plus {before['orphan_files']} untracked PNG(s)"
+    if before["partial_files"]:
+        plan += f", plus {before['partial_files']} stale .part file(s)"
     print(plan + (f", keeping {kept} favorite(s)." if kept else "."))
 
     if args.dry_run:
@@ -105,14 +111,27 @@ def main(argv: list[str] | None = None) -> int:
             print("Aborted.")
             return 1
 
-    result = storage.clear_history(keep_favorites=args.keep_favorites)
-    storage.vacuum()
+    try:
+        result = storage.clear_history(keep_favorites=args.keep_favorites)
+    except Exception as exc:  # noqa: BLE001 - report, and say it is not the abort code
+        # Its own code: 1 is "aborted, nothing deleted", and this is the
+        # opposite - the destructive step ran and then something went wrong.
+        print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        return 3
 
+    # The report first: what was deleted is the thing that must be printed
+    # whatever happens next. VACUUM is an optimisation, and it raises "database
+    # is locked" against a concurrent writer after the 15 s timeout.
     print(
         f"\nDeleted {result['records']} record(s), {result['files']} file(s)"
         + (f", {result['orphans']} orphan(s)" if result["orphans"] else "")
+        + (f", {result['partials']} stale .part file(s)" if result["partials"] else "")
         + "."
     )
+    try:
+        storage.vacuum()
+    except Exception as exc:  # noqa: BLE001 - best effort
+        print(f"note: could not compact the database ({exc}); it will shrink later.", file=sys.stderr)
     after = storage.summarise()
     print(f"Remaining: {after['records']} record(s), {after['files_on_disk']} file(s), "
           f"{_human(after['bytes_on_disk'])}.")

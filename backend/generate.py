@@ -137,7 +137,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     add_model_arguments(parser)
 
-    parser.add_argument("-q", "--quiet", action="store_true", help="only print saved filenames")
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="print only `<path>  seed <n>` per saved image on stdout; everything else goes to stderr",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -345,12 +350,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         print()
 
+    # To stderr: `--quiet > paths.txt` promises stdout holds nothing but paths.
     if args.dry_run:
-        print("Dry run - nothing generated.")
+        print("Dry run - nothing generated.", file=sys.stderr)
         return 0
 
     if not cells:
-        print("Nothing to do: every cell is already in the gallery.")
+        print("Nothing to do: every cell is already in the gallery.", file=sys.stderr)
         return 0
 
     p.storage.init_db()

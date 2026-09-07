@@ -51,6 +51,20 @@ _NUNCHAKU_EXAMPLE = "lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-e
 # and quantizing it shows up as visible decode artefacts.
 _QUANTIZABLE_PREFIXES = ("transformer", "unet", "text_encoder")
 
+# Pipelines whose `do_classifier_free_guidance` is `guidance_scale > 0`. Of the
+# 131 diffusers pipelines that take a `negative_prompt` and no `true_cfg_scale`,
+# 122 gate at `> 1` (SD3, SDXL, Chroma, Lumina 2, ...) and only these guide from
+# zero - so "has negative_prompt" cannot mean 0.0 on its own, as it used to.
+_GUIDES_FROM_ZERO = ("Krea2Pipeline", "ZImage")
+
+# What this backend cannot do without. `callback_on_step_end` is the only place
+# the pipeline hands control back - the progress source and the mandatory
+# cancellation point; `generator` is the per-image seed list every recorded seed
+# depends on. A pipeline missing either (the old `callback`/`callback_steps` API,
+# say) is refused at load rather than silently drawing unseeded noise under a
+# recorded seed with a Cancel that never lands.
+_REQUIRED_PARAMS = frozenset({"generator", "callback_on_step_end"})
+
 
 def _importable(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
@@ -183,8 +197,18 @@ class DiffusersBackend(GenerationBackend):
             import torch
             from diffusers import DiffusionPipeline
 
-            if settings.device == "cuda" and not torch.cuda.is_available():
-                raise RuntimeError("CUDA is not available to PyTorch")
+            # Offload resolves its own accelerator inside diffusers, so it needs
+            # CUDA whatever KREA_DEVICE says; the check has to see both, or
+            # `KREA_DEVICE=cpu` sailed past it and died after the download in
+            # `enable_model_cpu_offload` with a message naming neither variable.
+            needs_cuda = (
+                settings.offload != "none" or torch.device(settings.device).type == "cuda"
+            )
+            if needs_cuda and not torch.cuda.is_available():
+                raise RuntimeError(
+                    "CUDA is not available to PyTorch. Model offload needs an accelerator; "
+                    "to run on the CPU set KREA_OFFLOAD=none and KREA_DEVICE=cpu."
+                )
 
             # DiffusionPipeline resolves the concrete class from model_index.json,
             # so this works for Krea2Pipeline, FluxPipeline, and anything else.
@@ -216,9 +240,17 @@ class DiffusersBackend(GenerationBackend):
                     except Exception:  # noqa: BLE001 - purely opportunistic
                         log.debug("%s unavailable", opt)
 
+            params = set(inspect.signature(pipe.__call__).parameters)
+            missing = sorted(_REQUIRED_PARAMS - params)
+            if missing:
+                raise RuntimeError(
+                    f"{type(pipe).__name__}.__call__ takes no {' or '.join(missing)}; this "
+                    "backend needs the current diffusers callback and generator API, or "
+                    "seeds would reproduce nothing and Cancel could never land."
+                )
             self._apply_console_progress(pipe)
             self._warn_about_schedule_post_processing(pipe)
-            self._call_params = set(inspect.signature(pipe.__call__).parameters)
+            self._call_params = params
             self._pipe = pipe
             self._error = None
             log.info("model ready")
@@ -552,7 +584,9 @@ class DiffusersBackend(GenerationBackend):
             return None
         if "true_cfg_scale" in self._call_params:
             return 1.0
-        if "negative_prompt" in self._call_params:
+        if "negative_prompt" in self._call_params and type(self._pipe).__name__.startswith(
+            _GUIDES_FROM_ZERO
+        ):
             return 0.0
         return 1.0
 

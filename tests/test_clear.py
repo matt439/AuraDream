@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import dataclasses
+import sqlite3
 
 import pytest
 
@@ -46,3 +47,44 @@ def test_a_real_run_removes_them(fresh, capsys):
     assert clear.main(["--yes"]) == 0
     assert list(fresh.outputs_dir.glob("*.png")) == []
     assert "1 orphan(s)" in capsys.readouterr().out
+
+
+def test_the_report_is_printed_even_when_vacuum_fails(fresh, capsys, monkeypatch):
+    # VACUUM is an optimisation that raises "database is locked" against a
+    # concurrent writer; the deletion had already happened, and the report of
+    # it used to be lost behind the traceback with the abort code, 1.
+    (fresh.outputs_dir / "one.png").write_bytes(b"png")
+
+    def locked():
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(storage, "vacuum", locked)
+    assert clear.main(["--yes"]) == 0
+    captured = capsys.readouterr()
+    assert "Deleted 0 record(s), 0 file(s), 1 orphan(s)." in captured.out
+    assert "could not compact" in captured.err
+
+
+def test_a_failure_after_the_deletion_has_its_own_exit_code(fresh, monkeypatch):
+    (fresh.outputs_dir / "one.png").write_bytes(b"png")
+
+    def boom(keep_favorites=False):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(storage, "clear_history", boom)
+    # 1 is "aborted, nothing deleted"; this is the opposite case.
+    assert clear.main(["--yes"]) == 3
+
+
+def test_a_stale_partial_is_named_in_the_preview(fresh, capsys):
+    import os
+    import time
+
+    stale = fresh.outputs_dir / "night.png.part"
+    stale.write_bytes(b"power cut")
+    old = time.time() - 2 * storage.PARTIAL_SETTLE_SECONDS
+    os.utime(stale, (old, old))
+    # It is the only thing here, and it must not read as "Nothing to clear".
+    assert clear.main(["--dry-run"]) == 0
+    assert "1 stale .part file(s)" in capsys.readouterr().out
+    assert stale.exists()

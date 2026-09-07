@@ -40,6 +40,14 @@ DEFAULT_MODEL_ID = "black-forest-labs/FLUX.1-Krea-dev"
 DEFAULT_QUANT = "fp8"
 DEFAULT_OFFLOAD = "model"
 
+# The vocabularies config.py validates KREA_QUANT and KREA_OFFLOAD against, and
+# launch.py builds its menus from. An unknown value used to select the heaviest
+# path silently - `KREA_QUANT=fp16` loaded 25 GB of bf16 and OOMed at the first
+# image, `KREA_OFFLOAD=cpu` kept everything resident - while /api/status echoed
+# the typo back as if it meant something.
+QUANT_MODES: tuple[str, ...] = ("fp8", "int8", "none", "nunchaku")
+OFFLOAD_MODES: tuple[str, ...] = ("model", "sequential", "none")
+
 # Matched in order against a normalised model id.
 _PROFILES: list[tuple[str, dict[str, Any]]] = [
     (
@@ -214,15 +222,44 @@ def defaults_for(model_id: str) -> dict[str, Any]:
     return {k: v for k, v in _profile_for(model_id).items() if k != "hints"}
 
 
-def hints_for(model_id: str, cfg_threshold: float | None = None) -> dict[str, str]:
+# What the CFG tooltip says when the loaded pipeline disagrees with the profile
+# about the negative prompt: three of the five profiles' CFG hints assert
+# something about it, and a checkpoint the id table does not recognise but
+# whose pipeline takes none would otherwise be greyed out "because this
+# checkpoint takes no negative prompt" under a badge saying it applies above 1.
+_NEGATIVE_HINTS = {
+    False: (
+        "Classifier-free guidance, {guidance_scale:g} recommended. This pipeline takes no "
+        "negative prompt; above {cfg_threshold:g} it runs an uncond pass per step "
+        "(~2x slower) against an empty one."
+    ),
+    True: (
+        "Classifier-free guidance, {guidance_scale:g} recommended. Above {cfg_threshold:g} "
+        "the negative prompt applies, at roughly 2x the time per step."
+    ),
+}
+
+
+def hints_for(
+    model_id: str,
+    cfg_threshold: float | None = None,
+    negative_prompt_supported: bool | None = None,
+) -> dict[str, str]:
     """Tooltip text for steps/CFG/mu on this checkpoint.
 
-    `cfg_threshold` overrides the profile's guess with what a loaded pipeline
-    actually exposes, so the tooltip and the greyed-out negative prompt field
-    cannot disagree about where guidance switches on.
+    `cfg_threshold` and `negative_prompt_supported` override the profile's
+    guesses with what a loaded pipeline actually exposes, so the tooltip and
+    the greyed-out negative prompt field cannot disagree about where guidance
+    switches on, or whether a negative prompt does anything at all.
     """
     profile = _profile_for(model_id)
     values = {k: v for k, v in profile.items() if k != "hints"}
     if cfg_threshold is not None:
         values["cfg_threshold"] = cfg_threshold
-    return {key: text.format(**values) for key, text in profile["hints"].items()}
+    hints = dict(profile["hints"])
+    if (
+        negative_prompt_supported is not None
+        and negative_prompt_supported != profile["negative_prompt_supported"]
+    ):
+        hints["guidance_scale"] = _NEGATIVE_HINTS[negative_prompt_supported]
+    return {key: text.format(**values) for key, text in hints.items()}

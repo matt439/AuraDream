@@ -159,11 +159,19 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   runs against `""` - so the profile carries `negative_prompt_supported: False`,
   `describe()` reports `"negative_prompt" in _call_params` once loaded,
   `/api/status` merges it the way it merges `cfg_threshold`, and the UI greys the
-  field for the checkpoint rather than for the value. `cfg_threshold()` is now
-  three-way: `true_cfg_scale` present -> 1.0 (FLUX.1); else `negative_prompt`
-  present -> 0.0 (Krea 2 guides from 0); else 1.0 (klein's classic
-  `guidance_scale > 1` gate) - the old two-way rule read 0.0 for klein and the
-  tooltip said it warned above 0. Verified 2026-09-05 via Nunchaku NVFP4 on the
+  field for the checkpoint rather than for the value. `cfg_threshold()`:
+  `true_cfg_scale` present -> 1.0 (FLUX.1); else `negative_prompt` present
+  **and the pipeline class is in `_GUIDES_FROM_ZERO`** (`Krea2Pipeline`, the
+  `ZImage*` family - the only nine of 131 diffusers pipelines whose
+  `do_classifier_free_guidance` is `> 0`) -> 0.0; else 1.0 (klein's classic
+  `guidance_scale > 1` gate, and SD3/SDXL/Chroma/Lumina 2's). "Has
+  `negative_prompt`" alone used to read 0.0, which made loading SD3 make
+  `/api/status` *less* accurate than the profile's guess. `hints_for` takes
+  the live `negative_prompt_supported` as well as the threshold, so the CFG
+  tooltip cannot contradict the greyed-out field. `load()` refuses a pipeline
+  whose `__call__` lacks `generator` or `callback_on_step_end`
+  (`_REQUIRED_PARAMS`): dropped silently, the first meant unseeded noise under
+  a recorded seed and the second a Cancel that never lands. Verified 2026-09-05 via Nunchaku NVFP4 on the
   5080: 1 MP in 4.0 s at 2.9 GiB peak, 2 MP in 4.6 s at 3.4 GiB. Its pipeline also lacks
   `enable_vae_tiling`/`enable_vae_slicing`; the loader falls through to the same
   switches on `pipe.vae`. Its mu is empirical (sequence length and step count),
@@ -225,7 +233,18 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   reload reattaches instead of orphaning a sweep with no reachable id.
 - `save_image` writes `<name>.png.part` and renames only after the row commits.
   `_write_lock` is per-process and `clear.py` is a separate one: mid-encode, a
-  plain `.png` is an untracked file for its orphan sweep to delete.
+  plain `.png` is an untracked file for its orphan sweep to delete. The encode
+  sits *inside* the cleanup guard (a KeyboardInterrupt mid-encode is a
+  BaseException Pillow does not tidy), the cleanup only runs while the row has
+  **not** committed - past that the partial is the only copy of an image the
+  database already names - and the rename is retried over a few hundred
+  milliseconds, because on Windows a just-closed PNG is exactly what Defender
+  or an indexer holds open. The orphan sweep and `summarise()` glob the
+  directory *before* reading the rows (a file the scan saw has a row by then),
+  and sweep `.part` files only past `PARTIAL_SETTLE_SECONDS` (an hour): a
+  fresh one may be another process mid-encode. `_migrate`'s once-per-process
+  flag is keyed on the database path, so a file restored under a running
+  server gets its columns again.
 - **Shutdown has to reach the sweep before uvicorn drains connections.**
   uvicorn closes listeners, waits for open connections, and only *then* runs
   the lifespan shutdown - and the browser's EventSource stays open until the
@@ -308,8 +327,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `POST /api/grid/preview` runs the same expansion without queueing it, so the
   panel's count, its resolved axes and its error text are the run's own. Its
   duration estimate is per *step* (`storage.step_cost_ms`), measured from recent
-  gallery rows at the same size: a grid's cells disagree about step count, so an
-  average image duration would misstate most of them. No rows, no estimate.
+  gallery rows at the same size **on the same checkpoint** (klein's step is half
+  of Turbo's at 1 MP): a grid's cells disagree about step count, so an average
+  image duration would misstate most of them. No rows, no estimate.
 - **Resume keys on settings, not on the job.** `storage.completed_cells()` reads
   back (prompt, negative prompt, steps, CFG, mu, seed) for the *distinct
   prompts* a grid resolved to, at a size on a checkpoint **under a quantizer**

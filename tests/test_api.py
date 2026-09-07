@@ -547,14 +547,22 @@ def test_resume_skips_only_the_prompt_it_already_rendered(client, store):
 
 
 def test_the_preview_estimates_from_what_the_gallery_measured(client, store):
-    # Half a second per step, measured at this size. The fake backend renders
-    # instantly, so the row has to be a real one to estimate from.
+    # Half a second per step, measured at this size on this checkpoint. The
+    # fake backend renders instantly, so the row has to be a real one to
+    # estimate from - and a row from another checkpoint must not count.
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="x", width=256, height=256, steps=8),
+        seed=2,
+        duration_ms=40000,
+        model_id="some/other-checkpoint",
+    )
     store.save_image(
         Image.new("RGB", (256, 256)),
         GenerateRequest(prompt="x", width=256, height=256, steps=8),
         seed=1,
         duration_ms=4000,
-        model_id="test/model",
+        model_id=settings.model_id,
     )
     preview = client.post(
         "/api/grid/preview",

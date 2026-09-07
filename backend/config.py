@@ -5,7 +5,13 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from .model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT
+from .model_defaults import (
+    DEFAULT_MODEL_ID,
+    DEFAULT_OFFLOAD,
+    DEFAULT_QUANT,
+    OFFLOAD_MODES,
+    QUANT_MODES,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -91,7 +97,26 @@ class Settings:
 
 
 settings = Settings()
-settings.outputs_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _check_vocabulary(name: str, value: str, allowed: tuple[str, ...]) -> None:
+    """Refuse a KREA_* value outside its vocabulary, at import, by name.
+
+    The menu and the argparse `choices` are safe; the environment variables are
+    the documented interface and three start paths skip the menu. An unknown
+    value used to pick the heaviest branch silently and fail at the first image.
+    """
+    if value not in allowed:
+        raise SystemExit(f"{name}={value!r} is not one of: {', '.join(allowed)}")
+
+
+_check_vocabulary("KREA_QUANT", settings.quantization, QUANT_MODES)
+_check_vocabulary("KREA_OFFLOAD", settings.offload, OFFLOAD_MODES)
+
+# The outputs directory is created by `storage.ensure_outputs_dir()` - from
+# `init_db()`, the server's mount and the first write - not here: an import-time
+# mkdir defeated `--dry-run`'s "nothing changed", and on an unmounted
+# KREA_OUTPUTS_DIR created the mount point as a plain directory.
 
 # Nunchaku Lite's kernels come from a Hub repo that diffusers does not list as a
 # trusted publisher, so it refuses to download and execute them unless told to.

@@ -176,6 +176,9 @@ async def block_cross_site_writes(request: Request, call_next):
     return await call_next(request)
 
 
+# StaticFiles checks the directory exists at mount time; storage owns creating
+# it (config no longer does at import, so a --dry-run can promise "nothing").
+storage.ensure_outputs_dir()
 app.mount("/outputs", StaticFiles(directory=settings.outputs_dir), name="outputs")
 app.mount("/static", StaticFiles(directory=settings.web_dir), name="static")
 
@@ -206,7 +209,9 @@ async def status() -> ModelStatus:
     return ModelStatus(
         state=state,
         defaults=defaults,
-        hints=hints_for(info["model_id"], defaults["cfg_threshold"]),
+        hints=hints_for(
+            info["model_id"], defaults["cfg_threshold"], defaults["negative_prompt_supported"]
+        ),
         model_id=info["model_id"],
         quantization=info["quantization"],
         offload=info["offload"],
@@ -332,7 +337,9 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     """
     cells, values, skipped, _ = await _expand(request)
     # Cost is per step, and a grid's cells rarely agree on how many they take.
-    per_step_ms = await asyncio.to_thread(storage.step_cost_ms, request.width, request.height)
+    per_step_ms = await asyncio.to_thread(
+        storage.step_cost_ms, request.width, request.height, settings.model_id
+    )
     total_steps = sum(cell.request.steps for cell in cells) * request.num_images
     return GridPreview(
         values=values,

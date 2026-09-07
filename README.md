@@ -11,12 +11,17 @@ needs approval first.
 ## Requirements
 
 - NVIDIA GPU, **16 GB VRAM minimum** (float8 path). 24 GB+ can run `KREA_QUANT=none`.
-- ~30 GB free disk for weights.
+- ~35 GB free disk per checkpoint, measured from the HF cache: FLUX.1 Krea
+  [dev] is 32 GiB (transformer 23.8 GB, T5 9.5 GB), Krea 2 Turbo 34 GiB. The
+  WSL Nunchaku Lite re-uploads are far smaller.
 - Python 3.13 and [`uv`](https://docs.astral.sh/uv/).
 
 ## One-time setup
 
-Every official Krea/FLUX checkpoint is a **gated** HuggingFace repo. Log in first:
+The Krea checkpoints and FLUX.1 Krea [dev] are **gated** HuggingFace repos; the
+four FLUX.2 [klein] repos are open and need no login (Apache 2.0, and the
+cheapest thing here to try first - 4 steps, ~3 GiB peak). For the gated ones,
+log in first:
 
 ```powershell
 uv run hf auth login          # paste a read token from hf.co/settings/tokens
@@ -75,7 +80,8 @@ uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8
 
 A run whose stdin is not a terminal - a service, a script - never asks either.
 
-Open <http://127.0.0.1:7860>. The first generation downloads ~25 GB of weights and
+Open <http://127.0.0.1:7860>. The first generation downloads ~32 GB of weights
+for the default checkpoint (the transformer and the text encoder both) and
 loads them — expect several minutes. Subsequent loads read from the HF cache.
 
 `Ctrl`/`Cmd` + `Enter` generates from anywhere in the page. With an image open,
@@ -128,7 +134,11 @@ and sets `KREA_QUANT=nunchaku` with a pre-quantized checkpoint:
 | the same names with `int4` in place of `nvfp4` | RTX 20–40 |
 
 These are the official weights re-uploaded pre-quantized, and not gated. Any
-other `KREA_QUANT` value works from WSL too; set it before sourcing `env.sh`.
+other `KREA_QUANT` value works from WSL too; set it before sourcing `env.sh`,
+and `env.sh` then leaves `KREA_MODEL_ID` to the ordinary default rather than
+pairing a torchao quantizer with an already-quantized repo (which downloads
+everything and then fails inside transformers). `KREA_NUNCHAKU_FORMAT=int4`
+picks the older cards' repos.
 
 Two things to know. The WSL gallery is separate from the Windows one — two
 databases, two output directories. And run `uv` from WSL only after sourcing
@@ -187,8 +197,12 @@ everything but one `<path>  seed <n>` line per saved image.
 
 Each image is written and reported as it lands, and `Ctrl-C` stops at the end of
 the current step and keeps everything already saved — the same cooperative
-cancel the Cancel button uses. Exit status is 0 when every requested image was
-produced, 130 after a cancel, 2 for bad arguments, 1 for a failed load.
+cancel the Cancel button uses. A cell that fails - a transient OOM, a locked
+database - is skipped and reported and the next one runs, up to three in a row
+or a third of the run. Exit status is 0 when every requested image was produced,
+130 after a cancel, 2 for bad arguments, 1 for a failed load or when any cell
+was skipped. `python -m backend.clear` exits 1 when it aborted with nothing
+deleted and 3 when the deletion ran and something went wrong afterwards.
 
 ## Tests
 
@@ -314,8 +328,9 @@ and the gallery search box is how you get one back. It takes `key:value` terms
 plus free text:
 
 ```
-job:ab12cd        one night's work
-seed:42           steps:6-12       cfg:<=1        model:flux
+run:ab12cd        one grid, however many times it was resumed
+job:ab12cd        one submission of it
+seed:42           steps:6-12       cfg:<=1        model:flux      quant:fp8
 mu:none           the images that ran with no shift at all — not the same as mu:0
 a lighthouse      anything left over searches the prompt
 ```
@@ -323,8 +338,12 @@ a lighthouse      anything left over searches the prompt
 **Sheet**, above the gallery, lays that run out as the grid that made it: the
 two widest-varying axes become the columns and rows, and a third becomes a
 selector rather than a dimension nobody can read. The Prompt axis is labelled
-with only the words that vary — `big grass`, `small dirt`, or `none` for the
-cell that left the word out — because a header repeating the whole sentence is
+with only the words that vary — `big grass`, `small dirt` — when every prompt
+has the same word count. A `none` value makes one prompt shorter than the
+others; the labels then keep what is left once the shared head and tail come
+off, which is the whole phrase again when a second variable also varies (the
+worked example above, with `none` in it, labels each column with its full
+prompt). The trimming exists because a header repeating the whole sentence is
 unreadable.
 
 ## Settings

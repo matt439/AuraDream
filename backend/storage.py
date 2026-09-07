@@ -5,6 +5,7 @@ import json
 import logging
 import sqlite3
 import threading
+import time
 import uuid
 from collections.abc import Sequence
 from contextlib import contextmanager
@@ -28,6 +29,12 @@ _write_lock = threading.Lock()
 # 160 px and the sheet's cells 96 px; a 2048x2048 PNG is 5 MB on disk and 17 MB
 # decoded, and a page of 48 of them was 400 MB of bitmap to paint 48 squares.
 THUMB_SIDE = 384
+
+# A *.png.part older than this is not being written. Nothing streams a partial
+# and an encode takes well under a second, so an hour is four orders of
+# magnitude of slack; a younger one may be another process mid-encode, which is
+# the case the `.part` naming exists to protect.
+PARTIAL_SETTLE_SECONDS = 3600
 
 
 def _thumb_path(path):
@@ -86,9 +93,12 @@ END;
 """
 
 
-# Set once the running process has checked; the ALTER is a schema change, not
-# something to attempt on every connection.
-_migrated = False
+# Which database file the running process has checked; the ALTER is a schema
+# change, not something to attempt on every connection. Keyed on the path, not
+# a bare flag: `_connect` re-creates the schema per connection precisely because
+# the file can be replaced under a running server - restored from a backup, say
+# - and a restored older file needs its columns again.
+_migrated: str | None = None
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
@@ -101,7 +111,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     which is the outcome we wanted anyway.
     """
     global _migrated
-    if _migrated:
+    if _migrated == str(settings.db_path):
         return
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
     added = (
@@ -118,10 +128,25 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 conn.execute(f"CREATE INDEX IF NOT EXISTS {index} ON images ({column})")
         except sqlite3.OperationalError:  # another process got there first
             pass
-    _migrated = True
+    _migrated = str(settings.db_path)
+
+
+def ensure_outputs_dir() -> None:
+    """Create the images directory. Called before anything writes into it.
+
+    Here rather than at import of `config`: `clear.py --dry-run` promises to
+    change nothing, and an import-time mkdir created the directory anyway - and
+    on an unmounted `KREA_OUTPUTS_DIR` created the mount point as a plain
+    directory, the state that later hides the real data behind an empty mount.
+    """
+    settings.outputs_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _connect() -> sqlite3.Connection:
+    # A restored or replaced file has a fresh identity; forget the old check.
+    global _migrated
+    if _migrated is not None and _migrated != str(settings.db_path):
+        _migrated = None
     conn = sqlite3.connect(settings.db_path, timeout=15)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -155,6 +180,7 @@ def _session():
 
 
 def init_db() -> None:
+    ensure_outputs_dir()
     with _session() as conn:
         conn.executescript(_SCHEMA)
 
@@ -241,9 +267,13 @@ def save_image(
         + (f", Quantization: {quantization}" if quantization else ""),
     )
     info.add_text("krea", json.dumps(meta))
-    image.save(partial, format="PNG", pnginfo=info, compress_level=4)
 
+    committed = False
     try:
+        # Inside the guard: a KeyboardInterrupt mid-encode - the CLI's second
+        # Ctrl-C - is a BaseException Pillow's own cleanup does not catch, and
+        # it left a *.png.part that nothing swept.
+        image.save(partial, format="PNG", pnginfo=info, compress_level=4)
         with _write_lock, _session() as conn:
             cur = conn.execute(
                 """INSERT INTO images (filename, prompt, negative_prompt, width, height,
@@ -270,31 +300,72 @@ def save_image(
                 ),
             )
             row = conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
-        partial.replace(path)
+        committed = True
+        _rename_with_retry(partial, path)
     except BaseException:
-        # A failed INSERT must not leave a *.png.part behind for nobody - and
-        # tidying up must not replace the error that got us here.
-        _unlink(partial)
+        # A failed encode or INSERT must not leave a *.png.part behind for
+        # nobody - and tidying up must not replace the error that got us here.
+        # Only while the row did *not* commit, though: past that point the
+        # partial is the only copy of an image the database already names, and
+        # deleting it turned a transient rename failure into a phantom row.
+        if not committed:
+            _unlink(partial)
         raise
     _write_thumb(image, _thumb_path(path))
     return _row_to_record(row)
 
 
-def step_cost_ms(width: int, height: int, sample: int = 20) -> float | None:
-    """Median milliseconds per denoising step at this size, from recent images.
+def _rename_with_retry(src, dst, attempts: int = 5) -> None:
+    """`src.replace(dst)`, retried over a few hundred milliseconds.
+
+    On Windows a just-closed multi-megabyte file is exactly what an antivirus
+    scanner, a search indexer or a sync client opens without FILE_SHARE_DELETE,
+    and the rename fails with a sharing violation (WinError 32) for the
+    milliseconds the handle is held.
+    """
+    for attempt in range(attempts):
+        try:
+            src.replace(dst)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.05 * (attempt + 1))
+
+
+def _stale_partials() -> list:
+    """Partials nothing can still be writing - see PARTIAL_SETTLE_SECONDS."""
+    cutoff = time.time() - PARTIAL_SETTLE_SECONDS
+    stale = []
+    for path in settings.outputs_dir.glob("*.part"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                stale.append(path)
+        except OSError:
+            continue
+    return stale
+
+
+def step_cost_ms(
+    width: int, height: int, model_id: str | None = None, sample: int = 20
+) -> float | None:
+    """Median milliseconds per denoising step at this size on this checkpoint.
 
     Per *step*, not per image: a grid varies the step count across its cells, so
     an average image duration would over- or under-state most of them. Matched
     on exact dimensions - cost scales with pixels and offload behaviour, neither
-    of which extrapolates honestly from a different size. None when the gallery
-    has nothing to measure, which is the caller's cue to promise nothing.
+    of which extrapolates honestly from a different size - and on the checkpoint,
+    since klein's step is about half of Turbo's at the same size. None when the
+    gallery has nothing to measure, which is the caller's cue to promise nothing.
     """
+    scope = "AND model_id = ?" if model_id else ""
+    scope_params = (model_id,) if model_id else ()
     with _session() as conn:
         rows = conn.execute(
-            """SELECT duration_ms, steps FROM images
-               WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0
+            f"""SELECT duration_ms, steps FROM images
+               WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0 {scope}
                ORDER BY id DESC LIMIT ?""",
-            (width, height, sample),
+            (width, height, *scope_params, sample),
         ).fetchall()
     if not rows:
         return None
@@ -555,6 +626,7 @@ def summarise() -> dict[str, int]:
         "favorites": favorites,
         "files_on_disk": len(on_disk),
         "orphan_files": len(on_disk - tracked),
+        "partial_files": len(_stale_partials()),
         "bytes_on_disk": total_bytes,
     }
 
@@ -600,8 +672,11 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
     for path in settings.outputs_dir.glob("*.webp"):
         if not path.with_suffix(".png").exists():
             _unlink(path)
+    # Partials from a power cut or a killed process, by age - never the fresh
+    # one another process may be encoding right now.
+    partials = sum(1 for path in _stale_partials() if _unlink(path))
 
-    return {"records": len(doomed), "files": removed, "orphans": orphans}
+    return {"records": len(doomed), "files": removed, "orphans": orphans, "partials": partials}
 
 
 def vacuum() -> None:

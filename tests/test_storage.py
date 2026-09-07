@@ -77,12 +77,80 @@ def test_a_database_from_before_job_ids_gains_the_column(tmp_path, monkeypatch):
         "settings",
         dataclasses.replace(storage.settings, db_path=db, outputs_dir=outputs),
     )
-    monkeypatch.setattr(storage, "_migrated", False)  # another test may have run first
+    # No reset of the once-per-process flag: another test has migrated *its*
+    # database already, and a file swapped under a running server - restored
+    # from a backup, say - has to be checked again regardless.
 
     record = keep(storage, job_id="abc123", run_id="run001")
     assert (record.job_id, record.run_id) == ("abc123", "run001")
     items, total = storage.list_images()
     assert total == 1 and (items[0].job_id, items[0].run_id) == ("abc123", "run001")
+
+
+# ---------------------------------------------------------------- the rename
+
+
+def test_a_transient_rename_failure_is_retried(store, monkeypatch):
+    from pathlib import Path
+
+    real = Path.replace
+    failures = {"left": 2}
+
+    def flaky(self, target):
+        if self.suffix == ".part" and failures["left"]:
+            failures["left"] -= 1
+            raise PermissionError(32, "sharing violation")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "replace", flaky)
+    monkeypatch.setattr(storage.time, "sleep", lambda s: None)
+    record = keep(store)
+    assert (store.settings.outputs_dir / record.filename).exists()
+    assert list(store.settings.outputs_dir.glob("*.part")) == []
+
+
+def test_a_committed_image_survives_a_rename_that_keeps_failing(store, monkeypatch):
+    # The row is durable once the INSERT commits; deleting the partial then
+    # threw away the only copy of an image the database names, leaving a card
+    # that 404s forever. The partial stays; the error still propagates.
+    from pathlib import Path
+
+    def always(self, target):
+        if self.suffix == ".part":
+            raise PermissionError(32, "sharing violation")
+        return Path.rename(self, target)
+
+    monkeypatch.setattr(Path, "replace", always)
+    monkeypatch.setattr(storage.time, "sleep", lambda s: None)
+    with pytest.raises(PermissionError):
+        keep(store)
+    assert store.list_images()[1] == 1
+    assert len(list(store.settings.outputs_dir.glob("*.png.part"))) == 1
+
+
+def test_stale_partials_are_counted_and_swept_but_fresh_ones_are_not(store):
+    import os
+    import time
+
+    fresh = store.settings.outputs_dir / "fresh.png.part"
+    stale = store.settings.outputs_dir / "stale.png.part"
+    fresh.write_bytes(b"encoding right now")
+    stale.write_bytes(b"from a power cut")
+    old = time.time() - 2 * store.PARTIAL_SETTLE_SECONDS
+    os.utime(stale, (old, old))
+    assert store.summarise()["partial_files"] == 1
+    assert store.clear_history()["partials"] == 1
+    assert fresh.exists() and not stale.exists()
+
+
+def test_step_cost_is_measured_on_the_same_checkpoint(store):
+    # klein at 1000 ms/step and Turbo at 1875 for the same size: a user who
+    # restarted on Turbo was quoted klein's number.
+    keep(store, seed=1, steps=10, model_id="klein")  # 100 ms/step
+    keep(store, seed=2, steps=5, model_id="turbo")  # 200 ms/step
+    assert store.step_cost_ms(256, 256, "turbo") == 200.0
+    assert store.step_cost_ms(256, 256, "klein") == 100.0
+    assert store.step_cost_ms(256, 256, "other") is None
 
 
 # -------------------------------------------------------------------- filters

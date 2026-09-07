@@ -72,22 +72,29 @@ def test_refuses_a_bf16_repo(nunchaku, monkeypatch):
     assert MODEL in str(err.value)
 
 
-def _settings_in_subprocess(env: dict[str, str]) -> dict[str, str]:
+_IMPORT_SETTINGS = (
+    "import os; from backend.config import settings; "
+    "print(settings.outputs_dir); print(settings.db_path); "
+    "print(os.environ.get('DIFFUSERS_TRUST_REMOTE_KERNELS', ''))"
+)
+
+
+def _run_import(env: dict[str, str]) -> subprocess.CompletedProcess:
     # `settings` reads the environment at import, so a fresh interpreter is
     # the only honest way to test the variables.
-    code = (
-        "import os; from backend.config import settings; "
-        "print(settings.outputs_dir); print(settings.db_path); "
-        "print(os.environ.get('DIFFUSERS_TRUST_REMOTE_KERNELS', ''))"
-    )
     clean = {k: v for k, v in os.environ.items() if not k.startswith(("KREA_", "DIFFUSERS_"))}
-    out = subprocess.run(
-        [sys.executable, "-c", code],
+    return subprocess.run(
+        [sys.executable, "-c", _IMPORT_SETTINGS],
         env={**clean, **env},
         capture_output=True,
         text=True,
-        check=True,
-    ).stdout.splitlines()
+    )
+
+
+def _settings_in_subprocess(env: dict[str, str]) -> dict[str, str]:
+    result = _run_import(env)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout.splitlines()
     return {"outputs_dir": out[0], "db_path": out[1], "trust": out[2]}
 
 
@@ -97,7 +104,22 @@ def test_data_paths_come_from_the_environment(tmp_path):
     )
     assert got["outputs_dir"] == str(tmp_path / "out")
     assert got["db_path"] == str(tmp_path / "g.db")
-    assert (tmp_path / "out").is_dir(), "the outputs directory is created at import"
+    # Created by storage when something is about to be written, not at import:
+    # `clear.py --dry-run` promises to change nothing.
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
+    "env, name",
+    [({"KREA_QUANT": "fp16"}, "KREA_QUANT"), ({"KREA_OFFLOAD": "cpu"}, "KREA_OFFLOAD")],
+)
+def test_an_unknown_mode_is_refused_at_import(tmp_path, env, name):
+    # Either used to select the heaviest path silently and fail at the first
+    # image, with /api/status echoing the typo back.
+    base = {"KREA_OUTPUTS_DIR": str(tmp_path / "out"), "KREA_DB_PATH": str(tmp_path / "g.db")}
+    result = _run_import({**base, **env})
+    assert result.returncode != 0
+    assert name in result.stderr and "is not one of" in result.stderr
 
 
 def test_nunchaku_opts_into_remote_kernels_and_nothing_else_does(tmp_path):

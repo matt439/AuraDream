@@ -163,15 +163,16 @@ def test_progress_is_reported_and_a_cancel_lands_within_a_step():
 
 
 def test_applied_reports_what_the_pipeline_will_run():
-    # The stub takes a negative prompt and no true_cfg_scale, so it guides from
-    # 0 like Krea 2: a negative prompt at CFG 0 is dropped, at 0.5 it is kept,
-    # and mu reaches the scheduler either way.
+    # A negative prompt at or below the pipeline's threshold is dropped, above
+    # it kept, and mu reaches the scheduler either way.
     scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
     backend, _ = _backend(scheduler)
-    asked = _request(negative_prompt="blurry", guidance_scale=0.0, mu=1.15)
+    threshold = backend.cfg_threshold()
+    asked = _request(negative_prompt="blurry", guidance_scale=threshold, mu=1.15)
     ran = backend.applied(asked)
     assert (ran.negative_prompt, ran.mu) == (None, 1.15)
-    assert backend.applied(_request(negative_prompt="blurry", guidance_scale=0.5)).negative_prompt == "blurry"
+    above = _request(negative_prompt="blurry", guidance_scale=threshold + 0.5)
+    assert backend.applied(above).negative_prompt == "blurry"
     # Unloaded, the checkpoint profile's guess stands in.
     assert DiffusersBackend().applied(asked).prompt == asked.prompt
 
