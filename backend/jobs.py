@@ -40,7 +40,12 @@ def short_error(exc: BaseException, limit: int = 320) -> str:
     ]
     message = " ".join(lines) or exc.__class__.__name__
     if len(message) > limit:
-        message = message[: limit - 1].rstrip() + "…"
+        # Cut from the middle: PyTorch's OOM message puts the diagnosis first
+        # and the remedy (`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`)
+        # last, and a cut from the end landed inside that variable's name.
+        head = limit * 2 // 3
+        tail = limit - head - 3
+        message = message[:head].rstrip() + " … " + message[-tail:].lstrip()
     return f"{type(exc).__name__}: {message}"
 
 
@@ -66,6 +71,10 @@ class Job:
     label: str | None = None
     images: list[dict] = field(default_factory=list)
     error: str | None = None
+    # Cells that raised and were skipped. A grid survives one bad cell - a
+    # transient OOM, a locked database - and reports it, rather than dropping
+    # every remaining cell of the night on the first.
+    failures: int = 0
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -79,8 +88,17 @@ class Job:
         for queue in self.subscribers:
             queue.put_nowait(event)
 
-    def snapshot(self) -> dict[str, Any]:
-        return {
+    def snapshot(self, images: bool = True) -> dict[str, Any]:
+        """The job as one JSON frame.
+
+        `images=False` leaves the accumulated records out. The per-cell status
+        event used to carry every record produced so far - cell N re-sending
+        N-1 records already delivered as their own `image` events, 258 MiB over
+        a 1000-cell grid - where only the attach snapshot and `done` need them.
+        A copy, not the live list: what json.dumps serialises later on the loop
+        must be the list as of now.
+        """
+        frame = {
             "job_id": self.id,
             "run_id": self.run_id,
             "seed": self.seed,
@@ -90,9 +108,12 @@ class Job:
             "run": self.run,
             "total_runs": self.total_runs,
             "label": self.label,
-            "images": self.images,
             "error": self.error,
+            "failures": self.failures,
         }
+        if images:
+            frame["images"] = list(self.images)
+        return frame
 
 
 class JobManager:
@@ -188,21 +209,33 @@ class JobManager:
             return job
         job.cancel_requested = True
         if job.status == "queued":
-            job.status = "cancelled"
-            self._finish(asyncio.get_running_loop(), job)
+            self._finish(asyncio.get_running_loop(), job, "cancelled")
         return job
 
     def _emit(self, loop: asyncio.AbstractEventLoop, job: Job, event: dict) -> None:
         loop.call_soon_threadsafe(job.publish, event)
 
-    def _finish(self, loop: asyncio.AbstractEventLoop, job: Job) -> None:
-        """Emit the terminal event exactly once.
+    def _finish(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        job: Job,
+        status: str,
+        error: str | None = None,
+    ) -> None:
+        """Move the job to its terminal state and emit the event, exactly once.
 
         Cancellation gives two paths to the end - the endpoint for a queued job,
         `_run` for everything else - and the SSE stream stops at the first done.
+        The *state* is written here too, behind the same guard: a job the
+        endpoint had already cancelled used to be rewritten to `error` when the
+        load it was still parked on then failed, with the event suppressed and
+        the REST snapshot contradicting the stream.
         """
         if job.done_sent:
             return
+        job.status = status
+        if error is not None:
+            job.error = error
         job.done_sent = True
         self._emit(loop, job, {"type": "done", **job.snapshot()})
 
@@ -214,31 +247,47 @@ class JobManager:
             try:
                 await self._ensure_loaded()
             except Exception as exc:  # noqa: BLE001 - surfaced to the client
-                job.status = "error"
-                job.error = short_error(exc)
-                self._finish(loop, job)
+                self._finish(loop, job, "error", short_error(exc))
                 return
         # One generation at a time; queued jobs simply wait their turn here. A
         # cancel that landed during the load or the wait ends the job untouched.
         async with self._gate:
             if job.cancel_requested:
-                job.status = "cancelled"
-                self._finish(loop, job)
+                self._finish(loop, job, "cancelled")
                 return
             job.status = "running"
-            self._emit(loop, job, {"type": "status", **job.snapshot()})
+            self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
             try:
-                await loop.run_in_executor(self._pool, self._generate, job, loop)
-                job.status = "cancelled" if job.cancel_requested else "done"
+                stopped = await loop.run_in_executor(self._pool, self._generate, job, loop)
             except Exception as exc:  # noqa: BLE001 - surfaced to the client
-                log.error("job %s failed: %s", job.id, short_error(exc))
+                # The whole message, here, where it can be read: the banner's
+                # copy is cut, and an OOM's remedy is its last sentence.
+                log.error("job %s failed: %s", job.id, exc)
                 log.debug("job traceback", exc_info=True)
-                job.status = "error"
-                job.error = short_error(exc)
-            self._finish(loop, job)
+                self._finish(loop, job, "error", short_error(exc))
+                return
+            # Cancelled only if the loop actually stopped early. A cancel that
+            # lands after the last step - during the decode or the encode -
+            # changes nothing, and used to relabel a complete run anyway.
+            if job.failures and not stopped:
+                job.error = f"{job.failures} cell(s) failed and were skipped; last: {job.error}"
+            self._finish(loop, job, "cancelled" if stopped else "done")
 
-    def _generate(self, job: Job, loop: asyncio.AbstractEventLoop) -> None:
+    # A cell that raises is skipped and the next one runs - up to this many in a
+    # row, or this share of the grid in total, after which the failure is taken
+    # as the night's and the job ends. One bad cell should cost one image; a
+    # marginal failure hitting every third cell should not limp until morning.
+    MAX_CONSECUTIVE_FAILURES = 3
+
+    @staticmethod
+    def _too_many_failures(consecutive: int, total: int, cells: int) -> bool:
+        return consecutive >= JobManager.MAX_CONSECUTIVE_FAILURES or total > max(3, cells // 3)
+
+    def _generate(self, job: Job, loop: asyncio.AbstractEventLoop) -> bool:
         """Run the job's cells back to back, publishing images as they land.
+
+        Returns True if it left the loop early - a cancel - and False if every
+        cell was reached, so the caller can label the job honestly.
 
         The loop cannot tell a sweep from a grid, which is the point: the
         cancellation checks, the progress events and the per-image seed maths
@@ -263,58 +312,84 @@ class JobManager:
                 },
             )
 
+        consecutive = 0
         for index, cell in enumerate(job.cells):
             if job.cancel_requested:
-                break
+                return True
             req, seed = cell.request, cell.seed
             # A grid varies the step count between cells, so the totals the
-            # progress events carry are the cell's, not the job's.
+            # progress events carry are the cell's, not the job's. Without the
+            # images: they were each delivered as their own event already.
             job.run, job.step, job.total_steps, job.label = index + 1, 0, req.steps, cell.label
-            self._emit(loop, job, {"type": "status", **job.snapshot()})
+            self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
 
             started = time.perf_counter()
             try:
                 images = self.backend.generate(
                     req, seed=seed, on_progress=on_progress, should_cancel=should_cancel
                 )
+                elapsed_ms = int((time.perf_counter() - started) * 1000)
+                self._save(job, loop, req, seed, images, elapsed_ms)
             except Cancelled:
                 log.info(
                     "job %s cancelled during run %d/%d", job.id, index + 1, len(job.cells)
                 )
-                break
-            elapsed_ms = int((time.perf_counter() - started) * 1000)
-            # Record what ran, not what was asked: a negative prompt the
-            # pipeline dropped below its threshold, or a mu it had no way to
-            # take, must not reach the row - resume compares against it.
-            ran = self.backend.applied(req)
+                return True
+            except Exception as exc:  # noqa: BLE001 - a cell's failure, not the night's
+                consecutive += 1
+                job.failures += 1
+                job.error = short_error(exc)
+                log.error(
+                    "job %s: cell %d/%d failed: %s", job.id, index + 1, len(job.cells), exc
+                )
+                log.debug("cell traceback", exc_info=True)
+                if self._too_many_failures(consecutive, job.failures, len(job.cells)):
+                    raise
+                continue
+            consecutive = 0
+        return False
 
-            for offset, image in enumerate(images):
-                # Each image in a batch gets its own reproducible seed. Wrapped
-                # for the same reason the run seed is - and with the same helper
-                # the generator uses, so the two cannot disagree.
-                record = storage.save_image(
-                    image,
-                    ran,
-                    seed=wrap_seed(seed + offset),
-                    duration_ms=elapsed_ms // max(len(images), 1),
-                    model_id=settings.model_id,
-                    job_id=job.id,
-                    run_id=job.run_id,
-                    quantization=settings.quantization,
-                )
-                job.images.append(record.model_dump())
-                # Publish it now: a long sweep should fill the page as it goes
-                # rather than all at once at the end.
-                self._emit(
-                    loop,
-                    job,
-                    {
-                        "type": "image",
-                        "image": record.model_dump(),
-                        "run": job.run,
-                        "total_runs": job.total_runs,
-                    },
-                )
+    def _save(
+        self,
+        job: Job,
+        loop: asyncio.AbstractEventLoop,
+        req: GenerateRequest,
+        seed: int,
+        images: list,
+        elapsed_ms: int,
+    ) -> None:
+        """Write a cell's images and publish each one as it lands."""
+        # Record what ran, not what was asked: a negative prompt the pipeline
+        # dropped below its threshold, or a mu it had no way to take, must not
+        # reach the row - resume compares against it.
+        ran = self.backend.applied(req)
+        for offset, image in enumerate(images):
+            # Each image in a batch gets its own reproducible seed. Wrapped
+            # for the same reason the run seed is - and with the same helper
+            # the generator uses, so the two cannot disagree.
+            record = storage.save_image(
+                image,
+                ran,
+                seed=wrap_seed(seed + offset),
+                duration_ms=elapsed_ms // max(len(images), 1),
+                model_id=settings.model_id,
+                job_id=job.id,
+                run_id=job.run_id,
+                quantization=settings.quantization,
+            )
+            job.images.append(record.model_dump())
+            # Publish it now: a long sweep should fill the page as it goes
+            # rather than all at once at the end.
+            self._emit(
+                loop,
+                job,
+                {
+                    "type": "image",
+                    "image": record.model_dump(),
+                    "run": job.run,
+                    "total_runs": job.total_runs,
+                },
+            )
 
     async def events(self, job: Job):
         """Yield SSE payloads until the job finishes.

@@ -37,7 +37,19 @@ class GenerationBackend(abc.ABC):
 
     @abc.abstractmethod
     def unload(self) -> None:
-        """Release weights and free VRAM."""
+        """Release weights and free VRAM. May block behind a load in progress."""
+
+    def try_unload(self) -> bool:
+        """Unload unless a load is in progress, in which case do nothing.
+
+        For shutdown: the process is exiting, so freeing VRAM buys nothing, and
+        blocking the event loop behind a multi-GB download to discover there
+        was nothing to unload froze Ctrl-C for the length of the download.
+        Returns whether the weights are now unloaded. The default cannot tell,
+        so it unloads.
+        """
+        self.unload()
+        return True
 
     @abc.abstractmethod
     def is_ready(self) -> bool: ...

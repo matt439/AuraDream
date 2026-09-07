@@ -88,6 +88,22 @@ class GenerateRequest(BaseModel):
         return self.model_copy(update=changes) if changes else self
 
 
+def error_detail(exc: ValueError) -> str:
+    """One line out of an axis parser or out of pydantic, for a 422 body or a terminal.
+
+    A cell that violates the schema - `--grid-steps 90-120` against the 100 cap -
+    raises a ValidationError, whose own str() is several lines of type and url
+    noise. The UI puts this straight under the field; the CLI prints it.
+    """
+    errors = getattr(exc, "errors", None)
+    if not callable(errors):
+        return str(exc)
+    return "; ".join(
+        f"{'.'.join(str(part) for part in error['loc']) or 'request'}: {error['msg']}"
+        for error in errors()
+    )
+
+
 class GridRequest(GenerateRequest):
     """A sweep over the sampling axes, sitting on top of a normal request.
 

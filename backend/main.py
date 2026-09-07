@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -32,10 +33,11 @@ from .schemas import (  # noqa: E402
     GridRequest,
     JobAccepted,
     ModelStatus,
+    error_detail,
 )
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
+    level=settings.log_level, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
 )
 log = logging.getLogger("krea")
 
@@ -58,7 +60,7 @@ async def ensure_loaded() -> None:
             return
         _load_state.update(state="loading", detail=None)
         try:
-            await asyncio.to_thread(backend.load)
+            await _detached(backend.load)
         except Exception as exc:
             # A gated-repo 403 is user-actionable, not a crash; keep the log to
             # one line and put the traceback behind DEBUG.
@@ -68,6 +70,37 @@ async def ensure_loaded() -> None:
             raise
         _load_state.update(state="ready", detail=None)
         log.info("model ready")
+
+
+async def _detached(fn):
+    """Run `fn` on a daemon thread and await its result.
+
+    Not `asyncio.to_thread`: that pool's threads are joined at interpreter
+    exit, so a Ctrl-C four minutes into a 32 GB download waited the download
+    out before the process could end. A daemon thread dies with the process,
+    and the Hub's downloader resumes the partial file on the next start.
+    """
+    loop = asyncio.get_running_loop()
+    future: asyncio.Future = loop.create_future()
+
+    def settle(setter, value) -> None:
+        if not future.done():
+            setter(value)
+
+    def run() -> None:
+        try:
+            result = fn()
+        except BaseException as exc:  # noqa: BLE001 - re-raised on the loop
+            outcome = (future.set_exception, exc)
+        else:
+            outcome = (future.set_result, result)
+        try:
+            loop.call_soon_threadsafe(settle, *outcome)
+        except RuntimeError:  # the loop is gone: the process is exiting
+            pass
+
+    threading.Thread(target=run, daemon=True, name="load").start()
+    return await future
 
 
 async def _load_in_background() -> None:
@@ -88,9 +121,11 @@ async def lifespan(app: FastAPI):
     yield
     # Stop the worker before dropping the weights it is using. unload() takes no
     # part in the job gate, so on its own it would leave a generation running
-    # against a pipeline nobody can see any more.
+    # against a pipeline nobody can see any more. try_unload, off the loop: a
+    # load in flight holds the backend's lock, and blocking behind it to find
+    # there was nothing to unload froze shutdown for the length of the download.
     await jobs.shutdown()
-    backend.unload()
+    await asyncio.to_thread(backend.try_unload)
 
 
 app = FastAPI(title="Krea Local", version="0.1.0", lifespan=lifespan)
@@ -176,7 +211,10 @@ async def unload_model() -> ModelStatus:
     # dot says "not loaded" with 13GB still resident.
     if jobs.busy():
         raise HTTPException(status_code=409, detail="a job is still running; cancel it first")
-    await asyncio.to_thread(backend.unload)
+    # Refuse rather than block: unload() would wait out a load in progress and
+    # then discard what it built, with the request unanswered for minutes.
+    if _load_lock.locked() or not await asyncio.to_thread(backend.try_unload):
+        raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
     _load_state.update(state="unloaded", detail=None)
     return await status()
 
@@ -197,23 +235,7 @@ async def generate(request: GenerateRequest) -> JobAccepted:
     return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 
-def _detail(exc: ValueError) -> str:
-    """One line out of an axis parser or out of pydantic, for the 422 body.
-
-    A cell that violates the schema - `--grid-steps 90-120` against the 100 cap -
-    raises a ValidationError, whose own str() is several lines of type and url
-    noise. The UI puts this straight under the field.
-    """
-    errors = getattr(exc, "errors", None)
-    if not callable(errors):
-        return str(exc)
-    return "; ".join(
-        f"{'.'.join(str(part) for part in error['loc']) or 'request'}: {error['msg']}"
-        for error in errors()
-    )
-
-
-def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int, str]:
+async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int, str]:
     """The grid as cells, its resolved axes, the number resume dropped, its run id.
 
     The axes come back from here rather than being resolved again by the
@@ -241,14 +263,16 @@ def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int
             seeds=request.seeds,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=_detail(exc)) from exc
+        raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
     run_id = grid.run_id(cells, settings.model_id, settings.quantization)
     if not request.resume:
         return cells, values, 0, run_id
     # Compare what the pipeline would *run*, not what the panel says: the rows
     # were written from `backend.applied()`, so a negative prompt a Turbo cell
-    # at CFG 0 never saw is None on both sides rather than on one.
-    done = storage.completed_cells(
+    # at CFG 0 never saw is None on both sides rather than on one. Off the
+    # loop: up to three chunked scans, fired by the preview on every keystroke.
+    done = await asyncio.to_thread(
+        storage.completed_cells,
         grid.prompts_of(cells),
         request.width,
         request.height,
@@ -270,7 +294,7 @@ async def run_grid(request: GridRequest) -> JobAccepted:
     One job rather than one per cell: a grid is a night's work, and it has to be
     cancellable, reattachable and ahead of nothing in the queue as a unit.
     """
-    cells, _, _, run_id = _expand(request)
+    cells, _, _, run_id = await _expand(request)
     if not cells:
         # Every cell is already in the gallery. Queueing an empty job would
         # report "done" having rendered nothing, which reads like a failure.
@@ -286,7 +310,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     Same expansion as the real thing, so the count and the error messages the
     panel shows are the ones the run would have produced.
     """
-    cells, values, skipped, _ = _expand(request)
+    cells, values, skipped, _ = await _expand(request)
     # Cost is per step, and a grid's cells rarely agree on how many they take.
     per_step_ms = await asyncio.to_thread(storage.step_cost_ms, request.width, request.height)
     total_steps = sum(cell.request.steps for cell in cells) * request.num_images
@@ -310,10 +334,7 @@ async def active_jobs() -> list[dict]:
     """
     # Without the images: a long sweep accumulates hundreds of records, and a
     # caller looking for something to reattach to needs the id and the counters.
-    return [
-        {key: value for key, value in job.snapshot().items() if key != "images"}
-        for job in jobs.active()
-    ]
+    return [job.snapshot(images=False) for job in jobs.active()]
 
 
 @app.get("/api/jobs/{job_id}")
@@ -364,9 +385,17 @@ async def gallery(
     search: str | None = None,
     favorites: bool = False,
 ) -> GalleryPage:
+    # Every storage call runs off the loop, like describe() and step_cost_ms
+    # above: SQLite's busy handler waits up to 15 s, and a write that lands
+    # while `clear.py` holds the file would otherwise freeze the SSE stream,
+    # the cancel endpoint and the status poll for that long.
     try:
-        items, total = storage.list_images(
-            limit=limit, offset=offset, search=search, favorites_only=favorites
+        items, total = await asyncio.to_thread(
+            storage.list_images,
+            limit=limit,
+            offset=offset,
+            search=search,
+            favorites_only=favorites,
         )
     except ValueError as exc:  # a filter term that is not a number
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -375,7 +404,7 @@ async def gallery(
 
 @app.post("/api/images/{image_id}/favorite")
 async def favorite(image_id: int, value: bool = True):
-    record = storage.set_favorite(image_id, value)
+    record = await asyncio.to_thread(storage.set_favorite, image_id, value)
     if record is None:
         raise HTTPException(status_code=404, detail="unknown image")
     return record
@@ -383,7 +412,7 @@ async def favorite(image_id: int, value: bool = True):
 
 @app.delete("/api/images/{image_id}")
 async def delete(image_id: int) -> dict:
-    if not storage.delete_image(image_id):
+    if not await asyncio.to_thread(storage.delete_image, image_id):
         raise HTTPException(status_code=404, detail="unknown image")
     return {"deleted": image_id}
 
@@ -391,7 +420,33 @@ async def delete(image_id: int) -> dict:
 def run() -> None:
     import uvicorn
 
-    uvicorn.run(app, host=settings.host, port=settings.port, log_level="info")
+    class Server(uvicorn.Server):
+        """uvicorn's server, with Ctrl-C reaching the running sweep.
+
+        uvicorn drains open connections *before* it runs the lifespan shutdown,
+        and the browser's EventSource stays open until the job emits `done` -
+        so `jobs.shutdown()`, the thing that cancels the job, sat behind the
+        very stream that was waiting for it, and Ctrl-C printed "Waiting for
+        connections to close" for the rest of the night. Cancelling on the
+        signal itself lands within a step, `done` goes out, the stream closes
+        and the ordinary drain completes. A second Ctrl-C (uvicorn's forced
+        exit) skips the lifespan entirely; this still runs on it.
+        """
+
+        def handle_exit(self, sig, frame) -> None:
+            for job in jobs.active():
+                job.cancel_requested = True
+            super().handle_exit(sig, frame)
+
+    config = uvicorn.Config(
+        app,
+        host=settings.host,
+        port=settings.port,
+        log_level="info",
+        # A client that stops reading its stream must not hold shutdown open.
+        timeout_graceful_shutdown=30,
+    )
+    Server(config).run()
 
 
 if __name__ == "__main__":

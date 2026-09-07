@@ -219,6 +219,35 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `save_image` writes `<name>.png.part` and renames only after the row commits.
   `_write_lock` is per-process and `clear.py` is a separate one: mid-encode, a
   plain `.png` is an untracked file for its orphan sweep to delete.
+- **Shutdown has to reach the sweep before uvicorn drains connections.**
+  uvicorn closes listeners, waits for open connections, and only *then* runs
+  the lifespan shutdown - and the browser's EventSource stays open until the
+  job emits `done`. So `jobs.shutdown()` (the cancel) sat behind the stream
+  that was waiting for it, and Ctrl-C printed "Waiting for connections to
+  close" for the rest of a grid. `main.run()` subclasses `uvicorn.Server` and
+  sets `cancel_requested` on every active job in `handle_exit`, i.e. on the
+  signal itself, with `timeout_graceful_shutdown=30` for a client that stops
+  reading. The load runs on a **daemon thread** (`main._detached`), not
+  `asyncio.to_thread`: that pool is joined at interpreter exit, so a Ctrl-C
+  four minutes into a 32 GB download waited the download out. Lifespan calls
+  `backend.try_unload()` (non-blocking lock acquire) off the loop rather than
+  `unload()`, which blocks behind a load in progress and then discards what it
+  built; `POST /api/model/unload` answers 409 while a load is in flight for the
+  same reason.
+- **A cell's failure is the cell's, not the night's.** `_generate` catches
+  `Exception` after `Cancelled`, records it on the job (`failures`, `error`),
+  skips the cell and continues; three failures in a row, or more than a third
+  of the grid, re-raise and end the job. A finished job with failures reports
+  `done` with an `error` line the UI shows. `_generate` returns whether it left
+  the loop early, and the terminal status comes from that rather than from the
+  cancel flag - a cancel that lands after the last step used to relabel a
+  complete run "cancelled". Every terminal transition goes through `_finish`,
+  which owns the `done_sent` guard for state *and* event: a queued job the
+  endpoint had cancelled used to be rewritten to `error` when its load then
+  failed. `generate.py` mirrors the per-cell rule and exits 1 when any cell
+  was skipped. `Job.snapshot(images=False)` is what the per-cell status event
+  and `/api/jobs` send: the per-cell event used to carry every record so far,
+  258 MiB over a 1000-cell grid.
 - Cancellation is **cooperative**. A diffusion step cannot be interrupted from
   outside, so `POST /api/jobs/{id}/cancel` only sets `Job.cancel_requested`; the
   backend polls it from `callback_on_step_end` and raises `Cancelled`, which

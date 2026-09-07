@@ -51,6 +51,9 @@ class Settings:
 
     host: str = os.getenv("KREA_HOST", "127.0.0.1")
     port: int = int(os.getenv("KREA_PORT", "7860"))
+    # The server's log level. DEBUG is where the tracebacks and the dropped
+    # pipeline arguments go; INFO is enough to follow a night.
+    log_level: str = os.getenv("KREA_LOG_LEVEL", "INFO").upper()
 
     # Host headers the API answers to, and with the port appended, the origins
     # allowed to write to it. Binding to loopback stops another machine's TCP,

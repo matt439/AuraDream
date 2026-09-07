@@ -83,10 +83,10 @@ def _build_parser() -> argparse.ArgumentParser:
     sampling = parser.add_argument_group("sampling (defaults come from the checkpoint profile)")
     sampling.add_argument("--steps", type=int, help="denoising steps")
     sampling.add_argument("--cfg", type=float, metavar="SCALE", help="guidance scale")
-    sampling.add_argument("--mu", type=float, help="flow-matching shift; Turbo only")
-    sampling.add_argument(
-        "--no-mu", action="store_true", help="let the pipeline pick its own shift"
-    )
+    # Exclusive: `--mu 1.15 --no-mu` used to parse and silently run with no shift.
+    shift = sampling.add_mutually_exclusive_group()
+    shift.add_argument("--mu", type=float, help="flow-matching shift; Turbo only")
+    shift.add_argument("--no-mu", action="store_true", help="let the pipeline pick its own shift")
     sampling.add_argument("--seed", type=int, help="base seed; random when omitted")
 
     sweep = parser.add_argument_group(
@@ -163,7 +163,7 @@ def _project() -> SimpleNamespace:
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
-        from backend.schemas import GenerateRequest
+        from backend.schemas import GenerateRequest, error_detail
     except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
         # Almost always `py generate.py` or a bare `python generate.py`, which
         # picks the system interpreter rather than the project's .venv.
@@ -181,6 +181,7 @@ def _project() -> SimpleNamespace:
         settings=settings,
         defaults_for=defaults_for,
         GenerateRequest=GenerateRequest,
+        error_detail=error_detail,
     )
 
 
@@ -215,14 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         request.check_budget()
     except ValueError as exc:
-        # Pydantic's own repr is several lines of type/url noise per field.
-        errors = getattr(exc, "errors", None)
-        if callable(errors):
-            for error in errors():
-                field = ".".join(str(part) for part in error["loc"]) or "request"
-                print(f"{field}: {error['msg']}", file=sys.stderr)
-        else:
-            print(exc, file=sys.stderr)
+        print(p.error_detail(exc), file=sys.stderr)
         return 2
 
     # A grid and a plain sweep are the same list of pipeline calls; only the axes
@@ -252,7 +246,9 @@ def main(argv: list[str] | None = None) -> int:
             seeds=args.grid_seeds if gridding else args.runs,
         )
     except ValueError as exc:
-        print(exc, file=sys.stderr)
+        # A cell outside the schema raises a ValidationError; same one-line
+        # form the browser gets, not pydantic's own several-line repr.
+        print(p.error_detail(exc), file=sys.stderr)
         return 2
 
     # The run's name is the whole grid's, taken before resume subtracts anything,
@@ -366,11 +362,15 @@ def main(argv: list[str] | None = None) -> int:
     backend.set_console_progress(False)
 
     stop = False
+    loading = True
 
     def _on_sigint(_signum, _frame) -> None:
         nonlocal stop
-        if stop:
-            raise KeyboardInterrupt  # Second Ctrl-C: stop waiting for the step.
+        # During the load there is no step to finish and nothing worth keeping:
+        # the first Ctrl-C ends it outright rather than promising to stop "at
+        # the end of this step" and then waiting out the download.
+        if stop or loading:
+            raise KeyboardInterrupt
         stop = True
         print("\ncancelling at the end of this step (Ctrl-C again to force)...", file=sys.stderr)
 
@@ -388,6 +388,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
 
+    loading = False
     if not args.quiet:
         info = backend.describe()
         device = info.get("device_name") or p.settings.device
@@ -395,6 +396,8 @@ def main(argv: list[str] | None = None) -> int:
 
     run_index = 0
     saved = 0
+    failed = 0
+    consecutive = 0
     sweep_started = time.perf_counter()
     # A redrawn status line is for a terminal. Redirected to a log - which is
     # what an overnight sweep does - it is thousands of lines of noise, so there
@@ -434,6 +437,22 @@ def main(argv: list[str] | None = None) -> int:
                     label = f"  run {run_index}/{len(cells)} cancelled"
                     print(("\r" + label + " " * 16) if live else label)
                 break
+            except Exception as exc:  # noqa: BLE001 - one cell's failure, not the night's
+                # The same rule as the server's job loop: skip the cell and go
+                # on, up to a few in a row or a third of the run, so a transient
+                # OOM at 2am costs one image rather than every cell after it.
+                failed += 1
+                consecutive += 1
+                if live:
+                    print("\r" + " " * 40 + "\r", end="")
+                print(
+                    f"  run {run_index}/{len(cells)} failed: {type(exc).__name__}: {exc}",
+                    file=sys.stderr,
+                )
+                if consecutive >= 3 or failed > max(3, len(cells) // 3):
+                    raise
+                continue
+            consecutive = 0
             elapsed_ms = int((time.perf_counter() - started) * 1000)
             if live:
                 print("\r" + " " * 40 + "\r", end="")
@@ -470,7 +489,10 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"\n{saved}/{total_images} image(s) in "
             f"{_duration(time.perf_counter() - sweep_started)}."
+            + (f" {failed} cell(s) failed and were skipped." if failed else "")
         )
+    if failed:
+        return 1
     return 130 if saved < total_images else 0
 
 

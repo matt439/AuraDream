@@ -32,6 +32,10 @@ class FakeBackend(GenerationBackend):
         # None: apply everything as asked, like the base class. A number: behave
         # like a pipeline whose negative prompt switches on above it.
         self.cfg_threshold = cfg_threshold
+        # Calls (1-based) that raise instead of rendering, and a hook run after
+        # each render - for a cancel that lands after the last step.
+        self.fail_on: set[int] = set()
+        self.after_generate = None
 
     def applied(self, request):
         if self.cfg_threshold is None:
@@ -48,13 +52,22 @@ class FakeBackend(GenerationBackend):
         return self.loaded
 
     def generate(self, request, seed, on_progress=None, should_cancel=None):
+        from backend.backends import Cancelled
+
         self.requests.append(request)
         self.seeds.append(seed)
+        if len(self.requests) in self.fail_on:
+            raise RuntimeError(f"cell {len(self.requests)} blew up")
         for step in range(request.steps):
             if self.step_seconds:
                 time.sleep(self.step_seconds)
             if on_progress is not None:
                 on_progress(step + 1, request.steps)
+            # The contract every backend signs up to: poll between steps.
+            if should_cancel is not None and should_cancel():
+                raise Cancelled
+        if self.after_generate is not None:
+            self.after_generate()
         # At the size that was asked for: the row records the image's own
         # dimensions, so anything matching on them - resume, the duration
         # estimate - needs a double that does not quietly render 16x16.
@@ -228,6 +241,90 @@ def test_every_stream_sees_the_terminal_event(store):
     for seen in (first, second):
         assert seen[-1]["type"] == "done"
         assert len(seen[-1]["images"]) == 2
+
+
+# --------------------------------------------------------------- cancellation
+
+
+def _wait_for(client, job_id, predicate, timeout=5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        snapshot = client.get(f"/api/jobs/{job_id}").json()
+        if predicate(snapshot):
+            return snapshot
+        time.sleep(0.01)
+    raise AssertionError("timed out waiting for the job")
+
+
+def test_cancel_mid_sweep_keeps_what_finished(client, fake):
+    fake.step_seconds = 0.01
+    job_id = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 5, "runs": 8}
+    ).json()["job_id"]
+    # Poll for the first image rather than sleeping a guessed interval.
+    _wait_for(client, job_id, lambda s: len(s["images"]) >= 1)
+    assert client.post(f"/api/jobs/{job_id}/cancel").status_code == 200
+    events = _stream(client, job_id)
+    done = [e for e in events if e["type"] == "done"]
+    assert len(done) == 1 and done[0]["status"] == "cancelled"
+    # Landed within a step: fewer pipeline calls than runs, and everything that
+    # finished before it is kept and reported.
+    assert 1 <= len(done[0]["images"]) < 8
+    assert len(fake.requests) < 8
+    assert client.get("/api/gallery").json()["total"] == len(done[0]["images"])
+
+
+def test_cancelling_a_queued_job_ends_it_at_once(client, fake):
+    fake.step_seconds = 0.02
+    ahead = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 40}
+    ).json()["job_id"]
+    queued = client.post(
+        "/api/generate", json={"prompt": "y", "width": 256, "height": 256}
+    ).json()["job_id"]
+    started = time.perf_counter()
+    assert client.post(f"/api/jobs/{queued}/cancel").json()["status"] == "cancelled"
+    events = _stream(client, queued)
+    # One terminal event, delivered without waiting for the job ahead.
+    assert [e["type"] for e in events] == ["done"]
+    assert time.perf_counter() - started < 0.5
+    _stream(client, ahead)
+    assert [r.prompt for r in fake.requests] == ["x"]
+
+
+def test_a_cancel_after_the_last_step_does_not_relabel_a_complete_run(client, fake):
+    # The flag is polled between steps; a cancel landing during the decode or
+    # the encode of the final image changes nothing and used to still flip the
+    # status to "cancelled", so a script treating that as "resume it" re-queued
+    # a finished grid.
+    job_id = None
+    fake.after_generate = lambda: client.post(f"/api/jobs/{job_id}/cancel")
+    fake.step_seconds = 0.01
+    job_id = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 2}
+    ).json()["job_id"]
+    events = _stream(client, job_id)
+    assert events[-1]["status"] == "done"
+    assert len(events[-1]["images"]) == 1
+
+
+def test_one_failed_cell_does_not_end_the_grid(client, fake):
+    fake.fail_on = {2}
+    _, events = _grid(client, steps_axis="6,8,10", seed=1)
+    done = events[-1]
+    assert done["status"] == "done"
+    assert done["failures"] == 1
+    assert "1 cell(s) failed" in done["error"] and "blew up" in done["error"]
+    # The two other cells rendered; the failed one is what resume will find missing.
+    assert [r.steps for r in fake.requests] == [6, 8, 10]
+    assert sorted(r["steps"] for r in done["images"]) == [6, 10]
+
+
+def test_three_failures_in_a_row_end_the_job(client, fake):
+    fake.fail_on = {1, 2, 3}
+    _, events = _grid(client, steps_axis="6,8,10,12", seed=1)
+    assert events[-1]["status"] == "error"
+    assert len(fake.requests) == 3
 
 
 # -------------------------------------------------------------------- guards

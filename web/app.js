@@ -504,6 +504,10 @@ function streamJob(jobId) {
           showError(data.images.length
             ? `Cancelled — kept ${data.images.length} image${data.images.length === 1 ? '' : 's'}.`
             : 'Cancelled before anything finished.', true);
+        } else if (data.error) {
+          // Done, but not every cell: the grid carried on past a failure and
+          // says so, rather than dropping the rest of the night.
+          showError(data.error);
         }
         if (data.images.length) resetGallery();
         resolve();
@@ -1137,11 +1141,15 @@ els.more.onclick = () => loadGallery();
 els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // The preview reflects the panel as much as the axes: a blank axis is the
 // control's own value, and both the size and the batch move the totals.
+// The negative prompt is in the list because a `{name}` placeholder may live
+// there - the server validates it - and Resume because the whole "N already
+// done" half of the preview is what ticking it is for.
 for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
-                  els.prompt, els.steps, els.cfg, els.mu, els.batch, els.width, els.height,
-                  els.seed]) {
+                  els.prompt, els.negative, els.steps, els.cfg, els.mu, els.batch,
+                  els.width, els.height, els.seed]) {
   el.addEventListener('input', schedulePreview);
 }
+els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
 els.width.oninput = els.height.oninput = syncSize;
 els.steps.oninput = els.mu.oninput = ownControls;

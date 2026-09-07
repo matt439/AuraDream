@@ -241,6 +241,28 @@ class DiffusersBackend(GenerationBackend):
                 return
             self._pipe = None
             self._call_params = set()
+        self._release()
+
+    def try_unload(self) -> bool:
+        """Unload unless `load()` holds the lock, without waiting for it.
+
+        `load()` holds `_lock` across the whole of `from_pretrained`, so a
+        blocking unload during a download waits the download out and then
+        throws away what it built. At shutdown that wait froze the event loop;
+        from the Unload button it is the slowest possible way of doing nothing.
+        """
+        if not self._lock.acquire(blocking=False):
+            return False
+        try:
+            loaded, self._pipe, self._call_params = self._pipe is not None, None, set()
+        finally:
+            self._lock.release()
+        if loaded:
+            self._release()
+        return True
+
+    @staticmethod
+    def _release() -> None:
         import gc
 
         import torch
