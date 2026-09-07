@@ -217,6 +217,7 @@ class DiffusersBackend(GenerationBackend):
                         log.debug("%s unavailable", opt)
 
             self._apply_console_progress(pipe)
+            self._warn_about_schedule_post_processing(pipe)
             self._call_params = set(inspect.signature(pipe.__call__).parameters)
             self._pipe = pipe
             self._error = None
@@ -261,7 +262,8 @@ class DiffusersBackend(GenerationBackend):
 
         which is `FlowMatchEulerDiscreteScheduler._time_shift_exponential` over
         the default `linspace(1, 1/steps, steps)` ramp, to the byte. Only used
-        for a scheduler that does *not* shift on its own - see `_shifts_itself`.
+        for a scheduler that does *not* shift dynamically - see `_shifts_itself`
+        and `_static_shift`, which decides how much of `mu` is left to apply.
         """
         import math
 
@@ -286,6 +288,47 @@ class DiffusersBackend(GenerationBackend):
         """
         config = getattr(getattr(pipe, "scheduler", None), "config", None)
         return bool(getattr(config, "use_dynamic_shifting", False))
+
+    @staticmethod
+    def _static_shift(pipe: Any) -> float:
+        """The shift a non-dynamic scheduler applies to *whatever* sigmas it gets.
+
+        `use_dynamic_shifting: false` does not mean no shift. `set_timesteps` is
+        an if/else, and the else branch runs `shift * s / (1 + (shift - 1) * s)`
+        - which multiplies the odds s/(1-s) by `shift`, exactly as the dynamic
+        branch multiplies them by `e^mu`. The two compose, so a pre-shifted
+        schedule handed to a scheduler with `shift=3.0` (SD3, SD3.5; Lumina 2
+        ships 6.0) landed at `mu + ln 3` while the row recorded `mu`. The
+        instance attribute, not `config.shift`: `set_timesteps` reads
+        `self.shift`, which `set_shift()` can change after construction.
+        """
+        scheduler = getattr(pipe, "scheduler", None)
+        shift = getattr(scheduler, "shift", None)
+        if shift is None:
+            shift = getattr(getattr(scheduler, "config", None), "shift", 1.0)
+        return float(shift)
+
+    @staticmethod
+    def _warn_about_schedule_post_processing(pipe: Any) -> None:
+        """Say so once when the scheduler reshapes the schedule after the shift.
+
+        `shift_terminal` stretches it and the karras/exponential/beta options
+        replace it outright, in both branches - so a requested mu then means
+        something other than "the shift that landed". None of the shipped
+        checkpoints set any of them; an arbitrary repo might.
+        """
+        config = getattr(getattr(pipe, "scheduler", None), "config", None)
+        active = [
+            key
+            for key in ("shift_terminal", "use_karras_sigmas", "use_exponential_sigmas", "use_beta_sigmas")
+            if getattr(config, key, None)
+        ]
+        if active:
+            log.warning(
+                "scheduler post-processes the schedule (%s); a requested mu is not the "
+                "shift that lands",
+                ", ".join(active),
+            )
 
     @contextmanager
     def _forced_mu(self, pipe: Any, mu: float | None):
@@ -444,11 +487,16 @@ class DiffusersBackend(GenerationBackend):
             if "true_cfg_scale" in self._call_params:
                 kwargs["true_cfg_scale"] = request.guidance_scale
         # mu is the whole shift, not an addition to the pipeline's own. Where
-        # the scheduler shifts for itself, override the value it is given; only
-        # where it does not is an explicit pre-shifted schedule the right answer.
+        # the scheduler shifts dynamically, override the value it is given; where
+        # it does not, hand it a pre-shifted schedule - minus the *static* shift
+        # it will apply on top regardless, so the total is still e^mu.
         mu = request.mu
         if mu is not None and not self._shifts_itself(pipe):
-            kwargs["sigmas"] = self._shifted_sigmas(request.steps, mu)
+            import math
+
+            kwargs["sigmas"] = self._shifted_sigmas(
+                request.steps, mu - math.log(self._static_shift(pipe))
+            )
             mu = None
 
         for key in set(kwargs) - self._call_params:

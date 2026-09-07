@@ -65,8 +65,16 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   now overrides the value on its way to the scheduler (`_forced_mu`), and only
   falls back to an explicit pre-shifted schedule (`_shifted_sigmas`, the same
   formula: `sigma' = e^mu / (e^mu + (1/sigma - 1))`) for a scheduler that does
-  not shift for itself. Assert on `scheduler.sigmas`, never on the list the
-  backend computed - see `tests/test_schedule.py`.
+  not shift *dynamically*. **A non-dynamic scheduler still shifts, statically**:
+  `set_timesteps`'s else branch multiplies the odds by `self.shift` (1.0 on
+  the shipped checkpoints, 3.0 on SD3/3.5, 6.0 on Lumina 2) on top of whatever
+  sigmas it was handed, so the fallback pre-shifts by `mu - ln(shift)`
+  (`_static_shift`, read off the instance) and the total is still `e^mu`. At
+  `shift == 1.0` that is byte-identical, which is exactly why a test pinned to
+  1.0 hid it. `shift_terminal` and the karras/exponential/beta options
+  post-process in both branches and get a warning at load. Assert on
+  `scheduler.sigmas`, never on the list the backend computed - see
+  `tests/test_schedule.py`.
 - Turbo is distilled: 8 steps, `guidance_scale=0.0`. **Where guidance switches
   on is a property of the pipeline, not the constant 1.0**: `FluxPipeline` runs
   an uncond pass only at `true_cfg_scale > 1`, while `Krea2Pipeline` guides from

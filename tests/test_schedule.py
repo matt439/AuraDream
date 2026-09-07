@@ -106,13 +106,20 @@ def test_no_mu_leaves_the_pipeline_alone():
     assert _applied(scheduler) == _schedule(0.7)
 
 
-def test_a_scheduler_that_does_not_shift_gets_an_explicit_schedule():
-    scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=False, shift=1.0)
+@pytest.mark.parametrize("shift", [1.0, 3.0])
+def test_a_scheduler_that_does_not_shift_dynamically_still_lands_on_mu(shift):
+    # `use_dynamic_shifting=False` is not "no shift": the else branch applies
+    # `shift` statically to whatever sigmas it is handed, and shifts compose.
+    # At shift=1.0 that is a no-op, which is exactly what hid the bug; SD3
+    # ships 3.0. Asserted on the scheduler's sigmas, never on the list the
+    # backend computed - which is the input to the shift, not its result.
+    scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=False, shift=shift)
     backend, pipe = _backend(scheduler, own_mu=1.15)
     backend.generate(_request(mu=1.15), seed=1)
 
-    assert pipe.sigmas_arg == _schedule(1.15)
+    assert pipe.sigmas_arg is not None  # the explicit-schedule route was taken
     assert _applied(scheduler) == _schedule(1.15)
+    assert _applied(scheduler) != _schedule(1.15 + math.log(shift)) or shift == 1.0
 
 
 def test_applied_reports_what_the_pipeline_will_run():
