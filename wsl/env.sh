@@ -19,8 +19,18 @@ export KREA_DB_PATH="${KREA_DB_PATH:-$_krea_home/krea.db}"
 # These repos are the official weights re-uploaded pre-quantized, and not gated.
 # nvfp4 needs an RTX 50 (Blackwell); older cards use the same names with int4.
 export KREA_QUANT="${KREA_QUANT:-nunchaku}"
-export KREA_MODEL_ID="${KREA_MODEL_ID:-lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder}"
-# FLUX.1 Krea dev:  lite-infer/flux.1-krea-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder
+# The checkpoint default is tied to the quantization: a pre-quantized repo
+# under fp8 dies deep in transformers after the whole download ("quantized
+# with BitsAndBytesConfig but you are passing a TorchAoConfig"). Any other
+# KREA_QUANT falls through to config.py's own default checkpoint. The 4-bit
+# format defaults to nvfp4 (RTX 50); KREA_NUNCHAKU_FORMAT=int4 for older cards,
+# as setup.sh reports.
+if [ "$KREA_QUANT" = "nunchaku" ]; then
+  _krea_fmt="${KREA_NUNCHAKU_FORMAT:-nvfp4}"
+  export KREA_MODEL_ID="${KREA_MODEL_ID:-lite-infer/krea-2-turbo-nunchaku-lite-${_krea_fmt}_r32-bnb4-text-encoder}"
+  # FLUX.1 Krea dev:  lite-infer/flux.1-krea-dev-nunchaku-lite-${_krea_fmt}_r32-bnb4-text-encoder
+  unset _krea_fmt
+fi
 
 # torch 2.13 swaps some CUDA ops for Triton kernels even in eager mode, and
 # Triton compiles a small C module the first time it runs - which needs a C

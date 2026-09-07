@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .config import settings
 from .model_defaults import defaults_for
-from .seeds import MAX_SEED
+from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
 
 class GenerateRequest(BaseModel):
@@ -26,11 +26,11 @@ class GenerateRequest(BaseModel):
     # all", which is not the same as omitting it - see _profile_defaults.
     mu: float | None = Field(default=None, ge=0.0, le=10.0)
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
-    num_images: int = Field(default=1, ge=1, le=8)
+    num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
     # the previous run's plus `num_images`, so a long sweep costs no more VRAM
     # than a single image - which is what makes 2K sweeps possible at all.
-    runs: int = Field(default=1, ge=1, le=64)
+    runs: int = Field(default=1, ge=1, le=MAX_RUNS)
 
     @model_validator(mode="after")
     def _profile_defaults(self) -> "GenerateRequest":
@@ -59,6 +59,14 @@ class GenerateRequest(BaseModel):
         if self.width * self.height > settings.max_pixels:
             raise ValueError(
                 f"{self.width}x{self.height} exceeds the {settings.max_pixels:,} pixel budget"
+            )
+        # The batch is held in VRAM as one forward pass, so it multiplies the
+        # pixels the way the per-image budget was meant to bound.
+        if self.width * self.height * self.num_images > settings.max_batch_pixels:
+            raise ValueError(
+                f"{self.num_images} x {self.width}x{self.height} in one batch exceeds the "
+                f"{settings.max_batch_pixels:,} pixel budget; use Runs instead of Batch, "
+                "which costs one image's VRAM at a time"
             )
 
     def applied(
@@ -122,7 +130,7 @@ class GridRequest(GenerateRequest):
     steps_axis: str = Field(default="", max_length=200)
     cfg_axis: str = Field(default="", max_length=200)
     mu_axis: str = Field(default="", max_length=200)
-    seeds: int = Field(default=1, ge=1, le=256)
+    seeds: int = Field(default=1, ge=1, le=MAX_GRID_SEEDS)
     # Skip the cells this prompt has already been rendered at. What makes an
     # overnight grid survivable: a crash costs the cell it died on, not the
     # night. Matched on settings, not on the job that ran them.

@@ -24,11 +24,12 @@ class FakeBackend(GenerationBackend):
 
     name = "fake"
 
-    def __init__(self, step_seconds: float = 0.0, cfg_threshold: float | None = None):
+    def __init__(self, step_seconds: float = 0.0, cfg_threshold: float | None = None, loaded: bool = True):
         self.step_seconds = step_seconds
         self.requests: list[GenerateRequest] = []
         self.seeds: list[int] = []
-        self.loaded = True
+        self.loaded = loaded
+        self.loads = 0
         # None: apply everything as asked, like the base class. A number: behave
         # like a pipeline whose negative prompt switches on above it.
         self.cfg_threshold = cfg_threshold
@@ -43,6 +44,7 @@ class FakeBackend(GenerationBackend):
         return request.applied(negative_prompt_supported=True, cfg_threshold=self.cfg_threshold)
 
     def load(self) -> None:
+        self.loads += 1
         self.loaded = True
 
     def unload(self) -> None:
@@ -54,6 +56,10 @@ class FakeBackend(GenerationBackend):
     def generate(self, request, seed, on_progress=None, should_cancel=None):
         from backend.backends import Cancelled
 
+        if not self.loaded:
+            # The real backend's contract: loading happens in main.ensure_loaded
+            # and nowhere else, so a job that reaches here unloaded is a bug.
+            raise RuntimeError("model is not loaded")
         self.requests.append(request)
         self.seeds.append(seed)
         if len(self.requests) in self.fail_on:
@@ -91,9 +97,12 @@ class FakeBackend(GenerationBackend):
 def fake(store, monkeypatch):
     backend = FakeBackend()
     monkeypatch.setattr(main, "backend", backend)
+    monkeypatch.setattr(main, "_load_state", {"state": "unloaded", "detail": None})
+    monkeypatch.setattr(main, "_load_lock", asyncio.Lock())
     # A fresh manager per test: shutting the app down drains its one worker
-    # thread for good, and there is nothing to load, so nothing to wait on.
-    monkeypatch.setattr(main, "jobs", JobManager(backend))
+    # thread for good. Wired the way main.py wires it, so the single load path
+    # the whole app relies on is the one under test.
+    monkeypatch.setattr(main, "jobs", JobManager(backend, main.ensure_loaded))
     return backend
 
 
@@ -165,10 +174,44 @@ def test_status_hints_quote_the_loaded_pipelines_threshold(client, fake, monkeyp
 
 def test_status_says_whether_the_pipeline_takes_a_negative_prompt(client, fake, monkeypatch):
     # The profile's guess until a pipeline is loaded, then the parameter list.
-    assert client.get("/api/status").json()["defaults"]["negative_prompt_supported"] is True
-    described = dict(fake.describe(), negative_prompt_supported=False)
+    # Derived, not a literal: the suite runs under whatever KREA_MODEL_ID the
+    # shell has, and klein's profile says False.
+    guess = defaults_for(settings.model_id)["negative_prompt_supported"]
+    assert client.get("/api/status").json()["defaults"]["negative_prompt_supported"] is guess
+    described = dict(fake.describe(), negative_prompt_supported=not guess)
     monkeypatch.setattr(fake, "describe", lambda: described)
-    assert client.get("/api/status").json()["defaults"]["negative_prompt_supported"] is False
+    assert client.get("/api/status").json()["defaults"]["negative_prompt_supported"] is not guess
+
+
+def test_the_first_generate_loads_the_weights_exactly_once(client, fake):
+    fake.loaded = False
+    first = client.post("/api/generate", json={"prompt": "x", "width": 256, "height": 256}).json()
+    second = client.post("/api/generate", json={"prompt": "y", "width": 256, "height": 256}).json()
+    assert _stream(client, first["job_id"])[-1]["status"] == "done"
+    assert _stream(client, second["job_id"])[-1]["status"] == "done"
+    # Two back-to-back requests share one load, and the status agrees.
+    assert fake.loads == 1
+    assert client.get("/api/status").json()["state"] == "ready"
+
+
+def test_a_batch_that_multiplies_past_the_budget_is_refused(client):
+    response = client.post(
+        "/api/generate", json={"prompt": "x", "width": 2048, "height": 2048, "num_images": 8}
+    )
+    assert response.status_code == 422
+    assert "Runs" in response.json()["detail"]
+    assert client.post(
+        "/api/generate", json={"prompt": "x", "width": 1024, "height": 1024, "num_images": 8}
+    ).status_code == 200
+
+
+def test_the_origin_check_understands_a_default_port(client, monkeypatch):
+    import dataclasses
+
+    monkeypatch.setattr(main, "settings", dataclasses.replace(settings, port=80))
+    # A browser serialises an origin on port 80 without the port.
+    assert client.post("/api/model/unload", headers={"Origin": "http://127.0.0.1"}).status_code != 403
+    assert client.post("/api/model/unload", headers={"Origin": "http://127.0.0.1:7860"}).status_code == 403
 
 
 def test_an_explicit_null_mu_is_not_filled_in(client, fake):

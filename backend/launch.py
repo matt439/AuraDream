@@ -27,7 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TextIO
 
-from backend.model_defaults import defaults_for
+from backend.model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT, defaults_for
 
 QUANTIZATIONS: tuple[tuple[str, str], ...] = (
     ("fp8", "torchao float8 weight-only; ~13 GB peak, fits a 16 GB card"),
@@ -92,11 +92,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
     Checkpoint("FLUX.2 [klein] base 9B", "black-forest-labs/FLUX.2-klein-base-9B", "open"),
 )
 
-# What config.py falls back to; repeated here rather than imported, because
-# importing config is the one thing this module must not do.
-_DEFAULT_MODEL = "black-forest-labs/FLUX.1-Krea-dev"
-_DEFAULT_QUANT = "fp8"
-_DEFAULT_OFFLOAD = "model"
+# What config.py falls back to, from the one module both may import - importing
+# config itself is the one thing this module must not do.
+_DEFAULT_MODEL = DEFAULT_MODEL_ID
+_DEFAULT_QUANT = DEFAULT_QUANT
+_DEFAULT_OFFLOAD = DEFAULT_OFFLOAD
 
 
 @dataclass(frozen=True)
@@ -230,7 +230,10 @@ def _pick(
                 try:
                     typed = ask("repo id: ").strip()
                 except EOFError:
-                    typed = ""
+                    # Stdin is gone - a dropped SSH session, a closed console.
+                    # Take the default, as the outer prompt does; looping here
+                    # spun at 100% CPU with no server ever started.
+                    return options[default][0]
                 if typed:
                     return typed
         for key, _ in options:
@@ -322,6 +325,17 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: 
     default = 0
     if current_checkpoint and current_checkpoint.name in repos:
         default = [name for name, _ in entries].index(current_checkpoint.name)
+    elif not fmt and current_model:
+        # An id the catalogue does not know - one typed at the "another repo
+        # id" prompt last time, a local directory, a community re-upload. It
+        # gets a real row so that Enter keeps it, as the header promises;
+        # without one three bare Enters silently started FLUX instead.
+        name = "current KREA_MODEL_ID"
+        profile = defaults_for(current_model)
+        summary = f"{profile['steps']} steps, CFG {profile['guidance_scale']:g}"
+        entries.append((name, f"{summary:<18}  {'unrecognised id':<18}  {current_model}"))
+        repos[name] = current_model
+        default = len(entries) - 1
     answer = _pick(
         "Checkpoint",
         entries,

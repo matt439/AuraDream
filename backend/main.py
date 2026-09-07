@@ -136,7 +136,27 @@ app = FastAPI(title="Krea Local", version="0.1.0", lifespan=lifespan)
 # fetches only relative paths, so this costs nothing to have on.
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(settings.allowed_hosts))
 
-_ALLOWED_ORIGINS = {f"http://{host}:{settings.port}" for host in settings.allowed_hosts}
+def _origin_allowed(origin: str) -> bool:
+    """Is this Origin header one of our own pages?
+
+    Compared by hostname and *effective* port rather than by string: a browser
+    serialises an origin without a default port, so on `KREA_PORT=80` the page
+    sends `http://127.0.0.1` and a string match against `http://127.0.0.1:80`
+    refused every one of the app's own writes. `https` is allowed for the LAN
+    case behind a TLS proxy.
+    """
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(origin)
+        port = parts.port
+    except ValueError:
+        return False
+    if parts.scheme not in ("http", "https") or parts.hostname is None:
+        return False
+    if port is None:
+        port = 443 if parts.scheme == "https" else 80
+    return parts.hostname in settings.allowed_hosts and port == settings.port
 
 
 @app.middleware("http")
@@ -151,7 +171,7 @@ async def block_cross_site_writes(request: Request, call_next):
     """
     if request.method not in ("GET", "HEAD", "OPTIONS"):
         origin = request.headers.get("origin")
-        if origin is not None and origin not in _ALLOWED_ORIGINS:
+        if origin is not None and not _origin_allowed(origin):
             return JSONResponse({"detail": "cross-origin request refused"}, status_code=403)
     return await call_next(request)
 

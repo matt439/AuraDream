@@ -27,6 +27,8 @@ class StubPipeline:
         self.scheduler = scheduler
         self.own_mu = own_mu
         self.sigmas_arg = None
+        self.generators = None
+        self.steps_run = 0
 
     def __call__(
         self,
@@ -44,12 +46,19 @@ class StubPipeline:
         from diffusers.pipelines.krea2.pipeline_krea2 import retrieve_timesteps
 
         self.sigmas_arg = sigmas
+        self.generators = generator
         ramp = (
             np.linspace(1.0, 1 / num_inference_steps, num_inference_steps)
             if sigmas is None
             else sigmas
         )
         retrieve_timesteps(self.scheduler, num_inference_steps, None, sigmas=ramp, mu=self.own_mu)
+        # The denoising loop's one hand-back, as the real pipelines do it - so
+        # the backend's progress, cancel and per-image generator code is run by
+        # a test rather than only read.
+        for step in range(num_inference_steps):
+            self.steps_run += 1
+            callback_on_step_end(self, step, None, {})
         image = Image.new("RGB", (width, height))
         return type("Result", (), {"images": [image] * num_images_per_prompt})()
 
@@ -120,6 +129,37 @@ def test_a_scheduler_that_does_not_shift_dynamically_still_lands_on_mu(shift):
     assert pipe.sigmas_arg is not None  # the explicit-schedule route was taken
     assert _applied(scheduler) == _schedule(1.15)
     assert _applied(scheduler) != _schedule(1.15 + math.log(shift)) or shift == 1.0
+
+
+def test_one_generator_per_image_seeded_seed_plus_i():
+    # The headline batch invariant: image i of a batch is drawn from the seed
+    # that gets written next to it, wrapped by the same helper both save paths
+    # use. A base near MAX_SEED pins the list-not-scalar shape, the offset and
+    # the wrap in one assertion.
+    from backend.seeds import MAX_SEED, wrap_seed
+
+    scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
+    backend, pipe = _backend(scheduler)
+    backend.generate(_request(num_images=4), seed=MAX_SEED - 1)
+    assert [g.initial_seed() for g in pipe.generators] == [
+        wrap_seed(MAX_SEED - 1 + i) for i in range(4)
+    ]
+
+
+def test_progress_is_reported_and_a_cancel_lands_within_a_step():
+    from backend.backends import Cancelled
+
+    scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
+    backend, pipe = _backend(scheduler)
+    seen = []
+    backend.generate(_request(), seed=1, on_progress=lambda step, total: seen.append((step, total)))
+    assert seen == [(i + 1, STEPS) for i in range(STEPS)]
+
+    backend, pipe = _backend(scheduler)
+    with pytest.raises(Cancelled):
+        backend.generate(_request(), seed=1, should_cancel=lambda: pipe.steps_run >= 3)
+    # Polled at the step boundary: the third step finished, the fourth never ran.
+    assert pipe.steps_run == 3
 
 
 def test_applied_reports_what_the_pipeline_will_run():

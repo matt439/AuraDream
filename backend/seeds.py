@@ -14,9 +14,15 @@ import random
 # INSERT. It is also the modulus every offset is folded back through.
 MAX_SEED = 2**63 - 1
 
-# The largest offset a single request can add to its base seed: `runs` steps the
-# seed by `num_images` each time, and both are capped in GenerateRequest.
-_MAX_SWEEP_SPAN = 64 * 8
+# The caps that can multiply a base seed, kept here so the span below and the
+# schemas that enforce them read one source: a sweep steps the seed by
+# `num_images` per run, a grid by `num_images` per seed on its axis.
+MAX_BATCH = 8
+MAX_RUNS = 64
+MAX_GRID_SEEDS = 256
+
+# The largest offset a single request can add to its base seed.
+_MAX_SWEEP_SPAN = max(MAX_RUNS, MAX_GRID_SEEDS) * MAX_BATCH
 
 # JSON numbers are IEEE doubles and the browser is a first-class client: a seed
 # above 2**53 comes back from `res.json()` already rounded, so Reuse would send

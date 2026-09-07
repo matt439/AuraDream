@@ -24,9 +24,15 @@ if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
     echo "      need one; 'sudo apt install gcc' lifts that if you ever want its Triton kernels." >&2
 fi
 
+installed_uv=0
 if ! command -v uv >/dev/null 2>&1; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
+    # For the rest of *this* script only: the export dies with it, and the
+    # installer's rc-file edit reaches only future shells - so the shell that
+    # ran setup.sh has to be told below, or the very next command it is
+    # given, serve.sh, ends in "uv: command not found".
     export PATH="$HOME/.local/bin:$PATH"
+    installed_uv=1
 fi
 
 mkdir -p "$KREA_OUTPUTS_DIR" "$(dirname "$KREA_DB_PATH")"
@@ -48,11 +54,24 @@ if ok:
 print(f"kernels {version('kernels')}  bitsandbytes {version('bitsandbytes')}")
 PY
 
+if [ "$installed_uv" = 1 ]; then
+    cat <<MSG
+
+uv was just installed. This shell cannot see it yet; run this first:
+
+    . "\$HOME/.local/bin/env"
+MSG
+fi
+
+# An absolute path: .bashrc runs at shell start, where a WSL shell begins in
+# \$HOME and a relative `source wsl/env.sh` fails - leaving UV_PROJECT_ENVIRONMENT
+# unset, so the next `uv run` from the checkout finds the Windows .venv, judges
+# it broken and replaces it.
 cat <<MSG
 
 Ready. Every new WSL shell needs the environment first:
 
-    source wsl/env.sh          # or put that line in ~/.bashrc
+    source $PWD/wsl/env.sh     # or put that line in ~/.bashrc
     bash wsl/serve.sh          # then open http://127.0.0.1:7860 in a Windows browser
 
 The gated official repos (krea/Krea-2-Turbo, FLUX.1-Krea-dev) also need

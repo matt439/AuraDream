@@ -36,8 +36,21 @@ def never_ask(_prompt: str) -> str:
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    for name in ("KREA_MODEL_ID", "KREA_QUANT", "KREA_OFFLOAD"):
-        monkeypatch.delenv(name, raising=False)
+    # Save and restore explicitly. `monkeypatch.delenv` records nothing for a
+    # variable that was absent - the normal case - so a configure() that then
+    # wrote KREA_MODEL_ID leaked it into every test collected afterwards.
+    import os
+
+    names = ("KREA_MODEL_ID", "KREA_QUANT", "KREA_OFFLOAD")
+    saved = {name: os.environ.get(name) for name in names}
+    for name in names:
+        os.environ.pop(name, None)
+    yield
+    for name, value in saved.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
 
 
 def test_enter_three_times_keeps_the_shipped_defaults(clean_env):
@@ -104,6 +117,35 @@ def test_another_repo_id_can_be_typed_or_pasted(clean_env):
     assert typed.model_id == "nobody/whatever"
     pasted = launch.prompt(ask=answers("", "some/repo", ""), out=io.StringIO(), env={}, linux=False)
     assert pasted.model_id == "some/repo"
+
+
+def test_an_unrecognised_id_in_the_environment_survives_bare_enters(clean_env):
+    # An id the catalogue does not know - typed at "another repo id" last time,
+    # or a local directory - used to leave the marker on FLUX, so the three
+    # Enters the header invites started a 32 GB download of the wrong model.
+    env = {"KREA_MODEL_ID": "nobody/whatever"}
+    out = io.StringIO()
+    choice = launch.prompt(ask=answers("", "", ""), out=out, env=env, linux=False)
+    assert choice.model_id == "nobody/whatever"
+    assert "nobody/whatever" in out.getvalue()
+
+
+def test_eof_at_the_repo_id_prompt_takes_the_default(clean_env):
+    # Stdin lost after picking "another repo id" used to loop forever at 100%
+    # CPU with no server started.
+    calls = []
+
+    def ask(prompt: str) -> str:
+        calls.append(prompt)
+        if len(calls) == 1:
+            return ""  # quant
+        if len(calls) == 2:
+            return "8"  # another repo id
+        raise EOFError
+
+    choice = launch.prompt(ask=ask, out=io.StringIO(), env={}, linux=False)
+    assert choice.model_id == FLUX
+    assert len(calls) < 10
 
 
 def test_eof_takes_the_default(clean_env):

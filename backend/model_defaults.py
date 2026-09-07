@@ -32,6 +32,14 @@ from __future__ import annotations
 
 from typing import Any
 
+# What the server runs when nothing says otherwise. Here rather than in
+# config.py because launch.py needs the same three values for its menu and
+# must not import config - whose frozen settings read the environment at
+# import, which is the very thing the menu runs ahead of.
+DEFAULT_MODEL_ID = "black-forest-labs/FLUX.1-Krea-dev"
+DEFAULT_QUANT = "fp8"
+DEFAULT_OFFLOAD = "model"
+
 # Matched in order against a normalised model id.
 _PROFILES: list[tuple[str, dict[str, Any]]] = [
     (

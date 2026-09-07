@@ -4,13 +4,13 @@ from __future__ import annotations
 import json
 import random
 
-from backend.schemas import GenerateRequest
+from backend.schemas import GenerateRequest, GridRequest
 from backend.seeds import MAX_SEED, RANDOM_SEED_MAX, random_seed, wrap_seed
 
 
-def _limit(field: str, kind: str) -> int:
+def _limit(field: str, kind: str, model=GenerateRequest) -> int:
     """Pull an `le`/`ge` bound off a pydantic field's metadata."""
-    for constraint in GenerateRequest.model_fields[field].metadata:
+    for constraint in model.model_fields[field].metadata:
         value = getattr(constraint, kind, None)
         if value is not None:
             return value
@@ -28,11 +28,15 @@ def test_drawn_seeds_survive_a_json_round_trip():
         assert int(float(seed)) == seed
 
 
-def test_draw_leaves_room_for_the_largest_sweep():
-    # The last image of a 64x8 sweep is base + 511, and it has to be exact too.
-    span = (_limit("runs", "le") - 1) * _limit("num_images", "le") + _limit("num_images", "le") - 1
-    assert RANDOM_SEED_MAX + span <= 2**53 - 1
-    assert int(float(RANDOM_SEED_MAX + span)) == RANDOM_SEED_MAX + span
+def test_draw_leaves_room_for_the_largest_sweep_and_the_largest_grid():
+    # The last image of a 64x8 sweep is base + 511; a grid's seed axis goes to
+    # 256, so its last image is base + 2047. Both have to be exact.
+    batch = _limit("num_images", "le")
+    sweep = (_limit("runs", "le") - 1) * batch + batch - 1
+    grid = (_limit("seeds", "le", GridRequest) - 1) * batch + batch - 1
+    for span in (sweep, grid):
+        assert RANDOM_SEED_MAX + span <= 2**53 - 1
+        assert int(float(RANDOM_SEED_MAX + span)) == RANDOM_SEED_MAX + span
 
 
 def test_wrap_folds_past_the_column_bound():

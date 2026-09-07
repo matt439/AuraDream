@@ -5,6 +5,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from .model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -21,7 +23,7 @@ class Settings:
 
     # krea/Krea-2-Turbo
     # black-forest-labs/FLUX.1-Krea-dev
-    model_id: str = os.getenv("KREA_MODEL_ID", "black-forest-labs/FLUX.1-Krea-dev")
+    model_id: str = os.getenv("KREA_MODEL_ID", DEFAULT_MODEL_ID)
 
     # "fp8"  - torchao float8 weight-only on the transformer (~12GB, fits 16GB cards)
     # "int8" - torchao int8 weight-only, smaller still, slightly softer output
@@ -31,12 +33,12 @@ class Settings:
     #          text-encoder). Nothing is quantized here: the repo's own configs
     #          name the quantizer. Its CUDA kernels ship for Linux only, so on a
     #          Windows machine this means WSL 2 - see wsl/ and the README.
-    quantization: str = os.getenv("KREA_QUANT", "fp8")
+    quantization: str = os.getenv("KREA_QUANT", DEFAULT_QUANT)
 
     # "model"      - one component on the GPU at a time (recommended for <=16GB)
     # "sequential" - per-submodule offload, lowest VRAM, much slower
     # "none"       - keep everything resident
-    offload: str = os.getenv("KREA_OFFLOAD", "model")
+    offload: str = os.getenv("KREA_OFFLOAD", DEFAULT_OFFLOAD)
 
     device: str = os.getenv("KREA_DEVICE", "cuda")
     load_on_startup: bool = _env_bool("KREA_PRELOAD", False)
@@ -75,6 +77,12 @@ class Settings:
     # cost what the old 2K preset cost.
     max_side: int = 2816
     max_pixels: int = 4_300_000
+    # The pixels one *batch* may hold at once - `num_images` forward passes in a
+    # single call, all resident together. A typo guard, not a VRAM model: it
+    # is two 4 MP images, which is about what the 16 GB fp8 path can hold, and
+    # it stops `2048x2048 x 8` from passing the per-image check on its way to
+    # an OOM after a multi-minute load. Runs are the way to make many.
+    max_batch_pixels: int = int(os.getenv("KREA_MAX_BATCH_PIXELS", str(2 * 4_300_000)))
 
     # The most images one grid may queue. A grid is meant to be left running
     # overnight, so this is generous - 1024 at ~30s is nine hours - but a
