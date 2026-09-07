@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -123,12 +124,17 @@ def parse_axis(
             values.append(None)
             continue
         match = _RANGE.match(token)
-        if match is not None:
-            values.extend(_range_values(match, cast, label))
-            continue
         try:
-            values.append(cast(token))
-        except ValueError:
+            if match is not None:
+                # Inside the handler too: `6-12x0.5` on an integer axis matches
+                # the range regex and then fails inside int(), and the message
+                # has to name the field either way.
+                values.extend(_range_values(match, cast, label))
+            else:
+                values.append(cast(token))
+        except ValueError as exc:
+            if str(exc).startswith(f"{label}:"):
+                raise
             raise ValueError(f"{label}: {token!r} is not a number") from None
 
     # A repeated value is a night spent rendering the same image twice.
@@ -213,16 +219,29 @@ def prompt_assignments(
     Both halves of a mismatch are errors here rather than something to notice in
     the morning: a variable with no placeholder multiplies the night by a value
     that changes nothing, and a placeholder with no variable renders the literal
-    `{ground}` into every image of the run.
+    `{ground}` into every image of the run - *including* when the variables box
+    is empty, the easiest way to get there: the placeholders were written and
+    the box forgotten, or cleared while the prompt kept them.
+
+    The product is counted before it is built. `MAX_AXIS_VALUES` caps values per
+    variable and nothing capped the number of variables, so eighteen binary
+    lines built 262,144 dicts on the event loop - on every keystroke of the
+    preview - before the whole-grid ceiling could refuse them.
     """
-    if not variables:
-        return [{}]
     used = _placeholders(request)
     for name in variables:
         if name not in used:
             raise ValueError(f"prompt: nothing in the prompt says {{{name}}}")
     for name in sorted(used - set(variables)):
         raise ValueError(f"prompt: {{{name}}} has no values")
+    if not variables:
+        return [{}]
+    count = math.prod(len(values) for values in variables.values())
+    if count > settings.max_grid_images:
+        raise ValueError(
+            f"prompt: {count} prompts is past the {settings.max_grid_images} a grid may "
+            "queue; drop a variable or some of its values"
+        )
 
     assignments: list[dict[str, str]] = [{}]
     for name, values in variables.items():
@@ -242,6 +261,13 @@ def axis_values(
     assignments = prompt_assignments(request, parse_variables(prompt))
     return {
         "prompt": [substitute(request.prompt, one) for one in assignments],
+        **_sampling_values(request, steps, cfg, mu),
+    }
+
+
+def _sampling_values(request: GenerateRequest, steps: str, cfg: str, mu: str) -> dict[str, list[Any]]:
+    """The three numeric axes, each falling back to the request's own value."""
+    return {
         "steps": parse_axis(steps, int, label="steps") or [request.steps],
         "guidance_scale": parse_axis(cfg, float, label="CFG") or [request.guidance_scale],
         "mu": parse_axis(mu, float, allow_none=True, label="mu") or [request.mu],
@@ -377,7 +403,7 @@ def expand(
     caught by that same rule.
     """
     assignments = prompt_assignments(request, parse_variables(prompt))
-    values = axis_values(request, steps, cfg, mu)
+    values = _sampling_values(request, steps, cfg, mu)
     total = (
         len(assignments)
         * len(values["steps"])

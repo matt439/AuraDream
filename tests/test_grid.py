@@ -45,9 +45,13 @@ def test_mu_takes_none_and_nothing_else_does():
         grid.parse_axis("none", label="CFG")
 
 
-@pytest.mark.parametrize("spec", ["12-6", "6-12x0", "6-12x-2", "eight", "6..12"])
+@pytest.mark.parametrize(
+    "spec", ["12-6", "6-12x0", "6-12x-2", "eight", "6..12", "6-12x0.5", "6.5-12", "8.5"]
+)
 def test_a_bad_axis_says_so(spec):
-    with pytest.raises(ValueError):
+    # Named after the field, whichever branch it came through: a fractional
+    # step on an integer axis used to escape as int()'s own message.
+    with pytest.raises(ValueError, match="steps:"):
         grid.parse_axis(spec, int, label="steps")
 
 
@@ -194,6 +198,7 @@ def test_the_negative_prompt_takes_the_same_variables():
         ("size = big\nsize = small", "twice"),  # two lines, one name
         ("colour = red | blue", "nothing in the prompt"),  # unused variable
         ("size = big | small", "has no values"),  # {ground} left unfilled
+        ("", "has no values"),  # placeholders written, the box left empty
     ],
 )
 def test_a_prompt_that_does_not_line_up_is_refused(spec, message):
@@ -208,6 +213,22 @@ def test_a_prompt_grid_counts_towards_the_ceiling():
     values = " | ".join(str(n) for n in range(40))
     with pytest.raises(ValueError, match="past the"):
         grid.expand(dog(seed=1), prompt=f"size = {values}\nground = {values}")
+
+
+def test_a_prompt_product_is_refused_before_it_is_built():
+    # Twenty binary variables are a million assignments; the refusal has to
+    # come from the count, not from having built them.
+    names = [f"v{n}" for n in range(20)]
+    prompt = " ".join(f"{{{name}}}" for name in names)
+    block = "\n".join(f"{name} = a | b" for name in names)
+    with pytest.raises(ValueError, match="past the"):
+        grid.prompt_assignments(request(prompt=prompt), grid.parse_variables(block))
+
+
+def test_a_prompt_without_placeholders_needs_no_variables():
+    # The other half of the rule: a grid with nothing set is the image Generate
+    # would have made, braces or not being the whole question.
+    assert grid.prompt_assignments(request(), {}) == [{}]
 
 
 def test_prompt_labels_survive_a_locale_encoder():

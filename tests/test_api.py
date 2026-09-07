@@ -461,11 +461,17 @@ def test_a_prompt_axis_that_does_not_line_up_is_a_422(client):
     unused = client.post("/api/grid/preview", json={**body, "prompt_axis": "colour = red"})
     assert unused.status_code == 422
     assert "{colour}" in unused.json()["detail"]
+    # No variables at all with placeholders in the prompt is the easiest
+    # mistake in the feature - the box forgotten, or cleared - and used to
+    # render the literal braces into every image of the night.
     unfilled = client.post("/api/grid/preview", json={**body, "prompt_axis": ""})
-    # No variables at all is not an error: the prompt runs as written, braces
-    # and all, exactly as Generate would have run it.
-    assert unfilled.status_code == 200
-    assert unfilled.json()["values"]["prompt"] == ["a {size} dog"]
+    assert unfilled.status_code == 422
+    assert "{size}" in unfilled.json()["detail"]
+    # A prompt with no placeholders and no variables is the image Generate
+    # would have made.
+    plain = client.post("/api/grid/preview", json={"prompt": "a dog", "width": 256, "height": 256})
+    assert plain.status_code == 200
+    assert plain.json()["values"]["prompt"] == ["a dog"]
 
 
 def test_resume_skips_only_the_prompt_it_already_rendered(client, store):

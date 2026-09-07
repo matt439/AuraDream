@@ -124,7 +124,8 @@
               <b>none</b> is a value too — the word and its space come out
               altogether, so <b>size = big | none</b> compares saying it against
               not saying it.<br>
-              Blank runs the prompt exactly as written.</span></span></i>
+              Blank runs the prompt exactly as written — and is refused if the prompt
+              still has <b>{placeholders}</b> in it, rather than rendering the braces.</span></span></i>
           <textarea id="grid-prompt" rows="2" spellcheck="false"
             placeholder="size = big | small | none"></textarea>
         </div>

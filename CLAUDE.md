@@ -280,7 +280,13 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   values is four prompts. Both halves of a mismatch are refused at submit rather
   than found in the morning: a variable no placeholder mentions multiplies the
   night by a value that changes nothing, and a placeholder with no variable
-  renders the literal `{ground}` into every image of the run. `none` is a value
+  renders the literal `{ground}` into every image of the run - **including
+  when the variables box is empty**, which used to short-circuit past both
+  checks (a plain prompt with no placeholders still expands to itself). The
+  product of the variables is **counted before it is built**
+  (`math.prod` against `max_grid_images`): `MAX_AXIS_VALUES` caps values per
+  variable, nothing capped the variables, and eighteen binary lines built
+  262,144 dicts on the event loop per preview keystroke. `none` is a value
   - the word is simply not said - and `substitute()` closes the gap it leaves,
   so `{size} dog` is `dog` rather than ` dog`. The prompt loop sits just inside
   the seed loop, for the reason seeds are outermost: a night that ends early has
