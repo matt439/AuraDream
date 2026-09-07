@@ -33,6 +33,7 @@ from .schemas import (  # noqa: E402
     GridRequest,
     JobAccepted,
     ModelStatus,
+    RerenderRequest,
     RunSummary,
     error_detail,
 )
@@ -326,6 +327,90 @@ async def run_grid(request: GridRequest) -> JobAccepted:
         # report "done" having rendered nothing, which reads like a failure.
         raise HTTPException(status_code=409, detail="every cell is already rendered")
     job = await jobs.submit_cells(cells, run_id=run_id)
+    return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
+
+
+@app.post("/api/rerender", response_model=JobAccepted)
+async def rerender(request: RerenderRequest) -> JobAccepted:
+    """Queue the gallery's current selection again at another size, as one job.
+
+    The documented workflow ends at "star the winners"; getting them at full
+    size then meant Reuse, retype the size, Generate, twenty times over - and
+    the clicking is where a seed gets mistyped. Here every selected record is
+    a cell with its own settings and seed, deduplicated against what the
+    gallery already holds at the target size, so a re-render can itself be
+    resumed. A sibling of `run_grid`, and it shares the run-id and resume
+    machinery with it.
+    """
+    probe = GenerateRequest(prompt="x", width=request.width, height=request.height)
+    try:
+        probe.check_budget()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # One past the ceiling, so an oversize selection is refused by count rather
+    # than silently truncated to the newest N.
+    records, total = await asyncio.to_thread(
+        storage.list_images,
+        limit=settings.max_grid_images + 1,
+        search=request.search,
+        favorites_only=request.favorites,
+    )
+    if not records:
+        raise HTTPException(status_code=404, detail="nothing in the gallery matches that selection")
+    if total > settings.max_grid_images:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{total} images match; a job may queue {settings.max_grid_images}. Narrow the search.",
+        )
+    # Steps, CFG and mu are checkpoint-specific - Turbo's 8 / 0 / 1.15 on FLUX
+    # is a broken image recorded under FLUX - so a record from another
+    # checkpoint is refused rather than rendered wrong. `model:` in the search
+    # narrows the selection to one.
+    foreign = sorted({r.model_id for r in records if r.model_id != settings.model_id})
+    if foreign:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{sum(r.model_id != settings.model_id for r in records)} of the selected images "
+            f"were made on {', '.join(foreign)}; the server is running {settings.model_id}, whose "
+            f"steps, CFG and mu differ. Add model:{settings.model_id.split('/')[-1]} to the search.",
+        )
+    # Oldest first, so the re-render lands in the order the originals did.
+    cells = [
+        grid.Cell(
+            request=GenerateRequest(
+                prompt=r.prompt,
+                negative_prompt=r.negative_prompt,
+                width=request.width,
+                height=request.height,
+                steps=r.steps,
+                guidance_scale=r.guidance_scale,
+                mu=r.mu,
+                seed=r.seed,
+            ),
+            seed=r.seed,
+        )
+        for r in reversed(records)
+    ]
+    run_id = grid.run_id(cells, settings.model_id, settings.quantization)
+    done = await asyncio.to_thread(
+        storage.completed_cells,
+        grid.prompts_of(cells),
+        request.width,
+        request.height,
+        settings.model_id,
+        settings.quantization,
+    )
+    kept = [
+        cell
+        for cell in cells
+        if grid.prune_done([grid.Cell(request=backend.applied(cell.request), seed=cell.seed)], done)
+    ]
+    if not kept:
+        raise HTTPException(
+            status_code=409,
+            detail=f"every selected image is already rendered at {request.width}x{request.height}",
+        )
+    job = await jobs.submit_cells(kept, run_id=run_id)
     return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 

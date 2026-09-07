@@ -734,6 +734,55 @@ def test_resume_without_a_seed_is_refused(client, fake):
     assert not fake.requests
 
 
+def test_a_selection_can_be_rendered_again_at_another_size(client, fake, store):
+    # Star two cells of a 256px grid and ask for them at 512: two cells, the
+    # same prompt, steps, CFG, mu and seed, only the size changed, oldest
+    # first - and a second ask finds them done.
+    _, events = _grid(client, steps_axis="6,8,10", cfg_axis="0,1", seed=5, mu=1.15)
+    images = sorted(events[-1]["images"], key=lambda r: r["id"])
+    for record in (images[1], images[4]):
+        client.post(f"/api/images/{record['id']}/favorite?value=true")
+    fake.requests.clear()
+
+    accepted = client.post("/api/rerender", json={"width": 512, "height": 512}).json()
+    done = _stream(client, accepted["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 2
+    asked = [(r.steps, r.guidance_scale, r.mu, r.seed, r.width) for r in fake.requests]
+    assert asked == [
+        (images[1]["steps"], images[1]["guidance_scale"], 1.15, 5, 512),
+        (images[4]["steps"], images[4]["guidance_scale"], 1.15, 5, 512),
+    ]
+    assert accepted["seed"] == 5
+    # A run of its own, distinct from the grid it came from, and resumable.
+    assert accepted["run_id"] != images[0]["run_id"]
+    assert client.post("/api/rerender", json={"width": 512, "height": 512}).status_code == 409
+    # The selection is the gallery's own filter, taken server-side: the two
+    # 8-step cells, starred or not.
+    narrowed = client.post(
+        "/api/rerender", json={"width": 768, "height": 768, "favorites": False, "search": "steps:8"}
+    )
+    assert narrowed.status_code == 200
+    assert len(_stream(client, narrowed.json()["job_id"])[-1]["images"]) == 2
+    assert client.post(
+        "/api/rerender", json={"width": 512, "height": 512, "search": "seed:999"}
+    ).status_code == 404
+    # The pixel budget applies, as it does to both other producers.
+    assert client.post("/api/rerender", json={"width": 2736, "height": 2736}).status_code == 422
+
+
+def test_a_rerender_refuses_another_checkpoints_records(client, store):
+    # Steps, CFG and mu are checkpoint-specific; rendering FLUX's 28 / 3.5 on
+    # Turbo would record a broken image under Turbo.
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="x", width=256, height=256),
+        seed=1, duration_ms=1, model_id="somebody/else",
+    )
+    response = client.post("/api/rerender", json={"width": 512, "height": 512, "favorites": False})
+    assert response.status_code == 422
+    assert "somebody/else" in response.json()["detail"] and "model:" in response.json()["detail"]
+
+
 def test_finished_jobs_are_listed_on_request_with_their_outcome(client, fake):
     # The morning after: /api/jobs alone is empty once the night is over, and
     # nothing said whether the grid finished, stopped or died - or how much it

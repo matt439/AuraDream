@@ -28,7 +28,8 @@ const els = {
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'), sizeHint: $('size-hint'),
   gridResume: $('grid-resume'),
-  sheetBtn: $('btn-sheet'), sheet: $('sheet'), sheetControls: $('sheet-controls'),
+  sheetBtn: $('btn-sheet'), rerender: $('btn-rerender'),
+  sheet: $('sheet'), sheetControls: $('sheet-controls'),
   sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'),
   runHint: $('run-hint'),
   lastRun: $('last-run'), lastRunText: $('last-run-text'),
@@ -173,6 +174,7 @@ function choose(aspect, tier) {
 
 function syncSize() {
   const w = +els.width.value, h = +els.height.value;
+  syncRerender();
   // Recover which preset this is, so a reused or hand-typed size lights the
   // buttons up too, and the next click off it starts from the right place.
   const match = ASPECTS.flatMap((a) => TIERS.map((t) => [a, t]))
@@ -361,7 +363,8 @@ function setStep(show, fraction = 0, text = '') {
 // and the payload differ.
 async function startJob(path, payload) {
   if (busy) return;
-  if (!payload.prompt) { showError('Enter a prompt first.'); return; }
+  // A re-render carries no prompt of its own - every cell brings its record's.
+  if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
   showError('');
   setBusy(true);
   els.progressText.textContent = 'queued…';
@@ -389,6 +392,29 @@ async function startJob(path, payload) {
 }
 
 function generate() { return startJob('/api/generate', collect()); }
+
+// The gallery's current selection - the search box and the Favorites tick -
+// rendered again at the panel's size. Taken server-side, since the browser
+// holds only the page it has scrolled to; the count in the button is the
+// server's total for the filter, so it is also the confirmation.
+function rerenderSelection() {
+  return startJob('/api/rerender', {
+    search: els.search.value.trim() || null,
+    favorites: els.favOnly.checked,
+    width: +els.width.value,
+    height: +els.height.value,
+  });
+}
+
+function syncRerender() {
+  const filtered = els.favOnly.checked || els.search.value.trim() !== '';
+  const show = filtered && total > 0 && total <= sheetPage;
+  els.rerender.hidden = !show;
+  if (show) {
+    els.rerender.textContent =
+      `↻ Re-render ${total} at ${els.width.value}×${els.height.value}`;
+  }
+}
 
 // ------------------------------------------------------------- grid search
 
@@ -765,6 +791,7 @@ function loadGallery() {
       if (epoch !== galleryEpoch) return;  // superseded by a reset
       total = page.total;
       els.count.textContent = total ? `(${total})` : '';
+      syncRerender();
       // Keyset paging cannot repeat a row; the guard stays for a stream that
       // reattaches and a page that overlap through the viewer's records.
       const have = new Set(galleryRecords.map((r) => r.id));
@@ -890,6 +917,7 @@ async function deleteImage(rec) {
   if (inGallery) {
     total -= 1;
     els.count.textContent = total ? `(${total})` : '';
+    syncRerender();
   }
   els.viewer.classList.toggle('multi', viewerRecords.length > 1);
   els.viewer.classList.toggle('many', viewerRecords.length > 4);
@@ -1449,6 +1477,7 @@ els.batch.oninput = els.runs.oninput = syncRuns;
 els.cfg.oninput = () => { own('cfg'); syncCfg(); };
 els.favOnly.onchange = resetGallery;
 els.sheetBtn.onclick = () => setSheet(!sheetMode);
+els.rerender.onclick = rerenderSelection;
 els.runList.onchange = () => { showRun(els.runList.value); els.runList.value = ''; };
 els.lastRunShow.onclick = () => {
   const { run, job } = els.lastRun.dataset;

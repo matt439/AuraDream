@@ -226,6 +226,10 @@
         <b>mu:none</b> is the images that ran with no shift at all — not the same as
         <b>mu:0</b>.</span></span>
       <label class="check"><input type="checkbox" id="fav-only"> Favorites</label>
+      <!-- Shown while a filter narrows the gallery: renders what it matches
+           again at the panel's size, one cell per image, same seeds. -->
+      <button class="ghost small" id="btn-rerender" hidden
+        title="Render every image the filter matches again, at the size set in the panel - same prompt, settings and seed"></button>
       <button class="ghost small" id="btn-sheet" title="Arrange these images by their settings">
         Sheet
       </button>

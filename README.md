@@ -346,6 +346,17 @@ mu:none           the images that ran with no shift at all — not the same as m
 a lighthouse      anything left over searches the prompt
 ```
 
+**Re-render** appears beside the filters whenever a search or the Favorites
+tick narrows the gallery: it renders everything the filter matches again at
+the size set in the panel, one cell per image with its own prompt, steps, CFG,
+mu and seed, as one job. Star the winners of a 1 MP night, tick Favorites, pick
+4 MP, click. Cells already rendered at that size are skipped, so it can be
+resumed like a grid, and a selection made on another checkpoint is refused
+rather than run with the wrong steps and CFG (`model:` narrows it). Be honest
+with yourself about what comes back: the pipeline draws its noise at the new
+shape, so the same seed at 4 MP is a new sample - the prompt and the settings
+carry over, the exact picture does not.
+
 **Runs**, the picker beside the search box, lists the gallery one line per run
 - when it started, how many images, how many starred, the prompt - newest
 first; picking one searches for it and opens the sheet. And a page opened

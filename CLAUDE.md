@@ -384,6 +384,16 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   non-passive; the zoom keys sit below the `input, textarea` guard. A click on
   the stage beside the image closes the lightbox only at fit: zoomed, the
   stage is a pan surface and only Escape or the cross close it.
+- **`POST /api/rerender` is the third producer of cells**, beside
+  `/api/generate` and `/api/grid`: the gallery's own filter (search plus the
+  Favorites flag, taken server-side because the browser holds one page) at
+  another size, one cell per record with the record's prompt, negative
+  prompt, steps, CFG, mu and seed, oldest first. It calls `check_budget()`,
+  refuses more than `max_grid_images` matches by count rather than truncating,
+  refuses records from another checkpoint (steps/CFG/mu are the checkpoint's),
+  prunes with `completed_cells` like a resume and 409s when nothing is left.
+  Same seed at another shape is a *new sample* - the latents are drawn at the
+  requested size - which the README says out loud.
 - **The morning after has two sources.** `GET /api/runs` groups the gallery
   by `run_id` (`storage.runs`: images, favourites, distinct prompts, jobs,
   first/last timestamp, and the *oldest* image's prompt and seed - the base
