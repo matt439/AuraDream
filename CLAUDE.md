@@ -42,6 +42,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/main.py` — routes
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans
+- `backend/stats.py` — the starred *rate* per setting (`storage.keep_rates`),
+  scoped to a run by default
 - `web/` — served as-is from `/static`
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
   `setup.sh`, `serve.sh`: running the same checkout from WSL 2
@@ -384,6 +386,19 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   non-passive; the zoom keys sit below the `input, textarea` guard. A click on
   the stage beside the image closes the lightbox only at fit: zoomed, the
   stage is a pan surface and only Escape or the cross close it.
+- **The CLI reads PNGs and probes the server.** `--from-image` reads
+  `Image.open(p).info["krea"]` - not `.text`, which decodes every pixel - and
+  fills what the flags left unset *before* `apply_env`, so the record's
+  checkpoint reaches `KREA_MODEL_ID`; quantization is deliberately not
+  carried (a Nunchaku PNG on Windows would ask for a mode the machine cannot
+  run) and job/run ids are displayed, never reused. `_server_holds_gpu`
+  probes `/api/status` after the `--dry-run` guard: `ready`/`loading` or a
+  timeout refuses with exit 4, connection refused is the ordinary no-server
+  case, `--ignore-server` overrides; the test fixture stubs it, or the suite
+  would refuse to run beside the developer's own server. `keep_rates` groups
+  on the same six-decimal rounding `completed_cells` uses and always includes
+  size; free text in its scope is refused rather than sent through the
+  fuzzy LIKE fallback.
 - **The panel persists to `localStorage`** (`krea.panel.v1`) in two phases:
   the model-independent fields synchronously at start-up, *before* the sync
   functions that light the presets and hints up from them, and steps/CFG/mu

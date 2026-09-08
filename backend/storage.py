@@ -625,6 +625,69 @@ def completed_cells(
     return keys
 
 
+# The columns `keep_rates` can group by, as SQL. CFG and mu are rounded to the
+# six decimals the axis parser produces, so a value that went through REAL and
+# back does not split one setting into two buckets.
+_GROUPS: dict[str, str] = {
+    "steps": "steps",
+    "cfg": "round(guidance_scale, 6)",
+    "mu": "round(mu, 6)",
+    "prompt": "prompt",
+    "negative": "negative_prompt",
+    "seed": "seed",
+    "size": "width || 'x' || height",
+    "model": "model_id",
+    "quant": "quantization",
+}
+
+
+def keep_rates(
+    search: str | None = None, by: Sequence[str] = ("steps", "cfg", "mu"), min_made: int = 1
+) -> list[dict[str, Any]]:
+    """Which settings the starred images cluster under: made, starred, and the rate.
+
+    The naive count rewards whichever setting was used most; the rate is what
+    is wanted, and every input is in the table. `search` is the gallery's own
+    `key:value` grammar and scopes the rows - a run, where `expand()` crossed
+    the axes against the same prompts and seeds, is the honest scope; all-time
+    is confounded by whatever settings were in use while the prompts happened
+    to be good. Groups with fewer than `min_made` images are dropped so a
+    lucky 1-of-1 does not take first place. The column is *starred*, not
+    kept: nothing records a rejection, so an untouched night reads 0% rather
+    than unknown. Size is always in the grouping - a 4 MP re-render is not
+    the same setting as its 1 MP source.
+    """
+    unknown = [name for name in by if name not in _GROUPS]
+    if unknown:
+        raise ValueError(f"cannot group by {', '.join(unknown)}; one of {', '.join(_GROUPS)}")
+    columns = list(dict.fromkeys([*by, "size"]))
+    where: list[str] = []
+    params: list = []
+    if search:
+        filters, filter_params, text = _split_search(search)
+        if text:
+            raise ValueError(f"stats take key:value terms only; {text!r} is free text")
+        where.extend(filters)
+        params.extend(filter_params)
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+    select = ", ".join(f"{_GROUPS[name]} AS {name}" for name in columns)
+    group = ", ".join(_GROUPS[name] for name in columns)
+    with _session() as conn:
+        rows = conn.execute(
+            f"""SELECT {select}, COUNT(*) AS made, SUM(favorite) AS starred
+                FROM images {clause}
+                GROUP BY {group}
+                HAVING made >= ?
+                ORDER BY CAST(starred AS REAL) / made DESC, made DESC""",
+            (*params, min_made),
+        ).fetchall()
+    return [
+        {**{name: row[name] for name in columns}, "made": row["made"], "starred": row["starred"],
+         "rate": row["starred"] / row["made"]}
+        for row in rows
+    ]
+
+
 def runs(limit: int = 20) -> list[RunSummary]:
     """The gallery grouped by run, the most recently written first.
 

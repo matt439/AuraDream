@@ -56,12 +56,19 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Generate images headlessly. Saves to outputs/ and the gallery database.",
         epilog="sizes: " + sizes,
     )
-    parser.add_argument("prompt", help="what to draw")
+    parser.add_argument("prompt", nargs="?", help="what to draw (or take it from --from-image)")
     parser.add_argument(
         "-n",
         "--negative",
         help="negative prompt; ignored at or below the checkpoint's CFG threshold "
         "(1 on FLUX, 0 on Krea 2)",
+    )
+    parser.add_argument(
+        "--from-image",
+        metavar="PNG",
+        help="start from the settings a gallery PNG carries in its metadata - prompt, "
+        "negative prompt, size, steps, CFG, mu, seed and checkpoint; any flag given "
+        "explicitly still wins",
     )
 
     size = parser.add_argument_group("size")
@@ -147,7 +154,104 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print the resolved settings and exit without loading the model",
     )
+    parser.add_argument(
+        "--ignore-server",
+        action="store_true",
+        help="load the weights even if a server on KREA_HOST:KREA_PORT already holds them on the GPU",
+    )
     return parser
+
+
+def _image_settings(path: str, parser: argparse.ArgumentParser) -> dict:
+    """The `krea` metadata block a gallery PNG carries, as a dict.
+
+    `Image.open(p).info` - not `.text`, which is a property that calls `load()`
+    and decodes every pixel to answer a question the header settles. A JPEG
+    has no such block and neither has a PNG from another tool; both are
+    argument errors, not tracebacks.
+    """
+    import json
+
+    from PIL import Image
+
+    try:
+        with Image.open(path) as image:
+            raw = image.info.get("krea")
+    except (OSError, ValueError) as exc:
+        parser.error(f"--from-image: cannot open {path}: {exc}")
+    if not raw:
+        parser.error(f"--from-image: {path} carries no krea metadata; only this app's PNGs do")
+    try:
+        return json.loads(raw)
+    except ValueError:
+        parser.error(f"--from-image: the krea metadata in {path} is not JSON")
+
+
+def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
+    """Fill the arguments the flags left unset from the PNG's own record.
+
+    Before `apply_env`, so the checkpoint the image was made on can reach
+    KREA_MODEL_ID: a Turbo PNG rendered on FLUX would claim to reproduce an
+    image it cannot. Quantization is *not* carried - a Nunchaku PNG read on
+    Windows would otherwise ask for a mode this machine cannot run - and
+    neither are the job and run ids: they are displayed, never reused.
+    """
+    if args.prompt is None:
+        args.prompt = meta.get("prompt")
+    if args.negative is None:
+        args.negative = meta.get("negative_prompt")
+    if args.steps is None:
+        args.steps = meta.get("steps")
+    if args.cfg is None:
+        args.cfg = meta.get("guidance_scale")
+    # An explicit null in the record means the image ran with no shift of
+    # ours; --mu/--no-mu on the command line still win.
+    if args.mu is None and not args.no_mu and "mu" in meta:
+        if meta["mu"] is None:
+            args.no_mu = True
+        else:
+            args.mu = meta["mu"]
+    if args.seed is None:
+        args.seed = meta.get("seed")
+    if args.model is None and meta.get("model"):
+        args.model = meta["model"]
+    # The file's size only when none of the four size arguments was given.
+    size = meta.get("size")
+    if size and all(v is None for v in (args.width, args.height, args.aspect, args.mp)):
+        width, _, height = size.partition("x")
+        if width.isdigit() and height.isdigit():
+            args.width, args.height = int(width), int(height)
+
+
+def _server_holds_gpu(host: str, port: int, timeout: float = 2.0) -> str | None:
+    """The checkpoint a running server has on the GPU, or None when none does.
+
+    The CLI builds its own backend and loads a second copy of the weights into
+    the same card, with nothing to say a server already has ~8 GB of them
+    resident - so a sweep started beside one spent minutes loading and OOMed at
+    the first step. Probing `/api/status` rather than the port: the model is
+    deliberately not loaded at start-up, so a listener alone is the ordinary
+    harmless state. Refuses only when the state is ready or loading; a timeout
+    is a server too busy to answer, which is the case to refuse. Advisory:
+    one-directional, and blind across the WSL/Windows boundary.
+    """
+    import json
+    import urllib.error
+    import urllib.request
+
+    probe_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
+    try:
+        with urllib.request.urlopen(f"http://{probe_host}:{port}/api/status", timeout=timeout) as resp:
+            status = json.load(resp)
+    except urllib.error.URLError as exc:
+        if isinstance(exc.reason, ConnectionRefusedError):
+            return None  # no server at all
+        return "a server that did not answer in time"
+    except (OSError, ValueError):
+        return "a server that did not answer in time"
+    if status.get("state") in ("ready", "loading"):
+        return f"{status.get('model_id', 'a checkpoint')} ({status['state']})"
+    return None
 
 
 def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tuple[int, int]:
@@ -200,6 +304,13 @@ def _duration(seconds: float) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    # The PNG first, so its checkpoint can reach KREA_MODEL_ID before the
+    # settings freeze on import.
+    source = _image_settings(args.from_image, parser) if args.from_image else None
+    if source is not None:
+        _apply_image_settings(args, source)
+    if not args.prompt:
+        parser.error("a prompt is required (or --from-image with a gallery PNG)")
     width, height = _resolve_size(args, parser)
     apply_env(args)
     p = _project()
@@ -298,6 +409,18 @@ def main(argv: list[str] | None = None) -> int:
 
     total_images = len(cells) * request.num_images
     if not args.quiet:
+        if source is not None:
+            made_with = source.get("quantization")
+            print(
+                f"from     : {args.from_image}"
+                + (f"  (job {source['job']}" if source.get("job") else "")
+                + (f", run {source['run']})" if source.get("run") else (")" if source.get("job") else ""))
+            )
+            if made_with and made_with != p.settings.quantization:
+                print(
+                    f"           made with quant={made_with}; this run uses "
+                    f"{p.settings.quantization}, so the pixels will differ"
+                )
         print(
             f"model    : {p.settings.model_id} (quant={p.settings.quantization}, "
             f"offload={p.settings.offload})"
@@ -385,6 +508,19 @@ def main(argv: list[str] | None = None) -> int:
     if not cells:
         print("Nothing to do: every cell is already in the gallery.", file=sys.stderr)
         return 0
+
+    # After the dry run: a dry run promises to touch nothing, the network
+    # included. Its own exit code, since the README pins the other four.
+    if not args.ignore_server:
+        holder = _server_holds_gpu(p.settings.host, p.settings.port)
+        if holder is not None:
+            print(
+                f"A server at {p.settings.host}:{p.settings.port} holds {holder} on the GPU; "
+                "loading a second copy here would run out of memory. Unload it (the Unload "
+                "button, or POST /api/model/unload), stop it, or pass --ignore-server.",
+                file=sys.stderr,
+            )
+            return 4
 
     p.storage.init_db()
     # Every image of this invocation carries it, so a CLI grid groups in the

@@ -24,6 +24,9 @@ def cli(store, monkeypatch):
     # the real krea.db in the checkout.
     monkeypatch.setattr(backends, "get_backend", lambda name="diffusers": fake)
     monkeypatch.setattr(config, "settings", store.settings)
+    # No server is probed: the developer's own may well be up on 7860, and a
+    # suite that refuses to run beside it is a suite nobody runs.
+    monkeypatch.setattr(generate, "_server_holds_gpu", lambda host, port, timeout=2.0: None)
     handler = signal.getsignal(signal.SIGINT)
     yield fake
     # main() installs a SIGINT handler and never removes it.
@@ -92,6 +95,107 @@ def test_a_seed_list_runs_the_grid_at_exactly_those_seeds(cli, store, capsys):
     assert cli.seeds == [4471, 8823]  # nothing ran the second time
     with pytest.raises(SystemExit):
         generate.main(["a fox", "--seed-list", "1,2", "--grid-seeds", "3"])
+
+
+def test_from_image_reads_the_pngs_own_record(cli, store, capsys, monkeypatch):
+    # The PNG's metadata was write-only: starting from an image you already
+    # have cost a browser trip and six numbers retyped by hand.
+    monkeypatch.delenv("KREA_MODEL_ID", raising=False)
+    assert generate.main([
+        "a fox in fog", "-n", "blurry", "--seed", "7", "--steps", "6", "--cfg", "0.5",
+        "--mu", "1.3", *SIZE, "-q",
+    ]) == 0
+    path = capsys.readouterr().out.strip().split("  seed ")[0]
+    assert path.endswith(".png")
+
+    assert generate.main(["--from-image", path, "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "prompt   : a fox in fog" in out
+    assert "negative : blurry" in out
+    assert "size     : 256x256" in out
+    assert "sampling : 6 steps, CFG 0.5, mu 1.3" in out
+    assert "seed     : 7" in out
+    assert f"from     : {path}" in out and "job " in out
+    # The checkpoint travels too - a Turbo PNG must not render on FLUX while
+    # claiming to reproduce - which is why the PNG is read before the flags
+    # reach the environment.
+    import os
+
+    assert os.environ["KREA_MODEL_ID"] == store.settings.model_id
+    # An explicit flag still wins over the record.
+    assert generate.main(["--from-image", path, "--steps", "9", "--aspect", "16:9", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "sampling : 9 steps" in out and "size     : 1360x768" in out
+
+
+def test_from_image_refuses_a_file_without_the_record(cli, tmp_path):
+    from PIL import Image
+
+    plain = tmp_path / "plain.png"
+    Image.new("RGB", (8, 8)).save(plain)
+    with pytest.raises(SystemExit) as exc:
+        generate.main(["--from-image", str(plain), "--dry-run"])
+    assert exc.value.code == 2
+    with pytest.raises(SystemExit) as exc:
+        generate.main(["--dry-run"])  # neither a prompt nor an image
+    assert exc.value.code == 2
+
+
+def test_a_server_holding_the_gpu_is_refused_with_its_own_code(cli, store, monkeypatch, capsys):
+    # A second copy of the weights beside a server's resident copy is an OOM
+    # after a multi-minute load. Advisory, after the dry-run guard, exit 4.
+    monkeypatch.setattr(
+        generate, "_server_holds_gpu", lambda host, port, timeout=2.0: "krea/Krea-2-Turbo (ready)"
+    )
+    assert generate.main(["a fox", *SIZE, "--dry-run"]) == 0  # a dry run touches nothing
+    assert generate.main(["a fox", *SIZE, "-q"]) == 4
+    assert "Krea-2-Turbo" in capsys.readouterr().err and cli.requests == []
+    assert generate.main(["a fox", *SIZE, "-q", "--ignore-server"]) == 0
+    assert len(cli.requests) == 1
+
+
+def test_the_probe_tells_no_server_from_a_busy_one(monkeypatch):
+    import urllib.error
+
+    import urllib.request
+
+    def refused(url, timeout):
+        raise urllib.error.URLError(ConnectionRefusedError(111, "refused"))
+
+    monkeypatch.setattr(urllib.request, "urlopen", refused)
+    assert generate._server_holds_gpu("127.0.0.1", 7860) is None
+
+    def slow(url, timeout):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(urllib.request, "urlopen", slow)
+    assert "did not answer" in generate._server_holds_gpu("127.0.0.1", 7860)
+
+    class Reply:
+        def __init__(self, body):
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return self.body
+
+    import json
+
+    monkeypatch.setattr(
+        urllib.request, "urlopen",
+        lambda url, timeout: Reply(json.dumps({"state": "unloaded", "model_id": "m"}).encode()),
+    )
+    assert generate._server_holds_gpu("0.0.0.0", 7860) is None
+    monkeypatch.setattr(
+        urllib.request, "urlopen",
+        lambda url, timeout: Reply(json.dumps({"state": "loading", "model_id": "m"}).encode()),
+    )
+    assert generate._server_holds_gpu("127.0.0.1", 7860) == "m (loading)"
 
 
 def test_mu_and_no_mu_are_exclusive(cli):

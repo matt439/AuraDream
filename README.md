@@ -204,14 +204,47 @@ and `--offload` are the `KREA_*` variables under another name. `--dry-run`
 prints the resolved settings without loading the model; `--quiet` drops
 everything but one `<path>  seed <n>` line per saved image.
 
+`--from-image outputs/….png` starts from an image you already have: the
+prompt, negative prompt, size, steps, CFG, mu, seed and checkpoint come out of
+the PNG's own metadata, and any flag you give explicitly wins over it. The
+quantization is not carried - a WSL Nunchaku PNG read on Windows would ask for
+a mode this machine cannot run - and the tool says so when it differs, since
+the pixels then will too.
+
+The CLI loads its own copy of the weights, so before it does it asks the
+server on `KREA_HOST:KREA_PORT` whether one is already on the GPU. If the
+server answers *ready* or *loading* (or does not answer in time), the CLI
+stops with exit status 4 and says how to free the card; nothing listening is
+the ordinary case and it carries on. Advisory only - it cannot see a server on
+the other side of the WSL boundary - and `--ignore-server` overrides it.
+
 Each image is written and reported as it lands, and `Ctrl-C` stops at the end of
 the current step and keeps everything already saved — the same cooperative
 cancel the Cancel button uses. A cell that fails - a transient OOM, a locked
 database - is skipped and reported and the next one runs, up to three in a row
 or a third of the run. Exit status is 0 when every requested image was produced,
 130 after a cancel, 2 for bad arguments, 1 for a failed load or when any cell
-was skipped. `python -m backend.clear` exits 1 when it aborted with nothing
-deleted and 3 when the deletion ran and something went wrong afterwards.
+was skipped, 4 when a server already holds the GPU. `python -m backend.clear`
+exits 1 when it aborted with nothing deleted and 3 when the deletion ran and
+something went wrong afterwards.
+
+### Which settings did you keep?
+
+```powershell
+uv run python -m backend.stats                    # the newest run
+uv run python -m backend.stats --run ab12cd       # one grid, however many jobs
+uv run python -m backend.stats --by steps,cfg,prompt --min 3
+uv run python -m backend.stats --all              # the whole gallery, indicative
+```
+
+The starred *rate* per setting - made, starred, percent - rather than the
+count, which only rewards whichever setting you used most. The default scope
+is the newest run, where the grid crossed its axes against the same prompts
+and seeds and the comparison is fair; `--all` is confounded by whatever was in
+use while the prompts happened to be good and says so. Settings with fewer
+images than `--min` (5) are left out, so a lucky 1-of-1 does not lead. The
+column says *starred*, not *kept*: nothing records a rejection, so an
+untouched night reads 0%, not unknown.
 
 ## Tests
 

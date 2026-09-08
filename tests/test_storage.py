@@ -241,6 +241,51 @@ def test_the_date_filter_is_a_local_day(store, monkeypatch):
         store.list_images(search="date:tuesday")
 
 
+# ---------------------------------------------------------------------- stats
+
+
+def test_keep_rates_rank_settings_by_starred_rate_not_count(store):
+    # Six-step images were made most; eight-step ones were kept most. The
+    # naive count would put 6 first. A lucky 1-of-1 at ten steps is dropped
+    # by the floor rather than leading the table.
+    ids = {}
+    for steps, seeds in ((6, (1, 2, 3)), (8, (4, 5, 6)), (10, (7,))):
+        for seed in seeds:
+            ids[(steps, seed)] = keep(store, steps=steps, seed=seed, run_id="grid-a").id
+    for key in ((6, 1), (8, 4), (8, 5), (8, 6), (10, 7)):
+        store.set_favorite(ids[key], True)
+    keep(store, steps=8, seed=99, run_id="grid-b")  # another run, not starred
+
+    rows = store.keep_rates("run:grid-a", by=["steps"], min_made=2)
+    assert [(r["steps"], r["made"], r["starred"]) for r in rows] == [(8, 3, 3), (6, 3, 1)]
+    assert rows[0]["rate"] == 1.0 and rows[0]["size"] == "256x256"
+    # Scope matters: all-time folds the other run's unstarred eight in.
+    everything = store.keep_rates(None, by=["steps"], min_made=1)
+    eight = next(r for r in everything if r["steps"] == 8)
+    assert (eight["made"], eight["starred"]) == (4, 3)
+    with pytest.raises(ValueError, match="free text"):
+        store.keep_rates("fox", by=["steps"])
+    with pytest.raises(ValueError, match="cannot group by"):
+        store.keep_rates(None, by=["colour"])
+
+
+def test_the_stats_tool_defaults_to_the_newest_run(store, monkeypatch, capsys):
+    from backend import stats
+
+    monkeypatch.setattr(stats, "settings", store.settings)
+    for seed in (1, 2, 3):
+        rec = keep(store, steps=8, seed=seed, run_id="night")
+        if seed != 3:
+            store.set_favorite(rec.id, True)
+    assert stats.main(["--min", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "the newest run, night (3 images, 2 starred)" in out
+    assert "67%" in out and "steps" in out
+    assert stats.main(["--all", "--by", "steps,cfg", "--min", "1"]) == 0
+    assert "indicative" in capsys.readouterr().out
+    assert stats.main(["--by", "colour"]) == 2
+
+
 # ----------------------------------------------------------------------- runs
 
 
