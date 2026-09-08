@@ -388,6 +388,27 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   non-passive; the zoom keys sit below the `input, textarea` guard. A click on
   the stage beside the image closes the lightbox only at fit: zoomed, the
   stage is a pan surface and only Escape or the cross close it.
+- **A grid can have a time budget.** `GridRequest.budget_minutes` reaches the
+  job through `submit_cells(budget_minutes=)` - GridRequest-only fields are
+  gone by the time cells are built - as an absolute `Job.deadline` from
+  submission (the load counts). `_generate` checks it at the top of every
+  cell ("start no cell after"), sets `stopped_by = "budget"` and returns
+  early through the *cancel* path: a fourth terminal status would have left
+  `active()`/`busy()` holding on and unload answering 409 for the session.
+  The UI reads `stopped_by` to say the plan worked and a Resume finishes the
+  rest; the CLI's `--budget` mirrors it and exits 130 like any other stop
+  short of the full count.
+- **The variable assignment is recorded.** `Cell.variables` reaches
+  `save_image(variables=)` from both writers, lands in a `variables TEXT`
+  column (JSON; `_migrate`), the `krea` chunk and `ImageRecord.variables`.
+  The sheet builds one axis per variable name seen (`axesFor` in `app.js`)
+  and **suppresses** the flat prompt and negative axes when any record
+  carries variables - kept as fallbacks, a 4-value prompt axis would beat a
+  2-value variable axis in `chooseAxes` and turn a single-variable run into a
+  diagonal. `""` (the `none` value) reads as `none`; a record without
+  variables in a mixed search reads as null. The axis list is rebuilt per
+  render and the names are part of the layout signature. `completed_cells`
+  and `CellKey` are untouched: the resolved prompt is what ran.
 - **Two writers, one INSERT.** `save_image` and `reindex.index_file` both go
   through `storage._insert_row` over `_COLUMNS`, so the column list exists
   once and the FTS trigger fires for both. The reindex reads

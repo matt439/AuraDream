@@ -77,7 +77,8 @@ CREATE TABLE IF NOT EXISTS images (
     created_at      TEXT    NOT NULL,
     job_id          TEXT,
     run_id          TEXT,
-    quantization    TEXT
+    quantization    TEXT,
+    variables       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -118,6 +119,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("job_id", "TEXT", "idx_images_job"),
         ("run_id", "TEXT", "idx_images_run"),
         ("quantization", "TEXT", None),
+        # The prompt-variable assignment, as JSON.
+        ("variables", "TEXT", None),
     )
     for column, kind, index in added:
         if column in columns:
@@ -205,6 +208,7 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         thumb_url=f"/outputs/{thumb.name}" if thumb.exists() else None,
         prompt=row["prompt"],
         negative_prompt=row["negative_prompt"],
+        variables=json.loads(row["variables"]) if row["variables"] else None,
         width=row["width"],
         height=row["height"],
         steps=row["steps"],
@@ -226,6 +230,7 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
 _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "created_at", "job_id", "run_id", "quantization",
+    "variables",
 )
 
 
@@ -257,12 +262,16 @@ def save_image(
     job_id: str | None = None,
     run_id: str | None = None,
     quantization: str | None = None,
+    variables: dict[str, str] | None = None,
 ) -> ImageRecord:
     """Write the PNG and its row. `request` must be what actually ran -
     `backend.applied()` - not what was asked for: a negative prompt the
     pipeline never saw, recorded here, defeats resume and misleads Reuse.
+    `variables` is the prompt-variable assignment behind a grid cell, kept so
+    the sheet can show what varied rather than reconstruct it from prose.
     """
     created = datetime.now(timezone.utc)
+    variables_json = json.dumps(variables) if variables else None
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
     # The directory can disappear under a running server - renamed, deleted by
     # hand - and the full denoise then died here. One mkdir per image is cheap.
@@ -289,6 +298,7 @@ def save_image(
         "job": job_id,
         "run": run_id,
         "size": f"{image.width}x{image.height}",
+        "variables": variables or None,
     }
     info = PngImagePlugin.PngInfo()
     # A1111-style single-line block, so other tools can read the params back.
@@ -330,6 +340,7 @@ def save_image(
                     "job_id": job_id,
                     "run_id": run_id,
                     "quantization": quantization,
+                    "variables": variables_json,
                 },
             )
         committed = True
@@ -787,6 +798,7 @@ def index_file(
                 "job_id": meta.get("job"),
                 "run_id": meta.get("run"),
                 "quantization": meta.get("quantization"),
+                "variables": json.dumps(meta["variables"]) if meta.get("variables") else None,
             },
         )
     return _row_to_record(row)

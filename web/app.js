@@ -23,7 +23,7 @@ const els = {
   gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),
-  gridPreview: $('grid-preview'),
+  gridBudget: $('grid-budget'), gridPreview: $('grid-preview'),
   gridRun: $('btn-grid'),
   error: $('error'), viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
@@ -478,6 +478,7 @@ function gridPayload() {
     seeds: +els.gridSeeds.value || 1,
     seed_axis: els.gridSeedList.value.trim(),
     resume: els.gridResume.checked,
+    budget_minutes: els.gridBudget.value.trim() === '' ? null : +els.gridBudget.value,
   };
 }
 
@@ -643,9 +644,12 @@ function streamJob(jobId) {
         }
         if (data.status === 'error') showError(data.error);
         else if (data.status === 'cancelled') {
-          showError(data.images.length
-            ? `Cancelled — kept ${data.images.length} image${data.images.length === 1 ? '' : 's'}.`
-            : 'Cancelled before anything finished.', true);
+          // A stop at the time budget is the plan working, not a cancel: say
+          // which, and that a Resume finishes the rest.
+          const kept = `kept ${data.images.length} image${data.images.length === 1 ? '' : 's'}`;
+          showError(data.stopped_by === 'budget'
+            ? `Time budget reached after ${data.run - 1 || 0}/${data.total_runs} cells — ${kept}. Resume finishes the rest.`
+            : data.images.length ? `Cancelled — ${kept}.` : 'Cancelled before anything finished.', true);
         } else if (data.error) {
           // Done, but not every cell: the grid carried on past a failure and
           // says so, rather than dropping the rest of the night.
@@ -709,7 +713,7 @@ async function resumeActiveJob() {
 const PANEL_KEY = 'krea.panel.v1';
 const PANEL_FIELDS = [
   'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs',
-  'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList',
+  'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
 ];
 let panelTimer;
 
@@ -1114,7 +1118,32 @@ const SHEET_AXES = [
   { key: 'mu', label: 'Mu', of: (r) => r.mu },
   { key: 'seed', label: 'Seed', of: (r) => r.seed },
 ];
-const axisByKey = (key) => SHEET_AXES.find((a) => a.key === key);
+// The axes in play for the current records. Records from a prompt grid carry
+// the variable assignment that made them, and then each variable is an axis
+// of its own - a `size` x `ground` night is a 2x2, not a 4-wide strip of
+// finished sentences - and the flat prompt and negative axes are *suppressed*,
+// not kept as fallbacks: a 4-value prompt axis would beat a 2-value variable
+// axis in chooseAxes and turn a single-variable run into a diagonal.
+let sheetAxesList = SHEET_AXES;
+function axesFor(records) {
+  const names = [];
+  for (const rec of records) {
+    for (const name of Object.keys(rec.variables || {})) if (!names.includes(name)) names.push(name);
+  }
+  if (!names.length) return SHEET_AXES;
+  const variableAxes = names.map((name) => ({
+    key: `var:${name}`,
+    label: name,
+    // `""` is the deliberately empty value - the word left out - and reads as
+    // `none`; a record with no variables at all (a mixed search) reads as null.
+    of: (r) => {
+      const value = r.variables ? r.variables[name] : undefined;
+      return value === undefined ? null : (value === '' ? 'none' : value);
+    },
+  }));
+  return [...variableAxes, ...SHEET_AXES.filter((a) => a.key !== 'prompt' && a.key !== 'negative')];
+}
+const axisByKey = (key) => sheetAxesList.find((a) => a.key === key);
 const axisValue = (axis, rec) => axis.of(rec) ?? null;
 
 // Full prompt -> the words that make it different from its neighbours, filled
@@ -1165,7 +1194,7 @@ function promptLabels(prompts) {
 // The distinct values each axis takes across the loaded images, ascending.
 function sheetValues(records) {
   const values = {};
-  for (const axis of SHEET_AXES) {
+  for (const axis of sheetAxesList) {
     const seen = [];
     for (const rec of records) {
       const v = axisValue(axis, rec);
@@ -1178,10 +1207,10 @@ function sheetValues(records) {
     });
     values[axis.key] = seen;
   }
-  const labels = values.prompt.length > 1
-    ? promptLabels(values.prompt)
-    : values.prompt.map(clip);
-  promptShort = new Map(values.prompt.map((text, i) => [text, labels[i]]));
+  // No prompt axis when variables carry the variation; nothing to label.
+  const prompts = values.prompt || [];
+  const labels = prompts.length > 1 ? promptLabels(prompts) : prompts.map(clip);
+  promptShort = new Map(prompts.map((text, i) => [text, labels[i]]));
   return values;
 }
 
@@ -1189,7 +1218,7 @@ function sheetValues(records) {
 // A third varying axis becomes a pin rather than a third dimension: a flat
 // sheet that crosses everything at once is a wall nobody can read.
 function chooseAxes(values, count) {
-  let varying = SHEET_AXES.filter((a) => values[a.key].length > 1);
+  let varying = sheetAxesList.filter((a) => values[a.key].length > 1);
   // An axis with one value per image is a list, not a dimension - the seed of
   // a mixed gallery, mostly. It is dropped whenever anything else varies; a
   // seeds-only run keeps it, since it is then the only dimension there is.
@@ -1211,7 +1240,7 @@ function chooseAxes(values, count) {
 // a dropdown showing a different value than the one filtering it.
 function reconcileAxes(values) {
   const pins = {};
-  for (const axis of SHEET_AXES) {
+  for (const axis of sheetAxesList) {
     const key = axis.key;
     if (values[key].length < 2 || key === sheetAxes.cols || key === sheetAxes.rows) continue;
     const kept = sheetAxes.pins[key];
@@ -1263,18 +1292,21 @@ function picker(options, selected, onPick) {
 const MAX_SHEET_CELLS = 4096;
 function renderSheet() {
   sheetRecords = galleryRecords;
+  sheetAxesList = axesFor(sheetRecords);
   const values = sheetValues(sheetRecords);
   // Re-derive columns and rows when the image set changes shape, and only
   // then, so switching filters lands on something sensible while a hand-picked
-  // axis survives a redraw. Pins are reconciled every time - see above.
-  const signature = SHEET_AXES.map((a) => values[a.key].length).join('/');
+  // axis survives a redraw. Pins are reconciled every time - see above. The
+  // axis names are part of the shape: a variable run and a plain one with the
+  // same cardinalities are different sheets.
+  const signature = sheetAxesList.map((a) => `${a.key}:${values[a.key].length}`).join('/');
   if (sheetAxes.signature !== signature) {
     sheetAxes = { ...chooseAxes(values, sheetRecords.length), signature };
   }
   reconcileAxes(values);
 
   const axisOptions = [['', '—']].concat(
-    SHEET_AXES.filter((a) => values[a.key].length > 1).map((a) => [a.key, a.label]),
+    sheetAxesList.filter((a) => values[a.key].length > 1).map((a) => [a.key, a.label]),
   );
   els.sheetControls.innerHTML = '';
   els.sheetControls.append(
@@ -1341,7 +1373,10 @@ function renderSheet() {
   els.sheetGrid.appendChild(headCell(''));
   // A prompt label is prose rather than a number, so its header is allowed to
   // wrap; nowrap would push one column out to the width of the whole phrase.
-  const prose = (axis) => (axis && (axis.key === 'prompt' || axis.key === 'negative') ? ' text' : '');
+  // A variable's values are prose too.
+  const prose = (axis) => (
+    axis && (axis.key === 'prompt' || axis.key === 'negative' || axis.key.startsWith('var:')) ? ' text' : ''
+  );
   colValues.forEach((v) => {
     els.sheetGrid.appendChild(
       headCell(colAxis ? `${colAxis.label} ${valueText(v)}` : '', `head${prose(colAxis)}`),
@@ -1607,8 +1642,8 @@ els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // there - the server validates it - and Resume because the whole "N already
 // done" half of the preview is what ticking it is for.
 for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
-                  els.gridSeedList, els.prompt, els.negative, els.steps, els.cfg, els.mu,
-                  els.batch, els.width, els.height, els.seed]) {
+                  els.gridSeedList, els.gridBudget, els.prompt, els.negative, els.steps,
+                  els.cfg, els.mu, els.batch, els.width, els.height, els.seed]) {
   el.addEventListener('input', schedulePreview);
 }
 // A listed seed axis makes the count and the base seed moot; say so in place.

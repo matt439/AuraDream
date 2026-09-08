@@ -96,6 +96,13 @@ class Job:
     started_at: float | None = None
     finished_at: float | None = None
     last_progress_at: float | None = None
+    # Start no cell after this moment (a grid's time budget), and what ended
+    # the job when it was not the user: "budget" so far. Ending at the deadline
+    # reuses the cancel path - a fourth terminal state would have left
+    # `active()` and `busy()` holding on and unload answering 409 for the
+    # session - and the field tells the UI which kind of stop it was.
+    deadline: float | None = None
+    stopped_by: str | None = None
 
     def publish(self, event: dict) -> None:
         """Hand an event to every attached stream. Event-loop thread only."""
@@ -133,6 +140,8 @@ class Job:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "last_progress_at": self.last_progress_at,
+            "deadline": self.deadline,
+            "stopped_by": self.stopped_by,
         }
         if images:
             frame["images"] = list(self.images)
@@ -204,13 +213,17 @@ class JobManager:
             ]
         )
 
-    async def submit_cells(self, cells: list[Cell], run_id: str | None = None) -> Job:
+    async def submit_cells(
+        self, cells: list[Cell], run_id: str | None = None, budget_minutes: float | None = None
+    ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
         `run_id` names the run the cells belong to. A resumed grid hands in the
         id of the *whole* grid, computed before the finished cells were
         subtracted, so its images join the night they continue; left out, the
-        cells themselves are the definition.
+        cells themselves are the definition. `budget_minutes` is plumbed here
+        rather than read off `job.request`: GridRequest-only fields are gone
+        by the time the cells are built.
         """
         job = Job(
             id=uuid.uuid4().hex[:12],
@@ -220,6 +233,7 @@ class JobManager:
             run_id=run_id or _run_id(cells, settings.model_id, settings.quantization),
             total_steps=cells[0].request.steps,
             total_runs=len(cells),
+            deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
         )
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight
@@ -378,6 +392,14 @@ class JobManager:
         for index, cell in enumerate(job.cells):
             if job.cancel_requested:
                 return True
+            # The budget means "start no cell after": a cell in flight runs to
+            # its end, and what was not reached is a resume, not a loss.
+            if job.deadline is not None and time.time() > job.deadline:
+                job.stopped_by = "budget"
+                log.info(
+                    "job %s: time budget reached before cell %d/%d", job.id, index + 1, len(job.cells)
+                )
+                return True
             req, seed = cell.request, cell.seed
             # A grid varies the step count between cells, so the totals the
             # progress events carry are the cell's, not the job's. Without the
@@ -395,7 +417,7 @@ class JobManager:
                     req, seed=seed, on_progress=on_progress, should_cancel=should_cancel
                 )
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
-                self._save(job, loop, req, seed, images, elapsed_ms)
+                self._save(job, loop, cell, images, elapsed_ms)
             except Cancelled:
                 log.info(
                     "job %s cancelled during run %d/%d", job.id, index + 1, len(job.cells)
@@ -419,8 +441,7 @@ class JobManager:
         self,
         job: Job,
         loop: asyncio.AbstractEventLoop,
-        req: GenerateRequest,
-        seed: int,
+        cell: Cell,
         images: list,
         elapsed_ms: int,
     ) -> None:
@@ -428,7 +449,8 @@ class JobManager:
         # Record what ran, not what was asked: a negative prompt the pipeline
         # dropped below its threshold, or a mu it had no way to take, must not
         # reach the row - resume compares against it.
-        ran = self.backend.applied(req)
+        ran = self.backend.applied(cell.request)
+        seed = cell.seed
         for offset, image in enumerate(images):
             # Each image in a batch gets its own reproducible seed. Wrapped
             # for the same reason the run seed is - and with the same helper
@@ -442,6 +464,7 @@ class JobManager:
                 job_id=job.id,
                 run_id=job.run_id,
                 quantization=settings.quantization,
+                variables=cell.variables,
             )
             job.images.append(record.model_dump())
             # Publish it now: a long sweep should fill the page as it goes

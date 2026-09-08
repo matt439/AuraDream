@@ -198,6 +198,18 @@ def test_the_probe_tells_no_server_from_a_busy_one(monkeypatch):
     assert generate._server_holds_gpu("127.0.0.1", 7860) == "m (loading)"
 
 
+def test_a_budget_stops_the_cli_between_cells(cli, store, capsys):
+    cli.step_seconds = 0.02
+    code = generate.main(
+        ["a fox", "--seed", "1", "--steps", "5", "--grid-steps", "5,6,7,8", "--budget", str(0.05 / 60), *SIZE]
+    )
+    assert code == 130
+    err = capsys.readouterr().err
+    assert "time budget" in err and "--resume" in err
+    assert 1 <= len(cli.requests) < 4
+    assert store.list_images()[1] == len(cli.requests)
+
+
 def test_mu_and_no_mu_are_exclusive(cli):
     with pytest.raises(SystemExit) as exc:
         generate.main(["a fox", "--mu", "1.15", "--no-mu"])

@@ -487,6 +487,34 @@ def test_a_grid_varies_the_prompt_through_its_placeholders(client, fake):
     # One prompt per cell, but one seed for all of them - the comparison is the
     # same noise under a different word.
     assert fake.seeds == [7, 7, 7]
+    # Every record carries the assignment that made it, `none` as "".
+    assert [r["variables"] for r in events[-1]["images"]] == [
+        {"size": "big", "ground": "grass"},
+        {"size": "small", "ground": "grass"},
+        {"size": "", "ground": "grass"},
+    ]
+
+
+def test_a_grid_stops_at_its_time_budget_and_says_so(client, fake):
+    # Over-provision on purpose and take what the night reaches; the rest is
+    # a resume. The budget means "start no cell after": the cell in flight
+    # finishes, and the stop is reported as the plan working, not a cancel.
+    fake.step_seconds = 0.02
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "steps": 5, "steps_axis": "5,6,7,8",
+        "seed": 1, "budget_minutes": 0.05 / 60,  # 50 ms
+    }
+    _, events = _grid(client, **body)
+    done = events[-1]
+    assert done["status"] == "cancelled" and done["stopped_by"] == "budget"
+    assert 1 <= len(done["images"]) < 4
+    assert done["deadline"] is not None
+    # Resume picks up exactly the cells the clock cut off.
+    preview = client.post(
+        "/api/grid/preview", json={**body, "budget_minutes": None, "resume": True}
+    ).json()
+    assert preview["skipped"] == len(done["images"])
+    assert preview["cells"] == 4 - len(done["images"])
 
 
 def test_the_preview_shows_the_prompts_it_would_render(client):

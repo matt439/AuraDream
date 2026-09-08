@@ -140,6 +140,13 @@ class GridRequest(GenerateRequest):
     # overnight grid survivable: a crash costs the cell it died on, not the
     # night. Matched on settings, not on the job that ran them.
     resume: bool = False
+    # Start no cell after this many minutes from submission. Seeds are the
+    # outermost loop precisely so that a night which ends early has finished
+    # every setting for the seeds it reached - and every way of ending early
+    # used to be an accident. With a budget the grid is over-provisioned on
+    # purpose and the night takes what it reaches; what it did not reach is a
+    # resume. Counted from submission, since "until seven" includes the load.
+    budget_minutes: float | None = Field(default=None, gt=0, le=7 * 24 * 60)
 
     @model_validator(mode="after")
     def _runs_are_not_a_grid_axis(self) -> "GridRequest":
@@ -216,6 +223,12 @@ class ImageRecord(BaseModel):
     thumb_url: str | None = None
     prompt: str
     negative_prompt: str | None
+    # The prompt-variable assignment that made this cell - `{"size": "big",
+    # "ground": "grass"}` - when it came from a prompt grid. The resolved prompt
+    # is what ran; this is what varied, so the contact sheet can lay a 2x2
+    # night out as a 2x2 rather than a 4-wide strip of finished sentences. Null
+    # for a plain prompt and for rows from before it was recorded.
+    variables: dict[str, str] | None = None
     width: int
     height: int
     steps: int

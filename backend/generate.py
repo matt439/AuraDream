@@ -124,6 +124,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="skip cells this prompt has already been rendered at, so a night "
         "that died costs the cell it died on rather than the whole run",
     )
+    sweep.add_argument(
+        "--budget",
+        type=float,
+        metavar="MINUTES",
+        help="start no cell after this many minutes (the load included); over-provision "
+        "the grid and take what the night reaches - the rest is a --resume",
+    )
 
     volume = parser.add_argument_group("volume")
     volume.add_argument(
@@ -585,6 +592,8 @@ def main(argv: list[str] | None = None) -> int:
     saved = 0
     failed = 0
     consecutive = 0
+    out_of_time = False
+    deadline = load_started + args.budget * 60 if args.budget else None
     sweep_started = time.perf_counter()
     # A redrawn status line is for a terminal. Redirected to a log - which is
     # what an overnight sweep does - it is thousands of lines of noise, so there
@@ -601,6 +610,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         for index, cell in enumerate(cells):
             if stop:
+                break
+            # "Start no cell after": the same rule the server's loop follows.
+            if deadline is not None and time.perf_counter() > deadline:
+                out_of_time = True
+                print(
+                    f"  time budget of {args.budget:g} min reached before run "
+                    f"{index + 1}/{len(cells)}; --resume continues it",
+                    file=sys.stderr,
+                )
                 break
             run_seed = cell.seed
             run_index = index + 1
@@ -659,6 +677,7 @@ def main(argv: list[str] | None = None) -> int:
                     job_id=job_id,
                     run_id=run_id,
                     quantization=p.settings.quantization,
+                    variables=cell.variables,
                 )
                 saved += 1
                 print(
@@ -677,9 +696,12 @@ def main(argv: list[str] | None = None) -> int:
             f"\n{saved}/{total_images} image(s) in "
             f"{_duration(time.perf_counter() - sweep_started)}."
             + (f" {failed} cell(s) failed and were skipped." if failed else "")
+            + (" Stopped at the time budget." if out_of_time else "")
         )
     if failed:
         return 1
+    # A budget stop is a cancel by the clock: the same code, since the same
+    # thing is true - fewer images than asked, and a resume finishes them.
     return 130 if saved < total_images else 0
 
 

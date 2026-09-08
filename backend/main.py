@@ -342,7 +342,7 @@ async def run_grid(request: GridRequest) -> JobAccepted:
         # Every cell is already in the gallery. Queueing an empty job would
         # report "done" having rendered nothing, which reads like a failure.
         raise HTTPException(status_code=409, detail="every cell is already rendered")
-    job = await jobs.submit_cells(cells, run_id=run_id)
+    job = await jobs.submit_cells(cells, run_id=run_id, budget_minutes=request.budget_minutes)
     return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 

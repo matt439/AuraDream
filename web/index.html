@@ -196,6 +196,15 @@
               crossed with a finer sweep. Resume needs no Seed when this is filled in.</span></span></i>
           <input type="text" id="grid-seed-list" placeholder="4471, 8823" autocomplete="off" aria-describedby="grid-seed-list-tip">
         </div>
+        <div class="sub narrow">
+          <i><label for="grid-budget">Budget</label>
+            <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-budget-tip">Minutes. Start no cell after this long from Run grid, the
+              load included. Seeds are the outer loop, so what the night reached is a
+              complete comparison for those seeds - and what it did not is a Resume.
+              Blank runs the whole grid.</span></span></i>
+          <input type="number" id="grid-budget" min="1" step="1" placeholder="min" aria-describedby="grid-budget-tip">
+        </div>
       </div>
       <label class="check">
         <input type="checkbox" id="grid-resume" aria-describedby="grid-resume-tip"> Resume

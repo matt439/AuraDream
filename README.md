@@ -308,6 +308,7 @@ you fill in varies. An empty grid is exactly the image Generate would have made.
 | Mu | the same, plus `none` for no shift of ours at all | `none,1.15` |
 | Seeds | how many consecutive seeds run the whole grid | `4` |
 | Seed list | exactly these seeds instead, a list or a range | `4471, 8823` |
+| Budget | minutes; start no cell after this long | `420` |
 
 They cross: two sizes, two grounds, four step counts and two seeds is 32 images.
 The panel previews what it would run before you commit to it — the resolved
@@ -356,6 +357,14 @@ and steps, CFG and mu come back when the server is running the checkpoint
 they were set on. Resume is the one box that never comes back ticked - a
 resume you did not mean is a night that silently skips cells. Per browser,
 per origin, and dropped without complaint where storage is blocked.
+
+**Budget** is how you use that. Seeds being outermost was engineered so that a
+night which ends early has finished every setting for the seeds it reached -
+and every way of ending early was an accident. Give the grid more than the
+night can do, set Budget to the minutes you have (`--budget` in the
+terminal; counted from the start, load included), and it starts no cell after
+that. The stop is reported as the budget working, not as a cancel, and Resume
+finishes what was not reached.
 
 **Seed list** is the second night: the two seeds that gave the composition you
 want, crossed with a finer sweep. `4471, 8823` or `100-103` runs the whole grid
@@ -432,7 +441,10 @@ two widest-varying axes become the columns and rows, and a third becomes a
 selector rather than a dimension nobody can read. Cells take the run's own
 aspect ratio and show the whole frame, and a starred cell carries its star, so
 where the keepers cluster is visible on the sheet rather than only in your
-head. The Prompt axis is labelled
+head. A prompt grid's images record which variable took which value, so on
+the sheet each variable is an axis of its own - `size` across, `ground` down -
+and a `none` value reads as `none`; images from before that was recorded fall
+back to the single Prompt axis below. The Prompt axis is labelled
 with only the words that vary — `big grass`, `small dirt` — when every prompt
 has the same word count. A `none` value makes one prompt shorter than the
 others; the labels then keep what is left once the shared head and tail come

@@ -48,10 +48,27 @@ def test_the_png_carries_the_whole_reproduction_set(store):
         meta = json.loads(png.info["krea"])
     assert set(meta) == {
         "prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed",
-        "model", "quantization", "job", "run", "size",
+        "model", "quantization", "job", "run", "size", "variables",
     }
     assert (meta["seed"], meta["mu"], meta["run"], meta["quantization"]) == (5, 1.15, "run1", "fp8")
     assert meta["size"] == "256x256"  # the image's, not the request's
+    assert meta["variables"] is None  # a plain prompt
+
+
+def test_a_grid_cells_variables_round_trip(store):
+    # The assignment that made the cell, beside the prose it made: the sheet
+    # lays a 2x2 night out from it rather than reconstructing it from words.
+    record = store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="big dog on grass", width=256, height=256),
+        seed=1, duration_ms=1, model_id="m", variables={"size": "big", "ground": "grass"},
+    )
+    assert record.variables == {"size": "big", "ground": "grass"}
+    assert store.list_images()[0][0].variables == {"size": "big", "ground": "grass"}
+    import json
+
+    with Image.open(store.settings.outputs_dir / record.filename) as png:
+        assert json.loads(png.info["krea"])["variables"] == {"size": "big", "ground": "grass"}
 
 
 def test_save_image_writes_a_thumbnail_beside_the_png(store):
