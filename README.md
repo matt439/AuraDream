@@ -299,18 +299,22 @@ profile directory of its own, so a crashed run cannot lock the next one out.
 
 ## Sizes
 
-Five aspect ratios across three megapixel tiers, picked independently — change
+Five aspect ratios across four megapixel tiers, picked independently — change
 the aspect and the tier holds, change the tier and the framing holds.
 
-| | 1 MP | 2 MP | 4 MP |
-| --- | --- | --- | --- |
-| 1:1 | 1024×1024 | 1440×1440 | 2048×2048 |
-| 3:4 | 896×1200 | 1248×1664 | 1776×2368 |
-| 4:3 | 1200×896 | 1664×1248 | 2368×1776 |
-| 16:9 | 1360×768 | 1920×1088 | 2736×1536 |
-| 9:16 | 768×1360 | 1088×1920 | 1536×2736 |
+| | 1 MP | 1.5 MP | 2 MP | 4 MP |
+| --- | --- | --- | --- | --- |
+| 1:1 | 1024×1024 | 1248×1248 | 1440×1440 | 2048×2048 |
+| 3:4 | 896×1200 | 1104×1472 | 1248×1664 | 1776×2368 |
+| 4:3 | 1200×896 | 1472×1104 | 1664×1248 | 2368×1776 |
+| 16:9 | 1360×768 | 1664×928 | 1920×1088 | 2736×1536 |
+| 9:16 | 768×1360 | 928×1664 | 1088×1920 | 1536×2736 |
 
-Every side is a multiple of 16, which is what the VAE wants. The whole 4 MP row
+Every side is a multiple of 16, which is what the VAE wants. The 1.5 MP row is
+the one the model cards asked for: its four non-square sizes are Qwen-Image's
+own README shapes, and every entry sits inside the 1024-1280 px (1-1.64 MP)
+FLUX.1 Krea [dev]'s README recommends, which the 2 MP row is past. The whole
+4 MP row
 is within 0.3% of 2048×2048 in pixel count, so it costs the same VRAM at any
 aspect — if the old 2K preset ran, all of these run. Every checkpoint here
 is trained around 1 MP and documented for something between 1 and 4; the

@@ -170,8 +170,8 @@ def test_the_size_table_is_the_same_in_the_browser_and_the_cli():
     found = {}
     for aspect, body in re.findall(r"'([\d:]+)':\s*\{([^}]*)\}", block):
         found[aspect] = {
-            int(tier): tuple(int(n) for n in re.findall(r"\d+", dims))
-            for tier, dims in re.findall(r"(\d): \[([^\]]*)\]", body)
+            float(tier): tuple(int(n) for n in re.findall(r"\d+", dims))
+            for tier, dims in re.findall(r"([\d.]+): \[([^\]]*)\]", body)
         }
     assert found == sizes.SIZES
     assert generate.SIZES is sizes.SIZES
@@ -189,6 +189,25 @@ def test_the_readme_size_table_matches_the_code():
             for tier, cell in zip(sizes.TIERS, cells)
         }
     assert found == sizes.SIZES
+
+
+def test_the_1_5_mp_row_is_the_model_cards():
+    # The row exists because Qwen-Image's README shapes and FLUX.1 Krea's
+    # recommended ceiling both fell between 1 and 2 MP; a change to it that
+    # loses either has lost the reason for it.
+    qwen = {(1664, 928), (928, 1664), (1472, 1104), (1104, 1472)}
+    row = {sizes.SIZES[aspect][1.5] for aspect in sizes.SIZES}
+    assert qwen <= row
+    # Krea's "between 1024 and 1280 pixels" is encoded by the guide as 1-1.64
+    # MP; the whole row has to land inside it, or the size line would warn on
+    # a preset the row was made for.
+    low, high = guide_for("black-forest-labs/FLUX.1-Krea-dev")["pixels"]
+    assert all(low <= w * h / 1e6 <= high for w, h in row)
+    assert all(1.5 <= w * h / 1e6 <= 1.65 for w, h in row)
+    assert all(w % 16 == 0 and h % 16 == 0 for w, h in sizes.every_size())
+    # And --mp 1.5 reaches it from the CLI.
+    args = generate._build_parser().parse_args(["x", "--aspect", "16:9", "--mp", "1.5"])
+    assert generate._resolve_size(args, generate._build_parser()) == (1664, 928)
 
 
 def test_the_size_guard_rails_are_the_largest_preset():

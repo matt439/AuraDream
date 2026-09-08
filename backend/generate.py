@@ -73,7 +73,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     size = parser.add_argument_group("size")
     size.add_argument("--aspect", choices=list(SIZES), help="aspect preset (default 1:1)")
-    size.add_argument("--mp", type=int, choices=TIERS, help="megapixel tier (default 1)")
+    size.add_argument(
+        "--mp", type=float, choices=TIERS, help="megapixel tier: 1, 1.5, 2 or 4 (default 1)"
+    )
     size.add_argument("--width", type=int, help="explicit width, multiple of 16")
     size.add_argument("--height", type=int, help="explicit height, multiple of 16")
 

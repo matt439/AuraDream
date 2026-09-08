@@ -121,8 +121,9 @@ _KREA_DEV_GUIDE = {
     "size": (
         "Krea's README recommends sides between 1024 and 1280 pixels (about 1 to "
         "1.6 MP), in multiples of 16; the FLUX.1 family is documented for 0.1 to "
-        "2 MP. The 2 MP presets sit just past the recommendation and usually "
-        "hold; 4 MP is well outside it - render at 1 MP and upscale."
+        "2 MP. The 1 and 1.5 MP presets are inside the recommendation; 2 MP is "
+        "just past it and usually holds; 4 MP is well outside - render smaller "
+        "and upscale."
     ),
     "pixels": (1.0, 1.64),
     "pixels_word": "recommended",
@@ -205,7 +206,7 @@ _KREA2_TURBO_GUIDE = {
     ),
     "size": (
         "Krea documents Turbo for 1k to 2k: sides from 1024 to 2048, padded to a "
-        "multiple of 16 - the 1, 2 and 4 MP presets, and 2048x2048 is the model "
+        "multiple of 16 - every preset tier, and 2048x2048 is the model "
         "card's own example. Pretraining topped out at 1024 px, so 1 MP is the "
         "size it has seen most; 4 MP is the documented ceiling."
     ),
@@ -246,8 +247,9 @@ _QWEN_IMAGE_GUIDE = {
         "Qwen-Image was trained to 1328x1328 (1.8 MP) and its README lists "
         "1328x1328, 1664x928, 928x1664, 1472x1104, 1104x1472, 1584x1056 and "
         "1056x1584 - about 1.5-1.8 MP at every ratio, sides in multiples of 16. "
-        "The 1 MP presets sit inside its 640p-1328p training; 2 MP is just past "
-        "the list and 4 MP well past it."
+        "The 1.5 MP presets at 3:4, 4:3, 16:9 and 9:16 are those shapes exactly; "
+        "1 MP sits inside its 640p-1328p training; 2 MP is just past the list "
+        "and 4 MP well past it."
     ),
     "pixels": (0.4, 1.77),
     "pixels_word": "trained",
