@@ -30,7 +30,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
   flags, run before `config` is imported; the checkpoint catalogue lives here
 - `backend/schemas.py` — pydantic request/response models
-- `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint
+- `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint, the
+  control tooltips, and the prompting guide (prompt and size prose, the
+  documented megapixel range with its word, the authors' example prompts)
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
 - `backend/loras.py` — the adapter directory: what is in it, and the file
   behind a name (the only place a request's name becomes a path)
@@ -122,7 +124,14 @@ Schedule and guidance:
   sits ahead of its family's token (klein and schnell before flux, z-image-turbo
   before z-image, ernie-image-turbo before ernie-image); a catalogue entry
   that reaches the fallback is a test failure. Steps, CFG and mu are the
-  checkpoint's; `mu` is Turbo's alone.
+  checkpoint's; `mu` is Turbo's alone. `krea-dev` sits ahead of `flux` for
+  its guide alone and is the flux profile in every number and control hint.
+- Every profile's `guide` is sourced from the checkpoint's authors - the
+  model card, README, prompting guide or report - never invented; the
+  design notes keep the URLs. `pixels` is the range they put in writing and
+  `pixels_word` what that writing was (documented, recommended, trained);
+  the range must admit the 1 MP presets. Its prose rides in `hints` as
+  `prompt` and `size`, its data in `ModelStatus.guide`.
 
 Reproduction:
 
@@ -179,6 +188,10 @@ Frontend and CLI:
 - `web/` has no build step and no test suite; check it in a real browser with
   `tools/fake_server.py` and `tools/browser.mjs` (see Tests). `app.js` is a
   classic script and its top-level bindings stay top-level.
+- The size line compares the request against `guide.pixels` a tenth either
+  way and quotes `pixels_word`; the Examples menu is built on open from the
+  last status, and a pick tells the preview and the panel the way `choose`
+  does.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch.

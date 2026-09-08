@@ -30,7 +30,7 @@ from . import grid, loras, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .config import settings  # noqa: E402
 from .jobs import JobManager, short_error  # noqa: E402
-from .model_defaults import defaults_for, hints_for  # noqa: E402
+from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     GalleryPage,
     GenerateRequest,
@@ -218,6 +218,7 @@ async def status() -> ModelStatus:
             defaults["reference_supported"],
             defaults["lora_supported"],
         ),
+        guide=guide_for(info["model_id"]),
         model_id=info["model_id"],
         quantization=info["quantization"],
         offload=info["offload"],

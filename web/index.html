@@ -23,10 +23,24 @@
 
 <main>
   <aside class="panel">
-    <label class="field">
-      <span>Prompt</span>
-      <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"></textarea>
-    </label>
+    <!-- A div, not a label: the ? badge and the Examples button sit in the
+         caption, and inside a <label> a tap on either would be forwarded to
+         the textarea. The tooltip is the checkpoint's prompting guide, from
+         /api/status like the ? badges below; the examples are its list. -->
+    <div class="field">
+      <span><label for="prompt">Prompt</label>
+        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+          class="tip wide" id="prompt-tip">Plain descriptive sentences: subject, setting,
+          light, style. Word order is not a weighting.</span></span>
+        <span class="examples" id="examples">
+          <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
+                  aria-expanded="false" title="Example prompts for this checkpoint, from its authors">Examples</button>
+          <ul class="menu" id="examples-menu" role="menu" hidden></ul>
+        </span>
+      </span>
+      <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
+                aria-describedby="prompt-tip"></textarea>
+    </div>
 
     <label class="field" id="negative-field">
       <span>Negative prompt <em id="neg-note"></em></span>
@@ -34,7 +48,11 @@
     </label>
 
     <div class="field">
-      <span>Size</span>
+      <span>Size
+        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+          class="tip wide" id="size-tip">Sides are multiples of 16. Most checkpoints are
+          trained around 1 MP; the size line says when a size is outside what this one
+          is documented for.</span></span></span>
       <div class="presets" id="presets"></div>
       <div class="presets tiers" id="tiers"></div>
       <div class="row">

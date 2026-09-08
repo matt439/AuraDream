@@ -188,7 +188,9 @@ def test_every_profile_explains_its_controls(model_id):
     # never quote a value the controls are not seeded with - and a mu of None or
     # a renamed key would blow up here rather than on the first hover.
     hints = hints_for(model_id)
-    assert set(hints) == {"steps", "guidance_scale", "mu", "true_cfg", "reference"}
+    assert set(hints) == {
+        "steps", "guidance_scale", "mu", "true_cfg", "reference", "prompt", "size"
+    }
     assert all(text and "{" not in text for text in hints.values())
     # The LoRA box is the one control no profile can speak for: whether an
     # adapter can be applied is the installation's answer, so the hint appears
@@ -220,6 +222,18 @@ def test_status_says_whether_real_cfg_is_a_separate_knob(client, fake, monkeypat
     body = client.get("/api/status").json()
     assert body["defaults"]["true_cfg_supported"] is not guess
     assert ("Not a separate knob" in body["hints"]["true_cfg"]) is guess
+
+
+def test_status_carries_the_prompting_guide(client):
+    # The prose half rides with the tooltips; the data half - the documented
+    # pixel range, the word for it, the examples - is its own object, so the
+    # size line and the Examples menu read numbers and a list, not a sentence.
+    body = client.get("/api/status").json()
+    assert body["hints"]["prompt"] and body["hints"]["size"]
+    guide = body["guide"]
+    assert guide["examples"] and all(isinstance(text, str) and text for text in guide["examples"])
+    assert len(guide["pixels"]) == 2 and guide["pixels"][0] <= guide["pixels"][1]
+    assert guide["pixels_word"]
 
 
 def test_status_says_whether_the_pipeline_takes_a_negative_prompt(client, fake, monkeypatch):

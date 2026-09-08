@@ -312,9 +312,12 @@ the aspect and the tier holds, change the tier and the framing holds.
 
 Every side is a multiple of 16, which is what the VAE wants. The whole 4 MP row
 is within 0.3% of 2048×2048 in pixel count, so it costs the same VRAM at any
-aspect — if the old 2K preset ran, all of these run. Both models are trained
-around 1 MP, so 4 MP buys detail at some risk of repeated elements in the
-composition. A hand-typed size is accepted up to the largest preset - 2736 on
+aspect — if the old 2K preset ran, all of these run. Every checkpoint here
+is trained around 1 MP and documented for something between 1 and 4; the
+? badge beside Size says what, and the line under the boxes warns when the
+size is outside it (see [Prompting guide](#prompting-guide)). 4 MP buys
+detail at some risk of repeated elements in the composition. A hand-typed
+size is accepted up to the largest preset - 2736 on
 a side, 1776×2368 in pixels - and refused past it; the table in
 `backend/sizes.py` is the one source, and the CLI, the browser and this README
 are held to it by a test.
@@ -595,6 +598,29 @@ The API refuses requests whose `Host` header is not on that list, and
 state-changing requests announcing another origin. That is what stops a page on
 some other site, whose own hostname resolves to 127.0.0.1, from reading the
 gallery or deleting it.
+
+## Prompting guide
+
+Each checkpoint wants a different kind of prompt and vouches for a different
+range of sizes, so the panel says which: the **?** beside Prompt is the
+checkpoint's prompting guide, the **?** beside Size its sizing, the line
+under the width and height warns when a size is outside what its authors
+documented, and **Examples** drops down the authors' own prompts - click one
+and it fills the box. All of it is sourced from the model cards, READMEs and
+prompting guides (the URLs are in `docs/design-notes.md`), none of it
+invented. In brief:
+
+| | Prompt | Encoder, limit | Size |
+| --- | --- | --- | --- |
+| FLUX.1 Krea [dev] | Descriptive sentences, subject first, photo language; text in quotes | CLIP 77 + T5 512 tokens | 1024-1280 px sides recommended (1-1.6 MP); 0.1-2 MP documented |
+| FLUX.1 [dev] | The same, 30-80 words; no negative prompt without True CFG | CLIP 77 + T5 512 | 0.1-2 MP documented; above that users report doubling |
+| FLUX.1 [schnell] | The same, shorter | CLIP 77 + T5 256 | 0.1-2 MP documented |
+| FLUX.2 [klein] | Subject, action, style, context; every rendered word in quotes; no negative prompt at all | Qwen3, 512 | 1024x1024 in every example; up to 2 MP recommended, 4 MP max |
+| Krea 2 Turbo | One natural paragraph, long and detailed best, short works; text in quotes | Qwen3-VL, 512 | 1k-2k documented (1-4 MP); pretraining topped out at 1024 px |
+| Krea 2 Raw | The same; an undistilled base Krea does not recommend for inference | Qwen3-VL, 512 | Trained to 1k: 1 MP |
+| Z-Image Turbo | Long, plain, objective description, English or Chinese; text in quotes | Qwen3-4B, 512 | 0.26-4.2 MP documented, trained to the 1k-1.5k range |
+| Qwen-Image | Dense caption in colour/shape/texture/quantity/text terms; append ", Ultra HD, 4K, cinematic composition."; True CFG 4 with a negative prompt | Qwen2.5-VL, 512 | Trained to 1328x1328; the README's shapes are 1.5-1.8 MP |
+| ERNIE-Image Turbo | The rewriter's output, typed by hand: one detailed paragraph of subject, setting, colour, light, layout | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
 
 ## Defaults by checkpoint
 

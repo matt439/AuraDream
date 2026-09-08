@@ -146,6 +146,33 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
    the other edge instead of out past the panel. */
 .help.end .tip { left: auto; right: -6px; }
 .help:hover .tip, .help:focus .tip { display: block; }
+/* The prompting and size guides are paragraphs, not a sentence: wider, and
+   with room for a line break between the two halves. */
+.tip.wide { width: 300px; white-space: pre-line; }
+/* A caption's badges keep the caption's colour, not its letter-spacing. */
+.field > span .help, .field > span .tip, .field > span .examples { letter-spacing: 0; text-transform: none; font-weight: 400; }
+.field > span .help { margin-left: 5px; vertical-align: 1px; }
+
+/* Example prompts: a button in the Prompt caption and a list that drops under
+   it. Clicking one fills the box - the guide says how to write a prompt, the
+   examples show it, and the authors' own examples are the shortest way to
+   learn a checkpoint's voice. */
+.examples { position: relative; display: inline-block; margin-left: 8px; }
+.ghost.tiny { padding: 1px 7px; font-size: 10px; line-height: 1.5; flex: none; }
+.menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  width: 300px; max-height: 320px; overflow-y: auto;
+  margin: 0; padding: 4px; list-style: none;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+.menu li {
+  padding: 6px 8px; border-radius: 6px; cursor: pointer;
+  font-size: 11px; line-height: 1.4; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.menu li:hover, .menu li:focus { background: #221c3d; outline: none; }
+.menu li.empty { color: var(--muted); cursor: default; }
 
 .hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); min-height: 15px; }
 .hint.warn { color: #fbbf24; }

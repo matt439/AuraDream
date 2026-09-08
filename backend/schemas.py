@@ -436,6 +436,23 @@ class GalleryPage(BaseModel):
     has_more: bool = False
 
 
+class PromptGuide(BaseModel):
+    """The structured half of the checkpoint's prompting guide.
+
+    The prose - how to write a prompt for it, and what sizes it is documented
+    for - travels in `ModelStatus.hints` under `prompt` and `size`, beside the
+    other tooltips. What the UI needs as data is here: the megapixel range the
+    authors vouch for, so the size line can say when a request is outside it,
+    the word that range deserves (a model card's "supports 0.1-2 MP" and a
+    README's "recommended 1024-1280" are not the same promise), and the
+    authors' own example prompts for the Examples menu.
+    """
+
+    pixels: tuple[float, float] | None = None
+    pixels_word: str = "documented"
+    examples: list[str] = []
+
+
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
     defaults: dict[str, float | int | bool | None] = {}
@@ -443,6 +460,7 @@ class ModelStatus(BaseModel):
     # on *this* checkpoint. Unlike `defaults`, which the UI applies once, these
     # follow the server for the whole session.
     hints: dict[str, str] = {}
+    guide: PromptGuide = PromptGuide()
     model_id: str
     quantization: str
     offload: str

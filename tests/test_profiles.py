@@ -20,7 +20,7 @@ import pytest
 from backend import generate, launch, sizes
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import DiffusersBackend
-from backend.model_defaults import _FALLBACK, _profile_for, defaults_for
+from backend.model_defaults import _FALLBACK, _profile_for, defaults_for, guide_for, hints_for
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -110,6 +110,56 @@ def test_every_catalogue_entry_has_a_profile():
     ]
     for repo in repos:
         assert _profile_for(repo) is not _FALLBACK, repo
+
+
+def _catalogue_repos() -> list[str]:
+    return [c.repo for c in launch.CHECKPOINTS] + [
+        c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
+    ]
+
+
+def test_every_catalogue_entry_has_a_prompting_guide():
+    # The guide is the model card's, not the fallback's: an entry that reached
+    # the fallback would show "Unrecognised checkpoint" under a ? badge beside
+    # a checkpoint the menu offers by name, with an empty Examples menu.
+    for repo in _catalogue_repos():
+        guide = guide_for(repo)
+        assert guide["examples"], repo
+        assert guide["pixels"] is not None, repo
+        low, high = guide["pixels"]
+        assert 0 < low <= high, repo
+        assert guide["pixels_word"] in {"documented", "recommended", "trained"}, repo
+        hints = hints_for(repo)
+        assert "Unrecognised" not in hints["prompt"] and "Unrecognised" not in hints["size"], repo
+    unknown = guide_for("nobody/whatever")
+    assert unknown["examples"] == [] and unknown["pixels"] is None
+
+
+def test_every_guide_admits_the_1_mp_presets():
+    # 1 MP is the size every one of these was trained around, and the page opens
+    # on a 1 MP preset; the size line warns a tenth outside the range, so every
+    # 1 MP preset (1360x768 is 1.04 MP, 896x1200 is 1.08) has to sit inside
+    # that tolerance or a fresh page would open with a warning on it.
+    for repo in _catalogue_repos():
+        low, high = guide_for(repo)["pixels"]
+        for aspect, tiers in sizes.SIZES.items():
+            width, height = tiers[1]
+            pixels = width * height / 1e6
+            assert low * 0.9 <= pixels <= high * 1.1, (repo, aspect)
+
+
+def test_krea_dev_is_flux_to_the_controls_and_its_own_to_the_guide():
+    # The krea-dev entry exists for the guide alone: Krea's README recommends
+    # 1024-1280 px and photo language, which FLUX.1 [dev]'s card does not. To
+    # every control it is the flux profile, so nothing about a request changes.
+    krea, flux = "black-forest-labs/FLUX.1-Krea-dev", "black-forest-labs/FLUX.1-dev"
+    assert defaults_for(krea) == defaults_for(flux)
+    assert {k: v for k, v in hints_for(krea).items() if k not in ("prompt", "size")} == {
+        k: v for k, v in hints_for(flux).items() if k not in ("prompt", "size")
+    }
+    assert hints_for(krea)["prompt"] != hints_for(flux)["prompt"]
+    assert guide_for(krea)["pixels_word"] == "recommended"
+    assert guide_for(flux)["pixels"] == (0.1, 2.0)
 
 
 def test_the_size_table_is_the_same_in_the_browser_and_the_cli():

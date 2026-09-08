@@ -919,6 +919,95 @@ next run; the card was idle and boosting fine. And the 7.7 GB the base-class
 load had pulled was deleted from the cache before the concrete-class load
 was verified, so that fetching nothing was observable.
 
+## The prompting guide
+
+**Every profile carries a `guide`**: `prompt` and `size` prose for the ?
+badges on the Prompt box and the Size presets, a `pixels` range in
+megapixels with a `pixels_word`, and the authors' `examples`. The prose
+rides in `/api/status`'s `hints` under `prompt` and `size`, beside the
+control tooltips it is shaped like; the data is `ModelStatus.guide`
+(`schemas.PromptGuide`), because the size line and the Examples menu need
+a pair of numbers and a list, not a sentence. `hints_for` passes the guide's
+prose through the same `.format` as the control hints, so the paragraphs
+hold no braces. The checkpoints here disagree about nearly everything a
+prompt can be - FLUX.1's CLIP reads 77 tokens and its T5 512 (256 on
+schnell), Qwen-Image's encoder is prompted to *describe the image by
+detailing the color, shape, size, texture, quantity, text, spatial
+relationships*, ERNIE ships a rewriter this backend leaves out and so
+expects the expanded form typed in - and about sizes: FLUX.1 is documented
+for 0.1-2 MP, Krea 2 Turbo for 1k-2k, Krea 2 Raw *trained to 1k*, Baidu
+lists 1 MP shapes only. A user who has read that "some are only validated
+at 1 MP" was right to ask which.
+
+**The word matters as much as the range.** A model card's "supports 0.1 to
+2 MP", a README's "recommended 1024-1280" and a report's "trained to
+1328x1328" are three different promises, so the size line quotes the
+profile's word - `above the 1.6 MP this checkpoint is recommended for`,
+`below the 1 MP this checkpoint is documented for` - rather than one
+verb for all. The line warns a tenth outside the range: the 1 MP presets
+land at 1.04-1.08 MP and every profile's range has to admit them
+(`test_every_guide_admits_the_1_mp_presets`), or a fresh page would open
+on a warning. The VRAM warning stays and stacks after it.
+
+**FLUX.1 Krea [dev] has its own profile entry for the guide alone.**
+`krea-dev` sits ahead of `flux` (its id carries that token) as a copy of
+the flux profile with Krea's guide: Krea's README recommends 1024-1280 px
+sides and 28-32 steps at CFG 3.5-5, which FLUX.1 [dev]'s card does not,
+and the checkpoint's whole point is photographs without the oversaturated
+look. `test_krea_dev_is_flux_to_the_controls_and_its_own_to_the_guide`
+holds the numbers and the control hints identical so nothing about a
+request changed. `test_every_catalogue_entry_has_a_prompting_guide`
+refuses the fallback's "Unrecognised checkpoint" text under a checkpoint
+the menu offers by name, on the official id and the lite-infer one.
+
+**The Examples menu builds on open** from the list the last status
+carried, so a status that lands minutes late behind a load is not stale by
+the first click; a pick assigns the textarea's value, which fires no
+`input`, so it calls `schedulePreview` and `persistPanel` the way `choose`
+does. The examples are verbatim from the authors - a model card's demo
+prompt, a prompting guide's, a blog caption - because a checkpoint's own
+examples are the shortest way to learn its voice, and because an invented
+one would be a claim about the model with nothing behind it.
+
+Sources, checked 2026-09-09. FLUX.1: BFL's prompting basics
+(<https://docs.bfl.ai/guides/prompting_unified_basics>), the launch post's
+"0.1 and 2.0 megapixels" (<https://bfl.ai/blog/24-08-01-bfl>), the model
+cards, the reference CLI's 1360x768 and its multiple-of-16 rounding
+(<https://github.com/black-forest-labs/flux>), diffusers' 77/512/256
+limits. Above 2 MP degrading is community evidence
+(<https://huggingface.co/black-forest-labs/FLUX.1-dev/discussions/32>), and
+the guide says "users report". Krea [dev]: <https://github.com/krea-ai/flux-krea>
+(1024-1280, 28-32 steps, CFG 3.5-5), <https://bfl.ai/blog/flux-1-krea-dev>
+and <https://www.krea.ai/blog/flux-krea-open-source-release> ("opinionated",
+the "AI look"). FLUX.2 [klein]: <https://docs.bfl.ai/guides/prompting_guide_flux2>
+(subject-action-style-context, 30-80 words, quotes, no negative prompt,
+JSON prompts, 64x64 to 4 MP with 2 MP recommended) - written for [pro]
+and [max], applied to klein by family; the klein cards say only "prompt
+following is heavily influenced by the prompting style", and every example
+is 1024x1024. Krea 2: <https://github.com/krea-ai/krea-2> `docs/prompting.md`
+("natural language", "long detailed prompts yield best results", quotes
+for text, "up to 2k"), its README ("1k ~ 2k", Raw "trained to generate
+upto 1k", "TRAIN on Raw and RUN on Turbo"), the technical report
+(<https://www.krea.ai/blog/krea-2-technical-report>: 256/512/1024 px
+stages, a text-rendering reward, an encoder chosen for multilingual
+generalisation). The "validated at 1 MP only" claim was **not** found for
+Turbo in any official source; the guide says 1k-2k documented and 1024 px
+the top pretraining stage. Qwen-Image: the README's positive magic and
+resolution table (<https://github.com/QwenLM/Qwen-Image>; the HF copy's
+1472x1140 is not a multiple of 16 and GitHub's 1104 is used), the report's
+1328x1328 final stage (<https://arxiv.org/abs/2508.02324>). Z-Image:
+<https://huggingface.co/Tongyi-MAI/Z-Image-Turbo> ("512x512 to 2048x2048
+total pixel area", bilingual text), the maintainers' "works best with long
+and detailed prompts" and "does not use negative prompts at all"
+(<https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/discussions/8>), the
+report's "up to the 1k-1.5k range" (<https://arxiv.org/abs/2511.22699>).
+ERNIE-Image: the card's seven 1 MP shapes and 8 steps at guidance 1
+(<https://huggingface.co/baidu/ERNIE-Image-Turbo>), the rewriter's system
+prompt in `pe/chat_template.jinja` (expand a brief description into a
+"content-rich, detail-sufficient visual description"), the report's
+Ministral-3 encoder and 256/512/1024 stages (<https://arxiv.org/abs/2605.25347>);
+its tokenizer's 2048 is the config's, not a card statement.
+
 ## uv.lock's hand-pinned torch hashes
 
 **`uv.lock` carries hashes for the PyTorch wheels by hand.** The

@@ -11,7 +11,8 @@ let sheetPage = 1024;
 
 const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
-  negNote: $('neg-note'),
+  negNote: $('neg-note'), promptTip: $('prompt-tip'), sizeTip: $('size-tip'),
+  examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
@@ -125,6 +126,12 @@ let referenceIds = [];
 let referenceSupported = false;
 let loraSupported = false;
 let lorasLoaded = false;
+// The checkpoint's prompting guide: the pixel range its authors document
+// (megapixels, [low, high], null until a status lands) for the size line's
+// warning, and the example prompts behind the Examples button.
+let sizeRange = null;
+let sizeRangeWord = 'documented';
+let examples = [];
 // A remembered adapter name waiting for the list it belongs to.
 let pendingLora = '';
 
@@ -236,12 +243,24 @@ function syncSize() {
     b.title = SIZES[pickedAspect][TIERS[i]].join(' × ');
   });
 
-  const tight = w * h > 1600 * 1600;
+  const mp = (w * h) / 1e6;
+  const notes = [];
+  // The checkpoint's own range first: a 4 MP request of a model its authors
+  // validated at 1 MP is the more likely disappointment. The presets land
+  // within a few percent of their tier, so a tenth either way is still "at".
+  if (sizeRange && mp > sizeRange[1] * 1.1) {
+    notes.push(`above the ${fmtMp(sizeRange[1])} MP this checkpoint is ${sizeRangeWord} for`);
+  } else if (sizeRange && mp < sizeRange[0] * 0.9) {
+    notes.push(`below the ${fmtMp(sizeRange[0])} MP this checkpoint is ${sizeRangeWord} for`);
+  }
   // 4 MP on a 16GB card is the edge of what fits once the DiT is resident.
-  els.sizeHint.textContent = `${((w * h) / 1e6).toFixed(1)} MP` +
-    (tight ? ' — may run tight on 16GB VRAM' : '');
-  els.sizeHint.classList.toggle('warn', tight);
+  const tight = w * h > 1600 * 1600;
+  if (tight) notes.push('may run tight on 16GB VRAM');
+  els.sizeHint.textContent = `${mp.toFixed(1)} MP` + notes.map((n) => ` — ${n}`).join('');
+  els.sizeHint.classList.toggle('warn', notes.length > 0);
 }
+
+function fmtMp(mp) { return Number.isInteger(mp) ? String(mp) : mp.toFixed(1); }
 
 // The highest CFG the open grid's axis reaches, from the last preview; null when
 // the grid section is closed or the axis is blank. A grid decides guidance per
@@ -350,10 +369,28 @@ function applyDefaults(d) {
 // user owning the controls does not make the explanation stale.
 function applyHints(hints) {
   if (!hints) return;
-  const tips = { steps: els.stepsTip, guidance_scale: els.cfgTip, mu: els.muTip, true_cfg: els.trueCfgTip };
+  const tips = {
+    steps: els.stepsTip, guidance_scale: els.cfgTip, mu: els.muTip, true_cfg: els.trueCfgTip,
+    prompt: els.promptTip, size: els.sizeTip,
+  };
   for (const [key, el] of Object.entries(tips)) {
     if (hints[key]) el.textContent = hints[key];
   }
+}
+
+// The rest of the guide: the size range the checkpoint's authors vouch for,
+// which the size line compares the current size against, and the example
+// prompts. Both follow the server the way the tooltips do.
+function applyGuide(g) {
+  if (!g) return;
+  const range = Array.isArray(g.pixels) && g.pixels.length === 2 ? g.pixels : null;
+  const word = g.pixels_word || 'documented';
+  if (JSON.stringify(range) !== JSON.stringify(sizeRange) || word !== sizeRangeWord) {
+    sizeRange = range;
+    sizeRangeWord = word;
+    syncSize();
+  }
+  if (Array.isArray(g.examples)) examples = g.examples;
 }
 
 // Anything the user picks - by hand or through Reuse - takes that control off
@@ -374,6 +411,7 @@ async function refreshStatus() {
     // over it and a value set on another is left to the profile.
     if (loadedModel) restoreSampling(loadedModel);
     applyHints(s.hints);
+    applyGuide(s.guide);
     if (s.defaults && typeof s.defaults.cfg_threshold === 'number'
         && s.defaults.cfg_threshold !== cfgThreshold) {
       cfgThreshold = s.defaults.cfg_threshold;
@@ -2065,6 +2103,45 @@ els.cancel.onclick = cancelJob;
 els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
 els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); persistPanel(); };
+
+// The Examples menu is built on open from the guide's current list, so a
+// status that lands late (behind a load) is not stale by the first click.
+function showExamples(open) {
+  els.examplesBtn.setAttribute('aria-expanded', String(open));
+  els.examplesMenu.hidden = !open;
+  if (!open) return;
+  els.examplesMenu.replaceChildren();
+  if (!examples.length) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = 'No examples for this checkpoint yet.';
+    els.examplesMenu.appendChild(li);
+    return;
+  }
+  examples.forEach((text) => {
+    const li = document.createElement('li');
+    li.setAttribute('role', 'menuitem');
+    li.tabIndex = 0;
+    li.textContent = text;
+    li.title = text;
+    const pick = () => {
+      els.prompt.value = text;
+      showExamples(false);
+      // Assigning .value fires no `input`: the preview and the remembered
+      // panel are told the way `choose` tells them.
+      schedulePreview();
+      persistPanel();
+      els.prompt.focus();
+    };
+    li.onclick = pick;
+    li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+    els.examplesMenu.appendChild(li);
+  });
+}
+els.examplesBtn.onclick = () => showExamples(els.examplesMenu.hidden);
+document.addEventListener('click', (e) => {
+  if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
+});
 els.unload.onclick = async () => {
   try {
     await api('/api/model/unload', { method: 'POST' });
@@ -2141,6 +2218,7 @@ els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); 
 document.addEventListener('keydown', (e) => {
   // Ctrl/Cmd+Enter generates from anywhere, including inside the prompt box.
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { generate(); return; }
+  if (e.key === 'Escape' && !els.examplesMenu.hidden) { showExamples(false); return; }
   if (!els.lightbox.open) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
