@@ -16,7 +16,8 @@ const els = {
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
-  cancel: $('btn-cancel'),
+  cancel: $('btn-cancel'), pause: $('btn-pause'),
+  queueNote: $('queue-note'), queueText: $('queue-text'), cancelQueued: $('btn-cancel-queued'),
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
   stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
   cellNote: $('cell-note'),
@@ -80,7 +81,13 @@ const owned = { steps: false, cfg: false, mu: false };
 // compares a record against it: steps, CFG and mu are checkpoint-specific.
 let loadedModel = null;
 let statusPending = false;
+// The job whose stream the page is watching, and the ids queued behind it.
+// The server was written for a queue - jobs wait on its gate, a queued one
+// can be cancelled on the spot - and the browser used to refuse a second
+// submission outright, so the queue was unreachable from the UI.
 let currentJob = null;
+let queuedIds = [];
+let submitting = false;
 // One gallery page in flight at a time, and a token so a page that was already
 // on its way when the filters changed can be dropped rather than appended.
 let galleryPending = null;
@@ -348,22 +355,41 @@ function collect() {
 
 function setBusy(on) {
   busy = on;
-  // aria-disabled, not disabled: a disabled element cannot hold focus, so the
-  // Enter that pressed Generate used to drop a keyboard user's place to <body>.
-  // startJob's own `if (busy) return` is what actually refuses a second press.
-  els.generate.setAttribute('aria-disabled', String(on));
-  els.gridRun.setAttribute('aria-disabled', String(on));
+  // The submit buttons stay live while a job runs: a second Generate or Run
+  // grid queues behind it on the server. They are only held during the POST
+  // itself (see startJob), as the double-submit guard.
   // Unloading mid-job frees nothing - the worker holds its own reference to the
   // pipeline - and the server refuses it with a 409 anyway.
   els.unload.disabled = on;
-  els.generate.textContent = on ? 'Generating…' : 'Generate';
+  els.generate.textContent = on ? 'Generate (queue)' : 'Generate';
+  els.gridRun.textContent = on ? 'Run grid (queue)' : 'Run grid';
   els.progress.hidden = !on;
   els.cancel.setAttribute('aria-disabled', String(!on));
   els.cancel.textContent = 'Cancel';
+  els.pause.setAttribute('aria-disabled', String(!on));
+  els.pause.textContent = 'Pause';
   setProgress(0);
   setStep(false);
   els.cellNote.textContent = '';
   if (!on) { els.progressText.textContent = ''; currentJob = null; }
+  syncQueueNote();
+}
+
+// The jobs waiting behind the watched one, from the ids their submissions
+// returned - and, after a reload, from /api/jobs.
+function syncQueueNote() {
+  const n = queuedIds.length;
+  els.queueNote.hidden = !(busy && n > 0);
+  els.queueText.textContent = n ? `${n} more job${n === 1 ? '' : 's'} queued behind this one.` : '';
+}
+
+// Held during a POST, as the double-submit guard the old `if (busy) return`
+// used to be. aria-disabled, not disabled: a disabled element cannot hold
+// focus, and the Enter that pressed Generate dropped a keyboard user's place.
+function setSubmitting(on) {
+  submitting = on;
+  els.generate.setAttribute('aria-disabled', String(on));
+  els.gridRun.setAttribute('aria-disabled', String(on));
 }
 
 function setProgress(fraction) {
@@ -405,12 +431,18 @@ function setStep(show, fraction = 0, text = '') {
 // Both buttons queue one job and then watch the same stream; only the endpoint
 // and the payload differ.
 async function startJob(path, payload) {
-  if (busy) return;
+  if (submitting) return;
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
   showError('');
-  setBusy(true);
-  els.progressText.textContent = 'queued…';
+  // Already watching a job: this one queues behind it on the server, and the
+  // page picks it up when the watched one ends. The panel stays as it is.
+  const queueing = busy;
+  setSubmitting(true);
+  if (!queueing) {
+    setBusy(true);
+    els.progressText.textContent = 'queued…';
+  }
 
   try {
     const { job_id, seed } = await api(path, {
@@ -418,7 +450,7 @@ async function startJob(path, payload) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    currentJob = job_id;
+    setSubmitting(false);
     // A grid started from a blank Seed box drew its own base, and every image
     // it produces carries a *derived* seed - so the base is written back here,
     // where Resume will need it. Only for a grid: a plain Generate left blank is
@@ -430,10 +462,58 @@ async function startJob(path, payload) {
       syncRuns();
       persistPanel();
     }
+    if (queueing) {
+      queuedIds.push(job_id);
+      syncQueueNote();
+      return;
+    }
+    currentJob = job_id;
     await streamJob(job_id);
   } catch (err) {
+    setSubmitting(false);
     showError(err.message);
-    setBusy(false);
+    if (!queueing) setBusy(false);
+  }
+}
+
+// Once the watched job ends, the next one in the server's queue - oldest
+// first, since that is the one about to run - becomes the watched job.
+async function watchNext() {
+  if (busy) return;
+  let active;
+  try { active = await api('/api/jobs'); } catch { return; }
+  if (!active.length) { queuedIds = []; syncQueueNote(); return; }
+  const job = active.find((j) => j.status === 'running') ?? active[0];
+  queuedIds = active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id);
+  setBusy(true);
+  currentJob = job.job_id;
+  els.progressText.textContent = 'next in the queue…';
+  syncQueueNote();
+  await streamJob(job.job_id);
+}
+
+async function cancelQueued() {
+  const ids = queuedIds.slice();
+  for (const id of ids) {
+    try { await api(`/api/jobs/${id}/cancel`, { method: 'POST' }); } catch { /* already gone */ }
+  }
+  queuedIds = queuedIds.filter((id) => !ids.includes(id));
+  syncQueueNote();
+}
+
+// Pause holds the watched job at its next cell boundary and hands the card
+// back; the same button resumes it. The worker's `paused` acknowledgement,
+// not the click, is what flips the label - until it lands a denoise may
+// still be running.
+async function togglePause() {
+  if (!currentJob || els.pause.getAttribute('aria-disabled') === 'true') return;
+  const pausing = els.pause.textContent === 'Pause';
+  try {
+    const snap = await api(`/api/jobs/${currentJob}/pause?value=${pausing}`, { method: 'POST' });
+    if (pausing && !snap.paused) els.progressText.textContent = 'pausing after this cell…';
+    if (!pausing) els.pause.textContent = 'Pause';
+  } catch (err) {
+    showError(err.message);
   }
 }
 
@@ -622,10 +702,12 @@ function streamJob(jobId) {
         // another job. The first read "waiting for the job ahead…" for the
         // whole of a 32 GB download, under a top bar saying the opposite.
         els.progressText.textContent =
-          data.status === 'queued'
+          data.paused ? 'paused — GPU handed back'
+          : data.status === 'queued'
             ? (data.waiting_on === 'load' ? 'loading weights…' : 'waiting for the job ahead…')
           : runs > 1 && data.run ? `run ${data.run}/${runs}`
           : 'denoising…';
+        els.pause.textContent = data.paused ? 'Resume' : 'Pause';
         // A run boundary, so the steps bar starts over rather than sitting full
         // until the first callback of the next run lands.
         setStep(runs > 1 && data.status !== 'queued' && !!data.run);
@@ -657,6 +739,7 @@ function streamJob(jobId) {
         }
         if (data.images.length) { resetGallery(); loadRuns(); }
         resolve();
+        watchNext();
       }
     };
 
@@ -687,14 +770,16 @@ async function resumeActiveJob() {
     const active = await api('/api/jobs');
     // The one holding the GPU, not the newest: with two live jobs the newest is
     // the queued one, and attaching to it made Cancel stop the wrong job while
-    // the running grid kept the card with no reachable id.
-    const job = active.find((j) => j.status === 'running') ?? active[active.length - 1];
+    // the running grid kept the card with no reachable id. Failing a running
+    // one, the *oldest* queued - the one about to run.
+    const job = active.find((j) => j.status === 'running') ?? active[0];
     // Nothing live: say what the last one did instead, if the server still knows.
     if (!job) { announceLastRun(); return; }
     setBusy(true);
     currentJob = job.job_id;
-    const queued = active.length - 1;
-    els.progressText.textContent = queued > 0 ? `reattaching… (${queued} more queued)` : 'reattaching…';
+    queuedIds = active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id);
+    els.progressText.textContent = 'reattaching…';
+    syncQueueNote();
     await streamJob(job.job_id);
   } catch { /* nothing running, or the server is not up yet */ }
 }
@@ -1624,6 +1709,8 @@ window.addEventListener('resize', layoutLightbox);
 let searchTimer;
 els.generate.onclick = generate;
 els.cancel.onclick = cancelJob;
+els.pause.onclick = togglePause;
+els.cancelQueued.onclick = cancelQueued;
 els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); persistPanel(); };
 els.unload.onclick = async () => {
   try {

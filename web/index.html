@@ -103,8 +103,15 @@
           <span class="pt" id="step-text"></span>
         </div>
       </div>
+      <button class="ghost small" id="btn-pause" title="Hold after the current cell and hand the GPU back; Resume carries on">Pause</button>
       <button class="ghost small" id="btn-cancel" title="Stop after the current step">Cancel</button>
     </div>
+    <!-- Jobs queued behind the one being watched: the server runs them in
+         turn, and a reload picks the next one up. -->
+    <p class="hint" id="queue-note" hidden>
+      <span id="queue-text"></span>
+      <button class="ghost small" id="btn-cancel-queued" title="Cancel every job waiting behind this one">Cancel queued</button>
+    </p>
     <!-- Which cell of a grid is running. Empty for an ordinary sweep, where the
          settings never change and the counters say everything. -->
     <p class="hint" id="cell-note"></p>

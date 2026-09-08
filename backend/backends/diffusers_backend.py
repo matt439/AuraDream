@@ -342,6 +342,12 @@ class DiffusersBackend(GenerationBackend):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    def free_cache(self) -> None:
+        # The same call unload makes after dropping the pipeline; here the
+        # pipeline stays. Under model offload nearly everything the card holds
+        # between cells is allocator reserve, so this is most of the VRAM.
+        self._release()
+
     def is_ready(self) -> bool:
         return self._pipe is not None
 

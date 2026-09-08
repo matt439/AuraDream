@@ -89,6 +89,16 @@ class GenerationBackend(abc.ABC):
         """
         return request
 
+    def free_cache(self) -> None:
+        """Return cached accelerator memory without unloading. Optional.
+
+        Called at a job's pause point, between cells: under model offload the
+        components are back on the CPU by then and what the card still holds
+        is the caching allocator's reserve, which this hands back so another
+        program can use the GPU for twenty minutes mid-night. The weights stay
+        loaded; resuming costs nothing but the next cell's own transfers.
+        """
+
     def set_console_progress(self, enabled: bool) -> None:
         """Show or hide the engine's *own* console progress bar. Optional.
 

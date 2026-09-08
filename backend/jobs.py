@@ -88,6 +88,12 @@ class Job:
     subscribers: list[asyncio.Queue] = field(default_factory=list)
     # Set from the event loop, read from the worker thread between steps.
     cancel_requested: bool = False
+    # Pause is cooperative like cancel: the endpoint asks, the worker answers
+    # at the next cell boundary by setting `paused` - a worker-written
+    # acknowledgement, so the UI cannot believe the card is free while a
+    # denoise is still running on it.
+    pause_requested: bool = False
+    paused: bool = False
     done_sent: bool = False
     # Unix seconds as floats - JSON-native, since snapshot() goes straight
     # through json.dumps on the SSE path. `last_progress_at` is what tells a
@@ -125,6 +131,8 @@ class Job:
             "seed": self.seed,
             "status": self.status,
             "waiting_on": self.waiting_on,
+            "pause_requested": self.pause_requested,
+            "paused": self.paused,
             "step": self.step,
             "total_steps": self.total_steps,
             "run": self.run,
@@ -267,6 +275,20 @@ class JobManager:
             self._finish(asyncio.get_running_loop(), job, "cancelled")
         return job
 
+    def pause(self, job_id: str, paused: bool) -> Job | None:
+        """Ask a job to hold at its next cell boundary, or to carry on.
+
+        The hold lands between cells, where `backend.generate()` has returned
+        and the card holds little but allocator reserve, which the worker then
+        hands back. A running job is the only kind this means anything for; a
+        queued one holds its place either way, and a finished one is left alone.
+        """
+        job = self._jobs.get(job_id)
+        if job is None or job.status in _TERMINAL:
+            return job
+        job.pause_requested = paused
+        return job
+
     def _emit(self, loop: asyncio.AbstractEventLoop, job: Job, event: dict) -> None:
         loop.call_soon_threadsafe(job.publish, event)
 
@@ -392,6 +414,10 @@ class JobManager:
         for index, cell in enumerate(job.cells):
             if job.cancel_requested:
                 return True
+            if job.pause_requested:
+                self._hold(job, loop, index)
+                if job.cancel_requested:
+                    return True
             # The budget means "start no cell after": a cell in flight runs to
             # its end, and what was not reached is a resume, not a loss.
             if job.deadline is not None and time.time() > job.deadline:
@@ -436,6 +462,28 @@ class JobManager:
                 continue
             consecutive = 0
         return False
+
+    def _hold(self, job: Job, loop: asyncio.AbstractEventLoop, index: int) -> None:
+        """Wait at a cell boundary until resumed or cancelled, the card handed back.
+
+        Polled, not `Event.wait()`: a bare wait would deadlock `shutdown()`,
+        which cancels and then joins this thread, and would make `cancel()` a
+        no-op on a paused job. A quarter second is well inside what a resume
+        click can feel.
+        """
+        job.paused = True
+        try:
+            self.backend.free_cache()
+        except Exception:  # noqa: BLE001 - a pause must not fail the night
+            log.debug("free_cache failed", exc_info=True)
+        log.info("job %s paused before cell %d/%d", job.id, index + 1, len(job.cells))
+        self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
+        while job.pause_requested and not job.cancel_requested:
+            time.sleep(0.25)
+        job.paused = False
+        if not job.cancel_requested:
+            log.info("job %s resumed at cell %d/%d", job.id, index + 1, len(job.cells))
+            self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
 
     def _save(
         self,

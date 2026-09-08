@@ -499,6 +499,22 @@ async def cancel_job(job_id: str) -> dict:
     return job.snapshot()
 
 
+@app.post("/api/jobs/{job_id}/pause")
+async def pause_job(job_id: str, value: bool = True) -> dict:
+    """Hold a running job at its next cell boundary (`value=false` resumes).
+
+    Between cells the card holds little but allocator reserve, which the
+    worker hands back once it has stopped - so the GPU is usable for something
+    else mid-night, and the weights stay loaded for a seconds-long resume.
+    `paused` in the snapshot is the worker's acknowledgement; until it is set
+    a denoise may still be running.
+    """
+    job = jobs.pause(job_id, value)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown job")
+    return job.snapshot(images=False)
+
+
 @app.get("/api/jobs/{job_id}/stream")
 async def job_stream(job_id: str) -> StreamingResponse:
     job = jobs.get(job_id)

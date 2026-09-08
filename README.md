@@ -293,6 +293,19 @@ one; set it and the whole sweep is reproducible.
 the end of the current step — within a second or two — and keeps every image the
 run had already finished.
 
+**Pause** holds the run at the end of the current cell and hands the GPU back:
+between cells the weights are off the card under the default offload, and what
+it still holds is the allocator's cache, which is returned. The button reads
+*Resume* once the worker has actually stopped — until then a denoise may still
+be running — and resuming costs nothing but the next cell's own transfers. The
+weights stay loaded, so Unload is still refused while a job is paused.
+
+**Queueing**: Generate and Run grid stay live while a job runs. A second press
+queues the job behind the current one on the server; a line under the bars
+counts what is waiting, with a button to cancel all of it, and the page moves
+on to the next job when the watched one ends. A reload attaches to whichever
+job holds the GPU, then to the oldest one waiting.
+
 ## Grid search
 
 Folded away under the panel — a sweep over the things that make the image, run

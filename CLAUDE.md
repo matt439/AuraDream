@@ -388,6 +388,25 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   non-passive; the zoom keys sit below the `input, textarea` guard. A click on
   the stage beside the image closes the lightbox only at fit: zoomed, the
   stage is a pan surface and only Escape or the cross close it.
+- **Pause is cooperative, like cancel, and lands between cells.**
+  `POST /api/jobs/{id}/pause?value=` sets `pause_requested`; `_generate`
+  answers at the top of the next cell by setting `paused` (a worker-written
+  acknowledgement - the UI flips its label on *that*, never on the click,
+  because a denoise may still be running), calls `backend.free_cache()`
+  (torch's `empty_cache`: under model offload nearly all the card holds
+  between cells is allocator reserve) and polls `pause_requested` every
+  quarter second. Polled, never `Event.wait()`: a bare wait deadlocks
+  `shutdown()`, which cancels and then joins the thread, and makes `cancel()`
+  a no-op on a paused job. `busy()` is unchanged, so unload still 409s - the
+  weights are needed for the resume - which is the cheap half of the design;
+  a full unload-while-paused only matters for `KREA_OFFLOAD=none`.
+- **The browser can hold a queue.** `startJob` no longer refuses while busy:
+  a submission during a job is POSTed and its id kept in `queuedIds`, the
+  buttons are held (`aria-disabled`) only for the POST itself as the
+  double-submit guard, and `watchNext()` attaches to the next job when the
+  watched stream ends. `resumeActiveJob` attaches to the running job, else
+  the *oldest* queued (`active[0]` - `active()` is newest last), never the
+  newest. Cancel acts on the watched job; "Cancel queued" on the rest.
 - **A grid can have a time budget.** `GridRequest.budget_minutes` reaches the
   job through `submit_cells(budget_minutes=)` - GridRequest-only fields are
   gone by the time cells are built - as an absolute `Job.deadline` from

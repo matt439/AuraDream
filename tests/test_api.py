@@ -89,6 +89,9 @@ class FakeBackend(GenerationBackend):
             "cfg_threshold": None,
         }
 
+    def free_cache(self) -> None:
+        self.cache_freed = getattr(self, "cache_freed", 0) + 1
+
 
 @pytest.fixture
 def fake(store, monkeypatch):
@@ -312,6 +315,48 @@ def test_cancel_mid_sweep_keeps_what_finished(client, fake):
     assert 1 <= len(done[0]["images"]) < 8
     assert len(fake.requests) < 8
     assert client.get("/api/gallery").json()["total"] == len(done[0]["images"])
+
+
+def test_a_job_pauses_between_cells_and_hands_the_card_back(client, fake):
+    # One person, one GPU: the card eight hours into a grid is the card they
+    # want for twenty minutes. The hold lands at the cell boundary, the
+    # worker acknowledges it, the allocator reserve is returned, and a resume
+    # carries on from the next cell.
+    fake.step_seconds = 0.01
+    job_id = client.post(
+        "/api/grid", json={"prompt": "x", "width": 256, "height": 256, "steps": 4, "steps_axis": "4,5,6,7,8,9", "seed": 1},
+    ).json()["job_id"]
+    _wait_for(client, job_id, lambda s: len(s["images"]) >= 1)
+    assert client.post(f"/api/jobs/{job_id}/pause").json()["pause_requested"] is True
+    held = _wait_for(client, job_id, lambda s: s["paused"])
+    started = len(fake.requests)
+    time.sleep(0.15)
+    assert len(fake.requests) == started  # nothing new starts while held
+    assert held["status"] == "running" and fake.cache_freed == 1
+    assert client.get("/api/jobs").json()[0]["paused"] is True
+    # Unload is still refused: the weights are needed for the resume.
+    assert client.post("/api/model/unload").status_code == 409
+
+    assert client.post(f"/api/jobs/{job_id}/pause?value=false").json()["pause_requested"] is False
+    events = _stream(client, job_id)
+    assert events[-1]["status"] == "done" and len(events[-1]["images"]) == 6
+    assert events[-1]["paused"] is False
+
+
+def test_cancel_lands_on_a_paused_job(client, fake):
+    fake.step_seconds = 0.01
+    job_id = client.post(
+        "/api/grid", json={"prompt": "x", "width": 256, "height": 256, "steps": 4, "steps_axis": "4,5,6,7", "seed": 1},
+    ).json()["job_id"]
+    _wait_for(client, job_id, lambda s: len(s["images"]) >= 1)
+    client.post(f"/api/jobs/{job_id}/pause")
+    _wait_for(client, job_id, lambda s: s["paused"])
+    started = time.perf_counter()
+    client.post(f"/api/jobs/{job_id}/cancel")
+    done = _stream(client, job_id)[-1]
+    # A polled hold, not a bare Event.wait(): the cancel lands within the poll.
+    assert done["status"] == "cancelled" and time.perf_counter() - started < 2.0
+    assert 1 <= len(done["images"]) < 4
 
 
 def test_cancelling_a_queued_job_ends_it_at_once(client, fake):

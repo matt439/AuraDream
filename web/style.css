@@ -248,6 +248,9 @@ button { font: inherit; cursor: pointer; }
 /* A shared width keeps the two bars ending at the same x as their labels change. */
 .pt { font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4.5em; text-align: right; }
 
+/* The queue line sits under the bars with its own small button. */
+#queue-note { display: flex; align-items: center; gap: 8px; }
+
 .error { color: var(--danger); font-size: 12px; margin: 0; word-break: break-word; }
 /* A cancelled run is an outcome, not a failure - same slot, no alarm. */
 .error.note { color: var(--muted); }
