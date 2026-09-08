@@ -1,0 +1,47 @@
+[
+  {"navigate": "http://127.0.0.1:7861/"},
+  {"wait": 1200},
+  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+
+  {"eval": "fetch('/api/grid', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a {size} fox in the snow', prompt_axis: 'size = big | small', steps_axis: '6,8,10', cfg_axis: '0,1', width: 1024, height: 768, seed: 42})}).then(r => r.json()).then(j => { window.__run = j.run_id; })"},
+  {"wait": 2500},
+  {"eval": "resetGallery(); loadRuns();"},
+  {"wait": 1000},
+  {"expect": "document.querySelectorAll('.card').length >= 12"},
+  {"expect": "document.getElementById('run-list').options.length >= 2"},
+
+  {"eval": "document.querySelector('.card img').click()"},
+  {"wait": 500},
+  {"expect": "document.getElementById('lightbox').open && document.getElementById('lb-zoom').textContent.startsWith('fit')"},
+  {"key": "1"},
+  {"expect": "document.getElementById('lb-zoom').textContent === '1:1'"},
+  {"wheel": [700, 450, -300]},
+  {"expect": "lbView.scale > oneToOneScale(lbList[lbIndex])"},
+  {"eval": "document.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}))"},
+  {"wait": 300},
+  {"expect": "lbIndex === 1 && lbView.scale > 1"},
+  {"key": "0"},
+  {"click": [150, 450]},
+  {"wait": 300},
+  {"expect": "!document.getElementById('lightbox').open"},
+
+  {"eval": "els.search.value = 'run:' + window.__run; setSheet(true);"},
+  {"wait": 1200},
+  {"expect": "document.querySelectorAll('.sheet-cell:not(.empty)').length === 6"},
+  {"expect": "[...document.querySelectorAll('#sheet-controls label')].length >= 2"},
+  {"eval": "buildSheetCanvas().then(c => { window.__sheet = c; })"},
+  {"wait": 2000},
+  {"expect": "window.__sheet && window.__sheet.width > 500 && window.__sheet.height > 300"},
+  {"eval": "setSheet(false); els.search.value = ''; resetGallery();"},
+
+  {"eval": "els.favOnly.checked = true; els.favOnly.onchange();"},
+  {"wait": 800},
+  {"expect": "document.getElementById('btn-rerender').hidden || document.getElementById('btn-rerender').textContent.includes('Re-render')"},
+  {"eval": "els.favOnly.checked = false; els.favOnly.onchange();"},
+
+  {"eval": "els.prompt.value = 'remembered'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"wait": 500},
+  {"navigate": "http://127.0.0.1:7861/"},
+  {"wait": 1200},
+  {"expect": "els.prompt.value === 'remembered' && els.gridResume.checked === false"}
+]

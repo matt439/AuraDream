@@ -1,0 +1,131 @@
+// Drive a headless Chromium-family browser over the DevTools protocol with
+// nothing but Node's own fetch and WebSocket - no npm install.
+//
+//     node tools/browser.mjs tools/smoke.json
+//     KREA_BROWSER="C:/Program Files/Google/Chrome/Application/chrome.exe" node tools/browser.mjs steps.json
+//
+// The script is a JSON list of steps, run in order:
+//   {"navigate": url}            load a page (the cache is disabled)
+//   {"wait": ms}                 pause
+//   {"eval": js}                 run JavaScript in the page (promises awaited)
+//   {"log": js}                  run JavaScript and print its value
+//   {"expect": js}               run JavaScript; a falsy value fails the run
+//   {"key": "1"}                 press a key (single characters and names like "Escape")
+//   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
+//   {"click": [x, y]}            click a point; {"drag": [x1, y1, x2, y2]} drags
+//   {"shot": "file.png"}         screenshot the viewport
+//
+// Page-side names (`els`, `lbView`, `sheetRecords`, ...) are the app's own
+// top-level bindings, reachable from `eval` because app.js is a classic script.
+// Exit status is 1 when any `expect` failed, so this can gate a check.
+import { spawn } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+
+const CANDIDATES = [
+  process.env.KREA_BROWSER,
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge',
+].filter(Boolean);
+const browser = CANDIDATES.find((p) => existsSync(p));
+if (!browser) {
+  console.error('no Edge or Chrome found; set KREA_BROWSER to the executable');
+  process.exit(2);
+}
+const file = process.argv[2];
+if (!file) { console.error('usage: node tools/browser.mjs <steps.json>'); process.exit(2); }
+const steps = JSON.parse(readFileSync(file, 'utf8'));
+
+const PORT = 9333 + Math.floor(Math.random() * 500);
+const proc = spawn(browser, [
+  '--headless=new', `--remote-debugging-port=${PORT}`, '--window-size=1400,900',
+  '--no-first-run', '--disable-gpu', `--user-data-dir=${tmpdir()}/krea-browser-profile`,
+  'about:blank',
+], { stdio: 'ignore' });
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let failures = 0;
+
+async function target() {
+  for (let i = 0; i < 50; i++) {
+    try {
+      const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
+      const page = list.find((t) => t.type === 'page');
+      if (page) return page.webSocketDebuggerUrl;
+    } catch { /* not up yet */ }
+    await sleep(200);
+  }
+  throw new Error('the browser did not come up');
+}
+
+const ws = new WebSocket(await target());
+await new Promise((r) => { ws.onopen = r; });
+let id = 0;
+const pending = new Map();
+ws.onmessage = (m) => {
+  const msg = JSON.parse(m.data);
+  if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
+};
+const send = (method, params = {}) => new Promise((resolve) => {
+  const n = ++id;
+  pending.set(n, resolve);
+  ws.send(JSON.stringify({ id: n, method, params }));
+});
+
+await send('Page.enable');
+await send('Network.enable');
+await send('Network.setCacheDisabled', { cacheDisabled: true });
+await send('Runtime.enable');
+await send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
+
+async function evaluate(expression) {
+  const res = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  const details = res.result?.exceptionDetails;
+  if (details) console.log('  ! ' + (details.exception?.description ?? details.text));
+  return res.result?.result?.value;
+}
+const mouse = (type, x, y, extra = {}) =>
+  send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
+
+for (const step of steps) {
+  if (step.navigate) { await send('Page.navigate', { url: step.navigate }); await sleep(800); }
+  else if (step.wait) await sleep(step.wait);
+  else if (step.eval) await evaluate(step.eval);
+  else if (step.log) console.log('  ' + step.log + ' => ' + JSON.stringify(await evaluate(step.log)));
+  else if (step.expect) {
+    const value = await evaluate(step.expect);
+    if (!value) failures += 1;
+    console.log(`  ${value ? 'ok  ' : 'FAIL'} ${step.expect}`);
+  } else if (step.key) {
+    const text = step.key.length === 1 ? step.key : undefined;
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, text });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key });
+    await sleep(100);
+  } else if (step.wheel) {
+    const [x, y, deltaY] = step.wheel;
+    await mouse('mouseMoved', x, y);
+    await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY });
+    await sleep(100);
+  } else if (step.click) {
+    const [x, y] = step.click;
+    await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y);
+    await sleep(150);
+  } else if (step.drag) {
+    const [x1, y1, x2, y2] = step.drag;
+    await mouse('mouseMoved', x1, y1); await mouse('mousePressed', x1, y1);
+    for (let i = 1; i <= 5; i++) await mouse('mouseMoved', x1 + (x2 - x1) * i / 5, y1 + (y2 - y1) * i / 5, { buttons: 1 });
+    await mouse('mouseReleased', x2, y2);
+    await sleep(150);
+  } else if (step.shot) {
+    const res = await send('Page.captureScreenshot', { format: 'png' });
+    writeFileSync(step.shot, Buffer.from(res.result.data, 'base64'));
+    console.log('  wrote ' + step.shot);
+  }
+}
+
+ws.close();
+proc.kill();
+if (failures) console.log(`${failures} expectation(s) failed`);
+process.exit(failures ? 1 : 0);

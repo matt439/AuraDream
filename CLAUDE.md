@@ -47,6 +47,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/reindex.py` — rows rebuilt from the PNGs' `krea` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
 - `web/` — served as-is from `/static`
+- `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
+  and `browser.mjs` + `smoke.json` (headless browser over DevTools): the UI's
+  stand-in for a test suite, see Tests
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
   `setup.sh`, `serve.sh`: running the same checkout from WSL 2
 
@@ -583,6 +586,19 @@ database and outputs directory (`tests/conftest.py`). They cover the invariants
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
 HTTP guards.
+
+There is no JavaScript test suite. `web/` is checked in a real browser
+instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
+tests' fake backend (gradient images stamped with seed and steps, a throwaway
+gallery under the system temp dir, `--step 0.3` to make pause and queueing
+observable), and `node tools/browser.mjs tools/smoke.json` drives headless
+Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
+install - through the lightbox zoom, the sheet, the export, the re-render
+button and the panel's persistence, exiting 1 on a failed `expect`. Static
+files are served from disk, so a `web/` edit needs no server restart; a
+`backend/` edit does. The app's top-level bindings (`els`, `lbView`,
+`sheetRecords`) are reachable from a step's `eval` because `app.js` is a
+classic script - which is also why they stay top-level.
 
 ## Environment
 

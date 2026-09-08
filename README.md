@@ -255,6 +255,18 @@ uv run --group dev pytest
 No GPU and no weights: the pipeline and the scheduler are stubbed, and the
 gallery runs against a temporary database.
 
+The browser side has no test suite; it is checked in a real browser instead:
+
+```powershell
+uv run python tools/fake_server.py          # the app on :7861, fake images, throwaway gallery
+node tools/browser.mjs tools/smoke.json     # headless Edge/Chrome through the UI; exit 1 on a failure
+```
+
+The fake server draws gradients stamped with seed and steps, so grid cells can
+be told apart on a sheet, and `--step 0.3` slows each denoising step enough to
+watch Pause and the queue work. `tools/browser.mjs` needs only Node 22+ and an
+installed Edge or Chrome (`KREA_BROWSER` points at another executable).
+
 ## Sizes
 
 Five aspect ratios across three megapixel tiers, picked independently — change
