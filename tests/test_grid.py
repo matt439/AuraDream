@@ -291,6 +291,57 @@ def test_a_run_is_named_by_its_definition_not_its_job():
     )
 
 
+def test_a_grid_without_true_cfg_keeps_the_id_its_images_carry():
+    # Pinned before the field existed: the id every image of every night so
+    # far was written under. A cell that asks for no true CFG has to keep it,
+    # or the `run:` filter splits a resumed night in two at the upgrade.
+    cells = grid.expand(
+        GenerateRequest(
+            prompt="a {size} fox", negative_prompt="blurry", width=256, height=256, steps=8,
+            guidance_scale=2.0, mu=1.15, seed=42,
+        ),
+        prompt="size = big | small", steps="6,8", seeds=2,
+    )
+    assert grid.run_id(cells, "krea/Krea-2-Turbo", "fp8") == "0ebe5101c492"
+    assert grid.cell_key(cells[0]) == ("a big fox", "blurry", 6, 2.0, 1.15, None, 42)
+    # Setting it is a different run - and the element is part of the key.
+    with_it = grid.expand(
+        GenerateRequest(
+            prompt="a {size} fox", negative_prompt="blurry", width=256, height=256, steps=8,
+            guidance_scale=2.0, true_cfg=1.5, mu=1.15, seed=42,
+        ),
+        prompt="size = big | small", steps="6,8", seeds=2,
+    )
+    assert grid.run_id(with_it, "krea/Krea-2-Turbo", "fp8") != "0ebe5101c492"
+    assert grid.cell_key(with_it[0])[5] == 1.5
+
+
+def test_duplicates_are_counted_as_the_pipeline_would_run_them():
+    # A variable that lives in the negative prompt alone is a legal axis; on a
+    # checkpoint that takes no negative prompt those cells are one picture.
+    cells = grid.expand(
+        GenerateRequest(
+            prompt="a fox", negative_prompt="{avoid}", width=256, height=256, steps=8,
+            guidance_scale=2.0, seed=1,
+        ),
+        prompt="avoid = blurry | dark | noisy", steps="6,8",
+    )
+    assert len(cells) == 6
+    as_spelled = lambda req: req  # noqa: E731
+    without_negative = lambda req: req.applied(negative_prompt_supported=False, cfg_threshold=1.0)  # noqa: E731
+    assert grid.duplicate_count(cells, as_spelled) == 0
+    assert grid.duplicate_count(cells, without_negative) == 4  # two step counts survive
+    # Counted per image of a batch, like resume.
+    batched = grid.expand(
+        GenerateRequest(
+            prompt="a fox", negative_prompt="{avoid}", width=256, height=256, steps=8,
+            guidance_scale=2.0, seed=1, num_images=2,
+        ),
+        prompt="avoid = blurry | dark",
+    )
+    assert grid.duplicate_count(batched, without_negative) == 2
+
+
 def test_a_batch_cell_is_not_done_until_every_image_is():
     # Rows are per image; the base seed alone used to mark a four-image cell
     # rendered the moment its first image committed.

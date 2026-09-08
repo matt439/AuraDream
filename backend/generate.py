@@ -80,6 +80,14 @@ def _build_parser() -> argparse.ArgumentParser:
     sampling = parser.add_argument_group("sampling (defaults come from the checkpoint profile)")
     sampling.add_argument("--steps", type=int, help="denoising steps")
     sampling.add_argument("--cfg", type=float, metavar="SCALE", help="guidance scale")
+    sampling.add_argument(
+        "--true-cfg",
+        type=float,
+        metavar="SCALE",
+        help="real classifier-free guidance on FLUX.1, where --cfg is the distilled "
+        "guidance value; above 1 the negative prompt runs an uncond pass (~2x slower). "
+        "Ignored where --cfg is real CFG already (Krea 2, klein)",
+    )
     # Exclusive: `--mu 1.15 --no-mu` used to parse and silently run with no shift.
     shift = sampling.add_mutually_exclusive_group()
     shift.add_argument("--mu", type=float, help="flow-matching shift; Turbo only")
@@ -211,6 +219,8 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         args.steps = meta.get("steps")
     if args.cfg is None:
         args.cfg = meta.get("guidance_scale")
+    if args.true_cfg is None and meta.get("true_cfg") is not None:
+        args.true_cfg = meta["true_cfg"]
     # An explicit null in the record means the image ran with no shift of
     # ours; --mu/--no-mu on the command line still win.
     if args.mu is None and not args.no_mu and "mu" in meta:
@@ -334,6 +344,7 @@ def main(argv: list[str] | None = None) -> int:
             height=height,
             steps=args.steps if args.steps is not None else profile["steps"],
             guidance_scale=args.cfg if args.cfg is not None else profile["guidance_scale"],
+            true_cfg=args.true_cfg,
             mu=mu,
             seed=seed,
             num_images=args.batch,
@@ -440,18 +451,29 @@ def main(argv: list[str] | None = None) -> int:
             # the base CFG: a `--grid-cfg` that crosses the threshold applies
             # it to some cells and not others.
             applying = sum(1 for cell in cells if backend.applied(cell.request).negative_prompt)
+            # Which knob decides: on FLUX.1 the real CFG is --true-cfg and the
+            # CFG axis has no say; everywhere else --cfg is the real CFG.
+            knob = "True CFG" if profile["true_cfg_supported"] else "CFG"
             if not profile["negative_prompt_supported"]:
                 note = "  [ignored: this checkpoint takes no negative prompt]"
             elif applying == len(cells):
                 note = ""
             elif applying == 0:
-                note = f"  [ignored: CFG is at or below {profile['cfg_threshold']:g}]"
+                note = (
+                    f"  [ignored: {knob} is at or below {profile['cfg_threshold']:g}"
+                    + (" - set --true-cfg]" if knob == "True CFG" else "]")
+                )
             else:
                 note = (
                     f"  [applies to {applying} of {len(cells)} cells - the ones above "
-                    f"CFG {profile['cfg_threshold']:g}]"
+                    f"{knob} {profile['cfg_threshold']:g}]"
                 )
             print(f"negative : {request.negative_prompt}{note}")
+        if args.true_cfg is not None and not profile["true_cfg_supported"]:
+            print(
+                f"true cfg : {args.true_cfg:g}  [ignored: on this checkpoint --cfg is real "
+                "CFG already]"
+            )
         print(
             f"size     : {request.width}x{request.height} "
             f"({request.width * request.height / 1e6:.1f} MP)"
@@ -459,6 +481,11 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"sampling : {request.steps} steps, CFG {request.guidance_scale}, "
             f"mu {'-' if request.mu is None else request.mu}"
+            + (
+                f", true CFG {args.true_cfg:g}"
+                if args.true_cfg is not None and profile["true_cfg_supported"]
+                else ""
+            )
         )
         if seed_list:
             print(f"seeds    : {', '.join(str(s) for s in seed_list)}  (listed)")
@@ -489,6 +516,16 @@ def main(argv: list[str] | None = None) -> int:
             )
         if skipped:
             print(f"resume   : {skipped} cell(s) already rendered, skipping")
+        # Cells that would render the very same image as an earlier one, as
+        # the pipeline will run them - the same count the browser's preview
+        # shows, and the reason to fix the grid before the night, not after.
+        duplicates = p.grid.duplicate_count(cells, backend.applied)
+        if duplicates:
+            print(
+                f"WARNING  : {duplicates} of {total_images} image(s) would be identical to "
+                "an earlier one - an axis this checkpoint ignores (a negative-prompt "
+                "variable, a CFG at or below the threshold)"
+            )
         print(
             f"output   : {total_images} image(s) - {len(cells)} run(s) x "
             f"{request.num_images} -> {p.settings.outputs_dir}"
@@ -593,6 +630,9 @@ def main(argv: list[str] | None = None) -> int:
     failed = 0
     consecutive = 0
     out_of_time = False
+    # The pixel hashes of what landed: the summary says how many *different*
+    # pictures a night made, which is the number an ignored axis shows up in.
+    distinct: set[str] = set()
     deadline = load_started + args.budget * 60 if args.budget else None
     sweep_started = time.perf_counter()
     # A redrawn status line is for a terminal. Redirected to a log - which is
@@ -680,6 +720,8 @@ def main(argv: list[str] | None = None) -> int:
                     variables=cell.variables,
                 )
                 saved += 1
+                if record.content_hash:
+                    distinct.add(record.content_hash)
                 print(
                     f"{p.settings.outputs_dir / record.filename}  seed {record.seed}", flush=True
                 )
@@ -695,6 +737,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"\n{saved}/{total_images} image(s) in "
             f"{_duration(time.perf_counter() - sweep_started)}."
+            + (f" Only {len(distinct)} distinct." if saved > 1 and len(distinct) < saved else "")
             + (f" {failed} cell(s) failed and were skipped." if failed else "")
             + (" Stopped at the time budget." if out_of_time else "")
         )

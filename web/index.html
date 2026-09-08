@@ -72,11 +72,22 @@
       </div>
       <div class="sub grow">
         <i><label for="mu">Mu</label>
-          <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
             class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
             checkpoint is known to want a fixed one - otherwise the pipeline derives its
             own.</span></span></i>
         <input type="number" id="mu" min="0" max="10" step="0.05" aria-describedby="mu-tip">
+      </div>
+      <!-- Real CFG kept apart from the guidance value, on the one family where
+           they are two knobs (FLUX.1). Greyed out - not hidden, so the panel
+           keeps its shape - wherever the CFG box is real CFG already. -->
+      <div class="sub grow" id="true-cfg-field">
+        <i><label for="true-cfg">True CFG</label>
+          <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+            class="tip" id="true-cfg-tip">Not a separate knob on this checkpoint: its CFG
+            box is real classifier-free guidance already, and the negative prompt follows
+            that.</span></span></i>
+        <input type="number" id="true-cfg" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
       </div>
     </div>
 
@@ -249,9 +260,11 @@
       <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
       <span class="help" tabindex="0" role="note" aria-label="Help">?<span class="tip" id="search-tip">
         Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
-        <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>mu:none</b> ·
+        <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
         <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
-        <b>date:today</b><br>
+        <b>date:today</b> · <b>hash:3f9a</b><br>
+        <b>tcfg:</b> is the scale the negative prompt ran at; <b>hash:</b> finds every
+        image with the same pixels.<br>
         <b>run:</b> is a grid however many times it was resumed; <b>job:</b> is one
         submission of it. <b>date:</b> takes <b>today</b>, <b>yesterday</b> or
         <b>2026-09-07</b> — a day on your clock, not UTC.<br>

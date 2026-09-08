@@ -162,6 +162,85 @@ def test_progress_is_reported_and_a_cancel_lands_within_a_step():
     assert pipe.steps_run == 3
 
 
+class PreviewingPipeline(StubPipeline):
+    """FLUX's shape for the preview: packed latents in the callback, a 4-argument
+    static `_unpack_latents`, and a VAE the factor table knows."""
+
+    vae_scale_factor = 8
+
+    class _Vae:
+        class config:
+            latent_channels = 16
+
+    # The table is keyed on the class *name*, which is what the stand-in shares.
+    _Vae.__name__ = "AutoencoderKL"
+    vae = _Vae()
+
+    @staticmethod
+    def _unpack_latents(latents, height, width, vae_scale_factor):
+        from diffusers.pipelines.flux.pipeline_flux import FluxPipeline
+
+        return FluxPipeline._unpack_latents(latents, height, width, vae_scale_factor)
+
+    def __call__(self, prompt, width, height, num_inference_steps, guidance_scale,
+                 num_images_per_prompt, generator, callback_on_step_end, sigmas=None,
+                 negative_prompt=None):
+        import torch
+        from diffusers.pipelines.krea2.pipeline_krea2 import retrieve_timesteps
+
+        ramp = np.linspace(1.0, 1 / num_inference_steps, num_inference_steps)
+        retrieve_timesteps(self.scheduler, num_inference_steps, None, sigmas=ramp, mu=self.own_mu)
+        # (batch, patches, channels * 4): a 256x256 image is 16x16 patches of 64.
+        latents = torch.randn(1, (height // 16) * (width // 16), 64, generator=torch.Generator().manual_seed(0))
+        for step in range(num_inference_steps):
+            self.steps_run += 1
+            callback_on_step_end(self, step, None, {"latents": latents})
+        image = Image.new("RGB", (width, height))
+        return type("Result", (), {"images": [image] * num_images_per_prompt})()
+
+
+def test_a_preview_is_drawn_from_the_callbacks_latents(monkeypatch):
+    from backend import latent_preview
+
+    monkeypatch.setattr(latent_preview, "INTERVAL_SECONDS", 0.0)
+    scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
+    backend, pipe = _backend(scheduler)
+    frames = []
+    backend.generate(_request(), seed=1, on_preview=lambda jpeg, step, total: frames.append((step, total, jpeg)))
+    # Nothing at all from the plain stub, whose callback carries no latents:
+    # the preview switched itself off and the generation ran to the end.
+    assert frames == [] and pipe.steps_run == STEPS
+
+    backend, pipe = DiffusersBackend(), PreviewingPipeline(scheduler)
+    backend._pipe = pipe
+    backend._call_params = set(inspect.signature(pipe.__call__).parameters)
+    backend.generate(_request(), seed=1, on_preview=lambda jpeg, step, total: frames.append((step, total, jpeg)))
+    assert frames, "no preview from a pipeline that hands the callback latents"
+    steps, totals, jpegs = zip(*frames)
+    # Never after the last step - the real image follows it - and never
+    # while the latent is still noise (the first steps of a shifted schedule).
+    assert max(steps) < STEPS and min(steps) > 1 and set(totals) == {STEPS}
+    assert all(j[:3] == b"\xff\xd8\xff" for j in jpegs)  # JPEG magic
+    with Image.open(__import__("io").BytesIO(jpegs[-1])) as frame:
+        assert frame.size == (32 * latent_preview.UPSCALE, 32 * latent_preview.UPSCALE)
+
+
+def test_a_broken_preview_costs_a_picture_not_the_cell(monkeypatch):
+    from backend import latent_preview
+
+    monkeypatch.setattr(latent_preview, "INTERVAL_SECONDS", 0.0)
+    monkeypatch.setattr(latent_preview, "render", lambda *a, **k: 1 / 0)
+    scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
+    backend, pipe = DiffusersBackend(), PreviewingPipeline(scheduler)
+    backend._pipe = pipe
+    backend._call_params = set(inspect.signature(pipe.__call__).parameters)
+    frames = []
+    images = backend.generate(_request(), seed=1, on_preview=lambda *a: frames.append(a))
+    # The exception out of the callback is exactly how Cancelled ends a job;
+    # a preview's must not.
+    assert len(images) == 1 and pipe.steps_run == STEPS and frames == []
+
+
 def test_applied_reports_what_the_pipeline_will_run():
     # A negative prompt at or below the pipeline's threshold is dropped, above
     # it kept, and mu reaches the scheduler either way.

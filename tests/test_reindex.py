@@ -47,6 +47,9 @@ def test_reindex_in_place_rebuilds_the_rows(store, monkeypatch, capsys):
     )
     assert (back.width, back.height) == (64, 48)  # the file's, not the request's
     assert back.filename == a.filename and back.duration_ms == 0
+    # The hash is recomputed from the pixels and lands where it was.
+    assert back.content_hash == a.content_hash and len(back.content_hash) == 16
+    assert back.true_cfg == a.true_cfg == 0.5  # the scale "blurry" ran at
     # The timestamp is the filename's UTC prefix, to the second.
     assert back.created_at[:16] == a.created_at[:16]
     assert by_seed[8].filename == b.filename

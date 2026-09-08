@@ -1,6 +1,7 @@
 """Gallery persistence: SQLite index plus PNGs carrying their own metadata."""
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import sqlite3
@@ -15,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, PngImagePlugin
 
 from .config import settings
-from .schemas import ImageRecord, RunSummary
+from .schemas import ImageRecord, RunSummary, effective_true_cfg
 
 if TYPE_CHECKING:
     from .grid import CellKey
@@ -78,7 +79,9 @@ CREATE TABLE IF NOT EXISTS images (
     job_id          TEXT,
     run_id          TEXT,
     quantization    TEXT,
-    variables       TEXT
+    variables       TEXT,
+    true_cfg        REAL,
+    content_hash    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -121,6 +124,12 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("quantization", "TEXT", None),
         # The prompt-variable assignment, as JSON.
         ("variables", "TEXT", None),
+        # The scale the negative prompt ran at; NULL on older rows means
+        # "guidance_scale, if there was a negative prompt" - see
+        # `schemas.effective_true_cfg`.
+        ("true_cfg", "REAL", None),
+        # sha256 of the pixels, 16 hex digits.
+        ("content_hash", "TEXT", None),
     )
     for column, kind, index in added:
         if column in columns:
@@ -213,6 +222,7 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         height=row["height"],
         steps=row["steps"],
         guidance_scale=row["guidance_scale"],
+        true_cfg=effective_true_cfg(row["true_cfg"], row["negative_prompt"], row["guidance_scale"]),
         mu=row["mu"],
         seed=row["seed"],
         model_id=row["model_id"],
@@ -222,6 +232,7 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         duration_ms=row["duration_ms"],
         created_at=row["created_at"],
         favorite=bool(row["favorite"]),
+        content_hash=row["content_hash"],
     )
 
 
@@ -230,8 +241,31 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
 _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "created_at", "job_id", "run_id", "quantization",
-    "variables",
+    "variables", "true_cfg", "content_hash",
 )
+
+# `schemas.effective_true_cfg` in SQL, for the filter and the grouping that
+# run in the database: the scale the negative prompt ran at, which on a row
+# from before the column was `guidance_scale` whenever there was one.
+_TRUE_CFG_SQL = (
+    "COALESCE(true_cfg, CASE WHEN negative_prompt IS NOT NULL AND negative_prompt <> '' "
+    "THEN guidance_scale END)"
+)
+
+
+def content_hash(image: Image.Image) -> str:
+    """The first 16 hex digits of the sha256 of the decoded pixels.
+
+    Of the pixels, not the file: PNG bytes vary with the encoder's settings
+    and the metadata chunks, and two identical renders would then hash apart.
+    A few milliseconds against a generation measured in seconds. What it is
+    for is exactness: "the mu axis changed nothing across 96 cells" becomes a
+    count rather than a squint, and a `hash:` search finds every image that
+    is the same picture. It rests on the pipeline being deterministic through
+    the quantized kernels - verified once on the card (see the review
+    checklist) rather than assumed.
+    """
+    return hashlib.sha256(image.tobytes()).hexdigest()[:16]
 
 
 def _insert_row(conn: sqlite3.Connection, values: dict[str, Any]) -> sqlite3.Row:
@@ -272,6 +306,7 @@ def save_image(
     """
     created = datetime.now(timezone.utc)
     variables_json = json.dumps(variables) if variables else None
+    digest = content_hash(image)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
     # The directory can disappear under a running server - renamed, deleted by
     # hand - and the full denoise then died here. One mkdir per image is cheap.
@@ -291,6 +326,7 @@ def save_image(
         "negative_prompt": request.negative_prompt,
         "steps": request.steps,
         "guidance_scale": request.guidance_scale,
+        "true_cfg": request.true_cfg,
         "mu": request.mu,
         "seed": seed,
         "model": model_id,
@@ -299,17 +335,20 @@ def save_image(
         "run": run_id,
         "size": f"{image.width}x{image.height}",
         "variables": variables or None,
+        "hash": digest,
     }
     info = PngImagePlugin.PngInfo()
     # A1111-style single-line block, so other tools can read the params back.
     # Mu is not an A1111 key, but it is part of what reproduces the image, which
-    # is the reason the block exists.
+    # is the reason the block exists. Nor is True CFG: on FLUX.1 the CFG
+    # scale is the distilled guidance value, and the real one is this.
     info.add_text(
         "parameters",
         f"{request.prompt}\n"
         f"Negative prompt: {request.negative_prompt or ''}\n"
         f"Steps: {request.steps}, CFG scale: {request.guidance_scale}, "
         f"Seed: {seed}, Size: {image.width}x{image.height}, Model: {model_id}"
+        + (f", True CFG: {request.true_cfg}" if request.true_cfg is not None else "")
         + (f", Mu: {request.mu}" if request.mu is not None else "")
         + (f", Quantization: {quantization}" if quantization else ""),
     )
@@ -341,6 +380,8 @@ def save_image(
                     "run_id": run_id,
                     "quantization": quantization,
                     "variables": variables_json,
+                    "true_cfg": request.true_cfg,
+                    "content_hash": digest,
                 },
             )
         committed = True
@@ -456,11 +497,16 @@ _FILTERS: dict[str, tuple[str, Any]] = {
     "seed": ("seed", int),
     "steps": ("steps", int),
     "cfg": ("guidance_scale", float),
+    # The scale the negative prompt ran at, through the same reading of older
+    # rows the records get; `tcfg:none` is the images that ran without one.
+    "tcfg": (_TRUE_CFG_SQL, float),
     "mu": ("mu", float),
     "model": ("model_id", str),
     "quant": ("quantization", str),
     "job": ("job_id", str),
     "run": ("run_id", str),
+    # Every image with these pixels - a substring, so a prefix of one is enough.
+    "hash": ("content_hash", str),
     # Handled by _date_clause: a day, not a column with a cast.
     "date": ("created_at", None),
 }
@@ -611,13 +657,15 @@ def completed_cells(
     model_id: str,
     quantization: str | None = None,
 ) -> set[CellKey]:
-    """The (prompt, negative, steps, CFG, mu, seed) of everything already rendered.
+    """The (prompt, negative, steps, CFG, mu, true CFG, seed) of everything already rendered.
 
     What a resumed grid subtracts from its cells. Keyed on the settings that
     make the image rather than on the job that made it, so a night that died
     can be resumed by a *new* job - and a cell rendered by hand earlier counts
     just the same. Rounded to the same six decimals the axis parser produces,
-    so a float that survived a round trip through SQLite still matches.
+    so a float that survived a round trip through SQLite still matches. The
+    true-CFG element is read through `effective_true_cfg`, so a row from
+    before the column comes back under the key it would be written with now.
 
     Scoped to the size, the checkpoint and - when given - the quantizer: the
     same seed through fp8 and through int8 is two different pictures, and a
@@ -637,24 +685,29 @@ def completed_cells(
             chunk = wanted[start : start + 400]
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
-                f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, seed FROM images
+                f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg, seed
+                    FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
                 (width, height, model_id, *scope_params, *chunk),
             ).fetchall()
-            keys.update(
-                (
-                    row["prompt"],
-                    # '' and NULL both mean "no negative prompt", and which one
-                    # a row holds depends on which client wrote it.
-                    row["negative_prompt"] or None,
-                    row["steps"],
-                    round(row["guidance_scale"], 6),
-                    None if row["mu"] is None else round(row["mu"], 6),
-                    row["seed"],
+            for row in rows:
+                true_cfg = effective_true_cfg(
+                    row["true_cfg"], row["negative_prompt"], row["guidance_scale"]
                 )
-                for row in rows
-            )
+                keys.add(
+                    (
+                        row["prompt"],
+                        # '' and NULL both mean "no negative prompt", and which
+                        # one a row holds depends on which client wrote it.
+                        row["negative_prompt"] or None,
+                        row["steps"],
+                        round(row["guidance_scale"], 6),
+                        None if row["mu"] is None else round(row["mu"], 6),
+                        None if true_cfg is None else round(true_cfg, 6),
+                        row["seed"],
+                    )
+                )
     return keys
 
 
@@ -769,7 +822,12 @@ def existing_filenames() -> set[str]:
 
 
 def index_file(
-    filename: str, meta: dict[str, Any], width: int, height: int, created_at: datetime
+    filename: str,
+    meta: dict[str, Any],
+    width: int,
+    height: int,
+    created_at: datetime,
+    digest: str | None = None,
 ) -> ImageRecord:
     """A row for a PNG already in `outputs_dir`, from its own `krea` block.
 
@@ -777,7 +835,9 @@ def index_file(
     `favorite`, which lives in SQLite alone and is lost, and `duration_ms`,
     which is recorded as 0 so `step_cost_ms` (which wants `> 0`) does not price
     a grid off an unknown. Through the same INSERT as `save_image`, so the FTS
-    trigger indexes the prompt.
+    trigger indexes the prompt. `digest` is the hash of the pixels as the
+    caller decoded them, which is the truth; the block's own `hash` stands in
+    for it when the caller did not decode.
     """
     with _write_lock, _session() as conn:
         row = _insert_row(
@@ -799,6 +859,8 @@ def index_file(
                 "run_id": meta.get("run"),
                 "quantization": meta.get("quantization"),
                 "variables": json.dumps(meta["variables"]) if meta.get("variables") else None,
+                "true_cfg": meta.get("true_cfg"),
+                "content_hash": digest or meta.get("hash"),
             },
         )
     return _row_to_record(row)
@@ -817,6 +879,7 @@ def thumbnail_for(image: Image.Image, filename: str) -> None:
 _GROUPS: dict[str, str] = {
     "steps": "steps",
     "cfg": "round(guidance_scale, 6)",
+    "tcfg": f"round({_TRUE_CFG_SQL}, 6)",
     "mu": "round(mu, 6)",
     "prompt": "prompt",
     "negative": "negative_prompt",
@@ -881,6 +944,8 @@ def runs(limit: int = 20) -> list[RunSummary]:
         groups = conn.execute(
             """SELECT run_id, COUNT(*) AS images, SUM(favorite) AS favorites,
                       COUNT(DISTINCT prompt) AS prompts, COUNT(DISTINCT job_id) AS jobs,
+                      COUNT(content_hash) AS hashed,
+                      COUNT(DISTINCT content_hash) AS distinct_hashes,
                       MIN(id) AS first_id, MAX(id) AS last_id,
                       MIN(created_at) AS started_at, MAX(created_at) AS finished_at
                FROM images WHERE run_id IS NOT NULL
@@ -901,6 +966,11 @@ def runs(limit: int = 20) -> list[RunSummary]:
             RunSummary(
                 run_id=group["run_id"],
                 images=group["images"],
+                # Only when every image of the run is hashed: a count over
+                # half a run is a number that looks like an answer.
+                distinct=(
+                    group["distinct_hashes"] if group["hashed"] == group["images"] else None
+                ),
                 favorites=group["favorites"],
                 prompts=group["prompts"],
                 jobs=group["jobs"],

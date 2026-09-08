@@ -17,9 +17,12 @@
 //
 // Page-side names (`els`, `lbView`, `sheetRecords`, ...) are the app's own
 // top-level bindings, reachable from `eval` because app.js is a classic script.
+// An `eval` whose last expression is a promise is awaited - handy for a fetch,
+// but `startJob(...)` resolves when the job *ends*, so to look at a job while
+// it runs write `void startJob(...)`.
 // Exit status is 1 when any `expect` failed, so this can gate a check.
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const CANDIDATES = [
@@ -39,11 +42,17 @@ if (!file) { console.error('usage: node tools/browser.mjs <steps.json>'); proces
 const steps = JSON.parse(readFileSync(file, 'utf8'));
 
 const PORT = 9333 + Math.floor(Math.random() * 500);
+// A profile of this run's own. A shared one is held by whichever Edge is
+// still alive from a run that crashed, and the next launch then hands its
+// command line to that instance and exits without ever opening the port -
+// which reads as "the browser did not come up" for every run after it.
+const PROFILE = `${tmpdir()}/krea-browser-${process.pid}`;
 const proc = spawn(browser, [
   '--headless=new', `--remote-debugging-port=${PORT}`, '--window-size=1400,900',
-  '--no-first-run', '--disable-gpu', `--user-data-dir=${tmpdir()}/krea-browser-profile`,
-  'about:blank',
+  '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-gpu',
+  `--user-data-dir=${PROFILE}`, 'about:blank',
 ], { stdio: 'ignore' });
+const cleanup = () => { try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* locked */ } };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
@@ -52,11 +61,16 @@ async function target() {
   for (let i = 0; i < 50; i++) {
     try {
       const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
-      const page = list.find((t) => t.type === 'page');
+      // The blank page asked for, not whatever else a fresh profile opens
+      // first - Edge puts a sync prompt ahead of it.
+      const pages = list.filter((t) => t.type === 'page');
+      const page = pages.find((t) => t.url === 'about:blank') ?? pages[0];
       if (page) return page.webSocketDebuggerUrl;
     } catch { /* not up yet */ }
     await sleep(200);
   }
+  proc.kill();
+  cleanup();
   throw new Error('the browser did not come up');
 }
 
@@ -127,5 +141,7 @@ for (const step of steps) {
 
 ws.close();
 proc.kill();
+await sleep(500);
+cleanup();
 if (failures) console.log(`${failures} expectation(s) failed`);
 process.exit(failures ? 1 : 0);

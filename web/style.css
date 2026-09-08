@@ -188,6 +188,9 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 /* Dim the textarea, not the whole field: the label and the note that explain
    the state have to stay legible. */
 #negative-field.disabled textarea { opacity: 0.45; }
+/* The True CFG box on a checkpoint where CFG is real CFG already: the badge
+   beside it says why, so it stays where it is rather than vanishing. */
+.sub.disabled input { opacity: 0.45; }
 
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .presets button {
@@ -291,6 +294,16 @@ button { font: inherit; cursor: pointer; }
 }
 .viewer.multi img { max-height: 34vh; }
 .viewer.many img { max-height: 20vh; }
+/* The live preview is a 256 px JPEG of the latents, shown larger than it is
+   and marked as provisional; the real image replaces it in the same slot. */
+.viewer img.preview {
+  height: min(34vh, 320px);
+  width: auto;
+  max-height: none;
+  opacity: 0.85;
+  border: 1px dashed var(--line);
+  cursor: default;
+}
 .placeholder { color: var(--muted); }
 
 /* Every image that opens the lightbox is in the tab order; the ring says which

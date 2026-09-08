@@ -1,0 +1,31 @@
+[
+  {"navigate": "http://127.0.0.1:7862/"},
+  {"wait": 1200},
+  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+
+  {"expect": "!els.trueCfg.disabled && els.trueCfgTip.textContent.includes('unconditioned')"},
+  {"eval": "els.cfg.value = '3.5'; els.cfg.oninput(); els.trueCfg.value = ''; els.trueCfg.oninput();"},
+  {"expect": "els.negative.disabled && els.negNote.textContent.includes('needs True CFG > 1')"},
+  {"eval": "els.trueCfg.value = '1.5'; els.trueCfg.oninput();"},
+  {"expect": "!els.negative.disabled && collect().true_cfg === 1.5 && collect().guidance_scale === 3.5"},
+
+  {"eval": "els.prompt.value = 'a fox'; els.negative.value = 'blurry'; els.seed.value = '9'; startJob('/api/generate', collect());"},
+  {"wait": 2500},
+  {"expect": "viewerRecords.length === 1 && viewerRecords[0].true_cfg === 1.5 && viewerRecords[0].negative_prompt === 'blurry'"},
+  {"eval": "document.querySelector('#viewer img').click()"},
+  {"wait": 400},
+  {"expect": "els.lbMeta.textContent.includes('CFG 3.5, true CFG 1.5')"},
+  {"key": "Escape"},
+
+  {"eval": "els.trueCfg.value = ''; els.trueCfg.oninput(); els.seed.value = '10'; startJob('/api/generate', collect());"},
+  {"wait": 2500},
+  {"expect": "viewerRecords[0].true_cfg === null && viewerRecords[0].negative_prompt === null"},
+
+  {"eval": "reuse(galleryRecords.find((r) => r.seed === 9));"},
+  {"expect": "els.trueCfg.value === '1.5' && !els.negative.disabled"},
+  {"wait": 500},
+  {"navigate": "http://127.0.0.1:7862/"},
+  {"wait": 1500},
+  {"expect": "els.trueCfg.value === '1.5'"},
+  {"eval": "els.trueCfg.value = ''; els.trueCfg.oninput(); els.negative.value = ''; els.seed.value = ''; persistPanel();"}
+]

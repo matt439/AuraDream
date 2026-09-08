@@ -32,7 +32,7 @@ def test_klein_profiles_win_over_flux(model_id, steps, cfg):
     assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (steps, cfg, None)
     assert profile["negative_prompt_supported"] is False
     hints = hints_for(model_id)
-    assert set(hints) == {"steps", "guidance_scale", "mu"}
+    assert set(hints) == {"steps", "guidance_scale", "mu", "true_cfg"}
     assert all(text and "{" not in text for text in hints.values())
 
 
@@ -111,6 +111,65 @@ def _loaded(pipe):
     backend._pipe = pipe
     backend._call_params = set(inspect.signature(pipe.__call__).parameters)
     return backend
+
+
+class FluxLikePipeline(KleinLikePipeline):
+    """`guidance_scale` is a distilled input and `true_cfg_scale` the real CFG -
+    FluxPipeline's shape, the one place the two are separate knobs."""
+
+    def __call__(self, prompt, width, height, num_inference_steps, guidance_scale,
+                 num_images_per_prompt, generator, callback_on_step_end, sigmas=None,
+                 negative_prompt=None, true_cfg_scale=1.0):
+        self.calls.append(dict(
+            prompt=prompt, guidance_scale=guidance_scale, negative_prompt=negative_prompt,
+            true_cfg_scale=true_cfg_scale,
+        ))
+        image = Image.new("RGB", (width, height))
+        return type("Result", (), {"images": [image] * num_images_per_prompt})()
+
+
+def test_real_cfg_is_its_own_knob_where_the_pipeline_keeps_it_apart():
+    # The two used to be set from one number, so the only reachable states on
+    # FLUX.1 were (3.5, off) and (g, g): a negative prompt typed at the
+    # recommended 3.5 stacked guidance twice at double the cost, and the usual
+    # "embedding at 3.5, mild real CFG of 1.5" could not be asked for.
+    backend = _loaded(FluxLikePipeline())
+    pipe = backend._pipe
+    assert backend.describe()["true_cfg_supported"] is True
+    assert backend.cfg_threshold() == 1.0
+
+    base = dict(prompt="a lighthouse", negative_prompt="blurry", width=256, height=256, steps=4)
+    # Real CFG set: the negative prompt runs at *that* scale, the guidance
+    # value goes through untouched, and the record says both.
+    ran = backend.applied(GenerateRequest(**base, guidance_scale=3.5, true_cfg=1.5))
+    assert (ran.guidance_scale, ran.true_cfg, ran.negative_prompt) == (3.5, 1.5, "blurry")
+    backend.generate(GenerateRequest(**base, guidance_scale=3.5, true_cfg=1.5), seed=1)
+    assert pipe.calls[-1]["true_cfg_scale"] == 1.5 and pipe.calls[-1]["guidance_scale"] == 3.5
+    assert pipe.calls[-1]["negative_prompt"] == "blurry"
+    # Not set: the guidance value no longer decides. The negative prompt is
+    # dropped - and recorded as dropped - however high the guidance value.
+    ran = backend.applied(GenerateRequest(**base, guidance_scale=3.5))
+    assert (ran.negative_prompt, ran.true_cfg) == (None, None)
+    backend.generate(GenerateRequest(**base, guidance_scale=3.5), seed=1)
+    assert pipe.calls[-1]["negative_prompt"] is None and pipe.calls[-1]["true_cfg_scale"] == 1.0
+    # At the threshold it is off too, and without a negative prompt there is
+    # no uncond pass for the scale to describe.
+    assert backend.applied(GenerateRequest(**base, true_cfg=1.0)).true_cfg is None
+    assert backend.applied(GenerateRequest(prompt="x", width=256, height=256, true_cfg=3.0)).true_cfg is None
+
+
+def test_where_cfg_is_real_already_the_record_says_which_scale_ran():
+    # Krea 2 has no separate knob: `guidance_scale` is the uncond pass. The
+    # column then carries that scale whenever the negative prompt applied, so
+    # it means one thing on every checkpoint - and a `true_cfg` typed at a
+    # pipeline that cannot take one is not recorded as if it had.
+    backend = _loaded(Krea2Pipeline())
+    assert backend.describe()["true_cfg_supported"] is False
+    base = dict(prompt="a lighthouse", negative_prompt="blurry", width=256, height=256, steps=4)
+    ran = backend.applied(GenerateRequest(**base, guidance_scale=2.0, true_cfg=5.0))
+    assert (ran.negative_prompt, ran.true_cfg) == ("blurry", 2.0)
+    ran = backend.applied(GenerateRequest(**base, guidance_scale=0.0, true_cfg=5.0))
+    assert (ran.negative_prompt, ran.true_cfg) == (None, None)
 
 
 def test_having_a_negative_prompt_does_not_mean_guiding_from_zero():

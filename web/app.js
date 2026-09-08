@@ -14,6 +14,7 @@ const els = {
   negNote: $('neg-note'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
+  trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
@@ -76,7 +77,7 @@ let busy = false;
 // Per control, not one flag for all three: touching Seed before the first
 // /api/status used to freeze steps, CFG and mu at the page's fallback numbers,
 // and on Turbo that is 28 steps at CFG 3.5 for a model trained for 8 at 0.
-const owned = { steps: false, cfg: false, mu: false };
+const owned = { steps: false, cfg: false, mu: false, trueCfg: false };
 // The checkpoint the server is running, once /api/status has said. Reuse
 // compares a record against it: steps, CFG and mu are checkpoint-specific.
 let loadedModel = null;
@@ -100,6 +101,11 @@ let cfgThreshold = 1;
 // FLUX.2 klein's pipeline takes no negative prompt at any CFG; the field greys
 // out for the checkpoint rather than for the value.
 let negativeSupported = true;
+// Whether real CFG is a knob of its own (FLUX.1, where the CFG box is the
+// distilled guidance value the model takes as an input) or the CFG box is real
+// CFG already (Krea 2, klein). Decides which box the negative prompt follows,
+// and whether the True CFG box is live at all.
+let trueCfgSupported = false;
 // Free space on the images volume, from the last status poll; null if unknown.
 let diskFreeMb = null;
 
@@ -225,15 +231,22 @@ function syncSize() {
 let gridMaxCfg = null;
 
 function syncCfg() {
-  const reach = gridMaxCfg === null ? +els.cfg.value : Math.max(+els.cfg.value, gridMaxCfg);
+  // The True CFG box is live only where it is a knob of its own; elsewhere
+  // it is greyed with its badge saying so, and the CFG box decides.
+  els.trueCfg.disabled = !trueCfgSupported;
+  els.trueCfgField.classList.toggle('disabled', !trueCfgSupported);
+  const cfgReach = gridMaxCfg === null ? +els.cfg.value : Math.max(+els.cfg.value, gridMaxCfg);
+  const trueCfg = els.trueCfg.value.trim() === '' ? 0 : +els.trueCfg.value;
+  const reach = trueCfgSupported ? trueCfg : cfgReach;
+  const knob = trueCfgSupported ? 'True CFG' : 'CFG';
   const off = !negativeSupported || reach <= cfgThreshold;
   els.negField.classList.toggle('disabled', off);
   els.negative.disabled = off;
   els.negNote.textContent = !negativeSupported
     ? '(this checkpoint takes no negative prompt)'
-    : gridMaxCfg !== null && +els.cfg.value <= cfgThreshold && reach > cfgThreshold
+    : !trueCfgSupported && gridMaxCfg !== null && +els.cfg.value <= cfgThreshold && reach > cfgThreshold
       ? `(applies to the grid cells above CFG ${cfgThreshold} — ~2× slower there)`
-      : `(needs CFG > ${cfgThreshold} — ~2× slower)`;
+      : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
 }
 
 // Batch holds every image in VRAM at once, which is what stops a 2K batch from
@@ -270,7 +283,7 @@ function applyDefaults(d) {
 // user owning the controls does not make the explanation stale.
 function applyHints(hints) {
   if (!hints) return;
-  const tips = { steps: els.stepsTip, guidance_scale: els.cfgTip, mu: els.muTip };
+  const tips = { steps: els.stepsTip, guidance_scale: els.cfgTip, mu: els.muTip, true_cfg: els.trueCfgTip };
   for (const [key, el] of Object.entries(tips)) {
     if (hints[key]) el.textContent = hints[key];
   }
@@ -281,7 +294,7 @@ function applyHints(hints) {
 // so its reply can land minutes late and used to wipe steps/CFG/mu long after
 // the page had settled.
 function own(...keys) { keys.forEach((key) => { owned[key] = true; }); }
-function ownControls() { own('steps', 'cfg', 'mu'); }
+function ownControls() { own('steps', 'cfg', 'mu', 'trueCfg'); }
 
 async function refreshStatus() {
   if (statusPending) return;  // a stalled poll must not queue more behind it
@@ -302,6 +315,11 @@ async function refreshStatus() {
     if (s.defaults && typeof s.defaults.negative_prompt_supported === 'boolean'
         && s.defaults.negative_prompt_supported !== negativeSupported) {
       negativeSupported = s.defaults.negative_prompt_supported;
+      syncCfg();
+    }
+    if (s.defaults && typeof s.defaults.true_cfg_supported === 'boolean'
+        && s.defaults.true_cfg_supported !== trueCfgSupported) {
+      trueCfgSupported = s.defaults.true_cfg_supported;
       syncCfg();
     }
     if (typeof s.max_grid_images === 'number') sheetPage = s.max_grid_images;
@@ -346,6 +364,8 @@ function collect() {
     height: +els.height.value,
     steps: num(els.steps),
     guidance_scale: num(els.cfg),
+    // Blank is off; a greyed-out box is a knob this checkpoint has not got.
+    true_cfg: els.trueCfg.disabled || els.trueCfg.value.trim() === '' ? null : +els.trueCfg.value,
     mu: els.mu.value === '' ? null : +els.mu.value,
     seed: seed === '' ? null : +seed,
     num_images: +els.batch.value,
@@ -625,10 +645,13 @@ async function previewGrid() {
     // the free space is the warning colour, since the night would die at the
     // first save that does not fit.
     const short = p.bytes && diskFreeMb !== null && p.bytes > diskFreeMb * 1024 * 1024;
-    if (short) els.gridPreview.classList.add('warn');
+    // Cells that would come out identical - an axis this checkpoint ignores -
+    // are the other reason to fix the grid before the night rather than after.
+    if (short || p.duplicates) els.gridPreview.classList.add('warn');
     els.gridPreview.textContent = [
       `${p.images} image${p.images === 1 ? '' : 's'} · ${p.summary}` +
         (p.skipped ? ` · ${p.skipped} already done` : '') +
+        (p.duplicates ? ` · ${p.duplicates} would be identical to another cell` : '') +
         (p.seconds ? ` · about ${humanTime(p.seconds)}` : '') +
         (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : ''),
       `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
@@ -672,10 +695,15 @@ function streamJob(jobId) {
     // Every snapshot carries the whole accumulated list, and a stream that
     // reattached missed the individual events, so images arrive by both routes.
     const shown = new Set();
+    // The live preview: one <img> at the end of the strip, its src replaced
+    // as frames arrive, gone the moment the real image lands. Never a record.
+    let previewEl = null;
+    const dropPreview = () => { if (previewEl) { previewEl.remove(); previewEl = null; } };
     const show = (rec) => {
       if (shown.has(rec.id)) return;
       shown.add(rec.id);
       if (!cleared) { clearResults(); cleared = true; }
+      dropPreview();
       appendResult(rec);
     };
 
@@ -694,6 +722,19 @@ function streamJob(jobId) {
         showCell(data);
       } else if (data.type === 'image') {
         show(data.image);
+      } else if (data.type === 'preview') {
+        // A rough picture of the cell so far, from the latents: blurry, but
+        // the composition is there from a few steps in, which is soon enough
+        // to cancel a bad prompt rather than wait the render out.
+        if (!cleared) { clearResults(); cleared = true; }
+        if (!previewEl) {
+          previewEl = document.createElement('img');
+          previewEl.className = 'preview';
+          previewEl.alt = 'Live preview of the image being generated';
+          els.viewer.appendChild(previewEl);
+        }
+        previewEl.src = data.image;
+        previewEl.title = `live preview · step ${data.step}/${data.total_steps}`;
       } else if (data.type === 'status') {
         // Either the snapshot every stream opens with or the start of a run;
         // both carry whatever landed while nobody was listening.
@@ -715,14 +756,19 @@ function streamJob(jobId) {
       } else if (data.type === 'done') {
         source.close();
         setBusy(false);
+        dropPreview();
         if (data.images) data.images.forEach(show);
         // A finished run used to leave the panel indistinguishable from an
         // idle page. The summary goes in the cell line, which setBusy has
         // just cleared and which is outside the element it hides.
         if (data.status === 'done' && data.started_at && data.finished_at) {
           const made = data.images ? data.images.length : data.image_count;
+          // Fewer distinct pictures than images is an axis that changed
+          // nothing, said in one number rather than found on the sheet.
+          const distinct = typeof data.distinct_count === 'number' && made > 1 && data.distinct_count < made
+            ? ` Only ${data.distinct_count} distinct.` : '';
           els.cellNote.textContent =
-            `Finished ${made} image${made === 1 ? '' : 's'} in ${humanTime(data.finished_at - data.started_at)}.`;
+            `Finished ${made} image${made === 1 ? '' : 's'} in ${humanTime(data.finished_at - data.started_at)}.${distinct}`;
         }
         if (data.status === 'error') showError(data.error);
         else if (data.status === 'cancelled') {
@@ -815,6 +861,7 @@ function persistPanel() {
       steps: owned.steps ? els.steps.value : null,
       cfg: owned.cfg ? els.cfg.value : null,
       mu: owned.mu ? els.mu.value : null,
+      trueCfg: owned.trueCfg ? els.trueCfg.value : null,
     };
     remember(PANEL_KEY, JSON.stringify(state));
   }, 300);
@@ -841,7 +888,7 @@ function restoreSampling(modelId) {
   samplingRestored = true;
   const sampling = storedPanel()?.sampling;
   if (!sampling || sampling.model !== modelId) return;
-  for (const [key, el] of [['steps', els.steps], ['cfg', els.cfg], ['mu', els.mu]]) {
+  for (const [key, el] of [['steps', els.steps], ['cfg', els.cfg], ['mu', els.mu], ['trueCfg', els.trueCfg]]) {
     if (typeof sampling[key] === 'string') { el.value = sampling[key]; own(key); }
   }
   syncCfg();
@@ -875,7 +922,9 @@ async function announceLastRun() {
   if (Date.now() - last.finished_at * 1000 > ANNOUNCE_WINDOW_MS) return;
   if (remembered(ANNOUNCED_KEY) === last.job_id) return;
 
-  const images = `${last.image_count} image${last.image_count === 1 ? '' : 's'}`;
+  const images = `${last.image_count} image${last.image_count === 1 ? '' : 's'}` +
+    (typeof last.distinct_count === 'number' && last.image_count > 1 && last.distinct_count < last.image_count
+      ? `, only ${last.distinct_count} distinct` : '');
   const cells = last.total_runs > 1 ? ` (${last.run}/${last.total_runs} cells)` : '';
   const outcome = last.status === 'cancelled' ? 'was cancelled'
     : last.status === 'error' ? 'failed'
@@ -906,7 +955,10 @@ async function loadRuns() {
   els.runList.append(new Option(runs.length ? 'Runs…' : 'No runs yet', ''));
   for (const run of runs) {
     const stars = run.favorites ? ` · ${run.favorites}★` : '';
-    const label = `${when(Date.parse(run.started_at))} · ${run.images} img${stars} · ${clip(run.prompt)}`;
+    // A run that made fewer pictures than images says so in the list.
+    const distinct = typeof run.distinct === 'number' && run.distinct < run.images
+      ? ` (${run.distinct} distinct)` : '';
+    const label = `${when(Date.parse(run.started_at))} · ${run.images} img${distinct}${stars} · ${clip(run.prompt)}`;
     els.runList.append(new Option(label, run.run_id));
   }
   els.runList.disabled = !runs.length;
@@ -1160,6 +1212,10 @@ function reuse(rec) {
   els.height.value = rec.height;
   els.steps.value = rec.steps;
   els.cfg.value = rec.guidance_scale;
+  // The scale the negative prompt ran at. Only where the box is a knob of its
+  // own: on a checkpoint whose CFG is real CFG the record's value *is* the
+  // CFG box, and the greyed box would only echo it.
+  els.trueCfg.value = trueCfgSupported && rec.true_cfg != null ? rec.true_cfg : '';
   // Turbo's flow shift. Records from a pipeline that derives its own carry null.
   els.mu.value = rec.mu ?? '';
   els.seed.value = rec.seed;
@@ -1200,9 +1256,15 @@ const SHEET_AXES = [
   { key: 'negative', label: 'Negative', of: (r) => r.negative_prompt || null },
   { key: 'steps', label: 'Steps', of: (r) => r.steps },
   { key: 'cfg', label: 'CFG', of: (r) => r.guidance_scale },
+  // The scale the negative prompt ran at. Dropped by axesFor wherever it only
+  // echoes the CFG axis - every Krea 2 record - or a CFG sweep with a negative
+  // prompt would lay itself out as a diagonal against its own shadow.
+  { key: 'tcfg', label: 'True CFG', of: (r) => r.true_cfg },
   { key: 'mu', label: 'Mu', of: (r) => r.mu },
   { key: 'seed', label: 'Seed', of: (r) => r.seed },
 ];
+const trueCfgEchoesCfg = (records) =>
+  records.every((r) => r.true_cfg == null || r.true_cfg === r.guidance_scale);
 // The axes in play for the current records. Records from a prompt grid carry
 // the variable assignment that made them, and then each variable is an axis
 // of its own - a `size` x `ground` night is a 2x2, not a 4-wide strip of
@@ -1215,7 +1277,8 @@ function axesFor(records) {
   for (const rec of records) {
     for (const name of Object.keys(rec.variables || {})) if (!names.includes(name)) names.push(name);
   }
-  if (!names.length) return SHEET_AXES;
+  const flat = trueCfgEchoesCfg(records) ? SHEET_AXES.filter((a) => a.key !== 'tcfg') : SHEET_AXES;
+  if (!names.length) return flat;
   const variableAxes = names.map((name) => ({
     key: `var:${name}`,
     label: name,
@@ -1226,7 +1289,7 @@ function axesFor(records) {
       return value === undefined ? null : (value === '' ? 'none' : value);
     },
   }));
-  return [...variableAxes, ...SHEET_AXES.filter((a) => a.key !== 'prompt' && a.key !== 'negative')];
+  return [...variableAxes, ...flat.filter((a) => a.key !== 'prompt' && a.key !== 'negative')];
 }
 const axisByKey = (key) => sheetAxesList.find((a) => a.key === key);
 const axisValue = (axis, rec) => axis.of(rec) ?? null;
@@ -1734,7 +1797,10 @@ function renderLightbox() {
     // the same prompt and settings on Turbo and on FLUX are different images.
     `${rec.prompt} — ${rec.model_id.split('/').pop()}, ` +
     `${rec.width}×${rec.height}, ${rec.steps} steps, ` +
-    `CFG ${rec.guidance_scale}, ${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
+    `CFG ${rec.guidance_scale}, ` +
+    // Only where it differs from the CFG: on Krea 2 it is the same number.
+    (rec.true_cfg != null && rec.true_cfg !== rec.guidance_scale ? `true CFG ${rec.true_cfg}, ` : '') +
+    `${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s` +
     (lbList.length > 1 ? ` · ${lbIndex + 1}/${lbList.length}` : '');
   els.lbPrev.disabled = lbIndex === 0;
@@ -1856,7 +1922,7 @@ els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // done" half of the preview is what ticking it is for.
 for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
                   els.gridSeedList, els.gridBudget, els.prompt, els.negative, els.steps,
-                  els.cfg, els.mu, els.batch, els.width, els.height, els.seed]) {
+                  els.cfg, els.trueCfg, els.mu, els.batch, els.width, els.height, els.seed]) {
   el.addEventListener('input', schedulePreview);
 }
 // A listed seed axis makes the count and the base seed moot; say so in place.
@@ -1884,6 +1950,7 @@ els.mu.oninput = () => own('mu');
 els.seed.oninput = syncRuns;
 els.batch.oninput = els.runs.oninput = syncRuns;
 els.cfg.oninput = () => { own('cfg'); syncCfg(); };
+els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
 els.favOnly.onchange = resetGallery;
 els.sheetBtn.onclick = () => setSheet(!sheetMode);
 els.rerender.onclick = rerenderSelection;

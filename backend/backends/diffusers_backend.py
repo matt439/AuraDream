@@ -24,13 +24,15 @@ import json
 import logging
 import sys
 import threading
+import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
+from .. import latent_preview
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
-from .base import CancelFn, Cancelled, GenerationBackend, ProgressFn
+from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -497,12 +499,25 @@ class DiffusersBackend(GenerationBackend):
             return request.applied(
                 negative_prompt_supported=profile["negative_prompt_supported"],
                 cfg_threshold=profile["cfg_threshold"],
+                true_cfg_supported=profile["true_cfg_supported"],
             )
         return request.applied(
             negative_prompt_supported="negative_prompt" in self._call_params,
             cfg_threshold=self.cfg_threshold(),
             mu_supported=self._mu_supported(self._pipe),
+            true_cfg_supported=self._true_cfg_supported(),
         )
+
+    def _true_cfg_supported(self) -> bool:
+        """Does this pipeline keep real CFG apart from its guidance value?
+
+        FLUX.1's `guidance_scale` is an input the distilled model was trained
+        on, and `true_cfg_scale` is the classic uncond pass; on every other
+        pipeline here `guidance_scale` is that pass. The parameter's presence
+        is the whole answer, and it is what `applied()` keys the recorded
+        `true_cfg` on.
+        """
+        return "true_cfg_scale" in self._call_params
 
     def generate(
         self,
@@ -510,6 +525,7 @@ class DiffusersBackend(GenerationBackend):
         seed: int,
         on_progress: ProgressFn | None = None,
         should_cancel: CancelFn | None = None,
+        on_preview: PreviewFn | None = None,
     ) -> list["Image"]:
         if self._pipe is None:
             # Loading happens in exactly one place - main.ensure_loaded() - which
@@ -535,9 +551,26 @@ class DiffusersBackend(GenerationBackend):
         # mid-generation, so it doubles as the cancellation point: raising here
         # unwinds out of the denoising loop. The step is already finished by then,
         # which is why a cancel lands within one step rather than instantly.
+        # The preview sits in its own try/except and switches itself off on
+        # the first failure: an exception out of this callback is how Cancelled
+        # ends a job, and a wrong-shaped latent must cost a picture, not a night.
+        preview = {"on": on_preview is not None, "last": 0.0}
+
         def _step_end(_pipe, step: int, _timestep, cb_kwargs):
             if on_progress is not None:
                 on_progress(step + 1, total)
+            if preview["on"] and step + 1 < total:
+                now = time.monotonic()
+                if now - preview["last"] >= latent_preview.INTERVAL_SECONDS:
+                    try:
+                        jpeg = self._preview(pipe, cb_kwargs.get("latents"), request, step)
+                    except Exception as exc:  # noqa: BLE001 - a preview is never worth a cell
+                        log.warning("live preview switched off: %s", exc)
+                        preview["on"] = False
+                    else:
+                        if jpeg is not None:
+                            preview["last"] = now
+                            on_preview(jpeg, step + 1, total)
             if should_cancel is not None and should_cancel():
                 raise Cancelled
             return cb_kwargs
@@ -577,14 +610,15 @@ class DiffusersBackend(GenerationBackend):
         # neither pipeline encodes a negative prompt at all, so nothing is saved
         # by dropping it early - `applied()` drops it so that the recorded
         # settings are honest about what ran, and it has already decided by
-        # this line.
+        # this line - including what `true_cfg` is: on FLUX the request's own
+        # separate scale, which the distilled `guidance_scale` no longer sets.
         # FLUX.2 klein takes no negative prompt at all (`negative_prompt_embeds`
         # only, and the base model's uncond pass runs against ""), so there the
         # question of a threshold never arises.
         if request.negative_prompt:
             kwargs["negative_prompt"] = request.negative_prompt
-            if "true_cfg_scale" in self._call_params:
-                kwargs["true_cfg_scale"] = request.guidance_scale
+            if self._true_cfg_supported():
+                kwargs["true_cfg_scale"] = request.true_cfg
         # mu is the whole shift, not an addition to the pipeline's own. Where
         # the scheduler shifts dynamically, override the value it is given; where
         # it does not, hand it a pre-shifted schedule - minus the *static* shift
@@ -613,6 +647,30 @@ class DiffusersBackend(GenerationBackend):
         with torch.no_grad(), self._forced_mu(pipe, mu):
             result = pipe(**kwargs)
         return list(result.images)
+
+    def _preview(self, pipe: Any, latents: Any, request: "GenerateRequest", step: int) -> bytes | None:
+        """A JPEG of the first image so far, or None when this pipeline cannot show one.
+
+        Keyed on the VAE, since the latent-to-RGB map is the VAE's; unpacked
+        through the pipeline's own helper, since the packing is the pipeline's.
+        A pipeline with no fitted map or no unpacker is not an error, and says
+        so once at DEBUG by switching the preview off through the caller.
+        """
+        if latents is None:
+            raise RuntimeError("the pipeline hands the callback no latents")
+        factors = latent_preview.factors_for(getattr(pipe, "vae", None))
+        if factors is None:
+            raise RuntimeError(f"no latent-to-RGB map for {type(getattr(pipe, 'vae', None)).__name__}")
+        latent = latent_preview.unpack(pipe, latents, request.height, request.width)
+        if latent is None:
+            raise RuntimeError(f"{type(pipe).__name__} has no _unpack_latents")
+        # The latents are at the sigma of the step just taken; the terminal 0 is
+        # the last entry, so index step + 1 is always in range.
+        try:
+            sigma = float(pipe.scheduler.sigmas[step + 1])
+        except Exception:  # noqa: BLE001 - a scheduler without sigmas: draw it plain
+            sigma = 0.0
+        return latent_preview.render(latent, factors, sigma)
 
     # ----------------------------------------------------------------- status
 
@@ -645,6 +703,7 @@ class DiffusersBackend(GenerationBackend):
             "negative_prompt_supported": (
                 "negative_prompt" in self._call_params if self._pipe is not None else None
             ),
+            "true_cfg_supported": self._true_cfg_supported() if self._pipe is not None else None,
         }
         try:
             import torch

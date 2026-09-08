@@ -22,6 +22,13 @@ greyed out whatever the CFG, rather than promising an effect that cannot happen.
 Like the threshold, it is a guess from the id until a pipeline's parameter list
 replaces it.
 
+`true_cfg_supported` says whether real CFG is a knob of its own. On FLUX.1 the
+`guidance_scale` is a value the distilled model takes as an input and the
+uncond pass is `true_cfg_scale`, a separate number; everywhere else here the
+`guidance_scale` *is* that pass. Where it is separate the threshold above is
+compared against it rather than against the guidance value, and the UI offers
+a True CFG box. A guess from the id until the parameter list answers.
+
 `hints` is the same knowledge as prose, for the UI's tooltips: what steps, CFG
 and mu mean *on this checkpoint*, which is not the same sentence twice. They are
 format strings over the profile's own numbers, so the text cannot drift from the
@@ -58,6 +65,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": 1.15,
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
+            "true_cfg_supported": False,
             "hints": {
                 "steps": (
                     "Denoising steps. Turbo is distilled to resolve in {steps}; past "
@@ -86,6 +94,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": None,
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
+            "true_cfg_supported": False,
             "hints": {
                 "steps": (
                     "Denoising steps. Raw is undistilled and wants around {steps}; well "
@@ -112,6 +121,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": None,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": False,
+            "true_cfg_supported": False,
             "hints": {
                 "steps": (
                     "Denoising steps. klein base is undistilled and wants around {steps}; "
@@ -139,6 +149,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": None,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": False,
+            "true_cfg_supported": False,
             "hints": {
                 "steps": (
                     "Denoising steps. klein is distilled to resolve in {steps}; more adds "
@@ -165,16 +176,25 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": None,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": True,
+            "true_cfg_supported": True,
             "hints": {
                 "steps": (
                     "Denoising steps. FLUX is tuned around {steps}; below about 20 it "
                     "degrades, above about 40 it gains little."
                 ),
                 "guidance_scale": (
-                    "On FLUX this is the distilled guidance value baked into the model "
-                    "({guidance_scale:g} recommended), not true CFG. A real uncond pass - "
-                    "and with it the negative prompt - only starts above "
-                    "{cfg_threshold:g}, at roughly 2x the time per step."
+                    "On FLUX this is the distilled guidance value the model takes as an "
+                    "input ({guidance_scale:g} recommended), not classifier-free "
+                    "guidance. The negative prompt is driven by True CFG, the box "
+                    "beside this one."
+                ),
+                "true_cfg": (
+                    "Real classifier-free guidance, kept apart from the guidance value: "
+                    "above {cfg_threshold:g} the pipeline runs a second, unconditioned "
+                    "pass per step against the negative prompt (~2x slower). Blank is "
+                    "off. Two ways to use it: keep {guidance_scale:g} and add a mild "
+                    "1.5, or drop the guidance value to about 1 and let 3-5 here do the "
+                    "work."
                 ),
                 "mu": (
                     "Flow-matching timestep shift. FLUX derives its own from the image "
@@ -191,6 +211,7 @@ _FALLBACK: dict[str, Any] = {
     "mu": None,
     "cfg_threshold": 1.0,
     "negative_prompt_supported": True,
+    "true_cfg_supported": False,
     "hints": {
         "steps": (
             "Denoising steps. {steps} is a safe starting point for an unrecognised "
@@ -240,17 +261,33 @@ _NEGATIVE_HINTS = {
 }
 
 
+# The True CFG box's text where the knob does not exist: every profile but
+# FLUX.1's, and any loaded pipeline whose `__call__` has no `true_cfg_scale`.
+_NO_TRUE_CFG_HINT = (
+    "Not a separate knob on this checkpoint: its CFG box is real classifier-free "
+    "guidance already, and the negative prompt follows that."
+)
+# And where a pipeline the id table did not expect turns out to have one.
+_TRUE_CFG_HINT = (
+    "Real classifier-free guidance, kept apart from the guidance value: above "
+    "{cfg_threshold:g} the pipeline runs an uncond pass per step against the negative "
+    "prompt (~2x slower). Blank is off."
+)
+
+
 def hints_for(
     model_id: str,
     cfg_threshold: float | None = None,
     negative_prompt_supported: bool | None = None,
+    true_cfg_supported: bool | None = None,
 ) -> dict[str, str]:
-    """Tooltip text for steps/CFG/mu on this checkpoint.
+    """Tooltip text for steps/CFG/mu/true CFG on this checkpoint.
 
-    `cfg_threshold` and `negative_prompt_supported` override the profile's
-    guesses with what a loaded pipeline actually exposes, so the tooltip and
-    the greyed-out negative prompt field cannot disagree about where guidance
-    switches on, or whether a negative prompt does anything at all.
+    `cfg_threshold`, `negative_prompt_supported` and `true_cfg_supported`
+    override the profile's guesses with what a loaded pipeline actually
+    exposes, so the tooltip and the greyed-out fields cannot disagree about
+    where guidance switches on, whether a negative prompt does anything at
+    all, or which box drives it.
     """
     profile = _profile_for(model_id)
     values = {k: v for k, v in profile.items() if k != "hints"}
@@ -262,4 +299,9 @@ def hints_for(
         and negative_prompt_supported != profile["negative_prompt_supported"]
     ):
         hints["guidance_scale"] = _NEGATIVE_HINTS[negative_prompt_supported]
+    separate = profile["true_cfg_supported"] if true_cfg_supported is None else true_cfg_supported
+    if not separate:
+        hints["true_cfg"] = _NO_TRUE_CFG_HINT
+    elif "true_cfg" not in hints:
+        hints["true_cfg"] = _TRUE_CFG_HINT
     return {key: text.format(**values) for key, text in hints.items()}

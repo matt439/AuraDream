@@ -31,8 +31,10 @@ class FakeBackend(GenerationBackend):
         self.loaded = loaded
         self.loads = 0
         # None: apply everything as asked, like the base class. A number: behave
-        # like a pipeline whose negative prompt switches on above it.
+        # like a pipeline whose negative prompt switches on above it - on the
+        # CFG value, or on a separate true CFG when `true_cfg_supported`.
         self.cfg_threshold = cfg_threshold
+        self.true_cfg_supported = False
         # Calls (1-based) that raise instead of rendering, and a hook run after
         # each render - for a cancel that lands after the last step.
         self.fail_on: set[int] = set()
@@ -41,7 +43,11 @@ class FakeBackend(GenerationBackend):
     def applied(self, request):
         if self.cfg_threshold is None:
             return request
-        return request.applied(negative_prompt_supported=True, cfg_threshold=self.cfg_threshold)
+        return request.applied(
+            negative_prompt_supported=True,
+            cfg_threshold=self.cfg_threshold,
+            true_cfg_supported=self.true_cfg_supported,
+        )
 
     def load(self) -> None:
         self.loads += 1
@@ -53,7 +59,7 @@ class FakeBackend(GenerationBackend):
     def is_ready(self) -> bool:
         return self.loaded
 
-    def generate(self, request, seed, on_progress=None, should_cancel=None):
+    def generate(self, request, seed, on_progress=None, should_cancel=None, on_preview=None):
         from backend.backends import Cancelled
 
         if not self.loaded:
@@ -153,23 +159,39 @@ def test_a_bare_request_takes_the_checkpoints_profile(client, fake):
     "model_id",
     ["krea/Krea-2-Turbo", "krea/Krea-2-Raw", "black-forest-labs/FLUX.1-Krea-dev", "nobody/whatever"],
 )
-def test_every_profile_explains_its_three_controls(model_id):
+def test_every_profile_explains_its_four_controls(model_id):
     # The hints are format strings over the profile's own numbers, so they can
     # never quote a value the controls are not seeded with - and a mu of None or
     # a renamed key would blow up here rather than on the first hover.
     hints = hints_for(model_id)
-    assert set(hints) == {"steps", "guidance_scale", "mu"}
+    assert set(hints) == {"steps", "guidance_scale", "mu", "true_cfg"}
     assert all(text and "{" not in text for text in hints.values())
 
 
 def test_status_hints_quote_the_loaded_pipelines_threshold(client, fake, monkeypatch):
     # Where guidance switches on is the pipeline's answer, not the id's guess.
-    # The tooltip and the greyed-out negative prompt field read the same number.
+    # The tooltip and the greyed-out negative prompt field read the same number
+    # - on the box that drives the negative prompt, which on FLUX.1 is True CFG.
     described = dict(fake.describe(), cfg_threshold=7.0)
     monkeypatch.setattr(fake, "describe", lambda: described)
     body = client.get("/api/status").json()
     assert body["defaults"]["cfg_threshold"] == 7.0
-    assert "7" in body["hints"]["guidance_scale"]
+    knob = "true_cfg" if body["defaults"]["true_cfg_supported"] else "guidance_scale"
+    assert "7" in body["hints"][knob]
+
+
+def test_status_says_whether_real_cfg_is_a_separate_knob(client, fake, monkeypatch):
+    # The profile's guess until a pipeline is loaded, then the parameter list -
+    # and the hint for the True CFG box follows the answer, so a pipeline the
+    # id table did not expect cannot show a live box under a "not a knob" tip.
+    guess = defaults_for(settings.model_id)["true_cfg_supported"]
+    body = client.get("/api/status").json()
+    assert body["defaults"]["true_cfg_supported"] is guess
+    described = dict(fake.describe(), true_cfg_supported=not guess)
+    monkeypatch.setattr(fake, "describe", lambda: described)
+    body = client.get("/api/status").json()
+    assert body["defaults"]["true_cfg_supported"] is not guess
+    assert ("Not a separate knob" in body["hints"]["true_cfg"]) is guess
 
 
 def test_status_says_whether_the_pipeline_takes_a_negative_prompt(client, fake, monkeypatch):
@@ -513,6 +535,34 @@ def test_the_preview_expands_the_same_grid_it_would_run(client):
     # Nothing in the gallery at this size yet, so it promises no duration at all
     # rather than guessing one.
     assert preview["seconds"] is None
+
+
+def test_the_preview_counts_the_cells_that_are_one_picture(client, fake):
+    # A negative-prompt variable under a CFG that never clears the pipeline's
+    # threshold: three cells on paper, one image in pixels. The preview says
+    # so before the night is spent, and the finished job counts what it made.
+    fake.cfg_threshold = 1.0
+    body = {
+        "prompt": "a lighthouse in fog",
+        "negative_prompt": "{avoid}",
+        "prompt_axis": "avoid = blurry | dark | noisy",
+        "guidance_scale": 0.5,
+        "width": 256,
+        "height": 256,
+        "seed": 1,
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert (preview["cells"], preview["duplicates"]) == (3, 2)
+    body["guidance_scale"] = 2.0
+    assert client.post("/api/grid/preview", json=body).json()["duplicates"] == 0
+    # The fake draws the same blank canvas for every cell, so the job's own
+    # count reads 1 distinct - the number an ignored axis shows up in.
+    job_id = client.post("/api/grid", json=body).json()["job_id"]
+    done = _stream(client, job_id)[-1]
+    assert (done["image_count"], done["distinct_count"]) == (3, 1)
+    assert all(len(image["content_hash"]) == 16 for image in done["images"])
+    runs = client.get("/api/runs").json()
+    assert (runs[0]["images"], runs[0]["distinct"]) == (3, 1)
 
 
 def test_a_grid_varies_the_prompt_through_its_placeholders(client, fake):

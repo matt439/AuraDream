@@ -58,10 +58,32 @@ def main() -> int:
     class DrawingBackend(FakeBackend):
         """A fake whose images carry their seed and steps as pixels."""
 
-        def generate(self, request, seed, on_progress=None, should_cancel=None):
-            images = super().generate(request, seed, on_progress, should_cancel)
+        def generate(self, request, seed, on_progress=None, should_cancel=None, on_preview=None):
+            # Drawn first, so the steps can hand out ever-sharper previews of
+            # it the way the real backend hands out latent previews.
+            out = self._draw(request, seed)
+
+            def progress(step, total):
+                if on_progress is not None:
+                    on_progress(step, total)
+                if on_preview is not None and step < total:
+                    import io
+
+                    from PIL import ImageFilter
+
+                    small = out[0].copy()
+                    small.thumbnail((256, 256))
+                    small = small.filter(ImageFilter.GaussianBlur(4 * (total - step) / total))
+                    buffer = io.BytesIO()
+                    small.save(buffer, format="JPEG", quality=70)
+                    on_preview(buffer.getvalue(), step, total)
+
+            super().generate(request, seed, progress, should_cancel)
+            return out
+
+        def _draw(self, request, seed):
             out = []
-            for offset, _ in enumerate(images):
+            for offset in range(request.num_images):
                 image = Image.new("RGB", (request.width, request.height))
                 draw = ImageDraw.Draw(image)
                 w, h = image.size
@@ -79,6 +101,16 @@ def main() -> int:
             return out
 
     fake = DrawingBackend(step_seconds=args.step)
+    # Behave as the claimed checkpoint's profile predicts: drop the negative
+    # prompt below the threshold, keep real CFG apart where FLUX.1 does. The
+    # drawing ignores the negative prompt anyway, so a grid that varies only
+    # it renders identical images - which is what the duplicate warning and
+    # the distinct count exist to show.
+    from backend.model_defaults import defaults_for
+
+    profile = defaults_for(args.model)
+    fake.cfg_threshold = profile["cfg_threshold"]
+    fake.true_cfg_supported = profile["true_cfg_supported"]
     app_main.backend = fake
     app_main.jobs = JobManager(fake, app_main.ensure_loaded)
 

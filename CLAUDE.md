@@ -37,6 +37,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
 - `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
+- `backend/latent_preview.py` — the latent-to-RGB maps the live preview
+  draws with, one per VAE, fitted on the card; see the bullet below
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata, search filters
 - `backend/main.py` — routes
@@ -48,8 +50,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   copied in from another gallery; idempotent on the UNIQUE filename
 - `web/` — served as-is from `/static`
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
-  and `browser.mjs` + `smoke.json` (headless browser over DevTools): the UI's
-  stand-in for a test suite, see Tests
+  and `browser.mjs` + `smoke.json`, `smoke-flux.json`, `smoke-preview.json`
+  (headless browser over DevTools): the UI's stand-in for a test suite, see
+  Tests
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
   `setup.sh`, `serve.sh`: running the same checkout from WSL 2
 
@@ -159,8 +162,28 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `mu` is Turbo-only. FLUX derives its own resolution-dependent shift, so forcing
   Turbo's constant on it degrades output; the profile leaves mu null there.
 - On FLUX, `guidance_scale` is a distilled conditioning value, **not** CFG - a
-  negative prompt is silently ignored unless `true_cfg_scale > 1.0`. The backend
-  sets `true_cfg_scale` from the request's CFG whenever the pipeline exposes it.
+  negative prompt is silently ignored unless `true_cfg_scale > 1.0`. **Real CFG
+  is its own request field there**, `GenerateRequest.true_cfg` (None = off):
+  the two used to be set from one number, so the only reachable states were
+  (3.5, off) and (g, g), and a negative prompt typed at 3.5 stacked guidance
+  twice. `describe()` publishes `true_cfg_supported` (`"true_cfg_scale" in
+  _call_params`; the profile guesses it from the id until then), `/api/status`
+  merges it like the threshold, and where it is True `applied()` compares the
+  threshold against `true_cfg`, not `guidance_scale`. **The recorded `true_cfg`
+  means one thing on every checkpoint: the scale the negative prompt was
+  applied at, or None** - on Krea 2/SD3/klein that is `guidance_scale` when
+  the negative prompt ran, so a column, a filter (`tcfg:`), a `_GROUPS` entry
+  and the resume key all read the same way, and a row from before the column
+  (NULL) is read through `schemas.effective_true_cfg` / `storage._TRUE_CFG_SQL`
+  as "guidance_scale if there was a negative prompt", which is what ran then.
+  `CellKey` gained the element before the seed; `grid.run_id` names a cell
+  by the old six-element key whenever `true_cfg` is None, so every existing
+  run id survives (pinned in `tests/test_grid.py`). The UI's True CFG box is
+  greyed - not hidden - where the knob does not exist, the negative prompt
+  follows whichever box decides, and Reuse fills it only on a checkpoint that
+  has it. Verified on the card 2026-09-08 (FLUX.1 Krea dev, fp8): a negative
+  prompt with no true CFG produces the byte-identical image to no negative
+  prompt; with true CFG 1.5 a different, reproducible one at ~1.65x the time.
 - **FLUX.2 [klein]** (`Flux2KleinPipeline`, in diffusers 0.40) loads through the
   same loader, but its ids contain `flux`, so `model_defaults.py` has `klein-base`
   and `klein` entries *ahead of* `flux`: distilled klein is 4 steps and ignores
@@ -568,6 +591,56 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   finished — otherwise a stream attached after the fact (a reload, or a queued
   job the cancel endpoint ended) leaves the client waiting on an event that will
   never come.
+- **Every image records a hash of its pixels** (`storage.content_hash`: 16
+  hex of the sha256 of `image.tobytes()`; column, `krea` chunk key `hash`,
+  `ImageRecord.content_hash`, `hash:` filter, and the reindex recomputes it
+  from the decoded file). It is what lets "did this axis do anything" be a
+  count: `Job.snapshot()` carries `distinct_count`, `RunSummary.distinct` is
+  `COUNT(DISTINCT content_hash)` only when every image of the run is hashed,
+  and the UI and the CLI say "only N distinct" when it is fewer than made.
+  The premise - bit-determinism through torchao's fp8 kernels with model
+  offload moving components mid-forward - was measured on 2026-09-08 rather
+  than assumed: the same request twice on FLUX.1 Krea dev is the same hash,
+  as is a negative prompt the pipeline dropped against none. The companion is
+  `grid.duplicate_count`: `GridPreview.duplicates` and the CLI's dry run
+  count the cells whose *applied* key repeats an earlier one (a
+  negative-prompt-only variable on klein, a CFG axis under the threshold),
+  compared through `backend.applied()` so the capability flags decide; the
+  cells are still rendered as spelled - dropping them would leave a `{avoid}`
+  axis with one cell of three and a sheet unable to say why.
+- **The live preview is a linear map from the latents, keyed on the VAE.**
+  `_step_end` hands `cb_kwargs["latents"]` to `latent_preview`: unpacked
+  through the pipeline's own `_unpack_latents` (FLUX's 4-arg staticmethod,
+  Krea 2's 3-arg method returning 5-D; klein has none and gets no preview),
+  multiplied by a 16x3 matrix fitted by least squares on the card from
+  pipeline-normalised latents (`(z - shift) * scale` for FLUX's
+  `AutoencoderKL`, `(z - mean) / std` for Krea 2's `AutoencoderKLQwenImage`;
+  R² 0.96 / 0.95 on real images), with a gain of `1/(1 - sigma)` because the
+  callback's latents are x_t not x_0, a 3-tap blur against the leftover
+  noise, nothing at all above sigma 0.9, and never on the last step. At most
+  one frame per 0.4 s, a ~5 KB JPEG at twice latent resolution as a data URL
+  in a `preview` SSE event. The whole thing sits in a try/except that logs
+  once and switches itself off: an exception out of that callback is how
+  `Cancelled` ends a job. `jobs.on_preview` checks `job.subscribers` **per
+  frame**, not once per cell - the browser opens its stream after the POST
+  returns, by which time an idle server is inside the first cell, and the
+  once-per-cell check skipped every first cell (found on the card, fixed).
+  The matrices cannot be validated in CI; the fit script and its date are
+  in the module docstring, and the frames were looked at.
+- **`uv.lock` carries hashes for the PyTorch wheels by hand.** The
+  `download.pytorch.org` index publishes none for torch 2.13's three wheels or
+  the Windows torchvision wheel, so `uv lock` cannot add them; the four were
+  downloaded, hashed and checked file-for-file (`RECORD`) against the Windows
+  and WSL venvs on 2026-09-08. `uv lock --check` and `--dry-run` accept the
+  edited entries; a `uv lock --upgrade` that moves torch will drop them.
+- Verified on the card 2026-09-08 beyond the above: a real Ctrl-C (SIGINT to
+  uvicorn's handler) 12 s into a load exits in 3 s with the lifespan run;
+  mid-sweep with a stream attached, `done` (cancelled) reaches the stream
+  0.2 s after the signal and the process is gone 3 s later; Pause is
+  acknowledged at the cell boundary and the card drops from 14.95 GB during
+  a 1 MP fp8 denoise to 2.1 GB held; `reindex --from` over the real gallery
+  reproduces every hash and true CFG. Not verified: `KREA_DEVICE=cuda:1` (one
+  card here).
 
 ## Adding a backend
 
@@ -594,11 +667,19 @@ gallery under the system temp dir, `--step 0.3` to make pause and queueing
 observable), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom, the sheet, the export, the re-render
-button and the panel's persistence, exiting 1 on a failed `expect`. Static
-files are served from disk, so a `web/` edit needs no server restart; a
-`backend/` edit does. The app's top-level bindings (`els`, `lbView`,
+button, the panel's persistence and the duplicate/distinct counts, exiting 1
+on a failed `expect`. `smoke-flux.json` runs against a second fake server
+claiming FLUX.1 (`--port 7862 --model black-forest-labs/FLUX.1-Krea-dev`)
+for the True CFG box, and `smoke-preview.json` against one slowed to
+`--step 0.3` on 7863 for the live preview; the fake takes the claimed
+profile's threshold and true-CFG flag so it behaves as the real one would.
+Static files are served from disk, so a `web/` edit needs no server restart;
+a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
 `sheetRecords`) are reachable from a step's `eval` because `app.js` is a
-classic script - which is also why they stay top-level.
+classic script - which is also why they stay top-level. `browser.mjs` gives
+each run its own profile directory: a shared one stays locked by an Edge a
+crashed run left behind, and every later launch then hands its command line
+to that instance and reports "the browser did not come up".
 
 ## Environment
 

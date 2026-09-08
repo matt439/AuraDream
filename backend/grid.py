@@ -66,7 +66,9 @@ PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _VARIABLE = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=(?P<values>.*)$")
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
-CellKey = tuple[str, str | None, int, float, float | None, int]
+# (prompt, negative prompt, steps, CFG, mu, true CFG, seed) - the seed last,
+# because `cell_keys` swaps it for each image of a batch.
+CellKey = tuple[str, str | None, int, float, float | None, float | None, int]
 
 
 @dataclass(frozen=True)
@@ -338,8 +340,32 @@ def cell_key(cell: "Cell") -> CellKey:
         request.steps,
         round(request.guidance_scale, 6),
         None if request.mu is None else round(request.mu, 6),
+        None if request.true_cfg is None else round(request.true_cfg, 6),
         cell.seed,
     )
+
+
+def duplicate_count(cells: list["Cell"], applied: Callable[[GenerateRequest], GenerateRequest]) -> int:
+    """How many cells would render the very same image as an earlier cell.
+
+    Compared as the pipeline will *run* them, not as the panel spelled them:
+    a `{avoid}` variable that lives in the negative prompt alone is a legal
+    three-value axis, and on a checkpoint that takes no negative prompt - or
+    under a CFG that never clears the threshold - those three cells run the
+    same prompt, steps, seed and generator and produce three identical PNGs
+    while the preview reports three prompts and triples the estimate. Counted
+    per image of a batch, like resume.
+    """
+    seen: set[CellKey] = set()
+    duplicates = 0
+    for cell in cells:
+        ran = Cell(request=applied(cell.request), seed=cell.seed)
+        for key in cell_keys(ran):
+            if key in seen:
+                duplicates += 1
+            else:
+                seen.add(key)
+    return duplicates
 
 
 def cell_keys(cell: "Cell") -> list[CellKey]:
@@ -402,14 +428,24 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
 
     Order-independent on purpose: two grids that render the same cells are the
     same run however their axes were spelled.
+
+    A cell that asks for no true CFG is named by the six-element key it
+    always was, so every grid from before the field existed - and every grid
+    that does not use it - keeps the id its images already carry; only a cell
+    that sets it gets the seventh element.
     """
     first = cells[0].request
+
+    def named(cell: Cell) -> str:
+        key = cell_key(cell)
+        return json.dumps(key if key[5] is not None else (*key[:5], key[6]))
+
     definition = {
         "model": model_id,
         "quant": quantization,
         "size": [first.width, first.height],
         "batch": first.num_images,
-        "cells": sorted(json.dumps(cell_key(cell)) for cell in cells),
+        "cells": sorted(named(cell) for cell in cells),
     }
     digest = hashlib.sha1(json.dumps(definition, sort_keys=True).encode()).hexdigest()
     return digest[:12]
@@ -483,6 +519,7 @@ def expand(
                                         ),
                                         "steps": step_count,
                                         "guidance_scale": scale,
+                                        "true_cfg": request.true_cfg,
                                         "mu": shift,
                                         "seed": seed,
                                         "runs": 1,

@@ -47,12 +47,41 @@ def test_the_png_carries_the_whole_reproduction_set(store):
     with Image.open(store.settings.outputs_dir / record.filename) as png:
         meta = json.loads(png.info["krea"])
     assert set(meta) == {
-        "prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed",
-        "model", "quantization", "job", "run", "size", "variables",
+        "prompt", "negative_prompt", "steps", "guidance_scale", "true_cfg", "mu", "seed",
+        "model", "quantization", "job", "run", "size", "variables", "hash",
     }
     assert (meta["seed"], meta["mu"], meta["run"], meta["quantization"]) == (5, 1.15, "run1", "fp8")
     assert meta["size"] == "256x256"  # the image's, not the request's
     assert meta["variables"] is None  # a plain prompt
+    assert meta["hash"] == record.content_hash and len(meta["hash"]) == 16
+
+
+def test_the_hash_is_of_the_pixels_and_finds_the_same_picture(store):
+    # Two renders that came out identical hash the same whatever their seed
+    # or file; a pixel's difference does not. `hash:` then finds every image
+    # that is the same picture, which is what "did this axis do anything"
+    # needs answered exactly rather than by eye.
+    plain = Image.new("RGB", (16, 16), (10, 20, 30))
+    other = Image.new("RGB", (16, 16), (10, 20, 31))
+    a = store.save_image(plain, GenerateRequest(prompt="x", width=256, height=256), seed=1,
+                         duration_ms=1, model_id="m")
+    b = store.save_image(plain.copy(), GenerateRequest(prompt="x", width=256, height=256), seed=2,
+                         duration_ms=1, model_id="m")
+    c = store.save_image(other, GenerateRequest(prompt="x", width=256, height=256), seed=3,
+                         duration_ms=1, model_id="m")
+    assert a.content_hash == b.content_hash != c.content_hash
+    with Image.open(store.settings.outputs_dir / a.filename) as png:
+        assert store.content_hash(png) == a.content_hash  # the file round-trips it
+    found, total = store.list_images(search=f"hash:{a.content_hash}")
+    assert total == 2 and {r.seed for r in found} == {1, 2}
+    # A run of identical images says so in one number.
+    d = store.save_image(plain, GenerateRequest(prompt="x", width=256, height=256), seed=4,
+                         duration_ms=1, model_id="m", run_id="r1")
+    e = store.save_image(plain, GenerateRequest(prompt="x", width=256, height=256), seed=5,
+                         duration_ms=1, model_id="m", run_id="r1")
+    assert (d.content_hash, e.content_hash) == (a.content_hash, a.content_hash)
+    run = store.runs()[0]
+    assert (run.run_id, run.images, run.distinct) == ("r1", 2, 1)
 
 
 def test_a_grid_cells_variables_round_trip(store):

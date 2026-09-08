@@ -16,6 +16,14 @@ needs approval first.
   WSL Nunchaku Lite re-uploads are far smaller.
 - Python 3.13 and [`uv`](https://docs.astral.sh/uv/).
 
+`uv.lock` pins every wheel by sha256, the PyTorch ones included. The
+`download.pytorch.org` index publishes no digest for the three torch 2.13
+wheels or the Windows torchvision wheel, so `uv lock` cannot add one: those
+four were downloaded, hashed and checked file-for-file against the installed
+copies (the Windows venv and the WSL one) on 2026-09-08 and written into the
+lockfile by hand. A `uv lock --upgrade` that moves torch re-resolves them from
+the index and drops the digests; re-pin the same way.
+
 ## One-time setup
 
 The Krea checkpoints and FLUX.1 Krea [dev] are **gated** HuggingFace repos; the
@@ -199,10 +207,12 @@ uv run python -m backend.generate "..." --grid-steps 6-12x2 --seed-list 4471,882
 ```
 
 Steps, CFG and mu default to the checkpoint's profile exactly as the UI's
-controls do, so the prompt is the only required argument. `--model`, `--quant`
-and `--offload` are the `KREA_*` variables under another name. `--dry-run`
-prints the resolved settings without loading the model; `--quiet` drops
-everything but one `<path>  seed <n>` line per saved image.
+controls do, so the prompt is the only required argument. `--true-cfg` is the
+panel's True CFG box (FLUX.1 only; see [Defaults by
+checkpoint](#defaults-by-checkpoint)). `--model`, `--quant` and `--offload`
+are the `KREA_*` variables under another name. `--dry-run` prints the
+resolved settings without loading the model; `--quiet` drops everything but
+one `<path>  seed <n>` line per saved image.
 
 `--from-image outputs/….png` starts from an image you already have: the
 prompt, negative prompt, size, steps, CFG, mu, seed and checkpoint come out of
@@ -260,12 +270,19 @@ The browser side has no test suite; it is checked in a real browser instead:
 ```powershell
 uv run python tools/fake_server.py          # the app on :7861, fake images, throwaway gallery
 node tools/browser.mjs tools/smoke.json     # headless Edge/Chrome through the UI; exit 1 on a failure
+uv run python tools/fake_server.py --port 7862 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-flux.json      # the True CFG box, on a FLUX-shaped server
+uv run python tools/fake_server.py --port 7863 --step 0.3
+node tools/browser.mjs tools/smoke-preview.json   # the live preview, on a server slow enough to show one
 ```
 
 The fake server draws gradients stamped with seed and steps, so grid cells can
-be told apart on a sheet, and `--step 0.3` slows each denoising step enough to
-watch Pause and the queue work. `tools/browser.mjs` needs only Node 22+ and an
-installed Edge or Chrome (`KREA_BROWSER` points at another executable).
+be told apart on a sheet, behaves as the claimed checkpoint's profile predicts
+(the negative prompt's threshold, whether real CFG is a separate knob), and
+`--step 0.3` slows each denoising step enough to watch Pause, the queue and
+the preview work. `tools/browser.mjs` needs only Node 22+ and an installed Edge
+or Chrome (`KREA_BROWSER` points at another executable); each run gets a
+profile directory of its own, so a crashed run cannot lock the next one out.
 
 ## Sizes
 
@@ -305,6 +322,14 @@ one; set it and the whole sweep is reproducible.
 the end of the current step — within a second or two — and keeps every image the
 run had already finished.
 
+**Live preview**: while a cell denoises, a small picture of it appears in the
+viewer from a few steps in - a linear read of the latents the step callback
+already carries, blurry but honest about the composition, refreshed a few
+times a second and replaced by the real image when it lands. On FLUX.1 and
+Krea 2; FLUX.2 [klein]'s pipeline gives the callback no way to unpack its
+latents, so it shows none. With Cancel landing within a step, a prompt that
+is going wrong costs five seconds rather than the render.
+
 **Pause** holds the run at the end of the current cell and hands the GPU back:
 between cells the weights are off the card under the default offload, and what
 it still holds is the allocator's cache, which is returned. The button reads
@@ -341,9 +366,13 @@ axes, the finished prompts, the image count, and once the gallery holds anything
 at that size to measure against, roughly how long and roughly how many
 gigabytes of PNG. The top bar shows the free space on the images volume, and
 the preview turns amber when the estimate is more than that: a night that
-fills the disk dies at the first save. One grid is capped at
-`KREA_MAX_GRID_IMAGES` images and each axis at 64 values, because `1-1000` is
-eight characters.
+fills the disk dies at the first save. It also counts the cells that would
+come out *identical* once the pipeline's own drops are applied - a variable
+that lives only in the negative prompt on a checkpoint that ignores it, a CFG
+axis that never clears the threshold - and says so in amber, because the run
+would otherwise spend the night rendering the same picture (`--dry-run`
+prints the same warning). One grid is capped at `KREA_MAX_GRID_IMAGES` images
+and each axis at 64 values, because `1-1000` is eight characters.
 
 ### Varying the prompt
 
@@ -400,7 +429,8 @@ the record.
 While a job runs, the line under the progress bars says how long it has been
 going and roughly how long is left, from the job's own pace so far - which is
 what shows a run that has slowed down. When it finishes, the same line says
-how many images it made and in how long. A job waiting for the weights says
+how many images it made and in how long - and how many of them were distinct
+pictures, when that is fewer. A job waiting for the weights says
 so, rather than claiming to be behind another job; **Load** in the top bar
 starts (or, after a failed load, retries) the download without queueing an
 image to do it.
@@ -435,13 +465,24 @@ plus free text:
 run:ab12cd        one grid, however many times it was resumed
 job:ab12cd        one submission of it
 seed:42           steps:6-12       cfg:<=1        model:flux      quant:fp8
+tcfg:1.5          the scale the negative prompt ran at; tcfg:none for images it did not
 mu:none           the images that ran with no shift at all — not the same as mu:0
+hash:3f9a         every image with the same pixels (a prefix of the hash will do)
 date:today        a day on your clock: today, yesterday or 2026-09-07
 a lighthouse      anything left over searches the prompt
 ```
 
 `date:` is a local day, not a UTC one: an overnight run crosses midnight in
 every timezone, and the day you mean is the one on your calendar.
+
+Every image records a hash of its *pixels* (16 hex digits of a sha256, in the
+row and in the PNG), which is the one thing the table never knew before:
+anything about what came out. So "did the mu axis change anything" is a
+count rather than a squint: the Runs picker lists a run as `96 img (48
+distinct)` when it made fewer pictures than images, the line under the panel
+says the same when a job finishes, and `hash:` finds every image identical to
+one. It rests on the pipeline being deterministic, which was checked on the
+card: the same request twice through the fp8 FLUX path is the same bytes.
 
 **Re-render** appears beside the filters whenever a search or the Favorites
 tick narrows the gallery: it renders everything the filter matches again at
@@ -520,11 +561,24 @@ Applied automatically; see `backend/model_defaults.py`.
 | FLUX.2 [klein] base 4B / 9B | 50 | 4.0 | — |
 
 A negative prompt roughly doubles generation time, because it adds a second
-forward pass per step. It takes effect above CFG 1 on FLUX, where
-`guidance_scale` is a value baked into the model and only true CFG runs an
-uncond pass, and above CFG 0 on Krea 2. FLUX.2 [klein] takes no negative prompt
-at all, and the field greys out for it. The panel's hint says which applies to
-the loaded checkpoint.
+forward pass per step. On Krea 2 it takes effect above CFG 0, on Krea 2 Raw
+likewise; FLUX.2 [klein] takes no negative prompt at all, and the field greys
+out for it.
+
+**FLUX.1 is different**: its CFG box is the *distilled guidance value* the
+model takes as an input, not classifier-free guidance, and the negative prompt
+is driven by a fourth box, **True CFG** - real CFG kept apart from the
+guidance value, blank meaning off. Above 1 the pipeline runs the second,
+unconditioned pass against the negative prompt; the two usual recipes are
+the trained 3.5 with a mild True CFG of 1.5, or the guidance value dropped to
+about 1 with True CFG doing the work at 3-5. The two used to be one number,
+which made a negative prompt typed at 3.5 stack guidance twice at double the
+cost and left the other recipe unreachable. On every other checkpoint the box
+is greyed out - its CFG *is* real CFG - and the panel's hints say which
+applies. Whatever the checkpoint, the record carries the scale the negative
+prompt actually ran at (`tcfg:` in the search box, `True CFG:` in the PNG's
+parameters line), and none when it did not; a record from before that was
+written reads as its CFG, which is what ran then.
 
 FLUX.2 [klein] (`black-forest-labs/FLUX.2-klein-4B`, Apache 2.0 and not gated;
 the 9B and the undistilled `-base-` variants likewise) loads through the same
@@ -534,7 +588,9 @@ the 9B and the undistilled `-base-` variants likewise) loads through the same
 ## Output
 
 PNGs land in `outputs/` with generation parameters written into the PNG text
-chunks (both an A1111-style `parameters` block and a `krea` JSON blob), so the
+chunks (both an A1111-style `parameters` block and a `krea` JSON blob - the
+prompt pair, size, steps, CFG, true CFG, mu, seed, checkpoint, quantization,
+the job and run ids, the variable assignment and the pixel hash), so the
 files stay self-describing outside the app. `krea.db` indexes them for search.
 
 ## Clearing history

@@ -127,7 +127,16 @@ def reindex(source: Path, dry_run: bool = False, out=sys.stdout) -> dict[str, in
             continue
         if not in_place:
             _copy_in(path, target)
-        storage.index_file(path.name, meta, width, height, _created_at(path))
+        # The hash of the pixels as decoded here, not the block's copy of it:
+        # the file is the truth, and a PNG from before the hash has no copy.
+        storage.index_file(
+            path.name,
+            meta,
+            width,
+            height,
+            _created_at(path),
+            digest=storage.content_hash(image) if image is not None else None,
+        )
         if image is not None:
             storage.thumbnail_for(image, path.name)
         present.add(path.name)

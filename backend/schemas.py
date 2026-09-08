@@ -22,6 +22,20 @@ class GenerateRequest(BaseModel):
     # validator below fills those in from `model_defaults`.
     steps: int | None = Field(default=None, ge=1, le=100)
     guidance_scale: float | None = Field(default=None, ge=0.0, le=20.0)
+    # Real classifier-free guidance on a pipeline whose `guidance_scale` is a
+    # distilled conditioning value rather than CFG - FLUX.1, where the model
+    # takes the guidance number as an input and only `true_cfg_scale > 1` runs
+    # a second, unconditioned pass against the negative prompt. The two used
+    # to be welded together (both set from `guidance_scale`), so the usual
+    # way to run a negative prompt on a dev-family FLUX - the trained 3.5
+    # embedding with a mild real CFG of 1.5, or an embedding near 1 with real
+    # CFG doing the work at 3-5 - could not be asked for, and typing a
+    # negative prompt at 3.5 silently stacked guidance twice. None is off.
+    # On a pipeline whose `guidance_scale` *is* real CFG (Krea 2, SD3, klein)
+    # the knob does not exist, and `applied()` records the CFG the negative
+    # prompt ran at here instead - so the column means one thing everywhere:
+    # the scale the negative prompt was applied at, or None when it was not.
+    true_cfg: float | None = Field(default=None, ge=1.0, le=20.0)
     # Flow-matching timestep shift. Explicit null means "no shift of ours at
     # all", which is not the same as omitting it - see _profile_defaults.
     mu: float | None = Field(default=None, ge=0.0, le=10.0)
@@ -75,6 +89,7 @@ class GenerateRequest(BaseModel):
         negative_prompt_supported: bool,
         cfg_threshold: float,
         mu_supported: bool = True,
+        true_cfg_supported: bool = False,
     ) -> "GenerateRequest":
         """This request as the pipeline will actually run it.
 
@@ -85,15 +100,47 @@ class GenerateRequest(BaseModel):
         and the resume key all describe the image that was made, not the boxes
         that were filled in, so a resume whose negative prompt the pipeline never
         saw still matches the rows it wrote, and Reuse restores what ran.
+
+        Which scale the threshold is compared against depends on the pipeline.
+        Where `true_cfg_scale` exists (FLUX.1) it is `true_cfg`, and the
+        distilled `guidance_scale` has no say in whether the negative prompt
+        runs; everywhere else `guidance_scale` is the real CFG. Either way
+        `true_cfg` comes back as the scale the negative prompt was applied at,
+        or None when it was not - one meaning for the column whatever the
+        checkpoint, which is what lets a resume compare rows across the two.
         """
         changes: dict[str, Any] = {}
-        if self.negative_prompt and (
-            not negative_prompt_supported or self.guidance_scale <= cfg_threshold
+        negative = self.negative_prompt or None
+        scale = self.true_cfg if true_cfg_supported else self.guidance_scale
+        if negative and (
+            not negative_prompt_supported or scale is None or scale <= cfg_threshold
         ):
-            changes["negative_prompt"] = None
+            negative = None
+        true_cfg = scale if negative else None
+        if negative != self.negative_prompt:
+            changes["negative_prompt"] = negative
+        if true_cfg != self.true_cfg:
+            changes["true_cfg"] = true_cfg
         if self.mu is not None and not mu_supported:
             changes["mu"] = None
         return self.model_copy(update=changes) if changes else self
+
+
+def effective_true_cfg(
+    true_cfg: float | None, negative_prompt: str | None, guidance_scale: float
+) -> float | None:
+    """The scale a *recorded* image's negative prompt ran at.
+
+    Rows written before the column existed carry NULL and a negative prompt
+    that ran at `guidance_scale` - the two knobs were one then, on every
+    pipeline - so the column is read through this rather than raw, and a
+    night from before the change resumes against the same key it would be
+    written under today. `storage._TRUE_CFG_SQL` is the same rule in SQL for
+    the paths that filter or group in the database; a test holds them equal.
+    """
+    if true_cfg is not None:
+        return true_cfg
+    return guidance_scale if negative_prompt else None
 
 
 def error_detail(exc: ValueError) -> str:
@@ -205,6 +252,12 @@ class GridPreview(BaseModel):
     # Cells dropped because the gallery already holds them; always 0 unless the
     # request asked to resume.
     skipped: int = 0
+    # Cells that will render the very same image as an earlier cell once the
+    # pipeline's own drops are applied: a negative-prompt variable on a
+    # checkpoint that takes none, a CFG axis that never clears the threshold
+    # under a negative prompt. The preview used to count them as prompts and
+    # price them into the estimate; the run spends the night on them.
+    duplicates: int = 0
     summary: str
     # Null until the gallery holds an image at this size to measure against.
     seconds: float | None = None
@@ -233,11 +286,22 @@ class ImageRecord(BaseModel):
     height: int
     steps: int
     guidance_scale: float
+    # The scale the negative prompt was applied at - FLUX.1's separate real
+    # CFG, or `guidance_scale` itself on a pipeline whose CFG is real - and
+    # None when it was not applied. Read through `effective_true_cfg`, so a
+    # row from before the column carries what actually ran.
+    true_cfg: float | None = None
     # Persisted since the first release but never served, which left the UI
     # unable to restore it - and on Turbo a different mu is a different image.
     mu: float | None = None
     seed: int
     model_id: str
+    # The first 16 hex digits of the sha256 of the decoded pixels. What the
+    # table never recorded before: anything about what came *out*. "Did the
+    # mu axis change anything" is then exact rather than a squint at 96 px
+    # cells, and a search for `hash:` finds every image identical to one.
+    # Null for rows written before it was recorded.
+    content_hash: str | None = None
     # fp8, int8, none, nunchaku: part of the reproduction set - the same seed
     # through a different quantizer is a different picture - and so part of the
     # resume key. Null for rows written before it was recorded.
@@ -265,6 +329,9 @@ class RunSummary(BaseModel):
 
     run_id: str
     images: int
+    # Distinct pixel contents among them, so a run whose axis changed nothing
+    # says so in one number. Null when any image of the run predates the hash.
+    distinct: int | None = None
     favorites: int
     prompts: int
     jobs: int

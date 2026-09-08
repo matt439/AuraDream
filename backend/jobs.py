@@ -19,6 +19,7 @@ from . import storage
 from .backends import Cancelled, GenerationBackend
 from .config import settings
 from .grid import Cell, run_id as _run_id
+from .latent_preview import data_url
 from .schemas import GenerateRequest
 from .seeds import random_seed, wrap_seed
 
@@ -144,6 +145,10 @@ class Job:
             # finished jobs has to say how much a night produced without
             # carrying the night.
             "image_count": len(self.images),
+            # How many different pictures those are. A grid whose axis the
+            # pipeline ignored - a negative-prompt variable on klein - renders
+            # the same image N times, and this is the number that says so.
+            "distinct_count": len({image.get("content_hash") for image in self.images} - {None}),
             "created_at": self.created_at,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
@@ -410,6 +415,29 @@ class JobManager:
                 },
             )
 
+        def on_preview(jpeg: bytes, step: int, total: int) -> None:
+            # A few kilobytes of JPEG as a data URL, straight into the stream:
+            # the transport to the browser is already built, and an <img> takes
+            # the string as it is. Only ever to subscribers - nothing is kept -
+            # and checked *here*, per frame: the browser opens its stream after
+            # the POST that queued the job returns, by which time an idle
+            # server is already inside the first cell, so deciding once at the
+            # cell's start would have skipped every first cell.
+            if not job.subscribers:
+                return
+            self._emit(
+                loop,
+                job,
+                {
+                    "type": "preview",
+                    "step": step,
+                    "total_steps": total,
+                    "run": job.run,
+                    "total_runs": job.total_runs,
+                    "image": data_url(jpeg),
+                },
+            )
+
         consecutive = 0
         for index, cell in enumerate(job.cells):
             if job.cancel_requested:
@@ -440,7 +468,11 @@ class JobManager:
             started = time.perf_counter()
             try:
                 images = self.backend.generate(
-                    req, seed=seed, on_progress=on_progress, should_cancel=should_cancel
+                    req,
+                    seed=seed,
+                    on_progress=on_progress,
+                    should_cancel=should_cancel,
+                    on_preview=on_preview,
                 )
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
                 self._save(job, loop, cell, images, elapsed_ms)

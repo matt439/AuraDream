@@ -6,12 +6,13 @@ in the terminal cannot drift apart - kept until now by shared code alone.
 """
 from __future__ import annotations
 
+import dataclasses
 import signal
 
 import pytest
 
 import backend.backends as backends
-from backend import config, generate
+from backend import config, generate, storage
 
 from tests.test_api import FakeBackend
 
@@ -126,6 +127,51 @@ def test_from_image_reads_the_pngs_own_record(cli, store, capsys, monkeypatch):
     assert generate.main(["--from-image", path, "--steps", "9", "--aspect", "16:9", "--dry-run"]) == 0
     out = capsys.readouterr().out
     assert "sampling : 9 steps" in out and "size     : 1360x768" in out
+
+
+def test_true_cfg_is_a_flag_where_the_checkpoint_keeps_it_apart(cli, store, monkeypatch, capsys):
+    from backend import config
+
+    flux = dataclasses.replace(store.settings, model_id="black-forest-labs/FLUX.1-Krea-dev")
+    monkeypatch.setattr(config, "settings", flux)
+    monkeypatch.setattr(storage, "settings", flux)
+    # The fake stands in for FluxPipeline's shape, as the profile predicts it.
+    cli.cfg_threshold, cli.true_cfg_supported = 1.0, True
+    # On FLUX.1 the negative prompt needs --true-cfg; --cfg is the distilled
+    # guidance value and has no say.
+    assert generate.main(["a fox", "-n", "blurry", "--cfg", "3.5", "--dry-run", *SIZE]) == 0
+    out = capsys.readouterr().out
+    assert "[ignored: True CFG is at or below 1 - set --true-cfg]" in out
+    assert generate.main(["a fox", "-n", "blurry", "--true-cfg", "1.5", "--dry-run", *SIZE]) == 0
+    out = capsys.readouterr().out
+    assert "negative : blurry\n" in out and "true CFG 1.5" in out
+    # Rendered, the record carries the real scale and --from-image reads it back.
+    assert generate.main(["a fox", "-n", "blurry", "--true-cfg", "1.5", "--seed", "3", *SIZE, "-q"]) == 0
+    path = capsys.readouterr().out.strip().split("  seed ")[0]
+    assert cli.requests[-1].true_cfg == 1.5 and cli.requests[-1].negative_prompt == "blurry"
+    assert store.list_images()[0][0].true_cfg == 1.5
+    assert generate.main(["--from-image", path, "--dry-run"]) == 0
+    assert "true CFG 1.5" in capsys.readouterr().out
+
+    # Where --cfg is real CFG already the flag is ignored and says so.
+    turbo = dataclasses.replace(store.settings, model_id="krea/Krea-2-Turbo")
+    monkeypatch.setattr(config, "settings", turbo)
+    monkeypatch.setattr(storage, "settings", turbo)
+    cli.cfg_threshold, cli.true_cfg_supported = 0.0, False
+    assert generate.main(["a fox", "--true-cfg", "3", "--dry-run", *SIZE]) == 0
+    assert "true cfg : 3  [ignored" in capsys.readouterr().out
+
+
+def test_a_dry_run_warns_about_cells_that_render_the_same_image(cli, store, capsys):
+    # A negative-prompt variable under a CFG that never clears the threshold:
+    # the cells differ on paper and not in pixels, and the warning is the
+    # cheapest place to find out.
+    cli.cfg_threshold = 1.0
+    assert generate.main([
+        "a fox", "-n", "{avoid}", "--grid-prompt", "avoid = blurry | dark | noisy",
+        "--cfg", "0.5", "--seed", "1", "--dry-run", *SIZE,
+    ]) == 0
+    assert "WARNING  : 2 of 3 image(s) would be identical" in capsys.readouterr().out
 
 
 def test_from_image_refuses_a_file_without_the_record(cli, tmp_path):

@@ -43,5 +43,22 @@
   {"wait": 500},
   {"navigate": "http://127.0.0.1:7861/"},
   {"wait": 1200},
-  {"expect": "els.prompt.value === 'remembered' && els.gridResume.checked === false"}
+  {"expect": "els.prompt.value === 'remembered' && els.gridResume.checked === false"},
+
+  {"expect": "els.trueCfg.disabled && els.trueCfgTip.textContent.includes('Not a separate knob')"},
+  {"eval": "els.cfg.value = '0'; els.cfg.oninput();"},
+  {"expect": "els.negative.disabled && els.negNote.textContent.includes('needs CFG > 0')"},
+  {"eval": "els.cfg.value = '2'; els.cfg.oninput();"},
+  {"expect": "!els.negative.disabled && collect().true_cfg === null"},
+
+  {"eval": "els.prompt.value = 'a fox'; els.negative.value = '{avoid}'; els.gridPrompt.value = 'avoid = blurry | dark | noisy'; els.gridCfg.value = '0,2'; els.gridSection.open = true; previewGrid();"},
+  {"wait": 1200},
+  {"expect": "els.gridPreview.classList.contains('warn') && els.gridPreview.textContent.includes('2 would be identical')"},
+  {"eval": "els.seed.value = '5'; startJob('/api/grid', gridPayload());"},
+  {"wait": 3000},
+  {"expect": "els.cellNote.textContent.includes('Finished 6 images') && els.cellNote.textContent.includes('Only 2 distinct')"},
+  {"eval": "loadRuns();"},
+  {"wait": 800},
+  {"expect": "[...els.runList.options].some((o) => o.textContent.includes('(2 distinct)'))"},
+  {"eval": "els.negative.value = ''; els.gridPrompt.value = ''; els.gridCfg.value = ''; els.gridSection.open = false; els.seed.value = ''; persistPanel();"}
 ]

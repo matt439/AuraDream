@@ -208,11 +208,16 @@ async def status() -> ModelStatus:
         defaults["cfg_threshold"] = info["cfg_threshold"]
     if info.get("negative_prompt_supported") is not None:
         defaults["negative_prompt_supported"] = info["negative_prompt_supported"]
+    if info.get("true_cfg_supported") is not None:
+        defaults["true_cfg_supported"] = info["true_cfg_supported"]
     return ModelStatus(
         state=state,
         defaults=defaults,
         hints=hints_for(
-            info["model_id"], defaults["cfg_threshold"], defaults["negative_prompt_supported"]
+            info["model_id"],
+            defaults["cfg_threshold"],
+            defaults["negative_prompt_supported"],
+            defaults["true_cfg_supported"],
         ),
         model_id=info["model_id"],
         quantization=info["quantization"],
@@ -275,6 +280,12 @@ async def generate(request: GenerateRequest) -> JobAccepted:
 
 async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list], int, str]:
     """The grid as cells, its resolved axes, the number resume dropped, its run id.
+
+    The cells come back as spelled, duplicates included: `preview_grid`
+    counts the cells that would render an identical image and says so, and
+    the run renders what was asked. Dropping them here would leave a
+    `{avoid}` axis on klein with one cell of three and a sheet that cannot
+    say why - the warning is the honest half, the fix is the user's grid.
 
     The axes come back from here rather than being resolved again by the
     preview, so a prompt whose placeholders do not line up with its variables
@@ -400,6 +411,9 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
                 height=request.height,
                 steps=r.steps,
                 guidance_scale=r.guidance_scale,
+                # The effective value, so a FLUX record from before the knob
+                # was separate re-renders with the real CFG it actually ran.
+                true_cfg=r.true_cfg,
                 mu=r.mu,
                 seed=r.seed,
             ),
@@ -452,6 +466,10 @@ async def preview_grid(request: GridRequest) -> GridPreview:
         cells=len(cells),
         images=images,
         skipped=skipped,
+        # As the pipeline would run them: the capability flags the status
+        # endpoint publishes, applied cell by cell, say which cells collapse
+        # into one picture before the night is spent finding out.
+        duplicates=grid.duplicate_count(cells, backend.applied),
         summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
         seconds=grid.estimate_seconds(cells, per_step_ms),
         bytes=per_image_bytes * images if per_image_bytes else None,

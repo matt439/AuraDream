@@ -17,6 +17,10 @@ if TYPE_CHECKING:
 ProgressFn = Callable[[int, int], None]
 # Polled between denoising steps; True means stop.
 CancelFn = Callable[[], bool]
+# (jpeg_bytes, completed_steps, total_steps) -> None: a rough picture of the
+# image so far, from the latents, a few times a second at most. Optional for
+# a backend to produce and for a caller to take.
+PreviewFn = Callable[[bytes, int, int], None]
 
 
 class Cancelled(Exception):
@@ -61,11 +65,14 @@ class GenerationBackend(abc.ABC):
         seed: int,
         on_progress: ProgressFn | None = None,
         should_cancel: CancelFn | None = None,
+        on_preview: PreviewFn | None = None,
     ) -> list["Image"]:
         """Run one synchronous generation. Called on a worker thread.
 
         Poll `should_cancel` at every step boundary and raise `Cancelled` when it
-        answers True.
+        answers True. `on_preview`, when given, may be handed a small JPEG of
+        the image so far between steps; a backend that cannot draw one simply
+        never calls it.
         """
 
     @abc.abstractmethod
@@ -74,9 +81,10 @@ class GenerationBackend(abc.ABC):
 
         Required keys, which `main.status()` indexes directly: `model_id`,
         `quantization`, `offload`. Optional, merged when present:
-        `cfg_threshold` and `negative_prompt_supported` (None until a pipeline
-        is loaded - the parameter list is the answer), `device_name`,
-        `vram_total_mb`, `vram_used_mb`. Load errors are *not* reported here:
+        `cfg_threshold`, `negative_prompt_supported` and `true_cfg_supported`
+        (None until a pipeline is loaded - the parameter list is the answer),
+        `device_name`, `vram_total_mb`, `vram_used_mb`. Load errors are *not*
+        reported here:
         `main.ensure_loaded` records them, and that is what `ModelStatus.detail`
         serves.
         """
