@@ -384,6 +384,19 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   non-passive; the zoom keys sit below the `input, textarea` guard. A click on
   the stage beside the image closes the lightbox only at fit: zoomed, the
   stage is a pan surface and only Escape or the cross close it.
+- **The panel persists to `localStorage`** (`krea.panel.v1`) in two phases:
+  the model-independent fields synchronously at start-up, *before* the sync
+  functions that light the presets and hints up from them, and steps/CFG/mu
+  from `refreshStatus` once the checkpoint is known - only the ones the user
+  owned, and only when the stored `model` is the loaded one. Writes come from
+  a delegated `input`/`change` listener on the panel plus explicit calls
+  after the programmatic assignments that fire no event (`choose`, `reuse`,
+  the dice, the seed written back after Run grid). Resume is never stored.
+  Every access is in try/catch; a blocked store is a page that works without
+  memory. The contact sheet's cells take the commonest aspect ratio on the
+  sheet (`--cell-aspect`, `object-fit: contain`) and carry `.fav`, toggled by
+  class from `setFavorite` - never by re-rendering, which rebuilds up to a
+  thousand `<img>` nodes per keypress.
 - **The seed axis is a count or a list.** `GridRequest.seed_axis` (the UI's
   Seed list box, the CLI's `--seed-list`, exclusive with `--grid-seeds`) goes
   through `grid.parse_seeds` - `parse_axis` with an int cast - and `expand()`

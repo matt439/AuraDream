@@ -345,13 +345,25 @@ button { font: inherit; cursor: pointer; }
    needs to, and the row heading is capped rather than eating the sheet. */
 .sheet-grid .head.text { white-space: normal; }
 .sheet-grid .rowhead.text { white-space: normal; max-width: 170px; }
+/* The cells take the run's own aspect ratio (set by renderSheet from the
+   commonest size on the sheet) and show the whole frame: `cover` centre-cropped
+   every cell to its middle 68% on a portrait run, hiding the top and bottom of
+   the composition, which is exactly what a CFG or mu axis moves. */
 .sheet-cell {
-  aspect-ratio: 1; border-radius: 6px; overflow: hidden;
+  position: relative;
+  aspect-ratio: var(--cell-aspect, 1); border-radius: 6px; overflow: hidden;
   background: var(--panel-2); border: 1px solid var(--line);
 }
-.sheet-cell img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+.sheet-cell img { width: 100%; height: 100%; object-fit: contain; display: block; cursor: zoom-in; }
 /* A hole in the matrix - a cell the run never reached, or was cancelled before. */
 .sheet-cell.empty { opacity: 0.3; }
+/* The star a card carries, so where the keepers cluster is visible on the
+   sheet rather than only in the user's head. `position: relative` above is
+   what keeps 1024 of these from piling up at the top of the page. */
+.sheet-cell.fav::after {
+  content: "★"; position: absolute; top: 3px; right: 5px;
+  color: #fbbf24; text-shadow: 0 1px 3px #000; font-size: 12px; pointer-events: none;
+}
 .ghost.small.active { color: var(--accent); border-color: var(--accent); }
 
 .card {

@@ -169,8 +169,10 @@ function choose(aspect, tier) {
   [els.width.value, els.height.value] = SIZES[aspect][tier];
   syncSize();
   // Assigning .value fires no `input`, so the grid preview - whose duration
-  // estimate is priced per size - would keep the old numbers.
+  // estimate is priced per size - would keep the old numbers, and the
+  // remembered panel would keep the old size.
   schedulePreview();
+  persistPanel();
 }
 
 function syncSize() {
@@ -270,6 +272,9 @@ async function refreshStatus() {
     const s = await api('/api/status');
     loadedModel = s.model_id ?? loadedModel;
     applyDefaults(s.defaults);
+    // After the profile, so a remembered value set on this checkpoint wins
+    // over it and a value set on another is left to the profile.
+    if (loadedModel) restoreSampling(loadedModel);
     applyHints(s.hints);
     if (s.defaults && typeof s.defaults.cfg_threshold === 'number'
         && s.defaults.cfg_threshold !== cfgThreshold) {
@@ -405,6 +410,7 @@ async function startJob(path, payload) {
     if (path === '/api/grid' && !payload.seed_axis && els.seed.value.trim() === '' && seed != null) {
       els.seed.value = seed;
       syncRuns();
+      persistPanel();
     }
     await streamJob(job_id);
   } catch (err) {
@@ -665,6 +671,69 @@ async function resumeActiveJob() {
   } catch { /* nothing running, or the server is not up yet */ }
 }
 
+// ------------------------------------------------------------------ the panel
+
+// The panel remembers itself per browser. The grid spec used to live only in
+// the DOM: continuing last night meant retyping a variable block, three axis
+// strings and a seed exactly, and an axis typed slightly differently is a
+// different grid that resume cannot match. Two phases - the model-independent
+// fields synchronously at start-up, ahead of the sync functions that light up
+// from them, and steps/CFG/mu once /api/status has named the checkpoint, and
+// only when it is the one they were set on. Resume is never remembered: a box
+// that came back ticked the next evening would silently skip cells of a grid
+// the user did not mean to continue.
+const PANEL_KEY = 'krea.panel.v1';
+const PANEL_FIELDS = [
+  'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs',
+  'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList',
+];
+let panelTimer;
+
+function persistPanel() {
+  clearTimeout(panelTimer);
+  panelTimer = setTimeout(() => {
+    const state = { gridOpen: els.gridSection.open };
+    for (const key of PANEL_FIELDS) state[key] = els[key].value;
+    // Sampling values travel with the checkpoint they were set on, and only
+    // the ones the user took off the profile - the profile itself is the
+    // server's to give back.
+    state.sampling = {
+      model: loadedModel,
+      steps: owned.steps ? els.steps.value : null,
+      cfg: owned.cfg ? els.cfg.value : null,
+      mu: owned.mu ? els.mu.value : null,
+    };
+    remember(PANEL_KEY, JSON.stringify(state));
+  }, 300);
+}
+
+function storedPanel() {
+  try { return JSON.parse(remembered(PANEL_KEY) || 'null'); } catch { return null; }
+}
+
+function restorePanel() {
+  const state = storedPanel();
+  if (!state) return;
+  for (const key of PANEL_FIELDS) {
+    if (typeof state[key] === 'string') els[key].value = state[key];
+  }
+  els.gridSection.open = !!state.gridOpen;
+  els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
+}
+
+// The second phase, from refreshStatus once the checkpoint is known.
+let samplingRestored = false;
+function restoreSampling(modelId) {
+  if (samplingRestored) return;
+  samplingRestored = true;
+  const sampling = storedPanel()?.sampling;
+  if (!sampling || sampling.model !== modelId) return;
+  for (const [key, el] of [['steps', els.steps], ['cfg', els.cfg], ['mu', els.mu]]) {
+    if (typeof sampling[key] === 'string') { el.value = sampling[key]; own(key); }
+  }
+  syncCfg();
+}
+
 // ------------------------------------------------------------ the morning after
 
 // localStorage is a per-browser convenience here and nothing more: it can be
@@ -921,6 +990,11 @@ async function setFavorite(rec, value) {
     star.textContent = value ? '★' : '☆';
     star.setAttribute('aria-label', value ? 'Unfavorite' : 'Favorite');
   });
+  // The sheet's cell too - by class, never by re-rendering the sheet, which
+  // rebuilds up to a thousand <img> nodes and resets the scroll per keypress.
+  document.querySelectorAll(`.sheet-cell[data-id="${rec.id}"]`).forEach((cell) => {
+    cell.classList.toggle('fav', value);
+  });
   if (els.lightbox.open) renderLightbox();
 }
 
@@ -980,6 +1054,7 @@ function reuse(rec) {
   syncCfg();
   syncRuns();
   schedulePreview();
+  persistPanel();
   // Steps, CFG and mu are checkpoint-specific: Turbo's 8 / 0 / 1.15 on FLUX is
   // a visibly broken image recorded under FLUX. The checkpoint is part of the
   // reproduction set as much as the seed, so say so - as a note, not a failure.
@@ -1229,6 +1304,16 @@ function renderSheet() {
   const shown = [];
   els.sheetGrid.style.gridTemplateColumns =
     `auto repeat(${colValues.length}, minmax(96px, 1fr))`;
+  // One aspect ratio for the whole sheet - size is not a sheet axis, and a
+  // free-text search can mix sizes - so the commonest one wins and the odd
+  // cell letterboxes inside it rather than being cropped.
+  const ratios = new Map();
+  for (const rec of sheetRecords) {
+    const key = `${rec.width} / ${rec.height}`;
+    ratios.set(key, (ratios.get(key) || 0) + 1);
+  }
+  const [aspect] = [...ratios.entries()].sort((a, b) => b[1] - a[1])[0] || ['1'];
+  els.sheetGrid.style.setProperty('--cell-aspect', aspect);
   els.sheetGrid.appendChild(headCell(''));
   // A prompt label is prose rather than a number, so its header is allowed to
   // wrap; nowrap would push one column out to the width of the whole phrase.
@@ -1249,7 +1334,7 @@ function renderSheet() {
     colValues.forEach((_, c) => {
       const rec = cellOf.get(r * colValues.length + c);
       const cell = document.createElement('div');
-      cell.className = rec ? 'sheet-cell' : 'sheet-cell empty';
+      cell.className = rec ? `sheet-cell${rec.favorite ? ' fav' : ''}` : 'sheet-cell empty';
       if (rec) {
         shown.push(rec);
         // `shown` is still filling, but it is the same array by the time
@@ -1480,7 +1565,7 @@ window.addEventListener('resize', layoutLightbox);
 let searchTimer;
 els.generate.onclick = generate;
 els.cancel.onclick = cancelJob;
-els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); };
+els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); persistPanel(); };
 els.unload.onclick = async () => {
   try {
     await api('/api/model/unload', { method: 'POST' });
@@ -1518,6 +1603,9 @@ els.load.onclick = async () => {
 els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
 els.width.oninput = els.height.oninput = syncSize;
+// These run before the panel's delegated persist handler on the same event -
+// the target's listener fires before its ancestors' - so the `owned` flags
+// are current by the time the panel is written.
 els.steps.oninput = () => own('steps');
 els.mu.oninput = () => own('mu');
 // The seed is not a sampling value and has no business freezing the profile.
@@ -1567,9 +1655,18 @@ document.addEventListener('keydown', (e) => {
 });
 
 buildPresets();
+// Before the sync functions, which light the presets, the CFG note and the
+// runs hint up from whatever is in the boxes.
+restorePanel();
 syncSize();
 syncCfg();
 syncRuns();
+// Every keystroke and tick in the panel, plus the programmatic writes below
+// - presets, Reuse, the dice, the seed written back after Run grid - which
+// fire no input event.
+document.querySelector('.panel').addEventListener('input', persistPanel);
+document.querySelector('.panel').addEventListener('change', persistPanel);
+els.gridSection.addEventListener('toggle', persistPanel);
 refreshStatus();
 loadGallery();
 loadRuns();

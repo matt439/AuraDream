@@ -314,6 +314,13 @@ power cut — has then finished every combination for the seeds it reached, whic
 is the comparison you wanted; the other order leaves every seed part-done and
 nothing comparable. The prompt is the next loop in, for the same reason.
 
+**The panel remembers itself** in the browser: the prompt, the size, the seed,
+the grid axes and the variable block come back after a reload or a restart,
+and steps, CFG and mu come back when the server is running the checkpoint
+they were set on. Resume is the one box that never comes back ticked - a
+resume you did not mean is a night that silently skips cells. Per browser,
+per origin, and dropped without complaint where storage is blocked.
+
 **Seed list** is the second night: the two seeds that gave the composition you
 want, crossed with a finer sweep. `4471, 8823` or `100-103` runs the whole grid
 at exactly those seeds, in place of the count and the Seed box (`--seed-list`
@@ -386,7 +393,10 @@ server keeps that for as long as it is up, and the note is shown once.
 
 **Sheet**, above the gallery, lays that run out as the grid that made it: the
 two widest-varying axes become the columns and rows, and a third becomes a
-selector rather than a dimension nobody can read. The Prompt axis is labelled
+selector rather than a dimension nobody can read. Cells take the run's own
+aspect ratio and show the whole frame, and a starred cell carries its star, so
+where the keepers cluster is visible on the sheet rather than only in your
+head. The Prompt axis is labelled
 with only the words that vary — `big grass`, `small dirt` — when every prompt
 has the same word count. A `none` value makes one prompt shorter than the
 others; the labels then keep what is left once the shared head and tail come
