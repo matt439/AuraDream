@@ -694,6 +694,46 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   once-per-cell check skipped every first cell (found on the card, fixed).
   The matrices cannot be validated in CI; the fit script and its date are
   in the module docstring, and the frames were looked at.
+- **FLUX.1 [dev], FLUX.1 [schnell] and Z-Image Turbo are in the catalogue**
+  (`launch.py`), each with a lite-infer re-upload so the nunchaku menu offers
+  them. dev is the `flux` profile as it stands. schnell has its own entry
+  *ahead of* `flux`: 4 steps, guidance 0 - its transformer has
+  `guidance_embeds: false`, so the CFG box never reaches the model and only
+  True CFG does - and a scheduler shipped `use_dynamic_shifting: false,
+  shift: 1.0`, i.e. unshifted. Z-Image Turbo is `ZImagePipeline` (6B, Qwen3
+  text encoder): 8 steps, CFG 0, and it guides from zero like Krea 2, which
+  `_GUIDES_FROM_ZERO` already covered; `z-image-turbo` sits ahead of a
+  `z-image` entry carrying the pipeline's own 50 / 5.0. It ships the FLUX
+  `AutoencoderKL` and normalises latents the FLUX way, so the fitted preview
+  matrix applies - but its latents are never packed and it has no
+  `_unpack_latents`, so `latent_preview.unpack` passes a 4-D latent through
+  and still answers None for a 3-D packed sequence with no hook (klein). Its
+  scheduler is `use_dynamic_shifting: false, shift: 3.0`: the pipeline
+  computes a resolution-dependent mu and the scheduler ignores it, so a blank
+  mu is a fixed shift of 3 (mu = ln 3) and a typed one goes through the
+  static-shift fallback and lands exactly. `test_launch.py` derives the
+  "another repo id" option number from the catalogue's length. Measured
+  2026-09-08 under Nunchaku NVFP4 on the 5080, model offload, the CLI
+  in-process with torch's peak allocated (`~/krea-local/measure.py` in WSL):
+  Z-Image Turbo 1 MP in 8 s at 4.1 GiB, 2 MP in 14.5 s at 4.6 GiB, an 11 s
+  load, and preview frames at steps 2/4/6 of 8 in the right colours; FLUX.1
+  dev 1 MP in 30 s and 2 MP in 48 s at 7.4 / 7.8 GiB; schnell 1 MP in
+  16-23 s and 2 MP in 25 s at the same peaks - most of a schnell image is the
+  per-image cost that does not scale with steps (T5 under bitsandbytes NF4,
+  the weight transfer), so it is not the speed win Z-Image is. The desktop
+  holds 5-6 GB of the card while Unreal Editor and the browsers are open, and
+  a run that lands within a gigabyte of the top spills into system RAM
+  (schnell's 2 MP read 35-45 s that way and 25 s after the baseline fell to
+  1.3 GB). **Qwen-Image is in the catalogue too** (`QwenImagePipeline`, Krea
+  2's parent: same VAE, same unpack hook, FLUX-style `true_cfg_scale`), with
+  a `qwen-image` profile - 50 steps, guidance 1.0 which the transformer
+  ignores, true CFG separate at threshold 1.0 - and **the pipeline runs its
+  uncond pass only when a negative prompt is present**, the same gate FLUX.1
+  has; the True CFG hint says to type one. Measured the same way with true
+  CFG 4 and a negative prompt: 11.75 GiB peak at 1 MP and 12.1 GiB at 2 MP,
+  78 s per 1 MP image and 152 s at 2 MP once warm (210 s for the first of a
+  session), a 22 s load, and the rows record true CFG 4 and the negative
+  prompt. Its lite-infer re-upload is 12 GB of transformer at NVFP4.
 - **`uv.lock` carries hashes for the PyTorch wheels by hand.** The
   `download.pytorch.org` index publishes none for torch 2.13's three wheels or
   the Windows torchvision wheel, so `uv lock` cannot add them; the four were

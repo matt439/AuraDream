@@ -111,8 +111,11 @@ def test_nunchaku_is_not_offered_off_linux(clean_env):
 
 
 def test_another_repo_id_can_be_typed_or_pasted(clean_env):
+    # "another repo id" is the option after the last catalogue entry, whatever
+    # the catalogue's length is this year.
+    another = str(len(launch.CHECKPOINTS) + 1)
     typed = launch.prompt(
-        ask=answers("", "8", "nobody/whatever", ""), out=io.StringIO(), env={}, linux=False
+        ask=answers("", another, "nobody/whatever", ""), out=io.StringIO(), env={}, linux=False
     )
     assert typed.model_id == "nobody/whatever"
     pasted = launch.prompt(ask=answers("", "some/repo", ""), out=io.StringIO(), env={}, linux=False)
@@ -140,7 +143,7 @@ def test_eof_at_the_repo_id_prompt_takes_the_default(clean_env):
         if len(calls) == 1:
             return ""  # quant
         if len(calls) == 2:
-            return "8"  # another repo id
+            return str(len(launch.CHECKPOINTS) + 1)  # another repo id
         raise EOFError
 
     choice = launch.prompt(ask=ask, out=io.StringIO(), env={}, linux=False)

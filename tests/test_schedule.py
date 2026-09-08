@@ -225,6 +225,53 @@ def test_a_preview_is_drawn_from_the_callbacks_latents(monkeypatch):
         assert frame.size == (32 * latent_preview.UPSCALE, 32 * latent_preview.UPSCALE)
 
 
+class UnpackedPipeline(PreviewingPipeline):
+    """Z-Image's shape: no `_unpack_latents` at all, and the callback's latents
+    already (batch, channels, h, w) in the FLUX VAE's space."""
+
+    _unpack_latents = None
+
+    def __call__(self, prompt, width, height, num_inference_steps, guidance_scale,
+                 num_images_per_prompt, generator, callback_on_step_end, sigmas=None,
+                 negative_prompt=None):
+        import torch
+        from diffusers.pipelines.krea2.pipeline_krea2 import retrieve_timesteps
+
+        ramp = np.linspace(1.0, 1 / num_inference_steps, num_inference_steps)
+        retrieve_timesteps(self.scheduler, num_inference_steps, None, sigmas=ramp, mu=self.own_mu)
+        latents = torch.randn(1, 16, height // 8, width // 8, generator=torch.Generator().manual_seed(0))
+        for step in range(num_inference_steps):
+            self.steps_run += 1
+            callback_on_step_end(self, step, None, {"latents": latents})
+        image = Image.new("RGB", (width, height))
+        return type("Result", (), {"images": [image] * num_images_per_prompt})()
+
+
+def test_unpacked_latents_preview_without_a_hook_but_a_packed_sequence_does_not(monkeypatch):
+    from backend import latent_preview
+
+    monkeypatch.setattr(latent_preview, "INTERVAL_SECONDS", 0.0)
+    scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
+    backend, pipe = DiffusersBackend(), UnpackedPipeline(scheduler)
+    backend._pipe = pipe
+    backend._call_params = set(inspect.signature(pipe.__call__).parameters)
+    frames = []
+    backend.generate(_request(), seed=1, on_preview=lambda jpeg, step, total: frames.append(jpeg))
+    assert frames, "Z-Image's unpacked latents need no hook"
+    with Image.open(__import__("io").BytesIO(frames[-1])) as frame:
+        assert frame.size == (32 * latent_preview.UPSCALE, 32 * latent_preview.UPSCALE)
+
+    # klein: a packed sequence and no hook to unpack it with. Three dimensions
+    # are not a picture, and the cell must not pay for the attempt.
+    backend, pipe = DiffusersBackend(), PreviewingPipeline(scheduler)
+    pipe._unpack_latents = None
+    backend._pipe = pipe
+    backend._call_params = set(inspect.signature(pipe.__call__).parameters)
+    frames = []
+    images = backend.generate(_request(), seed=1, on_preview=lambda *a: frames.append(a))
+    assert frames == [] and len(images) == 1 and pipe.steps_run == STEPS
+
+
 def test_a_broken_preview_costs_a_picture_not_the_cell(monkeypatch):
     from backend import latent_preview
 

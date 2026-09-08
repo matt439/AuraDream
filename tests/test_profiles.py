@@ -30,7 +30,14 @@ CASES = [
     ("krea/Krea-2-Raw", "Krea2Pipeline"),
     ("black-forest-labs/FLUX.2-klein-4B", "Flux2KleinPipeline"),
     ("black-forest-labs/FLUX.2-klein-base-4B", "Flux2KleinPipeline"),
+    ("black-forest-labs/FLUX.1-dev", "FluxPipeline"),
+    ("black-forest-labs/FLUX.1-schnell", "FluxPipeline"),
+    ("Tongyi-MAI/Z-Image-Turbo", "ZImagePipeline"),
+    ("Qwen/Qwen-Image", "QwenImagePipeline"),
 ]
+
+SCHNELL_LITE = "lite-infer/flux.1-schnell-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
+Z_IMAGE_LITE = "lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
 
 
 def _loaded_like(class_name: str) -> DiffusersBackend:
@@ -51,6 +58,32 @@ def test_the_profile_guess_matches_the_real_pipeline(model_id, class_name):
     assert ("negative_prompt" in backend._call_params) is profile["negative_prompt_supported"]
     # And every family has what load() insists on.
     assert module._REQUIRED_PARAMS <= backend._call_params
+
+
+def test_the_distilled_variants_beat_their_family_token():
+    # The table is first-match and the ids carry the family's token too:
+    # schnell at the flux profile's 28 steps, or Z-Image Turbo at the
+    # ZImagePipeline's own 50, is the mistake the table exists to prevent -
+    # on the official id and on the lite-infer re-upload alike.
+    for repo in ("black-forest-labs/FLUX.1-schnell", SCHNELL_LITE):
+        profile = defaults_for(repo)
+        assert (profile["steps"], profile["guidance_scale"]) == (4, 0.0), repo
+        assert profile["true_cfg_supported"], "the FluxPipeline knob is still there"
+    assert defaults_for("black-forest-labs/FLUX.1-dev")["steps"] == 28
+    for repo in ("Tongyi-MAI/Z-Image-Turbo", Z_IMAGE_LITE):
+        profile = defaults_for(repo)
+        assert (profile["steps"], profile["guidance_scale"]) == (8, 0.0), repo
+        assert profile["cfg_threshold"] == 0.0, "ZImagePipeline guides from zero"
+    # Qwen-Image's uncond pass is `true_cfg_scale`, as on FLUX.1, and the
+    # controls have to know it is a separate knob before the weights arrive.
+    qwen = defaults_for("lite-infer/Qwen-Image-nunchaku-lite-nvfp4_r32-bnb4-text-encoder")
+    assert qwen["true_cfg_supported"] and qwen["steps"] == 50
+    assert "true_cfg_scale" in inspect.signature(diffusers.QwenImagePipeline.__call__).parameters
+    # The undistilled family entry is the pipeline's own signature defaults.
+    params = inspect.signature(diffusers.ZImagePipeline.__call__).parameters
+    base = defaults_for("Tongyi-MAI/Z-Image")
+    assert base["steps"] == params["num_inference_steps"].default
+    assert base["guidance_scale"] == params["guidance_scale"].default
 
 
 def test_every_catalogue_entry_has_a_profile():

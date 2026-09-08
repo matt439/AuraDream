@@ -76,6 +76,20 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "Krea 2 Turbo", "krea/Krea-2-Turbo", "manual approval", _LITE.format(stem="krea-2-turbo")
     ),
     Checkpoint("Krea 2 Raw", "krea/Krea-2-Raw", "manual approval"),
+    # The same pipeline as FLUX.1 Krea; dev is the base the LoRA ecosystem
+    # targets, schnell its 4-step Apache-licensed sibling.
+    Checkpoint(
+        "FLUX.1 [dev]",
+        "black-forest-labs/FLUX.1-dev",
+        "click-through gate",
+        _LITE.format(stem="flux.1-dev"),
+    ),
+    Checkpoint(
+        "FLUX.1 [schnell]",
+        "black-forest-labs/FLUX.1-schnell",
+        "open",
+        _LITE.format(stem="flux.1-schnell"),
+    ),
     Checkpoint(
         "FLUX.2 [klein] 4B",
         "black-forest-labs/FLUX.2-klein-4B",
@@ -90,6 +104,22 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
     ),
     Checkpoint("FLUX.2 [klein] base 4B", "black-forest-labs/FLUX.2-klein-base-4B", "open"),
     Checkpoint("FLUX.2 [klein] base 9B", "black-forest-labs/FLUX.2-klein-base-9B", "open"),
+    # 6B, 8 steps, guides from zero like Krea 2; the FLUX VAE, so the live
+    # preview's matrix applies.
+    Checkpoint(
+        "Z-Image Turbo",
+        "Tongyi-MAI/Z-Image-Turbo",
+        "open",
+        _LITE.format(stem="z-image-turbo"),
+    ),
+    # 20B, Krea 2's parent; 50 steps with true CFG. Only the 4-bit re-upload
+    # fits this card, and only just: ~12 GiB peak and about 80 s per 1 MP image.
+    Checkpoint(
+        "Qwen-Image",
+        "Qwen/Qwen-Image",
+        "open",
+        _LITE.format(stem="Qwen-Image"),
+    ),
 )
 
 # What config.py falls back to, from the one module both may import - importing

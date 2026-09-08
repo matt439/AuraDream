@@ -117,12 +117,15 @@ def unpack(pipe: Any, latents: Any, height: int, width: int) -> Any:
     callback carries.
 
     Not one API: FLUX's `_unpack_latents` is a 4-argument staticmethod, Krea
-    2's a 3-argument method returning a 5-D video-shaped tensor. A pipeline
-    without one (klein) gets no preview.
+    2's a 3-argument method returning a 5-D video-shaped tensor, and Z-Image
+    has none because its latents are never packed - the callback already
+    carries (batch, channels, h, w), in the FLUX VAE's space. A pipeline with
+    no hook whose latents are a packed sequence (klein) gets no preview: three
+    dimensions are not a picture.
     """
     fn = getattr(pipe, "_unpack_latents", None)
     if fn is None:
-        return None
+        return latents[0] if getattr(latents, "dim", lambda: 0)() == 4 else None
     params = inspect.signature(fn).parameters
     if "vae_scale_factor" in params:
         out = fn(latents, height, width, pipe.vae_scale_factor)

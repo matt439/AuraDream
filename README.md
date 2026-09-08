@@ -26,10 +26,10 @@ the index and drops the digests; re-pin the same way.
 
 ## One-time setup
 
-The Krea checkpoints and FLUX.1 Krea [dev] are **gated** HuggingFace repos; the
-four FLUX.2 [klein] repos are open and need no login (Apache 2.0, and the
-cheapest thing here to try first - 4 steps, ~3 GiB peak). For the gated ones,
-log in first:
+The Krea checkpoints, FLUX.1 Krea [dev] and FLUX.1 [dev] are **gated**
+HuggingFace repos; the four FLUX.2 [klein] repos, FLUX.1 [schnell], Z-Image
+Turbo and Qwen-Image are open and need no login (Apache 2.0; klein is the cheapest thing here
+to try first - 4 steps, ~3 GiB peak). For the gated ones, log in first:
 
 ```powershell
 uv run hf auth login          # paste a read token from hf.co/settings/tokens
@@ -147,6 +147,9 @@ and sets `KREA_QUANT=nunchaku` with a pre-quantized checkpoint:
 | `lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (default) | RTX 50 |
 | `lite-infer/flux.1-krea-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` | RTX 50 |
 | `lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (also `9b`) | RTX 50 |
+| `lite-infer/flux.1-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (also `flux.1-schnell`) | RTX 50 |
+| `lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` | RTX 50 |
+| `lite-infer/Qwen-Image-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (12 GiB peak) | RTX 50 |
 | the same names with `int4` in place of `nvfp4` | RTX 20–40 |
 
 These are the official weights re-uploaded pre-quantized, and not gated. Any
@@ -603,6 +606,10 @@ Applied automatically; see `backend/model_defaults.py`.
 | FLUX.1 Krea [dev] | 28 | 3.5 | — |
 | FLUX.2 [klein] 4B / 9B | 4 | 1.0 (ignored) | — |
 | FLUX.2 [klein] base 4B / 9B | 50 | 4.0 | — |
+| FLUX.1 [dev] | 28 | 3.5 | — |
+| FLUX.1 [schnell] | 4 | 0.0 (ignored) | — |
+| Z-Image Turbo | 8 | 0.0 | — |
+| Qwen-Image | 50 | 1.0 (ignored; True CFG 4) | — |
 
 A negative prompt roughly doubles generation time, because it adds a second
 forward pass per step. On Krea 2 it takes effect above CFG 0, on Krea 2 Raw
@@ -628,6 +635,38 @@ FLUX.2 [klein] (`black-forest-labs/FLUX.2-klein-4B`, Apache 2.0 and not gated;
 the 9B and the undistilled `-base-` variants likewise) loads through the same
 `KREA_MODEL_ID`. It is a 4-step model with an 8 GB Qwen3 text encoder, so under
 `KREA_QUANT=fp8` the 4B fits with room to spare.
+
+FLUX.1 [dev] and FLUX.1 [schnell] (`black-forest-labs/FLUX.1-dev`, gated under
+the FLUX.1 non-commercial licence; `black-forest-labs/FLUX.1-schnell`, Apache
+2.0 and open) are FLUX.1 Krea's own pipeline, so everything said about it above
+holds - the CFG box is the distilled guidance value and True CFG drives the
+negative prompt. schnell's transformer has no guidance input at all, so there
+the CFG box does nothing and only True CFG, blank by default, ever reaches the
+model; it resolves in 4 steps. Measured under Nunchaku NVFP4 on the 5080,
+model offload: dev 1 MP in 30 s and 2 MP in 48 s at 7.4 / 7.8 GiB peak;
+schnell 1 MP in 16-23 s and 2 MP in 25 s at the same peaks. Most of a
+schnell image is the per-image cost that does not scale with steps - the text
+encoders under bitsandbytes NF4 and the weight transfer - so it is not the
+speed win here that Z-Image Turbo is.
+
+Z-Image Turbo (`Tongyi-MAI/Z-Image-Turbo`, Apache 2.0 and open) is a 6B
+model that resolves in 8 steps and, like Krea 2, guides from 0 up, so any CFG
+above 0 brings the negative prompt in. It ships the FLUX VAE, so the live
+preview works for it unchanged. Measured under Nunchaku NVFP4 on the 5080
+(`lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder`): 1 MP
+in about 8 s at 4.1 GiB peak, 2 MP in about 14.5 s at 4.6 GiB, an 11 s load
+from cache.
+
+Qwen-Image (`Qwen/Qwen-Image`, Apache 2.0 and open) is the 20B model Krea 2
+was built from: the same VAE, so the live preview works, and FLUX.1's
+arrangement of the controls - the CFG box never reaches the transformer and
+True CFG drives the negative prompt, which the pipeline runs **only when a
+negative prompt is given**, so type one (a word will do). It wants 50 steps at
+True CFG 4. Only the 4-bit re-upload fits this card, and only just: measured
+under Nunchaku NVFP4 on the 5080
+(`lite-infer/Qwen-Image-nunchaku-lite-nvfp4_r32-bnb4-text-encoder`, 12 GB of
+transformer), 11.75 GiB peak at 1 MP and 12.1 GiB at 2 MP, about 80 s per
+1 MP image and 150 s at 2 MP once warm, 210 s for the first of a session.
 
 ## Output
 

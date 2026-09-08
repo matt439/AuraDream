@@ -4,6 +4,10 @@ Pipeline signatures do carry defaults, but they describe the *family* rather tha
 the distilled variant: `Krea2Pipeline` reports 28 steps at CFG 4.5, which suits
 Krea 2 Raw and is badly wrong for Turbo (8 steps, CFG 0). So key off the id.
 
+The table is first-match, so a distilled variant whose id also contains its
+family's token (klein before flux, schnell before flux, Z-Image Turbo before
+Z-Image) sits ahead of it.
+
 `mu` is deliberately None outside Turbo. It is Krea's flow-shift knob, applied
 by overriding the shift the pipeline would otherwise derive for itself; FLUX
 derives a resolution-dependent one, and replacing it with Turbo's constant
@@ -179,6 +183,42 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             },
         },
     ),
+    # And schnell must precede "flux": the id is FLUX.1-schnell. Its transformer
+    # has no guidance input at all, so the CFG box is decorative there and only
+    # True CFG does anything.
+    (
+        "schnell",
+        {
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "mu": None,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": True,
+            "hints": {
+                "steps": (
+                    "Denoising steps. schnell is distilled to resolve in {steps}; more adds "
+                    "time, not detail."
+                ),
+                "guidance_scale": (
+                    "Ignored on schnell: its transformer has no guidance input, so this "
+                    "number never reaches the model. Leave it at {guidance_scale:g}. The "
+                    "negative prompt is driven by True CFG, the box beside this one."
+                ),
+                "true_cfg": (
+                    "Real classifier-free guidance on a 4-step model: above "
+                    "{cfg_threshold:g} the pipeline runs a second, unconditioned pass per "
+                    "step against the negative prompt (~2x slower). Blank is off, which "
+                    "is how schnell is meant to run."
+                ),
+                "mu": (
+                    "Flow-matching timestep shift. Leave blank: schnell's 4-step schedule "
+                    "is not shifted, and a value here overrides it outright."
+                ),
+            },
+        },
+    ),
     (
         "flux",
         {
@@ -213,6 +253,108 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
                     "resolution, and forcing a constant over it degrades the result: "
                     "leave this blank."
                 ),
+            },
+        },
+    ),
+]
+# Qwen-Image is Krea 2's parent and looks like FLUX.1 to the controls: the
+# transformer takes no guidance input, and the uncond pass is `true_cfg_scale`
+# - which the pipeline only runs when a negative prompt is present.
+_PROFILES.append(
+    (
+        "qwen-image",
+        {
+            "steps": 50,
+            "guidance_scale": 1.0,
+            "mu": None,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": True,
+            "hints": {
+                "steps": (
+                    "Denoising steps. Qwen-Image is undistilled and wants around {steps}; "
+                    "well below that it stays soft."
+                ),
+                "guidance_scale": (
+                    "Ignored on Qwen-Image: its transformer has no guidance input, so this "
+                    "number never reaches the model. Leave it at {guidance_scale:g}. The "
+                    "negative prompt is driven by True CFG, the box beside this one."
+                ),
+                "true_cfg": (
+                    "Real classifier-free guidance, which this checkpoint is meant to be "
+                    "sampled with - about 4 - and which the pipeline runs only when a "
+                    "negative prompt is given, so type one (a word will do). Above "
+                    "{cfg_threshold:g} it costs a second pass per step (~2x slower); "
+                    "blank is off, and unguided Qwen-Image is noticeably worse."
+                ),
+                "mu": (
+                    "Flow-matching timestep shift. Qwen-Image derives its own from the "
+                    "image size, and a value here overrides it outright; leave this blank."
+                ),
+            },
+        },
+    )
+)
+
+# Z-Image Turbo before the undistilled family entry, which carries the
+# ZImagePipeline's own defaults. Both guide from zero, like Krea 2. The
+# pipeline computes a resolution-dependent mu and hands it to a scheduler
+# shipped with `use_dynamic_shifting: false, shift: 3.0`, which ignores it:
+# the shift that lands is the constant 3, i.e. mu = ln 3. A requested mu goes
+# through the backend's static-shift fallback and replaces it exactly.
+_Z_IMAGE_MU_HINT = (
+    "Flow-matching timestep shift. Z-Image ships a fixed shift of 3 (a mu of "
+    "1.10) and its scheduler ignores the value the pipeline derives from the "
+    "image size; a number here replaces that shift outright. Leave blank."
+)
+_PROFILES += [
+    (
+        "z-image-turbo",
+        {
+            "steps": 8,
+            "guidance_scale": 0.0,
+            "mu": None,
+            "cfg_threshold": 0.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": False,
+            "hints": {
+                "steps": (
+                    "Denoising steps. Z-Image Turbo is distilled to resolve in {steps}; "
+                    "more adds time, not detail."
+                ),
+                "guidance_scale": (
+                    "Classifier-free guidance. Turbo is trained for {guidance_scale:g}. "
+                    "This pipeline guides from 0 up, so anything above {cfg_threshold:g} "
+                    "brings the negative prompt in and adds an uncond pass per step "
+                    "(~2x slower)."
+                ),
+                "mu": _Z_IMAGE_MU_HINT,
+            },
+        },
+    ),
+    (
+        "z-image",
+        {
+            "steps": 50,
+            "guidance_scale": 5.0,
+            "mu": None,
+            "cfg_threshold": 0.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": False,
+            "hints": {
+                "steps": (
+                    "Denoising steps. The undistilled Z-Image wants around {steps}; well "
+                    "below that it stays soft."
+                ),
+                "guidance_scale": (
+                    "Classifier-free guidance, {guidance_scale:g} recommended. Z-Image "
+                    "guides from 0 up, so any value above {cfg_threshold:g} uses the "
+                    "negative prompt and costs an uncond pass per step (~2x slower)."
+                ),
+                "mu": _Z_IMAGE_MU_HINT,
             },
         },
     ),
