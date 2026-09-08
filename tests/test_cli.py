@@ -1,7 +1,7 @@
 """The headless path, end to end with a backend that draws nothing.
 
-It is the other writer into the same gallery, and CLAUDE.md's reason for its
-duplicated sweep loop ends with a promise - a cell in the browser and a cell
+It is the other writer into the same gallery, and the design notes' reason for
+its duplicated sweep loop ends with a promise - a cell in the browser and a cell
 in the terminal cannot drift apart - kept until now by shared code alone.
 """
 from __future__ import annotations
