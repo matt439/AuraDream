@@ -93,6 +93,13 @@ Model and loader:
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
   `KREA_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
+- `_UNUSED_COMPONENTS` names what a pipeline lists but the backend never runs
+  (ERNIE-Image's prompt rewriter). `load()` reads `model_index.json` ahead of
+  the weights and hands them as None to the *concrete* class's
+  `from_pretrained`, which keeps them out of the download and the load; the
+  base class takes `pe=None` for a pipeline kwarg and pulls the 7.7 GB.
+  `generate()` sets `use_pe=False` wherever the switch exists. The tests'
+  conftest refuses `_hub_file` for every test; one that needs an index stubs it.
 
 Schedule and guidance:
 
@@ -113,8 +120,9 @@ Schedule and guidance:
   every checkpoint.
 - `model_defaults._PROFILES` is first-match on the id, so a distilled variant
   sits ahead of its family's token (klein and schnell before flux, z-image-turbo
-  before z-image); a catalogue entry that reaches the fallback is a test
-  failure. Steps, CFG and mu are the checkpoint's; `mu` is Turbo's alone.
+  before z-image, ernie-image-turbo before ernie-image); a catalogue entry
+  that reaches the fallback is a test failure. Steps, CFG and mu are the
+  checkpoint's; `mu` is Turbo's alone.
 
 Reproduction:
 
@@ -138,6 +146,9 @@ Reproduction:
 - Reference images are gallery ids, never paths. A LoRA is a bare name that
   only `loras.py` turns into a path, `.safetensors` only, and it is
   hot-swapped in `generate()`, never baked into `load()`.
+- Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
+  within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
+  the fp8 path's guarantee only; `docs/verified.md` has the numbers.
 
 Jobs:
 

@@ -120,6 +120,16 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open",
         _LITE.format(stem="Qwen-Image"),
     ),
+    # 8B single-stream DiT from Baidu, distilled like Z-Image Turbo: 8 steps
+    # at guidance 1.0 under the classic `> 1` gate. Its repo carries a 7.7 GB
+    # prompt rewriter the loader leaves out. FLUX.2's VAE, so no preview map
+    # yet. lite-infer's name has no rank suffix, hence not `_LITE`.
+    Checkpoint(
+        "ERNIE-Image Turbo",
+        "baidu/ERNIE-Image-Turbo",
+        "open",
+        "lite-infer/ERNIE-Image-Turbo-nunchaku-lite-{fmt}-bnb4-text-encoder",
+    ),
 )
 
 # What config.py falls back to, from the one module both may import - importing

@@ -29,6 +29,7 @@ if [ "$KREA_QUANT" = "nunchaku" ]; then
   _krea_fmt="${KREA_NUNCHAKU_FORMAT:-nvfp4}"
   export KREA_MODEL_ID="${KREA_MODEL_ID:-lite-infer/krea-2-turbo-nunchaku-lite-${_krea_fmt}_r32-bnb4-text-encoder}"
   # FLUX.1 Krea dev:  lite-infer/flux.1-krea-dev-nunchaku-lite-${_krea_fmt}_r32-bnb4-text-encoder
+  # ERNIE-Image Turbo: lite-infer/ERNIE-Image-Turbo-nunchaku-lite-${_krea_fmt}-bnb4-text-encoder (no _r32)
   unset _krea_fmt
 fi
 

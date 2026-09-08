@@ -28,7 +28,7 @@ the index and drops the digests; re-pin the same way.
 
 The Krea checkpoints, FLUX.1 Krea [dev] and FLUX.1 [dev] are **gated**
 HuggingFace repos; the four FLUX.2 [klein] repos, FLUX.1 [schnell], Z-Image
-Turbo and Qwen-Image are open and need no login (Apache 2.0; klein is the cheapest thing here
+Turbo, Qwen-Image and ERNIE-Image Turbo are open and need no login (Apache 2.0; klein is the cheapest thing here
 to try first - 4 steps, ~3 GiB peak). For the gated ones, log in first:
 
 ```powershell
@@ -150,6 +150,7 @@ and sets `KREA_QUANT=nunchaku` with a pre-quantized checkpoint:
 | `lite-infer/flux.1-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (also `flux.1-schnell`) | RTX 50 |
 | `lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` | RTX 50 |
 | `lite-infer/Qwen-Image-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (12 GiB peak) | RTX 50 |
+| `lite-infer/ERNIE-Image-Turbo-nunchaku-lite-nvfp4-bnb4-text-encoder` (no `_r32`; the loader skips its `pe/`) | RTX 50 |
 | the same names with `int4` in place of `nvfp4` | RTX 20–40 |
 
 These are the official weights re-uploaded pre-quantized, and not gated. Any
@@ -610,6 +611,7 @@ Applied automatically; see `backend/model_defaults.py`.
 | FLUX.1 [schnell] | 4 | 0.0 (ignored) | — |
 | Z-Image Turbo | 8 | 0.0 | — |
 | Qwen-Image | 50 | 1.0 (ignored; True CFG 4) | — |
+| ERNIE-Image Turbo | 8 | 1.0 | — |
 
 A negative prompt roughly doubles generation time, because it adds a second
 forward pass per step. On Krea 2 it takes effect above CFG 0, on Krea 2 Raw
@@ -667,6 +669,25 @@ under Nunchaku NVFP4 on the 5080
 (`lite-infer/Qwen-Image-nunchaku-lite-nvfp4_r32-bnb4-text-encoder`, 12 GB of
 transformer), 11.75 GiB peak at 1 MP and 12.1 GiB at 2 MP, about 80 s per
 1 MP image and 150 s at 2 MP once warm, 210 s for the first of a session.
+
+ERNIE-Image Turbo (`baidu/ERNIE-Image-Turbo`, Apache 2.0 and open) is Baidu's
+8B single-stream model, distilled to 8 steps at guidance 1.0 under the classic
+gate: a negative prompt applies above CFG 1, and there is no True CFG knob. Its
+repo ships a 7.7 GB prompt rewriter that would sample a longer prompt before
+every image; the loader leaves it out and turns the switch off, so the prompt
+you type is the prompt the model sees and the seed brings the image back. The
+pipeline takes no schedule from outside, so a mu is dropped and recorded as
+dropped, and it uses FLUX.2's VAE, for which no live-preview map has been
+fitted yet. Baidu lists 1 MP shapes only, but 2 MP and 4 MP render. Measured
+under Nunchaku NVFP4 on the 5080
+(`lite-infer/ERNIE-Image-Turbo-nunchaku-lite-nvfp4-bnb4-text-encoder`), with
+Z-Image Turbo re-measured the same evening: 1 MP in about 10 s at 5.2 GiB
+peak (Z-Image 10.6 s at 4.1 GiB), 2 MP in 24 s at 5.9 GiB (Z-Image 13 s at
+4.6 GiB), a 4 MP pair in one call in 49 s at 10.3 GiB allocated and 12.0 GiB
+reserved (Z-Image 23.5 s, 7.4 / 11.8 GiB); about 22 s to load. Under Nunchaku
+a seed does not reproduce bit-for-bit on any checkpoint, and on ERNIE two runs
+of the same seed differ visibly rather than in noise; the fp8 path on Windows
+reproduces.
 
 ## Output
 

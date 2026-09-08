@@ -854,6 +854,71 @@ CFG 4 and a negative prompt: 11.75 GiB peak at 1 MP and 12.1 GiB at 2 MP,
 session), a 22 s load, and the rows record true CFG 4 and the negative
 prompt. Its lite-infer re-upload is 12 GB of transformer at NVFP4.
 
+## ERNIE-Image Turbo: the prompt rewriter, and a mu with no way in
+
+**ERNIE-Image Turbo is in the catalogue** (`baidu/ERNIE-Image-Turbo`,
+`ErnieImagePipeline` in diffusers 0.40; Baidu's 8B single-stream DiT, Apache
+2.0), with lite-infer's re-upload - named without the `_r32` the other lite
+ids carry, so the entry spells its id out instead of using `_LITE`. The
+profile is `ernie-image-turbo` ahead of an `ernie-image` family entry at the
+pipeline's own 50 / 4.0: 8 steps at guidance 1.0. Its
+`do_classifier_free_guidance` is the classic `> 1.0`, so `cfg_threshold()`'s
+else-branch answers 1.0 with no change to `_GUIDES_FROM_ZERO`; it takes a
+`negative_prompt` and no `true_cfg_scale`, so to the controls it is klein
+with the negative prompt back. **Its repo carries a prompt rewriter**: `pe`,
+a 7.7 GB bf16 Ministral 3B with its own tokenizer, in the class's
+`_optional_components`, and `__call__` defaults `use_pe=True`, under which
+every prompt is rewritten by `pe.generate(do_sample=True, temperature=0.6)`
+before it is encoded. The recorded prompt would not be the one the model saw
+and the seed would not bring the image back, so `_UNUSED_COMPONENTS` maps
+the class name to the two components and `load()` reads `model_index.json`
+ahead of the weights (`_unused_components`) to pass `pe=None,
+pe_tokenizer=None` - **to the concrete class named by the index**, not to
+`DiffusionPipeline`. The base class resolves the same class from the same
+file, but `_get_signature_keys` is a classmethod that reads
+`cls._optional_components`, which on the base is empty: through it `pe`
+is not an expected module, `pe=None` becomes a pipeline kwarg, `download()`
+never filters `pe/` out and the loop loads the model - seen on the card
+(7.7 GB pulled at load, 11 GB of RAM taken, never called) before the switch.
+Through `ErnieImagePipeline.from_pretrained` the two are passed components:
+`download()` drops their folders from `allow_patterns` and `load_module`
+skips them. The loader stays model-agnostic for everything else - the
+concrete class is only reached for when there is something to leave out.
+`generate()` sets `use_pe=False` wherever the switch exists, for a pipeline
+that arrived with the rewriter some other way. The
+index read is a try/except that yields nothing on failure - an optimisation,
+not a gate - and the tests' conftest now refuses `_hub_file` for every test,
+since a stubbed `from_pretrained` had been the only thing between a loader
+test and the Hub. **mu has no way in**: the pipeline builds `linspace(1, 0)`
+itself and hands it to a scheduler shipped `use_dynamic_shifting: false,
+shift: 4.0`, and `__call__` takes no `sigmas` and no `mu`, so `_mu_supported`
+answers False, `applied()` drops the value and the row records none; the
+shift that lands is the constant 4 (mu = ln 4), which the hint says. Sides
+are multiples of 16 (`AutoencoderKLFlux2`, 32 latent channels, 2x2-patchified
+into the 128 channels the callback carries as a 4-D tensor), which every
+preset already is; `factors_for` has no map for that VAE, so the preview
+switches itself off once at DEBUG and the cell pays nothing for it - a fit
+would need the card and the pipeline's `bn_mean`/`bn_std` normalisation.
+Baidu lists 1 MP shapes only; 2 MP and 4 MP render. **Measured 2026-09-08
+in the evening**, Nunchaku NVFP4 on the 5080 with model offload, the CLI
+in-process (`~/krea-local/measure.py`), Z-Image Turbo re-run the same
+evening for a like-for-like: ERNIE 1 MP in 9.6-10.2 s once warm (17-18 s
+for the first image of a process, 22 s load) at 5.2 GiB, 2 MP in 24.3 s at
+5.9 GiB, a 4 MP pair in one call in 48.6 s at 10.3 GiB allocated / 12.0 GiB
+reserved; Z-Image 10.6 s, 12.8 s and 23.5 s at 4.1 / 4.6 / 7.4 GiB (11.8
+reserved) - level at 1 MP, twice the time above it. **Under Nunchaku a seed
+does not reproduce bit-for-bit**: the same request in two processes gave
+two hashes on both checkpoints, Z-Image's pair 4.5/255 apart on average
+with 17% of pixels off by more than 8 (a different seed: 36/255, 85%),
+ERNIE's 14-24/255 and 58-75% (a different seed: 41/255, 94%) - visibly
+different details on the 8-step model, not rounding. The fp8 path on
+Windows reproduces (see `verified.md`), so a duplicate count or a re-render
+hash is that path's guarantee only. One measurement trap: right after WSL
+reclaimed memory (`Cached: 0`) Z-Image read 17-19 s per image, 10.6 s on the
+next run; the card was idle and boosting fine. And the 7.7 GB the base-class
+load had pulled was deleted from the cache before the concrete-class load
+was verified, so that fetching nothing was observable.
+
 ## uv.lock's hand-pinned torch hashes
 
 **`uv.lock` carries hashes for the PyTorch wheels by hand.** The

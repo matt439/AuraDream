@@ -6,7 +6,7 @@ Krea 2 Raw and is badly wrong for Turbo (8 steps, CFG 0). So key off the id.
 
 The table is first-match, so a distilled variant whose id also contains its
 family's token (klein before flux, schnell before flux, Z-Image Turbo before
-Z-Image) sits ahead of it.
+Z-Image, ERNIE-Image Turbo before ERNIE-Image) sits ahead of it.
 
 `mu` is deliberately None outside Turbo. It is Krea's flow-shift knob, applied
 by overriding the shift the pipeline would otherwise derive for itself; FLUX
@@ -355,6 +355,67 @@ _PROFILES += [
                     "negative prompt and costs an uncond pass per step (~2x slower)."
                 ),
                 "mu": _Z_IMAGE_MU_HINT,
+            },
+        },
+    ),
+]
+# ERNIE-Image Turbo ahead of the undistilled family entry, which carries the
+# ErnieImagePipeline's own defaults. The pipeline has the classic `> 1` gate
+# with a negative prompt and no true CFG - klein's arrangement with the
+# negative prompt back. Its scheduler is shipped static at shift 4 and the
+# pipeline hands it a plain linspace, taking no `sigmas` or `mu` from outside,
+# so a requested mu has no way in: the backend drops it and the row says so.
+_ERNIE_MU_HINT = (
+    "Flow-matching timestep shift. ERNIE-Image ships a fixed shift of 4 (a mu "
+    "of 1.39) and its pipeline takes no schedule from outside, so a number "
+    "here cannot be applied and is dropped from the record. Leave blank."
+)
+_PROFILES += [
+    (
+        "ernie-image-turbo",
+        {
+            "steps": 8,
+            "guidance_scale": 1.0,
+            "mu": None,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": False,
+            "hints": {
+                "steps": (
+                    "Denoising steps. ERNIE-Image Turbo is distilled to resolve in "
+                    "{steps}; more adds time, not detail."
+                ),
+                "guidance_scale": (
+                    "Classifier-free guidance. Turbo is distilled for {guidance_scale:g}, "
+                    "where no uncond pass runs; above {cfg_threshold:g} the negative "
+                    "prompt applies and costs a second pass per step (~2x slower)."
+                ),
+                "mu": _ERNIE_MU_HINT,
+            },
+        },
+    ),
+    (
+        "ernie-image",
+        {
+            "steps": 50,
+            "guidance_scale": 4.0,
+            "mu": None,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": False,
+            "hints": {
+                "steps": (
+                    "Denoising steps. The undistilled ERNIE-Image wants around {steps}; "
+                    "well below that it stays soft."
+                ),
+                "guidance_scale": (
+                    "Classifier-free guidance, {guidance_scale:g} recommended. Above "
+                    "{cfg_threshold:g} the negative prompt applies, at roughly 2x the "
+                    "time per step."
+                ),
+                "mu": _ERNIE_MU_HINT,
             },
         },
     ),

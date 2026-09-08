@@ -225,3 +225,14 @@ def test_the_cli_shares_the_flags(clean_env):
         "int8",
         "none",
     )
+
+
+def test_a_lite_id_spelled_by_hand_reaches_the_menu(clean_env):
+    # ERNIE's re-upload has no `_r32`, so its entry cannot use `_LITE`; the id
+    # the menu hands out has to be the one lite-infer actually publishes, in
+    # either format.
+    lite = [c for c in launch.CHECKPOINTS if c.lite]
+    number = str(next(i for i, c in enumerate(lite, 1) if c.name == "ERNIE-Image Turbo"))
+    for fmt in ("nvfp4", "int4"):
+        choice = launch.prompt(ask=answers("nunchaku", fmt, number, ""), out=io.StringIO(), env={}, linux=True)
+        assert choice.model_id == f"lite-infer/ERNIE-Image-Turbo-nunchaku-lite-{fmt}-bnb4-text-encoder"

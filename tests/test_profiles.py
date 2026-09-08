@@ -34,10 +34,12 @@ CASES = [
     ("black-forest-labs/FLUX.1-schnell", "FluxPipeline"),
     ("Tongyi-MAI/Z-Image-Turbo", "ZImagePipeline"),
     ("Qwen/Qwen-Image", "QwenImagePipeline"),
+    ("baidu/ERNIE-Image-Turbo", "ErnieImagePipeline"),
 ]
 
 SCHNELL_LITE = "lite-infer/flux.1-schnell-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
 Z_IMAGE_LITE = "lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
+ERNIE_LITE = "lite-infer/ERNIE-Image-Turbo-nunchaku-lite-nvfp4-bnb4-text-encoder"
 
 
 def _loaded_like(class_name: str) -> DiffusersBackend:
@@ -82,6 +84,18 @@ def test_the_distilled_variants_beat_their_family_token():
     # The undistilled family entry is the pipeline's own signature defaults.
     params = inspect.signature(diffusers.ZImagePipeline.__call__).parameters
     base = defaults_for("Tongyi-MAI/Z-Image")
+    assert base["steps"] == params["num_inference_steps"].default
+    assert base["guidance_scale"] == params["guidance_scale"].default
+    # ERNIE-Image Turbo the same way: 8 steps at guidance 1.0 under the classic
+    # `> 1` gate, a negative prompt and no true CFG knob, on both ids - and the
+    # family entry at the ErnieImagePipeline's own 50 / 4.0.
+    for repo in ("baidu/ERNIE-Image-Turbo", ERNIE_LITE):
+        profile = defaults_for(repo)
+        assert (profile["steps"], profile["guidance_scale"]) == (8, 1.0), repo
+        assert profile["cfg_threshold"] == 1.0 and not profile["true_cfg_supported"]
+    params = inspect.signature(diffusers.ErnieImagePipeline.__call__).parameters
+    assert "true_cfg_scale" not in params and "sigmas" not in params
+    base = defaults_for("baidu/ERNIE-Image")
     assert base["steps"] == params["num_inference_steps"].default
     assert base["guidance_scale"] == params["guidance_scale"].default
 

@@ -59,6 +59,23 @@ _QUANTIZABLE_PREFIXES = ("transformer", "unet", "text_encoder")
 # zero - so "has negative_prompt" cannot mean 0.0 on its own, as it used to.
 _GUIDES_FROM_ZERO = ("Krea2Pipeline", "ZImage")
 
+# Components a pipeline lists that this backend never runs, loaded as None -
+# which diffusers allows for a class's `_optional_components`, and which keeps
+# their folders out of the download too, *through the concrete class*: the
+# base `DiffusionPipeline.from_pretrained` filters passed components against
+# its own empty `_optional_components` (`_get_signature_keys` is a classmethod
+# on `cls`, diffusers 0.40), takes `pe=None` for a pipeline kwarg, downloads
+# the folder and loads the model - seen on the card, 7.7 GB pulled and 11 GB
+# of RAM taken, before load() switched class. ErnieImagePipeline carries a 7.7 GB
+# bf16 Ministral prompt rewriter (`pe`) and, unless `use_pe` is off, samples
+# a longer prompt through it at temperature 0.6 before every image: the
+# prompt the row records would not be the prompt the model saw, and no seed
+# would bring the image back. generate() turns the switch off as well, for a
+# pipeline that arrived with the rewriter some other way.
+_UNUSED_COMPONENTS: dict[str, tuple[str, ...]] = {
+    "ErnieImagePipeline": ("pe", "pe_tokenizer"),
+}
+
 # What this backend cannot do without. `callback_on_step_end` is the only place
 # the pipeline hands control back - the progress source and the mandatory
 # cancellation point; `generator` is the per-image seed list every recorded seed
@@ -138,6 +155,25 @@ class DiffusersBackend(GenerationBackend):
             if name.startswith(_QUANTIZABLE_PREFIXES) and spec[0]:
                 libraries[name] = spec[0]
         return libraries
+
+    @staticmethod
+    def _unused_components(model_id: str) -> tuple[str | None, dict[str, None]]:
+        """The pipeline class this checkpoint's index names, and the components
+        of it to load as None.
+
+        Read ahead of the load, since that is the only time diffusers takes the
+        instruction. An index that cannot be read is not a failure here: the
+        whole pipeline loads, which is what `from_pretrained` was about to do.
+        """
+        try:
+            with open(_hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
+                index = json.load(fh)
+        except Exception as exc:  # noqa: BLE001 - an optimisation, not a gate
+            log.debug("model_index.json unavailable ahead of the load: %s", exc)
+            return None, {}
+        class_name = index.get("_class_name")
+        names = _UNUSED_COMPONENTS.get(class_name, ())
+        return class_name, {name: None for name in names if name in index}
 
     def _quantization_config(self) -> Any:
         """Build a pipeline-level torchao config, or None for full bf16.
@@ -263,8 +299,21 @@ class DiffusersBackend(GenerationBackend):
             quant = self._quantization_config()
             if quant is not None:
                 kwargs["quantization_config"] = quant
+            # What the pipeline lists but this backend never runs stays on the
+            # Hub: `pe=None` is how diffusers is told, and the concrete class
+            # prunes the folder from the download as well as from the load -
+            # the base class, resolving the same name from the same index,
+            # would download and load it (see _UNUSED_COMPONENTS).
+            loader: Any = DiffusionPipeline
+            class_name, unused = self._unused_components(settings.model_id)
+            if unused:
+                import diffusers
 
-            pipe = DiffusionPipeline.from_pretrained(settings.model_id, **kwargs)
+                loader = getattr(diffusers, class_name, None) or DiffusionPipeline
+                log.info("leaving out %s via %s", ", ".join(sorted(unused)), loader.__name__)
+                kwargs.update(unused)
+
+            pipe = loader.from_pretrained(settings.model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 
             # The offload hooks resolve their own accelerator when given none,
@@ -738,6 +787,11 @@ class DiffusersBackend(GenerationBackend):
             kwargs["negative_prompt"] = request.negative_prompt
             if self._true_cfg_supported():
                 kwargs["true_cfg_scale"] = request.true_cfg
+        # ERNIE-Image's prompt rewriter, where the pipeline has the switch:
+        # off, whether or not the component was loaded. The prompt the row
+        # records is the prompt the model saw.
+        if "use_pe" in self._call_params:
+            kwargs["use_pe"] = False
         # mu is the whole shift, not an addition to the pipeline's own. Where
         # the scheduler shifts dynamically, override the value it is given; where
         # it does not, hand it a pre-shifted schedule - minus the *static* shift
