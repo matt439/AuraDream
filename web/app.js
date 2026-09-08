@@ -1398,6 +1398,14 @@ function renderSheet() {
     labelled('Columns', picker(axisOptions, sheetAxes.cols ?? '', (key) => setAxis('cols', key))),
     labelled('Rows', picker(axisOptions, sheetAxes.rows ?? '', (key) => setAxis('rows', key))),
   );
+  if (sheetRecords.length) {
+    const exportButton = document.createElement('button');
+    exportButton.className = 'ghost small';
+    exportButton.textContent = 'Export PNG';
+    exportButton.title = 'Download this sheet as one image, labels and caption included';
+    exportButton.onclick = exportSheet;
+    els.sheetControls.append(exportButton);
+  }
   for (const [key, pinned] of Object.entries(sheetAxes.pins)) {
     const axis = axisByKey(key);
     els.sheetControls.append(
@@ -1441,6 +1449,9 @@ function renderSheet() {
     const at = r * colValues.length + c;
     if (!cellOf.has(at)) cellOf.set(at, rec);
   }
+
+  // What the export draws: the same matrix, the same pins, the same labels.
+  sheetLayout = { colAxis, rowAxis, colValues, rowValues, cellOf, pins };
 
   const shown = [];
   els.sheetGrid.style.gridTemplateColumns =
@@ -1498,6 +1509,121 @@ function renderSheet() {
     ? 'Nothing matches. The filters above the sheet are the gallery search.'
     : `${shown.length} of ${sheetRecords.length} loaded` + (pinned ? ` · pinned to ${pinned}` : '') +
       (total > sheetRecords.length ? ` · ${total} match the search` : '');
+}
+
+// ------------------------------------------------------------ sheet export
+
+// The one artefact worth keeping from a night is the matrix with its labels
+// burnt in, and a screenshot is capped at the viewport and drops the pinned
+// caption. Drawn client-side from the layout the sheet is already showing -
+// a server route would duplicate a layout contract the client holds, the
+// non-round-trippable prompt labels especially. Thumbnails, not the PNGs: a
+// contact sheet is for seeing which cell, and 384 px cells of a 32-wide grid
+// are already a 12k-pixel image.
+let sheetLayout = null;
+const EXPORT_MAX_EDGE = 8000;
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);  // a missing file is an empty cell, not a failed export
+    img.src = src;
+  });
+}
+
+async function buildSheetCanvas() {
+  const layout = sheetLayout;
+  if (!layout) return null;
+  const { colAxis, rowAxis, colValues, rowValues, cellOf, pins } = layout;
+  const aspect = (() => {
+    const [w, h] = (els.sheetGrid.style.getPropertyValue('--cell-aspect') || '1 / 1').split('/').map(Number);
+    return h ? w / h : 1;
+  })();
+  const cols = colValues.length, rows = rowValues.length;
+  // Cells shrink so the longer edge stays inside what a canvas can hold.
+  const cellW = Math.max(96, Math.min(384, Math.floor(EXPORT_MAX_EDGE / Math.max(cols, rows))));
+  const cellH = Math.round(cellW / aspect);
+  const gap = 6, font = 14, headH = colAxis ? 34 : 8, headW = rowAxis ? 150 : 8, caption = 52;
+  const width = headW + cols * (cellW + gap) + gap;
+  const height = headH + rows * (cellH + gap) + gap + caption;
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0b0b0e';
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = '#e8e8ee';
+  ctx.font = `${font}px "Segoe UI", system-ui, sans-serif`;
+  ctx.textBaseline = 'middle';
+
+  const clipText = (text, max) => {
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t).width > max) t = `${t.slice(0, -2)}…`;
+    return t;
+  };
+  ctx.textAlign = 'center';
+  colValues.forEach((v, c) => {
+    if (!colAxis) return;
+    const x = headW + gap + c * (cellW + gap) + cellW / 2;
+    ctx.fillText(clipText(`${colAxis.label} ${valueText(v)}`, cellW), x, headH / 2);
+  });
+  ctx.textAlign = 'right';
+  rowValues.forEach((v, r) => {
+    if (!rowAxis) return;
+    const y = headH + gap + r * (cellH + gap) + cellH / 2;
+    ctx.fillText(clipText(`${rowAxis.label} ${valueText(v)}`, headW - 12), headW - 6, y);
+  });
+
+  // Every cell's thumbnail in flight at once; a hole stays a hole.
+  const jobs = [];
+  rowValues.forEach((_, r) => colValues.forEach((__, c) => {
+    const rec = cellOf.get(r * cols + c);
+    const x = headW + gap + c * (cellW + gap), y = headH + gap + r * (cellH + gap);
+    ctx.fillStyle = '#1a1a21';
+    ctx.fillRect(x, y, cellW, cellH);
+    if (!rec) return;
+    jobs.push(loadImage(rec.thumb_url ?? rec.url).then((img) => {
+      if (!img) return;
+      // Contain, as the sheet does: the whole frame, letterboxed if it must be.
+      const k = Math.min(cellW / img.naturalWidth, cellH / img.naturalHeight);
+      const w = img.naturalWidth * k, h = img.naturalHeight * k;
+      ctx.drawImage(img, x + (cellW - w) / 2, y + (cellH - h) / 2, w, h);
+      if (rec.favorite) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.textAlign = 'right';
+        ctx.fillText('★', x + cellW - 6, y + 12);
+        ctx.fillStyle = '#e8e8ee';
+      }
+    }));
+  }));
+  await Promise.all(jobs);
+
+  // The caption is what a screenshot loses: which run, what was pinned, when.
+  const first = sheetRecords[0];
+  const pinned = pins.map(([axis, v]) => `${axis.label.toLowerCase()} ${valueText(v)}`).join(', ');
+  const lines = [
+    `${els.search.value.trim() || 'gallery'}${pinned ? ` · pinned to ${pinned}` : ''}`,
+    first ? `${first.model_id.split('/').pop()} · ${first.width}×${first.height}` +
+      (first.run_id ? ` · run ${first.run_id}` : '') + ` · ${when(Date.now())}` : '',
+  ];
+  ctx.fillStyle = '#8b8b9a';
+  ctx.textAlign = 'left';
+  lines.forEach((line, i) => ctx.fillText(clipText(line, width - 2 * gap), gap, height - caption + 16 + i * 20));
+  return canvas;
+}
+
+async function exportSheet() {
+  const canvas = await buildSheetCanvas();
+  if (!canvas) return;
+  canvas.toBlob((blob) => {
+    if (!blob) { showError('The browser could not encode the sheet.'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const first = sheetRecords[0];
+    a.download = `sheet-${first && first.run_id ? first.run_id : 'gallery'}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }, 'image/png');
 }
 
 function setSheet(on) {

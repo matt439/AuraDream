@@ -457,7 +457,10 @@ where the keepers cluster is visible on the sheet rather than only in your
 head. A prompt grid's images record which variable took which value, so on
 the sheet each variable is an axis of its own - `size` across, `ground` down -
 and a `none` value reads as `none`; images from before that was recorded fall
-back to the single Prompt axis below. The Prompt axis is labelled
+back to the single Prompt axis below. **Export PNG** downloads the sheet as
+one image - labels, stars and a caption naming the search, the pins, the
+checkpoint and the run - which is the artefact worth keeping from a night
+and the one a screenshot cannot give you whole. The Prompt axis is labelled
 with only the words that vary — `big grass`, `small dirt` — when every prompt
 has the same word count. A `none` value makes one prompt shorter than the
 others; the labels then keep what is left once the shared head and tail come

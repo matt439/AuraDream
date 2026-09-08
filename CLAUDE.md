@@ -388,6 +388,13 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   non-passive; the zoom keys sit below the `input, textarea` guard. A click on
   the stage beside the image closes the lightbox only at fit: zoomed, the
   stage is a pan surface and only Escape or the cross close it.
+- **The sheet exports client-side.** `renderSheet` leaves its matrix in
+  `sheetLayout`; `buildSheetCanvas` draws the same axes, pins and labels onto
+  a canvas from the *thumbnails* (cells shrink so the longer edge stays under
+  8000 px), with a caption naming the search, the pins, the checkpoint, the
+  run and the time, and `exportSheet` downloads it. Not a server route: that
+  would duplicate a layout contract the client already holds, the
+  non-round-trippable prompt labels especially.
 - **Pause is cooperative, like cancel, and lands between cells.**
   `POST /api/jobs/{id}/pause?value=` sets `pause_requested`; `_generate`
   answers at the top of the next cell by setting `paused` (a worker-written
