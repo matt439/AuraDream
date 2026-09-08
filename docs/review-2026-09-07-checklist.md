@@ -9,25 +9,32 @@ Status as of 2026-09-08, after the commits listed at the end.
 | --- | --- | --- | --- | --- |
 | HIGH | 3 | 3 | 0 | 0 |
 | MEDIUM | 37 | 37 | 0 | 0 |
-| LOW | 41 | 40 | 0 | 1 |
+| LOW | 41 | 41 | 0 | 0 |
 | Disputed | 3 | 3 | 0 | 0 |
 | Unverified leads | 9 | 9 | 0 | 0 |
-| Possible improvements | 33 | 28 | 0 | 5 |
+| Possible improvements | 33 | 31 | 0 | 2 |
 
 Legend: `[x]` done, `[~]` partial (what is missing is in the note), `[ ]` not
 done. The commit named is the one that closed the entry; the note says where
 the fix departs from what the review suggested. The test suite went from 135
-to 230 passing tests over the series, and `web/` - which has no test suite -
+to 242 passing tests over the series, and `web/` - which has no test suite -
 was exercised in headless Edge against the fake backend for every UI change
-(the harness is now `tools/`, see the last commit).
+(the harness is `tools/`; three smoke scripts now).
 
-Not verified on the GPU: everything below was checked against the stubbed
-pipeline the tests use. Worth one real pass before the next overnight run - a
-generation on FLUX (the `applied()` normalisation and the thumbnail write), a
-Ctrl-C with a browser tab open mid-sweep, a Ctrl-C during a load, a Pause
-mid-grid with `nvidia-smi` open (does `free_cache` return what the design
-says under model offload), `KREA_DEVICE=cuda:1` on a two-card machine, and a
-`reindex` over a real gallery.
+Verified on the GPU, 2026-09-08 (FLUX.1 Krea dev, fp8, model offload, from
+the cache): a generation on FLUX - the `applied()` normalisation, since a
+negative prompt with no true CFG produced the byte-identical image to none,
+and the thumbnail write; the same request twice is the same pixel hash;
+true CFG 1.5 gives a different, reproducible image at ~1.65x; a Ctrl-C
+(SIGINT to uvicorn's handler) 12 s into a load exits in 3 s with the
+lifespan run; mid-sweep with a stream attached, `done` reaches the stream
+0.2 s after the signal and the process is gone 3 s later; Pause is
+acknowledged at the cell boundary and the card drops from 14.95 GB during a
+1 MP denoise to 2.1 GB held; `reindex --from` over the real gallery rebuilds
+every row with the same hashes. The console Ctrl-C itself could not be
+generated from the tool's shell, so the signal was raised in-process - the
+same Python handler a terminal Ctrl-C reaches. Still not verified:
+`KREA_DEVICE=cuda:1` (one card here).
 
 ## Confirmed findings
 
@@ -105,7 +112,7 @@ says under model offload), `KREA_DEVICE=cuda:1` on a two-card machine, and a
 - [x] `backend/launch.py:229` repo-id prompt spins on EOF — `e3489de`.
 - [x] `backend/schemas.py:58` `check_budget` is per-image — `e3489de`. `max_batch_pixels` (`KREA_MAX_BATCH_PIXELS`), message points at Runs.
 - [x] `backend/main.py:104` Origin always appends the port — `e3489de`. Hostname and effective port, http or https; port-80 test.
-- [ ] `uv.lock:1323` torch wheels locked by URL without hashes. Not touched: needs a lock re-run (or a move to PyPI torch) that changes the dependency tree and should be a deliberate step taken by hand, with the new wheels verified on the GPU before the next overnight run.
+- [x] `uv.lock:1323` torch wheels locked by URL without hashes — `122d1a5`. The index publishes no digest for those four wheels, so a lock re-run could not add them; they were downloaded, hashed and their RECORD manifests compared entry for entry with the installed Windows and WSL copies (no mismatches), then written in by hand. `uv lock --check`/`--dry-run` accept them; README says a `--upgrade` that moves torch drops them. No move to PyPI torch: its Windows wheel is CPU-only.
 - [x] `web/app.js:669` errors raised under the lightbox are hidden — `496bfb1`. Mirrored into a slot inside the dialog.
 - [x] `web/app.js:274` Generate/Cancel destroy focus — `496bfb1`. `aria-disabled` plus the existing early returns.
 - [x] `web/style.css:49` no `prefers-reduced-motion` — `496bfb1`.
@@ -141,9 +148,8 @@ says under model offload), `KREA_DEVICE=cuda:1` on a two-card machine, and a
 
 ## Possible improvements
 
-Not defects. The review ranked them by value in this order. The five left are
-the ones that cannot be validated without the GPU, need a new dependency, or
-rest on a premise that has to be measured first; each says which.
+Not defects. The review ranked them by value in this order. The two left need
+weights or a file this machine does not have; each says which.
 
 - [x] 1. `backend/main.py:291` nothing says what happened to last night's run — `98c5ab6`. `GET /api/runs` (`storage.runs`: images, favourites, prompts, jobs, timestamps, the oldest image's prompt and seed) outlives the process; `GET /api/jobs?include_finished=true` adds the terminal jobs from memory with `image_count`. UI: a Runs picker beside the search box (pick one: `run:` search plus the sheet) and a dismissable banner under the panel when nothing is live, gated to 24 h and once per job per browser.
 - [x] 2. `web/style.css:371` the lightbox cannot zoom — `5cd6508`. Explicit-size layout in a `flex: 1 1 auto; min-height: 0` stage (not a transform); wheel about the pointer (non-passive), drag, `+`/`-`/`0`/`1`, double-click; 1:1 divides by `devicePixelRatio`; the view is keyed on the record's size and carried across cells; the backdrop click closes only at fit.
@@ -151,7 +157,7 @@ rest on a premise that has to be measured first; each says which.
 - [x] 4. `backend/main.py:254` re-render a night's winners at full size — `b26ee19`. `POST /api/rerender`: the gallery's filter server-side, one cell per record with its own settings and seed, `check_budget`, refused over the ceiling and for another checkpoint's records, pruned like a resume, 409 when nothing is left; a "Re-render N at WxH" button beside the filters. The README says the same seed at another size is a new sample.
 - [x] 5. `tests/test_schedule.py:40` the scheduler stub never calls back — `e3489de`. Progress, cancel and generator code now run under test.
 - [x] 6. `backend/grid.py:78` the prompt-variable assignment is thrown away — `57bf669`. `variables TEXT` (JSON, `_migrate`), the `krea` chunk, `ImageRecord.variables`, both writers; the sheet builds one axis per variable and suppresses the flat prompt and negative axes when any record carries variables. No `var:` search term, as the review advised.
-- [ ] 7. `backend/backends/diffusers_backend.py:376` klein's reference-image conditioning unreachable *(medium)*. Not done: it needs the GPU to size the 2-3x cost and to check the resized reference actually conditions, and it widens `CellKey`, `completed_cells`, the `krea` chunk and the CLI in one change.
+- [ ] 7. `backend/backends/diffusers_backend.py:376` klein's reference-image conditioning unreachable *(medium)*. Not done: the klein weights are not in the Windows cache (only the Nunchaku re-uploads under WSL), so sizing the 2-3x cost and checking that the resized reference conditions means a download first; and it widens `CellKey`, `completed_cells`, the `krea` chunk and the CLI in one change.
 - [x] 8. `backend/jobs.py:225` no log lines and no timestamps — `f66faf7` (lines and timestamps) and `079f647` (the UI reads them: elapsed and an ETA from the job's own pace under the bars, a summary line when it finishes).
 - [x] 9. `web/app.js:1068` the grid spec lives only in the DOM — `8b5c4c6`. `localStorage` in two phases (model-independent fields at start-up, steps/CFG/mu once the checkpoint is known and matches), delegated `input`/`change` plus the programmatic writes, Resume never stored, every access in try/catch.
 - [x] 10. `backend/generate.py:69` no `--from-image` — `0a164fc`. Reads `.info["krea"]` before `apply_env` so the checkpoint reaches `KREA_MODEL_ID`; flags win; quantization not carried (named when it differs); job/run displayed, never reused.
@@ -159,21 +165,21 @@ rest on a premise that has to be measured first; each says which.
 - [x] 12. `backend/storage.py:143` no reindex from PNG metadata — `6b8c4ee`. `backend/reindex.py`: `.info` not `.text`, idempotent on the UNIQUE filename, `.part`-then-rename copy-in, never over a different file of the same name, timestamp from the filename as UTC, through the shared INSERT so FTS follows. Favourite and duration do not come back.
 - [x] 13. `backend/jobs.py:198` "waiting for the job ahead" during the download; no Load button — `079f647`. `Job.waiting_on` (`load`/`queue`) beside the status, set only when a load is actually needed; a Load button in the top bar while unloaded or after a failed load.
 - [x] 14. `backend/grid.py:351` the seed axis is a count, not a list — `079f647`. `seed_axis` / `--seed-list` through `parse_axis`; wins over the count and the base; counted by the ceiling; not wrapped (the schema's bounds refuse `-5`); resume waives the base seed for it; the preview lists the seeds.
-- [ ] 15. `backend/backends/diffusers_backend.py:405` real CFG welded to the distilled guidance value on FLUX.1 *(medium)*. Not done: the value of decoupling them is a quality claim that needs the GPU to check, and it adds a column to the resume key, the `krea` chunk, the A1111 line, a filter and both `/api/status` consumers.
+- [x] 15. `backend/backends/diffusers_backend.py:405` real CFG welded to the distilled guidance value on FLUX.1 — `8616111`. `GenerateRequest.true_cfg` (None = off), `true_cfg_supported` from `describe()` and the profile, merged on `/api/status` like the threshold; `applied()` compares the threshold against whichever knob decides. The recorded value is the scale the negative prompt ran at on *every* checkpoint (so the column, the `tcfg:` filter, the stats grouping and the resume key agree, and pre-column rows read as the CFG they ran at); `run_id` keeps the six-element key where the field is unset, so no existing run id changes. The True CFG box, greyed where CFG is real CFG; `--true-cfg`. Verified on the card: no true CFG with a negative prompt is the byte-identical image to none; 1.5 is a different, reproducible image. The fourth grid axis was not added, as the review advised.
 - [x] 16. `web/app.js:307` the browser holds exactly one job — `5cdba2b`. Submitting during a job queues it; the buttons are held only for the POST; a queue line with "Cancel queued"; `watchNext()` attaches to the next job; `resumeActiveJob` prefers the running job, then the oldest queued.
 - [x] 17. `web/app.js:920` the sheet shows no favourites and crops every cell — `8b5c4c6`. `.fav` star per cell toggled by class (never a re-render), the commonest aspect ratio on the sheet with `object-fit: contain`.
 - [x] 18. `backend/storage.py:258` `created_at` never used; no `date:` filter — `079f647`. A local day (`today`, `yesterday`, `YYYY-MM-DD`) as a half-open range on `created_at`, converted to UTC and formatted like the rows.
-- [ ] 19. `backend/storage.py:163` no content hash *(small)*. Not done: the whole feature rests on bit-determinism through quantized kernels with components moving devices mid-forward, which has to be measured with one two-cell grid on the GPU before a hash means anything.
+- [x] 19. `backend/storage.py:163` no content hash — `8616111`. Measured first: the same request twice through the fp8 FLUX path under model offload is the same hash. 16 hex of the sha256 of the pixels in the row, the PNG and the record; `hash:` filter; `distinct_count` on the job snapshot and `distinct` on `RunSummary` (only when every image of the run is hashed); the UI, the Runs picker and the CLI say "only N distinct". The `stddev` half was dropped as advised. The companion warning: `grid.duplicate_count` in the preview and the dry run, through `backend.applied()`; the cells are not dropped.
 - [x] 20. `backend/generate.py:338` CLI and server share a GPU unknowingly — `0a164fc`. `_server_holds_gpu` probes `/api/status` after the `--dry-run` guard; `ready`/`loading` or a timeout refuses with exit 4; no listener is the ordinary case; `--ignore-server`. Advisory, blind across WSL/Windows, and stubbed in the test fixture.
 - [x] 21. `backend/main.py:177` no way to hand the GPU back mid-night — `5cdba2b`. The cheap half the judges recommended: `POST /api/jobs/{id}/pause` holds at the cell boundary with a worker-written `paused` acknowledgement, `backend.free_cache()` returns the allocator reserve, the hold is polled (never `Event.wait()`), unload still 409s. Not measured on the card.
-- [ ] 22. `backend/backends/diffusers_backend.py:199` no LoRA loading *(medium)*. Not done: a new `peft` dependency, torchao + PEFT is unverified, and the columns and resume key have to land with the first working generation, which needs the GPU.
+- [ ] 22. `backend/backends/diffusers_backend.py:199` no LoRA loading *(medium)*. Not done: a new `peft` dependency, torchao + PEFT is unverified, there is no LoRA file on this machine to try one against, and the columns and resume key have to land with the first working generation.
 - [x] 23. `backend/clear.py:49` no gallery size or free space on a running surface — `6b8c4ee`. `disk_free_mb` on `/api/status` (one syscall; the directory walk stays off the poll), `bytes` on the preview and a disk line in the CLI from the median PNG size at that size on that checkpoint; the preview turns amber past the free space.
 - [x] 24. `backend/storage.py:325` which settings produced the favourites — `0a164fc`. `python -m backend.stats`: the starred *rate* per setting over a scope, the newest run by default, `--all` labelled indicative, `--min` 5, grouped on the six-decimal rounding resume uses, size always included.
 - [x] 25. `tests/test_klein.py:45` pipeline facts never checked against the real classes — `f66faf7`. `tests/test_profiles.py`, five id -> class cases, mapping marked as the unverifiable assumption.
 - [x] 26. `tests/test_gallery.py:22` PNG metadata never read back — `799e67e`. Key-set equality (now including `variables`).
 - [x] 27. `backend/launch.py:62` catalogue not joined to the profile table — `f66faf7`. By identity against `_FALLBACK`, over every catalogue repo and lite re-upload.
 - [x] 28. `web/app.js:450` no elapsed time or ETA in the UI — `079f647`. From the job's own finished-cell pace (`elapsed` on the progress event, server clock), in the cell line under the bars; a "Finished N images in T" line when done, outside the element `setBusy` hides.
-- [ ] 29. `backend/backends/diffusers_backend.py:354` live latent preview *(medium)*. Not done: the per-family factor matrices cannot be validated in CI and a wrong one is a confidently wrong-coloured blur; needs the GPU.
+- [x] 29. `backend/backends/diffusers_backend.py:354` live latent preview — `8616111`. The matrices were fitted on the card rather than copied: least squares from pipeline-normalised latents of the real FLUX `AutoencoderKL` and Krea 2 `AutoencoderKLQwenImage` (R² 0.96 / 0.95 on real images), keyed on VAE class and channel count as advised, FLUX.1 and Krea 2 only (klein's callback has no unpacker), x_t handled with a gain and a blur, the whole callback in a try/except that switches itself off. Frames from a real render were looked at. Found on the card and fixed: the per-cell subscriber check skipped every first cell.
 - [x] 30. `backend/jobs.py:251` no wall-clock budget — `57bf669`. `budget_minutes` / `--budget` as an absolute deadline from submission (the load counts), checked at the top of every cell, through the cancel path with `stopped_by: "budget"` so the UI reports the plan working and points at Resume.
 - [x] 31. `web/app.js:839` no contact-sheet export — `b4e5aad`. Client-side canvas from the thumbnails and the sheet's own layout, stars and a caption (search, pins, checkpoint, size, run, time), downloaded as a PNG.
 - [x] 32. `backend/backends/diffusers_backend.py:72` dead state — `799e67e`.
@@ -210,3 +216,6 @@ or to one pass over a list:
 | `5cdba2b` | improvements 16, 21 | Pause between cells, the browser's queue |
 | `b4e5aad` | improvement 31 | Sheet export |
 | `9fd0480` | — | `tools/`: the fake server and the headless-browser driver |
+| `b5b21b5` | — | The checklist brought up to date |
+| `122d1a5` | LOW tail | The PyTorch wheels pinned by hash |
+| `8616111` | improvements 15, 19, 29 | True CFG apart from the guidance value, the pixel hash and the duplicate warning, the live preview; the GPU pass |
