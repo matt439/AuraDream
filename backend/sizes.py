@@ -1,4 +1,4 @@
-"""The size presets: five aspect ratios across four megapixel tiers.
+"""The size presets: seven aspect ratios across four megapixel tiers.
 
 One table, read by the CLI (`--aspect/--mp`) and by the settings that bound a
 request (`max_side`, `max_pixels`), and asserted equal to the browser's copy in
@@ -8,9 +8,16 @@ that differed between two of them made `--resume` unable to continue a browser
 grid.
 
 Every side is a multiple of 16 (the VAE downsamples by 16) and every entry lands
-within a few percent of its tier; 2 and 4 MP hit their ratios exactly. The whole
-4 MP row is within 0.3% of 2048x2048 in pixel count, so it costs the same VRAM
-whichever framing is picked - if the old 2K preset ran, all of these run.
+within a few percent of its tier; 2 MP hits its ratios exactly, 4 MP all but
+3:2. The whole 4 MP row is within 0.3% of 2048x2048 in pixel count, so it costs
+the same VRAM whichever framing is picked - if the old 2K preset ran, all of
+these run.
+
+3:2 and 2:3 are the model cards' aspects: ERNIE-Image lists 1264x848 and
+848x1264, Qwen-Image 1584x1056 and 1056x1584, and both pairs are here verbatim
+- ERNIE's at 1 MP, 0.6% off the ratio, and Qwen's at 1.5 MP, at 1.67 MP the
+top of its row. The 2 and 4 MP entries are the tier's own: 1776x1184 is exact,
+and 2496x1680 trades 1% of ratio for landing on the row's pixel count.
 
 The 1.5 MP row (1.54-1.63 MP, the same spread as the 1 MP row's 1.04-1.08) is
 the row the model cards asked for: its four non-square entries are Qwen-Image's
@@ -30,6 +37,8 @@ SIZES: dict[str, dict[float, tuple[int, int]]] = {
     "4:3": {1: (1200, 896), 1.5: (1472, 1104), 2: (1664, 1248), 4: (2368, 1776)},
     "16:9": {1: (1360, 768), 1.5: (1664, 928), 2: (1920, 1088), 4: (2736, 1536)},
     "9:16": {1: (768, 1360), 1.5: (928, 1664), 2: (1088, 1920), 4: (1536, 2736)},
+    "3:2": {1: (1264, 848), 1.5: (1584, 1056), 2: (1776, 1184), 4: (2496, 1680)},
+    "2:3": {1: (848, 1264), 1.5: (1056, 1584), 2: (1184, 1776), 4: (1680, 2496)},
 }
 TIERS: tuple[float, ...] = (1, 1.5, 2, 4)
 
