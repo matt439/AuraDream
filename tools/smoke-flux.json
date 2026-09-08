@@ -4,6 +4,9 @@
   {"expect": "document.getElementById('status-dot').className.includes('ready')"},
 
   {"expect": "!els.trueCfg.disabled && els.trueCfgTip.textContent.includes('unconditioned')"},
+  {"log": "'FLUX.1 has no image parameter: the reference field greys for the checkpoint'"},
+  {"expect": "!referenceSupported && document.getElementById('reference-field').classList.contains('disabled')"},
+  {"expect": "els.referenceNote.textContent.includes('takes none') && collect().reference.length === 0"},
   {"eval": "els.cfg.value = '3.5'; els.cfg.oninput(); els.trueCfg.value = ''; els.trueCfg.oninput();"},
   {"expect": "els.negative.disabled && els.negNote.textContent.includes('needs True CFG > 1')"},
   {"eval": "els.trueCfg.value = '1.5'; els.trueCfg.oninput();"},

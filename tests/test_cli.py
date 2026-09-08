@@ -37,6 +37,21 @@ def cli(store, monkeypatch):
 SIZE = ["--width", "256", "--height", "256"]
 
 
+@pytest.fixture
+def lora_dir(tmp_path, monkeypatch):
+    """An adapter directory with two files, so a flag can win over a PNG."""
+    from backend import loras
+
+    directory = tmp_path / "loras"
+    directory.mkdir()
+    for name in ("style.safetensors", "other.safetensors"):
+        (directory / name).write_bytes(b"weights")
+    monkeypatch.setattr(
+        loras, "settings", dataclasses.replace(loras.settings, loras_dir=directory)
+    )
+    return directory
+
+
 def test_a_dry_run_loads_and_writes_nothing(cli, store, capsys):
     assert generate.main(["a fox", "--dry-run", "--seed", "7", "--runs", "3", *SIZE]) == 0
     assert cli.loads == 0 and cli.requests == []
@@ -272,3 +287,86 @@ def test_durations_have_an_hours_branch():
     assert generate._duration(45) == "45s"
     assert generate._duration(150) == "2m30s"
     assert generate._duration(4 * 3600 + 12 * 60 + 30) == "4h12m"
+
+
+# --------------------------------------------------------- conditioning flags
+
+
+def test_a_reference_is_refused_before_the_load(cli, store, capsys):
+    # The same refusal the server makes at submit: a night that renders every
+    # cell as plain text-to-image because the pipeline ignores `image` looks
+    # like a success, and by morning it is one.
+    code = generate.main(["a fox", "--reference", "1", *SIZE])
+    assert code == 2 and cli.loads == 0
+    assert "takes no reference images" in capsys.readouterr().err
+
+
+def test_a_reference_that_is_not_in_the_gallery_is_named(cli, store, monkeypatch, capsys):
+    monkeypatch.setattr(
+        generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B")
+    )
+    code = generate.main(["a fox", "--reference", "4242", *SIZE])
+    assert code == 2 and cli.loads == 0
+    assert "no gallery image with id 4242" in capsys.readouterr().err
+
+
+def test_an_adapter_that_is_not_there_is_refused_before_the_load(cli, store, capsys, tmp_path):
+    from backend import loras
+
+    code = generate.main(["a fox", "--lora", "missing.safetensors", *SIZE])
+    assert code == 2 and cli.loads == 0
+    err = capsys.readouterr().err
+    assert "no LoRA named" in err and str(loras.settings.loras_dir) in err
+
+
+def test_a_weight_sweep_needs_an_adapter(cli, store):
+    with pytest.raises(SystemExit) as raised:
+        generate.main(["a fox", "--grid-lora-scale", "0,1", *SIZE])
+    assert raised.value.code == 2
+
+
+def test_from_image_carries_the_conditioning_it_recorded(cli, store, monkeypatch, capsys, lora_dir):
+    from PIL import Image
+
+    from backend.schemas import GenerateRequest
+
+    def keep(**extra):
+        return store.save_image(
+            Image.new("RGB", (256, 256)),
+            GenerateRequest(prompt="a fox", width=256, height=256, **extra),
+            seed=11, duration_ms=10, model_id="black-forest-labs/FLUX.2-klein-4B",
+        )
+
+    source = keep()  # the image the second one was conditioned on
+    record = keep(reference=[source.id], lora="style.safetensors", lora_scale=0.4)
+    monkeypatch.setattr(
+        generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B")
+    )
+    path = str(store.settings.outputs_dir / record.filename)
+    # A dry run, so nothing loads: what is being checked is that the flags the
+    # PNG fills in are the whole reproduction set, adapter and references too.
+    assert generate.main(["--from-image", path, "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert f"reference: {source.id}" in out
+    assert "lora     : style.safetensors @ 0.4" in out
+
+    # An explicit flag still wins over the file - and the recorded weight goes
+    # with the recorded adapter, since it is that adapter's number.
+    assert generate.main(["--from-image", path, "--dry-run", "--lora", "other.safetensors"]) == 0
+    assert "lora     : other.safetensors @ 1" in capsys.readouterr().out
+
+
+def _project_claiming(module, model_id):
+    """`_project()` with the settings claiming another checkpoint.
+
+    The reference check reads the profile for `settings.model_id`, and the
+    profile is what says whether the pipeline takes an `image` at all.
+    """
+    original = module._project
+
+    def patched():
+        project = original()
+        project.settings = dataclasses.replace(project.settings, model_id=model_id)
+        return project
+
+    return patched

@@ -214,9 +214,18 @@ are the `KREA_*` variables under another name. `--dry-run` prints the
 resolved settings without loading the model; `--quiet` drops everything but
 one `<path>  seed <n>` line per saved image.
 
+`--reference 12,15` conditions the run on gallery images by id (klein only;
+see [Reference images and LoRA
+adapters](#reference-images-and-lora-adapters)), and `--lora style.safetensors
+--lora-scale 0.8` applies an adapter from `loras/`, with `--grid-lora-scale
+0-1x0.25` sweeping the weight. Both are refused before the load, by name,
+when the checkpoint or the installation cannot use them: a night that renders
+every cell without the thing you asked for looks like a success.
+
 `--from-image outputs/….png` starts from an image you already have: the
-prompt, negative prompt, size, steps, CFG, mu, seed and checkpoint come out of
-the PNG's own metadata, and any flag you give explicitly wins over it. The
+prompt, negative prompt, size, steps, CFG, mu, seed, checkpoint, references
+and adapter come out of the PNG's own metadata, and any flag you give
+explicitly wins over it. The
 quantization is not carried - a WSL Nunchaku PNG read on Windows would ask for
 a mode this machine cannot run - and the tool says so when it differs, since
 the pixels then will too.
@@ -358,6 +367,7 @@ you fill in varies. An empty grid is exactly the image Generate would have made.
 | Mu | the same, plus `none` for no shift of ours at all | `none,1.15` |
 | Seeds | how many consecutive seeds run the whole grid | `4` |
 | Seed list | exactly these seeds instead, a list or a range | `4471, 8823` |
+| LoRA weight | the same syntax, needing an adapter selected | `0-1x0.25` |
 | Budget | minutes; start no cell after this long | `420` |
 
 They cross: two sizes, two grounds, four step counts and two seeds is 32 images.
@@ -373,6 +383,39 @@ axis that never clears the threshold - and says so in amber, because the run
 would otherwise spend the night rendering the same picture (`--dry-run`
 prints the same warning). One grid is capped at `KREA_MAX_GRID_IMAGES` images
 and each axis at 64 values, because `1-1000` is eight characters.
+
+### Reference images and LoRA adapters
+
+Two inputs that are neither a prompt nor a number, both greyed out where they
+cannot apply — for the checkpoint in one case, for the installation in the
+other, with the reason in the badge beside the control.
+
+**Reference images** are what FLUX.2 [klein] is best at and nothing else here
+can do: its pipeline takes them as its first argument, resizes each to 1 MP,
+encodes it and concatenates the tokens onto the latent sequence at every step —
+the same character in a new pose, a sketch to finish, one composition against a
+prompt axis. Add one with the ❐ button on any gallery image (up to four), or
+`--reference 12,15` from the terminal. They are chosen by *id*, never by path:
+the server resolves them through the gallery, so nothing a request says can
+read a file the app did not write.
+
+They cost less than you would think. Attention is quadratic in the sequence
+length and each reference roughly doubles it, but measured here (klein 4B,
+fp8, model offload, 1 MP, 4 steps) one reference ran in 8.2–9.2 s against
+10.2 s for the same prompt without one, and two in 11.3 s: under model offload
+the per-image weight transfer dominates, and the longer sequence disappears
+into it.
+
+**LoRA adapters** are read from `loras/` — drop a `.safetensors` file in and it
+appears in the select (`KREA_LORAS_DIR` moves the directory). One adapter at a
+weight, swapped on the live pipeline between cells, which is what makes
+`0-1x0.25` an ordinary sweep rather than five reloads: the weights load once
+and each cell is a re-weighting. Both the adapter and the weight are recorded
+on the row and in the PNG, so Reuse restores them and a resumed grid tells a
+0.5 cell from a 0.75 one. Not available under `KREA_QUANT=nunchaku`: those
+checkpoints arrive quantized to 4-bit SVDQuant and their linear layers are not
+what an adapter attaches to — the server says so rather than failing at the
+first image.
 
 ### Varying the prompt
 
@@ -533,6 +576,7 @@ All optional, set as environment variables:
 | `KREA_OFFLOAD` | `model` | `sequential` (lower VRAM, slower) or `none` |
 | `KREA_OUTPUTS_DIR` | `outputs/` in the repo | Where PNGs are written. `wsl/env.sh` moves it onto the Linux filesystem |
 | `KREA_DB_PATH` | `krea.db` in the repo | The gallery index. Keep it off `/mnt/c` under WSL: SQLite cannot lock across the bridge |
+| `KREA_LORAS_DIR` | `loras/` in the repo | Where `.safetensors` adapters are read from. A request names one by file name; nothing joins a path from a request onto it |
 | `KREA_MAX_GRID_IMAGES` | `1024` | The most images one grid search may queue — a guard rail against a typo becoming a week of GPU time |
 | `KREA_PRELOAD` | `false` | Load weights at startup instead of on first request |
 | `KREA_DEVICE` | `cuda` | `cuda:1` puts the weights on the second card, offload included, and the status line reports that card |

@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 outputs/
+# LoRA adapters: the user's own files, hundreds of MB each. The directory is
+# read at run time and created on demand; KREA_LORAS_DIR moves it.
+loras/
 *.db
 *.db-wal
 *.db-shm

@@ -57,6 +57,11 @@ class Settings:
     outputs_dir: Path = Path(os.getenv("KREA_OUTPUTS_DIR", ROOT / "outputs")).expanduser()
     db_path: Path = Path(os.getenv("KREA_DB_PATH", ROOT / "krea.db")).expanduser()
     web_dir: Path = ROOT / "web"
+    # Where LoRA adapters are read from - one directory of *.safetensors, listed
+    # by `GET /api/loras` and chosen by *name*. A path taken from the request
+    # and joined onto a directory is an arbitrary-file read reachable from
+    # /api/generate, so the request never carries one.
+    loras_dir: Path = Path(os.getenv("KREA_LORAS_DIR", ROOT / "loras")).expanduser()
 
     host: str = os.getenv("KREA_HOST", "127.0.0.1")
     port: int = int(os.getenv("KREA_PORT", "7860"))

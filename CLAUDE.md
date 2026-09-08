@@ -31,6 +31,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/schemas.py` — pydantic request/response models
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
+- `backend/loras.py` — the adapter directory: what is in it, and the file
+  behind a name (the only place a request's name becomes a path)
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels`, `web/app.js`'s copy, `index.html`'s `max=` and the
   README table are all held to it by `tests/test_profiles.py`
@@ -212,6 +214,71 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   encoder is a plain `Qwen3ForCausalLM` (transformers), so the fp8 path
   quantizes it like any other; the 4B's is 8 GB in bf16, bigger than its
   7.75 GB transformer.
+- **Reference images are klein's and are addressed by id.** `Flux2KleinPipeline.__call__`
+  takes `image` first, resizes each reference to <=1 MP, VAE-encodes it and
+  concatenates the tokens onto the latent sequence every step; nothing else in
+  the catalogue has the parameter, so `describe()` reports
+  `reference_supported` (`"image" in _call_params`), the profile guesses it
+  from the id until then, `/api/status` merges it like the threshold and the
+  UI greys the field for the checkpoint. `GenerateRequest.reference` is a list
+  of **gallery ids**, never paths - a path joined onto `outputs_dir` is an
+  arbitrary-file read reachable from `/api/generate` - and
+  `storage.reference_paths` resolves them, naming an id that is missing and a
+  file that is gone. `applied()` drops them where the pipeline has none, and
+  `main._refuse_unusable_inputs` refuses at *submit* rather than at cell 1 of
+  64: unlike a negative prompt, a dropped reference renders a plain
+  text-to-image that looks like a success. The module imports `Image` as the
+  class for typing, so `_reference_images` opens through a local
+  `from PIL import Image as PILImage`.
+  **The 2-3x cost the review predicted did not appear.** Measured on the card
+  2026-09-08 (klein 4B, fp8, model offload, 1024x1024, 4 steps): 10.2 s with
+  no reference, 9.2 s and 8.2 s with one, 11.3 s with two. Each reference
+  roughly doubles the sequence and attention is quadratic in it, but under
+  model offload the per-image weight transfer dominates both, so the estimate
+  in the panel needs no reference-aware term. The conditioning itself is
+  unmistakable and reproducible: the same fox, cabin and treeline as the
+  referenced image, in the pose the prompt asked for, and the same hash twice.
+- **A LoRA is the environment's capability, not the checkpoint's.** All three
+  families mix a loader in, so what decides it is peft and the quantizer:
+  `lora_unavailable_reason()` refuses `KREA_QUANT=nunchaku` (already 4-bit
+  SVDQuant; the modules PEFT would wrap are not `nn.Linear`) and a missing
+  peft up front, the way `_nunchaku_preflight` refuses, and `describe()`
+  answers `lora_supported` with no pipeline loaded at all. Adapters are
+  **hot-swapped on the live pipeline** in `generate()`, never baked into
+  `load()`: diffusers strips and re-attaches the offload hooks around the
+  injection, so the "adapters must precede `enable_model_cpu_offload`" rule
+  does not hold, and a second load path driven from the job worker is the one
+  thing `main.ensure_loaded` exists to prevent. `_apply_lora` tracks
+  `(name, weight)` itself and a weight change is a `set_adapters`, which is
+  what makes `0-1x0.25` one load and four re-weightings; a failed injection
+  unloads and clears that state, because the alternative is every later cell
+  running under an adapter nothing recorded. The request carries a *name*
+  (`_bare_name` refuses separators) and `backend/loras.py` is the only place
+  one becomes a path, resolved under `loras_dir` and checked to still be
+  inside it. `.safetensors` only: a `.bin` LoRA is a pickle.
+  **torchao fp8 + PEFT was the unverified part, and it works**: measured on the
+  card 2026-09-08 (FLUX.1 Krea dev, fp8, model offload, a 172 MB FLUX.1-dev
+  LoRA) - the adapter changes the image and reproduces, `unload_lora_weights`
+  restores the base hash exactly, and **weight 0 is byte-identical to no
+  adapter**, which is what proves the weight reaches the maths rather than
+  merely being recorded. A three-weight sweep was 17.5/16.3/18.6 s against
+  15.4 s unadapted: the swap between cells costs nothing measurable. The row
+  keeps `lora` at weight 0 rather than nulling it - the adapter *was* attached,
+  the way CFG 0 is recorded as 0 - and `distinct_count` is what says the 0 cell
+  matched the baseline.
+- **Both widen `CellKey`, and `run_id` survives it.** The key is
+  (prompt, negative, steps, CFG, mu, true CFG, references, LoRA, seed), with
+  `grid.reference_key` (ids in order) and `grid.lora_key` (`name@weight`)
+  spelled once and built from a request in `grid` and from columns in
+  `storage.completed_cells`. `run_id` names a cell by the **shortest** key
+  carrying all its non-None optional elements - it drops true CFG, references
+  and LoRA from the right while they are None - so a grid using none of them
+  is still named by the six-element key its images have carried since before
+  any of them existed (pinned in `tests/test_conditioning.py`). A weight axis
+  with no adapter selected is not an axis: `applied()` puts `lora_scale` back
+  to 1.0 where `lora` is None, or two cells that differ on a number no pixel
+  depends on would split the resume key, and `_sampling_values` returns the
+  single value rather than the parsed list.
 - **A bare `python -m backend.main` on a terminal asks** which checkpoint,
   quantization and offload to use; *any* argument (`--model`, `--quant`,
   `--offload`, `--defaults`) or a non-tty stdin skips the menu, and what the
@@ -668,7 +735,9 @@ observable), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom, the sheet, the export, the re-render
 button, the panel's persistence and the duplicate/distinct counts, exiting 1
-on a failed `expect`. `smoke-flux.json` runs against a second fake server
+on a failed `expect`. `smoke-conditioning.json` runs against a klein-claiming fake on 7864 for the
+reference chips, the adapter select and a weight sweep;
+`smoke-flux.json` runs against a second fake server
 claiming FLUX.1 (`--port 7862 --model black-forest-labs/FLUX.1-Krea-dev`)
 for the True CFG box, and `smoke-preview.json` against one slowed to
 `--step 0.3` on 7863 for the live preview; the fake takes the claimed

@@ -94,6 +94,29 @@ def _build_parser() -> argparse.ArgumentParser:
     shift.add_argument("--no-mu", action="store_true", help="let the pipeline pick its own shift")
     sampling.add_argument("--seed", type=int, help="base seed; random when omitted")
 
+    conditioning = parser.add_argument_group("conditioning")
+    conditioning.add_argument(
+        "--reference",
+        metavar="IDS",
+        default="",
+        help="gallery image ids to condition on - 12 or 12,15 - on a checkpoint whose "
+        "pipeline takes them (FLUX.2 klein). Each is resized to 1 MP and encoded onto "
+        "the latent sequence, so one reference costs roughly 2-3x the time",
+    )
+    conditioning.add_argument(
+        "--lora",
+        metavar="FILE",
+        help="a .safetensors adapter in the loras directory, by file name "
+        "(KREA_LORAS_DIR moves it)",
+    )
+    conditioning.add_argument(
+        "--lora-scale",
+        type=float,
+        default=1.0,
+        metavar="W",
+        help="the weight that adapter is applied at (default 1.0)",
+    )
+
     sweep = parser.add_argument_group(
         "grid search (overnight sweeps; each axis takes 8, or 6,8,10, or 6-12x2)"
     )
@@ -125,6 +148,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="run the whole grid at exactly these seeds - 4471,8823 or 100-103 - "
         "instead of counting up from --seed",
+    )
+    sweep.add_argument(
+        "--grid-lora-scale",
+        metavar="SPEC",
+        default="",
+        help="LoRA weights to sweep - 0-1x0.25 - needing --lora; a per-call setting, "
+        "so a cell costs a re-weighting rather than a reload",
     )
     sweep.add_argument(
         "--resume",
@@ -230,6 +260,15 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
             args.mu = meta["mu"]
     if args.seed is None:
         args.seed = meta.get("seed")
+    # The rest of the reproduction set. Unlike quantization these carry: the
+    # reference ids are this gallery's own, and an adapter that is missing is
+    # refused by name below rather than silently producing another picture.
+    if not args.reference and meta.get("reference"):
+        args.reference = ",".join(str(i) for i in meta["reference"])
+    if args.lora is None and meta.get("lora"):
+        args.lora = meta["lora"]
+        if meta.get("lora_scale") is not None:
+            args.lora_scale = meta["lora_scale"]
     if args.model is None and meta.get("model"):
         args.model = meta["model"]
     # The file's size only when none of the four size arguments was given.
@@ -284,7 +323,7 @@ def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import grid, storage
+        from backend import grid, loras, storage
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
@@ -300,6 +339,7 @@ def _project() -> SimpleNamespace:
         )
     return SimpleNamespace(
         grid=grid,
+        loras=loras,
         storage=storage,
         Cancelled=Cancelled,
         get_backend=get_backend,
@@ -337,6 +377,14 @@ def main(argv: list[str] | None = None) -> int:
     seed = args.seed if args.seed is not None else random_seed()
 
     try:
+        # The same parser the axes use, so `--reference 12,15` and `12-14` mean
+        # what they do everywhere else; the schema's own bound refuses a fifth.
+        references = p.grid.parse_axis(args.reference, int, label="reference")
+    except ValueError as exc:
+        print(p.error_detail(exc), file=sys.stderr)
+        return 2
+
+    try:
         request = p.GenerateRequest(
             prompt=args.prompt,
             negative_prompt=args.negative,
@@ -346,6 +394,9 @@ def main(argv: list[str] | None = None) -> int:
             guidance_scale=args.cfg if args.cfg is not None else profile["guidance_scale"],
             true_cfg=args.true_cfg,
             mu=mu,
+            reference=references,
+            lora=args.lora,
+            lora_scale=args.lora_scale,
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
@@ -364,9 +415,20 @@ def main(argv: list[str] | None = None) -> int:
     # browser: the same block reaches the same parser either way.
     prompt_axis = "\n".join(args.grid_prompt)
     gridding = (
-        bool(prompt_axis or args.grid_steps or args.grid_cfg or args.grid_mu or args.seed_list)
+        bool(
+            prompt_axis
+            or args.grid_steps
+            or args.grid_cfg
+            or args.grid_mu
+            or args.grid_lora_scale
+            or args.seed_list
+        )
         or args.grid_seeds > 1
     )
+    if args.grid_lora_scale and not args.lora:
+        # Without an adapter the scale is not a setting at all, so the sweep
+        # would be one image rendered N times under N different labels.
+        parser.error("--grid-lora-scale needs --lora: with no adapter the weight does nothing")
     if gridding and args.runs != 1:
         parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
     if args.resume and args.seed is None and not args.seed_list:
@@ -380,6 +442,7 @@ def main(argv: list[str] | None = None) -> int:
             steps=args.grid_steps,
             cfg=args.grid_cfg,
             mu=args.grid_mu,
+            lora_scale=args.grid_lora_scale,
             seeds=args.grid_seeds if gridding else args.runs,
             seed_list=seed_list or None,
         )
@@ -398,6 +461,44 @@ def main(argv: list[str] | None = None) -> int:
     # the checkpoint profile, which is what decides the resume comparison and
     # the negative-prompt note below.
     backend = p.get_backend("diffusers")
+
+    # References and adapters are all-or-nothing inputs: a night that renders
+    # every cell as plain text-to-image because the pipeline ignores `image`,
+    # or because the adapter file is not there, looks like a success. Refused
+    # here for the same reason the server refuses at submit - before the load,
+    # not at cell 1.
+    if references and not profile["reference_supported"]:
+        print(
+            f"{p.settings.model_id} takes no reference images - its pipeline has no `image` "
+            "parameter. FLUX.2 [klein] is the checkpoint here that conditions on them.",
+            file=sys.stderr,
+        )
+        return 2
+    if references:
+        # Only against a gallery that exists, like the resume lookup: a
+        # --dry-run promises to create nothing, the database included.
+        if not p.settings.db_path.exists():
+            print(
+                f"no gallery database at {p.settings.db_path}, so there is no image "
+                f"{references[0]} to condition on",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            p.storage.reference_paths(references)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    if args.lora:
+        reason = backend.lora_unavailable_reason()
+        if reason is not None:
+            print(reason, file=sys.stderr)
+            return 2
+        try:
+            p.loras.path_for(args.lora)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
 
     # Resume before the model loads: an already-finished grid should cost the
     # database lookup and nothing else. Compared as the pipeline would run each
@@ -487,6 +588,13 @@ def main(argv: list[str] | None = None) -> int:
                 else ""
             )
         )
+        if references:
+            print(
+                f"reference: {', '.join(str(i) for i in references)}  "
+                "(encoded onto the latent sequence at every step)"
+            )
+        if args.lora:
+            print(f"lora     : {args.lora} @ {args.lora_scale:g}")
         if seed_list:
             print(f"seeds    : {', '.join(str(s) for s in seed_list)}  (listed)")
         else:
@@ -494,7 +602,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"run      : {run_id}")
         if gridding:
             values = p.grid.axis_values(
-                request, args.grid_steps, args.grid_cfg, args.grid_mu, prompt_axis
+                request,
+                args.grid_steps,
+                args.grid_cfg,
+                args.grid_mu,
+                prompt_axis,
+                args.grid_lora_scale,
             )
             if len(values["prompt"]) > 1:
                 # The substituted prompts, not the variables that made them:
@@ -504,7 +617,10 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"           {text}")
                 if len(values["prompt"]) > 4:
                     print(f"           ... and {len(values['prompt']) - 4} more")
-            for axis, shown in (("steps", "steps"), ("guidance_scale", "CFG"), ("mu", "mu")):
+            axes = [("steps", "steps"), ("guidance_scale", "CFG"), ("mu", "mu")]
+            if len(values["lora_scale"]) > 1:
+                axes.append(("lora_scale", "LoRA"))
+            for axis, shown in axes:
                 listed = ", ".join("off" if v is None else f"{v:g}" for v in values[axis])
                 print(f"  {shown:<7}: {listed}")
             if not seed_list:

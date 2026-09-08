@@ -16,6 +16,11 @@ const els = {
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
+  referenceField: $('reference-field'), referenceList: $('reference-list'),
+  referenceNote: $('reference-note'), referenceTip: $('reference-tip'),
+  lora: $('lora'), loraScale: $('lora-scale'), loraField: $('lora-field'),
+  loraTip: $('lora-tip'), gridLoraScale: $('grid-lora-scale'),
+  gridLoraField: $('grid-lora-field'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
   queueNote: $('queue-note'), queueText: $('queue-text'), cancelQueued: $('btn-cancel-queued'),
@@ -108,6 +113,20 @@ let negativeSupported = true;
 let trueCfgSupported = false;
 // Free space on the images volume, from the last status poll; null if unknown.
 let diskFreeMb = null;
+// The gallery ids this run will be conditioned on, in the order they were
+// added - which is the order their tokens are concatenated in. Ids and not
+// files: the server resolves them through the images table, so nothing here
+// can name a path.
+let referenceIds = [];
+// Whether the loaded pipeline takes reference images at all (klein does,
+// nothing else here), and whether this installation can apply an adapter
+// (peft, and a base that is not pre-quantized). Both follow the server all
+// session, like the CFG threshold.
+let referenceSupported = false;
+let loraSupported = false;
+let lorasLoaded = false;
+// A remembered adapter name waiting for the list it belongs to.
+let pendingLora = '';
 
 const humanBytes = (n) => {
   let size = n;
@@ -249,6 +268,54 @@ function syncCfg() {
       : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
 }
 
+// The two conditioning controls, greyed for the checkpoint (references) or for
+// the installation (adapters) rather than for a value - so a dead box always
+// has a reason, and the reason is in the badge beside it.
+function syncConditioning() {
+  els.referenceField.classList.toggle('disabled', !referenceSupported);
+  els.lora.disabled = !loraSupported;
+  els.loraScale.disabled = !loraSupported || !els.lora.value;
+  els.loraField.classList.toggle('disabled', !loraSupported);
+  els.gridLoraScale.disabled = !loraSupported || !els.lora.value;
+  els.gridLoraField.classList.toggle('disabled', els.gridLoraScale.disabled);
+  renderReferences();
+}
+
+// The chips: one per selected image, in order, each removable. Rendered from
+// `referenceIds` rather than from the DOM, because Reuse and the gallery's own
+// button both write the list.
+function renderReferences() {
+  els.referenceList.textContent = '';
+  els.referenceNote.textContent = !referenceSupported
+    ? '(this checkpoint takes none)'
+    : referenceIds.length
+      ? `(${referenceIds.length}, each lengthening the sequence)`
+      : '(add one with the ❐ button on a gallery image)';
+  for (const id of referenceIds) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    const img = document.createElement('img');
+    img.src = `/api/images/${id}/thumb`;
+    img.alt = '';
+    const drop = document.createElement('button');
+    drop.type = 'button';
+    drop.className = 'ghost';
+    drop.textContent = '×';
+    drop.title = `Remove image ${id}`;
+    drop.setAttribute('aria-label', `Remove reference image ${id}`);
+    drop.onclick = () => setReferences(referenceIds.filter((other) => other !== id));
+    chip.append(img, drop);
+    els.referenceList.append(chip);
+  }
+}
+
+function setReferences(ids) {
+  referenceIds = ids.slice(0, 4);
+  renderReferences();
+  schedulePreview();
+  persistPanel();
+}
+
 // Batch holds every image in VRAM at once, which is what stops a 2K batch from
 // fitting. Runs trade that for wall-clock: one pipeline call each, seed stepped
 // by the batch size so nothing in the sweep repeats.
@@ -322,6 +389,20 @@ async function refreshStatus() {
       trueCfgSupported = s.defaults.true_cfg_supported;
       syncCfg();
     }
+    if (s.defaults && typeof s.defaults.reference_supported === 'boolean'
+        && s.defaults.reference_supported !== referenceSupported) {
+      referenceSupported = s.defaults.reference_supported;
+      syncConditioning();
+    }
+    if (s.defaults && typeof s.defaults.lora_supported === 'boolean'
+        && s.defaults.lora_supported !== loraSupported) {
+      loraSupported = s.defaults.lora_supported;
+      syncConditioning();
+    }
+    // The adapter list is a directory read, so it rides on the first status
+    // rather than on the 3 s poll: files appear when the user drops one in,
+    // which is a page reload away either way.
+    if (!lorasLoaded) { lorasLoaded = true; void refreshLoras(); }
     if (typeof s.max_grid_images === 'number') sheetPage = s.max_grid_images;
     els.dot.className = `dot ${s.state}`;
     // A way to start - or retry, after a gated-repo 403 - the load without
@@ -346,6 +427,38 @@ async function refreshStatus() {
   } catch { /* server not up yet */ } finally { statusPending = false; }
 }
 
+// The adapters on disk, into the select. The chosen one survives a refresh
+// that still lists it - a name that has gone is dropped rather than sent to a
+// server that would refuse it.
+async function refreshLoras() {
+  try {
+    const body = await api('/api/loras');
+    // The panel is restored at start-up and this list arrives later, so a
+    // remembered name is a value the select has no option for yet - assigning
+    // it silently does nothing. `pendingLora` carries it across the gap.
+    const chosen = els.lora.value || pendingLora;
+    els.lora.textContent = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = 'none';
+    els.lora.append(none);
+    for (const entry of body.loras ?? []) {
+      const option = document.createElement('option');
+      option.value = entry.name;
+      option.textContent = `${entry.name} (${humanBytes(entry.bytes)})`;
+      els.lora.append(option);
+    }
+    els.lora.value = [...els.lora.options].some((o) => o.value === chosen) ? chosen : '';
+    pendingLora = '';
+    if (body.detail) els.loraTip.textContent = body.detail;
+    else if (!(body.loras ?? []).length) {
+      els.loraTip.textContent =
+        `No adapters found. Drop a .safetensors LoRA into ${body.directory} and reload.`;
+    }
+    syncConditioning();
+  } catch { /* the list is a convenience; the field simply stays empty */ }
+}
+
 // --------------------------------------------------------------- generation
 
 function collect() {
@@ -367,6 +480,12 @@ function collect() {
     // Blank is off; a greyed-out box is a knob this checkpoint has not got.
     true_cfg: els.trueCfg.disabled || els.trueCfg.value.trim() === '' ? null : +els.trueCfg.value,
     mu: els.mu.value === '' ? null : +els.mu.value,
+    // A greyed-out control has been told it cannot apply, exactly as with the
+    // negative prompt: sending its contents anyway would put an adapter or a
+    // reference the pipeline never saw into every record.
+    reference: referenceSupported ? referenceIds : [],
+    lora: els.lora.disabled ? null : els.lora.value || null,
+    lora_scale: els.loraScale.value.trim() === '' ? 1 : +els.loraScale.value,
     seed: seed === '' ? null : +seed,
     num_images: +els.batch.value,
     runs: +els.runs.value,
@@ -575,6 +694,7 @@ function gridPayload() {
     steps_axis: els.gridSteps.value.trim(),
     cfg_axis: els.gridCfg.value.trim(),
     mu_axis: els.gridMu.value.trim(),
+    lora_scale_axis: els.gridLoraScale.disabled ? '' : els.gridLoraScale.value.trim(),
     seeds: +els.gridSeeds.value || 1,
     seed_axis: els.gridSeedList.value.trim(),
     resume: els.gridResume.checked,
@@ -656,6 +776,9 @@ async function previewGrid() {
         (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : ''),
       `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${axisText(p.values.mu)}` +
+        // Only when it is an axis: every other run would carry a constant.
+        (p.values.lora_scale && p.values.lora_scale.length > 1
+          ? `  ·  LoRA ${axisText(p.values.lora_scale)}` : '') +
         (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),
       ...promptLines(p.values.prompt),
     ].join('\n');  // .hint.pre renders the breaks
@@ -843,15 +966,16 @@ async function resumeActiveJob() {
 // the user did not mean to continue.
 const PANEL_KEY = 'krea.panel.v1';
 const PANEL_FIELDS = [
-  'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs',
+  'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs', 'lora', 'loraScale',
   'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
+  'gridLoraScale',
 ];
 let panelTimer;
 
 function persistPanel() {
   clearTimeout(panelTimer);
   panelTimer = setTimeout(() => {
-    const state = { gridOpen: els.gridSection.open };
+    const state = { gridOpen: els.gridSection.open, reference: referenceIds };
     for (const key of PANEL_FIELDS) state[key] = els[key].value;
     // Sampling values travel with the checkpoint they were set on, and only
     // the ones the user took off the profile - the profile itself is the
@@ -877,8 +1001,14 @@ function restorePanel() {
   for (const key of PANEL_FIELDS) {
     if (typeof state[key] === 'string') els[key].value = state[key];
   }
+  // Set again by refreshLoras once the options exist.
+  pendingLora = typeof state.lora === 'string' ? state.lora : '';
   els.gridSection.open = !!state.gridOpen;
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
+  // The ids are restored whatever the checkpoint; `collect()` sends none while
+  // the field is greyed, so a klein selection survives a look at FLUX and back.
+  if (Array.isArray(state.reference)) referenceIds = state.reference.filter(Number.isInteger);
+  syncConditioning();
 }
 
 // The second phase, from refreshStatus once the checkpoint is known.
@@ -1103,6 +1233,22 @@ function card(rec) {
   tools.className = 'tools';
   tools.append(
     tool('↻', 'Reuse settings', () => reuse(rec)),
+    tool('❐', 'Use as a reference image', () => {
+      if (!referenceSupported) {
+        showError(
+          'This checkpoint takes no reference images - its pipeline has no `image` '
+          + 'parameter. FLUX.2 [klein] is the one here that conditions on them.',
+          true,
+        );
+        return;
+      }
+      if (referenceIds.includes(rec.id)) { setReferences(referenceIds); return; }
+      if (referenceIds.length >= 4) {
+        showError('Four reference images is the limit; each one lengthens the sequence.', true);
+        return;
+      }
+      setReferences([...referenceIds, rec.id]);
+    }),
     tool('⊞', 'Show this run as a sheet', () => {
       if (!rec.run_id && !rec.job_id) {
         showError('That image predates runs being grouped, so it belongs to no run.', true);
@@ -1218,9 +1364,17 @@ function reuse(rec) {
   els.trueCfg.value = trueCfgSupported && rec.true_cfg != null ? rec.true_cfg : '';
   // Turbo's flow shift. Records from a pipeline that derives its own carry null.
   els.mu.value = rec.mu ?? '';
+  // The conditioning that made it, where this server can still apply it: the
+  // references are ids in this same gallery, and the adapter has to be a file
+  // the select is offering or the request would be refused at submit.
+  referenceIds = referenceSupported ? (rec.reference ?? []) : [];
+  const listed = [...els.lora.options].some((o) => o.value === rec.lora);
+  els.lora.value = loraSupported && rec.lora && listed ? rec.lora : '';
+  els.loraScale.value = els.lora.value ? (rec.lora_scale ?? 1) : 1;
   els.seed.value = rec.seed;
   syncSize();
   syncCfg();
+  syncConditioning();
   syncRuns();
   schedulePreview();
   persistPanel();
@@ -1261,6 +1415,10 @@ const SHEET_AXES = [
   // prompt would lay itself out as a diagonal against its own shadow.
   { key: 'tcfg', label: 'True CFG', of: (r) => r.true_cfg },
   { key: 'mu', label: 'Mu', of: (r) => r.mu },
+  // The adapter's weight - the comparison a LoRA is bought for, and a sweep
+  // over it is exactly a sheet. Null where no adapter ran, so a mixed search
+  // does not invent an axis out of one.
+  { key: 'lora', label: 'LoRA', of: (r) => r.lora_scale },
   { key: 'seed', label: 'Seed', of: (r) => r.seed },
 ];
 const trueCfgEchoesCfg = (records) =>
@@ -1801,6 +1959,9 @@ function renderLightbox() {
     // Only where it differs from the CFG: on Krea 2 it is the same number.
     (rec.true_cfg != null && rec.true_cfg !== rec.guidance_scale ? `true CFG ${rec.true_cfg}, ` : '') +
     `${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
+    // Only when there was one: most records carry neither.
+    (rec.lora ? `LoRA ${rec.lora} @ ${rec.lora_scale}, ` : '') +
+    (rec.reference?.length ? `ref ${rec.reference.join('+')}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s` +
     (lbList.length > 1 ? ` · ${lbIndex + 1}/${lbList.length}` : '');
   els.lbPrev.disabled = lbIndex === 0;
@@ -1922,7 +2083,8 @@ els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // done" half of the preview is what ticking it is for.
 for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
                   els.gridSeedList, els.gridBudget, els.prompt, els.negative, els.steps,
-                  els.cfg, els.trueCfg, els.mu, els.batch, els.width, els.height, els.seed]) {
+                  els.cfg, els.trueCfg, els.mu, els.batch, els.width, els.height, els.seed,
+                  els.gridLoraScale, els.loraScale]) {
   el.addEventListener('input', schedulePreview);
 }
 // A listed seed axis makes the count and the base seed moot; say so in place.
@@ -1950,6 +2112,9 @@ els.mu.oninput = () => own('mu');
 els.seed.oninput = syncRuns;
 els.batch.oninput = els.runs.oninput = syncRuns;
 els.cfg.oninput = () => { own('cfg'); syncCfg(); };
+// The weight boxes are dead without an adapter, so selecting one has to wake
+// them - and clearing it has to stop a stale axis reaching the server.
+els.lora.onchange = () => { syncConditioning(); schedulePreview(); };
 els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
 els.favOnly.onchange = resetGallery;
 els.sheetBtn.onclick = () => setSheet(!sheetMode);

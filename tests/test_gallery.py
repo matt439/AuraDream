@@ -49,10 +49,14 @@ def test_the_png_carries_the_whole_reproduction_set(store):
     assert set(meta) == {
         "prompt", "negative_prompt", "steps", "guidance_scale", "true_cfg", "mu", "seed",
         "model", "quantization", "job", "run", "size", "variables", "hash",
+        "reference", "lora", "lora_scale",
     }
     assert (meta["seed"], meta["mu"], meta["run"], meta["quantization"]) == (5, 1.15, "run1", "fp8")
     assert meta["size"] == "256x256"  # the image's, not the request's
     assert meta["variables"] is None  # a plain prompt
+    # Absent rather than empty: a text-to-image row with no adapter says so by
+    # null in all three, which is what `applied()` normalises them to.
+    assert (meta["reference"], meta["lora"], meta["lora_scale"]) == (None, None, None)
     assert meta["hash"] == record.content_hash and len(meta["hash"]) == 16
 
 

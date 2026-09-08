@@ -1,0 +1,73 @@
+[
+  {"log": "'reference images and LoRA, against a fake server claiming FLUX.2 klein on 7864'"},
+  {"navigate": "http://127.0.0.1:7864/"},
+  {"wait": 1200},
+  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+
+  {"log": "'klein takes references, so the field is live and the adapter list is the directory'"},
+  {"expect": "referenceSupported && !document.getElementById('reference-field').classList.contains('disabled')"},
+  {"expect": "loraSupported && [...els.lora.options].some((o) => o.value === 'demo-style.safetensors')"},
+  {"expect": "els.loraScale.disabled && els.gridLoraScale.disabled"},
+
+  {"log": "'an image to point at'"},
+  {"eval": "els.prompt.value = 'a fox in the snow'; els.seed.value = '5'; void startJob('/api/generate', collect());"},
+  {"wait": 2500},
+  {"expect": "viewerRecords.length === 1"},
+  {"eval": "resetGallery();"},
+  {"wait": 800},
+
+  {"log": "'the cards reference button fills a chip, and collect() sends the id'"},
+  {"eval": "[...document.querySelectorAll('.card .tools button')].find((b) => b.textContent === '❐').click()"},
+  {"wait": 300},
+  {"expect": "referenceIds.length === 1 && collect().reference.length === 1"},
+  {"expect": "document.querySelectorAll('#reference-list .chip').length === 1"},
+  {"expect": "els.referenceNote.textContent.includes('lengthening the sequence')"},
+
+  {"log": "'the chips cross removes it again'"},
+  {"eval": "document.querySelector('#reference-list .chip button').click()"},
+  {"wait": 200},
+  {"expect": "referenceIds.length === 0 && collect().reference.length === 0"},
+
+  {"log": "'a reference reaches the row, and the lightbox says so'"},
+  {"eval": "setReferences([galleryRecords[0].id]); els.seed.value = '6'; void startJob('/api/generate', collect());"},
+  {"wait": 2500},
+  {"expect": "viewerRecords[0].reference && viewerRecords[0].reference.length === 1"},
+  {"eval": "document.querySelector('#viewer img').click()"},
+  {"wait": 400},
+  {"expect": "els.lbMeta.textContent.includes('ref ')"},
+  {"key": "Escape"},
+  {"eval": "setReferences([]);"},
+
+  {"log": "'selecting an adapter wakes both weight boxes'"},
+  {"eval": "els.lora.value = 'demo-style.safetensors'; els.lora.onchange();"},
+  {"expect": "!els.loraScale.disabled && !els.gridLoraScale.disabled"},
+  {"expect": "collect().lora === 'demo-style.safetensors' && collect().lora_scale === 1"},
+
+  {"log": "'a weight sweep is an ordinary grid axis'"},
+  {"eval": "els.gridSection.open = true; els.gridLoraScale.value = '0,0.5,1'; els.seed.value = '11'; previewGrid();"},
+  {"wait": 900},
+  {"expect": "els.gridPreview.textContent.includes('3 images') && els.gridPreview.textContent.includes('LoRA 0, 0.5, 1')"},
+  {"eval": "void startJob('/api/grid', gridPayload());"},
+  {"wait": 4000},
+  {"expect": "viewerRecords.length === 3"},
+  {"expect": "JSON.stringify(viewerRecords.map((r) => r.lora_scale).sort()) === '[0,0.5,1]'"},
+
+  {"log": "'the sheet lays the sweep out along a LoRA axis'"},
+  {"eval": "els.search.value = 'run:' + viewerRecords[0].run_id; setSheet(true);"},
+  {"wait": 1500},
+  {"expect": "sheetLayout && [sheetLayout.rowAxis, sheetLayout.colAxis].some((a) => a && a.key === 'lora')"},
+  {"eval": "setSheet(false); els.search.value = ''; resetGallery();"},
+
+  {"log": "'Reuse restores the adapter and its weight'"},
+  {"eval": "els.lora.value = ''; els.lora.onchange(); reuse(galleryRecords.find((r) => r.lora_scale === 0.5));"},
+  {"wait": 300},
+  {"expect": "els.lora.value === 'demo-style.safetensors' && +els.loraScale.value === 0.5"},
+
+  {"log": "'and the panel remembers both across a reload'"},
+  {"eval": "els.gridLoraScale.value = '0-1x0.25'; persistPanel();"},
+  {"wait": 600},
+  {"navigate": "http://127.0.0.1:7864/"},
+  {"wait": 1500},
+  {"expect": "els.lora.value === 'demo-style.safetensors' && els.gridLoraScale.value === '0-1x0.25'"},
+  {"eval": "els.lora.value = ''; els.lora.onchange(); els.gridLoraScale.value = ''; els.seed.value = ''; setReferences([]); persistPanel();"}
+]

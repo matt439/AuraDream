@@ -25,6 +25,7 @@ dependencies = [
     # unchanged and one from WSL 2 picks both up.
     "kernels>=0.16,<0.17; sys_platform == 'linux'",
     "bitsandbytes>=0.50; sys_platform == 'linux'",
+    "peft>=0.20.0",
 ]
 
 [dependency-groups]

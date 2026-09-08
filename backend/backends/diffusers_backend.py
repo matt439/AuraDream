@@ -28,7 +28,7 @@ import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
-from .. import latent_preview
+from .. import latent_preview, loras
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
@@ -67,6 +67,11 @@ _GUIDES_FROM_ZERO = ("Krea2Pipeline", "ZImage")
 # recorded seed with a Cancel that never lands.
 _REQUIRED_PARAMS = frozenset({"generator", "callback_on_step_end"})
 
+# One adapter slot. diffusers can hold several and blend them, but every extra
+# name has to reach `CellKey`, the `krea` chunk and Reuse to be reproducible,
+# and one adapter at a weight is the comparison a LoRA is bought for.
+_LORA_ADAPTER = "krea"
+
 
 def _importable(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
@@ -97,6 +102,13 @@ class DiffusersBackend(GenerationBackend):
         self._pipe: Any = None
         self._lock = threading.Lock()
         self._call_params: set[str] = set()
+        # The adapter currently attached to the live pipeline, as
+        # (name, weight). Hot-swapped between cells rather than baked into
+        # `load()`: diffusers strips and re-attaches the offload hooks around
+        # the injection itself, so there is no "adapters must precede
+        # enable_model_cpu_offload" rule to obey - and a load path driven from
+        # the job worker is the one thing `main.ensure_loaded` exists to stop.
+        self._lora: tuple[str, float] | None = None
         # diffusers draws its own tqdm bar per denoising loop. Kept on by
         # default; the CLI turns it off because it renders its own status line.
         self._console_progress = True
@@ -314,6 +326,8 @@ class DiffusersBackend(GenerationBackend):
                 return
             self._pipe = None
             self._call_params = set()
+            # The adapter lives on the pipeline that is going away.
+            self._lora = None
         self._release()
 
     def try_unload(self) -> bool:
@@ -328,6 +342,7 @@ class DiffusersBackend(GenerationBackend):
             return False
         try:
             loaded, self._pipe, self._call_params = self._pipe is not None, None, set()
+            self._lora = None
         finally:
             self._lock.release()
         if loaded:
@@ -500,13 +515,107 @@ class DiffusersBackend(GenerationBackend):
                 negative_prompt_supported=profile["negative_prompt_supported"],
                 cfg_threshold=profile["cfg_threshold"],
                 true_cfg_supported=profile["true_cfg_supported"],
+                reference_supported=profile["reference_supported"],
+                # Not a guess even here: whether an adapter can be loaded is a
+                # fact about this installation, not about the checkpoint.
+                lora_supported=self.lora_supported(),
             )
         return request.applied(
             negative_prompt_supported="negative_prompt" in self._call_params,
             cfg_threshold=self.cfg_threshold(),
             mu_supported=self._mu_supported(self._pipe),
             true_cfg_supported=self._true_cfg_supported(),
+            reference_supported=self._reference_supported(),
+            lora_supported=self.lora_supported(),
         )
+
+    def _reference_supported(self) -> bool:
+        """Does this pipeline condition on reference images?
+
+        `Flux2KleinPipeline.__call__` takes `image` as its first parameter,
+        resizes each reference to 1 MP, VAE-encodes it and concatenates the
+        tokens onto the latent sequence at every step. Nothing else in the
+        catalogue has the parameter, and handing one to a pipeline that has not
+        got it would silently drop the whole point of the request.
+        """
+        return "image" in self._call_params
+
+    def lora_unavailable_reason(self) -> str | None:
+        """Why an adapter cannot be applied here, or None when one can.
+
+        Answerable before the load, because the two things that decide it are
+        the environment's: peft, and a base whose linears an adapter can attach
+        to. Nunchaku's are not - the checkpoint arrives quantized to 4-bit
+        SVDQuant with its own kernels, and the modules PEFT would wrap are not
+        `nn.Linear` at all - so it is refused the way `_nunchaku_preflight`
+        refuses, up front and by name, rather than at the first cell.
+        """
+        if settings.quantization == _NUNCHAKU:
+            return (
+                "KREA_QUANT=nunchaku loads a checkpoint that is already quantized to "
+                "4-bit SVDQuant, whose linear layers are not the ones a LoRA attaches "
+                "to; run the same checkpoint under fp8, int8 or none to use adapters"
+            )
+        if not _importable("peft"):
+            return "LoRA adapters need the peft package; `uv sync` installs it"
+        if self._pipe is not None and not hasattr(self._pipe, "load_lora_weights"):
+            return f"{type(self._pipe).__name__} has no LoRA loader"
+        return None
+
+    def lora_supported(self) -> bool:
+        return self.lora_unavailable_reason() is None
+
+    def _apply_lora(self, pipe: Any, request: "GenerateRequest") -> None:
+        """Bring the live pipeline to the adapter this cell asks for.
+
+        Cheap between cells and that is the point: a weight change is a
+        `set_adapters` on modules already injected, so `0-1x0.25` costs one
+        load and four re-weightings rather than five reloads. The state is
+        tracked here rather than read back off the pipeline because a failed
+        injection must leave the object clean *and* this record of it honest -
+        otherwise the next cell believes an adapter is attached that is not.
+        """
+        wanted = (request.lora, round(request.lora_scale, 6)) if request.lora else None
+        if wanted == self._lora:
+            return
+        if self._lora is not None and (wanted is None or wanted[0] != self._lora[0]):
+            pipe.unload_lora_weights()
+            self._lora = None
+        if wanted is None:
+            return
+        try:
+            if self._lora is None:
+                log.info("loading LoRA %s", wanted[0])
+                pipe.load_lora_weights(str(loras.path_for(wanted[0])), adapter_name=_LORA_ADAPTER)
+            pipe.set_adapters([_LORA_ADAPTER], [wanted[1]])
+        except Exception:
+            # Half-attached is worse than not attached: the cell fails either
+            # way, and the rest of the night must not run under an adapter
+            # nothing recorded.
+            self._lora = None
+            try:
+                pipe.unload_lora_weights()
+            except Exception:  # noqa: BLE001 - already failing; do not mask it
+                log.debug("could not unload the half-applied adapter", exc_info=True)
+            raise
+        self._lora = wanted
+
+    def _reference_images(self, ids: list[int]) -> list["Image"]:
+        """The reference PNGs as images, in the order the request gave them.
+
+        A local import: this module imports `Image` as the *class* for typing
+        only, and the opener is on the module. Decoded here and the file handle
+        closed, because the pipeline holds them across the whole denoise.
+        """
+        from PIL import Image as PILImage
+
+        from .. import storage
+
+        images: list[Image] = []
+        for path in storage.reference_paths(ids):
+            with PILImage.open(path) as handle:
+                images.append(handle.convert("RGB"))
+        return images
 
     def _true_cfg_supported(self) -> bool:
         """Does this pipeline keep real CFG apart from its guidance value?
@@ -543,6 +652,9 @@ class DiffusersBackend(GenerationBackend):
             log.info("this pipeline takes no negative prompt; ignoring it")
         request = self.applied(request)
         total = request.steps
+        # Before the cancel check and the kwargs: a swap that fails must fail
+        # the cell, not run it under whatever adapter the last cell left on.
+        self._apply_lora(pipe, request)
 
         if should_cancel is not None and should_cancel():
             raise Cancelled
@@ -615,6 +727,13 @@ class DiffusersBackend(GenerationBackend):
         # FLUX.2 klein takes no negative prompt at all (`negative_prompt_embeds`
         # only, and the base model's uncond pass runs against ""), so there the
         # question of a threshold never arises.
+        # Reference conditioning, where the pipeline has it: klein resizes each
+        # to 1 MP itself, encodes it and concatenates the tokens onto the latent
+        # sequence at every step - which is why one reference costs 2-3x the
+        # time rather than a single VAE encode. `applied()` has already dropped
+        # them where there is no such parameter, so this is the row's story too.
+        if request.reference and self._reference_supported():
+            kwargs["image"] = self._reference_images(request.reference)
         if request.negative_prompt:
             kwargs["negative_prompt"] = request.negative_prompt
             if self._true_cfg_supported():
@@ -704,6 +823,12 @@ class DiffusersBackend(GenerationBackend):
                 "negative_prompt" in self._call_params if self._pipe is not None else None
             ),
             "true_cfg_supported": self._true_cfg_supported() if self._pipe is not None else None,
+            "reference_supported": (
+                self._reference_supported() if self._pipe is not None else None
+            ),
+            # Never None: peft and the quantization mode decide this one, and
+            # both are known before a single weight is downloaded.
+            "lora_supported": self.lora_supported(),
         }
         try:
             import torch

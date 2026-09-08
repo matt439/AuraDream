@@ -81,9 +81,11 @@ class GenerationBackend(abc.ABC):
 
         Required keys, which `main.status()` indexes directly: `model_id`,
         `quantization`, `offload`. Optional, merged when present:
-        `cfg_threshold`, `negative_prompt_supported` and `true_cfg_supported`
-        (None until a pipeline is loaded - the parameter list is the answer),
-        `device_name`, `vram_total_mb`, `vram_used_mb`. Load errors are *not*
+        `cfg_threshold`, `negative_prompt_supported`, `true_cfg_supported` and
+        `reference_supported` (None until a pipeline is loaded - the parameter
+        list is the answer), `lora_supported` (never None: what decides it is
+        the installation, not the checkpoint), `device_name`, `vram_total_mb`,
+        `vram_used_mb`. Load errors are *not*
         reported here:
         `main.ensure_loaded` records them, and that is what `ModelStatus.detail`
         serves.
@@ -96,6 +98,19 @@ class GenerationBackend(abc.ABC):
         must say so here. The default applies everything as given.
         """
         return request
+
+    def lora_supported(self) -> bool:
+        """Can this backend apply a LoRA adapter? Optional; default no.
+
+        Separate from `describe()` because the HTTP layer refuses a request
+        naming an adapter *at submit*, with the reason - a 64-cell night must
+        not discover at cell 1 that nothing here can load one.
+        """
+        return False
+
+    def lora_unavailable_reason(self) -> str | None:
+        """Why not, for that refusal. None when adapters can be applied."""
+        return None if self.lora_supported() else "this backend cannot apply LoRA adapters"
 
     def free_cache(self) -> None:
         """Return cached accelerator memory without unloading. Optional.

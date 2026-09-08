@@ -8,7 +8,12 @@ import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -21,7 +26,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import grid, storage  # noqa: E402
+from . import grid, loras, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .config import settings  # noqa: E402
 from .jobs import JobManager, short_error  # noqa: E402
@@ -201,15 +206,7 @@ async def status() -> ModelStatus:
     state = _load_state["state"]
     if state == "unloaded" and backend.is_ready():
         state = "ready"
-    defaults = defaults_for(info["model_id"])
-    # The profile's CFG threshold is a guess from the checkpoint id; once a
-    # pipeline is loaded its parameter list is the real answer.
-    if info.get("cfg_threshold") is not None:
-        defaults["cfg_threshold"] = info["cfg_threshold"]
-    if info.get("negative_prompt_supported") is not None:
-        defaults["negative_prompt_supported"] = info["negative_prompt_supported"]
-    if info.get("true_cfg_supported") is not None:
-        defaults["true_cfg_supported"] = info["true_cfg_supported"]
+    defaults = _merged_defaults(info)
     return ModelStatus(
         state=state,
         defaults=defaults,
@@ -218,6 +215,8 @@ async def status() -> ModelStatus:
             defaults["cfg_threshold"],
             defaults["negative_prompt_supported"],
             defaults["true_cfg_supported"],
+            defaults["reference_supported"],
+            defaults["lora_supported"],
         ),
         model_id=info["model_id"],
         quantization=info["quantization"],
@@ -228,6 +227,76 @@ async def status() -> ModelStatus:
         vram_used_mb=info.get("vram_used_mb"),
         disk_free_mb=_disk_free_mb(),
     )
+
+
+def _merged_defaults(info: dict) -> dict:
+    """The checkpoint's profile, with what a loaded pipeline actually exposes
+    replacing each guess.
+
+    The profile answers from the id alone, which is all there is before a load;
+    every capability it guesses at is settled by the pipeline's parameter list
+    once there is one. `lora_supported` is the exception in both directions: no
+    profile guesses it, and the backend can answer it cold, because what decides
+    it is peft and the quantization mode rather than the checkpoint.
+    """
+    defaults = defaults_for(info["model_id"])
+    for key in (
+        "cfg_threshold",
+        "negative_prompt_supported",
+        "true_cfg_supported",
+        "reference_supported",
+    ):
+        if info.get(key) is not None:
+            defaults[key] = info[key]
+    defaults["lora_supported"] = bool(info.get("lora_supported"))
+    return defaults
+
+
+async def _refuse_unusable_inputs(request: GenerateRequest) -> None:
+    """Refuse a reference or an adapter this server cannot run - at submit.
+
+    Both are all-or-nothing inputs, unlike a negative prompt: a night queued
+    with references against a pipeline that takes none, or with an adapter no
+    file backs, would render every cell as a plain text-to-image and look like
+    a success. `applied()` keeps the *record* honest about that; this is what
+    stops it happening at cell 1 of 64.
+    """
+    if request.reference:
+        info = await asyncio.to_thread(backend.describe)
+        if not _merged_defaults(info)["reference_supported"]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{info['model_id']} takes no reference images - its pipeline has no "
+                "`image` parameter. FLUX.2 [klein] is the checkpoint here that conditions "
+                "on them.",
+            )
+        try:
+            await asyncio.to_thread(storage.reference_paths, request.reference)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if request.lora:
+        reason = backend.lora_unavailable_reason()
+        if reason is not None:
+            raise HTTPException(status_code=422, detail=reason)
+        try:
+            loras.path_for(request.lora)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/loras")
+async def list_loras() -> dict:
+    """The adapters on disk, and whether this server could apply one.
+
+    Listed rather than uploaded: an adapter is a 200 MB file the user already
+    has, and a directory is the thing they can drop it into without a form.
+    """
+    return {
+        "loras": await asyncio.to_thread(loras.available),
+        "supported": backend.lora_supported(),
+        "detail": backend.lora_unavailable_reason(),
+        "directory": str(settings.loras_dir),
+    }
 
 
 def _disk_free_mb() -> int | None:
@@ -271,6 +340,7 @@ async def generate(request: GenerateRequest) -> JobAccepted:
         request.check_budget()
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await _refuse_unusable_inputs(request)
     # The job waits on ensure_loaded() itself, so a previously failed load is
     # retried here rather than short-circuiting - the user may have just been
     # granted repo access.
@@ -294,6 +364,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
     the job that continues a night is stamped with the same id as the job that
     started it.
     """
+    await _refuse_unusable_inputs(request)
     try:
         request.check_budget()
         values = grid.axis_values(
@@ -302,6 +373,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
             request.cfg_axis,
             request.mu_axis,
             request.prompt_axis,
+            request.lora_scale_axis,
         )
         # Listed seeds are an axis the preview shows like the others; counted
         # seeds are derived from the base and are not.
@@ -313,6 +385,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
             steps=request.steps_axis,
             cfg=request.cfg_axis,
             mu=request.mu_axis,
+            lora_scale=request.lora_scale_axis,
             seeds=request.seeds,
             seed_list=seed_list or None,
         )
@@ -415,12 +488,25 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
                 # was separate re-renders with the real CFG it actually ran.
                 true_cfg=r.true_cfg,
                 mu=r.mu,
+                # The rest of the reproduction set: an adapter or a reference
+                # that made the original is as much a part of it as the seed,
+                # and the selection is already pinned to this checkpoint.
+                reference=r.reference or [],
+                lora=r.lora,
+                lora_scale=r.lora_scale if r.lora_scale is not None else 1.0,
                 seed=r.seed,
             ),
             seed=r.seed,
         )
         for r in reversed(records)
     ]
+    # One check per distinct pairing rather than per cell: a selection of 400
+    # images carries at most a handful of adapters between them.
+    for spec in {(c.request.lora, tuple(c.request.reference)) for c in cells}:
+        if spec != (None, ()):
+            await _refuse_unusable_inputs(cells[0].request.model_copy(
+                update={"lora": spec[0], "reference": list(spec[1])}
+            ))
     run_id = grid.run_id(cells, settings.model_id, settings.quantization)
     done = await asyncio.to_thread(
         storage.completed_cells,
@@ -588,6 +674,22 @@ async def gallery(
     return GalleryPage(
         items=items[:limit], total=total, limit=limit, offset=offset, has_more=len(items) > limit
     )
+
+
+@app.get("/api/images/{image_id}/thumb")
+async def image_thumb(image_id: int):
+    """The thumbnail for one image, by id.
+
+    The panel's reference chips hold ids and nothing else - a reference
+    restored from a record or from localStorage may name an image no loaded
+    gallery page contains - so they need one request that turns an id into a
+    picture. A redirect rather than a read: the file is already served by the
+    `/outputs` mount, with its caching.
+    """
+    record = await asyncio.to_thread(storage.get_image, image_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="unknown image")
+    return RedirectResponse(record.thumb_url or record.url)
 
 
 @app.post("/api/images/{image_id}/favorite")

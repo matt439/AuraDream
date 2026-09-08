@@ -48,6 +48,16 @@ def main() -> int:
     os.environ["KREA_OUTPUTS_DIR"] = str(data / "outputs")
     os.environ["KREA_PORT"] = str(args.port)
     os.environ["KREA_MODEL_ID"] = args.model
+    # An adapter directory of its own, with one file in it, so the LoRA select
+    # has something to offer and the panel can be driven end to end. The fake
+    # never opens it - it draws gradients - but every path up to the load is
+    # the real one: the listing, the select, the axis, the recorded column.
+    loras = data / "loras"
+    loras.mkdir(exist_ok=True)
+    demo = loras / "demo-style.safetensors"
+    if not demo.exists():
+        demo.write_bytes(b"not a real adapter; the fake backend never loads it")
+    os.environ["KREA_LORAS_DIR"] = str(loras)
 
     from PIL import Image, ImageDraw
 
@@ -111,6 +121,9 @@ def main() -> int:
     profile = defaults_for(args.model)
     fake.cfg_threshold = profile["cfg_threshold"]
     fake.true_cfg_supported = profile["true_cfg_supported"]
+    # klein takes reference images and nothing else here does, so the greyed-out
+    # panel the browser check drives is the one the real checkpoint would show.
+    fake.reference_supported = profile["reference_supported"]
     app_main.backend = fake
     app_main.jobs = JobManager(fake, app_main.ensure_loaded)
 

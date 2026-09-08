@@ -35,6 +35,7 @@ import hashlib
 import json
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -66,9 +67,41 @@ PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _VARIABLE = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=(?P<values>.*)$")
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
-# (prompt, negative prompt, steps, CFG, mu, true CFG, seed) - the seed last,
-# because `cell_keys` swaps it for each image of a batch.
-CellKey = tuple[str, str | None, int, float, float | None, float | None, int]
+# (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, seed) -
+# the seed last, because `cell_keys` swaps it for each image of a batch, and the
+# three optional elements in the order they were added, because `run_id` names a
+# cell by the shortest form that carries all of its non-None ones.
+CellKey = tuple[
+    str, str | None, int, float, float | None, float | None, str | None, str | None, int
+]
+
+# How many of the trailing elements before the seed are optional extensions -
+# true CFG, references, LoRA. `run_id` drops them from the right while they are
+# None, so a grid that uses none of them is named by the six-element key its
+# images have carried since before any of them existed.
+_KEY_EXTENSIONS = 3
+
+
+def reference_key(ids: Sequence[int] | None) -> str | None:
+    """The reference images as one key element: their ids, in order, or None.
+
+    Order matters - it is the order the encoded references are concatenated in -
+    so this is not a set. None and the empty list are the same thing, which is
+    what lets a text-to-image row and a row whose references were dropped meet
+    at the same key.
+    """
+    return ",".join(str(image_id) for image_id in ids) if ids else None
+
+
+def lora_key(name: str | None, scale: float | None) -> str | None:
+    """The adapter and the weight it ran at as one key element, or None.
+
+    A scale with no adapter is not a setting (`applied()` puts it back to the
+    default), so the two travel together or not at all. Formatted rather than
+    rounded into a tuple because the same element has to be built from a
+    database REAL on the resume side and match to the digit.
+    """
+    return None if not name else f"{name}@{round(float(scale if scale is not None else 1.0), 6):g}"
 
 
 @dataclass(frozen=True)
@@ -252,7 +285,12 @@ def prompt_assignments(
 
 
 def axis_values(
-    request: GenerateRequest, steps: str, cfg: str, mu: str, prompt: str = ""
+    request: GenerateRequest,
+    steps: str,
+    cfg: str,
+    mu: str,
+    prompt: str = "",
+    lora_scale: str = "",
 ) -> dict[str, list[Any]]:
     """The axes resolved against the request they sit on top of.
 
@@ -263,16 +301,26 @@ def axis_values(
     assignments = prompt_assignments(request, parse_variables(prompt))
     return {
         "prompt": [substitute(request.prompt, one) for one in assignments],
-        **_sampling_values(request, steps, cfg, mu),
+        **_sampling_values(request, steps, cfg, mu, lora_scale),
     }
 
 
-def _sampling_values(request: GenerateRequest, steps: str, cfg: str, mu: str) -> dict[str, list[Any]]:
-    """The three numeric axes, each falling back to the request's own value."""
+def _sampling_values(
+    request: GenerateRequest, steps: str, cfg: str, mu: str, lora_scale: str = ""
+) -> dict[str, list[Any]]:
+    """The numeric axes, each falling back to the request's own value."""
     return {
         "steps": parse_axis(steps, int, label="steps") or [request.steps],
         "guidance_scale": parse_axis(cfg, float, label="CFG") or [request.guidance_scale],
         "mu": parse_axis(mu, float, allow_none=True, label="mu") or [request.mu],
+        # Only an axis when an adapter is selected: without one the scale is
+        # not a setting at all (see `GenerateRequest.applied`), and a sweep of
+        # it would be the same image several times over.
+        "lora_scale": (
+            parse_axis(lora_scale, float, label="LoRA scale") or [request.lora_scale]
+            if request.lora
+            else [request.lora_scale]
+        ),
     }
 
 
@@ -303,11 +351,21 @@ def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> 
     parts.append(f"{len(values['steps'])} steps")
     parts.append(f"{len(values['guidance_scale'])} CFG")
     parts.append(f"{len(values['mu'])} mu")
+    # Like the prompt count: a sweep that does not touch the adapter reads
+    # exactly as it did before the axis existed.
+    if len(values.get("lora_scale", [])) > 1:
+        parts.append(f"{len(values['lora_scale'])} LoRA")
     parts.append(f"{seeds} {'listed ' if listed else ''}seed{'' if seeds == 1 else 's'}")
     return " x ".join(parts)
 
 
-def _label(assignment: dict[str, str], steps: int, cfg: float, mu: float | None) -> str:
+def _label(
+    assignment: dict[str, str],
+    steps: int,
+    cfg: float,
+    mu: float | None,
+    lora_scale: float | None = None,
+) -> str:
     """ASCII on purpose: this ends up in an overnight log, and a redirected
     stdout on Windows encodes with the locale codec, where a stray en dash is
     a UnicodeEncodeError twelve hours into the run. Prompt values come from a
@@ -319,6 +377,10 @@ def _label(assignment: dict[str, str], steps: int, cfg: float, mu: float | None)
     parts.append(f"{steps} steps")
     parts.append(f"CFG {cfg:g}")
     parts.append(f"mu {'off' if mu is None else f'{mu:g}'}")
+    # Only where an adapter is loaded: on every other run it is a constant, and
+    # a log line is read by eye.
+    if lora_scale is not None:
+        parts.append(f"LoRA {lora_scale:g}")
     return ", ".join(parts).encode("ascii", "replace").decode("ascii")
 
 
@@ -341,6 +403,8 @@ def cell_key(cell: "Cell") -> CellKey:
         round(request.guidance_scale, 6),
         None if request.mu is None else round(request.mu, 6),
         None if request.true_cfg is None else round(request.true_cfg, 6),
+        reference_key(request.reference),
+        lora_key(request.lora, request.lora_scale),
         cell.seed,
     )
 
@@ -429,16 +493,21 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
     Order-independent on purpose: two grids that render the same cells are the
     same run however their axes were spelled.
 
-    A cell that asks for no true CFG is named by the six-element key it
-    always was, so every grid from before the field existed - and every grid
-    that does not use it - keeps the id its images already carry; only a cell
-    that sets it gets the seventh element.
+    A cell is named by the shortest key that carries all of its optional
+    elements: none of true CFG, references or a LoRA and it is the six-element
+    key images have carried since before any of them existed, so every run id
+    from an earlier build - and every grid that uses none of them - is
+    unchanged. Each one that is set extends the name by one element, in the
+    order they were added.
     """
     first = cells[0].request
 
     def named(cell: Cell) -> str:
         key = cell_key(cell)
-        return json.dumps(key if key[5] is not None else (*key[:5], key[6]))
+        head, extras, seed = key[:-1 - _KEY_EXTENSIONS], list(key[-1 - _KEY_EXTENSIONS : -1]), key[-1]
+        while extras and extras[-1] is None:
+            extras.pop()
+        return json.dumps([*head, *extras, seed])
 
     definition = {
         "model": model_id,
@@ -458,6 +527,7 @@ def expand(
     steps: str = "",
     cfg: str = "",
     mu: str = "",
+    lora_scale: str = "",
     seeds: int = 1,
     seed_list: list[int] | None = None,
 ) -> list[Cell]:
@@ -475,13 +545,14 @@ def expand(
     would have let a 64-value list queue 64 times past `max_grid_images`.
     """
     assignments = prompt_assignments(request, parse_variables(prompt))
-    values = _sampling_values(request, steps, cfg, mu)
+    values = _sampling_values(request, steps, cfg, mu, lora_scale)
     seed_count = len(seed_list) if seed_list else seeds
     total = (
         len(assignments)
         * len(values["steps"])
         * len(values["guidance_scale"])
         * len(values["mu"])
+        * len(values["lora_scale"])
         * seed_count
     )
     if total * request.num_images > settings.max_grid_images:
@@ -508,26 +579,36 @@ def expand(
             for step_count in values["steps"]:
                 for scale in values["guidance_scale"]:
                     for shift in values["mu"]:
-                        cells.append(
-                            Cell(
-                                request=GenerateRequest(
-                                    **{
-                                        **template,
-                                        "prompt": substitute(request.prompt, assignment),
-                                        "negative_prompt": substitute(
-                                            request.negative_prompt, assignment
-                                        ),
-                                        "steps": step_count,
-                                        "guidance_scale": scale,
-                                        "true_cfg": request.true_cfg,
-                                        "mu": shift,
-                                        "seed": seed,
-                                        "runs": 1,
-                                    }
-                                ),
-                                seed=seed,
-                                label=_label(assignment, step_count, scale, shift),
-                                variables=assignment or None,
+                        # Innermost, because it is the cheapest change of all:
+                        # a `set_adapters` on the pipeline already in memory.
+                        for weight in values["lora_scale"]:
+                            cells.append(
+                                Cell(
+                                    request=GenerateRequest(
+                                        **{
+                                            **template,
+                                            "prompt": substitute(request.prompt, assignment),
+                                            "negative_prompt": substitute(
+                                                request.negative_prompt, assignment
+                                            ),
+                                            "steps": step_count,
+                                            "guidance_scale": scale,
+                                            "true_cfg": request.true_cfg,
+                                            "mu": shift,
+                                            "lora_scale": weight,
+                                            "seed": seed,
+                                            "runs": 1,
+                                        }
+                                    ),
+                                    seed=seed,
+                                    label=_label(
+                                        assignment,
+                                        step_count,
+                                        scale,
+                                        shift,
+                                        weight if request.lora else None,
+                                    ),
+                                    variables=assignment or None,
+                                )
                             )
-                        )
     return cells

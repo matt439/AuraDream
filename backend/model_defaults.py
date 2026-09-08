@@ -29,6 +29,13 @@ uncond pass is `true_cfg_scale`, a separate number; everywhere else here the
 compared against it rather than against the guidance value, and the UI offers
 a True CFG box. A guess from the id until the parameter list answers.
 
+`reference_supported` says whether the pipeline conditions on reference images
+at all. FLUX.2 [klein]'s `__call__` takes `image` as its first parameter and
+concatenates the encoded references onto the latent sequence; nothing else here
+has one, so the control is greyed out for the checkpoint rather than accepting
+input that would be dropped. A guess from the id until the parameter list
+answers, like the two above.
+
 `hints` is the same knowledge as prose, for the UI's tooltips: what steps, CFG
 and mu mean *on this checkpoint*, which is not the same sentence twice. They are
 format strings over the profile's own numbers, so the text cannot drift from the
@@ -65,6 +72,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": 1.15,
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
+            "reference_supported": False,
             "true_cfg_supported": False,
             "hints": {
                 "steps": (
@@ -94,6 +102,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": None,
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
+            "reference_supported": False,
             "true_cfg_supported": False,
             "hints": {
                 "steps": (
@@ -121,6 +130,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": None,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": False,
+            "reference_supported": True,
             "true_cfg_supported": False,
             "hints": {
                 "steps": (
@@ -149,6 +159,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": None,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": False,
+            "reference_supported": True,
             "true_cfg_supported": False,
             "hints": {
                 "steps": (
@@ -176,6 +187,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "mu": None,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": True,
+            "reference_supported": False,
             "true_cfg_supported": True,
             "hints": {
                 "steps": (
@@ -211,6 +223,7 @@ _FALLBACK: dict[str, Any] = {
     "mu": None,
     "cfg_threshold": 1.0,
     "negative_prompt_supported": True,
+    "reference_supported": False,
     "true_cfg_supported": False,
     "hints": {
         "steps": (
@@ -275,11 +288,46 @@ _TRUE_CFG_HINT = (
 )
 
 
+# The reference-image box. Not per profile: the sentence is the same wherever
+# the capability is, and the two states are the whole of it.
+_REFERENCE_HINTS = {
+    False: (
+        "Reference images condition the picture on one you have already made. This "
+        "checkpoint's pipeline takes none - FLUX.2 [klein] is the one here that does."
+    ),
+    True: (
+        "Up to four gallery images to condition on - same character, new pose; a "
+        "sketch to finish. Each is resized to 1 MP, encoded and concatenated onto "
+        "the latent sequence every step. Measured on this card, one is about free "
+        "and two cost about a third more: under model offload the per-image weight "
+        "transfer dominates the longer sequence."
+    ),
+}
+
+# The LoRA box. Unlike every other capability here this one is the *environment*
+# talking, not the checkpoint: peft has to be installed and the base weights
+# have to be ones an adapter can be applied to.
+_LORA_HINTS = {
+    False: (
+        "LoRA adapters need peft installed and a base this backend quantizes itself "
+        "- a pre-quantized Nunchaku checkpoint's linears are not the layers an "
+        "adapter attaches to."
+    ),
+    True: (
+        "A LoRA adapter from the loras/ directory, at a scale. Swapped on the live "
+        "pipeline per image, so a scale axis is an ordinary sweep: 0-1x0.25 shows "
+        "where the style arrives and where it takes over."
+    ),
+}
+
+
 def hints_for(
     model_id: str,
     cfg_threshold: float | None = None,
     negative_prompt_supported: bool | None = None,
     true_cfg_supported: bool | None = None,
+    reference_supported: bool | None = None,
+    lora_supported: bool | None = None,
 ) -> dict[str, str]:
     """Tooltip text for steps/CFG/mu/true CFG on this checkpoint.
 
@@ -304,4 +352,12 @@ def hints_for(
         hints["true_cfg"] = _NO_TRUE_CFG_HINT
     elif "true_cfg" not in hints:
         hints["true_cfg"] = _TRUE_CFG_HINT
+    references = (
+        profile["reference_supported"] if reference_supported is None else reference_supported
+    )
+    hints["reference"] = _REFERENCE_HINTS[bool(references)]
+    # No profile guess to fall back on: whether an adapter can be loaded is a
+    # fact about this installation, which only the backend knows.
+    if lora_supported is not None:
+        hints["lora"] = _LORA_HINTS[bool(lora_supported)]
     return {key: text.format(**values) for key, text in hints.items()}

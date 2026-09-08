@@ -91,6 +91,34 @@
       </div>
     </div>
 
+    <!-- Conditioning: reference images, and an adapter. Both are greyed rather
+         than hidden where they do not apply, the way True CFG is - the panel
+         keeps its shape, and the badge says why the box is dead. -->
+    <div class="field" id="reference-field">
+      <span>Reference images
+        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+          class="tip" id="reference-tip">Reference images condition the picture on one you
+          have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
+          one here that does.</span></span>
+        <em id="reference-note"></em></span>
+      <div class="chips" id="reference-list" aria-describedby="reference-tip"></div>
+    </div>
+
+    <div class="row" id="lora-field">
+      <div class="sub grow">
+        <i><label for="lora">LoRA</label>
+          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            class="tip" id="lora-tip">A LoRA adapter from the loras/ directory, at a
+            scale.</span></span></i>
+        <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
+      </div>
+      <div class="sub narrow">
+        <i><label for="lora-scale">Weight</label></i>
+        <input type="number" id="lora-scale" value="1" min="0" max="2" step="0.05"
+               aria-describedby="lora-tip">
+      </div>
+    </div>
+
     <div class="row">
       <label class="sub grow"><i>Seed</i><input type="number" id="seed" placeholder="random" min="0"></label>
       <label class="sub narrow"><i>Batch</i><input type="number" id="batch" value="1" min="1" max="8"></label>
@@ -193,6 +221,15 @@
               <b>none,1.15</b> compares the pipeline's own against Turbo's.<br>
               Blank runs whatever Mu is set to above.</span></span></i>
           <input type="text" id="grid-mu" placeholder="none,1.15" autocomplete="off" aria-describedby="grid-mu-tip">
+        </div>
+        <div class="sub grow" id="grid-lora-field">
+          <i><label for="grid-lora-scale">LoRA weight</label>
+            <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-lora-tip">Same syntax:<br><b>0,0.5,1</b> ·
+              <b>0-1x0.25</b>.<br>Needs an adapter selected above; without one the weight
+              changes nothing.</span></span></i>
+          <input type="text" id="grid-lora-scale" placeholder="0-1x0.25" autocomplete="off"
+                 aria-describedby="grid-lora-tip">
         </div>
         <div class="sub narrow">
           <i><label for="grid-seeds">Seeds</label>

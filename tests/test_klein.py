@@ -31,8 +31,10 @@ def test_klein_profiles_win_over_flux(model_id, steps, cfg):
     profile = defaults_for(model_id)
     assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (steps, cfg, None)
     assert profile["negative_prompt_supported"] is False
+    # klein is the one family here whose pipeline takes reference images.
+    assert profile["reference_supported"] is True
     hints = hints_for(model_id)
-    assert set(hints) == {"steps", "guidance_scale", "mu", "true_cfg"}
+    assert set(hints) == {"steps", "guidance_scale", "mu", "true_cfg", "reference"}
     assert all(text and "{" not in text for text in hints.values())
 
 
@@ -40,6 +42,9 @@ def test_flux_one_is_unchanged():
     profile = defaults_for("black-forest-labs/FLUX.1-Krea-dev")
     assert (profile["steps"], profile["guidance_scale"]) == (28, 3.5)
     assert profile["negative_prompt_supported"] is True
+    # FLUX.1's pipeline has no `image` parameter: the ids contain "flux", and
+    # the two klein entries sit ahead of it precisely so this stays False.
+    assert profile["reference_supported"] is False
 
 
 class KleinLikePipeline:

@@ -16,6 +16,10 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, PngImagePlugin
 
 from .config import settings
+# The two key elements that are built from columns here and from a request in
+# `grid`: one spelling of each, or a resume compares strings that only look
+# alike. `grid` imports neither this module nor anything that does.
+from .grid import lora_key, reference_key
 from .schemas import ImageRecord, RunSummary, effective_true_cfg
 
 if TYPE_CHECKING:
@@ -81,7 +85,10 @@ CREATE TABLE IF NOT EXISTS images (
     quantization    TEXT,
     variables       TEXT,
     true_cfg        REAL,
-    content_hash    TEXT
+    content_hash    TEXT,
+    reference       TEXT,
+    lora            TEXT,
+    lora_scale      REAL
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -130,6 +137,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("true_cfg", "REAL", None),
         # sha256 of the pixels, 16 hex digits.
         ("content_hash", "TEXT", None),
+        # The gallery ids this image was conditioned on, as JSON.
+        ("reference", "TEXT", None),
+        # The adapter that was applied and the weight it ran at.
+        ("lora", "TEXT", None),
+        ("lora_scale", "REAL", None),
     )
     for column, kind, index in added:
         if column in columns:
@@ -227,6 +239,9 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         seed=row["seed"],
         model_id=row["model_id"],
         quantization=row["quantization"],
+        reference=json.loads(row["reference"]) if row["reference"] else None,
+        lora=row["lora"],
+        lora_scale=row["lora_scale"],
         job_id=row["job_id"],
         run_id=row["run_id"],
         duration_ms=row["duration_ms"],
@@ -241,7 +256,7 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
 _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "created_at", "job_id", "run_id", "quantization",
-    "variables", "true_cfg", "content_hash",
+    "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
 )
 
 # `schemas.effective_true_cfg` in SQL, for the filter and the grouping that
@@ -336,6 +351,12 @@ def save_image(
         "size": f"{image.width}x{image.height}",
         "variables": variables or None,
         "hash": digest,
+        # None rather than [] and null rather than 1.0: a text-to-image row and
+        # a row with no adapter say so by absence, which is what `applied()`
+        # has already normalised them to.
+        "reference": list(request.reference) or None,
+        "lora": request.lora,
+        "lora_scale": request.lora_scale if request.lora else None,
     }
     info = PngImagePlugin.PngInfo()
     # A1111-style single-line block, so other tools can read the params back.
@@ -350,7 +371,17 @@ def save_image(
         f"Seed: {seed}, Size: {image.width}x{image.height}, Model: {model_id}"
         + (f", True CFG: {request.true_cfg}" if request.true_cfg is not None else "")
         + (f", Mu: {request.mu}" if request.mu is not None else "")
-        + (f", Quantization: {quantization}" if quantization else ""),
+        + (f", Quantization: {quantization}" if quantization else "")
+        + (
+            f", LoRA: {request.lora}:{request.lora_scale:g}"
+            if request.lora
+            else ""
+        )
+        + (
+            f", Reference: {','.join(str(i) for i in request.reference)}"
+            if request.reference
+            else ""
+        ),
     )
     info.add_text("krea", json.dumps(meta))
 
@@ -382,6 +413,9 @@ def save_image(
                     "variables": variables_json,
                     "true_cfg": request.true_cfg,
                     "content_hash": digest,
+                    "reference": json.dumps(list(request.reference)) if request.reference else None,
+                    "lora": request.lora,
+                    "lora_scale": request.lora_scale if request.lora else None,
                 },
             )
         committed = True
@@ -503,6 +537,8 @@ _FILTERS: dict[str, tuple[str, Any]] = {
     "mu": ("mu", float),
     "model": ("model_id", str),
     "quant": ("quantization", str),
+    # The adapter by name - `lora:none` is everything rendered without one.
+    "lora": ("lora", str),
     "job": ("job_id", str),
     "run": ("run_id", str),
     # Every image with these pixels - a substring, so a prefix of one is enough.
@@ -657,7 +693,8 @@ def completed_cells(
     model_id: str,
     quantization: str | None = None,
 ) -> set[CellKey]:
-    """The (prompt, negative, steps, CFG, mu, true CFG, seed) of everything already rendered.
+    """The key of everything already rendered: the prompt pair, the settings,
+    the references and adapter, the seed.
 
     What a resumed grid subtracts from its cells. Keyed on the settings that
     make the image rather than on the job that made it, so a night that died
@@ -685,7 +722,8 @@ def completed_cells(
             chunk = wanted[start : start + 400]
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
-                f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg, seed
+                f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
+                           reference, lora, lora_scale, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -705,6 +743,8 @@ def completed_cells(
                         round(row["guidance_scale"], 6),
                         None if row["mu"] is None else round(row["mu"], 6),
                         None if true_cfg is None else round(true_cfg, 6),
+                        reference_key(json.loads(row["reference"]) if row["reference"] else None),
+                        lora_key(row["lora"], row["lora_scale"]),
                         row["seed"],
                     )
                 )
@@ -861,6 +901,9 @@ def index_file(
                 "variables": json.dumps(meta["variables"]) if meta.get("variables") else None,
                 "true_cfg": meta.get("true_cfg"),
                 "content_hash": digest or meta.get("hash"),
+                "reference": json.dumps(meta["reference"]) if meta.get("reference") else None,
+                "lora": meta.get("lora"),
+                "lora_scale": meta.get("lora_scale") if meta.get("lora") else None,
             },
         )
     return _row_to_record(row)
@@ -887,6 +930,10 @@ _GROUPS: dict[str, str] = {
     "size": "width || 'x' || height",
     "model": "model_id",
     "quant": "quantization",
+    # The adapter and the weight it ran at: "which settings produced my
+    # favourites" is exactly the question a LoRA weight is chosen by.
+    "lora": "lora",
+    "lorascale": "round(lora_scale, 6)",
 }
 
 
@@ -985,6 +1032,39 @@ def runs(limit: int = 20) -> list[RunSummary]:
             )
         )
     return summaries
+
+
+def reference_paths(ids: Sequence[int]) -> list:
+    """The PNGs behind a request's reference ids, in the order they were given.
+
+    The whole reason references are ids: a path taken from the request and
+    joined onto `outputs_dir` is an arbitrary-file read reachable from
+    /api/generate, while a row is something this app wrote. Missing ids and
+    missing files are the same kind of mistake - the reference cannot be
+    encoded - and both are named, so a night refused at submit says which
+    image it could not find rather than dying at cell 1.
+    """
+    if not ids:
+        return []
+    wanted = list(dict.fromkeys(ids))
+    marks = ",".join("?" * len(wanted))
+    with _session() as conn:
+        rows = conn.execute(
+            f"SELECT id, filename FROM images WHERE id IN ({marks})", tuple(wanted)
+        ).fetchall()
+    by_id = {row["id"]: settings.outputs_dir / row["filename"] for row in rows}
+    unknown = [image_id for image_id in wanted if image_id not in by_id]
+    if unknown:
+        raise ValueError(
+            f"no gallery image with id {', '.join(str(i) for i in unknown)}"
+        )
+    gone = [image_id for image_id in wanted if not by_id[image_id].exists()]
+    if gone:
+        raise ValueError(
+            "the file for reference image "
+            f"{', '.join(str(i) for i in gone)} is missing from the gallery directory"
+        )
+    return [by_id[image_id] for image_id in ids]
 
 
 def get_image(image_id: int) -> ImageRecord | None:

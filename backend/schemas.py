@@ -9,6 +9,11 @@ from .config import settings
 from .model_defaults import defaults_for
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
+# How many reference images one request may carry. klein concatenates each one
+# onto the latent sequence, and attention is quadratic in that length: four 1 MP
+# references is already several times the cost of the prompt alone.
+MAX_REFERENCES = 4
+
 
 class GenerateRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
@@ -39,6 +44,25 @@ class GenerateRequest(BaseModel):
     # Flow-matching timestep shift. Explicit null means "no shift of ours at
     # all", which is not the same as omitting it - see _profile_defaults.
     mu: float | None = Field(default=None, ge=0.0, le=10.0)
+    # Gallery images to condition on, by *id*. FLUX.2 [klein] takes references
+    # as its first parameter, resizes each to <=1 MP, VAE-encodes it and
+    # concatenates the tokens onto the latent sequence every step - native
+    # multi-reference editing at no extra weights. Ids rather than paths on
+    # purpose: a path from the request joined onto a directory is an
+    # arbitrary-file read reachable from /api/generate, and everything this app
+    # has made is already a row. Dropped by `applied()` where the pipeline has
+    # no such parameter, and refused at submit so a 64-cell night does not
+    # discover it at cell 1.
+    reference: list[int] = Field(default_factory=list, max_length=MAX_REFERENCES)
+    # A LoRA adapter by file name in `settings.loras_dir`, and the weight it is
+    # set to. Unlike everything else here the capability is the environment's,
+    # not the checkpoint's: peft must be installed and the base must be one an
+    # adapter can attach to. `lora_scale` has no meaning without a name, and
+    # `applied()` puts it back to the default when there is none, so two cells
+    # that differ only in the scale of an adapter nobody selected are one image
+    # and one resume key rather than two.
+    lora: str | None = Field(default=None, max_length=200)
+    lora_scale: float = Field(default=1.0, ge=0.0, le=2.0)
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
@@ -60,6 +84,31 @@ class GenerateRequest(BaseModel):
         if "mu" not in self.model_fields_set:
             self.mu = profile["mu"]
         return self
+
+    @field_validator("reference")
+    @classmethod
+    def _real_ids(cls, v: list[int]) -> list[int]:
+        # Ids are the gallery's own, so 0 and negatives are typos, and the same
+        # image twice is a doubled cost for one condition rather than a second
+        # one. Order is kept: it is the order the tokens are concatenated in.
+        for image_id in v:
+            if image_id < 1:
+                raise ValueError(f"{image_id} is not a gallery image id")
+        return list(dict.fromkeys(v))
+
+    @field_validator("lora")
+    @classmethod
+    def _bare_name(cls, v: str | None) -> str | None:
+        # A name in `loras_dir`, never a path: `../../../etc/passwd` and
+        # `C:\keys.safetensors` are the reason the field is a name at all.
+        if v is None:
+            return None
+        name = v.strip()
+        if not name:
+            return None
+        if "/" in name or "\\" in name or name in (".", "..") or ":" in name:
+            raise ValueError(f"{name!r} is not a file name in the loras directory")
+        return name
 
     @field_validator("width", "height")
     @classmethod
@@ -90,6 +139,8 @@ class GenerateRequest(BaseModel):
         cfg_threshold: float,
         mu_supported: bool = True,
         true_cfg_supported: bool = False,
+        reference_supported: bool = False,
+        lora_supported: bool = True,
     ) -> "GenerateRequest":
         """This request as the pipeline will actually run it.
 
@@ -123,6 +174,22 @@ class GenerateRequest(BaseModel):
             changes["true_cfg"] = true_cfg
         if self.mu is not None and not mu_supported:
             changes["mu"] = None
+        # References the pipeline has no parameter for, and an adapter this
+        # installation cannot load. Both are refused at submit; this is what
+        # keeps the *row* honest on the paths that get past that - a `--from-image`
+        # carrying a reference onto another checkpoint, say.
+        if self.reference and not reference_supported:
+            changes["reference"] = []
+        lora = self.lora
+        if lora and not lora_supported:
+            lora = None
+            changes["lora"] = None
+        # A scale without an adapter is not a setting. Left alone it would split
+        # the resume key on a number that changed no pixel, and a scale axis run
+        # with no LoRA chosen would look like a sweep instead of the one image
+        # repeated - which is what `duplicate_count` is there to say.
+        if lora is None and self.lora_scale != 1.0:
+            changes["lora_scale"] = 1.0
         return self.model_copy(update=changes) if changes else self
 
 
@@ -177,6 +244,10 @@ class GridRequest(GenerateRequest):
     steps_axis: str = Field(default="", max_length=200)
     cfg_axis: str = Field(default="", max_length=200)
     mu_axis: str = Field(default="", max_length=200)
+    # LoRA weight as an axis. The comparison a LoRA is bought for - "the same
+    # prompt at 0, 0.25, 0.5, 0.75, 1" - and a per-call setting, so it costs a
+    # `set_adapters` between cells rather than a reload.
+    lora_scale_axis: str = Field(default="", max_length=200)
     seeds: int = Field(default=1, ge=1, le=MAX_GRID_SEEDS)
     # The seed axis as a list - `4471,8823`, `100-103` - which wins over the
     # count and the base seed when given: the second night of an investigation
@@ -294,6 +365,14 @@ class ImageRecord(BaseModel):
     # Persisted since the first release but never served, which left the UI
     # unable to restore it - and on Turbo a different mu is a different image.
     mu: float | None = None
+    # The gallery ids this image was conditioned on, in the order they were
+    # concatenated. Null for a plain text-to-image row and for anything written
+    # before references existed.
+    reference: list[int] | None = None
+    # The adapter that was applied and the weight it ran at - part of the
+    # reproduction set as much as the seed, and null together when none was.
+    lora: str | None = None
+    lora_scale: float | None = None
     seed: int
     model_id: str
     # The first 16 hex digits of the sha256 of the decoded pixels. What the

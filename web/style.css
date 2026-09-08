@@ -191,6 +191,37 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 /* The True CFG box on a checkpoint where CFG is real CFG already: the badge
    beside it says why, so it stays where it is rather than vanishing. */
 .sub.disabled input { opacity: 0.45; }
+/* The same rule for the two conditioning controls: the row is greyed and its
+   badge keeps saying why - for the checkpoint (references) or for the
+   installation (adapters), never for a value. */
+.row.disabled select, .row.disabled input { opacity: 0.45; }
+#reference-field.disabled .chips { opacity: 0.45; }
+
+/* One chip per reference image: the thumbnail, and the way to drop it. Small
+   enough that four of them are a row rather than a second panel. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 20px; }
+.chip {
+  position: relative;
+  width: 52px; height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.chip button {
+  position: absolute; top: 0; right: 0;
+  width: 18px; height: 18px;
+  padding: 0;
+  line-height: 1;
+  border: 0;
+  border-radius: 0 0 0 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+}
+.chip button:hover { background: var(--accent); }
+.chip button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
 
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .presets button {

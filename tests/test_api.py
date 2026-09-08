@@ -35,18 +35,40 @@ class FakeBackend(GenerationBackend):
         # CFG value, or on a separate true CFG when `true_cfg_supported`.
         self.cfg_threshold = cfg_threshold
         self.true_cfg_supported = False
+        # A capable stand-in by default: the pipeline takes reference images
+        # and an adapter can be applied, so a test that cares about either
+        # turns it off rather than every other test having to turn it on.
+        self.reference_supported = True
+        self.lora_reason: str | None = None
         # Calls (1-based) that raise instead of rendering, and a hook run after
         # each render - for a cancel that lands after the last step.
         self.fail_on: set[int] = set()
         self.after_generate = None
 
+    def lora_supported(self) -> bool:
+        return self.lora_reason is None
+
+    def lora_unavailable_reason(self) -> str | None:
+        return self.lora_reason
+
     def applied(self, request):
+        # What this fake would drop, the way the real backend drops it: an
+        # input it cannot use must not reach the row.
+        changes = {}
+        if request.reference and not self.reference_supported:
+            changes["reference"] = []
+        if request.lora and not self.lora_supported():
+            changes["lora"] = None
+        if changes:
+            request = request.model_copy(update=changes)
         if self.cfg_threshold is None:
             return request
         return request.applied(
             negative_prompt_supported=True,
             cfg_threshold=self.cfg_threshold,
             true_cfg_supported=self.true_cfg_supported,
+            reference_supported=self.reference_supported,
+            lora_supported=self.lora_supported(),
         )
 
     def load(self) -> None:
@@ -93,6 +115,8 @@ class FakeBackend(GenerationBackend):
             "quantization": settings.quantization,
             "offload": settings.offload,
             "cfg_threshold": None,
+            "reference_supported": self.reference_supported,
+            "lora_supported": self.lora_supported(),
         }
 
     def free_cache(self) -> None:
@@ -159,13 +183,17 @@ def test_a_bare_request_takes_the_checkpoints_profile(client, fake):
     "model_id",
     ["krea/Krea-2-Turbo", "krea/Krea-2-Raw", "black-forest-labs/FLUX.1-Krea-dev", "nobody/whatever"],
 )
-def test_every_profile_explains_its_four_controls(model_id):
+def test_every_profile_explains_its_controls(model_id):
     # The hints are format strings over the profile's own numbers, so they can
     # never quote a value the controls are not seeded with - and a mu of None or
     # a renamed key would blow up here rather than on the first hover.
     hints = hints_for(model_id)
-    assert set(hints) == {"steps", "guidance_scale", "mu", "true_cfg"}
+    assert set(hints) == {"steps", "guidance_scale", "mu", "true_cfg", "reference"}
     assert all(text and "{" not in text for text in hints.values())
+    # The LoRA box is the one control no profile can speak for: whether an
+    # adapter can be applied is the installation's answer, so the hint appears
+    # only once something has given one.
+    assert set(hints_for(model_id, lora_supported=True)) == set(hints) | {"lora"}
 
 
 def test_status_hints_quote_the_loaded_pipelines_threshold(client, fake, monkeypatch):
@@ -990,3 +1018,125 @@ def test_the_pixel_budget_is_enforced(client):
         "/api/generate", json={"prompt": "x", "width": 2816, "height": 2816}
     )
     assert response.status_code == 422
+
+
+# ------------------------------------------------------- conditioning inputs
+
+
+@pytest.fixture
+def lora_dir(tmp_path, monkeypatch):
+    """An adapter directory the server can list and resolve names against."""
+    import dataclasses
+
+    from backend import loras
+
+    directory = tmp_path / "loras"
+    directory.mkdir()
+    (directory / "style.safetensors").write_bytes(b"weights")
+    monkeypatch.setattr(
+        loras, "settings", dataclasses.replace(loras.settings, loras_dir=directory)
+    )
+    return directory
+
+
+def test_status_publishes_both_conditioning_capabilities(client, fake):
+    body = client.get("/api/status").json()
+    assert body["defaults"]["reference_supported"] is True
+    assert body["defaults"]["lora_supported"] is True
+    # And the tooltips cannot contradict the greyed-out controls.
+    live = (body["hints"]["reference"], body["hints"]["lora"])
+    assert all(live)
+
+    fake.reference_supported = False
+    fake.lora_reason = "no peft here"
+    body = client.get("/api/status").json()
+    assert body["defaults"]["reference_supported"] is False
+    assert body["defaults"]["lora_supported"] is False
+    # A dead control explains itself rather than repeating what a live one says.
+    assert (body["hints"]["reference"], body["hints"]["lora"]) != live
+    assert "klein" in body["hints"]["reference"]
+    assert "peft" in body["hints"]["lora"]
+
+
+def test_references_are_refused_at_submit_not_at_cell_one(client, fake, store):
+    # A 64-cell night must not discover at the first image that the pipeline
+    # ignores `image` and every cell is a plain text-to-image.
+    fake.reference_supported = False
+    response = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "reference": [1]}
+    )
+    assert response.status_code == 422 and "klein" in response.json()["detail"]
+    assert fake.requests == []
+
+
+def test_an_unknown_reference_id_is_named(client, fake, store):
+    response = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "reference": [4242]}
+    )
+    assert response.status_code == 422
+    assert "no gallery image with id 4242" in response.json()["detail"]
+
+
+def test_a_reference_reaches_the_backend_and_the_row(client, fake, store):
+    _run(client)  # something to point at
+    first = client.get("/api/gallery").json()["items"][0]
+    _run(client, reference=[first["id"]])
+    assert fake.requests[-1].reference == [first["id"]]
+    newest = client.get("/api/gallery").json()["items"][0]
+    assert newest["reference"] == [first["id"]]
+
+
+def test_a_reference_chip_can_turn_an_id_into_a_picture(client, fake, store):
+    # The panel's chips hold ids and nothing else - one restored from a record
+    # or from localStorage may name an image no loaded gallery page contains -
+    # so an id has to be enough to show the thumbnail.
+    _run(client)
+    record = client.get("/api/gallery").json()["items"][0]
+    response = client.get(f"/api/images/{record['id']}/thumb", follow_redirects=False)
+    assert response.status_code in (302, 307)
+    assert response.headers["location"] in (record["thumb_url"], record["url"])
+    assert client.get("/api/images/4242/thumb").status_code == 404
+
+
+def test_an_adapter_is_refused_with_the_reason(client, fake, lora_dir):
+    fake.lora_reason = "LoRA adapters need the peft package"
+    response = client.post(
+        "/api/generate",
+        json={"prompt": "x", "width": 256, "height": 256, "lora": "style.safetensors"},
+    )
+    assert response.status_code == 422 and "peft" in response.json()["detail"]
+
+
+def test_an_adapter_that_is_not_there_is_refused_by_name(client, fake, lora_dir):
+    response = client.post(
+        "/api/generate",
+        json={"prompt": "x", "width": 256, "height": 256, "lora": "missing.safetensors"},
+    )
+    assert response.status_code == 422 and "no LoRA named" in response.json()["detail"]
+    # And a path never reaches the directory at all - the schema refuses it.
+    assert client.post(
+        "/api/generate",
+        json={"prompt": "x", "width": 256, "height": 256, "lora": "../../keys.safetensors"},
+    ).status_code == 422
+
+
+def test_the_adapter_listing_is_the_directory(client, fake, lora_dir):
+    body = client.get("/api/loras").json()
+    assert [entry["name"] for entry in body["loras"]] == ["style.safetensors"]
+    assert body["supported"] is True and body["detail"] is None
+
+
+def test_a_weight_sweep_records_the_weight_it_ran_at(client, fake, lora_dir):
+    response = client.post(
+        "/api/grid",
+        json={
+            "prompt": "a fox", "width": 256, "height": 256, "seed": 1,
+            "lora": "style.safetensors", "lora_scale_axis": "0,0.5,1",
+        },
+    )
+    assert response.status_code == 200
+    _stream(client, response.json()["job_id"])
+    assert [r.lora_scale for r in fake.requests] == [0.0, 0.5, 1.0]
+    rows = client.get("/api/gallery").json()["items"]
+    assert {row["lora_scale"] for row in rows} == {0.0, 0.5, 1.0}
+    assert {row["lora"] for row in rows} == {"style.safetensors"}
