@@ -281,6 +281,10 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
             request.mu_axis,
             request.prompt_axis,
         )
+        # Listed seeds are an axis the preview shows like the others; counted
+        # seeds are derived from the base and are not.
+        seed_list = grid.parse_seeds(request.seed_axis)
+        values["seed"] = list(seed_list)
         cells = grid.expand(
             request,
             prompt=request.prompt_axis,
@@ -288,6 +292,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
             cfg=request.cfg_axis,
             mu=request.mu_axis,
             seeds=request.seeds,
+            seed_list=seed_list or None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
@@ -426,12 +431,13 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     per_step_ms = await asyncio.to_thread(
         storage.step_cost_ms, request.width, request.height, settings.model_id
     )
+    listed = len(values.get("seed", []))
     return GridPreview(
         values=values,
         cells=len(cells),
         images=len(cells) * request.num_images,
         skipped=skipped,
-        summary=grid.describe(values, request.seeds),
+        summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
         seconds=grid.estimate_seconds(cells, per_step_ms),
     )
 

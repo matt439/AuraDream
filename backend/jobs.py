@@ -63,6 +63,13 @@ class Job:
     seed: int | None = None
     run_id: str | None = None
     status: str = "queued"  # queued | running | done | error | cancelled
+    # What a queued job is waiting on: "load" while the weights are on their
+    # way, "queue" behind another job. Not a status of its own - cancel()
+    # keys its immediate-finish path on `queued`, and a fourth state would have
+    # turned Cancel-during-load from instant into a multi-minute no-op - but
+    # the browser used to read "waiting for the job ahead…" for the whole of a
+    # 32 GB download, under a top bar saying "loading weights…".
+    waiting_on: str | None = None
     step: int = 0
     total_steps: int = 0
     run: int = 0
@@ -110,6 +117,7 @@ class Job:
             "run_id": self.run_id,
             "seed": self.seed,
             "status": self.status,
+            "waiting_on": self.waiting_on,
             "step": self.step,
             "total_steps": self.total_steps,
             "run": self.run,
@@ -284,6 +292,10 @@ class JobManager:
         # Wait for the shared load rather than letting the worker thread start a
         # second one. Failing here keeps the error to a single report.
         if self._ensure_loaded is not None:
+            # Only a load that is actually needed gets the label: a job that
+            # is genuinely queued behind another must not read "loading".
+            job.waiting_on = "load" if not self.backend.is_ready() else "queue"
+            self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
             try:
                 await self._ensure_loaded()
             except Exception as exc:  # noqa: BLE001 - surfaced to the client
@@ -291,11 +303,13 @@ class JobManager:
                 return
         # One generation at a time; queued jobs simply wait their turn here. A
         # cancel that landed during the load or the wait ends the job untouched.
+        job.waiting_on = "queue" if self._gate.locked() else None
         async with self._gate:
             if job.cancel_requested:
                 self._finish(loop, job, "cancelled")
                 return
             job.status = "running"
+            job.waiting_on = None
             job.started_at = time.time()
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
             try:
@@ -351,6 +365,12 @@ class JobManager:
                     "run": job.run,
                     "total_runs": job.total_runs,
                     "label": job.label,
+                    # Seconds since the job started running, on the server's
+                    # clock, so the browser's elapsed time and its ETA do not
+                    # depend on the two clocks agreeing. The ETA is the job's
+                    # own finished-cell timing, not the gallery's per-step
+                    # median: it tracks the slowdown it is meant to reveal.
+                    "elapsed": time.time() - (job.started_at or job.created_at),
                 },
             )
 

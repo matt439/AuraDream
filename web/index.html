@@ -14,6 +14,10 @@
     <span id="status-text" aria-live="polite">checking…</span>
   </div>
   <div class="vram" id="vram"></div>
+  <!-- Shown while nothing is loaded, or after a failed load: the first
+       download, or a retry once repo access was granted, without queueing an
+       image to start it. -->
+  <button class="ghost" id="btn-load" title="Load the weights now" hidden>Load</button>
   <button class="ghost" id="btn-unload" title="Free VRAM">Unload</button>
 </header>
 
@@ -182,6 +186,17 @@
           <input type="number" id="grid-seeds" value="1" min="1" max="256" aria-describedby="grid-seeds-tip">
         </div>
       </div>
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="grid-seed-list">Seed list</label>
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-seed-list-tip">Run the whole grid at exactly these seeds instead of counting up
+              from the Seed above: <b>4471, 8823</b> · <b>100-103</b>.<br>
+              Night two of an investigation: the seeds that gave the composition you want,
+              crossed with a finer sweep. Resume needs no Seed when this is filled in.</span></span></i>
+          <input type="text" id="grid-seed-list" placeholder="4471, 8823" autocomplete="off" aria-describedby="grid-seed-list-tip">
+        </div>
+      </div>
       <label class="check">
         <input type="checkbox" id="grid-resume" aria-describedby="grid-resume-tip"> Resume
         <span class="help" tabindex="0" role="note" aria-label="Help">?<span
@@ -219,9 +234,11 @@
       <span class="help" tabindex="0" role="note" aria-label="Help">?<span class="tip" id="search-tip">
         Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
         <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>mu:none</b> ·
-        <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b><br>
+        <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
+        <b>date:today</b><br>
         <b>run:</b> is a grid however many times it was resumed; <b>job:</b> is one
-        submission of it.<br>
+        submission of it. <b>date:</b> takes <b>today</b>, <b>yesterday</b> or
+        <b>2026-09-07</b> — a day on your clock, not UTC.<br>
         Numbers also take a comparison or a range: <b>cfg:&gt;=1</b> · <b>steps:8-12</b>.<br>
         <b>mu:none</b> is the images that ran with no shift at all — not the same as
         <b>mu:0</b>.</span></span>

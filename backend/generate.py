@@ -95,12 +95,21 @@ def _build_parser() -> argparse.ArgumentParser:
     sweep.add_argument(
         "--grid-mu", metavar="SPEC", default="", help="shifts to sweep; `none` for no shift"
     )
-    sweep.add_argument(
+    # A count from the base, or exactly these: the two cannot both be meant.
+    which_seeds = sweep.add_mutually_exclusive_group()
+    which_seeds.add_argument(
         "--grid-seeds",
         type=int,
         default=1,
         metavar="N",
-        help="consecutive seeds, each running the whole grid (default 1)",
+        help="consecutive seeds counting up from --seed, each running the whole grid (default 1)",
+    )
+    which_seeds.add_argument(
+        "--seed-list",
+        metavar="SPEC",
+        default="",
+        help="run the whole grid at exactly these seeds - 4471,8823 or 100-103 - "
+        "instead of counting up from --seed",
     )
     sweep.add_argument(
         "--resume",
@@ -226,15 +235,16 @@ def main(argv: list[str] | None = None) -> int:
     # browser: the same block reaches the same parser either way.
     prompt_axis = "\n".join(args.grid_prompt)
     gridding = (
-        bool(prompt_axis or args.grid_steps or args.grid_cfg or args.grid_mu)
+        bool(prompt_axis or args.grid_steps or args.grid_cfg or args.grid_mu or args.seed_list)
         or args.grid_seeds > 1
     )
     if gridding and args.runs != 1:
         parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
-    if args.resume and args.seed is None:
+    if args.resume and args.seed is None and not args.seed_list:
         # A fresh random base matches none of the night it is meant to continue.
         parser.error("--resume needs --seed: the seed the run it continues was started from")
     try:
+        seed_list = p.grid.parse_seeds(args.seed_list)
         cells = p.grid.expand(
             request,
             prompt=prompt_axis,
@@ -242,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
             cfg=args.grid_cfg,
             mu=args.grid_mu,
             seeds=args.grid_seeds if gridding else args.runs,
+            seed_list=seed_list or None,
         )
     except ValueError as exc:
         # A cell outside the schema raises a ValidationError; same one-line
@@ -319,7 +330,10 @@ def main(argv: list[str] | None = None) -> int:
             f"sampling : {request.steps} steps, CFG {request.guidance_scale}, "
             f"mu {'-' if request.mu is None else request.mu}"
         )
-        print(f"seed     : {seed}" + ("" if args.seed is not None else "  (random)"))
+        if seed_list:
+            print(f"seeds    : {', '.join(str(s) for s in seed_list)}  (listed)")
+        else:
+            print(f"seed     : {seed}" + ("" if args.seed is not None else "  (random)"))
         print(f"run      : {run_id}")
         if gridding:
             values = p.grid.axis_values(
@@ -336,8 +350,13 @@ def main(argv: list[str] | None = None) -> int:
             for axis, shown in (("steps", "steps"), ("guidance_scale", "CFG"), ("mu", "mu")):
                 listed = ", ".join("off" if v is None else f"{v:g}" for v in values[axis])
                 print(f"  {shown:<7}: {listed}")
-            print(f"  seeds  : {args.grid_seeds} from {seed}")
-            print(f"grid     : {p.grid.describe(values, args.grid_seeds)} = {len(cells)} cell(s)")
+            if not seed_list:
+                print(f"  seeds  : {args.grid_seeds} from {seed}")
+            count = len(seed_list) or args.grid_seeds
+            print(
+                f"grid     : {p.grid.describe(values, count, listed=bool(seed_list))}"
+                f" = {len(cells)} cell(s)"
+            )
         if skipped:
             print(f"resume   : {skipped} cell(s) already rendered, skipping")
         print(

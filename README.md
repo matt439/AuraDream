@@ -195,6 +195,7 @@ terminal and one started in the browser cannot drift apart:
 uv run python -m backend.generate "{size} dog sitting on {ground}" `
   --grid-prompt "size = big | small | none" --grid-prompt "ground = grass | dirt" `
   --grid-steps 6-12x2 --grid-seeds 4 --seed 42 --resume
+uv run python -m backend.generate "..." --grid-steps 6-12x2 --seed-list 4471,8823
 ```
 
 Steps, CFG and mu default to the checkpoint's profile exactly as the UI's
@@ -273,6 +274,7 @@ you fill in varies. An empty grid is exactly the image Generate would have made.
 | CFG | the same, decimals allowed | `0,0.5,1` or `0-2x0.5` |
 | Mu | the same, plus `none` for no shift of ours at all | `none,1.15` |
 | Seeds | how many consecutive seeds run the whole grid | `4` |
+| Seed list | exactly these seeds instead, a list or a range | `4471, 8823` |
 
 They cross: two sizes, two grounds, four step counts and two seeds is 32 images.
 The panel previews what it would run before you commit to it — the resolved
@@ -312,6 +314,20 @@ power cut — has then finished every combination for the seeds it reached, whic
 is the comparison you wanted; the other order leaves every seed part-done and
 nothing comparable. The prompt is the next loop in, for the same reason.
 
+**Seed list** is the second night: the two seeds that gave the composition you
+want, crossed with a finer sweep. `4471, 8823` or `100-103` runs the whole grid
+at exactly those seeds, in place of the count and the Seed box (`--seed-list`
+in the terminal), and a resume of such a grid needs no base seed - the list is
+the record.
+
+While a job runs, the line under the progress bars says how long it has been
+going and roughly how long is left, from the job's own pace so far - which is
+what shows a run that has slowed down. When it finishes, the same line says
+how many images it made and in how long. A job waiting for the weights says
+so, rather than claiming to be behind another job; **Load** in the top bar
+starts (or, after a failed load, retries) the download without queueing an
+image to do it.
+
 **Resume** skips the cells the gallery already holds: tick it and re-submit the
 same grid. It matches on the settings that make the image rather than on the job
 that ran them, so a *new* job continues a dead one and an image rendered by hand
@@ -343,8 +359,12 @@ run:ab12cd        one grid, however many times it was resumed
 job:ab12cd        one submission of it
 seed:42           steps:6-12       cfg:<=1        model:flux      quant:fp8
 mu:none           the images that ran with no shift at all — not the same as mu:0
+date:today        a day on your clock: today, yesterday or 2026-09-07
 a lighthouse      anything left over searches the prompt
 ```
+
+`date:` is a local day, not a UTC one: an overnight run crosses midnight in
+every timezone, and the day you mean is the one on your calendar.
 
 **Re-render** appears beside the filters whenever a search or the Favorites
 tick narrows the gallery: it renders everything the filter matches again at

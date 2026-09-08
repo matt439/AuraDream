@@ -123,6 +123,27 @@ def test_labels_stay_ascii():
         cell.label.encode("ascii")
 
 
+def test_a_seed_list_replaces_the_count_and_the_base():
+    # Night two: the two seeds that gave the composition, crossed with a finer
+    # sweep. Taken as given - not stepped by the batch, not wrapped.
+    cells = grid.expand(request(seed=42, num_images=2), steps="6,8", seed_list=[4471, 8823])
+    assert [(c.seed, c.request.steps) for c in cells] == [(4471, 6), (4471, 8), (8823, 6), (8823, 8)]
+    assert grid.parse_seeds("4471, 8823") == [4471, 8823]
+    assert grid.parse_seeds("100-103") == [100, 101, 102, 103]
+    assert grid.parse_seeds("") == []
+
+
+def test_a_seed_list_counts_towards_the_ceiling():
+    # Swapping only the loop would have let a 64-value list queue 64x past it.
+    with pytest.raises(ValueError, match="past the"):
+        grid.expand(request(seed=1), steps="1-64", cfg="0-16", seed_list=list(range(64)))
+
+
+def test_a_listed_seed_outside_the_schema_fails_with_the_schemas_message():
+    with pytest.raises(ValueError, match="seed"):
+        grid.expand(request(seed=1), seed_list=[-5])
+
+
 # ------------------------------------------------------------- prompt axis
 
 DOG = dict(BASE, prompt="{size} dog sitting on {ground}")

@@ -384,6 +384,31 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   non-passive; the zoom keys sit below the `input, textarea` guard. A click on
   the stage beside the image closes the lightbox only at fit: zoomed, the
   stage is a pan surface and only Escape or the cross close it.
+- **The seed axis is a count or a list.** `GridRequest.seed_axis` (the UI's
+  Seed list box, the CLI's `--seed-list`, exclusive with `--grid-seeds`) goes
+  through `grid.parse_seeds` - `parse_axis` with an int cast - and `expand()`
+  takes `seed_list`, which wins over `seeds` and the base seed. The ceiling
+  counts whichever applies. Listed values are **not** wrapped: the schema's
+  `ge=0, le=MAX_SEED` on the cell is what turns a typo'd `-5` into the
+  schema's own error rather than a valid 9.2-quintillion seed. A listed grid
+  is determinate on its own, so `_resume_needs_a_fixed_seed` waives the base
+  seed for it, and the UI does not write the first listed seed back into the
+  Seed box. The preview's `values.seed` is the list, or `[]` for a count.
+- **A queued job says what it waits on.** `Job.waiting_on` is `"load"` while
+  the weights are on their way and `"queue"` behind another job - a field
+  beside `status`, not a fourth state, because `cancel()` keys its instant
+  path on `queued` and a new state would have turned Cancel-during-load into
+  a multi-minute no-op. The label is set only when a load is actually
+  needed. Progress events carry `elapsed` (server clock, since the job
+  started running); the UI's ETA is `elapsed * (1 - f) / f` over the fraction
+  of cells done, the job's own pace rather than the gallery's per-step
+  median, so a run that has slowed shows it. The `done` summary goes into
+  `#cell-note`, which sits outside the element `setBusy` hides.
+- `date:` in the search box is a **local** day (`today`, `yesterday`,
+  `YYYY-MM-DD`) as a half-open range on `created_at`, converted to UTC and
+  formatted the way the rows are so the string comparison is the time
+  comparison. Not a LIKE prefix: that cannot use the index and would need the
+  UTC date, which is the wrong one for anything made in the evening.
 - **`POST /api/rerender` is the third producer of cells**, beside
   `/api/generate` and `/api/grid`: the gallery's own filter (search plus the
   Favorites flag, taken server-side because the browser holds one page) at

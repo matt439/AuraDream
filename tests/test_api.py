@@ -424,6 +424,22 @@ def test_a_grid_runs_every_cell_of_every_seed(client, fake):
     assert len(events[-1]["images"]) == 8
 
 
+def test_a_grid_can_take_its_seeds_as_a_list(client, fake):
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "seed_axis": "4471, 8823",
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["values"]["seed"] == [4471, 8823]
+    assert preview["cells"] == 4 and "2 listed seeds" in preview["summary"]
+    _stream(client, client.post("/api/grid", json=body).json()["job_id"])
+    assert fake.seeds == [4471, 4471, 8823, 8823]
+    # Determinate on its own, so a resume needs no base seed - and finds it all done.
+    assert client.post("/api/grid", json={**body, "resume": True}).status_code == 409
+    # A counted axis still shows no seed values: they are derived, not listed.
+    counted = client.post("/api/grid/preview", json={**body, "seed_axis": "", "seeds": 2}).json()
+    assert counted["values"]["seed"] == [] and counted["summary"].endswith("2 seeds")
+
+
 def test_a_grid_says_which_cell_is_running(client, fake):
     _, events = _grid(client, steps_axis="6,8", seed=1)
     labels = [event["label"] for event in events if event.get("label")]

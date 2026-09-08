@@ -15,14 +15,15 @@ const els = {
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
-  generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'),
+  generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
   cancel: $('btn-cancel'),
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
   stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
   cellNote: $('cell-note'),
   gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
-  gridMu: $('grid-mu'), gridSeeds: $('grid-seeds'), gridPreview: $('grid-preview'),
+  gridMu: $('grid-mu'), gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),
+  gridPreview: $('grid-preview'),
   gridRun: $('btn-grid'),
   error: $('error'), viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
@@ -282,6 +283,9 @@ async function refreshStatus() {
     }
     if (typeof s.max_grid_images === 'number') sheetPage = s.max_grid_images;
     els.dot.className = `dot ${s.state}`;
+    // A way to start - or retry, after a gated-repo 403 - the load without
+    // queueing an image to do it.
+    els.load.hidden = !(s.state === 'unloaded' || s.state === 'error');
     els.statusText.textContent =
       s.state === 'ready' ? s.model_id.split('/').pop()
       : s.state === 'loading' ? 'loading weights…'
@@ -344,11 +348,27 @@ function setProgress(fraction) {
   els.fill.parentElement.setAttribute('aria-valuenow', String(Math.round(fraction * 100)));
 }
 
-// Which cell of a grid is running, under the bars. A sweep sends no label -
-// its settings never change - and the line stays empty rather than repeating
-// the counters that are already there.
+// Which cell of a grid is running, under the bars, with the time so far and an
+// estimate of what is left. A sweep sends no label - its settings never change
+// - so only the timing shows there. The estimate is the job's own: elapsed
+// over the fraction of cells finished (the current cell's steps counting as a
+// fraction of one), which tracks a run that has slowed where the gallery's
+// per-step median would not. `elapsed` is the server's clock, so the two
+// clocks need not agree.
 function showCell(data) {
-  els.cellNote.textContent = data.label ? `cell ${data.run}/${data.total_runs} · ${data.label}` : '';
+  const parts = [];
+  if (data.label) parts.push(`cell ${data.run}/${data.total_runs} · ${data.label}`);
+  if (typeof data.elapsed === 'number' && data.elapsed >= 1) {
+    const runs = data.total_runs || 1;
+    const within = data.total_steps ? (data.step || 0) / data.total_steps : 0;
+    const fraction = (((data.run || 1) - 1) + within) / runs;
+    let timing = `${humanTime(data.elapsed)} elapsed`;
+    if (fraction > 0.02 && fraction < 1) {
+      timing += ` · ~${humanTime(data.elapsed * (1 - fraction) / fraction)} left`;
+    }
+    parts.push(timing);
+  }
+  els.cellNote.textContent = parts.join(' · ');
 }
 
 // The second bar: where the current run is within its own steps. Hidden for a
@@ -380,7 +400,9 @@ async function startJob(path, payload) {
     // it produces carries a *derived* seed - so the base is written back here,
     // where Resume will need it. Only for a grid: a plain Generate left blank is
     // asking for a fresh seed every click.
-    if (path === '/api/grid' && els.seed.value.trim() === '' && seed != null) {
+    // Not for a listed seed axis: the list is the record, and the first seed
+    // of it written into the box would only mislead the next plain Generate.
+    if (path === '/api/grid' && !payload.seed_axis && els.seed.value.trim() === '' && seed != null) {
       els.seed.value = seed;
       syncRuns();
     }
@@ -430,6 +452,7 @@ function gridPayload() {
     cfg_axis: els.gridCfg.value.trim(),
     mu_axis: els.gridMu.value.trim(),
     seeds: +els.gridSeeds.value || 1,
+    seed_axis: els.gridSeedList.value.trim(),
     resume: els.gridResume.checked,
   };
 }
@@ -498,7 +521,8 @@ async function previewGrid() {
         (p.skipped ? ` · ${p.skipped} already done` : '') +
         (p.seconds ? ` · about ${humanTime(p.seconds)}` : ''),
       `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
-        `  ·  mu ${axisText(p.values.mu)}`,
+        `  ·  mu ${axisText(p.values.mu)}` +
+        (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),
       ...promptLines(p.values.prompt),
     ].join('\n');  // .hint.pre renders the breaks
   } catch (err) {
@@ -563,8 +587,12 @@ function streamJob(jobId) {
         // Either the snapshot every stream opens with or the start of a run;
         // both carry whatever landed while nobody was listening.
         if (data.images) data.images.forEach(show);
+        // A queued job says what it is behind: the weights on their way, or
+        // another job. The first read "waiting for the job ahead…" for the
+        // whole of a 32 GB download, under a top bar saying the opposite.
         els.progressText.textContent =
-          data.status === 'queued' ? 'waiting for the job ahead…'
+          data.status === 'queued'
+            ? (data.waiting_on === 'load' ? 'loading weights…' : 'waiting for the job ahead…')
           : runs > 1 && data.run ? `run ${data.run}/${runs}`
           : 'denoising…';
         // A run boundary, so the steps bar starts over rather than sitting full
@@ -575,6 +603,14 @@ function streamJob(jobId) {
         source.close();
         setBusy(false);
         if (data.images) data.images.forEach(show);
+        // A finished run used to leave the panel indistinguishable from an
+        // idle page. The summary goes in the cell line, which setBusy has
+        // just cleared and which is outside the element it hides.
+        if (data.status === 'done' && data.started_at && data.finished_at) {
+          const made = data.images ? data.images.length : data.image_count;
+          els.cellNote.textContent =
+            `Finished ${made} image${made === 1 ? '' : 's'} in ${humanTime(data.finished_at - data.started_at)}.`;
+        }
         if (data.status === 'error') showError(data.error);
         else if (data.status === 'cancelled') {
           showError(data.images.length
@@ -1462,10 +1498,23 @@ els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // there - the server validates it - and Resume because the whole "N already
 // done" half of the preview is what ticking it is for.
 for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
-                  els.prompt, els.negative, els.steps, els.cfg, els.mu, els.batch,
-                  els.width, els.height, els.seed]) {
+                  els.gridSeedList, els.prompt, els.negative, els.steps, els.cfg, els.mu,
+                  els.batch, els.width, els.height, els.seed]) {
   el.addEventListener('input', schedulePreview);
 }
+// A listed seed axis makes the count and the base seed moot; say so in place.
+els.gridSeedList.addEventListener('input', () => {
+  els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
+});
+els.load.onclick = async () => {
+  try {
+    await api('/api/model/load', { method: 'POST' });
+    showError('');
+  } catch (err) {
+    showError(err.message);
+  }
+  refreshStatus();
+};
 els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
 els.width.oninput = els.height.oninput = syncSize;

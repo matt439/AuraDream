@@ -212,6 +212,35 @@ def test_the_run_filter_joins_the_jobs_that_continued_it(store):
     assert store.list_images(search="job:night01")[1] == 1
 
 
+def test_the_date_filter_is_a_local_day(store, monkeypatch):
+    # Rows are stamped in UTC and an overnight run crosses midnight; `date:`
+    # means the day on the user's clock, as a half-open range rather than a
+    # LIKE on the UTC prefix.
+    from datetime import datetime, timezone
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 9, 7, 23, 30, tzinfo=timezone.utc).astimezone(tz)
+
+    monkeypatch.setattr(store, "datetime", Clock)
+    late = keep(store, seed=1)  # 23:30 UTC on the 7th
+    Clock.now = classmethod(lambda cls, tz=None: datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc).astimezone(tz))
+    early = keep(store, seed=2)  # 01:30 UTC on the 8th
+    # Which local day each fell on depends on the zone the test runs in, so
+    # ask the same question the code does.
+    local_day = lambda rec: datetime.fromisoformat(rec.created_at).astimezone().date()  # noqa: E731
+    for rec in (late, early):
+        found = store.list_images(search=f"date:{local_day(rec).isoformat()}")[0]
+        assert rec.id in {r.id for r in found}
+    if local_day(late) != local_day(early):
+        assert store.list_images(search=f"date:{local_day(late).isoformat()}")[1] == 1
+    assert store.list_images(search="date:2020-01-01")[1] == 0
+    assert store.list_images(search="date:today")[1] in (0, 1, 2)
+    with pytest.raises(ValueError, match="YYYY-MM-DD"):
+        store.list_images(search="date:tuesday")
+
+
 # ----------------------------------------------------------------------- runs
 
 

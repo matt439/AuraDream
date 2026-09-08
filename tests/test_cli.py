@@ -80,6 +80,20 @@ def test_resume_skips_what_the_gallery_holds(cli, store):
     assert [r.steps for r in cli.requests] == [6, 8]
 
 
+def test_a_seed_list_runs_the_grid_at_exactly_those_seeds(cli, store, capsys):
+    code = generate.main(["a fox", "--seed-list", "4471,8823", "--grid-steps", "6,8", *SIZE, "--dry-run"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "seeds    : 4471, 8823  (listed)" in out and "2 listed seeds" in out
+    assert generate.main(["a fox", "--seed-list", "4471,8823", "--grid-steps", "6", *SIZE, "-q"]) == 0
+    assert cli.seeds == [4471, 8823]
+    # Resume needs no --seed when the seeds are listed.
+    assert generate.main(["a fox", "--seed-list", "4471,8823", "--grid-steps", "6", "--resume", *SIZE, "-q"]) == 0
+    assert cli.seeds == [4471, 8823]  # nothing ran the second time
+    with pytest.raises(SystemExit):
+        generate.main(["a fox", "--seed-list", "1,2", "--grid-seeds", "3"])
+
+
 def test_mu_and_no_mu_are_exclusive(cli):
     with pytest.raises(SystemExit) as exc:
         generate.main(["a fox", "--mu", "1.15", "--no-mu"])

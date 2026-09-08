@@ -274,11 +274,26 @@ def _sampling_values(request: GenerateRequest, steps: str, cfg: str, mu: str) ->
     }
 
 
-def describe(values: dict[str, list[Any]], seeds: int) -> str:
+def parse_seeds(text: str | None) -> list[int]:
+    """The seed axis as a *list* - `4471,8823`, `100-103` - rather than a count.
+
+    Every other axis is a spec through `parse_axis`; seeds were the one axis
+    that could only be "N consecutive from the base", so the second night of
+    every two-night investigation - the two seeds that gave the composition,
+    crossed with a finer sweep - could not be asked for. The values are not
+    wrapped: the schema's own bounds are what turn a typo'd `-5` into an error
+    rather than a valid 9.2-quintillion seed, and a cell outside them fails
+    with the schema's message when the cells are built.
+    """
+    return parse_axis(text, int, label="seeds")
+
+
+def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> str:
     """`2 prompts x 4 steps x 3 CFG x 1 mu x 2 seeds`, for a preview or a log.
 
     The prompt count appears only when there is more than one: a sampling grid
-    should read exactly as it did before the prompt became an axis.
+    should read exactly as it did before the prompt became an axis. `listed`
+    says the seeds were given rather than counted up from the base.
     """
     parts = []
     if len(values.get("prompt", [])) > 1:
@@ -286,7 +301,7 @@ def describe(values: dict[str, list[Any]], seeds: int) -> str:
     parts.append(f"{len(values['steps'])} steps")
     parts.append(f"{len(values['guidance_scale'])} CFG")
     parts.append(f"{len(values['mu'])} mu")
-    parts.append(f"{seeds} seed{'' if seeds == 1 else 's'}")
+    parts.append(f"{seeds} {'listed ' if listed else ''}seed{'' if seeds == 1 else 's'}")
     return " x ".join(parts)
 
 
@@ -408,6 +423,7 @@ def expand(
     cfg: str = "",
     mu: str = "",
     seeds: int = 1,
+    seed_list: list[int] | None = None,
 ) -> list[Cell]:
     """The cartesian product, as cells ready to hand to a job.
 
@@ -416,15 +432,21 @@ def expand(
     instead of somewhere inside the denoising loop at 3am. A prompt that grew
     past the schema's 4000 characters once its values were substituted in is
     caught by that same rule.
+
+    The seed axis is either `seeds` consecutive from the base - stepped by the
+    batch size, as a sweep steps - or exactly `seed_list`, which wins when it
+    is given. The ceiling counts whichever applies: swapping only the loop
+    would have let a 64-value list queue 64 times past `max_grid_images`.
     """
     assignments = prompt_assignments(request, parse_variables(prompt))
     values = _sampling_values(request, steps, cfg, mu)
+    seed_count = len(seed_list) if seed_list else seeds
     total = (
         len(assignments)
         * len(values["steps"])
         * len(values["guidance_scale"])
         * len(values["mu"])
-        * seeds
+        * seed_count
     )
     if total * request.num_images > settings.max_grid_images:
         raise ValueError(
@@ -433,13 +455,15 @@ def expand(
         )
 
     base = request.seed if request.seed is not None else random_seed()
+    # Step past the whole batch, exactly as a sweep does, so no two images in
+    # the grid are drawn from the same seed. A listed seed is taken as given -
+    # the schema, not a wrap, decides whether it is one.
+    seed_values = seed_list or [wrap_seed(base + index * request.num_images) for index in range(seeds)]
     template = request.model_dump()
     cells: list[Cell] = []
-    for index in range(seeds):
-        # Step past the whole batch, exactly as a sweep does, so no two images
-        # in the grid are drawn from the same seed. Every parameter cell of one
-        # seed shares it - comparing settings on the same noise is the point.
-        seed = wrap_seed(base + index * request.num_images)
+    for seed in seed_values:
+        # Every parameter cell of one seed shares it - comparing settings on
+        # the same noise is the point.
         # The prompt sits just inside the seed, for the reason the seed is
         # outermost: a night that ends early has then swept every setting for
         # the prompts it reached, which is a comparison, rather than leaving

@@ -131,6 +131,11 @@ class GridRequest(GenerateRequest):
     cfg_axis: str = Field(default="", max_length=200)
     mu_axis: str = Field(default="", max_length=200)
     seeds: int = Field(default=1, ge=1, le=MAX_GRID_SEEDS)
+    # The seed axis as a list - `4471,8823`, `100-103` - which wins over the
+    # count and the base seed when given: the second night of an investigation
+    # runs the two seeds that worked against a finer sweep. Long enough for
+    # sixty-four 16-digit seeds.
+    seed_axis: str = Field(default="", max_length=2000)
     # Skip the cells this prompt has already been rendered at. What makes an
     # overnight grid survivable: a crash costs the cell it died on, not the
     # night. Matched on settings, not on the job that ran them.
@@ -149,7 +154,9 @@ class GridRequest(GenerateRequest):
         # thing again. The base seed is published when the grid is queued and
         # written into the Seed box; failing that, the *oldest* image of the run
         # carries it - the newest carries the highest seed the night reached.
-        if self.resume and self.seed is None:
+        # A listed seed axis is determinate on its own, and is the one case
+        # where a resume is most clearly so.
+        if self.resume and self.seed is None and not self.seed_axis.strip():
             raise ValueError(
                 "resume needs the seed the grid was started from - the Seed box shows it "
                 "after Run grid, and the oldest image of the run carries it"

@@ -428,9 +428,40 @@ _FILTERS: dict[str, tuple[str, Any]] = {
     "quant": ("quantization", str),
     "job": ("job_id", str),
     "run": ("run_id", str),
+    # Handled by _date_clause: a day, not a column with a cast.
+    "date": ("created_at", None),
 }
 _COMPARISONS = ("<=", ">=", "<", ">")
 _NULL_TOKENS = {"none", "null", "off"}
+
+
+def _date_clause(raw: str) -> tuple[str, list]:
+    """`date:2026-09-07`, `date:today`, `date:yesterday` as a half-open range.
+
+    A *local* day: `created_at` is UTC, and an overnight run crosses midnight
+    in every timezone, so the day the user means is the one on their clock,
+    converted here. A half-open `>= start AND < end` rather than a LIKE prefix
+    - the prefix cannot use the index and would need the UTC date, which is
+    the wrong one for anything made after about 4 pm in the Americas or before
+    breakfast east of Greenwich. The bounds are formatted the way the rows are
+    (`isoformat()` of an aware datetime), so the string comparison is the
+    time comparison.
+    """
+    from datetime import date, timedelta
+
+    lowered = raw.lower()
+    if lowered == "today":
+        day = date.today()
+    elif lowered == "yesterday":
+        day = date.today() - timedelta(days=1)
+    else:
+        try:
+            day = date.fromisoformat(raw)
+        except ValueError:
+            raise ValueError(f"date: {raw!r} is not YYYY-MM-DD, today or yesterday") from None
+    start = datetime.combine(day, datetime.min.time()).astimezone(timezone.utc)
+    end = start + timedelta(days=1)
+    return "created_at >= ? AND created_at < ?", [start.isoformat(), end.isoformat()]
 
 
 def _filter_clause(key: str, raw: str) -> tuple[str, list]:
@@ -440,6 +471,8 @@ def _filter_clause(key: str, raw: str) -> tuple[str, list]:
     which is the only way to ask for the images that ran without a mu at all -
     `mu:0` is a different image and SQL will not match NULL with either.
     """
+    if key == "date":
+        return _date_clause(raw)
     column, cast = _FILTERS[key]
     if cast is str:
         return rf"{column} LIKE ? ESCAPE '\'", [f"%{_like_escape(raw)}%"]

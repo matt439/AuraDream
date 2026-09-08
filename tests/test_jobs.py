@@ -32,6 +32,57 @@ def test_a_cancelled_queued_job_is_not_rewritten_when_its_load_fails(store):
     assert job.error is None
 
 
+def test_a_queued_job_says_what_it_is_waiting_on(store):
+    # "waiting for the job ahead…" for the whole of a 32 GB download, under a
+    # top bar saying "loading weights…": the first thing a new user saw was a
+    # queue behind work that did not exist. The label is not a status - cancel
+    # keys its instant path on `queued` - but a field beside it.
+    async def scenario():
+        gate = asyncio.Event()
+        fake = FakeBackend(loaded=False)
+
+        async def slow_load():
+            await gate.wait()
+            fake.load()
+
+        manager = JobManager(fake, slow_load)
+        # Slow enough that the first job is still running when the second is
+        # queued behind it.
+        fake.step_seconds = 0.01
+        first = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=40))
+        await asyncio.sleep(0.02)
+        loading = first.snapshot()["waiting_on"]
+        gate.set()
+        await asyncio.sleep(0.05)
+        # Behind a running job, not behind a load.
+        second = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=2))
+        await asyncio.sleep(0.02)
+        queued = second.snapshot()["waiting_on"]
+        for job in (first, second):
+            async for event in manager.events(job):
+                if event["type"] == "done":
+                    break
+        return loading, queued, first.snapshot()["waiting_on"]
+
+    assert asyncio.run(scenario()) == ("load", "queue", None)
+
+
+def test_progress_events_carry_the_elapsed_time(store):
+    async def scenario():
+        manager = JobManager(FakeBackend(step_seconds=0.005))
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=3))
+        seen = []
+        async for event in manager.events(job):
+            if event["type"] == "progress":
+                seen.append(event["elapsed"])
+            if event["type"] == "done":
+                break
+        return seen
+
+    elapsed = asyncio.run(scenario())
+    assert len(elapsed) == 3 and elapsed == sorted(elapsed) and elapsed[0] >= 0
+
+
 def test_per_cell_status_events_leave_the_images_out(store):
     async def scenario():
         manager = JobManager(FakeBackend())
