@@ -12,7 +12,7 @@ Status as of 2026-09-08, after the commits listed at the end.
 | LOW | 41 | 41 | 0 | 0 |
 | Disputed | 3 | 3 | 0 | 0 |
 | Unverified leads | 9 | 9 | 0 | 0 |
-| Possible improvements | 33 | 31 | 0 | 2 |
+| Possible improvements | 33 | 33 | 0 | 0 |
 
 Legend: `[x]` done, `[~]` partial (what is missing is in the note), `[ ]` not
 done. The commit named is the one that closed the entry; the note says where
@@ -35,6 +35,22 @@ every row with the same hashes. The console Ctrl-C itself could not be
 generated from the tool's shell, so the signal was raised in-process - the
 same Python handler a terminal Ctrl-C reaches. Still not verified:
 `KREA_DEVICE=cuda:1` (one card here).
+
+The last two improvements were verified on the card the same day, after
+fetching what the machine had been missing. **LoRA** (FLUX.1 Krea dev, fp8,
+model offload, a 172 MB FLUX.1-dev adapter): torchao + PEFT - the part the
+review called unverified - works. The adapter changes the image and
+reproduces, `unload_lora_weights` restores the base hash exactly, and weight
+0 is byte-identical to no adapter, which is what proves the weight reaches
+the maths. A three-weight sweep in one job ran 17.5/16.3/18.6 s against
+15.4 s unadapted, so the hot swap between cells costs nothing measurable.
+**Reference images** (FLUX.2 klein 4B, fp8, model offload, 1 MP, 4 steps):
+the conditioning is unmistakable - the referenced fox, cabin and treeline
+come through in the pose the prompt asked for - and reproducible to the hash.
+The review's "2-3x per image" did **not** appear: 10.2 s with no reference,
+9.2 s and 8.2 s with one, 11.3 s with two, because under model offload the
+per-image weight transfer dominates the longer sequence. The docs say the
+measurement rather than the prediction.
 
 ## Confirmed findings
 
@@ -148,8 +164,9 @@ same Python handler a terminal Ctrl-C reaches. Still not verified:
 
 ## Possible improvements
 
-Not defects. The review ranked them by value in this order. The two left need
-weights or a file this machine does not have; each says which.
+Not defects. The review ranked them by value in this order. All 33 are done:
+the last two needed weights and a file this machine did not have, and both were
+fetched (FLUX.2 klein 4B, ~16 GB of diffusers layout; a 172 MB FLUX.1 LoRA).
 
 - [x] 1. `backend/main.py:291` nothing says what happened to last night's run — `98c5ab6`. `GET /api/runs` (`storage.runs`: images, favourites, prompts, jobs, timestamps, the oldest image's prompt and seed) outlives the process; `GET /api/jobs?include_finished=true` adds the terminal jobs from memory with `image_count`. UI: a Runs picker beside the search box (pick one: `run:` search plus the sheet) and a dismissable banner under the panel when nothing is live, gated to 24 h and once per job per browser.
 - [x] 2. `web/style.css:371` the lightbox cannot zoom — `5cd6508`. Explicit-size layout in a `flex: 1 1 auto; min-height: 0` stage (not a transform); wheel about the pointer (non-passive), drag, `+`/`-`/`0`/`1`, double-click; 1:1 divides by `devicePixelRatio`; the view is keyed on the record's size and carried across cells; the backdrop click closes only at fit.
@@ -157,7 +174,7 @@ weights or a file this machine does not have; each says which.
 - [x] 4. `backend/main.py:254` re-render a night's winners at full size — `b26ee19`. `POST /api/rerender`: the gallery's filter server-side, one cell per record with its own settings and seed, `check_budget`, refused over the ceiling and for another checkpoint's records, pruned like a resume, 409 when nothing is left; a "Re-render N at WxH" button beside the filters. The README says the same seed at another size is a new sample.
 - [x] 5. `tests/test_schedule.py:40` the scheduler stub never calls back — `e3489de`. Progress, cancel and generator code now run under test.
 - [x] 6. `backend/grid.py:78` the prompt-variable assignment is thrown away — `57bf669`. `variables TEXT` (JSON, `_migrate`), the `krea` chunk, `ImageRecord.variables`, both writers; the sheet builds one axis per variable and suppresses the flat prompt and negative axes when any record carries variables. No `var:` search term, as the review advised.
-- [ ] 7. `backend/backends/diffusers_backend.py:376` klein's reference-image conditioning unreachable *(medium)*. Not done: the klein weights are not in the Windows cache (only the Nunchaku re-uploads under WSL), so sizing the 2-3x cost and checking that the resized reference conditions means a download first; and it widens `CellKey`, `completed_cells`, the `krea` chunk and the CLI in one change.
+- [x] 7. `backend/backends/diffusers_backend.py:376` klein's reference-image conditioning unreachable *(medium)* — `fb52a3c`. `GenerateRequest.reference` is a list of **gallery ids** (the review's caveat: a path from the request joined onto `outputs_dir` is an arbitrary-file read), resolved by `storage.reference_paths`, which names a missing id and a missing file. `reference_supported` is published the way `negative_prompt_supported` is - profile guess, then `"image" in _call_params` - `applied()` drops them where the pipeline has none, and `main._refuse_unusable_inputs` refuses at submit rather than at cell 1. `CellKey` gained the element, `run_id` drops it while None so no existing run id moved, and the column, the `krea` chunk, `ImageRecord`, the reindex, `--reference` and `--from-image` all carry it. UI: a ❐ button on every card, chips in the panel, greyed for the checkpoint. The fourth grid axis was not added (the review advised against it for true CFG for the same reason); references are a constant across a grid, not an axis.
 - [x] 8. `backend/jobs.py:225` no log lines and no timestamps — `f66faf7` (lines and timestamps) and `079f647` (the UI reads them: elapsed and an ETA from the job's own pace under the bars, a summary line when it finishes).
 - [x] 9. `web/app.js:1068` the grid spec lives only in the DOM — `8b5c4c6`. `localStorage` in two phases (model-independent fields at start-up, steps/CFG/mu once the checkpoint is known and matches), delegated `input`/`change` plus the programmatic writes, Resume never stored, every access in try/catch.
 - [x] 10. `backend/generate.py:69` no `--from-image` — `0a164fc`. Reads `.info["krea"]` before `apply_env` so the checkpoint reaches `KREA_MODEL_ID`; flags win; quantization not carried (named when it differs); job/run displayed, never reused.
@@ -172,7 +189,7 @@ weights or a file this machine does not have; each says which.
 - [x] 19. `backend/storage.py:163` no content hash — `8616111`. Measured first: the same request twice through the fp8 FLUX path under model offload is the same hash. 16 hex of the sha256 of the pixels in the row, the PNG and the record; `hash:` filter; `distinct_count` on the job snapshot and `distinct` on `RunSummary` (only when every image of the run is hashed); the UI, the Runs picker and the CLI say "only N distinct". The `stddev` half was dropped as advised. The companion warning: `grid.duplicate_count` in the preview and the dry run, through `backend.applied()`; the cells are not dropped.
 - [x] 20. `backend/generate.py:338` CLI and server share a GPU unknowingly — `0a164fc`. `_server_holds_gpu` probes `/api/status` after the `--dry-run` guard; `ready`/`loading` or a timeout refuses with exit 4; no listener is the ordinary case; `--ignore-server`. Advisory, blind across WSL/Windows, and stubbed in the test fixture.
 - [x] 21. `backend/main.py:177` no way to hand the GPU back mid-night — `5cdba2b`. The cheap half the judges recommended: `POST /api/jobs/{id}/pause` holds at the cell boundary with a worker-written `paused` acknowledgement, `backend.free_cache()` returns the allocator reserve, the hold is polled (never `Event.wait()`), unload still 409s. Not measured on the card.
-- [ ] 22. `backend/backends/diffusers_backend.py:199` no LoRA loading *(medium)*. Not done: a new `peft` dependency, torchao + PEFT is unverified, there is no LoRA file on this machine to try one against, and the columns and resume key have to land with the first working generation.
+- [x] 22. `backend/backends/diffusers_backend.py:199` no LoRA loading *(medium)* — `fb52a3c`. Hot-swapped on the live pipeline as the review advised, never baked into `load()`: `_apply_lora` loads once and re-weights per cell, so `--grid-lora-scale 0-1x0.25` is one load and four `set_adapters` calls. Refused before the download for `KREA_QUANT=nunchaku` and for a missing peft (`lora_unavailable_reason`, answerable with no pipeline loaded), and the columns, the `krea` chunk, Reuse and the resume key landed in the same change as the first working generation. `backend/loras.py` owns the directory - the request carries a bare file name, `.safetensors` only. `peft` is a new dependency; adding it re-locked `uv.lock` and dropped the four hand-written PyTorch wheel hashes, which were restored and re-checked with `uv lock --check`.
 - [x] 23. `backend/clear.py:49` no gallery size or free space on a running surface — `6b8c4ee`. `disk_free_mb` on `/api/status` (one syscall; the directory walk stays off the poll), `bytes` on the preview and a disk line in the CLI from the median PNG size at that size on that checkpoint; the preview turns amber past the free space.
 - [x] 24. `backend/storage.py:325` which settings produced the favourites — `0a164fc`. `python -m backend.stats`: the starred *rate* per setting over a scope, the newest run by default, `--all` labelled indicative, `--min` 5, grouped on the six-decimal rounding resume uses, size always included.
 - [x] 25. `tests/test_klein.py:45` pipeline facts never checked against the real classes — `f66faf7`. `tests/test_profiles.py`, five id -> class cases, mapping marked as the unverifiable assumption.
@@ -219,3 +236,5 @@ or to one pass over a list:
 | `b5b21b5` | — | The checklist brought up to date |
 | `122d1a5` | LOW tail | The PyTorch wheels pinned by hash |
 | `8616111` | improvements 15, 19, 29 | True CFG apart from the guidance value, the pixel hash and the duplicate warning, the live preview; the GPU pass |
+| `a4e80f6` | — | The checklist's GPU-gated entries closed |
+| `fb52a3c` | improvements 7, 22 | klein's reference images and LoRA adapters, and the GPU pass on both |
