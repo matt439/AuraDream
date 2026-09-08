@@ -221,6 +221,33 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
     )
 
 
+# Every column a writer supplies, in one place: `save_image` and the reindex
+# both insert through `_insert_row`, so the list cannot drift between them.
+_COLUMNS = (
+    "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
+    "mu", "seed", "model_id", "duration_ms", "created_at", "job_id", "run_id", "quantization",
+)
+
+
+def _insert_row(conn: sqlite3.Connection, values: dict[str, Any]) -> sqlite3.Row:
+    """One row in, the FTS trigger firing with it, the row read back."""
+    columns = ", ".join(_COLUMNS)
+    marks = ", ".join("?" * len(_COLUMNS))
+    cur = conn.execute(
+        f"INSERT INTO images ({columns}) VALUES ({marks})", tuple(values[c] for c in _COLUMNS)
+    )
+    return conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
+
+
+def human_bytes(n: int | float) -> str:
+    size = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GB"
+
+
 def save_image(
     image: Image.Image,
     request: "GenerateRequest",
@@ -285,31 +312,26 @@ def save_image(
         # it left a *.png.part that nothing swept.
         image.save(partial, format="PNG", pnginfo=info, compress_level=4)
         with _write_lock, _session() as conn:
-            cur = conn.execute(
-                """INSERT INTO images (filename, prompt, negative_prompt, width, height,
-                                       steps, guidance_scale, mu, seed, model_id,
-                                       duration_ms, created_at, job_id, run_id,
-                                       quantization)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (
-                    filename,
-                    request.prompt,
-                    request.negative_prompt,
-                    image.width,
-                    image.height,
-                    request.steps,
-                    request.guidance_scale,
-                    request.mu,
-                    seed,
-                    model_id,
-                    duration_ms,
-                    created.isoformat(),
-                    job_id,
-                    run_id,
-                    quantization,
-                ),
+            row = _insert_row(
+                conn,
+                {
+                    "filename": filename,
+                    "prompt": request.prompt,
+                    "negative_prompt": request.negative_prompt,
+                    "width": image.width,
+                    "height": image.height,
+                    "steps": request.steps,
+                    "guidance_scale": request.guidance_scale,
+                    "mu": request.mu,
+                    "seed": seed,
+                    "model_id": model_id,
+                    "duration_ms": duration_ms,
+                    "created_at": created.isoformat(),
+                    "job_id": job_id,
+                    "run_id": run_id,
+                    "quantization": quantization,
+                },
             )
-            row = conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
         committed = True
         _rename_with_retry(partial, path)
     except BaseException:
@@ -625,6 +647,158 @@ def completed_cells(
     return keys
 
 
+def _strict_scope(search: str | None) -> tuple[list[str], list]:
+    """The search box's `key:value` terms as predicates, and nothing else.
+
+    For the paths where a fuzzy match is a hazard - a delete, a statistic.
+    `list_images`' LIKE fallback changes the predicate's semantics on any
+    token with an odd quote, and a destructive filter resolved through a fuzzy
+    index should not be confirmed blind: free text is refused, not matched.
+    """
+    if not search or not search.strip():
+        return [], []
+    filters, params, text = _split_search(search)
+    if text:
+        raise ValueError(f"key:value terms only; {text!r} is free text")
+    return filters, params
+
+
+def matching_preview(search: str) -> dict[str, Any]:
+    """What a strict scope selects, named: counts, prompts, and the jobs and
+    checkpoints a substring term (`job:`, `model:`) actually matched."""
+    filters, params = _strict_scope(search)
+    if not filters:
+        raise ValueError("a filter is required; the whole gallery is `clear` without --where")
+    clause = f"WHERE {' AND '.join(filters)}"
+    with _session() as conn:
+        records, favorites = conn.execute(
+            f"SELECT COUNT(*), COALESCE(SUM(favorite), 0) FROM images {clause}", params
+        ).fetchone()
+        distinct = lambda column, limit: [  # noqa: E731
+            row[0]
+            for row in conn.execute(
+                f"SELECT DISTINCT {column} FROM images {clause} ORDER BY {column} LIMIT ?",
+                (*params, limit),
+            )
+        ]
+        return {
+            "records": records,
+            "favorites": favorites,
+            "prompts": distinct("prompt", 4),
+            "jobs": [j for j in distinct("job_id", 6) if j],
+            "models": distinct("model_id", 6),
+        }
+
+
+def delete_matching(search: str, keep_favorites: bool = False) -> dict[str, int]:
+    """Delete the rows a strict scope selects, and their files - nothing else.
+
+    `DELETE ... RETURNING filename` in one statement, so a row committed while
+    the user was reading the confirmation prompt is not deleted from disk on
+    the strength of an id list resolved a moment earlier. No orphan sweep: a
+    filtered clear that also removed every untracked PNG would be a new
+    all-or-nothing hazard inside the feature meant to remove one.
+    """
+    filters, params = _strict_scope(search)
+    if not filters:
+        raise ValueError("a filter is required; the whole gallery is `clear` without --where")
+    if keep_favorites:
+        filters.append("favorite = 0")
+    with _write_lock, _session() as conn:
+        doomed = [
+            row["filename"]
+            for row in conn.execute(
+                f"DELETE FROM images WHERE {' AND '.join(filters)} RETURNING filename", params
+            )
+        ]
+    removed = 0
+    for filename in doomed:
+        path = settings.outputs_dir / filename
+        if path.exists() and _unlink(path):
+            removed += 1
+        _unlink(_thumb_path(path))
+    return {"records": len(doomed), "files": removed}
+
+
+def image_bytes(width: int, height: int, model_id: str | None = None, sample: int = 20) -> int | None:
+    """Median PNG size on disk at this size on this checkpoint, or None.
+
+    The third of the preview's three estimates, and the weakest: PNG size
+    varies with content far more than duration does. Same rule as the
+    others - no files, no estimate - and the same scoping, since a klein
+    render and a Turbo render of one size are not the same picture.
+    """
+    scope = "AND model_id = ?" if model_id else ""
+    scope_params = (model_id,) if model_id else ()
+    with _session() as conn:
+        names = [
+            row["filename"]
+            for row in conn.execute(
+                f"""SELECT filename FROM images WHERE width = ? AND height = ? {scope}
+                    ORDER BY id DESC LIMIT ?""",
+                (width, height, *scope_params, sample),
+            )
+        ]
+    sizes = []
+    for name in names:
+        try:
+            sizes.append((settings.outputs_dir / name).stat().st_size)
+        except OSError:
+            continue
+    if not sizes:
+        return None
+    sizes.sort()
+    return sizes[len(sizes) // 2]
+
+
+def existing_filenames() -> set[str]:
+    """Every filename the index knows - what a reindex skips."""
+    with _session() as conn:
+        return {row["filename"] for row in conn.execute("SELECT filename FROM images")}
+
+
+def index_file(
+    filename: str, meta: dict[str, Any], width: int, height: int, created_at: datetime
+) -> ImageRecord:
+    """A row for a PNG already in `outputs_dir`, from its own `krea` block.
+
+    The reindex path: everything an `ImageRecord` needs is in the file except
+    `favorite`, which lives in SQLite alone and is lost, and `duration_ms`,
+    which is recorded as 0 so `step_cost_ms` (which wants `> 0`) does not price
+    a grid off an unknown. Through the same INSERT as `save_image`, so the FTS
+    trigger indexes the prompt.
+    """
+    with _write_lock, _session() as conn:
+        row = _insert_row(
+            conn,
+            {
+                "filename": filename,
+                "prompt": meta["prompt"],
+                "negative_prompt": meta.get("negative_prompt"),
+                "width": width,
+                "height": height,
+                "steps": int(meta["steps"]),
+                "guidance_scale": float(meta["guidance_scale"]),
+                "mu": meta.get("mu"),
+                "seed": int(meta["seed"]),
+                "model_id": meta["model"],
+                "duration_ms": 0,
+                "created_at": created_at.isoformat(),
+                "job_id": meta.get("job"),
+                "run_id": meta.get("run"),
+                "quantization": meta.get("quantization"),
+            },
+        )
+    return _row_to_record(row)
+
+
+def thumbnail_for(image: Image.Image, filename: str) -> None:
+    """Write the WEBP beside an existing PNG, if it has none."""
+    path = _thumb_path(settings.outputs_dir / filename)
+    if not path.exists():
+        _write_thumb(image, path)
+
+
 # The columns `keep_rates` can group by, as SQL. CFG and mu are rounded to the
 # six decimals the axis parser produces, so a value that went through REAL and
 # back does not split one setting into two buckets.
@@ -661,14 +835,7 @@ def keep_rates(
     if unknown:
         raise ValueError(f"cannot group by {', '.join(unknown)}; one of {', '.join(_GROUPS)}")
     columns = list(dict.fromkeys([*by, "size"]))
-    where: list[str] = []
-    params: list = []
-    if search:
-        filters, filter_params, text = _split_search(search)
-        if text:
-            raise ValueError(f"stats take key:value terms only; {text!r} is free text")
-        where.extend(filters)
-        params.extend(filter_params)
+    where, params = _strict_scope(search)
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     select = ", ".join(f"{_GROUPS[name]} AS {name}" for name in columns)
     group = ", ".join(_GROUPS[name] for name in columns)

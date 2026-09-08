@@ -498,6 +498,24 @@ def main(argv: list[str] | None = None) -> int:
             )
             if seconds is not None:
                 print(f"estimate : about {_duration(seconds)} of generation, plus the load")
+            # And the disk, which is the other thing a night can run out of:
+            # a full volume dies at the first save, and per the cell rule
+            # takes every remaining cell with it.
+            per_image = p.storage.image_bytes(request.width, request.height, p.settings.model_id)
+            if per_image:
+                import shutil
+
+                need = per_image * total_images
+                try:
+                    free = shutil.disk_usage(p.settings.outputs_dir).free
+                except OSError:
+                    free = None
+                line = f"disk     : about {p.storage.human_bytes(need)} of PNGs"
+                if free is not None:
+                    line += f"; {p.storage.human_bytes(free)} free"
+                    if need > free:
+                        line += "  [NOT ENOUGH]"
+                print(line)
         print()
 
     # To stderr: `--quiet > paths.txt` promises stdout holds nothing but paths.

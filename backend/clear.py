@@ -4,6 +4,7 @@
     uv run python -m backend.clear --yes            # no prompt
     uv run python -m backend.clear --keep-favorites # spare starred images
     uv run python -m backend.clear --dry-run        # report only
+    uv run python -m backend.clear --where "job:ab12cd"   # one run, not the gallery
 
 Running the file directly (`python backend/clear.py`, or an editor's Run button)
 works too - see the sys.path bootstrap below.
@@ -37,13 +38,79 @@ except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     )
 
 
-def _human(n: int) -> str:
-    size = float(n)
-    for unit in ("B", "KB", "MB", "GB"):
-        if size < 1024 or unit == "GB":
-            return f"{size:.1f} {unit}"
-        size /= 1024
-    return f"{size:.1f} GB"
+_human = storage.human_bytes
+
+
+def _confirm(yes: bool) -> bool:
+    if yes:
+        return True
+    # isatty() is not a reliable signal here - it can report a terminal that
+    # has nothing to read - so let the read itself decide.
+    try:
+        answer = input("\nThis cannot be undone. Type 'clear' to continue: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nNo confirmation given; nothing deleted. Pass --yes to skip this prompt.",
+              file=sys.stderr)
+        return False
+    if answer != "clear":
+        print("Aborted.")
+        return False
+    return True
+
+
+def _clear_where(args: argparse.Namespace) -> int:
+    """The filtered path: the rows a `key:value` scope selects, and their files.
+
+    A 200-cell grid started with a typo in the prompt could only be removed by
+    200 confirmations or by destroying the gallery - and leaving it in poisons
+    `--resume` and the time estimate. The preview names what a substring term
+    matched (`job:` and `model:` are LIKEs), free text is refused rather than
+    resolved through the fuzzy fallback, and the orphan sweep stays off this
+    path: a filtered clear that also swept every untracked PNG would be a new
+    all-or-nothing hazard inside the feature meant to remove one.
+    """
+    if not settings.db_path.exists():
+        print("No gallery yet.", file=sys.stderr)
+        return 1
+    try:
+        found = storage.matching_preview(args.where)
+    except ValueError as exc:
+        print(f"--where: {exc}", file=sys.stderr)
+        return 2
+    print(f"database : {settings.db_path}")
+    print(f"images   : {settings.outputs_dir}")
+    print(f"filter   : {args.where}")
+    print()
+    print(f"  {found['records']:>6} records match ({found['favorites']} favorite)")
+    if found["jobs"]:
+        print(f"         jobs: {', '.join(found['jobs'])}")
+    if len(found["models"]) > 1 or (found["models"] and "model:" in args.where):
+        print(f"         checkpoints: {', '.join(found['models'])}")
+    for prompt in found["prompts"][:3]:
+        print(f"         - {prompt[:70]}")
+    if len(found["prompts"]) > 3:
+        print("         - ...")
+    print()
+    if found["records"] == 0:
+        print("Nothing matches.")
+        return 0
+    kept = found["favorites"] if args.keep_favorites else 0
+    print(
+        f"Would delete {found['records'] - kept} record(s) and their files"
+        + (f", keeping {kept} favorite(s)." if kept else ".")
+    )
+    if args.dry_run:
+        print("\nDry run - nothing changed.")
+        return 0
+    if not _confirm(args.yes):
+        return 1
+    try:
+        result = storage.delete_matching(args.where, keep_favorites=args.keep_favorites)
+    except Exception as exc:  # noqa: BLE001 - report, with the post-deletion code
+        print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        return 3
+    print(f"\nDeleted {result['records']} record(s), {result['files']} file(s).")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -58,7 +125,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "-n", "--dry-run", action="store_true", help="report what would go, change nothing"
     )
+    parser.add_argument(
+        "--where",
+        metavar="TERMS",
+        help="delete only the rows these key:value terms select - `job:ab12cd`, "
+        "`run:ab12cd seed:42`, `date:yesterday` - and their files; no orphan sweep, "
+        "and free text is refused",
+    )
     args = parser.parse_args(argv)
+
+    if args.where:
+        return _clear_where(args)
 
     # A dry run reports; it does not create the database it is reporting on.
     if not args.dry_run:
@@ -98,18 +175,8 @@ def main(argv: list[str] | None = None) -> int:
         print("\nDry run - nothing changed.")
         return 0
 
-    if not args.yes:
-        # isatty() is not a reliable signal here - it can report a terminal that
-        # has nothing to read - so let the read itself decide.
-        try:
-            answer = input("\nThis cannot be undone. Type 'clear' to continue: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\nNo confirmation given; nothing deleted. Pass --yes to skip this prompt.",
-                  file=sys.stderr)
-            return 1
-        if answer != "clear":
-            print("Aborted.")
-            return 1
+    if not _confirm(args.yes):
+        return 1
 
     try:
         result = storage.clear_history(keep_favorites=args.keep_favorites)

@@ -93,6 +93,17 @@ let cfgThreshold = 1;
 // FLUX.2 klein's pipeline takes no negative prompt at any CFG; the field greys
 // out for the checkpoint rather than for the value.
 let negativeSupported = true;
+// Free space on the images volume, from the last status poll; null if unknown.
+let diskFreeMb = null;
+
+const humanBytes = (n) => {
+  let size = n;
+  for (const unit of ['B', 'KB', 'MB', 'GB']) {
+    if (size < 1024 || unit === 'GB') return `${size.toFixed(1)} ${unit}`;
+    size /= 1024;
+  }
+  return `${size.toFixed(1)} GB`;
+};
 
 // The two strips the lightbox can walk: what this job produced, and what the
 // gallery has paged in so far. Both are kept in the order they are displayed.
@@ -297,9 +308,16 @@ async function refreshStatus() {
       : s.state === 'error' ? 'load failed'
       : 'not loaded';
     if (s.state === 'error' && s.detail) showError(s.detail);
-    els.vram.textContent = s.vram_total_mb
-      ? `${s.device_name ?? ''} · ${(s.vram_used_mb / 1024).toFixed(1)}/${(s.vram_total_mb / 1024).toFixed(1)} GB · ${s.quantization}`
-      : '';
+    // Free space beside the VRAM: the disk is the other thing a night can
+    // run out of, and the grid preview compares its size estimate against it.
+    diskFreeMb = typeof s.disk_free_mb === 'number' ? s.disk_free_mb : null;
+    const disk = diskFreeMb !== null ? `${(diskFreeMb / 1024).toFixed(1)} GB free` : '';
+    els.vram.textContent = [
+      s.vram_total_mb
+        ? `${s.device_name ?? ''} · ${(s.vram_used_mb / 1024).toFixed(1)}/${(s.vram_total_mb / 1024).toFixed(1)} GB · ${s.quantization}`
+        : '',
+      disk,
+    ].filter(Boolean).join(' · ');
   } catch { /* server not up yet */ } finally { statusPending = false; }
 }
 
@@ -522,10 +540,16 @@ async function previewGrid() {
     syncCfg();
     // Totals on the first line, the resolved axes on the second: what a range
     // actually expanded to is the half of it that is easy to get wrong.
+    // The disk is the other thing a night runs out of; a size estimate past
+    // the free space is the warning colour, since the night would die at the
+    // first save that does not fit.
+    const short = p.bytes && diskFreeMb !== null && p.bytes > diskFreeMb * 1024 * 1024;
+    if (short) els.gridPreview.classList.add('warn');
     els.gridPreview.textContent = [
       `${p.images} image${p.images === 1 ? '' : 's'} · ${p.summary}` +
         (p.skipped ? ` · ${p.skipped} already done` : '') +
-        (p.seconds ? ` · about ${humanTime(p.seconds)}` : ''),
+        (p.seconds ? ` · about ${humanTime(p.seconds)}` : '') +
+        (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : ''),
       `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${axisText(p.values.mu)}` +
         (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),

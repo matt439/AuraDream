@@ -559,6 +559,23 @@ def test_resume_skips_only_the_prompt_it_already_rendered(client, store):
     assert (preview["skipped"], preview["cells"]) == (1, 1)
 
 
+def test_status_reports_free_disk_and_the_preview_prices_the_pngs(client, store):
+    status = client.get("/api/status").json()
+    assert isinstance(status["disk_free_mb"], int) and status["disk_free_mb"] > 0
+    body = {"prompt": "x", "width": 256, "height": 256, "steps_axis": "8", "seeds": 4}
+    # No files at this size yet: no estimate rather than a guess.
+    assert client.post("/api/grid/preview", json=body).json()["bytes"] is None
+    for seed in (1, 2, 3):
+        store.save_image(
+            Image.new("RGB", (256, 256)),
+            GenerateRequest(prompt="x", width=256, height=256),
+            seed=seed, duration_ms=1, model_id=settings.model_id,
+        )
+    sizes = sorted(p.stat().st_size for p in store.settings.outputs_dir.glob("*.png"))
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["bytes"] == sizes[1] * 4  # the median, times the image count
+
+
 def test_the_preview_estimates_from_what_the_gallery_measured(client, store):
     # Half a second per step, measured at this size on this checkpoint. The
     # fake backend renders instantly, so the row has to be a real one to

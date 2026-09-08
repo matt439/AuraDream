@@ -201,6 +201,10 @@ class GridPreview(BaseModel):
     summary: str
     # Null until the gallery holds an image at this size to measure against.
     seconds: float | None = None
+    # Likewise: the median PNG size at this size on this checkpoint times the
+    # image count. The weakest of the estimates - PNG size follows content -
+    # but a night that fills the disk dies at the first save.
+    bytes: int | None = None
 
 
 class ImageRecord(BaseModel):
@@ -291,6 +295,10 @@ class ModelStatus(BaseModel):
     vram_total_mb: int | None = None
     vram_used_mb: int | None = None
     device_name: str | None = None
+    # Free space on the volume the images land on. One syscall, so it rides on
+    # the status poll; the file tally (`summarise()`) walks the directory and
+    # does not.
+    disk_free_mb: int | None = None
 
 
 class JobAccepted(BaseModel):

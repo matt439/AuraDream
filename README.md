@@ -312,7 +312,10 @@ you fill in varies. An empty grid is exactly the image Generate would have made.
 They cross: two sizes, two grounds, four step counts and two seeds is 32 images.
 The panel previews what it would run before you commit to it — the resolved
 axes, the finished prompts, the image count, and once the gallery holds anything
-at that size to measure against, roughly how long. One grid is capped at
+at that size to measure against, roughly how long and roughly how many
+gigabytes of PNG. The top bar shows the free space on the images volume, and
+the preview turns amber when the estimate is more than that: a night that
+fills the disk dies at the first save. One grid is capped at
 `KREA_MAX_GRID_IMAGES` images and each axis at 64 values, because `1-1000` is
 eight characters.
 
@@ -510,6 +513,36 @@ file has no row to carry a star and goes either way. Safe to run while the
 server is up: rows go and the database file stays, so no open handle is
 invalidated, and an image still being written is a `.png.part` that the orphan
 sweep does not touch.
+
+```powershell
+uv run python -m backend.clear --where "job:ab12cd"            # one submission
+uv run python -m backend.clear --where "run:ab12cd cfg:>1"     # part of a grid
+uv run python -m backend.clear --where "date:yesterday" --dry-run
+```
+
+`--where` takes the gallery's own `key:value` terms and removes only what they
+select, with their files. The preview names what matched — the jobs and
+checkpoints a `job:` or `model:` term hit, the first few prompts — because
+those two are substring matches. Free text is refused: it would go through the
+search box's fuzzy fallback, and a deletion should not be confirmed blind. The
+orphan sweep stays off this path on purpose.
+
+## Rebuilding the index
+
+```powershell
+uv run python -m backend.reindex                     # outputs/, in place
+uv run python -m backend.reindex --from D:\wsl-outputs   # copy in, then index
+uv run python -m backend.reindex --dry-run
+```
+
+Every PNG carries its whole reproduction set, so `krea.db` can be rebuilt from
+the files: a lost or corrupted index, or the WSL gallery merged into the
+Windows one. Files whose names the index already has are skipped, which makes
+it idempotent; files without the `krea` block (other tools' PNGs) are named and
+skipped; a file from elsewhere is copied in under its own name unless a
+different file already sits there. Two things do not come back: the favourite
+flag, which lives only in the database, and the duration, recorded as 0 so
+the time estimate ignores those rows.
 
 ## Licence
 

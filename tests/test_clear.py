@@ -76,6 +76,55 @@ def test_a_failure_after_the_deletion_has_its_own_exit_code(fresh, monkeypatch):
     assert clear.main(["--yes"]) == 3
 
 
+def _seed(fresh, **rows):
+    from PIL import Image
+
+    from backend.schemas import GenerateRequest
+
+    storage.init_db()
+    made = {}
+    for name, (seed, job) in rows.items():
+        made[name] = storage.save_image(
+            Image.new("RGB", (16, 16)),
+            GenerateRequest(prompt=f"{name} prompt", width=256, height=256),
+            seed=seed, duration_ms=1, model_id="m", job_id=job,
+        )
+    return made
+
+
+def test_where_deletes_only_what_the_terms_select(fresh, capsys):
+    # A 200-cell grid with a typo could only be removed cell by cell or with
+    # the whole gallery; the filtered path takes the search grammar.
+    made = _seed(fresh, a=(1, "night01"), b=(2, "night01"), c=(3, "night02"))
+    (fresh.outputs_dir / "orphan.png").write_bytes(b"png")  # not swept on this path
+
+    assert clear.main(["--where", "job:night01", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "2 records match" in out and "jobs: night01" in out and "a prompt" in out
+    assert storage.list_images()[1] == 3
+
+    assert clear.main(["--where", "job:night01", "--yes"]) == 0
+    assert "Deleted 2 record(s), 2 file(s)." in capsys.readouterr().out
+    remaining = storage.list_images()[0]
+    assert [r.id for r in remaining] == [made["c"].id]
+    assert (fresh.outputs_dir / made["c"].filename).exists()
+    assert not (fresh.outputs_dir / made["a"].filename).exists()
+    assert (fresh.outputs_dir / "orphan.png").exists()
+
+
+def test_where_keeps_favorites_and_refuses_free_text(fresh, capsys):
+    made = _seed(fresh, a=(1, "n"), b=(2, "n"))
+    storage.set_favorite(made["a"].id, True)
+    assert clear.main(["--where", "job:n", "--keep-favorites", "--yes"]) == 0
+    assert [r.id for r in storage.list_images()[0]] == [made["a"].id]
+    # Free text would go through the LIKE fallback, whose meaning changes on an
+    # odd quote; a destructive filter is not confirmed blind.
+    assert clear.main(["--where", "a prompt", "--yes"]) == 2
+    assert "free text" in capsys.readouterr().err
+    assert clear.main(["--where", "seed:999", "--yes"]) == 0
+    assert "Nothing matches" in capsys.readouterr().out
+
+
 def test_a_stale_partial_is_named_in_the_preview(fresh, capsys):
     import os
     import time

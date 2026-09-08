@@ -221,7 +221,18 @@ async def status() -> ModelStatus:
         device_name=info.get("device_name"),
         vram_total_mb=info.get("vram_total_mb"),
         vram_used_mb=info.get("vram_used_mb"),
+        disk_free_mb=_disk_free_mb(),
     )
+
+
+def _disk_free_mb() -> int | None:
+    """Free space where the images land. One syscall; None if the directory is gone."""
+    import shutil
+
+    try:
+        return shutil.disk_usage(settings.outputs_dir).free // (1024 * 1024)
+    except OSError:
+        return None
 
 
 @app.post("/api/model/load", response_model=ModelStatus)
@@ -431,14 +442,19 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     per_step_ms = await asyncio.to_thread(
         storage.step_cost_ms, request.width, request.height, settings.model_id
     )
+    per_image_bytes = await asyncio.to_thread(
+        storage.image_bytes, request.width, request.height, settings.model_id
+    )
+    images = len(cells) * request.num_images
     listed = len(values.get("seed", []))
     return GridPreview(
         values=values,
         cells=len(cells),
-        images=len(cells) * request.num_images,
+        images=images,
         skipped=skipped,
         summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
         seconds=grid.estimate_seconds(cells, per_step_ms),
+        bytes=per_image_bytes * images if per_image_bytes else None,
     )
 
 

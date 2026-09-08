@@ -44,6 +44,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/clear.py` — deletes rows, their PNGs and any orphans
 - `backend/stats.py` — the starred *rate* per setting (`storage.keep_rates`),
   scoped to a run by default
+- `backend/reindex.py` — rows rebuilt from the PNGs' `krea` chunk, in place or
+  copied in from another gallery; idempotent on the UNIQUE filename
 - `web/` — served as-is from `/static`
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
   `setup.sh`, `serve.sh`: running the same checkout from WSL 2
@@ -386,6 +388,21 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   non-passive; the zoom keys sit below the `input, textarea` guard. A click on
   the stage beside the image closes the lightbox only at fit: zoomed, the
   stage is a pan surface and only Escape or the cross close it.
+- **Two writers, one INSERT.** `save_image` and `reindex.index_file` both go
+  through `storage._insert_row` over `_COLUMNS`, so the column list exists
+  once and the FTS trigger fires for both. The reindex reads
+  `Image.open(p).info["krea"]`, parses `created_at` from the filename prefix
+  as UTC (mtime failing that), copies a foreign file in `.part`-then-rename
+  and never over a different file of the same name, records `duration_ms=0`
+  (so `step_cost_ms`'s `> 0` ignores it) and loses `favorite`, which lives in
+  SQLite alone. `_strict_scope` is the `key:value`-only reading of the search
+  grammar for the paths where the LIKE fallback is a hazard: `clear --where`
+  (`delete_matching`, `DELETE ... RETURNING filename` in one statement, no
+  orphan sweep on that path) and `keep_rates`. `/api/status` carries
+  `disk_free_mb` (one `shutil.disk_usage` syscall; the directory walk in
+  `summarise()` deliberately does not ride the 3 s poll) and the preview
+  carries `bytes` (`image_bytes`: median PNG size at this size on this
+  checkpoint, times the images) under the same no-rows-no-estimate rule.
 - **The CLI reads PNGs and probes the server.** `--from-image` reads
   `Image.open(p).info["krea"]` - not `.text`, which decodes every pixel - and
   fills what the flags left unset *before* `apply_env`, so the record's
