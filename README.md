@@ -165,6 +165,23 @@ databases, two output directories. And run `uv` from WSL only after sourcing
 `wsl/env.sh`: without it, uv finds the Windows `.venv` in the project directory,
 judges it broken, and replaces it.
 
+The same goes for the command-line tools. `backend.clear`, `backend.stats`,
+`backend.reindex` and `backend.generate` act on whichever gallery the
+environment names, so to reach the WSL one run them from a WSL shell — the
+Ubuntu tab in Windows Terminal, or `wsl` from a PowerShell prompt — after the
+same `source wsl/env.sh`:
+
+```bash
+cd /mnt/c/VSProjects/ImageGeneratorKrea
+source wsl/env.sh
+uv run python -m backend.clear
+```
+
+Git Bash is not a WSL shell: there `/mnt/c` does not exist, yet `env.sh` still
+runs, and `uv` builds a second venv and an empty gallery under
+`C:\Users\<you>\krea-local` and reports nothing to clear. The `database :`
+line the tools print is the check — it should start with `/home/`.
+
 `KREA_QUANT=nunchaku` implies `DIFFUSERS_TRUST_REMOTE_KERNELS=true`. The kernels
 come from a Hub repo that diffusers does not list as a trusted publisher, and
 choosing the mode is choosing to download and run them. Setting the variable to
@@ -741,7 +758,9 @@ uv run python -m backend.clear --yes             # no prompt
 
 Prints what it is about to remove — records, files, and any PNG with no row
 left pointing at it — and asks for confirmation before deleting anything, then
-vacuums the database. `--keep-favorites` spares starred images, but an orphaned
+vacuums the database. This clears the Windows gallery; the WSL one is a
+separate database, cleared by the same command from a WSL shell after
+`source wsl/env.sh` (see [Run under WSL 2](#run-under-wsl-2-4-bit-nunchaku)). `--keep-favorites` spares starred images, but an orphaned
 file has no row to carry a star and goes either way. Safe to run while the
 server is up: rows go and the database file stays, so no open handle is
 invalidated, and an image still being written is a `.png.part` that the orphan
