@@ -40,6 +40,8 @@ class FakeBackend(GenerationBackend):
         # turns it off rather than every other test having to turn it on.
         self.reference_supported = True
         self.lora_reason: str | None = None
+        self.prompt_expander_supported = False
+        self.expansions: list[tuple[str, int, int]] = []
         # Calls (1-based) that raise instead of rendering, and a hook run after
         # each render - for a cancel that lands after the last step.
         self.fail_on: set[int] = set()
@@ -50,6 +52,13 @@ class FakeBackend(GenerationBackend):
 
     def lora_unavailable_reason(self) -> str | None:
         return self.lora_reason
+
+    def prompt_expansion_supported(self) -> bool:
+        return self.prompt_expander_supported
+
+    def expand_prompt(self, prompt: str, width: int, height: int) -> str:
+        self.expansions.append((prompt, width, height))
+        return f"Expanded: {prompt} ({width}x{height})"
 
     def applied(self, request):
         # What this fake would drop, the way the real backend drops it: an
@@ -234,6 +243,34 @@ def test_status_carries_the_prompting_guide(client):
     assert guide["examples"] and all(isinstance(text, str) and text for text in guide["examples"])
     assert len(guide["pixels"]) == 2 and guide["pixels"][0] <= guide["pixels"][1]
     assert guide["pixels_word"]
+
+
+def test_prompt_expansion_loads_the_model_and_returns_reviewable_text(client, fake):
+    fake.prompt_expander_supported = True
+    fake.loaded = False
+    response = client.post(
+        "/api/prompt/expand",
+        json={"prompt": "a lighthouse", "width": 1264, "height": 848},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "original_prompt": "a lighthouse",
+        "expanded_prompt": "Expanded: a lighthouse (1264x848)",
+    }
+    assert fake.loads == 1 and fake.expansions == [("a lighthouse", 1264, 848)]
+    assert client.get("/api/status").json()["prompt_expansion_supported"] is True
+
+
+def test_prompt_expansion_refuses_an_unsupported_checkpoint(client):
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    assert response.status_code == 422 and "ERNIE-Image" in response.json()["detail"]
+
+
+def test_prompt_expansion_does_not_cut_ahead_of_the_queue(client, fake, monkeypatch):
+    fake.prompt_expander_supported = True
+    monkeypatch.setattr(main.jobs, "busy", lambda: True)
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    assert response.status_code == 409 and "queued or running" in response.json()["detail"]
 
 
 def test_status_says_whether_the_pipeline_takes_a_negative_prompt(client, fake, monkeypatch):

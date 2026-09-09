@@ -29,7 +29,7 @@ if __name__ == "__main__":
 from . import grid, loras, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .config import settings  # noqa: E402
-from .jobs import JobManager, short_error  # noqa: E402
+from .jobs import BackendBusy, JobManager, short_error  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     GalleryPage,
@@ -38,6 +38,8 @@ from .schemas import (  # noqa: E402
     GridRequest,
     JobAccepted,
     ModelStatus,
+    PromptExpansion,
+    PromptExpansionRequest,
     RerenderRequest,
     RunSummary,
     error_detail,
@@ -227,6 +229,7 @@ async def status() -> ModelStatus:
         vram_total_mb=info.get("vram_total_mb"),
         vram_used_mb=info.get("vram_used_mb"),
         disk_free_mb=_disk_free_mb(),
+        prompt_expansion_supported=backend.prompt_expansion_supported(),
     )
 
 
@@ -330,6 +333,50 @@ async def unload_model() -> ModelStatus:
         raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
     _load_state.update(state="unloaded", detail=None)
     return await status()
+
+
+@app.post("/api/prompt/expand", response_model=PromptExpansion)
+async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
+    """Expand once, visibly, then let ordinary generation use that exact text."""
+    if not backend.prompt_expansion_supported():
+        raise HTTPException(
+            status_code=422,
+            detail="this checkpoint has no prompt expander; ERNIE-Image is the one here that does",
+        )
+    if jobs.busy():
+        raise HTTPException(
+            status_code=409,
+            detail="an image job is queued or running; wait for it to finish",
+        )
+    try:
+        await ensure_loaded()
+    except Exception as exc:
+        log.error("model load for prompt expansion failed: %s", short_error(exc))
+        log.debug("prompt expansion load traceback", exc_info=True)
+        raise HTTPException(status_code=500, detail=short_error(exc)) from exc
+    # The id is only a useful cold guess. A loaded pipeline's method and
+    # signature are the capability, exactly as for the generation controls.
+    if not backend.prompt_expansion_supported():
+        raise HTTPException(status_code=422, detail="the loaded pipeline has no prompt expander")
+    try:
+        expanded = await jobs.run_when_idle(
+            lambda: backend.expand_prompt(request.prompt, request.width, request.height)
+        )
+    except BackendBusy as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        log.error("prompt expansion failed: %s", short_error(exc))
+        log.debug("prompt expansion traceback", exc_info=True)
+        raise HTTPException(status_code=500, detail=short_error(exc)) from exc
+    expanded = expanded.strip()
+    if not expanded:
+        raise HTTPException(status_code=500, detail="the prompt expander returned no text")
+    if len(expanded) > 4000:
+        raise HTTPException(
+            status_code=422,
+            detail="the expanded prompt is over 4000 characters; shorten the source prompt and try again",
+        )
+    return PromptExpansion(original_prompt=request.prompt, expanded_prompt=expanded)
 
 
 # -------------------------------------------------------------- generation

@@ -12,7 +12,7 @@ let sheetPage = 1024;
 const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
   negNote: $('neg-note'), promptTip: $('prompt-tip'), sizeTip: $('size-tip'),
-  examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'),
+  examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
@@ -101,6 +101,11 @@ let statusPending = false;
 let currentJob = null;
 let queuedIds = [];
 let submitting = false;
+// ERNIE's optional rewriter is an editor action, not part of image generation.
+// Its first use may load a separate 7.7 GB component, so the button owns its
+// own busy state and never lets a late response overwrite text edited meanwhile.
+let promptExpansionSupported = false;
+let expandingPrompt = false;
 // One gallery page in flight at a time, and a token so a page that was already
 // on its way when the filters changed can be dropped rather than appended.
 let galleryPending = null;
@@ -427,6 +432,15 @@ function applyGuide(g) {
   if (Array.isArray(g.examples)) examples = g.examples;
 }
 
+function syncPromptExpansion() {
+  els.expandPrompt.hidden = !promptExpansionSupported;
+  els.expandPrompt.disabled = expandingPrompt || busy;
+  els.expandPrompt.textContent = expandingPrompt ? 'Expanding…' : 'Expand';
+  els.unload.disabled = expandingPrompt || busy;
+  els.generate.setAttribute('aria-disabled', String(expandingPrompt || submitting));
+  els.gridRun.setAttribute('aria-disabled', String(expandingPrompt || submitting));
+}
+
 // Anything the user picks - by hand or through Reuse - takes that control off
 // the profile. /api/status reads CUDA memory, which stalls behind a model load,
 // so its reply can land minutes late and used to wipe steps/CFG/mu long after
@@ -446,6 +460,11 @@ async function refreshStatus() {
     if (loadedModel) restoreSampling(loadedModel);
     applyHints(s.hints);
     applyGuide(s.guide);
+    if (typeof s.prompt_expansion_supported === 'boolean'
+        && s.prompt_expansion_supported !== promptExpansionSupported) {
+      promptExpansionSupported = s.prompt_expansion_supported;
+      syncPromptExpansion();
+    }
     if (s.defaults && typeof s.defaults.cfg_threshold === 'number'
         && s.defaults.cfg_threshold !== cfgThreshold) {
       cfgThreshold = s.defaults.cfg_threshold;
@@ -584,6 +603,7 @@ function setBusy(on) {
   els.cellNote.textContent = '';
   if (!on) { els.progressText.textContent = ''; currentJob = null; }
   syncQueueNote();
+  syncPromptExpansion();
 }
 
 // The jobs waiting behind the watched one, from the ids their submissions
@@ -599,8 +619,8 @@ function syncQueueNote() {
 // focus, and the Enter that pressed Generate dropped a keyboard user's place.
 function setSubmitting(on) {
   submitting = on;
-  els.generate.setAttribute('aria-disabled', String(on));
-  els.gridRun.setAttribute('aria-disabled', String(on));
+  els.generate.setAttribute('aria-disabled', String(on || expandingPrompt));
+  els.gridRun.setAttribute('aria-disabled', String(on || expandingPrompt));
 }
 
 function setProgress(fraction) {
@@ -643,6 +663,7 @@ function setStep(show, fraction = 0, text = '') {
 // and the payload differ.
 async function startJob(path, payload) {
   if (submitting) return;
+  if (expandingPrompt) { showError('Wait for prompt expansion to finish.'); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
   showError('');
@@ -2216,7 +2237,43 @@ function showExamples(open) {
     els.examplesMenu.appendChild(li);
   });
 }
+
+async function expandPrompt() {
+  if (expandingPrompt) return;
+  if (busy) { showError('Wait for the image queue to finish before expanding a prompt.'); return; }
+  const source = els.prompt.value;
+  const prompt = source.trim();
+  if (!prompt) { showError('Enter a prompt to expand first.'); els.prompt.focus(); return; }
+  expandingPrompt = true;
+  syncPromptExpansion();
+  showError('Loading ERNIE\'s prompt expander…', true);
+  try {
+    const body = await api('/api/prompt/expand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, width: +els.width.value, height: +els.height.value }),
+    });
+    // A multi-GB first load can take long enough for the user to continue
+    // writing. Never replace work that happened after the click.
+    if (els.prompt.value !== source) {
+      showError('The prompt changed while expansion was running, so the result was not applied.', true);
+      return;
+    }
+    els.prompt.value = body.expanded_prompt;
+    schedulePreview();
+    persistPanel();
+    els.prompt.focus();
+    els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length);
+    showError('Prompt expanded. Review or edit it before generating.', true);
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    expandingPrompt = false;
+    syncPromptExpansion();
+  }
+}
 els.examplesBtn.onclick = () => showExamples(els.examplesMenu.hidden);
+els.expandPrompt.onclick = expandPrompt;
 document.addEventListener('click', (e) => {
   if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
 });

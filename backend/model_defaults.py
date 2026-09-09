@@ -318,9 +318,9 @@ _Z_IMAGE_GUIDE = {
 _ERNIE_PROMPT = (
     "A content-rich, detailed visual description in one paragraph - subject, "
     "setting, colours, light, layout - the way the model card's own example "
-    "reads. The repo's prompt enhancer, which this app leaves out, exists to "
-    "expand a short prompt into exactly that, so write the expanded form "
-    "yourself. Dense and layout-sensitive text is its strength, English and "
+    "reads. Use Expand to run the repo's prompt enhancer on a short prompt; "
+    "its result is put back in this box for review and becomes the exact prompt "
+    "the image records. Dense and layout-sensitive text is its strength, English and "
     "Chinese - posters, infographics, UI - so quote the words and say where "
     "they go. Ministral-3 encoder, up to 2048 tokens.\n"
 )

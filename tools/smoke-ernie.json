@@ -1,0 +1,13 @@
+[
+  {"navigate": "http://127.0.0.1:7865/"},
+  {"wait": 1200},
+  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "!els.expandPrompt.hidden && !els.expandPrompt.disabled"},
+  {"eval": "els.prompt.value = 'a fox in snow'; els.expandPrompt.click();"},
+  {"wait": 500},
+  {"expect": "els.prompt.value === 'Expanded: a fox in snow (1024x1024)'"},
+  {"expect": "els.error.classList.contains('note') && els.error.textContent.includes('Review or edit')"},
+  {"expect": "!els.expandPrompt.disabled && els.expandPrompt.textContent === 'Expand'"},
+  {"eval": "els.prompt.value = ''; els.expandPrompt.click();"},
+  {"expect": "els.error.textContent.includes('Enter a prompt') && document.activeElement === els.prompt"}
+]

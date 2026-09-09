@@ -28,6 +28,10 @@ log = logging.getLogger(__name__)
 _TERMINAL = {"done", "error", "cancelled"}
 
 
+class BackendBusy(RuntimeError):
+    """An interactive backend operation would cut ahead of an image job."""
+
+
 def short_error(exc: BaseException, limit: int = 320) -> str:
     """A one-paragraph, UI-presentable form of an exception.
 
@@ -198,6 +202,22 @@ class JobManager:
         later.
         """
         return bool(self.active())
+
+    async def run_when_idle(self, fn: Callable[[], Any]) -> Any:
+        """Run a synchronous backend operation without racing the job queue.
+
+        Prompt expansion uses the same accelerator as image generation but is
+        interactive rather than a job. Refuse when work is already promised;
+        once admitted, hold the generation gate so a newly submitted job waits
+        behind it instead of running both models together.
+        """
+        if self.busy():
+            raise BackendBusy("an image job is queued or running")
+        async with self._gate:
+            if self.busy():
+                raise BackendBusy("an image job was queued first")
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(self._pool, fn)
 
     async def shutdown(self) -> None:
         """Stop every live job and wait for the worker thread to drain.

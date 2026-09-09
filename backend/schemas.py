@@ -193,6 +193,19 @@ class GenerateRequest(BaseModel):
         return self.model_copy(update=changes) if changes else self
 
 
+class PromptExpansionRequest(BaseModel):
+    """A visible, pre-generation rewrite of the prompt editor's contents."""
+
+    prompt: str = Field(min_length=1, max_length=4000)
+    width: int = Field(default=1024, ge=256, le=settings.max_side)
+    height: int = Field(default=1024, ge=256, le=settings.max_side)
+
+
+class PromptExpansion(BaseModel):
+    original_prompt: str
+    expanded_prompt: str
+
+
 def effective_true_cfg(
     true_cfg: float | None, negative_prompt: str | None, guidance_scale: float
 ) -> float | None:
@@ -476,6 +489,9 @@ class ModelStatus(BaseModel):
     # the status poll; the file tally (`summarise()`) walks the directory and
     # does not.
     disk_free_mb: int | None = None
+    # ERNIE's separate rewriter is an explicit editor action, never a hidden
+    # part of generation. False for every pipeline without that facility.
+    prompt_expansion_supported: bool = False
 
 
 class JobAccepted(BaseModel):

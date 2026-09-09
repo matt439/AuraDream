@@ -108,6 +108,19 @@ class GenerationBackend(abc.ABC):
         """
         return False
 
+    def prompt_expansion_supported(self) -> bool:
+        """Whether this backend can turn a short prompt into a reviewed one.
+
+        Kept separate from ``generate()`` deliberately: an expansion is shown
+        to the user and becomes the prompt that is recorded, rather than a
+        hidden rewrite performed inside an image call.
+        """
+        return False
+
+    def expand_prompt(self, prompt: str, width: int, height: int) -> str:
+        """Synchronously expand one prompt for the requested canvas size."""
+        raise RuntimeError("this checkpoint has no prompt expander")
+
     def lora_unavailable_reason(self) -> str | None:
         """Why not, for that refusal. None when adapters can be applied."""
         return None if self.lora_supported() else "this backend cannot apply LoRA adapters"

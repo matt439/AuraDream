@@ -887,23 +887,32 @@ with the negative prompt back. **Its repo carries a prompt rewriter**: `pe`,
 a 7.7 GB bf16 Ministral 3B with its own tokenizer, in the class's
 `_optional_components`, and `__call__` defaults `use_pe=True`, under which
 every prompt is rewritten by `pe.generate(do_sample=True, temperature=0.6)`
-before it is encoded. The recorded prompt would not be the one the model saw
-and the seed would not bring the image back, so `_UNUSED_COMPONENTS` maps
-the class name to the two components and `load()` reads `model_index.json`
-ahead of the weights (`_unused_components`) to pass `pe=None,
-pe_tokenizer=None` - **to the concrete class named by the index**, not to
-`DiffusionPipeline`. The base class resolves the same class from the same
-file, but `_get_signature_keys` is a classmethod that reads
-`cls._optional_components`, which on the base is empty: through it `pe`
-is not an expected module, `pe=None` becomes a pipeline kwarg, `download()`
-never filters `pe/` out and the loop loads the model - seen on the card
-(7.7 GB pulled at load, 11 GB of RAM taken, never called) before the switch.
-Through `ErnieImagePipeline.from_pretrained` the two are passed components:
-`download()` drops their folders from `allow_patterns` and `load_module`
-skips them. The loader stays model-agnostic for everything else - the
-concrete class is only reached for when there is something to leave out.
-`generate()` sets `use_pe=False` wherever the switch exists, for a pipeline
-that arrived with the rewriter some other way. The
+before it is encoded. A hidden rewrite would make the recorded prompt differ
+from what the model saw and the image seed would not reproduce the whole
+operation. `_UNUSED_COMPONENTS` therefore still maps the class name to the
+two components and ordinary `load()` reads `model_index.json` ahead of the
+weights (`_unused_components`) to pass `pe=None, pe_tokenizer=None` - **to the
+concrete class named by the index**, not to `DiffusionPipeline`. The base
+class resolves the same class from the same file, but `_get_signature_keys`
+is a classmethod that reads `cls._optional_components`, which on the base is
+empty: through it `pe` is not an expected module, `pe=None` becomes a pipeline
+kwarg, `download()` never filters `pe/` out and the loop loads the model - seen
+on the card (7.7 GB pulled at load, 11 GB of RAM taken, never called) before
+the switch. Through `ErnieImagePipeline.from_pretrained` the two are passed
+components: `download()` drops their folders from `allow_patterns` and
+`load_module` skips them.
+
+The explicit **Expand** editor action is the exception. `POST
+/api/prompt/expand` waits for the normal model load, refuses to cut ahead of
+an image job, then loads `pe` and `pe_tokenizer` from the component classes in
+the same manifest on first use. They are registered on the pipeline and its
+configured offload hooks are rebuilt so the large rewriter moves to the chosen
+card only for its call. The selected width and height reach ERNIE's JSON user
+message; the sampled result replaces the textarea only if the user has not
+edited it while the load was in flight. Later expansions reuse the component
+until Unload. `generate()` still sets `use_pe=False` wherever the switch
+exists: the expanded text is visible, editable, and is exactly what the row and
+PNG record. The
 index read is a try/except that yields nothing on failure - an optimisation,
 not a gate - and the tests' conftest now refuses `_hub_file` for every test,
 since a stubbed `from_pretrained` had been the only thing between a loader

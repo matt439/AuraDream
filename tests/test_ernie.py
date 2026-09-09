@@ -1,12 +1,13 @@
-"""ERNIE-Image Turbo: the prompt rewriter stays out, and mu has no way in.
+"""ERNIE-Image Turbo: prompt expansion is visible, and mu has no way in.
 
 `ErnieImagePipeline` lists a 7.7 GB Ministral prompt rewriter (`pe`) among its
 components and, unless `use_pe` is off, samples a longer prompt through it at
 temperature 0.6 before every image - so the prompt the row records would not
 be the prompt the model saw, and no seed would bring the image back. The
-loader leaves the component out (`pe=None`, which diffusers allows for an
-optional component and which keeps its folder out of the download) and
-generate() turns the switch off regardless. The pipeline also builds its own
+loader leaves the component out initially (`pe=None`, which diffusers allows
+for an optional component and which keeps its folder out of the download), the
+explicit expansion action loads it, and generate() turns the hidden switch off
+regardless. The pipeline also builds its own
 linspace schedule and takes no `sigmas`, over a scheduler shipped static at
 shift 4, so a requested mu is dropped and recorded as dropped; and its latents
 are FLUX.2's, for which no preview map has been fitted.
@@ -49,7 +50,29 @@ class ErnieLikePipeline:
         config = type("Config", (), {"latent_channels": 32})()
         self.vae = type("AutoencoderKLFlux2", (), {"config": config})()
         self.calls: list[dict] = []
+        self.expansions: list[dict] = []
+        self.pe = None
+        self.pe_tokenizer = None
+        self.hooks_freed = 0
         self.steps_run = 0
+
+    @property
+    def _execution_device(self):
+        return torch.device("cpu")
+
+    def register_modules(self, **components):
+        for name, component in components.items():
+            setattr(self, name, component)
+
+    def _enhance_prompt_with_pe(self, prompt, device, width=1024, height=1024):
+        assert self.pe is not None and self.pe_tokenizer is not None
+        self.expansions.append(
+            {"prompt": prompt, "device": device, "width": width, "height": height}
+        )
+        return f"Expanded {prompt} for {width}x{height}"
+
+    def maybe_free_model_hooks(self):
+        self.hooks_freed += 1
 
     def to(self, device):
         return self
@@ -144,6 +167,68 @@ def test_load_hands_the_rewriter_to_diffusers_as_none(monkeypatch, tmp_path):
     assert backend.is_ready()
     assert "pe" in seen and seen["pe"] is None
     assert "pe_tokenizer" in seen and seen["pe_tokenizer"] is None
+
+
+def test_prompt_expander_components_follow_the_manifest(monkeypatch, tmp_path):
+    import transformers
+
+    _index(monkeypatch, tmp_path, ERNIE_INDEX)
+    calls: list[tuple[str, dict]] = []
+
+    class Component:
+        @classmethod
+        def from_pretrained(cls, model_id, **kwargs):
+            calls.append((model_id, kwargs))
+            return (model_id, kwargs["subfolder"])
+
+    monkeypatch.setattr(transformers, "Ministral3ForCausalLM", Component)
+    monkeypatch.setattr(transformers, "TokenizersBackend", Component)
+    components = DiffusersBackend._prompt_expander_components("baidu/ERNIE-Image-Turbo")
+    assert components == {
+        "pe": ("baidu/ERNIE-Image-Turbo", "pe"),
+        "pe_tokenizer": ("baidu/ERNIE-Image-Turbo", "pe_tokenizer"),
+    }
+    by_folder = {kwargs["subfolder"]: kwargs for _, kwargs in calls}
+    assert by_folder["pe"]["dtype"] is torch.bfloat16
+    assert "dtype" not in by_folder["pe_tokenizer"]
+
+
+def test_expand_loads_once_then_returns_visible_size_specific_text(monkeypatch):
+    pipe = ErnieLikePipeline()
+    backend = _backend(pipe)
+    loads = 0
+
+    def components(model_id):
+        nonlocal loads
+        loads += 1
+        return {"pe": object(), "pe_tokenizer": object()}
+
+    monkeypatch.setattr(backend, "_prompt_expander_components", components)
+    monkeypatch.setattr(backend, "_place_pipeline", lambda current: None)
+    assert backend.prompt_expansion_supported()
+    assert backend.expand_prompt("a fox", 1264, 848) == "Expanded a fox for 1264x848"
+    assert backend.expand_prompt("a fox", 1024, 1024) == "Expanded a fox for 1024x1024"
+    assert loads == 1
+    assert pipe.expansions[0] == {
+        "prompt": "a fox", "device": torch.device("cpu"), "width": 1264, "height": 848
+    }
+    assert pipe.hooks_freed == 2
+
+
+def test_cold_prompt_expansion_support_follows_the_model_id(monkeypatch):
+    backend = DiffusersBackend()
+    monkeypatch.setattr(
+        module,
+        "settings",
+        dataclasses.replace(module.settings, model_id="baidu/ERNIE-Image-Turbo"),
+    )
+    assert backend.prompt_expansion_supported()
+    monkeypatch.setattr(
+        module,
+        "settings",
+        dataclasses.replace(module.settings, model_id="black-forest-labs/FLUX.1-dev"),
+    )
+    assert not backend.prompt_expansion_supported()
 
 
 def test_generate_turns_the_rewriter_off_where_the_switch_exists():

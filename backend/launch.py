@@ -122,8 +122,9 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
     ),
     # 8B single-stream DiT from Baidu, distilled like Z-Image Turbo: 8 steps
     # at guidance 1.0 under the classic `> 1` gate. Its repo carries a 7.7 GB
-    # prompt rewriter the loader leaves out. FLUX.2's VAE, so no preview map
-    # yet. lite-infer's name has no rank suffix, hence not `_LITE`.
+    # prompt rewriter ordinary loading leaves out; the UI's explicit Expand
+    # action loads it on first use. FLUX.2's VAE, so no preview map yet.
+    # lite-infer's name has no rank suffix, hence not `_LITE`.
     Checkpoint(
         "ERNIE-Image Turbo",
         "baidu/ERNIE-Image-Turbo",

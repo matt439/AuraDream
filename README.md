@@ -150,7 +150,7 @@ and sets `KREA_QUANT=nunchaku` with a pre-quantized checkpoint:
 | `lite-infer/flux.1-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (also `flux.1-schnell`) | RTX 50 |
 | `lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` | RTX 50 |
 | `lite-infer/Qwen-Image-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (12 GiB peak) | RTX 50 |
-| `lite-infer/ERNIE-Image-Turbo-nunchaku-lite-nvfp4-bnb4-text-encoder` (no `_r32`; the loader skips its `pe/`) | RTX 50 |
+| `lite-infer/ERNIE-Image-Turbo-nunchaku-lite-nvfp4-bnb4-text-encoder` (no `_r32`; `pe/` loads only when Expand is used) | RTX 50 |
 | the same names with `int4` in place of `nvfp4` | RTX 20–40 |
 
 These are the official weights re-uploaded pre-quantized, and not gated. Any
@@ -304,11 +304,14 @@ uv run python tools/fake_server.py --port 7862 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-flux.json      # the True CFG box, on a FLUX-shaped server
 uv run python tools/fake_server.py --port 7863 --step 0.3
 node tools/browser.mjs tools/smoke-preview.json   # the live preview, on a server slow enough to show one
+uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
+node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
 ```
 
 The fake server draws gradients stamped with seed and steps, so grid cells can
 be told apart on a sheet, behaves as the claimed checkpoint's profile predicts
-(the negative prompt's threshold, whether real CFG is a separate knob), and
+(the negative prompt's threshold, whether real CFG is a separate knob, and
+whether prompt expansion is available), and
 `--step 0.3` slows each denoising step enough to watch Pause, the queue and
 the preview work. `tools/browser.mjs` needs only Node 22+ and an installed Edge
 or Chrome (`KREA_BROWSER` points at another executable); each run gets a
@@ -637,7 +640,12 @@ range of sizes, so the panel says which: the **?** beside Prompt is the
 checkpoint's prompting guide, the **?** beside Size its sizing, the line
 under the width and height warns when a size is outside what its authors
 documented, and **Examples** drops down the authors' own prompts - click one
-and it fills the box. All of it is sourced from the model cards, READMEs and
+and it fills the box. ERNIE also shows **Expand**: it runs the checkpoint's
+rewriter once at the selected width and height and puts the result in the
+textarea for review. The first use downloads and loads the separate 7.7 GB
+component; later uses reuse it until Unload. Image generation never rewrites
+silently, so the visible prompt is still the prompt stored with the image.
+All of it is sourced from the model cards, READMEs and
 prompting guides (the URLs are in `docs/design-notes.md`), none of it
 invented. In brief:
 
@@ -651,7 +659,7 @@ invented. In brief:
 | Krea 2 Raw | The same; an undistilled base Krea does not recommend for inference | Qwen3-VL, 512 | Trained to 1k: 1 MP |
 | Z-Image Turbo | Long, plain, objective description, English or Chinese; text in quotes | Qwen3-4B, 512 | 0.26-4.2 MP documented, trained to the 1k-1.5k range |
 | Qwen-Image | Dense caption in colour/shape/texture/quantity/text terms; append ", Ultra HD, 4K, cinematic composition."; True CFG 4 with a negative prompt | Qwen2.5-VL, 512 | Trained to 1328x1328; the README's shapes are 1.5-1.8 MP |
-| ERNIE-Image Turbo | The rewriter's output, typed by hand: one detailed paragraph of subject, setting, colour, light, layout | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
+| ERNIE-Image Turbo | Expand a short prompt, then review its detailed paragraph of subject, setting, colour, light and layout | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
 
 ## Defaults by checkpoint
 
@@ -730,9 +738,11 @@ transformer), 11.75 GiB peak at 1 MP and 12.1 GiB at 2 MP, about 80 s per
 ERNIE-Image Turbo (`baidu/ERNIE-Image-Turbo`, Apache 2.0 and open) is Baidu's
 8B single-stream model, distilled to 8 steps at guidance 1.0 under the classic
 gate: a negative prompt applies above CFG 1, and there is no True CFG knob. Its
-repo ships a 7.7 GB prompt rewriter that would sample a longer prompt before
-every image; the loader leaves it out and turns the switch off, so the prompt
-you type is the prompt the model sees and the seed brings the image back. The
+repo ships a 7.7 GB prompt rewriter. Ordinary loading leaves it out; the
+explicit **Expand** button loads it on first use and places its sampled result
+back in the prompt box. Generation itself keeps the pipeline switch off, so
+the reviewed prompt you see is the prompt the model sees and the seed brings
+the image back. The
 pipeline takes no schedule from outside, so a mu is dropped and recorded as
 dropped, and it uses FLUX.2's VAE, for which no live-preview map has been
 fitted yet. Baidu lists 1 MP shapes only, but 2 MP and 4 MP render. Measured

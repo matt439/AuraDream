@@ -124,6 +124,10 @@ def main() -> int:
     # klein takes reference images and nothing else here does, so the greyed-out
     # panel the browser check drives is the one the real checkpoint would show.
     fake.reference_supported = profile["reference_supported"]
+    # ERNIE's browser check drives the real button and endpoint without the
+    # multi-GB rewriter. FakeBackend's deterministic sentence makes it clear
+    # that the chosen canvas size reached the operation.
+    fake.prompt_expander_supported = "ernie-image" in args.model.lower().replace("_", "-")
     app_main.backend = fake
     app_main.jobs = JobManager(fake, app_main.ensure_loaded)
 

@@ -2,6 +2,7 @@
   {"navigate": "http://127.0.0.1:7861/"},
   {"wait": 1200},
   {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "els.expandPrompt.hidden"},
 
   {"log": "'The prompting guide: the checkpoint text under both ? badges, the size line against its documented range, and the Examples menu'"},
   {"expect": "els.promptTip.textContent.includes('Krea') && els.sizeTip.textContent.includes('1k to 2k')"},

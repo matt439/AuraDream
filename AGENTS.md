@@ -95,12 +95,14 @@ Model and loader:
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
   `KREA_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
-- `_UNUSED_COMPONENTS` names what a pipeline lists but the backend never runs
+- `_UNUSED_COMPONENTS` names what ordinary image loading leaves out
   (ERNIE-Image's prompt rewriter). `load()` reads `model_index.json` ahead of
   the weights and hands them as None to the *concrete* class's
   `from_pretrained`, which keeps them out of the download and the load; the
   base class takes `pe=None` for a pipeline kwarg and pulls the 7.7 GB.
-  `generate()` sets `use_pe=False` wherever the switch exists. The tests'
+  The explicit Expand endpoint loads those components on first use, rebuilds
+  the offload chain, and puts the result in the prompt editor. `generate()`
+  still sets `use_pe=False` wherever the switch exists. The tests'
   conftest refuses `_hub_file` for every test; one that needs an index stubs it.
 
 Schedule and guidance:
@@ -181,7 +183,8 @@ Jobs:
   for subscribers per frame. A preview needs a matrix for the VAE and either
   `_unpack_latents` or already-unpacked 4-D latents.
 - Generation is serialized through one worker thread; the GPU cannot usefully
-  run two.
+  run two. Interactive accelerator work goes through `jobs.run_when_idle`, so
+  it neither cuts ahead of queued images nor overlaps a newly submitted job.
 
 Frontend and CLI:
 
@@ -192,6 +195,9 @@ Frontend and CLI:
   way and quotes `pixels_word`; the Examples menu is built on open from the
   last status, and a pick tells the preview and the panel the way `choose`
   does.
+- Prompt expansion is ERNIE-only and explicit: its result replaces the editor
+  only if the user did not type while the long request was in flight, then the
+  usual persistence and grid preview paths are told about the programmatic edit.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets
@@ -238,8 +244,10 @@ reference chips, the adapter select and a weight sweep;
 `smoke-flux.json` runs against a second fake server
 claiming FLUX.1 (`--port 7862 --model black-forest-labs/FLUX.1-Krea-dev`)
 for the True CFG box, and `smoke-preview.json` against one slowed to
-`--step 0.3` on 7863 for the live preview; the fake takes the claimed
-profile's threshold and true-CFG flag so it behaves as the real one would.
+`--step 0.3` on 7863 for the live preview. `smoke-ernie.json` runs against an
+ERNIE-claiming fake on 7865 for the explicit prompt expansion flow; the fake
+takes the claimed profile's threshold and true-CFG flag, and its model id's
+prompt-expansion capability, so it behaves as the real one would.
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
 `sheetRecords`) are reachable from a step's `eval` because `app.js` is a

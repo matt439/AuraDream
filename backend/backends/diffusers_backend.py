@@ -59,7 +59,7 @@ _QUANTIZABLE_PREFIXES = ("transformer", "unet", "text_encoder")
 # zero - so "has negative_prompt" cannot mean 0.0 on its own, as it used to.
 _GUIDES_FROM_ZERO = ("Krea2Pipeline", "ZImage")
 
-# Components a pipeline lists that this backend never runs, loaded as None -
+# Components image generation never runs, loaded as None initially -
 # which diffusers allows for a class's `_optional_components`, and which keeps
 # their folders out of the download too, *through the concrete class*: the
 # base `DiffusionPipeline.from_pretrained` filters passed components against
@@ -69,9 +69,9 @@ _GUIDES_FROM_ZERO = ("Krea2Pipeline", "ZImage")
 # of RAM taken, before load() switched class. ErnieImagePipeline carries a 7.7 GB
 # bf16 Ministral prompt rewriter (`pe`) and, unless `use_pe` is off, samples
 # a longer prompt through it at temperature 0.6 before every image: the
-# prompt the row records would not be the prompt the model saw, and no seed
-# would bring the image back. generate() turns the switch off as well, for a
-# pipeline that arrived with the rewriter some other way.
+# prompt the row records would not be the one the model saw. The explicit
+# Expand action loads these two lazily, writes the result into the editor, and
+# generate() still turns the hidden switch off.
 _UNUSED_COMPONENTS: dict[str, tuple[str, ...]] = {
     "ErnieImagePipeline": ("pe", "pe_tokenizer"),
 }
@@ -316,20 +316,7 @@ class DiffusersBackend(GenerationBackend):
             pipe = loader.from_pretrained(settings.model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 
-            # The offload hooks resolve their own accelerator when given none,
-            # which is always GPU 0: `KREA_DEVICE=cuda:1` used to load onto
-            # cuda:0 while describe() reported that card's name and memory, so
-            # nothing on screen said the setting had been dropped. Only a CUDA
-            # device is passed through - offload cannot target the CPU, and
-            # the preflight above has already insisted on an accelerator.
-            device = torch.device(settings.device)
-            target = device if device.type == "cuda" else None
-            if settings.offload == "sequential":
-                pipe.enable_sequential_cpu_offload(device=target)
-            elif settings.offload == "model":
-                pipe.enable_model_cpu_offload(device=target)
-            else:
-                pipe.to(device)
+            self._place_pipeline(pipe)
 
             # VAE decode at 2K is the other memory spike; slice and tile it. Most
             # pipelines expose the switches themselves; FLUX.2 klein's does not,
@@ -356,6 +343,95 @@ class DiffusersBackend(GenerationBackend):
             self._call_params = params
             self._pipe = pipe
             log.info("model ready: %s", type(pipe).__name__)
+
+    @staticmethod
+    def _place_pipeline(pipe: Any) -> None:
+        """Apply the configured device strategy, initially or after PE arrives."""
+        import torch
+
+        # The offload hooks resolve their own accelerator when given none,
+        # which is always GPU 0: `KREA_DEVICE=cuda:1` used to load onto cuda:0
+        # while describe() reported that card's name and memory. Only a CUDA
+        # device is passed through - offload cannot target the CPU.
+        device = torch.device(settings.device)
+        target = device if device.type == "cuda" else None
+        if settings.offload == "sequential":
+            pipe.enable_sequential_cpu_offload(device=target)
+        elif settings.offload == "model":
+            pipe.enable_model_cpu_offload(device=target)
+        else:
+            pipe.to(device)
+
+    @staticmethod
+    def _prompt_expander_components(model_id: str) -> dict[str, Any]:
+        """Load ERNIE's optional PE model and tokenizer from their subfolders."""
+        import torch
+        import transformers
+
+        try:
+            with open(_hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
+                index = json.load(fh)
+        except Exception as exc:  # noqa: BLE001 - turned into one actionable error
+            raise RuntimeError(f"could not read the prompt expander manifest: {exc}") from exc
+
+        classes: dict[str, Any] = {}
+        for name in ("pe", "pe_tokenizer"):
+            spec = index.get(name)
+            if not (
+                isinstance(spec, (list, tuple))
+                and len(spec) == 2
+                and spec[0] == "transformers"
+                and isinstance(spec[1], str)
+            ):
+                raise RuntimeError(f"{model_id} does not publish an ERNIE prompt expander ({name})")
+            cls = getattr(transformers, spec[1], None)
+            if cls is None:
+                raise RuntimeError(
+                    f"transformers {transformers.__version__} has no {spec[1]} for the prompt expander"
+                )
+            classes[name] = cls
+
+        # Fail on the tiny tokenizer before beginning a multi-GB model load.
+        components: dict[str, Any] = {}
+        for name in ("pe_tokenizer", "pe"):
+            kwargs: dict[str, Any] = {"subfolder": name}
+            if name == "pe":
+                kwargs["dtype"] = torch.bfloat16
+            log.info("loading prompt expander component %s/%s", model_id, name)
+            components[name] = classes[name].from_pretrained(model_id, **kwargs)
+        return components
+
+    def prompt_expansion_supported(self) -> bool:
+        pipe = self._pipe
+        if pipe is None:
+            # Enough to expose the button before a load. Once loaded, the
+            # method and call signature are the authoritative answer.
+            return "ernie-image" in settings.model_id.lower().replace("_", "-")
+        return callable(getattr(pipe, "_enhance_prompt_with_pe", None)) and "use_pe" in self._call_params
+
+    def expand_prompt(self, prompt: str, width: int, height: int) -> str:
+        """Run ERNIE's rewriter once and return the text the image will record."""
+        with self._lock:
+            pipe = self._pipe
+            if pipe is None:
+                raise RuntimeError("the image model is not loaded")
+            enhance = getattr(pipe, "_enhance_prompt_with_pe", None)
+            if not callable(enhance) or "use_pe" not in self._call_params:
+                raise RuntimeError(f"{type(pipe).__name__} has no prompt expander")
+            if getattr(pipe, "pe", None) is None or getattr(pipe, "pe_tokenizer", None) is None:
+                components = self._prompt_expander_components(settings.model_id)
+                pipe.register_modules(**components)
+                # The offload chain was built while PE was absent. Rebuild it
+                # so invoking pe.generate moves that model to the chosen card
+                # and back just like the image pipeline's other components.
+                self._place_pipeline(pipe)
+            try:
+                expanded = enhance(prompt, pipe._execution_device, width=width, height=height)
+            finally:
+                free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
+                if callable(free_hooks):
+                    free_hooks()
+            return str(expanded).strip()
 
     def _apply_console_progress(self, pipe: Any) -> None:
         fn = getattr(pipe, "set_progress_bar_config", None)
