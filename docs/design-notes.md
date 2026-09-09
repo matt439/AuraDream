@@ -421,6 +421,15 @@ images out of 16 GB: `num_images` holds the whole batch in VRAM at once, runs
 hold one. Each image is emitted as its own `image` SSE event as it lands, so a
 64-run sweep fills the page as it goes.
 
+The batch-wide pixel ceiling is a typo guard, not a VRAM formula: peak memory
+varies substantially by checkpoint, quantizer and conditioning. Its default is
+the larger of two maximum-size 4 MP presets and Batch 8 at the largest 1 MP
+preset aspect. The original two-at-4-MP ceiling was 8,411,136 pixels, which
+accidentally rejected eight 3:4 or 4:3 images from the nominal 1 MP row; a
+measured batch of seven used only 10.7 GB of the 16 GB card. Large batches are
+still refused, and a machine with different headroom can set
+`KREA_MAX_BATCH_PIXELS` explicitly.
+
 ## A job is a list of cells
 
 A job runs a **list of cells**, not a request and a run count. A plain request

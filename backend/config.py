@@ -12,7 +12,8 @@ from .model_defaults import (
     OFFLOAD_MODES,
     QUANT_MODES,
 )
-from .sizes import largest_pixels, largest_side
+from .seeds import MAX_BATCH
+from .sizes import largest_pixels, largest_side, largest_tier_pixels
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -91,11 +92,17 @@ class Settings:
     max_side: int = largest_side()
     max_pixels: int = largest_pixels()
     # The pixels one *batch* may hold at once - `num_images` forward passes in a
-    # single call, all resident together. A typo guard, not a VRAM model: it
-    # is two 4 MP images, which is about what the 16 GB fp8 path can hold, and
-    # it stops `2048x2048 x 8` from passing the per-image check on its way to
-    # an OOM after a multi-minute load. Runs are the way to make many.
-    max_batch_pixels: int = int(os.getenv("KREA_MAX_BATCH_PIXELS", str(2 * largest_pixels())))
+    # single call, all resident together. A typo guard, not a VRAM model: cover
+    # both two 4 MP images and all eight images at every 1 MP preset aspect. The
+    # old two-4-MP-only default was 8,411,136 pixels and rejected Batch 8 at the
+    # slightly-over-1-MP 3:4 and 4:3 presets despite measured VRAM headroom.
+    # Runs remain the way to make many large images.
+    max_batch_pixels: int = int(
+        os.getenv(
+            "KREA_MAX_BATCH_PIXELS",
+            str(max(2 * largest_pixels(), MAX_BATCH * largest_tier_pixels(1))),
+        )
+    )
 
     # The most images one grid may queue. A grid is meant to be left running
     # overnight, so this is generous - 1024 at ~30s is nine hours - but a

@@ -55,3 +55,8 @@ def largest_side() -> int:
 def largest_pixels() -> int:
     """The most pixels any preset asks for - 1776x2368 = 4,205,568 at 3:4."""
     return max(width * height for width, height in every_size())
+
+
+def largest_tier_pixels(tier: float) -> int:
+    """The most pixels any aspect asks for at one megapixel tier."""
+    return max(tiers[tier][0] * tiers[tier][1] for tiers in SIZES.values())

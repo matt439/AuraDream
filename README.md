@@ -349,8 +349,10 @@ are held to it by a test.
 ## Batch vs runs
 
 **Batch** produces N images in a single pipeline call, all resident in VRAM
-together. It is the fastest way to get a handful of 1024s and the reason a 2K
-batch does not fit at all.
+together. It is the fastest way to get a handful of 1024s and the reason a
+large 2K batch does not fit. The default guard allows every 1 MP preset at
+Batch 8 and two 4 MP images; because real usage varies by checkpoint and
+quantizer, `KREA_MAX_BATCH_PIXELS` can override it.
 
 **Runs** produces N images one pipeline call after another, stepping the seed by
 the batch size each time, so a sweep costs no more VRAM than a single image.
@@ -612,6 +614,7 @@ All optional, set as environment variables:
 | `KREA_OUTPUTS_DIR` | `outputs/` in the repo | Where PNGs are written. `wsl/env.sh` moves it onto the Linux filesystem |
 | `KREA_DB_PATH` | `krea.db` in the repo | The gallery index. Keep it off `/mnt/c` under WSL: SQLite cannot lock across the bridge |
 | `KREA_LORAS_DIR` | `loras/` in the repo | Where `.safetensors` adapters are read from. A request names one by file name; nothing joins a path from a request onto it |
+| `KREA_MAX_BATCH_PIXELS` | `8601600` | Total pixels allowed in one pipeline call; covers Batch 8 across the 1 MP preset row and two images across the 4 MP row |
 | `KREA_MAX_GRID_IMAGES` | `1024` | The most images one grid search may queue — a guard rail against a typo becoming a week of GPU time |
 | `KREA_PRELOAD` | `false` | Load weights at startup instead of on first request |
 | `KREA_DEVICE` | `cuda` | `cuda:1` puts the weights on the second card, offload included, and the status line reports that card |
@@ -619,7 +622,7 @@ All optional, set as environment variables:
 | `KREA_PORT` | `7860` | |
 | `KREA_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Host headers the API answers to, and with the port, the origins allowed to write to it. Needed when `KREA_HOST` is `0.0.0.0`: the browser sends the machine's name or LAN address, never `0.0.0.0` |
 
-Everything else in `backend/config.py` — the web directory, the size limits —
+Everything else in `backend/config.py` — including the per-image size limits —
 is code, not configuration.
 
 The API refuses requests whose `Host` header is not on that list, and
