@@ -194,7 +194,8 @@ Frontend and CLI:
   does.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
-  with every access in try/catch.
+  with every access in try/catch; `resetPanel` is the one thing that forgets
+  it, since clearing the gallery never reaches the browser.
 - The sheet's layout contract - axes, prompt labels, pins, variables - lives in
   the client, and the export is client-side, not a route. The sheet asks for
   the whole run in one page.

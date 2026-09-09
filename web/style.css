@@ -152,6 +152,10 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 /* A caption's badges keep the caption's colour, not its letter-spacing. */
 .field > span .help, .field > span .tip, .field > span .examples { letter-spacing: 0; text-transform: none; font-weight: 400; }
 .field > span .help { margin-left: 5px; vertical-align: 1px; }
+/* Reset sits at the far end of the Prompt caption, away from Generate: it
+   empties every box, and a slip next to the one button people press all day
+   would cost them the prompt they were about to run. */
+.field > span .reset { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; }
 
 /* Example prompts: a button in the Prompt caption and a list that drops under
    it. Clicking one fills the box - the guide says how to write a prompt, the

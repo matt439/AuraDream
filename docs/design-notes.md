@@ -642,7 +642,16 @@ a delegated `input`/`change` listener on the panel plus explicit calls
 after the programmatic assignments that fire no event (`choose`, `reuse`,
 the dice, the seed written back after Run grid). Resume is never stored.
 Every access is in try/catch; a blocked store is a page that works without
-memory. The contact sheet's cells take the commonest aspect ratio on the
+memory. **Reset** (`resetPanel`, the button at the end of the Prompt caption)
+is the one thing that empties it: the store is removed, every `owned` flag
+dropped, and the boxes put back to what a first visit shows - the last
+status's profile for steps/CFG/mu, the 1 MP square, a random seed, no
+conditioning, an empty folded grid. It exists because `backend.clear` is a
+server-side deletion that never reaches `localStorage`, so after clearing a
+gallery the old prompt came back on every open, and the only other way out
+was wiping the site's data. It sits away from Generate on purpose: it costs
+the prompt, and a slip next to the button pressed all day would cost it
+unasked. The contact sheet's cells take the commonest aspect ratio on the
 sheet (`--cell-aspect`, `object-fit: contain`) and carry `.fav`, toggled by
 class from `setFavorite` - never by re-rendering, which rebuilds up to a
 thousand `<img>` nodes per keypress.

@@ -37,6 +37,10 @@
                   aria-expanded="false" title="Example prompts for this checkpoint, from its authors">Examples</button>
           <ul class="menu" id="examples-menu" role="menu" hidden></ul>
         </span>
+        <!-- The whole panel, not the prompt: back to the checkpoint's
+             defaults, and the browser forgets what it had remembered. -->
+        <button type="button" class="ghost tiny reset" id="btn-reset"
+                title="Clear every box and put the panel back to this checkpoint's defaults; the browser forgets the remembered settings">Reset</button>
       </span>
       <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
                 aria-describedby="prompt-tip"></textarea>

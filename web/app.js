@@ -23,6 +23,7 @@ const els = {
   loraTip: $('lora-tip'), gridLoraScale: $('grid-lora-scale'),
   gridLoraField: $('grid-lora-field'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
+  reset: $('btn-reset'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
   queueNote: $('queue-note'), queueText: $('queue-text'), cancelQueued: $('btn-cancel-queued'),
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
@@ -360,8 +361,10 @@ function syncRuns() {
 // it derives its own resolution-dependent shift. Each control follows the
 // profile until the user touches *that* control; the checkpoint cannot change
 // under a running server, so re-applying to an untouched box is idempotent.
+let lastDefaults = null;
 function applyDefaults(d) {
   if (!d || d.steps === undefined) return;
+  lastDefaults = d;
   if (!owned.steps) els.steps.value = d.steps;
   if (!owned.cfg) els.cfg.value = d.guidance_scale;
   if (!owned.mu) els.mu.value = d.mu ?? '';
@@ -1054,6 +1057,45 @@ function restorePanel() {
   syncConditioning();
 }
 
+// Reset: every box back to what a first visit shows - the checkpoint's own
+// steps/CFG/mu, the 1 MP square, a random seed, no conditioning, an empty and
+// folded grid - and the browser forgets the remembered panel. It is the one
+// way to empty the panel short of wiping the site's data: clearing the gallery
+// is a server-side deletion that never reaches this store, so the old prompt
+// used to come back on every open after it.
+function resetPanel() {
+  clearTimeout(panelTimer);
+  forget(PANEL_KEY);
+  for (const key of Object.keys(owned)) owned[key] = false;
+  els.prompt.value = '';
+  els.negative.value = '';
+  [pickedAspect, pickedTier] = ['1:1', 1];
+  [els.width.value, els.height.value] = SIZES[pickedAspect][pickedTier];
+  els.steps.value = lastDefaults?.steps ?? 28;
+  els.cfg.value = lastDefaults?.guidance_scale ?? 3.5;
+  els.mu.value = lastDefaults?.mu ?? '';
+  els.trueCfg.value = '';
+  referenceIds = [];
+  els.lora.value = '';
+  els.loraScale.value = 1;
+  els.seed.value = '';
+  els.batch.value = 1;
+  els.runs.value = 1;
+  for (const key of ['gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeedList', 'gridBudget', 'gridLoraScale']) {
+    els[key].value = '';
+  }
+  els.gridSeeds.value = 1;
+  els.gridSeeds.disabled = false;
+  els.gridResume.checked = false;
+  els.gridSection.open = false;
+  syncSize();
+  syncCfg();
+  syncConditioning();
+  syncRuns();
+  schedulePreview();
+  els.prompt.focus();
+}
+
 // The second phase, from refreshStatus once the checkpoint is known.
 let samplingRestored = false;
 function restoreSampling(modelId) {
@@ -1074,6 +1116,7 @@ function restoreSampling(modelId) {
 // work the same without it.
 function remembered(key) { try { return localStorage.getItem(key); } catch { return null; } }
 function remember(key, value) { try { localStorage.setItem(key, value); } catch { /* unavailable */ } }
+function forget(key) { try { localStorage.removeItem(key); } catch { /* unavailable */ } }
 
 const ANNOUNCED_KEY = 'krea.announced-job';
 const ANNOUNCE_WINDOW_MS = 24 * 3600 * 1000;
@@ -2108,6 +2151,7 @@ els.cancel.onclick = cancelJob;
 els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
 els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); persistPanel(); };
+els.reset.onclick = resetPanel;
 
 // The Examples menu is built on open from the guide's current list, so a
 // status that lands late (behind a load) is not stale by the first click.

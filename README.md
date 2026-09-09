@@ -484,7 +484,11 @@ the grid axes and the variable block come back after a reload or a restart,
 and steps, CFG and mu come back when the server is running the checkpoint
 they were set on. Resume is the one box that never comes back ticked - a
 resume you did not mean is a night that silently skips cells. Per browser,
-per origin, and dropped without complaint where storage is blocked.
+per origin, and dropped without complaint where storage is blocked. **Reset**,
+at the end of the Prompt caption, is the way out: every box back to the
+checkpoint's defaults and the memory forgotten. Clearing the gallery does not
+do this — that is a deletion on the server, and the browser's memory is its
+own.
 
 **Budget** is how you use that. Seeds being outermost was engineered so that a
 night which ends early has finished every setting for the seeds it reached -
