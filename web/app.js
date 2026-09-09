@@ -241,12 +241,19 @@ function syncSize() {
   if (match) [pickedAspect, pickedTier] = match;
 
   [...els.presets.children].forEach((b, i) => {
-    b.classList.toggle('active', !!match && ASPECTS[i] === match[0]);
+    const aspect = ASPECTS[i];
+    const guided = presetIsInGuide(aspect, pickedTier);
+    b.classList.toggle('active', !!match && aspect === match[0]);
+    b.classList.toggle('recommended', guided);
+    describePreset(b, aspect, pickedTier, guided);
   });
   [...els.tiers.children].forEach((b, i) => {
-    b.classList.toggle('active', !!match && TIERS[i] === match[1]);
+    const tier = TIERS[i];
+    const guided = presetIsInGuide(pickedAspect, tier);
+    b.classList.toggle('active', !!match && tier === match[1]);
+    b.classList.toggle('recommended', guided);
     // Spell out what the tier means for the framing currently in play.
-    b.title = SIZES[pickedAspect][TIERS[i]].join(' × ');
+    describePreset(b, pickedAspect, tier, guided);
   });
 
   const mp = (w * h) / 1e6;
@@ -264,6 +271,25 @@ function syncSize() {
   if (tight) notes.push('may run tight on 16GB VRAM');
   els.sizeHint.textContent = `${mp.toFixed(1)} MP` + notes.map((n) => ` — ${n}`).join('');
   els.sizeHint.classList.toggle('warn', notes.length > 0);
+}
+
+// The buttons and the size line use one definition of "within range". Each
+// strip previews the full preset that clicking it would choose: aspects at the
+// current tier, and tiers at the current aspect.
+function presetIsInGuide(aspect, tier) {
+  if (!sizeRange) return false;
+  const [w, h] = SIZES[aspect][tier];
+  const mp = (w * h) / 1e6;
+  return mp >= sizeRange[0] * 0.9 && mp <= sizeRange[1] * 1.1;
+}
+
+function describePreset(button, aspect, tier, guided) {
+  const dimensions = SIZES[aspect][tier].join(' × ');
+  const note = guided
+    ? `, within the size range this checkpoint is ${sizeRangeWord} for`
+    : '';
+  button.title = dimensions + note;
+  button.setAttribute('aria-label', button.textContent + note);
 }
 
 function fmtMp(mp) { return Number.isInteger(mp) ? String(mp) : mp.toFixed(1); }

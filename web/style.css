@@ -269,7 +269,18 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   cursor: pointer;
 }
 .presets button:hover { color: var(--text); }
+.presets button.recommended {
+  border-color: #287548;
+  color: var(--ok);
+  background: #11271a;
+}
+.presets button.recommended:hover { border-color: var(--ok); color: #b7f7cc; }
 .presets button.active { border-color: var(--accent); color: var(--text); background: #221c3d; }
+.presets button.active.recommended {
+  border-color: var(--ok);
+  color: #d8ffe5;
+  background: #174128;
+}
 /* The megapixel row is a second axis over the same pills, not more aspect ratios. */
 .presets.tiers { margin-top: 2px; }
 

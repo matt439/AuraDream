@@ -956,7 +956,10 @@ profile's word - `above the 1.6 MP this checkpoint is recommended for`,
 verb for all. The line warns a tenth outside the range: the 1 MP presets
 land at 1.04-1.08 MP and every profile's range has to admit them
 (`test_every_guide_admits_the_1_mp_presets`), or a fresh page would open
-on a warning. The VRAM warning stays and stacks after it.
+on a warning. The preset buttons use that same tolerance and turn green when
+the full size they would choose is inside the range: aspect buttons are judged
+at the current megapixel tier, and tier buttons at the current aspect. The VRAM
+warning stays and stacks after it.
 
 **FLUX.1 Krea [dev] has its own profile entry for the guide alone.**
 `krea-dev` sits ahead of `flux` (its id carries that token) as a copy of

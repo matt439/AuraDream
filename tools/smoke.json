@@ -5,6 +5,7 @@
 
   {"log": "'The prompting guide: the checkpoint text under both ? badges, the size line against its documented range, and the Examples menu'"},
   {"expect": "els.promptTip.textContent.includes('Krea') && els.sizeTip.textContent.includes('1k to 2k')"},
+  {"expect": "[...els.tiers.children].every((b) => b.classList.contains('recommended'))"},
   {"eval": "choose('1:1', 4);"},
   {"expect": "els.sizeHint.textContent.startsWith('4.2 MP') && !els.sizeHint.textContent.includes('above') && els.sizeHint.textContent.includes('tight')"},
   {"eval": "els.width.value = 512; els.height.value = 512; syncSize();"},
