@@ -2127,7 +2127,10 @@ function showExamples(open) {
     const li = document.createElement('li');
     li.setAttribute('role', 'menuitem');
     li.tabIndex = 0;
-    li.textContent = text;
+    const span = document.createElement('span');
+    span.className = 'text';
+    span.textContent = text;
+    li.appendChild(span);
     li.title = text;
     const pick = () => {
       els.prompt.value = text;

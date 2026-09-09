@@ -169,8 +169,12 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .menu li {
   padding: 6px 8px; border-radius: 6px; cursor: pointer;
   font-size: 11px; line-height: 1.4; color: var(--text);
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
+/* A long example is clamped to three lines. The clamp sits on an inner span,
+   not the item: `overflow: hidden` clips at the padding edge, so a clamped
+   item showed the top of its fourth line through its bottom padding, right
+   under the ellipsis, and the list read as prompts running into each other. */
+.menu li .text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .menu li:hover, .menu li:focus { background: #221c3d; outline: none; }
 .menu li.empty { color: var(--muted); cursor: default; }
 
