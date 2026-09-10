@@ -987,11 +987,22 @@ no-Mu pipeline the disabled control its tooltip had already promised.
 input may not be effective. Its order is person count, character, series,
 rating, the remaining subject/pose/scene tags, and quality tags last; both CLIP
 tokenizers stop at 77 tokens. It recommends 25-28 steps (28), CFG 4-7 (5), a
-specific negative prompt, and nine roughly-1-MP shapes. The profile admits the
-whole existing 1 MP preset row with the UI's one-tenth tolerance, but names all
-nine exact shapes in the Size help: only 1024x1024 is an exact preset, while
-the others remain valid hand-entered multiples of 16. Its documented
-limitations are text, difficult anatomy, multiple characters, post-cutoff
+specific negative prompt, and nine roughly-1-MP shapes. The six previously
+missing aspects - 9:7, 7:4 and 12:5 plus their inverses - now use the card's
+exact 1 MP dimensions. The existing 3:2 pair keeps ERNIE-Image's nearby sizes,
+and every Animagine aspect is available across all four tiers.
+
+**The Tags picker is guide data, not a hard-coded Animagine branch.**
+`PromptGuide.tag_helper` carries the card's person-count, rating, quality and
+score vocabularies, its `year {n}` form, recommended quality suffix and negative
+prompt. The button appears only when that object is present. Each tag is an
+explicit editor action at the current caret; active tags toggle off, exclusive
+person/rating choices replace one another, and the suffix action moves that
+known set to the end. Character, series, subject, pose and scene stay free text
+because the card describes those slots but publishes no finite vocabulary for
+them. The prompt remains visible, editable, persisted and recorded exactly as
+before; the helper never rewrites on generation. Its documented limitations
+are text, difficult anatomy, multiple characters, post-cutoff
 characters and degradation at high resolutions such as 1536x1536. Sources,
 checked 2026-09-10: the model card and repository
 (<https://huggingface.co/cagliostrolab/animagine-xl-4.0>) and the Opt commit
@@ -1009,8 +1020,8 @@ badges on the Prompt box and the Size presets, a `pixels` range in
 megapixels with a `pixels_word`, and the authors' `examples`. The prose
 rides in `/api/status`'s `hints` under `prompt` and `size`, beside the
 control tooltips it is shaped like; the data is `ModelStatus.guide`
-(`schemas.PromptGuide`), because the size line and the Examples menu need
-a pair of numbers and a list, not a sentence. `hints_for` passes the guide's
+(`schemas.PromptGuide`), because the size line, Examples menu and optional tag
+helper need numbers and lists, not a sentence. `hints_for` passes the guide's
 prose through the same `.format` as the control hints, so the paragraphs
 hold no braces. The checkpoints here disagree about nearly everything a
 prompt can be - FLUX.1's CLIP reads 77 tokens and its T5 512 (256 on

@@ -102,6 +102,8 @@ def test_the_distilled_variants_beat_their_family_token():
 
 
 def test_animagine_uses_the_model_cards_controls_and_guide():
+    from backend.schemas import PromptGuide
+
     profile = defaults_for("cagliostrolab/animagine-xl-4.0")
     assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (28, 5.0, None)
     assert profile["cfg_threshold"] == 1.0
@@ -111,6 +113,23 @@ def test_animagine_uses_the_model_cards_controls_and_guide():
     assert guide["pixels"] == (0.98, 1.05)
     assert guide["pixels_word"] == "recommended"
     assert any("masterpiece, high score" in prompt for prompt in guide["examples"])
+    helper = guide["tag_helper"]
+    assert helper["order"] == [
+        "Person count", "Character", "Series", "Rating", "Details", "Quality"
+    ]
+    assert helper["recommended_suffix"] == [
+        "masterpiece", "high score", "great score", "absurdres"
+    ]
+    assert helper["negative_prompt"].startswith("lowres, bad anatomy")
+    assert {group["label"] for group in helper["groups"]} == {
+        "Person count", "Rating", "Quality", "Score"
+    }
+    assert PromptGuide(**guide).tag_helper.negative_prompt == helper["negative_prompt"]
+    assert guide_for("black-forest-labs/FLUX.1-dev")["tag_helper"] is None
+    helper["groups"][0]["tags"].append("changed by a caller")
+    assert "changed by a caller" not in guide_for("cagliostrolab/animagine-xl-4.0")[
+        "tag_helper"
+    ]["groups"][0]["tags"]
 
 
 def test_every_catalogue_entry_has_a_profile():
@@ -148,6 +167,7 @@ def test_every_catalogue_entry_has_a_prompting_guide():
         assert "Unrecognised" not in hints["prompt"] and "Unrecognised" not in hints["size"], repo
     unknown = guide_for("nobody/whatever")
     assert unknown["examples"] == [] and unknown["pixels"] is None
+    assert unknown["tag_helper"] is None
 
 
 def test_every_guide_admits_the_1_mp_presets():
@@ -231,13 +251,33 @@ def test_the_1_5_mp_row_is_the_model_cards():
     assert generate._resolve_size(args, generate._build_parser()) == (1664, 928)
 
 
+def test_animagines_additional_aspects_span_every_tier():
+    # The card's six previously missing recommended dimensions are exact at
+    # 1 MP. Higher tiers keep each framing within 1% and the 4 MP row's pixel
+    # count remains effectively constant, so an aspect switch is not a VRAM bet.
+    animagine = {
+        "9:7": (1152, 896), "7:9": (896, 1152),
+        "7:4": (1344, 768), "4:7": (768, 1344),
+        "12:5": (1536, 640), "5:12": (640, 1536),
+    }
+    assert {aspect: sizes.SIZES[aspect][1] for aspect in animagine} == animagine
+    for aspect in animagine:
+        expected = int(aspect.split(":")[0]) / int(aspect.split(":")[1])
+        for width, height in sizes.SIZES[aspect].values():
+            assert abs(width / height / expected - 1) < 0.01, (aspect, width, height)
+    assert all(
+        abs(width * height / 2048**2 - 1) < 0.004
+        for width, height in (tiers[4] for tiers in sizes.SIZES.values())
+    )
+
+
 def test_the_size_guard_rails_are_the_largest_preset():
     # config.py used to derive these in prose and then hard-code rounder
     # numbers; the HTML's `max` on the two boxes is the same bound by hand.
     from backend.config import settings
 
-    assert settings.max_side == max(max(size) for size in sizes.every_size()) == 2736
-    assert settings.max_pixels == max(w * h for w, h in sizes.every_size()) == 1776 * 2368
+    assert settings.max_side == max(max(size) for size in sizes.every_size()) == 3168
+    assert settings.max_pixels == max(w * h for w, h in sizes.every_size()) == 3168 * 1328
     # The batch guard keeps the known two-at-4-MP case and admits every aspect
     # at the UI's Batch-8 maximum in the nominal 1 MP row. The latter is now
     # slightly larger and is why the old 8,411,136-pixel default was raised.

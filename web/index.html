@@ -37,6 +37,12 @@
                   aria-expanded="false" title="Example prompts for this checkpoint, from its authors">Examples</button>
           <ul class="menu" id="examples-menu" role="menu" hidden></ul>
         </span>
+        <span class="tag-helper" id="tag-helper" hidden>
+          <button type="button" class="ghost tiny" id="btn-tags" aria-haspopup="dialog"
+                  aria-expanded="false" title="Insert documented tags into this prompt">Tags</button>
+          <div class="tag-menu" id="tags-menu" role="dialog"
+               aria-label="Checkpoint tag helper" hidden></div>
+        </span>
         <button type="button" class="ghost tiny" id="btn-expand" hidden
                 title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
         <!-- The whole panel, not the prompt: back to the checkpoint's
@@ -69,8 +75,8 @@
       <div class="row">
         <!-- max is the longest side of any preset - backend/sizes.py, which
              tests/test_profiles.py holds this to. -->
-        <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="2736"></label>
-        <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="2736"></label>
+        <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="3168"></label>
+        <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="3168"></label>
       </div>
       <p class="hint" id="size-hint"></p>
     </div>

@@ -85,8 +85,8 @@ class Settings:
 
     # Guard rails so a typo in the UI cannot ask for a 16k image. Both are the
     # largest preset the UI offers, read off the table in `sizes.py` rather
-    # than by what the GPU can take: 2736 on the long side (16:9 and 9:16 at
-    # 4 MP) and 1776x2368 = 4,205,568 pixels (3:4). They used to be rounder
+    # than by what the GPU can take: 3168 on the long side and
+    # 3168x1328 = 4,207,104 pixels (12:5 at 4 MP). They used to be rounder
     # numbers derived from the table in prose and then typed in by hand, which
     # is how a table change would have left them describing nothing.
     max_side: int = largest_side()

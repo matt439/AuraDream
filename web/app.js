@@ -13,6 +13,7 @@ const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
   negNote: $('neg-note'), promptTip: $('prompt-tip'), sizeTip: $('size-tip'),
   examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
+  tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   promptTranslationField: $('prompt-translation-field'), promptTranslation: $('prompt-translation'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
@@ -57,11 +58,11 @@ const els = {
 
 // Aspect × megapixel tier. Every side is a multiple of 16 (the VAE downsamples by
 // 16) and every entry lands within a few percent of its tier. The whole 4 MP row
-// is within 0.3% of the old 2K preset's pixel
+// is within 0.4% of the old 2K preset's pixel
 // count, so it costs the same VRAM whichever framing you pick. The 1.5 MP row's
 // non-square entries are Qwen-Image's README shapes, and the row sits inside
-// FLUX.1 Krea's recommended 1024-1280 px (1-1.64 MP). 3:2 and 2:3 carry
-// ERNIE-Image's card shapes at 1 MP and Qwen-Image's at 1.5.
+// FLUX.1 Krea's recommended 1024-1280 px (1-1.64 MP). The 1 MP row carries
+// the Animagine, ERNIE-Image and Qwen-Image model-card aspects.
 const SIZES = {
   '1:1':  { 1: [1024, 1024], 1.5: [1248, 1248], 2: [1440, 1440], 4: [2048, 2048] },
   '3:4':  { 1: [896, 1200],  1.5: [1104, 1472], 2: [1248, 1664], 4: [1776, 2368] },
@@ -70,6 +71,12 @@ const SIZES = {
   '9:16': { 1: [768, 1360],  1.5: [928, 1664],  2: [1088, 1920], 4: [1536, 2736] },
   '3:2':  { 1: [1264, 848],  1.5: [1584, 1056], 2: [1776, 1184], 4: [2496, 1680] },
   '2:3':  { 1: [848, 1264],  1.5: [1056, 1584], 2: [1184, 1776], 4: [1680, 2496] },
+  '9:7':  { 1: [1152, 896],  1.5: [1440, 1120], 2: [1632, 1264], 4: [2320, 1808] },
+  '7:9':  { 1: [896, 1152],  1.5: [1120, 1440], 2: [1264, 1632], 4: [1808, 2320] },
+  '7:4':  { 1: [1344, 768],  1.5: [1680, 960],  2: [1904, 1088], 4: [2704, 1552] },
+  '4:7':  { 1: [768, 1344],  1.5: [960, 1680],  2: [1088, 1904], 4: [1552, 2704] },
+  '12:5': { 1: [1536, 640],  1.5: [1920, 800],  2: [2224, 928],  4: [3168, 1328] },
+  '5:12': { 1: [640, 1536],  1.5: [800, 1920],  2: [928, 2224],  4: [1328, 3168] },
 };
 const ASPECTS = Object.keys(SIZES);
 const TIERS = [1, 1.5, 2, 4];
@@ -150,6 +157,9 @@ let lorasLoaded = false;
 let sizeRange = null;
 let sizeRangeWord = 'documented';
 let examples = [];
+// Null for prose checkpoints. A tag checkpoint supplies its own finite,
+// documented vocabulary; the browser never guesses a generic tag cloud.
+let tagHelper = null;
 // A remembered adapter name waiting for the list it belongs to.
 let pendingLora = '';
 
@@ -437,6 +447,11 @@ function applyGuide(g) {
     syncSize();
   }
   if (Array.isArray(g.examples)) examples = g.examples;
+  const helper = g.tag_helper || null;
+  if (JSON.stringify(helper) !== JSON.stringify(tagHelper)) {
+    tagHelper = helper;
+    syncTagHelper();
+  }
 }
 
 function syncMu() {
@@ -2240,6 +2255,7 @@ els.reset.onclick = resetPanel;
 // The Examples menu is built on open from the guide's current list, so a
 // status that lands late (behind a load) is not stale by the first click.
 function showExamples(open) {
+  if (open && !els.tagsMenu.hidden) showTagHelper(false);
   els.examplesBtn.setAttribute('aria-expanded', String(open));
   els.examplesMenu.hidden = !open;
   if (!open) return;
@@ -2274,6 +2290,177 @@ function showExamples(open) {
     li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
     els.examplesMenu.appendChild(li);
   });
+}
+
+// --------------------------------------------------------- prompt tag helper
+
+function promptTagParts() {
+  return els.prompt.value.split(',').map((part) => part.trim()).filter(Boolean);
+}
+
+function tagCursorIndex() {
+  const before = els.prompt.value.slice(0, els.prompt.selectionStart ?? els.prompt.value.length);
+  return before.trim() ? before.split(',').length : 0;
+}
+
+function writePromptTags(parts, caret = null) {
+  els.prompt.value = parts.join(', ');
+  clearPromptTranslation();
+  const end = caret == null ? els.prompt.value.length : Math.min(caret, els.prompt.value.length);
+  els.prompt.setSelectionRange(end, end);
+  syncTagSelection();
+  schedulePreview();
+  persistPanel();
+}
+
+// Buttons are toggles. Exclusive groups replace an existing person-count or
+// rating tag in place; otherwise insertion follows the textarea caret. Nothing
+// silently reorders free-form character, series, pose or scene tags.
+function togglePromptTag(tag, group) {
+  let parts = promptTagParts();
+  const wanted = tag.toLowerCase();
+  const active = parts.findIndex((part) => part.toLowerCase() === wanted);
+  if (active >= 0) {
+    parts.splice(active, 1);
+    writePromptTags(parts);
+    return;
+  }
+
+  let insertAt = Math.min(tagCursorIndex(), parts.length);
+  if (group.exclusive) {
+    const choices = new Set(group.tags.map((choice) => choice.toLowerCase()));
+    const old = parts.findIndex((part) => choices.has(part.toLowerCase()));
+    parts = parts.filter((part) => !choices.has(part.toLowerCase()));
+    if (old >= 0) insertAt = Math.min(old, parts.length);
+  }
+  parts.splice(insertAt, 0, tag);
+  const caret = parts.slice(0, insertAt + 1).join(', ').length;
+  writePromptTags(parts, caret);
+}
+
+function setYearTag(year) {
+  let parts = promptTagParts();
+  let insertAt = parts.findIndex((part) => /^year \d{4}$/i.test(part));
+  if (insertAt < 0) insertAt = Math.min(tagCursorIndex(), parts.length);
+  parts = parts.filter((part) => !/^year \d{4}$/i.test(part));
+  insertAt = Math.min(insertAt, parts.length);
+  parts.splice(insertAt, 0, `year ${year}`);
+  writePromptTags(parts, parts.slice(0, insertAt + 1).join(', ').length);
+}
+
+function finishWithTags(suffix) {
+  const ending = new Set(suffix.map((tag) => tag.toLowerCase()));
+  const parts = promptTagParts().filter((part) => !ending.has(part.toLowerCase()));
+  writePromptTags([...parts, ...suffix]);
+}
+
+function syncTagSelection() {
+  if (!els.tagsMenu || els.tagsMenu.hidden) return;
+  const active = new Set(promptTagParts().map((tag) => tag.toLowerCase()));
+  for (const button of els.tagsMenu.querySelectorAll('[data-tag]')) {
+    const on = active.has(button.dataset.tag.toLowerCase());
+    button.classList.toggle('active', on);
+    button.setAttribute('aria-pressed', String(on));
+  }
+}
+
+function buildTagHelper() {
+  els.tagsMenu.replaceChildren();
+  if (!tagHelper) return;
+
+  const order = document.createElement('p');
+  order.className = 'tag-order';
+  order.textContent = `Recommended order: ${tagHelper.order.join(' → ')}`;
+  els.tagsMenu.appendChild(order);
+
+  for (const group of tagHelper.groups) {
+    const section = document.createElement('section');
+    section.className = 'tag-group';
+    const heading = document.createElement('strong');
+    heading.textContent = group.label;
+    const options = document.createElement('div');
+    options.className = 'tag-options';
+    for (const tag of group.tags) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'tag-option';
+      button.textContent = tag;
+      button.dataset.tag = tag;
+      button.onclick = () => togglePromptTag(tag, group);
+      options.appendChild(button);
+    }
+    section.append(heading, options);
+    els.tagsMenu.appendChild(section);
+  }
+
+  if (tagHelper.year_tag) {
+    const section = document.createElement('section');
+    section.className = 'tag-group';
+    const heading = document.createElement('strong');
+    heading.textContent = 'Year';
+    const row = document.createElement('div');
+    row.className = 'tag-year';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.maxLength = 4;
+    input.placeholder = '2023';
+    input.setAttribute('aria-label', 'Four digit year tag');
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'ghost tiny';
+    add.textContent = 'Insert year';
+    add.disabled = true;
+    input.oninput = () => { add.disabled = !/^\d{4}$/.test(input.value); };
+    add.onclick = () => setYearTag(input.value);
+    row.append(input, add);
+    section.append(heading, row);
+    els.tagsMenu.appendChild(section);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'tag-actions';
+  const finish = document.createElement('button');
+  finish.type = 'button';
+  finish.className = 'ghost tiny';
+  finish.dataset.action = 'recommended-suffix';
+  finish.textContent = `Finish with ${tagHelper.recommended_suffix.join(', ')}`;
+  finish.onclick = () => finishWithTags(tagHelper.recommended_suffix);
+  actions.appendChild(finish);
+  if (tagHelper.negative_prompt) {
+    const negative = document.createElement('button');
+    negative.type = 'button';
+    negative.className = 'ghost tiny';
+    negative.dataset.action = 'recommended-negative';
+    negative.textContent = 'Use the recommended negative prompt';
+    negative.onclick = () => {
+      els.negative.value = tagHelper.negative_prompt;
+      schedulePreview();
+      persistPanel();
+    };
+    actions.appendChild(negative);
+  }
+  els.tagsMenu.appendChild(actions);
+
+  const note = document.createElement('p');
+  note.className = 'tag-note';
+  note.textContent = 'Tag buttons insert at the prompt caret; select an active tag to remove it.';
+  els.tagsMenu.appendChild(note);
+  syncTagSelection();
+}
+
+function showTagHelper(open) {
+  if (open && !els.examplesMenu.hidden) showExamples(false);
+  els.tagsBtn.setAttribute('aria-expanded', String(open));
+  els.tagsMenu.hidden = !open;
+  if (open) buildTagHelper();
+}
+
+function syncTagHelper() {
+  const available = Boolean(tagHelper && Array.isArray(tagHelper.groups) && tagHelper.groups.length);
+  els.tagHelper.hidden = !available;
+  if (!available) showTagHelper(false);
+  else if (!els.tagsMenu.hidden) buildTagHelper();
 }
 
 async function expandPrompt() {
@@ -2317,12 +2504,15 @@ async function expandPrompt() {
   }
 }
 els.examplesBtn.onclick = () => showExamples(els.examplesMenu.hidden);
+els.tagsBtn.onclick = () => showTagHelper(els.tagsMenu.hidden);
 els.expandPrompt.onclick = expandPrompt;
 els.prompt.addEventListener('input', () => {
   if (translatedSource !== null && els.prompt.value !== translatedSource) clearPromptTranslation();
+  syncTagSelection();
 });
 document.addEventListener('click', (e) => {
   if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
+  if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper')) showTagHelper(false);
 });
 els.unload.onclick = async () => {
   try {
@@ -2401,6 +2591,7 @@ document.addEventListener('keydown', (e) => {
   // Ctrl/Cmd+Enter generates from anywhere, including inside the prompt box.
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { generate(); return; }
   if (e.key === 'Escape' && !els.examplesMenu.hidden) { showExamples(false); return; }
+  if (e.key === 'Escape' && !els.tagsMenu.hidden) { showTagHelper(false); return; }
   if (!els.lightbox.open) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.

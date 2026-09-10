@@ -53,6 +53,7 @@ way `/api/status` does.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 # What the server runs when nothing says otherwise. Here rather than in
@@ -364,6 +365,11 @@ _ERNIE_GUIDE = {
     "pixels_word": "documented",
     "examples": _ERNIE_EXAMPLES,
 }
+_ANIMAGINE_NEGATIVE = (
+    "lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, "
+    "fewer digits, cropped, worst quality, low quality, low score, bad score, "
+    "average score, signature, watermark, username, blurry"
+)
 _ANIMAGINE_GUIDE = {
     "prompt": (
         "Comma-separated Danbooru-style tags, not natural-language prose. Put "
@@ -372,17 +378,15 @@ _ANIMAGINE_GUIDE = {
         "with: masterpiece, high score, great score, absurdres. Both CLIP "
         "tokenizers stop at 77 tokens, so put identity and essential details "
         "first. Text rendering is not supported.\n"
-        "The model card recommends this negative prompt: lowres, bad anatomy, "
-        "bad hands, text, error, missing finger, extra digits, fewer digits, "
-        "cropped, worst quality, low quality, low score, bad score, average "
-        "score, signature, watermark, username, blurry."
+        f"The model card recommends this negative prompt: {_ANIMAGINE_NEGATIVE}."
     ),
     "size": (
         "Animagine was trained at 1024x1024. Its recommended shapes are "
         "1024x1024; 1152x896, 1216x832, 1344x768 and 1536x640 landscape; "
         "and their portrait counterparts 896x1152, 832x1216, 768x1344 and "
-        "640x1536 - all about 1 MP and multiples of 64. Only 1024x1024 is an "
-        "exact preset here; type the others into W and H. The authors warn "
+        "640x1536 - all about 1 MP and multiples of 64. Every aspect is a 1 MP "
+        "preset here; seven use those exact dimensions, while the existing "
+        "3:2 pair keeps ERNIE-Image's nearby shapes. The authors warn "
         "that higher resolutions such as 1536x1536 can degrade because the "
         "training resolution was 1024x1024."
     ),
@@ -398,6 +402,38 @@ _ANIMAGINE_GUIDE = {
         "rail, safe, casual, solo, looking at viewer, outdoors, smile, reaching "
         "towards viewer, night, masterpiece, high score, great score, absurdres",
     ],
+    # The card's complete named vocabulary. Character, series, subject, pose
+    # and scene remain free text: the card prescribes their position but does
+    # not publish a finite list, so the app must not invent one.
+    "tag_helper": {
+        "order": ["Person count", "Character", "Series", "Rating", "Details", "Quality"],
+        "groups": [
+            {"label": "Person count", "tags": ["1girl", "1boy", "1other"], "exclusive": True},
+            {
+                "label": "Rating",
+                "tags": ["safe", "sensitive", "nsfw", "explicit"],
+                "exclusive": True,
+            },
+            {
+                "label": "Quality",
+                "tags": ["masterpiece", "best quality", "low quality", "worst quality"],
+            },
+            {
+                "label": "Score",
+                "tags": [
+                    "high score",
+                    "great score",
+                    "good score",
+                    "average score",
+                    "bad score",
+                    "low score",
+                ],
+            },
+        ],
+        "year_tag": True,
+        "recommended_suffix": ["masterpiece", "high score", "great score", "absurdres"],
+        "negative_prompt": _ANIMAGINE_NEGATIVE,
+    },
 }
 _FALLBACK_GUIDE = {
     "prompt": (
@@ -891,6 +927,7 @@ def guide_for(model_id: str) -> dict[str, Any]:
         "pixels": guide["pixels"],
         "pixels_word": guide["pixels_word"],
         "examples": list(guide["examples"]),
+        "tag_helper": deepcopy(guide.get("tag_helper")),
     }
 
 

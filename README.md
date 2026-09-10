@@ -323,7 +323,7 @@ profile directory of its own, so a crashed run cannot lock the next one out.
 
 ## Sizes
 
-Seven aspect ratios across four megapixel tiers, picked independently — change
+Thirteen aspect ratios across four megapixel tiers, picked independently — change
 the aspect and the tier holds, change the tier and the framing holds.
 
 | | 1 MP | 1.5 MP | 2 MP | 4 MP |
@@ -335,21 +335,29 @@ the aspect and the tier holds, change the tier and the framing holds.
 | 9:16 | 768×1360 | 928×1664 | 1088×1920 | 1536×2736 |
 | 3:2 | 1264×848 | 1584×1056 | 1776×1184 | 2496×1680 |
 | 2:3 | 848×1264 | 1056×1584 | 1184×1776 | 1680×2496 |
+| 9:7 | 1152×896 | 1440×1120 | 1632×1264 | 2320×1808 |
+| 7:9 | 896×1152 | 1120×1440 | 1264×1632 | 1808×2320 |
+| 7:4 | 1344×768 | 1680×960 | 1904×1088 | 2704×1552 |
+| 4:7 | 768×1344 | 960×1680 | 1088×1904 | 1552×2704 |
+| 12:5 | 1536×640 | 1920×800 | 2224×928 | 3168×1328 |
+| 5:12 | 640×1536 | 800×1920 | 928×2224 | 1328×3168 |
 
 Every side is a multiple of 16, which is what the VAE wants. The 1.5 MP row and
-the 3:2 and 2:3 aspects are the ones the model cards asked for: the 1.5 MP
+the aspect ratios are the ones the model cards asked for: the 1.5 MP
 row's non-square sizes are Qwen-Image's own README shapes (its 3:2 pair, at
 1.67 MP, is the top of the row), the 3:2 pair at 1 MP is ERNIE-Image's, and
-the 1.5 MP row sits inside the 1024-1280 px (1-1.64 MP) FLUX.1 Krea [dev]'s
+Animagine's 9:7, 7:4 and 12:5 pairs are exact at 1 MP. Higher tiers preserve
+those framings at roughly the tier's pixel count. The 1.5 MP row sits inside
+the 1024-1280 px (1-1.64 MP) FLUX.1 Krea [dev]'s
 README recommends, which the 2 MP row is past. The whole 4 MP row
-is within 0.3% of 2048×2048 in pixel count, so it costs the same VRAM at any
+is within 0.4% of 2048×2048 in pixel count, so it costs the same VRAM at any
 aspect — if the old 2K preset ran, all of these run. Every checkpoint here
 is trained around 1 MP and documented for something between 1 and 4; the
 ? badge beside Size says what, and the line under the boxes warns when the
 size is outside it (see [Prompting guide](#prompting-guide)). 4 MP buys
 detail at some risk of repeated elements in the composition. A hand-typed
-size is accepted up to the largest preset - 2736 on
-a side, 1776×2368 in pixels - and refused past it; the table in
+size is accepted up to the largest preset - 3168 on
+a side, 3168×1328 in pixels - and refused past it; the table in
 `backend/sizes.py` is the one source, and the CLI, the browser and this README
 are held to it by a test.
 
@@ -644,7 +652,11 @@ range of sizes, so the panel says which: the **?** beside Prompt is the
 checkpoint's prompting guide, the **?** beside Size its sizing, the line
 under the width and height warns when a size is outside what its authors
 documented, and **Examples** drops down the authors' own prompts - click one
-and it fills the box. ERNIE also shows **Expand**: it runs the checkpoint's
+and it fills the box. Tag-caption checkpoints can also show **Tags**; for
+Animagine it exposes only the model card's person-count, rating, quality, score
+and year controls, inserts at the prompt caret, finishes with the recommended
+quality suffix, and can fill the recommended negative prompt. ERNIE also shows
+**Expand**: it runs the checkpoint's
 rewriter once at the selected width and height and puts the result in the
 textarea for review, with a local English translation underneath. The Chinese
 text remains the generation prompt; the translation is a reading aid and is
@@ -779,8 +791,11 @@ prompt in the Prompt help badge. It recommends 28 steps at CFG 5. The repo's
 2025-02-13 Opt update replaced the Diffusers UNet as well as adding the root
 single-file checkpoint, so the normal loader gets Opt; it also changed the
 manifest from Euler Ancestral to Euler, which this app follows. Its nine
-recommended dimensions are all about 1 MP: 1024x1024 is a preset, and the exact
-non-square shapes can be typed into W and H. Animagine has no flow-matching Mu,
+recommended aspects are all available as 1 MP presets; 9:7, 7:4 and 12:5 plus
+their portrait opposites use the model card's exact dimensions, and every one
+also has 1.5, 2 and 4 MP choices. The **Tags** picker inserts the card's special
+tags without hiding or rewriting the editable prompt. Animagine has no
+flow-matching Mu,
 reference-image input or fitted live-preview map, and no Nunchaku Lite build.
 The pipeline interface and dry-run are covered automatically, and a user run
 on this card loaded the weights and produced good images. Its exact quantizer

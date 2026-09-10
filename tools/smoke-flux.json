@@ -4,6 +4,7 @@
   {"expect": "document.getElementById('status-dot').className.includes('ready')"},
 
   {"log": "'Krea dev is the flux profile to the controls and its own to the guide: 2 MP is past what Krea recommends'"},
+  {"expect": "els.tagHelper.hidden"},
   {"expect": "els.promptTip.textContent.includes('AI look') && els.stepsTip.textContent.includes('28')"},
   {"expect": "[...els.tiers.children].filter((b) => b.classList.contains('recommended')).map((b) => b.textContent).join() === '1 MP,1.5 MP'"},
   {"eval": "choose('16:9', 2);"},

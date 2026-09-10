@@ -451,6 +451,25 @@ class GalleryPage(BaseModel):
     has_more: bool = False
 
 
+class PromptTagGroup(BaseModel):
+    """One documented family of tags shown as buttons in the prompt helper."""
+
+    label: str
+    tags: list[str] = Field(default_factory=list)
+    # Person count and rating are one-of choices in Animagine's prompt order.
+    exclusive: bool = False
+
+
+class PromptTagHelper(BaseModel):
+    """Structured, checkpoint-authored vocabulary for a tag-based prompt."""
+
+    order: list[str] = Field(default_factory=list)
+    groups: list[PromptTagGroup] = Field(default_factory=list)
+    year_tag: bool = False
+    recommended_suffix: list[str] = Field(default_factory=list)
+    negative_prompt: str | None = None
+
+
 class PromptGuide(BaseModel):
     """The structured half of the checkpoint's prompting guide.
 
@@ -460,12 +479,16 @@ class PromptGuide(BaseModel):
     authors vouch for, so the size line can say when a request is outside it,
     the word that range deserves (a model card's "supports 0.1-2 MP" and a
     README's "recommended 1024-1280" are not the same promise), and the
-    authors' own example prompts for the Examples menu.
+    authors' own example prompts for the Examples menu. Tag-based checkpoints
+    may also expose their documented finite vocabulary and quick actions.
     """
 
     pixels: tuple[float, float] | None = None
     pixels_word: str = "documented"
-    examples: list[str] = []
+    examples: list[str] = Field(default_factory=list)
+    # Null for prose checkpoints. When present the UI exposes only vocabulary
+    # the checkpoint authors documented, while the prompt stays freely editable.
+    tag_helper: PromptTagHelper | None = None
 
 
 class ModelStatus(BaseModel):
