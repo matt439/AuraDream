@@ -174,6 +174,13 @@ let tagSuggestionEpoch = 0;
 let tagValidationEpoch = 0;
 let tagSuggestions = [];
 let tagSuggestionIndex = -1;
+let lastTagValidationResults = [];
+let lastTagValidationAvailable = true;
+let lastTagValidationDetail = '';
+let draggedTagIndex = null;
+let tagInsertAt = null;
+let tagInsertSuggestionTimer = null;
+let tagInsertSuggestionEpoch = 0;
 // A remembered adapter name waiting for the list it belongs to.
 let pendingLora = '';
 
@@ -2474,29 +2481,223 @@ function scheduleTagSuggestions(delay = 160) {
   tagSuggestionTimer = setTimeout(requestTagSuggestions, delay);
 }
 
+function deletePromptTag(index) {
+  const tags = promptTagParts();
+  if (index < 0 || index >= tags.length) return;
+  tags.splice(index, 1);
+  tagInsertAt = null;
+  writePromptTags(tags);
+}
+
+function movePromptTag(from, to) {
+  const tags = promptTagParts();
+  if (from < 0 || from >= tags.length || to < 0 || to >= tags.length || from === to) return;
+  const [tag] = tags.splice(from, 1);
+  tags.splice(to, 0, tag);
+  tagInsertAt = null;
+  writePromptTags(tags);
+}
+
+function dropPromptTag(from, insertion) {
+  const tags = promptTagParts();
+  if (from < 0 || from >= tags.length) return;
+  const [tag] = tags.splice(from, 1);
+  const target = Math.max(0, Math.min(tags.length, insertion > from ? insertion - 1 : insertion));
+  if (target === from) return;
+  tags.splice(target, 0, tag);
+  tagInsertAt = null;
+  writePromptTags(tags);
+}
+
+function clearTagDropMarkers() {
+  for (const chip of els.tagValidation.querySelectorAll('.tag-check')) {
+    chip.classList.remove('drop-before', 'drop-after');
+  }
+}
+
+function closeTagInsert() {
+  tagInsertAt = null;
+  tagInsertSuggestionEpoch += 1;
+  clearTimeout(tagInsertSuggestionTimer);
+  renderTagValidation(
+    lastTagValidationResults, lastTagValidationAvailable, lastTagValidationDetail,
+  );
+}
+
+function commitInsertedTag(text) {
+  const tag = text.trim();
+  if (!tag || tag.includes(',') || tagInsertAt === null) return;
+  const tags = promptTagParts();
+  tags.splice(Math.min(tagInsertAt, tags.length), 0, tag);
+  tagInsertAt = null;
+  writePromptTags(tags);
+}
+
+function scheduleInsertSuggestions(input, datalist) {
+  clearTimeout(tagInsertSuggestionTimer);
+  const epoch = ++tagInsertSuggestionEpoch;
+  const query = input.value.trim();
+  datalist.replaceChildren();
+  if (!query) return;
+  tagInsertSuggestionTimer = setTimeout(async () => {
+    try {
+      const body = await api(`/api/tags/suggest?q=${encodeURIComponent(query)}`);
+      if (epoch !== tagInsertSuggestionEpoch || !input.isConnected) return;
+      for (const suggestion of body.suggestions || []) {
+        const option = document.createElement('option');
+        option.value = suggestion.text;
+        option.label = suggestion.post_count == null
+          ? suggestion.category
+          : `${suggestion.category} · ${humanCount(suggestion.post_count)} posts`;
+        datalist.appendChild(option);
+      }
+    } catch { /* insertion still accepts a tag while the index is unavailable */ }
+  }, 160);
+}
+
+function buildTagInsertEditor() {
+  const editor = document.createElement('span');
+  editor.className = 'tag-insert-editor';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.maxLength = 200;
+  input.placeholder = 'insert tag';
+  input.setAttribute('aria-label', 'New tag');
+  const datalist = document.createElement('datalist');
+  datalist.id = 'tag-insert-options';
+  input.setAttribute('list', datalist.id);
+  const accept = document.createElement('button');
+  accept.type = 'button';
+  accept.textContent = '+';
+  accept.disabled = true;
+  accept.title = 'Insert tag';
+  accept.setAttribute('aria-label', 'Insert tag');
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = '×';
+  cancel.title = 'Cancel insertion';
+  cancel.setAttribute('aria-label', 'Cancel insertion');
+  input.oninput = () => {
+    accept.disabled = !input.value.trim() || input.value.includes(',');
+    scheduleInsertSuggestions(input, datalist);
+  };
+  input.onkeydown = (event) => {
+    if (event.key === 'Enter' && !accept.disabled) {
+      event.preventDefault();
+      commitInsertedTag(input.value);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      closeTagInsert();
+    }
+  };
+  accept.onclick = () => commitInsertedTag(input.value);
+  cancel.onclick = closeTagInsert;
+  editor.append(input, accept, cancel, datalist);
+  setTimeout(() => input.focus(), 0);
+  return editor;
+}
+
+function openTagInsert(index) {
+  clearTimeout(tagValidationTimer);
+  tagValidationEpoch += 1;
+  tagInsertAt = index;
+  renderTagValidation(
+    lastTagValidationResults, lastTagValidationAvailable, lastTagValidationDetail,
+  );
+}
+
 function renderTagValidation(results, available = true, detail = '') {
+  lastTagValidationResults = results.map((result) => ({ ...result }));
+  lastTagValidationAvailable = available;
+  lastTagValidationDetail = detail;
+  if (tagInsertAt !== null && tagInsertAt > results.length) tagInsertAt = results.length;
   els.tagValidation.replaceChildren();
-  for (const result of results) {
+  for (const [index, result] of results.entries()) {
+    if (tagInsertAt === index) els.tagValidation.appendChild(buildTagInsertEditor());
     const chip = document.createElement('span');
     chip.className = 'tag-check';
+    chip.draggable = true;
+    chip.tabIndex = 0;
+    chip.dataset.index = String(index);
+    const label = document.createElement('span');
+    label.className = 'tag-check-label';
     if (result.valid === true) {
       chip.classList.add('valid');
-      chip.textContent = `✓ ${result.tag}`;
+      label.textContent = `✓ ${result.tag}`;
       chip.title = result.source === 'model'
         ? 'Animagine model-card tag'
         : `Danbooru ${result.category} tag · ${humanCount(result.post_count)} posts` +
           (result.canonical !== result.tag ? ` · canonical: ${result.canonical}` : '');
     } else if (result.valid === false) {
       chip.classList.add('unknown');
-      chip.textContent = `? ${result.tag}`;
+      label.textContent = `? ${result.tag}`;
       chip.title = `${result.reason}; generation is still allowed`;
     } else {
       chip.classList.add('unchecked');
-      chip.textContent = `… ${result.tag}`;
+      label.textContent = `… ${result.tag}`;
       chip.title = detail || result.reason || 'Danbooru lookup unavailable';
     }
+    chip.title += ' · drag to reorder · right-click left/right half to insert · Delete removes';
+    chip.setAttribute('aria-label', `${result.tag}. Drag to reorder; Delete removes it.`);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'tag-remove';
+    remove.textContent = '×';
+    remove.draggable = false;
+    remove.title = `Delete ${result.tag}`;
+    remove.setAttribute('aria-label', `Delete ${result.tag}`);
+    remove.onclick = (event) => { event.stopPropagation(); deletePromptTag(index); };
+    chip.append(label, remove);
+    chip.ondragstart = (event) => {
+      draggedTagIndex = index;
+      chip.classList.add('dragging');
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', String(index));
+      }
+    };
+    chip.ondragover = (event) => {
+      if (draggedTagIndex === null) return;
+      event.preventDefault();
+      clearTagDropMarkers();
+      const after = event.clientX >= chip.getBoundingClientRect().left + chip.offsetWidth / 2;
+      chip.classList.add(after ? 'drop-after' : 'drop-before');
+    };
+    chip.ondrop = (event) => {
+      if (draggedTagIndex === null) return;
+      event.preventDefault();
+      const after = event.clientX >= chip.getBoundingClientRect().left + chip.offsetWidth / 2;
+      const insertion = index + (after ? 1 : 0);
+      const from = draggedTagIndex;
+      draggedTagIndex = null;
+      clearTagDropMarkers();
+      dropPromptTag(from, insertion);
+    };
+    chip.ondragend = () => {
+      draggedTagIndex = null;
+      chip.classList.remove('dragging');
+      clearTagDropMarkers();
+    };
+    chip.oncontextmenu = (event) => {
+      event.preventDefault();
+      const rect = chip.getBoundingClientRect();
+      openTagInsert(index + (event.clientX >= rect.left + rect.width / 2 ? 1 : 0));
+    };
+    chip.onkeydown = (event) => {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        deletePromptTag(index);
+      } else if (event.altKey && event.key === 'ArrowLeft') {
+        event.preventDefault();
+        movePromptTag(index, index - 1);
+      } else if (event.altKey && event.key === 'ArrowRight') {
+        event.preventDefault();
+        movePromptTag(index, index + 1);
+      }
+    };
     els.tagValidation.appendChild(chip);
   }
+  if (tagInsertAt === results.length) els.tagValidation.appendChild(buildTagInsertEditor());
   els.tagValidation.title = available
     ? 'Each comma-separated item checked against Danbooru or Animagine special tags'
     : `Lookup unavailable; unchecked tags are not treated as invalid${detail ? `: ${detail}` : ''}`;

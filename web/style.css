@@ -249,13 +249,42 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   border-radius: var(--radius);
 }
 .tag-validation::before { content: "Prompt tags · Danbooru"; color: var(--muted); font-size: 10px; margin-right: 3px; align-self: center; }
+.tag-validation::after {
+  content: "drag to reorder · right-click an edge to insert";
+  color: var(--muted); font-size: 9px; align-self: center;
+}
 .tag-check {
-  max-width: 100%; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 4px;
+  max-width: 100%; padding: 2px 4px 2px 7px; border: 1px solid var(--line); border-radius: 999px;
   color: var(--muted); background: #15151b; font-size: 10px; overflow-wrap: anywhere;
+  cursor: grab; user-select: none;
 }
 .tag-check.valid { border-color: #287548; color: var(--ok); background: #11271a; }
 .tag-check.unknown { border-color: var(--danger); color: #ff9aaa; background: #32131b; }
 .tag-check.unchecked { border-style: dashed; }
+.tag-check.dragging { opacity: 0.45; cursor: grabbing; }
+.tag-check.drop-before { box-shadow: -4px 0 0 var(--accent-2); }
+.tag-check.drop-after { box-shadow: 4px 0 0 var(--accent-2); }
+.tag-remove, .tag-insert-editor button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: currentColor; font: inherit; line-height: 1;
+}
+.tag-remove:hover, .tag-remove:focus-visible,
+.tag-insert-editor button:hover, .tag-insert-editor button:focus-visible {
+  background: rgba(255, 255, 255, 0.12); outline: none;
+}
+.tag-insert-editor {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 4px; border: 1px solid var(--accent-2); border-radius: 999px;
+  background: #10312e;
+}
+.tag-insert-editor input {
+  width: 150px; padding: 1px 5px; border: 0; border-radius: 999px;
+  background: transparent; font-size: 10px;
+}
+.tag-insert-editor input:focus { border: 0; }
+.tag-insert-editor button:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); min-height: 15px; }
 .hint.warn { color: #fbbf24; }

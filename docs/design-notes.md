@@ -1045,6 +1045,16 @@ height cannot move Generate in the settings column. At 900 px and below it
 returns under the prompt in normal document flow, where the whole page is
 already a single scrolling column.
 
+**Those chips are a round-trip editor, not a second prompt.** HTML drag/drop
+moves a comma item and immediately serialises the whole order back through
+`writePromptTags`; Alt+Left/Right is the keyboard equivalent. Every chip has an
+× button and accepts Delete/Backspace while focused. A context click on its
+left or right half opens an inline insertion field before or after it; a native
+`datalist` reuses the same cached tag-suggestion endpoint. Enter or + commits,
+Escape or × cancels. Every edit goes through the same preview, validation and
+panel-persistence path, so the visible textarea, generated prompt and chips
+cannot become separate sources of truth.
+
 ## The prompting guide
 
 **Every profile carries a `guide`**: `prompt` and `size` prose for the ?
