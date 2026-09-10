@@ -57,7 +57,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   copied in from another gallery; idempotent on the UNIQUE filename
 - `web/` — served as-is from `/static`
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
-  and `browser.mjs` + `smoke.json`, `smoke-flux.json`, `smoke-preview.json`
+  and `browser.mjs` + `smoke.json`, `smoke-flux.json`, `smoke-preview.json`,
+  `smoke-ernie.json`, `smoke-animagine.json`
   (headless browser over DevTools): the UI's stand-in for a test suite, see
   Tests
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
@@ -112,12 +113,16 @@ Schedule and guidance:
 - A requested `mu` is the whole shift. `_forced_mu` overrides the value on its
   way into a dynamically shifting scheduler; a static one gets
   `_shifted_sigmas` pre-shifted by `mu - ln(shift)`. Assert on
-  `scheduler.sigmas`, never on the list the backend computed.
+  `scheduler.sigmas`, never on the list the backend computed. Mu requires a
+  `FlowMatch*` scheduler first: SDXL's Euler scheduler accepts custom sigmas
+  too, but is not flow matching. `mu_supported` is profiled before load and
+  read from the scheduler after it, and disables both Mu controls when false.
 - Where guidance switches on is the pipeline's: `cfg_threshold()` is 1.0 with
   `true_cfg_scale`, 0.0 for a `negative_prompt` pipeline in
   `_GUIDES_FROM_ZERO`, else 1.0. The profile guesses until a load;
-  `/api/status` merges the live answer, as it does `negative_prompt_supported`,
-  `true_cfg_supported`, `reference_supported` and `lora_supported`.
+  `/api/status` merges the live answer, as it does `mu_supported`,
+  `negative_prompt_supported`, `true_cfg_supported`, `reference_supported`
+  and `lora_supported`.
 - `GenerateRequest.applied()` is the one normalisation - negative prompt, mu,
   references, `lora_scale` - and `backend.applied()` answers it from the
   parameter list or the profile. Every save path, the resume prune and the
@@ -250,6 +255,8 @@ for the True CFG box, and `smoke-preview.json` against one slowed to
 ERNIE-claiming fake on 7865 for the explicit prompt expansion flow; the fake
 takes the claimed profile's threshold and true-CFG flag, and its model id's
 prompt-expansion capability, so it behaves as the real one would.
+`smoke-animagine.json` runs against an Animagine-claiming fake on 7866 for its
+tag guide, CFG 5 default, 1 MP range and disabled non-flow Mu controls.
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
 `sheetRecords`) are reachable from a step's `eval` because `app.js` is a

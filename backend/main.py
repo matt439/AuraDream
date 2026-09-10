@@ -248,6 +248,7 @@ def _merged_defaults(info: dict) -> dict:
     defaults = defaults_for(info["model_id"])
     for key in (
         "cfg_threshold",
+        "mu_supported",
         "negative_prompt_supported",
         "true_cfg_supported",
         "reference_supported",

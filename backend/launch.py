@@ -76,6 +76,15 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "Krea 2 Turbo", "krea/Krea-2-Turbo", "manual approval", _LITE.format(stem="krea-2-turbo")
     ),
     Checkpoint("Krea 2 Raw", "krea/Krea-2-Raw", "manual approval"),
+    # Anime-specific SDXL finetune. The repo's Diffusers component tree was
+    # replaced with the Opt UNet in its 2025-02-13 update, so the ordinary
+    # from_pretrained path loads the optimized checkpoint without needing the
+    # duplicate single-file checkpoint at the repo root.
+    Checkpoint(
+        "Animagine XL 4.0 Opt",
+        "cagliostrolab/animagine-xl-4.0",
+        "open",
+    ),
     # The same pipeline as FLUX.1 Krea; dev is the base the LoRA ecosystem
     # targets, schnell its 4-step Apache-licensed sibling.
     Checkpoint(

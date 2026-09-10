@@ -252,6 +252,14 @@ def test_status_says_whether_real_cfg_is_a_separate_knob(client, fake, monkeypat
     assert ("Not a separate knob" in body["hints"]["true_cfg"]) is guess
 
 
+def test_status_says_whether_mu_applies_to_the_scheduler(client, fake, monkeypatch):
+    guess = defaults_for(settings.model_id)["mu_supported"]
+    assert client.get("/api/status").json()["defaults"]["mu_supported"] is guess
+    described = dict(fake.describe(), mu_supported=not guess)
+    monkeypatch.setattr(fake, "describe", lambda: described)
+    assert client.get("/api/status").json()["defaults"]["mu_supported"] is not guess
+
+
 def test_status_carries_the_prompting_guide(client):
     # The prose half rides with the tooltips; the data half - the documented
     # pixel range, the word for it, the examples - is its own object, so the

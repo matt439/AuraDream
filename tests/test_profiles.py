@@ -35,6 +35,7 @@ CASES = [
     ("Tongyi-MAI/Z-Image-Turbo", "ZImagePipeline"),
     ("Qwen/Qwen-Image", "QwenImagePipeline"),
     ("baidu/ERNIE-Image-Turbo", "ErnieImagePipeline"),
+    ("cagliostrolab/animagine-xl-4.0", "StableDiffusionXLPipeline"),
 ]
 
 SCHNELL_LITE = "lite-infer/flux.1-schnell-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
@@ -100,6 +101,18 @@ def test_the_distilled_variants_beat_their_family_token():
     assert base["guidance_scale"] == params["guidance_scale"].default
 
 
+def test_animagine_uses_the_model_cards_controls_and_guide():
+    profile = defaults_for("cagliostrolab/animagine-xl-4.0")
+    assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (28, 5.0, None)
+    assert profile["cfg_threshold"] == 1.0
+    assert profile["negative_prompt_supported"] and not profile["true_cfg_supported"]
+    assert not profile["reference_supported"] and not profile["mu_supported"]
+    guide = guide_for("cagliostrolab/animagine-xl-4.0")
+    assert guide["pixels"] == (0.98, 1.05)
+    assert guide["pixels_word"] == "recommended"
+    assert any("masterpiece, high score" in prompt for prompt in guide["examples"])
+
+
 def test_every_catalogue_entry_has_a_profile():
     # The catalogue and the profile table are joined by substring only; an
     # entry that missed every token would print the fallback's "28 steps" in
@@ -109,7 +122,9 @@ def test_every_catalogue_entry_has_a_profile():
         c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
     ]
     for repo in repos:
-        assert _profile_for(repo) is not _FALLBACK, repo
+        profile = _profile_for(repo)
+        assert profile is not _FALLBACK, repo
+        assert isinstance(profile["mu_supported"], bool), repo
 
 
 def _catalogue_repos() -> list[str]:

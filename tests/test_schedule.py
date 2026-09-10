@@ -2,15 +2,17 @@
 backend computes: `sigmas` is an input to the shift, not the shift's result."""
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import math
 
 import numpy as np
 import pytest
-from diffusers import FlowMatchEulerDiscreteScheduler
+from diffusers import EulerDiscreteScheduler, FlowMatchEulerDiscreteScheduler
 from PIL import Image
 
 from backend.backends.diffusers_backend import DiffusersBackend
+from backend.backends import diffusers_backend as backend_module
 from backend.schemas import GenerateRequest
 
 STEPS = 8
@@ -84,6 +86,27 @@ def _applied(scheduler) -> list[float]:
 
 def _schedule(mu: float):
     return pytest.approx(DiffusersBackend._shifted_sigmas(STEPS, mu), abs=1e-6)
+
+
+def test_a_custom_sigma_argument_does_not_make_sdxl_flow_matching():
+    # StableDiffusionXLPipeline accepts `sigmas`, but Animagine's Euler
+    # scheduler is an epsilon scheduler: handing it the flow-shift curve would
+    # change algorithms, not adjust a supported Mu. Drop and record it as such.
+    backend, _ = _backend(EulerDiscreteScheduler())
+    assert backend._mu_supported(backend._pipe) is False
+    assert backend.applied(_request(mu=1.15)).mu is None
+
+
+def test_animagine_drops_mu_before_the_weights_are_loaded(monkeypatch):
+    monkeypatch.setattr(
+        backend_module,
+        "settings",
+        dataclasses.replace(
+            backend_module.settings,
+            model_id="cagliostrolab/animagine-xl-4.0",
+        ),
+    )
+    assert DiffusersBackend().applied(_request(mu=1.15)).mu is None
 
 
 def test_requested_mu_is_the_shift_that_lands():

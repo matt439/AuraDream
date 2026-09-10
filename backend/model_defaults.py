@@ -40,6 +40,11 @@ has one, so the control is greyed out for the checkpoint rather than accepting
 input that would be dropped. A guess from the id until the parameter list
 answers, like the two above.
 
+`mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
+sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
+its Euler scheduler is not flow matching; treating the argument alone as proof
+would replace Animagine's noise schedule with an unrelated flow schedule.
+
 `hints` is the same knowledge as prose, for the UI's tooltips: what steps, CFG
 and mu mean *on this checkpoint*, which is not the same sentence twice. They are
 format strings over the profile's own numbers, so the text cannot drift from the
@@ -359,6 +364,41 @@ _ERNIE_GUIDE = {
     "pixels_word": "documented",
     "examples": _ERNIE_EXAMPLES,
 }
+_ANIMAGINE_GUIDE = {
+    "prompt": (
+        "Comma-separated Danbooru-style tags, not natural-language prose. Put "
+        "1girl, 1boy or 1other first, then the character name and series, a "
+        "safe or sensitive rating, and the subject, pose and scene tags; finish "
+        "with: masterpiece, high score, great score, absurdres. Both CLIP "
+        "tokenizers stop at 77 tokens, so put identity and essential details "
+        "first. Text rendering is not supported.\n"
+        "The model card recommends this negative prompt: lowres, bad anatomy, "
+        "bad hands, text, error, missing finger, extra digits, fewer digits, "
+        "cropped, worst quality, low quality, low score, bad score, average "
+        "score, signature, watermark, username, blurry."
+    ),
+    "size": (
+        "Animagine was trained at 1024x1024. Its recommended shapes are "
+        "1024x1024; 1152x896, 1216x832, 1344x768 and 1536x640 landscape; "
+        "and their portrait counterparts 896x1152, 832x1216, 768x1344 and "
+        "640x1536 - all about 1 MP and multiples of 64. Only 1024x1024 is an "
+        "exact preset here; type the others into W and H. The authors warn "
+        "that higher resolutions such as 1536x1536 can degrade because the "
+        "training resolution was 1024x1024."
+    ),
+    "pixels": (0.98, 1.05),
+    "pixels_word": "recommended",
+    "examples": [
+        "1girl, green hair, sweater, looking at viewer, upper body, beanie, "
+        "outdoors, night, turtleneck, masterpiece, high score, great score, absurdres",
+        "1boy, male focus, green hair, sweater, looking at viewer, upper body, "
+        "beanie, outdoors, night, turtleneck, masterpiece, high score, great score, "
+        "absurdres",
+        "1girl, firefly \\(honkai: star rail\\), honkai \\(series\\), honkai: star "
+        "rail, safe, casual, solo, looking at viewer, outdoors, smile, reaching "
+        "towards viewer, night, masterpiece, high score, great score, absurdres",
+    ],
+}
 _FALLBACK_GUIDE = {
     "prompt": (
         "Unrecognised checkpoint. Most current models read natural-language "
@@ -384,6 +424,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "steps": 8,
             "guidance_scale": 0.0,
             "mu": 1.15,
+            "mu_supported": True,
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -415,6 +456,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "steps": 52,
             "guidance_scale": 3.5,
             "mu": None,
+            "mu_supported": True,
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -444,6 +486,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "steps": 50,
             "guidance_scale": 4.0,
             "mu": None,
+            "mu_supported": True,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": False,
             "reference_supported": True,
@@ -474,6 +517,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "steps": 4,
             "guidance_scale": 1.0,
             "mu": None,
+            "mu_supported": True,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": False,
             "reference_supported": True,
@@ -506,6 +550,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "steps": 4,
             "guidance_scale": 0.0,
             "mu": None,
+            "mu_supported": True,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -540,6 +585,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "steps": 28,
             "guidance_scale": 3.5,
             "mu": None,
+            "mu_supported": True,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -573,6 +619,42 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
         },
     ),
 ]
+# Animagine is an SDXL finetune with classic classifier-free guidance and an
+# Euler scheduler. The repo's Opt update changed its Diffusers component tree
+# and scheduler together; follow that manifest rather than silently replacing
+# it with the model card's older Euler Ancestral recommendation.
+_PROFILES.append(
+    (
+        "animagine-xl",
+        {
+            "steps": 28,
+            "guidance_scale": 5.0,
+            "mu": None,
+            "mu_supported": False,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": False,
+            "guide": _ANIMAGINE_GUIDE,
+            "hints": {
+                "steps": (
+                    "Denoising steps. Animagine recommends 25-28; {steps} is the "
+                    "model card's preferred setting."
+                ),
+                "guidance_scale": (
+                    "Real classifier-free guidance. Animagine recommends 4-7, "
+                    "with {guidance_scale:g} as its default. Above "
+                    "{cfg_threshold:g} the negative prompt applies and adds an "
+                    "uncond pass per step (~2x slower)."
+                ),
+                "mu": (
+                    "Unavailable: Animagine uses SDXL's Euler noise schedule, not "
+                    "flow matching, so a flow-shift Mu does not apply."
+                ),
+            },
+        },
+    )
+)
 # Qwen-Image is Krea 2's parent and looks like FLUX.1 to the controls: the
 # transformer takes no guidance input, and the uncond pass is `true_cfg_scale`
 # - which the pipeline only runs when a negative prompt is present.
@@ -583,6 +665,7 @@ _PROFILES.append(
             "steps": 50,
             "guidance_scale": 1.0,
             "mu": None,
+            "mu_supported": True,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -632,6 +715,7 @@ _PROFILES += [
             "steps": 8,
             "guidance_scale": 0.0,
             "mu": None,
+            "mu_supported": True,
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -658,6 +742,7 @@ _PROFILES += [
             "steps": 50,
             "guidance_scale": 5.0,
             "mu": None,
+            "mu_supported": True,
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -696,6 +781,7 @@ _PROFILES += [
             "steps": 8,
             "guidance_scale": 1.0,
             "mu": None,
+            "mu_supported": False,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -721,6 +807,7 @@ _PROFILES += [
             "steps": 50,
             "guidance_scale": 4.0,
             "mu": None,
+            "mu_supported": False,
             "cfg_threshold": 1.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -755,6 +842,7 @@ _FALLBACK: dict[str, Any] = {
     "steps": 28,
     "guidance_scale": 3.5,
     "mu": None,
+    "mu_supported": True,
     "cfg_threshold": 1.0,
     "negative_prompt_supported": True,
     "reference_supported": False,

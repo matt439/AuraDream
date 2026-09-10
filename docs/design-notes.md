@@ -957,6 +957,51 @@ next run; the card was idle and boosting fine. And the 7.7 GB the base-class
 load had pulled was deleted from the cache before the concrete-class load
 was verified, so that fetching nothing was observable.
 
+## Animagine XL 4.0: an SDXL schedule is not a Mu
+
+**Animagine XL 4.0 Opt is in the catalogue**
+(`cagliostrolab/animagine-xl-4.0`, CreativeML Open RAIL++-M and open). The
+repository publishes a normal `StableDiffusionXLPipeline`: two CLIP encoders,
+an SDXL UNet, `AutoencoderKL` and an Euler scheduler. Its Diffusers component
+weights total about 6.5 GiB. The 2025-02-13 Opt commit changed the component
+tree's UNet as well as adding `animagine-xl-4.0-opt.safetensors` at the root,
+so `DiffusionPipeline.from_pretrained` gets Opt without a single-file loader.
+That commit also changed the manifest from `EulerAncestralDiscreteScheduler`
+to `EulerDiscreteScheduler`. The model card still calls Euler Ancestral the
+preferred sampler, but the detailed example does not replace the manifest's
+scheduler. Follow the current checkpoint rather than overriding it from stale
+prose; a sampler control would need to become part of `CellKey`, the PNG and
+the database before it could be changed reproducibly.
+
+**A `sigmas` parameter is not proof of flow matching.** Current
+`StableDiffusionXLPipeline.__call__` takes custom sigmas, so the old generic
+`_mu_supported` test would have treated Animagine's epsilon-prediction Euler
+scheduler as flow matching and replaced its schedule with `_shifted_sigmas`.
+Mu now requires a scheduler class from the `FlowMatch` family first. The
+capability is part of the checkpoint profile before load and `describe()`
+after load, so the main Mu box and its grid axis are disabled as well as a
+stray request being dropped from the record. This also gives ERNIE's known
+no-Mu pipeline the disabled control its tooltip had already promised.
+
+**Use the checkpoint's tag vocabulary.** The model card says natural-language
+input may not be effective. Its order is person count, character, series,
+rating, the remaining subject/pose/scene tags, and quality tags last; both CLIP
+tokenizers stop at 77 tokens. It recommends 25-28 steps (28), CFG 4-7 (5), a
+specific negative prompt, and nine roughly-1-MP shapes. The profile admits the
+whole existing 1 MP preset row with the UI's one-tenth tolerance, but names all
+nine exact shapes in the Size help: only 1024x1024 is an exact preset, while
+the others remain valid hand-entered multiples of 16. Its documented
+limitations are text, difficult anatomy, multiple characters, post-cutoff
+characters and degradation at high resolutions such as 1536x1536. Sources,
+checked 2026-09-10: the model card and repository
+(<https://huggingface.co/cagliostrolab/animagine-xl-4.0>) and the Opt commit
+(<https://huggingface.co/cagliostrolab/animagine-xl-4.0/commit/4688bebb86806957f6f83c39f2573161630e22db>).
+The class signature, profile, guide and no-Mu application have automated
+coverage. The user then confirmed on 2026-09-10 that the weights loaded and
+the output looked good on this card; the exact quantizer and offload mode were
+not recorded. Speed, VRAM, LoRA behavior, live-preview fit and torchao
+quantization therefore remain unmeasured.
+
 ## The prompting guide
 
 **Every profile carries a `guide`**: `prompt` and `size` prose for the ?
@@ -1010,7 +1055,7 @@ prompt, a prompting guide's, a blog caption - because a checkpoint's own
 examples are the shortest way to learn its voice, and because an invented
 one would be a claim about the model with nothing behind it.
 
-Sources, checked 2026-09-09. FLUX.1: BFL's prompting basics
+Sources, checked 2026-09-10. FLUX.1: BFL's prompting basics
 (<https://docs.bfl.ai/guides/prompting_unified_basics>), the launch post's
 "0.1 and 2.0 megapixels" (<https://bfl.ai/blog/24-08-01-bfl>), the model
 cards, the reference CLI's 1360x768 and its multiple-of-16 rounding

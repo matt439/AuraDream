@@ -15,7 +15,7 @@ const els = {
   examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
   promptTranslationField: $('prompt-translation-field'), promptTranslation: $('prompt-translation'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
-  mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
+  mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
   referenceField: $('reference-field'), referenceList: $('reference-list'),
@@ -32,7 +32,8 @@ const els = {
   cellNote: $('cell-note'),
   gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
-  gridMu: $('grid-mu'), gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),
+  gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'),
+  gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),
   gridBudget: $('grid-budget'), gridPreview: $('grid-preview'),
   gridRun: $('btn-grid'),
   error: $('error'), viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
@@ -125,6 +126,10 @@ let negativeSupported = true;
 // CFG already (Krea 2, klein). Decides which box the negative prompt follows,
 // and whether the True CFG box is live at all.
 let trueCfgSupported = false;
+// Whether this checkpoint uses a flow-matching schedule to which Mu applies.
+// SDXL accepts custom sigmas but is not flow matching, so argument presence is
+// not enough to make this control safe.
+let muSupported = true;
 // Free space on the images volume, from the last status poll; null if unknown.
 let diskFreeMb = null;
 // The gallery ids this run will be conditioned on, in the order they were
@@ -434,6 +439,17 @@ function applyGuide(g) {
   if (Array.isArray(g.examples)) examples = g.examples;
 }
 
+function syncMu() {
+  els.mu.disabled = !muSupported;
+  els.muField.classList.toggle('disabled', !muSupported);
+  els.gridMu.disabled = !muSupported;
+  els.gridMuField.classList.toggle('disabled', !muSupported);
+  if (!muSupported) {
+    els.mu.value = '';
+    els.gridMu.value = '';
+  }
+}
+
 function syncPromptExpansion() {
   els.expandPrompt.hidden = !promptExpansionSupported;
   els.expandPrompt.disabled = expandingPrompt || busy;
@@ -493,6 +509,11 @@ async function refreshStatus() {
         && s.defaults.true_cfg_supported !== trueCfgSupported) {
       trueCfgSupported = s.defaults.true_cfg_supported;
       syncCfg();
+    }
+    if (s.defaults && typeof s.defaults.mu_supported === 'boolean'
+        && s.defaults.mu_supported !== muSupported) {
+      muSupported = s.defaults.mu_supported;
+      syncMu();
     }
     if (s.defaults && typeof s.defaults.reference_supported === 'boolean'
         && s.defaults.reference_supported !== referenceSupported) {

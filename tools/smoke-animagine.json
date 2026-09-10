@@ -1,0 +1,15 @@
+[
+  {"navigate": "http://127.0.0.1:7866/"},
+  {"wait": 1200},
+  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "els.steps.value === '28' && els.cfg.value === '5'"},
+  {"expect": "els.promptTip.textContent.includes('Danbooru-style tags') && els.promptTip.textContent.includes('77 tokens')"},
+  {"expect": "els.sizeTip.textContent.includes('832x1216') && els.sizeTip.textContent.includes('1536x1536')"},
+  {"expect": "els.mu.disabled && els.gridMu.disabled && els.muField.classList.contains('disabled') && els.gridMuField.classList.contains('disabled')"},
+  {"expect": "els.trueCfg.disabled && !els.negative.disabled && els.negNote.textContent.includes('CFG > 1')"},
+  {"expect": "els.tiers.children[0].classList.contains('recommended') && [...els.tiers.children].slice(1).every((b) => !b.classList.contains('recommended'))"},
+  {"eval": "els.examplesBtn.click();"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 3"},
+  {"eval": "els.examplesMenu.children[0].click();"},
+  {"expect": "els.prompt.value.startsWith('1girl, green hair') && collect().mu === null"}
+]

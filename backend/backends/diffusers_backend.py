@@ -614,13 +614,19 @@ class DiffusersBackend(GenerationBackend):
     def _mu_supported(self, pipe: Any) -> bool:
         """Can a requested mu reach this pipeline's schedule at all?
 
-        Two routes: a scheduler that shifts for itself takes the value through
+        First this has to be a flow-matching scheduler. SDXL's Euler scheduler
+        accepts a custom `sigmas` list too, but replacing its epsilon schedule
+        with `_shifted_sigmas` would not be a Mu adjustment - it would be a
+        different, unrelated schedule. For flow matching there are two routes:
+        a scheduler that shifts for itself takes the value through
         `set_timesteps(mu=...)`, which `_forced_mu` intercepts; one that does not
         takes an explicit pre-shifted `sigmas` list, which needs the pipeline to
         accept `sigmas`. With neither, mu is dropped - and has to be recorded as
         dropped, or the row claims a shift the image never had.
         """
         scheduler = getattr(pipe, "scheduler", None)
+        if not type(scheduler).__name__.startswith("FlowMatch"):
+            return False
         if self._shifts_itself(pipe):
             original = getattr(scheduler, "set_timesteps", None)
             return original is not None and "mu" in inspect.signature(original).parameters
@@ -639,6 +645,7 @@ class DiffusersBackend(GenerationBackend):
             return request.applied(
                 negative_prompt_supported=profile["negative_prompt_supported"],
                 cfg_threshold=profile["cfg_threshold"],
+                mu_supported=profile["mu_supported"],
                 true_cfg_supported=profile["true_cfg_supported"],
                 reference_supported=profile["reference_supported"],
                 # Not a guess even here: whether an adapter can be loaded is a
@@ -948,6 +955,7 @@ class DiffusersBackend(GenerationBackend):
             "quantization": settings.quantization,
             "offload": settings.offload,
             "cfg_threshold": self.cfg_threshold(),
+            "mu_supported": self._mu_supported(self._pipe) if self._pipe is not None else None,
             # None until loaded, like the threshold: the parameter list is the answer.
             "negative_prompt_supported": (
                 "negative_prompt" in self._call_params if self._pipe is not None else None

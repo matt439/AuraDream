@@ -11,9 +11,10 @@ needs approval first.
 ## Requirements
 
 - NVIDIA GPU, **16 GB VRAM minimum** (float8 path). 24 GB+ can run `KREA_QUANT=none`.
-- ~35 GB free disk per checkpoint, measured from the HF cache: FLUX.1 Krea
-  [dev] is 32 GiB (transformer 23.8 GB, T5 9.5 GB), Krea 2 Turbo 34 GiB. The
-  WSL Nunchaku Lite re-uploads are far smaller.
+- Free disk varies by checkpoint: FLUX.1 Krea [dev] is 32 GiB (transformer
+  23.8 GB, T5 9.5 GB), Krea 2 Turbo 34 GiB, and Animagine's Diffusers
+  components total about 6.5 GiB. The WSL Nunchaku Lite re-uploads are far
+  smaller.
 - Python 3.13 and [`uv`](https://docs.astral.sh/uv/).
 
 `uv.lock` pins every wheel by sha256, the PyTorch ones included. The
@@ -28,8 +29,9 @@ the index and drops the digests; re-pin the same way.
 
 The Krea checkpoints, FLUX.1 Krea [dev] and FLUX.1 [dev] are **gated**
 HuggingFace repos; the four FLUX.2 [klein] repos, FLUX.1 [schnell], Z-Image
-Turbo, Qwen-Image and ERNIE-Image Turbo are open and need no login (Apache 2.0; klein is the cheapest thing here
-to try first - 4 steps, ~3 GiB peak). For the gated ones, log in first:
+Turbo, Qwen-Image, ERNIE-Image Turbo and Animagine XL 4.0 are open and need no
+login (Apache 2.0 except Animagine's Open RAIL++-M; klein is the cheapest thing
+here to try first - 4 steps, ~3 GiB peak). For the gated ones, log in first:
 
 ```powershell
 uv run hf auth login          # paste a read token from hf.co/settings/tokens
@@ -306,12 +308,14 @@ uv run python tools/fake_server.py --port 7863 --step 0.3
 node tools/browser.mjs tools/smoke-preview.json   # the live preview, on a server slow enough to show one
 uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
 node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
+uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-animagine.json # tag guide, defaults, size range and disabled Mu
 ```
 
 The fake server draws gradients stamped with seed and steps, so grid cells can
 be told apart on a sheet, behaves as the claimed checkpoint's profile predicts
-(the negative prompt's threshold, whether real CFG is a separate knob, and
-whether prompt expansion is available), and
+(the negative prompt's threshold, whether real CFG and Mu apply, and whether
+prompt expansion is available), and
 `--step 0.3` slows each denoising step enough to watch Pause, the queue and
 the preview work. `tools/browser.mjs` needs only Node 22+ and an installed Edge
 or Chrome (`KREA_BROWSER` points at another executable); each run gets a
@@ -611,7 +615,7 @@ All optional, set as environment variables:
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `KREA_MODEL_ID` | `black-forest-labs/FLUX.1-Krea-dev` | `krea/Krea-2-Turbo`, or `krea/Krea-2-Raw` for the undistilled base (52 steps, CFG 3.5) |
+| `KREA_MODEL_ID` | `black-forest-labs/FLUX.1-Krea-dev` | A catalogue id such as `krea/Krea-2-Turbo` or `cagliostrolab/animagine-xl-4.0` |
 | `KREA_QUANT` | `fp8` | `int8`; `none` for full bf16 (~25 GB VRAM); `nunchaku` for a pre-quantized Nunchaku Lite repo (Linux only, see above) |
 | `KREA_OFFLOAD` | `model` | `sequential` (lower VRAM, slower) or `none` |
 | `KREA_OUTPUTS_DIR` | `outputs/` in the repo | Where PNGs are written. `wsl/env.sh` moves it onto the Linux filesystem |
@@ -663,6 +667,7 @@ invented. In brief:
 | Z-Image Turbo | Long, plain, objective description, English or Chinese; text in quotes | Qwen3-4B, 512 | 0.26-4.2 MP documented, trained to the 1k-1.5k range |
 | Qwen-Image | Dense caption in colour/shape/texture/quantity/text terms; append ", Ultra HD, 4K, cinematic composition."; True CFG 4 with a negative prompt | Qwen2.5-VL, 512 | Trained to 1328x1328; the README's shapes are 1.5-1.8 MP |
 | ERNIE-Image Turbo | Expand a short prompt, then review its detailed Chinese paragraph and local English translation | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
+| Animagine XL 4.0 Opt | Danbooru tags: person count, character and series, rating, subject/pose/scene, then quality tags; use its negative prompt | CLIP + CLIP, 77 tokens | Trained at 1024x1024; nine recommended shapes around 1 MP |
 
 ## Defaults by checkpoint
 
@@ -680,6 +685,7 @@ Applied automatically; see `backend/model_defaults.py`.
 | Z-Image Turbo | 8 | 0.0 | — |
 | Qwen-Image | 50 | 1.0 (ignored; True CFG 4) | — |
 | ERNIE-Image Turbo | 8 | 1.0 | — |
+| Animagine XL 4.0 Opt | 28 | 5.0 | — |
 
 A negative prompt roughly doubles generation time, because it adds a second
 forward pass per step. On Krea 2 it takes effect above CFG 0, on Krea 2 Raw
@@ -762,6 +768,24 @@ reserved (Z-Image 23.5 s, 7.4 / 11.8 GiB); about 22 s to load. Under Nunchaku
 a seed does not reproduce bit-for-bit on any checkpoint, and on ERNIE two runs
 of the same seed differ visibly rather than in noise; the fp8 path on Windows
 reproduces.
+
+Animagine XL 4.0 Opt (`cagliostrolab/animagine-xl-4.0`, CreativeML Open
+RAIL++-M and open) is the anime-specific checkpoint: an SDXL finetune trained
+at 1024x1024 on 8.4 million anime-style images. Its prompt is a short,
+comma-separated tag list rather than the natural-language paragraphs the other
+checkpoints here want. Put the person count, character and series first, finish
+with `masterpiece, high score, great score, absurdres`, and use the negative
+prompt in the Prompt help badge. It recommends 28 steps at CFG 5. The repo's
+2025-02-13 Opt update replaced the Diffusers UNet as well as adding the root
+single-file checkpoint, so the normal loader gets Opt; it also changed the
+manifest from Euler Ancestral to Euler, which this app follows. Its nine
+recommended dimensions are all about 1 MP: 1024x1024 is a preset, and the exact
+non-square shapes can be typed into W and H. Animagine has no flow-matching Mu,
+reference-image input or fitted live-preview map, and no Nunchaku Lite build.
+The pipeline interface and dry-run are covered automatically, and a user run
+on this card loaded the weights and produced good images. Its exact quantizer
+and offload mode were not recorded, so speed, VRAM and fp8 behavior remain
+unmeasured.
 
 ## Output
 
