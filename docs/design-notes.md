@@ -1031,7 +1031,7 @@ checkpoint's 2025-01-07 knowledge cutoff. Model-card-only controls such as
 `great score` and `year 2023` validate locally; finite special tags are also
 merged into autocomplete ahead of remote results and remain available offline.
 A green chip means a model tag
-or a nonempty Danbooru tag at the cutoff; amber means unknown, deprecated,
+or a nonempty Danbooru tag at the cutoff; red means unknown, deprecated,
 empty or too new. An unavailable API makes ordinary tags grey and unchecked,
 not invalid, and never blocks generation: presence in the index is useful
 evidence, not proof that a particular caption reached training. Sources,
