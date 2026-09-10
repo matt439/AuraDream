@@ -35,6 +35,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   documented megapixel range with its word, the authors' example prompts)
 - `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
   expanded Chinese prompt for the UI; the Chinese prompt remains canonical
+- `backend/tags.py` — cached Danbooru tag suggestions and exact validation for
+  tag-caption checkpoints; remote failure means unchecked, never invalid
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
 - `backend/loras.py` — the adapter directory: what is in it, and the file
   behind a name (the only place a request's name becomes a path)
@@ -205,6 +207,9 @@ Frontend and CLI:
 - Prompt expansion is ERNIE-only and explicit: its result replaces the editor
   only if the user did not type while the long request was in flight, then the
   usual persistence and grid preview paths are told about the programmatic edit.
+- Animagine tag autocomplete and comma-item validation use the fixed Danbooru
+  tag API through `backend/tags.py`, filtered to its knowledge cutoff. Model-card
+  special tags validate locally; lookup failure stays advisory and never blocks.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets
@@ -256,7 +261,8 @@ ERNIE-claiming fake on 7865 for the explicit prompt expansion flow; the fake
 takes the claimed profile's threshold and true-CFG flag, and its model id's
 prompt-expansion capability, so it behaves as the real one would.
 `smoke-animagine.json` runs against an Animagine-claiming fake on 7866 for its
-tag guide, CFG 5 default, 1 MP range and disabled non-flow Mu controls.
+tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
+aspects, orientation switch and disabled non-flow Mu controls.
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
 `sheetRecords`) are reachable from a step's `eval` because `app.js` is a

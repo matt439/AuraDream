@@ -14,6 +14,7 @@ const els = {
   negNote: $('neg-note'), promptTip: $('prompt-tip'), sizeTip: $('size-tip'),
   examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
+  tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
   promptTranslationField: $('prompt-translation-field'), promptTranslation: $('prompt-translation'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
@@ -165,6 +166,13 @@ let examples = [];
 // Null for prose checkpoints. A tag checkpoint supplies its own finite,
 // documented vocabulary; the browser never guesses a generic tag cloud.
 let tagHelper = null;
+let tagVocabularyEnabled = false;
+let tagSuggestionTimer = null;
+let tagValidationTimer = null;
+let tagSuggestionEpoch = 0;
+let tagValidationEpoch = 0;
+let tagSuggestions = [];
+let tagSuggestionIndex = -1;
 // A remembered adapter name waiting for the list it belongs to.
 let pendingLora = '';
 
@@ -1245,6 +1253,7 @@ function resetPanel() {
   syncConditioning();
   syncRuns();
   schedulePreview();
+  scheduleTagValidation(0);
   els.prompt.focus();
 }
 
@@ -1616,6 +1625,7 @@ function reuse(rec) {
   syncConditioning();
   syncRuns();
   schedulePreview();
+  scheduleTagValidation(0);
   persistPanel();
   // Steps, CFG and mu are checkpoint-specific: Turbo's 8 / 0 / 1.15 on FLUX is
   // a visibly broken image recorded under FLUX. The checkpoint is part of the
@@ -2338,6 +2348,7 @@ function showExamples(open) {
       // Assigning .value fires no `input`: the preview and the remembered
       // panel are told the way `choose` tells them.
       schedulePreview();
+      scheduleTagValidation(0);
       persistPanel();
       els.prompt.focus();
     };
@@ -2353,6 +2364,183 @@ function promptTagParts() {
   return els.prompt.value.split(',').map((part) => part.trim()).filter(Boolean);
 }
 
+function currentTagRange() {
+  const text = els.prompt.value;
+  const caret = els.prompt.selectionStart ?? text.length;
+  let start = text.lastIndexOf(',', Math.max(0, caret - 1)) + 1;
+  let end = text.indexOf(',', caret);
+  if (end < 0) end = text.length;
+  while (start < end && /\s/.test(text[start])) start += 1;
+  while (end > start && /\s/.test(text[end - 1])) end -= 1;
+  return { start, end, query: text.slice(start, end).trim() };
+}
+
+function hideTagSuggestions() {
+  tagSuggestionEpoch += 1;  // an in-flight response must not reopen a dismissed list
+  tagSuggestions = [];
+  tagSuggestionIndex = -1;
+  els.tagSuggestions.hidden = true;
+  els.tagSuggestions.replaceChildren();
+  els.prompt.setAttribute('aria-expanded', 'false');
+  els.prompt.removeAttribute('aria-activedescendant');
+}
+
+function humanCount(value) {
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}m`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(value >= 1e5 ? 0 : 1)}k`;
+  return String(value);
+}
+
+function selectTagSuggestion(index) {
+  if (!tagSuggestions.length) return;
+  tagSuggestionIndex = (index + tagSuggestions.length) % tagSuggestions.length;
+  [...els.tagSuggestions.children].forEach((item, i) => {
+    const active = i === tagSuggestionIndex;
+    item.classList.toggle('active', active);
+    item.setAttribute('aria-selected', String(active));
+    if (active) {
+      els.prompt.setAttribute('aria-activedescendant', item.id);
+      item.scrollIntoView({ block: 'nearest' });
+    }
+  });
+}
+
+function applyTagSuggestion(suggestion) {
+  const { start, end } = currentTagRange();
+  const before = els.prompt.value.slice(0, start);
+  const after = els.prompt.value.slice(end);
+  els.prompt.value = before + suggestion.text + after;
+  const caret = start + suggestion.text.length;
+  els.prompt.setSelectionRange(caret, caret);
+  clearPromptTranslation();
+  syncTagSelection();
+  schedulePreview();
+  persistPanel();
+  scheduleTagValidation(0);
+  hideTagSuggestions();
+}
+
+function renderTagSuggestions(items) {
+  tagSuggestions = items;
+  tagSuggestionIndex = -1;
+  els.tagSuggestions.replaceChildren();
+  for (const [index, suggestion] of items.entries()) {
+    const item = document.createElement('li');
+    item.id = `tag-suggestion-${index}`;
+    item.setAttribute('role', 'option');
+    const kind = document.createElement('span');
+    kind.className = 'tag-kind';
+    kind.textContent = suggestion.category;
+    const name = document.createElement('span');
+    name.className = 'tag-name';
+    name.textContent = suggestion.text;
+    const count = document.createElement('span');
+    count.className = 'tag-count';
+    count.textContent = suggestion.post_count == null ? '' : humanCount(suggestion.post_count);
+    item.append(kind, name, count);
+    item.onmousedown = (event) => event.preventDefault();
+    item.onclick = () => applyTagSuggestion(suggestion);
+    els.tagSuggestions.appendChild(item);
+  }
+  els.tagSuggestions.hidden = items.length === 0;
+  els.prompt.setAttribute('aria-expanded', String(items.length > 0));
+  if (items.length) selectTagSuggestion(0);
+}
+
+async function requestTagSuggestions() {
+  const epoch = ++tagSuggestionEpoch;
+  if (!tagVocabularyEnabled || document.activeElement !== els.prompt) {
+    hideTagSuggestions();
+    return;
+  }
+  const { query } = currentTagRange();
+  if (!query) {
+    hideTagSuggestions();
+    return;
+  }
+  try {
+    const body = await api(`/api/tags/suggest?q=${encodeURIComponent(query)}`);
+    if (epoch !== tagSuggestionEpoch) return;
+    renderTagSuggestions(body.suggestions || []);
+  } catch {
+    if (epoch === tagSuggestionEpoch) hideTagSuggestions();
+  }
+}
+
+function scheduleTagSuggestions(delay = 160) {
+  clearTimeout(tagSuggestionTimer);
+  tagSuggestionTimer = setTimeout(requestTagSuggestions, delay);
+}
+
+function renderTagValidation(results, available = true, detail = '') {
+  els.tagValidation.replaceChildren();
+  for (const result of results) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-check';
+    if (result.valid === true) {
+      chip.classList.add('valid');
+      chip.textContent = `✓ ${result.tag}`;
+      chip.title = result.source === 'model'
+        ? 'Animagine model-card tag'
+        : `Danbooru ${result.category} tag · ${humanCount(result.post_count)} posts` +
+          (result.canonical !== result.tag ? ` · canonical: ${result.canonical}` : '');
+    } else if (result.valid === false) {
+      chip.classList.add('unknown');
+      chip.textContent = `? ${result.tag}`;
+      chip.title = `${result.reason}; generation is still allowed`;
+    } else {
+      chip.classList.add('unchecked');
+      chip.textContent = `… ${result.tag}`;
+      chip.title = detail || result.reason || 'Danbooru lookup unavailable';
+    }
+    els.tagValidation.appendChild(chip);
+  }
+  els.tagValidation.title = available
+    ? 'Each comma-separated item checked against Danbooru or Animagine special tags'
+    : `Lookup unavailable; unchecked tags are not treated as invalid${detail ? `: ${detail}` : ''}`;
+  els.tagValidation.hidden = results.length === 0;
+}
+
+async function validatePromptTags(tags, epoch) {
+  try {
+    const body = await api('/api/tags/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+    });
+    if (epoch !== tagValidationEpoch) return;
+    renderTagValidation(body.results, body.available, body.detail || '');
+  } catch (error) {
+    if (epoch !== tagValidationEpoch) return;
+    renderTagValidation(tags.map((tag) => ({ tag, valid: null })), false, error.message);
+  }
+}
+
+function scheduleTagValidation(delay = 320) {
+  clearTimeout(tagValidationTimer);
+  const epoch = ++tagValidationEpoch;
+  if (!tagVocabularyEnabled) {
+    els.tagValidation.hidden = true;
+    els.tagValidation.replaceChildren();
+    return;
+  }
+  const tags = promptTagParts();
+  if (!tags.length) {
+    els.tagValidation.hidden = true;
+    els.tagValidation.replaceChildren();
+    return;
+  }
+  renderTagValidation(tags.map((tag) => ({ tag, valid: null })), false, 'Checking Danbooru…');
+  tagValidationTimer = setTimeout(() => validatePromptTags(tags, epoch), delay);
+}
+
+function syncTagVocabulary() {
+  tagVocabularyEnabled = tagHelper?.vocabulary === 'danbooru';
+  els.prompt.spellcheck = !tagVocabularyEnabled;
+  if (!tagVocabularyEnabled) hideTagSuggestions();
+  scheduleTagValidation(0);
+}
+
 function tagCursorIndex() {
   const before = els.prompt.value.slice(0, els.prompt.selectionStart ?? els.prompt.value.length);
   return before.trim() ? before.split(',').length : 0;
@@ -2365,6 +2553,7 @@ function writePromptTags(parts, caret = null) {
   els.prompt.setSelectionRange(end, end);
   syncTagSelection();
   schedulePreview();
+  scheduleTagValidation(0);
   persistPanel();
 }
 
@@ -2516,6 +2705,7 @@ function syncTagHelper() {
   els.tagHelper.hidden = !available;
   if (!available) showTagHelper(false);
   else if (!els.tagsMenu.hidden) buildTagHelper();
+  syncTagVocabulary();
 }
 
 async function expandPrompt() {
@@ -2564,10 +2754,33 @@ els.expandPrompt.onclick = expandPrompt;
 els.prompt.addEventListener('input', () => {
   if (translatedSource !== null && els.prompt.value !== translatedSource) clearPromptTranslation();
   syncTagSelection();
+  scheduleTagSuggestions();
+  scheduleTagValidation();
+});
+els.prompt.addEventListener('click', () => scheduleTagSuggestions(0));
+els.prompt.addEventListener('keyup', (event) => {
+  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) scheduleTagSuggestions(0);
+});
+els.prompt.addEventListener('keydown', (event) => {
+  if (els.tagSuggestions.hidden || event.ctrlKey || event.metaKey) return;
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    selectTagSuggestion(tagSuggestionIndex + 1);
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    selectTagSuggestion(tagSuggestionIndex - 1);
+  } else if ((event.key === 'Enter' || event.key === 'Tab') && tagSuggestionIndex >= 0) {
+    event.preventDefault();
+    applyTagSuggestion(tagSuggestions[tagSuggestionIndex]);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    hideTagSuggestions();
+  }
 });
 document.addEventListener('click', (e) => {
   if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
   if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper')) showTagHelper(false);
+  if (!e.target.closest('.prompt-editor')) hideTagSuggestions();
 });
 els.unload.onclick = async () => {
   try {

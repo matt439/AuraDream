@@ -140,6 +140,71 @@ def main() -> int:
 
     app_main.prompt_translator = FakeTranslator()
 
+    # Deterministic stand-in for Danbooru's live tag API. Browser smoke tests
+    # exercise autocomplete, caret replacement and per-item validation without
+    # making the test suite depend on the network or the current tag database.
+    from backend.tags import display_tag, is_model_tag, normalize_tag
+
+    class FakeTagVocabulary:
+        records = {
+            "1girl": ("general", 8_000_000),
+            "green_hair": ("general", 590_000),
+            "green_hat": ("general", 41_000),
+            "green_eyes": ("general", 900_000),
+            "firefly_(honkai:_star_rail)": ("character", 16_000),
+            "honkai:_star_rail": ("copyright", 160_000),
+        }
+
+        def suggest(self, query, cutoff, limit=12):
+            prefix = normalize_tag(query)
+            return [
+                {
+                    "text": display_tag(name),
+                    "canonical": name,
+                    "category": category,
+                    "post_count": count,
+                }
+                for name, (category, count) in self.records.items()
+                if name.startswith(prefix)
+            ][:limit]
+
+        def validate(self, tags, special_tags, cutoff):
+            results = []
+            for tag in tags:
+                name = normalize_tag(tag)
+                if is_model_tag(tag, special_tags):
+                    results.append(
+                        {
+                            "tag": tag,
+                            "valid": True,
+                            "canonical": tag,
+                            "source": "model",
+                        }
+                    )
+                elif name in self.records:
+                    category, count = self.records[name]
+                    results.append(
+                        {
+                            "tag": tag,
+                            "valid": True,
+                            "canonical": display_tag(name),
+                            "source": "danbooru",
+                            "category": category,
+                            "post_count": count,
+                        }
+                    )
+                else:
+                    results.append(
+                        {
+                            "tag": tag,
+                            "valid": False,
+                            "reason": "not found in Danbooru",
+                        }
+                    )
+            return results
+
+    app_main.tag_vocabulary = FakeTagVocabulary()
+
     import uvicorn
 
     print(f"fake server on http://127.0.0.1:{args.port}  gallery: {data}", flush=True)

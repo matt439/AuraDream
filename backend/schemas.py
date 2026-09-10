@@ -466,8 +466,51 @@ class PromptTagHelper(BaseModel):
     order: list[str] = Field(default_factory=list)
     groups: list[PromptTagGroup] = Field(default_factory=list)
     year_tag: bool = False
+    vocabulary: Literal["danbooru"] | None = None
+    vocabulary_cutoff: str | None = None
     recommended_suffix: list[str] = Field(default_factory=list)
     negative_prompt: str | None = None
+
+
+class TagSuggestion(BaseModel):
+    text: str
+    canonical: str
+    category: str
+    post_count: int | None = None
+
+
+class TagSuggestionResponse(BaseModel):
+    available: bool
+    suggestions: list[TagSuggestion] = Field(default_factory=list)
+    detail: str | None = None
+
+
+class TagValidationRequest(BaseModel):
+    tags: list[str] = Field(min_length=1, max_length=64)
+
+    @field_validator("tags")
+    @classmethod
+    def _usable_tags(cls, values: list[str]) -> list[str]:
+        tags = [value.strip() for value in values]
+        if any(not tag or len(tag) > 200 for tag in tags):
+            raise ValueError("tags must be 1-200 characters after trimming")
+        return tags
+
+
+class TagValidationItem(BaseModel):
+    tag: str
+    valid: bool | None
+    canonical: str | None = None
+    source: Literal["danbooru", "model"] | None = None
+    category: str | None = None
+    post_count: int | None = None
+    reason: str | None = None
+
+
+class TagValidationResponse(BaseModel):
+    available: bool
+    results: list[TagValidationItem] = Field(default_factory=list)
+    detail: str | None = None
 
 
 class PromptGuide(BaseModel):

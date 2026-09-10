@@ -42,7 +42,16 @@ from .schemas import (  # noqa: E402
     PromptExpansionRequest,
     RerenderRequest,
     RunSummary,
+    TagSuggestionResponse,
+    TagValidationRequest,
+    TagValidationResponse,
     error_detail,
+)
+from .tags import (  # noqa: E402
+    TagLookupUnavailable,
+    normalize_tag,
+    tag_vocabulary,
+    unchecked_results,
 )
 from .translation import prompt_translator  # noqa: E402
 
@@ -257,6 +266,72 @@ def _merged_defaults(info: dict) -> dict:
             defaults[key] = info[key]
     defaults["lora_supported"] = bool(info.get("lora_supported"))
     return defaults
+
+
+def _tag_helper_config() -> dict:
+    helper = guide_for(settings.model_id).get("tag_helper")
+    if not helper or helper.get("vocabulary") != "danbooru":
+        raise HTTPException(status_code=404, detail="this checkpoint has no tag vocabulary")
+    return helper
+
+
+def _special_tags(helper: dict) -> set[str]:
+    tags = {tag.lower() for group in helper["groups"] for tag in group["tags"]}
+    tags.update(tag.lower() for tag in helper["recommended_suffix"])
+    return tags
+
+
+def _model_tag_suggestions(helper: dict, query: str) -> list[dict]:
+    prefix = normalize_tag(query)
+    if not prefix:
+        return []
+    return [
+        {
+            "text": tag,
+            "canonical": normalize_tag(tag),
+            "category": "model",
+            "post_count": None,
+        }
+        for tag in sorted(_special_tags(helper))
+        if normalize_tag(tag).startswith(prefix)
+    ]
+
+
+@app.get("/api/tags/suggest", response_model=TagSuggestionResponse)
+async def suggest_tags(q: str = Query(min_length=1, max_length=100)) -> TagSuggestionResponse:
+    helper = _tag_helper_config()
+    local = _model_tag_suggestions(helper, q)
+    try:
+        remote = await asyncio.to_thread(
+            tag_vocabulary.suggest, q, helper["vocabulary_cutoff"]
+        )
+    except TagLookupUnavailable as exc:
+        return TagSuggestionResponse(
+            available=False, suggestions=local[:12], detail=short_error(exc)
+        )
+    local_names = {item["canonical"] for item in local}
+    suggestions = local + [item for item in remote if item["canonical"] not in local_names]
+    return TagSuggestionResponse(available=True, suggestions=suggestions[:12])
+
+
+@app.post("/api/tags/validate", response_model=TagValidationResponse)
+async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:
+    helper = _tag_helper_config()
+    special = _special_tags(helper)
+    try:
+        results = await asyncio.to_thread(
+            tag_vocabulary.validate,
+            request.tags,
+            special,
+            helper["vocabulary_cutoff"],
+        )
+    except TagLookupUnavailable as exc:
+        return TagValidationResponse(
+            available=False,
+            results=unchecked_results(request.tags, special),
+            detail=short_error(exc),
+        )
+    return TagValidationResponse(available=True, results=results)
 
 
 async def _refuse_unusable_inputs(request: GenerateRequest) -> None:

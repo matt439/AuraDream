@@ -121,6 +121,9 @@ def test_animagine_uses_the_model_cards_controls_and_guide():
     ]
     assert any("masterpiece, high score" in prompt for prompt in guide["examples"])
     helper = guide["tag_helper"]
+    assert (helper["vocabulary"], helper["vocabulary_cutoff"]) == (
+        "danbooru", "2025-01-07"
+    )
     assert helper["order"] == [
         "Person count", "Character", "Series", "Rating", "Details", "Quality"
     ]

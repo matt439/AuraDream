@@ -658,7 +658,13 @@ documented, and **Examples** drops down the authors' own prompts - click one
 and it fills the box. Tag-caption checkpoints can also show **Tags**; for
 Animagine it exposes only the model card's person-count, rating, quality, score
 and year controls, inserts at the prompt caret, finishes with the recommended
-quality suffix, and can fill the recommended negative prompt. ERNIE also shows
+quality suffix, and can fill the recommended negative prompt. While typing an
+Animagine prompt, autocomplete comes from Danbooru's live tag index and each
+comma-separated item gets a green recognised, amber unknown, or grey unchecked
+chip. The lookup is advisory and never blocks generation; if the network is
+unavailable, ordinary tags remain unchecked rather than being called invalid.
+Only tag text is sent to the index, never images or generation settings. ERNIE
+also shows
 **Expand**: it runs the checkpoint's
 rewriter once at the selected width and height and puts the result in the
 textarea for review, with a local English translation underneath. The Chinese

@@ -1018,6 +1018,28 @@ the output looked good on this card; the exact quantizer and offload mode were
 not recorded. Speed, VRAM, LoRA behavior, live-preview fit and torchao
 quantization therefore remain unmeasured.
 
+**The complete vocabulary is Danbooru's, not a list in the checkpoint.** The
+maintainer explicitly says XL 4.0 ships no wildcard or character list because
+it trained from nearly all Danbooru image data, and directs users to Danbooru's
+counts. Danbooru's official `/tags.json` API supplies canonical names,
+categories, post counts, normalized multi-name lookup and alias-aware prefix
+search. `backend.tags` proxies that fixed HTTPS origin off the event loop and
+caches prefixes, exact hits and misses; the browser sends only the active tag
+prefix or the comma-separated tag names, never an image or generation setting.
+Suggestions exclude empty/deprecated tags and anything created after the
+checkpoint's 2025-01-07 knowledge cutoff. Model-card-only controls such as
+`great score` and `year 2023` validate locally; finite special tags are also
+merged into autocomplete ahead of remote results and remain available offline.
+A green chip means a model tag
+or a nonempty Danbooru tag at the cutoff; amber means unknown, deprecated,
+empty or too new. An unavailable API makes ordinary tags grey and unchecked,
+not invalid, and never blocks generation: presence in the index is useful
+evidence, not proof that a particular caption reached training. Sources,
+checked 2026-09-10: the maintainer's answer
+(<https://huggingface.co/spaces/Asahina2K/animagine-xl-4.0/discussions/4>) and
+Danbooru's tag API documentation
+(<https://safebooru.donmai.us/wiki_pages/api:tags>).
+
 ## The prompting guide
 
 **Every profile carries a `guide`**: `prompt` and `size` prose for the ?

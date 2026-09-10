@@ -50,8 +50,13 @@
         <button type="button" class="ghost tiny reset" id="btn-reset"
                 title="Clear every box and put the panel back to this checkpoint's defaults; the browser forgets the remembered settings">Reset</button>
       </span>
-      <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
-                aria-describedby="prompt-tip"></textarea>
+      <div class="prompt-editor">
+        <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
+                  aria-describedby="prompt-tip tag-validation" aria-autocomplete="list"
+                  aria-controls="tag-suggestions" aria-expanded="false"></textarea>
+        <ul class="tag-suggestions" id="tag-suggestions" role="listbox" hidden></ul>
+      </div>
+      <div class="tag-validation" id="tag-validation" role="status" hidden></div>
     </div>
 
     <label class="field translation" id="prompt-translation-field" hidden>

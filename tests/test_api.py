@@ -15,6 +15,7 @@ from backend.config import settings
 from backend.jobs import JobManager
 from backend.model_defaults import defaults_for, hints_for
 from backend.schemas import GenerateRequest
+from backend.tags import TagLookupUnavailable
 
 ORIGIN = f"http://127.0.0.1:{settings.port}"
 
@@ -273,6 +274,72 @@ def test_status_carries_the_prompting_guide(client):
     assert "aspects" in guide
     assert "resolutions" in guide
     assert "tag_helper" in guide
+
+
+def test_tag_vocabulary_endpoints_are_checkpoint_scoped_and_read_only(client, monkeypatch):
+    helper = {
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": "2025-01-07",
+        "groups": [{"tags": ["great score"]}],
+        "recommended_suffix": ["absurdres"],
+    }
+
+    class Vocabulary:
+        def suggest(self, query, cutoff):
+            assert (query, cutoff) == ("green h", "2025-01-07")
+            return [{
+                "text": "green hair", "canonical": "green_hair",
+                "category": "general", "post_count": 591_000,
+            }]
+
+        def validate(self, tags, special, cutoff):
+            assert special == {"great score", "absurdres"} and cutoff == "2025-01-07"
+            return [{
+                "tag": tag, "valid": True, "canonical": tag,
+                "source": "model", "category": None, "post_count": None,
+            } for tag in tags]
+
+    monkeypatch.setattr(main, "_tag_helper_config", lambda: helper)
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    suggestions = client.get("/api/tags/suggest?q=green%20h").json()
+    assert suggestions == {
+        "available": True,
+        "suggestions": [{
+            "text": "green hair", "canonical": "green_hair",
+            "category": "general", "post_count": 591_000,
+        }],
+        "detail": None,
+    }
+    validation = client.post("/api/tags/validate", json={"tags": ["great score"]}).json()
+    assert validation["available"] is True
+    assert validation["results"][0]["source"] == "model"
+
+
+def test_an_offline_tag_index_leaves_unknown_tags_unchecked(client, monkeypatch):
+    helper = {
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": "2025-01-07",
+        "groups": [{"tags": ["great score"]}],
+        "recommended_suffix": [],
+    }
+
+    class OfflineVocabulary:
+        def suggest(self, query, cutoff):
+            raise TagLookupUnavailable("offline")
+
+        def validate(self, tags, special, cutoff):
+            raise TagLookupUnavailable("offline")
+
+    monkeypatch.setattr(main, "_tag_helper_config", lambda: helper)
+    monkeypatch.setattr(main, "tag_vocabulary", OfflineVocabulary())
+    suggestions = client.get("/api/tags/suggest?q=great").json()
+    assert suggestions["available"] is False
+    assert suggestions["suggestions"][0]["text"] == "great score"
+    body = client.post(
+        "/api/tags/validate", json={"tags": ["great score", "green hair"]}
+    ).json()
+    assert body["available"] is False
+    assert [item["valid"] for item in body["results"]] == [True, None]
 
 
 def test_prompt_expansion_loads_the_model_and_returns_reviewable_text(client, fake):

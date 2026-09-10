@@ -378,6 +378,8 @@ _ANIMAGINE_GUIDE = {
         "with: masterpiece, high score, great score, absurdres. Both CLIP "
         "tokenizers stop at 77 tokens, so put identity and essential details "
         "first. Text rendering is not supported.\n"
+        "Autocomplete and the chips check Danbooru's live tag index up to this "
+        "checkpoint's 2025-01-07 cutoff. Unknown is advisory, not blocked.\n"
         f"The model card recommends this negative prompt: {_ANIMAGINE_NEGATIVE}."
     ),
     "size": (
@@ -443,6 +445,8 @@ _ANIMAGINE_GUIDE = {
             },
         ],
         "year_tag": True,
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": "2025-01-07",
         "recommended_suffix": ["masterpiece", "high score", "great score", "absurdres"],
         "negative_prompt": _ANIMAGINE_NEGATIVE,
     },

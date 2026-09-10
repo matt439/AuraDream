@@ -3,6 +3,7 @@
   {"wait": 1200},
   {"expect": "document.getElementById('status-dot').className.includes('ready')"},
   {"expect": "els.expandPrompt.hidden"},
+  {"expect": "!tagVocabularyEnabled && els.tagValidation.hidden"},
   {"expect": "els.orientation.disabled && els.orientation.textContent === 'Orientation'"},
   {"eval": "choose('9:7', 1); els.orientation.click();"},
   {"expect": "pickedAspect === '7:9' && els.width.value === '896' && els.height.value === '1152' && els.orientation.textContent === 'Landscape'"},
