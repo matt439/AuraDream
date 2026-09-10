@@ -912,7 +912,18 @@ message; the sampled result replaces the textarea only if the user has not
 edited it while the load was in flight. Later expansions reuse the component
 until Unload. `generate()` still sets `use_pe=False` wherever the switch
 exists: the expanded text is visible, editable, and is exactly what the row and
-PNG record. The
+PNG record. The rewriter's bundled chat template contains its Chinese system
+instruction and does not render an added system-role message, so asking the
+same model for English through `_enhance_prompt_with_pe(system_prompt=...)`
+does nothing. After expansion, a separate
+[`Helsinki-NLP/opus-mt-zh-en`](https://huggingface.co/Helsinki-NLP/opus-mt-zh-en)
+Marian model therefore translates the result. It is a 312 MB, CC-BY-4.0,
+Chinese-to-English checkpoint loaded lazily through the Transformers and
+SentencePiece packages already in the app, kept on CPU so it never disturbs
+the image pipeline's offload chain, and dropped by Unload. The Chinese text
+remains in the editor and is the only prompt sent and recorded; the English is
+a read-only aid underneath, hidden on the first edit. Translation failure is
+returned separately so a useful multi-GB expansion is not thrown away. The
 index read is a try/except that yields nothing on failure - an optimisation,
 not a gate - and the tests' conftest now refuses `_hub_file` for every test,
 since a stubbed `from_pretrained` had been the only thing between a loader

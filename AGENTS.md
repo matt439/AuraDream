@@ -33,6 +33,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint, the
   control tooltips, and the prompting guide (prompt and size prose, the
   documented megapixel range with its word, the authors' example prompts)
+- `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
+  expanded Chinese prompt for the UI; the Chinese prompt remains canonical
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
 - `backend/loras.py` — the adapter directory: what is in it, and the file
   behind a name (the only place a request's name becomes a path)

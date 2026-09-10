@@ -204,6 +204,8 @@ class PromptExpansionRequest(BaseModel):
 class PromptExpansion(BaseModel):
     original_prompt: str
     expanded_prompt: str
+    translated_prompt: str | None = None
+    translation_detail: str | None = None
 
 
 def effective_true_cfg(

@@ -131,6 +131,15 @@ def main() -> int:
     app_main.backend = fake
     app_main.jobs = JobManager(fake, app_main.ensure_loaded)
 
+    class FakeTranslator:
+        def translate(self, text: str) -> str:
+            return f"English translation of: {text}"
+
+        def unload(self) -> None:
+            pass
+
+    app_main.prompt_translator = FakeTranslator()
+
     import uvicorn
 
     print(f"fake server on http://127.0.0.1:{args.port}  gallery: {data}", flush=True)

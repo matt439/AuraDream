@@ -642,9 +642,12 @@ under the width and height warns when a size is outside what its authors
 documented, and **Examples** drops down the authors' own prompts - click one
 and it fills the box. ERNIE also shows **Expand**: it runs the checkpoint's
 rewriter once at the selected width and height and puts the result in the
-textarea for review. The first use downloads and loads the separate 7.7 GB
-component; later uses reuse it until Unload. Image generation never rewrites
-silently, so the visible prompt is still the prompt stored with the image.
+textarea for review, with a local English translation underneath. The Chinese
+text remains the generation prompt; the translation is a reading aid and is
+hidden as soon as that prompt is edited. The first use downloads and loads the
+separate 7.7 GB rewriter plus Marian's 312 MB Chinese-to-English weights; later
+uses reuse both until Unload. Image generation never rewrites silently, so the
+visible Chinese prompt is still the prompt stored with the image.
 All of it is sourced from the model cards, READMEs and
 prompting guides (the URLs are in `docs/design-notes.md`), none of it
 invented. In brief:
@@ -659,7 +662,7 @@ invented. In brief:
 | Krea 2 Raw | The same; an undistilled base Krea does not recommend for inference | Qwen3-VL, 512 | Trained to 1k: 1 MP |
 | Z-Image Turbo | Long, plain, objective description, English or Chinese; text in quotes | Qwen3-4B, 512 | 0.26-4.2 MP documented, trained to the 1k-1.5k range |
 | Qwen-Image | Dense caption in colour/shape/texture/quantity/text terms; append ", Ultra HD, 4K, cinematic composition."; True CFG 4 with a negative prompt | Qwen2.5-VL, 512 | Trained to 1328x1328; the README's shapes are 1.5-1.8 MP |
-| ERNIE-Image Turbo | Expand a short prompt, then review its detailed paragraph of subject, setting, colour, light and layout | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
+| ERNIE-Image Turbo | Expand a short prompt, then review its detailed Chinese paragraph and local English translation | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
 
 ## Defaults by checkpoint
 
@@ -740,9 +743,13 @@ ERNIE-Image Turbo (`baidu/ERNIE-Image-Turbo`, Apache 2.0 and open) is Baidu's
 gate: a negative prompt applies above CFG 1, and there is no True CFG knob. Its
 repo ships a 7.7 GB prompt rewriter. Ordinary loading leaves it out; the
 explicit **Expand** button loads it on first use and places its sampled result
-back in the prompt box. Generation itself keeps the pipeline switch off, so
-the reviewed prompt you see is the prompt the model sees and the seed brings
-the image back. The
+back in the prompt box. A CPU-only
+[`Helsinki-NLP/opus-mt-zh-en`](https://huggingface.co/Helsinki-NLP/opus-mt-zh-en)
+Marian model (312 MB of PyTorch weights, CC-BY-4.0) translates that result for
+display underneath; the translation is not sent to ERNIE or recorded with the
+image. Generation itself keeps the pipeline switch off, so the reviewed
+Chinese prompt you see is the prompt the model sees and the seed brings the
+image back. The
 pipeline takes no schedule from outside, so a mu is dropped and recorded as
 dropped, and it uses FLUX.2's VAE, for which no live-preview map has been
 fitted yet. Baidu lists 1 MP shapes only, but 2 MP and 4 MP render. Measured

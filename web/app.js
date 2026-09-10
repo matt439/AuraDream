@@ -13,6 +13,7 @@ const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
   negNote: $('neg-note'), promptTip: $('prompt-tip'), sizeTip: $('size-tip'),
   examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
+  promptTranslationField: $('prompt-translation-field'), promptTranslation: $('prompt-translation'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
@@ -106,6 +107,7 @@ let submitting = false;
 // own busy state and never lets a late response overwrite text edited meanwhile.
 let promptExpansionSupported = false;
 let expandingPrompt = false;
+let translatedSource = null;
 // One gallery page in flight at a time, and a token so a page that was already
 // on its way when the filters changed can be dropped rather than appended.
 let galleryPending = null;
@@ -439,6 +441,18 @@ function syncPromptExpansion() {
   els.unload.disabled = expandingPrompt || busy;
   els.generate.setAttribute('aria-disabled', String(expandingPrompt || submitting));
   els.gridRun.setAttribute('aria-disabled', String(expandingPrompt || submitting));
+}
+
+function clearPromptTranslation() {
+  translatedSource = null;
+  els.promptTranslation.value = '';
+  els.promptTranslationField.hidden = true;
+}
+
+function showPromptTranslation(source, translation) {
+  translatedSource = source;
+  els.promptTranslation.value = translation;
+  els.promptTranslationField.hidden = false;
 }
 
 // Anything the user picks - by hand or through Reuse - takes that control off
@@ -1115,6 +1129,7 @@ function resetPanel() {
   forget(PANEL_KEY);
   for (const key of Object.keys(owned)) owned[key] = false;
   els.prompt.value = '';
+  clearPromptTranslation();
   els.negative.value = '';
   [pickedAspect, pickedTier] = ['1:1', 1];
   [els.width.value, els.height.value] = SIZES[pickedAspect][pickedTier];
@@ -1486,6 +1501,7 @@ async function deleteImage(rec) {
 function reuse(rec) {
   ownControls();
   els.prompt.value = rec.prompt;
+  clearPromptTranslation();
   els.negative.value = rec.negative_prompt ?? '';
   els.width.value = rec.width;
   els.height.value = rec.height;
@@ -2225,6 +2241,7 @@ function showExamples(open) {
     li.title = text;
     const pick = () => {
       els.prompt.value = text;
+      clearPromptTranslation();
       showExamples(false);
       // Assigning .value fires no `input`: the preview and the remembered
       // panel are told the way `choose` tells them.
@@ -2244,9 +2261,10 @@ async function expandPrompt() {
   const source = els.prompt.value;
   const prompt = source.trim();
   if (!prompt) { showError('Enter a prompt to expand first.'); els.prompt.focus(); return; }
+  clearPromptTranslation();
   expandingPrompt = true;
   syncPromptExpansion();
-  showError('Loading ERNIE\'s prompt expander…', true);
+  showError('Expanding with ERNIE, then translating locally…', true);
   try {
     const body = await api('/api/prompt/expand', {
       method: 'POST',
@@ -2260,11 +2278,16 @@ async function expandPrompt() {
       return;
     }
     els.prompt.value = body.expanded_prompt;
+    if (body.translated_prompt) showPromptTranslation(body.expanded_prompt, body.translated_prompt);
     schedulePreview();
     persistPanel();
     els.prompt.focus();
     els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length);
-    showError('Prompt expanded. Review or edit it before generating.', true);
+    if (body.translation_detail) {
+      showError(`Prompt expanded, but its English translation failed: ${body.translation_detail}`, true);
+    } else {
+      showError('Prompt expanded. Review the Chinese prompt and its English translation before generating.', true);
+    }
   } catch (err) {
     showError(err.message);
   } finally {
@@ -2274,6 +2297,9 @@ async function expandPrompt() {
 }
 els.examplesBtn.onclick = () => showExamples(els.examplesMenu.hidden);
 els.expandPrompt.onclick = expandPrompt;
+els.prompt.addEventListener('input', () => {
+  if (translatedSource !== null && els.prompt.value !== translatedSource) clearPromptTranslation();
+});
 document.addEventListener('click', (e) => {
   if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
 });

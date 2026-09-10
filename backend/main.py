@@ -44,6 +44,7 @@ from .schemas import (  # noqa: E402
     RunSummary,
     error_detail,
 )
+from .translation import prompt_translator  # noqa: E402
 
 logging.basicConfig(
     level=settings.log_level, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
@@ -135,6 +136,7 @@ async def lifespan(app: FastAPI):
     # there was nothing to unload froze shutdown for the length of the download.
     await jobs.shutdown()
     await asyncio.to_thread(backend.try_unload)
+    await asyncio.to_thread(prompt_translator.unload)
 
 
 app = FastAPI(title="Krea Local", version="0.1.0", lifespan=lifespan)
@@ -331,6 +333,7 @@ async def unload_model() -> ModelStatus:
     # then discard what it built, with the request unanswered for minutes.
     if _load_lock.locked() or not await asyncio.to_thread(backend.try_unload):
         raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
+    await asyncio.to_thread(prompt_translator.unload)
     _load_state.update(state="unloaded", detail=None)
     return await status()
 
@@ -376,7 +379,20 @@ async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
             status_code=422,
             detail="the expanded prompt is over 4000 characters; shorten the source prompt and try again",
         )
-    return PromptExpansion(original_prompt=request.prompt, expanded_prompt=expanded)
+    translated: str | None = None
+    translation_detail: str | None = None
+    try:
+        translated = await asyncio.to_thread(prompt_translator.translate, expanded)
+    except Exception as exc:  # noqa: BLE001 - expansion remains useful on its own
+        translation_detail = short_error(exc)
+        log.error("expanded-prompt translation failed: %s", translation_detail)
+        log.debug("translation traceback", exc_info=True)
+    return PromptExpansion(
+        original_prompt=request.prompt,
+        expanded_prompt=expanded,
+        translated_prompt=translated,
+        translation_detail=translation_detail,
+    )
 
 
 # -------------------------------------------------------------- generation

@@ -132,10 +132,29 @@ class FakeBackend(GenerationBackend):
         self.cache_freed = getattr(self, "cache_freed", 0) + 1
 
 
+class FakeTranslator:
+    def __init__(self) -> None:
+        self.translations: list[str] = []
+        self.unloads = 0
+        self.fail = False
+
+    def translate(self, text: str) -> str:
+        self.translations.append(text)
+        if self.fail:
+            raise RuntimeError("translation broke")
+        return f"English: {text}"
+
+    def unload(self) -> None:
+        self.unloads += 1
+
+
 @pytest.fixture
 def fake(store, monkeypatch):
     backend = FakeBackend()
+    translator = FakeTranslator()
+    backend.translator = translator
     monkeypatch.setattr(main, "backend", backend)
+    monkeypatch.setattr(main, "prompt_translator", translator)
     monkeypatch.setattr(main, "_load_state", {"state": "unloaded", "detail": None})
     monkeypatch.setattr(main, "_load_lock", asyncio.Lock())
     # A fresh manager per test: shutting the app down drains its one worker
@@ -256,9 +275,25 @@ def test_prompt_expansion_loads_the_model_and_returns_reviewable_text(client, fa
     assert response.json() == {
         "original_prompt": "a lighthouse",
         "expanded_prompt": "Expanded: a lighthouse (1264x848)",
+        "translated_prompt": "English: Expanded: a lighthouse (1264x848)",
+        "translation_detail": None,
     }
     assert fake.loads == 1 and fake.expansions == [("a lighthouse", 1264, 848)]
+    assert fake.translator.translations == ["Expanded: a lighthouse (1264x848)"]
     assert client.get("/api/status").json()["prompt_expansion_supported"] is True
+
+
+def test_translation_failure_keeps_the_expanded_prompt(client, fake):
+    fake.prompt_expander_supported = True
+    fake.translator.fail = True
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    assert response.status_code == 200
+    assert response.json() == {
+        "original_prompt": "a lighthouse",
+        "expanded_prompt": "Expanded: a lighthouse (1024x1024)",
+        "translated_prompt": None,
+        "translation_detail": "RuntimeError: translation broke",
+    }
 
 
 def test_prompt_expansion_refuses_an_unsupported_checkpoint(client):

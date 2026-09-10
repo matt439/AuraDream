@@ -6,8 +6,11 @@
   {"eval": "els.prompt.value = 'a fox in snow'; els.expandPrompt.click();"},
   {"wait": 500},
   {"expect": "els.prompt.value === 'Expanded: a fox in snow (1024x1024)'"},
-  {"expect": "els.error.classList.contains('note') && els.error.textContent.includes('Review or edit')"},
+  {"expect": "!els.promptTranslationField.hidden && els.promptTranslation.value === 'English translation of: Expanded: a fox in snow (1024x1024)'"},
+  {"expect": "els.error.classList.contains('note') && els.error.textContent.includes('English translation')"},
   {"expect": "!els.expandPrompt.disabled && els.expandPrompt.textContent === 'Expand'"},
+  {"eval": "els.prompt.value += '!'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "els.promptTranslationField.hidden"},
   {"eval": "els.prompt.value = ''; els.expandPrompt.click();"},
   {"expect": "els.error.textContent.includes('Enter a prompt') && document.activeElement === els.prompt"}
 ]

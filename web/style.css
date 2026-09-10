@@ -113,6 +113,13 @@ textarea, input[type="number"], input[type="search"], input[type="text"] {
 
 textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 
+.translation textarea {
+  color: #cfd0dc;
+  border-color: #343244;
+  font-size: 12px;
+}
+.translation textarea:focus { border-color: var(--accent-2); }
+
 .row { display: flex; gap: 8px; align-items: flex-end; }
 .sub { display: flex; flex-direction: column; gap: 4px; }
 .sub.grow { flex: 1; min-width: 0; }
