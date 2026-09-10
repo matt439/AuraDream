@@ -1,0 +1,129 @@
+"""Reference images and LoRA adapters over HTTP: refused at submit, named
+when unknown, recorded on the row at the weight they ran at."""
+from __future__ import annotations
+
+import pytest
+
+from tests.api_helpers import run_one, stream_job
+
+
+# ------------------------------------------------------- conditioning inputs
+
+
+@pytest.fixture
+def lora_dir(tmp_path, monkeypatch):
+    """An adapter directory the server can list and resolve names against."""
+    import dataclasses
+
+    from backend import loras
+
+    directory = tmp_path / "loras"
+    directory.mkdir()
+    (directory / "style.safetensors").write_bytes(b"weights")
+    monkeypatch.setattr(
+        loras, "settings", dataclasses.replace(loras.settings, loras_dir=directory)
+    )
+    return directory
+
+
+def test_status_publishes_both_conditioning_capabilities(client, fake):
+    body = client.get("/api/status").json()
+    assert body["defaults"]["reference_supported"] is True
+    assert body["defaults"]["lora_supported"] is True
+    # And the tooltips cannot contradict the greyed-out controls.
+    live = (body["hints"]["reference"], body["hints"]["lora"])
+    assert all(live)
+
+    fake.reference_supported = False
+    fake.lora_reason = "no peft here"
+    body = client.get("/api/status").json()
+    assert body["defaults"]["reference_supported"] is False
+    assert body["defaults"]["lora_supported"] is False
+    # A dead control explains itself rather than repeating what a live one says.
+    assert (body["hints"]["reference"], body["hints"]["lora"]) != live
+    assert "klein" in body["hints"]["reference"]
+    assert "peft" in body["hints"]["lora"]
+
+
+def test_references_are_refused_at_submit_not_at_cell_one(client, fake, store):
+    # A 64-cell night must not discover at the first image that the pipeline
+    # ignores `image` and every cell is a plain text-to-image.
+    fake.reference_supported = False
+    response = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "reference": [1]}
+    )
+    assert response.status_code == 422 and "klein" in response.json()["detail"]
+    assert fake.requests == []
+
+
+def test_an_unknown_reference_id_is_named(client, fake, store):
+    response = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "reference": [4242]}
+    )
+    assert response.status_code == 422
+    assert "no gallery image with id 4242" in response.json()["detail"]
+
+
+def test_a_reference_reaches_the_backend_and_the_row(client, fake, store):
+    run_one(client)  # something to point at
+    first = client.get("/api/gallery").json()["items"][0]
+    run_one(client, reference=[first["id"]])
+    assert fake.requests[-1].reference == [first["id"]]
+    newest = client.get("/api/gallery").json()["items"][0]
+    assert newest["reference"] == [first["id"]]
+
+
+def test_a_reference_chip_can_turn_an_id_into_a_picture(client, fake, store):
+    # The panel's chips hold ids and nothing else - one restored from a record
+    # or from localStorage may name an image no loaded gallery page contains -
+    # so an id has to be enough to show the thumbnail.
+    run_one(client)
+    record = client.get("/api/gallery").json()["items"][0]
+    response = client.get(f"/api/images/{record['id']}/thumb", follow_redirects=False)
+    assert response.status_code in (302, 307)
+    assert response.headers["location"] in (record["thumb_url"], record["url"])
+    assert client.get("/api/images/4242/thumb").status_code == 404
+
+
+def test_an_adapter_is_refused_with_the_reason(client, fake, lora_dir):
+    fake.lora_reason = "LoRA adapters need the peft package"
+    response = client.post(
+        "/api/generate",
+        json={"prompt": "x", "width": 256, "height": 256, "lora": "style.safetensors"},
+    )
+    assert response.status_code == 422 and "peft" in response.json()["detail"]
+
+
+def test_an_adapter_that_is_not_there_is_refused_by_name(client, fake, lora_dir):
+    response = client.post(
+        "/api/generate",
+        json={"prompt": "x", "width": 256, "height": 256, "lora": "missing.safetensors"},
+    )
+    assert response.status_code == 422 and "no LoRA named" in response.json()["detail"]
+    # And a path never reaches the directory at all - the schema refuses it.
+    assert client.post(
+        "/api/generate",
+        json={"prompt": "x", "width": 256, "height": 256, "lora": "../../keys.safetensors"},
+    ).status_code == 422
+
+
+def test_the_adapter_listing_is_the_directory(client, fake, lora_dir):
+    body = client.get("/api/loras").json()
+    assert [entry["name"] for entry in body["loras"]] == ["style.safetensors"]
+    assert body["supported"] is True and body["detail"] is None
+
+
+def test_a_weight_sweep_records_the_weight_it_ran_at(client, fake, lora_dir):
+    response = client.post(
+        "/api/grid",
+        json={
+            "prompt": "a fox", "width": 256, "height": 256, "seed": 1,
+            "lora": "style.safetensors", "lora_scale_axis": "0,0.5,1",
+        },
+    )
+    assert response.status_code == 200
+    stream_job(client, response.json()["job_id"])
+    assert [r.lora_scale for r in fake.requests] == [0.0, 0.5, 1.0]
+    rows = client.get("/api/gallery").json()["items"]
+    assert {row["lora_scale"] for row in rows} == {0.0, 0.5, 1.0}
+    assert {row["lora"] for row in rows} == {"style.safetensors"}

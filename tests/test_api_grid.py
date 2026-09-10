@@ -1,0 +1,530 @@
+"""Grid search over HTTP: the cells a grid runs, the preview, resume, the
+re-render, the seeds it publishes and the gallery paging behind it."""
+from __future__ import annotations
+
+import pytest
+from PIL import Image
+
+from backend import grid
+from backend.config import settings
+from backend.model_defaults import defaults_for
+from backend.schemas import GenerateRequest
+from tests.api_helpers import run_grid, run_one, stream_job
+
+
+# ---------------------------------------------------------------- grid search
+
+
+def test_a_grid_runs_every_cell_of_every_seed(client, fake):
+    _, events = run_grid(client, steps_axis="6,8", cfg_axis="0,1", seeds=2, seed=42)
+
+    assert events[-1]["type"] == "done" and events[-1]["status"] == "done"
+    # Seeds outermost, then steps, then CFG - the order a half-finished grid
+    # depends on to still be a usable comparison.
+    assert [(r.steps, r.guidance_scale) for r in fake.requests] == [
+        (6, 0.0), (6, 1.0), (8, 0.0), (8, 1.0),
+        (6, 0.0), (6, 1.0), (8, 0.0), (8, 1.0),
+    ]
+    assert fake.seeds == [42, 42, 42, 42, 43, 43, 43, 43]
+    assert len(events[-1]["images"]) == 8
+
+
+def test_a_grid_can_take_its_seeds_as_a_list(client, fake):
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "seed_axis": "4471, 8823",
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["values"]["seed"] == [4471, 8823]
+    assert preview["cells"] == 4 and "2 listed seeds" in preview["summary"]
+    stream_job(client, client.post("/api/grid", json=body).json()["job_id"])
+    assert fake.seeds == [4471, 4471, 8823, 8823]
+    # Determinate on its own, so a resume needs no base seed - and finds it all done.
+    assert client.post("/api/grid", json={**body, "resume": True}).status_code == 409
+    # A counted axis still shows no seed values: they are derived, not listed.
+    counted = client.post("/api/grid/preview", json={**body, "seed_axis": "", "seeds": 2}).json()
+    assert counted["values"]["seed"] == [] and counted["summary"].endswith("2 seeds")
+
+
+def test_a_grid_says_which_cell_is_running(client, fake):
+    _, events = run_grid(client, steps_axis="6,8", seed=1)
+    labels = [event["label"] for event in events if event.get("label")]
+    # The axes the grid did not vary are filled from the default checkpoint's
+    # profile, so the expected label follows whichever checkpoint that is.
+    profile = defaults_for(settings.model_id)
+    assert grid._label({}, 6, profile["guidance_scale"], profile["mu"]) in labels
+    # A plain request varies nothing, so it labels nothing.
+    _, plain = run_one(client, runs=2)
+    assert not [event for event in plain if event.get("label")]
+
+
+def test_the_preview_expands_the_same_grid_it_would_run(client):
+    body = {
+        "prompt": "a lighthouse in fog",
+        "width": 256,
+        "height": 256,
+        "steps_axis": "6-10x2",
+        "mu_axis": "none,1.15",
+        "seeds": 2,
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["values"]["steps"] == [6, 8, 10]
+    assert preview["values"]["mu"] == [None, 1.15]
+    assert (preview["cells"], preview["images"]) == (12, 12)
+    # Nothing in the gallery at this size yet, so it promises no duration at all
+    # rather than guessing one.
+    assert preview["seconds"] is None
+
+
+def test_the_preview_counts_the_cells_that_are_one_picture(client, fake):
+    # A negative-prompt variable under a CFG that never clears the pipeline's
+    # threshold: three cells on paper, one image in pixels. The preview says
+    # so before the night is spent, and the finished job counts what it made.
+    fake.cfg_threshold = 1.0
+    body = {
+        "prompt": "a lighthouse in fog",
+        "negative_prompt": "{avoid}",
+        "prompt_axis": "avoid = blurry | dark | noisy",
+        "guidance_scale": 0.5,
+        "width": 256,
+        "height": 256,
+        "seed": 1,
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert (preview["cells"], preview["duplicates"]) == (3, 2)
+    body["guidance_scale"] = 2.0
+    assert client.post("/api/grid/preview", json=body).json()["duplicates"] == 0
+    # The fake draws the same blank canvas for every cell, so the job's own
+    # count reads 1 distinct - the number an ignored axis shows up in.
+    job_id = client.post("/api/grid", json=body).json()["job_id"]
+    done = stream_job(client, job_id)[-1]
+    assert (done["image_count"], done["distinct_count"]) == (3, 1)
+    assert all(len(image["content_hash"]) == 16 for image in done["images"])
+    runs = client.get("/api/runs").json()
+    assert (runs[0]["images"], runs[0]["distinct"]) == (3, 1)
+
+
+def test_a_grid_varies_the_prompt_through_its_placeholders(client, fake):
+    _, events = run_grid(
+        client,
+        prompt="{size} dog sitting on {ground}",
+        prompt_axis="size = big | small | none\nground = grass",
+        seed=7,
+    )
+    assert events[-1]["type"] == "done" and events[-1]["status"] == "done"
+    assert [request.prompt for request in fake.requests] == [
+        "big dog sitting on grass",
+        "small dog sitting on grass",
+        # `none` is a value: the placeholder and the space it sat in both go.
+        "dog sitting on grass",
+    ]
+    # One prompt per cell, but one seed for all of them - the comparison is the
+    # same noise under a different word.
+    assert fake.seeds == [7, 7, 7]
+    # Every record carries the assignment that made it, `none` as "".
+    assert [r["variables"] for r in events[-1]["images"]] == [
+        {"size": "big", "ground": "grass"},
+        {"size": "small", "ground": "grass"},
+        {"size": "", "ground": "grass"},
+    ]
+
+
+def test_a_grid_stops_at_its_time_budget_and_says_so(client, fake):
+    # Over-provision on purpose and take what the night reaches; the rest is
+    # a resume. The budget means "start no cell after": the cell in flight
+    # finishes, and the stop is reported as the plan working, not a cancel.
+    fake.step_seconds = 0.02
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "steps": 5, "steps_axis": "5,6,7,8",
+        "seed": 1, "budget_minutes": 0.05 / 60,  # 50 ms
+    }
+    _, events = run_grid(client, **body)
+    done = events[-1]
+    assert done["status"] == "cancelled" and done["stopped_by"] == "budget"
+    assert 1 <= len(done["images"]) < 4
+    assert done["deadline"] is not None
+    # Resume picks up exactly the cells the clock cut off.
+    preview = client.post(
+        "/api/grid/preview", json={**body, "budget_minutes": None, "resume": True}
+    ).json()
+    assert preview["skipped"] == len(done["images"])
+    assert preview["cells"] == 4 - len(done["images"])
+
+
+def test_the_preview_shows_the_prompts_it_would_render(client):
+    preview = client.post(
+        "/api/grid/preview",
+        json={
+            "prompt": "{size} dog on {ground}",
+            "width": 256,
+            "height": 256,
+            "prompt_axis": "size = big | small\nground = grass | dirt",
+            "steps_axis": "6,8",
+        },
+    ).json()
+    # The finished text, not the variables behind it: the substitution is the
+    # half of a prompt grid that is easy to get wrong.
+    assert preview["values"]["prompt"] == [
+        "big dog on grass",
+        "big dog on dirt",
+        "small dog on grass",
+        "small dog on dirt",
+    ]
+    assert (preview["cells"], preview["images"]) == (8, 8)
+    assert preview["summary"].startswith("4 prompts x 2 steps")
+
+
+def test_a_prompt_axis_that_does_not_line_up_is_a_422(client):
+    body = {"prompt": "a {size} dog", "width": 256, "height": 256}
+    unused = client.post("/api/grid/preview", json={**body, "prompt_axis": "colour = red"})
+    assert unused.status_code == 422
+    assert "{colour}" in unused.json()["detail"]
+    # No variables at all with placeholders in the prompt is the easiest
+    # mistake in the feature - the box forgotten, or cleared - and used to
+    # render the literal braces into every image of the night.
+    unfilled = client.post("/api/grid/preview", json={**body, "prompt_axis": ""})
+    assert unfilled.status_code == 422
+    assert "{size}" in unfilled.json()["detail"]
+    # A prompt with no placeholders and no variables is the image Generate
+    # would have made.
+    plain = client.post("/api/grid/preview", json={"prompt": "a dog", "width": 256, "height": 256})
+    assert plain.status_code == 200
+    assert plain.json()["values"]["prompt"] == ["a dog"]
+
+
+def test_resume_skips_only_the_prompt_it_already_rendered(client, store):
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(
+            prompt="big dog on grass", width=256, height=256, steps=8, guidance_scale=0.0, mu=None
+        ),
+        seed=5,
+        duration_ms=100,
+        model_id=settings.model_id,
+    )
+    preview = client.post(
+        "/api/grid/preview",
+        json={
+            "prompt": "{size} dog on grass",
+            "width": 256,
+            "height": 256,
+            "prompt_axis": "size = big | small",
+            "steps_axis": "8",
+            "cfg_axis": "0",
+            "mu_axis": "none",
+            "seed": 5,
+            "resume": True,
+        },
+    ).json()
+    # The row matches one prompt of two; the other has never been rendered and
+    # the identical settings under it must not be skipped with it.
+    assert (preview["skipped"], preview["cells"]) == (1, 1)
+
+
+def test_status_reports_free_disk_and_the_preview_prices_the_pngs(client, store):
+    status = client.get("/api/status").json()
+    assert isinstance(status["disk_free_mb"], int) and status["disk_free_mb"] > 0
+    body = {"prompt": "x", "width": 256, "height": 256, "steps_axis": "8", "seeds": 4}
+    # No files at this size yet: no estimate rather than a guess.
+    assert client.post("/api/grid/preview", json=body).json()["bytes"] is None
+    for seed in (1, 2, 3):
+        store.save_image(
+            Image.new("RGB", (256, 256)),
+            GenerateRequest(prompt="x", width=256, height=256),
+            seed=seed, duration_ms=1, model_id=settings.model_id,
+        )
+    sizes = sorted(p.stat().st_size for p in store.settings.outputs_dir.glob("*.png"))
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["bytes"] == sizes[1] * 4  # the median, times the image count
+
+
+def test_the_preview_estimates_from_what_the_gallery_measured(client, store):
+    # Half a second per step, measured at this size on this checkpoint. The
+    # fake backend renders instantly, so the row has to be a real one to
+    # estimate from - and a row from another checkpoint must not count.
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="x", width=256, height=256, steps=8),
+        seed=2,
+        duration_ms=40000,
+        model_id="some/other-checkpoint",
+    )
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="x", width=256, height=256, steps=8),
+        seed=1,
+        duration_ms=4000,
+        model_id=settings.model_id,
+    )
+    preview = client.post(
+        "/api/grid/preview",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "8", "seeds": 4},
+    ).json()
+    # 0.5s x 8 steps x 4 cells. Per step, not per image: a grid whose cells
+    # disagree about the step count cannot be costed from an image average.
+    assert preview["seconds"] == pytest.approx(16.0)
+
+
+def test_a_bad_axis_is_refused_before_anything_runs(client, fake):
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "eight"},
+    )
+    assert response.status_code == 422
+    assert "not a number" in response.json()["detail"]
+    assert not fake.requests
+
+
+def test_a_grid_out_of_the_schemas_range_names_the_field(client):
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "90-120x10"},
+    )
+    assert response.status_code == 422
+    assert "steps" in response.json()["detail"]
+
+
+def test_runs_are_not_a_grid_axis(client):
+    # They would multiply the night behind the count the preview promised.
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "runs": 4},
+    )
+    assert response.status_code == 422
+
+
+def test_every_image_of_a_run_carries_its_job(client, fake):
+    job_id, events = run_grid(client, steps_axis="6,8", seed=5)
+    records = events[-1]["images"]
+    assert {r["job_id"] for r in records} == {job_id}
+    # And that id is what the gallery filter selects on, so a night's work is
+    # one search away rather than however far down the grid it has sunk.
+    page = client.get(f"/api/gallery?search=job:{job_id}").json()
+    assert page["total"] == len(records)
+
+
+def test_a_resumed_grid_skips_what_the_gallery_already_holds(client, fake):
+    body = {
+        "prompt": "a lighthouse in fog",
+        "width": 256,
+        "height": 256,
+        "steps_axis": "6,8,10",
+        "seed": 11,
+    }
+    stream_job(client, client.post("/api/grid", json={**body, "steps_axis": "6"}).json()["job_id"])
+    assert len(fake.requests) == 1
+
+    preview = client.post("/api/grid/preview", json={**body, "resume": True}).json()
+    assert (preview["cells"], preview["skipped"]) == (2, 1)
+
+    stream_job(client, client.post("/api/grid", json={**body, "resume": True}).json()["job_id"])
+    # The 6-step cell was not rendered twice, and the order of what remains is
+    # the order the grid would have reached it in.
+    assert [r.steps for r in fake.requests] == [6, 8, 10]
+
+
+def test_resuming_a_finished_grid_refuses_rather_than_running_nothing(client, fake):
+    body = {
+        "prompt": "a lighthouse in fog",
+        "width": 256,
+        "height": 256,
+        "steps_axis": "6,8",
+        "seed": 3,
+    }
+    stream_job(client, client.post("/api/grid", json=body).json()["job_id"])
+    response = client.post("/api/grid", json={**body, "resume": True})
+    # An empty job would report "done" having drawn nothing, which reads as a
+    # failure; 409 says the work is already there.
+    assert response.status_code == 409
+    assert len(fake.requests) == 2
+
+
+def test_a_grid_publishes_the_seed_it_drew(client, fake):
+    # A grid with a blank Seed box draws its own base and every image carries a
+    # *derived* seed - so the base has to come back in the response, or resume
+    # has nothing to key on.
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "seeds": 2},
+    )
+    accepted = response.json()
+    assert isinstance(accepted["seed"], int)
+    assert client.get(f"/api/jobs/{accepted['job_id']}").json()["seed"] == accepted["seed"]
+    events = stream_job(client, accepted["job_id"])
+    # The base is the *oldest* image's seed, not the newest's.
+    assert events[-1]["images"][0]["seed"] == accepted["seed"]
+    assert events[-1]["images"][-1]["seed"] == accepted["seed"] + 1
+    # And resuming with it finds every cell done.
+    resume = client.post(
+        "/api/grid",
+        json={
+            "prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "seeds": 2,
+            "seed": accepted["seed"], "resume": True,
+        },
+    )
+    assert resume.status_code == 409
+
+
+def test_a_plain_request_publishes_its_seed_too(client):
+    accepted = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "seed": 77}
+    ).json()
+    assert accepted["seed"] == 77
+    assert accepted["run_id"]
+
+
+def test_a_resumed_grid_is_one_run_under_two_jobs(client, fake):
+    body = {"prompt": "a lighthouse in fog", "width": 256, "height": 256, "steps_axis": "6,8,10", "seed": 11}
+    first = client.post("/api/grid", json=body).json()
+    images = stream_job(client, first["job_id"])[-1]["images"]
+    # Pretend the night died after one cell: lose the other two, then resume.
+    for record in images[1:]:
+        client.delete(f"/api/images/{record['id']}")
+    second = client.post("/api/grid", json={**body, "resume": True}).json()
+    stream_job(client, second["job_id"])
+    assert second["job_id"] != first["job_id"]
+    # The run id is the whole grid's, so both halves carry it - and the sheet's
+    # `run:` filter returns the complete matrix where `job:` would return a part.
+    assert second["run_id"] == first["run_id"]
+    page = client.get(f"/api/gallery?search=run:{second['run_id']}").json()
+    assert page["total"] == 3
+    assert {item["run_id"] for item in page["items"]} == {first["run_id"]}
+    assert len({item["job_id"] for item in page["items"]}) == 2
+
+
+def test_the_record_carries_what_ran_not_what_was_asked(client, fake):
+    # Turbo at CFG 0 never sees a negative prompt; the row and the resume key
+    # used to carry it anyway, so clearing the greyed-out box before a resume
+    # matched nothing and re-rendered the whole grid.
+    fake.cfg_threshold = 0.0
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "cfg_axis": "0,1",
+        "seed": 5, "negative_prompt": "blurry",
+    }
+    images = stream_job(client, client.post("/api/grid", json=body).json()["job_id"])[-1]["images"]
+    by_cfg = {record["guidance_scale"]: record["negative_prompt"] for record in images}
+    assert by_cfg == {0.0: None, 1.0: "blurry"}
+    assert {record["quantization"] for record in images} == {settings.quantization}
+    # Resubmitted with the box cleared, the CFG 0 cells count as done and only
+    # the guided cells - whose negative prompt did change - are outstanding.
+    preview = client.post(
+        "/api/grid/preview", json={**body, "negative_prompt": None, "resume": True}
+    ).json()
+    assert (preview["skipped"], preview["cells"]) == (2, 2)
+    # And resubmitted as it was, everything is.
+    assert client.post("/api/grid", json={**body, "resume": True}).status_code == 409
+
+
+def test_resume_without_a_seed_is_refused(client, fake):
+    # It would draw a fresh random base, match none of the night it is meant to
+    # continue, and render the whole grid again while reporting a resume.
+    response = client.post(
+        "/api/grid",
+        json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "6,8", "resume": True},
+    )
+    assert response.status_code == 422
+    # A model validator lands in FastAPI's own structured 422 body rather than
+    # in one of ours, which the UI flattens back into a sentence.
+    assert "seed" in str(response.json()["detail"])
+    assert not fake.requests
+
+
+def test_a_selection_can_be_rendered_again_at_another_size(client, fake, store):
+    # Star two cells of a 256px grid and ask for them at 512: two cells, the
+    # same prompt, steps, CFG, mu and seed, only the size changed, oldest
+    # first - and a second ask finds them done.
+    _, events = run_grid(client, steps_axis="6,8,10", cfg_axis="0,1", seed=5, mu=1.15)
+    images = sorted(events[-1]["images"], key=lambda r: r["id"])
+    for record in (images[1], images[4]):
+        client.post(f"/api/images/{record['id']}/favorite?value=true")
+    fake.requests.clear()
+
+    accepted = client.post("/api/rerender", json={"width": 512, "height": 512}).json()
+    done = stream_job(client, accepted["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 2
+    asked = [(r.steps, r.guidance_scale, r.mu, r.seed, r.width) for r in fake.requests]
+    assert asked == [
+        (images[1]["steps"], images[1]["guidance_scale"], 1.15, 5, 512),
+        (images[4]["steps"], images[4]["guidance_scale"], 1.15, 5, 512),
+    ]
+    assert accepted["seed"] == 5
+    # A run of its own, distinct from the grid it came from, and resumable.
+    assert accepted["run_id"] != images[0]["run_id"]
+    assert client.post("/api/rerender", json={"width": 512, "height": 512}).status_code == 409
+    # The selection is the gallery's own filter, taken server-side: the two
+    # 8-step cells, starred or not.
+    narrowed = client.post(
+        "/api/rerender", json={"width": 768, "height": 768, "favorites": False, "search": "steps:8"}
+    )
+    assert narrowed.status_code == 200
+    assert len(stream_job(client, narrowed.json()["job_id"])[-1]["images"]) == 2
+    assert client.post(
+        "/api/rerender", json={"width": 512, "height": 512, "search": "seed:999"}
+    ).status_code == 404
+    # The pixel budget applies, as it does to both other producers.
+    assert client.post("/api/rerender", json={"width": 2736, "height": 2736}).status_code == 422
+
+
+def test_a_rerender_refuses_another_checkpoints_records(client, store):
+    # Steps, CFG and mu are checkpoint-specific; rendering FLUX's 28 / 3.5 on
+    # Turbo would record a broken image under Turbo.
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="x", width=256, height=256),
+        seed=1, duration_ms=1, model_id="somebody/else",
+    )
+    response = client.post("/api/rerender", json={"width": 512, "height": 512, "favorites": False})
+    assert response.status_code == 422
+    assert "somebody/else" in response.json()["detail"] and "model:" in response.json()["detail"]
+
+
+def test_finished_jobs_are_listed_on_request_with_their_outcome(client, fake):
+    # The morning after: /api/jobs alone is empty once the night is over, and
+    # nothing said whether the grid finished, stopped or died - or how much it
+    # made. Newest finished first, counters and error but no records.
+    fake.fail_on = {2}
+    job_id, events = run_grid(client, steps_axis="6,8,10", seed=1)
+    assert client.get("/api/jobs").json() == []
+    listed = client.get("/api/jobs?include_finished=true").json()
+    assert [job["job_id"] for job in listed] == [job_id]
+    job = listed[0]
+    assert (job["status"], job["failures"], job["image_count"]) == ("done", 1, 2)
+    assert (job["run"], job["total_runs"]) == (3, 3)
+    assert job["finished_at"] >= job["started_at"] >= job["created_at"]
+    assert "blew up" in job["error"] and "images" not in job
+    # And the gallery's own account of the run, which outlives the process.
+    runs = client.get("/api/runs").json()
+    assert len(runs) == 1
+    assert (runs[0]["run_id"], runs[0]["images"], runs[0]["seed"]) == (job["run_id"], 2, 1)
+
+
+def test_the_gallery_pages_by_id_and_knows_when_it_is_done(client, store):
+    for seed in range(5):
+        store.save_image(
+            Image.new("RGB", (16, 16)),
+            GenerateRequest(prompt="x", width=256, height=256),
+            seed=seed, duration_ms=1, model_id="m",
+        )
+    first = client.get("/api/gallery?limit=2").json()
+    assert [r["seed"] for r in first["items"]] == [4, 3]
+    # Exact, from a row fetched past the page - not `offset < total`, which a
+    # growing total keeps true after the last old row has been shown.
+    assert first["has_more"] is True
+    second = client.get(f"/api/gallery?limit=2&before={first['items'][-1]['id']}").json()
+    assert [r["seed"] for r in second["items"]] == [2, 1]
+    third = client.get(f"/api/gallery?limit=2&before={second['items'][-1]['id']}").json()
+    assert [r["seed"] for r in third["items"]] == [0]
+    assert third["has_more"] is False
+    assert third["total"] == 5
+
+
+def test_a_bad_gallery_filter_is_a_422(client):
+    response = client.get("/api/gallery?search=seed:tuesday")
+    assert response.status_code == 422
+    assert "not a number" in response.json()["detail"]
+
+
+def test_the_pixel_budget_is_enforced(client):
+    response = client.post(
+        "/api/generate", json={"prompt": "x", "width": 2816, "height": 2816}
+    )
+    assert response.status_code == 422

@@ -20,6 +20,7 @@ from .config import settings
 # `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
 from .grid import lora_key, reference_key
+from .search import TRUE_CFG_SQL, like_escape, split_search, strict_scope
 from .schemas import ImageRecord, RunSummary, effective_true_cfg
 
 if TYPE_CHECKING:
@@ -257,14 +258,6 @@ _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "created_at", "job_id", "run_id", "quantization",
     "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
-)
-
-# `schemas.effective_true_cfg` in SQL, for the filter and the grouping that
-# run in the database: the scale the negative prompt ran at, which on a row
-# from before the column was `guidance_scale` whenever there was one.
-_TRUE_CFG_SQL = (
-    "COALESCE(true_cfg, CASE WHEN negative_prompt IS NOT NULL AND negative_prompt <> '' "
-    "THEN guidance_scale END)"
 )
 
 
@@ -526,116 +519,6 @@ def _page(
     return total, rows
 
 
-# `key:value` in the search box. The column, and what a bare value means.
-_FILTERS: dict[str, tuple[str, Any]] = {
-    "seed": ("seed", int),
-    "steps": ("steps", int),
-    "cfg": ("guidance_scale", float),
-    # The scale the negative prompt ran at, through the same reading of older
-    # rows the records get; `tcfg:none` is the images that ran without one.
-    "tcfg": (_TRUE_CFG_SQL, float),
-    "mu": ("mu", float),
-    "model": ("model_id", str),
-    "quant": ("quantization", str),
-    # The adapter by name - `lora:none` is everything rendered without one.
-    "lora": ("lora", str),
-    "job": ("job_id", str),
-    "run": ("run_id", str),
-    # Every image with these pixels - a substring, so a prefix of one is enough.
-    "hash": ("content_hash", str),
-    # Handled by _date_clause: a day, not a column with a cast.
-    "date": ("created_at", None),
-}
-_COMPARISONS = ("<=", ">=", "<", ">")
-_NULL_TOKENS = {"none", "null", "off"}
-
-
-def _date_clause(raw: str) -> tuple[str, list]:
-    """`date:2026-09-07`, `date:today`, `date:yesterday` as a half-open range.
-
-    A *local* day: `created_at` is UTC, and an overnight run crosses midnight
-    in every timezone, so the day the user means is the one on their clock,
-    converted here. A half-open `>= start AND < end` rather than a LIKE prefix
-    - the prefix cannot use the index and would need the UTC date, which is
-    the wrong one for anything made after about 4 pm in the Americas or before
-    breakfast east of Greenwich. The bounds are formatted the way the rows are
-    (`isoformat()` of an aware datetime), so the string comparison is the
-    time comparison.
-    """
-    from datetime import date, timedelta
-
-    lowered = raw.lower()
-    if lowered == "today":
-        day = date.today()
-    elif lowered == "yesterday":
-        day = date.today() - timedelta(days=1)
-    else:
-        try:
-            day = date.fromisoformat(raw)
-        except ValueError:
-            raise ValueError(f"date: {raw!r} is not YYYY-MM-DD, today or yesterday") from None
-    start = datetime.combine(day, datetime.min.time()).astimezone(timezone.utc)
-    end = start + timedelta(days=1)
-    return "created_at >= ? AND created_at < ?", [start.isoformat(), end.isoformat()]
-
-
-def _filter_clause(key: str, raw: str) -> tuple[str, list]:
-    """One `key:value` term as SQL. Raises ValueError on a value that is not one.
-
-    Exact (`cfg:0.5`), comparison (`steps:>=8`), range (`cfg:0-1`) or `none`,
-    which is the only way to ask for the images that ran without a mu at all -
-    `mu:0` is a different image and SQL will not match NULL with either.
-    """
-    if key == "date":
-        return _date_clause(raw)
-    column, cast = _FILTERS[key]
-    if cast is str:
-        return rf"{column} LIKE ? ESCAPE '\'", [f"%{_like_escape(raw)}%"]
-    if raw.lower() in _NULL_TOKENS:
-        return f"{column} IS NULL", []
-    for operator in _COMPARISONS:
-        if raw.startswith(operator):
-            return f"{column} {operator} ?", [_cast(cast, key, raw[len(operator):])]
-    # A range borrows the grid's own spelling, so `cfg:0-1` reads the same in
-    # the search box as it does in the axis that produced those images.
-    low, dash, high = raw.partition("-")
-    if dash and low and high:
-        return f"{column} BETWEEN ? AND ?", [_cast(cast, key, low), _cast(cast, key, high)]
-    return f"{column} = ?", [_cast(cast, key, raw)]
-
-
-def _cast(cast, key: str, raw: str):
-    try:
-        return cast(raw)
-    except ValueError:
-        raise ValueError(f"{key}: {raw!r} is not a number") from None
-
-
-def _split_search(search: str) -> tuple[list[str], list, str]:
-    """Split the box into SQL predicates and the words left over for FTS.
-
-    Anything that is not a known `key:value` stays free text, so a prompt that
-    happens to contain a colon still searches for itself.
-    """
-    clauses: list[str] = []
-    params: list = []
-    words: list[str] = []
-    for token in search.split():
-        key, sep, raw = token.partition(":")
-        if sep and raw and key.lower() in _FILTERS:
-            clause, values = _filter_clause(key.lower(), raw)
-            clauses.append(clause)
-            params.extend(values)
-        else:
-            words.append(token)
-    return clauses, params, " ".join(words)
-
-
-def _like_escape(term: str) -> str:
-    r"""Neutralise LIKE wildcards, for use with ESCAPE '\'."""
-    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
 def list_images(
     limit: int = 50,
     offset: int = 0,
@@ -657,7 +540,7 @@ def list_images(
     if search:
         # `seed:42 cfg:<=0.5 fox` - the terms that name a column become real
         # predicates, and only what is left goes to the full-text index.
-        filters, filter_params, text = _split_search(search)
+        filters, filter_params, text = split_search(search)
         where.extend(filters)
         params.extend(filter_params)
     if text:
@@ -680,7 +563,7 @@ def list_images(
             # LIKE over the raw string would demand them contiguous.
             terms = text.split()
             where[-1:] = [r"prompt LIKE ? ESCAPE '\'"] * len(terms)
-            params[-1:] = [f"%{_like_escape(t)}%" for t in terms]
+            params[-1:] = [f"%{like_escape(t)}%" for t in terms]
             clause = f"WHERE {' AND '.join(where)}" if where else ""
             total, rows = _page(conn, clause, params, limit, offset, before)
     return [_row_to_record(r) for r in rows], total
@@ -751,26 +634,10 @@ def completed_cells(
     return keys
 
 
-def _strict_scope(search: str | None) -> tuple[list[str], list]:
-    """The search box's `key:value` terms as predicates, and nothing else.
-
-    For the paths where a fuzzy match is a hazard - a delete, a statistic.
-    `list_images`' LIKE fallback changes the predicate's semantics on any
-    token with an odd quote, and a destructive filter resolved through a fuzzy
-    index should not be confirmed blind: free text is refused, not matched.
-    """
-    if not search or not search.strip():
-        return [], []
-    filters, params, text = _split_search(search)
-    if text:
-        raise ValueError(f"key:value terms only; {text!r} is free text")
-    return filters, params
-
-
 def matching_preview(search: str) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
     checkpoints a substring term (`job:`, `model:`) actually matched."""
-    filters, params = _strict_scope(search)
+    filters, params = strict_scope(search)
     if not filters:
         raise ValueError("a filter is required; the whole gallery is `clear` without --where")
     clause = f"WHERE {' AND '.join(filters)}"
@@ -803,7 +670,7 @@ def delete_matching(search: str, keep_favorites: bool = False) -> dict[str, int]
     filtered clear that also removed every untracked PNG would be a new
     all-or-nothing hazard inside the feature meant to remove one.
     """
-    filters, params = _strict_scope(search)
+    filters, params = strict_scope(search)
     if not filters:
         raise ValueError("a filter is required; the whole gallery is `clear` without --where")
     if keep_favorites:
@@ -922,7 +789,7 @@ def thumbnail_for(image: Image.Image, filename: str) -> None:
 _GROUPS: dict[str, str] = {
     "steps": "steps",
     "cfg": "round(guidance_scale, 6)",
-    "tcfg": f"round({_TRUE_CFG_SQL}, 6)",
+    "tcfg": f"round({TRUE_CFG_SQL}, 6)",
     "mu": "round(mu, 6)",
     "prompt": "prompt",
     "negative": "negative_prompt",
@@ -957,7 +824,7 @@ def keep_rates(
     if unknown:
         raise ValueError(f"cannot group by {', '.join(unknown)}; one of {', '.join(_GROUPS)}")
     columns = list(dict.fromkeys([*by, "size"]))
-    where, params = _strict_scope(search)
+    where, params = strict_scope(search)
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     select = ", ".join(f"{_GROUPS[name]} AS {name}" for name in columns)
     group = ", ".join(_GROUPS[name] for name in columns)

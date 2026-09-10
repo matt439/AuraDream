@@ -217,7 +217,7 @@ def effective_true_cfg(
     that ran at `guidance_scale` - the two knobs were one then, on every
     pipeline - so the column is read through this rather than raw, and a
     night from before the change resumes against the same key it would be
-    written under today. `storage._TRUE_CFG_SQL` is the same rule in SQL for
+    written under today. `search.TRUE_CFG_SQL` is the same rule in SQL for
     the paths that filter or group in the database; a test holds them equal.
     """
     if true_cfg is not None:

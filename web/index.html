@@ -408,6 +408,17 @@
   </div>
 </dialog>
 
+<!-- Classic scripts sharing one global scope; app.js, the last, is the
+     only one that runs anything at load. Order matters: see state.js. -->
+<script src="/static/state.js"></script>
+<script src="/static/sizes.js"></script>
+<script src="/static/status.js"></script>
+<script src="/static/generation.js"></script>
+<script src="/static/panel.js"></script>
+<script src="/static/gallery.js"></script>
+<script src="/static/sheet.js"></script>
+<script src="/static/lightbox.js"></script>
+<script src="/static/tags.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

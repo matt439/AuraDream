@@ -17,21 +17,17 @@ Linux only, which on a Windows box means running the server from WSL 2.
 """
 from __future__ import annotations
 
-import functools
-import importlib.util
 import inspect
-import json
 import logging
-import sys
 import threading
 import time
-from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 from .. import latent_preview, loras
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
+from . import loading, schedule
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -41,40 +37,11 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# torchao weight-only modes this backend applies itself while loading.
-_QUANT_BACKENDS = ("fp8", "int8")
-# A checkpoint quantized before upload. `transformer/config.json` carries this
-# `quant_method`, and diffusers picks the quantizer up from there on its own.
-_NUNCHAKU = "nunchaku"
-_NUNCHAKU_METHOD = "nunchaku_lite"
-_NUNCHAKU_EXAMPLE = "lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
-
-# Keys in model_index.json worth quantizing. The VAE stays in bf16: it is small
-# and quantizing it shows up as visible decode artefacts.
-_QUANTIZABLE_PREFIXES = ("transformer", "unet", "text_encoder")
-
 # Pipelines whose `do_classifier_free_guidance` is `guidance_scale > 0`. Of the
 # 131 diffusers pipelines that take a `negative_prompt` and no `true_cfg_scale`,
 # 122 gate at `> 1` (SD3, SDXL, Chroma, Lumina 2, ...) and only these guide from
 # zero - so "has negative_prompt" cannot mean 0.0 on its own, as it used to.
 _GUIDES_FROM_ZERO = ("Krea2Pipeline", "ZImage")
-
-# Components image generation never runs, loaded as None initially -
-# which diffusers allows for a class's `_optional_components`, and which keeps
-# their folders out of the download too, *through the concrete class*: the
-# base `DiffusionPipeline.from_pretrained` filters passed components against
-# its own empty `_optional_components` (`_get_signature_keys` is a classmethod
-# on `cls`, diffusers 0.40), takes `pe=None` for a pipeline kwarg, downloads
-# the folder and loads the model - seen on the card, 7.7 GB pulled and 11 GB
-# of RAM taken, before load() switched class. ErnieImagePipeline carries a 7.7 GB
-# bf16 Ministral prompt rewriter (`pe`) and, unless `use_pe` is off, samples
-# a longer prompt through it at temperature 0.6 before every image: the
-# prompt the row records would not be the one the model saw. The explicit
-# Expand action loads these two lazily, writes the result into the editor, and
-# generate() still turns the hidden switch off.
-_UNUSED_COMPONENTS: dict[str, tuple[str, ...]] = {
-    "ErnieImagePipeline": ("pe", "pe_tokenizer"),
-}
 
 # What this backend cannot do without. `callback_on_step_end` is the only place
 # the pipeline hands control back - the progress source and the mandatory
@@ -88,28 +55,6 @@ _REQUIRED_PARAMS = frozenset({"generator", "callback_on_step_end"})
 # name has to reach `CellKey`, the `krea` chunk and Reuse to be reproducible,
 # and one adapter at a weight is the comparison a LoRA is bought for.
 _LORA_ADAPTER = "krea"
-
-
-def _importable(name: str) -> bool:
-    return importlib.util.find_spec(name) is not None
-
-
-def _hub_file(model_id: str, filename: str) -> str:
-    """Path to one file of a checkpoint, downloading only that file.
-
-    A local directory is resolved locally: `from_pretrained` branches on
-    `os.path.isdir` itself, but the two callers here run *before* it - the
-    fp8/int8 component scan and the Nunchaku preflight - and a directory id
-    handed to the Hub client died with a validation error naming the model id
-    and not the quantization.
-    """
-    import os
-
-    if os.path.isdir(model_id):
-        return os.path.join(model_id, filename)
-    from huggingface_hub import hf_hub_download
-
-    return hf_hub_download(model_id, filename)
 
 
 class DiffusersBackend(GenerationBackend):
@@ -131,146 +76,6 @@ class DiffusersBackend(GenerationBackend):
         self._console_progress = True
 
     # ---------------------------------------------------------------- loading
-
-    @staticmethod
-    def _component_libraries(model_id: str) -> dict[str, str]:
-        """Map component name -> owning library, from the repo's model_index.json.
-
-        Entries look like `"text_encoder": ["transformers", "Qwen3VLModel"]`, which
-        is exactly what decides whether a component needs the diffusers or the
-        transformers flavour of TorchAoConfig.
-        """
-        with open(_hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
-            index = json.load(fh)
-
-        libraries: dict[str, str] = {}
-        for name, spec in index.items():
-            # Only ["library", "ClassName"] pairs are components. Krea 2 also
-            # carries plain config values, and `text_encoder_select_layers`
-            # matches the prefix below without being a component at all.
-            if name.startswith("_") or not isinstance(spec, (list, tuple)) or len(spec) != 2:
-                continue
-            if not all(isinstance(part, str) for part in spec):
-                continue
-            if name.startswith(_QUANTIZABLE_PREFIXES) and spec[0]:
-                libraries[name] = spec[0]
-        return libraries
-
-    @staticmethod
-    def _unused_components(model_id: str) -> tuple[str | None, dict[str, None]]:
-        """The pipeline class this checkpoint's index names, and the components
-        of it to load as None.
-
-        Read ahead of the load, since that is the only time diffusers takes the
-        instruction. An index that cannot be read is not a failure here: the
-        whole pipeline loads, which is what `from_pretrained` was about to do.
-        """
-        try:
-            with open(_hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
-                index = json.load(fh)
-        except Exception as exc:  # noqa: BLE001 - an optimisation, not a gate
-            log.debug("model_index.json unavailable ahead of the load: %s", exc)
-            return None, {}
-        class_name = index.get("_class_name")
-        names = _UNUSED_COMPONENTS.get(class_name, ())
-        return class_name, {name: None for name in names if name in index}
-
-    def _quantization_config(self) -> Any:
-        """Build a pipeline-level torchao config, or None for full bf16.
-
-        diffusers and transformers each ship their own `TorchAoConfig` and each
-        validates only its own class, so components need a config instance from
-        their owning library, built from the same torchao `AOBaseConfig`. The
-        single `quant_backend=` shorthand raises on any pipeline whose text
-        encoder is a transformers model, because those signatures disagree.
-        """
-        if settings.quantization == _NUNCHAKU:
-            self._nunchaku_preflight()
-            log.info("%s is pre-quantized; loading with its own quantization config", settings.model_id)
-            return None
-        if settings.quantization not in _QUANT_BACKENDS:
-            return None
-
-        from diffusers import PipelineQuantizationConfig
-        from diffusers import TorchAoConfig as DiffusersTorchAoConfig
-        from torchao.quantization import Float8WeightOnlyConfig, Int8WeightOnlyConfig
-        from transformers import TorchAoConfig as TransformersTorchAoConfig
-
-        # Both are one byte per weight; int8 tends to be more accurate, fp8 keeps
-        # more dynamic range for outlier channels.
-        make = Float8WeightOnlyConfig if settings.quantization == "fp8" else Int8WeightOnlyConfig
-        config_for = {
-            "transformers": TransformersTorchAoConfig,
-            "diffusers": DiffusersTorchAoConfig,
-        }
-
-        mapping = {}
-        for component, library in self._component_libraries(settings.model_id).items():
-            cls = config_for.get(library)
-            if cls is None:
-                log.warning("skipping %s: unknown library %r", component, library)
-                continue
-            self._refuse_prequantized(component)
-            mapping[component] = cls(quant_type=make())
-
-        if not mapping:
-            log.warning("no quantizable components found; loading in full bf16")
-            return None
-        log.info("quantizing %s to %s", sorted(mapping), settings.quantization)
-        return PipelineQuantizationConfig(quant_mapping=mapping)
-
-    @staticmethod
-    def _refuse_prequantized(component: str) -> None:
-        """The mirror image of `_nunchaku_preflight`: torchao on top of a repo
-        that is already quantized.
-
-        `KREA_QUANT=fp8` pointed at a Nunchaku Lite re-upload downloads ~9 GB and
-        then dies deep inside transformers ("quantized with BitsAndBytesConfig
-        but you are passing a TorchAoConfig"). One small config file says so up
-        front. Checked per quantizable component, since the text encoder and the
-        transformer name their quantizers separately.
-        """
-        with open(_hub_file(settings.model_id, f"{component}/config.json"), encoding="utf-8") as fh:
-            method = (json.load(fh).get("quantization_config") or {}).get("quant_method")
-        if method:
-            raise RuntimeError(
-                f"{settings.model_id} is already quantized ({component}: quant_method="
-                f"{method!r}); KREA_QUANT={settings.quantization} would stack torchao on top "
-                "and fail after the download. Use KREA_QUANT=nunchaku (Linux) for a Nunchaku "
-                "Lite repo, or point KREA_MODEL_ID at an unquantized checkpoint."
-            )
-
-    @staticmethod
-    def _nunchaku_preflight() -> None:
-        """Refuse before the download, with the reason, when Nunchaku cannot run.
-
-        Each way the mode can be broken otherwise surfaces minutes into a load,
-        or not at all: the `kernels` package has no Windows builds and fails
-        from inside the weight loader; bitsandbytes holds these checkpoints'
-        NF4 text encoders; and a repo that is not pre-quantized loads without
-        complaint in full bf16 and runs out of memory at the first image.
-        """
-        if sys.platform != "linux":
-            raise RuntimeError(
-                "KREA_QUANT=nunchaku needs Linux: the Nunchaku Lite kernels are "
-                "published for x86_64 Linux only. On Windows, run the server from "
-                "WSL 2 (bash wsl/setup.sh, then bash wsl/serve.sh)."
-            )
-        missing = [name for name in ("kernels", "bitsandbytes") if not _importable(name)]
-        if missing:
-            raise RuntimeError(
-                f"KREA_QUANT=nunchaku needs {' and '.join(missing)}; "
-                "`uv sync` on Linux installs them."
-            )
-        with open(_hub_file(settings.model_id, "transformer/config.json"), encoding="utf-8") as fh:
-            method = (json.load(fh).get("quantization_config") or {}).get("quant_method")
-        if method != _NUNCHAKU_METHOD:
-            raise RuntimeError(
-                f"{settings.model_id} is not a Nunchaku Lite checkpoint (transformer "
-                f"quant_method={method!r}); under KREA_QUANT=nunchaku it would load in "
-                f"full bf16. Point KREA_MODEL_ID at a pre-quantized repo such as "
-                f"{_NUNCHAKU_EXAMPLE}."
-            )
 
     def load(self) -> None:
         with self._lock:
@@ -296,16 +101,16 @@ class DiffusersBackend(GenerationBackend):
             # so this works for Krea2Pipeline, FluxPipeline, and anything else.
             log.info("loading %s (quant=%s)", settings.model_id, settings.quantization)
             kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
-            quant = self._quantization_config()
+            quant = loading.quantization_config(settings)
             if quant is not None:
                 kwargs["quantization_config"] = quant
             # What the pipeline lists but this backend never runs stays on the
             # Hub: `pe=None` is how diffusers is told, and the concrete class
             # prunes the folder from the download as well as from the load -
             # the base class, resolving the same name from the same index,
-            # would download and load it (see _UNUSED_COMPONENTS).
+            # would download and load it (see loading.UNUSED_COMPONENTS).
             loader: Any = DiffusionPipeline
-            class_name, unused = self._unused_components(settings.model_id)
+            class_name, unused = loading.unused_components(settings.model_id)
             if unused:
                 import diffusers
 
@@ -316,7 +121,7 @@ class DiffusersBackend(GenerationBackend):
             pipe = loader.from_pretrained(settings.model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 
-            self._place_pipeline(pipe)
+            loading.place_pipeline(pipe, settings)
 
             # VAE decode at 2K is the other memory spike; slice and tile it. Most
             # pipelines expose the switches themselves; FLUX.2 klein's does not,
@@ -339,67 +144,10 @@ class DiffusersBackend(GenerationBackend):
                     "seeds would reproduce nothing and Cancel could never land."
                 )
             self._apply_console_progress(pipe)
-            self._warn_about_schedule_post_processing(pipe)
+            schedule.warn_about_post_processing(pipe)
             self._call_params = params
             self._pipe = pipe
             log.info("model ready: %s", type(pipe).__name__)
-
-    @staticmethod
-    def _place_pipeline(pipe: Any) -> None:
-        """Apply the configured device strategy, initially or after PE arrives."""
-        import torch
-
-        # The offload hooks resolve their own accelerator when given none,
-        # which is always GPU 0: `KREA_DEVICE=cuda:1` used to load onto cuda:0
-        # while describe() reported that card's name and memory. Only a CUDA
-        # device is passed through - offload cannot target the CPU.
-        device = torch.device(settings.device)
-        target = device if device.type == "cuda" else None
-        if settings.offload == "sequential":
-            pipe.enable_sequential_cpu_offload(device=target)
-        elif settings.offload == "model":
-            pipe.enable_model_cpu_offload(device=target)
-        else:
-            pipe.to(device)
-
-    @staticmethod
-    def _prompt_expander_components(model_id: str) -> dict[str, Any]:
-        """Load ERNIE's optional PE model and tokenizer from their subfolders."""
-        import torch
-        import transformers
-
-        try:
-            with open(_hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
-                index = json.load(fh)
-        except Exception as exc:  # noqa: BLE001 - turned into one actionable error
-            raise RuntimeError(f"could not read the prompt expander manifest: {exc}") from exc
-
-        classes: dict[str, Any] = {}
-        for name in ("pe", "pe_tokenizer"):
-            spec = index.get(name)
-            if not (
-                isinstance(spec, (list, tuple))
-                and len(spec) == 2
-                and spec[0] == "transformers"
-                and isinstance(spec[1], str)
-            ):
-                raise RuntimeError(f"{model_id} does not publish an ERNIE prompt expander ({name})")
-            cls = getattr(transformers, spec[1], None)
-            if cls is None:
-                raise RuntimeError(
-                    f"transformers {transformers.__version__} has no {spec[1]} for the prompt expander"
-                )
-            classes[name] = cls
-
-        # Fail on the tiny tokenizer before beginning a multi-GB model load.
-        components: dict[str, Any] = {}
-        for name in ("pe_tokenizer", "pe"):
-            kwargs: dict[str, Any] = {"subfolder": name}
-            if name == "pe":
-                kwargs["dtype"] = torch.bfloat16
-            log.info("loading prompt expander component %s/%s", model_id, name)
-            components[name] = classes[name].from_pretrained(model_id, **kwargs)
-        return components
 
     def prompt_expansion_supported(self) -> bool:
         pipe = self._pipe
@@ -419,12 +167,12 @@ class DiffusersBackend(GenerationBackend):
             if not callable(enhance) or "use_pe" not in self._call_params:
                 raise RuntimeError(f"{type(pipe).__name__} has no prompt expander")
             if getattr(pipe, "pe", None) is None or getattr(pipe, "pe_tokenizer", None) is None:
-                components = self._prompt_expander_components(settings.model_id)
+                components = loading.prompt_expander_components(settings.model_id)
                 pipe.register_modules(**components)
                 # The offload chain was built while PE was absent. Rebuild it
                 # so invoking pe.generate moves that model to the chosen card
                 # and back just like the image pipeline's other components.
-                self._place_pipeline(pipe)
+                loading.place_pipeline(pipe, settings)
             try:
                 expanded = enhance(prompt, pipe._execution_device, width=width, height=height)
             finally:
@@ -493,144 +241,11 @@ class DiffusersBackend(GenerationBackend):
     def is_ready(self) -> bool:
         return self._pipe is not None
 
-    # -------------------------------------------------------------- schedule
-
-    @staticmethod
-    def _shifted_sigmas(steps: int, mu: float) -> list[float]:
-        """The schedule a shift of `mu` produces, computed here rather than by the scheduler.
-
-            sigma' = e^mu / (e^mu + (1/sigma - 1))
-
-        which is `FlowMatchEulerDiscreteScheduler._time_shift_exponential` over
-        the default `linspace(1, 1/steps, steps)` ramp, to the byte. Only used
-        for a scheduler that does *not* shift dynamically - see `_shifts_itself`
-        and `_static_shift`, which decides how much of `mu` is left to apply.
-        """
-        import math
-
-        out: list[float] = []
-        for i in range(steps):
-            sigma = 1.0 - i / steps
-            out.append(math.exp(mu) / (math.exp(mu) + (1.0 / sigma - 1.0)))
-        return out
-
-    @staticmethod
-    def _shifts_itself(pipe: Any) -> bool:
-        """Does this pipeline's scheduler apply a shift of its own?
-
-        `sigmas` is not the final schedule. Every flow-matching pipeline here
-        derives a mu - 1.15 hard-coded for a distilled checkpoint, resolution
-        dependent otherwise - and hands it to `set_timesteps`, which shifts
-        whatever sigmas it was given whenever `use_dynamic_shifting` is set (it
-        is, in both shipped `scheduler_config.json`s). The shift multiplies the
-        odds sigma/(1-sigma) by e^mu, so two of them compose into a single shift
-        of `mu_a + mu_b`: passing a pre-shifted schedule does not replace the
-        pipeline's mu, it adds to it.
-        """
-        config = getattr(getattr(pipe, "scheduler", None), "config", None)
-        return bool(getattr(config, "use_dynamic_shifting", False))
-
-    @staticmethod
-    def _static_shift(pipe: Any) -> float:
-        """The shift a non-dynamic scheduler applies to *whatever* sigmas it gets.
-
-        `use_dynamic_shifting: false` does not mean no shift. `set_timesteps` is
-        an if/else, and the else branch runs `shift * s / (1 + (shift - 1) * s)`
-        - which multiplies the odds s/(1-s) by `shift`, exactly as the dynamic
-        branch multiplies them by `e^mu`. The two compose, so a pre-shifted
-        schedule handed to a scheduler with `shift=3.0` (SD3, SD3.5; Lumina 2
-        ships 6.0) landed at `mu + ln 3` while the row recorded `mu`. The
-        instance attribute, not `config.shift`: `set_timesteps` reads
-        `self.shift`, which `set_shift()` can change after construction.
-        """
-        scheduler = getattr(pipe, "scheduler", None)
-        shift = getattr(scheduler, "shift", None)
-        if shift is None:
-            shift = getattr(getattr(scheduler, "config", None), "shift", 1.0)
-        return float(shift)
-
-    @staticmethod
-    def _warn_about_schedule_post_processing(pipe: Any) -> None:
-        """Say so once when the scheduler reshapes the schedule after the shift.
-
-        `shift_terminal` stretches it and the karras/exponential/beta options
-        replace it outright, in both branches - so a requested mu then means
-        something other than "the shift that landed". None of the shipped
-        checkpoints set any of them; an arbitrary repo might.
-        """
-        config = getattr(getattr(pipe, "scheduler", None), "config", None)
-        active = [
-            key
-            for key in ("shift_terminal", "use_karras_sigmas", "use_exponential_sigmas", "use_beta_sigmas")
-            if getattr(config, key, None)
-        ]
-        if active:
-            log.warning(
-                "scheduler post-processes the schedule (%s); a requested mu is not the "
-                "shift that lands",
-                ", ".join(active),
-            )
-
-    @contextmanager
-    def _forced_mu(self, pipe: Any, mu: float | None):
-        """Run the pipeline with the scheduler shifted by `mu` and nothing else.
-
-        Krea's CLI exposes --mu as *the* shift, which is what it has to mean
-        here too. Intercepting the value on its way to the scheduler is the only
-        way to say that without re-deriving `calculate_shift` - and with it the
-        latent sequence length, VAE scale factor and patch size - outside the
-        pipeline that owns them.
-
-        `functools.wraps` is load-bearing: `retrieve_timesteps` reads
-        `inspect.signature(scheduler.set_timesteps)` to decide whether custom
-        sigmas are supported at all, and only finds the real signature by
-        following `__wrapped__`. Patching the instance is safe because
-        generation is serialized through a single worker thread.
-        """
-        scheduler = getattr(pipe, "scheduler", None)
-        original = getattr(scheduler, "set_timesteps", None)
-        signature = inspect.signature(original) if original is not None else None
-        if mu is None or signature is None or "mu" not in signature.parameters:
-            if mu is not None:
-                log.debug("scheduler takes no mu; ignoring mu=%s", mu)
-            yield
-            return
-
-        @functools.wraps(original)
-        def set_timesteps(*args: Any, **kwargs: Any):
-            bound = signature.bind(*args, **kwargs)
-            bound.arguments["mu"] = mu
-            return original(*bound.args, **bound.kwargs)
-
-        scheduler.set_timesteps = set_timesteps
-        try:
-            yield
-        finally:
-            # Drop the instance attribute; the class's bound method resurfaces.
-            scheduler.__dict__.pop("set_timesteps", None)
-
     # ------------------------------------------------------------- generation
 
     def _mu_supported(self, pipe: Any) -> bool:
-        """Can a requested mu reach this pipeline's schedule at all?
-
-        First this has to be a flow-matching scheduler. SDXL's Euler scheduler
-        accepts a custom `sigmas` list too, but replacing its epsilon schedule
-        with `_shifted_sigmas` would not be a Mu adjustment - it would be a
-        different, unrelated schedule. For flow matching there are two routes:
-        a scheduler that shifts for itself takes the value through
-        `set_timesteps(mu=...)`, which `_forced_mu` intercepts; one that does not
-        takes an explicit pre-shifted `sigmas` list, which needs the pipeline to
-        accept `sigmas`. With neither, mu is dropped - and has to be recorded as
-        dropped, or the row claims a shift the image never had.
-        """
-        scheduler = getattr(pipe, "scheduler", None)
-        if not type(scheduler).__name__.startswith("FlowMatch"):
-            return False
-        if self._shifts_itself(pipe):
-            original = getattr(scheduler, "set_timesteps", None)
-            return original is not None and "mu" in inspect.signature(original).parameters
-        return "sigmas" in self._call_params
+        """Can a requested mu reach this pipeline's schedule? `schedule.mu_supported`."""
+        return schedule.mu_supported(pipe, self._call_params)
 
     def applied(self, request: "GenerateRequest") -> "GenerateRequest":
         """What this pipeline will run, from its parameter list once loaded.
@@ -679,16 +294,16 @@ class DiffusersBackend(GenerationBackend):
         the environment's: peft, and a base whose linears an adapter can attach
         to. Nunchaku's are not - the checkpoint arrives quantized to 4-bit
         SVDQuant with its own kernels, and the modules PEFT would wrap are not
-        `nn.Linear` at all - so it is refused the way `_nunchaku_preflight`
+        `nn.Linear` at all - so it is refused the way `loading.nunchaku_preflight`
         refuses, up front and by name, rather than at the first cell.
         """
-        if settings.quantization == _NUNCHAKU:
+        if settings.quantization == loading.NUNCHAKU:
             return (
                 "KREA_QUANT=nunchaku loads a checkpoint that is already quantized to "
                 "4-bit SVDQuant, whose linear layers are not the ones a LoRA attaches "
                 "to; run the same checkpoint under fp8, int8 or none to use adapters"
             )
-        if not _importable("peft"):
+        if not loading.importable("peft"):
             return "LoRA adapters need the peft package; `uv sync` installs it"
         if self._pipe is not None and not hasattr(self._pipe, "load_lora_weights"):
             return f"{type(self._pipe).__name__} has no LoRA loader"
@@ -880,11 +495,11 @@ class DiffusersBackend(GenerationBackend):
         # it does not, hand it a pre-shifted schedule - minus the *static* shift
         # it will apply on top regardless, so the total is still e^mu.
         mu = request.mu
-        if mu is not None and not self._shifts_itself(pipe):
+        if mu is not None and not schedule.shifts_itself(pipe):
             import math
 
-            kwargs["sigmas"] = self._shifted_sigmas(
-                request.steps, mu - math.log(self._static_shift(pipe))
+            kwargs["sigmas"] = schedule.shifted_sigmas(
+                request.steps, mu - math.log(schedule.static_shift(pipe))
             )
             mu = None
 
@@ -900,7 +515,7 @@ class DiffusersBackend(GenerationBackend):
         #   "cuda:0" to a storage on different device "cpu"
         # no_grad avoids the functionalization path and is otherwise equivalent
         # here. Verified identical outputs for both fp8 and int8.
-        with torch.no_grad(), self._forced_mu(pipe, mu):
+        with torch.no_grad(), schedule.forced_mu(pipe, mu):
             result = pipe(**kwargs)
         return list(result.images)
 

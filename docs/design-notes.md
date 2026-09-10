@@ -31,8 +31,8 @@ whenever `use_dynamic_shifting` is set (it is, in both shipped
 so two shifts compose into `mu_a + mu_b`. Pre-shifting the schedule therefore
 *added* to the pipeline's mu rather than replacing it, and every Turbo image
 made before that was fixed ran at 2.30 instead of 1.15. `DiffusersBackend`
-now overrides the value on its way to the scheduler (`_forced_mu`), and only
-falls back to an explicit pre-shifted schedule (`_shifted_sigmas`, the same
+now overrides the value on its way to the scheduler (`schedule.forced_mu`), and only
+falls back to an explicit pre-shifted schedule (`schedule.shifted_sigmas`, the same
 formula: `sigma' = e^mu / (e^mu + (1/sigma - 1))`) for a scheduler that does
 not shift *dynamically*. **A non-dynamic scheduler still shifts, statically**:
 `set_timesteps`'s else branch multiplies the odds by `self.shift` (1.0 on
@@ -79,7 +79,7 @@ package from `rootonchair/nunchaku-lite-kernels` (branch `v2`, pinned by
 diffusers), which publishes x86_64 **Linux** builds only - torch 2.11-2.13 for
 cu126/cu130/cu132 - so on this machine the mode means WSL 2. NVFP4 needs
 Blackwell (sm_120 qualifies); the `int4` repos are for older cards.
-`_nunchaku_preflight` refuses off Linux, without `kernels`/`bitsandbytes`, or
+`loading.nunchaku_preflight` refuses off Linux, without `kernels`/`bitsandbytes`, or
 on a repo whose transformer is not pre-quantized, *before* any download: the
 bf16 case otherwise loads fine and OOMs at the first image. diffusers reads
 `DIFFUSERS_TRUST_REMOTE_KERNELS` once, at import, so `config.py` sets it
@@ -194,7 +194,7 @@ a recorded seed and the second a Cancel that never lands. Verified 2026-09-05 vi
 5080: 1 MP in 4.0 s at 2.9 GiB peak, 2 MP in 4.6 s at 3.4 GiB. Its pipeline also lacks
 `enable_vae_tiling`/`enable_vae_slicing`; the loader falls through to the same
 switches on `pipe.vae`. Its mu is empirical (sequence length and step count),
-so the profile leaves mu null and `_forced_mu` stays out of the way. Text
+so the profile leaves mu null and `schedule.forced_mu` stays out of the way. Text
 encoder is a plain `Qwen3ForCausalLM` (transformers), so the fp8 path
 quantizes it like any other; the 4B's is 8 GB in bf16, bigger than its
 7.75 GB transformer.
@@ -232,7 +232,7 @@ referenced image, in the pose the prompt asked for, and the same hash twice.
 families mix a loader in, so what decides it is peft and the quantizer:
 `lora_unavailable_reason()` refuses `KREA_QUANT=nunchaku` (already 4-bit
 SVDQuant; the modules PEFT would wrap are not `nn.Linear`) and a missing
-peft up front, the way `_nunchaku_preflight` refuses, and `describe()`
+peft up front, the way `loading.nunchaku_preflight` refuses, and `describe()`
 answers `lora_supported` with no pipeline loaded at all. Adapters are
 **hot-swapped on the live pipeline** in `generate()`, never baked into
 `load()`: diffusers strips and re-attaches the offload hooks around the
@@ -323,7 +323,7 @@ seeds in the gallery unreproducible.
 `mu` is part of the reproduction set, so `ImageRecord` carries it and the UI's
 Reuse restores it. `/api/status` defaults are applied **per control**: each
 of steps/CFG/mu follows the profile until the user touches *that* box
-(`owned` in `web/app.js`) — `describe()` reads CUDA memory and can answer
+(`owned` in `web/state.js`) — `describe()` reads CUDA memory and can answer
 minutes late from behind a load, and one flag for all three, wired to Seed
 as well, used to freeze the panel at the fallback's 28 / 3.5 on a Turbo
 server because the user pasted a seed in the first two seconds. Reuse owns
@@ -472,7 +472,7 @@ swept every setting for the prompts it reached, which is a comparison.
 ## Prompt labels on the sheet
 
 The contact sheet's axes gained **Prompt**, whose labels are only the words
-that vary across the run (`promptLabels` in `web/app.js`): a column header
+that vary across the run (`promptLabels` in `web/sheet.js`): a column header
 repeating the forty words every cell shares is unreadable. Equal word counts
 let the differing positions be picked out exactly; a `none` makes one prompt
 shorter than its neighbours, and then the shared head and tail come off
@@ -532,7 +532,7 @@ guard would let the SELECT succeed and every INSERT after it fail.
 ## The lightbox zooms
 
 **The lightbox zooms, and the view carries across cells.** `lbView` in
-`web/app.js` is a scale relative to fit (never below 1) plus a pan, keyed on
+`web/lightbox.js` is a scale relative to fit (never below 1) plus a pan, keyed on
 the record's `width x height` and kept across records that share it, so the
 arrows compare the identical crop at the identical magnification down a
 steps or mu axis. The image is laid out with explicit width/height/left/top
@@ -597,7 +597,7 @@ short of the full count.
 **The variable assignment is recorded.** `Cell.variables` reaches
 `save_image(variables=)` from both writers, lands in a `variables TEXT`
 column (JSON; `_migrate`), the `krea` chunk and `ImageRecord.variables`.
-The sheet builds one axis per variable name seen (`axesFor` in `app.js`)
+The sheet builds one axis per variable name seen (`axesFor` in `sheet.js`)
 and **suppresses** the flat prompt and negative axes when any record
 carries variables - kept as fallbacks, a 4-value prompt axis would beat a
 2-value variable axis in `chooseAxes` and turn a single-variable run into a
@@ -615,7 +615,7 @@ once and the FTS trigger fires for both. The reindex reads
 as UTC (mtime failing that), copies a foreign file in `.part`-then-rename
 and never over a different file of the same name, records `duration_ms=0`
 (so `step_cost_ms`'s `> 0` ignores it) and loses `favorite`, which lives in
-SQLite alone. `_strict_scope` is the `key:value`-only reading of the search
+SQLite alone. `search.strict_scope` is the `key:value`-only reading of the search
 grammar for the paths where the LIKE fallback is a hazard: `clear --where`
 (`delete_matching`, `DELETE ... RETURNING filename` in one statement, no
 orphan sweep on that path) and `keep_rates`. `/api/status` carries
@@ -755,7 +755,7 @@ neither.
 
 ## The contact sheet
 
-The contact sheet (`web/app.js`, `renderSheet`) lays one run out as the grid
+The contact sheet (`web/sheet.js`, `renderSheet`) lays one run out as the grid
 that made it: the two widest-varying axes become columns and rows, any third
 becomes a pinned selector rather than a third dimension nobody can read. It
 asks for the whole run in one page (`SHEET_PAGE`) because a matrix with a page
@@ -889,7 +889,7 @@ a 7.7 GB bf16 Ministral 3B with its own tokenizer, in the class's
 every prompt is rewritten by `pe.generate(do_sample=True, temperature=0.6)`
 before it is encoded. A hidden rewrite would make the recorded prompt differ
 from what the model saw and the image seed would not reproduce the whole
-operation. `_UNUSED_COMPONENTS` therefore still maps the class name to the
+operation. `loading.UNUSED_COMPONENTS` therefore still maps the class name to the
 two components and ordinary `load()` reads `model_index.json` ahead of the
 weights (`_unused_components`) to pass `pe=None, pe_tokenizer=None` - **to the
 concrete class named by the index**, not to `DiffusionPipeline`. The base
@@ -925,7 +925,7 @@ remains in the editor and is the only prompt sent and recorded; the English is
 a read-only aid underneath, hidden on the first edit. Translation failure is
 returned separately so a useful multi-GB expansion is not thrown away. The
 index read is a try/except that yields nothing on failure - an optimisation,
-not a gate - and the tests' conftest now refuses `_hub_file` for every test,
+not a gate - and the tests' conftest now refuses `loading.hub_file` for every test,
 since a stubbed `from_pretrained` had been the only thing between a loader
 test and the Hub. **mu has no way in**: the pipeline builds `linspace(1, 0)`
 itself and hands it to a scheduler shipped `use_dynamic_shifting: false,
@@ -976,7 +976,7 @@ the database before it could be changed reproducibly.
 **A `sigmas` parameter is not proof of flow matching.** Current
 `StableDiffusionXLPipeline.__call__` takes custom sigmas, so the old generic
 `_mu_supported` test would have treated Animagine's epsilon-prediction Euler
-scheduler as flow matching and replaced its schedule with `_shifted_sigmas`.
+scheduler as flow matching and replaced its schedule with `schedule.shifted_sigmas`.
 Mu now requires a scheduler class from the `FlowMatch` family first. The
 capability is part of the checkpoint profile before load and `describe()`
 after load, so the main Mu box and its grid axis are disabled as well as a
@@ -1160,6 +1160,34 @@ prompt in `pe/chat_template.jinja` (expand a brief description into a
 "content-rich, detail-sufficient visual description"), the report's
 Ministral-3 encoder and 256/512/1024 stages (<https://arxiv.org/abs/2605.25347>);
 its tokenizer's 2048 is the config's, not a card statement.
+
+## The page script is ten files, not one module
+
+`web/app.js` reached 3,200 lines - every section of the page in one
+file - and was split on 2026-09-10 along its own section comments into
+ten scripts `index.html` loads in order: `state` (the element table, every
+`let` the page shares, the fetch helper), `sizes`, `status`, `generation`,
+`panel`, `gallery`, `sheet`, `lightbox`, `tags` and last `app`, the wiring
+and the boot. They stay *classic* scripts rather than ES modules on purpose.
+Classic scripts share one global scope: a top-level `let`, `const` or
+function in any of them is visible to all the others, so nothing needed an
+export or an import, and - the reason that matters - a smoke step's `eval`
+(`tools/browser.mjs`) still reaches `els`, `galleryRecords`, `startJob` and
+the rest by name, which a module's scope would hide. The contract that
+makes the order safe is that nine of the ten only *declare*: a function in
+`sizes.js` may call one from `tags.js` because every call happens after all
+ten have loaded, from a handler or from `app.js`'s boot. A file that ran
+something at load would have to sit after everything it touches; keep the
+wiring in `app.js` (the lightbox's own pointer handlers are the exception,
+wired beside the code they belong to and touching nothing outside it).
+
+The same pass moved `tests/test_api.py` (1,300 lines) into `tests/fakes.py`,
+the fixtures in `conftest.py`, `tests/api_helpers.py` and one `test_api*.py`
+per area, and pulled `backend/search.py`, `backend/guides.py`,
+`backend/backends/loading.py` and `backend/backends/schedule.py` out of the
+three largest backend modules. `loading` takes `settings` as a parameter
+rather than importing it: the tests replace the backend's `settings`, and a
+second module-level copy would have gone on reading the real one.
 
 ## uv.lock's hand-pinned torch hashes
 

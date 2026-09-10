@@ -215,7 +215,7 @@ def test_krea_dev_is_flux_to_the_controls_and_its_own_to_the_guide():
 def test_the_size_table_is_the_same_in_the_browser_and_the_cli():
     # completed_cells keys on width and height, so a preset that differs
     # between the two makes --resume unable to continue a browser grid.
-    src = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+    src = (ROOT / "web" / "state.js").read_text(encoding="utf-8")
     block = re.search(r"const SIZES = \{(.*?)\n\};", src, re.S).group(1)
     found = {}
     for aspect, body in re.findall(r"'([\d:]+)':\s*\{([^}]*)\}", block):

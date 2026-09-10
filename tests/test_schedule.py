@@ -13,6 +13,7 @@ from PIL import Image
 
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.backends import diffusers_backend as backend_module
+from backend.backends import schedule
 from backend.schemas import GenerateRequest
 
 STEPS = 8
@@ -85,7 +86,7 @@ def _applied(scheduler) -> list[float]:
 
 
 def _schedule(mu: float):
-    return pytest.approx(DiffusersBackend._shifted_sigmas(STEPS, mu), abs=1e-6)
+    return pytest.approx(schedule.shifted_sigmas(STEPS, mu), abs=1e-6)
 
 
 def test_a_custom_sigma_argument_does_not_make_sdxl_flow_matching():
@@ -330,11 +331,11 @@ def test_the_formula_matches_the_schedulers_own():
     scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
     ramp = np.linspace(1.0, 1 / STEPS, STEPS)
     theirs = scheduler.time_shift(1.15, 1.0, ramp)
-    ours = DiffusersBackend._shifted_sigmas(STEPS, 1.15)
+    ours = schedule.shifted_sigmas(STEPS, 1.15)
     assert list(theirs) == pytest.approx(ours)
     # And that the shifts compose additively, which is why passing a pre-shifted
     # schedule to a shifting scheduler produced a mu of 2.30.
     assert list(scheduler.time_shift(1.15, 1.0, np.array(ours))) == pytest.approx(
-        DiffusersBackend._shifted_sigmas(STEPS, 2.30)
+        schedule.shifted_sigmas(STEPS, 2.30)
     )
     assert math.isclose(1.15 + 1.15, 2.30)

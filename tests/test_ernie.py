@@ -25,6 +25,7 @@ from diffusers import FlowMatchEulerDiscreteScheduler
 from PIL import Image
 
 from backend.backends import diffusers_backend as module
+from backend.backends import loading
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.schemas import GenerateRequest
 
@@ -94,7 +95,7 @@ class ErnieLikePipeline:
 def _index(monkeypatch, tmp_path, index: dict) -> None:
     path = tmp_path / "model_index.json"
     path.write_text(json.dumps(index), encoding="utf-8")
-    monkeypatch.setattr(module, "_hub_file", lambda model_id, filename: str(path))
+    monkeypatch.setattr(loading, "hub_file", lambda model_id, filename: str(path))
 
 
 def _backend(pipe) -> DiffusersBackend:
@@ -111,20 +112,20 @@ def _request(**kwargs) -> GenerateRequest:
 
 def test_the_rewriter_is_named_from_the_index(monkeypatch, tmp_path):
     _index(monkeypatch, tmp_path, ERNIE_INDEX)
-    class_name, unused = DiffusersBackend._unused_components("baidu/ERNIE-Image-Turbo")
+    class_name, unused = loading.unused_components("baidu/ERNIE-Image-Turbo")
     assert class_name == "ErnieImagePipeline"
     assert unused == {"pe": None, "pe_tokenizer": None}
     # Only what the repo carries: a re-upload without the rewriter has nothing
     # to leave out, and another family's index names nothing at all.
     _index(monkeypatch, tmp_path, {k: v for k, v in ERNIE_INDEX.items() if not k.startswith("pe")})
-    assert DiffusersBackend._unused_components("x")[1] == {}
+    assert loading.unused_components("x")[1] == {}
     _index(monkeypatch, tmp_path, {"_class_name": "FluxPipeline", "transformer": ["diffusers", "F"]})
-    assert DiffusersBackend._unused_components("x") == ("FluxPipeline", {})
+    assert loading.unused_components("x") == ("FluxPipeline", {})
 
 
 def test_an_unreadable_index_leaves_the_load_alone():
     # conftest's stub refuses the Hub; the lookup is an optimisation, not a gate.
-    assert DiffusersBackend._unused_components("nobody/whatever") == (None, {})
+    assert loading.unused_components("nobody/whatever") == (None, {})
 
 
 def test_only_the_concrete_class_takes_a_none_component():
@@ -183,7 +184,7 @@ def test_prompt_expander_components_follow_the_manifest(monkeypatch, tmp_path):
 
     monkeypatch.setattr(transformers, "Ministral3ForCausalLM", Component)
     monkeypatch.setattr(transformers, "TokenizersBackend", Component)
-    components = DiffusersBackend._prompt_expander_components("baidu/ERNIE-Image-Turbo")
+    components = loading.prompt_expander_components("baidu/ERNIE-Image-Turbo")
     assert components == {
         "pe": ("baidu/ERNIE-Image-Turbo", "pe"),
         "pe_tokenizer": ("baidu/ERNIE-Image-Turbo", "pe_tokenizer"),
@@ -203,8 +204,8 @@ def test_expand_loads_once_then_returns_visible_size_specific_text(monkeypatch):
         loads += 1
         return {"pe": object(), "pe_tokenizer": object()}
 
-    monkeypatch.setattr(backend, "_prompt_expander_components", components)
-    monkeypatch.setattr(backend, "_place_pipeline", lambda current: None)
+    monkeypatch.setattr(loading, "prompt_expander_components", components)
+    monkeypatch.setattr(loading, "place_pipeline", lambda current, settings: None)
     assert backend.prompt_expansion_supported()
     assert backend.expand_prompt("a fox", 1264, 848) == "Expanded a fox for 1264x848"
     assert backend.expand_prompt("a fox", 1024, 1024) == "Expanded a fox for 1024x1024"

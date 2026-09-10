@@ -63,7 +63,7 @@ def main() -> int:
 
     from backend import main as app_main
     from backend.jobs import JobManager
-    from tests.test_api import FakeBackend
+    from tests.fakes import FakeBackend
 
     class DrawingBackend(FakeBackend):
         """A fake whose images carry their seed and steps as pixels."""

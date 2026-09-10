@@ -30,9 +30,11 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
   flags, run before `config` is imported; the checkpoint catalogue lives here
 - `backend/schemas.py` — pydantic request/response models
-- `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint, the
-  control tooltips, and the prompting guide (prompt and size prose, the
-  documented megapixel range with its word, the authors' example prompts)
+- `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint and
+  the control tooltips; each profile hangs its prompting guide from
+- `backend/guides.py` — the guides themselves, one dict per checkpoint: prompt
+  and size prose, the documented megapixel range with its word, the authors'
+  example prompts
 - `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
   expanded Chinese prompt for the UI; the Chinese prompt remains canonical
 - `backend/tags.py` — cached Danbooru tag suggestions and exact validation for
@@ -41,15 +43,23 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/loras.py` — the adapter directory: what is in it, and the file
   behind a name (the only place a request's name becomes a path)
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
-  `max_side`/`max_pixels`, `web/app.js`'s copy, `index.html`'s `max=` and the
+  `max_side`/`max_pixels`, `web/state.js`'s copy, `index.html`'s `max=` and the
   README table are all held to it by `tests/test_profiles.py`
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
+- `backend/backends/loading.py` — everything decided before the weights
+  move: the quantization config, the Nunchaku preflight and the
+  prequantized refusal, the components left out of the download, the
+  device placement; takes `settings` as a parameter
+- `backend/backends/schedule.py` — how a requested mu becomes the whole
+  shift: `forced_mu`, `shifted_sigmas`, the static-shift fallback
 - `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
-- `backend/storage.py` — SQLite index + PNGs with embedded metadata, search filters
+- `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/search.py` — the search box's grammar: `key:value` terms as SQL
+  predicates, the LIKE escape, `strict_scope`
 - `backend/main.py` — routes
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans
@@ -57,7 +67,10 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   scoped to a run by default
 - `backend/reindex.py` — rows rebuilt from the PNGs' `krea` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`
+- `web/` — served as-is from `/static`; the page script is ten classic
+  scripts `index.html` loads in order (`state`, `sizes`, `status`,
+  `generation`, `panel`, `gallery`, `sheet`, `lightbox`, `tags`, `app`),
+  sharing one global scope; only `app.js`, the last, runs anything at load
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` + `smoke.json`, `smoke-flux.json`, `smoke-preview.json`,
   `smoke-ernie.json`, `smoke-animagine.json`
@@ -94,13 +107,12 @@ Model and loader:
   `callback_on_step_end` (`_REQUIRED_PARAMS`): the seed and the cancel depend
   on them.
 - `KREA_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
-  (WSL 2 here), and no quantization config; `_nunchaku_preflight` and
-  `_refuse_prequantized` refuse the other pairings before any download. Under
+  (WSL 2 here), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
   WSL, `source wsl/env.sh` before `uv`.
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
   `KREA_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
-- `_UNUSED_COMPONENTS` names what ordinary image loading leaves out
+- `loading.UNUSED_COMPONENTS` names what ordinary image loading leaves out
   (ERNIE-Image's prompt rewriter). `load()` reads `model_index.json` ahead of
   the weights and hands them as None to the *concrete* class's
   `from_pretrained`, which keeps them out of the download and the load; the
@@ -108,13 +120,13 @@ Model and loader:
   The explicit Expand endpoint loads those components on first use, rebuilds
   the offload chain, and puts the result in the prompt editor. `generate()`
   still sets `use_pe=False` wherever the switch exists. The tests'
-  conftest refuses `_hub_file` for every test; one that needs an index stubs it.
+  conftest refuses `loading.hub_file` for every test; one that needs an index stubs it.
 
 Schedule and guidance:
 
-- A requested `mu` is the whole shift. `_forced_mu` overrides the value on its
-  way into a dynamically shifting scheduler; a static one gets
-  `_shifted_sigmas` pre-shifted by `mu - ln(shift)`. Assert on
+- A requested `mu` is the whole shift. `schedule.forced_mu` overrides the value
+  on its way into a dynamically shifting scheduler; a static one gets
+  `schedule.shifted_sigmas` pre-shifted by `mu - ln(shift)`. Assert on
   `scheduler.sigmas`, never on the list the backend computed. Mu requires a
   `FlowMatch*` scheduler first: SDXL's Euler scheduler accepts custom sigmas
   too, but is not flow matching. `mu_supported` is profiled before load and
@@ -137,7 +149,7 @@ Schedule and guidance:
   that reaches the fallback is a test failure. Steps, CFG and mu are the
   checkpoint's; `mu` is Turbo's alone. `krea-dev` sits ahead of `flux` for
   its guide alone and is the flux profile in every number and control hint.
-- Every profile's `guide` is sourced from the checkpoint's authors - the
+- Every profile's `guide` (`backend/guides.py`) is sourced from the checkpoint's authors - the
   model card, README, prompting guide or report - never invented; the
   design notes keep the URLs. `pixels` is the range they put in writing and
   `pixels_word` what that writing was (documented, recommended, trained);
@@ -198,8 +210,10 @@ Jobs:
 Frontend and CLI:
 
 - `web/` has no build step and no test suite; check it in a real browser with
-  `tools/fake_server.py` and `tools/browser.mjs` (see Tests). `app.js` is a
-  classic script and its top-level bindings stay top-level.
+  `tools/fake_server.py` and `tools/browser.mjs` (see Tests). The page script
+  is classic scripts sharing one global scope, loaded in the order
+  `index.html` lists them; their top-level bindings stay top-level, and only
+  `app.js`, the last, runs anything at load.
 - The size line compares the request against `guide.pixels` a tenth either
   way and quotes `pixels_word`; the Examples menu is built on open from the
   last status, and a pick tells the preview and the panel the way `choose`
@@ -227,7 +241,7 @@ Frontend and CLI:
   `backend.config`, as `launch.configure()` does for the server; both take the
   flags from `launch.add_model_arguments`.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
-  day, `mu:none` is `IS NULL`, and `_strict_scope` is the reading for
+  day, `mu:none` is `IS NULL`, and `search.strict_scope` is the reading for
   `clear --where` and `keep_rates`. The gallery pages by id, never by offset.
 
 ## Adding a backend
@@ -240,8 +254,10 @@ needs to change.
 
 ## Tests
 
-`uv run --group dev pytest`. They stub the pipeline (`tests/test_api.py`'s
-`FakeBackend`) and the scheduler (`tests/test_schedule.py`'s `StubPipeline`), so
+`uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
+`FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`
+and driven through `tests/api_helpers.py`; the HTTP tests are `tests/test_api*.py`,
+one file per area) and the scheduler (`tests/test_schedule.py`'s `StubPipeline`), so
 nothing downloads weights or touches the GPU, and they run against a throwaway
 database and outputs directory (`tests/conftest.py`). They cover the invariants
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
@@ -270,8 +286,9 @@ tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
 aspects, orientation switch and disabled non-flow Mu controls.
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
-`sheetRecords`) are reachable from a step's `eval` because `app.js` is a
-classic script - which is also why they stay top-level. `browser.mjs` gives
+`sheetRecords`) are reachable from a step's `eval` because the page's scripts
+are classic scripts sharing one global scope - which is also why they stay
+top-level. `browser.mjs` gives
 each run its own profile directory: a shared one stays locked by an Edge a
 crashed run left behind, and every later launch then hands its command line
 to that instance and reports "the browser did not come up".

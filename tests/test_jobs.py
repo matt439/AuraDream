@@ -6,7 +6,7 @@ import asyncio
 from backend.jobs import JobManager, short_error
 from backend.schemas import GenerateRequest
 
-from tests.test_api import FakeBackend
+from tests.fakes import FakeBackend
 
 
 def test_a_cancelled_queued_job_is_not_rewritten_when_its_load_fails(store):

@@ -16,7 +16,7 @@ import sys
 import pytest
 
 from backend.backends import diffusers_backend as module
-from backend.backends.diffusers_backend import DiffusersBackend
+from backend.backends import loading
 
 MODEL = "lite-infer/some-checkpoint"
 PREQUANTIZED = {"quantization_config": {"quant_method": "nunchaku_lite"}}
@@ -34,7 +34,7 @@ def nunchaku(monkeypatch, tmp_path):
         dataclasses.replace(module.settings, quantization="nunchaku", model_id=MODEL),
     )
     monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(module, "_importable", lambda name: True)
+    monkeypatch.setattr(loading, "importable", lambda name: True)
 
     def hub_file(model_id, filename, config=PREQUANTIZED):
         assert (model_id, filename) == (MODEL, "transformer/config.json")
@@ -42,12 +42,12 @@ def nunchaku(monkeypatch, tmp_path):
         path.write_text(json.dumps(config), encoding="utf-8")
         return str(path)
 
-    monkeypatch.setattr(module, "_hub_file", hub_file)
+    monkeypatch.setattr(loading, "hub_file", hub_file)
     return hub_file
 
 
 def test_prequantized_repo_gets_no_torchao_config(nunchaku):
-    assert DiffusersBackend()._quantization_config() is None
+    assert loading.quantization_config(module.settings) is None
 
 
 def test_fp8_refuses_a_prequantized_repo_before_the_download(monkeypatch, tmp_path):
@@ -67,30 +67,30 @@ def test_fp8_refuses_a_prequantized_repo_before_the_download(monkeypatch, tmp_pa
         path.write_text(json.dumps(files[filename]), encoding="utf-8")
         return str(path)
 
-    monkeypatch.setattr(module, "_hub_file", hub_file)
+    monkeypatch.setattr(loading, "hub_file", hub_file)
     with pytest.raises(RuntimeError, match="already quantized"):
-        DiffusersBackend()._quantization_config()
+        loading.quantization_config(module.settings)
 
 
 def test_refuses_off_linux(nunchaku, monkeypatch):
     monkeypatch.setattr(sys, "platform", "win32")
     with pytest.raises(RuntimeError, match="WSL 2"):
-        DiffusersBackend()._quantization_config()
+        loading.quantization_config(module.settings)
 
 
 def test_refuses_without_the_packages(nunchaku, monkeypatch):
-    monkeypatch.setattr(module, "_importable", lambda name: name != "kernels")
+    monkeypatch.setattr(loading, "importable", lambda name: name != "kernels")
     with pytest.raises(RuntimeError, match="kernels"):
-        DiffusersBackend()._quantization_config()
+        loading.quantization_config(module.settings)
 
 
 def test_refuses_a_bf16_repo(nunchaku, monkeypatch):
     def plain(model_id, filename):
         return nunchaku(model_id, filename, config={"_class_name": "Krea2Transformer2DModel"})
 
-    monkeypatch.setattr(module, "_hub_file", plain)
+    monkeypatch.setattr(loading, "hub_file", plain)
     with pytest.raises(RuntimeError, match="not a Nunchaku Lite checkpoint") as err:
-        DiffusersBackend()._quantization_config()
+        loading.quantization_config(module.settings)
     assert MODEL in str(err.value)
 
 

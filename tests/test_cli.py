@@ -14,7 +14,7 @@ import pytest
 import backend.backends as backends
 from backend import config, generate, storage
 
-from tests.test_api import FakeBackend
+from tests.fakes import FakeBackend
 
 
 @pytest.fixture
