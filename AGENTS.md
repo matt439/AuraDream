@@ -213,8 +213,8 @@ Frontend and CLI:
   On a two-column page validation lives above the results, not in the panel;
   under 901 px the same node returns below Prompt.
 - Validation chips edit the prompt: drag (or Alt+Left/Right) reorders, × or
-  Delete removes, and right-clicking a chip edge opens inline insertion with
-  autocomplete. All mutations must go through `writePromptTags`.
+  Delete removes, and right-clicking a gap inserts there (a chip inserts after
+  itself) with autocomplete. All mutations must go through `writePromptTags`.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets

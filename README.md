@@ -664,7 +664,7 @@ comma-separated item gets a green recognised, red unknown, or grey unchecked
 chip. On a wide page the full validation list uses the results column, so it
 does not move Generate and never gets its own scrollbar. Drag chips to reorder
 the canonical comma-separated prompt; use each × or the Delete key to remove
-one. Right-click the left or right half of a chip to insert before or after it
+one. Right-click a gap to insert at that boundary, or a chip to insert after it,
 with inline autocomplete. The lookup is advisory
 and never blocks generation; if the network is
 unavailable, ordinary tags remain unchecked rather than being called invalid.

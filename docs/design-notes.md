@@ -1048,8 +1048,9 @@ already a single scrolling column.
 **Those chips are a round-trip editor, not a second prompt.** HTML drag/drop
 moves a comma item and immediately serialises the whole order back through
 `writePromptTags`; Alt+Left/Right is the keyboard equivalent. Every chip has an
-× button and accepts Delete/Backspace while focused. A context click on its
-left or right half opens an inline insertion field before or after it. Its
+× button and accepts Delete/Backspace while focused. A context click in any
+flex gap finds the nearest wrapped row and the boundary between the adjacent
+chip centres; a context click on a chip inserts after it. Its
 visible listbox reuses the same cached tag-suggestion endpoint; a native
 `datalist` did not reliably reopen when asynchronous results arrived. Click,
 Enter or Tab accepts a suggestion, while + commits literal text and Escape or ×

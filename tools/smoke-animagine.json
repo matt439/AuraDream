@@ -19,7 +19,7 @@
   {"eval": "(() => { const chips = [...els.tagValidation.querySelectorAll('.tag-check')]; const target = chips[2]; const rect = target.getBoundingClientRect(); const transfer = new DataTransfer(); chips[0].dispatchEvent(new DragEvent('dragstart', {bubbles: true, dataTransfer: transfer})); target.dispatchEvent(new DragEvent('dragover', {bubbles: true, cancelable: true, clientX: rect.right - 1, dataTransfer: transfer})); target.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, clientX: rect.right - 1, dataTransfer: transfer})); })()"},
   {"expect": "els.prompt.value === 'green hair, green eyes, 1girl'"},
   {"wait": 500},
-  {"eval": "(() => { const chip = els.tagValidation.querySelectorAll('.tag-check')[1]; const rect = chip.getBoundingClientRect(); chip.dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: rect.right - 1})); })()"},
+  {"eval": "(() => { const chips = els.tagValidation.querySelectorAll('.tag-check'); const left = chips[1].getBoundingClientRect(); const right = chips[2].getBoundingClientRect(); els.tagValidation.dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: (left.right + right.left) / 2, clientY: (left.top + left.bottom) / 2})); })()"},
   {"expect": "tagInsertAt === 2 && !!els.tagValidation.querySelector('.tag-insert-editor input')"},
   {"eval": "(() => { const input = els.tagValidation.querySelector('.tag-insert-editor input'); input.value = 'green h'; input.dispatchEvent(new Event('input', {bubbles: true})); })()"},
   {"wait": 500},

@@ -2655,6 +2655,32 @@ function openTagInsert(index) {
   );
 }
 
+function tagInsertionIndexAtPoint(x, y) {
+  const entries = [...els.tagValidation.querySelectorAll('.tag-check')].map((chip) => ({
+    index: Number(chip.dataset.index),
+    rect: chip.getBoundingClientRect(),
+  }));
+  if (!entries.length) return 0;
+
+  const rows = [];
+  for (const entry of entries) {
+    let row = rows.find((candidate) => Math.abs(candidate.top - entry.rect.top) < 3);
+    if (!row) {
+      row = { top: entry.rect.top, bottom: entry.rect.bottom, entries: [] };
+      rows.push(row);
+    }
+    row.bottom = Math.max(row.bottom, entry.rect.bottom);
+    row.entries.push(entry);
+  }
+  const distance = (row) => y < row.top ? row.top - y : y > row.bottom ? y - row.bottom : 0;
+  const row = rows.sort((a, b) => distance(a) - distance(b))[0];
+  row.entries.sort((a, b) => a.rect.left - b.rect.left);
+  for (const entry of row.entries) {
+    if (x < entry.rect.left + entry.rect.width / 2) return entry.index;
+  }
+  return row.entries[row.entries.length - 1].index + 1;
+}
+
 function renderTagValidation(results, available = true, detail = '') {
   lastTagValidationResults = results.map((result) => ({ ...result }));
   lastTagValidationAvailable = available;
@@ -2735,8 +2761,8 @@ function renderTagValidation(results, available = true, detail = '') {
     };
     chip.oncontextmenu = (event) => {
       event.preventDefault();
-      const rect = chip.getBoundingClientRect();
-      openTagInsert(index + (event.clientX >= rect.left + rect.width / 2 ? 1 : 0));
+      event.stopPropagation();
+      openTagInsert(index + 1);
     };
     chip.onkeydown = (event) => {
       if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -3016,6 +3042,13 @@ async function expandPrompt() {
 els.examplesBtn.onclick = () => showExamples(els.examplesMenu.hidden);
 els.tagsBtn.onclick = () => showTagHelper(els.tagsMenu.hidden);
 els.expandPrompt.onclick = expandPrompt;
+els.tagValidation.addEventListener('contextmenu', (event) => {
+  // Keep the ordinary text-editing menu inside the inline input. Everywhere
+  // else in the validation tray, including the flex gaps, is an insert point.
+  if (event.target.closest('.tag-insert-editor')) return;
+  event.preventDefault();
+  openTagInsert(tagInsertionIndexAtPoint(event.clientX, event.clientY));
+});
 els.prompt.addEventListener('input', () => {
   if (translatedSource !== null && els.prompt.value !== translatedSource) clearPromptTranslation();
   syncTagSelection();
