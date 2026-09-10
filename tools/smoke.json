@@ -3,6 +3,13 @@
   {"wait": 1200},
   {"expect": "document.getElementById('status-dot').className.includes('ready')"},
   {"expect": "els.expandPrompt.hidden"},
+  {"expect": "els.orientation.disabled && els.orientation.textContent === 'Orientation'"},
+  {"eval": "choose('9:7', 1); els.orientation.click();"},
+  {"expect": "pickedAspect === '7:9' && els.width.value === '896' && els.height.value === '1152' && els.orientation.textContent === 'Landscape'"},
+  {"eval": "els.orientation.click();"},
+  {"expect": "pickedAspect === '9:7' && els.width.value === '1152' && els.height.value === '896' && els.orientation.textContent === 'Portrait'"},
+  {"eval": "choose('1:1', 1);"},
+  {"expect": "els.orientation.disabled"},
 
   {"log": "'The prompting guide: the checkpoint text under both ? badges, the size line against its documented range, and the Examples menu'"},
   {"expect": "els.promptTip.textContent.includes('Krea') && els.sizeTip.textContent.includes('1k to 2k')"},

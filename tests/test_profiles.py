@@ -283,6 +283,17 @@ def test_animagines_additional_aspects_span_every_tier():
     )
 
 
+def test_every_non_square_aspect_has_an_inverse_at_every_tier():
+    # The browser's orientation button derives the opposite name rather than
+    # carrying a second mapping, so the shared table must stay pair-complete.
+    for aspect, tiers in sizes.SIZES.items():
+        wide, high = aspect.split(":")
+        if wide == high:
+            continue
+        opposite = sizes.SIZES[f"{high}:{wide}"]
+        assert {tier: (height, width) for tier, (width, height) in tiers.items()} == opposite
+
+
 def test_the_size_guard_rails_are_the_largest_preset():
     # config.py used to derive these in prose and then hard-code rounder
     # numbers; the HTML's `max` on the two boxes is the same bound by hand.

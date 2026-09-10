@@ -71,7 +71,11 @@
           trained around 1 MP; the size line says when a size is outside what this one
           is documented for.</span></span></span>
       <div class="presets" id="presets"></div>
-      <div class="presets tiers" id="tiers"></div>
+      <div class="size-tier-row">
+        <div class="presets tiers" id="tiers"></div>
+        <button type="button" class="ghost small orientation" id="btn-orientation"
+                title="Square has no portrait or landscape orientation" disabled>Orientation</button>
+      </div>
       <div class="row">
         <!-- max is the longest side of any preset - backend/sizes.py, which
              tests/test_profiles.py holds this to. -->

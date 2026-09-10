@@ -39,7 +39,8 @@ const els = {
   gridRun: $('btn-grid'),
   error: $('error'), viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
-  more: $('btn-more'), presets: $('presets'), tiers: $('tiers'), sizeHint: $('size-hint'),
+  more: $('btn-more'), presets: $('presets'), tiers: $('tiers'),
+  orientation: $('btn-orientation'), sizeHint: $('size-hint'),
   gridResume: $('grid-resume'),
   sheetBtn: $('btn-sheet'), rerender: $('btn-rerender'),
   sheet: $('sheet'), sheetControls: $('sheet-controls'),
@@ -257,6 +258,33 @@ function choose(aspect, tier) {
   persistPanel();
 }
 
+function oppositeAspect(aspect) {
+  const [wide, high] = aspect.split(':');
+  const opposite = `${high}:${wide}`;
+  return opposite !== aspect && ASPECTS.includes(opposite) ? opposite : null;
+}
+
+function swapOrientation() {
+  const opposite = oppositeAspect(pickedAspect);
+  if (opposite) choose(opposite, pickedTier);
+}
+
+function syncOrientation() {
+  const opposite = oppositeAspect(pickedAspect);
+  els.orientation.disabled = !opposite;
+  if (!opposite) {
+    els.orientation.textContent = 'Orientation';
+    els.orientation.title = 'Square has no portrait or landscape orientation';
+    els.orientation.setAttribute('aria-label', els.orientation.title);
+    return;
+  }
+  const [width, height] = SIZES[opposite][pickedTier];
+  const target = width > height ? 'Landscape' : 'Portrait';
+  els.orientation.textContent = target;
+  els.orientation.title = `Switch ${pickedAspect} to ${target.toLowerCase()} (${opposite}, ${width} × ${height})`;
+  els.orientation.setAttribute('aria-label', els.orientation.title);
+}
+
 function syncSize() {
   const w = +els.width.value, h = +els.height.value;
   syncRerender();
@@ -265,6 +293,7 @@ function syncSize() {
   const match = ASPECTS.flatMap((a) => TIERS.map((t) => [a, t]))
     .find(([a, t]) => SIZES[a][t][0] === w && SIZES[a][t][1] === h);
   if (match) [pickedAspect, pickedTier] = match;
+  syncOrientation();
 
   [...els.presets.children].forEach((b, i) => {
     const aspect = ASPECTS[i];
@@ -2276,6 +2305,7 @@ els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
 els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); persistPanel(); };
 els.reset.onclick = resetPanel;
+els.orientation.onclick = swapOrientation;
 
 // The Examples menu is built on open from the guide's current list, so a
 // status that lands late (behind a load) is not stale by the first click.

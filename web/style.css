@@ -319,6 +319,9 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 }
 /* The megapixel row is a second axis over the same pills, not more aspect ratios. */
 .presets.tiers { margin-top: 2px; }
+.size-tier-row { display: flex; align-items: stretch; gap: 6px; }
+.size-tier-row .tiers { flex: 1; }
+.orientation { min-width: 82px; margin-top: 2px; }
 
 /* ---------------------------------------------------------------- buttons */
 

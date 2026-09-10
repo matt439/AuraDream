@@ -324,7 +324,9 @@ profile directory of its own, so a crashed run cannot lock the next one out.
 ## Sizes
 
 Thirteen aspect ratios across four megapixel tiers, picked independently — change
-the aspect and the tier holds, change the tier and the framing holds.
+the aspect and the tier holds, change the tier and the framing holds. The
+orientation button switches the selected framing between its landscape and
+portrait pair at the same tier; it is disabled for 1:1.
 
 | | 1 MP | 1.5 MP | 2 MP | 4 MP |
 | --- | --- | --- | --- | --- |

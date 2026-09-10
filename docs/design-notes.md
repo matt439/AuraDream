@@ -1052,6 +1052,13 @@ a finite `aspects` list, uses one of those framings: aspect buttons are judged
 at the current megapixel tier, and tier buttons at the current aspect. The VRAM
 warning stays and stacks after it.
 
+**Orientation is the inverse preset, not a width/height swap.** The button
+derives `b:a` from the selected `a:b`, looks it up in the same `SIZES` table and
+routes the result through `choose()`, so dimensions, active/recommended states,
+grid preview and panel persistence all move together at the current tier. Every
+non-square entry is asserted to have an inverse with transposed dimensions.
+For 1:1 there is no distinct inverse, so the button is disabled and greyed.
+
 **FLUX.1 Krea [dev] has its own profile entry for the guide alone.**
 `krea-dev` sits ahead of `flux` (its id carries that token) as a copy of
 the flux profile with Krea's guide: Krea's README recommends 1024-1280 px
