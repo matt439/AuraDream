@@ -477,6 +477,7 @@ class PromptGuide(BaseModel):
     for - travels in `ModelStatus.hints` under `prompt` and `size`, beside the
     other tooltips. What the UI needs as data is here: the megapixel range the
     authors vouch for, so the size line can say when a request is outside it,
+    an optional finite aspect-ratio list when the authors publish one,
     the word that range deserves (a model card's "supports 0.1-2 MP" and a
     README's "recommended 1024-1280" are not the same promise), and the
     authors' own example prompts for the Examples menu. Tag-based checkpoints
@@ -485,6 +486,12 @@ class PromptGuide(BaseModel):
 
     pixels: tuple[float, float] | None = None
     pixels_word: str = "documented"
+    # Null means any framing inside the pixel range. A finite model-card table
+    # can instead name the aspect buttons that deserve the recommended state.
+    aspects: list[str] | None = None
+    # Its exact dimensions too, so a hand-entered author size can be recognised
+    # without a loose ratio tolerance aliasing 16:9 to nearby 7:4.
+    resolutions: list[tuple[int, int]] | None = None
     examples: list[str] = Field(default_factory=list)
     # Null for prose checkpoints. When present the UI exposes only vocabulary
     # the checkpoint authors documented, while the prompt stays freely editable.

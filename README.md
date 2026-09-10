@@ -354,7 +354,8 @@ is within 0.4% of 2048×2048 in pixel count, so it costs the same VRAM at any
 aspect — if the old 2K preset ran, all of these run. Every checkpoint here
 is trained around 1 MP and documented for something between 1 and 4; the
 ? badge beside Size says what, and the line under the boxes warns when the
-size is outside it (see [Prompting guide](#prompting-guide)). 4 MP buys
+size or a finite model-card aspect is outside it (see
+[Prompting guide](#prompting-guide)). 4 MP buys
 detail at some risk of repeated elements in the composition. A hand-typed
 size is accepted up to the largest preset - 3168 on
 a side, 3168×1328 in pixels - and refused past it; the table in

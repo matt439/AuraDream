@@ -990,7 +990,12 @@ tokenizers stop at 77 tokens. It recommends 25-28 steps (28), CFG 4-7 (5), a
 specific negative prompt, and nine roughly-1-MP shapes. The six previously
 missing aspects - 9:7, 7:4 and 12:5 plus their inverses - now use the card's
 exact 1 MP dimensions. The existing 3:2 pair keeps ERNIE-Image's nearby sizes,
-and every Animagine aspect is available across all four tiers.
+and every Animagine aspect is available across all four tiers. Its guide also
+names those nine ratios in `aspects`: recommendation highlighting requires both
+the named framing and the pixel range, so unrelated 1 MP presets such as 16:9
+do not turn green merely because their area is close. `resolutions` carries the
+card's exact nine dimension pairs for free-form W/H input; exact matching admits
+the rounded 1216x832 "3:2" without loosely aliasing 16:9 to nearby 7:4.
 
 **The Tags picker is guide data, not a hard-coded Animagine branch.**
 `PromptGuide.tag_helper` carries the card's person-count, rating, quality and
@@ -1042,7 +1047,8 @@ verb for all. The line warns a tenth outside the range: the 1 MP presets
 land at 1.04-1.08 MP and every profile's range has to admit them
 (`test_every_guide_admits_the_1_mp_presets`), or a fresh page would open
 on a warning. The preset buttons use that same tolerance and turn green when
-the full size they would choose is inside the range: aspect buttons are judged
+the full size they would choose is inside the range and, when a guide publishes
+a finite `aspects` list, uses one of those framings: aspect buttons are judged
 at the current megapixel tier, and tier buttons at the current aspect. The VRAM
 warning stays and stacks after it.
 

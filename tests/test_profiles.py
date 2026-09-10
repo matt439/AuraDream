@@ -112,6 +112,13 @@ def test_animagine_uses_the_model_cards_controls_and_guide():
     guide = guide_for("cagliostrolab/animagine-xl-4.0")
     assert guide["pixels"] == (0.98, 1.05)
     assert guide["pixels_word"] == "recommended"
+    assert guide["aspects"] == [
+        "1:1", "9:7", "3:2", "7:4", "12:5", "7:9", "2:3", "4:7", "5:12"
+    ]
+    assert guide["resolutions"] == [
+        (1024, 1024), (1152, 896), (1216, 832), (1344, 768), (1536, 640),
+        (896, 1152), (832, 1216), (768, 1344), (640, 1536),
+    ]
     assert any("masterpiece, high score" in prompt for prompt in guide["examples"])
     helper = guide["tag_helper"]
     assert helper["order"] == [
@@ -126,6 +133,10 @@ def test_animagine_uses_the_model_cards_controls_and_guide():
     }
     assert PromptGuide(**guide).tag_helper.negative_prompt == helper["negative_prompt"]
     assert guide_for("black-forest-labs/FLUX.1-dev")["tag_helper"] is None
+    assert guide_for("black-forest-labs/FLUX.1-dev")["aspects"] is None
+    assert guide_for("black-forest-labs/FLUX.1-dev")["resolutions"] is None
+    guide["aspects"].append("16:9")
+    assert "16:9" not in guide_for("cagliostrolab/animagine-xl-4.0")["aspects"]
     helper["groups"][0]["tags"].append("changed by a caller")
     assert "changed by a caller" not in guide_for("cagliostrolab/animagine-xl-4.0")[
         "tag_helper"
@@ -167,6 +178,7 @@ def test_every_catalogue_entry_has_a_prompting_guide():
         assert "Unrecognised" not in hints["prompt"] and "Unrecognised" not in hints["size"], repo
     unknown = guide_for("nobody/whatever")
     assert unknown["examples"] == [] and unknown["pixels"] is None
+    assert unknown["aspects"] is None
     assert unknown["tag_helper"] is None
 
 

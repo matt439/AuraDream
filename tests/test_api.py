@@ -270,6 +270,8 @@ def test_status_carries_the_prompting_guide(client):
     assert guide["examples"] and all(isinstance(text, str) and text for text in guide["examples"])
     assert len(guide["pixels"]) == 2 and guide["pixels"][0] <= guide["pixels"][1]
     assert guide["pixels_word"]
+    assert "aspects" in guide
+    assert "resolutions" in guide
     assert "tag_helper" in guide
 
 

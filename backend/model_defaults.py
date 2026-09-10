@@ -392,6 +392,18 @@ _ANIMAGINE_GUIDE = {
     ),
     "pixels": (0.98, 1.05),
     "pixels_word": "recommended",
+    "aspects": ["1:1", "9:7", "3:2", "7:4", "12:5", "7:9", "2:3", "4:7", "5:12"],
+    "resolutions": [
+        (1024, 1024),
+        (1152, 896),
+        (1216, 832),
+        (1344, 768),
+        (1536, 640),
+        (896, 1152),
+        (832, 1216),
+        (768, 1344),
+        (640, 1536),
+    ],
     "examples": [
         "1girl, green hair, sweater, looking at viewer, upper body, beanie, "
         "outdoors, night, turtleneck, masterpiece, high score, great score, absurdres",
@@ -919,13 +931,15 @@ def defaults_for(model_id: str) -> dict[str, Any]:
 
 
 def guide_for(model_id: str) -> dict[str, Any]:
-    """The prompting guide's data half: the documented pixel range, the word
-    for it, and the authors' example prompts. The prose half rides in
+    """The prompting guide's data half: documented pixels/aspects, the word
+    for the range, and the authors' example prompts. The prose half rides in
     `hints_for` under `prompt` and `size`, beside the other tooltips."""
     guide = _profile_for(model_id)["guide"]
     return {
         "pixels": guide["pixels"],
         "pixels_word": guide["pixels_word"],
+        "aspects": list(guide["aspects"]) if guide.get("aspects") is not None else None,
+        "resolutions": list(guide["resolutions"]) if guide.get("resolutions") is not None else None,
         "examples": list(guide["examples"]),
         "tag_helper": deepcopy(guide.get("tag_helper")),
     }

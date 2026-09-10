@@ -156,6 +156,10 @@ let lorasLoaded = false;
 // warning, and the example prompts behind the Examples button.
 let sizeRange = null;
 let sizeRangeWord = 'documented';
+// Null means the checkpoint accepts any framing in its pixel range. Animagine
+// publishes a finite table, so its guide names the aspect buttons too.
+let sizeAspects = null;
+let guideResolutions = null;
 let examples = [];
 // Null for prose checkpoints. A tag checkpoint supplies its own finite,
 // documented vocabulary; the browser never guesses a generic tag cloud.
@@ -280,6 +284,12 @@ function syncSize() {
 
   const mp = (w * h) / 1e6;
   const notes = [];
+  const namedAspect = match?.[0] || null;
+  if (sizeAspects && !sizeMatchesGuideAspect(w, h, namedAspect)) {
+    notes.push(namedAspect
+      ? `${namedAspect} is not a recommended aspect for this checkpoint`
+      : 'this is not a recommended aspect for this checkpoint');
+  }
   // The checkpoint's own range first: a 4 MP request of a model its authors
   // validated at 1 MP is the more likely disappointment. The presets land
   // within a few percent of their tier, so a tenth either way is still "at".
@@ -295,11 +305,18 @@ function syncSize() {
   els.sizeHint.classList.toggle('warn', notes.length > 0);
 }
 
+function sizeMatchesGuideAspect(width, height, namedAspect) {
+  if (!sizeAspects) return true;
+  if (namedAspect) return sizeAspects.includes(namedAspect);
+  return guideResolutions?.some(([wide, high]) => wide === width && high === height) || false;
+}
+
 // The buttons and the size line use one definition of "within range". Each
 // strip previews the full preset that clicking it would choose: aspects at the
 // current tier, and tiers at the current aspect.
 function presetIsInGuide(aspect, tier) {
   if (!sizeRange) return false;
+  if (sizeAspects && !sizeAspects.includes(aspect)) return false;
   const [w, h] = SIZES[aspect][tier];
   const mp = (w * h) / 1e6;
   return mp >= sizeRange[0] * 0.9 && mp <= sizeRange[1] * 1.1;
@@ -308,7 +325,9 @@ function presetIsInGuide(aspect, tier) {
 function describePreset(button, aspect, tier, guided) {
   const dimensions = SIZES[aspect][tier].join(' × ');
   const note = guided
-    ? `, within the size range this checkpoint is ${sizeRangeWord} for`
+    ? (sizeAspects
+      ? ', a recommended aspect and size for this checkpoint'
+      : `, within the size range this checkpoint is ${sizeRangeWord} for`)
     : '';
   button.title = dimensions + note;
   button.setAttribute('aria-label', button.textContent + note);
@@ -441,9 +460,15 @@ function applyGuide(g) {
   if (!g) return;
   const range = Array.isArray(g.pixels) && g.pixels.length === 2 ? g.pixels : null;
   const word = g.pixels_word || 'documented';
-  if (JSON.stringify(range) !== JSON.stringify(sizeRange) || word !== sizeRangeWord) {
+  const aspects = Array.isArray(g.aspects) && g.aspects.length ? g.aspects : null;
+  const resolutions = Array.isArray(g.resolutions) && g.resolutions.length ? g.resolutions : null;
+  if (JSON.stringify(range) !== JSON.stringify(sizeRange) || word !== sizeRangeWord
+      || JSON.stringify(aspects) !== JSON.stringify(sizeAspects)
+      || JSON.stringify(resolutions) !== JSON.stringify(guideResolutions)) {
     sizeRange = range;
     sizeRangeWord = word;
+    sizeAspects = aspects;
+    guideResolutions = resolutions;
     syncSize();
   }
   if (Array.isArray(g.examples)) examples = g.examples;
