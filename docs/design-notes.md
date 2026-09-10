@@ -1049,11 +1049,16 @@ already a single scrolling column.
 moves a comma item and immediately serialises the whole order back through
 `writePromptTags`; Alt+Left/Right is the keyboard equivalent. Every chip has an
 × button and accepts Delete/Backspace while focused. A context click on its
-left or right half opens an inline insertion field before or after it; a native
-`datalist` reuses the same cached tag-suggestion endpoint. Enter or + commits,
-Escape or × cancels. Every edit goes through the same preview, validation and
+left or right half opens an inline insertion field before or after it. Its
+visible listbox reuses the same cached tag-suggestion endpoint; a native
+`datalist` did not reliably reopen when asynchronous results arrived. Click,
+Enter or Tab accepts a suggestion, while + commits literal text and Escape or ×
+cancels. Every edit goes through the same preview, validation and
 panel-persistence path, so the visible textarea, generated prompt and chips
 cannot become separate sources of truth.
+Chip and suggestion text is 12 px. A valid chip uses high-contrast light text
+on neutral charcoal, with green confined to its checkmark and outline; unknown
+chips keep the corresponding red mark/outline instead of colour-on-colour text.
 
 ## The prompting guide
 

@@ -2533,25 +2533,60 @@ function commitInsertedTag(text) {
   writePromptTags(tags);
 }
 
-function scheduleInsertSuggestions(input, datalist) {
+function selectInsertSuggestion(menu, index) {
+  const suggestions = menu._suggestions || [];
+  if (!suggestions.length) return;
+  menu._index = (index + suggestions.length) % suggestions.length;
+  [...menu.children].forEach((item, i) => {
+    const active = i === menu._index;
+    item.classList.toggle('active', active);
+    item.setAttribute('aria-selected', String(active));
+    if (active) item.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function renderInsertSuggestions(input, menu, suggestions) {
+  menu._suggestions = suggestions;
+  menu._index = -1;
+  menu.replaceChildren();
+  for (const suggestion of suggestions) {
+    const item = document.createElement('li');
+    item.setAttribute('role', 'option');
+    const kind = document.createElement('span');
+    kind.className = 'tag-kind';
+    kind.textContent = suggestion.category;
+    const name = document.createElement('span');
+    name.className = 'tag-name';
+    name.textContent = suggestion.text;
+    const count = document.createElement('span');
+    count.className = 'tag-count';
+    count.textContent = suggestion.post_count == null ? '' : humanCount(suggestion.post_count);
+    item.append(kind, name, count);
+    item.onmousedown = (event) => event.preventDefault();
+    item.onclick = () => commitInsertedTag(suggestion.text);
+    menu.appendChild(item);
+  }
+  menu.hidden = suggestions.length === 0;
+  input.setAttribute('aria-expanded', String(suggestions.length > 0));
+  const editor = menu.parentElement.getBoundingClientRect();
+  menu.classList.toggle('end', editor.left + 280 > window.innerWidth - 12);
+  if (suggestions.length) selectInsertSuggestion(menu, 0);
+}
+
+function scheduleInsertSuggestions(input, menu) {
   clearTimeout(tagInsertSuggestionTimer);
   const epoch = ++tagInsertSuggestionEpoch;
   const query = input.value.trim();
-  datalist.replaceChildren();
+  renderInsertSuggestions(input, menu, []);
   if (!query) return;
   tagInsertSuggestionTimer = setTimeout(async () => {
     try {
       const body = await api(`/api/tags/suggest?q=${encodeURIComponent(query)}`);
       if (epoch !== tagInsertSuggestionEpoch || !input.isConnected) return;
-      for (const suggestion of body.suggestions || []) {
-        const option = document.createElement('option');
-        option.value = suggestion.text;
-        option.label = suggestion.post_count == null
-          ? suggestion.category
-          : `${suggestion.category} · ${humanCount(suggestion.post_count)} posts`;
-        datalist.appendChild(option);
-      }
-    } catch { /* insertion still accepts a tag while the index is unavailable */ }
+      renderInsertSuggestions(input, menu, body.suggestions || []);
+    } catch {
+      if (epoch === tagInsertSuggestionEpoch) renderInsertSuggestions(input, menu, []);
+    }
   }, 160);
 }
 
@@ -2563,9 +2598,14 @@ function buildTagInsertEditor() {
   input.maxLength = 200;
   input.placeholder = 'insert tag';
   input.setAttribute('aria-label', 'New tag');
-  const datalist = document.createElement('datalist');
-  datalist.id = 'tag-insert-options';
-  input.setAttribute('list', datalist.id);
+  input.setAttribute('aria-autocomplete', 'list');
+  input.setAttribute('aria-expanded', 'false');
+  const menu = document.createElement('ul');
+  menu.className = 'tag-insert-suggestions';
+  menu.id = 'tag-insert-suggestions';
+  menu.setAttribute('role', 'listbox');
+  menu.hidden = true;
+  input.setAttribute('aria-controls', menu.id);
   const accept = document.createElement('button');
   accept.type = 'button';
   accept.textContent = '+';
@@ -2579,10 +2619,19 @@ function buildTagInsertEditor() {
   cancel.setAttribute('aria-label', 'Cancel insertion');
   input.oninput = () => {
     accept.disabled = !input.value.trim() || input.value.includes(',');
-    scheduleInsertSuggestions(input, datalist);
+    scheduleInsertSuggestions(input, menu);
   };
   input.onkeydown = (event) => {
-    if (event.key === 'Enter' && !accept.disabled) {
+    if (event.key === 'ArrowDown' && !menu.hidden) {
+      event.preventDefault();
+      selectInsertSuggestion(menu, menu._index + 1);
+    } else if (event.key === 'ArrowUp' && !menu.hidden) {
+      event.preventDefault();
+      selectInsertSuggestion(menu, menu._index - 1);
+    } else if ((event.key === 'Enter' || event.key === 'Tab') && !menu.hidden) {
+      event.preventDefault();
+      commitInsertedTag(menu._suggestions[menu._index].text);
+    } else if (event.key === 'Enter' && !accept.disabled) {
       event.preventDefault();
       commitInsertedTag(input.value);
     } else if (event.key === 'Escape') {
@@ -2592,7 +2641,7 @@ function buildTagInsertEditor() {
   };
   accept.onclick = () => commitInsertedTag(input.value);
   cancel.onclick = closeTagInsert;
-  editor.append(input, accept, cancel, datalist);
+  editor.append(input, accept, cancel, menu);
   setTimeout(() => input.focus(), 0);
   return editor;
 }
@@ -2621,22 +2670,28 @@ function renderTagValidation(results, available = true, detail = '') {
     chip.dataset.index = String(index);
     const label = document.createElement('span');
     label.className = 'tag-check-label';
+    const mark = document.createElement('span');
+    mark.className = 'tag-check-mark';
+    const text = document.createElement('span');
+    text.className = 'tag-check-text';
+    text.textContent = result.tag;
     if (result.valid === true) {
       chip.classList.add('valid');
-      label.textContent = `✓ ${result.tag}`;
+      mark.textContent = '✓';
       chip.title = result.source === 'model'
         ? 'Animagine model-card tag'
         : `Danbooru ${result.category} tag · ${humanCount(result.post_count)} posts` +
           (result.canonical !== result.tag ? ` · canonical: ${result.canonical}` : '');
     } else if (result.valid === false) {
       chip.classList.add('unknown');
-      label.textContent = `? ${result.tag}`;
+      mark.textContent = '?';
       chip.title = `${result.reason}; generation is still allowed`;
     } else {
       chip.classList.add('unchecked');
-      label.textContent = `… ${result.tag}`;
+      mark.textContent = '…';
       chip.title = detail || result.reason || 'Danbooru lookup unavailable';
     }
+    label.append(mark, text);
     chip.title += ' · drag to reorder · right-click left/right half to insert · Delete removes';
     chip.setAttribute('aria-label', `${result.tag}. Drag to reorder; Delete removes it.`);
     const remove = document.createElement('button');
