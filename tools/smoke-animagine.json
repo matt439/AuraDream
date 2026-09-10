@@ -13,6 +13,8 @@
   {"eval": "els.prompt.value += ', made up tag'; els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length); els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"wait": 500},
   {"expect": "[...els.tagValidation.children].some((chip) => chip.classList.contains('unknown') && chip.textContent.includes('made up tag'))"},
+  {"eval": "renderTagValidation(Array.from({length: 24}, (_, i) => ({tag: `tag ${i}`, valid: true, source: 'model'})));"},
+  {"expect": "els.tagValidation.scrollHeight > els.tagValidation.clientHeight && els.tagValidation.clientHeight <= 58"},
   {"eval": "els.prompt.value = 'great s'; els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length); els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"wait": 500},
   {"expect": "els.tagSuggestions.children[0].querySelector('.tag-kind').textContent === 'model' && els.tagSuggestions.children[0].textContent.includes('great score')"},

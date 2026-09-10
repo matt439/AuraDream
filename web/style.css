@@ -240,7 +240,9 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .tag-suggestions .tag-name { flex: 1; overflow-wrap: anywhere; }
 .tag-suggestions .tag-count { color: var(--muted); font-variant-numeric: tabular-nums; }
 .tag-validation {
-  display: flex; flex-wrap: wrap; column-gap: 9px; row-gap: 6px; min-height: 18px;
+  display: flex; flex-wrap: wrap; align-content: flex-start;
+  column-gap: 9px; row-gap: 6px; min-height: 18px; max-height: 58px;
+  overflow-y: auto; padding-right: 2px; scrollbar-gutter: stable;
 }
 .tag-validation::before { content: "Danbooru"; color: var(--muted); font-size: 10px; margin-right: 3px; align-self: center; }
 .tag-check {

@@ -1039,6 +1039,8 @@ checked 2026-09-10: the maintainer's answer
 (<https://huggingface.co/spaces/Asahina2K/animagine-xl-4.0/discussions/4>) and
 Danbooru's tag API documentation
 (<https://safebooru.donmai.us/wiki_pages/api:tags>).
+The validation chips are capped at two visible rows with their own vertical
+scroll, so a long tag prompt cannot push the Generate controls down the page.
 
 ## The prompting guide
 
