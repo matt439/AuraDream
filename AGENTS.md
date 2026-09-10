@@ -210,6 +210,8 @@ Frontend and CLI:
 - Animagine tag autocomplete and comma-item validation use the fixed Danbooru
   tag API through `backend/tags.py`, filtered to its knowledge cutoff. Model-card
   special tags validate locally; lookup failure stays advisory and never blocks.
+  On a two-column page validation lives above the results, not in the panel;
+  under 901 px the same node returns below Prompt.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets

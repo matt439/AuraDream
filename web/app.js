@@ -15,6 +15,7 @@ const els = {
   examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
+  tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
   promptTranslationField: $('prompt-translation-field'), promptTranslation: $('prompt-translation'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
@@ -2305,6 +2306,7 @@ els.lbImg.ondblclick = (e) => {
 els.lbFit.onclick = zoomFit;
 els.lbOne.onclick = () => zoomOneToOne();
 window.addEventListener('resize', layoutLightbox);
+window.addEventListener('resize', placeTagValidation);
 
 // --------------------------------------------------------------------- wire
 
@@ -2539,6 +2541,13 @@ function syncTagVocabulary() {
   els.prompt.spellcheck = !tagVocabularyEnabled;
   if (!tagVocabularyEnabled) hideTagSuggestions();
   scheduleTagValidation(0);
+}
+
+function placeTagValidation() {
+  const host = window.matchMedia('(min-width: 901px)').matches
+    ? els.tagValidationWide
+    : els.tagValidationHome;
+  if (els.tagValidation.parentElement !== host) host.appendChild(els.tagValidation);
 }
 
 function tagCursorIndex() {
@@ -2877,6 +2886,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '1') zoomOneToOne();
 });
 
+placeTagValidation();
 buildPresets();
 // Before the sync functions, which light the presets, the CFG note and the
 // runs hint up from whatever is in the boxes.

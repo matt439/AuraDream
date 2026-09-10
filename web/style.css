@@ -239,12 +239,16 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .tag-suggestions .tag-kind { color: var(--accent-2); min-width: 52px; font-size: 9px; text-transform: uppercase; }
 .tag-suggestions .tag-name { flex: 1; overflow-wrap: anywhere; }
 .tag-suggestions .tag-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tag-validation-host { display: contents; }
 .tag-validation {
   display: flex; flex-wrap: wrap; align-content: flex-start;
-  column-gap: 9px; row-gap: 6px; min-height: 18px; max-height: 58px;
-  overflow-y: auto; padding-right: 2px; scrollbar-gutter: stable;
+  column-gap: 9px; row-gap: 6px; min-height: 18px;
 }
-.tag-validation::before { content: "Danbooru"; color: var(--muted); font-size: 10px; margin-right: 3px; align-self: center; }
+.tag-validation-wide .tag-validation {
+  padding: 10px 12px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.tag-validation::before { content: "Prompt tags · Danbooru"; color: var(--muted); font-size: 10px; margin-right: 3px; align-self: center; }
 .tag-check {
   max-width: 100%; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
   color: var(--muted); background: #15151b; font-size: 10px; overflow-wrap: anywhere;

@@ -1039,8 +1039,11 @@ checked 2026-09-10: the maintainer's answer
 (<https://huggingface.co/spaces/Asahina2K/animagine-xl-4.0/discussions/4>) and
 Danbooru's tag API documentation
 (<https://safebooru.donmai.us/wiki_pages/api:tags>).
-The validation chips are capped at two visible rows with their own vertical
-scroll, so a long tag prompt cannot push the Generate controls down the page.
+On a two-column page the single validation node is moved into a panel above the
+wide results area, where every chip wraps without a nested scrollbar and its
+height cannot move Generate in the settings column. At 900 px and below it
+returns under the prompt in normal document flow, where the whole page is
+already a single scrolling column.
 
 ## The prompting guide
 

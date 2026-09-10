@@ -56,7 +56,9 @@
                   aria-controls="tag-suggestions" aria-expanded="false"></textarea>
         <ul class="tag-suggestions" id="tag-suggestions" role="listbox" hidden></ul>
       </div>
-      <div class="tag-validation" id="tag-validation" role="status" hidden></div>
+      <div class="tag-validation-host tag-validation-home" id="tag-validation-home">
+        <div class="tag-validation" id="tag-validation" role="status" hidden></div>
+      </div>
     </div>
 
     <label class="field translation" id="prompt-translation-field" hidden>
@@ -324,6 +326,7 @@
   </aside>
 
   <section class="stage">
+    <div class="tag-validation-host tag-validation-wide" id="tag-validation-wide"></div>
     <div class="viewer" id="viewer">
       <p class="placeholder">Generated images appear here.</p>
     </div>
