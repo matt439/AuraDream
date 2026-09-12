@@ -22,7 +22,7 @@ def store(tmp_path, monkeypatch):
     monkeypatch.setattr(
         storage,
         "settings",
-        dataclasses.replace(storage.settings, db_path=tmp_path / "krea.db", outputs_dir=outputs),
+        dataclasses.replace(storage.settings, db_path=tmp_path / "local-diffusion.db", outputs_dir=outputs),
     )
     storage.init_db()
     return storage

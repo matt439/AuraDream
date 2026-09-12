@@ -19,7 +19,7 @@ dependencies = [
     "huggingface-hub[hf-xet]>=0.30",
     "pydantic>=2.9",
     "torchao",
-    # KREA_QUANT=nunchaku only. `kernels` fetches the Nunchaku Lite CUDA ops from
+    # LOCAL_DIFFUSION_QUANT=nunchaku only. `kernels` fetches the Nunchaku Lite CUDA ops from
     # the Hub and publishes Linux builds only; bitsandbytes carries those
     # checkpoints' NF4 text encoders. Linux markers, so a Windows `uv sync` is
     # unchanged and one from WSL 2 picks both up.

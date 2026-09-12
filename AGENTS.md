@@ -6,13 +6,13 @@ frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**
 Turbo** (`krea/Krea-2-Turbo`) needs manual approval on HuggingFace and is what
 the sizing notes in `docs/design-notes.md` are written around. The catalogue
 in `backend/launch.py` lists the rest; any of them runs unchanged - set
-`KREA_MODEL_ID`, or answer the start-up menu.
+`LOCAL_DIFFUSION_MODEL_ID`, or answer the start-up menu.
 
 ## Run
 
 ```powershell
 uv run python -m backend.main      # http://127.0.0.1:7860; bare on a terminal, asks
-uv run python -m backend.main --defaults   # KREA_* as set, no questions
+uv run python -m backend.main --defaults   # LOCAL_DIFFUSION_* as set, no questions
 uv run --group dev pytest          # no GPU, no weights, a few seconds
 ```
 
@@ -26,7 +26,7 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 
 ## Layout
 
-- `backend/config.py` — settings, most overridable by `KREA_*` env vars
+- `backend/config.py` — settings, most overridable by `LOCAL_DIFFUSION_*` env vars
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
   flags, run before `config` is imported; the checkpoint catalogue lives here
 - `backend/schemas.py` — pydantic request/response models
@@ -65,7 +65,7 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/clear.py` — deletes rows, their PNGs and any orphans
 - `backend/stats.py` — the starred *rate* per setting (`storage.keep_rates`),
   scoped to a run by default
-- `backend/reindex.py` — rows rebuilt from the PNGs' `krea` chunk, in place or
+- `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
 - `web/` — served as-is from `/static`; the page script is ten classic
   scripts `index.html` loads in order (`state`, `sizes`, `status`,
@@ -93,6 +93,10 @@ measured on the card and when.
 
 Model and loader:
 
+- App-owned names use Local Diffusion: `LOCAL_DIFFUSION_*`,
+  `local-diffusion.db`, `~/local-diffusion`, `local-diffusion.*` browser keys
+  and the `local-diffusion` PNG chunk. Keep Krea only in checkpoint/vendor
+  names and explicit compatibility reads for pre-rename data.
 - Quantize through `PipelineQuantizationConfig(quant_mapping=...)`, one
   `TorchAoConfig` per component from the library that owns it, each built from
   a torchao `AOBaseConfig` *instance*. The `quant_backend="torchao"` shorthand
@@ -106,12 +110,12 @@ Model and loader:
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end` (`_REQUIRED_PARAMS`): the seed and the cancel depend
   on them.
-- `KREA_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
+- `LOCAL_DIFFUSION_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
   (WSL 2 here), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
   WSL, `source wsl/env.sh` before `uv`.
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
-  `KREA_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
+  `LOCAL_DIFFUSION_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
 - `loading.UNUSED_COMPONENTS` names what ordinary image loading leaves out
   (ERNIE-Image's prompt rewriter). `load()` reads `model_index.json` ahead of
   the weights and hands them as None to the *concrete* class's
@@ -166,7 +170,7 @@ Reproduction:
   equal to the CLI's in `tests/test_cli.py`.
 - The reproduction set - prompt pair, size, steps, CFG, true CFG, mu, seed,
   checkpoint, quantization, references, LoRA and weight, variables, hash - is
-  on the row, in the PNG's `krea` chunk and in `CellKey`. `run_id` names a
+  on the row, in the PNG's `local-diffusion` chunk and in `CellKey`. `run_id` names a
   cell by the shortest key carrying its non-None optional elements, so every
   existing run id survives a widening.
 - Resume keys on settings (`storage.completed_cells`, six-decimal rounding,

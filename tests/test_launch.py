@@ -1,6 +1,6 @@
 """The start-up menu: bare `python -m backend.main` asks, anything else does not.
 
-The menu writes KREA_* into the environment before config.py freezes them, so
+The menu writes LOCAL_DIFFUSION_* into the environment before config.py freezes them, so
 what these check is that the right variables come out of a given sequence of
 answers - and that no answer is ever waited for when there is an argument, or
 no terminal to ask on.
@@ -38,10 +38,10 @@ def never_ask(_prompt: str) -> str:
 def clean_env(monkeypatch):
     # Save and restore explicitly. `monkeypatch.delenv` records nothing for a
     # variable that was absent - the normal case - so a configure() that then
-    # wrote KREA_MODEL_ID leaked it into every test collected afterwards.
+    # wrote LOCAL_DIFFUSION_MODEL_ID leaked it into every test collected afterwards.
     import os
 
-    names = ("KREA_MODEL_ID", "KREA_QUANT", "KREA_OFFLOAD")
+    names = ("LOCAL_DIFFUSION_MODEL_ID", "LOCAL_DIFFUSION_QUANT", "LOCAL_DIFFUSION_OFFLOAD")
     saved = {name: os.environ.get(name) for name in names}
     for name in names:
         os.environ.pop(name, None)
@@ -59,7 +59,7 @@ def test_enter_three_times_keeps_the_shipped_defaults(clean_env):
 
 
 def test_the_environment_is_the_default(clean_env):
-    env = {"KREA_MODEL_ID": TURBO, "KREA_QUANT": "int8", "KREA_OFFLOAD": "sequential"}
+    env = {"LOCAL_DIFFUSION_MODEL_ID": TURBO, "LOCAL_DIFFUSION_QUANT": "int8", "LOCAL_DIFFUSION_OFFLOAD": "sequential"}
     choice = launch.prompt(ask=answers("", "", ""), out=io.StringIO(), env=env, linux=False)
     assert choice == launch.Choice(TURBO, "int8", "sequential")
 
@@ -94,17 +94,17 @@ def test_int4_names_the_older_cards_repo(clean_env):
 
 
 def test_a_lite_repo_in_the_environment_marks_its_family_and_format(clean_env):
-    env = {"KREA_MODEL_ID": TURBO_LITE.replace("nvfp4", "int4"), "KREA_QUANT": "nunchaku"}
+    env = {"LOCAL_DIFFUSION_MODEL_ID": TURBO_LITE.replace("nvfp4", "int4"), "LOCAL_DIFFUSION_QUANT": "nunchaku"}
     out = io.StringIO()
     choice = launch.prompt(ask=answers("", "", "", ""), out=out, env=env, linux=True)
-    assert choice.model_id == env["KREA_MODEL_ID"]
+    assert choice.model_id == env["LOCAL_DIFFUSION_MODEL_ID"]
     assert choice.quantization == "nunchaku"
 
 
 def test_nunchaku_is_not_offered_off_linux(clean_env):
     out = io.StringIO()
     choice = launch.prompt(
-        ask=answers("", "", ""), out=out, env={"KREA_QUANT": "nunchaku"}, linux=False
+        ask=answers("", "", ""), out=out, env={"LOCAL_DIFFUSION_QUANT": "nunchaku"}, linux=False
     )
     assert "nunchaku" not in out.getvalue().split("Checkpoint")[0]
     assert choice.quantization == "fp8", "an unofferable default falls back to fp8"
@@ -126,7 +126,7 @@ def test_an_unrecognised_id_in_the_environment_survives_bare_enters(clean_env):
     # An id the catalogue does not know - typed at "another repo id" last time,
     # or a local directory - used to leave the marker on FLUX, so the three
     # Enters the header invites started a 32 GB download of the wrong model.
-    env = {"KREA_MODEL_ID": "nobody/whatever"}
+    env = {"LOCAL_DIFFUSION_MODEL_ID": "nobody/whatever"}
     out = io.StringIO()
     choice = launch.prompt(ask=answers("", "", ""), out=out, env=env, linux=False)
     assert choice.model_id == "nobody/whatever"
@@ -182,24 +182,24 @@ def test_no_arguments_on_a_terminal_asks_and_sets_the_environment(clean_env, mon
     assert choice is not None
     import os
 
-    assert os.environ["KREA_MODEL_ID"] == TURBO
-    assert os.environ["KREA_QUANT"] == "fp8"
-    assert os.environ["KREA_OFFLOAD"] == "model"
+    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == TURBO
+    assert os.environ["LOCAL_DIFFUSION_QUANT"] == "fp8"
+    assert os.environ["LOCAL_DIFFUSION_OFFLOAD"] == "model"
 
 
 def test_any_argument_skips_the_menu(clean_env):
     import os
 
     assert launch.configure(["--model", TURBO], ask=never_ask, interactive=True) is None
-    assert os.environ["KREA_MODEL_ID"] == TURBO
-    assert "KREA_QUANT" not in os.environ, "what the flags do not name is left to config.py"
+    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == TURBO
+    assert "LOCAL_DIFFUSION_QUANT" not in os.environ, "what the flags do not name is left to config.py"
 
 
 def test_defaults_flag_skips_the_menu_and_touches_nothing(clean_env):
     import os
 
     assert launch.configure(["--defaults"], ask=never_ask, interactive=True) is None
-    assert "KREA_MODEL_ID" not in os.environ
+    assert "LOCAL_DIFFUSION_MODEL_ID" not in os.environ
 
 
 def test_without_a_terminal_there_is_no_menu(clean_env):
@@ -220,7 +220,7 @@ def test_the_cli_shares_the_flags(clean_env):
     launch.apply_env(args)
     import os
 
-    assert (os.environ["KREA_MODEL_ID"], os.environ["KREA_QUANT"], os.environ["KREA_OFFLOAD"]) == (
+    assert (os.environ["LOCAL_DIFFUSION_MODEL_ID"], os.environ["LOCAL_DIFFUSION_QUANT"], os.environ["LOCAL_DIFFUSION_OFFLOAD"]) == (
         TURBO,
         "int8",
         "none",

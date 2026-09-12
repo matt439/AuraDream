@@ -22,7 +22,7 @@ def cli(store, monkeypatch):
     fake = FakeBackend()
     # _project() imports get_backend and settings at call time, so these are
     # what main() sees: the fake, and the throwaway gallery's paths rather than
-    # the real krea.db in the checkout.
+    # the real local-diffusion.db in the checkout.
     monkeypatch.setattr(backends, "get_backend", lambda name="diffusers": fake)
     monkeypatch.setattr(config, "settings", store.settings)
     # No server is probed: the developer's own may well be up on 7860, and a
@@ -64,7 +64,7 @@ def test_a_dry_run_loads_and_writes_nothing(cli, store, capsys):
 def test_a_dry_run_with_resume_creates_no_database(cli, store):
     # The resume lookup connects, and connecting writes the schema into any
     # file it opens; a dry run against a gallery that does not exist yet used
-    # to leave a 40 KB krea.db behind.
+    # to leave a 40 KB local-diffusion.db behind.
     store.settings.db_path.unlink()
     code = generate.main(["a fox", "--dry-run", "--resume", "--seed", "1", "--grid-steps", "6,8", *SIZE])
     assert code == 0
@@ -116,7 +116,7 @@ def test_a_seed_list_runs_the_grid_at_exactly_those_seeds(cli, store, capsys):
 def test_from_image_reads_the_pngs_own_record(cli, store, capsys, monkeypatch):
     # The PNG's metadata was write-only: starting from an image you already
     # have cost a browser trip and six numbers retyped by hand.
-    monkeypatch.delenv("KREA_MODEL_ID", raising=False)
+    monkeypatch.delenv("LOCAL_DIFFUSION_MODEL_ID", raising=False)
     assert generate.main([
         "a fox in fog", "-n", "blurry", "--seed", "7", "--steps", "6", "--cfg", "0.5",
         "--mu", "1.3", *SIZE, "-q",
@@ -137,7 +137,7 @@ def test_from_image_reads_the_pngs_own_record(cli, store, capsys, monkeypatch):
     # reach the environment.
     import os
 
-    assert os.environ["KREA_MODEL_ID"] == store.settings.model_id
+    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == store.settings.model_id
     # An explicit flag still wins over the record.
     assert generate.main(["--from-image", path, "--steps", "9", "--aspect", "16:9", "--dry-run"]) == 0
     out = capsys.readouterr().out

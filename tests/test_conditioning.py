@@ -246,7 +246,7 @@ def test_the_row_and_the_png_carry_both(store, lora_dir):
     )
     assert (record.reference, record.lora, record.lora_scale) == ([4, 9], "style.safetensors", 0.75)
     with Image.open(store.settings.outputs_dir / record.filename) as png:
-        meta = json.loads(png.info["krea"])
+        meta = json.loads(png.info["local-diffusion"])
         assert meta["reference"] == [4, 9]
         assert (meta["lora"], meta["lora_scale"]) == ("style.safetensors", 0.75)
         assert "LoRA: style.safetensors:0.75" in png.info["parameters"]

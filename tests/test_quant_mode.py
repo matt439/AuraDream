@@ -1,4 +1,4 @@
-"""KREA_QUANT=nunchaku: nothing is quantized at load, and the mode refuses early.
+"""LOCAL_DIFFUSION_QUANT=nunchaku: nothing is quantized at load, and the mode refuses early.
 
 A Nunchaku Lite checkpoint arrives pre-quantized and names its quantizer in
 `transformer/config.json`; a torchao config on top of that would be wrong, and
@@ -51,7 +51,7 @@ def test_prequantized_repo_gets_no_torchao_config(nunchaku):
 
 
 def test_fp8_refuses_a_prequantized_repo_before_the_download(monkeypatch, tmp_path):
-    # The mirror image of the Nunchaku preflight: `KREA_QUANT=fp8` on a lite
+    # The mirror image of the Nunchaku preflight: `LOCAL_DIFFUSION_QUANT=fp8` on a lite
     # repo used to download ~9 GB and die inside transformers.
     monkeypatch.setattr(
         module, "settings", dataclasses.replace(module.settings, quantization="fp8", model_id=MODEL)
@@ -104,7 +104,11 @@ _IMPORT_SETTINGS = (
 def _run_import(env: dict[str, str]) -> subprocess.CompletedProcess:
     # `settings` reads the environment at import, so a fresh interpreter is
     # the only honest way to test the variables.
-    clean = {k: v for k, v in os.environ.items() if not k.startswith(("KREA_", "DIFFUSERS_"))}
+    clean = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("LOCAL_DIFFUSION_", "DIFFUSERS_"))
+    }
     return subprocess.run(
         [sys.executable, "-c", _IMPORT_SETTINGS],
         env={**clean, **env},
@@ -122,7 +126,7 @@ def _settings_in_subprocess(env: dict[str, str]) -> dict[str, str]:
 
 def test_data_paths_come_from_the_environment(tmp_path):
     got = _settings_in_subprocess(
-        {"KREA_OUTPUTS_DIR": str(tmp_path / "out"), "KREA_DB_PATH": str(tmp_path / "g.db")}
+        {"LOCAL_DIFFUSION_OUTPUTS_DIR": str(tmp_path / "out"), "LOCAL_DIFFUSION_DB_PATH": str(tmp_path / "g.db")}
     )
     assert got["outputs_dir"] == str(tmp_path / "out")
     assert got["db_path"] == str(tmp_path / "g.db")
@@ -133,21 +137,21 @@ def test_data_paths_come_from_the_environment(tmp_path):
 
 @pytest.mark.parametrize(
     "env, name",
-    [({"KREA_QUANT": "fp16"}, "KREA_QUANT"), ({"KREA_OFFLOAD": "cpu"}, "KREA_OFFLOAD")],
+    [({"LOCAL_DIFFUSION_QUANT": "fp16"}, "LOCAL_DIFFUSION_QUANT"), ({"LOCAL_DIFFUSION_OFFLOAD": "cpu"}, "LOCAL_DIFFUSION_OFFLOAD")],
 )
 def test_an_unknown_mode_is_refused_at_import(tmp_path, env, name):
     # Either used to select the heaviest path silently and fail at the first
     # image, with /api/status echoing the typo back.
-    base = {"KREA_OUTPUTS_DIR": str(tmp_path / "out"), "KREA_DB_PATH": str(tmp_path / "g.db")}
+    base = {"LOCAL_DIFFUSION_OUTPUTS_DIR": str(tmp_path / "out"), "LOCAL_DIFFUSION_DB_PATH": str(tmp_path / "g.db")}
     result = _run_import({**base, **env})
     assert result.returncode != 0
     assert name in result.stderr and "is not one of" in result.stderr
 
 
 def test_nunchaku_opts_into_remote_kernels_and_nothing_else_does(tmp_path):
-    base = {"KREA_OUTPUTS_DIR": str(tmp_path / "out"), "KREA_DB_PATH": str(tmp_path / "g.db")}
-    assert _settings_in_subprocess({**base, "KREA_QUANT": "nunchaku"})["trust"] == "true"
-    assert _settings_in_subprocess({**base, "KREA_QUANT": "fp8"})["trust"] == ""
+    base = {"LOCAL_DIFFUSION_OUTPUTS_DIR": str(tmp_path / "out"), "LOCAL_DIFFUSION_DB_PATH": str(tmp_path / "g.db")}
+    assert _settings_in_subprocess({**base, "LOCAL_DIFFUSION_QUANT": "nunchaku"})["trust"] == "true"
+    assert _settings_in_subprocess({**base, "LOCAL_DIFFUSION_QUANT": "fp8"})["trust"] == ""
     # An explicit refusal in the environment is respected.
-    explicit = {**base, "KREA_QUANT": "nunchaku", "DIFFUSERS_TRUST_REMOTE_KERNELS": "false"}
+    explicit = {**base, "LOCAL_DIFFUSION_QUANT": "nunchaku", "DIFFUSERS_TRUST_REMOTE_KERNELS": "false"}
     assert _settings_in_subprocess(explicit)["trust"] == "false"

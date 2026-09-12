@@ -8,29 +8,29 @@
 # uv also has to be told where its environment is: left alone it would find the
 # Windows .venv in the project directory, judge it broken, and replace it.
 
-_krea_home="${KREA_WSL_HOME:-$HOME/krea-local}"
+_local_diffusion_home="${LOCAL_DIFFUSION_WSL_HOME:-$HOME/local-diffusion}"
 
-export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-$_krea_home/.venv}"
-export KREA_OUTPUTS_DIR="${KREA_OUTPUTS_DIR:-$_krea_home/outputs}"
-export KREA_DB_PATH="${KREA_DB_PATH:-$_krea_home/krea.db}"
+export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-$_local_diffusion_home/.venv}"
+export LOCAL_DIFFUSION_OUTPUTS_DIR="${LOCAL_DIFFUSION_OUTPUTS_DIR:-$_local_diffusion_home/outputs}"
+export LOCAL_DIFFUSION_DB_PATH="${LOCAL_DIFFUSION_DB_PATH:-$_local_diffusion_home/local-diffusion.db}"
 # HF_HOME is left alone: its default, ~/.cache/huggingface, is already ext4.
 
 # The reason to run here at all: Nunchaku Lite's 4-bit kernels are Linux-only.
 # These repos are the official weights re-uploaded pre-quantized, and not gated.
 # nvfp4 needs an RTX 50 (Blackwell); older cards use the same names with int4.
-export KREA_QUANT="${KREA_QUANT:-nunchaku}"
+export LOCAL_DIFFUSION_QUANT="${LOCAL_DIFFUSION_QUANT:-nunchaku}"
 # The checkpoint default is tied to the quantization: a pre-quantized repo
 # under fp8 dies deep in transformers after the whole download ("quantized
 # with BitsAndBytesConfig but you are passing a TorchAoConfig"). Any other
-# KREA_QUANT falls through to config.py's own default checkpoint. The 4-bit
-# format defaults to nvfp4 (RTX 50); KREA_NUNCHAKU_FORMAT=int4 for older cards,
+# LOCAL_DIFFUSION_QUANT falls through to config.py's own default checkpoint. The 4-bit
+# format defaults to nvfp4 (RTX 50); LOCAL_DIFFUSION_NUNCHAKU_FORMAT=int4 for older cards,
 # as setup.sh reports.
-if [ "$KREA_QUANT" = "nunchaku" ]; then
-  _krea_fmt="${KREA_NUNCHAKU_FORMAT:-nvfp4}"
-  export KREA_MODEL_ID="${KREA_MODEL_ID:-lite-infer/krea-2-turbo-nunchaku-lite-${_krea_fmt}_r32-bnb4-text-encoder}"
-  # FLUX.1 Krea dev:  lite-infer/flux.1-krea-dev-nunchaku-lite-${_krea_fmt}_r32-bnb4-text-encoder
-  # ERNIE-Image Turbo: lite-infer/ERNIE-Image-Turbo-nunchaku-lite-${_krea_fmt}-bnb4-text-encoder (no _r32)
-  unset _krea_fmt
+if [ "$LOCAL_DIFFUSION_QUANT" = "nunchaku" ]; then
+  _local_diffusion_fmt="${LOCAL_DIFFUSION_NUNCHAKU_FORMAT:-nvfp4}"
+  export LOCAL_DIFFUSION_MODEL_ID="${LOCAL_DIFFUSION_MODEL_ID:-lite-infer/krea-2-turbo-nunchaku-lite-${_local_diffusion_fmt}_r32-bnb4-text-encoder}"
+  # FLUX.1 Krea dev:  lite-infer/flux.1-krea-dev-nunchaku-lite-${_local_diffusion_fmt}_r32-bnb4-text-encoder
+  # ERNIE-Image Turbo: lite-infer/ERNIE-Image-Turbo-nunchaku-lite-${_local_diffusion_fmt}-bnb4-text-encoder (no _r32)
+  unset _local_diffusion_fmt
 fi
 
 # torch 2.13 swaps some CUDA ops for Triton kernels even in eager mode, and
@@ -50,4 +50,4 @@ export TORCH_DISABLE_NATIVE_JIT="${TORCH_DISABLE_NATIVE_JIT:-1}"
 export HF_XET_CLIENT_ENABLE_ADAPTIVE_CONCURRENCY="${HF_XET_CLIENT_ENABLE_ADAPTIVE_CONCURRENCY:-false}"
 export HF_XET_FIXED_DOWNLOAD_CONCURRENCY="${HF_XET_FIXED_DOWNLOAD_CONCURRENCY:-32}"
 
-unset _krea_home
+unset _local_diffusion_home

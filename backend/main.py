@@ -60,7 +60,7 @@ from .translation import prompt_translator  # noqa: E402
 logging.basicConfig(
     level=settings.log_level, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
 )
-log = logging.getLogger("krea")
+log = logging.getLogger("local_diffusion")
 
 backend = get_backend("diffusers")
 
@@ -162,7 +162,7 @@ def _origin_allowed(origin: str) -> bool:
     """Is this Origin header one of our own pages?
 
     Compared by hostname and *effective* port rather than by string: a browser
-    serialises an origin without a default port, so on `KREA_PORT=80` the page
+    serialises an origin without a default port, so on `LOCAL_DIFFUSION_PORT=80` the page
     sends `http://127.0.0.1` and a string match against `http://127.0.0.1:80`
     refused every one of the app's own writes. `https` is allowed for the LAN
     case behind a TLS proxy.
@@ -785,7 +785,7 @@ async def job_stream(job_id: str) -> StreamingResponse:
 async def gallery(
     # A sheet asks for a whole run at once - up to a full grid - where the grid
     # view pages. The rows are small; the thumbnails load lazily either way.
-    # The ceiling follows KREA_MAX_GRID_IMAGES, which /api/status publishes, so
+    # The ceiling follows LOCAL_DIFFUSION_MAX_GRID_IMAGES, which /api/status publishes, so
     # the sheet's one-page request cannot be refused by the server that sized it.
     limit: int = Query(48, ge=1, le=max(1024, settings.max_grid_images)),
     offset: int = Query(0, ge=0),

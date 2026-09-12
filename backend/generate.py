@@ -37,10 +37,11 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Imported up here rather than in _project(): none of these pulls in config, so
-# all are safe before apply_env() has had its say about the KREA_* variables.
+# all are safe before apply_env() has had its say about LOCAL_DIFFUSION_* variables.
 # launch.py owns --model/--quant/--offload for the server and this CLI alike;
 # sizes.py owns the preset table the browser's copy is asserted against.
 from backend.launch import add_model_arguments, apply_env  # noqa: E402
+from backend.metadata import embedded_metadata  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
 from backend.sizes import SIZES, TIERS  # noqa: E402
 
@@ -109,7 +110,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--lora",
         metavar="FILE",
         help="a .safetensors adapter in the loras directory, by file name "
-        "(KREA_LORAS_DIR moves it)",
+        "(LOCAL_DIFFUSION_LORAS_DIR moves it)",
     )
     conditioning.add_argument(
         "--lora-scale",
@@ -204,13 +205,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ignore-server",
         action="store_true",
-        help="load the weights even if a server on KREA_HOST:KREA_PORT already holds them on the GPU",
+        help="load the weights even if a server on LOCAL_DIFFUSION_HOST:LOCAL_DIFFUSION_PORT already holds them on the GPU",
     )
     return parser
 
 
 def _image_settings(path: str, parser: argparse.ArgumentParser) -> dict:
-    """The `krea` metadata block a gallery PNG carries, as a dict.
+    """The Local Diffusion metadata block a gallery PNG carries, as a dict.
 
     `Image.open(p).info` - not `.text`, which is a property that calls `load()`
     and decodes every pixel to answer a question the header settles. A JPEG
@@ -223,22 +224,25 @@ def _image_settings(path: str, parser: argparse.ArgumentParser) -> dict:
 
     try:
         with Image.open(path) as image:
-            raw = image.info.get("krea")
+            raw = embedded_metadata(image.info)
     except (OSError, ValueError) as exc:
         parser.error(f"--from-image: cannot open {path}: {exc}")
     if not raw:
-        parser.error(f"--from-image: {path} carries no krea metadata; only this app's PNGs do")
+        parser.error(
+            f"--from-image: {path} carries no Local Diffusion metadata; "
+            "only this app's PNGs do"
+        )
     try:
         return json.loads(raw)
     except ValueError:
-        parser.error(f"--from-image: the krea metadata in {path} is not JSON")
+        parser.error(f"--from-image: the Local Diffusion metadata in {path} is not JSON")
 
 
 def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
     """Fill the arguments the flags left unset from the PNG's own record.
 
     Before `apply_env`, so the checkpoint the image was made on can reach
-    KREA_MODEL_ID: a Turbo PNG rendered on FLUX would claim to reproduce an
+    LOCAL_DIFFUSION_MODEL_ID: a Turbo PNG rendered on FLUX would claim to reproduce an
     image it cannot. Quantization is *not* carried - a Nunchaku PNG read on
     Windows would otherwise ask for a mode this machine cannot run - and
     neither are the job and run ids: they are displayed, never reused.
@@ -363,7 +367,7 @@ def _duration(seconds: float) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    # The PNG first, so its checkpoint can reach KREA_MODEL_ID before the
+    # The PNG first, so its checkpoint can reach LOCAL_DIFFUSION_MODEL_ID before the
     # settings freeze on import.
     source = _image_settings(args.from_image, parser) if args.from_image else None
     if source is not None:

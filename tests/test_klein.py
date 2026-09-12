@@ -233,7 +233,7 @@ class OffloadingPipeline(KleinLikePipeline):
 
 def test_load_offloads_onto_the_configured_device(monkeypatch):
     # Given no device, diffusers resolves its own accelerator - always GPU 0 -
-    # so `KREA_DEVICE=cuda:1` loaded onto cuda:0 while describe() reported
+    # so `LOCAL_DIFFUSION_DEVICE=cuda:1` loaded onto cuda:0 while describe() reported
     # that card, and nothing on screen said the setting was dropped.
     import diffusers
     import torch

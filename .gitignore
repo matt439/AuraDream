@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 outputs/
 # LoRA adapters: the user's own files, hundreds of MB each. The directory is
-# read at run time and created on demand; KREA_LORAS_DIR moves it.
+# read at run time and created on demand; LOCAL_DIFFUSION_LORAS_DIR moves it.
 loras/
 *.db
 *.db-wal

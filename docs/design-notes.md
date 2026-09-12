@@ -6,6 +6,16 @@ wrong before the rule existed, and the evidence, in the notes kept while the
 code was written. Read the section for an area before changing it. The
 measurements quoted here are indexed by date and checkpoint in `verified.md`.
 
+## The project-owned namespace follows Local Diffusion
+
+**Only checkpoint and vendor names use Krea.** App-owned configuration uses
+`LOCAL_DIFFUSION_*`; the default database is `local-diffusion.db`; WSL state
+lives under `~/local-diffusion`; browser state uses `local-diffusion.*`; and
+new PNGs carry their JSON in a `local-diffusion` text chunk. The PNG reader
+still accepts the pre-rename chunk and the browser moves pre-rename state on
+first read, so existing images and saved prompts survive without making the
+old names the write path.
+
 ## Why float8 and model offload
 
 Krea 2 is ~13B and needs **~25 GB in bf16**, which does not fit 16 GB. The
@@ -70,7 +80,7 @@ single value - a grid decides guidance per cell.
 
 ## Nunchaku Lite: pre-quantized repos, Linux only
 
-`KREA_QUANT=nunchaku` loads a checkpoint that is *already* quantized (Nunchaku
+`LOCAL_DIFFUSION_QUANT=nunchaku` loads a checkpoint that is *already* quantized (Nunchaku
 Lite, SVDQuant W4A4; `quant_method: nunchaku_lite` in the transformer's
 `config.json`, bitsandbytes NF4 in the text encoder's) and passes diffusers no
 quantization config at all - the repo's own configs name the quantizer, and
@@ -85,7 +95,7 @@ bf16 case otherwise loads fine and OOMs at the first image. diffusers reads
 `DIFFUSERS_TRUST_REMOTE_KERNELS` once, at import, so `config.py` sets it
 (`setdefault`) - it is imported before diffusers everywhere, the CLI included.
 Under WSL, `wsl/env.sh` moves the venv (`UV_PROJECT_ENVIRONMENT`), the gallery
-(`KREA_OUTPUTS_DIR`, `KREA_DB_PATH`) and the HF cache off `/mnt/c`: 9P is slow
+(`LOCAL_DIFFUSION_OUTPUTS_DIR`, `LOCAL_DIFFUSION_DB_PATH`) and the HF cache off `/mnt/c`: 9P is slow
 and SQLite cannot lock over it. The original `nunchaku` engine is a different
 package with its own transformer classes and no torch 2.13 wheel; not used.
 
@@ -98,7 +108,7 @@ embedding died on the first step with "Failed to find C compiler". `wsl/env.sh`
 sets `TORCH_DISABLE_NATIVE_JIT=1`, which torch honours by declaring those
 overrides unavailable and dispatching to ATen. Verified 2026-09-05: Krea 2
 Turbo NVFP4 via Nunchaku on the 5080, 8 steps, model offload: 1 MP in 15 s at
-8.1 GiB peak, 2 MP in 24 s at 8.6 GiB. `KREA_OFFLOAD=none` does **not** fit
+8.1 GiB peak, 2 MP in 24 s at 8.6 GiB. `LOCAL_DIFFUSION_OFFLOAD=none` does **not** fit
 this checkpoint: 14.7 GiB at 1 MP, 18.7 at 2 MP, and the WDDM driver spills
 the excess into system RAM through WSL just as it does natively - the images
 then took 26 s and 72 s. Offload's per-image weight transfer costs ~5 s and is
@@ -230,7 +240,7 @@ referenced image, in the pose the prompt asked for, and the same hash twice.
 
 **A LoRA is the environment's capability, not the checkpoint's.** All three
 families mix a loader in, so what decides it is peft and the quantizer:
-`lora_unavailable_reason()` refuses `KREA_QUANT=nunchaku` (already 4-bit
+`lora_unavailable_reason()` refuses `LOCAL_DIFFUSION_QUANT=nunchaku` (already 4-bit
 SVDQuant; the modules PEFT would wrap are not `nn.Linear`) and a missing
 peft up front, the way `loading.nunchaku_preflight` refuses, and `describe()`
 answers `lora_supported` with no pipeline loaded at all. Adapters are
@@ -278,7 +288,7 @@ single value rather than the parsed list.
 **A bare `python -m backend.main` on a terminal asks** which checkpoint,
 quantization and offload to use; *any* argument (`--model`, `--quant`,
 `--offload`, `--defaults`) or a non-tty stdin skips the menu, and what the
-flags do not name comes from `KREA_*` as before. `settings` is frozen at
+flags do not name comes from `LOCAL_DIFFUSION_*`. `settings` is frozen at
 import, so `launch.configure()` runs from a `__name__ == "__main__"` guard
 placed *before* `main.py`'s own package imports - the same reason
 `generate.py` applies its flags before importing `backend.config`. Both entry
@@ -434,7 +444,7 @@ read 9.6 GB of the 16 as read off the card; it is 12 now, which the same
 reading puts at roughly 13 GB on that checkpoint. A heavier checkpoint at
 Batch 12 is the user's call, as it was at 8: the ceiling was never a VRAM
 model. Large batches are still refused, and a machine with different headroom
-can set `KREA_MAX_BATCH_PIXELS` explicitly.
+can set `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` explicitly.
 
 ## A job is a list of cells
 
@@ -573,7 +583,7 @@ quarter second. Polled, never `Event.wait()`: a bare wait deadlocks
 `shutdown()`, which cancels and then joins the thread, and makes `cancel()`
 a no-op on a paused job. `busy()` is unchanged, so unload still 409s - the
 weights are needed for the resume - which is the cheap half of the design;
-a full unload-while-paused only matters for `KREA_OFFLOAD=none`.
+a full unload-while-paused only matters for `LOCAL_DIFFUSION_OFFLOAD=none`.
 
 ## The browser's queue
 
@@ -602,7 +612,7 @@ short of the full count.
 
 **The variable assignment is recorded.** `Cell.variables` reaches
 `save_image(variables=)` from both writers, lands in a `variables TEXT`
-column (JSON; `_migrate`), the `krea` chunk and `ImageRecord.variables`.
+column (JSON; `_migrate`), the `local-diffusion` chunk and `ImageRecord.variables`.
 The sheet builds one axis per variable name seen (`axesFor` in `sheet.js`)
 and **suppresses** the flat prompt and negative axes when any record
 carries variables - kept as fallbacks, a 4-value prompt axis would beat a
@@ -617,7 +627,7 @@ and `CellKey` are untouched: the resolved prompt is what ran.
 **Two writers, one INSERT.** `save_image` and `reindex.index_file` both go
 through `storage._insert_row` over `_COLUMNS`, so the column list exists
 once and the FTS trigger fires for both. The reindex reads
-`Image.open(p).info["krea"]`, parses `created_at` from the filename prefix
+the Local Diffusion PNG metadata, parses `created_at` from the filename prefix
 as UTC (mtime failing that), copies a foreign file in `.part`-then-rename
 and never over a different file of the same name, records `duration_ms=0`
 (so `step_cost_ms`'s `> 0` ignores it) and loses `favorite`, which lives in
@@ -632,7 +642,7 @@ carries `bytes` (`image_bytes`: median PNG size at this size on this
 checkpoint, times the images) under the same no-rows-no-estimate rule.
 
 **A database-backed import keeps the database-only state.** `reindex --from
-<outputs> --database <krea.db>` reads the source database in read-only mode,
+<outputs> --database <local-diffusion.db>` reads the source database in read-only mode,
 copies only readable PNGs, and inserts through the same `_insert_row` seam.
 Unlike PNG-only recovery it preserves `favorite`, `duration_ms`, and every
 newer reproduction column the source has. SQLite ids cannot be copied into a
@@ -641,7 +651,7 @@ reference-image ids are translated through the source-to-destination map.
 References necessarily point to images which already existed when the
 conditioned image was made; a missing or conflicting predecessor is dropped
 and counted rather than left pointing at an unrelated destination row. The
-copied PNG's `krea` text chunk is replaced with the remapped metadata by
+copied PNG's Local Diffusion text chunk is replaced with the remapped metadata by
 rewriting PNG chunks, not pixels. Filename uniqueness remains the idempotence
 key, and an unindexed destination file of the same name remains a conflict,
 never an overwrite.
@@ -649,9 +659,9 @@ never an overwrite.
 ## The CLI reads PNGs and probes the server
 
 **The CLI reads PNGs and probes the server.** `--from-image` reads
-`Image.open(p).info["krea"]` - not `.text`, which decodes every pixel - and
+the app's PNG metadata from `.info` - not `.text`, which decodes every pixel - and
 fills what the flags left unset *before* `apply_env`, so the record's
-checkpoint reaches `KREA_MODEL_ID`; quantization is deliberately not
+checkpoint reaches `LOCAL_DIFFUSION_MODEL_ID`; quantization is deliberately not
 carried (a Nunchaku PNG on Windows would ask for a mode the machine cannot
 run) and job/run ids are displayed, never reused. `_server_holds_gpu`
 probes `/api/status` after the `--dry-run` guard: `ready`/`loading` or a
@@ -664,7 +674,7 @@ fuzzy LIKE fallback.
 
 ## Panel persistence
 
-**The panel persists to `localStorage`** (`krea.panel.v1`) in two phases:
+**The panel persists to `localStorage`** (`local-diffusion.panel.v1`) in two phases:
 the model-independent fields synchronously at start-up, *before* the sync
 functions that light the presets and hints up from them, and steps/CFG/mu
 from `refreshStatus` once the checkpoint is known - only the ones the user
@@ -820,9 +830,9 @@ that just refused - which is why the button stays: it is the retry, and the
 visible sign that older rows exist. Hidden in the sheet and once `has_more`
 is false, it never intersects.
 
-## KREA_DEVICE reaches the offload hooks
+## LOCAL_DIFFUSION_DEVICE reaches the offload hooks
 
-The offload hooks are handed `KREA_DEVICE` explicitly (when it is a CUDA
+The offload hooks are handed `LOCAL_DIFFUSION_DEVICE` explicitly (when it is a CUDA
 device) and `describe()` reads that card's name and memory: given no device,
 diffusers resolves its own accelerator, which is always GPU 0, so `cuda:1`
 used to load onto cuda:0 while the status line described cuda:0 as if that
@@ -874,7 +884,7 @@ never come.
 ## Content hashes and duplicate counts
 
 **Every image records a hash of its pixels** (`storage.content_hash`: 16
-hex of the sha256 of `image.tobytes()`; column, `krea` chunk key `hash`,
+hex of the sha256 of `image.tobytes()`; column, metadata key `hash`,
 `ImageRecord.content_hash`, `hash:` filter, and the reindex recomputes it
 from the decoded file). It is what lets "did this axis do anything" be a
 count: `Job.snapshot()` carries `distinct_count`, `RunSummary.distinct` is
@@ -935,7 +945,7 @@ mu is a fixed shift of 3 (mu = ln 3) and a typed one goes through the
 static-shift fallback and lands exactly. `test_launch.py` derives the
 "another repo id" option number from the catalogue's length. Measured
 2026-09-08 under Nunchaku NVFP4 on the 5080, model offload, the CLI
-in-process with torch's peak allocated (`~/krea-local/measure.py` in WSL):
+in-process with torch's peak allocated (`~/local-diffusion/measure.py` in WSL):
 Z-Image Turbo 1 MP in 8 s at 4.1 GiB, 2 MP in 14.5 s at 4.6 GiB, an 11 s
 load, and preview frames at steps 2/4/6 of 8 in the right colours; FLUX.1
 dev 1 MP in 30 s and 2 MP in 48 s at 7.4 / 7.8 GiB; schnell 1 MP in
@@ -1023,7 +1033,7 @@ switches itself off once at DEBUG and the cell pays nothing for it - a fit
 would need the card and the pipeline's `bn_mean`/`bn_std` normalisation.
 Baidu lists 1 MP shapes only; 2 MP and 4 MP render. **Measured 2026-09-08
 in the evening**, Nunchaku NVFP4 on the 5080 with model offload, the CLI
-in-process (`~/krea-local/measure.py`), Z-Image Turbo re-run the same
+in-process (`~/local-diffusion/measure.py`), Z-Image Turbo re-run the same
 evening for a like-for-like: ERNIE 1 MP in 9.6-10.2 s once warm (17-18 s
 for the first image of a process, 22 s load) at 5.2 GiB, 2 MP in 24.3 s at
 5.9 GiB, a 4 MP pair in one call in 48.6 s at 10.3 GiB allocated / 12.0 GiB
@@ -1308,5 +1318,5 @@ mid-sweep with a stream attached, `done` (cancelled) reaches the stream
 0.2 s after the signal and the process is gone 3 s later; Pause is
 acknowledged at the cell boundary and the card drops from 14.95 GB during
 a 1 MP fp8 denoise to 2.1 GB held; `reindex --from` over the real gallery
-reproduces every hash and true CFG. Not verified: `KREA_DEVICE=cuda:1` (one
+reproduces every hash and true CFG. Not verified: `LOCAL_DIFFUSION_DEVICE=cuda:1` (one
 card here).

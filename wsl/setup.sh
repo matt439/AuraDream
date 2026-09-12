@@ -35,7 +35,7 @@ if ! command -v uv >/dev/null 2>&1; then
     installed_uv=1
 fi
 
-mkdir -p "$KREA_OUTPUTS_DIR" "$(dirname "$KREA_DB_PATH")"
+mkdir -p "$LOCAL_DIFFUSION_OUTPUTS_DIR" "$(dirname "$LOCAL_DIFFUSION_DB_PATH")"
 uv python install 3.13
 uv sync                        # Linux cu130 torch, plus kernels and bitsandbytes
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import dataclasses
 import json
 
-from PIL import Image
+from PIL import Image, PngImagePlugin
 
 from backend import reindex, storage
 from backend.schemas import GenerateRequest
@@ -100,7 +100,7 @@ def test_database_merge_preserves_db_fields_and_remaps_references(
 
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "krea.db"
+    source_db = elsewhere.parent / "local-diffusion.db"
     other = dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
     monkeypatch.setattr(storage, "settings", other)
     storage.init_db()
@@ -131,7 +131,7 @@ def test_database_merge_preserves_db_fields_and_remaps_references(
 
     # The copied PNG remains self-describing if this destination DB is rebuilt.
     with Image.open(mine.outputs_dir / conditioned.filename) as image:
-        meta = json.loads(image.info["krea"])
+        meta = json.loads(image.info["local-diffusion"])
     assert meta["reference"] == [imported_reference.id]
 
     # A second merge is harmless and does not duplicate rows.
@@ -146,7 +146,7 @@ def test_database_merge_can_import_a_png_without_embedded_metadata(
     monkeypatch.setattr(reindex, "settings", mine)
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "krea.db"
+    source_db = elsewhere.parent / "local-diffusion.db"
     other = dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
     monkeypatch.setattr(storage, "settings", other)
     storage.init_db()
@@ -161,4 +161,27 @@ def test_database_merge_can_import_a_png_without_embedded_metadata(
         "database is the metadata", 40, 30,
     )
     with Image.open(mine.outputs_dir / made.filename) as image:
-        assert json.loads(image.info["krea"])["prompt"] == "database is the metadata"
+        assert json.loads(image.info["local-diffusion"])["prompt"] == "database is the metadata"
+
+
+def test_reindex_reads_the_pre_rename_metadata_key(tmp_path):
+    path = tmp_path / "legacy.png"
+    info = PngImagePlugin.PngInfo()
+    info.add_text(
+        "krea",
+        json.dumps(
+            {
+                "prompt": "legacy gallery",
+                "steps": 8,
+                "guidance_scale": 0,
+                "seed": 7,
+                "model": "krea/Krea-2-Turbo",
+            }
+        ),
+    )
+    Image.new("RGB", (32, 24)).save(path, pnginfo=info)
+
+    meta, size, _ = reindex._read(path)
+
+    assert size == (32, 24)
+    assert meta is not None and meta["prompt"] == "legacy gallery"

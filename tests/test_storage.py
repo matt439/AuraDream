@@ -351,7 +351,7 @@ def test_completed_cells_are_scoped_to_the_quantizer(store):
     from PIL import Image as PILImage
 
     with PILImage.open(store.settings.outputs_dir / record.filename) as png:
-        assert '"quantization": "fp8"' in png.info["krea"]
+        assert '"quantization": "fp8"' in png.info["local-diffusion"]
         assert "Quantization: fp8" in png.info["parameters"]
 
 

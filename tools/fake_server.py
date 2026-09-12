@@ -8,7 +8,7 @@ No GPU, no weights: the backend is the tests' FakeBackend with a drawing on
 top, so every "image" is a gradient stamped with its seed and steps and the
 cells of a grid can be told apart on a sheet. The gallery lives under the
 system temp directory (or --data), never in the checkout, so nothing here can
-reach the real krea.db. Everything else - the job queue, SSE, resume, the
+reach the real local-diffusion.db. Everything else - the job queue, SSE, resume, the
 runs summary, pause, the budget - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
 
@@ -32,8 +32,8 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=7861)
     parser.add_argument("--step", type=float, default=0.0, help="seconds per denoising step")
     parser.add_argument(
-        "--data", default=str(Path(tempfile.gettempdir()) / "krea-fake"),
-        help="where the throwaway gallery lives (default: <temp>/krea-fake)",
+        "--data", default=str(Path(tempfile.gettempdir()) / "local-diffusion-fake"),
+        help="where the throwaway gallery lives (default: <temp>/local-diffusion-fake)",
     )
     parser.add_argument("--fresh", action="store_true", help="delete the throwaway gallery first")
     parser.add_argument("--model", default="krea/Krea-2-Turbo", help="the checkpoint id to claim")
@@ -44,10 +44,10 @@ def main() -> int:
         shutil.rmtree(data)
     data.mkdir(parents=True, exist_ok=True)
     # Before backend.config is imported: its settings freeze at import.
-    os.environ["KREA_DB_PATH"] = str(data / "krea.db")
-    os.environ["KREA_OUTPUTS_DIR"] = str(data / "outputs")
-    os.environ["KREA_PORT"] = str(args.port)
-    os.environ["KREA_MODEL_ID"] = args.model
+    os.environ["LOCAL_DIFFUSION_DB_PATH"] = str(data / "local-diffusion.db")
+    os.environ["LOCAL_DIFFUSION_OUTPUTS_DIR"] = str(data / "outputs")
+    os.environ["LOCAL_DIFFUSION_PORT"] = str(args.port)
+    os.environ["LOCAL_DIFFUSION_MODEL_ID"] = args.model
     # An adapter directory of its own, with one file in it, so the LoRA select
     # has something to offer and the panel can be driven end to end. The fake
     # never opens it - it draws gradients - but every path up to the load is
@@ -57,7 +57,7 @@ def main() -> int:
     demo = loras / "demo-style.safetensors"
     if not demo.exists():
         demo.write_bytes(b"not a real adapter; the fake backend never loads it")
-    os.environ["KREA_LORAS_DIR"] = str(loras)
+    os.environ["LOCAL_DIFFUSION_LORAS_DIR"] = str(loras)
 
     from PIL import Image, ImageDraw
 

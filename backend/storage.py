@@ -20,6 +20,7 @@ from .config import settings
 # `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
 from .grid import lora_key, reference_key
+from .metadata import PNG_METADATA_KEY
 from .search import TRUE_CFG_SQL, like_escape, split_search, strict_scope
 from .schemas import ImageRecord, RunSummary, effective_true_cfg
 
@@ -161,7 +162,7 @@ def ensure_outputs_dir() -> None:
 
     Here rather than at import of `config`: `clear.py --dry-run` promises to
     change nothing, and an import-time mkdir created the directory anyway - and
-    on an unmounted `KREA_OUTPUTS_DIR` created the mount point as a plain
+    on an unmounted `LOCAL_DIFFUSION_OUTPUTS_DIR` created the mount point as a plain
     directory, the state that later hides the real data behind an empty mount.
     """
     settings.outputs_dir.mkdir(parents=True, exist_ok=True)
@@ -194,7 +195,7 @@ def _session():
 
     `with sqlite3.connect(...) as conn` commits but does *not* close, which leaks
     a handle per call and keeps the file locked on Windows - deleting or moving
-    krea.db then fails while the server runs.
+    local-diffusion.db then fails while the server runs.
     """
     conn = _connect()
     try:
@@ -376,7 +377,7 @@ def save_image(
             else ""
         ),
     )
-    info.add_text("krea", json.dumps(meta))
+    info.add_text(PNG_METADATA_KEY, json.dumps(meta))
 
     committed = False
     try:
@@ -778,7 +779,7 @@ def index_file(
     created_at: datetime,
     digest: str | None = None,
 ) -> ImageRecord:
-    """A row for a PNG already in `outputs_dir`, from its own `krea` block.
+    """A row for a PNG already in `outputs_dir`, from its own metadata block.
 
     The reindex path: everything an `ImageRecord` needs is in the file except
     `favorite`, which lives in SQLite alone and is lost, and `duration_ms`,

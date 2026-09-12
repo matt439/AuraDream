@@ -2,11 +2,11 @@
 
     uv run python -m backend.reindex                  # outputs/ in place
     uv run python -m backend.reindex --from /mnt/d/wsl-outputs   # copy in and index
-    uv run python -m backend.reindex --from D:\\backup\\outputs --database D:\\backup\\krea.db
+    uv run python -m backend.reindex --from D:\\backup\\outputs --database D:\\backup\\local-diffusion.db
     uv run python -m backend.reindex --dry-run
 
-Every image carries its whole reproduction set in a `krea` text chunk, and
-nothing could read it back: krea.db was a single point of failure for an
+Every image carries its whole reproduction set in a `local-diffusion` text chunk, and
+nothing could read it back: local-diffusion.db was a single point of failure for an
 otherwise self-describing gallery, the WSL and Windows galleries could never be
 merged, and a row whose database went missing could never be repaired. This
 walks a directory of PNGs, skips the names the index already has (filename is
@@ -45,6 +45,7 @@ try:
 
     from backend import storage
     from backend.config import settings
+    from backend.metadata import PNG_METADATA_KEY, PNG_METADATA_KEYS, embedded_metadata
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
         f"Missing dependency: {exc.name}\n\n"
@@ -56,7 +57,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
 # `20260907-235118-42-6a1b2c.png`: the UTC timestamp save_image writes first.
 _NAME = re.compile(r"^(\d{8})-(\d{6})-")
 
-# The keys a `krea` block must carry to make a row at all.
+# The keys an embedded metadata block must carry to make a row at all.
 _REQUIRED = ("prompt", "steps", "guidance_scale", "seed", "model")
 
 # The original schema's required columns. Newer reproduction columns are read
@@ -83,13 +84,13 @@ def _created_at(path: Path) -> datetime:
 
 
 def _read(path: Path) -> tuple[dict | None, tuple[int, int], Image.Image | None]:
-    """The krea block, the size and a copy of the image for its thumbnail.
+    """The embedded record, the size and a copy of the image for its thumbnail.
 
     `.info`, not `.text`: the latter is a property that decodes every pixel to
     answer a question the header settles.
     """
     with Image.open(path) as image:
-        raw = image.info.get("krea")
+        raw = embedded_metadata(image.info)
         size = image.size
         if not raw:
             return None, size, image.copy()
@@ -109,11 +110,11 @@ def _text_keyword(kind: bytes, data: bytes) -> bytes | None:
     return data.split(b"\0", 1)[0]
 
 
-def _with_krea_metadata(data: bytes, meta: dict) -> bytes:
-    """Replace the krea text chunk without recompressing or changing pixels."""
+def _with_local_diffusion_metadata(data: bytes, meta: dict) -> bytes:
+    """Replace app metadata without recompressing or changing pixels."""
     if not data.startswith(_PNG_SIGNATURE):
         raise OSError("not a PNG")
-    payload = b"krea\0" + json.dumps(meta).encode("ascii")
+    payload = PNG_METADATA_KEY.encode("ascii") + b"\0" + json.dumps(meta).encode("ascii")
     replacement = (
         len(payload).to_bytes(4, "big")
         + b"tEXt"
@@ -130,7 +131,9 @@ def _with_krea_metadata(data: bytes, meta: dict) -> bytes:
             raise OSError("truncated PNG")
         kind = data[offset + 4 : offset + 8]
         chunk_data = data[offset + 8 : offset + 8 + length]
-        if _text_keyword(kind, chunk_data) == b"krea":
+        if _text_keyword(kind, chunk_data) in {
+            key.encode("ascii") for key in PNG_METADATA_KEYS
+        }:
             offset = end
             continue
         # Pillow reads metadata preceding the image data during Image.open().
@@ -150,10 +153,12 @@ def _with_krea_metadata(data: bytes, meta: dict) -> bytes:
 
 
 def _copy_in(source: Path, target: Path, meta: dict | None = None) -> None:
-    """Copy into outputs under a temporary name, optionally replacing krea metadata."""
+    """Copy into outputs under a temporary name, optionally replacing app metadata."""
     partial = target.with_name(target.name + ".part")
     data = source.read_bytes()
-    partial.write_bytes(_with_krea_metadata(data, meta) if meta is not None else data)
+    partial.write_bytes(
+        _with_local_diffusion_metadata(data, meta) if meta is not None else data
+    )
     partial.replace(target)
 
 
@@ -354,7 +359,7 @@ def reindex(
             meta = None
         if meta is None:
             counts["no_metadata"] += 1
-            print(f"  skip  {path.name}: no krea metadata", file=out)
+            print(f"  skip  {path.name}: no Local Diffusion metadata", file=out)
             continue
         target = outputs / path.name
         if not in_place and target.exists():
@@ -368,7 +373,9 @@ def reindex(
             print(f"  would index  {path.name}", file=out)
             continue
         if not in_place:
-            _copy_in(path, target)
+            # Normalize copied pre-rename images to the current chunk name;
+            # an in-place rebuild leaves source files byte-for-byte alone.
+            _copy_in(path, target, meta)
         # The hash of the pixels as decoded here, not the block's copy of it:
         # the file is the truth, and a PNG from before the hash has no copy.
         storage.index_file(
@@ -401,7 +408,8 @@ def main(argv: list[str] | None = None) -> int:
         "--database",
         "--db",
         metavar="FILE",
-        help="the krea.db belonging to --from; preserves favorites and durations and remaps references",
+        help="the Local Diffusion database belonging to --from; preserves favorites, "
+        "durations and remaps references",
     )
     parser.add_argument(
         "-n", "--dry-run", action="store_true", help="report what would be indexed, change nothing"

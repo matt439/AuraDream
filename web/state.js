@@ -12,7 +12,7 @@ const PAGE = 48;
 // A sheet wants the whole run in one go - it is a matrix, and a matrix with a
 // page boundary through it is a puzzle. The rows are small and the thumbnails
 // load lazily, so a full grid is cheaper than it sounds. The size follows the
-// server's grid ceiling (/api/status), so a raised KREA_MAX_GRID_IMAGES does
+// server's grid ceiling (/api/status), so a raised LOCAL_DIFFUSION_MAX_GRID_IMAGES does
 // not silently drop the earliest seeds off a sheet.
 let sheetPage = 1024;
 

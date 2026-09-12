@@ -45,7 +45,7 @@ def test_the_png_carries_the_whole_reproduction_set(store):
         quantization="fp8",
     )
     with Image.open(store.settings.outputs_dir / record.filename) as png:
-        meta = json.loads(png.info["krea"])
+        meta = json.loads(png.info["local-diffusion"])
     assert set(meta) == {
         "prompt", "negative_prompt", "steps", "guidance_scale", "true_cfg", "mu", "seed",
         "model", "quantization", "job", "run", "size", "variables", "hash",
@@ -101,7 +101,10 @@ def test_a_grid_cells_variables_round_trip(store):
     import json
 
     with Image.open(store.settings.outputs_dir / record.filename) as png:
-        assert json.loads(png.info["krea"])["variables"] == {"size": "big", "ground": "grass"}
+        assert json.loads(png.info["local-diffusion"])["variables"] == {
+            "size": "big",
+            "ground": "grass",
+        }
 
 
 def test_save_image_writes_a_thumbnail_beside_the_png(store):

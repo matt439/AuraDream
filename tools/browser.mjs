@@ -2,7 +2,7 @@
 // nothing but Node's own fetch and WebSocket - no npm install.
 //
 //     node tools/browser.mjs tools/smoke.json
-//     KREA_BROWSER="C:/Program Files/Google/Chrome/Application/chrome.exe" node tools/browser.mjs steps.json
+//     LOCAL_DIFFUSION_BROWSER="C:/Program Files/Google/Chrome/Application/chrome.exe" node tools/browser.mjs steps.json
 //
 // The script is a JSON list of steps, run in order:
 //   {"navigate": url}            load a page (the cache is disabled)
@@ -26,7 +26,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const CANDIDATES = [
-  process.env.KREA_BROWSER,
+  process.env.LOCAL_DIFFUSION_BROWSER,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -34,7 +34,7 @@ const CANDIDATES = [
 ].filter(Boolean);
 const browser = CANDIDATES.find((p) => existsSync(p));
 if (!browser) {
-  console.error('no Edge or Chrome found; set KREA_BROWSER to the executable');
+  console.error('no Edge or Chrome found; set LOCAL_DIFFUSION_BROWSER to the executable');
   process.exit(2);
 }
 const file = process.argv[2];
@@ -46,7 +46,7 @@ const PORT = 9333 + Math.floor(Math.random() * 500);
 // still alive from a run that crashed, and the next launch then hands its
 // command line to that instance and exits without ever opening the port -
 // which reads as "the browser did not come up" for every run after it.
-const PROFILE = `${tmpdir()}/krea-browser-${process.pid}`;
+const PROFILE = `${tmpdir()}/local-diffusion-browser-${process.pid}`;
 const proc = spawn(browser, [
   '--headless=new', `--remote-debugging-port=${PORT}`, '--window-size=1400,900',
   '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-gpu',

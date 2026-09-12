@@ -1,7 +1,7 @@
 """Choose the checkpoint, quantization and offload before the settings freeze.
 
 `settings` (backend/config.py) is a frozen dataclass whose fields are read from
-the KREA_* variables at import time, so anything that wants a say in them - a
+the LOCAL_DIFFUSION_* variables at import time, so anything that wants a say in them - a
 command-line flag, or the menu the server shows when it is started bare - has
 to write os.environ *before* backend.config is imported. This module is that
 step. It imports nothing from the package but model_defaults, and both entry
@@ -15,7 +15,7 @@ environment exactly as before. A service file, a script, or `wsl/serve.sh`
 neither is a run whose stdin is not a terminal.
 
 The menu's defaults are the environment's values, so `wsl/env.sh`, which sets
-KREA_QUANT=nunchaku and a lite-infer checkpoint, still gets what it asked for
+LOCAL_DIFFUSION_QUANT=nunchaku and a lite-infer checkpoint, still gets what it asked for
 on a bare Enter.
 """
 from __future__ import annotations
@@ -157,9 +157,9 @@ class Choice:
 
     def environ(self) -> dict[str, str]:
         return {
-            "KREA_MODEL_ID": self.model_id,
-            "KREA_QUANT": self.quantization,
-            "KREA_OFFLOAD": self.offload,
+            "LOCAL_DIFFUSION_MODEL_ID": self.model_id,
+            "LOCAL_DIFFUSION_QUANT": self.quantization,
+            "LOCAL_DIFFUSION_OFFLOAD": self.offload,
         }
 
     def command(self, prog: str = "uv run python -m backend.main") -> str:
@@ -174,7 +174,7 @@ class Choice:
 
 def add_model_arguments(parser: argparse.ArgumentParser) -> None:
     """The --model/--quant/--offload trio, shared by the server and the CLI."""
-    group = parser.add_argument_group("model (equivalent to the KREA_* variables)")
+    group = parser.add_argument_group("model (equivalent to LOCAL_DIFFUSION_* variables)")
     group.add_argument("--model", metavar="ID", help="checkpoint id, e.g. krea/Krea-2-Turbo")
     group.add_argument(
         "--quant",
@@ -189,9 +189,9 @@ def add_model_arguments(parser: argparse.ArgumentParser) -> None:
 def apply_env(args: argparse.Namespace) -> None:
     """Push the flags into the environment, where config.py will read them."""
     for value, name in (
-        (args.model, "KREA_MODEL_ID"),
-        (args.quant, "KREA_QUANT"),
-        (args.offload, "KREA_OFFLOAD"),
+        (args.model, "LOCAL_DIFFUSION_MODEL_ID"),
+        (args.quant, "LOCAL_DIFFUSION_QUANT"),
+        (args.offload, "LOCAL_DIFFUSION_OFFLOAD"),
     ):
         if value is not None:
             os.environ[name] = value
@@ -204,7 +204,7 @@ def configure(
     out: TextIO | None = None,
     interactive: bool | None = None,
 ) -> Choice | None:
-    """Settle the KREA_* model variables for a server start.
+    """Settle the LOCAL_DIFFUSION_* model variables for a server start.
 
     Returns the menu's choice when the menu ran, else None. `argv` defaults to
     the process's own; `interactive` to whether stdin and stdout are terminals.
@@ -215,7 +215,7 @@ def configure(
         prog="python -m backend.main",
         description="Serve the generator. With no arguments on a terminal, asks which "
         "checkpoint, quantization and offload to use; any argument skips the menu "
-        "and what it does not name comes from the KREA_* variables.",
+        "and what it does not name comes from LOCAL_DIFFUSION_* variables.",
     )
     add_model_arguments(parser)
     parser.add_argument(
@@ -330,7 +330,7 @@ def prompt(
 
 
 def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: bool) -> Choice:
-    current_model = env.get("KREA_MODEL_ID", _DEFAULT_MODEL)
+    current_model = env.get("LOCAL_DIFFUSION_MODEL_ID", _DEFAULT_MODEL)
     current_checkpoint, current_fmt = _match(current_model)
 
     out.write(
@@ -345,7 +345,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: 
     quant = _pick(
         "Quantization",
         quants,
-        _index(quants, env.get("KREA_QUANT"), _DEFAULT_QUANT),
+        _index(quants, env.get("LOCAL_DIFFUSION_QUANT"), _DEFAULT_QUANT),
         ask=ask,
         out=out,
     )
@@ -380,7 +380,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: 
         # id" prompt last time, a local directory, a community re-upload. It
         # gets a real row so that Enter keeps it, as the header promises;
         # without one three bare Enters silently started FLUX instead.
-        name = "current KREA_MODEL_ID"
+        name = "current LOCAL_DIFFUSION_MODEL_ID"
         profile = defaults_for(current_model)
         summary = f"{profile['steps']} steps, CFG {profile['guidance_scale']:g}"
         entries.append((name, f"{summary:<18}  {'unrecognised id':<18}  {current_model}"))
@@ -400,7 +400,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: 
     offload = _pick(
         "Offload",
         offloads,
-        _index(offloads, env.get("KREA_OFFLOAD"), _DEFAULT_OFFLOAD),
+        _index(offloads, env.get("LOCAL_DIFFUSION_OFFLOAD"), _DEFAULT_OFFLOAD),
         ask=ask,
         out=out,
     )

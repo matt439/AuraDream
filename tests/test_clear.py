@@ -15,7 +15,7 @@ def fresh(tmp_path, monkeypatch):
     outputs = tmp_path / "outputs"
     outputs.mkdir()
     settings = dataclasses.replace(
-        storage.settings, db_path=tmp_path / "krea.db", outputs_dir=outputs
+        storage.settings, db_path=tmp_path / "local-diffusion.db", outputs_dir=outputs
     )
     monkeypatch.setattr(storage, "settings", settings)
     monkeypatch.setattr(clear, "settings", settings)

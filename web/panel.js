@@ -13,7 +13,8 @@
 // only when it is the one they were set on. Resume is never remembered: a box
 // that came back ticked the next evening would silently skip cells of a grid
 // the user did not mean to continue.
-const PANEL_KEY = 'krea.panel.v1';
+const PANEL_KEY = 'local-diffusion.panel.v1';
+const LEGACY_PANEL_KEYS = ['krea.panel.v1'];
 const PANEL_FIELDS = [
   'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs', 'lora', 'loraScale',
   'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
@@ -41,7 +42,17 @@ function persistPanel() {
 }
 
 function storedPanel() {
-  try { return JSON.parse(remembered(PANEL_KEY) || 'null'); } catch { return null; }
+  let raw = remembered(PANEL_KEY);
+  if (!raw) {
+    for (const key of LEGACY_PANEL_KEYS) {
+      raw = remembered(key);
+      if (!raw) continue;
+      remember(PANEL_KEY, raw);
+      forget(key);
+      break;
+    }
+  }
+  try { return JSON.parse(raw || 'null'); } catch { return null; }
 }
 
 function restorePanel() {
@@ -69,6 +80,7 @@ function restorePanel() {
 function resetPanel() {
   clearTimeout(panelTimer);
   forget(PANEL_KEY);
+  for (const key of LEGACY_PANEL_KEYS) forget(key);
   for (const key of Object.keys(owned)) owned[key] = false;
   els.prompt.value = '';
   clearPromptTranslation();
@@ -123,11 +135,25 @@ function remembered(key) { try { return localStorage.getItem(key); } catch { ret
 function remember(key, value) { try { localStorage.setItem(key, value); } catch { /* unavailable */ } }
 function forget(key) { try { localStorage.removeItem(key); } catch { /* unavailable */ } }
 
-const ANNOUNCED_KEY = 'krea.announced-job';
+const ANNOUNCED_KEY = 'local-diffusion.announced-job';
+const LEGACY_ANNOUNCED_KEYS = ['krea.announced-job'];
 const ANNOUNCE_WINDOW_MS = 24 * 3600 * 1000;
 const when = (ms) => new Date(ms).toLocaleString([], {
   month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
 });
+
+function announcedJob() {
+  let value = remembered(ANNOUNCED_KEY);
+  if (value) return value;
+  for (const key of LEGACY_ANNOUNCED_KEYS) {
+    value = remembered(key);
+    if (!value) continue;
+    remember(ANNOUNCED_KEY, value);
+    forget(key);
+    return value;
+  }
+  return null;
+}
 
 // The newest finished job, while the server still holds it. A 480-cell grid
 // that stopped at cell 300 used to leave an idle Generate button and a gallery
@@ -141,7 +167,7 @@ async function announceLastRun() {
     .sort((a, b) => b.finished_at - a.finished_at)[0];
   if (!last) return;
   if (Date.now() - last.finished_at * 1000 > ANNOUNCE_WINDOW_MS) return;
-  if (remembered(ANNOUNCED_KEY) === last.job_id) return;
+  if (announcedJob() === last.job_id) return;
 
   const images = `${last.image_count} image${last.image_count === 1 ? '' : 's'}` +
     (typeof last.distinct_count === 'number' && last.image_count > 1 && last.distinct_count < last.image_count
@@ -163,6 +189,7 @@ async function announceLastRun() {
 
 function dismissLastRun() {
   remember(ANNOUNCED_KEY, els.lastRun.dataset.job || '');
+  for (const key of LEGACY_ANNOUNCED_KEYS) forget(key);
   els.lastRun.hidden = true;
 }
 

@@ -11,7 +11,7 @@ gated; Turbo needs approval first.
 
 ## Requirements
 
-- NVIDIA GPU, **16 GB VRAM minimum** (float8 path). 24 GB+ can run `KREA_QUANT=none`.
+- NVIDIA GPU, **16 GB VRAM minimum** (float8 path). 24 GB+ can run `LOCAL_DIFFUSION_QUANT=none`.
 - Free disk varies by checkpoint: FLUX.1 Krea [dev] is 32 GiB (transformer
   23.8 GB, T5 9.5 GB), Krea 2 Turbo 34 GiB, and Animagine's Diffusers
   components total about 6.5 GiB. The WSL Nunchaku Lite re-uploads are far
@@ -81,7 +81,7 @@ Started bare on a terminal, it asks which checkpoint, quantization and offload
 to use - numbered lists, Enter keeps the marked default, and a repo id that is
 not listed can be pasted in. It then prints the `--model/--quant/--offload`
 line that would start the same thing without asking. Any argument at all
-skips the menu, and whatever it does not name comes from the `KREA_*`
+skips the menu, and whatever it does not name comes from the `LOCAL_DIFFUSION_*`
 variables below:
 
 ```powershell
@@ -126,7 +126,7 @@ bash wsl/setup.sh
 ```
 
 That installs `uv` and Python 3.13 if missing, builds a Linux environment under
-`~/krea-local/.venv`, and checks that CUDA and the two extra packages are there.
+`~/local-diffusion/.venv`, and checks that CUDA and the two extra packages are there.
 Then, in every new shell:
 
 ```bash
@@ -141,11 +141,11 @@ starts without asking.
 
 Open <http://127.0.0.1:7860> in a Windows browser as before; WSL forwards
 localhost. `wsl/env.sh` is what makes this work. It keeps the virtualenv, the
-gallery (`KREA_OUTPUTS_DIR`, `KREA_DB_PATH`) and the HuggingFace cache on the
+gallery (`LOCAL_DIFFUSION_OUTPUTS_DIR`, `LOCAL_DIFFUSION_DB_PATH`) and the HuggingFace cache on the
 Linux filesystem — `/mnt/c` is a slow bridge and SQLite cannot lock across it —
-and sets `KREA_QUANT=nunchaku` with a pre-quantized checkpoint:
+and sets `LOCAL_DIFFUSION_QUANT=nunchaku` with a pre-quantized checkpoint:
 
-| `KREA_MODEL_ID` | Card |
+| `LOCAL_DIFFUSION_MODEL_ID` | Card |
 | --- | --- |
 | `lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` (default) | RTX 50 |
 | `lite-infer/flux.1-krea-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` | RTX 50 |
@@ -157,10 +157,10 @@ and sets `KREA_QUANT=nunchaku` with a pre-quantized checkpoint:
 | the same names with `int4` in place of `nvfp4` | RTX 20–40 |
 
 These are the official weights re-uploaded pre-quantized, and not gated. Any
-other `KREA_QUANT` value works from WSL too; set it before sourcing `env.sh`,
-and `env.sh` then leaves `KREA_MODEL_ID` to the ordinary default rather than
+other `LOCAL_DIFFUSION_QUANT` value works from WSL too; set it before sourcing `env.sh`,
+and `env.sh` then leaves `LOCAL_DIFFUSION_MODEL_ID` to the ordinary default rather than
 pairing a torchao quantizer with an already-quantized repo (which downloads
-everything and then fails inside transformers). `KREA_NUNCHAKU_FORMAT=int4`
+everything and then fails inside transformers). `LOCAL_DIFFUSION_NUNCHAKU_FORMAT=int4`
 picks the older cards' repos.
 
 Two things to know. The WSL gallery is separate from the Windows one — two
@@ -182,10 +182,10 @@ uv run python -m backend.clear
 
 Git Bash is not a WSL shell: there `/mnt/c` does not exist, yet `env.sh` still
 runs, and `uv` builds a second venv and an empty gallery under
-`C:\Users\<you>\krea-local` and reports nothing to clear. The `database :`
+`C:\Users\<you>\local-diffusion` and reports nothing to clear. The `database :`
 line the tools print is the check — it should start with `/home/`.
 
-`KREA_QUANT=nunchaku` implies `DIFFUSERS_TRUST_REMOTE_KERNELS=true`. The kernels
+`LOCAL_DIFFUSION_QUANT=nunchaku` implies `DIFFUSERS_TRUST_REMOTE_KERNELS=true`. The kernels
 come from a Hub repo that diffusers does not list as a trusted publisher, and
 choosing the mode is choosing to download and run them. Setting the variable to
 `false` yourself still wins.
@@ -202,7 +202,7 @@ RTX 5080 with Krea 2 Turbo, 8 steps, weights offloaded between images:
 | 1024×1024 | 15 s | 8.1 GiB |
 | 1440×1440 (2 MP) | 24 s | 8.6 GiB |
 
-Leave `KREA_OFFLOAD` at `model`. With everything resident this checkpoint peaks
+Leave `LOCAL_DIFFUSION_OFFLOAD` at `model`. With everything resident this checkpoint peaks
 at 14.7 GiB for 1 MP and 18.7 GiB for 2 MP, which the driver quietly spills into
 system memory — WSL spills just as Windows does — and the same images took 26 s
 and 72 s.
@@ -234,7 +234,7 @@ Steps, CFG and mu default to the checkpoint's profile exactly as the UI's
 controls do, so the prompt is the only required argument. `--true-cfg` is the
 panel's True CFG box (FLUX.1 only; see [Defaults by
 checkpoint](#defaults-by-checkpoint)). `--model`, `--quant` and `--offload`
-are the `KREA_*` variables under another name. `--dry-run` prints the
+are the `LOCAL_DIFFUSION_*` variables under another name. `--dry-run` prints the
 resolved settings without loading the model; `--quiet` drops everything but
 one `<path>  seed <n>` line per saved image.
 
@@ -255,7 +255,7 @@ a mode this machine cannot run - and the tool says so when it differs, since
 the pixels then will too.
 
 The CLI loads its own copy of the weights, so before it does it asks the
-server on `KREA_HOST:KREA_PORT` whether one is already on the GPU. If the
+server on `LOCAL_DIFFUSION_HOST:LOCAL_DIFFUSION_PORT` whether one is already on the GPU. If the
 server answers *ready* or *loading* (or does not answer in time), the CLI
 stops with exit status 4 and says how to free the card; nothing listening is
 the ordinary case and it carries on. Advisory only - it cannot see a server on
@@ -321,7 +321,7 @@ be told apart on a sheet, behaves as the claimed checkpoint's profile predicts
 prompt expansion is available), and
 `--step 0.3` slows each denoising step enough to watch Pause, the queue and
 the preview work. `tools/browser.mjs` needs only Node 22+ and an installed Edge
-or Chrome (`KREA_BROWSER` points at another executable); each run gets a
+or Chrome (`LOCAL_DIFFUSION_BROWSER` points at another executable); each run gets a
 profile directory of its own, so a crashed run cannot lock the next one out.
 
 ## Sizes
@@ -374,7 +374,7 @@ are held to it by a test.
 together. It is the fastest way to get a handful of 1024s and the reason a
 large 2K batch does not fit. The default guard allows every 1 MP preset at
 Batch 12 and two 4 MP images; because real usage varies by checkpoint and
-quantizer, `KREA_MAX_BATCH_PIXELS` can override it.
+quantizer, `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` can override it.
 
 **Runs** produces N images one pipeline call after another, stepping the seed by
 the batch size each time, so a sweep costs no more VRAM than a single image.
@@ -436,7 +436,7 @@ come out *identical* once the pipeline's own drops are applied - a variable
 that lives only in the negative prompt on a checkpoint that ignores it, a CFG
 axis that never clears the threshold - and says so in amber, because the run
 would otherwise spend the night rendering the same picture (`--dry-run`
-prints the same warning). One grid is capped at `KREA_MAX_GRID_IMAGES` images
+prints the same warning). One grid is capped at `LOCAL_DIFFUSION_MAX_GRID_IMAGES` images
 and each axis at 64 values, because `1-1000` is eight characters.
 
 ### Reference images and LoRA adapters
@@ -462,12 +462,12 @@ the per-image weight transfer dominates, and the longer sequence disappears
 into it.
 
 **LoRA adapters** are read from `loras/` — drop a `.safetensors` file in and it
-appears in the select (`KREA_LORAS_DIR` moves the directory). One adapter at a
+appears in the select (`LOCAL_DIFFUSION_LORAS_DIR` moves the directory). One adapter at a
 weight, swapped on the live pipeline between cells, which is what makes
 `0-1x0.25` an ordinary sweep rather than five reloads: the weights load once
 and each cell is a re-weighting. Both the adapter and the weight are recorded
 on the row and in the PNG, so Reuse restores them and a resumed grid tells a
-0.5 cell from a 0.75 one. Not available under `KREA_QUANT=nunchaku`: those
+0.5 cell from a 0.75 one. Not available under `LOCAL_DIFFUSION_QUANT=nunchaku`: those
 checkpoints arrive quantized to 4-bit SVDQuant and their linear layers are not
 what an adapter attaches to — the server says so rather than failing at the
 first image.
@@ -644,19 +644,19 @@ All optional, set as environment variables:
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `KREA_MODEL_ID` | `black-forest-labs/FLUX.1-Krea-dev` | A catalogue id such as `krea/Krea-2-Turbo` or `cagliostrolab/animagine-xl-4.0` |
-| `KREA_QUANT` | `fp8` | `int8`; `none` for full bf16 (~25 GB VRAM); `nunchaku` for a pre-quantized Nunchaku Lite repo (Linux only, see above) |
-| `KREA_OFFLOAD` | `model` | `sequential` (lower VRAM, slower) or `none` |
-| `KREA_OUTPUTS_DIR` | `outputs/` in the repo | Where PNGs are written. `wsl/env.sh` moves it onto the Linux filesystem |
-| `KREA_DB_PATH` | `krea.db` in the repo | The gallery index. Keep it off `/mnt/c` under WSL: SQLite cannot lock across the bridge |
-| `KREA_LORAS_DIR` | `loras/` in the repo | Where `.safetensors` adapters are read from. A request names one by file name; nothing joins a path from a request onto it |
-| `KREA_MAX_BATCH_PIXELS` | `12902400` | Total pixels allowed in one pipeline call; covers Batch 12 across the 1 MP preset row and two images across the 4 MP row |
-| `KREA_MAX_GRID_IMAGES` | `1024` | The most images one grid search may queue — a guard rail against a typo becoming a week of GPU time |
-| `KREA_PRELOAD` | `false` | Load weights at startup instead of on first request |
-| `KREA_DEVICE` | `cuda` | `cuda:1` puts the weights on the second card, offload included, and the status line reports that card |
-| `KREA_HOST` | `127.0.0.1` | |
-| `KREA_PORT` | `7860` | |
-| `KREA_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Host headers the API answers to, and with the port, the origins allowed to write to it. Needed when `KREA_HOST` is `0.0.0.0`: the browser sends the machine's name or LAN address, never `0.0.0.0` |
+| `LOCAL_DIFFUSION_MODEL_ID` | `black-forest-labs/FLUX.1-Krea-dev` | A catalogue id such as `krea/Krea-2-Turbo` or `cagliostrolab/animagine-xl-4.0` |
+| `LOCAL_DIFFUSION_QUANT` | `fp8` | `int8`; `none` for full bf16 (~25 GB VRAM); `nunchaku` for a pre-quantized Nunchaku Lite repo (Linux only, see above) |
+| `LOCAL_DIFFUSION_OFFLOAD` | `model` | `sequential` (lower VRAM, slower) or `none` |
+| `LOCAL_DIFFUSION_OUTPUTS_DIR` | `outputs/` in the repo | Where PNGs are written. `wsl/env.sh` moves it onto the Linux filesystem |
+| `LOCAL_DIFFUSION_DB_PATH` | `local-diffusion.db` in the repo | The gallery index. Keep it off `/mnt/c` under WSL: SQLite cannot lock across the bridge |
+| `LOCAL_DIFFUSION_LORAS_DIR` | `loras/` in the repo | Where `.safetensors` adapters are read from. A request names one by file name; nothing joins a path from a request onto it |
+| `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` | `12902400` | Total pixels allowed in one pipeline call; covers Batch 12 across the 1 MP preset row and two images across the 4 MP row |
+| `LOCAL_DIFFUSION_MAX_GRID_IMAGES` | `1024` | The most images one grid search may queue — a guard rail against a typo becoming a week of GPU time |
+| `LOCAL_DIFFUSION_PRELOAD` | `false` | Load weights at startup instead of on first request |
+| `LOCAL_DIFFUSION_DEVICE` | `cuda` | `cuda:1` puts the weights on the second card, offload included, and the status line reports that card |
+| `LOCAL_DIFFUSION_HOST` | `127.0.0.1` | |
+| `LOCAL_DIFFUSION_PORT` | `7860` | |
+| `LOCAL_DIFFUSION_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Host headers the API answers to, and with the port, the origins allowed to write to it. Needed when `LOCAL_DIFFUSION_HOST` is `0.0.0.0`: the browser sends the machine's name or LAN address, never `0.0.0.0` |
 
 Everything else in `backend/config.py` — including the per-image size limits —
 is code, not configuration.
@@ -753,8 +753,8 @@ written reads as its CFG, which is what ran then.
 
 FLUX.2 [klein] (`black-forest-labs/FLUX.2-klein-4B`, Apache 2.0 and not gated;
 the 9B and the undistilled `-base-` variants likewise) loads through the same
-`KREA_MODEL_ID`. It is a 4-step model with an 8 GB Qwen3 text encoder, so under
-`KREA_QUANT=fp8` the 4B fits with room to spare.
+`LOCAL_DIFFUSION_MODEL_ID`. It is a 4-step model with an 8 GB Qwen3 text encoder, so under
+`LOCAL_DIFFUSION_QUANT=fp8` the 4B fits with room to spare.
 
 FLUX.1 [dev] and FLUX.1 [schnell] (`black-forest-labs/FLUX.1-dev`, gated under
 the FLUX.1 non-commercial licence; `black-forest-labs/FLUX.1-schnell`, Apache
@@ -837,10 +837,11 @@ unmeasured.
 ## Output
 
 PNGs land in `outputs/` with generation parameters written into the PNG text
-chunks (both an A1111-style `parameters` block and a `krea` JSON blob - the
-prompt pair, size, steps, CFG, true CFG, mu, seed, checkpoint, quantization,
-the job and run ids, the variable assignment and the pixel hash), so the
-files stay self-describing outside the app. `krea.db` indexes them for search.
+chunks (both an A1111-style `parameters` block and a `local-diffusion` JSON
+blob - the prompt pair, size, steps, CFG, true CFG, mu, seed, checkpoint,
+quantization, the job and run ids, the variable assignment and the pixel hash),
+so the files stay self-describing outside the app. The reader also accepts the
+pre-rename metadata key. `local-diffusion.db` indexes them for search.
 
 ## Clearing history
 
@@ -881,24 +882,25 @@ the typed count as its confirmation.
 ```powershell
 uv run python -m backend.reindex                     # outputs/, in place
 uv run python -m backend.reindex --from D:\wsl-outputs   # copy in, then index
-uv run python -m backend.reindex --from D:\backup\outputs --database D:\backup\krea.db
+uv run python -m backend.reindex --from D:\backup\outputs --database D:\backup\local-diffusion.db
 uv run python -m backend.reindex --dry-run
 ```
 
-Every PNG carries its whole reproduction set, so `krea.db` can be rebuilt from
-the files: a lost or corrupted index, or the WSL gallery merged into the
-Windows one. Files whose names the index already has are skipped, which makes
-it idempotent; files without the `krea` block (other tools' PNGs) are named and
-skipped; a file from elsewhere is copied in under its own name unless a
-different file already sits there. Two things do not come back: the favourite
-flag, which lives only in the database, and the duration, recorded as 0 so
-the time estimate ignores those rows. When the matching old database is
-available, pass both `--from` and `--database` (or `--db`) instead. That merge
-preserves favorites and durations, remaps reference-image ids into the current
-gallery, and updates the copied PNG's embedded `krea` metadata to carry those
-new ids. Rows already present by filename are skipped, so the database merge
-is safe to rerun too. Missing images, unreadable files, unresolved references,
-and filename conflicts are reported and never overwrite the current gallery.
+Every PNG carries its whole reproduction set, so `local-diffusion.db` can be
+rebuilt from the files: a lost or corrupted index, or the WSL gallery merged
+into the Windows one. Files whose names the index already has are skipped,
+which makes it idempotent; files without a Local Diffusion block (other tools'
+PNGs) are named and skipped; a file from elsewhere is copied in under its own
+name unless a different file already sits there. Two things do not come back:
+the favourite flag, which lives only in the database, and the duration,
+recorded as 0 so the time estimate ignores those rows. When the matching old
+database is available, pass both `--from` and `--database` (or `--db`) instead.
+That merge preserves favorites and durations, remaps reference-image ids into
+the current gallery, and updates the copied PNG's embedded Local Diffusion
+metadata to carry those new ids. Rows already present by filename are skipped,
+so the database merge is safe to rerun too. Missing images, unreadable files,
+unresolved references, and filename conflicts are reported and never overwrite
+the current gallery.
 
 ## Licence
 
