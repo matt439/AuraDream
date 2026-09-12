@@ -185,9 +185,12 @@ let lastTagValidationResults = [];
 let lastTagValidationAvailable = true;
 let lastTagValidationDetail = '';
 let draggedTagIndex = null;
+// The inline chip editor: at most one open, inserting before `tagInsertAt` or
+// replacing the item at `tagEditAt`.
 let tagInsertAt = null;
-let tagInsertSuggestionTimer = null;
-let tagInsertSuggestionEpoch = 0;
+let tagEditAt = null;
+let tagEditorSuggestionTimer = null;
+let tagEditorSuggestionEpoch = 0;
 // A remembered adapter name waiting for the list it belongs to.
 let pendingLora = '';
 

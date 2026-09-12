@@ -223,7 +223,7 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
    item, so an unknown term is attributable without rewriting the prompt. */
 .prompt-editor { position: relative; }
 .prompt-editor textarea { display: block; }
-.tag-suggestions, .tag-insert-suggestions {
+.tag-suggestions, .tag-editor-suggestions {
   max-height: 250px; overflow-y: auto;
   margin: 0; padding: 4px; list-style: none;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
@@ -232,20 +232,20 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .tag-suggestions {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 35;
 }
-.tag-insert-suggestions {
+.tag-editor-suggestions {
   position: absolute; top: calc(100% + 5px); left: 0; z-index: 45; width: 280px;
 }
-.tag-insert-suggestions.end { left: auto; right: 0; }
-.tag-suggestions li, .tag-insert-suggestions li {
+.tag-editor-suggestions.end { left: auto; right: 0; }
+.tag-suggestions li, .tag-editor-suggestions li {
   display: flex; align-items: baseline; gap: 7px;
   padding: 5px 7px; border-radius: 6px; cursor: pointer;
   color: var(--text); font-size: 12px;
 }
 .tag-suggestions li:hover, .tag-suggestions li.active,
-.tag-insert-suggestions li:hover, .tag-insert-suggestions li.active { background: #30294d; }
-.tag-suggestions .tag-kind, .tag-insert-suggestions .tag-kind { color: var(--accent-2); min-width: 58px; font-size: 10px; text-transform: uppercase; }
-.tag-suggestions .tag-name, .tag-insert-suggestions .tag-name { flex: 1; overflow-wrap: anywhere; }
-.tag-suggestions .tag-count, .tag-insert-suggestions .tag-count { color: #b2b2c0; font-variant-numeric: tabular-nums; }
+.tag-editor-suggestions li:hover, .tag-editor-suggestions li.active { background: #30294d; }
+.tag-suggestions .tag-kind, .tag-editor-suggestions .tag-kind { color: var(--accent-2); min-width: 58px; font-size: 10px; text-transform: uppercase; }
+.tag-suggestions .tag-name, .tag-editor-suggestions .tag-name { flex: 1; overflow-wrap: anywhere; }
+.tag-suggestions .tag-count, .tag-editor-suggestions .tag-count { color: #b2b2c0; font-variant-numeric: tabular-nums; }
 .tag-validation-host { display: contents; }
 .tag-validation {
   display: flex; flex-wrap: wrap; align-content: flex-start;
@@ -257,7 +257,7 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 }
 .tag-validation::before { content: "Prompt tags · Danbooru"; color: #b2b2c0; font-size: 11px; margin-right: 3px; align-self: center; }
 .tag-validation::after {
-  content: "drag to reorder · right-click between tags to insert";
+  content: "double-click to edit · drag to reorder · right-click between tags to insert";
   color: #b2b2c0; font-size: 10px; align-self: center;
 }
 .tag-check {
@@ -275,26 +275,26 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .tag-check.dragging { opacity: 0.45; cursor: grabbing; }
 .tag-check.drop-before { box-shadow: -4px 0 0 var(--accent-2); }
 .tag-check.drop-after { box-shadow: 4px 0 0 var(--accent-2); }
-.tag-remove, .tag-insert-editor button {
+.tag-remove, .tag-editor button {
   display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
   background: transparent; color: currentColor; font: inherit; line-height: 1;
 }
 .tag-remove:hover, .tag-remove:focus-visible,
-.tag-insert-editor button:hover, .tag-insert-editor button:focus-visible {
+.tag-editor button:hover, .tag-editor button:focus-visible {
   background: rgba(255, 255, 255, 0.12); outline: none;
 }
-.tag-insert-editor {
+.tag-editor {
   display: inline-flex; align-items: center; gap: 3px; position: relative;
   padding: 3px 4px 3px 7px; border: 1px solid var(--accent-2); border-radius: 999px;
   background: #17191f; cursor: default;
 }
-.tag-insert-editor input {
+.tag-editor input {
   width: 170px; padding: 1px 5px; border: 0; border-radius: 999px;
   background: transparent; color: var(--text); font-size: 12px; cursor: text;
 }
-.tag-insert-editor input:focus { border: 0; }
-.tag-insert-editor button:disabled { opacity: 0.35; cursor: not-allowed; }
+.tag-editor input:focus { border: 0; }
+.tag-editor button:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); min-height: 15px; }
 .hint.warn { color: #fbbf24; }

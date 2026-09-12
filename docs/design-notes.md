@@ -1054,9 +1054,16 @@ chip centres; a context click on a chip inserts after it. Its
 visible listbox reuses the same cached tag-suggestion endpoint; a native
 `datalist` did not reliably reopen when asynchronous results arrived. Click,
 Enter or Tab accepts a suggestion, while + commits literal text and Escape or ×
-cancels. Every edit goes through the same preview, validation and
-panel-persistence path, so the visible textarea, generated prompt and chips
-cannot become separate sources of truth.
+cancels. A double click on a chip (Enter or F2 while it has focus) opens the
+same editor in the chip's place, holding its text, so a typo is fixed where it
+sits rather than by deleting the chip and inserting a new one; suggestions
+start with the first keystroke, not with the opening, so Enter on an untouched
+edit keeps the tag instead of taking the top match for it, and an unchanged
+commit only closes. One editor is open at a time, and any prompt change from
+outside it - the textarea, a drop, a restored panel - closes it, because its
+index no longer names the item it opened on. Every edit goes through the same
+preview, validation and panel-persistence path, so the visible textarea,
+generated prompt and chips cannot become separate sources of truth.
 Chip and suggestion text is 12 px. A valid chip uses high-contrast light text
 on neutral charcoal, with green confined to its checkmark and outline; unknown
 chips keep the corresponding red mark/outline instead of colour-on-colour text.

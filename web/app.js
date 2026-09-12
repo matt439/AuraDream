@@ -101,7 +101,7 @@ els.expandPrompt.onclick = expandPrompt;
 els.tagValidation.addEventListener('contextmenu', (event) => {
   // Keep the ordinary text-editing menu inside the inline input. Everywhere
   // else in the validation tray, including the flex gaps, is an insert point.
-  if (event.target.closest('.tag-insert-editor')) return;
+  if (event.target.closest('.tag-editor')) return;
   event.preventDefault();
   openTagInsert(tagInsertionIndexAtPoint(event.clientX, event.clientY));
 });

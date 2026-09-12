@@ -120,7 +120,6 @@ function deletePromptTag(index) {
   const tags = promptTagParts();
   if (index < 0 || index >= tags.length) return;
   tags.splice(index, 1);
-  tagInsertAt = null;
   writePromptTags(tags);
 }
 
@@ -129,7 +128,6 @@ function movePromptTag(from, to) {
   if (from < 0 || from >= tags.length || to < 0 || to >= tags.length || from === to) return;
   const [tag] = tags.splice(from, 1);
   tags.splice(to, 0, tag);
-  tagInsertAt = null;
   writePromptTags(tags);
 }
 
@@ -140,7 +138,6 @@ function dropPromptTag(from, insertion) {
   const target = Math.max(0, Math.min(tags.length, insertion > from ? insertion - 1 : insertion));
   if (target === from) return;
   tags.splice(target, 0, tag);
-  tagInsertAt = null;
   writePromptTags(tags);
 }
 
@@ -150,25 +147,38 @@ function clearTagDropMarkers() {
   }
 }
 
-function closeTagInsert() {
+function closeTagEditor() {
+  const edited = tagEditAt;
   tagInsertAt = null;
-  tagInsertSuggestionEpoch += 1;
-  clearTimeout(tagInsertSuggestionTimer);
+  tagEditAt = null;
+  tagEditorSuggestionEpoch += 1;
+  clearTimeout(tagEditorSuggestionTimer);
   renderTagValidation(
     lastTagValidationResults, lastTagValidationAvailable, lastTagValidationDetail,
   );
+  if (edited !== null) els.tagValidation.querySelector(`.tag-check[data-index="${edited}"]`)?.focus();
 }
 
-function commitInsertedTag(text) {
+// The one exit from the editor that changes the prompt: a new item before
+// `tagInsertAt`, or the item at `tagEditAt` replaced. An unchanged edit only
+// closes.
+function commitTagEdit(text) {
   const tag = text.trim();
-  if (!tag || tag.includes(',') || tagInsertAt === null) return;
+  if (!tag || tag.includes(',')) return;
   const tags = promptTagParts();
-  tags.splice(Math.min(tagInsertAt, tags.length), 0, tag);
-  tagInsertAt = null;
+  if (tagEditAt !== null) {
+    if (tagEditAt >= tags.length) return;
+    if (tags[tagEditAt] === tag) { closeTagEditor(); return; }
+    tags[tagEditAt] = tag;
+  } else if (tagInsertAt !== null) {
+    tags.splice(Math.min(tagInsertAt, tags.length), 0, tag);
+  } else {
+    return;
+  }
   writePromptTags(tags);
 }
 
-function selectInsertSuggestion(menu, index) {
+function selectEditorSuggestion(menu, index) {
   const suggestions = menu._suggestions || [];
   if (!suggestions.length) return;
   menu._index = (index + suggestions.length) % suggestions.length;
@@ -180,7 +190,7 @@ function selectInsertSuggestion(menu, index) {
   });
 }
 
-function renderInsertSuggestions(input, menu, suggestions) {
+function renderEditorSuggestions(input, menu, suggestions) {
   menu._suggestions = suggestions;
   menu._index = -1;
   menu.replaceChildren();
@@ -198,93 +208,113 @@ function renderInsertSuggestions(input, menu, suggestions) {
     count.textContent = suggestion.post_count == null ? '' : humanCount(suggestion.post_count);
     item.append(kind, name, count);
     item.onmousedown = (event) => event.preventDefault();
-    item.onclick = () => commitInsertedTag(suggestion.text);
+    item.onclick = () => commitTagEdit(suggestion.text);
     menu.appendChild(item);
   }
   menu.hidden = suggestions.length === 0;
   input.setAttribute('aria-expanded', String(suggestions.length > 0));
   const editor = menu.parentElement.getBoundingClientRect();
   menu.classList.toggle('end', editor.left + 280 > window.innerWidth - 12);
-  if (suggestions.length) selectInsertSuggestion(menu, 0);
+  if (suggestions.length) selectEditorSuggestion(menu, 0);
 }
 
-function scheduleInsertSuggestions(input, menu) {
-  clearTimeout(tagInsertSuggestionTimer);
-  const epoch = ++tagInsertSuggestionEpoch;
+function scheduleEditorSuggestions(input, menu) {
+  clearTimeout(tagEditorSuggestionTimer);
+  const epoch = ++tagEditorSuggestionEpoch;
   const query = input.value.trim();
-  renderInsertSuggestions(input, menu, []);
+  renderEditorSuggestions(input, menu, []);
   if (!query) return;
-  tagInsertSuggestionTimer = setTimeout(async () => {
+  tagEditorSuggestionTimer = setTimeout(async () => {
     try {
       const body = await api(`/api/tags/suggest?q=${encodeURIComponent(query)}`);
-      if (epoch !== tagInsertSuggestionEpoch || !input.isConnected) return;
-      renderInsertSuggestions(input, menu, body.suggestions || []);
+      if (epoch !== tagEditorSuggestionEpoch || !input.isConnected) return;
+      renderEditorSuggestions(input, menu, body.suggestions || []);
     } catch {
-      if (epoch === tagInsertSuggestionEpoch) renderInsertSuggestions(input, menu, []);
+      if (epoch === tagEditorSuggestionEpoch) renderEditorSuggestions(input, menu, []);
     }
   }, 160);
 }
 
-function buildTagInsertEditor() {
+// One editor for both jobs: empty in a gap to insert, or in a chip's place
+// holding its text to rewrite it. Suggestions come only once the text is
+// typed, so Enter on an untouched edit keeps the tag rather than taking the
+// top match for it.
+function buildTagEditor(initial = null) {
+  const editing = initial !== null;
   const editor = document.createElement('span');
-  editor.className = 'tag-insert-editor';
+  editor.className = 'tag-editor';
   const input = document.createElement('input');
   input.type = 'text';
   input.maxLength = 200;
-  input.placeholder = 'insert tag';
-  input.setAttribute('aria-label', 'New tag');
+  input.placeholder = editing ? 'edit tag' : 'insert tag';
+  input.value = initial ?? '';
+  if (editing && initial.length > 24) input.style.width = `${Math.min(initial.length + 2, 64)}ch`;
+  input.setAttribute('aria-label', editing ? `Edit ${initial}` : 'New tag');
   input.setAttribute('aria-autocomplete', 'list');
   input.setAttribute('aria-expanded', 'false');
   const menu = document.createElement('ul');
-  menu.className = 'tag-insert-suggestions';
-  menu.id = 'tag-insert-suggestions';
+  menu.className = 'tag-editor-suggestions';
+  menu.id = 'tag-editor-suggestions';
   menu.setAttribute('role', 'listbox');
   menu.hidden = true;
   input.setAttribute('aria-controls', menu.id);
   const accept = document.createElement('button');
   accept.type = 'button';
-  accept.textContent = '+';
-  accept.disabled = true;
-  accept.title = 'Insert tag';
-  accept.setAttribute('aria-label', 'Insert tag');
+  accept.textContent = editing ? '✓' : '+';
+  accept.disabled = !editing;
+  accept.title = editing ? 'Apply edit' : 'Insert tag';
+  accept.setAttribute('aria-label', accept.title);
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.textContent = '×';
-  cancel.title = 'Cancel insertion';
-  cancel.setAttribute('aria-label', 'Cancel insertion');
+  cancel.title = editing ? 'Cancel edit' : 'Cancel insertion';
+  cancel.setAttribute('aria-label', cancel.title);
   input.oninput = () => {
     accept.disabled = !input.value.trim() || input.value.includes(',');
-    scheduleInsertSuggestions(input, menu);
+    scheduleEditorSuggestions(input, menu);
   };
   input.onkeydown = (event) => {
     if (event.key === 'ArrowDown' && !menu.hidden) {
       event.preventDefault();
-      selectInsertSuggestion(menu, menu._index + 1);
+      selectEditorSuggestion(menu, menu._index + 1);
     } else if (event.key === 'ArrowUp' && !menu.hidden) {
       event.preventDefault();
-      selectInsertSuggestion(menu, menu._index - 1);
+      selectEditorSuggestion(menu, menu._index - 1);
     } else if ((event.key === 'Enter' || event.key === 'Tab') && !menu.hidden) {
       event.preventDefault();
-      commitInsertedTag(menu._suggestions[menu._index].text);
+      commitTagEdit(menu._suggestions[menu._index].text);
     } else if (event.key === 'Enter' && !accept.disabled) {
       event.preventDefault();
-      commitInsertedTag(input.value);
+      commitTagEdit(input.value);
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      closeTagInsert();
+      closeTagEditor();
     }
   };
-  accept.onclick = () => commitInsertedTag(input.value);
-  cancel.onclick = closeTagInsert;
+  accept.onclick = () => commitTagEdit(input.value);
+  cancel.onclick = closeTagEditor;
   editor.append(input, accept, cancel, menu);
-  setTimeout(() => input.focus(), 0);
+  setTimeout(() => { input.focus(); if (editing) input.select(); }, 0);
   return editor;
 }
 
+// Opening either editor drops a validation in flight: its render would rebuild
+// the tray, and the editor with it, under the user's typing.
 function openTagInsert(index) {
   clearTimeout(tagValidationTimer);
   tagValidationEpoch += 1;
   tagInsertAt = index;
+  tagEditAt = null;
+  renderTagValidation(
+    lastTagValidationResults, lastTagValidationAvailable, lastTagValidationDetail,
+  );
+}
+
+function openTagEdit(index) {
+  clearTimeout(tagValidationTimer);
+  tagValidationEpoch += 1;
+  tagInsertAt = null;
+  tagEditAt = index;
   renderTagValidation(
     lastTagValidationResults, lastTagValidationAvailable, lastTagValidationDetail,
   );
@@ -321,9 +351,14 @@ function renderTagValidation(results, available = true, detail = '') {
   lastTagValidationAvailable = available;
   lastTagValidationDetail = detail;
   if (tagInsertAt !== null && tagInsertAt > results.length) tagInsertAt = results.length;
+  if (tagEditAt !== null && tagEditAt >= results.length) tagEditAt = null;
   els.tagValidation.replaceChildren();
   for (const [index, result] of results.entries()) {
-    if (tagInsertAt === index) els.tagValidation.appendChild(buildTagInsertEditor());
+    if (tagInsertAt === index) els.tagValidation.appendChild(buildTagEditor());
+    if (tagEditAt === index) {
+      els.tagValidation.appendChild(buildTagEditor(result.tag));
+      continue;
+    }
     const chip = document.createElement('span');
     chip.className = 'tag-check';
     chip.draggable = true;
@@ -353,8 +388,8 @@ function renderTagValidation(results, available = true, detail = '') {
       chip.title = detail || result.reason || 'Danbooru lookup unavailable';
     }
     label.append(mark, text);
-    chip.title += ' · drag to reorder · right-click left/right half to insert · Delete removes';
-    chip.setAttribute('aria-label', `${result.tag}. Drag to reorder; Delete removes it.`);
+    chip.title += ' · double-click to edit · drag to reorder · right-click to insert after · Delete removes';
+    chip.setAttribute('aria-label', `${result.tag}. Enter edits it; drag to reorder; Delete removes it.`);
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'tag-remove';
@@ -399,10 +434,20 @@ function renderTagValidation(results, available = true, detail = '') {
       event.stopPropagation();
       openTagInsert(index + 1);
     };
+    chip.ondblclick = (event) => {
+      // A fast double click on × deletes one chip and lands on the next; that
+      // is not a request to edit it.
+      if (event.target.closest('.tag-remove')) return;
+      event.preventDefault();
+      openTagEdit(index);
+    };
     chip.onkeydown = (event) => {
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
         deletePromptTag(index);
+      } else if (event.key === 'Enter' || event.key === 'F2') {
+        event.preventDefault();
+        openTagEdit(index);
       } else if (event.altKey && event.key === 'ArrowLeft') {
         event.preventDefault();
         movePromptTag(index, index - 1);
@@ -413,7 +458,7 @@ function renderTagValidation(results, available = true, detail = '') {
     };
     els.tagValidation.appendChild(chip);
   }
-  if (tagInsertAt === results.length) els.tagValidation.appendChild(buildTagInsertEditor());
+  if (tagInsertAt === results.length) els.tagValidation.appendChild(buildTagEditor());
   els.tagValidation.title = available
     ? 'Each comma-separated item checked against Danbooru or Animagine special tags'
     : `Lookup unavailable; unchecked tags are not treated as invalid${detail ? `: ${detail}` : ''}`;
@@ -435,9 +480,14 @@ async function validatePromptTags(tags, epoch) {
   }
 }
 
+// Every prompt change from outside the editor comes through here - the
+// textarea, a drop, a restored panel - and closes it: its index no longer
+// names the item it opened on.
 function scheduleTagValidation(delay = 320) {
   clearTimeout(tagValidationTimer);
   const epoch = ++tagValidationEpoch;
+  tagInsertAt = null;
+  tagEditAt = null;
   if (!tagVocabularyEnabled) {
     els.tagValidation.hidden = true;
     els.tagValidation.replaceChildren();
