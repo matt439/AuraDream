@@ -97,7 +97,7 @@ function card(rec) {
   const tools = document.createElement('div');
   tools.className = 'tools';
   tools.append(
-    tool('↻', 'Reuse settings', () => reuse(rec)),
+    reuseButton(rec, true),
     tool('❐', 'Use as a reference image', () => {
       if (!referenceSupported) {
         showError(
@@ -142,6 +142,44 @@ function tool(label, title, onClick) {
   b.setAttribute('aria-label', title);
   b.onclick = onClick;
   return b;
+}
+
+function modelsDiffer(modelId) {
+  return !!loadedModel && !!modelId && modelId !== loadedModel;
+}
+
+// Warn before the click, not only after the panel has already been replaced.
+// Gallery cards use a compact glyph; the lightbox has room for the full label.
+// The data attributes let the first status response update buttons that were
+// rendered while the server was still answering.
+function syncReuseButton(button, modelId, compact = false) {
+  button.dataset.reuseModel = modelId || '';
+  button.dataset.reuseCompact = String(compact);
+  button.classList.add('reuse-settings');
+  const mismatch = modelsDiffer(modelId);
+  const from = (modelId || '').split('/').pop();
+  const current = (loadedModel || '').split('/').pop();
+  button.classList.toggle('model-mismatch', mismatch);
+  button.textContent = compact ? (mismatch ? '⚠' : '↻')
+    : `${mismatch ? '⚠ ' : ''}Reuse settings`;
+  button.title = mismatch
+    ? `Warning: generated with ${from}; the current model is ${current}`
+    : 'Load these settings into the panel';
+  button.setAttribute('aria-label', mismatch
+    ? `Reuse settings (warning: generated with ${from}; current model is ${current})`
+    : 'Reuse settings');
+}
+
+function reuseButton(rec, compact = false) {
+  const button = tool('', '', () => reuse(rec));
+  syncReuseButton(button, rec.model_id, compact);
+  return button;
+}
+
+function syncReuseButtons() {
+  document.querySelectorAll('.reuse-settings').forEach((button) => {
+    syncReuseButton(button, button.dataset.reuseModel, button.dataset.reuseCompact === 'true');
+  });
 }
 
 // The same image can be on the page more than once - in the viewer, in the

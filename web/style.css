@@ -617,6 +617,10 @@ button { font: inherit; cursor: pointer; }
   font-size: 12px;
 }
 .card .tools button:hover { background: var(--accent); }
+.card .tools .reuse-settings.model-mismatch {
+  color: #fff3c4;
+  background: rgba(120, 84, 0, 0.82);
+}
 .card.fav::after {
   content: "★";
   position: absolute;
@@ -685,6 +689,7 @@ button { font: inherit; cursor: pointer; }
 }
 .lb-actions { display: flex; gap: 8px; }
 #lb-fav.active { color: #fbbf24; border-color: #fbbf24; }
+#lb-reuse.model-mismatch { color: #fbbf24; border-color: #fbbf24; }
 #lb-delete:hover { color: var(--danger); border-color: var(--danger); }
 /* The cross and the arrows sit above the stage, which is a positioned element
    later in the document and would otherwise paint over them. */

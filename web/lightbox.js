@@ -113,6 +113,7 @@ function renderLightbox() {
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
   els.lbFav.textContent = rec.favorite ? '★ Favourite' : '☆ Favourite';
   els.lbFav.classList.toggle('active', !!rec.favorite);
+  syncReuseButton(els.lbReuse, rec.model_id);
   // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();
   layoutLightbox();

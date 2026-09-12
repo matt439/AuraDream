@@ -327,8 +327,9 @@ of steps/CFG/mu follows the profile until the user touches *that* box
 minutes late from behind a load, and one flag for all three, wired to Seed
 as well, used to freeze the panel at the fallback's 28 / 3.5 on a Turbo
 server because the user pasted a seed in the first two seconds. Reuse owns
-all three, and warns (as a note) when the record's checkpoint is not the one
-the server is running: steps, CFG and mu are checkpoint-specific. An empty
+all three. Its button warns before the click, and the panel keeps an explanatory
+note after the click, when the record's checkpoint is not the one the server is
+running: steps, CFG and mu are checkpoint-specific. An empty
 Steps or CFG box is sent as *absent*, which the schema fills from the
 profile; `+''` is 0, and 0 is a valid CFG that generates unguided.
 

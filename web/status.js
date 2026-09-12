@@ -104,7 +104,9 @@ async function refreshStatus() {
   statusPending = true;
   try {
     const s = await api('/api/status');
+    const previousModel = loadedModel;
     loadedModel = s.model_id ?? loadedModel;
+    if (loadedModel !== previousModel) syncReuseButtons();
     applyDefaults(s.defaults);
     // After the profile, so a remembered value set on this checkpoint wins
     // over it and a value set on another is left to the profile.
