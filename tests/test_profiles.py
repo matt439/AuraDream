@@ -224,6 +224,7 @@ def test_the_size_table_is_the_same_in_the_browser_and_the_cli():
             for tier, dims in re.findall(r"([\d.]+): \[([^\]]*)\]", body)
         }
     assert found == sizes.SIZES
+    assert list(found) == list(sizes.SIZES), "the preset strip is Object.keys of this copy"
     assert generate.SIZES is sizes.SIZES
 
 
@@ -239,6 +240,21 @@ def test_the_readme_size_table_matches_the_code():
             for tier, cell in zip(sizes.TIERS, cells)
         }
     assert found == sizes.SIZES
+    assert list(found) == list(sizes.SIZES)
+
+
+def test_the_aspects_are_in_strip_order():
+    # Square first, then landscape from nearest-square to widest, then portrait
+    # the same way: each half reads monotonically, and an aspect's inverse sits
+    # at the same position in the other half. The strip and --aspect's choices
+    # both take the dict's order.
+    ratios = {aspect: eval(aspect.replace(":", "/")) for aspect in sizes.SIZES}
+    landscape = [a for a in sizes.SIZES if ratios[a] > 1]
+    portrait = [a for a in sizes.SIZES if ratios[a] < 1]
+    assert list(sizes.SIZES) == ["1:1", *landscape, *portrait]
+    assert landscape == sorted(landscape, key=ratios.get)
+    assert portrait == sorted(portrait, key=ratios.get, reverse=True)
+    assert portrait == [":".join(reversed(a.split(":"))) for a in landscape]
 
 
 def test_the_1_5_mp_row_is_the_model_cards():

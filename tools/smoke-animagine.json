@@ -35,7 +35,7 @@
   {"wait": 500},
   {"expect": "els.tagSuggestions.children[0].querySelector('.tag-kind').textContent === 'model' && els.tagSuggestions.children[0].textContent.includes('great score')"},
   {"expect": "els.presets.children.length === 13 && ['9:7', '7:9', '7:4', '4:7', '12:5', '5:12'].every((ratio) => [...els.presets.children].some((b) => b.textContent === ratio))"},
-  {"expect": "[...els.presets.children].filter((b) => b.classList.contains('recommended')).map((b) => b.textContent).join() === '1:1,3:2,2:3,9:7,7:9,7:4,4:7,12:5,5:12'"},
+  {"expect": "[...els.presets.children].filter((b) => b.classList.contains('recommended')).map((b) => b.textContent).join() === '1:1,9:7,3:2,7:4,12:5,7:9,2:3,4:7,5:12'"},
   {"expect": "![...els.presets.children].find((b) => b.textContent === '16:9').classList.contains('recommended')"},
   {"eval": "[...els.presets.children].find((b) => b.textContent === '16:9').click();"},
   {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent.includes('16:9 is not a recommended aspect')"},
