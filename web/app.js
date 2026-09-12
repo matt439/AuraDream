@@ -146,6 +146,14 @@ els.unload.onclick = async () => {
   refreshStatus();
 };
 els.more.onclick = () => loadGallery();
+// Scrolling to the end of the gallery fetches the next page: the trigger is
+// the button coming within a few hundred pixels of the viewport, so the page
+// is usually there before the button is. Hidden - no older rows, or the
+// sheet - it never intersects. `loadGallery` serialises a click racing this.
+moreWatcher = new IntersectionObserver((entries) => {
+  if (galleryMore && !sheetMode && entries.some((e) => e.isIntersecting)) loadGallery();
+}, { rootMargin: '0px 0px 400px 0px' });
+moreWatcher.observe(els.more);
 els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // The preview reflects the panel as much as the axes: a blank axis is the
 // control's own value, and both the size and the batch move the totals.

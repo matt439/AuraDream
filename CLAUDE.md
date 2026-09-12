@@ -219,7 +219,10 @@ Frontend and CLI:
   flags from `launch.add_model_arguments`.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
   day, `mu:none` is `IS NULL`, and `search.strict_scope` is the reading for
-  `clear --where` and `keep_rates`. The gallery pages by id, never by offset.
+  `clear --where` and `keep_rates`. The gallery pages by id, never by offset,
+  and pages itself as "Load more" scrolls near the viewport (`moreWatcher`,
+  re-armed by `watchMore` after each page that lands, never after one that
+  failed - the button is the retry).
 
 ## Adding a backend
 
@@ -253,8 +256,10 @@ on a failed `expect`. `smoke-conditioning.json` runs against a klein-claiming fa
 reference chips, the adapter select and a weight sweep;
 `smoke-flux.json` runs against a second fake server
 claiming FLUX.1 (`--port 7862 --model black-forest-labs/FLUX.1-Krea-dev`)
-for the True CFG box, and `smoke-preview.json` against one slowed to
-`--step 0.3` on 7863 for the live preview; the fake takes the claimed
+for the True CFG box, `smoke-preview.json` against one slowed to
+`--step 0.3` on 7863 for the live preview, and `smoke-paging.json` against a
+`--fresh` one on 7867 for the gallery paging itself on scroll (it builds a
+60-image grid, so it holds once per gallery); the fake takes the claimed
 profile's threshold and true-CFG flag so it behaves as the real one would.
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,

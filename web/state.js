@@ -102,6 +102,11 @@ let pickedTier = 1;
 // the page (the last record - they arrive newest first), and the server says
 // whether anything older exists, exactly.
 let galleryMore = false;
+// The grid pages itself: an IntersectionObserver on the "Load more" button,
+// armed in app.js and re-armed by `watchMore` after every page, fetches the
+// next page as the button scrolls near the viewport. The button stays as the
+// sign that older rows exist and as the retry after a page that failed.
+let moreWatcher = null;
 let total = 0;
 let busy = false;
 // Which sampling controls the user has taken off the checkpoint's profile.

@@ -310,6 +310,8 @@ uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
 node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
 uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-xl-4.0
 node tools/browser.mjs tools/smoke-animagine.json # tag guide, defaults, size range and disabled Mu
+uv run python tools/fake_server.py --port 7867 --fresh
+node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
 ```
 
 The fake server draws gradients stamped with seed and steps, so grid cells can

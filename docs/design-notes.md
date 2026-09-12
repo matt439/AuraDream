@@ -736,6 +736,19 @@ inserting into repeated the tail of one page at the head of the next and
 skipped as many older rows for good; `offset` stays for scripts. The
 browser's anchor is the last record it holds, so a delete moves nothing.
 
+The grid pages itself: an `IntersectionObserver` on the "Load more" button
+(`moreWatcher`, armed in `app.js`) calls `loadGallery` as the button comes
+within 400 px of the viewport, so scrolling to the end keeps going and the
+page is usually there before the button is. The observer reports a *change*
+in visibility, and a page that does not push the button past the fold - a
+wide grid, the tail of a short run - would leave it in view with nothing left
+to fire, so `watchMore` re-observes the button after every page that lands:
+observing afresh always reports the current state once. It is not re-armed
+after a page that failed - re-arming there would fetch again from the server
+that just refused - which is why the button stays: it is the retry, and the
+visible sign that older rows exist. Hidden in the sheet and once `has_more`
+is false, it never intersects.
+
 ## KREA_DEVICE reaches the offload hooks
 
 The offload hooks are handed `KREA_DEVICE` explicitly (when it is a CUDA

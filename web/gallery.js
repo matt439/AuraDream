@@ -33,6 +33,7 @@ function loadGallery() {
   if (els.search.value.trim()) params.set('search', els.search.value.trim());
   if (els.favOnly.checked) params.set('favorites', 'true');
   els.more.disabled = true;
+  els.more.textContent = 'Loading…';
   els.lbNext.disabled = true;
 
   galleryPending = api(`/api/gallery?${params}`)
@@ -51,6 +52,7 @@ function loadGallery() {
       });
       galleryMore = !!page.has_more;
       els.more.hidden = sheetMode || !galleryMore;
+      watchMore();
       if (sheetMode) renderSheet();
     })
     .catch((err) => {
@@ -61,9 +63,22 @@ function loadGallery() {
     .finally(() => {
       galleryPending = null;
       els.more.disabled = false;
+      els.more.textContent = 'Load more';
       if (els.lightbox.open) renderLightbox();  // re-derives the nav buttons
     });
   return galleryPending;
+}
+
+// Re-arms the scroll trigger once a page has landed. The observer reports a
+// *change* in whether the button is in view, and a page that does not push it
+// past the fold - a wide grid, the tail of a short run - leaves it in view with
+// nothing left to fire; observing afresh always reports the current state once.
+// Called on success only: after a failed page the button is the retry, and
+// re-arming would fetch again from the server that just refused.
+function watchMore() {
+  if (!moreWatcher) return;
+  moreWatcher.unobserve(els.more);
+  moreWatcher.observe(els.more);
 }
 
 function card(rec) {
