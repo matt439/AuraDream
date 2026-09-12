@@ -363,6 +363,11 @@
       <button class="ghost small" id="btn-sheet" title="Arrange these images by their settings">
         Sheet
       </button>
+      <!-- The inverse of the card's delete: star what stays, then remove the
+           rest of what the filter matches in one confirmed gesture. Last in
+           the bar, away from the view toggle. -->
+      <button class="ghost small" id="btn-delete-unstarred" hidden
+        title="Delete every image the filter matches that is not starred, after a confirmation that shows the count. Takes key:value terms or an empty search; the files are removed from disk">⌦ Delete unstarred</button>
     </div>
     <div class="grid" id="gallery"></div>
     <!-- The contact sheet: one run laid out as the grid that produced it. -->

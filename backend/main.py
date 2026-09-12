@@ -31,6 +31,7 @@ from .backends import get_backend  # noqa: E402
 from .config import settings  # noqa: E402
 from .jobs import BackendBusy, JobManager, short_error  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
+from .search import strict_scope  # noqa: E402
 from .schemas import (  # noqa: E402
     GalleryPage,
     GenerateRequest,
@@ -45,6 +46,7 @@ from .schemas import (  # noqa: E402
     TagSuggestionResponse,
     TagValidationRequest,
     TagValidationResponse,
+    UnstarredPreview,
     error_detail,
 )
 from .tags import (  # noqa: E402
@@ -845,6 +847,57 @@ async def delete(image_id: int) -> dict:
     if not await asyncio.to_thread(storage.delete_image, image_id):
         raise HTTPException(status_code=404, detail="unknown image")
     return {"deleted": image_id}
+
+
+def _unstarred_scope(search: str | None) -> str | None:
+    """The search box as a strict scope, or a 422 that says why it is not one.
+
+    `strict_scope` refuses free text with the grammar's own words; here the
+    reader has just watched the gallery match that text, so the reply says
+    what to do instead.
+    """
+    try:
+        strict_scope(search)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Delete unstarred takes key:value terms or an empty search - {exc}",
+        ) from exc
+    return search or None
+
+
+@app.get("/api/gallery/unstarred", response_model=UnstarredPreview)
+async def unstarred(search: str | None = None) -> UnstarredPreview:
+    """What "Delete unstarred" would remove under this filter, and what it would keep."""
+    found = await asyncio.to_thread(storage.matching_preview, _unstarred_scope(search))
+    return UnstarredPreview(unstarred=found["records"] - found["favorites"], **found)
+
+
+@app.delete("/api/gallery/unstarred")
+async def delete_unstarred(search: str | None = None, expected: int = Query(ge=0)) -> dict:
+    """The gallery's Delete unstarred: `clear --where <search> --keep-favorites` over HTTP.
+
+    The one bulk delete the page offers, and the inverse of the per-card one:
+    star what is worth keeping, then remove the rest of the run in one gesture
+    rather than the rest one card at a time. The scope is the search box read
+    strictly - `key:value` terms only, an empty box meaning the whole gallery
+    - and `expected` is the count the dialog showed, so a sweep that landed
+    more unstarred images while it was open is answered 409 rather than
+    swept up on a number confirmed for fewer. Rows and their files only: no
+    orphan sweep and no vacuum, which stay the CLI's.
+    """
+    scope = _unstarred_scope(search)
+    try:
+        result = await asyncio.to_thread(
+            storage.delete_matching, scope, keep_favorites=True, expected=expected
+        )
+    except storage.SelectionChanged as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"The selection changed: {exc.found} unstarred images match now, "
+            f"not the {exc.expected} confirmed. Nothing was deleted; look again.",
+        ) from exc
+    return {"deleted": result["ids"], "files": result["files"]}
 
 
 def run() -> None:

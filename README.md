@@ -596,6 +596,20 @@ with yourself about what comes back: the pipeline draws its noise at the new
 shape, so the same seed at 4 MP is a new sample - the prompt and the settings
 carry over, the exact picture does not.
 
+**Delete unstarred**, at the end of the same bar, is the other end of that
+night: a run makes hundreds and earns a few stars, and the gesture you want
+is "keep these", not "not this one" two hundred times. It removes every
+image the filter matches that is not starred - `run:ab12cd` for the night,
+the box empty for the whole gallery - after a dialog that shows the count,
+what stays and a few of the prompts, and asks for the count typed back: the
+mistake it guards against is the wrong *scope*, a run you have not looked
+at yet, and the number is what gives that away. The delete is pinned to
+the number, so images a running job lands while the dialog is open are
+refused rather than swept, and the search has to be `key:value` terms or
+empty - free text is matched fuzzily, and a deletion is not confirmed
+blind. It is `clear --where ... --keep-favorites` (below) over HTTP: rows
+and their files, no orphan sweep.
+
 **Runs**, the picker beside the search box, lists the gallery one line per run
 - when it started, how many images, how many starred, the prompt - newest
 first; picking one searches for it and opens the sheet. And a page opened
@@ -857,7 +871,9 @@ select, with their files. The preview names what matched — the jobs and
 checkpoints a `job:` or `model:` term hit, the first few prompts — because
 those two are substring matches. Free text is refused: it would go through the
 search box's fuzzy fallback, and a deletion should not be confirmed blind. The
-orphan sweep stays off this path on purpose.
+orphan sweep stays off this path on purpose. The gallery's **Delete unstarred**
+button is this same path - `--where <the search box> --keep-favorites` - with
+the typed count as its confirmation.
 
 ## Rebuilding the index
 

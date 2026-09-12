@@ -42,6 +42,7 @@ function loadGallery() {
       total = page.total;
       els.count.textContent = total ? `(${total})` : '';
       syncRerender();
+      syncDeleteUnstarred();
       // Keyset paging cannot repeat a row; the guard stays for a stream that
       // reattaches and a page that overlap through the viewer's records.
       const have = new Set(galleryRecords.map((r) => r.id));
@@ -189,20 +190,28 @@ async function deleteImage(rec) {
     showError(err.message);
     return;
   }
-  document.querySelectorAll(`[data-id="${rec.id}"]`).forEach((el) => el.remove());
+  forgetImages([rec.id]);
+}
+
+// Every trace of these ids on the page, once the server has let them go: the
+// cards, the sheet cells, the viewer tiles, and the records behind them.
+// Shared by the card's delete and Delete unstarred.
+function forgetImages(ids) {
+  const gone = new Set(ids);
+  document.querySelectorAll('[data-id]').forEach((el) => { if (gone.has(+el.dataset.id)) el.remove(); });
   // Only the grid's counters mirror the server's: the viewer holds whatever
   // this session made, and the sheet lays itself out from the grid's records.
-  const inGallery = galleryRecords.some((r) => r.id === rec.id);
+  const inGallery = galleryRecords.filter((r) => gone.has(r.id)).length;
   for (const list of new Set([galleryRecords, viewerRecords, lbList])) {
-    const at = list.findIndex((r) => r.id === rec.id);
-    if (at >= 0) list.splice(at, 1);
+    for (let at = list.length - 1; at >= 0; at--) if (gone.has(list[at].id)) list.splice(at, 1);
   }
   // The badge follows the server's count; the page anchor is an id, which a
   // delete does not move.
   if (inGallery) {
-    total -= 1;
+    total -= inGallery;
     els.count.textContent = total ? `(${total})` : '';
     syncRerender();
+    syncDeleteUnstarred();
   }
   els.viewer.classList.toggle('multi', viewerRecords.length > 1);
   els.viewer.classList.toggle('many', viewerRecords.length > 4);
@@ -212,6 +221,68 @@ async function deleteImage(rec) {
   // this index, unless this was the last one.
   if (!lbList.length) closeLightbox();
   else { lbIndex = Math.min(lbIndex, lbList.length - 1); renderLightbox(); }
+}
+
+// The inverse of the card's delete, for the night that made hundreds and
+// earned a few stars: star those, then remove everything else the filter
+// matches in one gesture. Counted server-side, as Re-render's selection is -
+// the browser holds one page - and gated on typing that count back: the
+// hazard is no longer "the wrong image" but "the wrong scope", a run not yet
+// looked at, and the number is what tells them apart. The delete is pinned
+// to it, so images a running job lands meanwhile are refused, not swept.
+async function deleteUnstarred() {
+  const search = els.search.value.trim();
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  let found;
+  try {
+    found = await api(`/api/gallery/unstarred?${params}`);
+  } catch (err) {
+    showError(err.message);
+    return;
+  }
+  const scope = search ? `matching "${search}"` : 'in the gallery';
+  if (!found.unstarred) {
+    showError(`Nothing to delete: every image ${scope} is starred.`, true);
+    return;
+  }
+  const plural = found.unstarred === 1 ? '' : 's';
+  const prompts = found.prompts.slice(0, 3).map((p) => `  "${p.length > 60 ? `${p.slice(0, 57)}…` : p}"`);
+  if (found.prompts.length > 3) prompts.push('  …');
+  const message = [
+    `Delete ${found.unstarred} unstarred image${plural} ${scope}, keeping ${found.favorites} starred?`,
+    '',
+    ...prompts,
+    '',
+    `The files are removed from disk. Type ${found.unstarred} to continue:`,
+  ].join('\n');
+  const typed = window.prompt(message, '');
+  if (typed === null) return;
+  if (typed.trim() !== String(found.unstarred)) {
+    showError(`Nothing deleted: "${typed.trim()}" is not ${found.unstarred}.`, true);
+    return;
+  }
+  params.set('expected', found.unstarred);
+  let result;
+  try {
+    result = await api(`/api/gallery/unstarred?${params}`, { method: 'DELETE' });
+  } catch (err) {
+    showError(err.message);
+    return;
+  }
+  forgetImages(result.deleted);
+  showError(`Deleted ${result.deleted.length} image${plural}, keeping ${found.favorites} starred.`, true);
+  // The page is now mostly holes; ask for it again from the top, which also
+  // brings the badge back to the server's count.
+  resetGallery();
+}
+
+// Shown while there is something it could act on: the filter matches images
+// and the Favorites tick is off, since with it on every match is a keeper.
+// Whether the search box reads as a strict scope is the server's call, at
+// the click.
+function syncDeleteUnstarred() {
+  els.deleteUnstarred.hidden = els.favOnly.checked || total <= 0;
 }
 
 function reuse(rec) {

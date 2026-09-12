@@ -451,6 +451,23 @@ class GalleryPage(BaseModel):
     has_more: bool = False
 
 
+class UnstarredPreview(BaseModel):
+    """What the gallery's Delete unstarred would remove under a filter, and keep.
+
+    The confirmation's numbers, taken server-side like Re-render's selection:
+    the browser holds one page. `unstarred` is the count the dialog asks to
+    have typed back and the DELETE is then pinned to.
+    """
+    records: int
+    favorites: int
+    unstarred: int
+    # A few of the prompts, and the jobs and checkpoints a substring term
+    # matched: the dialog names what is about to go, as `clear --where` does.
+    prompts: list[str]
+    jobs: list[str]
+    models: list[str]
+
+
 class PromptTagGroup(BaseModel):
     """One documented family of tags shown as buttons in the prompt helper."""
 

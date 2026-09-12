@@ -123,6 +123,11 @@ def test_where_keeps_favorites_and_refuses_free_text(fresh, capsys):
     assert "free text" in capsys.readouterr().err
     assert clear.main(["--where", "seed:999", "--yes"]) == 0
     assert "Nothing matches" in capsys.readouterr().out
+    # A blank scope is the whole gallery, which is `clear` without --where;
+    # storage answers the question for the browser, the CLI refuses to ask it.
+    assert clear.main(["--where", " ", "--keep-favorites", "--yes"]) == 2
+    assert "filter is required" in capsys.readouterr().err
+    assert [r.id for r in storage.list_images()[0]] == [made["a"].id]
 
 
 def test_a_stale_partial_is_named_in_the_preview(fresh, capsys):

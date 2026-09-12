@@ -198,6 +198,7 @@ els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
 els.favOnly.onchange = resetGallery;
 els.sheetBtn.onclick = () => setSheet(!sheetMode);
 els.rerender.onclick = rerenderSelection;
+els.deleteUnstarred.onclick = deleteUnstarred;
 els.runList.onchange = () => { showRun(els.runList.value); els.runList.value = ''; };
 els.lastRunShow.onclick = () => {
   const { run, job } = els.lastRun.dataset;

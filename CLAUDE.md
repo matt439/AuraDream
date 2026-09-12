@@ -219,7 +219,13 @@ Frontend and CLI:
   flags from `launch.add_model_arguments`.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
   day, `mu:none` is `IS NULL`, and `search.strict_scope` is the reading for
-  `clear --where` and `keep_rates`. The gallery pages by id, never by offset,
+  `clear --where`, `keep_rates` and the gallery's Delete unstarred
+  (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
+  --keep-favorites` over HTTP, the search box strict or empty, gated on the
+  count typed back and pinned to it as `expected`, which `delete_matching`
+  checks under the write lock and answers 409 on a mismatch; rows and files
+  only, no orphan sweep. `forgetImages` is the one place the page drops
+  deleted ids. The gallery pages by id, never by offset,
   and pages itself as "Load more" scrolls near the viewport (`moreWatcher`,
   re-armed by `watchMore` after each page that lands, never after one that
   failed - the button is the retry).

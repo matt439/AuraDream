@@ -72,6 +72,12 @@ def _clear_where(args: argparse.Namespace) -> int:
     if not settings.db_path.exists():
         print("No gallery yet.", file=sys.stderr)
         return 1
+    # `--where ""` is the unfiltered path in disguise, and the browser's Delete
+    # unstarred is the one caller storage lets ask about a blank scope.
+    if not args.where.strip():
+        print("--where: a filter is required; the whole gallery is `clear` without --where",
+              file=sys.stderr)
+        return 2
     try:
         found = storage.matching_preview(args.where)
     except ValueError as exc:

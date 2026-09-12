@@ -634,13 +634,16 @@ def completed_cells(
     return keys
 
 
-def matching_preview(search: str) -> dict[str, Any]:
+def matching_preview(search: str | None) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
-    checkpoints a substring term (`job:`, `model:`) actually matched."""
+    checkpoints a substring term (`job:`, `model:`) actually matched.
+
+    An empty scope is the whole gallery - the browser's Delete unstarred asks
+    with the search box blank - so the "a filter is required" refusal is the
+    CLI's, at its own prompt.
+    """
     filters, params = strict_scope(search)
-    if not filters:
-        raise ValueError("a filter is required; the whole gallery is `clear` without --where")
-    clause = f"WHERE {' AND '.join(filters)}"
+    clause = f"WHERE {' AND '.join(filters)}" if filters else ""
     with _session() as conn:
         records, favorites = conn.execute(
             f"SELECT COUNT(*), COALESCE(SUM(favorite), 0) FROM images {clause}", params
@@ -661,34 +664,53 @@ def matching_preview(search: str) -> dict[str, Any]:
         }
 
 
-def delete_matching(search: str, keep_favorites: bool = False) -> dict[str, int]:
+class SelectionChanged(Exception):
+    """A scoped delete was confirmed for one count and finds another."""
+
+    def __init__(self, found: int, expected: int):
+        super().__init__(f"{found} images match now, not the {expected} confirmed")
+        self.found = found
+        self.expected = expected
+
+
+def delete_matching(
+    search: str | None, keep_favorites: bool = False, expected: int | None = None
+) -> dict[str, Any]:
     """Delete the rows a strict scope selects, and their files - nothing else.
 
-    `DELETE ... RETURNING filename` in one statement, so a row committed while
-    the user was reading the confirmation prompt is not deleted from disk on
-    the strength of an id list resolved a moment earlier. No orphan sweep: a
-    filtered clear that also removed every untracked PNG would be a new
-    all-or-nothing hazard inside the feature meant to remove one.
+    `DELETE ... RETURNING` in one statement, so a row committed while the
+    user was reading the confirmation prompt is not deleted from disk on the
+    strength of an id list resolved a moment earlier. `expected` is the count
+    that prompt showed: compared under the write lock, so a sweep that landed
+    more unstarred images while the dialog was open raises `SelectionChanged`
+    and deletes nothing rather than taking them on a number confirmed for
+    fewer. `keep_favorites` is a scope of its own - an otherwise empty one
+    means every unstarred image - where a delete with no scope at all is
+    refused. No orphan sweep: a filtered clear that also removed every
+    untracked PNG would be a new all-or-nothing hazard inside the feature
+    meant to remove one.
     """
     filters, params = strict_scope(search)
-    if not filters:
-        raise ValueError("a filter is required; the whole gallery is `clear` without --where")
     if keep_favorites:
         filters.append("favorite = 0")
+    if not filters:
+        raise ValueError("a filter is required; the whole gallery is `clear` without --where")
+    where = " AND ".join(filters)
     with _write_lock, _session() as conn:
-        doomed = [
-            row["filename"]
-            for row in conn.execute(
-                f"DELETE FROM images WHERE {' AND '.join(filters)} RETURNING filename", params
-            )
-        ]
+        if expected is not None:
+            (found,) = conn.execute(f"SELECT COUNT(*) FROM images WHERE {where}", params).fetchone()
+            if found != expected:
+                raise SelectionChanged(found, expected)
+        doomed = conn.execute(
+            f"DELETE FROM images WHERE {where} RETURNING id, filename", params
+        ).fetchall()
     removed = 0
-    for filename in doomed:
-        path = settings.outputs_dir / filename
+    for row in doomed:
+        path = settings.outputs_dir / row["filename"]
         if path.exists() and _unlink(path):
             removed += 1
         _unlink(_thumb_path(path))
-    return {"records": len(doomed), "files": removed}
+    return {"records": len(doomed), "files": removed, "ids": [row["id"] for row in doomed]}
 
 
 def image_bytes(width: int, height: int, model_id: str | None = None, sample: int = 20) -> int | None:

@@ -226,3 +226,21 @@ def test_clear_history_sweeps_orphans_but_not_partials(store):
     assert result["orphans"] == 1
     assert not (store.settings.outputs_dir / "orphan.webp").exists()
     assert (store.settings.outputs_dir / "inflight.png.part").exists()
+
+
+def test_delete_matching_needs_a_scope_and_holds_to_its_count(store):
+    import pytest
+
+    starred = _add(store, "keep me", favorite=True)
+    _add(store, "clear me")
+    # `favorite = 0` is a scope of its own; nothing at all is not.
+    with pytest.raises(ValueError, match="filter is required"):
+        store.delete_matching(None)
+    with pytest.raises(store.SelectionChanged) as caught:
+        store.delete_matching(None, keep_favorites=True, expected=5)
+    assert (caught.value.found, caught.value.expected) == (1, 5)
+    assert store.summarise()["records"] == 2
+
+    result = store.delete_matching(None, keep_favorites=True, expected=1)
+    assert result["records"] == 1 and len(result["ids"]) == 1
+    assert [r.id for r in store.list_images()[0]] == [starred.id]

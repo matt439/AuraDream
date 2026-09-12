@@ -51,7 +51,7 @@ const els = {
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'),
   orientation: $('btn-orientation'), sizeHint: $('size-hint'),
   gridResume: $('grid-resume'),
-  sheetBtn: $('btn-sheet'), rerender: $('btn-rerender'),
+  sheetBtn: $('btn-sheet'), rerender: $('btn-rerender'), deleteUnstarred: $('btn-delete-unstarred'),
   sheet: $('sheet'), sheetControls: $('sheet-controls'),
   sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'),
   runHint: $('run-hint'),

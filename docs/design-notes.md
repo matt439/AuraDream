@@ -622,8 +622,9 @@ and never over a different file of the same name, records `duration_ms=0`
 (so `step_cost_ms`'s `> 0` ignores it) and loses `favorite`, which lives in
 SQLite alone. `search.strict_scope` is the `key:value`-only reading of the search
 grammar for the paths where the LIKE fallback is a hazard: `clear --where`
-(`delete_matching`, `DELETE ... RETURNING filename` in one statement, no
-orphan sweep on that path) and `keep_rates`. `/api/status` carries
+(`delete_matching`, `DELETE ... RETURNING` in one statement, no orphan
+sweep on that path), the gallery's Delete unstarred (the same function,
+see its section) and `keep_rates`. `/api/status` carries
 `disk_free_mb` (one `shutil.disk_usage` syscall; the directory walk in
 `summarise()` deliberately does not ride the 3 s poll) and the preview
 carries `bytes` (`image_bytes`: median PNG size at this size on this
@@ -716,6 +717,55 @@ refuses records from another checkpoint (steps/CFG/mu are the checkpoint's),
 prunes with `completed_cells` like a resume and 409s when nothing is left.
 Same seed at another shape is a *new sample* - the latents are drawn at the
 requested size - which the README says out loud.
+
+## Delete unstarred
+
+**The gallery's one bulk delete is the inverse of the card's.** A night
+makes hundreds of images and a few of them are worth keeping, and deleting
+the rest one card at a time - each with its own confirm - is a chore that
+was being skipped, leaving galleries of hundreds. The star already existed
+as the gesture made while looking (`F` in the lightbox), it is
+non-destructive, and it scales with what is kept rather than what was made;
+so the page offers `GET`/`DELETE /api/gallery/unstarred?search=` - the
+search box read through `strict_scope`, plus `favorite = 0` - which is
+`clear --where ... --keep-favorites` over HTTP, and shares `delete_matching`
+with it. Rows and their files only: no orphan sweep and no vacuum, for the
+reason the CLI's `--where` path has none.
+
+**The hazard is inverted with the gesture, and the gate is built for the
+inverted one.** A per-card delete goes wrong by taking the wrong image; a
+sweep goes wrong by taking the wrong *scope* - a run not yet triaged, or the
+whole gallery when one run was meant. So the confirmation is not a yes/no:
+`GET` returns the counts and the CLI preview's sample of prompts and jobs,
+the dialog shows them, and asks for the number of images to be typed back.
+Typing "405" when "12" was meant is the moment the wrong scope is noticed.
+The `DELETE` then carries that number as `expected`, and
+`storage.delete_matching` compares it against a `COUNT(*)` taken under the
+write lock before the `DELETE ... RETURNING`: a sweep that lands more
+unstarred images while the dialog is open (the queue keeps running while
+one triages) is answered 409 with both numbers rather than swept up on a
+count confirmed for fewer. `expected` is required, not optional - the gate
+is the route's contract, not the page's manners.
+
+**The scope is strict, judged at the click.** The button shows whenever
+the filter matches something and the Favorites tick is off (with it on,
+every match is a keeper). Whether the box is a strict scope is the
+server's call: free text is refused with a 422 that says what to do,
+rather than the page guessing at the grammar with a second copy of the
+key list. An empty box is the whole gallery, which is why
+`matching_preview` and `delete_matching(keep_favorites=True)` now accept
+an empty scope and `clear.py` refuses a blank `--where` itself - the
+"whole gallery is `clear` without --where" message is the CLI's manners,
+not a storage invariant; the invariant that stayed is that a delete with
+*no* predicate at all still raises.
+
+**The page forgets by id.** The `DELETE` returns the ids it removed and
+`forgetImages` - factored out of the card's delete, which now goes through
+it too - drops them from every list and element on the page in one pass,
+then `resetGallery` reloads the (now mostly empty) page from the top for
+the server's count. The smoke script stubs `window.prompt` to drive the
+dialog: a wrong number first, then the right one, then the free-text
+refusal, checking that nothing went until the right number was typed.
 
 ## The morning after: runs and finished jobs
 
