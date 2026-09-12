@@ -256,8 +256,8 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
 # both insert through `_insert_row`, so the list cannot drift between them.
 _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
-    "mu", "seed", "model_id", "duration_ms", "created_at", "job_id", "run_id", "quantization",
-    "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
+    "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
+    "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
 )
 
 
@@ -399,6 +399,7 @@ def save_image(
                     "seed": seed,
                     "model_id": model_id,
                     "duration_ms": duration_ms,
+                    "favorite": 0,
                     "created_at": created.isoformat(),
                     "job_id": job_id,
                     "run_id": run_id,
@@ -750,6 +751,25 @@ def existing_filenames() -> set[str]:
         return {row["filename"] for row in conn.execute("SELECT filename FROM images")}
 
 
+def existing_file_ids() -> dict[str, int]:
+    """Every indexed filename and its gallery id, for an id-remapping import."""
+    with _session() as conn:
+        return {row["filename"]: row["id"] for row in conn.execute("SELECT id, filename FROM images")}
+
+
+def import_file(values: dict[str, Any]) -> ImageRecord:
+    """Insert one row copied from another gallery database.
+
+    The caller has already copied the named PNG into ``outputs_dir`` and
+    remapped any gallery-local reference ids.  Unlike ``index_file``, this
+    path preserves the fields that are not embedded in the PNG: favorite and
+    generation duration.
+    """
+    with _write_lock, _session() as conn:
+        row = _insert_row(conn, {column: values.get(column) for column in _COLUMNS})
+    return _row_to_record(row)
+
+
 def index_file(
     filename: str,
     meta: dict[str, Any],
@@ -783,6 +803,7 @@ def index_file(
                 "seed": int(meta["seed"]),
                 "model_id": meta["model"],
                 "duration_ms": 0,
+                "favorite": 0,
                 "created_at": created_at.isoformat(),
                 "job_id": meta.get("job"),
                 "run_id": meta.get("run"),

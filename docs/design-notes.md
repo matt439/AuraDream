@@ -631,6 +631,21 @@ see its section) and `keep_rates`. `/api/status` carries
 carries `bytes` (`image_bytes`: median PNG size at this size on this
 checkpoint, times the images) under the same no-rows-no-estimate rule.
 
+**A database-backed import keeps the database-only state.** `reindex --from
+<outputs> --database <krea.db>` reads the source database in read-only mode,
+copies only readable PNGs, and inserts through the same `_insert_row` seam.
+Unlike PNG-only recovery it preserves `favorite`, `duration_ms`, and every
+newer reproduction column the source has. SQLite ids cannot be copied into a
+non-empty gallery: source rows are therefore visited in ascending id order and
+reference-image ids are translated through the source-to-destination map.
+References necessarily point to images which already existed when the
+conditioned image was made; a missing or conflicting predecessor is dropped
+and counted rather than left pointing at an unrelated destination row. The
+copied PNG's `krea` text chunk is replaced with the remapped metadata by
+rewriting PNG chunks, not pixels. Filename uniqueness remains the idempotence
+key, and an unindexed destination file of the same name remains a conflict,
+never an overwrite.
+
 ## The CLI reads PNGs and probes the server
 
 **The CLI reads PNGs and probes the server.** `--from-image` reads

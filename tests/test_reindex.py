@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 
 from PIL import Image
 
@@ -86,3 +87,78 @@ def test_reindex_copies_another_gallery_in(store, monkeypatch, tmp_path):
     assert total == 1 and items[0].prompt == "from wsl"
     # Its source is untouched.
     assert (elsewhere / made[0].filename).exists()
+
+
+def test_database_merge_preserves_db_fields_and_remaps_references(
+    store, monkeypatch, tmp_path
+):
+    mine = store.settings
+    monkeypatch.setattr(reindex, "settings", mine)
+
+    # Occupy id 1 in this gallery so source ids cannot accidentally remain valid.
+    _make(store, "already here", 90)
+
+    elsewhere = tmp_path / "backup" / "outputs"
+    elsewhere.mkdir(parents=True)
+    source_db = elsewhere.parent / "krea.db"
+    other = dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
+    monkeypatch.setattr(storage, "settings", other)
+    storage.init_db()
+    reference = _make(storage, "source reference", 1)
+    storage.set_favorite(reference.id, True)
+    conditioned = _make(storage, "conditioned", 2, reference=(reference.id,))
+
+    monkeypatch.setattr(storage, "settings", mine)
+    counts = reindex.reindex(elsewhere, database=source_db)
+    assert counts == {
+        "indexed": 2,
+        "present": 0,
+        "missing": 0,
+        "invalid": 0,
+        "conflicts": 0,
+        "unresolved_references": 0,
+    }
+
+    items, total = store.list_images(limit=10)
+    assert total == 3
+    by_prompt = {item.prompt: item for item in items}
+    imported_reference = by_prompt["source reference"]
+    imported_conditioned = by_prompt["conditioned"]
+    assert imported_reference.favorite is True
+    assert imported_reference.duration_ms == 1234
+    assert imported_conditioned.reference == [imported_reference.id]
+    assert imported_reference.id != reference.id
+
+    # The copied PNG remains self-describing if this destination DB is rebuilt.
+    with Image.open(mine.outputs_dir / conditioned.filename) as image:
+        meta = json.loads(image.info["krea"])
+    assert meta["reference"] == [imported_reference.id]
+
+    # A second merge is harmless and does not duplicate rows.
+    again = reindex.reindex(elsewhere, database=source_db)
+    assert again["indexed"] == 0 and again["present"] == 2
+
+
+def test_database_merge_can_import_a_png_without_embedded_metadata(
+    store, monkeypatch, tmp_path
+):
+    mine = store.settings
+    monkeypatch.setattr(reindex, "settings", mine)
+    elsewhere = tmp_path / "backup" / "outputs"
+    elsewhere.mkdir(parents=True)
+    source_db = elsewhere.parent / "krea.db"
+    other = dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
+    monkeypatch.setattr(storage, "settings", other)
+    storage.init_db()
+    made = _make(storage, "database is the metadata", 5)
+    Image.new("RGB", (40, 30), "red").save(elsewhere / made.filename)
+
+    monkeypatch.setattr(storage, "settings", mine)
+    counts = reindex.reindex(elsewhere, database=source_db)
+    assert counts["indexed"] == 1
+    imported = store.list_images()[0][0]
+    assert (imported.prompt, imported.width, imported.height) == (
+        "database is the metadata", 40, 30,
+    )
+    with Image.open(mine.outputs_dir / made.filename) as image:
+        assert json.loads(image.info["krea"])["prompt"] == "database is the metadata"

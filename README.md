@@ -881,6 +881,7 @@ the typed count as its confirmation.
 ```powershell
 uv run python -m backend.reindex                     # outputs/, in place
 uv run python -m backend.reindex --from D:\wsl-outputs   # copy in, then index
+uv run python -m backend.reindex --from D:\backup\outputs --database D:\backup\krea.db
 uv run python -m backend.reindex --dry-run
 ```
 
@@ -891,7 +892,13 @@ it idempotent; files without the `krea` block (other tools' PNGs) are named and
 skipped; a file from elsewhere is copied in under its own name unless a
 different file already sits there. Two things do not come back: the favourite
 flag, which lives only in the database, and the duration, recorded as 0 so
-the time estimate ignores those rows.
+the time estimate ignores those rows. When the matching old database is
+available, pass both `--from` and `--database` (or `--db`) instead. That merge
+preserves favorites and durations, remaps reference-image ids into the current
+gallery, and updates the copied PNG's embedded `krea` metadata to carry those
+new ids. Rows already present by filename are skipped, so the database merge
+is safe to rerun too. Missing images, unreadable files, unresolved references,
+and filename conflicts are reported and never overwrite the current gallery.
 
 ## Licence
 
