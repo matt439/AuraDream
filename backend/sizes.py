@@ -26,11 +26,12 @@ own README shapes, verbatim, and every entry sits inside the 1024-1280 px
 Qwen's square is 1328x1328 (1.76 MP), too far from the tier to sit in it;
 1248x1248 is the tier's own.
 
-The rows are in the order the preset strip shows them: square, then landscape
-from nearest-square to widest, then portrait the same way, so each half reads
-monotonically and an aspect's inverse sits at the same position in the other
-half. `Object.keys` in the browser and `--aspect`'s choices in the CLI both
-take the dict's order, so it is asserted along with the values.
+The rows are in the order the preset strip shows them: square, then each
+portrait framing followed by its landscape inverse, pairs from nearest-square
+to widest. The strip draws two adjacent inverses as one segmented box, so
+the pairing is the table's order and nothing else. `Object.keys` in the
+browser and `--aspect`'s choices in the CLI both take the dict's order, so it
+is asserted along with the values.
 
 Imports nothing from the package: `generate.py` reads it before `config` is
 imported, and `config` reads it to size its guard rails.
@@ -39,18 +40,18 @@ from __future__ import annotations
 
 SIZES: dict[str, dict[float, tuple[int, int]]] = {
     "1:1": {1: (1024, 1024), 1.5: (1248, 1248), 2: (1440, 1440), 4: (2048, 2048)},
-    "9:7": {1: (1152, 896), 1.5: (1440, 1120), 2: (1632, 1264), 4: (2320, 1808)},
-    "4:3": {1: (1200, 896), 1.5: (1472, 1104), 2: (1664, 1248), 4: (2368, 1776)},
-    "3:2": {1: (1264, 848), 1.5: (1584, 1056), 2: (1776, 1184), 4: (2496, 1680)},
-    "7:4": {1: (1344, 768), 1.5: (1680, 960), 2: (1904, 1088), 4: (2704, 1552)},
-    "16:9": {1: (1360, 768), 1.5: (1664, 928), 2: (1920, 1088), 4: (2736, 1536)},
-    "12:5": {1: (1536, 640), 1.5: (1920, 800), 2: (2224, 928), 4: (3168, 1328)},
     "7:9": {1: (896, 1152), 1.5: (1120, 1440), 2: (1264, 1632), 4: (1808, 2320)},
+    "9:7": {1: (1152, 896), 1.5: (1440, 1120), 2: (1632, 1264), 4: (2320, 1808)},
     "3:4": {1: (896, 1200), 1.5: (1104, 1472), 2: (1248, 1664), 4: (1776, 2368)},
+    "4:3": {1: (1200, 896), 1.5: (1472, 1104), 2: (1664, 1248), 4: (2368, 1776)},
     "2:3": {1: (848, 1264), 1.5: (1056, 1584), 2: (1184, 1776), 4: (1680, 2496)},
+    "3:2": {1: (1264, 848), 1.5: (1584, 1056), 2: (1776, 1184), 4: (2496, 1680)},
     "4:7": {1: (768, 1344), 1.5: (960, 1680), 2: (1088, 1904), 4: (1552, 2704)},
+    "7:4": {1: (1344, 768), 1.5: (1680, 960), 2: (1904, 1088), 4: (2704, 1552)},
     "9:16": {1: (768, 1360), 1.5: (928, 1664), 2: (1088, 1920), 4: (1536, 2736)},
+    "16:9": {1: (1360, 768), 1.5: (1664, 928), 2: (1920, 1088), 4: (2736, 1536)},
     "5:12": {1: (640, 1536), 1.5: (800, 1920), 2: (928, 2224), 4: (1328, 3168)},
+    "12:5": {1: (1536, 640), 1.5: (1920, 800), 2: (2224, 928), 4: (3168, 1328)},
 }
 TIERS: tuple[float, ...] = (1, 1.5, 2, 4)
 

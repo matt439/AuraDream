@@ -1102,6 +1102,17 @@ a finite `aspects` list, uses one of those framings: aspect buttons are judged
 at the current megapixel tier, and tier buttons at the current aspect. The VRAM
 warning stays and stacks after it.
 
+**A pair of inverses is one box on the strip.** The thirteen aspects used to
+sit in the order they were added - landscape/portrait pairs, but 16:9 ahead
+of 3:2 and 9:7 behind both - and the strip, `Object.keys` of the table, showed
+that. The table now lists 1:1 and then each portrait framing followed by its
+landscape inverse, pairs from nearest-square to widest; `buildPresets` wraps
+two adjacent inverses in a `.pair` container drawn as a segmented box, so
+the pairing is the table's order and nothing else, and `syncSize` walks the
+strip's buttons rather than its children. `test_the_aspects_are_in_strip_order`
+holds the order, and the browser and README copy tests compare key order along
+with the values. Portrait first in a pair is how the request was phrased.
+
 **Orientation is the inverse preset, not a width/height swap.** The button
 derives `b:a` from the selected `a:b`, looks it up in the same `SIZES` table and
 routes the result through `choose()`, so dimensions, active/recommended states,

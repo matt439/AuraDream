@@ -244,17 +244,23 @@ def test_the_readme_size_table_matches_the_code():
 
 
 def test_the_aspects_are_in_strip_order():
-    # Square first, then landscape from nearest-square to widest, then portrait
-    # the same way: each half reads monotonically, and an aspect's inverse sits
-    # at the same position in the other half. The strip and --aspect's choices
-    # both take the dict's order.
-    ratios = {aspect: eval(aspect.replace(":", "/")) for aspect in sizes.SIZES}
-    landscape = [a for a in sizes.SIZES if ratios[a] > 1]
-    portrait = [a for a in sizes.SIZES if ratios[a] < 1]
-    assert list(sizes.SIZES) == ["1:1", *landscape, *portrait]
-    assert landscape == sorted(landscape, key=ratios.get)
-    assert portrait == sorted(portrait, key=ratios.get, reverse=True)
-    assert portrait == [":".join(reversed(a.split(":"))) for a in landscape]
+    # Square first, then each portrait framing followed by its landscape
+    # inverse, pairs from nearest-square to widest. The strip draws two adjacent
+    # inverses as one segmented box, so the pairing is this order and nothing
+    # else; --aspect's choices take it too.
+    def ratio(aspect):
+        wide, high = map(int, aspect.split(":"))
+        return wide / high
+
+    order = list(sizes.SIZES)
+    assert order[0] == "1:1"
+    pairs = list(zip(order[1::2], order[2::2]))
+    assert len(pairs) * 2 + 1 == len(order)
+    for portrait, landscape in pairs:
+        assert portrait == ":".join(reversed(landscape.split(":")))
+        assert ratio(portrait) < 1 < ratio(landscape)
+    widths = [ratio(landscape) for _, landscape in pairs]
+    assert widths == sorted(widths)
 
 
 def test_the_1_5_mp_row_is_the_model_cards():

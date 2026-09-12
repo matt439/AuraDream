@@ -5,9 +5,23 @@
 // -------------------------------------------------------------------- sizes
 
 function buildPresets() {
-  ASPECTS.forEach((aspect) => {
-    els.presets.appendChild(presetButton(aspect, () => choose(aspect, pickedTier)));
-  });
+  // A portrait framing and its landscape inverse are one segmented box on the
+  // strip: the table lists them adjacently, so two neighbours that are each
+  // other's inverse share a container and anything else (1:1) stands alone.
+  // Buttons stay in ASPECTS order in the document, which syncSize relies on.
+  for (let i = 0; i < ASPECTS.length; i += 1) {
+    const aspect = ASPECTS[i], next = ASPECTS[i + 1];
+    const button = presetButton(aspect, () => choose(aspect, pickedTier));
+    if (next && next === oppositeAspect(aspect)) {
+      const pair = document.createElement('div');
+      pair.className = 'pair';
+      pair.append(button, presetButton(next, () => choose(next, pickedTier)));
+      els.presets.appendChild(pair);
+      i += 1;
+    } else {
+      els.presets.appendChild(button);
+    }
+  }
   TIERS.forEach((tier) => {
     els.tiers.appendChild(presetButton(`${tier} MP`, () => choose(pickedAspect, tier)));
   });
@@ -67,7 +81,7 @@ function syncSize() {
   if (match) [pickedAspect, pickedTier] = match;
   syncOrientation();
 
-  [...els.presets.children].forEach((b, i) => {
+  [...els.presets.querySelectorAll('button')].forEach((b, i) => {
     const aspect = ASPECTS[i];
     const guided = presetIsInGuide(aspect, pickedTier);
     b.classList.toggle('active', !!match && aspect === match[0]);

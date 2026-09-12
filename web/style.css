@@ -395,6 +395,13 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   color: #d8ffe5;
   background: #174128;
 }
+/* A portrait framing and its landscape inverse share one segmented box: the
+   two pills are joined on a common border, and whichever is lit draws it. */
+.presets .pair { display: flex; }
+.presets .pair button:first-child { border-radius: 6px 0 0 6px; }
+.presets .pair button:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+.presets .pair button.recommended { position: relative; z-index: 1; }
+.presets .pair button.active { position: relative; z-index: 2; }
 /* The megapixel row is a second axis over the same pills, not more aspect ratios. */
 .presets.tiers { margin-top: 2px; }
 .size-tier-row { display: flex; align-items: stretch; gap: 6px; }

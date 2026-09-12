@@ -324,25 +324,26 @@ profile directory of its own, so a crashed run cannot lock the next one out.
 ## Sizes
 
 Thirteen aspect ratios across four megapixel tiers, picked independently — change
-the aspect and the tier holds, change the tier and the framing holds. The
-orientation button switches the selected framing between its landscape and
-portrait pair at the same tier; it is disabled for 1:1.
+the aspect and the tier holds, change the tier and the framing holds. After 1:1
+each portrait framing and its landscape inverse share one box, pairs from
+nearest-square to widest. The orientation button switches the selected framing
+to the other half of its box at the same tier; it is disabled for 1:1.
 
 | | 1 MP | 1.5 MP | 2 MP | 4 MP |
 | --- | --- | --- | --- | --- |
 | 1:1 | 1024×1024 | 1248×1248 | 1440×1440 | 2048×2048 |
-| 9:7 | 1152×896 | 1440×1120 | 1632×1264 | 2320×1808 |
-| 4:3 | 1200×896 | 1472×1104 | 1664×1248 | 2368×1776 |
-| 3:2 | 1264×848 | 1584×1056 | 1776×1184 | 2496×1680 |
-| 7:4 | 1344×768 | 1680×960 | 1904×1088 | 2704×1552 |
-| 16:9 | 1360×768 | 1664×928 | 1920×1088 | 2736×1536 |
-| 12:5 | 1536×640 | 1920×800 | 2224×928 | 3168×1328 |
 | 7:9 | 896×1152 | 1120×1440 | 1264×1632 | 1808×2320 |
+| 9:7 | 1152×896 | 1440×1120 | 1632×1264 | 2320×1808 |
 | 3:4 | 896×1200 | 1104×1472 | 1248×1664 | 1776×2368 |
+| 4:3 | 1200×896 | 1472×1104 | 1664×1248 | 2368×1776 |
 | 2:3 | 848×1264 | 1056×1584 | 1184×1776 | 1680×2496 |
+| 3:2 | 1264×848 | 1584×1056 | 1776×1184 | 2496×1680 |
 | 4:7 | 768×1344 | 960×1680 | 1088×1904 | 1552×2704 |
+| 7:4 | 1344×768 | 1680×960 | 1904×1088 | 2704×1552 |
 | 9:16 | 768×1360 | 928×1664 | 1088×1920 | 1536×2736 |
+| 16:9 | 1360×768 | 1664×928 | 1920×1088 | 2736×1536 |
 | 5:12 | 640×1536 | 800×1920 | 928×2224 | 1328×3168 |
+| 12:5 | 1536×640 | 1920×800 | 2224×928 | 3168×1328 |
 
 Every side is a multiple of 16, which is what the VAE wants. The 1.5 MP row and
 the aspect ratios are the ones the model cards asked for: the 1.5 MP
