@@ -17,7 +17,8 @@ MAX_SEED = 2**63 - 1
 # The caps that can multiply a base seed, kept here so the span below and the
 # schemas that enforce them read one source: a sweep steps the seed by
 # `num_images` per run, a grid by `num_images` per seed on its axis.
-MAX_BATCH = 8
+# Batch 12 at 1 MP: eight held 9.6 GB of the 16 on Animagine XL 4.0 (2026-09-12).
+MAX_BATCH = 12
 MAX_RUNS = 64
 MAX_GRID_SEEDS = 256
 

@@ -327,16 +327,19 @@ def test_the_size_guard_rails_are_the_largest_preset():
     assert settings.max_side == max(max(size) for size in sizes.every_size()) == 3168
     assert settings.max_pixels == max(w * h for w, h in sizes.every_size()) == 3168 * 1328
     # The batch guard keeps the known two-at-4-MP case and admits every aspect
-    # at the UI's Batch-8 maximum in the nominal 1 MP row. The latter is now
-    # slightly larger and is why the old 8,411,136-pixel default was raised.
+    # at the UI's Batch maximum in the nominal 1 MP row. The latter is the
+    # larger and is why the old 8,411,136-pixel default was raised; it grew
+    # again with the cap (8 -> 12).
     from backend.seeds import MAX_BATCH
 
     assert settings.max_batch_pixels == max(
         2 * sizes.largest_pixels(), MAX_BATCH * sizes.largest_tier_pixels(1)
-    ) == 8_601_600
+    ) == 12_902_400
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
     bounds = re.findall(r'id="(?:width|height)"[^>]*max="(\d+)"', html)
     assert bounds == [str(settings.max_side)] * 2
+    # The Batch box's `max` is the same cap by hand.
+    assert re.findall(r'id="batch"[^>]*max="(\d+)"', html) == [str(MAX_BATCH)]
     # Every preset passes the budget it defines.
     from backend.schemas import GenerateRequest
 

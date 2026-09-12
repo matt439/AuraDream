@@ -29,8 +29,8 @@ def test_drawn_seeds_survive_a_json_round_trip():
 
 
 def test_draw_leaves_room_for_the_largest_sweep_and_the_largest_grid():
-    # The last image of a 64x8 sweep is base + 511; a grid's seed axis goes to
-    # 256, so its last image is base + 2047. Both have to be exact.
+    # The last image of a 64x12 sweep is base + 767; a grid's seed axis goes to
+    # 256, so its last image is base + 3071. Both have to be exact.
     batch = _limit("num_images", "le")
     sweep = (_limit("runs", "le") - 1) * batch + batch - 1
     grid = (_limit("seeds", "le", GridRequest) - 1) * batch + batch - 1

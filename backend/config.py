@@ -93,10 +93,11 @@ class Settings:
     max_pixels: int = largest_pixels()
     # The pixels one *batch* may hold at once - `num_images` forward passes in a
     # single call, all resident together. A typo guard, not a VRAM model: cover
-    # both two 4 MP images and all eight images at every 1 MP preset aspect. The
-    # old two-4-MP-only default was 8,411,136 pixels and rejected Batch 8 at the
-    # slightly-over-1-MP 3:4 and 4:3 presets despite measured VRAM headroom.
-    # Runs remain the way to make many large images.
+    # both two 4 MP images and a full batch (`MAX_BATCH`) at every 1 MP preset
+    # aspect. The old two-4-MP-only default was 8,411,136 pixels and rejected
+    # Batch 8 at the slightly-over-1-MP 3:4 and 4:3 presets despite measured
+    # VRAM headroom; the cap went from 8 to 12 once eight 1 MP images were seen
+    # to hold 9.6 GB of the 16. Runs remain the way to make many large images.
     max_batch_pixels: int = int(
         os.getenv(
             "KREA_MAX_BATCH_PIXELS",

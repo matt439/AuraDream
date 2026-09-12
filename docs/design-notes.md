@@ -423,12 +423,17 @@ hold one. Each image is emitted as its own `image` SSE event as it lands, so a
 
 The batch-wide pixel ceiling is a typo guard, not a VRAM formula: peak memory
 varies substantially by checkpoint, quantizer and conditioning. Its default is
-the larger of two maximum-size 4 MP presets and Batch 8 at the largest 1 MP
-preset aspect. The original two-at-4-MP ceiling was 8,411,136 pixels, which
-accidentally rejected eight 3:4 or 4:3 images from the nominal 1 MP row; a
-measured batch of seven used only 10.7 GB of the 16 GB card. Large batches are
-still refused, and a machine with different headroom can set
-`KREA_MAX_BATCH_PIXELS` explicitly.
+the larger of two maximum-size 4 MP presets and a full batch (`MAX_BATCH` in
+`seeds.py`, the one number the schema, the Batch box and the budget read) at
+the largest 1 MP preset aspect. The original two-at-4-MP ceiling was 8,411,136
+pixels, which accidentally rejected eight 3:4 or 4:3 images from the nominal
+1 MP row; a measured batch of seven used only 10.7 GB of the 16 GB card. The
+cap itself was 8 until 2026-09-12, when eight 1 MP images on Animagine XL 4.0
+read 9.6 GB of the 16 as read off the card; it is 12 now, which the same
+reading puts at roughly 13 GB on that checkpoint. A heavier checkpoint at
+Batch 12 is the user's call, as it was at 8: the ceiling was never a VRAM
+model. Large batches are still refused, and a machine with different headroom
+can set `KREA_MAX_BATCH_PIXELS` explicitly.
 
 ## A job is a list of cells
 
