@@ -150,7 +150,7 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(prompt_translator.unload)
 
 
-app = FastAPI(title="Krea Local", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Local Diffusion", version="0.1.0", lifespan=lifespan)
 
 # DNS rebinding: a hostile page served from evil.example, whose record is
 # re-answered as 127.0.0.1, talks to this API as same-origin - CORS never gets a

@@ -1,4 +1,4 @@
-// Krea Local's page script, part 1 of 10: shared state, the element table and
+// Local Diffusion's page script, part 1 of 10: shared state, the element table and
 // the fetch/error helpers. index.html loads these files in order as classic
 // scripts, so they share one global scope: a top-level `let`, `const` or
 // function in any of them is visible to all the others and to a smoke step's

@@ -1,4 +1,4 @@
-// Krea Local's page script: panel persistence, the last-run banner and the results viewer. Declarations only; state.js has
+// Local Diffusion's page script: panel persistence, the last-run banner and the results viewer. Declarations only; state.js has
 // the load-order contract these files share.
 'use strict';
 

@@ -334,7 +334,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: 
     current_checkpoint, current_fmt = _match(current_model)
 
     out.write(
-        "Krea Local. Enter keeps the marked default; any argument "
+        "Local Diffusion. Enter keeps the marked default; any argument "
         "(--model, --quant, --offload, --defaults) skips this menu.\n"
     )
 

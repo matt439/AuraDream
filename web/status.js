@@ -1,4 +1,4 @@
-// Krea Local's page script: /api/status, the profile defaults and the hints. Declarations only; state.js has
+// Local Diffusion's page script: /api/status, the profile defaults and the hints. Declarations only; state.js has
 // the load-order contract these files share.
 'use strict';
 

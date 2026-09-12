@@ -1,4 +1,4 @@
-# Krea Local
+# Local Diffusion
 
 Local text-to-image generator on an RTX 5080. FastAPI backend + vanilla JS
 frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**

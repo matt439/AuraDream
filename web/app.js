@@ -1,4 +1,4 @@
-// Krea Local's page script, last of ten: the event wiring and the boot.
+// Local Diffusion's page script, last of ten: the event wiring and the boot.
 // Everything called here is declared in the files index.html loads before
 // it; state.js has the load-order contract.
 'use strict';

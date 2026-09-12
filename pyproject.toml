@@ -1,7 +1,7 @@
 [project]
-name = "krea-local"
+name = "local-diffusion"
 version = "0.1.0"
-description = "Local Krea 2 image generator - FastAPI + diffusers"
+description = "Local text-to-image generator - FastAPI + diffusers"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "torch>=2.13.0",

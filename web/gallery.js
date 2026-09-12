@@ -1,4 +1,4 @@
-// Krea Local's page script: the gallery grid, its cards and Reuse. Declarations only; state.js has
+// Local Diffusion's page script: the gallery grid, its cards and Reuse. Declarations only; state.js has
 // the load-order contract these files share.
 'use strict';
 

@@ -1,4 +1,4 @@
-// Krea Local's page script: submitting jobs, the grid preview and the SSE stream. Declarations only; state.js has
+// Local Diffusion's page script: submitting jobs, the grid preview and the SSE stream. Declarations only; state.js has
 // the load-order contract these files share.
 'use strict';
 

@@ -1,9 +1,10 @@
-# Krea Local
+# Local Diffusion
 
-Run **Krea 2 Turbo** or **FLUX.1 Krea [dev]** locally — up to 4 megapixels on a
-single consumer GPU. FastAPI + diffusers backend, vanilla-JS frontend, SQLite
-gallery. FLUX is the default because its repo is click-through gated; Turbo
-needs approval first.
+Run open text-to-image checkpoints locally - **FLUX.1 Krea [dev]**, **Krea 2
+Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine - up to
+4 megapixels on a single consumer GPU. FastAPI + diffusers backend, vanilla-JS
+frontend, SQLite gallery. FLUX is the default because its repo is click-through
+gated; Turbo needs approval first.
 
 ![stack](https://img.shields.io/badge/torch-2.13%2Bcu130-informational)
 ![stack](https://img.shields.io/badge/diffusers-0.40.0-informational)
@@ -174,7 +175,7 @@ Ubuntu tab in Windows Terminal, or `wsl` from a PowerShell prompt — after the
 same `source wsl/env.sh`:
 
 ```bash
-cd /mnt/c/VSProjects/ImageGeneratorKrea
+cd /mnt/c/VSProjects/ImageGeneratorLocal
 source wsl/env.sh
 uv run python -m backend.clear
 ```
