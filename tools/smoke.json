@@ -30,7 +30,7 @@
   {"key": "Escape"},
   {"expect": "els.examplesMenu.hidden"},
 
-  {"eval": "fetch('/api/grid', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a {size} fox in the snow', prompt_axis: 'size = big | small', steps_axis: '6,8,10', cfg_axis: '0,1', width: 1024, height: 768, seed: 42})}).then(r => r.json()).then(j => { window.__run = j.run_id; })"},
+  {"eval": "fetch('/api/grid', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a {size} fox in the snow', prompt_axis: 'size = big | small', steps_axis: '6,8,10', cfg_axis: '0,1', width: 1152, height: 896, seed: 42})}).then(r => r.json()).then(j => { window.__run = j.run_id; })"},
   {"wait": 2500},
   {"eval": "resetGallery(); loadRuns();"},
   {"wait": 1000},
@@ -48,7 +48,7 @@
   {"wait": 300},
   {"expect": "lbIndex === 1 && lbView.scale > 1"},
   {"key": "0"},
-  {"click": [150, 450]},
+  {"click": [30, 30]},
   {"wait": 300},
   {"expect": "!document.getElementById('lightbox').open"},
 

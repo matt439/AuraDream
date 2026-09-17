@@ -560,6 +560,27 @@ non-passive; the zoom keys sit below the `input, textarea` guard. A click on
 the stage beside the image closes the lightbox only at fit: zoomed, the
 stage is a pan surface and only Escape or the cross close it.
 
+**The controls are beside the stage, not under it.** The dialog is a row:
+`.lb-main` (the stage and its arrows) and a 280px `.lb-side` column with
+the cross and the counter, the prompt and the settings line, the error
+slot, the zoom row and the buttons. They used to sit under the stage as a
+meta line and a row of buttons, which cost it around 150px of height on a
+900px screen - and the screen is wider than it is tall while most images
+are not, so height was the axis nearly every fit was bound by. A wide
+16:9 image is the one that fits a little smaller now. In the column the
+prompt and settings scroll (`flex: 1 1 auto; min-height: 0`) and the
+controls are pinned to the bottom, so Favourite and Delete are where the
+mouse left them from one image to the next however long the prompt is;
+`#lb-close` carries `autofocus`, or `showModal()` would focus the first
+control in the tree, which is now an arrow. The arrows are positioned in
+`.lb-main`, over the stage's edges but *not* inside the stage: the stage
+takes pointer capture on press, so a press on a child of it would have
+been a pan, and at fit a close, rather than the button's click. Below
+900px wide the column drops under the stage as a wrapping row. The
+`tools/smoke.json` grid is 1152×896 for the same reason the layout changed:
+at the driver's 1400×900 a 1024×768 image now fits at 104%, and 1:1 is
+below fit, which the zoom never goes to.
+
 ## The sheet exports client-side
 
 **The sheet exports client-side.** `renderSheet` leaves its matrix in

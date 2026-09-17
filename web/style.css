@@ -634,7 +634,11 @@ button { font: inherit; cursor: pointer; }
 
 /* A real <dialog>, opened with showModal(): the focus trap, the top layer, the
    inert background and the focus restore all come with it. The UA sizes a
-   dialog to its content and centres it; this one is the whole viewport. */
+   dialog to its content and centres it; this one is the whole viewport, laid
+   out as a row: the stage, then a fixed column with everything else. The
+   column is beside the stage rather than under it because the screen is
+   wider than it is tall and most images are not: a meta line and a row of
+   buttons under the stage cost it around 150px of the axis it was short of. */
 .lightbox {
   position: fixed;
   inset: 0;
@@ -648,26 +652,27 @@ button { font: inherit; cursor: pointer; }
   background: rgba(0, 0, 0, 0.92);
   z-index: 50;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 28px;
+  gap: 18px;
+  padding: 18px;
 }
 /* Our `display: flex` would beat the UA's `dialog:not([open]) { display: none }`. */
 .lightbox:not([open]) { display: none; }
 .lightbox::backdrop { background: transparent; }
-/* Failures raised from inside the lightbox - a delete that 404s, a favourite
-   that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
-.lightbox .error { min-height: 1.2em; }
-/* The stage takes whatever the meta line and the buttons leave, and clips.
-   `flex: 1 1 auto` with `min-height: 0` rather than a hard 92vw/78vh: flex
-   shrinking plus overflow: hidden would otherwise clip the fit view. The image
-   is positioned by app.js - explicit width, height, left and top - so 1:1 is
+/* The stage and its arrows. Positioned so the arrows can sit over the stage's
+   edges while staying outside it in the tree: the stage captures the pointer
+   on press, and a press on a child of it would be a pan or a close. */
+.lb-main {
+  flex: 1 1 auto; min-width: 0; min-height: 0;
+  position: relative; display: flex;
+}
+/* The stage takes whatever the column leaves, and clips. `flex: 1 1 auto`
+   with `min-width: 0` rather than a hard 92vw/78vh: flex shrinking plus
+   overflow: hidden would otherwise clip the fit view. The image is positioned
+   by lightbox.js - explicit width, height, left and top - so 1:1 is
    rasterised at 1:1 rather than being a texture scaled up by a transform,
    which is precisely the smoothing a sharpening sweep is trying to judge. */
 .lb-stage {
-  flex: 1 1 auto; min-height: 0; align-self: stretch;
+  flex: 1 1 auto; min-width: 0; min-height: 0;
   position: relative; overflow: hidden;
   cursor: zoom-in; touch-action: none; user-select: none;
 }
@@ -677,35 +682,45 @@ button { font: inherit; cursor: pointer; }
   position: absolute; max-width: none; max-height: none;
   border-radius: 4px; user-select: none; -webkit-user-drag: none;
 }
-.lb-zoom-group { display: flex; align-items: center; gap: 8px; margin-left: 12px; }
-.lb-zoom { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 4em; }
-.lb-meta {
-  color: var(--muted);
-  font-size: 12px;
-  max-width: 760px;
-  text-align: center;
-  word-break: break-word;
-  font-variant-numeric: tabular-nums;
+/* The column: the cross and the counter, the prompt and the settings, then
+   the controls pinned to the bottom, where they stay put from one image to
+   the next however long its prompt is. */
+.lb-side {
+  flex: 0 0 280px; width: 280px; min-height: 0;
+  display: flex; flex-direction: column; gap: 12px;
 }
-.lb-actions { display: flex; gap: 8px; }
+.lb-head { display: flex; align-items: center; justify-content: space-between; }
+.lb-count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lb-meta {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+.lb-prompt { margin: 0 0 10px; font-size: 13px; line-height: 1.45; }
+.lb-settings { margin: 0; color: var(--muted); font-size: 12px; }
+/* Failures raised from inside the lightbox - a delete that 404s, a favourite
+   that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
+.lightbox .error { min-height: 1.2em; }
+.lb-zoom-group { display: flex; align-items: center; gap: 8px; }
+.lb-zoom { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 4em; }
+.lb-actions { display: flex; flex-direction: column; gap: 8px; }
+.lb-actions .ghost { width: 100%; }
 #lb-fav.active { color: #fbbf24; border-color: #fbbf24; }
 #lb-reuse.model-mismatch { color: #fbbf24; border-color: #fbbf24; }
 #lb-delete:hover { color: var(--danger); border-color: var(--danger); }
-/* The cross and the arrows sit above the stage, which is a positioned element
-   later in the document and would otherwise paint over them. */
 .close {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  z-index: 1;
   background: none;
   border: none;
   color: var(--text);
   font-size: 22px;
+  line-height: 1;
+  padding: 2px 4px;
 }
 
 /* At the stage's edges rather than over the image's centre, so a portrait crop
-   is never covered. The arrow keys do the same job; these are here for the mouse. */
+   is never covered. Above the stage, a positioned element later in the
+   document that would otherwise paint over them. The arrow keys do the same
+   job; these are here for the mouse. */
 .lb-nav {
   position: absolute;
   z-index: 1;
@@ -723,8 +738,23 @@ button { font: inherit; cursor: pointer; }
 }
 .lb-nav:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
 .lb-nav:disabled { opacity: 0.2; cursor: default; }
-.lb-nav.prev { left: 18px; }
-.lb-nav.next { right: 18px; }
+.lb-nav.prev { left: 10px; }
+.lb-nav.next { right: 10px; }
+
+/* Too narrow for a column beside the stage: it goes under, as a wrapping row
+   with the prompt on its own line. */
+@media (max-width: 900px) {
+  .lightbox { flex-direction: column; }
+  .lb-side {
+    flex: 0 0 auto; width: auto;
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+  }
+  .lb-head { order: 1; margin-left: auto; }
+  .lb-meta { flex: 1 1 100%; max-height: 6em; }
+  .lightbox .error { flex: 1 1 100%; }
+  .lb-actions { flex-direction: row; }
+  .lb-actions .ghost { width: auto; }
+}
 
 /* --------------------------------------------------------------- motion */
 

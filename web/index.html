@@ -382,34 +382,54 @@
 
 <!-- A <dialog> opened with showModal(): focus is trapped inside it, the page
      behind it is inert, Escape closes it and focus returns to where it was.
-     Named by the metadata line, which carries the prompt. -->
-<dialog class="lightbox" id="lightbox" aria-labelledby="lb-meta">
-  <button class="close" id="lb-close" aria-label="Close (Escape)">✕</button>
-  <button class="lb-nav prev" id="lb-prev" title="Previous (←)" aria-label="Previous image">‹</button>
-  <button class="lb-nav next" id="lb-next" title="Next (→)" aria-label="Next image">›</button>
-  <!-- The stage fills what the meta line and the buttons leave. The image is
-       laid out inside it by app.js at an explicit size and position - a real
-       width, not a transform, so the browser rasterises at the displayed scale
-       and 1:1 is one image pixel per device pixel. The wheel zooms about the
-       pointer, dragging pans, and a click on the stage beside the image closes
-       the lightbox only while it is at the fit size: zoomed in, the stage is a
-       pan surface and only Escape or the cross close it. -->
-  <div class="lb-stage" id="lb-stage" title="Scroll to zoom, drag to pan, double-click for 1:1">
-    <img id="lb-img" alt="" draggable="false">
+     Named by the prompt and described by the settings line. The stage is on
+     the left and everything else in a column on the right: the screen is
+     wider than it is tall and most images are not, so a row of text and
+     buttons under the stage was taking the axis the image was short of. -->
+<dialog class="lightbox" id="lightbox" aria-labelledby="lb-prompt" aria-describedby="lb-settings">
+  <!-- The arrows sit over the stage's edges but beside it in the tree, not
+       inside it: the stage captures the pointer on press, and a press on a
+       child would be a pan or a close rather than the button's click. -->
+  <div class="lb-main">
+    <button class="lb-nav prev" id="lb-prev" title="Previous (←)" aria-label="Previous image">‹</button>
+    <button class="lb-nav next" id="lb-next" title="Next (→)" aria-label="Next image">›</button>
+    <!-- The stage fills what the column leaves. The image is laid out inside
+         it by lightbox.js at an explicit size and position - a real width,
+         not a transform, so the browser rasterises at the displayed scale and
+         1:1 is one image pixel per device pixel. The wheel zooms about the
+         pointer, dragging pans, and a click on the stage beside the image
+         closes the lightbox only while it is at the fit size: zoomed in, the
+         stage is a pan surface and only Escape or the cross close it. -->
+    <div class="lb-stage" id="lb-stage" title="Scroll to zoom, drag to pan, double-click for 1:1">
+      <img id="lb-img" alt="" draggable="false">
+    </div>
   </div>
-  <div class="lb-meta" id="lb-meta"></div>
-  <!-- Failures raised from inside the lightbox land here, over the overlay,
-       rather than in the panel's slot underneath it. -->
-  <p class="error" id="lb-error" role="alert" hidden></p>
-  <div class="lb-actions">
-    <button class="ghost" id="lb-fav" title="Favourite (F)">☆ Favourite</button>
-    <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
-    <button class="ghost" id="lb-delete" title="Delete (Del)">⌦ Delete</button>
-    <span class="lb-zoom-group">
+  <div class="lb-side">
+    <div class="lb-head">
+      <span class="lb-count" id="lb-count" aria-live="polite"></span>
+      <!-- autofocus: showModal() would otherwise focus the first control in
+           the tree, which is now an arrow. -->
+      <button class="close" id="lb-close" aria-label="Close (Escape)" autofocus>✕</button>
+    </div>
+    <!-- The prompt and the settings scroll when a prompt is a paragraph; the
+         controls under them keep their place from one image to the next. -->
+    <div class="lb-meta" id="lb-meta">
+      <p class="lb-prompt" id="lb-prompt"></p>
+      <p class="lb-settings" id="lb-settings"></p>
+    </div>
+    <!-- Failures raised from inside the lightbox land here, over the overlay,
+         rather than in the panel's slot underneath it. -->
+    <p class="error" id="lb-error" role="alert" hidden></p>
+    <div class="lb-zoom-group">
       <button class="ghost" id="lb-fit" title="Fit to the window (0)">Fit</button>
       <button class="ghost" id="lb-one" title="One image pixel per screen pixel (1)">1:1</button>
       <span class="lb-zoom" id="lb-zoom" aria-live="polite"></span>
-    </span>
+    </div>
+    <div class="lb-actions">
+      <button class="ghost" id="lb-fav" title="Favourite (F)">☆ Favourite</button>
+      <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
+      <button class="ghost" id="lb-delete" title="Delete (Del)">⌦ Delete</button>
+    </div>
   </div>
 </dialog>
 

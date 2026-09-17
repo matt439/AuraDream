@@ -95,10 +95,11 @@ function renderLightbox() {
   }
   els.lbImg.src = rec.url;
   els.lbImg.alt = rec.prompt;
-  els.lbMeta.textContent =
+  els.lbPrompt.textContent = rec.prompt;
+  els.lbSettings.textContent =
     // The checkpoint is part of the reproduction set as much as the seed is -
     // the same prompt and settings on Turbo and on FLUX are different images.
-    `${rec.prompt} — ${rec.model_id.split('/').pop()}, ` +
+    `${rec.model_id.split('/').pop()}, ` +
     `${rec.width}×${rec.height}, ${rec.steps} steps, ` +
     `CFG ${rec.guidance_scale}, ` +
     // Only where it differs from the CFG: on Krea 2 it is the same number.
@@ -107,8 +108,8 @@ function renderLightbox() {
     // Only when there was one: most records carry neither.
     (rec.lora ? `LoRA ${rec.lora} @ ${rec.lora_scale}, ` : '') +
     (rec.reference?.length ? `ref ${rec.reference.join('+')}, ` : '') +
-    `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s` +
-    (lbList.length > 1 ? ` · ${lbIndex + 1}/${lbList.length}` : '');
+    `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`;
+  els.lbCount.textContent = lbList.length > 1 ? `${lbIndex + 1}/${lbList.length}` : '';
   els.lbPrev.disabled = lbIndex === 0;
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
   els.lbFav.textContent = rec.favorite ? '★ Favourite' : '☆ Favourite';

@@ -60,6 +60,7 @@ const els = {
   runList: $('run-list'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
+  lbPrompt: $('lb-prompt'), lbSettings: $('lb-settings'), lbCount: $('lb-count'),
   lbError: $('lb-error'), lbStage: $('lb-stage'), lbZoom: $('lb-zoom'),
   lbFit: $('lb-fit'), lbOne: $('lb-one'),
   lbReuse: $('lb-reuse'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
