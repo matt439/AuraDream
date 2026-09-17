@@ -3,7 +3,7 @@
   {"wait": 1200},
   {"expect": "document.getElementById('status-dot').className.includes('ready')"},
   {"expect": "els.steps.value === '28' && els.cfg.value === '5'"},
-  {"expect": "els.promptTip.textContent.includes('tag lists and natural-language') && els.promptTip.textContent.includes('77 tokens')"},
+  {"expect": "els.promptTip.textContent.includes('tag lists and natural-language') && els.promptTip.textContent.includes('77 tokens') && els.promptTip.textContent.includes('masterpiece, newest') && els.promptTip.textContent.includes('Start empty') && els.promptTip.textContent.includes('not an author recipe')"},
   {"expect": "els.sizeTip.textContent.includes('1-2.25 MP') && els.sizeTip.textContent.includes('2048x2048 v1.0')"},
   {"expect": "els.mu.disabled && els.gridMu.disabled && els.trueCfg.disabled && !els.negative.disabled"},
   {"expect": "tagVocabularyEnabled && !els.tagHelper.hidden && els.prompt.spellcheck"},

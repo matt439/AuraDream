@@ -390,8 +390,16 @@ ILLUSTRIOUS_GUIDE = {
         "Describe the subject, action and scene, or use comma-separated tags. "
         "This SDXL pipeline has two CLIP encoders, each limited to 77 tokens; "
         "keep the important details early. Autocomplete and the chips check "
-        "Danbooru's tag index through the dataset's August 2024 cutoff. A negative "
-        "prompt applies at CFG > 1."
+        "Danbooru's tag index through the dataset's August 2024 cutoff.\n"
+        "End a tag prompt with one quality tier (good quality, best quality or "
+        "masterpiece) and optionally one year modifier (recent or newest). "
+        "masterpiece, newest is a practical starting tail, not an official fixed "
+        "suffix.\n"
+        "The authors publish no recommended v2.0 negative prompt. Start empty. "
+        "If recurring defects need suppression, an experimental baseline is: "
+        "worst quality, bad quality, lowres, bad anatomy, bad hands, extra digits, "
+        "text, watermark, signature. This is app guidance, not an author recipe. "
+        "A negative prompt applies at CFG > 1."
     ),
     "size": (
         "The authors document native 1-2.25 MP generation for Illustrious v1.0+, "

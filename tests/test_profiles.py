@@ -159,6 +159,11 @@ def test_illustrious_has_hybrid_prompting_and_a_native_not_maximum_size_range():
     assert guide.pixels == (1.0, 2.25) and guide.pixels_word == "documented"
     assert "natural-language" in hints_for(model)["prompt"]
     assert "August 2024 cutoff" in hints_for(model)["prompt"]
+    assert "masterpiece, newest" in hints_for(model)["prompt"]
+    assert "not an official fixed suffix" in hints_for(model)["prompt"]
+    assert "Start empty" in hints_for(model)["prompt"]
+    assert "worst quality, bad quality, lowres" in hints_for(model)["prompt"]
+    assert "not an author recipe" in hints_for(model)["prompt"]
     assert "4 MP" in hints_for(model)["size"]
     assert "2048x2048 v1.0" in hints_for(model)["size"]
     helper = guide.tag_helper

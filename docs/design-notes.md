@@ -1236,7 +1236,11 @@ suffix, numeric `year {n}` form and negative prompt are not copied over. Because
 Illustrious also supports natural language, spellcheck remains enabled and a
 single sentence is not rendered as one unknown tag chip; comma-separated tag
 prompts get the complete editor. The example menu uses the report's explicit
-figure 3 prompt.
+figure 3 prompt. At the user's request, the Prompt hint also turns the documented
+quality-then-year order into a clearly qualified practical starting tail,
+`masterpiece, newest`. It says to start with an empty negative prompt, then gives
+a short defect-suppression baseline only as experimental app guidance, explicitly
+not as an author recipe; this keeps the source boundary visible in the UI.
 
 Sources checked 2026-09-17:
 - Official release/card and files: <https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0>.
