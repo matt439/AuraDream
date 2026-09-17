@@ -558,7 +558,15 @@ can composite a fit-size texture and scale it - and 1:1 divides by
 the smoothing a sharpening sweep is judging. The wheel listener is
 non-passive; the zoom keys sit below the `input, textarea` guard. A click on
 the stage beside the image closes the lightbox only at fit: zoomed, the
-stage is a pan surface and only Escape or the cross close it.
+stage is a pan surface and only Escape or the cross close it. Where a press
+landed is read on `pointerdown` and kept in `lbDrag`, and the double-click
+handler is the stage's and hit-tests the image's box: the stage takes
+pointer capture on press, and from then on every event of that pointer -
+`pointerup`, the `click` and the `dblclick` made from it - targets the
+stage whether the mouse is over the image or not. Testing `e.target` on
+the way up closed the lightbox on a single click of the image, and a
+`dblclick` listener on the image never heard one; `tools/smoke.json` clicks
+and double-clicks the image for both.
 
 **The controls are beside the stage, not under it.** The dialog is a row:
 `.lb-main` (the stage and its arrows) and a 280px `.lb-side` column with

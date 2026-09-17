@@ -170,11 +170,13 @@ els.lbStage.addEventListener('wheel', (e) => {
 // Drag to pan. A press that never moved is a click: on the stage beside the
 // image, it closes the lightbox - but only at the fit size, where nothing is
 // being panned and the stage is the backdrop it used to be. Zoomed in, the
-// whole stage is a pan surface and only Escape or the cross close it.
+// whole stage is a pan surface and only Escape or the cross close it. Where
+// the press landed is read here, on the way down: once the stage has pointer
+// capture, every later event's target is the stage, image or not.
 let lbDrag = null;
 els.lbStage.onpointerdown = (e) => {
   if (e.button !== 0) return;
-  lbDrag = { x: e.clientX, y: e.clientY, moved: false };
+  lbDrag = { x: e.clientX, y: e.clientY, moved: false, onStage: e.target === els.lbStage };
   els.lbStage.setPointerCapture(e.pointerId);
 };
 els.lbStage.onpointermove = (e) => {
@@ -192,13 +194,19 @@ els.lbStage.onpointerup = (e) => {
   lbDrag = null;
   els.lbStage.classList.remove('dragging');
   if (!drag || drag.moved) return;
-  if (e.target === els.lbStage && lbView.scale <= 1) closeLightbox();
+  if (drag.onStage && lbView.scale <= 1) closeLightbox();
 };
 els.lbStage.onpointercancel = () => { lbDrag = null; els.lbStage.classList.remove('dragging'); };
-// Double-click: 1:1 about the point, or back to fit from anywhere else.
-els.lbImg.ondblclick = (e) => {
-  if (lbView.scale > 1) zoomFit();
-  else zoomOneToOne(...stagePoint(e));
+// Double-click: 1:1 about the point on the image, or back to fit from
+// anywhere else. On the stage, not the image: the click events come out of
+// the captured pointer, so they are the stage's too, and the image is found
+// by its box instead. Beside the image at fit the first click already closed.
+els.lbStage.ondblclick = (e) => {
+  if (lbView.scale > 1) { zoomFit(); return; }
+  const box = els.lbImg.getBoundingClientRect();
+  if (e.clientX >= box.left && e.clientX < box.right && e.clientY >= box.top && e.clientY < box.bottom) {
+    zoomOneToOne(...stagePoint(e));
+  }
 };
 els.lbFit.onclick = zoomFit;
 els.lbOne.onclick = () => zoomOneToOne();

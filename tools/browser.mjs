@@ -12,7 +12,8 @@
 //   {"expect": js}               run JavaScript; a falsy value fails the run
 //   {"key": "1"}                 press a key (single characters and names like "Escape")
 //   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
-//   {"click": [x, y]}            click a point; {"drag": [x1, y1, x2, y2]} drags
+//   {"click": [x, y]}            click a point; {"dblclick": [x, y]} double-clicks;
+//                                {"drag": [x1, y1, x2, y2]} drags
 //   {"shot": "file.png"}         screenshot the viewport
 //
 // Page-side names (`els`, `lbView`, `sheetRecords`, ...) are the app's own
@@ -125,6 +126,13 @@ for (const step of steps) {
   } else if (step.click) {
     const [x, y] = step.click;
     await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y);
+    await sleep(150);
+  } else if (step.dblclick) {
+    const [x, y] = step.dblclick;
+    await mouse('mouseMoved', x, y);
+    for (const clickCount of [1, 2]) {
+      await mouse('mousePressed', x, y, { clickCount }); await mouse('mouseReleased', x, y, { clickCount });
+    }
     await sleep(150);
   } else if (step.drag) {
     const [x1, y1, x2, y2] = step.drag;
