@@ -168,11 +168,11 @@ def main() -> int:
                 if name.startswith(prefix)
             ][:limit]
 
-        def validate(self, tags, special_tags, cutoff):
+        def validate(self, tags, special_tags, cutoff, allow_year_tag=True):
             results = []
             for tag in tags:
                 name = normalize_tag(tag)
-                if is_model_tag(tag, special_tags):
+                if is_model_tag(tag, special_tags, allow_year_tag):
                     results.append(
                         {
                             "tag": tag,

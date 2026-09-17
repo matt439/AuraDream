@@ -278,8 +278,12 @@ def _tag_helper_config() -> dict:
 
 
 def _special_tags(helper: dict) -> set[str]:
-    tags = {tag.lower() for group in helper["groups"] for tag in group["tags"]}
-    tags.update(tag.lower() for tag in helper["recommended_suffix"])
+    tags = {
+        tag.lower()
+        for group in helper.get("groups", [])
+        for tag in group.get("tags", [])
+    }
+    tags.update(tag.lower() for tag in helper.get("recommended_suffix", []))
     return tags
 
 
@@ -326,11 +330,12 @@ async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:
             request.tags,
             special,
             helper["vocabulary_cutoff"],
+            bool(helper.get("year_tag")),
         )
     except TagLookupUnavailable as exc:
         return TagValidationResponse(
             available=False,
-            results=unchecked_results(request.tags, special),
+            results=unchecked_results(request.tags, special, bool(helper.get("year_tag"))),
             detail=short_error(exc),
         )
     return TagValidationResponse(available=True, results=results)

@@ -385,10 +385,13 @@ ANIMAGINE_GUIDE = {
 }
 ILLUSTRIOUS_GUIDE = {
     "prompt": (
-        "Illustrious XL v2.0 supports both tags and natural-language descriptions. "
-        "Describe the subject, action and scene, or use Danbooru-style tags. "
+        "Illustrious XL v2.0 was trained with Danbooru-style tags and multi-level "
+        "captions, and supports both tag lists and natural-language descriptions. "
+        "Describe the subject, action and scene, or use comma-separated tags. "
         "This SDXL pipeline has two CLIP encoders, each limited to 77 tokens; "
-        "keep the important details early. A negative prompt applies at CFG > 1."
+        "keep the important details early. Autocomplete and the chips check "
+        "Danbooru's tag index through the dataset's August 2024 cutoff. A negative "
+        "prompt applies at CFG > 1."
     ),
     "size": (
         "The authors document native 1-2.25 MP generation for Illustrious v1.0+, "
@@ -398,9 +401,47 @@ ILLUSTRIOUS_GUIDE = {
     ),
     "pixels": (1.0, 2.25),
     "pixels_word": "documented",
-    # Report figure 3's explicit prompt. Do not borrow Animagine's special
-    # vocabulary or enable tag validation on arbitrary natural-language input.
+    # Report figure 3's explicit prompt. The helper uses only the paper's own
+    # ordering and tables; Animagine's suffix and negative prompt do not belong
+    # to this checkpoint. A single free-form sentence remains outside chip
+    # validation because this profile explicitly supports natural language.
     "examples": ["1boy, doctor, masterpiece, looking at viewer"],
+    "tag_helper": {
+        "order": [
+            "Person count",
+            "Character",
+            "Rating",
+            "General",
+            "Artist",
+            "Quality",
+            "Year",
+        ],
+        "groups": [
+            {"label": "Person count", "tags": ["1girl", "1boy"], "exclusive": True},
+            {
+                "label": "Quality",
+                "tags": [
+                    "worst quality",
+                    "bad quality",
+                    "average quality",
+                    "good quality",
+                    "best quality",
+                    "masterpiece",
+                ],
+                "exclusive": True,
+            },
+            {
+                "label": "Year",
+                "tags": ["oldest", "old", "modern", "recent", "newest"],
+                "exclusive": True,
+            },
+        ],
+        "vocabulary": "danbooru",
+        # The archived v2.0 card says the dataset was updated through 2024-08;
+        # use the inclusive end of that documented month as the lookup boundary.
+        "vocabulary_cutoff": "2024-08-31",
+        "hybrid_prompt": True,
+    },
 }
 FALLBACK_GUIDE = {
     "prompt": (

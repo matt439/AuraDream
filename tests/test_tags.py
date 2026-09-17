@@ -102,6 +102,19 @@ def test_validation_handles_model_tags_characters_unknowns_and_cutoff():
     assert len(calls) == 1, "exact hits and misses are cached"
 
 
+def test_numeric_year_is_only_special_for_profiles_that_document_it():
+    calls = []
+
+    def fetch(path, params):
+        calls.append((path, params))
+        return []
+
+    vocabulary = DanbooruTagVocabulary(fetch)
+    result = vocabulary.validate(["year 2023"], set(), CUTOFF, allow_year_tag=False)[0]
+    assert result["valid"] is False and result["reason"] == "not found in Danbooru"
+    assert calls
+
+
 def test_unavailable_lookup_is_not_reported_as_invalid():
     def offline(path, params):
         raise URLError("offline")

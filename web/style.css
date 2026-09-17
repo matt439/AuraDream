@@ -191,7 +191,7 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .menu li.empty { color: var(--muted); cursor: default; }
 
 /* The tag picker is data from the checkpoint guide, not a generic tag cloud:
-   Animagine gets only the categories and terms its model card documents. The
+   each checkpoint gets only the categories and terms its sources document. The
    editor remains the source of truth; these compact buttons insert at its
    caret and reflect exact tags already present there. */
 .tag-menu {

@@ -114,8 +114,9 @@ def test_tag_vocabulary_endpoints_are_checkpoint_scoped_and_read_only(client, mo
                 "category": "general", "post_count": 591_000,
             }]
 
-        def validate(self, tags, special, cutoff):
+        def validate(self, tags, special, cutoff, allow_year_tag):
             assert special == {"great score", "absurdres"} and cutoff == "2025-01-07"
+            assert allow_year_tag is False
             return [{
                 "tag": tag, "valid": True, "canonical": tag,
                 "source": "model", "category": None, "post_count": None,
@@ -149,7 +150,8 @@ def test_an_offline_tag_index_leaves_unknown_tags_unchecked(client, monkeypatch)
         def suggest(self, query, cutoff):
             raise TagLookupUnavailable("offline")
 
-        def validate(self, tags, special, cutoff):
+        def validate(self, tags, special, cutoff, allow_year_tag):
+            assert allow_year_tag is False
             raise TagLookupUnavailable("offline")
 
     monkeypatch.setattr(main, "_tag_helper_config", lambda: helper)
@@ -162,6 +164,11 @@ def test_an_offline_tag_index_leaves_unknown_tags_unchecked(client, monkeypatch)
     ).json()
     assert body["available"] is False
     assert [item["valid"] for item in body["results"]] == [True, None]
+
+
+def test_tag_specials_allow_a_profile_without_quick_actions():
+    helper = {"groups": [{"tags": ["masterpiece"]}]}
+    assert main._special_tags(helper) == {"masterpiece"}
 
 
 def test_prompt_expansion_loads_the_model_and_returns_reviewable_text(client, fake):

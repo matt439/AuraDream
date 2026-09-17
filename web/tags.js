@@ -375,7 +375,7 @@ function renderTagValidation(results, available = true, detail = '') {
       chip.classList.add('valid');
       mark.textContent = '✓';
       chip.title = result.source === 'model'
-        ? 'Animagine model-card tag'
+        ? 'Checkpoint guide tag'
         : `Danbooru ${result.category} tag · ${humanCount(result.post_count)} posts` +
           (result.canonical !== result.tag ? ` · canonical: ${result.canonical}` : '');
     } else if (result.valid === false) {
@@ -460,7 +460,7 @@ function renderTagValidation(results, available = true, detail = '') {
   }
   if (tagInsertAt === results.length) els.tagValidation.appendChild(buildTagEditor());
   els.tagValidation.title = available
-    ? 'Each comma-separated item checked against Danbooru or Animagine special tags'
+    ? 'Each comma-separated item checked against Danbooru or checkpoint guide tags'
     : `Lookup unavailable; unchecked tags are not treated as invalid${detail ? `: ${detail}` : ''}`;
   els.tagValidation.hidden = results.length === 0;
 }
@@ -488,7 +488,8 @@ function scheduleTagValidation(delay = 320) {
   const epoch = ++tagValidationEpoch;
   tagInsertAt = null;
   tagEditAt = null;
-  if (!tagVocabularyEnabled) {
+  const hybridSentence = tagHelper?.hybrid_prompt && !els.prompt.value.includes(',');
+  if (!tagVocabularyEnabled || hybridSentence) {
     els.tagValidation.hidden = true;
     els.tagValidation.replaceChildren();
     return;
@@ -505,7 +506,7 @@ function scheduleTagValidation(delay = 320) {
 
 function syncTagVocabulary() {
   tagVocabularyEnabled = tagHelper?.vocabulary === 'danbooru';
-  els.prompt.spellcheck = !tagVocabularyEnabled;
+  els.prompt.spellcheck = !tagVocabularyEnabled || Boolean(tagHelper?.hybrid_prompt);
   if (!tagVocabularyEnabled) hideTagSuggestions();
   scheduleTagValidation(0);
 }
@@ -640,13 +641,15 @@ function buildTagHelper() {
 
   const actions = document.createElement('div');
   actions.className = 'tag-actions';
-  const finish = document.createElement('button');
-  finish.type = 'button';
-  finish.className = 'ghost tiny';
-  finish.dataset.action = 'recommended-suffix';
-  finish.textContent = `Finish with ${tagHelper.recommended_suffix.join(', ')}`;
-  finish.onclick = () => finishWithTags(tagHelper.recommended_suffix);
-  actions.appendChild(finish);
+  if (tagHelper.recommended_suffix?.length) {
+    const finish = document.createElement('button');
+    finish.type = 'button';
+    finish.className = 'ghost tiny';
+    finish.dataset.action = 'recommended-suffix';
+    finish.textContent = `Finish with ${tagHelper.recommended_suffix.join(', ')}`;
+    finish.onclick = () => finishWithTags(tagHelper.recommended_suffix);
+    actions.appendChild(finish);
+  }
   if (tagHelper.negative_prompt) {
     const negative = document.createElement('button');
     negative.type = 'button';
@@ -660,7 +663,7 @@ function buildTagHelper() {
     };
     actions.appendChild(negative);
   }
-  els.tagsMenu.appendChild(actions);
+  if (actions.children.length) els.tagsMenu.appendChild(actions);
 
   const note = document.createElement('p');
   note.className = 'tag-note';

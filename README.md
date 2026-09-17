@@ -680,10 +680,14 @@ documented, and **Examples** drops down the authors' own prompts - click one
 and it fills the box. Tag-caption checkpoints can also show **Tags**; for
 Animagine it exposes only the model card's person-count, rating, quality, score
 and year controls, inserts at the prompt caret, finishes with the recommended
-quality suffix, and can fill the recommended negative prompt. While typing an
-Animagine prompt, autocomplete comes from Danbooru's live tag index and each
+quality suffix, and can fill the recommended negative prompt. For Illustrious
+it uses that model's documented person-count, quality-tier and year-modifier
+terms without borrowing Animagine's recipe. While typing either checkpoint's
+tag prompt, autocomplete comes from Danbooru's live tag index and each
 comma-separated item gets a green recognised, red unknown, or grey unchecked
-chip. On a wide page the full validation list uses the results column, so it
+chip. Illustrious remains hybrid: spellcheck stays on and a single natural-
+language sentence does not become one unknown tag chip. On a wide page the
+full validation list uses the results column, so it
 does not move Generate and never gets its own scrollbar. Drag chips to reorder
 the canonical comma-separated prompt; use each × or the Delete key to remove
 one. Right-click a gap to insert at that boundary, or a chip to insert after it,
@@ -864,8 +868,10 @@ and natural language, and documents native 1-2.25 MP, with some loss up to
 v2.0-STABLE measurement. The app starts at 28 steps and CFG 5, within the
 authors' >20-step / CFG 5-7.5 guidance, and fixes Euler Ancestral in the
 converted tree. Mu and reference-image input are unavailable; there is no
-Nunchaku build for this entry. The guide permits natural language without
-applying Animagine's tag validation or special-tag vocabulary.
+Nunchaku build for this entry. Its **Tags** picker follows the report's prompt
+order, quality tiers and year modifiers, and the shared Danbooru autocomplete
+uses the archived card's August 2024 dataset cutoff. Natural-language prompts
+remain supported; Animagine's suffix and negative prompt are not copied over.
 
 Verified on the RTX 5080 with FP8 and model offload: one 28-step/CFG-5 image
 at 1024x1024 took 15 s, 1536x1536 took 18 s, and 2048x2048 took 35 s. The

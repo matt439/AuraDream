@@ -1,8 +1,8 @@
 """Danbooru tag lookup for tag-caption checkpoints.
 
-Animagine's maintainers do not publish a checkpoint vocabulary: they say the
-model was trained from nearly all Danbooru data and point users at Danbooru.
-Its tag API is therefore the honest validation boundary. Lookups are cached in
+The checkpoints do not publish complete frozen vocabularies, while their
+authors document Danbooru-derived tag captions and dataset cutoffs. Danbooru's
+tag API is therefore an advisory validation boundary. Lookups are cached in
 process, kept off the event loop by the routes, and failures mean "unchecked",
 never "invalid" - generation remains local and the editor remains authoritative.
 """
@@ -34,20 +34,22 @@ def normalize_tag(tag: str) -> str:
 
 
 def display_tag(name: str) -> str:
-    """Danbooru name to the spaced form Animagine's examples use."""
+    """Danbooru name to the spaced form checkpoint prompts use."""
     return name.replace("_", " ").replace("(", r"\(").replace(")", r"\)")
 
 
-def is_model_tag(tag: str, special_tags: set[str]) -> bool:
+def is_model_tag(tag: str, special_tags: set[str], allow_year_tag: bool = True) -> bool:
     text = tag.strip().lower()
-    return text in special_tags or bool(_YEAR_TAG.fullmatch(text))
+    return text in special_tags or (allow_year_tag and bool(_YEAR_TAG.fullmatch(text)))
 
 
-def unchecked_results(tags: list[str], special_tags: set[str]) -> list[dict]:
+def unchecked_results(
+    tags: list[str], special_tags: set[str], allow_year_tag: bool = True
+) -> list[dict]:
     """Preserve locally known model tags while the remote index is offline."""
     results = []
     for tag in tags:
-        known = is_model_tag(tag, special_tags)
+        known = is_model_tag(tag, special_tags, allow_year_tag)
         results.append(
             {
                 "tag": tag,
@@ -105,10 +107,16 @@ class DanbooruTagVocabulary:
         return [dict(item) for item in suggestions]
 
     def validate(
-        self, tags: list[str], special_tags: set[str], cutoff: str
+        self,
+        tags: list[str],
+        special_tags: set[str],
+        cutoff: str,
+        allow_year_tag: bool = True,
     ) -> list[dict]:
         normalized = {
-            normalize_tag(tag) for tag in tags if not is_model_tag(tag, special_tags)
+            normalize_tag(tag)
+            for tag in tags
+            if not is_model_tag(tag, special_tags, allow_year_tag)
         }
         with self._lock:
             missing = [name for name in normalized if name not in self._records]
@@ -124,7 +132,7 @@ class DanbooruTagVocabulary:
 
         results = []
         for tag in tags:
-            if is_model_tag(tag, special_tags):
+            if is_model_tag(tag, special_tags, allow_year_tag):
                 results.append(
                     {
                         "tag": tag,
@@ -181,7 +189,7 @@ class DanbooruTagVocabulary:
         if not created:
             return {**base, "reason": "Danbooru tag has no creation date"}
         if created > cutoff:
-            return {**base, "reason": f"created after Animagine's {cutoff} cutoff"}
+            return {**base, "reason": f"created after this checkpoint's {cutoff} cutoff"}
         suggestion = self._suggestion(row)
         return {
             "tag": tag,

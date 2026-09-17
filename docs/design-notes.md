@@ -1224,18 +1224,30 @@ The app's starting values are 28 steps and CFG 5. The report gives >20 steps
 and CFG 5-7.5, not a unique default. Its v1.0+ native range is 1-2.25 MP, and
 up to 4 MP carries some loss. Figure 19's direct 2048x2048 result is explicitly
 v1.0; it is family context, not evidence that STABLE was measured here.
-The v2.0 examples demonstrate natural language. No tag-helper vocabulary is
-invented or copied from Animagine, so prose is not marked as invalid tags.
-The example menu uses the report's explicit figure 3 prompt.
+The v2.0 examples demonstrate natural language, but the report also describes
+every Illustrious version as tag-based and gives its caption order: person
+count, character, rating, general tags, artist, quality and year. The shared
+Danbooru autocomplete and chip editor therefore apply to Illustrious too, with
+the archived v2.0 card's `2024-08` dataset update represented by an inclusive
+`2024-08-31` vocabulary cutoff. The picker exposes only terms written in the
+report: `1girl`/`1boy` from its example prompts, the six quality tiers in table
+3 and the five year modifiers in table 4. Animagine's rating set, quality
+suffix, numeric `year {n}` form and negative prompt are not copied over. Because
+Illustrious also supports natural language, spellcheck remains enabled and a
+single sentence is not rendered as one unknown tag chip; comma-separated tag
+prompts get the complete editor. The example menu uses the report's explicit
+figure 3 prompt.
 
 Sources checked 2026-09-17:
 - Official release/card and files: <https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0>.
+- Archived v2.0 card with the dataset-through-2024-08 statement:
+  <https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0/blob/f9885efc7cbd20d0291dbbb0d5fe810ea143911f/README.md>.
 - Authors' report, B.2 settings, B.1.4 language, figure 19 size, figure 3 prompt:
   <https://arxiv.org/html/2409.19946v1>.
 - Diffusers single-file API: <https://huggingface.co/docs/diffusers/api/loaders/single_file>;
   the installed 0.40 `load_single_file_sub_model` confirms the CLIP quantization boundary.
 
-Validation on 2026-09-17: 331 Python tests and the 12-check Illustrious browser
+Validation on 2026-09-17: 333 Python tests and the 15-check Illustrious browser
 smoke passed. The 6,938,040,674-byte official checkpoint was verified against
 SHA-256 `c2a1a3eaa13d4c107dc7e00c3fe830cab427aa026362740ea094745b3422a331`.
 Conversion succeeded with the installed Diffusers 0.40 / Transformers stack,

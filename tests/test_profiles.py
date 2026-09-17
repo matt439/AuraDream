@@ -158,9 +158,23 @@ def test_illustrious_has_hybrid_prompting_and_a_native_not_maximum_size_range():
     guide = PromptGuide(**guide_for(model))
     assert guide.pixels == (1.0, 2.25) and guide.pixels_word == "documented"
     assert "natural-language" in hints_for(model)["prompt"]
+    assert "August 2024 cutoff" in hints_for(model)["prompt"]
     assert "4 MP" in hints_for(model)["size"]
     assert "2048x2048 v1.0" in hints_for(model)["size"]
-    assert guide.tag_helper is None, "natural-language input must not be marked as invalid tags"
+    helper = guide.tag_helper
+    assert helper is not None and helper.vocabulary == "danbooru"
+    assert helper.vocabulary_cutoff == "2024-08-31" and helper.hybrid_prompt
+    assert helper.recommended_suffix == [] and helper.negative_prompt is None
+    assert helper.order == [
+        "Person count", "Character", "Rating", "General", "Artist", "Quality", "Year"
+    ]
+    groups = {group.label: group for group in helper.groups}
+    assert groups["Person count"].tags == ["1girl", "1boy"]
+    assert groups["Quality"].tags == [
+        "worst quality", "bad quality", "average quality", "good quality",
+        "best quality", "masterpiece",
+    ]
+    assert groups["Year"].tags == ["oldest", "old", "modern", "recent", "newest"]
 
 
 def test_every_catalogue_entry_has_a_profile():

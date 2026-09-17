@@ -473,7 +473,7 @@ class PromptTagGroup(BaseModel):
 
     label: str
     tags: list[str] = Field(default_factory=list)
-    # Person count and rating are one-of choices in Animagine's prompt order.
+    # Some checkpoint-authored groups are one-of choices in their prompt order.
     exclusive: bool = False
 
 
@@ -485,6 +485,9 @@ class PromptTagHelper(BaseModel):
     year_tag: bool = False
     vocabulary: Literal["danbooru"] | None = None
     vocabulary_cutoff: str | None = None
+    # Keep spellcheck and single-sentence prose behavior for checkpoints trained
+    # on both natural language and comma-separated tags.
+    hybrid_prompt: bool = False
     recommended_suffix: list[str] = Field(default_factory=list)
     negative_prompt: str | None = None
 
