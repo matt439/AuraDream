@@ -313,6 +313,37 @@ _PROFILES.append(
         },
     )
 )
+_PROFILES.append(
+    (
+        "illustrious-xl-v2.0",
+        {
+            "steps": 28,
+            "guidance_scale": 5.0,
+            "mu": None,
+            "mu_supported": False,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": False,
+            "guide": guides.ILLUSTRIOUS_GUIDE,
+            "hints": {
+                "steps": (
+                    "Denoising steps. The authors use more than 20 with Euler "
+                    "Ancestral; {steps} is this app's starting point."
+                ),
+                "guidance_scale": (
+                    "Real classifier-free guidance. The authors use CFG 5-7.5; "
+                    "this app starts at {guidance_scale:g}. Above {cfg_threshold:g} "
+                    "the negative prompt applies and adds an uncond pass per step."
+                ),
+                "mu": (
+                    "Unavailable: Illustrious uses SDXL's Euler Ancestral noise "
+                    "schedule, not flow matching."
+                ),
+            },
+        },
+    )
+)
 # Qwen-Image is Krea 2's parent and looks like FLUX.1 to the controls: the
 # transformer takes no guidance input, and the uncond pass is `true_cfg_scale`
 # - which the pipeline only runs when a negative prompt is present.

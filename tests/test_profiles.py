@@ -36,6 +36,7 @@ CASES = [
     ("Qwen/Qwen-Image", "QwenImagePipeline"),
     ("baidu/ERNIE-Image-Turbo", "ErnieImagePipeline"),
     ("cagliostrolab/animagine-xl-4.0", "StableDiffusionXLPipeline"),
+    ("OnomaAIResearch/Illustrious-XL-v2.0", "StableDiffusionXLPipeline"),
 ]
 
 SCHNELL_LITE = "lite-infer/flux.1-schnell-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
@@ -144,6 +145,22 @@ def test_animagine_uses_the_model_cards_controls_and_guide():
     assert "changed by a caller" not in guide_for("cagliostrolab/animagine-xl-4.0")[
         "tag_helper"
     ]["groups"][0]["tags"]
+
+
+def test_illustrious_has_hybrid_prompting_and_a_native_not_maximum_size_range():
+    from backend.schemas import PromptGuide
+
+    model = "OnomaAIResearch/Illustrious-XL-v2.0"
+    profile = defaults_for(model)
+    assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (28, 5, None)
+    assert not profile["mu_supported"] and not profile["true_cfg_supported"]
+    assert profile["negative_prompt_supported"] and not profile["reference_supported"]
+    guide = PromptGuide(**guide_for(model))
+    assert guide.pixels == (1.0, 2.25) and guide.pixels_word == "documented"
+    assert "natural-language" in hints_for(model)["prompt"]
+    assert "4 MP" in hints_for(model)["size"]
+    assert "2048x2048 v1.0" in hints_for(model)["size"]
+    assert guide.tag_helper is None, "natural-language input must not be marked as invalid tags"
 
 
 def test_every_catalogue_entry_has_a_profile():

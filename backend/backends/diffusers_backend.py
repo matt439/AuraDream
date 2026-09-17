@@ -6,8 +6,9 @@ float8 weight-only via torchao, then leans on accelerate's model offload so only
 one component is resident at a time. Peak VRAM lands near 13GB.
 
 Nothing here is Krea-specific: the pipeline class and the set of quantizable
-components are both read from the repo's `model_index.json`, so `LOCAL_DIFFUSION_MODEL_ID`
-can point at FLUX.1-Krea-dev or any other diffusers text-to-image repo.
+components are both read from the component tree's `model_index.json`, so
+`LOCAL_DIFFUSION_MODEL_ID` can point at any diffusers text-to-image repo.
+Illustrious's official single file is converted to a cached tree first.
 
 `LOCAL_DIFFUSION_QUANT=nunchaku` is the other way round: the checkpoint arrives already
 quantized (Nunchaku Lite, SVDQuant 4-bit weights and activations, with its own
@@ -21,13 +22,14 @@ import inspect
 import logging
 import threading
 import time
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from .. import latent_preview, loras
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
-from . import loading, schedule
+from . import loading, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -100,8 +102,12 @@ class DiffusersBackend(GenerationBackend):
             # DiffusionPipeline resolves the concrete class from model_index.json,
             # so this works for Krea2Pipeline, FluxPipeline, and anything else.
             log.info("loading %s (quant=%s)", settings.model_id, settings.quantization)
+            # Single-file catalogue entries are converted once on CPU. Keep
+            # the official id in settings, status and saved reproduction data.
+            model_id = single_file.resolve_model(settings.model_id, settings.quantization)
+            load_settings = replace(settings, model_id=model_id)
             kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
-            quant = loading.quantization_config(settings)
+            quant = loading.quantization_config(load_settings)
             if quant is not None:
                 kwargs["quantization_config"] = quant
             # What the pipeline lists but this backend never runs stays on the
@@ -110,7 +116,7 @@ class DiffusersBackend(GenerationBackend):
             # the base class, resolving the same name from the same index,
             # would download and load it (see loading.UNUSED_COMPONENTS).
             loader: Any = DiffusionPipeline
-            class_name, unused = loading.unused_components(settings.model_id)
+            class_name, unused = loading.unused_components(model_id)
             if unused:
                 import diffusers
 
@@ -118,7 +124,7 @@ class DiffusersBackend(GenerationBackend):
                 log.info("leaving out %s via %s", ", ".join(sorted(unused)), loader.__name__)
                 kwargs.update(unused)
 
-            pipe = loader.from_pretrained(settings.model_id, **kwargs)
+            pipe = loader.from_pretrained(model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 
             loading.place_pipeline(pipe, settings)

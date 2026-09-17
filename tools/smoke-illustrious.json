@@ -1,0 +1,22 @@
+[
+  {"navigate": "http://127.0.0.1:7867/"},
+  {"wait": 1200},
+  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "els.steps.value === '28' && els.cfg.value === '5'"},
+  {"expect": "els.promptTip.textContent.includes('tags and natural-language') && els.promptTip.textContent.includes('77 tokens')"},
+  {"expect": "els.sizeTip.textContent.includes('1-2.25 MP') && els.sizeTip.textContent.includes('2048x2048 v1.0')"},
+  {"expect": "els.mu.disabled && els.gridMu.disabled && els.trueCfg.disabled && !els.negative.disabled"},
+  {"expect": "!tagVocabularyEnabled && els.tagHelper.hidden"},
+  {"expect": "[...els.tiers.children].slice(0, 3).every(b => b.classList.contains('recommended')) && !els.tiers.lastElementChild.classList.contains('recommended')"},
+  {"eval": "els.width.value = '1536'; els.height.value = '1536'; syncSize();"},
+  {"expect": "!els.sizeHint.classList.contains('warn')"},
+  {"eval": "els.width.value = '2048'; els.height.value = '2048'; syncSize();"},
+  {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent.includes('documented') && collect().width === 2048"},
+  {"eval": "els.examplesBtn.click();"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
+  {"eval": "els.examplesMenu.children[0].click();"},
+  {"expect": "els.prompt.value === '1boy, doctor, masterpiece, looking at viewer' && collect().mu === null"},
+  {"eval": "els.prompt.value = 'A doctor reading in a sunlit library.'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"wait": 500},
+  {"expect": "els.tagValidation.hidden && collect().prompt === 'A doctor reading in a sunlit library.'"}
+]

@@ -34,6 +34,30 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | ERNIE-Image Turbo | NVFP4, WSL | 4 MP, batch 2 | 8 | 48.6 s per pair | 10.3 GiB allocated, 12.0 GiB reserved | 2026-09-08 |
 | Z-Image Turbo, the same evening | NVFP4, WSL | 1 MP / 2 MP | 8 | 10.6 s / 12.8 s | 4.1 / 4.6 GiB | 2026-09-08 |
 | Z-Image Turbo, the same evening | NVFP4, WSL | 4 MP, batch 2 | 8 | 23.5 s per pair | 7.4 GiB allocated, 11.8 GiB reserved | 2026-09-08 |
+| Illustrious XL v2.0-STABLE, CFG 5 | fp8, Windows | 1024x1024 | 28 | 15 s | not measured | 2026-09-17 |
+| Illustrious XL v2.0-STABLE, CFG 5 | fp8, Windows | 1536x1536 | 28 | 18 s | not measured | 2026-09-17 |
+| Illustrious XL v2.0-STABLE, CFG 5 | fp8, Windows | 2048x2048 | 28 | 35 s | not measured | 2026-09-17 |
+
+Illustrious's three timings are single CLI samples (including PNG saving),
+batch 1, seed 12345, no negative prompt, with model offload and the converted
+epsilon/Euler Ancestral scheduler. They establish runtime support, not a
+benchmark or a guarantee of composition. The 1024 tag prompt produced the
+requested doctor. The same natural-language prompt at 1536 and 2048 asked for
+a doctor reading in a sunlit library: the 1536 sample included the person and
+book, while the 2048 sample rendered shelves and omitted the doctor. The
+authors' 1-2.25 MP native guidance and 4 MP quality caveat therefore remain
+in the UI. The different prompts at 1024 and the higher sizes do not form a
+controlled quality comparison.
+
+The source checkpoint's SHA-256 matched the Hub's
+`c2a1a3eaa13d4c107dc7e00c3fe830cab427aa026362740ea094745b3422a331`.
+CPU conversion and the first FP8 load together took 48 s after the weights
+were cached; subsequent processes reused the tree and loaded in 7-12 s.
+All three PNG metadata records preserve `OnomaAIResearch/Illustrious-XL-v2.0`,
+FP8, seed 12345, 28 steps, CFG 5 and null Mu. Validation images are in
+`%TEMP%/local-diffusion-illustrious-validation/outputs`, with pixel hashes
+`9c9742b5e08abae3` (1024), `da5ca7663a64e641` (1536) and
+`9fe6ba696569a397` (2048). The production gallery was not used.
 
 Under model offload the per-image weight transfer costs about 5 s and
 dominates a 4-step image; on FLUX.1 the text encoders under bitsandbytes NF4
@@ -67,4 +91,6 @@ on Windows; ERNIE-Image Turbo on the fp8 path; ERNIE's new explicit prompt
 expansion path on the card; a live-preview map for FLUX.2's VAE (ERNIE, klein);
 Animagine XL 4.0 speed, VRAM, LoRA behavior, fp8 path and four-channel SDXL VAE
 preview fit; the quantization and offload settings of its successful user run
-were not recorded.
+were not recorded. Illustrious XL v2.0-STABLE int8/full-bfloat16 GPU runs,
+LoRA behavior, batch scaling, peak VRAM and repeat-seed determinism are also
+unmeasured.

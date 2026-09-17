@@ -383,6 +383,25 @@ ANIMAGINE_GUIDE = {
         "negative_prompt": _ANIMAGINE_NEGATIVE,
     },
 }
+ILLUSTRIOUS_GUIDE = {
+    "prompt": (
+        "Illustrious XL v2.0 supports both tags and natural-language descriptions. "
+        "Describe the subject, action and scene, or use Danbooru-style tags. "
+        "This SDXL pipeline has two CLIP encoders, each limited to 77 tokens; "
+        "keep the important details early. A negative prompt applies at CFG > 1."
+    ),
+    "size": (
+        "The authors document native 1-2.25 MP generation for Illustrious v1.0+, "
+        "trained through 1536x1536. Up to 4 MP is possible with some loss; "
+        "their report also shows a direct 2048x2048 v1.0 result without upscaling. "
+        "Start at 1-2.25 MP; the 4 MP preset is available but outside that native range."
+    ),
+    "pixels": (1.0, 2.25),
+    "pixels_word": "documented",
+    # Report figure 3's explicit prompt. Do not borrow Animagine's special
+    # vocabulary or enable tag validation on arbitrary natural-language input.
+    "examples": ["1boy, doctor, masterpiece, looking at viewer"],
+}
 FALLBACK_GUIDE = {
     "prompt": (
         "Unrecognised checkpoint. Most current models read natural-language "

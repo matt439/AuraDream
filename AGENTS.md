@@ -51,6 +51,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   move: the quantization config, the Nunchaku preflight and the
   prequantized refusal, the components left out of the download, the
   device placement; takes `settings` as a parameter
+- `backend/backends/single_file.py` — pinned, CPU-only first-load conversion
+  for Illustrious XL v2.0-STABLE; an atomic cached tree feeds the normal loader
 - `backend/backends/schedule.py` — how a requested mu becomes the whole
   shift: `forced_mu`, `shifted_sigmas`, the static-shift fallback
 - `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
@@ -92,6 +94,12 @@ section before changing the area. `docs/verified.md` lists what has been
 measured on the card and when.
 
 Model and loader:
+
+- Illustrious XL v2.0-STABLE is single-file-only upstream. Resolve it through
+  `single_file.resolve_model` before the normal component scan, keeping the
+  official id in runtime settings and saved metadata. The converted tree has
+  a fixed epsilon/Euler Ancestral scheduler; do not pass pipeline-level
+  quantization into `from_single_file` or silently skip the CLIP encoders.
 
 - App-owned names use Local Diffusion: `LOCAL_DIFFUSION_*`,
   `local-diffusion.db`, `~/local-diffusion`, `local-diffusion.*` browser keys
@@ -288,6 +296,8 @@ prompt-expansion capability, so it behaves as the real one would.
 `smoke-animagine.json` runs against an Animagine-claiming fake on 7866 for its
 tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
 aspects, orientation switch and disabled non-flow Mu controls.
+`smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
+prompting, the native 1-2.25 MP size range, 4 MP warning and disabled Mu.
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
 `sheetRecords`) are reachable from a step's `eval` because the page's scripts

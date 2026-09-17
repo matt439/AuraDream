@@ -1191,6 +1191,60 @@ Chip and suggestion text is 12 px. A valid chip uses high-contrast light text
 on neutral charcoal, with green confined to its checkmark and outline; unknown
 chips keep the corresponding red mark/outline instead of colour-on-colour text.
 
+## Illustrious XL v2.0-STABLE: a single file converted once
+
+The official `OnomaAIResearch/Illustrious-XL-v2.0` repo has only the 6.94 GB
+`Illustrious-XL-v2.0.safetensors`, not a `model_index.json`. Merely adding it
+to the catalogue would fail before loading under the default FP8 component
+scan. Diffusers 0.40's pipeline `from_single_file` also does not distribute a
+`PipelineQuantizationConfig.quant_mapping` to its CLIP loaders. Rather than
+invent a second quantization path, `backends/single_file.py` converts the
+official checkpoint to an unquantized bfloat16 component tree once on CPU.
+The ordinary loader then scans and quantizes that tree with the same
+per-library TorchAoConfig instances as every other model.
+
+Only this exact catalogue repo id takes that branch. The source is pinned to
+`69459c1fe6f46db41ab31e6114f05acc0e06bcaa` (STABLE), and the SDXL base
+descriptors to `462165984030d82259a11f4367a4eed129e94a7b`; the config download
+allows JSON and tokenizer text only, never SDXL base model weights. The
+conversion fixes epsilon prediction and Euler Ancestral, the sampler used
+in the authors' report, and saves that scheduler in the tree. This is a
+fixed model configuration, not a per-request sampler setting.
+
+The cache is `$HF_HOME/local-diffusion/converted`, separate from the Hub's
+managed snapshots. Its key hashes the source, config and versioned recipe.
+A process lock covers conversion, and a temporary directory is renamed only
+after `save_pretrained` and a recipe marker complete. Failure cannot publish
+a partial tree. The same tree supports FP8, int8 and none; Nunchaku is refused
+before downloading. Both original and converted weights remain on disk,
+about 14 GB total. Only the loader's local settings copy sees the cache path:
+status, profiles, cell keys and PNGs retain the official repo id.
+
+The app's starting values are 28 steps and CFG 5. The report gives >20 steps
+and CFG 5-7.5, not a unique default. Its v1.0+ native range is 1-2.25 MP, and
+up to 4 MP carries some loss. Figure 19's direct 2048x2048 result is explicitly
+v1.0; it is family context, not evidence that STABLE was measured here.
+The v2.0 examples demonstrate natural language. No tag-helper vocabulary is
+invented or copied from Animagine, so prose is not marked as invalid tags.
+The example menu uses the report's explicit figure 3 prompt.
+
+Sources checked 2026-09-17:
+- Official release/card and files: <https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0>.
+- Authors' report, B.2 settings, B.1.4 language, figure 19 size, figure 3 prompt:
+  <https://arxiv.org/html/2409.19946v1>.
+- Diffusers single-file API: <https://huggingface.co/docs/diffusers/api/loaders/single_file>;
+  the installed 0.40 `load_single_file_sub_model` confirms the CLIP quantization boundary.
+
+Validation on 2026-09-17: 331 Python tests and the 12-check Illustrious browser
+smoke passed. The 6,938,040,674-byte official checkpoint was verified against
+SHA-256 `c2a1a3eaa13d4c107dc7e00c3fe830cab427aa026362740ea094745b3422a331`.
+Conversion succeeded with the installed Diffusers 0.40 / Transformers stack,
+including the checkpoint's extra CLIP `position_ids` buffer (the loader skips
+non-state keys). The cached tree is 6,945,302,591 bytes. A second process reused
+it without conversion and loaded the FP8 pipeline in 7 seconds. All three test
+PNGs retained the official model id and requested settings, not the cache path.
+GPU samples and their quality limits are recorded in `verified.md`.
+
 ## The prompting guide
 
 **Every profile carries a `guide`**: `prompt` and `size` prose for the ?

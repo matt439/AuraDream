@@ -40,6 +40,15 @@ def no_hub(monkeypatch):
         raise RuntimeError(f"the tests do not reach the Hub ({model_id}/{filename})")
 
     monkeypatch.setattr(loading, "hub_file", refuse)
+    # Single-file conversion has its own downloads. Tests exercising that
+    # path replace these too; a missed stub must never pull real weights.
+    import huggingface_hub
+
+    def refuse_download(*args, **kwargs):
+        raise RuntimeError("the tests do not download model files")
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", refuse_download)
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", refuse_download)
 
 
 @pytest.fixture

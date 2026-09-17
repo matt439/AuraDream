@@ -1,7 +1,7 @@
 # Local Diffusion
 
 Run open text-to-image checkpoints locally - **FLUX.1 Krea [dev]**, **Krea 2
-Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine - up to
+Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Illustrious - up to
 4 megapixels on a single consumer GPU. FastAPI + diffusers backend, vanilla-JS
 frontend, SQLite gallery. FLUX is the default because its repo is click-through
 gated; Turbo needs approval first.
@@ -14,7 +14,8 @@ gated; Turbo needs approval first.
 - NVIDIA GPU, **16 GB VRAM minimum** (float8 path). 24 GB+ can run `LOCAL_DIFFUSION_QUANT=none`.
 - Free disk varies by checkpoint: FLUX.1 Krea [dev] is 32 GiB (transformer
   23.8 GB, T5 9.5 GB), Krea 2 Turbo 34 GiB, and Animagine's Diffusers
-  components total about 6.5 GiB. The WSL Nunchaku Lite re-uploads are far
+  components total about 6.5 GiB. Illustrious needs about 14 GB for its source
+  checkpoint and converted component tree. The WSL Nunchaku Lite re-uploads are far
   smaller.
 - Python 3.13 and [`uv`](https://docs.astral.sh/uv/).
 
@@ -30,8 +31,9 @@ the index and drops the digests; re-pin the same way.
 
 The Krea checkpoints, FLUX.1 Krea [dev] and FLUX.1 [dev] are **gated**
 HuggingFace repos; the four FLUX.2 [klein] repos, FLUX.1 [schnell], Z-Image
-Turbo, Qwen-Image, ERNIE-Image Turbo and Animagine XL 4.0 are open and need no
-login (Apache 2.0 except Animagine's Open RAIL++-M; klein is the cheapest thing
+Turbo, Qwen-Image, ERNIE-Image Turbo, Animagine XL 4.0 and Illustrious XL v2.0
+are open and need no login (Apache 2.0 except Animagine's Open RAIL++-M and
+Illustrious's CreativeML OpenRAIL-M; klein is the cheapest thing
 here to try first - 4 steps, ~3 GiB peak). For the gated ones, log in first:
 
 ```powershell
@@ -311,6 +313,8 @@ uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
 node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
 uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-xl-4.0
 node tools/browser.mjs tools/smoke-animagine.json # tag guide, defaults, size range and disabled Mu
+uv run python tools/fake_server.py --port 7867 --model OnomaAIResearch/Illustrious-XL-v2.0
+node tools/browser.mjs tools/smoke-illustrious.json # hybrid prompting, native size range and disabled Mu
 uv run python tools/fake_server.py --port 7867 --fresh
 node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
 ```
@@ -712,6 +716,7 @@ invented. In brief:
 | Qwen-Image | Dense caption in colour/shape/texture/quantity/text terms; append ", Ultra HD, 4K, cinematic composition."; True CFG 4 with a negative prompt | Qwen2.5-VL, 512 | Trained to 1328x1328; the README's shapes are 1.5-1.8 MP |
 | ERNIE-Image Turbo | Expand a short prompt, then review its detailed Chinese paragraph and local English translation | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
 | Animagine XL 4.0 Opt | Danbooru tags: person count, character and series, rating, subject/pose/scene, then quality tags; use its negative prompt | CLIP + CLIP, 77 tokens | Trained at 1024x1024; nine recommended shapes around 1 MP |
+| Illustrious XL v2.0-STABLE | Tags or natural-language descriptions | CLIP + CLIP, 77 tokens | Native 1-2.25 MP documented; up to 4 MP with some loss |
 
 ## Defaults by checkpoint
 
@@ -730,6 +735,7 @@ Applied automatically; see `backend/model_defaults.py`.
 | Qwen-Image | 50 | 1.0 (ignored; True CFG 4) | — |
 | ERNIE-Image Turbo | 8 | 1.0 | — |
 | Animagine XL 4.0 Opt | 28 | 5.0 | — |
+| Illustrious XL v2.0-STABLE | 28 | 5.0 | — |
 
 A negative prompt roughly doubles generation time, because it adds a second
 forward pass per step. On Krea 2 it takes effect above CFG 0, on Krea 2 Raw
@@ -833,6 +839,39 @@ The pipeline interface and dry-run are covered automatically, and a user run
 on this card loaded the weights and produced good images. Its exact quantizer
 and offload mode were not recorded, so speed, VRAM and fp8 behavior remain
 unmeasured.
+
+Illustrious XL v2.0-STABLE (`OnomaAIResearch/Illustrious-XL-v2.0`) is also
+available in the start-up menu, or directly:
+
+```powershell
+uv run python -m backend.main --model OnomaAIResearch/Illustrious-XL-v2.0
+```
+
+The [official repository](https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0)
+publishes a single 6.94 GB checkpoint. On first load the app downloads it and
+converts it on CPU into a cached Diffusers tree, then uses the normal
+FP8/int8/bfloat16 loading and offload path. Allow about **14 GB of disk space**
+for the original and converted weights. The tree lives under
+`$HF_HOME/local-diffusion/converted` (normally
+`~/.cache/huggingface/local-diffusion/converted`); later loads reuse it.
+The official model id remains in status, the database and PNG metadata.
+Checkpoint and SDXL configuration revisions are pinned in
+`backend/backends/single_file.py`; no SDXL base weights are downloaded.
+
+Its [authors' report](https://arxiv.org/html/2409.19946v1) supports tags
+and natural language, and documents native 1-2.25 MP, with some loss up to
+4 MP. The direct 2048x2048 illustration is a v1.0 family example, not a
+v2.0-STABLE measurement. The app starts at 28 steps and CFG 5, within the
+authors' >20-step / CFG 5-7.5 guidance, and fixes Euler Ancestral in the
+converted tree. Mu and reference-image input are unavailable; there is no
+Nunchaku build for this entry. The guide permits natural language without
+applying Animagine's tag validation or special-tag vocabulary.
+
+Verified on the RTX 5080 with FP8 and model offload: one 28-step/CFG-5 image
+at 1024x1024 took 15 s, 1536x1536 took 18 s, and 2048x2048 took 35 s. The
+1536 natural-language sample included its requested subject; the 2048 sample
+omitted it. These are runtime checks, not a promise of equal quality at 4 MP.
+See `docs/verified.md` for settings and remaining measurement gaps.
 
 ## Output
 
