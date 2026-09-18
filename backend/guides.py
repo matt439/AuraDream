@@ -391,6 +391,8 @@ ILLUSTRIOUS_GUIDE = {
         "This SDXL pipeline has two CLIP encoders, each limited to 77 tokens; "
         "keep the important details early. Autocomplete and the chips check "
         "Danbooru's tag index through the dataset's August 2024 cutoff.\n"
+        "The rating slot takes Danbooru's own rating names - general, sensitive, "
+        "questionable or explicit; the report's prompts use general. "
         "End a tag prompt with one quality tier (good quality, best quality or "
         "masterpiece) and optionally one year modifier (recent or newest). "
         "masterpiece, newest is a practical starting tail, not an official fixed "
@@ -409,10 +411,14 @@ ILLUSTRIOUS_GUIDE = {
     ),
     "pixels": (1.0, 2.25),
     "pixels_word": "documented",
-    # Report figure 3's explicit prompt. The helper uses only the paper's own
+    # Report figure 3's explicit prompt. The helper uses the paper's own
     # ordering and tables; Animagine's suffix and negative prompt do not belong
-    # to this checkpoint. A single free-form sentence remains outside chip
-    # validation because this profile explicitly supports natural language.
+    # to this checkpoint. The Rating group is Danbooru's four rating names -
+    # the post field the captions were built from, which the tag index does
+    # not carry (they exist there only as deprecated, empty placeholders), so
+    # nothing but a local group can accept them. The report itself writes only
+    # `general`. A single free-form sentence remains outside chip validation
+    # because this profile explicitly supports natural language.
     "examples": ["1boy, doctor, masterpiece, looking at viewer"],
     "tag_helper": {
         "order": [
@@ -426,6 +432,11 @@ ILLUSTRIOUS_GUIDE = {
         ],
         "groups": [
             {"label": "Person count", "tags": ["1girl", "1boy"], "exclusive": True},
+            {
+                "label": "Rating",
+                "tags": ["general", "sensitive", "questionable", "explicit"],
+                "exclusive": True,
+            },
             {
                 "label": "Quality",
                 "tags": [

@@ -1292,10 +1292,19 @@ every Illustrious version as tag-based and gives its caption order: person
 count, character, rating, general tags, artist, quality and year. The shared
 Danbooru autocomplete and chip editor therefore apply to Illustrious too, with
 the archived v2.0 card's `2024-08` dataset update represented by an inclusive
-`2024-08-31` vocabulary cutoff. The picker exposes only terms written in the
-report: `1girl`/`1boy` from its example prompts, the six quality tiers in table
-3 and the five year modifiers in table 4. Animagine's rating set, quality
-suffix, numeric `year {n}` form and negative prompt are not copied over. Because
+`2024-08-31` vocabulary cutoff. The picker exposes the terms written in the
+report - `1girl`/`1boy` from its example prompts, the six quality tiers in table
+3 and the five year modifiers in table 4 - plus a Rating group holding
+Danbooru's four rating names, `general`, `sensitive`, `questionable` and
+`explicit`. That group exists because the rating slot cannot be filled any
+other way: a Danbooru rating is a post field, not a tag, so the index carries
+those words only as deprecated, empty placeholders that autocomplete drops and
+validation refuses, and a local group is the one path that accepts them. The
+report itself writes only `general` (its example prompts, and its note that
+`general` in the prompt is a simple safety control); the other three are the
+dataset's vocabulary, not the authors', and the Prompt hint says so. Animagine's
+`safe`/`nsfw` spelling, quality suffix, numeric `year {n}` form and negative
+prompt are not copied over. Because
 Illustrious also supports natural language, spellcheck remains enabled and a
 single sentence is not rendered as one unknown tag chip; comma-separated tag
 prompts get the complete editor. The example menu uses the report's explicit

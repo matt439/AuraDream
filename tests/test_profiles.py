@@ -161,6 +161,7 @@ def test_illustrious_has_hybrid_prompting_and_a_native_not_maximum_size_range():
     assert "August 2024 cutoff" in hints_for(model)["prompt"]
     assert "masterpiece, newest" in hints_for(model)["prompt"]
     assert "not an official fixed suffix" in hints_for(model)["prompt"]
+    assert "general, sensitive, questionable or explicit" in hints_for(model)["prompt"]
     assert "Start empty" in hints_for(model)["prompt"]
     assert "worst quality, bad quality, lowres" in hints_for(model)["prompt"]
     assert "not an author recipe" in hints_for(model)["prompt"]
@@ -175,6 +176,10 @@ def test_illustrious_has_hybrid_prompting_and_a_native_not_maximum_size_range():
     ]
     groups = {group.label: group for group in helper.groups}
     assert groups["Person count"].tags == ["1girl", "1boy"]
+    # Danbooru's rating names are a post field, not index tags, so the remote
+    # lookup can never accept them; the local group is the only path in.
+    assert groups["Rating"].tags == ["general", "sensitive", "questionable", "explicit"]
+    assert groups["Rating"].exclusive
     assert groups["Quality"].tags == [
         "worst quality", "bad quality", "average quality", "good quality",
         "best quality", "masterpiece",
