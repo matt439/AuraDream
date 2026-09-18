@@ -356,6 +356,12 @@
         <b>mu:none</b> is the images that ran with no shift at all — not the same as
         <b>mu:0</b>.</span></span>
       <label class="check"><input type="checkbox" id="fav-only"> Favorites</label>
+      <!-- Off, the gallery is the running checkpoint's images: steps, CFG and
+           mu are the checkpoint's, so another one's are settings that cannot
+           be reused. The count is what the filter would add. -->
+      <label class="check" id="all-models-label"
+        title="Include images made on other checkpoints. Their steps, CFG and mu are not this checkpoint's, and Re-render refuses them"><input
+        type="checkbox" id="all-models"> All models<span id="other-models"></span></label>
       <!-- Shown while a filter narrows the gallery: renders what it matches
            again at the panel's size, one cell per image, same seeds. -->
       <button class="ghost small" id="btn-rerender" hidden

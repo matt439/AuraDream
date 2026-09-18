@@ -763,12 +763,13 @@ UTC date, which is the wrong one for anything made in the evening.
 ## Re-render
 
 **`POST /api/rerender` is the third producer of cells**, beside
-`/api/generate` and `/api/grid`: the gallery's own filter (search plus the
-Favorites flag, taken server-side because the browser holds one page) at
-another size, one cell per record with the record's prompt, negative
-prompt, steps, CFG, mu and seed, oldest first. It calls `check_budget()`,
-refuses more than `max_grid_images` matches by count rather than truncating,
-refuses records from another checkpoint (steps/CFG/mu are the checkpoint's),
+`/api/generate` and `/api/grid`: the gallery's own filter (search, the
+Favorites flag and the checkpoint scope, taken server-side because the
+browser holds one page) at another size, one cell per record with the
+record's prompt, negative prompt, steps, CFG, mu and seed, oldest first. It
+calls `check_budget()`, refuses more than `max_grid_images` matches by count
+rather than truncating, refuses records from another checkpoint (steps/CFG/mu
+are the checkpoint's - only `all_models` lets one into the selection),
 prunes with `completed_cells` like a resume and 409s when nothing is left.
 Same seed at another shape is a *new sample* - the latents are drawn at the
 requested size - which the README says out loud.
@@ -782,7 +783,8 @@ was being skipped, leaving galleries of hundreds. The star already existed
 as the gesture made while looking (`F` in the lightbox), it is
 non-destructive, and it scales with what is kept rather than what was made;
 so the page offers `GET`/`DELETE /api/gallery/unstarred?search=` - the
-search box read through `strict_scope`, plus `favorite = 0` - which is
+search box read through `strict_scope`, plus `favorite = 0`, plus the
+gallery's checkpoint scope unless `all_models=true` - which is
 `clear --where ... --keep-favorites` over HTTP, and shares `delete_matching`
 with it. Rows and their files only: no orphan sweep and no vacuum, for the
 reason the CLI's `--where` path has none.
@@ -837,6 +839,65 @@ plus the sheet) and the second into a banner under the panel when nothing
 is live, gated to a job finished within 24 h and announced once per job
 per browser (`localStorage`, every access in try/catch).
 
+## The gallery is the running checkpoint's
+
+**`GET /api/gallery` is scoped to `settings.model_id` unless `all_models=true`**,
+and so are `GET /api/runs`, `GET`/`DELETE /api/gallery/unstarred` and
+`POST /api/rerender` - every route that reads "the gallery's filter". The
+page's All models tick, beside Favorites and unpersisted like it, is the one
+switch. Steps, CFG and mu are the checkpoint's, so under a gallery that has
+seen three checkpoints the grid was mostly settings that could not be reused,
+each under a Reuse button that warned, and the working set - this checkpoint's
+images - had to be found with a `model:` term remembered every visit.
+
+The default is the *server's* rather than a `model:` term the page adds for
+two reasons. The page learns the checkpoint from `/api/status`, and
+`describe()` reads CUDA memory, which behind a cold load answers minutes
+late - a client-side scope would paint every checkpoint's images first and
+hide them later, or show nothing until the load ended. And `model:` is a
+LIKE substring, on purpose (`model:flux` for the family), where the scope
+has to be exact: a full id matches every longer id that extends it, and
+`krea/Krea-2-Turbo` is one suffix away from a catalogue entry that a
+substring scope would show under it. So `storage.list_images` takes
+`model_id` as a predicate of its own, kept out of the `where` list the FTS
+fallback rewrites, and `main._model_scope` turns the flag into
+`settings.model_id` or None.
+
+**`other_models` is on every page.** `list_images` answers a third number:
+how many rows the *rest* of the filter matches on other checkpoints, one
+more `COUNT(*)` over the same predicates with the scope inverted, taken
+after the FTS fallback has settled so it counts under the same text
+predicate the page did. The tick reads `All models (+40)` from it, and it
+is what tells "this run made nothing" from "this run was made on the other
+model": a `run:` typed or picked for a run from another checkpoint shows an
+empty grid under the scope, and the tick beside it saying `+96` is the whole
+explanation. 0 once the tick is on.
+
+**Delete unstarred takes the scope because the grid does.** Its dialog
+counts server-side, and with the scope on the grid and off the count, an
+empty box would have confirmed "delete 405 unstarred images in the gallery"
+against a screen showing 40 - the wrong-scope hazard the typed-back number
+exists to catch, built into the number itself. `matching_preview` and
+`delete_matching` take `model_id` as one more exact predicate, and the
+dialog names the scope from the server's own `models` list
+(`... in the gallery (Krea-2-Turbo only)`). Re-render's refusal of another
+checkpoint's records stays, now reachable only with All models on; the
+Runs picker follows the tick because a run picked from it opens as a sheet,
+and a run the grid would not show is an empty one.
+
+`status.js` re-asks for the gallery and the runs when `model_id` *changes*
+between status polls with the tick off: the scope is server-side, so a
+server restarted under another checkpoint while the page stayed open would
+otherwise keep showing the old one's images. The first answer is not a
+change - the page loaded under this checkpoint's scope already. The
+`tools/fake_server.py` gallery plants two images under a checkpoint it is
+not claiming, one starred, so `tools/smoke.json` can watch the tick reveal
+them, the badge count them, the Runs picker follow and the dialog name the
+scope; `.gallery-head`'s search box has a 140px flex basis for the same
+change, because a row break is decided from each item's basis before
+anything shrinks and the tick otherwise pushed Delete unstarred onto a
+second row at laptop width.
+
 ## Paging by id
 
 The gallery pages **by id, not by offset**: `GET /api/gallery?before=<id>`
@@ -874,7 +935,9 @@ SQL predicates (`seed:42`, `cfg:<=0.5`, `steps:8-12`, `mu:none`, `model:flux`,
 `run:ab12cd`, `job:ab12cd`) and only what is left goes to the FTS index, so a prompt that
 happens to contain a colon still searches for itself. `mu:none` is `IS NULL` -
 no shift at all is a different image from `mu:0`, and SQL matches NULL with
-neither.
+neither. `model:` is a substring by design, for the family; the running
+checkpoint's scope over the gallery is a separate, exact predicate (above),
+not a term the page writes into the box.
 
 ## The contact sheet
 

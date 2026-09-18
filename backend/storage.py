@@ -527,13 +527,25 @@ def list_images(
     search: str | None = None,
     favorites_only: bool = False,
     before: int | None = None,
-) -> tuple[list[ImageRecord], int]:
-    """One page of the gallery and the total the filters match.
+    model_id: str | None = None,
+) -> tuple[list[ImageRecord], int, int]:
+    """One page of the gallery, the total the filters match, and what a
+    checkpoint scope left out.
 
     `before` pages by id rather than by offset - see `_page`. The two compose,
     but a client wants one or the other: the browser carries the last id it
     was shown, and `offset` stays for anyone scripting against the API.
+
+    `model_id` narrows the page to one checkpoint's images, exactly - the
+    search box's `model:` is a substring, and `model:flux` is both FLUX.1
+    checkpoints - and the third number is how many rows the *other* filters
+    match on other checkpoints: the badge for the switch that shows them,
+    and the difference between "this run made nothing" and "this run was
+    made on the other model". 0 when unscoped.
     """
+    # The scope stays out of `where`: the fallback below swaps the *last*
+    # predicate, and the count of what the scope hides needs the rest alone.
+    scope = "model_id = ?" if model_id else ""
     where: list[str] = []
     params: list = []
     if favorites_only:
@@ -550,11 +562,16 @@ def list_images(
         # The search predicate is appended last; the fallback relies on that.
         where.append("id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
         params.append(" ".join(f'"{t}"' for t in text.split()))
-    clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    def clause_for(head: str) -> tuple[str, list]:
+        parts = [head, *where] if head else where
+        return (f"WHERE {' AND '.join(parts)}" if parts else ""), (
+            [model_id, *params] if head else list(params)
+        )
 
     with _session() as conn:
         try:
-            total, rows = _page(conn, clause, params, limit, offset, before)
+            total, rows = _page(conn, *clause_for(scope), limit, offset, before)
         except sqlite3.OperationalError:
             if not text:
                 raise
@@ -566,9 +583,14 @@ def list_images(
             terms = text.split()
             where[-1:] = [r"prompt LIKE ? ESCAPE '\'"] * len(terms)
             params[-1:] = [f"%{like_escape(t)}%" for t in terms]
-            clause = f"WHERE {' AND '.join(where)}" if where else ""
-            total, rows = _page(conn, clause, params, limit, offset, before)
-    return [_row_to_record(r) for r in rows], total
+            total, rows = _page(conn, *clause_for(scope), limit, offset, before)
+        others = 0
+        if model_id:
+            other_clause, other_params = clause_for("model_id <> ?")
+            others = conn.execute(
+                f"SELECT COUNT(*) FROM images {other_clause}", other_params
+            ).fetchone()[0]
+    return [_row_to_record(r) for r in rows], total, others
 
 
 def completed_cells(
@@ -636,15 +658,20 @@ def completed_cells(
     return keys
 
 
-def matching_preview(search: str | None) -> dict[str, Any]:
+def matching_preview(search: str | None, model_id: str | None = None) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
     checkpoints a substring term (`job:`, `model:`) actually matched.
 
     An empty scope is the whole gallery - the browser's Delete unstarred asks
     with the search box blank - so the "a filter is required" refusal is the
-    CLI's, at its own prompt.
+    CLI's, at its own prompt. `model_id` is the gallery's checkpoint scope,
+    exact, and the preview has to take it because the delete does: a count
+    over images the page is not showing is the wrong number to confirm.
     """
     filters, params = strict_scope(search)
+    if model_id:
+        filters.append("model_id = ?")
+        params.append(model_id)
     clause = f"WHERE {' AND '.join(filters)}" if filters else ""
     with _session() as conn:
         records, favorites = conn.execute(
@@ -676,7 +703,10 @@ class SelectionChanged(Exception):
 
 
 def delete_matching(
-    search: str | None, keep_favorites: bool = False, expected: int | None = None
+    search: str | None,
+    keep_favorites: bool = False,
+    expected: int | None = None,
+    model_id: str | None = None,
 ) -> dict[str, Any]:
     """Delete the rows a strict scope selects, and their files - nothing else.
 
@@ -690,11 +720,15 @@ def delete_matching(
     means every unstarred image - where a delete with no scope at all is
     refused. No orphan sweep: a filtered clear that also removed every
     untracked PNG would be a new all-or-nothing hazard inside the feature
-    meant to remove one.
+    meant to remove one. `model_id` is the gallery's checkpoint scope, the
+    same exact predicate `matching_preview` counted under.
     """
     filters, params = strict_scope(search)
     if keep_favorites:
         filters.append("favorite = 0")
+    if model_id:
+        filters.append("model_id = ?")
+        params.append(model_id)
     if not filters:
         raise ValueError("a filter is required; the whole gallery is `clear` without --where")
     where = " AND ".join(filters)
@@ -888,7 +922,7 @@ def keep_rates(
     ]
 
 
-def runs(limit: int = 20) -> list[RunSummary]:
+def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
     """The gallery grouped by run, the most recently written first.
 
     What `GET /api/runs` serves and the Runs picker lists: the night's output
@@ -896,19 +930,22 @@ def runs(limit: int = 20) -> list[RunSummary]:
     before runs had an id are not a run and are left out. Size, checkpoint and
     quantizer are constant within a run - `run_id` hashes them - so they are
     read off the oldest image along with its prompt and its seed, which is the
-    base seed the grid was started from.
+    base seed the grid was started from. `model_id` keeps the list to one
+    checkpoint's runs, as the gallery it is a table of contents for is kept.
     """
+    scope = "AND model_id = ?" if model_id else ""
+    scope_params = (model_id,) if model_id else ()
     with _session() as conn:
         groups = conn.execute(
-            """SELECT run_id, COUNT(*) AS images, SUM(favorite) AS favorites,
+            f"""SELECT run_id, COUNT(*) AS images, SUM(favorite) AS favorites,
                       COUNT(DISTINCT prompt) AS prompts, COUNT(DISTINCT job_id) AS jobs,
                       COUNT(content_hash) AS hashed,
                       COUNT(DISTINCT content_hash) AS distinct_hashes,
                       MIN(id) AS first_id, MAX(id) AS last_id,
                       MIN(created_at) AS started_at, MAX(created_at) AS finished_at
-               FROM images WHERE run_id IS NOT NULL
+               FROM images WHERE run_id IS NOT NULL {scope}
                GROUP BY run_id ORDER BY last_id DESC LIMIT ?""",
-            (limit,),
+            (*scope_params, limit),
         ).fetchall()
         firsts: dict[int, sqlite3.Row] = {}
         if groups:

@@ -32,6 +32,7 @@ function loadGallery() {
   if (!sheetMode && last) params.set('before', last.id);
   if (els.search.value.trim()) params.set('search', els.search.value.trim());
   if (els.favOnly.checked) params.set('favorites', 'true');
+  if (els.allModels.checked) params.set('all_models', 'true');
   els.more.disabled = true;
   els.more.textContent = 'Loading…';
   els.lbNext.disabled = true;
@@ -41,6 +42,10 @@ function loadGallery() {
       if (epoch !== galleryEpoch) return;  // superseded by a reset
       total = page.total;
       els.count.textContent = total ? `(${total})` : '';
+      // What the tick would add: the same filter's matches on other
+      // checkpoints, so a run made on the other model reads as "+12" on the
+      // tick rather than as an empty grid. 0 once it is on.
+      els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
       syncRerender();
       syncDeleteUnstarred();
       // Keyset paging cannot repeat a row; the guard stays for a stream that
@@ -272,6 +277,7 @@ async function deleteUnstarred() {
   const search = els.search.value.trim();
   const params = new URLSearchParams();
   if (search) params.set('search', search);
+  if (els.allModels.checked) params.set('all_models', 'true');
   let found;
   try {
     found = await api(`/api/gallery/unstarred?${params}`);
@@ -279,7 +285,11 @@ async function deleteUnstarred() {
     showError(err.message);
     return;
   }
-  const scope = search ? `matching "${search}"` : 'in the gallery';
+  // The checkpoint scope is part of what is confirmed: with All models off
+  // the sweep stops at this checkpoint's images, and the dialog says so by
+  // the server's own name for it.
+  const only = els.allModels.checked ? '' : (found.models[0] ?? loadedModel ?? '').split('/').pop();
+  const scope = (search ? `matching "${search}"` : 'in the gallery') + (only ? ` (${only} only)` : '');
   if (!found.unstarred) {
     showError(`Nothing to delete: every image ${scope} is starred.`, true);
     return;

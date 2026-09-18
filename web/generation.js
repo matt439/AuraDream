@@ -203,14 +203,16 @@ async function togglePause() {
 
 function generate() { return startJob('/api/generate', collect()); }
 
-// The gallery's current selection - the search box and the Favorites tick -
-// rendered again at the panel's size. Taken server-side, since the browser
-// holds only the page it has scrolled to; the count in the button is the
-// server's total for the filter, so it is also the confirmation.
+// The gallery's current selection - the search box, the Favorites tick and
+// the checkpoint scope - rendered again at the panel's size. Taken
+// server-side, since the browser holds only the page it has scrolled to; the
+// count in the button is the server's total for the filter, so it is also
+// the confirmation.
 function rerenderSelection() {
   return startJob('/api/rerender', {
     search: els.search.value.trim() || null,
     favorites: els.favOnly.checked,
+    all_models: els.allModels.checked,
     width: +els.width.value,
     height: +els.height.value,
   });

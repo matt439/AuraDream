@@ -221,6 +221,13 @@ Frontend and CLI:
   `--model/--quant/--offload` to `os.environ` before importing
   `backend.config`, as `launch.configure()` does for the server; both take the
   flags from `launch.add_model_arguments`.
+- The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
+  `GET`/`DELETE /api/gallery/unstarred` and `POST /api/rerender` scope to
+  `settings.model_id` (`main._model_scope`, an exact predicate, never the
+  `model:` LIKE) unless `all_models=true`; the page's All models tick is the
+  one switch, unpersisted like Favorites, and `GalleryPage.other_models` is
+  what the same filter matches elsewhere. Delete unstarred takes the scope
+  because its count must be the grid's.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
   day, `mu:none` is `IS NULL`, and `search.strict_scope` is the reading for
   `clear --where`, `keep_rates` and the gallery's Delete unstarred

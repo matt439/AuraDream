@@ -464,17 +464,32 @@ def test_a_selection_can_be_rendered_again_at_another_size(client, fake, store):
     assert client.post("/api/rerender", json={"width": 2736, "height": 2736}).status_code == 422
 
 
-def test_a_rerender_refuses_another_checkpoints_records(client, store):
+def test_a_rerender_refuses_another_checkpoints_records(client, fake, store):
     # Steps, CFG and mu are checkpoint-specific; rendering FLUX's 28 / 3.5 on
-    # Turbo would record a broken image under Turbo.
+    # Turbo would record a broken image under Turbo. The gallery's scope keeps
+    # the other checkpoint's row out of the selection, so the refusal is only
+    # reachable once All models has let it in.
     store.save_image(
         Image.new("RGB", (256, 256)),
         GenerateRequest(prompt="x", width=256, height=256),
         seed=1, duration_ms=1, model_id="somebody/else",
     )
-    response = client.post("/api/rerender", json={"width": 512, "height": 512, "favorites": False})
+    selection = {"width": 512, "height": 512, "favorites": False}
+    assert client.post("/api/rerender", json=selection).status_code == 404
+    response = client.post("/api/rerender", json={**selection, "all_models": True})
     assert response.status_code == 422
     assert "somebody/else" in response.json()["detail"] and "model:" in response.json()["detail"]
+    # With one of this checkpoint's own beside it, the scoped selection is
+    # that one alone, and the other row never reaches the pipeline.
+    store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="mine", width=256, height=256),
+        seed=2, duration_ms=1, model_id=settings.model_id,
+    )
+    accepted = client.post("/api/rerender", json=selection)
+    assert accepted.status_code == 200, accepted.text
+    done = stream_job(client, accepted.json()["job_id"])[-1]
+    assert [r.prompt for r in fake.requests] == ["mine"] and len(done["images"]) == 1
 
 
 def test_finished_jobs_are_listed_on_request_with_their_outcome(client, fake):
@@ -502,7 +517,7 @@ def test_the_gallery_pages_by_id_and_knows_when_it_is_done(client, store):
         store.save_image(
             Image.new("RGB", (16, 16)),
             GenerateRequest(prompt="x", width=256, height=256),
-            seed=seed, duration_ms=1, model_id="m",
+            seed=seed, duration_ms=1, model_id=settings.model_id,
         )
     first = client.get("/api/gallery?limit=2").json()
     assert [r["seed"] for r in first["items"]] == [4, 3]

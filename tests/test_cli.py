@@ -76,7 +76,7 @@ def test_a_cli_sweep_writes_the_seeds_the_server_would(cli, store):
     # same six the HTTP path's test asserts for the same request.
     assert generate.main(["a fox", "--seed", "7", "--runs", "3", "--batch", "2", *SIZE, "-q"]) == 0
     assert cli.seeds == [7, 9, 11]
-    items, total = store.list_images()
+    items, total, _ = store.list_images()
     assert sorted(r.seed for r in items) == [7, 8, 9, 10, 11, 12]
     assert len({r.job_id for r in items}) == 1
     assert len({r.run_id for r in items}) == 1 and items[0].run_id

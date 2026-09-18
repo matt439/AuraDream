@@ -517,7 +517,12 @@ button { font: inherit; cursor: pointer; }
 .gallery-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .gallery-head h2 { font-size: 15px; margin: 0; font-weight: 600; }
 #gallery-count { color: var(--muted); font-weight: 400; font-size: 13px; }
-.gallery-head input[type="search"] { max-width: 240px; margin-left: auto; }
+/* The row break is decided from each item's flex basis before anything
+   shrinks, so the search box starts at 140px - the bar stays one row on a
+   laptop - and grows back to 240px wherever the row has the room. */
+.gallery-head input[type="search"] {
+  flex: 1 1 140px; min-width: 140px; max-width: 240px; margin-left: auto;
+}
 .gallery-head .runs {
   background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
   border-radius: 6px; padding: 5px 6px; font: inherit; font-size: 12px; max-width: 300px;

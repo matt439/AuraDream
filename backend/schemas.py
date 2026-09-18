@@ -320,6 +320,11 @@ class RerenderRequest(BaseModel):
 
     search: str | None = Field(default=None, max_length=2000)
     favorites: bool = True
+    # The gallery's third filter: off, the selection is this checkpoint's
+    # images alone, as the grid shows them; on, another checkpoint's records
+    # are selected too and refused below, since their steps and CFG are not
+    # this checkpoint's.
+    all_models: bool = False
     width: int = Field(ge=256, le=settings.max_side)
     height: int = Field(ge=256, le=settings.max_side)
 
@@ -449,6 +454,11 @@ class GalleryPage(BaseModel):
     # the server fetched one row past the page to know - where `offset < total`
     # is not, once rows have landed at the top since the first page.
     has_more: bool = False
+    # Rows the same filters match on other checkpoints, left out because the
+    # page is scoped to the running one: the number on the All models tick,
+    # and what tells "this run made nothing" from "this run was made on the
+    # other model". 0 when `all_models` is on.
+    other_models: int = 0
 
 
 class UnstarredPreview(BaseModel):

@@ -581,6 +581,18 @@ a lighthouse      anything left over searches the prompt
 `date:` is a local day, not a UTC one: an overnight run crosses midnight in
 every timezone, and the day you mean is the one on your calendar.
 
+The gallery shows the images made on the checkpoint the server is running,
+and nothing else, until you tick **All models** beside Favorites. Steps, CFG
+and mu are the checkpoint's, so a picture from another one is a set of
+settings you cannot reuse under a Reuse button that warns; hiding them is
+the default, not a filter you have to remember. The tick says what it would
+add - `All models (+40)` - counted under the same search and Favorites, so a
+run picked or typed that was made on the other model reads as forty hidden
+rather than as an empty grid. It is not remembered across a reload, and the
+Runs picker, Re-render and Delete unstarred all follow it: with it off, none
+of them can reach an image the grid is not showing. Scripts get the same
+default from `GET /api/gallery` and pass `all_models=true` for everything.
+
 Every image records a hash of its *pixels* (16 hex digits of a sha256, in the
 row and in the PNG), which is the one thing the table never knew before:
 anything about what came out. So "did the mu axis change anything" is a
@@ -595,8 +607,9 @@ tick narrows the gallery: it renders everything the filter matches again at
 the size set in the panel, one cell per image with its own prompt, steps, CFG,
 mu and seed, as one job. Star the winners of a 1 MP night, tick Favorites, pick
 4 MP, click. Cells already rendered at that size are skipped, so it can be
-resumed like a grid, and a selection made on another checkpoint is refused
-rather than run with the wrong steps and CFG (`model:` narrows it). Be honest
+resumed like a grid, and a selection made on another checkpoint - which
+only All models lets in - is refused rather than run with the wrong steps
+and CFG (untick it, or let `model:` narrow the selection). Be honest
 with yourself about what comes back: the pipeline draws its noise at the new
 shape, so the same seed at 4 MP is a new sample - the prompt and the settings
 carry over, the exact picture does not.
@@ -605,8 +618,10 @@ carry over, the exact picture does not.
 night: a run makes hundreds and earns a few stars, and the gesture you want
 is "keep these", not "not this one" two hundred times. It removes every
 image the filter matches that is not starred - `run:ab12cd` for the night,
-the box empty for the whole gallery - after a dialog that shows the count,
-what stays and a few of the prompts, and asks for the count typed back: the
+the box empty for the whole gallery, or for this checkpoint's part of it
+unless All models is ticked, which the dialog says - after a dialog that
+shows the count, what stays and a few of the prompts, and asks for the count
+typed back: the
 mistake it guards against is the wrong *scope*, a run you have not looked
 at yet, and the number is what gives that away. The delete is pinned to
 the number, so images a running job lands while the dialog is open are

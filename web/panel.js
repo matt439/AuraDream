@@ -198,7 +198,11 @@ function dismissLastRun() {
 // out as a sheet.
 async function loadRuns() {
   let runs;
-  try { runs = await api('/api/runs?limit=20'); } catch { return; }
+  // Under the gallery's scope: a run picked here opens as a sheet, and a run
+  // the grid would not show is an empty one.
+  const params = new URLSearchParams({ limit: 20 });
+  if (els.allModels.checked) params.set('all_models', 'true');
+  try { runs = await api(`/api/runs?${params}`); } catch { return; }
   els.runList.innerHTML = '';
   els.runList.append(new Option(runs.length ? 'Runs…' : 'No runs yet', ''));
   for (const run of runs) {

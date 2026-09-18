@@ -48,6 +48,7 @@ const els = {
   gridRun: $('btn-grid'),
   error: $('error'), viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
+  allModels: $('all-models'), otherModels: $('other-models'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'),
   orientation: $('btn-orientation'), sizeHint: $('size-hint'),
   gridResume: $('grid-resume'),

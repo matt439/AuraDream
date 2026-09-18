@@ -196,6 +196,8 @@ els.cfg.oninput = () => { own('cfg'); syncCfg(); };
 els.lora.onchange = () => { syncConditioning(); schedulePreview(); };
 els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
 els.favOnly.onchange = resetGallery;
+// The Runs picker is the gallery's table of contents, so it follows the scope.
+els.allModels.onchange = () => { resetGallery(); loadRuns(); };
 els.sheetBtn.onclick = () => setSheet(!sheetMode);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;

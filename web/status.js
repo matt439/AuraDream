@@ -106,7 +106,14 @@ async function refreshStatus() {
     const s = await api('/api/status');
     const previousModel = loadedModel;
     loadedModel = s.model_id ?? loadedModel;
-    if (loadedModel !== previousModel) syncReuseButtons();
+    if (loadedModel !== previousModel) {
+      syncReuseButtons();
+      // The gallery is scoped to the checkpoint server-side, so a server
+      // restarted under another one while this page stayed open is showing
+      // the old one's images: ask again. The first answer is not a change -
+      // the page loaded under this checkpoint's scope already.
+      if (previousModel && !els.allModels.checked) { resetGallery(); loadRuns(); }
+    }
     applyDefaults(s.defaults);
     // After the profile, so a remembered value set on this checkpoint wins
     // over it and a value set on another is left to the profile.

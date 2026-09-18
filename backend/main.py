@@ -596,11 +596,12 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     # One past the ceiling, so an oversize selection is refused by count rather
     # than silently truncated to the newest N.
-    records, total = await asyncio.to_thread(
+    records, total, _ = await asyncio.to_thread(
         storage.list_images,
         limit=settings.max_grid_images + 1,
         search=request.search,
         favorites_only=request.favorites,
+        model_id=_model_scope(request.all_models),
     )
     if not records:
         raise HTTPException(status_code=404, detail="nothing in the gallery matches that selection")
@@ -611,15 +612,16 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
         )
     # Steps, CFG and mu are checkpoint-specific - Turbo's 8 / 0 / 1.15 on FLUX
     # is a broken image recorded under FLUX - so a record from another
-    # checkpoint is refused rather than rendered wrong. `model:` in the search
-    # narrows the selection to one.
+    # checkpoint is refused rather than rendered wrong. Only reachable with
+    # `all_models`: the scope keeps them out of the selection otherwise.
     foreign = sorted({r.model_id for r in records if r.model_id != settings.model_id})
     if foreign:
         raise HTTPException(
             status_code=422,
             detail=f"{sum(r.model_id != settings.model_id for r in records)} of the selected images "
             f"were made on {', '.join(foreign)}; the server is running {settings.model_id}, whose "
-            f"steps, CFG and mu differ. Add model:{settings.model_id.split('/')[-1]} to the search.",
+            f"steps, CFG and mu differ. Untick All models, or add "
+            f"model:{settings.model_id.split('/')[-1]} to the search.",
         )
     # Oldest first, so the re-render lands in the order the originals did.
     cells = [
@@ -728,9 +730,15 @@ async def active_jobs(include_finished: bool = False) -> list[dict]:
 
 
 @app.get("/api/runs", response_model=list[RunSummary])
-async def recent_runs(limit: int = Query(20, ge=1, le=200)) -> list[RunSummary]:
-    """The gallery grouped by run, newest first - one line per night's grid."""
-    return await asyncio.to_thread(storage.runs, limit)
+async def recent_runs(
+    limit: int = Query(20, ge=1, le=200), all_models: bool = False
+) -> list[RunSummary]:
+    """The gallery grouped by run, newest first - one line per night's grid.
+
+    Scoped like the gallery it lists: this checkpoint's runs unless asked for
+    every one, so picking a run never opens an empty sheet.
+    """
+    return await asyncio.to_thread(storage.runs, limit, _model_scope(all_models))
 
 
 @app.get("/api/jobs/{job_id}")
@@ -800,6 +808,12 @@ async def gallery(
     before: int | None = Query(None, ge=1),
     search: str | None = None,
     favorites: bool = False,
+    # The running checkpoint's images unless asked for every checkpoint's:
+    # steps, CFG and mu are the checkpoint's, so another one's pictures are
+    # settings that cannot be reused, under a Reuse button that warns. The
+    # default is the server's because the page cannot know the checkpoint
+    # before /api/status answers, which behind a load is minutes.
+    all_models: bool = False,
 ) -> GalleryPage:
     # Every storage call runs off the loop, like describe() and step_cost_ms
     # above: SQLite's busy handler waits up to 15 s, and a write that lands
@@ -808,18 +822,24 @@ async def gallery(
     try:
         # One row past the page, so `has_more` is a fact rather than a guess
         # from a total that keeps growing while the page is read.
-        items, total = await asyncio.to_thread(
+        items, total, others = await asyncio.to_thread(
             storage.list_images,
             limit=limit + 1,
             offset=offset,
             search=search,
             favorites_only=favorites,
             before=before,
+            model_id=_model_scope(all_models),
         )
     except ValueError as exc:  # a filter term that is not a number
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return GalleryPage(
-        items=items[:limit], total=total, limit=limit, offset=offset, has_more=len(items) > limit
+        items=items[:limit],
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=len(items) > limit,
+        other_models=others,
     )
 
 
@@ -854,6 +874,17 @@ async def delete(image_id: int) -> dict:
     return {"deleted": image_id}
 
 
+def _model_scope(all_models: bool) -> str | None:
+    """The gallery's checkpoint scope: the configured id, or None for every one.
+
+    `settings.model_id` rather than the loaded pipeline's, so the scope holds
+    before the first load and the page's first paint is already the right
+    checkpoint's. Exact, where the search box's `model:` is a substring -
+    `model:flux` is both FLUX.1 checkpoints.
+    """
+    return None if all_models else settings.model_id
+
+
 def _unstarred_scope(search: str | None) -> str | None:
     """The search box as a strict scope, or a 422 that says why it is not one.
 
@@ -872,14 +903,22 @@ def _unstarred_scope(search: str | None) -> str | None:
 
 
 @app.get("/api/gallery/unstarred", response_model=UnstarredPreview)
-async def unstarred(search: str | None = None) -> UnstarredPreview:
-    """What "Delete unstarred" would remove under this filter, and what it would keep."""
-    found = await asyncio.to_thread(storage.matching_preview, _unstarred_scope(search))
+async def unstarred(search: str | None = None, all_models: bool = False) -> UnstarredPreview:
+    """What "Delete unstarred" would remove under this filter, and what it would keep.
+
+    Under the gallery's checkpoint scope too, since the delete is: the count
+    the dialog shows has to be the count of what the page is showing.
+    """
+    found = await asyncio.to_thread(
+        storage.matching_preview, _unstarred_scope(search), _model_scope(all_models)
+    )
     return UnstarredPreview(unstarred=found["records"] - found["favorites"], **found)
 
 
 @app.delete("/api/gallery/unstarred")
-async def delete_unstarred(search: str | None = None, expected: int = Query(ge=0)) -> dict:
+async def delete_unstarred(
+    search: str | None = None, expected: int = Query(ge=0), all_models: bool = False
+) -> dict:
     """The gallery's Delete unstarred: `clear --where <search> --keep-favorites` over HTTP.
 
     The one bulk delete the page offers, and the inverse of the per-card one:
@@ -889,12 +928,18 @@ async def delete_unstarred(search: str | None = None, expected: int = Query(ge=0
     - and `expected` is the count the dialog showed, so a sweep that landed
     more unstarred images while it was open is answered 409 rather than
     swept up on a number confirmed for fewer. Rows and their files only: no
-    orphan sweep and no vacuum, which stay the CLI's.
+    orphan sweep and no vacuum, which stay the CLI's. The checkpoint scope
+    is the page's: with All models off, another checkpoint's images are not
+    on the screen, and a sweep must not reach what is not on the screen.
     """
     scope = _unstarred_scope(search)
     try:
         result = await asyncio.to_thread(
-            storage.delete_matching, scope, keep_favorites=True, expected=expected
+            storage.delete_matching,
+            scope,
+            keep_favorites=True,
+            expected=expected,
+            model_id=_model_scope(all_models),
         )
     except storage.SelectionChanged as exc:
         raise HTTPException(

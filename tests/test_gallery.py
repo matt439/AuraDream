@@ -76,7 +76,7 @@ def test_the_hash_is_of_the_pixels_and_finds_the_same_picture(store):
     assert a.content_hash == b.content_hash != c.content_hash
     with Image.open(store.settings.outputs_dir / a.filename) as png:
         assert store.content_hash(png) == a.content_hash  # the file round-trips it
-    found, total = store.list_images(search=f"hash:{a.content_hash}")
+    found, total, _ = store.list_images(search=f"hash:{a.content_hash}")
     assert total == 2 and {r.seed for r in found} == {1, 2}
     # A run of identical images says so in one number.
     d = store.save_image(plain, GenerateRequest(prompt="x", width=256, height=256), seed=4,
@@ -142,7 +142,7 @@ def test_favorites_survive_the_like_fallback(store):
     _add(store, 'a 26" monitor in a shop')
     _add(store, "something else entirely")
 
-    items, total = store.list_images(favorites_only=True, search='26"')
+    items, total, _ = store.list_images(favorites_only=True, search='26"')
     assert [i.prompt for i in items] == ['a 26" monitor on a desk']
     assert total == 1  # the badge counted every match before, favorites or not
 
@@ -151,7 +151,7 @@ def test_the_fallback_matches_tokens_in_any_order(store):
     # FTS ANDs tokens wherever they fall; a single LIKE over the raw string
     # demanded them contiguous and returned nothing here.
     _add(store, 'a figure, 6" tall, on a shelf')
-    items, total = store.list_images(search='a 6" figure')
+    items, total, _ = store.list_images(search='a 6" figure')
     assert total == 1
     assert items[0].prompt.startswith("a figure")
 
@@ -160,7 +160,7 @@ def test_the_fallback_does_not_treat_wildcards_as_wildcards(store):
     _add(store, 'shot at 50%" power')
     # Only matches if the % in the search is read as LIKE's "anything" wildcard.
     _add(store, 'shot at 50 percent power"')
-    items, total = store.list_images(search='50%"')
+    items, total, _ = store.list_images(search='50%"')
     assert total == 1
     assert items[0].prompt.startswith('shot at 50%"')
 
@@ -168,7 +168,7 @@ def test_the_fallback_does_not_treat_wildcards_as_wildcards(store):
 def test_search_still_uses_fts_when_it_can(store):
     _add(store, "a fox walking in the snow")
     _add(store, "a fox asleep")
-    items, total = store.list_images(search="fox snow")
+    items, total, _ = store.list_images(search="fox snow")
     assert total == 1
     assert items[0].prompt.endswith("snow")
 
@@ -176,8 +176,8 @@ def test_search_still_uses_fts_when_it_can(store):
 def test_paging_agrees_with_the_count(store):
     for i in range(5):
         _add(store, f"image {i}", favorite=i % 2 == 0)
-    first, total = store.list_images(limit=2, offset=0, favorites_only=True)
-    second, total_again = store.list_images(limit=2, offset=2, favorites_only=True)
+    first, total, _ = store.list_images(limit=2, offset=0, favorites_only=True)
+    second, total_again, _ = store.list_images(limit=2, offset=2, favorites_only=True)
     assert total == total_again == 3
     assert len(first) == 2 and len(second) == 1
     assert {r.id for r in first}.isdisjoint({r.id for r in second})
@@ -189,17 +189,17 @@ def test_paging_by_id_survives_an_insert_between_pages(store):
     # page one came back as the head of page two and three older images were
     # never shown. An id is stable under inserts and deletes alike.
     ids = [_add(store, f"image {i}").id for i in range(6)]
-    first, _ = store.list_images(limit=2)
+    first, _, _ = store.list_images(limit=2)
     assert [r.id for r in first] == [ids[5], ids[4]]
     _add(store, "landed since")
     _add(store, "and another")
-    second, total = store.list_images(limit=2, before=first[-1].id)
+    second, total, _ = store.list_images(limit=2, before=first[-1].id)
     assert [r.id for r in second] == [ids[3], ids[2]]
     assert total == 8  # the badge counts everything the filters match
     # The anchor composes with the filters rather than replacing them.
     store.set_favorite(ids[1], True)
     store.set_favorite(ids[5], True)
-    starred, _ = store.list_images(limit=5, favorites_only=True, before=ids[5])
+    starred, _, _ = store.list_images(limit=5, favorites_only=True, before=ids[5])
     assert [r.id for r in starred] == [ids[1]]
 
 

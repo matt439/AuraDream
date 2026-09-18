@@ -83,7 +83,7 @@ def test_a_database_from_before_job_ids_gains_the_column(tmp_path, monkeypatch):
 
     record = keep(storage, job_id="abc123", run_id="run001")
     assert (record.job_id, record.run_id) == ("abc123", "run001")
-    items, total = storage.list_images()
+    items, total, _ = storage.list_images()
     assert total == 1 and (items[0].job_id, items[0].run_id) == ("abc123", "run001")
 
 

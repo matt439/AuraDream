@@ -205,6 +205,27 @@ def main() -> int:
 
     app_main.tag_vocabulary = FakeTagVocabulary()
 
+    # Two images made on another checkpoint, so the gallery's scope has
+    # something to hide: by default the page shows the claimed checkpoint's
+    # images alone, and the All models tick reads "(+2)". Planted once per
+    # throwaway gallery, under the id the fake is not claiming, and one of
+    # them starred so Delete unstarred has a keeper it must not count.
+    from backend import storage
+    from backend.schemas import GenerateRequest
+
+    storage.init_db()
+    other = "krea/Krea-2-Turbo" if args.model != "krea/Krea-2-Turbo" else "Tongyi-MAI/Z-Image-Turbo"
+    if storage.list_images(limit=1, model_id=other)[1] == 0:
+        request = GenerateRequest(prompt="a lighthouse on another checkpoint", width=256, height=256)
+        planted = [
+            storage.save_image(
+                fake._draw(request, seed)[0], request, seed=seed, duration_ms=1,
+                model_id=other, job_id="planted", run_id="planted",
+            )
+            for seed in (1, 2)
+        ]
+        storage.set_favorite(planted[0].id, True)
+
     import uvicorn
 
     print(f"fake server on http://127.0.0.1:{args.port}  gallery: {data}", flush=True)

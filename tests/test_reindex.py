@@ -36,7 +36,7 @@ def test_reindex_in_place_rebuilds_the_rows(store, monkeypatch, capsys):
     assert "Would index 2 file(s)" in out and "1 without metadata" in out or "without metadata" in out
 
     assert reindex.main([]) == 0
-    items, total = store.list_images()
+    items, total, _ = store.list_images()
     assert total == 2
     by_seed = {r.seed: r for r in items}
     back = by_seed[7]
@@ -83,7 +83,7 @@ def test_reindex_copies_another_gallery_in(store, monkeypatch, tmp_path):
     assert (store.settings.outputs_dir / made[0].filename).exists()
     assert (store.settings.outputs_dir / made[0].filename.replace(".png", ".webp")).exists()
     assert list(store.settings.outputs_dir.glob("*.part")) == []
-    items, total = store.list_images()
+    items, total, _ = store.list_images()
     assert total == 1 and items[0].prompt == "from wsl"
     # Its source is untouched.
     assert (elsewhere / made[0].filename).exists()
@@ -119,7 +119,7 @@ def test_database_merge_preserves_db_fields_and_remaps_references(
         "unresolved_references": 0,
     }
 
-    items, total = store.list_images(limit=10)
+    items, total, _ = store.list_images(limit=10)
     assert total == 3
     by_prompt = {item.prompt: item for item in items}
     imported_reference = by_prompt["source reference"]
