@@ -383,43 +383,67 @@ ANIMAGINE_GUIDE = {
         "negative_prompt": _ANIMAGINE_NEGATIVE,
     },
 }
+# The negative prompt on both of the v0.1 model card's examples, verbatim. The
+# v2.0 release example runs the short form `worst quality, bad quality`.
+_ILLUSTRIOUS_NEGATIVE = (
+    "worst quality, comic, multiple views, bad quality, low quality, lowres, "
+    "displeasing, very displeasing, bad anatomy, bad hands, scan artifacts, "
+    "monochrome, greyscale, signature, twitter username, jpeg artifacts, 2koma, "
+    "4koma, guro, extra digits, fewer digits"
+)
 ILLUSTRIOUS_GUIDE = {
     "prompt": (
-        "Illustrious XL v2.0 was trained with Danbooru-style tags and multi-level "
-        "captions, and supports both tag lists and natural-language descriptions. "
-        "Describe the subject, action and scene, or use comma-separated tags. "
-        "This SDXL pipeline has two CLIP encoders, each limited to 77 tokens; "
-        "keep the important details early. Autocomplete and the chips check "
-        "Danbooru's tag index through the dataset's August 2024 cutoff.\n"
+        "Illustrious XL v2.0 is an untuned base: its authors say it has no "
+        "default style and was not trained with an aesthetic set, so a bare "
+        "prompt renders the dataset's average look. Give it a style - a Danbooru "
+        "artist tag (autocomplete labels them artist) or style tags - and one "
+        "composition tag (upper body, cowboy shot, portrait or full body); the "
+        "authors warn that stacking conflicting composition tags confuses it.\n"
+        "Tag lists and natural-language descriptions both work; their "
+        "natural-language example ends its prose with tags (persona 3, "
+        "masterpiece). The training order is person count, character, rating, "
+        "general tags, artist, quality, year. The two CLIP encoders each stop at "
+        "77 tokens, prose included, so keep it short or put the quality tags "
+        "early. Autocomplete and the chips check Danbooru's tag index through "
+        "the dataset's August 2024 cutoff.\n"
         "The rating slot takes Danbooru's own rating names - general, sensitive, "
         "questionable or explicit; the report's prompts use general. "
         "End a tag prompt with one quality tier (good quality, best quality or "
         "masterpiece) and optionally one year modifier (recent or newest). "
         "masterpiece, newest is a practical starting tail, not an official fixed "
         "suffix.\n"
-        "The authors publish no recommended v2.0 negative prompt. Start empty. "
-        "If recurring defects need suppression, an experimental baseline is: "
-        "worst quality, bad quality, lowres, bad anatomy, bad hands, extra digits, "
-        "text, watermark, signature. This is app guidance, not an author recipe. "
-        "A negative prompt applies at CFG > 1."
+        "Every example the authors publish carries a negative prompt. Their "
+        f"v0.1 card runs both of its examples with: {_ILLUSTRIOUS_NEGATIVE}. "
+        "Their v2.0 release example uses worst quality, bad quality. The Tags "
+        "menu fills the long one. A negative prompt applies at CFG > 1."
     ),
     "size": (
         "The authors document native 1-2.25 MP generation for Illustrious v1.0+, "
-        "trained through 1536x1536. Up to 4 MP is possible with some loss; "
+        "trained through 1536x1536; v2.0 supports 512-1536 sides in multiples of "
+        "32 at up to 10:1, and their v2.0 release example is 1824x1248 at 28 "
+        "steps and CFG 6.5. Up to 4 MP is possible with some loss; "
         "their report also shows a direct 2048x2048 v1.0 result without upscaling. "
         "Start at 1-2.25 MP; the 4 MP preset is available but outside that native range."
     ),
     "pixels": (1.0, 2.25),
     "pixels_word": "documented",
-    # Report figure 3's explicit prompt. The helper uses the paper's own
-    # ordering and tables; Animagine's suffix and negative prompt do not belong
-    # to this checkpoint. The Rating group is Danbooru's four rating names -
-    # the post field the captions were built from, which the tag index does
-    # not carry (they exist there only as deprecated, empty placeholders), so
-    # nothing but a local group can accept them. The report itself writes only
-    # `general`. A single free-form sentence remains outside chip validation
-    # because this profile explicitly supports natural language.
-    "examples": ["1boy, doctor, masterpiece, looking at viewer"],
+    # Report figure 3's explicit prompt, the v0.1 card's second example and the
+    # v2.0 release post's scenery prompt; the post's natural-language example
+    # runs past 77 tokens, so it is quoted in the hint and not offered whole.
+    # The helper uses the paper's own ordering and tables; Animagine's suffix
+    # does not belong to this checkpoint. The Rating group is Danbooru's four
+    # rating names - the post field the captions were built from, which the
+    # tag index does not carry (they exist there only as deprecated, empty
+    # placeholders), so nothing but a local group can accept them. The report
+    # itself writes only `general`. A single free-form sentence remains outside
+    # chip validation because this profile explicitly supports natural language.
+    "examples": [
+        "1boy, doctor, masterpiece, looking at viewer",
+        "1girl, extremely dark, black theme, silhouette, rim lighting, black, "
+        "looking at viewer, low contrast, masterpiece",
+        "analogous colors, scenery, forest, masterpiece, black theme, dark, "
+        "no lighting, night, black background",
+    ],
     "tag_helper": {
         "order": [
             "Person count",
@@ -460,6 +484,7 @@ ILLUSTRIOUS_GUIDE = {
         # use the inclusive end of that documented month as the lookup boundary.
         "vocabulary_cutoff": "2024-08-31",
         "hybrid_prompt": True,
+        "negative_prompt": _ILLUSTRIOUS_NEGATIVE,
     },
 }
 FALLBACK_GUIDE = {

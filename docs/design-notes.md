@@ -1284,9 +1284,29 @@ about 14 GB total. Only the loader's local settings copy sees the cache path:
 status, profiles, cell keys and PNGs retain the official repo id.
 
 The app's starting values are 28 steps and CFG 5. The report gives >20 steps
-and CFG 5-7.5, not a unique default. Its v1.0+ native range is 1-2.25 MP, and
+and CFG 5-7.5, not a unique default; the authors' v2.0 release example runs
+28 steps at CFG 6.5 (written as 2.5 under DPM++ 2S Ancestral CFG++, with
+their own note that it "should be 6.5 in recent implementations"), and the
+control hints quote both. Its v1.0+ native range is 1-2.25 MP, and
 up to 4 MP carries some loss. Figure 19's direct 2048x2048 result is explicitly
-v1.0; it is family context, not evidence that STABLE was measured here.
+v1.0; it is family context, not evidence that STABLE was measured here. The
+release post adds that v2.0 "supports 512~1536 resolutions", trained to 1:10
+in multiples of 32, and then renders its own example at 1824x1248; the size
+hint reports both as written.
+
+The prompt hint opens with what the authors say the checkpoint is, because
+that is why a bare prompt disappoints next to Animagine: the v0.1 card calls
+the family "untuned BASE model ... not tuned for aesthetics / preferences"
+and notes "The model does not have any default style. This is intended
+behavior for the base model"; the v2.0 release post repeats it - "not
+trained with aesthetic set", released "'untuned'" as a "merging / training"
+base - and the report says the non-fine-tuned release is deliberate, with
+styles associated with artist names. Animagine 4.0 is an aesthetic-tuned
+finetune whose score tags pull on training it received; Illustrious has
+nothing for such a tail to pull on, so the hint sends the style to an
+artist or style tag (the Danbooru lookup already labels the artist category)
+and passes on the v0.1 card's composition advice: one of `upper body`,
+`cowboy shot`, `portrait` or `full body`, and not several conflicting ones.
 The v2.0 examples demonstrate natural language, but the report also describes
 every Illustrious version as tag-based and gives its caption order: person
 count, character, rating, general tags, artist, quality and year. The shared
@@ -1302,22 +1322,59 @@ those words only as deprecated, empty placeholders that autocomplete drops and
 validation refuses, and a local group is the one path that accepts them. The
 report itself writes only `general` (its example prompts, and its note that
 `general` in the prompt is a simple safety control); the other three are the
-dataset's vocabulary, not the authors', and the Prompt hint says so. Animagine's
-`safe`/`nsfw` spelling, quality suffix, numeric `year {n}` form and negative
-prompt are not copied over. Because
-Illustrious also supports natural language, spellcheck remains enabled and a
-single sentence is not rendered as one unknown tag chip; comma-separated tag
-prompts get the complete editor. The example menu uses the report's explicit
-figure 3 prompt. At the user's request, the Prompt hint also turns the documented
-quality-then-year order into a clearly qualified practical starting tail,
-`masterpiece, newest`. It says to start with an empty negative prompt, then gives
-a short defect-suppression baseline only as experimental app guidance, explicitly
-not as an author recipe; this keeps the source boundary visible in the UI.
+dataset's vocabulary, not the authors', and the Prompt hint says so (the
+release post also lists `sfw`, `nsfw`, `r-18` and similar as working
+alternatives; the hint does not repeat them). Animagine's `safe`/`nsfw`
+spelling, quality suffix and numeric `year {n}` form are not copied over.
+Because Illustrious also supports natural language, spellcheck remains
+enabled and a single sentence is not rendered as one unknown tag chip;
+comma-separated tag prompts get the complete editor. At the user's request,
+the Prompt hint also turns the documented quality-then-year order into a
+clearly qualified practical starting tail, `masterpiece, newest`; it stays
+out of a Finish-with button because no author prompt ends that way (theirs
+end in `masterpiece` alone, or put it mid-prompt).
 
-Sources checked 2026-09-17:
+The negative prompt was first left empty, on the reading that the authors had
+published none for v2.0, with an app-invented baseline offered as
+"experimental". That reading was wrong, and it hurt: the v0.1 model card runs
+both of its examples with one negative prompt, verbatim `worst quality,
+comic, multiple views, bad quality, low quality, lowres, displeasing, very
+displeasing, bad anatomy, bad hands, scan artifacts, monochrome, greyscale,
+signature, twitter username, jpeg artifacts, 2koma, 4koma, guro, extra
+digits, fewer digits` (the second example appends `jaggy lines, unclear`),
+and the v2.0 release example runs `worst quality, bad quality`. Since
+2026-09-19 the helper's `negative_prompt` is the v0.1 card's list, so the
+Tags menu offers the same "Use the recommended negative prompt" button
+Animagine has, and the hint names both forms and their source rather than
+an app recipe. The `displeasing`/`very displeasing` pair in it is the only
+trace of aesthetic modifiers in any author text; the report says such
+modifiers were used in later epochs and defers details, so no positive
+aesthetic tag is suggested. The example menu now holds three author prompts
+that fit in 77 tokens: the report's figure 3 prompt, the v0.1 card's
+silhouette prompt and the release post's forest scenery; the post's
+natural-language example is ~200 tokens and would be truncated silently, so
+the hint quotes only how it ends (`persona 3, masterpiece`, tags after prose).
+Community guides read for this - SeaArt's release-day user guide, which
+fronts `masterpiece, best quality, amazing quality`, adds `very aesthetic,
+newest`, puts CFG's sweet spot at 4.5-5 and says the model follows negatives
+as closely as positives - are not authors' text and contribute nothing to
+the hint. Their "Clip Skip 2" is diffusers' SDXL default already
+(`hidden_states[-2]` in `encode_prompt`), so nothing needed changing there.
+
+Sources checked 2026-09-17 and 2026-09-19:
 - Official release/card and files: <https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0>.
+  Its "ILXL Image Generation User Guide" link (`illustrious-xl.ai/updates/21`)
+  and the site's blog and updates pages answered 404 on 2026-09-19.
 - Archived v2.0 card with the dataset-through-2024-08 statement:
   <https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0/blob/f9885efc7cbd20d0291dbbb0d5fe810ea143911f/README.md>.
+- The authors' v2.0 release post on Civitai - untuned base, natural-language
+  example, 512-1536 and 1:10 in multiples of 32, the 1824x1248 example with
+  its negative prompt and settings, the rating tokens - read through
+  CivArchive because Civitai itself refuses this region:
+  <https://civarchive.com/models/1369089?modelVersionId=1546777>.
+- The v0.1 card: sampler, steps and CFG, the quality tiers, the composition
+  advice, "no default style", and both example prompt/negative pairs:
+  <https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0>.
 - Authors' report, B.2 settings, B.1.4 language, figure 19 size, figure 3 prompt:
   <https://arxiv.org/html/2409.19946v1>.
 - Diffusers single-file API: <https://huggingface.co/docs/diffusers/api/loaders/single_file>;
@@ -1331,7 +1388,10 @@ including the checkpoint's extra CLIP `position_ids` buffer (the loader skips
 non-state keys). The cached tree is 6,945,302,591 bytes. A second process reused
 it without conversion and loaded the FP8 pipeline in 7 seconds. All three test
 PNGs retained the official model id and requested settings, not the cache path.
-GPU samples and their quality limits are recorded in `verified.md`.
+GPU samples and their quality limits are recorded in `verified.md`. The
+2026-09-19 prompting rewrite passed 335 Python tests and the 19-check
+Illustrious smoke on the fake server; no GPU sample was taken for it, since
+it changes text and one button, not the pipeline.
 
 ## The prompting guide
 

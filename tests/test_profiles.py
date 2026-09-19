@@ -157,20 +157,38 @@ def test_illustrious_has_hybrid_prompting_and_a_native_not_maximum_size_range():
     assert profile["negative_prompt_supported"] and not profile["reference_supported"]
     guide = PromptGuide(**guide_for(model))
     assert guide.pixels == (1.0, 2.25) and guide.pixels_word == "documented"
-    assert "natural-language" in hints_for(model)["prompt"]
-    assert "August 2024 cutoff" in hints_for(model)["prompt"]
-    assert "masterpiece, newest" in hints_for(model)["prompt"]
-    assert "not an official fixed suffix" in hints_for(model)["prompt"]
-    assert "general, sensitive, questionable or explicit" in hints_for(model)["prompt"]
-    assert "Start empty" in hints_for(model)["prompt"]
-    assert "worst quality, bad quality, lowres" in hints_for(model)["prompt"]
-    assert "not an author recipe" in hints_for(model)["prompt"]
+    prompt_hint = hints_for(model)["prompt"]
+    assert "natural-language" in prompt_hint
+    assert "August 2024 cutoff" in prompt_hint
+    assert "masterpiece, newest" in prompt_hint
+    assert "not an official fixed suffix" in prompt_hint
+    assert "general, sensitive, questionable or explicit" in prompt_hint
+    # The base is untuned and styleless by the authors' own account; the hint
+    # says so first, since a bare prompt is why the base looks worse than an
+    # aesthetic-tuned checkpoint with its recommended tags.
+    assert "untuned base" in prompt_hint and "no default style" in prompt_hint
+    assert "artist tag" in prompt_hint
+    assert "upper body, cowboy shot, portrait or full body" in prompt_hint
+    # The negative prompt is the authors': the v0.1 card's, verbatim, and the
+    # v2.0 release example's short form. The old "start empty" and the app's
+    # invented baseline are gone.
+    assert "worst quality, comic, multiple views" in prompt_hint
+    assert "worst quality, bad quality." in prompt_hint
+    assert "Start empty" not in prompt_hint and "not an author recipe" not in prompt_hint
     assert "4 MP" in hints_for(model)["size"]
     assert "2048x2048 v1.0" in hints_for(model)["size"]
+    assert "1824x1248 at 28 steps and CFG 6.5" in hints_for(model)["size"]
+    assert "6.5 in their v2.0 release example" in hints_for(model)["guidance_scale"]
+    assert len(guide.examples) == 3
+    assert guide.examples[0] == "1boy, doctor, masterpiece, looking at viewer"
+    assert all(example.count(",") < 12 for example in guide.examples)
     helper = guide.tag_helper
     assert helper is not None and helper.vocabulary == "danbooru"
     assert helper.vocabulary_cutoff == "2024-08-31" and helper.hybrid_prompt
-    assert helper.recommended_suffix == [] and helper.negative_prompt is None
+    assert helper.recommended_suffix == []
+    assert helper.negative_prompt.startswith("worst quality, comic, multiple views")
+    assert helper.negative_prompt.endswith("extra digits, fewer digits")
+    assert helper.negative_prompt in prompt_hint
     assert helper.order == [
         "Person count", "Character", "Rating", "General", "Artist", "Quality", "Year"
     ]

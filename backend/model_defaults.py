@@ -329,12 +329,14 @@ _PROFILES.append(
             "hints": {
                 "steps": (
                     "Denoising steps. The authors use more than 20 with Euler "
-                    "Ancestral; {steps} is this app's starting point."
+                    "Ancestral, 28 in their v2.0 release example; {steps} is "
+                    "this app's starting point."
                 ),
                 "guidance_scale": (
-                    "Real classifier-free guidance. The authors use CFG 5-7.5; "
-                    "this app starts at {guidance_scale:g}. Above {cfg_threshold:g} "
-                    "the negative prompt applies and adds an uncond pass per step."
+                    "Real classifier-free guidance. The authors use CFG 5-7.5, "
+                    "6.5 in their v2.0 release example; this app starts at "
+                    "{guidance_scale:g}. Above {cfg_threshold:g} the negative "
+                    "prompt applies and adds an uncond pass per step."
                 ),
                 "mu": (
                     "Unavailable: Illustrious uses SDXL's Euler Ancestral noise "

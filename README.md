@@ -697,7 +697,10 @@ Animagine it exposes only the model card's person-count, rating, quality, score
 and year controls, inserts at the prompt caret, finishes with the recommended
 quality suffix, and can fill the recommended negative prompt. For Illustrious
 it uses that model's documented person-count, quality-tier and year-modifier
-terms without borrowing Animagine's recipe. While typing either checkpoint's
+terms and fills the authors' own negative prompt, without borrowing
+Animagine's recipe; its prompting guide says up front that the checkpoint is
+an untuned base with no default style, so the style has to come from an
+artist or style tag. While typing either checkpoint's
 tag prompt, autocomplete comes from Danbooru's live tag index and each
 comma-separated item gets a green recognised, red unknown, or grey unchecked
 chip. Illustrious remains hybrid: spellcheck stays on and a single natural-
@@ -735,7 +738,7 @@ invented. In brief:
 | Qwen-Image | Dense caption in colour/shape/texture/quantity/text terms; append ", Ultra HD, 4K, cinematic composition."; True CFG 4 with a negative prompt | Qwen2.5-VL, 512 | Trained to 1328x1328; the README's shapes are 1.5-1.8 MP |
 | ERNIE-Image Turbo | Expand a short prompt, then review its detailed Chinese paragraph and local English translation | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
 | Animagine XL 4.0 Opt | Danbooru tags: person count, character and series, rating, subject/pose/scene, then quality tags; use its negative prompt | CLIP + CLIP, 77 tokens | Trained at 1024x1024; nine recommended shapes around 1 MP |
-| Illustrious XL v2.0-STABLE | Tags or natural-language descriptions | CLIP + CLIP, 77 tokens | Native 1-2.25 MP documented; up to 4 MP with some loss |
+| Illustrious XL v2.0-STABLE | Tags or natural-language descriptions; an untuned base with no default style, so name an artist or style, one composition tag, and use its negative prompt | CLIP + CLIP, 77 tokens | Native 1-2.25 MP documented; up to 4 MP with some loss |
 
 ## Defaults by checkpoint
 
