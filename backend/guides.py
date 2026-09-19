@@ -253,6 +253,28 @@ Z_IMAGE_GUIDE = {
     "pixels_word": "trained",
     "examples": _Z_IMAGE_EXAMPLES,
 }
+Z_ANIME_GUIDE = {
+    "prompt": (
+        "Describe the character, clothing, pose, setting and lighting in natural "
+        "language. The author favours descriptive sentences over tag lists. "
+        "Use a negative prompt for unwanted features; Base supports it fully. "
+        "Start with 40 steps and CFG 4, as in the author's Diffusers example. "
+        "This is the experimental Base model, not the 4-step or 8-step variant."
+    ),
+    "size": (
+        "The author documents approximately 512x512 through 2048x2048 at any "
+        "aspect ratio. Suggested sizes include 1024x1024, 1024x1536 for detailed "
+        "portraits and 1920x1088 for wide scenes. Start at 1-1.5 MP, then try "
+        "2 MP; the 4 MP ceiling is an author claim, not a local quality guarantee."
+    ),
+    "pixels": (0.26, 4.2),
+    "pixels_word": "documented",
+    "examples": [
+        "Detailed anime portrait of [character], soft rim lighting, expressive "
+        "eyes with detailed reflections, fine hair strands, clean linework, "
+        "professional anime illustration quality.",
+    ],
+}
 _ERNIE_PROMPT = (
     "A content-rich, detailed visual description in one paragraph - subject, "
     "setting, colours, light, layout - the way the model card's own example "

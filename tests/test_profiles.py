@@ -33,6 +33,7 @@ CASES = [
     ("black-forest-labs/FLUX.1-dev", "FluxPipeline"),
     ("black-forest-labs/FLUX.1-schnell", "FluxPipeline"),
     ("Tongyi-MAI/Z-Image-Turbo", "ZImagePipeline"),
+    ("SeeSee21/Z-Anime", "ZImagePipeline"),
     ("Qwen/Qwen-Image", "QwenImagePipeline"),
     ("baidu/ERNIE-Image-Turbo", "ErnieImagePipeline"),
     ("cagliostrolab/animagine-xl-4.0", "StableDiffusionXLPipeline"),

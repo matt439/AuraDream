@@ -90,6 +90,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "OnomaAIResearch/Illustrious-XL-v2.0",
         "open; single file, converted locally on first load",
     ),
+    Checkpoint(
+        "Z-Anime Base",
+        "SeeSee21/Z-Anime",
+        "open; experimental anime model, natural-language prompts",
+    ),
     # The same pipeline as FLUX.1 Krea; dev is the base the LoRA ecosystem
     # targets, schnell its 4-step Apache-licensed sibling.
     Checkpoint(

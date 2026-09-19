@@ -401,6 +401,38 @@ _Z_IMAGE_MU_HINT = (
 )
 _PROFILES += [
     (
+        "z-anime",
+        {
+            "steps": 40,
+            "guidance_scale": 4.0,
+            "mu": None,
+            "mu_supported": True,
+            "cfg_threshold": 0.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": False,
+            "guide": guides.Z_ANIME_GUIDE,
+            "hints": {
+                "steps": (
+                    "Denoising steps. Z-Anime Base recommends 28-50; {steps} "
+                    "is the author's Diffusers example."
+                ),
+                "guidance_scale": (
+                    "Classifier-free guidance. The author recommends 3-5, with "
+                    "{guidance_scale:g} in the Diffusers example. Above "
+                    "{cfg_threshold:g} the negative prompt applies and adds "
+                    "an uncond pass per step."
+                ),
+                "mu": (
+                    "Leave blank for the supplied FlowMatch Euler scheduler's "
+                    "fixed shift of 6 (mu 1.79). A value here replaces it. "
+                    "The author's ComfyUI Euler Ancestral/beta recommendation "
+                    "is a different sampling setup."
+                ),
+            },
+        },
+    ),
+    (
         "z-image-turbo",
         {
             "steps": 8,

@@ -1,7 +1,7 @@
 # Local Diffusion
 
 Run open text-to-image checkpoints locally - **FLUX.1 Krea [dev]**, **Krea 2
-Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Illustrious - up to
+Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Illustrious, Z-Anime - up to
 4 megapixels on a single consumer GPU. FastAPI + diffusers backend, vanilla-JS
 frontend, SQLite gallery. FLUX is the default because its repo is click-through
 gated; Turbo needs approval first.
@@ -15,7 +15,8 @@ gated; Turbo needs approval first.
 - Free disk varies by checkpoint: FLUX.1 Krea [dev] is 32 GiB (transformer
   23.8 GB, T5 9.5 GB), Krea 2 Turbo 34 GiB, and Animagine's Diffusers
   components total about 6.5 GiB. Illustrious needs about 14 GB for its source
-  checkpoint and converted component tree. The WSL Nunchaku Lite re-uploads are far
+  checkpoint and converted component tree. Z-Anime plus its standard Qwen3
+  encoder is about 20.7 GB (19.3 GiB). The WSL Nunchaku Lite re-uploads are far
   smaller.
 - Python 3.13 and [`uv`](https://docs.astral.sh/uv/).
 
@@ -31,7 +32,7 @@ the index and drops the digests; re-pin the same way.
 
 The Krea checkpoints, FLUX.1 Krea [dev] and FLUX.1 [dev] are **gated**
 HuggingFace repos; the four FLUX.2 [klein] repos, FLUX.1 [schnell], Z-Image
-Turbo, Qwen-Image, ERNIE-Image Turbo, Animagine XL 4.0 and Illustrious XL v2.0
+Turbo, Qwen-Image, ERNIE-Image Turbo, Animagine XL 4.0, Illustrious XL v2.0 and Z-Anime Base
 are open and need no login (Apache 2.0 except Animagine's Open RAIL++-M and
 Illustrious's CreativeML OpenRAIL-M; klein is the cheapest thing
 here to try first - 4 steps, ~3 GiB peak). For the gated ones, log in first:
@@ -90,6 +91,24 @@ variables below:
 uv run python -m backend.main --defaults               # the environment, no questions
 uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8
 ```
+
+For another anime model, choose **Z-Anime Base** in the menu or run:
+
+```powershell
+uv run python -m backend.main --model SeeSee21/Z-Anime --quant fp8 --offload model
+```
+
+Its defaults are 40 steps, CFG 4 and blank Mu. Use descriptive sentences and
+a negative prompt; start at 1-1.5 MP, then try 1920x1088 (the 16:9, 2 MP
+preset). The author's documented ceiling is 2048x2048. This experimental
+Base model uses the supplied Diffusers FlowMatch Euler scheduler (shift 6),
+which differs from the model card's ComfyUI Euler Ancestral/beta setup.
+The first load downloads the pinned `diffusers/` tree and the standard Qwen3
+encoder from the official Z-Image parent into the HF cache. This bypasses
+Z-Anime's incorrectly packaged FP8 encoder; the distilled, GGUF and AIO
+variants are not part of this selection.
+See [the model card](https://huggingface.co/SeeSee21/Z-Anime) and
+[local verification](docs/verified.md).
 
 A run whose stdin is not a terminal - a service, a script - never asks either.
 

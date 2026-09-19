@@ -1,0 +1,18 @@
+[
+  {"navigate": "http://127.0.0.1:7868/"},
+  {"wait": 1200},
+  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "els.steps.value === '40' && els.cfg.value === '4' && els.mu.value === ''"},
+  {"expect": "!els.negative.disabled && !els.mu.disabled && !els.gridMu.disabled && els.trueCfg.disabled"},
+  {"expect": "!tagVocabularyEnabled && els.tagHelper.hidden && els.prompt.spellcheck"},
+  {"expect": "els.promptTip.textContent.includes('natural language') && els.promptTip.textContent.includes('Base')"},
+  {"expect": "els.sizeTip.textContent.includes('1024x1536') && els.sizeTip.textContent.includes('1920x1088')"},
+  {"eval": "els.examplesBtn.click();"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
+  {"eval": "els.examplesMenu.children[0].click();"},
+  {"expect": "els.prompt.value.startsWith('Detailed anime portrait') && collect().steps === 40 && collect().guidance_scale === 4 && collect().mu === null"},
+  {"eval": "els.width.value = '1920'; els.height.value = '1088'; syncSize();"},
+  {"expect": "!els.sizeHint.classList.contains('warn') && collect().width === 1920 && collect().height === 1088"},
+  {"eval": "els.width.value = '2048'; els.height.value = '2048'; syncSize();"},
+  {"expect": "!els.sizeHint.textContent.includes('above the') && els.tiers.lastElementChild.classList.contains('recommended')"}
+]

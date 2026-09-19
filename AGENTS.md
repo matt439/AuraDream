@@ -101,6 +101,17 @@ Model and loader:
   a fixed epsilon/Euler Ancestral scheduler; do not pass pipeline-level
   quantization into `from_single_file` or silently skip the CLIP encoders.
 
+- Z-Anime Base has a pinned nested `diffusers/` tree. `loading.resolve_model`
+  resolves configs before quantization checks and weights after them; both
+  passes use the same revision and keep the official id in settings/metadata.
+  Diffusers 0.40 does not support pipeline-level `subfolder`. Keep the supplied
+  FlowMatch Euler scheduler (shift 6); the card's ComfyUI Euler Ancestral/beta
+  recommendation is a different setup, not a verified equivalent.
+  Its bundled encoder has scaled FP8 tensors without quantization metadata.
+  Skip those weights: `loading.component_overrides` loads the standard Qwen3
+  encoder from pinned `Tongyi-MAI/Z-Image`, using the same Transformers-owned
+  config from `quant_mapping`. Never silently discard the bundled scales.
+
 - App-owned names use Local Diffusion: `LOCAL_DIFFUSION_*`,
   `local-diffusion.db`, `~/local-diffusion`, `local-diffusion.*` browser keys
   and the `local-diffusion` PNG chunk. Keep Krea only in checkpoint/vendor
@@ -298,6 +309,9 @@ tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
 aspects, orientation switch and disabled non-flow Mu controls.
 `smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
 prompting, the native 1-2.25 MP size range, 4 MP warning and disabled Mu.
+`smoke-z-anime.json` uses a Z-Anime-claiming fake on 7868 for Base defaults,
+natural-language prompting, negative guidance, enabled Mu and the documented
+4 MP ceiling.
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
 `sheetRecords`) are reachable from a step's `eval` because the page's scripts

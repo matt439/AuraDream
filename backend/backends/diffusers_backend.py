@@ -104,7 +104,8 @@ class DiffusersBackend(GenerationBackend):
             log.info("loading %s (quant=%s)", settings.model_id, settings.quantization)
             # Single-file catalogue entries are converted once on CPU. Keep
             # the official id in settings, status and saved reproduction data.
-            model_id = single_file.resolve_model(settings.model_id, settings.quantization)
+            source_id = single_file.resolve_model(settings.model_id, settings.quantization)
+            model_id = loading.resolve_model(source_id)
             load_settings = replace(settings, model_id=model_id)
             kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
             quant = loading.quantization_config(load_settings)
@@ -124,6 +125,10 @@ class DiffusersBackend(GenerationBackend):
                 log.info("leaving out %s via %s", ", ".join(sorted(unused)), loader.__name__)
                 kwargs.update(unused)
 
+            # Nested repos download only their component tree, after the
+            # quantizer checks above have had a chance to refuse the pairing.
+            model_id = loading.resolve_model(source_id, weights=True)
+            kwargs.update(loading.component_overrides(settings.model_id, quant))
             pipe = loader.from_pretrained(model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 

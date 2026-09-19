@@ -1393,6 +1393,72 @@ GPU samples and their quality limits are recorded in `verified.md`. The
 Illustrious smoke on the fake server; no GPU sample was taken for it, since
 it changes text and one button, not the pipeline.
 
+## Z-Anime Base: a nested Diffusers tree
+
+`SeeSee21/Z-Anime` is the next anime candidate after Illustrious. The author
+publishes Base, distilled, GGUF and AIO weights in one repository, with the
+Base component tree under `diffusers/`. The card's suggested pipeline-level
+`subfolder="diffusers"` is not implemented by the installed Diffusers 0.40
+`DiffusionPipeline.from_pretrained`/`download`: they still seek a root
+`model_index.json`. Passing the nested local directory works through the
+existing loader and its component-specific quantization path.
+
+`loading.resolve_model` pins revision
+`0f5fb51464638a2f7328a1d74590281e63e1fde2`, downloads only the manifest and
+component/scheduler configs first, then lets the usual quantizer preflight
+run. Only after that succeeds does it materialize the `diffusers/`
+subtree, excluding its incorrectly packaged text-encoder weights (see below).
+Both passes share the revision, so the preflight cannot inspect one
+version and load another. Runtime settings, status, run keys and saved
+metadata retain `SeeSee21/Z-Anime`; ordinary ids and local directories pass
+through unchanged. Nunchaku is refused before weights because the denoiser is
+unquantized, with no catalogue Lite counterpart.
+
+**The supplied encoder is not loadable as declared.** The real first load
+reported 253 unexpected `*.scale` tensors. Inspection of the cached
+`text_encoder/model.safetensors` found 253 FP8 tensors and scalar BF16 scales
+(for example, layer 0's Q projection scale is 0.0013275146484375), but its
+config has no quantization declaration. Transformers drops those scales;
+casting the raw FP8 values to BF16 or applying torchao cannot restore them.
+The initial render run was stopped and is not verification evidence.
+
+The card identifies the default text encoder as standard Z-Image Qwen3-4B,
+the one the model was trained against. `loading.component_overrides` therefore
+loads `Qwen3ForCausalLM` from the official `Tongyi-MAI/Z-Image` parent's
+`text_encoder/`, pinned at `04cc4abb7c5069926f75c9bfde9ef43d49423021`, and
+passes it into the pipeline. It receives the existing Transformers-owned
+`quant_mapping["text_encoder"]`, or BF16 for `none`; the denoiser still uses
+the normal Diffusers-owned config. This does not select the separately
+advertised Engineer V4 alternative. The source encoder weights are excluded
+from new downloads. The corrected combination totals about 20.7 GB (19.3 GiB)
+in the HF cache; a machine that previously downloaded the malformed encoder
+also retains that 4.8 GB until the owner clears it.
+
+The profile uses the author's Diffusers example: 40 steps, CFG 4, Mu blank.
+The real `ZImagePipeline` exposes generator and step callbacks, guides above
+zero, and accepts negative prompts. The guide favours descriptive sentences
+and carries the author's portrait prompt template in Examples. There is no
+Danbooru tag helper. The card documents approximately 512x512 to 2048x2048,
+so the guide says **documented** 0.26-4.2 MP rather than claiming a measured
+training range. Its 1024x1536 and 1920x1088 suggestions are explained in the
+size tooltip; the latter is already the 16:9, 2 MP preset.
+
+The pinned scheduler is `FlowMatchEulerDiscreteScheduler`, static shift 6,
+with beta sigmas and stochastic sampling disabled. Preserve it. The card's
+ComfyUI recommendation (Euler Ancestral/beta) is a different sampling setup;
+no equivalence or quality superiority is claimed. In particular, do not copy
+Z-Image Turbo's shift-3 Mu hint or its 8-step/CFG-0 defaults. Mu remains
+available as an explicit override under the existing flow-schedule rules.
+
+Sources checked 2026-09-19: [author's model card](https://huggingface.co/SeeSee21/Z-Anime),
+[pinned manifest](https://huggingface.co/SeeSee21/Z-Anime/blob/0f5fb51464638a2f7328a1d74590281e63e1fde2/diffusers/model_index.json),
+[pinned scheduler](https://huggingface.co/SeeSee21/Z-Anime/blob/0f5fb51464638a2f7328a1d74590281e63e1fde2/diffusers/scheduler/scheduler_config.json),
+[standard encoder config](https://huggingface.co/Tongyi-MAI/Z-Image/blob/04cc4abb7c5069926f75c9bfde9ef43d49423021/text_encoder/config.json),
+and the installed Diffusers pipeline loader and `ZImagePipeline` source.
+`tests/test_nested_models.py` checks preflight ordering, quantization, tree
+selection, the pinned encoder override and the retained public id; `smoke-z-anime.json` checks the UI on
+port 7868. Card measurements belong in `verified.md`.
+
 ## The prompting guide
 
 **Every profile carries a `guide`**: `prompt` and `size` prose for the ?

@@ -37,6 +37,45 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | Illustrious XL v2.0-STABLE, CFG 5 | fp8, Windows | 1024x1024 | 28 | 15 s | not measured | 2026-09-17 |
 | Illustrious XL v2.0-STABLE, CFG 5 | fp8, Windows | 1536x1536 | 28 | 18 s | not measured | 2026-09-17 |
 | Illustrious XL v2.0-STABLE, CFG 5 | fp8, Windows | 2048x2048 | 28 | 35 s | not measured | 2026-09-17 |
+| Z-Anime Base, CFG 4, first image after cancellation | fp8, Windows | 1024x1024 | 40 | 78.1 s | 10.35 GiB allocated | 2026-09-19 |
+| Z-Anime Base, CFG 4 | fp8, Windows | 1024x1536 | 40 | 128.9 s | 7.25 GiB allocated | 2026-09-19 |
+| Z-Anime Base, CFG 4 | fp8, Windows | 1920x1088 | 40 | 183.1 s | 7.70 GiB allocated | 2026-09-19 |
+| Z-Anime Base, CFG 4 | fp8, Windows | 2048x2048 | 40 | 519.1 s | 9.58 GiB allocated, 13.95 GiB reserved | 2026-09-19 |
+| Z-Anime Base, CFG 4, repeated seed | fp8, Windows | 1024x1024 | 40 | 79.2 s | 6.78 GiB allocated | 2026-09-19 |
+
+Z-Anime uses the pinned nested Base denoiser, its supplied FlowMatch Euler
+scheduler with shift 6 and Mu blank, and the standard Qwen3 text encoder from
+the official Z-Image parent. Its own bundled text encoder contains scaled
+FP8 tensors without quantization metadata, which Transformers ignores; that
+initial validation run was stopped. The corrected component sources and the
+reason for the override are recorded in `design-notes.md`.
+
+The Z-Anime samples use Windows FP8 and model offload, batch 1, seed 12345,
+40 steps, CFG 4 and one natural-language prompt describing an auburn-haired
+adult botanist examining blue flowers in a glass greenhouse at dusk. The
+negative prompt is `blurry, low quality, watermark, extra limbs, extra fingers`.
+The 1 MP, 1.5 MP, 2 MP and 4 MP samples retain the person, navy coat, brown satchel,
+flowers and greenhouse; the framing changes the composition. These
+are individual runtime samples, not a benchmark against Illustrious.
+Times exclude loading and PNG saving, and include live-preview callbacks.
+The 1 MP sample immediately follows a successful first-step cancellation;
+that state differs from the later uninterrupted cells, so its higher peak
+does not establish a reverse relationship between image size and memory.
+The 4 MP image stayed coherent but took 8 minutes 39 seconds. During that
+cell `nvidia-smi` reported about 15,849 MiB occupied of 16,303 MiB, including
+the desktop; the allocator's 13.95 GiB peak reservation leaves little room
+for other GPU applications. Prefer 1.5-2 MP for iteration on this setup.
+The final 1 MP repeat matched the first image's pixels exactly (content hash
+`c427b7fdb6dabc8e`). Cancellation stopped at step 1, and each completed image
+reported all 40 steps and delivered 23 live-preview frames. The pipeline was
+unloaded after the checks; device usage returned to the desktop baseline.
+
+Validation evidence is under
+`%TEMP%/local-diffusion-z-anime-validation-v2/`: `validate.py`,
+`validation.log`, `results.json`, the separate database and `outputs/` PNGs.
+The PNG metadata retains the public model id, FP8, seed and applied settings.
+The production gallery was not used. The full Python suite passes (343 tests),
+and `smoke-z-anime.json` passes all 10 browser checks on the fake backend.
 
 Illustrious's three timings are single CLI samples (including PNG saving),
 batch 1, seed 12345, no negative prompt, with model offload and the converted

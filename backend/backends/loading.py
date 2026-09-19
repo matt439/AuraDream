@@ -13,6 +13,7 @@ import importlib.util
 import json
 import logging
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -48,6 +49,61 @@ QUANTIZABLE_PREFIXES = ("transformer", "unet", "text_encoder")
 UNUSED_COMPONENTS: dict[str, tuple[str, ...]] = {
     "ErnieImagePipeline": ("pe", "pe_tokenizer"),
 }
+
+# Pipeline-level from_pretrained in Diffusers 0.40 does not resolve a
+# subfolder. Materialize just this pinned tree in the Hub cache and hand the
+# ordinary loader its local directory; keep the public id in runtime metadata.
+NESTED_MODELS = {
+    "SeeSee21/Z-Anime": ("0f5fb51464638a2f7328a1d74590281e63e1fde2", "diffusers"),
+}
+# The nested Z-Anime encoder is scaled FP8 without a quantization_config:
+# Transformers silently drops its *.scale tensors. The author identifies the
+# default encoder as standard Z-Image Qwen3-4B. Load that parent's original
+# BF16 component and apply our normal owned Transformers quantization config.
+Z_ANIME_TEXT_ENCODER = {
+    "pretrained_model_name_or_path": "Tongyi-MAI/Z-Image",
+    "revision": "04cc4abb7c5069926f75c9bfde9ef43d49423021",
+    "subfolder": "text_encoder",
+}
+
+
+def resolve_model(model_id: str, *, weights: bool = False) -> str:
+    """Resolve a nested component tree, reading configs before any weights.
+
+    The first pass supplies the manifest and component configs for quantizer
+    checks. Only after those checks pass does load() request the whole tree.
+    Pin both passes to one revision so configs cannot race a weight update.
+    Ordinary Hub ids and explicit local directories pass through unchanged.
+    """
+    source = NESTED_MODELS.get(model_id)
+    if source is None:
+        return model_id
+    from huggingface_hub import snapshot_download
+
+    revision, folder = source
+    patterns = [f"{folder}/*"] if weights else [
+        f"{folder}/model_index.json",
+        f"{folder}/*/config.json",
+        f"{folder}/scheduler/scheduler_config.json",
+    ]
+    log.info("resolving %s/%s (%s)", model_id, folder, "weights" if weights else "configs")
+    options = {"ignore_patterns": [f"{folder}/text_encoder/*"]} if weights and model_id == "SeeSee21/Z-Anime" else {}
+    snapshot = snapshot_download(model_id, revision=revision, allow_patterns=patterns, **options)
+    return str(Path(snapshot) / folder)
+
+
+def component_overrides(model_id: str, quant: Any) -> dict[str, Any]:
+    """Pinned replacements for incorrectly packaged upstream components."""
+    if model_id != "SeeSee21/Z-Anime":
+        return {}
+    import torch
+    from transformers import Qwen3ForCausalLM
+
+    kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
+    if quant is not None:
+        kwargs["quantization_config"] = quant.quant_mapping["text_encoder"]
+    log.info("loading Z-Anime's standard Qwen3 encoder from its Z-Image parent")
+    return {"text_encoder": Qwen3ForCausalLM.from_pretrained(**Z_ANIME_TEXT_ENCODER, **kwargs)}
 
 
 def importable(name: str) -> bool:
