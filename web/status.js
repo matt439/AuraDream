@@ -157,8 +157,13 @@ async function refreshStatus() {
     }
     // The adapter list is a directory read, so it rides on the first status
     // rather than on the 3 s poll: files appear when the user drops one in,
-    // which is a page reload away either way.
-    if (!lorasLoaded) { lorasLoaded = true; void refreshLoras(); }
+    // which is a page reload away either way. Once more when the load lands,
+    // for the fit the live denoiser answers where the configs could not.
+    if (!lorasLoaded || (s.state === 'ready' && !lorasLive)) {
+      lorasLoaded = true;
+      lorasLive = s.state === 'ready';
+      void refreshLoras();
+    }
     if (typeof s.max_grid_images === 'number') sheetPage = s.max_grid_images;
     els.dot.className = `dot ${s.state}`;
     // A way to start - or retry, after a gated-repo 403 - the load without
@@ -185,7 +190,10 @@ async function refreshStatus() {
 
 // The adapters on disk, into the select. The chosen one survives a refresh
 // that still lists it - a name that has gone is dropped rather than sent to a
-// server that would refuse it.
+// server that would refuse it. An adapter for another checkpoint (a `detail`
+// on the entry) is not offered at all: the tooltip names it and says why, so
+// a file dropped into the directory that never shows up is explained rather
+// than missing.
 async function refreshLoras() {
   try {
     const body = await api('/api/loras');
@@ -198,7 +206,9 @@ async function refreshLoras() {
     none.value = '';
     none.textContent = 'none';
     els.lora.append(none);
+    const hidden = [];
     for (const entry of body.loras ?? []) {
+      if (entry.detail) { hidden.push(entry); continue; }
       const option = document.createElement('option');
       option.value = entry.name;
       option.textContent = `${entry.name} (${humanBytes(entry.bytes)})`;
@@ -210,7 +220,12 @@ async function refreshLoras() {
     else if (!(body.loras ?? []).length) {
       els.loraTip.textContent =
         `No adapters found. Drop a .safetensors LoRA into ${body.directory} and reload.`;
-    }
+    } else if (hidden.length) {
+      const all = hidden.length === body.loras.length;
+      els.loraTip.textContent =
+        `${all ? 'Every adapter in the directory is for another checkpoint' : 'Not shown, for another checkpoint'}: `
+        + hidden.map((e) => `${e.name} - ${e.detail}`).join('; ');
+    } else els.loraTip.textContent = loraTipDefault;
     syncConditioning();
   } catch { /* the list is a convenience; the field simply stays empty */ }
 }

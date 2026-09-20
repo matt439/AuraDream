@@ -66,6 +66,36 @@ def _convert(destination: Path) -> None:
     pipe.save_pretrained(destination, safe_serialization=True)
 
 
+def _target() -> tuple[Path, Path, str]:
+    """The converted tree this recipe names, its marker and the recipe text."""
+    recipe = json.dumps(RECIPE, sort_keys=True, indent=2) + "\n"
+    digest = hashlib.sha256(recipe.encode()).hexdigest()[:16]
+    target = cache_root() / f"illustrious-xl-v2.0-stable-{digest}"
+    return target, target / "local-diffusion-conversion.json", recipe
+
+
+def _converted(target: Path, marker: Path, recipe: str) -> bool:
+    return (
+        marker.is_file()
+        and (target / "model_index.json").is_file()
+        and marker.read_text(encoding="utf-8") == recipe
+    )
+
+
+def converted_tree(model_id: str) -> str | None:
+    """The cached tree for a single-file id, or None: never a conversion.
+
+    For the callers that read a checkpoint's configs ahead of the load - the
+    adapter fit check answers the listing at page open - and must not be the
+    thing that starts a 7 GB download and a CPU conversion. The marker is
+    written last, so a read without the lock sees a finished tree or none.
+    """
+    if model_id.lower() != ILLUSTRIOUS_ID.lower():
+        return None
+    target, marker, recipe = _target()
+    return str(target) if _converted(target, marker, recipe) else None
+
+
 def resolve_model(model_id: str, quantization: str) -> str:
     """Return a loadable tree, keeping the caller's public model id unchanged."""
     if model_id.lower() != ILLUSTRIOUS_ID.lower():
@@ -78,18 +108,14 @@ def resolve_model(model_id: str, quantization: str) -> str:
 
     from huggingface_hub.utils import WeakFileLock
 
-    recipe = json.dumps(RECIPE, sort_keys=True, indent=2) + "\n"
-    digest = hashlib.sha256(recipe.encode()).hexdigest()[:16]
-    root = cache_root()
-    target = root / f"illustrious-xl-v2.0-stable-{digest}"
-    marker = target / "local-diffusion-conversion.json"
+    target, marker, recipe = _target()
+    root = target.parent
     root.mkdir(parents=True, exist_ok=True)
     # Server and CLI processes may ask at the same time. Publish only a fully
     # saved tree; a failed conversion leaves no cache hit for the next load.
     with WeakFileLock(root / f"{target.name}.lock"):
-        if marker.is_file() and (target / "model_index.json").is_file():
-            if marker.read_text(encoding="utf-8") == recipe:
-                return str(target)
+        if _converted(target, marker, recipe):
+            return str(target)
         if target.exists():
             raise RuntimeError(f"Incomplete converted model cache; remove {target} and retry.")
         log.info(

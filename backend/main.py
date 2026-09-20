@@ -371,6 +371,25 @@ async def _refuse_unusable_inputs(request: GenerateRequest) -> None:
             loras.path_for(request.lora)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        # And one that is there but for another checkpoint: a FLUX.1 adapter
+        # on Z-Image fails at the first cell, deep in PEFT, naming neither.
+        reason = await asyncio.to_thread(backend.lora_mismatch, request.lora)
+        if reason is not None:
+            raise HTTPException(status_code=422, detail=reason)
+
+
+def _listed_loras() -> list[dict]:
+    """The directory, each adapter carrying why it does not fit, if it does not.
+
+    A `detail` is what the page hides an entry on and shows in the tooltip;
+    its absence means the adapter fits or nothing here could tell. Skipped
+    where no adapter can be applied at all - the reason is the listing's.
+    """
+    found = loras.available()
+    if backend.lora_supported():
+        for entry in found:
+            entry["detail"] = backend.lora_mismatch(entry["name"])
+    return found
 
 
 @app.get("/api/loras")
@@ -381,7 +400,7 @@ async def list_loras() -> dict:
     has, and a directory is the thing they can drop it into without a form.
     """
     return {
-        "loras": await asyncio.to_thread(loras.available),
+        "loras": await asyncio.to_thread(_listed_loras),
         "supported": backend.lora_supported(),
         "detail": backend.lora_unavailable_reason(),
         "directory": str(settings.loras_dir),

@@ -57,6 +57,11 @@ def main() -> int:
     demo = loras / "demo-style.safetensors"
     if not demo.exists():
         demo.write_bytes(b"not a real adapter; the fake backend never loads it")
+    # And one for another checkpoint, which the listing carries with the
+    # reason and the select must not offer.
+    stranger = loras / "other-family.safetensors"
+    if not stranger.exists():
+        stranger.write_bytes(b"not a real adapter; addressed to another denoiser")
     os.environ["LOCAL_DIFFUSION_LORAS_DIR"] = str(loras)
 
     from PIL import Image, ImageDraw
@@ -128,6 +133,10 @@ def main() -> int:
     # multi-GB rewriter. FakeBackend's deterministic sentence makes it clear
     # that the chosen canvas size reached the operation.
     fake.prompt_expander_supported = "ernie-image" in args.model.lower().replace("_", "-")
+    fake.lora_mismatches = {
+        stranger.name: f"{stranger.name} attaches to 494 modules the fake's denoiser "
+        "has not got, such as single_transformer_blocks.0.attn.to_k",
+    }
     app_main.backend = fake
     app_main.jobs = JobManager(fake, app_main.ensure_loaded)
 

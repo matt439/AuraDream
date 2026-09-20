@@ -168,6 +168,13 @@ let referenceIds = [];
 let referenceSupported = false;
 let loraSupported = false;
 let lorasLoaded = false;
+// Whether the adapter list was fetched with the model loaded: the fit check
+// answers from the checkpoint's configs before that and from the live
+// denoiser after, so the list is fetched once more when the load lands.
+let lorasLive = false;
+// The LoRA tooltip as the page shipped it, put back when a refetch has
+// nothing to say over it.
+const loraTipDefault = els.loraTip.textContent;
 // The checkpoint's prompting guide: the pixel range its authors document
 // (megapixels, [low, high], null until a status lands) for the size line's
 // warning, and the example prompts behind the Examples button.

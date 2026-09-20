@@ -111,6 +111,32 @@ def test_the_adapter_listing_is_the_directory(client, fake, lora_dir):
     body = client.get("/api/loras").json()
     assert [entry["name"] for entry in body["loras"]] == ["style.safetensors"]
     assert body["supported"] is True and body["detail"] is None
+    assert body["loras"][0]["detail"] is None
+
+
+def test_an_adapter_for_another_checkpoint_is_listed_with_why_and_refused(client, fake, lora_dir):
+    # The directory is the directory; what does not fit the checkpoint rides
+    # with the reason, which is what the page hides it on and the tooltip
+    # shows. It is not offered and it is not accepted: a FLUX.1 adapter on
+    # Z-Image would otherwise fail at cell 1 of 64, deep in PEFT.
+    (lora_dir / "flux.safetensors").write_bytes(b"weights")
+    why = "flux.safetensors attaches to 494 modules ZImageTransformer2DModel has not got"
+    fake.lora_mismatches = {"flux.safetensors": why}
+    body = client.get("/api/loras").json()
+    assert {entry["name"]: entry["detail"] for entry in body["loras"]} == {
+        "flux.safetensors": why, "style.safetensors": None,
+    }
+    for route, extra in (("/api/generate", {}), ("/api/grid", {"seed": 1, "lora_scale_axis": "0,1"})):
+        response = client.post(
+            route, json={"prompt": "x", "width": 256, "height": 256, "lora": "flux.safetensors", **extra},
+        )
+        assert response.status_code == 422 and response.json()["detail"] == why
+    assert fake.requests == []
+    # Where no adapter can be applied at all, the fit is not asked about.
+    fake.lora_reason = "no peft here"
+    body = client.get("/api/loras").json()
+    assert body["detail"] == "no peft here"
+    assert all("detail" not in entry for entry in body["loras"])
 
 
 def test_a_weight_sweep_records_the_weight_it_ran_at(client, fake, lora_dir):

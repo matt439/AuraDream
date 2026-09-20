@@ -170,7 +170,13 @@ Reproduction:
   `reindex.index_file` share `_insert_row` over `_COLUMNS`.
 - Reference images are gallery ids, never paths. A LoRA is a bare name that
   only `loras.py` turns into a path, `.safetensors` only, and it is
-  hot-swapped in `generate()`, never baked into `load()`.
+  hot-swapped in `generate()`, never baked into `load()`. Whether it fits is
+  `loras.mismatch` - the adapter's module names and widths against the
+  denoiser's, PEFT's own lookup run early - from the checkpoint's configs on
+  the meta device before a load (`loading.denoiser`) and the live pipeline
+  after; a misfit is listed with its `detail`, hidden by the page and
+  refused at submit and by the CLI, unreadable configs mean unchecked rather
+  than refused, and a listing never converts a single-file checkpoint.
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.

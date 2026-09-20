@@ -34,6 +34,10 @@ class FakeBackend(GenerationBackend):
         # turns it off rather than every other test having to turn it on.
         self.reference_supported = True
         self.lora_reason: str | None = None
+        # Adapters that do not fit the claimed checkpoint, by name, with the
+        # reason the real backend would give: hidden by the page, refused at
+        # submit. Everything else fits.
+        self.lora_mismatches: dict[str, str] = {}
         self.prompt_expander_supported = False
         self.expansions: list[tuple[str, int, int]] = []
         # Calls (1-based) that raise instead of rendering, and a hook run after
@@ -46,6 +50,9 @@ class FakeBackend(GenerationBackend):
 
     def lora_unavailable_reason(self) -> str | None:
         return self.lora_reason
+
+    def lora_mismatch(self, name: str) -> str | None:
+        return self.lora_mismatches.get(name)
 
     def prompt_expansion_supported(self) -> bool:
         return self.prompt_expander_supported

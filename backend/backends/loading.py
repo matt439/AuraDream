@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from .. import loras
     from ..config import Settings
 
 log = logging.getLogger(__name__)
@@ -285,6 +286,36 @@ def place_pipeline(pipe: Any, settings: "Settings") -> None:
         pipe.enable_model_cpu_offload(device=target)
     else:
         pipe.to(device)
+
+
+def denoiser(model_id: str) -> "loras.Denoiser":
+    """The checkpoint's denoiser as an adapter must match it, from configs alone.
+
+    `model_index.json` names the pipeline class and the denoiser's; its
+    `config.json` builds the module on the meta device - every name and every
+    Linear's width, not one byte of weights, in tens of milliseconds - which
+    is what lets the adapter listing and the submit check answer before the
+    load. The live denoiser, once there is one, is the same map read off the
+    real thing. Raises when a config is out of reach; the caller decides what
+    an unanswered question means.
+    """
+    from .. import loras
+
+    with open(hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
+        index = json.load(fh)
+    component = next((name for name in ("transformer", "unet") if name in index), None)
+    if component is None:
+        raise ValueError(f"{model_id}'s index names neither a transformer nor a unet")
+    with open(hub_file(model_id, f"{component}/config.json"), encoding="utf-8") as fh:
+        config = json.load(fh)
+    import diffusers
+    from accelerate import init_empty_weights
+
+    pipeline = getattr(diffusers, index["_class_name"])
+    model_cls = getattr(diffusers, index[component][1])
+    with init_empty_weights():
+        module = model_cls.from_config(config)
+    return loras.Denoiser.of(pipeline, component, module)
 
 
 def prompt_expander_components(model_id: str) -> dict[str, Any]:

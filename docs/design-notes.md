@@ -267,6 +267,41 @@ keeps `lora` at weight 0 rather than nulling it - the adapter *was* attached,
 the way CFG 0 is recorded as 0 - and `distinct_count` is what says the 0 cell
 matched the baseline.
 
+**An adapter for another checkpoint is not offered, and is refused by name.**
+The directory is the directory, but a LoRA is a set of deltas addressed to
+modules by name, and PEFT injects it by looking those names up on the
+denoiser: the one FLUX.1 adapter in `loras/` (Frosting Lane, keys under
+`transformer.single_transformer_blocks.*`) was listed on Z-Anime, chosen, and
+failed at the first cell with a PEFT traceback naming neither model
+(2026-09-20). `loras.mismatch` is that lookup run ahead of time: `targets()`
+reads what the file addresses through the pipeline class's own
+`lora_state_dict` - so a kohya or ComfyUI layout is seen the way the injection
+sees it - and finishes the names with `convert_unet_state_dict_to_peft`
+exactly as `load_lora_adapter` does (SDXL's kohya conversion stops at
+`attn1.processor.to_q_lora.down.weight`), then compares module names and
+widths against a `loras.Denoiser`. A family table was considered and
+rejected on the cases it gets wrong: FLUX.1 and FLUX.2 [klein] share every
+block name and differ in the count, FLUX.1 and Krea 2 share the names and
+differ in the width (3072 against 6144), and only the denoiser's own module
+list knows either. The `Denoiser` is the live pipeline's once there is one
+(`transformer_name`/`unet_name` names the attribute; a PEFT-wrapped target
+is read through its `base_layer`) and before that `loading.denoiser` builds
+the class from `model_index.json` and the denoiser's `config.json` under
+`accelerate.init_empty_weights` - every name and width, no weights, tens of
+milliseconds - which is what lets the listing answer at page open. Illustrious
+is read from its cached conversion (`single_file.converted_tree`) or not at
+all: a listing must never be what starts the 7 GB conversion. Where no
+config can be read the fit goes *unchecked*, not refused - the load that
+follows either answers it or fails with the real reason - and the page
+fetches the list once more when the status turns ready. The listing carries
+each adapter's `detail`; the page hides an entry on it and names it in the
+tooltip with the reason, so a file dropped into the directory that never
+appears is explained rather than missing; `/api/generate`, `/api/grid` and
+`/api/rerender` answer 422 with the same reason and the CLI exits 2 with it.
+Measured on the frosting-lane file against the cached checkpoints: fits
+FLUX.1 Krea; 494 modules Z-Image has not got; 454 klein has not got; the
+right names at the wrong width on Krea 2; no `transformer` on SDXL.
+
 ## CellKey and run_id
 
 **Both widen `CellKey`, and `run_id` survives it.** The key is

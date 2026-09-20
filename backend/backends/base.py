@@ -125,6 +125,15 @@ class GenerationBackend(abc.ABC):
         """Why not, for that refusal. None when adapters can be applied."""
         return None if self.lora_supported() else "this backend cannot apply LoRA adapters"
 
+    def lora_mismatch(self, name: str) -> str | None:
+        """Why this adapter cannot attach to the running checkpoint - modules
+        or widths its denoiser has not got - or None when it can, or when
+        nothing here can tell. Per adapter where `lora_unavailable_reason` is
+        per installation: the listing hides what does not fit and the submit
+        refuses it by name. Optional; the default has no opinion.
+        """
+        return None
+
     def free_cache(self) -> None:
         """Return cached accelerator memory without unloading. Optional.
 

@@ -319,6 +319,14 @@ def test_an_adapter_that_is_not_there_is_refused_before_the_load(cli, store, cap
     assert "no LoRA named" in err and str(loras.settings.loras_dir) in err
 
 
+def test_an_adapter_for_another_checkpoint_is_refused_before_the_load(cli, store, capsys, lora_dir):
+    cli.lora_mismatches = {"style.safetensors": "style.safetensors attaches to 494 modules X has not got"}
+    code = generate.main(["a fox", "--lora", "style.safetensors", *SIZE])
+    assert code == 2 and cli.loads == 0
+    assert "494 modules X has not got" in capsys.readouterr().err
+    assert generate.main(["a fox", "--lora", "other.safetensors", "--dry-run", *SIZE]) == 0
+
+
 def test_a_weight_sweep_needs_an_adapter(cli, store):
     with pytest.raises(SystemExit) as raised:
         generate.main(["a fox", "--grid-lora-scale", "0,1", *SIZE])

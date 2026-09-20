@@ -9,6 +9,10 @@
   {"expect": "loraSupported && [...els.lora.options].some((o) => o.value === 'demo-style.safetensors')"},
   {"expect": "els.loraScale.disabled && els.gridLoraScale.disabled"},
 
+  {"log": "'an adapter for another checkpoint is not offered, and the tooltip says which and why'"},
+  {"expect": "![...els.lora.options].some((o) => o.value === 'other-family.safetensors')"},
+  {"expect": "els.loraTip.textContent.startsWith('Not shown, for another checkpoint: other-family.safetensors - ') && els.loraTip.textContent.includes('494 modules')"},
+
   {"log": "'an image to point at'"},
   {"eval": "els.prompt.value = 'a fox in the snow'; els.seed.value = '5'; void startJob('/api/generate', collect());"},
   {"wait": 2500},

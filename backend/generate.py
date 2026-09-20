@@ -505,6 +505,10 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
             return 2
+        reason = backend.lora_mismatch(args.lora)
+        if reason is not None:
+            print(reason, file=sys.stderr)
+            return 2
 
     # Resume before the model loads: an already-finished grid should cost the
     # database lookup and nothing else. Compared as the pipeline would run each

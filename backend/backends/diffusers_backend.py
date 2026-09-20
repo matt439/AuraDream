@@ -73,6 +73,13 @@ class DiffusersBackend(GenerationBackend):
         # enable_model_cpu_offload" rule to obey - and a load path driven from
         # the job worker is the one thing `main.ensure_loaded` exists to stop.
         self._lora: tuple[str, float] | None = None
+        # What an adapter is matched against, as (source, denoiser): the live
+        # pipeline's once there is one, the checkpoint's configs on the meta
+        # device before that, and None where neither could be read. The same
+        # map either way - the configs are what the live one was built from -
+        # so the live answer replaces the configs' once and is kept across an
+        # unload, the checkpoint being fixed for the life of the process.
+        self._denoiser_cache: tuple[str, "loras.Denoiser | None"] | None = None
         # diffusers draws its own tqdm bar per denoising loop. Kept on by
         # default; the CLI turns it off because it renders its own status line.
         self._console_progress = True
@@ -322,6 +329,54 @@ class DiffusersBackend(GenerationBackend):
 
     def lora_supported(self) -> bool:
         return self.lora_unavailable_reason() is None
+
+    def _denoiser(self) -> "loras.Denoiser | None":
+        """What an adapter must fit: the live denoiser, else the configs'.
+
+        None when neither can be read - a gated repo without a token, a
+        single-file checkpoint not yet converted - and then the fit goes
+        unchecked rather than refused: the load that follows either fixes
+        the answer or fails with the real reason. An unanswered question is
+        asked again on the next call; an answered one is kept.
+        """
+        pipe = self._pipe
+        cached = self._denoiser_cache
+        if pipe is not None:
+            if cached is None or cached[0] != "live":
+                self._denoiser_cache = cached = ("live", self._live_denoiser(pipe))
+        elif cached is None or cached[1] is None:
+            self._denoiser_cache = cached = ("configs", self._configured_denoiser())
+        return cached[1]
+
+    @staticmethod
+    def _live_denoiser(pipe: Any) -> "loras.Denoiser | None":
+        # The pipeline class names its denoiser attribute for its LoRA loader:
+        # `transformer_name` on the transformer families, `unet_name` on SDXL.
+        component = getattr(pipe, "transformer_name", None) or getattr(pipe, "unet_name", None)
+        module = getattr(pipe, component, None) if component else None
+        if module is None:
+            return None
+        try:
+            return loras.Denoiser.of(type(pipe), component, module)
+        except Exception:  # noqa: BLE001 - a pipeline this cannot read is one the fit skips
+            log.debug("could not map %s's %s", type(pipe).__name__, component, exc_info=True)
+            return None
+
+    @staticmethod
+    def _configured_denoiser() -> "loras.Denoiser | None":
+        # The same resolution `load()` makes ahead of the weights, minus the
+        # one step that must never run from a listing: a single-file
+        # checkpoint is read from its cached conversion or not at all.
+        try:
+            source_id = single_file.converted_tree(settings.model_id) or settings.model_id
+            return loading.denoiser(loading.resolve_model(source_id))
+        except Exception as exc:  # noqa: BLE001 - unanswered, not refused
+            log.info("adapter fit unchecked until the load: %s", exc)
+            return None
+
+    def lora_mismatch(self, name: str) -> str | None:
+        denoiser = self._denoiser()
+        return None if denoiser is None else loras.mismatch(name, denoiser)
 
     def _apply_lora(self, pipe: Any, request: "GenerateRequest") -> None:
         """Bring the live pipeline to the adapter this cell asks for.
