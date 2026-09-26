@@ -35,6 +35,10 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/guides.py` — the guides themselves, one dict per checkpoint: prompt
   and size prose, the documented megapixel range with its word, the authors'
   example prompts
+- `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
+  expanded Chinese prompt for the UI; the Chinese prompt remains canonical
+- `backend/tags.py` — cached Danbooru tag suggestions and exact validation for
+  tag-caption checkpoints; remote failure means unchecked, never invalid
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
 - `backend/loras.py` — the adapter directory: what is in it, and the file
   behind a name (the only place a request's name becomes a path)
@@ -47,6 +51,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   move: the quantization config, the Nunchaku preflight and the
   prequantized refusal, the components left out of the download, the
   device placement; takes `settings` as a parameter
+- `backend/backends/single_file.py` — pinned, CPU-only first-load conversion
+  for Illustrious XL v2.0-STABLE and WAI v17; atomic cached trees feed the normal loader
 - `backend/backends/anima_loading.py` — pinned CPU conversion of full Anima
   Turbo v1.1 and its conditioner, with official shared components and a cached tree
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
@@ -77,7 +83,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   `generation`, `panel`, `gallery`, `sheet`, `lightbox`, `tags`, `app`),
   sharing one global scope; only `app.js`, the last, runs anything at load
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
-  and `browser.mjs` + `smoke.json`, `smoke-flux.json`, `smoke-preview.json`
+  and `browser.mjs` + `smoke.json`, `smoke-flux.json`, `smoke-preview.json`,
+  `smoke-ernie.json`, `smoke-animagine.json`
   (headless browser over DevTools): the UI's stand-in for a test suite, see
   Tests
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
@@ -96,6 +103,43 @@ section before changing the area. `docs/verified.md` lists what has been
 measured on the card and when.
 
 Model and loader:
+
+- `KBlueLeaf/Kohaku-XL-Zeta` uses its ordinary Diffusers SDXL tree and
+  supplied epsilon/Euler scheduler. Start at 28 steps/CFG 5 and disable Mu.
+  Keep its hybrid prose/tag guide, 2024-07-10 vocabulary cutoff and
+  nonexclusive rating buttons; its explicit caption uses both `nsfw` and
+  `explicit`. The published tokenizers limit this pipeline to 77 tokens,
+  despite the card's longer training context. The size guidance is around
+  1 MP, not a promise of large-square output. No Nunchaku build is mapped.
+
+- Illustrious XL v2.0-STABLE is single-file-only upstream. Resolve it through
+  `single_file.resolve_model` before the normal component scan, keeping the
+  official id in runtime settings and saved metadata. The converted tree has
+  a fixed epsilon/Euler Ancestral scheduler; do not pass pipeline-level
+  quantization into `from_single_file` or silently skip the CLIP encoders.
+
+- `LyliaEngine/waiIllustriousSDXL_v170` selects WAI0731's v17 through a pinned
+  community mirror, not an official repository or a LoRA. `single_file` checks
+  the source SHA-256 against the author's archived release before converting
+  on CPU, retaining the embedded VAE and both CLIP encoders. Use pinned SDXL
+  descriptors only, epsilon/Euler Ancestral and normal FP8/int8/bfloat16 loading;
+  preserve the public mirror id in settings and metadata. Keep the known NaNs
+  in the unused final CLIP-L layer unchanged: SDXL consumes that tower's
+  penultimate states and the other tower's pooled output. Preserve the regression
+  checking the used conditioning. The exact-id profile starts at 28 steps/CFG 6,
+  disables Mu and has no Nunchaku mapping. The author's reference sizes and
+  separate hires pass are not a published maximum or direct-generation guarantee.
+
+- Z-Anime Base has a pinned nested `diffusers/` tree. `loading.resolve_model`
+  resolves configs before quantization checks and weights after them; both
+  passes use the same revision and keep the official id in settings/metadata.
+  Diffusers 0.40 does not support pipeline-level `subfolder`. Keep the supplied
+  FlowMatch Euler scheduler (shift 6); the card's ComfyUI Euler Ancestral/beta
+  recommendation is a different setup, not a verified equivalent.
+  Its bundled encoder has scaled FP8 tensors without quantization metadata.
+  Skip those weights: `loading.component_overrides` loads the standard Qwen3
+  encoder from pinned `Tongyi-MAI/Z-Image`, using the same Transformers-owned
+  config from `quant_mapping`. Never silently discard the bundled scales.
 
 - `circlestone-labs/Anima` selects the pinned full Turbo v1.1 split file.
   `anima_loading` converts its denoiser and conditioner on CPU, uses the pinned
@@ -150,12 +194,14 @@ Model and loader:
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
   `LOCAL_DIFFUSION_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
-- `loading.UNUSED_COMPONENTS` names what a pipeline lists but the backend never runs
+- `loading.UNUSED_COMPONENTS` names what ordinary image loading leaves out
   (ERNIE-Image's prompt rewriter). `load()` reads `model_index.json` ahead of
   the weights and hands them as None to the *concrete* class's
   `from_pretrained`, which keeps them out of the download and the load; the
   base class takes `pe=None` for a pipeline kwarg and pulls the 7.7 GB.
-  `generate()` sets `use_pe=False` wherever the switch exists. The tests'
+  The explicit Expand endpoint loads those components on first use, rebuilds
+  the offload chain, and puts the result in the prompt editor. `generate()`
+  still sets `use_pe=False` wherever the switch exists. The tests'
   conftest refuses `loading.hub_file` for every test; one that needs an index stubs it.
 
 Schedule and guidance:
@@ -163,12 +209,16 @@ Schedule and guidance:
 - A requested `mu` is the whole shift. `schedule.forced_mu` overrides the value
   on its way into a dynamically shifting scheduler; a static one gets
   `schedule.shifted_sigmas` pre-shifted by `mu - ln(shift)`. Assert on
-  `scheduler.sigmas`, never on the list the backend computed.
+  `scheduler.sigmas`, never on the list the backend computed. Mu requires a
+  `FlowMatch*` scheduler first: SDXL's Euler scheduler accepts custom sigmas
+  too, but is not flow matching. `mu_supported` is profiled before load and
+  read from the scheduler after it, and disables both Mu controls when false.
 - Where guidance switches on is the pipeline's: `cfg_threshold()` is 1.0 with
   `true_cfg_scale`, 0.0 for a `negative_prompt` pipeline in
   `_GUIDES_FROM_ZERO`, else 1.0. The profile guesses until a load;
-  `/api/status` merges the live answer, as it does `negative_prompt_supported`,
-  `true_cfg_supported`, `reference_supported` and `lora_supported`.
+  `/api/status` merges the live answer, as it does `mu_supported`,
+  `negative_prompt_supported`, `true_cfg_supported`, `reference_supported`
+  and `lora_supported`.
 - `GenerateRequest.applied()` is the one normalisation - negative prompt, mu,
   references, `lora_scale` - and `backend.applied()` answers it from the
   parameter list or the profile. Every save path, the resume prune and the
@@ -181,8 +231,9 @@ Schedule and guidance:
   that reaches the fallback is a test failure. Steps, CFG and mu are the
   checkpoint's; `mu` is Turbo's alone. `krea-dev` sits ahead of `flux` for
   its guide alone and is the flux profile in every number and control hint.
-  `_EXACT_PROFILES` takes precedence for Anima's pinned release; never match
-  it with a broad `anima` token, which also occurs in Animagine.
+  `_EXACT_PROFILES` takes precedence for pinned releases such as WAI v17
+  and Anima Turbo; never match Anima with a broad `anima` token, which also
+  occurs in Animagine.
 - Every profile's `guide` (`backend/guides.py`) is sourced from the checkpoint's authors - the
   model card, README, prompting guide or report - never invented; the
   design notes keep the URLs. `pixels` is the range they put in writing and
@@ -213,8 +264,9 @@ Reproduction:
   only `loras.py` turns into a path, `.safetensors` only, and it is
   hot-swapped in `generate()`, never baked into `load()`. Whether it fits is
   `loras.mismatch` - the adapter's module names and widths against the
-  denoiser's, PEFT's own lookup run early - from the checkpoint's configs on
-  the meta device before a load (`loading.denoiser`) and the live pipeline
+  denoiser's, using the pipeline's adapter reader and PEFT key conversion -
+  from the checkpoint's configs on the meta device before a load
+  (`loading.denoiser`) and the live pipeline
   after; a misfit is listed with its `detail`, hidden by the page and
   refused at submit and by the CLI, unreadable configs mean unchecked rather
   than refused, and a listing never converts a single-file checkpoint.
@@ -244,7 +296,8 @@ Jobs:
   for subscribers per frame. A preview needs a matrix for the VAE and either
   `_unpack_latents` or already-unpacked 4-D latents.
 - Generation is serialized through one worker thread; the GPU cannot usefully
-  run two.
+  run two. Interactive accelerator work goes through `jobs.run_when_idle`, so
+  it neither cuts ahead of queued images nor overlaps a newly submitted job.
 
 Frontend and CLI:
 
@@ -257,6 +310,19 @@ Frontend and CLI:
   way and quotes `pixels_word`; the Examples menu is built on open from the
   last status, and a pick tells the preview and the panel the way `choose`
   does.
+- Prompt expansion is ERNIE-only and explicit: its result replaces the editor
+  only if the user did not type while the long request was in flight, then the
+  usual persistence and grid preview paths are told about the programmatic edit.
+- Tag autocomplete and comma-item validation use the fixed Danbooru
+  tag API through `backend/tags.py`, filtered when a checkpoint documents a
+  knowledge cutoff. WAI v17 publishes none: keep its cutoff `None` and the
+  live lookup advisory rather than inventing a date. Model-card
+  special tags validate locally; lookup failure stays advisory and never blocks.
+  On a two-column page validation lives above the results, not in the panel;
+  under 901 px the same node returns below Prompt.
+- Validation chips edit the prompt: drag (or Alt+Left/Right) reorders, × or
+  Delete removes, and right-clicking a gap inserts there (a chip inserts after
+  itself) with autocomplete. All mutations must go through `writePromptTags`.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets
@@ -320,17 +386,42 @@ on a failed `expect`. `smoke-conditioning.json` runs against a klein-claiming fa
 reference chips, the adapter select and a weight sweep;
 `smoke-flux.json` runs against a second fake server
 claiming FLUX.1 (`--port 7862 --model black-forest-labs/FLUX.1-Krea-dev`)
-for the True CFG box, `smoke-preview.json` against one slowed to
-`--step 0.3` on 7863 for the live preview, and `smoke-paging.json` against a
-`--fresh` one on 7867 for the gallery paging itself on scroll (it builds a
-60-image grid, so it holds once per gallery); the fake takes the claimed
-profile's threshold and true-CFG flag so it behaves as the real one would.
+for the True CFG box, and `smoke-preview.json` against one slowed to
+`--step 0.3` on 7863 for the live preview. `smoke-ernie.json` runs against an
+ERNIE-claiming fake on 7865 for the explicit prompt expansion flow; the fake
+takes the claimed profile's threshold and true-CFG flag, and its model id's
+prompt-expansion capability, so it behaves as the real one would.
+`smoke-animagine.json` runs against an Animagine-claiming fake on 7866 for its
+tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
+aspects, orientation switch and disabled non-flow Mu controls.
+`smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
+prompting, the native 1-2.25 MP size range, 4 MP warning and disabled Mu.
+`smoke-z-anime.json` uses a Z-Anime-claiming fake on 7868 for Base defaults,
+natural-language prompting, negative guidance, enabled Mu and the documented
+4 MP ceiling.
+`smoke-paging.json` uses a fresh Krea-claiming fake on 7867 for the gallery
+paging itself on scroll (it builds a 60-image grid, so it holds once per
+gallery). Run it separately from the Illustrious smoke on the same port:
+
+```powershell
+uv run python tools/fake_server.py --port 7867 --fresh
+node tools/browser.mjs tools/smoke-paging.json
+```
+
 `smoke-anima.json` checks Anima Turbo defaults, its documented size range,
 disabled Mu and applied saved settings on port 7869:
 
 ```powershell
 uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
 node tools/browser.mjs tools/smoke-anima.json
+```
+
+`smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
+and saved settings on port 7870:
+
+```powershell
+uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
+node tools/browser.mjs tools/smoke-kohaku.json
 ```
 
 `smoke-netayume.json` checks NetaYume v4 defaults, the qualified size guide,
@@ -341,10 +432,6 @@ uv run python tools/fake_server.py --port 7871 --model duongve/NetaYume-Lumina-I
 node tools/browser.mjs tools/smoke-netayume.json
 ```
 
-NetaYume's FP8/model-offload GPU smoke, repeat-seed pixels, cancellation and
-preview evidence are recorded in `docs/verified.md`; the CPU and browser
-checks alone do not establish runtime quality or performance.
-
 `smoke-newbie.json` checks NewBie defaults, the qualified size guide, XML
 example selection and persistence, and applied saved settings on port 7872:
 
@@ -352,6 +439,21 @@ example selection and persistence, and applied saved settings on port 7872:
 uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
 node tools/browser.mjs tools/smoke-newbie.json
 ```
+
+`smoke-wai.json` checks WAI v17 defaults, author tag recipes, the qualified
+reference-size guide, disabled Mu and saved settings on port 7873:
+
+```powershell
+uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
+node tools/browser.mjs tools/smoke-wai.json
+```
+
+GPU generation, repeat-seed pixels, cancellation and any preview evidence
+are recorded per checkpoint in `docs/verified.md`; CPU and browser checks
+alone do not establish runtime quality or performance. WAI's conditioning
+regression is `tests/test_wai_conditioning.py`: both positive and negative
+SDXL conditioning must remain finite with its unused final CLIP-L NaNs
+under none, FP8 and int8 quantization.
 
 
 Static files are served from disk, so a `web/` edit needs no server restart;
