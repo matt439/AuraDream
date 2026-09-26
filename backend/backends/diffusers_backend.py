@@ -29,7 +29,7 @@ from .. import latent_preview, loras
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
-from . import loading, schedule, single_file
+from . import anima_loading, loading, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -111,7 +111,8 @@ class DiffusersBackend(GenerationBackend):
             log.info("loading %s (quant=%s)", settings.model_id, settings.quantization)
             # Single-file catalogue entries are converted once on CPU. Keep
             # the official id in settings, status and saved reproduction data.
-            source_id = single_file.resolve_model(settings.model_id, settings.quantization)
+            source_id = anima_loading.resolve_model(settings.model_id, settings.quantization)
+            source_id = single_file.resolve_model(source_id, settings.quantization)
             model_id = loading.resolve_model(source_id)
             load_settings = replace(settings, model_id=model_id)
             kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
@@ -124,6 +125,10 @@ class DiffusersBackend(GenerationBackend):
             # the base class, resolving the same name from the same index,
             # would download and load it (see loading.UNUSED_COMPONENTS).
             loader: Any = DiffusionPipeline
+            if settings.model_id.lower() == anima_loading.MODEL_ID.lower():
+                from .anima_pipeline import AnimaTurboPipeline
+
+                loader = AnimaTurboPipeline
             class_name, unused = loading.unused_components(model_id)
             if unused:
                 import diffusers
@@ -321,6 +326,8 @@ class DiffusersBackend(GenerationBackend):
                 "4-bit SVDQuant, whose linear layers are not the ones a LoRA attaches "
                 "to; run the same checkpoint under fp8, int8 or none to use adapters"
             )
+        if settings.model_id.lower() == anima_loading.MODEL_ID.lower():
+            return "User LoRAs are not supported by this Anima Turbo integration"
         if not loading.importable("peft"):
             return "LoRA adapters need the peft package; `uv sync` installs it"
         if self._pipe is not None and not hasattr(self._pipe, "load_lora_weights"):
@@ -368,7 +375,11 @@ class DiffusersBackend(GenerationBackend):
         # one step that must never run from a listing: a single-file
         # checkpoint is read from its cached conversion or not at all.
         try:
-            source_id = single_file.converted_tree(settings.model_id) or settings.model_id
+            source_id = (
+                anima_loading.converted_tree(settings.model_id)
+                or single_file.converted_tree(settings.model_id)
+                or settings.model_id
+            )
             return loading.denoiser(loading.resolve_model(source_id))
         except Exception as exc:  # noqa: BLE001 - unanswered, not refused
             log.info("adapter fit unchecked until the load: %s", exc)

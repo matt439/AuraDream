@@ -206,8 +206,43 @@ def test_illustrious_has_hybrid_prompting_and_a_native_not_maximum_size_range():
     assert groups["Year"].tags == ["oldest", "old", "modern", "recent", "newest"]
 
 
+def test_anima_turbo_has_its_own_defaults_and_documented_guide():
+    from backend.schemas import PromptGuide
+
+    model = "circlestone-labs/Anima"
+    profile = defaults_for(model)
+    assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (8, 1.0, None)
+    assert profile["cfg_threshold"] == 1.0
+    assert profile["negative_prompt_supported"]
+    assert not profile["mu_supported"] and not profile["true_cfg_supported"]
+    assert not profile["reference_supported"]
+    checkpoint = next(c for c in launch.CHECKPOINTS if c.repo == model)
+    assert checkpoint.name == "Anima Turbo v1.1" and checkpoint.lite is None
+    assert checkpoint.summary() == "8 steps, CFG 1"
+    guide = PromptGuide(**guide_for(model))
+    assert guide.pixels == (512**2 / 1e6, 1536**2 / 1e6)
+    assert guide.pixels_word == "documented" and guide.tag_helper is None
+    assert guide.examples[0].startswith("Digital painting of a fiery dragon")
+    hint = hints_for(model)
+    assert "8-12" in hint["steps"]
+    assert "natural language" in hint["prompt"] and "@" in hint["prompt"]
+    assert "spaces instead of underscores" in hint["prompt"]
+    assert "two sentences" in hint["prompt"]
+    assert "no effect" in hint["prompt"] and "Unavailable" in hint["mu"]
+
+
+def test_anima_turbo_profile_only_matches_the_official_resolved_id():
+    model = "circlestone-labs/Anima"
+    assert _profile_for(model.upper()) is _profile_for(model)
+    for unrelated in (
+        "someone/anima", "circlestone-labs/Anima-Base", "circlestone-labs/Anima-Aesthetic",
+    ):
+        assert _profile_for(unrelated) is _FALLBACK
+    assert defaults_for("cagliostrolab/animagine-xl-4.0")["steps"] == 28
+
+
 def test_every_catalogue_entry_has_a_profile():
-    # The catalogue and the profile table are joined by substring only; an
+    # The catalogue and profile table are joined by id or family token; an
     # entry that missed every token would print the fallback's "28 steps" in
     # the menu and run a distilled model at 28 steps. By identity, since the
     # flux profile is value-identical to the fallback in every number.

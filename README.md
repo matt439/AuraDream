@@ -1,7 +1,8 @@
 # Local Diffusion
 
 Run open text-to-image checkpoints locally - **FLUX.1 Krea [dev]**, **Krea 2
-Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Illustrious, Z-Anime - up to
+Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Illustrious,
+Z-Anime and Anima Turbo - up to
 4 megapixels on a single consumer GPU. FastAPI + diffusers backend, vanilla-JS
 frontend, SQLite gallery. FLUX is the default because its repo is click-through
 gated; Turbo needs approval first.
@@ -32,9 +33,11 @@ the index and drops the digests; re-pin the same way.
 
 The Krea checkpoints, FLUX.1 Krea [dev] and FLUX.1 [dev] are **gated**
 HuggingFace repos; the four FLUX.2 [klein] repos, FLUX.1 [schnell], Z-Image
-Turbo, Qwen-Image, ERNIE-Image Turbo, Animagine XL 4.0, Illustrious XL v2.0 and Z-Anime Base
-are open and need no login (Apache 2.0 except Animagine's Open RAIL++-M and
-Illustrious's CreativeML OpenRAIL-M; klein is the cheapest thing
+Turbo, Qwen-Image, ERNIE-Image Turbo, Animagine XL 4.0, Illustrious XL v2.0,
+Z-Anime Base and Anima Turbo are open and need no login (Apache 2.0 except
+Animagine's Open RAIL++-M, Illustrious's CreativeML OpenRAIL-M and Anima's
+[CircleStone Labs Non-Commercial License](https://huggingface.co/circlestone-labs/Anima#license);
+klein is the cheapest thing
 here to try first - 4 steps, ~3 GiB peak). For the gated ones, log in first:
 
 ```powershell
@@ -69,9 +72,10 @@ The UI seeds Steps/CFG/Mu from the checkpoint's profile on load, so there is
 nothing to remember: FLUX gets 28 steps at CFG 3.5 with Mu blank, Turbo gets
 8 steps at CFG 0 with Mu 1.15.
 
-The loader is model-agnostic — it resolves the pipeline class and the set of
-quantizable components from the repo's own `model_index.json` — so no code
-changes are needed to switch.
+The loader resolves the pipeline class and quantizable components from the
+repo's `model_index.json`. Illustrious and Anima Turbo first convert their
+pinned official weights to a local component tree, then use the same loading
+and offload path.
 
 ## Run
 
@@ -108,6 +112,29 @@ encoder from the official Z-Image parent into the HF cache. This bypasses
 Z-Anime's incorrectly packaged FP8 encoder; the distilled, GGUF and AIO
 variants are not part of this selection.
 See [the model card](https://huggingface.co/SeeSee21/Z-Anime) and
+[local verification](docs/verified.md).
+
+For **Anima Turbo v1.1**, choose it in the menu or run:
+
+```powershell
+uv run python -m backend.main --model circlestone-labs/Anima --quant fp8 --offload model
+```
+
+The app selects the full Turbo v1.1 checkpoint from the official repository,
+with **8 steps and CFG 1**. Its authors recommend 8-12 steps and document
+512x512 through 1536x1536 pixels. Tags and descriptive sentences can be mixed;
+use lowercase tags with spaces, and prefix artist names with `@`. Negative
+prompts have no effect at CFG 1. Mu, reference images and user LoRAs are
+unavailable for this integration.
+
+On first load, the app converts the pinned Turbo denoiser and text conditioner
+on CPU, using the official Base Diffusers repository for shared components
+and configuration. The cached tree lives under `$HF_HOME/local-diffusion/converted`
+(normally `~/.cache/huggingface/local-diffusion/converted`) and is reused on
+later loads. FP8, int8 and full bfloat16 (`--quant none`) use the normal loader;
+this entry has no Nunchaku build. Status and saved images retain
+`circlestone-labs/Anima`. See the
+[model card](https://huggingface.co/circlestone-labs/Anima) and
 [local verification](docs/verified.md).
 
 A run whose stdin is not a terminal - a service, a script - never asks either.
@@ -334,6 +361,8 @@ uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-x
 node tools/browser.mjs tools/smoke-animagine.json # tag guide, defaults, size range and disabled Mu
 uv run python tools/fake_server.py --port 7867 --model OnomaAIResearch/Illustrious-XL-v2.0
 node tools/browser.mjs tools/smoke-illustrious.json # hybrid prompting, native size range and disabled Mu
+uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
+node tools/browser.mjs tools/smoke-anima.json    # Turbo defaults, size range, disabled Mu and saved settings
 uv run python tools/fake_server.py --port 7867 --fresh
 node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
 ```
@@ -758,6 +787,7 @@ invented. In brief:
 | ERNIE-Image Turbo | Expand a short prompt, then review its detailed Chinese paragraph and local English translation | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
 | Animagine XL 4.0 Opt | Danbooru tags: person count, character and series, rating, subject/pose/scene, then quality tags; use its negative prompt | CLIP + CLIP, 77 tokens | Trained at 1024x1024; nine recommended shapes around 1 MP |
 | Illustrious XL v2.0-STABLE | Tags or natural-language descriptions; an untuned base with no default style, so name an artist or style, one composition tag, and use its negative prompt | CLIP + CLIP, 77 tokens | Native 1-2.25 MP documented; up to 4 MP with some loss |
+| Anima Turbo v1.1 | Tags, descriptive sentences or both; lowercase tags with spaces, `@` before artist names; no negative prompt effect at CFG 1 | Qwen3-0.6B + text conditioner, 512 in this app | 512x512-1536x1536 documented (0.26-2.36 MP) |
 
 ## Defaults by checkpoint
 
@@ -777,6 +807,7 @@ Applied automatically; see `backend/model_defaults.py`.
 | ERNIE-Image Turbo | 8 | 1.0 | — |
 | Animagine XL 4.0 Opt | 28 | 5.0 | — |
 | Illustrious XL v2.0-STABLE | 28 | 5.0 | — |
+| Anima Turbo v1.1 | 8 | 1.0 | Unavailable |
 
 A negative prompt roughly doubles generation time, because it adds a second
 forward pass per step. On Krea 2 it takes effect above CFG 0, on Krea 2 Raw
@@ -986,5 +1017,8 @@ the current gallery.
 
 ## Licence
 
-Model weights are covered by the **Krea 2 Community License** — read it before any
-commercial use. This application code carries no such restriction.
+Model weights have their own licences; Krea 2 uses the **Krea 2 Community
+License**. Anima uses the
+[CircleStone Labs Non-Commercial License](https://huggingface.co/circlestone-labs/Anima#license),
+which permits commercial use of generated images. This application code
+carries no such restriction.

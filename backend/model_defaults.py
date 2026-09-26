@@ -561,6 +561,39 @@ _PROFILES.insert(
     ("krea-dev", {**_FLUX_PROFILE, "guide": guides.KREA_DEV_GUIDE}),
 )
 
+# Split-file models resolve a specific release rather than every checkpoint
+# whose name contains a family token. In particular, "anima" is also part of
+# "animagine", and Anima's Base and Aesthetic variants need different defaults.
+_EXACT_PROFILES: dict[str, dict[str, Any]] = {
+    "circlestone-labs/anima": {
+        "steps": 8,
+        "guidance_scale": 1.0,
+        "mu": None,
+        "mu_supported": False,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": False,
+        "true_cfg_supported": False,
+        "guide": guides.ANIMA_TURBO_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. Anima Turbo is distilled for 8-12; "
+                "{steps} is this app's starting point."
+            ),
+            "guidance_scale": (
+                "Classifier-free guidance. The authors recommend "
+                "{guidance_scale:g} for Turbo, where no uncond pass runs. "
+                "Above {cfg_threshold:g} the negative prompt applies and "
+                "adds a second pass per step."
+            ),
+            "mu": (
+                "Unavailable: Anima Turbo's pipeline uses its fixed flow "
+                "schedule and does not expose a Mu override."
+            ),
+        },
+    },
+}
+
 _FALLBACK: dict[str, Any] = {
     "steps": 28,
     "guidance_scale": 3.5,
@@ -591,6 +624,8 @@ _FALLBACK: dict[str, Any] = {
 
 def _profile_for(model_id: str) -> dict[str, Any]:
     key = model_id.lower().replace("_", "-")
+    if key in _EXACT_PROFILES:
+        return _EXACT_PROFILES[key]
     for token, profile in _PROFILES:
         if token in key:
             return profile

@@ -509,6 +509,34 @@ ILLUSTRIOUS_GUIDE = {
         "negative_prompt": _ILLUSTRIOUS_NEGATIVE,
     },
 }
+ANIMA_TURBO_GUIDE = {
+    "prompt": (
+        "Anima Turbo makes anime and other illustrations. Its distillation "
+        "adds a consistent default style, with less variety than the base. "
+        "Use tags, natural language, or both. Write tags in lowercase with "
+        "spaces instead of underscores, except score tags, and put @ before "
+        "an artist name.\n"
+        "For natural language, describe the image in at least two sentences. "
+        "Use normal capitalization for character and series names, and describe "
+        "each character's appearance when naming more than one. "
+        "At Turbo's recommended CFG 1, negative prompts have no effect."
+    ),
+    "size": (
+        "The authors document 512x512 to 1536x1536 pixels for Anima, roughly "
+        "0.26-2.36 MP. The 1 and 2 MP presets are inside this range; the 4 MP "
+        "preset is outside it. This is the documented range, not a measurement "
+        "on this card."
+    ),
+    "pixels": (512**2 / 1e6, 1536**2 / 1e6),
+    "pixels_word": "documented",
+    # First sentence of the model card's dragon caption, without its optional
+    # dataset/title prefix. Keep the excerpt verbatim.
+    "examples": [
+        "Digital painting of a fiery dragon with glowing yellow eyes, black "
+        "horns, and a long, sinuous tail, perched on a glowing, molten rock formation."
+    ],
+}
+
 FALLBACK_GUIDE = {
     "prompt": (
         "Unrecognised checkpoint. Most current models read natural-language "

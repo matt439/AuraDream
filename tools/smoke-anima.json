@@ -1,0 +1,22 @@
+[
+  {"navigate": "http://127.0.0.1:7869/"},
+  {"wait": 1200},
+  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "els.steps.value === '8' && els.cfg.value === '1' && els.mu.value === ''"},
+  {"expect": "els.mu.disabled && els.gridMu.disabled && els.trueCfg.disabled"},
+  {"expect": "!tagVocabularyEnabled && els.tagHelper.hidden && els.prompt.spellcheck"},
+  {"expect": "els.promptTip.textContent.includes('Anima Turbo') && els.promptTip.textContent.includes('natural language') && els.promptTip.textContent.includes('@')"},
+  {"expect": "els.stepsTip.textContent.includes('8-12') && els.sizeTip.textContent.includes('1536x1536')"},
+  {"eval": "els.examplesBtn.click();"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
+  {"eval": "els.examplesMenu.children[0].click();"},
+  {"expect": "els.prompt.value.startsWith('Digital painting of a fiery dragon') && collect().steps === 8 && collect().guidance_scale === 1 && collect().mu === null"},
+  {"eval": "els.width.value = '1536'; els.height.value = '1536'; syncSize();"},
+  {"expect": "!els.sizeHint.classList.contains('warn')"},
+  {"eval": "choose('1:1', 4);"},
+  {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent.includes('above the') && els.sizeHint.textContent.includes('documented')"},
+  {"eval": "choose('1:1', 1); els.negative.value = 'blurry'; els.seed.value = '7869'; void startJob('/api/generate', collect());"},
+  {"wait": 2000},
+  {"expect": "viewerRecords.length === 1 && viewerRecords[0].model_id === 'circlestone-labs/Anima' && viewerRecords[0].steps === 8 && viewerRecords[0].guidance_scale === 1"},
+  {"expect": "viewerRecords[0].negative_prompt === null && viewerRecords[0].true_cfg === null && viewerRecords[0].mu === null"}
+]

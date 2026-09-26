@@ -42,6 +42,33 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | Z-Anime Base, CFG 4 | fp8, Windows | 1920x1088 | 40 | 183.1 s | 7.70 GiB allocated | 2026-09-19 |
 | Z-Anime Base, CFG 4 | fp8, Windows | 2048x2048 | 40 | 519.1 s | 9.58 GiB allocated, 13.95 GiB reserved | 2026-09-19 |
 | Z-Anime Base, CFG 4, repeated seed | fp8, Windows | 1024x1024 | 40 | 79.2 s | 6.78 GiB allocated | 2026-09-19 |
+| Anima Turbo v1.1, CFG 1 | fp8, Windows | 1024x1024 | 8 | 5.68 s after cancellation; 4.40 s repeat | 2.17 GiB allocated, 2.34 GiB reserved | 2026-09-26 |
+
+Anima Turbo v1.1 was verified on the RTX 5080 with Windows FP8, model
+offload, the pinned full Turbo checkpoint and FlowMatch Euler shift 3.
+The cached component tree loaded in 5.61 seconds. Batch 1, seed 12345,
+8 steps and CFG 1 produced a coherent anime illustration of the requested
+auburn-haired adult botanist, navy coat, blue flowers, greenhouse and warm
+lanterns. Both completed 1024x1024 renders had pixel hash
+`8f1f6122fe476ad0`. Generation times exclude loading and PNG saving but
+include live-preview callbacks. Allocator peaks exclude desktop applications
+and CUDA/driver overhead; these are individual smoke samples, not a benchmark.
+
+Cancellation stopped after step 1 before a VAE decode, then both subsequent
+calls completed all 8 steps. Live previews arrived at steps 2/3/5/7 and
+2/4/6; the final image and a preview were visually inspected. PNG metadata
+preserved `circlestone-labs/Anima`, FP8, seed, steps and CFG, with the unused
+negative prompt, True CFG and Mu recorded as null. The pipeline was unloaded
+afterward. The production gallery was not used. Evidence is in
+`%TEMP%/local-diffusion-anima-validation/`: `validate.py`, `validation.log`,
+`results.json`, preview JPEGs and a separate database/outputs directory.
+
+The Python suite passes 373 tests, including strict Turbo conversion,
+quantized-loader routing, real modular-block CPU seed/CFG/cancel checks and
+Accelerate hook cleanup. `smoke-anima.json` passes all 12 browser expectations.
+Anima's int8/full-bfloat16 GPU paths, sequential offload, batch scaling and
+higher resolutions have not been measured. Mu, reference images and user
+LoRAs are unavailable in this integration.
 
 Z-Anime uses the pinned nested Base denoiser, its supplied FlowMatch Euler
 scheduler with shift 6 and Mu blank, and the standard Qwen3 text encoder from

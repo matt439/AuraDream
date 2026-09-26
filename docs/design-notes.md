@@ -140,6 +140,51 @@ class from `model_index.json`, and `_component_libraries()` reads the same file
 to decide which components to quantize and with whose `TorchAoConfig`. FLUX
 layouts therefore pick up `text_encoder_2` (T5) automatically.
 
+## Anima Turbo: a standard interface over modular inference
+
+**Anima Turbo v1.1** uses the official `circlestone-labs/Anima` selection.
+`anima_loading.py` pins the full `anima-turbo-v1.1.safetensors` checkpoint
+and its revision, and converts it once on CPU into an atomic cached component
+tree. The official pinned `Anima-Base-v1.0-Diffusers` repository supplies
+configs, tokenizers, Qwen3 encoder and Qwen-Image VAE only. Its Base denoiser
+and text-conditioner weights are excluded: both learned components come from
+the Turbo file. Turbo v1.1 uses the `model.diffusion_model.` prefix; split its
+`llm_adapter` into `AnimaTextConditioner` and use Diffusers' Cosmos mapping
+for the rest, with strict state-dictionary loading. Recipe changes invalidate
+the cache. Settings and saved metadata retain the official repository id.
+That id denotes this pinned Turbo recipe in this app; adding another Anima
+variant must give it a distinct recorded identity.
+
+Diffusers 0.40 exposes Anima through modular blocks, whose pipeline call
+does not meet this app's generator/callback signature contract.
+`AnimaTurboPipeline` registers the standard components on `DiffusionPipeline`
+so the existing owned quantization configs and explicit device/offload path
+still apply. It runs the upstream text encoding, conditioning, noise, schedule
+and decode blocks. Its only denoising-loop extension invokes the app callback
+after each completed scheduler step and lets cancellation propagate. Cleanup
+offloads models in `finally`, including a cancelled call, and clears the
+callback. CPU generator lists flow unchanged to the upstream noise sampler.
+The offload chain is encoder, conditioner, transformer, VAE. The small text
+conditioner and VAE remain bfloat16; the transformer and encoder use the
+selected fp8/int8 configs. Nunchaku is refused before downloading.
+
+Turbo defaults to 8 steps and CFG 1 (the author recommends 8-12 steps).
+A fresh guider is built per call, enabled only above 1, matching recorded
+negative-prompt normalization even at CFG 0. The scheduler is the official
+Diffusers conversion's FlowMatch Euler with shift 3. Mu, reference images
+and user LoRAs are unavailable in this integration. Five-dimensional image
+latents are already in Qwen-VAE space; the preview adapter exposes them to
+the existing fitted Qwen map. Author documentation covers 512 squared through
+1536 squared pixels, tags and natural-language descriptions. ComfyUI sampler
+alternatives and prompt-weight syntax are not promised by this adapter.
+
+Sources: [official model card and Turbo files](https://huggingface.co/circlestone-labs/Anima),
+[official shared component tree](https://huggingface.co/circlestone-labs/Anima-Base-v1.0-Diffusers),
+[Diffusers conversion](https://github.com/huggingface/diffusers/blob/main/scripts/convert_anima_to_diffusers.py),
+and the installed Diffusers 0.40 Anima modular blocks. Runtime evidence belongs
+in `verified.md`; CPU stub tests and fake-browser checks do not measure quality
+or VRAM.
+
 ## Profiles key off the checkpoint id
 
 `model_defaults.py` keys recommended steps/CFG/mu off the checkpoint id, not the

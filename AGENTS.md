@@ -53,6 +53,10 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   device placement; takes `settings` as a parameter
 - `backend/backends/single_file.py` — pinned, CPU-only first-load conversion
   for Illustrious XL v2.0-STABLE; an atomic cached tree feeds the normal loader
+- `backend/backends/anima_loading.py` — pinned CPU conversion of full Anima
+  Turbo v1.1 and its conditioner, with official shared components and a cached tree
+- `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
+  the standard pipeline interface, with per-step progress and cancellation
 - `backend/backends/schedule.py` — how a requested mu becomes the whole
   shift: `forced_mu`, `shifted_sigmas`, the static-shift fallback
 - `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
@@ -111,6 +115,15 @@ Model and loader:
   Skip those weights: `loading.component_overrides` loads the standard Qwen3
   encoder from pinned `Tongyi-MAI/Z-Image`, using the same Transformers-owned
   config from `quant_mapping`. Never silently discard the bundled scales.
+
+- `circlestone-labs/Anima` selects the pinned full Turbo v1.1 split file.
+  `anima_loading` converts its denoiser and conditioner on CPU, uses the pinned
+  official Base repository only for shared components/configs, and caches an
+  atomic tree for normal FP8/int8/bfloat16 loading. Keep the official id in
+  settings/metadata. `AnimaTurboPipeline` wraps upstream modular blocks with
+  the required callback; preserve its fixed flow schedule and exact-id profile
+  (8 steps, CFG 1), with Mu, references and user LoRAs disabled. No Nunchaku
+  build is mapped to this entry.
 
 - App-owned names use Local Diffusion: `LOCAL_DIFFUSION_*`,
   `local-diffusion.db`, `~/local-diffusion`, `local-diffusion.*` browser keys
@@ -172,6 +185,8 @@ Schedule and guidance:
   that reaches the fallback is a test failure. Steps, CFG and mu are the
   checkpoint's; `mu` is Turbo's alone. `krea-dev` sits ahead of `flux` for
   its guide alone and is the flux profile in every number and control hint.
+  `_EXACT_PROFILES` takes precedence for Anima's pinned release; never match
+  it with a broad `anima` token, which also occurs in Animagine.
 - Every profile's `guide` (`backend/guides.py`) is sourced from the checkpoint's authors - the
   model card, README, prompting guide or report - never invented; the
   design notes keep the URLs. `pixels` is the range they put in writing and
@@ -312,6 +327,14 @@ prompting, the native 1-2.25 MP size range, 4 MP warning and disabled Mu.
 `smoke-z-anime.json` uses a Z-Anime-claiming fake on 7868 for Base defaults,
 natural-language prompting, negative guidance, enabled Mu and the documented
 4 MP ceiling.
+`smoke-anima.json` checks Anima Turbo defaults, its documented size range,
+disabled Mu and applied saved settings on port 7869:
+
+```powershell
+uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
+node tools/browser.mjs tools/smoke-anima.json
+```
+
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
 `sheetRecords`) are reachable from a step's `eval` because the page's scripts
