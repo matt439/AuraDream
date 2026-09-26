@@ -43,6 +43,33 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | Z-Anime Base, CFG 4 | fp8, Windows | 2048x2048 | 40 | 519.1 s | 9.58 GiB allocated, 13.95 GiB reserved | 2026-09-19 |
 | Z-Anime Base, CFG 4, repeated seed | fp8, Windows | 1024x1024 | 40 | 79.2 s | 6.78 GiB allocated | 2026-09-19 |
 | Anima Turbo v1.1, CFG 1 | fp8, Windows | 1024x1024 | 8 | 5.68 s after cancellation; 4.40 s repeat | 2.17 GiB allocated, 2.34 GiB reserved | 2026-09-26 |
+| Kohaku XL Zeta, CFG 5 | fp8, Windows | 1024x1024 | 28 | 9.33 s after cancellation; 9.68 s repeat | 3.69 GiB allocated, 3.81 GiB reserved (maximum of the pair) | 2026-09-26 |
+
+Kohaku XL Zeta was verified with Windows FP8 and model offload using the
+ordinary component-tree loader. The first load, including downloads, took
+152.89 seconds; the resolved Hub revision was
+`c14affd9483ac7603cfff3f06b05da22a06deaa6`, with `StableDiffusionXLPipeline`
+and the supplied epsilon/Euler scheduler. Batch 1, seed 12345, 28 steps and
+CFG 5 produced a coherent anime portrait with the requested auburn hair,
+navy coat, brown satchel, blue flowers, greenhouse and warm lights. The final
+image was visually inspected. The two 1024x1024 renders had identical pixels
+and content hash `3fe471db98c8b5da`. Times exclude loading and PNG saving;
+allocator peaks exclude the desktop and CUDA/driver overhead. These are
+individual smoke samples, not a quality or performance benchmark.
+
+Cancellation stopped after step 1, then both following calls completed all
+28 steps. PNG metadata and gallery rows retained `KBlueLeaf/Kohaku-XL-Zeta`,
+FP8, seed, steps, CFG and the negative prompt. The stored True CFG was 5,
+the scale that applied the negative prompt; the unsupported Mu was null.
+There were no live preview frames: the four-channel SDXL VAE has no fitted
+map, and the preview callback disabled itself without affecting generation.
+The pipeline was unloaded afterward. Evidence is under
+`%TEMP%/local-diffusion-kohaku-validation/`: `validate.py`, `validation.log`,
+`results.json`, the separate database and `outputs/` PNGs. The production
+gallery was not used. The Python suite passes 375 tests and
+`smoke-kohaku.json` passes all 16 browser expectations. Kohaku's int8/full-
+bfloat16 GPU paths, sequential offload, user LoRAs, batch scaling and higher
+resolutions have not been measured.
 
 Anima Turbo v1.1 was verified on the RTX 5080 with Windows FP8, model
 offload, the pinned full Turbo checkpoint and FlowMatch Euler shift 3.

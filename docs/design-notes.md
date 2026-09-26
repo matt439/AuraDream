@@ -1539,6 +1539,54 @@ and the installed Diffusers pipeline loader and `ZImagePipeline` source.
 selection, the pinned encoder override and the retained public id; `smoke-z-anime.json` checks the UI on
 port 7868. Card measurements belong in `verified.md`.
 
+## Kohaku XL Zeta: ordinary SDXL with its own hybrid prompt guide
+
+`KBlueLeaf/Kohaku-XL-Zeta` publishes a complete Diffusers component tree, so
+the catalogue entry uses the normal loader. Keep its supplied epsilon-prediction
+`EulerDiscreteScheduler`; its accepted custom sigmas do not make it a flow
+scheduler. The profile disables Mu before load, as the live scheduler does
+afterwards. The app's 28 steps and CFG 5 are starting points within the author's
+12-50 and 3.5-6.5 ranges, not a separately measured optimum. No Nunchaku
+repository is mapped to this entry.
+
+`KOHAKU_GUIDE` uses Zeta's documented tag vocabulary and the Epsilon-rev2
+caption order that Zeta refers to. The general-tag slot can hold prose or a
+mixture of prose and tags. `hybrid_prompt` preserves spellcheck and avoids
+validating a single sentence as one unknown Danbooru tag. The shared tag
+service uses the model's 2024-07-10 Danbooru cutoff; no frontend checkpoint
+branch is required. Quality and date choices are exclusive. Rating choices
+remain individual toggles because the author's explicit-rating caption
+contains both `nsfw` and `explicit`. There is no fixed suffix or recommended
+negative-prompt button: the Zeta card supplies neither recipe.
+
+The author's size recommendation is 1024x1024 or a comparable area, so the
+guide publishes one recommended area in MP and lets the common tolerance
+admit nearby 1 MP presets. It does not turn the training bucket's maximum
+side length into a promise of large square outputs. The card also describes
+300-token training context, but both published tokenizer configs declare
+`model_max_length: 77`. The normal SDXL pipeline truncates to those limits;
+no long-prompt embedding or chunking path has been added. The prompt hint
+states that distinction.
+
+The Examples menu takes `DEFAULT_TAGS` verbatim from the author's TIPO demo,
+whose `diff.py` selects Kohaku XL Zeta by default. The twelve Zeta model-card
+JPEGs contain no prompt metadata. Hugging Face's auto-generated library
+snippet is not an author example. The demo's prompt is a useful author input,
+not a claim that this app reproduces its separate K-diffusion sampling and
+prompt-expansion setup. Hardware checks and their exact settings belong in
+`docs/verified.md`.
+
+Sources checked 2026-09-26:
+
+- [Zeta model card](https://huggingface.co/KBlueLeaf/Kohaku-XL-Zeta/blob/c14affd9483ac7603cfff3f06b05da22a06deaa6/README.md).
+- [Epsilon-rev2 caption order](https://huggingface.co/KBlueLeaf/Kohaku-XL-Epsilon-rev2#prompt-format)
+  and [Delta's tag spelling](https://huggingface.co/KBlueLeaf/Kohaku-XL-Delta#tags).
+- [Supplied scheduler](https://huggingface.co/KBlueLeaf/Kohaku-XL-Zeta/blob/c14affd9483ac7603cfff3f06b05da22a06deaa6/scheduler/scheduler_config.json),
+  [first tokenizer](https://huggingface.co/KBlueLeaf/Kohaku-XL-Zeta/blob/c14affd9483ac7603cfff3f06b05da22a06deaa6/tokenizer/tokenizer_config.json),
+  and [second tokenizer](https://huggingface.co/KBlueLeaf/Kohaku-XL-Zeta/blob/c14affd9483ac7603cfff3f06b05da22a06deaa6/tokenizer_2/tokenizer_config.json).
+- Author's [TIPO demo input](https://huggingface.co/spaces/KBlueLeaf/TIPO-DEMO/blob/1ae60d3cbec4f5274ff349321b71817cfde60175/app.py)
+  and [image backend](https://huggingface.co/spaces/KBlueLeaf/TIPO-DEMO/blob/1ae60d3cbec4f5274ff349321b71817cfde60175/diff.py).
+
 ## The prompting guide
 
 **Every profile carries a `guide`**: `prompt` and `size` prose for the ?

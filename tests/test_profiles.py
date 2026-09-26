@@ -37,6 +37,7 @@ CASES = [
     ("Qwen/Qwen-Image", "QwenImagePipeline"),
     ("baidu/ERNIE-Image-Turbo", "ErnieImagePipeline"),
     ("cagliostrolab/animagine-xl-4.0", "StableDiffusionXLPipeline"),
+    ("KBlueLeaf/Kohaku-XL-Zeta", "StableDiffusionXLPipeline"),
     ("OnomaAIResearch/Illustrious-XL-v2.0", "StableDiffusionXLPipeline"),
 ]
 

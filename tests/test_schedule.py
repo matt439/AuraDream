@@ -98,13 +98,17 @@ def test_a_custom_sigma_argument_does_not_make_sdxl_flow_matching():
     assert backend.applied(_request(mu=1.15)).mu is None
 
 
-def test_animagine_drops_mu_before_the_weights_are_loaded(monkeypatch):
+@pytest.mark.parametrize("model_id", [
+    "cagliostrolab/animagine-xl-4.0",
+    "KBlueLeaf/Kohaku-XL-Zeta",
+])
+def test_sdxl_drops_mu_before_the_weights_are_loaded(monkeypatch, model_id):
     monkeypatch.setattr(
         backend_module,
         "settings",
         dataclasses.replace(
             backend_module.settings,
-            model_id="cagliostrolab/animagine-xl-4.0",
+            model_id=model_id,
         ),
     )
     assert DiffusersBackend().applied(_request(mu=1.15)).mu is None

@@ -86,6 +86,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open",
     ),
     Checkpoint(
+        "Kohaku XL Zeta",
+        "KBlueLeaf/Kohaku-XL-Zeta",
+        "open; anime, tags or natural-language prompts",
+    ),
+    Checkpoint(
         "Illustrious XL v2.0-STABLE",
         "OnomaAIResearch/Illustrious-XL-v2.0",
         "open; single file, converted locally on first load",

@@ -405,6 +405,79 @@ ANIMAGINE_GUIDE = {
         "negative_prompt": _ANIMAGINE_NEGATIVE,
     },
 }
+KOHAKU_GUIDE = {
+    "prompt": (
+        "Kohaku XL Zeta accepts Danbooru tags, natural-language descriptions, "
+        "or both; long prompts are optional. Its Epsilon-style order is person "
+        "count, character, series, artist, general tags or prose, quality, "
+        "date, meta tags, rating. Use spaces instead of underscores in tags.\n"
+        "The Tags menu carries the author's quality, rating and date tags. "
+        "For the explicit rating the author uses both nsfw and explicit. "
+        "Autocomplete checks Danbooru through the 2024-07-10 dataset cutoff; "
+        "unknown tags remain advisory. The author specifies no fixed quality "
+        "suffix or universal negative prompt. Negative prompts apply at CFG > 1.\n"
+        "The card describes a 300-token training context, but this app's "
+        "standard SDXL pipeline stops at 77 tokens in each supplied CLIP tokenizer. "
+        "Keep prompts concise and put essential details first."
+    ),
+    "size": (
+        "The author recommends 1024x1024 or a similar pixel count, about 1 MP. "
+        "The 1 MP presets match that recommendation across aspect ratios. "
+        "Larger presets are available but fall outside the recommended area; "
+        "training bucket side limits are not a native megapixel guarantee."
+    ),
+    "pixels": (1024**2 / 1e6, 1024**2 / 1e6),
+    "pixels_word": "recommended",
+    # DEFAULT_TAGS from the author's TIPO-DEMO app.py; its image backend
+    # defaults to Kohaku XL Zeta. The model card's JPEG samples have no prompt
+    # metadata, and Hugging Face's generated library snippet is not author text.
+    "examples": [
+        "1girl, king halo (umamusume), umamusume,\n"
+        "ningen mame, ciloranko, ogipote, misu kasumi,\n"
+        "solo, leaning forward, sky,\n"
+        "masterpiece, absurdres, sensitive, newest",
+    ],
+    "tag_helper": {
+        "order": [
+            "Person count",
+            "Character",
+            "Series",
+            "Artist",
+            "General tags / prose",
+            "Quality",
+            "Date",
+            "Meta",
+            "Rating",
+        ],
+        "groups": [
+            {"label": "Person count", "tags": ["1girl", "1boy", "1other"], "exclusive": True},
+            {
+                "label": "Quality",
+                "tags": [
+                    "masterpiece",
+                    "best quality",
+                    "great quality",
+                    "good quality",
+                    "normal quality",
+                    "low quality",
+                    "worst quality",
+                ],
+                "exclusive": True,
+            },
+            {
+                "label": "Date",
+                "tags": ["newest", "recent", "mid", "early", "old"],
+                "exclusive": True,
+            },
+            # Explicit captions carry both nsfw and explicit, so these must
+            # remain separate toggles rather than mutually exclusive choices.
+            {"label": "Rating", "tags": ["safe", "sensitive", "nsfw", "explicit"]},
+        ],
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": "2024-07-10",
+        "hybrid_prompt": True,
+    },
+}
 # The negative prompt on both of the v0.1 model card's examples, verbatim. The
 # v2.0 release example runs the short form `worst quality, bad quality`.
 _ILLUSTRIOUS_NEGATIVE = (

@@ -315,6 +315,38 @@ _PROFILES.append(
 )
 _PROFILES.append(
     (
+        "kohaku-xl-zeta",
+        {
+            "steps": 28,
+            "guidance_scale": 5.0,
+            "mu": None,
+            "mu_supported": False,
+            "cfg_threshold": 1.0,
+            "negative_prompt_supported": True,
+            "reference_supported": False,
+            "true_cfg_supported": False,
+            "guide": guides.KOHAKU_GUIDE,
+            "hints": {
+                "steps": (
+                    "Denoising steps. Kohaku XL Zeta recommends 12-50; "
+                    "{steps} is this app's starting point."
+                ),
+                "guidance_scale": (
+                    "Real classifier-free guidance. Kohaku XL Zeta recommends "
+                    "3.5-6.5; this app starts at {guidance_scale:g}. Above "
+                    "{cfg_threshold:g} the negative prompt applies and adds "
+                    "an uncond pass per step."
+                ),
+                "mu": (
+                    "Unavailable: Kohaku XL Zeta uses SDXL's Euler noise "
+                    "schedule, not flow matching."
+                ),
+            },
+        },
+    )
+)
+_PROFILES.append(
+    (
         "illustrious-xl-v2.0",
         {
             "steps": 28,

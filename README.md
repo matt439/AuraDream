@@ -1,7 +1,7 @@
 # Local Diffusion
 
 Run open text-to-image checkpoints locally - **FLUX.1 Krea [dev]**, **Krea 2
-Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Illustrious,
+Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Kohaku, Illustrious,
 Z-Anime and Anima Turbo - up to
 4 megapixels on a single consumer GPU. FastAPI + diffusers backend, vanilla-JS
 frontend, SQLite gallery. FLUX is the default because its repo is click-through
@@ -33,9 +33,10 @@ the index and drops the digests; re-pin the same way.
 
 The Krea checkpoints, FLUX.1 Krea [dev] and FLUX.1 [dev] are **gated**
 HuggingFace repos; the four FLUX.2 [klein] repos, FLUX.1 [schnell], Z-Image
-Turbo, Qwen-Image, ERNIE-Image Turbo, Animagine XL 4.0, Illustrious XL v2.0,
+Turbo, Qwen-Image, ERNIE-Image Turbo, Animagine XL 4.0, Kohaku XL Zeta, Illustrious XL v2.0,
 Z-Anime Base and Anima Turbo are open and need no login (Apache 2.0 except
-Animagine's Open RAIL++-M, Illustrious's CreativeML OpenRAIL-M and Anima's
+Animagine's Open RAIL++-M, Kohaku's Fair AI Public License 1.0-SD,
+Illustrious's CreativeML OpenRAIL-M and Anima's
 [CircleStone Labs Non-Commercial License](https://huggingface.co/circlestone-labs/Anima#license);
 klein is the cheapest thing
 here to try first - 4 steps, ~3 GiB peak). For the gated ones, log in first:
@@ -363,6 +364,8 @@ uv run python tools/fake_server.py --port 7867 --model OnomaAIResearch/Illustrio
 node tools/browser.mjs tools/smoke-illustrious.json # hybrid prompting, native size range and disabled Mu
 uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
 node tools/browser.mjs tools/smoke-anima.json    # Turbo defaults, size range, disabled Mu and saved settings
+uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
+node tools/browser.mjs tools/smoke-kohaku.json   # hybrid tags, defaults, size guidance and saved settings
 uv run python tools/fake_server.py --port 7867 --fresh
 node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
 ```
@@ -786,6 +789,7 @@ invented. In brief:
 | Qwen-Image | Dense caption in colour/shape/texture/quantity/text terms; append ", Ultra HD, 4K, cinematic composition."; True CFG 4 with a negative prompt | Qwen2.5-VL, 512 | Trained to 1328x1328; the README's shapes are 1.5-1.8 MP |
 | ERNIE-Image Turbo | Expand a short prompt, then review its detailed Chinese paragraph and local English translation | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
 | Animagine XL 4.0 Opt | Danbooru tags: person count, character and series, rating, subject/pose/scene, then quality tags; use its negative prompt | CLIP + CLIP, 77 tokens | Trained at 1024x1024; nine recommended shapes around 1 MP |
+| Kohaku XL Zeta | Tags, natural-language descriptions or both; its own quality, rating and date tags | CLIP + CLIP, 77 tokens in this app | 1024x1024 or similar pixel count recommended |
 | Illustrious XL v2.0-STABLE | Tags or natural-language descriptions; an untuned base with no default style, so name an artist or style, one composition tag, and use its negative prompt | CLIP + CLIP, 77 tokens | Native 1-2.25 MP documented; up to 4 MP with some loss |
 | Anima Turbo v1.1 | Tags, descriptive sentences or both; lowercase tags with spaces, `@` before artist names; no negative prompt effect at CFG 1 | Qwen3-0.6B + text conditioner, 512 in this app | 512x512-1536x1536 documented (0.26-2.36 MP) |
 
@@ -806,6 +810,7 @@ Applied automatically; see `backend/model_defaults.py`.
 | Qwen-Image | 50 | 1.0 (ignored; True CFG 4) | — |
 | ERNIE-Image Turbo | 8 | 1.0 | — |
 | Animagine XL 4.0 Opt | 28 | 5.0 | — |
+| Kohaku XL Zeta | 28 | 5.0 | Unavailable |
 | Illustrious XL v2.0-STABLE | 28 | 5.0 | — |
 | Anima Turbo v1.1 | 8 | 1.0 | Unavailable |
 
@@ -911,6 +916,24 @@ The pipeline interface and dry-run are covered automatically, and a user run
 on this card loaded the weights and produced good images. Its exact quantizer
 and offload mode were not recorded, so speed, VRAM and fp8 behavior remain
 unmeasured.
+
+**Kohaku XL Zeta** is available in the start-up menu, or directly:
+
+```powershell
+uv run python -m backend.main --model KBlueLeaf/Kohaku-XL-Zeta --quant fp8 --offload model
+```
+
+Its [official Diffusers tree](https://huggingface.co/KBlueLeaf/Kohaku-XL-Zeta)
+loads through the normal SDXL path, keeping the supplied Euler scheduler.
+The app starts at **28 steps, CFG 5 and 1024x1024**, within the author's
+12-50-step / CFG 3.5-6.5 ranges. Tags, natural-language descriptions and mixed
+prompts are supported; the Tags picker supplies Kohaku's quality, rating and
+date vocabulary, with Danbooru suggestions filtered to 2024-07-10. The card
+describes training with longer captions, but this app's stock SDXL encoders
+read **77 tokens**; keep the important details early. Larger sizes remain
+selectable with a recommendation warning. Mu, True CFG and reference images
+are unavailable, and there is no Nunchaku mapping for this entry. See
+[the verification record](docs/verified.md) for measured runtime support.
 
 Illustrious XL v2.0-STABLE (`OnomaAIResearch/Illustrious-XL-v2.0`) is also
 available in the start-up menu, or directly:
