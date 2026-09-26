@@ -46,6 +46,37 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | Kohaku XL Zeta, CFG 5 | fp8, Windows | 1024x1024 | 28 | 9.33 s after cancellation; 9.68 s repeat | 3.69 GiB allocated, 3.81 GiB reserved (maximum of the pair) | 2026-09-26 |
 | NetaYume Lumina v4, CFG 5 | fp8, Windows | 1024x1024 | 40 | 38.46 s after cancellation; 38.74 s repeat | 5.76 / 3.30 GiB allocated, 5.92 / 4.38 GiB reserved | 2026-09-26 |
 | NewBie Image Exp0.1, XML prompt, CFG 4 | fp8, Windows | 1024x1024 | 28 | 39.39 s after cancellation; 38.74 s repeat | 4.81 GiB allocated, 4.86 GiB reserved | 2026-09-26 |
+| WAI Illustrious v17, CFG 6 | fp8, Windows | 1024x1344 | 28 | 9.25 s after cancellation; 9.64 s repeat | 3.69 GiB allocated, 4.37 GiB reserved (maximum of the pair) | 2026-09-26 |
+
+WAI Illustrious v17 was verified on the RTX 5080 with Windows FP8 and model
+offload. The pinned mirror checkpoint passed its SHA-256 check, converted
+on CPU with its original VAE and both CLIP encoders, and loaded in 14.11
+seconds after the source download. The resulting `StableDiffusionXLPipeline`
+uses epsilon prediction and Euler Ancestral. The unused final CLIP-L layer's
+non-finite weights were retained; no encoder replacement was needed.
+
+Batch 1, seed 12345, 28 steps and CFG 6 produced a coherent anime illustration
+of the requested auburn-haired adult botanist, navy coat, brown satchel,
+blue flowers, greenhouse and warm lanterns. The image was visually inspected.
+Both 1024x1344 renders had identical pixels and hash `32f2b2ce376c233c`.
+Times exclude loading and PNG saving; allocator peaks exclude desktop and
+driver overhead. This is a runtime smoke sample, not a quality benchmark or
+a reproduction of the author's separate hires-refinement workflow.
+
+Cancellation stopped after step 1, and the following two calls completed all
+28 steps. SQLite rows and PNG metadata retained the public mirror id
+`LyliaEngine/waiIllustriousSDXL_v170`, FP8, seed, size, prompt pair, steps,
+CFG 6, effective True CFG 6 and null Mu. The four-channel SDXL VAE has no
+latent-preview map, so previews disabled themselves without disrupting the
+renders. The model was unloaded afterward. The production gallery was not
+used; evidence is in `%TEMP%/local-diffusion-wai-validation/`: `validate.py`,
+`validation.log`, `results.json`, the separate database and `outputs/` PNGs.
+
+The full Python suite passed 453 tests and `smoke-wai.json` passed all 20
+browser expectations. CPU conditioning tests cover none/FP8/int8 and both
+positive/negative prompts with non-finite weights in the unused CLIP layer.
+GPU int8/full-bfloat16, sequential offload, LoRAs, batch scaling and larger
+resolutions remain unmeasured.
 
 NewBie Image Exp0.1 was verified on the RTX 5080 with Windows FP8 and model
 offload. The pinned official components are strictly converted on CPU; the

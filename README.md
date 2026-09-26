@@ -1,7 +1,7 @@
 # Local Diffusion
 
 Run open text-to-image checkpoints locally - **FLUX.1 Krea [dev]**, **Krea 2
-Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Kohaku, Illustrious,
+Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Kohaku, Illustrious, WAI,
 Z-Anime, Anima Turbo, NetaYume Lumina and NewBie - up to
 4 megapixels on a single consumer GPU. FastAPI + diffusers backend, vanilla-JS
 frontend, SQLite gallery. FLUX is the default because its repo is click-through
@@ -15,8 +15,8 @@ gated; Turbo needs approval first.
 - NVIDIA GPU, **16 GB VRAM minimum** (float8 path). 24 GB+ can run `LOCAL_DIFFUSION_QUANT=none`.
 - Free disk varies by checkpoint: FLUX.1 Krea [dev] is 32 GiB (transformer
   23.8 GB, T5 9.5 GB), Krea 2 Turbo 34 GiB, and Animagine's Diffusers
-  components total about 6.5 GiB. Illustrious needs about 14 GB for its source
-  checkpoint and converted component tree. Z-Anime plus its standard Qwen3
+  components total about 6.5 GiB. Illustrious and WAI each need about 14 GB for
+  their source checkpoint and converted component tree. Z-Anime plus its standard Qwen3
   encoder is about 20.7 GB (19.3 GiB). The WSL Nunchaku Lite re-uploads are far
   smaller.
 - Python 3.13 and [`uv`](https://docs.astral.sh/uv/).
@@ -74,9 +74,10 @@ nothing to remember: FLUX gets 28 steps at CFG 3.5 with Mu blank, Turbo gets
 8 steps at CFG 0 with Mu 1.15.
 
 The loader resolves the pipeline class and quantizable components from the
-repo's `model_index.json`. Illustrious, Anima Turbo, NetaYume and NewBie first convert their
-pinned official weights to a local component tree, then use the same loading
-and offload path.
+repo's `model_index.json`. Illustrious, WAI, Anima Turbo, NetaYume and NewBie first
+convert pinned weights to a local component tree, then use the same loading
+and offload path. WAI's source is a hash-checked community mirror of the
+author's checkpoint; the other converted entries use official repositories.
 
 ## Run
 
@@ -96,6 +97,32 @@ variables below:
 uv run python -m backend.main --defaults               # the environment, no questions
 uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8
 ```
+
+For **WAI Illustrious v17**, choose it in the menu or run:
+
+```powershell
+uv run python -m backend.main --model LyliaEngine/waiIllustriousSDXL_v170 --quant fp8 --offload model
+```
+
+The app starts at **28 steps and CFG 6**, within the author's 15-30 steps and
+CFG 5-7 guidance, with Euler Ancestral and Mu disabled. Use tags or a short
+description; **Tags** can append the author's quality recipe and fill the
+recommended negative prompt. **Examples** contains that quality recipe alone,
+so add your subject before generating. The author recommends original sizes
+above 1024x1024 and uses 1024x1344 before a separate 1.5x hires pass. The app
+generates directly at the requested size; the guide's reference span is not a
+published maximum or a promise of the author's refined output.
+
+The ungated Hugging Face entry is a community transport mirror, not the
+author's repository or a LoRA. First load verifies the pinned 6.94 GB file's
+SHA-256, converts it on CPU using pinned SDXL configuration, and caches the
+full component tree with its embedded VAE and both text encoders. Allow about
+14 GB for the original and conversion together. Later loads reuse that tree
+with FP8, int8 or full bfloat16; this entry has no Nunchaku build. Saved
+images retain the public mirror id. See the
+[author's v17 card](https://tensor.art/models/990778216270553015/WAI-illustrious-v17),
+[integration recipe](docs/design-notes.md#wai-illustrious-v17-an-author-checkpoint-through-a-pinned-mirror)
+and [local verification](docs/verified.md).
 
 For another anime model, choose **Z-Anime Base** in the menu or run:
 
@@ -414,6 +441,8 @@ uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
 node tools/browser.mjs tools/smoke-kohaku.json   # hybrid tags, defaults, size guidance and saved settings
 uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
 node tools/browser.mjs tools/smoke-newbie.json   # XML examples, defaults, size guidance and saved settings
+uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
+node tools/browser.mjs tools/smoke-wai.json      # WAI recipes, defaults, reference sizes and saved settings
 uv run python tools/fake_server.py --port 7867 --fresh
 node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
 ```
@@ -799,7 +828,10 @@ it uses that model's documented person-count, quality-tier and year-modifier
 terms and fills the authors' own negative prompt, without borrowing
 Animagine's recipe; its prompting guide says up front that the checkpoint is
 an untuned base with no default style, so the style has to come from an
-artist or style tag. While typing either checkpoint's
+artist or style tag. WAI v17 has its own quality suffix, negative prompt and
+rating buttons. Its author publishes no vocabulary cutoff, so WAI's
+autocomplete uses the live index without claiming those tags were learned by
+the checkpoint. While typing a supported checkpoint's
 tag prompt, autocomplete comes from Danbooru's live tag index and each
 comma-separated item gets a green recognised, red unknown, or grey unchecked
 chip. Illustrious remains hybrid: spellcheck stays on and a single natural-
@@ -839,6 +871,7 @@ invented. In brief:
 | Animagine XL 4.0 Opt | Danbooru tags: person count, character and series, rating, subject/pose/scene, then quality tags; use its negative prompt | CLIP + CLIP, 77 tokens | Trained at 1024x1024; nine recommended shapes around 1 MP |
 | Kohaku XL Zeta | Tags, natural-language descriptions or both; its own quality, rating and date tags | CLIP + CLIP, 77 tokens in this app | 1024x1024 or similar pixel count recommended |
 | Illustrious XL v2.0-STABLE | Tags or natural-language descriptions; an untuned base with no default style, so name an artist or style, one composition tag, and use its negative prompt | CLIP + CLIP, 77 tokens | Native 1-2.25 MP documented; up to 4 MP with some loss |
+| WAI Illustrious v17 | Tags or short descriptions; its own quality recipe and negative prompt | CLIP + CLIP, 77 tokens in this app | Above 1024x1024 recommended; 1024x1344 examples precede a separate hires pass; no published maximum |
 | Anima Turbo v1.1 | Tags, descriptive sentences or both; lowercase tags with spaces, `@` before artist names; no negative prompt effect at CFG 1 | Qwen3-0.6B + text conditioner, 512 in this app | 512x512-1536x1536 documented (0.26-2.36 MP) |
 | NewBie image Exp0.1 | Prose, tags or XML; separate character blocks for multiple people | Gemma 3, 512 tokens + Jina CLIP v2, 2048 tokens in this app | 1024x1024 example; no published resolution range |
 
@@ -861,6 +894,7 @@ Applied automatically; see `backend/model_defaults.py`.
 | Animagine XL 4.0 Opt | 28 | 5.0 | — |
 | Kohaku XL Zeta | 28 | 5.0 | Unavailable |
 | Illustrious XL v2.0-STABLE | 28 | 5.0 | — |
+| WAI Illustrious v17 | 28 | 6.0 | Unavailable |
 | Anima Turbo v1.1 | 8 | 1.0 | Unavailable |
 | NewBie image Exp0.1 | 28 | 4.0 | Blank; static shift 6 |
 
@@ -1093,5 +1127,7 @@ the current gallery.
 Model weights have their own licences; Krea 2 uses the **Krea 2 Community
 License**. Anima uses the
 [CircleStone Labs Non-Commercial License](https://huggingface.co/circlestone-labs/Anima#license),
-which permits commercial use of generated images. This application code
+which permits commercial use of generated images. For WAI, consult the
+[author's model permissions](https://tensor.art/models/990778216270553015/WAI-illustrious-v17);
+the community mirror's metadata is not authoritative licensing guidance. This application code
 carries no such restriction.

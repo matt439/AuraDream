@@ -52,7 +52,7 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   prequantized refusal, the components left out of the download, the
   device placement; takes `settings` as a parameter
 - `backend/backends/single_file.py` — pinned, CPU-only first-load conversion
-  for Illustrious XL v2.0-STABLE; an atomic cached tree feeds the normal loader
+  for Illustrious XL v2.0-STABLE and WAI v17; atomic cached trees feed the normal loader
 - `backend/backends/anima_loading.py` — pinned CPU conversion of full Anima
   Turbo v1.1 and its conditioner, with official shared components and a cached tree
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
@@ -109,6 +109,18 @@ Model and loader:
   official id in runtime settings and saved metadata. The converted tree has
   a fixed epsilon/Euler Ancestral scheduler; do not pass pipeline-level
   quantization into `from_single_file` or silently skip the CLIP encoders.
+
+- `LyliaEngine/waiIllustriousSDXL_v170` selects WAI0731's v17 through a pinned
+  community mirror, not an official repository or a LoRA. `single_file` checks
+  the source SHA-256 against the author's archived release before converting
+  on CPU, retaining the embedded VAE and both CLIP encoders. Use pinned SDXL
+  descriptors only, epsilon/Euler Ancestral and normal FP8/int8/bfloat16 loading;
+  preserve the public mirror id in settings and metadata. Keep the known NaNs
+  in the unused final CLIP-L layer unchanged: SDXL consumes that tower's
+  penultimate states and the other tower's pooled output. Preserve the regression
+  checking the used conditioning. The exact-id profile starts at 28 steps/CFG 6,
+  disables Mu and has no Nunchaku mapping. The author's reference sizes and
+  separate hires pass are not a published maximum or direct-generation guarantee.
 
 - Z-Anime Base has a pinned nested `diffusers/` tree. `loading.resolve_model`
   resolves configs before quantization checks and weights after them; both
@@ -285,8 +297,10 @@ Frontend and CLI:
 - Prompt expansion is ERNIE-only and explicit: its result replaces the editor
   only if the user did not type while the long request was in flight, then the
   usual persistence and grid preview paths are told about the programmatic edit.
-- Animagine tag autocomplete and comma-item validation use the fixed Danbooru
-  tag API through `backend/tags.py`, filtered to its knowledge cutoff. Model-card
+- Tag autocomplete and comma-item validation use the fixed Danbooru
+  tag API through `backend/tags.py`, filtered when a checkpoint documents a
+  knowledge cutoff. WAI v17 publishes none: keep its cutoff `None` and the
+  live lookup advisory rather than inventing a date. Model-card
   special tags validate locally; lookup failure stays advisory and never blocks.
   On a two-column page validation lives above the results, not in the panel;
   under 901 px the same node returns below Prompt.
@@ -375,6 +389,14 @@ example selection and persistence, and applied saved settings on port 7872:
 ```powershell
 uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
 node tools/browser.mjs tools/smoke-newbie.json
+```
+
+`smoke-wai.json` checks WAI v17 defaults, author tag recipes, the qualified
+reference-size guide, disabled Mu and saved settings on port 7873:
+
+```powershell
+uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
+node tools/browser.mjs tools/smoke-wai.json
 ```
 
 

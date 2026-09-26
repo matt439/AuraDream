@@ -582,6 +582,59 @@ ILLUSTRIOUS_GUIDE = {
         "negative_prompt": _ILLUSTRIOUS_NEGATIVE,
     },
 }
+_WAI_NEGATIVE = "bad quality,worst quality,worst detail,sketch,censor,"
+WAI_GUIDE = {
+    "prompt": (
+        "WAI Illustrious v17 is an anime finetune with its own style. Use tags "
+        "for the subject and scene; the family release notes also describe "
+        "natural-language support. Finish with the author's quality recipe: "
+        "masterpiece, best quality, amazing quality. Examples inserts that "
+        "recipe alone; add your subject before it. Both SDXL CLIP tokenizers "
+        "stop at 77 tokens, so keep essential details near the beginning.\n"
+        "The author's rating tags are general, sensitive, nsfw and explicit; "
+        "the author suggests adding nsfw to the negative prompt when filtering "
+        "sexual content. Autocomplete checks Danbooru's live index; WAI publishes "
+        "no vocabulary cutoff, so a recognized tag is advisory rather than "
+        "evidence that v17 learned it.\n"
+        f"The v17 card recommends this negative prompt: {_WAI_NEGATIVE} "
+        "The card's weighted-prompt syntax and high-resolution refinement pass "
+        "are not implemented by this text-to-image pipeline."
+    ),
+    "size": (
+        "The v17 author recommends original dimensions larger than 1024x1024 "
+        "and uses 1024x1344 in the examples. The size highlights follow those "
+        "documented reference sizes, about 1.05-1.38 MP; no published maximum "
+        "is given. A size above that reference span is not a claim of unsupported "
+        "resolution. The author's examples then use a separate 1.5x high-resolution "
+        "refinement pass at 20 steps and denoising strength 0.35-0.5 with "
+        "R-ESRGAN 4x+ Anime6B. This app generates directly at the requested size "
+        "and does not apply that refinement pass."
+    ),
+    "pixels": (1024**2 / 1e6, 1024 * 1344 / 1e6),
+    "pixels_word": "documented",
+    # The author supplies this positive recipe, not a complete scene prompt.
+    "examples": [",masterpiece,best quality,amazing quality,"],
+    "tag_helper": {
+        "order": ["Subject and scene", "Quality"],
+        "groups": [
+            {
+                "label": "Rating",
+                "tags": ["general", "sensitive", "nsfw", "explicit"],
+                "exclusive": True,
+            },
+            {
+                "label": "Quality",
+                "tags": ["masterpiece", "best quality", "amazing quality"],
+            },
+        ],
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": None,
+        "hybrid_prompt": True,
+        "recommended_suffix": ["masterpiece", "best quality", "amazing quality"],
+        "negative_prompt": _WAI_NEGATIVE,
+    },
+}
+
 ANIMA_TURBO_GUIDE = {
     "prompt": (
         "Anima Turbo makes anime and other illustrations. Its distillation "

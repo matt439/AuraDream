@@ -1,8 +1,8 @@
 """Danbooru tag lookup for tag-caption checkpoints.
 
 The checkpoints do not publish complete frozen vocabularies, while their
-authors document Danbooru-derived tag captions and dataset cutoffs. Danbooru's
-tag API is therefore an advisory validation boundary. Lookups are cached in
+authors document Danbooru-derived tag captions, sometimes with dataset cutoffs.
+Danbooru's tag API is therefore an advisory validation boundary. Lookups are cached in
 process, kept off the event loop by the routes, and failures mean "unchecked",
 never "invalid" - generation remains local and the editor remains authoritative.
 """
@@ -72,10 +72,10 @@ class DanbooruTagVocabulary:
     ):
         self._fetch_json = fetch_json or self._request_json
         self._lock = threading.Lock()
-        self._suggestions: dict[tuple[str, str], list[dict]] = {}
+        self._suggestions: dict[tuple[str, str | None], list[dict]] = {}
         self._records: dict[str, dict | None] = {}
 
-    def suggest(self, query: str, cutoff: str, limit: int = 12) -> list[dict]:
+    def suggest(self, query: str, cutoff: str | None, limit: int = 12) -> list[dict]:
         normalized = normalize_tag(query).replace("*", "").replace("?", "")
         if not normalized:
             return []
@@ -110,7 +110,7 @@ class DanbooruTagVocabulary:
         self,
         tags: list[str],
         special_tags: set[str],
-        cutoff: str,
+        cutoff: str | None,
         allow_year_tag: bool = True,
     ) -> list[dict]:
         normalized = {
@@ -151,13 +151,12 @@ class DanbooruTagVocabulary:
         return results
 
     @staticmethod
-    def _eligible(row: dict, cutoff: str) -> bool:
-        created = str(row.get("created_at", ""))[:10]
+    def _eligible(row: dict, cutoff: str | None) -> bool:
+        created = str(row.get("created_at") or "")[:10]
         return (
             not bool(row.get("is_deprecated"))
             and int(row.get("post_count", 0)) > 0
-            and bool(created)
-            and created <= cutoff
+            and (cutoff is None or (bool(created) and created <= cutoff))
         )
 
     @staticmethod
@@ -169,7 +168,7 @@ class DanbooruTagVocabulary:
             "post_count": int(row.get("post_count", 0)),
         }
 
-    def _validation(self, tag: str, row: dict | None, cutoff: str) -> dict:
+    def _validation(self, tag: str, row: dict | None, cutoff: str | None) -> dict:
         base = {
             "tag": tag,
             "valid": False,
@@ -185,10 +184,10 @@ class DanbooruTagVocabulary:
             return {**base, "reason": "deprecated Danbooru tag"}
         if int(row.get("post_count", 0)) <= 0:
             return {**base, "reason": "Danbooru tag has no posts"}
-        created = str(row.get("created_at", ""))[:10]
-        if not created:
+        created = str(row.get("created_at") or "")[:10]
+        if cutoff is not None and not created:
             return {**base, "reason": "Danbooru tag has no creation date"}
-        if created > cutoff:
+        if cutoff is not None and created > cutoff:
             return {**base, "reason": f"created after this checkpoint's {cutoff} cutoff"}
         suggestion = self._suggestion(row)
         return {

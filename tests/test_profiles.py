@@ -39,6 +39,7 @@ CASES = [
     ("cagliostrolab/animagine-xl-4.0", "StableDiffusionXLPipeline"),
     ("KBlueLeaf/Kohaku-XL-Zeta", "StableDiffusionXLPipeline"),
     ("OnomaAIResearch/Illustrious-XL-v2.0", "StableDiffusionXLPipeline"),
+    ("LyliaEngine/waiIllustriousSDXL_v170", "StableDiffusionXLPipeline"),
     ("duongve/NetaYume-Lumina-Image-2.0", "Lumina2Pipeline"),
 ]
 
@@ -206,6 +207,51 @@ def test_illustrious_has_hybrid_prompting_and_a_native_not_maximum_size_range():
         "best quality", "masterpiece",
     ]
     assert groups["Year"].tags == ["oldest", "old", "modern", "recent", "newest"]
+
+
+def test_wai_v17_has_its_own_profile_and_author_recipe():
+    from backend.schemas import PromptGuide
+    from backend.tags import unchecked_results
+
+    model = "LyliaEngine/waiIllustriousSDXL_v170"
+    profile = defaults_for(model)
+    assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (28, 6, None)
+    assert profile["cfg_threshold"] == 1
+    assert profile["negative_prompt_supported"]
+    assert not profile["mu_supported"] and not profile["true_cfg_supported"]
+    assert not profile["reference_supported"]
+    assert _profile_for(model) is _profile_for(model.upper())
+    assert _profile_for("LyliaEngine/waiIllustriousSDXL_v180") is _FALLBACK
+    checkpoint = next(item for item in launch.CHECKPOINTS if item.repo == model)
+    assert checkpoint.name == "WAI Illustrious v17" and checkpoint.lite is None
+
+    guide = PromptGuide(**guide_for(model))
+    assert guide.pixels == (1024**2 / 1e6, 1024 * 1344 / 1e6)
+    assert guide.pixels_word == "documented"
+    assert guide.examples == [",masterpiece,best quality,amazing quality,"]
+    helper = guide.tag_helper
+    assert helper is not None and helper.hybrid_prompt
+    assert helper.vocabulary == "danbooru" and helper.vocabulary_cutoff is None
+    assert not helper.year_tag
+    assert helper.recommended_suffix == ["masterpiece", "best quality", "amazing quality"]
+    assert helper.negative_prompt == "bad quality,worst quality,worst detail,sketch,censor,"
+    groups = {group.label: group for group in helper.groups}
+    assert groups["Rating"].tags == ["general", "sensitive", "nsfw", "explicit"]
+    assert groups["Rating"].exclusive and not groups["Quality"].exclusive
+    assert groups["Quality"].tags == helper.recommended_suffix
+    special = {tag for group in helper.groups for tag in group.tags}
+    assert all(
+        row["valid"] and row["source"] == "model"
+        for row in unchecked_results(sorted(special), special, allow_year_tag=False)
+    )
+    hints = hints_for(model)
+    assert "15-30" in hints["steps"] and "CFG 5-7" in hints["guidance_scale"]
+    assert "Euler Ancestral" in hints["mu"]
+    assert "untuned base" not in hints["prompt"]
+    assert "no vocabulary cutoff" in hints["prompt"]
+    assert "no published maximum" in hints["size"]
+    assert "documented reference sizes" in hints["size"]
+    assert "1.5x high-resolution" in hints["size"]
 
 
 def test_anima_turbo_has_its_own_defaults_and_documented_guide():

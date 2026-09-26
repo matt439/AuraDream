@@ -96,6 +96,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open; single file, converted locally on first load",
     ),
     Checkpoint(
+        "WAI Illustrious v17",
+        "LyliaEngine/waiIllustriousSDXL_v170",
+        "open; community mirror, single file converted locally on first load",
+    ),
+    Checkpoint(
         "Z-Anime Base",
         "SeeSee21/Z-Anime",
         "open; experimental anime model, natural-language prompts",

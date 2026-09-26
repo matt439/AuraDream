@@ -597,6 +597,32 @@ _PROFILES.insert(
 # whose name contains a family token. In particular, "anima" is also part of
 # "animagine", and Anima's Base and Aesthetic variants need different defaults.
 _EXACT_PROFILES: dict[str, dict[str, Any]] = {
+    "lyliaengine/waiillustrioussdxl-v170": {
+        "steps": 28,
+        "guidance_scale": 6.0,
+        "mu": None,
+        "mu_supported": False,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": False,
+        "true_cfg_supported": False,
+        "guide": guides.WAI_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. WAI v17 recommends 15-30 with Euler Ancestral; "
+                "{steps} is this app's starting point."
+            ),
+            "guidance_scale": (
+                "Real classifier-free guidance. WAI v17 recommends CFG 5-7; "
+                "this app starts at {guidance_scale:g}. Above {cfg_threshold:g} "
+                "the negative prompt applies and adds an uncond pass per step."
+            ),
+            "mu": (
+                "Unavailable: WAI v17 uses SDXL's Euler Ancestral noise schedule, "
+                "not flow matching."
+            ),
+        },
+    },
     "newbie-ai/newbie-image-exp0.1": {
         "steps": 28,
         "guidance_scale": 4.0,

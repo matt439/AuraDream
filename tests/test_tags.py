@@ -54,6 +54,29 @@ def test_suggestions_are_normalized_ranked_data_before_the_model_cutoff():
     assert len(calls) == 1, "the same prefix is served from the process cache"
 
 
+def test_optional_cutoff_uses_live_index_without_weakening_dated_profiles():
+    rows = [
+        record("green_hair"),
+        record("green_new", created="2026-04-01"),
+        {**record("green_undated"), "created_at": None},
+        record("green_empty", count=0),
+        record("green_retired", deprecated=True),
+    ]
+    vocabulary = DanbooruTagVocabulary(lambda _path, _params: rows)
+    assert [item["text"] for item in vocabulary.suggest("green", None)] == [
+        "green hair", "green new", "green undated"
+    ]
+    assert [item["text"] for item in vocabulary.suggest("green", CUTOFF)] == [
+        "green hair"
+    ]
+    names = ["green hair", "green new", "green undated", "green empty", "green retired"]
+    results = vocabulary.validate(names, set(), None)
+    assert [item["valid"] for item in results] == [True, True, True, False, False]
+    dated = vocabulary.validate(names, set(), CUTOFF)
+    assert [item["valid"] for item in dated] == [True, False, False, False, False]
+    assert "cutoff" in dated[1]["reason"]
+
+
 def test_validation_handles_model_tags_characters_unknowns_and_cutoff():
     calls = []
     rows = {

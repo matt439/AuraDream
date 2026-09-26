@@ -1473,6 +1473,80 @@ GPU samples and their quality limits are recorded in `verified.md`. The
 Illustrious smoke on the fake server; no GPU sample was taken for it, since
 it changes text and one button, not the pipeline.
 
+## WAI Illustrious v17: an author checkpoint through a pinned mirror
+
+`LyliaEngine/waiIllustriousSDXL_v170` selects WAI0731's v17 full SDXL
+checkpoint through a community transport mirror. The mirror is neither the
+author's repository nor a LoRA, despite misleading Hub metadata. Its card
+is not authoritative for the loading recipe or permissions. The primary
+author source is the Tensor.Art v17 release page. The file's SHA-256 matches
+the author's Civitai version 2883731 as recorded by CivArchive; direct
+Civitai access returned HTTP 451 during integration.
+
+The source is pinned to revision
+`5ef4e2da7173a160ad04aebcaa2fdcd6d20ed792`, filename
+`waiIllustriousSDXL_v170.safetensors`, 6,938,040,682 bytes, SHA-256
+`f116b0c78ff441467b0cdc8f1936e1ed18ea31e9997c7b132b1b8db533f0bd04`.
+`single_file.py` verifies that digest before converting. It shares the
+Illustrious CPU conversion path and pinned SDXL base descriptors at
+`462165984030d82259a11f4367a4eed129e94a7b`: only JSON and tokenizer text are
+downloaded from the base, never replacement weights. The checkpoint's VAE
+and both CLIP encoders are retained. The saved scheduler is epsilon-prediction
+Euler Ancestral, matching the author's Euler a recommendation.
+
+The existing lock, temporary tree, recipe marker and atomic rename protect
+the conversion cache. WAI's distinct source and digest produce a separate
+cache key; the existing Illustrious recipe remains unchanged. The cached
+tree feeds normal per-component FP8, int8 or bfloat16 loading, and Nunchaku
+is refused before conversion. The original and converted weights occupy
+about 14 GB together. Only the loader sees the cache path: status, saved
+metadata and resume identity retain `LyliaEngine/waiIllustriousSDXL_v170`.
+
+The source contains NaNs in CLIP-L's final transformer layer (layer 11).
+They are preserved as source weights, not silently replaced or sanitized.
+Standard SDXL prompt conditioning selects this tower's penultimate hidden
+states (`hidden_states[-2]`) and takes pooled conditioning from the second
+text tower. Consequently the contaminated final CLIP-L output is not a
+conditioning input. A focused regression preserves that distinction by
+checking the consumed conditioning rather than rejecting an unused output.
+Changes to hidden-state selection must revisit this assumption.
+
+The exact-id profile starts at 28 steps and CFG 6, within the author's
+15-30 and 5-7 ranges. These are starting settings, not a measured optimum.
+Mu is unavailable because the scheduler is not flow matching; negative
+prompts use ordinary CFG above 1. The guide does not inherit Illustrious
+v2.0's untuned-base description, native size range, ratings or negative
+prompt. WAI has its own author-supplied positive quality recipe and negative
+prompt. The quality group is nonexclusive because all three positive tags
+are intended together, while the four rating buttons are exclusive.
+Examples inserts the author's verbatim quality recipe rather than an
+invented scene, and the hint explains that the subject still needs adding.
+The family release notes describe natural-language support, so the helper
+keeps spellcheck and single-sentence prose behavior. Standard SDXL CLIP's
+77-token context applies; the author's weighted-prompt syntax is not parsed.
+
+WAI publishes no dataset cutoff. Its Danbooru helper therefore passes
+`None` to the tag client, which omits only the creation-date filter and
+still excludes deprecated and empty tags. Existing dated profiles keep
+their limits, including when they share cached tag records with WAI.
+WAI's quality and rating tokens validate locally; remote matches remain
+advisory vocabulary membership, not evidence of checkpoint training.
+
+The author recommends original dimensions above 1024x1024 and describes
+1024x1344 example inputs followed by a separate 1.5x hires refinement pass:
+20 hires steps, R-ESRGAN 4x+ Anime6B, denoising strength 0.35-0.5. No maximum
+is published. The existing guide contract uses the documented reference
+span, 1.048576-1.376256 MP, with `pixels_word="documented"`; the tooltip
+explains that this is neither a maximum nor an equivalent to the refined
+examples. This app renders directly at the requested size and does not
+implement that hires pass. The fake-server smoke is `tools/smoke-wai.json`
+on port 7873; actual card measurements belong in `verified.md`.
+
+Sources checked 2026-09-26:
+- [Author's v17 release card and permissions](https://tensor.art/models/990778216270553015/WAI-illustrious-v17).
+- [Pinned community transport repository](https://huggingface.co/LyliaEngine/waiIllustriousSDXL_v170/tree/5ef4e2da7173a160ad04aebcaa2fdcd6d20ed792).
+- [CivArchive's author-model record, including version 2883731](https://civarchive.com/models/827184/wai-nsfw-illustrious-sdxl).
+
 ## Z-Anime Base: a nested Diffusers tree
 
 `SeeSee21/Z-Anime` is the next anime candidate after Illustrious. The author
