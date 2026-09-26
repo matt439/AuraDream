@@ -39,6 +39,7 @@ CASES = [
     ("cagliostrolab/animagine-xl-4.0", "StableDiffusionXLPipeline"),
     ("KBlueLeaf/Kohaku-XL-Zeta", "StableDiffusionXLPipeline"),
     ("OnomaAIResearch/Illustrious-XL-v2.0", "StableDiffusionXLPipeline"),
+    ("duongve/NetaYume-Lumina-Image-2.0", "Lumina2Pipeline"),
 ]
 
 SCHNELL_LITE = "lite-infer/flux.1-schnell-nunchaku-lite-nvfp4_r32-bnb4-text-encoder"
@@ -240,6 +241,36 @@ def test_anima_turbo_profile_only_matches_the_official_resolved_id():
     ):
         assert _profile_for(unrelated) is _FALLBACK
     assert defaults_for("cagliostrolab/animagine-xl-4.0")["steps"] == 28
+
+
+def test_netayume_uses_the_pinned_releases_profile_and_qualified_family_guide():
+    from backend.schemas import PromptGuide
+
+    model = "duongve/NetaYume-Lumina-Image-2.0"
+    profile = defaults_for(model)
+    assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (40, 5.0, None)
+    assert profile["mu_supported"] and profile["negative_prompt_supported"]
+    assert profile["cfg_threshold"] == 1.0
+    assert not profile["true_cfg_supported"] and not profile["reference_supported"]
+    checkpoint = next(c for c in launch.CHECKPOINTS if c.repo == model)
+    assert checkpoint.name == "NetaYume Lumina v4" and checkpoint.lite is None
+    assert checkpoint.summary() == "40 steps, CFG 5"
+    assert _profile_for(model.upper()) is _profile_for(model)
+    assert _profile_for("somebody/NetaYume-Lumina-Image-2.0") is _FALLBACK
+    assert _profile_for("duongve/NetaYume-Lumina-Image-2.0-v2") is _FALLBACK
+
+    guide = PromptGuide(**guide_for(model))
+    assert guide.pixels == (1024**2 / 1e6, 1024 * 1536 / 1e6)
+    assert guide.pixels_word == "documented" and guide.tag_helper is None
+    assert guide.examples[0].startswith("Gawr Gura, 1girl, solo, anime style")
+    assert "<Prompt Start>" not in guide.examples[0]
+    hints = hints_for(model)
+    assert "v2 family guidance" in hints["steps"] and "40-50" in hints["steps"]
+    assert "4-7" in hints["guidance_scale"]
+    assert "fixed shift of 6" in hints["mu"]
+    assert "Danbooru tags" in hints["prompt"]
+    assert "256-token" in hints["prompt"] and "applied automatically" in hints["prompt"]
+    assert "v4 resolution range" in hints["size"] and "not a supported maximum" in hints["size"]
 
 
 def test_every_catalogue_entry_has_a_profile():

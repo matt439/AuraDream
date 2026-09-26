@@ -105,6 +105,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "circlestone-labs/Anima",
         "open; official split files",
     ),
+    Checkpoint(
+        "NetaYume Lumina v4",
+        "duongve/NetaYume-Lumina-Image-2.0",
+        "open; split denoiser, converted locally on first load",
+    ),
     # The same pipeline as FLUX.1 Krea; dev is the base the LoRA ecosystem
     # targets, schnell its 4-step Apache-licensed sibling.
     Checkpoint(

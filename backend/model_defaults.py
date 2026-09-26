@@ -597,6 +597,37 @@ _PROFILES.insert(
 # whose name contains a family token. In particular, "anima" is also part of
 # "animagine", and Anima's Base and Aesthetic variants need different defaults.
 _EXACT_PROFILES: dict[str, dict[str, Any]] = {
+    "duongve/netayume-lumina-image-2.0": {
+        "steps": 40,
+        "guidance_scale": 5.0,
+        "mu": None,
+        "mu_supported": True,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": False,
+        "true_cfg_supported": False,
+        "guide": guides.NETAYUME_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. NetaYume's published v2 family guidance is "
+                "40-50; {steps} is this app's starting point for the pinned v4 "
+                "release, not a measured optimum."
+            ),
+            "guidance_scale": (
+                "Classifier-free guidance. NetaYume's published v2 family "
+                "guidance is 4-7; {guidance_scale:g} is this app's starting "
+                "point. Above {cfg_threshold:g} the negative prompt applies "
+                "and adds an uncond pass per step."
+            ),
+            "mu": (
+                "Leave blank for the standard Lumina 2 FlowMatch Euler "
+                "scheduler's fixed shift of 6 (mu 1.79). A value here "
+                "replaces it. The author's ComfyUI Euler Ancestral/normal "
+                "and res_multistep/linear_quadratic recommendations are "
+                "different sampling setups."
+            ),
+        },
+    },
     "circlestone-labs/anima": {
         "steps": 8,
         "guidance_scale": 1.0,

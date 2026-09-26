@@ -44,6 +44,43 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | Z-Anime Base, CFG 4, repeated seed | fp8, Windows | 1024x1024 | 40 | 79.2 s | 6.78 GiB allocated | 2026-09-19 |
 | Anima Turbo v1.1, CFG 1 | fp8, Windows | 1024x1024 | 8 | 5.68 s after cancellation; 4.40 s repeat | 2.17 GiB allocated, 2.34 GiB reserved | 2026-09-26 |
 | Kohaku XL Zeta, CFG 5 | fp8, Windows | 1024x1024 | 28 | 9.33 s after cancellation; 9.68 s repeat | 3.69 GiB allocated, 3.81 GiB reserved (maximum of the pair) | 2026-09-26 |
+| NetaYume Lumina v4, CFG 5 | fp8, Windows | 1024x1024 | 40 | 38.46 s after cancellation; 38.74 s repeat | 5.76 / 3.30 GiB allocated, 5.92 / 4.38 GiB reserved | 2026-09-26 |
+
+NetaYume Lumina v4 was verified on the RTX 5080 with Windows FP8 and model
+offload. The first load, including downloading the pinned v4 denoiser and
+official Lumina 2 shared components and converting on CPU, took 290.68
+seconds. The resulting `Lumina2Pipeline` uses FlowMatch Euler, fixed shift
+6, normalized CFG and the author's anime system instruction. This is the
+standard Diffusers sampling setup, not a reproduction of the author's
+ComfyUI samplers. Source and component pins are in `netayume_loading.py`.
+
+Batch 1, seed 12345, 40 steps, CFG 5 and blank Mu produced a coherent anime
+illustration with the requested auburn hair, navy coat, brown satchel,
+blue flowers, greenhouse and warm lanterns. The final image and a live
+preview were visually inspected. Both completed 1024x1024 renders had
+identical pixels and content hash `48847e34d1c6dd99`. Generation times
+exclude loading and PNG saving, but include preview callbacks. The paired
+allocator peaks above are the first post-cancellation render and its repeat;
+they exclude desktop applications and CUDA/driver overhead. These are smoke
+samples, not a quality or performance benchmark.
+
+Cancellation stopped after step 1; both subsequent calls completed all 40
+steps with preview frames. Gallery records and embedded PNG metadata kept
+`duongve/NetaYume-Lumina-Image-2.0`, FP8, seed, dimensions, 40 steps, CFG 5,
+the supplied negative prompt, effective True CFG 5 and null Mu. The model
+was unloaded afterward. The separate evidence directory is
+`%TEMP%/local-diffusion-netayume-validation-20260926-153239/`: `validate.py`,
+`validation.log`, `validation.err`, `results.json`, preview JPEGs and a
+separate database and outputs directory. The production gallery was not used.
+
+The full Python suite passes 396 tests, including strict tensor conversion,
+cache publication and retry, selective pinned downloads, all three normal
+quantization routes, and actual Lumina pipeline CPU checks of the fixed
+system instruction, negative-prompt gate and final scheduler sigmas.
+`smoke-netayume.json` passes all 12 browser expectations. Int8/full-bfloat16
+GPU paths, sequential offload, user LoRAs, batch scaling and larger image
+sizes have not been measured. The guide's 1.05-1.57 MP span comes from
+published family examples, not a verified v4 output limit.
 
 Kohaku XL Zeta was verified with Windows FP8 and model offload using the
 ordinary component-tree loader. The first load, including downloads, took

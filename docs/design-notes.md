@@ -1587,6 +1587,71 @@ Sources checked 2026-09-26:
 - Author's [TIPO demo input](https://huggingface.co/spaces/KBlueLeaf/TIPO-DEMO/blob/1ae60d3cbec4f5274ff349321b71817cfde60175/app.py)
   and [image backend](https://huggingface.co/spaces/KBlueLeaf/TIPO-DEMO/blob/1ae60d3cbec4f5274ff349321b71817cfde60175/diff.py).
 
+## NetaYume Lumina v4: pinned denoiser and standard Lumina 2 components
+
+`duongve/NetaYume-Lumina-Image-2.0` selects the author's full-precision
+`Unet/v4/NetaYumev4_unet.safetensors`, pinned to
+`69c29c441119d43405d8373c654b16827d3cf46e`. The repository also carries v2,
+v2-plus, v3, v3.5-pretrained and all-in-one files; the menu explicitly names
+v4 so the source recipe is unambiguous. Another release must have a distinct
+recorded identity rather than changing this recipe's weights silently.
+
+`netayume_loading.py` converts the 5.22 GB BF16 split checkpoint on CPU.
+Diffusers' `convert_lumina2_to_diffusers` maps the original names and splits
+QKV; it removes the original unused `norm_final.weight`. The converted state
+must load strictly into the pinned parent transformer config. Header-only
+validation of the published file found 400 source tensors and 459 converted
+tensors, matching every expected key and shape. Missing, extra or wrongly
+shaped weights fail instead of leaving random parameters.
+
+The author identifies the encoder as pretrained Gemma-2-2b and the VAE as
+pretrained FLUX.1-dev. Their descriptors, tokenizer and weights come from
+the official `Alpha-VLLM/Lumina-Image-2.0` revision
+`53504abd8178b30685b6c4c7a4cd181ff78b73e9`, together with the transformer
+config and scheduler. The allowlist excludes all parent denoiser weights.
+No community conversion or remote Python code is needed. A recipe hash,
+process lock, temporary directory and final rename provide the same atomic
+cache contract as Illustrious and Anima. FP8/int8 quantization applies only
+after conversion through the normal per-library `quant_mapping`; full
+bfloat16 uses the same tree. Nunchaku is refused before downloads.
+
+The resulting pipeline is standard `Lumina2Pipeline`, which already takes
+per-image generators and `callback_on_step_end`. The supplied scheduler is
+FlowMatch Euler, static shift 6, with no terminal or beta post-processing.
+Mu uses the existing whole-shift override. Negative prompting applies above
+CFG 1, and saved True CFG is that effective scale. The pipeline retains
+its default normalized CFG, full-step guidance and 256-token sequence.
+The author's anime system instruction is passed explicitly on every call;
+Lumina adds its `<Prompt Start>` separator. The user prompt remains the
+stored image prompt. The fixed system instruction is part of the conversion
+recipe, and is not duplicated in Examples or the editor. Negative text is
+encoded as the user supplied it. These semantics and standard Euler are
+not the author's ComfyUI Euler Ancestral/normal or
+res_multistep/linear_quadratic workflow. The existing FLUX VAE preview map
+applies to Lumina's unpacked 4-D latents. User LoRAs use the ordinary
+compatibility check and hot-swap path; references are unavailable.
+
+The exact-id profile starts at 40 steps and CFG 5. The author card recommends
+40-50 and 4-7, but still describes v2, so the guide labels that family
+guidance rather than inventing v4 tuning evidence. The only documented
+sizes used by this guide are Neta Lumina's 1024-square example and the
+author's v2 1024x1536 workflow. Their 1.05-1.57 MP span drives the advisory
+highlighting; its prose explicitly says it is an example span, not a
+supported maximum. The example prompt is the author's workflow image
+prompt with only the system prefix and separator removed. No vocabulary
+cutoff is published for v4, so no tag validator is guessed.
+
+Sources:
+- [Pinned author card](https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0/blob/69c29c441119d43405d8373c654b16827d3cf46e/README.md).
+- [Pinned v4 split file](https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0/blob/69c29c441119d43405d8373c654b16827d3cf46e/Unet/v4/NetaYumev4_unet.safetensors).
+- [Author v2 workflow](https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0/blob/69c29c441119d43405d8373c654b16827d3cf46e/Lumina_image_v2_tensorart_workflow.json).
+- [Pinned official Lumina 2 components](https://huggingface.co/Alpha-VLLM/Lumina-Image-2.0/tree/53504abd8178b30685b6c4c7a4cd181ff78b73e9).
+- [Neta Lumina base guidance](https://huggingface.co/neta-art/Neta-Lumina/blob/65c078e75781946e9f3423fe41457adae3eba3cd/README.md).
+- Installed Diffusers 0.40 `pipeline_lumina2.py` and `convert_lumina2_to_diffusers`.
+
+Runtime measurements belong in `verified.md`; conversion tests and browser
+smoke checks alone do not measure output quality, speed or VRAM.
+
 ## The prompting guide
 
 **Every profile carries a `guide`**: `prompt` and `size` prose for the ?

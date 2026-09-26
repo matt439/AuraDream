@@ -2,7 +2,7 @@
 
 Run open text-to-image checkpoints locally - **FLUX.1 Krea [dev]**, **Krea 2
 Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Kohaku, Illustrious,
-Z-Anime and Anima Turbo - up to
+Z-Anime, Anima Turbo and NetaYume Lumina - up to
 4 megapixels on a single consumer GPU. FastAPI + diffusers backend, vanilla-JS
 frontend, SQLite gallery. FLUX is the default because its repo is click-through
 gated; Turbo needs approval first.
@@ -74,7 +74,7 @@ nothing to remember: FLUX gets 28 steps at CFG 3.5 with Mu blank, Turbo gets
 8 steps at CFG 0 with Mu 1.15.
 
 The loader resolves the pipeline class and quantizable components from the
-repo's `model_index.json`. Illustrious and Anima Turbo first convert their
+repo's `model_index.json`. Illustrious, Anima Turbo and NetaYume first convert their
 pinned official weights to a local component tree, then use the same loading
 and offload path.
 
@@ -137,6 +137,28 @@ this entry has no Nunchaku build. Status and saved images retain
 `circlestone-labs/Anima`. See the
 [model card](https://huggingface.co/circlestone-labs/Anima) and
 [local verification](docs/verified.md).
+
+For **NetaYume Lumina v4**, choose it in the menu or run:
+
+```powershell
+uv run python -m backend.main --model duongve/NetaYume-Lumina-Image-2.0 --quant fp8 --offload model
+```
+
+Start at 1 MP, 40 steps, CFG 5 and blank Mu. Write image tags or descriptive
+sentences; the author's anime system instruction is applied automatically.
+The published family guide recommends 40-50 steps and CFG 4-7. It still
+describes v2, while this selection pins the author's v4 denoiser. The size
+hint cites the base model's 1024-square example and the author's v2
+1024x1536 workflow, not a measured v4 resolution limit.
+
+The first load downloads the 5.22 GB v4 denoiser and the official Lumina 2
+parent's shared Gemma 2 encoder and FLUX VAE, then converts on CPU into the
+same cache used above. Original and converted weights both occupy disk.
+Later loads reuse that tree with FP8, int8 or full bfloat16; Nunchaku is not
+available for this entry. The fixed FlowMatch Euler scheduler uses shift 6;
+Mu overrides that shift. This differs from the author's suggested ComfyUI
+samplers. See the [model card](https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0)
+and [local verification](docs/verified.md).
 
 A run whose stdin is not a terminal - a service, a script - never asks either.
 

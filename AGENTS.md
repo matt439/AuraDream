@@ -57,6 +57,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   Turbo v1.1 and its conditioner, with official shared components and a cached tree
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
+- `backend/backends/netayume_loading.py` — pinned CPU conversion of NetaYume
+  v4's split denoiser, with the official Lumina 2 parent's shared components
 - `backend/backends/schedule.py` — how a requested mu becomes the whole
   shift: `forced_mu`, `shifted_sigmas`, the static-shift fallback
 - `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
@@ -124,6 +126,16 @@ Model and loader:
   the required callback; preserve its fixed flow schedule and exact-id profile
   (8 steps, CFG 1), with Mu, references and user LoRAs disabled. No Nunchaku
   build is mapped to this entry.
+
+- `duongve/NetaYume-Lumina-Image-2.0` selects the pinned v4 split denoiser.
+  `netayume_loading` strictly converts it on CPU and uses the pinned official
+  Lumina 2 parent for configs, Gemma 2, tokenizers and FLUX VAE, excluding the
+  parent's denoiser weights. Keep its public id in settings/metadata. Normal
+  per-component quantization loads the atomic cached tree. Its fixed anime
+  system instruction is passed explicitly per generation; keep FlowMatch
+  Euler shift 6 and the exact-id profile (40 steps, CFG 5). The author's
+  v2 family guidance and ComfyUI samplers are not v4 runtime equivalence.
+  No Nunchaku build is mapped to this entry.
 
 - App-owned names use Local Diffusion: `LOCAL_DIFFUSION_*`,
   `local-diffusion.db`, `~/local-diffusion`, `local-diffusion.*` browser keys
@@ -333,6 +345,14 @@ disabled Mu and applied saved settings on port 7869:
 ```powershell
 uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
 node tools/browser.mjs tools/smoke-anima.json
+```
+
+`smoke-netayume.json` checks NetaYume v4 defaults, the qualified size guide,
+author example, enabled Mu and applied saved settings on port 7871:
+
+```powershell
+uv run python tools/fake_server.py --port 7871 --model duongve/NetaYume-Lumina-Image-2.0
+node tools/browser.mjs tools/smoke-netayume.json
 ```
 
 Static files are served from disk, so a `web/` edit needs no server restart;

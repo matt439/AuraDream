@@ -29,7 +29,7 @@ from .. import latent_preview, loras
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
-from . import anima_loading, loading, schedule, single_file
+from . import anima_loading, loading, netayume_loading, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -112,6 +112,7 @@ class DiffusersBackend(GenerationBackend):
             # Single-file catalogue entries are converted once on CPU. Keep
             # the official id in settings, status and saved reproduction data.
             source_id = anima_loading.resolve_model(settings.model_id, settings.quantization)
+            source_id = netayume_loading.resolve_model(source_id, settings.quantization)
             source_id = single_file.resolve_model(source_id, settings.quantization)
             model_id = loading.resolve_model(source_id)
             load_settings = replace(settings, model_id=model_id)
@@ -377,6 +378,7 @@ class DiffusersBackend(GenerationBackend):
         try:
             source_id = (
                 anima_loading.converted_tree(settings.model_id)
+                or netayume_loading.converted_tree(settings.model_id)
                 or single_file.converted_tree(settings.model_id)
                 or settings.model_id
             )
@@ -567,6 +569,8 @@ class DiffusersBackend(GenerationBackend):
         # records is the prompt the model saw.
         if "use_pe" in self._call_params:
             kwargs["use_pe"] = False
+        if settings.model_id.lower() == netayume_loading.MODEL_ID.lower():
+            kwargs["system_prompt"] = netayume_loading.SYSTEM_PROMPT
         # mu is the whole shift, not an addition to the pipeline's own. Where
         # the scheduler shifts dynamically, override the value it is given; where
         # it does not, hand it a pre-shifted schedule - minus the *static* shift

@@ -610,6 +610,41 @@ ANIMA_TURBO_GUIDE = {
     ],
 }
 
+NETAYUME_GUIDE = {
+    "prompt": (
+        "NetaYume Lumina v4 is an anime finetune of Neta Lumina. Its author's "
+        "published v2 family guide recommends Danbooru tags; the Neta Lumina "
+        "base also supports natural-language descriptions. The Examples menu uses the image "
+        "prompt from the author's v2 workflow.\n"
+        "The author's anime system instruction is applied automatically: "
+        "write only the image's tags or prose here, without a system prefix "
+        "or <Prompt Start> marker. The standard Lumina 2 pipeline uses a "
+        "256-token total sequence, including the system instruction. A "
+        "negative prompt applies at CFG > 1. This app uses standard "
+        "FlowMatch Euler; the author's ComfyUI sampler recommendations "
+        "are different setups."
+    ),
+    "size": (
+        "The inherited Neta Lumina guide gives a 1024x1024 example, and "
+        "NetaYume's published v2 workflow uses 1024x1536. These documented "
+        "examples span about 1.05-1.57 MP; the size highlighting follows "
+        "that example span. Start at 1 MP. The NetaYume card publishes no "
+        "v4 resolution range: 1.57 MP is not a supported maximum or a "
+        "quality limit, and larger sizes have not been measured here."
+    ),
+    "pixels": (1024**2 / 1e6, 1024 * 1536 / 1e6),
+    "pixels_word": "documented",
+    # The v2 workflow's positive image prompt, verbatim after its system
+    # instruction and <Prompt Start> marker. The loader applies the system
+    # instruction itself, so copying that prefix here would duplicate it.
+    "examples": [
+        "Gawr Gura, 1girl, solo, anime style, vibrant colors, blue eyes, blush, "
+        "standing, holding a sign, sign says \"I love you\", english text, "
+        "front-facing, full body, soft lighting, humorous mood, masterpiece, "
+        "best quality, amazing quality, indoors"
+    ],
+}
+
 FALLBACK_GUIDE = {
     "prompt": (
         "Unrecognised checkpoint. Most current models read natural-language "
