@@ -45,6 +45,47 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | Anima Turbo v1.1, CFG 1 | fp8, Windows | 1024x1024 | 8 | 5.68 s after cancellation; 4.40 s repeat | 2.17 GiB allocated, 2.34 GiB reserved | 2026-09-26 |
 | Kohaku XL Zeta, CFG 5 | fp8, Windows | 1024x1024 | 28 | 9.33 s after cancellation; 9.68 s repeat | 3.69 GiB allocated, 3.81 GiB reserved (maximum of the pair) | 2026-09-26 |
 | NetaYume Lumina v4, CFG 5 | fp8, Windows | 1024x1024 | 40 | 38.46 s after cancellation; 38.74 s repeat | 5.76 / 3.30 GiB allocated, 5.92 / 4.38 GiB reserved | 2026-09-26 |
+| NewBie Image Exp0.1, XML prompt, CFG 4 | fp8, Windows | 1024x1024 | 28 | 39.39 s after cancellation; 38.74 s repeat | 4.81 GiB allocated, 4.86 GiB reserved | 2026-09-26 |
+
+NewBie Image Exp0.1 was verified on the RTX 5080 with Windows FP8 and model
+offload. The pinned official components are strictly converted on CPU; the
+final recipe loaded in 31.91 seconds including conversion from downloaded
+source files. The local `NewbiePipeline` uses FlowMatch Euler shift 6, empty
+system prefixes, whole-sample CFG norm limiting, Gemma's penultimate hidden
+state and Jina's masked mean. Source pins and the differences between author
+sampling recipes are recorded in `newbie_loading.py` and `design-notes.md`.
+
+The author's two-character XML example produced a coherent chibi illustration
+with blue hair and blue clothing on the left, pink hair and red clothing on
+the right, two briefcases and the right character waving. The final image was
+visually inspected. Gemma reads up to 512 tokens and Jina 2048; the example is
+486 and 539 tokens respectively, so applying 512 to both would truncate Jina.
+Both final 1024-square renders, seed 12345 and CFG 4, had identical pixels and
+hash `9dfb5b3a47c1c6ea`. Generation times include previews and exclude loading
+and PNG saving. Allocator peaks exclude desktop and driver overhead. These
+two images establish a runtime smoke result, not a quality benchmark.
+
+Cancellation stopped after step 1, and the next two calls completed all 28
+steps with preview frames. SQLite rows and embedded PNG metadata retained
+the exact XML, official model id, FP8, seed, dimensions, steps, CFG, negative
+prompt, effective True CFG 4 and null Mu. The pipeline was unloaded afterward.
+Final evidence is under `%TEMP%/local-diffusion-newbie-validation-20260926-xml/`:
+`validate.py`, `results.json`, logs, preview JPEGs and a separate database and
+outputs directory. The production gallery was not used.
+
+A shorter tag prompt also produced a coherent auburn-haired botanist with a
+navy coat, brown satchel, blue flowers and warm greenhouse lanterns. That pair
+took 37.48/36.84 seconds and had identical hash `42085185bf9b3f4c`; its final
+image and a preview were visually inspected. This earlier smoke preceded the
+Jina limit increase, which did not truncate the short prompt. Its evidence
+is under `%TEMP%/local-diffusion-newbie-validation-20260926/`.
+
+The full Python suite passes 438 tests, including strict tensor conversions,
+atomic cache publication, owned quantization, real tiny pipeline round trips,
+CFG/flow/Mu semantics, seeded batches, XML conditioning and cancellation
+cleanup. `smoke-newbie.json` passes all 14 browser expectations. Higher
+resolutions, GPU int8/full-bfloat16, sequential offload and GPU batch scaling
+remain unmeasured. References, user LoRAs and Nunchaku are disabled.
 
 NetaYume Lumina v4 was verified on the RTX 5080 with Windows FP8 and model
 offload. The first load, including downloading the pinned v4 denoiser and

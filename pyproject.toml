@@ -7,7 +7,7 @@ dependencies = [
     "torch>=2.13.0",
     "torchvision",
     "diffusers>=0.40.0",
-    "transformers>=4.50",
+    "transformers>=5.16.1",
     "accelerate>=1.0",
     "safetensors",
     "sentencepiece",

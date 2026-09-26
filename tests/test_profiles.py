@@ -273,6 +273,49 @@ def test_netayume_uses_the_pinned_releases_profile_and_qualified_family_guide():
     assert "v4 resolution range" in hints["size"] and "not a supported maximum" in hints["size"]
 
 
+def test_newbie_has_release_defaults_and_an_unparsed_xml_example():
+    from xml.etree import ElementTree
+
+    from backend.schemas import PromptGuide
+
+    model = "NewBie-AI/NewBie-image-Exp0.1"
+    profile = defaults_for(model)
+    assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (28, 4.0, None)
+    assert profile["mu_supported"] and profile["negative_prompt_supported"]
+    assert profile["cfg_threshold"] == 1.0
+    assert not profile["true_cfg_supported"] and not profile["reference_supported"]
+    checkpoint = next(c for c in launch.CHECKPOINTS if c.repo == model)
+    assert checkpoint.name == "NewBie image Exp0.1" and checkpoint.lite is None
+    assert checkpoint.summary() == "28 steps, CFG 4"
+    assert _profile_for(model.upper()) is _profile_for(model)
+    assert _profile_for("somebody/NewBie-image-Exp0.1") is _FALLBACK
+    assert _profile_for("NewBie-AI/NewBie-image-Exp0.2") is _FALLBACK
+
+    guide = PromptGuide(**guide_for(model))
+    assert guide.pixels == (1024**2 / 1e6, 1024**2 / 1e6)
+    assert guide.pixels_word == "documented" and guide.tag_helper is None
+    # XML is a structured prompt, not comma chips. Preserve two complete
+    # character blocks, their distinct attributes and the shared scene.
+    xml = ElementTree.fromstring("<prompt>" + guide.examples[0] + "</prompt>")
+    assert [node.tag for node in xml] == ["character_1", "character_2", "general_tags"]
+    assert xml.findtext("character_1/n") == "$character_1$"
+    assert xml.findtext("character_2/n") == "$character_2$"
+    assert "blue_hair" in xml.findtext("character_1/appearance")
+    assert "pink_hair" in xml.findtext("character_2/appearance")
+    assert xml.findtext("character_1/position") == "center_left"
+    assert xml.findtext("character_2/position") == "center_right"
+    assert xml.findtext("general_tags/objects") == "briefcase"
+    assert guide.examples[1] == "1girl"
+    hints = hints_for(model)
+    assert "quickstart" in hints["steps"]
+    assert "author's sampling script" in hints["guidance_scale"]
+    assert "starting point" in hints["guidance_scale"]
+    assert "FlowMatch Euler" in hints["mu"]
+    assert "multiple characters" in hints["prompt"] and "XML" in hints["prompt"]
+    assert "no minimum or maximum" in hints["size"]
+    assert "not a supported maximum" in hints["size"]
+
+
 def test_every_catalogue_entry_has_a_profile():
     # The catalogue and profile table are joined by id or family token; an
     # entry that missed every token would print the fallback's "28 steps" in

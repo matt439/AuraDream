@@ -593,10 +593,38 @@ _PROFILES.insert(
     ("krea-dev", {**_FLUX_PROFILE, "guide": guides.KREA_DEV_GUIDE}),
 )
 
-# Split-file models resolve a specific release rather than every checkpoint
+# These profiles resolve a specific release rather than every checkpoint
 # whose name contains a family token. In particular, "anima" is also part of
 # "animagine", and Anima's Base and Aesthetic variants need different defaults.
 _EXACT_PROFILES: dict[str, dict[str, Any]] = {
+    "newbie-ai/newbie-image-exp0.1": {
+        "steps": 28,
+        "guidance_scale": 4.0,
+        "mu": None,
+        "mu_supported": True,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": False,
+        "true_cfg_supported": False,
+        "guide": guides.NEWBIE_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. The author's NewBie quickstart uses {steps}; "
+                "this is the app's starting point, not a measured optimum."
+            ),
+            "guidance_scale": (
+                "Classifier-free guidance. The author's sampling script uses "
+                "{guidance_scale:g}; this app uses it as a starting point "
+                "with the card's 28 steps. Above {cfg_threshold:g} the negative prompt "
+                "applies and adds an uncond pass per step."
+            ),
+            "mu": (
+                "Flow-matching timestep shift. Leave blank for NewBie's "
+                "standard FlowMatch Euler shift 6; a value here replaces "
+                "its shift."
+            ),
+        },
+    },
     "duongve/netayume-lumina-image-2.0": {
         "steps": 40,
         "guidance_scale": 5.0,

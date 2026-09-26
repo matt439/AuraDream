@@ -53,6 +53,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   the standard pipeline interface, with per-step progress and cancellation
 - `backend/backends/netayume_loading.py` — pinned CPU conversion of NetaYume
   v4's split denoiser, with the official Lumina 2 parent's shared components
+- `backend/backends/newbie_loading.py` — pinned CPU conversion of NewBie Exp0.1;
+  `newbie_pipeline.py`, `newbie_transformer.py` and `newbie_text_encoder.py`
+  provide its callback-capable pipeline, pooled-CLIP denoiser and native Jina tower
 - `backend/backends/schedule.py` — how a requested mu becomes the whole
   shift: `forced_mu`, `shifted_sigmas`, the static-shift fallback
 - `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
@@ -112,6 +115,17 @@ Model and loader:
   Euler shift 6 and the exact-id profile (40 steps, CFG 5). The author's
   v2 family guidance and ComfyUI samplers are not v4 runtime equivalence.
   No Nunchaku build is mapped to this entry.
+
+- `NewBie-AI/NewBie-image-Exp0.1` selects pinned official components, strictly
+  converted on CPU by `newbie_loading`. Keep its public id in status/metadata.
+  Diffusers 0.40 has no native NewBie pipeline; use the local classes, Gemma 3
+  penultimate hidden states and Jina's unnormalized masked mean. Keep both
+  prompts free of system prefixes, FlowMatch Euler shift 6, normalized reverse
+  transformer time, and whole-sample CFG norm limiting. The exact-id profile
+  starts at the card's 28 steps and the author's sample CFG 4. XML is text,
+  never comma chips; 1024x1024 is an example, not a published size ceiling.
+  References, user LoRAs and Nunchaku are unavailable for this integration.
+
 
 - App-owned names use Local Diffusion: `LOCAL_DIFFUSION_*`,
   `local-diffusion.db`, `~/local-diffusion`, `local-diffusion.*` browser keys
@@ -330,6 +344,15 @@ node tools/browser.mjs tools/smoke-netayume.json
 NetaYume's FP8/model-offload GPU smoke, repeat-seed pixels, cancellation and
 preview evidence are recorded in `docs/verified.md`; the CPU and browser
 checks alone do not establish runtime quality or performance.
+
+`smoke-newbie.json` checks NewBie defaults, the qualified size guide, XML
+example selection and persistence, and applied saved settings on port 7872:
+
+```powershell
+uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
+node tools/browser.mjs tools/smoke-newbie.json
+```
+
 
 Static files are served from disk, so a `web/` edit needs no server restart;
 a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,

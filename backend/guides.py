@@ -645,6 +645,70 @@ NETAYUME_GUIDE = {
     ],
 }
 
+NEWBIE_GUIDE = {
+    "prompt": (
+        "NewBie image Exp0.1 is an experimental anime model. It accepts "
+        "natural language, tags, or XML. The authors recommend XML for "
+        "scenes with multiple characters to keep each character's attributes "
+        "together. Use a separate <character_1>, <character_2> block with "
+        "name, gender, appearance, clothing, expression, action and position; "
+        "put the shared scene in <general_tags>. The Examples menu includes "
+        "the author's two-character XML prompt. Gemma reads up to 512 tokens "
+        "and Jina CLIP up to 2048 in this app; keep the main description "
+        "within Gemma's shorter limit."
+    ),
+    "size": (
+        "The author's quickstart uses 1024x1024, about 1.05 MP. Start at "
+        "the 1 MP square preset; the size highlighting follows that "
+        "documented example area. The card publishes no minimum or maximum "
+        "resolution range: this example is not a supported maximum or a "
+        "quality limit."
+    ),
+    "pixels": (1024**2 / 1e6, 1024**2 / 1e6),
+    "pixels_word": "documented",
+    # Model card's XML example, with indentation normalized. These are XML
+    # fields, not a flat comma-separated tag list: do not add a tag helper.
+    "examples": [
+        "<character_1>\n"
+        "<n>$character_1$</n>\n"
+        "<gender>1girl</gender>\n"
+        "<appearance>chibi, red_eyes, blue_hair, long_hair, hair_between_eyes, "
+        "head_tilt, tareme, closed_mouth</appearance>\n"
+        "<clothing>school_uniform, serafuku, white_sailor_collar, white_shirt, "
+        "short_sleeves, red_neckerchief, bow, blue_skirt, miniskirt, "
+        "pleated_skirt, blue_hat, mini_hat, thighhighs, grey_thighhighs, "
+        "black_shoes, mary_janes</clothing>\n"
+        "<expression>happy, smile</expression>\n"
+        "<action>standing, holding, holding_briefcase</action>\n"
+        "<position>center_left</position>\n"
+        "</character_1>\n\n"
+        "<character_2>\n"
+        "<n>$character_2$</n>\n"
+        "<gender>1girl</gender>\n"
+        "<appearance>chibi, red_eyes, pink_hair, long_hair, very_long_hair, "
+        "multi-tied_hair, open_mouth</appearance>\n"
+        "<clothing>school_uniform, serafuku, white_sailor_collar, white_shirt, "
+        "short_sleeves, red_neckerchief, bow, red_skirt, miniskirt, "
+        "pleated_skirt, hair_bow, multiple_hair_bows, white_bow, ribbon_trim, "
+        "ribbon-trimmed_bow, white_thighhighs, black_shoes, mary_janes, "
+        "bow_legwear, bare_arms</clothing>\n"
+        "<expression>happy, smile</expression>\n"
+        "<action>standing, holding, holding_briefcase, waving</action>\n"
+        "<position>center_right</position>\n"
+        "</character_2>\n\n"
+        "<general_tags>\n"
+        "<count>2girls, multiple_girls</count>\n"
+        "<style>anime_style, digital_art</style>\n"
+        "<background>white_background, simple_background</background>\n"
+        "<atmosphere>cheerful</atmosphere>\n"
+        "<quality>high_resolution, detailed</quality>\n"
+        "<objects>briefcase</objects>\n"
+        "<other>alternate_costume</other>\n"
+        "</general_tags>",
+        "1girl",
+    ],
+}
+
 FALLBACK_GUIDE = {
     "prompt": (
         "Unrecognised checkpoint. Most current models read natural-language "

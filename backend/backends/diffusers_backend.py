@@ -29,7 +29,7 @@ from .. import latent_preview, loras
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
-from . import anima_loading, loading, netayume_loading, schedule, single_file
+from . import anima_loading, loading, netayume_loading, newbie_loading, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -113,6 +113,7 @@ class DiffusersBackend(GenerationBackend):
             # the official id in settings, status and saved reproduction data.
             source_id = anima_loading.resolve_model(settings.model_id, settings.quantization)
             source_id = netayume_loading.resolve_model(source_id, settings.quantization)
+            source_id = newbie_loading.resolve_model(source_id, settings.quantization)
             source_id = single_file.resolve_model(source_id, settings.quantization)
             model_id = loading.resolve_model(source_id)
             load_settings = replace(settings, model_id=model_id)
@@ -130,6 +131,10 @@ class DiffusersBackend(GenerationBackend):
                 from .anima_pipeline import AnimaTurboPipeline
 
                 loader = AnimaTurboPipeline
+            elif settings.model_id.lower() == newbie_loading.MODEL_ID.lower():
+                from .newbie_pipeline import NewbiePipeline
+
+                loader = NewbiePipeline
             class_name, unused = loading.unused_components(model_id)
             if unused:
                 import diffusers
@@ -329,6 +334,8 @@ class DiffusersBackend(GenerationBackend):
             )
         if settings.model_id.lower() == anima_loading.MODEL_ID.lower():
             return "User LoRAs are not supported by this Anima Turbo integration"
+        if settings.model_id.lower() == newbie_loading.MODEL_ID.lower():
+            return "User LoRAs are not supported by this NewBie integration"
         if not loading.importable("peft"):
             return "LoRA adapters need the peft package; `uv sync` installs it"
         if self._pipe is not None and not hasattr(self._pipe, "load_lora_weights"):

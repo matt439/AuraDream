@@ -2,7 +2,7 @@
 
 Run open text-to-image checkpoints locally - **FLUX.1 Krea [dev]**, **Krea 2
 Turbo**, FLUX.2 [klein], Z-Image, ERNIE-Image, Qwen-Image, Animagine, Kohaku, Illustrious,
-Z-Anime, Anima Turbo and NetaYume Lumina - up to
+Z-Anime, Anima Turbo, NetaYume Lumina and NewBie - up to
 4 megapixels on a single consumer GPU. FastAPI + diffusers backend, vanilla-JS
 frontend, SQLite gallery. FLUX is the default because its repo is click-through
 gated; Turbo needs approval first.
@@ -74,7 +74,7 @@ nothing to remember: FLUX gets 28 steps at CFG 3.5 with Mu blank, Turbo gets
 8 steps at CFG 0 with Mu 1.15.
 
 The loader resolves the pipeline class and quantizable components from the
-repo's `model_index.json`. Illustrious, Anima Turbo and NetaYume first convert their
+repo's `model_index.json`. Illustrious, Anima Turbo, NetaYume and NewBie first convert their
 pinned official weights to a local component tree, then use the same loading
 and offload path.
 
@@ -158,6 +158,30 @@ Later loads reuse that tree with FP8, int8 or full bfloat16; Nunchaku is not
 available for this entry. The fixed FlowMatch Euler scheduler uses shift 6;
 Mu overrides that shift. This differs from the author's suggested ComfyUI
 samplers. See the [model card](https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0)
+and [local verification](docs/verified.md).
+
+For **NewBie image Exp0.1**, choose it in the menu or run:
+
+```powershell
+uv run python -m backend.main --model NewBie-AI/NewBie-image-Exp0.1 --quant fp8 --offload model
+```
+
+Start at 1024x1024, 28 steps, CFG 4 and blank Mu. The step count and size
+come from the model card; CFG 4 comes from the author's sampling script.
+These are app starting settings. The card does not publish a minimum or
+maximum resolution. NewBie accepts prose, tags and XML; for multiple
+characters, try the author's XML prompt from Examples to keep each person's
+appearance, clothing, action and position together.
+
+The first load converts the pinned official denoiser, Gemma 3 encoder and
+Jina CLIP text tower on CPU, caching the components alongside the other
+converted models. Original and converted weights both occupy disk. The app
+uses an empty system prefix, full-duration CFG with whole-image norm limiting,
+and FlowMatch Euler shift 6; Mu replaces that shift. FP8, int8 and full
+bfloat16 use the ordinary offload path. Reference images, user LoRAs and
+Nunchaku are unavailable for this integration. See the
+[model card](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1),
+[integration recipe](docs/design-notes.md#newbie-exp01-pinned-components-and-an-explicit-sampling-recipe)
 and [local verification](docs/verified.md).
 
 A run whose stdin is not a terminal - a service, a script - never asks either.
@@ -388,6 +412,8 @@ uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
 node tools/browser.mjs tools/smoke-anima.json    # Turbo defaults, size range, disabled Mu and saved settings
 uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
 node tools/browser.mjs tools/smoke-kohaku.json   # hybrid tags, defaults, size guidance and saved settings
+uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
+node tools/browser.mjs tools/smoke-newbie.json   # XML examples, defaults, size guidance and saved settings
 uv run python tools/fake_server.py --port 7867 --fresh
 node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
 ```
@@ -814,6 +840,7 @@ invented. In brief:
 | Kohaku XL Zeta | Tags, natural-language descriptions or both; its own quality, rating and date tags | CLIP + CLIP, 77 tokens in this app | 1024x1024 or similar pixel count recommended |
 | Illustrious XL v2.0-STABLE | Tags or natural-language descriptions; an untuned base with no default style, so name an artist or style, one composition tag, and use its negative prompt | CLIP + CLIP, 77 tokens | Native 1-2.25 MP documented; up to 4 MP with some loss |
 | Anima Turbo v1.1 | Tags, descriptive sentences or both; lowercase tags with spaces, `@` before artist names; no negative prompt effect at CFG 1 | Qwen3-0.6B + text conditioner, 512 in this app | 512x512-1536x1536 documented (0.26-2.36 MP) |
+| NewBie image Exp0.1 | Prose, tags or XML; separate character blocks for multiple people | Gemma 3, 512 tokens + Jina CLIP v2, 2048 tokens in this app | 1024x1024 example; no published resolution range |
 
 ## Defaults by checkpoint
 
@@ -835,6 +862,7 @@ Applied automatically; see `backend/model_defaults.py`.
 | Kohaku XL Zeta | 28 | 5.0 | Unavailable |
 | Illustrious XL v2.0-STABLE | 28 | 5.0 | — |
 | Anima Turbo v1.1 | 8 | 1.0 | Unavailable |
+| NewBie image Exp0.1 | 28 | 4.0 | Blank; static shift 6 |
 
 A negative prompt roughly doubles generation time, because it adds a second
 forward pass per step. On Krea 2 it takes effect above CFG 0, on Krea 2 Raw

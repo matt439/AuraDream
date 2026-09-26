@@ -1652,6 +1652,73 @@ Sources:
 Runtime measurements belong in `verified.md`; conversion tests and browser
 smoke checks alone do not measure output quality, speed or VRAM.
 
+## NewBie Exp0.1: pinned components and an explicit sampling recipe
+
+`NewBie-AI/NewBie-image-Exp0.1` selects the official release at
+`4f7825a1a7e1ed5c1882a52e3c51d1119a43e298`. Diffusers 0.40 has no
+`NewbiePipeline`, despite the card's quickstart, and the published tensors
+need explicit mappings. `newbie_loading` strictly converts them on CPU into
+an atomic cache, preserving the official id in status and saved metadata.
+The recipe hash includes the source revision, scheduler, prompt prefix and
+CFG normalization so changes to those cannot silently reuse an older tree.
+
+`newbie_transformer` extends the installed Lumina 2 blocks with the release's
+pooled-CLIP conditioning. Gemma 3 supplies penultimate hidden states. The
+separate Jina text tower uses native Transformers layers and the author's
+unnormalized masked mean; its merged `jina-clip-v2.safetensors` is distinct
+from the larger file containing a vision tower and adapter parametrizations.
+No remote Python or unused vision weights are needed. Both encoders use
+normal forward calls so model-offload hooks work. The native Jina classes
+require Transformers 5.16.1 or newer. Quantization is applied after conversion
+through the ordinary per-component loader.
+
+The exact-id profile starts at **28 steps and CFG 4**: 28 is the model-card
+example, while the author's sampling script uses CFG 4 with midpoint and
+18 steps. That script is evidence for a starting guidance value, not proof
+that this app's sampler reproduces its output. The author-proposed Diffusers
+pipeline instead defaults to CFG 5. These author sources disagree; none is
+presented as a measured optimum here.
+
+This app fixes one recipe: FlowMatch Euler with static shift 6, an empty
+system prefix for both encoders, CFG throughout sampling above 1, and
+whole-sample norm limiting at the conditional prediction's norm. The empty
+prefix follows the author's Diffusers proposal. Their training/demo code
+also supports system-prefixed Gemma captions but keeps Jina captions raw;
+the community proposal's generic Lumina prefix on both encoders is not used.
+The norm cap follows the original model, rather than the community
+proposal's unconditional rescaling along only the final spatial dimension.
+Transformer time is `1 - scheduler_t / num_train_timesteps`, with model
+velocity negated for the scheduler, as in the author's Comfy adapter. The
+author Diffusers proposal's unscaled timestep is not copied. Blank Mu keeps
+shift 6; an explicit Mu goes through the existing whole-shift override.
+
+`NewbiePipeline` exposes one generator per image and the step callback used
+for progress, preview and cancellation, with offload cleanup on exit. Its
+Gemma input has a 512-token limit and Jina has 2048, following the author's
+encoder path and keeping the supplied XML example intact. References
+and user LoRAs are disabled; there is no Nunchaku mapping. The author XML
+example remains editable text, without comma-tag chip parsing. The size
+guide highlights the card's 1024-square example area and explicitly says
+it is not a minimum, maximum or quality limit.
+
+Sources, checked 2026-09-26:
+
+- [Pinned card and official files](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/tree/4f7825a1a7e1ed5c1882a52e3c51d1119a43e298).
+- [Author sampling settings](https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/709e9a482fb2b861ad6aa50dcafb0198cad66c1d/scripts/sample.sh),
+  [original CFG implementation](https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/709e9a482fb2b861ad6aa50dcafb0198cad66c1d/models/model.py),
+  and [training caption paths](https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/709e9a482fb2b861ad6aa50dcafb0198cad66c1d/finetune.py).
+- [Author Diffusers proposal, PR 12789](https://github.com/E-Anlia/diffusers/blob/694e38842aed2b53cb6a0b248e0799aceaf89101/src/diffusers/pipelines/newbie/pipeline_newbie.py).
+- [Author Comfy timestep adapter](https://github.com/E-Anlia/ComfyUI-NewBie/blob/29655ed6fa86551abbf1835511764ff151dbbbc5/comfy/model_base.py)
+  and [shift configuration](https://github.com/E-Anlia/ComfyUI-NewBie/blob/29655ed6fa86551abbf1835511764ff151dbbbc5/comfy/supported_models.py).
+- [Community Diffusers proposal, PR 12803](https://github.com/huggingface/diffusers/pull/12803),
+  implementation reference pinned to `e061f982c6c1e162309f9df919662e6fa61e60ea`.
+- [Native Jina architecture reference](https://huggingface.co/jinaai/jina-embeddings-v3/blob/343dbf534c76fe845f304fa5c2d1fd87e1e78918/config.json).
+
+`tools/smoke-newbie.json` checks the profile, XML example selection and
+persistence, size warning and saved settings using the fake server on 7872.
+CPU and browser checks do not establish GPU performance or image quality;
+hardware evidence belongs in `docs/verified.md`.
+
 ## The prompting guide
 
 **Every profile carries a `guide`**: `prompt` and `size` prose for the ?

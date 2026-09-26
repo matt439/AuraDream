@@ -110,6 +110,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "duongve/NetaYume-Lumina-Image-2.0",
         "open; split denoiser, converted locally on first load",
     ),
+    Checkpoint(
+        "NewBie image Exp0.1",
+        "NewBie-AI/NewBie-image-Exp0.1",
+        "open; experimental anime model, XML or natural-language prompts",
+    ),
     # The same pipeline as FLUX.1 Krea; dev is the base the LoRA ecosystem
     # targets, schnell its 4-step Apache-licensed sibling.
     Checkpoint(

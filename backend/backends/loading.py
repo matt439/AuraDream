@@ -34,6 +34,13 @@ NUNCHAKU_EXAMPLE = "lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-en
 # and quantizing it shows up as visible decode artefacts.
 QUANTIZABLE_PREFIXES = ("transformer", "unet", "text_encoder")
 
+# Local subclasses still belong to their base library for quantization. Their
+# serialized module paths let Diffusers import them without remote code.
+COMPONENT_LIBRARY_OWNERS = {
+    "backend.backends.newbie_transformer": "diffusers",
+    "backend.backends.newbie_text_encoder": "transformers",
+}
+
 # Components image generation never runs, loaded as None initially -
 # which diffusers allows for a class's `_optional_components`, and which keeps
 # their folders out of the download too, *through the concrete class*: the
@@ -149,7 +156,7 @@ def component_libraries(model_id: str) -> dict[str, str]:
         if not all(isinstance(part, str) for part in spec):
             continue
         if name.startswith(QUANTIZABLE_PREFIXES) and spec[0]:
-            libraries[name] = spec[0]
+            libraries[name] = COMPONENT_LIBRARY_OWNERS.get(spec[0], spec[0])
     return libraries
 
 
