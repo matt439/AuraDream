@@ -1,10 +1,10 @@
-// Local Diffusion's page script, part 1 of 10: shared state, the element table and
+// Local Diffusion's page script, part 1 of 11: shared state, the element table and
 // the fetch/error helpers. index.html loads these files in order as classic
 // scripts, so they share one global scope: a top-level `let`, `const` or
 // function in any of them is visible to all the others and to a smoke step's
 // `eval` (tools/browser.mjs). Only app.js, the last, runs anything at load;
 // the rest only declare. Order: state, sizes, status, generation, panel,
-// gallery, sheet, lightbox, tags, app.
+// gallery, sheet, lightbox, tags, analysis, app.
 'use strict';
 
 const $ = (id) => document.getElementById(id);
@@ -23,6 +23,15 @@ const els = {
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
   tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
+  analyze: $('btn-analyze'), promptAnalysis: $('prompt-analysis'),
+  analysisModel: $('analysis-model'), analysisSummary: $('analysis-summary'),
+  analysisStale: $('analysis-stale'), analysisAgain: $('analysis-again'), analysisClose: $('analysis-close'),
+  analysisEncoders: $('analysis-encoders'), analysisOrder: $('analysis-order'),
+  analysisFindings: $('analysis-findings'), analysisCritic: $('analysis-critic'),
+  criticAsk: $('critic-ask'), criticLine: $('critic-line'), criticResult: $('critic-result'),
+  compareOptions: $('compare-options'), compareSeeds: $('compare-seeds'),
+  compareOwn: $('compare-own'), compareOwnFill: $('compare-own-fill'),
+  comparePreview: $('compare-preview'), compareRun: $('compare-run'),
   promptTranslationField: $('prompt-translation-field'), promptTranslation: $('prompt-translation'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
@@ -127,12 +136,24 @@ let statusPending = false;
 let currentJob = null;
 let queuedIds = [];
 let submitting = false;
+// Jobs whose run opens as a sheet when their stream reports done, by job id:
+// the prompt check's comparison, which is a question the sheet answers. Kept
+// here rather than on the stream, since the job may queue behind another and
+// be picked up by watchNext long after its submission returned.
+const runsToShow = new Map();
 // ERNIE's optional rewriter is an editor action, not part of image generation.
 // Its first use may load a separate 7.7 GB component, so the button owns its
 // own busy state and never lets a late response overwrite text edited meanwhile.
 let promptExpansionSupported = false;
 let expandingPrompt = false;
 let translatedSource = null;
+// The prompt critic is the other editor action on the card: a local model
+// started for one answer and stopped after it, so it holds the same things
+// Expand does while it runs. Supported and ready follow /api/status - ready
+// is whether a first use still has llama.cpp and the model to download.
+let promptCritiqueSupported = false;
+let promptCritiqueReady = false;
+let critiquing = false;
 // One gallery page in flight at a time, and a token so a page that was already
 // on its way when the filters changed can be dropped rather than appended.
 let galleryPending = null;

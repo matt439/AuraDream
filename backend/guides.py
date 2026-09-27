@@ -12,8 +12,25 @@ promise, and the size line quotes the word - and `examples` are the
 authors' own prompts, verbatim, for the Examples menu. Every sentence is
 sourced from the model card, README, prompting guide or report, never
 invented; docs/design-notes.md ("The prompting guide") keeps the URLs.
+
+`analysis` is the same guide as data for `prompt_rules`, the analyser's rule
+checks: one entry per checkable statement, each carrying the words it rests
+on as `cite` - a verbatim piece of this guide's `prompt` prose, or of one of
+its `examples` where the entry says `"source": "author"` - and a `url` of its
+own or the guide's. An entry is a claim the prose already makes, never a new
+one, and a guide that states nothing checkable has an empty one. It is not
+part of `guide_for`: the page shows findings, not the rules behind them.
 """
 from __future__ import annotations
+
+# The primary sources the `analysis` entries point at, as design-notes keeps
+# them. BFL's unified guide covers the whole FLUX family (FLUX.1, Kontext,
+# FLUX.2); its technical page is where "working without negative prompts"
+# lives, its building page the length table.
+_BFL_BASICS = "https://docs.bfl.ai/guides/prompting_unified_basics"
+_BFL_BUILDING = "https://docs.bfl.ai/guides/prompting_unified_building"
+_BFL_TECHNICAL = "https://docs.bfl.ai/guides/prompting_unified_technical"
+_BFL_FLUX2 = "https://docs.bfl.ai/guides/prompting_guide_flux2"
 
 _FLUX1_PROMPT = (
     "Plain descriptive sentences, not a tag list: subject first, then setting, "
@@ -45,15 +62,39 @@ FLUX1_GUIDE = {
     "pixels": (0.1, 2.0),
     "pixels_word": "documented",
     "examples": _FLUX1_EXAMPLES,
+    # "English is the most precise language" is left out: BFL's current basics
+    # page says FLUX answers other languages "with the same level of quality".
+    "analysis": {
+        "url": _BFL_BASICS,
+        "style": {"expects": "prose", "cite": "Plain descriptive sentences, not a tag list"},
+        "order": {
+            "steps": ["subject", "setting", "style", "camera", "lighting"],
+            "cite": (
+                "subject first, then setting, style, camera and lighting - what "
+                "comes first carries the most weight"
+            ),
+            # BFL's building page: its template, and "Start with the image
+            # type and subject".
+            "url": _BFL_BUILDING,
+        },
+        "words": {"range": (30, 80), "cite": "30-80 words suits most images", "url": _BFL_BUILDING},
+        "quote_text": {"cite": "Put any text to render in quotation marks."},
+        # "bfl": the message may quote BFL's own replacement for a phrase its
+        # table names ("no people" -> "empty", "deserted", "solitary").
+        "negation": {
+            "cite": "describe what you want rather than what you do not",
+            "url": _BFL_TECHNICAL,
+            "replacements": "bfl",
+        },
+    },
 }
 KREA_DEV_GUIDE = {
     "prompt": (
         "FLUX.1 prompting - descriptive sentences, subject first, text in "
         "quotation marks, 30-80 words, no negative prompt without True CFG - on "
         "a checkpoint tuned for photographs without the oversaturated 'AI look'. "
-        "It answers best to photo language: a mood, a lens, a light, a film "
-        "stock, a colour grade. Krea calls it opinionated - give it room rather "
-        "than over-specifying.\n"
+        "Camera settings - lens, framing, depth of field - are optional: BFL's "
+        "guide adds them to a photograph where framing matters.\n"
         "Krea recommends 28-32 steps and CFG 3.5-5."
     ),
     "size": (
@@ -73,6 +114,24 @@ KREA_DEV_GUIDE = {
         "Photo of two people having a tea party in a lush garden",
         "A frog holding a sign that says hello world",
     ],
+    # Krea publishes no prompting rules of its own - its README is settings,
+    # its posts say "opinionated" - so every entry is the FLUX.1 family's,
+    # sourced to BFL. The camera sentence is BFL's building page ("Use these
+    # when framing matters"); it replaced two sentences no page said - "photo
+    # language" and "give it room" - which the critic then contradicted.
+    # "Subject first" is that page's "Start with the image type and subject".
+    "analysis": {
+        "url": _BFL_BASICS,
+        "style": {"expects": "prose", "cite": "descriptive sentences"},
+        "order": {"steps": ["subject first"], "cite": "subject first", "url": _BFL_BUILDING},
+        "words": {"range": (30, 80), "cite": "30-80 words", "url": _BFL_BUILDING},
+        "quote_text": {"cite": "text in quotation marks"},
+        "negation": {
+            "cite": "no negative prompt without True CFG",
+            "url": _BFL_TECHNICAL,
+            "replacements": "bfl",
+        },
+    },
 }
 SCHNELL_GUIDE = {
     "prompt": (
@@ -86,6 +145,20 @@ SCHNELL_GUIDE = {
     "pixels": (0.1, 2.0),
     "pixels_word": "documented",
     "examples": _FLUX1_EXAMPLES,
+    # No word limit: the "about 180 words" rests on a 256-token T5 limit this
+    # app does not apply (FluxPipeline encodes 512 unless told otherwise), and
+    # the encoder report measures the real one.
+    "analysis": {
+        "url": _BFL_BASICS,
+        "style": {"expects": "prose", "cite": "descriptive sentences"},
+        "order": {"steps": ["subject first"], "cite": "subject first", "url": _BFL_BUILDING},
+        "quote_text": {"cite": "text in quotation marks"},
+        "negation": {
+            "cite": "describe what you want instead",
+            "url": _BFL_TECHNICAL,
+            "replacements": "bfl",
+        },
+    },
 }
 KLEIN_GUIDE = {
     "prompt": (
@@ -115,6 +188,32 @@ KLEIN_GUIDE = {
         "jungle, close up photo",
         "Turn this cat into a dog",
     ],
+    "analysis": {
+        "url": _BFL_FLUX2,
+        # JSON is the guide's own alternative to sentences, not a tag list.
+        "style": {"expects": "prose", "accepts": ["json"], "cite": "as sentences"},
+        "order": {
+            "steps": ["subject", "action", "style", "context"],
+            "cite": (
+                "Subject, then action, then style, then context, as sentences: "
+                "FLUX.2 weights what comes first."
+            ),
+        },
+        "words": {"range": (30, 80), "cite": "30-80 words is BFL's sweet spot"},
+        "quote_text": {
+            "cite": (
+                "Put every word that must appear in the picture in quotation marks "
+                "- a sign or label without one comes out as gibberish."
+            ),
+        },
+        "negation": {
+            "cite": "There is no negative prompt on FLUX.2 at all: say what you want.",
+            "replacements": "bfl",
+        },
+        "references": {
+            "cite": "With reference images, say how each is used - 'the jacket from image 1'.",
+        },
+    },
 }
 _KREA2_PROMPT = (
     "Natural language, one cohesive paragraph. Krea's guide: long, detailed "
@@ -137,6 +236,17 @@ _KREA2_EXAMPLES = [
     "diffused natural lighting that highlights the intricate details of the fur "
     "and foliage.",
 ]
+# "one cohesive paragraph" is the expansion prompt's structure rule, the
+# prompting page's companion; the rest is docs/prompting.md.
+_KREA2_ANALYSIS = {
+    "url": "https://github.com/krea-ai/krea-2/blob/main/docs/prompting.md",
+    "style": {"expects": "prose", "cite": "Natural language"},
+    "one_paragraph": {
+        "cite": "one cohesive paragraph",
+        "url": "https://github.com/krea-ai/krea-2/blob/main/docs/expansion.txt",
+    },
+    "quote_text": {"cite": "Put words to render in quotation marks"},
+}
 KREA2_TURBO_GUIDE = {
     "prompt": _KREA2_PROMPT + (
         "Turbo runs guidance-free at CFG 0, where the negative prompt is unused; "
@@ -151,6 +261,7 @@ KREA2_TURBO_GUIDE = {
     "pixels": (1.0, 4.2),
     "pixels_word": "documented",
     "examples": _KREA2_EXAMPLES,
+    "analysis": _KREA2_ANALYSIS,
 }
 KREA2_RAW_GUIDE = {
     "prompt": _KREA2_PROMPT + (
@@ -167,6 +278,7 @@ KREA2_RAW_GUIDE = {
     "pixels": (0.25, 1.0),
     "pixels_word": "trained",
     "examples": _KREA2_EXAMPLES,
+    "analysis": _KREA2_ANALYSIS,
 }
 QWEN_IMAGE_GUIDE = {
     "prompt": (
@@ -206,6 +318,21 @@ QWEN_IMAGE_GUIDE = {
         "a red fox sitting in fresh snow, golden hour, photorealistic, Ultra HD, "
         "4K, cinematic composition.",
     ],
+    "analysis": {
+        "url": "https://github.com/QwenLM/Qwen-Image",
+        "style": {"expects": "prose", "cite": "A dense, caption-like description."},
+        "quote_text": {"cite": "put every string in quotation marks and say where it goes"},
+        # The README's `positive_magic`, verbatim, per language.
+        "magic": {
+            "en": ", Ultra HD, 4K, cinematic composition.",
+            "zh": ", 超清，4K，电影级构图.",
+            "cite": (
+                "Qwen appends ', Ultra HD, 4K, cinematic composition.' to English "
+                "prompts (Chinese: '超清，4K，电影级构图') and recommends it"
+            ),
+        },
+        "negative_prompt": {"cite": "Sample with True CFG 4 and a negative prompt"},
+    },
 }
 _Z_IMAGE_PROMPT = (
     "Long, detailed natural language: the maintainers say Turbo works best with "
@@ -226,6 +353,13 @@ _Z_IMAGE_EXAMPLES = [
     "一辆复古蒸汽小火车化身为巨大的拉链头，正拉开厚厚的冬日积雪，展露出一个生机盎然的春天。",
     "a red fox sitting in fresh snow, golden hour, photorealistic",
 ]
+# Z-Image's "strongly recommends a negative prompt" is not checked: its card
+# calls one optional, and the undistilled Z-Image is not in the catalogue.
+_Z_IMAGE_ANALYSIS = {
+    "url": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
+    "style": {"expects": "prose", "cite": "Long, detailed natural language"},
+    "quote_text": {"cite": "quote the words"},
+}
 _Z_IMAGE_SIZE = (
     "Tongyi documents 512x512 to 2048x2048 of total pixel area at any aspect "
     "ratio, sides in multiples of 16, with 1024x1024 as the card's example; the "
@@ -242,6 +376,7 @@ Z_IMAGE_TURBO_GUIDE = {
     "pixels": (0.26, 2.2),
     "pixels_word": "trained",
     "examples": _Z_IMAGE_EXAMPLES,
+    "analysis": _Z_IMAGE_ANALYSIS,
 }
 Z_IMAGE_GUIDE = {
     "prompt": _Z_IMAGE_PROMPT + (
@@ -252,6 +387,7 @@ Z_IMAGE_GUIDE = {
     "pixels": (0.26, 2.2),
     "pixels_word": "trained",
     "examples": _Z_IMAGE_EXAMPLES,
+    "analysis": _Z_IMAGE_ANALYSIS,
 }
 Z_ANIME_GUIDE = {
     "prompt": (
@@ -274,6 +410,21 @@ Z_ANIME_GUIDE = {
         "eyes with detailed reflections, fine hair strands, clean linework, "
         "professional anime illustration quality.",
     ],
+    "analysis": {
+        "url": "https://huggingface.co/SeeSee21/Z-Anime",
+        "style": {
+            "expects": "prose",
+            "cite": "The author favours descriptive sentences over tag lists.",
+        },
+        # The example is a template: its bracket is a slot for a name.
+        "placeholders": [
+            {
+                "pattern": r"\[character\]",
+                "cite": "Detailed anime portrait of [character]",
+                "source": "author",
+            },
+        ],
+    },
 }
 _ERNIE_PROMPT = (
     "A content-rich, detailed visual description in one paragraph - subject, "
@@ -299,6 +450,12 @@ _ERNIE_EXAMPLES = [
     "一只黑白相间的中华田园犬",
     "Generate a webpage screenshot that briefly introduces LLMs",
 ]
+_ERNIE_ANALYSIS = {
+    "url": "https://huggingface.co/baidu/ERNIE-Image-Turbo",
+    "style": {"expects": "prose", "cite": "A content-rich, detailed visual description"},
+    "one_paragraph": {"cite": "in one paragraph"},
+    "quote_text": {"cite": "quote the words and say where they go"},
+}
 ERNIE_TURBO_GUIDE = {
     "prompt": _ERNIE_PROMPT + (
         "Turbo runs at guidance 1, where the negative prompt does nothing; raise "
@@ -308,6 +465,7 @@ ERNIE_TURBO_GUIDE = {
     "pixels": (1.0, 1.0),
     "pixels_word": "documented",
     "examples": _ERNIE_EXAMPLES,
+    "analysis": _ERNIE_ANALYSIS,
 }
 ERNIE_GUIDE = {
     "prompt": _ERNIE_PROMPT + (
@@ -318,6 +476,7 @@ ERNIE_GUIDE = {
     "pixels": (1.0, 1.0),
     "pixels_word": "documented",
     "examples": _ERNIE_EXAMPLES,
+    "analysis": _ERNIE_ANALYSIS,
 }
 _ANIMAGINE_NEGATIVE = (
     "lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, "
@@ -404,6 +563,44 @@ ANIMAGINE_GUIDE = {
         "recommended_suffix": ["masterpiece", "high score", "great score", "absurdres"],
         "negative_prompt": _ANIMAGINE_NEGATIVE,
     },
+    # `order` places a comma item by the helper's own groups, the suffix and
+    # the year form, which are known here, or by its Danbooru category, which
+    # only a lookup knows; its steps are `tag_helper.order`. The card's
+    # template ends "everything else in any order", so year, artist and meta
+    # tags share the Details slot.
+    "analysis": {
+        "url": "https://huggingface.co/cagliostrolab/animagine-xl-4.0",
+        "style": {
+            "expects": "tags",
+            "cite": "Comma-separated Danbooru-style tags, not natural-language prose.",
+        },
+        "order": {
+            "cite": (
+                "Put 1girl, 1boy or 1other first, then the character name and series, "
+                "a safe or sensitive rating, and the subject, pose and scene tags; "
+                "finish with: masterpiece, high score, great score, absurdres."
+            ),
+            "groups": {
+                "Person count": "Person count",
+                "Rating": "Rating",
+                "Quality": "Quality",
+                "Score": "Quality",
+            },
+            "suffix": "Quality",
+            "year": "Details",
+            "categories": {
+                "character": "Character",
+                "copyright": "Series",
+                "general": "Details",
+                "artist": "Details",
+                "meta": "Details",
+            },
+            "general": "Details",
+        },
+        "suffix": {"cite": "finish with: masterpiece, high score, great score, absurdres"},
+        "quote_text": {"supported": False, "cite": "Text rendering is not supported."},
+        "negative_prompt": {"cite": "The model card recommends this negative prompt"},
+    },
 }
 KOHAKU_GUIDE = {
     "prompt": (
@@ -476,6 +673,43 @@ KOHAKU_GUIDE = {
         "vocabulary": "danbooru",
         "vocabulary_cutoff": "2024-07-10",
         "hybrid_prompt": True,
+    },
+    "analysis": {
+        "url": (
+            "https://huggingface.co/KBlueLeaf/Kohaku-XL-Zeta/blob/"
+            "c14affd9483ac7603cfff3f06b05da22a06deaa6/README.md"
+        ),
+        "order": {
+            "cite": (
+                "Its Epsilon-style order is person count, character, series, artist, "
+                "general tags or prose, quality, date, meta tags, rating."
+            ),
+            "url": "https://huggingface.co/KBlueLeaf/Kohaku-XL-Epsilon-rev2#prompt-format",
+            "groups": {
+                "Person count": "Person count",
+                "Quality": "Quality",
+                "Date": "Date",
+                "Rating": "Rating",
+            },
+            "categories": {
+                "character": "Character",
+                "copyright": "Series",
+                "artist": "Artist",
+                "general": "General tags / prose",
+                "meta": "Meta",
+            },
+            "general": "General tags / prose",
+        },
+        # Delta's card keeps underscores in short emoji tags (^_^, o_o), so
+        # only an underscore joining words counts.
+        "underscores": {
+            "cite": "Use spaces instead of underscores in tags.",
+            "url": "https://huggingface.co/KBlueLeaf/Kohaku-XL-Delta#tags",
+        },
+        "explicit_pair": {
+            "cite": "For the explicit rating the author uses both nsfw and explicit.",
+            "url": "https://huggingface.co/KBlueLeaf/Kohaku-XL-Epsilon-rev2#prompt-format",
+        },
     },
 }
 # The negative prompt on both of the v0.1 model card's examples, verbatim. The
@@ -581,6 +815,57 @@ ILLUSTRIOUS_GUIDE = {
         "hybrid_prompt": True,
         "negative_prompt": _ILLUSTRIOUS_NEGATIVE,
     },
+    # The report's schema has no series slot, so copyright tags go with the
+    # general ones; `rating_names` corrects only Animagine's `safe` - the
+    # release post's sfw, nsfw and r-18 are accepted alternatives, not errors.
+    "analysis": {
+        "url": "https://arxiv.org/html/2409.19946v1",
+        "order": {
+            "cite": (
+                "The training order is person count, character, rating, general tags, "
+                "artist, quality, year."
+            ),
+            "groups": {
+                "Person count": "Person count",
+                "Rating": "Rating",
+                "Quality": "Quality",
+                "Year": "Year",
+            },
+            "categories": {
+                "character": "Character",
+                "copyright": "General",
+                "general": "General",
+                "artist": "Artist",
+                "meta": "General",
+            },
+            "general": "General",
+        },
+        "quality_tier": {
+            "tiers": ["good quality", "best quality", "masterpiece"],
+            "group": "Quality",
+            "years": "Year",
+            "cite": (
+                "End a tag prompt with one quality tier (good quality, best quality or "
+                "masterpiece) and optionally one year modifier (recent or newest)."
+            ),
+        },
+        "composition": {
+            "tags": ["upper body", "cowboy shot", "portrait", "full body"],
+            "cite": "the authors warn that stacking conflicting composition tags confuses it",
+            "url": "https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0",
+        },
+        "rating_names": {
+            "replace": {"safe": "general"},
+            "cite": (
+                "The rating slot takes Danbooru's own rating names - general, "
+                "sensitive, questionable or explicit"
+            ),
+        },
+        "negative_prompt": {
+            "cite": "Every example the authors publish carries a negative prompt.",
+            "url": "https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0",
+        },
+    },
 }
 _WAI_NEGATIVE = "bad quality,worst quality,worst detail,sketch,censor,"
 WAI_GUIDE = {
@@ -633,6 +918,43 @@ WAI_GUIDE = {
         "recommended_suffix": ["masterpiece", "best quality", "amazing quality"],
         "negative_prompt": _WAI_NEGATIVE,
     },
+    # Two slots: everything the author calls subject and scene, then the
+    # recipe. Where a rating tag goes is not written, so it is subject.
+    "analysis": {
+        "url": "https://tensor.art/models/990778216270553015/WAI-illustrious-v17",
+        "order": {
+            "cite": (
+                "Finish with the author's quality recipe: masterpiece, best quality, "
+                "amazing quality. Examples inserts that recipe alone; add your "
+                "subject before it."
+            ),
+            "groups": {"Quality": "Quality", "Rating": "Subject and scene"},
+            "suffix": "Quality",
+            "categories": {
+                "character": "Subject and scene",
+                "copyright": "Subject and scene",
+                "general": "Subject and scene",
+                "artist": "Subject and scene",
+                "meta": "Subject and scene",
+            },
+            "general": "Subject and scene",
+        },
+        "suffix": {
+            "cite": (
+                "Finish with the author's quality recipe: masterpiece, best quality, "
+                "amazing quality."
+            ),
+        },
+        "subject": {"cite": "add your subject before it"},
+        "rating_negative": {
+            "ratings": ["general", "sensitive"],
+            "cite": (
+                "the author suggests adding nsfw to the negative prompt when filtering "
+                "sexual content"
+            ),
+        },
+        "negative_prompt": {"cite": "The v17 card recommends this negative prompt"},
+    },
 }
 
 ANIMA_TURBO_GUIDE = {
@@ -661,6 +983,21 @@ ANIMA_TURBO_GUIDE = {
         "Digital painting of a fiery dragon with glowing yellow eyes, black "
         "horns, and a long, sinuous tail, perched on a glowing, molten rock formation."
     ],
+    # The card's tag order and positive prefix are not in the prose above, so
+    # nothing here checks them.
+    "analysis": {
+        "url": "https://huggingface.co/circlestone-labs/Anima",
+        "underscores": {
+            "keep": r"score_\d+(?:_up)?",
+            "cite": "with spaces instead of underscores, except score tags",
+        },
+        "lowercase": {"cite": "Write tags in lowercase"},
+        "artist_prefix": {"cite": "put @ before an artist name"},
+        "sentences": {
+            "min": 2,
+            "cite": "For natural language, describe the image in at least two sentences.",
+        },
+    },
 }
 
 NETAYUME_GUIDE = {
@@ -696,6 +1033,15 @@ NETAYUME_GUIDE = {
         "front-facing, full body, soft lighting, humorous mood, masterpiece, "
         "best quality, amazing quality, indoors"
     ],
+    # The instruction itself is `netayume_loading.SYSTEM_PROMPT`, which the
+    # rule reads from there rather than from a copy.
+    "analysis": {
+        "url": (
+            "https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0/blob/"
+            "69c29c441119d43405d8373c654b16827d3cf46e/README.md"
+        ),
+        "system_prefix": {"cite": "without a system prefix or <Prompt Start> marker"},
+    },
 }
 
 NEWBIE_GUIDE = {
@@ -760,6 +1106,44 @@ NEWBIE_GUIDE = {
         "</general_tags>",
         "1girl",
     ],
+    # The prose says "name"; the card's example writes <n>, so either counts.
+    "analysis": {
+        "url": (
+            "https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/tree/"
+            "4f7825a1a7e1ed5c1882a52e3c51d1119a43e298"
+        ),
+        "order": {
+            "steps": ["one <character_N> block per character", "<general_tags>"],
+            "cite": (
+                "Use a separate <character_1>, <character_2> block with name, gender, "
+                "appearance, clothing, expression, action and position; put the "
+                "shared scene in <general_tags>."
+            ),
+        },
+        "xml": {
+            "names": ["n", "name"],
+            "fields": ["gender", "appearance", "clothing", "expression", "action", "position"],
+            "scene": "general_tags",
+            "cite": (
+                "Use a separate <character_1>, <character_2> block with name, gender, "
+                "appearance, clothing, expression, action and position; put the "
+                "shared scene in <general_tags>."
+            ),
+        },
+        "xml_multi": {
+            "cite": (
+                "The authors recommend XML for scenes with multiple characters to "
+                "keep each character's attributes together."
+            ),
+        },
+        "placeholders": [
+            {
+                "pattern": r"\$character_\d+\$",
+                "cite": "<n>$character_1$</n>",
+                "source": "author",
+            },
+        ],
+    },
 }
 
 FALLBACK_GUIDE = {
@@ -777,4 +1161,6 @@ FALLBACK_GUIDE = {
     "pixels": None,
     "pixels_word": "documented",
     "examples": [],
+    # The prose above is the app's, not an author's: nothing to cite.
+    "analysis": {},
 }

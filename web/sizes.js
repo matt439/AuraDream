@@ -173,6 +173,9 @@ function syncCfg() {
     : !trueCfgSupported && gridMaxCfg !== null && +els.cfg.value <= cfgThreshold && reach > cfgThreshold
       ? `(applies to the grid cells above CFG ${cfgThreshold} — ~2× slower there)`
       : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
+  // A negative prompt greyed or woken here stops or starts running, and the
+  // prompt check read it as it ran then.
+  syncAnalysisStale();
 }
 
 // The two conditioning controls, greyed for the checkpoint (references) or for

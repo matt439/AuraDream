@@ -3,13 +3,18 @@
     uv run python tools/fake_server.py                 # http://127.0.0.1:7861
     uv run python tools/fake_server.py --step 0.3      # 0.3 s per denoising step
     uv run python tools/fake_server.py --fresh         # wipe the throwaway gallery first
+    uv run python tools/fake_server.py --critic-delay 2   # a slower prompt critic
+    uv run python tools/fake_server.py --no-critic     # as a platform with no critic build
 
 No GPU, no weights: the backend is the tests' FakeBackend with a drawing on
 top, so every "image" is a gradient stamped with its seed and steps and the
-cells of a grid can be told apart on a sheet. The gallery lives under the
-system temp directory (or --data), never in the checkout, so nothing here can
-reach the real local-diffusion.db. Everything else - the job queue, SSE, resume, the
-runs summary, pause, the budget - is the real code, which is the point:
+cells of a grid can be told apart on a sheet. The prompt check reads the
+tests' word tokenizers - a token per word or mark, at each encoder's real
+budget - and the critic is the tests' FakeCritic, whose answer is built from
+the prompt. The gallery lives under the system temp directory (or --data),
+never in the checkout, so nothing here can reach the real local-diffusion.db.
+Everything else - the job queue, SSE, resume, the runs summary, pause, the
+budget, the analyser's rules - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
 
 Port 7861, so it can run beside the real server on 7860.
@@ -37,6 +42,14 @@ def main() -> int:
     )
     parser.add_argument("--fresh", action="store_true", help="delete the throwaway gallery first")
     parser.add_argument("--model", default="krea/Krea-2-Turbo", help="the checkpoint id to claim")
+    parser.add_argument(
+        "--critic-delay", type=float, default=0.4,
+        help="seconds each prompt critique takes, so its in-flight state can be seen (default 0.4)",
+    )
+    parser.add_argument(
+        "--no-critic", action="store_true",
+        help="answer as a server with no prompt critic: the page hides its section",
+    )
     args = parser.parse_args()
 
     data = Path(args.data)
@@ -67,8 +80,9 @@ def main() -> int:
     from PIL import Image, ImageDraw
 
     from backend import main as app_main
+    from backend import prompt_encoding
     from backend.jobs import JobManager
-    from tests.fakes import FakeBackend
+    from tests.fakes import FakeBackend, FakeCritic, fake_tokenizer
 
     class DrawingBackend(FakeBackend):
         """A fake whose images carry their seed and steps as pixels."""
@@ -148,6 +162,17 @@ def main() -> int:
             pass
 
     app_main.prompt_translator = FakeTranslator()
+
+    # The critic without llama.cpp or 4 GB of model: the real route, gate and
+    # busy refusals around a deterministic answer. Not "downloaded" until the
+    # first critique prepares it, so the page's first-use line is on show
+    # before and its timing line after, as they would be on a new install.
+    critic = FakeCritic(delay=args.critic_delay)
+    critic.available = not args.no_critic
+    app_main.prompt_critic = critic
+    # And the check's tokenizers without the Hub: realistic counts and real
+    # offsets, so a long prompt on a FLUX-claiming fake shows its CLIP cut.
+    prompt_encoding._load_tokenizer = fake_tokenizer
 
     # Deterministic stand-in for Danbooru's live tag API. Browser smoke tests
     # exercise autocomplete, caret replacement and per-item validation without

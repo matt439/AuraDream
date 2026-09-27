@@ -26,21 +26,29 @@ if __name__ == "__main__":
 
     configure()
 
-from . import grid, loras, storage  # noqa: E402
+from . import grid, loras, prompt_encoding, prompt_rules, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .config import settings  # noqa: E402
+from .critic import CriticError, CriticUnavailable, prompt_critic  # noqa: E402
 from .jobs import BackendBusy, JobManager, short_error  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
+from .prompt_sources import sources_for  # noqa: E402
 from .search import strict_scope  # noqa: E402
 from .schemas import (  # noqa: E402
+    AuthorOrder,
+    EncoderReport,
     GalleryPage,
     GenerateRequest,
     GridPreview,
     GridRequest,
     JobAccepted,
     ModelStatus,
+    PromptAnalysis,
+    PromptAnalysisRequest,
+    PromptCritique,
     PromptExpansion,
     PromptExpansionRequest,
+    PromptFinding,
     RerenderRequest,
     RunSummary,
     TagSuggestionResponse,
@@ -79,6 +87,11 @@ async def ensure_loaded() -> None:
         if backend.is_ready():
             _load_state.update(state="ready", detail=None)
             return
+        # An interactive operation holding the generation gate - the prompt
+        # critic's server - may have the card, and a load puts the weights on
+        # it: wait that out first. Inside the lock, so the critique route's
+        # refusal during a load covers the wait too.
+        await jobs.wait_for_gate()
         _load_state.update(state="loading", detail=None)
         try:
             await _detached(backend.load)
@@ -93,7 +106,7 @@ async def ensure_loaded() -> None:
         log.info("model ready")
 
 
-async def _detached(fn):
+async def _detached(fn, name: str = "load"):
     """Run `fn` on a daemon thread and await its result.
 
     Not `asyncio.to_thread`: that pool's threads are joined at interpreter
@@ -120,7 +133,7 @@ async def _detached(fn):
         except RuntimeError:  # the loop is gone: the process is exiting
             pass
 
-    threading.Thread(target=run, daemon=True, name="load").start()
+    threading.Thread(target=run, daemon=True, name=name).start()
     return await future
 
 
@@ -145,9 +158,15 @@ async def lifespan(app: FastAPI):
     # against a pipeline nobody can see any more. try_unload, off the loop: a
     # load in flight holds the backend's lock, and blocking behind it to find
     # there was nothing to unload froze shutdown for the length of the download.
+    #
+    # The critic's server goes first: a critique in flight holds the worker
+    # thread in a request to that server, which jobs.shutdown() would then
+    # wait out. Stopped under it, the request fails at once.
+    await asyncio.to_thread(prompt_critic.unload)
     await jobs.shutdown()
     await asyncio.to_thread(backend.try_unload)
     await asyncio.to_thread(prompt_translator.unload)
+    await asyncio.to_thread(prompt_encoding.unload)
 
 
 app = FastAPI(title="Local Diffusion", version="0.1.0", lifespan=lifespan)
@@ -243,6 +262,10 @@ async def status() -> ModelStatus:
         vram_used_mb=info.get("vram_used_mb"),
         disk_free_mb=_disk_free_mb(),
         prompt_expansion_supported=backend.prompt_expansion_supported(),
+        # Both a few file checks at most - no network, no hashing - which is
+        # what lets a route polled every three seconds ask them.
+        prompt_critique_supported=prompt_critic.supported(),
+        prompt_critique_ready=prompt_critic.ready(),
     )
 
 
@@ -320,22 +343,29 @@ async def suggest_tags(q: str = Query(min_length=1, max_length=100)) -> TagSugge
     return TagSuggestionResponse(available=True, suggestions=suggestions[:12])
 
 
+def _lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
+    """The tag index's verdict on `tags` under this helper's cutoff, special
+    tags and year form. Blocking; raises `TagLookupUnavailable`.
+
+    One call for the chips and the analyser, so the two cannot disagree about
+    what a tag is.
+    """
+    return tag_vocabulary.validate(
+        tags, _special_tags(helper), helper["vocabulary_cutoff"], bool(helper.get("year_tag"))
+    )
+
+
 @app.post("/api/tags/validate", response_model=TagValidationResponse)
 async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:
     helper = _tag_helper_config()
-    special = _special_tags(helper)
     try:
-        results = await asyncio.to_thread(
-            tag_vocabulary.validate,
-            request.tags,
-            special,
-            helper["vocabulary_cutoff"],
-            bool(helper.get("year_tag")),
-        )
+        results = await asyncio.to_thread(_lookup_tags, helper, request.tags)
     except TagLookupUnavailable as exc:
         return TagValidationResponse(
             available=False,
-            results=unchecked_results(request.tags, special, bool(helper.get("year_tag"))),
+            results=unchecked_results(
+                request.tags, _special_tags(helper), bool(helper.get("year_tag"))
+            ),
             detail=short_error(exc),
         )
     return TagValidationResponse(available=True, results=results)
@@ -436,6 +466,11 @@ async def unload_model() -> ModelStatus:
     if _load_lock.locked() or not await asyncio.to_thread(backend.try_unload):
         raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
     await asyncio.to_thread(prompt_translator.unload)
+    # Unload is "give the card and the memory back": a critic's server still
+    # running is stopped - its critique then fails with a 502 - and the
+    # analyser's cached tokenizers go with the pipeline.
+    await asyncio.to_thread(prompt_critic.unload)
+    await asyncio.to_thread(prompt_encoding.unload)
     _load_state.update(state="unloaded", detail=None)
     return await status()
 
@@ -497,6 +532,248 @@ async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
     )
 
 
+# The chips' own ceiling on one validation request, so the analyser never
+# asks the tag index about more items than the page may.
+_MAX_TAG_ITEMS = TagValidationRequest.model_json_schema()["properties"]["tags"]["maxItems"]
+
+
+# What a guide with no tag helper asks the index with when one of its rules
+# reads a category anyway - Anima's "put @ before an artist name", on a card
+# trained on Danbooru-style tags: no cutoff, no special tags of its own.
+_BARE_DANBOORU = {"vocabulary": "danbooru", "vocabulary_cutoff": None}
+
+
+def _tag_categories(model_id: str, prompt: str, style: str) -> dict[str, str] | None:
+    """Each comma item's Danbooru category, for the order and artist checks,
+    or None.
+
+    Only on a checkpoint whose guide names the Danbooru vocabulary, or whose
+    rules need to know an artist (`wants_artist_categories`), and a prompt
+    that reads as tags, and only for the items a rule would read
+    (`category_items`). None when there was nothing to ask or the index
+    could not be reached or gave a reply that did not read: the rules then
+    place only what the guide's own groups know, and the index is never an
+    error here, as it is never one for the chips.
+    """
+    helper = guide_for(model_id).get("tag_helper")
+    if not helper or helper.get("vocabulary") != "danbooru":
+        if not prompt_rules.wants_artist_categories(model_id):
+            return None
+        helper = _BARE_DANBOORU
+    if style not in ("tags", "hybrid"):
+        return None
+    names = prompt_rules.category_items(model_id, prompt)[:_MAX_TAG_ITEMS]
+    if not names:
+        return None
+    try:
+        results = _lookup_tags(helper, names)
+    except Exception as exc:  # noqa: BLE001 - advisory: a bad reply costs the order checks
+        log.info("prompt analysis: tag categories unchecked: %s", short_error(exc))
+        if not isinstance(exc, TagLookupUnavailable):
+            log.debug("tag category traceback", exc_info=True)
+        return None
+    return {row["tag"]: row["category"] for row in results if row.get("category")}
+
+
+def _finding_order(finding: PromptFinding) -> tuple:
+    # Warnings first, the prompt's before the negative prompt's, then in
+    # reading order - the rules' own sort, kept across the two layers.
+    return (
+        finding.severity != "warn",
+        finding.field != "prompt",
+        finding.start is None,
+        finding.start or 0,
+    )
+
+
+def _checked(
+    model_id: str,
+    request: GenerateRequest,
+    applied: GenerateRequest,
+    categories: dict[str, str] | None,
+) -> tuple[list[EncoderReport], list[PromptFinding], str | None]:
+    """Layer 1 over one request: the encoder reports, every finding, and why
+    any encoder went unchecked.
+
+    The negative prompt is measured only as `applied` runs it: one the
+    pipeline drops never reaches an encoder, and a budget reported for it
+    would be a number about nothing.
+    """
+    reports, encoder_findings, detail = prompt_encoding.measure(
+        model_id, request.prompt, applied.negative_prompt
+    )
+    findings = prompt_rules.check(model_id, request, applied, categories) + encoder_findings
+    return reports, sorted(findings, key=_finding_order), detail
+
+
+def _analyse(
+    request: PromptAnalysisRequest, applied: GenerateRequest | None = None
+) -> PromptAnalysis:
+    """The prompt against the running checkpoint's guide and tokenizers.
+
+    Blocking - a first use can fetch a tokenizer, and a tag checkpoint asks
+    the tag index - so the routes run it off the loop. Never the image
+    model: `applied()` answers from the profile before a load, and the
+    tokenizers are read on the CPU.
+    """
+    model_id = settings.model_id
+    applied = applied if applied is not None else backend.applied(request)
+    prompt = request.prompt
+    # The shape alone decides whether to ask the tag index; what is reported
+    # is the style the rules applied, which the answer's categories can move
+    # ("the legend of zelda" is a series, not a phrase).
+    categories = _tag_categories(model_id, prompt, prompt_rules.detect_style(prompt))
+    reports, findings, detail = _checked(model_id, request, applied, categories)
+    order = prompt_rules.documented_order(model_id)
+    return PromptAnalysis(
+        model_id=model_id,
+        style=prompt_rules.detect_style(prompt, categories),
+        words=prompt_rules.word_count(prompt),
+        encoders=reports,
+        encoders_detail=detail,
+        findings=findings,
+        order=order,
+        order_checked=order is not None and prompt_rules.order_checked(model_id, prompt),
+        author_orders=[] if order is not None else [
+            AuthorOrder(text=excerpt.text, url=excerpt.url, note=excerpt.note)
+            for excerpt in sources_for(model_id).excerpts
+            if excerpt.order
+        ],
+        reordered=prompt_rules.reorder_tags(model_id, prompt, categories),
+    )
+
+
+def _lint(
+    model_id: str, request: GenerateRequest, applied: GenerateRequest, text: str
+) -> list[PromptFinding]:
+    """Layer 1's findings for `text` in place of the prompt - the critic's
+    rewrite, held to the same rules as what the user typed.
+
+    Blocking, and like `_analyse` it can fetch a tokenizer, so the route runs
+    it off the loop and after the job gate. No tag categories: the analysis
+    asked the tag index once for this critique, and without them the order
+    check places only what the guide's groups know.
+    """
+    update = {"prompt": text}
+    return _checked(
+        model_id, request.model_copy(update=update), applied.model_copy(update=update), None
+    )[1]
+
+
+def _prompt_failure(exc: Exception, doing: str) -> HTTPException:
+    """A failure of the check or the critic as the reply the page shows,
+    logged the way Expand's are: one line, the traceback behind DEBUG.
+
+    503 when the critic cannot run as configured (`CriticUnavailable`), 502
+    when it ran and failed - a download that did not verify, a server that did
+    not start or an answer that did not parse (`CriticError`) - and 500 for
+    anything else, the analyser's own failures included.
+    """
+    log.error("%s failed: %s", doing, short_error(exc))
+    log.debug("%s traceback", doing, exc_info=exc)
+    if isinstance(exc, CriticUnavailable):
+        status = 503
+    elif isinstance(exc, CriticError):
+        status = 502
+    else:
+        status = 500
+    return HTTPException(status_code=status, detail=short_error(exc))
+
+
+@app.post("/api/prompt/analyze", response_model=PromptAnalysis)
+async def analyze_prompt(request: PromptAnalysisRequest) -> PromptAnalysis:
+    """Check the prompt Generate would send: what the checkpoint's encoders
+    read of it, and what its guide says about it.
+
+    CPU only and never the image model - no `ensure_loaded`, no gate - so it
+    answers in a moment on a cold server and beside a running night.
+    """
+    try:
+        return await asyncio.to_thread(_analyse, request)
+    except Exception as exc:
+        raise _prompt_failure(exc, "prompt analysis") from exc
+
+
+def _critic_unsupported() -> str:
+    if not settings.critic:
+        return "the prompt critic is switched off (LOCAL_DIFFUSION_CRITIC)"
+    return (
+        "llama.cpp publishes no pinned llama-server build for this platform; set "
+        "LOCAL_DIFFUSION_CRITIC_SERVER to a llama-server of your own"
+    )
+
+
+def _refuse_critique_now() -> None:
+    """409 while the card is promised to the image model.
+
+    A job queued or running, as for Expand; and a load in progress, which is
+    moving the weights onto the card outside the job gate - a critic started
+    beside it would find the memory it planned on gone.
+    """
+    if jobs.busy():
+        raise HTTPException(
+            status_code=409, detail="an image job is queued or running; wait for it to finish"
+        )
+    if _load_lock.locked():
+        raise HTTPException(
+            status_code=409, detail="the image model is loading; wait for the load"
+        )
+
+
+@app.post("/api/prompt/critique", response_model=PromptCritique)
+async def critique_prompt(request: PromptAnalysisRequest) -> PromptCritique:
+    """Ask the local critic about the prompt, grounded in the guide's sources.
+
+    Refused before anything is fetched while the image model has the card.
+    The first use downloads llama.cpp and the model - minutes, outside the
+    job gate, so a download never holds an image job back - and only the
+    critique itself, a server started and stopped on the card, runs inside
+    it. Layer 1 runs first: the critic is told what the rules already found,
+    and its rewrite goes back through the same checks once the gate is open.
+    """
+    if not prompt_critic.supported():
+        raise HTTPException(status_code=422, detail=_critic_unsupported())
+    _refuse_critique_now()
+    try:
+        # On a daemon thread, like the model load and for the same reason: a
+        # Ctrl-C during the first use's 5 GB must not wait the download out.
+        await _detached(prompt_critic.prepare, "critic-prepare")
+    except Exception as exc:
+        raise _prompt_failure(exc, "preparing the prompt critic") from exc
+    model_id = settings.model_id
+    applied = backend.applied(request)
+    try:
+        analysis = await asyncio.to_thread(_analyse, request, applied)
+    except Exception as exc:
+        raise _prompt_failure(exc, "prompt analysis") from exc
+    # Again: a first prepare takes minutes, and a job or a load may have
+    # started while it ran.
+    _refuse_critique_now()
+    # The rewrite is linted here, not inside the gate. A tokenizer the
+    # analysis could not load is fetched again by the lint - Hub timeouts per
+    # encoder - and `measure` waits on any other check's first-use download;
+    # neither may hold image jobs back any more than the critic's own
+    # download may.
+    try:
+        critique = await jobs.run_when_idle(
+            lambda: prompt_critic.critique(model_id, request, applied, analysis)
+        )
+    except BackendBusy as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise _prompt_failure(exc, "prompt critique") from exc
+    if critique.rewrite is None:
+        return critique
+    try:
+        findings = await asyncio.to_thread(_lint, model_id, request, applied, critique.rewrite)
+    except Exception as exc:
+        raise _prompt_failure(exc, "prompt analysis") from exc
+    # The critic's own checks on the rewrite first (quoted words the prompt
+    # does not ask to render), then layer 1's, in the layers' one order.
+    merged = sorted(critique.rewrite_findings + findings, key=_finding_order)
+    return critique.model_copy(update={"rewrite_findings": merged})
+
+
 # -------------------------------------------------------------- generation
 
 
@@ -528,7 +805,8 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
     fails once, as a 422, instead of raising out of the response model. The run
     id is computed over the *whole* grid, before resume subtracts anything, so
     the job that continues a night is stamped with the same id as the job that
-    started it.
+    started it. Prompt variants, when given, are the prompt axis; the preview
+    then shows their text under `prompt` and their labels under `variant`.
     """
     await _refuse_unusable_inputs(request)
     try:
@@ -540,6 +818,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
             request.mu_axis,
             request.prompt_axis,
             request.lora_scale_axis,
+            variants=request.prompt_variants,
         )
         # Listed seeds are an axis the preview shows like the others; counted
         # seeds are derived from the base and are not.
@@ -554,6 +833,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
             lora_scale=request.lora_scale_axis,
             seeds=request.seeds,
             seed_list=seed_list or None,
+            variants=request.prompt_variants,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
@@ -983,11 +1263,18 @@ def run() -> None:
         signal itself lands within a step, `done` goes out, the stream closes
         and the ordinary drain completes. A second Ctrl-C (uvicorn's forced
         exit) skips the lifespan entirely; this still runs on it.
+
+        The critic's server is stopped here for the same reason: a critique
+        in flight is an open request too, waiting on that server - typically
+        10-20 s, and up to its 600 s request timeout when `--fit` has put
+        layers on the CPU. On a thread of its own, since stopping a process
+        waits for it and a signal handler should not.
         """
 
         def handle_exit(self, sig, frame) -> None:
             for job in jobs.active():
                 job.cancel_requested = True
+            threading.Thread(target=prompt_critic.unload, daemon=True, name="critic-stop").start()
             super().handle_exit(sig, frame)
 
     config = uvicorn.Config(

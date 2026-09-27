@@ -1,4 +1,4 @@
-// Local Diffusion's page script, last of ten: the event wiring and the boot.
+// Local Diffusion's page script, last of eleven: the event wiring and the boot.
 // Everything called here is declared in the files index.html loads before
 // it; state.js has the load-order contract.
 'use strict';
@@ -40,7 +40,7 @@ function showExamples(open) {
     li.title = text;
     const pick = () => {
       els.prompt.value = text;
-      clearPromptTranslation();
+      promptReplaced();
       showExamples(false);
       // Assigning .value fires no `input`: the preview and the remembered
       // panel are told the way `choose` tells them.
@@ -58,6 +58,7 @@ function showExamples(open) {
 async function expandPrompt() {
   if (expandingPrompt) return;
   if (busy) { showError('Wait for the image queue to finish before expanding a prompt.'); return; }
+  if (critiquing) { showError('Wait for the critic to finish.'); return; }
   const source = els.prompt.value;
   const prompt = source.trim();
   if (!prompt) { showError('Enter a prompt to expand first.'); els.prompt.focus(); return; }
@@ -78,6 +79,7 @@ async function expandPrompt() {
       return;
     }
     els.prompt.value = body.expanded_prompt;
+    syncAnalysisStale();
     if (body.translated_prompt) showPromptTranslation(body.expanded_prompt, body.translated_prompt);
     schedulePreview();
     persistPanel();
@@ -98,6 +100,16 @@ async function expandPrompt() {
 els.examplesBtn.onclick = () => showExamples(els.examplesMenu.hidden);
 els.tagsBtn.onclick = () => showTagHelper(els.tagsMenu.hidden);
 els.expandPrompt.onclick = expandPrompt;
+// The prompt check: Check and Check again run it on the prompt as it is now;
+// the rest of its buttons are built with the results they act on.
+els.analyze.onclick = () => { void checkPrompt(); };
+els.analysisAgain.onclick = () => { void checkPrompt(); };
+els.analysisClose.onclick = closeAnalysis;
+els.criticAsk.onclick = askCritic;
+els.compareSeeds.onchange = () => { compareSeeds = +els.compareSeeds.value; scheduleComparePreview(0); };
+els.compareRun.onclick = runComparison;
+els.compareOwn.addEventListener('input', compareOwnChanged);
+els.compareOwnFill.onclick = compareOwnFromPrompt;
 els.tagValidation.addEventListener('contextmenu', (event) => {
   // Keep the ordinary text-editing menu inside the inline input. Everywhere
   // else in the validation tray, including the flex gaps, is an insert point.
@@ -107,10 +119,13 @@ els.tagValidation.addEventListener('contextmenu', (event) => {
 });
 els.prompt.addEventListener('input', () => {
   if (translatedSource !== null && els.prompt.value !== translatedSource) clearPromptTranslation();
+  syncAnalysisStale();
   syncTagSelection();
   scheduleTagSuggestions();
   scheduleTagValidation();
 });
+// The check read the negative prompt too; editing it dims the check as well.
+els.negative.addEventListener('input', () => syncAnalysisStale());
 els.prompt.addEventListener('click', () => scheduleTagSuggestions(0));
 els.prompt.addEventListener('keyup', (event) => {
   if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) scheduleTagSuggestions(0);

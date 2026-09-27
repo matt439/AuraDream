@@ -585,8 +585,8 @@ _PROFILES += [
 ]
 # FLUX.1 Krea [dev] is FLUX.1 [dev] to every control - the same numbers, the
 # same hints - and its own checkpoint to the prompting guide: Krea's README
-# recommends 1024-1280 px sides and photo language. Ahead of "flux", whose
-# token its id carries too.
+# recommends 1024-1280 px sides. Ahead of "flux", whose token its id carries
+# too.
 _FLUX_PROFILE = dict(_PROFILES[[token for token, _ in _PROFILES].index("flux")][1])
 _PROFILES.insert(
     [token for token, _ in _PROFILES].index("flux"),

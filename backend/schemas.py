@@ -208,6 +208,158 @@ class PromptExpansion(BaseModel):
     translation_detail: str | None = None
 
 
+class PromptAnalysisRequest(GenerateRequest):
+    """What Generate would send, analysed instead of rendered.
+
+    The whole request rather than the text alone, because half of what a prompt
+    checker has to say depends on the rest of it: a negative prompt at CFG 0 on
+    Krea 2 Turbo, or without True CFG on FLUX.1, never runs, and that is
+    `applied()`'s answer, not the text's. The critic takes the same body.
+    """
+
+
+class PromptFinding(BaseModel):
+    """One thing the analyser noticed, and what it rests on.
+
+    `source` is the sourcing rule made visible: `guide` and `author` findings
+    quote the checkpoint authors (`cite`, verbatim, with `url`), `encoder` ones
+    describe what the pipeline's own tokenizer or template does to the text,
+    and `heuristic` ones are this app's pattern matching - the rewrite checks
+    on the critic's output included - and say so. `start`/`end` are character
+    offsets into
+    `field`'s text, so the page can select the words a finding is about -
+    code points, as Python indexes a str, which the page converts to its
+    UTF-16 units; every offset in the analysis and the critique counts so.
+    """
+
+    rule: str
+    severity: Literal["info", "warn"]
+    message: str
+    field: Literal["prompt", "negative_prompt"] = "prompt"
+    start: int | None = None
+    end: int | None = None
+    source: Literal["guide", "author", "encoder", "heuristic"]
+    cite: str | None = None
+    url: str | None = None
+    suggestion: str | None = None
+
+
+class EncoderReport(BaseModel):
+    """How much of one field one text encoder reads.
+
+    `tokens` counts the text's own tokens, the pipeline's template excluded;
+    `budget` is how many of them survive the pipeline's truncation. `cut` is
+    the character offset where reading stops - None when everything fits -
+    because every pipeline here cuts from the right in silence.
+    """
+
+    name: str
+    field: Literal["prompt", "negative_prompt"] = "prompt"
+    tokens: int
+    budget: int
+    cut: int | None = None
+    # What the encoder contributes, where that changes what the count means -
+    # FLUX.1's CLIP-L feeds one pooled vector, not the token sequence.
+    role: str | None = None
+    # A cut here is advice, not lost text: this encoder feeds one pooled vector
+    # while another reads the words on (FLUX.1's CLIP-L). Its `encoder.cut` is
+    # info rather than a warning; every other role's cut is a real loss.
+    pooled_only: bool = False
+    # The tokenizer the count came from, repo and subfolder, for the tooltip.
+    source: str | None = None
+
+
+class DocumentedOrder(BaseModel):
+    """The order the checkpoint's guide states, when it states one."""
+
+    steps: list[str]
+    cite: str
+    url: str | None = None
+
+
+class AuthorOrder(BaseModel):
+    """An order an author's text gives that the app does not check: the
+    excerpt the critic may cite, with its source."""
+
+    text: str
+    url: str
+    # Whose words these are when not this checkpoint's own authors', or that
+    # `text` is this app's translation.
+    note: str | None = None
+
+
+class PromptAnalysis(BaseModel):
+    model_id: str
+    # How the text reads: sentences, a comma tag list, both, NewBie XML, JSON.
+    style: Literal["prose", "tags", "hybrid", "xml", "json"]
+    words: int
+    encoders: list[EncoderReport] = Field(default_factory=list)
+    # Why `encoders` is empty or partial - a gated tokenizer, no network on a
+    # first use - so an unchecked budget is never shown as a passed one.
+    encoders_detail: str | None = None
+    findings: list[PromptFinding] = Field(default_factory=list)
+    # None when the guide states no order for the app to check. The page then
+    # says the app checks none, rather than inventing one.
+    order: DocumentedOrder | None = None
+    # Whether the rules held this text to `order` at all. Only a tag
+    # checkpoint's comma items are placed; a sentence's "subject first", an
+    # XML prompt's blocks are documented but unchecked, and the page says so
+    # rather than letting "nothing to flag" read as a passed order.
+    order_checked: bool = False
+    # Where the guide states no order: orders the authors' own texts give
+    # anyway (Anima's card, the rewriter instructions), shown as information,
+    # never checked. Empty where `order` is set.
+    author_orders: list[AuthorOrder] = Field(default_factory=list)
+    # A tag checkpoint's own tags moved into its documented order, nothing
+    # added or removed; None when there is nothing to move or no order.
+    reordered: str | None = None
+
+
+class CritiqueIssue(BaseModel):
+    kind: Literal["order", "missing", "vague", "conflict", "other"]
+    problem: str
+    fix: str
+    # The numbered source the critic cited, resolved on the server: an issue
+    # whose id names nothing it was given is dropped, never shown uncited.
+    cite_id: str
+    cite: str
+    url: str | None = None
+    source: Literal["guide", "author"]
+    # The prompt's own words the issue is about, when the critic quoted any
+    # that really occur - located here, not trusted from the model.
+    quote: str | None = None
+    start: int | None = None
+    end: int | None = None
+
+
+class PromptCritique(BaseModel):
+    model: str
+    seconds: float
+    # The prompt taken apart: subject, action, setting, style, lighting,
+    # camera, text to render. None where the prompt has no such part.
+    parts: dict[str, str | None] = Field(default_factory=dict)
+    issues: list[CritiqueIssue] = Field(default_factory=list)
+    rewrite: str | None = None
+    # The same words in the documented order and nothing else - the variant
+    # that isolates order in a comparison grid. None when the critic's version
+    # added or dropped words, or the checkpoint documents no order.
+    reordered: str | None = None
+    # The analyser run over the rewrite: a critic can reintroduce what it was
+    # asked to remove, so its output is checked by the same rules as input -
+    # and first by the critic's own checks on it: quoted words the prompt
+    # does not ask to render.
+    rewrite_findings: list[PromptFinding] = Field(default_factory=list)
+    # Issues discarded because their citation named nothing the critic was
+    # given, or they were empty. A quote that is not in the prompt only loses
+    # its `quote`.
+    dropped: int = 0
+    # What else validation took out of the answer, one sentence each, for the
+    # page to say: issues restating a rule finding, order issues that asked
+    # for different things first, a `reordered` that was not a reorder, a
+    # rewrite wrapped in quotation marks or lettering words the prompt lacks.
+    set_aside: list[str] = Field(default_factory=list)
+
+
 def effective_true_cfg(
     true_cfg: float | None, negative_prompt: str | None, guidance_scale: float
 ) -> float | None:
@@ -241,6 +393,13 @@ def error_detail(exc: ValueError) -> str:
     )
 
 
+class PromptVariant(BaseModel):
+    """One whole prompt on a comparison grid's prompt axis, under a short name."""
+
+    label: str = Field(min_length=1, max_length=40)
+    prompt: str = Field(min_length=1, max_length=4000)
+
+
 class GridRequest(GenerateRequest):
     """A sweep over the sampling axes, sitting on top of a normal request.
 
@@ -256,6 +415,12 @@ class GridRequest(GenerateRequest):
     # `size = big | small`. Longer than the numeric axes because its values are
     # prose, and split on `|` because a prompt is full of commas.
     prompt_axis: str = Field(default="", max_length=2000)
+    # Whole prompts as the prompt axis - the analyser's original, reordered
+    # and rewritten versions on shared seeds. Variables cannot carry them:
+    # three long prompts overrun `prompt_axis`, a `|` or a newline in one
+    # splits it, and NewBie's XML is all newlines. Each cell records
+    # `variables={"variant": label}`, so the sheet gives each its own row.
+    prompt_variants: list[PromptVariant] | None = Field(default=None, min_length=2, max_length=8)
     steps_axis: str = Field(default="", max_length=200)
     cfg_axis: str = Field(default="", max_length=200)
     mu_axis: str = Field(default="", max_length=200)
@@ -285,6 +450,17 @@ class GridRequest(GenerateRequest):
     def _runs_are_not_a_grid_axis(self) -> "GridRequest":
         if self.runs != 1:
             raise ValueError("a grid steps its own seeds; leave runs at 1")
+        return self
+
+    @model_validator(mode="after")
+    def _variants_are_the_prompt_axis(self) -> "GridRequest":
+        if self.prompt_variants is None:
+            return self
+        if self.prompt_axis.strip():
+            raise ValueError("prompt variants are the prompt axis; leave the variables empty")
+        labels = [variant.label.strip() for variant in self.prompt_variants]
+        if len(set(labels)) != len(labels):
+            raise ValueError("each prompt variant needs its own label")
         return self
 
     @model_validator(mode="after")
@@ -597,6 +773,12 @@ class ModelStatus(BaseModel):
     # ERNIE's separate rewriter is an explicit editor action, never a hidden
     # part of generation. False for every pipeline without that facility.
     prompt_expansion_supported: bool = False
+    # The local prompt critic: supported where it is not switched off and a
+    # server can run - a platform with a pinned llama-server build, or one
+    # LOCAL_DIFFUSION_CRITIC_SERVER names; ready once the binary and the model
+    # file are on disk, so the page can say a first use downloads them.
+    prompt_critique_supported: bool = False
+    prompt_critique_ready: bool = False
 
 
 class JobAccepted(BaseModel):

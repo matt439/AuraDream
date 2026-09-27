@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 from urllib.error import URLError
 
 import pytest
@@ -13,6 +14,7 @@ from backend.tags import (
     normalize_tag,
     unchecked_results,
 )
+from tests.fakes import CutReply
 
 CUTOFF = "2025-01-07"
 
@@ -164,3 +166,16 @@ def test_the_real_fetcher_wraps_network_failures(monkeypatch):
     vocabulary = DanbooruTagVocabulary()
     with pytest.raises(TagLookupUnavailable):
         vocabulary.suggest("green", CUTOFF)
+
+
+def test_the_real_fetcher_wraps_a_broken_reply(monkeypatch):
+    monkeypatch.setattr("backend.tags.urlopen", lambda request, timeout: CutReply())
+    with pytest.raises(TagLookupUnavailable, match="IncompleteRead"):
+        DanbooruTagVocabulary().validate(["green hair"], set(), CUTOFF)
+
+    def garbled(request, timeout):
+        raise http.client.BadStatusLine("HTTP/1.1 2x0 Garbled")
+
+    monkeypatch.setattr("backend.tags.urlopen", garbled)
+    with pytest.raises(TagLookupUnavailable):
+        DanbooruTagVocabulary().suggest("green", CUTOFF)

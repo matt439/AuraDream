@@ -191,6 +191,116 @@ def test_a_prompt_axis_that_does_not_line_up_is_a_422(client):
     assert plain.json()["values"]["prompt"] == ["a dog"]
 
 
+# ------------------------------------------------------------ prompt variants
+
+# The analyser's comparison, in the order written - which is not alphabetical,
+# so a sheet sorted by label would put `original` last.
+VARIANTS = [
+    {"label": "rewrite", "prompt": "A woman in a yellow raincoat holds a red umbrella."},
+    {"label": "original", "prompt": "a red umbrella held by a woman in a yellow raincoat"},
+    {"label": "reordered", "prompt": "a woman in a yellow raincoat holding a red umbrella"},
+]
+TEXTS = [variant["prompt"] for variant in VARIANTS]
+LABELS = [variant["label"] for variant in VARIANTS]
+
+
+def test_prompt_variants_run_as_one_grid_on_shared_seeds(client, fake):
+    _, events = run_grid(client, prompt_variants=VARIANTS, seeds=2, seed=21)
+    done = events[-1]
+    assert done["status"] == "done"
+    # Seeds outermost, the variants in the order given inside each; the base
+    # prompt the request sits on is not one of them.
+    assert [request.prompt for request in fake.requests] == TEXTS + TEXTS
+    assert fake.seeds == [21, 21, 21, 22, 22, 22]
+    # Every record carries its label as the one variable - what the sheet lays
+    # out as a row - and all of them are one run.
+    assert [record["variables"] for record in done["images"]] == [
+        {"variant": label} for label in LABELS
+    ] * 2
+    assert len({record["run_id"] for record in done["images"]}) == 1
+    labels = [event["label"] for event in events if event.get("label")]
+    assert any(label.startswith("variant=original,") for label in labels)
+
+
+def test_the_preview_shows_each_variant_under_its_label(client):
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "prompt_variants": VARIANTS,
+        "steps_axis": "6,8", "seeds": 4,
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["values"]["prompt"] == TEXTS
+    assert preview["values"]["variant"] == LABELS
+    assert (preview["cells"], preview["images"], preview["duplicates"]) == (24, 24, 0)
+    assert preview["summary"] == "3 variants x 2 steps x 1 CFG x 1 mu x 4 seeds"
+
+
+def test_a_variant_with_braces_pipes_and_newlines_runs_as_written(client, fake):
+    xml = (
+        "<character_1>\n<n>{name}</n>\n<appearance>red hair | green eyes</appearance>\n"
+        "</character_1>\n<general_tags>\n<style>anime</style>\n</general_tags>"
+    )
+    given = [{"label": "xml", "prompt": xml}, {"label": "tags", "prompt": "1girl, red hair, anime"}]
+    # The base prompt's own placeholder is not what runs, so it is not refused.
+    body = {"prompt": "a {size} dog", "prompt_variants": given, "seed": 3}
+    preview = client.post("/api/grid/preview", json={**body, "width": 256, "height": 256})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["values"]["prompt"] == [xml, "1girl, red hair, anime"]
+    _, events = run_grid(client, **body)
+    assert [request.prompt for request in fake.requests] == [xml, "1girl, red hair, anime"]
+    assert events[-1]["images"][0]["prompt"] == xml
+
+
+def test_variants_that_do_not_line_up_are_a_422(client, fake):
+    body = {"prompt": "a {size} dog", "width": 256, "height": 256, "prompt_variants": VARIANTS}
+    both = client.post("/api/grid", json={**body, "prompt_axis": "size = big | small"})
+    assert both.status_code == 422
+    assert "variables" in str(both.json()["detail"])
+    relabelled = [VARIANTS[0], {**VARIANTS[1], "label": " rewrite "}]
+    twice = client.post("/api/grid/preview", json={**body, "prompt_variants": relabelled})
+    assert twice.status_code == 422
+    assert "label" in str(twice.json()["detail"])
+    blank = [VARIANTS[0], {**VARIANTS[1], "label": "   "}]
+    nameless = client.post("/api/grid/preview", json={**body, "prompt_variants": blank})
+    assert nameless.status_code == 422
+    assert "needs a label" in nameless.json()["detail"]
+    # One variant is not a comparison.
+    alone = client.post("/api/grid/preview", json={**body, "prompt_variants": VARIANTS[:1]})
+    assert alone.status_code == 422
+    # A negative-prompt placeholder has nothing to fill it beside variants.
+    unfilled = client.post("/api/grid", json={**body, "negative_prompt": "{avoid}"})
+    assert unfilled.status_code == 422
+    assert "{avoid}" in unfilled.json()["detail"]
+    assert not fake.requests
+
+
+def test_a_variant_grid_resumes_on_its_prompts(client, fake):
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "prompt_variants": VARIANTS,
+        "seeds": 2, "seed": 50,
+    }
+    first = client.post("/api/grid", json=body).json()
+    images = stream_job(client, first["job_id"])[-1]["images"]
+    # The night died after the second seed's first variant.
+    for record in images[4:]:
+        client.delete(f"/api/images/{record['id']}")
+    preview = client.post("/api/grid/preview", json={**body, "resume": True}).json()
+    assert (preview["cells"], preview["skipped"]) == (2, 4)
+    fake.requests.clear()
+    fake.seeds.clear()
+    second = client.post("/api/grid", json={**body, "resume": True}).json()
+    stream_job(client, second["job_id"])
+    assert [request.prompt for request in fake.requests] == TEXTS[1:]
+    assert fake.seeds == [51, 51]
+    # One run under two jobs, whole again.
+    assert second["run_id"] == first["run_id"]
+    page = client.get(f"/api/gallery?search=run:{first['run_id']}").json()
+    assert page["total"] == 6
+    # Keyed on the text, not the label: the same prompts renamed are done too.
+    renamed = [{**variant, "label": f"v{n}"} for n, variant in enumerate(VARIANTS)]
+    again = client.post("/api/grid", json={**body, "prompt_variants": renamed, "resume": True})
+    assert again.status_code == 409
+
+
 def test_resume_skips_only_the_prompt_it_already_rendered(client, store):
     store.save_image(
         Image.new("RGB", (256, 256)),

@@ -1,10 +1,12 @@
 """Axis parsing and the cartesian expansion behind a grid search."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from backend import grid
-from backend.schemas import GenerateRequest
+from backend.schemas import GenerateRequest, PromptVariant
 
 BASE = dict(prompt="a lighthouse in fog", width=256, height=256, steps=8, guidance_scale=0.0, mu=1.15)
 
@@ -269,6 +271,139 @@ def test_prompts_of_lists_each_one_once():
         "small dog sitting on grass",
         "small dog sitting on dirt",
     ]
+
+
+# ---------------------------------------------------------- prompt variants
+
+
+def variants(*pairs: tuple[str, str]) -> list[PromptVariant]:
+    return [PromptVariant(label=label, prompt=text) for label, text in pairs]
+
+
+# The analyser's comparison: the prompt as typed, the same words in another
+# order, and a rewrite - written in that order, which is not alphabetical.
+COMPARE = variants(
+    ("original", "a red umbrella held by a woman in a yellow raincoat"),
+    ("reordered", "a woman in a yellow raincoat holding a red umbrella"),
+    ("rewrite", "A woman in a yellow raincoat holds a red umbrella on a rainy street."),
+)
+
+
+def test_variants_are_the_prompt_axis_in_the_order_written():
+    cells = grid.expand(
+        request(seed=42, negative_prompt="blurry"), variants=COMPARE, steps="6,8", seeds=2
+    )
+    # Seeds outermost, the variants just inside them, the sampling axes inside
+    # those - the order every other prompt grid runs in.
+    assert [(c.seed, c.variables, c.request.steps) for c in cells] == [
+        (seed, {"variant": label}, steps)
+        for seed in (42, 43)
+        for label in ("original", "reordered", "rewrite")
+        for steps in (6, 8)
+    ]
+    # Each cell renders its variant's text beside the request's negative prompt;
+    # the request's own prompt is the base of nothing and is not rendered.
+    assert {(c.variables["variant"], c.request.prompt) for c in cells} == {
+        (v.label, v.prompt) for v in COMPARE
+    }
+    assert {c.request.negative_prompt for c in cells} == {"blurry"}
+    assert grid.prompts_of(cells) == [v.prompt for v in COMPARE]
+    # The label leads the log line, as a variable does.
+    assert cells[0].label.startswith("variant=original, 6 steps")
+
+
+def test_a_variant_is_text_not_a_template():
+    # NewBie's XML is all newlines and may carry a `|`, a pasted JSON prompt is
+    # all braces, and neither is a placeholder or a second cell. The request's
+    # prompt here has unfilled placeholders of its own, which is not refused:
+    # it is not what runs.
+    xml = "<character_1>\n<n>{name}</n>\n<appearance>red hair | green eyes</appearance>\n</character_1>"
+    as_json = '{"subject": "a fox", "style": "ink wash"}'
+    cells = grid.expand(dog(seed=1), variants=variants(("xml", xml), ("json", as_json)))
+    assert [c.request.prompt for c in cells] == [xml, as_json]
+    for cell in cells:
+        cell.label.encode("ascii")
+
+
+def test_a_placeholder_in_the_negative_prompt_still_needs_values():
+    # Nothing fills it beside variants, so it would reach the encoder as the
+    # literal `{avoid}` in every image of the run.
+    with pytest.raises(ValueError, match=r"\{avoid\} has no values"):
+        grid.expand(request(seed=1, negative_prompt="{avoid}"), variants=COMPARE)
+
+
+@pytest.mark.parametrize(
+    ("spec", "given", "message"),
+    [
+        # The schema refuses both of these first; the CLI does not go through it.
+        ("size = big | small", COMPARE, "leave the variables empty"),
+        ("", variants(("a", "a fox"), (" a ", "a dog")), "its own label"),
+        # `min_length` passes a label of spaces, which would be a nameless row.
+        ("", variants(("a", "a fox"), ("   ", "a dog")), "needs a label"),
+    ],
+)
+def test_variants_that_do_not_line_up_are_refused(spec, given, message):
+    with pytest.raises(ValueError, match=message):
+        grid.expand(request(seed=1), prompt=spec, variants=given)
+
+
+def test_labels_are_recorded_trimmed():
+    cells = grid.expand(request(seed=1), variants=variants((" original ", "a fox"), ("rewrite", "A fox.")))
+    assert [c.variables for c in cells] == [{"variant": "original"}, {"variant": "rewrite"}]
+
+
+def test_the_axis_values_carry_the_text_and_the_labels():
+    values = grid.axis_values(request(), "6,8", "", "", variants=COMPARE)
+    assert values["prompt"] == [v.prompt for v in COMPARE]
+    assert values["variant"] == ["original", "reordered", "rewrite"]
+    assert grid.describe(values, 4) == "3 variants x 2 steps x 1 CFG x 1 mu x 4 seeds"
+    # A variable grid reads exactly as it did.
+    plain = grid.axis_values(dog(), "", "", "", VARS)
+    assert "variant" not in plain
+    assert grid.describe(plain, 1).startswith("4 prompts x")
+
+
+def test_a_variant_grid_counts_towards_the_ceiling():
+    eight = variants(*[(f"v{n}", f"a fox, take {n}") for n in range(8)])
+    with pytest.raises(ValueError, match="past the"):
+        grid.expand(request(seed=1), variants=eight, steps="1-64", seeds=4)
+
+
+def test_variants_are_keyed_on_their_text_not_their_label():
+    # The label is a caption; the cell is what runs. Renaming the variants is
+    # the same run and the same resume, and editing one's text is another run.
+    cells = grid.expand(request(seed=7), variants=COMPARE, seeds=2)
+    renamed = grid.expand(
+        request(seed=7), variants=variants(*[(f"v{n}", v.prompt) for n, v in enumerate(COMPARE)]), seeds=2
+    )
+    edited = grid.expand(
+        request(seed=7), variants=[*COMPARE[:2], PromptVariant(label="rewrite", prompt="A fox.")], seeds=2
+    )
+    assert grid.run_id(cells, "m", "fp8") == grid.run_id(renamed, "m", "fp8")
+    assert grid.run_id(cells, "m", "fp8") != grid.run_id(edited, "m", "fp8")
+    assert grid.cell_key(cells[0])[0] == COMPARE[0].prompt
+    # Resume subtracts the variant the gallery already holds and nothing else.
+    assert grid.prune_done(cells, {grid.cell_key(cells[0])}) == cells[1:]
+
+
+def test_two_variants_with_one_text_are_counted_not_dropped():
+    # A reorder that came back as the prompt it started from is one picture
+    # twice. Like any other duplicate the preview says so and the run renders
+    # what was asked - dropping it would leave the sheet a row short.
+    same = grid.expand(
+        request(seed=1),
+        variants=variants(("original", "a fox"), ("reordered", "a fox"), ("rewrite", "A fox.")),
+    )
+    assert len(same) == 3
+    assert grid.duplicate_count(same, lambda req: req) == 1
+
+
+def test_the_sheet_knows_the_variable_the_labels_ride_under():
+    # `chooseAxes` gives the variant axis the rows by its name alone - widest
+    # first put 3 variants x 3 seeds in columns - and web/ has no test suite,
+    # so the one thing that can drift unseen is the spelling on each side.
+    sheet = (Path(__file__).resolve().parents[1] / "web" / "sheet.js").read_text(encoding="utf-8")
+    assert f"const VARIANT_AXIS = 'var:{grid.VARIANT}';" in sheet
 
 
 # ------------------------------------------------------------------- run id

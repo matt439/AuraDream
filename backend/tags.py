@@ -13,6 +13,7 @@ import json
 import re
 import threading
 from collections.abc import Callable, Iterable
+from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -230,8 +231,10 @@ class DanbooruTagVocabulary:
             # The origin and path are module constants; user text is query data.
             with urlopen(request, timeout=5) as response:
                 payload = response.read(1_000_001)
-        except (HTTPError, URLError, TimeoutError, OSError) as exc:
-            raise TagLookupUnavailable(str(exc)) from exc
+        # HTTPException: a reply cut off mid-body (IncompleteRead) or a
+        # malformed status line is no more an answer than a refused connection.
+        except (HTTPError, URLError, TimeoutError, OSError, HTTPException) as exc:
+            raise TagLookupUnavailable(str(exc) or type(exc).__name__) from exc
         if len(payload) > 1_000_000:
             raise TagLookupUnavailable(
                 "Danbooru returned an unexpectedly large response"

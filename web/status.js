@@ -71,19 +71,35 @@ function syncMu() {
   }
 }
 
+// The editor's two actions on the card - ERNIE's rewriter and the prompt
+// critic - and what either holds while it runs: the other one, Unload, and
+// the submit buttons (aria-disabled, as setSubmitting holds them). Both wait
+// for the image queue, so a job queued or running holds them in turn.
 function syncPromptExpansion() {
+  const editing = expandingPrompt || critiquing;
   els.expandPrompt.hidden = !promptExpansionSupported;
-  els.expandPrompt.disabled = expandingPrompt || busy;
+  els.expandPrompt.disabled = editing || busy;
   els.expandPrompt.textContent = expandingPrompt ? 'Expanding…' : 'Expand';
-  els.unload.disabled = expandingPrompt || busy;
-  els.generate.setAttribute('aria-disabled', String(expandingPrompt || submitting));
-  els.gridRun.setAttribute('aria-disabled', String(expandingPrompt || submitting));
+  els.unload.disabled = editing || busy;
+  els.generate.setAttribute('aria-disabled', String(editing || submitting));
+  els.gridRun.setAttribute('aria-disabled', String(editing || submitting));
+  syncCritic();
 }
 
 function clearPromptTranslation() {
   translatedSource = null;
   els.promptTranslation.value = '';
   els.promptTranslationField.hidden = true;
+}
+
+// Every programmatic write to the prompt box - an example, Reuse, Reset, a tag
+// chip, an accepted suggestion - fires no `input` event, so what describes the
+// old text is told here instead: its translation goes, and the prompt check
+// marks itself stale. Expand's write keeps the translation it brings, so it
+// tells the check alone.
+function promptReplaced() {
+  clearPromptTranslation();
+  syncAnalysisStale();
 }
 
 function showPromptTranslation(source, translation) {
@@ -113,6 +129,9 @@ async function refreshStatus() {
       // the old one's images: ask again. The first answer is not a change -
       // the page loaded under this checkpoint's scope already.
       if (previousModel && !els.allModels.checked) { resetGallery(); loadRuns(); }
+      // The check read another checkpoint's tokenizers and guide: none of it
+      // is about this one.
+      if (analysisResult && analysisResult.body.model_id !== loadedModel) clearAnalysis();
     }
     applyDefaults(s.defaults);
     // After the profile, so a remembered value set on this checkpoint wins
@@ -124,6 +143,15 @@ async function refreshStatus() {
         && s.prompt_expansion_supported !== promptExpansionSupported) {
       promptExpansionSupported = s.prompt_expansion_supported;
       syncPromptExpansion();
+    }
+    // Ready flips once, when a first critique has downloaded the critic; the
+    // line under its button then stops promising the download.
+    if (typeof s.prompt_critique_supported === 'boolean'
+        && (s.prompt_critique_supported !== promptCritiqueSupported
+            || !!s.prompt_critique_ready !== promptCritiqueReady)) {
+      promptCritiqueSupported = s.prompt_critique_supported;
+      promptCritiqueReady = !!s.prompt_critique_ready;
+      syncCritic();
     }
     if (s.defaults && typeof s.defaults.cfg_threshold === 'number'
         && s.defaults.cfg_threshold !== cfgThreshold) {

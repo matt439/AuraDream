@@ -83,7 +83,10 @@ function resetPanel() {
   for (const key of LEGACY_PANEL_KEYS) forget(key);
   for (const key of Object.keys(owned)) owned[key] = false;
   els.prompt.value = '';
-  clearPromptTranslation();
+  promptReplaced();
+  // A first visit has no check open, and one about the prompt just emptied
+  // would only be stale.
+  clearAnalysis();
   els.negative.value = '';
   [pickedAspect, pickedTier] = ['1:1', 1];
   [els.width.value, els.height.value] = SIZES[pickedAspect][pickedTier];

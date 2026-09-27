@@ -56,7 +56,7 @@ function applyTagSuggestion(suggestion) {
   els.prompt.value = before + suggestion.text + after;
   const caret = start + suggestion.text.length;
   els.prompt.setSelectionRange(caret, caret);
-  clearPromptTranslation();
+  promptReplaced();
   syncTagSelection();
   schedulePreview();
   persistPanel();
@@ -511,11 +511,17 @@ function syncTagVocabulary() {
   scheduleTagValidation(0);
 }
 
+// The chips and the prompt check go together, in that order: above the results
+// on a two-column page, where their height cannot move Generate in the sticky
+// settings column, and back under the prompt at 900 px and below, where the
+// page is one scrolling column anyway.
 function placeTagValidation() {
   const host = window.matchMedia('(min-width: 901px)').matches
     ? els.tagValidationWide
     : els.tagValidationHome;
-  if (els.tagValidation.parentElement !== host) host.appendChild(els.tagValidation);
+  for (const node of [els.tagValidation, els.promptAnalysis]) {
+    if (node.parentElement !== host) host.appendChild(node);
+  }
 }
 
 function tagCursorIndex() {
@@ -525,7 +531,7 @@ function tagCursorIndex() {
 
 function writePromptTags(parts, caret = null) {
   els.prompt.value = parts.join(', ');
-  clearPromptTranslation();
+  promptReplaced();
   const end = caret == null ? els.prompt.value.length : Math.min(caret, els.prompt.value.length);
   els.prompt.setSelectionRange(end, end);
   syncTagSelection();
@@ -658,6 +664,7 @@ function buildTagHelper() {
     negative.textContent = 'Use the recommended negative prompt';
     negative.onclick = () => {
       els.negative.value = tagHelper.negative_prompt;
+      syncAnalysisStale();
       schedulePreview();
       persistPanel();
     };

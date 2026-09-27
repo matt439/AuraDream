@@ -30,8 +30,8 @@
     <div class="field">
       <span><label for="prompt">Prompt</label>
         <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-          class="tip wide" id="prompt-tip">Plain descriptive sentences: subject, setting,
-          light, style. Word order is not a weighting.</span></span>
+          class="tip wide" id="prompt-tip">This checkpoint's prompting guide appears here once
+          the server answers.</span></span>
         <span class="examples" id="examples">
           <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
                   aria-expanded="false" title="Example prompts for this checkpoint, from its authors">Examples</button>
@@ -43,6 +43,11 @@
           <div class="tag-menu" id="tags-menu" role="dialog"
                aria-label="Checkpoint tag helper" hidden></div>
         </span>
+        <!-- Every checkpoint has a guide, so this is never hidden. It sends
+             what Generate would send and needs no model: the answer is the
+             tokenizers and the guide's rules, on the CPU. -->
+        <button type="button" class="ghost tiny" id="btn-analyze" aria-controls="prompt-analysis"
+                title="Check this prompt against the checkpoint's guide and what its text encoders read - instant, on this machine">Check</button>
         <button type="button" class="ghost tiny" id="btn-expand" hidden
                 title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
         <!-- The whole panel, not the prompt: back to the checkpoint's
@@ -58,6 +63,73 @@
       </div>
       <div class="tag-validation-host tag-validation-home" id="tag-validation-home">
         <div class="tag-validation" id="tag-validation" role="status" hidden></div>
+        <!-- The prompt check, moved with the chips by placeTagValidation: above
+             the results on a two-column page, here under 901 px. It is as long
+             as what it found, and in the sticky settings column that length
+             would push Generate down. Sections are filled by analysis.js; the
+             critic's only on a server that has one. -->
+        <section class="prompt-analysis" id="prompt-analysis" role="region" aria-label="Prompt check" hidden>
+          <div class="analysis-head">
+            <h2>Prompt check</h2>
+            <span class="analysis-model" id="analysis-model"></span>
+            <span class="analysis-summary" id="analysis-summary" aria-live="polite"></span>
+            <span class="analysis-stale" id="analysis-stale" hidden>prompt changed since</span>
+            <button type="button" class="ghost tiny" id="analysis-again" hidden
+                    title="Check the prompt as it is now">Check again</button>
+            <button type="button" class="close analysis-close" id="analysis-close"
+                    aria-label="Close the prompt check" title="Close">✕</button>
+          </div>
+          <div class="analysis-body">
+            <div class="analysis-section">
+              <h3>Encoders</h3>
+              <div id="analysis-encoders"></div>
+            </div>
+            <div class="analysis-section">
+              <h3>Order</h3>
+              <div id="analysis-order"></div>
+            </div>
+            <div class="analysis-section full">
+              <h3>Findings</h3>
+              <div id="analysis-findings"></div>
+            </div>
+            <div class="analysis-section full" id="analysis-critic" hidden>
+              <h3>Critic</h3>
+              <div class="critic-ask">
+                <button type="button" class="ghost analysis-action" id="critic-ask">Ask the critic</button>
+                <!-- Says what a click will cost, then that it is running: the
+                     answer takes seconds, the first one minutes. -->
+                <span class="critic-line" id="critic-line" aria-live="polite"></span>
+              </div>
+              <div class="critic-result" id="critic-result"></div>
+            </div>
+            <div class="analysis-section full">
+              <h3>Compare on the same seeds</h3>
+              <div class="compare-options" id="compare-options"></div>
+              <!-- A version of the user's own: where Check has no reordered
+                   version (a sentence, or a checkpoint whose guide states no
+                   order) this is how an order is tested at all. -->
+              <div class="compare-own">
+                <div class="compare-own-head">
+                  <label for="compare-own">Your version</label>
+                  <button type="button" class="ghost tiny" id="compare-own-fill"
+                          title="Put the checked prompt here, to move its words about">Start from the prompt</button>
+                </div>
+                <textarea id="compare-own" class="analysis-text" rows="2" spellcheck="true"
+                          placeholder="The same words in another order, or any other wording - it runs on the same seeds as the original"></textarea>
+              </div>
+              <div class="compare-seeds">
+                <label>Seeds <select id="compare-seeds">
+                  <option value="4" selected>4</option>
+                  <option value="8">8</option>
+                </select></label>
+                <span class="compare-note">4 seeds is a first look - even a change on every seed could be chance; 8 can tell a consistent change from chance.</span>
+              </div>
+              <p class="hint" id="compare-preview"></p>
+              <button type="button" class="ghost analysis-action" id="compare-run"
+                      title="One grid: each version of the prompt on the same seeds, then the sheet with a row per version">Run comparison</button>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
 
@@ -450,6 +522,7 @@
 <script src="/static/sheet.js"></script>
 <script src="/static/lightbox.js"></script>
 <script src="/static/tags.js"></script>
+<script src="/static/analysis.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

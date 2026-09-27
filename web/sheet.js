@@ -103,18 +103,26 @@ function promptLabels(prompts) {
   return kept.map((w) => clip(w.join(' ')) || 'none');
 }
 
-// The distinct values each axis takes across the loaded images, ascending.
+// The distinct values each axis takes across the loaded images, ascending - or,
+// for a variable, in the order the grid wrote them: by the oldest image carrying
+// each value. The grid renders a variable's values as declared and a prompt
+// variant's in the order given, so the first image of each is in that order,
+// and an alphabetical sheet put `original` below `reordered` and `rewrite`.
 function sheetValues(records) {
   const values = {};
   for (const axis of sheetAxesList) {
     const seen = [];
+    const written = axis.key.startsWith('var:');
+    const oldest = new Map();
     for (const rec of records) {
       const v = axisValue(axis, rec);
       if (!seen.includes(v)) seen.push(v);
+      if (written && (!oldest.has(v) || rec.id < oldest.get(v))) oldest.set(v, rec.id);
     }
     seen.sort((a, b) => {
       if (a === null) return -1;
       if (b === null) return 1;
+      if (written) return oldest.get(a) - oldest.get(b);
       return typeof a === 'string' ? a.localeCompare(b) : a - b;
     });
     values[axis.key] = seen;
@@ -126,9 +134,20 @@ function sheetValues(records) {
   return values;
 }
 
+// The axis a prompt-variant grid records its labels under - `grid.VARIANT`,
+// held to it by tests/test_grid.py.
+const VARIANT_AXIS = 'var:variant';
+
 // Columns and rows default to the two axes that actually vary, widest first.
 // A third varying axis becomes a pin rather than a third dimension: a flat
 // sheet that crosses everything at once is a wall nobody can read.
+//
+// Except that prompt variants are rows, whatever the widths: one row per
+// version of the prompt, in the order written, the seeds across. Widest-first
+// alone gave that only while the seeds outnumbered the variants - 3 x 3, 3 x 2
+// or 8 x 4 turned the variants into columns, the tie going to the variable
+// axes because axesFor lists them first. Alone, the variant axis stays a strip:
+// a sheet with nothing across is one column of full-width images.
 function chooseAxes(values, count) {
   let varying = sheetAxesList.filter((a) => values[a.key].length > 1);
   // An axis with one value per image is a list, not a dimension - the seed of
@@ -137,6 +156,8 @@ function chooseAxes(values, count) {
   const listlike = varying.filter((a) => values[a.key].length === count);
   if (listlike.length < varying.length) varying = varying.filter((a) => !listlike.includes(a));
   varying.sort((a, b) => values[b.key].length - values[a.key].length);
+  const variant = varying.findIndex((a) => a.key === VARIANT_AXIS);
+  if (variant >= 0 && varying.length > 1) varying.splice(1, 0, ...varying.splice(variant, 1));
   return {
     cols: varying[0] ? varying[0].key : null,
     rows: varying[1] ? varying[1].key : null,

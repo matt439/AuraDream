@@ -416,8 +416,8 @@ def test_every_guide_admits_the_1_mp_presets():
 
 def test_krea_dev_is_flux_to_the_controls_and_its_own_to_the_guide():
     # The krea-dev entry exists for the guide alone: Krea's README recommends
-    # 1024-1280 px and photo language, which FLUX.1 [dev]'s card does not. To
-    # every control it is the flux profile, so nothing about a request changes.
+    # 1024-1280 px, which FLUX.1 [dev]'s card does not. To every control it is
+    # the flux profile, so nothing about a request changes.
     krea, flux = "black-forest-labs/FLUX.1-Krea-dev", "black-forest-labs/FLUX.1-dev"
     assert defaults_for(krea) == defaults_for(flux)
     assert {k: v for k, v in hints_for(krea).items() if k not in ("prompt", "size")} == {

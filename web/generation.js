@@ -71,8 +71,9 @@ function syncQueueNote() {
 // focus, and the Enter that pressed Generate dropped a keyboard user's place.
 function setSubmitting(on) {
   submitting = on;
-  els.generate.setAttribute('aria-disabled', String(on || expandingPrompt));
-  els.gridRun.setAttribute('aria-disabled', String(on || expandingPrompt));
+  els.generate.setAttribute('aria-disabled', String(on || expandingPrompt || critiquing));
+  els.gridRun.setAttribute('aria-disabled', String(on || expandingPrompt || critiquing));
+  syncCompareRun();
 }
 
 function setProgress(fraction) {
@@ -112,10 +113,16 @@ function setStep(show, fraction = 0, text = '') {
 }
 
 // Both buttons queue one job and then watch the same stream; only the endpoint
-// and the payload differ.
-async function startJob(path, payload) {
+// and the payload differ. `showSheet` opens the job's run as a sheet once its
+// stream reports done - the prompt check's comparison, whose answer is the
+// sheet rather than the strip.
+async function startJob(path, payload, showSheet = false) {
   if (submitting) return;
   if (expandingPrompt) { showError('Wait for prompt expansion to finish.'); return; }
+  // The critic's server has the card until it answers; a job would queue
+  // behind it on the server anyway, but a click that seems to do nothing for
+  // fifteen seconds reads as a lost one.
+  if (critiquing) { showError('Wait for the critic to finish.'); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
   showError('');
@@ -129,12 +136,13 @@ async function startJob(path, payload) {
   }
 
   try {
-    const { job_id, seed } = await api(path, {
+    const { job_id, seed, run_id } = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     setSubmitting(false);
+    if (showSheet && run_id) runsToShow.set(job_id, run_id);
     // A grid started from a blank Seed box drew its own base, and every image
     // it produces carries a *derived* seed - so the base is written back here,
     // where Resume will need it. Only for a grid: a plain Generate left blank is
@@ -336,8 +344,14 @@ async function previewGrid() {
   }
 }
 
+// The prompt check's comparison is a grid on the same panel, so whatever moves
+// this preview's totals - the size, the steps, the seed - moves its too.
 let gridTimer;
-function schedulePreview() { clearTimeout(gridTimer); gridTimer = setTimeout(previewGrid, 250); }
+function schedulePreview() {
+  clearTimeout(gridTimer);
+  gridTimer = setTimeout(previewGrid, 250);
+  scheduleComparePreview();
+}
 
 // The server keeps whatever finished before the cancel landed, so this reports
 // a count rather than treating the run as lost.
@@ -453,7 +467,13 @@ function streamJob(jobId) {
           // says so, rather than dropping the rest of the night.
           showError(data.error);
         }
-        if (data.images.length) { resetGallery(); loadRuns(); }
+        // A comparison opens its own run as the sheet - one row per version
+        // of the prompt - which searches for it and refetches the gallery;
+        // anything else only refreshes what the gallery was showing.
+        const run = runsToShow.get(jobId);
+        runsToShow.delete(jobId);
+        if (run && data.images.length) { showRun(run); loadRuns(); }
+        else if (data.images.length) { resetGallery(); loadRuns(); }
         resolve();
         watchNext();
       }

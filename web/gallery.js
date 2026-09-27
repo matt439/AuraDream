@@ -336,7 +336,7 @@ function syncDeleteUnstarred() {
 function reuse(rec) {
   ownControls();
   els.prompt.value = rec.prompt;
-  clearPromptTranslation();
+  promptReplaced();
   els.negative.value = rec.negative_prompt ?? '';
   els.width.value = rec.width;
   els.height.value = rec.height;

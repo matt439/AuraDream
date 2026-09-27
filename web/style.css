@@ -296,6 +296,163 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .tag-editor input:focus { border: 0; }
 .tag-editor button:disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* ---------------------------------------------------------- prompt check */
+
+/* What the checkpoint's encoders read of the prompt and what its guide says
+   about it, then the critic and the comparison. It travels with the chips:
+   the same panel look above the results on a two-column page, a card under
+   the prompt below 901 px, where the panel around it is already --panel. */
+.prompt-analysis {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: var(--radius); font-size: 12px; line-height: 1.45;
+}
+.tag-validation-wide .prompt-analysis { background: var(--panel); }
+.analysis-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.analysis-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.analysis-model { color: var(--muted); }
+.analysis-summary { color: #b2b2c0; }
+/* Stale results stay readable - they are still the last answer - but dimmed,
+   with the badge and Check again at full strength in the head. */
+.analysis-stale {
+  padding: 0 7px; border: 1px solid #fbbf24; border-radius: 999px;
+  color: #fbbf24; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+/* Under the head's specificity: the lightbox's `.close` comes later and is
+   sized for a full-screen overlay. */
+.analysis-head .analysis-close { margin-left: auto; padding: 0 4px; font-size: 15px; color: var(--muted); }
+.analysis-head .analysis-close:hover, .analysis-head .analysis-close:focus-visible { color: var(--text); }
+.prompt-analysis.stale .analysis-body { opacity: 0.55; }
+/* Encoders and Order are short and sit side by side where there is room; the
+   rest runs the full width. */
+.analysis-body {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px 22px; align-items: start;
+}
+.analysis-section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.analysis-section.full { grid-column: 1 / -1; }
+.analysis-section h3 {
+  margin: 0; font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.analysis-note { margin: 0; color: var(--muted); }
+.analysis-note.sub { font-size: 11px; }
+/* A reordering to read before using it: the whole text, capped at three lines. */
+.analysis-quote {
+  margin: 0; color: #c8c8d4; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* For screen readers only: a finding's severity, which the mark shows by colour. */
+.analysis-sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+.analysis-link {
+  padding: 0; border: 0; background: none; color: var(--accent-2);
+  font: inherit; text-align: left; text-decoration: underline dotted; text-underline-offset: 2px;
+}
+.analysis-link:hover, .analysis-link:focus-visible { color: var(--text); outline: none; }
+.analysis-action { padding: 4px 10px; font-size: 12px; flex: none; }
+/* A version sized to its text, up to about ten lines, then it scrolls. */
+.analysis-text { font-size: 12px; color: #cfd0dc; field-sizing: content; min-height: 3.2em; max-height: 220px; }
+
+/* One row per encoder: name, count against budget, and a bar whose red tail is
+   the part the pipeline cuts off - amber where the encoder only contributes a
+   pooled vector and another one reads on. */
+.encoder-row {
+  display: grid; grid-template-columns: minmax(58px, max-content) 64px minmax(0, 1fr);
+  align-items: center; column-gap: 10px; row-gap: 2px;
+}
+.encoder-row + .encoder-row, .encoder-row + .analysis-note { margin-top: 6px; }
+.encoder-name { font-weight: 600; white-space: nowrap; }
+.encoder-count { color: #b2b2c0; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.encoder-bar { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: var(--line); }
+.encoder-bar .read { background: var(--accent-2); }
+.encoder-bar .lost { background: var(--danger); }
+.encoder-row.pooled .encoder-bar .lost { background: #fbbf24; }
+.encoder-note { grid-column: 1 / -1; margin: 0; color: var(--muted); }
+
+.order-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.order-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.order-chain li { display: inline-flex; align-items: center; gap: 4px; }
+.order-chain li + li::before { content: "→"; color: var(--muted); }
+.order-step {
+  padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px;
+  background: #15151b; color: var(--text); white-space: nowrap;
+}
+.order-reordered { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 4px; }
+.order-reordered .analysis-quote { flex: 1 1 200px; }
+/* An order from the authors' own texts that the app does not check: shown
+   whole, with whose words these are under it. */
+.order-author { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.order-author-text { flex: 1 1 200px; margin: 0; color: #c8c8d4; overflow-wrap: anywhere; }
+.order-author .analysis-note { flex-basis: 100%; }
+
+/* Findings and the critic's issues: a mark, the message, and what it rests on
+   at the right. One with words to point at is a click target that selects
+   them in their box. */
+.analysis-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.analysis-item {
+  position: relative;
+  display: grid; grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: start; column-gap: 8px; row-gap: 4px;
+  padding: 5px 6px; border: 1px solid transparent; border-radius: 6px;
+}
+.analysis-item.selectable { cursor: pointer; }
+.analysis-item.selectable:hover { background: rgba(255, 255, 255, 0.04); }
+.analysis-item:focus-visible { outline: none; border-color: var(--accent-2); }
+.analysis-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; margin-top: 1px; border: 1px solid currentColor; border-radius: 50%;
+  font-size: 10px; font-weight: 700; line-height: 1;
+}
+.analysis-item.warn .analysis-mark { color: #fbbf24; }
+.analysis-item.info .analysis-mark { color: var(--accent-2); }
+.analysis-message { min-width: 0; overflow-wrap: anywhere; }
+.analysis-extra { grid-column: 2 / -1; color: var(--muted); }
+.analysis-source {
+  padding: 0 7px; border: 1px solid var(--line); border-radius: 999px;
+  color: #b2b2c0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+  text-decoration: none; white-space: nowrap; cursor: help;
+}
+a.analysis-source { cursor: pointer; }
+a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--accent-2); color: var(--text); outline: none; }
+.analysis-quoted { color: #c8c8d4; }
+
+.critic-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.critic-line { color: var(--muted); }
+.critic-result { display: flex; flex-direction: column; gap: 10px; }
+.critic-result:empty { display: none; }
+.critic-parts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; margin: 0; }
+.critic-parts dt { color: var(--muted); }
+.critic-parts dd { margin: 0; overflow-wrap: anywhere; }
+.analysis-item.critic-issue { grid-template-columns: max-content minmax(0, 1fr) auto; }
+.critic-kind {
+  padding: 0 6px; border: 1px solid #343244; border-radius: 4px; background: #221c3d;
+  color: #c9bfff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.critic-fix { display: block; margin-top: 2px; color: var(--muted); }
+.critic-variant { display: flex; flex-direction: column; gap: 5px; }
+/* The rewrite's own findings belong to the rewrite above them, not the prompt. */
+.critic-checked { padding-left: 8px; border-left: 2px solid var(--line); }
+.critic-variant-head { display: flex; align-items: center; gap: 10px; }
+.critic-variant-name { font-weight: 600; }
+
+.compare-options { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.compare-options .check { font-size: 12px; color: var(--text); }
+.compare-own { display: flex; flex-direction: column; gap: 4px; }
+.compare-own-head { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.negative-off { display: block; margin-top: 2px; font-size: 11px; }
+.negative-off[hidden] { display: none; }
+.compare-seeds { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--muted); }
+.compare-seeds label { display: flex; align-items: center; gap: 6px; }
+.compare-seeds select {
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  border-radius: 6px; padding: 2px 6px; font: inherit;
+}
+.compare-note { font-size: 11px; }
+#compare-run { align-self: flex-start; }
+
 .hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); min-height: 15px; }
 .hint.warn { color: #fbbf24; }
 /* A preview that is a line of totals, a line of axes, and then the prompts a

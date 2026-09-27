@@ -133,6 +133,26 @@ merely documented, and `POST /api/model/unload` answers 409 while any job is
 live: unloading under a running job freed nothing (the worker holds its own
 reference) and had the next run of a sweep reload from the gen thread.
 
+**A load waits out the generation gate before it moves the weights.** A
+queued job awaits `ensure_loaded()` *before* it takes the gate, and the load
+itself never took it, so a job submitted while the prompt critic held the
+gate (its `llama-server` has ~5 GB of the card) started loading 13 GB beside
+it - `tests/test_api_analysis.py` recorded `load` before `critique done`
+with the fix removed. `ensure_loaded()` now awaits `jobs.wait_for_gate()`
+inside `_load_lock`, once it knows a load is needed: the gate is acquired and
+released at once, which waits out whatever holds it without keeping it. That
+covers every load - a job's, `POST /api/model/load`'s, Expand's - and, being
+inside the lock, the critique route's "the image model is loading" refusal
+covers the wait too. `asyncio.Lock` serves waiters in order, so a critique
+that has passed its second busy check either holds the gate already or is
+queued ahead of any later load. It cannot deadlock because nothing that holds
+the gate awaits the load lock: `_run` loads before it enters, and
+`run_when_idle`'s operations are synchronous work that never calls
+`ensure_loaded`. (Expand's first use does register ERNIE's rewriter inside
+the gate, but through the backend, not the load lock.) The cost: a job that
+waits out a critique reports `waiting_on="load"` while the status does not
+yet say `loading`, for the critique's fifteen seconds or so.
+
 ## The loader is model-agnostic
 
 The loader is model-agnostic: `DiffusionPipeline.from_pretrained` resolves the
@@ -731,6 +751,45 @@ variables in a mixed search reads as null. The axis list is rebuilt per
 render and the names are part of the layout signature. `completed_cells`
 and `CellKey` are untouched: the resolved prompt is what ran.
 
+**A prompt variant records its label as the variable `variant`.**
+`GridRequest.prompt_variants` - the prompt analyser's original, reordered and
+rewritten versions of one idea - is a list of whole prompts, and each cell
+records `variables={"variant": label}`, so a label rides the column, the chunk
+and the sheet with no new field. That stretches `variables` from "what the
+placeholders were set to" to "which version of the prompt this is"; a label is
+not substituted anywhere. Variables could not carry the versions themselves:
+`prompt_axis` stops at 2,000 characters where one prompt may be 4,000 (three
+long Krea 2 prompts overrun it), `|` splits a value and parsing is a line per
+variable, so NewBie's XML - all newlines - cannot be one value, and `none`
+and its siblings become empty. A variant is therefore taken verbatim: nothing
+is substituted into it, and a `{` in pasted JSON is text, not a placeholder
+with no values. The request's own prompt is not rendered; its negative prompt
+runs beside every variant, and a placeholder left in *that* is still refused,
+since nothing would fill it. Labels are stored trimmed and a label of only
+spaces is refused. Identical variant texts are not refused - counted as
+duplicates in the preview, as `_expand` treats duplicates elsewhere - and the
+page drops them before submitting. `CellKey`, `run_id`, resume and the
+duplicate count read the variant's text, so renaming the variants changes
+nothing about the run.
+
+**The sheet lists a variable's values in the order the grid wrote them.**
+`sheetValues` used to sort a `var:` axis with `localeCompare`, which put
+`original` below `reordered` and `rewrite`. It now orders by the oldest image
+carrying each value: the grid renders values as declared and variants in the
+order given, seeds outermost, so the first image of each is in written order.
+That also puts a `size = big | small` grid in declared order, which is what
+`parse_variables` already promised; numeric and flat-prompt axes are
+unchanged. `chooseAxes` gives a varying `var:variant` axis the rows whenever
+anything else varies: widest-first alone made the variants rows only while
+the seeds outnumbered them (3 x 3, 3 x 2 and 8 x 4 all turned them into
+columns, the tie going to the `var:` axes because `axesFor` lists them first).
+Alone, the variants stay a strip in the columns, because rows with nothing
+across are one column of full-width images. A variable a user names `variant`
+by hand gets the rows too - the one name the sheet recognises, held equal to
+`grid.VARIANT` by `tests/test_grid.py`. Known gap: order by oldest id means a
+first cell that failed (a job skips a failed cell) or a resume that renders it
+later moves that value down for the run.
+
 ## Two writers, one INSERT; strict scope; disk estimates
 
 **Two writers, one INSERT.** `save_image` and `reindex.index_file` both go
@@ -1023,7 +1082,10 @@ not a term the page writes into the box.
 
 The contact sheet (`web/sheet.js`, `renderSheet`) lays one run out as the grid
 that made it: the two widest-varying axes become columns and rows, any third
-becomes a pinned selector rather than a third dimension nobody can read. It
+becomes a pinned selector rather than a third dimension nobody can read. The
+exception is a comparison's `var:variant` axis, which takes the rows whenever
+another axis varies - including a variable a user's own prompt grid happens
+to name `variant` (see "The variable assignment is recorded"). It
 asks for the whole run in one page (`SHEET_PAGE`) because a matrix with a page
 boundary through it is a puzzle.
 
@@ -1805,7 +1867,8 @@ helper need numbers and lists, not a sentence. `hints_for` passes the guide's
 prose through the same `.format` as the control hints, so the paragraphs
 hold no braces. The checkpoints here disagree about nearly everything a
 prompt can be - FLUX.1's CLIP reads 77 tokens and its T5 512 (256 on
-schnell), Qwen-Image's encoder is prompted to *describe the image by
+schnell in BFL's reference, not in this app: see the prompt analyser's open
+questions), Qwen-Image's encoder is prompted to *describe the image by
 detailing the color, shape, size, texture, quantity, text, spatial
 relationships*, ERNIE ships a rewriter this backend leaves out and so
 expects the expanded form typed in - and about sizes: FLUX.1 is documented
@@ -1904,25 +1967,567 @@ prompt in `pe/chat_template.jinja` (expand a brief description into a
 Ministral-3 encoder and 256/512/1024 stages (<https://arxiv.org/abs/2605.25347>);
 its tokenizer's 2048 is the config's, not a card statement.
 
-## The page script is ten files, not one module
+**The guide is also data: `analysis`.** Each guide dict carries its
+checkable statements as an `analysis` entry for the prompt analyser's rule
+checks (`prompt_rules`) - a documented order's steps, a word range, "quote
+the text", "describe what you want" - and every entry holds the words it
+rests on as `cite`, a verbatim piece of that guide's own `prompt` prose (or,
+for `author.placeholder`, of one of its examples), with a URL of its own or
+the guide's. The prose stays the claim and the entry only points at it; the
+next section says why that is enforced by a test. `analysis` is a key inside
+the guide, not a profile key - a top-level one would reach
+`ModelStatus.defaults` through `defaults_for` and fail its validation - and
+is left out of `guide_for`, because the page shows findings, not the rules
+behind them. `FALLBACK_GUIDE`'s is empty. Sources the entries cite beyond
+those above, checked 2026-09-27: BFL's unified guide covers the whole FLUX
+family (FLUX.1, Kontext, FLUX.2; <https://docs.bfl.ai/guides/prompting_summary>),
+and its technical page (<https://docs.bfl.ai/guides/prompting_unified_technical>)
+is where "working without negative prompts" lives, with a table of
+replacements ("no people" to "empty", "deserted", "solitary") and "Front-load
+the positive description — word order signals priority"; its building page
+(<https://docs.bfl.ai/guides/prompting_unified_building>) carries the 30-80
+word table and "Start with a clear subject". Krea 2's
+<https://github.com/krea-ai/krea-2/blob/main/docs/prompting.md> is the
+natural-language, long-detailed and quotes guidance, and its companion
+<https://github.com/krea-ai/krea-2/blob/main/docs/expansion.txt> - the system
+prompt Krea publishes for an LLM of your choice to expand prompts with - is
+where "one cohesive paragraph" comes from ("Write one cohesive paragraph
+after the thinking block. No bullets, JSON, or markdown").
+
+## The prompt analyser
+
+The request was a tool that says whether a natural-language prompt is
+structured right and in the right order, and how to improve it. The research
+behind it (2026-09-27) found that "the right order" has an author's answer
+on only some checkpoints: BFL's family guide puts the subject first for FLUX.1,
+its FLUX.2 guide gives subject, action, style, context for klein, the tag
+checkpoints' cards and Illustrious's report give tag orders, and NewBie's
+captioning instruction gives XML field orders - while Krea 2's guide gives no
+order, Qwen-Image's only in the 2512 rewriter's portrait flow, Z-Image's
+rewriter a processing order rather than an output one, ERNIE's only in a
+rewriter prompt its README does not link, Z-Anime's only for its 4-step
+variant, NetaYume's only from its parent, and WAI's only its quality recipe
+at the end (checked as a two-step order: subject and scene, then quality).
+So there are three layers, each answering what the one before cannot, and
+each held to the one before:
+
+1. **Check** (`POST /api/prompt/analyze`) - what the checkpoint's own
+   tokenizers do to the text (`prompt_encoding`) and what the guide says that
+   a rule can check (`prompt_rules`). Deterministic, instant, on the CPU, and
+   sourced by construction.
+2. **The critic** (`POST /api/prompt/critique`) - what only reading can
+   judge: whether the subject really comes first in a sentence, whether "shot
+   on film" is a camera, what a better sentence would be. A local model held
+   to numbered author sources, told the rule findings, and its rewrite put
+   back through layer 1.
+3. **Compare** (`GridRequest.prompt_variants`) - where the authors wrote no
+   order, or an order is only a claim, the user's own seeds on this checkpoint
+   are the evidence: original, reordered, rewrite and the user's own version
+   as one grid, one sheet row each. A "reordered" row is a pure permutation
+   of the original, so a difference between the two rows is the order and
+   nothing else - which is why the user's own version exists: on a sentence
+   prompt Check has no reordering and the critic's rarely survives
+   `is_reorder` (next paragraphs), so the reorder the user writes is the only
+   one there is.
+
+**Check works cold.** It takes the body Generate would send
+(`PromptAnalysisRequest`), because half of what a checker says depends on
+the rest of it: a negative prompt at CFG 0 on Krea 2 Turbo, or without True
+CFG on FLUX.1, never runs, and that is `applied()`'s answer, which
+`backend.applied()` gives from the profile before a load. It runs off the
+loop, never calls `ensure_loaded` and never takes the gate, so it answers in
+a moment on a cold server and beside a running night. The negative prompt is
+measured and checked only as `applied()` runs it: a budget for a negative the
+pipeline drops is a number about nothing, and a negation in the prompt is a
+warning only where no negative prompt runs.
+
+**The encoder layer measures the string the pipeline builds.** No pipeline
+here parses A1111 or ComfyUI weighting - diffusers has no prompt weighting,
+and compel and sd_embed are not installed - and every overflow is cut
+silently from the right: the SDXL negative prompt, every Qwen-encoded
+pipeline, ERNIE and Anima never say so, and the others' warnings go to the
+server console. `prompt_encoding` loads each checkpoint's own tokenizers on
+the CPU and counts over the exact string: Krea 2 and Qwen-Image's 34-token
+system turn, Z-Image's and klein's chat template with the pipeline's
+`enable_thinking` (on and off respectively), NetaYume's system instruction and
+`<Prompt Start>` (the negative gets none), and a boundary merge counted the
+way the tokenizer counts it. The budgets that come out, which builder A
+matched against each pipeline's own truncating tokenizer call: FLUX.1 CLIP 75
+(one pooled vector - T5 reads on, so its cut is info) and T5 511; Krea 2 507,
+its suffix appended after truncation and never cut; Qwen-Image 512 after its
+34 system tokens, the template tail lost past 507; Z-Image and Z-Anime 509
+(504 before the assistant turn goes); klein 509 (500); NetaYume about 237
+(255 for the negative); NewBie Gemma 3 511 and Jina 2046; Anima Qwen 512 and
+T5 ids 511; ERNIE 2047; SDXL 75 per CLIP. Past the clean budget Z-Image,
+klein and Qwen-Image encode an unterminated user turn (`encoder.template_tail`).
+Every template string, length and thinking switch copied into the module is
+held equal to the installed diffusers source - and to this repo's Anima and
+NewBie pipelines - by reading those files in `tests/test_prompt_encoding.py`,
+so a diffusers upgrade that moves one fails a test rather than the counts.
+The table is first-match on the id like `_PROFILES`, exact ids first,
+reusing the loaders' pinned constants; its tokens are narrower than the
+profiles' (`flux.1`, so FLUX.2 klein never reaches FLUX.1's CLIP and T5).
+Control tokens are found by tokenizing, from each tokenizer's own special
+tokens and the markers its chat template uses, not from a list: Gemma 2's and
+3's `<s>` and `</s>` turned out to be ordinary HTML-strikethrough tokens
+beside `<b>` and `<table>`, which the research's table had wrong, and
+`<think>` counts only where the template uses it (klein, Z-Image, Z-Anime).
+Tokenizers load from a directory - converted tree, then the Hub cache, then
+the Hub - not a Hub id, because transformers 5.16 loading a fully cached
+pinned tokenizer by id with `local_files_only` failed; the download patterns
+are tokenizer files only (`*.json`, `*.txt`, `*.model`, `*.jinja`), since
+NewBie's tokenizer folder sits beside 8 GB of weights. A load is cached under
+a lock and kept only after it succeeds (`translation.py`'s pattern), so a
+gated repo or a first use offline is retried next time; `measure` never
+raises and says what it could not check in `encoders_detail`. It did raise
+once: `json.loads` on 3,000 nested `[` throws `RecursionError`, well inside
+the 4,000-character limit - `_is_json`, `detect_style` and `is_reorder` now
+catch it. No status route loads a tokenizer, because a first load can be a
+download; Unload and shutdown drop them with the pipeline.
+
+**The rule layer makes "never invented" mechanical.** Each guide's
+`analysis` entry (previous section) holds the words a rule rests on as a
+verbatim piece of the prose the ? badge shows, and
+`test_every_cite_is_the_guides_own_words` fails an entry the prose does not
+contain - so a rule can only be a statement the page already makes, and a
+`guide` finding carries that cite and its URL to the page. What rests on an
+author's example rather than the prose is `author` (Z-Anime's `[character]`
+and NewBie's `$character_1$` slots). Pattern matching with no author sentence
+behind it - quality boilerplate on a prose checkpoint, a repeated tag - is
+`heuristic`, carries no cite, and the page labels it Heuristic. The authors'
+own example prompts raise no warning against their own guide (a test), apart
+from those template slots; some raise info - Kohaku's own example departs
+from its documented Epsilon order, two of Illustrious's put `masterpiece`
+mid-prompt, FLUX.1's and klein's are under 30 words - which is why order and
+length are advice, not warnings. A tag's Danbooru category (character,
+series, artist) comes from the chips' own lookup (`_lookup_tags`, so the two
+cannot disagree), only on a Danbooru-vocabulary guide - or one whose rules
+read artists, Anima's - and a tag or hybrid prompt; without it the order
+check places only what the guide's own groups
+know and never guesses a slot, and any failure there - a truncated reply
+raised `IncompleteRead`, which `tags._request_json` now also treats as
+unavailable - costs the order check, never the answer. `reorder_tags` moves
+the items and keeps their spelling and the text between them, a pure
+permutation the tests assert, which is what the comparison's "reordered" row
+needs. A rule's `suggestion` is always the whole field rewritten, so the page
+can apply it in one click; advice that cannot be applied that way ("no
+people" - BFL's table suggests "empty", "deserted", "solitary") stays in the
+message. The review of the first build found the warnings that would have
+cost trust: unquoted sign text ("reading NO PARKING") and romanised titles
+("Sousou no Frieren") read as negations, and "A mother says goodbye" read as
+text to render; negations now skip text-to-render spans and a lowercase
+"no" between capitalised words, and "says", "labeled" and "spells" need
+something that carries text earlier in the sentence. The final review found
+the quote rule's one-click fix quoting half a sign: the text to render ended
+at the first "and", "to", "with" or "for", so "says Fish and Chips" became
+`"Fish" and Chips` and "reads Welcome to Paradise" `"Welcome" to Paradise`,
+and the re-check then found nothing, so the user believed it fixed. A joining
+word now carries the lettering on when a capital follows it (a name or a
+title), a run of capitals before a lowercase one is the whole of it ("says
+OPEN and a cat"), and where the end is a guess - "says fish and chips for
+sale", or more than six words - the finding asks for the exact words in
+quotation marks and offers no Apply. It also found the reported style
+worked out without the tag categories while the rules used them, so the
+summary read "tags and prose" beside an order finding only a tag list gets;
+`detect_style` now takes the categories and `PromptAnalysis.style` is the
+rules' own. "images 1 and 2", "images 1-3" and "images 1, 2 & 3" name every
+image in them for the references rule. And `guide.artist_prefix` (Anima's
+"put @ before an artist name") never fired: it needs an artist's category,
+and Anima's guide has no tag helper, so the route never asked. The route now
+asks the tag index for any guide whose rules read artists
+(`wants_artist_categories`), with no cutoff and no special tags of its own;
+Anima's card says it was trained on Danbooru-style tags.
+
+**The order is shown as checked only where it was.** Only a tag
+checkpoint's order has slots a comma item can take (`_OrderSpec`); FLUX.1's
+"subject first", klein's four steps and NewBie's blocks are documented and
+shown, but nothing reads a sentence's order. The final review found the
+panel reading as a pass on the default checkpoint - a prose prompt with its
+subject last and one with it first got identical panels, "nothing to flag"
+beside the chain. `PromptAnalysis.order_checked` says whether the rules held
+the text to the order at all, and the page says "Not checked" under the
+chain and "order not checked" in the summary. A pattern check for a prose
+prompt whose first clause is only light, camera or style was considered and
+left out: BFL's own steps start with the image type, Krea's own example
+opens "Moody night photography", and a rule that flags the authors' own
+examples fails `test_the_authors_examples_raise_no_warning` for good
+reason. Where a guide states no order, the page no longer says "the authors
+document no word order": Anima's card, Neta Lumina's prompt book and the
+ERNIE and Qwen rewriter instructions do give one, and the critic cites them.
+It says the app checks none, and shows those excerpts (`Excerpt.order`,
+`PromptAnalysis.author_orders`) as the authors', with their links, as
+information.
+
+**Deliberately not checked**, each for a reason: schnell's "about 180 words",
+which rests on a 256-token limit this app does not apply (below); FLUX.1's
+"English is the most precise language", which BFL's current basics page
+contradicts (other languages "with the same level of quality"); Z-Image
+base's "strongly recommends a negative prompt", which its card calls
+optional, and which is not in the catalogue; the order of a sentence, an
+XML prompt's blocks or a JSON prompt's keys (above: shown as not checked);
+Anima's card tag order and prefix, which are not in the guide prose - the
+critic has them as excerpts and the page shows the order as the authors'; an
+Illustrious prompt "missing" a composition or artist tag, which the authors'
+own examples lack; quality tags placed past CLIP's 77 tokens, which the
+encoder cut already reports; Illustrious's `sfw`, `nsfw` and `r-18`, which
+its release post accepts (only `safe` is corrected, to `general`); a single
+klein reference with no "image 1" (BFL's own "Turn this cat into a dog"
+names none - two or more are checked); and `\(`/`\)` escapes, which the
+app's own autocomplete writes (below).
+
+**The critic runs in llama.cpp, not in-process.** Measured on this card
+(RTX 5080) with Qwen3-4B: llama.cpp b11206's CUDA build decodes Q8_0 at 170
+tokens/s (`llama-bench`), about 151 end to end under a JSON grammar with
+reasoning on - 8.8-9.0 s for 1,320-1,348 tokens at temperature 0, 2.8 s with
+reasoning off - at about 5.2 GB of VRAM over the desktop's at an 8k context,
+and the server loads in 1.7-1.9 s. That was the research's greedy decoding;
+with the shipped sampling `verified.md` records 8.1-16.0 s per critique
+(median 10.5), 19.3 s for a tag prompt, and 5,581-5,611 MiB (about 5.5 GiB)
+over the baseline. In-process transformers decodes the same
+model in bf16 at 33 tokens/s, so a reasoning-length answer takes about 40 s;
+the image pipeline's own torchao fp8 encoder decodes at 9.4 (reusing it is
+out); on the CPU, bf16 manages about 6. Constrained decoding in-process would
+also need a new dependency. llama-cpp-python's CUDA wheels are built for
+sm_75 to sm_90 only (Blackwell would JIT the PTX, cost unmeasured) with an
+untuned CPU path, and a CUDA abort in-process takes the FastAPI server with
+it; Ollama is a separate install with its own model store and a GPU scheduler
+that knows nothing of the image jobs. The official release archives run as a
+child process, so a crash is the child's. The model is Qwen's own Q8_0 GGUF
+of Qwen3-4B (Apache-2.0) at a pinned revision - the research measured the
+same weights converted from klein's text encoder, which is unmodified
+Qwen3-4B, but a conversion needs tooling the app does not install and klein's
+files exist only where klein does. Qwen3.5-9B had the strongest published
+instruction-following scores the research found among Apache-licensed models
+of 9B or less, but its speed on this build was not measured, so the pin is
+the model that was.
+
+**Reasoning stays on.** Without it the 4B models tried were unreliable in
+ways that do harm: one called the camera missing when the prompt said "shot
+on film", one applied the reference-image sentence to sign text, one advised
+putting the negative phrase "don't make it look like a painting" in quotation
+marks - which asks the model to letter it into the image - and rewrites kept
+"no blur, no extra fingers" against the guide's negation rule. Krea 2's
+Qwen3-VL and NewBie's Gemma 3, tried as critics, missed unquoted text and
+negations too. With reasoning on, Qwen3-4B caught subject order, unquoted
+text and negative phrasing and wrote a clean rewrite - and on one prompt
+still kept the negatives in its rewrite, which is why the rewrite goes back
+through the rules. The request uses Qwen3's recommended thinking sampling
+(temperature 0.6, top-p 0.95, top-k 20; its card warns greedy decoding loops
+in thinking mode), `--reasoning-budget 2048` so a long thought cannot run the
+JSON off the end, and a `max_tokens` sized per request: the budget plus the
+prompt's estimated tokens times the copies the answer repeats (parts, the
+rewrite, the reordered version) plus 800, between 4,096 and 8,192. A fixed
+4,096 failed review: a 4,000-character English prompt is 966 real tokens,
+and three copies after 2,048 tokens of thought do not fit. A prompt whose
+answer cannot fit the 8k window even with no thought (4,000 characters of
+Chinese) is refused with a `CriticError` before a server starts. Measured by
+builder C on the real b11206 server with the shipped messages: 12.7-18.6 s
+per critique, about 2 s of it server start (a klein prose prompt, 985 prompt
+tokens and 1,542 generated at 154 tokens/s; an Animagine tag prompt whose
+thought ran to the 2,048 budget), VRAM back to baseline and no server left
+after each - hence the page's "about 15 seconds". Card measurements belong
+in `verified.md` under "Prompt analyser".
+
+**One pinned server per critique, keyed, and stopped before the gate opens.**
+`critic.BUILDS` pins release b11206's Windows CUDA 13.4 archives and the
+Ubuntu ones for WSL (the default architecture list includes sm_120) by size
+and the sha256 the GitHub release API publishes, and `MODEL` pins
+`Qwen/Qwen3-4B-GGUF` `Qwen3-4B-Q8_0.gguf` by revision, size and sha256. The
+binaries are a download like the weights and handled like them: each archive
+to `.part`, verified, extracted into a sibling with zip members that escape
+the target refused and tarballs through `filter="data"`, the marker written
+last and the tree renamed into place under `HF_HOME/local-diffusion/llama.cpp`;
+a tree without the marker is never used. The GGUF is hashed once, and a stamp
+of its path, size and mtime spares every later critique hashing 4 GB again.
+A first use is about 5 GB (576 MB of binaries and runtime on Windows, 4.3 GB
+of model), so `prepare()` runs before the gate, on a daemon thread as the
+model load does (a Ctrl-C must not wait out a download), and the route checks
+the queue and the load again afterwards, since minutes may have passed. Only
+`critique()` runs inside `jobs.run_when_idle`: `llama-server` on 127.0.0.1 and
+a free port, `--offline`, `--no-ui`, `-c 8192`, `-np 1`, `--jinja`, `--fit on`
+(b11206 adapts only unset arguments, so layer placement follows the VRAM
+actually free while the context stays pinned by `-c`; hence the 180 s health
+and 600 s request timeouts, for layers that land on the CPU), then one chat
+completion, then terminate, wait, kill in `finally`, so the card is free
+before an image job is let in. A resident server would hold ~5 GB against the
+pipeline for nothing when a start costs two seconds; `--sleep-idle-seconds
+120` is only the backstop for a server this process could not stop. Its CORS
+allows every origin, so a web page in this browser could reach a keyless
+one: each start gets a fresh random key, and before the prompt is sent a
+keyless `GET /v1/models` must answer 401 (b11206 leaves only its health
+endpoints public), or the server is refused. The key goes to the server as
+`LLAMA_API_KEY` in its environment, which b11206 reads in place of
+`--api-key` (its `--help` says so): on the command line, as first built,
+any local user could read it (`/proc/<pid>/cmdline` under WSL). The child's
+environment otherwise drops `LLAMA_*` - `LLAMA_ARG_TOOLS` would switch on its
+shell and file tools - and loopback requests bypass any proxy.
+`LOCAL_DIFFUSION_CRITIC=false` switches it off; `LOCAL_DIFFUSION_CRITIC_SERVER`
+and `LOCAL_DIFFUSION_CRITIC_MODEL` name files already on disk in place of
+either download (made absolute, because the server starts in its own
+directory), and naming one is choosing it: neither is held to the pins, but
+a server of one's own must take b11206's flags and its key from the
+environment. The gap between `_free_port()` and the server's bind is guarded
+by the 401 probe, not by the bind failing (b11206 sets `SO_REUSEADDR`), as
+`_wait_until_healthy` says. Open, from review: a server orphaned by a hard
+kill of the app frees its VRAM after the idle timeout but stays alive and
+listening. The WSL tarballs' layout - one top-level directory each,
+flattened on install so the CUDA runtime sits beside the binary - was read
+from b11206's `release.yml` when this was built and verified on the card on
+2026-09-27 (`ldd` resolves every library inside the tree; `verified.md`).
+
+**The critic cites only what it is given, and what it says is checked
+before it is shown.** `prompt_sources` gives it, per guide constant, the
+guide's own `prompt` prose split into sentences (G1..Gn - the text the ?
+badge shows) and short verbatim excerpts the checkpoint's authors put in
+writing (A1..An); the answer's JSON schema makes `cite_id` an enum of
+exactly those ids, so a citation cannot be invented, only misapplied, and an
+id that names nothing drops its issue (`dropped`). A G sentence links to the
+guide's own `analysis["url"]`, the page the rule checks cite, so the two
+layers cannot point one sentence at two pages - unless the sentence's author
+page is another one, which `Grounding.sentence_urls` names: Krea [dev]'s
+settings sentence links to Krea's README and its camera sentence to BFL's
+building page. A sentence the prose carries with no author behind it is
+listed `unsourced` and never citable, and a test fails if one stops matching
+the prose; Krea [dev]'s "photo language" and "give it room" sentences were
+the two, until the final review found the critic, grounded in BFL's pages,
+telling users to remove the camera details the badge beside it asked for -
+they were taken out of the prose and replaced by what BFL's building page
+does say (camera settings "when framing matters"). Excerpts, checked against copies
+fetched 2026-09-27 - verbatim but for markdown emphasis, elisions marked
+"…" and a few labelled reformattings (three rows of BFL's replacement
+table, Neta's vague/specific pair, orders flattened from lists): BFL's family
+pages for FLUX.1, schnell and Krea [dev]
+(<https://docs.bfl.ai/guides/prompting_unified_basics>, `_building`,
+`_technical`); for klein,
+<https://docs.bfl.ai/guides/prompting_guide_flux2> (written for [pro] and
+[max], klein by family) and the T2I upsampling instruction in
+<https://github.com/black-forest-labs/flux2/blob/main/src/flux2/system_messages.py>,
+which BFL's own CLI also runs for klein; Krea 2's `docs/prompting.md` and
+`docs/expansion.txt`; Qwen's
+<https://github.com/QwenLM/Qwen-Image/blob/main/src/examples/tools/prompt_utils.py>
+(and the portrait flow from `prompt_utils_2512.py`, labelled same-family);
+the Z-Image Turbo Space's rewriter
+(<https://huggingface.co/spaces/Tongyi-MAI/Z-Image-Turbo/blob/main/pe.py>)
+and Baidu's <https://github.com/baidu/ERNIE-Image/blob/main/src/pe_prompt.txt>,
+both Chinese, so `text` is this app's translation, labelled, with the
+original kept; the Neta Lumina prompt book
+(<https://neta.art/blog/neta_lumina_prompt_book/>), labelled inherited from
+NetaYume's parent; NewBie's card and the XML field rules of its captioning
+instruction (`XML Prompt.json`), nothing of its adult-content captioning;
+the Anima, Animagine, Z-Anime, Kohaku Zeta and Epsilon-rev2 cards; the
+Illustrious report (<https://arxiv.org/html/2409.19946v1>); and WAI's v17
+description through its archive
+(<https://civarchive.com/models/827184/wai-nsfw-illustrious-sdxl?modelVersionId=2883731>).
+A per-guide `caveat` says how far the sources reach: Krea published no
+prompting rules for Krea [dev], so both lists are BFL's; on every FLUX.1
+checkpoint, that BFL's steps start with the image type and subject - so
+"Photo of" or "Moody night photography" still puts the subject first - and
+that camera settings are part of BFL's template, not a fault (the excerpts
+now carry "Start with the image type and subject" and the template with
+"not a strict formula"; a critic held to a bare "subject first" called
+Krea's own example out of order and told it to put its style first in the
+same answer); NetaYume's excerpts are its parent's and the app adds the
+system prefix itself; Z-Anime's "details early" is its 4-step variant's.
+The system message also says the rewrite adds no object, scenery, mood or
+text and never pads toward a word range - a range is the guide's band for
+most images, not a minimum (almost every rewrite on the card padded a short
+prompt, against the sources' own "Start short") - that quotation marks go
+only around lettering, never the prompt, and that the authors' example
+prompts lend their form, not their subjects or text. It stays under about
+1.5k tokens (the phase-1 review measured 500-880 with the real Qwen3
+tokenizer before findings; the budget test holds every checkpoint's under
+6,000 characters). Then every answer is checked (`validate`): a quote is
+looked for in the prompt (case and whitespace aside) and nulled when absent,
+the span located on the server so the page selects the prompt's own
+characters; a part is kept only if each of its comma pieces is in the
+prompt, and "none" or "n/a" is no part, and `text_to_render` only if it is
+lettering the prompt asks for (`prompt_rules.rendered_spans`: its quoted
+stretches and unquoted sign text) - on the card it held the whole prompt in
+most runs; an issue that repeats a rule finding the critic was told of (the
+word count wherever the guide has a range, a reported negation, quotation
+marks, tag order, weighting, quality boilerplate - by its wording, or by
+quoting the very words a finding points at) is left out, since the model
+did so in nearly every answer however it was told not to, and miscounted
+words beside the rules' correct count; two `order` issues that
+ask for different parts first are both left out; `reordered` survives only
+where the app has a documented order and only as a pure reorder - the same
+whole tags, clauses, sentences or XML blocks (for JSON, the same value
+written differently), every quoted span unchanged (`is_reorder`), where
+"quoted" is `prompt_rules.QUOTED`, the one pattern the rules, the encoder
+layer and the critic share (the critic's own narrower copy let a «…» or
+„…“ quotation split across two pieces); a rewrite identical to the prompt is
+dropped, one wrapped whole in quotation marks is unwrapped, one that quotes
+words the prompt does not have is dropped - lettering nobody asked for,
+such as the sign example's "Black Forest Labs" - and one that quotes the
+prompt's description gets a `heuristic.rewrite_quote` warning where it
+sits: the rules skip quoted text, so none of these reached the layer-1
+re-check. A rewrite with six or more content words the prompt has in no
+form gets `heuristic.rewrite_adds` (info), naming them: the instruction not
+to pad did not stop the card's critic from adding lenses, light and scenery
+to short prompts, and a comparison against such a rewrite tests new content,
+not only wording. What validation takes out besides uncited issues is said on the
+page (`PromptCritique.set_aside`). Word multisets were the first reorder
+check and the review broke it: "a woman in a red dress and a blue hat" came
+back with the colours swapped and the sign text's quotes gone, and passed.
+On the real server the model's `reordered` added "great score, absurdres"
+and once copied a character tag from the example prompts; on FLUX prose it
+survived in 1 of 10 runs, and in 0 of 20 after the final fixes, being the
+rewrite again 17 times (`verified.md`).
+So on tag checkpoints the rules' `reorder_tags` is the dependable reordered
+version, and the page prefers it; on prose the user writes one (Compare).
+The answer is read from the content after the reasoning, but not only after
+the last `</think>`: a prompt pasted from another model can hold one, and
+the answer quotes it back. The rewrite's layer-1 findings are the rules and
+encoders run over it by the route (`_lint`, without the tag lookup), added
+to `validate`'s own - after `run_when_idle` returns, not inside it: the lint
+can load a tokenizer the analysis failed to, from the Hub, with no timeout,
+and inside the gate that held image jobs back;
+`test_the_rewrite_is_linted_once_the_gate_is_open` holds it. What survives
+all this is still a 4B model's reading - it misapplies sources and pads
+prompts - which is why the page shows every version to be read before it is
+used, and the comparison exists.
+
+**The comparison is a grid, and its statistics are the caveat.** The
+variants are one `POST /api/grid` with every other axis empty, the panel's
+seed (or a drawn one, written back as grids do), `num_images` 1 and 4 seeds
+by default, 8 offered; the preview gives the count and the estimate before
+anything runs, and the page opens the run as the sheet when its stream says
+done. For a 1 MP 28-step Krea [dev] image in fp8, `verified.md` records
+15.4 s on 2026-09-08 - three versions on four seeds in about three minutes -
+and 41.6-42.6 s on 2026-09-27, cause uninvestigated - about 8.5 minutes; the
+preview's estimate, from the measured per-step time, is the one to go by.
+The seeds are shared, so the rows are pairs, and the test that fits is a
+paired sign test on the seeds where the two rows differ: four of four the
+same way is p = 0.125, so four seeds cannot tell even a change on every seed
+from chance; six of six is 0.031 and eight of eight 0.008 (seven of eight,
+0.070, is not enough). An unpaired two-sided Fisher exact test on the hit
+counts (0/4 against 4/4 is p = 0.029; at eight, 2/8 against 7/8 0.041) assumes
+independent images, which shared seeds are not. Hence the line under the
+Seeds select: 4 seeds is a first look - even a change on every seed could be
+chance - and 8 can tell a consistent change from chance. The first wording,
+"4 seeds only shows all-or-nothing differences", took the unpaired figure.
+The fourth version, the user's own (`yours`), is what makes a comparison of
+order possible on a prose prompt: nothing else there is a pure reorder.
+Scoring the images
+automatically (a VLM asked whether each element appears) was left for later:
+nothing about its accuracy on these checkpoints has been measured, and
+published judges are weakest exactly on text rendering and style. Stars
+(`stats --by prompt`) and the run's `distinct` count are the signals that
+exist.
+
+**The page.** Check sits in the Prompt caption after Tags and before Expand
+and sends what Generate would (`collect()`); its panel moves with the chips
+(`placeTagValidation`), above the results on a two-column page so its
+length cannot push Generate down the sticky settings column. The panel
+describes one text - the prompt and the negative prompt as `collect()` sent
+them, a greyed negative counting as none - because every offset in the
+answer counts from that text and every Use and Apply is a whole replacement
+worked out from it. Any change to either box marks it stale: typing, each
+programmatic write through the one `promptReplaced()` hook (an example,
+Reuse, Reset, a chip, an accepted suggestion), `syncCfg()` greying or waking
+the negative. Stale results stay visible, dimmed, with "Check again"; every
+Use, Apply and Run comparison goes dead, and a finding's words are selected
+only while they are still where the check found them. The first build
+compared the prompt alone, and "Apply to the negative prompt" then
+overwrote a negative typed after the check. The critic's answer is always
+about the checked text: asking checks again first when either box moved on,
+a check of other text drops the answer, and an answer that lands after an
+edit is shown dimmed and applies nothing. A checkpoint change clears the
+panel. Apply is offered on rule findings only - a rule's `suggestion` is the
+field rewritten - while an encoder's suggestion (for `((masterpiece:1.2))`,
+`Write "masterpiece" plainly; ...`) is advice and shows as text. Use and
+Apply write through `replaceBoxText`, which selects the box and inserts with
+`execCommand`, so
+Ctrl+Z brings back what was typed; assigning `.value` emptied the undo
+history, and the re-check that follows would have made the replacement the
+comparison's original, leaving the typed prompt nowhere on the page. Server
+offsets count code points, as Python indexes a str (`PromptFinding` says
+so); the page's strings count UTF-16 units, so `units()` converts before
+selecting - one emoji ahead of a finding selected the wrong words, and the
+still-in-place guard, comparing two JS slices, could not notice. An encoder
+row is drawn as a caution only when the server says `pooled_only` (FLUX.1's
+CLIP-L); keyed on `role`, it drew NetaYume's only encoder's cut as mild. The
+critic holds what Expand holds - Generate and Run grid aria-disabled,
+Expand, Unload - and `startJob` refuses while it runs; its button is off
+while a job is queued or running, with a title saying why. The comparison
+sends `num_images: 1` (the panel's Batch 4 had made "4 seeds" sixteen),
+never writes the prompt box or the grid's variables, which are the user's
+and persisted, and leaves out a version identical to another. Its Your
+version box is the user's too: kept across checks (a check of other text
+still compares against it), cleared with the rest of the panel, never
+persisted. The Order section says "Not checked" under a documented order
+the rules did not read (`order_checked`), and the summary "nothing flagged
+· order not checked" rather than "nothing to flag". A negative prompt
+finding's Apply is dead while the negative box is greyed, with a line saying
+what CFG would wake it: `collect()` sends nothing from a greyed box, so the
+write changed nothing the re-check could see and the same finding came back
+with the same button. The critic's `set_aside` lines are shown under its
+answer, and the `dropped` line says what dropping means - a citation that
+named nothing it was given, or an empty issue; an unfound quote only loses
+its quote.
+
+**Open questions the build turned up**, for decisions rather than code:
+
+- The tag autocomplete writes Danbooru names with A1111 escapes -
+  `tags.display_tag` turns `(` into `\(` - to match the authors' own examples
+  (Animagine's has them). Diffusers never unescapes, so CLIP reads
+  `firefly \ ( honkai : star rail \ )`, ten tokens where the name is eight.
+  The analyser does not flag what the app itself writes; whether the chips
+  should write bare parentheses is undecided.
+- schnell: the guide prose and the README say its T5 stops at 256 tokens,
+  "about 180 words". That is BFL's reference
+  (`load_t5(..., max_length=256 if name == "flux-schnell" else 512)` in
+  <https://github.com/black-forest-labs/flux/blob/main/src/flux/cli.py>);
+  this app passes no `max_sequence_length`, so `FluxPipeline` encodes 512 on
+  schnell too, and the encoder report says 511. Either pass 256 on schnell or
+  reword the guide; the word rule stays out until then.
+- Qwen-Image's guide says to sample "with True CFG 4 and a negative prompt -
+  a single space if there is nothing to remove", but `generation.js`'s
+  `collect()` sends `els.negative.value.trim() || null`, so a single space is
+  sent as no negative prompt and no True CFG pass runs. The True CFG hint
+  already says "a word will do".
+- Resolved 2026-09-27: Krea [dev]'s "It answers best to photo language: a
+  mood, a lens, a light, a film stock, a colour grade" and "Krea calls it
+  opinionated - give it room rather than over-specifying" had no literal
+  source in Krea's README, Krea's release post or BFL's, and the critic, held
+  to BFL's pages, told users the opposite on the same page. They are out of
+  the prose; what BFL's building page says about camera settings replaced
+  them.
+- Anima's guide prose leaves out the card's tag order - `[quality/meta/year/
+  safety tags] [1girl/1boy/1other etc] [character] [series] [artist]
+  [general tags]` - and its recommended prefix `masterpiece, best quality,
+  score_7, safe, `, so Anima has no documented order in the app: the critic
+  sees both as excerpts (A1, A3) and the page shows the order as the
+  authors', unchecked. Added to the prose, they would be checkable.
+  (`guide.artist_prefix`, which never fired as first shipped, now does: the
+  route asks the tag index for Anima's artist categories.)
+- NewBie's guide prose names a block's fields "name, gender, appearance, ...",
+  but the authors' XML example and captioning instruction spell the first one
+  `<n>`. The XML rule accepts both; whether the model reads `<name>` as it
+  reads `<n>` has not been tried.
+
+## The page script is eleven files, not one module
 
 `web/app.js` reached 3,200 lines - every section of the page in one
 file - and was split on 2026-09-10 along its own section comments into
 ten scripts `index.html` loads in order: `state` (the element table, every
 `let` the page shares, the fetch helper), `sizes`, `status`, `generation`,
 `panel`, `gallery`, `sheet`, `lightbox`, `tags` and last `app`, the wiring
-and the boot. They stay *classic* scripts rather than ES modules on purpose.
+and the boot; the prompt analyser added an eleventh, `analysis` (the check,
+the critic and the comparison), between `tags` and `app` on 2026-09-27. They
+stay *classic* scripts rather than ES modules on purpose.
 Classic scripts share one global scope: a top-level `let`, `const` or
 function in any of them is visible to all the others, so nothing needed an
 export or an import, and - the reason that matters - a smoke step's `eval`
-(`tools/browser.mjs`) still reaches `els`, `galleryRecords`, `startJob` and
-the rest by name, which a module's scope would hide. The contract that
-makes the order safe is that nine of the ten only *declare*: a function in
-`sizes.js` may call one from `tags.js` because every call happens after all
-ten have loaded, from a handler or from `app.js`'s boot. A file that ran
-something at load would have to sit after everything it touches; keep the
-wiring in `app.js` (the lightbox's own pointer handlers are the exception,
-wired beside the code they belong to and touching nothing outside it).
+(`tools/browser.mjs`) still reaches `els`, `galleryRecords`, `startJob`,
+`analysisResult` and the rest by name, which a module's scope would hide. The
+contract that makes the order safe is that ten of the eleven only *declare*:
+a function in `sizes.js` may call one from `analysis.js` because every call
+happens after all eleven have loaded, from a handler or from `app.js`'s
+boot. A file that ran something at load would have to sit after everything
+it touches; keep the wiring in `app.js` (the lightbox's own pointer handlers
+are the exception, wired beside the code they belong to and touching nothing
+outside it).
 
 The same pass moved `tests/test_api.py` (1,300 lines) into `tests/fakes.py`,
 the fixtures in `conftest.py`, `tests/api_helpers.py` and one `test_api*.py`

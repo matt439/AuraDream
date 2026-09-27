@@ -206,10 +206,13 @@ class JobManager:
     async def run_when_idle(self, fn: Callable[[], Any]) -> Any:
         """Run a synchronous backend operation without racing the job queue.
 
-        Prompt expansion uses the same accelerator as image generation but is
-        interactive rather than a job. Refuse when work is already promised;
-        once admitted, hold the generation gate so a newly submitted job waits
-        behind it instead of running both models together.
+        Prompt expansion and the prompt critic use the same accelerator as
+        image generation - ERNIE's rewriter through the pipeline, the critic
+        through a llama-server holding ~5 GB - but are interactive rather than
+        jobs. Refuse when work is already promised; once admitted, hold the
+        generation gate so a newly submitted job waits behind it instead of
+        running both models together. The check is made again inside the
+        gate: a job queued while this waited for it came first.
         """
         if self.busy():
             raise BackendBusy("an image job is queued or running")
@@ -218,6 +221,22 @@ class JobManager:
                 raise BackendBusy("an image job was queued first")
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(self._pool, fn)
+
+    async def wait_for_gate(self) -> None:
+        """Return once nothing holds the generation gate, without keeping it.
+
+        For the image model's load, which moves the weights onto the card but
+        runs outside the gate: a queued job awaits the load before it takes its
+        turn. Without this a job submitted during a critique started loading
+        13 GB beside the critic's server. Nothing that holds the gate ever
+        awaits the load lock - `_run` loads before it enters, and
+        `run_when_idle`'s operations are synchronous and never await
+        `ensure_loaded` (Expand's first use does load ERNIE's rewriter inside
+        the gate, but through the backend, not the lock) - so this cannot
+        deadlock.
+        """
+        async with self._gate:
+            pass
 
     async def shutdown(self) -> None:
         """Stop every live job and wait for the worker thread to drain.

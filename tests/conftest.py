@@ -8,10 +8,10 @@ import dataclasses
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import main, storage
+from backend import main, prompt_encoding, storage
 from backend.jobs import JobManager
 from tests.api_helpers import ORIGIN
-from tests.fakes import FakeBackend, FakeTranslator
+from tests.fakes import FakeBackend, FakeCritic, FakeTranslator, fake_tokenizer
 
 
 @pytest.fixture
@@ -56,15 +56,23 @@ def fake(store, monkeypatch):
     backend = FakeBackend()
     translator = FakeTranslator()
     backend.translator = translator
+    critic = FakeCritic()
+    backend.critic = critic
     monkeypatch.setattr(main, "backend", backend)
     monkeypatch.setattr(main, "prompt_translator", translator)
+    monkeypatch.setattr(main, "prompt_critic", critic)
     monkeypatch.setattr(main, "_load_state", {"state": "unloaded", "detail": None})
     monkeypatch.setattr(main, "_load_lock", asyncio.Lock())
     # A fresh manager per test: shutting the app down drains its one worker
     # thread for good. Wired the way main.py wires it, so the single load path
     # the whole app relies on is the one under test.
     monkeypatch.setattr(main, "jobs", JobManager(backend, main.ensure_loaded))
-    return backend
+    # The analyser's tokenizers without the Hub, and a cache that starts and
+    # ends empty: it is module state, and another test file reads it too.
+    monkeypatch.setattr(prompt_encoding, "_load_tokenizer", fake_tokenizer)
+    prompt_encoding.unload()
+    yield backend
+    prompt_encoding.unload()
 
 
 @pytest.fixture

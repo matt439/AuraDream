@@ -25,6 +25,15 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_path(name: str) -> Path | None:
+    # Absolute, against the directory the app was started in: a relative
+    # path would otherwise mean a different file to whatever resolves it
+    # later from somewhere else (the critic starts its server in the
+    # server's own directory).
+    raw = os.getenv(name, "").strip()
+    return Path(raw).expanduser().resolve() if raw else None
+
+
 @dataclass(frozen=True)
 class Settings:
     # Which checkpoint to serve. Krea 2 Turbo is the 8-step distilled variant.
@@ -109,6 +118,16 @@ class Settings:
     # overnight, so this is generous - 1024 at ~30s is nine hours - but a
     # four-axis product grows fast enough that a typo needs a ceiling.
     max_grid_images: int = int(os.getenv("LOCAL_DIFFUSION_MAX_GRID_IMAGES", "1024"))
+
+    # The local prompt critic (`critic.py`): a pinned llama.cpp `llama-server`,
+    # started per critique over a pinned Qwen3-4B GGUF, both fetched and
+    # checked on first use. Off hides the Critique action everywhere.
+    critic: bool = _env_bool("LOCAL_DIFFUSION_CRITIC", True)
+    # Files already on disk in place of either download: a llama-server of
+    # your own build (a platform with no pinned one, a newer release), a .gguf
+    # you converted. Neither is held to the pins - naming one is choosing it.
+    critic_server: Path | None = _env_path("LOCAL_DIFFUSION_CRITIC_SERVER")
+    critic_model: Path | None = _env_path("LOCAL_DIFFUSION_CRITIC_MODEL")
 
 
 settings = Settings()

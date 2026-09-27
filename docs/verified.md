@@ -47,6 +47,7 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | NetaYume Lumina v4, CFG 5 | fp8, Windows | 1024x1024 | 40 | 38.46 s after cancellation; 38.74 s repeat | 5.76 / 3.30 GiB allocated, 5.92 / 4.38 GiB reserved | 2026-09-26 |
 | NewBie Image Exp0.1, XML prompt, CFG 4 | fp8, Windows | 1024x1024 | 28 | 39.39 s after cancellation; 38.74 s repeat | 4.81 GiB allocated, 4.86 GiB reserved | 2026-09-26 |
 | WAI Illustrious v17, CFG 6 | fp8, Windows | 1024x1344 | 28 | 9.25 s after cancellation; 9.64 s repeat | 3.69 GiB allocated, 4.37 GiB reserved (maximum of the pair) | 2026-09-26 |
+| FLUX.1 Krea dev, CFG 3.5 | fp8, Windows | 1024x1024 | 28 | 41.6-42.6 s; 60.8 s for the first after a 38.2 s load; 41.9 s repeat | 14.6 GB as read off `nvidia-smi`, the desktop's 1.75 GB included | 2026-09-27 |
 
 WAI Illustrious v17 was verified on the RTX 5080 with Windows FP8 and model
 offload. The pinned mirror checkpoint passed its SHA-256 check, converted
@@ -296,3 +297,130 @@ preview fit; the quantization and offload settings of its successful user run
 were not recorded. Illustrious XL v2.0-STABLE int8/full-bfloat16 GPU runs,
 LoRA behavior, batch scaling, peak VRAM and repeat-seed determinism are also
 unmeasured.
+
+## Prompt analyser
+
+Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port
+7880, a throwaway database and outputs directory) with the desktop holding
+1.75-1.79 GB of the card. Critic VRAM is `nvidia-smi`'s whole-card figure,
+polled every 0.5 s, less that baseline. Critique times are the route's
+`seconds`: server start, one chat completion and the stop.
+
+| What | Result | Date |
+| --- | --- | --- |
+| First use on Windows: `prompt_critic.prepare()` on an empty cache | 114.2 s. Both b11206 win-cuda-13.4 zips (576 MB) downloaded, held to size and sha256, extracted and renamed into place in 21.8 s; the Qwen3-4B Q8_0 GGUF (4.28 GB) downloaded and hashed in 92 s. `ready()` False before, True after; a second `prepare()` took 0.013 s and fetched nothing. The tree is 711 MB at `~/.cache/huggingface/local-diffusion/llama.cpp/b11206-win-cuda-13.4-x64`, `downloads/` is left empty, the GGUF's stamp is under `verified/`, and an independent `sha256sum` of the GGUF matched the pin | 2026-09-27 |
+| First use under WSL 2: the ubuntu-cuda-13.4 tarballs | 62.3 s for 592 MB. The flattened tree (773 MB) has `libcudart.so.13`, `libcublas*.so.13` and `libggml-cuda.so` beside an executable `llama-server`, symlinks intact, and `ldd` resolves every library inside it: the layout read from b11206's `release.yml` holds | 2026-09-27 |
+| Analyse on FLUX.1 Krea [dev] | 1.9 s for the first call (tokenizers from the Hub cache), 0.00-0.03 s after. The CLIP-L/T5 counts for four prompts (12/17, 142/173, 43/49, 42/54) equal the checkpoint's own `CLIPTokenizer` and `T5TokenizerFast` called as `FluxPipeline` calls them, and the 142-token prompt's CLIP cut (character 379) is where the pipeline's own truncation warning begins | 2026-09-27 |
+| Critique on Windows, FLUX.1 Krea [dev] | 19 critiques of four prompts: 8.1-16.0 s, median 10.5 s; 895-1,074 prompt tokens and 801-2,011 generated at 145-154 tokens/s. Every one peaked at 5,581-5,584 MiB over the baseline and was back at it a second later, with no `llama-server.exe` left; `dropped` 0 throughout. The same with the FLUX pipeline loaded and offloaded: 9.3 s, +5,582 MiB | 2026-09-27 |
+| Critique on Windows, Animagine XL 4.0 tag prompt | 19.3 s: 905 prompt tokens, 2,568 generated; +5,581 MiB | 2026-09-27 |
+| Critique under WSL 2 (FLUX.1 dev lite-infer id, through `PromptCritic` directly) | 9.7 s with the GGUF on ext4. With `LOCAL_DIFFUSION_CRITIC_MODEL` on `/mnt/c`, 28.7 and 29.0 s: the 9P read costs about 20 s on every start, not only the first. +5,611 MiB, back to baseline, no server left | 2026-09-27 |
+| An image job submitted during a critique | Queued at 18:42:25.1 with `waiting_on=load` while the critic's server ran; the card was back at its baseline by 18:42:34.6, the critique returned at 35.0 and `loading black-forest-labs/FLUX.1-Krea-dev` was logged at 36.1. No weights moved before the server stopped | 2026-09-27 |
+| A critique during a grid | 409 "an image job is queued or running; wait for it to finish"; no server started | 2026-09-27 |
+| Critique on Windows after the final review's fixes (API key in `LLAMA_API_KEY`, not on the command line) | 20 critiques of five FLUX.1 Krea [dev] prompts: 7.4-22.3 s, median 13.2 s; 1,105-1,192 prompt tokens, 705-2,511 generated at 123-157 tokens/s. The keyless `/v1/models` probe answered 401 every time, so b11206 took the key from its environment; the card was back at its 1.53-1.55 GB baseline and no `llama-server.exe` was left after each run | 2026-09-27 |
+
+**Tag checkpoint.** On Animagine XL 4.0 the Danbooru index was reachable
+(`/api/tags/validate` answered with categories: `hatsune miku` character,
+`vocaloid` copyright). "masterpiece, high score, great score, absurdres,
+looking at viewer, smile, hatsune miku, 1girl, vocaloid, safe, twintails,
+cherry blossoms, outdoors, upper body" (39 tokens on both CLIPs, as the
+checkpoint's own tokenizers count it) drew one `guide.order` finding citing
+the card's order, and `reordered` was the same fourteen tags as "1girl,
+hatsune miku, vocaloid, safe, looking at viewer, smile, twintails, cherry
+blossoms, outdoors, upper body, masterpiece, high score, great score,
+absurdres". The critic's three `order` issues, all citing G2, were correct;
+its `reordered` equalled the rule's and passed the permutation check, and its
+rewrite was the same text.
+
+**Comparison grid.** Built with the page's `comparePayload`, seeds reduced to
+2 to save time - the page itself offers only 4 or 8 (variants original and
+the critic's rewrite of the "no people" / Open Late prompt, seed 20260927,
+batch 1, 1024x1024, 28 steps, CFG 3.5). The preview
+listed both prompts under `values.prompt` and the labels under `variant`; the
+cells ran seed-major (original, rewrite, original, rewrite), and
+`/api/gallery?search=run:8722b5a26b25` returned the four rows with
+`variables={"variant": ...}`, which the PNG chunks carry too. All four images
+render the sign as OPEN LATE, the unquoted original included; seed
+20260927's original has one pedestrian and its "empty" rewrite none, seed
+20260928's pair has nobody. Two seeds are an anecdote, not a measurement of
+either rule. The images took 41.6-42.6 s each at 1.38-1.40 s per step, and a
+repeat of the gate test's image matched its hash (`7d161ca06d8753e7`) in
+41.9 s - 2.7 times the 15.4 s recorded for the same settings on 2026-09-08.
+The GPU sat at 100 % utilisation, 255 W and 2.87 GHz throughout, which points
+to compute rather than a spill into system RAM; the cause was not investigated.
+
+**What the critic says.** Its judgements are right where a source says the
+thing plainly: on "no people" and the unquoted sign it cited A7 and A6 in
+every run, Windows and WSL, and rewrote to `...after the rain, empty,
+puddles reflecting... a wooden sign that says "Open Late" above the door.`
+It misapplies sources otherwise. Four of the 19 FLUX rewrites were the whole
+prompt wrapped in quotation marks - it reads G1's "text in quotation marks"
+as a rule for the prompt ("Text not enclosed in quotes as required by G1" -
+"Enclose entire prompt in quotes"), which on FLUX asks for lettering. One
+rewrite of the lighthouse prompt ended in `"Black Forest Labs"`, copied from
+the authors' sign example, and one of the weighting prompt appended the owl
+example's "cinematic dark moody photo, slight blue color grading". Two of
+five lighthouse rewrites cut the whole camera and grading sentence, once on
+the claim that camera details "may not align with the checkpoint's
+photographic focus", two more the camera details alone, and its
+`text_to_render` part held the scene description in all five (now nulled
+unless it is lettering the prompt asks for). Weighting
+syntax was cited to A7, the negative-prompt excerpt, in four of five runs
+(A1 in the fifth), and "[blurry background]" was called a negative prompt in
+four. It repeats the rule findings it is told not to
+(word count, negation, quotes, weighting, tag order) in nearly every answer,
+and counted the 11-word fox prompt as 7 words. `reordered` stayed null on
+every FLUX prompt, each of which already opened with its subject. The rules
+re-run on the rewrite catch none of the quoted-prompt or invented-text cases
+(which is why `critic.validate` now checks the rewrite's quotation marks
+itself).
+
+**Prose out of order, before the final fixes.** Three FLUX.1 Krea [dev]
+prompts with the subject last or behind style or setting ("Golden hour light
+over misty mountains, shot on a 35mm lens ..., a lone hiker in a red jacket
+standing on a ridge"), 10 critiques, 10.6-19.8 s. Check gave these the same
+panel as the subject-first versions: "subject first", no finding, "nothing to
+flag". Every critique that was kept whole (6 of 6) raised the subject order,
+but a `reordered` survived `is_reorder` in 1 of 10: in all four raw captures
+the model's `reordered` was its rewrite again - with added content ("The
+kitchen is filled with the scent of fresh bread") or wrapped whole in
+quotation marks - and the natural reorder of the baker prompt merges two
+clauses, which `is_reorder` rightly refuses. `text_to_render` held the whole
+prompt in 3 of 6. On Krea's own example "Moody night photography, a small
+store with an orange glowing sign that says 'Black Forest Labs'" the critic
+said the subject was not first, and in one answer also told it to put its
+style first. Evidence: `scratchpad/final-ux/order_critic.json`,
+`order_raw.json`, `examples_raw.json`.
+
+**After the final fixes.** The same kind of prompts plus Krea's tea-party
+example and the "no people" / Open Late prompt, 20 critiques in two runs
+(`scratchpad/final-fix/real_critic_run1.json`, `real_critic.json`, and
+`replay.py`, which puts both runs' raw answers through the final
+`validate`). Check now says "Not checked" under the order and "order not
+checked" in the summary for every one of these prose prompts. The critic
+raised the subject order in all 8 answers on the two out-of-order prompts,
+and restated a rule finding in 18 of 20 answers (the word count in 17) - 25
+issues, all left out and said so. With the camera sentence worded "optional", Krea's
+own example drew no order issue and no "camera settings missing" in either
+answer; worded "adds camera settings" in the first run, four answers called
+them missing. `reordered` survived in none of the 20: the model returned its
+rewrite again in 17 (left out, and said so) and the prompt unchanged in 3 -
+so on prose the order is compared through Your version. The instruction not
+to pad did not hold: 14 of 20 rewrites added six or more content words
+(lenses, light, fog, "capturing the eerie beauty of the night"), each now
+flagged `heuristic.rewrite_adds`; one quoted the prompt's own "Tea Party"
+(flagged `heuristic.rewrite_quote`) and one ended in Chinese, "透过树叶",
+which the T5 check reported as unknown characters. Two `text_to_render`
+parts were nulled (a colour grade; a whole clause). In the second live run
+the first version of the order-conflict check dropped two agreeing order
+issues ("Place the subject first, then the style description" was read as
+wanting style); the check now reads the fix, and the replay drops none.
+
+Evidence is under
+`%TEMP%/claude/c--VSProjects-ImageGeneratorLocal/90bd8da1-0122-4d94-9352-bfe454d8ba17/scratchpad/verify/`:
+`prepare.log`, the request/response JSON per route and prompt
+(`flux1*-analyze-*`, `flux1*-critique-*`, `anim-*`), `flux1-tokcheck.txt`,
+the VRAM polls (`*-vram-poll.csv`), `server-*.log`, `step5-*.json`,
+`wsl-critic*.json` and the images in `outputs/`. The production gallery was
+not used. Not measured: a critique beside a load in progress (refused by
+design), int8 or sequential offload beside the critic, and whether a rewrite
+renders better than its original over more than two seeds.

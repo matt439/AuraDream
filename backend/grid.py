@@ -22,6 +22,12 @@ named placeholders instead - `{size} dog sitting on {ground}` over a block of
 far too often to be a separator. The names cross with each other and with the
 sampling axes, so that block is four cells, not two.
 
+Or the prompt axis is a list of whole prompts under short labels - the prompt
+analyser's original, reordered and rewritten versions of one idea, compared on
+the same seeds. Those are finished text, taken verbatim, and each records its
+label as the one variable `variant`, which the contact sheet lays out as rows
+whenever anything else - the seeds, usually - varies to fill the columns.
+
 An empty axis is not an empty grid: it means "the value from the panel", so a
 grid with no axes set is exactly the image Generate would have made.
 
@@ -40,7 +46,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .config import settings
-from .schemas import GenerateRequest
+from .schemas import GenerateRequest, PromptVariant
 from .seeds import random_seed, wrap_seed
 
 # Per axis, and then over the whole grid. Both are guard rails against a typo
@@ -65,6 +71,12 @@ PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 # One variable per line: `size = big | small`. Split on the first `=` only, so a
 # value may contain one.
 _VARIABLE = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=(?P<values>.*)$")
+
+# The variable a prompt-variant grid records each variant's label under. The
+# record, the PNG chunk and the sheet already carry variables, so a label rides
+# the same path with no new field; `chooseAxes` in web/sheet.js knows the name
+# (`VARIANT_AXIS`) and gives it the rows, however many seeds there are.
+VARIANT = "variant"
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
 # (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, seed) -
@@ -284,6 +296,49 @@ def prompt_assignments(
     return assignments
 
 
+def resolve_prompts(
+    request: GenerateRequest,
+    prompt: str = "",
+    variants: Sequence[PromptVariant] | None = None,
+) -> list[tuple[dict[str, str], str | None, str | None]]:
+    """The prompt axis in render order: (assignment, prompt, negative prompt) per value.
+
+    Either the variables substituted into the request's prompt pair, or the
+    variants whole. A variant is a finished prompt, so it is taken verbatim:
+    nothing is substituted into it, and a `{` in a pasted JSON prompt or a `|`
+    and newlines in NewBie's XML are text, not a placeholder with no values or
+    a second cell. The request's own prompt is then not rendered at all. Its
+    negative prompt runs beside every variant, and a placeholder left in *that*
+    is still refused: nothing fills it, so it would reach the encoder as the
+    literal `{avoid}` - the same reason `prompt_assignments` refuses one.
+
+    The schema already refuses variants beside a variable block and two with
+    one label; they are checked again here for the callers that do not come
+    through it, and a label that is only spaces - which `min_length` passes -
+    would be a sheet row with no name.
+    """
+    if not variants:
+        return [
+            (one, substitute(request.prompt, one), substitute(request.negative_prompt, one))
+            for one in prompt_assignments(request, parse_variables(prompt))
+        ]
+    if prompt.strip():
+        raise ValueError("prompt variants are the prompt axis; leave the variables empty")
+    for name in sorted(set(PLACEHOLDER.findall(request.negative_prompt or ""))):
+        raise ValueError(
+            f"negative prompt: {{{name}}} has no values; prompt variants take no variables"
+        )
+    labels = [variant.label.strip() for variant in variants]
+    if not all(labels):
+        raise ValueError("prompt variants: every variant needs a label")
+    if len(set(labels)) != len(labels):
+        raise ValueError("prompt variants: each variant needs its own label")
+    return [
+        ({VARIANT: label}, variant.prompt, request.negative_prompt)
+        for label, variant in zip(labels, variants)
+    ]
+
+
 def axis_values(
     request: GenerateRequest,
     steps: str,
@@ -291,18 +346,20 @@ def axis_values(
     mu: str,
     prompt: str = "",
     lora_scale: str = "",
+    variants: Sequence[PromptVariant] | None = None,
 ) -> dict[str, list[Any]]:
     """The axes resolved against the request they sit on top of.
 
     The prompt axis resolves to finished prompts rather than to the variables
     behind them: what the preview has to show - and what the contact sheet later
-    groups by - is the text that will actually be encoded.
+    groups by - is the text that will actually be encoded. Variants add their
+    labels under `variant`, in the same order, so a caller can name each text.
     """
-    assignments = prompt_assignments(request, parse_variables(prompt))
-    return {
-        "prompt": [substitute(request.prompt, one) for one in assignments],
-        **_sampling_values(request, steps, cfg, mu, lora_scale),
-    }
+    resolved = resolve_prompts(request, prompt, variants)
+    values: dict[str, list[Any]] = {"prompt": [text for _, text, _ in resolved]}
+    if variants:
+        values[VARIANT] = [one[VARIANT] for one, _, _ in resolved]
+    return {**values, **_sampling_values(request, steps, cfg, mu, lora_scale)}
 
 
 def _sampling_values(
@@ -343,11 +400,13 @@ def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> 
 
     The prompt count appears only when there is more than one: a sampling grid
     should read exactly as it did before the prompt became an axis. `listed`
-    says the seeds were given rather than counted up from the base.
+    says the seeds were given rather than counted up from the base. Variants
+    are counted as what they are, since that is what the sheet's rows say.
     """
     parts = []
     if len(values.get("prompt", [])) > 1:
-        parts.append(f"{len(values['prompt'])} prompts")
+        noun = "variants" if VARIANT in values else "prompts"
+        parts.append(f"{len(values['prompt'])} {noun}")
     parts.append(f"{len(values['steps'])} steps")
     parts.append(f"{len(values['guidance_scale'])} CFG")
     parts.append(f"{len(values['mu'])} mu")
@@ -530,6 +589,7 @@ def expand(
     lora_scale: str = "",
     seeds: int = 1,
     seed_list: list[int] | None = None,
+    variants: Sequence[PromptVariant] | None = None,
 ) -> list[Cell]:
     """The cartesian product, as cells ready to hand to a job.
 
@@ -543,12 +603,18 @@ def expand(
     batch size, as a sweep steps - or exactly `seed_list`, which wins when it
     is given. The ceiling counts whichever applies: swapping only the loop
     would have let a 64-value list queue 64 times past `max_grid_images`.
+
+    `variants`, when given, is the prompt axis in place of `prompt`'s variables
+    (see `resolve_prompts`), in the order written: the first is the first row.
+    Everything downstream - the cell key, the run id, resume, the duplicate
+    count - reads the resolved prompt, so a variant is an ordinary prompt cell
+    to all of it and only the label is new.
     """
-    assignments = prompt_assignments(request, parse_variables(prompt))
+    prompts = resolve_prompts(request, prompt, variants)
     values = _sampling_values(request, steps, cfg, mu, lora_scale)
     seed_count = len(seed_list) if seed_list else seeds
     total = (
-        len(assignments)
+        len(prompts)
         * len(values["steps"])
         * len(values["guidance_scale"])
         * len(values["mu"])
@@ -575,7 +641,7 @@ def expand(
         # outermost: a night that ends early has then swept every setting for
         # the prompts it reached, which is a comparison, rather than leaving
         # every prompt part-swept.
-        for assignment in assignments:
+        for assignment, text, negative in prompts:
             for step_count in values["steps"]:
                 for scale in values["guidance_scale"]:
                     for shift in values["mu"]:
@@ -587,10 +653,8 @@ def expand(
                                     request=GenerateRequest(
                                         **{
                                             **template,
-                                            "prompt": substitute(request.prompt, assignment),
-                                            "negative_prompt": substitute(
-                                                request.negative_prompt, assignment
-                                            ),
+                                            "prompt": text,
+                                            "negative_prompt": negative,
                                             "steps": step_count,
                                             "guidance_scale": scale,
                                             "true_cfg": request.true_cfg,

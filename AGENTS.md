@@ -13,7 +13,7 @@ in `backend/launch.py` lists the rest; any of them runs unchanged - set
 ```powershell
 uv run python -m backend.main      # http://127.0.0.1:7860; bare on a terminal, asks
 uv run python -m backend.main --defaults   # LOCAL_DIFFUSION_* as set, no questions
-uv run --group dev pytest          # no GPU, no weights, a few seconds
+uv run --group dev pytest          # no GPU, no weights, about a minute
 ```
 
 ```bash
@@ -34,7 +34,21 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   the control tooltips; each profile hangs its prompting guide from
 - `backend/guides.py` — the guides themselves, one dict per checkpoint: prompt
   and size prose, the documented megapixel range with its word, the authors'
-  example prompts
+  example prompts, and `analysis` - the prose's checkable statements as data
+  for the rule checks, each citing the prose verbatim
+- `backend/prompt_encoding.py` — the prompt analyser's encoder layer: each
+  checkpoint's own tokenizers, on the CPU, over the exact string its pipeline
+  builds - token counts, where reading stops, template-tail loss, literal
+  weighting syntax, typed control tokens, T5's unknown characters
+- `backend/prompt_rules.py` — the analyser's rule checks against the guide's
+  `analysis`: style, documented order and `reorder_tags`, negations, unquoted
+  text to render, the tag checkpoints' specifics; `heuristic` ones labelled
+- `backend/prompt_sources.py` — what the critic may cite, per guide constant:
+  the guide's own sentences (G) and short verbatim author excerpts (A) with
+  their URLs, notes and caveats
+- `backend/critic.py` — the local prompt critic: pinned llama.cpp
+  `llama-server` and Qwen3-4B GGUF, fetched and verified by `prepare()`, one
+  server per `critique()`, the answer validated against its sources
 - `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
   expanded Chinese prompt for the UI; the Chinese prompt remains canonical
 - `backend/tags.py` — cached Danbooru tag suggestions and exact validation for
@@ -64,7 +78,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   provide its callback-capable pipeline, pooled-CLIP denoiser and native Jina tower
 - `backend/backends/schedule.py` — how a requested mu becomes the whole
   shift: `forced_mu`, `shifted_sigmas`, the static-shift fallback
-- `backend/grid.py` — axis specs (`6-12x2`) and the cell expansion, shared
+- `backend/grid.py` — axis specs (`6-12x2`), prompt variables and prompt
+  variants, and the cell expansion, shared
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
@@ -78,13 +93,14 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   scoped to a run by default
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; the page script is ten classic
+- `web/` — served as-is from `/static`; the page script is eleven classic
   scripts `index.html` loads in order (`state`, `sizes`, `status`,
-  `generation`, `panel`, `gallery`, `sheet`, `lightbox`, `tags`, `app`),
-  sharing one global scope; only `app.js`, the last, runs anything at load
+  `generation`, `panel`, `gallery`, `sheet`, `lightbox`, `tags`, `analysis`,
+  `app`), sharing one global scope; only `app.js`, the last, runs anything at
+  load. `analysis.js` is the prompt check, the critic and the comparison
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` + `smoke.json`, `smoke-flux.json`, `smoke-preview.json`,
-  `smoke-ernie.json`, `smoke-animagine.json`
+  `smoke-ernie.json`, `smoke-animagine.json`, `smoke-analysis.json`
   (headless browser over DevTools): the UI's stand-in for a test suite, see
   Tests
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
@@ -103,6 +119,14 @@ section before changing the area. `docs/verified.md` lists what has been
 measured on the card and when.
 
 Model and loader:
+
+- `KBlueLeaf/Kohaku-XL-Zeta` uses its ordinary Diffusers SDXL tree and
+  supplied epsilon/Euler scheduler. Start at 28 steps/CFG 5 and disable Mu.
+  Keep its hybrid prose/tag guide, 2024-07-10 vocabulary cutoff and
+  nonexclusive rating buttons; its explicit caption uses both `nsfw` and
+  `explicit`. The published tokenizers limit this pipeline to 77 tokens,
+  despite the card's longer training context. The size guidance is around
+  1 MP, not a promise of large-square output. No Nunchaku build is mapped.
 
 - Illustrious XL v2.0-STABLE is single-file-only upstream. Resolve it through
   `single_file.resolve_model` before the normal component scan, keeping the
@@ -176,7 +200,10 @@ Model and loader:
   subclasses trip torch 2.13's storage-aliasing guard under inference_mode.
 - Loading happens only in `main.ensure_loaded()` under its asyncio lock; jobs
   await it, `generate()` raises on a missing pipeline, and
-  `POST /api/model/unload` answers 409 while a job or a load is live.
+  `POST /api/model/unload` answers 409 while a job or a load is live. A load
+  first waits out whatever holds the generation gate (`jobs.wait_for_gate`,
+  inside the lock, without keeping the gate): a job queued during a critique
+  must not move weights onto the card beside the critic's server.
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end` (`_REQUIRED_PARAMS`): the seed and the cancel depend
   on them.
@@ -223,8 +250,9 @@ Schedule and guidance:
   that reaches the fallback is a test failure. Steps, CFG and mu are the
   checkpoint's; `mu` is Turbo's alone. `krea-dev` sits ahead of `flux` for
   its guide alone and is the flux profile in every number and control hint.
-  `_EXACT_PROFILES` takes precedence for Anima's pinned release; never match
-  it with a broad `anima` token, which also occurs in Animagine.
+  `_EXACT_PROFILES` takes precedence for pinned releases such as WAI v17
+  and Anima Turbo; never match Anima with a broad `anima` token, which also
+  occurs in Animagine.
 - Every profile's `guide` (`backend/guides.py`) is sourced from the checkpoint's authors - the
   model card, README, prompting guide or report - never invented; the
   design notes keep the URLs. `pixels` is the range they put in writing and
@@ -253,10 +281,24 @@ Reproduction:
   `reindex.index_file` share `_insert_row` over `_COLUMNS`.
 - Reference images are gallery ids, never paths. A LoRA is a bare name that
   only `loras.py` turns into a path, `.safetensors` only, and it is
-  hot-swapped in `generate()`, never baked into `load()`.
+  hot-swapped in `generate()`, never baked into `load()`. Whether it fits is
+  `loras.mismatch` - the adapter's module names and widths against the
+  denoiser's, using the pipeline's adapter reader and PEFT key conversion -
+  from the checkpoint's configs on the meta device before a load
+  (`loading.denoiser`) and the live pipeline
+  after; a misfit is listed with its `detail`, hidden by the page and
+  refused at submit and by the CLI, unreadable configs mean unchecked rather
+  than refused, and a listing never converts a single-file checkpoint.
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.
+- `GridRequest.prompt_variants` (2-8 `{label, prompt}`) is the prompt axis in
+  place of the variables, never beside them: each variant is taken verbatim
+  (nothing substituted; a `{`, `|` or newline is text), seeds stay outermost
+  with the variants next in the order given, and each cell records
+  `variables={"variant": label}`. `CellKey`, `run_id`, resume and the
+  duplicate count read the resolved prompt, not the label. A placeholder in
+  the negative prompt is still refused.
 
 Jobs:
 
@@ -280,8 +322,86 @@ Jobs:
   for subscribers per frame. A preview needs a matrix for the VAE and either
   `_unpack_latents` or already-unpacked 4-D latents.
 - Generation is serialized through one worker thread; the GPU cannot usefully
-  run two. Interactive accelerator work goes through `jobs.run_when_idle`, so
-  it neither cuts ahead of queued images nor overlaps a newly submitted job.
+  run two. Interactive accelerator work - ERNIE's Expand, the prompt critic -
+  goes through `jobs.run_when_idle`, so it neither cuts ahead of queued images
+  nor overlaps a newly submitted job; it checks the queue again once it has
+  the gate. The critic's download and its rewrite's lint run outside the
+  gate. Nothing that holds the gate awaits the load lock, which is why
+  `wait_for_gate` cannot deadlock.
+
+Prompt analyser:
+
+- Three layers over the body Generate sends (`PromptAnalysisRequest`): Check
+  (`POST /api/prompt/analyze`), the critic (`POST /api/prompt/critique`) and
+  the comparison grid (`prompt_variants`). Check works cold: CPU tokenizers
+  and rules off the loop, never `ensure_loaded`, never the gate, `applied()`
+  from the profile before a load. The negative prompt is measured and checked
+  only as `applied()` runs it.
+- Every finding says what it rests on: `source` (`guide`, `author`,
+  `encoder`, `heuristic`), `cite` and `url`. Rule config lives in each guide's
+  `analysis` key, never a profile key or `guide_for`; a `guide` cite is a
+  verbatim substring of that guide's `prompt` prose and an `author` one of an
+  example (`test_every_cite_is_the_guides_own_words`). A check no author
+  sentence supports is `heuristic`, with no cite. `documented_order` is None
+  where the guide states none; never invent one, and never say the authors
+  give none - the page says the app checks none and shows the authors' own
+  (`Excerpt.order` -> `author_orders`). `order_checked` is True only where a
+  rule placed the prompt (a tag checkpoint's comma items); the page says a
+  documented order it was not is "Not checked". A rule's `suggestion` is a
+  whole replacement for its field, offered only where it is unambiguous
+  (lettering whose end is a guess gets none); an encoder's is advice text.
+  `prompt_rules.QUOTED` is the one reading of quoted text, for the rules, the
+  encoder layer and the critic.
+- `prompt_encoding` measures over the exact string the pipeline builds, and
+  every template string, length and `enable_thinking` switch it copies is held
+  equal to the installed diffusers source (and the repo's Anima and NewBie
+  pipelines) by `tests/test_prompt_encoding.py`. Its table is first-match
+  like `_PROFILES`, exact ids first, reusing the loaders' pinned constants.
+  Tokenizer files only, cached under a lock and kept only after a successful
+  load; `measure` never raises and says what went unchecked in
+  `encoders_detail`. Never from `/api/status`; `prompt_encoding.unload()` runs
+  on Unload and shutdown. `\(`/`\)` escapes are not flagged.
+- Tag categories for the order and artist checks come from the chips' own
+  lookup (`_lookup_tags`), only on a Danbooru-vocabulary guide or one whose
+  rules read artists (Anima, `wants_artist_categories`, no cutoff) and a tag
+  or hybrid prompt, capped at the chips' 64 items; any failure there is
+  `None` - order placed from the guide's own groups, never guessed - not an
+  error. The reported `style` is `detect_style(prompt, categories)`, the one
+  the rules applied.
+- The critic is pinned: llama.cpp `b11206` archives (`critic.BUILDS`: Windows
+  CUDA 13.4, and Ubuntu for WSL) and `Qwen/Qwen3-4B-GGUF` `Qwen3-4B-Q8_0.gguf`
+  at a fixed revision, each held to its size and sha256 (`.part`, verify,
+  extract beside, rename; traversal refused; an unmarked tree never used).
+  `LOCAL_DIFFUSION_CRITIC` (default on), `LOCAL_DIFFUSION_CRITIC_SERVER` and
+  `LOCAL_DIFFUSION_CRITIC_MODEL` (absolute; neither held to the pins).
+  `supported()`/`ready()` are file checks only, fit for `/api/status`.
+- The critique route: 422 unsupported, 409 while a job is queued or running or
+  the image model loads (checked before `prepare()` and again after it),
+  `prepare()` on a daemon thread outside the gate, then `critique()` inside
+  `jobs.run_when_idle`. One `llama-server` per call on 127.0.0.1, a free port
+  and a fresh API key passed as `LLAMA_API_KEY` in its environment (never on
+  the command line, which other local users can read), refused when
+  `/v1/models` answers without it, and stopped (terminate, wait, kill) in
+  `finally` before the gate opens.
+  `prompt_critic.unload()` on Unload, in lifespan before `jobs.shutdown()` and
+  in `handle_exit`. `CriticUnavailable` is 503, `CriticError` 502.
+- The critic's answer is checked before it is shown (`critic.validate`):
+  `cite_id` is an enum of the numbered G and A sources in the answer's JSON
+  schema and is resolved server-side (an unknown id drops the issue, counted
+  in `dropped`); a quote is located in the prompt (`critic.locate`) or
+  nulled; a part must be the prompt's own words and `text_to_render` its
+  lettering (`prompt_rules.rendered_spans`); issues restating a reported rule
+  finding, and order issues asking for different parts first, are left out;
+  `reordered` survives only under a documented order and as a pure reorder
+  of whole tags, clauses, sentences or XML blocks with quoted text unchanged
+  (`is_reorder`); a rewrite wrapped in quotation marks is unwrapped, one
+  quoting words the prompt lacks is dropped, one quoting its description is
+  flagged. What was left out besides `dropped` is said in `set_aside`. The
+  rewrite is linted by layer 1 in the route after the gate opens (`_lint`,
+  no tag lookup), since a lint can fetch a tokenizer. What survives is still
+  the model's suggestion; the docs must not call it trusted. Reasoning stays
+  on. A G sentence listed `unsourced` in `prompt_sources` is never citable,
+  and a borrowed excerpt says whose it is.
 
 Frontend and CLI:
 
@@ -297,13 +417,29 @@ Frontend and CLI:
 - Prompt expansion is ERNIE-only and explicit: its result replaces the editor
   only if the user did not type while the long request was in flight, then the
   usual persistence and grid preview paths are told about the programmatic edit.
+  The critic holds what Expand holds (Generate and Run grid aria-disabled,
+  Expand, Unload) and `startJob` refuses while it runs.
+- The prompt check describes one text: the prompt and negative prompt as
+  `collect()` sent them. Any change to either - typing, every programmatic
+  write through `promptReplaced()`, `syncCfg()` greying the negative - marks
+  it stale: dimmed, every Use/Apply and Run comparison dead, a finding's words
+  selected only while still where the check found them. A checkpoint change
+  clears it. Apply is offered on rule findings only; an encoder suggestion is
+  shown as text. Use and Apply write through `replaceBoxText` (so Ctrl+Z
+  restores) and check again. Server offsets count code points; the page
+  converts them (`units()`) before selecting. The comparison sends
+  `num_images: 1`, never writes `els.prompt` or `els.gridPrompt`, drops a
+  version identical to another, and opens its run as the sheet when done;
+  its Your version box (`yours`) is the one way to test order on prose. A
+  negative-prompt Apply is dead while the negative box is greyed.
 - Tag autocomplete and comma-item validation use the fixed Danbooru
   tag API through `backend/tags.py`, filtered when a checkpoint documents a
   knowledge cutoff. WAI v17 publishes none: keep its cutoff `None` and the
   live lookup advisory rather than inventing a date. Model-card
   special tags validate locally; lookup failure stays advisory and never blocks.
   On a two-column page validation lives above the results, not in the panel;
-  under 901 px the same node returns below Prompt.
+  under 901 px the same node returns below Prompt. The prompt check's panel
+  follows it, in that order (`placeTagValidation` moves both).
 - Validation chips edit the prompt: drag (or Alt+Left/Right) reorders, × or
   Delete removes, and right-clicking a gap inserts there (a chip inserts after
   itself) with autocomplete. All mutations must go through `writePromptTags`.
@@ -313,14 +449,34 @@ Frontend and CLI:
   it, since clearing the gallery never reaches the browser.
 - The sheet's layout contract - axes, prompt labels, pins, variables - lives in
   the client, and the export is client-side, not a route. The sheet asks for
-  the whole run in one page.
+  the whole run in one page. A variable axis lists its values by first
+  appearance (the oldest image carrying each), not alphabetically, and a
+  varying `var:variant` axis takes the rows whenever anything else varies
+  (`VARIANT_AXIS`, held to `grid.VARIANT` by `tests/test_grid.py`), so a
+  comparison reads original, reordered, rewrite, top to bottom.
 - `generate.py` duplicates `jobs._generate`'s loop deliberately. It applies
   `--model/--quant/--offload` to `os.environ` before importing
   `backend.config`, as `launch.configure()` does for the server; both take the
   flags from `launch.add_model_arguments`.
+- The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
+  `GET`/`DELETE /api/gallery/unstarred` and `POST /api/rerender` scope to
+  `settings.model_id` (`main._model_scope`, an exact predicate, never the
+  `model:` LIKE) unless `all_models=true`; the page's All models tick is the
+  one switch, unpersisted like Favorites, and `GalleryPage.other_models` is
+  what the same filter matches elsewhere. Delete unstarred takes the scope
+  because its count must be the grid's.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
   day, `mu:none` is `IS NULL`, and `search.strict_scope` is the reading for
-  `clear --where` and `keep_rates`. The gallery pages by id, never by offset.
+  `clear --where`, `keep_rates` and the gallery's Delete unstarred
+  (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
+  --keep-favorites` over HTTP, the search box strict or empty, gated on the
+  count typed back and pinned to it as `expected`, which `delete_matching`
+  checks under the write lock and answers 409 on a mismatch; rows and files
+  only, no orphan sweep. `forgetImages` is the one place the page drops
+  deleted ids. The gallery pages by id, never by offset,
+  and pages itself as "Load more" scrolls near the viewport (`moreWatcher`,
+  re-armed by `watchMore` after each page that lands, never after one that
+  failed - the button is the retry).
 
 ## Adding a backend
 
@@ -342,6 +498,20 @@ that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
 HTTP guards.
 
+The prompt analyser is tested the same way, with no network, no subprocess
+and no GPU: `test_prompt_encoding.py` (budgets, cuts, templates held to the
+installed diffusers source; its real-tokenizer cases skip when nothing is
+cached), `test_prompt_rules.py` (the `analysis` data against the prose, the
+authors' examples raising no warning), `test_critic.py` (pins, install,
+server command and stop, answer validation, grounding) and
+`test_api_analysis.py` for the routes, the gate and the status flags. The
+`fake` fixture installs `FakeCritic` as `main.prompt_critic` - its five
+methods held to `PromptCritic`'s signatures by a test, its answer raw JSON
+put through the real `critic.validate`, so nothing it returns is something
+the real pipeline could not - and
+`fakes.fake_tokenizer` as `prompt_encoding._load_tokenizer`: a token per word
+or mark with real offsets, at each encoder's real budget.
+
 There is no JavaScript test suite. `web/` is checked in a real browser
 instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
 tests' fake backend (gradient images stamped with seed and steps, a throwaway
@@ -361,18 +531,37 @@ takes the claimed profile's threshold and true-CFG flag, and its model id's
 prompt-expansion capability, so it behaves as the real one would.
 `smoke-animagine.json` runs against an Animagine-claiming fake on 7866 for its
 tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
-aspects, orientation switch and disabled non-flow Mu controls.
+aspects, orientation switch and disabled non-flow Mu controls, and the prompt
+check on a tag checkpoint: a tag out of the documented order, Use reordered,
+and the recommended-negative Apply going dead once the negative box is edited.
 `smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
 prompting, the native 1-2.25 MP size range, 4 MP warning and disabled Mu.
 `smoke-z-anime.json` uses a Z-Anime-claiming fake on 7868 for Base defaults,
 natural-language prompting, negative guidance, enabled Mu and the documented
 4 MP ceiling.
+`smoke-paging.json` uses a fresh Krea-claiming fake on 7867 for the gallery
+paging itself on scroll (it builds a 60-image grid, so it holds once per
+gallery). Run it separately from the Illustrious smoke on the same port:
+
+```powershell
+uv run python tools/fake_server.py --port 7867 --fresh
+node tools/browser.mjs tools/smoke-paging.json
+```
+
 `smoke-anima.json` checks Anima Turbo defaults, its documented size range,
 disabled Mu and applied saved settings on port 7869:
 
 ```powershell
 uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
 node tools/browser.mjs tools/smoke-anima.json
+```
+
+`smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
+and saved settings on port 7870:
+
+```powershell
+uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
+node tools/browser.mjs tools/smoke-kohaku.json
 ```
 
 `smoke-netayume.json` checks NetaYume v4 defaults, the qualified size guide,
@@ -398,6 +587,35 @@ reference-size guide, disabled Mu and saved settings on port 7873:
 uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
 node tools/browser.mjs tools/smoke-wai.json
 ```
+
+`smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on
+7874: the CLIP cut, the negation and quote findings with their sources, span
+and cut selection (an emoji ahead of them included), the stale rule for both
+prompt boxes, Apply, the critic's first-use and timing lines and its hold on
+Generate, Use rewrite with undo and a reload, an edit while the critic
+thinks, a two-version comparison opening its sheet, a prose prompt's order
+shown as not checked, a one-clause prompt the critic cannot reorder, and a
+comparison against Your version. `smoke-animagine.json` covers the
+tag-order check and the negative prompt's Apply, dead while the box is
+greyed. The fake server
+serves the tests' `FakeCritic` and word tokenizers: `--critic-delay` (seconds
+a critique takes, default 0.4, so its in-flight state can be seen) and
+`--no-critic` (a platform with no build: the page hides the critic). The fake
+critic counts as downloaded from its first critique on, so the first-use line
+shows only on a newly started server; the smoke accepts either line:
+
+```powershell
+uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-analysis.json
+```
+
+GPU generation, repeat-seed pixels, cancellation and any preview evidence
+are recorded per checkpoint in `docs/verified.md`, and the real critic's runs
+under its "Prompt analyser" section; CPU and browser checks alone do not
+establish runtime quality or performance. WAI's conditioning
+regression is `tests/test_wai_conditioning.py`: both positive and negative
+SDXL conditioning must remain finite with its unused final CLIP-L NaNs
+under none, FP8 and int8 quantization.
 
 
 Static files are served from disk, so a `web/` edit needs no server restart;
