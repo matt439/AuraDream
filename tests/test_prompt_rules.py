@@ -291,6 +291,28 @@ def test_order_is_checked_only_where_the_rules_can_place_it():
     assert not prompt_rules.order_checked(ANIMAGINE, ", ".join(f"t{i}" for i in range(300)))
 
 
+@pytest.mark.parametrize(
+    "prompt", ["masterpiece\nsafe\n1girl", "masterpiece，safe，1girl，smile"]
+)
+def test_a_list_not_split_by_commas_is_not_shown_as_ordered(prompt):
+    # One tag per line, or "，" between them: tags to read, one comma item to
+    # the chips and the order rule, so nothing in it was placed.
+    assert prompt_rules.detect_style(prompt) == "tags"
+    assert not prompt_rules.order_checked(ANIMAGINE, prompt)
+    assert prompt_rules.reorder_tags(ANIMAGINE, prompt, None) is None
+    assert only(run(ANIMAGINE, prompt), "guide.order") == []
+    # masterpiece is there: not reported missing, not appended again.
+    [finish] = only(run(ANIMAGINE, prompt), "guide.quality")
+    assert "masterpiece" not in finish.message
+    assert finish.suggestion.count("masterpiece") == 1
+    # Nor is Illustrious's quality tier, on a line or after "，" of its own.
+    separator = "\n" if "\n" in prompt else "，"
+    assert silent(ILLUSTRIOUS, separator.join(["1girl", "solo", "best quality"]), "guide.quality")
+    assert only(run(ILLUSTRIOUS, separator.join(["1girl", "solo", "smile"])), "guide.quality")
+    # Line breaks after commas split nothing the commas did not.
+    assert prompt_rules.order_checked(ANIMAGINE, "1girl,\nsmile,\nmasterpiece")
+
+
 @pytest.mark.parametrize("prompt", ["[" * 3999, "{" * 3999, '{"a":' * 799])
 def test_nesting_deeper_than_the_parser_is_not_json(prompt):
     # Inside the 4000-character limit, and deep enough that json.loads runs
@@ -318,6 +340,35 @@ def test_comma_items_carry_their_place():
     items = prompt_rules.comma_items(prompt)
     assert [item.text for item in items] == ["1girl", "long hair", "smile"]
     assert all(prompt[item.start:item.end] == item.text for item in items)
+
+
+@pytest.mark.parametrize(
+    "text, quoted",
+    [
+        # Chinese, Japanese and Korean put no space around a quotation, and
+        # ERNIE's rewriter wraps lettering in English single quotes.
+        ("写着'营业中'的招牌", ["'营业中'"]),
+        ("一块木招牌上写着'营业中'，傍晚的街道", ["'营业中'"]),
+        ("'营业中'的字样", ["'营业中'"]),
+        ("看板に'OPEN'と書いてある", ["'OPEN'"]),
+        ("'영업중'이라고 쓰인 간판", ["'영업중'"]),
+        ("A sign that says 'Black Forest Labs'", ["'Black Forest Labs'"]),
+        # A Latin letter or a digit on either side is still an apostrophe.
+        ("an animal's toy, rock'n'roll, the '90s", []),
+        ("the cat's 'toy'", ["'toy'"]),
+        ("猫's toy isn't here", []),
+    ],
+)
+def test_single_quotes_may_touch_ideographs(text, quoted):
+    assert prompt_rules.QUOTED.findall(text) == quoted
+
+
+def test_single_quoted_chinese_lettering_is_quoted_text():
+    # Lettering in quotation marks: nothing to quote, and the span the
+    # critic holds text_to_render and a rewrite's lettering to.
+    prompt = "一家小店门口，一块木招牌上写着'营业中'，傍晚的街道"
+    assert only(run(ERNIE, prompt), "guide.quote_text") == []
+    assert [prompt[s:e] for s, e in prompt_rules.rendered_spans(prompt)] == ["'营业中'"]
 
 
 # ------------------------------------------------------------------ prose rules
@@ -354,10 +405,50 @@ def test_negation_warns_where_no_negative_prompt_runs():
         # The particle of a romanised title or name, between capitals.
         (FLUX_DEV, "Fern from Sousou no Frieren standing in a meadow"),
         (FLUX_DEV, "A poster of Kimi no Na wa and Shingeki no Kyojin on a bedroom wall"),
+        # Avoiding something is an action to draw; a capital "No" in
+        # mid-sentence or before a title-case word is a name.
+        (KREA_DEV, "A cat trying to avoid the rain under a porch"),
+        (KREA_DEV, "A cat, trying to avoid the rain"),
+        (KREA_DEV, "A skier avoiding trees on a steep slope"),
+        (KREA_DEV, "The film Dr. No playing on a TV"),
+        (KREA_DEV, "A poster for No Country for Old Men on a wall"),
+        (KREA_DEV, "A No Smoking sign on a wall"),
     ],
 )
 def test_negation_leaves_quotes_idioms_and_other_guides_alone(model_id, prompt):
     assert only(run(model_id, prompt), "guide.negation") == []
+
+
+@pytest.mark.parametrize(
+    "prompt, phrases",
+    [
+        # "avoid" as an instruction still asks for an absence.
+        ("A clean desk, avoid clutter", ["avoid clutter"]),
+        ("Avoid text. A quiet beach at dawn", ["Avoid text"]),
+        ("Please avoid text on the walls", ["avoid text"]),
+        ("A beach at dawn. No people anywhere.", ["No people anywhere"]),
+        ("A quiet beach at dawn — No people in sight", ["No people in sight"]),
+        # Only a word or a title's abbreviation right before a head keeps it
+        # inside a clause: a year's or a short word's full stop, a spaced
+        # dash, a bullet or a bar opens one.
+        ("A street photo taken in 1998. No people in sight.", ["No people in sight"]),
+        ("A dog looking up. No people.", ["No people"]),
+        ("A quiet beach at 6 a.m. No people.", ["No people"]),
+        ("A tidy desk with a lamp on it. Avoid clutter.", ["Avoid clutter"]),
+        ("A beach at dawn - No people in sight", ["No people in sight"]),
+        ("A beach at dawn - avoid people", ["avoid people"]),
+        ("A beach at dawn\n- No people", ["No people"]),
+        ("A beach at dawn\n* Avoid people", ["Avoid people"]),
+        ("A beach at dawn | No people", ["No people"]),
+        # An acronym after "No" is no title.
+        ("Photorealistic portrait. No CGI look, no plastic skin.", ["No CGI look", "no plastic skin"]),
+        ("A living room. No TV in the room.", ["No TV"]),
+        # A name is not cut at the window's end.
+        ("A climber without ropes on El Capitan at dawn", ["without ropes on El Capitan"]),
+    ],
+)
+def test_negation_near_misses_are_still_negations(prompt, phrases):
+    assert [spanned(prompt, f) for f in only(run(KREA_DEV, prompt), "guide.negation")] == phrases
 
 
 def test_sign_text_is_quoted_rather_than_rephrased():
@@ -443,6 +534,126 @@ def test_lettering_whose_end_is_a_guess_gets_no_one_click_quote():
 
 
 @pytest.mark.parametrize(
+    "model_id, prompt, target, ends",
+    [
+        # 的 links the lettering to what it is on: a wooden sign reading
+        # 欢迎光临. Whether 的 is the lettering's own is the guess; what
+        # follows it is description, so nothing may read on past it.
+        (QWEN, "一块写着欢迎光临的木质招牌挂在门口", "欢迎光临", True),
+        (ERNIE, "一件印着我爱北京的白色T恤", "我爱北京", True),
+        (ERNIE, "一块写有欢迎字样的牌子", "欢迎字样", True),
+        # Longer than the target's cap, with more text after it.
+        (QWEN, "招牌上写着欢迎光临本店祝您用餐愉快万事如意", "欢迎光临本店祝您用餐愉快", False),
+        # Latin lettering may run on past a space, or past an ASCII mark
+        # with a letter or a digit after it: hours, a price, an address.
+        (QWEN, "招牌上写着OPEN NOW的字样", "OPEN", False),
+        (QWEN, "门上写着营业时间9:00-21:00", "营业时间9", False),
+        (QWEN, "招牌上写着3.14的数字", "3", False),
+        (QWEN, "招牌上写着www.shop.com", "www", False),
+    ],
+)
+def test_chinese_lettering_whose_end_is_a_guess_gets_no_one_click_quote(
+    model_id, prompt, target, ends
+):
+    # With no spaces to end Chinese lettering, twelve characters of whatever
+    # followed were quoted - the sign and the door with the words - and the
+    # re-check then passed.
+    [finding] = only(run(model_id, prompt), "guide.quote_text")
+    assert spanned(prompt, finding) == target and finding.suggestion is None
+    assert "Put the exact words to render in quotation marks." in finding.message
+    assert [(prompt[s:e], x) for s, e, x in prompt_rules.rendered_targets(prompt)] == [
+        (target, ends)
+    ]
+
+
+@pytest.mark.parametrize(
+    "prompt, target",
+    [
+        ("街边的招牌上写着欢迎光临，夜晚", "欢迎光临"),
+        ("门上写着：营业中", "营业中"),
+        ("招牌上写着OPEN，夜晚", "OPEN"),
+        # Latin lettering ends where the script changes, 的 included.
+        ("写着OPEN的招牌", "OPEN"),
+        ("一件印有LOGO的T恤", "LOGO"),
+        # A title is its marks and what they hold.
+        ("封面上写着《营业中》的招牌", "《营业中》"),
+    ],
+)
+def test_chinese_lettering_ended_by_punctuation_is_quoted(prompt, target):
+    [finding] = only(run(QWEN, prompt), "guide.quote_text")
+    start = prompt.index(target)
+    assert finding.suggestion == f'{prompt[:start]}"{target}"{prompt[start + len(target):]}'
+    assert only(run(QWEN, finding.suggestion), "guide.quote_text") == []
+
+
+def test_lowercase_words_after_a_participle_get_no_one_click_quote():
+    # "reading" belongs to whichever noun it follows: the boy reads comics.
+    prompt = "A boy sitting on a box reading comics"
+    [finding] = only(run(KREA_DEV, prompt), "guide.quote_text")
+    assert spanned(prompt, finding) == "comics" and finding.suggestion is None
+    [finding] = only(run(KREA_DEV, "A speech bubble saying hi"), "guide.quote_text")
+    assert finding.suggestion is None
+    # Capitals after one, and lowercase words after "says" whose end a stop
+    # word marks, are still quoted in one click.
+    for prompt, target in (
+        ("A red sign reading NO PARKING on a brick wall", "NO PARKING"),
+        ("A wooden sign that says open above the bakery door", "open"),
+    ):
+        [finding] = only(run(KREA_DEV, prompt), "guide.quote_text")
+        start = prompt.index(target)
+        assert finding.suggestion == f'{prompt[:start]}"{target}"{prompt[start + len(target):]}'
+
+
+@pytest.mark.parametrize(
+    "prompt, target",
+    [
+        ("A sign above her reads OPEN", "OPEN"),
+        ("A sign behind her reads NO ENTRY", "NO ENTRY"),
+        ("A banner behind her said WELCOME HOME", "WELCOME HOME"),
+        ("A girl at a cafe, a sign above her reads OPEN", "OPEN"),
+        ("A poster of her says HELLO", "HELLO"),
+        ("A sign above her says welcome", "welcome"),
+        # "her" is an object here too, and a capital is lettering.
+        ("A sign above her reading OPEN", "OPEN"),
+    ],
+)
+def test_a_trigger_after_her_is_still_a_verb(prompt, target):
+    # Only a form that can be a noun - "a book of spells", "her reading
+    # glasses" - is one after a possessive: "her" is also an object, and
+    # read as a noun, "NO ENTRY" lost its quote and warned as an absence.
+    findings = run(KREA_DEV, prompt)
+    [finding] = only(findings, "guide.quote_text")
+    start = prompt.index(target)
+    assert finding.suggestion == f'{prompt[:start]}"{target}"{prompt[start + len(target):]}'
+    assert only(findings, "guide.negation") == []
+
+
+def test_rendered_targets_say_which_ends_are_sure():
+    # The critic reads past a lettering end only where the rules stopped at
+    # a guess and the lettering may go on ("fish and chips for sale").
+    prompt = (
+        'A sign that says OPEN in red, a banner reading "SALE", '
+        "a stall with a sign that says fish and chips for sale"
+    )
+    targets = prompt_rules.rendered_targets(prompt)
+    assert [(prompt[start:end], ends) for start, end, ends in targets] == [
+        ("OPEN", True), ('"SALE"', True), ("fish", False),
+    ]
+    assert prompt_rules.rendered_spans(prompt) == [(start, end) for start, end, _ in targets]
+    # No one-click quote on these, but what follows is description, not
+    # more lettering: the sign itself after 的, "about space" after a
+    # participle's lowercase words, even where a joining word stopped them.
+    chinese = "一块写着欢迎光临的木质招牌"
+    assert prompt_rules.rendered_targets(chinese) == [(4, 8, True)]
+    assert prompt_rules.rendered_spans(chinese) == [(4, 8)]
+    comics = "A boy sitting on a box reading comics about space and a cat asleep"
+    assert only(run(KREA_DEV, comics), "guide.quote_text")[0].suggestion is None
+    assert [(comics[s:e], x) for s, e, x in prompt_rules.rendered_targets(comics)] == [
+        ("comics about space", True)
+    ]
+
+
+@pytest.mark.parametrize(
     "prompt",
     [
         'A cat holding a sign that says "hello world"',
@@ -459,10 +670,34 @@ def test_lettering_whose_end_is_a_guess_gets_no_one_click_quote():
         # "labeled" as an adjective names no text.
         "A diagram with labeled parts of a flower",
         "A labeled map of the island",
+        # What follows a trigger may describe the text rather than be it: how
+        # it is made, where it sits, whose it is.
+        "A t-shirt with the words printed across the chest",
+        "A wooden plaque with the text carved into the wood",
+        "A leaflet with the text about climate change",
+        "A poster with the words neatly printed below the photo",
+        "An old man with a newspaper reading without glasses by the fire",
+        "A girl on a crate reading a book",
+        # A trigger that can be a noun is one after "of", an article or a
+        # possessive.
+        "An ancient book of spells glowing on the altar",
+        "A book of spells bound in leather",
+        "A poster of a girl with reading glasses",
+        "A sign on the wall behind her reading glasses",
     ],
 )
 def test_quoted_or_non_text_words_are_left_alone(prompt):
     assert only(run(FLUX_DEV, prompt), "guide.quote_text") == []
+    # Nor does the critic take them for lettering.
+    if not prompt_rules.QUOTED.search(prompt):
+        assert prompt_rules.rendered_spans(prompt) == []
+
+
+def test_a_negation_after_a_trigger_is_still_one():
+    # Read as lettering, "without glasses by the fire" hid its negation.
+    prompt = "An old man with a newspaper reading without glasses by the fire"
+    [finding] = only(run(KREA_DEV, prompt), "guide.negation")
+    assert spanned(prompt, finding) == "without glasses"
 
 
 def test_animagine_says_text_is_not_rendered():
@@ -566,6 +801,28 @@ def test_netayume_system_prefix_is_not_typed_twice():
     assert [spanned(prompt, f) for f in findings] == [SYSTEM_PROMPT, "<Prompt Start>"]
     assert all(f.severity == "warn" and f.suggestion == "1girl, solo" for f in findings)
     assert only(run(NETAYUME, "1girl, solo"), "guide.system_prefix") == []
+
+
+def test_netayume_system_prefix_is_found_in_the_text_itself():
+    # "İ" lowers to two characters, so a span found in text.lower() selected
+    # the wrong words and the suggestion cut into the tags.
+    prompt = f"İİ {SYSTEM_PROMPT.upper()} 1girl"
+    [finding] = only(run(NETAYUME, prompt), "guide.system_prefix")
+    assert spanned(prompt, finding) == SYSTEM_PROMPT.upper()
+    assert finding.suggestion == "İİ 1girl"
+    # Only the cut's seam is tidied: a blank line and the spacing inside
+    # quoted lettering are the user's.
+    prompt = f'{SYSTEM_PROMPT}   1girl, sign reading "OPEN    NOW"\n\nsmile'
+    [finding] = only(run(NETAYUME, prompt), "guide.system_prefix")
+    assert finding.suggestion == '1girl, sign reading "OPEN    NOW"\n\nsmile'
+    # A comma either side of the cut is one comma, and none opens the text.
+    for prompt, suggestion in (
+        (f"1girl,{SYSTEM_PROMPT},smile", "1girl, smile"),
+        (f"1girl, {SYSTEM_PROMPT}, smile", "1girl, smile"),
+        (f"{SYSTEM_PROMPT}, 1girl", "1girl"),
+    ):
+        [finding] = only(run(NETAYUME, prompt), "guide.system_prefix")
+        assert finding.suggestion == suggestion
 
 
 def test_newbie_xml():
@@ -775,6 +1032,48 @@ def test_nothing_to_reorder(model_id, prompt):
     assert prompt_rules.reorder_tags(model_id, prompt, None) is None
 
 
+OVER_CAP = "masterpiece, " + ", ".join(f"t{i}" for i in range(300)) + ", 1girl"
+# Comma items the categories place out of order, inside a JSON list.
+JSON_CATEGORIES = {'"smile"': "general", '"firefly"': "character"}
+
+
+@pytest.mark.parametrize(
+    "prompt, twin, categories",
+    [
+        # Past the item cap: no 1,700-character Apply, no quadratic placement.
+        (OVER_CAP, "masterpiece, t0, 1girl", None),
+        ('[0, "smile", "firefly", 0]', 'x, "smile", "firefly", y', JSON_CATEGORIES),
+        ("<x>, masterpiece, 1girl", "x, masterpiece, 1girl", None),
+        ("masterpiece\nsafe\n1girl", "masterpiece, safe, 1girl", None),
+    ],
+)
+def test_the_order_rule_stands_down_where_the_order_is_not_checked(prompt, twin, categories):
+    # The same pair written as a plain tag list is flagged; here it is not.
+    assert only(run(ANIMAGINE, twin, categories), "guide.order")
+    assert not prompt_rules.order_checked(ANIMAGINE, prompt)
+    assert only(run(ANIMAGINE, prompt, categories), "guide.order") == []
+    assert prompt_rules.reorder_tags(ANIMAGINE, prompt, categories) is None
+
+
+@pytest.mark.parametrize("model_id", [c.repo for c in launch.CHECKPOINTS])
+def test_an_order_not_checked_is_never_flagged(model_id):
+    # The page says "Not checked" wherever order_checked is False, so no
+    # order finding or reordered version may exist there.
+    prompts = [
+        OVER_CAP, '[0, "smile", "firefly", 0]', "<x>, masterpiece, 1girl",
+        "masterpiece\nsafe\n1girl", "masterpiece，safe，1girl，smile",
+        "masterpiece, smile, safe, honkai: star rail, firefly, 1girl",
+        "A girl standing in a field at dusk, masterpiece, 1girl",
+        *guide_for(model_id)["examples"],
+    ]
+    for prompt in prompts:
+        if prompt_rules.order_checked(model_id, prompt):
+            continue
+        for categories in (None, {**CATEGORIES, **JSON_CATEGORIES}):
+            assert only(run(model_id, prompt, categories), "guide.order") == [], prompt
+            assert prompt_rules.reorder_tags(model_id, prompt, categories) is None, prompt
+
+
 def test_the_kohaku_example_departs_from_the_epsilon_order():
     # The TIPO demo's DEFAULT_TAGS ends "masterpiece, absurdres, sensitive,
     # newest", while the caption order Zeta refers to puts the date before
@@ -900,6 +1199,25 @@ def test_repeated_items():
     assert finding.suggestion == "1girl, smile, long hair"
     # NewBie characters share tags on purpose.
     assert silent(NEWBIE, guides.NEWBIE_GUIDE["examples"][0], "heuristic.repeated")
+
+
+def test_rules_leave_quoted_lettering_as_written():
+    # A comma inside quotation marks splits comma items, not the words to
+    # render: repeated, lowercased or de-underscored, the sign's text changed
+    # in one click and the re-check found nothing wrong.
+    rule = "heuristic.repeated"
+    card = 'A Christmas card with the text "Ho, ho, ho, Merry Christmas" in red'
+    assert silent(KREA_DEV, card, rule)
+    assert silent(QWEN, 'A banner that reads "Go, team, go, team, go!"', rule)
+    [repeat] = only(run(KOHAKU, '1girl, sign says "hi, hi", smile, smile'), rule)
+    assert repeat.suggestion == '1girl, sign says "hi, hi", smile'
+    assert silent(ANIMA, '1girl, sign says "HELLO", smile', "guide.lowercase")
+    assert silent(ANIMA, '1girl, "I LOVE NY" shirt, smile', "guide.lowercase")
+    [caps] = only(run(ANIMA, 'Sign says "HELLO", 1girl, smile'), "guide.lowercase")
+    assert caps.suggestion == 'sign says "HELLO", 1girl, smile'
+    assert silent(KOHAKU, '1girl, holding sign, "user_name", smile', "guide.underscores")
+    [joined] = only(run(KOHAKU, '1girl, name_tag "user_name", smile'), "guide.underscores")
+    assert joined.suggestion == '1girl, name tag "user_name", smile'
 
 
 # ------------------------------------------------------------------ robustness

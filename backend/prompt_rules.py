@@ -162,6 +162,14 @@ def _is_sentence(text: str) -> bool:
     )
 
 
+def _pieces(text: str) -> list[str]:
+    """The pieces the style is read from: split at commas, fullwidth commas
+    and line breaks, where `comma_items` - the chips' split - takes commas
+    alone. A list written one tag per line or with "，" reads as tags here and
+    is one comma item there."""
+    return [piece.strip() for piece in re.split(r"[,，\n]", text) if piece.strip()]
+
+
 def detect_style(prompt: str, categories: dict[str, str] | None = None) -> Style:
     """How the text reads: sentences, a comma tag list, both, XML or JSON.
 
@@ -197,7 +205,7 @@ def _detect_style(prompt: str, known: dict[str, str] | None) -> Style:
             return "json"
     if _XML_ELEMENT.search(text) or _XML_START.match(text):
         return "xml"
-    pieces = [piece.strip() for piece in re.split(r"[,，\n]", text) if piece.strip()]
+    pieces = _pieces(text)
     if len(pieces) <= 1:
         single = pieces[0] if pieces else ""
         tag = listed(single) or (
@@ -230,13 +238,20 @@ def _detect_style(prompt: str, known: dict[str, str] | None) -> Style:
 
 
 # Quoted stretches, in the marks a prompt uses for text to render. A single
-# quote counts only as a pair that does not touch a word, so "animal's" is
-# an apostrophe and 'Black Forest Labs' a quotation. The one definition: the
-# critic's reorder and rewrite checks and the encoder layer's weighting scan
-# read quoted text with it too.
+# quote counts only as a pair that does not touch a Latin letter or a digit,
+# so "animal's" is an apostrophe and 'Black Forest Labs' a quotation. Han,
+# kana and Hangul may touch it: Chinese, Japanese and Korean put no space
+# around a quotation (写着'营业中'的招牌), and ERNIE's own rewriter wraps
+# lettering in English single quotes. The one definition: the critic's
+# reorder and rewrite checks and the encoder layer's weighting scan read
+# quoted text with it too.
+_WORD_NOT_CJK = (
+    r"[^\W\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff"
+    r"\uac00-\ud7af\uf900-\ufaff]"
+)
 QUOTED = re.compile(
     r'"[^"\n]*"|“[^”\n]*”|„[^“”\n]*[“”]|「[^」\n]*」|『[^』\n]*』|«[^»\n]*»|‘[^’\n]*’'
-    r"|(?<![\w'])'[^'\n]+'(?![\w'])"
+    rf"|(?<!{_WORD_NOT_CJK}|')'[^'\n]+'(?!{_WORD_NOT_CJK}|')"
 )
 _QUOTE_OPEN = "\"'“„「『«‘"
 
@@ -422,6 +437,25 @@ def _violation(places: list[frozenset[int]]) -> tuple[int, int] | None:
     return None
 
 
+def _placeable(spec: _OrderSpec | None, text: str, style: Style, items: list[Item]) -> bool:
+    """Whether the order rules hold this text's comma items to the documented
+    order at all - the one answer `order_checked`, `reorder_tags` and the
+    order rule share, so the page never shows an order as checked that the
+    rule stood down from.
+
+    Not where the guide gives no slots, not on XML or JSON, not past
+    `_MAX_ORDERED` items, and not where line breaks or fullwidth commas split
+    what the chips read as one comma item: such a list reads as tags, but
+    nothing in it could be placed.
+    """
+    return (
+        spec is not None
+        and style not in ("xml", "json")
+        and len(items) <= _MAX_ORDERED
+        and len(_pieces(text)) <= len(items)
+    )
+
+
 # ------------------------------------------------------------------ public
 
 
@@ -451,31 +485,29 @@ def order_checked(model_id: str, prompt: str) -> bool:
     """Whether the rules hold this prompt to the documented order at all.
 
     Only a tag checkpoint's order is checkable - its comma items take slots
-    (`_OrderSpec`) - and only on a text that is not XML or JSON and not past
-    `_MAX_ORDERED` items. A FLUX sentence's "subject first", klein's four
-    steps and NewBie's blocks are documented but read by nothing here, and the
-    page must not let an empty findings list pass for a checked order.
+    (`_OrderSpec`) - and only on a text that is not XML or JSON, not past
+    `_MAX_ORDERED` items and split into its items by commas (`_placeable`).
+    A FLUX sentence's "subject first", klein's four steps and NewBie's blocks
+    are documented but read by nothing here, and the page must not let an
+    empty findings list pass for a checked order.
     """
-    if _order_spec(_guide(model_id)) is None or detect_style(prompt) in ("xml", "json"):
-        return False
-    return len(comma_items(prompt)) <= _MAX_ORDERED
+    spec = _order_spec(_guide(model_id))
+    return _placeable(spec, prompt, detect_style(prompt), comma_items(prompt))
 
 
 def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) -> str | None:
     """The same comma items, same spelling, moved into the documented order.
 
-    None where the checkpoint documents no tag order, the text is XML or
-    JSON, or nothing has to move. Prose pieces all sit in the general slot
-    and keep their order, so a caption that ends in tags - Illustrious's own
-    natural-language example does - moves only the tags. Nothing is added or
+    None where the order is not checked (`order_checked`) or nothing has to
+    move. Prose pieces all sit in the general slot and keep their order, so
+    a caption that ends in tags - Illustrious's own natural-language example
+    does - moves only the tags. Nothing is added or
     removed, and the text between items stays where it was, so the result is
     a pure permutation: the variant that isolates order on a comparison grid.
     """
     spec = _order_spec(_guide(model_id))
-    if spec is None or detect_style(prompt) in ("xml", "json"):
-        return None
     items = comma_items(prompt)
-    if not 2 <= len(items) <= _MAX_ORDERED:
+    if spec is None or len(items) < 2 or not _placeable(spec, prompt, detect_style(prompt), items):
         return None
     lookup = _category_lookup(categories)
     order = _ordered([_place(item, spec, lookup) for item in items])
@@ -577,6 +609,20 @@ class _Context:
     def taglike(self) -> bool:
         return self.style in ("tags", "hybrid")
 
+    def segments(self, item: Item) -> list[tuple[str, bool]]:
+        """`item`'s text in stretches, each True where it is lettering - quoted,
+        or read as text to render - which a rule leaves as written: a comma
+        inside "Ho, ho, ho" splits items, not the words to render."""
+        parts: list[tuple[str, bool]] = []
+        cursor = item.start
+        for start, end in sorted(self.quoted + self.rendered):
+            start, end = max(start, cursor), min(end, item.end)
+            if start < end:
+                parts += [(self.text[cursor:start], False), (self.text[start:end], True)]
+                cursor = end
+        parts.append((self.text[cursor:item.end], False))
+        return [(text, lettering) for text, lettering in parts if text]
+
 
 def check(
     model_id: str,
@@ -675,10 +721,25 @@ _BFL_POSITIVE = {
     "no blur": '"sharp focus throughout"',
 }
 _NEGATION = re.compile(
-    r"\b(?P<head>do\s+not|does\s+not|don['’]t|doesn['’]t|without|never|avoid(?:ing)?|no|not)"
+    r"\b(?P<head>do\s+not|does\s+not|don['’]t|doesn['’]t|without|never|avoid|no|not)"
     r"(?:[ \t]+[^\s,.;:!?()\[\]\"“”]+){1,3}",
     re.IGNORECASE,
 )
+# Capitalised words running on from where a negated phrase's window ends:
+# "without ropes on El Capitan" is not cut at "El".
+_CAPITAL_RUN = re.compile(r"(?:[ \t]+[A-ZÀ-ÖØ-Þ][^\s,.;:!?()\[\]\"“”]*)+")
+# Where a head sits inside a clause rather than opening one: right after a
+# word ("trying to avoid the rain", "the film No") or a title's abbreviation
+# ("Dr. No"). Anything else opens one - the text's start, a line break, any
+# full stop or clause mark, a dash, a bullet, a slash - and so does a word
+# that only softens an instruction ("please avoid text").
+_MID_CLAUSE = re.compile(
+    r"(?:(?<![\w'’-])(?!(?i:please|also)[ \t])[^\W\d_][\w'’-]*"
+    r"|\b(?:Dr|Mr|Mrs|Ms|Mt|St|Sr|Jr|Prof)\.)[ \t]+$"
+)
+# A capital "No" names where a title-case word follows it ("No Country for
+# Old Men", "No Smoking"), not an acronym ("No CGI look" is an absence).
+_TITLE_AFTER = re.compile(r"[ \t]+[A-ZÀ-ÖØ-Þ][a-zß-öø-ÿ]")
 # Words a negated phrase does not end on: "no people in the background" is
 # about the people.
 _TRAILING = frozenset(
@@ -700,6 +761,25 @@ def _particle(text: str, match: re.Match[str]) -> bool:
     )
 
 
+def _opens_clause(text: str, position: int) -> bool:
+    return not _MID_CLAUSE.search(text, max(0, position - 64), position)
+
+
+def _not_absence(text: str, match: re.Match[str]) -> bool:
+    """A negation head that asks for no absence: "avoid" anywhere but as an
+    instruction opening a clause ("a cat trying to avoid the rain" is drawn
+    avoiding it), and a capital "No" that names - in mid-sentence ("the film
+    Dr. No") or before a title-case word ("No Country for Old Men")."""
+    head = match.group("head")
+    if head.lower() == "avoid":
+        return not _opens_clause(text, match.start())
+    if head != "No":
+        return False
+    return bool(_TITLE_AFTER.match(text, match.end("head"))) or not _opens_clause(
+        text, match.start()
+    )
+
+
 def _negation(ctx: _Context) -> Iterable[PromptFinding]:
     entry = ctx.entry("negation")
     if entry is None:
@@ -710,7 +790,7 @@ def _negation(ctx: _Context) -> Iterable[PromptFinding]:
         # render - the quote rule's business - and not an absence.
         if _inside(ctx.quoted, match.start()) or _inside(ctx.rendered, match.start()):
             continue
-        if _particle(ctx.text, match):
+        if _particle(ctx.text, match) or _not_absence(ctx.text, match):
             continue
         head = len(match.group("head").split())
         words = list(re.finditer(r"\S+", match.group()))
@@ -720,6 +800,9 @@ def _negation(ctx: _Context) -> Iterable[PromptFinding]:
         if len(words) <= head or lowered.startswith(_IDIOMS):
             continue
         start, end = match.start(), match.start() + words[-1].end()
+        if _capitalised(words[-1].group()):
+            run = _CAPITAL_RUN.match(ctx.text, end)
+            end = run.end() if run else end
         phrase = ctx.text[start:end]
         if runs:
             message = (
@@ -771,6 +854,14 @@ _TEXT_BEARER = re.compile(
 # "labeled" as an adjective - "a diagram with labeled parts", "a labeled
 # map" - names no text; after a noun it names the text: a jar labeled SUGAR.
 _ATTRIBUTIVE = re.compile(r"(?i)\b(?:a|an|the|with|and|or|of|its|their|some|many)[ \t]+$")
+# A trigger that can be a noun - an -ing form, "spells" - is one after a
+# determiner or a preposition: "a book of spells", "with reading glasses",
+# "the reading". Not before a capital, which is lettering on something near
+# a person ("a sign above her reading OPEN": "her" is also an object), and
+# never a finite verb ("a sign above her reads OPEN").
+_NOUN_USE = re.compile(
+    r"(?i)\b(?:a|an|the|of|with|its|their|his|her|my|your|our|some|many)[ \t]+$"
+)
 # After "the text", a word that makes it a noun rather than a quotation:
 # "the text is blurry".
 _NOT_TEXT = frozenset(
@@ -789,22 +880,77 @@ _TARGET_STOP = frozenset(
 _TARGET_JOIN = frozenset("and & with as from for to".split())
 _TARGET_WORDS = 6
 _TARGET_WORD = re.compile(r"[ \t]*([^\s,.;:!?\"“”()]+)")
-_CJK_TARGET = re.compile(r"[^\s，。、；！？,.;!?\"“”「」『』]{1,12}")
+# Words that open a description of the text rather than the text itself -
+# "with the words printed across the chest", "the text carved into the
+# wood", "a newspaper reading without glasses": how it is made, where it
+# sits, whose it is. Only in lowercase: "reads Into the Woods" is a title.
+_DESCRIBES = _TARGET_STOP | frozenset(
+    "a an the this these those his her my your our their into onto upon about around "
+    "through by without within beneath underneath between against toward towards via "
+    "carved etched embossed engraved inscribed handwritten hand-written hand-painted "
+    "stenciled stencilled scrawled scribbled stamped embroidered stitched sewn burned "
+    "burnt spray-painted drawn displayed shown visible faded fading floating flashing "
+    "overlay overlaid superimposed".split()
+)
+# An adverb, which describes too where it leads into one of those or ends
+# the clause: "the words neatly printed", "reading quietly".
+_ADVERB = re.compile(r"[a-z]{3,}ly")
+# Chinese lettering has no spaces to end it. What ends it for certain is
+# whitespace, punctuation, a quotation mark or a bracket - though not an
+# ASCII mark inside Latin lettering or digits (营业时间9:00-21:00, 3.14,
+# www.shop.com). 的 and 之 link it to what it describes (写着欢迎光临的木质招牌,
+# a wooden sign reading ...), so a target stopped there - or by the length
+# cap, with more text after - is a guess, unless the script changes there
+# (写着OPEN的招牌).
+_CJK_BREAK = r"\s，。、；：！？,.;:!?\"'“”‘’「」『』（）()《》【】"
+_CJK_TARGET = re.compile(rf"[^{_CJK_BREAK}的之]{{1,12}}")
+_CJK_TARGET_END = re.compile(rf"[{_CJK_BREAK}]|$")
+# Latin lettering runs on past a space (写着OPEN NOW的招牌) or an ASCII mark
+# with a letter or a digit after it (营业时间9:00).
+_LATIN_ON = re.compile(r"[ \t]+[A-Za-z0-9]|[,.;:!?'][A-Za-z0-9]")
+# A title in its marks is the lettering, marks and all: 写着《西游记》的封面.
+_CJK_TITLE = re.compile(r"《[^《》\n]{1,30}》")
 
 
 class _Target(NamedTuple):
-    """Words that read as text to render, and whether their extent is sure."""
+    """Words that read as text to render, whether their extent is sure, and
+    whether the lettering may run on past them."""
 
     start: int
     end: int
-    # False where the words run on past a joining word or the word limit and
-    # the text's end is a guess: the finding then offers no one-click quote,
-    # which would letter half a name.
+    # False where the text's extent is a guess - the words run on past a
+    # joining word or the word limit, a Chinese target stops at 的, its
+    # length cap or inside Latin lettering, or lowercase words follow a
+    # participle: the finding then offers no one-click quote, which would
+    # letter half a name or a description.
     exact: bool
+    # False where the lettering may run on past `end` - a joining word, the
+    # word or length cap, Latin lettering going on past a space or a mark -
+    # so a reader may take it further. True where what follows is read as
+    # description, even where `exact` is not: at 的 the guess is whether the
+    # particle is the lettering's own (写着我的家), and after a participle
+    # whether the words are lettering at all; neither makes what follows
+    # lettering.
+    ends: bool
 
 
 def _capitalised(word: str) -> bool:
     return word[:1].isupper() or word[:1].isdigit()
+
+
+def _describes(text: str, word: re.Match[str]) -> bool:
+    """Whether the first word after a trigger starts describing the text
+    rather than being it (`_DESCRIBES`, or an adverb leading into one)."""
+    first = word.group(1)
+    if not first[:1].islower():
+        return False
+    if first.lower() in _DESCRIBES:
+        return True
+    if not _ADVERB.fullmatch(first.lower()):
+        return False
+    after = _TARGET_WORD.match(text, word.end())
+    spaced = text[word.end():word.end() + 1] in (" ", "\t")
+    return not (spaced and after) or after.group(1).lower() in _DESCRIBES
 
 
 def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]:
@@ -817,6 +963,11 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
         verb = match.group("verb")
         if verb and not _TEXT_BEARER.search(before):
             continue
+        noun = bool(
+            verb
+            and (verb.lower().endswith("ing") or verb.lower() == "spells")
+            and _NOUN_USE.search(before)
+        )
         if verb and verb.lower().startswith("label") and _ATTRIBUTIVE.search(before):
             continue
         position = match.end()
@@ -834,6 +985,8 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
                 break
             token = word.group(1).lower()
             if (words and token in _TARGET_STOP) or (not words and token in _NOT_TEXT):
+                break
+            if not words and _describes(text, word):
                 break
             if len(words) == _TARGET_WORDS:
                 exact = False
@@ -853,14 +1006,34 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
         # A joining word never ends the text: "says Fish and" is not a name.
         while words and words[-1].group(1).lower() in _TARGET_JOIN:
             words.pop()
-        if words:
-            targets.append(_Target(words[0].start(1), words[-1].end(1), exact))
+        if not words or (noun and not words[0].group(1)[:1].isupper()):
+            continue
+        ends = exact
+        # A participle belongs to whichever noun it follows - "a boy on a box
+        # reading comics" - so lowercase words after one may be what someone
+        # reads or says rather than lettering.
+        if verb and verb.lower().endswith("ing") and not _capitalised(words[0].group(1)):
+            exact, ends = False, True
+        targets.append(_Target(words[0].start(1), words[-1].end(1), exact, ends))
     for match in _CJK_TEXT_TRIGGER.finditer(text):
         if _inside(quoted, match.start()):
             continue
+        title = _CJK_TITLE.match(text, match.end())
+        if title:
+            targets.append(_Target(*title.span(), True, True))
+            continue
         target = _CJK_TARGET.match(text, match.end())
         if target and text[match.end()] not in _QUOTE_OPEN:
-            targets.append(_Target(*target.span(), True))
+            end = target.end()
+            latin = text[end - 1].isascii() and text[end - 1].isalnum()
+            particle = text[end:end + 1] in ("的", "之")
+            ends = (particle or bool(_CJK_TARGET_END.match(text, end))) and not (
+                latin and _LATIN_ON.match(text, end)
+            )
+            exact = ends and (
+                not particle or (target.group().isascii() and target.group().isalnum())
+            )
+            targets.append(_Target(target.start(), end, exact, ends))
     return sorted(targets)
 
 
@@ -869,12 +1042,26 @@ def _unquoted_text(text: str, quoted: list[tuple[int, int]]) -> list[tuple[int, 
     return [(target.start, target.end) for target in _unquoted_targets(text, quoted)]
 
 
+def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
+    """Where `text` asks for lettering, as (start, end, ends), in order: its
+    quoted stretches, marks included, and the words a rule reads as unquoted
+    text to render. `ends` is False only where the rules stopped at a guess
+    and the lettering may run on past `end` (`_Target.ends`: a joining word,
+    the word or length cap, Latin lettering going on past a space or a mark);
+    where it is True, whatever follows is the prompt's description. It is not
+    whether the quote rule offers its one-click quote (`_Target.exact`): a
+    Chinese target stopped at 的 and lowercase words after a participle get
+    none, yet nothing past them reads as lettering."""
+    quoted = _quoted_spans(text)
+    unquoted = [(t.start, t.end, t.ends) for t in _unquoted_targets(text, quoted)]
+    return sorted([(start, end, True) for start, end in quoted] + unquoted)
+
+
 def rendered_spans(text: str) -> list[tuple[int, int]]:
     """Where `text` asks for lettering: its quoted stretches, marks included,
     and the words a rule reads as unquoted text to render. The critic's checks
     hold its `text_to_render` and the rewrite's quotation marks to these."""
-    quoted = _quoted_spans(text)
-    return sorted(quoted + _unquoted_text(text, quoted))
+    return [(start, end) for start, end, _ in rendered_targets(text)]
 
 
 def _quote_text(ctx: _Context) -> Iterable[PromptFinding]:
@@ -893,7 +1080,7 @@ def _quote_text(ctx: _Context) -> Iterable[PromptFinding]:
                 start=start, end=end,
             )
         return
-    for start, end, exact in _unquoted_targets(ctx.text, ctx.quoted):
+    for start, end, exact, _ in _unquoted_targets(ctx.text, ctx.quoted):
         target = ctx.text[start:end]
         message = (
             f'"{target}" reads as text to render but is not in quotation marks, so '
@@ -941,20 +1128,28 @@ def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
     text = ctx.text
     spans = [match.span() for match in _PROMPT_START.finditer(text)]
     # The loader's own instruction, not a copy: what it sends is what doubles.
-    at = text.lower().find(NETAYUME_SYSTEM_PROMPT.lower())
-    if at >= 0:
-        spans.append((at, at + len(NETAYUME_SYSTEM_PROMPT)))
+    # Found in the text itself, not in text.lower(), whose offsets are not the
+    # text's ("İ" lowers to two characters).
+    at = re.search(re.escape(NETAYUME_SYSTEM_PROMPT), text, re.IGNORECASE)
+    if at:
+        spans.append(at.span())
+    # Each cut's seam becomes one space, and a comma either side of it one
+    # comma; whitespace anywhere else - a blank line, the spacing inside
+    # quoted lettering - is the user's.
+    cleaned = text
+    for s, e in sorted(spans, reverse=True):
+        head, tail = cleaned[:s].rstrip(), cleaned[e:].lstrip()
+        if tail[:1] in (",", "，") and (not head or head[-1] in (",", "，")):
+            tail = tail[1:].lstrip()
+        cleaned = head + (" " if head and tail else "") + tail
     for start, end in sorted(spans):
-        cleaned = text
-        for s, e in sorted(spans, reverse=True):
-            cleaned = cleaned[:s] + cleaned[e:]
         yield ctx.finding(
             entry, "guide.system_prefix", "warn",
             f'"{text[start:end]}" is already sent: the pipeline adds the author\'s '
             "system instruction and its <Prompt Start> marker itself, so here it "
             "is encoded a second time as image description.",
             start=start, end=end,
-            suggestion=re.sub(r"\s{2,}", " ", cleaned).strip() or None,
+            suggestion=cleaned.strip() or None,
         )
 
 
@@ -1130,9 +1325,9 @@ def _negative_prompt(ctx: _Context) -> Iterable[PromptFinding]:
 def _order(ctx: _Context) -> Iterable[PromptFinding]:
     order = ctx.entry("order")
     spec = _order_spec(ctx.guide)
-    if order is None or spec is None or ctx.style in ("xml", "json"):
+    if order is None or spec is None or len(ctx.items) < 2:
         return
-    if not 2 <= len(ctx.items) <= _MAX_ORDERED:
+    if not _placeable(spec, ctx.text, ctx.style, ctx.items):
         return
     places = [_place(item, spec, ctx.lookup) for item in ctx.items]
     pair = _violation(places)
@@ -1159,7 +1354,9 @@ def _suffix(ctx: _Context) -> Iterable[PromptFinding]:
     suffix = (ctx.guide.get("tag_helper") or {}).get("recommended_suffix") or []
     if entry is None or not suffix or ctx.style in ("xml", "json"):
         return
-    present = set(ctx.norms)
+    # A tag on a line of its own or after "，" is there, though not a comma
+    # item: appending it again would write it twice.
+    present = set(ctx.norms) | {_norm(piece) for piece in _pieces(ctx.text)}
     missing = [tag for tag in suffix if _norm(tag) not in present]
     if missing:
         yield ctx.finding(
@@ -1198,7 +1395,10 @@ def _quality_tier(ctx: _Context) -> Iterable[PromptFinding]:
     tiers = {_norm(tag) for tag in entry["tiers"]}
     present = _distinct(ctx, _group(ctx, entry["group"]))
     names = [ctx.norms[index] for index in present]
-    if not any(name in tiers for name in names):
+    # A tier on a line of its own or after "，" is there, though not a comma
+    # item (`_suffix` reads it the same way).
+    pieces = {_norm(piece) for piece in _pieces(ctx.text)}
+    if not any(name in tiers for name in names) and not tiers & pieces:
         yield ctx.finding(
             entry, "guide.quality", "info",
             f"No quality tier: the guide ends a tag prompt with one of "
@@ -1324,16 +1524,24 @@ def _underscores(ctx: _Context) -> Iterable[PromptFinding]:
     if entry is None or ctx.style in ("xml", "json"):
         return
     keep = re.compile(entry["keep"], re.IGNORECASE) if entry.get("keep") else None
+    # Underscores in quoted lettering ("user_name" on a screen) are text.
+    bare = [
+        "".join(" " * len(part) if lettering else part for part, lettering in ctx.segments(item))
+        for item in ctx.items
+    ]
     flagged = [
         index for index, item in enumerate(ctx.items)
         if not _is_prose(item.text)
-        and _JOINED.search(item.text)
+        and _JOINED.search(bare[index])
         and not (keep and keep.fullmatch(item.text))
     ]
     if flagged:
         texts = [item.text for item in ctx.items]
         for index in flagged:
-            texts[index] = texts[index].replace("_", " ")
+            texts[index] = "".join(
+                part if lettering else part.replace("_", " ")
+                for part, lettering in ctx.segments(ctx.items[index])
+            )
         first = ctx.items[flagged[0]]
         yield ctx.finding(
             entry, "guide.underscores", "info",
@@ -1349,11 +1557,16 @@ def _lowercase(ctx: _Context) -> Iterable[PromptFinding]:
     # Only a tag list: in prose, names take their capitals.
     if entry is None or ctx.style != "tags":
         return
-    flagged = [index for index, item in enumerate(ctx.items) if item.text != item.text.lower()]
+    # Quoted lettering keeps its capitals: "HELLO" on a sign is not a tag.
+    lowered = [
+        "".join(part if lettering else part.lower() for part, lettering in ctx.segments(item))
+        for item in ctx.items
+    ]
+    flagged = [index for index, item in enumerate(ctx.items) if lowered[index] != item.text]
     if flagged:
         texts = [item.text for item in ctx.items]
         for index in flagged:
-            texts[index] = texts[index].lower()
+            texts[index] = lowered[index]
         first = ctx.items[flagged[0]]
         yield ctx.finding(
             entry, "guide.lowercase", "info",
@@ -1450,6 +1663,9 @@ def _repeated(ctx: _Context) -> Iterable[PromptFinding]:
     seen: set[str] = set()
     repeats: list[int] = []
     for index, norm in enumerate(ctx.norms):
+        # "Ho, ho, ho" in quotation marks is the lettering, repeated on purpose.
+        if any(lettering for _, lettering in ctx.segments(ctx.items[index])):
+            continue
         key = norm.strip(" .!?")
         if key in seen:
             repeats.append(index)
