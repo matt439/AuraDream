@@ -5,12 +5,13 @@
 // ------------------------------------------------------------- prompt check
 
 // The check describes one text: the prompt as `collect()` sent it - trimmed -
-// with the negative prompt beside it. Every offset in the answer counts from
-// that text's first character, and every Use and Apply is a whole replacement
-// worked out from it. So once either box holds something else the panel dims,
+// with the negative prompt beside it, and the reference images it counted.
+// Every offset in the answer counts from that text's first character, and
+// every Use and Apply is a whole replacement worked out from it. So once
+// either box holds something else, or the references change, the panel dims,
 // the buttons that would write an answer about the old text over the new one
 // go dead, and a finding's words are selected only while they are still there.
-let analysisResult = null;  // { source, negative, body: PromptAnalysis }
+let analysisResult = null;  // { source, negative, reference, body: PromptAnalysis }
 let analysisEpoch = 0;
 let analysisStale = false;
 // The critic's answer is always about the checked text: asking checks the box
@@ -20,7 +21,6 @@ let critiqueEpoch = 0;
 // Which optional versions a comparison takes. An untick outlives the next
 // check, so a rewrite that lands later does not tick itself back in.
 const compareChoice = { reordered: true, rewrite: true, yours: true };
-let compareSeeds = 4;
 let comparePreviewTimer;
 let comparePreviewEpoch = 0;
 
@@ -55,11 +55,13 @@ function note(text, className = 'analysis-note') {
 
 // A few words from the start of `text`, cut at a word boundary: enough to say
 // where an encoder stops without printing the rest of the prompt again.
+// Counted in code points, as `units()` counts: CJK has no space to cut at, and
+// a cut by UTF-16 units through an emoji left half of it, a broken glyph.
 function excerpt(text, max = 36) {
-  const flat = text.trim().replace(/\s+/g, ' ');
-  if (flat.length <= max) return flat;
+  const flat = [...text.trim().replace(/\s+/g, ' ')];
+  if (flat.length <= max) return flat.join('');
   const at = flat.lastIndexOf(' ', max);
-  return `${flat.slice(0, at > max / 2 ? at : max)}…`;
+  return `${flat.slice(0, at > max / 2 ? at : max).join('')}…`;
 }
 
 // Sends what Generate would send: the negative prompt, the CFG and True CFG
@@ -79,7 +81,9 @@ async function checkPrompt(payload = collect()) {
     if (epoch !== analysisEpoch) return null;  // superseded, or the panel was cleared
     // The critic's answer is about the text checked last, negative prompt and all.
     if (critiqueResult && !analysed(payload)) critiqueResult = null;
-    analysisResult = { source: payload.prompt, negative: payload.negative_prompt ?? '', body };
+    analysisResult = {
+      source: payload.prompt, negative: payload.negative_prompt ?? '', reference: [...(payload.reference ?? [])], body,
+    };
     showError('');
     renderAnalysis();
     return analysisResult;
@@ -94,6 +98,22 @@ async function checkPrompt(payload = collect()) {
 function resetCheckButton() {
   els.analyze.textContent = 'Check';
   els.analyze.removeAttribute('aria-busy');
+}
+
+// Check, pressed. On a two-column page the panel sits above the results, some
+// forty Tab stops past the button, and only its summary is announced; so the
+// answer takes focus, at its heading, while focus is still on the button.
+// Under 901 px the panel is three stops away, and focus stays where it is.
+async function checkFromButton() {
+  const result = await checkPrompt();
+  if (result && document.activeElement === els.analyze
+      && els.promptAnalysis.parentElement === els.tagValidationWide) focusAnalysisHeading();
+}
+
+// The panel's heading (tabindex=-1): where focus goes when the button that had
+// it is far from the answer, or gone. focus() scrolls it into view.
+function focusAnalysisHeading() {
+  els.promptAnalysis.querySelector('.analysis-head h2').focus();
 }
 
 function renderAnalysis() {
@@ -128,26 +148,38 @@ function renderAnalysis() {
 }
 
 // Whether `payload` - collect()'s shape - is what the check read: the prompt,
-// and the negative prompt as it would run. collect() sends none from a greyed
-// box, which is how CFG and True CFG decide whether the negative runs at all.
+// the negative prompt as it would run, and the reference images, in order:
+// klein's guide counts them, to name the "image 3" a prompt never mentions.
+// collect() sends no negative from a greyed box, which is how CFG and True
+// CFG decide whether it runs at all.
 function analysed(payload) {
-  return !!analysisResult && payload.prompt === analysisResult.source
-    && (payload.negative_prompt ?? '') === analysisResult.negative;
+  return promptsAnalysed(payload) && (payload.reference ?? []).join() === analysisResult.reference.join();
 }
+
+const promptsAnalysed = (payload) => !!analysisResult && payload.prompt === analysisResult.source
+  && (payload.negative_prompt ?? '') === analysisResult.negative;
 
 // Called on every change to either prompt box - typing, every programmatic
 // write through promptReplaced(), and syncCfg() for the knobs that grey the
-// negative one - so it only compares, and touches the page when the answer
-// flips.
+// negative one - and to the references, so it only compares, and touches the
+// page when the answer flips, or when the badge's words do.
 function syncAnalysisStale(force = false) {
-  const stale = !!analysisResult && !analysed(collect());
+  const payload = collect();
+  const stale = !!analysisResult && !analysed(payload);
   // Whether the negative box is greyed changes without the check going stale
   // (an empty box sends nothing either way), so this runs every time.
   syncNegativeApply();
+  // Which moved on, and the badge says so: the references alone would leave
+  // "prompt changed" pointing at a prompt nobody touched.
+  const badge = stale && promptsAnalysed(payload) ? 'references changed since' : 'prompt changed since';
+  if (els.analysisStale.textContent !== badge) els.analysisStale.textContent = badge;
   if (stale === analysisStale && !force) return;
   analysisStale = stale;
   els.promptAnalysis.classList.toggle('stale', stale);
   els.analysisStale.hidden = !stale;
+  // Check again hides once the check is current again; a keyboard user who
+  // pressed it would be left on <body>, so the panel's heading takes focus.
+  if (!stale && document.activeElement === els.analysisAgain) focusAnalysisHeading();
   els.analysisAgain.hidden = !stale;
   for (const button of els.promptAnalysis.querySelectorAll('[data-writes]')) button.disabled = writeBlocked(button);
   syncCompareRun();
@@ -168,10 +200,12 @@ function syncNegativeApply() {
 const writeBlocked = (button) => analysisStale || ('negative' in button.dataset && els.negative.disabled);
 
 // Close keeps what was found - the next Check replaces it anyway - and hands
-// focus back to the button that opened the panel.
+// focus back to the button that opened the panel; to the prompt while that
+// button waits out the critic's own check, since a disabled one takes no focus
+// and it would fall to <body>.
 function closeAnalysis() {
   els.promptAnalysis.hidden = true;
-  els.analyze.focus();
+  (els.analyze.disabled ? els.prompt : els.analyze).focus();
 }
 
 // Forget the check: another checkpoint's tokenizers and guide, or a Reset. An
@@ -487,7 +521,9 @@ function makeSelectable(li, select) {
 // change to the queue, Expand or the critic itself passes through here.
 function syncCritic() {
   els.analysisCritic.hidden = !promptCritiqueSupported;
-  els.criticAsk.disabled = critiquing || busy || expandingPrompt;
+  // aria-disabled, as Generate is held: disabled, the button just pressed lost
+  // a keyboard user's focus to <body>. askCritic refuses each case itself.
+  els.criticAsk.setAttribute('aria-disabled', String(critiquing || busy || expandingPrompt));
   els.criticAsk.textContent = critiquing ? 'Thinking…' : 'Ask the critic';
   els.criticAsk.title = busy
     ? 'An image job is queued or running. The critic needs the card to itself, so it waits for the queue to finish.'
@@ -511,16 +547,38 @@ async function askCritic() {
   if (expandingPrompt) { showError('Wait for prompt expansion to finish.'); return; }
   const payload = collect();
   if (!payload.prompt) { showError('Enter a prompt first.'); els.prompt.focus(); return; }
-  // The panel has to describe what the critic is asked about.
-  if (!analysed(payload) && !(await checkPrompt(payload))) return;
   const epoch = ++critiqueEpoch;
-  critiqueResult = null;
+  // Held from here, the check below included: a job or an Expand started
+  // while it ran went ahead, and the critique behind it came back a 409.
   critiquing = true;
   showError('');
   syncPromptExpansion();
-  renderCritic();
-  renderCompare();
+  let answered = false;
   try {
+    // The panel has to describe what the critic is asked about. A Check
+    // pressed meanwhile would replace this check, and the critic was then
+    // never asked, without a word: so Check waits for it.
+    if (!analysed(payload)) {
+      const before = analysisEpoch;
+      els.analyze.disabled = els.analysisAgain.disabled = true;
+      let checked;
+      try {
+        checked = await checkPrompt(payload);
+      } finally {
+        els.analyze.disabled = els.analysisAgain.disabled = false;
+      }
+      if (!checked) {
+        // A failed check said why, and a cleared panel shows nothing pending
+        // (a Reset, another checkpoint); one replaced says nothing itself.
+        if (epoch === critiqueEpoch && analysisEpoch !== before + 1) {
+          showError('The prompt check was replaced before the critic was asked, so nothing was sent. Ask again.', true);
+        }
+        return;
+      }
+    }
+    critiqueResult = null;
+    renderCritic();
+    renderCompare();
     const body = await api('/api/prompt/critique', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -532,17 +590,25 @@ async function askCritic() {
       return;
     }
     critiqueResult = { body };
+    answered = true;
     // Shown, and dimmed with the rest of the panel, but never applied: its
     // rewrite would replace what was typed while it thought.
     if (!analysed(collect())) {
-      showError('The prompt or the negative prompt changed while the critic ran: its answer is about the earlier text, so nothing from it can be applied. Check again for the current one.', true);
+      showError('The prompt, the negative prompt or the references changed while the critic ran: its answer is about the earlier text, so nothing from it can be applied. Check again for the current one.', true);
     }
   } catch (err) {
     if (epoch === critiqueEpoch) showError(err.message);
   } finally {
     critiquing = false;
     syncPromptExpansion();
-    if (epoch === critiqueEpoch) { renderCritic(); renderCompare(); }
+    if (epoch === critiqueEpoch) {
+      renderCritic();
+      renderCompare();
+      // Nothing else announces the answer - the line under the button goes
+      // back to the cost - so it takes focus, if focus is still waiting on
+      // the button rather than on something typed meanwhile.
+      if (answered && document.activeElement === els.criticAsk) els.criticResult.focus();
+    }
   }
 }
 
@@ -603,8 +669,10 @@ function renderCritic() {
     block.className = 'critic-variant';
     const head = document.createElement('div');
     head.className = 'critic-variant-head';
+    // The server holds it to the prompt's own pieces, not to the documented
+    // order: the check that follows is what says where it stands.
     head.append(span('critic-variant-name', 'Reordered'), writeButton('Use reordered',
-      'Replace the prompt with the same words in the documented order, then check it',
+      "Replace the prompt with the critic's reordering of the same words - its reading of the order, not one this app has checked - then check it",
       () => usePromptText(body.reordered)));
     block.append(head, variantArea(body.reordered, "The critic's reordering"));
     box.appendChild(block);
@@ -663,20 +731,23 @@ function issueItem(issue) {
 
 // ------------------------------------------------------------------ compare
 
-// The versions a comparison can take: the checked text always, the documented
-// order's reordering - the rules' own, which is exact, ahead of the critic's -
-// the critic's rewrite, and the user's own version. The last is what isolates
-// order where neither layer can offer a reorder: a sentence on FLUX, where the
-// critic's `reordered` rarely survives its check, or a checkpoint whose guide
-// states no order. A version that is the original word for word, or another
-// one's, is left out: the server would render it twice.
+// The versions a comparison can take: the checked text always, a reordering -
+// the rules' own, which is exact, ahead of the critic's - the critic's
+// rewrite, and the user's own version. Where Check placed the prompt itself
+// (`order_checked`) and found nothing to move, the critic's reordering is
+// some other order, not the documented one, and is left out. The user's own
+// version is what isolates order where neither layer can offer a reorder: a
+// sentence on FLUX, where the critic's `reordered` rarely survives its check,
+// or a checkpoint whose guide states no order. A version that is the original
+// word for word, or another one's, is left out: the server would render it
+// twice.
 function compareVariants() {
   if (!analysisResult) return [];
-  const source = analysisResult.source;
+  const { source, body } = analysisResult;
   const variants = [{ label: 'original', name: 'Original', prompt: source }];
   const seen = new Set([source]);
   for (const [label, name, text] of [
-    ['reordered', 'Reordered', analysisResult.body.reordered ?? critiqueResult?.body.reordered],
+    ['reordered', 'Reordered', body.reordered ?? (body.order_checked ? null : critiqueResult?.body.reordered)],
     ['rewrite', 'Rewrite', critiqueResult?.body.rewrite],
     ['yours', 'Your version', els.compareOwn.value],
   ]) {
@@ -737,7 +808,7 @@ function syncCompareRun() {
   // Held like Generate and Run grid while the editor has the card.
   els.compareRun.setAttribute('aria-disabled', String(expandingPrompt || critiquing || submitting));
   els.compareRun.title = analysisStale
-    ? 'The prompt changed since this check; Check again first'
+    ? 'The prompt or the references changed since this check; Check again first'
     : count < 2 ? 'Needs a second version of the prompt to compare against'
     : 'One grid: each version of the prompt on the same seeds, then the sheet with a row per version';
 }
@@ -745,8 +816,10 @@ function syncCompareRun() {
 // The grid's own payload - the panel's settings and seed - with every axis
 // emptied: the versions are the one thing that varies, crossed with the
 // seeds. One image a cell, so the Seeds select is the whole count; the
-// panel's Batch would multiply it. Nothing is written into the prompt box or
-// the grid's variables, which are the user's and remembered.
+// panel's Batch would multiply it. The select is read, not a copy of it: a
+// browser restoring form state sets it without a change event. Nothing is
+// written into the prompt box or the grid's variables, which are the user's
+// and remembered.
 function comparePayload(variants) {
   return {
     ...gridPayload(),
@@ -758,7 +831,7 @@ function comparePayload(variants) {
     mu_axis: '',
     lora_scale_axis: '',
     seed_axis: '',
-    seeds: compareSeeds,
+    seeds: +els.compareSeeds.value,
     resume: false,
     budget_minutes: null,
     prompt_variants: variants.map(({ label, prompt }) => ({ label, prompt })),

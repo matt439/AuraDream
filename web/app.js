@@ -102,11 +102,11 @@ els.tagsBtn.onclick = () => showTagHelper(els.tagsMenu.hidden);
 els.expandPrompt.onclick = expandPrompt;
 // The prompt check: Check and Check again run it on the prompt as it is now;
 // the rest of its buttons are built with the results they act on.
-els.analyze.onclick = () => { void checkPrompt(); };
+els.analyze.onclick = () => { void checkFromButton(); };
 els.analysisAgain.onclick = () => { void checkPrompt(); };
 els.analysisClose.onclick = closeAnalysis;
 els.criticAsk.onclick = askCritic;
-els.compareSeeds.onchange = () => { compareSeeds = +els.compareSeeds.value; scheduleComparePreview(0); };
+els.compareSeeds.onchange = () => scheduleComparePreview(0);
 els.compareRun.onclick = runComparison;
 els.compareOwn.addEventListener('input', compareOwnChanged);
 els.compareOwnFill.onclick = compareOwnFromPrompt;

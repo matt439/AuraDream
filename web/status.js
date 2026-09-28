@@ -177,6 +177,8 @@ async function refreshStatus() {
         && s.defaults.reference_supported !== referenceSupported) {
       referenceSupported = s.defaults.reference_supported;
       syncConditioning();
+      // collect() sends the references, or none, from here: the check counted them.
+      syncAnalysisStale();
     }
     if (s.defaults && typeof s.defaults.lora_supported === 'boolean'
         && s.defaults.lora_supported !== loraSupported) {

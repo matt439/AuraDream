@@ -224,6 +224,8 @@ function setReferences(ids) {
   renderReferences();
   schedulePreview();
   persistPanel();
+  // The prompt check counted them: klein's guide asks what each one is for.
+  syncAnalysisStale();
 }
 
 // Batch holds every image in VRAM at once, which is what stops a 2K batch from

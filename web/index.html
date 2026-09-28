@@ -70,7 +70,9 @@
              critic's only on a server that has one. -->
         <section class="prompt-analysis" id="prompt-analysis" role="region" aria-label="Prompt check" hidden>
           <div class="analysis-head">
-            <h2>Prompt check</h2>
+            <!-- Focusable from script only: a Check pressed on a two-column
+                 page, and a Check again that hides itself, hand focus here. -->
+            <h2 tabindex="-1">Prompt check</h2>
             <span class="analysis-model" id="analysis-model"></span>
             <span class="analysis-summary" id="analysis-summary" aria-live="polite"></span>
             <span class="analysis-stale" id="analysis-stale" hidden>prompt changed since</span>
@@ -100,7 +102,10 @@
                      answer takes seconds, the first one minutes. -->
                 <span class="critic-line" id="critic-line" aria-live="polite"></span>
               </div>
-              <div class="critic-result" id="critic-result"></div>
+              <!-- Takes focus when an answer lands while focus is still on
+                   Ask the critic: nothing else announces it. -->
+              <div class="critic-result" id="critic-result" tabindex="-1" role="group"
+                   aria-label="The critic's answer"></div>
             </div>
             <div class="analysis-section full">
               <h3>Compare on the same seeds</h3>
@@ -114,11 +119,13 @@
                   <button type="button" class="ghost tiny" id="compare-own-fill"
                           title="Put the checked prompt here, to move its words about">Start from the prompt</button>
                 </div>
-                <textarea id="compare-own" class="analysis-text" rows="2" spellcheck="true"
+                <!-- autocomplete=off here and on Seeds: neither is persisted,
+                     and a browser restoring form state would bring them back. -->
+                <textarea id="compare-own" class="analysis-text" rows="2" spellcheck="true" autocomplete="off"
                           placeholder="The same words in another order, or any other wording - it runs on the same seeds as the original"></textarea>
               </div>
               <div class="compare-seeds">
-                <label>Seeds <select id="compare-seeds">
+                <label>Seeds <select id="compare-seeds" autocomplete="off">
                   <option value="4" selected>4</option>
                   <option value="8">8</option>
                 </select></label>

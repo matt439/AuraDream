@@ -310,6 +310,14 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .tag-validation-wide .prompt-analysis { background: var(--panel); }
 .analysis-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .analysis-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+/* Focused from script only (tabindex=-1): the heading when a Check lands far
+   from its button, the critic's answer when it lands under the button. The
+   heading's margin clears the sticky topbar: focus() scrolls only what is out
+   of view, and a heading under the topbar counted as in view. */
+.analysis-head h2 { scroll-margin-top: 72px; }
+.analysis-head h2:focus-visible, .critic-result:focus-visible {
+  outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 4px;
+}
 .analysis-model { color: var(--muted); }
 .analysis-summary { color: #b2b2c0; }
 /* Stale results stay readable - they are still the last answer - but dimmed,
