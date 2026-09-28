@@ -175,7 +175,9 @@ class FakeCritic:
     """`critic.PromptCritic` without llama.cpp or a model: the same five
     methods, and a deterministic answer written as the model writes one - raw
     JSON - then put through the real `critic.validate`, so what reaches the
-    page is only what the real pipeline could return.
+    page is only what the real pipeline could return. A prompt too long for
+    the real critic's window is refused as it refuses it, by the real
+    `critic.check_fits`, before any answer.
 
     `available` is what `supported()` answers and `fetched` what `ready()`
     does; `prepare()` sets `fetched`, as a first real prepare puts both files
@@ -225,14 +227,18 @@ class FakeCritic:
         self.events.append("critique")
         self.started.set()
         started = time.perf_counter()
-        if self.delay:
-            time.sleep(self.delay)
         try:
+            # Built and sized before the wait, as the real critic does both
+            # before it starts a server: a question whose answer cannot fit
+            # the window is refused at once, a 502, never answered.
+            context = critic.build_context(model_id, request, applied, analysis)
+            critic.check_fits(context)
+            if self.delay:
+                time.sleep(self.delay)
             if self.fail is True:
                 raise CriticError("llama-server exited with code 1 before it was ready")
             if self.fail:
                 raise self.fail
-            context = critic.build_context(model_id, request, applied, analysis)
             return critic.validate(
                 self.answer(request.prompt, context.ordered),
                 context,

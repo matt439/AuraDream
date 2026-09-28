@@ -7,6 +7,7 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 
+import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import (
     FileResponse,
@@ -1265,34 +1266,36 @@ async def delete_unstarred(
     return {"deleted": result["ids"], "files": result["files"]}
 
 
+class Server(uvicorn.Server):
+    """uvicorn's server, with Ctrl-C reaching the running sweep.
+
+    uvicorn drains open connections *before* it runs the lifespan shutdown,
+    and the browser's EventSource stays open until the job emits `done` -
+    so `jobs.shutdown()`, the thing that cancels the job, sat behind the
+    very stream that was waiting for it, and Ctrl-C printed "Waiting for
+    connections to close" for the rest of the night. Cancelling on the
+    signal itself lands within a step, `done` goes out, the stream closes
+    and the ordinary drain completes. A second Ctrl-C (uvicorn's forced
+    exit) skips the lifespan entirely; this still runs on it.
+
+    The critic's server is stopped here for the same reason: a critique
+    in flight is an open request too, waiting on that server - typically
+    10-20 s, and up to its 600 s request timeout when `--fit` has put
+    layers on the CPU. On a thread of its own, since stopping a process
+    waits for it and a signal handler should not.
+
+    At module level rather than inside `run()` only so the tests can reach
+    `handle_exit`.
+    """
+
+    def handle_exit(self, sig, frame) -> None:
+        for job in jobs.active():
+            job.cancel_requested = True
+        threading.Thread(target=prompt_critic.unload, daemon=True, name="critic-stop").start()
+        super().handle_exit(sig, frame)
+
+
 def run() -> None:
-    import uvicorn
-
-    class Server(uvicorn.Server):
-        """uvicorn's server, with Ctrl-C reaching the running sweep.
-
-        uvicorn drains open connections *before* it runs the lifespan shutdown,
-        and the browser's EventSource stays open until the job emits `done` -
-        so `jobs.shutdown()`, the thing that cancels the job, sat behind the
-        very stream that was waiting for it, and Ctrl-C printed "Waiting for
-        connections to close" for the rest of the night. Cancelling on the
-        signal itself lands within a step, `done` goes out, the stream closes
-        and the ordinary drain completes. A second Ctrl-C (uvicorn's forced
-        exit) skips the lifespan entirely; this still runs on it.
-
-        The critic's server is stopped here for the same reason: a critique
-        in flight is an open request too, waiting on that server - typically
-        10-20 s, and up to its 600 s request timeout when `--fit` has put
-        layers on the CPU. On a thread of its own, since stopping a process
-        waits for it and a signal handler should not.
-        """
-
-        def handle_exit(self, sig, frame) -> None:
-            for job in jobs.active():
-                job.cancel_requested = True
-            threading.Thread(target=prompt_critic.unload, daemon=True, name="critic-stop").start()
-            super().handle_exit(sig, frame)
-
     config = uvicorn.Config(
         app,
         host=settings.host,
