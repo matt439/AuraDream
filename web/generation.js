@@ -468,11 +468,12 @@ function streamJob(jobId) {
           showError(data.error);
         }
         // A comparison opens its own run as the sheet - one row per version
-        // of the prompt - which searches for it and refetches the gallery;
-        // anything else only refreshes what the gallery was showing.
+        // of the prompt - which searches for it, with Favorites off, and
+        // refetches the gallery; anything else only refreshes what the
+        // gallery was showing.
         const run = runsToShow.get(jobId);
         runsToShow.delete(jobId);
-        if (run && data.images.length) { showRun(run); loadRuns(); }
+        if (run && data.images.length) { showRun(run, { fresh: true }); loadRuns(); }
         else if (data.images.length) { resetGallery(); loadRuns(); }
         resolve();
         watchNext();

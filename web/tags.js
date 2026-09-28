@@ -514,14 +514,27 @@ function syncTagVocabulary() {
 // The chips and the prompt check go together, in that order: above the results
 // on a two-column page, where their height cannot move Generate in the sticky
 // settings column, and back under the prompt at 900 px and below, where the
-// page is one scrolling column anyway.
+// page is one scrolling column anyway. The move keeps focus where it was - a
+// window crossing 901 px under someone typing in Your version or on a chip
+// otherwise sent it to <body> with the next keystroke: moveBefore keeps it
+// whole where the browser has it, and elsewhere the focus and the selection
+// are put back by hand.
 function placeTagValidation() {
   const host = window.matchMedia('(min-width: 901px)').matches
     ? els.tagValidationWide
     : els.tagValidationHome;
+  const focused = document.activeElement;
+  const range = typeof focused?.selectionStart === 'number'
+    ? [focused.selectionStart, focused.selectionEnd, focused.selectionDirection]
+    : null;
   for (const node of [els.tagValidation, els.promptAnalysis]) {
-    if (node.parentElement !== host) host.appendChild(node);
+    if (node.parentElement === host) continue;
+    if (typeof host.moveBefore === 'function') host.moveBefore(node, null);
+    else host.appendChild(node);
   }
+  if (!focused || focused === document.activeElement || !focused.isConnected) return;
+  focused.focus();
+  if (range) focused.setSelectionRange(...range);
 }
 
 function tagCursorIndex() {

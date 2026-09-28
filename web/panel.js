@@ -219,10 +219,20 @@ async function loadRuns() {
   els.runList.disabled = !runs.length;
 }
 
-function showRun(runId) {
+// `fresh` is a run this page has just made, the comparison's: nothing in it is
+// starred yet, so under the Favorites tick its sheet opened empty. The tick
+// comes off rather than being bypassed - the gallery's filters are the
+// sheet's, and Re-render sends the tick with the search, so a sheet of
+// unstarred images under a ticked box would re-render none of them - and the
+// sheet says so.
+function showRun(runId, { fresh = false } = {}) {
   if (!runId) return;
+  const unticked = fresh && els.favOnly.checked;
+  if (unticked) els.favOnly.checked = false;
   els.search.value = `run:${runId}`;
   setSheet(true);
+  // setSheet has begun the query the notice belongs to; another one drops it.
+  if (unticked) sheetNotice = { epoch: galleryEpoch, text: 'Favorites unticked: nothing in a new run is starred yet' };
 }
 
 function clearResults() {

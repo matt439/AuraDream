@@ -59,7 +59,8 @@ function loadGallery() {
       galleryMore = !!page.has_more;
       els.more.hidden = sheetMode || !galleryMore;
       watchMore();
-      if (sheetMode) renderSheet();
+      // Under a filter the sheet waits for its run's order - learnSheetOrder.
+      if (sheetMode) return learnSheetOrder(epoch).then(() => { if (epoch === galleryEpoch) renderSheet(); });
     })
     .catch((err) => {
       // A filter term that is not a number, most often: report it rather than

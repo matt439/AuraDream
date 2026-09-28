@@ -106,9 +106,11 @@ function promptLabels(prompts) {
 // The distinct values each axis takes across the loaded images, ascending - or,
 // for a variable, in the order the grid wrote them: by the oldest image carrying
 // each value. The grid renders a variable's values as declared and a prompt
-// variant's in the order given, so the first image of each is in that order,
-// and an alphabetical sheet put `original` below `reordered` and `rewrite`.
-function sheetValues(records) {
+// variant's in the order given, so the first image of each is in that order;
+// alphabetical read a `size = small | big` grid as big, small. `whole` is the
+// rest of the run when a filter hid some of it (learnSheetOrder), since the
+// oldest *loaded* image of a value is only the oldest the filter kept.
+function sheetValues(records, whole = []) {
   const values = {};
   for (const axis of sheetAxesList) {
     const seen = [];
@@ -118,6 +120,12 @@ function sheetValues(records) {
       const v = axisValue(axis, rec);
       if (!seen.includes(v)) seen.push(v);
       if (written && (!oldest.has(v) || rec.id < oldest.get(v))) oldest.set(v, rec.id);
+    }
+    if (written) {
+      for (const rec of whole) {
+        const v = axisValue(axis, rec);
+        if (oldest.has(v) && rec.id < oldest.get(v)) oldest.set(v, rec.id);
+      }
     }
     seen.sort((a, b) => {
       if (a === null) return -1;
@@ -134,6 +142,33 @@ function sheetValues(records) {
   return values;
 }
 
+// The whole run behind a filtered sheet, read for its order alone. Under the
+// Favorites tick, or a search narrower than `run:<id>`, the oldest loaded image
+// of a value is the oldest that survived: star the winners and a comparison
+// read reordered, rewrite, original. So loadGallery asks once more, for the
+// same run unfiltered, before it renders. A row the server no longer has
+// (Delete unstarred) cannot be asked for; its value orders by what is left.
+// Failing this, the loaded images order themselves, as they always did.
+let sheetWritten = null;
+async function learnSheetOrder(epoch) {
+  sheetWritten = null;
+  const runs = new Set(galleryRecords.map((r) => r.run_id));
+  const [run] = runs;
+  if (runs.size !== 1 || !run || !galleryRecords.some((r) => r.variables)) return;
+  const search = `run:${run}`;
+  if (!els.favOnly.checked && els.search.value.trim() === search) return;
+  const params = new URLSearchParams({ limit: sheetPage, search });
+  if (els.allModels.checked) params.set('all_models', 'true');
+  try {
+    const page = await api(`/api/gallery?${params}`);
+    if (epoch === galleryEpoch) sheetWritten = { epoch, records: page.items };
+  } catch { /* unordered by the run, not failed */ }
+}
+
+// A line the sheet adds to its note while it shows the query it was opened
+// on: what the page changed to open it (showRun's Favorites tick).
+let sheetNotice = null;
+
 // The axis a prompt-variant grid records its labels under - `grid.VARIANT`,
 // held to it by tests/test_grid.py.
 const VARIANT_AXIS = 'var:variant';
@@ -149,15 +184,26 @@ const VARIANT_AXIS = 'var:variant';
 // axes because axesFor lists them first. Alone, the variant axis stays a strip:
 // a sheet with nothing across is one column of full-width images.
 function chooseAxes(values, count) {
-  let varying = sheetAxesList.filter((a) => values[a.key].length > 1);
+  const all = sheetAxesList.filter((a) => values[a.key].length > 1);
+  const wider = (a, b) => values[b.key].length - values[a.key].length;
+  let varying = all;
   // An axis with one value per image is a list, not a dimension - the seed of
   // a mixed gallery, mostly. It is dropped whenever anything else varies; a
   // seeds-only run keeps it, since it is then the only dimension there is.
+  // The variant axis and the one across it are the exception, placed below.
   const listlike = varying.filter((a) => values[a.key].length === count);
   if (listlike.length < varying.length) varying = varying.filter((a) => !listlike.includes(a));
-  varying.sort((a, b) => values[b.key].length - values[a.key].length);
-  const variant = varying.findIndex((a) => a.key === VARIANT_AXIS);
-  if (variant >= 0 && varying.length > 1) varying.splice(1, 0, ...varying.splice(variant, 1));
+  varying.sort(wider);
+  // The variants and what runs across them are placed from every varying
+  // axis, not from what the list rule left: with one image per version loaded
+  // - a star each under Favorites, or what Delete unstarred kept - the rule
+  // dropped the variants, or the seeds they cross, and the pin in their place
+  // showed one image of the comparison.
+  const variant = all.find((a) => a.key === VARIANT_AXIS);
+  if (variant && all.length > 1) {
+    const others = (axes) => axes.filter((a) => a !== variant);
+    varying = [others(varying)[0] ?? others(all).sort(wider)[0], variant];
+  }
   return {
     cols: varying[0] ? varying[0].key : null,
     rows: varying[1] ? varying[1].key : null,
@@ -226,7 +272,8 @@ const MAX_SHEET_CELLS = 4096;
 function renderSheet() {
   sheetRecords = galleryRecords;
   sheetAxesList = axesFor(sheetRecords);
-  const values = sheetValues(sheetRecords);
+  const current = (held) => (held && held.epoch === galleryEpoch ? held : null);
+  const values = sheetValues(sheetRecords, current(sheetWritten)?.records);
   // Re-derive columns and rows when the image set changes shape, and only
   // then, so switching filters lands on something sensible while a hand-picked
   // axis survives a redraw. Pins are reconciled every time - see above. The
@@ -353,10 +400,12 @@ function renderSheet() {
   const pinned = pins
     .map(([axis, v]) => `${axis.label.toLowerCase()} ${valueText(v)}`)
     .join(', ');
+  const notice = current(sheetNotice);
   els.sheetNote.textContent = sheetRecords.length === 0
     ? 'Nothing matches. The filters above the sheet are the gallery search.'
     : `${shown.length} of ${sheetRecords.length} loaded` + (pinned ? ` · pinned to ${pinned}` : '') +
-      (total > sheetRecords.length ? ` · ${total} match the search` : '');
+      (total > sheetRecords.length ? ` · ${total} match the search` : '') +
+      (notice ? ` · ${notice.text}` : '');
 }
 
 // ------------------------------------------------------------ sheet export
