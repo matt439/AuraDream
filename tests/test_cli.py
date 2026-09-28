@@ -413,6 +413,90 @@ def test_from_image_carries_the_conditioning_it_recorded(cli, store, monkeypatch
     assert "lora     : other.safetensors @ 1" in capsys.readouterr().out
 
 
+def test_from_image_carries_the_variables_while_the_prompt_is_the_images(cli, store, capsys):
+    # A comparison version's name lives in its variables alone, and a `{var}`
+    # grid's assignment is what its sheet lays out: a reproduction that
+    # dropped them filed the new image as an unnamed prompt.
+    import json
+    from pathlib import Path
+
+    from PIL import Image
+
+    from backend import grid
+    from backend.schemas import GenerateRequest
+
+    def made(*argv):
+        """What each new image recorded, on its row and in its PNG's chunk."""
+        assert generate.main([*argv, "-q"]) == 0
+        paths = [line.split("  seed ")[0] for line in capsys.readouterr().out.splitlines()]
+        rows = {r.filename: r for r in store.list_images()[0]}
+        recorded = []
+        for path in paths:
+            with Image.open(path) as png:
+                chunk = json.loads(png.info["local-diffusion"])["variables"]
+            row = rows[Path(path).name]
+            assert chunk == row.variables  # the PNG's own record, for a reindex
+            recorded.append((row.prompt, row.variables))
+        return paths, recorded
+
+    (small, _), recorded = made(
+        "a {size} cat", "-n", "blurry", "--grid-prompt", "size = small | large", "--seed", "5", *SIZE
+    )
+    assert recorded[0] == ("a small cat", {"size": "small"})
+    assert made("--from-image", small, "--width", "512", "--height", "512")[1] == [
+        ("a small cat", {"size": "small"})
+    ]
+    # Retyped, the pair is still the image's; changed, either half is another
+    # text, which a label would misname - a variable may fill the negative.
+    assert made("--from-image", small, "a small cat", "-n", "blurry")[1] == [
+        ("a small cat", {"size": "small"})
+    ]
+    assert made("--from-image", small, "a large cat")[1] == [("a large cat", None)]
+    assert made("--from-image", small, "-n", "noisy")[1] == [("a small cat", None)]
+    # Every cell of a sweep carries them, and names them in the log as the
+    # grid's own cells did.
+    assert made("--from-image", small, "--grid-steps", "6,8")[1] == [
+        ("a small cat", {"size": "small"})
+    ] * 2
+    assert generate.main(["--from-image", small, "--grid-steps", "6,8"]) == 0
+    out = capsys.readouterr().out
+    assert "size=small, 6 steps" in out and "size=small, 8 steps" in out
+
+    # A comparison's version is taken verbatim, as the grid took it: its
+    # `{word}` is text, not a placeholder with no values.
+    version = store.save_image(
+        Image.new("RGB", (256, 256)),
+        GenerateRequest(prompt="a sign reading {word}", width=256, height=256),
+        seed=9, duration_ms=10, model_id=store.settings.model_id,
+        variables={grid.VARIANT: "rewrite"},
+    )
+    path = str(store.settings.outputs_dir / version.filename)
+    assert made("--from-image", path, "--grid-steps", "6,8")[1] == [
+        ("a sign reading {word}", {grid.VARIANT: "rewrite"})
+    ] * 2
+    assert generate.main(["--from-image", path, "--grid-steps", "6,8", "--dry-run"]) == 0
+    assert "prompt   : a sign reading {word}" in capsys.readouterr().out
+    # `--grid-prompt` is a prompt axis of its own, and names its own cells.
+    assert made("--from-image", path, "--grid-prompt", "word = open | shut")[1] == [
+        ("a sign reading open", {"word": "open"}),
+        ("a sign reading shut", {"word": "shut"}),
+    ]
+    # A blank one is no axis, and ends nothing.
+    assert made("--from-image", path, "--grid-prompt", "")[1] == [
+        ("a sign reading {word}", {grid.VARIANT: "rewrite"})
+    ]
+
+    # A user's own grid may name its variable `variant` too. `none` records an
+    # empty value and this one is past a label's 40 characters: no label a
+    # comparison could have recorded, so each is an assignment, carried as one.
+    long = "an extremely fluffy, long-haired orange tabby"
+    (bare, spelled), _ = made(
+        "a {variant} cat", "--grid-prompt", f"variant = none | {long}", "--seed", "5", *SIZE
+    )
+    assert made("--from-image", bare)[1] == [("a cat", {grid.VARIANT: ""})]
+    assert made("--from-image", spelled)[1] == [(f"a {long} cat", {grid.VARIANT: long})]
+
+
 def _project_claiming(module, model_id):
     """`_project()` with the settings claiming another checkpoint.
 

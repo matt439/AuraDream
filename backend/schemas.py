@@ -499,7 +499,9 @@ class RerenderRequest(BaseModel):
     Favorites tick - taken server-side, because the browser holds only the
     page it has scrolled to. Every record carries the complete reproduction
     set, so each becomes one cell of one job: the prompt, the negative prompt,
-    steps, CFG, mu and the seed carry over and only the size changes. What
+    steps, CFG, true CFG, mu, the references, the adapter and its weight, the
+    seed and the variables - what the placeholders were set to, or which
+    version of a comparison it is - carry over and only the size changes. What
     that delivers is honest to state: the pipeline draws its latents at the
     requested shape, so the same seed at 4 MP is a new sample - the prompt and
     the settings carry, the picture does not. For a prompt-variable grid that

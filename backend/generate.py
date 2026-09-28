@@ -23,6 +23,7 @@ button) works too - see the sys.path bootstrap below.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import signal
 import sys
 import time
@@ -68,8 +69,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "--from-image",
         metavar="PNG",
         help="start from the settings a gallery PNG carries in its metadata - prompt, "
-        "negative prompt, size, steps, CFG, mu, seed and checkpoint; any flag given "
-        "explicitly still wins",
+        "negative prompt, size, steps, CFG, true CFG, mu, seed, checkpoint, references, "
+        "adapter and grid variables; any flag given explicitly still wins, and the "
+        "variables carry only while the prompt pair is the image's own",
     )
 
     size = parser.add_argument_group("size")
@@ -285,6 +287,28 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
             args.width, args.height = int(width), int(height)
 
 
+def _image_variables(args: argparse.Namespace, meta: dict) -> dict[str, str] | None:
+    """The PNG's variables, while they still describe what this run renders.
+
+    What the placeholders were set to, or which version of a comparison the
+    image is: the only place a version's name lives, and what the sheet lays
+    out, so they carry like the rest of the reproduction set - as
+    `/api/rerender` carries them. But they name the prompt pair they were
+    made with, and a variable may have filled either half: a command line
+    that changes either one ends them, since a label on another text names a
+    version it is not. Compared as text, after `_apply_image_settings`, so
+    retyping the image's own prompt keeps them. `--grid-prompt` is a prompt
+    axis of its own, whose cells carry what it assigns - when it holds one: a
+    blank block is no axis, as `parse_variables` reads it.
+    """
+    variables = meta.get("variables")
+    axis = any(line.strip() for line in args.grid_prompt)
+    if not isinstance(variables, dict) or not variables or axis:
+        return None
+    ran = (meta.get("prompt"), meta.get("negative_prompt") or None)
+    return variables if (args.prompt, args.negative or None) == ran else None
+
+
 def _server_holds_gpu(host: str, port: int, timeout: float = 2.0) -> str | None:
     """The checkpoint a running server has on the GPU, or None when none does.
 
@@ -333,7 +357,7 @@ def _project() -> SimpleNamespace:
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
-        from backend.schemas import GenerateRequest, error_detail
+        from backend.schemas import GenerateRequest, PromptVariant, error_detail
     except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
         # Almost always `py generate.py` or a bare `python generate.py`, which
         # picks the system interpreter rather than the project's .venv.
@@ -352,6 +376,7 @@ def _project() -> SimpleNamespace:
         settings=settings,
         defaults_for=defaults_for,
         GenerateRequest=GenerateRequest,
+        PromptVariant=PromptVariant,
         error_detail=error_detail,
     )
 
@@ -382,6 +407,7 @@ def main(argv: list[str] | None = None) -> int:
         _apply_image_settings(args, source)
     if not args.prompt:
         parser.error("a prompt is required (or --from-image with a gallery PNG)")
+    carried = _image_variables(args, source) if source is not None else None
     width, height = _resolve_size(args, parser)
     apply_env(args)
     p = _project()
@@ -448,6 +474,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.resume and args.seed is None and not args.seed_list:
         # A fresh random base matches none of the night it is meant to continue.
         parser.error("--resume needs --seed: the seed the run it continues was started from")
+    # A comparison's version, reproduced, is a one-variant prompt axis: taken
+    # verbatim as the grid took it - a `{name}` in it is text, not a
+    # placeholder with no values - and recorded under its label by the same
+    # path. A `{var}` grid's assignment is already substituted into the prompt
+    # it made, so it rides each cell as it is - and so does a `variant` that is
+    # no label a comparison could have recorded: a user's own grid may name its
+    # variable that, and `none`'s empty value or a long one fails the schema's
+    # label (the prompt cannot, having passed the request's same bounds).
+    variants = None
+    if carried is not None and set(carried) == {p.grid.VARIANT}:
+        try:
+            variants = [p.PromptVariant(label=carried[p.grid.VARIANT], prompt=request.prompt)]
+        except ValueError:
+            variants = None
     try:
         seed_list = p.grid.parse_seeds(args.seed_list)
         cells = p.grid.expand(
@@ -459,7 +499,16 @@ def main(argv: list[str] | None = None) -> int:
             lora_scale=args.grid_lora_scale,
             seeds=args.grid_seeds if gridding else args.runs,
             seed_list=seed_list or None,
+            variants=variants,
         )
+        if carried is not None and variants is None:
+            # Leading the log line too, as they do in a grid's own cells.
+            named = ", ".join(f"{name}={value or 'none'}" for name, value in carried.items())
+            named = named.encode("ascii", "replace").decode("ascii")
+            cells = [
+                dataclasses.replace(cell, variables=carried, label=f"{named}, {cell.label}")
+                for cell in cells
+            ]
     except ValueError as exc:
         # A cell outside the schema raises a ValidationError; same one-line
         # form the browser gets, not pydantic's own several-line repr.
@@ -626,6 +675,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.grid_mu,
                 prompt_axis,
                 args.grid_lora_scale,
+                variants,
             )
             if len(values["prompt"]) > 1:
                 # The substituted prompts, not the variables that made them:
