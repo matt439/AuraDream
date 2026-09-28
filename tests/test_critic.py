@@ -1,16 +1,28 @@
 """The prompt critic: its pinned runtime, the server's lifecycle, the grounding
-it cites and what is kept of its answer. No network, no subprocess, no GPU -
-the fetch, the spawn and the HTTP exchange are the module's seams."""
+it cites and what is kept of its answer. No network and no GPU - the fetch,
+the spawn and the HTTP exchange are the module's seams - except where the
+point is the real thing: Python children stand in for a wrapped llama-server's
+process tree and its listener, and loopback servers for its HTTP."""
 from __future__ import annotations
 
 import dataclasses
 import hashlib
+import http.server
+import importlib.util
 import io
 import json
+import logging
 import os
+import platform
 import re
+import socket
+import subprocess
 import sys
 import tarfile
+import threading
+import time
+import unicodedata
+import urllib.request
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -756,11 +768,23 @@ def test_server_command_binds_loopback_and_keeps_the_key_off_it(tmp_path, monkey
 
 
 def test_server_env_drops_llama_settings_and_carries_the_key(monkeypatch):
-    monkeypatch.setenv("LLAMA_ARG_HOST", "0.0.0.0")
-    monkeypatch.setenv("LLAMA_API_KEY", "shared")
+    # A user's settings for their own servers, each of which would change
+    # what the critic's does: shell and file tools, another chat template, a
+    # key from a file, another model, a second slot, the web UI back on.
+    for name, value in {
+        "LLAMA_ARG_HOST": "0.0.0.0",
+        "LLAMA_ARG_TOOLS": "all",
+        "LLAMA_ARG_CHAT_TEMPLATE_FILE": "/tmp/template.jinja",
+        "LLAMA_API_KEY_FILE": "/tmp/keys.txt",
+        "LLAMA_ARG_MODEL": "/tmp/other.gguf",
+        "LLAMA_ARG_N_PARALLEL": "4",
+        "LLAMA_ARG_WEBUI": "1",
+        "LLAMA_API_KEY": "shared",
+    }.items():
+        monkeypatch.setenv(name, value)
     monkeypatch.setenv("LOCAL_DIFFUSION_KEEP", "1")
     env = critic._server_env(Path("bin/llama-server"), "k3y")
-    assert "LLAMA_ARG_HOST" not in env
+    assert [name for name in env if name.upper().startswith("LLAMA_")] == ["LLAMA_API_KEY"]
     # b11206 reads --api-key from LLAMA_API_KEY: this start's, never the user's.
     assert env["LLAMA_API_KEY"] == "k3y"
     assert env["LOCAL_DIFFUSION_KEEP"] == "1"
@@ -803,21 +827,46 @@ def test_a_linked_model_is_labelled_by_the_name_it_was_given(tmp_path, monkeypat
 
 
 class FakeProcess:
-    def __init__(self, returncode: int | None = None):
+    """A server process whose `wait` times out `stubborn` times before the
+    signal it was last sent takes; `events` is what `_stop` did, in order,
+    and `log_at_wait` whether the server's log was still there at each wait."""
+
+    def __init__(self, returncode: int | None = None, *, stubborn: int = 0, log=None):
         self.returncode = returncode
-        self.terminated = False
+        self.pid = 4242
+        self.stubborn = stubborn
+        self.log = log
+        self.events: list[str] = []
+        self.log_at_wait: list[bool] = []
+        self._signal: int | None = None
+
+    @property
+    def terminated(self) -> bool:
+        return "terminate" in self.events
+
+    def pids(self):
+        return {self.pid}
 
     def poll(self):
         return self.returncode
 
     def terminate(self):
-        self.terminated = True
-        self.returncode = -15
+        self.events.append("terminate")
+        self._signal = -15
 
     def kill(self):
-        self.returncode = -9
+        self.events.append("kill")
+        self._signal = -9
 
     def wait(self, timeout=None):
+        self.events.append("wait")
+        if self.log is not None:
+            self.log_at_wait.append(Path(self.log).exists())
+        if self.returncode is None and self.stubborn:
+            self.stubborn -= 1
+            raise subprocess.TimeoutExpired("llama-server", timeout)
+        if self.returncode is None:
+            self.returncode = self._signal
         return self.returncode
 
 
@@ -851,11 +900,26 @@ def _answer(**changes) -> dict:
     return answer
 
 
-class Server:
-    """The seams around one critique: the spawn and every HTTP exchange."""
+def _words(text: str, known: dict[str, int] | None = None) -> int:
+    """A tokenizer for the fake server: a token per word or mark, as
+    `fakes.fake_tokenizer` counts, but `known` texts at their given count."""
+    total = 0
+    for part, tokens in (known or {}).items():
+        total += text.count(part) * tokens
+        text = text.replace(part, " ")
+    return total + len(re.findall(r"\w+|[^\w\s]", text))
 
-    def __init__(self, monkeypatch, answer=None, *, exits: int | None = None, output=b""):
+
+class Server:
+    """The seams around one critique: the spawn, every HTTP exchange, and
+    whose the port's listener is (`owned`, as `_listener_is_ours` answers).
+    It counts tokens with `count`, and not at all while `counts` is False."""
+
+    def __init__(
+        self, monkeypatch, answer=None, *, exits: int | None = None, output=b"", stubborn=0
+    ):
         self.exits = exits
+        self.stubborn = stubborn
         self.process: FakeProcess | None = None
         self.commands: list[list[str]] = []
         self.keys: list[str] = []
@@ -865,8 +929,23 @@ class Server:
         self.open_without_key = False
         self.post_error: BaseException | None = None
         self.output = output
+        self.count = _words
+        self.counts = True
+        self.owned: bool | None = True
+        # How many exchanges had happened at each listener check.
+        self.checked_after: list[int] = []
+        self.logs: list[str] = []
+        mkstemp = critic.tempfile.mkstemp
+
+        def record_log(*args, **kwargs):
+            handle, name = mkstemp(*args, **kwargs)
+            self.logs.append(name)
+            return handle, name
+
+        monkeypatch.setattr(critic.tempfile, "mkstemp", record_log)
         monkeypatch.setattr(critic, "_spawn", self.spawn)
         monkeypatch.setattr(critic, "_request", self.request)
+        monkeypatch.setattr(critic, "_listener_is_ours", self.listener)
         monkeypatch.setattr(critic, "_HEALTH_POLL", 0.0)
 
     def spawn(self, command, log_file, api_key):
@@ -874,8 +953,14 @@ class Server:
         self.keys.append(api_key)
         log_file.write(self.output)
         log_file.flush()
-        self.process = FakeProcess(self.exits)
+        self.process = FakeProcess(self.exits, stubborn=self.stubborn, log=self.logs[-1])
         return self.process
+
+    def listener(self, port, pids):
+        assert port == int(_flag(self.commands[-1], "--port"))
+        assert pids == self.process.pids()
+        self.checked_after.append(len(self.calls))
+        return self.owned
 
     def request(self, method, url, api_key, body, timeout):
         path = urlsplit(url).path
@@ -884,6 +969,18 @@ class Server:
             return self.health, {}
         if path == "/v1/models":
             return (200, {}) if api_key or self.open_without_key else (401, {})
+        if path in ("/apply-template", "/tokenize"):
+            assert api_key == self.keys[-1]
+            if not self.counts:
+                return 404, {"error": {"message": "File Not Found"}}
+            if path == "/apply-template":
+                assert body["chat_template_kwargs"] == {"enable_thinking": True}
+                rendered = "".join(
+                    f"<|im_start|>{message['role']}\n{message['content']}<|im_end|>\n"
+                    for message in body["messages"]
+                )
+                return 200, {"prompt": rendered + "<|im_start|>assistant\n"}
+            return 200, {"tokens": list(range(self.count(body["content"])))}
         assert path == "/v1/chat/completions"
         if self.post_error is not None:
             raise self.post_error
@@ -931,11 +1028,22 @@ def test_a_critique_asks_a_keyed_server_and_stops_it(monkeypatch, prepared):
     key = server.keys[0]
     assert len(key) >= 32 and key not in server.commands[0]
     assert [(method, path) for method, path, _, _ in server.calls] == [
-        ("GET", "/health"), ("GET", "/v1/models"), ("POST", "/v1/chat/completions"),
+        ("GET", "/health"), ("GET", "/v1/models"),
+        ("POST", "/apply-template"), ("POST", "/tokenize"), ("POST", "/tokenize"),
+        ("POST", "/v1/chat/completions"),
     ]
-    # The key-less probe must be refused, the question must carry the key.
-    assert server.calls[1][2] is None and server.calls[2][2] == key
-    body = server.calls[2][3]
+    # The key-less probe must be refused; the port's listener is checked
+    # next, before anything carries the key - the count, then the question.
+    assert server.calls[1][2] is None
+    assert [api_key for _, _, api_key, _ in server.calls[2:]] == [key] * 4
+    assert server.checked_after == [2]
+    # The messages as the server's template renders them, its control tokens
+    # read as such; the prompt as the text the answer writes.
+    rendered = server.calls[3][3]
+    assert rendered["content"].endswith("<|im_start|>assistant\n")
+    assert rendered["add_special"] and rendered["parse_special"]
+    assert server.calls[4][3] == {"content": PROMPT, "add_special": False, "parse_special": False}
+    body = server.calls[5][3]
     assert body["chat_template_kwargs"] == {"enable_thinking": True}
     assert {k: body[k] for k in critic.SAMPLING} == critic.SAMPLING
     assert body["max_tokens"] == critic.MIN_TOKENS
@@ -944,8 +1052,11 @@ def test_a_critique_asks_a_keyed_server_and_stops_it(monkeypatch, prepared):
     assert "G3" in schema["properties"]["issues"]["items"]["properties"]["cite_id"]["enum"]
     assert [m["role"] for m in body["messages"]] == ["system", "user"]
     assert PROMPT in body["messages"][1]["content"]
+    assert server.calls[2][3]["messages"] == body["messages"]
 
-    assert server.process.terminated and prepared._process is None
+    # Terminated and waited for, while its log was still there to read.
+    assert server.process.events == ["terminate", "wait"] and prepared._process is None
+    assert server.process.log_at_wait == [True] and not Path(server.logs[0]).exists()
     assert result.model == critic.MODEL_LABEL and result.seconds >= 0
     assert result.issues[0].cite_id == "G3" and result.issues[0].source == "guide"
 
@@ -1019,6 +1130,511 @@ def test_an_answer_cut_off_by_the_token_limit_says_so(monkeypatch, prepared):
     assert server.process.terminated
 
 
+def test_a_server_that_outlasts_terminate_is_killed_and_waited_for():
+    process = FakeProcess(stubborn=1)
+    critic._stop(process)
+    assert process.events == ["terminate", "wait", "kill", "wait"]
+    assert process.returncode == -9
+
+
+def test_a_server_that_survives_its_kill_is_reported_and_forgotten(monkeypatch, prepared):
+    server = Server(monkeypatch, stubborn=2)
+    with pytest.raises(critic.CriticError, match="had not exited .* after it was killed"):
+        _critique(prepared)
+    assert server.process.events == ["terminate", "wait", "kill", "wait"]
+    # The card may still be taken, which the error says; but the critic does
+    # not keep the process as its own to stop, and the log goes regardless.
+    assert prepared._process is None
+    assert not Path(server.logs[0]).exists()
+
+
+def _held_log(monkeypatch, attempts: list[str], free_after: int | None = None):
+    """Path.unlink failing on the server's log as Windows fails it while
+    anything has the file open, for `free_after` attempts (for good if None)."""
+    unlink = Path.unlink
+
+    def held(self, missing_ok=False):
+        if self.name.startswith("llama-server-"):
+            attempts.append(self.name)
+            if free_after is None or len(attempts) <= free_after:
+                raise PermissionError(32, "The process cannot access the file", str(self))
+        return unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", held)
+
+
+def test_a_log_that_cannot_be_removed_does_not_cost_the_answer(monkeypatch, prepared, caplog):
+    server = Server(monkeypatch)
+    attempts: list[str] = []
+    _held_log(monkeypatch, attempts)
+    with caplog.at_level(logging.WARNING, logger=critic.log.name):
+        result = _critique(prepared)
+    monkeypatch.undo()
+    assert result.issues[0].cite_id == "G3" and prepared._process is None
+    assert "could not remove llama-server's log" in caplog.text and len(attempts) == 5
+    Path(server.logs[0]).unlink()
+
+
+def test_a_log_held_a_moment_is_removed_once_it_is_free(monkeypatch, prepared, caplog):
+    # A scanner or an indexer opening the just-closed file, as `save_image`'s
+    # rename meets it: tried again, the log goes.
+    server = Server(monkeypatch)
+    attempts: list[str] = []
+    _held_log(monkeypatch, attempts, free_after=2)
+    with caplog.at_level(logging.WARNING, logger=critic.log.name):
+        _critique(prepared)
+    assert len(attempts) == 3 and not Path(server.logs[0]).exists()
+    assert "could not remove" not in caplog.text
+
+
+def test_a_server_that_cannot_be_started_is_a_critic_error(prepared):
+    # `prepared`'s server is a one-byte file, which no platform will run:
+    # WinError 216 on Windows, a permission error elsewhere.
+    with pytest.raises(critic.CriticError, match="could not be started") as caught:
+        _critique(prepared)
+    assert f"LOCAL_DIFFUSION_CRITIC_SERVER={critic.settings.critic_server}" in str(caught.value)
+    assert prepared._process is None
+
+
+@pytest.mark.parametrize(
+    ("library", "package"),
+    [("libgomp.so.1", "libgomp1"), ("libssl.so.3", "libssl3"), ("libcrypto.so.3", "libssl3")],
+)
+def test_a_missing_library_names_the_package_that_installs_it(
+    monkeypatch, prepared, library, package
+):
+    Server(
+        monkeypatch,
+        exits=127,
+        output=(
+            f"/opt/llama/llama-server: error while loading shared libraries: {library}: "
+            "cannot open shared object file: No such file or directory\n"
+        ).encode(),
+    )
+    with pytest.raises(
+        critic.CriticError, match=rf"{re.escape(library)} is missing.*sudo apt install {package}`"
+    ):
+        _critique(prepared)
+
+
+def test_a_missing_library_without_a_known_package_is_named(monkeypatch, prepared):
+    Server(
+        monkeypatch,
+        exits=127,
+        output=(
+            b"llama-server: error while loading shared libraries: libfoo.so.2: cannot open "
+            b"shared object file: No such file or directory\n"
+        ),
+    )
+    with pytest.raises(critic.CriticError, match=r"libfoo\.so\.2 is missing: .*No such") as caught:
+        _critique(prepared)
+    assert "apt" not in str(caught.value)
+
+
+def test_a_port_another_process_listens_on_is_not_sent_the_key(monkeypatch, prepared):
+    server = Server(monkeypatch)
+    server.owned = False
+    with pytest.raises(critic.CriticError, match="not the llama-server this app started"):
+        _critique(prepared)
+    assert not any(path == "/v1/chat/completions" for _, path, _, _ in server.calls)
+    assert server.process.terminated and prepared._process is None
+
+
+def test_where_the_listener_cannot_be_seen_the_key_probe_is_the_guard(monkeypatch, prepared):
+    server = Server(monkeypatch)
+    server.owned = None
+    assert _critique(prepared).issues
+    assert server.calls[-1][1] == "/v1/chat/completions"
+
+
+# A wrapper's server: a child that starts a grandchild, which listens on a
+# port it prints and, like a server freeing the card, takes a moment to go
+# when terminated (a job object's kill cannot be delayed). On Windows the
+# venv's python.exe is itself a launcher, so the tree is four processes deep.
+_GRANDCHILD = (
+    "import signal, socket, sys, time\n"
+    "signal.signal(signal.SIGTERM, lambda *_: (time.sleep(0.5), sys.exit(0)))\n"
+    "listener = socket.socket()\n"
+    "listener.bind(('127.0.0.1', 0))\n"
+    "listener.listen()\n"
+    "print(listener.getsockname()[1], flush=True)\n"
+    "time.sleep(120)\n"
+)
+# On POSIX the grandchild takes a process group of its own, as a shell with
+# job control (`set -m`) puts its jobs: still in the child's session.
+_WRAPPER = (
+    "import os, subprocess, sys, time\n"
+    "group = {'process_group': 0} if os.name == 'posix' else {}\n"
+    f"subprocess.Popen([sys.executable, '-c', {_GRANDCHILD!r}], **group)\n"
+    "time.sleep(120)\n"
+)
+
+
+def _listening(port: int) -> bool:
+    try:
+        # A short timeout: Windows retries a refused loopback connect for 2 s.
+        with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+@pytest.fixture
+def wrapped_listener():
+    process = critic._ServerProcess(
+        [sys.executable, "-c", _WRAPPER], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE
+    )
+    try:
+        yield process, int(process.stdout.readline())
+    finally:
+        critic._stop(process)
+        process.stdout.close()
+
+
+def test_stop_ends_the_whole_tree(wrapped_listener):
+    process, port = wrapped_listener
+    assert _listening(port)
+    started = time.monotonic()
+    critic._stop(process)
+    # Terminated with the rest, not left for the kill `STOP_TIMEOUT` later.
+    assert time.monotonic() - started < critic.STOP_TIMEOUT / 2
+    assert process.poll() is not None
+    assert not _listening(port)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="a job object")
+def test_the_child_joins_its_job_before_it_runs(monkeypatch):
+    # However long the job takes, the child has started nothing outside it
+    # meanwhile: it is created suspended and resumed once inside.
+    new_job = critic._new_job
+
+    def slow(process):
+        time.sleep(2)
+        return new_job(process)
+
+    monkeypatch.setattr(critic, "_new_job", slow)
+    process = critic._ServerProcess(
+        [sys.executable, "-c", _WRAPPER], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE
+    )
+    try:
+        port = int(process.stdout.readline())
+    finally:
+        critic._stop(process)
+        process.stdout.close()
+    assert not _listening(port)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="a job object's process list")
+def test_the_tree_is_waited_for_until_its_handles_are_closed(wrapped_listener, monkeypatch):
+    process, port = wrapped_listener
+    # Each process is held once seen in the job; then the job's list is
+    # empty while the rest of the tree still runs - as it is, for a moment,
+    # after each exits and before its handles (the log, the listening
+    # socket) are closed.
+    assert len(process._hold()) > 1
+    monkeypatch.setattr(critic, "_job_pids", lambda job: set())
+    subprocess.Popen.kill(process)  # the child alone
+    with pytest.raises(subprocess.TimeoutExpired):
+        process.wait(timeout=1)
+    assert _listening(port)
+
+
+# A process whose first thread exits alone (the exit syscall, not exit_group)
+# while another keeps its listening socket for a while: /proc shows it a
+# zombie, as it shows a multithreaded server between its threads' exits.
+_HALF_EXITED = (
+    "import ctypes, socket, sys, threading, time\n"
+    "listener = socket.socket()\n"
+    "listener.bind(('127.0.0.1', 0))\n"
+    "listener.listen()\n"
+    "print(listener.getsockname()[1], flush=True)\n"
+    "threading.Thread(target=time.sleep, args=(3,)).start()\n"
+    "ctypes.CDLL(None).syscall(int(sys.argv[1]))\n"
+)
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux") or platform.machine() not in ("x86_64", "aarch64"),
+    reason="Linux's /proc, and the exit syscall's number",
+)
+def test_a_process_is_waited_for_until_its_last_thread_exits():
+    exit_call = {"x86_64": 60, "aarch64": 93}[platform.machine()]
+    process = critic._ServerProcess(
+        [sys.executable, "-c", _HALF_EXITED, str(exit_call)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+    )
+    try:
+        port = int(process.stdout.readline())
+        deadline = time.monotonic() + 2
+        while Path(f"/proc/{process.pid}/stat").read_text().rpartition(")")[2].split()[0] != "Z":
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
+        assert _listening(port)
+        assert critic._session_pids(process.pid) == {process.pid}
+    finally:
+        critic._stop(process)
+        process.stdout.close()
+    assert not _listening(port) and critic._session_pids(process.pid) == set()
+
+
+def test_a_tree_is_waited_for_after_its_child(monkeypatch):
+    process = critic._ServerProcess([sys.executable, "-c", "pass"])
+    # The child gone, the rest of the tree for two more looks.
+    alive = iter([True, True, False])
+    monkeypatch.setattr(process, "_others_alive", lambda: next(alive))
+    assert process.wait(timeout=10) == 0
+    assert next(alive, None) is None
+    # And never past the timeout.
+    monkeypatch.setattr(process, "_others_alive", lambda: True)
+    with pytest.raises(subprocess.TimeoutExpired):
+        process.wait(timeout=0.2)
+
+
+@pytest.mark.skipif(
+    not (sys.platform == "win32" or sys.platform.startswith("linux")),
+    reason="the listener's owner is read from Windows' TCP table or Linux's /proc",
+)
+def test_the_listener_check_tells_the_tree_from_any_other_process(wrapped_listener):
+    process, port = wrapped_listener
+    pids = process.pids()
+    assert process.pid in pids and len(pids) > 1
+    assert critic._listener_is_ours(port, pids) is True
+    assert critic._listener_is_ours(port, {os.getpid()}) is False
+    with socket.socket() as own:
+        own.bind(("127.0.0.1", 0))
+        own.listen()
+        port = own.getsockname()[1]
+        assert critic._listener_is_ours(port, pids) is False
+        assert critic._listener_is_ours(port, {os.getpid()}) is True
+    # Nothing to be seen listening is no proof of anything.
+    assert critic._listener_is_ours(critic._free_port(), pids) is False
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="Linux: on Windows a listener on every address may raise a firewall prompt, and a "
+    "mapped one is in the IPv4 table",
+)
+@pytest.mark.parametrize(
+    ("family", "address"), [(socket.AF_INET, "0.0.0.0"), (socket.AF_INET6, "::ffff:127.0.0.1")]
+)
+def test_a_listener_beside_loopback_is_seen(wrapped_listener, family, address):
+    # Where else a connection to 127.0.0.1 lands: a listener on every
+    # address, or an IPv6 one with IPv4 mapped in (the IPv6 table).
+    process, _ = wrapped_listener
+    with socket.socket(family) as other:
+        if family == socket.AF_INET6:
+            other.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        other.bind((address, 0))
+        other.listen()
+        port = other.getsockname()[1]
+        assert critic._listener_is_ours(port, {os.getpid()}) is True
+        assert critic._listener_is_ours(port, process.pids()) is False
+
+
+# A llama-server stand-in: its port from the command line, its key from the
+# environment, /v1/models, the counts and the chat behind the key,
+# `answer.json` beside it. `FAKE_LLAMA_SERVER_WARMUP` seconds of 503 first.
+_FAKE_LLAMA_SERVER = """\
+import json, os, sys, threading, time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+# A run that fails to stop it must not leave it listening for good.
+threading.Timer(60, os._exit, (0,)).start()
+ready = time.monotonic() + float(os.environ.get("FAKE_LLAMA_SERVER_WARMUP", "0"))
+port = int(sys.argv[sys.argv.index("--port") + 1])
+key = os.environ["LLAMA_API_KEY"]
+with open(os.path.join(os.path.dirname(__file__), "answer.json"), encoding="utf-8") as source:
+    answer = source.read()
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def reply(self, status, body):
+        data = json.dumps(body).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def refused(self):
+        if self.headers.get("Authorization") == "Bearer " + key:
+            return False
+        self.reply(401, {"error": {"message": "Invalid API Key"}})
+        return True
+
+    def do_GET(self):
+        if self.path == "/health":
+            self.reply(200 if time.monotonic() >= ready else 503, {})
+        elif not self.refused():
+            self.reply(200, {"data": []})
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if self.refused():
+            return
+        if self.path == "/apply-template":
+            text = "".join(message["content"] + " " for message in body["messages"])
+            self.reply(200, {"prompt": text})
+        elif self.path == "/tokenize":
+            self.reply(200, {"tokens": list(range(len(body["content"].split())))})
+        else:
+            message = {"content": answer}
+            self.reply(200, {"choices": [{"message": message, "finish_reason": "stop"}]})
+
+
+ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+"""
+# A launcher that starts the stand-in and exits once it listens, leaving it
+# running - as a wrapper that backgrounds its server does.
+_LAUNCHER = """\
+import os, socket, subprocess, sys, time
+
+port = int(sys.argv[sys.argv.index("--port") + 1])
+server = os.path.join(os.path.dirname(__file__), "fake_llama_server.py")
+subprocess.Popen([sys.executable, server, *sys.argv[1:]])
+deadline = time.monotonic() + 30
+while time.monotonic() < deadline:
+    try:
+        socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+        break
+    except OSError:
+        time.sleep(0.05)
+"""
+
+
+def _wrapped(monkeypatch, tmp_path, script: str):
+    """The critic set up to run `script` through a wrapper, which the setting
+    names: a .bat on Windows, a shell script without `exec` elsewhere. The
+    ports it is given and its logs, recorded."""
+    (tmp_path / "fake_llama_server.py").write_text(_FAKE_LLAMA_SERVER, encoding="utf-8")
+    (tmp_path / "launcher.py").write_text(_LAUNCHER, encoding="utf-8")
+    (tmp_path / "answer.json").write_text(json.dumps(_answer()), encoding="utf-8")
+    if sys.platform == "win32":
+        wrapper = tmp_path / "llama-server.bat"
+        wrapper.write_text(f'@echo off\r\n"{sys.executable}" "%~dp0{script}" %*\r\n', encoding="utf-8")
+    else:
+        wrapper = tmp_path / "llama-server"
+        wrapper.write_text(
+            f'#!/bin/sh\n"{sys.executable}" "$(dirname "$0")/{script}" "$@"\n', encoding="utf-8"
+        )
+        wrapper.chmod(0o755)
+    model = tmp_path / "model.gguf"
+    model.write_bytes(b"m")
+    _configure(monkeypatch, critic=True, critic_server=wrapper, critic_model=None)
+    target = critic.PromptCritic()
+    target._prepared = (wrapper, model)
+    ports, logs = [], []
+    free_port, mkstemp = critic._free_port, critic.tempfile.mkstemp
+    monkeypatch.setattr(critic, "_free_port", lambda: ports.append(free_port()) or ports[-1])
+
+    def record_log(*args, **kwargs):
+        handle, name = mkstemp(*args, **kwargs)
+        logs.append(name)
+        return handle, name
+
+    monkeypatch.setattr(critic.tempfile, "mkstemp", record_log)
+    return target, ports, logs
+
+
+def test_a_wrapped_server_is_asked_and_stopped_whole(monkeypatch, tmp_path, caplog):
+    target, ports, logs = _wrapped(monkeypatch, tmp_path, "fake_llama_server.py")
+    with caplog.at_level(logging.WARNING, logger=critic.log.name):
+        result = _critique(target)
+    assert result.issues[0].cite_id == "G3" and target._process is None
+    # Counted by the server, over HTTP, before it was asked.
+    assert "sized by the estimate" not in caplog.text
+    # The server the wrapper started went with it, and its log with them:
+    # nothing still holds the file once the stop returns.
+    assert not _listening(ports[0])
+    assert not Path(logs[0]).exists() and "could not remove" not in caplog.text
+
+
+def test_a_server_its_wrapper_left_running_is_stopped(monkeypatch, tmp_path):
+    # The wrapper exits once its server listens, before the server is ready:
+    # the critic sees its child gone and gives up, and the stop must still
+    # reach the server, since the child's exit is not the tree's.
+    monkeypatch.setenv("FAKE_LLAMA_SERVER_WARMUP", "3")
+    target, ports, _ = _wrapped(monkeypatch, tmp_path, "launcher.py")
+    # Held, so that on Windows the job's closing cannot stand in for the stop.
+    spawned = []
+    spawn = critic._spawn
+    monkeypatch.setattr(critic, "_spawn", lambda *args: spawned.append(spawn(*args)) or spawned[-1])
+    with pytest.raises(critic.CriticError, match="exited with code 0 before it was ready"):
+        _critique(target)
+    assert spawned and not _listening(ports[0])
+
+
+class _Recorder(http.server.BaseHTTPRequestHandler):
+    """Records each request - method, path as sent (a proxy is sent the whole
+    URL), Authorization - and answers `status`."""
+
+    status = 200
+    seen: list[tuple[str, str, str | None]] = []
+
+    def log_message(self, *args):
+        pass
+
+    def _record(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        self.rfile.read(length)
+        self.seen.append((self.command, self.path, self.headers.get("Authorization")))
+        data = json.dumps({"path": self.path}).encode()
+        self.send_response(self.status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    do_GET = do_POST = _record
+
+
+@pytest.fixture
+def recording_server():
+    servers = []
+
+    def start(status: int):
+        handler = type("Handler", (_Recorder,), {"status": status, "seen": []})
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(
+            target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+        ).start()
+        servers.append(server)
+        return server, handler.seen
+
+    yield start
+    for server in servers:
+        server.shutdown()
+        server.server_close()
+
+
+def test_loopback_requests_never_go_through_an_environment_proxy(monkeypatch, recording_server):
+    target, at_target = recording_server(200)
+    proxy, at_proxy = recording_server(502)
+    monkeypatch.setenv("HTTP_PROXY", f"http://127.0.0.1:{proxy.server_port}")
+    for name in ("NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    # The module as an app started under that proxy imports it, and urlopen's
+    # shared opener rebuilt from the same environment.
+    spec = importlib.util.spec_from_file_location("backend._critic_under_proxy", critic.__file__)
+    fresh = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, fresh)
+    spec.loader.exec_module(fresh)
+    monkeypatch.setattr(urllib.request, "_opener", None)
+
+    base = f"http://127.0.0.1:{target.server_port}"
+    assert fresh._request("GET", base + "/health", None, None, 5.0) == (200, {"path": "/health"})
+    status, _ = fresh._request("POST", base + "/v1/chat/completions", "k3y", {"q": 1}, 5.0)
+    assert status == 200
+    assert at_target == [
+        ("GET", "/health", None), ("POST", "/v1/chat/completions", "Bearer k3y"),
+    ]
+    assert at_proxy == []
+
+
 # Qwen3-4B's tokenizer on these texts, measured 2026-09-27 (text, repeats, tokens).
 MEASURED = [
     (
@@ -1039,34 +1655,187 @@ MEASURED = [
     ("桜の木の下で微笑む少女、夕暮れの光、柔らかい風。", 10, 220),
     ("0123456789 3.1415926-53589793 ", 10, 300),
     ("😊🎉✨ ", 10, 40),
+    # Measured 2026-09-28 with klein's tokenizer.json, whose ids equal the
+    # pinned GGUF's under b11206's llama-tokenize: the kinds of text the
+    # first count fell short on, by up to half.
+    (
+        (
+            "Ένας ψηλός άντρας με ένα μεγάλο γκρίζο παλτό στέκεται σε έναν βρεγμένο "
+            "πλακόστρωτο δρόμο τη νύχτα, φωτογραφία μόδας, σκοτεινός φωτισμός δρόμου. "
+        ),
+        10, 1260,
+    ),
+    (
+        "비 오는 밤, 젖은 자갈길 위에 서 있는 긴 회색 코트를 입은 키 큰 남자, 패션 화보, 어두운 거리 조명. ",
+        10, 471,
+    ),
+    (
+        (
+            "रात में गीली पत्थर की सड़क पर खड़ा एक लंबा आदमी, बड़े आकार का ग्रे ऊनी कोट पहने, "
+            "फैशन संपादकीय, उदास सड़क की रोशनी। "
+        ),
+        10, 1090,
+    ),
+    ("61997f1c2ba68c75a684ba42c5800248a818d827044d2ae33eb50e069434b1a1 ", 10, 610),
+    (
+        (
+            "lXeIC8Uvfa4teA8RcdWstppnTx961ANZVM7BDDA5WWZuuHk5fGJhCCA1STEFS9r5ASTHuUeBkJkQBxFm"
+            "/q4CZQ== "
+        ),
+        10, 631,
+    ),
+    ("👨‍👩‍👧‍👦 👩🏽‍🚀 🏳️‍🌈 🧑‍🤝‍🧑 ", 10, 330),
+    (
+        (
+            "Ein großer Mann in einem übergroßen grauen Wollmantel steht nachts auf einer "
+            "nassen Kopfsteinpflasterstraße, Modefotografie, düstere Straßenbeleuchtung. "
+        ),
+        10, 461,
+    ),
+    # And two the estimate once counted far too long, which would refuse
+    # what fits before a server starts: brands, whole words in the
+    # vocabulary, and accents decomposed (the tokenizer composes them).
+    (
+        (
+            "A photo of a MacBook and an iPhone beside a PlayStation controller on a desk, "
+            "YouTube on the screen. "
+        ),
+        10, 211,
+    ),
+    (
+        unicodedata.normalize(
+            "NFD",
+            "Một người đàn ông cao lớn mặc áo khoác len xám đứng trên con đường lát đá ướt "
+            "vào ban đêm. ",
+        ),
+        10, 282,
+    ),
 ]
 
 
+def _qwen3_tokenizer():
+    """Qwen3-4B's tokenizer as FLUX.2 [klein] ships it, if the Hub cache has
+    it: its ids equal the pinned GGUF's under b11206's llama-tokenize."""
+    from huggingface_hub.constants import HF_HUB_CACHE
+    from tokenizers import Tokenizer
+
+    (spec,) = prompt_encoding.encoders_for(KLEIN)
+    source = spec.source
+    snapshots = Path(HF_HUB_CACHE) / f"models--{source.repo.replace('/', '--')}" / "snapshots"
+    candidates = [snapshots / source.revision] if source.revision else sorted(snapshots.glob("*"))
+    for snapshot in candidates:
+        path = snapshot / source.subfolder / "tokenizer.json"
+        if path.is_file():
+            return Tokenizer.from_file(str(path))
+    pytest.skip("Qwen3-4B's tokenizer is not in the Hub cache")
+
+
+def test_measured_counts_and_pieces_are_the_tokenizers():
+    tokenizer = _qwen3_tokenizer()
+
+    def count(text: str) -> int:
+        return len(tokenizer.encode(text, add_special_tokens=False).ids)
+
+    for text, repeats, tokens in MEASURED:
+        text *= repeats
+        assert count(text) == tokens
+        # `_PIECES` is the pre-tokenizer, after its NFC: no merge crosses
+        # its pieces.
+        text = unicodedata.normalize("NFC", text)
+        pieces = [match.group(0) for match in critic._PIECES.finditer(text)]
+        assert "".join(pieces) == text
+        assert sum(count(piece) for piece in pieces) == tokens
+
+
 @pytest.mark.parametrize(("text", "repeats", "tokens"), MEASURED)
-def test_the_token_estimate_errs_long(text, repeats, tokens):
+def test_the_token_estimate_is_near_the_count(text, repeats, tokens):
     estimate = critic.estimate_tokens(text * repeats)
-    # Within a tenth under at worst (digits), at most about half again over.
-    assert 0.9 * tokens <= estimate <= 1.6 * tokens
-    # Scaled down, a lower bound: what the refusal counts with.
-    assert critic._ESTIMATE_FLOOR * estimate <= tokens
+    # Never so long that, scaled by the floor, it refuses what fits (English
+    # prose is the most, at 1.39); and not far short, since it sizes the
+    # answer for a server that will not count (base64 is the least, 0.78).
+    assert 0.75 * tokens <= estimate <= tokens / critic._ESTIMATE_FLOOR
+
+
+@pytest.mark.parametrize("ordered", [True, False])
+@pytest.mark.parametrize(("text", "repeats", "tokens"), MEASURED)
+def test_no_measured_text_that_fits_is_refused_unasked(
+    monkeypatch, text, repeats, tokens, ordered
+):
+    # The text as the whole input, in a window its answer fills exactly: the
+    # estimate before a server starts must not refuse it, and the count
+    # after must admit it, with one token less refused.
+    prompt = text * repeats
+    estimated = critic.estimate_tokens(prompt)
+    context = dataclasses.replace(
+        _context(KLEIN, "a cat", ordered=ordered), prompt_tokens=estimated, input_tokens=estimated
+    )
+    counted = dataclasses.replace(context, prompt_tokens=tokens, input_tokens=tokens)
+    monkeypatch.setattr(critic, "CONTEXT", tokens + context.copies * tokens + critic.ANSWER_OVERHEAD)
+    critic.check_fits(context, estimated=True)
+    critic.check_fits(counted)
+    monkeypatch.setattr(critic, "CONTEXT", critic.CONTEXT - 1)
+    with pytest.raises(critic.CriticError, match="too long"):
+        critic.check_fits(counted)
+
+
+def test_the_estimate_reads_text_as_the_tokenizer_normalizes_it():
+    # Qwen3's normalizer is NFC, so decomposed accents count as composed ones.
+    text = "Crème brûlée à la française, élégant café, naïve façade. " * 10
+    assert critic.estimate_tokens(unicodedata.normalize("NFD", text)) == critic.estimate_tokens(text)
+
+
+@pytest.mark.parametrize("ordered", [True, False])
+def test_the_servers_count_admits_what_fits_and_refuses_the_rest(monkeypatch, prepared, ordered):
+    server = Server(monkeypatch)
+    # The question as the server counts it: 3000 tokens in, and a prompt of
+    # 1000 that the answer repeats `copies` times.
+    server.count = lambda text: 3000 if text.startswith("<|im_start|>") else 1000
+    copies = 3 if ordered else 2
+    need = 3000 + copies * 1000 + critic.ANSWER_OVERHEAD
+    monkeypatch.setattr(critic, "CONTEXT", need)
+    _critique(prepared, ordered=ordered)
+    assert server.calls[-1][1] == "/v1/chat/completions"
+    budget = critic.REASONING_BUDGET + copies * 1000 + critic.ANSWER_OVERHEAD
+    assert server.calls[-1][3]["max_tokens"] == min(need, max(critic.MIN_TOKENS, budget))
+
+    monkeypatch.setattr(critic, "CONTEXT", need - 1)
+    server.calls.clear()
+    with pytest.raises(critic.CriticError, match="too long"):
+        _critique(prepared, ordered=ordered)
+    # Started, counted and stopped; never asked.
+    assert [path for _, path, _, _ in server.calls][-1] == "/tokenize"
+    assert server.process.terminated and prepared._process is None
 
 
 def test_a_long_prompt_is_given_room_for_its_answer(monkeypatch, prepared):
     server = Server(monkeypatch)
-    # Near the request's 4000-character limit. A 4000-character English prompt
-    # measured up to 966 tokens, and the answer repeats it three times after
-    # up to REASONING_BUDGET of thought.
+    # Near the request's 4000-character limit: 848 tokens by Qwen3's own
+    # tokenizer, which the answer repeats three times after up to
+    # REASONING_BUDGET of thought.
     prompt = (MEASURED[0][0] * 30)[:4000]
+    server.count = lambda text: _words(text, {prompt: 848})
     _critique(prepared, prompt=prompt)
     budget = server.calls[-1][3]["max_tokens"]
-    assert budget >= critic.REASONING_BUDGET + 3 * 966 + critic.ANSWER_OVERHEAD
-    assert budget <= critic.CONTEXT
+    assert budget == critic.REASONING_BUDGET + 3 * 848 + critic.ANSWER_OVERHEAD
     # Unordered, the answer has no reordered copy, and a short prompt is
     # given the measured floor.
     _critique(prepared, prompt=prompt, ordered=False)
-    assert server.calls[-1][3]["max_tokens"] < budget
+    assert server.calls[-1][3]["max_tokens"] == budget - 848
     _critique(prepared, prompt="a cat")
     assert server.calls[-1][3]["max_tokens"] == critic.MIN_TOKENS
+
+
+def test_a_server_that_cannot_count_is_sized_by_the_estimate(monkeypatch, prepared, caplog):
+    server = Server(monkeypatch)
+    server.counts = False
+    prompt = (MEASURED[0][0] * 30)[:4000]
+    with caplog.at_level(logging.WARNING, logger=critic.log.name):
+        result = _critique(prepared, prompt=prompt)
+    assert result.issues and server.calls[-1][1] == "/v1/chat/completions"
+    # The estimate is long on English prose, so the answer keeps its room.
+    budget = server.calls[-1][3]["max_tokens"]
+    assert critic.REASONING_BUDGET + 3 * 848 + critic.ANSWER_OVERHEAD < budget <= critic.CONTEXT
+    assert "sized by the estimate" in caplog.text
 
 
 def test_a_prompt_whose_answer_cannot_fit_is_refused_before_a_server_starts(
@@ -1075,14 +1844,31 @@ def test_a_prompt_whose_answer_cannot_fit_is_refused_before_a_server_starts(
     server = Server(monkeypatch)
     # 4000 characters of Chinese measured 2698 tokens: repeated twice with the
     # sources, and again as the negative prompt, it overflows 8192 tokens
-    # before the critic has thought at all.
+    # before the critic has thought at all, by more than the estimate's
+    # margin - so no server is started to count it.
     chinese = (MEASURED[2][0] * 100)[:4000]
     with pytest.raises(critic.CriticError, match="too long"):
         _critique(prepared, "baidu/ERNIE-Image-Turbo", chinese, negative=chinese, ordered=False)
     assert server.commands == []
     # A shorter one is asked.
     _critique(prepared, "baidu/ERNIE-Image-Turbo", chinese[:1500], ordered=False)
+    assert len(server.commands) == 1 and server.calls[-1][1] == "/v1/chat/completions"
+
+
+def test_a_greek_prompt_past_the_window_is_refused_before_it_is_asked(monkeypatch, prepared):
+    server = Server(monkeypatch)
+    # 2500 characters of Greek are 2189 tokens by Qwen3's tokenizer, and with
+    # the sources and two copies in the answer need over 8400, which the
+    # first estimate put well inside the window: the server ran to its end
+    # and answered 502 then. Within the estimate's margin, a server starts;
+    # its own count refuses the question before it is sent.
+    greek = (MEASURED[6][0] * 20)[:2500]
+    server.count = lambda text: _words(text, {greek: 2189})
+    with pytest.raises(critic.CriticError, match="too long"):
+        _critique(prepared, "black-forest-labs/FLUX.1-Krea-dev", greek, ordered=False)
     assert len(server.commands) == 1
+    assert not any(path == "/v1/chat/completions" for _, path, _, _ in server.calls)
+    assert server.process.terminated and prepared._process is None
 
 
 # --- Reading the answer ------------------------------------------------------
