@@ -33,13 +33,13 @@ _BFL_TECHNICAL = "https://docs.bfl.ai/guides/prompting_unified_technical"
 _BFL_FLUX2 = "https://docs.bfl.ai/guides/prompting_guide_flux2"
 
 _FLUX1_PROMPT = (
-    "Plain descriptive sentences, not a tag list: subject first, then setting, "
+    "Plain descriptive sentences, not a tag list. Subject first, then setting, "
     "style, camera and lighting - what comes first carries the most weight. "
     "30-80 words suits most images; only the first 77 tokens reach the CLIP "
     "encoder, and T5 stops reading at 512.\n"
     "Put any text to render in quotation marks. There is no negative prompt "
     "unless True CFG is on, so describe what you want rather than what you do "
-    "not. English is the most precise language."
+    "not."
 )
 _FLUX1_SIZE = (
     "Black Forest Labs documents FLUX.1 for 0.1 to 2 MP at any aspect ratio, "
@@ -62,15 +62,18 @@ FLUX1_GUIDE = {
     "pixels": (0.1, 2.0),
     "pixels_word": "documented",
     "examples": _FLUX1_EXAMPLES,
-    # "English is the most precise language" is left out: BFL's current basics
-    # page says FLUX answers other languages "with the same level of quality".
+    # The prose once ended "English is the most precise language"; BFL's
+    # current basics page says FLUX answers other languages "with the same
+    # level of quality", so it is gone from the prose, not only unchecked.
+    # Each sentence carries one page's words, so a critic cite of it opens
+    # the page its rule finding does (`prompt_sources`).
     "analysis": {
         "url": _BFL_BASICS,
         "style": {"expects": "prose", "cite": "Plain descriptive sentences, not a tag list"},
         "order": {
             "steps": ["subject", "setting", "style", "camera", "lighting"],
             "cite": (
-                "subject first, then setting, style, camera and lighting - what "
+                "Subject first, then setting, style, camera and lighting - what "
                 "comes first carries the most weight"
             ),
             # BFL's building page: its template, and "Start with the image
@@ -90,9 +93,10 @@ FLUX1_GUIDE = {
 }
 KREA_DEV_GUIDE = {
     "prompt": (
-        "FLUX.1 prompting - descriptive sentences, subject first, text in "
-        "quotation marks, 30-80 words, no negative prompt without True CFG - on "
-        "a checkpoint tuned for photographs without the oversaturated 'AI look'. "
+        "FLUX.1 prompting - descriptive sentences, text in quotation marks. Put "
+        "the subject first, in 30-80 words. There is no negative prompt without "
+        "True CFG. This checkpoint is tuned for photographs without the "
+        "oversaturated 'AI look'. "
         "Camera settings - lens, framing, depth of field - are optional: BFL's "
         "guide adds them to a photograph where framing matters.\n"
         "Krea recommends 28-32 steps and CFG 3.5-5."
@@ -120,6 +124,8 @@ KREA_DEV_GUIDE = {
     # when framing matters"); it replaced two sentences no page said - "photo
     # language" and "give it room" - which the critic then contradicted.
     # "Subject first" is that page's "Start with the image type and subject".
+    # The 'AI look' is BFL's launch post's. The opening summary is three
+    # sentences, one per BFL page, so each links the page its rules cite.
     "analysis": {
         "url": _BFL_BASICS,
         "style": {"expects": "prose", "cite": "descriptive sentences"},
@@ -135,11 +141,12 @@ KREA_DEV_GUIDE = {
 }
 SCHNELL_GUIDE = {
     "prompt": (
-        "FLUX.1 prompting - descriptive sentences, subject first, text in "
-        "quotation marks - with a shorter memory: schnell's T5 encoder stops at "
-        "256 tokens, about 180 words, so keep it under that. Guidance is off on "
-        "schnell, so a negative prompt does nothing unless True CFG is on; "
-        "describe what you want instead."
+        "FLUX.1 prompting - descriptive sentences, text in quotation marks. Put "
+        "the subject first. schnell's T5 encoder reads up to 512 tokens in this "
+        "app, as on [dev]. BFL's reference code gives schnell a shorter memory, "
+        "256 tokens (about 180 words), which this app does not apply. Guidance is "
+        "off on schnell, so a negative prompt does nothing unless True CFG is "
+        "on; describe what you want instead."
     ),
     "size": _FLUX1_SIZE,
     "pixels": (0.1, 2.0),
@@ -147,7 +154,8 @@ SCHNELL_GUIDE = {
     "examples": _FLUX1_EXAMPLES,
     # No word limit: the "about 180 words" rests on a 256-token T5 limit this
     # app does not apply (FluxPipeline encodes 512 unless told otherwise), and
-    # the encoder report measures the real one.
+    # the encoder report measures the real one. The prose says so, and the
+    # critic is not given that sentence (`prompt_sources`, `unsourced`).
     "analysis": {
         "url": _BFL_BASICS,
         "style": {"expects": "prose", "cite": "descriptive sentences"},
@@ -216,12 +224,12 @@ KLEIN_GUIDE = {
     },
 }
 _KREA2_PROMPT = (
-    "Natural language, one cohesive paragraph. Krea's guide: long, detailed "
-    "prompts give the best results - the training captions were dense - but a "
-    "short one works too. Put words to render in quotation marks; text "
-    "rendering was a reward in post-training. The Qwen3-VL encoder reads 512 "
-    "tokens and was chosen for multilingual reach, though Krea publishes no "
-    "language list.\n"
+    "Natural language. One cohesive paragraph. Krea's guide: long, detailed "
+    "prompts give the best results, but a short one works too. Krea's report "
+    "says the training captions were dense. Put words to render in quotation "
+    "marks. Text rendering was a reward in post-training. The Qwen3-VL encoder "
+    "reads 512 tokens and was chosen for multilingual reach, though Krea "
+    "publishes no language list.\n"
 )
 _KREA2_EXAMPLES = [
     "a fox walking in the snow",
@@ -236,13 +244,15 @@ _KREA2_EXAMPLES = [
     "diffused natural lighting that highlights the intricate details of the fur "
     "and foliage.",
 ]
-# "one cohesive paragraph" is the expansion prompt's structure rule, the
-# prompting page's companion; the rest is docs/prompting.md.
+# "One cohesive paragraph" is the expansion prompt's structure rule, the
+# prompting page's companion; the rules' other words are docs/prompting.md.
+# The two sit in sentences of their own, and the technical report's claims in
+# theirs, so each sentence links one page (`prompt_sources`).
 _KREA2_ANALYSIS = {
     "url": "https://github.com/krea-ai/krea-2/blob/main/docs/prompting.md",
     "style": {"expects": "prose", "cite": "Natural language"},
     "one_paragraph": {
-        "cite": "one cohesive paragraph",
+        "cite": "One cohesive paragraph",
         "url": "https://github.com/krea-ai/krea-2/blob/main/docs/expansion.txt",
     },
     "quote_text": {"cite": "Put words to render in quotation marks"},
@@ -353,11 +363,16 @@ _Z_IMAGE_EXAMPLES = [
     "一辆复古蒸汽小火车化身为巨大的拉链头，正拉开厚厚的冬日积雪，展露出一个生机盎然的春天。",
     "a red fox sitting in fresh snow, golden hour, photorealistic",
 ]
-# Z-Image's "strongly recommends a negative prompt" is not checked: its card
-# calls one optional, and the undistilled Z-Image is not in the catalogue.
+# No negative-prompt rule for the undistilled Z-Image: its card calls one
+# optional, and it is not in the catalogue. "Long, detailed" is the
+# maintainers' answer in the Turbo repo's discussion 8, not the card's.
 _Z_IMAGE_ANALYSIS = {
     "url": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
-    "style": {"expects": "prose", "cite": "Long, detailed natural language"},
+    "style": {
+        "expects": "prose",
+        "cite": "Long, detailed natural language",
+        "url": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/discussions/8",
+    },
     "quote_text": {"cite": "quote the words"},
 }
 _Z_IMAGE_SIZE = (
@@ -380,8 +395,8 @@ Z_IMAGE_TURBO_GUIDE = {
 }
 Z_IMAGE_GUIDE = {
     "prompt": _Z_IMAGE_PROMPT + (
-        "The undistilled Z-Image wants CFG 3-5 over 28-50 steps, and Tongyi "
-        "strongly recommends a negative prompt with it."
+        "The undistilled Z-Image wants CFG 3-5 over 28-50 steps; its card calls "
+        "a negative prompt optional, but powerful for removing unwanted content."
     ),
     "size": _Z_IMAGE_SIZE,
     "pixels": (0.26, 2.2),
@@ -433,7 +448,8 @@ _ERNIE_PROMPT = (
     "its result is put back in this box for review and becomes the exact prompt "
     "the image records. Dense and layout-sensitive text is its strength, English and "
     "Chinese - posters, infographics, UI - so quote the words and say where "
-    "they go. Ministral-3 encoder, up to 2048 tokens.\n"
+    "they go. Baidu's report names Ministral-3 as the text encoder. The "
+    "tokenizer config caps a prompt at 2048 tokens.\n"
 )
 _ERNIE_SIZE = (
     "Baidu lists 1024x1024, 848x1264, 1264x848, 768x1376, 1376x768, 896x1200 "
@@ -724,17 +740,17 @@ ILLUSTRIOUS_GUIDE = {
     "prompt": (
         "Illustrious XL v2.0 is an untuned base: its authors say it has no "
         "default style and was not trained with an aesthetic set, so a bare "
-        "prompt renders the dataset's average look. Give it a style - a Danbooru "
-        "artist tag (autocomplete labels them artist) or style tags - and one "
-        "composition tag (upper body, cowboy shot, portrait or full body); the "
-        "authors warn that stacking conflicting composition tags confuses it.\n"
+        "prompt renders the dataset's average look. Give it a style: a Danbooru "
+        "artist tag or style tags. Add one composition tag (upper body, cowboy "
+        "shot, portrait or full body); the authors warn that stacking "
+        "conflicting composition tags confuses it.\n"
         "Tag lists and natural-language descriptions both work; their "
         "natural-language example ends its prose with tags (persona 3, "
         "masterpiece). The training order is person count, character, rating, "
         "general tags, artist, quality, year. The two CLIP encoders each stop at "
         "77 tokens, prose included, so keep it short or put the quality tags "
         "early. Autocomplete and the chips check Danbooru's tag index through "
-        "the dataset's August 2024 cutoff.\n"
+        "the dataset's August 2024 cutoff and label artist tags as artist.\n"
         "The rating slot takes Danbooru's own rating names - general, sensitive, "
         "questionable or explicit; the report's prompts use general. "
         "End a tag prompt with one quality tier (good quality, best quality or "
@@ -873,15 +889,17 @@ WAI_GUIDE = {
         "WAI Illustrious v17 is an anime finetune with its own style. Use tags "
         "for the subject and scene; the family release notes also describe "
         "natural-language support. Finish with the author's quality recipe: "
-        "masterpiece, best quality, amazing quality. Examples inserts that "
-        "recipe alone; add your subject before it. Both SDXL CLIP tokenizers "
+        "masterpiece, best quality, amazing quality; add your subject before it. "
+        "Examples inserts that recipe alone. Both SDXL CLIP tokenizers "
         "stop at 77 tokens, so keep essential details near the beginning.\n"
         "The author's rating tags are general, sensitive, nsfw and explicit; "
         "the author suggests adding nsfw to the negative prompt when filtering "
         "sexual content. Autocomplete checks Danbooru's live index; WAI publishes "
         "no vocabulary cutoff, so a recognized tag is advisory rather than "
         "evidence that v17 learned it.\n"
-        f"The v17 card recommends this negative prompt: {_WAI_NEGATIVE} "
+        # Quoted and closed: the recipe ends in a comma, and without the full
+        # stop the next sentence - the app's, not the card's - ran into it.
+        f"The v17 card recommends this negative prompt: '{_WAI_NEGATIVE}'. "
         "The card's weighted-prompt syntax and high-resolution refinement pass "
         "are not implemented by this text-to-image pipeline."
     ),
@@ -919,14 +937,15 @@ WAI_GUIDE = {
         "negative_prompt": _WAI_NEGATIVE,
     },
     # Two slots: everything the author calls subject and scene, then the
-    # recipe. Where a rating tag goes is not written, so it is subject.
+    # recipe. Where a rating tag goes is not written, so it is subject. The
+    # cites stay clear of "Examples inserts that recipe alone", which is the
+    # app's menu talking (`prompt_sources`, `unsourced`).
     "analysis": {
         "url": "https://tensor.art/models/990778216270553015/WAI-illustrious-v17",
         "order": {
             "cite": (
                 "Finish with the author's quality recipe: masterpiece, best quality, "
-                "amazing quality. Examples inserts that recipe alone; add your "
-                "subject before it."
+                "amazing quality; add your subject before it."
             ),
             "groups": {"Quality": "Quality", "Rating": "Subject and scene"},
             "suffix": "Quality",
@@ -942,7 +961,7 @@ WAI_GUIDE = {
         "suffix": {
             "cite": (
                 "Finish with the author's quality recipe: masterpiece, best quality, "
-                "amazing quality."
+                "amazing quality"
             ),
         },
         "subject": {"cite": "add your subject before it"},
@@ -1161,6 +1180,8 @@ FALLBACK_GUIDE = {
     "pixels": None,
     "pixels_word": "documented",
     "examples": [],
-    # The prose above is the app's, not an author's: nothing to cite.
+    # The prose above is the app's, not an author's: nothing for a rule to
+    # cite, and the critic is told these are general sentences, not an
+    # author's (`critic.build_context`).
     "analysis": {},
 }

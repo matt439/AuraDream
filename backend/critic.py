@@ -1581,10 +1581,13 @@ def build_context(
             "- reordered: null; this app checks no order for this checkpoint. An order "
             "a source below states may still be an issue that cites it."
         )
+    # The fallback has no authors (`sources.url` is None): its sentences are
+    # the app's general guidance, and its caveat says so.
+    whose = ", from the checkpoint's authors" if sources.url else ""
     lines = [
         f"You review a text-to-image prompt for the checkpoint {model_id}. Judge it only "
-        "against the numbered sources below, from the checkpoint's authors; general habits "
-        "and advice written for other models do not count.",
+        f"against the numbered sources below{whose}; general habits and advice written "
+        "for other models do not count.",
         "Answer in the JSON schema given:",
         "- parts: the prompt's own words for each part, null where it has none.",
         f"- issues: at most {MAX_ISSUES}, most important first, and none that no source "

@@ -9,13 +9,17 @@ the answer's schema. This module is that list, per guide constant:
 
 - **G sentences** - the guide's `prompt` prose split into sentences, the same
   text the ? badge shows, so a citation can never name advice the page does not.
-  Their link is the guide's own `analysis["url"]`, the page the rule checks
-  cite, so the two layers cannot point the same sentence at different pages -
-  unless the sentence's author page is another one, which `sentence_urls`
-  names (Krea [dev]'s settings are Krea's README, its camera sentence BFL's
-  building page). A sentence the prose carries without an author behind it
-  (`unsourced`) is left out: the page may say it, the critic may not raise an
-  issue from it.
+  Their link is the page of the `analysis` entry whose cite they carry - the
+  page that entry's rule finding links - so a rule finding and a critic cite
+  of the same words open the same page; the prose gives each page's words a
+  sentence of their own, which a test holds. A sentence no entry cites links
+  to the page `sentence_urls` names for it (Krea [dev]'s settings are Krea's
+  README, Illustrious's v0.1 negative prompt its v0.1 card, ERNIE's 2048
+  tokens its tokenizer's config), else to the guide's `analysis["url"]`. A
+  sentence the prose carries without an author behind it (`unsourced`) - the
+  app describing its own menus, buttons and what it does not implement, or
+  its own judgement - is left out: the page may say it, the critic may not
+  raise an issue from it.
 - **A excerpts** - short, rule-bearing passages the checkpoint's authors put
   in writing: a model card's tag order, BFL's negation table, the system
   prompts the authors wrote for their own prompt rewriters. Verbatim, trimmed
@@ -72,10 +76,12 @@ class Grounding:
     # saying: Krea [dev] has only BFL's family guide, NetaYume's system prefix
     # is the app's job, and so on.
     caveat: str | None = None
-    # G sentences, verbatim, that no author page says: the ? badge carries
-    # them, the critic is not given them to cite.
+    # G sentences, verbatim, the critic may not cite - no author page says
+    # them, or they do not hold in this app: the ? badge carries them, the
+    # critic is not given them.
     unsourced: tuple[str, ...] = ()
-    # (sentence, url) for a G sentence whose author page is not the guide's
+    # (sentence, url) for a G sentence no `analysis` entry cites whose page -
+    # the authors' page, or their file that sets a limit - is not the guide's
     # `analysis["url"]`.
     sentence_urls: tuple[tuple[str, str], ...] = ()
 
@@ -95,8 +101,9 @@ class Sources:
     guide: Mapping[str, Any]
     # The citable G sentences, in the prose's order.
     sentences: tuple[GuideSentence, ...]
-    # The guide's `analysis["url"]`: the G sentences' link unless one names
-    # its own. None only for the fallback, which has no authors.
+    # The guide's `analysis["url"]`: the link of a G sentence that neither an
+    # entry's cite nor `sentence_urls` gives another. None only for the
+    # fallback, which has no authors.
     url: str | None
     excerpts: tuple[Excerpt, ...]
     caveat: str | None
@@ -108,9 +115,52 @@ class Sources:
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|\s*\n\s*")
 
 
+def _sentence_spans(prose: str) -> list[tuple[int, int]]:
+    """Where in the prose each G sentence lies, as (start, end)."""
+    spans: list[tuple[int, int]] = []
+    start = 0
+    for end, following in [
+        *((match.start(), match.end()) for match in _SENTENCE_BREAK.finditer(prose)),
+        (len(prose), len(prose)),
+    ]:
+        part = prose[start:end]
+        if part.strip():
+            lead = len(part) - len(part.lstrip())
+            spans.append((start + lead, start + len(part.rstrip())))
+        start = following
+    return spans
+
+
 def guide_sentences(prose: str) -> list[str]:
     """The guide's prompt prose as the numbered G sentences, in order."""
-    return [part.strip() for part in _SENTENCE_BREAK.split(prose) if part.strip()]
+    return [prose[start:end] for start, end in _sentence_spans(prose)]
+
+
+def _cited_pages(guide: Mapping[str, Any]) -> list[tuple[int, int, str | None]]:
+    """(start, end, url) of every `analysis` entry's cite in the prose, with
+    the url its rule finding links: the entry's own, else the guide's."""
+    analysis = guide.get("analysis") or {}
+    entries = [
+        entry
+        for value in analysis.values()
+        for entry in (value if isinstance(value, list) else [value])
+        if isinstance(entry, dict) and entry.get("cite") and entry.get("source") != "author"
+    ]
+    return [
+        (match.start(), match.end(), entry.get("url") or analysis.get("url"))
+        for entry in entries
+        for match in re.finditer(re.escape(entry["cite"]), guide["prompt"])
+    ]
+
+
+def _page(cited: list[tuple[int, int, str | None]], start: int, end: int) -> str | None:
+    """The page of the entries cited in the sentence at start..end - one page
+    per sentence, which a test holds, else the first by where its words begin
+    there - or None where no cite touches it."""
+    touching = [
+        (max(first, start), url) for first, last, url in cited if first < end and last > start
+    ]
+    return min(touching, key=lambda item: item[0])[1] if touching else None
 
 
 # --- Black Forest Labs: the FLUX family pages --------------------------------
@@ -841,9 +891,53 @@ _KREA_DEV_CAMERA = (
     "Camera settings - lens, framing, depth of field - are optional: BFL's guide adds "
     "them to a photograph where framing matters."
 )
+# BFL's launch post: the checkpoint "overcomes the oversaturated 'AI look'".
+_KREA_DEV_POST = "https://bfl.ai/blog/flux-1-krea-dev"
+_KREA2_README = "https://github.com/krea-ai/krea-2"
+_KREA2_REPORT = "https://www.krea.ai/blog/krea-2-technical-report"
+# What the technical report says - dense captions, a text-rendering reward,
+# an encoder chosen for "stronger multilingual generalization" - in the prose
+# both Krea 2 guides share.
+_KREA2_REPORTED = tuple(
+    (sentence, _KREA2_REPORT)
+    for sentence in (
+        "Krea's report says the training captions were dense.",
+        "Text rendering was a reward in post-training.",
+        "The Qwen3-VL encoder reads 512 tokens and was chosen for multilingual reach, "
+        "though Krea publishes no language list.",
+    )
+)
+_Z_IMAGE_CARD = "https://huggingface.co/Tongyi-MAI/Z-Image"
+# The report names the encoder; each repo's tokenizer config sets the 2048
+# its pipeline truncates at.
+_ERNIE_REPORT = (
+    "Baidu's report names Ministral-3 as the text encoder.",
+    "https://arxiv.org/abs/2605.25347",
+)
+_ERNIE_TOKENS = "The tokenizer config caps a prompt at 2048 tokens."
+_ILLUSTRIOUS_V01 = "https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0"
+# The authors' v2.0 release post, read through its archive: Civitai refuses
+# this region.
+_ILLUSTRIOUS_RELEASE = "https://civarchive.com/models/1369089?modelVersionId=1546777"
+_ILLUSTRIOUS_CARD_NEGATIVE = (
+    "Their v0.1 card runs both of its examples with: "
+    + guides.ILLUSTRIOUS_GUIDE["tag_helper"]["negative_prompt"] + "."
+)
+_ERNIE_EXPAND = (
+    "Use Expand to run the repo's prompt enhancer on a short prompt; its result is put "
+    "back in this box for review and becomes the exact prompt the image records."
+)
 
 # Keyed by the constant's name in guides.py; `test_every_guide_constant_is_grounded`
-# holds the two in step.
+# holds the two in step. `unsourced` lists the prose's sentences that are this
+# app talking - its menus, autocomplete, Expand, the sampler it runs, what it
+# does not implement, a starting point or reading of its own - which the ?
+# badge needs and no author wrote, and schnell's reference limit, which does
+# not hold here.
+# How the pipeline reads the prompt - a token limit, where guidance brings the
+# negative prompt in, the system instruction it adds - stays citable: it is
+# what runs, and `test_no_citable_sentence_misstates_a_token_limit` holds the
+# limits to prompt_encoding. No rule entry cites an unsourced sentence.
 GROUNDING: dict[str, Grounding] = {
     "FLUX1_GUIDE": Grounding(_bfl_family(_BFL_FAMILY), caveat=_FLUX1_CAVEAT),
     "KREA_DEV_GUIDE": Grounding(
@@ -855,15 +949,30 @@ GROUNDING: dict[str, Grounding] = {
             + _FLUX1_CAVEAT
         ),
         # The settings sentence is Krea's README's, the camera sentence BFL's
-        # building page; the rest is the basics page the rules cite. (Two
-        # sentences with no author behind them - "photo language", "give it
-        # room" - were taken out of the prose after review, not hidden here.)
+        # building page, the 'AI look' BFL's launch post; the rest links the
+        # page of the rule entries it carries. (Two sentences with no author
+        # behind them - "photo language", "give it room" - were taken out of
+        # the prose after review, not hidden here.)
         sentence_urls=(
+            (
+                "This checkpoint is tuned for photographs without the oversaturated "
+                "'AI look'.",
+                _KREA_DEV_POST,
+            ),
             (_KREA_DEV_CAMERA, _BFL_BUILDING),
             ("Krea recommends 28-32 steps and CFG 3.5-5.", _KREA_DEV_README),
         ),
     ),
-    "SCHNELL_GUIDE": Grounding(_bfl_family(_BFL_FAMILY), caveat=_FLUX1_CAVEAT),
+    "SCHNELL_GUIDE": Grounding(
+        _bfl_family(_BFL_FAMILY),
+        caveat=_FLUX1_CAVEAT,
+        # BFL's reference limit, which this app does not apply: a critic
+        # citing it asked for 180 words where T5 reads 512.
+        unsourced=(
+            "BFL's reference code gives schnell a shorter memory, 256 tokens (about 180 "
+            "words), which this app does not apply.",
+        ),
+    ),
     "KLEIN_GUIDE": Grounding(
         _KLEIN,
         caveat=(
@@ -871,11 +980,45 @@ GROUNDING: dict[str, Grounding] = {
             "applies to klein by family. klein takes no negative prompt at all."
         ),
     ),
-    "KREA2_TURBO_GUIDE": Grounding(_KREA2),
-    "KREA2_RAW_GUIDE": Grounding(_KREA2),
+    # The settings are the README's ("run with 8 steps and CFG disabled",
+    # "TRAIN on Raw and RUN on Turbo").
+    "KREA2_TURBO_GUIDE": Grounding(
+        _KREA2,
+        sentence_urls=_KREA2_REPORTED + (
+            (
+                "Turbo runs guidance-free at CFG 0, where the negative prompt is unused; "
+                "any CFG above 0 brings it in.",
+                _KREA2_README,
+            ),
+        ),
+    ),
+    "KREA2_RAW_GUIDE": Grounding(
+        _KREA2,
+        sentence_urls=_KREA2_REPORTED + (
+            (
+                "Raw is the undistilled checkpoint Krea does not recommend for inference - "
+                "train on Raw, run on Turbo - so expect variety over polish.",
+                _KREA2_README,
+            ),
+            (
+                "It wants about 52 steps at CFG 3.5, and the negative prompt applies at "
+                "any CFG above 0.",
+                _KREA2_README,
+            ),
+        ),
+    ),
     "QWEN_IMAGE_GUIDE": Grounding(_QWEN),
     "Z_IMAGE_TURBO_GUIDE": Grounding(_z_image(_Z_IMAGE_TURBO_NOTE)),
-    "Z_IMAGE_GUIDE": Grounding(_z_image(_Z_IMAGE_BASE_NOTE)),
+    "Z_IMAGE_GUIDE": Grounding(
+        _z_image(_Z_IMAGE_BASE_NOTE),
+        sentence_urls=(
+            (
+                "The undistilled Z-Image wants CFG 3-5 over 28-50 steps; its card calls a "
+                "negative prompt optional, but powerful for removing unwanted content.",
+                _Z_IMAGE_CARD,
+            ),
+        ),
+    ),
     "Z_ANIME_GUIDE": Grounding(
         _Z_ANIME,
         caveat=(
@@ -883,14 +1026,95 @@ GROUNDING: dict[str, Grounding] = {
             "4-step variant, not this Base model, and is not a source here."
         ),
     ),
-    "ERNIE_TURBO_GUIDE": Grounding(_ERNIE),
-    "ERNIE_GUIDE": Grounding(_ERNIE),
-    "ANIMAGINE_GUIDE": Grounding(_ANIMAGINE),
-    "KOHAKU_GUIDE": Grounding(_KOHAKU),
-    "ILLUSTRIOUS_GUIDE": Grounding(_ILLUSTRIOUS),
+    "ERNIE_TURBO_GUIDE": Grounding(
+        _ERNIE,
+        unsourced=(_ERNIE_EXPAND,),
+        sentence_urls=(
+            _ERNIE_REPORT,
+            (
+                _ERNIE_TOKENS,
+                "https://huggingface.co/baidu/ERNIE-Image-Turbo/blob/main/tokenizer/"
+                "tokenizer_config.json",
+            ),
+        ),
+    ),
+    # The undistilled model's settings are its own card's.
+    "ERNIE_GUIDE": Grounding(
+        _ERNIE,
+        unsourced=(_ERNIE_EXPAND,),
+        sentence_urls=(
+            _ERNIE_REPORT,
+            (
+                _ERNIE_TOKENS,
+                "https://huggingface.co/baidu/ERNIE-Image/blob/main/tokenizer/"
+                "tokenizer_config.json",
+            ),
+            (
+                "The undistilled ERNIE-Image samples at CFG 4 over 50 steps, where the "
+                "negative prompt applies.",
+                "https://huggingface.co/baidu/ERNIE-Image",
+            ),
+        ),
+    ),
+    "ANIMAGINE_GUIDE": Grounding(
+        _ANIMAGINE,
+        unsourced=(
+            "Autocomplete and the chips check Danbooru's live tag index up to this "
+            "checkpoint's 2025-01-07 cutoff.",
+            "Unknown is advisory, not blocked.",
+        ),
+    ),
+    "KOHAKU_GUIDE": Grounding(
+        _KOHAKU,
+        # The last is the app's advice: the card's context is 300 tokens.
+        unsourced=(
+            "The Tags menu carries the author's quality, rating and date tags.",
+            "Autocomplete checks Danbooru through the 2024-07-10 dataset cutoff; unknown "
+            "tags remain advisory.",
+            "Keep prompts concise and put essential details first.",
+        ),
+    ),
+    "ILLUSTRIOUS_GUIDE": Grounding(
+        _ILLUSTRIOUS,
+        # The style advice is the app's reading of "no default style" - the
+        # authors' own examples name no artist, and no rule asks for one; the
+        # tail is the app's starting point, "not an official fixed suffix" in
+        # its own words.
+        unsourced=(
+            "Give it a style: a Danbooru artist tag or style tags.",
+            "Autocomplete and the chips check Danbooru's tag index through the dataset's "
+            "August 2024 cutoff and label artist tags as artist.",
+            "masterpiece, newest is a practical starting tail, not an official fixed suffix.",
+            "The Tags menu fills the long one.",
+        ),
+        # The report is the rules' page; what the v0.1 card and the v2.0
+        # release post say links to them.
+        sentence_urls=(
+            (
+                "Illustrious XL v2.0 is an untuned base: its authors say it has no default "
+                "style and was not trained with an aesthetic set, so a bare prompt renders "
+                "the dataset's average look.",
+                _ILLUSTRIOUS_RELEASE,
+            ),
+            (
+                "Tag lists and natural-language descriptions both work; their "
+                "natural-language example ends its prose with tags (persona 3, masterpiece).",
+                _ILLUSTRIOUS_RELEASE,
+            ),
+            (_ILLUSTRIOUS_CARD_NEGATIVE, _ILLUSTRIOUS_V01),
+            ("Their v2.0 release example uses worst quality, bad quality.", _ILLUSTRIOUS_RELEASE),
+        ),
+    ),
     "WAI_GUIDE": Grounding(
         _WAI,
         caveat="The author documents no tag order for WAI v17 beyond the quality recipe.",
+        unsourced=(
+            "Examples inserts that recipe alone.",
+            "Autocomplete checks Danbooru's live index; WAI publishes no vocabulary cutoff, "
+            "so a recognized tag is advisory rather than evidence that v17 learned it.",
+            "The card's weighted-prompt syntax and high-resolution refinement pass are not "
+            "implemented by this text-to-image pipeline.",
+        ),
     ),
     "ANIMA_TURBO_GUIDE": Grounding(
         _ANIMA,
@@ -906,13 +1130,36 @@ GROUNDING: dict[str, Grounding] = {
             "own card gives only system prompts. This app adds the system instruction "
             "itself, so never suggest adding a system prefix or <Prompt Start>."
         ),
+        # The system instruction sentence stays: it is how the pipeline reads
+        # the prompt, and the system-prefix rule cites it.
+        unsourced=(
+            "The Examples menu uses the image prompt from the author's v2 workflow.",
+            "This app uses standard FlowMatch Euler; the author's ComfyUI sampler "
+            "recommendations are different setups.",
+        ),
     ),
-    "NEWBIE_GUIDE": Grounding(_NEWBIE),
+    "NEWBIE_GUIDE": Grounding(
+        _NEWBIE,
+        unsourced=("The Examples menu includes the author's two-character XML prompt.",),
+        # The app's pipeline truncates where the author's own training code's
+        # `encode_prompt` does.
+        sentence_urls=(
+            (
+                "Gemma reads up to 512 tokens and Jina CLIP up to 2048 in this app; keep "
+                "the main description within Gemma's shorter limit.",
+                "https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/"
+                "709e9a482fb2b861ad6aa50dcafb0198cad66c1d/finetune.py",
+            ),
+        ),
+    ),
+    # Its prose is the app's general advice, cited as that (`build_context`
+    # names no authors when `url` is None); its opening is a label.
     "FALLBACK_GUIDE": Grounding(
         caveat=(
             "This checkpoint is not in the catalogue: no author sources are known for "
             "it, so only the general guide sentences apply."
         ),
+        unsourced=("Unrecognised checkpoint.",),
     ),
 }
 
@@ -942,14 +1189,16 @@ def sources_for(model_id: str) -> Sources:
     grounding = GROUNDING[name]
     url = guide.get("analysis", {}).get("url")
     own = dict(grounding.sentence_urls)
+    prose = guide["prompt"]
+    cited = _cited_pages(guide)
     return Sources(
         model_id=model_id,
         guide_name=name,
         guide=guide,
         sentences=tuple(
-            GuideSentence(sentence, own.get(sentence, url))
-            for sentence in guide_sentences(guide["prompt"])
-            if sentence not in grounding.unsourced
+            GuideSentence(sentence, own.get(sentence) or _page(cited, start, end) or url)
+            for start, end in _sentence_spans(prose)
+            if (sentence := prose[start:end]) not in grounding.unsourced
         ),
         url=url,
         excerpts=grounding.excerpts,
