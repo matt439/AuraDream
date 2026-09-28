@@ -1242,6 +1242,10 @@ class Citation:
     text: str
     url: str | None
     source: Literal["guide", "author"]
+    # Whose words these are when not the checkpoint's own authors' - an
+    # excerpt's `note` (a translation, a family guide, a parent's prompt
+    # book), or the fallback's general advice - shown beside the cite.
+    note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1262,12 +1266,19 @@ class CriticContext:
     # reorder of the critic's stands only as that one.
     order_checked: bool
     rules_reordered: str | None
-    # The rule ids layer 1 reported, where in the prompt each one points, and
-    # whether the guide has a word range the rules measured: an issue
-    # restating any of them is left out.
+    # The rule ids layer 1 reported on the prompt, and where in it each
+    # finding about the words points, with how far past them a quote may
+    # reach: an issue restating any of them is left out. Those reported on
+    # the negative prompt, which only an issue naming it restates. And the
+    # prompt's word count with the guide's range, (words, low, high), where
+    # the rules measured it: an issue about the length is left out, reported
+    # or not.
     reported: frozenset[str]
-    reported_spans: tuple[tuple[str, int, int], ...]
-    words_measured: bool
+    reported_negative: frozenset[str]
+    reported_spans: tuple[tuple[str, int, int, int], ...]
+    measured_length: tuple[int, int, int] | None
+    # The documented order's steps, which a "put X before Y" is held to.
+    order_steps: tuple[str, ...]
     system: str
     user: str
     schema: dict[str, Any]
@@ -1563,7 +1574,19 @@ def response_schema(cite_ids: list[str], ordered: bool) -> dict[str, Any]:
     }
 
 
-_NOT_ABOUT_WORDS = frozenset(("encoder.cut", "encoder.template_tail"))
+# Rules whose span is the words a finding is about: the guide's, the authors'
+# and the app's own checks, and literal weighting syntax. Not the encoder's
+# other spans, which mark characters and places whatever the words mean -
+# where reading stops (a cut, a template's tail), a control token, what T5
+# reads as <unk> - on FLUX.1 that is nearly all of a Chinese prompt, and
+# every issue quoting it went as a restated finding.
+def _about_words(rule: str) -> bool:
+    return rule.startswith(("guide.", "author.", "heuristic.")) or rule == "encoder.weighting"
+
+
+# The fallback's sentences are this app's, not an author's (`sources.url` is
+# None), and a cite of one says so.
+_GENERAL_NOTE = "this app's general advice: no author sources are known for this checkpoint"
 
 
 def _finding_line(finding: PromptFinding) -> str:
@@ -1579,10 +1602,11 @@ def build_context(
     """The system and user messages, the schema and the citation table."""
     sources = sources_for(model_id)
     citations: dict[str, Citation] = {}
+    general = None if sources.url else _GENERAL_NOTE
     for index, sentence in enumerate(sources.sentences, 1):
-        citations[f"G{index}"] = Citation(sentence.text, sentence.url, "guide")
+        citations[f"G{index}"] = Citation(sentence.text, sentence.url, "guide", general)
     for index, excerpt in enumerate(sources.excerpts, 1):
-        citations[f"A{index}"] = Citation(excerpt.text, excerpt.url, "author")
+        citations[f"A{index}"] = Citation(excerpt.text, excerpt.url, "author", excerpt.note)
     order = analysis.order
     ordered = order is not None
     negative = applied.negative_prompt or None
@@ -1678,6 +1702,15 @@ def build_context(
     # that quote them.
     user = _defused(user)
     system = _defused("\n".join(lines))
+    # What `prompt_rules._words` measured and found in range, which it
+    # reports nothing about - not XML or JSON, which it leaves alone. Out of
+    # range, `guide.words` is reported.
+    words = (sources.guide.get("analysis") or {}).get("words")
+    measured_length = None
+    if words and analysis.style not in ("xml", "json"):
+        low, high = words["range"]
+        if low <= analysis.words <= high:
+            measured_length = (analysis.words, low, high)
     return CriticContext(
         sources=sources,
         citations=citations,
@@ -1685,16 +1718,24 @@ def build_context(
         style=analysis.style,
         order_checked=analysis.order_checked,
         rules_reordered=analysis.reordered,
-        reported=frozenset(finding.rule for finding in analysis.findings),
-        # Findings about the words at their span; not a cut, whose span is
-        # everything past where an encoder stops reading.
+        # The prompt's own: an issue is about the prompt, and one asking for
+        # emphasis is not restating weighting found in the negative prompt -
+        # unless it says it is about the negative prompt.
+        reported=frozenset(
+            finding.rule for finding in analysis.findings if finding.field == "prompt"
+        ),
+        reported_negative=frozenset(
+            finding.rule for finding in analysis.findings if finding.field == "negative_prompt"
+        ),
         reported_spans=tuple(
-            (finding.rule, finding.start, finding.end)
+            (finding.rule, finding.start, finding.end,
+             _QUOTE_SLACK if len(request.prompt[finding.start:finding.end].split()) > 1 else 0)
             for finding in analysis.findings
             if finding.field == "prompt" and finding.start is not None
-            and finding.end is not None and finding.rule not in _NOT_ABOUT_WORDS
+            and finding.end is not None and _about_words(finding.rule)
         ),
-        words_measured="words" in (sources.guide.get("analysis") or {}),
+        measured_length=measured_length,
+        order_steps=tuple(order.steps) if order is not None else (),
         system=system,
         user=user,
         schema=response_schema(list(citations), ordered),
@@ -1966,9 +2007,12 @@ def _issue(raw: Any, context: CriticContext, prompt: str) -> CritiqueIssue | Non
         problem=problem,
         fix=_clip(raw.get("fix")),
         cite_id=cite_id,
+        # The citation's own, whatever else the answer carries: a server of
+        # one's own need not hold the model to the schema's keys.
         cite=citation.text,
         url=citation.url,
         source=citation.source,
+        note=citation.note,
         quote=quote,
         start=start,
         end=end,
@@ -2087,13 +2131,37 @@ def _part(
 # What an issue reads like when it restates a rule finding the critic was
 # told of - which it did in nearly every answer on the card - keyed by the
 # rule, with the name the page gives it. `guide.words` counts whenever the
-# guide has a range: the rules measured the length, and the critic miscounts.
+# rules measured the length against a range, reported or not: the critic
+# miscounts. Its pattern is a claim about the prompt's own length - its
+# count, the guide's band, a bound, a sentence opening "Too short" - read a
+# sentence at a time (`_says`), not any length or number of words: "a focal
+# length of 85mm", "the dress length is", "add 3 words on its glow", "keep
+# the sign text under 5 words".
 _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
     "guide.words": (
         "word count",
         re.compile(
-            r"(?i)\b\d+\s*(?:-|–|to)\s*\d+\s*words?\b|\b\d+\s*words?\b|\bword[- ]?count\b"
-            r"|\btoo (?:short|long|brief)\b|\b(?:prompt|word) length\b|\blength (?:of|is)\b"
+            r"(?i)\bword[- ]?(?:count|range|limit)s?\b|\b\d+\s*words?\s+long\b"
+            r"|\b\d+\s*(?:-|–|to)\s*\d{2,}[- ]?words?\b|\(\s*\d+\s*words?\s*\)"
+            r"|\bbetween\s+\d+\s+and\s+\d+\s*words?\b"
+            r"|\b(?:guide(?:'s|’s)|recommended|suggested)\s+\d+\s*(?:-|–|to)\s*\d{2,}\b"
+            r"(?![ \t]*[^\W\d_])"
+            r"|\b(?:under|over|below|above|fewer than|more than|less than|at least|at most"
+            r"|only|just)\s+\d+\s*words?\b(?!\s+(?:on|about|of|describing)\b)"
+            r"|\b\d+[- ]words?\s+(?:minimum|maximum)\b"
+            r"|\b\d+\s*words?,?\s+(?:is\s+|are\s+)?(?:above|below|over|under|outside|short of"
+            r"|within|inside)\s+the\s+(?:range|guide|recommend|suggest)"
+            r"|^at\s+\d+\s*words?\b"
+            r"|\b(?:cut|trim|shorten|expand|lengthen|reduce|extend|bring|grow)\w*"
+            r"(?:\s+(?:it|this|the prompt))?(?:\s+(?:down|up|back|out))?\s+to\s+"
+            r"(?:about\s+|around\s+|roughly\s+|at least\s+|under\s+)?\d+\s*words?\b"
+            r"|\bprompt\b(?:(?!\b(?:add|with)\b)[^.;]){0,30}?\b\d+\s*words?\b"
+            r"(?!\s+(?:on|about|of|describing)\b)"
+            r"|\bprompt(?:\s+is)?\s+(?:too\s+|very\s+|rather\s+|quite\s+)?(?:short|long|brief)\b"
+            r"|^(?:(?:it|this)(?:'s|’s|\s+is)\s+(?:too|very)|too)\s+(?:short|long|brief)\b"
+            r"|\bprompt(?:'s|’s)? length\b|\blength of (?:the|this|your) prompt\b"
+            r"|\b(?:recommended|suggested|ideal|optimal|required|minimum|maximum)"
+            r" (?:prompt )?length\b"
         ),
     ),
     "guide.negation": (
@@ -2111,33 +2179,79 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
 
 
 # How far past a finding's words an issue's quote may reach and still be
-# about those words: "with no people," for "no people".
+# about those words: "rain, no people" for "no people". Only a quote that
+# takes in some of them, though - "a shop" or "rain" beside "no people" is
+# about the shop or the rain - and none past a single word: "a black cat" is
+# not about a repeated "cat".
 _QUOTE_SLACK = 8
+# Marks around a quote that say nothing: "no people," is "no people".
+_QUOTE_EDGE = _QUOTE_TRIM + "。，、；：！？"
+# `_restated`'s answer for a length the rules measured and found in range.
+_MEASURED = "measured length"
+# A sentence of an issue's problem or fix; lettering, whose length is the
+# sign's, not the prompt's; and the prompt, named.
+_SENTENCE = re.compile(r"(?<=[.;!?])\s+")
+_LETTERING = re.compile(
+    r"(?i)\b(?:signs?|signage|lettering|captions?|titles?|labels?|slogans?|logos?|headlines?"
+    r"|banners?|(?<!prompt )text(?![- ]to[- ]image))\b"
+)
+_PROMPT = re.compile(r"(?i)\bprompt\b")
+# An issue that says it is about the negative prompt, the only way one can
+# restate a finding there: its quote is looked for in the prompt alone.
+_NEGATIVE_PROMPT = re.compile(r"(?i)\bnegative[- ]prompts?\b")
+
+
+def _says(rule: str, pattern: re.Pattern[str], issue: CritiqueIssue) -> bool:
+    if rule != "guide.words":
+        return bool(pattern.search(f"{issue.problem} {issue.fix}"))
+    # A sentence at a time, none about lettering - and in an issue about
+    # lettering ("The text on the mug is long" / "Cut it to 2 words"), only
+    # one that names the prompt.
+    sentences = [part for field in (issue.problem, issue.fix) for part in _SENTENCE.split(field)]
+    lettering = any(_LETTERING.search(sentence) for sentence in sentences)
+    return any(
+        pattern.search(sentence) and not _LETTERING.search(sentence)
+        and (not lettering or _PROMPT.search(sentence))
+        for sentence in sentences
+    )
 
 
 def _restated(issue: CritiqueIssue, context: CriticContext) -> str | None:
     text = f"{issue.problem} {issue.fix}"
     for rule, (name, pattern) in _RESTATES.items():
-        told = rule in context.reported or (rule == "guide.words" and context.words_measured)
-        if told and pattern.search(text):
+        if not _says(rule, pattern, issue):
+            continue
+        if rule in context.reported:
             return name
+        if rule in context.reported_negative and _NEGATIVE_PROMPT.search(text):
+            return name
+        if rule == "guide.words" and context.measured_length is not None:
+            return _MEASURED
     # Or it quotes the very words a finding points at - the card's critic
     # raised "no people" / "Replace with 'empty'..." beside the negation
     # finding on the same words, in words none of the patterns name.
-    if issue.start is not None and issue.end is not None:
-        for rule, start, end in context.reported_spans:
-            if start - _QUOTE_SLACK <= issue.start and issue.end <= end + _QUOTE_SLACK:
+    if issue.quote is not None and issue.start is not None:
+        start = issue.start + len(issue.quote) - len(issue.quote.lstrip(_QUOTE_EDGE))
+        end = issue.start + len(issue.quote.rstrip(_QUOTE_EDGE))
+        for rule, low, high, slack in context.reported_spans:
+            overlaps = start < high and end > low
+            if start < end and overlaps and low - slack <= start and end <= high + slack:
                 return _RESTATES[rule][0] if rule in _RESTATES else rule.split(".", 1)[-1]
     return None
 
 
-# What an order issue asks to come first. Two in one answer that ask for
-# different things - "Move subject to the beginning" beside "Place style
-# description first", both seen on Krea's own example - cannot both be right.
-# Read from the fix, the instruction ("Place the subject first, then the
-# style"), and only then from a problem that says what is not first; a
-# problem describing the prompt ("the style is placed before the subject")
-# names parts in the prompt's order, not the one wanted.
+# What an order issue asks for: a part first, or one part before another.
+# One the documented order the critic was given reverses - "Place style
+# description first" where it says subject first - is not right, and two in
+# one answer that cannot both hold - "Move subject to the beginning" beside
+# "Place style description first", both seen on Krea's own example - cannot
+# both be. "Put the camera settings before the lighting" says nothing of
+# what comes first, so it stands beside "Start with the subject". Read from
+# the fix, the instruction ("Place the subject first, then the style"), and
+# only then from a problem that says what is not first; a problem describing
+# the prompt ("the style is placed before the subject") names parts in the
+# prompt's order, not the one wanted, and a negated instruction ("Avoid
+# placing the style before the subject") asks for nothing it names.
 _PART = (
     r"(subject|style|setting|location|environment|scene|lighting|light|camera|action"
     r"|context|image type|medium|mood|quality)"
@@ -2145,9 +2259,12 @@ _PART = (
 _WANTS = (
     re.compile(rf"(?i)\b(?:start|begin|lead|open)\w*\s+with\s+(?:the\s+|a\s+|an\s+)?{_PART}\b"),
     re.compile(
-        rf"(?i)\b{_PART}\b(?:\s+[\w'-]+){{0,3}}?\s+(?:first|early|before"
-        r"|(?:at|to) the (?:beginning|start|front))\b"
+        rf"(?i)\b{_PART}\b(?:\s+[\w'-]+){{0,3}}?\s+(?:first|early"
+        r"|before (?:everything|anything|all|the rest)|(?:at|to) the (?:beginning|start|front))\b"
     ),
+)
+_BEFORE = re.compile(
+    rf"(?i)\b{_PART}\b(?:\s+[\w'-]+){{0,3}}?\s+before\s+(?:[\w'-]+\s+){{0,2}}?{_PART}\b"
 )
 _NOT_FIRST = re.compile(
     rf"(?i)\b{_PART}\b(?:\s+is)?\s+not\s+(?:first|front-loaded|placed first"
@@ -2159,20 +2276,86 @@ _SAME_PART = {
     "location": "setting", "environment": "setting", "scene": "setting", "light": "lighting",
     "image type": "subject", "medium": "subject",
 }
+_STEP_PART = re.compile(rf"(?i)\b{_PART}\b")
+# A negation in an instruction's clause, ahead of it or inside it: "Do not
+# put the lighting before the camera", "The style should not come before".
+_NEGATED = re.compile(r"(?i)\b(?:not|never|cannot|avoid\w*|instead of|rather than)\b|n[’']t\b")
+_CLAUSE_BREAK = re.compile(r"[,.;:!?\n，。；：！？]")
+
+# The part an order issue wants first, if any, and each (earlier, later).
+_Wants = tuple[str | None, frozenset[tuple[str, str]]]
 
 
-def _wants_first(issue: CritiqueIssue) -> str | None:
+def _same_part(name: str) -> str:
+    part = name.lower()
+    return _SAME_PART.get(part, part)
+
+
+def _negated(text: str, found: re.Match[str]) -> bool:
+    breaks = [mark.end() for mark in _CLAUSE_BREAK.finditer(text, 0, found.start())]
+    return bool(_NEGATED.search(text[breaks[-1] if breaks else 0:found.end()]))
+
+
+def _order_wants(issue: CritiqueIssue) -> _Wants | None:
     if issue.kind != "order":
         return None
     # The prompt's own words, quoted in the fix, name no part.
     fix, problem = QUOTED.sub(" ", issue.fix), QUOTED.sub(" ", issue.problem)
     match = next(
-        (found for pattern in _WANTS if (found := pattern.search(fix))), None
+        (found for pattern in _WANTS for found in pattern.finditer(fix)
+         if not _negated(fix, found)),
+        None,
     ) or _NOT_FIRST.search(problem)
-    if match is None:
-        return None
-    part = match.group(1).lower()
-    return _SAME_PART.get(part, part)
+    first = _same_part(match.group(1)) if match else None
+    pairs = frozenset(
+        (earlier, later) for found in _BEFORE.finditer(fix)
+        if not _negated(fix, found)
+        and (earlier := _same_part(found.group(1))) != (later := _same_part(found.group(2)))
+    )
+    return (first, pairs) if first or pairs else None
+
+
+def _step(part: str, steps: tuple[str, ...]) -> int | None:
+    """Where a part stands in the documented order: the first step naming it
+    ("subject first", "Subject and scene"), or None."""
+    for index, step in enumerate(steps):
+        if any(_same_part(found.group(1)) == part for found in _STEP_PART.finditer(step)):
+            return index
+    return None
+
+
+def _against_order(pair: tuple[str, str], steps: tuple[str, ...]) -> bool:
+    """Whether the documented order puts `later` ahead of `earlier`: on an
+    earlier step, or first when `earlier` is on none."""
+    earlier, later = (_step(part, steps) for part in pair)
+    return later is not None and (later == 0 if earlier is None else later < earlier)
+
+
+def _reversed(wants: _Wants, steps: tuple[str, ...]) -> str | None:
+    """What an order issue asks for that the documented order reverses: a
+    part first that it puts some other part ahead of, or a pair."""
+    first, pairs = wants
+    named = {_same_part(found.group(1)) for step in steps for found in _STEP_PART.finditer(step)}
+    if first and any(_against_order((first, part), steps) for part in named - {first}):
+        return f"{first} first"
+    return next((f"{a} before {b}" for a, b in sorted(pairs) if _against_order((a, b), steps)), None)
+
+
+def _clash(a: _Wants, b: _Wants) -> bool:
+    """Whether two order issues' wants cannot both hold."""
+    (a_first, a_pairs), (b_first, b_pairs) = a, b
+    if a_first and b_first and a_first != b_first:
+        return True
+    # One wants a part first, the other something ahead of it.
+    for first, pairs in ((b_first, a_pairs), (a_first, b_pairs)):
+        if any(later == first for _, later in pairs):
+            return True
+    return any((later, earlier) in b_pairs for earlier, later in a_pairs)
+
+
+def _described(wants: _Wants) -> list[str]:
+    first, pairs = wants
+    return ([f"{first} first"] if first else []) + [f"{a} before {b}" for a, b in sorted(pairs)]
 
 
 # A rewrite's outer quotation marks, and the marks that close each opener.
@@ -2339,12 +2522,15 @@ def validate(
     dropped = 0
     set_aside: list[str] = []
     restated: list[str] = []
+    measured = 0
     raw_issues = data.get("issues") if isinstance(data.get("issues"), list) else []
     for raw in raw_issues[:MAX_ISSUES]:
         issue = _issue(raw, context, prompt)
         if issue is None:
             dropped += 1
-        elif (rule := _restated(issue, context)) is not None:
+        elif (rule := _restated(issue, context)) == _MEASURED:
+            measured += 1
+        elif rule is not None:
             restated.append(rule)
         else:
             issues.append(issue)
@@ -2355,12 +2541,39 @@ def validate(
             f"{'it repeated' if count == 1 else 'they repeated'} the rule findings above "
             f"({', '.join(dict.fromkeys(restated))})."
         )
-    wants = {index: want for index, issue in enumerate(issues) if (want := _wants_first(issue))}
-    if len(set(wants.values())) > 1:
-        issues = [issue for index, issue in enumerate(issues) if index not in wants]
+    if measured:
+        # No finding to point at: the length was in range.
+        words, low, high = context.measured_length
         set_aside.append(
-            f"{len(wants)} order issues left out: they asked for different things first "
-            f"({', '.join(dict.fromkeys(wants.values()))})."
+            f"{measured} issue{'' if measured == 1 else 's'} left out: "
+            f"{'it' if measured == 1 else 'they'} spoke to the prompt's length, which the "
+            f"check measured ({words} words, inside the {low}-{high} the guide suggests)."
+        )
+    wants = {index: want for index, issue in enumerate(issues) if (want := _order_wants(issue))}
+    against = {
+        index: wish for index, want in wants.items()
+        if (wish := _reversed(want, context.order_steps)) is not None
+    }
+    # The documented order settles what it can; what is left must agree.
+    rest = [index for index in wants if index not in against]
+    clashing = [
+        index for index in rest
+        if any(other != index and _clash(wants[index], wants[other]) for other in rest)
+    ]
+    left_out = set(against) | set(clashing)
+    issues = [issue for index, issue in enumerate(issues) if index not in left_out]
+    if against:
+        count = len(against)
+        set_aside.append(
+            f"{count} order issue{'' if count == 1 else 's'} left out: "
+            f"{'it' if count == 1 else 'they'} asked for "
+            f"{', '.join(dict.fromkeys(against.values()))}, against the documented order."
+        )
+    if clashing:
+        asked = dict.fromkeys(wish for index in clashing for wish in _described(wants[index]))
+        set_aside.append(
+            f"{len(clashing)} order issues left out: they asked for orders that cannot "
+            f"{'both' if len(clashing) == 2 else 'all'} hold ({', '.join(asked)})."
         )
 
     # Parts the model named that are not the prompt's: the page shows no row

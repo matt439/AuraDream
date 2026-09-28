@@ -711,7 +711,11 @@ function fitArea(area) {
 
 // One issue: its kind, the problem and the fix, and the numbered source it
 // cites - resolved on the server, the cited words as the tooltip. A quote the
-// server found in the prompt selects its words, like a finding's span.
+// server found in the prompt selects its words, like a finding's span. Words
+// that are not the checkpoint's authors' own - a translation, a family or
+// parent model's guide - say whose they are under it, as Order does; the
+// fallback's sentences, with no page behind them, are this app's general
+// advice and are not labelled Guide.
 function issueItem(issue) {
   const li = document.createElement('li');
   li.className = 'analysis-item critic-issue';
@@ -720,8 +724,16 @@ function issueItem(issue) {
   text.append(issue.problem);
   if (issue.quote) text.append(' ', span('analysis-quoted', `"${issue.quote}"`));
   text.append(span('critic-fix', `Fix: ${issue.fix}`));
+  if (issue.note) text.append(span('analysis-note sub critic-note', issue.note));
   const cite = sourceLabel(issue.source, issue.cite, issue.url);
-  cite.textContent = `${issue.cite_id} · ${cite.textContent}`;
+  const label = issue.source === 'guide' && !issue.url ? 'General' : cite.textContent;
+  cite.textContent = `${issue.cite_id} · ${label}`;
+  if (issue.note) {
+    cite.title = `${issue.cite}\n(${issue.note})`;
+    // A link's accessible name; a plain span takes none, and the note under
+    // the Fix says it there.
+    if (issue.url) cite.setAttribute('aria-label', `${issue.cite_id} · ${label}, ${issue.note}`);
+  }
   li.append(span('critic-kind', issue.kind), text, cite);
   if (issue.start != null && issue.end != null) {
     makeSelectable(li, () => selectAnalysed('prompt', issue.start, issue.end));

@@ -584,6 +584,54 @@ def test_a_critique_cites_resolved_sources_and_lints_its_rewrite(client, fake, m
     assert analysis.order is not None
 
 
+def test_a_cited_excerpt_says_whose_words_it_is(client, fake, monkeypatch):
+    # Krea published no prompting rules: its excerpts are BFL's family guide,
+    # and a cite of one says so, as the same excerpt does under Order.
+    krea = "black-forest-labs/FLUX.1-Krea-dev"
+    claim(monkeypatch, fake, krea)
+    answer = FakeCritic.answer
+
+    def citing_a1(text, ordered):
+        raw = json.loads(answer(text, ordered))
+        raw["issues"][0]["cite_id"] = "A1"
+        return json.dumps(raw)
+
+    monkeypatch.setattr(FakeCritic, "answer", staticmethod(citing_a1))
+    body = client.post("/api/prompt/critique", json={"prompt": "A lighthouse in fog"}).json()
+    (issue,) = body["issues"]
+    excerpt = sources_for(krea).excerpts[0]
+    assert (issue["source"], issue["cite"], issue["url"]) == ("author", excerpt.text, excerpt.url)
+    assert issue["note"] == excerpt.note and "Krea published no prompting rules" in issue["note"]
+    # The fake's own G1, the checkpoint's guide, needs no note.
+    monkeypatch.setattr(FakeCritic, "answer", staticmethod(answer))
+    body = client.post("/api/prompt/critique", json={"prompt": "A lighthouse in fog"}).json()
+    assert body["issues"][0]["source"] == "guide" and body["issues"][0]["note"] is None
+
+
+def test_characters_the_encoder_cannot_read_do_not_take_the_critics_issues(
+    client, fake, monkeypatch
+):
+    # T5 has no token for a brace: the check reports each place as unknown,
+    # and an issue quoting the prompt's first word beside them, the braced
+    # word or the empty pair once went as restating that finding.
+    claim(monkeypatch, fake, FLUX)
+    prompt = "a cat {sitting} on a mat {}"
+    unknown = rules(analyse(client, prompt=prompt)["findings"], "encoder.unknown_chars")
+    assert [prompt[finding["start"]:finding["end"]] for finding in unknown] == ["{", "}", "{}"]
+    answer = FakeCritic.answer
+
+    def quoting_braces(text, ordered):
+        raw = json.loads(answer(text, ordered))
+        first = raw["issues"][0]
+        raw["issues"] += [{**first, "quote": "{sitting}"}, {**first, "quote": "{}"}]
+        return json.dumps(raw)
+
+    monkeypatch.setattr(FakeCritic, "answer", staticmethod(quoting_braces))
+    body = client.post("/api/prompt/critique", json={"prompt": prompt}).json()
+    assert [issue["quote"] for issue in body["issues"]] == ["a", "{sitting}", "{}"]
+    assert body["set_aside"] == [] and body["dropped"] == 0
+
+
 def test_the_critics_own_rewrite_checks_come_with_the_lint(client, fake, monkeypatch):
     # validate flags the prompt's description in quotation marks - lettering
     # on FLUX - which the rules skip; the route adds layer 1's findings.

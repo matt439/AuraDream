@@ -325,6 +325,10 @@ class CritiqueIssue(BaseModel):
     cite: str
     url: str | None = None
     source: Literal["guide", "author"]
+    # Whose words `cite` is when not the checkpoint's own authors' - this
+    # app's translation, a family or parent model's guide - or that it is
+    # this app's general advice for a checkpoint it does not know (no `url`).
+    note: str | None = None
     # The prompt's own words the issue is about, when the critic quoted any
     # that really occur - located here, not trusted from the model.
     quote: str | None = None

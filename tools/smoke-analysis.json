@@ -72,6 +72,13 @@
   {"eval": "setBusy(false);"},
   {"expect": "els.criticAsk.getAttribute('aria-disabled') === 'false' && els.criticLine.textContent.includes('about 15 seconds')"},
 
+  {"log": "'A cite of words that are not the checkpoint authors\\' own says whose they are, under the issue and in its tooltip; the app\\'s general advice (no page) is not labelled Guide (the fake cites only G1, so its answer is dressed as two such issues, then put back)'"},
+  {"eval": "window.__critique = critiqueResult; const base = critiqueResult.body.issues[0]; critiqueResult = { body: { ...critiqueResult.body, issues: [{ ...base, cite_id: 'A1', source: 'author', cite: 'Start with the image type and subject.', url: 'https://docs.bfl.ai/guides/prompting_unified_building', note: \"BFL's guide for the whole FLUX family; Krea published no prompting rules of its own\" }, { ...base, cite_id: 'G1', source: 'guide', url: null, note: \"this app's general advice: no author sources are known for this checkpoint\" }] } }; renderCritic();"},
+  {"expect": "(() => { const cite = els.criticResult.querySelectorAll('.critic-issue')[0].querySelector('.analysis-source'); const note = els.criticResult.querySelectorAll('.critic-issue')[0].querySelector('.critic-note'); return cite.textContent === `A1 · ${SOURCE_LABELS.author}` && cite.href.startsWith('https://docs.bfl.ai/') && note.textContent.endsWith('Krea published no prompting rules of its own') && cite.title.startsWith('Start with the image type') && cite.title.includes('Krea published no prompting rules') && cite.getAttribute('aria-label').includes(\"BFL's guide\"); })()"},
+  {"expect": "(() => { const issue = els.criticResult.querySelectorAll('.critic-issue')[1]; const cite = issue.querySelector('.analysis-source'); return cite.textContent === 'G1 · General' && cite.tagName === 'SPAN' && !cite.hasAttribute('aria-label') && cite.title.includes('general advice') && !cite.textContent.includes(SOURCE_LABELS.guide) && issue.querySelector('.critic-note').textContent.startsWith(\"this app's general advice\"); })()"},
+  {"eval": "critiqueResult = window.__critique; renderCritic();"},
+  {"expect": "(() => { const issue = els.criticResult.querySelector('.critic-issue'); const cite = issue.querySelector('.analysis-source'); return els.criticResult.querySelectorAll('.critic-issue').length === 1 && cite.textContent === `G1 · ${SOURCE_LABELS.guide}` && !issue.querySelector('.critic-note') && !cite.hasAttribute('aria-label'); })()"},
+
   {"log": "'Use rewrite replaces the prompt, is remembered across a reload, and is checked again'"},
   {"eval": "window.__beforeRewrite = els.prompt.value; [...els.criticResult.querySelectorAll('button')].find((b) => b.textContent === 'Use rewrite').click();"},
   {"wait": 700},
