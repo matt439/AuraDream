@@ -9,8 +9,9 @@ while the card is promised to an image job or a load - before prepare() and
 again after it - prepared on a daemon thread outside the job gate, run inside
 it, and a job submitted meanwhile must not start moving weights onto the card
 until the critic is done with it. Status never loads a tokenizer, and shutdown
-stops the critic's server before anything waits on it - a server that will not
-stop is logged, and the rest of shutdown still runs.
+stops the critic's server before anything waits on it, as Unload stops it off
+the event loop - a server that will not stop is logged, and the rest of Unload
+or shutdown still runs.
 """
 from __future__ import annotations
 
@@ -791,6 +792,66 @@ def test_the_rewrite_is_linted_without_asking_the_tag_index(client, fake, monkey
     assert fake.critic.critiques[0][3].reordered == IN_ORDER
 
 
+def test_the_critic_holds_its_reorder_to_the_categories_check_placed_with(
+    client, fake, monkeypatch
+):
+    # The fake's reorder puts the last tag first. Offline, no tag has its
+    # category, and the order rule finds nothing wrong with firefly after
+    # green hair or before it: the critic's reorder stands, and the page
+    # shows what the server kept.
+    claim(monkeypatch, fake, ANIMAGINE)
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+
+    def critique(prompt):
+        response = client.post("/api/prompt/critique", json={"prompt": prompt})
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    body = critique("firefly, green hair")
+    assert body["reordered"] == "green hair, firefly" and body["set_aside"] == []
+    assert body["reordered_kind"] == "allowed"
+    analysis = fake.critic.critiques[-1][3]
+    assert analysis.categories is None and analysis.categories_detail.startswith(
+        "the tag index was unreachable"
+    )
+    # Online, with every tag looked up and none known - an OC's name - no
+    # lookup failed, and the tags are placed no better: the same answer.
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({}))
+    body = critique("firefly, my oc")
+    assert (body["reordered"], body["reordered_kind"], body["set_aside"]) == (
+        "my oc, firefly", "allowed", [],
+    )
+    analysis = fake.critic.critiques[-1][3]
+    assert analysis.categories == {} and analysis.categories_detail is None
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    # 1girl leads by the guide's own groups, and the rule flags a tag put
+    # before it.
+    flagged = critique("1girl, green hair, firefly")
+    assert flagged["reordered"] is None
+    assert flagged["set_aside"] == [
+        "The critic's reordered version was left out: in it, \"firefly\" comes before "
+        "\"1girl\" (Person count); the documented order is Person count → Character → "
+        "Series → Rating → Details → Quality."
+    ]
+    # Every tag placed, Check's order is the documented one, and the same
+    # reorder is some other order.
+    placed = {"firefly": "character", "green hair": "general"}
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(placed))
+    full = critique("firefly, green hair")
+    assert full["reordered"] is None and full["reordered_kind"] is None
+    assert full["set_aside"] == [
+        "The critic's reordered version was left out: Check places these tags in the "
+        "documented order itself, and the critic's order is not that one."
+    ]
+    assert fake.critic.critiques[-1][3].categories == placed
+    # And where the critic's is Check's own order, the server says so.
+    own = critique("green hair, firefly")
+    assert (own["reordered"], own["reordered_kind"]) == ("firefly, green hair", "check")
+    # The categories go to the critic, not to the page.
+    checked = client.post("/api/prompt/analyze", json={"prompt": "firefly, green hair"})
+    assert checked.status_code == 200 and "categories" not in checked.json()
+
+
 @pytest.mark.parametrize(
     ("failure", "status", "detail"),
     [
@@ -1030,18 +1091,39 @@ def test_unload_answers_at_once_while_a_check_waits_on_a_tokenizer(client, fake,
 
 
 def test_unload_says_unloaded_before_the_analyser_and_critic_let_go(client, fake, monkeypatch):
-    # The critic's is the slow one: it stops a server, waiting to kill it.
+    # The critic's is the slow one: it stops a server, waiting up to twice
+    # `STOP_TIMEOUT` to kill it - so off the event loop, as each release is,
+    # or every progress stream would stall behind it.
     main._load_state.update(state="ready")
-    seen: dict[str, str] = {}
+    seen: dict[str, tuple[str, bool]] = {}
 
     def recording(name):
-        return lambda: seen.setdefault(name, main._load_state["state"])
+        return lambda: seen.setdefault(name, (main._load_state["state"], on_the_loop()))
 
     monkeypatch.setattr(fake.translator, "unload", recording("translator"))
     monkeypatch.setattr(fake.critic, "unload", recording("critic"))
     monkeypatch.setattr(prompt_encoding, "unload", recording("tokenizers"))
     assert client.post("/api/model/unload").status_code == 200
-    assert seen == dict.fromkeys(("translator", "critic", "tokenizers"), "unloaded")
+    assert seen == dict.fromkeys(("translator", "critic", "tokenizers"), ("unloaded", False))
+
+
+def test_a_critic_that_will_not_stop_costs_unload_nothing_else(client, fake, monkeypatch, caplog):
+    # The kill not waited out that shutdown logs and goes past: raised through
+    # the route, it made Unload a 500 over weights already gone, and left the
+    # tokenizers cached.
+    def stuck():
+        raise CriticError("llama-server (pid 4242) had not exited 10 s after it was killed")
+
+    main._load_state.update(state="ready")
+    unloads: list[str] = []
+    monkeypatch.setattr(fake.critic, "unload", stuck)
+    monkeypatch.setattr(prompt_encoding, "unload", lambda: unloads.append("tokenizers"))
+    with caplog.at_level("ERROR", logger=main.log.name):
+        reply = client.post("/api/model/unload")
+    assert (reply.status_code, reply.json()["state"]) == (200, "unloaded")
+    assert client.get("/api/status").json()["state"] == "unloaded"
+    assert unloads == ["tokenizers"]
+    assert "stopping the prompt critic failed: CriticError: llama-server (pid 4242)" in caplog.text
 
 
 def test_shutdown_stops_the_critic_first_and_drops_the_tokenizers(fake, monkeypatch):

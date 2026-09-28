@@ -28,6 +28,8 @@ let comparePreviewEpoch = 0;
 // sourcing rule made visible: Guide and Authors quote the checkpoint's authors,
 // Encoder is what the pipeline's own tokenizer does, Heuristic is this app's
 // pattern matching - its checks on the critic's rewrite included - and says so.
+// A critic's cite of words not the authors' own carries its note (issueItem),
+// and one of the fallback's url-less guide sentences reads General, not Guide.
 const SOURCE_LABELS = {
   guide: 'Guide', author: 'Authors', encoder: 'Encoder', heuristic: 'Heuristic',
 };
@@ -695,12 +697,24 @@ function renderCritic() {
     block.className = 'critic-variant';
     const head = document.createElement('div');
     head.className = 'critic-variant-head';
-    // The server holds it to the prompt's own pieces, not to the documented
-    // order: the check that follows is what says where it stands.
-    head.append(span('critic-variant-name', 'Reordered'), writeButton('Use reordered',
-      "Replace the prompt with the critic's reordering of the same words - its reading of the order, not one this app has checked - then check it",
+    // The server holds it to the prompt's own pieces, moved whole, and where
+    // Check placed the tags itself to Check's order too - and says which it
+    // kept (`reordered_kind`): Check's own reordering ("check"), an order
+    // Check's rule finds nothing wrong with where it could not place every
+    // tag ("allowed"), or, where nothing here read its order, the critic's
+    // reading ("unchecked"), which the check that follows places. Decided
+    // with the critique's own analysis, not this page's last check, whose
+    // tag lookup may have had other answers.
+    const kind = body.reordered_kind;
+    const title = kind === 'check'
+      ? 'Replace the prompt with the same words in the documented order, as Check placed them, then check it'
+      : kind === 'allowed'
+        ? "Replace the prompt with the critic's reordering of the same words - an order Check finds nothing wrong with, though it could not place every tag - then check it"
+        : "Replace the prompt with the critic's reordering of the same words - its reading of the order, not one this app has checked - then check it";
+    head.append(span('critic-variant-name', 'Reordered'), writeButton('Use reordered', title,
       () => usePromptText(body.reordered)));
-    block.append(head, variantArea(body.reordered, "The critic's reordering"));
+    block.append(head, variantArea(body.reordered,
+      kind === 'check' ? "The critic's reordering, Check's own order" : "The critic's reordering"));
     box.appendChild(block);
   }
 
@@ -771,25 +785,22 @@ function issueItem(issue) {
 
 // The versions a comparison can take: the checked text always, a reordering -
 // the rules' own, which is exact, ahead of the critic's - the critic's
-// rewrite, and the user's own version. Where Check placed the prompt itself
-// (`order_checked`) and found nothing to move, the critic's reordering is
-// some other order, not the documented one, and is left out - unless Check
-// placed it without the tag index's categories (`categories_detail`): then
-// "nothing to move" may only be a tag it could not place, and the critic's
-// may be the one reordering that places it. The user's own
-// version is what isolates order where neither layer can offer a reorder: a
-// sentence on FLUX, where the critic's `reordered` rarely survives its check,
-// or a checkpoint whose guide states no order. A version that is the original
-// word for word, or another one's, is left out: the server would render it
-// twice.
+// rewrite, and the user's own version. Whether the critic's reordering may
+// stand is the server's to decide (`critic.validate`), and the page takes what
+// it kept: where Check placed every tag itself, only Check's own order; where
+// it could not place some tag (never looked up, or unknown to the tag index),
+// any order the same rule finds nothing wrong with. The user's own version is
+// what isolates order where neither layer can offer a reorder: a sentence on
+// FLUX, where the critic's `reordered` rarely survives its check, or a
+// checkpoint whose guide states no order. A version that is the original word
+// for word, or another one's, is left out: the server would render it twice.
 function compareVariants() {
   if (!analysisResult) return [];
   const { source, body } = analysisResult;
   const variants = [{ label: 'original', name: 'Original', prompt: source }];
   const seen = new Set([source]);
   for (const [label, name, text] of [
-    ['reordered', 'Reordered', body.reordered
-      ?? (body.order_checked && !body.categories_detail ? null : critiqueResult?.body.reordered)],
+    ['reordered', 'Reordered', body.reordered ?? critiqueResult?.body.reordered],
     ['rewrite', 'Rewrite', critiqueResult?.body.rewrite],
     ['yours', 'Your version', els.compareOwn.value],
   ]) {

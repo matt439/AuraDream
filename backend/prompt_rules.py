@@ -612,6 +612,40 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
     return _reordered(prompt, items, places)
 
 
+def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | None) -> bool:
+    """Whether the order rules give each of `prompt`'s items one slot, placing
+    with `categories` as `check` and `reorder_tags` do. Where they read the
+    order (`order_checked`), `reorder_tags`' order - or its "nothing to move"
+    - is then the documented order itself, not one order it allows.
+
+    Not where an item keeps every slot a category could give it: in none of
+    the guide's own groups, not prose `_place` puts in the general slot, and
+    with no category - whether the tag index was never asked about it
+    (offline, a reply that did not read, past the lookup's cap:
+    `PromptAnalysis.categories_detail`) or was asked and did not know it (an
+    OC's name, a trigger word, a typo, a tag past the vocabulary's cutoff).
+    """
+    spec = _order_spec(_guide(model_id))
+    if spec is None:
+        return True
+    items, lettered, _ = _tag_items(prompt)
+    lookup = _category_lookup(categories)
+    return all(
+        len(_place(item, spec, lookup, lettering=held)) == 1
+        for item, held in zip(items, lettered, strict=True)
+    )
+
+
+def order_items(text: str) -> list[str]:
+    """The items the order rules read in `text`, as typed: its comma items,
+    each stretch of lettering one item, commas and all (`_units`). A reorder
+    that moves these whole is the same list to the rules; one that parts
+    lettering at a comma inside it - "《你好, 世界》", which no quotation
+    mark holds together - is another list, whose halves the rules would
+    place apart."""
+    return [item.text for item in _tag_items(text)[0]]
+
+
 def wants_artist_categories(model_id: str) -> bool:
     """Whether a rule reads which comma items are artists - Anima's "put @
     before an artist name" - so the caller asks the tag index even on a guide
@@ -742,6 +776,23 @@ def check(
     means the lookup was unavailable, and the order checks then place only
     what they know. Warnings first, then by position.
     """
+    context = _read(model_id, request, applied, categories)
+    findings: list[PromptFinding] = []
+    for rule in _RULES:
+        findings.extend(rule(context))
+    return sorted(
+        findings,
+        key=lambda f: (f.severity != "warn", f.start is None, f.start or 0),
+    )
+
+
+def _read(
+    model_id: str,
+    request: GenerateRequest,
+    applied: GenerateRequest,
+    categories: dict[str, str] | None,
+) -> _Context:
+    """`request.prompt` read once, as every rule reads it."""
     guide = _guide(model_id)
     text = request.prompt
     quoted = _quoted_spans(text)
@@ -749,7 +800,7 @@ def check(
     lettering = quoted + rendered
     items = _units(text, comma_items(text), lettering)
     lookup = _category_lookup(categories)
-    context = _Context(
+    return _Context(
         guide=guide,
         analysis=_analysis(guide),
         request=request,
@@ -766,13 +817,24 @@ def check(
         rendered=rendered,
         bare=_blank(text, lettering),
     )
-    findings: list[PromptFinding] = []
-    for rule in _RULES:
-        findings.extend(rule(context))
-    return sorted(
-        findings,
-        key=lambda f: (f.severity != "warn", f.start is None, f.start or 0),
-    )
+
+
+def order_finding(
+    model_id: str, text: str, categories: dict[str, str] | None
+) -> PromptFinding | None:
+    """The order rule's finding on `text`, its items placed with `categories`
+    as `check` places them, or None: `text` in the documented order as far as
+    they place it - or not read at all, which `order_checked` tells apart.
+
+    What a critic's reorder other than `reorder_tags`' is held to where the
+    categories placed only some items (`places_every_item` false): the
+    rules' reorder is then one order the documented one allows, not the only
+    one.
+    """
+    # The rule reads the text alone; the request is only the shell a
+    # `_Context` holds, and a reorder's text is not one the user sent.
+    request = GenerateRequest.model_construct(prompt=text)
+    return next(iter(_order(_read(model_id, request, request, categories))), None)
 
 
 # ------------------------------------------------------------------ the rules
@@ -1211,8 +1273,10 @@ def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
 
 def rendered_spans(text: str) -> list[tuple[int, int]]:
     """Where `text` asks for lettering: its quoted stretches, marks included,
-    and the words a rule reads as unquoted text to render. The critic's checks
-    hold its `text_to_render` and the rewrite's quotation marks to these."""
+    and the words a rule reads as unquoted text to render - `rendered_targets`
+    without its `ends` flag, which the critic's checks of `text_to_render` and
+    the rewrite's quotation marks read. The order rules' reading outside
+    `check` (`_tag_items`) holds each one whole."""
     return [(start, end) for start, end, _ in rendered_targets(text)]
 
 

@@ -16,17 +16,21 @@ caught subject order, unquoted text and negations. So:
 - **Checked.** A quote the model claims is in the prompt is looked for there,
   and nulled when it is not; a part of the prompt it names must be the
   prompt's own words, and its text to render words the prompt asks to
-  letter; issues that restate a rule finding, and order issues that ask for
-  different things first, are left out; the "reordered" variant must be the
+  letter; issues that restate a rule finding or speak to a length the rules
+  measured, order issues the documented order reverses, and order issues
+  that cannot all hold, are left out; the "reordered" variant must be the
   prompt's own phrases - its tags, clauses, sentences or XML blocks - moved
   whole, with any text to render unchanged, and nothing else; what is kept
   is those phrases as the prompt writes them, in the critic's order, and
-  where Check placed the tags itself, only Check's order; a rewrite
-  wrapped whole in quotation marks is unwrapped, one that letters words the
-  prompt does not have is dropped, and one that quotes description is
-  flagged. What survives is still the model's suggestion: the route puts the
-  rewrite back through layer 1, because a critic reintroduces what it was
-  asked to remove, and the page shows it to be read before it is used.
+  where Check placed the tags itself, only Check's order - or, where it
+  could not place every tag (one with no category, never looked up or
+  unknown to the tag index), an order Check's order rule finds nothing
+  wrong with; a rewrite wrapped whole in quotation marks is
+  unwrapped, one that letters words the prompt does not have is dropped,
+  and one that quotes description is flagged. What survives is still the
+  model's suggestion: the route puts the rewrite back through layer 1,
+  because a critic reintroduces what it was asked to remove, and the page
+  shows it to be read before it is used.
 - **Pinned.** Official llama.cpp `llama-server` b11206 and Qwen3-4B Q8_0 at a
   fixed revision, each checked against its sha256 before first use. The binary
   is a download like the weights, so it is treated like them: `.part`, verify,
@@ -79,7 +83,17 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 from .config import settings
-from .prompt_rules import QUOTED, _WORD_NOT_CJK, _capitalised, rendered_targets
+from .prompt_rules import (
+    QUOTED,
+    _WORD_NOT_CJK,
+    _capitalised,
+    _norm,
+    order_checked,
+    order_finding,
+    order_items,
+    places_every_item,
+    rendered_targets,
+)
 from .prompt_sources import Sources, sources_for
 from .schemas import (
     CriticStatus,
@@ -489,20 +503,53 @@ def _extract(archive: Path, scratch: Path, tree: Path) -> None:
     _merge(_single_root(scratch), tree)
 
 
+# What `install_server` makes inside its work directory: the tree it
+# publishes, and a scratch directory per archive (`_extract`).
+_WORK_ENTRY = re.compile(r"tree|archive-\d+")
+
+
+def _is_work(path: Path, target: Path) -> bool:
+    """Whether `path` is exactly one of `target`'s install work directories.
+
+    Its name is the target's, a hyphen and the eight characters `tempfile`
+    adds; it is a real directory, not a link or junction; and it holds
+    nothing but the `tree` and `archive-<n>` an install extracts into - never
+    another build's tree, nor a user's copy named like one
+    (`b11206-win-cuda-13.4-x64-backup01` is a name `tempfile` could make, and
+    a copy of an install holds the server itself).
+    """
+    if not re.fullmatch(re.escape(target.name) + r"-[a-z0-9_]{8}", path.name):
+        return False
+    if path.name in {_target(key).name for key in BUILDS}:
+        return False
+    if path.is_symlink() or path.is_junction() or not path.is_dir():
+        return False
+    try:
+        return all(_WORK_ENTRY.fullmatch(entry.name) for entry in path.iterdir())
+    except OSError:
+        return False
+
+
 def _sweep_work(target: Path) -> None:
     """Remove what interrupted installs left beside `target`.
 
-    Each extracts into a `<target>-*` work directory that removes itself on
+    Each extracts into a work directory (`_is_work`) that removes itself on
     the way out - but not after a hard kill, nor on Windows when the
     interpreter exits with a file in it still open on the prepare thread, and
     each such attempt left up to 744 MB. Only an install holding the lock
-    extracts, so under it every one is stale.
+    extracts, so under it every one is stale. Best-effort: nothing here fails
+    an install, and what cannot go yet is tried again on the next.
     """
-    builds = {_target(key).name for key in BUILDS}
-    for stale in target.parent.glob(f"{target.name}-*"):
-        if stale.is_dir() and not stale.is_symlink() and stale.name not in builds:
-            log.warning("removing an interrupted llama.cpp install: %s", stale)
-            shutil.rmtree(stale, ignore_errors=True)
+    try:
+        found = [path for path in target.parent.iterdir() if _is_work(path, target)]
+    except OSError:
+        return
+    for stale in found:
+        shutil.rmtree(stale, ignore_errors=True)
+        if stale.exists():
+            log.warning("could not remove an interrupted llama.cpp install yet: %s", stale)
+        else:
+            log.warning("removed an interrupted llama.cpp install: %s", stale)
 
 
 def install_server(key: str) -> Path:
@@ -1270,9 +1317,18 @@ class CriticContext:
     # Whether the rules placed the prompt in that order themselves
     # (`analysis.order_checked`), and the reorder they made of it
     # (`analysis.reordered`, None where nothing had to move): there a
-    # reorder of the critic's stands only as that one.
+    # reorder of the critic's stands only as that one - unless some item the
+    # order rule reads kept every slot a category could give it
+    # (`placed_partly`: `prompt_rules.places_every_item` false with
+    # `analysis.categories` - an item never looked up, or one the tag index
+    # did not know). Then theirs is one order the documented one allows, not
+    # the only one, and the critic's stands if it keeps the items the rule
+    # reads whole and the same rule, placing with the same `categories`,
+    # reads it and flags nothing in it.
     order_checked: bool
     rules_reordered: str | None
+    placed_partly: bool
+    categories: dict[str, str] | None
     # The rule ids layer 1 reported on the prompt, and where in it each
     # finding about the words points, with how far past them a quote may
     # reach: an issue restating any of them is left out. Those reported on
@@ -1725,6 +1781,14 @@ def build_context(
         style=analysis.style,
         order_checked=analysis.order_checked,
         rules_reordered=analysis.reordered,
+        # From the placement itself, not from `categories_detail`, which says
+        # only that some item was never looked up: one the index was asked
+        # about and did not know - an OC's name, a trigger word - is placed
+        # no better.
+        placed_partly=analysis.order_checked and not places_every_item(
+            model_id, request.prompt, analysis.categories
+        ),
+        categories=analysis.categories,
         # The prompt's own: an issue is about the prompt, and one asking for
         # emphasis is not restating weighting found in the negative prompt -
         # unless it says it is about the negative prompt.
@@ -1917,6 +1981,14 @@ def is_reorder(candidate: str, prompt: str, style: str) -> bool:
     the variant that isolates order, so a grid row of anything more would lie."""
     kept, moved = _reordered(candidate, prompt, style)
     return kept and moved is not None
+
+
+def _order_items(text: str) -> Counter[str]:
+    """The items the order rule reads in `text` (`order_items`: its comma
+    items, each stretch of lettering one item), as the rules tell them apart
+    (`_norm`: a closing full stop is no other tag), in any order: equal for a
+    reorder that moved them whole."""
+    return Counter(_norm(item) for item in order_items(text))
 
 
 # A letter or digit of a script that spaces its words. A quote that starts or
@@ -2613,6 +2685,9 @@ def validate(
         set_aside += notes
     raw_reordered = data.get("reordered") if context.ordered else None
     reordered = None
+    # Which reordering was kept, said by the server that decided it: the
+    # page's last check may have placed the tags with other categories.
+    kind: Literal["check", "allowed", "unchecked"] | None = None
     if _too_long(raw_reordered):
         set_aside.append(
             f"The critic's reordered version was left out: it is longer than the {MAX_TEXT} "
@@ -2629,19 +2704,54 @@ def validate(
             )
         elif moved is None or not context.order_checked:
             reordered = moved
+            kind = None if moved is None else "unchecked"
         elif context.rules_reordered is not None and _reordered(
             candidate, context.rules_reordered, context.style
         ) == (True, None):
             # Where the rules placed the prompt, the documented order is
             # theirs, and so is the text: the one Check offers under Use.
-            reordered = context.rules_reordered
-        else:
-            # Any other permutation is some other order, and a comparison
-            # row of it would claim the documented one.
+            reordered, kind = context.rules_reordered, "check"
+        elif not context.placed_partly:
+            # Every item placed: any other permutation is some other order,
+            # and a comparison row of it would claim the documented one.
             set_aside.append(
                 "The critic's reordered version was left out: Check places these tags in the "
                 "documented order itself, and the critic's order is not that one."
             )
+        elif _order_items(moved) != _order_items(prompt):
+            # The pieces a reorder moves are the critic's reading, and the
+            # order rule reads its own items: "、", ";" and line breaks part
+            # the critic's pieces but not the rule's comma items, and a comma
+            # inside lettering no quotation mark holds ("《你好, 世界》") parts
+            # the pieces but not the rule's one item of lettering. Set apart
+            # otherwise, the same pieces are other items to the rule (two
+            # joined by "、" are one, which no order can be wrong about; a
+            # title's halves are two it places apart), and its answer would
+            # be about a list the prompt is not.
+            set_aside.append(
+                "The critic's reordered version was left out: it does not keep the prompt's "
+                "comma items whole, so Check would read it as other tags."
+            )
+        elif not order_checked(context.sources.model_id, moved):
+            # The same items, but read as XML where an opening tag now leads:
+            # an order the rule never read is not one it passed.
+            set_aside.append(
+                "The critic's reordered version was left out: Check does not read the order "
+                "of it, so nothing has checked that order."
+            )
+        elif (finding := order_finding(
+            context.sources.model_id, moved, context.categories
+        )) is not None:
+            set_aside.append(
+                f"The critic's reordered version was left out: in it, {finding.message}"
+            )
+        else:
+            # Some tag was not placed, so Check's own order is one the
+            # documented order allows, not the only one; the critic's is
+            # another that the same rule, placing with the same categories,
+            # finds nothing wrong with. Still the critic's reading, which
+            # the comparison then tests on the user's seeds.
+            reordered, kind = moved, "allowed"
     return PromptCritique(
         model=model,
         seconds=round(seconds, 2),
@@ -2649,6 +2759,7 @@ def validate(
         issues=issues,
         rewrite=rewrite,
         reordered=reordered,
+        reordered_kind=kind,
         rewrite_findings=rewrite_findings,
         dropped=dropped,
         set_aside=set_aside,
@@ -2883,7 +2994,9 @@ class PromptCritic:
             _remove_log(log_path)
 
     def unload(self) -> None:
-        """Stop a server still running - the app is shutting down under it."""
+        """Stop a server still running: on Unload, or with the app shutting
+        down under it. A kill not waited out raises `CriticError` - the card
+        may still be taken - which `main._stop_critic` logs."""
         with self._process_lock:
             process = self._process
         if process is not None:

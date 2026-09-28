@@ -314,6 +314,10 @@ class PromptAnalysis(BaseModel):
     # it placed was only partly checked. None when every item was looked up,
     # or none needed to be.
     categories_detail: str | None = None
+    # The categories themselves, as the rules placed the items with them,
+    # for the critic to hold a reorder of its own to the same placement.
+    # Never sent: the page has the chips' own lookup for what a tag is.
+    categories: dict[str, str] | None = Field(default=None, exclude=True)
     # Where the guide states no order: orders the authors' own texts give
     # anyway (Anima's card, the rewriter instructions), shown as information,
     # never checked. Empty where `order` is set.
@@ -352,10 +356,25 @@ class PromptCritique(BaseModel):
     parts: dict[str, str | None] = Field(default_factory=dict)
     issues: list[CritiqueIssue] = Field(default_factory=list)
     rewrite: str | None = None
-    # The same words in the documented order and nothing else - the variant
-    # that isolates order in a comparison grid. None when the critic's version
-    # added or dropped words, or the checkpoint documents no order.
+    # The prompt's own pieces, as it writes them, in the critic's order - the
+    # variant that isolates order in a comparison grid. Where Check placed the
+    # tags itself (`order_checked`), only Check's own `reordered` text - or,
+    # where it could not place every tag (an item with no category, never
+    # looked up or unknown to the tag index), an order Check's order rule
+    # finds nothing wrong with. None when the critic's version was too long,
+    # changed words or moved nothing, split or joined the items Check reads,
+    # took a form Check does not read the order of, was an order Check's rule
+    # flags or, every tag placed, was not Check's own, or when the checkpoint
+    # documents no order.
     reordered: str | None = None
+    # Which reordering `reordered` is, for the page to say: "check" - Check's
+    # own text, the documented order as it placed the tags; "allowed" - the
+    # critic's, where Check could not place every tag and its order rule finds
+    # nothing wrong with it; "unchecked" - the critic's reading, where Check
+    # reads no order. Decided with the categories this critique's own
+    # analysis had, which the page's last check need not have had (the tag
+    # index back online between the two). None with `reordered`.
+    reordered_kind: Literal["check", "allowed", "unchecked"] | None = None
     # The analyser run over the rewrite: a critic can reintroduce what it was
     # asked to remove, so its output is checked by the same rules as input -
     # and first by the critic's own checks on it: quoted words the prompt
@@ -366,9 +385,14 @@ class PromptCritique(BaseModel):
     # its `quote`.
     dropped: int = 0
     # What else validation took out of the answer, one sentence each, for the
-    # page to say: issues restating a rule finding, order issues that asked
-    # for different things first, a `reordered` that was not a reorder, a
-    # rewrite wrapped in quotation marks or lettering words the prompt lacks.
+    # page to say: issues restating a rule finding or speaking to a length the
+    # check measured, order issues the documented order reverses or that
+    # cannot all hold, parts the model named that are not the prompt's words
+    # or lettering, a `reordered` that was too long, was not a reorder, split
+    # or joined the items Check reads, was not read or was flagged by Check's
+    # order rule, or, every tag placed, was not Check's own order, and a
+    # rewrite that was too long, the prompt unchanged, wrapped in quotation
+    # marks or lettering words the prompt lacks.
     set_aside: list[str] = Field(default_factory=list)
 
 

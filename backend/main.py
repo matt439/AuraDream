@@ -149,13 +149,13 @@ jobs = JobManager(backend, ensure_loaded)
 
 
 def _stop_critic() -> None:
-    """Stop the critic's server, if one runs, on the way out. A kill not
-    waited out (`CriticError`: the card may still be taken) is logged, and
-    never keeps the rest of shutdown - the worker, the weights, the
-    tokenizers - from running after it."""
+    """Stop the critic's server, if one runs: on Unload and on the way out.
+    A kill not waited out (`CriticError`: the card may still be taken) is
+    logged, and never keeps what follows from running - on Unload the
+    tokenizers, on the way out the worker, the weights and the tokenizers."""
     try:
         prompt_critic.unload()
-    except Exception as exc:  # noqa: BLE001 - shutdown goes on without it
+    except Exception as exc:  # noqa: BLE001 - Unload and shutdown go on without it
         log.error("stopping the prompt critic failed: %s", short_error(exc))
         log.debug("critic stop traceback", exc_info=True)
 
@@ -486,8 +486,16 @@ async def unload_model() -> ModelStatus:
     await asyncio.to_thread(prompt_translator.unload)
     # Unload is "give the card and the memory back": a critic's server still
     # running is stopped - its critique then fails with a 502 - and the
-    # analyser's cached tokenizers go with the pipeline.
-    await asyncio.to_thread(prompt_critic.unload)
+    # analyser's cached tokenizers go with the pipeline. A server that would
+    # not die is logged, as shutdown logs it (`_stop_critic`), and the rest
+    # goes on: raised here it was a 500 over weights that had gone, and the
+    # tokenizers stayed. The answer is still true - "unloaded" is the image
+    # model's state, and the VRAM it reports is read off the image model's
+    # card, device-wide, so on this app's one card memory the server still
+    # holds shows there rather than being claimed free. The server is pinned
+    # to no card, so on a second GPU it may not: the log line, with its pid,
+    # is what says so.
+    await asyncio.to_thread(_stop_critic)
     await asyncio.to_thread(prompt_encoding.unload)
     return await status()
 
@@ -676,6 +684,7 @@ def _analyse(
         order=order,
         order_checked=order is not None and prompt_rules.order_checked(model_id, prompt),
         categories_detail=categories_detail,
+        categories=categories,
         author_orders=[] if order is not None else [
             AuthorOrder(text=excerpt.text, url=excerpt.url, note=excerpt.note)
             for excerpt in sources_for(model_id).excerpts

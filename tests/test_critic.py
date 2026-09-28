@@ -15,6 +15,7 @@ import logging
 import os
 import platform
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -327,20 +328,132 @@ def test_an_interrupted_installs_work_directories_are_swept(root, windows_releas
     stale = root / f"{target.name}-k3j9x0q1"
     (stale / "tree").mkdir(parents=True)
     (stale / "tree" / "llama-server.exe").write_bytes(b"half")
-    # Beside it, what is not an install's work, though named like one: a
-    # build whose key extends this one's, and a file.
-    monkeypatch.setitem(critic.BUILDS, "test-x64-v2", critic.BUILDS["test-x64"])
-    other = root / f"{target.name}-v2"
+    # Beside it, what is not an install's work, though named like one:
+    # another build's own directory, whose key is this one's and eight
+    # characters tempfile could write - empty, so only its name tells it
+    # apart - and a file.
+    monkeypatch.setitem(critic.BUILDS, "test-x64-avx2cuda", critic.BUILDS["test-x64"])
+    other = root / f"{target.name}-avx2cuda"
     other.mkdir()
-    (root / f"{target.name}-notes.txt").write_text("mine")
+    note = root / f"{target.name}-notes123"
+    note.write_text("mine")
     server = critic.install_server("test-x64")
     assert not stale.exists()
-    assert other.is_dir() and (root / f"{target.name}-notes.txt").is_file()
+    assert other.is_dir() and note.read_text() == "mine"
     # Also once installed: what an earlier interrupted attempt left is found
     # by the next prepare, which only checks the install.
     stale.mkdir()
     assert critic.install_server("test-x64") == server
     assert not stale.exists()
+    assert windows_release.fetched == ["llama-test.zip", "cudart-test.zip"]
+
+
+def test_the_sweep_takes_only_what_an_install_leaves(root, windows_release):
+    # What an interruption leaves: the tree half-extracted, the archives'
+    # scratch directories, or a work directory created and nothing more.
+    target = root / f"{critic.RELEASE}-test-x64"
+    left = {
+        "tree": root / f"{target.name}-k3j9x0q1",
+        "scratch": root / f"{target.name}-_a8b9c0d",
+        "empty": root / f"{target.name}-zz00zz00",
+    }
+    (left["tree"] / "tree").mkdir(parents=True)
+    (left["tree"] / "tree" / "ggml-cuda.dll").write_bytes(b"half")
+    (left["tree"] / "archive-0").mkdir()
+    (left["scratch"] / "archive-1" / "llama-b11206").mkdir(parents=True)
+    left["empty"].mkdir()
+    # And a user's, beside it: a backup of the install by name, a name
+    # tempfile could make holding a copy of the install, work-shaped
+    # contents under names seven and nine characters long or in capitals,
+    # which tempfile never writes, and tempfile-shaped names holding entries
+    # that only start like an install's: its entries are whole names.
+    kept = {
+        "backup": root / f"{target.name}-backup",
+        "copy": root / f"{target.name}-backup01",
+        "short": root / f"{target.name}-k3j9x0q",
+        "long": root / f"{target.name}-k3j9x0q12",
+        "capitals": root / f"{target.name}-QX7RB2KP",
+        "tree.bak": root / f"{target.name}-bak_0001",
+        "archive-0.zip": root / f"{target.name}-zip_0001",
+    }
+    for path in kept.values():
+        (path / "tree").mkdir(parents=True)
+    (kept["copy"] / "llama-server.exe").write_bytes(b"mine")
+    (kept["copy"] / critic._INSTALL_MARKER).write_text("{}")
+    (kept["tree.bak"] / "tree.bak").mkdir()
+    (kept["archive-0.zip"] / "archive-0.zip").write_bytes(b"mine")
+    critic.install_server("test-x64")
+    for name, path in left.items():
+        assert not path.exists(), name
+    for name, path in kept.items():
+        assert (path / "tree").is_dir(), name
+    assert (kept["copy"] / "llama-server.exe").read_bytes() == b"mine"
+
+
+def test_the_sweep_never_takes_a_link_named_like_work(root, windows_release, tmp_path, caplog):
+    # A link or junction whose target holds exactly what a work directory
+    # would is still no install's: what it points at is someone else's
+    # directory, never the sweep's to remove or to warn about on every use.
+    target = root / f"{critic.RELEASE}-test-x64"
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "tree").mkdir(parents=True)
+    (elsewhere / "tree" / "keep.txt").write_text("mine")
+    root.mkdir(parents=True)
+    link = root / f"{target.name}-linked01"
+    _link_directory(link, elsewhere)
+    assert not critic._is_work(link, target)
+    with caplog.at_level("WARNING", logger=critic.log.name):
+        critic.install_server("test-x64")
+    assert link.is_dir() and (elsewhere / "tree" / "keep.txt").read_text() == "mine"
+    assert "interrupted llama.cpp install" not in caplog.text
+
+
+def test_the_sweep_never_fails_an_install(root, windows_release, monkeypatch, caplog):
+    # Work with a file another process still holds, and work whose listing is
+    # refused: neither stops the install, neither is reported gone, and the
+    # sweep still takes what it can beside them. The held one is tried again
+    # by the next install.
+    target = root / f"{critic.RELEASE}-test-x64"
+    stale = root / f"{target.name}-k3j9x0q1"
+    (stale / "tree").mkdir(parents=True)
+    held = root / f"{target.name}-held_0a1"
+    (held / "tree").mkdir(parents=True)
+    unlisted = root / f"{target.name}-unlist_1"
+    (unlisted / "tree").mkdir(parents=True)
+    refused = {unlisted}
+    holding = {held}
+    rmtree, iterdir = shutil.rmtree, Path.iterdir
+
+    def held_rmtree(path, *args, ignore_errors=False, **kwargs):
+        if Path(path) not in holding:
+            return rmtree(path, *args, ignore_errors=ignore_errors, **kwargs)
+        if not ignore_errors:
+            raise PermissionError(32, "The process cannot access the file", str(held / "tree"))
+
+    def refusing_iterdir(self):
+        if self in refused:
+            raise PermissionError(13, "Access is denied", str(self))
+        return iterdir(self)
+
+    monkeypatch.setattr(shutil, "rmtree", held_rmtree)
+    monkeypatch.setattr(Path, "iterdir", refusing_iterdir)
+    with caplog.at_level("WARNING", logger=critic.log.name):
+        server = critic.install_server("test-x64")
+    assert server.read_bytes() == b"server"
+    assert not stale.exists()
+    assert held.is_dir() and unlisted.is_dir()
+    assert f"could not remove an interrupted llama.cpp install yet: {held}" in caplog.text
+    assert f"removed an interrupted llama.cpp install: {held}" not in caplog.text
+    # Let go of, it goes on the next install, which finds the build in place.
+    holding.clear()
+    caplog.clear()
+    with caplog.at_level("WARNING", logger=critic.log.name):
+        assert critic.install_server("test-x64") == server
+    assert not held.exists() and unlisted.is_dir()
+    assert f"removed an interrupted llama.cpp install: {held}" in caplog.text
+    # Nor does an install directory that cannot be listed.
+    refused.add(root)
+    assert critic.install_server("test-x64") == server
     assert windows_release.fetched == ["llama-test.zip", "cudart-test.zip"]
 
 
@@ -2811,10 +2924,13 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
 
     def critique(prompt: str, reordered: str):
         request = GenerateRequest(prompt=prompt)
+        # As `main._analyse` builds it: the categories the rules placed with
+        # travel with the analysis, for the critic to place with the same.
         analysis = PromptAnalysis(
             model_id=animagine, style=prompt_rules.detect_style(prompt, categories), words=8,
             order=prompt_rules.documented_order(animagine),
             order_checked=prompt_rules.order_checked(animagine, prompt),
+            categories=categories,
             reordered=prompt_rules.reorder_tags(animagine, prompt, categories),
         )
         assert analysis.order_checked
@@ -2830,6 +2946,7 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
     reversed_ = ", ".join(reversed(prompt.split(", ")))
     same = critique(prompt, in_order.upper())
     assert same.reordered == in_order and same.set_aside == []
+    assert same.reordered_kind == "check"
     # Check's own text, whatever the critic's punctuation: on a hybrid
     # prompt the sentences inside a comma item stay as the prompt set them.
     hybrid = "masterpiece, 1girl, a girl stands in the rain. she smiles softly, green hair"
@@ -2840,6 +2957,7 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
         assert same.reordered == checks and same.set_aside == [], answer
     other = critique(prompt, reversed_)
     assert other.reordered is None and other.set_aside == other_order
+    assert other.reordered_kind is None
     # Already in order, nothing moves: any reorder is another order.
     moved = critique(in_order, ", ".join(reversed(in_order.split(", "))))
     assert moved.reordered is None and moved.set_aside == other_order
@@ -2847,7 +2965,138 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
     klein = _validate(
         _answer(reordered=reversed_, rewrite=None, parts={}), prompt=prompt, style="tags"
     )
-    assert klein.reordered == reversed_
+    assert klein.reordered == reversed_ and klein.reordered_kind == "unchecked"
+    # Nothing moved, nothing kept, and no kind.
+    still = _validate(_answer(reordered=prompt, rewrite=None, parts={}), prompt=prompt, style="tags")
+    assert still.reordered is None and still.reordered_kind is None
+
+
+def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_critics():
+    # A tag with no category keeps every slot one could give it - offline,
+    # past the 64 tags one check may look up, or unknown to the tag index -
+    # so Check's own order is one the documented order allows, not the only
+    # one. A reorder of the critic's then stands where the order rule,
+    # placing with the same categories, flags nothing in it - and is set
+    # aside, as before, once every tag is placed.
+    animagine = "cagliostrolab/animagine-xl-4.0"
+    offline = "the tag index was unreachable, so no tag has its Danbooru category"
+    prompt = "1girl, firefly, green hair, masterpiece"
+    placed = {"firefly": "character", "green hair": "general"}
+
+    def critique(reordered, categories=None, detail=offline, prompt=prompt):
+        request = GenerateRequest(prompt=prompt)
+        analysis = PromptAnalysis(
+            model_id=animagine, style=prompt_rules.detect_style(prompt, categories), words=6,
+            order=prompt_rules.documented_order(animagine),
+            order_checked=prompt_rules.order_checked(animagine, prompt),
+            categories_detail=detail,
+            categories=categories,
+            reordered=prompt_rules.reorder_tags(animagine, prompt, categories),
+        )
+        assert analysis.order_checked and analysis.reordered is None
+        context = critic.build_context(animagine, request, request, analysis)
+        answer = _answer(issues=[], parts={}, rewrite=None, reordered=reordered)
+        return critic.validate(answer, context, prompt, model="test", seconds=0.0)
+
+    # Neither firefly nor green hair placed: either may come first. The
+    # server says which kind of reordering it kept, for the page to say.
+    swapped = "1girl, green hair, firefly, masterpiece"
+    kept = critique(swapped)
+    assert kept.reordered == swapped and kept.set_aside == []
+    assert kept.reordered_kind == "allowed"
+    # In the prompt's own spelling, and past a closing full stop, which the
+    # rules read as no other tag.
+    kept = critique(swapped.upper() + ".")
+    assert kept.reordered == swapped + "." and kept.set_aside == []
+    # Green hair placed and firefly not: still nothing out of order.
+    kept = critique(swapped, categories={"green hair": "general"})
+    assert kept.reordered == swapped and kept.set_aside == []
+    # The same where every tag was looked up and the index knew no firefly -
+    # an OC's name, a trigger word: no lookup failed (`categories_detail`
+    # None), and the tag is placed no better than one never asked about.
+    for known in ({"green hair": "general"}, {}):
+        kept = critique(swapped, categories=known, detail=None)
+        assert (kept.reordered, kept.reordered_kind, kept.set_aside) == (swapped, "allowed", [])
+    # Lettering with a comma no quotation mark holds is one item to the
+    # rules: a reorder moving the title whole stands, one parting it at the
+    # comma - the critic's own pieces do - is other tags to them.
+    title = "1girl, 招牌写着《你好, 世界》, green hair, masterpiece"
+    whole = "1girl, green hair, 招牌写着《你好, 世界》, masterpiece"
+    kept = critique(whole, prompt=title)
+    assert (kept.reordered, kept.set_aside) == (whole, [])
+    for parted in (
+        "1girl, 世界》, green hair, 招牌写着《你好, masterpiece",
+        "1girl, 世界》, 招牌写着《你好, green hair, masterpiece",
+    ):
+        other = critique(parted, prompt=title)
+        assert other.reordered is None and other.reordered_kind is None, parted
+        assert other.set_aside == [
+            "The critic's reordered version was left out: it does not keep the prompt's comma "
+            "items whole, so Check would read it as other tags."
+        ], parted
+    # What the rule flags stays out, and the note says what it found.
+    flagged = critique("masterpiece, 1girl, firefly, green hair")
+    assert flagged.reordered is None
+    chain = "the documented order is Person count → Character → Series → Rating → Details → Quality."
+    assert flagged.set_aside == [
+        "The critic's reordered version was left out: in it, \"masterpiece\" (Quality) comes "
+        f"before \"1girl\" (Person count); {chain}"
+    ]
+    # With the categories Check had: a tag it placed keeps its slot, though
+    # another went unplaced past the lookup's cap.
+    capped = (
+        "the tag index was asked about the first 2 of 3 tags only, so the rest have no "
+        "Danbooru category"
+    )
+    held = critique(
+        "1girl, green hair, firefly, mystery, masterpiece", categories=placed, detail=capped,
+        prompt="1girl, firefly, green hair, mystery, masterpiece",
+    )
+    assert held.reordered is None and held.set_aside == [
+        "The critic's reordered version was left out: in it, \"green hair\" (Details) comes "
+        f"before \"firefly\" (Character); {chain}"
+    ]
+    # The critic's pieces are not always the rules' items: joined by "、" or
+    # set on lines of their own, the four tags are one item to the rules,
+    # which no order can be wrong about.
+    regrouped = [
+        "The critic's reordered version was left out: it does not keep the prompt's comma "
+        "items whole, so Check would read it as other tags."
+    ]
+    for joined in ("1girl、green hair、firefly、masterpiece", "1girl\ngreen hair\nfirefly\nmasterpiece"):
+        other = critique(joined)
+        assert other.reordered is None and other.set_aside == regrouped, joined
+    # The same items, read as XML once an opening tag leads: the rule stands
+    # down, and an order it did not read is not one it passed.
+    tagged = "1girl, <character_1>, green hair, masterpiece"
+    unread = critique("<character_1>, 1girl, green hair, masterpiece", prompt=tagged)
+    assert unread.reordered is None and unread.set_aside == [
+        "The critic's reordered version was left out: Check does not read the order of it, "
+        "so nothing has checked that order."
+    ]
+    # Lettering is placed by its shape and never looked up: two captions read
+    # as prose, in the general slot, and with the rest in the guide's own
+    # groups every item is placed with no categories at all - so a swap of
+    # the two is some other order, as where every tag has its category.
+    signs = '1girl, a sign that says "open", a banner that reads "sale", masterpiece'
+    other = critique(
+        '1girl, a banner that reads "sale", a sign that says "open", masterpiece',
+        detail=None, prompt=signs,
+    )
+    assert other.reordered is None and other.set_aside == [
+        "The critic's reordered version was left out: Check places these tags in the "
+        "documented order itself, and the critic's order is not that one."
+    ]
+    # Every tag placed, the rule finds the same swap out of order - and
+    # Check's order is the documented one: any other is set aside, as ever.
+    # So too where some other item went unasked: what it placed decides.
+    for detail in (None, capped):
+        full = critique(swapped, categories=placed, detail=detail)
+        assert full.reordered is None and full.reordered_kind is None
+        assert full.set_aside == [
+            "The critic's reordered version was left out: Check places these tags in the "
+            "documented order itself, and the critic's order is not that one."
+        ]
 
 
 def test_the_rewrites_quotation_marks_are_held_to_the_prompts_lettering():

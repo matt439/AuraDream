@@ -193,7 +193,10 @@ class FakeCritic:
     `critic.is_reorder` accepts; a prompt of one clause has nothing to move,
     so an ordered checkpoint gets no reordered version, as it often does from
     the real critic. Where Check placed the tags itself (`order_checked`),
-    `critic.validate` keeps it only if that is Check's own order.
+    `critic.validate` keeps it only as Check's own order - or, where Check
+    could not place every tag (one never looked up or unknown to the tag
+    index), as an order Check's order rule finds nothing wrong with - and
+    says which it kept (`reordered_kind`).
     """
 
     def __init__(self, delay: float = 0.0) -> None:
