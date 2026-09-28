@@ -541,7 +541,25 @@ def test_lettering_whose_end_is_a_guess_gets_no_one_click_quote():
         # follows it is description, so nothing may read on past it.
         (QWEN, "一块写着欢迎光临的木质招牌挂在门口", "欢迎光临", True),
         (ERNIE, "一件印着我爱北京的白色T恤", "我爱北京", True),
-        (ERNIE, "一块写有欢迎字样的牌子", "欢迎字样", True),
+        # A verb that puts the sign somewhere starts describing it, with no
+        # 的 before it and punctuation only after the description.
+        (QWEN, "门上写着营业中挂在门口，夜晚", "营业中", True),
+        (QWEN, "一块牌子写着营业中挂在门口", "营业中", True),
+        (QWEN, "横幅上写着欢迎光临悬挂在大门上方", "欢迎光临", True),
+        (ERNIE, "T恤上印着我爱北京站在街头", "我爱北京", True),
+        (QWEN, "招牌上写着营业中位于街角", "营业中", True),
+        # Only a request or a prohibition right before the verb makes the
+        # verb the sign's own; a slogan's (我们站在一起) loses its one click
+        # rather than a description getting one.
+        (QWEN, "墙上写着请勿吸烟挂在墙上，夜晚", "请勿吸烟", True),
+        (QWEN, "门上写着请把门关好挂在门上，夜晚", "请把门关好", True),
+        (QWEN, "墙上写着禁止停放在此贴在墙上，夜晚", "禁止停放在此", True),
+        (QWEN, "横幅上写着我们站在一起，夜晚", "我们", True),
+        # 等 before 字样 is "and so on", or the end of a word (平等).
+        (QWEN, "横幅上写有平等字样，夜晚", "平", True),
+        (QWEN, "写着欢迎光临等字样", "欢迎光临", True),
+        # A verb that starts right at the cap still ends it.
+        (QWEN, "写着一二三四五六七八九十一挂在门口，", "一二三四五六七八九十一", True),
         # Longer than the target's cap, with more text after it.
         (QWEN, "招牌上写着欢迎光临本店祝您用餐愉快万事如意", "欢迎光临本店祝您用餐愉快", False),
         # Latin lettering may run on past a space, or past an ASCII mark
@@ -575,8 +593,28 @@ def test_chinese_lettering_whose_end_is_a_guess_gets_no_one_click_quote(
         # Latin lettering ends where the script changes, 的 included.
         ("写着OPEN的招牌", "OPEN"),
         ("一件印有LOGO的T恤", "LOGO"),
+        ("写着OPEN挂在门口", "OPEN"),
         # A title is its marks and what they hold.
         ("封面上写着《营业中》的招牌", "《营业中》"),
+        # 字样 names the lettering before it: "bearing the word 欢迎".
+        ("门上写有欢迎字样，夜晚", "欢迎"),
+        ("一块写有欢迎字样的牌子", "欢迎"),
+        ("写着OPEN等字样", "OPEN"),
+        # So does a count of its characters, one that starts at the cap too.
+        ("门上写着福两个大字，夜晚", "福"),
+        ("门上写着欢迎两个字，夜晚", "欢迎"),
+        ("写着一二三四五六七八九十一两个大字，", "一二三四五六七八九十一"),
+        # Signs that hold 在 or a verb of their own keep their one click:
+        # only a verb placing the sign ends one, and not where the sign asks
+        # for it.
+        ("写着正在营业，夜晚", "正在营业"),
+        ("写着欢迎光临本店，夜晚", "欢迎光临本店"),
+        ("地上写着请勿站在黄线内，夜晚", "请勿站在黄线内"),
+        ("门口写着禁止停放在此，夜晚", "禁止停放在此"),
+        ("地铁站的牌子上写着请站在黄线外，夜晚", "请站在黄线外"),
+        ("停车场的牌子上写着请停在白线内，夜晚", "请停在白线内"),
+        ("牌子上写着请勿随意停放在此，夜晚", "请勿随意停放在此"),
+        ("牌子上写着请将车辆停放在指定区域，夜晚", "请将车辆停放在指定区域"),
     ],
 )
 def test_chinese_lettering_ended_by_punctuation_is_quoted(prompt, target):
@@ -1018,6 +1056,127 @@ def test_reordering_keeps_a_slots_order_and_the_prose():
     assert reordered.count("\n") == example.count("\n")
 
 
+def _quoted(text: str) -> Counter:
+    return Counter(prompt_rules.QUOTED.findall(text))
+
+
+@pytest.mark.parametrize(
+    "model_id, prompt, categories, expected",
+    [
+        # Categories that read the halves of a quotation as tags placed
+        # "world" as a character, ahead of the sign it is on.
+        (
+            ANIMAGINE,
+            '1girl, holding sign, "hello, world", smile',
+            {"holding sign": "general", '"hello': "general", 'world"': "character"},
+            None,
+        ),
+        # Quoted, a name is lettering: the index's answer for it places nothing.
+        (
+            ANIMAGINE,
+            '1girl, smile, "firefly"',
+            {"smile": "general", '"firefly"': "character"},
+            None,
+        ),
+        # Read piece by piece, "she is here" is a sentence and "Hello" could
+        # be a name: a character went in between them.
+        (
+            ANIMAGINE,
+            '"Hello, she is here", firefly',
+            {"firefly": "character"},
+            'firefly, "Hello, she is here"',
+        ),
+        # A tag inside the lettering is the lettering's; the rest moves round it.
+        (
+            ANIMAGINE,
+            'masterpiece, sign says "hi, 1girl, bye", smile',
+            None,
+            'sign says "hi, 1girl, bye", smile, masterpiece',
+        ),
+        # The spacing inside it is its own, and a "，" in it splits nothing.
+        (
+            ILLUSTRIOUS,
+            'masterpiece, sign says "hi,there", 1girl',
+            None,
+            '1girl, sign says "hi,there", masterpiece',
+        ),
+        (
+            ANIMAGINE,
+            'masterpiece, sign says "你好，世界", 1girl',
+            None,
+            '1girl, sign says "你好，世界", masterpiece',
+        ),
+        # Unquoted lettering too: a title in its marks.
+        (
+            ANIMAGINE,
+            "masterpiece, 封面上写着《hello, world》, 1girl",
+            None,
+            "1girl, 封面上写着《hello, world》, masterpiece",
+        ),
+        (
+            ANIMAGINE,
+            "masterpiece, 1girl, 封面上写着《hello, world》, smile",
+            {"world》": "character"},
+            "1girl, 封面上写着《hello, world》, smile, masterpiece",
+        ),
+        # Lettering that starts an item is that item's, not the one before.
+        (ANIMAGINE, 'masterpiece, "hi", 1girl', None, '1girl, "hi", masterpiece'),
+    ],
+)
+def test_lettering_is_moved_whole(model_id, prompt, categories, expected):
+    # The chips' split cuts at every comma, lettering's included; the order
+    # rules read a stretch of lettering as one item, placed by its shape.
+    assert prompt_rules.order_checked(model_id, prompt)
+    reordered = prompt_rules.reorder_tags(model_id, prompt, categories)
+    assert reordered == expected
+    findings = only(run(model_id, prompt, categories), "guide.order")
+    assert [finding.suggestion for finding in findings] == ([expected] if expected else [])
+    if reordered:
+        assert _quoted(reordered) == _quoted(prompt)
+        assert prompt_rules.reorder_tags(model_id, reordered, categories) is None
+
+
+def test_a_move_that_would_change_what_is_quoted_is_not_offered():
+    # A stray inch mark moved ahead of the quotation would open it: the
+    # "reordered" prompt would quote ' figure, a sign that says '.
+    prompt = 'a sign that says "hi, there", 12" figure, 1girl'
+    categories = {'12" figure': "character"}
+    assert prompt_rules.reorder_tags(ANIMAGINE, prompt, categories) is None
+    # The order is still out, with no one-click fix.
+    [finding] = only(run(ANIMAGINE, prompt, categories), "guide.order")
+    assert finding.suggestion is None
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        # Lettering splits into no pieces of its own, and must not make up
+        # for an item a line break splits.
+        '"a", "b", masterpiece\n1girl',
+        # Nor may it hide a tag that a line break or a "，" joins to it in
+        # one item, where nothing would place the tag.
+        'firefly, "hi"，1girl',
+        'firefly, "hi"\n1girl',
+        'masterpiece\n"hello, world", 1girl',
+        'masterpiece, 1girl，"hi"',
+    ],
+)
+def test_a_line_break_beside_lettering_still_stands_the_order_down(prompt):
+    categories = {"firefly": "character"}
+    assert not prompt_rules.order_checked(ANIMAGINE, prompt)
+    assert prompt_rules.reorder_tags(ANIMAGINE, prompt, categories) is None
+    assert only(run(ANIMAGINE, prompt, categories), "guide.order") == []
+
+
+def test_lettering_is_placed_by_its_shape_asked_or_not():
+    # The index is never asked about lettering, so whether it was asked
+    # about anything else must not move it: prose-shaped, it is prose.
+    prompt = '1girl, "the cat and the hat", safe'
+    expected = '1girl, safe, "the cat and the hat"'
+    assert prompt_rules.reorder_tags(ANIMAGINE, prompt, None) == expected
+    assert prompt_rules.reorder_tags(ANIMAGINE, prompt, {}) == expected
+
+
 @pytest.mark.parametrize(
     "model_id, prompt",
     [
@@ -1033,7 +1192,8 @@ def test_nothing_to_reorder(model_id, prompt):
 
 
 OVER_CAP = "masterpiece, " + ", ".join(f"t{i}" for i in range(300)) + ", 1girl"
-# Comma items the categories place out of order, inside a JSON list.
+# Comma items the categories would place out of order inside a JSON list,
+# were its quoted strings read as tags.
 JSON_CATEGORIES = {'"smile"': "general", '"firefly"': "character"}
 
 
@@ -1042,7 +1202,8 @@ JSON_CATEGORIES = {'"smile"': "general", '"firefly"': "character"}
     [
         # Past the item cap: no 1,700-character Apply, no quadratic placement.
         (OVER_CAP, "masterpiece, t0, 1girl", None),
-        ('[0, "smile", "firefly", 0]', 'x, "smile", "firefly", y', JSON_CATEGORIES),
+        # Quoted, the strings are lettering in a tag list too: the twin's are bare.
+        ('[0, "smile", "firefly", 0]', "x, smile, firefly, y", {**JSON_CATEGORIES, **CATEGORIES}),
         ("<x>, masterpiece, 1girl", "x, masterpiece, 1girl", None),
         ("masterpiece\nsafe\n1girl", "masterpiece, safe, 1girl", None),
     ],
@@ -1218,6 +1379,44 @@ def test_rules_leave_quoted_lettering_as_written():
     assert silent(KOHAKU, '1girl, holding sign, "user_name", smile', "guide.underscores")
     [joined] = only(run(KOHAKU, '1girl, name_tag "user_name", smile'), "guide.underscores")
     assert joined.suggestion == '1girl, name tag "user_name", smile'
+    # Nor do its words make the tag beside it prose.
+    said = 'name_tag "hello, my name is bob", 1girl'
+    [joined] = only(run(KOHAKU, said), "guide.underscores")
+    assert joined.suggestion == 'name tag "hello, my name is bob", 1girl'
+
+
+def test_a_tag_inside_lettering_is_no_tag():
+    # A piece of a quotation that happens to equal a tag was rewritten in it,
+    # or counted as the tag the prompt has.
+    assert silent(ILLUSTRIOUS, '1girl, sign says "hi, safe, bye", masterpiece', "guide.rating")
+    assert silent(ILLUSTRIOUS, "1girl, 封面上写着《hi, safe, bye》, masterpiece", "guide.rating")
+    assert silent(KOHAKU, '1girl, sign says "no, explicit, content"', "guide.rating")
+    artist = '1girl, sign says "hi, nnn yryr, bye", smile'
+    assert silent(ANIMA, artist, "guide.artist_prefix", {"nnn yryr": "artist"})
+    rule = "guide.artist_prefix"
+    assert silent(ANIMA, '1girl, "nnn yryr", smile', rule, {'"nnn yryr"': "artist"})
+    finished = ", masterpiece, best quality, amazing quality"
+    assert silent(WAI, '1girl, sign says "hi, general, bye"' + finished, "guide.rating_negative")
+    composition = '1girl, upper body, sign says "hi, full body, bye", masterpiece'
+    assert silent(ILLUSTRIOUS, composition, "guide.composition")
+    assert silent(NEWBIE, '1girl, sign says "2girls", smile', "guide.xml")
+    # Nor is a quality tag in it there: the finish is still missing.
+    [tier] = only(run(ILLUSTRIOUS, '1girl, sign says "hi, masterpiece, bye"'), "guide.quality")
+    assert "No quality tier" in tier.message
+    sign = '1girl, sign says "masterpiece, high score, great score, absurdres"'
+    [finish] = only(run(ANIMAGINE, sign), "guide.quality")
+    assert finish.suggestion == sign + ", masterpiece, high score, great score, absurdres"
+    # And the tag index is not asked about it.
+    assert prompt_rules.category_items(ANIMA, artist) == ["1girl", "smile"]
+
+
+def test_a_rule_that_adds_or_drops_an_item_keeps_the_lettering_as_typed():
+    # The items after an inserted or dropped one shift into the gaps before
+    # them; a comma with no space inside the lettering once took ", ".
+    [pair] = only(run(KOHAKU, '1girl, explicit, sign says "hi,there"'), "guide.rating")
+    assert pair.suggestion == '1girl, nsfw, explicit, sign says "hi,there"'
+    [repeat] = only(run(KOHAKU, 'smile, smile, sign says "hi,there"'), "heuristic.repeated")
+    assert repeat.suggestion == 'smile, sign says "hi,there"'
 
 
 # ------------------------------------------------------------------ robustness

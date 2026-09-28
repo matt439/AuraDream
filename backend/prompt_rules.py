@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from itertools import pairwise
@@ -61,7 +62,9 @@ def comma_items(prompt: str) -> list[Item]:
     """The prompt's comma items, split the way the page's tag chips split it.
 
     `categories` is keyed by these texts, so the caller that builds it from
-    the tag lookup and the rules that read it agree on what an item is.
+    the tag lookup and the rules that read it agree on what an item is. The
+    rules read a stretch of lettering as one item (`_units`); every other
+    item they read is one of these.
     """
     items = []
     for match in re.finditer(r"[^,]+", prompt):
@@ -264,6 +267,54 @@ def _inside(spans: list[tuple[int, int]], position: int) -> bool:
     return any(start <= position < end for start, end in spans)
 
 
+def _units(text: str, items: list[Item], lettering: list[tuple[int, int]]) -> list[Item]:
+    """`items` with each stretch of lettering one item, its commas and all.
+
+    "hello, world" on a sign is one text to render, not two tags: split, the
+    order rule placed its halves apart and a rating or artist rule rewrote a
+    piece that happened to be a tag ("hi, safe, bye"). As one item it moves
+    whole, keeps the spacing inside it, and is read as no tag (`_Context.norms`).
+    """
+    spans = sorted(lettering)
+    units: list[Item] = []
+    reach = index = 0
+    for item in items:
+        # How far the lettering that starts before this item reaches. It
+        # starts and ends on a mark or a word, never in the commas and spaces
+        # between two items: past the item before, it runs on into this one.
+        while index < len(spans) and spans[index][0] < item.start:
+            reach = max(reach, spans[index][1])
+            index += 1
+        if units and reach > units[-1].end:
+            first = units[-1]
+            units[-1] = Item(text[first.start:item.end], first.start, item.end)
+        else:
+            units.append(item)
+    return units
+
+
+def _held(items: list[Item], spans: list[tuple[int, int]]) -> list[bool]:
+    """Whether each of `items`, in order, holds any of `spans` - lettering -
+    in one pass, as `_units` merges: a prompt can be a thousand quotations."""
+    ordered = sorted(spans)
+    held: list[bool] = []
+    reach = index = 0
+    for item in items:
+        while index < len(ordered) and ordered[index][0] < item.end:
+            reach = max(reach, ordered[index][1])
+            index += 1
+        held.append(reach > item.start)
+    return held
+
+
+def _blank(text: str, spans: list[tuple[int, int]], fill: str = " ") -> str:
+    """`text` with `spans` blanked, every offset kept."""
+    chars = list(text)
+    for start, end in spans:
+        chars[start:end] = fill * (end - start)
+    return "".join(chars)
+
+
 def _norm(tag: str) -> str:
     """A comma item as comparable text: case, underscores, the escaped
     parentheses the tag autocomplete writes and a sentence's closing full stop
@@ -367,28 +418,34 @@ def _category_lookup(categories: dict[str, str] | None) -> dict[str, str] | None
     return lookup
 
 
-def _place(item: Item, spec: _OrderSpec, lookup: dict[str, str] | None) -> frozenset[int]:
+def _place(
+    item: Item, spec: _OrderSpec, lookup: dict[str, str] | None, *, lettering: bool = False
+) -> frozenset[int]:
     """The slots `item` may occupy: one when anything says which, else all
     the slots a Danbooru category could have put it in.
 
     What is known comes first - the guide's own groups, the year form, then
     the index's category - so a long name the index knows ("jojo no kimyou
-    na bouken", a copyright) is never taken for prose by its shape.
+    na bouken", a copyright) is never taken for prose by its shape. An item
+    holding `lettering` is no name, whatever its words: only its shape
+    places it.
     """
     key = _norm(item.text)
-    if key in spec.local:
-        return frozenset({spec.local[key]})
-    if spec.year is not None and _YEAR_TAG.fullmatch(key):
-        return frozenset({spec.year})
-    if lookup is not None:
-        category = lookup.get(item.text) or lookup.get(key)
-        if category in spec.categories:
-            return frozenset({spec.categories[category]})
+    if not lettering:
+        if key in spec.local:
+            return frozenset({spec.local[key]})
+        if spec.year is not None and _YEAR_TAG.fullmatch(key):
+            return frozenset({spec.year})
+        if lookup is not None:
+            category = lookup.get(item.text) or lookup.get(key)
+            if category in spec.categories:
+                return frozenset({spec.categories[category]})
     # Prose sits in the general slot on every hybrid checkpoint's order -
     # Kohaku's is literally "general tags or prose". A prose-shaped item a
     # name could still be ("the legend of zelda") counts as prose only once
-    # the index has been asked and did not know it.
-    if _is_sentence(item.text) or (lookup is not None and _is_prose(item.text)):
+    # the index has been asked and did not know it; lettering, which is
+    # never asked about, by its shape alone.
+    if _is_sentence(item.text) or ((lettering or lookup is not None) and _is_prose(item.text)):
         return frozenset({spec.general})
     return spec.unknown
 
@@ -437,23 +494,55 @@ def _violation(places: list[frozenset[int]]) -> tuple[int, int] | None:
     return None
 
 
-def _placeable(spec: _OrderSpec | None, text: str, style: Style, items: list[Item]) -> bool:
+def _reordered(text: str, items: list[Item], places: list[frozenset[int]]) -> str | None:
+    """`text` with `items` moved into the order `places` allow, or None where
+    nothing moves - or where the move would change what is quoted: a stray
+    mark (12" figure) moved ahead of a quotation would pair with its opening
+    one, and the page would offer that as the same words reordered."""
+    order = _ordered(places)
+    if order == list(range(len(items))):
+        return None
+    moved = _rebuild(text, items, [items[index].text for index in order])
+    if Counter(QUOTED.findall(moved)) != Counter(QUOTED.findall(text)):
+        return None
+    return moved
+
+
+def _placeable(
+    spec: _OrderSpec | None,
+    style: Style,
+    text: str,
+    items: list[Item],
+    lettering: list[tuple[int, int]],
+) -> bool:
     """Whether the order rules hold this text's comma items to the documented
     order at all - the one answer `order_checked`, `reorder_tags` and the
     order rule share, so the page never shows an order as checked that the
     rule stood down from.
 
     Not where the guide gives no slots, not on XML or JSON, not past
-    `_MAX_ORDERED` items, and not where line breaks or fullwidth commas split
-    what the chips read as one comma item: such a list reads as tags, but
-    nothing in it could be placed.
+    `_MAX_ORDERED` items, and not where a line break or a fullwidth comma
+    splits what the chips read as one comma item: such a list reads as tags,
+    but nothing in it could be placed. `items` are `_units`, each stretch of
+    lettering one item, and the lettering is one piece of its item: a "，"
+    inside "你好，世界" splits nothing, while the one in '"hi"，1girl' still
+    splits an item whose 1girl nothing could place.
     """
+    solid = _blank(text, lettering, "x")
     return (
         spec is not None
         and style not in ("xml", "json")
         and len(items) <= _MAX_ORDERED
-        and len(_pieces(text)) <= len(items)
+        and all(len(_pieces(solid[item.start:item.end])) <= 1 for item in items)
     )
+
+
+def _tag_items(text: str) -> tuple[list[Item], list[bool], list[tuple[int, int]]]:
+    """The order rules' reading of `text` outside `check`: its `_units`,
+    which of them hold lettering, and the lettering."""
+    lettering = rendered_spans(text)
+    items = _units(text, comma_items(text), lettering)
+    return items, _held(items, lettering), lettering
 
 
 # ------------------------------------------------------------------ public
@@ -485,14 +574,16 @@ def order_checked(model_id: str, prompt: str) -> bool:
     """Whether the rules hold this prompt to the documented order at all.
 
     Only a tag checkpoint's order is checkable - its comma items take slots
-    (`_OrderSpec`) - and only on a text that is not XML or JSON, not past
-    `_MAX_ORDERED` items and split into its items by commas (`_placeable`).
+    (`_OrderSpec`), a stretch of lettering one item with its commas - and
+    only on a text that is not XML or JSON, not past `_MAX_ORDERED` items and
+    split into its items by commas (`_placeable`).
     A FLUX sentence's "subject first", klein's four steps and NewBie's blocks
     are documented but read by nothing here, and the page must not let an
     empty findings list pass for a checked order.
     """
     spec = _order_spec(_guide(model_id))
-    return _placeable(spec, prompt, detect_style(prompt), comma_items(prompt))
+    items, _, lettering = _tag_items(prompt)
+    return _placeable(spec, detect_style(prompt), prompt, items, lettering)
 
 
 def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) -> str | None:
@@ -504,16 +595,21 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
     does - moves only the tags. Nothing is added or
     removed, and the text between items stays where it was, so the result is
     a pure permutation: the variant that isolates order on a comparison grid.
+    A stretch of lettering moves whole, commas and all, and every quoted
+    stretch comes out as it went in (`_reordered`).
     """
     spec = _order_spec(_guide(model_id))
-    items = comma_items(prompt)
-    if spec is None or len(items) < 2 or not _placeable(spec, prompt, detect_style(prompt), items):
+    items, lettered, lettering = _tag_items(prompt)
+    if spec is None or len(items) < 2:
+        return None
+    if not _placeable(spec, detect_style(prompt), prompt, items, lettering):
         return None
     lookup = _category_lookup(categories)
-    order = _ordered([_place(item, spec, lookup) for item in items])
-    if order == list(range(len(items))):
-        return None
-    return _rebuild(prompt, items, [items[index].text for index in order])
+    places = [
+        _place(item, spec, lookup, lettering=held)
+        for item, held in zip(items, lettered, strict=True)
+    ]
+    return _reordered(prompt, items, places)
 
 
 def wants_artist_categories(model_id: str) -> bool:
@@ -531,8 +627,8 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     Every item a Danbooru name could be is asked about, a long or dotted one
     ("dr. stone") and one with an article ("the king of fighters") included,
     since the category outranks the item's shape; only sentences no name
-    could be are left out, and items the guide's own groups already place,
-    which need no lookup.
+    could be are left out, items the guide's own groups already place, which
+    need no lookup, and lettering, which no rule reads as a name.
     """
     guide = _guide(model_id)
     spec = _order_spec(guide)
@@ -542,9 +638,10 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     if detect_style(prompt) in ("xml", "json"):
         return []
     wanted: list[str] = []
-    for item in comma_items(prompt):
+    items, lettered, _ = _tag_items(prompt)
+    for item, held in zip(items, lettered, strict=True):
         key = _norm(item.text)
-        if _is_sentence(item.text) or item.text.startswith("@") or item.text in wanted:
+        if held or _is_sentence(item.text) or item.text.startswith("@") or item.text in wanted:
             continue
         if spec is not None and (
             key in spec.local or (spec.year is not None and _YEAR_TAG.fullmatch(key))
@@ -565,13 +662,19 @@ class _Context:
     lookup: dict[str, str] | None
     text: str
     style: Style
+    # The comma items, each stretch of lettering one item (`_units`).
     items: list[Item]
-    # Each item's comparable form, index for index.
-    norms: list[str]
+    # Each item's comparable form, index for index; None where it holds
+    # lettering, which no rule matches as a tag: "safe" in "hi, safe, bye"
+    # on a sign is no rating.
+    norms: list[str | None]
     quoted: list[tuple[int, int]]
     # Words that read as text to render without quotation marks: "NO
     # PARKING" on a sign is lettering to quote, not an absence to rephrase.
     rendered: list[tuple[int, int]]
+    # The text with both blanked, offsets kept, for the rules that look for
+    # a tag anywhere in it rather than item by item.
+    bare: str
 
     def entry(self, key: str) -> dict[str, Any] | None:
         entry = self.analysis.get(key)
@@ -611,8 +714,8 @@ class _Context:
 
     def segments(self, item: Item) -> list[tuple[str, bool]]:
         """`item`'s text in stretches, each True where it is lettering - quoted,
-        or read as text to render - which a rule leaves as written: a comma
-        inside "Ho, ho, ho" splits items, not the words to render."""
+        or read as text to render - which a rule leaves as written: 'Sign
+        says "HELLO"' lowercases to 'sign says "HELLO"'."""
         parts: list[tuple[str, bool]] = []
         cursor = item.start
         for start, end in sorted(self.quoted + self.rendered):
@@ -641,8 +744,10 @@ def check(
     """
     guide = _guide(model_id)
     text = request.prompt
-    items = comma_items(text)
     quoted = _quoted_spans(text)
+    rendered = _unquoted_text(text, quoted)
+    lettering = quoted + rendered
+    items = _units(text, comma_items(text), lettering)
     lookup = _category_lookup(categories)
     context = _Context(
         guide=guide,
@@ -653,9 +758,13 @@ def check(
         text=text,
         style=_detect_style(text, lookup),
         items=items,
-        norms=[_norm(item.text) for item in items],
+        norms=[
+            None if held else _norm(item.text)
+            for item, held in zip(items, _held(items, lettering), strict=True)
+        ],
         quoted=quoted,
-        rendered=_unquoted_text(text, quoted),
+        rendered=rendered,
+        bare=_blank(text, lettering),
     )
     findings: list[PromptFinding] = []
     for rule in _RULES:
@@ -908,6 +1017,28 @@ _CJK_TARGET_END = re.compile(rf"[{_CJK_BREAK}]|$")
 # Latin lettering runs on past a space (写着OPEN NOW的招牌) or an ASCII mark
 # with a letter or a digit after it (营业时间9:00).
 _LATIN_ON = re.compile(r"[ \t]+[A-Za-z0-9]|[,.;:!?'][A-Za-z0-9]")
+# Where description starts inside a run that punctuation ends. 字样 names the
+# lettering before it (写有欢迎字样, "bearing the word 欢迎"), and so does a
+# count of its characters (写着福两个大字), so each ends it for certain - but a
+# 等 before one is "and so on" or the end of a word (平等字样), a guess. A
+# verb that puts the sign somewhere, with its 在 or 于, starts describing it
+# (写着营业中挂在门口, hung by the door) - a guess like 的, since lettering can
+# hold one - but not where a request or a prohibition asks for it
+# (`_CJK_ASKS`), and never 在 alone: 正在营业, 现在, 在线.
+_CJK_STOP = re.compile(
+    r"(?P<etc>等)?(?:字样|[一两二三四五六七八九十几]个大?字)"
+    r"|(?P<placed>(?:悬挂|张贴|摆放|停放|存放|安放|堆放|放置|陈列|矗立|竖立|镶嵌|悬浮"
+    r"|[挂贴放摆立悬钉刻嵌插停站坐躺靠飘浮竖])[在于]|位于)"
+)
+# A request or a prohibition right before such a verb makes it the sign's
+# own words (请站在黄线外, 请勿随意停放在此, 禁止停放在此), and so does one
+# with 将 or 把 and a thing of one or two characters between (请将车辆停放在
+# 指定区域). Not one further back: 请勿吸烟挂在墙上 and 请把门关好挂在门上 are
+# signs on a wall and a door.
+_CJK_ASKS = re.compile(
+    r"(?:请您?|勿|别|禁止?|不要|不准|不得|不许)(?:随意|随便|随地|擅自|私自|乱)?"
+    r"(?:[将把].{1,2})?$"
+)
 # A title in its marks is the lettering, marks and all: 写着《西游记》的封面.
 _CJK_TITLE = re.compile(r"《[^《》\n]{1,30}》")
 
@@ -919,16 +1050,17 @@ class _Target(NamedTuple):
     start: int
     end: int
     # False where the text's extent is a guess - the words run on past a
-    # joining word or the word limit, a Chinese target stops at 的, its
-    # length cap or inside Latin lettering, or lowercase words follow a
-    # participle: the finding then offers no one-click quote, which would
-    # letter half a name or a description.
+    # joining word or the word limit, a Chinese target stops at 的, at 等
+    # before 字样, at a verb placing the sign (挂在), at its length cap or
+    # inside Latin lettering, or lowercase words follow a participle: the
+    # finding then offers no one-click quote, which would letter half a name
+    # or a description.
     exact: bool
     # False where the lettering may run on past `end` - a joining word, the
     # word or length cap, Latin lettering going on past a space or a mark -
     # so a reader may take it further. True where what follows is read as
-    # description, even where `exact` is not: at 的 the guess is whether the
-    # particle is the lettering's own (写着我的家), and after a participle
+    # description, even where `exact` is not: at 的, 等 or 挂在 the guess is
+    # whether it is the lettering's own (写着我的家), and after a participle
     # whether the words are lettering at all; neither makes what follows
     # lettering.
     ends: bool
@@ -951,6 +1083,19 @@ def _describes(text: str, word: re.Match[str]) -> bool:
     after = _TARGET_WORD.match(text, word.end())
     spaced = text[word.end():word.end() + 1] in (" ", "\t")
     return not (spaced and after) or after.group(1).lower() in _DESCRIBES
+
+
+def _cjk_stop(text: str, start: int, end: int) -> re.Match[str] | None:
+    """The first `_CJK_STOP` that starts inside the run `text[start:end]`,
+    skipping a placing verb the sign asks for (`_CJK_ASKS`). None is longer
+    than four, so one that starts at the run's last character is read whole
+    even where the length cap cut the run there."""
+    for stop in _CJK_STOP.finditer(text, start + 1, end + 3):
+        if stop.start() >= end:
+            break
+        if not (stop.group("placed") and _CJK_ASKS.search(text, start, stop.start())):
+            return stop
+    return None
 
 
 def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]:
@@ -1025,14 +1170,20 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
         target = _CJK_TARGET.match(text, match.end())
         if target and text[match.end()] not in _QUOTE_OPEN:
             end = target.end()
+            stop = _cjk_stop(text, target.start(), end)
+            if stop:
+                end = stop.start()
             latin = text[end - 1].isascii() and text[end - 1].isalnum()
-            particle = text[end:end + 1] in ("的", "之")
-            ends = (particle or bool(_CJK_TARGET_END.match(text, end))) and not (
-                latin and _LATIN_ON.match(text, end)
+            # At 的, 等 or a verb placing the sign the end is a guess, unless
+            # the script changes there (写着OPEN的招牌).
+            guess = text[end:end + 1] in ("的", "之") or bool(
+                stop and (stop.group("etc") or stop.group("placed"))
             )
-            exact = ends and (
-                not particle or (target.group().isascii() and target.group().isalnum())
-            )
+            ends = (
+                stop is not None or guess or bool(_CJK_TARGET_END.match(text, end))
+            ) and not (latin and _LATIN_ON.match(text, end))
+            lettering = text[target.start():end]
+            exact = ends and (not guess or (lettering.isascii() and lettering.isalnum()))
             targets.append(_Target(target.start(), end, exact, ends))
     return sorted(targets)
 
@@ -1050,8 +1201,9 @@ def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
     the word or length cap, Latin lettering going on past a space or a mark);
     where it is True, whatever follows is the prompt's description. It is not
     whether the quote rule offers its one-click quote (`_Target.exact`): a
-    Chinese target stopped at 的 and lowercase words after a participle get
-    none, yet nothing past them reads as lettering."""
+    Chinese target stopped at 的, at 等 before 字样 or at a verb placing the
+    sign (挂在) and lowercase words after a participle get none, yet nothing
+    past them reads as lettering."""
     quoted = _quoted_spans(text)
     unquoted = [(t.start, t.end, t.ends) for t in _unquoted_targets(text, quoted)]
     return sorted([(start, end, True) for start, end in quoted] + unquoted)
@@ -1252,7 +1404,7 @@ def _xml_multi(ctx: _Context) -> Iterable[PromptFinding]:
     entry = ctx.entry("xml_multi")
     if entry is None or ctx.style in ("xml", "json"):
         return
-    match = _MULTIPLE.search(ctx.text)
+    match = _MULTIPLE.search(ctx.bare)
     people = {norm for norm in ctx.norms if norm in ("1girl", "1boy", "1other")}
     if match or len(people) >= 2:
         yield ctx.finding(
@@ -1327,9 +1479,12 @@ def _order(ctx: _Context) -> Iterable[PromptFinding]:
     spec = _order_spec(ctx.guide)
     if order is None or spec is None or len(ctx.items) < 2:
         return
-    if not _placeable(spec, ctx.text, ctx.style, ctx.items):
+    if not _placeable(spec, ctx.style, ctx.text, ctx.items, ctx.quoted + ctx.rendered):
         return
-    places = [_place(item, spec, ctx.lookup) for item in ctx.items]
+    places = [
+        _place(item, spec, ctx.lookup, lettering=norm is None)
+        for item, norm in zip(ctx.items, ctx.norms, strict=True)
+    ]
     pair = _violation(places)
     if pair is None:
         return
@@ -1338,7 +1493,9 @@ def _order(ctx: _Context) -> Iterable[PromptFinding]:
     def label(place: frozenset[int]) -> str:
         return f" ({spec.steps[next(iter(place))]})" if len(place) == 1 else ""
 
-    reordered = _rebuild(ctx.text, ctx.items, [ctx.items[i].text for i in _ordered(places)])
+    # None where the move would change what is quoted: the order is still
+    # out, but there is no one-click fix.
+    reordered = _reordered(ctx.text, ctx.items, places)
     yield ctx.finding(
         order, "guide.order", "info",
         f'"{first.text}"{label(places[pair[0]])} comes before "{second.text}"'
@@ -1355,8 +1512,8 @@ def _suffix(ctx: _Context) -> Iterable[PromptFinding]:
     if entry is None or not suffix or ctx.style in ("xml", "json"):
         return
     # A tag on a line of its own or after "，" is there, though not a comma
-    # item: appending it again would write it twice.
-    present = set(ctx.norms) | {_norm(piece) for piece in _pieces(ctx.text)}
+    # item: appending it again would write it twice. One in lettering is not.
+    present = set(ctx.norms) | {_norm(piece) for piece in _pieces(ctx.bare)}
     missing = [tag for tag in suffix if _norm(tag) not in present]
     if missing:
         yield ctx.finding(
@@ -1397,7 +1554,7 @@ def _quality_tier(ctx: _Context) -> Iterable[PromptFinding]:
     names = [ctx.norms[index] for index in present]
     # A tier on a line of its own or after "，" is there, though not a comma
     # item (`_suffix` reads it the same way).
-    pieces = {_norm(piece) for piece in _pieces(ctx.text)}
+    pieces = {_norm(piece) for piece in _pieces(ctx.bare)}
     if not any(name in tiers for name in names) and not tiers & pieces:
         yield ctx.finding(
             entry, "guide.quality", "info",
@@ -1524,14 +1681,15 @@ def _underscores(ctx: _Context) -> Iterable[PromptFinding]:
     if entry is None or ctx.style in ("xml", "json"):
         return
     keep = re.compile(entry["keep"], re.IGNORECASE) if entry.get("keep") else None
-    # Underscores in quoted lettering ("user_name" on a screen) are text.
+    # Underscores in quoted lettering ("user_name" on a screen) are text, and
+    # its words make no tag beside it prose.
     bare = [
         "".join(" " * len(part) if lettering else part for part, lettering in ctx.segments(item))
         for item in ctx.items
     ]
     flagged = [
         index for index, item in enumerate(ctx.items)
-        if not _is_prose(item.text)
+        if not _is_prose(bare[index])
         and _JOINED.search(bare[index])
         and not (keep and keep.fullmatch(item.text))
     ]
@@ -1582,9 +1740,10 @@ def _artist_prefix(ctx: _Context) -> Iterable[PromptFinding]:
     if entry is None or ctx.lookup is None or not ctx.taglike:
         return
     flagged = [
-        index for index, item in enumerate(ctx.items)
-        if not item.text.startswith("@")
-        and (ctx.lookup.get(item.text) or ctx.lookup.get(ctx.norms[index])) == "artist"
+        index for index, (item, norm) in enumerate(zip(ctx.items, ctx.norms, strict=True))
+        if norm is not None
+        and not item.text.startswith("@")
+        and (ctx.lookup.get(item.text) or ctx.lookup.get(norm)) == "artist"
     ]
     if flagged:
         texts = [item.text for item in ctx.items]
@@ -1664,7 +1823,7 @@ def _repeated(ctx: _Context) -> Iterable[PromptFinding]:
     repeats: list[int] = []
     for index, norm in enumerate(ctx.norms):
         # "Ho, ho, ho" in quotation marks is the lettering, repeated on purpose.
-        if any(lettering for _, lettering in ctx.segments(ctx.items[index])):
+        if norm is None:
             continue
         key = norm.strip(" .!?")
         if key in seen:
