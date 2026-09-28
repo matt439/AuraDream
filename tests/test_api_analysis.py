@@ -9,7 +9,8 @@ while the card is promised to an image job or a load - before prepare() and
 again after it - prepared on a daemon thread outside the job gate, run inside
 it, and a job submitted meanwhile must not start moving weights onto the card
 until the critic is done with it. Status never loads a tokenizer, and shutdown
-stops the critic's server before anything waits on it.
+stops the critic's server before anything waits on it - a server that will not
+stop is logged, and the rest of shutdown still runs.
 """
 from __future__ import annotations
 
@@ -22,6 +23,7 @@ import signal
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from urllib.error import HTTPError, URLError
 
 import httpx
 import pytest
@@ -29,7 +31,7 @@ import uvicorn
 
 from backend import launch, main, prompt_encoding, prompt_rules, tags
 from backend.config import settings
-from backend.critic import CriticError, CriticUnavailable, PromptCritic
+from backend.critic import RELEASE, CriticError, CriticUnavailable, PromptCritic
 from backend.jobs import BackendBusy, JobManager
 from backend.model_defaults import defaults_for, guide_for
 from backend.prompt_sources import sources_for
@@ -69,7 +71,10 @@ class Vocabulary:
     def validate(self, tags, special, cutoff, allow_year_tag=True):
         self.calls.append((list(tags), set(special), cutoff, allow_year_tag))
         if self.offline:
-            raise TagLookupUnavailable("<urlopen error [Errno 11001] getaddrinfo failed>")
+            # As tags.py raises it: the connection error is the cause.
+            raise TagLookupUnavailable("<urlopen error [Errno 11001] getaddrinfo failed>") from (
+                URLError(OSError(11001, "getaddrinfo failed"))
+            )
         return [
             {"tag": tag, "valid": tag in self.categories, "category": self.categories.get(tag)}
             for tag in tags
@@ -156,6 +161,30 @@ def test_the_check_answers_beside_a_running_job_off_the_loop(client, fake, monke
         release.set()
     assert stream_job(client, job_id)[-1]["status"] == "done"
     assert where["analyse"] == [False] and where["tokenizer"] and not any(where["tokenizer"])
+
+
+@pytest.mark.parametrize("route, measures", [
+    ("/api/prompt/analyze", 1),
+    # The analysis, then the rewrite's lint.
+    ("/api/prompt/critique", 2),
+])
+def test_check_runs_on_a_daemon_thread(client, fake, monkeypatch, route, measures):
+    # `main._detached`'s own thread, which dies with the process - not the
+    # default executor's, which interpreter exit joins. (Its daemon flag alone
+    # proves nothing here: TestClient's loop thread is a daemon, and an
+    # executor's workers inherit that.)
+    threads: list[tuple[str, bool]] = []
+    measure = prompt_encoding.measure
+
+    def recording(*args):
+        thread = threading.current_thread()
+        threads.append((thread.name, thread.daemon))
+        return measure(*args)
+
+    monkeypatch.setattr(prompt_encoding, "measure", recording)
+    claim(monkeypatch, fake, "black-forest-labs/FLUX.1-Krea-dev")
+    assert client.post(route, json={"prompt": "A lighthouse on a cliff"}).status_code == 200
+    assert threads == [("prompt-check", True)] * measures
 
 
 def test_a_pathological_prompt_is_checked_not_a_500(client, fake, monkeypatch):
@@ -253,6 +282,27 @@ def test_an_unreachable_tag_index_costs_the_order_check_not_the_answer(client, f
     assert len(vocabulary.calls) == 1
     assert rules(body["findings"], "guide.order") == [] and body["reordered"] is None
     assert body["order"] is not None and [e["name"] for e in body["encoders"]] == ["CLIP-L", "CLIP-G"]
+    # ... and says what it cost. Placed from the guide's own groups alone, a
+    # character after a general tag goes unflagged: without the detail, this
+    # answer was the one an in-order prompt gets with the index reachable.
+    assert body["order_checked"] is True
+    assert body["categories_detail"] == (
+        "the tag index was unreachable, so no tag has its Danbooru category"
+    )
+    monkeypatch.setattr(
+        main, "tag_vocabulary", Vocabulary({"green hair": "general", FIREFLY: "character"})
+    )
+    in_order = analyse(client, prompt=IN_ORDER)
+    assert in_order["order_checked"] is True and in_order["categories_detail"] is None
+    assert rules(in_order["findings"], "guide.order") == [] and in_order["reordered"] is None
+
+    def verdict(answer):
+        return (
+            answer["order_checked"], answer["categories_detail"], answer["reordered"],
+            sorted(finding["rule"] for finding in answer["findings"]),
+        )
+
+    assert verdict(body) != verdict(in_order)
 
 
 def test_a_broken_tag_index_reply_costs_the_order_check_not_the_answer(client, fake, monkeypatch):
@@ -262,6 +312,9 @@ def test_a_broken_tag_index_reply_costs_the_order_check_not_the_answer(client, f
     monkeypatch.setattr(tags, "urlopen", lambda request, timeout: CutReply())
     body = analyse(client, prompt=TAG_PROMPT)
     assert rules(body["findings"], "guide.order") == [] and body["reordered"] is None
+    # An answer came, and was no use: not "unreachable".
+    unusable = "the tag index gave no usable reply, so no tag has its Danbooru category"
+    assert body["categories_detail"] == unusable
     # The chips read it the same way: unchecked, never an error.
     chips = client.post("/api/tags/validate", json={"tags": ["green hair"]})
     assert chips.status_code == 200 and chips.json()["available"] is False
@@ -271,6 +324,25 @@ def test_a_broken_tag_index_reply_costs_the_order_check_not_the_answer(client, f
     )
     body = analyse(client, prompt=TAG_PROMPT)
     assert rules(body["findings"], "guide.order") == [] and body["reordered"] is None
+    assert body["categories_detail"] == unusable
+
+    # Only a connection that never answered is the index unreachable; an
+    # error status is an answer.
+    def failing(error):
+        def urlopen(request, timeout):
+            raise error
+        return urlopen
+
+    for error, detail in [
+        (HTTPError("https://danbooru.donmai.us", 503, "Service Unavailable", None, None), unusable),
+        (URLError(ConnectionRefusedError(10061, "refused")), "the tag index was unreachable, "
+         "so no tag has its Danbooru category"),
+        (TimeoutError("timed out"), "the tag index was unreachable, "
+         "so no tag has its Danbooru category"),
+    ]:
+        monkeypatch.setattr(main, "tag_vocabulary", tags.DanbooruTagVocabulary())
+        monkeypatch.setattr(tags, "urlopen", failing(error))
+        assert analyse(client, prompt=TAG_PROMPT)["categories_detail"] == detail, error
 
 
 def test_the_tag_lookup_is_capped_at_the_chips_limit_and_skipped_for_prose(
@@ -279,9 +351,19 @@ def test_the_tag_lookup_is_capped_at_the_chips_limit_and_skipped_for_prose(
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary()
     monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
-    analyse(client, prompt=", ".join(f"tag{i}" for i in range(80)))
+    body = analyse(client, prompt=", ".join(f"tag{i}" for i in range(80)))
     ((tags, *_),) = vocabulary.calls
     assert len(tags) == main._MAX_TAG_ITEMS == 64
+    # The 16 past the cap are placed by the guide's groups alone, and the
+    # answer says so rather than passing them.
+    assert body["order_checked"] is True and body["categories_detail"] == (
+        "the tag index was asked about the first 64 of 80 tags only, so the rest have "
+        "no Danbooru category"
+    )
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    at_the_cap = analyse(client, prompt=", ".join(f"tag{i}" for i in range(64)))
+    assert at_the_cap["categories_detail"] is None
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
     # Prose is not a tag list to categorise, even in comma pieces the order
     # rule would ask about - the user's sentences are not sent to Danbooru -
     # and FLUX.1 has no tag index.
@@ -303,11 +385,19 @@ def test_the_order_says_whether_it_was_checked_and_what_the_authors_give(
     body = analyse(client, prompt="Golden hour light over misty mountains, a lone hiker on a ridge")
     assert body["order"] is not None and body["order_checked"] is False
     assert body["author_orders"] == []
-    # A tag checkpoint's comma items are placed.
+    assert body["categories_detail"] is None
+    # A tag checkpoint's comma items are placed - wholly with the tag index's
+    # categories, partly without them, which is said beside the flag.
     claim(monkeypatch, fake, ANIMAGINE)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    monkeypatch.setattr(
+        main, "tag_vocabulary", Vocabulary({"green hair": "general", FIREFLY: "character"})
+    )
     body = analyse(client, prompt=TAG_PROMPT)
     assert body["order_checked"] is True and body["author_orders"] == []
+    assert body["categories_detail"] is None
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    body = analyse(client, prompt=TAG_PROMPT)
+    assert body["order_checked"] is True and body["categories_detail"] is not None
     # Anima's guide states no order for the app to check, but its card gives
     # one: shown as the authors', with its source.
     claim(monkeypatch, fake, ANIMA)
@@ -348,9 +438,15 @@ def test_anima_asks_the_tag_index_which_items_are_artists(client, fake, monkeypa
     (artist,) = rules(body["findings"], "guide.artist_prefix")
     assert artist["suggestion"] == "1girl, @wlop, smile, @big chungus"
     assert prompt[artist["start"]:artist["end"]] == "wlop"
-    # Offline, the rule stands down; prose is not asked about.
+    assert body["categories_detail"] is None
+    # Offline, the rule stands down, and the answer says why - there is no
+    # order here to say it beside; prose is not asked about.
     monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
-    assert rules(analyse(client, prompt="1girl, wlop, smile")["findings"], "guide.artist_prefix") == []
+    offline = analyse(client, prompt="1girl, wlop, smile")
+    assert rules(offline["findings"], "guide.artist_prefix") == []
+    assert offline["order"] is None and offline["categories_detail"].startswith(
+        "the tag index was unreachable"
+    )
     quiet = Vocabulary()
     monkeypatch.setattr(main, "tag_vocabulary", quiet)
     prose = "A girl painted by wlop stands in the rain, smiling at the viewer, soft light"
@@ -382,7 +478,7 @@ def test_the_fake_critic_takes_what_the_real_one_takes():
             (p.name, p.kind, p.default) for p in inspect.signature(method).parameters.values()
         ]
 
-    for name in ("supported", "ready", "prepare", "critique", "unload"):
+    for name in ("supported", "ready", "describe", "prepare", "critique", "unload"):
         assert shape(getattr(FakeCritic, name)) == shape(getattr(PromptCritic, name)), name
 
 
@@ -819,6 +915,49 @@ def test_status_says_whether_the_critic_runs_here_and_is_on_disk(client, fake):
     assert (status["prompt_critique_supported"], status["prompt_critique_ready"]) == (False, False)
 
 
+def test_status_names_the_critic_as_its_answers_do_and_what_a_first_use_fetches(client, fake):
+    # The line under the critic's button is built from this, not from a
+    # fixed "Qwen3-4B": the fake stands for the pinned pair, both downloads
+    # until its first use.
+    before = client.get("/api/status").json()["prompt_critic"]
+    assert (before["label"], before["pinned"]) == ("fake critic", True)
+    assert before["fetch"] == [f"llama.cpp {RELEASE}", "fake critic"] and before["fetch_bytes"] > 4e9
+    answer = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"}).json()
+    assert answer["model"] == before["label"]
+    after = client.get("/api/status").json()["prompt_critic"]
+    assert (after["fetch"], after["fetch_bytes"]) == ([], 0)
+
+
+def test_status_describes_a_critic_of_the_users_own_from_the_settings(
+    client, fake, monkeypatch, tmp_path
+):
+    # The real critic, the review's two cases: a GGUF of one's own beside
+    # the installed pinned server, whose line named Qwen3-4B and its time
+    # while the footer named the GGUF; and a server of one's own with the
+    # pinned model not yet cached, whose line promised a llama.cpp download.
+    from backend import critic as pinned
+
+    monkeypatch.setattr(main, "prompt_critic", PromptCritic())
+    monkeypatch.setattr(pinned, "platform_key", lambda: "win-cuda-13.4-x64")
+    monkeypatch.setattr(pinned, "installed_server", lambda key: tmp_path / "llama-server.exe")
+    monkeypatch.setattr(pinned, "_model_cached", lambda: None)
+    own_model = tmp_path / "gemma-3-12b-Q4.gguf"
+    monkeypatch.setattr(pinned, "settings", dataclasses.replace(
+        pinned.settings, critic=True, critic_server=None, critic_model=own_model
+    ))
+    assert client.get("/api/status").json()["prompt_critic"] == {
+        "label": "gemma-3-12b-Q4", "pinned": False, "fetch": [], "fetch_bytes": 0,
+    }
+    monkeypatch.setattr(pinned, "installed_server", lambda key: None)
+    monkeypatch.setattr(pinned, "settings", dataclasses.replace(
+        pinned.settings, critic_server=tmp_path / "llama-server", critic_model=None
+    ))
+    assert client.get("/api/status").json()["prompt_critic"] == {
+        "label": pinned.MODEL_LABEL, "pinned": False,
+        "fetch": [pinned.MODEL_LABEL], "fetch_bytes": pinned.MODEL_SIZE,
+    }
+
+
 def test_status_never_loads_a_tokenizer(client, fake, monkeypatch):
     # Polled every three seconds: on a cold cache a tokenizer asked for here
     # would start a Hub fetch per poll, holding the lock Check and Unload
@@ -862,6 +1001,49 @@ def test_unload_stops_the_critic_and_drops_the_tokenizers(client, fake, monkeypa
     assert fake.critic.unloads == 1 and unloads == ["tokenizers"]
 
 
+def test_unload_answers_at_once_while_a_check_waits_on_a_tokenizer(client, fake, monkeypatch):
+    # A first use's tokenizer fetch has no timeout of its own; Unload must not
+    # wait on it, and says "unloaded" as soon as that is true.
+    entered, release = threading.Event(), threading.Event()
+
+    def stalled(source):
+        entered.set()
+        release.wait(30)
+        return fake_tokenizer(source)
+
+    monkeypatch.setattr(prompt_encoding, "_load_tokenizer", stalled)
+    claim(monkeypatch, fake, "baidu/ERNIE-Image-Turbo")
+    main._load_state.update(state="ready")
+    with ThreadPoolExecutor(2) as pool:
+        try:
+            check = pool.submit(client.post, "/api/prompt/analyze", json={"prompt": "a cat"})
+            assert entered.wait(5)
+            unloading = pool.submit(client.post, "/api/model/unload")
+            done, _ = concurrent.futures.wait([unloading], timeout=10)
+            assert done, "Unload waited on the tokenizer fetch"
+            reply = unloading.result()
+            assert (reply.status_code, reply.json()["state"]) == (200, "unloaded")
+            assert client.get("/api/status").json()["state"] == "unloaded"
+        finally:
+            release.set()
+        check.result(timeout=5)
+
+
+def test_unload_says_unloaded_before_the_analyser_and_critic_let_go(client, fake, monkeypatch):
+    # The critic's is the slow one: it stops a server, waiting to kill it.
+    main._load_state.update(state="ready")
+    seen: dict[str, str] = {}
+
+    def recording(name):
+        return lambda: seen.setdefault(name, main._load_state["state"])
+
+    monkeypatch.setattr(fake.translator, "unload", recording("translator"))
+    monkeypatch.setattr(fake.critic, "unload", recording("critic"))
+    monkeypatch.setattr(prompt_encoding, "unload", recording("tokenizers"))
+    assert client.post("/api/model/unload").status_code == 200
+    assert seen == dict.fromkeys(("translator", "critic", "tokenizers"), "unloaded")
+
+
 def test_shutdown_stops_the_critic_first_and_drops_the_tokenizers(fake, monkeypatch):
     from fastapi.testclient import TestClient
 
@@ -896,6 +1078,56 @@ def test_shutdown_stops_the_critic_first_and_drops_the_tokenizers(fake, monkeypa
         pass
     assert stops == ["critic", "jobs", "weights"]
     assert fake.critic.unloads == 1 and unloads == ["tokenizers"]
+
+
+def test_a_critic_that_will_not_stop_costs_shutdown_nothing_else(fake, monkeypatch, caplog):
+    from fastapi.testclient import TestClient
+
+    # A kill not waited out is unload()'s CriticError: raised through the
+    # lifespan, it skipped the worker's drain, the weights and the tokenizers.
+    def stuck():
+        raise CriticError("llama-server (pid 4242) had not exited 10 s after it was killed")
+
+    stops: list[str] = []
+    jobs_shutdown, try_unload = main.jobs.shutdown, fake.try_unload
+
+    async def stop_jobs():
+        stops.append("jobs")
+        await jobs_shutdown()
+
+    def drop_weights():
+        stops.append("weights")
+        return try_unload()
+
+    monkeypatch.setattr(fake.critic, "unload", stuck)
+    monkeypatch.setattr(main.jobs, "shutdown", stop_jobs)
+    monkeypatch.setattr(fake, "try_unload", drop_weights)
+    monkeypatch.setattr(prompt_encoding, "unload", lambda: stops.append("tokenizers"))
+    with caplog.at_level("ERROR", logger=main.log.name):
+        with TestClient(main.app, base_url=ORIGIN):
+            pass
+    assert stops == ["jobs", "weights", "tokenizers"]
+    assert "stopping the prompt critic failed: CriticError: llama-server (pid 4242)" in caplog.text
+
+
+def test_the_exit_signals_critic_stop_logs_a_failure(client, fake, monkeypatch, caplog):
+    # The signal's own stop runs on a thread of its own; a CriticError there
+    # was an unhandled thread exception, a traceback outside the app's log.
+    def stuck():
+        raise CriticError("llama-server (pid 4242) had not exited 10 s after it was killed")
+
+    unhandled: list[BaseException] = []
+    monkeypatch.setattr(threading, "excepthook", lambda args: unhandled.append(args.exc_value))
+    monkeypatch.setattr(fake.critic, "unload", stuck)
+    server = main.Server(uvicorn.Config(main.app, log_config=None))
+    with caplog.at_level("ERROR", logger=main.log.name):
+        server.handle_exit(signal.SIGINT, None)
+        deadline = time.time() + 5
+        while "stopping the prompt critic failed" not in caplog.text and not unhandled:
+            assert time.time() < deadline, "the critic's stop never finished"
+            time.sleep(0.01)
+    assert unhandled == [] and "CriticError: llama-server (pid 4242)" in caplog.text
+    assert server.should_exit
 
 
 def test_the_exit_signal_cancels_the_jobs_and_stops_the_critic(client, fake, monkeypatch):

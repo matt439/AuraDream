@@ -81,7 +81,14 @@ from typing import Any, Literal
 from .config import settings
 from .prompt_rules import QUOTED, _WORD_NOT_CJK, _capitalised, rendered_targets
 from .prompt_sources import Sources, sources_for
-from .schemas import CritiqueIssue, GenerateRequest, PromptAnalysis, PromptCritique, PromptFinding
+from .schemas import (
+    CriticStatus,
+    CritiqueIssue,
+    GenerateRequest,
+    PromptAnalysis,
+    PromptCritique,
+    PromptFinding,
+)
 
 log = logging.getLogger(__name__)
 
@@ -2697,6 +2704,28 @@ class PromptCritic:
         if settings.critic_model is not None:
             return settings.critic_model.is_file()
         return _model_cached() is not None
+
+    def describe(self) -> CriticStatus:
+        """The model's name and what a first use would download, for the
+        line under the critic's button. File checks only - no network, no
+        hashing - as `ready()` is, so `/api/status` can ask it on every poll.
+        A file an override names is never a download, whether or not it is
+        there: `prepare()` says so if it is not."""
+        fetch: list[tuple[str, int]] = []
+        key = platform_key()
+        if settings.critic_server is None and key is not None and installed_server(key) is None:
+            size = sum(archive.size for archive in BUILDS[key].archives)
+            fetch.append((f"llama.cpp {RELEASE}", size))
+        model = settings.critic_model
+        if model is None and _model_cached() is None:
+            fetch.append((MODEL_LABEL, MODEL_SIZE))
+        return CriticStatus(
+            # The footer's name for the same file (`_label`).
+            label=model.stem if model is not None else MODEL_LABEL,
+            pinned=settings.critic_server is None and model is None,
+            fetch=[name for name, _ in fetch],
+            fetch_bytes=sum(size for _, size in fetch),
+        )
 
     def prepare(self) -> None:
         """Download, verify and install what is missing. Idempotent, and no GPU:

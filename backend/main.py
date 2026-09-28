@@ -148,6 +148,18 @@ async def _load_in_background() -> None:
 jobs = JobManager(backend, ensure_loaded)
 
 
+def _stop_critic() -> None:
+    """Stop the critic's server, if one runs, on the way out. A kill not
+    waited out (`CriticError`: the card may still be taken) is logged, and
+    never keeps the rest of shutdown - the worker, the weights, the
+    tokenizers - from running after it."""
+    try:
+        prompt_critic.unload()
+    except Exception as exc:  # noqa: BLE001 - shutdown goes on without it
+        log.error("stopping the prompt critic failed: %s", short_error(exc))
+        log.debug("critic stop traceback", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     storage.init_db()
@@ -163,7 +175,7 @@ async def lifespan(app: FastAPI):
     # The critic's server goes first: a critique in flight holds the worker
     # thread in a request to that server, which jobs.shutdown() would then
     # wait out. Stopped under it, the request fails at once.
-    await asyncio.to_thread(prompt_critic.unload)
+    await asyncio.to_thread(_stop_critic)
     await jobs.shutdown()
     await asyncio.to_thread(backend.try_unload)
     await asyncio.to_thread(prompt_translator.unload)
@@ -263,10 +275,11 @@ async def status() -> ModelStatus:
         vram_used_mb=info.get("vram_used_mb"),
         disk_free_mb=_disk_free_mb(),
         prompt_expansion_supported=backend.prompt_expansion_supported(),
-        # Both a few file checks at most - no network, no hashing - which is
-        # what lets a route polled every three seconds ask them.
+        # All three a few file checks at most - no network, no hashing - which
+        # is what lets a route polled every three seconds ask them.
         prompt_critique_supported=prompt_critic.supported(),
         prompt_critique_ready=prompt_critic.ready(),
+        prompt_critic=prompt_critic.describe(),
     )
 
 
@@ -547,36 +560,58 @@ _MAX_TAG_ITEMS = TagValidationRequest.model_json_schema()["properties"]["tags"][
 _BARE_DANBOORU = {"vocabulary": "danbooru", "vocabulary_cutoff": None}
 
 
-def _tag_categories(model_id: str, prompt: str, style: str) -> dict[str, str] | None:
+def _tag_categories(
+    model_id: str, prompt: str, style: str
+) -> tuple[dict[str, str] | None, str | None]:
     """Each comma item's Danbooru category, for the order and artist checks,
-    or None.
+    or None - and why some item a rule reads has none, or None.
 
     Only on a checkpoint whose guide names the Danbooru vocabulary, or whose
     rules need to know an artist (`wants_artist_categories`), and a prompt
     that reads as tags, and only for the items a rule would read
-    (`category_items`). None when there was nothing to ask or the index
-    could not be reached or gave a reply that did not read: the rules then
-    place only what the guide's own groups know, and the index is never an
-    error here, as it is never one for the chips.
+    (`category_items`), the chips' 64 at most. No categories when there was
+    nothing to ask or the index could not be reached or gave a reply that
+    did not read: the rules then place only what the guide's own groups
+    know, and the index is never an error here, as it is never one for the
+    chips. What that cost is still said (`categories_detail`): offline, an
+    out-of-order prompt and an in-order one otherwise got the same answer.
     """
     helper = guide_for(model_id).get("tag_helper")
     if not helper or helper.get("vocabulary") != "danbooru":
         if not prompt_rules.wants_artist_categories(model_id):
-            return None
+            return None, None
         helper = _BARE_DANBOORU
     if style not in ("tags", "hybrid"):
-        return None
-    names = prompt_rules.category_items(model_id, prompt)[:_MAX_TAG_ITEMS]
+        return None, None
+    wanted = prompt_rules.category_items(model_id, prompt)
+    names = wanted[:_MAX_TAG_ITEMS]
     if not names:
-        return None
+        return None, None
     try:
         results = _lookup_tags(helper, names)
     except Exception as exc:  # noqa: BLE001 - advisory: a bad reply costs the order checks
         log.info("prompt analysis: tag categories unchecked: %s", short_error(exc))
         if not isinstance(exc, TagLookupUnavailable):
             log.debug("tag category traceback", exc_info=True)
-        return None
-    return {row["tag"]: row["category"] for row in results if row.get("category")}
+        # The chips' one error covers two things: a connection that never
+        # answered, and an answer - an HTTP error, a body cut off, JSON that
+        # is not the rows asked for - that could not be used.
+        from urllib.error import HTTPError
+
+        cause = exc.__cause__ if isinstance(exc, TagLookupUnavailable) else None
+        reason = (
+            "the tag index was unreachable"
+            if isinstance(cause, OSError) and not isinstance(cause, HTTPError)
+            else "the tag index gave no usable reply"
+        )
+        return None, f"{reason}, so no tag has its Danbooru category"
+    categories = {row["tag"]: row["category"] for row in results if row.get("category")}
+    if len(wanted) > len(names):
+        return categories, (
+            f"the tag index was asked about the first {len(names)} of {len(wanted)} tags "
+            "only, so the rest have no Danbooru category"
+        )
+    return categories, None
 
 
 def _finding_order(finding: PromptFinding) -> tuple:
@@ -626,7 +661,9 @@ def _analyse(
     # The shape alone decides whether to ask the tag index; what is reported
     # is the style the rules applied, which the answer's categories can move
     # ("the legend of zelda" is a series, not a phrase).
-    categories = _tag_categories(model_id, prompt, prompt_rules.detect_style(prompt))
+    categories, categories_detail = _tag_categories(
+        model_id, prompt, prompt_rules.detect_style(prompt)
+    )
     reports, findings, detail = _checked(model_id, request, applied, categories)
     order = prompt_rules.documented_order(model_id)
     return PromptAnalysis(
@@ -638,6 +675,7 @@ def _analyse(
         findings=findings,
         order=order,
         order_checked=order is not None and prompt_rules.order_checked(model_id, prompt),
+        categories_detail=categories_detail,
         author_orders=[] if order is not None else [
             AuthorOrder(text=excerpt.text, url=excerpt.url, note=excerpt.note)
             for excerpt in sources_for(model_id).excerpts
@@ -1291,7 +1329,7 @@ class Server(uvicorn.Server):
     def handle_exit(self, sig, frame) -> None:
         for job in jobs.active():
             job.cancel_requested = True
-        threading.Thread(target=prompt_critic.unload, daemon=True, name="critic-stop").start()
+        threading.Thread(target=_stop_critic, daemon=True, name="critic-stop").start()
         super().handle_exit(sig, frame)
 
 

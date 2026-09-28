@@ -547,6 +547,54 @@ def test_ready_is_what_is_on_disk(monkeypatch, tmp_path, root, windows_release):
     assert critic.prompt_critic.ready()
 
 
+def test_describe_names_the_model_and_only_what_a_first_use_fetches(
+    monkeypatch, tmp_path, root, windows_release
+):
+    # The line under the critic's button: the model as the answer's footer
+    # names it, whether it is the pinned pair the page's time was measured
+    # on, and what a first use would download - an override's file never.
+    monkeypatch.setattr(critic, "platform_key", lambda: "test-x64")
+    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    cached: list[str | None] = [None]
+    monkeypatch.setattr(
+        huggingface_hub, "try_to_load_from_cache", lambda *args, **kwargs: cached[0]
+    )
+    server_size = sum(archive.size for archive in critic.BUILDS["test-x64"].archives)
+    target = critic.PromptCritic()
+    fresh = target.describe()
+    assert (fresh.label, fresh.pinned) == (critic.MODEL_LABEL, True)
+    assert fresh.fetch == [f"llama.cpp {critic.RELEASE}", critic.MODEL_LABEL]
+    assert fresh.fetch_bytes == server_size + critic.MODEL_SIZE
+    critic.install_server("test-x64")
+    # From here, a status-poll question: nothing fetched, nothing hashed.
+    fetched = list(windows_release.fetched)
+    monkeypatch.setattr(critic, "_sha256", lambda path: pytest.fail("hashed"))
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", lambda **kwargs: pytest.fail("fetched"))
+    installed = target.describe()
+    assert (installed.fetch, installed.fetch_bytes) == ([critic.MODEL_LABEL], critic.MODEL_SIZE)
+    gguf = tmp_path / "Qwen3-4B-Q8_0.gguf"
+    gguf.write_bytes(b"gguf")
+    cached[0] = str(gguf)
+    assert target.describe().fetch == [] and target.ready()
+
+    # A GGUF of one's own beside the pinned server: its name, no time.
+    own_model = tmp_path / "gemma-3-12b-Q4.gguf"
+    _configure(monkeypatch, critic_model=own_model)
+    mine = target.describe()
+    assert (mine.label, mine.pinned, mine.fetch) == ("gemma-3-12b-Q4", False, [])
+    assert mine.label == target._label(own_model)  # the footer's name
+    # A server of one's own, the pinned model not cached: no llama.cpp.
+    cached[0] = None
+    _configure(monkeypatch, critic_server=tmp_path / "llama-server", critic_model=None)
+    theirs = target.describe()
+    assert (theirs.label, theirs.pinned) == (critic.MODEL_LABEL, False)
+    assert (theirs.fetch, theirs.fetch_bytes) == ([critic.MODEL_LABEL], critic.MODEL_SIZE)
+    # Both of one's own, neither there: never a download - prepare() says why.
+    _configure(monkeypatch, critic_model=own_model)
+    assert target.describe().fetch == [] and not target.ready()
+    assert windows_release.fetched == fetched
+
+
 def test_prepare_uses_configured_files_without_downloading(monkeypatch, tmp_path):
     server, model = tmp_path / "llama-server", tmp_path / "mine.gguf"
     server.write_bytes(b"s")

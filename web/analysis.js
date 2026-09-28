@@ -128,10 +128,19 @@ function renderAnalysis() {
   // flag" as if it had passed: a prose prompt with its subject last on FLUX
   // got the same panel as one with it first.
   const unchecked = !!body.order && !body.order_checked;
-  const counts = !body.findings.length ? (unchecked ? 'nothing flagged · order not checked' : 'nothing to flag')
+  // Nor may one placed without the tag index's categories: offline, a
+  // character after a general tag got the same panel as one before it.
+  const partly = body.order_checked && !!body.categories_detail;
+  // Where the guide states no order, a category is read by one rule only -
+  // Anima's @ before an artist name (`category_items`) - and it read none
+  // (the index unreachable) or not all (past the lookup's 64).
+  const artists = !body.order && !!body.categories_detail;
+  const counts = !body.findings.length
+    ? (unchecked ? 'nothing flagged · order not checked' : partly || artists ? 'nothing flagged' : 'nothing to flag')
     : `${warns ? plural(warns, 'warning') : 'no warnings'}${notes ? ` · ${plural(notes, 'note')}` : ''}`;
   els.analysisSummary.textContent =
-    `${plural(body.words, 'word')}, ${STYLE_NAMES[body.style] ?? body.style} · ${counts}`;
+    `${plural(body.words, 'word')}, ${STYLE_NAMES[body.style] ?? body.style} · ${counts}`
+    + (partly ? ' · order partly checked' : artists ? ' · artists not all checked' : '');
   renderEncoders(body);
   renderOrder(body);
   renderFindings(els.analysisFindings, body.findings, {
@@ -139,8 +148,13 @@ function renderAnalysis() {
     apply: applyFinding,
     empty: unchecked
       ? "Nothing flagged by the rules for this checkpoint's guide - but its word order was not checked (see Order)."
+      : partly ? "Nothing flagged by the rules for this checkpoint's guide - but its word order was only partly checked (see Order)."
+      : artists ? "Nothing flagged by the rules for this checkpoint's guide - but not every tag was checked for an artist name (below)."
       : "Nothing to flag against this checkpoint's guide.",
   });
+  if (artists) {
+    els.analysisFindings.appendChild(note(`Not every tag was checked for an artist name: ${body.categories_detail}.`));
+  }
   renderCritic();
   renderCompare();
   // The box may have moved on while the request was out.
@@ -424,6 +438,11 @@ function renderOrder(body) {
     box.appendChild(note(`Not checked: Check can only place a tag checkpoint's comma tags in its order. ${promptCritiqueSupported
       ? 'Ask the critic whether this prompt follows it, or write'
       : 'Write'} a reordered version under Compare to test it on your own seeds.`));
+  } else if (body.categories_detail) {
+    // Placed, but a tag the index gave no category keeps every slot a
+    // category could have put it in - which slots those are is the guide's
+    // (Animagine's order has no artist) - so it can sit out of order unflagged.
+    box.appendChild(note(`Partly checked: ${body.categories_detail}. A tag with no category is not placed, so one out of order may go unflagged.`));
   }
   // The prompt's own items moved into that order, nothing added or removed -
   // shown, since it is read before it is used.
@@ -529,12 +548,19 @@ function syncCritic() {
     ? 'An image job is queued or running. The critic needs the card to itself, so it waits for the queue to finish.'
     : expandingPrompt ? 'Wait for prompt expansion to finish.'
     : "A local model reads the prompt against this checkpoint's guide and its authors' own texts, cites what it goes by, and suggests a rewrite";
+  // Named as the answer's footer names it, and a first use's download only
+  // what it would fetch. The time and the GPU are the pinned pair's, measured
+  // on the card; a server or a model of the user's own is promised neither.
+  const critic = criticStatus ?? { label: 'model', pinned: false, fetch: [], fetch_bytes: 0 };
+  const fetch = !promptCritiqueReady && critic.fetch.length
+    ? `${critic.fetch.join(' and ')} (about ${humanBytes(critic.fetch_bytes)})` : '';
   const line = critiquing
-    ? (promptCritiqueReady ? 'Thinking… about 15 seconds on the GPU.'
-      : 'Downloading llama.cpp and Qwen3-4B (about 5 GB) once, then thinking…')
+    ? (fetch ? `Downloading ${fetch} once, then thinking…`
+      : critic.pinned ? 'Thinking… about 15 seconds on the GPU.' : `Thinking… (${critic.label})`)
     : busy ? 'An image job has the card; the critic waits for the queue to finish.'
-    : promptCritiqueReady ? 'Local Qwen3-4B on the GPU, about 15 seconds; waits for image jobs.'
-    : 'First use downloads llama.cpp and Qwen3-4B (about 5 GB) once.';
+    : fetch ? `First use downloads ${fetch} once.`
+    : critic.pinned ? `Local ${critic.label} on the GPU, about 15 seconds; waits for image jobs.`
+    : `Local ${critic.label}, as configured; waits for image jobs.`;
   // The line is a live region: rewriting it with the same words would be
   // read out again on every queue change.
   if (els.criticLine.textContent !== line) els.criticLine.textContent = line;
@@ -747,7 +773,10 @@ function issueItem(issue) {
 // the rules' own, which is exact, ahead of the critic's - the critic's
 // rewrite, and the user's own version. Where Check placed the prompt itself
 // (`order_checked`) and found nothing to move, the critic's reordering is
-// some other order, not the documented one, and is left out. The user's own
+// some other order, not the documented one, and is left out - unless Check
+// placed it without the tag index's categories (`categories_detail`): then
+// "nothing to move" may only be a tag it could not place, and the critic's
+// may be the one reordering that places it. The user's own
 // version is what isolates order where neither layer can offer a reorder: a
 // sentence on FLUX, where the critic's `reordered` rarely survives its check,
 // or a checkpoint whose guide states no order. A version that is the original
@@ -759,7 +788,8 @@ function compareVariants() {
   const variants = [{ label: 'original', name: 'Original', prompt: source }];
   const seen = new Set([source]);
   for (const [label, name, text] of [
-    ['reordered', 'Reordered', body.reordered ?? (body.order_checked ? null : critiqueResult?.body.reordered)],
+    ['reordered', 'Reordered', body.reordered
+      ?? (body.order_checked && !body.categories_detail ? null : critiqueResult?.body.reordered)],
     ['rewrite', 'Rewrite', critiqueResult?.body.rewrite],
     ['yours', 'Your version', els.compareOwn.value],
   ]) {

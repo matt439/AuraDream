@@ -18,7 +18,7 @@ from backend import critic, prompt_encoding
 from backend.backends.base import GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
-from backend.schemas import GenerateRequest, PromptCritique
+from backend.schemas import CriticStatus, GenerateRequest, PromptCritique
 
 
 class FakeBackend(GenerationBackend):
@@ -172,7 +172,7 @@ class CutReply:
 
 
 class FakeCritic:
-    """`critic.PromptCritic` without llama.cpp or a model: the same five
+    """`critic.PromptCritic` without llama.cpp or a model: the same six
     methods, and a deterministic answer written as the model writes one - raw
     JSON - then put through the real `critic.validate`, so what reaches the
     page is only what the real pipeline could return. A prompt too long for
@@ -181,7 +181,10 @@ class FakeCritic:
 
     `available` is what `supported()` answers and `fetched` what `ready()`
     does; `prepare()` sets `fetched`, as a first real prepare puts both files
-    on disk. `fail` makes `critique()` raise - True for a `CriticError`, or an
+    on disk. `describe()` gives `label` - the name its answers carry too -
+    and, while `pinned`, the pinned pairing's two downloads until then;
+    `pinned` False stands for an override, which is never a download.
+    `fail` makes `critique()` raise - True for a `CriticError`, or an
     exception to raise instead - and `prepare_fail` the same for `prepare()`.
     `delay` holds `critique()` for that many seconds, so a caller can act
     while it runs; `started` is set as each one begins.
@@ -196,6 +199,8 @@ class FakeCritic:
     def __init__(self, delay: float = 0.0) -> None:
         self.available = True
         self.fetched = False
+        self.label = "fake critic"
+        self.pinned = True
         self.delay = delay
         self.fail: bool | Exception = False
         self.prepare_fail: Exception | None = None
@@ -212,6 +217,19 @@ class FakeCritic:
 
     def ready(self) -> bool:
         return self.available and self.fetched
+
+    def describe(self) -> CriticStatus:
+        build = critic.BUILDS["win-cuda-13.4-x64"]
+        fetch = [] if self.fetched or not self.pinned else [
+            (f"llama.cpp {critic.RELEASE}", sum(archive.size for archive in build.archives)),
+            (self.label, critic.MODEL_SIZE),
+        ]
+        return CriticStatus(
+            label=self.label,
+            pinned=self.pinned,
+            fetch=[name for name, _ in fetch],
+            fetch_bytes=sum(size for _, size in fetch),
+        )
 
     def prepare(self) -> None:
         self.prepares += 1
@@ -244,7 +262,7 @@ class FakeCritic:
                 self.answer(request.prompt, context.ordered),
                 context,
                 request.prompt,
-                model="fake critic",
+                model=self.label,
                 seconds=time.perf_counter() - started,
             )
         finally:

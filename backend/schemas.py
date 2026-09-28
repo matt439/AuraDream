@@ -306,6 +306,14 @@ class PromptAnalysis(BaseModel):
     # XML prompt's blocks are documented but unchecked, and the page says so
     # rather than letting "nothing to flag" read as a passed order.
     order_checked: bool = False
+    # Why some comma item a rule reads has no Danbooru category - the tag
+    # index unreachable, no usable reply from it, or items past the 64 one
+    # check may ask about - as `encoders_detail` says why a budget went
+    # unmeasured. The rules give such an item no slot a category would (it
+    # keeps them all) and flag no artist for its @, so the page says an order
+    # it placed was only partly checked. None when every item was looked up,
+    # or none needed to be.
+    categories_detail: str | None = None
     # Where the guide states no order: orders the authors' own texts give
     # anyway (Anima's card, the rewriter instructions), shown as information,
     # never checked. Empty where `order` is set.
@@ -751,6 +759,25 @@ class PromptGuide(BaseModel):
     tag_helper: PromptTagHelper | None = None
 
 
+class CriticStatus(BaseModel):
+    """What the page says about the prompt critic before it is asked, from
+    the settings and a few file checks, as `ModelStatus.prompt_critique_ready`
+    is: the model it runs and what a first use still downloads."""
+
+    # The model's name as the answer's footer gives it: the pinned GGUF's
+    # label, or the stem of the file LOCAL_DIFFUSION_CRITIC_MODEL names.
+    label: str
+    # Both halves the app's pins, the pairing whose time docs/verified.md
+    # measured. A server or a model of the user's own gets no time and no
+    # GPU promised, since nothing here measured it.
+    pinned: bool
+    # What a first use downloads, in order - the pinned llama-server build,
+    # the pinned GGUF, both or neither - and their size together in bytes.
+    # An override is never a download.
+    fetch: list[str] = Field(default_factory=list)
+    fetch_bytes: int = 0
+
+
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
     defaults: dict[str, float | int | bool | None] = {}
@@ -783,6 +810,9 @@ class ModelStatus(BaseModel):
     # file are on disk, so the page can say a first use downloads them.
     prompt_critique_supported: bool = False
     prompt_critique_ready: bool = False
+    # What the line under the critic's button names, rather than a fixed
+    # "Qwen3-4B" an override makes untrue.
+    prompt_critic: CriticStatus | None = None
 
 
 class JobAccepted(BaseModel):

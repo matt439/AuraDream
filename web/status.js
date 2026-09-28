@@ -148,9 +148,11 @@ async function refreshStatus() {
     // line under its button then stops promising the download.
     if (typeof s.prompt_critique_supported === 'boolean'
         && (s.prompt_critique_supported !== promptCritiqueSupported
-            || !!s.prompt_critique_ready !== promptCritiqueReady)) {
+            || !!s.prompt_critique_ready !== promptCritiqueReady
+            || JSON.stringify(s.prompt_critic ?? null) !== JSON.stringify(criticStatus))) {
       promptCritiqueSupported = s.prompt_critique_supported;
       promptCritiqueReady = !!s.prompt_critique_ready;
+      criticStatus = s.prompt_critic ?? null;
       syncCritic();
     }
     if (s.defaults && typeof s.defaults.cfg_threshold === 'number'

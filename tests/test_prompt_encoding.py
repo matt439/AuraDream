@@ -6,12 +6,12 @@ punctuation marks with offsets, which is enough to check the arithmetic: what
 a template costs, what the pipeline's truncation keeps, and where in the
 user's own text reading stops. A stub load that never returns stands for a
 stalled first-use fetch: what it may hold up - nothing but its own count -
-is checked here, through the app's Unload and Check routes too.
+is checked here, and through the app's Unload and Check routes in
+tests/test_api_analysis.py.
 """
 from __future__ import annotations
 
 import ast
-import dataclasses
 import fnmatch
 import importlib.util
 import re
@@ -24,7 +24,7 @@ from typing import NamedTuple
 import pytest
 from jinja2 import TemplateError
 
-from backend import launch, main, model_defaults
+from backend import launch, model_defaults
 from backend import prompt_encoding as pe
 from backend.backends import anima_loading, loading, netayume_loading, newbie_loading, single_file
 from tests import fakes
@@ -885,72 +885,6 @@ def test_a_load_still_in_flight_does_not_speak_for_one_that_failed(monkeypatch):
 
 def _raise(error):
     raise error
-
-
-# The routes around it: Unload answers while a Check waits on a first-use
-# fetch, and says so at once; Check and the critique's analysis and lint run
-# on daemon threads, which interpreter exit never joins.
-
-
-def claim(monkeypatch, model_id):
-    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id=model_id))
-
-
-def test_unload_answers_at_once_while_a_check_waits_on_a_tokenizer(client, fake, monkeypatch):
-    load = Stalled(tekken())
-    monkeypatch.setattr(pe, "_load_tokenizer", load)
-    claim(monkeypatch, "baidu/ERNIE-Image-Turbo")
-    main._load_state.update(state="ready")
-    try:
-        check, _ = _in_thread(lambda: client.post("/api/prompt/analyze", json={"prompt": "a cat"}))
-        assert load.entered.wait(5)
-        unloading, replies = _in_thread(lambda: client.post("/api/model/unload"))
-        unloading.join(10)
-        assert replies, "Unload waited on the tokenizer fetch"
-        assert (replies[0].status_code, replies[0].json()["state"]) == (200, "unloaded")
-        assert client.get("/api/status").json()["state"] == "unloaded"
-    finally:
-        load.release.set()
-    check.join(5)
-
-
-def test_unload_says_unloaded_before_the_analyser_and_critic_let_go(client, fake, monkeypatch):
-    # The critic's is the slow one: it stops a server, waiting to kill it.
-    main._load_state.update(state="ready")
-    seen: dict[str, str] = {}
-
-    def recording(name):
-        return lambda: seen.setdefault(name, main._load_state["state"])
-
-    monkeypatch.setattr(fake.translator, "unload", recording("translator"))
-    monkeypatch.setattr(fake.critic, "unload", recording("critic"))
-    monkeypatch.setattr(pe, "unload", recording("tokenizers"))
-    assert client.post("/api/model/unload").status_code == 200
-    assert seen == dict.fromkeys(("translator", "critic", "tokenizers"), "unloaded")
-
-
-@pytest.mark.parametrize("route, measures", [
-    ("/api/prompt/analyze", 1),
-    # The analysis, then the rewrite's lint.
-    ("/api/prompt/critique", 2),
-])
-def test_check_runs_on_a_daemon_thread(client, fake, monkeypatch, route, measures):
-    # `main._detached`'s own thread, which dies with the process - not the
-    # default executor's, which interpreter exit joins. (Its daemon flag alone
-    # proves nothing here: TestClient's loop thread is a daemon, and an
-    # executor's workers inherit that.)
-    threads: list[tuple[str, bool]] = []
-    measure = pe.measure
-
-    def recording(*args):
-        thread = threading.current_thread()
-        threads.append((thread.name, thread.daemon))
-        return measure(*args)
-
-    monkeypatch.setattr(pe, "measure", recording)
-    claim(monkeypatch, "black-forest-labs/FLUX.1-Krea-dev")
-    assert client.post(route, json={"prompt": "A lighthouse on a cliff"}).status_code == 200
-    assert threads == [("prompt-check", True)] * measures
 
 
 def test_loading_prefers_a_converted_tree_then_the_cache_then_the_hub(monkeypatch, tmp_path):

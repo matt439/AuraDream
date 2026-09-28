@@ -153,6 +153,9 @@ let translatedSource = null;
 // is whether a first use still has llama.cpp and the model to download.
 let promptCritiqueSupported = false;
 let promptCritiqueReady = false;
+// ModelStatus.prompt_critic: the model's name, whether it is the pinned pair
+// and what a first use downloads - what the line under the button says.
+let criticStatus = null;
 let critiquing = false;
 // One gallery page in flight at a time, and a token so a page that was already
 // on its way when the filters changed can be dropped rather than appended.
