@@ -189,7 +189,8 @@ class FakeCritic:
     Its `reordered` moves the last comma clause to the front, which
     `critic.is_reorder` accepts; a prompt of one clause has nothing to move,
     so an ordered checkpoint gets no reordered version, as it often does from
-    the real critic.
+    the real critic. Where Check placed the tags itself (`order_checked`),
+    `critic.validate` keeps it only if that is Check's own order.
     """
 
     def __init__(self, delay: float = 0.0) -> None:

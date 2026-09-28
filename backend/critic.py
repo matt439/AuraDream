@@ -19,7 +19,9 @@ caught subject order, unquoted text and negations. So:
   letter; issues that restate a rule finding, and order issues that ask for
   different things first, are left out; the "reordered" variant must be the
   prompt's own phrases - its tags, clauses, sentences or XML blocks - moved
-  whole, with any text to render unchanged, and nothing else; a rewrite
+  whole, with any text to render unchanged, and nothing else; what is kept
+  is those phrases as the prompt writes them, in the critic's order, and
+  where Check placed the tags itself, only Check's order; a rewrite
   wrapped whole in quotation marks is unwrapped, one that letters words the
   prompt does not have is dropped, and one that quotes description is
   flagged. What survives is still the model's suggestion: the route puts the
@@ -77,7 +79,7 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 from .config import settings
-from .prompt_rules import QUOTED, rendered_spans
+from .prompt_rules import QUOTED, _WORD_NOT_CJK, _capitalised, rendered_targets
 from .prompt_sources import Sources, sources_for
 from .schemas import CritiqueIssue, GenerateRequest, PromptAnalysis, PromptCritique, PromptFinding
 
@@ -1254,6 +1256,12 @@ class CriticContext:
     # How the prompt reads (`analysis.style`): what a piece of it is, for
     # telling a reorder from a rewrite.
     style: str
+    # Whether the rules placed the prompt in that order themselves
+    # (`analysis.order_checked`), and the reorder they made of it
+    # (`analysis.reordered`, None where nothing had to move): there a
+    # reorder of the critic's stands only as that one.
+    order_checked: bool
+    rules_reordered: str | None
     # The rule ids layer 1 reported, where in the prompt each one points, and
     # whether the guide has a word range the rules measured: an issue
     # restating any of them is left out.
@@ -1480,6 +1488,38 @@ def _one_line(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+# Qwen3's control and reasoning tokens as typed text: <|im_end|> and every
+# other <|...|> marker, <think>, <tool_call>, <tool_response> and their
+# closers. llama-server tokenizes the rendered chat with special tokens
+# parsed, so a prompt holding <|im_end|> would end the turn it sits in and
+# open whatever it typed next, and on a Qwen-encoder checkpoint the control
+# token finding, which quotes it, would end the app's own system message. A
+# zero-width joiner after the "<" leaves each one text the model reads and
+# quotes back; one already there gets another, so `_restored` takes off
+# exactly what `_defused` put in.
+_JOINER = "\u200d"
+_CONTROL_AHEAD = r"(?=\u200d*(?:\||/?(?:think|tool_call|tool_response)>))"
+_CONTROL = re.compile("<" + _CONTROL_AHEAD)
+_DEFUSED = re.compile("<" + _JOINER + _CONTROL_AHEAD)
+
+
+def _defused(text: str) -> str:
+    return _CONTROL.sub("<" + _JOINER, text)
+
+
+def _restored(value: Any) -> Any:
+    """The answer's strings with `_defused`'s joiners taken out: the model
+    quotes the text it was sent, and its quotes are looked for in the
+    prompt as typed."""
+    if isinstance(value, str):
+        return _DEFUSED.sub("<", value)
+    if isinstance(value, Mapping):
+        return {key: _restored(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_restored(item) for item in value]
+    return value
+
+
 def response_schema(cite_ids: list[str], ordered: bool) -> dict[str, Any]:
     """The answer's shape, enforced by llama-server's grammar sampling.
 
@@ -1634,12 +1674,17 @@ def build_context(
     user = f"Prompt:\n{request.prompt}"
     if negative is not None:
         user += f"\n\nNegative prompt (it runs):\n{negative}"
-    system = "\n".join(lines)
+    # Both messages whole: the prompt and the negative, and the findings
+    # that quote them.
+    user = _defused(user)
+    system = _defused("\n".join(lines))
     return CriticContext(
         sources=sources,
         citations=citations,
         ordered=ordered,
         style=analysis.style,
+        order_checked=analysis.order_checked,
+        rules_reordered=analysis.reordered,
         reported=frozenset(finding.rule for finding in analysis.findings),
         # Findings about the words at their span; not a cut, whose span is
         # everything past where an encoder stops reading.
@@ -1693,74 +1738,168 @@ _PROSE_BREAK = re.compile(r"[,;，、；\n]|[.!?](?=\s|$)|[。！？]")
 _PIECE_TRIM = " \t\r\n.,;:!?。，、；：！？"
 # NewBie's top-level blocks, <character_1>...</character_1> and <general_tags>.
 _XML_BLOCK = re.compile(r"<([A-Za-z_][\w.-]*)>.*?</\1>", re.DOTALL)
-_HELD = re.compile(r"\x00(\d+)\x00")
+# How a prompt pasted from a word processor or a phone writes an apostrophe,
+# a quotation mark or a dash, against one typed on a keyboard - and the
+# critic writes either. Folded one character for one, so an offset into the
+# folded text is the same offset into the original.
+_FOLD = str.maketrans(
+    "\u2019\u2018\u201b\u02bc\u2032\u201c\u201d\u201e\u201f\u2033"
+    "\u2010\u2011\u2012\u2013\u2014\u2212",
+    "'''''\"\"\"\"\"------",
+)
 
 
-def _pieces(text: str, style: str) -> list[str]:
-    """The phrases a reorder may move, normalised, in order.
+def _trimmed(text: str, start: int, end: int) -> tuple[int, int]:
+    """`text[start:end]` without the space and punctuation at its ends."""
+    while start < end and (text[start] in _PIECE_TRIM or text[start].isspace()):
+        start += 1
+    while end > start and (text[end - 1] in _PIECE_TRIM or text[end - 1].isspace()):
+        end -= 1
+    return start, end
+
+
+def _piece_spans(text: str, style: str) -> list[tuple[int, int, str]]:
+    """The phrases a reorder may move, in order: where each one is in `text`,
+    and its normalised form.
 
     A piece is a tag, a clause or sentence, an XML block - moved whole or not
     at all - so no attribute changes owner: in "a red dress and a blue hat"
     the colours stay where they are, which a count of words cannot see. Quoted
-    text never splits, whatever punctuation it holds. Case, runs of whitespace
-    and the punctuation at a piece's ends are not part of it.
+    text never splits, whatever punctuation it holds. Case, runs of whitespace,
+    how apostrophes, quotation marks and dashes are typed (`_FOLD`) and the
+    punctuation at a piece's ends are not part of its form; the span leaves
+    the ends out too, so what lies between two pieces - a break and its
+    spacing - is not part of either.
     """
-    held: list[str] = []
-    # NUL marks what is held; a prompt's own would name nothing.
-    text = text.replace("\x00", "")
-
-    def hold(part: str, *, alone: bool = False) -> str:
-        held.append(part)
-        mark = f"\x00{len(held) - 1}\x00"
-        # A block is a piece by itself: set off by breaks on both sides.
-        return f"\n{mark}\n" if alone else mark
-
-    if style == "xml":
-        text = _XML_BLOCK.sub(
-            lambda match: hold(
-                re.sub(r">\s*<", "><", " ".join(match.group().split())), alone=True
-            ),
-            text,
-        )
-    text = QUOTED.sub(lambda match: hold(match.group()), text)
+    blocks = [match.span() for match in _XML_BLOCK.finditer(text)] if style == "xml" else []
+    # A block is held whole; blanked to line breaks, same length, no
+    # quotation can run across it, as none runs across a line.
+    masked = text
+    for start, end in blocks:
+        masked = masked[:start] + "\n" * (end - start) + masked[end:]
+    held = blocks + [match.span() for match in QUOTED.finditer(masked)]
     breaks = _TAG_BREAK if style in ("tags", "xml") else _PROSE_BREAK
-    pieces = []
-    for raw in breaks.split(text):
-        piece = _HELD.sub(lambda match: held[int(match.group(1))], raw)
-        piece = " ".join(piece.split()).strip(_PIECE_TRIM).casefold()
-        if piece:
-            pieces.append(piece)
+    cuts = [
+        match.span()
+        for match in breaks.finditer(masked)
+        if not any(start <= match.start() < end for start, end in held)
+    ]
+    # A block is a piece by itself: cut at both its edges.
+    cuts = sorted(cuts + [(edge, edge) for block in blocks for edge in block])
+    pieces: list[tuple[int, int, str]] = []
+    cursor = 0
+    for cut, after in cuts + [(len(text), len(text))]:
+        start, end = _trimmed(text, cursor, max(cursor, cut))
+        cursor = max(cursor, after)
+        if start == end:
+            continue
+        form = " ".join(text[start:end].translate(_FOLD).split())
+        if (start, end) in blocks:
+            form = re.sub(r">\s*<", "><", form)
+        pieces.append((start, end, form.casefold()))
     return pieces
+
+
+def _unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    keys = [key for key, _ in pairs]
+    if len(set(keys)) != len(keys):
+        raise ValueError("a key repeats")
+    return dict(pairs)
+
+
+def _json_forms(text: str) -> tuple[str, str] | None:
+    """`text`'s JSON value written with its keys sorted - what its values
+    alone decide, and 1.0, 1 and true are three - and in its own key order.
+    None where it is not JSON, or repeats a key, whose earlier value
+    `json.loads` would drop unseen."""
+    try:
+        value = json.loads(text, object_pairs_hook=_unique)
+        return json.dumps(value, sort_keys=True), json.dumps(value)
+    except (ValueError, RecursionError):
+        return None
+
+
+def _quoted(text: str) -> Counter[str]:
+    return Counter(quote.translate(_FOLD) for quote in QUOTED.findall(text))
+
+
+def _reordered(candidate: str, prompt: str, style: str) -> tuple[bool, str | None]:
+    """`candidate` read as a reorder of `prompt`: whether it holds the prompt's
+    pieces and quoted text and nothing else, and the candidate with each of
+    its pieces written as the prompt writes it - None where nothing moved.
+
+    The pieces are compared normalised, but the words returned are the
+    prompt's own. So a candidate that also changed case - the card's critic
+    upper-cased one, and T5 and Qwen3 read case - or retyped a curly
+    apostrophe comes back as the user's words, moved. What lies between the
+    pieces, space and punctuation only, is the candidate's: a sentence's "!"
+    or "?" goes where the sentence went, which a break left where it lay
+    would not do.
+    """
+    if _quoted(candidate) != _quoted(prompt):
+        return False, None
+    if style == "json":
+        # An object's keys have no order as values, so equal as values and
+        # different as written is exactly a reorder; a list's order is content.
+        theirs, ours = _json_forms(candidate), _json_forms(prompt)
+        if theirs is None or ours is None or theirs[0] != ours[0]:
+            return False, None
+        return True, candidate if theirs[1] != ours[1] else None
+    theirs, ours = _piece_spans(candidate, style), _piece_spans(prompt, style)
+    forms = [form for _, _, form in theirs]
+    if Counter(forms) != Counter(form for _, _, form in ours):
+        return False, None
+    if forms == [form for _, _, form in ours]:
+        return True, None
+    # The prompt's writing of each form, in its order: a form twice ("Cat",
+    # "cat") is taken first to first.
+    own: dict[str, list[str]] = {}
+    for start, end, form in ours:
+        own.setdefault(form, []).append(prompt[start:end])
+    out, cursor = [], 0
+    for start, end, form in theirs:
+        out += [candidate[cursor:start], own[form].pop(0)]
+        cursor = end
+    out.append(candidate[cursor:])
+    return True, "".join(out)
 
 
 def is_reorder(candidate: str, prompt: str, style: str) -> bool:
     """Whether `candidate` is `prompt` with its pieces moved and nothing else -
     the variant that isolates order, so a grid row of anything more would lie."""
-    if Counter(QUOTED.findall(candidate)) != Counter(QUOTED.findall(prompt)):
-        return False
-    if style == "json":
-        # An object's keys have no order as values, so equal as values and
-        # different as written is exactly a reorder; a list's order is content.
-        try:
-            theirs, ours = json.loads(candidate), json.loads(prompt)
-        except (ValueError, RecursionError):
-            return False
-        return theirs == ours and json.dumps(theirs) != json.dumps(ours)
-    theirs, ours = _pieces(candidate, style), _pieces(prompt, style)
-    return Counter(theirs) == Counter(ours) and theirs != ours
+    kept, moved = _reordered(candidate, prompt, style)
+    return kept and moved is not None
+
+
+# A letter or digit of a script that spaces its words. A quote that starts or
+# ends in one must start or end a word of the text as well: "man" is not the
+# end of "woman", nor "pen" the middle of "OPEN". Han, kana and Hangul run
+# on without spaces (`prompt_rules._WORD_NOT_CJK`, which `QUOTED` reads too,
+# so the two cannot drift apart), and so do Thai, Lao, Myanmar and Khmer: a
+# quote of them may begin and end anywhere. An underscore is a tag's space:
+# "hair" is a word of "long_hair".
+_SPACED = rf"(?![_\u0e00-\u0eff\u1000-\u109f\u1780-\u17ff]){_WORD_NOT_CJK}"
+_SPACED_CHAR = re.compile(_SPACED)
 
 
 def locate(quote: str, text: str) -> tuple[int, int] | None:
-    """Where `quote` occurs in `text`, ignoring case and runs of whitespace.
+    """Where `quote` occurs in `text` as whole words, ignoring case, runs of
+    whitespace and how apostrophes, quotation marks and dashes are written.
 
     The model's quote is a claim; the span is found here or not at all, and
     what the page selects is the prompt's own characters, not the model's.
     """
+    quote, text = quote.translate(_FOLD), text.translate(_FOLD)
     for candidate in (quote, quote.strip(_QUOTE_TRIM)):
         words = candidate.split()
         if not words:
             continue
-        match = re.search(r"\s+".join(map(re.escape, words)), text, re.IGNORECASE)
+        pattern = r"\s+".join(map(re.escape, words))
+        if _SPACED_CHAR.match(words[0][0]):
+            pattern = rf"(?<!{_SPACED}){pattern}"
+        if _SPACED_CHAR.match(words[-1][-1]):
+            pattern = rf"{pattern}(?!{_SPACED})"
+        match = re.search(pattern, text, re.IGNORECASE)
         if match:
             return match.start(), match.end()
     return None
@@ -1840,6 +1979,20 @@ def _same(a: str, b: str) -> bool:
     return " ".join(a.split()) == " ".join(b.split())
 
 
+# Sentence punctuation that closes a whole prompt.
+_STOPS = ".!?…。！？"
+
+
+def _unchanged(text: str, prompt: str) -> bool:
+    """Whether `text` is the prompt as it stands: runs of whitespace, a
+    closing stop and how apostrophes, quotation marks and dashes are typed
+    aside."""
+    return _same(
+        text.translate(_FOLD).strip().rstrip(_STOPS),
+        prompt.translate(_FOLD).strip().rstrip(_STOPS),
+    )
+
+
 def _prompt_text(value: Any) -> str | None:
     """A whole prompt from the answer, or None. Over the request's own limit
     it is dropped rather than cut: a grid variant that stops mid-word is worse
@@ -1852,31 +2005,48 @@ def _prompt_text(value: Any) -> str | None:
     return text
 
 
+def _too_long(value: Any) -> bool:
+    return isinstance(value, str) and len(value.strip()) > MAX_TEXT
+
+
 def _flat(text: str) -> str:
-    return " ".join(text.split()).casefold()
+    return " ".join(text.translate(_FOLD).split()).casefold()
 
 
 # A clause's end, which lettering does not run past.
 _CLAUSE_END = re.compile(r"[,.;:!?\n，。；：！？]")
 
 
-def _lettered(words: str, prompt: str, spans: list[tuple[int, int]]) -> bool:
+def _capitals(text: str) -> bool:
+    """Whether `text`, which follows lettering whose end the rules are sure
+    of, is only more words starting in a capital or a digit, set off by a
+    space: the rules end "OPEN IN 5 MINUTES" and "Cafe On Main" at their "in"
+    and "on", whatever the case, where a name or a title goes on."""
+    return text[:1] in ("", " ", "\t") and all(_capitalised(word) for word in text.split())
+
+
+def _lettered(words: str, prompt: str, targets: list[tuple[int, int, bool]]) -> bool:
     """Whether `words` are text the prompt asks to render: inside one of its
-    `rendered_spans`, or starting in one and running on within its clause -
-    the rules end unquoted lettering at a guess ("says fish and chips"), and
-    the critic may read further. Never the prompt's description."""
+    `rendered_targets`, or starting in one and running on within its clause
+    where the rules ended it at a guess ("says fish and chips": `ends` is
+    False), since the critic may read further. Past an end the rules are sure
+    of ("says OPEN in red letters") only more capitals run on. Never the
+    prompt's description."""
     key = _flat(words.strip(_QUOTE_TRIM))
     if not key:
         return False
     # Whole words: "pen" is not in "OPEN".
     if any(
-        f" {key} " in f" {_flat(prompt[start:end].strip(_QUOTE_TRIM))} " for start, end in spans
+        f" {key} " in f" {_flat(prompt[start:end].strip(_QUOTE_TRIM))} "
+        for start, end, _ in targets
     ):
         return True
     at = locate(words, prompt)
     return at is not None and any(
-        start <= at[0] < end and not _CLAUSE_END.search(prompt, end, at[1])
-        for start, end in spans
+        start <= at[0] < end
+        and not _CLAUSE_END.search(prompt, end, at[1])
+        and (not ends or _capitals(prompt[end:at[1]]))
+        for start, end, ends in targets
     )
 
 
@@ -1885,7 +2055,18 @@ _NO_PART = frozenset(("none", "null", "n/a", "na", "nothing", "not specified", "
 _PART_BREAK = re.compile(r"[,;，；、\n]")
 
 
-def _part(name: str, value: Any, prompt: str, spans: list[tuple[int, int]]) -> str | None:
+def _named(value: Any) -> list[str]:
+    """The comma pieces of a part as the model named it; none where it named
+    nothing ("none", "n/a", blank)."""
+    text = _clip(value)
+    if not text or text.strip(_QUOTE_TRIM).casefold() in _NO_PART:
+        return []
+    return [piece for piece in _PART_BREAK.split(text) if piece.strip(_QUOTE_TRIM)]
+
+
+def _part(
+    name: str, value: Any, prompt: str, targets: list[tuple[int, int, bool]]
+) -> str | None:
     """A part of the prompt as the model named it, if it is the prompt's own.
 
     Every comma piece must be in the prompt (`locate`); text to render must
@@ -1893,15 +2074,14 @@ def _part(name: str, value: Any, prompt: str, spans: list[tuple[int, int]]) -> s
     whole prompt under text to render, "none" under camera, and lighting the
     prompt never mentioned.
     """
-    text = _clip(value)
-    if not text or text.strip(_QUOTE_TRIM).casefold() in _NO_PART:
-        return None
-    pieces = [piece for piece in _PART_BREAK.split(text) if piece.strip(_QUOTE_TRIM)]
+    pieces = _named(value)
     if not pieces or not all(locate(piece, prompt) for piece in pieces):
         return None
-    if name == "text_to_render" and not all(_lettered(piece, prompt, spans) for piece in pieces):
+    if name == "text_to_render" and not all(
+        _lettered(piece, prompt, targets) for piece in pieces
+    ):
         return None
-    return text
+    return _clip(value)
 
 
 # What an issue reads like when it restates a rule finding the critic was
@@ -2003,12 +2183,16 @@ def _unwrapped(text: str) -> str | None:
     """`text` without quotation marks around the whole of it, or None when it
     has none: the marks inside must still open before they close, so
     `"OPEN" sign, "CLOSED"` is two quotations and not one wrap, while the
-    apostrophe in `'A dog's tail'` is no mark at all."""
-    opener = text[:1]
+    apostrophe in `'A dog's tail'` is no mark at all. A stop after the
+    closing mark - `"A cat on a sofa".` - still leaves a wrap, and the text
+    keeps it."""
+    body = text.rstrip(_STOPS)
+    stop = text[len(body):]
+    opener = body[:1]
     closers = _WRAPS.get(opener)
-    if closers is None or len(text) < 3 or text[-1] not in closers:
+    if closers is None or len(body) < 3 or body[-1] not in closers:
         return None
-    inner = text[1:-1]
+    inner = body[1:-1]
     depth = 0
     for index, char in enumerate(inner):
         if char != opener and char not in closers:
@@ -2022,7 +2206,10 @@ def _unwrapped(text: str) -> str | None:
         depth += 1 if opening else -1
         if depth < 0:
             return None
-    return inner.strip() if depth == 0 else None
+    if depth:
+        return None
+    inner = inner.strip()
+    return inner + stop if inner and not inner.endswith(tuple(_STOPS)) else inner
 
 
 # Words that carry no content of their own, for telling a rewrite's new
@@ -2057,8 +2244,11 @@ def _added_words(rewrite: str, prompt: str) -> list[str]:
     return added
 
 
+_UNCHANGED = "The critic's rewrite was your prompt as it stands, so there is no rewrite to show."
+
+
 def _check_rewrite(
-    rewrite: str, prompt: str, spans: list[tuple[int, int]]
+    rewrite: str, prompt: str, targets: list[tuple[int, int, bool]]
 ) -> tuple[str | None, list[PromptFinding], list[str]]:
     """The rewrite's quotation marks held to what the prompt asks to render.
 
@@ -2075,13 +2265,15 @@ def _check_rewrite(
             "The rewrite came back wrapped in quotation marks, which ask for lettering; "
             "they were taken off."
         )
-        if not inner or _same(inner, prompt):
+        if not inner:
             return None, [], notes
+        if _unchanged(inner, prompt):
+            return None, [], [*notes, _UNCHANGED]
         rewrite = inner
     findings: list[PromptFinding] = []
     for match in QUOTED.finditer(rewrite):
         words = match.group()[1:-1]
-        if not words.strip() or _lettered(words, prompt, spans):
+        if not words.strip() or _lettered(words, prompt, targets):
             continue
         if locate(words, prompt) is None:
             notes.append(
@@ -2138,10 +2330,10 @@ def validate(
     every quote and part found in the prompt, and what cannot stand left out
     and said so (`dropped`, `set_aside`). The rewrite is still the model's
     suggestion; the route lints it with layer 1."""
-    data = _answer_json(answer) if isinstance(answer, str) else dict(answer)
-    spans = rendered_spans(prompt)
+    data = _restored(_answer_json(answer) if isinstance(answer, str) else dict(answer))
+    targets = rendered_targets(prompt)
     raw_parts = data.get("parts") if isinstance(data.get("parts"), Mapping) else {}
-    parts = {name: _part(name, raw_parts.get(name), prompt, spans) for name in PARTS}
+    parts = {name: _part(name, raw_parts.get(name), prompt, targets) for name in PARTS}
 
     issues: list[CritiqueIssue] = []
     dropped = 0
@@ -2171,21 +2363,65 @@ def validate(
             f"({', '.join(dict.fromkeys(wants.values()))})."
         )
 
-    rewrite = _prompt_text(data.get("rewrite"))
+    # Parts the model named that are not the prompt's: the page shows no row
+    # for them, and on the card text to render held the scene in most runs.
+    left = [name for name in PARTS if parts[name] is None and _named(raw_parts.get(name))]
+    if others := [name for name in left if name != "text_to_render"]:
+        named = ", ".join(others[:-1]) + (" and " if len(others) > 1 else "") + others[-1]
+        set_aside.append(
+            f"The critic's {named} {'was' if len(others) == 1 else 'were'} left out: "
+            "not the prompt's own words."
+        )
+    if "text_to_render" in left:
+        set_aside.append(
+            "The critic's text to render was left out: not lettering the prompt asks for."
+        )
+
+    raw_rewrite = data.get("rewrite")
+    rewrite = _prompt_text(raw_rewrite)
     rewrite_findings: list[PromptFinding] = []
-    if rewrite is not None and _same(rewrite, prompt):
+    if _too_long(raw_rewrite):
+        set_aside.append(
+            f"The rewrite was left out: it is longer than the {MAX_TEXT} characters a "
+            "prompt may be."
+        )
+    if rewrite is not None and _unchanged(rewrite, prompt):
         rewrite = None
+        set_aside.append(_UNCHANGED)
     if rewrite is not None:
-        rewrite, rewrite_findings, notes = _check_rewrite(rewrite, prompt, spans)
+        rewrite, rewrite_findings, notes = _check_rewrite(rewrite, prompt, targets)
         set_aside += notes
-    reordered = _prompt_text(data.get("reordered")) if context.ordered else None
-    if reordered is not None and not is_reorder(reordered, prompt, context.style):
-        if not _same(reordered, prompt):
+    raw_reordered = data.get("reordered") if context.ordered else None
+    reordered = None
+    if _too_long(raw_reordered):
+        set_aside.append(
+            f"The critic's reordered version was left out: it is longer than the {MAX_TEXT} "
+            "characters a prompt may be."
+        )
+    elif (candidate := _prompt_text(raw_reordered)) is not None:
+        # Nothing moved says nothing: the same pieces in the same order, as
+        # `is_reorder` reads them, is no reorder and no change of words.
+        kept, moved = _reordered(candidate, prompt, context.style)
+        if not kept:
             set_aside.append(
                 "The critic's reordered version was left out: it changed words, not only "
                 "their order; a reordering of your own can go under Compare."
             )
-        reordered = None
+        elif moved is None or not context.order_checked:
+            reordered = moved
+        elif context.rules_reordered is not None and _reordered(
+            candidate, context.rules_reordered, context.style
+        ) == (True, None):
+            # Where the rules placed the prompt, the documented order is
+            # theirs, and so is the text: the one Check offers under Use.
+            reordered = context.rules_reordered
+        else:
+            # Any other permutation is some other order, and a comparison
+            # row of it would claim the documented one.
+            set_aside.append(
+                "The critic's reordered version was left out: Check places these tags in the "
+                "documented order itself, and the critic's order is not that one."
+            )
     return PromptCritique(
         model=model,
         seconds=round(seconds, 2),
