@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import dataclasses
+import io
 import sqlite3
+import sys
 
 import pytest
 from PIL import Image
@@ -284,6 +286,24 @@ def test_the_stats_tool_defaults_to_the_newest_run(store, monkeypatch, capsys):
     assert stats.main(["--all", "--by", "steps,cfg", "--min", "1"]) == 0
     assert "indicative" in capsys.readouterr().out
     assert stats.main(["--by", "colour"]) == 2
+
+
+def test_the_stats_tool_writes_utf8_where_its_output_is_redirected(store, monkeypatch):
+    # `> out.txt` on Windows: stdout is the locale's code page, strict, and a
+    # CJK or emoji prompt was a UnicodeEncodeError partway through the table.
+    from backend import stats
+
+    monkeypatch.setattr(stats, "settings", store.settings)
+    redirected = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(redirected, encoding="cp1252"))
+    keep(store, prompt="一只狐狸 🦊", run_id="night")
+    assert stats.main(["--by", "prompt", "--min", "1"]) == 0
+    sys.stdout.flush()
+    assert "一只狐狸 🦊" in redirected.getvalue().decode("utf-8")
+    # A StringIO holds text, with no encoding to change, and still works.
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    assert stats.main(["--by", "prompt", "--min", "1"]) == 0
+    assert "一只狐狸 🦊" in sys.stdout.getvalue()
 
 
 # ----------------------------------------------------------------------- runs

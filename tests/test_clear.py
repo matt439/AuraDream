@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import dataclasses
+import io
 import sqlite3
+import sys
 
 import pytest
 
@@ -142,3 +144,23 @@ def test_a_stale_partial_is_named_in_the_preview(fresh, capsys):
     assert clear.main(["--dry-run"]) == 0
     assert "1 stale .part file(s)" in capsys.readouterr().out
     assert stale.exists()
+
+
+def test_the_preview_writes_utf8_where_its_output_is_redirected(fresh, monkeypatch):
+    # `> clear.txt` on Windows: stdout is the locale's code page, strict, and a
+    # CJK or emoji prompt in the preview was a UnicodeEncodeError - after the
+    # count, before the confirmation, with nothing deleted.
+    from PIL import Image
+
+    from backend.schemas import GenerateRequest
+
+    storage.init_db()
+    storage.save_image(
+        Image.new("RGB", (16, 16)), GenerateRequest(prompt="一只狐狸 🦊", width=256, height=256),
+        seed=1, duration_ms=1, model_id="m", job_id="night01",
+    )
+    redirected = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(redirected, encoding="cp1252"))
+    assert clear.main(["--where", "job:night01", "--dry-run"]) == 0
+    sys.stdout.flush()
+    assert "- 一只狐狸 🦊" in redirected.getvalue().decode("utf-8")

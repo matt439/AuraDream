@@ -120,6 +120,14 @@ def _clear_where(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Redirected or piped, stdout on Windows encodes with the locale's code
+    # page, where one CJK or emoji prompt in the preview was a
+    # UnicodeEncodeError before anything was deleted. So does `> NUL`, which
+    # answers isatty(); the Windows console is UTF-8 already. Elsewhere a
+    # terminal keeps its own encoding. A StringIO has none to change, and a
+    # scheduled `--yes` under pythonw has no stdout.
+    if hasattr(sys.stdout, "reconfigure") and (sys.platform == "win32" or not sys.stdout.isatty()):
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(
         prog="python -m backend.clear",
         description="Delete generated images and their gallery history.",

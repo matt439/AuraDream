@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import dataclasses
+import io
 import json
+import sys
 
 from PIL import Image, PngImagePlugin
 
@@ -185,3 +187,18 @@ def test_reindex_reads_the_pre_rename_metadata_key(tmp_path):
 
     assert size == (32, 24)
     assert meta is not None and meta["prompt"] == "legacy gallery"
+
+
+def test_the_report_writes_utf8_where_its_output_is_redirected(store, monkeypatch, tmp_path):
+    # `> reindex.txt` on Windows: stdout is the locale's code page, strict, and
+    # a CJK name for the folder being copied in was a UnicodeEncodeError in the
+    # report's header. (The per-file lines go to `out`, bound to the same
+    # stream at import, which the reconfigure changes in place.)
+    monkeypatch.setattr(reindex, "settings", store.settings)
+    source = tmp_path / "来源"
+    source.mkdir()
+    redirected = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(redirected, encoding="cp1252"))
+    assert reindex.main(["--from", str(source), "--dry-run"]) == 0
+    sys.stdout.flush()
+    assert f"source   : {source}" in redirected.getvalue().decode("utf-8")

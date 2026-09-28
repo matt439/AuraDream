@@ -5,6 +5,7 @@
     uv run python -m backend.stats --job ab12cd        # one submission
     uv run python -m backend.stats --where "model:turbo steps:>=8"
     uv run python -m backend.stats --all --by steps,cfg --min 10
+    uv run python -m backend.stats --run ab12cd --by variant --min 4   # a comparison, per version
 
 The favourite flag was queryable one value at a time and aggregated nowhere,
 so "which CFG did I keep" was a scroll through the gallery. The naive count
@@ -47,7 +48,8 @@ def _cell(value) -> str:
         return "-"
     if isinstance(value, float):
         return f"{value:g}"
-    text = str(value)
+    # One line per row: a NewBie XML prompt is all newlines.
+    text = " ".join(str(value).split())
     return text if len(text) <= 40 else text[:37] + "..."
 
 
@@ -66,6 +68,13 @@ def _table(rows: list[dict], columns: list[str]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Redirected or piped, stdout on Windows encodes with the locale's code
+    # page, where one CJK or emoji prompt ended the table in a
+    # UnicodeEncodeError. So does `> NUL`, which answers isatty(); the Windows
+    # console is UTF-8 already. Elsewhere a terminal keeps its own encoding. A
+    # StringIO has none to change, and under pythonw there is no stdout.
+    if hasattr(sys.stdout, "reconfigure") and (sys.platform == "win32" or not sys.stdout.isatty()):
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(
         prog="python -m backend.stats",
         description="The starred rate per setting: which steps, CFG and mu produced the favourites.",

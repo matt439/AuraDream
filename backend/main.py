@@ -957,6 +957,10 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
                 seed=r.seed,
             ),
             seed=r.seed,
+            # What the placeholders were set to, or which version of a
+            # comparison this is: the only place a variant's label lives, so
+            # the re-rendered run's sheet keeps the rows the original had.
+            variables=r.variables or None,
         )
         for r in reversed(records)
     ]

@@ -18,8 +18,10 @@ from PIL import Image, PngImagePlugin
 from .config import settings
 # The two key elements that are built from columns here and from a request in
 # `grid`: one spelling of each, or a resume compares strings that only look
-# alike. `grid` imports neither this module nor anything that does.
-from .grid import lora_key, reference_key
+# alike. `grid` imports neither this module nor anything that does. VARIANT is
+# the variable a comparison's versions are recorded under, which `keep_rates`
+# groups by.
+from .grid import VARIANT, lora_key, reference_key
 from .metadata import PNG_METADATA_KEY
 from .search import TRUE_CFG_SQL, like_escape, split_search, strict_scope
 from .schemas import ImageRecord, RunSummary, effective_true_cfg
@@ -879,6 +881,10 @@ _GROUPS: dict[str, str] = {
     # favourites" is exactly the question a LoRA weight is chosen by.
     "lora": "lora",
     "lorascale": "round(lora_scale, 6)",
+    # A comparison's version by its label (`prompt_variants`): the starred
+    # rate per version. `prompt` cannot say it - reorders share their opening
+    # words, which is all a table cell has room for.
+    VARIANT: f"json_extract(variables, '$.{VARIANT}')",
 }
 
 
@@ -896,7 +902,9 @@ def keep_rates(
     lucky 1-of-1 does not take first place. The column is *starred*, not
     kept: nothing records a rejection, so an untouched night reads 0% rather
     than unknown. Size is always in the grouping - a 4 MP re-render is not
-    the same setting as its 1 MP source.
+    the same setting as its 1 MP source. Rows rank by rate, then by count;
+    a tie keeps the order the settings were first made in, so an untouched
+    comparison reads its versions as the grid wrote them.
     """
     unknown = [name for name in by if name not in _GROUPS]
     if unknown:
@@ -912,7 +920,7 @@ def keep_rates(
                 FROM images {clause}
                 GROUP BY {group}
                 HAVING made >= ?
-                ORDER BY CAST(starred AS REAL) / made DESC, made DESC""",
+                ORDER BY CAST(starred AS REAL) / made DESC, made DESC, MIN(id)""",
             (*params, min_made),
         ).fetchall()
     return [

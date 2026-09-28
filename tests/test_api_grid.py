@@ -2,6 +2,8 @@
 re-render, the seeds it publishes and the gallery paging behind it."""
 from __future__ import annotations
 
+import json
+
 import pytest
 from PIL import Image
 
@@ -263,9 +265,19 @@ def test_variants_that_do_not_line_up_are_a_422(client, fake):
     nameless = client.post("/api/grid/preview", json={**body, "prompt_variants": blank})
     assert nameless.status_code == 422
     assert "needs a label" in nameless.json()["detail"]
-    # One variant is not a comparison.
+    # One variant is not a comparison, and nine are more than one grid takes;
+    # eight, the most, are all run.
     alone = client.post("/api/grid/preview", json={**body, "prompt_variants": VARIANTS[:1]})
     assert alone.status_code == 422
+    nine = [{"label": f"v{n}", "prompt": f"a dog, take {n}"} for n in range(9)]
+    too_many = client.post("/api/grid/preview", json={**body, "prompt_variants": nine})
+    assert too_many.status_code == 422
+    assert [(e["type"], e["loc"][-1]) for e in too_many.json()["detail"]] == [
+        ("too_long", "prompt_variants")
+    ]
+    eight = client.post("/api/grid/preview", json={**body, "prompt_variants": nine[:8]})
+    assert eight.status_code == 200, eight.text
+    assert eight.json()["values"]["variant"] == [f"v{n}" for n in range(8)]
     # A negative-prompt placeholder has nothing to fill it beside variants.
     unfilled = client.post("/api/grid", json={**body, "negative_prompt": "{avoid}"})
     assert unfilled.status_code == 422
@@ -299,6 +311,49 @@ def test_a_variant_grid_resumes_on_its_prompts(client, fake):
     renamed = [{**variant, "label": f"v{n}"} for n, variant in enumerate(VARIANTS)]
     again = client.post("/api/grid", json={**body, "prompt_variants": renamed, "resume": True})
     assert again.status_code == 409
+
+
+def test_the_stats_give_a_comparison_its_starred_rate_per_version(
+    client, fake, store, monkeypatch, capsys
+):
+    # Reorders share their opening words, which is all a table cell holds, so
+    # `--by prompt` printed one identical row per version; the label is what
+    # tells them apart. The rewrite is written first, so written order cannot
+    # pass for the labels' alphabetical one.
+    from backend import stats
+
+    monkeypatch.setattr(stats, "settings", store.settings)
+    opening = "A woman in a red dress standing on a pier at dusk"
+    versions = [
+        {"label": "rewrite",
+         "prompt": "A woman in a red dress\r\n\tstanding on a pier as gulls wheel."},
+        {"label": "original", "prompt": f"{opening}, gulls overhead, film grain"},
+        {"label": "reordered", "prompt": f"{opening}, film grain, gulls overhead"},
+    ]
+    _, events = run_grid(client, prompt_variants=versions, seeds=4, seed=30)
+    images = events[-1]["images"]
+
+    def table(by):
+        assert stats.main(["--run", images[0]["run_id"], "--by", by, "--min", "4"]) == 0
+        out = capsys.readouterr().out
+        # A tab is no column break; the table pads with spaces.
+        assert "\t" not in out
+        # Past the scope, the grouping, a blank line, the header and its rule.
+        return [line.split() for line in out.splitlines()[5:]]
+
+    # Nothing starred yet: every rate ties, and the versions read as written.
+    assert [row[0] for row in table("variant")] == ["rewrite", "original", "reordered"]
+    wins = {"reordered": 4, "rewrite": 2, "original": 1}
+    for record in images:
+        if record["seed"] - 30 < wins[record["variables"]["variant"]]:
+            client.post(f"/api/images/{record['id']}/favorite?value=true")
+    assert [(row[0], row[-1]) for row in table("variant")] == [
+        ("reordered", "100%"), ("rewrite", "50%"), ("original", "25%"),
+    ]
+    # By prompt, each version is still one row: the rewrite's line break and
+    # indent are folded rather than breaking the table.
+    rows = table("prompt")
+    assert len(rows) == 3 and [row[-1] for row in rows] == ["100%", "50%", "25%"]
 
 
 def test_resume_skips_only_the_prompt_it_already_rendered(client, store):
@@ -572,6 +627,26 @@ def test_a_selection_can_be_rendered_again_at_another_size(client, fake, store):
     ).status_code == 404
     # The pixel budget applies, as it does to both other producers.
     assert client.post("/api/rerender", json={"width": 2736, "height": 2736}).status_code == 422
+
+
+def test_a_rerender_keeps_each_cells_variables(client, fake, store):
+    # A comparison's version names live in its variables alone, and a `{var}`
+    # grid's assignment is what its sheet lays out; a re-render that dropped
+    # them left the new run's sheet a flat Prompt axis in alphabetical order.
+    run_grid(client, prompt_variants=VARIANTS, seed=3)
+    run_grid(client, prompt="a {size} dog", prompt_axis="size = big | none", seed=4)
+    accepted = client.post("/api/rerender", json={"width": 512, "height": 512, "favorites": False})
+    assert accepted.status_code == 200, accepted.text
+    images = stream_job(client, accepted.json()["job_id"])[-1]["images"]
+    assert [(r["prompt"], r["variables"], r["width"]) for r in images] == [
+        *((text, {"variant": label}, 512) for text, label in zip(TEXTS, LABELS)),
+        ("a big dog", {"size": "big"}, 512),
+        # `none` is an assignment too, and survives as one.
+        ("a dog", {"size": ""}, 512),
+    ]
+    # The PNG's own record carries it as well, for a reindex to bring back.
+    with Image.open(store.settings.outputs_dir / images[0]["filename"]) as png:
+        assert json.loads(png.info["local-diffusion"])["variables"] == {"variant": LABELS[0]}
 
 
 def test_a_rerender_refuses_another_checkpoints_records(client, fake, store):

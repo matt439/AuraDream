@@ -365,6 +365,14 @@ def _duration(seconds: float) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Redirected to an overnight log, stdout on Windows encodes with the
+    # locale's code page, where a CJK or emoji prompt was a UnicodeEncodeError
+    # at the header, before anything ran. So does `> NUL`, which answers
+    # isatty(); the Windows console is UTF-8 already. Elsewhere a terminal
+    # keeps its own encoding. A StringIO has none to change, and under pythonw
+    # there is no stdout.
+    if hasattr(sys.stdout, "reconfigure") and (sys.platform == "win32" or not sys.stdout.isatty()):
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = _build_parser()
     args = parser.parse_args(argv)
     # The PNG first, so its checkpoint can reach LOCAL_DIFFUSION_MODEL_ID before the

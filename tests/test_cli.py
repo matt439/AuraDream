@@ -7,7 +7,9 @@ in the terminal cannot drift apart - kept until now by shared code alone.
 from __future__ import annotations
 
 import dataclasses
+import io
 import signal
+import sys
 
 import pytest
 
@@ -59,6 +61,53 @@ def test_a_dry_run_loads_and_writes_nothing(cli, store, capsys):
     out, err = capsys.readouterr()
     assert "seed     : 7" in out and "run      : " in out
     assert "Dry run" in err  # stderr, so `--quiet > paths.txt` stays paths
+
+
+def test_the_header_writes_utf8_where_its_output_is_redirected(cli, store, monkeypatch):
+    # `> night.log` on Windows: stdout is the locale's code page, strict, and a
+    # CJK or emoji prompt was a UnicodeEncodeError at the header, before
+    # anything ran.
+    redirected = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(redirected, encoding="cp1252"))
+    assert generate.main(["一只狐狸 🦊", "--dry-run", "--seed", "7", *SIZE]) == 0
+    sys.stdout.flush()
+    assert "prompt   : 一只狐狸 🦊" in redirected.getvalue().decode("utf-8")
+
+
+class _Nul(io.BytesIO):
+    """`> NUL` on Windows: a character device, so isatty() answers True."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.mark.parametrize("name", ["generate", "stats", "clear", "reindex"])
+def test_every_cli_sets_up_its_stdout_the_same_way(name, monkeypatch):
+    # Four copies of one block at the top of main(), held to one behaviour
+    # here; `--help` runs it and touches nothing else.
+    import importlib
+
+    main = importlib.import_module(f"backend.{name}").main
+
+    def helped(stream):
+        monkeypatch.setattr(sys, "stdout", stream)
+        with pytest.raises(SystemExit) as stopped:
+            main(["--help"])
+        assert stopped.value.code == 0
+        return sys.stdout
+
+    # pythonw has no stdout, and printing to None is a no-op: the setup must
+    # not be what fails a scheduled `clear --yes`.
+    helped(None)
+    # A StringIO holds text, with no encoding to change.
+    assert "usage:" in helped(io.StringIO()).getvalue()
+    # Redirected to a file or a pipe: UTF-8, whatever the code page.
+    assert helped(io.TextIOWrapper(io.BytesIO(), encoding="cp1252")).encoding == "utf-8"
+    # `> NUL` answers isatty() and still encodes with the code page, so on
+    # Windows it is UTF-8 too - the console itself is UTF-8 already. Elsewhere
+    # a terminal keeps its own encoding.
+    nul = helped(io.TextIOWrapper(_Nul(), encoding="cp1252"))
+    assert nul.encoding == ("utf-8" if sys.platform == "win32" else "cp1252")
 
 
 def test_a_dry_run_with_resume_creates_no_database(cli, store):
