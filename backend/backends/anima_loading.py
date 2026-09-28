@@ -15,7 +15,7 @@ from typing import Any
 
 # Resolve the app's remote-kernel policy even for direct converter imports.
 from .. import config as _config  # noqa: F401
-from .single_file import cache_root
+from .single_file import cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 
@@ -150,12 +150,16 @@ def resolve_model(model_id: str, quantization: str) -> str:
     root = target.parent
     root.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(root / f"{target.name}.lock"):
+        # Converted or not: leftovers from before a finished conversion count too.
+        sweep_work(target)
         if _converted(target, marker, recipe):
             return str(target)
         if target.exists():
             raise RuntimeError(f"Incomplete converted model cache; remove {target} and retry.")
         log.info("converting official Anima Turbo v1.1 on CPU once: %s", target)
-        with TemporaryDirectory(prefix=f"{target.name}-", dir=root) as work:
+        # A cleanup that meets an open file leaves the rest to the next load's
+        # sweep rather than raising over the conversion's own error.
+        with TemporaryDirectory(prefix=f"{target.name}-", dir=root, ignore_cleanup_errors=True) as work:
             tree = Path(work) / "tree"
             _convert(tree)
             if not (tree / "model_index.json").is_file():

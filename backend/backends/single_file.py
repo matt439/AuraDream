@@ -9,6 +9,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -70,6 +72,48 @@ def cache_root() -> Path:
     from huggingface_hub.constants import HF_HOME
 
     return Path(HF_HOME) / "local-diffusion" / "converted"
+
+
+def _is_work(path: Path, target: Path) -> bool:
+    """Whether `path` is exactly one of `target`'s conversion work directories.
+
+    Its name is the target's, a hyphen and the eight characters `tempfile`
+    adds; it is a real directory, not a link or junction; and it holds nothing
+    but the `tree` a converter saves into - never a published tree, nor a
+    user's copy named like one.
+    """
+    if not re.fullmatch(re.escape(target.name) + r"-[a-z0-9_]{8}", path.name):
+        return False
+    if path.is_symlink() or path.is_junction() or not path.is_dir():
+        return False
+    try:
+        return {entry.name for entry in path.iterdir()} <= {"tree"}
+    except OSError:
+        return False
+
+
+def sweep_work(target: Path) -> None:
+    """Remove what interrupted conversions left beside `target`.
+
+    Each saves into a work directory that removes itself on the way out - but
+    not after a hard kill, nor on Windows whenever that cleanup meets a file
+    still open or still being deleted, and each such attempt can leave a
+    partial tree as large as the converted one (about 5 GB for Anima to 15 GB
+    for NewBie). Call it under the target's lock, which a conversion holds
+    until it is done with its work directory, so every one found is stale.
+    Local and best-effort: nothing here fails a load, and what cannot go yet
+    is tried again on the next.
+    """
+    try:
+        found = [path for path in target.parent.iterdir() if _is_work(path, target)]
+    except OSError:
+        return
+    for stale in found:
+        shutil.rmtree(stale, ignore_errors=True)
+        if stale.exists():
+            log.warning("could not remove an interrupted conversion yet: %s", stale)
+        else:
+            log.warning("removed an interrupted conversion: %s", stale)
 
 
 def _convert(destination: Path, model_id: str = ILLUSTRIOUS_ID) -> None:
@@ -157,6 +201,8 @@ def resolve_model(model_id: str, quantization: str) -> str:
     # Server and CLI processes may ask at the same time. Publish only a fully
     # saved tree; a failed conversion leaves no cache hit for the next load.
     with WeakFileLock(root / f"{target.name}.lock"):
+        # Converted or not: leftovers from before a finished conversion count too.
+        sweep_work(target)
         if _converted(target, marker, recipe):
             return str(target)
         if target.exists():
@@ -165,7 +211,9 @@ def resolve_model(model_id: str, quantization: str) -> str:
             "converting %s on CPU once (6.94 GB download plus about 7 GB cached tree): %s",
             entry.recipe["source"]["repo_id"], target,
         )
-        with TemporaryDirectory(prefix=f"{target.name}-", dir=root) as work:
+        # A cleanup that meets an open file leaves the rest to the next load's
+        # sweep rather than raising over the conversion's own error.
+        with TemporaryDirectory(prefix=f"{target.name}-", dir=root, ignore_cleanup_errors=True) as work:
             tree = Path(work) / "tree"
             _convert(tree, model_id)
             if not (tree / "model_index.json").is_file():

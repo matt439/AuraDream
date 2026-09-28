@@ -71,6 +71,76 @@ def test_failed_conversion_leaves_no_partial_tree_and_can_retry(monkeypatch, con
     assert len(conversion) == 2
 
 
+def test_a_failed_conversion_reports_its_own_error_past_an_open_file(monkeypatch, conversion, tmp_path):
+    # On Windows a file still open stops the work directory's cleanup: the
+    # caller still hears why the conversion failed, and the next load sweeps.
+    convert = module._convert
+    held = []
+
+    def fail(path):
+        convert(path)
+        held.append((path / "model_index.json").open("rb"))
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(module, "_convert", fail)
+    try:
+        with pytest.raises(RuntimeError, match="disk full"):
+            module.resolve_model(module.MODEL_ID, "none")
+    finally:
+        for handle in held:
+            handle.close()
+    monkeypatch.setattr(module, "_convert", convert)
+    result = module.resolve_model(module.MODEL_ID, "none")
+    assert [path.name for path in tmp_path.iterdir() if path.is_dir()] == [Path(result).name]
+    assert len(conversion) == 2
+
+
+def test_an_interrupted_conversions_work_directory_is_swept(conversion, tmp_path):
+    target, _, _ = module._target()
+    stale = tmp_path / f"{target.name}-k3j9_0q1"
+    (stale / "tree" / "transformer").mkdir(parents=True)
+    # Named like one but not one: a longer or shorter suffix and a copy of a
+    # published tree.
+    longer = tmp_path / f"{target.name}-k3j9_0q1x"
+    (longer / "tree").mkdir(parents=True)
+    shorter = tmp_path / f"{target.name}-old"
+    (shorter / "tree").mkdir(parents=True)
+    copy = tmp_path / f"{target.name}-backup01"
+    copy.mkdir()
+    (copy / "model_index.json").write_text("{}")
+    first = module.resolve_model(module.MODEL_ID, "fp8")
+    assert not stale.exists()
+    assert (longer / "tree").is_dir() and (shorter / "tree").is_dir() and (copy / "model_index.json").is_file()
+    # Once converted, the next load still sweeps and converts nothing.
+    (stale / "tree").mkdir(parents=True)
+    assert module.resolve_model(module.MODEL_ID, "fp8") == first
+    assert not stale.exists()
+    assert len(conversion) == 1
+
+
+def test_the_sweep_waits_for_a_conversion_holding_the_lock(conversion, tmp_path):
+    # Another process's conversion, mid-save: it holds the lock, and its work
+    # directory is live until it lets go.
+    import threading
+
+    from huggingface_hub.utils import WeakFileLock
+
+    target, _, _ = module._target()
+    live = tmp_path / f"{target.name}-live0001"
+    answer: list[str] = []
+    with WeakFileLock(tmp_path / f"{target.name}.lock"):
+        (live / "tree").mkdir(parents=True)
+        worker = threading.Thread(target=lambda: answer.append(module.resolve_model(module.MODEL_ID, "fp8")))
+        worker.start()
+        worker.join(0.5)
+        waited, kept = worker.is_alive(), live.is_dir()
+    # Joined before any assert, so a failure never leaves it running into the next test.
+    worker.join(10)
+    assert waited and kept
+    assert answer == [str(target)]
+    assert not live.exists()
+
+
 @pytest.mark.parametrize("marker_text", [None, "stale recipe"])
 def test_existing_incomplete_or_stale_cache_is_never_overwritten(conversion, marker_text):
     target, marker, _ = module._target()

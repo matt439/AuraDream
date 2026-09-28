@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from .. import config as _config  # noqa: F401 - before Diffusers
-from .single_file import cache_root
+from .single_file import cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 MODEL_ID = "NewBie-AI/NewBie-image-Exp0.1"
@@ -117,12 +117,18 @@ def resolve_model(model_id: str, quantization: str) -> str:
     target, marker, recipe = _target()
     target.parent.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(target.parent / f"{target.name}.lock"):
+        # Converted or not: leftovers from before a finished conversion count too.
+        sweep_work(target)
         if _converted(target, marker, recipe):
             return str(target)
         if target.exists():
             raise RuntimeError(f"Incomplete converted model cache; remove {target} and retry.")
         log.info("converting pinned NewBie components on CPU once: %s", target)
-        with TemporaryDirectory(prefix=f"{target.name}-", dir=target.parent) as work:
+        # A cleanup that meets an open file leaves the rest to the next load's
+        # sweep rather than raising over the conversion's own error.
+        with TemporaryDirectory(
+            prefix=f"{target.name}-", dir=target.parent, ignore_cleanup_errors=True,
+        ) as work:
             tree = Path(work) / "tree"
             _convert(tree)
             if not (tree / "model_index.json").is_file():
