@@ -294,11 +294,15 @@ class WordTokenizer:
     added token typed into the text is split out whole - roughly how the real
     ones count English, which is enough for budgets, cut points and control
     tokens to come out where a reader expects them. Characters in `unknown`
-    map to the unk id, as T5's missing braces do.
+    map to the unk id, as T5's missing braces do. With `newlines`, a run of
+    newlines is one token too, as Qwen's byte-level BPE merges it: its chat
+    templates put one between every turn, so the templated budgets come out
+    as the real ones only when they count.
     """
 
     def __init__(
-        self, *, max_length: int, special: int, added=(), unknown: str = "", template=None
+        self, *, max_length: int, special: int, added=(), unknown: str = "", template=None,
+        newlines: bool = False,
     ) -> None:
         self.model_max_length = max_length
         self.special = special
@@ -313,6 +317,8 @@ class WordTokenizer:
         parts = [re.escape(content) for content in sorted(self._ids, key=len, reverse=True)]
         if unknown:
             parts.append(f"[{re.escape(unknown)}]")
+        if newlines:
+            parts.append(r"\n+")
         self._pattern = re.compile("|".join([*parts, r"\w+", r"[^\w\s]"]))
         self._lock = threading.Lock()
 
@@ -358,7 +364,8 @@ def _word_tokenizer(spec: prompt_encoding.EncoderSpec) -> WordTokenizer:
     """One per encoder family, with the length and special tokens the real
     tokenizer has, so every budget is the one part A's table measured: CLIP
     75, T5 511, ERNIE 2047, Jina 2046, and the templated ones what their
-    templates leave."""
+    templates leave - Krea 2 507, klein, Z-Image and Z-Anime 509, Qwen-Image
+    512 (`test_prompt_encoding.py` holds them to its REAL table)."""
     name = spec.name
     if name.startswith("CLIP"):
         return WordTokenizer(
@@ -371,7 +378,9 @@ def _word_tokenizer(spec: prompt_encoding.EncoderSpec) -> WordTokenizer:
         # `<think>` is a control token only where the template uses it:
         # Z-Image's and klein's, which render the chat template.
         template = "<|im_start|> <think> </think>" if spec.chat_thinking is not None else None
-        return WordTokenizer(max_length=131072, special=0, added=_QWEN_ADDED, template=template)
+        return WordTokenizer(
+            max_length=131072, special=0, added=_QWEN_ADDED, template=template, newlines=True
+        )
     if name.startswith("Gemma"):
         added = (("<pad>", True), ("<eos>", True), ("<bos>", True))
         return WordTokenizer(max_length=8192, special=1, added=added)

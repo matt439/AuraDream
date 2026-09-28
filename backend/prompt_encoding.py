@@ -22,9 +22,12 @@ rather than this module's answers.
 
 **Tokenizers load lazily, on the CPU, and failure is an answer.** A gated
 repo or a first use with no network leaves that encoder unchecked with a
-one-line reason; `measure` never raises. A loaded tokenizer stays cached until
-`unload()`, which the model's Unload also calls - but no status route ever
-loads one, because the first load can be a download.
+one-line reason; `measure` never raises. A load runs on a daemon thread of its
+own, outside the cache's lock, and a check waits `LOAD_WAIT` seconds for it at
+most: the Hub's client has no timeout, and a stalled fetch must cost the
+checks their counts, never hold Unload or shutdown. A loaded tokenizer stays
+cached until `unload()`, which the model's Unload also calls - but no status
+route ever loads one, because the first load can be a download.
 
 Weighting syntax (`(x:1.2)`, `((x))`, `BREAK`, `<lora:...>`) is reported here
 too: no pipeline in diffusers parses it, so it is a fact about what reaches
@@ -39,6 +42,8 @@ import logging
 import os
 import re
 import threading
+import time
+import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
@@ -142,6 +147,8 @@ class EncoderSpec:
     # The negative prompt: the same template, bare (Lumina 2's system prompt
     # joins the prompt only), or never encoded (klein takes none).
     negative: Literal["same", "bare", "none"] = "same"
+    # What the reading is, beside its budget. A bare negative has none of
+    # the template a role like NetaYume's describes, so it takes no role.
     role: str | None = None
     # FLUX.1's CLIP-L feeds one pooled vector while T5 carries the sequence,
     # so its cut is advice rather than lost text.
@@ -150,6 +157,9 @@ class EncoderSpec:
     @property
     def cite(self) -> str:
         return f"{self.statement} ({self.file})"
+
+    def role_for(self, field: Field) -> str | None:
+        return None if field == "negative_prompt" and self.negative == "bare" else self.role
 
 
 # --- the table ----------------------------------------------------------------
@@ -418,8 +428,28 @@ class _Loaded(NamedTuple):
     controls: dict[int, str]
 
 
+class _Pending:
+    """One tokenizer load in flight, for every check that wants it."""
+
+    def __init__(self, source: TokenizerSource) -> None:
+        self.source = source
+        self.done = threading.Event()
+        self.loaded: _Loaded | None = None
+        self.error: BaseException | None = None
+
+
+class StillLoading(TimeoutError):
+    """A load that outlasted a check's wait. It goes on in the background,
+    and the next check finds it cached."""
+
+
+# How long one check waits for the tokenizers it starts loading, all together.
+LOAD_WAIT = 30.0
+
+# Guards the two dicts only, never a load: `unload()` must not wait on I/O.
 _lock = threading.Lock()
 _tokenizers: dict[TokenizerSource, _Loaded] = {}
+_loading: dict[TokenizerSource, _Pending] = {}
 
 _UNKNOWN_PLACES = 8
 _MARKUP = re.compile(r"<\|?/?[^<>\s|]+\|?>|\[/?[A-Z_]+\]")
@@ -521,22 +551,75 @@ def _control_tokens(tokenizer: Any) -> dict[int, str]:
     return controls
 
 
-def _cached(source: TokenizerSource) -> _Loaded:
-    """Under `_lock`. Assign only after success: a failed first load (gated,
-    offline) is retried on the next analysis instead of cached as broken."""
-    loaded = _tokenizers.get(source)
-    if loaded is None:
+def _fetch(pending: _Pending) -> None:
+    """The load itself, on its own daemon thread. Cached only after success,
+    so a failed first load (gated, offline) is retried by the next check, and
+    only while still registered: one that lands after `unload()` is handed to
+    the checks waiting on it and then dropped."""
+    source = pending.source
+    try:
         tokenizer = _load_tokenizer(source)
-        loaded = _Loaded(tokenizer, _control_tokens(tokenizer))
-        _tokenizers[source] = loaded
-    return loaded
+        pending.loaded = _Loaded(tokenizer, _control_tokens(tokenizer))
+    except BaseException as exc:  # noqa: BLE001 - raised again in the waiting check
+        pending.error = exc
+    finally:
+        with _lock:
+            if _loading.get(source) is pending:
+                del _loading[source]
+                if pending.loaded is not None:
+                    _tokenizers[source] = pending.loaded
+        pending.done.set()
+
+
+def _start(source: TokenizerSource) -> _Loaded | _Pending:
+    """The cached tokenizer, or the load in flight - begun here if none is,
+    so concurrent checks share one load. Never waits. (After `unload()` the
+    next check begins a load of its own: a stalled one is forgotten, not
+    stopped, and its thread lives on until it returns or the process ends.)"""
+    with _lock:
+        loaded = _tokenizers.get(source)
+        if loaded is not None:
+            return loaded
+        pending = _loading.get(source)
+        if pending is None:
+            pending = _loading[source] = _Pending(source)
+            thread = threading.Thread(
+                target=_fetch, args=(pending,), daemon=True, name="tokenizer-load"
+            )
+            try:
+                thread.start()
+            except RuntimeError as exc:  # no new threads while the process exits
+                del _loading[source]
+                pending.error = exc
+                pending.done.set()
+        return pending
+
+
+def _wait(state: _Loaded | _Pending, deadline: float) -> _Loaded:
+    """The tokenizer, once its load lands, waiting until `deadline`
+    (monotonic) at most; raises what the load raised."""
+    if isinstance(state, _Loaded):
+        return state
+    if not state.done.wait(max(0.0, deadline - time.monotonic())):
+        # For the log; the page's words key on the class (`_HUB_REASONS`).
+        raise StillLoading(
+            f"{state.source.label} still loading when the check's {LOAD_WAIT:g} s wait ran out"
+        )
+    if state.loaded is None:
+        raise state.error or FileNotFoundError(state.source.label)
+    return state.loaded
 
 
 def unload() -> None:
-    """Drop every cached tokenizer - along with the pipeline on Unload."""
+    """Drop every cached tokenizer - along with the pipeline on Unload.
+
+    Never waits: a load in flight is forgotten, not joined, and what it
+    brings back is not cached.
+    """
     with _lock:
         loaded = bool(_tokenizers)
         _tokenizers.clear()
+        _loading.clear()
     if loaded:
         gc.collect()
 
@@ -556,6 +639,7 @@ class _Reading:
     # text they start being lost; None where there is no tail to lose.
     clean: int | None
     tail_start: int | None
+    # (start, end, the control token as the tokenizer stores it)
     controls: list[tuple[int, int, str]]
     unknown: list[tuple[int, int]]
 
@@ -627,6 +711,7 @@ def _read(spec: EncoderSpec, loaded: _Loaded, field: Field, text: str) -> _Readi
     unknown: list[tuple[int, int]] = []
     unk_id = getattr(tokenizer, "unk_token_id", None)
     unk_text = getattr(tokenizer, "unk_token", None)
+    normal = _normalizer(tokenizer)
     for j in range(first, last + 1):
         s, e = offsets[j]
         piece = built[s:e]
@@ -635,13 +720,24 @@ def _read(spec: EncoderSpec, loaded: _Loaded, field: Field, text: str) -> _Readi
             continue
         lead = s + len(piece) - len(piece.lstrip()) - start
         span = (max(lead, 0), min(lead + len(stripped), len(text)))
-        if loaded.controls.get(ids[j]) == stripped:
-            controls.append((*span, stripped))
+        # Compared as the tokenizer compares them: CLIP lowercases before it
+        # matches its added tokens, so "<|EndOfText|>" is its EOS - and, EOS
+        # being CLIP's unk id too, would otherwise read as an unknown character.
+        control = loaded.controls.get(ids[j])
+        if control is not None and normal(stripped) == normal(control):
+            controls.append((*span, control))
         elif unk_id is not None and ids[j] == unk_id and stripped != unk_text:
             unknown.append(span)
     return _Reading(
         spec, field, text, tokens, budget, cut, clean, tail_start, controls, _runs(text, unknown)
     )
+
+
+def _normalizer(tokenizer: Any) -> Callable[[str], str]:
+    """The fast tokenizer's own normalizer, or the text unchanged."""
+    backend = getattr(tokenizer, "backend_tokenizer", None)
+    normalizer = getattr(backend, "normalizer", None)
+    return normalizer.normalize_str if normalizer is not None else str
 
 
 def _runs(text: str, spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -873,14 +969,27 @@ def _snippet(text: str, start: int, limit: int = 40) -> str:
     begin = start
 
     def inside_word(index: int) -> bool:
-        return not text[index].isspace() and text[index] not in ",;"
+        # Han and kana, and their 、，。, are wide: Chinese and Japanese put no
+        # spaces between words, so each such character stands alone. Hangul
+        # is wide too, but Korean spaces its words.
+        char = text[index]
+        if char.isspace() or char in ",;":
+            return False
+        return (
+            unicodedata.east_asian_width(char) not in ("W", "F")
+            or unicodedata.name(char, "").startswith("HANGUL")
+        )
 
     # A cut inside a word ("snow|-covered", T5's "forest|3") quotes the word
-    # it splits; a cut at a comma quotes the tag after it.
+    # it splits; a cut at a comma quotes the tag after it. A "word" longer
+    # than half the snippet (a URL, Thai, a run of marks) is quoted from the
+    # cut instead: from its start the quote could end before reading stops.
     while 0 < begin < len(text) and inside_word(begin) and inside_word(begin - 1):
         begin -= 1
+    if start - begin > limit // 2:
+        begin = start
     rest = " ".join(text[begin:].split())
-    rest = rest.lstrip(",;: ") or rest
+    rest = rest.lstrip(",;: 、，。；：") or rest
     if len(rest) <= limit:
         return rest
     space = rest.rfind(" ", 0, limit)
@@ -975,12 +1084,14 @@ def _span_findings(readings: list[_Reading]) -> list[PromptFinding]:
     findings = []
     for (field, start, end, content), group in controls.items():
         names = [reading.spec.name for reading in group]
+        # As typed, which may differ in case from the token the cite names.
+        typed = group[0].text[start:end]
         findings.append(
             PromptFinding(
                 rule="encoder.control_token",
                 severity="warn",
                 message=(
-                    f'{_join(names)} {"read" if len(names) > 1 else "reads"} "{content}" as a '
+                    f'{_join(names)} {"read" if len(names) > 1 else "reads"} "{typed}" as a '
                     "control token, not as text."
                 ),
                 field=field,
@@ -1029,8 +1140,11 @@ def _span_findings(readings: list[_Reading]) -> list[PromptFinding]:
 
 
 # huggingface_hub's errors, by class name, in words the page can show: their
-# own first lines are an HTTP status and a request id.
+# own first lines are an HTTP status and a request id. And this module's own
+# wait, whose load goes on without the check.
 _HUB_REASONS = {
+    "StillLoading": "the tokenizer is still loading (a first use downloads it) - check again "
+    "in a moment",
     "GatedRepoError": "the tokenizer's repo is gated - accept its terms on huggingface.co "
     "and log in",
     "RepositoryNotFoundError": "the tokenizer's repo is not on the Hub, or is private",
@@ -1039,11 +1153,7 @@ _HUB_REASONS = {
 }
 
 
-def _detail(failures: list[tuple[str, Exception]]) -> str | None:
-    if not failures:
-        return None
-    names = list(dict.fromkeys(name for name, _ in failures))
-    exc = failures[0][1]
+def _reason(exc: Exception) -> str:
     known = (_HUB_REASONS.get(kind.__name__) for kind in type(exc).__mro__)
     reason = next((text for text in known if text), None)
     if reason is None:
@@ -1051,7 +1161,20 @@ def _detail(failures: list[tuple[str, Exception]]) -> str | None:
         reason = f"{type(exc).__name__}: {first}" if first else type(exc).__name__
     if len(reason) > 200:
         reason = reason[:197] + "..."
-    return f"{_join(names)} unchecked: {reason}"
+    return reason
+
+
+def _detail(failures: list[tuple[str, Exception]]) -> str | None:
+    """Each unchecked encoder under its own reason: "check again in a moment"
+    must not speak for a tokenizer that is gated or broken."""
+    by_reason: dict[str, list[str]] = {}
+    for name, exc in failures:
+        names = by_reason.setdefault(_reason(exc), [])
+        if name not in names:
+            names.append(name)
+    return "; ".join(
+        f"{_join(names)} unchecked: {reason}" for reason, names in by_reason.items()
+    ) or None
 
 
 def _one_line(lines: list[str | None]) -> str | None:
@@ -1096,18 +1219,22 @@ def measure(
 
     readings: list[_Reading] = []
     failures: list[tuple[str, Exception]] = []
-    with _lock:
-        for field, text in fields:
-            for spec in specs:
-                if field == "negative_prompt" and spec.negative == "none":
-                    continue
-                if any(name == spec.name for name, _ in failures):
-                    continue
-                try:
-                    readings.append(_read(spec, _cached(spec.source), field, text))
-                except Exception as exc:  # noqa: BLE001 - unchecked, never an error
-                    log.info("prompt analysis: %s unchecked: %s", spec.name, exc)
-                    failures.append((spec.name, exc))
+    # Every first load starts before any is waited for, so they download side
+    # by side within the one bound, and both fields read what one load gave.
+    deadline = time.monotonic() + LOAD_WAIT
+    started = {spec.source: _start(spec.source) for spec in specs}
+    for field, text in fields:
+        for spec in specs:
+            if field == "negative_prompt" and spec.negative == "none":
+                continue
+            if any(name == spec.name for name, _ in failures):
+                continue
+            try:
+                loaded = _wait(started[spec.source], deadline)
+                readings.append(_read(spec, loaded, field, text))
+            except Exception as exc:  # noqa: BLE001 - unchecked, never an error
+                log.info("prompt analysis: %s unchecked: %s", spec.name, exc)
+                failures.append((spec.name, exc))
 
     reports = [
         EncoderReport(
@@ -1116,7 +1243,7 @@ def measure(
             tokens=reading.tokens,
             budget=reading.budget,
             cut=reading.cut,
-            role=reading.spec.role,
+            role=reading.spec.role_for(reading.field),
             pooled_only=reading.spec.pooled_only,
             source=reading.spec.source.label,
         )

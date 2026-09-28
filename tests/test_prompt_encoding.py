@@ -4,24 +4,30 @@ Nothing here downloads or loads a real tokenizer unless one is already in the
 Hub cache (the last tests, which skip otherwise). The fakes split words and
 punctuation marks with offsets, which is enough to check the arithmetic: what
 a template costs, what the pipeline's truncation keeps, and where in the
-user's own text reading stops.
+user's own text reading stops. A stub load that never returns stands for a
+stalled first-use fetch: what it may hold up - nothing but its own count -
+is checked here, through the app's Unload and Check routes too.
 """
 from __future__ import annotations
 
 import ast
+import dataclasses
 import fnmatch
 import importlib.util
 import re
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import NamedTuple
 
 import pytest
+from jinja2 import TemplateError
 
-from backend import launch, model_defaults
+from backend import launch, main, model_defaults
 from backend import prompt_encoding as pe
 from backend.backends import anima_loading, loading, netayume_loading, newbie_loading, single_file
+from tests import fakes
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,10 +41,14 @@ class FakeTokenizer:
     """Words and single punctuation marks as tokens, with offsets.
 
     Added tokens are split out of typed text whole, as the real tokenizers
-    do; characters in `unknown` map to the unk id.
+    do; characters in `unknown` map to the unk id. `lowercase` is CLIP's
+    normalizer, which runs before the added tokens are matched.
     """
 
-    def __init__(self, *, max_length=77, special=0, added=(), unknown="", template=None):
+    def __init__(
+        self, *, max_length=77, special=0, added=(), unknown="", template=None, unk="<unk>",
+        lowercase=False,
+    ):
         self.model_max_length = max_length
         self.special = special
         self.chat_template = template
@@ -47,8 +57,12 @@ class FakeTokenizer:
         self.all_special_ids = [
             i for i, added in self.added_tokens_decoder.items() if added.special
         ]
-        self.unk_token = "<unk>"
-        self.unk_token_id = self._ids.get("<unk>", 3)
+        self.unk_token = unk
+        self.unk_token_id = self._ids.get(unk, 3)
+        self._lowercase = lowercase
+        if lowercase:
+            normalizer = SimpleNamespace(normalize_str=str.lower)
+            self.backend_tokenizer = SimpleNamespace(normalizer=normalizer)
         self._unknown = set(unknown)
         self._vocab: dict[str, int] = {}
         parts = [re.escape(content) for content in sorted(self._ids, key=len, reverse=True)]
@@ -67,7 +81,7 @@ class FakeTokenizer:
     def __call__(self, text, add_special_tokens=True, return_offsets_mapping=False):
         assert add_special_tokens is False and return_offsets_mapping
         ids, offsets = [], []
-        for match in self._pattern.finditer(text):
+        for match in self._pattern.finditer(text.lower() if self._lowercase else text):
             piece = match.group()
             if piece in self._ids:
                 ids.append(self._ids[piece])
@@ -296,6 +310,36 @@ def test_a_cut_inside_a_word_quotes_the_whole_word(tokenizers):
     assert 'stop at "snow-covered hills"' in cut.message
 
 
+def test_a_cut_in_unspaced_text_quotes_where_reading_stops_not_the_opening(tokenizers):
+    # Japanese puts no spaces between words: a walk back to a space would
+    # quote the prompt's first words as where reading stops.
+    tokenizers.update(tokenizer=clip(), tokenizer_2=clip())
+    prompt = "、".join(f"桜{i}" for i in range(50))
+    _, findings, _ = pe.measure("KBlueLeaf/Kohaku-XL-Zeta", prompt, None)
+    (cut,) = rules(findings, "encoder.cut")
+    assert prompt[cut.start:].startswith("、桜38、")
+    assert 'stop at "桜38、桜39、' in cut.message
+
+
+JAPANESE = "青い髪の少女が桜の木の下で本を読んでいる、春の午後、柔らかな光。"
+
+
+@pytest.mark.parametrize("text, start, snippet", [
+    # Inside a word the whole word is quoted, as far as a wide character.
+    ("桜の木 black cat", 5, "black cat"),
+    ("桜の木black cat", 4, "black cat"),
+    # Unspaced text is quoted from the cut, a mark there skipped.
+    (JAPANESE, 9, "木の下で本を読んでいる、春の午後、柔らかな光。"),
+    (JAPANESE, 20, "春の午後、柔らかな光。"),
+    # A "word" longer than half the snippet is quoted from the cut too.
+    ("see https://example.com/some/very/long/path/to/a/page ok", 40, "ath/to/a/page ok"),
+    # Hangul is wide, but Korean spaces its words: a cut in one quotes it whole.
+    ("푸른 머리의 소녀가 벚꽃", 8, "소녀가 벚꽃"),
+])
+def test_the_cut_snippet_starts_at_the_word_the_cut_splits(text, start, snippet):
+    assert pe._snippet(text, start) == snippet
+
+
 def test_krea2_budget_is_what_the_system_turn_leaves_and_its_suffix_is_never_cut(tokenizers):
     fake = qwen()
     tokenizers.update(tokenizer=fake)
@@ -379,6 +423,8 @@ def test_netayume_shares_its_budget_with_the_instruction_and_its_negative_does_n
     assert by(reports)["Gemma 2 2B"].budget == pe.LUMINA_SEQUENCE - 1 - prefix
     assert by(reports, "negative_prompt")["Gemma 2 2B"].budget == pe.LUMINA_SEQUENCE - 1
     assert "system instruction" in by(reports)["Gemma 2 2B"].role
+    # The negative prompt is sent bare: it shares its budget with nothing.
+    assert by(reports, "negative_prompt")["Gemma 2 2B"].role is None
     # A role is not a pooled vector: the page draws a cut past it as a loss.
     assert not by(reports)["Gemma 2 2B"].pooled_only
 
@@ -393,9 +439,11 @@ def test_the_remaining_families_budgets(tokenizers):
         "Gemma 3 4B": 511, "Jina CLIP v2": 2046,
     }
     tokenizers.update(tokenizer=qwen(template=None), t5_tokenizer=t5())
-    reports, _, _ = pe.measure(anima_loading.MODEL_ID, "1girl, solo", None)
+    reports, _, _ = pe.measure(anima_loading.MODEL_ID, "1girl, solo", "lowres")
     assert {name: r.budget for name, r in by(reports).items()} == {"Qwen3-0.6B": 512, "T5 ids": 511}
+    # A role that is not about a template holds for the negative prompt too.
     assert "learned queries" in by(reports)["T5 ids"].role
+    assert by(reports, "negative_prompt")["T5 ids"].role == by(reports)["T5 ids"].role
     assert not any(report.pooled_only for report in reports)
 
 
@@ -415,6 +463,26 @@ def test_typed_control_tokens_are_flagged_where_the_tokenizer_parses_them(tokeni
     _, findings, _ = pe.measure("krea/Krea-2-Turbo", prompt, None)
     controls = rules(findings, "encoder.control_token")
     assert [prompt[f.start:f.end] for f in controls] == ["<|im_end|>"]
+
+
+def test_a_control_token_typed_in_another_case_is_one_where_the_tokenizer_says_so(tokenizers):
+    # CLIP lowercases before it matches its added tokens, and its unk id is
+    # its EOS: "<|EndOfText|>" is EOS, not an unknown character.
+    def clip_like():
+        return FakeTokenizer(
+            max_length=77, special=2, added=CLIP_ADDED, unk="<|endoftext|>", lowercase=True
+        )
+
+    tokenizers.update(tokenizer=clip_like(), tokenizer_2=clip_like())
+    prompt = "1girl, <|EndOfText|>, <|STARTOFTEXT|>, solo"
+    _, findings, _ = pe.measure("KBlueLeaf/Kohaku-XL-Zeta", prompt, None)
+    controls = rules(findings, "encoder.control_token")
+    assert [prompt[f.start:f.end] for f in controls] == ["<|EndOfText|>", "<|STARTOFTEXT|>"]
+    assert controls[0].message == (
+        'CLIP-L and CLIP-G read "<|EndOfText|>" as a control token, not as text.'
+    )
+    assert "parses <|endoftext|> as one of its control tokens" in controls[0].cite
+    assert not rules(findings, "encoder.unknown_chars")
 
 
 def test_gemma_html_tags_are_text_and_its_eos_is_not(tokenizers):
@@ -558,20 +626,38 @@ def test_a_deeply_nested_prompt_is_measured_not_raised(tokenizers, model_id, pro
         assert reports and detail is None
 
 
-def test_a_failing_syntax_pass_costs_its_findings_not_the_analysis(tokenizers, monkeypatch):
+# What the libraries under `measure` really raise beside the usual three: the
+# tokenizers library's bare Exception for a tokenizer.json it cannot read,
+# jinja2's TemplateError from a chat template, and plain Python errors.
+FAILURES = [
+    Exception("data did not match any variant of untagged enum ModelWrapper"),
+    TemplateError("unexpected end of template"),
+    KeyError("chat_template"),
+    TypeError("expected str, got NoneType"),
+]
+
+
+def _kind(error):
+    return type(error).__name__
+
+
+@pytest.mark.parametrize("error", [RuntimeError("boom"), *FAILURES], ids=_kind)
+def test_a_failing_syntax_pass_costs_its_findings_not_the_analysis(
+    tokenizers, monkeypatch, error
+):
     def broken(text):
-        raise RuntimeError("boom")
+        raise error
 
     monkeypatch.setattr(pe, "_weighting_spans", broken)
     tokenizers.update(tokenizer=clip(), tokenizer_2=clip())
     reports, findings, detail = pe.measure("KBlueLeaf/Kohaku-XL-Zeta", "(a:1.2), cat", None)
     assert [r.name for r in reports] == ["CLIP-L", "CLIP-G"]
     assert rules(findings, "encoder.weighting") == []
-    assert detail == "Weighting syntax unchecked: RuntimeError"
+    assert detail == f"Weighting syntax unchecked: {_kind(error)}"
     _, _, detail = pe.measure("someone/unknown-model", "(a:1.2), cat", None)
     assert detail == (
         "Token budgets unchecked: no encoder table entry for this checkpoint; "
-        "Weighting syntax unchecked: RuntimeError."
+        f"Weighting syntax unchecked: {_kind(error)}."
     )
 
 
@@ -601,6 +687,16 @@ def test_a_tokenizer_that_cannot_load_leaves_a_detail_not_an_exception(tokenizer
     assert [s.subfolder for s in tokenizers["loads"]].count("tokenizer_2") == 1
 
 
+@pytest.mark.parametrize("error", FAILURES, ids=_kind)
+def test_any_error_a_load_raises_leaves_its_encoder_unchecked(tokenizers, error):
+    tokenizers.update(tokenizer=clip(), tokenizer_2=error)
+    reports, _, detail = pe.measure("black-forest-labs/FLUX.1-dev", "a cat", "blurry")
+    assert [(r.name, r.field) for r in reports] == [
+        ("CLIP-L", "prompt"), ("CLIP-L", "negative_prompt"),
+    ]
+    assert detail.startswith(f"T5-XXL unchecked: {_kind(error)}")
+
+
 def test_hub_errors_are_said_in_words(tokenizers):
     from huggingface_hub.errors import GatedRepoError, LocalEntryNotFoundError
 
@@ -619,14 +715,26 @@ def test_hub_errors_are_said_in_words(tokenizers):
     )
 
 
-def test_a_tokenizer_that_breaks_while_counting_is_unchecked_too(tokenizers):
-    class Slow(FakeTokenizer):
+@pytest.mark.parametrize(
+    "error", [NotImplementedError("return_offset_mapping is not available"), *FAILURES], ids=_kind
+)
+def test_a_tokenizer_that_breaks_while_counting_is_unchecked_too(tokenizers, error):
+    class Broken(FakeTokenizer):
         def __call__(self, *args, **kwargs):
-            raise NotImplementedError("return_offset_mapping is not available")
+            raise error
 
-    tokenizers.update(tokenizer=Slow(max_length=2048, special=1))
+    tokenizers.update(tokenizer=Broken(max_length=2048, special=1))
     reports, _, detail = pe.measure("baidu/ERNIE-Image-Turbo", "a cat", None)
-    assert reports == [] and detail.startswith("Ministral-3B unchecked: NotImplementedError")
+    assert reports == [] and detail.startswith(f"Ministral-3B unchecked: {_kind(error)}")
+
+    # A chat template that breaks is the same: Z-Image renders one per field.
+    class Unrendered(FakeTokenizer):
+        def apply_chat_template(self, messages, **kwargs):
+            raise error
+
+    tokenizers.update(tokenizer=Unrendered(added=QWEN_ADDED))
+    reports, _, detail = pe.measure("Tongyi-MAI/Z-Image-Turbo", "a cat", None)
+    assert reports == [] and detail.startswith(f"Qwen3-4B unchecked: {_kind(error)}")
 
 
 def test_a_failed_load_is_retried_and_a_good_one_is_kept_until_unload(tokenizers):
@@ -665,6 +773,184 @@ def test_concurrent_analyses_load_each_tokenizer_once(monkeypatch):
     assert sorted(loads) == ["tokenizer", "tokenizer_2"]
     assert len(results) == 4
     assert all(detail is None and len(reports) == 2 for reports, _, detail in results)
+
+
+class Stalled:
+    """A `_load_tokenizer` that blocks until released, as a first-use fetch
+    does on a stalled connection (the Hub's client has no timeout)."""
+
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self.loads = 0
+
+    def __call__(self, source):
+        self.loads += 1
+        self.entered.set()
+        self.release.wait(30)
+        return self.tokenizer
+
+
+@pytest.fixture
+def stalled(monkeypatch):
+    load = Stalled(tekken())
+    monkeypatch.setattr(pe, "_load_tokenizer", load)
+    yield load
+    load.release.set()
+
+
+def _in_thread(fn):
+    """`fn` started on a daemon thread; the list gets its result."""
+    result: list = []
+    thread = threading.Thread(target=lambda: result.append(fn()), daemon=True)
+    thread.start()
+    return thread, result
+
+
+def test_unload_never_waits_for_a_load_and_a_late_one_is_not_kept(stalled):
+    ernie = "baidu/ERNIE-Image-Turbo"
+    check, answers = _in_thread(lambda: pe.measure(ernie, "a cat", None))
+    assert stalled.entered.wait(5)
+    unloading, _ = _in_thread(pe.unload)
+    unloading.join(5)
+    assert not unloading.is_alive(), "unload() waited on the tokenizer fetch"
+    stalled.release.set()
+    check.join(5)
+    # The check that asked still reads what the load brought back ...
+    ((reports, _, detail),) = answers
+    assert detail is None and by(reports)["Ministral-3B"].budget == 2047
+    # ... but a load that lands after unload() is not cached.
+    assert pe._tokenizers == {} and pe._loading == {}
+    pe.measure(ernie, "a cat", None)
+    assert stalled.loads == 2 and len(pe._tokenizers) == 1
+
+
+def test_a_stalled_load_costs_the_check_its_count_and_lands_for_the_next(
+    stalled, monkeypatch, caplog
+):
+    ernie = "baidu/ERNIE-Image-Turbo"
+    monkeypatch.setattr(pe, "LOAD_WAIT", 0.2)
+    started = time.monotonic()
+    with caplog.at_level("INFO", logger=pe.log.name):
+        reports, findings, detail = pe.measure(ernie, "a cat BREAK a dog", None)
+    assert time.monotonic() - started < 5
+    assert reports == [] and detail == (
+        "Ministral-3B unchecked: the tokenizer is still loading (a first use downloads it) - "
+        "check again in a moment"
+    )
+    # The log says what timed out, not just which files.
+    assert "tokenizer still loading when the check's 0.2 s wait ran out" in caplog.text
+    # The rest of the analysis stands.
+    assert [f.rule for f in findings] == ["encoder.weighting"]
+    # A second check waits on the same load rather than starting its own ...
+    assert pe.measure(ernie, "a cat", None)[2] == detail
+    assert stalled.loads == 1
+    # ... and once it lands the next one reads it.
+    stalled.release.set()
+    monkeypatch.setattr(pe, "LOAD_WAIT", 5.0)
+    assert pe.measure(ernie, "a cat", None)[2] is None
+    assert stalled.loads == 1
+
+
+def test_a_load_still_in_flight_does_not_speak_for_one_that_failed(monkeypatch):
+    # "Check again in a moment" is true of the load still going only: a
+    # gated tokenizer beside it keeps its own reason, and a shared reason
+    # names both.
+    gemma, jina = pe.encoders_for(newbie_loading.MODEL_ID)
+    release = threading.Event()
+
+    def load(source):
+        if source == jina.source:
+            raise PermissionError("403 Client Error: gated")
+        release.wait(30)
+        return fakes.fake_tokenizer(source)
+
+    monkeypatch.setattr(pe, "_load_tokenizer", load)
+    monkeypatch.setattr(pe, "LOAD_WAIT", 0.2)
+    try:
+        detail = pe.measure(newbie_loading.MODEL_ID, "a cat", None)[2]
+    finally:
+        release.set()
+    assert detail == (
+        "Gemma 3 4B unchecked: the tokenizer is still loading (a first use downloads it) - "
+        "check again in a moment; Jina CLIP v2 unchecked: PermissionError: 403 Client Error: gated"
+    )
+    pe.unload()
+    monkeypatch.setattr(pe, "_load_tokenizer", lambda source: _raise(OSError("offline")))
+    assert pe.measure(newbie_loading.MODEL_ID, "a cat", None)[2] == (
+        "Gemma 3 4B and Jina CLIP v2 unchecked: OSError: offline"
+    )
+
+
+def _raise(error):
+    raise error
+
+
+# The routes around it: Unload answers while a Check waits on a first-use
+# fetch, and says so at once; Check and the critique's analysis and lint run
+# on daemon threads, which interpreter exit never joins.
+
+
+def claim(monkeypatch, model_id):
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id=model_id))
+
+
+def test_unload_answers_at_once_while_a_check_waits_on_a_tokenizer(client, fake, monkeypatch):
+    load = Stalled(tekken())
+    monkeypatch.setattr(pe, "_load_tokenizer", load)
+    claim(monkeypatch, "baidu/ERNIE-Image-Turbo")
+    main._load_state.update(state="ready")
+    try:
+        check, _ = _in_thread(lambda: client.post("/api/prompt/analyze", json={"prompt": "a cat"}))
+        assert load.entered.wait(5)
+        unloading, replies = _in_thread(lambda: client.post("/api/model/unload"))
+        unloading.join(10)
+        assert replies, "Unload waited on the tokenizer fetch"
+        assert (replies[0].status_code, replies[0].json()["state"]) == (200, "unloaded")
+        assert client.get("/api/status").json()["state"] == "unloaded"
+    finally:
+        load.release.set()
+    check.join(5)
+
+
+def test_unload_says_unloaded_before_the_analyser_and_critic_let_go(client, fake, monkeypatch):
+    # The critic's is the slow one: it stops a server, waiting to kill it.
+    main._load_state.update(state="ready")
+    seen: dict[str, str] = {}
+
+    def recording(name):
+        return lambda: seen.setdefault(name, main._load_state["state"])
+
+    monkeypatch.setattr(fake.translator, "unload", recording("translator"))
+    monkeypatch.setattr(fake.critic, "unload", recording("critic"))
+    monkeypatch.setattr(pe, "unload", recording("tokenizers"))
+    assert client.post("/api/model/unload").status_code == 200
+    assert seen == dict.fromkeys(("translator", "critic", "tokenizers"), "unloaded")
+
+
+@pytest.mark.parametrize("route, measures", [
+    ("/api/prompt/analyze", 1),
+    # The analysis, then the rewrite's lint.
+    ("/api/prompt/critique", 2),
+])
+def test_check_runs_on_a_daemon_thread(client, fake, monkeypatch, route, measures):
+    # `main._detached`'s own thread, which dies with the process - not the
+    # default executor's, which interpreter exit joins. (Its daemon flag alone
+    # proves nothing here: TestClient's loop thread is a daemon, and an
+    # executor's workers inherit that.)
+    threads: list[tuple[str, bool]] = []
+    measure = pe.measure
+
+    def recording(*args):
+        thread = threading.current_thread()
+        threads.append((thread.name, thread.daemon))
+        return measure(*args)
+
+    monkeypatch.setattr(pe, "measure", recording)
+    claim(monkeypatch, "black-forest-labs/FLUX.1-Krea-dev")
+    assert client.post(route, json={"prompt": "A lighthouse on a cliff"}).status_code == 200
+    assert threads == [("prompt-check", True)] * measures
 
 
 def test_loading_prefers_a_converted_tree_then_the_cache_then_the_hub(monkeypatch, tmp_path):
@@ -870,6 +1156,15 @@ REAL = [
     ("NewBie-AI/NewBie-image-Exp0.1", {"Gemma 3 4B": 511, "Jina CLIP v2": 2046}),
     ("circlestone-labs/Anima", {"Qwen3-0.6B": 512, "T5 ids": 511}),
 ]
+# Where the chat template's closing turn starts being lost, measured the same
+# way: klein's empty thinking block costs it four tokens more than Z-Anime's.
+REAL_CLEAN = {"black-forest-labs/FLUX.2-klein-4B": 500, "SeeSee21/Z-Anime": 504}
+FOX = "Cinematic photo of a red fox in fresh snow, golden hour"
+
+
+def _clean(model_id):
+    (spec,) = pe.encoders_for(model_id)
+    return pe._read(spec, pe._tokenizers[spec.source], "prompt", FOX).clean
 
 
 @pytest.mark.parametrize("model_id, budgets", REAL)
@@ -881,10 +1176,11 @@ def test_real_tokenizers_agree_with_the_pipelines_own_truncation(monkeypatch, mo
             pytest.skip(f"{spec.source.label} is not in the Hub cache")
         folders[spec.source] = folder
     monkeypatch.setattr(pe, "_load_tokenizer", lambda source: pe._from_pretrained(folders[source]))
-    prompt = "Cinematic photo of a red fox in fresh snow, golden hour"
-    reports, findings, detail = pe.measure(model_id, prompt, None)
+    reports, findings, detail = pe.measure(model_id, FOX, None)
     assert detail is None and findings == []
     assert {report.name: report.budget for report in reports} == budgets
+    if model_id in REAL_CLEAN:
+        assert _clean(model_id) == REAL_CLEAN[model_id]
 
     # Past every budget, the text before the cut is exactly what the
     # pipeline's own truncating tokenizer call keeps after its template.
@@ -905,3 +1201,34 @@ def test_real_tokenizers_agree_with_the_pipelines_own_truncation(monkeypatch, mo
     for example in model_defaults._profile_for(model_id)["guide"]["examples"]:
         _, findings, _ = pe.measure(model_id, example, None)
         assert not [finding for finding in findings if finding.severity == "warn"], example[:60]
+
+
+def test_real_clip_reads_its_control_tokens_in_any_case(monkeypatch):
+    specs = pe.encoders_for("KBlueLeaf/Kohaku-XL-Zeta")
+    folders = {spec.source: _cached(spec.source) for spec in specs}
+    if None in folders.values():
+        pytest.skip("Kohaku XL Zeta's tokenizers are not in the Hub cache")
+    monkeypatch.setattr(pe, "_load_tokenizer", lambda source: pe._from_pretrained(folders[source]))
+    prompt = "1girl, <|EndOfText|>, <|STARTOFTEXT|>, solo"
+    _, findings, _ = pe.measure("KBlueLeaf/Kohaku-XL-Zeta", prompt, None)
+    controls = rules(findings, "encoder.control_token")
+    assert [prompt[f.start:f.end] for f in controls] == ["<|EndOfText|>", "<|STARTOFTEXT|>"]
+    assert not rules(findings, "encoder.unknown_chars")
+
+
+# Qwen-Image is not measured above, but its budget is the pipeline's own
+# arithmetic: it drops its 34-token system turn and keeps 512, and the
+# template's closing turn goes past 507.
+FAKE_ONLY = [("Qwen/Qwen-Image", {"Qwen2.5-VL-7B": pe.QWEN_IMAGE_SEQUENCE})]
+FAKE_CLEAN = {**REAL_CLEAN, "Qwen/Qwen-Image": 507}
+
+
+@pytest.mark.parametrize("model_id, budgets", REAL + FAKE_ONLY)
+def test_the_fake_tokenizers_budgets_are_the_real_ones(monkeypatch, model_id, budgets):
+    # The API tests and the fake server take the fakes' budgets as the real.
+    monkeypatch.setattr(pe, "_load_tokenizer", fakes.fake_tokenizer)
+    reports, _, detail = pe.measure(model_id, FOX, None)
+    assert detail is None
+    assert {report.name: report.budget for report in reports} == budgets
+    if model_id in FAKE_CLEAN:
+        assert _clean(model_id) == FAKE_CLEAN[model_id]

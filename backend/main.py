@@ -465,13 +465,16 @@ async def unload_model() -> ModelStatus:
     # then discard what it built, with the request unanswered for minutes.
     if _load_lock.locked() or not await asyncio.to_thread(backend.try_unload):
         raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
+    # Said as soon as it is true: status must not read "ready" over no
+    # weights while the rest lets go, and a load asked for meanwhile must not
+    # be relabelled "unloaded" when this route finishes.
+    _load_state.update(state="unloaded", detail=None)
     await asyncio.to_thread(prompt_translator.unload)
     # Unload is "give the card and the memory back": a critic's server still
     # running is stopped - its critique then fails with a 502 - and the
     # analyser's cached tokenizers go with the pipeline.
     await asyncio.to_thread(prompt_critic.unload)
     await asyncio.to_thread(prompt_encoding.unload)
-    _load_state.update(state="unloaded", detail=None)
     return await status()
 
 
@@ -686,10 +689,13 @@ async def analyze_prompt(request: PromptAnalysisRequest) -> PromptAnalysis:
     read of it, and what its guide says about it.
 
     CPU only and never the image model - no `ensure_loaded`, no gate - so it
-    answers in a moment on a cold server and beside a running night.
+    answers in a moment on a cold server and beside a running night. On a
+    daemon thread, like the model load, which interpreter exit never joins;
+    a first use's tokenizer fetch holds the check itself for
+    `prompt_encoding.LOAD_WAIT` at most.
     """
     try:
-        return await asyncio.to_thread(_analyse, request)
+        return await _detached(lambda: _analyse(request), "prompt-check")
     except Exception as exc:
         raise _prompt_failure(exc, "prompt analysis") from exc
 
@@ -743,17 +749,17 @@ async def critique_prompt(request: PromptAnalysisRequest) -> PromptCritique:
     model_id = settings.model_id
     applied = backend.applied(request)
     try:
-        analysis = await asyncio.to_thread(_analyse, request, applied)
+        analysis = await _detached(lambda: _analyse(request, applied), "prompt-check")
     except Exception as exc:
         raise _prompt_failure(exc, "prompt analysis") from exc
     # Again: a first prepare takes minutes, and a job or a load may have
     # started while it ran.
     _refuse_critique_now()
     # The rewrite is linted here, not inside the gate. A tokenizer the
-    # analysis could not load is fetched again by the lint - Hub timeouts per
-    # encoder - and `measure` waits on any other check's first-use download;
-    # neither may hold image jobs back any more than the critic's own
-    # download may.
+    # analysis could not load is tried again by the lint, which waits up to
+    # `prompt_encoding.LOAD_WAIT` for it - a first use's fetch, or another
+    # check's still in flight; neither wait may hold image jobs back any more
+    # than the critic's own download may.
     try:
         critique = await jobs.run_when_idle(
             lambda: prompt_critic.critique(model_id, request, applied, analysis)
@@ -765,7 +771,9 @@ async def critique_prompt(request: PromptAnalysisRequest) -> PromptCritique:
     if critique.rewrite is None:
         return critique
     try:
-        findings = await asyncio.to_thread(_lint, model_id, request, applied, critique.rewrite)
+        findings = await _detached(
+            lambda: _lint(model_id, request, applied, critique.rewrite), "prompt-check"
+        )
     except Exception as exc:
         raise _prompt_failure(exc, "prompt analysis") from exc
     # The critic's own checks on the rewrite first (quoted words the prompt
