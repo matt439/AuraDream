@@ -7,6 +7,7 @@ import dataclasses
 import hashlib
 import io
 import json
+import os
 import re
 import sys
 import tarfile
@@ -19,6 +20,7 @@ import huggingface_hub
 import pytest
 
 from backend import config, critic, guides, launch, prompt_encoding, prompt_rules, prompt_sources
+from backend import main
 from backend.model_defaults import _profile_for
 from backend.schemas import DocumentedOrder, GenerateRequest, PromptAnalysis, PromptFinding
 
@@ -39,6 +41,20 @@ def _catalogue_repos() -> list[str]:
 def _configure(monkeypatch, **changes) -> None:
     # `settings` is frozen, so point the module at a copy rather than mutating it.
     monkeypatch.setattr(critic, "settings", dataclasses.replace(critic.settings, **changes))
+
+
+def _link_directory(link: Path, target: Path) -> None:
+    """A directory link, as the Hub cache's snapshots are: a symlink where
+    this user may make one, else (Windows without Developer Mode) a junction,
+    which a resolve follows the same way."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError:
+        if sys.platform != "win32":
+            pytest.skip("this user can make no directory link")
+        import _winapi
+
+        _winapi.CreateJunction(str(target), str(link))
 
 
 @pytest.fixture
@@ -109,7 +125,8 @@ def _tar(members: dict[str, bytes], top: str | None = None) -> bytes:
         for name, data in members.items():
             info = tarfile.TarInfo(f"{top}/{name}" if top else name)
             info.size = len(data)
-            info.mode = 0o755
+            # Not executable, the server included: the install must set that.
+            info.mode = 0o644
             bundle.addfile(info, io.BytesIO(data))
     return buffer.getvalue()
 
@@ -185,6 +202,16 @@ def test_a_wrong_size_is_refused(root, windows_release):
     assert critic.installed_server("test-x64") is None
 
 
+def test_an_archive_already_in_downloads_is_held_to_its_pin(root, windows_release):
+    # Left there by anyone: the right size, other bytes. Reused only verified.
+    downloads = root / "downloads"
+    downloads.mkdir(parents=True)
+    good = windows_release.payloads["llama-test.zip"]
+    (downloads / "llama-test.zip").write_bytes(bytes(len(good)))
+    assert critic.install_server("test-x64").read_bytes() == b"server"
+    assert windows_release.fetched == ["llama-test.zip", "cudart-test.zip"]
+
+
 @pytest.mark.parametrize("member", ["../evil.dll", "/evil.dll", "C:/evil.dll", "a/../../evil.dll"])
 def test_a_zip_member_escaping_the_target_is_refused(root, monkeypatch, member):
     Release(monkeypatch, {"llama-test.zip": _zip({"llama-server.exe": b"s", member: b"evil"})})
@@ -218,12 +245,24 @@ def test_tarballs_are_flattened_into_one_directory(root, monkeypatch):
         },
         server="llama-server",
     )
+    # The tarballs are Linux's; the chmod is seen on any host, and its effect
+    # where the file system keeps the bits.
+    monkeypatch.setattr(critic, "sys", SimpleNamespace(platform="linux"))
+    chmods: list[tuple[str, int]] = []
+    real_chmod = Path.chmod
+
+    def chmod(path, mode, **kwargs):
+        chmods.append((path.name, mode))
+        real_chmod(path, mode, **kwargs)
+
+    monkeypatch.setattr(Path, "chmod", chmod)
     server = critic.install_server("test-x64")
     assert server.read_bytes() == b"server"
     assert (server.parent / "libggml-cuda.so").is_file()
     assert (server.parent / "libcudart.so.13").is_file()
+    assert [(name, mode & 0o111) for name, mode in chmods] == [("llama-server", 0o111)]
     if sys.platform != "win32":
-        assert server.stat().st_mode & 0o111
+        assert server.stat().st_mode & 0o111 == 0o111
 
 
 def test_an_archive_without_the_server_is_not_installed(root, monkeypatch):
@@ -244,6 +283,77 @@ def test_an_unmarked_tree_is_never_used_and_is_replaced(root, windows_release):
     assert critic.installed_server("test-x64") is None
 
 
+def test_an_undecodable_marker_is_no_install(root, windows_release, monkeypatch, tmp_path, client):
+    server = critic.install_server("test-x64")
+    marker = server.parent / critic._INSTALL_MARKER
+    # The recipe, re-saved the way PowerShell 5.1's Out-File saves: UTF-16.
+    marker.write_bytes(critic._recipe("test-x64").encode("utf-16"))
+    assert critic.installed_server("test-x64") is None
+
+    # Not ready, and the status poll that asks still answers.
+    monkeypatch.setattr(critic, "platform_key", lambda: "test-x64")
+    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    gguf = tmp_path / "Qwen3-4B-Q8_0.gguf"
+    gguf.write_bytes(b"gguf")
+    monkeypatch.setattr(huggingface_hub, "try_to_load_from_cache", lambda *a, **k: str(gguf))
+    monkeypatch.setattr(main, "prompt_critic", critic.PromptCritic())
+    assert not main.prompt_critic.ready()
+    status = client.get("/api/status")
+    assert status.status_code == 200
+    assert status.json()["prompt_critique_supported"] is True
+    assert status.json()["prompt_critique_ready"] is False
+
+    # The install replaces the tree rather than failing on it.
+    assert critic.install_server("test-x64") == server
+    assert marker.read_text(encoding="utf-8") == critic._recipe("test-x64")
+    assert main.prompt_critic.ready()
+    assert windows_release.fetched == ["llama-test.zip", "cudart-test.zip"] * 2
+
+
+def test_an_interrupted_installs_work_directories_are_swept(root, windows_release, monkeypatch):
+    target = root / f"{critic.RELEASE}-test-x64"
+    stale = root / f"{target.name}-k3j9x0q1"
+    (stale / "tree").mkdir(parents=True)
+    (stale / "tree" / "llama-server.exe").write_bytes(b"half")
+    # Beside it, what is not an install's work, though named like one: a
+    # build whose key extends this one's, and a file.
+    monkeypatch.setitem(critic.BUILDS, "test-x64-v2", critic.BUILDS["test-x64"])
+    other = root / f"{target.name}-v2"
+    other.mkdir()
+    (root / f"{target.name}-notes.txt").write_text("mine")
+    server = critic.install_server("test-x64")
+    assert not stale.exists()
+    assert other.is_dir() and (root / f"{target.name}-notes.txt").is_file()
+    # Also once installed: what an earlier interrupted attempt left is found
+    # by the next prepare, which only checks the install.
+    stale.mkdir()
+    assert critic.install_server("test-x64") == server
+    assert not stale.exists()
+    assert windows_release.fetched == ["llama-test.zip", "cudart-test.zip"]
+
+
+def test_the_sweep_waits_for_an_install_holding_the_lock(root, windows_release):
+    # Another process's install, mid-extraction: it holds the lock, and its
+    # work directory is live until it lets go.
+    import threading
+
+    from huggingface_hub.utils import WeakFileLock
+
+    server = critic.install_server("test-x64")
+    target = server.parent
+    live = root / f"{target.name}-live0001"
+    answer: list[Path] = []
+    with WeakFileLock(root / f"{target.name}.lock"):
+        live.mkdir()
+        worker = threading.Thread(target=lambda: answer.append(critic.install_server("test-x64")))
+        worker.start()
+        worker.join(0.5)
+        assert worker.is_alive() and live.is_dir()
+    worker.join(10)
+    assert answer == [server]
+    assert not live.exists()
+
+
 # --- supported, ready, prepare -----------------------------------------------
 
 
@@ -262,6 +372,141 @@ def test_supported_follows_the_switch_and_the_platform(monkeypatch, tmp_path):
     # A server of the user's own makes any platform supported.
     _configure(monkeypatch, critic_server=tmp_path / "llama-server")
     assert critic.prompt_critic.supported()
+
+
+UBUNTU = "ubuntu-cuda-13.4-x64"
+
+
+def _no_downloads(monkeypatch) -> None:
+    monkeypatch.setattr(critic, "install_server", lambda key: pytest.fail("installed"))
+    monkeypatch.setattr(critic, "download_model", lambda: pytest.fail("downloaded"))
+
+
+def test_the_linux_build_is_offered_only_on_a_glibc_that_runs_it(monkeypatch, tmp_path):
+    # The probes are this test's: nothing depends on the host being Linux.
+    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    monkeypatch.setattr(critic, "platform_key", lambda: UBUNTU)
+    monkeypatch.setattr(critic, "missing_libraries", lambda names: pytest.fail("probed"))
+    _no_downloads(monkeypatch)
+    # Ubuntu 22.04, Debian 12, and a C library that is not glibc (musl).
+    for old in [(2, 35), (2, 36), None]:
+        monkeypatch.setattr(critic, "glibc_version", lambda old=old: old)
+        assert not critic.prompt_critic.supported()
+        with pytest.raises(critic.CriticUnavailable, match=r"needs glibc 2\.38 or newer"):
+            critic.PromptCritic().prepare()
+    # 2.38 itself (Ubuntu 23.10) runs it, and anything newer.
+    for new in [(2, 38), (2, 39), (3, 0)]:
+        monkeypatch.setattr(critic, "glibc_version", lambda new=new: new)
+        assert critic.prompt_critic.supported(), new
+        assert critic.pinned_build_refusal() is None
+    # A server of one's own is not held to the pinned build's needs.
+    monkeypatch.setattr(critic, "glibc_version", lambda: (2, 35))
+    _configure(monkeypatch, critic_server=tmp_path / "llama-server")
+    assert critic.prompt_critic.supported()
+    # Windows' build asks nothing of the system.
+    monkeypatch.setattr(critic, "glibc_version", lambda: pytest.fail("asked"))
+    critic.preflight("win-cuda-13.4-x64")
+
+
+def test_the_critique_route_says_the_glibc_is_too_old(client, monkeypatch):
+    # Ubuntu 22.04 under WSL: a build is published for the platform, and this
+    # system cannot run it - not that there is none.
+    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, critic=True))
+    monkeypatch.setattr(critic, "platform_key", lambda: UBUNTU)
+    monkeypatch.setattr(critic, "glibc_version", lambda: (2, 35))
+    _no_downloads(monkeypatch)
+    monkeypatch.setattr(main, "prompt_critic", critic.PromptCritic())
+    assert client.get("/api/status").json()["prompt_critique_supported"] is False
+    reply = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"})
+    assert reply.status_code == 422
+    detail = reply.json()["detail"]
+    assert "needs glibc 2.38 or newer" in detail and "has glibc 2.35" in detail
+    assert "LOCAL_DIFFUSION_CRITIC_SERVER" in detail
+    # A platform with no build at all is still told so.
+    monkeypatch.setattr(critic, "platform_key", lambda: None)
+    reply = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"})
+    assert reply.status_code == 422
+    assert reply.json()["detail"].startswith("llama.cpp publishes no pinned llama-server build")
+
+
+def test_glibc_version_reads_the_c_librarys_own_answer(monkeypatch):
+    answers = {"glibc 2.39": (2, 39), "glibc 2.38.9000": (2, 38), "musl 1.2": None, "": None}
+    for answer, version in answers.items():
+        monkeypatch.setattr(critic.os, "confstr", lambda name, a=answer: a, raising=False)
+        assert critic.glibc_version() == version, answer
+
+    def unknown(name):
+        raise ValueError("unrecognized configuration name")
+
+    monkeypatch.setattr(critic.os, "confstr", unknown, raising=False)
+    assert critic.glibc_version() is None
+    monkeypatch.delattr(critic.os, "confstr")  # Windows has none
+    assert critic.glibc_version() is None
+
+
+def test_a_missing_library_is_named_with_its_package_before_any_download(
+    monkeypatch, tmp_path
+):
+    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    monkeypatch.setattr(critic, "platform_key", lambda: UBUNTU)
+    monkeypatch.setattr(critic, "glibc_version", lambda: (2, 39))
+    missing: list[str] = ["libgomp.so.1"]
+    asked: list[tuple[str, ...]] = []
+    monkeypatch.setattr(critic, "missing_libraries", lambda names: asked.append(names) or missing)
+    _no_downloads(monkeypatch)
+    target = critic.PromptCritic()
+    # One `apt install` away, so offered - and prepare() says which.
+    assert target.supported()
+    with pytest.raises(critic.CriticUnavailable, match=r"libgomp\.so\.1.*sudo apt install libgomp1$"):
+        target.prepare()
+    assert asked == [("libgomp.so.1", "libssl.so.3", "libcrypto.so.3")]
+    missing[:] = ["libssl.so.3", "libcrypto.so.3"]
+    with pytest.raises(critic.CriticUnavailable, match=r"sudo apt install libssl3$"):
+        target.prepare()
+    # Installed since: the next prepare goes on, with no restart.
+    missing[:] = []
+    server, gguf = tmp_path / "llama-server", tmp_path / "model.gguf"
+    server.write_bytes(b"s")
+    gguf.write_bytes(b"m")
+    monkeypatch.setattr(critic, "install_server", lambda key: server)
+    monkeypatch.setattr(critic, "download_model", lambda: gguf)
+    target.prepare()
+    assert target._prepared == (server, gguf)
+    # A server of one's own is not probed for the pinned build's libraries.
+    monkeypatch.setattr(critic, "missing_libraries", lambda names: pytest.fail("probed"))
+    _configure(monkeypatch, critic_server=server)
+    target.prepare()
+
+
+def test_the_library_probe_asks_the_loader_in_a_child(monkeypatch):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(stdout="libgomp.so.1\n", returncode=0)
+
+    monkeypatch.setattr(critic.subprocess, "run", run)
+    assert critic.missing_libraries(("libgomp.so.1", "libssl.so.3")) == ["libgomp.so.1"]
+    [(command, kwargs)] = calls
+    assert command[:4] == [sys.executable, "-I", "-S", "-c"]
+    assert command[5:] == ["libgomp.so.1", "libssl.so.3"]
+    assert kwargs["check"] and kwargs["timeout"]
+
+    def fail(command, **kwargs):
+        raise OSError("no interpreter")
+
+    # A probe that cannot run checks nothing: the server's exit will say.
+    monkeypatch.setattr(critic.subprocess, "run", fail)
+    assert critic.missing_libraries(("libgomp.so.1",)) == []
+
+
+def test_the_library_probe_prints_what_the_loader_cannot_find(monkeypatch, capsys):
+    # The child's script itself, run here on names that load nothing new.
+    present = "kernel32" if sys.platform == "win32" else "libc.so.6"
+    monkeypatch.setattr(sys, "argv", ["-c", "libnot-a-library.so.0", present])
+    exec(critic._LIBRARY_PROBE, {})
+    assert capsys.readouterr().out.split() == ["libnot-a-library.so.0"]
 
 
 def test_ready_is_what_is_on_disk(monkeypatch, tmp_path, root, windows_release):
@@ -346,6 +591,143 @@ def test_a_model_off_its_pin_is_refused(monkeypatch, tmp_path, root):
         critic.verify_model(gguf)
 
 
+GOOD_WEIGHTS = b"pinned weights"
+
+
+def _pin(monkeypatch, data: bytes = GOOD_WEIGHTS) -> None:
+    monkeypatch.setattr(critic, "MODEL_SIZE", len(data))
+    monkeypatch.setattr(critic, "MODEL_SHA256", hashlib.sha256(data).hexdigest())
+
+
+def test_the_stamp_spares_only_the_file_it_was_written_for(monkeypatch, tmp_path, root):
+    _pin(monkeypatch)
+    stamped = tmp_path / "stamped.gguf"
+    stamped.write_bytes(GOOD_WEIGHTS)
+    critic.verify_model(stamped)
+    hashes = []
+    real = critic._sha256
+    monkeypatch.setattr(critic, "_sha256", lambda path: hashes.append(path.name) or real(path))
+    critic.verify_model(stamped)
+    assert hashes == []
+    before = stamped.stat()
+    # Another file of the same size and mtime: the stamp is not its.
+    other = tmp_path / "other.gguf"
+    other.write_bytes(bytes(len(GOOD_WEIGHTS)))
+    os.utime(other, ns=(before.st_atime_ns, before.st_mtime_ns))
+    with pytest.raises(critic.CriticError, match="sha256"):
+        critic.verify_model(other)
+    # The stamped file rewritten in place at its size, so only its mtime moved.
+    stamped.write_bytes(bytes(len(GOOD_WEIGHTS)))
+    os.utime(stamped, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
+    with pytest.raises(critic.CriticError, match="sha256"):
+        critic.verify_model(stamped)
+    assert hashes == ["other.gguf", "stamped.gguf"]
+
+
+def test_a_cached_model_off_its_pin_is_downloaded_again_once(monkeypatch, tmp_path, root):
+    _pin(monkeypatch)
+    blob = tmp_path / "hub" / "blobs" / critic.MODEL_SHA256
+    entry = tmp_path / "hub" / "snapshots" / "rev" / "Qwen3-4B-Q8_0.gguf"
+    blob.parent.mkdir(parents=True)
+    entry.parent.mkdir(parents=True)
+    blob.write_bytes(bytes(len(GOOD_WEIGHTS)))  # corrupted at the pinned size
+    entry.write_bytes(blob.read_bytes())
+    forced: list[bool] = []
+
+    # The Hub cache as hf_hub_download keeps it: a missing snapshot entry is
+    # made from the blob already held (a link, or a copy where there are no
+    # symlinks), only a forced download replaces the blob, and an entry that
+    # is there is left alone, forced or not.
+    def download(force_download=False, **kwargs):
+        assert kwargs == critic.MODEL
+        forced.append(force_download)
+        if force_download or not blob.is_file():
+            blob.write_bytes(GOOD_WEIGHTS)
+        if not entry.is_file():
+            entry.write_bytes(blob.read_bytes())
+        return str(entry)
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", download)
+    monkeypatch.setattr(huggingface_hub, "try_to_load_from_cache", lambda *a, **k: None)
+    assert critic.download_model() == entry
+    assert entry.read_bytes() == GOOD_WEIGHTS
+    assert forced == [False, True]
+    # Verified and stamped: the next prepare neither fetches nor hashes.
+    monkeypatch.setattr(critic, "_sha256", lambda path: pytest.fail("hashed"))
+    assert critic.download_model() == entry
+    assert forced == [False, True, False]
+
+
+def test_a_model_still_off_its_pin_names_the_file_holding_it(monkeypatch, tmp_path, root):
+    _pin(monkeypatch)
+    blobs = tmp_path / "hub" / "blobs"
+    blobs.mkdir(parents=True)
+    held = blobs / "Qwen3-4B-Q8_0.gguf"
+    held.write_bytes(bytes(len(GOOD_WEIGHTS)))
+    # The path handed out goes through a link, as a Hub snapshot's entry does:
+    # the file that holds the bytes is the one it resolves to.
+    _link_directory(tmp_path / "hub" / "snapshot", blobs)
+    entry = tmp_path / "hub" / "snapshot" / "Qwen3-4B-Q8_0.gguf"
+    forced: list[bool] = []
+
+    def download(force_download=False, **kwargs):
+        forced.append(force_download)
+        if not entry.is_file():
+            entry.write_bytes(bytes(len(GOOD_WEIGHTS)))  # fetched, and bad again
+        return str(entry)
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", download)
+    monkeypatch.setattr(huggingface_hub, "try_to_load_from_cache", lambda *a, **k: None)
+    with pytest.raises(critic.CriticError, match="sha256") as caught:
+        critic.download_model()
+    assert forced == [False, True]
+    # Not "delete it and retry": the retry has just been made.
+    message = str(caught.value)
+    assert message.startswith(f"{held} has sha256")
+    assert message.endswith(
+        "even freshly downloaded at the pinned revision: the pin or the download path is wrong"
+    )
+    assert "retry" not in message
+
+
+@pytest.mark.parametrize(
+    "failure, reason",
+    [
+        # hf_hub_download's own words when the forced download's request
+        # fails, with the request's error as the cause; and with no cause.
+        (
+            ValueError("Force download failed due to the above error."),
+            "ConnectionError: connection refused",
+        ),
+        (OSError("disk full"), "OSError: disk full"),
+    ],
+)
+def test_a_model_that_cannot_be_downloaded_again_says_why(
+    monkeypatch, tmp_path, root, failure, reason
+):
+    _pin(monkeypatch)
+    entry = tmp_path / "Qwen3-4B-Q8_0.gguf"
+    entry.write_bytes(bytes(len(GOOD_WEIGHTS)))
+    if "above error" in str(failure):
+        failure.__cause__ = ConnectionError("connection refused")
+
+    def download(force_download=False, **kwargs):
+        if force_download:
+            raise failure
+        return str(entry)
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", download)
+    monkeypatch.setattr(huggingface_hub, "try_to_load_from_cache", lambda *a, **k: None)
+    # A CriticError, so the route's 502 with the reason, not a bare 500.
+    with pytest.raises(critic.CriticError) as caught:
+        critic.download_model()
+    assert str(caught.value) == (
+        "Qwen3-4B-Q8_0.gguf in the Hub cache is off its pin and could not be "
+        f"downloaded again: {reason}"
+    )
+    assert caught.value.__cause__ is failure
+
+
 # --- The server --------------------------------------------------------------
 
 
@@ -389,10 +771,35 @@ def test_configured_paths_are_absolute(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_MODEL", "rel.gguf")
     monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_SERVER", "  ")
     model = config._env_path("LOCAL_DIFFUSION_CRITIC_MODEL")
-    assert model.is_absolute() and model == (tmp_path / "rel.gguf").resolve()
+    assert model.is_absolute() and model == tmp_path / "rel.gguf"
     assert config._env_path("LOCAL_DIFFUSION_CRITIC_SERVER") is None
     monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_SERVER", "~/llama-server")
     assert config._env_path("LOCAL_DIFFUSION_CRITIC_SERVER").is_absolute()
+
+    # Absolute, not resolved: a path through a link stays the one given.
+    blobs = tmp_path / "blobs"
+    blobs.mkdir()
+    (blobs / "Qwen3-4B-Q8_0.gguf").write_bytes(b"gguf")
+    _link_directory(tmp_path / "snapshot", blobs)
+    given = tmp_path / "snapshot" / "Qwen3-4B-Q8_0.gguf"
+    assert given.resolve() != given
+    monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_MODEL", str(given))
+    assert config._env_path("LOCAL_DIFFUSION_CRITIC_MODEL") == given
+
+
+def test_a_linked_model_is_labelled_by_the_name_it_was_given(tmp_path, monkeypatch):
+    # A Hub snapshot's entry links to a blob named by its sha256.
+    blob = tmp_path / "blobs" / critic.MODEL_SHA256
+    blob.parent.mkdir()
+    blob.write_bytes(b"gguf")
+    given = tmp_path / "Qwen3-4B-Q8_0.gguf"
+    try:
+        given.symlink_to(blob)
+    except OSError:
+        pytest.skip("this user can make no file symlink")
+    monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_MODEL", str(given))
+    _configure(monkeypatch, critic_model=config._env_path("LOCAL_DIFFUSION_CRITIC_MODEL"))
+    assert critic.prompt_critic._label(critic.settings.critic_model) == "Qwen3-4B-Q8_0"
 
 
 class FakeProcess:

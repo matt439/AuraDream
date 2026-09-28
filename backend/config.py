@@ -29,9 +29,11 @@ def _env_path(name: str) -> Path | None:
     # Absolute, against the directory the app was started in: a relative
     # path would otherwise mean a different file to whatever resolves it
     # later from somewhere else (the critic starts its server in the
-    # server's own directory).
+    # server's own directory). Not resolved: a link keeps the name it was
+    # given, which the critic labels its answers with - a Hugging Face
+    # snapshot's file links to a blob named by its hash.
     raw = os.getenv(name, "").strip()
-    return Path(raw).expanduser().resolve() if raw else None
+    return Path(raw).expanduser().absolute() if raw else None
 
 
 @dataclass(frozen=True)

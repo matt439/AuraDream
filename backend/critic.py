@@ -103,6 +103,12 @@ class Build:
     # Windows searches the executable's directory first).
     archives: tuple[Archive, ...]
     server: str
+    # What the binaries take from the system rather than the tree, beyond the
+    # C and C++ runtimes: the newest glibc symbol version they name, and
+    # shared libraries by soname with the apt package that ships each.
+    # `preflight` holds a system to them before anything is downloaded.
+    glibc: tuple[int, int] | None = None
+    libraries: tuple[tuple[str, str], ...] = ()
 
 
 # Keyed by the platform part of the release's asset names. CUDA 13.4 builds:
@@ -139,6 +145,17 @@ BUILDS: dict[str, Build] = {
             ),
         ),
         "llama-server",
+        # Read off the installed tree's ELF headers under WSL 2 on 2026-09-28:
+        # symbols up to GLIBC_2.38 (and GCC 13's GLIBCXX_3.4.32, not checked
+        # here), libgomp for the CPU backends and OpenSSL 3 for the server's
+        # HTTP. A fresh WSL Ubuntu has no libgomp1; Ubuntu 22.04 and Debian 12
+        # cannot run the build at all.
+        glibc=(2, 38),
+        libraries=(
+            ("libgomp.so.1", "libgomp1"),
+            ("libssl.so.3", "libssl3"),
+            ("libcrypto.so.3", "libssl3"),
+        ),
     ),
 }
 
@@ -228,6 +245,88 @@ def platform_key() -> str | None:
     return None
 
 
+def glibc_version() -> tuple[int, int] | None:
+    """This process's glibc, or None where the C library is not glibc (musl,
+    Windows). A libc call, no file read: cheap enough for `/api/status`."""
+    try:
+        name, version = os.confstr("CS_GNU_LIBC_VERSION").split()
+        major, minor = version.split(".")[:2]
+        return (int(major), int(minor)) if name == "glibc" else None
+    except (AttributeError, ValueError, OSError):
+        return None
+
+
+def _old_glibc(key: str) -> str | None:
+    """Why this system's C library cannot run the pinned build, or None."""
+    need = BUILDS[key].glibc
+    if need is None:
+        return None
+    have = glibc_version()
+    if have is not None and have >= need:
+        return None
+    found = f"glibc {have[0]}.{have[1]}" if have is not None else "no glibc"
+    return (
+        f"llama.cpp's pinned {key} build needs glibc {need[0]}.{need[1]} or newer "
+        f"(Ubuntu 24.04, Debian 13) and this system has {found}; set "
+        "LOCAL_DIFFUSION_CRITIC_SERVER to a llama-server built for it"
+    )
+
+
+def pinned_build_refusal() -> str | None:
+    """Why this platform's pinned build cannot run here, or None: the
+    critique route's 422 where `supported()` is False although a build is
+    published for the platform."""
+    key = platform_key()
+    return _old_glibc(key) if key is not None else None
+
+
+_LIBRARY_PROBE = """\
+import ctypes, sys
+for name in sys.argv[1:]:
+    try:
+        ctypes.CDLL(name)
+    except OSError:
+        print(name)
+"""
+
+
+def missing_libraries(sonames: tuple[str, ...]) -> list[str]:
+    """Those of `sonames` the dynamic loader cannot find.
+
+    Asked of the loader itself - LD_LIBRARY_PATH, its cache and the default
+    directories, as it will search them for llama-server - in a child, so
+    nothing is loaded into this process (a second OpenMP runtime beside
+    torch's). A probe that cannot run checks nothing: the server's own exit
+    says what it lacks.
+    """
+    try:
+        probe = subprocess.run(
+            [sys.executable, "-I", "-S", "-c", _LIBRARY_PROBE, *sonames],
+            capture_output=True, text=True, timeout=30, check=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.warning("could not check llama.cpp's system libraries: %s", exc)
+        return []
+    return [name for name in probe.stdout.split() if name in sonames]
+
+
+def preflight(key: str) -> None:
+    """Refuse a pinned build this system cannot run, before anything of it or
+    the model is downloaded: a first use is 5 GB, and a missing library would
+    otherwise surface only as the server's exit 127 after it."""
+    refusal = _old_glibc(key)
+    if refusal is not None:
+        raise CriticUnavailable(refusal)
+    needs = BUILDS[key].libraries
+    missing = missing_libraries(tuple(name for name, _ in needs)) if needs else []
+    if missing:
+        packages = dict.fromkeys(package for name, package in needs if name in missing)
+        raise CriticUnavailable(
+            f"llama.cpp's pinned {key} build needs {', '.join(missing)}, which this "
+            f"system does not have: sudo apt install {' '.join(packages)}"
+        )
+
+
 def install_root() -> Path:
     from huggingface_hub.constants import HF_HOME
 
@@ -253,7 +352,9 @@ def installed_server(key: str) -> Path | None:
     """The installed server binary, or None: never a download.
 
     The marker is written last, inside the tree before its rename, so a tree
-    without it is a failure from elsewhere and does not count.
+    without it is a failure from elsewhere and does not count - nor does one
+    that does not decode (re-saved as UTF-16, say), which `install_server`
+    then replaces rather than failing on, as `/api/status` would.
     """
     target = _target(key)
     marker = target / _INSTALL_MARKER
@@ -261,7 +362,7 @@ def installed_server(key: str) -> Path | None:
     try:
         if marker.read_text(encoding="utf-8") != _recipe(key):
             return None
-    except OSError:
+    except (OSError, ValueError):
         return None
     return server if server.is_file() else None
 
@@ -375,6 +476,22 @@ def _extract(archive: Path, scratch: Path, tree: Path) -> None:
     _merge(_single_root(scratch), tree)
 
 
+def _sweep_work(target: Path) -> None:
+    """Remove what interrupted installs left beside `target`.
+
+    Each extracts into a `<target>-*` work directory that removes itself on
+    the way out - but not after a hard kill, nor on Windows when the
+    interpreter exits with a file in it still open on the prepare thread, and
+    each such attempt left up to 744 MB. Only an install holding the lock
+    extracts, so under it every one is stale.
+    """
+    builds = {_target(key).name for key in BUILDS}
+    for stale in target.parent.glob(f"{target.name}-*"):
+        if stale.is_dir() and not stale.is_symlink() and stale.name not in builds:
+            log.warning("removing an interrupted llama.cpp install: %s", stale)
+            shutil.rmtree(stale, ignore_errors=True)
+
+
 def install_server(key: str) -> Path:
     """Download, verify and install the pinned build once; return the binary."""
     from huggingface_hub.utils import WeakFileLock
@@ -384,8 +501,11 @@ def install_server(key: str) -> Path:
     root = target.parent
     root.mkdir(parents=True, exist_ok=True)
     # The server and a CLI process may both ask. A tree is published whole or
-    # not at all, so the lock only has to cover the check and the rename.
+    # not at all; the lock holds through the extraction as well, so a work
+    # directory the sweep finds under it is never another install's in use.
     with WeakFileLock(root / f"{target.name}.lock"):
+        # Installed or not: leftovers from before a finished install count too.
+        _sweep_work(target)
         server = installed_server(key)
         if server is not None:
             return server
@@ -445,9 +565,9 @@ def verify_model(path: Path) -> None:
         pass
     digest = _sha256(path)
     if digest != MODEL_SHA256:
-        raise CriticError(
-            f"{path} has sha256 {digest}, not the pinned {MODEL_SHA256}; delete it and retry"
-        )
+        # Named by the file that holds the bytes: in a Hub cache with symlinks
+        # `path` is a snapshot's link to a blob.
+        raise CriticError(f"{path.resolve()} has sha256 {digest}, not the pinned {MODEL_SHA256}")
     stamp_file.parent.mkdir(parents=True, exist_ok=True)
     stamp_file.write_text(json.dumps(stamp), encoding="utf-8")
 
@@ -461,7 +581,34 @@ def download_model() -> Path:
             MODEL["repo_id"], MODEL["filename"], MODEL_SIZE / 1e9,
         )
     path = Path(huggingface_hub.hf_hub_download(**MODEL))
-    verify_model(path)
+    try:
+        verify_model(path)
+    except CriticError as exc:
+        # Fetched again, once. Not by deleting the file and asking: a cache
+        # with symlinks relinks the blob it still holds, without a download.
+        # Forced, and with the snapshot's entry gone first - in a cache
+        # without symlinks that entry *is* the file, and a forced download
+        # replaces only the blob beside it.
+        log.warning("%s; downloading it again", exc)
+        path.unlink(missing_ok=True)
+        try:
+            path = Path(huggingface_hub.hf_hub_download(**MODEL, force_download=True))
+        except Exception as fetch:
+            # The Hub's own words for a failed forced download are "the above
+            # error", which is its cause.
+            reason = fetch.__cause__ or fetch
+            raise CriticError(
+                f"{MODEL['filename']} in the Hub cache is off its pin and could not be "
+                f"downloaded again: {type(reason).__name__}: {reason}"
+            ) from fetch
+        try:
+            verify_model(path)
+        except CriticError as again:
+            # Not "delete it and retry": a retry has just fetched these bytes.
+            raise CriticError(
+                f"{again}, even freshly downloaded at the pinned revision: the pin "
+                "or the download path is wrong"
+            ) from again
     return path
 
 
@@ -1443,10 +1590,15 @@ class PromptCritic:
         self._prepared: tuple[Path, Path] | None = None
 
     def supported(self) -> bool:
-        """Switched on, and a server to run: a pinned build or one of the user's."""
-        return settings.critic and (
-            settings.critic_server is not None or platform_key() is not None
-        )
+        """Switched on, and a server to run: one of the user's, or a pinned
+        build this system's glibc can run. A missing library is not checked
+        here - one `apt install` away, it is `prepare()`'s to name."""
+        if not settings.critic:
+            return False
+        if settings.critic_server is not None:
+            return True
+        key = platform_key()
+        return key is not None and _old_glibc(key) is None
 
     def ready(self) -> bool:
         """The server and the model are both on disk - no network, no hashing."""
@@ -1484,6 +1636,8 @@ class PromptCritic:
                 "llama.cpp publishes no pinned build for this platform here; "
                 "set LOCAL_DIFFUSION_CRITIC_SERVER to a llama-server of your own"
             )
+        # Ahead of both downloads: `prepare()` fetches the model after this.
+        preflight(key)
         return install_server(key)
 
     def _model_path(self) -> Path:

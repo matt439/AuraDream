@@ -701,9 +701,13 @@ async def analyze_prompt(request: PromptAnalysisRequest) -> PromptAnalysis:
 
 
 def _critic_unsupported() -> str:
+    from .critic import pinned_build_refusal
+
     if not settings.critic:
         return "the prompt critic is switched off (LOCAL_DIFFUSION_CRITIC)"
-    return (
+    # A build published for the platform that this system cannot run (glibc
+    # too old) says so, rather than that there is none.
+    return pinned_build_refusal() or (
         "llama.cpp publishes no pinned llama-server build for this platform; set "
         "LOCAL_DIFFUSION_CRITIC_SERVER to a llama-server of your own"
     )

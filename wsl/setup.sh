@@ -54,6 +54,32 @@ if ok:
 print(f"kernels {version('kernels')}  bitsandbytes {version('bitsandbytes')}")
 PY
 
+# The prompt critic's pinned llama.cpp build (backend/critic.py) takes glibc
+# 2.38 or newer and three libraries from the system rather than its own tree;
+# a fresh WSL Ubuntu has no libgomp1. The app checks the same before the
+# critic's first 5 GB download, and refuses there without them.
+glibc=$(getconf GNU_LIBC_VERSION 2>/dev/null || true)
+glibc=${glibc#glibc }
+if [ -n "$glibc" ] && ! printf '%s\n' 2.38 "$glibc" | sort -V -C; then
+    echo "note: glibc $glibc is older than the 2.38 the prompt critic's llama.cpp build" >&2
+    echo "      needs (Ubuntu 24.04 or newer), so the page will not offer the critic." >&2
+else
+    libraries=$("$(command -v ldconfig || echo /sbin/ldconfig)" -p 2>/dev/null || true)
+    critic_packages=""
+    for need in libgomp.so.1:libgomp1 libssl.so.3:libssl3 libcrypto.so.3:libssl3; do
+        if [ -n "$libraries" ] && ! grep -q "[[:space:]]${need%%:*} (.*x86-64" <<<"$libraries"; then
+            case " $critic_packages " in
+                *" ${need#*:} "*) ;;
+                *) critic_packages="$critic_packages ${need#*:}" ;;
+            esac
+        fi
+    done
+    if [ -n "$critic_packages" ]; then
+        echo "note: the prompt critic's llama.cpp needs$critic_packages, not installed here;" >&2
+        echo "      'sudo apt install$critic_packages' before its first use." >&2
+    fi
+fi
+
 if [ "$installed_uv" = 1 ]; then
     cat <<MSG
 
