@@ -2744,7 +2744,10 @@ the real server on 2026-09-28 the count of the messages equalled the prompt
 tokens it then reported (1,072 of 1,072). A server that does not answer those
 endpoints, such as one of the user's own, is sized by the estimate, with a
 warning in the log. A refusal on the count costs a server start, 3 s on the
-card and 28 s under WSL with the GGUF on /mnt/c. Over 183 cases counted with
+card and 28 s under WSL with the GGUF on /mnt/c; under WSL with it in the
+Hugging Face cache on ext4, the default, a start and stop took about 3 s
+while the file was in the page cache and 8-9 s after a drop (`verified.md`,
+2026-09-29). Over 183 cases counted with
 the real tokenizer (the 2026-09-28 review's 160, ten kinds of text from
 Turkish to Cantonese and romanised names at 500-4,000 characters on klein and
 Krea [dev]; English, brand-heavy, English under a 4,000-character negative and

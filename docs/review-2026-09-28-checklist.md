@@ -81,10 +81,22 @@ removed the three empty work directories that conversions interrupted on
 tree. Not verified: a critic reorder under partial placement on the real
 server, since both Animagine answers' reorders changed words and were set
 aside before that check ran; the WSL critique with the GGUF on ext4, the
-default, was never measured, warm or after a page-cache drop (F78);
+default, was not measured within the review (F78; measured afterwards, below);
 kill-on-close was not tried with `llama-server`; and no image generation
 was re-measured in this series, so no render time, peak or pixel hash in
 `verified.md` comes from it.
+
+After the review, on 2026-09-29, the two WSL problems its final run found
+were fixed and F78's measurement was taken. `1b8e9b4` has the suite drop
+every `LOCAL_DIFFUSION_*` but the gallery and adapter paths before it
+imports `backend`, so with `env.sh` sourced WSL passes as it does without
+(1648 passed, 12 skipped). The stale `bin/pytest` was this machine's, not
+the repo's: the WSL venv had been moved by hand from `~/krea-local`, so
+every console script and `activate` named the old path and the pre-rename
+`krea-local` editable install was still in it; rebuilt by `wsl/setup.sh`,
+`uv run pytest` works. The critique with the GGUF in WSL's Hugging Face
+cache on ext4 took 11.4 and 11.6 s warm and 17.5 and 18.5 s after a
+page-cache drop (`verified.md`, the 2026-09-29 WSL row).
 
 ## Confirmed findings
 
@@ -173,7 +185,7 @@ was re-measured in this series, so no render time, peak or pixel hash in
 - [x] F75. `tests/fakes.py:358` Fake tokenizer budgets for templated Qwen encoders exceed the real ones — `3457a6f`. A run of newlines is one token, as Qwen's BPE makes it, rather than one per newline, so the clean budgets match too (klein's 500).
 - [x] F76. `tests/fakes.py:235` FakeCritic skips check_fits, so it answers prompts the real critic refuses — `fb889e9`; docs `4ab3fa0` and `39e9863`. The fake calls the real `check_fits` before its delay, on the unscaled estimate standing in for the server's count; the docs and the fake's comments now say fake and real can differ near the window's edge. No smoke step.
 - [x] F77. `docs/verified.md:418` verified.md's Prompt analyser evidence was deleted after the commit — `4ab3fa0` and `39e9863`. No doc cites a scratchpad: what survived is in `%TEMP%/local-diffusion-analyser-validation/` with a sidecar per file and `INDEX.md`, the four prompts are in the doc, and the 2026-09-28 rows' scripts and lane reports are there under `review-2026-09-28/`, copied whole without sidecars. Beyond the review, it says which rows can still be re-checked and how; the download times cannot be. The 2026-09-29 rows have `review-2026-09-28/final-2026-09-29/`, written by the run itself.
-- [x] F78. `docs/verified.md:316` The WSL 'GGUF on ext4' critique timing was measured from tmpfs — `4ab3fa0`. The row says the 9.7 s read the GGUF from tmpfs and the default on ext4 was never measured, and the README's `/mnt/c` advice keeps only the measured cost; the measurement the review asked for was not taken.
+- [x] F78. `docs/verified.md:316` The WSL 'GGUF on ext4' critique timing was measured from tmpfs — `4ab3fa0`. The row says the 9.7 s read the GGUF from tmpfs and the default on ext4 was never measured, and the README's `/mnt/c` advice keeps only the measured cost; the measurement the review asked for was not taken then; it was taken on 2026-09-29 (`verified.md`'s WSL row with the GGUF on ext4), and README's `/mnt/c` advice now gives the ext4 cost beside it.
 - [x] F79. `docs/design-notes.md:2224` Design notes base 'about 15 seconds' on an unrecorded non-pinned GGUF run — `fab577c`, `4ab3fa0`. "About 15 seconds" rests on the pinned pair's rows in `verified.md` (8.1-16.0 s, median 10.5; 7.4-22.3 s, median 13.2), builder C's run is kept as history on a different GGUF, and the `MIN_TOKENS` comment cites `verified.md`.
 - [x] F80. `docs/verified.md:349` The FLUX slowdown record omits the parent-commit run that clears this commit — `4ab3fa0` and `39e9863`. The parent-commit run is in the row, a paragraph and the design notes: through the CLI, on another prompt, timed by two PNGs' one-second save stamps, "the ~42 s predates the analyser" rather than "clears this commit", and a run that never went through e7d2386's gate wait. Beyond the review, the 2.7x claim is withdrawn: its 15.4 s was an 8-step image.
 - [x] F81. `docs/verified.md:50` verified.md mixes MiB, GiB and MB within the same rows — `4ab3fa0` and `39e9863`. VRAM in `nvidia-smi`'s MiB and file sizes in decimal MB/GB with byte counts, row by row; `39e9863` carried it to the intros' "5-6 GB" and "1.3 GB", the design notes and a `critic.py` comment.
