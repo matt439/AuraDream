@@ -3164,8 +3164,25 @@ does in "the description of the lighting" - in `_PART_COUNT` and in
 `_MANNER` alike. It also found "the prompt reads as long" kept: a claim
 about the prompt's length, like "reads long", it is now left out with the
 measured note where the count was in range, and as repeating the finding
-where one was reported. `CriticContext.reported` counted
-negative-prompt findings, so weighting in Animagine's negative prompt left
+where one was reported. Review of that fix found any word the list did not
+name taken for a part: "keep the revised description under 80 words", "the
+new description has only 12 words" and the like, the critic's words for its
+own version or for the whole, were kept where they had been left out. The
+other way, "your lighting description", "a lighting description" and "the
+soft warm lighting description" were still the prompt's in a count, whose
+determiners lacked "your", "my", "our", "a" and "an" and which named a
+part in two words at most, while a manner read them as parts; plural
+descriptions were the prompt's in a count and a part's in a manner; and
+"as" after any verb made "the prompt is as long as it needs to be, but the
+lighting is vague" a length claim. Now one list of determiners
+(`_DETERMINERS`) and one of words for the whole (`_WHOLE_WORDS`, the
+critic's "revised", "new", "final", "short" and "detailed" among them)
+decide both readings, singular or plural, a noun for the whole as a
+possessive too ("the image's description"); a count takes a part named in
+up to four words; "a" or "an" names a part only with its description, so
+"keep a single paragraph under 80 words" is still the prompt's; and only
+"reads as" is a length claim, never "as long as".
+`CriticContext.reported` counted negative-prompt findings, so weighting in Animagine's negative prompt left
 out "give the expression more emphasis".
 A quote within 8 characters of any finding's span counted, so "a shop" and
 "rain" beside "no people" went as restating the negation, and on FLUX.1

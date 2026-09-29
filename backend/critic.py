@@ -2302,28 +2302,39 @@ _SOME_PART = (
     rf"(?!\s+(?:(?:of|in)\s+{_PROMPT_NP}\s+)?{_GIVEN}\b"
     rf"(?!\s+(?:{_OWN})))"
 )
-# A description is the prompt's where the word just ahead of it is a
-# determiner ("the description", "your description") or a word for the
-# whole ("the full description", "the image description"); any other word
-# there names a part ("the lighting description", "the background
-# description"), as any object but the image, the picture or the prompt
-# (`_WHOLE_NOUNS`) does in "the description of the lighting".
+# A description, or descriptions, is the prompt's where the word just ahead
+# is a determiner ("the description", "your description", "her
+# description") or a word for the whole or for the critic's own version of
+# it ("the full description", "the image description", "the prompt's
+# description", "the revised description", "the short description"); any
+# other word there names a part ("the lighting description", "your
+# background description", "the soft warm lighting description"; in a
+# count, up to four words name it), as any object but the image, the
+# picture or the prompt (`_WHOLE_NOUNS`) does in "the description of the
+# lighting". The same test decides a count (`_PART_COUNT`) and a manner
+# (`_MANNER`).
+_DETERMINERS = (
+    "the", "this", "that", "your", "my", "our", "its", "his", "her", "their", "each", "a", "an",
+)
 _WHOLE_NOUNS = ("image", "picture", "prompt")
 _WHOLE_WORDS = (
-    "full", "whole", "entire", "complete", "overall", "total", "current", "existing",
-    "original", *_WHOLE_NOUNS,
+    "full", "whole", "entire", "complete", "overall", "total", "general", "current", "existing",
+    "original", "main", "new", "revised", "rewritten", "updated", "edited", "improved",
+    "expanded", "suggested", "proposed", "final", "detailed", "short", "shorter", "brief",
+    "long", "longer", *_WHOLE_NOUNS,
 )
+_DETERMINER = "(?:" + "|".join(_DETERMINERS) + ")"
 _WHOLE = "(?:" + "|".join(_WHOLE_WORDS) + ")"
+_DESCRIPTION = r"descriptions?\b"
+_PROMPTS_DESCRIPTION = rf"(?:{_DETERMINER}|{_WHOLE}(?:['’]s)?)\s+{_DESCRIPTION}"
 # A bound after "in" or "with" is how some part is to be described - "the
 # umbrella in under 5 words", "described with only 4", "the lighting
-# description in under 5 words" - unless it is the prompt's, "it" or "this"
-# in so many words, or its description (a lookbehind a word: Python's are
-# fixed-width).
-_OWNER = r"(?<!\bit\s)(?<!\bthis\s)(?<!\bprompt\s)" + "".join(
-    rf"(?<!\b{word}\sdescription\s)"
-    for word in ("the", "this", "that", "your", "its", "a", *_WHOLE_WORDS)
-)
-_MANNER = rf"(?<!{_OWNER}\bin\s)(?<!{_OWNER}\bwith\s)"
+# description in under 5 words" - unless the prompt's comes before it: "it"
+# or "this" in so many words, the prompt, or its description (`_OWNER`).
+_OWNER = rf"\b(?:it|this|prompt|{_PROMPTS_DESCRIPTION})\s+(?:in|with)\s"
+_MANNER = rf"(?:(?<!\bin\s)(?<!\bwith\s)|{_OWNER})"
+# How long or short the prompt is said to be: "a little long", "too short".
+_SO = r"(?:too\s+|very\s+|rather\s+|quite\s+|a\s+(?:little|bit)\s+|slightly\s+)?"
 _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
     "guide.words": (
         "word count",
@@ -2344,9 +2355,10 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
             r"(?:about\s+|around\s+|roughly\s+|at least\s+|under\s+)?\d+\s*words?\b"
             r"|\bprompt\b(?:(?!\b(?:add|with)\b)[^.;]){0,30}?\b\d+\s*words?\b"
             rf"{_SOME_PART}"
-            r"|\bprompt(?:\s+(?:is|runs|reads|seems)(?:\s+as)?)?"
-            r"\s+(?:too\s+|very\s+|rather\s+|quite\s+|a\s+(?:little|bit)\s+|slightly\s+)?"
-            r"(?:short|long|brief)\b"
+            r"|\bprompt(?:\s+(?:is|runs|reads|seems))?"
+            rf"\s+{_SO}(?:short|long|brief)\b"
+            # "Reads as long", not "as long as": a comparison or a condition.
+            rf"|\bprompt\s+reads\s+as\s+{_SO}(?:short|long|brief)\b(?!\s+as\b)"
             r"|^(?:(?:it|this)(?:'s|’s|\s+is)\s+(?:too|very)|too)\s+(?:short|long|brief)\b"
             r"(?!\s+an?\s+(?!(?:prompt|description|list)\b))"
             r"|\bprompt(?:'s|’s)? length\b|\blength of (?:the|this|your) prompt\b"
@@ -2392,17 +2404,20 @@ _PROMPT = re.compile(r"(?i)\bprompt\b")
 # least 5 words", "The lighting has only 3 words", "Expand the lighting to 5
 # words" - taken out of a sentence before `guide.words` reads it, as is one
 # given to a part named with its description ("Keep the lighting description
-# under 5 words", "Give the description of the lighting at least 5 words").
-# The prompt, its description, the whole, the count or the problem given as
-# many ("Give the prompt at least 30 words", "Keep the description under 80
-# words", "The full description has only 12 words", "It has only 12 words",
-# "The whole prompt is 12 words", "The problem is only 12 words") is still
-# its length.
+# under 5 words", "Keep your lighting description under 5 words", "Give the
+# description of the lighting at least 5 words"). The prompt, its
+# description, the whole, the count or the problem given as many ("Give the
+# prompt at least 30 words", "Keep the description under 80 words", "The
+# full description has only 12 words", "Keep the revised description under
+# 80 words", "It has only 12 words", "The whole prompt is 12 words", "The
+# problem is only 12 words") is still its length. "A" or "an" names a part
+# only with its description: "keep a single paragraph under 80 words" is the
+# prompt's.
 _BOUND = (
     r"(?:(?:only|just|at least|at most|more than|fewer than|less than|under|over|about|around)"
     r"\s+)?\d+\s*words?\b"
 )
-_NAMES = r"(?:the|its|his|her|their|this|that|each)"
+_NAMES = "(?:" + "|".join(word for word in _DETERMINERS if word not in ("a", "an")) + ")"
 _NAME_WORD = r"[^\W\d_][\w'’-]*"
 _PART_WORDS = (
     r"(?:\s+(?!(?:prompts?|descriptions?|whole|entire|count|length|total|problem|issue)\b)"
@@ -2410,9 +2425,10 @@ _PART_WORDS = (
 )
 _WHOLE_NOUN = "(?:" + "|".join(_WHOLE_NOUNS) + ")s?"
 _NAMED = (
-    rf"(?:{_NAMES}(?!(?:\s+{_NAME_WORD})?\s+{_WHOLE}\s+descriptions?\b){_PART_WORDS}"
-    r"(?:\s+descriptions?\b)?"
-    rf"|(?:the|its|this|that|your)\s+descriptions?\s+of\s+{_NAMES}"
+    rf"(?:{_NAMES}{_PART_WORDS}"
+    rf"|{_DETERMINER}(?:\s+{_NAME_WORD}){{0,3}}"
+    rf"\s+(?!(?:{_DETERMINER}|{_WHOLE})\b){_NAME_WORD}\s+{_DESCRIPTION}"
+    rf"|{_DETERMINER}(?:\s+{_WHOLE})?\s+{_DESCRIPTION}\s+of\s+{_NAMES}"
     rf"(?!(?:\s+{_NAME_WORD})?\s+{_WHOLE_NOUN}\b){_PART_WORDS})"
 )
 _PART_COUNT = re.compile(

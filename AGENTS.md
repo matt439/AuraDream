@@ -539,10 +539,11 @@ Prompt analyser:
   under 5 words", "the lighting has only 3 words", "keep the lighting
   description under 5 words": `_SOME_PART`, `_MANNER`, `_PART_COUNT` -
   unless it names the prompt, its description (the word just ahead of
-  "description" a determiner or one of `_WHOLE_WORDS`: "the full
-  description"), "it", a total, or the guide or its range as such, or fits
-  them: "to reach the range", not "the dynamic range" or "to match the
-  lighting"; a heuristic, every word of it pinned by a test row), an order issue the documented order reverses (a part first or a
+  "description" one of `_DETERMINERS` or `_WHOLE_WORDS`: "your
+  description", "the revised description"; any other word there names a
+  part, "your lighting description"), "it", a total, or the guide or its
+  range as such, or fits them: "to reach the range", not "the dynamic
+  range" or "to match the lighting"; a heuristic, every word of it pinned by a test row), an order issue the documented order reverses (a part first or a
   "put X before Y", `_reversed`; a negated instruction wants nothing), and
   order issues that cannot all hold.
   `reordered` survives only under a documented order and as a pure reorder

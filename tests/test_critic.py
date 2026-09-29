@@ -2676,15 +2676,32 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
     ]
     result = _checked(KREA_DEV, prompt, issues)
     assert len(result.issues) == 3 and result.set_aside == [] and result.dropped == 0
+    # Nor, after its review, one named "your" or "a" lighting description,
+    # or a part named in three words ahead of it.
+    issues = [
+        _quoting("The lighting is long", None, fix="Keep your lighting description under 5 words"),
+        _quoting("The umbrella is thin", "a black umbrella",
+                 fix="Give an umbrella description at least 5 words"),
+        _quoting("The lighting is long", None,
+                 fix="Keep the soft pink neon description under 5 words"),
+        _quoting("The lighting is thin", None,
+                 fix="Give the description of your lighting at least 5 words"),
+    ]
+    result = _checked(KREA_DEV, prompt, issues)
+    assert len(result.issues) == 4 and result.set_aside == [] and result.dropped == 0
     # A claim about the prompt's own length is still left out, and said to
     # be what it is: the check measured the count, and there is no finding.
-    # "Reads as long" is one, as "reads long" is.
+    # "Reads as long" is one, as "reads long" is; so is a count given to the
+    # critic's own version of the description.
     measured = [
         f"1 issue left out: it spoke to the prompt's length, which the check measured "
         f"({words} words, inside the 30-80 the guide suggests)."
     ]
     long = [_quoting("The prompt is too long for the guide", None, fix="Cut it to 30-80 words")]
     reads = [_quoting("The prompt reads as long", None, fix="Shorten it")]
+    revised = [_quoting("Thin", None, fix="Keep the revised description under 80 words")]
+    result = _checked(KREA_DEV, prompt, revised)
+    assert result.issues == [] and result.set_aside == measured
     for claim in (long, reads):
         result = _checked(KREA_DEV, prompt, claim)
         assert result.issues == [] and result.set_aside == measured
@@ -2814,6 +2831,33 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
         ("Thin", "Keep your description in under 80 words", True),
         ("The prompt reads as long", "Shorten it", True),
         ("The prompt reads as short", "Add detail", True),
+        # Its review: a word for the critic's own version or for the whole
+        # ahead of "description" read as a part, and "your", "a" or three
+        # words ahead of a part's description as the prompt's; "descriptions"
+        # was a part's in a count, the prompt's in a manner; and "as long as",
+        # a comparison or a condition, read as a claim whatever the verb.
+        ("Thin", "Keep the revised description under 80 words", True),
+        ("Thin", "Keep the rewritten description in under 80 words", True),
+        ("Thin", "Give the short description at least 30 words", True),
+        ("Thin", "Expand the short description to at least 30 words", True),
+        ("The new description has only 12 words", "Add detail", True),
+        ("The lighting is long", "Keep your lighting description under 5 words", False),
+        ("The lighting is thin", "Give your lighting description at least 5 words", False),
+        ("Your lighting description has only 3 words", "Describe the light source", False),
+        ("The lighting is long", "Keep a lighting description under 5 words", False),
+        ("The lighting is thin", "Give the description of your lighting at least 5 words", False),
+        ("The lighting is long", "Keep the soft warm lighting description under 5 words", False),
+        ("The descriptions have only 12 words", "Add detail", True),
+        ("Thin", "Keep the descriptions under 80 words", True),
+        ("Thin", "Keep the descriptions in under 80 words", True),
+        ("The prompt is as long as it needs to be, but the lighting is vague",
+         "Describe the light source", False),
+        ("The prompt runs as long as the scene needs, but no lens is named", "Name a lens", False),
+        ("The prompt seems as long as it should be, but the mood is unclear", "Name the mood",
+         False),
+        ("The prompt reads as long as it needs to, but the lighting is vague",
+         "Describe the light source", False),
+        ("The prompt reads as too long", "Shorten it", True),
     ],
 )
 def test_a_length_claim_is_one_about_the_prompts_own_length(problem, fix, claim):
@@ -2935,38 +2979,85 @@ def test_each_word_tying_a_count_to_a_part_or_to_the_prompt_is_read(problem, fix
     assert (result.issues == []) is claim
 
 
+def _claims_length(fix):
+    result = _checked(KREA_DEV, "A cat on a mat.", [_quoting("Thin", None, fix=fix)], words=45)
+    return result.issues == []
+
+
 # Every word just ahead of "description" that makes it the prompt's - a word
-# for the whole (`_WHOLE_WORDS`), or a determiner alone (`_OWNER`) - one row
-# apiece, beside a part's word in the same place.
+# for the whole or for the critic's own version of it (`_WHOLE_WORDS`) - one
+# row apiece, in each form a count or a manner takes, singular and plural (a
+# noun for the whole as a possessive too); beside a part's word after it,
+# which names a part again.
 @pytest.mark.parametrize(
     "word",
-    ["full", "whole", "entire", "complete", "overall", "total", "current", "existing",
-     "original", "image", "picture", "prompt"],
+    ["full", "whole", "entire", "complete", "overall", "total", "general", "current",
+     "existing", "original", "main", "new", "revised", "rewritten", "updated", "edited",
+     "improved", "expanded", "suggested", "proposed", "final", "detailed", "short", "shorter",
+     "brief", "long", "longer", "image", "picture", "prompt"],
 )
 def test_each_word_making_a_description_the_prompts_is_read(word):
-    def claim(fix):
-        result = _checked(KREA_DEV, "A cat on a mat.", [_quoting("Thin", None, fix=fix)], words=45)
-        return result.issues == []
+    for noun, has in (("description", "has"), ("descriptions", "have")):
+        fixes = [
+            f"Give the {word} {noun} at least 30 words",
+            f"Keep the {word} {noun} under 80 words",
+            f"Expand the {word} {noun} to at least 30 words",
+            f"The {word} {noun} {has} only 12 words",
+            f"Keep the {word} {noun} in under 80 words",
+            f"Keep the {word} {noun} with under 80 words",
+        ]
+        if word in ("image", "picture", "prompt"):
+            fixes += [f"Keep the {word}'s {noun} in under 80 words",
+                      f"The {word}’s {noun} {has} only 12 words"]
+        for fix in fixes:
+            assert _claims_length(fix), fix
+        for fix in (
+            f"Keep the {word} lighting {noun} under 5 words",
+            f"The {word} lighting {noun} {has} only 3 words",
+            f"Keep the {word} lighting {noun} in under 5 words",
+        ):
+            assert not _claims_length(fix), fix
 
-    for fix in (
-        f"Give the {word} description at least 30 words",
-        f"Keep the {word} description under 80 words",
-        f"Keep the {word} description in under 80 words",
-        f"Keep the {word} description with under 80 words",
-    ):
-        assert claim(fix), fix
-    assert not claim("Keep the lighting description in under 5 words")
 
-
-@pytest.mark.parametrize("determiner", ["the", "this", "that", "your", "its", "a"])
+# A determiner alone ahead of "description" makes it the prompt's, and one
+# ahead of a part's word names that part - in a count and in a manner alike,
+# every determiner (`_DETERMINERS`), however many words name the part.
+@pytest.mark.parametrize(
+    "determiner",
+    ["the", "this", "that", "your", "my", "our", "its", "his", "her", "their", "each", "a", "an"],
+)
 def test_a_description_after_a_determiner_alone_is_the_prompts(determiner):
-    def claim(fix):
-        result = _checked(KREA_DEV, "A cat on a mat.", [_quoting("Thin", None, fix=fix)], words=45)
-        return result.issues == []
-
-    assert claim(f"Say {determiner} description in under 80 words")
-    assert claim(f"Say {determiner} description with under 80 words")
-    assert not claim(f"Say {determiner} lighting description in under 5 words")
+    # "An" is tried on an umbrella, and before a word for the whole alone.
+    part = "umbrella" if determiner == "an" else "lighting"
+    alone = "an overall" if determiner == "an" else determiner
+    lead = alone[:1].upper() + alone[1:]
+    named = determiner[:1].upper() + determiner[1:]
+    singular = determiner in ("this", "that", "each", "a", "an")
+    for noun, has in (("description", "has"),) + (() if singular else (("descriptions", "have"),)):
+        for fix in (
+            f"Keep {alone} {noun} under 80 words",
+            f"{lead} {noun} {has} only 12 words",
+            f"Say {alone} {noun} in under 80 words",
+            f"Say {alone} {noun} with under 80 words",
+        ):
+            assert _claims_length(fix), fix
+        for fix in (
+            f"Keep {determiner} {part} {noun} under 5 words",
+            f"Give {determiner} {part} {noun} at least 5 words",
+            f"{named} {part} {noun} {has} only 3 words",
+            f"Keep {determiner} soft warm {part} {noun} under 5 words",
+            f"Say {determiner} {part} {noun} in under 5 words",
+            f"Say {determiner} soft warm {part} {noun} with at most 5 words",
+            f"Keep {alone} {noun} of the {part} under 5 words",
+        ):
+            assert not _claims_length(fix), fix
+    # A part named ahead of its count without its description takes a
+    # determiner other than "a" or "an", which read as a quantity there.
+    if determiner in ("a", "an"):
+        assert _claims_length("Keep a single paragraph under 80 words")
+    else:
+        assert not _claims_length(f"Give {determiner} lighting at least 5 words")
+        assert not _claims_length(f"Keep the description of {determiner} lighting under 5 words")
 
 
 def test_a_negative_prompts_findings_leave_the_prompts_issues_alone():

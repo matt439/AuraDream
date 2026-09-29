@@ -1038,9 +1038,9 @@ characters an encoder cannot read, does not count as repeating it, and a
 length or a word count worded as a sign's, a lens's or a detail's ("add at
 least 5 words for the lighting", "only 3 words of the prompt are about the
 lighting", "the lighting has only 3 words", "add 5 words to match the
-lighting", "keep the lighting description under 5 words") is not taken
-for the prompt's length; "the description" or "the full description" on
-its own is the prompt's. That is read from the
+lighting", "keep your lighting description under 5 words") is not taken
+for the prompt's length; "the description", "the full description" or "the
+revised description" on its own is the prompt's. That is read from the
 wording, so a phrasing unlike these can still be taken either way. An order
 issue the documented order reverses ("lighting first", or "put the
 lighting before the camera" where the order has the
