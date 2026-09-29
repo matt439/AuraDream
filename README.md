@@ -1022,9 +1022,11 @@ guide gives a range and the check counted it (not in XML or JSON, which it
 holds to no range); when the count was in range, the note says so rather
 than naming a finding. A quote that only sits next to a finding, or on
 characters an encoder cannot read, does not count as repeating it, and a
-length or a word count that is a sign's, a lens's or a detail's ("add at
-least 5 words for the lighting", "only 2 words describe the setting",
-"give the lighting at least 5 words") is not the prompt's length. An order
+length or a word count worded as a sign's, a lens's or a detail's ("add at
+least 5 words for the lighting", "only 3 words of the prompt are about the
+lighting", "the lighting has only 3 words", "add 5 words to match the
+lighting") is not taken for the prompt's length. That is read from the
+wording, so a phrasing unlike these can still be taken either way. An order
 issue the documented order reverses ("lighting first", or "put the
 lighting before the camera" where the order has the
 camera first) is left out, and so are order issues that cannot all hold

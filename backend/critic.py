@@ -2249,21 +2249,43 @@ def _part(
 # sentence at a time (`_says`), not any length or number of words: "a focal
 # length of 85mm", "the dress length is", "add 3 words on its glow", "keep
 # the sign text under 5 words". A number of words about some part is that
-# part's, whichever side names it: "at least 5 words for the lighting", "3
-# words to the fog", "only 2 words describe the setting", "describe the
-# umbrella in more than 2 words", "the ideal length of the raincoat" - and
-# "give the lighting at least 5 words", "the lighting gets only 3 words"
-# (`_PART_COUNT`). Only what names the prompt, its guide or its range, "it"
-# or a total ("30 words in the prompt", "to reach the range", "in it"), or
-# the length of the prompt, is still its length.
+# part's where the words tying it there are these: "at least 5 words for the
+# lighting", "3 words to the fog", "only 2 words describe the setting", "only
+# 3 words of the prompt are about the lighting", "describe the umbrella in
+# (or with) more than 2 words", "the ideal length of the raincoat" - and
+# "give the lighting at least 5 words", "the lighting has only 3 words",
+# "expand the lighting to 5 words" (`_PART_COUNT`). What names the prompt,
+# "it" or a total ("30 words in the prompt", "in it", "in all", "keep it in
+# under 80 words"), the guide or its range ("for the guide", "to the
+# recommended range" - not "the dynamic range"), a fit to them ("to reach the
+# range", "to stay under 80" - not "to match the lighting"), or the length of
+# the prompt or a length of so many words, is still its length.
+_GIVEN = (
+    r"(?:on|about|of|for|to|in|describ(?:e[sd]?|ing)|cover(?:s|ing)?"
+    r"|(?:are|is|go|goes)\s+(?:about|for|on|to))"
+)
+_PROMPT_NP = r"(?:(?:the|this|your|a|an)\s+)?(?:[\w'’-]+\s+)?prompts?(?![\w'’-])"
+# The guide, its range or a bound it sets, as a count's object: "the
+# guide's 30-80 range", "the recommended range", never any "range".
+_MOD = r"(?:(?:guide|model)(?:'s|’s)|recommended|suggested|\d+\s*(?:-|–|to)\s*\d+)"
+_DET = r"(?:(?:the|this|your|its|a)\s+)?"
+_HEAD = r"(?:range|guide|limit|minimum|maximum)s?(?![\w'’-])"
+_TARGET = rf"{_DET}(?:{_MOD}\s+){{0,2}}{_HEAD}"
+_FIT = rf"it\b|{_DET}(?:{_MOD}\s+){{0,2}}(?:{_HEAD}|\d)|(?:about|around|at\s+least)\s+\d"
 _OWN = (
-    r"(?:(?:the|this|your|a|an)\s+)?(?:[\w'’-]+\s+)?(?:prompt|guide|range)s?(?![\w'’-])"
-    r"|(?:it|total|all)\b|(?:reach|meet|hit|fit|match|stay|fall|satisfy|follow)\b"
+    rf"{_PROMPT_NP}|{_TARGET}|it\b|(?:(?:a|the)\s+)?total\b|all\b(?![ \t]+[^\W\d_])"
+    r"|(?:reach|meet|hit|fit|match|stay|fall|satisfy|follow|get)\w*\s+"
+    rf"(?:(?:in|within|inside|into|under|below)\s+)?(?:{_FIT})"
 )
 _SOME_PART = (
-    r"(?!\s+(?:on|about|of|for|to|in|describing|describ(?:e[sd]?)|covering)\b"
+    rf"(?!\s+(?:(?:of|in)\s+{_PROMPT_NP}\s+)?{_GIVEN}\b"
     rf"(?!\s+(?:{_OWN})))"
 )
+# A bound after "in" or "with" is how some part is to be described - "the
+# umbrella in under 5 words", "described with only 4" - unless it is the
+# prompt's, "it" or "this" in so many words.
+_OWNER = r"(?<!\bit\s)(?<!\bthis\s)(?<!\bprompt\s)(?<!\bdescription\s)"
+_MANNER = rf"(?<!{_OWNER}\bin\s)(?<!{_OWNER}\bwith\s)"
 _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
     "guide.words": (
         "word count",
@@ -2273,7 +2295,7 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
             r"|\bbetween\s+\d+\s+and\s+\d+\s*words?\b"
             r"|\b(?:guide(?:'s|’s)|recommended|suggested)\s+\d+\s*(?:-|–|to)\s*\d{2,}\b"
             r"(?![ \t]*[^\W\d_])"
-            r"|(?<!\bin\s)\b(?:under|over|below|above|fewer than|more than|less than|at least"
+            rf"|{_MANNER}\b(?:under|over|below|above|fewer than|more than|less than|at least"
             rf"|at most|only|just)\s+\d+\s*words?\b{_SOME_PART}"
             r"|\b\d+[- ]words?\s+(?:minimum|maximum)\b"
             r"|\b\d+\s*words?,?\s+(?:is\s+|are\s+)?(?:above|below|over|under|outside|short of"
@@ -2284,13 +2306,16 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
             r"(?:about\s+|around\s+|roughly\s+|at least\s+|under\s+)?\d+\s*words?\b"
             r"|\bprompt\b(?:(?!\b(?:add|with)\b)[^.;]){0,30}?\b\d+\s*words?\b"
             rf"{_SOME_PART}"
-            r"|\bprompt(?:\s+(?:is|runs|reads|seems))?\s+(?:too\s+|very\s+|rather\s+|quite\s+)?"
+            r"|\bprompt(?:\s+(?:is|runs|reads|seems))?"
+            r"\s+(?:too\s+|very\s+|rather\s+|quite\s+|a\s+(?:little|bit)\s+|slightly\s+)?"
             r"(?:short|long|brief)\b"
             r"|^(?:(?:it|this)(?:'s|’s|\s+is)\s+(?:too|very)|too)\s+(?:short|long|brief)\b"
-            r"(?!\s+an?\s+(?!prompt\b))"
+            r"(?!\s+an?\s+(?!(?:prompt|description|list)\b))"
             r"|\bprompt(?:'s|’s)? length\b|\blength of (?:the|this|your) prompt\b"
             r"|\b(?:recommended|suggested|ideal|optimal|required|minimum|maximum)"
-            r" (?:prompt )?length\b(?!\s+of\b(?!\s+(?:the|this|your)\s+prompt\b))"
+            r" (?:prompt )?length\b(?!\s+of\b"
+            r"(?!\s+(?:(?:the|this|your|a|an)\s+)?(?:prompts?|description)\b"
+            r"|\s+(?:(?:about|around)\s+)?\d))"
         ),
     ),
     "guide.negation": (
@@ -2326,21 +2351,24 @@ _LETTERING = re.compile(
 )
 _PROMPT = re.compile(r"(?i)\bprompt\b")
 # A number of words given to a part named ahead of it - "Give the lighting at
-# least 5 words", "The lighting gets only 3 words" - taken out of a sentence
-# before `guide.words` reads it. The prompt or its description given as
-# many ("Give the prompt at least 30 words", "It gets only 12 words") is
-# still its length.
+# least 5 words", "The lighting has only 3 words", "Expand the lighting to 5
+# words" - taken out of a sentence before `guide.words` reads it. The prompt,
+# its description, the whole, the count or the problem given as many ("Give
+# the prompt at least 30 words", "It has only 12 words", "The whole prompt is
+# 12 words", "The problem is only 12 words") is still its length.
 _BOUND = (
     r"(?:(?:only|just|at least|at most|more than|fewer than|less than|under|over|about|around)"
     r"\s+)?\d+\s*words?\b"
 )
 _NAMED = (
     r"(?:the|its|his|her|their|this|that|each)"
-    r"(?:\s+(?!(?:prompt|description)\b)[^\W\d_][\w'’-]*){1,2}"
+    r"(?:\s+(?!(?:prompts?|description|whole|entire|count|length|total|problem|issue)\b)"
+    r"[^\W\d_][\w'’-]*){1,2}"
 )
 _PART_COUNT = re.compile(
-    rf"(?i)\b(?:give|spend|devote)\w*\s+{_NAMED}\s+{_BOUND}"
-    rf"|\b{_NAMED}\s+(?:gets?|receives?)\s+{_BOUND}"
+    rf"(?i)\b(?:give|devote)\w*\s+{_NAMED}\s+{_BOUND}"
+    rf"|\b(?:cut|trim|shorten|expand|keep|limit)\w*\s+{_NAMED}\s+(?:to|under|below)\s+{_BOUND}"
+    rf"|\b{_NAMED}\s+(?:gets?|receives?|has|have|is|are|uses?)\s+{_BOUND}"
 )
 # An issue that says it is about the negative prompt, the only way one can
 # restate a finding there: its quote is looked for in the prompt alone.

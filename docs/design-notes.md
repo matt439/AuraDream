@@ -3035,17 +3035,37 @@ words for the lighting", "add more than 3 words to the lighting", "only 2
 words describe the setting", "describe the umbrella in more than 2 words",
 "give the lighting at least 5 words", "the lighting gets only 3 words" and
 "the ideal length of the raincoat" still went, under a note saying the
-check had measured the prompt's length. A count now belongs to some part
-whichever words tie it there - after it (for, to, in, covering, describe;
-`_SOME_PART`), "in" ahead of it, or a part given it ahead ("give the
-lighting", "the lighting gets"; `_PART_COUNT`) - unless what they name is
-the prompt, its guide or range, "it" or a total ("30 words in the prompt",
-"at least 30 words to reach the range"), and an ideal or recommended
-length is the prompt's unless it is the length of something else. "The
-prompt runs long" now counts as a length claim, and "too long a shadow" no
-longer does. `CriticContext.reported` counted negative-prompt findings, so
-weighting in Animagine's negative prompt left out "give the expression more
-emphasis".
+check had measured the prompt's length. Its fix made a count some part's
+where "for", "to", "in", "covering" or "describe" followed it
+(`_SOME_PART`), "in" came ahead of it, or a part was given it ahead ("give
+the lighting", "the lighting gets"; `_PART_COUNT`), unless what followed
+named the prompt, its guide or range, "it", a total or all, or a verb of
+fit - and review of that fix found each exception wider than its purpose.
+"Only 3 words of the prompt are about the lighting", which the first
+narrowing had kept, went again, since "of the prompt" named the prompt;
+"to match the lighting", "for all three figures", "the dynamic range" and
+"the style guide" were the prompt's, since a fit verb, "all", or any range
+or guide was; "the lighting has only 3 words" was still the prompt's
+length; and the other way, "keep it in under 80 words", "the recommended
+length of 30 words" and "too long a description" were no longer length
+claims. Now a count of the prompt's words is a part's where the sentence
+goes on to give them to one ("are about", "cover", "describe", "go to"); a
+fit is the prompt's only where it fits the guide, its range, a limit or a
+number ("to reach the range", "to stay under 80"); a range or guide only
+bare or as the guide's, the model's, the recommended or suggested one or a
+span of numbers; "all" only as "in all". A part named ahead takes its
+count by give or devote, by has, is, are, gets, receives or uses, or by
+cut, trim, shorten, expand, keep or limit to or under a bound
+(`_PART_COUNT`); "in" or "with" ahead of a bound is how a part is to be
+described unless "it", "this", the prompt or its description comes before
+it (`_MANNER`); and a recommended length of so many words, of prompts or
+of the description is the prompt's. Each of those words has a test row of
+its own. It is still a reading of the critic's wording, so a phrasing
+unlike these can go either way. "The prompt runs long" (reads, seems, a
+little, slightly) counts as a length claim; "too long a shadow" does not,
+"too long a description" or "a list" does. `CriticContext.reported` counted
+negative-prompt findings, so weighting in Animagine's negative prompt left
+out "give the expression more emphasis".
 A quote within 8 characters of any finding's span counted, so "a shop" and
 "rain" beside "no people" went as restating the negation, and on FLUX.1
 T5's `unknown_chars` spans, which cover nearly all of a Chinese prompt,

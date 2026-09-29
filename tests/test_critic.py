@@ -2655,6 +2655,16 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
     ]
     result = _checked(KREA_DEV, prompt, issues)
     assert len(result.issues) == 6 and result.set_aside == [] and result.dropped == 0
+    # Nor, after the second, a count of the prompt's words it gives to a
+    # part, or one a part is said to have.
+    issues = [
+        _quoting("Only 3 words of the prompt are about the lighting", None, fix="Add more"),
+        _quoting("Just 2 words of the prompt cover the umbrella", "a black umbrella",
+                 fix="Say more about it"),
+        _quoting("The lighting has only 3 words", None, fix="Describe the light source"),
+    ]
+    result = _checked(KREA_DEV, prompt, issues)
+    assert len(result.issues) == 3 and result.set_aside == [] and result.dropped == 0
     # A claim about the prompt's own length is still left out, and said to
     # be what it is: the check measured the count, and there is no finding.
     long = [_quoting("The prompt is too long for the guide", None, fix="Cut it to 30-80 words")]
@@ -2736,6 +2746,43 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
         ("The lettering is 3 words long.", "Shorten it", False),
         ("The text on the mug is long", "Cut it to 2 words", False),
         ("The shot is too long", "Crop it", False),
+        # Phase-4 review: the prompt's words given to a part are the part's,
+        # as they were before "of the prompt" came to name the prompt.
+        ("Only 3 words of the prompt are about the lighting", "Add more", False),
+        ("Just 2 words of the prompt cover the umbrella", "Say more", False),
+        ("Only 12 words of the prompt describe the subject", "Add detail", False),
+        ("Only 2 words in the prompt go to the lighting", "Add more", False),
+        # A fit, "all", a range or a guide is the prompt's only where it is
+        # the prompt's: "to match the lighting" and "the dynamic range" are not.
+        ("The lighting is thin", "Add at least 5 words to match the lighting", False),
+        ("The mood is thin", "Add at least 5 words to fit the mood", False),
+        ("The subject is thin", "Add at least 5 words to follow the subject", False),
+        ("The figures are thin", "Add at least 3 words for all three figures", False),
+        ("The lighting is thin", "Add at least 5 words for the dynamic range", False),
+        ("The sky is thin", "Add at least 5 words to the colour range", False),
+        ("The backdrop is thin", "Add at least 5 words to the mountain range", False),
+        ("The style is thin", "Add at least 5 words to the style guide", False),
+        ("The lighting has only 3 words", "Describe the light source", False),
+        ("The lighting is only 3 words", "Describe the light source", False),
+        ("The setting has just 2 words", "Describe the street", False),
+        ("The lighting has fewer than 3 words", "Describe the light source", False),
+        ("The lighting is thin", "Expand the lighting to at least 5 words", False),
+        ("Thin", "Add at least 10 words in all", True),
+        ("Thin", "Use fewer than 80 words to stay in range", True),
+        ("Thin", "Add at least 30 words to fit the guide's 30-80", True),
+        ("Thin", "Add at least 10 words for a total of 40", True),
+        ("It has only 12 words", "Add detail", True),
+        ("The whole prompt has only 12 words", "Add detail", True),
+        # ... and what the first fix kept that is the prompt's own length:
+        # "it" in so many words, a length of so many words, too long a
+        # description.
+        ("Thin", "Keep it in under 80 words", True),
+        ("Thin", "Say it in under 80 words", True),
+        ("It is below the recommended length of 30 words", "Add detail", True),
+        ("The ideal length of prompts is longer", "Add detail", True),
+        ("Too long a description", "Cut it", True),
+        ("Too long a list of tags", "Cut it", True),
+        ("Too short a description for the guide", "Add detail", True),
     ],
 )
 def test_a_length_claim_is_one_about_the_prompts_own_length(problem, fix, claim):
@@ -2747,6 +2794,97 @@ def test_a_length_claim_is_one_about_the_prompts_own_length(problem, fix, claim)
         "1 issue left out: it spoke to the prompt's length, which the check measured "
         "(45 words, inside the 30-80 the guide suggests)."
     ] if claim else [])
+
+
+# Every word `guide.words` takes as tying a count to a part, or to the
+# prompt, its guide or its range, one row apiece - so that each is pinned.
+@pytest.mark.parametrize(
+    ("problem", "fix", "claim"),
+    [
+        # A count given to a part after it (`_GIVEN`), partitive or not.
+        ("The lighting is thin", "Spend at least 5 words on the lighting", False),
+        ("The lighting is thin", "Use at least 5 words of detail on the lighting", False),
+        ("The setting is thin", "Add at least 3 words describing the setting", False),
+        ("Just 1 word describes the setting", "Describe the pier", False),
+        ("Only 2 words described the setting", "Describe the pier", False),
+        ("Only 2 words cover the fog", "Say how thick", False),
+        ("Just 1 word covers the fog", "Say how thick", False),
+        ("Only 3 words are about the lighting", "Add more", False),
+        ("Just 1 word is for the lighting", "Add more", False),
+        ("Only 2 words go to the fog", "Say how thick", False),
+        ("Just 1 word goes on the fog", "Say how thick", False),
+        # How a part is to be described (`_MANNER`), unless it is the prompt.
+        ("The fog is described with only 4 words", "Say how thick", False),
+        ("Thin", "Say this in under 80 words", True),
+        ("Thin", "Keep the description in under 80 words", True),
+        ("Thin", "Pad the prompt with at least 10 words", True),
+        ("Thin", "Expand it with at least 10 words", True),
+        # A fit to the guide, its range or a bound (`_OWN`, `_FIT`).
+        ("Thin", "Add at least 30 words to meet the minimum", True),
+        ("Thin", "Add at least 30 words to hit the guide's range", True),
+        ("Thin", "Write at least 30 words to fit the model's range", True),
+        ("Thin", "Add at least 30 words to match the recommended range", True),
+        ("Thin", "Use fewer than 80 words to fall within the suggested range", True),
+        ("Thin", "Add at least 30 words to satisfy the guide", True),
+        ("Thin", "Add at least 30 words to follow the guide", True),
+        ("Thin", "Add at least 30 words for the 30-80 range", True),
+        ("The lighting is thin", "Add at least 5 words to describe it", False),
+        ("Thin", "Add at least 30 words to get into range", True),
+        ("Thin", "Add at least 30 words to get it into range", True),
+        ("Thin", "Use fewer than 80 words to stay inside the 30-80 range", True),
+        ("Thin", "Use fewer than 80 words to stay under the maximum", True),
+        ("Thin", "Use fewer than 80 words to stay below 80", True),
+        ("Thin", "Add at least 30 words to reach about 40", True),
+        ("Thin", "Add at least 30 words to reach around 40", True),
+        ("Thin", "Add at least 10 words to reach at least 30", True),
+        ("Thin", "Use fewer than 80 words to fall within a suggested range", True),
+        ("Thin", "Add at least 30 words to reach its range", True),
+        ("Thin", "Add at least 30 words to meet this minimum", True),
+        ("Thin", "Add at least 30 words to fit your limit", True),
+        # A part named ahead of its count (`_PART_COUNT`), each determiner,
+        # verb and shaping verb - and the prompt, the whole, the count or the
+        # problem named there instead.
+        ("The lighting is thin", "Devote the lighting at least 5 words", False),
+        ("The lighting is thin", "Give its lighting at least 5 words", False),
+        ("The coat is thin", "Give his coat at least 5 words", False),
+        ("The dress is thin", "Give her dress at least 5 words", False),
+        ("The faces are thin", "Give their faces at least 5 words", False),
+        ("The detail is thin", "Give this detail at least 5 words", False),
+        ("The detail is thin", "Give that detail at least 5 words", False),
+        ("The figures are thin", "Give each figure at least 3 words", False),
+        ("The lighting receives only 3 words", "Describe the light source", False),
+        ("The eyes have only 2 words", "Describe them", False),
+        ("The eyes are only 2 words", "Describe them", False),
+        ("The lighting uses only 3 words", "Describe the light source", False),
+        ("The lighting is long", "Cut the lighting to at most 5 words", False),
+        ("The lighting is long", "Trim the lighting to at most 5 words", False),
+        ("The lighting is long", "Shorten the lighting to at most 5 words", False),
+        ("The lighting is long", "Keep the lighting under 5 words", False),
+        ("The lighting is long", "Limit the lighting to at most 5 words", False),
+        ("The lighting is long", "Keep the lighting below 5 words", False),
+        ("The full description has only 12 words", "Add detail", True),
+        ("The whole thing is only 12 words", "Add detail", True),
+        ("The entire thing is only 12 words", "Add detail", True),
+        ("The word count is only 12 words", "Add detail", True),
+        ("Its length is only 12 words", "Add detail", True),
+        ("The total is only 12 words", "Add detail", True),
+        ("The problem is only 12 words", "Add detail", True),
+        ("The issue is only 12 words", "Add detail", True),
+        # A length of so many words, or of the prompt's description.
+        ("It is below the recommended length of about 30 words", "Add detail", True),
+        ("It is below the recommended length of around 30 words", "Add detail", True),
+        ("It is below the ideal length of the description", "Add detail", True),
+        # How the prompt reads.
+        ("The prompt reads long", "Shorten it", True),
+        ("The prompt seems short", "Add detail", True),
+        ("The prompt runs a little long", "Shorten it", True),
+        ("The prompt is a bit short", "Add detail", True),
+        ("The prompt is slightly long", "Shorten it", True),
+    ],
+)
+def test_each_word_tying_a_count_to_a_part_or_to_the_prompt_is_read(problem, fix, claim):
+    result = _checked(KREA_DEV, "A cat on a mat.", [_quoting(problem, None, fix=fix)], words=45)
+    assert (result.issues == []) is claim
 
 
 def test_a_negative_prompts_findings_leave_the_prompts_issues_alone():
