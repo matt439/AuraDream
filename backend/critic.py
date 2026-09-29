@@ -1919,14 +1919,44 @@ def _unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return dict(pairs)
 
 
+class _Written:
+    """A JSON number as the text writes it: the encoder reads the text, so
+    0.50, 0.5 and 5e-1 are three, as 1.0, 1 and true are."""
+
+    __slots__ = ("text",)
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+def _write(value: Any, sort: bool) -> str:
+    """`value` written back as JSON, its keys sorted or in its own order, each
+    number as it was written (`_Written`) - bare, where every string is
+    quoted, so no string can pass for one."""
+    if isinstance(value, _Written):
+        return value.text
+    if isinstance(value, dict):
+        items = sorted(value.items()) if sort else value.items()
+        return "{" + ",".join(f"{json.dumps(key)}:{_write(item, sort)}" for key, item in items) + "}"
+    if isinstance(value, list):
+        return "[" + ",".join(_write(item, sort) for item in value) + "]"
+    return json.dumps(value)
+
+
 def _json_forms(text: str) -> tuple[str, str] | None:
-    """`text`'s JSON value written with its keys sorted - what its values
-    alone decide, and 1.0, 1 and true are three - and in its own key order.
-    None where it is not JSON, or repeats a key, whose earlier value
-    `json.loads` would drop unseen."""
+    """`text`'s JSON value written with its keys sorted - what its values as
+    written alone decide: 0.50 and 0.5 are two numbers here, and 1.0, 1 and
+    true three - and in its own key order. None where it is not JSON, or
+    repeats a key, whose earlier value `json.loads` would drop unseen.
+
+    Strings are compared as values here; how they are written - an escape
+    for a letter - is `_quoted`'s to hold, as in any other prompt."""
     try:
-        value = json.loads(text, object_pairs_hook=_unique)
-        return json.dumps(value, sort_keys=True), json.dumps(value)
+        value = json.loads(
+            text, object_pairs_hook=_unique,
+            parse_int=_Written, parse_float=_Written, parse_constant=_Written,
+        )
+        return _write(value, sort=True), _write(value, sort=False)
     except (ValueError, RecursionError):
         return None
 
@@ -1951,8 +1981,11 @@ def _reordered(candidate: str, prompt: str, style: str) -> tuple[bool, str | Non
     if _quoted(candidate) != _quoted(prompt):
         return False, None
     if style == "json":
-        # An object's keys have no order as values, so equal as values and
-        # different as written is exactly a reorder; a list's order is content.
+        # An object's keys have no order as values, so equal as values -
+        # each number as written - and different in key order is exactly a
+        # reorder; a list's order is content. What comes back is the
+        # candidate, whose values are then the prompt's own writing and
+        # whose space between them is the critic's.
         theirs, ours = _json_forms(candidate), _json_forms(prompt)
         if theirs is None or ours is None or theirs[0] != ours[0]:
             return False, None
@@ -2215,7 +2248,22 @@ def _part(
 # count, the guide's band, a bound, a sentence opening "Too short" - read a
 # sentence at a time (`_says`), not any length or number of words: "a focal
 # length of 85mm", "the dress length is", "add 3 words on its glow", "keep
-# the sign text under 5 words".
+# the sign text under 5 words". A number of words about some part is that
+# part's, whichever side names it: "at least 5 words for the lighting", "3
+# words to the fog", "only 2 words describe the setting", "describe the
+# umbrella in more than 2 words", "the ideal length of the raincoat" - and
+# "give the lighting at least 5 words", "the lighting gets only 3 words"
+# (`_PART_COUNT`). Only what names the prompt, its guide or its range, "it"
+# or a total ("30 words in the prompt", "to reach the range", "in it"), or
+# the length of the prompt, is still its length.
+_OWN = (
+    r"(?:(?:the|this|your|a|an)\s+)?(?:[\w'’-]+\s+)?(?:prompt|guide|range)s?(?![\w'’-])"
+    r"|(?:it|total|all)\b|(?:reach|meet|hit|fit|match|stay|fall|satisfy|follow)\b"
+)
+_SOME_PART = (
+    r"(?!\s+(?:on|about|of|for|to|in|describing|describ(?:e[sd]?)|covering)\b"
+    rf"(?!\s+(?:{_OWN})))"
+)
 _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
     "guide.words": (
         "word count",
@@ -2225,8 +2273,8 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
             r"|\bbetween\s+\d+\s+and\s+\d+\s*words?\b"
             r"|\b(?:guide(?:'s|’s)|recommended|suggested)\s+\d+\s*(?:-|–|to)\s*\d{2,}\b"
             r"(?![ \t]*[^\W\d_])"
-            r"|\b(?:under|over|below|above|fewer than|more than|less than|at least|at most"
-            r"|only|just)\s+\d+\s*words?\b(?!\s+(?:on|about|of|describing)\b)"
+            r"|(?<!\bin\s)\b(?:under|over|below|above|fewer than|more than|less than|at least"
+            rf"|at most|only|just)\s+\d+\s*words?\b{_SOME_PART}"
             r"|\b\d+[- ]words?\s+(?:minimum|maximum)\b"
             r"|\b\d+\s*words?,?\s+(?:is\s+|are\s+)?(?:above|below|over|under|outside|short of"
             r"|within|inside)\s+the\s+(?:range|guide|recommend|suggest)"
@@ -2235,12 +2283,14 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
             r"(?:\s+(?:it|this|the prompt))?(?:\s+(?:down|up|back|out))?\s+to\s+"
             r"(?:about\s+|around\s+|roughly\s+|at least\s+|under\s+)?\d+\s*words?\b"
             r"|\bprompt\b(?:(?!\b(?:add|with)\b)[^.;]){0,30}?\b\d+\s*words?\b"
-            r"(?!\s+(?:on|about|of|describing)\b)"
-            r"|\bprompt(?:\s+is)?\s+(?:too\s+|very\s+|rather\s+|quite\s+)?(?:short|long|brief)\b"
+            rf"{_SOME_PART}"
+            r"|\bprompt(?:\s+(?:is|runs|reads|seems))?\s+(?:too\s+|very\s+|rather\s+|quite\s+)?"
+            r"(?:short|long|brief)\b"
             r"|^(?:(?:it|this)(?:'s|’s|\s+is)\s+(?:too|very)|too)\s+(?:short|long|brief)\b"
+            r"(?!\s+an?\s+(?!prompt\b))"
             r"|\bprompt(?:'s|’s)? length\b|\blength of (?:the|this|your) prompt\b"
             r"|\b(?:recommended|suggested|ideal|optimal|required|minimum|maximum)"
-            r" (?:prompt )?length\b"
+            r" (?:prompt )?length\b(?!\s+of\b(?!\s+(?:the|this|your)\s+prompt\b))"
         ),
     ),
     "guide.negation": (
@@ -2275,6 +2325,23 @@ _LETTERING = re.compile(
     r"|banners?|(?<!prompt )text(?![- ]to[- ]image))\b"
 )
 _PROMPT = re.compile(r"(?i)\bprompt\b")
+# A number of words given to a part named ahead of it - "Give the lighting at
+# least 5 words", "The lighting gets only 3 words" - taken out of a sentence
+# before `guide.words` reads it. The prompt or its description given as
+# many ("Give the prompt at least 30 words", "It gets only 12 words") is
+# still its length.
+_BOUND = (
+    r"(?:(?:only|just|at least|at most|more than|fewer than|less than|under|over|about|around)"
+    r"\s+)?\d+\s*words?\b"
+)
+_NAMED = (
+    r"(?:the|its|his|her|their|this|that|each)"
+    r"(?:\s+(?!(?:prompt|description)\b)[^\W\d_][\w'’-]*){1,2}"
+)
+_PART_COUNT = re.compile(
+    rf"(?i)\b(?:give|spend|devote)\w*\s+{_NAMED}\s+{_BOUND}"
+    rf"|\b{_NAMED}\s+(?:gets?|receives?)\s+{_BOUND}"
+)
 # An issue that says it is about the negative prompt, the only way one can
 # restate a finding there: its quote is looked for in the prompt alone.
 _NEGATIVE_PROMPT = re.compile(r"(?i)\bnegative[- ]prompts?\b")
@@ -2285,11 +2352,11 @@ def _says(rule: str, pattern: re.Pattern[str], issue: CritiqueIssue) -> bool:
         return bool(pattern.search(f"{issue.problem} {issue.fix}"))
     # A sentence at a time, none about lettering - and in an issue about
     # lettering ("The text on the mug is long" / "Cut it to 2 words"), only
-    # one that names the prompt.
+    # one that names the prompt - with a part's own count taken out.
     sentences = [part for field in (issue.problem, issue.fix) for part in _SENTENCE.split(field)]
     lettering = any(_LETTERING.search(sentence) for sentence in sentences)
     return any(
-        pattern.search(sentence) and not _LETTERING.search(sentence)
+        pattern.search(_PART_COUNT.sub(" ", sentence)) and not _LETTERING.search(sentence)
         and (not lettering or _PROMPT.search(sentence))
         for sentence in sentences
     )
@@ -2439,17 +2506,22 @@ def _described(wants: _Wants) -> list[str]:
 
 # A rewrite's outer quotation marks, and the marks that close each opener.
 _WRAPS = {'"': '"', "“": "”", "„": "“”", "«": "»", "「": "」", "『": "』", "'": "'", "‘": "’"}
+# What the critic's own sentence may put after a wrap's closing mark: a stop,
+# spaced or not, or a comma, semicolon or colon as it goes on.
+_WRAP_TAIL = re.compile(r"[\s.!?…。！？,;:，；：、]+\Z")
 
 
 def _unwrapped(text: str) -> str | None:
     """`text` without quotation marks around the whole of it, or None when it
     has none: the marks inside must still open before they close, so
     `"OPEN" sign, "CLOSED"` is two quotations and not one wrap, while the
-    apostrophe in `'A dog's tail'` is no mark at all. A stop after the
-    closing mark - `"A cat on a sofa".` - still leaves a wrap, and the text
-    keeps it."""
-    body = text.rstrip(_STOPS)
-    stop = text[len(body):]
+    apostrophe in `'A dog's tail'` is no mark at all. Sentence punctuation
+    after the closing mark - `"A cat on a sofa".`, `"..." !`, `"...";` -
+    still leaves a wrap: the text keeps a stop, closed up to it, and not a
+    comma, semicolon or colon, which were the critic's sentence going on."""
+    tail = _WRAP_TAIL.search(text)
+    body = text[: tail.start()] if tail else text
+    stop = "".join(char for char in tail.group() if char in _STOPS) if tail else ""
     opener = body[:1]
     closers = _WRAPS.get(opener)
     if closers is None or len(body) < 3 or body[-1] not in closers:
@@ -2713,9 +2785,13 @@ def validate(
             reordered, kind = context.rules_reordered, "check"
         elif not context.placed_partly:
             # Every item placed: any other permutation is some other order,
-            # and a comparison row of it would claim the documented one.
+            # and a comparison row of it would claim the documented one. The
+            # critic moved tags only where the prompt is tags; elsewhere its
+            # pieces were sentences or clauses, and what Check placed was
+            # the prompt's comma items, sentences and all.
+            placed = "these tags" if context.style == "tags" else "this prompt"
             set_aside.append(
-                "The critic's reordered version was left out: Check places these tags in the "
+                f"The critic's reordered version was left out: Check places {placed} in the "
                 "documented order itself, and the critic's order is not that one."
             )
         elif _order_items(moved) != _order_items(prompt):

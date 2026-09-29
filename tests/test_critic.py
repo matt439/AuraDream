@@ -2325,6 +2325,36 @@ def test_a_reorder_of_xml_moves_blocks_and_of_json_moves_keys():
     retyped = '{"count": 1.0, "subject": "a red fox", "style": "photo", "sharp": 1}'
     assert not _kept(retyped, typed, "json")
     assert _kept(retyped.replace(": 1}", ": true}"), typed, "json")
+    # Nor is a number written otherwise at the same value: the kept version
+    # is the critic's text, and the encoder reads 0.5 where the user wrote
+    # 0.50. A move alone keeps each number as written.
+    weight = '{"subject": "a red fox", "weight": 0.50, "style": "photo", "sharp": true}'
+    moved = '{"subject": "a red fox", "style": "photo", "weight": 0.50, "sharp": true}'
+    assert _kept(moved, weight, "json")
+    for respelt in ("0.5", "5e-1", "0.500"):
+        assert not _kept(moved.replace("0.50", respelt), weight, "json"), respelt
+    style_first = '{"style": "photo", "subject": "a red fox", "count": 1.0, "sharp": true}'
+    assert _kept(style_first, typed, "json")
+    for respelt in ("1.00", "1e0", "1E+0"):
+        assert not _kept(style_first.replace("1.0", respelt), typed, "json"), respelt
+    signed = '{"scene": "a street", "tilt": -0}'
+    assert _kept('{"tilt": -0, "scene": "a street"}', signed, "json")
+    assert not _kept('{"tilt": 0, "scene": "a street"}', signed, "json")
+    pose = '{"subject": "a fox", "pose": {"ears": 0.25, "tail": false}}'
+    assert _kept('{"pose": {"tail": false, "ears": 0.25}, "subject": "a fox"}', pose, "json")
+    assert not _kept('{"pose": {"ears": 0.250, "tail": false}, "subject": "a fox"}', pose, "json")
+    # Through validate: set aside as changed words, not offered verbatim.
+    respelt = _validate(
+        _answer(reordered=moved.replace("0.50", "0.5"), issues=[], rewrite=None, parts={}),
+        prompt=weight, style="json",
+    )
+    assert respelt.reordered is None and respelt.set_aside == [
+        "The critic's reordered version was left out: it changed words, not only their "
+        "order; a reordering of your own can go under Compare."
+    ]
+    # A number is never a string that reads the same.
+    assert not _kept('{"count": "1", "scene": "a street"}', '{"scene": "a street", "count": 1}',
+                     "json")
     # A repeated key hides the value json.loads drops.
     assert critic._json_forms('{"a": 1, "a": 2}') is None
     assert critic._json_forms('{"a": {"b": 1, "b": 1}}') is None
@@ -2616,9 +2646,15 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
         _quoting("The dress length is not specified", "long red silk dress"),
         _quoting("No lens is named", None, fix="Give a focal length of 85mm", cite="G2"),
         _quoting("The glow is thin", "neon signs glowing", fix="Add 3 words on its glow"),
+        # Nor were these the prompt's length, said to be one the check had
+        # measured after the first fix: a count for, to or describing a part.
+        _quoting("The lighting is thin", None, fix="Add at least 5 words for the lighting"),
+        _quoting("Only 2 words describe the setting", None, fix="Describe the street more"),
+        _quoting("The umbrella is vague", "a black umbrella",
+                 fix="Describe the umbrella in more than 2 words"),
     ]
     result = _checked(KREA_DEV, prompt, issues)
-    assert len(result.issues) == 3 and result.set_aside == [] and result.dropped == 0
+    assert len(result.issues) == 6 and result.set_aside == [] and result.dropped == 0
     # A claim about the prompt's own length is still left out, and said to
     # be what it is: the check measured the count, and there is no finding.
     long = [_quoting("The prompt is too long for the guide", None, fix="Cut it to 30-80 words")]
@@ -2662,6 +2698,19 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
         ("The prompt is short", "Describe more", True),
         ("Thin", "Add details to reach at least 30 words", True),
         ("The prompt, at 12 words, is short", "Add detail", True),
+        ("The prompt runs long", "Shorten it", True),
+        # A count that names the prompt, "it", a total or the range is still
+        # its length, whatever preposition carries it.
+        ("Only 12 words in the prompt", "Add detail", True),
+        ("The prompt has fewer than 30 words in it", "Add detail", True),
+        ("Thin", "Add at least 30 words to the prompt", True),
+        ("Thin", "Add at least 30 words to reach the range", True),
+        ("Thin", "Write at least 30 words for the guide", True),
+        ("Thin", "Add at least 10 words in total", True),
+        ("Thin", "Give the prompt at least 30 words", True),
+        ("Thin", "Give it at least 30 words", True),
+        ("Too long a prompt", "Cut it", True),
+        ("It is below the ideal length of the prompt", "Add detail", True),
         ("The dress length is not specified", "Say how long", False),
         ("No lens is named", "Give a focal length of 85mm", False),
         ("The glow is thin", "Add 3 words on its glow", False),
@@ -2669,6 +2718,20 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
         ("The lighting is vague", "Expand the prompt with 5 words about the lighting.", False),
         ("The lighting is vague", "Expand the prompt with 5 words for the lighting.", False),
         ("The lighting is thin", "Add at least 5 words about the lighting", False),
+        # Some part's count, whichever words carry it: once left out as the
+        # prompt's length the check had measured.
+        ("The lighting is thin", "Add at least 5 words for the lighting", False),
+        ("The lighting is thin", "Add more than 3 words to the lighting", False),
+        ("The setting is thin", "Add at least 3 words to describe the setting", False),
+        ("The setting is thin", "Add at least 3 words in the setting clause", False),
+        ("The lighting is thin", "Add at least 5 words covering the lighting", False),
+        ("The umbrella is vague", "Describe the umbrella in more than 2 words", False),
+        ("Only 2 words describe the setting", "Describe the street more", False),
+        ("The fog is described in just 4 words", "Say how thick", False),
+        ("The ideal length of the raincoat is unclear", "Say how long", False),
+        ("The lighting is thin", "Give the lighting at least 5 words", False),
+        ("The lighting gets only 3 words", "Describe the light source", False),
+        ("Too long a shadow is implied", "Shorten the shadow", False),
         ("The sign is long", "Keep the sign text under 5 words.", False),
         ("The lettering is 3 words long.", "Shorten it", False),
         ("The text on the mug is long", "Cut it to 2 words", False),
@@ -2961,6 +3024,15 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
     # Already in order, nothing moves: any reorder is another order.
     moved = critique(in_order, ", ".join(reversed(in_order.split(", "))))
     assert moved.reordered is None and moved.set_aside == other_order
+    # A prose prompt on the same checkpoint is one comma item Check placed,
+    # and what the critic moved were its sentences: the note speaks of the
+    # prompt, not of tags it does not have.
+    rain = "A girl stands in the rain. She holds a red umbrella."
+    swapped = critique(rain, "She holds a red umbrella. A girl stands in the rain.")
+    assert swapped.reordered is None and swapped.set_aside == [
+        "The critic's reordered version was left out: Check places this prompt in the "
+        "documented order itself, and the critic's order is not that one."
+    ]
     # Where Check places nothing - klein's prose - the critic's reading stands.
     klein = _validate(
         _answer(reordered=reversed_, rewrite=None, parts={}), prompt=prompt, style="tags"
@@ -3077,14 +3149,15 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
     # Lettering is placed by its shape and never looked up: two captions read
     # as prose, in the general slot, and with the rest in the guide's own
     # groups every item is placed with no categories at all - so a swap of
-    # the two is some other order, as where every tag has its category.
+    # the two is some other order, as where every tag has its category. The
+    # captions make it prose, and the note speaks of the prompt, not tags.
     signs = '1girl, a sign that says "open", a banner that reads "sale", masterpiece'
     other = critique(
         '1girl, a banner that reads "sale", a sign that says "open", masterpiece',
         detail=None, prompt=signs,
     )
     assert other.reordered is None and other.set_aside == [
-        "The critic's reordered version was left out: Check places these tags in the "
+        "The critic's reordered version was left out: Check places this prompt in the "
         "documented order itself, and the critic's order is not that one."
     ]
     # Every tag placed, the rule finds the same swap out of order - and
@@ -3114,12 +3187,21 @@ def test_the_rewrites_quotation_marks_are_held_to_the_prompts_lettering():
     cat = "a cat on a sofa"
     wrap = ["The rewrite came back wrapped in quotation marks, which ask for lettering; "
             "they were taken off."]
-    for rewrite in ('"A ginger cat curled up asleep on a worn velvet sofa".',
-                    "“A ginger cat curled up asleep on a worn velvet sofa”."):
+    ginger = "A ginger cat curled up asleep on a worn velvet sofa"
+    for rewrite in (f'"{ginger}".', f"“{ginger}”.", f'"{ginger}" .', f"“{ginger}” ."):
         result = check(rewrite, cat)
-        assert result.rewrite == "A ginger cat curled up asleep on a worn velvet sofa.", rewrite
+        assert result.rewrite == f"{ginger}.", rewrite
         assert result.set_aside == wrap and result.rewrite_findings == [], rewrite
-    for copy in (f'"{cat}".', f"“{cat}”", f'"{cat}."'):
+    # Any sentence punctuation after it, spaced or not: a stop is kept,
+    # closed up; a comma, semicolon or colon was the critic's sentence going
+    # on, and goes. None of it is lettering the prompt does not ask for.
+    for tail, kept in (("!", "!"), (" ?", "?"), (";", ""), (",", ""), (":", ""), (" ;", ""),
+                       ("，", ""), ("。", "。")):
+        for rewrite in (f'"{ginger}"{tail}', f"“{ginger}”{tail}"):
+            result = check(rewrite, cat)
+            assert result.rewrite == ginger + kept, rewrite
+            assert result.set_aside == wrap and result.rewrite_findings == [], rewrite
+    for copy in (f'"{cat}".', f"“{cat}”", f'"{cat}."', f'"{cat}" .', f'"{cat}";', f'"{cat}",'):
         result = check(copy, cat)
         assert result.rewrite is None and result.rewrite_findings == [], copy
         assert result.set_aside == wrap + [
@@ -3131,6 +3213,8 @@ def test_the_rewrites_quotation_marks_are_held_to_the_prompts_lettering():
     # Two quotations are not one wrap, nor is an apostrophe a quotation.
     assert critic._unwrapped('"Open Late" on the sign, "Closed" on the door') is None
     assert critic._unwrapped('"Open Late" on the sign, "Closed".') is None
+    assert critic._unwrapped('"Open Late" on the sign, "Closed";') is None
+    assert critic._unwrapped('"A cat on a sofa." ,') == "A cat on a sofa."
     assert critic._unwrapped("'Open' on the sign, 'Closed' on the door") is None
     assert critic._unwrapped("'A dog's tail'") == "A dog's tail"
     assert critic._unwrapped("'A dog's tail'!") == "A dog's tail!"
@@ -3404,6 +3488,27 @@ def test_the_critic_is_told_the_negative_prompt_applied_runs_not_the_one_typed()
     critic.check_fits(critic.build_context(model_id, long, GenerateRequest(prompt=prompt), analysis))
     with pytest.raises(critic.CriticError, match="too long for the critic"):
         critic.check_fits(critic.build_context(model_id, long, long, analysis))
+
+
+def test_the_real_critic_asks_about_the_negative_prompt_applied_runs(monkeypatch, prepared):
+    # PromptCritic.critique hands on what applied() runs, not what was typed:
+    # passing the request twice told llama-server "Negative prompt (it
+    # runs)" on Krea [dev] without True CFG, and no test above noticed.
+    typed = GenerateRequest(prompt="A quiet street with no people", negative_prompt="people, crowds")
+    analysis = _analysis(KREA_DEV, ordered=False)
+    for true_cfg, runs in ((None, False), (3.0, True)):
+        request = typed.model_copy(update={"true_cfg": true_cfg})
+        applied = request.applied(
+            negative_prompt_supported=True, cfg_threshold=1.0, true_cfg_supported=True
+        )
+        assert (applied.negative_prompt is not None) is runs
+        server = Server(monkeypatch)
+        prepared.critique(KREA_DEV, request, applied, analysis)
+        [body] = [body for _, path, _, body in server.calls if path == "/v1/chat/completions"]
+        system, user = (message["content"] for message in body["messages"])
+        assert ("Negative prompt (it runs):\npeople, crowds" in user) is runs, true_cfg
+        assert ("people, crowds" in user) is runs, true_cfg
+        assert ("No negative prompt runs" in system) is not runs, true_cfg
 
 
 def test_the_flux1_family_is_told_how_bfl_reads_its_order():

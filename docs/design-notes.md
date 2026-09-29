@@ -3029,7 +3029,21 @@ dress length is" and "add 3 words on its glow"; it now reads a sentence at
 a time, and only claims about the prompt's length (its count, the guide's
 band, a bound, "Too short"), not a number of words about something ("add at
 least 5 words about the lighting") or lettering ("keep the sign text under
-5 words"). `CriticContext.reported` counted negative-prompt findings, so
+5 words"). Phase-4 re-verification found that narrowing held only for a
+count followed by "on", "about", "of" or "describing": "add at least 5
+words for the lighting", "add more than 3 words to the lighting", "only 2
+words describe the setting", "describe the umbrella in more than 2 words",
+"give the lighting at least 5 words", "the lighting gets only 3 words" and
+"the ideal length of the raincoat" still went, under a note saying the
+check had measured the prompt's length. A count now belongs to some part
+whichever words tie it there - after it (for, to, in, covering, describe;
+`_SOME_PART`), "in" ahead of it, or a part given it ahead ("give the
+lighting", "the lighting gets"; `_PART_COUNT`) - unless what they name is
+the prompt, its guide or range, "it" or a total ("30 words in the prompt",
+"at least 30 words to reach the range"), and an ideal or recommended
+length is the prompt's unless it is the length of something else. "The
+prompt runs long" now counts as a length claim, and "too long a shadow" no
+longer does. `CriticContext.reported` counted negative-prompt findings, so
 weighting in Animagine's negative prompt left out "give the expression more
 emphasis".
 A quote within 8 characters of any finding's span counted, so "a shop" and
@@ -3059,9 +3073,9 @@ to go.
 
 `reordered` survives only where the app has a documented order and only as
 a pure reorder - the same whole tags, clauses, sentences or XML blocks (for
-JSON, the same values by `json.dumps(sort_keys=True)` - Python's
-1 == 1.0 == True let a retyped literal pass - with no key repeated, in
-another key order), every quoted span unchanged, typed marks folded
+JSON, the same values written back with the keys sorted, each number as the
+text writes it (`_json_forms`), with no key repeated, in another key
+order), every quoted span unchanged, typed marks folded
 (`is_reorder`). Here "quoted" is `prompt_rules.QUOTED`, the one pattern the
 rules, the encoder layer and the critic share (the critic's own narrower
 copy let a «…» or „…“ quotation split across two pieces), whose
@@ -3072,8 +3086,15 @@ refused that pair, so such lettering was nulled from `text_to_render` and a
 rewrite that changed it was kept. Word multisets were the first reorder
 check, and review broke it: "a woman in a red dress and a blue hat" came
 back with the colours swapped and the sign text's quotes gone, and passed.
-What is kept (JSON aside, which keeps the critic's writing of the same values)
-has the prompt's own pieces, each as the prompt writes it, in
+The 2026-09-28 review found the JSON check comparing values with Python's
+1 == 1.0 == True, so a literal retyped as another type passed; its fix
+compared `json.dumps(sort_keys=True)`, and phase-4 re-verification found
+that still a comparison of values: 0.50 written 0.5 or 5e-1, 1.0 written
+1.00 or 1e0, -0 written 0, passed beside a key moved, and the kept version,
+the critic's text, gave the encoder other text than the user's. Numbers are
+now read as written. What is kept (JSON aside, which keeps the critic's
+text: its values are the prompt's writing, only the space between them the
+critic's) has the prompt's own pieces, each as the prompt writes it, in
 the critic's order, with the critic's space and punctuation between them: a
 case-folded comparison once let an upper-cased reorder through, and T5 and
 Qwen3 read case, while separators left where they lay turned "says EAT!"
@@ -3126,14 +3147,23 @@ hybrid checkpoint Check places a prose prompt too: a clause that
 `_is_sentence` reads as a sentence takes the general slot, so there a
 sentence order is tested under Your version, while a clause that a Danbooru
 name could still be keeps every slot, since prose is never looked up, and a
-critic's reorder of such clauses can stand as `allowed`.
+critic's reorder of such clauses can stand as `allowed`. Where every clause
+was placed, a critic's reorder of its sentences is set aside like any other
+order but Check's; the note said Check placed "these tags" until phase-4
+re-verification found it said so of sentences, and it now names tags only
+on a prompt read as tags, and "this prompt" elsewhere.
 
 A rewrite that is the prompt as it stands (whitespace, a closing stop and
 how its marks are typed aside) is dropped and said so, since the schema
 requires a rewrite and an echo is the critic proposing none. One wrapped
 whole in quotation marks, as four of the 19 FLUX rewrites on the card were
-(`verified.md`), is unwrapped, a full stop after the closing mark included;
-one that quotes words the prompt does not have is dropped -
+(`verified.md`), is unwrapped, sentence punctuation after the closing mark
+included: a stop, spaced or not, stays on the text, closed up, and a comma,
+semicolon or colon - the critic's own sentence going on - goes. The
+2026-09-28 review found '"…sofa".' dropped as invented lettering, and the
+fix set aside only a stop right after the mark; phase-4 re-verification
+found '"…sofa" .', '"…sofa";' and '"…sofa",' still dropped that way. One
+that quotes words the prompt does not have is dropped -
 lettering nobody asked for, such as the sign example's "Black Forest
 Labs" - and one that quotes the prompt's description gets a
 `heuristic.rewrite_quote` warning where it sits: the rules skip quoted

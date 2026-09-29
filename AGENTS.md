@@ -513,17 +513,21 @@ Prompt analyser:
   characters or control token - and one restating a negative-prompt finding
   only when it names the negative prompt (`reported_negative`); so are issues
   speaking to a length the rules measured in range (`measured_length`, not
-  XML or JSON; `_says` reads a sentence at a time and skips lettering), an
-  order issue the documented order reverses (a part first or a
+  XML or JSON; `_says` reads a sentence at a time and skips lettering and a
+  count some part is given - "at least 5 words for the lighting", "describe
+  the umbrella in under 5 words", "give the lighting at least 5 words":
+  `_SOME_PART`, `_PART_COUNT` - unless it names the prompt, its range, "it"
+  or a total), an order issue the documented order reverses (a part first or a
   "put X before Y", `_reversed`; a negated instruction wants nothing), and
   order issues that cannot all hold.
   `reordered` survives only under a documented order and as a pure reorder
   of whole tags, clauses, sentences or XML blocks with quoted text unchanged
-  (`is_reorder`, typed marks folded; for JSON, equal
-  `json.dumps(sort_keys=True)` and no repeated key). What is kept has the
-  prompt's own pieces, each as the prompt writes it, in the critic's order
-  with the critic's space and punctuation between them (JSON keeps the
-  critic's writing of the same values). Where Check placed the tags
+  (`is_reorder`, typed marks folded; for JSON, equal values with the keys
+  sorted, each number as written - 0.50 is not 0.5 (`_json_forms`) - and no
+  repeated key). What is kept has the prompt's own pieces, each as the
+  prompt writes it, in the critic's order with the critic's space and
+  punctuation between them (JSON keeps the critic's text, whose values are
+  then the prompt's writing). Where Check placed the tags
   (`order_checked`) it stands only as the rules' `reorder_tags` text -
   unless the rules could not place some item the order rule reads
   (`prompt_rules.places_every_item`, placing with the analysis's own
@@ -537,8 +541,9 @@ Prompt analyser:
   `PromptCritique.reordered_kind` says which was kept (`check`, `allowed`,
   or `unchecked` where Check reads no order); the page's Use reordered title
   follows it, and the page has no reorder rule of its own. A rewrite wrapped
-  in quotation marks (a stop after the closing mark included) is unwrapped;
-  one that is the prompt unchanged (whitespace, a closing stop and typed
+  in quotation marks (sentence punctuation after the closing mark included,
+  spaced or not: a stop kept, a comma, semicolon or colon dropped) is
+  unwrapped; one that is the prompt unchanged (whitespace, a closing stop and typed
   marks aside) is dropped; one quoting words the prompt lacks is dropped; one
   quoting its description is flagged. What was left out besides `dropped` -
   the issues above, named parts that failed, a rewrite over-length,
