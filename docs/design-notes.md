@@ -2385,8 +2385,19 @@ unless it is quoted or in capitals. The same re-verification found a negation
 hidden further into a participle's lowercase words: "a boy on a box reading
 comics without pictures" read "comics without pictures" as lettering. Those
 words now stop at without, never, no or not, and the negation rule has the
-rest. The cost is lettering that holds one ("a banner reading love without
-limits"), which warns as an absence until it is quoted or in capitals. The
+rest. A review of that stop found it cutting lettering that opens with a
+negation or holds "do not": "a red sign reading do not enter" became "do",
+"please do not touch" "please do" and "no pain no gain" "no pain", and nothing
+warned, since the negation began inside the words it had stopped. So the words
+stop only where the negation rule's own reading finds an absence starting at
+that word (`_absence_at`) - not inside a negation that starts earlier, nor at
+one with nothing after it ("now or never") - and those are lettering whole
+again. The cost is lettering that holds a negation further in ("a banner
+reading love without limits", "a sign reading dogs not allowed"), which warns
+as an absence until it is quoted or in capitals. That stop is a guess the
+lettering may run on past (`ends` False), so the critic still takes "love
+without limits" whole as text to render and does not flag a rewrite quoting
+it, which is the fix the quote rule's finding asks for. The
 2026-09-28 review also found the negation rule warning on "a cat trying to
 avoid the rain" and "the film Dr. No". "avoiding" is no longer a head, and
 "avoid" or a capital "No" asks for nothing mid-clause: right after a word
@@ -2438,9 +2449,10 @@ target, English or Chinese, carries two flags: `exact` says whether the Apply
 is offered, and `ends` whether what follows is description (False where the
 lettering may run on past it), which `rendered_targets` hands the critic. Past
 的 or a placing verb, or after a participle, the Apply is withheld but what
-follows is still description, so the critic's run-on fallback does not take it.
-Words not in capitals after a noun trigger lose the Apply and keep the `ends`
-their stop gave them.
+follows is still description, so the critic's run-on fallback does not take
+it, except past a negation that stopped a participle's words, where the
+lettering may run on. Words not in capitals after a noun trigger lose the
+Apply and keep the `ends` their stop gave them.
 
 **A stretch of lettering is one item, and no rule rewrites it.** The
 2026-09-28 review found three rules rewriting lettering in one click -

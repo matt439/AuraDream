@@ -795,14 +795,32 @@ def test_a_negation_after_a_trigger_is_still_one():
     [finding] = only(run(KREA_DEV, prompt), "guide.negation")
     assert spanned(prompt, finding) == "without glasses"
     # So did one further on in a participle's lowercase words: they stop at
-    # it, and it is the negation rule's.
+    # it, and it is the negation rule's. The lettering may still run on
+    # through it ("love without limits"), so the critic may read on there.
     for prompt, target, phrase in (
         ("A boy on a box reading comics without pictures", "comics", "without pictures"),
         ("A girl on a crate reading letters never sent", "letters", "never sent"),
+        ("A banner reading love without limits", "love", "without limits"),
     ):
         findings = run(KREA_DEV, prompt)
         assert [spanned(prompt, f) for f in only(findings, "guide.quote_text")] == [target]
         assert [spanned(prompt, f) for f in only(findings, "guide.negation")] == [phrase]
+        start = prompt.index(target)
+        assert prompt_rules.rendered_targets(prompt) == [(start, start + len(target), False)]
+    # Only where the negation rule reads one from there: not inside a
+    # negation that starts a word earlier or opens the words, nor at one with
+    # nothing after it. Those are lettering whole, as before the stop.
+    for prompt, target in (
+        ("A red sign reading do not enter above the door", "do not enter"),
+        ("A sign reading please do not touch", "please do not touch"),
+        ("A hotel sign saying does not compute", "does not compute"),
+        ("A t-shirt reading no pain no gain", "no pain no gain"),
+        ("A t-shirt reading never say never", "never say never"),
+        ("A t-shirt reading now or never", "now or never"),
+    ):
+        findings = run(KREA_DEV, prompt)
+        assert [spanned(prompt, f) for f in only(findings, "guide.quote_text")] == [target]
+        assert only(findings, "guide.negation") == []
         start = prompt.index(target)
         assert prompt_rules.rendered_targets(prompt) == [(start, start + len(target), True)]
     # Capitals after a participle are lettering, negation and all.

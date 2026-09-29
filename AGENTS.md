@@ -385,18 +385,21 @@ Prompt analyser:
   animal's an apostrophe). `prompt_rules.rendered_targets` gives each place
   the text asks for lettering as (start, end, ends): `ends` is False only
   where the rules stopped at a guess and the lettering may run on - a joining
-  word, six words, the 12-character cap, or Latin lettering going on past a
-  space or an ASCII mark (写着OPEN NOW, 9:00, www.shop.com) - and only there
-  may the critic read on past `end` in any words of its clause; past an end
-  the rules are sure of, it reads on only in words that start with a capital
-  or a digit. It is not the Apply's `_Target.exact`: a Chinese target
-  stopped at 的/之, at 等 before 字样, or at a verb placing the sign (挂在,
-  位于) that no request or prohibition asks for gets no Apply, and neither
-  do lowercase words after a participle, yet what follows them is
-  description; nor do words not in capitals after a noun trigger ("with the
-  words set in bold type"), whose `ends` stands. `rendered_spans` is the
-  same list without the flag. The rules
-  read each stretch of lettering, commas and all, as one comma item
+  word, six words, the 12-character cap, Latin lettering going on past a
+  space or an ASCII mark (写着OPEN NOW, 9:00, www.shop.com), or a negation
+  that stopped a participle's lowercase words (reading love without limits;
+  they stop only where the negation rule's own reading finds an absence
+  starting there, `_absence_at`, so "reading do not enter" is whole) - and
+  only there may the critic read on past `end` in any words of its clause;
+  past an end the rules are sure of, it reads on only in words that start
+  with a capital or a digit. It is not the Apply's `_Target.exact`: a
+  Chinese target stopped at 的/之, at 等 before 字样, or at a verb placing
+  the sign (挂在, 位于) that no request or prohibition asks for gets no
+  Apply, and neither do lowercase words after a participle, yet what follows
+  them is description, a negation's stop aside; nor do words not in
+  capitals after a noun trigger ("with the words set in bold type"), whose
+  `ends` stands. `rendered_spans` is the same list without the flag. The
+  rules read each stretch of lettering, commas and all, as one comma item
   (`_units`): it moves whole and is placed by its shape alone, is never
   matched or rewritten as a tag (`_Context.norms` is None for it), is never
   asked of the tag index, and a reorder that would change what `QUOTED`

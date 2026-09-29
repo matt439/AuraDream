@@ -947,6 +947,37 @@ def _not_absence(text: str, match: re.Match[str]) -> bool:
     return not _opens_clause(text, match.start())
 
 
+def _absence(text: str, match: re.Match[str]) -> tuple[int, int, str] | None:
+    """The absence a `_NEGATION` match asks for, as (start, end, its words
+    lowercased), or None where it asks for none: a particle, a name, "avoid"
+    as an action, an idiom, or a head with only trailing words after it."""
+    if _particle(text, match) or _not_absence(text, match):
+        return None
+    head = len(match.group("head").split())
+    words = list(re.finditer(r"\S+", match.group()))
+    while len(words) > head and words[-1].group().lower() in _TRAILING:
+        words.pop()
+    lowered = " ".join(word.group().lower() for word in words)
+    if len(words) <= head or lowered.startswith(_IDIOMS):
+        return None
+    start, end = match.start(), match.start() + words[-1].end()
+    if _capitalised(words[-1].group()):
+        run = _CAPITAL_RUN.match(text, end)
+        end = run.end() if run else end
+    return start, end, lowered
+
+
+def _absence_at(text: str, position: int) -> bool:
+    """Whether the negation rule's own reading of `text` finds an absence
+    starting at `position` - not inside a negation that starts earlier ("do
+    not enter", "no pain no gain"), and not a head it reads nothing from
+    ("now or never")."""
+    for match in _NEGATION.finditer(text):
+        if match.end() > position:
+            return match.start() == position and _absence(text, match) is not None
+    return False
+
+
 def _negation(ctx: _Context) -> Iterable[PromptFinding]:
     entry = ctx.entry("negation")
     if entry is None:
@@ -957,19 +988,10 @@ def _negation(ctx: _Context) -> Iterable[PromptFinding]:
         # render - the quote rule's business - and not an absence.
         if _inside(ctx.quoted, match.start()) or _inside(ctx.rendered, match.start()):
             continue
-        if _particle(ctx.text, match) or _not_absence(ctx.text, match):
+        absence = _absence(ctx.text, match)
+        if absence is None:
             continue
-        head = len(match.group("head").split())
-        words = list(re.finditer(r"\S+", match.group()))
-        while len(words) > head and words[-1].group().lower() in _TRAILING:
-            words.pop()
-        lowered = " ".join(word.group().lower() for word in words)
-        if len(words) <= head or lowered.startswith(_IDIOMS):
-            continue
-        start, end = match.start(), match.start() + words[-1].end()
-        if _capitalised(words[-1].group()):
-            run = _CAPITAL_RUN.match(ctx.text, end)
-            end = run.end() if run else end
+        start, end, lowered = absence
         phrase = ctx.text[start:end]
         if runs:
             message = (
@@ -1072,8 +1094,9 @@ _PLACE = frozenset(
     "onto upon through around down out against beneath underneath from".split()
 )
 # Heads of a negated phrase, which lowercase words after a participle
-# trigger do not run on through: "a boy on a box reading comics without
-# pictures" is the negation rule's.
+# trigger do not run on through where the negation rule reads an absence
+# from one (`_absence_at`): "a boy on a box reading comics without pictures"
+# is the negation rule's, "a sign reading do not enter" is lettering whole.
 _NEGATING = frozenset("without never no not".split())
 # Chinese lettering has no spaces to end it. What ends it for certain is
 # whitespace, punctuation, a quotation mark or a bracket - though not an
@@ -1129,13 +1152,14 @@ class _Target(NamedTuple):
     # half a name or a description.
     exact: bool
     # False where the lettering may run on past `end` - a joining word, the
-    # word or length cap, Latin lettering going on past a space or a mark -
-    # so a reader may take it further. True where what follows is read as
-    # description, even where `exact` is not: at 的, 等 or 挂在 the guess is
-    # whether it is the lettering's own (写着我的家), and after a participle
-    # whether the words are lettering at all; neither makes what follows
-    # lettering. After a noun trigger, words not in capitals are that same
-    # guess, and their end is as sure as it was.
+    # word or length cap, Latin lettering going on past a space or a mark, a
+    # negation among a participle's lowercase words ("reading love without
+    # limits") - so a reader may take it further. True where what follows is
+    # read as description, even where `exact` is not: at 的, 等 or 挂在 the
+    # guess is whether it is the lettering's own (写着我的家), and after a
+    # participle whether the words are lettering at all; neither makes what
+    # follows lettering. After a noun trigger, words not in capitals are that
+    # same guess, and their end is as sure as it was.
     ends: bool
 
 
@@ -1212,6 +1236,7 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
         words: list[re.Match[str]] = []
         cursor = position
         exact = True
+        negated = False
         while True:
             word = _TARGET_WORD.match(text, cursor)
             if word is None:
@@ -1222,13 +1247,17 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
             if not words and _describes(text, word, match.group("noun") is not None):
                 break
             # Lowercase words after a participle may be what someone reads,
-            # and a negation among them is the negation rule's.
+            # and a negation among them is the negation rule's - where that
+            # rule reads one from there, so that the words it stops are not
+            # half of "do not enter" or "no pain no gain".
             if (
                 words
                 and participle
                 and token in _NEGATING
                 and not _capitalised(words[0].group(1))
+                and _absence_at(text, word.start(1))
             ):
+                negated = True
                 break
             if len(words) == _TARGET_WORDS:
                 exact = False
@@ -1253,9 +1282,11 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
         ends = exact
         # A participle belongs to whichever noun it follows - "a boy on a box
         # reading comics" - so lowercase words after one may be what someone
-        # reads or says rather than lettering.
+        # reads or says rather than lettering. Where a negation stopped them,
+        # the lettering may run on through it ("a banner reading love without
+        # limits"), so a reader may take it further.
         if participle and not _capitalised(words[0].group(1)):
-            exact, ends = False, True
+            exact, ends = False, not negated
         # After a noun trigger, words not in capitals may describe the text
         # rather than be it - "with the words set in bold type", "the text
         # lit up at night" - so only capitals are sure to be the lettering.
@@ -1301,8 +1332,9 @@ def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
     quoted stretches, marks included, and the words a rule reads as unquoted
     text to render. `ends` is False only where the rules stopped at a guess
     and the lettering may run on past `end` (`_Target.ends`: a joining word,
-    the word or length cap, Latin lettering going on past a space or a mark);
-    where it is True, whatever follows is the prompt's description. It is not
+    the word or length cap, Latin lettering going on past a space or a mark,
+    a negation among a participle's lowercase words); where it is True,
+    whatever follows is the prompt's description. It is not
     whether the quote rule offers its one-click quote (`_Target.exact`): a
     Chinese target stopped at 的, at 等 before 字样 or at a verb placing the
     sign (挂在), lowercase words after a participle and, where their end is

@@ -3211,6 +3211,26 @@ def test_words_placing_the_lettering_are_no_lettering_to_the_critic():
     assert result.parts["text_to_render"] == "GOOD VIBES" and result.rewrite_findings == []
 
 
+def test_lettering_holding_a_negation_is_lettering_to_the_critic_whole():
+    # A participle's lowercase words stop at a negation the negation rule
+    # reads, but the lettering may run on through it; one that starts inside
+    # the words ("do not enter") stops nothing. Either way a rewrite that
+    # quotes the whole lettering, as the quote rule asks, is not flagged.
+    for prompt, words in (
+        ("A red sign reading do not enter above the door", "do not enter"),
+        ("A sign reading please do not touch", "please do not touch"),
+        ("A t-shirt reading no pain no gain", "no pain no gain"),
+        ("A banner reading love without limits", "love without limits"),
+        ("A sign reading dogs not allowed", "dogs not allowed"),
+    ):
+        rewrite = prompt.replace(words, f'"{words}"')
+        result = _validate(
+            _answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt
+        )
+        assert result.parts["text_to_render"] == words, prompt
+        assert result.rewrite == rewrite and result.rewrite_findings == [], prompt
+
+
 def test_a_rewrite_that_adds_content_says_so():
     # Seen on the card, told not to: Krea's tea party example came back with
     # a lens, light, greenery and sunlight it never asked for.
