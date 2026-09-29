@@ -1038,7 +1038,9 @@ characters an encoder cannot read, does not count as repeating it, and a
 length or a word count worded as a sign's, a lens's or a detail's ("add at
 least 5 words for the lighting", "only 3 words of the prompt are about the
 lighting", "the lighting has only 3 words", "add 5 words to match the
-lighting") is not taken for the prompt's length. That is read from the
+lighting", "keep the lighting description under 5 words") is not taken
+for the prompt's length; "the description" or "the full description" on
+its own is the prompt's. That is read from the
 wording, so a phrasing unlike these can still be taken either way. An order
 issue the documented order reverses ("lighting first", or "put the
 lighting before the camera" where the order has the
@@ -1055,9 +1057,9 @@ whose tags Check placed, only Check's own reordering survives - unless
 Check could not place some tag where that decides the order (the tag index
 could not be asked about it, or had no usable category for it - what the
 Order section calls "Partly checked"):
-then the critic's survives if it keeps your tags whole and Check's order
-rule finds nothing out of order in it, and is set aside, saying what the
-rule found, if not. The **Use reordered** button's
+then the critic's survives if it keeps your tags (or a prose prompt's
+clauses) whole and Check's order rule finds nothing out of order in it, and
+is set aside, saying what the rule found, if not. The **Use reordered** button's
 tooltip says which kind survived. A rewrite that is your prompt unchanged is
 not shown; one wrapped whole in quotation marks is unwrapped, one that puts
 words the prompt does not have in quotation marks - lettering nobody asked

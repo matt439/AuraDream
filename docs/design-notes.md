@@ -3152,7 +3152,19 @@ of the description is the prompt's. Each of those words has a test row of
 its own. It is still a reading of the critic's wording, so a phrasing
 unlike these can go either way. "The prompt runs long" (reads, seems, a
 little, slightly) counts as a length claim; "too long a shadow" does not,
-"too long a description" or "a list" does. `CriticContext.reported` counted
+"too long a description" or "a list" does. The last fix round found "keep
+the lighting description under 5 words" still left out under the note that
+the check had measured the prompt's length, since any description was the
+prompt's: now the word just ahead of "description" decides. A determiner
+("the description", "your description") or a word for the whole ("the
+full description", "the image description"; `_WHOLE_WORDS`) makes it the
+prompt's; any other word names a part ("the lighting description", "the
+background description"), as an object other than the image or picture
+does in "the description of the lighting" - in `_PART_COUNT` and in
+`_MANNER` alike. It also found "the prompt reads as long" kept: a claim
+about the prompt's length, like "reads long", it is now left out with the
+measured note where the count was in range, and as repeating the finding
+where one was reported. `CriticContext.reported` counted
 negative-prompt findings, so weighting in Animagine's negative prompt left
 out "give the expression more emphasis".
 A quote within 8 characters of any finding's span counted, so "a shop" and
@@ -3279,7 +3291,13 @@ critic's reorder of such clauses can stand as `allowed`. Where every clause
 was placed, a critic's reorder of its sentences is set aside like any other
 order but Check's; the note said Check placed "these tags" until phase-4
 re-verification found it said so of sentences, and it now names tags only
-on a prompt read as tags, and "this prompt" elsewhere.
+on a prompt read as tags, and "this prompt" elsewhere. The last fix round
+found its sibling, for a reorder that does not keep the comma items whole,
+still saying Check would read "other tags" on a prose prompt ("a girl
+standing in the rain. smiling softly, holding a red umbrella", whose items
+`order_detail` calls clauses) and a hybrid one; it follows the same rule
+now: "other tags" on a prompt read as tags, "other clauses" on prose and
+"other tags and clauses" on a hybrid prompt.
 
 A rewrite that is the prompt as it stands (whitespace, a closing stop and
 how its marks are typed aside) is dropped and said so, since the schema

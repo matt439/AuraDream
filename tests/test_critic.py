@@ -2665,21 +2665,39 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
     ]
     result = _checked(KREA_DEV, prompt, issues)
     assert len(result.issues) == 3 and result.set_aside == [] and result.dropped == 0
+    # Nor, after the third, a count given to a part named with its
+    # description: the description alone is the prompt's, not the lighting's.
+    issues = [
+        _quoting("The lighting is long", None, fix="Keep the lighting description under 5 words"),
+        _quoting("The background is thin", None,
+                 fix="Give the background description at least 5 words"),
+        _quoting("The lighting description has only 3 words", None,
+                 fix="Describe the light source"),
+    ]
+    result = _checked(KREA_DEV, prompt, issues)
+    assert len(result.issues) == 3 and result.set_aside == [] and result.dropped == 0
     # A claim about the prompt's own length is still left out, and said to
     # be what it is: the check measured the count, and there is no finding.
-    long = [_quoting("The prompt is too long for the guide", None, fix="Cut it to 30-80 words")]
-    result = _checked(KREA_DEV, prompt, long)
-    assert result.issues == [] and result.set_aside == [
+    # "Reads as long" is one, as "reads long" is.
+    measured = [
         f"1 issue left out: it spoke to the prompt's length, which the check measured "
         f"({words} words, inside the 30-80 the guide suggests)."
     ]
-    assert result.dropped == 0
+    long = [_quoting("The prompt is too long for the guide", None, fix="Cut it to 30-80 words")]
+    reads = [_quoting("The prompt reads as long", None, fix="Shorten it")]
+    for claim in (long, reads):
+        result = _checked(KREA_DEV, prompt, claim)
+        assert result.issues == [] and result.set_aside == measured
+        assert result.dropped == 0
     # Reported, it repeats the finding; in XML or JSON, which the rules do
     # not hold to the range however many words it has, it is the critic's
     # to raise.
     under = PromptFinding(rule="guide.words", severity="info", message="m", source="guide")
-    result = _checked(KREA_DEV, "A cat.", long, findings=[under])
-    assert result.set_aside == ["1 issue left out: it repeated the rule findings above (word count)."]
+    for claim in (long, reads):
+        result = _checked(KREA_DEV, "A cat.", claim, findings=[under])
+        assert result.set_aside == [
+            "1 issue left out: it repeated the rule findings above (word count)."
+        ]
     structured = (
         '{"subject": "a tall woman in a long red silk dress", "setting": "a wet cobblestone '
         'street at night, neon signs glowing behind her", "style": "cinematic film photograph", '
@@ -2783,6 +2801,19 @@ def test_a_length_or_a_number_of_words_is_not_always_the_prompts_length():
         ("Too long a description", "Cut it", True),
         ("Too long a list of tags", "Cut it", True),
         ("Too short a description for the guide", "Add detail", True),
+        # Last fix round: a part named with its description is that part,
+        # once left out as the prompt's measured length; the description
+        # alone, or the full one, is still the prompt's. So is how it reads.
+        ("The lighting is long", "Keep the lighting description under 5 words", False),
+        ("The background is thin", "Give the background description at least 5 words", False),
+        ("The lighting description has only 3 words", "Describe the light source", False),
+        ("The lighting is long", "Keep the lighting description in under 5 words", False),
+        ("The lighting is thin", "Give the description of the lighting at least 5 words", False),
+        ("Thin", "Keep the description under 80 words", True),
+        ("Thin", "Keep your description under 80 words", True),
+        ("Thin", "Keep your description in under 80 words", True),
+        ("The prompt reads as long", "Shorten it", True),
+        ("The prompt reads as short", "Add detail", True),
     ],
 )
 def test_a_length_claim_is_one_about_the_prompts_own_length(problem, fix, claim):
@@ -2815,6 +2846,9 @@ def test_a_length_claim_is_one_about_the_prompts_own_length(problem, fix, claim)
         ("Just 1 word goes on the fog", "Say how thick", False),
         # How a part is to be described (`_MANNER`), unless it is the prompt.
         ("The fog is described with only 4 words", "Say how thick", False),
+        ("The lighting is long", "Rewrite the lighting description in fewer than 10 words",
+         False),
+        ("The lighting is long", "Say the soft lighting description with at most 5 words", False),
         ("Thin", "Say this in under 80 words", True),
         ("Thin", "Keep the description in under 80 words", True),
         ("Thin", "Pad the prompt with at least 10 words", True),
@@ -2870,6 +2904,20 @@ def test_a_length_claim_is_one_about_the_prompts_own_length(problem, fix, claim)
         ("The total is only 12 words", "Add detail", True),
         ("The problem is only 12 words", "Add detail", True),
         ("The issue is only 12 words", "Add detail", True),
+        # A part named with its description, before or after it, however
+        # many words name the part and whatever the verb - and the prompt's
+        # own description named the same way.
+        ("The lighting descriptions have only 3 words", "Describe the light source", False),
+        ("The lighting is long", "Keep the full lighting description under 5 words", False),
+        ("The lighting is long", "Keep the description of the lighting under 5 words", False),
+        ("The lighting is thin", "Give the description of its lighting at least 5 words", False),
+        ("Thin", "Give the description at least 30 words", True),
+        ("Thin", "Give the description of the prompt at least 30 words", True),
+        ("Thin", "Give the description of the whole scene at least 30 words", True),
+        ("Thin", "Give the description of the image at least 30 words", True),
+        ("Thin", "Give the description of the full picture at least 30 words", True),
+        ("The moon is thin", "Give the description of the full moon at least 5 words", False),
+        ("Thin", "Keep the full image description under 80 words", True),
         # A length of so many words, or of the prompt's description.
         ("It is below the recommended length of about 30 words", "Add detail", True),
         ("It is below the recommended length of around 30 words", "Add detail", True),
@@ -2885,6 +2933,40 @@ def test_a_length_claim_is_one_about_the_prompts_own_length(problem, fix, claim)
 def test_each_word_tying_a_count_to_a_part_or_to_the_prompt_is_read(problem, fix, claim):
     result = _checked(KREA_DEV, "A cat on a mat.", [_quoting(problem, None, fix=fix)], words=45)
     assert (result.issues == []) is claim
+
+
+# Every word just ahead of "description" that makes it the prompt's - a word
+# for the whole (`_WHOLE_WORDS`), or a determiner alone (`_OWNER`) - one row
+# apiece, beside a part's word in the same place.
+@pytest.mark.parametrize(
+    "word",
+    ["full", "whole", "entire", "complete", "overall", "total", "current", "existing",
+     "original", "image", "picture", "prompt"],
+)
+def test_each_word_making_a_description_the_prompts_is_read(word):
+    def claim(fix):
+        result = _checked(KREA_DEV, "A cat on a mat.", [_quoting("Thin", None, fix=fix)], words=45)
+        return result.issues == []
+
+    for fix in (
+        f"Give the {word} description at least 30 words",
+        f"Keep the {word} description under 80 words",
+        f"Keep the {word} description in under 80 words",
+        f"Keep the {word} description with under 80 words",
+    ):
+        assert claim(fix), fix
+    assert not claim("Keep the lighting description in under 5 words")
+
+
+@pytest.mark.parametrize("determiner", ["the", "this", "that", "your", "its", "a"])
+def test_a_description_after_a_determiner_alone_is_the_prompts(determiner):
+    def claim(fix):
+        result = _checked(KREA_DEV, "A cat on a mat.", [_quoting("Thin", None, fix=fix)], words=45)
+        return result.issues == []
+
+    assert claim(f"Say {determiner} description in under 80 words")
+    assert claim(f"Say {determiner} description with under 80 words")
+    assert not claim(f"Say {determiner} lighting description in under 5 words")
 
 
 def test_a_negative_prompts_findings_leave_the_prompts_issues_alone():
@@ -3241,8 +3323,11 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
     assert (kept.reordered, kept.reordered_kind, kept.set_aside) == (swapped, "allowed", [])
     # Lettering with a comma no quotation mark holds is one item to the
     # rules: a reorder moving the title whole stands, one parting it at the
-    # comma - the critic's own pieces do - is other tags to them.
+    # comma - the critic's own pieces do - is other items to them. The sign
+    # is a clause beside the tags, so the prompt reads as hybrid, and the
+    # note names both.
     title = "1girl, 招牌写着《你好, 世界》, green hair, masterpiece"
+    assert prompt_rules.detect_style(title) == "hybrid"
     whole = "1girl, green hair, 招牌写着《你好, 世界》, masterpiece"
     kept = critique(whole, prompt=title)
     assert (kept.reordered, kept.set_aside) == (whole, [])
@@ -3254,7 +3339,7 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
         assert other.reordered is None and other.reordered_kind is None, parted
         assert other.set_aside == [
             "The critic's reordered version was left out: it does not keep the prompt's comma "
-            "items whole, so Check would read it as other tags."
+            "items whole, so Check would read it as other tags and clauses."
         ], parted
     # What the rule flags stays out, and the note says what it found.
     flagged = critique("masterpiece, 1girl, firefly, green hair")
@@ -3288,6 +3373,29 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
     for joined in ("1girl、green hair、firefly、masterpiece", "1girl\ngreen hair\nfirefly\nmasterpiece"):
         other = critique(joined)
         assert other.reordered is None and other.set_aside == regrouped, joined
+    # The note names tags only where the prompt is tags: a prose prompt's
+    # comma items are clauses (as `order_detail` names them), a hybrid's
+    # both - once said to be tags on either.
+    rain = "a girl standing in the rain. smiling softly, holding a red umbrella"
+    for split in (
+        "smiling softly, a girl standing in the rain, holding a red umbrella",
+        "holding a red umbrella. a girl standing in the rain. smiling softly",
+    ):
+        other = critique(split, detail=None, prompt=rain)
+        assert other.reordered is None and other.set_aside == [
+            "The critic's reordered version was left out: it does not keep the prompt's comma "
+            "items whole, so Check would read it as other clauses."
+        ], split
+    hybrid = "1girl, a girl stands in the rain. she smiles softly, green hair, masterpiece"
+    assert prompt_rules.detect_style(hybrid) == "hybrid"
+    other = critique(
+        "1girl, she smiles softly, a girl stands in the rain, green hair, masterpiece",
+        prompt=hybrid,
+    )
+    assert other.reordered is None and other.set_aside == [
+        "The critic's reordered version was left out: it does not keep the prompt's comma "
+        "items whole, so Check would read it as other tags and clauses."
+    ]
     # The same items, read as XML once an opening tag leads: the rule stands
     # down, and an order it did not read is not one it passed.
     tagged = "1girl, <character_1>, green hair, masterpiece"

@@ -2274,7 +2274,8 @@ def _part(
 # 3 words of the prompt are about the lighting", "describe the umbrella in
 # (or with) more than 2 words", "the ideal length of the raincoat" - and
 # "give the lighting at least 5 words", "the lighting has only 3 words",
-# "expand the lighting to 5 words" (`_PART_COUNT`). What names the prompt,
+# "expand the lighting to 5 words", "keep the lighting description under 5
+# words" (`_PART_COUNT`). What names the prompt or its description,
 # "it" or a total ("30 words in the prompt", "in it", "in all", "keep it in
 # under 80 words"), the guide or its range ("for the guide", "to the
 # recommended range" - not "the dynamic range"), a fit to them ("to reach the
@@ -2301,10 +2302,27 @@ _SOME_PART = (
     rf"(?!\s+(?:(?:of|in)\s+{_PROMPT_NP}\s+)?{_GIVEN}\b"
     rf"(?!\s+(?:{_OWN})))"
 )
+# A description is the prompt's where the word just ahead of it is a
+# determiner ("the description", "your description") or a word for the
+# whole ("the full description", "the image description"); any other word
+# there names a part ("the lighting description", "the background
+# description"), as any object but the image, the picture or the prompt
+# (`_WHOLE_NOUNS`) does in "the description of the lighting".
+_WHOLE_NOUNS = ("image", "picture", "prompt")
+_WHOLE_WORDS = (
+    "full", "whole", "entire", "complete", "overall", "total", "current", "existing",
+    "original", *_WHOLE_NOUNS,
+)
+_WHOLE = "(?:" + "|".join(_WHOLE_WORDS) + ")"
 # A bound after "in" or "with" is how some part is to be described - "the
-# umbrella in under 5 words", "described with only 4" - unless it is the
-# prompt's, "it" or "this" in so many words.
-_OWNER = r"(?<!\bit\s)(?<!\bthis\s)(?<!\bprompt\s)(?<!\bdescription\s)"
+# umbrella in under 5 words", "described with only 4", "the lighting
+# description in under 5 words" - unless it is the prompt's, "it" or "this"
+# in so many words, or its description (a lookbehind a word: Python's are
+# fixed-width).
+_OWNER = r"(?<!\bit\s)(?<!\bthis\s)(?<!\bprompt\s)" + "".join(
+    rf"(?<!\b{word}\sdescription\s)"
+    for word in ("the", "this", "that", "your", "its", "a", *_WHOLE_WORDS)
+)
 _MANNER = rf"(?<!{_OWNER}\bin\s)(?<!{_OWNER}\bwith\s)"
 _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
     "guide.words": (
@@ -2326,7 +2344,7 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
             r"(?:about\s+|around\s+|roughly\s+|at least\s+|under\s+)?\d+\s*words?\b"
             r"|\bprompt\b(?:(?!\b(?:add|with)\b)[^.;]){0,30}?\b\d+\s*words?\b"
             rf"{_SOME_PART}"
-            r"|\bprompt(?:\s+(?:is|runs|reads|seems))?"
+            r"|\bprompt(?:\s+(?:is|runs|reads|seems)(?:\s+as)?)?"
             r"\s+(?:too\s+|very\s+|rather\s+|quite\s+|a\s+(?:little|bit)\s+|slightly\s+)?"
             r"(?:short|long|brief)\b"
             r"|^(?:(?:it|this)(?:'s|’s|\s+is)\s+(?:too|very)|too)\s+(?:short|long|brief)\b"
@@ -2372,18 +2390,30 @@ _LETTERING = re.compile(
 _PROMPT = re.compile(r"(?i)\bprompt\b")
 # A number of words given to a part named ahead of it - "Give the lighting at
 # least 5 words", "The lighting has only 3 words", "Expand the lighting to 5
-# words" - taken out of a sentence before `guide.words` reads it. The prompt,
-# its description, the whole, the count or the problem given as many ("Give
-# the prompt at least 30 words", "It has only 12 words", "The whole prompt is
-# 12 words", "The problem is only 12 words") is still its length.
+# words" - taken out of a sentence before `guide.words` reads it, as is one
+# given to a part named with its description ("Keep the lighting description
+# under 5 words", "Give the description of the lighting at least 5 words").
+# The prompt, its description, the whole, the count or the problem given as
+# many ("Give the prompt at least 30 words", "Keep the description under 80
+# words", "The full description has only 12 words", "It has only 12 words",
+# "The whole prompt is 12 words", "The problem is only 12 words") is still
+# its length.
 _BOUND = (
     r"(?:(?:only|just|at least|at most|more than|fewer than|less than|under|over|about|around)"
     r"\s+)?\d+\s*words?\b"
 )
+_NAMES = r"(?:the|its|his|her|their|this|that|each)"
+_NAME_WORD = r"[^\W\d_][\w'’-]*"
+_PART_WORDS = (
+    r"(?:\s+(?!(?:prompts?|descriptions?|whole|entire|count|length|total|problem|issue)\b)"
+    rf"{_NAME_WORD}){{1,2}}"
+)
+_WHOLE_NOUN = "(?:" + "|".join(_WHOLE_NOUNS) + ")s?"
 _NAMED = (
-    r"(?:the|its|his|her|their|this|that|each)"
-    r"(?:\s+(?!(?:prompts?|description|whole|entire|count|length|total|problem|issue)\b)"
-    r"[^\W\d_][\w'’-]*){1,2}"
+    rf"(?:{_NAMES}(?!(?:\s+{_NAME_WORD})?\s+{_WHOLE}\s+descriptions?\b){_PART_WORDS}"
+    r"(?:\s+descriptions?\b)?"
+    rf"|(?:the|its|this|that|your)\s+descriptions?\s+of\s+{_NAMES}"
+    rf"(?!(?:\s+{_NAME_WORD})?\s+{_WHOLE_NOUN}\b){_PART_WORDS})"
 )
 _PART_COUNT = re.compile(
     rf"(?i)\b(?:give|devote)\w*\s+{_NAMED}\s+{_BOUND}"
@@ -2852,9 +2882,13 @@ def validate(
             # joined by "、" are one, which no order can be wrong about; a
             # title's halves are two it places apart), and its answer would
             # be about a list the prompt is not.
+            # Tags only where the prompt is tags: a prose prompt's comma
+            # items are clauses (`order_detail` names them so), a hybrid's
+            # are both.
+            items = {"tags": "tags", "hybrid": "tags and clauses"}.get(context.style, "clauses")
             set_aside.append(
                 "The critic's reordered version was left out: it does not keep the prompt's "
-                "comma items whole, so Check would read it as other tags."
+                f"comma items whole, so Check would read it as other {items}."
             )
         elif not order_checked(context.sources.model_id, moved):
             # The same items, but read as XML where an opening tag now leads:
