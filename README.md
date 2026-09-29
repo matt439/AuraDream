@@ -967,7 +967,8 @@ that not every tag was checked for an artist name). The panel it opens has:
   either. It is said only where the missing category decides the order: a
   prompt of one tag or one clause, or an unknown tag every category would
   leave in order (between `1girl` and `masterpiece` on Animagine) or out of
-  it (ahead of `1girl`, which is flagged), is checked.
+  it (ahead of `1girl`, which is flagged), is checked, and so is such a tag
+  written twice, whose copies cannot be out of order beside each other.
   Where the guide states no order, the panel says the app checks none, and
   shows any order the authors' own texts give (Anima's card, Neta Lumina's
   prompt book for NetaYume, ERNIE's and Qwen's rewriter instructions) as

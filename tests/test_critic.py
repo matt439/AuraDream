@@ -3465,6 +3465,34 @@ def test_lettering_holding_a_negation_is_lettering_to_the_critic_whole():
         assert result.rewrite == rewrite and result.rewrite_findings == [], prompt
 
 
+def test_description_past_lettering_holding_a_negation_is_no_lettering_to_the_critic():
+    # Past the negation, the lettering ends where the words would without
+    # it, and what follows is description. Left at the negation as a guess,
+    # the critic read on to the clause's end and kept "love without limits
+    # above the stage" as text to render, and a rewrite quoting it passed.
+    for prompt, words, described in (
+        ("A banner reading love without limits above the stage", "love without limits",
+         "love without limits above the stage"),
+        ("A sign reading dogs not allowed in red letters on the gate", "dogs not allowed",
+         "dogs not allowed in red letters"),
+        ("A poster reading books without pictures in the attic", "books without pictures",
+         "books without pictures in the attic"),
+    ):
+        rewrite = prompt.replace(words, f'"{words}"')
+        kept = _validate(_answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt)
+        assert kept.parts["text_to_render"] == words, prompt
+        assert kept.rewrite == rewrite and kept.rewrite_findings == [], prompt
+        rewrite = prompt.replace(described, f'"{described}"')
+        result = _validate(
+            _answer(rewrite=rewrite, parts={"text_to_render": described}), prompt=prompt
+        )
+        assert result.parts["text_to_render"] is None, prompt
+        assert result.rewrite == rewrite, prompt
+        (flag,) = result.rewrite_findings
+        assert flag.rule == "heuristic.rewrite_quote", prompt
+        assert rewrite[flag.start:flag.end] == f'"{described}"', prompt
+
+
 def test_a_rewrite_that_adds_content_says_so():
     # Seen on the card, told not to: Krea's tea party example came back with
     # a lens, light, greenery and sunlight it never asked for.

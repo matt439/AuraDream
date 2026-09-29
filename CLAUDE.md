@@ -385,20 +385,24 @@ Prompt analyser:
   animal's an apostrophe). `prompt_rules.rendered_targets` gives each place
   the text asks for lettering as (start, end, ends): `ends` is False only
   where the rules stopped at a guess and the lettering may run on - a joining
-  word, six words, the 12-character cap, Latin lettering going on past a
-  space or an ASCII mark (写着OPEN NOW, 9:00, www.shop.com), or a negation
-  that stopped a participle's lowercase words (reading love without limits;
-  they stop only where the negation rule's own reading finds an absence
-  starting there, `_absence_at`, so "reading do not enter" is whole) - and
-  only there may the critic read on past `end` in any words of its clause;
-  past an end the rules are sure of, it reads on only in words that start
-  with a capital or a digit. It is not the Apply's `_Target.exact`: a
-  Chinese target stopped at 的/之, at 等 before 字样, or at a verb placing
-  the sign (挂在, 位于) that no request or prohibition asks for gets no
-  Apply, and neither do lowercase words after a participle, yet what follows
-  them is description, a negation's stop aside; nor do words not in
-  capitals after a noun trigger ("with the words set in bold type"), whose
-  `ends` stands. `rendered_spans` is the same list without the flag. The
+  word, six words, the 12-character cap, or Latin lettering going on past a
+  space or an ASCII mark (写着OPEN NOW, 9:00, www.shop.com) - and only there
+  may the critic read on past `end` in any words of its clause; past an end
+  the rules are sure of, it reads on only in words that start with a capital
+  or a digit. The rules stop a participle's lowercase words at a negation
+  the negation rule reads an absence from there (`_absence_at`, so "reading
+  do not enter" is whole, and "reading love without limits" quotes "love"
+  and warns on the rest); `rendered_targets` reads them on through it to
+  where they stop without it, `ends` True ("love without limits", and "above
+  the stage" after it is description). It is not the Apply's
+  `_Target.exact`: a Chinese target stopped at 的/之, at 等 before 字样, or
+  at a verb placing the sign (挂在, 位于) that no request or prohibition asks
+  for gets no Apply, and neither do lowercase words after a participle, yet
+  what follows them is description; nor do words not in capitals after a
+  noun trigger ("with the words set in bold type"), whose `ends` stands.
+  `rendered_spans` is the same list without the flag; the rules' own
+  reading of lettering (`_read`, and `_tag_items` outside `check`) keeps
+  the negation's stop. The
   rules read each stretch of lettering, commas and all, as one comma item
   (`_units`): it moves whole and is placed by its shape alone, is never
   matched or rewritten as a tag (`_Context.norms` is None for it), is never
@@ -430,8 +434,9 @@ Prompt analyser:
   itself: `order_checked` and `prompt_rules.places_every_item` false with
   the analysis's categories - some item the order rule reads kept every
   slot where that decides the order (`unplaced_items`: some slot puts it
-  out of order beside another item and some does not; a lone item, or one
-  whose every slot gives the same answer, is not partly checked): never
+  out of order beside another item - not its own copy, written the same and
+  so in the same slot - and some does not; a lone item, or one whose every
+  slot gives the same answer, is not partly checked): never
   looked up for any of those reasons, a tag the index answered for with no
   usable category (unknown, deprecated, past the cutoff), a prose prompt's
   clause that is not a whole sentence (prose is never looked up), lettering

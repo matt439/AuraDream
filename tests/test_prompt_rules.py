@@ -407,7 +407,8 @@ def test_negation_warns_where_no_negative_prompt_runs():
         (FLUX_DEV, "Fern from Sousou no Frieren standing in a meadow"),
         (FLUX_DEV, "A poster of Kimi no Na wa and Shingeki no Kyojin on a bedroom wall"),
         # Avoiding something is an action to draw; a capital "No" in
-        # mid-clause is a name, after a title's abbreviation spaced or not.
+        # mid-clause is a name, after an abbreviation that goes before a
+        # name, spaced or not.
         (KREA_DEV, "A cat trying to avoid the rain under a porch"),
         (KREA_DEV, "A cat, trying to avoid the rain"),
         (KREA_DEV, "A skier avoiding trees on a steep slope"),
@@ -442,6 +443,12 @@ def test_negation_leaves_quotes_idioms_and_other_guides_alone(model_id, prompt):
         ("A beach at dawn\n- No people", ["No people"]),
         ("A beach at dawn\n* Avoid people", ["Avoid people"]),
         ("A beach at dawn | No people", ["No people"]),
+        # Only an abbreviation that goes before a name ("Dr. No") keeps it
+        # inside a clause; one that comes after a name ends a sentence as
+        # often, and the absence after it was silent.
+        ("A photo taken on Main St. No cars.", ["No cars"]),
+        ("Martin Luther King Jr. No crowds.", ["No crowds"]),
+        ("A portrait of John Smith Sr. No background.", ["No background"]),
         # An acronym after "No" is no title.
         ("Photorealistic portrait. No CGI look, no plastic skin.", ["No CGI look", "no plastic skin"]),
         ("A living room. No TV in the room.", ["No TV"]),
@@ -796,18 +803,38 @@ def test_a_negation_after_a_trigger_is_still_one():
     [finding] = only(run(KREA_DEV, prompt), "guide.negation")
     assert spanned(prompt, finding) == "without glasses"
     # So did one further on in a participle's lowercase words: they stop at
-    # it, and it is the negation rule's. The lettering may still run on
-    # through it ("love without limits"), so the critic may read on there.
-    for prompt, target, phrase in (
-        ("A boy on a box reading comics without pictures", "comics", "without pictures"),
-        ("A girl on a crate reading letters never sent", "letters", "never sent"),
-        ("A banner reading love without limits", "love", "without limits"),
+    # it, and it is the negation rule's. The lettering may still hold it
+    # ("love without limits"), so `rendered_targets` reads on through it to
+    # where the words stop without it, and what follows is description: left
+    # at the negation with `ends` False, the critic read on to the clause's
+    # end and took "above the stage" for lettering.
+    for prompt, target, phrase, reach in (
+        ("A boy on a box reading comics without pictures", "comics", "without pictures",
+         "comics without pictures"),
+        ("A girl on a crate reading letters never sent", "letters", "never sent",
+         "letters never sent"),
+        ("A banner reading love without limits", "love", "without limits",
+         "love without limits"),
+        # The negation rule's window is its own: three words, a trailing
+        # "the" or "in" dropped.
+        ("A banner reading love without limits above the stage", "love",
+         "without limits above", "love without limits"),
+        ("A sign reading dogs not allowed in red letters on the gate", "dogs",
+         "not allowed in red", "dogs not allowed"),
+        ("A poster reading books without pictures in the attic", "books",
+         "without pictures", "books without pictures"),
     ):
         findings = run(KREA_DEV, prompt)
-        assert [spanned(prompt, f) for f in only(findings, "guide.quote_text")] == [target]
+        [quote] = only(findings, "guide.quote_text")
+        assert spanned(prompt, quote) == target and quote.suggestion is None
         assert [spanned(prompt, f) for f in only(findings, "guide.negation")] == [phrase]
-        start = prompt.index(target)
-        assert prompt_rules.rendered_targets(prompt) == [(start, start + len(target), False)]
+        start = prompt.index(reach)
+        assert prompt_rules.rendered_targets(prompt) == [(start, start + len(reach), True)]
+        assert prompt_rules.rendered_spans(prompt) == [(start, start + len(reach))]
+    # The same end as the words have with no negation among them.
+    prompt = "A banner reading love forever above the stage"
+    start = prompt.index("love forever")
+    assert prompt_rules.rendered_targets(prompt) == [(start, start + len("love forever"), True)]
     # Only where the negation rule reads one from there: not inside a
     # negation that starts a word earlier or opens the words, nor at one with
     # nothing after it. Those are lettering whole, as before the stop.
@@ -1052,6 +1079,12 @@ def test_reorder_without_categories_never_guesses():
         "masterpiece, 1girl, zzkx oc",
         "zzkx oc, newest, masterpiece",
         "1girl, smile, zzkx oc, yyqv oc, masterpiece",
+        # A tag written twice takes one slot, whatever it is: its copies are
+        # never out of order beside each other, only beside another item.
+        "1girl, zzkx oc, zzkx oc, masterpiece",
+        "zzkx oc, zzkx oc",
+        "smile, zzkx oc, zzkx oc",
+        "zzkx oc, smile, zzkx oc",
     ],
 )
 def test_an_item_is_left_unplaced_exactly_where_its_category_decides(model_id, prompt):

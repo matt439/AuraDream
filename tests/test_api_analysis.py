@@ -407,14 +407,19 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
     # slot decides nothing - ahead of a general tag, between 1girl and
     # masterpiece, it is in order whatever it is; ahead of 1girl, out of it
     # whatever it is - and for one item alone, which no order can be wrong
-    # about: the lane first said "Partly checked" of all of these.
+    # about: the lane first said "Partly checked" of all of these. Nor does a
+    # tag written twice make it so: its copies take one slot, whatever it is.
     for prompt in (
         TAG_PROMPT, IN_ORDER, "zzkx oc, green hair", "1girl, zzkx oc, masterpiece",
         "zzkx oc, masterpiece", "zzkx oc", "a girl with green hair standing in the rain",
         '1girl, "OPEN", masterpiece', "1girl, @wlop, masterpiece",
+        "1girl, zzkx oc, zzkx oc, masterpiece", "zzkx oc, zzkx oc",
     ):
         body = analyse(client, prompt=prompt)
         assert body["order_checked"] is True and body["order_detail"] is None, prompt
+    # Beside another item it still decides the order, and is named once.
+    body = analyse(client, prompt="green hair, zzkx oc, zzkx oc")
+    assert body["order_detail"] == unknown
     body = analyse(client, prompt="zzkx oc, 1girl")
     assert rules(body["findings"], "guide.order") != [] and body["reordered"] == "1girl, zzkx oc"
     assert body["order_checked"] is True and body["order_detail"] is None
@@ -518,6 +523,7 @@ def test_the_page_and_the_critic_read_partial_placement_alike(client, fake, monk
     prompts += [
         "zzkx oc", "green hair, zzkx oc", "1girl, zzkx oc, masterpiece", "zzkx oc, 1girl",
         "a girl with green hair standing in the rain", "zzkx oc, yyqv oc",
+        "1girl, zzkx oc, zzkx oc, masterpiece", "green hair, zzkx oc, zzkx oc",
     ]
     for model_id in (ANIMAGINE, KOHAKU):
         claim(monkeypatch, fake, model_id)

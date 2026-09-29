@@ -494,25 +494,29 @@ def _violation(places: list[frozenset[int]]) -> tuple[int, int] | None:
     return None
 
 
-def _undecided(places: list[frozenset[int]]) -> list[int]:
+def _undecided(places: list[frozenset[int]], keys: list[Any]) -> list[int]:
     """The items whose missing slot decides the order: each is in a pair
     that some slot it could take puts out of the documented order and
     another does not, which `_violation`, flagging only what is out of
     order beyond doubt, therefore passes. Only an item with more than one
     slot can be in such a pair; one whose every slot sits in order beside
     the rest ("zzkx oc" between 1girl and masterpiece), or out of it beyond
-    doubt, is not, and neither is a lone item.
+    doubt, is not, and neither is a lone item. Nor is a pair of copies - two
+    items with one key, which `_place` places alike under any categories,
+    so they take one slot whatever it is and are never out of order beside
+    each other: "1girl, zzkx oc, zzkx oc, masterpiece" is settled.
 
     Where none is, the rules' answer is the same whatever category each
     item has, and so is `_ordered`'s order: a pair it swaps was out of order
-    beyond doubt, and one it keeps was in order or out of it beyond doubt.
+    beyond doubt, and one it keeps was in order beyond doubt, or is a pair
+    of copies, in order whatever their slot.
     """
     low = [min(place) for place in places]
     high = [max(place) for place in places]
     undecided: set[int] = set()
     for a in range(len(places)):
         for b in range(a + 1, len(places)):
-            if high[a] > low[b] and low[a] <= high[b]:
+            if keys[a] != keys[b] and high[a] > low[b] and low[a] <= high[b]:
                 undecided.update(index for index in (a, b) if len(places[index]) > 1)
     return sorted(undecided)
 
@@ -562,8 +566,11 @@ def _placeable(
 
 def _tag_items(text: str) -> tuple[list[Item], list[bool], list[tuple[int, int]]]:
     """The order rules' reading of `text` outside `check`: its `_units`,
-    which of them hold lettering, and the lettering."""
-    lettering = rendered_spans(text)
+    which of them hold lettering, and the lettering - as `check` reads it
+    (`_read`), a participle's words stopped at a negation, not as far as
+    `rendered_targets` lets the lettering reach, so both place one list."""
+    quoted = _quoted_spans(text)
+    lettering = quoted + _unquoted_text(text, quoted)
     items = _units(text, comma_items(text), lettering)
     return items, _held(items, lettering), lettering
 
@@ -654,9 +661,11 @@ def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None
     1girl and masterpiece, in order whatever it is, or ahead of 1girl, out
     of it whatever it is - nor a lone item, which no order can be wrong
     about: the order rule and `reorder_tags` read fewer than two items not
-    at all. Said of every unplaced item, one-tag prompts and "1girl, zzkx
-    oc, masterpiece" read as partly checked though their order was settled.
-    Empty where the guide gives no slots.
+    at all. Nor does an item's copy, written the same, make it one: the two
+    take one slot, whatever it is, so "1girl, zzkx oc, zzkx oc, masterpiece"
+    is settled. Were it said of every unplaced item, one-tag prompts and
+    "1girl, zzkx oc, masterpiece" would read as partly checked though their
+    order was settled. Empty where the guide gives no slots.
     """
     spec = _order_spec(_guide(model_id))
     items, lettered, _ = _tag_items(prompt)
@@ -667,7 +676,10 @@ def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None
         _place(item, spec, lookup, lettering=held)
         for item, held in zip(items, lettered, strict=True)
     ]
-    return [items[index].text for index in _undecided(places)]
+    # What `_place` reads: an item's text as typed, and whether it holds
+    # lettering. Two items alike in both are placed alike by any categories.
+    keys = [(item.text, held) for item, held in zip(items, lettered, strict=True)]
+    return [items[index].text for index in _undecided(places, keys)]
 
 
 def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | None) -> bool:
@@ -947,14 +959,16 @@ _NEGATION = re.compile(
 # "without ropes on El Capitan" is not cut at "El".
 _CAPITAL_RUN = re.compile(r"(?:[ \t]+[A-ZÀ-ÖØ-Þ][^\s,.;:!?()\[\]\"“”]*)+")
 # Where a head sits inside a clause rather than opening one: right after a
-# word ("trying to avoid the rain", "the film No") or a title's abbreviation,
-# spaced or not ("Dr. No", "Dr.No"). Anything else opens one - the text's
-# start, a line break, any full stop or clause mark, a dash, a bullet, a
-# slash - and so does a word that only softens an instruction ("please avoid
-# text").
+# word ("trying to avoid the rain", "the film No") or an abbreviation that
+# goes before a name, spaced or not ("Dr. No", "Dr.No"). Not one that comes
+# after a name, which ends a sentence as often ("a photo taken on Main St.
+# No cars.", "Martin Luther King Jr. No crowds."). Anything else opens one -
+# the text's start, a line break, any other full stop or clause mark, a
+# dash, a bullet, a slash - and so does a word that only softens an
+# instruction ("please avoid text").
 _MID_CLAUSE = re.compile(
     r"(?:(?<![\w'’-])(?!(?i:please|also)[ \t])[^\W\d_][\w'’-]*[ \t]+"
-    r"|\b(?:Dr|Mr|Mrs|Ms|Mt|St|Sr|Jr|Prof)\.[ \t]*)$"
+    r"|\b(?:Dr|Mr|Mrs|Ms|Mt|Prof)\.[ \t]*)$"
 )
 # Words a negated phrase does not end on: "no people in the background" is
 # about the people.
@@ -1200,8 +1214,9 @@ class _Target(NamedTuple):
     exact: bool
     # False where the lettering may run on past `end` - a joining word, the
     # word or length cap, Latin lettering going on past a space or a mark, a
-    # negation among a participle's lowercase words ("reading love without
-    # limits") - so a reader may take it further. True where what follows is
+    # negation that stopped a participle's lowercase words ("reading love
+    # without limits", a stop `rendered_targets` reads on through) - so a
+    # reader may take it further. True where what follows is
     # read as description, even where `exact` is not: at 的, 等 or 挂在 the
     # guess is whether it is the lettering's own (写着我的家), and after a
     # participle whether the words are lettering at all; neither makes what
@@ -1256,8 +1271,16 @@ def _cjk_stop(text: str, start: int, end: int) -> re.Match[str] | None:
     return None
 
 
-def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]:
-    """Words that read as text to render but carry no quotation marks."""
+def _unquoted_targets(
+    text: str, quoted: list[tuple[int, int]], *, stop_at_negations: bool = True
+) -> list[_Target]:
+    """Words that read as text to render but carry no quotation marks.
+
+    With `stop_at_negations`, the rules' reading: a participle's lowercase
+    words stop at a negation the negation rule reads there (`_absence_at`),
+    which that rule warns on. Without, they run on through it to where they
+    would stop without it - "reading love without limits | above the stage" -
+    which is how far the lettering may reach (`rendered_targets`)."""
     targets: list[_Target] = []
     for match in _TEXT_TRIGGER.finditer(text):
         if _inside(quoted, match.start()):
@@ -1298,7 +1321,8 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
             # rule reads one from there, so that the words it stops are not
             # half of "do not enter" or "no pain no gain".
             if (
-                words
+                stop_at_negations
+                and words
                 and participle
                 and token in _NEGATING
                 and not _capitalised(words[0].group(1))
@@ -1331,7 +1355,8 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
         # reading comics" - so lowercase words after one may be what someone
         # reads or says rather than lettering. Where a negation stopped them,
         # the lettering may run on through it ("a banner reading love without
-        # limits"), so a reader may take it further.
+        # limits"); read without that stop, the words end where they would
+        # have ended anyway, and what follows is description.
         if participle and not _capitalised(words[0].group(1)):
             exact, ends = False, not negated
         # After a noun trigger, words not in capitals may describe the text
@@ -1379,25 +1404,36 @@ def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
     quoted stretches, marks included, and the words a rule reads as unquoted
     text to render. `ends` is False only where the rules stopped at a guess
     and the lettering may run on past `end` (`_Target.ends`: a joining word,
-    the word or length cap, Latin lettering going on past a space or a mark,
-    a negation among a participle's lowercase words); where it is True,
-    whatever follows is the prompt's description. It is not
-    whether the quote rule offers its one-click quote (`_Target.exact`): a
-    Chinese target stopped at 的, at 等 before 字样 or at a verb placing the
-    sign (挂在), lowercase words after a participle and, where their end is
-    sure, words not in capitals after a noun trigger get none, yet nothing
-    past them reads as lettering."""
+    the word or length cap, Latin lettering going on past a space or a
+    mark); where it is True, whatever follows is the prompt's description.
+
+    A participle's lowercase words run on here through a negation the rules
+    stop them at, to where they would stop without it: "a banner reading
+    love without limits above the stage" asks for "love without limits",
+    and "above the stage" is description, as after any participle's words.
+    The quote and negation rules keep that stop - "without limits" warns as
+    an absence, and no one-click quote letters a guess - but the lettering
+    may hold the negation, and a guess that ran on to the clause's end would
+    pass the description off as lettering.
+
+    It is not whether the quote rule offers its one-click quote
+    (`_Target.exact`): a Chinese target stopped at 的, at 等 before 字样 or at
+    a verb placing the sign (挂在), lowercase words after a participle and,
+    where their end is sure, words not in capitals after a noun trigger get
+    none, yet nothing past them reads as lettering."""
     quoted = _quoted_spans(text)
-    unquoted = [(t.start, t.end, t.ends) for t in _unquoted_targets(text, quoted)]
+    unquoted = [
+        (t.start, t.end, t.ends)
+        for t in _unquoted_targets(text, quoted, stop_at_negations=False)
+    ]
     return sorted([(start, end, True) for start, end in quoted] + unquoted)
 
 
 def rendered_spans(text: str) -> list[tuple[int, int]]:
     """Where `text` asks for lettering: its quoted stretches, marks included,
-    and the words a rule reads as unquoted text to render - `rendered_targets`
-    without its `ends` flag, which the critic's checks of `text_to_render` and
-    the rewrite's quotation marks read. The order rules' reading outside
-    `check` (`_tag_items`) holds each one whole."""
+    and the words a rule reads as unquoted text to render, through a
+    negation among a participle's words - `rendered_targets` without its
+    `ends` flag."""
     return [(start, end) for start, end, _ in rendered_targets(text)]
 
 

@@ -2394,15 +2394,28 @@ that word (`_absence_at`) - not inside a negation that starts earlier, nor at
 one with nothing after it ("now or never") - and those are lettering whole
 again. The cost is lettering that holds a negation further in ("a banner
 reading love without limits", "a sign reading dogs not allowed"), which warns
-as an absence until it is quoted or in capitals. That stop is a guess the
-lettering may run on past (`ends` False), so the critic still takes "love
-without limits" whole as text to render and does not flag a rewrite quoting
-it, which is the fix the quote rule's finding asks for. The
+as an absence until it is quoted or in capitals. That stop is the rules' own:
+the lettering may hold the negation, so the critic should still take "love
+without limits" whole as text to render and not flag a rewrite quoting it,
+which is the fix the quote rule's finding asks for. A first fix left the stop
+in `rendered_targets` with `ends` False, a guess the lettering may run on
+past, and the review's final completeness check found the critic then
+reading on to the clause's end: "a banner reading love without limits above
+the stage" kept "love without limits above the stage" as text to render and
+let a rewrite quote it, description passing as lettering. `rendered_targets`
+now reads the words on through the negation to where they would stop
+without it - "love without limits", as "love forever" stops at "above" - with
+`ends` True, so what follows is description, as after any participle's
+words. The quote and negation rules keep the stop at the negation. The
 2026-09-28 review also found the negation rule warning on "a cat trying to
 avoid the rain" and "the film Dr. No". "avoiding" is no longer a head, and
 "avoid" or a capital "No" asks for nothing mid-clause: right after a word
-("trying to avoid", "the film No") or a title's abbreviation, spaced or not
-("Dr. No", "Dr.No").
+("trying to avoid", "the film No") or an abbreviation that goes before a
+name (Dr., Mr., Mrs., Ms., Mt., Prof.), spaced or not ("Dr. No", "Dr.No").
+One that comes after a name ends a sentence as often: with St., Jr. and Sr.
+on the list too, the final completeness check found "a photo taken on Main
+St. No cars." and "Martin Luther King Jr. No crowds." silent, so those now
+open a clause, like any other full stop.
 Anything else opens a clause - the text's start, a line break, a full stop
 (after a year, a short word or "a.m." too), a spaced dash, a bullet, a bar or
 a slash - and so do "please" and "also". A first fix also read a capital "No"
@@ -2450,9 +2463,10 @@ is offered, and `ends` whether what follows is description (False where the
 lettering may run on past it), which `rendered_targets` hands the critic. Past
 的 or a placing verb, or after a participle, the Apply is withheld but what
 follows is still description, so the critic's run-on fallback does not take
-it, except past a negation that stopped a participle's words, where the
-lettering may run on. Words not in capitals after a noun trigger lose the
-Apply and keep the `ends` their stop gave them.
+it. Where a negation stopped a participle's words, `rendered_targets` reads
+them on through it to their ordinary stop first, and what follows that is
+description too. Words not in capitals after a noun trigger lose the Apply
+and keep the `ends` their stop gave them.
 
 **A stretch of lettering is one item, and no rule rewrites it.** The
 2026-09-28 review found three rules rewriting lettering in one click -
@@ -2589,7 +2603,16 @@ that by enumerating the categories. So on Animagine `zzkx oc, green hair` is
 checked (a character, a series or a general tag, it is in order ahead of
 `green hair`), while `green hair, zzkx oc` is partly checked; on Kohaku,
 whose meta tags follow quality, `1girl, zzkx oc, masterpiece` is partly
-checked too. The critic's `placed_partly` reads the same predicate, so a
+checked too. The review's final completeness check found a tag written
+twice still partly checked: `1girl, zzkx oc, zzkx oc, masterpiece` named
+both copies, since `_undecided` read each against the other as though their
+slots were independent. Two items written the same, and both lettering or
+neither, are placed alike under any categories (`_place` reads nothing
+else), so they take one slot whatever it is and
+are never out of order beside each other; that pair no longer counts, and
+the prompt is checked. Beside another item a copy still counts (`green hair,
+zzkx oc, zzkx oc` is partly checked, the tag named once). The critic's
+`placed_partly` reads the same predicate, so a
 reorder of the critic's where no missing category decides anything is held
 to Check's own order, which is then the documented one (the critic's
 paragraph below). The unknown tag's reason now reads "the tag index has no
@@ -3203,7 +3226,8 @@ to the same prompts. The review of that fix narrowed the predicate for both:
 an unplaced item counts only where its slot decides the order. Where none
 does, `reorder_tags`' order is in the documented order whatever the missing
 categories are - a pair it swaps was out of order beyond doubt, and one it
-keeps was in order, or out of it, beyond doubt - so it is the documented
+keeps was in order beyond doubt, or is a tag and its copy, in order
+whatever that tag is - so it is the documented
 order itself, and a critic's other permutation is set aside as before. With
 `green hair` known and `firefly` not, `1girl, firefly, green hair,
 masterpiece` is in order whatever `firefly` is, and the critic's swap
