@@ -1405,3 +1405,28 @@ def test_the_exit_signal_cancels_the_jobs_and_stops_the_critic(client, fake, mon
     assert stopped.wait(5) and fake.critic.unloads == 1
     assert server.should_exit
     assert stream_job(client, job_id)[-1]["status"] == "cancelled"
+
+
+def test_ctrl_c_ends_the_server_with_130_and_no_traceback(fake, monkeypatch):
+    # uvicorn re-raises the signal it captured once shutdown is done, and
+    # `run()` calls the server directly rather than through `uvicorn.run()`,
+    # which would swallow it: every Ctrl-C ended in a KeyboardInterrupt
+    # traceback after "Application shutdown complete". The real path, a real
+    # signal: the server starts, SIGINT arrives, the lifespan shuts down.
+    started = threading.Event()
+
+    class Interrupted(main.Server):
+        async def startup(self, sockets=None):
+            await super().startup(sockets)
+            started.set()
+            signal.raise_signal(signal.SIGINT)
+
+    monkeypatch.setattr(main, "Server", Interrupted)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, port=0))
+    try:
+        with pytest.raises(SystemExit) as exc:
+            main.run()
+    except KeyboardInterrupt:
+        pytest.fail("Ctrl-C still reached the caller as KeyboardInterrupt")
+    assert started.is_set() and exc.value.code == 130
+    assert fake.critic.unloads >= 1

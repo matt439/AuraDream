@@ -1421,6 +1421,10 @@ class Server(uvicorn.Server):
 
 
 def run() -> None:
+    """Serve until a signal. Ctrl-C exits with status 130, as the start-up
+    menu's does, and without a traceback: once shutdown is complete uvicorn
+    re-raises the signal it captured, which lands here as KeyboardInterrupt
+    (`uvicorn.run()` swallows it, and the status with it)."""
     config = uvicorn.Config(
         app,
         host=settings.host,
@@ -1429,7 +1433,10 @@ def run() -> None:
         # A client that stops reading its stream must not hold shutdown open.
         timeout_graceful_shutdown=30,
     )
-    Server(config).run()
+    try:
+        Server(config).run()
+    except KeyboardInterrupt:
+        raise SystemExit(130) from None
 
 
 if __name__ == "__main__":

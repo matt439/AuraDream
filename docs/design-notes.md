@@ -543,6 +543,16 @@ holds shows there rather than being claimed free. `llama-server` is pinned to
 no card, so on a second GPU only the ERROR log line, with its pid, says so.
 No field of its own was added for a case that needs a kill to fail.
 
+Once shutdown is complete, uvicorn re-raises the signal it captured, so a
+Ctrl-C reaches `main.run()` as KeyboardInterrupt. `uvicorn.run()` swallows
+it, but `run()` calls `Server(config).run()` directly for `handle_exit`, and
+every Ctrl-C ended in a traceback after "Application shutdown complete".
+`run()` exits 130 instead, as the start-up menu does on Ctrl-C;
+`test_ctrl_c_ends_the_server_with_130_and_no_traceback` sends a real SIGINT
+to a started server. Launched from a script without job control, a
+background server has SIGINT ignored, and there the re-raise is a no-op that
+exits 0.
+
 ## A cell's failure is the cell's
 
 **A cell's failure is the cell's, not the night's.** `_generate` catches
