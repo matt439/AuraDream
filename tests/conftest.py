@@ -4,14 +4,28 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import os
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import main, prompt_encoding, storage
-from backend.jobs import JobManager
-from tests.api_helpers import ORIGIN
-from tests.fakes import FakeBackend, FakeCritic, FakeTranslator, fake_tokenizer
+# The suite runs on config.py's defaults, whatever the shell exports. `settings`
+# reads the environment once, when `backend.config` is first imported - by the
+# imports below - so this has to happen here, not in a fixture: `wsl/env.sh`
+# exports Nunchaku and a lite-infer checkpoint, and tests written against the
+# default checkpoint and fp8 failed under it. Where the gallery and the adapters
+# live stays the shell's: the tests redirect those themselves, and one that
+# forgot should reach this environment's gallery, not the one under /mnt/c.
+assert "backend.config" not in sys.modules, "backend.config was imported before the tests' environment was set"
+_KEPT = {"LOCAL_DIFFUSION_OUTPUTS_DIR", "LOCAL_DIFFUSION_DB_PATH", "LOCAL_DIFFUSION_LORAS_DIR"}
+for _name in [name for name in os.environ if name.startswith("LOCAL_DIFFUSION_") and name not in _KEPT]:
+    del os.environ[_name]
+
+from backend import main, prompt_encoding, storage  # noqa: E402
+from backend.jobs import JobManager  # noqa: E402
+from tests.api_helpers import ORIGIN  # noqa: E402
+from tests.fakes import FakeBackend, FakeCritic, FakeTranslator, fake_tokenizer  # noqa: E402
 
 
 @pytest.fixture

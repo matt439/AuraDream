@@ -99,6 +99,16 @@ Under WSL, `wsl/env.sh` moves the venv (`UV_PROJECT_ENVIRONMENT`), the gallery
 and SQLite cannot lock over it. The original `nunchaku` engine is a different
 package with its own transformer classes and no torch 2.13 wheel; not used.
 
+The same file exports `LOCAL_DIFFUSION_QUANT=nunchaku` and a lite-infer model
+id, and six tests written against the default checkpoint and fp8 failed under
+WSL because of it: the suite read whatever the shell had. `tests/conftest.py`
+now drops every `LOCAL_DIFFUSION_*` except `OUTPUTS_DIR`, `DB_PATH` and
+`LORAS_DIR` before its first `backend` import - a fixture is too late, since
+`settings` reads the environment once, on import - and asserts that nothing
+imported `backend.config` ahead of it. The paths stay so that a test which
+fails to redirect them writes to this environment's gallery rather than the
+Windows one under `/mnt/c`.
+
 ## torch 2.13's Triton kernels under WSL, and the xet downloader
 
 **torch 2.13 runs some CUDA ops as Triton kernels in eager mode** (`torch._native`

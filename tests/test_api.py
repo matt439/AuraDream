@@ -217,8 +217,8 @@ def test_prompt_expansion_does_not_cut_ahead_of_the_queue(client, fake, monkeypa
 
 def test_status_says_whether_the_pipeline_takes_a_negative_prompt(client, fake, monkeypatch):
     # The profile's guess until a pipeline is loaded, then the parameter list.
-    # Derived, not a literal: the suite runs under whatever LOCAL_DIFFUSION_MODEL_ID the
-    # shell has, and klein's profile says False.
+    # Derived, not a literal: it is the default checkpoint's profile that answers,
+    # and klein's says False.
     guess = defaults_for(settings.model_id)["negative_prompt_supported"]
     assert client.get("/api/status").json()["defaults"]["negative_prompt_supported"] is guess
     described = dict(fake.describe(), negative_prompt_supported=not guess)

@@ -719,7 +719,10 @@ needs to change.
 and driven through `tests/api_helpers.py`; the HTTP tests are `tests/test_api*.py`,
 one file per area) and the scheduler (`tests/test_schedule.py`'s `StubPipeline`), so
 nothing downloads weights or touches the GPU, and they run against a throwaway
-database and outputs directory (`tests/conftest.py`). They cover the invariants
+database and outputs directory (`tests/conftest.py`). They run on `config.py`'s
+defaults: `tests/conftest.py` drops every `LOCAL_DIFFUSION_*` but the gallery
+and adapter paths before anything imports `backend`, so a sourced
+`wsl/env.sh` changes nothing. They cover the invariants
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
 HTTP guards.
