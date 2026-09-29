@@ -78,6 +78,8 @@ repo's `model_index.json`. Illustrious, WAI, Anima Turbo, NetaYume and NewBie fi
 convert pinned weights to a local component tree, then use the same loading
 and offload path. WAI's source is a hash-checked community mirror of the
 author's checkpoint; the other converted entries use official repositories.
+If a conversion is interrupted, the next load of that checkpoint removes its
+partial tree.
 
 ## Run
 
@@ -249,6 +251,9 @@ bash wsl/setup.sh
 
 That installs `uv` and Python 3.13 if missing, builds a Linux environment under
 `~/local-diffusion/.venv`, and checks that CUDA and the two extra packages are there.
+It also says when the prompt critic's llama.cpp build cannot run there - glibc
+older than 2.38, or `libgomp1`/`libssl3` missing, with the `sudo apt install`
+line for those.
 Then, in every new shell:
 
 ```bash
@@ -369,12 +374,16 @@ when the checkpoint or the installation cannot use them: a night that renders
 every cell without the thing you asked for looks like a success.
 
 `--from-image outputs/….png` starts from an image you already have: the
-prompt, negative prompt, size, steps, CFG, mu, seed, checkpoint, references
-and adapter come out of the PNG's own metadata, and any flag you give
-explicitly wins over it. The
-quantization is not carried - a WSL Nunchaku PNG read on Windows would ask for
-a mode this machine cannot run - and the tool says so when it differs, since
-the pixels then will too.
+prompt, negative prompt, size, steps, CFG, true CFG, mu, seed, checkpoint,
+references and adapter come out of the PNG's own metadata, and any flag you
+give explicitly wins over it. The image's grid variables - a `{var}` value,
+or a comparison version's name, which keep it on its row of a sheet - carry
+too, but only while the prompt and negative prompt are the image's own (a
+label on a changed prompt would name a version it is not), and a
+`--grid-prompt` replaces them with its own. A comparison version's prompt
+is taken verbatim, braces and all. The quantization is not carried - a WSL
+Nunchaku PNG read on Windows would ask for a mode this machine cannot run -
+and the tool says so when it differs, since the pixels then will too.
 
 The CLI loads its own copy of the weights, so before it does it asks the
 server on `LOCAL_DIFFUSION_HOST:LOCAL_DIFFUSION_PORT` whether one is already on the GPU. If the
@@ -393,6 +402,16 @@ was skipped, 4 when a server already holds the GPU. `python -m backend.clear`
 exits 1 when it aborted with nothing deleted and 3 when the deletion ran and
 something went wrong afterwards.
 
+Every command-line tool (`generate`, `clear`, `stats`, `reindex`) writes
+UTF-8 when redirected to a file, a pipe or `> NUL`, where Windows would
+otherwise use the locale's code page and stop at the first CJK or emoji
+prompt; the Windows console is UTF-8 already, and a Linux terminal keeps its
+own encoding. Windows PowerShell's `>` and `|` decode a program's output
+with `[Console]::OutputEncoding` before writing it again, so for the file
+to hold the text as written, set that to UTF-8 first
+(`[Console]::OutputEncoding = [Text.Encoding]::UTF8`) or redirect from cmd
+or Git Bash.
+
 ### Which settings did you keep?
 
 ```powershell
@@ -400,6 +419,7 @@ uv run python -m backend.stats                    # the newest run
 uv run python -m backend.stats --run ab12cd       # one grid, however many jobs
 uv run python -m backend.stats --by steps,cfg,prompt --min 3
 uv run python -m backend.stats --all              # the whole gallery, indicative
+uv run python -m backend.stats --run ab12cd --by variant --min 4   # a comparison, per version
 ```
 
 The starred *rate* per setting - made, starred, percent - rather than the
@@ -409,7 +429,9 @@ and seeds and the comparison is fair; `--all` is confounded by whatever was in
 use while the prompts happened to be good and says so. Settings with fewer
 images than `--min` (5) are left out, so a lucky 1-of-1 does not lead. The
 column says *starred*, not *kept*: nothing records a rejection, so an
-untouched night reads 0%, not unknown.
+untouched night reads 0%, not unknown. Rows rank by rate, then by count; a
+tie keeps the order the settings were first made in. A prompt is folded onto
+one line in the table and cut to 40 characters.
 
 ## Tests
 
@@ -456,7 +478,8 @@ prompt expansion is available), and
 `--step 0.3` slows each denoising step enough to watch Pause, the queue and
 the preview work. Its prompt check counts with stand-in tokenizers (a token
 per word or mark, at each encoder's real budget) and its critic is a stand-in
-that answers from the prompt after `--critic-delay` seconds (0.4 by default);
+that answers from the prompt after `--critic-delay` seconds (0.4 by default),
+and refuses at once, as the real one does, a prompt too long for its window;
 `--no-critic` answers as a platform without one. `tools/browser.mjs` needs only Node 22+ and an installed Edge
 or Chrome (`LOCAL_DIFFUSION_BROWSER` points at another executable); each run gets a
 profile directory of its own, so a crashed run cannot lock the next one out.
@@ -737,15 +760,18 @@ card: the same request twice through the fp8 FLUX path is the same bytes.
 
 **Re-render** appears beside the filters whenever a search or the Favorites
 tick narrows the gallery: it renders everything the filter matches again at
-the size set in the panel, one cell per image with its own prompt, steps, CFG,
-mu and seed, as one job. Star the winners of a 1 MP night, tick Favorites, pick
-4 MP, click. Cells already rendered at that size are skipped, so it can be
-resumed like a grid, and a selection made on another checkpoint - which
-only All models lets in - is refused rather than run with the wrong steps
-and CFG (untick it, or let `model:` narrow the selection). Be honest
-with yourself about what comes back: the pipeline draws its noise at the new
-shape, so the same seed at 4 MP is a new sample - the prompt and the settings
-carry over, the exact picture does not.
+the size set in the panel, one cell per image with its own prompt, negative
+prompt, steps, CFG, true CFG, mu, references, adapter and weight, seed and
+variables, as one job - the variables being a prompt grid's values or a
+comparison's version, so the re-rendered run's sheet keeps its rows. Star the
+winners of a 1 MP night, tick Favorites, pick 4 MP, click. Cells already
+rendered at that size are skipped, so it can be resumed like a grid, and
+a selection made on another checkpoint - which only All models lets in -
+is refused rather than run with the wrong steps and CFG (untick it, or
+let `model:` narrow the selection). Be honest with yourself about what
+comes back: the pipeline draws its noise at the new shape, so the same seed
+at 4 MP is a new sample - the prompt and the settings carry over, the exact
+picture does not.
 
 **Delete unstarred**, at the end of the same bar, is the other end of that
 night: a run makes hundreds and earns a few stars, and the gesture you want
@@ -775,7 +801,11 @@ two widest-varying axes become the columns and rows, and a third becomes a
 selector rather than a dimension nobody can read. The one exception: a
 comparison's versions (the `variant` axis, and so also a variable a prompt
 grid of your own names `variant`) always take the rows when anything else
-varies too, one row per version. Cells take the run's own
+varies too, one row per version. A variable's values keep the order the grid
+declared them in - `size = small | big` reads small, big - and with
+Favorites ticked, or a search narrower than the run, the sheet asks for the
+whole run once to keep that order; after Delete unstarred, a value whose
+first images were deleted can move down. Cells take the run's own
 aspect ratio and show the whole frame, and a starred cell carries its star, so
 where the keepers cluster is visible on the sheet rather than only in your
 head. A prompt grid's images record which variable took which value, so on
@@ -813,8 +843,8 @@ All optional, set as environment variables:
 | `LOCAL_DIFFUSION_PORT` | `7860` | |
 | `LOCAL_DIFFUSION_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Host headers the API answers to, and with the port, the origins allowed to write to it. Needed when `LOCAL_DIFFUSION_HOST` is `0.0.0.0`: the browser sends the machine's name or LAN address, never `0.0.0.0` |
 | `LOCAL_DIFFUSION_CRITIC` | `true` | `false` turns the prompt critic off: no Ask the critic, and nothing downloaded for it. Check and Compare stay |
-| `LOCAL_DIFFUSION_CRITIC_SERVER` | unset | Path to a `llama-server` of your own, used instead of downloading the pinned llama.cpp b11206 build - for a platform with no pinned build, or a newer release. Not held to the pin, but it must take b11206's flags (`--no-ui --offline --fit on --reasoning-budget --sleep-idle-seconds`), read its key from `LLAMA_API_KEY` and keep `/v1/models` behind it, or every critique fails |
-| `LOCAL_DIFFUSION_CRITIC_MODEL` | unset | Path to a `.gguf` used instead of downloading the pinned Qwen3-4B Q8_0. Not held to the pin. Under WSL keep it on the Linux disk: on `/mnt/c` it costs about 20 s on every critique |
+| `LOCAL_DIFFUSION_CRITIC_SERVER` | unset | Path to a `llama-server` of your own, used instead of downloading the pinned llama.cpp b11206 build - for a platform with no pinned build, a Linux whose glibc is older than the pinned build's 2.38 (Ubuntu 22.04, Debian 12), or a newer release. Not held to the pin, but it must take b11206's flags (`--no-ui --offline --fit on --reasoning-budget --sleep-idle-seconds`), read its key from `LLAMA_API_KEY` and keep `/v1/models` behind it, or every critique fails. Name the binary itself rather than a script or launcher that starts it: a wrapper is stopped with everything it starts, but a server it moves into a session of its own escapes the stop, and on Windows and Linux its port is refused |
+| `LOCAL_DIFFUSION_CRITIC_MODEL` | unset | Path to a `.gguf` used instead of downloading the pinned Qwen3-4B Q8_0. Not held to the pin. A symlink (a Hugging Face snapshot entry, say) is fine: answers are labelled with the name given, not the target's. Under WSL avoid `/mnt/c`: the critic's server reads the whole file across the 9P bridge each time it starts, which added about 20 s to every critique measured |
 
 Everything else in `backend/config.py` — including the per-image size limits —
 is code, not configuration.
@@ -872,7 +902,7 @@ invented. In brief:
 | --- | --- | --- | --- |
 | FLUX.1 Krea [dev] | Descriptive sentences, subject first; camera settings optional, where framing matters; text in quotes | CLIP 77 + T5 512 tokens | 1024-1280 px sides recommended (1-1.6 MP); 0.1-2 MP documented |
 | FLUX.1 [dev] | The same, 30-80 words; no negative prompt without True CFG | CLIP 77 + T5 512 | 0.1-2 MP documented; above that users report doubling |
-| FLUX.1 [schnell] | The same, shorter | CLIP 77 + T5 512 in this app (BFL's reference stops at 256) | 0.1-2 MP documented |
+| FLUX.1 [schnell] | The same; no negative prompt without True CFG | CLIP 77 + T5 512 in this app (BFL's reference stops at 256) | 0.1-2 MP documented |
 | FLUX.2 [klein] | Subject, action, style, context; every rendered word in quotes; no negative prompt at all | Qwen3, 512 | 1024x1024 in every example; up to 2 MP recommended, 4 MP max |
 | Krea 2 Turbo | One natural paragraph, long and detailed best, short works; text in quotes | Qwen3-VL, 512 | 1k-2k documented (1-4 MP); pretraining topped out at 1024 px |
 | Krea 2 Raw | The same; an undistilled base Krea does not recommend for inference | Qwen3-VL, 512 | Trained to 1k: 1 MP |
@@ -892,13 +922,17 @@ invented. In brief:
 against the running checkpoint - nothing is generated and no model is
 loaded, so it answers at once, on the CPU, even on a cold server or beside a
 running night. It reads the prompt, the negative prompt and the CFG / True
-CFG that decide whether that negative runs, exactly as Generate would send
-them. The first check on a checkpoint whose tokenizers are not cached yet
-downloads those tokenizer files (megabytes, never weights). On a tag
-checkpoint - and on Anima, whose "@ before an artist name" needs to know
-which tags are artists - it asks Danbooru's tag index what the comma items
-are, sending the tag text only, as the chips do; offline, those checks stand
-down rather than guess. The panel it opens has:
+CFG that decide whether that negative runs - and, on klein, the reference
+images - exactly as Generate would send them. The first check on a
+checkpoint whose tokenizers are not cached yet downloads those tokenizer
+files (megabytes, never weights). A check waits up to 30 seconds for them;
+past that, the line under the Encoders rows says which tokenizer is still
+loading, and the download carries on for the next check. Unload never waits
+for it. On a tag checkpoint - and on Anima, whose "@ before an artist name"
+needs to know which tags are artists - it asks Danbooru's tag index what the
+comma items are, sending the tag text only, as the chips do; offline, those
+checks stand down rather than guess, and the panel says they did (on Anima,
+that not every tag was checked for an artist name). The panel it opens has:
 
 - **Encoders**: one row per text encoder, tokens used against what the
   pipeline keeps, and - past that - "stops reading at ..." (click it to
@@ -911,13 +945,21 @@ down rather than guess. The panel it opens has:
   checkpoints' tag orders; NewBie's XML blocks), with a link to the source.
   Only a tag checkpoint's comma tags are actually placed in it: on a tag
   checkpoint whose tags are out of that order, **Use reordered** moves the
-  same tags, spelled the same, into it. For sentences, XML or JSON the order
-  is shown with "Not checked", and the summary says "order not checked"
-  rather than letting "nothing to flag" read as a pass - ask the critic, or
-  write your own reordering under Compare. Where the guide states no order,
-  the panel says the app checks none, and shows any order the authors' own
-  texts give (Anima's card, Neta Lumina's prompt book for NetaYume, ERNIE's
-  and Qwen's rewriter instructions) as information, with its source.
+  same tags, spelled the same, into it. A quotation or other sign text moves
+  whole, commas and all, and is never read as a tag. Where the order is one
+  of sentences (FLUX.1, klein), for XML or JSON, and for a tag checkpoint's
+  prompt split by line breaks or fullwidth commas (，) rather than commas,
+  the order is shown with "Not checked", and the summary says
+  "order not checked" rather than letting "nothing to flag" read as a pass -
+  ask the critic, or write your own reordering under Compare. Where the tag
+  index could not be used (offline, or no usable reply from it), or a prompt
+  has more than 64 tags to look up, a placed order says "Partly checked"
+  with the reason, and the summary says "order partly checked": a tag with
+  no Danbooru category is not placed, so one out of order may go unflagged.
+  Where the guide states no order, the panel says the app checks none, and
+  shows any order the authors' own texts give (Anima's card, Neta Lumina's
+  prompt book for NetaYume, ERNIE's and Qwen's rewriter instructions) as
+  information, with its source.
 - **Findings**, warnings first. A warning means the text will not do what it
   seems to: cut off, a "no ..." where no negative prompt runs, A1111-style
   `(word:1.2)`, `((word))` or `BREAK` (nothing here parses weighting; the
@@ -930,48 +972,94 @@ down rather than guess. The panel it opens has:
   **Apply** replaces the field with the fixed text - quotes added, tags moved,
   the recommended suffix or negative prompt - and Ctrl+Z undoes it. Unquoted
   sign text is quoted whole ("Fish and Chips", "Welcome to Paradise"); where
-  its end is a guess ("says fish and chips for sale") the finding asks for the
-  exact words in quotation marks and offers no Apply. A negative prompt's
-  Apply is dead, and says why, while the negative box is greyed at the
-  current CFG.
+  its end is a guess ("says fish and chips for sale", Chinese lettering that
+  runs into 的, past twelve characters or through a mark such as 9:00,
+  lowercase words after "reading" or "saying") the finding asks for the
+  exact words in quotation marks and offers no Apply. Chinese sign text ends
+  for certain at 字样 or at a count of its characters (写有欢迎字样 and
+  写着欢迎两个字 quote 欢迎); 等 before 字样, or a verb that places the sign
+  (挂在, 位于), ends it as a guess, unless the sign itself asks for that verb
+  (请站在黄线外, 禁止停放在此). A negative prompt's Apply is dead, and says
+  why, while the negative box is greyed at the current CFG.
 
-Editing either prompt dims the panel ("prompt changed since") and disables
-its buttons until **Check again**. A checkpoint change clears it.
+Editing either prompt, or changing the reference images, dims the panel
+("prompt changed since", or "references changed since") and disables its
+buttons until **Check again**. A checkpoint change clears it.
 
-**Ask the critic** appears where a critic can run: x86-64 Windows or Linux
-(WSL included), or anywhere `LOCAL_DIFFUSION_CRITIC_SERVER` names a
-`llama-server`. A local Qwen3-4B, run by llama.cpp on the GPU, reads the
-prompt against the checkpoint's guide sentences and short excerpts from its
+**Ask the critic** appears where a critic can run: x86-64 Windows, x86-64
+Linux with glibc 2.38 or newer (WSL's Ubuntu 24.04 and later; not Ubuntu
+22.04 or Debian 12), or anywhere `LOCAL_DIFFUSION_CRITIC_SERVER` names a
+`llama-server`. On Linux the pinned build also needs `libgomp1` and `libssl3`
+from apt, and a fresh WSL Ubuntu has no `libgomp1`: without them the first
+critique stops before downloading anything and gives the `sudo apt install`
+line to run (`wsl/setup.sh` checks for them too). A local Qwen3-4B, run by
+llama.cpp on the GPU, reads the prompt against the checkpoint's guide
+sentences (not those where the app describes its own menus, buttons or
+pipeline choices, or gives advice of its own) and short excerpts from its
 authors' own texts - model cards, prompting guides, the prompt-rewriter
-instructions the authors published - and answers with the prompt taken apart (subject,
-action, setting, style, lighting, camera, text to render), up to six issues
-each citing one numbered source (hover for the cited words), a rewrite, and,
-where an order is documented, the prompt reordered. What the server checks
-before showing any of it: an issue whose citation names no source it was
-given is dropped; a quote that is not in the prompt loses its quote; an
-issue that repeats a rule finding already listed (the word count, a
-negation, quotation marks, the tag order, weighting) is left out, and so are
-order issues that ask for different things first; a part is kept only as
-the prompt's own words, and "text to render" only as words the prompt asks
-to letter; a "reordered" version that adds, drops or changes a word is
-discarded; a rewrite wrapped whole in quotation marks is unwrapped, one that
-puts words the prompt does not have in quotation marks - lettering nobody
-asked for - is dropped, and one that quotes the prompt's description, or
-adds a handful of words the prompt does not have, is flagged. Anything left
-out is said so under the answer. The rewrite is then put through the same
-checks as the prompt, listed under it. What survives is still a 4B model's
-suggestion - it can misapply a source, and it pads short prompts with
-scenery and mood however it is told not to - so read the rewrite before
-**Use rewrite**. **Use rewrite** and
+instructions the authors published - and answers with the prompt taken
+apart (subject, action, setting, style, lighting, camera, text to render),
+up to six issues each citing one numbered source, a rewrite, and, where an
+order is documented, the prompt reordered. Hover over an issue's source for
+the cited words, and click it for their page - for a guide sentence a rule
+also cites, the page that rule's finding links. Words that are not the
+checkpoint's authors' own - this app's translation, a family or parent
+model's guide - say whose they are under the issue, and on a checkpoint
+outside the catalogue the app's general advice is labelled General, not
+Guide.
+
+What the server checks before showing any of it: an issue whose citation
+names no source it was given is dropped; a quote that is not in the prompt
+as whole words loses its quote; an issue that repeats a rule finding
+already listed (a negation, quotation marks, the tag order, weighting), in
+its wording or by quoting the words the finding is about, is left out - one
+on the negative prompt only when the issue says it is about the negative
+prompt - and so is one that speaks to the prompt's own length where the
+guide gives a range and the check counted it (not in XML or JSON, which it
+holds to no range); when the count was in range, the note says so rather
+than naming a finding. A quote that only sits next to a finding, or on
+characters an encoder cannot read, does not count as repeating it, and a
+length or a word count that is a sign's, a lens's or a detail's is not
+the prompt's length. An order issue the documented order reverses ("lighting
+first", or "put the lighting before the camera" where the order has the
+camera first) is left out, and so are order issues that cannot all hold
+(two parts each asked for first, or "X before Y" beside a wish for Y first
+or for Y before X); an instruction in the negative ("avoid putting the
+style before the subject") asks for nothing it names. A part is kept only
+as the prompt's own words, and "text to render" only as words the prompt
+asks to letter. A "reordered" version that adds, drops or changes a word is
+discarded; one that survives is shown in your own words - their case and
+spelling as you wrote them - in the critic's order. On a tag checkpoint
+whose tags Check placed, only Check's own reordering survives - unless
+Check could not place every tag (the tag index could not be asked about
+it, or did not know it): then the critic's survives if it keeps your tags
+whole and Check's order rule finds nothing out of order in it, and is set
+aside, saying what the rule found, if not. The **Use reordered** button's
+tooltip says which kind survived. A rewrite that is your prompt unchanged is
+not shown; one wrapped whole in quotation marks is unwrapped, one that puts
+words the prompt does not have in quotation marks - lettering nobody asked
+for - is dropped, and one that quotes the prompt's description, or adds a
+handful of words the prompt does not have, is flagged. A rewrite or
+reordering too long for a prompt is left out too, and anything left out is
+said so under the answer. The rewrite is then put through the same checks
+as the prompt, listed under it.
+
+What survives is still a 4B model's suggestion - it can misapply a source,
+and it pads short prompts with scenery and mood however it is told not to -
+so read the rewrite before **Use rewrite**. **Use rewrite** and
 **Use reordered** replace the prompt (Ctrl+Z restores it). A critique takes
 10-20 seconds and about 6 GB (5.5 GiB) of VRAM, then the critic's server is
-stopped (`docs/verified.md` has the measurements). It waits for
-the image queue - the button is off while a job is queued or running - and
-Generate and Run grid are held until it answers. The first use downloads
+stopped (`docs/verified.md` has the measurements). It waits for the image
+queue - the button is held while a job is queued or running - and Generate
+and Run grid are held from the click until it answers, including the
+re-check it runs first on an edited prompt. The first use downloads
 llama.cpp's official release b11206 (about 0.6 GB) and Qwen3-4B Q8_0
 (4.3 GB) under the Hugging Face cache directory (`HF_HOME`), each checked
 against a pinned sha256, before the critic asks for the GPU; later uses
-start from disk.
+start from disk. The line under the button names the model it runs, as the
+answer's footer does, and what a first use would still download; with
+`LOCAL_DIFFUSION_CRITIC_SERVER` or `LOCAL_DIFFUSION_CRITIC_MODEL` set it
+promises no time and no download for what you supplied.
 `LOCAL_DIFFUSION_CRITIC=false` turns it off; `LOCAL_DIFFUSION_CRITIC_SERVER`
 and `LOCAL_DIFFUSION_CRITIC_MODEL` use a `llama-server` or `.gguf` already on
 disk instead of the downloads (see Settings).
@@ -987,16 +1075,21 @@ Check has no reordering and the critic's rarely survives its check, so
 there the order is tested by writing it under Your version. Pick 4 or 8
 seeds and **Run comparison** queues one grid - one image per version per
 seed, the panel's other settings, the Seed box's seed or a drawn one - then
-opens its sheet with one row per version, original first. The line above
-the button gives the image count and time estimate first. 4 seeds is a
-first look: the seeds are shared, so the rows are pairs, and even a change
-on all four could be chance (p = 0.125); 8 can tell a change on every seed
-from chance. The prompt box and the grid's variables are left as they were.
-Star what worked, and the starred rate per version is
+opens its sheet with one row per version, original first, unticking
+Favorites if it was on, since nothing in a new run is starred yet (the
+sheet's note says so). The line above the button gives the image count and
+time estimate first. 4 seeds is a first look: the seeds are shared, so the
+rows are pairs, and even a change on all four could be chance
+(p = 0.125); 8 can tell a change on every seed from chance. The prompt box
+and the grid's variables are left as they were. Star what worked, and the
+starred rate per version is
 
 ```powershell
-uv run python -m backend.stats --run <id> --by prompt --min 4   # <id>: the sheet's run: term
+uv run python -m backend.stats --run <id> --by variant --min 4   # <id>: the sheet's run: term
 ```
+
+One row per version, by its label: `--by prompt` would cut each prompt short,
+where versions that open with the same words read the same.
 
 ## Defaults by checkpoint
 

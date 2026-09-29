@@ -2,9 +2,9 @@
 
 What has been measured on the RTX 5080 (16 GB), and when. The reasoning
 around each number is in `design-notes.md`; this is the lookup. Times are per
-image with model offload unless said otherwise, and "peak" is what the
-process held, not what `nvidia-smi` showed - the desktop holds 5-6 GB of the
-card while Unreal Editor and the browsers are open, and a run that lands
+image with model offload, and "peak" is what the process held rather than
+what `nvidia-smi` showed, unless said otherwise - the desktop holds 5-6 GB of
+the card while Unreal Editor and the browsers are open, and a run that lands
 within a gigabyte of the top spills into system RAM and slows two to three
 times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 
@@ -19,8 +19,9 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | FLUX.2 klein 4B | NVFP4, WSL | 1 MP | 4 | 4.0 s | 2.9 GiB | 2026-09-05 |
 | FLUX.2 klein 4B | NVFP4, WSL | 2 MP | 4 | 4.6 s | 3.4 GiB | 2026-09-05 |
 | FLUX.2 klein 4B | fp8, Windows | 1024x1024 | 4 | 10.2 s; 9.2 / 8.2 s with one reference, 11.3 s with two | - | 2026-09-08 |
-| FLUX.1 Krea dev | fp8, Windows | 1 MP | 8 | - | 14.95 GB, 2.1 GB held between cells | 2026-09-08 |
-| FLUX.1 Krea dev | fp8, Windows | 1 MP | 28 | 15.4 s; 17.5 / 16.3 / 18.6 s under a LoRA at three weights; ~1.65x with true CFG 1.5 | - | 2026-09-08 |
+| FLUX.1 Krea dev | fp8, Windows | 1 MP | 8 | - | 14,950 MiB whole-card by `nvidia-smi` mid-denoise, the desktop's 1,773 MiB included; 2,148 MiB with the pipeline loaded and idle | 2026-09-08 |
+| FLUX.1 Krea dev | fp8, Windows | 1024x1024 | 8 | 15.4 s; 17.5 / 16.3 / 18.6 s under a LoRA at three weights | - | 2026-09-08 |
+| FLUX.1 Krea dev, true CFG 1.5 | fp8, Windows | 768x768 | 12 | 25.9 / 25.4 s against 15.7 / 15.2 s without, ~1.65x | - | 2026-09-08 |
 | Z-Image Turbo | NVFP4, WSL | 1 MP | 8 | 8 s (11 s load) | 4.1 GiB | 2026-09-08 |
 | Z-Image Turbo | NVFP4, WSL | 2 MP | 8 | 14.5 s | 4.6 GiB | 2026-09-08 |
 | FLUX.1 dev | NVFP4, WSL | 1 MP | 28 | 30 s | 7.4 GiB | 2026-09-08 |
@@ -47,7 +48,7 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | NetaYume Lumina v4, CFG 5 | fp8, Windows | 1024x1024 | 40 | 38.46 s after cancellation; 38.74 s repeat | 5.76 / 3.30 GiB allocated, 5.92 / 4.38 GiB reserved | 2026-09-26 |
 | NewBie Image Exp0.1, XML prompt, CFG 4 | fp8, Windows | 1024x1024 | 28 | 39.39 s after cancellation; 38.74 s repeat | 4.81 GiB allocated, 4.86 GiB reserved | 2026-09-26 |
 | WAI Illustrious v17, CFG 6 | fp8, Windows | 1024x1344 | 28 | 9.25 s after cancellation; 9.64 s repeat | 3.69 GiB allocated, 4.37 GiB reserved (maximum of the pair) | 2026-09-26 |
-| FLUX.1 Krea dev, CFG 3.5 | fp8, Windows | 1024x1024 | 28 | 41.6-42.6 s; 60.8 s for the first after a 38.2 s load; 41.9 s repeat | 14.6 GB as read off `nvidia-smi`, the desktop's 1.75 GB included | 2026-09-27 |
+| FLUX.1 Krea dev, CFG 3.5 | fp8, Windows | 1024x1024 | 28 | 41.6-42.6 s; 60.8 s for the first after a 38.2 s load; 41.9 s repeat; 42 s for the second of two images through the CLI (1m31s for both) from a clean worktree of the analyser's parent commit, 7a9c651 | 14,615 MiB whole-card by `nvidia-smi`, the desktop's 1,746 MiB included; 1,688 of 16,303 MiB free | 2026-09-27 |
 
 WAI Illustrious v17 was verified on the RTX 5080 with Windows FP8 and model
 offload. The pinned mirror checkpoint passed its SHA-256 check, converted
@@ -279,7 +280,7 @@ add to that, which is why schnell is not the speed win Z-Image Turbo is.
 | Live preview | Matrices fitted on the card, R-squared 0.964 (FLUX VAE) and 0.950 (Qwen-Image VAE); frames looked at; Z-Image frames at steps 2/4/6 of 8 in the right colours | 2026-09-08 |
 | Ctrl-C during a load | SIGINT 12 s into a load exits in 3 s with the lifespan run | 2026-09-08 |
 | Ctrl-C mid-sweep with a stream attached | `done` (cancelled) reaches the stream 0.2 s after the signal; the process is gone 3 s later | 2026-09-08 |
-| Pause | Acknowledged at the cell boundary; the card drops from 14.95 GB during a 1 MP fp8 denoise to 2.1 GB held | 2026-09-08 |
+| Pause | Acknowledged at the cell boundary, where a paused 512x512 grid held 2,046 MiB of the card (whole-card `nvidia-smi`, desktop included); a 1 MP fp8 denoise reads 14,950 MiB | 2026-09-08 |
 | `reindex --from` over the real gallery | Reproduces every hash and true CFG | 2026-09-08 |
 | Qwen-Image's rows | Record true CFG 4 and the negative prompt | 2026-09-08 |
 | `uv.lock` torch hashes | The four hand-pinned wheels checked file-for-file (`RECORD`) against the Windows and WSL venvs | 2026-09-08 |
@@ -302,21 +303,53 @@ unmeasured.
 
 Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port
 7880, a throwaway database and outputs directory) with the desktop holding
-1.75-1.79 GB of the card. Critic VRAM is `nvidia-smi`'s whole-card figure,
-polled every 0.5 s, less that baseline. Critique times are the route's
-`seconds`: server start, one chat completion and the stop.
+1,746-1,791 MiB of the card's 16,303 MiB. VRAM in this section is
+`nvidia-smi`'s whole-card `memory.used`, in MiB; the critic's is polled every
+0.5 s and given less that baseline. Critique times are the route's
+`seconds`: server start, one chat completion and the stop. The rows dated
+2026-09-28 check the 2026-09-28 review's fixes; their critiques ran through
+`PromptCritic` directly, by then with the server counting the question
+(`/apply-template`, `/tokenize`) between its start and the completion.
 
 | What | Result | Date |
 | --- | --- | --- |
-| First use on Windows: `prompt_critic.prepare()` on an empty cache | 114.2 s. Both b11206 win-cuda-13.4 zips (576 MB) downloaded, held to size and sha256, extracted and renamed into place in 21.8 s; the Qwen3-4B Q8_0 GGUF (4.28 GB) downloaded and hashed in 92 s. `ready()` False before, True after; a second `prepare()` took 0.013 s and fetched nothing. The tree is 711 MB at `~/.cache/huggingface/local-diffusion/llama.cpp/b11206-win-cuda-13.4-x64`, `downloads/` is left empty, the GGUF's stamp is under `verified/`, and an independent `sha256sum` of the GGUF matched the pin | 2026-09-27 |
-| First use under WSL 2: the ubuntu-cuda-13.4 tarballs | 62.3 s for 592 MB. The flattened tree (773 MB) has `libcudart.so.13`, `libcublas*.so.13` and `libggml-cuda.so` beside an executable `llama-server`, symlinks intact, and `ldd` resolves every library inside it: the layout read from b11206's `release.yml` holds | 2026-09-27 |
+| First use on Windows: `prompt_critic.prepare()` on an empty cache | 114.2 s. Both b11206 win-cuda-13.4 zips (575.9 MB: 152,343,617 + 423,535,356 bytes) downloaded, held to size and sha256, extracted and renamed into place in 21.8 s; the Qwen3-4B Q8_0 GGUF (4.28 GB, 4,280,404,704 bytes) downloaded and hashed in 92 s. `ready()` False before, True after; a second `prepare()` took 0.013 s and fetched nothing. The tree is 744.4 MB (744,407,545 bytes by `du -sb` on 2026-09-28; `du -sh` showed 711M, in MiB, on both days) at `~/.cache/huggingface/local-diffusion/llama.cpp/b11206-win-cuda-13.4-x64`, `downloads/` is left empty, the GGUF's stamp is under `verified/`, and an independent `sha256sum` of the GGUF matched the pin | 2026-09-27 |
+| First use under WSL 2: the ubuntu-cuda-13.4 tarballs | 62.3 s for 591.9 MB (151,688,270 + 440,236,702 bytes). The flattened tree (810.4 MB: 810,355,647 bytes by `du -sb` on 2026-09-28; `du -sh` showed 773M, in MiB, on both days) has `libcudart.so.13`, `libcublas*.so.13` and `libggml-cuda.so` beside an executable `llama-server`, symlinks intact, and `ldd` resolves every library inside it: the layout read from b11206's `release.yml` holds (with libgomp1 already on the system, from gcc; a fresh WSL Ubuntu has none, see the row on the tree's system dependencies) | 2026-09-27 |
+| The Ubuntu b11206 tree's system dependencies, read off its ELF headers under WSL 2 (Ubuntu 26.04, glibc 2.43) | Beyond libc, libm, libstdc++, libgcc_s and the driver's `libcuda.so.1`: `libgomp.so.1` (`libggml-base` and every `libggml-cpu-*`), `libssl.so.3` and `libcrypto.so.3` (`libllama-common`, `libllama-server-impl`); newest symbol versions GLIBC_2.38 and GLIBCXX_3.4.32. Here they come from libgomp1 and libssl3t64, which provides libssl3. `critic.missing_libraries` found all three (and flagged a made-up soname) in 0.025 s; `preflight` passed and `supported()` was True. `wsl/setup.sh`'s check under faked ldconfig/getconf: libgomp1 when only an i386 libgomp is cached, libssl3 once for both OpenSSL sonames, the glibc note alone at 2.35, nothing at exactly 2.38 or when ldconfig answers nothing | 2026-09-28 |
 | Analyse on FLUX.1 Krea [dev] | 1.9 s for the first call (tokenizers from the Hub cache), 0.00-0.03 s after. The CLIP-L/T5 counts for four prompts (12/17, 142/173, 43/49, 42/54) equal the checkpoint's own `CLIPTokenizer` and `T5TokenizerFast` called as `FluxPipeline` calls them, and the 142-token prompt's CLIP cut (character 379) is where the pipeline's own truncation warning begins | 2026-09-27 |
-| Critique on Windows, FLUX.1 Krea [dev] | 19 critiques of four prompts: 8.1-16.0 s, median 10.5 s; 895-1,074 prompt tokens and 801-2,011 generated at 145-154 tokens/s. Every one peaked at 5,581-5,584 MiB over the baseline and was back at it a second later, with no `llama-server.exe` left; `dropped` 0 throughout. The same with the FLUX pipeline loaded and offloaded: 9.3 s, +5,582 MiB | 2026-09-27 |
+| Critique on Windows, FLUX.1 Krea [dev] | 19 critiques of four prompts: 8.1-16.0 s, median 10.5 s; 895-1,074 prompt tokens and 801-2,011 generated at 145-154 tokens/s. All 19 were back at the baseline a second later with no `llama-server.exe` left, and the 15 whose VRAM was polled (the first run's poll wrote nothing) peaked at 5,581-5,584 MiB over it; `dropped` 0 throughout. The same with the FLUX pipeline loaded and offloaded: 9.3 s, +5,582 MiB | 2026-09-27 |
 | Critique on Windows, Animagine XL 4.0 tag prompt | 19.3 s: 905 prompt tokens, 2,568 generated; +5,581 MiB | 2026-09-27 |
-| Critique under WSL 2 (FLUX.1 dev lite-infer id, through `PromptCritic` directly) | 9.7 s with the GGUF on ext4. With `LOCAL_DIFFUSION_CRITIC_MODEL` on `/mnt/c`, 28.7 and 29.0 s: the 9P read costs about 20 s on every start, not only the first. +5,611 MiB, back to baseline, no server left | 2026-09-27 |
+| Critique under WSL 2 (FLUX.1 dev lite-infer id, through `PromptCritic` directly) | With `LOCAL_DIFFUSION_CRITIC_MODEL` on `/mnt/c`, 28.7 and 29.0 s in one WSL boot: reading the 4.28 GB GGUF across the 9P bridge costs about 20 s on every start, not only the first (a `cp` of it out of `/mnt/c` took 20.6 s). 9.7 s with the GGUF copied into `/tmp`, which is tmpfs on this Ubuntu 26.04: a read from RAM, not from ext4. The default, a GGUF in the Hugging Face cache on ext4, was not measured, warm or after WSL drops its page cache. +5,611 MiB (7,038 less 1,427), back to baseline, no server left | 2026-09-27 |
 | An image job submitted during a critique | Queued at 18:42:25.1 with `waiting_on=load` while the critic's server ran; the card was back at its baseline by 18:42:34.6, the critique returned at 35.0 and `loading black-forest-labs/FLUX.1-Krea-dev` was logged at 36.1. No weights moved before the server stopped | 2026-09-27 |
 | A critique during a grid | 409 "an image job is queued or running; wait for it to finish"; no server started | 2026-09-27 |
-| Critique on Windows after the final review's fixes (API key in `LLAMA_API_KEY`, not on the command line) | 20 critiques of five FLUX.1 Krea [dev] prompts: 7.4-22.3 s, median 13.2 s; 1,105-1,192 prompt tokens, 705-2,511 generated at 123-157 tokens/s. The keyless `/v1/models` probe answered 401 every time, so b11206 took the key from its environment; the card was back at its 1.53-1.55 GB baseline and no `llama-server.exe` was left after each run | 2026-09-27 |
+| Critique on Windows after the final review's fixes (API key in `LLAMA_API_KEY`, not on the command line) | 20 critiques of five FLUX.1 Krea [dev] prompts: 7.4-22.3 s, median 13.2 s; 1,105-1,192 prompt tokens, 705-2,511 generated at 123-157 tokens/s. The keyless `/v1/models` probe answered 401 every time, so b11206 took the key from its environment; the card was back at its 1,533-1,547 MiB baseline and no `llama-server.exe` was left after each run | 2026-09-27 |
+| Critique after the 2026-09-28 review's server fixes (process tree, listener check, the server's own count), Windows | One FLUX.1 Krea [dev] prompt, "A small bookshop on a rainy street at night, a wooden sign that says open late above the door, warm light in the windows, shot on film", asked with an analysis naming no documented order - so `reordered` was held to null and the answer sized for two copies of the prompt, where the route reads Krea's order ("subject first") and asks for three, with a slightly longer question: 21.1 s, 1,072 prompt tokens, 2,394 generated at 139 tokens/s. The server counted the messages through `/apply-template` and `/tokenize` at 1,072, its `prompt_n`. llama-server.exe started suspended in a job object and was the port's listener in the TCP table, so the check passed. After the stop the job was empty, no handle was held, no llama-server.exe was left, the log was removed and the card was at baseline. A 2,500-character Greek prompt, estimated at 3,902 tokens in and 2,552 for the prompt and so admitted by the first check, was counted at 3,230 and 2,189 (8,408 with two copies and the overhead, past the 8,192 window; with the route's three, the estimate would still admit it and the count refuse it) and refused unasked in 3.1 s, the server stopped | 2026-09-28 |
+| The same under WSL 2 (GGUF from `/mnt/c` via `LOCAL_DIFFUSION_CRITIC_MODEL`) | The Krea [dev] prompt: 38.1 s, 1,072 prompt tokens, 1,127 generated at 136 tokens/s, counted again at 1,072. The listening socket's inode was held in the server's process session, so the check passed. The Greek prompt was refused on the count in 27.8 s, most of it the model's read over 9P. The process session was empty after each stop, no llama-server was left and the card was at baseline | 2026-09-28 |
+| Qwen3-4B's tokenizer for the critic's estimate (CPU) | FLUX.2 [klein]'s `tokenizer.json` gives the same ids as b11206's `llama-tokenize` on the pinned GGUF for 31 texts. Against it, `estimate_tokens` (NFC, per-script rates, a token at least per camel-case hump) is long by up to 1.59 on ordinary text (Vietnamese; English prose 1.26-1.39) and 2.3-2.6 on lists of identifiers or brands. It is short on Turkish 0.84, Polish 0.87, Icelandic 0.82, romanised names 0.83, base64 0.78, traditional Chinese 0.92, kanji names 0.75, Cantonese 0.61 and rare Han 0.50, which the server's own count covers once it runs | 2026-09-28 |
+| Wrapped-server stop under full CPU load, Windows (stand-in server behind a .bat) | 30 critiques with the log's removal retry off: the log was still held after the stop in 0 of 30, against 17 of 30 when only the job's process list was polled | 2026-09-28 |
+| An app killed outright on Windows (stand-in server) | A server started through `_ServerProcess` stopped listening within a second of its app's TerminateProcess: the job's kill-on-close. Not tried with llama-server | 2026-09-28 |
+
+**The FLUX prompts.** The Analyse row and the "Critique on Windows, FLUX.1
+Krea [dev]" row used four prompts, given here as sent with their CLIP-L and
+T5 token counts: "A red fox sitting in a snowy birch forest at dawn." (12
+and 17); "A weathered lighthouse keeper in his seventies stands on the rocky
+shore of a stormy North Atlantic coast, his yellow oilskin coat whipping in
+the wind as he holds a brass lantern up against the dusk. Behind him the red
+and white striped lighthouse rises from black basalt cliffs, its beam
+cutting a pale arc through sheets of rain and low, bruised clouds. Waves
+explode against the rocks in the foreground, throwing spray that catches the
+last orange light from a break in the western sky. Shot on a medium format
+film camera with an 80mm lens at f/4, shallow depth of field, cinematic
+colour grading with teal shadows and warm highlights, fine film grain, a
+dramatic and melancholic mood." (142 and 173; CLIP-L stops at character 379,
+"the rocks in the foreground"); "A quiet neon-lit street in Tokyo at night
+after the rain, no people, puddles reflecting the pink and blue lights, and
+a small ramen shop with a wooden sign that says Open Late above the door."
+(43 and 49; also the 2026-09-27 WSL critique's prompt and the comparison
+grid's original); and "A (majestic:1.3) snow leopard resting on a rocky
+ledge high in the Himalayas, ((golden hour light)), soft mist drifting
+through the valleys below, highly detailed fur, [blurry background]" (42 and
+54).
 
 **Tag checkpoint.** On Animagine XL 4.0 the Danbooru index was reachable
 (`/api/tags/validate` answered with categories: `hatsune miku` character,
@@ -342,11 +375,18 @@ cells ran seed-major (original, rewrite, original, rewrite), and
 render the sign as OPEN LATE, the unquoted original included; seed
 20260927's original has one pedestrian and its "empty" rewrite none, seed
 20260928's pair has nobody. Two seeds are an anecdote, not a measurement of
-either rule. The images took 41.6-42.6 s each at 1.38-1.40 s per step, and a
+either rule. The images took 41.6-42.6 s each at 1.37-1.40 s per step, and a
 repeat of the gate test's image matched its hash (`7d161ca06d8753e7`) in
-41.9 s - 2.7 times the 15.4 s recorded for the same settings on 2026-09-08.
-The GPU sat at 100 % utilisation, 255 W and 2.87 GHz throughout, which points
-to compute rather than a spill into system RAM; the cause was not investigated.
+41.9 s, with the GPU at 100 % utilisation, 255 W and 2.87 GHz throughout.
+This is not the 2.7-fold slowdown it was first read as: the 15.4 s it was
+set against, the Checkpoints table's 2026-09-08 FLUX.1 Krea dev time beside
+the LoRA's, was a 1024x1024 image at 8 steps, not 28, and at 1.39 s a step
+the 41.9 s image would take about 14 s at 8 steps. Before the analyser was
+committed (e7d2386), a clean worktree of its parent, 7a9c651, rendered
+through `backend.generate` with fp8, model offload, 1024x1024, 28 steps,
+CFG 3.5 and seeds 20260927 and 20260928 (a harbour prompt): two images in
+1m31s after a 32 s load, the second saved 42 s after the first. The ~42 s
+predates the analyser.
 
 **What the critic says.** Its judgements are right where a source says the
 thing plainly: on "no people" and the unquoted sign it cited A7 and A6 in
@@ -363,10 +403,10 @@ five lighthouse rewrites cut the whole camera and grading sentence, once on
 the claim that camera details "may not align with the checkpoint's
 photographic focus", two more the camera details alone, and its
 `text_to_render` part held the scene description in all five (now nulled
-unless it is lettering the prompt asks for). Weighting
-syntax was cited to A7, the negative-prompt excerpt, in four of five runs
-(A1 in the fifth), and "[blurry background]" was called a negative prompt in
-four. It repeats the rule findings it is told not to
+unless it is lettering the prompt asks for, and said so under the answer).
+Weighting syntax was cited to A7, the negative-prompt excerpt, in four of
+five runs (A1 in the fifth), and "[blurry background]" was called a negative
+prompt in four. It repeats the rule findings it is told not to
 (word count, negation, quotes, weighting, tag order) in nearly every answer,
 and counted the 11-word fox prompt as 7 words. `reordered` stayed null on
 every FLUX prompt, each of which already opened with its subject. The rules
@@ -388,19 +428,21 @@ clauses, which `is_reorder` rightly refuses. `text_to_render` held the whole
 prompt in 3 of 6. On Krea's own example "Moody night photography, a small
 store with an orange glowing sign that says 'Black Forest Labs'" the critic
 said the subject was not first, and in one answer also told it to put its
-style first. Evidence: `scratchpad/final-ux/order_critic.json`,
-`order_raw.json`, `examples_raw.json`.
+style first. The runs' JSON is gone; their printed summaries, and each raw
+capture's `reordered` and `rewrite`, are in `final-ux/` of the recovered
+evidence (below).
 
 **After the final fixes.** The same kind of prompts plus Krea's tea-party
 example and the "no people" / Open Late prompt, 20 critiques in two runs
-(`scratchpad/final-fix/real_critic_run1.json`, `real_critic.json`, and
-`replay.py`, which puts both runs' raw answers through the final
-`validate`). Check now says "Not checked" under the order and "order not
-checked" in the summary for every one of these prose prompts. The critic
-raised the subject order in all 8 answers on the two out-of-order prompts,
-and restated a rule finding in 18 of 20 answers (the word count in 17) - 25
-issues, all left out and said so. With the camera sentence worded "optional", Krea's
-own example drew no order issue and no "camera settings missing" in either
+(`real_critic.py`; `replay.py` put both runs' raw answers through the final
+`validate`. The scripts, what the runs printed and the replay's per-answer
+lines and totals are recovered; the raw answers are not). Check now says
+"Not checked" under the order and "order not checked" in the summary for
+every one of these prose prompts. The critic raised the subject order in all 8
+answers on the two out-of-order prompts, and restated a rule finding in 18 of
+20 answers (the word count in 17) - 25 issues, all left out and said so. With
+the camera sentence worded "optional", Krea's own example drew no order issue
+and no "camera settings missing" in either
 answer; worded "adds camera settings" in the first run, four answers called
 them missing. `reordered` survived in none of the 20: the model returned its
 rewrite again in 17 (left out, and said so) and the prompt unchanged in 3 -
@@ -415,12 +457,36 @@ the first version of the order-conflict check dropped two agreeing order
 issues ("Place the subject first, then the style description" was read as
 wanting style); the check now reads the fix, and the replay drops none.
 
-Evidence is under
-`%TEMP%/claude/c--VSProjects-ImageGeneratorLocal/90bd8da1-0122-4d94-9352-bfe454d8ba17/scratchpad/verify/`:
-`prepare.log`, the request/response JSON per route and prompt
-(`flux1*-analyze-*`, `flux1*-critique-*`, `anim-*`), `flux1-tokcheck.txt`,
-the VRAM polls (`*-vram-poll.csv`), `server-*.log`, `step5-*.json`,
-`wsl-critic*.json` and the images in `outputs/`. The production gallery was
-not used. Not measured: a critique beside a load in progress (refused by
-design), int8 or sequential offload beside the critic, and whether a rewrite
-renders better than its original over more than two seeds.
+**Evidence.** The raw files were written to the scratchpad of the Claude
+Code session that built the analyser (`verify/`, `final-ux/`, `final-fix/`)
+and deleted with it on 2026-09-27, a minute and a half after e7d2386 was
+committed, when that session emptied its temp folder at the user's request.
+Lost with it: the per-call request/response JSON, the model's raw answers,
+the VRAM poll CSVs, the full server logs, the throwaway galleries and every
+image. What the session's transcripts and its surviving `tasks/` outputs
+still held is in `%TEMP%/local-diffusion-analyser-validation/`: the driver
+scripts as first written (`drive.py`, `tok_check.py`, `step5.py`,
+`wsl_critic.py`, `real_critic.py`, `replay.py` and the rest), the four FLUX
+prompts above, and what each run printed - per-call timings and VRAM peaks,
+the server's `critique in` lines, the validated critiques and the replay's
+totals. Each file has a `.source.txt` beside it saying where it came from,
+and `INDEX.md` lists what was recovered and what was not. The rows dated
+2026-09-28 are not in it: the review's lane reports,
+`%TEMP%/local-diffusion-review-2026-09-28-handoff/phase1_result.json`, give
+what their scripts printed.
+
+Three things can still be checked against what survives. The two first-use
+rows' install trees remain, measured again on 2026-09-28, so their layout,
+`ldd` under WSL and a `sha256sum` of the GGUF against `critic.MODEL_SHA256`
+can be repeated; their download times cannot. The Analyse row's counts can
+be repeated by sending the four prompts through the recovered
+`drive.py analyze` and running `tok_check.py` on what it saves. The images'
+hashes can be re-rendered on the fp8 path at 1024x1024, 28 steps and CFG
+3.5: the gate test's image and its repeat, `7d161ca06d8753e7`, is "A red fox
+sitting in a snowy birch forest at dawn." at seed 4242, and `INDEX.md` lists
+the comparison grid's four. The 2026-09-27 critique rows and the paragraphs
+above rest on the recovered printed output alone; checking them again means
+new runs. The production gallery was not used. Not measured: a critique
+beside a load in progress (refused by design), int8 or sequential offload
+beside the critic, and whether a rewrite renders better than its original
+over more than two seeds.
