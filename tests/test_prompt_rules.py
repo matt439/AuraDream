@@ -406,11 +406,12 @@ def test_negation_warns_where_no_negative_prompt_runs():
         (FLUX_DEV, "Fern from Sousou no Frieren standing in a meadow"),
         (FLUX_DEV, "A poster of Kimi no Na wa and Shingeki no Kyojin on a bedroom wall"),
         # Avoiding something is an action to draw; a capital "No" in
-        # mid-sentence or before a title-case word is a name.
+        # mid-clause is a name, after a title's abbreviation spaced or not.
         (KREA_DEV, "A cat trying to avoid the rain under a porch"),
         (KREA_DEV, "A cat, trying to avoid the rain"),
         (KREA_DEV, "A skier avoiding trees on a steep slope"),
         (KREA_DEV, "The film Dr. No playing on a TV"),
+        (KREA_DEV, "The film Dr.No playing on a TV"),
         (KREA_DEV, "A poster for No Country for Old Men on a wall"),
         (KREA_DEV, "A No Smoking sign on a wall"),
     ],
@@ -443,6 +444,15 @@ def test_negation_leaves_quotes_idioms_and_other_guides_alone(model_id, prompt):
         # An acronym after "No" is no title.
         ("Photorealistic portrait. No CGI look, no plastic skin.", ["No CGI look", "no plastic skin"]),
         ("A living room. No TV in the room.", ["No TV"]),
+        # Nor is a capitalised word: a clause's own "No" is capitalised by
+        # grammar, so what follows it says nothing about a name.
+        ("A vintage travel poster of Kyoto. No English text.", ["No English text"]),
+        ("A street market at dusk. No Chinese characters on the signs.", ["No Chinese characters"]),
+        ("A quiet street. No Christmas decorations.", ["No Christmas decorations"]),
+        ("A product photo. No Apple logo.", ["No Apple logo"]),
+        ("No People on the beach", ["No People"]),
+        # The price: a title that opens a clause reads as an absence, whole.
+        ("No Country for Old Men poster on a wall", ["No Country for Old Men"]),
         # A name is not cut at the window's end.
         ("A climber without ropes on El Capitan at dawn", ["without ropes on El Capitan"]),
     ],
@@ -716,6 +726,15 @@ def test_rendered_targets_say_which_ends_are_sure():
         "A poster with the words neatly printed below the photo",
         "An old man with a newspaper reading without glasses by the fire",
         "A girl on a crate reading a book",
+        # After a noun trigger, a participle with a preposition of place after
+        # it places the words, listed describing word or not.
+        "A t-shirt with the words shimmering across the chest",
+        "A sign with the words blinking in the rain",
+        "A banner with the slogan hanging above the stage",
+        "A wall with the letters dripping down the bricks",
+        "A door with the words scratched into the paint",
+        "A cake with the text piped in blue icing",
+        "A cake with the words spelled out in candles",
         # A trigger that can be a noun is one after "of", an article or a
         # possessive.
         "An ancient book of spells glowing on the altar",
@@ -731,11 +750,66 @@ def test_quoted_or_non_text_words_are_left_alone(prompt):
         assert prompt_rules.rendered_spans(prompt) == []
 
 
+@pytest.mark.parametrize(
+    "prompt, target",
+    [
+        # Participles off the describing list, or with no preposition after.
+        ("A poster with the headline set in bold type", "set"),
+        ("A sign with the words lit up at night", "lit up"),
+        ("A t-shirt with the words OPEN shimmering across the chest", "OPEN shimmering"),
+        ("A cake with the words happy birthday piped in icing", "happy birthday piped"),
+        # Lettering too, but not in capitals: it keeps its finding.
+        ("A billboard with the words coming soon above the highway", "coming soon"),
+        ("A cake with the words Happy Birthday in blue icing", "Happy Birthday"),
+    ],
+)
+def test_words_not_in_capitals_after_a_noun_trigger_get_no_one_click_quote(prompt, target):
+    # "With the words" may be followed by the words or by how they look, and
+    # a quote of "set" letters the description: no Apply unless in capitals.
+    [finding] = only(run(KREA_DEV, prompt), "guide.quote_text")
+    assert spanned(prompt, finding) == target and finding.suggestion is None
+    assert "Put the exact words to render in quotation marks." in finding.message
+    # Where the words end is as sure as it was: what follows is description.
+    start = prompt.index(target)
+    assert prompt_rules.rendered_targets(prompt) == [(start, start + len(target), True)]
+
+
+@pytest.mark.parametrize(
+    "prompt, target",
+    [
+        ("A cake with the words HAPPY BIRTHDAY in blue icing", "HAPPY BIRTHDAY"),
+        ("A sign with the words FISH and CHIPS above the door", "FISH and CHIPS"),
+        ("A cake with the text 2024 in gold", "2024"),
+        ("A poster with the headline BREAKING NEWS", "BREAKING NEWS"),
+    ],
+)
+def test_capitals_after_a_noun_trigger_keep_their_one_click_quote(prompt, target):
+    [finding] = only(run(KREA_DEV, prompt), "guide.quote_text")
+    start = prompt.index(target)
+    assert finding.suggestion == f'{prompt[:start]}"{target}"{prompt[start + len(target):]}'
+
+
 def test_a_negation_after_a_trigger_is_still_one():
     # Read as lettering, "without glasses by the fire" hid its negation.
     prompt = "An old man with a newspaper reading without glasses by the fire"
     [finding] = only(run(KREA_DEV, prompt), "guide.negation")
     assert spanned(prompt, finding) == "without glasses"
+    # So did one further on in a participle's lowercase words: they stop at
+    # it, and it is the negation rule's.
+    for prompt, target, phrase in (
+        ("A boy on a box reading comics without pictures", "comics", "without pictures"),
+        ("A girl on a crate reading letters never sent", "letters", "never sent"),
+    ):
+        findings = run(KREA_DEV, prompt)
+        assert [spanned(prompt, f) for f in only(findings, "guide.quote_text")] == [target]
+        assert [spanned(prompt, f) for f in only(findings, "guide.negation")] == [phrase]
+        start = prompt.index(target)
+        assert prompt_rules.rendered_targets(prompt) == [(start, start + len(target), True)]
+    # Capitals after a participle are lettering, negation and all.
+    prompt = "A red sign reading OPEN NOT CLOSED above the door"
+    findings = run(KREA_DEV, prompt)
+    assert [spanned(prompt, f) for f in only(findings, "guide.quote_text")] == ["OPEN NOT CLOSED"]
+    assert only(findings, "guide.negation") == []
 
 
 def test_animagine_says_text_is_not_rendered():

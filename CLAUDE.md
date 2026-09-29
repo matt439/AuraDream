@@ -393,7 +393,9 @@ Prompt analyser:
   stopped at 的/之, at 等 before 字样, or at a verb placing the sign (挂在,
   位于) that no request or prohibition asks for gets no Apply, and neither
   do lowercase words after a participle, yet what follows them is
-  description. `rendered_spans` is the same list without the flag. The rules
+  description; nor do words not in capitals after a noun trigger ("with the
+  words set in bold type"), whose `ends` stands. `rendered_spans` is the
+  same list without the flag. The rules
   read each stretch of lettering, commas and all, as one comma item
   (`_units`): it moves whole and is placed by its shape alone, is never
   matched or rewritten as a tag (`_Context.norms` is None for it), is never

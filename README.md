@@ -974,8 +974,11 @@ that not every tag was checked for an artist name). The panel it opens has:
   sign text is quoted whole ("Fish and Chips", "Welcome to Paradise"); where
   its end is a guess ("says fish and chips for sale", Chinese lettering that
   runs into 的, past twelve characters or through a mark such as 9:00,
-  lowercase words after "reading" or "saying") the finding asks for the
-  exact words in quotation marks and offers no Apply. Chinese sign text ends
+  lowercase words after "reading" or "saying"), or where the words may
+  describe the lettering rather than be it (after "with the words" or "the
+  text", anything not in capitals: "Happy Birthday", "set in bold type"),
+  the finding asks for the exact words in quotation marks and offers no
+  Apply. Chinese sign text ends
   for certain at 字样 or at a count of its characters (写有欢迎字样 and
   写着欢迎两个字 quote 欢迎); 等 before 字样, or a verb that places the sign
   (挂在, 位于), ends it as a guess, unless the sign itself asks for that verb

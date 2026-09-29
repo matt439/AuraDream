@@ -2365,17 +2365,45 @@ describing word - "a sign that says by appointment only", "says the end", a
 clause-final "says daily." - now gets no finding at all, where it was quoted
 rightly before, and "says without limits" reads as an absence instead.
 Capitalised ("says By Appointment Only") it is
-still lettering. The same review found the negation rule warning on "a cat
-trying to avoid the rain" and "the film Dr. No". "avoiding" is no longer a
-head, and "avoid" or a capital "No" asks for nothing mid-clause: right after a
-word ("trying to avoid", "the film No") or a title's abbreviation ("Dr. No").
+still lettering. Phase-4 re-verification found the noun triggers still
+quoting description in one click, since the describing words are a closed
+list: "with the words shimmering across the chest" quoted "shimmering", and
+blinking, hanging, dripping, scratched, piped and "set in bold type" went the
+same way. The reason for sparing lowercase targets was "says open", a finite
+verb, and it does not reach "with the words". After a noun trigger ("with the
+words", "the text", "the slogan", "the headline" and the rest) only words in
+capitals now get the Apply ("with the words HAPPY BIRTHDAY", "2024", "FISH and
+CHIPS"). Anything else keeps the finding and loses the one click, as the
+review asked: "Happy Birthday" and "coming soon" there are likely lettering,
+but "set in bold type" has the same shape. A lowercase -ing or -ed word with a
+preposition of place after it ("shimmering across", "piped in", "dripping
+down", "spelled out") places the words rather than being them, so it is no
+lettering at all, and the critic flags a rewrite that quotes it. The price,
+like "says by appointment only", is that lowercase lettering of that shape
+after a noun trigger ("with the words dancing in the rain") gets no finding
+unless it is quoted or in capitals. The same re-verification found a negation
+hidden further into a participle's lowercase words: "a boy on a box reading
+comics without pictures" read "comics without pictures" as lettering. Those
+words now stop at without, never, no or not, and the negation rule has the
+rest. The cost is lettering that holds one ("a banner reading love without
+limits"), which warns as an absence until it is quoted or in capitals. The
+2026-09-28 review also found the negation rule warning on "a cat trying to
+avoid the rain" and "the film Dr. No". "avoiding" is no longer a head, and
+"avoid" or a capital "No" asks for nothing mid-clause: right after a word
+("trying to avoid", "the film No") or a title's abbreviation, spaced or not
+("Dr. No", "Dr.No").
 Anything else opens a clause - the text's start, a line break, a full stop
 (after a year, a short word or "a.m." too), a spaced dash, a bullet, a bar or
-a slash - and so do "please" and "also". A capital "No" before a title-case
-word is a name ("No Country for Old Men", "No Smoking"), but not before an
-acronym ("No CGI look" and "No TV" are absences). And a negated phrase is no
-longer cut inside a run of capitalised words ("without ropes on El Capitan",
-not "... on El").
+a slash - and so do "please" and "also". A first fix also read a capital "No"
+before any title-case word as a name. Phase-4 re-verification found that
+silencing real absences: "Kyoto. No English text.", "No Chinese characters",
+"No Apple logo", "No People on the beach". A clause's own "No" is capitalised
+by grammar whatever follows it, so that reading is gone. A capital "No" is a
+name only mid-clause ("a poster for No Country for Old Men", "a No Smoking
+sign"). The accepted cost is a title that opens a clause: "No Country for Old
+Men poster on a wall" warns as an absence, its span taking in the whole name.
+And a negated phrase is no longer cut inside a run of capitalised words
+("without ropes on El Capitan", not "... on El").
 
 **Chinese lettering has no spaces to end it.** The same review found the
 Chinese triggers (写着, 印有 and the rest) taking up to twelve characters of
@@ -2411,6 +2439,8 @@ is offered, and `ends` whether what follows is description (False where the
 lettering may run on past it), which `rendered_targets` hands the critic. Past
 的 or a placing verb, or after a participle, the Apply is withheld but what
 follows is still description, so the critic's run-on fallback does not take it.
+Words not in capitals after a noun trigger lose the Apply and keep the `ends`
+their stop gave them.
 
 **A stretch of lettering is one item, and no rule rewrites it.** The
 2026-09-28 review found three rules rewriting lettering in one click -

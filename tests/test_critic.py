@@ -3185,6 +3185,32 @@ def test_the_rewrites_quotation_marks_are_held_to_the_prompts_lettering():
     assert titled.set_aside == []
 
 
+def test_words_placing_the_lettering_are_no_lettering_to_the_critic():
+    # "With the words shimmering across the chest" names no words to render:
+    # the critic may not call "shimmering" text to render, and a rewrite that
+    # quotes it would have it lettered, so it is flagged.
+    for prompt, words in (
+        ("A t-shirt with the words shimmering across the chest", "shimmering"),
+        ("A door with the words scratched into the paint", "scratched into the paint"),
+    ):
+        rewrite = prompt.replace(words, f'"{words}"')
+        result = _validate(
+            _answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt
+        )
+        assert result.parts["text_to_render"] is None, prompt
+        assert result.rewrite == rewrite
+        (flag,) = result.rewrite_findings
+        assert flag.rule == "heuristic.rewrite_quote"
+        assert rewrite[flag.start:flag.end] == f'"{words}"'
+    # Words in capitals there are the lettering.
+    prompt = "A t-shirt with the words GOOD VIBES across the chest"
+    rewrite = prompt.replace("GOOD VIBES", '"GOOD VIBES"')
+    result = _validate(
+        _answer(rewrite=rewrite, parts={"text_to_render": "GOOD VIBES"}), prompt=prompt
+    )
+    assert result.parts["text_to_render"] == "GOOD VIBES" and result.rewrite_findings == []
+
+
 def test_a_rewrite_that_adds_content_says_so():
     # Seen on the card, told not to: Krea's tea party example came back with
     # a lens, light, greenery and sunlight it never asked for.

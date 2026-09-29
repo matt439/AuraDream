@@ -900,17 +900,15 @@ _NEGATION = re.compile(
 # "without ropes on El Capitan" is not cut at "El".
 _CAPITAL_RUN = re.compile(r"(?:[ \t]+[A-ZÀ-ÖØ-Þ][^\s,.;:!?()\[\]\"“”]*)+")
 # Where a head sits inside a clause rather than opening one: right after a
-# word ("trying to avoid the rain", "the film No") or a title's abbreviation
-# ("Dr. No"). Anything else opens one - the text's start, a line break, any
-# full stop or clause mark, a dash, a bullet, a slash - and so does a word
-# that only softens an instruction ("please avoid text").
+# word ("trying to avoid the rain", "the film No") or a title's abbreviation,
+# spaced or not ("Dr. No", "Dr.No"). Anything else opens one - the text's
+# start, a line break, any full stop or clause mark, a dash, a bullet, a
+# slash - and so does a word that only softens an instruction ("please avoid
+# text").
 _MID_CLAUSE = re.compile(
-    r"(?:(?<![\w'’-])(?!(?i:please|also)[ \t])[^\W\d_][\w'’-]*"
-    r"|\b(?:Dr|Mr|Mrs|Ms|Mt|St|Sr|Jr|Prof)\.)[ \t]+$"
+    r"(?:(?<![\w'’-])(?!(?i:please|also)[ \t])[^\W\d_][\w'’-]*[ \t]+"
+    r"|\b(?:Dr|Mr|Mrs|Ms|Mt|St|Sr|Jr|Prof)\.[ \t]*)$"
 )
-# A capital "No" names where a title-case word follows it ("No Country for
-# Old Men", "No Smoking"), not an acronym ("No CGI look" is an absence).
-_TITLE_AFTER = re.compile(r"[ \t]+[A-ZÀ-ÖØ-Þ][a-zß-öø-ÿ]")
 # Words a negated phrase does not end on: "no people in the background" is
 # about the people.
 _TRAILING = frozenset(
@@ -939,16 +937,14 @@ def _opens_clause(text: str, position: int) -> bool:
 def _not_absence(text: str, match: re.Match[str]) -> bool:
     """A negation head that asks for no absence: "avoid" anywhere but as an
     instruction opening a clause ("a cat trying to avoid the rain" is drawn
-    avoiding it), and a capital "No" that names - in mid-sentence ("the film
-    Dr. No") or before a title-case word ("No Country for Old Men")."""
+    avoiding it), and a capital "No" in mid-clause, where only a name has one
+    ("the film Dr. No", "a poster for No Country for Old Men"). A clause's
+    own "No" is capitalised by grammar, so what follows it says nothing: "No
+    English text" is an absence, and so, at a clause's start, is a title."""
     head = match.group("head")
-    if head.lower() == "avoid":
-        return not _opens_clause(text, match.start())
-    if head != "No":
+    if head.lower() != "avoid" and head != "No":
         return False
-    return bool(_TITLE_AFTER.match(text, match.end("head"))) or not _opens_clause(
-        text, match.start()
-    )
+    return not _opens_clause(text, match.start())
 
 
 def _negation(ctx: _Context) -> Iterable[PromptFinding]:
@@ -1066,6 +1062,19 @@ _DESCRIBES = _TARGET_STOP | frozenset(
 # An adverb, which describes too where it leads into one of those or ends
 # the clause: "the words neatly printed", "reading quietly".
 _ADVERB = re.compile(r"[a-z]{3,}ly")
+# After a noun trigger, a participle with a preposition of place after it
+# describes the words rather than being them: "with the words shimmering
+# across the chest", "the text piped in blue icing", "the letters dripping
+# down the bricks". Not after "says", whose words are what it says.
+_PARTICIPLE = re.compile(r"[a-z]{3,}(?:ing|ed)")
+_PLACE = frozenset(
+    "in on at above below under over beside next across along near behind inside into "
+    "onto upon through around down out against beneath underneath from".split()
+)
+# Heads of a negated phrase, which lowercase words after a participle
+# trigger do not run on through: "a boy on a box reading comics without
+# pictures" is the negation rule's.
+_NEGATING = frozenset("without never no not".split())
 # Chinese lettering has no spaces to end it. What ends it for certain is
 # whitespace, punctuation, a quotation mark or a bracket - though not an
 # ASCII mark inside Latin lettering or digits (营业时间9:00-21:00, 3.14,
@@ -1114,9 +1123,10 @@ class _Target(NamedTuple):
     # False where the text's extent is a guess - the words run on past a
     # joining word or the word limit, a Chinese target stops at 的, at 等
     # before 字样, at a verb placing the sign (挂在), at its length cap or
-    # inside Latin lettering, or lowercase words follow a participle: the
-    # finding then offers no one-click quote, which would letter half a name
-    # or a description.
+    # inside Latin lettering, lowercase words follow a participle, or words
+    # not in capitals follow a noun trigger ("with the words set in bold
+    # type"): the finding then offers no one-click quote, which would letter
+    # half a name or a description.
     exact: bool
     # False where the lettering may run on past `end` - a joining word, the
     # word or length cap, Latin lettering going on past a space or a mark -
@@ -1124,7 +1134,8 @@ class _Target(NamedTuple):
     # description, even where `exact` is not: at 的, 等 or 挂在 the guess is
     # whether it is the lettering's own (写着我的家), and after a participle
     # whether the words are lettering at all; neither makes what follows
-    # lettering.
+    # lettering. After a noun trigger, words not in capitals are that same
+    # guess, and their end is as sure as it was.
     ends: bool
 
 
@@ -1132,19 +1143,33 @@ def _capitalised(word: str) -> bool:
     return word[:1].isupper() or word[:1].isdigit()
 
 
-def _describes(text: str, word: re.Match[str]) -> bool:
+def _describes(text: str, word: re.Match[str], noun: bool) -> bool:
     """Whether the first word after a trigger starts describing the text
-    rather than being it (`_DESCRIBES`, or an adverb leading into one)."""
+    rather than being it (`_DESCRIBES`, an adverb leading into one, or after
+    a noun trigger a participle placing it)."""
     first = word.group(1)
     if not first[:1].islower():
         return False
     if first.lower() in _DESCRIBES:
         return True
-    if not _ADVERB.fullmatch(first.lower()):
-        return False
     after = _TARGET_WORD.match(text, word.end())
     spaced = text[word.end():word.end() + 1] in (" ", "\t")
-    return not (spaced and after) or after.group(1).lower() in _DESCRIBES
+    following = after.group(1).lower() if spaced and after else None
+    if noun and _PARTICIPLE.fullmatch(first) and following in _PLACE:
+        return True
+    if not _ADVERB.fullmatch(first.lower()):
+        return False
+    return following is None or following in _DESCRIBES
+
+
+def _in_capitals(words: list[re.Match[str]]) -> bool:
+    """Whether no word has a lowercase letter - "HAPPY BIRTHDAY", "2024" -
+    a joining word between two such aside ("FISH and CHIPS")."""
+    return all(
+        not any(c.islower() for c in word.group(1))
+        or (i > 0 and word.group(1).lower() in _TARGET_JOIN)
+        for i, word in enumerate(words)
+    )
 
 
 def _cjk_stop(text: str, start: int, end: int) -> re.Match[str] | None:
@@ -1180,6 +1205,7 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
         position = match.end()
         if position >= len(text) or text[position] in _QUOTE_OPEN:
             continue
+        participle = bool(verb and verb.lower().endswith("ing"))
         # To punctuation, to the preposition that starts describing where the
         # text is (says hello world | in red letters), or to a joining word
         # with no capital after it (says Fish and Chips | and a cat).
@@ -1193,7 +1219,16 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
             token = word.group(1).lower()
             if (words and token in _TARGET_STOP) or (not words and token in _NOT_TEXT):
                 break
-            if not words and _describes(text, word):
+            if not words and _describes(text, word, match.group("noun") is not None):
+                break
+            # Lowercase words after a participle may be what someone reads,
+            # and a negation among them is the negation rule's.
+            if (
+                words
+                and participle
+                and token in _NEGATING
+                and not _capitalised(words[0].group(1))
+            ):
                 break
             if len(words) == _TARGET_WORDS:
                 exact = False
@@ -1219,8 +1254,14 @@ def _unquoted_targets(text: str, quoted: list[tuple[int, int]]) -> list[_Target]
         # A participle belongs to whichever noun it follows - "a boy on a box
         # reading comics" - so lowercase words after one may be what someone
         # reads or says rather than lettering.
-        if verb and verb.lower().endswith("ing") and not _capitalised(words[0].group(1)):
+        if participle and not _capitalised(words[0].group(1)):
             exact, ends = False, True
+        # After a noun trigger, words not in capitals may describe the text
+        # rather than be it - "with the words set in bold type", "the text
+        # lit up at night" - so only capitals are sure to be the lettering.
+        # Where they end is no less sure: `ends` stands.
+        elif match.group("noun") and not _in_capitals(words):
+            exact = False
         targets.append(_Target(words[0].start(1), words[-1].end(1), exact, ends))
     for match in _CJK_TEXT_TRIGGER.finditer(text):
         if _inside(quoted, match.start()):
@@ -1264,7 +1305,8 @@ def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
     where it is True, whatever follows is the prompt's description. It is not
     whether the quote rule offers its one-click quote (`_Target.exact`): a
     Chinese target stopped at 的, at 等 before 字样 or at a verb placing the
-    sign (挂在) and lowercase words after a participle get none, yet nothing
+    sign (挂在), lowercase words after a participle and, where their end is
+    sure, words not in capitals after a noun trigger get none, yet nothing
     past them reads as lettering."""
     quoted = _quoted_spans(text)
     unquoted = [(t.start, t.end, t.ends) for t in _unquoted_targets(text, quoted)]
