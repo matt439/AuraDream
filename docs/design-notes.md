@@ -2407,6 +2407,22 @@ now reads the words on through the negation to where they would stop
 without it - "love without limits", as "love forever" stops at "above" - with
 `ends` True, so what follows is description, as after any participle's
 words. The quote and negation rules keep the stop at the negation. The
+review of that fix found the critic then taking the negation's own words for
+lettering: a rewrite quoting only "without pictures" in "a boy on a box
+reading comics without pictures" - the absence the negation rule warns on -
+passed as a piece of "comics without pictures", where it had been flagged
+while the lettering stopped at the negation. Each target now carries
+`head`, the rules' stop (its `end` wherever there is none), and the critic
+takes as lettering only words that start before it, as its run-on past a
+guess always did: "comics", "comics without" and "comics without pictures"
+pass, and "without pictures" alone is flagged. That review also found the
+stop still cutting "now or never" wherever description followed it: "a
+poster reading now or never in bold type" quoted "now or" and warned on
+"never in bold type" as an absence, and "better late than never on the
+door" went the same way. A negation right after "or" or "than" closes the
+phrase ("now or never", "better late than never", "ready or not", "yes or
+no"), so it stops nothing either; a place word after the negation would not
+have told them apart, since "comics not in color" are black and white. The
 2026-09-28 review also found the negation rule warning on "a cat trying to
 avoid the rain" and "the film Dr. No". "avoiding" is no longer a head, and
 "avoid" or a capital "No" asks for nothing mid-clause: right after a word
@@ -2465,8 +2481,9 @@ lettering may run on past it), which `rendered_targets` hands the critic. Past
 follows is still description, so the critic's run-on fallback does not take
 it. Where a negation stopped a participle's words, `rendered_targets` reads
 them on through it to their ordinary stop first, and what follows that is
-description too. Words not in capitals after a noun trigger lose the Apply
-and keep the `ends` their stop gave them.
+description too; its `head` keeps the stop, before which lettering starts.
+Words not in capitals after a noun trigger lose the Apply and keep the
+`ends` their stop gave them.
 
 **A stretch of lettering is one item, and no rule rewrites it.** The
 2026-09-28 review found three rules rewriting lettering in one click -
@@ -3081,6 +3098,9 @@ within their clause past an end the rules had to guess; past one they are
 sure of ("says OPEN in red letters") only words starting with a capital or
 a digit run on - "OPEN IN 5 MINUTES", or "Cafe On Main", a name the rules
 stop at its "On" - so lowercase description never passes as lettering.
+Either way they start before the target's `head`: where lettering may hold
+a negation the rules stop at ("reading comics without pictures"), the
+negation's words alone are the absence the rules read, not lettering.
 
 An issue that repeats a rule finding reported on the prompt (a negation,
 quotation marks, tag order, weighting, quality boilerplate) is left out,

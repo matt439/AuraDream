@@ -597,8 +597,8 @@ def test_chinese_lettering_whose_end_is_a_guess_gets_no_one_click_quote(
     [finding] = only(run(model_id, prompt), "guide.quote_text")
     assert spanned(prompt, finding) == target and finding.suggestion is None
     assert "Put the exact words to render in quotation marks." in finding.message
-    assert [(prompt[s:e], x) for s, e, x in prompt_rules.rendered_targets(prompt)] == [
-        (target, ends)
+    assert [(prompt[s:e], x, h) for s, e, x, h in prompt_rules.rendered_targets(prompt)] == [
+        (target, ends, prompt.index(target) + len(target))
     ]
 
 
@@ -692,20 +692,22 @@ def test_rendered_targets_say_which_ends_are_sure():
         "a stall with a sign that says fish and chips for sale"
     )
     targets = prompt_rules.rendered_targets(prompt)
-    assert [(prompt[start:end], ends) for start, end, ends in targets] == [
+    assert [(prompt[start:end], ends) for start, end, ends, _ in targets] == [
         ("OPEN", True), ('"SALE"', True), ("fish", False),
     ]
-    assert prompt_rules.rendered_spans(prompt) == [(start, end) for start, end, _ in targets]
+    # Lettering starts anywhere in each: `head` is its end.
+    assert [head for _, end, _, head in targets] == [end for _, end, _, _ in targets]
+    assert prompt_rules.rendered_spans(prompt) == [(start, end) for start, end, _, _ in targets]
     # No one-click quote on these, but what follows is description, not
     # more lettering: the sign itself after 的, "about space" after a
     # participle's lowercase words, even where a joining word stopped them.
     chinese = "一块写着欢迎光临的木质招牌"
-    assert prompt_rules.rendered_targets(chinese) == [(4, 8, True)]
+    assert prompt_rules.rendered_targets(chinese) == [(4, 8, True, 8)]
     assert prompt_rules.rendered_spans(chinese) == [(4, 8)]
     comics = "A boy sitting on a box reading comics about space and a cat asleep"
     assert only(run(KREA_DEV, comics), "guide.quote_text")[0].suggestion is None
-    assert [(comics[s:e], x) for s, e, x in prompt_rules.rendered_targets(comics)] == [
-        ("comics about space", True)
+    assert [(comics[s:e], x, s, h) for s, e, x, h in prompt_rules.rendered_targets(comics)] == [
+        ("comics about space", True, comics.index("comics"), comics.index(" and"))
     ]
 
 
@@ -778,8 +780,8 @@ def test_words_not_in_capitals_after_a_noun_trigger_get_no_one_click_quote(promp
     assert spanned(prompt, finding) == target and finding.suggestion is None
     assert "Put the exact words to render in quotation marks." in finding.message
     # Where the words end is as sure as it was: what follows is description.
-    start = prompt.index(target)
-    assert prompt_rules.rendered_targets(prompt) == [(start, start + len(target), True)]
+    start, end = prompt.index(target), prompt.index(target) + len(target)
+    assert prompt_rules.rendered_targets(prompt) == [(start, end, True, end)]
 
 
 @pytest.mark.parametrize(
@@ -807,7 +809,8 @@ def test_a_negation_after_a_trigger_is_still_one():
     # ("love without limits"), so `rendered_targets` reads on through it to
     # where the words stop without it, and what follows is description: left
     # at the negation with `ends` False, the critic read on to the clause's
-    # end and took "above the stage" for lettering.
+    # end and took "above the stage" for lettering. Its `head` keeps the
+    # rules' stop, where lettering starts before.
     for prompt, target, phrase, reach in (
         ("A boy on a box reading comics without pictures", "comics", "without pictures",
          "comics without pictures"),
@@ -823,21 +826,30 @@ def test_a_negation_after_a_trigger_is_still_one():
          "not allowed in red", "dogs not allowed"),
         ("A poster reading books without pictures in the attic", "books",
          "without pictures", "books without pictures"),
+        # A place word after the negation is no phrase it closes: "comics
+        # not in color" are black and white. The reach runs to "in".
+        ("A boy on a box reading comics not in color", "comics", "not in color",
+         "comics not"),
     ):
         findings = run(KREA_DEV, prompt)
         [quote] = only(findings, "guide.quote_text")
         assert spanned(prompt, quote) == target and quote.suggestion is None
         assert [spanned(prompt, f) for f in only(findings, "guide.negation")] == [phrase]
         start = prompt.index(reach)
-        assert prompt_rules.rendered_targets(prompt) == [(start, start + len(reach), True)]
+        assert prompt_rules.rendered_targets(prompt) == [
+            (start, start + len(reach), True, start + len(target))
+        ]
         assert prompt_rules.rendered_spans(prompt) == [(start, start + len(reach))]
     # The same end as the words have with no negation among them.
     prompt = "A banner reading love forever above the stage"
-    start = prompt.index("love forever")
-    assert prompt_rules.rendered_targets(prompt) == [(start, start + len("love forever"), True)]
+    start, end = prompt.index("love forever"), prompt.index(" above")
+    assert prompt_rules.rendered_targets(prompt) == [(start, end, True, end)]
     # Only where the negation rule reads one from there: not inside a
     # negation that starts a word earlier or opens the words, nor at one with
-    # nothing after it. Those are lettering whole, as before the stop.
+    # nothing after it, nor right after "or" or "than", whose phrase it
+    # closes. Those are lettering whole, as before the stop; the last two
+    # were cut at "or" and "than" wherever the words went on, and the
+    # placement read as the absence.
     for prompt, target in (
         ("A red sign reading do not enter above the door", "do not enter"),
         ("A sign reading please do not touch", "please do not touch"),
@@ -845,12 +857,17 @@ def test_a_negation_after_a_trigger_is_still_one():
         ("A t-shirt reading no pain no gain", "no pain no gain"),
         ("A t-shirt reading never say never", "never say never"),
         ("A t-shirt reading now or never", "now or never"),
+        ("A poster reading now or never in bold type", "now or never"),
+        ("A sign reading better late than never on the door", "better late than never"),
+        ("A sign reading ready or not on the door", "ready or not"),
+        ("A sign reading yes or no in red letters", "yes or no"),
+        ("A t-shirt reading now or never again", "now or never again"),
     ):
         findings = run(KREA_DEV, prompt)
         assert [spanned(prompt, f) for f in only(findings, "guide.quote_text")] == [target]
         assert only(findings, "guide.negation") == []
-        start = prompt.index(target)
-        assert prompt_rules.rendered_targets(prompt) == [(start, start + len(target), True)]
+        start, end = prompt.index(target), prompt.index(target) + len(target)
+        assert prompt_rules.rendered_targets(prompt) == [(start, end, True, end)]
     # Capitals after a participle are lettering, negation and all.
     prompt = "A red sign reading OPEN NOT CLOSED above the door"
     findings = run(KREA_DEV, prompt)

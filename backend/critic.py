@@ -2185,29 +2185,45 @@ def _capitals(text: str) -> bool:
     return text[:1] in ("", " ", "\t") and all(_capitalised(word) for word in text.split())
 
 
-def _lettered(words: str, prompt: str, targets: list[tuple[int, int, bool]]) -> bool:
+def _lettered(
+    words: str, prompt: str, targets: list[tuple[int, int, bool, int]]
+) -> bool:
     """Whether `words` are text the prompt asks to render: inside one of its
     `rendered_targets`, or starting in one and running on within its clause
     where the rules ended it at a guess ("says fish and chips": `ends` is
     False), since the critic may read further. Past an end the rules are sure
-    of ("says OPEN in red letters") only more capitals run on. Never the
-    prompt's description."""
+    of ("says OPEN in red letters") only more capitals run on. Either way
+    they start before the target's `head`: where the rules stopped a
+    participle's words at a negation, the words from it on ("without limits"
+    in "reading love without limits") are the absence the negation rule
+    reads. Never the prompt's description."""
     key = _flat(words.strip(_QUOTE_TRIM))
     if not key:
         return False
     # Whole words: "pen" is not in "OPEN".
-    if any(
-        f" {key} " in f" {_flat(prompt[start:end].strip(_QUOTE_TRIM))} "
-        for start, end, _ in targets
-    ):
+    if any(_starts_in(key, prompt, start, end, head) for start, end, _, head in targets):
         return True
     at = locate(words, prompt)
     return at is not None and any(
-        start <= at[0] < end
+        start <= at[0] < head
         and not _CLAUSE_END.search(prompt, end, at[1])
         and (not ends or _capitals(prompt[end:at[1]]))
-        for start, end, ends in targets
+        for start, end, ends, head in targets
     )
+
+
+def _starts_in(key: str, prompt: str, start: int, end: int, head: int) -> bool:
+    """Whether `key`, flattened, is whole words of `prompt[start:end]`
+    starting before `head`."""
+    whole = f" {_flat(prompt[start:end].strip(_QUOTE_TRIM))} "
+    lead = len(_flat(prompt[start:head].strip(_QUOTE_TRIM)))
+    at = whole.find(f" {key} ")
+    while at != -1:
+        # `at` is the space before the words, which start at `at` unpadded.
+        if at < lead:
+            return True
+        at = whole.find(f" {key} ", at + 1)
+    return False
 
 
 # What a part says when the prompt has no such part.
@@ -2225,7 +2241,7 @@ def _named(value: Any) -> list[str]:
 
 
 def _part(
-    name: str, value: Any, prompt: str, targets: list[tuple[int, int, bool]]
+    name: str, value: Any, prompt: str, targets: list[tuple[int, int, bool, int]]
 ) -> str | None:
     """A part of the prompt as the model named it, if it is the prompt's own.
 
@@ -2614,7 +2630,7 @@ _UNCHANGED = "The critic's rewrite was your prompt as it stands, so there is no 
 
 
 def _check_rewrite(
-    rewrite: str, prompt: str, targets: list[tuple[int, int, bool]]
+    rewrite: str, prompt: str, targets: list[tuple[int, int, bool, int]]
 ) -> tuple[str | None, list[PromptFinding], list[str]]:
     """The rewrite's quotation marks held to what the prompt asks to render.
 

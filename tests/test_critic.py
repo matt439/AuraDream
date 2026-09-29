@@ -3456,6 +3456,8 @@ def test_lettering_holding_a_negation_is_lettering_to_the_critic_whole():
         ("A t-shirt reading no pain no gain", "no pain no gain"),
         ("A banner reading love without limits", "love without limits"),
         ("A sign reading dogs not allowed", "dogs not allowed"),
+        ("A poster reading now or never in bold type", "now or never"),
+        ("A sign reading better late than never on the door", "better late than never"),
     ):
         rewrite = prompt.replace(words, f'"{words}"')
         result = _validate(
@@ -3491,6 +3493,42 @@ def test_description_past_lettering_holding_a_negation_is_no_lettering_to_the_cr
         (flag,) = result.rewrite_findings
         assert flag.rule == "heuristic.rewrite_quote", prompt
         assert rewrite[flag.start:flag.end] == f'"{described}"', prompt
+
+
+def test_a_negation_the_rules_read_is_no_lettering_on_its_own():
+    # The lettering may hold the negation, but it starts where the rules'
+    # own reading of it does: the words from the negation on are the
+    # absence the negation rule warns on, and quoting them letters it. Read
+    # on through the negation as a piece of "comics without pictures", a
+    # rewrite quoting "without pictures" alone passed, which it did not
+    # while the lettering stopped there.
+    for prompt, pieces, kept in (
+        ("A boy on a box reading comics without pictures",
+         ("without pictures", "without", "pictures"), ("comics", "comics without")),
+        ("A girl on a crate reading letters never sent", ("never sent", "sent"), ("letters",)),
+        ("A sign reading dogs not allowed", ("not allowed", "allowed"), ("dogs", "dogs not")),
+        ("A banner reading big love without limits above the stage",
+         ("without limits", "limits"), ("big love", "love without limits")),
+    ):
+        for piece in pieces:
+            rewrite = prompt.replace(piece, f'"{piece}"', 1)
+            result = _validate(
+                _answer(rewrite=rewrite, parts={"text_to_render": piece}),
+                prompt=prompt, model_id=KREA_DEV,
+            )
+            assert result.parts["text_to_render"] is None, (prompt, piece)
+            assert result.rewrite == rewrite, (prompt, piece)
+            (flag,) = result.rewrite_findings
+            assert flag.rule == "heuristic.rewrite_quote", (prompt, piece)
+            assert rewrite[flag.start:flag.end] == f'"{piece}"', (prompt, piece)
+        for piece in kept:
+            rewrite = prompt.replace(piece, f'"{piece}"', 1)
+            result = _validate(
+                _answer(rewrite=rewrite, parts={"text_to_render": piece}),
+                prompt=prompt, model_id=KREA_DEV,
+            )
+            assert result.parts["text_to_render"] == piece, (prompt, piece)
+            assert result.rewrite == rewrite and result.rewrite_findings == [], (prompt, piece)
 
 
 def test_a_rewrite_that_adds_content_says_so():

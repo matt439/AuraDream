@@ -1159,6 +1159,12 @@ _PLACE = frozenset(
 # from one (`_absence_at`): "a boy on a box reading comics without pictures"
 # is the negation rule's, "a sign reading do not enter" is lettering whole.
 _NEGATING = frozenset("without never no not".split())
+# Words whose phrase a negation right after them closes - "now or never",
+# "better late than never", "ready or not", "yes or no". Lettering stopped
+# there would end on "or" or "than", and the absence the negation rule reads
+# from it is where the lettering sits ("never in bold type", "never on the
+# door"): the negation is the lettering's own.
+_CLOSED_BY_NEGATION = frozenset(("or", "than"))
 # Chinese lettering has no spaces to end it. What ends it for certain is
 # whitespace, punctuation, a quotation mark or a bracket - though not an
 # ASCII mark inside Latin lettering or digits (营业时间9:00-21:00, 3.14,
@@ -1223,6 +1229,12 @@ class _Target(NamedTuple):
     # follows lettering. After a noun trigger, words not in capitals are that
     # same guess, and their end is as sure as it was.
     ends: bool
+    # Where the words the rules read as lettering end: `end` itself, but
+    # for a participle's lowercase words read on through a negation the
+    # rules stop them at ("reading love | without limits"), the end of the
+    # words before it. The lettering starts in those: "without limits" on
+    # its own is the absence the negation rule reads, not a piece of it.
+    head: int
 
 
 def _capitalised(word: str) -> bool:
@@ -1280,7 +1292,8 @@ def _unquoted_targets(
     words stop at a negation the negation rule reads there (`_absence_at`),
     which that rule warns on. Without, they run on through it to where they
     would stop without it - "reading love without limits | above the stage" -
-    which is how far the lettering may reach (`rendered_targets`)."""
+    which is how far the lettering may reach (`rendered_targets`), and the
+    target's `head` keeps where the rules stopped."""
     targets: list[_Target] = []
     for match in _TEXT_TRIGGER.finditer(text):
         if _inside(quoted, match.start()):
@@ -1307,6 +1320,7 @@ def _unquoted_targets(
         cursor = position
         exact = True
         negated = False
+        head: int | None = None
         while True:
             word = _TARGET_WORD.match(text, cursor)
             if word is None:
@@ -1319,17 +1333,22 @@ def _unquoted_targets(
             # Lowercase words after a participle may be what someone reads,
             # and a negation among them is the negation rule's - where that
             # rule reads one from there, so that the words it stops are not
-            # half of "do not enter" or "no pain no gain".
+            # half of "do not enter" or "no pain no gain", and not right
+            # after "or" or "than", which it closes ("now or never in bold
+            # type", "better late than never on the door").
             if (
-                stop_at_negations
+                head is None
                 and words
                 and participle
                 and token in _NEGATING
                 and not _capitalised(words[0].group(1))
+                and words[-1].group(1).lower() not in _CLOSED_BY_NEGATION
                 and _absence_at(text, word.start(1))
             ):
-                negated = True
-                break
+                if stop_at_negations:
+                    negated = True
+                    break
+                head = words[-1].end(1)
             if len(words) == _TARGET_WORDS:
                 exact = False
                 break
@@ -1365,13 +1384,16 @@ def _unquoted_targets(
         # Where they end is no less sure: `ends` stands.
         elif match.group("noun") and not _in_capitals(words):
             exact = False
-        targets.append(_Target(words[0].start(1), words[-1].end(1), exact, ends))
+        end = words[-1].end(1)
+        targets.append(
+            _Target(words[0].start(1), end, exact, ends, end if head is None else min(head, end))
+        )
     for match in _CJK_TEXT_TRIGGER.finditer(text):
         if _inside(quoted, match.start()):
             continue
         title = _CJK_TITLE.match(text, match.end())
         if title:
-            targets.append(_Target(*title.span(), True, True))
+            targets.append(_Target(*title.span(), True, True, title.end()))
             continue
         target = _CJK_TARGET.match(text, match.end())
         if target and text[match.end()] not in _QUOTE_OPEN:
@@ -1390,7 +1412,7 @@ def _unquoted_targets(
             ) and not (latin and _LATIN_ON.match(text, end))
             lettering = text[target.start():end]
             exact = ends and (not guess or (lettering.isascii() and lettering.isalnum()))
-            targets.append(_Target(target.start(), end, exact, ends))
+            targets.append(_Target(target.start(), end, exact, ends, end))
     return sorted(targets)
 
 
@@ -1399,13 +1421,14 @@ def _unquoted_text(text: str, quoted: list[tuple[int, int]]) -> list[tuple[int, 
     return [(target.start, target.end) for target in _unquoted_targets(text, quoted)]
 
 
-def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
-    """Where `text` asks for lettering, as (start, end, ends), in order: its
-    quoted stretches, marks included, and the words a rule reads as unquoted
-    text to render. `ends` is False only where the rules stopped at a guess
-    and the lettering may run on past `end` (`_Target.ends`: a joining word,
-    the word or length cap, Latin lettering going on past a space or a
-    mark); where it is True, whatever follows is the prompt's description.
+def rendered_targets(text: str) -> list[tuple[int, int, bool, int]]:
+    """Where `text` asks for lettering, as (start, end, ends, head), in
+    order: its quoted stretches, marks included, and the words a rule reads
+    as unquoted text to render. `ends` is False only where the rules stopped
+    at a guess and the lettering may run on past `end` (`_Target.ends`: a
+    joining word, the word or length cap, Latin lettering going on past a
+    space or a mark); where it is True, whatever follows is the prompt's
+    description.
 
     A participle's lowercase words run on here through a negation the rules
     stop them at, to where they would stop without it: "a banner reading
@@ -1414,7 +1437,10 @@ def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
     The quote and negation rules keep that stop - "without limits" warns as
     an absence, and no one-click quote letters a guess - but the lettering
     may hold the negation, and a guess that ran on to the clause's end would
-    pass the description off as lettering.
+    pass the description off as lettering. `head` is that stop (the end of
+    "love"), and `end` everywhere else: a piece of the lettering starts
+    before it, so "without limits" alone is the absence the negation rule
+    reads, never lettering.
 
     It is not whether the quote rule offers its one-click quote
     (`_Target.exact`): a Chinese target stopped at 的, at 等 before 字样 or at
@@ -1423,18 +1449,18 @@ def rendered_targets(text: str) -> list[tuple[int, int, bool]]:
     none, yet nothing past them reads as lettering."""
     quoted = _quoted_spans(text)
     unquoted = [
-        (t.start, t.end, t.ends)
+        (t.start, t.end, t.ends, t.head)
         for t in _unquoted_targets(text, quoted, stop_at_negations=False)
     ]
-    return sorted([(start, end, True) for start, end in quoted] + unquoted)
+    return sorted([(start, end, True, end) for start, end in quoted] + unquoted)
 
 
 def rendered_spans(text: str) -> list[tuple[int, int]]:
     """Where `text` asks for lettering: its quoted stretches, marks included,
     and the words a rule reads as unquoted text to render, through a
     negation among a participle's words - `rendered_targets` without its
-    `ends` flag."""
-    return [(start, end) for start, end, _ in rendered_targets(text)]
+    `ends` flag or its `head`."""
+    return [(start, end) for start, end, _, _ in rendered_targets(text)]
 
 
 def _quote_text(ctx: _Context) -> Iterable[PromptFinding]:
@@ -1453,7 +1479,7 @@ def _quote_text(ctx: _Context) -> Iterable[PromptFinding]:
                 start=start, end=end,
             )
         return
-    for start, end, exact, _ in _unquoted_targets(ctx.text, ctx.quoted):
+    for start, end, exact, _, _ in _unquoted_targets(ctx.text, ctx.quoted):
         target = ctx.text[start:end]
         message = (
             f'"{target}" reads as text to render but is not in quotation marks, so '

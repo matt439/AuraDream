@@ -383,25 +383,29 @@ Prompt analyser:
   encoder layer and the critic; its single-quote pair may touch Han, kana
   and Hangul but no other letter or digit (写着'营业中'的 is a quotation,
   animal's an apostrophe). `prompt_rules.rendered_targets` gives each place
-  the text asks for lettering as (start, end, ends): `ends` is False only
-  where the rules stopped at a guess and the lettering may run on - a joining
-  word, six words, the 12-character cap, or Latin lettering going on past a
-  space or an ASCII mark (写着OPEN NOW, 9:00, www.shop.com) - and only there
-  may the critic read on past `end` in any words of its clause; past an end
-  the rules are sure of, it reads on only in words that start with a capital
-  or a digit. The rules stop a participle's lowercase words at a negation
-  the negation rule reads an absence from there (`_absence_at`, so "reading
-  do not enter" is whole, and "reading love without limits" quotes "love"
-  and warns on the rest); `rendered_targets` reads them on through it to
-  where they stop without it, `ends` True ("love without limits", and "above
-  the stage" after it is description). It is not the Apply's
+  the text asks for lettering as (start, end, ends, head): `ends` is False
+  only where the rules stopped at a guess and the lettering may run on - a
+  joining word, six words, the 12-character cap, or Latin lettering going on
+  past a space or an ASCII mark (写着OPEN NOW, 9:00, www.shop.com) - and only
+  there may the critic read on past `end` in any words of its clause; past
+  an end the rules are sure of, it reads on only in words that start with a
+  capital or a digit. The rules stop a participle's lowercase words at a negation
+  the negation rule reads an absence from there, other than one right after
+  "or" or "than" (`_absence_at`, so "reading do not enter" and "reading now
+  or never in bold type" are whole, and "reading love without limits"
+  quotes "love" and warns on the rest); `rendered_targets` reads them on
+  through it to where they stop without it, `ends` True ("love without
+  limits", and "above the stage" after it is description), with `head` at
+  the rules' stop (`end` elsewhere): the critic takes as lettering only
+  words that start before `head`, so "without limits" alone is the
+  absence, not a piece of the lettering. It is not the Apply's
   `_Target.exact`: a Chinese target stopped at 的/之, at 等 before 字样, or
   at a verb placing the sign (挂在, 位于) that no request or prohibition asks
   for gets no Apply, and neither do lowercase words after a participle, yet
   what follows them is description; nor do words not in capitals after a
   noun trigger ("with the words set in bold type"), whose `ends` stands.
-  `rendered_spans` is the same list without the flag; the rules' own
-  reading of lettering (`_read`, and `_tag_items` outside `check`) keeps
+  `rendered_spans` is the same list without the flag or `head`; the rules'
+  own reading of lettering (`_read`, and `_tag_items` outside `check`) keeps
   the negation's stop. The
   rules read each stretch of lettering, commas and all, as one comma item
   (`_units`): it moves whole and is placed by its shape alone, is never
@@ -519,8 +523,9 @@ Prompt analyser:
   Thai, Lao, Myanmar or Khmer, with a tag's underscore as a space; curly and
   straight apostrophes, quotation marks and dashes folded one for one) or
   nulled; a part must be the prompt's own words and `text_to_render` its
-  lettering (`prompt_rules.rendered_targets`, running on past an end the
-  rules are sure of only in words that start with a capital or a digit);
+  lettering (`prompt_rules.rendered_targets`, starting before a target's
+  `head` and running on past an end the rules are sure of only in words
+  that start with a capital or a digit);
   issues restating a rule finding reported on the prompt are left out - by
   wording, or by a quote that takes in a finding's words and runs at most 8
   characters past them (none past a single word), on guide, author,
