@@ -479,7 +479,10 @@ prompt expansion is available), and
 the preview work. Its prompt check counts with stand-in tokenizers (a token
 per word or mark, at each encoder's real budget) and its critic is a stand-in
 that answers from the prompt after `--critic-delay` seconds (0.4 by default),
-and refuses at once, as the real one does, a prompt too long for its window;
+and refuses at once a prompt too long for its window - on the token
+estimate, where the real one refuses at once only what cannot fit however it
+tokenizes and the rest once its server has counted it, so near the window's
+edge the two can differ;
 `--no-critic` answers as a platform without one. `tools/browser.mjs` needs only Node 22+ and an installed Edge
 or Chrome (`LOCAL_DIFFUSION_BROWSER` points at another executable); each run gets a
 profile directory of its own, so a crashed run cannot lock the next one out.
@@ -1060,8 +1063,11 @@ words the prompt does not have in quotation marks - lettering nobody asked
 for - is dropped, and one that quotes the prompt's description, or adds a
 handful of words the prompt does not have, is flagged. A rewrite or
 reordering too long for a prompt is left out too, and anything left out is
-said so under the answer. The rewrite is then put through the same checks
-as the prompt, listed under it.
+said so under the answer - but for a reordering that moves nothing, which
+has nothing to show, and some of what the answer's schema forbids (a seventh
+issue, say), which only a `llama-server` of your own that ignores the schema
+can send. The rewrite is then put through the same checks as the prompt,
+listed under it.
 
 What survives is still a 4B model's suggestion - it can misapply a source,
 and it pads short prompts with scenery and mood however it is told not to -

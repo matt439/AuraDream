@@ -176,8 +176,9 @@ class FakeCritic:
     methods, and a deterministic answer written as the model writes one - raw
     JSON - then put through the real `critic.validate`, so what reaches the
     page is only what the real pipeline could return. A prompt too long for
-    the real critic's window is refused as it refuses it, by the real
-    `critic.check_fits`, before any answer.
+    the real critic's window is refused by the real `critic.check_fits`,
+    before any answer - on the unscaled estimate, standing in for the
+    server's count, so near the window's edge the two can disagree.
 
     `available` is what `supported()` answers and `fetched` what `ready()`
     does; `prepare()` sets `fetched`, as a first real prepare puts both files
@@ -250,9 +251,11 @@ class FakeCritic:
         self.started.set()
         started = time.perf_counter()
         try:
-            # Built and sized before the wait, as the real critic does both
-            # before it starts a server: a question whose answer cannot fit
-            # the window is refused at once, a 502, never answered.
+            # Built and sized before the wait. The real critic refuses before
+            # a server starts only what its estimate, scaled down, says cannot
+            # fit, and the rest on the server's count; here the estimate,
+            # unscaled, stands in for that count. A question whose answer
+            # cannot fit the window is refused at once, a 502, never answered.
             context = critic.build_context(model_id, request, applied, analysis)
             critic.check_fits(context)
             if self.delay:

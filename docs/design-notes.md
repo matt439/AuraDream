@@ -1313,10 +1313,10 @@ dev 1 MP in 30 s and 2 MP in 48 s at 7.4 / 7.8 GiB; schnell 1 MP in
 16-23 s and 2 MP in 25 s at the same peaks - most of a schnell image is the
 per-image cost that does not scale with steps (T5 under bitsandbytes NF4,
 the weight transfer), so it is not the speed win Z-Image is. The desktop
-holds 5-6 GB of the card while Unreal Editor and the browsers are open, and
-a run that lands within a gigabyte of the top spills into system RAM
-(schnell's 2 MP read 35-45 s that way and 25 s after the baseline fell to
-1.3 GB). **Qwen-Image is in the catalogue too** (`QwenImagePipeline`, Krea
+holds about 5,200-6,100 MiB of the card while Unreal Editor and the browsers
+are open, and a run that lands within a gigabyte of the top spills into system
+RAM (schnell's 2 MP read 35-45 s that way and 25 s after the baseline fell to
+1,270 MiB). **Qwen-Image is in the catalogue too** (`QwenImagePipeline`, Krea
 2's parent: same VAE, same unpack hook, FLUX-style `true_cfg_scale`), with
 a `qwen-image` profile - 50 steps, guidance 1.0 which the transformer
 ignores, true CFG separate at threshold 1.0 - and **the pipeline runs its
@@ -2627,12 +2627,13 @@ was still citable by the critic.
 (RTX 5080) with Qwen3-4B: llama.cpp b11206's CUDA build decodes Q8_0 at 170
 tokens/s (`llama-bench`), about 151 end to end under a JSON grammar with
 reasoning on - 8.8-9.0 s for 1,320-1,348 tokens at temperature 0, 2.8 s with
-reasoning off - at about 5.2 GB of VRAM over the desktop's at an 8k context,
-and the server loads in 1.7-1.9 s. That was the research's greedy decoding;
-with the shipped sampling `verified.md` records 8.1-16.0 s per critique
-(median 10.5), 19.3 s for a tag prompt, and 5,581-5,611 MiB (about 5.5 GiB)
-over the baseline. In-process transformers decodes the same
-model in bf16 at 33 tokens/s, so a reasoning-length answer takes about 40 s;
+reasoning off - at about 5,160 MiB of VRAM over the desktop's (7,260 against
+2,099 by `nvidia-smi`) at an 8k context, and the server loads in 1.7-1.9 s.
+That was the research's greedy decoding; with the shipped sampling
+`verified.md` records 8.1-16.0 s per critique (median 10.5), 19.3 s
+for a tag prompt, and 5,581-5,611 MiB (about 5.5 GiB) over the
+baseline. In-process transformers decodes the same model in bf16 at 33
+tokens/s, so a reasoning-length answer takes about 40 s;
 the image pipeline's own torchao fp8 encoder decodes at 9.4 (reusing it is
 out); on the CPU, bf16 manages about 6. Constrained decoding in-process would
 also need a new dependency. llama-cpp-python's CUDA wheels are built for
@@ -2952,10 +2953,13 @@ v0.1 negative prompt to the v0.1 card; ERNIE's encoder to the report
 (<https://arxiv.org/abs/2605.25347>) and its 2048 tokens to each repo's
 `tokenizer/tokenizer_config.json`; NewBie's 512/2048 to the author's
 `finetune.py`; the undistilled ERNIE-Image's and Z-Image's settings to their
-own cards. `test_each_sentence_links_the_page_that_says_it` pins those
-guides sentence by sentence. Z-Image's "Long, detailed natural language"
-rule entry cites the maintainers' discussion 8 in the Turbo repo, where that
-advice is; other sentences stating how this app's pipeline reads the prompt
+own cards. `test_each_sentence_links_the_page_that_says_it` pins each
+of those guides but Z-Image sentence by sentence, and FLUX.1's and
+schnell's; Z-Image's one `sentence_urls` entry is held only by the
+check that every entry is followed, not by which page it names.
+Z-Image's "Long, detailed natural language" rule entry cites the
+maintainers' discussion 8 in the Turbo repo, where that advice is;
+other sentences stating how this app's pipeline reads the prompt
 (a CLIP or T5 limit) still link the guide's page. A sentence the prose
 carries with no author behind it - the app describing its own menus,
 autocomplete and chips, the Expand button, the sampler it runs, what it does
@@ -3301,9 +3305,9 @@ the tick with the search - a sheet of unstarred images under it would
 re-render none of them. For a 1 MP 28-step Krea [dev] image in fp8,
 `verified.md` records 41.6-42.6 s (2026-09-27), so three versions on four
 seeds take about 8.5 minutes. The 15.4 s once set beside it was an 8-step
-image, and the parent commit 7a9c651 rendered at the same ~42 s, so neither
-points to a slowdown. The preview's estimate, from the measured per-step
-time, is the one to go by.
+image, and the parent commit 7a9c651 rendered at the same ~42 s through the
+CLI, so neither points to a slowdown. The preview's estimate, from the
+measured per-step time, is the one to go by.
 The seeds are shared, so the rows are pairs, and the test that fits is a
 paired sign test on the seeds where the two rows differ: four of four the
 same way is p = 0.125, so four seeds cannot tell even a change on every seed

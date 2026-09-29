@@ -191,7 +191,7 @@ BUILDS: dict[str, Build] = {
 # revision checked 2026-09-27 (Apache-2.0). Q8_0 with the shipped settings
 # (reasoning on, SAMPLING, an 8k context), per docs/verified.md: 8.1-16.0 s
 # per critique on Windows, median 10.5, 19.3 s for a tag prompt, and about
-# 5.5 GiB of VRAM over the desktop's. The research's 8.8-9.0 s and ~5.2 GB
+# 5.5 GiB of VRAM over the desktop's. The research's 8.8-9.0 s and ~5.0 GiB
 # were greedy decoding, which thinking mode is not run with.
 MODEL = {
     "repo_id": "Qwen/Qwen3-4B-GGUF",

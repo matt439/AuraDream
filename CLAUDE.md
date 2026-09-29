@@ -729,7 +729,9 @@ own real-tokenizer case, `test_measured_counts_and_pieces_are_the_tokenizers`,
 skips when klein's tokenizer is not cached. The `fake` fixture installs
 `FakeCritic` as `main.prompt_critic` - its six methods held to
 `PromptCritic`'s signatures by a test, its question sized by the real
-`critic.check_fits` (a prompt too long for the window is a 502 here too) and
+`critic.check_fits` on the unscaled estimate, standing in for the server's
+count (a prompt too long for the window is a 502 here too, though near the
+window's edge the two can disagree) and
 its answer raw JSON put through the real `critic.validate`, so nothing it
 returns is something the real pipeline could not - and
 `fakes.fake_tokenizer` as `prompt_encoding._load_tokenizer`: a token per word
@@ -859,9 +861,10 @@ clause), and the negative prompt's Apply,
 dead while the box is greyed. The fake server
 serves the tests' `FakeCritic` and word tokenizers: `--critic-delay` (seconds
 a critique takes, default 0.4, so its in-flight state can be seen; a prompt
-too long for the critic's window is refused at once, a 502, as the real
-critic refuses it) and `--no-critic` (a platform with no build: the page
-hides the critic). The fake
+too long for the critic's window is refused at once, a 502, on the
+unscaled estimate - the real critic refuses at once only what cannot fit
+however it tokenizes, and the rest on its server's count) and
+`--no-critic` (a platform with no build: the page hides the critic). The fake
 critic counts as downloaded from its first critique on, so the first-use line
 shows only on a newly started server; the smoke accepts either line:
 

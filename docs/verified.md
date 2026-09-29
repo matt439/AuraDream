@@ -3,10 +3,11 @@
 What has been measured on the RTX 5080 (16 GB), and when. The reasoning
 around each number is in `design-notes.md`; this is the lookup. Times are per
 image with model offload, and "peak" is what the process held rather than
-what `nvidia-smi` showed, unless said otherwise - the desktop holds 5-6 GB of
-the card while Unreal Editor and the browsers are open, and a run that lands
-within a gigabyte of the top spills into system RAM and slows two to three
-times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
+what `nvidia-smi` showed, unless said otherwise - the desktop holds about
+5,200-6,100 MiB of the card while Unreal Editor and the browsers are open,
+and a run that lands within a gigabyte of the top spills into system RAM and
+slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
+1,270 MiB baseline).
 
 ## Checkpoints
 
@@ -48,7 +49,7 @@ times (schnell's 2 MP read 35-45 s that way and 25 s at a 1.3 GB baseline).
 | NetaYume Lumina v4, CFG 5 | fp8, Windows | 1024x1024 | 40 | 38.46 s after cancellation; 38.74 s repeat | 5.76 / 3.30 GiB allocated, 5.92 / 4.38 GiB reserved | 2026-09-26 |
 | NewBie Image Exp0.1, XML prompt, CFG 4 | fp8, Windows | 1024x1024 | 28 | 39.39 s after cancellation; 38.74 s repeat | 4.81 GiB allocated, 4.86 GiB reserved | 2026-09-26 |
 | WAI Illustrious v17, CFG 6 | fp8, Windows | 1024x1344 | 28 | 9.25 s after cancellation; 9.64 s repeat | 3.69 GiB allocated, 4.37 GiB reserved (maximum of the pair) | 2026-09-26 |
-| FLUX.1 Krea dev, CFG 3.5 | fp8, Windows | 1024x1024 | 28 | 41.6-42.6 s; 60.8 s for the first after a 38.2 s load; 41.9 s repeat; 42 s for the second of two images through the CLI (1m31s for both) from a clean worktree of the analyser's parent commit, 7a9c651 | 14,615 MiB whole-card by `nvidia-smi`, the desktop's 1,746 MiB included; 1,688 of 16,303 MiB free | 2026-09-27 |
+| FLUX.1 Krea dev, CFG 3.5 | fp8, Windows | 1024x1024 | 28 | 41.6-42.6 s; 60.8 s for the first after a 38.2 s load; 41.9 s repeat; about 42 s for the second of two images through the CLI, by the two PNGs' one-second save stamps (1m31s for both) from a clean worktree of the analyser's parent commit, 7a9c651 | 14,615 MiB whole-card by `nvidia-smi`, the desktop's 1,746 MiB included; 1,688 of 16,303 MiB free | 2026-09-27 |
 
 WAI Illustrious v17 was verified on the RTX 5080 with Windows FP8 and model
 offload. The pinned mirror checkpoint passed its SHA-256 check, converted
@@ -386,7 +387,12 @@ committed (e7d2386), a clean worktree of its parent, 7a9c651, rendered
 through `backend.generate` with fp8, model offload, 1024x1024, 28 steps,
 CFG 3.5 and seeds 20260927 and 20260928 (a harbour prompt): two images in
 1m31s after a 32 s load, the second saved 42 s after the first. The ~42 s
-predates the analyser.
+predates the analyser. The CLI calls `backend.load()` itself, never
+`main.ensure_loaded` or `jobs.wait_for_gate`, so that run exercised the load
+and rendering code, which e7d2386 left unchanged, and not the change e7d2386
+made to the server's load path (a load now first waits out the generation
+gate). That wait comes once, before a load; the server's images above, with
+it in place, took the same ~42 s.
 
 **What the critic says.** Its judgements are right where a source says the
 thing plainly: on "no people" and the unquoted sign it cited A7 and A6 in
@@ -471,22 +477,29 @@ prompts above, and what each run printed - per-call timings and VRAM peaks,
 the server's `critique in` lines, the validated critiques and the replay's
 totals. Each file has a `.source.txt` beside it saying where it came from,
 and `INDEX.md` lists what was recovered and what was not. The rows dated
-2026-09-28 are not in it: the review's lane reports,
-`%TEMP%/local-diffusion-review-2026-09-28-handoff/phase1_result.json`, give
-what their scripts printed.
+2026-09-28 have a folder of their own there, `review-2026-09-28/`, copied
+whole from the review session's scratchpad rather than recovered, so without
+sidecars (its `README.md` says where it came from): the scripts behind those
+rows, and the lanes' reports (`phase1_result.json`), which are where the
+figures those scripts printed were recorded - `real_critique.py` saved no
+output of its own. Re-running those scripts is a new measurement, not a
+re-check of the old one.
 
 Three things can still be checked against what survives. The two first-use
 rows' install trees remain, measured again on 2026-09-28, so their layout,
 `ldd` under WSL and a `sha256sum` of the GGUF against `critic.MODEL_SHA256`
 can be repeated; their download times cannot. The Analyse row's counts can
-be repeated by sending the four prompts through the recovered
-`drive.py analyze` and running `tok_check.py` on what it saves. The images'
-hashes can be re-rendered on the fp8 path at 1024x1024, 28 steps and CFG
-3.5: the gate test's image and its repeat, `7d161ca06d8753e7`, is "A red fox
-sitting in a snowy birch forest at dawn." at seed 4242, and `INDEX.md` lists
-the comparison grid's four. The 2026-09-27 critique rows and the paragraphs
-above rest on the recovered printed output alone; checking them again means
-new runs. The production gallery was not used. Not measured: a critique
-beside a load in progress (refused by design), int8 or sequential offload
-beside the critic, and whether a rewrite renders better than its original
-over more than two seeds.
+be repeated by sending the four prompts (`verify/prompts_flux.json`) through
+a copy of the recovered `drive.py analyze` - it writes beside itself - and
+running `tok_check.py` on the per-prompt files it saves: the run's
+`-summary.json` has no request, and stopped the first check with a
+KeyError. The images' hashes can be re-rendered on the fp8 path at
+1024x1024, 28 steps and CFG 3.5: the gate test's image and its repeat,
+`7d161ca06d8753e7`, is "A red fox sitting in a snowy birch forest at dawn."
+at seed 4242, and `INDEX.md` lists the comparison grid's four. The
+2026-09-27 critique rows and the paragraphs above rest on the recovered
+printed output alone; checking them again means new runs. The production
+gallery was not used. Not measured: a critique beside a load in progress
+(refused by design), int8 or sequential offload beside the critic, and
+whether a rewrite renders better than its original over more than two
+seeds.
