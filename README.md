@@ -955,11 +955,16 @@ that not every tag was checked for an artist name). The panel it opens has:
   could not place some tag, a placed order says "Partly checked", naming
   those tags and why, and the summary says "order partly checked": a tag
   with no Danbooru category is not placed, so one out of order may go
-  unflagged. That is a tag the index does not know (an OC's name, a trigger
-  word, a typo), a tag it was never asked about (offline, no usable reply
-  from it, or past the first 64 a check looks up), and a clause of a prose
+  unflagged. That is a tag the index has no usable category for (an OC's
+  name, a trigger word, a typo, or a tag deprecated or newer than the
+  checkpoint), a tag it was never asked about (offline, no usable reply
+  from it, or past the first 64 a check looks up), a clause of a prose
   prompt, which is never looked up - only a whole sentence is placed, with
-  the general tags.
+  the general tags - and lettering or an @ name, which are never looked up
+  either. It is said only where the missing category decides the order: a
+  prompt of one tag or one clause, or an unknown tag every category would
+  leave in order (between `1girl` and `masterpiece` on Animagine) or out of
+  it (ahead of `1girl`, which is flagged), is checked.
   Where the guide states no order, the panel says the app checks none, and
   shows any order the authors' own texts give (Anima's card, Neta Lumina's
   prompt book for NetaYume, ERNIE's and Qwen's rewriter instructions) as
@@ -1043,8 +1048,9 @@ or, in a JSON prompt, writes a number otherwise, 0.50 as 0.5 - is
 discarded; one that survives is shown in your own words - their case and
 spelling as you wrote them - in the critic's order. On a tag checkpoint
 whose tags Check placed, only Check's own reordering survives - unless
-Check could not place every tag (the tag index could not be asked about
-it, or did not know it - what the Order section calls "Partly checked"):
+Check could not place some tag where that decides the order (the tag index
+could not be asked about it, or had no usable category for it - what the
+Order section calls "Partly checked"):
 then the critic's survives if it keeps your tags whole and Check's order
 rule finds nothing out of order in it, and is set aside, saying what the
 rule found, if not. The **Use reordered** button's

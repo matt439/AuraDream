@@ -314,14 +314,17 @@ class PromptAnalysis(BaseModel):
     # None when every item was looked up, or none needed to be.
     categories_detail: str | None = None
     # Why the order was only partly checked: which items the order rule
-    # reads it could not place - each keeps every slot a category could give
-    # it, so one out of order may go unflagged - and why they have no
-    # category: the lookup's own reason above, a tag the index answered for
-    # and did not know, a prose prompt's clauses (prose is never looked up),
-    # an item never asked about (lettering, an @ name). Set exactly where
+    # reads it could not place where that decides the order - each keeps
+    # every slot a category could give it, some out of order beside another
+    # item and some not, so it may sit out of order unflagged - and why they
+    # have no category: the lookup's own reason above, a tag the index
+    # answered for with none it could use (unknown, deprecated, past the
+    # cutoff), a prose prompt's clauses (prose is never looked up), an item
+    # never asked about (lettering, an @ name). Set exactly where
     # `order_checked` and `prompt_rules.places_every_item` is false with
     # `categories` - the predicate the critic reads for a reorder of its own
-    # - and the page then says "Partly checked"; None otherwise.
+    # - and the page then says "Partly checked"; None otherwise, a lone item
+    # and one whose every slot gives the same answer included.
     order_detail: str | None = None
     # The categories themselves, as the rules placed the items with them,
     # for the critic to hold a reorder of its own to the same placement.

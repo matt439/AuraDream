@@ -1318,13 +1318,13 @@ class CriticContext:
     # (`analysis.order_checked`), and the reorder they made of it
     # (`analysis.reordered`, None where nothing had to move): there a
     # reorder of the critic's stands only as that one - unless some item the
-    # order rule reads kept every slot a category could give it
-    # (`placed_partly`: `prompt_rules.places_every_item` false with
-    # `analysis.categories` - an item never looked up, or one the tag index
-    # did not know). Then theirs is one order the documented one allows, not
-    # the only one, and the critic's stands if it keeps the items the rule
-    # reads whole and the same rule, placing with the same `categories`,
-    # reads it and flags nothing in it.
+    # order rule reads kept every slot a category could give it, where that
+    # decides the order (`placed_partly`: `prompt_rules.places_every_item`
+    # false with `analysis.categories` - an item never looked up, or one the
+    # tag index did not know). Then theirs is one order the documented one
+    # allows, not the only one, and the critic's stands if it keeps the
+    # items the rule reads whole and the same rule, placing with the same
+    # `categories`, reads it and flags nothing in it.
     order_checked: bool
     rules_reordered: str | None
     placed_partly: bool
@@ -1784,8 +1784,11 @@ def build_context(
         # From the placement itself, not from `categories_detail`, which says
         # only that some item was never looked up: one the index was asked
         # about and did not know - an OC's name, a trigger word - is placed
-        # no better. The same predicate sets `analysis.order_detail`, so the
-        # page says "Partly checked" exactly where this is true.
+        # no better. An unplaced item counts only where its slot decides the
+        # order (`unplaced_items`): where none does, the rules' order is the
+        # documented one whatever the categories. The same predicate sets
+        # `analysis.order_detail`, so the page says "Partly checked" exactly
+        # where this is true.
         placed_partly=analysis.order_checked and not places_every_item(
             model_id, request.prompt, analysis.categories
         ),

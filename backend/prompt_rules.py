@@ -494,6 +494,29 @@ def _violation(places: list[frozenset[int]]) -> tuple[int, int] | None:
     return None
 
 
+def _undecided(places: list[frozenset[int]]) -> list[int]:
+    """The items whose missing slot decides the order: each is in a pair
+    that some slot it could take puts out of the documented order and
+    another does not, which `_violation`, flagging only what is out of
+    order beyond doubt, therefore passes. Only an item with more than one
+    slot can be in such a pair; one whose every slot sits in order beside
+    the rest ("zzkx oc" between 1girl and masterpiece), or out of it beyond
+    doubt, is not, and neither is a lone item.
+
+    Where none is, the rules' answer is the same whatever category each
+    item has, and so is `_ordered`'s order: a pair it swaps was out of order
+    beyond doubt, and one it keeps was in order or out of it beyond doubt.
+    """
+    low = [min(place) for place in places]
+    high = [max(place) for place in places]
+    undecided: set[int] = set()
+    for a in range(len(places)):
+        for b in range(a + 1, len(places)):
+            if high[a] > low[b] and low[a] <= high[b]:
+                undecided.update(index for index in (a, b) if len(places[index]) > 1)
+    return sorted(undecided)
+
+
 def _reordered(text: str, items: list[Item], places: list[frozenset[int]]) -> str | None:
     """`text` with `items` moved into the order `places` allow, or None where
     nothing moves - or where the move would change what is quoted: a stray
@@ -614,37 +637,48 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
 
 def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None) -> list[str]:
     """The items the order rules read in `prompt` (`order_items`) that they
-    could not place, placing with `categories` as `check` and
-    `reorder_tags` do: each keeps every slot a category could give it.
+    could not place where it decides the order, placing with `categories`
+    as `check` and `reorder_tags` do: each keeps every slot a category could
+    give it, and some of those slots put it out of order beside another item
+    while others do not (`_undecided`), so it may sit out of order
+    unflagged.
 
     Such an item is in none of the guide's own groups, is not prose `_place`
     puts in the general slot, and has no category - whether the tag index
     was never asked about it (offline, a reply that did not read, past the
     lookup's cap: `PromptAnalysis.categories_detail`; a prose prompt, which
     is never looked up; lettering or an @ name, which never are) or was asked
-    and did not know it (an OC's name, a trigger word, a typo, a tag past the
-    vocabulary's cutoff). Empty where the guide gives no slots.
+    and gave it none it could use (an OC's name, a trigger word, a typo; a
+    deprecated tag, or one past the vocabulary's cutoff). Not an item every
+    slot of which gives the same answer - "zzkx oc" on Animagine between
+    1girl and masterpiece, in order whatever it is, or ahead of 1girl, out
+    of it whatever it is - nor a lone item, which no order can be wrong
+    about: the order rule and `reorder_tags` read fewer than two items not
+    at all. Said of every unplaced item, one-tag prompts and "1girl, zzkx
+    oc, masterpiece" read as partly checked though their order was settled.
+    Empty where the guide gives no slots.
     """
     spec = _order_spec(_guide(model_id))
-    if spec is None:
-        return []
     items, lettered, _ = _tag_items(prompt)
+    if spec is None or len(items) < 2:
+        return []
     lookup = _category_lookup(categories)
-    return [
-        item.text
+    places = [
+        _place(item, spec, lookup, lettering=held)
         for item, held in zip(items, lettered, strict=True)
-        if len(_place(item, spec, lookup, lettering=held)) > 1
     ]
+    return [items[index].text for index in _undecided(places)]
 
 
 def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | None) -> bool:
-    """Whether the order rules give each of `prompt`'s items one slot, placing
-    with `categories` as `check` and `reorder_tags` do (`unplaced_items`
-    empty). Where they read the order (`order_checked`), `reorder_tags`'
-    order - or its "nothing to move" - is then the documented order itself,
-    not one order it allows; where they read it and this is false, the
-    order was only partly checked, which the analysis says and the page
-    shows (`PromptAnalysis.order_detail`).
+    """Whether the order rules decide `prompt`'s order whatever category each
+    item has, placing with `categories` as `check` and `reorder_tags` do
+    (`unplaced_items` empty): every item has one slot, or none left open
+    where it decides the order. Where they read the order (`order_checked`),
+    `reorder_tags`' order - or its "nothing to move" - is then the documented
+    order itself, not one order it allows; where they read it and this is
+    false, the order was only partly checked, which the analysis says and
+    the page shows (`PromptAnalysis.order_detail`).
     """
     return not unplaced_items(model_id, prompt, categories)
 

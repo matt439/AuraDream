@@ -44,6 +44,7 @@ from tests.fakes import CutReply, FakeBackend, FakeCritic, fake_tokenizer
 FLUX = "black-forest-labs/FLUX.1-dev"
 ANIMAGINE = "cagliostrolab/animagine-xl-4.0"
 ANIMA = "circlestone-labs/Anima"
+KOHAKU = "KBlueLeaf/Kohaku-XL-Zeta"
 FIREFLY = "firefly \\(honkai: star rail\\)"
 # Out of Animagine's documented order only by what Danbooru knows: a
 # character after a general tag. Its own groups (1girl, the quality suffix)
@@ -381,31 +382,71 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
     client, fake, monkeypatch
 ):
     # One rule for "partly checked": some item the order rule reads kept
-    # every slot a category could give it (`prompt_rules.places_every_item`
-    # false, placing with the categories the rules had) - the predicate the
-    # critic holds a reorder of its own to. `order_detail` says so, with the
-    # items and why each has no category. A tag the index answered for and did
-    # not know, and a prose prompt's clauses, which are never looked up, left
-    # `categories_detail` empty, and the order read as checked while the
-    # critic's block said Check could not place every tag.
+    # every slot a category could give it, where that decides the order
+    # (`prompt_rules.places_every_item` false, placing with the categories
+    # the rules had) - the predicate the critic holds a reorder of its own
+    # to. `order_detail` says so, with the items and why each has no
+    # category. A tag the index answered for and did not know, and a prose
+    # prompt's clauses, which are never looked up, left `categories_detail`
+    # empty, and the order read as checked while the critic's block said
+    # Check could not place every tag.
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary({"green hair": "general", FIREFLY: "character"})
     monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
     unknown = (
-        "the tag index does not know 1 tag, so it has no Danbooru category and is not "
-        'placed: "zzkx oc"'
+        'the tag index has no usable Danbooru category for 1 tag, so it is not placed: "zzkx oc"'
     )
-    # An OC's name, a trigger word, a typo: out of order (a character after
-    # a general tag) or in it, nothing is flagged - and neither is a pass.
-    for prompt in ("zzkx oc, green hair", "green hair, zzkx oc"):
-        body = analyse(client, prompt=prompt)
-        assert body["order_checked"] is True and body["categories_detail"] is None, prompt
-        assert rules(body["findings"], "guide.order") == [] and body["reordered"] is None
-        assert body["order_detail"] == unknown, prompt
-    # Every tag placed: checked, not partly.
-    for prompt in (TAG_PROMPT, IN_ORDER):
+    # An OC's name, a trigger word, a typo after a general tag: out of order
+    # were it a character, in it were it a general tag - nothing is flagged,
+    # and that is no pass.
+    body = analyse(client, prompt="green hair, zzkx oc")
+    assert body["order_checked"] is True and body["categories_detail"] is None
+    assert rules(body["findings"], "guide.order") == [] and body["reordered"] is None
+    assert body["order_detail"] == unknown
+    # Every tag placed: checked, not partly. So too where an unplaced item's
+    # slot decides nothing - ahead of a general tag, between 1girl and
+    # masterpiece, it is in order whatever it is; ahead of 1girl, out of it
+    # whatever it is - and for one item alone, which no order can be wrong
+    # about: the lane first said "Partly checked" of all of these.
+    for prompt in (
+        TAG_PROMPT, IN_ORDER, "zzkx oc, green hair", "1girl, zzkx oc, masterpiece",
+        "zzkx oc, masterpiece", "zzkx oc", "a girl with green hair standing in the rain",
+        '1girl, "OPEN", masterpiece', "1girl, @wlop, masterpiece",
+    ):
         body = analyse(client, prompt=prompt)
         assert body["order_checked"] is True and body["order_detail"] is None, prompt
+    body = analyse(client, prompt="zzkx oc, 1girl")
+    assert rules(body["findings"], "guide.order") != [] and body["reordered"] == "1girl, zzkx oc"
+    assert body["order_checked"] is True and body["order_detail"] is None
+    # Which slots an unplaced item keeps is the guide's: Kohaku's meta tags
+    # come after quality, so there it may sit out of order before masterpiece.
+    claim(monkeypatch, fake, KOHAKU)
+    body = analyse(client, prompt="1girl, zzkx oc, masterpiece")
+    assert body["order_checked"] is True and body["order_detail"] == unknown
+    claim(monkeypatch, fake, ANIMAGINE)
+    # The index knows a tag and withholds its category - deprecated, or
+    # created past the checkpoint's cutoff: not "unknown", which the chips,
+    # reading the same rows, would contradict.
+    rows = {
+        "green_hair": {"name": "green_hair", "category": 0, "post_count": 5,
+                       "created_at": "2010-01-01"},
+        "old_tag": {"name": "old_tag", "category": 0, "post_count": 5,
+                    "created_at": "2010-01-01", "is_deprecated": True},
+        "new_hero_(game)": {"name": "new_hero_(game)", "category": 4, "post_count": 5,
+                            "created_at": "2099-01-01"},
+    }
+    monkeypatch.setattr(main, "tag_vocabulary", tags.DanbooruTagVocabulary(
+        fetch_json=lambda path, params: [
+            rows[name] for name in params["search[name_normalize]"].split(",") if name in rows
+        ]
+    ))
+    withheld = analyse(client, prompt="green hair, old tag, new hero \\(game\\)")
+    assert withheld["categories_detail"] is None
+    assert withheld["order_detail"] == (
+        "the tag index has no usable Danbooru category for 2 tags, so they are not placed: "
+        '"old tag", "new hero \\(game\\)"'
+    )
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
     # Prose is never looked up, and a clause that is not a whole sentence is
     # placed by nothing; whole sentences sit in the general slot.
     vocabulary.calls.clear()
@@ -439,8 +480,8 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
     assert body["order_detail"] == (
         "the tag index was asked about the first 64 of 70 tags only, so the rest have no "
         'Danbooru category, and 6 tags are not placed: "tag64", "tag65", "tag66" and 3 more; '
-        "the tag index does not know 64 tags, so they have no Danbooru category and are not "
-        'placed: "tag0", "tag1", "tag2" and 61 more'
+        "the tag index has no usable Danbooru category for 64 tags, so they are not placed: "
+        '"tag0", "tag1", "tag2" and 61 more'
     )
     # The lookup's detail alone is no partial order: past the cap sits only a
     # phrase the rules place as prose, and every tag before it is known.
@@ -473,16 +514,23 @@ def test_the_page_and_the_critic_read_partial_placement_alike(client, fake, monk
         "A girl stands in the rain. She smiles softly.", '1girl, "OPEN", masterpiece',
         ", ".join(f"tag{i}" for i in range(70)), "1girl\ngreen hair", "",
     ]
-    for vocabulary in (
-        Vocabulary({"green hair": "general", FIREFLY: "character"}), Vocabulary(offline=True),
-    ):
-        monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
-        for prompt in prompts:
-            request = PromptAnalysisRequest(prompt=prompt or "a lighthouse")
-            analysis = main._analyse(request)
-            context = build_context(ANIMAGINE, request, request, analysis)
-            assert context.placed_partly == (analysis.order_detail is not None), prompt
-            assert analysis.order_detail is None or analysis.order_checked, prompt
+    # A lone item and ones whose slot decides nothing, beside ones it does.
+    prompts += [
+        "zzkx oc", "green hair, zzkx oc", "1girl, zzkx oc, masterpiece", "zzkx oc, 1girl",
+        "a girl with green hair standing in the rain", "zzkx oc, yyqv oc",
+    ]
+    for model_id in (ANIMAGINE, KOHAKU):
+        claim(monkeypatch, fake, model_id)
+        for vocabulary in (
+            Vocabulary({"green hair": "general", FIREFLY: "character"}), Vocabulary(offline=True),
+        ):
+            monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+            for prompt in prompts:
+                request = PromptAnalysisRequest(prompt=prompt or "a lighthouse")
+                analysis = main._analyse(request)
+                context = build_context(model_id, request, request, analysis)
+                assert context.placed_partly == (analysis.order_detail is not None), prompt
+                assert analysis.order_detail is None or analysis.order_checked, prompt
 
 
 def test_the_order_says_whether_it_was_checked_and_what_the_authors_give(

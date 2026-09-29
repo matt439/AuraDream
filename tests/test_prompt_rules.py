@@ -8,6 +8,7 @@ leave alone.
 """
 from __future__ import annotations
 
+import itertools
 import re
 from collections import Counter
 from itertools import pairwise
@@ -1032,6 +1033,58 @@ def test_reorder_without_categories_never_guesses():
     # Nothing definite to move: no finding, no variant.
     assert prompt_rules.reorder_tags(ANIMAGINE, "1girl, smile, safe, firefly", None) is None
     assert only(run(ANIMAGINE, "1girl, smile, safe, firefly"), "guide.order") == []
+
+
+@pytest.mark.parametrize("model_id", [ANIMAGINE, KOHAKU, ILLUSTRIOUS])
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "zzkx oc",
+        "1girl, zzkx oc",
+        "zzkx oc, 1girl",
+        "1girl, zzkx oc, masterpiece",
+        "zzkx oc, masterpiece",
+        "masterpiece, zzkx oc",
+        "zzkx oc, smile",
+        "smile, zzkx oc",
+        "safe, zzkx oc, 1girl",
+        "1girl, safe, zzkx oc",
+        "masterpiece, 1girl, zzkx oc",
+        "zzkx oc, newest, masterpiece",
+        "1girl, smile, zzkx oc, yyqv oc, masterpiece",
+    ],
+)
+def test_an_item_is_left_unplaced_exactly_where_its_category_decides(model_id, prompt):
+    # "Partly checked" (`unplaced_items`; `places_every_item`, the critic's
+    # `placed_partly`) exactly where the order rule's answer hangs on a
+    # category it lacks: some category of the items it could not place makes
+    # it flag the prompt, or Check's own order, where the categories it has
+    # do not. Where nothing is named, every category gives the same answer
+    # and Check's order is in the documented order under each - so a lone
+    # item, or one whose every slot sits in order beside the rest, is not
+    # "partly checked"; said of every unplaced item, both were.
+    for partial in (None, {"smile": "general"}):
+        unknown = [
+            item for item in prompt_rules.category_items(model_id, prompt)
+            if partial is None or item not in partial
+        ]
+        flagged = prompt_rules.order_finding(model_id, prompt, partial) is not None
+        ours = prompt_rules.reorder_tags(model_id, prompt, partial) or prompt
+        changes = []
+        for assignment in itertools.product(_DANBOORU_CATEGORIES, repeat=len(unknown)):
+            full = {**(partial or {}), **dict(zip(unknown, assignment, strict=True))}
+            changes.append(
+                (prompt_rules.order_finding(model_id, prompt, full) is not None) != flagged
+                or prompt_rules.order_finding(model_id, ours, full) is not None
+            )
+        decided = prompt_rules.places_every_item(model_id, prompt, partial)
+        assert decided == (prompt_rules.unplaced_items(model_id, prompt, partial) == [])
+        assert decided == (not any(changes)), (partial, prompt_rules.unplaced_items(
+            model_id, prompt, partial
+        ))
+
+
+_DANBOORU_CATEGORIES = ("character", "copyright", "general", "artist", "meta")
 
 
 MARCH = r"march 7th \(honkai: star rail\)"

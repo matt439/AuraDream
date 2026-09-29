@@ -2568,7 +2568,33 @@ alone, wording it as a combination with `order_checked` rather than a second
 copy of its conditions; `categories_detail` alone - a cap past which every
 item was placed anyway, as prose - no longer makes an order "partly
 checked". The note names no slot, because which slots an unplaced item keeps
-is each guide's own. Where the guide states no order, the one rule that
+is each guide's own. Phase-4 review of that fix found it said "Partly
+checked" too widely, and one reason too narrowly. Every unplaced item
+counted, so a one-tag or one-clause prompt, which no order can be wrong
+about (the order rule and `reorder_tags` read fewer than two items not at
+all), and an unknown tag every category would leave in order
+(`1girl, zzkx oc, masterpiece`) or out of it (`zzkx oc, 1girl`, which is
+flagged) read as partly checked, where before they had rightly shown as
+checked - and the note told the user such a tag "may sit out of order
+unflagged". And a tag the index knew but withheld a category for,
+deprecated or newer than the checkpoint's cutoff, was said to be one the
+index "does not know", beside chips giving the real reason. `unplaced_items`
+now names an unplaced item only where its slot decides the order: some slot
+it could take puts it out of order beside another item and another slot
+does not (`_undecided`), a pair `_violation`, flagging only what is out of
+order beyond doubt, passes. Where no item is, the rule's answer and
+`reorder_tags`' order are the same whatever category each item has, and
+`test_an_item_is_left_unplaced_exactly_where_its_category_decides` holds
+that by enumerating the categories. So on Animagine `zzkx oc, green hair` is
+checked (a character, a series or a general tag, it is in order ahead of
+`green hair`), while `green hair, zzkx oc` is partly checked; on Kohaku,
+whose meta tags follow quality, `1girl, zzkx oc, masterpiece` is partly
+checked too. The critic's `placed_partly` reads the same predicate, so a
+reorder of the critic's where no missing category decides anything is held
+to Check's own order, which is then the documented one (the critic's
+paragraph below). The unknown tag's reason now reads "the tag index has no
+usable Danbooru category for", which is true of all of them; the chips say
+which. Where the guide states no order, the one rule that
 reads a category is Anima's artist prefix (`category_items`); it reads none
 when the lookup fails and not all past the cap, and the page says not every
 tag was checked for an artist name.
@@ -3144,8 +3170,9 @@ analysis used, `PromptAnalysis.categories`, kept off the response), that
 item keeps every slot a category could give it, and Check's order - or its
 "nothing to move" - is one the documented order allows, not the only one.
 That covers an item never looked up (offline, an unusable reply, past the
-64-tag cap) and one the index was asked about and did not know - an OC's
-name, a trigger word, a typo, a tag past the cutoff. There the critic's
+64-tag cap) and one the index was asked about and had no usable category
+for - an OC's name, a trigger word, a typo, a tag past the cutoff - where
+that item's slot decides the order (below). There the critic's
 version stands where the order rule, run again on it with the same
 categories (`prompt_rules.order_finding`), flags nothing, and is set aside
 in the rule's own words where it flags something. It must also keep the
@@ -3168,7 +3195,18 @@ key, so the critic's "allowed" reordering could sit under an order drawn as
 fully checked; the page now reads `PromptAnalysis.order_detail`, set from
 the same placement (`prompt_rules.unplaced_items`), and
 `test_the_page_and_the_critic_read_partial_placement_alike` holds the two
-to the same prompts.
+to the same prompts. The review of that fix narrowed the predicate for both:
+an unplaced item counts only where its slot decides the order. Where none
+does, `reorder_tags`' order is in the documented order whatever the missing
+categories are - a pair it swaps was out of order beyond doubt, and one it
+keeps was in order, or out of it, beyond doubt - so it is the documented
+order itself, and a critic's other permutation is set aside as before. With
+`green hair` known and `firefly` not, `1girl, firefly, green hair,
+masterpiece` is in order whatever `firefly` is, and the critic's swap
+putting `firefly` after `green hair` - out of order were it a character -
+is now set aside instead of being kept as "allowed"; with the prompt the
+other way round, `firefly`'s slot decides the order, and the swap putting it
+first is kept.
 
 On the real server the model's `reordered` added "great score, absurdres"
 and once copied a character tag from the example prompts; on FLUX prose it
@@ -3364,13 +3402,15 @@ as is Seeds, so no browser restores either). The Order section says "Not
 checked" under a documented order the rules did not read (`order_checked`),
 and the summary "nothing flagged · order not checked" rather than "nothing
 to flag"; a prompt the rules placed only partly (`order_detail`: some tag
-or clause kept every slot - the lookup failed or stopped at its 64-tag cap,
-the index did not know the tag, a prose clause is never looked up) gets
+or clause kept every slot where that decides the order - the lookup failed
+or stopped at its 64-tag cap, the index had no usable category for the tag,
+a prose clause is never looked up) gets
 "Partly checked: <why>" under the chain, naming those items, and the summary
 adds "order partly checked" whatever else it counts. Until phase-4
 re-verification the page keyed this on `categories_detail`, so an unknown
 tag or a prose clause showed the order as checked beside a critic block
-saying Check could not place every tag. A negative prompt finding's Apply is dead while the negative box is
+saying Check could not place every tag; the first fix then said it of a
+lone tag or clause, and of an unknown tag no category could move, too. A negative prompt finding's Apply is dead while the negative box is
 greyed, with a line saying what CFG would wake it: `collect()` sends nothing
 from a greyed box, so the write changed nothing the re-check could see and
 the same finding came back with the same button. The critic's `set_aside`

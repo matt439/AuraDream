@@ -3184,10 +3184,11 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
 def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_critics():
     # A tag with no category keeps every slot one could give it - offline,
     # past the 64 tags one check may look up, or unknown to the tag index -
-    # so Check's own order is one the documented order allows, not the only
-    # one. A reorder of the critic's then stands where the order rule,
-    # placing with the same categories, flags nothing in it - and is set
-    # aside, as before, once every tag is placed.
+    # so where that slot decides the order, Check's own order is one the
+    # documented order allows, not the only one. A reorder of the critic's
+    # then stands where the order rule, placing with the same categories,
+    # flags nothing in it - and is set aside, as before, once every tag is
+    # placed, or none left unplaced decides anything.
     animagine = "cagliostrolab/animagine-xl-4.0"
     offline = "the tag index was unreachable, so no tag has its Danbooru category"
     prompt = "1girl, firefly, green hair, masterpiece"
@@ -3218,15 +3219,26 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
     # rules read as no other tag.
     kept = critique(swapped.upper() + ".")
     assert kept.reordered == swapped + "." and kept.set_aside == []
-    # Green hair placed and firefly not: still nothing out of order.
-    kept = critique(swapped, categories={"green hair": "general"})
-    assert kept.reordered == swapped and kept.set_aside == []
-    # The same where every tag was looked up and the index knew no firefly -
-    # an OC's name, a trigger word: no lookup failed (`categories_detail`
-    # None), and the tag is placed no better than one never asked about.
-    for known in ({"green hair": "general"}, {}):
-        kept = critique(swapped, categories=known, detail=None)
-        assert (kept.reordered, kept.reordered_kind, kept.set_aside) == (swapped, "allowed", [])
+    # Green hair placed and firefly not. After green hair, firefly's slot
+    # decides the order - out of it were firefly a character - so a swap
+    # putting it first stands. Ahead of green hair it is in order whatever it
+    # is: Check's order is then the documented one, not one it allows, and a
+    # swap putting firefly after green hair is another order, set aside. The
+    # same where every tag was looked up and the index knew no firefly - an
+    # OC's name, a trigger word: no lookup failed (`categories_detail` None),
+    # and the tag is placed no better than one never asked about.
+    another = [
+        "The critic's reordered version was left out: Check places these tags in the "
+        "documented order itself, and the critic's order is not that one."
+    ]
+    for detail in (offline, None):
+        known = {"green hair": "general"}
+        kept = critique(prompt, categories=known, detail=detail, prompt=swapped)
+        assert (kept.reordered, kept.reordered_kind, kept.set_aside) == (prompt, "allowed", [])
+        other = critique(swapped, categories=known, detail=detail)
+        assert (other.reordered, other.reordered_kind, other.set_aside) == (None, None, another)
+    kept = critique(swapped, categories={}, detail=None)
+    assert (kept.reordered, kept.reordered_kind, kept.set_aside) == (swapped, "allowed", [])
     # Lettering with a comma no quotation mark holds is one item to the
     # rules: a reorder moving the title whole stands, one parting it at the
     # comma - the critic's own pieces do - is other tags to them.

@@ -631,13 +631,16 @@ def _order_detail(
     asked: list[str],
 ) -> str | None:
     """Why a placed order was only partly checked, or None where the rules
-    placed every item the order rule reads (`unplaced_items` empty, with the
-    categories they placed with: `places_every_item`, the predicate the
-    critic reads for a reorder of its own).
+    decided it whatever category each item has (`unplaced_items` empty, with
+    the categories they placed with: `places_every_item`, the predicate the
+    critic reads for a reorder of its own) - a lone item, or one every slot
+    of which sits in order, or out of it, beside the rest, included.
 
     Each unplaced item under the reason it has no category: the lookup's
     own (`categories_detail`: unreachable, no usable reply, past the cap), a
-    tag the index answered for and did not know, a prose prompt's clause -
+    tag the index answered for with none it could use - not found, and
+    deprecated, unused or past the checkpoint's cutoff alike, the chips'
+    reasons, so the words claim none of them - a prose prompt's clause -
     prose is never looked up, and only a whole sentence is placed by its
     shape - or an item never asked about at all (lettering, an @ name).
     Every such item, not only those the lookup lost: said of those alone, an
@@ -656,8 +659,8 @@ def _order_detail(
     others: list[str] = []
     for text in unplaced:
         if asked and text in wanted:
-            # Asked and not known - or never answered: the lookup failed, or
-            # stopped at the cap before it.
+            # Asked and given no usable category - or never answered: the
+            # lookup failed, or stopped at the cap before it.
             (unknown if categories is not None and text in asked_set else lost).append(text)
         elif text in wanted and prose:
             clauses.append(text)
@@ -678,10 +681,9 @@ def _order_detail(
             (lost, f"{categories_detail}, and {{n}} tag is not placed",
              f"{categories_detail}, and {{n}} tags are not placed"),
             (unknown,
-             "the tag index does not know {n} tag, so it has no Danbooru category and is "
-             "not placed",
-             "the tag index does not know {n} tags, so they have no Danbooru category and "
-             "are not placed"),
+             "the tag index has no usable Danbooru category for {n} tag, so it is not placed",
+             "the tag index has no usable Danbooru category for {n} tags, so they are not "
+             "placed"),
             (clauses,
              "the tag index is not asked about a prose prompt, so {n} clause that is not a "
              "whole sentence is not placed",

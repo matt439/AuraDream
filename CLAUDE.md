@@ -42,7 +42,7 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   weighting syntax, typed control tokens, T5's unknown characters
 - `backend/prompt_rules.py` — the analyser's rule checks against the guide's
   `analysis`: style, documented order, `reorder_tags`, the items left
-  unplaced (`unplaced_items`) and what a critic's reorder is held to
+  unplaced where that decides the order (`unplaced_items`) and what a critic's reorder is held to
   (`places_every_item`, `order_items`, `order_finding`), negations, unquoted text to render, the tag checkpoints' specifics;
   `heuristic` ones labelled
 - `backend/prompt_sources.py` — what the critic may cite, per guide constant:
@@ -429,11 +429,14 @@ Prompt analyser:
   placed order was only partly checked is one predicate, the placement
   itself: `order_checked` and `prompt_rules.places_every_item` false with
   the analysis's categories - some item the order rule reads kept every
-  slot (`unplaced_items`): never looked up for any of those reasons, a tag
-  the index answered for and did not know, a prose prompt's clause that is
-  not a whole sentence (prose is never looked up), lettering or an @ name.
-  `PromptAnalysis.order_detail` is set exactly there, naming those items
-  and why; the page then shows "Partly checked: <order_detail>" under the
+  slot where that decides the order (`unplaced_items`: some slot puts it
+  out of order beside another item and some does not; a lone item, or one
+  whose every slot gives the same answer, is not partly checked): never
+  looked up for any of those reasons, a tag the index answered for with no
+  usable category (unknown, deprecated, past the cutoff), a prose prompt's
+  clause that is not a whole sentence (prose is never looked up), lettering
+  or an @ name. `PromptAnalysis.order_detail` is set exactly there, naming
+  those items and why; the page then shows "Partly checked: <order_detail>" under the
   chain and "order partly checked" in the summary, never from
   `categories_detail`, and the critic's reorder other than Check's can stand
   exactly there (the critic's answer bullet below), since Check's own order
@@ -539,11 +542,11 @@ Prompt analyser:
   punctuation between them (JSON keeps the critic's text, whose values are
   then the prompt's writing). Where Check placed the tags
   (`order_checked`) it stands only as the rules' `reorder_tags` text -
-  unless the rules could not place some item the order rule reads
-  (`prompt_rules.places_every_item`, placing with the analysis's own
-  categories, `PromptAnalysis.categories`, excluded from the response: an
-  item never looked up or one the tag index did not know - decided from the
-  placement, never from `categories_detail`, which says only that some item
+  unless the rules could not place some item the order rule reads where
+  that decides the order (`prompt_rules.places_every_item`, placing with
+  the analysis's own categories, `PromptAnalysis.categories`, excluded from
+  the response: an item never looked up or one the tag index had no usable
+  category for - decided from the placement, never from `categories_detail`, which says only that some item
   was never looked up; the same predicate sets `order_detail`, so the page's
   "Partly checked" and this exception cover the same prompts). There it
   stands where it keeps the items the order rule reads whole
@@ -764,9 +767,11 @@ where it is one (`reordered_kind` "check"), a 70-tag prompt's order shown as
 partly checked (the 64-tag lookup cap) with the critic's reorder kept where
 the order rule finds nothing wrong with it (`reordered_kind` "allowed") and
 set aside, in the rule's words, where it flags one, a tag the fake index
-does not know (`zzkx oc`) and a prose prompt shown as partly checked with
-the items named (the first with the critic's reorder kept as "allowed"),
-"Partly checked" following `order_detail` and never `categories_detail`
+does not know (`zzkx oc`) after a general tag and a prose prompt shown as
+partly checked with the items named (the first with the critic's reorder
+kept as "allowed"), the same tag ahead of the general tag, alone, and a
+one-clause prose prompt shown as checked (the first with the critic's
+reorder set aside), "Partly checked" following `order_detail` and never `categories_detail`
 alone, Anima's artist-check note, and the recommended-negative Apply going
 dead once the negative box is edited.
 `smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
@@ -848,7 +853,9 @@ server kept.
 under full and partial tag placement end to end (set aside, kept as Check's
 own, kept as allowed, flagged, each with the kind the server says it kept),
 the partly-checked order (past 64 tags, without the tag index, a tag the
-index does not know, a prose prompt), and the negative prompt's Apply,
+index does not know, a prose prompt) and the checked one where no missing
+category decides it (that tag ahead of a general tag, alone, one prose
+clause), and the negative prompt's Apply,
 dead while the box is greyed. The fake server
 serves the tests' `FakeCritic` and word tokenizers: `--critic-delay` (seconds
 a critique takes, default 0.4, so its in-flight state can be seen; a prompt
