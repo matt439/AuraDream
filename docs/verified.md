@@ -287,6 +287,7 @@ add to that, which is why schnell is not the speed win Z-Image Turbo is.
 | `uv.lock` torch hashes | The four hand-pinned wheels checked file-for-file (`RECORD`) against the Windows and WSL venvs | 2026-09-08 |
 | Seed reproduction under Nunchaku NVFP4 | Not bit-for-bit: the same request in two processes gives two hashes on Z-Image and ERNIE alike. Z-Image's pair differ by 4.5/255 mean with 17% of pixels off by more than 8 (a different seed: 36/255, 85%); ERNIE's by 14-24/255 and 58-75% (a different seed: 41/255, 94%) - visibly different details, not noise. The fp8 path on Windows reproduces (above) | 2026-09-08 |
 | ERNIE-Image Turbo's ordinary load without the prompt rewriter | Through `DiffusionPipeline.from_pretrained`, `pe=None` pulled the 7.7 GB folder at load and the process held 11 GB of RAM; through `ErnieImagePipeline.from_pretrained` the same load fetched nothing with the folder deleted from the cache, and the generation matched | 2026-09-08 |
+| `single_file.sweep_work` on this machine's conversion cache | `illustrious-xl-v2.0-stable-b3a1d8184c923b80` had three empty work directories beside it, left by conversions interrupted on 2026-09-17 (its name with `-1ttk4htn`, `-_bn0av0r` and `-alpmu2dc`). The real `sweep_work` removed exactly those three, logging "removed an interrupted conversion" for each, and left the published tree and the other checkpoints' trees (Anima Turbo, NetaYume, the two NewBie, WAI) untouched | 2026-09-29 |
 | A dropped WSL page cache | Z-Image read 17-19 s per 1 MP image right after WSL reclaimed memory (`Cached: 0`), 10.6 s on the next run; measure twice | 2026-09-08 |
 | `TORCH_DISABLE_NATIVE_JIT=1` | Cures "Failed to find C compiler" from the Qwen3-VL text encoder on a fresh WSL Ubuntu | 2026-09-05 |
 | Fixed xet concurrency | Downloads at 55-60 MB/s where the adaptive controller had stalled a 12 GB checkpoint twice | 2026-09-05, 2026-09-08 |
@@ -310,7 +311,14 @@ Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port
 `seconds`: server start, one chat completion and the stop. The rows dated
 2026-09-28 check the 2026-09-28 review's fixes; their critiques ran through
 `PromptCritic` directly, by then with the server counting the question
-(`/apply-template`, `/tokenize`) between its start and the completion.
+(`/apply-template`, `/tokenize`) between its start and the completion. The
+rows dated 2026-09-29 ran through the app's own routes on the final tree
+of those fixes (8931fae): the real server with `--defaults` (fp8, model
+offload), port 7990, a scratch database and outputs directory, the image
+model never loaded. The card held 2,960-3,017 MiB with the app stopped and
+3,178-3,238 MiB with it up and idle before each critique, the baseline
+those rows subtract: about 220 MiB of the difference is the app's own CUDA
+context, which `/api/status`'s memory query creates.
 
 | What | Result | Date |
 | --- | --- | --- |
@@ -329,6 +337,9 @@ Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port
 | Qwen3-4B's tokenizer for the critic's estimate (CPU) | FLUX.2 [klein]'s `tokenizer.json` gives the same ids as b11206's `llama-tokenize` on the pinned GGUF for 31 texts. Against it, `estimate_tokens` (NFC, per-script rates, a token at least per camel-case hump) is long by up to 1.59 on ordinary text (Vietnamese; English prose 1.26-1.39) and 2.3-2.6 on lists of identifiers or brands. It is short on Turkish 0.84, Polish 0.87, Icelandic 0.82, romanised names 0.83, base64 0.78, traditional Chinese 0.92, kanji names 0.75, Cantonese 0.61 and rare Han 0.50, which the server's own count covers once it runs | 2026-09-28 |
 | Wrapped-server stop under full CPU load, Windows (stand-in server behind a .bat) | 30 critiques with the log's removal retry off: the log was still held after the stop in 0 of 30, against 17 of 30 when only the job's process list was polled | 2026-09-28 |
 | An app killed outright on Windows (stand-in server) | A server started through `_ServerProcess` stopped listening within a second of its app's TerminateProcess: the job's kill-on-close. Not tried with llama-server | 2026-09-28 |
+| Critique through the routes on the final tree, FLUX.1 Krea [dev], Windows | The 2026-09-28 row's bookshop prompt twice, `/api/prompt/analyze` then `/api/prompt/critique` with the body the page sends: 11.8 and 13.1 s, 1,177 prompt tokens both times (the route's analysis names Krea's "subject first", so the question asks for three copies of the prompt where the 2026-09-28 run's asked for two at 1,072), 1,125 and 1,460 generated at 140 and 144 tokens/s. Check took 2.6 s on the fresh server (tokenizers from the Hub cache) and 0.03 s after: CLIP-L 30 and T5 34 tokens, the order "Not checked", `guide.quote_text` and `guide.words`. Both rewrites quoted "open late"; the model's `reordered` changed words and was set aside both times, so `reordered` stayed null, and `dropped` was 0. The first answer kept one issue (A5: "shot on film" is no concrete style) and left out one that restated the quotation-mark finding; the second had none. +5,570 MiB over a 3,231 MiB baseline on the second (the first run's poll wrote nothing); the card was back at its baseline before the route answered, and no `llama-server.exe` was left after either | 2026-09-29 |
+| The same on Animagine XL 4.0, an unknown tag ahead of 1girl | "zzkx oc, 1girl, green hair, masterpiece, smile, outdoors", the Danbooru index reachable ("zzkx oc" not found; green hair, smile and outdoors general). Check did not say "Partly checked": `order_checked` true and `order_detail` null, since an unknown tag ahead of 1girl is out of order whatever its category, which `unplaced_items` counts as settled. It gave one `guide.order` finding ("zzkx oc" before 1girl), `reordered` "1girl, zzkx oc, green hair, smile, outdoors, masterpiece", `guide.quality` and `guide.negative_prompt`, in 3.3 s on the fresh server (tokenizers and the tag lookup); 15 tokens on both CLIPs. Critique 20.3 s: 883 prompt tokens, 2,521 generated at 145 tokens/s; +5,626 MiB over 3,178. Three issues were left out for restating the tag-order finding, and the model's `reordered` for changing words, so `reordered` and `reordered_kind` were null; `dropped` 0. The one issue kept, "Missing negative prompt" (G5), restates the `guide.negative_prompt` finding, which validation has no restatement check for. The rewrite dropped "oc", added "[series]" and "[rating]" placeholders and appended the card's recommended negative prompt to the prompt; the lint flagged both brackets, a CLIP cut at 75 of 77 tokens, the order, 26 added words and the missing negative prompt. No `llama-server.exe` was left | 2026-09-29 |
+| The same, an unknown tag whose category decides the order | "1girl, green hair, zzkx oc, smile, outdoors, masterpiece": `order_detail` "the tag index has no usable Danbooru category for 1 tag, so it is not placed: "zzkx oc"" (the page's "Partly checked"), no order finding and no `reordered`. Critique 18.3 s: 843 prompt tokens, 2,268 generated at 146 tokens/s; +5,687 MiB over 3,184, probably about 100 of it not the server's (3,282-3,302 MiB in the 5 s after the stop). No issue was left out; four were kept: two `order` issues on A1 asking for a series and a rating after the character, the missing quality finish (A2, restating the `guide.quality` finding, which validation has no restatement check for either) and "No negative prompt", cited to A3, the card's tag-format sentence. The model's `reordered` changed words and was set aside before the partial-placement check, so that check did not run and `reordered_kind` stayed null. The rewrite again added "[series]", "safe", the quality finish and the whole recommended negative prompt, and drew the same lint findings, with one bracket this time. No `llama-server.exe` was left after the run or after the app was terminated | 2026-09-29 |
 
 **The FLUX prompts.** The Analyse row and the "Critique on Windows, FLUX.1
 Krea [dev]" row used four prompts, given here as sent with their CLIP-L and
@@ -483,7 +494,11 @@ sidecars (its `README.md` says where it came from): the scripts behind those
 rows, and the lanes' reports (`phase1_result.json`), which are where the
 figures those scripts printed were recorded - `real_critique.py` saved no
 output of its own. Re-running those scripts is a new measurement, not a
-re-check of the old one.
+re-check of the old one. The rows dated 2026-09-29 have
+`review-2026-09-28/final-2026-09-29/`, written by the run itself: the
+scripts, each run's requests and responses, the app's two logs, the VRAM
+polls and what was left after each stop, with a `README.md` saying what
+each file is.
 
 Three things can still be checked against what survives. The two first-use
 rows' install trees remain, measured again on 2026-09-28, so their layout,
