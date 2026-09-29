@@ -612,28 +612,41 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
     return _reordered(prompt, items, places)
 
 
-def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | None) -> bool:
-    """Whether the order rules give each of `prompt`'s items one slot, placing
-    with `categories` as `check` and `reorder_tags` do. Where they read the
-    order (`order_checked`), `reorder_tags`' order - or its "nothing to move"
-    - is then the documented order itself, not one order it allows.
+def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None) -> list[str]:
+    """The items the order rules read in `prompt` (`order_items`) that they
+    could not place, placing with `categories` as `check` and
+    `reorder_tags` do: each keeps every slot a category could give it.
 
-    Not where an item keeps every slot a category could give it: in none of
-    the guide's own groups, not prose `_place` puts in the general slot, and
-    with no category - whether the tag index was never asked about it
-    (offline, a reply that did not read, past the lookup's cap:
-    `PromptAnalysis.categories_detail`) or was asked and did not know it (an
-    OC's name, a trigger word, a typo, a tag past the vocabulary's cutoff).
+    Such an item is in none of the guide's own groups, is not prose `_place`
+    puts in the general slot, and has no category - whether the tag index
+    was never asked about it (offline, a reply that did not read, past the
+    lookup's cap: `PromptAnalysis.categories_detail`; a prose prompt, which
+    is never looked up; lettering or an @ name, which never are) or was asked
+    and did not know it (an OC's name, a trigger word, a typo, a tag past the
+    vocabulary's cutoff). Empty where the guide gives no slots.
     """
     spec = _order_spec(_guide(model_id))
     if spec is None:
-        return True
+        return []
     items, lettered, _ = _tag_items(prompt)
     lookup = _category_lookup(categories)
-    return all(
-        len(_place(item, spec, lookup, lettering=held)) == 1
+    return [
+        item.text
         for item, held in zip(items, lettered, strict=True)
-    )
+        if len(_place(item, spec, lookup, lettering=held)) > 1
+    ]
+
+
+def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | None) -> bool:
+    """Whether the order rules give each of `prompt`'s items one slot, placing
+    with `categories` as `check` and `reorder_tags` do (`unplaced_items`
+    empty). Where they read the order (`order_checked`), `reorder_tags`'
+    order - or its "nothing to move" - is then the documented order itself,
+    not one order it allows; where they read it and this is false, the
+    order was only partly checked, which the analysis says and the page
+    shows (`PromptAnalysis.order_detail`).
+    """
+    return not unplaced_items(model_id, prompt, categories)
 
 
 def order_items(text: str) -> list[str]:

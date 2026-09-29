@@ -570,9 +570,10 @@ _BARE_DANBOORU = {"vocabulary": "danbooru", "vocabulary_cutoff": None}
 
 def _tag_categories(
     model_id: str, prompt: str, style: str
-) -> tuple[dict[str, str] | None, str | None]:
+) -> tuple[dict[str, str] | None, str | None, list[str]]:
     """Each comma item's Danbooru category, for the order and artist checks,
-    or None - and why some item a rule reads has none, or None.
+    or None - why some item a rule reads was never looked up, or None - and
+    the items the index was asked about, answered or not.
 
     Only on a checkpoint whose guide names the Danbooru vocabulary, or whose
     rules need to know an artist (`wants_artist_categories`), and a prompt
@@ -587,14 +588,14 @@ def _tag_categories(
     helper = guide_for(model_id).get("tag_helper")
     if not helper or helper.get("vocabulary") != "danbooru":
         if not prompt_rules.wants_artist_categories(model_id):
-            return None, None
+            return None, None, []
         helper = _BARE_DANBOORU
     if style not in ("tags", "hybrid"):
-        return None, None
+        return None, None, []
     wanted = prompt_rules.category_items(model_id, prompt)
     names = wanted[:_MAX_TAG_ITEMS]
     if not names:
-        return None, None
+        return None, None, []
     try:
         results = _lookup_tags(helper, names)
     except Exception as exc:  # noqa: BLE001 - advisory: a bad reply costs the order checks
@@ -612,14 +613,86 @@ def _tag_categories(
             if isinstance(cause, OSError) and not isinstance(cause, HTTPError)
             else "the tag index gave no usable reply"
         )
-        return None, f"{reason}, so no tag has its Danbooru category"
+        return None, f"{reason}, so no tag has its Danbooru category", names
     categories = {row["tag"]: row["category"] for row in results if row.get("category")}
     if len(wanted) > len(names):
         return categories, (
             f"the tag index was asked about the first {len(names)} of {len(wanted)} tags "
             "only, so the rest have no Danbooru category"
+        ), names
+    return categories, None, names
+
+
+def _order_detail(
+    model_id: str,
+    prompt: str,
+    categories: dict[str, str] | None,
+    categories_detail: str | None,
+    asked: list[str],
+) -> str | None:
+    """Why a placed order was only partly checked, or None where the rules
+    placed every item the order rule reads (`unplaced_items` empty, with the
+    categories they placed with: `places_every_item`, the predicate the
+    critic reads for a reorder of its own).
+
+    Each unplaced item under the reason it has no category: the lookup's
+    own (`categories_detail`: unreachable, no usable reply, past the cap), a
+    tag the index answered for and did not know, a prose prompt's clause -
+    prose is never looked up, and only a whole sentence is placed by its
+    shape - or an item never asked about at all (lettering, an @ name).
+    Every such item, not only those the lookup lost: said of those alone, an
+    unknown tag or a prose clause left the order drawn as checked while the
+    server treated it as partly placed.
+    """
+    unplaced = list(dict.fromkeys(prompt_rules.unplaced_items(model_id, prompt, categories)))
+    if not unplaced:
+        return None
+    wanted = set(prompt_rules.category_items(model_id, prompt))
+    asked_set = set(asked)
+    prose = prompt_rules.detect_style(prompt) not in ("tags", "hybrid")
+    lost: list[str] = []
+    unknown: list[str] = []
+    clauses: list[str] = []
+    others: list[str] = []
+    for text in unplaced:
+        if asked and text in wanted:
+            # Asked and not known - or never answered: the lookup failed, or
+            # stopped at the cap before it.
+            (unknown if categories is not None and text in asked_set else lost).append(text)
+        elif text in wanted and prose:
+            clauses.append(text)
+        else:
+            others.append(text)
+
+    def say(texts: list[str], one: str, many: str) -> str:
+        # The count, the words for one or many, and the first three items.
+        shown = ", ".join(f'"{text}"' for text in texts[:3])
+        more = f" and {len(texts) - 3} more" if len(texts) > 3 else ""
+        return (one if len(texts) == 1 else many).replace("{n}", str(len(texts))) + (
+            f": {shown}{more}"
         )
-    return categories, None
+
+    reasons = [
+        say(texts, one, many)
+        for texts, one, many in (
+            (lost, f"{categories_detail}, and {{n}} tag is not placed",
+             f"{categories_detail}, and {{n}} tags are not placed"),
+            (unknown,
+             "the tag index does not know {n} tag, so it has no Danbooru category and is "
+             "not placed",
+             "the tag index does not know {n} tags, so they have no Danbooru category and "
+             "are not placed"),
+            (clauses,
+             "the tag index is not asked about a prose prompt, so {n} clause that is not a "
+             "whole sentence is not placed",
+             "the tag index is not asked about a prose prompt, so {n} clauses that are not "
+             "whole sentences are not placed"),
+            (others, "the tag index is not asked about {n} item, so it is not placed",
+             "the tag index is not asked about {n} items, so they are not placed"),
+        )
+        if texts
+    ]
+    return "; ".join(reasons)
 
 
 def _finding_order(finding: PromptFinding) -> tuple:
@@ -669,11 +742,12 @@ def _analyse(
     # The shape alone decides whether to ask the tag index; what is reported
     # is the style the rules applied, which the answer's categories can move
     # ("the legend of zelda" is a series, not a phrase).
-    categories, categories_detail = _tag_categories(
+    categories, categories_detail, asked = _tag_categories(
         model_id, prompt, prompt_rules.detect_style(prompt)
     )
     reports, findings, detail = _checked(model_id, request, applied, categories)
     order = prompt_rules.documented_order(model_id)
+    order_checked = order is not None and prompt_rules.order_checked(model_id, prompt)
     return PromptAnalysis(
         model_id=model_id,
         style=prompt_rules.detect_style(prompt, categories),
@@ -682,8 +756,10 @@ def _analyse(
         encoders_detail=detail,
         findings=findings,
         order=order,
-        order_checked=order is not None and prompt_rules.order_checked(model_id, prompt),
+        order_checked=order_checked,
         categories_detail=categories_detail,
+        order_detail=_order_detail(model_id, prompt, categories, categories_detail, asked)
+        if order_checked else None,
         categories=categories,
         author_orders=[] if order is not None else [
             AuthorOrder(text=excerpt.text, url=excerpt.url, note=excerpt.note)

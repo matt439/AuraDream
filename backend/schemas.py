@@ -306,14 +306,23 @@ class PromptAnalysis(BaseModel):
     # XML prompt's blocks are documented but unchecked, and the page says so
     # rather than letting "nothing to flag" read as a passed order.
     order_checked: bool = False
-    # Why some comma item a rule reads has no Danbooru category - the tag
-    # index unreachable, no usable reply from it, or items past the 64 one
-    # check may ask about - as `encoders_detail` says why a budget went
-    # unmeasured. The rules give such an item no slot a category would (it
-    # keeps them all) and flag no artist for its @, so the page says an order
-    # it placed was only partly checked. None when every item was looked up,
-    # or none needed to be.
+    # Why some comma item a rule reads was never given its Danbooru category
+    # - the tag index unreachable, no usable reply from it, or items past the
+    # 64 one check may ask about - as `encoders_detail` says why a budget went
+    # unmeasured. Where the guide states no order, the page says not every
+    # tag was checked for an artist name (Anima's @ rule reads a category).
+    # None when every item was looked up, or none needed to be.
     categories_detail: str | None = None
+    # Why the order was only partly checked: which items the order rule
+    # reads it could not place - each keeps every slot a category could give
+    # it, so one out of order may go unflagged - and why they have no
+    # category: the lookup's own reason above, a tag the index answered for
+    # and did not know, a prose prompt's clauses (prose is never looked up),
+    # an item never asked about (lettering, an @ name). Set exactly where
+    # `order_checked` and `prompt_rules.places_every_item` is false with
+    # `categories` - the predicate the critic reads for a reorder of its own
+    # - and the page then says "Partly checked"; None otherwise.
+    order_detail: str | None = None
     # The categories themselves, as the rules placed the items with them,
     # for the critic to hold a reorder of its own to the same placement.
     # Never sent: the page has the chips' own lookup for what a tag is.

@@ -41,9 +41,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   builds - token counts, where reading stops, template-tail loss, literal
   weighting syntax, typed control tokens, T5's unknown characters
 - `backend/prompt_rules.py` — the analyser's rule checks against the guide's
-  `analysis`: style, documented order, `reorder_tags` and what a critic's
-  reorder is held to (`places_every_item`, `order_items`, `order_finding`),
-  negations, unquoted text to render, the tag checkpoints' specifics;
+  `analysis`: style, documented order, `reorder_tags`, the items left
+  unplaced (`unplaced_items`) and what a critic's reorder is held to
+  (`places_every_item`, `order_items`, `order_finding`), negations, unquoted text to render, the tag checkpoints' specifics;
   `heuristic` ones labelled
 - `backend/prompt_sources.py` — what the critic may cite, per guide constant:
   the guide's own sentences (G) and short verbatim author excerpts (A) with
@@ -425,14 +425,21 @@ Prompt analyser:
   `None` - order placed from the guide's own groups, never guessed - not an
   error. What that cost is said in `PromptAnalysis.categories_detail`: the
   index unreachable (a connection error), no usable reply from it (an HTTP
-  error, or a cut or unreadable body), or items past the 64. The page then
-  shows a placed order as "Partly checked" under the chain and "order partly
-  checked" in the summary, and a critic's reorder other than Check's can
-  stand wherever an item went unplaced - there, or where the index answered
-  and did not know a tag (the critic's answer bullet below) - since Check's
-  own order is then one the documented order allows, not the only one. Where
-  the guide states no order (Anima), the page says not every tag was checked
-  for an artist name. The reported `style` is
+  error, or a cut or unreadable body), or items past the 64. Whether a
+  placed order was only partly checked is one predicate, the placement
+  itself: `order_checked` and `prompt_rules.places_every_item` false with
+  the analysis's categories - some item the order rule reads kept every
+  slot (`unplaced_items`): never looked up for any of those reasons, a tag
+  the index answered for and did not know, a prose prompt's clause that is
+  not a whole sentence (prose is never looked up), lettering or an @ name.
+  `PromptAnalysis.order_detail` is set exactly there, naming those items
+  and why; the page then shows "Partly checked: <order_detail>" under the
+  chain and "order partly checked" in the summary, never from
+  `categories_detail`, and the critic's reorder other than Check's can stand
+  exactly there (the critic's answer bullet below), since Check's own order
+  is then one the documented order allows, not the only one. Where the
+  guide states no order (Anima), `categories_detail` alone makes the page
+  say not every tag was checked for an artist name. The reported `style` is
   `detect_style(prompt, categories)`, the one the rules applied.
 - The critic is pinned: llama.cpp `b11206` archives (`critic.BUILDS`: Windows
   CUDA 13.4, and Ubuntu for WSL) and `Qwen/Qwen3-4B-GGUF` `Qwen3-4B-Q8_0.gguf`
@@ -537,10 +544,12 @@ Prompt analyser:
   categories, `PromptAnalysis.categories`, excluded from the response: an
   item never looked up or one the tag index did not know - decided from the
   placement, never from `categories_detail`, which says only that some item
-  was never looked up). There it stands where it keeps the items the order
-  rule reads whole (`prompt_rules.order_items`: lettering one item, commas
-  and all), the rule reads it, and the rule, placing with the same
-  categories, flags nothing in it (`prompt_rules.order_finding`).
+  was never looked up; the same predicate sets `order_detail`, so the page's
+  "Partly checked" and this exception cover the same prompts). There it
+  stands where it keeps the items the order rule reads whole
+  (`prompt_rules.order_items`: lettering one item, commas and all), the
+  rule reads it, and the rule, placing with the same categories, flags
+  nothing in it (`prompt_rules.order_finding`).
   `PromptCritique.reordered_kind` says which was kept (`check`, `allowed`,
   or `unchecked` where Check reads no order); the page's Use reordered title
   follows it, and the page has no reorder rule of its own. A rewrite wrapped
@@ -754,9 +763,12 @@ nothing to move, the critic's reorder kept, and titled, as Check's own order
 where it is one (`reordered_kind` "check"), a 70-tag prompt's order shown as
 partly checked (the 64-tag lookup cap) with the critic's reorder kept where
 the order rule finds nothing wrong with it (`reordered_kind` "allowed") and
-set aside, in the rule's words, where it flags one, Anima's artist-check
-note, and the recommended-negative Apply going dead once the negative box is
-edited.
+set aside, in the rule's words, where it flags one, a tag the fake index
+does not know (`zzkx oc`) and a prose prompt shown as partly checked with
+the items named (the first with the critic's reorder kept as "allowed"),
+"Partly checked" following `order_detail` and never `categories_detail`
+alone, Anima's artist-check note, and the recommended-negative Apply going
+dead once the negative box is edited.
 `smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
 prompting, the native 1-2.25 MP size range, 4 MP warning and disabled Mu.
 `smoke-z-anime.json` uses a Z-Anime-claiming fake on 7868 for Base defaults,
@@ -835,8 +847,9 @@ server kept.
 `smoke-animagine.json` covers the tag-order check, the critic's reorder
 under full and partial tag placement end to end (set aside, kept as Check's
 own, kept as allowed, flagged, each with the kind the server says it kept),
-the partly-checked order (past 64 tags, or without the tag index), and the
-negative prompt's Apply, dead while the box is greyed. The fake server
+the partly-checked order (past 64 tags, without the tag index, a tag the
+index does not know, a prose prompt), and the negative prompt's Apply,
+dead while the box is greyed. The fake server
 serves the tests' `FakeCritic` and word tokenizers: `--critic-delay` (seconds
 a critique takes, default 0.4, so its in-flight state can be seen; a prompt
 too long for the critic's window is refused at once, a 502, as the real

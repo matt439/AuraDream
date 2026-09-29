@@ -1784,7 +1784,8 @@ def build_context(
         # From the placement itself, not from `categories_detail`, which says
         # only that some item was never looked up: one the index was asked
         # about and did not know - an OC's name, a trigger word - is placed
-        # no better.
+        # no better. The same predicate sets `analysis.order_detail`, so the
+        # page says "Partly checked" exactly where this is true.
         placed_partly=analysis.order_checked and not places_every_item(
             model_id, request.prompt, analysis.categories
         ),

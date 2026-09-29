@@ -130,9 +130,12 @@ function renderAnalysis() {
   // flag" as if it had passed: a prose prompt with its subject last on FLUX
   // got the same panel as one with it first.
   const unchecked = !!body.order && !body.order_checked;
-  // Nor may one placed without the tag index's categories: offline, a
-  // character after a general tag got the same panel as one before it.
-  const partly = body.order_checked && !!body.categories_detail;
+  // Nor may one the rules placed only partly - a tag with no category, never
+  // looked up (offline, past the lookup's 64, a prose prompt) or unknown to
+  // the tag index: a character after a general tag got the same panel as one
+  // before it. The server's own predicate (`order_detail`), which the critic
+  // reads too, never a guess of the page's.
+  const partly = body.order_checked && !!body.order_detail;
   // Where the guide states no order, a category is read by one rule only -
   // Anima's @ before an artist name (`category_items`) - and it read none
   // (the index unreachable) or not all (past the lookup's 64).
@@ -440,11 +443,12 @@ function renderOrder(body) {
     box.appendChild(note(`Not checked: Check can only place a tag checkpoint's comma tags in its order. ${promptCritiqueSupported
       ? 'Ask the critic whether this prompt follows it, or write'
       : 'Write'} a reordered version under Compare to test it on your own seeds.`));
-  } else if (body.categories_detail) {
-    // Placed, but a tag the index gave no category keeps every slot a
-    // category could have put it in - which slots those are is the guide's
-    // (Animagine's order has no artist) - so it can sit out of order unflagged.
-    box.appendChild(note(`Partly checked: ${body.categories_detail}. A tag with no category is not placed, so one out of order may go unflagged.`));
+  } else if (body.order_detail) {
+    // Placed, but an item with no category keeps every slot a category could
+    // have put it in - which slots those are is the guide's (Animagine's order
+    // has no artist) - so it can sit out of order unflagged. The server names
+    // the items and why each has none.
+    box.appendChild(note(`Partly checked: ${body.order_detail}. Any of those may sit out of order unflagged.`));
   }
   // The prompt's own items moved into that order, nothing added or removed -
   // shown, since it is read before it is used.

@@ -951,11 +951,15 @@ that not every tag was checked for an artist name). The panel it opens has:
   prompt split by line breaks or fullwidth commas (，) rather than commas,
   the order is shown with "Not checked", and the summary says
   "order not checked" rather than letting "nothing to flag" read as a pass -
-  ask the critic, or write your own reordering under Compare. Where the tag
-  index could not be used (offline, or no usable reply from it), or a prompt
-  has more than 64 tags to look up, a placed order says "Partly checked"
-  with the reason, and the summary says "order partly checked": a tag with
-  no Danbooru category is not placed, so one out of order may go unflagged.
+  ask the critic, or write your own reordering under Compare. Where Check
+  could not place some tag, a placed order says "Partly checked", naming
+  those tags and why, and the summary says "order partly checked": a tag
+  with no Danbooru category is not placed, so one out of order may go
+  unflagged. That is a tag the index does not know (an OC's name, a trigger
+  word, a typo), a tag it was never asked about (offline, no usable reply
+  from it, or past the first 64 a check looks up), and a clause of a prose
+  prompt, which is never looked up - only a whole sentence is placed, with
+  the general tags.
   Where the guide states no order, the panel says the app checks none, and
   shows any order the authors' own texts give (Anima's card, Neta Lumina's
   prompt book for NetaYume, ERNIE's and Qwen's rewriter instructions) as
@@ -1040,9 +1044,10 @@ discarded; one that survives is shown in your own words - their case and
 spelling as you wrote them - in the critic's order. On a tag checkpoint
 whose tags Check placed, only Check's own reordering survives - unless
 Check could not place every tag (the tag index could not be asked about
-it, or did not know it): then the critic's survives if it keeps your tags
-whole and Check's order rule finds nothing out of order in it, and is set
-aside, saying what the rule found, if not. The **Use reordered** button's
+it, or did not know it - what the Order section calls "Partly checked"):
+then the critic's survives if it keeps your tags whole and Check's order
+rule finds nothing out of order in it, and is set aside, saying what the
+rule found, if not. The **Use reordered** button's
 tooltip says which kind survived. A rewrite that is your prompt unchanged is
 not shown; one wrapped whole in quotation marks is unwrapped, one that puts
 words the prompt does not have in quotation marks - lettering nobody asked

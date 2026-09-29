@@ -2306,7 +2306,7 @@ check places only what the guide's own groups
 know and never guesses a slot, and any failure there - a truncated reply
 raised `IncompleteRead`, which `tags._request_json` now also treats as
 unavailable - costs the order check, never the answer, and says so
-(`categories_detail`, below). `reorder_tags` moves
+(`categories_detail` and `order_detail`, below). `reorder_tags` moves
 the items and keeps their spelling and the text between them, a pure
 permutation the tests assert, which is what the comparison's "reordered" row
 needs. A rule's `suggestion` is always the whole field rewritten, so the page
@@ -2539,20 +2539,36 @@ The rules still place only what the guide's groups know, and a category is
 never guessed; what changed is that `PromptAnalysis.categories_detail` says
 why categories are missing or partial: the index unreachable (a connection
 error, the cause under `TagLookupUnavailable`), no usable reply from it (an
-HTTP error status, a cut or unreadable body), or the cap. The page then says
-"Partly checked:" and why under the chain, and "order partly checked" in the
-summary, wording it as a combination with `order_checked` rather than a second
-copy of its conditions. The note names no category, because which slots an
-uncategorised tag keeps is each guide's own. Nor is a partly placed prompt's
-"nothing to move" a verdict, so the server keeps a critic's reordering there
-that the order rule, placing with the same categories, finds nothing wrong
-with (the critic's paragraph below). The server reads "partly placed" off the
-placement itself (`places_every_item`), so it also covers a tag the index
-answered for and did not know, and a clause of a prose prompt a name could
-still be, which is never looked up; the page's "Partly checked" line speaks
-only of a lookup that failed or stopped at the cap (`categories_detail`) and
-does not appear for either, though the order rule places them no better - a gap
-known and left open. Where the guide states no order, the one rule that
+HTTP error status, a cut or unreadable body), or the cap. The page then said
+"Partly checked:" and that reason under the chain, and "order partly checked"
+in the summary. Nor is a partly placed prompt's "nothing to move" a verdict,
+so the server keeps a critic's reordering there that the order rule, placing
+with the same categories, finds nothing wrong with (the critic's paragraph
+below). The server reads "partly placed" off the placement itself
+(`places_every_item`), so it also covers a tag the index answered for and did
+not know, and a clause of a prose prompt a name could still be, which is never
+looked up. Phase-4 re-verification of the review's fixes found the page
+still keyed on `categories_detail`: for an OC's name the index did not know
+(`zzkx oc, green hair` on Animagine) or a prose prompt's clauses, the Order
+section drew the order as fully checked while the server, and the critic
+block's "though it could not place every tag", treated it as partly placed,
+and an out-of-order prompt and an in-order one again got the same "checked"
+answer - F12's class. There is now one rule. `_analyse` computes the
+placement once, `prompt_rules.unplaced_items` with the categories the rules
+placed with (`places_every_item` is its emptiness, the critic's
+`placed_partly`), and `PromptAnalysis.order_detail` is set exactly where
+`order_checked` and some item went unplaced, naming the items (three, then
+a count) under the reason each has no category: the lookup's own reason
+(`categories_detail`, kept word for word), a tag the index does not know, a
+prose prompt's clauses that are not whole sentences (prose is never looked
+up, and a whole sentence sits in the general slot), and an item never asked
+about (lettering, an @ name). The page shows "Partly checked:
+<order_detail>" and the summary's "order partly checked" from that field
+alone, wording it as a combination with `order_checked` rather than a second
+copy of its conditions; `categories_detail` alone - a cap past which every
+item was placed anyway, as prose - no longer makes an order "partly
+checked". The note names no slot, because which slots an unplaced item keeps
+is each guide's own. Where the guide states no order, the one rule that
 reads a category is Anima's artist prefix (`category_items`); it reads none
 when the lookup fails and not all past the cap, and the page says not every
 tag was checked for an artist name.
@@ -3147,6 +3163,12 @@ The follow-up moved the one rule to the server, first keyed on
 did not know were set aside with a note saying Check had placed them,
 while 65 were kept - and the raw comma items it compared letting a critic
 part 《…》 lettering at its comma. Both were fixed as described above.
+Phase-4 re-verification found the page's "Partly checked" still on the old
+key, so the critic's "allowed" reordering could sit under an order drawn as
+fully checked; the page now reads `PromptAnalysis.order_detail`, set from
+the same placement (`prompt_rules.unplaced_items`), and
+`test_the_page_and_the_critic_read_partial_placement_alike` holds the two
+to the same prompts.
 
 On the real server the model's `reordered` added "great score, absurdres"
 and once copied a character tag from the example prompts; on FLUX prose it
@@ -3341,10 +3363,14 @@ it), cleared with the rest of the panel, never persisted (autocomplete=off,
 as is Seeds, so no browser restores either). The Order section says "Not
 checked" under a documented order the rules did not read (`order_checked`),
 and the summary "nothing flagged · order not checked" rather than "nothing
-to flag"; a prompt the rules placed while the tag lookup failed or stopped
-at its 64-tag cap (`categories_detail`) gets "Partly checked: <why>" under
-the chain, and the summary adds "order partly checked" whatever else it
-counts. A negative prompt finding's Apply is dead while the negative box is
+to flag"; a prompt the rules placed only partly (`order_detail`: some tag
+or clause kept every slot - the lookup failed or stopped at its 64-tag cap,
+the index did not know the tag, a prose clause is never looked up) gets
+"Partly checked: <why>" under the chain, naming those items, and the summary
+adds "order partly checked" whatever else it counts. Until phase-4
+re-verification the page keyed this on `categories_detail`, so an unknown
+tag or a prose clause showed the order as checked beside a critic block
+saying Check could not place every tag. A negative prompt finding's Apply is dead while the negative box is
 greyed, with a line saying what CFG would wake it: `collect()` sends nothing
 from a greyed box, so the write changed nothing the re-check could see and
 the same finding came back with the same button. The critic's `set_aside`
