@@ -5,13 +5,13 @@
 // ------------------------------------------------------------- prompt check
 
 // The check describes one text: the prompt as `collect()` sent it - trimmed -
-// with the negative prompt beside it, and the reference images it counted.
+// with the negative prompt beside it, whether it runs, and the references counted.
 // Every offset in the answer counts from that text's first character, and
 // every Use and Apply is a whole replacement worked out from it. So once
 // either box holds something else, or the references change, the panel dims,
 // the buttons that would write an answer about the old text over the new one
 // go dead, and a finding's words are selected only while they are still there.
-let analysisResult = null;  // { source, negative, reference, body: PromptAnalysis }
+let analysisResult = null;  // { source, negative, effectiveNegative, reference, body: PromptAnalysis }
 let analysisEpoch = 0;
 let analysisStale = false;
 // The critic's answer is always about the checked text: asking checks the box
@@ -71,6 +71,7 @@ function excerpt(text, max = 36) {
 async function checkPrompt(payload = collect()) {
   if (!payload.prompt) { showError('Enter a prompt first.'); els.prompt.focus(); return null; }
   const epoch = ++analysisEpoch;
+  const effectiveNegative = analysisNegative(payload);
   // Instant once the tokenizers are cached; a first use fetches them.
   els.analyze.textContent = 'Checking…';
   els.analyze.setAttribute('aria-busy', 'true');
@@ -82,9 +83,10 @@ async function checkPrompt(payload = collect()) {
     });
     if (epoch !== analysisEpoch) return null;  // superseded, or the panel was cleared
     // The critic's answer is about the text checked last, negative prompt and all.
-    if (critiqueResult && !analysed(payload)) critiqueResult = null;
+    if (critiqueResult && !analysed(payload, effectiveNegative)) critiqueResult = null;
     analysisResult = {
-      source: payload.prompt, negative: payload.negative_prompt ?? '', reference: [...(payload.reference ?? [])], body,
+      source: payload.prompt, negative: payload.negative_prompt ?? '', effectiveNegative,
+      reference: [...(payload.reference ?? [])], body,
     };
     showError('');
     renderAnalysis();
@@ -169,14 +171,26 @@ function renderAnalysis() {
 // Whether `payload` - collect()'s shape - is what the check read: the prompt,
 // the negative prompt as it would run, and the reference images, in order:
 // klein's guide counts them, to name the "image 3" a prompt never mentions.
-// collect() sends no negative from a greyed box, which is how CFG and True
-// CFG decide whether it runs at all.
-function analysed(payload) {
-  return promptsAnalysed(payload) && (payload.reference ?? []).join() === analysisResult.reference.join();
+// The grid may keep the negative editor enabled for its higher-CFG cells,
+// while Generate, Check and Compare still use the panel's single CFG. Read
+// that scale (or True CFG), not the editor's enabled state. Capture the result
+// before awaiting a check or critique: a later settings change must not relabel
+// the earlier answer as though its negative ran under the new settings.
+// Keep the raw negative too: rules can distinguish typed but inactive text,
+// and an Apply must never replace edits in the enabled grid-only editor.
+function analysisNegative(payload) {
+  const scale = trueCfgSupported ? payload.true_cfg : payload.guidance_scale ?? lastDefaults?.guidance_scale;
+  return negativeSupported && scale != null && scale > cfgThreshold ? payload.negative_prompt ?? '' : '';
 }
 
-const promptsAnalysed = (payload) => !!analysisResult && payload.prompt === analysisResult.source
-  && (payload.negative_prompt ?? '') === analysisResult.negative;
+function analysed(payload, effectiveNegative = analysisNegative(payload)) {
+  return promptsAnalysed(payload, effectiveNegative) && (payload.reference ?? []).join() === analysisResult.reference.join();
+}
+
+const promptsAnalysed = (payload, effectiveNegative = analysisNegative(payload)) =>
+  !!analysisResult && payload.prompt === analysisResult.source
+  && (payload.negative_prompt ?? '') === analysisResult.negative
+  && effectiveNegative === analysisResult.effectiveNegative;
 
 // Called on every change to either prompt box - typing, every programmatic
 // write through promptReplaced(), and syncCfg() for the knobs that grey the
@@ -579,6 +593,7 @@ async function askCritic() {
   if (expandingPrompt) { showError('Wait for prompt expansion to finish.'); return; }
   const payload = collect();
   if (!payload.prompt) { showError('Enter a prompt first.'); els.prompt.focus(); return; }
+  const effectiveNegative = analysisNegative(payload);
   const epoch = ++critiqueEpoch;
   // Held from here, the check below included: a job or an Expand started
   // while it ran went ahead, and the critique behind it came back a 409.
@@ -590,7 +605,7 @@ async function askCritic() {
     // The panel has to describe what the critic is asked about. A Check
     // pressed meanwhile would replace this check, and the critic was then
     // never asked, without a word: so Check waits for it.
-    if (!analysed(payload)) {
+    if (!analysed(payload, effectiveNegative)) {
       const before = analysisEpoch;
       els.analyze.disabled = els.analysisAgain.disabled = true;
       let checked;
@@ -617,7 +632,7 @@ async function askCritic() {
       body: JSON.stringify(payload),
     });
     if (epoch !== critiqueEpoch) return;  // the panel was cleared meanwhile
-    if (!analysed(payload)) {
+    if (!analysed(payload, effectiveNegative)) {
       showError('The prompt was checked again while the critic ran, so its answer was set aside. Ask again.', true);
       return;
     }
@@ -931,8 +946,8 @@ async function previewComparison() {
   }
 }
 
-// One grid, then its sheet: startJob keeps the run id and opens it when the
-// stream reports done, with one row per version in the order written.
+// One grid, then its submission's sheet: startJob keeps the job id and opens
+// it when the stream reports done, with one row per version as written.
 function runComparison() {
   const variants = comparedVariants();
   if (!analysisResult || variants.length < 2 || analysisStale) return undefined;

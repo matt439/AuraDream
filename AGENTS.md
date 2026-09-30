@@ -385,8 +385,8 @@ Prompt analyser:
   animal's an apostrophe). `prompt_rules.rendered_targets` gives each place
   the text asks for lettering as (start, end, ends, head): `ends` is False
   only where the rules stopped at a guess and the lettering may run on - a
-  joining word, six words, the 12-character cap, or Latin lettering going on
-  past a space or an ASCII mark (写着OPEN NOW, 9:00, www.shop.com) - and only
+  joining or capitalized stop word, six words, the 12-character cap, or
+  lettering going on past a space or an ASCII mark (写着OPEN NOW, 9:00, www.shop.com) - and only
   there may the critic read on past `end` in any words of its clause; past
   an end the rules are sure of, it reads on only in words that start with a
   capital or a digit. The rules stop a participle's lowercase words at a negation
@@ -411,7 +411,10 @@ Prompt analyser:
   (`_units`): it moves whole and is placed by its shape alone, is never
   matched or rewritten as a tag (`_Context.norms` is None for it), is never
   asked of the tag index, and a reorder that would change what `QUOTED`
-  reads is not offered.
+  reads is not offered. English punctuation inside times, prices, URLs or
+  capitalized lists makes the quote boundary uncertain too: no partial Apply.
+  NetaYume's prefix rule searches `ctx.bare` so prefix-shaped lettering is
+  preserved and does not hide a genuine duplicate later in the prompt.
 - `prompt_encoding` measures over the exact string the pipeline builds, and
   every template string, length and `enable_thinking` switch it copies is held
   equal to the installed diffusers source (and the repo's Anima and NewBie
@@ -548,8 +551,10 @@ Prompt analyser:
   order issues that cannot all hold.
   `reordered` survives only under a documented order and as a pure reorder
   of whole tags, clauses, sentences or XML blocks with quoted text unchanged
-  (`is_reorder`, typed marks folded; for JSON, equal values with the keys
-  sorted, each number as written - 0.50 is not 0.5 (`_json_forms`) - and no
+  (`is_reorder`, typed marks folded; every `rendered_targets` span is kept
+  whole during piece splitting, even when tag order is unchecked, and initials
+  or common abbreviation periods never split a name; for JSON, equal values
+  with the keys sorted, each number as written - 0.50 is not 0.5 (`_json_forms`) - and no
   repeated key). What is kept has the prompt's own pieces, each as the
   prompt writes it, in the critic's order with the critic's space and
   punctuation between them (JSON keeps the critic's text, whose values are
@@ -622,15 +627,19 @@ Frontend and CLI:
   (`checkFromButton`), and Check again hands focus to the heading when it
   hides; under 901 px focus stays on Check.
 - The prompt check describes one text: the prompt and negative prompt as
-  `collect()` sent them, with the reference images it counted
+  `collect()` sent them, whether CFG or True CFG applies that negative, and
+  the reference images it counted
   (`analysisResult.reference`; klein's references rule reads them). Any
   change to either box - typing, every programmatic write through
-  `promptReplaced()`, `syncCfg()` greying the negative - or to the references
+  `promptReplaced()`, `syncCfg()` greying the negative or changing its
+  activation while a grid keeps the editor enabled - or to the references
   (`setReferences`, Reuse, a `reference_supported` flip) marks it stale:
   dimmed, every Use/Apply and Run comparison dead, a finding's words selected
   only while still where the check found them; the badge says "references
   changed since" when only the references moved. A checkpoint change
-  clears it. Apply is offered on rule findings only; an encoder suggestion is
+  clears it. Raw negative text and effective activation are captured before
+  Check and the critic await replies; inactive raw edits still make it stale.
+  Apply is offered on rule findings only; an encoder suggestion is
   shown as text. Use and Apply write through `replaceBoxText` (so Ctrl+Z
   restores) and check again. Server offsets count code points; the page
   converts them (`units()`) before selecting. The comparison sends
@@ -639,10 +648,10 @@ Frontend and CLI:
   its Reordered row, else the critic's as the server kept it
   (`critic.validate` decides; the page adds no rule of its own), never writes
   `els.prompt` or `els.gridPrompt`, drops a version identical to another,
-  and opens its run as the sheet when done - Favorites unticked first, and
-  the sheet's note says so (`showRun(run, { fresh: true })`), since nothing
-  in a new run is starred; its Your version box (`yours`) is the one way to
-  test order on prose. A negative-prompt Apply is dead while the negative box
+  and opens its submission (`job:<id>`) as the sheet when done - Favorites
+  unticked first, and the sheet's note says so (`showJob(jobId, { fresh: true })`),
+  since nothing in the new comparison is starred; its Your version box
+  (`yours`) is the one way to test order on prose. A negative-prompt Apply is dead while the negative box
   is greyed.
 - Tag autocomplete and comma-item validation use the fixed Danbooru
   tag API through `backend/tags.py`, filtered when a checkpoint documents a
@@ -672,7 +681,13 @@ Frontend and CLI:
   varies, however few of its images are loaded (placed from every varying
   axis, so the listlike rule drops neither it nor the axis across it;
   `VARIANT_AXIS`, held to `grid.VARIANT` by `tests/test_grid.py`), so a
-  comparison reads original, reordered, rewrite, top to bottom.
+  comparison reads original, reordered, rewrite, top to bottom. A shared run
+  or mixed search can give one version label different prompt texts: retain
+  Prompt as an axis when the complete variable assignment is ambiguous.
+  `stats --job <id> --by variant` reads one comparison; a broader grouping
+  with conflicting texts for one assignment is refused with advice to group
+  by prompt too. Ordinary multi-variable grids and explicit grouping fields
+  still aggregate as requested.
 - `generate`, `clear`, `stats` and `reindex` reconfigure stdout to UTF-8 at
   the top of `main()`: on Windows always, elsewhere when it is not a
   terminal, and never on a stream without `reconfigure` (a StringIO,
@@ -885,6 +900,13 @@ shows only on a newly started server; the smoke accepts either line:
 uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-analysis.json
 ```
+
+`smoke-comparison.json` uses the same FLUX-shaped fake on 7874 to run
+two comparisons with original and yours reversed on fixed seeds. Each
+opens its own job, while opening their shared run exposes Prompt as an
+axis. The analysis and Animagine smokes cover CFG/True CFG activation
+changes while a grid keeps the negative editor enabled, inactive raw
+edits, and settings changes while a check or critique is in flight.
 
 GPU generation, repeat-seed pixels, cancellation and any preview evidence
 are recorded per checkpoint in `docs/verified.md`, and the real critic's runs

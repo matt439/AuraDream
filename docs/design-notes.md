@@ -833,7 +833,14 @@ spaces is refused. Identical variant texts are not refused - counted as
 duplicates in the preview, as `_expand` treats duplicates elsewhere - and the
 page drops them before submitting. `CellKey`, `run_id`, resume and the
 duplicate count read the variant's text, so renaming the variants changes
-nothing about the run.
+nothing about the run. In particular, swapping original and yours on the
+same seeds shares a run, although the labels now mean different prompts.
+The comparison therefore opens `job:<id>`, its own submission, and its
+statistics recipe uses `--job`. This keeps existing run ids and partially
+completed runs resumable. When a sheet reads several such submissions, the
+flat Prompt axis remains available if a complete variable assignment names
+more than one prompt: otherwise its (variant, seed) cell would silently keep
+only the newest. Ordinary variable grids still suppress that redundant axis.
 
 **The sheet lists a variable's values in the order the grid wrote them.**
 `sheetValues` used to sort a `var:` axis with `localeCompare`, which read a
@@ -953,7 +960,12 @@ whitespace to single spaces. Rows rank by rate, then count, then first
 appearance (`MIN(id)`), so a tie - an untouched comparison at 0% everywhere -
 reads in written order, not in the label-alphabetical order of the GROUP BY.
 The ranking itself is the table's contract, so versions are not forced into
-written order.
+written order. A comparison is read with `--job`, since run identity ignores
+labels. A broader scope that gives a complete variable assignment two prompt
+texts is refused with advice to use `--by variant,prompt` or a narrower job.
+The check canonicalizes variable key order and stays within each emitted
+stats group, so an ordinary `variant` by `colour` grid can aggregate colours,
+and an explicit seed or steps grouping can separate different meanings.
 
 **The CLIs write UTF-8 when redirected.** `generate`, `clear`, `stats` and
 `reindex` reconfigure stdout to UTF-8 (`errors="backslashreplace"`) at the
@@ -2465,6 +2477,15 @@ Men poster on a wall" warns as an absence, its span taking in the whole name.
 And a negated phrase is no longer cut inside a run of capitalised words
 ("without ropes on El Capitan", not "... on El").
 
+English lettering can also continue through a word normally read as a
+location or through punctuation. A capitalized stop word in `MADE IN JAPAN`
+or `OPEN AT NOON`, marks within `9:00`, `$9.99` or `www.example.com`, and a
+comma before another capital in `HELLO, WORLD` now make the end uncertain.
+Check asks for explicit quotes and offers no Apply, instead of quoting only
+`MADE`, `9` or `$9`. `rendered_targets` carries that uncertainty to the critic.
+Ordinary lowercase location descriptions and terminal sentence punctuation
+still give the existing one-click quote.
+
 **Chinese lettering has no spaces to end it.** The same review found the
 Chinese triggers (写着, 印有 and the rest) taking up to twelve characters of
 whatever followed as exact: 一块写着欢迎光临的木质招牌挂在门口 quoted the sign
@@ -2543,9 +2564,12 @@ style rule, which wants three items before it calls a prompt a tag list,
 counts `1girl, "hi, there"` as two. The review also found NetaYume's
 system-prefix rule locating the instruction in `text.lower()`, whose offsets
 are not the text's: a leading "İ" lowers to two characters, and the Apply cut
-into the tags. The rule now searches the text itself, case-insensitively, and
-tidies only the cut's seam - one space, and one comma where there was one on
-either side - instead of collapsing every run of whitespace in the prompt.
+into the tags. The rule now searches the same-length `ctx.bare`, with
+lettering blanked, case-insensitively. A sign that explicitly says
+`"<Prompt Start>"`, or quotes the system instruction itself, therefore keeps
+its inscription; a real duplicate after it is still found. Apply tidies only
+the cut's seam - one space, and one comma where there was one on either side -
+instead of collapsing every run of whitespace in the prompt.
 
 **The order is shown as checked only where it was.** Only a tag
 checkpoint's order has slots a comma item can take (`_OrderSpec`); FLUX.1's
@@ -3237,9 +3261,15 @@ a pure reorder - the same whole tags, clauses, sentences or XML blocks (for
 JSON, the same values written back with the keys sorted, each number as the
 text writes it (`_json_forms`), with no key repeated, in another key
 order), every quoted span unchanged, typed marks folded
-(`is_reorder`). Here "quoted" is `prompt_rules.QUOTED`, the one pattern the
-rules, the encoder layer and the critic share (the critic's own narrower
-copy let a «…» or „…“ quotation split across two pieces), whose
+(`is_reorder`). The movable pieces also protect every `rendered_targets`
+span, including unquoted lettering such as `《你好, 世界》`; this protection
+applies before either tag-order validation or the unchecked prose path.
+Initials and common abbreviation periods stay inside their piece, so
+`Mr. Green` cannot trade names with `Ms. Blue`, and `J. M. W. Turner`
+cannot become `J. W. M. Turner`. An ambiguous abbreviation at a sentence end
+conservatively prevents that split. Here "quoted" is `prompt_rules.QUOTED`,
+the one pattern the rules, the encoder layer and the critic share (the
+critic's own narrower copy let a «…» or „…“ quotation split across two pieces), whose
 single-quote pair may touch Han, kana and Hangul but no other letter or
 digit: Chinese writes 写着'营业中'的 with no space, and ERNIE's own
 rewriter asks for single quotes. Until the 2026-09-28 review the pattern
@@ -3276,13 +3306,13 @@ version stands where the order rule, run again on it with the same
 categories (`prompt_rules.order_finding`), flags nothing, and is set aside
 in the rule's own words where it flags something. It must also keep the
 items the order rule reads whole (`prompt_rules.order_items`) and be text
-the rule reads at all: the critic's pieces break at "、", ";" and line
-breaks too, and at a comma inside lettering that no quotation mark holds,
-so four tags joined by "、" are one item to the rule, which no order can be
-wrong about, and "《你好, 世界》" is one item of lettering, whose halves the
-rule would place apart. The first fix of the 2026-09-28 review put this
-exception on the page: Compare offered the critic's reordering where the
-lookup was partial (`categories_detail`), while the server still dropped
+the rule reads at all: outside protected lettering, the critic's pieces
+break at "、", ";" and line breaks too, so four tags joined by "、" are one
+item to the rule, which no order can be wrong about. Lettering such as
+"《你好, 世界》" is now protected directly during piece splitting, including
+on prose checkpoints whose order the rules do not check. The first fix of
+the 2026-09-28 review put this exception on the page: Compare offered the
+critic's reordering where the lookup was partial (`categories_detail`), while the server still dropped
 every such reorder, so the page's branch was reachable only by injection.
 The follow-up moved the one rule to the server, first keyed on
 `categories_detail`; its review found that key wrong - 64 tags the index
@@ -3398,9 +3428,11 @@ used, and the comparison exists.
 variants are one `POST /api/grid` with every other axis empty, the panel's
 seed (or a drawn one, written back as grids do), `num_images` 1 and 4 seeds
 by default, 8 offered; the preview gives the count and the estimate before
-anything runs, and the page opens the run as the sheet when its stream says
-done (`showRun(run, { fresh: true })`). If Favorites is ticked, it comes off
-first and the sheet's note says so: nothing in a new run is starred yet, so
+anything runs, and the page opens that submission as the sheet when its
+stream says done (`showJob(jobId, { fresh: true })`). A run can contain the
+same prompts with original and yours swapped; `job:<id>` keeps each row's
+meaning fixed. If Favorites is ticked, it comes off first and the sheet's
+note says so: nothing in the new comparison is starred yet, so
 under the tick the sheet opened empty. The tick is removed rather than
 bypassed because the gallery's filters are the sheet's, and Re-render sends
 the tick with the search - a sheet of unstarred images under it would
@@ -3426,8 +3458,8 @@ another, and on FLUX prose the critic's `reordered` rarely survived its check
 (above). Scoring the images automatically (a VLM asked whether each element
 appears) was left for later: nothing about its accuracy on these checkpoints
 has been measured, and published judges are weakest exactly on text rendering
-and style. Stars (`stats --by variant`) and the run's `distinct` count are the
-signals that exist.
+and style. Stars (`stats --job <id> --by variant`) and the run's `distinct`
+count are the signals that exist.
 
 **The page.** Check sits in the Prompt caption after Tags and before Expand
 and sends what Generate would (`collect()`); its panel moves with the chips
@@ -3438,14 +3470,20 @@ focused element and its selection put back by hand. The 2026-09-28 review
 found the move re-appending the subtree, which blurred whoever was typing in
 Your version or sitting on a chip when the window crossed 901 px, and the
 next keystroke went to `<body>`. The panel describes one text - the prompt
-and the negative prompt as `collect()` sent them, a greyed negative counting
-as none - because every offset in the answer counts from that text and every
-Use and Apply is a whole replacement worked out from it. Any change to
-either box marks it stale: typing, each programmatic write through the one
+and the negative prompt as `collect()` sent them, plus whether the panel's
+CFG or True CFG applies that negative - because every offset in the answer
+counts from that text and every Use and Apply is a whole replacement worked
+out from it. Any change to either box marks it stale: typing, each
+programmatic write through the one
 `promptReplaced()` hook (an example, Reuse, Reset, a chip, an accepted
-suggestion), `syncCfg()` greying or waking the negative. So does adding or
-removing a reference image (`setReferences`, or Reuse through its
-`syncCfg()`): the check read those too, since klein's `guide.references`
+suggestion), `syncCfg()` greying or waking the negative, or changing its
+effective activation while an open grid keeps the editor enabled for other
+CFG values. The raw text and effective negative are captured before either
+Check or the critic awaits a reply; later settings cannot relabel that answer.
+Raw edits still invalidate a check when the enabled negative is inactive,
+since some rules read what was typed and Apply must preserve edits. Adding or
+removing a reference image also marks it stale (`setReferences`, or Reuse
+through its `syncCfg()`): the check read those too, since klein's `guide.references`
 counts them. Stale results stay visible, dimmed, with "Check again" and a
 badge - "references changed since" where only the references moved, else
 "prompt changed since", written only when its words change, not on every

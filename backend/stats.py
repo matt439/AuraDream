@@ -5,7 +5,7 @@
     uv run python -m backend.stats --job ab12cd        # one submission
     uv run python -m backend.stats --where "model:turbo steps:>=8"
     uv run python -m backend.stats --all --by steps,cfg --min 10
-    uv run python -m backend.stats --run ab12cd --by variant --min 4   # a comparison, per version
+    uv run python -m backend.stats --job ab12cd --by variant --min 4   # a comparison, per version
 
 The favourite flag was queryable one value at a time and aggregated nowhere,
 so "which CFG did I keep" was a scroll through the gallery. The naive count

@@ -419,7 +419,7 @@ uv run python -m backend.stats                    # the newest run
 uv run python -m backend.stats --run ab12cd       # one grid, however many jobs
 uv run python -m backend.stats --by steps,cfg,prompt --min 3
 uv run python -m backend.stats --all              # the whole gallery, indicative
-uv run python -m backend.stats --run ab12cd --by variant --min 4   # a comparison, per version
+uv run python -m backend.stats --job ab12cd --by variant --min 4   # a comparison, per version
 ```
 
 The starred *rate* per setting - made, starred, percent - rather than the
@@ -431,7 +431,10 @@ images than `--min` (5) are left out, so a lucky 1-of-1 does not lead. The
 column says *starred*, not *kept*: nothing records a rejection, so an
 untouched night reads 0%, not unknown. Rows rank by rate, then by count; a
 tie keeps the order the settings were first made in. A prompt is folded onto
-one line in the table and cut to 40 characters.
+one line in the table and cut to 40 characters. Use `--job` for a comparison:
+the same prompts and seeds can share a run even after their version labels
+are swapped. If a label means different prompts within the same variable
+assignment, `--by variant` asks for a narrower job or `--by variant,prompt`.
 
 ## Tests
 
@@ -986,7 +989,8 @@ that not every tag was checked for an artist name). The panel it opens has:
   the recommended suffix or negative prompt - and Ctrl+Z undoes it. Unquoted
   sign text is quoted whole ("Fish and Chips", "Welcome to Paradise"); where
   its end is a guess ("says fish and chips for sale", Chinese lettering that
-  runs into 的, past twelve characters or through a mark such as 9:00,
+  runs into 的 or past twelve characters, English `MADE IN JAPAN`, or
+  lettering continuing through punctuation in `9:00`, `$9.99` or a URL,
   lowercase words after "reading" or "saying"), or where the words may
   describe the lettering rather than be it (after "with the words" or "the
   text", anything not in capitals: "Happy Birthday", "set in bold type"),
@@ -998,7 +1002,9 @@ that not every tag was checked for an artist name). The panel it opens has:
   (请站在黄线外, 禁止停放在此). A negative prompt's Apply is dead, and says
   why, while the negative box is greyed at the current CFG.
 
-Editing either prompt, or changing the reference images, dims the panel
+Editing either prompt, changing whether CFG or True CFG applies the negative
+prompt (even when an open grid keeps its editor enabled), or changing the
+reference images dims the panel
 ("prompt changed since", or "references changed since") and disables its
 buttons until **Check again**. A checkpoint change clears it.
 
@@ -1103,9 +1109,9 @@ Check has no reordering and the critic's rarely survives its check, so
 there the order is tested by writing it under Your version. Pick 4 or 8
 seeds and **Run comparison** queues one grid - one image per version per
 seed, the panel's other settings, the Seed box's seed or a drawn one - then
-opens its sheet with one row per version, original first, unticking
-Favorites if it was on, since nothing in a new run is starred yet (the
-sheet's note says so). The line above the button gives the image count and
+opens that submission's sheet with one row per version, original first,
+unticking Favorites if it was on: nothing in the new comparison is starred
+yet, and the sheet's note says so. The line above the button gives the image count and
 time estimate first. 4 seeds is a first look: the seeds are shared, so the
 rows are pairs, and even a change on all four could be chance
 (p = 0.125); 8 can tell a change on every seed from chance. The prompt box
@@ -1113,11 +1119,14 @@ and the grid's variables are left as they were. Star what worked, and the
 starred rate per version is
 
 ```powershell
-uv run python -m backend.stats --run <id> --by variant --min 4   # <id>: the sheet's run: term
+uv run python -m backend.stats --job <id> --by variant --min 4   # <id>: the sheet's job: term
 ```
 
 One row per version, by its label: `--by prompt` would cut each prompt short,
-where versions that open with the same words read the same.
+where versions that open with the same words read the same. Reopening the
+whole run can include earlier comparisons with the labels swapped; if a
+label then means different prompts, the sheet keeps Prompt as an axis so
+those images can be inspected separately.
 
 ## Defaults by checkpoint
 

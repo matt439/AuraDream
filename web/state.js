@@ -136,11 +136,11 @@ let statusPending = false;
 let currentJob = null;
 let queuedIds = [];
 let submitting = false;
-// Jobs whose run opens as a sheet when their stream reports done, by job id:
+// Jobs that open as a sheet when their stream reports done, by job id:
 // the prompt check's comparison, which is a question the sheet answers. Kept
 // here rather than on the stream, since the job may queue behind another and
 // be picked up by watchNext long after its submission returned.
-const runsToShow = new Map();
+const jobsToShow = new Set();
 // ERNIE's optional rewriter is an editor action, not part of image generation.
 // Its first use may load a separate 7.7 GB component, so the button owns its
 // own busy state and never lets a late response overwrite text edited meanwhile.

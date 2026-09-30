@@ -1211,17 +1211,19 @@ class _Target(NamedTuple):
     start: int
     end: int
     # False where the text's extent is a guess - the words run on past a
-    # joining word or the word limit, a Chinese target stops at 的, at 等
+    # joining word, a capitalised stop word, punctuation or the word limit,
+    # a Chinese target stops at 的, at 等
     # before 字样, at a verb placing the sign (挂在), at its length cap or
     # inside Latin lettering, lowercase words follow a participle, or words
     # not in capitals follow a noun trigger ("with the words set in bold
     # type"): the finding then offers no one-click quote, which would letter
     # half a name or a description.
     exact: bool
-    # False where the lettering may run on past `end` - a joining word, the
-    # word or length cap, Latin lettering going on past a space or a mark, a
-    # negation that stopped a participle's lowercase words ("reading love
-    # without limits", a stop `rendered_targets` reads on through) - so a
+    # False where the lettering may run on past `end` - a joining word, a
+    # capitalised stop word, the word or length cap, lettering going on past
+    # a space or a mark, or a negation that stopped a participle's lowercase
+    # words ("reading love without limits", which `rendered_targets` reads
+    # on through) - so a
     # reader may take it further. True where what follows is
     # read as description, even where `exact` is not: at 的, 等 or 挂在 the
     # guess is whether it is the lettering's own (写着我的家), and after a
@@ -1268,6 +1270,23 @@ def _in_capitals(words: list[re.Match[str]]) -> bool:
         or (i > 0 and word.group(1).lower() in _TARGET_JOIN)
         for i, word in enumerate(words)
     )
+
+
+def _punctuation_continues(text: str, end: int) -> bool:
+    """A mark inside lettering, rather than a certain end to quote at.
+
+    Times, prices and addresses run straight through marks (9:00, $9.99,
+    www.shop.com). A comma, colon or semicolon followed by another capital
+    or number may continue the words too (HELLO, WORLD). A full stop before
+    a spaced sentence still ends them (OPEN. A cat sleeps).
+    """
+    mark = text[end:end + 1]
+    if not mark or mark not in ",.;:!?":
+        return False
+    if text[end + 1:end + 2].isalnum():
+        return True
+    after = _TARGET_WORD.match(text, end + 1)
+    return mark in ",;:" and after is not None and _capitalised(after.group(1))
 
 
 def _cjk_stop(text: str, start: int, end: int) -> re.Match[str] | None:
@@ -1320,6 +1339,7 @@ def _unquoted_targets(
         cursor = position
         exact = True
         negated = False
+        continued = False
         head: int | None = None
         while True:
             word = _TARGET_WORD.match(text, cursor)
@@ -1327,6 +1347,10 @@ def _unquoted_targets(
                 break
             token = word.group(1).lower()
             if (words and token in _TARGET_STOP) or (not words and token in _NOT_TEXT):
+                # "MADE IN JAPAN" may continue through a place word. Keep
+                # the finding, but never quote just "MADE" in one click.
+                continued = bool(words and _capitalised(word.group(1)))
+                exact = not continued
                 break
             if not words and _describes(text, word, match.group("noun") is not None):
                 break
@@ -1363,6 +1387,8 @@ def _unquoted_targets(
             words.append(word)
             cursor = word.end()
             if cursor < len(text) and text[cursor] not in " \t":
+                continued = _punctuation_continues(text, cursor)
+                exact = not continued
                 break
         # A joining word never ends the text: "says Fish and" is not a name.
         while words and words[-1].group(1).lower() in _TARGET_JOIN:
@@ -1377,7 +1403,7 @@ def _unquoted_targets(
         # limits"); read without that stop, the words end where they would
         # have ended anyway, and what follows is description.
         if participle and not _capitalised(words[0].group(1)):
-            exact, ends = False, not negated
+            exact, ends = False, not (negated or continued)
         # After a noun trigger, words not in capitals may describe the text
         # rather than be it - "with the words set in bold type", "the text
         # lit up at night" - so only capitals are sure to be the lettering.
@@ -1426,9 +1452,9 @@ def rendered_targets(text: str) -> list[tuple[int, int, bool, int]]:
     order: its quoted stretches, marks included, and the words a rule reads
     as unquoted text to render. `ends` is False only where the rules stopped
     at a guess and the lettering may run on past `end` (`_Target.ends`: a
-    joining word, the word or length cap, Latin lettering going on past a
-    space or a mark); where it is True, whatever follows is the prompt's
-    description.
+    joining or capitalised stop word, the word or length cap, lettering going
+    on past a space or a mark); where it is True, whatever follows is the
+    prompt's description.
 
     A participle's lowercase words run on here through a negation the rules
     stop them at, to where they would stop without it: "a banner reading
@@ -1525,11 +1551,14 @@ def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
     if entry is None:
         return
     text = ctx.text
-    spans = [match.span() for match in _PROMPT_START.finditer(text)]
+    # Lettering is the image description the user asked for, even where it
+    # spells a marker or the whole instruction. Search the same-length bare
+    # text so a quoted occurrence neither gets cut nor hides a later prefix.
+    spans = [match.span() for match in _PROMPT_START.finditer(ctx.bare)]
     # The loader's own instruction, not a copy: what it sends is what doubles.
     # Found in the text itself, not in text.lower(), whose offsets are not the
     # text's ("İ" lowers to two characters).
-    at = re.search(re.escape(NETAYUME_SYSTEM_PROMPT), text, re.IGNORECASE)
+    at = re.search(re.escape(NETAYUME_SYSTEM_PROMPT), ctx.bare, re.IGNORECASE)
     if at:
         spans.append(at.span())
     # Each cut's seam becomes one space, and a comma either side of it one

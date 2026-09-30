@@ -313,6 +313,91 @@ def test_a_variant_grid_resumes_on_its_prompts(client, fake):
     assert again.status_code == 409
 
 
+def test_reversing_a_comparison_can_be_read_by_submission(client, fake, store):
+    runs = []
+    for original, yours in (("a red fox", "a blue fox"), ("a blue fox", "a red fox")):
+        body = {
+            "prompt": original, "width": 256, "height": 256, "seed": 42, "seeds": 2,
+            "prompt_variants": [
+                {"label": "original", "prompt": original}, {"label": "yours", "prompt": yours},
+            ],
+        }
+        response = client.post("/api/grid", json=body)
+        assert response.status_code == 200, response.text
+        accepted = response.json()
+        records = stream_job(client, accepted["job_id"])[-1]["images"]
+        for record in records:
+            if record["prompt"] == "a red fox":
+                client.post(f"/api/images/{record['id']}/favorite?value=true")
+        runs.append((accepted["run_id"], accepted["job_id"], original))
+    # Same rendered cells, same resume/run identity; the submission owns its
+    # version labels. Reading that job keeps each sheet and rate meaningful.
+    assert runs[0][0] == runs[1][0]
+    for run, job, original in runs:
+        page = client.get("/api/gallery", params={"search": f"job:{job}"}).json()
+        assert page["total"] == 4
+        assert {r["prompt"] for r in page["items"] if r["variables"]["variant"] == "original"} == {original}
+        rows = store.keep_rates(f"job:{job}", by=["variant"])
+        assert len(rows) == 2 and all(r["made"] == 2 for r in rows)
+        assert rows[0]["variant"] == ("original" if original == "a red fox" else "yours")
+        assert [r["rate"] for r in rows] == [1.0, 0.0]
+
+
+def test_legacy_mixed_comparison_stats_require_an_unambiguous_scope(
+    client, fake, store, monkeypatch, capsys
+):
+    from backend import stats
+
+    monkeypatch.setattr(stats, "settings", store.settings)
+    jobs = []
+    for prompts in (("a red fox", "a blue fox"), ("a blue fox", "a red fox")):
+        job, events = run_grid(client, seed=42, seeds=2, prompt_variants=[
+            {"label": label, "prompt": prompt}
+            for label, prompt in zip(("original", "yours"), prompts)
+        ])
+        jobs.append(job)
+        for record in events[-1]["images"]:
+            if record["prompt"] == "a red fox":
+                client.post(f"/api/images/{record['id']}/favorite?value=true")
+    # Simulate the rows an older build wrote, without touching any real gallery.
+    with store._session() as conn:
+        conn.execute("UPDATE images SET run_id = 'legacy-comparison'")
+    assert stats.main(["--run", "legacy-comparison", "--by", "variant", "--min", "1"]) == 2
+    output = capsys.readouterr()
+    assert "more than one prompt" in output.err and not output.out
+    assert "--by variant,prompt" in output.err and "--job" in output.err
+    assert stats.main(["--run", "legacy-comparison", "--by", "variant,prompt", "--min", "1"]) == 0
+    output = capsys.readouterr().out
+    assert output.count("100%") == 2 and output.count("a red fox") == 2
+    assert output.count("a blue fox") == 2
+    assert stats.main(["--job", jobs[0], "--by", "variant", "--min", "1"]) == 0
+    assert "100%" in capsys.readouterr().out
+
+
+def test_variant_stats_allow_other_variables_and_respect_grouping(client, fake, store):
+    # `variant` is also a legal ordinary variable. Pooling its colours is
+    # intentional; only two meanings of the complete assignment conflict.
+    jobs = []
+    for animal, seed, axis in (
+        ("cat", 42, "variant = small | large\ncolour = red | blue"),
+        ("dog", 43, "colour = red | blue\nvariant = small | large"),
+    ):
+        job, _ = run_grid(client, prompt=f"a {{variant}} {{colour}} {animal}",
+                          prompt_axis=axis, seed=seed)
+        jobs.append(job)
+        rows = store.keep_rates(f"job:{job}", by=["variant"])
+        assert {r["variant"] for r in rows} == {"small", "large"}
+        assert all(r["made"] == 2 for r in rows)
+    # Different JSON key order must not disguise the same assignment.
+    with pytest.raises(ValueError, match="same variable assignment"):
+        store.keep_rates(None, by=["variant"])
+    # An explicit grouping can already distinguish the two meanings.
+    rows = store.keep_rates(None, by=["variant", "seed"])
+    assert len(rows) == 4 and all(r["made"] == 2 for r in rows)
+    # Groups not emitted by the requested floor do not block the result.
+    assert store.keep_rates(None, by=["variant"], min_made=10) == []
+
+
 def test_the_stats_give_a_comparison_its_starred_rate_per_version(
     client, fake, store, monkeypatch, capsys
 ):

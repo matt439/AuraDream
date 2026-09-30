@@ -1851,6 +1851,16 @@ _QUOTE_TRIM = " \t\r\n\"'“”‘’„«»「」『』`.,;:!?"
 # punctuation counts as its English counterpart.
 _TAG_BREAK = re.compile(r"[,，、\n]")
 _PROSE_BREAK = re.compile(r"[,;，、；\n]|[.!?](?=\s|$)|[。！？]")
+# A full stop after an initial or an abbreviation may belong to a name,
+# not end its sentence. Keep it inside the piece: otherwise "Mr. Green"
+# and "Ms. Blue" can trade their names while passing as a pure reorder.
+# An ambiguous stop ("Main St. A car passes") stays inside too: declining
+# that sentence reorder is safer than offering a changed subject as order.
+_ABBREVIATION = re.compile(
+    r"(?i)\b(?:[^\W\d_]|Mr|Mrs|Ms|Mx|Dr|Prof|Rev|Fr|St|Mt|Sr|Jr|"
+    r"Gen|Col|Lt|Sgt|Capt|Cmdr|Adm|Sen|Rep|Gov|Pres|Hon|Esq|"
+    r"Inc|Ltd|Co|Corp|Dept|No|vs|etc)\.$"
+)
 _PIECE_TRIM = " \t\r\n.,;:!?。，、；：！？"
 # NewBie's top-level blocks, <character_1>...</character_1> and <general_tags>.
 _XML_BLOCK = re.compile(r"<([A-Za-z_][\w.-]*)>.*?</\1>", re.DOTALL)
@@ -1880,8 +1890,9 @@ def _piece_spans(text: str, style: str) -> list[tuple[int, int, str]]:
 
     A piece is a tag, a clause or sentence, an XML block - moved whole or not
     at all - so no attribute changes owner: in "a red dress and a blue hat"
-    the colours stay where they are, which a count of words cannot see. Quoted
-    text never splits, whatever punctuation it holds. Case, runs of whitespace,
+    the colours stay where they are, which a count of words cannot see. Text
+    to render never splits, whatever punctuation it holds, nor does a name
+    split at its initials or an abbreviation. Case, runs of whitespace,
     how apostrophes, quotation marks and dashes are typed (`_FOLD`) and the
     punctuation at a piece's ends are not part of its form; the span leaves
     the ends out too, so what lies between two pieces - a break and its
@@ -1893,12 +1904,16 @@ def _piece_spans(text: str, style: str) -> list[tuple[int, int, str]]:
     masked = text
     for start, end in blocks:
         masked = masked[:start] + "\n" * (end - start) + masked[end:]
-    held = blocks + [match.span() for match in QUOTED.finditer(masked)]
+    held = blocks + [(start, end) for start, end, _, _ in rendered_targets(masked)]
     breaks = _TAG_BREAK if style in ("tags", "xml") else _PROSE_BREAK
     cuts = [
         match.span()
         for match in breaks.finditer(masked)
         if not any(start <= match.start() < end for start, end in held)
+        and not (
+            style not in ("tags", "xml") and match.group() == "."
+            and _ABBREVIATION.search(masked, 0, match.end())
+        )
     ]
     # A block is a piece by itself: cut at both its edges.
     cuts = sorted(cuts + [(edge, edge) for block in blocks for edge in block])
@@ -2890,14 +2905,12 @@ def validate(
             )
         elif _order_items(moved) != _order_items(prompt):
             # The pieces a reorder moves are the critic's reading, and the
-            # order rule reads its own items: "、", ";" and line breaks part
-            # the critic's pieces but not the rule's comma items, and a comma
-            # inside lettering no quotation mark holds ("《你好, 世界》") parts
-            # the pieces but not the rule's one item of lettering. Set apart
-            # otherwise, the same pieces are other items to the rule (two
-            # joined by "、" are one, which no order can be wrong about; a
-            # title's halves are two it places apart), and its answer would
-            # be about a list the prompt is not.
+            # order rule reads its own items: outside lettering, "、", ";"
+            # and line breaks part the critic's pieces but not the rule's
+            # comma items. Set apart otherwise, the same pieces are other
+            # items to the rule (two joined by "、" are one, which no order
+            # can be wrong about), and its answer would be about a list the
+            # prompt is not.
             # Tags only where the prompt is tags: a prose prompt's comma
             # items are clauses (`order_detail` names them so), a hybrid's
             # are both.

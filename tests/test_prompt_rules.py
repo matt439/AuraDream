@@ -552,6 +552,54 @@ def test_lettering_whose_end_is_a_guess_gets_no_one_click_quote():
 
 
 @pytest.mark.parametrize(
+    "prompt, target",
+    [
+        ("A sign says MADE IN JAPAN.", "MADE"),
+        ("A sign says Made In Japan.", "Made"),
+        ("A sign reading OPEN AT NOON.", "OPEN"),
+        ("A poster with the words LOVE IS IN THE AIR.", "LOVE IS"),
+        ("A sign says 9:00.", "9"),
+        ("A price tag says $9.99.", "$9"),
+        ("A poster says www.example.com.", "www"),
+        ("A poster reading www.example.com.", "www"),
+        ("A sign says HELLO, WORLD!", "HELLO"),
+        ("A sign says OPEN: 9 AM.", "OPEN"),
+    ],
+)
+def test_english_lettering_continuing_past_a_stop_gets_no_one_click_quote(prompt, target):
+    # A place word in capitals can belong to the inscription; marks can
+    # belong to a time, price, address or list. Quoting the opening alone
+    # silently changes what the image is asked to letter.
+    [finding] = only(run(KREA_DEV, prompt), "guide.quote_text")
+    assert spanned(prompt, finding) == target and finding.suggestion is None
+    assert "Put the exact words to render in quotation marks." in finding.message
+    start = prompt.index(target)
+    end = start + len(target)
+    assert prompt_rules.rendered_targets(prompt) == [(start, end, False, end)]
+
+
+@pytest.mark.parametrize(
+    "prompt, target",
+    [
+        ("A sign says OPEN.", "OPEN"),
+        ("A sign says OPEN. A cat sleeps.", "OPEN"),
+        ("A sign says OPEN! A cat sleeps.", "OPEN"),
+        ("A sign says OPEN, a cat sleeps nearby.", "OPEN"),
+        ("A sign says OPEN in red letters.", "OPEN"),
+        ("A sign says open above the door.", "open"),
+        ("A price tag says $9.", "$9"),
+    ],
+)
+def test_english_lettering_with_a_certain_end_keeps_its_one_click_quote(prompt, target):
+    [finding] = only(run(KREA_DEV, prompt), "guide.quote_text")
+    start = prompt.index(target)
+    end = start + len(target)
+    assert finding.suggestion == f'{prompt[:start]}"{target}"{prompt[end:]}'
+    assert prompt_rules.rendered_targets(prompt) == [(start, end, True, end)]
+    assert only(run(KREA_DEV, finding.suggestion), "guide.quote_text") == []
+
+
+@pytest.mark.parametrize(
     "model_id, prompt, target, ends",
     [
         # 的 links the lettering to what it is on: a wooden sign reading
@@ -998,6 +1046,29 @@ def test_netayume_system_prefix_is_found_in_the_text_itself():
     ):
         [finding] = only(run(NETAYUME, prompt), "guide.system_prefix")
         assert finding.suggestion == suggestion
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        'A sign reading "<Prompt Start>".',
+        f'A poster saying "{SYSTEM_PROMPT}".',
+        "A sign reading '<Prompt Start>'.",
+        "A sign says <Prompt Start>.",
+    ],
+)
+def test_netayume_system_prefix_inside_lettering_is_left_alone(prompt):
+    assert only(run(NETAYUME, prompt), "guide.system_prefix") == []
+
+
+def test_netayume_quoted_prefix_does_not_hide_an_actual_duplicate():
+    lettering = f'A poster says "{SYSTEM_PROMPT}" and a card reads "<Prompt Start>".'
+    prompt = f"{lettering} {SYSTEM_PROMPT} <Prompt Start> 1girl"
+    findings = only(run(NETAYUME, prompt), "guide.system_prefix")
+    assert [spanned(prompt, finding) for finding in findings] == [SYSTEM_PROMPT, "<Prompt Start>"]
+    assert all(finding.start >= len(lettering) for finding in findings)
+    assert all(finding.suggestion == f"{lettering} 1girl" for finding in findings)
+    assert only(run(NETAYUME, findings[0].suggestion), "guide.system_prefix") == []
 
 
 def test_newbie_xml():

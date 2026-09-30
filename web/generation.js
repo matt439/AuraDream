@@ -113,7 +113,7 @@ function setStep(show, fraction = 0, text = '') {
 }
 
 // Both buttons queue one job and then watch the same stream; only the endpoint
-// and the payload differ. `showSheet` opens the job's run as a sheet once its
+// and the payload differ. `showSheet` opens the job as a sheet once its
 // stream reports done - the prompt check's comparison, whose answer is the
 // sheet rather than the strip.
 async function startJob(path, payload, showSheet = false) {
@@ -136,13 +136,13 @@ async function startJob(path, payload, showSheet = false) {
   }
 
   try {
-    const { job_id, seed, run_id } = await api(path, {
+    const { job_id, seed } = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     setSubmitting(false);
-    if (showSheet && run_id) runsToShow.set(job_id, run_id);
+    if (showSheet) jobsToShow.add(job_id);
     // A grid started from a blank Seed box drew its own base, and every image
     // it produces carries a *derived* seed - so the base is written back here,
     // where Resume will need it. Only for a grid: a plain Generate left blank is
@@ -467,13 +467,11 @@ function streamJob(jobId) {
           // says so, rather than dropping the rest of the night.
           showError(data.error);
         }
-        // A comparison opens its own run as the sheet - one row per version
-        // of the prompt - which searches for it, with Favorites off, and
-        // refetches the gallery; anything else only refreshes what the
-        // gallery was showing.
-        const run = runsToShow.get(jobId);
-        runsToShow.delete(jobId);
-        if (run && data.images.length) { showRun(run, { fresh: true }); loadRuns(); }
+        // A comparison opens this submission alone. Run ids name rendered
+        // cells, so reversing original/yours on the same seeds shares a run
+        // but must not mix the two meanings of either version label.
+        const showSheet = jobsToShow.delete(jobId);
+        if (showSheet && data.images.length) { showJob(jobId, { fresh: true }); loadRuns(); }
         else if (data.images.length) { resetGallery(); loadRuns(); }
         resolve();
         watchNext();

@@ -923,6 +923,29 @@ def keep_rates(
                 ORDER BY CAST(starred AS REAL) / made DESC, made DESC, MIN(id)""",
             (*params, min_made),
         ).fetchall()
+        if VARIANT in columns and "prompt" not in columns and rows:
+            # A run can join comparisons with swapped original/yours labels.
+            # Check complete assignments within each emitted stats group:
+            # variant x colour is an ordinary grid and may aggregate colours,
+            # and grouping by steps/seed can already separate the versions.
+            emitted = {tuple(row[name] for name in columns) for row in rows}
+            prompts = {}
+            for row in conn.execute(
+                f"SELECT {select}, variables, prompt FROM images {clause} "
+                f"GROUP BY {group}, variables, prompt", params
+            ):
+                grouped = tuple(row[name] for name in columns)
+                if grouped not in emitted or row[VARIANT] is None:
+                    continue
+                assignment = json.dumps(json.loads(row["variables"]), sort_keys=True)
+                key = (grouped, assignment)
+                if key in prompts and prompts[key] != row["prompt"]:
+                    raise ValueError(
+                        "a variant label refers to more than one prompt for the same "
+                        "variable assignment in this scope; use --by variant,prompt "
+                        "or narrow the scope with --job"
+                    )
+                prompts[key] = row["prompt"]
     return [
         {**{name: row[name] for name in columns}, "made": row["made"], "starred": row["starred"],
          "rate": row["starred"] / row["made"]}

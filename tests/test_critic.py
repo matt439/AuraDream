@@ -2298,6 +2298,70 @@ def test_a_reorder_moves_whole_phrases_and_keeps_rendered_text():
     assert critic.QUOTED is prompt_rules.QUOTED is prompt_encoding.QUOTED
 
 
+@pytest.mark.parametrize("prompt, changed, moved", [
+    (
+        "Mr. Green in a red coat. Ms. Blue in a blue coat.",
+        "Mr. Blue in a blue coat. Ms. Green in a red coat.",
+        "Ms. Blue in a blue coat. Mr. Green in a red coat.",
+    ),
+    (
+        "A painting by J. M. W. Turner, a stormy sea",
+        "A painting by J. W. M. Turner, a stormy sea",
+        "a stormy sea, A painting by J. M. W. Turner",
+    ),
+    (
+        "A St. Bernard sitting, a Mt. Fuji painting",
+        "A St. Fuji painting, a Mt. Bernard sitting",
+        "a Mt. Fuji painting, A St. Bernard sitting",
+    ),
+    (
+        "A portrait of Prof. Green, a sketch of Dr. Blue",
+        "A portrait of Prof. Blue, a sketch of Dr. Green",
+        "a sketch of Dr. Blue, A portrait of Prof. Green",
+    ),
+    (
+        "招牌写着《你好, 世界》, a woman walking, cinematic lighting",
+        "a woman walking, 世界》, 招牌写着《你好, cinematic lighting",
+        "a woman walking, 招牌写着《你好, 世界》, cinematic lighting",
+    ),
+    (
+        "The shop has a sign 招牌写着《你好, 世界》. A woman walks past.",
+        "A woman walks past. 世界》. The shop has a sign 招牌写着《你好.",
+        "A woman walks past. The shop has a sign 招牌写着《你好, 世界》.",
+    ),
+])
+def test_prose_reorders_keep_names_and_unquoted_lettering_whole(prompt, changed, moved):
+    # Actual prose/hybrid placement: unlike a tag checkpoint, klein has no
+    # deterministic reorder to reject a permutation that splits a name or
+    # lettering. The critic's pieces must protect them before that decision.
+    request = GenerateRequest(prompt=prompt)
+    analysis = PromptAnalysis(
+        model_id=KLEIN, style=prompt_rules.detect_style(prompt),
+        words=prompt_rules.word_count(prompt),
+        order=prompt_rules.documented_order(KLEIN),
+        order_checked=prompt_rules.order_checked(KLEIN, prompt),
+        reordered=prompt_rules.reorder_tags(KLEIN, prompt, None),
+    )
+    assert analysis.style in ("prose", "hybrid") and not analysis.order_checked
+    context = critic.build_context(KLEIN, request, request, analysis)
+
+    def validate(candidate):
+        return critic.validate(
+            _answer(parts={}, issues=[], rewrite=None, reordered=candidate),
+            context, prompt, model="test", seconds=0,
+        )
+
+    rejected = validate(changed)
+    assert rejected.reordered is None and rejected.reordered_kind is None
+    assert rejected.set_aside == [
+        "The critic's reordered version was left out: it changed words, not only "
+        "their order; a reordering of your own can go under Compare."
+    ]
+    kept = validate(moved)
+    assert kept.reordered == moved and kept.reordered_kind == "unchecked"
+    assert kept.set_aside == []
+
+
 def test_a_reorder_of_xml_moves_blocks_and_of_json_moves_keys():
     xml = guides.NEWBIE_GUIDE["examples"][0]
     first = xml[: xml.index("</character_1>") + len("</character_1>")]
@@ -3413,10 +3477,10 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
     kept = critique(swapped, categories={}, detail=None)
     assert (kept.reordered, kept.reordered_kind, kept.set_aside) == (swapped, "allowed", [])
     # Lettering with a comma no quotation mark holds is one item to the
-    # rules: a reorder moving the title whole stands, one parting it at the
-    # comma - the critic's own pieces do - is other items to them. The sign
-    # is a clause beside the tags, so the prompt reads as hybrid, and the
-    # note names both.
+    # rules and the critic alike: a reorder moving the title whole stands,
+    # one parting it at the comma fails the critic's pieces before the
+    # deterministic order check. The sign is a clause beside the tags, so
+    # the prompt reads as hybrid.
     title = "1girl, 招牌写着《你好, 世界》, green hair, masterpiece"
     assert prompt_rules.detect_style(title) == "hybrid"
     whole = "1girl, green hair, 招牌写着《你好, 世界》, masterpiece"
@@ -3429,8 +3493,8 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
         other = critique(parted, prompt=title)
         assert other.reordered is None and other.reordered_kind is None, parted
         assert other.set_aside == [
-            "The critic's reordered version was left out: it does not keep the prompt's comma "
-            "items whole, so Check would read it as other tags and clauses."
+            "The critic's reordered version was left out: it changed words, not only "
+            "their order; a reordering of your own can go under Compare."
         ], parted
     # What the rule flags stays out, and the note says what it found.
     flagged = critique("masterpiece, 1girl, firefly, green hair")

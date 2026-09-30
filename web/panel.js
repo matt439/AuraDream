@@ -219,7 +219,7 @@ async function loadRuns() {
   els.runList.disabled = !runs.length;
 }
 
-// `fresh` is a run this page has just made, the comparison's: nothing in it is
+// `fresh` is a comparison this page has just made: nothing in it is
 // starred yet, so under the Favorites tick its sheet opened empty. The tick
 // comes off rather than being bypassed - the gallery's filters are the
 // sheet's, and Re-render sends the tick with the search, so a sheet of
@@ -227,12 +227,21 @@ async function loadRuns() {
 // sheet says so.
 function showRun(runId, { fresh = false } = {}) {
   if (!runId) return;
+  showSheetScope(`run:${runId}`, { fresh });
+}
+
+function showJob(jobId, { fresh = false } = {}) {
+  if (!jobId) return;
+  showSheetScope(`job:${jobId}`, { fresh });
+}
+
+function showSheetScope(search, { fresh = false } = {}) {
   const unticked = fresh && els.favOnly.checked;
   if (unticked) els.favOnly.checked = false;
-  els.search.value = `run:${runId}`;
+  els.search.value = search;
   setSheet(true);
   // setSheet has begun the query the notice belongs to; another one drops it.
-  if (unticked) sheetNotice = { epoch: galleryEpoch, text: 'Favorites unticked: nothing in a new run is starred yet' };
+  if (unticked) sheetNotice = { epoch: galleryEpoch, text: 'Favorites unticked: nothing in a new comparison is starred yet' };
 }
 
 function clearResults() {

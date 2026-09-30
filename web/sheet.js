@@ -53,7 +53,19 @@ function axesFor(records) {
       return value === undefined ? null : (value === '' ? 'none' : value);
     },
   }));
-  return [...variableAxes, ...flat.filter((a) => a.key !== 'prompt' && a.key !== 'negative')];
+  // Comparisons can share a run after original and yours are swapped.
+  // A mixed search can do the same. Keep Prompt as an axis wherever the same
+  // variable assignment names different text, instead of overwriting one of
+  // those images in the (variant, seed) cell. Ordinary grids stay unchanged.
+  const prompts = new Map();
+  const keys = [...names].sort();
+  const ambiguous = names.includes('variant') && records.some((rec) => {
+    const assignment = JSON.stringify(keys.map((name) => rec.variables?.[name] ?? null));
+    if (prompts.has(assignment)) return prompts.get(assignment) !== rec.prompt;
+    prompts.set(assignment, rec.prompt);
+    return false;
+  });
+  return [...variableAxes, ...flat.filter((a) => a.key !== 'negative' && (a.key !== 'prompt' || ambiguous))];
 }
 const axisByKey = (key) => sheetAxesList.find((a) => a.key === key);
 const axisValue = (axis, rec) => axis.of(rec) ?? null;
@@ -155,7 +167,12 @@ async function learnSheetOrder(epoch) {
   const runs = new Set(galleryRecords.map((r) => r.run_id));
   const [run] = runs;
   if (runs.size !== 1 || !run || !galleryRecords.some((r) => r.variables)) return;
-  const search = `run:${run}`;
+  // A comparison's submission may reverse an earlier comparison's labels
+  // within this run. Learn its order from that job, even under Favorites.
+  const job = galleryRecords[0]?.job_id;
+  const jobScope = job && galleryRecords.every((r) => r.job_id === job)
+    && els.search.value.trim().split(/\s+/).includes(`job:${job}`);
+  const search = jobScope ? `job:${job}` : `run:${run}`;
   if (!els.favOnly.checked && els.search.value.trim() === search) return;
   const params = new URLSearchParams({ limit: sheetPage, search });
   if (els.allModels.checked) params.set('all_models', 'true');
