@@ -107,6 +107,7 @@ els.analysisAgain.onclick = () => { void checkPrompt(); };
 els.analysisClose.onclick = closeAnalysis;
 els.criticAsk.onclick = askCritic;
 els.compareSeeds.onchange = () => scheduleComparePreview(0);
+els.compareBatch.onchange = () => scheduleComparePreview(0);
 els.compareRun.onclick = runComparison;
 els.compareOwn.addEventListener('input', compareOwnChanged);
 els.compareOwnFill.onclick = compareOwnFromPrompt;

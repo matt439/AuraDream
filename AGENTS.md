@@ -649,11 +649,14 @@ Frontend and CLI:
   converts them (`units()`) before selecting. Rewrites show character counts
   and an expandable exact diff against the checked source (`promptChanges`),
   using text nodes with additions/removals marked; no rewrite says so, with
-  the server's set-aside explanations. The comparison sends
-  `num_images: 1`, explicitly says Batch and Runs do not apply, and reads its
-  seed count from the Seeds select when it runs
-  (it and Your version are `autocomplete=off`), takes Check's `reordered` as
-  its Reordered row, else the critic's as the server kept it
+  the server's set-aside explanations. The comparison has its own Batch
+  select (1, 2 or 4; default 1) and Seeds (4 or 8 total per version):
+  `num_images` is its batch size and grid `seeds` is Seeds divided by Batch,
+  keeping the image count versions times Seeds. Its preview states the total
+  seeds per version and batch size. The main panel's Batch and Runs do not
+  apply; its Seed still does. Preview and Run read both comparison selects
+  directly (they and Your version are `autocomplete=off`). It takes Check's
+  `reordered` as its Reordered row, else the critic's as the server kept it
   (`critic.validate` decides; the page adds no rule of its own), never writes
   `els.prompt` or `els.gridPrompt`, drops a version identical to another,
   and opens its submission (`job:<id>`) as the sheet when done - Favorites
@@ -915,7 +918,11 @@ rewrite states.
 `smoke-comparison.json` uses the same FLUX-shaped fake on 7874 to run
 two comparisons with original and yours reversed on fixed seeds. Each
 opens its own job, while opening their shared run exposes Prompt as an
-axis. The analysis and Animagine smokes cover CFG/True CFG activation
+axis. `smoke-comparison-batch.json` uses the same fake for all six Seeds/Batch
+pairings, their preview and request counts, select values changed without
+events, paired output seeds, sheets and stale-run disabling. API tests cover
+paired saved seeds, batch grouping and preview counts for all six pairings.
+The analysis and Animagine smokes cover CFG/True CFG activation
 changes while a grid keeps the negative editor enabled, inactive raw
 edits, and settings changes while a check or critique is in flight.
 

@@ -20,5 +20,5 @@
   {"eval": "critiqueResult = { body: { ...critiqueResult.body, rewrite: null, set_aside: ['The rewrite is unchanged; it was left out.'] } }; renderCritic();"},
   {"expect": "els.criticResult.querySelector('.critic-change-summary').textContent === 'No rewrite offered.' && els.criticResult.textContent.includes('The rewrite is unchanged; it was left out.')"},
   {"eval": "critiqueResult = window.__rewriteAnswer; renderCritic(); renderCompare();"},
-  {"expect": "els.promptAnalysis.textContent.includes('Batch and Runs do not apply.') && [...els.compareSeeds.options].map((o) => o.value).join(',') === '4,8'"}
+  {"expect": "els.promptAnalysis.textContent.includes('The main Batch and Runs settings do not apply.') && [...els.compareSeeds.options].map((o) => o.value).join(',') === '4,8' && [...els.compareBatch.options].map((o) => o.value).join(',') === '1,2,4'"}
 ]

@@ -964,15 +964,17 @@ function syncCompareRun() {
 
 // The grid's own payload - the panel's settings and seed - with every axis
 // emptied: the versions are the one thing that varies, crossed with the
-// seeds. One image a cell, so the Seeds select is the whole count; the
-// panel's Batch would multiply it. The select is read, not a copy of it: a
-// browser restoring form state sets it without a change event. Nothing is
+// seeds. Seeds is the total per version; the comparison's own Batch groups
+// those seeds, so the grid's seed count is the number of batches. Every
+// offered batch (1, 2, 4) divides both totals (4, 8). Read both selects here:
+// a browser restoring form state sets them without a change event. Nothing is
 // written into the prompt box or the grid's variables, which are the user's
 // and remembered.
 function comparePayload(variants) {
+  const batch = +els.compareBatch.value;
   return {
     ...gridPayload(),
-    num_images: 1,
+    num_images: batch,
     prompt: analysisResult.source,
     prompt_axis: '',
     steps_axis: '',
@@ -980,7 +982,7 @@ function comparePayload(variants) {
     mu_axis: '',
     lora_scale_axis: '',
     seed_axis: '',
-    seeds: +els.compareSeeds.value,
+    seeds: +els.compareSeeds.value / batch,
     resume: false,
     budget_minutes: null,
     prompt_variants: variants.map(({ label, prompt }) => ({ label, prompt })),
@@ -1006,14 +1008,19 @@ async function previewComparison() {
     return;
   }
   try {
+    const payload = comparePayload(variants);
     const p = await api('/api/grid/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(comparePayload(variants)),
+      body: JSON.stringify(payload),
     });
     if (epoch !== comparePreviewEpoch) return;
     els.comparePreview.classList.toggle('warn', !!p.duplicates);
-    els.comparePreview.textContent = `${plural(p.images, 'image')} · ${p.summary}`
+    // The grid's summary counts batch starts as seeds; the comparison's
+    // Seeds select counts every image seed. Describe the request just sent,
+    // so changing a select while it runs cannot relabel an earlier reply.
+    els.comparePreview.textContent = `${plural(p.images, 'image')} · ${plural(variants.length, 'variant')}`
+      + ` × ${plural(payload.seeds * payload.num_images, 'seed')} · batch ${payload.num_images}`
       + (p.seconds ? ` · about ${humanTime(p.seconds)}` : '')
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another cell` : '');
   } catch (err) {

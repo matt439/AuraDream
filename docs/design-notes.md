@@ -3440,8 +3440,12 @@ used, and the comparison exists.
 
 **The comparison is a grid, and its statistics are the caveat.** The
 variants are one `POST /api/grid` with every other axis empty, the panel's
-seed (or a drawn one, written back as grids do), `num_images` 1 and 4 seeds
-by default, 8 offered; the preview gives the count and the estimate before
+seed (or a drawn one, written back as grids do), and 4 seeds per version
+by default, 8 offered. Its own Batch select offers 1 (default), 2 or 4:
+`num_images` is Batch and grid `seeds` is the chosen total divided by Batch.
+Each grid seed-axis step advances the base seed by Batch, so every version receives
+the same 4 or 8 seeds and the image count stays versions times that total.
+The preview gives the count, seeds per version, batch size and estimate before
 anything runs, and the page opens that submission as the sheet when its
 stream says done (`showJob(jobId, { fresh: true })`). A run can contain the
 same prompts with original and yours swapped; `job:<id>` keeps each row's
@@ -3450,7 +3454,7 @@ note says so: nothing in the new comparison is starred yet, so
 under the tick the sheet opened empty. The tick is removed rather than
 bypassed because the gallery's filters are the sheet's, and Re-render sends
 the tick with the search - a sheet of unstarred images under it would
-re-render none of them. For a 1 MP 28-step Krea [dev] image in fp8,
+re-render none of them. At Batch 1, for a 1 MP 28-step Krea [dev] image in fp8,
 `verified.md` records 41.6-42.6 s (2026-09-27), so three versions on four
 seeds take about 8.5 minutes. The 15.4 s once set beside it was an 8-step
 image, and the parent commit 7a9c651 rendered at the same ~42 s through the
@@ -3559,17 +3563,24 @@ page moves focus to the panel heading (tabindex=-1, its `scroll-margin-top`
 clearing the sticky topbar) if focus is still on the button, because the
 panel is about forty Tab stops away there; under 901 px it is three stops
 away and focus stays. Check again hides itself once its check lands, so it
-hands focus to the heading first. The comparison sends `num_images: 1` (the
-panel's Batch 4 had made "4 seeds" sixteen), and the page explicitly says
-Batch and Runs do not apply. It reads the Seeds select itself
-for its preview and its run (a browser restoring form state sets the select
+hands focus to the heading first. The comparison temporarily sent `num_images: 1`
+because inheriting the panel's Batch 4 had made "4 seeds" sixteen. It now
+uses its own Batch select and divides the grid seed count by that batch
+size, preserving the total seeds per version. The main panel's Batch and
+Runs still do not apply. It reads both comparison selects directly
+for its preview and its run (a browser restoring form state sets a select
 without a change event, and a copied variable had stayed at 4), never writes
 the prompt box or the grid's variables, which are the user's and persisted,
 and leaves out a version identical to another. Its Your version box is the
 user's too: kept across checks (a check of other text still compares against
 it), cleared with the rest of the panel, never persisted (autocomplete=off,
-as is Seeds, so no browser restores either). The Order section says "Not
-checked" under a documented order the rules did not read (`order_checked`),
+as are Seeds and comparison Batch, to discourage browser restoration).
+`smoke-comparison-batch.json` checks all six Seeds/Batch pairings, preview
+and request counts, select values changed without an event, and paired
+output seeds, sheets and stale-run disabling. API tests cover paired saved
+seeds, batch grouping and preview counts for all six pairings.
+The Order section says "Not checked" under a documented order the rules did
+not read (`order_checked`),
 and the summary "nothing flagged · order not checked" rather than "nothing
 to flag"; a prompt the rules placed only partly (`order_detail`: some tag
 or clause kept every slot where that decides the order - the lookup failed

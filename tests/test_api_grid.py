@@ -224,6 +224,48 @@ def test_prompt_variants_run_as_one_grid_on_shared_seeds(client, fake):
     assert any(label.startswith("variant=original,") for label in labels)
 
 
+@pytest.mark.parametrize("total_seeds", [4, 8])
+@pytest.mark.parametrize("batch", [1, 2, 4])
+def test_comparison_batches_preserve_the_total_shared_seeds(client, fake, total_seeds, batch):
+    # The comparison's seed count is images per version, while the grid's
+    # seed count is batches per version. Changing batch changes the grouping,
+    # never the compared seeds or the number of saved images.
+    base_seed = 21
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "prompt_variants": VARIANTS,
+        "seed": base_seed, "seeds": total_seeds // batch, "num_images": batch,
+    }
+    response = client.post("/api/grid/preview", json=body)
+    assert response.status_code == 200, response.text
+    preview = response.json()
+    assert (preview["cells"], preview["images"], preview["duplicates"]) == (
+        len(VARIANTS) * total_seeds // batch, len(VARIANTS) * total_seeds, 0,
+    )
+
+    job_id, events = run_grid(client, **body)
+    done = events[-1]
+    assert done["status"] == "done"
+    assert done["image_count"] == preview["images"]
+    assert [(seed, request.prompt, request.num_images)
+            for seed, request in zip(fake.seeds, fake.requests)] == [
+        (seed, prompt, batch)
+        for seed in range(base_seed, base_seed + total_seeds, batch)
+        for prompt in TEXTS
+    ]
+
+    # Read the persisted gallery too: each row of the comparison must contain
+    # the same complete seed sequence, with its version and prompt intact.
+    gallery = client.get(f"/api/gallery?search=job:{job_id}").json()
+    assert gallery["total"] == len(VARIANTS) * total_seeds
+    for variant in VARIANTS:
+        images = [record for record in gallery["items"]
+                  if record["variables"] == {"variant": variant["label"]}]
+        assert sorted(record["seed"] for record in images) == list(
+            range(base_seed, base_seed + total_seeds)
+        )
+        assert all(record["prompt"] == variant["prompt"] for record in images)
+
+
 def test_the_preview_shows_each_variant_under_its_label(client):
     body = {
         "prompt": "x", "width": 256, "height": 256, "prompt_variants": VARIANTS,

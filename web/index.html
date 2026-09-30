@@ -119,8 +119,8 @@
                   <button type="button" class="ghost tiny" id="compare-own-fill"
                           title="Put the checked prompt here, to move its words about">Start from the prompt</button>
                 </div>
-                <!-- autocomplete=off here and on Seeds: neither is persisted,
-                     and a browser restoring form state would bring them back. -->
+                <!-- These comparison fields are not persisted; autocomplete=off
+                     also prevents the browser restoring them on reload. -->
                 <textarea id="compare-own" class="analysis-text" rows="2" spellcheck="true" autocomplete="off"
                           placeholder="The same words in another order, or any other wording - it runs on the same seeds as the original"></textarea>
               </div>
@@ -129,9 +129,15 @@
                   <option value="4" selected>4</option>
                   <option value="8">8</option>
                 </select></label>
+                <label>Batch <select id="compare-batch" autocomplete="off"
+                       title="Images generated together for each version; the total seed count stays the same">
+                  <option value="1" selected>1</option>
+                  <option value="2">2</option>
+                  <option value="4">4</option>
+                </select></label>
                 <span class="compare-note">4 seeds is a first look - even a change on every seed could be chance; 8 can tell a consistent change from chance.</span>
               </div>
-              <p class="hint">One image per seed and version, using the main Seed field or a random starting seed. Batch and Runs do not apply.</p>
+              <p class="hint">Seeds is the total per version; Batch changes how many run together. Uses the main Seed field or a random start. The main Batch and Runs settings do not apply.</p>
               <p class="hint" id="compare-preview"></p>
               <button type="button" class="ghost analysis-action" id="compare-run"
                       title="One grid: each version of the prompt on the same seeds, then the sheet with a row per version">Run comparison</button>

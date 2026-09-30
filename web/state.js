@@ -29,7 +29,7 @@ const els = {
   analysisEncoders: $('analysis-encoders'), analysisOrder: $('analysis-order'),
   analysisFindings: $('analysis-findings'), analysisCritic: $('analysis-critic'),
   criticAsk: $('critic-ask'), criticLine: $('critic-line'), criticResult: $('critic-result'),
-  compareOptions: $('compare-options'), compareSeeds: $('compare-seeds'),
+  compareOptions: $('compare-options'), compareSeeds: $('compare-seeds'), compareBatch: $('compare-batch'),
   compareOwn: $('compare-own'), compareOwnFill: $('compare-own-fill'),
   comparePreview: $('compare-preview'), compareRun: $('compare-run'),
   promptTranslationField: $('prompt-translation-field'), promptTranslation: $('prompt-translation'),

@@ -1115,13 +1115,16 @@ a reordered version - Check's, the critic's, or yours - isolates word order:
 the rewrite changes wording and often content too, and on a sentence prompt
 Check has no reordering and the critic's rarely survives its check, so
 there the order is tested by writing it under Your version. Pick 4 or 8
-seeds and **Run comparison** queues one grid - one image per version per
-seed, the panel's other settings, the Seed box's seed or a drawn one - then
+seeds per version and comparison **Batch** 1, 2 or 4 (default 1).
+**Run comparison** queues one grid - one image per version per seed,
+the panel's other settings, the Seed box's seed or a drawn one - and
 opens that submission's sheet with one row per version, original first,
 unticking Favorites if it was on: nothing in the new comparison is starred
-yet, and the sheet's note says so. **Batch** and **Runs** do not apply: two
-versions on four seeds queue eight single-image generations. The line above
-the button gives the image count and
+yet, and the sheet's note says so. The main panel's **Batch** and **Runs**
+do not apply. Comparison Batch controls how many images run together,
+without multiplying the seed count: two versions on four seeds still make
+eight images; Batch 2 queues two batches per version. The line above
+the button gives the image count, seeds per version, batch size and
 time estimate first. 4 seeds is a first look: the seeds are shared, so the
 rows are pairs, and even a change on all four could be chance
 (p = 0.125); 8 can tell a change on every seed from chance. The prompt box
