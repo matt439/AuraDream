@@ -576,7 +576,11 @@ Prompt analyser:
   follows it, and the page has no reorder rule of its own. A rewrite wrapped
   in quotation marks (sentence punctuation after the closing mark included,
   spaced or not: a stop kept, a comma, semicolon or colon dropped) is
-  unwrapped; one that is the prompt unchanged (whitespace, a closing stop and typed
+  unwrapped; retained whole tags keep their original parenthesis escaping
+  before the unchanged check, so removing those escapes alone is no rewrite.
+  The critic is told that character and series names are optional: an order
+  template positions supplied parts and never requires inventing identity.
+  One that is the prompt unchanged (whitespace, a closing stop and typed
   marks aside) is dropped; one quoting words the prompt lacks is dropped; one
   quoting its description is flagged. What was left out besides `dropped` -
   the issues above, named parts that failed, a rewrite over-length,
@@ -642,8 +646,12 @@ Frontend and CLI:
   Apply is offered on rule findings only; an encoder suggestion is
   shown as text. Use and Apply write through `replaceBoxText` (so Ctrl+Z
   restores) and check again. Server offsets count code points; the page
-  converts them (`units()`) before selecting. The comparison sends
-  `num_images: 1`, reads its seed count from the Seeds select when it runs
+  converts them (`units()`) before selecting. Rewrites show character counts
+  and an expandable exact diff against the checked source (`promptChanges`),
+  using text nodes with additions/removals marked; no rewrite says so, with
+  the server's set-aside explanations. The comparison sends
+  `num_images: 1`, explicitly says Batch and Runs do not apply, and reads its
+  seed count from the Seeds select when it runs
   (it and Your version are `autocomplete=off`), takes Check's `reordered` as
   its Reordered row, else the critic's as the server kept it
   (`critic.validate` decides; the page adds no rule of its own), never writes
@@ -901,6 +909,9 @@ uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-analysis.json
 ```
 
+`smoke-rewrite.json` uses the same fake on 7874 for the visible rewrite diff,
+escape-only edits, Unicode, markup rendered as text, and unchanged/absent
+rewrite states.
 `smoke-comparison.json` uses the same FLUX-shaped fake on 7874 to run
 two comparisons with original and yours reversed on fixed seeds. Each
 opens its own job, while opening their shared run exposes Prompt as an

@@ -2463,6 +2463,82 @@ def test_the_rewrite_is_dropped_when_it_changes_nothing():
     assert _validate(_answer(rewrite=None)).rewrite is None
 
 
+@pytest.mark.parametrize("style", ["tags", "hybrid"])
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_a_rewrite_that_only_removes_tag_parenthesis_escapes_is_not_offered(style, wrapped):
+    prompt = r"1girl, firefly \(honkai: star rail\), green hair, smile"
+    unescaped = prompt.replace("\\", "")
+    rewrite = f'"{unescaped}".' if wrapped else unescaped
+    result = _validate(
+        _answer(parts={}, issues=[], rewrite=rewrite), prompt=prompt,
+        model_id="cagliostrolab/animagine-xl-4.0", style=style,
+    )
+    assert result.rewrite is None and result.rewrite_findings == []
+    assert result.set_aside[-2:] == [critic._TAG_ESCAPES_KEPT, critic._UNCHANGED]
+
+
+@pytest.mark.parametrize("style", ["tags", "prose"])
+@pytest.mark.parametrize("prompt", ['"OPEN"', "“OPEN”", "'OPEN'", '"OPEN (NOW)"'])
+def test_an_unchanged_quoted_prompt_is_dropped_before_unwrapping(style, prompt):
+    result = _validate(
+        _answer(parts={}, issues=[], rewrite=prompt), prompt=prompt, style=style,
+    )
+    assert result.rewrite is None and result.rewrite_findings == []
+    assert result.set_aside == [critic._UNCHANGED]
+
+
+def test_a_real_tag_rewrite_keeps_original_escaping_on_retained_tags():
+    prompt = r"1girl, firefly \(honkai: star rail\), green hair, smile"
+    rewrite = "1girl, firefly (honkai: star rail), green hair, smiling"
+    result = _validate(
+        _answer(parts={}, issues=[], rewrite=rewrite), prompt=prompt,
+        model_id="cagliostrolab/animagine-xl-4.0", style="tags",
+    )
+    assert result.rewrite == prompt.replace(", smile", ", smiling")
+    assert result.set_aside == [critic._TAG_ESCAPES_KEPT]
+    # Both directions preserve what was typed, including a mix of escaped
+    # and bare parentheses. No wholesale punctuation normalisation.
+    mixed = r"1girl, alice \(series\), bob (series), carol \(series)"
+    changed = r"1girl, bob \(series\), carol (series), alice (series), smiling"
+    kept = critic._keep_tag_escapes(changed, mixed)
+    assert kept == r"1girl, bob (series), carol \(series), alice \(series\), smiling"
+    # Similar names and tags that actually changed are not matched.
+    assert critic._keep_tag_escapes("1girl, firefly (other series), smile", prompt) == (
+        "1girl, firefly (other series), smile"
+    )
+    # Differently escaped copies leave no unambiguous original spelling.
+    ambiguous = r"alice \(series\), alice (series)"
+    assert critic._keep_tag_escapes("alice (series), smiling", ambiguous) == (
+        "alice (series), smiling"
+    )
+
+
+def test_preserving_tag_escapes_does_not_change_lettering_or_prose():
+    prompt = r'1girl, alice \(series\), sign saying "OPEN \(NOW\)"'
+    rewrite = '1girl, alice (series), sign saying "OPEN (NOW)", smile'
+    assert critic._keep_tag_escapes(rewrite, prompt) == (
+        r'1girl, alice \(series\), sign saying "OPEN (NOW)", smile'
+    )
+    prose = r"A girl wearing a shirt \(red\)"
+    result = _validate(
+        _answer(parts={}, issues=[], rewrite=prose.replace("\\", "")), prompt=prose,
+    )
+    assert result.rewrite == prose.replace("\\", "") and result.set_aside == []
+
+
+def test_preserving_tag_escapes_cannot_make_a_rewrite_exceed_the_prompt_limit():
+    prompt = r"alice \(series\), " + "x" * (critic.MAX_TEXT - len(r"alice \(series\), "))
+    rewrite = prompt.replace("\\", "") + "yy"
+    assert len(rewrite) == critic.MAX_TEXT
+    result = _validate(
+        _answer(parts={}, issues=[], rewrite=rewrite), prompt=prompt, style="tags",
+    )
+    assert result.rewrite is None
+    assert result.set_aside == [critic._TAG_ESCAPES_KEPT, (
+        "The rewrite was left out: it is longer than the 4000 characters a prompt may be."
+    )]
+
+
 def test_strings_are_capped_and_parts_normalised():
     issue = {**_answer()["issues"][0], "problem": "p" * 5000, "fix": "f" * 5000, "kind": "nonsense"}
     result = _validate(_answer(issues=[issue] * 8, parts={"subject": "  ", "camera": 3}))
@@ -3945,6 +4021,23 @@ def test_the_messages_carry_the_request_as_it_runs():
     )
 
 
+def test_the_critic_accepts_generic_subjects_and_can_leave_a_good_prompt_alone():
+    for model_id, prompt, style in (
+        (ANIMAGINE, "1girl, green hair, smile", "tags"),
+        ("OnomaAIResearch/Illustrious-XL-v2.0", "1boy, doctor, masterpiece", "tags"),
+        (ANIMA, "1girl, green hair, A girl waves from a balcony.", "hybrid"),
+        (KLEIN, "A girl with green hair smiles.", "prose"),
+    ):
+        context = _context(model_id, prompt, style=style)
+        assert "Order lists place present parts" in context.system
+        assert "Generic/original subjects need no character/series names" in context.system
+        assert "never invent them" in context.system
+        assert "Return it unchanged if no edit is needed" in context.system
+        assert ("Keep tags' backslash escapes" in context.system) == (
+            style in ("tags", "hybrid")
+        )
+
+
 def test_the_critic_is_told_the_negative_prompt_applied_runs_not_the_one_typed():
     # FLUX.1 without True CFG: applied() drops the negative the user typed,
     # and the critic must hear that none runs - in both messages and in what
@@ -4014,7 +4107,8 @@ def test_krea_dev_is_told_its_sources_are_bfls():
 
 
 @pytest.mark.parametrize("model_id", sorted(set(_catalogue_repos())))
-def test_the_system_message_fits_its_budget(model_id):
+@pytest.mark.parametrize("style", ["prose", "tags"])
+def test_the_system_message_fits_its_budget(model_id, style):
     findings = [
         PromptFinding(rule="encoder.cut", severity="warn", message="m" * 400, source="encoder")
         for _ in range(20)
@@ -4022,7 +4116,7 @@ def test_the_system_message_fits_its_budget(model_id):
     request = GenerateRequest(prompt="a cat", negative_prompt="blurry")
     analysis = PromptAnalysis(
         model_id=model_id,
-        style="prose",
+        style=style,
         words=2,
         findings=findings,
         order=DocumentedOrder(steps=["a", "b", "c", "d", "e"], cite="c" * 400),

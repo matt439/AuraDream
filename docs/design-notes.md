@@ -3116,6 +3116,12 @@ rewriter instruction read as Baidu's words and NetaYume's inherited prompt
 book as its own authors'. The fallback's cites carry this app's note
 instead ("this app's general advice: no author sources are known for this
 checkpoint"), and the page labels them General, not Guide.
+The critic is also told that order templates position the parts actually
+supplied, not require every slot. Generic and original subjects are valid;
+character and series names are optional and must not be invented or flagged
+as absent. The deterministic tag rules already work this way, and
+Animagine's own examples include generic subjects without either name.
+
 The system message also says the rewrite adds no object, scenery, mood or
 text and never pads toward a word range - a range is the guide's band for
 most images, not a minimum (almost every rewrite on the card padded a short
@@ -3369,6 +3375,14 @@ standing in the rain. smiling softly, holding a red umbrella", whose items
 now: "other tags" on a prompt read as tags, "other clauses" on prose and
 "other tags and clauses" on a hybrid prompt.
 
+Retained tag items keep their original parenthesis escaping. The critic had
+returned tag prompts with only the backslashes in series names removed,
+which looked like an improvement and became a redundant comparison row.
+Validation restores the original spelling where a whole tag differs only
+in parenthesis escaping, before the unchanged check; it does not normalize
+prose, lettering, or other changes to a tag. The critic is instructed to
+keep escapes and return the original when no useful edit is needed.
+
 A rewrite that is the prompt as it stands (whitespace, a closing stop and
 how its marks are typed aside) is dropped and said so, since the schema
 requires a rewrite and an echo is the critic proposing none. One wrapped
@@ -3461,7 +3475,18 @@ has been measured, and published judges are weakest exactly on text rendering
 and style. Stars (`stats --job <id> --by variant`) and the run's `distinct`
 count are the signals that exist.
 
-**The page.** Check sits in the Prompt caption after Tags and before Expand
+**The page.** A retained rewrite shows **Changed from original**, with
+character counts and an expandable exact diff. `promptChanges` aligns whole
+words, whitespace and individual punctuation using a bounded common-subsequence
+table after stripping common ends; it retains every character, including
+escapes and emoji. Added and removed text is built with `textContent` in
+`ins`/`del` elements, never HTML from the prompt. It compares against the
+checked source even if the editor has since changed. An absent rewrite says
+**No rewrite offered** alongside the existing set-aside explanations.
+`smoke-rewrite.json` checks the rendered diff, exact reconstruction,
+escape-only changes, Unicode, markup as text and unchanged/absent rewrites.
+
+Check sits in the Prompt caption after Tags and before Expand
 and sends what Generate would (`collect()`); its panel moves with the chips
 (`placeTagValidation`), above the results on a two-column page so its
 length cannot push Generate down the sticky settings column. The move keeps
@@ -3535,7 +3560,8 @@ clearing the sticky topbar) if focus is still on the button, because the
 panel is about forty Tab stops away there; under 901 px it is three stops
 away and focus stays. Check again hides itself once its check lands, so it
 hands focus to the heading first. The comparison sends `num_images: 1` (the
-panel's Batch 4 had made "4 seeds" sixteen), reads the Seeds select itself
+panel's Batch 4 had made "4 seeds" sixteen), and the page explicitly says
+Batch and Runs do not apply. It reads the Seeds select itself
 for its preview and its run (a browser restoring form state sets the select
 without a change event, and a copied variable had stayed at 4), never writes
 the prompt box or the grid's variables, which are the user's and persisted,

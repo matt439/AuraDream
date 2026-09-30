@@ -1525,6 +1525,35 @@ def test_category_items_asks_only_for_what_a_rule_reads():
 # ------------------------------------------------------------------ tag checkpoints' specifics
 
 
+@pytest.mark.parametrize(
+    "model_id, finish",
+    [
+        (ANIMAGINE, "masterpiece, high score, great score, absurdres"),
+        (KOHAKU, "masterpiece"),
+        (ILLUSTRIOUS, "masterpiece"),
+        (WAI, "masterpiece, best quality, amazing quality"),
+        (ANIMA, "masterpiece"),
+    ],
+)
+@pytest.mark.parametrize("identity", ["", "original, "])
+@pytest.mark.parametrize("lookup_available", [False, True])
+def test_generic_and_original_characters_need_no_name_or_series(
+    model_id, finish, identity, lookup_available,
+):
+    # The order describes positions for supplied tags, not mandatory slots.
+    # Animagine's first two author examples are unnamed people; adding a
+    # character or franchise would change the subject the user asked for.
+    prompt = f"1girl, {identity}green hair, sweater, looking at viewer, {finish}"
+    categories = {
+        "original": "copyright",
+        "green hair": "general",
+        "sweater": "general",
+        "looking at viewer": "general",
+    } if lookup_available else None
+    assert run(model_id, prompt, categories, negative_prompt="low quality") == []
+    assert prompt_rules.reorder_tags(model_id, prompt, categories) is None
+
+
 def test_quality_suffix_and_recipe():
     [finding] = only(run(ANIMAGINE, "1girl, solo, masterpiece"), "guide.quality")
     assert finding.suggestion == "1girl, solo, masterpiece, high score, great score, absurdres"

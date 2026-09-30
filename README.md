@@ -1066,8 +1066,10 @@ Order section calls "Partly checked"):
 then the critic's survives if it keeps your tags (or a prose prompt's
 clauses) whole and Check's order rule finds nothing out of order in it, and
 is set aside, saying what the rule found, if not. The **Use reordered** button's
-tooltip says which kind survived. A rewrite that is your prompt unchanged is
-not shown; one wrapped whole in quotation marks is unwrapped, one that puts
+tooltip says which kind survived. Retained tags keep your parenthesis escapes
+(`\(` and `\)`); removing those alone does not count as a rewrite.
+A rewrite that is your prompt unchanged is not shown; one wrapped whole in
+quotation marks is unwrapped, one that puts
 words the prompt does not have in quotation marks - lettering nobody asked
 for - is dropped, and one that quotes the prompt's description, or adds a
 handful of words the prompt does not have, is flagged. A rewrite or
@@ -1076,7 +1078,13 @@ said so under the answer - but for a reordering that moves nothing, which
 has nothing to show, and some of what the answer's schema forbids (a seventh
 issue, say), which only a `llama-server` of your own that ignores the schema
 can send. The rewrite is then put through the same checks as the prompt,
-listed under it.
+listed under it. **Changed from original** gives the number of characters
+added and removed; open it to see the marked text. If no rewrite survives,
+the answer says **No rewrite offered** and explains anything set aside.
+
+Character and series names are optional: the tag order describes where to
+put them when you use them. Generic and original subjects do not need names,
+and the critic is instructed to keep them generic.
 
 What survives is still a 4B model's suggestion - it can misapply a source,
 and it pads short prompts with scenery and mood however it is told not to -
@@ -1111,7 +1119,9 @@ seeds and **Run comparison** queues one grid - one image per version per
 seed, the panel's other settings, the Seed box's seed or a drawn one - then
 opens that submission's sheet with one row per version, original first,
 unticking Favorites if it was on: nothing in the new comparison is starred
-yet, and the sheet's note says so. The line above the button gives the image count and
+yet, and the sheet's note says so. **Batch** and **Runs** do not apply: two
+versions on four seeds queue eight single-image generations. The line above
+the button gives the image count and
 time estimate first. 4 seeds is a first look: the seeds are shared, so the
 rows are pairs, and even a change on all four could be chance
 (p = 0.125); 8 can tell a change on every seed from chance. The prompt box

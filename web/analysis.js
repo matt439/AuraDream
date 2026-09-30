@@ -695,8 +695,11 @@ function renderCritic() {
     const area = variantArea(body.rewrite, "The critic's rewrite");
     const head = document.createElement('div');
     head.className = 'critic-variant-head';
-    head.append(span('critic-variant-name', 'Rewrite'), writeButton('Use rewrite',
-      'Replace the prompt with the rewrite, then check it', () => usePromptText(body.rewrite)));
+    head.append(span('critic-variant-name', 'Rewrite'));
+    if (body.rewrite !== analysisResult.source) {
+      head.append(writeButton('Use rewrite',
+        'Replace the prompt with the rewrite, then check it', () => usePromptText(body.rewrite)));
+    }
     const checked = document.createElement('div');
     checked.className = 'critic-checked';
     renderFindings(checked, body.rewrite_findings, {
@@ -707,8 +710,11 @@ function renderCritic() {
       apply: null,
       empty: 'The check finds nothing to flag in the rewrite.',
     });
-    block.append(head, area, note('The same check, run on the rewrite:', 'analysis-note sub'), checked);
+    block.append(head, rewriteChanges(analysisResult.source, body.rewrite), area,
+      note('The same check, run on the rewrite:', 'analysis-note sub'), checked);
     box.appendChild(block);
+  } else {
+    box.appendChild(note('No rewrite offered.', 'analysis-note critic-change-summary'));
   }
 
   if (body.reordered) {
@@ -746,6 +752,77 @@ function renderCritic() {
   for (const line of body.set_aside ?? []) box.appendChild(note(line));
   box.appendChild(note(`${body.model} · ${body.seconds.toFixed(1)} s`, 'analysis-note sub'));
   for (const area of box.querySelectorAll('textarea')) fitArea(area);
+}
+
+// An exact text diff: words stay readable, but spaces, punctuation and each
+// backslash remain separate tokens, so even an escape-only edit is visible.
+// Prompts are capped at 4,000 characters. Trim the shared ends before the
+// bounded longest-common-subsequence table, then coalesce adjacent edits.
+function promptChanges(original, rewrite) {
+  const tokenize = (text) => text.match(/[\p{L}\p{N}_]+|\s+|[^\p{L}\p{N}_\s]/gu) ?? [];
+  const before = tokenize(original), after = tokenize(rewrite);
+  let start = 0, endBefore = before.length, endAfter = after.length;
+  while (start < endBefore && start < endAfter && before[start] === after[start]) start++;
+  while (endBefore > start && endAfter > start && before[endBefore - 1] === after[endAfter - 1]) {
+    endBefore--;
+    endAfter--;
+  }
+  const a = before.slice(start, endBefore), b = after.slice(start, endAfter);
+  const width = b.length + 1;
+  const lengths = new Uint16Array((a.length + 1) * width);
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      lengths[i * width + j] = a[i] === b[j]
+        ? 1 + lengths[(i + 1) * width + j + 1]
+        : Math.max(lengths[(i + 1) * width + j], lengths[i * width + j + 1]);
+    }
+  }
+  const changes = [];
+  const append = (kind, text) => {
+    if (!text) return;
+    if (changes.at(-1)?.kind === kind) changes.at(-1).text += text;
+    else changes.push({ kind, text });
+  };
+  append('same', before.slice(0, start).join(''));
+  let i = 0, j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      append('same', a[i++]);
+      j++;
+    } else if (i < a.length && (j === b.length
+        || lengths[(i + 1) * width + j] >= lengths[i * width + j + 1])) {
+      append('removed', a[i++]);
+    } else {
+      append('added', b[j++]);
+    }
+  }
+  append('same', before.slice(endBefore).join(''));
+  return changes;
+}
+
+function rewriteChanges(original, rewrite) {
+  if (original === rewrite) {
+    return note('No changes from original.', 'analysis-note critic-change-summary');
+  }
+  const changes = promptChanges(original, rewrite);
+  const count = (kind) => changes.filter((part) => part.kind === kind)
+    .reduce((total, part) => total + [...part.text].length, 0);
+  const details = document.createElement('details');
+  details.className = 'critic-changes';
+  const summary = document.createElement('summary');
+  summary.textContent = `Changed from original: ${plural(count('added'), 'character')} added, `
+    + `${plural(count('removed'), 'character')} removed`;
+  const diff = document.createElement('div');
+  diff.className = 'critic-diff';
+  diff.setAttribute('role', 'group');
+  diff.setAttribute('aria-label', 'Changes from the original prompt');
+  for (const { kind, text } of changes) {
+    const part = document.createElement(kind === 'removed' ? 'del' : kind === 'added' ? 'ins' : 'span');
+    part.textContent = text;
+    diff.appendChild(part);
+  }
+  details.append(summary, note('Removed text is struck through; added text is underlined.', 'analysis-note sub'), diff);
+  return details;
 }
 
 function variantArea(text, label) {

@@ -26,7 +26,8 @@ caught subject order, unquoted text and negations. So:
   could not place every tag (one with no category, never looked up or
   unknown to the tag index), an order Check's order rule finds nothing
   wrong with; a rewrite wrapped whole in quotation marks is
-  unwrapped, one that letters words the prompt does not have is dropped,
+  unwrapped, retained tags keep their original parenthesis escaping, an
+  unchanged rewrite or one that letters words the prompt lacks is dropped,
   and one that quotes description is flagged. What survives is still the
   model's suggestion: the route puts the rewrite back through layer 1,
   because a critic reintroduces what it was asked to remove, and the page
@@ -1683,8 +1684,11 @@ def build_context(
         "same subjects, count, medium and any text to render. Add no object, scenery, "
         "mood or text the prompt lacks, and never pad it to reach a word range: a range "
         "is the guide's band for most images, not a minimum. Use the form the sources "
-        "ask for (sentences, tags or XML) and fix the rule findings too."
+        "ask for (sentences, tags or XML) and fix the rule findings too. Return it "
+        "unchanged if no edit is needed."
     )
+    if analysis.style in ("tags", "hybrid"):
+        rewrite_rule += " Keep tags' backslash escapes."
     if negative is None:
         rewrite_rule += (
             " No negative prompt runs, so describe what should be seen, never what should not."
@@ -1712,14 +1716,16 @@ def build_context(
     # the app's general guidance, and its caveat says so.
     whose = ", from the checkpoint's authors" if sources.url else ""
     lines = [
-        f"You review a text-to-image prompt for the checkpoint {model_id}. Judge it only "
+        f"Review an image prompt for checkpoint {model_id}. Judge it only "
         f"against the numbered sources below{whose}; general habits and advice written "
         "for other models do not count.",
-        "Answer in the JSON schema given:",
+        "Use the given JSON schema:",
         "- parts: the prompt's own words for each part, null where it has none.",
         f"- issues: at most {MAX_ISSUES}, most important first, and none that no source "
         "supports. Each cites exactly one source id. quote: the prompt's exact words the "
         "issue is about, or null. Do not repeat the rule findings listed at the end.",
+        "Order lists place present parts. Generic/original subjects need no "
+        "character/series names; never invent them.",
         rewrite_rule,
         order_rule,
     ]
@@ -2688,10 +2694,44 @@ def _added_words(rewrite: str, prompt: str) -> list[str]:
 
 
 _UNCHANGED = "The critic's rewrite was your prompt as it stands, so there is no rewrite to show."
+_TAG_ESCAPES_KEPT = (
+    "Your parenthesis escaping was kept in tags the rewrite otherwise left unchanged."
+)
+
+
+def _keep_tag_escapes(rewrite: str, prompt: str) -> str:
+    """Keep the original spelling of retained tags, ignoring only parenthesis escapes.
+
+    Autocomplete supplies these escapes and the authors' examples use them.
+    Removing them alone is not a useful rewrite. They do change the encoded
+    text, so retain the original rather than calling the two spellings equal.
+    Match whole comma items exactly otherwise; never alter lettering, or
+    choose a spelling when the prompt has differently escaped copies.
+    """
+    originals: dict[str, set[str]] = {}
+    protected = [(start, end) for start, end, _, _ in rendered_targets(prompt)]
+    for start, end, _ in _piece_spans(prompt, "tags"):
+        item = prompt[start:end]
+        if not any(mark in item for mark in "()") or any(
+            start < high and end > low for low, high in protected
+        ):
+            continue
+        key = item.replace(r"\(", "(").replace(r"\)", ")")
+        originals.setdefault(key, set()).add(item)
+    protected = [(start, end) for start, end, _, _ in rendered_targets(rewrite)]
+    for start, end, _ in reversed(_piece_spans(rewrite, "tags")):
+        item = rewrite[start:end]
+        key = item.replace(r"\(", "(").replace(r"\)", ")")
+        choices = originals.get(key, set())
+        if len(choices) == 1 and not any(
+            start < high and end > low for low, high in protected
+        ):
+            rewrite = rewrite[:start] + next(iter(choices)) + rewrite[end:]
+    return rewrite
 
 
 def _check_rewrite(
-    rewrite: str, prompt: str, targets: list[tuple[int, int, bool, int]]
+    rewrite: str, prompt: str, targets: list[tuple[int, int, bool, int]], style: str
 ) -> tuple[str | None, list[PromptFinding], list[str]]:
     """The rewrite's quotation marks held to what the prompt asks to render.
 
@@ -2701,6 +2741,8 @@ def _check_rewrite(
     Labs". A wrap comes off; lettering the prompt does not have drops the
     rewrite; the prompt's own description in quotes is flagged on the rewrite.
     """
+    if _unchanged(rewrite, prompt):
+        return None, [], [_UNCHANGED]
     notes: list[str] = []
     inner = _unwrapped(rewrite)
     if inner is not None:
@@ -2710,9 +2752,19 @@ def _check_rewrite(
         )
         if not inner:
             return None, [], notes
-        if _unchanged(inner, prompt):
-            return None, [], [*notes, _UNCHANGED]
         rewrite = inner
+    if style in ("tags", "hybrid"):
+        kept = _keep_tag_escapes(rewrite, prompt)
+        if kept != rewrite:
+            notes.append(_TAG_ESCAPES_KEPT)
+            rewrite = kept
+    if _unchanged(rewrite, prompt):
+        return None, [], [*notes, _UNCHANGED]
+    if len(rewrite) > MAX_TEXT:
+        return None, [], [*notes, (
+            f"The rewrite was left out: it is longer than the {MAX_TEXT} characters a "
+            "prompt may be."
+        )]
     findings: list[PromptFinding] = []
     for match in QUOTED.finditer(rewrite):
         words = match.group()[1:-1]
@@ -2858,11 +2910,8 @@ def validate(
             f"The rewrite was left out: it is longer than the {MAX_TEXT} characters a "
             "prompt may be."
         )
-    if rewrite is not None and _unchanged(rewrite, prompt):
-        rewrite = None
-        set_aside.append(_UNCHANGED)
     if rewrite is not None:
-        rewrite, rewrite_findings, notes = _check_rewrite(rewrite, prompt, targets)
+        rewrite, rewrite_findings, notes = _check_rewrite(rewrite, prompt, targets, context.style)
         set_aside += notes
     raw_reordered = data.get("reordered") if context.ordered else None
     reordered = None
