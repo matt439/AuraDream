@@ -29,22 +29,63 @@ WAI and Illustrious v2.0-STABLE are separate choices: WAI has its own tuned
 style, prompting recipe and size guidance. Do not assume that Illustrious
 v2's native resolution range also describes WAI.
 
+## Compare by total megapixels
+
+**Megapixels measure total image area: width x height / 1,000,000. Aspect
+ratio describes its shape.** A recommendation of about 1 MP can include
+square, portrait and landscape images. For example, 1024 x 1024 is **1.05 MP**,
+768 x 1344 is **1.03 MP**, and 1536 x 640 is **0.98 MP**. All three are around
+1 MP despite their different shapes and longest sides.
+
+Choose the **MP tier** for image area, then the **aspect ratio** for framing.
+The app adjusts width and height to keep approximately that area. Its tier
+names are rounded: **1 MP** presets contain 0.98-1.08 MP, **1.5 MP** contain
+1.54-1.67 MP, **2 MP** contain 2.06-2.10 MP, and **4 MP** contain 4.19-4.21 MP.
+The ranges below use decimal megapixels; author wording that rounds them
+differently is identified.
+
+| Model | Total MP guidance | What that means for shape and larger images |
+| --- | --- | --- |
+| **Animagine** | **About 1 MP recommended**; author-listed shapes are **0.98-1.05 MP** | The author lists square, portrait and landscape shapes. Use those aspect presets where possible. Larger area can degrade; the warning includes a **2.36 MP** square. |
+| **Kohaku** | **About 1 MP recommended**; reference area **1.05 MP** | The recommendation explicitly allows a similar total pixel count, so the reference square is not a square-only requirement. Larger areas have not been measured locally. |
+| **Illustrious** | **About 1-2.25 MP native**, in the authors' wording; roughly **4 MP** possible with quality loss | The authors describe varied aspect ratios. Their higher training size is **2.36 MP** when converted exactly; treat the native range as approximate. A long side alone is not a ceiling. Start with the **1, 1.5 or 2 MP** presets. |
+| **WAI** | **1.05-1.38 MP reference area**; **no published maximum** | Reference sizes include a portrait. This is an example span, not an established operating range for every aspect ratio. Showcase images also use a separate refinement pass that this app does not perform. |
+| **Z-Anime** | **About 0.26-4.2 MP documented** | The author explicitly allows **any aspect ratio**. **1.5-2 MP** is the practical local iteration range; the coherent **4.19 MP** sample took **8 minutes 39 seconds** and nearly filled the card. |
+| **Anima** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. The guide does not establish that every shape at that area performs equally well; only a **1.05 MP** square has been measured locally. |
+| **NetaYume** | **1.05-1.57 MP example area**; **no published v4 range or maximum** | Inherited/v2 examples include square and portrait images. They do not define v4's aspect-ratio coverage or a size ceiling. Start around **1 MP**; larger areas have not been measured locally. |
+| **NewBie** | **1.05 MP example area**; **no published minimum or maximum** | The quickstart and local check use a square. That example establishes neither a square-only requirement nor a guarantee for other shapes. Start around **1 MP**; higher areas remain locally unmeasured. |
+
+For a quick choice by area: **around 1 MP**, start with the model whose style
+and prompting you prefer. At **1.5-2 MP**, Illustrious and Z-Anime have local
+larger-image evidence; Anima's documented area also covers these tiers, with
+local evidence still limited to 1 MP. At **4 MP**, allow for experiments:
+Z-Anime's sample retained its scene but was slow; Illustrious's **4.19 MP**
+sample omitted the requested doctor, which its **2.36 MP** sample retained.
+Those used different prompts between models and are not a controlled
+comparison. See [local verification](verified.md).
+
+**Equal MP does not guarantee equal composition quality at every aspect
+ratio.** Animagine's author-listed shapes are a specific set; other app
+presets can have the same area without being on that list. Very wide or tall
+framing still changes what the model must compose. Check the subject,
+anatomy and layout as well as whether generation completes.
+
 ## Starting settings and likely waiting time
 
 The app fills in each checkpoint's starting Steps and CFG automatically.
 Leave Mu blank where available to keep its supplied schedule; the SDXL
 models and this Anima integration disable Mu.
 
-| Model | Steps | CFG | Recorded time per image | Sample size |
+| Model | Steps | CFG | Recorded time per image | Sample area and shape |
 | --- | ---: | ---: | --- | --- |
-| Anima Turbo v1.1 | 8 | 1 | About 4-6 seconds | 1024 x 1024 |
-| WAI Illustrious v17 | 28 | 6 | About 9-10 seconds | 1024 x 1344 |
-| Illustrious XL v2.0-STABLE | 28 | 5 | About 15 seconds | 1024 x 1024 |
+| Anima Turbo v1.1 | 8 | 1 | About 4-6 seconds | 1.05 MP, square |
+| WAI Illustrious v17 | 28 | 6 | About 9-10 seconds | 1.38 MP, portrait |
+| Illustrious XL v2.0-STABLE | 28 | 5 | About 15 seconds | 1.05 MP, square |
 | Animagine XL 4.0 Opt | 28 | 5 | No comparable timing recorded | Generation and batch use verified |
-| Kohaku XL Zeta | 28 | 5 | About 9-10 seconds | 1024 x 1024 |
-| Z-Anime Base | 40 | 4 | About 78-79 seconds | 1024 x 1024 |
-| NetaYume Lumina v4 | 40 | 5 | About 39 seconds | 1024 x 1024 |
-| NewBie image Exp0.1 | 28 | 4 | About 39 seconds | 1024 x 1024, XML prompt |
+| Kohaku XL Zeta | 28 | 5 | About 9-10 seconds | 1.05 MP, square |
+| Z-Anime Base | 40 | 4 | About 78-79 seconds | 1.05 MP, square |
+| NetaYume Lumina v4 | 40 | 5 | About 39 seconds | 1.05 MP, square |
+| NewBie image Exp0.1 | 28 | 4 | About 39 seconds | 1.05 MP, square, XML prompt |
 
 These are individual RTX 5080 checks recorded on September 17-26, 2026,
 using Windows FP8 and model offload. They indicate likely waiting time;
@@ -53,28 +94,6 @@ ranking. Loading is excluded. Most samples also exclude PNG saving, while
 Illustrious's CLI timings include it. Animagine's earlier successful runs
 did not record comparable timing or exact quantization/offload settings.
 See [the measurement record](verified.md#checkpoints) for the exact conditions.
-
-## Choosing a resolution
-
-Start around **1 MP** while finding the prompt and style you want. For larger
-direct renders, **Illustrious is a sensible first choice around 1.5-2.25 MP**;
-**Z-Anime is another option if you can accept the longer wait**.
-
-| Model | Resolution guidance |
-| --- | --- |
-| Animagine | The author recommends shapes around **1 MP** and warns that sizes such as 1536 x 1536 can degrade. |
-| Kohaku | The author recommends **1024 x 1024 or a similar pixel count**. Larger sizes have not been measured locally. |
-| Illustrious | The authors document roughly **1-2.25 MP native output**, with possible degradation at 4 MP. The local 1536 x 1536 prose sample retained the requested doctor; at 2048 x 2048, the scene omitted the doctor. That is one observation, not a general quality verdict. |
-| WAI | The author's examples start at **1024 x 1344**, then use a separate high-resolution refinement pass. This app generates directly at the requested size and does not perform that pass. No maximum is published. |
-| Z-Anime | The author documents approximately **512 x 512 through 2048 x 2048**. Local samples stayed coherent through 4 MP, but the 4 MP image took **8 minutes 39 seconds** and nearly filled the card. Prefer **1.5-2 MP** for iteration. |
-| Anima | The authors document **512 x 512 through 1536 x 1536**, about 0.26-2.36 MP. Only 1 MP has been measured locally. |
-| NetaYume | Family examples cover **1024 x 1024 and 1024 x 1536**. Those examples do not establish a v4 maximum. Start at 1 MP; larger sizes have not been measured locally. |
-| NewBie | The quickstart uses **1024 x 1024**. That is an example, not a published ceiling. Higher resolutions have not been measured locally. |
-
-A successful large render establishes that the image can be produced; check
-that the subject, anatomy and composition still follow the prompt. The
-Illustrious and Z-Anime observations above used different prompts and are
-not a controlled comparison. Details are in [local verification](verified.md).
 
 ## Prompt habits that matter when switching models
 
@@ -123,6 +142,7 @@ For the exact behaviour of this app, use:
 - [Model catalogue](../backend/launch.py) for the versions actually selected.
 - [Profiles](../backend/model_defaults.py) for starting settings and controls.
 - [Prompt and size guides](../backend/guides.py) for checkpoint-specific advice.
+- [Size presets](../backend/sizes.py) for the actual MP at each aspect ratio.
 - [Design notes](design-notes.md) for source links and integration differences.
 - [Verified on the card](verified.md) for dated performance and quality observations.
 
