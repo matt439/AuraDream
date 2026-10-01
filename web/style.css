@@ -678,6 +678,16 @@ button { font: inherit; cursor: pointer; }
   border: 1px dashed var(--line);
   cursor: default;
 }
+/* Eight slots across a QHD desktop, including at 125% scaling. Sizing only
+   from viewport height left seven square results per row at 2560 x 1440. */
+@media (min-width: 2000px) {
+  .viewer.many {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    justify-items: center;
+  }
+  .viewer.many img.preview { height: auto; max-height: 20vh; }
+}
 .placeholder { color: var(--muted); }
 
 /* Every image that opens the lightbox is in the tab order; the ring says which

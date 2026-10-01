@@ -1294,6 +1294,16 @@ compared through `backend.applied()` so the capability flags decide; the
 cells are still rendered as spelled - dropping them would leave a `{avoid}`
 axis with one cell of three and a sheet unable to say why.
 
+## The running batch on wide screens
+
+At 2000 CSS pixels and wider, the results viewer's `many` tier (more than
+four completed images) uses eight equal columns. The previous wrapping flex
+row sized images by `20vh`, which fit only seven square results across a
+2560 x 1440 desktop. Eight columns also fit QHD at 125% display scaling;
+portrait and landscape images keep their aspect ratio within the same slots.
+The live preview shares the columns and their height limit. Smaller windows
+and the single-image and two-to-four-image tiers keep their existing layout.
+
 ## The live preview
 
 **The live preview is a linear map from the latents, keyed on the VAE.**
