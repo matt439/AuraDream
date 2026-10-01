@@ -10,6 +10,9 @@ gated; Turbo needs approval first.
 ![stack](https://img.shields.io/badge/torch-2.13%2Bcu130-informational)
 ![stack](https://img.shields.io/badge/diffusers-0.40.0-informational)
 
+Choosing an anime checkpoint? See the [anime model guide](docs/anime-model-guide.md)
+for a quick chooser, prompting differences, starting settings and measured speeds.
+
 ## Requirements
 
 - NVIDIA GPU, **16 GB VRAM minimum** (float8 path). 24 GB+ can run `LOCAL_DIFFUSION_QUANT=none`.
