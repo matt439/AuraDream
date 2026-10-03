@@ -1,0 +1,1047 @@
+{
+ "commit": "212f41c",
+ "head": "ad24fe5",
+ "date": "2026-10-03",
+ "counts": {
+  "candidates": 38,
+  "confirmed": 29,
+  "plausible": 1,
+  "refuted": 8,
+  "reported_entries": 23,
+  "plausible_entries": 1,
+  "finders": 9,
+  "gap_briefs": 4,
+  "agents": 52,
+  "baseline_tests_passed": 1831,
+  "baseline_tests_skipped": 4,
+  "hand_rerun": [
+   "F1",
+   "F2"
+  ],
+  "disputed": [
+   "F5"
+  ],
+  "medium": 1,
+  "low": 22
+ },
+ "confirmed": [
+  {
+   "id": "F1",
+   "file": "web/analysis.js",
+   "line": 983,
+   "locations": [
+    "web/analysis.js:983",
+    "web/analysis.js:973",
+    "web/generation.js:258",
+    "web/sizes.js:212",
+    "backend/grid.py:403"
+   ],
+   "severity": "medium",
+   "category": "ui-state",
+   "title": "A prompt comparison keeps the grid's strength axis and multiplies its image count",
+   "description": "`comparePayload()` spreads `gridPayload()` and then blanks every grid axis, so that \"the versions are the one thing that varies, crossed with the seeds\" (its own comment; CLAUDE.md holds a comparison to \"versions times Seeds\" images). The commit added `strength_axis` to `gridPayload()` (web/generation.js:258) but not to the blanked list at web/analysis.js:977-984, and did not touch analysis.js. The grid's Strength box is live whenever a refine source is set (`syncConditioning`, web/sizes.js:212-216), whether or not the grid section is open, and it is persisted with the panel (`PANEL_FIELDS`). A sweep left in a folded grid section, even from an earlier session, is therefore enough. The server accepts it: `grid._sampling_values` keeps the axis whenever `refine` is set, and `expand` multiplies by it.",
+   "failure_scenario": "FLUX.1 Krea dev, a refine source picked, the grid's Strength axis holding `0.2,0.4,0.6` with the grid section folded. Check a prompt, write Your version, Seeds 4, Batch 1. The preview reads \"24 images · 2 variants × 4 seeds · batch 1\", and Run comparison queues 24 refine passes instead of 8. The sheet varies variant, strength and seed; `chooseAxes` puts seeds in columns and variants in rows and pins strength, so the opened sheet shows a third of what was rendered.",
+   "suggested_fix": "Add `strength_axis: ''` beside `lora_scale_axis: ''` in `comparePayload()`. Whether a comparison should carry the panel's refine source at all is a separate question; it does today, as it carries the LoRA. If it should, the comparison preview ought to say the versions are refine passes of image N.",
+   "evidence": "Two independent reproductions: /api/grid/preview with comparePayload's shape on a fake server (8 cells with the axis empty, 24 with `0.1,0.2,0.3`), and the page itself in headless Edge (`comparePayload(comparedVariants())` carried the axis with the section folded; the preview text as above). Re-run by hand after the workflow on a fresh fake server: 8 cells, then 24.",
+   "merged_from": [
+    "Prompt comparison keeps the grid's strength axis, multiplying its image count",
+    "Comparison leaves strength_axis in place, multiplying versions x Seeds"
+   ],
+   "verdict": [
+    {
+     "finder_area": "routes",
+     "finder_title": "Prompt comparison keeps the grid's strength axis, multiplying its image count",
+     "finder_severity": "medium",
+     "verdict": "CONFIRMED",
+     "severity": "medium",
+     "claim": "`comparePayload()` (web/analysis.js:973-990) blanks every grid axis except the `strength_axis` this commit added to `gridPayload()` (web/generation.js:258). With a refine source set, a non-empty grid Strength box makes a prompt comparison versions × strengths × Seeds images instead of versions × Seeds. This holds even when the grid section is closed, because the box is saved with the panel and survives a reload. The server accepts it (`grid._sampling_values` keeps the axis whenever `refine` is set). The comparison preview then reads, for example, \"24 images · 2 variants × 4 seeds · batch 1\", and the run queues three times the images the Seeds select asked for. The fix is a `strength_axis: ''` line beside `lora_scale_axis: ''` at web/analysis.js:983.",
+     "reasoning": "The comment on `comparePayload()` (web/analysis.js:965-972) says it sends the grid's own payload \"with every axis emptied\". CLAUDE.md says the comparison keeps \"the image count versions times Seeds\". The function spreads `gridPayload()` and then blanks prompt_axis, steps_axis, cfg_axis, mu_axis, lora_scale_axis (983) and seed_axis (984). It never blanks strength_axis.\n\nThis commit added `strength_axis: els.gridStrength.disabled ? '' : els.gridStrength.value.trim()` to `gridPayload()` (web/generation.js:258). `els.gridStrength.disabled` is just `!(refineSupported && !!refineSource)` (web/sizes.js:212-215), and nothing checks whether the grid section is open. So with a refine source set, whatever is in the grid Strength box goes into every comparison. That box is also saved with the panel (`PANEL_FIELDS` includes 'gridStrength', web/panel.js:21; smoke-refine.json:99-106 checks that it survives a reload), so an old sweep left in a closed grid section is enough.\n\nI found no guard on the server side:\n- The GridRequest validators (backend/schemas.py:562-595) only refuse runs != 1, variants beside prompt_axis, and resume without a seed.\n- `main` passes `strength=request.strength_axis` into `grid.axis_values` and `grid.expand` (backend/main.py:978, 991).\n- `grid._sampling_values` (backend/grid.py:403-407) collapses the axis only when `request.refine is None`. Here a source is set, so it does not.\n- `grid.expand` multiplies by `len(values[\"strength\"])` (grid.py:679) and loops over it (grid.py:711).\n\nThe page does not catch it either. `previewComparison` (analysis.js:1022-1023) prints `p.images` next to its own \"variants × seeds\" text, giving the self-contradictory \"24 images · 2 variants × 4 seeds · batch 1\". `runComparison` (analysis.js:1038) posts the same payload to /api/grid. `git show 212f41c --stat` confirms the commit did not touch web/analysis.js, and no smoke runs a comparison while a refine source is set.",
+     "reproduction": "I started `tools/fake_server.py --port 7893 --model black-forest-labs/FLUX.1-Krea-dev` with a throwaway --data directory in the scratchpad, generated one image (gallery id 3) to use as the refine source, then POSTed comparePayload's shape to /api/grid/preview: every axis '' except strength_axis, seeds 4, num_images 1, refine 3, strength 0.1, two prompt_variants (scratchpad/compare_strength_axis_probe.py). Output:\n'' -> 200 {'cells': 8, 'images': 8, 'summary': '2 variants x 1 steps x 1 CFG x 1 mu x 4 seeds'}\n'0.1,0.2,0.3' -> 200 {'cells': 24, 'images': 24, 'summary': '2 variants x 1 steps x 1 CFG x 1 mu x 3 strength x 4 seeds'}\nI did not drive the browser. The client side is a direct read of comparePayload/gridPayload/syncConditioning. The fake server was stopped afterwards."
+    },
+    {
+     "finder_area": "web",
+     "finder_title": "Comparison leaves strength_axis in place, multiplying versions x Seeds",
+     "finder_severity": "medium",
+     "verdict": "CONFIRMED",
+     "severity": "medium",
+     "claim": "comparePayload() (web/analysis.js:973-990) blanks every grid axis except strength_axis, which this commit added to gridPayload() (web/generation.js:258). Suppose a refine source is set (the box is enabled, sizes.js:215) and a strength axis was ever typed (persisted via panel.js:21, and sent even with the grid section folded). The comparison then renders versions x Seeds x strengths instead of versions x Seeds, against the documented \"image count versions times Seeds\". Its sheet pins strength, so it shows only one strength's share. The server accepts the combination: GridRequest has no refusal for strength_axis beside prompt_variants. The comparison preview does show the inflated count (24 images), which lowers the impact somewhat.",
+     "reasoning": "The commit added `strength_axis: els.gridStrength.disabled ? '' : els.gridStrength.value.trim()` to gridPayload() (web/generation.js:258) but left analysis.js untouched. comparePayload() (web/analysis.js:973-990) spreads gridPayload() and then blanks prompt_axis, steps_axis, cfg_axis, mu_axis, lora_scale_axis and seed_axis, but not strength_axis. Nothing upstream stops it:\n- Page side: syncConditioning (web/sizes.js:214-216) enables gridStrength whenever `refineSupported && refineSource`. gridPayload ignores whether the grid section is open. Only previewGrid checks `els.gridSection.open`, and comparePayload never calls it. panel.js:21 persists gridStrength, so a value typed earlier stays across reloads. Only resetPanel clears it (panel.js:117-119). runComparison (analysis.js:1035-1038) sends comparePayload unchanged.\n- Server side: GridRequest's validators (backend/schemas.py:563-605) refuse runs != 1, a prompt_axis beside prompt_variants, duplicate labels and a resume with no seed. None of them refuses strength_axis beside prompt_variants. main._expand (main.py:967-995) passes both to grid.axis_values and grid.expand, which cross them.\n- Contract: CLAUDE.md says the comparison keeps \"the image count versions times Seeds\". comparePayload's own comment says the versions are the one thing that varies, crossed with the seeds. The design notes give no reason to sweep strength inside a comparison.\n- Sheet: chooseAxes (web/sheet.js:206-231) puts the non-variant axis across (seeds, 4 > 3 strengths) and the variants down. The strength axis is left to reconcileAxes as a pin, so the opened sheet shows one strength, a third of what was rendered.\nThe panel's own refine source and scalar strength being carried is consistent with the other panel settings. The un-blanked axis is the defect.",
+     "reproduction": "I started the fake server on a scratch gallery: `uv run python tools/fake_server.py --port 7893 --model black-forest-labs/FLUX.1-Krea-dev --fresh --data <scratchpad>/fake-gallery-strength-verify`. I made a source with POST /api/generate (gallery id 3). I then POSTed /api/grid/preview twice with comparePayload's shape: refine 3, strength 0.1, num_images 1, seeds 4, two prompt_variants (original, yours), every other axis ''. With `strength_axis: \"0.2,0.4,0.6\"` the server returned `{'cells': 24, 'images': 24, 'duplicates': 0}`. With `strength_axis: \"\"` it returned `{'cells': 8, 'images': 8, 'duplicates': 0}`. I traced the page side in code and did not run it in a browser: sizes.js:215 enables the box under a source, generation.js:258 sends it, and analysis.js:973-990 does not blank it. The reviewer's browser run reports the same 24-image preview."
+    }
+   ]
+  },
+  {
+   "id": "F2",
+   "file": "backend/schemas.py",
+   "line": 126,
+   "locations": [
+    "backend/schemas.py:126",
+    "backend/generate.py:518",
+    "web/generation.js:258"
+   ],
+   "severity": "low",
+   "category": "correctness",
+   "title": "A refine grid is refused over the base steps/strength pair that an axis replaces in every cell",
+   "description": "`_refine_leaves_a_step` is a model validator on `GenerateRequest`, so it also runs on the `GridRequest` body and on the CLI's base request (generate.py:518) before the axes apply. When a strength or steps axis is set, the base values are only fallbacks that `grid.expand` replaces in every cell, and `expand` already checks each cell by name. That per-cell check is the contract the design notes and the validator's own comment state (\"for a grid is every cell ... refused here, by name, when the grid is built\"). An absent strength is filled in from the profile before the check (0.1 on FLUX.1), so the refusal can name a value the user never typed.",
+   "failure_scenario": "FLUX.1 Krea dev, Steps 8, Strength box untouched, a refine source, Strength axis `0.3,0.5` (cells at 2.4 and 4 steps). /api/grid and /api/grid/preview answer 422 \"strength 0.1 of 8 steps is less than one step\"; `generate \"a fox\" --refine 1 --steps 8 --grid-strength 0.3,0.5 --dry-run` exits 2 with the same message. Steps 4 with a steps axis `20,28` is refused the same way. The workaround is to raise the unused base value.",
+   "suggested_fix": "Skip the base check on a `GridRequest` whose `strength_axis` or `steps_axis` is set (the cells are checked in `expand`), and build the CLI's base request the same way. Alternatively, move the check out of the schema into the per-cell build altogether, which also settles F3.",
+   "evidence": "`GridRequest` construction, TestClient on /api/grid/preview and the CLI dry run all refuse; with a base strength of 0.3 the same grids expand into valid cells. Re-run by hand after the workflow: refused for Steps 8 with the axis `0.3,0.5`, with and without an explicit 0.1, and for Steps 4 with a steps axis `20,28`; accepted with a base strength of 0.5.",
+   "merged_from": [
+    "A grid is refused for a base strength or step count that no cell uses",
+    "Base (steps, strength) pair is validated even when an axis replaces it",
+    "Strength axis refused over the panel's strength, which no cell uses"
+   ],
+   "verdict": [
+    {
+     "finder_area": "schemas",
+     "finder_title": "A grid is refused for a base strength or step count that no cell uses",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "`GridRequest` inherits `GenerateRequest._refine_leaves_a_step`, so the one-step refusal also runs on the grid body's base steps/strength. When a strength or steps axis is set, those values are only fallbacks that `grid.expand` replaces in every cell. A refine sweep whose every cell leaves at least one step is therefore refused with a 422 from /api/grid and /api/grid/preview, and exit 2 from the CLI, naming a steps/strength pair that no cell renders. Example on FLUX.1 Krea dev: Steps 8, Strength box 0.1 or empty (filled with the profile's 0.1), and strength axis 0.3,0.5. The design notes put the check on each cell. The workaround is to raise the unused base value.",
+     "reasoning": "`GenerateRequest._refine_leaves_a_step` (schemas.py:119-131) is a model validator, so `GridRequest(GenerateRequest)` at schemas.py:512 inherits it. It runs on the grid body's base `steps`/`strength` once `_profile_defaults` (schemas.py:102-117) has filled a missing strength with `default_strength()`, which is 0.1 on FLUX.1 Krea dev. The `GridRequest` docstring (schemas.py:515-517) says the inherited fields are only the base that a blank axis falls back to. When `strength_axis`/`steps_axis` is set, `grid.expand` (grid.py:711-727) builds each cell as a new `GenerateRequest` with `steps=step_count` and `strength=amount`. That re-runs the same validator once per cell, which is the per-cell refusal the design notes describe (\"which for a grid is every cell, at submit, by name\", design-notes.md around line 479).\n\nNothing upstream stops the base from being checked as well. FastAPI validates the `GridRequest` body before `main._expand` (main.py:950) or `preview_grid` runs, so the base pair is refused even though no cell renders it. The page sends the base through `gridPayload()` (web/generation.js:249-263, which spreads `collect()`). `collect()` sends `strength: num(els.strength)` while the box is enabled (generation.js:36), and the server fills an empty box with 0.1, so the box cannot be left blank to avoid the check. The CLI does the same: it builds the base `GenerateRequest` with `steps=args.steps` and `strength=args.strength` (None, so filled with 0.1) at generate.py:518-540, before calling `grid.expand` at line 590, and exits 2 there.\n\nThe test that looks like it covers this, test_api_refine.py:110-126, sets the base `\"strength\": 0.5` so the refusal comes from a cell. No test checks that a grid whose base fails but whose cells all pass is accepted. Nothing in CLAUDE.md or the design notes says the base should be checked when an axis replaces it.\n\nImpact: a valid sweep is refused with a message naming a steps/strength pair that no cell uses. The workaround is to raise the unused box value. No data or reproduction keys are affected, so severity is low.",
+     "reproduction": "1) Scratch script scratchpad/verify_grid_base_strength.py (LOCAL_DIFFUSION_MODEL_ID=black-forest-labs/FLUX.1-Krea-dev):\n- `GridRequest(prompt='x', refine=1, steps=8, strength=0.1, strength_axis='0.3,0.5')` was refused with \"Value error, strength 0.1 of 8 steps is less than one step; raise the strength or the steps\".\n- The same body with `strength` omitted was refused with the identical message.\n- With base strength 0.3, `grid.expand(strength='0.3,0.5')` gave cells [(8, 0.3), (8, 0.5)]. Both are valid.\n- `steps=4, strength=0.1, steps_axis='10,20'` was refused with \"strength 0.1 of 4 steps\". Its cells would be [(10, 0.1), (20, 0.1)], both valid.\n\n2) HTTP, scratchpad/verify_grid_base_http.py (TestClient on main.app, scratch DB, base_url 127.0.0.1):\n- POST /api/grid/preview with {steps: 8, strength: 0.1, refine: 1, strength_axis: '0.3,0.5'} returned 422 {\"detail\":[{\"loc\":[\"body\"],\"msg\":\"Value error, strength 0.1 of 8 steps is less than one step; ...\"}]}, a body-validation error raised before the route.\n- The same body with strength 0.3 got past validation and failed only on the scratch gallery: 422 \"no gallery image with id 1\".\n\n3) CLI, with scratch DB/outputs env:\n- `python -m backend.generate \"a fox\" --refine 1 --steps 8 --width 1024 --height 1024 --grid-strength 0.3,0.5 --dry-run` printed \"request: Value error, strength 0.1 of 8 steps is less than one step; raise the strength or the steps\" and exited 2.\n- Adding `--strength 0.3` got past the check and stopped only at \"no gallery database ... no image 1 to refine\"."
+    },
+    {
+     "finder_area": "cli",
+     "finder_title": "Base (steps, strength) pair is validated even when an axis replaces it",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "`_refine_leaves_a_step` (schemas.py:126) is inherited by `GridRequest` and also runs on the CLI's base `GenerateRequest` (generate.py:518). It checks the base (steps, strength) pair, with an absent strength filled from the profile (0.1 on FLUX.1 dev), even when `--grid-strength`/`strength_axis` or `--grid-steps`/`steps_axis` replaces that value in every cell. A grid whose cells all leave at least one step is then refused, with an error naming a pair no cell would run, on both the CLI (exit 2) and `/api/grid` and `/api/grid/preview` (422). The documented contract is a per-cell refusal. `grid.expand` already checks each cell.",
+     "reasoning": "`GenerateRequest._profile_defaults` (schemas.py:115-116) fills an absent strength from `default_strength()`, which is 0.1 on FLUX.1 Krea dev. `_refine_leaves_a_step` (schemas.py:119-130) then checks that base (steps, strength) pair whenever `refine` is set. `GridRequest` (schemas.py:512) inherits both validators unchanged, and the CLI builds its base as a plain `GenerateRequest` at generate.py:518-536, with `strength=args.strength`. That base check runs before `grid.expand` (generate.py:590). Inside `expand`, the axis values replace the base steps or strength: `_sampling_values` at grid.py:390 and 403-406, then the per-cell `GenerateRequest(**{..., \"steps\": step_count, \"strength\": amount})` at grid.py:711-726. Each cell is checked there again.\n\nThe design notes (design-notes.md, refine section, around line 98-100) state the contract: the refusal applies \"when the request is built - which for a grid is every cell, at submit\". CLAUDE.md says the same: \"refused when the request is built, so per grid cell\". The validator's own comment also describes a per-cell refusal.\n\nWhen an axis replaces the base value, the base pair is not a cell, yet it is refused. The resulting message names a pair that no cell would run. No guard upstream exempts the base when an axis is set. The existing tests avoid the case. test_api_refine.py:110-121 passes `strength: 0.5` as its base. test_refine.py:259-274 uses steps=10 and builds the base without the validator path at issue. test_cli.py:585 tests only a plain request. This does not appear to be a deliberate choice: nothing in the docs justifies checking a base that an axis replaces.\n\nSeverity is low. The workaround is easy: pass a `--strength`/`--steps` that satisfies the base. The case also needs low base steps. On the page, the Steps box defaults to the profile's 28, and 28 x 0.1 = 2.8 leaves steps. A CLI user who lowers `--steps` for a fast strength sweep and omits `--strength` hits it naturally.",
+     "reproduction": "I wrote a scratch script (scratchpad/verify_base_pair_axis.py) with LOCAL_DIFFUSION_* cleared, so the model was black-forest-labs/FLUX.1-Krea-dev and default_strength was 0.1.\n- `GridRequest(prompt='x', refine=1, steps=8, strength_axis='0.3,0.5')` raised \"Value error, strength 0.1 of 8 steps is less than one step\".\n- `GridRequest(prompt='x', refine=1, steps=4, steps_axis='20,28')` raised \"strength 0.1 of 4 steps is less than one step\".\n- `grid.expand` over a passing base gave the cells [(8, 0.3), (8, 0.5)] and [(20, 0.1), (28, 0.1)]. Every cell is valid.\n\nCLI, with outputs and DB redirected to the scratchpad:\n- `uv run python -m backend.generate \"a fox\" --refine 1 --width 1024 --height 1024 --steps 8 --grid-strength 0.3,0.5 --seed 1 --dry-run` printed \"request: Value error, strength 0.1 of 8 steps is less than one step; raise the strength or the steps\" and exited 2.\n- The same with `--steps 4 --grid-steps 20,28` gave the same error for \"0.1 of 4 steps\" and exited 2.\n- Control: adding `--strength 0.3` to the first command passed request construction and `expand`. It stopped only at the later gallery check, \"no gallery database ... so there is no image 1 to refine\". That shows the base pair is the only cause."
+    },
+    {
+     "finder_area": "tests",
+     "finder_title": "Strength axis refused over the panel's strength, which no cell uses",
+     "finder_severity": "medium",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "GridRequest inherits GenerateRequest._refine_leaves_a_step (schemas.py:119-130), so a refine grid is refused when its base steps × strength leaves no step, even when a steps or strength axis replaces those base values and every cell grid.expand builds is valid. Example: FLUX.1 Krea dev, Steps 8, Strength at its seeded 0.1, strength axis 0.2,0.3,0.4 gets a 422 \"strength 0.1 of 8 steps is less than one step\". The per-cell check in expand already refuses any bad cell by name, which is the documented contract (\"for a grid is every cell\"). The CLI does the same at generate.py:517-535, where it builds the base GenerateRequest before the --grid-steps/--grid-strength axes apply. Impact is a spurious, clearly worded refusal that raising the panel's Steps or Strength works around; severity low.",
+     "reasoning": "`GenerateRequest._refine_leaves_a_step` (schemas.py:119-130) is a model_validator, so `GridRequest(GenerateRequest)` (schemas.py:512) inherits it. It runs on the grid's base `steps`/`strength` after `_profile_defaults` (schemas.py:102-117) has filled the strength from the profile (0.1 on FLUX.1 Krea dev, model_defaults.py:276). FastAPI parses the body of `/api/grid` and `/api/grid/preview` straight into GridRequest (main.py:1022, main.py:1149), so the check runs before any route code. Nothing upstream guards it. The page's `gridPayload()` (web/generation.js:250) spreads `collect()`, which sends the Strength box. That box is seeded with the profile's 0.1 (status.js:22), and the page runs no step check of its own.\n\nWhen an axis is set, the base value is never a cell. `grid._sampling_values` uses `parse_axis(strength) or [request.strength]` (grid.py:403-406), and the steps axis works the same way. `grid.expand` then rebuilds every cell as its own `GenerateRequest` with the axis values (grid.py:711-727). That runs the same validator per cell and refuses a bad one by name. `test_refine.py:273` and `test_api_refine.py:110-121` both cover that path. So for a grid, the base check can only add one thing: refusing a grid in which every cell is valid.\n\nThe contract puts the refusal on the cells. Design notes, \"The refine pass\": \"refuses `int(steps * strength) < 1` when the request is built - which for a grid is every cell\". CLAUDE.md: \"refused when the request is built, so per grid cell\". The validator's own comment says the same. No test chose the base-refusal behaviour on purpose: the only grid refusal test (test_api_refine.py:113) uses a valid base strength of 0.5. The CLI has the same spurious refusal. generate.py:517-535 builds the base `GenerateRequest` from `--steps`/`--strength` with `refine=` set before the grid axes are applied, so `--steps 8 --refine N --grid-strength 0.2,0.4` on Krea dev is refused at strength 0.1.\n\nSeverity: low rather than medium. It only fires when the panel's base steps × strength is below one step and an axis replaces it. The refusal is a clear 422 naming the base values, nothing runs wrongly, and raising the panel's Steps or Strength works around it. Still, it refuses work the contract allows, and its message names a value no cell uses.",
+     "reproduction": "I ran scratchpad/verify_grid_base_strength.py with `uv run python` (LOCAL_DIFFUSION_* cleared, default model black-forest-labs/FLUX.1-Krea-dev). It builds GridRequest(prompt, 1024x1024, refine=3, ...) and calls grid.expand. Output:\n- base steps 8 @0.1, strength_axis \"0.2,0.3,0.4\": GridRequest refused with \"strength 0.1 of 8 steps is less than one step\"\n- base steps 8, strength None (filled to 0.1), same axis: same refusal\n- base steps 4 @0.1, steps_axis \"28\": refused with \"strength 0.1 of 4 steps is less than one step\"\n- base steps 8 @0.5, same strength axis: ok, cells [(8,0.2),(8,0.3),(8,0.4)]\n- each of those cells built as its own GenerateRequest ((8,0.2),(8,0.3),(8,0.4),(28,0.1)): all valid\n- base 8 @0.5 with axis \"0.05,0.2\": expand itself raises \"strength 0.05 of 8 steps is less than one step\"\n\nSo the per-cell check already catches every bad cell, and the base check only refuses grids whose cells are all valid. I did not re-run the HTTP route. FastAPI validates the body as GridRequest, so the route gives the same ValidationError as a 422, which matches the reviewer's fake-server result."
+    }
+   ]
+  },
+  {
+   "id": "F3",
+   "file": "backend/schemas.py",
+   "line": 126,
+   "locations": [
+    "backend/schemas.py:126",
+    "backend/main.py:402",
+    "backend/generate.py:477"
+   ],
+   "severity": "low",
+   "category": "error-message",
+   "title": "The server reports \"less than one step\" where the checkpoint has no refine pass at all",
+   "description": "Because the one-step check runs while the body is parsed, it comes before `_refuse_unusable_inputs`'s capability check. On a checkpoint with no pass and few steps (klein 4, Anima Turbo and ERNIE Turbo 8), an explicit low strength gets advice that cannot help, and following it gives a second, different 422. The CLI orders the two the other way on purpose and says why (generate.py:477-488). The page cannot send this request; an API client can. Nothing is wrongly accepted.",
+   "failure_scenario": "With LOCAL_DIFFUSION_MODEL_ID=black-forest-labs/FLUX.2-klein-4B, POST /api/generate {refine: id, strength: 0.2} answers 422 \"strength 0.2 of 4 steps is less than one step; raise the strength or the steps\". With strength 0.5 it answers 422 \"has no refine pass\". /api/grid/preview behaves the same.",
+   "suggested_fix": "Do the step check in the route after `_refuse_unusable_inputs`, as the CLI does, or have the validator stay silent where the profile says there is no pass.",
+   "evidence": "TestClient on klein and on the fake backend with `refine_supported=False`; both orderings printed.",
+   "merged_from": [
+    "With no refine pass, the step-count error pre-empts the no-pass refusal",
+    "Server reports 'less than one step' instead of 'no refine pass'"
+   ],
+   "verdict": [
+    {
+     "finder_area": "schemas",
+     "finder_title": "With no refine pass, the step-count error pre-empts the no-pass refusal",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "`GenerateRequest._refine_leaves_a_step` (backend/schemas.py:126) refuses a low strength while the body is validated, without checking whether the running checkpoint has a refine pass. `/api/generate` and `/api/grid` both validate the body before `_refuse_unusable_inputs` (main.py:391-409) runs. So on a low-step checkpoint with no pass (klein 4 steps, Anima/ERNIE Turbo 8), an API request with `refine` and a low explicit strength gets \"strength X of N steps is less than one step; raise the strength or the steps\" instead of \"has no refine pass\". Following that advice only produces a second, different 422. The CLI (generate.py:474-487) deliberately checks for a missing pass first for exactly this reason. Both paths still refuse and nothing runs; only the reason is wrong. The page cannot send this request.",
+     "reasoning": "This is real but minor. A request for a pass the checkpoint cannot run is refused either way. Only the reason given is wrong.\n\nPath traced:\n- backend/schemas.py:119-131: `GenerateRequest._refine_leaves_a_step` is a `model_validator(mode=\"after\")`. It runs whenever `refine` is set and refuses `int(steps*strength) < 1`. It does not ask whether the checkpoint has a refine pass.\n- `GridRequest` (schemas.py:512) and `PromptAnalysisRequest` inherit this validator.\n- main.py:936-942: the `/api/generate` route takes `request: GenerateRequest`. FastAPI validates the body before the handler runs, so `_refuse_unusable_inputs` (main.py:391-409), which raises \"has no refine pass\", is never reached.\n- `/api/grid` goes through `_expand`, which calls `_refuse_unusable_inputs` (main.py:967). Its `GridRequest` body is validated first in the same way.\n- `applied()` (schemas.py:243-248) would drop `refine` on such a checkpoint anyway, so the step bound concerns a pass that can never run.\n\nThe CLI orders the two checks the other way on purpose. The comment at generate.py:474-477 reads \"a strength that also happens to leave no step of that checkpoint's few would otherwise be the error reported, about a pass that could never have run\". The server does not follow that ordering. The design notes (refine section) say a request is \"refused at submit (`_refuse_unusable_inputs`, and the CLI before its load) where the checkpoint has no pass\". Over HTTP that refusal is pre-empted.\n\nNothing upstream prevents it:\n- The page sends `refine` only where `refineSupported`, and the Strength box is dead otherwise. So only a direct API client can send this request.\n- The profiles with no pass include several low-step ones: klein (4 steps), and Anima Turbo and ERNIE Turbo (8).\n- klein's default strength (0.4 → 1 step) passes. An explicit low strength is needed to trigger it.\n\nThe existing test tests/test_api_refine.py:122-125 shows the schema-level 422 reaching the client before any route code. That test runs on the default FLUX checkpoint, where a pass exists, so it does not cover this case.\n\nSeverity is low: both paths refuse, nothing runs and no data is affected. The client is just told to raise the strength or steps, then gets a second, different refusal.",
+     "reproduction": "I wrote a scratch script (scratchpad/verify_refine_order_klein.py). It clears LOCAL_DIFFUSION_*, sets LOCAL_DIFFUSION_MODEL_ID=black-forest-labs/FLUX.2-klein-4B and points the DB and outputs at a temp dir. It then calls storage.init_db() and posts through TestClient(main.app, base_url=http://127.0.0.1:7860). Output:\nprofile False 4\n0.2 422 {'detail': [{'type': 'value_error', 'loc': ['body'], 'msg': 'Value error, strength 0.2 of 4 steps is less than one step; raise the strength or the steps', ...}]}\n0.5 422 {'detail': 'black-forest-labs/FLUX.2-klein-4B has no refine pass - diffusers ships no image-to-image pipeline beside its own. The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.'}\ngrid 422 {'detail': [{... 'msg': 'Value error, strength 0.2 of 4 steps is less than one step; raise the strength or the steps', ...}]}\nSo /api/generate and /api/grid both report the step error first. Following its advice (strength 0.5) produces the real refusal."
+    },
+    {
+     "finder_area": "routes",
+     "finder_title": "Server reports 'less than one step' instead of 'no refine pass'",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "The step check runs while the request body is parsed (schemas.py:119-131; `GridRequest` inherits it), before `_refuse_unusable_inputs` (main.py:402-410) ever runs. So on a checkpoint with no refine pass, a `/api/generate`, `/api/grid` or `/api/grid/preview` request whose explicit *base* strength or steps leave less than one step gets a 422 value_error. It says \"strength X of N steps is less than one step; raise the strength or the steps\", which can never fix the request. Only after raising the strength does the client get the real cause, \"has no refine pass\".\n\nThis reverses the order the CLI chooses on purpose and justifies at generate.py:477-488. A low value on `strength_axis` is not affected, because `grid.expand` runs after the capability check.\n\nIt is reachable only through direct API calls with explicit low values. The page never sends a source where `refineSupported` is false, and every profile's default strength leaves a step. No request is wrongly accepted.",
+     "reasoning": "Confirmed. The server reports the wrong refusal first, but only to direct API clients that send an explicit low strength or step count.\n\nHow the ordering happens:\n- `GenerateRequest._refine_leaves_a_step` (schemas.py:119-131) is a pydantic `model_validator`. It runs while FastAPI parses the body, before the handler at main.py:937 is entered.\n- It checks only `self.refine is not None`, not whether the checkpoint has a pass.\n- The capability refusal is `_refuse_unusable_inputs` (main.py:391-410). `generate()` reaches it at main.py:942, so for `/api/generate` the step check always wins.\n- `GridRequest` subclasses `GenerateRequest` (schemas.py:512), so a grid's or preview's *base* strength is checked at parse time too.\n- A low value on `strength_axis` is checked later, in `grid.expand` inside `_expand`. That runs after `_refuse_unusable_inputs` (main.py:967), so the grid's axis path gets the right order.\n- The CLI orders these checks on purpose (generate.py:477-488). Its comment names this exact case as the one to avoid: \"a strength that also happens to leave no step ... would otherwise be the error reported, about a pass that could never have run\".\n- The CLI test calls its no-pass refusal \"the same refusal the server makes at submit\" (test_cli.py:586-590). For this input it is not the same.\n- The first message advises \"raise the strength or the steps\", which can never make the request succeed.\n\nWhat limits the reach:\n- The page never sends `refine` where `refineSupported` is false: `collect()` sends the source only where supported, per CLAUDE.md, and smoke-conditioning.json:29 asserts `collect().refine === null`. So the UI path is guarded.\n- Every catalogue profile's default strength leaves at least one step of its default steps. I computed this for all 20 `launch.CHECKPOINTS`: every row was True, e.g. klein 4 steps at 0.4 and Krea-2-Turbo 8 at 0.4. So an API request that omits `strength` gets the correct \"no refine pass\" message.\n- The bad message needs an explicit strength or step count below one step on a checkpoint with no pass, e.g. klein or Krea 2 via the API.\n- No request is wrongly accepted or run; only the message and its advice are wrong.\n- CLAUDE.md and design-notes.md require both refusals at submit but do not fix their order on the server. The defect is the server and CLI disagreeing, with the server doing what the CLI's comment calls wrong.",
+     "reproduction": "I wrote a scratch test at C:\\Users\\matsi\\AppData\\Local\\Temp\\claude\\C--VSProjects-ImageGeneratorLocal\\ee007e0f-717e-4900-9ec9-c271dcce8122\\scratchpad\\verify_refine_order\\test_scratch_refine_order.py. It loads the repo conftest with `-p tests.conftest`, renders one image, sets `fake.refine_supported = False` and posts. Command: `uv run --group dev pytest -p no:cacheprovider -p tests.conftest -s -q <file> --rootdir=.`\n\nOutput:\n- `/api/generate` with steps 4, strength 0.2: 422 `[{'type': 'value_error', ... 'msg': 'Value error, strength 0.2 of 4 steps is less than one step; raise the strength or the steps'}]`\n- Same request with strength 0.5: 422 `'black-forest-labs/FLUX.1-Krea-dev has no refine pass - ...'`\n- `/api/grid` with base 0.5 and `strength_axis` 0.1,0.5: 422 `'... has no refine pass ...'` (correct order)\n- `/api/grid/preview` with base strength 0.2: 422 with the \"less than one step\" value_error\n\nNo backend request was made in any case.\n\nA second scratch script printed, for every `launch.CHECKPOINTS` entry, its profile steps, `refine_supported`, default strength and `leaves_a_step`. The last was True for all 20."
+    }
+   ]
+  },
+  {
+   "id": "F4",
+   "file": "backend/grid.py",
+   "line": 500,
+   "locations": [
+    "backend/grid.py:500",
+    "backend/grid.py:505",
+    "backend/grid.py:122"
+   ],
+   "severity": "low",
+   "category": "preview-advisory",
+   "title": "The duplicate count misses strengths that start the schedule at the same step",
+   "description": "Every sibling uses strength only to pick an integer start index (the flow pipelines `t_start = int(n - n*s)`, SDXL `n - int(n*s)`), so two strengths with the same index render byte-identical images under one seed. `cell_key` keys on the strength as typed (`refine_key` \"id@0.6\" against \"id@0.7\"), so `duplicate_count`, documented as comparing cells \"as the pipeline will *run* them\", reports none, and the preview's \"would be identical\" and the CLI's dry-run warning stay silent. Low-strength FLUX.1 sweeps, which the design notes recommend, and the few-step checkpoints hit it most. The run itself is correct: duplicates render by design, and the hash-based distinct count reports them afterwards.",
+   "failure_scenario": "FLUX.1 Krea dev at 28 steps, axis `0.05-0.15x0.01`: 11 cells, 4 distinct start indices, 0 duplicates reported. schnell (4 steps), `0.5-0.9x0.1`: 2 duplicates, 0 reported. Z-Image Turbo (8 steps), `0.2-0.5x0.05`: 4 duplicates, 0 reported. The sheet labels identical images as different strengths.",
+   "suggested_fix": "In `duplicate_count` only, compare refine cells by the start index the sibling will compute (the flow or the SDXL rounding, by the checkpoint's family) rather than the raw strength. Keep `CellKey` and `run_id` on the raw strength.",
+   "evidence": "Probe scripts printing each strength's `t_start` beside `duplicate_count`'s 0 for each case.",
+   "merged_from": [
+    "duplicate_count misses refine strengths that start at the same step",
+    "Strength sweep duplicates (same start step) are not counted"
+   ],
+   "verdict": [
+    {
+     "finder_area": "schemas",
+     "finder_title": "duplicate_count misses refine strengths that start at the same step",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "`grid.duplicate_count` (backend/grid.py:505) compares refine cells by their raw strength through `cell_key`/`refine_key` (grid.py:122-129, 500). The image-to-image pipelines use strength only to choose the schedule's start index: flow pipelines take `t_start = int(steps - steps*strength)`, SDXL takes `steps - int(steps*strength)`.\n\nSo strengths that land on the same index render byte-identical images, yet the preview and the CLI report 0 duplicates. Example: on FLUX.1 Krea dev at 28 steps, the axis 0.05-0.15x0.01 is 11 cells but only 4 distinct images, and 7 duplicates go unreported. On SDXL at 28 steps, 0.40 and 0.41 both start at index 17. The sheet then labels identical cells as different strengths.",
+     "reasoning": "I found nothing upstream that stops this. The chain:\n\n1. **The sibling pipelines only use strength to pick a start index.** In the installed diffusers 0.40:\n   - `FluxImg2ImgPipeline` uses `strength` in three places: `check_inputs` (the [0,1] range check), `get_timesteps` at pipeline_flux_img2img.py:477-486, and the error message at :917-921. `get_timesteps` computes `t_start = int(max(steps - steps*strength, 0))`. The noise level then comes from `latent_timestep = timesteps[:1]` (:923) and goes into `prepare_latents`/`scale_noise` (:656).\n   - SDXL img2img (pipeline_stable_diffusion_xl_img2img.py:647-657) uses `int(steps*strength)`, and `denoising_start` is never passed.\n   - Z-Image (:285) and Qwen-Image (:256) img2img use the same flow `get_timesteps`.\n   - So two strengths with the same `t_start` give the pipeline identical inputs.\n\n2. **The backend passes strength straight through.** `DiffusersBackend.generate` hands `request.strength` to the pipeline unchanged (diffusers_backend.py:643-647). Strength also drives `steps_run`, progress and the preview sigma, but none of those touch pixels.\n\n3. **Equal inputs give equal hashes.** docs/verified.md's Refine pass section records \"The same pass twice is the same hash, on all three\".\n\n4. **Nothing upstream folds strength to its start index:**\n   - `GenerateRequest.applied()` (schemas.py:180-) only resets strength to the default when there is no source.\n   - `grid.expand` (grid.py:711-724) builds one cell per raw value.\n   - `cell_key` uses `refine_key(refine, strength)` (grid.py:122-129, 500), keyed on the strength rounded to 6 decimals.\n   - So `duplicate_count` (grid.py:505-525) sees every strength as a distinct key.\n\n5. **Both the server and the CLI rely on this count.** `/api/grid/preview` (main.py:1173) and the CLI warning (generate.py:835) both call `duplicate_count`. The page shows the warning only from `p.duplicates` (generation.js:331-335; analysis.js:1018-1025). There is no other check.\n\n6. **This breaks the stated contract:**\n   - The `duplicate_count` docstring says cells are \"Compared as the pipeline will *run* them\".\n   - `GridPreview.duplicates` (schemas.py:637-643) promises \"Cells that will render the very same image\".\n   - The comment in `applied()` (schemas.py:233-236) says an axis that changes no pixel should read as \"the one image repeated - which is what `duplicate_count` is there to say\".\n   - The design notes say \"A strength is an index into the checkpoint's schedule\", but no rule handles duplicates on this axis.\n\n7. **The trigger is the use the design notes recommend.** The FLUX default strength is 0.1, and \"The strength axis exists to put the candidates on one sheet\". A fine sweep near 0.1 is that use, and at 28 steps the granularity is 1/28 ≈ 0.036.\n\n**One correction to the reviewer's SDXL arithmetic:** `t_start` is 17 for both 0.40 and 0.41 (28 − int(11.2) = 28 − int(11.48) = 17). The reviewer gave 11, which is the number of steps that run, not the start index. Either way the two are identical.\n\n**Severity is low.** The duplicate cells still render correctly and are priced correctly, because duplicates are only warned about, never skipped. The harm is a missing warning, wasted GPU time, and sheet cells labelled as different strengths that show the same image.",
+     "reproduction": "I wrote scratchpad/probe_strength_dupes.py and ran it with `uv run python`. The model was the default FLUX.1-Krea-dev; the request was 28 steps, 1536x1536, refine=1, seed 5, strength axis \"0.05-0.15x0.01\".\n\nThe probe printed:\n- `cells 11 duplicates 0`\n- Flux `t_start` per strength: [(0.05,26),(0.06,26),(0.07,26),(0.08,25),(0.09,25),(0.1,25),(0.11,24),(0.12,24),(0.13,24),(0.14,24),(0.15,23)]\n- `distinct flux starts 4`\n- `sdxl 0.40/0.41 17 17`\n- `applied()` leaves every strength unchanged: [0.05 ... 0.15]\n\nI did not run anything on the GPU. Byte-identical output for equal `t_start` follows from the diffusers source, which uses strength only through `int()`, plus the determinism verified.md records."
+    },
+    {
+     "finder_area": "storage",
+     "finder_title": "Strength sweep duplicates (same start step) are not counted",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "grid.duplicate_count builds cell keys from the strength as typed (refine_key 'id@0.6' vs 'id@0.7'). The sibling pipelines turn strength into an integer start index (flow pipelines: t_start = int(n - n*s); SDXL: t_start = n - int(n*s)), so different strengths with the same start index make byte-identical images under one seed. The grid preview's \"N would be identical to another cell\" and the CLI's dry-run WARNING miss them. Example: schnell, 4 steps, strength axis 0.5-0.9x0.1, has 2 real duplicates and reports 0. Z-Image Turbo, 8 steps, 0.2-0.5x0.05, has 4 and reports 0. This contradicts duplicate_count's own docstring and main.py:953. The run itself is correct: duplicates are rendered by design, so the estimate is right, and the hash-based distinct count reports the repeats afterwards. The gap is only in the advisory before the run, and it shows up mainly on few-step checkpoints.",
+     "reasoning": "I couldn't refute this. In every sibling pipeline the strength does one thing: it picks the start index. diffusers flux/pipeline_flux_img2img.py:477-486 (copied into z_image img2img:285 and qwenimage img2img:256) sets t_start = int(n - n*s). SDXL img2img:647-657 sets init = int(n*s), t_start = n - init. After that, `timesteps[:1]` sets the noise level in prepare_latents, and apart from check_inputs no other line reads strength. The app's _refine adds nothing that depends on strength either: diffusers_backend.py:647 only passes kwargs[\"strength\"].\n\nSo two strengths that give the same t_start, under one seed, make the same latents and the same denoise. verified.md:332 records that the same pass run twice gives the same hash on all three pipelines, so those cells are byte-identical.\n\nNo guard upstream catches this. GenerateRequest.applied() (schemas.py:244-249) normalises strength only when there is no source. _refine_leaves_a_step only refuses fewer than one step. duplicate_count (grid.py:505-525) compares cell_key, and cell_key carries refine_key(request.refine, request.strength) = \"id@0.6\" vs \"id@0.7\" (grid.py:129, 500). So the key is the strength as typed, not as run. Both the server preview (main.py:1173) and the CLI warning (generate.py:835-838) use that count.\n\nThis contradicts what the code says about itself: duplicate_count's docstring (\"How many cells would render the very same image... Compared as the pipeline will *run* them, not as the panel spelled them\"), main.py:953 (\"counts the cells that would render an identical image\"), and the lora_scale comment in schemas.py:233-236 (\"look like a sweep instead of the one image repeated - which is what duplicate_count is there to say\").\n\nTwo corrections to the reviewer:\n- The estimate and image count including the copies is not itself wrong. By design, duplicates are still rendered (design-notes \"Content hashes and duplicate counts\"), so those cells really do run. After the run, the hash-based distinct count does say \"only N distinct\".\n- The miss is in the advisory before the run: the preview's \"would be identical to another cell\" and the CLI's WARNING.\n\nContext that lowers the stakes: this is advisory only, and it needs a sweep finer than 1/steps, which is natural only on few-step checkpoints (schnell with 4 steps, Z-Image Turbo with 8). The count was never a full pixel-identity check: an SDXL CFG axis of 0.5,0.8 below the 1.0 threshold also renders identical images and also counts 0, and I reproduced that. The design notes describe the count as \"applied key repeats\", which the code does implement.",
+     "reproduction": "Scratch scripts are under the scratchpad (verify_strength_dupes.py, verify_strength_dupes2.py) and were run with `uv run python`.\n\n(1) With LOCAL_DIFFUSION_MODEL_ID=FLUX.1-schnell (profile: steps 4, refine_strength 0.5, refine_supported True), I ran expand(GenerateRequest(steps=4, refine=7, strength=0.5), strength='0.5-0.9x0.1'). It gave 5 cells keyed 7@0.5, 7@0.6, 7@0.7, 7@0.8, 7@0.9. The flow pipeline's own formula gives steps run of 2, 3, 3, 4, 4. duplicate_count with applied(refine_supported=True) printed 0.\n\n(2) With Z-Image-Turbo (steps 8, refine_strength 0.25), strength '0.2-0.5x0.05' gave start indices [6, 6, 5, 5, 4, 4, 4]: 4 true duplicates, yet duplicate_count printed 0.\n\n(3) For the pre-existing analogue, an SDXL-style CFG axis '0.5,0.8' with threshold 1.0 also gave duplicate_count 0."
+    }
+   ]
+  },
+  {
+   "id": "F5",
+   "file": "backend/main.py",
+   "line": 404,
+   "locations": [
+    "backend/main.py:404",
+    "backend/backends/diffusers_backend.py:541",
+    "backend/generate.py:481",
+    "backend/model_defaults.py"
+   ],
+   "severity": "low",
+   "category": "correctness",
+   "title": "An off-catalogue checkpoint's refine request is accepted on the profile's guess, then rendered without the pass",
+   "description": "Before a load, the submit refusal reads the profile's `refine_supported`, which is a family-token guess. For repo ids outside the catalogue that carry `flux` (FLUX.1-Kontext-dev, FLUX.1-Fill-dev, FLUX.2-dev) or `qwen-image` (Qwen-Image-Edit, -Edit-2509), the guess is True, but in diffusers 0.40 their classes have no image-to-image sibling. Nothing checks again after `ensure_loaded`. `generate()`'s `applied()` then drops the source and resets the strength without a log line, and the job ends \"done\". The rows are honest (refine None), but a strength sweep becomes N identical text-to-image renders: the \"night of new pictures\" the design notes give as the reason for the refusal. On the server this affects jobs submitted before the first load; on the CLI it affects every run. **The verifiers split on this one.** F5's verifier confirmed the server's half, since the refusal exists to prevent exactly this outcome. A separate candidate for the CLI's half of the same path (generate.py:927) was refuted by its verifier as the documented structure: \"refused at submit ... where the checkpoint has no pass ... and dropped by `applied()` where it gets past that\" (design-notes.md:495-503), with a check after the load called reasonable hardening rather than a fix. Both agree on the mechanics and that it needs an id outside the catalogue. Read F5 as a gap in the design, not code departing from its notes.",
+   "failure_scenario": "Server on FLUX.1-Kontext-dev, unloaded. POST /api/grid with refine=<id>, 1.5x the source's size and strength_axis `0.2,0.3,0.4` answers 200. The job loads and renders three identical 28-step text-to-image pictures (Kontext rescales the size to about 1 MP itself); each row says refine None and the job ends \"done\".",
+   "suggested_fix": "After the load (in the job before its first cell, and in the CLI after `backend.load()`), compare `applied(request).refine` with the request's and fail with the \"has no refine pass\" message where the pass was dropped. Optionally tighten the guesses for the known ids without a sibling.",
+   "evidence": "For all five ids: guess True, `refine.sibling` None. A real `DiffusersBackend` holding a `FluxKontextPipeline` instance showed `applied()` keeping the source while unloaded and dropping it once loaded.",
+   "merged_from": [
+    "Refine accepted on the profile's guess, then silently dropped after the load"
+   ],
+   "verdict": [
+    {
+     "finder_area": "gap:profile-guess-vs-live-before-load",
+     "finder_title": "Refine accepted on the profile's guess, then silently dropped after the load",
+     "finder_severity": "medium",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "For repo ids outside the catalogue whose id contains a family token (`flux` for FLUX.1-Kontext-dev, FLUX.1-Fill-dev and FLUX.2-dev; `qwen-image` for Qwen-Image-Edit and -Edit-2509), the profile guesses `refine_supported` True, but in diffusers 0.40 their classes have no image-to-image sibling. The server's submit refusal (main.py:402-410, which reads `_merged_defaults` of an unloaded `describe()`) and the CLI's check (generate.py:481) both use that guess before the load. Nothing checks again after `ensure_loaded`/`load()`. `generate()` at diffusers_backend.py:541 then drops the source and resets the strength through `applied()`, with no log line, and the job finishes \"done\" with plain text-to-image renders: a strength sweep gives identical images. The saved row stays honest (refine None). On the server this affects only jobs submitted before the first load; on the CLI it affects every run. It needs an off-catalogue id, hence low severity.",
+     "reasoning": "I traced the path end to end and found no guard on it. The one condition is a repo id outside the catalogue that still matches a family token.\n\n1. **The guess decides at submit.** `_refuse_unusable_inputs` (main.py:402-410) reads `_merged_defaults(backend.describe())[\"refine_supported\"]`. While `_pipe` is None, `describe()` returns `refine_supported: None` (diffusers_backend.py:798). `_merged_defaults` (main.py:298-308) then keeps the profile's value.\n2. **The guess is wrong for these ids.** `_PROFILES` matches on the first token. `black-forest-labs/FLUX.1-Kontext-dev`, `FLUX.1-Fill-dev` and `FLUX.2-dev` all hit `flux` (model_defaults.py:262-276: `refine_supported` True, strength 0.1). `Qwen/Qwen-Image-Edit` and `-Edit-2509` hit `qwen-image` (around line 428: True, 0.3). In diffusers 0.40, `refine.sibling()` returns None for every one of their classes. Each class still has `generator` and `callback_on_step_end`, so `load()`'s `_REQUIRED_PARAMS` check (diffusers_backend.py:176-183) lets it through.\n3. **Nothing checks again after the load.** `jobs._run` awaits `ensure_loaded` (jobs.py:380) and goes straight to the cells. jobs.py never mentions refine apart from a comment at line 499.\n4. **`generate()` drops the source without a word.** Line 541 calls `self.applied(request)`, which now uses the live `_refine_supported()` (False, lines 314-321). `schemas.applied` (schemas.py:244-249) sets `refine` to None and puts `strength` back to `default_strength()`. Line 540 logs a dropped negative prompt; nothing logs a dropped source.\n5. **The CLI has the same gap.** `generate.py:481` checks only the profile, and it always runs before `backend.load()` (line 927). Nothing checks again after that.\n\n**Why this is a defect and not the documented fallback.** The design notes say the submit refusal is there to stop \"a night of refinements that rendered as plain text-to-image at the larger size\". CLAUDE.md says an unsupported checkpoint \"is refused at submit and by the CLI\". `applied()` dropping the source \"where it gets past that\" is documented as the record-keeping fallback, not the guard. The README invites pasting an unlisted repo id. The fallback profile already refuses to promise a pass for unrecognised ids (test_refine.py:70-71, \"not promised one either, until it loads\"). Ids caught by a family token get no such caution: `test_the_profile_guess_matches_the_installed_diffusers` only covers the catalogue's `CASES`.\n\n**Why low and not medium.**\n- It needs an off-catalogue id.\n- On the server it only affects jobs submitted before the first load. After that, `describe()` returns the live False and both the refusal and the page's greying work.\n- The saved row and PNG are honest (refine None).\n- Of the five ids, Kontext and FLUX.2-dev run text-to-image cleanly with `image=None`. Fill and the Qwen edit pipelines probably fail for other reasons. The real cost is wasted renders, not corrupt data.\n\n**Anchor.** The reviewer put this at diffusers_backend.py:541. That line is where the source disappears. The guard that fails to fire is main.py:404, and the wrong guess comes from the family profiles (model_defaults.py:272, and the `qwen-image` entry).",
+     "reproduction": "I wrote scratchpad/verify_guess_vs_live.py and ran it with `uv run python` (backend.config imported first). For each of the five ids it printed `guess True`, strength 0.1 (FLUX) or 0.3 (Qwen), `sibling None`, `gen True`, `cb True`, and `image` optional (default None). FluxPipeline printed its FluxImg2ImgPipeline sibling, as a control.\n\nI wrote scratchpad/verify_kontext_drop.py and ran it with LOCAL_DIFFUSION_MODEL_ID=black-forest-labs/FLUX.1-Kontext-dev, using the real DiffusersBackend and a `FluxKontextPipeline` instance made with `object.__new__` plus its real call signature. Output:\n- describe refine_supported unloaded: None\n- merged (what `_refuse_unusable_inputs` reads): True\n- applied unloaded: 7 0.3\n- `_refine_supported` loaded: False\n- applied loaded: None 0.1\n\nSo submit accepts the request, and after the load `applied()` (the call `generate()` makes at line 541) drops the source and resets the strength to 0.1. I did not run the HTTP route myself. The reviewer's scratch API test covers that part, and every piece of it matches the code above. `git status` is still clean."
+    }
+   ]
+  },
+  {
+   "id": "F6",
+   "file": "web/status.js",
+   "line": 22,
+   "locations": [
+    "web/status.js:22",
+    "backend/main.py:298",
+    "backend/schemas.py"
+   ],
+   "severity": "low",
+   "category": "ui-state",
+   "title": "For a live pass on an unprofiled checkpoint, status gives refine_strength null and the Strength box keeps the last checkpoint's value",
+   "description": "`_merged_defaults` swaps in the live `refine_supported` but leaves the profile's `refine_strength` at None for an id the table does not know, while `schemas.default_strength()` and the Refine tooltip both use 0.4. `applyDefaults` seeds the box only from a number, so an untouched value from the previous checkpoint survives.",
+   "failure_scenario": "The page is open on FLUX.1 Krea dev (box 0.1, untouched). The server restarts on an SDXL fine-tune such as John6666/hassaku-xl-illustrious-v31-sdxl and loads. The tooltip says 0.4, the box shows 0.1, refineFrom's note says 0.1, and Generate sends 0.1: 2 of 28 steps instead of 11. A fresh page load or Reset shows 0.4.",
+   "suggested_fix": "Have `_merged_defaults` report `refine.DEFAULT_STRENGTH` where the live answer is True and the profile names none, the same value `default_strength()` fills in. Alternatively, have status.js put an unowned box back to `REFINE_STRENGTH` on a null.",
+   "evidence": "`_merged_defaults` printed refine_supported True, refine_strength None; `default_strength()` printed 0.4. The page side was traced, not run.",
+   "merged_from": [
+    "Status gives refine_strength null for a live pass, so the Strength box goes stale"
+   ],
+   "verdict": [
+    {
+     "finder_area": "gap:profile-guess-vs-live-before-load",
+     "finder_title": "Status gives refine_strength null for a live pass, so the Strength box goes stale",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "`_merged_defaults` (backend/main.py:298-310) swaps in the live `refine_supported` but leaves the profile's `refine_strength` at None. So for a checkpoint off the profile table whose loaded pipeline has an img2img sibling, /api/status reports `refine_supported` true and `refine_strength` null. Meanwhile `schemas.default_strength()` and the Refine tooltip both use 0.4. `applyDefaults` (web/status.js:22) only seeds the Strength box from a number. A page kept open while the server restarts from a profiled checkpoint (e.g. FLUX.1 Krea dev, 0.1) onto such a checkpoint therefore keeps the old checkpoint's untouched strength, and sends it with every refine. The tooltip still says 0.4, while Steps, CFG and Mu re-seed. A fresh page load or Reset shows 0.4, so the stale value only survives across a server restart.",
+     "reasoning": "The trace holds end to end.\n\nServer side: `_merged_defaults` (backend/main.py:298-310) starts from `defaults_for(model_id)`. For an id the table does not know, that is `_FALLBACK` (model_defaults.py:768-795), which has `refine_supported: False, refine_strength: None`. The function then replaces `refine_supported` with the live answer, but nothing ever fills in `refine_strength`. The server's own default goes the other way:\n- `schemas.default_strength()` (schemas.py:30) gives `DEFAULT_STRENGTH` = 0.4 for that id.\n- `hints_for` (model_defaults.py:947) does the same, so the tooltip says \"starts at 0.4 on this checkpoint\". It handles this exact case on purpose, per the comment at 944-946.\n\nSo /api/status publishes `refine_supported: True` beside `refine_strength: null`. That contradicts status.js:19-21 (\"Null where the checkpoint has no pass; the box is dead there\") and the CLAUDE.md contract that the default (`refine.DEFAULT_STRENGTH` where the profile names none) is \"seeded into the Strength box per control\". `ModelStatus.defaults` (schemas.py:892) is a plain dict and changes nothing on the way out.\n\nPage side: `applyDefaults` (status.js:22) writes the box only when `refine_strength` is a number. Every other write to the box:\n- gallery.js:380: Reuse of a refined record.\n- panel.js:113: Reset, which would give 0.4 via `?? REFINE_STRENGTH`.\n- `restoreSampling` (panel.js:136-146): runs once, and only for a matching model.\n\n`refreshStatus` deliberately supports a server restarted under another checkpoint while the page stays open (status.js:127-139). In that case Steps, CFG and Mu re-seed to the new profile, but Strength keeps the old one's value. `refineFrom` (gallery.js:439-441) quotes `els.strength.value`. `collect()` (generation.js:36) sends it once a source enables the box (sizes.js:213-214). `leaves_a_step(28, 0.1)` passes, so nothing refuses it. SDXL img2img's `get_timesteps` (diffusers pipeline_stable_diffusion_xl_img2img.py:650) then runs int(28*0.1) = 2 steps, where 0.4 would run 11.\n\nNo guard exists upstream. Any id is accepted through `--model`, `LOCAL_DIFFUSION_MODEL_ID` or the menu (`launch.py:432`, `repos.get(answer, answer)`). `refine.sibling(StableDiffusionXLPipeline)` resolves to `StableDiffusionXLImg2ImgPipeline`.\n\nWhy only low severity:\n- It needs an off-catalogue id whose pipeline has a sibling, a page kept open across a server restart, and an untouched Strength box.\n- A fresh page shows index.html's 0.4, and Reset gives 0.4.\n- The box and the Refine note both show the value actually sent, so the user is not misled about what runs. Only the tooltip and the server default disagree with it.",
+     "reproduction": "Ran a scratch script (scratchpad/verify_refine_strength_status.py) through `uv run python`. It calls `main._merged_defaults` with info for \"John6666/hassaku-xl-illustrious-v31-sdxl\", `refine_supported` True and the other keys None. It printed \"refine_supported True refine_strength None\". With `settings.model_id` patched to the same id, `schemas.default_strength()` printed 0.4. A second snippet printed \"starts at 0.4 on this checkpoint\" from `hints_for(id, refine_supported=True)[\"refine\"]`. `refine.sibling(StableDiffusionXLPipeline)` printed `StableDiffusionXLImg2ImgPipeline`. The browser half was not run; it is traced from the code above. status.js:22 skips a null value, and no other write to the box runs on a checkpoint change."
+    }
+   ]
+  },
+  {
+   "id": "F7",
+   "file": "web/gallery.js",
+   "line": 249,
+   "locations": [
+    "web/gallery.js:249",
+    "CLAUDE.md:735",
+    "AGENTS.md:735",
+    "web/sizes.js:360",
+    "web/generation.js:169"
+   ],
+   "severity": "low",
+   "category": "ui-state",
+   "title": "A deleted refine source is dropped silently in this tab and not at all after a delete elsewhere",
+   "description": "The commit's CLAUDE.md and AGENTS.md bullet says a source \"deleted, here or elsewhere, is dropped with a note rather than left for the server to refuse\". Neither half holds. - Here: `forgetImages` calls `setRefine(null)` with no note. refineFrom's earlier \"Refining image N ... Generate runs the pass.\" stays on screen, now false, and the Size boxes stay at 1.5x. The next Generate is an honest direct render at that size. - Elsewhere (another tab, `backend.clear`): the page checks a source again only in `loadRefineSource`, which runs on restore and on Reuse. Within a session the chip stays, and every Generate and Run grid gets 422 \"no gallery image with id N\". The design notes' narrower wording matches the code; the CLAUDE.md bullet overstates it.",
+   "failure_scenario": "Refine image 8 to 1536×1536, then delete image 8 from its card: the chip goes, the note still promises a pass, and the size line now warns that 2.4 MP is above the checkpoint's range. Refine image 10, then delete it from another tab: every Generate answers \"no gallery image with id 10\" until the chip is removed by hand or the page reloaded.",
+   "suggested_fix": "In `forgetImages`, replace the note with one saying the source was deleted and cleared. In `startJob`'s error path, when the 422 names the refine source, call `setRefine(null)` with that note, or run `loadRefineSource` before submitting. Otherwise, narrow the bullet to the design notes' wording.",
+   "evidence": "Same-tab delete: `refineSource` null, the note still \"Refining image 4 at 1536×1536, strength 0.1. Generate runs the pass.\" External DELETE: the chip stayed and Generate answered \"no gallery image with id 3\".",
+   "merged_from": [
+    "Deleted refine source is dropped silently here and never dropped elsewhere",
+    "CLAUDE/AGENTS: deleted refine source not always 'dropped with a note'"
+   ],
+   "verdict": [
+    {
+     "finder_area": "web",
+     "finder_title": "Deleted refine source is dropped silently here and never dropped elsewhere",
+     "finder_severity": "medium",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "The CLAUDE.md sentence this commit added (\"A source that is deleted, here or elsewhere, is dropped with a note rather than left for the server to refuse\") is not met in either half.\n\n(1) Here: forgetImages drops the source silently (gallery.js:249, no showError). refineFrom's earlier note \"Refining image N at WxH ... Generate runs the pass.\" stays visible and is now false, and the Size boxes keep 1.5x the source's size. The next Generate is a plain direct render at that size.\n\n(2) Elsewhere: loadRefineSource (sizes.js:360) is the only place that drops a deleted source with a note, and it runs only on a restore (panel.js:81) or a Reuse (gallery.js:383). Within a session, every Generate and Run grid is refused with \"no gallery image with id N\" (main.py:411-414 via storage.py:1083), and startJob (generation.js:169-173) leaves the chip in place. A row whose PNG is missing is never caught by the page, since GET /api/images/{id} answers from the row alone.\n\nNo bad pass renders or is recorded: the server refuses in (2), and in (1) the record is honest. So this is a broken documented UI contract plus a stale, misleading note, rated low.",
+     "reasoning": "This commit added a sentence to CLAUDE.md's Refine-field bullet: \"A source that is deleted, here or elsewhere, is dropped with a note rather than left for the server to refuse.\" The code does neither half of that.\n\n(1) Deleted here: deleteImage (gallery.js:230-239) calls forgetImages([id]). forgetImages then calls setRefine(null) at gallery.js:249, which runs syncConditioning, syncSize, schedulePreview and persistPanel (sizes.js:344-355). It never calls showError. The only code that drops a source with a note is loadRefineSource (sizes.js:369-372). Worse, the note refineFrom wrote (gallery.js:436-443, \"Refining image N at WxH ... Generate runs the pass.\") stays on screen after the source is gone. The Size boxes also keep the 1.5x size, so the next Generate is a plain text-to-image render at 2.4 MP. Delete unstarred (gallery.js:326-327) replaces that note with \"Deleted N images...\" and never mentions the source.\n\n(2) Deleted elsewhere (another tab, `clear`): the page learns a source is gone only in loadRefineSource. It is called from panel.js:81 (restore from localStorage) and gallery.js:383 (Reuse of a refined record), and nowhere else. During a session, collect() keeps sending refine=id (generation.js:35). The server refuses it: _refuse_unusable_inputs (main.py:411-414) uses storage.reference_paths, whose message is \"no gallery image with id N\" (storage.py:1083) and does not name the refine source. startJob's catch (generation.js:169-173) only shows err.message, so the chip and refineSource stay. The source is therefore \"left for the server to refuse\" on every Generate and Run grid until the user clicks x or reloads. A row whose PNG is gone is never caught by the page at all: GET /api/images/{id} answers 200 from the row alone (main.py:1322-1325), and only reference_paths checks the file (storage.py:1085-1090).\n\nThe smoke covers neither case. In tools/smoke-refine.json, the step \"deleting the source from the gallery drops the chip with it\" (lines 113-115) checks only that refineSource is null and the chip is gone, not that a note appears. The design notes (design-notes.md:510-513) describe the GET check only for a source held by id alone (restore or Reuse). So the CLAUDE.md promise is what the code fails to meet. No guard elsewhere covers it, though the server refusal does stop a wrong pass from rendering in case (2).\n\nSeverity: low, not medium. Nothing reaches a record wrongly: in (2) the server refuses, and the message is clear enough to act on. In (1) the record is honest (refine=null), but one Generate under the stale \"Generate runs the pass\" note is wasted on a direct 2.4 MP render. It is a documented UI contract broken in both halves, not a data or reproduction error.",
+     "reproduction": "I started a fake server on a scratch gallery: `uv run python tools/fake_server.py --port 7891 --model black-forest-labs/FLUX.1-Krea-dev --data <scratchpad>/refine-delete-verify-gallery --fresh`. I then drove it with `node tools/browser.mjs` using two step files in the scratchpad (refine-delete-verify-steps.json and -steps2.json). Afterwards I stopped the server, and `git status --porcelain` was empty.\n\n(1) Delete the source here:\n- After generating image 4 at 1024x1024, refineFrom(image 4) gave {src:{id:4,width:1024,height:1024}, w:1536, h:1536, error:\"Refining image 4 at 1536×1536, strength 0.1. Generate runs the pass.\", hint:\"2.4 MP — refining image 4 at 1.5× its size\"}.\n- After deleteImage(image 4) with confirm stubbed true: {src:null, chips:0, w:\"1536\", h:\"1536\", error:\"Refining image 4 at 1536×1536, strength 0.1. Generate runs the pass.\", hint:\"2.4 MP — above the 1.6 MP this checkpoint is recommended for\"}.\n- There is no note about the drop, and the old note now falsely promises a pass.\n\n(2) Delete the source elsewhere:\n- After refineFrom(image 7), I ran fetch DELETE /api/images/7, which returned 200.\n- startJob('/api/generate', collect()), run twice, gave {src:{id:7,width:1024,height:1024}, chips:1, error:\"no gallery image with id 7\"} both times. The chip stays.\n- Only after a reload did the restore path drop it: {src:null, chips:0, error:\"Image 7, the refine source, is no longer in the gallery.\"}."
+    },
+    {
+     "finder_area": "docs",
+     "finder_title": "CLAUDE/AGENTS: deleted refine source not always 'dropped with a note'",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "CLAUDE.md:735-737 and AGENTS.md:735-737 say a refine source deleted \"here or elsewhere, is dropped with a note rather than left for the server to refuse.\" In fact, a source deleted in another tab or by the CLI while this page knows its size is never re-checked. It stays on the chip, and Generate gets a 422 \"no gallery image with id N\" from `_refuse_unusable_inputs` (main.py:411-414). The page drops a source with a note (sizes.js:369-371) only when it looks the source up by id: on page load (panel.js:81) and on Reuse of a refined record (gallery.js:383). A delete in this tab (`forgetImages`, gallery.js:249) drops the source silently. The design notes' narrower statement matches the code, and the CLAUDE.md/AGENTS.md bullet overstates it.",
+     "reasoning": "CLAUDE.md:735-737 (the same text is in AGENTS.md:735-737) says: \"A source that is deleted, here or elsewhere, is dropped with a note rather than left for the server to refuse.\" The code does not do this in either case.\n\n1. Deleted elsewhere (another tab, `backend.clear`, a merge) while the page already knows the source's size: the page never checks again. The only code that drops a source with a note is `loadRefineSource` (web/sizes.js:360-380, the showError at :371, and only on a 404 \"unknown image\"). It has two callers. One is `restorePanel` (web/panel.js:81), which runs once at page load (app.js:270). The other is `reuse` on a refined record (web/gallery.js:383). `refineFrom` (gallery.js:434) sets a source with its width and height through `setRefine` and never calls it. No status poll, focus handler, gallery reload or `startJob` check re-examines `refineSource`. `startJob` (generation.js:124-174) just posts `collect()`, which carries `refine: refineSource.id` (generation.js:35). On the server, `_refuse_unusable_inputs` (backend/main.py:411-414) calls `storage.reference_paths(..., \"source image\")`, which raises \"no gallery image with id N\" (storage.py:1082-1084), and that comes back as a 422. The page shows it with showError and keeps the chip. That is exactly \"left for the server to refuse\".\n\n2. Deleted in this tab: `forgetImages` (gallery.js:249) calls `setRefine(null)` and shows no note. The refine note just goes back to \"(pick an image with its ⤢ button)\".\n\nThe design notes (docs/design-notes.md, the paragraph starting \"Everything else is the reference image's design\") make a narrower claim that matches the code. The page asks GET /api/images/{id} only for a source it holds by id alone (restored from localStorage, or from Reuse) and learns that it is still there. So the code follows the design notes and the CLAUDE.md/AGENTS.md bullet overstates them.\n\nThe smoke test (tools/smoke-refine.json:108-114) exercises only an id-only source passed to `loadRefineSource` directly, plus a same-tab `forgetImages` that checks `refineSource === null`. It never tests a source deleted elsewhere while the size is known, and it never checks for a note after a same-tab delete.\n\nSeverity is low. The server's refusal is the backstop the design notes intend: nothing renders wrongly, and the 422 names the id. The problem is that the docs promise more than the code does.",
+     "reproduction": "I started `tools/fake_server.py --port 7891 --fresh --model black-forest-labs/FLUX.1-Krea-dev`, with its gallery in the scratchpad. I then ran `node tools/browser.mjs` on a scratch steps file. It generated one image, clicked the card's ⤢, and deleted that image with `fetch('/api/images/3', {method:'DELETE'})` to stand in for another tab. Then it called startJob('/api/generate', collect()). Output:\n- \"source picked: {id:3,width:896,height:1152}\"\n- after the external delete and before Generate, still `{id:3,...}`, with chips=1\n- after Generate: \"refineSource={id:3,width:896,height:1152} chips=1 error=\\\"no gallery image with id 3\\\"\", so the server refused with a 422 and the chip stayed\n- same-tab delete through `deleteImage` and `forgetImages`: \"refineSource=null error=\\\"\\\" note=\\\"(pick an image with its ⤢ button)\\\"\", so the source was dropped with no note about the deletion\n\nThe run exited 0 (my expect `refineSource !== null && /no gallery image with id/.test(els.error.textContent)` passed). I stopped the server afterwards."
+    }
+   ]
+  },
+  {
+   "id": "F8",
+   "file": "web/gallery.js",
+   "line": 441,
+   "locations": [
+    "web/gallery.js:441",
+    "web/panel.js:113"
+   ],
+   "severity": "low",
+   "category": "ui-state",
+   "title": "Refine's note quotes strength 0.4 for an empty Strength box; the server runs the profile's",
+   "description": "With the box empty, the note falls back to `REFINE_STRENGTH` (0.4), but `collect()` sends no strength and the server fills in the profile's: 0.1 on FLUX.1 dev and Krea dev, 0.15 on Z-Anime, 0.25 on Z-Image, 0.5 on schnell. The note is right only on the SDXL profiles.",
+   "failure_scenario": "FLUX.1 Krea dev, Strength cleared, ⤢ on a card: \"Refining image 8 at 1536×1536, strength 0.4.\" The row records 0.1.",
+   "suggested_fix": "`els.strength.value || (lastDefaults?.refine_strength ?? REFINE_STRENGTH)`, as `resetPanel` does at panel.js:113.",
+   "evidence": "Profile strengths printed from `defaults_for`; the note traced from gallery.js:440-441.",
+   "merged_from": [
+    "refineFrom's note quotes 0.4 for an empty Strength box; server runs profile's"
+   ],
+   "verdict": [
+    {
+     "finder_area": "web",
+     "finder_title": "refineFrom's note quotes 0.4 for an empty Strength box; server runs profile's",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "When the Strength box is empty, refineFrom's note (web/gallery.js:440-441) names REFINE_STRENGTH (0.4). collect() sends the strength as absent, so the server applies the checkpoint's profile strength through schemas.default_strength. That is 0.1 on FLUX.1 Krea dev / FLUX.1 dev, 0.15 on Z-Anime, 0.25 on Z-Image and 0.5 on schnell. On every profile other than the SDXL ones, the note quotes a strength the pass does not run at. The fallback should be `lastDefaults?.refine_strength ?? REFINE_STRENGTH`, as resetPanel uses at panel.js:113.",
+     "reasoning": "I traced the path and found no guard on it.\n(1) The Strength box can be emptied. It is enabled while a refine source is set (sizes.js:212-214). Typing in it calls own('strength') (app.js:206). persistPanel stores the empty string as owned (panel.js:41), and restoreSampling puts it back (panel.js:141-143). So an empty box survives removing the source with its cross, picking another source, and reloading the page.\n(2) refineFrom (gallery.js:415-447) never writes els.strength. fillPanel (gallery.js:346-368) leaves strength alone. setRefine (sizes.js:344-355) only re-enables the box. applyDefaults skips an owned box (status.js:22). So the note at gallery.js:440-441 goes through its `els.strength.value || REFINE_STRENGTH` fallback, and REFINE_STRENGTH is 0.4 (state.js:215).\n(3) Generate's collect() turns an empty box into undefined (generation.js:13, :36). GenerateRequest then fills the value from default_strength() (schemas.py:115-116), which is defaults_for(settings.model_id)['refine_strength'] (schemas.py:30).\n(4) The profile values differ from 0.4. I checked them with defaults_for: FLUX.1-Krea-dev 0.1, FLUX.1-schnell 0.5, Z-Image-Turbo 0.25. Only the SDXL profiles (Animagine and the others at 0.4) match.\nThe design notes (design-notes.md:515-533) say an empty request takes the profile's strength, and that 0.4 on Krea dev repaints the face. The code does run the profile's strength, so the pass itself is right; the note is what's wrong. state.js:211-212 describes REFINE_STRENGTH as a stand-in only for the moment before the first status. resetPanel already uses the correct expression, `lastDefaults?.refine_strength ?? REFINE_STRENGTH` (panel.js:113).\nSeverity is low. The pass runs, and is recorded, at the profile's value (0.1 on Krea dev, the safe one). Only the note is misleading, and only after the user has emptied the box. The reviewer's file and line are correct.",
+     "reproduction": "I ran `uv run python -c \"import backend.config; from backend.model_defaults import defaults_for; ...\"`. It printed: FLUX.1-Krea-dev 0.1, FLUX.1-schnell 0.5, Z-Image-Turbo 0.25, animagine-xl-4.0 0.4. Those are the strengths default_strength() fills in for an absent strength. I did not run the browser smoke again myself. The reviewer's fake-server probe gave the note 'strength 0.4' while the record saved 0.1, which matches the code trace above."
+    }
+   ]
+  },
+  {
+   "id": "F9",
+   "file": "web/gallery.js",
+   "line": 397,
+   "locations": [
+    "web/gallery.js:397",
+    "web/gallery.js:380"
+   ],
+   "severity": "low",
+   "category": "ui-state",
+   "title": "Reuse of another checkpoint's refined record carries its strength, but the warning names only steps, CFG and mu",
+   "description": "The commit makes Reuse restore and own a refined record's strength, whatever checkpoint made it. That is consistent with steps, CFG and mu. The existing cross-checkpoint note still says \"check the three sampling boxes\", although the commit itself calls the strength checkpoint-specific (0.4 from SDXL repaints a face on FLUX.1).",
+   "failure_scenario": "On FLUX.1 Krea dev, Reuse a WAI refine that ran at 0.4: the box holds 0.4, owned and persisted for FLUX.1; the note lists three boxes; `collect()` sends 0.4.",
+   "suggested_fix": "When the record has a pass, name the Strength box in the note as well.",
+   "evidence": "Headless Edge on a fake server: strength 0.4, owned, persisted, and the note never mentioning it.",
+   "merged_from": [
+    "Reuse carries a foreign checkpoint's strength but warns of three boxes only"
+   ],
+   "verdict": [
+    {
+     "finder_area": "web",
+     "finder_title": "Reuse carries a foreign checkpoint's strength but warns of three boxes only",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "The commit makes Reuse restore and own a refined record's strength whatever checkpoint made it (gallery.js:377-380). It did not update the existing cross-checkpoint note (gallery.js:396-402). On a refine-capable checkpoint, Reusing another checkpoint's refined record replaces the profile's strength (FLUX.1: 0.1) with the record's (SDXL: 0.4), and collect() sends it. The note still names only \"steps, CFG and mu\" and \"the three sampling boxes\", so the user is never told to check the Strength box, which the commit itself calls checkpoint-specific. Carrying the value and persisting it as owned match how Reuse treats steps, CFG and mu. The defect is that the warning leaves Strength out.",
+     "reasoning": "reuse() (web/gallery.js:370) calls fillPanel(rec, true), which owns steps/CFG/mu/trueCfg (status.js:120) and writes them. Then at gallery.js:377 it sets refineSource from rec.refine whenever refineSupported, without checking rec.model_id. At gallery.js:380 it writes rec.strength into the Strength box and own('strength'). No guard upstream stops a foreign record. GET /api/images/{id} (main.py:1312-1325) is not scoped to a checkpoint, so loadRefineSource (sizes.js:360-380) keeps the source. The server's applied() accepts 0.4 on FLUX.1, since 28*0.4 leaves a step, so nothing refuses the pass. The cross-checkpoint note at gallery.js:396-402 was written before this commit, when steps, CFG and mu were the only checkpoint-specific numbers (git show 212f41c^:web/gallery.js). The commit made Reuse carry a fourth one but did not change the note, which still says \"whose steps, CFG and mu differ ... check the three sampling boxes before generating.\" The commit's own comments and docs call strength checkpoint-specific: panel.js:39-41, status.js:19-22, and the design notes' table (SDXL 0.4, FLUX.1 0.1; 0.4 on FLUX.1 at 1.5x starts at sigma 0.85 and repaints the face). The only other mention of the profile's strength is the Refine tooltip (\"starts at {refine_strength} on this checkpoint\"), which shows only on hover. Partial correction to the reviewer: carrying the strength is by design (\"Re-render, --from-image and Reuse carry both\"). Persisting it as owned under loadedModel (panel.js:33-42) is also how Reuse already treats foreign steps, CFG and mu, so the persistence is not a separate defect. The defect is the note: it was not updated and leaves out the one box the commit added.",
+     "reproduction": "I started `uv run python tools/fake_server.py --port 7893 --model black-forest-labs/FLUX.1-Krea-dev --data <scratchpad>/fake-gallery-reuse-strength --fresh` and drove it with `node tools/browser.mjs <scratchpad>/verify-reuse-foreign-strength.json`. The script generated one image, then called reuse() on a copy of that record with model_id 'LyliaEngine/waiIllustriousSDXL_v170', refine = that image's id and strength 0.4. Output:\n- Before Reuse: \"profile strength: 0.1 owned=false refineSupported=true model=black-forest-labs/FLUX.1-Krea-dev\".\n- After Reuse: \"strength=0.4 owned=true refineSource={\"id\":3,\"width\":1024,\"height\":1024}\".\n- Note: \"These settings were made on waiIllustriousSDXL_v170; the server is running FLUX.1-Krea-dev, whose steps, CFG and mu differ. Prompt, size and seed carry over; check the three sampling boxes before generating.\"\n- collect(): \"refine=3 strength=0.4\".\n- Persisted: {\"model\":\"black-forest-labs/FLUX.1-Krea-dev\",\"steps\":\"28\",\"cfg\":\"6\",\"mu\":\"\",\"trueCfg\":\"\",\"strength\":\"0.4\"}.\nThe final expect (strength 0.4, owned, the note never mentions strength) passed, exit 0. The server was then stopped and git status is clean."
+    }
+   ]
+  },
+  {
+   "id": "F10",
+   "file": "backend/storage.py",
+   "line": 892,
+   "locations": [
+    "backend/storage.py:892",
+    "backend/reindex.py:395",
+    "backend/main.py:1106",
+    "web/gallery.js:377",
+    "backend/generate.py:319"
+   ],
+   "severity": "low",
+   "category": "data-integrity",
+   "title": "A PNG-only reindex keeps the chunk's refine id verbatim, so it can name an unrelated image or the image itself",
+   "description": "`index_file` stores the chunk's `refine` id unchanged, and `--from` copies it unchanged into the new PNG. A gallery id belongs to the database that wrote the file. After `reindex --from <other gallery>` without `--database` (the README's WSL-into-Windows merge), or an in-place rebuild after the database is lost (AUTOINCREMENT ids renumber after deletions), the id can point at another picture. The refusals only check that the id exists, so Re-render, Reuse and `--from-image` refine the wrong image and record it as the reproduction. The database merge avoids exactly this by remapping. Reference ids already behaved this way, and the commit mirrors that on purpose (test_refine.py:375-378), so this extends an inherited flaw to the new field.",
+   "failure_scenario": "WSL gallery: source id 1, refine id 2. The Windows gallery already holds \"a blue whale\" at id 1. After `reindex --from <wsl outputs>`, the copied refine row has refine=1: the whale. In place: delete 1, refine 2 into 3, lose the database, reindex. The refined row, now id 2, has refine=2, itself.",
+   "suggested_fix": "On a PNG-only reindex, resolve the source by content hash where the chunk carries the source's (add it to the chunk from now on); otherwise store None and count it unresolved, as the merge does. Do the same for reference ids.",
+   "evidence": "Two scratch galleries reproducing both cases.",
+   "merged_from": [
+    "Plain reindex copies a refine id verbatim, so it can name an unrelated image"
+   ],
+   "verdict": [
+    {
+     "finder_area": "storage",
+     "finder_title": "Plain reindex copies a refine id verbatim, so it can name an unrelated image",
+     "finder_severity": "medium",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "A PNG-only `reindex` stores the PNG chunk's `refine` id as it is (storage.py:892). On `--from` it also leaves that id unchanged in the copied PNG (reindex.py:395). A gallery id only means something in the database that wrote the file. So after `reindex --from <other gallery>` without `--database`, or an in-place rebuild after the database is lost (AUTOINCREMENT ids renumber when earlier rows were deleted), a refined row can name an unrelated image or itself.\n\nThe refusals at main.py:402-412 and generate.py:633-642 only check that the id exists. Re-render (main.py:1106), Reuse (gallery.js:377) and `--from-image` (generate.py:319) therefore run a refine pass of the wrong picture and record it as the reproduction.\n\nThis is the same verbatim read reference ids already had before the commit, and the commit mirrors it on purpose (test_refine.py:375-378). So it is an inherited flaw extended to the new field, limited to recovery and merge paths.",
+     "reasoning": "The claim holds, and I reproduced both scenarios.\n\nHow the bad id gets in:\n- In the PNG-only reindex path, `reindex.reindex` (reindex.py:369-405) sends each file's chunk to `storage.index_file`. `index_file` stores `\"refine\": meta.get(\"refine\")` as it is (storage.py:892-893), with no remap or check.\n- On `--from`, `_copy_in(path, target, meta)` (reindex.py:395) writes the same id back into the copied PNG unchanged. So `--from-image` on the copied file reads the foreign id too (generate.py:319-320).\n\nHow it is used afterwards, with no guard on the way:\n- Re-render builds the request with `refine=r.refine` (main.py:1106).\n- Reuse sets `refineSource = {id: rec.refine}` (web/gallery.js:377).\n- `--from-image` copies `meta[\"refine\"]` (generate.py:319-320). Its comment says \"the id is this gallery's own, like a reference\", which is exactly the assumption that breaks here.\n- The only refusals are `_refuse_unusable_inputs` (main.py:402-412) and generate.py:633-642. Both call `storage.reference_paths([refine])`, which checks only that some row with that id and its file exist. Nothing checks that it is the same picture (no hash, no filename).\n- The lightbox shows \"refine of N\" (web/lightbox.js) without validating it.\n\nSo a wrong id passes every check, and a refine of the wrong image is rendered and recorded as the original's reproduction.\n\nOnly the database merge remaps the id (reindex.py:295-304). Design-notes 1092-1101 give the reason: \"rather than left pointing at an unrelated destination row\". The PNG-only path has no such handling.\n\nWhy this is real but low severity:\n- The commit chose this on purpose. The test at tests/test_refine.py:375-378 says so (\"as a reference's ids are read back: the id is the one the gallery that wrote the file knew the source by\"), and design-notes 497 says \"Everything else is the reference image's design\".\n- Reference ids have had the same verbatim read in `index_file` since before this commit. The README paragraph (1482-1490) was not changed by the commit.\n- Neither the design notes nor CLAUDE.md justify keeping ids verbatim on the PNG-only path as safe, and the code's own premise (generate.py:316-318) is broken by it. So it is a defect, but one the commit inherited and extended to a new field rather than introduced.\n- It happens only on recovery or merge paths: a database lost and then rebuilt in place (where earlier deletions, common with Delete unstarred, shift every id), or a foreign gallery copied in without its `--database`.",
+     "reproduction": "I ran `uv run python scratchpad/review_refine_reindex_foreign.py` (temp galleries outside the repo). It printed: \"A: source id 1 refined id 2 refined.refine 1 / B: unrelated id 1 a blue whale / counts {'indexed': 2, ...} / id=3 'a red fox 64' refine=None / id=2 'a red fox 96' refine=1 strength=0.3 / id=1 'a blue whale 64' / refined row in B names source id 1 -> a blue whale 64 x 64\". The real source landed as id 3, but the refined row names id 1, the whale.\n\nI ran `uv run python scratchpad/review_refine_reindex_inplace.py`. It printed: \"before: [(3, 'a red fox', 384, 2), (2, 'a red fox', 256, None)] / after: [(2, 'a red fox', 384, 2), (1, 'a red fox', 256, None)] / refined row now names 2 -> ('a red fox', 384)\". After the rebuild, the refined row names itself. The table is AUTOINCREMENT (storage.py:74), so a rebuild after deletions renumbers every row.\n\nI traced the downstream use by reading the code, not by running it: Re-render (main.py:1106, then 1120-1124 into `reference_paths`, which only checks that the id exists), Reuse (web/gallery.js:377) and `--from-image` (generate.py:319-320, 633-642)."
+    }
+   ]
+  },
+  {
+   "id": "F11",
+   "file": "backend/storage.py",
+   "line": 519,
+   "locations": [
+    "backend/storage.py:519",
+    "backend/grid.py",
+    "backend/refine.py:142"
+   ],
+   "severity": "low",
+   "category": "estimate",
+   "title": "Refine rows skew the per-step cost that prices direct renders at the same size, and the other way round",
+   "description": "`step_cost_ms` puts refine and direct rows of one size into one median, after dividing a refine row by `steps_run`. A pass's per-image fixed costs (resize, text encode, VAE encode and decode) dominate at its few steps. On the flow pipelines the floor also counts one step fewer than diffusers runs at FLUX.1's default (28 steps at 0.1: 2 counted, 3 run). The floor is the documented choice and accounts for about 1.5x of the error; the fixed costs account for the rest. Once refine rows dominate a size, direct estimates there run about 2.3x high, and refine cells priced from direct rows run about 2.3x low.",
+   "failure_scenario": "FLUX.1 Krea dev at 1536², a gallery of default refines (16.9 s each): 8450 ms per step against 3618 measured direct, so a direct 28-step cell is estimated at 237 s against 101 s. A 0.1 refine priced from direct rows: 7.2 s against 16.9 s.",
+   "suggested_fix": "Keep refine rows out of the direct median and price refine cells from refine rows, or model a per-image constant beside the per-step cost.",
+   "evidence": "A scratch database with three refine rows; `step_cost_ms` and `estimate_seconds` printed as above, against verified.md's measured times.",
+   "merged_from": [
+    "step_cost_ms floor count misprices direct renders at refined sizes"
+   ],
+   "verdict": [
+    {
+     "finder_area": "storage",
+     "finder_title": "step_cost_ms floor count misprices direct renders at refined sizes",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "`step_cost_ms` puts refine rows and direct rows at the same size into one median, after dividing each refine row's per-image duration by `refine.steps_run`. That duration includes per-image fixed costs the per-step model never separates out: the source resize, text encode, VAE encode and decode, all paid per image by `_refine`'s one call per image. On flow pipelines the floor also counts one step fewer than diffusers runs. So at a pass's small step counts, a refine row's cost per step is well above a direct step's: on FLUX.1 Krea dev at the default 0.1 it is 8450 ms against 3618 measured, and about 1.4x even on SDXL, where the count is exact. Once refine rows dominate a size, the grid preview and the CLI estimate overprice direct cells there by about 2.3x on the default checkpoint. Refine cells priced from rows at another strength, or from direct rows, also come out wrong, by roughly 1.7x high (a 0.4 pass from 0.1 rows) or 2.3x low (a 0.1 pass from direct rows). That defeats the purpose the storage.py:499-503 docstring and design-notes give for the division. The floor itself is the documented choice and accounts for only about 1.5x of the error. The test checks what it claims.",
+     "reasoning": "I checked the whole path, and nothing upstream changes the numbers.\n- **Where the median comes from:** `main.preview_grid` (main.py:1157) and `generate.py:854` both pass `storage.step_cost_ms(w, h, model_id)` into `grid.estimate_seconds`. `step_cost_ms` (storage.py:507-525) takes the 20 most recent rows at that size on that checkpoint, refine and direct together. It divides a refine row's `duration_ms` by `refine.steps_run`, which is `max(1, int(steps*strength))` (refine.py:142), and a direct row's by `steps`. It returns the median.\n- **What a refine row's `duration_ms` covers:** it is `elapsed_ms // len(images)` (jobs.py:584). That time is per image and includes the source load and Lanczos resize (`refine.source_image`, diffusers_backend.py:646). `_refine` (diffusers_backend.py:719-731) also makes one sibling call per image, so the text encode, VAE encode and VAE decode are paid per image as well.\n- **The flow pipelines' count:** in the installed diffusers, `FluxImg2ImgPipeline.get_timesteps` (pipeline_flux_img2img.py:477-486) runs `steps - int(steps - steps*strength)`. At 28 steps and 0.1 that is 3 steps, while `steps_run` counts 2. SDXL's img2img (pipeline_stable_diffusion_xl_img2img.py:650) floors, so it matches `steps_run`.\n- **The estimate:** `grid.estimate_seconds` multiplies by `denoised_steps`, which is `steps_run` for a refine cell and `steps` for a direct one (grid.py:560-594).\n\nSo the per-step cost from a refine row comes out higher than a direct row's, for two reasons. Over 2-3 counted steps the per-image fixed costs dominate, and on flow pipelines the count is one step short. These rows enter the same median that prices direct cells.\n\n**Where the reviewer is right:** with the card's own numbers (verified.md, FLUX.1 Krea dev 1536x1536: 0.1 refine 16.9 s, direct 101.3 s / 28 = 3618 ms per step), a 1536 gallery made mostly of default refines prices a direct 28-step image at 236.6 s against 101.3 s measured. The docstring (storage.py:499-503) and design-notes.md (\"so that a size reached mostly by refining does not price a direct render at a third of its cost\") give exactly this case as the reason for the division, and it now misses by about 2.3x the other way. A refine at 0.4 priced from 0.1 rows is estimated at 93 s against 49.6-58.2 s measured. A 0.1 refine priced from direct rows is estimated at 7.2 s against 16.9 s.\n\n**Where the reviewer is off:**\n- **The floor is documented, not a slip.** design-notes.md states both rounding rules, and CLAUDE.md says \"`refine.steps_run`, the floor\". The floor accounts for only about 1.5x of the error. With the exact count of 3, FLUX still gives 5633 ms per step against 3618. On WAI, where SDXL's floor is exact, it is 12.5 s / 11 = 1.14 s per step against 23.0 s / 28 = 0.82 s, about 1.4x. The larger cause is the per-image fixed cost spread over very few steps.\n- **The test is not misleading.** `test_step_cost_divides_a_refine_row_by_the_steps_it_ran` (tests/test_refine.py:347-356) checks that the divisor is `steps_run`, which is what it claims.\n\nSeverity is low because the result is an advisory \"about X\" estimate. No data, key or reproduction is affected.",
+     "reproduction": "I ran a script in the scratchpad (scratchpad/stepcost_verify/run.py) on a scratch database: it imports backend.config, points `storage.settings` at a temp DB, saves three FLUX.1 Krea dev 1536x1536 refine rows (28 steps, strength 0.1, duration_ms=16900) through `storage.save_image`, then calls `step_cost_ms` and `grid.estimate_seconds`. Output:\n- floor/flow counts: 28@0.1 = 2/3, 28@0.05 = 1/2, 28@0.4 = 11/12, 28@0.15 = 4/5, 40@0.15 = 6/6\n- `step_cost refine-only` = 8450.0\n- direct 28-step estimate = 236.6 s (101.3 s measured)\n- refine 0.1 estimate = 16.9 s (16.9 s measured)\n- refine 0.4 estimate = 93.0 s (49.6-58.2 s measured)\n- 0.1 refine estimated from the direct-row cost of 3617.9 ms per step = 7.2 s\n\nThe measured times are from docs/verified.md's Refine pass table. I made no repository edits."
+    }
+   ]
+  },
+  {
+   "id": "F12",
+   "file": "backend/generate.py",
+   "line": 467,
+   "locations": [
+    "backend/generate.py:467",
+    "backend/refine.py:164"
+   ],
+   "severity": "low",
+   "category": "cli",
+   "title": "--scale nan or --scale inf passes the guard and ends in a traceback",
+   "description": "The only guard is `args.scale <= 0`, which is false for NaN and +inf. `refine.scaled` then raises ValueError or OverflowError outside the CLI's try blocks: a traceback and exit 1, where every other bad value exits 2 with one line.",
+   "failure_scenario": "`generate \"a fox\" --refine 1 --scale nan --dry-run`: ValueError traceback, exit 1. `--scale inf`: OverflowError, exit 1.",
+   "suggested_fix": "`if not math.isfinite(args.scale) or args.scale <= 0:`",
+   "evidence": "Dry runs against a scratch gallery: nan and inf crash; 0 and 1e9 exit 2 cleanly.",
+   "merged_from": [
+    "CLI --scale nan or inf passes the guard and crashes with a traceback"
+   ],
+   "verdict": [
+    {
+     "finder_area": "schemas",
+     "finder_title": "CLI --scale nan or inf passes the guard and crashes with a traceback",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "The guard at backend/generate.py:467 (`args.scale <= 0`) lets non-finite floats through. `--scale nan` gets past it, survives the `args.scale or DEFAULT_SCALE` fallback (NaN is truthy) and crashes in refine.scaled (refine.py:164) with a ValueError traceback and exit 1. `--scale inf` crashes the same way with an OverflowError. The call is outside the CLI's try/except blocks, so these values never get the clean exit-2 refusal that other bad values get. A finite check (`not math.isfinite(args.scale) or args.scale <= 0`) would close it.",
+     "reasoning": "The only check on `--scale` happens after argparse's `type=float` (generate.py:146-152), at generate.py:464-468: `if args.scale <= 0: parser.error(...)`. `nan <= 0` and `inf <= 0` are both False, so both values get through. Nothing upstream checks the value: the `args.refine is None` block (457-463) only looks at whether `--scale` was given, and the profile's `refine_supported` refusal (481-488) passes on the default FLUX.1 Krea [dev]. At generate.py:491-503 the source row is found and `p.refine.scaled(refined_from.width, refined_from.height, args.scale or p.refine.DEFAULT_SCALE)` is called. NaN is truthy, so it is not replaced by DEFAULT_SCALE. In refine.py:163-166, `int(width * factor / 16 + 0.5)` raises ValueError for NaN and OverflowError for inf. This call sits outside both try/except blocks that turn bad input into a one-line message and exit 2 (512-515 and 517-540), so the user gets a raw traceback and exit 1. By contrast, a huge finite `--scale 1e9` reaches GenerateRequest and gets a clean width/height bound message, and `--strength nan` also gets a clean schema message. That shows the CLI's intended pattern is to refuse bad input cleanly. `-inf` is caught by argparse because it looks like an option, so only `nan` and `inf` reach the crash. The page is not affected: its scale buttons offer fixed factors, not a free input. This is only a CLI usability defect. No data is written, because the crash happens before any request is built, so the severity stays low.",
+     "reproduction": "I seeded a scratch gallery under the scratchpad (verify_scale_nan_gallery: init_db plus save_image of one 512x512 row, id 1, model FLUX.1-Krea-dev). Then I ran `uv run python -m backend.generate \"a fox\" --refine 1 --scale X --dry-run` with LOCAL_DIFFUSION_DB_PATH and LOCAL_DIFFUSION_OUTPUTS_DIR pointing at that gallery. Results:\n- `--scale nan`: traceback ending at refine.py line 164 in scaled, `ValueError: cannot convert float NaN to integer`, exit=1.\n- `--scale inf`: traceback at the same line, `OverflowError: cannot convert float infinity to integer`, exit=1.\n- `--scale -inf`: argparse error \"expected one argument\", exit=2.\n- `--scale 0`: \"--scale must be above zero\", exit=2.\n- `--strength nan`: \"strength: Input should be less than or equal to 1\", exit=2.\n- `--scale 1e9`: \"width: Input should be less than or equal to 3168; height: ...\", exit=2."
+    }
+   ]
+  },
+  {
+   "id": "F13",
+   "file": "backend/backends/diffusers_backend.py",
+   "line": 725,
+   "locations": [
+    "backend/backends/diffusers_backend.py:725",
+    "README.md:600",
+    "docs/design-notes.md:398",
+    "docs/verified.md:316"
+   ],
+   "severity": "low",
+   "category": "docs-drift",
+   "title": "Under model offload the VAE stays on the card through a pass's whole denoise, though the docs say nothing more is held",
+   "description": "Each refine call first encodes the source with the shared, hooked VAE. The VAE is last in the offload chain, so nothing moves it off the card until `_refine`'s final `maybe_free_model_hooks()`. It sits beside the denoiser for every step, which a text-to-image call never does. The commit's own measurements show refine peaks about 0.16 GiB higher (verified.md:316, 318). The README, the design notes and the commit message say nothing more is held on the card, which is true of the weights but not of the peak. This is stock diffusers behaviour and costs little.",
+   "failure_scenario": "FLUX.1 Krea dev, fp8, offload=model, a 1 MP image refined at 1.5x: the transformer and the VAE are both resident for every step of the pass, at a size where verified.md says the card is already within a gigabyte of its top.",
+   "suggested_fix": "Say so in the docs (a pass peaks about the VAE's size above a direct render), or offload the VAE after the encode under offload=model.",
+   "evidence": "A tiny FluxPipeline built for the probe and placed by `loading.place_pipeline` under offload=model: the VAE on the CPU during a text-to-image denoise, on cuda:0 throughout the refine denoise.",
+   "merged_from": [
+    "Under model offload the VAE stays on the card through a pass's whole denoise"
+   ],
+   "verdict": [
+    {
+     "finder_area": "gap:real-sibling-untested-modes",
+     "finder_title": "Under model offload the VAE stays on the card through a pass's whole denoise",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "Under offload=model, each refine call encodes the source with the shared, hooked VAE before denoising. The VAE is last in the loaded pipeline's offload chain, so no hook moves it off the card until `_refine`'s final `maybe_free_model_hooks()`. The VAE (about 0.16 GiB in 16-bit) therefore stays resident beside the denoiser for the whole pass, which does not happen in a text-to-image call. This matches the 0.16 GiB higher refine peaks the commit itself measured (docs/verified.md:316, 318). README.md:600-601, docs/design-notes.md:398 and the commit message say nothing more is held on the card. That is accurate only in the sense that no weights are duplicated; a pass's peak card use is slightly higher than a direct render at the same size. It is stock diffusers behaviour and costs little, so the defect is mainly the documentation's overstatement, or a missing VAE offload after the encode.",
+     "reasoning": "The offload hooks belong to the loaded pipeline. `loading.place_pipeline` (backend/backends/loading.py:292-293) calls `enable_model_cpu_offload` on it, so the chain follows the loaded class's `model_cpu_offload_seq`: FluxPipeline \"text_encoder->text_encoder_2->image_encoder->transformer->vae\" (pipeline_flux.py:179), SDXL \"...->unet->vae\" (pipeline_stable_diffusion_xl.py:223), Z-Image \"text_encoder->transformer->vae\" (pipeline_z_image.py:142). The sibling shares those hooked modules (`refine.build`).\n\nIn accelerate's `CpuOffload.pre_forward` (accelerate/hooks.py:748-756), each module offloads only its *previous* hook's module before moving itself onto the card. The VAE comes last, so it is the previous module of nothing. The only thing that offloads it is `maybe_free_model_hooks`. `AutoencoderKL.encode`/`decode` are wrapped in `apply_forward_hook` (autoencoder_kl.py:170, 213), so encoding the source does trigger the VAE hook and moves the VAE onto the card. The image-to-image call encodes the prompt, then the source (VAE now on the card), then denoises. The transformer's hook offloads only text_encoder_2, so the VAE stays beside the denoiser for every step. In a text-to-image call the VAE first moves on at decode, after the denoise.\n\n`_refine` (diffusers_backend.py:719-731) frees the hooks only in its `finally`, after the last image. Under offload=model (the default) a pass therefore holds the VAE's weights on the card through the denoise, which a direct render does not.\n\nNo guard upstream changes this: `applied()`, the submit refusals and the CLI only decide whether a pass runs, not where components sit. The commit's own card measurements fit it. In docs/verified.md:316 and 318, refine peak is 3.89 against 3.73 GiB direct (WAI) and 12.54 against 12.38 (FLUX at the same 1536x1536). Both deltas are 0.16 GiB, which is the ~84M-param VAE in 16-bit. The source and latent tensors are only megabytes.\n\nThis contradicts README.md:600-601 (\"over the weights already loaded: nothing is downloaded and nothing more is held on the card\"), docs/design-notes.md:398 and the commit message. Read strictly, those sentences are true only about duplicated weights: the sibling holds no second copy. They are not true of what is resident on the card during a pass.\n\nIt is stock diffusers img2img behaviour under that offload chain, not a logic error the commit introduced. The cost is about 0.16 GiB of peak (about 1.3% on FLUX), and the commit's own table already shows it. Severity stays low. Between the images of a batch, the VAE also stays resident through the next image's text encode, but that is below the denoise peak and adds nothing to it.",
+     "reproduction": "I read and ran the reviewer's probe (scratchpad/tinypipe_refine_probe/residency.py over probe.py's tiny real FluxPipeline, placed by `loading.place_pipeline` under offload=model on cuda, with a forward pre-hook on the transformer) using `.venv/Scripts/python.exe residency.py flux` from the repo root. Output:\nt2i, first denoiser call: {'vae': 'cpu', 'text_encoder': 'cpu', 'text_encoder_2': 'cuda:0', 'transformer': 'cpu'}  (the torch pre-hook fires before accelerate moves the transformer; the VAE is on the CPU)\nrefine, first denoiser call: {'vae': 'cuda:0', 'text_encoder': 'cpu', 'text_encoder_2': 'cuda:0', 'transformer': 'cpu'}\nrefine, last denoiser call: {'vae': 'cuda:0', 'text_encoder': 'cpu', 'text_encoder_2': 'cpu', 'transformer': 'cuda:0'}\nSo the VAE sits on the card beside the transformer during a pass's denoise. I did not re-run the reviewer's SDXL and Z-Image cases; their offload sequences, read from the installed diffusers, put the VAE last in the same way."
+    }
+   ]
+  },
+  {
+   "id": "F14",
+   "file": "tests/test_api_refine.py",
+   "line": 74,
+   "locations": [
+    "tests/test_api_refine.py:74",
+    "backend/jobs.py:286",
+    "backend/jobs.py:503",
+    "tests/fakes.py:122"
+   ],
+   "severity": "low",
+   "category": "test-coverage",
+   "title": "The HTTP test says the job counted the pass's steps, but only checks the count the fake computes itself",
+   "description": "`events[-1]` is the done snapshot, whose step and total come from FakeBackend's own `progress_steps` callback. The commit's jobs.py change, the `total_steps` set before the first callback, is what the per-cell status event and the bar show before the first step. Reverting both lines to `req.steps` leaves the whole suite green.",
+   "failure_scenario": "A regression to `req.steps` (a 28-step bar for a 3-step FLUX.1 pass until the first step) passes every test.",
+   "suggested_fix": "Assert on a cell's `total_steps` before any progress, with a fake that waits before its first callback.",
+   "evidence": "A plugin patching `jobs.progress_steps` to `r.steps`: full suite 1831 passed. Patched to raise: 7 refine HTTP tests fail, so the sites are reached but not asserted.",
+   "merged_from": [
+    "HTTP test says the job counts refine steps, but only the fake's count is checked"
+   ],
+   "verdict": [
+    {
+     "finder_area": "routes",
+     "finder_title": "HTTP test says the job counts refine steps, but only the fake's count is checked",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "The assertion at tests/test_api_refine.py:74 claims the job counted the strength's steps, not the schedule's. It only checks the total that FakeBackend.generate reports through `on_progress`, which the fake computes itself with `grid.progress_steps` (tests/fakes.py:122-127). The commit's change to jobs.py, the pre-callback `total_steps` set at backend/jobs.py:286 and :503, is what the per-cell status event and the page's step bar show before the first step. No test covers it. Reverting both lines to `req.steps` leaves the whole suite green (1831 passed). For example, a FLUX pass at 28 steps and strength 0.1 would show a 28-step bar until its first callback.",
+     "reasoning": "The test's comment says \"The job counted the five steps the strength leaves of the ten, not ten\", and the assertion reads `events[-1]`, the done snapshot. That snapshot's `step` and `total_steps` are whatever `on_progress(step, total)` last stored in `job.step, job.total_steps` (backend/jobs.py:435-436). On the fake, `on_progress` is called with `progress_steps(request)`, and the fake computes that itself (tests/fakes.py:122-127, `from backend.grid import progress_steps` at tests/fakes.py:21). The commit's own jobs.py change only sets the total shown before the first callback: `total_steps=progress_steps(cells[0].request)` at backend/jobs.py:286 and `job.total_steps = progress_steps(req)` at backend/jobs.py:503. The first callback overwrites that value, so the final 5 comes from the fake whatever jobs.py does. Even the pre-commit jobs.py (`req.steps`) would pass this assertion with the commit's fake.\n\nThe value jobs.py sets is not just cosmetic. The per-cell \"status\" event carries it (backend/jobs.py:508, `job.snapshot(images=False)`), and the page draws the step bar from `data.step/data.total_steps` (web/generation.js:101, 408-413). The real backend reports `pipe.num_timesteps * count` only once a step has finished (backend/backends/diffusers_backend.py:576-579). So for a refine cell, the pre-callback total is the only thing jobs.py contributes, and no test looks at it. `grep total_steps tests/*.py` finds only this one assertion. CLAUDE.md says \"a job's `total_steps` count those\" (the steps the strength leaves), and the only test that appears to cover this does not cover jobs.py. No guard elsewhere catches a revert either: the whole suite stays green.",
+     "reproduction": "I wrote a pytest plugin in the scratchpad (scratchpad/verify_progress_plugin/revert_progress_steps_plugin.py). It patches `backend.jobs.progress_steps` in `pytest_runtest_setup`, after conftest has imported backend.\n- With `REVERT_MODE=plain` (`lambda r: r.steps`, i.e. jobs.py reverted to `req.steps`), running tests/test_api_refine.py, test_api_jobs.py, test_api_grid.py and test_refine.py gave \"114 passed\". The full suite gave \"1831 passed, 4 skipped\".\n- With `REVERT_MODE=boom` (the patched function raises), tests/test_api_refine.py gave \"7 failed, 3 passed\". So the patch does reach the jobs.py call sites, and the refine HTTP tests run through them without checking the value they set."
+    }
+   ]
+  },
+  {
+   "id": "F15",
+   "file": "tests/test_refine.py",
+   "line": 537,
+   "locations": [
+    "tests/test_refine.py:537",
+    "backend/backends/diffusers_backend.py:576"
+   ],
+   "severity": "low",
+   "category": "test-coverage",
+   "title": "\"Progress counts the steps the pipeline says it ran\" is unpinned: every case's stub count equals the floor",
+   "description": "Every refine call in the test uses 10 steps at 0.4 or 0.5, where the flow rounding and `steps_run`'s floor agree, so reading the floor instead of `num_timesteps` passes. On FLUX.1 at 28 steps and 0.4 the bar would then count to 11 of the 12 steps run, and the preview gate would be one step off.",
+   "failure_scenario": "Replacing diffusers_backend.py:576 with the floor leaves the suite green.",
+   "suggested_fix": "Add a case where they differ, such as 10 steps at 0.45 (flow 5, floor 4) or 28 at 0.4.",
+   "evidence": "Mutant installed by a plugin: test_refine.py 48 passed; full suite 1831 passed.",
+   "merged_from": [
+    "Callback's 'pipeline's own count' unpinned: stub counts equal the floor"
+   ],
+   "verdict": [
+    {
+     "finder_area": "tests",
+     "finder_title": "Callback's 'pipeline's own count' unpinned: stub counts equal the floor",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "`Img2ImgStub` is meant to make the progress test pin that the step callback reads the pipeline's own count (`_pipe.num_timesteps`, as `diffusers_backend.py:576` does) rather than computing `refine.steps_run`. Every refine call in `tests/test_refine.py` uses 10 steps at 0.4 or 0.5, where the stub's flow rounding equals the floor, so the assertion at `:539` cannot tell the two apart. Replacing line 576 with the floor leaves the whole suite green (1831 passed). The documented behaviour is not pinned: on FLUX.1, 28 steps at 0.4 runs 12 steps where the floor gives 11.",
+     "reasoning": "The contract: CLAUDE.md's refine bullet and docs/design-notes.md:466-477 say the step callback reports the count the pipeline itself ran, read from `pipe.num_timesteps`, because the two pipeline families round differently. I checked the rounding in the installed diffusers source:\n- SDXL img2img (`pipeline_stable_diffusion_xl_img2img.py:650`) uses `int(steps*strength)`.\n- FLUX img2img (`pipeline_flux_img2img.py:479-486`) uses `steps - int(steps - steps*strength)`.\n- Both set `_num_timesteps = len(timesteps)` (`:1382`, `:943`).\nSo 28 steps at 0.4 runs 11 steps on SDXL and 12 on FLUX.1.\n\nThe code does what the docs say. `backend/backends/diffusers_backend.py:576` reads `getattr(_pipe, \"num_timesteps\", None) or total`. The defect is in the test, not the code.\n\n`Img2ImgStub` (`tests/test_refine.py:465-487`) says it models the flow pipelines' count: `n - int(n*(1-strength))`. But every refine test that runs it uses a step/strength pair where that count equals the floor `refine.steps_run` (`backend/refine.py:142`, `max(1, int(steps*strength))`):\n- 10 steps at 0.4: 4 either way (`:517`)\n- 10 steps at 0.5: 5 either way (`:557`, `:566`)\n\nSo the progress assertion `progress == [(n, 8) for n in range(1, 9)]` at `:539`, with the comment at `:537` (\"the steps the pipeline says it ran - four of ten here\"), would pass just the same if the callback computed the floor. The cancel test at `:574` only counts callbacks, so it is the same either way. No other test reads `num_timesteps`; a grep of the repo outside `.venv` finds it only at `diffusers_backend.py:576`, the stub and the design note.\n\nNothing upstream guards this. `test_api_refine.py` runs on `FakeBackend`, not `DiffusersBackend`, so it never reaches this callback.\n\nIf the floor were swapped in, a real FLUX.1 pass at 28 steps and 0.4 runs 12 callbacks while the floor says 11. The bar would then end at 12/11 per image. The preview gate `step + 1 < steps` (`:580`) would also skip the second-to-last step's frame. Both are off by one. The current code is correct, so this is a gap in test coverage, rated low.",
+     "reproduction": "I wrote a scratch pytest plugin (`scratchpad/floor_mutant_plugin.py`). In `pytest_configure` it recompiles `DiffusersBackend.generate` from its own source with line 576 replaced by `steps = refine.steps_run(total, request.strength) if refining else total`. It compiles in the real module's `__dict__` and keeps the real line numbers, so monkeypatched `settings` and `inspect.getsource` behave as before and the reviewer's two artifact failures do not occur.\n\n- `uv run --group dev pytest -p no:cacheprovider -p floor_mutant_plugin tests/test_refine.py -q -s` printed \"MUTANT INSTALLED: refine progress uses refine.steps_run floor\" and \"48 passed\".\n- With `tests/test_api_refine.py` and `tests/test_schedule.py` added: 75 passed.\n- The full suite with the mutant: 1831 passed, 4 skipped, 0 failed.\n\nArithmetic from `backend.refine` and the formulas copied from the installed diffusers source:\n\n| steps, strength | stub | floor | flux | sdxl |\n|---|---|---|---|---|\n| 10, 0.4 | 4 | 4 | 4 | 4 |\n| 10, 0.5 | 5 | 5 | 5 | 5 |\n| 10, 0.45 | 5 | 4 | 5 | 4 |\n| 28, 0.4 | 12 | 11 | 12 | 11 |\n\nA pair like 10 at 0.45 would tell the two implementations apart."
+    }
+   ]
+  },
+  {
+   "id": "F16",
+   "file": "tools/smoke-refine.json",
+   "line": 98,
+   "locations": [
+    "tools/smoke-refine.json:98",
+    "backend/schemas.py:119",
+    "tests/test_api_refine.py:110"
+   ],
+   "severity": "low",
+   "category": "test-coverage",
+   "title": "The smoke's \"a sweep that would leave no step is refused\" passes on the panel's strength, not the sweep's",
+   "description": "At this step the panel's own Strength is still 0.1 (set by the Reuse at line 69). With Steps 4 the base pair is refused by F2's check before any axis is read, so the warning appears for any axis, an empty one included. The per-cell refusal is covered only at the API level (test_api_refine.py:110-121).",
+   "failure_scenario": "If the per-cell refusal or its display broke, this step would still pass.",
+   "suggested_fix": "Set the panel strength to 0.5 before previewing `0.1,0.5`, and expect \"strength 0.1 of 4 steps\". Fix it together with F2, after which the step as written would fail.",
+   "evidence": "`GridRequest` at steps 4, strength 0.1 refused with the axis `0.1,0.5`, `0.5,0.75` or empty alike.",
+   "merged_from": [
+    "smoke-refine 'sweep leaves no step' passes on the panel's strength"
+   ],
+   "verdict": [
+    {
+     "finder_area": "tests",
+     "finder_title": "smoke-refine 'sweep leaves no step' passes on the panel's strength",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "At tools/smoke-refine.json:96-98 the panel's own Strength box still holds 0.1. Line 69's Reuse set it and owned it, and nothing changes it before line 96. collect() sends that 0.1 inside the grid body. GridRequest inherits GenerateRequest._refine_leaves_a_step (schemas.py:119-131), which refuses steps 4 at strength 0.1 before the axis is expanded. The preview's \"less than one step\" warning therefore appears for any strength_axis, including an empty one or \"0.5,0.75\". The browser smoke never exercises the per-cell refusal of a sweep value, which CLAUDE.md says it covers. Only tests/test_api_refine.py:110-121 covers that, at the API level. To exercise the axis, the step would need a panel strength that leaves a step at 4 steps (for example 0.5) before previewing axis \"0.1,0.5\", and its expect should look for \"strength 0.1 of 4 steps\".",
+     "reasoning": "I traced the panel's state into the step at tools/smoke-refine.json:96-98.\n- Line 69 calls reuse() on the refined record. gallery.js:380 sets els.strength to 0.1 and owns it, and line 71 asserts that.\n- Nothing after that changes the box before line 96. reuse() of the plain record (gallery.js:377-378) skips the strength branch. refineFrom() at line 78 calls fillPanel (gallery.js:346-367), which never writes strength. setRefine and syncConditioning (sizes.js:344-355, 205-219) only toggle the box's disabled state. status.js:22 would only re-apply a default when the box is not owned, and FLUX's default is 0.1 anyway.\n- The source is set, so els.strength is enabled and collect() (generation.js:36) sends strength 0.1. gridPayload (generation.js:249-264) spreads that into the grid body.\n- GridRequest subclasses GenerateRequest (schemas.py:512). The base validator _refine_leaves_a_step (schemas.py:119-131) therefore runs on the grid body itself. With refine set, steps 4 and strength 0.1 it raises \"strength 0.1 of 4 steps is less than one step\" before strength_axis is expanded at all.\n- previewGrid's catch (generation.js:348-352) shows that 422 message with the warn class. So the expect at line 98 holds whatever the axis contains.\n\nNothing upstream changes this. Both the per-cell axis refusal and the base refusal reach the same page catch path, and the base one fires first. CLAUDE.md lists \"a sweep that leaves no step refused in the preview\" among smoke-refine's coverage, but the step actually exercises the panel's own strength. The per-cell refusal of the axis is isolated only in tests/test_api_refine.py:110-121, which uses base strength 0.5 and axis \"0.1,0.5\". Severity stays low: the server-side axis check is covered at the API level, and the page's display path is the same catch either way. What is missing is browser coverage that the documentation claims.",
+     "reproduction": "I ran `uv run python -c` with backend.config imported first, building GridRequest(prompt='a fox in the snow', width=1344, height=1728, steps=4, refine=1, strength=0.1, seed=11) with strength_axis set to '0.1,0.5', '0.5,0.75' and ''.\n- All three raised a ValidationError: \"Value error, strength 0.1 of 4 steps is less than one step; raise the strength or the steps\".\n- The same request with strength=0.5 and axis '0.5,0.75' was accepted.\n\nThe panel's 0.1 strength therefore produces the warning that line 98 checks for, with or without an axis that leaves no step."
+    }
+   ]
+  },
+  {
+   "id": "F17",
+   "file": "README.md",
+   "line": 387,
+   "locations": [
+    "README.md:387",
+    "README.md:389",
+    "backend/generate.py:326"
+   ],
+   "severity": "low",
+   "category": "docs-drift",
+   "title": "README's --from-image --refine examples render at 1x, not scaled up",
+   "description": "The README presents `--refine 412` as \"gallery image 412 scaled up\", with `--scale` defaulting to 1.5 where no size is given. Under `--from-image`, though, the PNG's recorded size counts as a given size (deliberately, so a refined PNG reproduces), so the first and third examples re-denoise at 1x, and the `--grid-strength` sweep runs at 1x.",
+   "failure_scenario": "`--from-image <png> --refine 1` dry run: 1024x1024. With `--scale 1.5`, or without `--from-image`: 1536x1536.",
+   "suggested_fix": "Add `--scale 1.5` to those examples, as generate.py's own docstring does, or say that a `--from-image` PNG's size counts as given.",
+   "evidence": "Dry runs against a scratch gallery.",
+   "merged_from": [
+    "README's --from-image + --refine examples render at 1x, not scaled up"
+   ],
+   "verdict": [
+    {
+     "finder_area": "cli",
+     "finder_title": "README's --from-image + --refine examples render at 1x, not scaled up",
+     "finder_severity": "medium",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "The README presents `--refine 412` as \"gallery image 412 scaled up\" and says a pass with no size given renders at the source's size times `--scale` (default 1.5). Its first and third examples (README.md:387 and :389) pair `--refine` with `--from-image` and no `--scale`. Under `--from-image`, the PNG's recorded size fills `--width`/`--height` (generate.py:326-330), so `main()` skips the 1.5x default. That choice is deliberate: it lets a refined PNG reproduce exactly. When the PNG is the source image itself, those examples re-denoise at 1x, and the `--grid-strength` sweep runs at 1x. Fixing the README is enough: add `--scale 1.5` to examples 1 and 3 as generate.py:7 does, or say that a `--from-image` PNG's size counts as a given size.",
+     "reasoning": "The README is wrong here, not the code. The code does this on purpose and a test covers it. The `size_flags` comment in generate.py's `main()` says \"--scale is an alternative to these, but not to the size of --from-image\". `test_from_image_reproduces_a_refine_pass` (tests/test_cli.py) holds the PNG's own size for reproduction and `--scale` overriding it. Carrying the PNG's size is right when the PNG is itself a refined image: it reproduces the pass exactly. But it means the 1.5 default never applies under `--from-image`.\n\nThe path:\n1. `_apply_image_settings` (generate.py:326-330) copies the PNG's `size` into `args.width`/`args.height` when no size flag was given.\n2. In `main()`, `sized = any(... args.width, args.height ...)` is then True.\n3. The branch `if args.refine is not None and (args.scale is not None or not sized)` is skipped, so `refine.scaled(..., DEFAULT_SCALE)` is never called and the request keeps the PNG's size.\n\nNo guard anywhere warns or refuses. The design notes do not cover how the CLI sizes a pass under `--from-image`, so nothing there justifies the README's wording.\n\nThe README contradicts this:\n- README.md:382 calls `--refine 412` \"gallery image 412 scaled up\".\n- Its first and third examples (387, 389) are `--from-image outputs/….png --refine 412`, with no `--scale` and an optional `--grid-strength`.\n- Line 392 says \"With no size given the pass renders at the source's own size times `--scale` (default 1.5)\".\n\nIn the usual case the PNG is image 412 itself, which is what the page's Refine button does: the image's settings, itself as source, 1.5x. There both examples render at 1x. The module docstring (generate.py:7) passes `--scale 1.5` explicitly, which shows the flag is needed in that form. Only example 2 (388), which passes `--scale 2`, scales up.\n\nSeverity is low rather than medium. The code is deliberate and tested, and only the docs mislead. The printed header shows the 1x size (`size : 1024x1024`) before anything runs. The cost is GPU time spent on a same-size re-denoise, or a strength sweep run at 1x when the profile strengths are set for 1.5x. No data is lost or keyed wrongly.",
+     "reproduction": "I wrote a scratch script (scratchpad/verify_readme_refine_scale/run.py). It points the DB and outputs at the scratchpad and saves a 1024x1024 image as id 1 on the default FLUX.1-Krea-dev profile. It then calls `generate.main` with `--dry-run`:\n- `--from-image <png> --refine 1` printed `size : 1024x1024 (1.0 MP)` and `refine : image 1 at strength 0.1 (about 2 of 28 steps)`, with no source size because no scaling ran.\n- `--from-image <png> --refine 1 --grid-strength 0.05-0.2x0.05` printed `size : 1024x1024 (1.0 MP)` and 4 strength cells, all at 1x.\n- `--from-image <png> --refine 1 --scale 1.5` printed `size : 1536x1536 (2.4 MP)` and `... source 1024x1024`.\n- `\"a fox\" --refine 1` printed `size : 1536x1536 (2.4 MP)`, the default 1.5 applied.\nEvery call returned 0."
+    }
+   ]
+  },
+  {
+   "id": "F18",
+   "file": "backend/generate.py",
+   "line": 142,
+   "locations": [
+    "backend/generate.py:142",
+    "backend/model_defaults.py:236"
+   ],
+   "severity": "low",
+   "category": "docs-drift",
+   "title": "--strength's help says the flow-matching checkpoints start below SDXL's 0.4; schnell starts at 0.5",
+   "description": "FLUX.1 [schnell] is a flow-matching catalogue checkpoint with a pass, and its profile strength is 0.5 (design-notes.md:541 justifies it). The README states it correctly.",
+   "failure_scenario": "A schnell user reading --help expects less than 0.4 and gets half of a 4-step schedule redrawn.",
+   "suggested_fix": "Name the values, or drop the comparison.",
+   "evidence": "`defaults_for` printed schnell 0.5, Animagine 0.4, FLUX.1 dev 0.1.",
+   "merged_from": [
+    "--strength help says flow-matching defaults are lower than SDXL's; schnell's is 0.5"
+   ],
+   "verdict": [
+    {
+     "finder_area": "cli",
+     "finder_title": "--strength help says flow-matching defaults are lower than SDXL's; schnell's is 0.5",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "The `--strength` help in backend/generate.py:140-143 says flow-matching checkpoints default below SDXL's 0.4. FLUX.1 [schnell] is a flow-matching catalogue checkpoint with a refine pass, and its profile default is 0.5 (model_defaults.py:236; design-notes.md:541 documents and justifies that value). So for schnell the help gets the direction of the default wrong. The README states it correctly.",
+     "reasoning": "The commit added this `--strength` help text (git show 212f41c -- backend/generate.py): \"Defaults to the checkpoint's own starting strength (0.4 on SDXL, lower on the flow-matching checkpoints)\". The profile table says otherwise for schnell. The `schnell` profile (backend/model_defaults.py:225-236) has `mu_supported: True`, which marks a FlowMatch scheduler. It also has `refine_supported: True` and `refine_strength: 0.5`, which is above SDXL's 0.4. All three SDXL profiles (animagine-xl :323, kohaku-xl-zeta :357, illustrious-xl-v2.0 :391) and the WAI exact profile (:655) use 0.4. The other flow-matching profiles do sit below 0.4: flux 0.1, qwen-image 0.3, z-anime 0.15, z-image(-turbo) 0.25. FLUX.1 schnell is a catalogue entry (backend/launch.py:132-133).\n\nThe design notes back schnell's 0.5 as intended: design-notes.md:541 reads \"FLUX.1 schnell | 0.5 | unshifted 4-step schedule: 2 steps from sigma 0.5\". So the profile value is correct and the help text is the part that is wrong. README.md:587-590 gives the right list (\"0.5 on the 4-step schnell\"). Only the CLI help generalises incorrectly.\n\nNo guard anywhere changes the default. `schemas.default_strength` and the profile fill in 0.5 for schnell whenever `--strength` is omitted (generate.py:531-532 passes `strength=args.strength`, which is None). The impact is limited to wrong documentation: the run does what the profile says, but `--help` misstates it for one catalogue checkpoint.",
+     "reproduction": "I ran `uv run python -c \"import backend.config; from backend import model_defaults as m; ...\"`, which printed:\n- FLUX.1-schnell: refine_strength 0.5, steps 4, mu_supported True, refine_supported True\n- animagine-xl-4.0: 0.4, 28, False, True\n- FLUX.1-dev: 0.1, 28, True, True\n\n`uv run python -m backend.generate --help` prints \"Defaults to the checkpoint's own starting strength (0.4 on SDXL, lower on the flow-matching checkpoints).\""
+    }
+   ]
+  },
+  {
+   "id": "F19",
+   "file": "docs/anime-model-guide.md",
+   "line": 78,
+   "locations": [
+    "docs/anime-model-guide.md:78",
+    "README.md:599",
+    "backend/model_defaults.py:886"
+   ],
+   "severity": "low",
+   "category": "docs-drift",
+   "title": "Anima Turbo's missing Refine is blamed on diffusers, which ships an Anima image-to-image workflow in 0.40",
+   "description": "diffusers 0.40 has `AnimaImg2ImgVaeEncoderStep`, `AnimaImg2ImgCoreDenoiseStep` and an \"img2img\" workflow in `AnimaAutoBlocks`. Anima has no pass because this app runs its own `AnimaTurboPipeline`, which `refine.sibling` cannot pair, as design-notes.md:412-413 and the tests already say. The anime guide, the README and the Refine tooltip (`_REFINE_HINTS[False]`) give the false reason. It remains true for NetaYume and NewBie.",
+   "failure_scenario": "A user, or a maintainer deciding whether Anima could get a pass, is told upstream has nothing.",
+   "suggested_fix": "Word the tooltip by cause, and correct the guide and the README for Anima.",
+   "evidence": "`AnimaAutoBlocks._workflow_map` printed text2image and img2img on the installed 0.40.0.",
+   "merged_from": [
+    "Docs say diffusers ships no image-to-image path for Anima; 0.40 does"
+   ],
+   "verdict": [
+    {
+     "finder_area": "docs",
+     "finder_title": "Docs say diffusers ships no image-to-image path for Anima; 0.40 does",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "For Anima Turbo, the user-facing text gives a false reason for the missing Refine pass: docs/anime-model-guide.md:77-78, README.md:599-606 (\"So it exists where diffusers has one\" with Anima under \"no\") and the refine tooltip `_REFINE_HINTS[False]` at backend/model_defaults.py:886 all say diffusers has no image-to-image path. diffusers 0.40 does ship one for Anima: `AnimaImg2ImgVaeEncoderStep`, `AnimaImg2ImgCoreDenoiseStep`, and `AnimaAutoBlocks`/`AnimaModularPipeline` with an \"img2img\" workflow, over the same component types `AnimaTurboPipeline` uses. The pass is missing because Anima runs this repo's own wrapper class, which `refine.sibling` cannot pair. design-notes.md:412-413, refine.py and tests/test_refine.py:61-67 already give that reason correctly. The statement is still true for NetaYume and NewBie. The refusal behaviour itself is correct; only the reason is wrong.",
+     "reasoning": "The claim holds, at least for Anima. I found nothing that refutes it.\n\n**Where the commit says it:** commit 212f41c tells users in three places that Anima Turbo has no Refine pass because diffusers has no image-to-image path for it.\n- docs/anime-model-guide.md:77-78 says \"**Anima Turbo, NetaYume and NewBie** do not, because Diffusers ships no image-to-image pipeline for them\".\n- README.md:599-606 says \"It runs the image-to-image pipeline diffusers ships beside the checkpoint's own ... So it exists where diffusers has one\", then lists Anima Turbo under \"no\".\n- backend/model_defaults.py:883-888 is `_REFINE_HINTS[False]`: \"This checkpoint's pipeline has no image-to-image counterpart in diffusers\". `hints_for` at :965-966 shows it on Anima, because the profile's `refine_supported` is False there (asserted in tests/test_refine.py:68).\n\n**What diffusers 0.40 actually ships:**\n- In diffusers/modular_pipelines/anima/modular_blocks_anima.py:\n  - :129 defines `AnimaImg2ImgCoreDenoiseStep`. Its blocks run text conditioning, image input, `AnimaImg2ImgSetTimestepsStep`, `AnimaImg2ImgPrepareLatentsStep` and `AnimaDenoiseStep`.\n  - :257-258 is `AnimaAutoCoreDenoiseStep`, with branches `[\"img2img\",\"text2image\"]`.\n  - :312-373 is `AnimaAutoBlocks`, whose `_workflow_map` has `\"img2img\": {\"image\": True, \"prompt\": True}`.\n- encoders.py:316 defines `AnimaImg2ImgVaeEncoderStep`.\n- `AnimaAutoBlocks` and `AnimaModularPipeline` are exported from the top-level diffusers package.\n- These blocks use the same component types `AnimaTurboPipeline` registers: `AnimaTextConditioner`, `CosmosTransformer3DModel`, `FlowMatchEulerDiscreteScheduler` and `AutoencoderKLQwenImage`.\n- The app's wrapper (backend/backends/anima_pipeline.py:26) imports `AnimaCoreDenoiseStep` and `AnimaDecodeStep` from that same module. Its own docstring calls them \"Diffusers' Anima text-to-image blocks\".\n\nSo diffusers does ship an image-to-image path for Anima.\n\n**Why the app has no pass, and why the code is fine:** the real reason is the integration, not the library. `refine.sibling` only recognises a diffusers-exported `<Name>Img2ImgPipeline` class. The local `AnimaTurboPipeline` has none, so `sibling` returns None (tests/test_refine.py:66). design-notes.md:412-413 says this correctly (\"Anima and NewBie run this repo's own pipeline classes, which have no sibling\"), and so does the refine.py module docstring (\"neither do the local Anima and NewBie pipelines\"). The behaviour itself is right: Anima is refused, the field is greyed, and the profile, describe and tests agree.\n\n**What is wrong:** only the stated reason, and only in the user-facing text (guide, README table lead-in, tooltip). The design notes do not justify that claim; they give a different one. For NetaYume (Lumina 2) and NewBie the claim is true: there are no Lumina or NewBie image-to-image classes or modular blocks in 0.40. Krea 2, FLUX.2 and ERNIE modular blocks have no img2img either.\n\n**Correction to location:** the \"because Diffusers ships no image-to-image pipeline\" clause starts on line 78, not 77. The same defect also appears at README.md:599-606 and backend/model_defaults.py:886.\n\n**Severity:** low. Nothing behaves wrongly. A user or maintainer is told an upstream limitation exists when the limit is this app's integration.",
+     "reproduction": "I ran: uv run python -c \"import backend.config; import diffusers; from diffusers.modular_pipelines.anima.modular_blocks_anima import AnimaAutoBlocks, AnimaImg2ImgCoreDenoiseStep; from diffusers.modular_pipelines.anima.encoders import AnimaImg2ImgVaeEncoderStep; from backend.model_defaults import hints_for; print(diffusers.__version__, AnimaAutoBlocks._workflow_map); print([c.__name__ for c in AnimaImg2ImgCoreDenoiseStep.block_classes]); print(hasattr(diffusers,'AnimaAutoBlocks'), hasattr(diffusers,'AnimaModularPipeline')); print(hints_for('circlestone-labs/Anima')['refine'])\"\n\nIt printed:\n- `0.40.0 {'text2image': {'prompt': True}, 'img2img': {'image': True, 'prompt': True}}`\n- `['AnimaTextConditioningStep', 'AnimaTextInputStep', 'AnimaImageInputStep', 'AnimaImg2ImgSetTimestepsStep', 'AnimaImg2ImgPrepareLatentsStep', 'AnimaDenoiseStep']`\n- `True True`\n- `A refine pass scales a gallery image up and re-denoises it part of the way. This checkpoint's pipeline has no image-to-image counterpart in diffusers - the FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.`\n\nI also grepped diffusers/modular_pipelines and pipelines/lumina2 for img2img. There is none for Lumina 2 or NewBie, and none for Krea 2, FLUX.2 or ERNIE."
+    }
+   ]
+  },
+  {
+   "id": "F20",
+   "file": "docs/verified.md",
+   "line": 347,
+   "locations": [
+    "docs/verified.md:347",
+    "README.md:636"
+   ],
+   "severity": "low",
+   "category": "docs-drift",
+   "title": "verified.md and README give FLUX.1 dev's starting strength as schedule arithmetic; it is Krea dev's measurement carried over",
+   "description": "The flux and krea-dev profiles share 0.1 under a \"Measured on Krea dev\" comment, and design-notes.md:538 says so, leaving the row out of the ones marked arithmetic. verified.md, which the design notes say labels which is which, labels it wrongly. That it was not measured on FLUX.1 dev itself is correct.",
+   "failure_scenario": "A reader auditing which strengths rest on measurement is told FLUX.1 dev's rests on none.",
+   "suggested_fix": "Say \"carried over from the Krea dev measurement on the same schedule\", as the design notes do.",
+   "evidence": "Both lines are additions in this commit; model_defaults.py:263-276 and 636-639 read.",
+   "merged_from": [
+    "verified.md and README call FLUX.1 dev's start strength arithmetic"
+   ],
+   "verdict": [
+    {
+     "finder_area": "docs",
+     "finder_title": "verified.md and README call FLUX.1 dev's start strength arithmetic",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "docs/verified.md:347-348 and README.md:636-638 give FLUX.1 [dev]'s starting strength (0.1) as \"the schedule arithmetic alone\". It is not. The value is the Krea dev measurement, carried over through the shared flux profile (model_defaults.py:273-276, 636-639). design-notes.md:538 says so and leaves the row out of the ones marked arithmetic (544-546). That passage says verified.md labels which are which, but verified.md labels it wrongly. The not-measured claim itself is correct; only the stated basis is wrong. Documentation only, no runtime effect.",
+     "reasoning": "Code: backend/model_defaults.py:263-276 is the \"flux\" profile, which matches FLUX.1 [dev]. Its refine_strength is 0.1, with the comment \"Measured on Krea dev: at 1.5x of a 1 MP image the shift is already mu 2.0, so 0.1 starts the pass at sigma 0.47 and keeps the face\". Lines 636-639 build the krea-dev profile as {**_FLUX_PROFILE, \"guide\": ...}, so the two checkpoints share one value, and that value was chosen from the Krea dev sweep.\n\nDesign notes: docs/design-notes.md:538 puts both in one row, \"| FLUX.1 Krea dev, FLUX.1 dev | 0.1 | measured on Krea dev: sigma 0.47, 3 of 28 steps |\". Lines 544-546 say \"The rows marked arithmetic have not been run here ... and verified.md says which are which.\" Only the Z-Image, schnell and Qwen-Image rows (540-542) are marked arithmetic. The FLUX.1 dev row is not.\n\nThe other two documents say otherwise. docs/verified.md:347-348 reads \"FLUX.1 dev and schnell, Z-Image Turbo and Qwen-Image, whose starting strengths are the schedule arithmetic alone\". README.md:636-638 reads \"the SDXL ones share WAI's pipeline and starting strength, the rest start from the schedule's arithmetic alone\", and \"the rest\" includes FLUX.1 [dev]. The README's own sentence treats a value carried over from a measured sibling (the SDXL ones from WAI) as different from arithmetic. FLUX.1 dev is the same kind of case, a value carried over from the Krea dev measurement on an identical schedule, yet it is grouped with arithmetic. All three passages were added in 212f41c (checked with git show).\n\nNothing in the code or tests settles which wording is right. The fact itself is not in dispute: verified.md correctly says FLUX.1 dev was not measured. The error is in what it gives as the value's basis.",
+     "reproduction": "Read the documents and the profile; there is no runtime behaviour to reproduce. Ran `git show 212f41c -- docs/verified.md README.md | grep arithmetic`, which shows both \"arithmetic alone\" lines as additions in this commit. Ran `git show 212f41c -- docs/design-notes.md`, which shows the added \"| FLUX.1 Krea dev, FLUX.1 dev | 0.1 | measured on Krea dev ...\" row and the \"rows marked arithmetic\" sentence. Read model_defaults.py:263-276 and 636-639: flux and krea-dev share refine_strength 0.1 under the \"Measured on Krea dev\" comment."
+    }
+   ]
+  },
+  {
+   "id": "F21",
+   "file": "README.md",
+   "line": 592,
+   "locations": [
+    "README.md:592",
+    "docs/verified.md:345"
+   ],
+   "severity": "low",
+   "category": "docs-drift",
+   "title": "README puts \"2× redraws more than 1.5×\" under \"measured here\"; no 2x pass was run",
+   "description": "verified.md:345 lists \"a 2x pass on any checkpoint\" as not measured, and every refined row in the three evidence databases is 1.5x its source. The claim is schedule arithmetic (design-notes.md:550-553, the tooltip), and probably true as such.",
+   "failure_scenario": "The README contradicts the evidence it links.",
+   "suggested_fix": "Move the 2x clause out of the \"measured here\" sentence.",
+   "evidence": "Width ratios of every refined row in the wai, flux and zanime evidence databases (read-only): 1.5 throughout.",
+   "merged_from": [
+    "README says '2x redraws more than 1.5x' was measured; no 2x pass was run"
+   ],
+   "verdict": [
+    {
+     "finder_area": "gap:verified-evidence-audit",
+     "finder_title": "README says '2x redraws more than 1.5x' was measured; no 2x pass was run",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "README.md:592-593 puts \"2× redraws more than 1.5× at the same strength\" under \"measured here\". No 2x refine pass was run: every refined row in the wai, flux and zanime evidence databases is 1.5x its source, and docs/verified.md:345 says \"Not measured: a 2x pass on any checkpoint\". The design notes (design-notes.md:550-553) and the tooltip (model_defaults.py:899) give the 2x claim as schedule arithmetic, so the README contradicts its own linked evidence by calling an inference a measurement. The claim is probably correct as arithmetic; only its attribution is wrong.",
+     "reasoning": "The commit added README.md:592-593, which reads: \"On FLUX.1 that is a small number because its schedule's shift grows with the size: measured here, 0.4 at 1.5× keeps the composition and repaints the face, and 2× redraws more than 1.5× at the same strength.\" The single \"measured here,\" governs both clauses joined by \"and\", so the README says the 2x behaviour was measured on the card. docs/verified.md:345-346, which the commit also wrote, says the opposite: \"Not measured: a 2x pass on any checkpoint\". Every row in its Refine pass table (verified.md:310-322) is a 1.5x pass (\"refined it at 1.5x\"). In the other places the 2x claim appears, it is given as a consequence of the schedule, not as a measurement. docs/design-notes.md:550-553 says \"2x redraws more than 1.5x at one strength (at 4 MP mu is 3.2, and even the schedule's last step starts near sigma 0.5)\" and keeps the word \"measured\" for the Mu 1.15 result alone. backend/model_defaults.py:899 says \"with the size, so 2x redraws more than 1.5x at one strength\". No code path or guard is involved, because this is a documentation claim. The claim itself is very likely true by schedule arithmetic (a larger size gives a larger mu, so the same strength starts at a higher sigma). The defect is only that the README calls it measured when the evidence file it points to says no 2x run exists.",
+     "reproduction": "I ran grep on README.md (lines 592-593 contain the sentence) and on docs/verified.md (line 345 says \"Not measured: a 2x pass on any checkpoint\"). I opened the three evidence databases under %TEMP%/local-diffusion-refine-validation/{wai,flux,zanime}/local-diffusion.db read-only (sqlite mode=ro) and computed each refined row's width divided by its source's width. The ratios were wai [1.5] over 10 rows, flux [1.5] over 19 rows and zanime [1.5] over 8 rows. Each results.json has refine_size [1536,2016] or [1536,1536], and sweep-low.json and sweep-mu.json carry no 2x size. Both evidence scripts (validate_refine.py:30, sweep_refine.py:24) default --scale to 1.5, so no run backs a 2x claim."
+    }
+   ]
+  },
+  {
+   "id": "F22",
+   "file": "docs/design-notes.md",
+   "line": 527,
+   "locations": [
+    "docs/design-notes.md:527",
+    "docs/verified.md:340"
+   ],
+   "severity": "low",
+   "category": "docs-drift",
+   "title": "The design notes say all five FLUX.1 starting sigmas were read off the scheduler; 0.85 and 0.67 were not",
+   "description": "Only 0.62, 0.47 and 0.37 were read, by the logged sweep. The 0.4 and 0.2 passes came from the validation script, which records no sigma. 0.85 and 0.67 are the formula's values (0.849 and 0.672, both correct). verified.md:340 already lists only the three readings.",
+   "failure_scenario": "A reader takes two computed values as card readings that confirm the formula.",
+   "suggested_fix": "Label the first two as computed.",
+   "evidence": "The evidence database and validation.log; the formula re-run on the cached Krea dev scheduler reproduces all five.",
+   "merged_from": [
+    "Design notes say sigma 0.85 and 0.67 were read off the scheduler; never recorded"
+   ],
+   "verdict": [
+    {
+     "finder_area": "gap:verified-evidence-audit",
+     "finder_title": "Design notes say sigma 0.85 and 0.67 were read off the scheduler; never recorded",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "docs/design-notes.md:525-528 says all five FLUX.1 starting sigmas (0.85 at strength 0.4, 0.67 at 0.2, 0.62, 0.47, 0.37) were read off `scheduler.sigmas` at `begin_index` in each run. Only 0.62, 0.47 and 0.37 were read, by sweep_refine.py. The 0.4 and 0.2 passes at native mu came from validate_refine.py, which records no sigma. 0.85 and 0.67 are the formula's values (0.849 and 0.672, which are correct) and should be labelled as such, as docs/verified.md:340 already does by listing only the three readings.",
+     "reasoning": "The commit added docs/design-notes.md:525-528, which gives five starting sigmas: 0.85 at strength 0.4, 0.67 at 0.2, then 0.62, 0.47 and 0.37. The parenthesis after them says each value was \"read off `scheduler.sigmas` at `begin_index` in each run\". The evidence that docs/verified.md:353-357 points to (%TEMP%/local-diffusion-refine-validation/) says otherwise.\n\n(1) Only sweep_refine.py reads the starting sigma (`backend._refine_pipe.scheduler.sigmas[begin_index]`). `grep -i \"sigma\\|begin_index\" validate_refine.py` finds nothing.\n\n(2) The flux gallery's database has rows 1-22. The 0.4 rows (2-7) and the native-mu 0.2 row (9) carry run_ids from validate_refine.py ('refine', 'refine at strength 0.2'). The only sweep_refine.py runs are 'low' (0.15, 0.1, 0.05) and 'mu' (0.2 and 0.3 at Mu 1.15). No sigma-recording run exists at native-mu 0.4 or 0.2.\n\n(3) In flux/validation.log the 'refine' and 'refine at strength 0.2' lines have no 'start sigma' field. Only the sweep lines have one: 0.62, 0.474, 0.366, and 0.463/0.599 under Mu.\n\n(4) docs/verified.md:340 itself lists only 0.37, 0.47, 0.62 and the two Mu values as \"read off the scheduler\". The design note claims more than the measurement record does.\n\n(5) The authoring transcript contains 0.85/0.67 only in the drafted sentence. Its single \"0.849\" hit is a timestamp.\n\nThe numbers themselves are right. Recomputed with the installed diffusers (FlowMatchEulerDiscreteScheduler, the cached FLUX.1-Krea-dev scheduler_config, FluxImg2Img's calculate_shift/retrieve_timesteps and get_timesteps' t_start), they come out as 0.849 and 0.672. The step counts (12 and 6) match the logged progress. So the defect is provenance only: two of five values are formula results presented as scheduler readings.\n\nOn the failure scenario, the reviewer goes slightly too far. The same code path was read at three other strengths and two Mu values and matched the formula, so the formula is not unchecked overall. It just has no reading at 0.4 and 0.2. That is why the severity stays low.",
+     "reproduction": "I listed the rows of %TEMP%/local-diffusion-refine-validation/flux/local-diffusion.db (opened read-only). Ids 1-22 exist; strength 0.4 is on ids 2-7 (run_ids refine…), native-mu 0.2 is on id 9 ('refine at strength 0.2'), and the 'low' and 'mu' sweeps are ids 14-22. validation.log shows 'start sigma' only on the sweep lines. A grep for sigma/begin_index in validate_refine.py finds nothing.\n\nI ran scratchpad/verify_refine_sigmas.py through uv (it imports backend.config first). It builds the scheduler from the cached Krea-dev config with mu=calculate_shift(9216, ...)=2.017 and 28 steps, applies get_timesteps' t_start, and prints sigma at begin_index:\n- 0.4: t_start 16, 12 steps, 0.849\n- 0.2: t_start 22, 6 steps, 0.672\n- 0.15: 0.62\n- 0.1: 0.474\n- 0.05: 0.366\n\nThe last three equal the logged sweep readings. The first two are not recorded anywhere in the evidence. I grepped the recent session transcripts for 0.849 and 0.672: no reading, and the only 0.849 hit is a timestamp."
+    }
+   ]
+  },
+  {
+   "id": "F23",
+   "file": "docs/design-notes.md",
+   "line": 523,
+   "locations": [
+    "docs/design-notes.md:523"
+   ],
+   "severity": "low",
+   "category": "docs-drift",
+   "title": "SDXL at 0.4 is put at a flow sigma of about 0.53; the SDXL checkpoints' leading-spaced schedulers give 0.50",
+   "description": "All four SDXL checkpoints (Animagine, Kohaku, Illustrious, WAI) use leading spacing. At 28 steps their pass starts at t=351, a flow-equivalent sigma of 0.498. 0.53 is what trailing spacing would give. No code or profile value depends on it, and the stated target is \"about half noise\".",
+   "failure_scenario": "Someone matching a flow checkpoint's strength to SDXL's 0.4 aims slightly too noisy.",
+   "suggested_fix": "\"about 0.50 (leading spacing, 28 steps)\".",
+   "evidence": "Each checkpoint's cached scheduler config loaded and stepped: leading 0.498, linspace 0.513, trailing 0.531.",
+   "merged_from": [
+    "SDXL at 0.4 is put at flow sigma ~0.53; WAI's leading-spaced scheduler gives 0.50"
+   ],
+   "verdict": [
+    {
+     "finder_area": "gap:verified-evidence-audit",
+     "finder_title": "SDXL at 0.4 is put at flow sigma ~0.53; WAI's leading-spaced scheduler gives 0.50",
+     "finder_severity": "low",
+     "verdict": "CONFIRMED",
+     "severity": "low",
+     "claim": "docs/design-notes.md:521-523 says SDXL at strength 0.4 starts at the SNR of a flow sigma of \"about 0.53\". All four SDXL checkpoints here (Animagine, Kohaku, Illustrious, WAI) use leading-spaced Euler or Euler Ancestral schedulers. At their profile's 28 steps, the pass starts at t=351, sigma_eps 0.990, which is flow sigma 0.498, about 0.50. 0.53 is what trailing spacing would give. The figure is inaccurate, but the notes' stated target is \"about half noise\" (line 532-533) and no code or profile value depends on 0.53. The reviewer's further claim, that the Qwen-Image row is tied to the same wrong SDXL target, is not supported.",
+     "reasoning": "The number is wrong, but the consequence is smaller than the reviewer says.\n\nWhat the doc says: docs/design-notes.md:521-523, added in 212f41c, states \"SDXL's epsilon schedule at 0.4 starts where the signal-to-noise ratio is that of a flow sigma of about 0.53.\"\n\nWhat the code does:\n- All four SDXL profiles run 28 steps at refine_strength 0.4: Animagine (backend/model_defaults.py:315/323), Kohaku (:349/357), Illustrious (:383/391) and WAI (:647/655).\n- All four schedulers use timestep_spacing \"leading\" with steps_offset 1. Animagine and Kohaku use EulerDiscrete; the converted Illustrious and WAI trees use EulerAncestral.\n- The refine pass passes no denoising_start. So diffusers' StableDiffusionXLImg2ImgPipeline.get_timesteps (.venv/.../pipeline_stable_diffusion_xl_img2img.py:647-657) takes the strength branch: init_timestep = int(28*0.4) = 11, t_start = 17, then set_begin_index(17). add_noise therefore uses sigmas[17].\n- At that index t = 351 and sigma_eps = 0.990. Equal SNR means (1-s)/s = 1/sigma_eps, so s = sigma_eps/(1+sigma_eps) = 0.498.\n- 0.53 comes from \"trailing\" spacing (t=392, 0.531) or from a naive t = 0.4*1000 (0.538). No SDXL checkpoint here uses either.\n- Leading spacing never reaches 0.53 at any common step count: 0.48-0.52 over 15-50 steps.\n- docs/verified.md records no SDXL starting sigma, so nothing measured backs 0.53.\n\nWhere the reviewer goes too far:\n- The failure scenario is overstated. The design notes give the target as \"about half noise\" (line 532-533; README.md:590 says the same), not 0.53.\n- The Qwen-Image row (line 542) reports Qwen's own dynamic-shift arithmetic. It is not tied to the SDXL figure.\n- No code reads this number, and the SDXL default of 0.4 rests on WAI's author's range and the WAI measurement, not on this sigma.\n\nSo this is an inaccurate figure in the design notes, in a section that otherwise gives sigmas to two decimals. It does not change any behaviour.",
+     "reproduction": "Ran two scratch scripts with `uv run python`: verify_sdxl_refine_sigma.py and verify_sdxl_refine_sigma_steps.py, both in the scratchpad. Each imports backend.config before diffusers, loads the cached scheduler_config.json of WAI, Illustrious, Animagine 4.0 and Kohaku Zeta into the installed scheduler class, calls set_timesteps(28) and reads timesteps and sigmas at t_start = 28 - int(28*0.4) = 17.\n\nOutput, the same for all four checkpoints:\n- leading (their actual config): t=351, sigma_eps=0.990, flow=0.498\n- linspace: t=370, sigma_eps=1.055, flow=0.513\n- trailing: t=392, sigma_eps=1.134, flow=0.531\n\nLeading spacing at other step counts: 15 steps 0.481, 20 steps 0.498, 25 steps 0.506, 30 steps 0.508, 40 steps 0.518, 50 steps 0.522.\n\nRaw timesteps: t=400 gives 0.538 and t=392 gives 0.531."
+    }
+   ]
+  }
+ ],
+ "plausible": [
+  {
+   "id": "P1",
+   "file": "web/gallery.js",
+   "line": 377,
+   "locations": [
+    "web/gallery.js:377",
+    "backend/model_defaults.py:776",
+    "web/generation.js:35",
+    "web/panel.js:74"
+   ],
+   "severity": "low",
+   "category": "ui-state",
+   "title": "Before a load, an unprofiled checkpoint with a pass greys Refine, and Reuse or Generate then renders directly at the refined size",
+   "description": "An id outside the catalogue whose pipeline has a sibling (an SDXL fine-tune given through LOCAL_DIFFUSION_MODEL_ID) gets `_FALLBACK`'s guess, `refine_supported` False, whenever nothing is loaded: at every start and after Unload. Until a load, `reuse()` drops a refined record's source after setting the refined size, and `collect()` drops a remembered one, so a Generate or a grid renders plain images at 1.5x with no refusal. The server-side refusal of such a source before a load was refuted as documented design; what remains is the page silently sending no source at all.",
+   "failure_scenario": "Server on hassaku, a 1024x1344 image refined to 1536x2016, then Unload. Reuse the refined result: the panel gets 1536x2016, its prompt and seed, no source. Generate queues a direct render at 1536x2016.",
+   "suggested_fix": "Where the page drops a source only because `refineSupported` is a guess (no model loaded), keep it and let the server decide after its load, or say in the note that the source was dropped.",
+   "why_plausible": "The path was traced in code, not run in a browser; it needs a checkpoint outside the catalogue. Downgraded from medium.",
+   "merged_from": [
+    "After Unload the page drops the refine source: Reuse and Generate render directly"
+   ],
+   "verdict": [
+    {
+     "finder_area": "gap:profile-guess-vs-live-before-load",
+     "finder_title": "After Unload the page drops the refine source: Reuse and Generate render directly",
+     "finder_severity": "medium",
+     "verdict": "PLAUSIBLE",
+     "severity": "low",
+     "claim": "The refine capability depends on the profile before a load. An unprofiled checkpoint (not in the catalogue) whose pipeline has an Img2Img sibling, such as an SDXL fine-tune given through LOCAL_DIFFUSION_MODEL_ID, gets `_FALLBACK`'s guess `refine_supported` False whenever nothing is loaded: at every server start and after Unload. Until a load, the page greys the Refine field and says the checkpoint has no pass. `reuse()` drops a refined record's source (gallery.js:377), and `collect()` drops a remembered one (generation.js:35). A Generate or grid then renders plain images at the refined size with no refusal. That bypasses the protection design-notes.md:496-500 gives as the reason for the submit refusal, and it contradicts the \"model-agnostic\" claim at design-notes.md:413-414. It affects only checkpoints outside the catalogue; catalogue profiles are held to diffusers by tests. The field is visibly greyed with a note, and loading the model first avoids it. Low severity.",
+     "reasoning": "The path exists as described, but only for a checkpoint outside the catalogue, so it is not the medium-severity defect claimed.\n\nHow it happens:\n- `_FALLBACK` guesses `refine_supported: False` (backend/model_defaults.py:776).\n- `describe()` gives None while nothing is loaded (backend/backends/diffusers_backend.py:798), so `_merged_defaults` falls back to that guess (backend/main.py:296-308).\n- On every change, status.js:194-196 copies the merged value into `refineSupported`.\n- Once `refineSupported` is false:\n  - `reuse()` at gallery.js:377 sets `refineSource` to null for a refined record, after setting width and height to the refined size at gallery.js:371-372. It then calls `showError('')`.\n  - `collect()` at generation.js:35 sends `refine: null`. Strength is undefined because `syncConditioning` disables `els.strength` (sizes.js:212-214).\n  - `_refuse_unusable_inputs` (main.py:390ff) only acts when `request.refine` is not None, so nothing refuses the request. The job loads the model and renders a plain text-to-image at the refined size.\n- The same happens without Reuse. `restorePanel` keeps a remembered source \"whatever the checkpoint\" (panel.js:74-81), and `collect()` still drops it. So after a restart, which always comes up unloaded, a Generate or a grid renders plain cells at the 1.5x size.\n- design-notes.md:496-500 says the submit refusal exists to stop exactly this (\"a night of new pictures\"). The page gets around that refusal by never sending the source.\n\nNo guard upstream catches it. If the page did send the source, the server would refuse with the same false \"has no refine pass\" 422. The server and page agree with each other, and both are wrong before a load.\n\nWhy I downgrade it:\n1. It needs an unprofiled id. Every catalogue entry has a profile whose guess `tests/test_refine.py` holds to the installed diffusers. CLAUDE.md makes a catalogue entry that reaches `_FALLBACK` a test failure. So the guess and the live answer agree for every catalogued checkpoint. Neither hassaku nor SDXL base appears anywhere in the repo's profiles or catalogue.\n2. It is the documented guess-until-load design. design-notes.md:413-417 and 293 apply it to `reference_supported` too, and that pattern predates this commit (gallery.js:364, generation.js:29). The gating in `collect()` is itself written into CLAUDE.md.\n3. The UI is not silent at Generate time. The Refine field is greyed with \"(this checkpoint has no refine pass)\" (sizes.js:282), and the size line stops saying \"refining image N\". The note is wrong for this checkpoint, but it is visible.\n4. The record stays honest (`refine` is None), and the Load button gives the pass back.\n\nWhat remains is a contradiction between docs and code: design-notes.md:413-414 calls the refine capability model-agnostic, but before a load it depends on the profile.\n\nA related point beyond this finding: the CLI at backend/generate.py:481 refuses `--refine` by the profile guess alone, before any load. So the CLI can never refine an unprofiled SDXL checkpoint, even though its live pipeline has a sibling.",
+     "reproduction": "I ran `uv run python -c \"import backend.config; from backend.model_defaults import defaults_for; from backend import refine; import diffusers; ...\"`. It printed:\n- `John6666/hassaku-xl-illustrious-v31-sdxl False True` (the `refine_supported` and `mu_supported` guesses)\n- `stabilityai/stable-diffusion-xl-base-1.0 False True`\n- `refine.sibling(StableDiffusionXLPipeline)` = `StableDiffusionXLImg2ImgPipeline`\n\nSo the guess before a load is False and the live answer would be True. I traced the page side in the code (status.js:194-203, gallery.js:370-385, generation.js:35-36, sizes.js:206-216 and 279-284, panel.js:74-81) but did not run it in a browser."
+    }
+   ]
+  }
+ ],
+ "refuted": [
+  {
+   "title": "steps_run's floor is one short of what flow pipelines run, at FLUX's own default",
+   "file": "backend/refine.py",
+   "line": 142,
+   "area": "core",
+   "summary": "The arithmetic is right, but the floor is a documented, deliberate approximation and the code does what the docs say. Its effect on the estimate survives as F11.",
+   "why": "The reviewer's arithmetic is right, but the behaviour is a documented, deliberate approximation, and the code does what the docs say.\n\nWhat checks out:\n- diffusers 0.40's flow img2img `get_timesteps` returns `n - int(max(n - n*strength, 0))`. That is in pipeline_flux_img2img.py:477-486, and the same method is in z_image and qwenimage. SDXL's (pipeline_stable_diffusion_xl_img2img.py:647-656) uses `int(n*strength)`.\n- `refine.steps_run` (refine.py:142) is `max(1, int(steps*strength))`.\n- At each profile's own default strength (`model_defaults.defaults_for`), the floor and the pipeline's count differ only for FLUX.1 Krea dev and FLUX.1 dev: 28 steps at 0.1 gives a floor of 2, and the pipeline runs 3. Z-Anime (40 at 0.15 -> 6/6), Z-Image Turbo (8 at 0.25 -> 2/2), Qwen-Image (50 at 0.3 -> 15/15) and schnell (4 at 0.5 -> 2/2) agree. The SDXL profiles use SDXL's own rounding.\n- `storage.step_cost_ms` (storage.py:516-523) divides refine rows by `steps_run`. It mixes them with direct rows at the same size and checkpoint, and `grid.estimate_seconds` (grid.py:593) multiplies back by the same count.\n\nWhy it is not a defect:\n1. The contract chooses the floor knowingly. design-notes.md:466-477 states both roundings, with the example \"28 steps at 0.4 is 11 on SDXL and 12 on FLUX.1\". It says `step_cost_ms` divides by \"`refine.steps_run` (the floor, at least one)\" and that `estimate_seconds` \"multiplies back by the same count\". CLAUDE.md says \"about `steps * strength` run (`refine.steps_run`, the floor; the step callback reports the pipeline's own count)\". The `steps_run` docstring (refine.py:133-141) calls it \"About how many\", says the flow pipelines round differently, and says it is the floor \"for the estimate and the progress bar's first frame\". The progress events use `pipe.num_timesteps` (diffusers_backend.py:576), as documented.\n2. The goal the note states for the division is that refining \"does not price a direct render at a third of its cost\". The floor avoids that under-pricing, so the goal is met.\n3. A refine estimated from refine rows at the same strength is exact, because the same floor is in the numerator and the denominator. The scratch run below gives 16.9 s, the measured time.\n4. What remains is a refine row pricing a direct render, or a refine at another strength. That is an advisory figure, and the design already accepts a larger error there: the per-call text encode, VAE encode and VAE decode. Even with the pipeline's exact count of 3, a direct 28-step 1536x1536 render would be estimated at 157.7 s against the 101.3 s measured. The floor moves that to 236.6 s.\n\nThe effect is real but limited to a stated approximation inside an estimate that is already approximate. No row, reproduction key, refusal or progress event is wrong. Nothing upstream guards it, but nothing needs to."
+  },
+  {
+   "title": "Merge turns a refine whose source is gone into a direct-render record",
+   "file": "backend/reindex.py",
+   "line": 301,
+   "area": "storage",
+   "summary": "The commit's documented and tested choice: a merge drops a source that did not come across, with its strength, and counts it unresolved.",
+   "why": "The mechanics the reviewer describes are accurate, but the behaviour is the commit's deliberate, documented and tested choice. The code does exactly what the contract says, so under the review rules it is not a defect.\n\nCode path:\n- At reindex.py:298-304, a source id that is not in id_map becomes None and is counted in `unresolved_references`.\n- At reindex.py:225 and :340, the strength is nulled along with the source.\n- `_copy_in` writes that metadata into the copied PNG.\n- In B, `storage.completed_cells` (storage.py:694, `refine_key(None, None)`) and `step_cost_ms` (storage.py:515-521, `refine is not None` gate) then treat the row as a direct render.\n\nContract:\n- docs/design-notes.md:508-509 says \"a database merge remaps the source id with the reference ids and drops one whose image did not come across\".\n- CLAUDE.md:351 says \"a database merge remaps the source id as it does a reference's\".\n- The reference policy this extends is justified at design-notes.md:1098-1100: \"a missing or conflicting predecessor is dropped and counted rather than left pointing at an unrelated destination row\".\n- tests/test_refine.py:425-430 asserts the drop for both the row and the copied PNG chunk (\"Dropped with its strength rather than left naming an unrelated image\", \"should this gallery be rebuilt from files\").\n- The merge reports the drop: reindex.py:476-478 prints \"N unresolved reference(s)\", and the README says unresolved references are reported.\n\nThe same trade-off already applied before this commit. A klein row whose reference was dropped also becomes a no-reference record in CellKey, the resume key and Reuse. The commit applied the documented policy unchanged.\n\nAlternatives within the schema:\n- Keeping the source's id would name an unrelated row in B, which is the hazard the docs reject.\n- A strength with no source is not a setting (`applied()`).\n\nSo there is no representation the code fails to use. No upstream guard stops the scenario (no delete path protects a refine source; clear.py and storage have no such check), so the drop is reachable. Its effects are edge cases:\n- (a) The resume or Re-render match needs a direct render of the same prompt, seed, steps and CFG at exactly the refined size.\n- (b) The step cost is a median of up to 20 rows at that exact size, so it is an estimate only.\n- (c) In A, Reuse also drops a gone source with a note and renders a plain image.\n\nThese are consequences of the documented design choice, not code that contradicts it."
+  },
+  {
+   "title": "CLI refuses refine on unprofiled checkpoints with a sibling, with a false message",
+   "file": "backend/generate.py",
+   "line": 481,
+   "area": "cli",
+   "summary": "The design notes say the CLI decides before its load, from the profile; the CLI has no other answer at that point.",
+   "why": "The facts are right, but they describe the documented design, not a defect.\n\n1. The design notes for the refine pass say the CLI refuses before its load, from the profile. They say a source is \"refused at submit (`_refuse_unusable_inputs`, and the CLI before its load) where the checkpoint has no pass\". They also say \"Each profile carries `refine_supported` as its guess before a load, `describe()` answers from the class after it\". CLAUDE.md says the same: \"`refine_supported` is profiled before a load ... unsupported ... is refused at submit and by the CLI\". The CLI decides everything before it loads. That covers the resume prune (generate.py:704) and the duplicate count (generate.py:835), both through `backend.applied()`, which uses the profile when nothing is loaded (diffusers_backend.py:301-313). So the profile's guess is the only answer the CLI has at generate.py:481.\n\n2. This copies the CLI's existing reference check exactly: `if references and not profile[\"reference_supported\"]` (generate.py:646). An unprofiled id whose pipeline takes `image` is refused there in the same way.\n\n3. The server gives the same answer in the same state. Before a load, `describe()` returns `refine_supported: None` (diffusers_backend.py:798), so `_merged_defaults` keeps the fallback's False (main.py:298-308). `_refuse_unusable_inputs` (main.py:402-410) then returns 422 with the same wording. Only after a load does either side have the class's answer, and the CLI never has a loaded pipeline when it decides.\n\n4. Out-of-catalogue ids are not promised these features. CLAUDE.md's \"any of them runs unchanged\" means the catalogue entries, and \"a catalogue entry that reaches the fallback is a test failure\" (tests/test_profiles.py:375). Every catalogue checkpoint with a sibling is profiled True, and tests/test_refine.py checks each guess against the installed diffusers. The fallback is a generic guess and is wrong for SDXL base in other ways too, such as `mu_supported: True`.\n\n5. `schemas.default_strength`'s comment (\"a checkpoint the table does not know, whose pipeline turned out to have a pass\") is reachable on the server after a load. It makes no claim about the CLI.\n\nWhat remains is wording. \"diffusers ships no image-to-image pipeline beside its own ... SDXL checkpoints have one\" reads oddly for an off-catalogue SDXL id. The server shows the same text before a load, and it is not a behaviour defect."
+  },
+  {
+   "title": "Sibling release is tested on unload() only; the server calls try_unload()",
+   "file": "tests/test_refine.py",
+   "line": 549,
+   "area": "tests",
+   "summary": "`try_unload` clears `_refine_pipe` too (diffusers_backend.py:261), and the test claims only what it checks.",
+   "why": "The facts are right, but they do not add up to a defect. The code does what the contract asks. `DiffusersBackend.try_unload` (backend/backends/diffusers_backend.py:256-266) takes the lock without blocking, then clears `_pipe`, `_call_params`, `_lora` and also `_refine_pipe` and `_refine_params` (line 261) before `_release()`. `unload()` does the same at line 245. The server's callers, main.py:181 (lifespan) and main.py:498 (Unload route), therefore release the sibling. The documented contract (\"let go on unload\", CLAUDE.md; design-notes.md:433-434, \"dropped on unload\") holds on both paths.\n\nThe test is not mislabelled either. Its comment at test_refine.py:548 says the sibling \"has to go when the pipeline goes\", and the test checks exactly that through `unload()`. Nowhere in CLAUDE.md, the design notes or the test claims that the server path is covered. The reviewer's failure scenario only applies if someone later deletes line 261. That is a request for one more regression test, not a current wrong behaviour, a broken invariant or a test that checks less than it says. The review brief excludes 'consider adding' items that have no concrete failure.\n\nThe gap is also not new to this commit. The `_lora = None` clearing in `try_unload` (line 260) was never tested against DiffusersBackend before it either. `grep try_unload tests/` finds only the FakeBackend wrappers in test_api_analysis.py."
+  },
+  {
+   "title": "CLI never re-checks the refine pass after backend.load(); rows silently plain",
+   "file": "backend/generate.py",
+   "line": 927,
+   "area": "gap:profile-guess-vs-live-before-load",
+   "summary": "Called the documented structure (refused before the load, dropped by `applied()` after), with a check after the load as hardening. F5's verifier confirmed the server's half of the same path; see F5.",
+   "why": "The code path the reviewer describes is real, but it is the behaviour the design documents and justifies, and it only opens for an id outside the catalogue.\n\n1. The documented contract chooses exactly this structure. docs/design-notes.md:495-503 says the source is \"refused at submit (`_refuse_unusable_inputs`, and the CLI before its load) where the checkpoint has no pass ... and dropped by `applied()` where it gets past that\". The CLI does exactly that:\n   - generate.py:481 checks `defaults_for(...)[\"refine_supported\"]` before the load.\n   - generate.py:927 is `backend.load()`.\n   - diffusers_backend.py:541 has `generate()` call `applied()`, which uses `_refine_supported()` at diffusers_backend.py:321 once loaded.\n   - generate.py:1018 saves `ran = backend.applied(cell.request)`.\n   So the code does what the notes say.\n\n2. The server has the same structure, so the CLI is not out of step with it. main.py:391-414 `_refuse_unusable_inputs` reads `_merged_defaults(backend.describe())` (main.py:288-310), which is still the profile guess while unloaded. Its docstring (main.py:395-400) says `applied()` keeps the record honest and the submit check is what stops the plain render. A page job submitted to an unloaded Kontext server takes the same route as the CLI run. CLAUDE.md likewise says `refine_supported` \"is profiled before a load, each guess held to the installed diffusers, and the class's answer after it\".\n\n3. Within the catalogue the guess cannot be wrong. tests/test_refine.py:47-57 parametrizes over test_profiles.CASES (tests/test_profiles.py:27-44, every catalogue checkpoint and its real class). It asserts that `refine.sibling(class)` is non-None exactly when the profile says `refine_supported`. For every checkpoint the app ships, the before-load check is the live answer.\n\n4. The failure needs an off-catalogue edit pipeline whose id carries a family token. My scratch script confirmed four cases where the profile guesses True and `refine.sibling` returns None:\n   - FLUX.1-Kontext-dev / FluxKontextPipeline\n   - FLUX.1-Fill-dev / FluxFillPipeline\n   - Qwen-Image-Edit / QwenImageEditPipeline\n   - Qwen-Image-Edit-2509 / QwenImageEditPlusPipeline\n\n   These are image-editing pipelines the catalogue does not list. The launch menu labels such an id \"unrecognised id\" (launch.py:419-421), and its profile is the family's by token match. The same token mismatch already misguesses `reference_supported` for Kontext: the flux profile says False, but the live class has `image`.\n\n5. No data or reproduction-key error results. The row and PNG record refine=None and the default strength. That is what ran, by design (`applied()` is \"the one normalisation\", CLAUDE.md). The resume, the duplicate count and `run_id` all read `applied()`. The scenario also overstates one detail: FluxKontextPipeline rescales any requested size to `max_area` 1024**2 (pipeline_flux_kontext.py:841-848), so it would not render at 1536x1536.\n\nA post-load re-check would be a reasonable hardening for off-catalogue ids. It would apply to the server's unloaded-submit path as much as to the CLI. But the code meets its documented contract, so this is not a defect."
+  },
+  {
+   "title": "After Unload, refinements this checkpoint made are refused with a false 422",
+   "file": "backend/main.py",
+   "line": 404,
+   "area": "gap:profile-guess-vs-live-before-load",
+   "summary": "Documented: `refine_supported` is profiled before a load. The page's side survives as P1.",
+   "why": "The mechanics are as described, but the behaviour is the documented design, not a defect. Unloaded, DiffusersBackend.describe() reports refine_supported None (diffusers_backend.py:798). _merged_defaults (main.py:298-308) then keeps the profile's guess, and an id the table does not know gets _FALLBACK with refine_supported False (model_defaults.py:776, _profile_for at 798-805). _refuse_unusable_inputs (main.py:402-410) refuses on that guess, and /api/rerender reaches the same check (main.py:1120-1124).\n\nThe contract chooses this on purpose:\n- CLAUDE.md: \"`refine_supported` is profiled before a load ... and the class's answer after it; unsupported ... is refused at submit and by the CLI\".\n- design-notes.md:414-417: \"Each profile carries `refine_supported` as its guess before a load, `describe()` answers from the class after it, `/api/status` merges the two like `reference_supported`\".\n- design-notes.md:549-550 expects an unknown checkpoint to run a pass only once its class answers: \"A checkpoint the table does not know ... runs at `refine.DEFAULT_STRENGTH`\".\n- tests/test_refine.py:70-71 asserts the exact behaviour reported: \"An unrecognised checkpoint is not promised one either, until it loads\" (`assert not defaults_for(\"nobody/whatever\")[\"refine_supported\"]`).\n\nreference_supported, mu_supported and the other capabilities follow the same guess-until-load pattern. The page agrees with the server: status shows False while unloaded, so the Refine field is greyed with the same explanation until Load. Refusing a capability the profile cannot vouch for, rather than accepting it, is the intended direction. If the server accepted the request, applied() before load would drop the source anyway (diffusers_backend.py:301-313).\n\nThe suggestion that rerender should trust rows pinned to settings.model_id would be a new inference, not something the contract requires. \"Re-render ... carry both\" holds: the cells carry refine and strength (main.py:1106-1107), and the capability check refuses them.\n\nThe only true inaccuracy is wording. For an unknown SDXL id before a load, the 422 text \"diffusers ships no image-to-image pipeline beside its own\" (main.py:407-409), and the matching _REFINE_HINTS[False] tooltip, state a guess as fact. That is a misleading message, not wrong behaviour or a broken invariant. The CLI's refusal at generate.py:481 was reported separately, and there it can never be overcome because the CLI checks before it loads. On the server, pressing Load is the documented path to the live answer."
+  },
+  {
+   "title": "Check and the critic refused over the refine steps/strength pair they never read",
+   "file": "backend/schemas.py",
+   "line": 272,
+   "area": "gap:analyser-and-comparison-under-refine",
+   "summary": "Check takes the body Generate would send, and a body Generate refuses has always been refused by Check.",
+   "why": "The mechanism is real, but it is not a defect. It follows the documented contract, and the parts of the claim that would make it one do not hold.\n\n1. The mechanism. PromptAnalysisRequest (schemas.py:272) subclasses GenerateRequest, so it inherits _refine_leaves_a_step (schemas.py:119-131). collect() (web/generation.js:35-36) sends `refine` and `strength`. Both checkPrompt (analysis.js:79) and askCritic (analysis.js:629) POST that body, so Krea dev with a source, Steps 8 and Strength 0.1 gets a 422.\n\n2. This is the documented design. Check takes \"the body Generate would send (`PromptAnalysisRequest`)\" (design-notes.md:2435-2436; CLAUDE.md \"Three layers over the body Generate sends\"). The schema docstring says \"The whole request rather than the text alone\" (schemas.py:273-279). A body Generate refuses has always been refused by Check, including on fields the analyser never reads. A grep finds no request.width/steps/seed/num_images reads in prompt_rules, prompt_encoding or critic. Yet width=1000 typed into the W box (min 256, max 3168, so in range) already gave a 422 from Check before this commit, through _multiple_of_16. So the claim that \"before this commit, no in-range panel state could make Check 422 on a non-prompt field\" is wrong. The new validator adds one more Generate-invalid body to an existing class.\n\n3. The refusal is accurate, not wrong. The same panel state is refused by Generate with the same message (design-notes.md:477-480 and CLAUDE.md: \"A strength that leaves less than one step is refused when the request is built\"). The 422 names the fields and the fix, so nothing is hidden from the user.\n\n4. The critique-erasure part is not this commit's. analysis.js was not touched by 212f41c (`git show --stat` does not list it). Line 626 (`critiqueResult = null` before the POST) erases the previous answer on every failed critique, such as a 409 or 502, by the page's own existing design.\n\n5. The stale indicator is correct. Steps does not affect the analysis, so not marking the check stale on a Steps change is the intended behaviour of syncAnalysisStale/analysed() (analysis.js:186-193).\n\nWhat remains is a preference that Check should skip the refine cross-field check. That is not a broken invariant or a wrong outcome."
+  },
+  {
+   "title": "Deleted refine source refused as 'no gallery image with id N', source unnamed",
+   "file": "backend/storage.py",
+   "line": 1082,
+   "area": "gap:analyser-and-comparison-under-refine",
+   "summary": "The message is true, names the id and predates the commit; the commit fixed the one branch that misnamed the kind of image.",
+   "why": "The code does what the reviewer says: in storage.py:1080-1084 the unknown-id branch raises \"no gallery image with id N\" without using `noun`, and main.py:411-414 passes that text through as a 422. That is not a defect, for these reasons:\n\n1. The message is true and it names the id. It never calls the source by the wrong name. Before the commit (`git show 212f41c^:backend/storage.py`, lines 1035-1045), the unknown branch already said \"no gallery image with id N\" and named no kind of image. Only the missing-file branch hard-coded \"the file for reference image N\", which would be wrong for a refine source. The commit added `noun` to fix exactly that branch (storage.py:1087-1089). So the source is \"resolved under its own noun\": every message that names a kind of image names the source's own kind. The docstring (storage.py:1068-1069) and design-notes.md:496 are both satisfied.\n\n2. The message is the contract that is actually tested. tests/test_api_refine.py:53-58 (`test_an_unknown_source_is_named`) asserts \"no gallery image with id 4242\" for an unknown refine source, and test_api_refine.py:149-155 asserts the same text for a source deleted before a Re-render. tests/test_refine.py:152 pins it at the storage layer too. \"Named\" in these tests means the id is named. Both tests pass.\n\n3. The message cannot be ambiguous. _refuse_unusable_inputs checks refine (main.py:402-414) before references (main.py:415-427). In model_defaults.py no profile has both `reference_supported` and `refine_supported` true: klein has references and no pass, and the pass checkpoints have no references. So a refusal naming an id cannot be confused with a reference image.\n\n4. The page shows the same number. The Refine field's note reads \"(image N, WxH)\" (sizes.js:286), the chip's button is labelled \"Remove refine source image N\" (sizes.js:297-298), and the size line says \"refining image N\" (sizes.js:114-117). These all sit in the same panel the comparison reads its request from, so the \"image 4\" in the error points to something on the page.\n\n5. Seeing a deletion made in another tab mid-session is outside the documented design. design-notes.md:511-513 says the page asks GET /api/images/{id} only for a source restored from localStorage or carried in by Reuse (loadRefineSource, sizes.js:360-380). forgetImages (gallery.js:244-249) covers deletions made on this page. smoke-refine.json:109-115 covers exactly those two cases. A source deleted in another tab is left for the server to refuse, and it is refused before anything renders. The run is not done as plain text-to-image, which is the real invariant (main.py:395-400).\n\nWhat remains is a wish for a more specific error wording. No behaviour is wrong and no documented invariant is broken."
+  }
+ ],
+ "set_aside": [
+  {
+   "title": "F3: \"the CLI and the server disagree on which error\"",
+   "reason": "Both refuse and nothing runs; only the reason is wrong, and only for direct API calls."
+  },
+  {
+   "title": "F4: \"the estimate counts the copies\"",
+   "reason": "Duplicates are rendered by design, so the estimate and image count are right; only the advisory is wrong."
+  },
+  {
+   "title": "F11: \"the floor is the error\"",
+   "reason": "The floor is the documented choice and accounts for about 1.5x; the per-image fixed costs are the larger part."
+  },
+  {
+   "title": "F13: a code defect",
+   "reason": "Recast as a documentation overstatement: stock diffusers behaviour at a cost of about 0.16 GiB."
+  },
+  {
+   "title": "F23: the Qwen-Image row is tied to the same wrong SDXL target",
+   "reason": "Not supported by the design notes' table."
+  },
+  {
+   "title": "F7: \"the next Generate records a misleading render\"",
+   "reason": "The record is honest (a direct render at the size shown); the misleading part is the note."
+  },
+  {
+   "title": "P1: medium severity",
+   "reason": "Limited to checkpoints outside the catalogue, where the field is visibly greyed with a note."
+  }
+ ],
+ "gaps": [
+  {
+   "key": "verified-evidence-audit",
+   "why": "docs/verified.md and the README's refine table rest on GPU runs whose evidence is on disk at %LOCALAPPDATA%\\Temp\\local-diffusion-refine-validation (validate_refine.py, sweep_refine.py, plus per-checkpoint validation.log, results.json, sweep JSONs, a database and output PNGs). The docs reviewer said these claims are 'only the GPU can reproduce' and did not open the evidence, and no other reviewer did either. The recorded progress tuples are also the only real data on how many steps a pass actually runs compared with refine.steps_run's floor. That question decided one REFUTED finding and one CONFIRMED finding (step_cost_ms / estimate)."
+  },
+  {
+   "key": "real-sibling-untested-modes",
+   "why": "Every reviewer reasoned about the real diffusers img2img siblings from source only. The core reviewer believed no tokenizers were cached offline. In fact the FLUX.1-Krea-dev, SDXL-base and Z-Anime tokenizers are in the HF cache and the RTX 5080 is idle, so a tiny real pipeline can run generate()'s refine branch. The card validation (verified.md) covered only fp8 with model offload. Not executed anywhere: offload 'none'/'sequential', true CFG with a negative prompt through FluxImg2ImgPipeline, and Mu on Z-Image/Z-Anime through schedule.shifted_sigmas with a strength slice. The interactions reviewer listed sequential offload as 'reasoned only, never executed'."
+  },
+  {
+   "key": "profile-guess-vs-live-before-load",
+   "why": "The submit refusal (main._refuse_unusable_inputs via _merged_defaults) and the CLI gate (backend/generate.py ~481 and ~633) decide refine support from model_defaults' family-token guess whenever no pipeline is loaded. After the load, DiffusersBackend.applied() decides from the live class and silently drops the source if refine.sibling finds none. That would render and record a plain text-to-image at the enlarged size, which is the outcome the refusal exists to prevent. The reverse case (guess False, live True) greys the page and 422s until a load. Reviewers only noted that test_refine's CASES table is hand-maintained. Nobody traced the before-load path end to end, or what each cached checkpoint's real model_index class resolves to."
+  },
+  {
+   "key": "analyser-and-comparison-under-refine",
+   "why": "web/analysis.js has no refine handling. Yet checkPrompt and the critic post collect(), which now carries `refine` and `strength`, and PromptAnalysisRequest inherits GenerateRequest's new _refine_leaves_a_step validator and default_strength fill. comparePayload spreads gridPayload(), so a prompt comparison silently becomes a refine pass of whatever source is in the panel. Reviewers found only the strength_axis multiplication. The web reviewer judged Check carrying refine fields 'consistent' without exercising it. Nobody checked the stale rule, Check/critique refusals, or what a comparison under a source actually renders and reports."
+  }
+ ],
+ "fix_order": [
+  {
+   "group": "Grid and comparison request shape",
+   "findings": [
+    "F1",
+    "F2",
+    "F3",
+    "F16"
+   ],
+   "note": "F1 is one line. F2 and F3 are the same validator: moving the one-step check from the schema to the per-cell build, after the route's capability check, fixes both and lets the smoke step in F16 test what it claims. Change F16 in the same commit."
+  },
+  {
+   "group": "Strength as a start index",
+   "findings": [
+    "F4",
+    "F11",
+    "F14",
+    "F15"
+   ],
+   "note": "The duplicate count, the step cost and the progress tests treat strength as a number where the pipeline uses an integer start index. One helper that gives the sibling's own start index (flow or SDXL rounding) serves the first two, and its rounding is what F15's new case should pin."
+  },
+  {
+   "group": "Before-load guess against the live answer",
+   "findings": [
+    "F5",
+    "F6",
+    "P1"
+   ],
+   "note": "All three need a checkpoint outside the catalogue. A check after the load that the pass survived `applied()` closes F5; F6 is the merged status's strength; P1 is the page's side of the same guess."
+  },
+  {
+   "group": "The page's notes about the source",
+   "findings": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "note": "All in web/gallery.js; F7 either changes the code or narrows the CLAUDE.md/AGENTS.md bullet."
+  },
+  {
+   "group": "Reproduction data",
+   "findings": [
+    "F10"
+   ],
+   "note": "Shared with reference ids; fix both reads together."
+  },
+  {
+   "group": "CLI",
+   "findings": [
+    "F12",
+    "F17",
+    "F18"
+   ],
+   "note": "A guard, a README example and a help string."
+  },
+  {
+   "group": "Evidence and wording",
+   "findings": [
+    "F13",
+    "F19",
+    "F20",
+    "F21",
+    "F22",
+    "F23"
+   ],
+   "note": "Documentation only, except F13's optional VAE offload."
+  }
+ ]
+}
