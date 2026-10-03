@@ -377,17 +377,200 @@ Measured on the frosting-lane file against the cached checkpoints: fits
 FLUX.1 Krea; 494 modules Z-Image has not got; 454 klein has not got; the
 right names at the wrong width on Krea 2; no `transformer` on SDXL.
 
+## The refine pass
+
+**A refine pass keeps the picture, which a direct render at a larger size
+cannot.** The size guides had been saying so in the authors' words and the
+app had no way to do it: FLUX.1's "render at 1-2 MP and upscale", and WAI's
+1024x1344 followed by a 1.5x hires pass at denoising strength 0.35-0.5. What
+the app had was Re-render, whose own notes say what it delivers - the latents
+are drawn at the requested shape, so the same seed at another size is a new
+sample - and the measurements say where a direct large render goes wrong
+(Illustrious at 2048 rendering the shelves and omitting the doctor its 1536
+kept). A pass is `GenerateRequest.refine`, a gallery id, and `strength`: the
+source is resized to the request's width and height, encoded by the VAE,
+noised to the point on the schedule the strength names and denoised from
+there under the request's own prompt, negative prompt, steps, CFG and seed.
+
+**It runs the sibling pipeline over the components already loaded.**
+diffusers ships an image-to-image class beside most text-to-image ones, by
+name (`FluxImg2ImgPipeline` beside `FluxPipeline`) and over the same
+components, so nothing is downloaded and nothing more is held on the card.
+`refine.sibling(type(pipe))` is the lookup, and the whole capability: the
+name with `Img2Img` in it, only for the class diffusers itself exports under
+the pipeline's name (a local class that merely shares one has components
+nobody checked), and only where the sibling's `__call__` takes
+`refine.REQUIRED` - `image`, `strength`, and the `generator` and
+`callback_on_step_end` `load()` insists on - and every argument in
+`refine.CARRIED` that the text-to-image call takes. `CARRIED` is the list
+`generate()` passes besides the size, held to that function's source by
+`tests/test_refine.py`: a sibling that lacked `negative_prompt` or `sigmas`
+would have it dropped by the backend's drop loop, at DEBUG, and render a
+refine the row then describes wrongly. In diffusers 0.40 that gives FLUX.1
+(Krea dev, dev, schnell), SDXL (Animagine, Kohaku, Illustrious, WAI),
+Z-Image (Turbo, Z-Anime) and Qwen-Image a pass, and Krea 2, FLUX.2 [klein],
+ERNIE-Image and Lumina 2 (NetaYume) none; Anima and NewBie run this repo's
+own pipeline classes, which have no sibling. A table of families was not
+written: the loader is model-agnostic, and so is this. Each profile carries
+`refine_supported` as its guess before a load, `describe()` answers from the
+class after it, `/api/status` merges the two like `reference_supported`, and
+`tests/test_refine.py` holds every guess to the installed diffusers.
+
+**`refine.build`, not `from_pipe`.** `DiffusionPipeline.from_pipe` is the
+library's own way to make one pipeline from another "without reallocating
+additional memory", and it ends in `new_pipeline.to(dtype=dtype)` - float32
+unless told otherwise - over modules the first pipeline is still using,
+torchao-quantized ones among them. The sibling is constructed directly
+instead: each constructor parameter from `pipe.components`, or from
+`pipe.config` for the plain values (SDXL's `force_zeros_for_empty_prompt`),
+and an error naming a required one the pipeline has not got. A constructor
+only registers what it is handed. The offload hooks are the modules' own, so
+they come along; the scheduler is the same object, which is what lets
+`schedule.forced_mu` - patched onto the loaded pipeline's scheduler - reach
+a pass, and a static scheduler is handed the pre-shifted `sigmas` exactly as
+a text-to-image call is. The adapter goes into the denoiser through the
+loaded pipeline (`_apply_lora`) and the sibling shares the denoiser. Built
+on the first refine, kept, and dropped on unload - it is a second set of
+references to the same modules, and kept past that an unload would free
+nothing.
+
+**One call per image, because the VAE's encoding is sampled.** Every other
+batch here is one pipeline call with a list of generators, one per image, so
+that image *i* is what a solo run of its recorded seed makes. An
+image-to-image call encodes the source before it draws the noise, and that
+encoding is a *sample* from the VAE's posterior: `FluxImg2ImgPipeline` loops
+over the images it was given - one - and draws that sample from the first
+generator alone, so image 2 of a batch got image 1's encoding and its own
+noise, and its recorded seed reproduced something else. SDXL's sibling
+samples per generator and would have been fine. `DiffusersBackend._refine`
+makes one call per image with that image's generator (a scalar: the sample,
+then the noise, from one stream, on every pipeline), which costs a text
+encode and a VAE encode per image instead of per batch and makes the
+invariant true by construction rather than per pipeline. Measured on the
+card (`verified.md`): image 2 of a batch of two is byte-identical to a solo
+run of its seed, on SDXL, FLUX.1 and Z-Image alike. Progress counts through the images
+(`batch["index"] * steps + step`), so a batch's bar does not start over.
+
+**The sibling has no hook list, so the loaded pipeline frees the card.**
+`enable_model_cpu_offload` was called on the loaded pipeline;
+`maybe_free_model_hooks`, which every call ends with, returns at once on a
+pipeline that never had it called (`_all_hooks` is absent). After a refine
+the last component used - the VAE - would stay on the card until the next
+call's first forward. `_refine` calls the *loaded* pipeline's
+`maybe_free_model_hooks()` in a `finally`, which resets the chain the way a
+text-to-image call's own ending does, after a cancel or a failure too.
+Measured: the device reads the same 1.4 GiB after a pass as after a
+text-to-image call, and the source's own request renders the same hash after
+the passes, a batch and a cancelled pass as before any of them.
+
+**`steps` is the schedule's length; the strength decides how many run.**
+The pipeline builds the full `num_inference_steps` schedule and starts part
+of the way down it, and how the count rounds is the pipeline's own: SDXL
+runs `int(steps * strength)`, the flow pipelines `steps - int(steps -
+steps * strength)`, so 28 steps at 0.4 is 11 on SDXL and 12 on FLUX.1. The
+row records `steps` as asked - it is what reproduces the pass - and three
+things count the steps that run instead: the step callback reads
+`pipe.num_timesteps` for the progress events, `storage.step_cost_ms` divides
+a refine row's duration by `refine.steps_run` (the floor, at least one) so
+that a size reached mostly by refining does not price a direct render at a
+third of its cost, and `grid.estimate_seconds` multiplies back by the same
+count. SDXL's call raises below one step, so
+`GenerateRequest._refine_leaves_a_step` refuses `int(steps * strength) < 1`
+when the request is built - which for a grid is every cell, at submit,
+by name. The preview reads its sigma at `scheduler.begin_index + step + 1`:
+a pass starts at the index its pipeline set on the scheduler, and read from
+the top the gain was that of a far noisier step than the one just taken.
+
+**The source is covered and cropped, never stretched.** `refine.fitted`
+scales the source until it covers the requested size and crops the centre,
+Lanczos. The Refine button asks for the source's size times 1.5
+(`refine.scaled`, each side rounded to 16, half up - written out because
+`round()` rounds half to even and the page's `Math.round` does not, and the
+button and the CLI's `--scale` must land on the same size), where the crop
+is a few pixels at most; a size of another shape is a reframing, and the
+size line says "cropped to this shape". The resize is in the backend rather
+than left to the pipeline because SDXL's image-to-image call takes its size
+from the image and has no `width` or `height` at all.
+
+**Everything else is the reference image's design.** The source is an id,
+never a path, resolved through `storage.reference_paths` under its own noun;
+refused at submit (`_refuse_unusable_inputs`, and the CLI before its load)
+where the checkpoint has no pass or the image is gone, because a night of
+refinements that rendered as plain text-to-image at the larger size would be
+a night of new pictures; and dropped by `applied()` where it gets past that,
+with the strength back at its default - a strength with no source is not a
+setting, as a LoRA weight with no adapter is not - and with any references,
+since the sibling's `image` is the source. `refine` and `strength` are
+columns (`_migrate`), keys of the PNG's chunk, `Denoising strength` and
+`Refine` in the A1111 block, `refine:` and `strength:` in the search
+grammar, `strength` and `refine` in `stats --by`, and the fourth optional
+element of `CellKey` (`grid.refine_key`, `id@strength`). Re-render,
+`--from-image` and Reuse carry both; a database merge remaps the source id
+with the reference ids and drops one whose image did not come across.
+`GridRequest.strength_axis` (`--grid-strength`) is an axis only beside a
+source. The page asks `GET /api/images/{id}` for a source it holds by id
+alone - restored from localStorage, or from Reuse on a refined record - to
+learn its size for the scale buttons, and that it is still there.
+
+**A strength is an index into the checkpoint's schedule, so where it starts
+is the profile's.** The first version had one default, 0.4, inside the
+0.35-0.5 WAI's author documents - and on the card that number was right for
+WAI and wrong for FLUX.1 Krea dev, the default checkpoint: at 1.5x of a 1 MP
+image the pass kept the composition and repainted the man's face, at 0.4 and
+still at 0.2. The pipelines turn a strength into a *step index* and the
+schedule's shift then decides the noise level at that index. SDXL's epsilon
+schedule at 0.4 starts where the signal-to-noise ratio is that of a flow
+sigma of about 0.53. FLUX.1's shift is dynamic and grows with the size - mu
+is 1.15 at 1 MP and 2.0 at the 2.4 MP a 1.5x pass renders - so its 28-step
+schedule there spends nearly all its steps at high noise: strength 0.4
+starts at sigma 0.85, 0.2 at 0.67, 0.15 at 0.62, 0.1 at 0.47 and 0.05 at
+0.37 (read off `scheduler.sigmas` at `begin_index` in each run, and equal to
+the formula's). The face held at 0.05 and 0.1 and began to change at 0.15.
+So `refine_strength` is a profile key, seeded into the Strength box per
+control like steps and CFG (`owned.strength`), filled in by the schema for a
+request that names none (`schemas.default_strength`), and what `applied()`
+puts a strength back to when there is no source. Each value starts the pass
+at about half noise for a 1.5x pass of a 1 MP image:
+
+| Profile | Start | Basis |
+| --- | --- | --- |
+| Animagine, Kohaku, Illustrious, WAI (SDXL) | 0.4 | WAI's author's 0.35-0.5; measured on WAI |
+| FLUX.1 Krea dev, FLUX.1 dev | 0.1 | measured on Krea dev: sigma 0.47, 3 of 28 steps |
+| Z-Anime Base | 0.15 | static shift 6: sigma 0.51, 6 of 40 steps; measured |
+| Z-Image, Z-Image Turbo | 0.25 | static shift 3: sigma 0.5; arithmetic only |
+| FLUX.1 schnell | 0.5 | unshifted 4-step schedule: 2 steps from sigma 0.5; arithmetic only |
+| Qwen-Image | 0.3 | its published dynamic shift (max 0.9 over 8192 tokens) puts 0.3 near 0.53; arithmetic only, and from the config as published - this machine has no copy to check it against |
+
+The rows marked arithmetic have not been run here: they are the installed
+scheduler's formula applied to each checkpoint's shift, not a measurement,
+and `verified.md` says which are which. Every value leaves at least one step
+of its profile's own step count (`tests/test_refine.py`), or the Refine
+button on a 4-step checkpoint would set up a request the schema refuses. A
+checkpoint the table does not know has no number of its own and runs at
+`refine.DEFAULT_STRENGTH`. Two consequences are FLUX.1's alone and the
+tooltip says both: 2x redraws more than 1.5x at one strength (at 4 MP mu is
+3.2, and even the schedule's last step starts near sigma 0.5), and a Mu set
+for the pass moves the index back - measured, Mu 1.15 at strength 0.2 starts
+at sigma 0.46 with 6 steps where the native schedule's 0.1 starts at 0.47
+with 3. The strength axis exists to put the candidates on one sheet.
+
+**Not the author's recipe.** WAI's hires pass upscales with R-ESRGAN 4x+
+Anime6B and has its own step count; this pass resizes with Lanczos and runs
+the part of Steps the strength leaves. An upscaling model would be another
+pinned download and another thing to verify; it is not here.
+
 ## CellKey and run_id
 
-**Both widen `CellKey`, and `run_id` survives it.** The key is
-(prompt, negative, steps, CFG, mu, true CFG, references, LoRA, seed), with
-`grid.reference_key` (ids in order) and `grid.lora_key` (`name@weight`)
+**Three things widen `CellKey`, and `run_id` survives each.** The key is
+(prompt, negative, steps, CFG, mu, true CFG, references, LoRA, refine,
+seed), with `grid.reference_key` (ids in order), `grid.lora_key`
+(`name@weight`) and `grid.refine_key` (`id@strength`)
 spelled once and built from a request in `grid` and from columns in
 `storage.completed_cells`. `run_id` names a cell by the **shortest** key
-carrying all its non-None optional elements - it drops true CFG, references
-and LoRA from the right while they are None - so a grid using none of them
-is still named by the six-element key its images have carried since before
-any of them existed (pinned in `tests/test_conditioning.py`). A weight axis
+carrying all its non-None optional elements - it drops true CFG, references,
+LoRA and refine from the right while they are None - so a grid using none of
+them is still named by the six-element key its images have carried since
+before any of them existed (pinned in `tests/test_conditioning.py`). A weight axis
 with no adapter selected is not an axis: `applied()` puts `lora_scale` back
 to 1.0 where `lora` is None, or two cells that differ on a number no pixel
 depends on would split the resume key, and `_sampling_values` returns the
@@ -455,7 +638,15 @@ profile; `+''` is 0, and 0 is a valid CFG that generates unguided. Reuse
 does not carry a record's variables: it fills an editable panel, and what
 Generate then makes is a new image from `/api/generate`, which records none.
 A comparison version's name rides the two reproductions, Re-render and the
-CLI's `--from-image`, not Reuse.
+CLI's `--from-image`, not Reuse. Reuse does restore a refine pass - the
+source by id and the strength it ran at, as it restores references and an
+adapter - and clears the panel's source for a record that was a plain
+render, since what Reuse promises is what ran. The card's and the lightbox's
+**Refine** share its field-filling (`fillPanel`) and differ in two things:
+the size becomes the image's own times 1.5, and for a record from another
+checkpoint the steps, CFG and mu stay this checkpoint's - a pass starts from
+pixels, so any image can be refined, but those three numbers are not
+portable.
 
 ## One worker thread
 
@@ -1053,13 +1244,17 @@ UTC date, which is the wrong one for anything made in the evening.
 Favorites flag and the checkpoint scope, taken server-side because the
 browser holds one page) at another size, one cell per record with the
 record's prompt, negative prompt, steps, CFG, true CFG, mu, references,
-adapter and weight, seed and variables, oldest first. It calls
+adapter and weight, refine source and strength, seed and variables, oldest
+first. It calls
 `check_budget()`, refuses more than `max_grid_images` matches by count
 rather than truncating, refuses records from another checkpoint (steps/CFG/mu
 are the checkpoint's - only `all_models` lets one into the selection),
 prunes with `completed_cells` like a resume and 409s when nothing is left.
 Same seed at another shape is a *new sample* - the latents are drawn at the
-requested size - which the README says out loud. Until 2026-09-28 the cells
+requested size - which the README says out loud; getting the *same picture*
+larger is what the refine pass is for. A refined record is the exception
+that proves it: it re-renders as a refine pass of its own source at the new
+size, which is the same picture again. Until 2026-09-28 the cells
 were built without `variables`: a re-rendered comparison lost its version
 labels, which live nowhere else, and its sheet fell back to a flat,
 alphabetical Prompt axis; a `{var}` grid lost its axes the same way. A
@@ -1792,8 +1987,11 @@ The author recommends original dimensions above 1024x1024 and describes
 is published. The existing guide contract uses the documented reference
 span, 1.048576-1.376256 MP, with `pixels_word="documented"`; the tooltip
 explains that this is neither a maximum nor an equivalent to the refined
-examples. This app renders directly at the requested size and does not
-implement that hires pass. The fake-server smoke is `tools/smoke-wai.json`
+examples. Generate renders directly at the requested size. Since 2026-10-03
+the Refine pass (its own section above) is the nearest thing here to that
+hires pass - 1.5x and a strength in the author's range, measured on this
+checkpoint - with a Lanczos resize where the author uses the upscaling
+model, which the size tooltip says. The fake-server smoke is `tools/smoke-wai.json`
 on port 7873; actual card measurements belong in `verified.md`.
 
 Sources checked 2026-09-26:

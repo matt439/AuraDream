@@ -30,6 +30,10 @@ FILTERS: dict[str, tuple[str, Any]] = {
     "quant": ("quantization", str),
     # The adapter by name - `lora:none` is everything rendered without one.
     "lora": ("lora", str),
+    # A refine pass by the gallery id it started from - `refine:none` is the
+    # direct renders - and by how far it was re-denoised.
+    "refine": ("refine", int),
+    "strength": ("strength", float),
     "job": ("job_id", str),
     "run": ("run_id", str),
     # Every image with these pixels - a substring, so a prefix of one is enough.

@@ -4,6 +4,7 @@
     uv run python -m backend.generate "..." --aspect 16:9 --mp 4 --runs 12
     uv run python -m backend.generate "..." --width 1024 --height 1024 --batch 4 --seed 42
     uv run python -m backend.generate "..." --model krea/Krea-2-Turbo --quant int8
+    uv run python -m backend.generate --from-image outputs/x.png --refine 412 --scale 1.5
 
 This is the web app minus the web: the same backend, the same per-image seed
 maths, the same PNG metadata and the same gallery database, so an image made
@@ -70,8 +71,9 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PNG",
         help="start from the settings a gallery PNG carries in its metadata - prompt, "
         "negative prompt, size, steps, CFG, true CFG, mu, seed, checkpoint, references, "
-        "adapter and grid variables; any flag given explicitly still wins, and the "
-        "variables carry only while the prompt pair is the image's own",
+        "adapter, refine source and strength, and grid variables; any flag given "
+        "explicitly still wins, and the variables carry only while the prompt pair is "
+        "the image's own",
     )
 
     size = parser.add_argument_group("size")
@@ -121,6 +123,33 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="W",
         help="the weight that adapter is applied at (default 1.0)",
     )
+    conditioning.add_argument(
+        "--refine",
+        type=int,
+        metavar="ID",
+        help="refine pass: scale this gallery image up and re-denoise it part of the way "
+        "under the prompt and settings given, on a checkpoint diffusers has an "
+        "image-to-image pipeline for (FLUX.1, SDXL, Z-Image, Qwen-Image). With no size "
+        "given the size is the source's times --scale; a size of another shape crops "
+        "the source rather than stretching it",
+    )
+    conditioning.add_argument(
+        "--strength",
+        type=float,
+        metavar="S",
+        help="how much of the source a refine pass redraws, above 0 up to 1: low keeps "
+        "the picture, 1 keeps nothing. Defaults to the checkpoint's own starting "
+        "strength (0.4 on SDXL, lower on the flow-matching checkpoints). About "
+        "steps x S of the steps run",
+    )
+    conditioning.add_argument(
+        "--scale",
+        type=float,
+        metavar="F",
+        help="with --refine: render at the source's own size times this, each side "
+        "rounded to 16 (default 1.5), instead of at a size given by --width/--height "
+        "or --aspect/--mp",
+    )
 
     sweep = parser.add_argument_group(
         "grid search (overnight sweeps; each axis takes 8, or 6,8,10, or 6-12x2)"
@@ -160,6 +189,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="LoRA weights to sweep - 0-1x0.25 - needing --lora; a per-call setting, "
         "so a cell costs a re-weighting rather than a reload",
+    )
+    sweep.add_argument(
+        "--grid-strength",
+        metavar="SPEC",
+        default="",
+        help="refine strengths to sweep - 0.2-0.5x0.1 - needing --refine: the sheet that "
+        "shows where the picture stops being the source's",
     )
     sweep.add_argument(
         "--resume",
@@ -277,6 +313,13 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         args.lora = meta["lora"]
         if meta.get("lora_scale") is not None:
             args.lora_scale = meta["lora_scale"]
+    # A refined image reproduces as a refine pass of the same source: the id
+    # is this gallery's own, like a reference, and the strength is the
+    # image's unless the command line names another.
+    if args.refine is None and meta.get("refine") is not None:
+        args.refine = meta["refine"]
+        if args.strength is None and meta.get("strength") is not None:
+            args.strength = meta["strength"]
     if args.model is None and meta.get("model"):
         args.model = meta["model"]
     # The file's size only when none of the four size arguments was given.
@@ -353,7 +396,7 @@ def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import grid, loras, storage
+        from backend import grid, loras, refine, storage
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
@@ -370,6 +413,7 @@ def _project() -> SimpleNamespace:
     return SimpleNamespace(
         grid=grid,
         loras=loras,
+        refine=refine,
         storage=storage,
         Cancelled=Cancelled,
         get_backend=get_backend,
@@ -400,6 +444,9 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = _build_parser()
     args = parser.parse_args(argv)
+    # Whether the command line itself names a size, before a PNG fills one in:
+    # --scale is an alternative to these, but not to the size of --from-image.
+    size_flags = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
     # The PNG first, so its checkpoint can reach LOCAL_DIFFUSION_MODEL_ID before the
     # settings freeze on import.
     source = _image_settings(args.from_image, parser) if args.from_image else None
@@ -407,10 +454,53 @@ def main(argv: list[str] | None = None) -> int:
         _apply_image_settings(args, source)
     if not args.prompt:
         parser.error("a prompt is required (or --from-image with a gallery PNG)")
+    if args.refine is None:
+        # Neither is a setting without a source, and a run that quietly
+        # ignored one would be a plain render under a refine's flags.
+        if args.strength is not None:
+            parser.error("--strength needs --refine: there is no source to re-denoise")
+        if args.scale is not None:
+            parser.error("--scale needs --refine: it multiplies the source's size")
+    if args.scale is not None:
+        if size_flags:
+            parser.error("--scale and --width/--height/--aspect/--mp are alternatives; pick one")
+        if args.scale <= 0:
+            parser.error("--scale must be above zero")
+    # A size from the flags or from the PNG; a refine pass with neither takes
+    # the source's own, scaled, once the gallery can be read.
+    sized = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
     carried = _image_variables(args, source) if source is not None else None
     width, height = _resolve_size(args, parser)
     apply_env(args)
     p = _project()
+
+    # A checkpoint with no refine pass is refused first, by the profile and
+    # before anything is built from the flags: a strength that also happens
+    # to leave no step of that checkpoint's few would otherwise be the error
+    # reported, about a pass that could never have run.
+    if args.refine is not None and not p.defaults_for(p.settings.model_id)["refine_supported"]:
+        print(
+            f"{p.settings.model_id} has no refine pass - diffusers ships no image-to-image "
+            "pipeline beside its own. The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints "
+            "have one.",
+            file=sys.stderr,
+        )
+        return 2
+
+    refined_from = None
+    if args.refine is not None and (args.scale is not None or not sized):
+        # Only against a gallery that exists, like the reference check below:
+        # a --dry-run promises to create nothing, the database included.
+        refined_from = p.storage.get_image(args.refine) if p.settings.db_path.exists() else None
+        if refined_from is None:
+            print(
+                f"no gallery image with id {args.refine} in {p.settings.db_path} to refine",
+                file=sys.stderr,
+            )
+            return 2
+        width, height = p.refine.scaled(
+            refined_from.width, refined_from.height, args.scale or p.refine.DEFAULT_SCALE
+        )
 
     profile = p.defaults_for(p.settings.model_id)
     mu = None if args.no_mu else (args.mu if args.mu is not None else profile["mu"])
@@ -437,6 +527,9 @@ def main(argv: list[str] | None = None) -> int:
             reference=references,
             lora=args.lora,
             lora_scale=args.lora_scale,
+            refine=args.refine,
+            # None is "not given": the checkpoint's own starting strength.
+            strength=args.strength,
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
@@ -461,6 +554,7 @@ def main(argv: list[str] | None = None) -> int:
             or args.grid_cfg
             or args.grid_mu
             or args.grid_lora_scale
+            or args.grid_strength
             or args.seed_list
         )
         or args.grid_seeds > 1
@@ -469,6 +563,9 @@ def main(argv: list[str] | None = None) -> int:
         # Without an adapter the scale is not a setting at all, so the sweep
         # would be one image rendered N times under N different labels.
         parser.error("--grid-lora-scale needs --lora: with no adapter the weight does nothing")
+    if args.grid_strength and args.refine is None:
+        # The same for a strength with nothing to re-denoise.
+        parser.error("--grid-strength needs --refine: with no source the strength does nothing")
     if gridding and args.runs != 1:
         parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
     if args.resume and args.seed is None and not args.seed_list:
@@ -497,6 +594,7 @@ def main(argv: list[str] | None = None) -> int:
             cfg=args.grid_cfg,
             mu=args.grid_mu,
             lora_scale=args.grid_lora_scale,
+            strength=args.grid_strength,
             seeds=args.grid_seeds if gridding else args.runs,
             seed_list=seed_list or None,
             variants=variants,
@@ -525,11 +623,26 @@ def main(argv: list[str] | None = None) -> int:
     # the negative-prompt note below.
     backend = p.get_backend("diffusers")
 
-    # References and adapters are all-or-nothing inputs: a night that renders
-    # every cell as plain text-to-image because the pipeline ignores `image`,
-    # or because the adapter file is not there, looks like a success. Refused
-    # here for the same reason the server refuses at submit - before the load,
-    # not at cell 1.
+    # References, adapters and a refine source are all-or-nothing inputs: a
+    # night that renders every cell as plain text-to-image because the pipeline
+    # ignores `image`, because the adapter file is not there, or because the
+    # checkpoint has no refine pass, looks like a success. Refused here for the
+    # same reason the server refuses at submit - before the load, not at cell 1.
+    # (Whether the checkpoint has a refine pass at all was settled above,
+    # ahead of the request.)
+    if args.refine is not None:
+        if not p.settings.db_path.exists():
+            print(
+                f"no gallery database at {p.settings.db_path}, so there is no image "
+                f"{args.refine} to refine",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            p.storage.reference_paths([args.refine], "source image")
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
     if references and not profile["reference_supported"]:
         print(
             f"{p.settings.model_id} takes no reference images - its pipeline has no `image` "
@@ -662,6 +775,19 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.lora:
             print(f"lora     : {args.lora} @ {args.lora_scale:g}")
+        if request.refine is not None:
+            # The steps that run, since `sampling` above states the schedule's
+            # length; the source's own size when the size was derived from it.
+            ran = p.grid.denoised_steps(request)
+            print(
+                f"refine   : image {request.refine} at strength {request.strength:g}  "
+                f"(about {ran} of {request.steps} steps"
+                + (
+                    f"; source {refined_from.width}x{refined_from.height})"
+                    if refined_from is not None
+                    else ")"
+                )
+            )
         if seed_list:
             print(f"seeds    : {', '.join(str(s) for s in seed_list)}  (listed)")
         else:
@@ -676,6 +802,7 @@ def main(argv: list[str] | None = None) -> int:
                 prompt_axis,
                 args.grid_lora_scale,
                 variants,
+                strength=args.grid_strength,
             )
             if len(values["prompt"]) > 1:
                 # The substituted prompts, not the variables that made them:
@@ -688,6 +815,8 @@ def main(argv: list[str] | None = None) -> int:
             axes = [("steps", "steps"), ("guidance_scale", "CFG"), ("mu", "mu")]
             if len(values["lora_scale"]) > 1:
                 axes.append(("lora_scale", "LoRA"))
+            if len(values["strength"]) > 1:
+                axes.append(("strength", "strength"))
             for axis, shown in axes:
                 listed = ", ".join("off" if v is None else f"{v:g}" for v in values[axis])
                 print(f"  {shown:<7}: {listed}")

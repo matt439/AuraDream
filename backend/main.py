@@ -42,6 +42,7 @@ from .schemas import (  # noqa: E402
     GenerateRequest,
     GridPreview,
     GridRequest,
+    ImageRecord,
     JobAccepted,
     ModelStatus,
     PromptAnalysis,
@@ -264,6 +265,7 @@ async def status() -> ModelStatus:
             defaults["true_cfg_supported"],
             defaults["reference_supported"],
             defaults["lora_supported"],
+            defaults["refine_supported"],
         ),
         guide=guide_for(info["model_id"]),
         model_id=info["model_id"],
@@ -300,6 +302,7 @@ def _merged_defaults(info: dict) -> dict:
         "negative_prompt_supported",
         "true_cfg_supported",
         "reference_supported",
+        "refine_supported",
     ):
         if info.get(key) is not None:
             defaults[key] = info[key]
@@ -386,14 +389,29 @@ async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:
 
 
 async def _refuse_unusable_inputs(request: GenerateRequest) -> None:
-    """Refuse a reference or an adapter this server cannot run - at submit.
+    """Refuse a reference, an adapter or a refine source this server cannot
+    run - at submit.
 
-    Both are all-or-nothing inputs, unlike a negative prompt: a night queued
-    with references against a pipeline that takes none, or with an adapter no
-    file backs, would render every cell as a plain text-to-image and look like
-    a success. `applied()` keeps the *record* honest about that; this is what
-    stops it happening at cell 1 of 64.
+    All three are all-or-nothing inputs, unlike a negative prompt: a night
+    queued with references against a pipeline that takes none, with an adapter
+    no file backs, or as a refine pass on a checkpoint that has none, would
+    render every cell as a plain text-to-image and look like a success.
+    `applied()` keeps the *record* honest about that; this is what stops it
+    happening at cell 1 of 64.
     """
+    if request.refine is not None:
+        info = await asyncio.to_thread(backend.describe)
+        if not _merged_defaults(info)["refine_supported"]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{info['model_id']} has no refine pass - diffusers ships no "
+                "image-to-image pipeline beside its own. The FLUX.1, SDXL, Z-Image and "
+                "Qwen-Image checkpoints have one.",
+            )
+        try:
+            await asyncio.to_thread(storage.reference_paths, [request.refine], "source image")
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     if request.reference:
         info = await asyncio.to_thread(backend.describe)
         if not _merged_defaults(info)["reference_supported"]:
@@ -957,6 +975,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
             request.prompt_axis,
             request.lora_scale_axis,
             variants=request.prompt_variants,
+            strength=request.strength_axis,
         )
         # Listed seeds are an axis the preview shows like the others; counted
         # seeds are derived from the base and are not.
@@ -969,6 +988,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
             cfg=request.cfg_axis,
             mu=request.mu_axis,
             lora_scale=request.lora_scale_axis,
+            strength=request.strength_axis,
             seeds=request.seeds,
             seed_list=seed_list or None,
             variants=request.prompt_variants,
@@ -1080,6 +1100,11 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
                 reference=r.reference or [],
                 lora=r.lora,
                 lora_scale=r.lora_scale if r.lora_scale is not None else 1.0,
+                # A refined record re-renders as a refine pass of the same
+                # source at the new size: the source and the strength are its
+                # reproduction set as much as the seed.
+                refine=r.refine,
+                strength=r.strength if r.refine is not None else None,
                 seed=r.seed,
             ),
             seed=r.seed,
@@ -1090,12 +1115,12 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
         )
         for r in reversed(records)
     ]
-    # One check per distinct pairing rather than per cell: a selection of 400
-    # images carries at most a handful of adapters between them.
-    for spec in {(c.request.lora, tuple(c.request.reference)) for c in cells}:
-        if spec != (None, ()):
+    # One check per distinct combination rather than per cell: a selection of
+    # 400 images carries at most a handful of adapters and sources between them.
+    for spec in {(c.request.lora, tuple(c.request.reference), c.request.refine) for c in cells}:
+        if spec != (None, (), None):
             await _refuse_unusable_inputs(cells[0].request.model_copy(
-                update={"lora": spec[0], "reference": list(spec[1])}
+                update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2]}
             ))
     run_id = grid.run_id(cells, settings.model_id, settings.quantization)
     done = await asyncio.to_thread(
@@ -1282,6 +1307,22 @@ async def gallery(
         has_more=len(items) > limit,
         other_models=others,
     )
+
+
+@app.get("/api/images/{image_id}", response_model=ImageRecord)
+async def image_record(image_id: int) -> ImageRecord:
+    """One image's record, by id.
+
+    The panel's refine source is an id like a reference chip's, but it needs
+    more than a picture: the source's own size is what the scale buttons
+    multiply, and a source restored from localStorage or from a refined
+    record's `refine` may be on no gallery page the browser has loaded. A 404
+    is how the panel learns the source has been deleted.
+    """
+    record = await asyncio.to_thread(storage.get_image, image_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="unknown image")
+    return record
 
 
 @app.get("/api/images/{image_id}/thumb")

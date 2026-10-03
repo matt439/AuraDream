@@ -47,7 +47,7 @@ differently is identified.
 | Model | Total MP guidance | What that means for shape and larger images |
 | --- | --- | --- |
 | **Anima** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. The guide does not establish that every shape at that area performs equally well; only a **1.05 MP** square has been measured locally. |
-| **WAI** | **1.05-1.38 MP reference area**; **no published maximum** | Reference sizes include a portrait. This is an example span, not an established operating range for every aspect ratio. Showcase images also use a separate refinement pass that this app does not perform. |
+| **WAI** | **1.05-1.38 MP reference area**; **no published maximum** | Reference sizes include a portrait. This is an example span, not an established operating range for every aspect ratio. Showcase images also use a separate 1.5x hires refinement pass; the app's **Refine** pass (below) is the nearest it has, with a plain resize in place of the author's upscaling model. |
 | **Illustrious** | **About 1-2.25 MP native**, in the authors' wording; roughly **4 MP** possible with quality loss | The authors describe varied aspect ratios. Their higher training size is **2.36 MP** when converted exactly; treat the native range as approximate. A long side alone is not a ceiling. Start with the **1, 1.5 or 2 MP** presets. |
 | **Animagine** | **About 1 MP recommended**; author-listed shapes are **0.98-1.05 MP** | The author lists square, portrait and landscape shapes. Use those aspect presets where possible. Larger area can degrade; the warning includes a **2.36 MP** square. |
 | **Kohaku** | **About 1 MP recommended**; reference area **1.05 MP** | The recommendation explicitly allows a similar total pixel count, so the reference square is not a square-only requirement. Larger areas have not been measured locally. |
@@ -69,6 +69,19 @@ ratio.** Animagine's author-listed shapes are a specific set; other app
 presets can have the same area without being on that list. Very wide or tall
 framing still changes what the model must compose. Check the subject,
 anatomy and layout as well as whether generation completes.
+
+**To get the same picture larger, use Refine rather than a larger render.**
+Press ⤢ on a finished image: it is resized by 1.5x and re-denoised part of
+the way, which keeps the composition where the same seed at the larger size
+would draw a new one. **WAI, Illustrious, Animagine, Kohaku and Z-Anime**
+have the pass; **Anima Turbo, NetaYume and NewBie** do not, because
+Diffusers ships no image-to-image pipeline for them. The Strength box starts
+at each checkpoint's own value - **0.4** on the four SDXL models, **0.15**
+on Z-Anime - and lower keeps more of the original. In the local checks WAI's
+1024 x 1344 became 1536 x 2016 in about 12 seconds and Z-Anime's 1024 x 1024
+became 1536 x 1536 in about 33 seconds, both keeping the character and
+scene. Only WAI and Z-Anime were run; Illustrious, Animagine and Kohaku
+share WAI's pipeline. See the README's [Refine](../README.md#refine) section.
 
 ## Starting settings and likely waiting time
 

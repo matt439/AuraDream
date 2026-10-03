@@ -7,12 +7,27 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .config import settings
 from .model_defaults import defaults_for
+from .refine import DEFAULT_STRENGTH, leaves_a_step
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
 # How many reference images one request may carry. klein concatenates each one
 # onto the latent sequence, and attention is quadratic in that length: four 1 MP
 # references is already several times the cost of the prompt alone.
 MAX_REFERENCES = 4
+
+
+def default_strength() -> float:
+    """Where a refine pass's strength starts on the running checkpoint.
+
+    The profile's, like the steps and the CFG: the same strength lands at a
+    different noise level on SDXL's schedule and on a shifted flow-matching
+    one, so one number for every checkpoint redraws faces on some and barely
+    touches others. `DEFAULT_STRENGTH` where the profile names none - a
+    checkpoint the table does not know, whose pipeline turned out to have a
+    pass. Also what `applied()` puts a strength back to when there is no
+    source for it to act on, so that it is one value per checkpoint.
+    """
+    return defaults_for(settings.model_id).get("refine_strength") or DEFAULT_STRENGTH
 
 
 class GenerateRequest(BaseModel):
@@ -63,6 +78,20 @@ class GenerateRequest(BaseModel):
     # and one resume key rather than two.
     lora: str | None = Field(default=None, max_length=200)
     lora_scale: float = Field(default=1.0, ge=0.0, le=2.0)
+    # The refine pass: a gallery image, by id like a reference, resized to this
+    # request's width and height and re-denoised under its prompt and settings
+    # from the point on the schedule `strength` names - a low one keeps the
+    # picture and redraws the detail, 1.0 starts from pure noise and keeps
+    # nothing. It runs the image-to-image class diffusers ships beside the
+    # checkpoint's pipeline, over the components already loaded, so the
+    # capability is the pipeline's: dropped by `applied()` where there is no
+    # such class, and refused at submit. `strength` has no meaning without a
+    # source, and `applied()` puts it back to the default when there is none,
+    # for the reason `lora_scale` goes back: one image, one resume key. None
+    # is "not given", filled from the checkpoint's profile like the steps:
+    # what a strength does depends on the schedule it indexes into.
+    refine: int | None = Field(default=None, ge=1)
+    strength: float | None = Field(default=None, gt=0.0, le=1.0)
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
@@ -83,6 +112,22 @@ class GenerateRequest(BaseModel):
         # asked to be free of it - and leave the record unable to reproduce it.
         if "mu" not in self.model_fields_set:
             self.mu = profile["mu"]
+        if self.strength is None:
+            self.strength = default_strength()
+        return self
+
+    @model_validator(mode="after")
+    def _refine_leaves_a_step(self) -> "GenerateRequest":
+        # After the profile has filled the steps in. A refine pass runs only
+        # the part of the schedule its strength leaves, and below one step the
+        # pipeline raises - at the cell, which for a grid is 3am. Every cell
+        # of a grid is a request of its own, so a steps or strength axis that
+        # reaches too low is refused here, by name, when the grid is built.
+        if self.refine is not None and not leaves_a_step(self.steps, self.strength):
+            raise ValueError(
+                f"strength {self.strength:g} of {self.steps} steps is less than one step; "
+                "raise the strength or the steps"
+            )
         return self
 
     @field_validator("reference")
@@ -141,6 +186,7 @@ class GenerateRequest(BaseModel):
         true_cfg_supported: bool = False,
         reference_supported: bool = False,
         lora_supported: bool = True,
+        refine_supported: bool = False,
     ) -> "GenerateRequest":
         """This request as the pipeline will actually run it.
 
@@ -190,6 +236,21 @@ class GenerateRequest(BaseModel):
         # repeated - which is what `duplicate_count` is there to say.
         if lora is None and self.lora_scale != 1.0:
             changes["lora_scale"] = 1.0
+        # A refine source where the pipeline has no image-to-image sibling:
+        # refused at submit like a reference, and dropped here so a row that
+        # got past that is not recorded as a refinement of an image the
+        # pipeline never saw. The strength goes with it, as the LoRA scale
+        # goes with the adapter.
+        refine = self.refine
+        if refine is not None and not refine_supported:
+            refine = None
+            changes["refine"] = None
+        if refine is None and self.strength != default_strength():
+            changes["strength"] = default_strength()
+        # The sibling's `image` is the source, so references have nowhere to
+        # go on a refine pass even where the text-to-image call takes them.
+        if refine is not None and self.reference and reference_supported:
+            changes["reference"] = []
         return self.model_copy(update=changes) if changes else self
 
 
@@ -476,6 +537,10 @@ class GridRequest(GenerateRequest):
     # prompt at 0, 0.25, 0.5, 0.75, 1" - and a per-call setting, so it costs a
     # `set_adapters` between cells rather than a reload.
     lora_scale_axis: str = Field(default="", max_length=200)
+    # Refine strength as an axis: `0.2-0.5x0.1` over one source is the sheet
+    # that shows where the picture stops being the source's. Like the LoRA
+    # weight, only an axis while there is something for it to act on.
+    strength_axis: str = Field(default="", max_length=200)
     seeds: int = Field(default=1, ge=1, le=MAX_GRID_SEEDS)
     # The seed axis as a list - `4471,8823`, `100-103` - which wins over the
     # count and the base seed when given: the second night of an investigation
@@ -536,8 +601,9 @@ class RerenderRequest(BaseModel):
     page it has scrolled to. Every record carries the complete reproduction
     set, so each becomes one cell of one job: the prompt, the negative prompt,
     steps, CFG, true CFG, mu, the references, the adapter and its weight, the
-    seed and the variables - what the placeholders were set to, or which
-    version of a comparison it is - carry over and only the size changes. What
+    refine source and its strength, the seed and the variables - what the
+    placeholders were set to, or which version of a comparison it is - carry
+    over and only the size changes. What
     that delivers is honest to state: the pipeline draws its latents at the
     requested shape, so the same seed at 4 MP is a new sample - the prompt and
     the settings carry, the picture does not. For a prompt-variable grid that
@@ -619,6 +685,11 @@ class ImageRecord(BaseModel):
     # reproduction set as much as the seed, and null together when none was.
     lora: str | None = None
     lora_scale: float | None = None
+    # The gallery image this one is a refine pass of, and the strength it was
+    # re-denoised at - null together for a text-to-image row. `steps` is then
+    # the schedule's length, of which the pass ran about `steps * strength`.
+    refine: int | None = None
+    strength: float | None = None
     seed: int
     model_id: str
     # The first 16 hex digits of the sha256 of the decoded pixels. What the

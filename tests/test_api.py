@@ -40,7 +40,7 @@ def test_every_profile_explains_its_controls(model_id):
     # a renamed key would blow up here rather than on the first hover.
     hints = hints_for(model_id)
     assert set(hints) == {
-        "steps", "guidance_scale", "mu", "true_cfg", "reference", "prompt", "size"
+        "steps", "guidance_scale", "mu", "true_cfg", "reference", "refine", "prompt", "size"
     }
     assert all(text and "{" not in text for text in hints.values())
     # The LoRA box is the one control no profile can speak for: whether an

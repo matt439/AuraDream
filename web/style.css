@@ -518,6 +518,22 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    installation (adapters), never for a value. */
 .row.disabled select, .row.disabled input { opacity: 0.45; }
 #reference-field.disabled .chips { opacity: 0.45; }
+/* The refine pass, greyed for the checkpoint the same way: the caption and its
+   badge stay legible, the row under them dims. */
+#refine-field.disabled .refine-row { opacity: 0.45; }
+/* The source chip, the scale buttons and the strength on one line: the chip is
+   as tall as a reference chip, so the row aligns on its centre rather than on
+   the inputs' baseline, and the scale buttons take what the two leave. */
+.refine-row { align-items: center; }
+.refine-row .chips { flex: none; min-width: 52px; min-height: 52px; }
+.refine-row .refine-scales { flex: 1; flex-wrap: nowrap; }
+.refine-scales button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Without a source there is no chip: a dashed slot the size of one says where
+   it goes, rather than the row jumping when one is picked. */
+.refine-row .chips:empty {
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+}
 
 /* One chip per reference image: the thumbnail, and the way to drop it. Small
    enough that four of them are a row rather than a second panel. */

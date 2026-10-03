@@ -108,6 +108,8 @@ function renderLightbox() {
     // Only when there was one: most records carry neither.
     (rec.lora ? `LoRA ${rec.lora} @ ${rec.lora_scale}, ` : '') +
     (rec.reference?.length ? `ref ${rec.reference.join('+')}, ` : '') +
+    // A refine pass: the image it started from and how far it was re-denoised.
+    (rec.refine != null ? `refine of ${rec.refine} @ ${rec.strength}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`;
   els.lbCount.textContent = lbList.length > 1 ? `${lbIndex + 1}/${lbList.length}` : '';
   els.lbPrev.disabled = lbIndex === 0;
@@ -115,6 +117,12 @@ function renderLightbox() {
   els.lbFav.textContent = rec.favorite ? '★ Favourite' : '☆ Favourite';
   els.lbFav.classList.toggle('active', !!rec.favorite);
   syncReuseButton(els.lbReuse, rec.model_id);
+  // aria-disabled, so the button keeps its place in the tab order and its
+  // click can still say why: the reason is the checkpoint's, not the image's.
+  els.lbRefine.setAttribute('aria-disabled', String(!refineSupported));
+  els.lbRefine.title = refineSupported
+    ? 'Set the panel up to refine this image: its settings, at 1.5× its size'
+    : 'This checkpoint has no refine pass';
   // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();
   layoutLightbox();

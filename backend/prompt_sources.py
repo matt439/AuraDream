@@ -1112,8 +1112,8 @@ GROUNDING: dict[str, Grounding] = {
             "Examples inserts that recipe alone.",
             "Autocomplete checks Danbooru's live index; WAI publishes no vocabulary cutoff, "
             "so a recognized tag is advisory rather than evidence that v17 learned it.",
-            "The card's weighted-prompt syntax and high-resolution refinement pass are not "
-            "implemented by this text-to-image pipeline.",
+            "The card's weighted-prompt syntax is not implemented by this text-to-image "
+            "pipeline.",
         ),
     ),
     "ANIMA_TURBO_GUIDE": Grounding(

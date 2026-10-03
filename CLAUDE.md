@@ -58,6 +58,10 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
 - `backend/loras.py` — the adapter directory: what is in it, and the file
   behind a name (the only place a request's name becomes a path)
+- `backend/refine.py` — the refine pass: the image-to-image class diffusers
+  ships beside a pipeline's own (`sibling`), that class built over the loaded
+  components (`build`), the steps a strength leaves, and the source scaled to
+  cover the requested size and cropped; a leaf module like `seeds`
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels`, `web/state.js`'s copy, `index.html`'s `max=` and the
   README table are all held to it by `tests/test_profiles.py`
@@ -245,11 +249,11 @@ Schedule and guidance:
   `true_cfg_scale`, 0.0 for a `negative_prompt` pipeline in
   `_GUIDES_FROM_ZERO`, else 1.0. The profile guesses until a load;
   `/api/status` merges the live answer, as it does `mu_supported`,
-  `negative_prompt_supported`, `true_cfg_supported`, `reference_supported`
-  and `lora_supported`.
+  `negative_prompt_supported`, `true_cfg_supported`, `reference_supported`,
+  `refine_supported` and `lora_supported`.
 - `GenerateRequest.applied()` is the one normalisation - negative prompt, mu,
-  references, `lora_scale` - and `backend.applied()` answers it from the
-  parameter list or the profile. Every save path, the resume prune and the
+  references, `lora_scale`, the refine source and its `strength` - and
+  `backend.applied()` answers it from the parameter list or the profile. Every save path, the resume prune and the
   duplicate count go through it, never through the raw request.
 - `true_cfg` on a row means the scale the negative prompt ran at, or None, on
   every checkpoint.
@@ -278,9 +282,10 @@ Reproduction:
   `jobs.submit()` keeps its inline copy of the seed loop deliberately, asserted
   equal to the CLI's in `tests/test_cli.py`.
 - The reproduction set - prompt pair, size, steps, CFG, true CFG, mu, seed,
-  checkpoint, quantization, references, LoRA and weight, variables, hash - is
-  on the row and in the PNG's `local-diffusion` chunk. `CellKey` holds the
-  prompt pair, steps, CFG, mu, true CFG, references, LoRA and weight, and the
+  checkpoint, quantization, references, LoRA and weight, refine source and
+  strength, variables, hash - is on the row and in the PNG's
+  `local-diffusion` chunk. `CellKey` holds the prompt pair, steps, CFG, mu,
+  true CFG, references, LoRA and weight, refine source and strength, and the
   seed; size, checkpoint and quantization scope the resume lookup
   (`storage.completed_cells`) and, with the batch, `run_id`'s definition;
   variables and hash are the row's and the chunk's alone. `run_id` names a
@@ -307,6 +312,45 @@ Reproduction:
   after; a misfit is listed with its `detail`, hidden by the page and
   refused at submit and by the CLI, unreadable configs mean unchecked rather
   than refused, and a listing never converts a single-file checkpoint.
+- A refine pass is `GenerateRequest.refine` - a gallery id, like a reference -
+  and `strength`: the source resized to the request's size (`refine.fitted`:
+  scaled to cover and centre-cropped, never stretched) and re-denoised from
+  the point on the schedule the strength names. It runs the image-to-image
+  class diffusers exports beside the loaded pipeline's own (`refine.sibling`:
+  by name, only for the class diffusers itself exports, and only where its
+  call takes `refine.REQUIRED` and every `refine.CARRIED` argument the
+  text-to-image call takes; `CARRIED` is held to `generate()`'s own kwargs by
+  `tests/test_refine.py`), built once over the pipeline's own components by
+  `refine.build` - never `from_pipe`, which ends by casting the modules it
+  was handed - and let go on unload. `refine_supported` is profiled before a
+  load, each guess held to the installed diffusers, and the class's answer
+  after it; unsupported, or a source that is gone, is refused at submit and
+  by the CLI, and `applied()` drops the source, puts `strength` back to
+  the checkpoint's default with it, and drops references under a pass. That
+  default is the profile's `refine_strength` (`schemas.default_strength`,
+  `refine.DEFAULT_STRENGTH` where the profile names none), filled in for a
+  request that gives no strength and seeded into the Strength box per
+  control (`owned.strength`), because a strength is an index into the
+  checkpoint's own schedule: 0.4 on SDXL, 0.1 on FLUX.1 [dev], where 0.4
+  repaints a face. Each value must leave a step of its profile's own step
+  count; `docs/design-notes.md` has each one's basis and `docs/verified.md`
+  says which were measured. One call
+  per image of a batch, each with that image's own generator
+  (`DiffusersBackend._refine`): the VAE's encoding of the source is sampled,
+  and `FluxImg2ImgPipeline` samples a batch's from the first generator alone.
+  The loaded pipeline's `maybe_free_model_hooks()` runs in that method's
+  `finally`: the sibling has no hook list of its own. `steps` on the row is
+  the schedule's length, of which about `steps * strength` run
+  (`refine.steps_run`, the floor; the step callback reports the pipeline's
+  own count): `storage.step_cost_ms`, `grid.estimate_seconds` and a job's
+  `total_steps` count those. A strength that leaves less than one step is
+  refused when the request is built, so per grid cell. `refine_key`
+  (`id@strength`) is `CellKey`'s fourth optional element;
+  `GridRequest.strength_axis` is an axis only beside a source, as the LoRA
+  weight is only beside an adapter. Re-render, `--from-image` and Reuse carry
+  both; a database merge remaps the source id as it does a reference's. The
+  CLI's `--scale` and the page's scale buttons share one rounding
+  (`refine.scaled`, half up).
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.
@@ -677,6 +721,20 @@ Frontend and CLI:
 - Validation chips edit the prompt: drag (or Alt+Left/Right) reorders, × or
   Delete removes, and right-clicking a gap inserts there (a chip inserts after
   itself) with autocomplete. All mutations must go through `writePromptTags`.
+- The Refine field is greyed for the checkpoint, like the reference field.
+  Its source is `refineSource` (`{id, width, height}`, the size null until
+  `loadRefineSource` has asked `GET /api/images/{id}`), written through
+  `setRefine`, `refineFrom` (the card's and the lightbox's Refine: the
+  image's own settings through `fillPanel`, itself as the source, 1.5x its
+  size or the largest factor that fits) and `reuse`, which restores a
+  refined record's pass and clears it for a plain one. `collect()` sends the
+  source only where `refineSupported`, and `strength` only beside one. The
+  Strength box follows the profile's `refine_strength` until the user or
+  Reuse sets it, and is remembered with the checkpoint like steps and CFG. The
+  size line drops the documented-range warning under a source - the range is
+  about direct renders - and says how the size relates to it. A source that
+  is deleted, here or elsewhere, is dropped with a note rather than left for
+  the server to refuse.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets
@@ -752,6 +810,17 @@ and adapter paths before anything imports `backend`, so a sourced
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
 HTTP guards.
+
+The refine pass is covered the same way: `tests/test_refine.py` (each
+profile's `refine_supported` and each sibling's call held to the installed
+diffusers, `CARRIED` held to `generate()`'s own kwargs, a stub sibling built
+over a stub pipeline's components and called once per image with that
+image's generator, the cancel paths, mu through the shared scheduler, the
+row, the PNG, the key, the migration, the reindex and the merge),
+`tests/test_api_refine.py` (the status flag, the submit refusals, the
+strength axis with resume, `GET /api/images/{id}`, Re-render) and the CLI's
+flags in `tests/test_cli.py`. What a pass does to pixels, its time and its
+memory are the card's to say, in `docs/verified.md`.
 
 The prompt analyser is tested the same way, with no network and no GPU:
 `test_prompt_encoding.py` (budgets, cuts, templates held to the
@@ -870,6 +939,22 @@ reference-size guide, disabled Mu and saved settings on port 7873:
 ```powershell
 uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
 node tools/browser.mjs tools/smoke-wai.json
+```
+
+`smoke-refine.json` checks the refine pass on a FLUX.1 Krea [dev] fake on
+7875, whose refine cells are the source image under a stamp: the strength
+boxes dead with no source, the card's and the lightbox's Refine buttons, the
+scale buttons and the size line, the row and the lightbox's settings line,
+the chip's cross, Reuse restoring a pass and clearing one, a strength
+sweep's preview and its sheet axis, `refine:` in the search box, a sweep
+that leaves no step refused in the preview, the panel's memory across a
+reload, a source that has gone, and Reset. `smoke-conditioning.json` has the
+other side on its klein fake: the field greyed with its reason, and both
+Refine buttons answering with it.
+
+```powershell
+uv run python tools/fake_server.py --port 7875 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-refine.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

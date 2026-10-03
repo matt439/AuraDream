@@ -42,6 +42,10 @@ const els = {
   lora: $('lora'), loraScale: $('lora-scale'), loraField: $('lora-field'),
   loraTip: $('lora-tip'), gridLoraScale: $('grid-lora-scale'),
   gridLoraField: $('grid-lora-field'),
+  refineField: $('refine-field'), refineSource: $('refine-source'),
+  refineScales: $('refine-scales'), refineNote: $('refine-note'), refineTip: $('refine-tip'),
+  strength: $('strength'), gridStrength: $('grid-strength'),
+  gridStrengthField: $('grid-strength-field'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
   reset: $('btn-reset'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
@@ -73,7 +77,7 @@ const els = {
   lbPrompt: $('lb-prompt'), lbSettings: $('lb-settings'), lbCount: $('lb-count'),
   lbError: $('lb-error'), lbStage: $('lb-stage'), lbZoom: $('lb-zoom'),
   lbFit: $('lb-fit'), lbOne: $('lb-one'),
-  lbReuse: $('lb-reuse'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
+  lbReuse: $('lb-reuse'), lbRefine: $('lb-refine'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
   lbFav: $('lb-fav'), lbDelete: $('lb-delete'),
 };
 
@@ -124,7 +128,7 @@ let busy = false;
 // Per control, not one flag for all three: touching Seed before the first
 // /api/status used to freeze steps, CFG and mu at the page's fallback numbers,
 // and on Turbo that is 28 steps at CFG 3.5 for a model trained for 8 at 0.
-const owned = { steps: false, cfg: false, mu: false, trueCfg: false };
+const owned = { steps: false, cfg: false, mu: false, trueCfg: false, strength: false };
 // The checkpoint the server is running, once /api/status has said. Reuse
 // compares a record against it: steps, CFG and mu are checkpoint-specific.
 let loadedModel = null;
@@ -191,6 +195,24 @@ let referenceIds = [];
 // session, like the CFG threshold.
 let referenceSupported = false;
 let loraSupported = false;
+// The refine pass: whether the checkpoint has one (diffusers ships an
+// image-to-image pipeline beside its own - FLUX.1, SDXL, Z-Image, Qwen-Image),
+// following the server like the two above, and the gallery image picked to
+// refine: its id, which is all the request carries, and its own size, which
+// the scale buttons multiply. Null when the next Generate is a plain render.
+// The size is null for a moment after a restore - from localStorage, or from
+// Reuse on a refined record, which holds the id alone - until
+// /api/images/<id> answers.
+let refineSupported = false;
+let refineSource = null;
+// What the scale buttons offer, and what Refine picks: backend/refine.py's
+// DEFAULT_SCALE. The Strength box follows the checkpoint's profile like Steps
+// and CFG (`defaults.refine_strength`): what a strength does depends on the
+// schedule it indexes into. REFINE_STRENGTH is the server's own fallback,
+// DEFAULT_STRENGTH, for the moment before the first status lands.
+const REFINE_SCALES = [1, 1.5, 2];
+const REFINE_SCALE = 1.5;
+const REFINE_STRENGTH = 0.4;
 let lorasLoaded = false;
 // Whether the adapter list was fetched with the model loaded: the fit check
 // answers from the checkpoint's configs before that and from the live

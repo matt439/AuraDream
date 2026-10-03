@@ -46,6 +46,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .config import settings
+from .refine import steps_run
 from .schemas import GenerateRequest, PromptVariant
 from .seeds import random_seed, wrap_seed
 
@@ -79,19 +80,21 @@ _VARIABLE = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=(?P<values>.*)$")
 VARIANT = "variant"
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
-# (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, seed) -
-# the seed last, because `cell_keys` swaps it for each image of a batch, and the
-# three optional elements in the order they were added, because `run_id` names a
-# cell by the shortest form that carries all of its non-None ones.
+# (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, refine,
+# seed) - the seed last, because `cell_keys` swaps it for each image of a
+# batch, and the four optional elements in the order they were added, because
+# `run_id` names a cell by the shortest form that carries all of its non-None
+# ones.
 CellKey = tuple[
-    str, str | None, int, float, float | None, float | None, str | None, str | None, int
+    str, str | None, int, float, float | None, float | None, str | None, str | None,
+    str | None, int,
 ]
 
 # How many of the trailing elements before the seed are optional extensions -
-# true CFG, references, LoRA. `run_id` drops them from the right while they are
-# None, so a grid that uses none of them is named by the six-element key its
-# images have carried since before any of them existed.
-_KEY_EXTENSIONS = 3
+# true CFG, references, LoRA, refine. `run_id` drops them from the right while
+# they are None, so a grid that uses none of them is named by the six-element
+# key its images have carried since before any of them existed.
+_KEY_EXTENSIONS = 4
 
 
 def reference_key(ids: Sequence[int] | None) -> str | None:
@@ -114,6 +117,16 @@ def lora_key(name: str | None, scale: float | None) -> str | None:
     database REAL on the resume side and match to the digit.
     """
     return None if not name else f"{name}@{round(float(scale if scale is not None else 1.0), 6):g}"
+
+
+def refine_key(source: int | None, strength: float | None) -> str | None:
+    """The refine source and the strength it ran at as one key element, or None.
+
+    Built like `lora_key` and for its reasons: a strength with no source is
+    not a setting, and the same element has to come out of a request here and
+    out of an INTEGER and a REAL in `storage.completed_cells`, to the digit.
+    """
+    return None if source is None else f"{source}@{round(float(strength), 6):g}"
 
 
 @dataclass(frozen=True)
@@ -347,6 +360,8 @@ def axis_values(
     prompt: str = "",
     lora_scale: str = "",
     variants: Sequence[PromptVariant] | None = None,
+    *,
+    strength: str = "",
 ) -> dict[str, list[Any]]:
     """The axes resolved against the request they sit on top of.
 
@@ -359,11 +374,16 @@ def axis_values(
     values: dict[str, list[Any]] = {"prompt": [text for _, text, _ in resolved]}
     if variants:
         values[VARIANT] = [one[VARIANT] for one, _, _ in resolved]
-    return {**values, **_sampling_values(request, steps, cfg, mu, lora_scale)}
+    return {**values, **_sampling_values(request, steps, cfg, mu, lora_scale, strength)}
 
 
 def _sampling_values(
-    request: GenerateRequest, steps: str, cfg: str, mu: str, lora_scale: str = ""
+    request: GenerateRequest,
+    steps: str,
+    cfg: str,
+    mu: str,
+    lora_scale: str = "",
+    strength: str = "",
 ) -> dict[str, list[Any]]:
     """The numeric axes, each falling back to the request's own value."""
     return {
@@ -377,6 +397,13 @@ def _sampling_values(
             parse_axis(lora_scale, float, label="LoRA scale") or [request.lora_scale]
             if request.lora
             else [request.lora_scale]
+        ),
+        # The same rule for the refine pass: with no source the strength is
+        # not a setting, and the axis collapses to the one value.
+        "strength": (
+            parse_axis(strength, float, label="strength") or [request.strength]
+            if request.refine is not None
+            else [request.strength]
         ),
     }
 
@@ -414,6 +441,8 @@ def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> 
     # exactly as it did before the axis existed.
     if len(values.get("lora_scale", [])) > 1:
         parts.append(f"{len(values['lora_scale'])} LoRA")
+    if len(values.get("strength", [])) > 1:
+        parts.append(f"{len(values['strength'])} strength")
     parts.append(f"{seeds} {'listed ' if listed else ''}seed{'' if seeds == 1 else 's'}")
     return " x ".join(parts)
 
@@ -424,6 +453,7 @@ def _label(
     cfg: float,
     mu: float | None,
     lora_scale: float | None = None,
+    strength: float | None = None,
 ) -> str:
     """ASCII on purpose: this ends up in an overnight log, and a redirected
     stdout on Windows encodes with the locale codec, where a stray en dash is
@@ -440,6 +470,9 @@ def _label(
     # a log line is read by eye.
     if lora_scale is not None:
         parts.append(f"LoRA {lora_scale:g}")
+    # Likewise only on a refine pass.
+    if strength is not None:
+        parts.append(f"strength {strength:g}")
     return ", ".join(parts).encode("ascii", "replace").decode("ascii")
 
 
@@ -464,6 +497,7 @@ def cell_key(cell: "Cell") -> CellKey:
         None if request.true_cfg is None else round(request.true_cfg, 6),
         reference_key(request.reference),
         lora_key(request.lora, request.lora_scale),
+        refine_key(request.refine, request.strength),
         cell.seed,
     )
 
@@ -523,18 +557,40 @@ def prompts_of(cells: list[Cell]) -> list[str]:
     return list(dict.fromkeys(cell.request.prompt for cell in cells))
 
 
+def denoised_steps(request: GenerateRequest) -> int:
+    """The steps one image of this request denoises: all of them, or the part
+    of the schedule a refine pass's strength leaves (`refine.steps_run`)."""
+    if request.refine is None:
+        return request.steps
+    return steps_run(request.steps, request.strength)
+
+
+def progress_steps(request: GenerateRequest) -> int:
+    """The steps a cell's progress counts through, before its first callback.
+
+    A batch denoises as one call and its steps are counted once - except on a
+    refine pass, which makes one call per image (`DiffusersBackend._refine`)
+    and counts each.
+    """
+    if request.refine is None:
+        return request.steps
+    return denoised_steps(request) * request.num_images
+
+
 def estimate_seconds(cells: list[Cell], per_step_ms: float | None) -> float | None:
     """How long these cells will take to generate, from a per-step cost.
 
     One helper for the preview and the CLI so the arithmetic is not written
     twice. Per *step* times the cell's steps times its batch: a grid's cells
     disagree about step count, so an average image duration would misstate
-    most of them. Generation time, not wall clock - the CLI pays a load per
-    invocation on top. None when there was nothing to measure from.
+    most of them. A refine cell counts the steps its strength leaves, which
+    is what `storage.step_cost_ms` divided its duration by. Generation time,
+    not wall clock - the CLI pays a load per invocation on top. None when
+    there was nothing to measure from.
     """
     if per_step_ms is None:
         return None
-    total_steps = sum(cell.request.steps * cell.request.num_images for cell in cells)
+    total_steps = sum(denoised_steps(cell.request) * cell.request.num_images for cell in cells)
     return round(per_step_ms * total_steps / 1000, 1)
 
 
@@ -553,10 +609,10 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
     same run however their axes were spelled.
 
     A cell is named by the shortest key that carries all of its optional
-    elements: none of true CFG, references or a LoRA and it is the six-element
-    key images have carried since before any of them existed, so every run id
-    from an earlier build - and every grid that uses none of them - is
-    unchanged. Each one that is set extends the name by one element, in the
+    elements: none of true CFG, references, a LoRA or a refine source and it
+    is the six-element key images have carried since before any of them
+    existed, so every run id from an earlier build - and every grid that uses
+    none of them - is unchanged. Each one that is set extends the name by one element, in the
     order they were added.
     """
     first = cells[0].request
@@ -587,6 +643,7 @@ def expand(
     cfg: str = "",
     mu: str = "",
     lora_scale: str = "",
+    strength: str = "",
     seeds: int = 1,
     seed_list: list[int] | None = None,
     variants: Sequence[PromptVariant] | None = None,
@@ -611,7 +668,7 @@ def expand(
     to all of it and only the label is new.
     """
     prompts = resolve_prompts(request, prompt, variants)
-    values = _sampling_values(request, steps, cfg, mu, lora_scale)
+    values = _sampling_values(request, steps, cfg, mu, lora_scale, strength)
     seed_count = len(seed_list) if seed_list else seeds
     total = (
         len(prompts)
@@ -619,6 +676,7 @@ def expand(
         * len(values["guidance_scale"])
         * len(values["mu"])
         * len(values["lora_scale"])
+        * len(values["strength"])
         * seed_count
     )
     if total * request.num_images > settings.max_grid_images:
@@ -645,34 +703,39 @@ def expand(
             for step_count in values["steps"]:
                 for scale in values["guidance_scale"]:
                     for shift in values["mu"]:
-                        # Innermost, because it is the cheapest change of all:
-                        # a `set_adapters` on the pipeline already in memory.
+                        # Inside the rest, because it is the cheapest change of
+                        # all: a `set_adapters` on the pipeline already in memory.
                         for weight in values["lora_scale"]:
-                            cells.append(
-                                Cell(
-                                    request=GenerateRequest(
-                                        **{
-                                            **template,
-                                            "prompt": text,
-                                            "negative_prompt": negative,
-                                            "steps": step_count,
-                                            "guidance_scale": scale,
-                                            "true_cfg": request.true_cfg,
-                                            "mu": shift,
-                                            "lora_scale": weight,
-                                            "seed": seed,
-                                            "runs": 1,
-                                        }
-                                    ),
-                                    seed=seed,
-                                    label=_label(
-                                        assignment,
-                                        step_count,
-                                        scale,
-                                        shift,
-                                        weight if request.lora else None,
-                                    ),
-                                    variables=assignment or None,
+                            # One value unless this is a refine pass with a
+                            # strength axis.
+                            for amount in values["strength"]:
+                                cells.append(
+                                    Cell(
+                                        request=GenerateRequest(
+                                            **{
+                                                **template,
+                                                "prompt": text,
+                                                "negative_prompt": negative,
+                                                "steps": step_count,
+                                                "guidance_scale": scale,
+                                                "true_cfg": request.true_cfg,
+                                                "mu": shift,
+                                                "lora_scale": weight,
+                                                "strength": amount,
+                                                "seed": seed,
+                                                "runs": 1,
+                                            }
+                                        ),
+                                        seed=seed,
+                                        label=_label(
+                                            assignment,
+                                            step_count,
+                                            scale,
+                                            shift,
+                                            weight if request.lora else None,
+                                            amount if request.refine is not None else None,
+                                        ),
+                                        variables=assignment or None,
+                                    )
                                 )
-                            )
     return cells

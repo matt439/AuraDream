@@ -18,7 +18,8 @@ from backend import critic, prompt_encoding
 from backend.backends.base import GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
-from backend.schemas import CriticStatus, GenerateRequest, PromptCritique
+from backend.grid import progress_steps
+from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
 
 
 class FakeBackend(GenerationBackend):
@@ -41,6 +42,8 @@ class FakeBackend(GenerationBackend):
         # and an adapter can be applied, so a test that cares about either
         # turns it off rather than every other test having to turn it on.
         self.reference_supported = True
+        # And it has an image-to-image sibling, so a refine pass runs.
+        self.refine_supported = True
         self.lora_reason: str | None = None
         # Adapters that do not fit the claimed checkpoint, by name, with the
         # reason the real backend would give: hidden by the page, refused at
@@ -77,6 +80,9 @@ class FakeBackend(GenerationBackend):
             changes["reference"] = []
         if request.lora and not self.lora_supported():
             changes["lora"] = None
+        if request.refine is not None and not self.refine_supported:
+            changes["refine"] = None
+            changes["strength"] = default_strength()
         if changes:
             request = request.model_copy(update=changes)
         if self.cfg_threshold is None:
@@ -87,6 +93,7 @@ class FakeBackend(GenerationBackend):
             true_cfg_supported=self.true_cfg_supported,
             reference_supported=self.reference_supported,
             lora_supported=self.lora_supported(),
+            refine_supported=self.refine_supported,
         )
 
     def load(self) -> None:
@@ -110,11 +117,14 @@ class FakeBackend(GenerationBackend):
         self.seeds.append(seed)
         if len(self.requests) in self.fail_on:
             raise RuntimeError(f"cell {len(self.requests)} blew up")
-        for step in range(request.steps):
+        # A refine pass runs the part of the schedule its strength leaves,
+        # once per image, as the real backend's does.
+        steps = progress_steps(request)
+        for step in range(steps):
             if self.step_seconds:
                 time.sleep(self.step_seconds)
             if on_progress is not None:
-                on_progress(step + 1, request.steps)
+                on_progress(step + 1, steps)
             # The contract every backend signs up to: poll between steps.
             if should_cancel is not None and should_cancel():
                 raise Cancelled
@@ -134,6 +144,7 @@ class FakeBackend(GenerationBackend):
             "offload": settings.offload,
             "cfg_threshold": None,
             "reference_supported": self.reference_supported,
+            "refine_supported": self.refine_supported,
             "lora_supported": self.lora_supported(),
         }
 

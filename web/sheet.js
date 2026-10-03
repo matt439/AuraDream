@@ -25,6 +25,9 @@ const SHEET_AXES = [
   // over it is exactly a sheet. Null where no adapter ran, so a mixed search
   // does not invent an axis out of one.
   { key: 'lora', label: 'LoRA', of: (r) => r.lora_scale },
+  // A refine pass's strength, null on a direct render for the same reason:
+  // a strength sweep over one source is a row of how much of it was redrawn.
+  { key: 'strength', label: 'Strength', of: (r) => r.strength },
   { key: 'seed', label: 'Seed', of: (r) => r.seed },
 ];
 const trueCfgEchoesCfg = (records) =>

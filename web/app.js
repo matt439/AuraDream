@@ -179,7 +179,7 @@ els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
                   els.gridSeedList, els.gridBudget, els.prompt, els.negative, els.steps,
                   els.cfg, els.trueCfg, els.mu, els.batch, els.width, els.height, els.seed,
-                  els.gridLoraScale, els.loraScale]) {
+                  els.gridLoraScale, els.loraScale, els.gridStrength, els.strength]) {
   el.addEventListener('input', schedulePreview);
 }
 // A listed seed axis makes the count and the base seed moot; say so in place.
@@ -203,6 +203,7 @@ els.width.oninput = els.height.oninput = syncSize;
 // are current by the time the panel is written.
 els.steps.oninput = () => own('steps');
 els.mu.oninput = () => own('mu');
+els.strength.oninput = () => own('strength');
 // The seed is not a sampling value and has no business freezing the profile.
 els.seed.oninput = syncRuns;
 els.batch.oninput = els.runs.oninput = syncRuns;
@@ -232,6 +233,9 @@ els.lbNext.onclick = () => stepLightbox(1);
 // The just-generated image only exists in the viewer, so reuse has to be
 // reachable from the lightbox as well as from a gallery card.
 els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { reuse(rec); closeLightbox(); } };
+// Refine likewise; where the checkpoint has no such pass the lightbox stays
+// open, since the note saying so is mirrored into it.
+els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec && refineFrom(rec)) closeLightbox(); };
 els.lbFav.onclick = () => { const rec = lbList[lbIndex]; if (rec) setFavorite(rec, !rec.favorite); };
 els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage(rec); };
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); };

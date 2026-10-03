@@ -335,8 +335,8 @@ def test_runs_group_the_gallery_by_run_newest_first(store):
 def test_completed_cells_keys_on_the_settings_not_the_run(store):
     keep(store, seed=7, steps=8, guidance_scale=0.5, mu=1.15, job_id="first")
     done = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo")
-    # (prompt, negative, steps, CFG, mu, true CFG, references, LoRA, seed).
-    assert ("a fox in the snow", None, 8, 0.5, 1.15, None, None, None, 7) in done
+    # (prompt, negative, steps, CFG, mu, true CFG, references, LoRA, refine, seed).
+    assert ("a fox in the snow", None, 8, 0.5, 1.15, None, None, None, None, 7) in done
     # A different prompt, size or checkpoint is a different image entirely.
     assert store.completed_cells(["something else"], 256, 256, "krea/Krea-2-Turbo") == set()
     assert store.completed_cells(["a fox in the snow"], 512, 512, "krea/Krea-2-Turbo") == set()
@@ -350,7 +350,7 @@ def test_completed_cells_answers_for_every_prompt_of_a_grid(store):
     keep(store, prompt="a small fox", seed=2)
     done = store.completed_cells(["a big fox", "a small fox"], 256, 256, "krea/Krea-2-Turbo")
     assert {key[0] for key in done} == {"a big fox", "a small fox"}
-    assert ("a big fox", None, 8, 0.0, None, None, None, None, 2) not in done
+    assert ("a big fox", None, 8, 0.0, None, None, None, None, None, 2) not in done
 
 
 def test_completed_cells_are_scoped_to_the_quantizer(store):
@@ -359,7 +359,7 @@ def test_completed_cells_are_scoped_to_the_quantizer(store):
     # recorded matches either, so an older gallery keeps resuming.
     keep(store, seed=1, quantization="fp8")
     keep(store, seed=2, quantization=None)
-    turbo = ("a fox in the snow", None, 8, 0.0, None, None, None, None)
+    turbo = ("a fox in the snow", None, 8, 0.0, None, None, None, None, None)
     fp8 = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo", "fp8")
     int8 = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo", "int8")
     assert {key[-1] for key in fp8} == {1, 2}
@@ -378,7 +378,7 @@ def test_completed_cells_are_scoped_to_the_quantizer(store):
 def test_a_mu_free_cell_comes_back_as_none(store):
     keep(store, seed=3, mu=None)
     done = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo")
-    assert ("a fox in the snow", None, 8, 0.0, None, None, None, None, 3) in done
+    assert ("a fox in the snow", None, 8, 0.0, None, None, None, None, None, 3) in done
 
 
 def test_a_row_from_before_true_cfg_reads_back_the_scale_it_ran_at(store):
@@ -394,8 +394,8 @@ def test_a_row_from_before_true_cfg_reads_back_the_scale_it_ran_at(store):
     by_seed = {r.seed: r for r in store.list_images()[0]}
     assert (by_seed[1].true_cfg, by_seed[2].true_cfg) == (2.0, None)
     done = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo")
-    assert ("a fox in the snow", "blurry", 8, 2.0, None, 2.0, None, None, 1) in done
-    assert ("a fox in the snow", None, 8, 2.0, None, None, None, None, 2) in done
+    assert ("a fox in the snow", "blurry", 8, 2.0, None, 2.0, None, None, None, 1) in done
+    assert ("a fox in the snow", None, 8, 2.0, None, None, None, None, None, 2) in done
     # The SQL reading and the Python one agree, row for row.
     assert [r.seed for r in store.list_images(search="tcfg:2")[0]] == [1]
     assert [r.seed for r in store.list_images(search="tcfg:none")[0]] == [2]

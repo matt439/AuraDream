@@ -18,14 +18,14 @@ const LEGACY_PANEL_KEYS = ['krea.panel.v1'];
 const PANEL_FIELDS = [
   'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs', 'lora', 'loraScale',
   'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
-  'gridLoraScale',
+  'gridLoraScale', 'gridStrength',
 ];
 let panelTimer;
 
 function persistPanel() {
   clearTimeout(panelTimer);
   panelTimer = setTimeout(() => {
-    const state = { gridOpen: els.gridSection.open, reference: referenceIds };
+    const state = { gridOpen: els.gridSection.open, reference: referenceIds, refine: refineSource };
     for (const key of PANEL_FIELDS) state[key] = els[key].value;
     // Sampling values travel with the checkpoint they were set on, and only
     // the ones the user took off the profile - the profile itself is the
@@ -36,6 +36,9 @@ function persistPanel() {
       cfg: owned.cfg ? els.cfg.value : null,
       mu: owned.mu ? els.mu.value : null,
       trueCfg: owned.trueCfg ? els.trueCfg.value : null,
+      // The refine strength is the checkpoint's too: 0.4 means one thing on
+      // SDXL and another on a shifted flow schedule.
+      strength: owned.strength ? els.strength.value : null,
     };
     remember(PANEL_KEY, JSON.stringify(state));
   }, 300);
@@ -68,6 +71,15 @@ function restorePanel() {
   // The ids are restored whatever the checkpoint; `collect()` sends none while
   // the field is greyed, so a klein selection survives a look at FLUX and back.
   if (Array.isArray(state.reference)) referenceIds = state.reference.filter(Number.isInteger);
+  // The refine source likewise, whatever the checkpoint. Its size came from
+  // the record it was picked from; the lookup refreshes it and finds out
+  // whether the image is still there.
+  if (state.refine && Number.isInteger(state.refine.id) && state.refine.id > 0) {
+    const side = (value) => (Number.isInteger(value) && value > 0 ? value : null);
+    const [width, height] = [side(state.refine.width), side(state.refine.height)];
+    refineSource = { id: state.refine.id, width: height && width, height: width && height };
+    void loadRefineSource();
+  }
   syncConditioning();
 }
 
@@ -97,10 +109,13 @@ function resetPanel() {
   referenceIds = [];
   els.lora.value = '';
   els.loraScale.value = 1;
+  refineSource = null;
+  els.strength.value = lastDefaults?.refine_strength ?? REFINE_STRENGTH;
   els.seed.value = '';
   els.batch.value = 1;
   els.runs.value = 1;
-  for (const key of ['gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeedList', 'gridBudget', 'gridLoraScale']) {
+  for (const key of ['gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeedList', 'gridBudget',
+                     'gridLoraScale', 'gridStrength']) {
     els[key].value = '';
   }
   els.gridSeeds.value = 1;
@@ -123,7 +138,8 @@ function restoreSampling(modelId) {
   samplingRestored = true;
   const sampling = storedPanel()?.sampling;
   if (!sampling || sampling.model !== modelId) return;
-  for (const [key, el] of [['steps', els.steps], ['cfg', els.cfg], ['mu', els.mu], ['trueCfg', els.trueCfg]]) {
+  for (const [key, el] of [['steps', els.steps], ['cfg', els.cfg], ['mu', els.mu], ['trueCfg', els.trueCfg],
+                           ['strength', els.strength]]) {
     if (typeof sampling[key] === 'string') { el.value = sampling[key]; own(key); }
   }
   syncCfg();

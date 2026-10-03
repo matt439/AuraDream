@@ -511,3 +511,116 @@ def _project_claiming(module, model_id):
         return project
 
     return patched
+
+
+# ------------------------------------------------------------ the refine pass
+
+
+def _to_refine(store):
+    """A gallery image to refine: a 2:3 portrait at this checkpoint's id."""
+    from PIL import Image
+
+    from backend.schemas import GenerateRequest
+
+    return store.save_image(
+        Image.new("RGB", (256, 384)),
+        GenerateRequest(prompt="a fox", width=256, height=384),
+        seed=5, duration_ms=10, model_id=store.settings.model_id,
+    )
+
+
+def test_a_refine_renders_at_the_sources_size_times_the_scale(cli, store, capsys):
+    from backend.schemas import default_strength
+
+    source = _to_refine(store)
+    assert generate.main(["a fox", "--refine", str(source.id), "--steps", "20", "--seed", "7"]) == 0
+    ran = cli.requests[-1]
+    # No size given: the source's own, times the default 1.5. No strength
+    # given: the checkpoint's own starting one, and the header says how
+    # many of the twenty steps that leaves to run.
+    start = default_strength()
+    assert (ran.refine, ran.strength, ran.width, ran.height) == (source.id, start, 384, 576)
+    out = capsys.readouterr().out
+    assert (
+        f"refine   : image {source.id} at strength {start:g}  "
+        f"(about {int(20 * start)} of 20 steps; source 256x384)"
+    ) in out
+    newest = store.list_images()[0][0]
+    assert (newest.refine, newest.strength, newest.width, newest.height) == (source.id, start, 384, 576)
+
+    assert generate.main(
+        ["a fox", "--refine", str(source.id), "--scale", "2", "--strength", "0.3", "--steps", "10", "-q"]
+    ) == 0
+    ran = cli.requests[-1]
+    assert (ran.strength, ran.width, ran.height) == (0.3, 512, 768)
+    # A size given outright is the size: the source is cropped to it.
+    assert generate.main(["a fox", "--refine", str(source.id), "--steps", "20", "-q", *SIZE]) == 0
+    assert (cli.requests[-1].width, cli.requests[-1].height) == (256, 256)
+
+
+def test_refine_flags_need_a_source_and_one_way_of_sizing(cli, store):
+    source = _to_refine(store)
+    for argv in (
+        ["a fox", "--strength", "0.3", *SIZE],
+        ["a fox", "--scale", "2"],
+        ["a fox", "--grid-strength", "0.2,0.4", *SIZE],
+        ["a fox", "--refine", str(source.id), "--scale", "2", *SIZE],
+        ["a fox", "--refine", str(source.id), "--scale", "0"],
+    ):
+        with pytest.raises(SystemExit) as raised:
+            generate.main(argv)
+        assert raised.value.code == 2, argv
+    assert cli.requests == []
+
+
+def test_a_refine_is_refused_before_the_load(cli, store, monkeypatch, capsys):
+    source = _to_refine(store)
+    # A source the gallery has not got, named - with or without a size.
+    assert generate.main(["a fox", "--refine", "4242"]) == 2
+    assert "no gallery image with id 4242" in capsys.readouterr().err
+    assert generate.main(["a fox", "--refine", "4242", *SIZE]) == 2
+    assert "no gallery image with id 4242" in capsys.readouterr().err
+    # A strength that leaves no step of a distilled checkpoint's few.
+    assert generate.main(["a fox", "--refine", str(source.id), "--steps", "4", "--strength", "0.2"]) == 2
+    assert "less than one step" in capsys.readouterr().err
+    # And a checkpoint diffusers has no image-to-image pipeline for: the same
+    # refusal the server makes at submit, from the profile, ahead of the load.
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "krea/Krea-2-Turbo"))
+    assert generate.main(["a fox", "--refine", str(source.id)]) == 2
+    assert "has no refine pass" in capsys.readouterr().err
+    assert cli.loads == 0 and cli.requests == []
+
+
+def test_from_image_reproduces_a_refine_pass(cli, store, capsys):
+    source = _to_refine(store)
+    assert generate.main(
+        ["a fox, sharper", "--refine", str(source.id), "--strength", "0.3", "--steps", "10", "--seed", "7", "-q"]
+    ) == 0
+    path = capsys.readouterr().out.split("  seed ")[0]
+    # The PNG carries the source, the strength and its own size, so nothing
+    # is derived again: the same pass, cell for cell.
+    assert generate.main(["--from-image", path, "-q"]) == 0
+    first, again = cli.requests[-2:]
+    assert (again.refine, again.strength, again.width, again.height, again.steps) == (
+        first.refine, first.strength, first.width, first.height, first.steps
+    )
+    assert cli.seeds[-2:] == [7, 7]
+    # A flag still wins over the file, and --scale over the file's size.
+    assert generate.main(["--from-image", path, "--strength", "0.6", "--scale", "2", "-q"]) == 0
+    ran = cli.requests[-1]
+    assert (ran.refine, ran.strength, ran.width, ran.height) == (source.id, 0.6, 512, 768)
+
+
+def test_a_strength_sweep_from_the_terminal(cli, store, capsys):
+    source = _to_refine(store)
+    argv = ["a fox", "--refine", str(source.id), "--steps", "20", "--seed", "1",
+            "--grid-strength", "0.2-0.6x0.2"]
+    assert generate.main([*argv, "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "strength: 0.2, 0.4, 0.6" in out and "3 strength" in out
+    assert generate.main([*argv, "-q"]) == 0
+    assert [r.strength for r in cli.requests] == [0.2, 0.4, 0.6]
+    assert {r.strength for r in store.list_images(search=f"refine:{source.id}")[0]} == {0.2, 0.4, 0.6}
+    # Resumed, all three are in the gallery under the keys the cells carry.
+    assert generate.main([*argv, "--resume", "-q"]) == 0
+    assert len(cli.requests) == 3

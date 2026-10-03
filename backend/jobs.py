@@ -18,7 +18,7 @@ from typing import Any
 from . import storage
 from .backends import Cancelled, GenerationBackend
 from .config import settings
-from .grid import Cell, run_id as _run_id
+from .grid import Cell, progress_steps, run_id as _run_id
 from .latent_preview import data_url
 from .schemas import GenerateRequest
 from .seeds import random_seed, wrap_seed
@@ -283,7 +283,7 @@ class JobManager:
             cells=cells,
             seed=cells[0].seed,
             run_id=run_id or _run_id(cells, settings.model_id, settings.quantization),
-            total_steps=cells[0].request.steps,
+            total_steps=progress_steps(cells[0].request),
             total_runs=len(cells),
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
         )
@@ -495,9 +495,12 @@ class JobManager:
                 return True
             req, seed = cell.request, cell.seed
             # A grid varies the step count between cells, so the totals the
-            # progress events carry are the cell's, not the job's. Without the
-            # images: they were each delivered as their own event already.
-            job.run, job.step, job.total_steps, job.label = index + 1, 0, req.steps, cell.label
+            # progress events carry are the cell's, not the job's - and on a
+            # refine cell the part of the schedule its strength leaves, until
+            # the first callback says what the pipeline made of that. Without
+            # the images: they were each delivered as their own event already.
+            job.run, job.step, job.label = index + 1, 0, cell.label
+            job.total_steps = progress_steps(req)
             log.info(
                 "job %s: cell %d/%d seed %d%s",
                 job.id, index + 1, len(job.cells), seed, f"  {cell.label}" if cell.label else "",

@@ -16,13 +16,14 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, PngImagePlugin
 
 from .config import settings
-# The two key elements that are built from columns here and from a request in
-# `grid`: one spelling of each, or a resume compares strings that only look
+# The three key elements that are built from columns here and from a request
+# in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does. VARIANT is
 # the variable a comparison's versions are recorded under, which `keep_rates`
 # groups by.
-from .grid import VARIANT, lora_key, reference_key
+from .grid import VARIANT, lora_key, reference_key, refine_key
 from .metadata import PNG_METADATA_KEY
+from .refine import steps_run
 from .search import TRUE_CFG_SQL, like_escape, split_search, strict_scope
 from .schemas import ImageRecord, RunSummary, effective_true_cfg
 
@@ -92,7 +93,9 @@ CREATE TABLE IF NOT EXISTS images (
     content_hash    TEXT,
     reference       TEXT,
     lora            TEXT,
-    lora_scale      REAL
+    lora_scale      REAL,
+    refine          INTEGER,
+    strength        REAL
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -146,6 +149,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
         # The adapter that was applied and the weight it ran at.
         ("lora", "TEXT", None),
         ("lora_scale", "REAL", None),
+        # The gallery id a refine pass started from and its denoising
+        # strength; NULL together on a text-to-image row.
+        ("refine", "INTEGER", None),
+        ("strength", "REAL", None),
     )
     for column, kind, index in added:
         if column in columns:
@@ -246,6 +253,8 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         reference=json.loads(row["reference"]) if row["reference"] else None,
         lora=row["lora"],
         lora_scale=row["lora_scale"],
+        refine=row["refine"],
+        strength=row["strength"],
         job_id=row["job_id"],
         run_id=row["run_id"],
         duration_ms=row["duration_ms"],
@@ -261,6 +270,7 @@ _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
+    "refine", "strength",
 )
 
 
@@ -353,12 +363,18 @@ def save_image(
         "reference": list(request.reference) or None,
         "lora": request.lora,
         "lora_scale": request.lora_scale if request.lora else None,
+        # Likewise null together: the image this one refines and how far it
+        # was re-denoised, or a text-to-image render.
+        "refine": request.refine,
+        "strength": request.strength if request.refine is not None else None,
     }
     info = PngImagePlugin.PngInfo()
     # A1111-style single-line block, so other tools can read the params back.
     # Mu is not an A1111 key, but it is part of what reproduces the image, which
     # is the reason the block exists. Nor is True CFG: on FLUX.1 the CFG
     # scale is the distilled guidance value, and the real one is this.
+    # `Denoising strength` is A1111's own key for an image-to-image pass;
+    # the source it started from is ours.
     info.add_text(
         "parameters",
         f"{request.prompt}\n"
@@ -376,6 +392,11 @@ def save_image(
         + (
             f", Reference: {','.join(str(i) for i in request.reference)}"
             if request.reference
+            else ""
+        )
+        + (
+            f", Denoising strength: {request.strength:g}, Refine: {request.refine}"
+            if request.refine is not None
             else ""
         ),
     )
@@ -413,6 +434,8 @@ def save_image(
                     "reference": json.dumps(list(request.reference)) if request.reference else None,
                     "lora": request.lora,
                     "lora_scale": request.lora_scale if request.lora else None,
+                    "refine": request.refine,
+                    "strength": request.strength if request.refine is not None else None,
                 },
             )
         committed = True
@@ -472,19 +495,33 @@ def step_cost_ms(
     of which extrapolates honestly from a different size - and on the checkpoint,
     since klein's step is about half of Turbo's at the same size. None when the
     gallery has nothing to measure, which is the caller's cue to promise nothing.
+
+    A refine row's `steps` is the schedule's length, of which its strength ran
+    a part: its cost is over the steps that part comes to (`refine.steps_run`),
+    the same count `grid.estimate_seconds` multiplies back by. Divided by all
+    of them, a size reached mostly by refining would price a direct render at
+    a third of what it costs.
     """
     scope = "AND model_id = ?" if model_id else ""
     scope_params = (model_id,) if model_id else ()
     with _session() as conn:
         rows = conn.execute(
-            f"""SELECT duration_ms, steps FROM images
+            f"""SELECT duration_ms, steps, refine, strength FROM images
                WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0 {scope}
                ORDER BY id DESC LIMIT ?""",
             (width, height, *scope_params, sample),
         ).fetchall()
     if not rows:
         return None
-    costs = sorted(row["duration_ms"] / row["steps"] for row in rows)
+    costs = sorted(
+        row["duration_ms"]
+        / (
+            steps_run(row["steps"], row["strength"])
+            if row["refine"] is not None and row["strength"] is not None
+            else row["steps"]
+        )
+        for row in rows
+    )
     return costs[len(costs) // 2]
 
 
@@ -603,7 +640,7 @@ def completed_cells(
     quantization: str | None = None,
 ) -> set[CellKey]:
     """The key of everything already rendered: the prompt pair, the settings,
-    the references and adapter, the seed.
+    the references, adapter and refine source, the seed.
 
     What a resumed grid subtracts from its cells. Keyed on the settings that
     make the image rather than on the job that made it, so a night that died
@@ -632,7 +669,7 @@ def completed_cells(
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
-                           reference, lora, lora_scale, seed
+                           reference, lora, lora_scale, refine, strength, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -654,6 +691,7 @@ def completed_cells(
                         None if true_cfg is None else round(true_cfg, 6),
                         reference_key(json.loads(row["reference"]) if row["reference"] else None),
                         lora_key(row["lora"], row["lora_scale"]),
+                        refine_key(row["refine"], row["strength"]),
                         row["seed"],
                     )
                 )
@@ -851,6 +889,8 @@ def index_file(
                 "reference": json.dumps(meta["reference"]) if meta.get("reference") else None,
                 "lora": meta.get("lora"),
                 "lora_scale": meta.get("lora_scale") if meta.get("lora") else None,
+                "refine": meta.get("refine"),
+                "strength": meta.get("strength") if meta.get("refine") is not None else None,
             },
         )
     return _row_to_record(row)
@@ -881,6 +921,10 @@ _GROUPS: dict[str, str] = {
     # favourites" is exactly the question a LoRA weight is chosen by.
     "lora": "lora",
     "lorascale": "round(lora_scale, 6)",
+    # A refine pass's strength, and the image it started from: a strength
+    # sweep is starred by how much of the source it kept.
+    "strength": "round(strength, 6)",
+    "refine": "refine",
     # A comparison's version by its label (`prompt_variants`): the starred
     # rate per version. `prompt` cannot say it - reorders share their opening
     # words, which is all a table cell has room for.
@@ -1013,7 +1057,7 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
     return summaries
 
 
-def reference_paths(ids: Sequence[int]) -> list:
+def reference_paths(ids: Sequence[int], noun: str = "reference image") -> list:
     """The PNGs behind a request's reference ids, in the order they were given.
 
     The whole reason references are ids: a path taken from the request and
@@ -1021,7 +1065,8 @@ def reference_paths(ids: Sequence[int]) -> list:
     /api/generate, while a row is something this app wrote. Missing ids and
     missing files are the same kind of mistake - the reference cannot be
     encoded - and both are named, so a night refused at submit says which
-    image it could not find rather than dying at cell 1.
+    image it could not find rather than dying at cell 1. A refine pass's
+    source is resolved here too, under its own `noun`.
     """
     if not ids:
         return []
@@ -1040,7 +1085,7 @@ def reference_paths(ids: Sequence[int]) -> list:
     gone = [image_id for image_id in wanted if not by_id[image_id].exists()]
     if gone:
         raise ValueError(
-            "the file for reference image "
+            f"the file for {noun} "
             f"{', '.join(str(i) for i in gone)} is missing from the gallery directory"
         )
     return [by_id[image_id] for image_id in ids]

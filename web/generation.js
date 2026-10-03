@@ -29,6 +29,11 @@ function collect() {
     reference: referenceSupported ? referenceIds : [],
     lora: els.lora.disabled ? null : els.lora.value || null,
     lora_scale: els.loraScale.value.trim() === '' ? 1 : +els.loraScale.value,
+    // The refine source, by the same rule: none where the checkpoint has no
+    // such pass. The strength is a setting only beside one; an empty box is
+    // "not given", which the server fills with its default.
+    refine: refineSupported && refineSource ? refineSource.id : null,
+    strength: els.strength.disabled ? undefined : num(els.strength),
     seed: seed === '' ? null : +seed,
     num_images: +els.batch.value,
     runs: +els.runs.value,
@@ -250,6 +255,7 @@ function gridPayload() {
     cfg_axis: els.gridCfg.value.trim(),
     mu_axis: els.gridMu.value.trim(),
     lora_scale_axis: els.gridLoraScale.disabled ? '' : els.gridLoraScale.value.trim(),
+    strength_axis: els.gridStrength.disabled ? '' : els.gridStrength.value.trim(),
     seeds: +els.gridSeeds.value || 1,
     seed_axis: els.gridSeedList.value.trim(),
     resume: els.gridResume.checked,
@@ -334,6 +340,8 @@ async function previewGrid() {
         // Only when it is an axis: every other run would carry a constant.
         (p.values.lora_scale && p.values.lora_scale.length > 1
           ? `  ·  LoRA ${axisText(p.values.lora_scale)}` : '') +
+        (p.values.strength && p.values.strength.length > 1
+          ? `  ·  strength ${axisText(p.values.strength)}` : '') +
         (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),
       ...promptLines(p.values.prompt),
     ].join('\n');  // .hint.pre renders the breaks

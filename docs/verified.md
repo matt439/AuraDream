@@ -301,6 +301,61 @@ were not recorded. Illustrious XL v2.0-STABLE int8/full-bfloat16 GPU runs,
 LoRA behavior, batch scaling, peak VRAM and repeat-seed determinism are also
 unmeasured.
 
+## Refine pass
+
+Measured 2026-10-03 on the RTX 5080, Windows, fp8, model offload, against
+throwaway galleries (the production gallery was not used). The idle desktop
+read 2,470-2,570 MiB of the card by `nvidia-smi`. Each run loaded the
+checkpoint once and made a
+1 MP source, then refined it at 1.5x. Times are per image and exclude the
+load and the PNG save; "peak" is the process's own allocator. A refine row's
+Steps column is the schedule's length, with the steps the pass ran beside it.
+
+| Checkpoint | Pass | Steps | Time | Peak | Direct render, for scale |
+| --- | --- | --- | --- | --- | --- |
+| WAI Illustrious v17, CFG 6 | 1024x1344 to 1536x2016 at 0.4 | 28, 11 run | 11.5-13.5 s | 3.89 GiB allocated, 4.70 reserved | 1536x2016, 28 steps: 23.0 s, 3.73 / 4.54 GiB; the 1024x1344 source 10.0-13.3 s, 3.22 / 4.37 GiB |
+| WAI Illustrious v17, CFG 6 | the same at 0.2 / 0.3 / 0.5 / 0.6 | 28; 5 / 8 / 14 / 16 run | 7.2 / 9.5 / 13.8 / 15.2 s | 3.89 / 4.70 GiB | |
+| FLUX.1 Krea dev, CFG 3.5 | 1024x1024 to 1536x1536 at 0.1 | 28, 3 run | 16.9 s | 12.54 GiB allocated, 13.56 reserved | 1536x1536, 28 steps: 101.3 s, 12.38 / 13.39 GiB; the 1024x1024 source 43.0 s (56.8 s for the first of the process), 12.0 / 12.62 GiB |
+| FLUX.1 Krea dev, CFG 3.5 | the same at 0.05 / 0.15 / 0.2 / 0.3 / 0.4 / 0.5 / 0.6 | 28; 2 / 5 / 6 / 9 / 12 / 14 / 17 run | 12.8 / 22.6-34.7 / 27.4 / 39.0 / 49.6-58.2 / 55.1 / 66.1 s | 12.54 / 13.56 GiB | |
+| FLUX.1 Krea dev, Mu 1.15 | the same at 0.2 / 0.3 | 28; 6 / 9 run | 33.5 / 36.3 s | 12.54 / 13.56 GiB | |
+| Z-Anime Base, CFG 4 | 1024x1024 to 1536x1536 at 0.15 | 40, 6 run | 33.0-33.8 s | 8.10 GiB allocated, 10.58 reserved | not run; the 1024x1024 source 73.8 s (88.9 s for the first), 6.77 / 8.44 GiB |
+| Z-Anime Base, CFG 4 | the same at 0.1 / 0.25 | 40; 4 / 10 run | 23.8 / 52.7 s | 8.10 / 10.58 GiB | |
+
+FLUX.1 at 2.4 MP sits within a gigabyte of the card's top with the desktop's
+share (15,600-15,800 MiB whole-card by `nvidia-smi` mid-pass), which is the
+spill the note at the head of this file describes: its per-step time there
+is about 4 s where the 1 MP source's is 1.5 s.
+
+| What | Result |
+| --- | --- |
+| The sibling over the loaded components | `StableDiffusionXLImg2ImgPipeline`, `FluxImg2ImgPipeline` and `ZImageImg2ImgPipeline` each ran from `refine.build` over the fp8-quantized, offload-hooked components of the loaded pipeline, with no second load; the device read 1.37-1.39 GiB after a pass, as after a text-to-image call |
+| Determinism | The same pass twice is the same hash, on all three |
+| Per-image seeds in a batch | A batch of two: image 1 is the hash of the solo pass at its seed and image 2 the hash of the solo pass at seed + 1, on all three - FLUX.1 included, whose own batch path would have encoded both from the first generator |
+| Cancel | Cancelled at step 2 of the pass (3.9 s on WAI, 20.1 s on FLUX.1, 13.1 s on Z-Anime); the next pass is the uncancelled hash |
+| The text-to-image pipeline afterwards | The source's own request, run again after the passes, the batch and the cancel, is the source's hash on all three |
+| Preview | Frames delivered during a pass on FLUX.1 (11 of 12 steps) and Z-Anime (5 of 6); none on SDXL, which has no fitted map for its 4-channel VAE |
+| A LoRA through the pass | FLUX.1 Krea dev, `frosting-lane.safetensors` at strength 0.15: weight 0 is byte-identical to no adapter, weight 1 is a different image, and with the adapter removed the base hash returns |
+| The picture | On each, the refined image is the source's composition with the detail redrawn, and the direct render at the larger size on the same seed is a different picture (WAI: another pose and framing; FLUX.1: another man, unhooded, elsewhere in the frame) |
+| What a strength keeps, WAI | 0.2-0.6 all keep the character and composition; from 0.5 small details change (a tear appears, a strap moves) |
+| What a strength keeps, FLUX.1 at 1.5x | 0.05 and 0.1 keep the face; 0.15 begins to change it; 0.2-0.6 keep the composition and repaint the man. The pass's starting sigma, read off the scheduler: 0.37 at 0.05, 0.47 at 0.1, 0.62 at 0.15; with Mu 1.15, 0.46 at 0.2 and 0.60 at 0.3 |
+| What a strength keeps, Z-Anime at 1.5x | 0.1, 0.15 and 0.25 all keep the character and the scene; 0.25 moves hair and small details |
+
+These are single prompts per checkpoint, looked at by eye: they establish
+that the pass runs, reproduces and keeps the picture at each profile's
+starting strength, not a quality benchmark. Not measured: a 2x pass on any
+checkpoint; Animagine, Kohaku and Illustrious (the SDXL pipeline WAI
+exercises); FLUX.1 dev and schnell, Z-Image Turbo and Qwen-Image, whose
+starting strengths are the schedule arithmetic alone; int8 and full
+bfloat16; any pass under Nunchaku in WSL, where seeds do not reproduce
+bit-for-bit to begin with; and the author's own WAI recipe, which upscales
+with R-ESRGAN 4x+ Anime6B where this pass resizes with Lanczos.
+
+Evidence is under `%TEMP%/local-diffusion-refine-validation/`:
+`validate_refine.py` and `sweep_refine.py`, and per checkpoint (`wai`,
+`flux`, `zanime`) the `validation.log`, `results.json`, the sweeps' JSON,
+the separate database and the `outputs/` PNGs. The browser checks are
+`tools/smoke-refine.json` and the additions to `smoke-conditioning.json`.
+
 ## Prompt analyser
 
 Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port

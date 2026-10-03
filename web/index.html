@@ -178,6 +178,30 @@
       <p class="hint" id="size-hint"></p>
     </div>
 
+    <!-- The refine pass: a gallery image scaled up and re-denoised part of the
+         way, picked with the card's or the lightbox's Refine button. Under Size
+         because its scale buttons write the two boxes above. Greyed rather
+         than hidden where the checkpoint has no such pass, like the
+         conditioning boxes further down - the badge says why. -->
+    <div class="field" id="refine-field">
+      <span>Refine
+        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+          class="tip wide" id="refine-tip">A refine pass scales a gallery image up and
+          re-denoises it part of the way, keeping the picture where a direct render at
+          the larger size would be a new one.</span></span>
+        <em id="refine-note"></em></span>
+      <div class="row refine-row">
+        <div class="chips" id="refine-source" aria-describedby="refine-tip"></div>
+        <div class="presets refine-scales" id="refine-scales" role="group"
+             aria-label="Size, as a multiple of the source image's"></div>
+        <div class="sub narrow">
+          <i><label for="strength">Strength</label></i>
+          <input type="number" id="strength" value="0.4" min="0.05" max="1" step="0.05"
+                 aria-describedby="refine-tip">
+        </div>
+      </div>
+    </div>
+
     <!-- Placeholders only: app.js seeds all three from /api/status, which
          answers with the loaded checkpoint's profile. They are the fallback
          profile rather than Turbo's numbers, so a page acted on before the
@@ -374,6 +398,18 @@
         </div>
       </div>
       <div class="row">
+        <div class="sub grow" id="grid-strength-field">
+          <i><label for="grid-strength">Refine strength</label>
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="grid-strength-tip">Same syntax:<br><b>0.2,0.35,0.5</b> ·
+              <b>0.2-0.5x0.1</b>.<br>Needs a Refine source above; the sheet then shows
+              where the picture stops being the source's. Blank runs whatever Strength
+              is set to above.</span></span></i>
+          <input type="text" id="grid-strength" placeholder="0.2-0.5x0.1" autocomplete="off"
+                 aria-describedby="grid-strength-tip">
+        </div>
+      </div>
+      <div class="row">
         <div class="sub grow">
           <i><label for="grid-seed-list">Seed list</label>
             <span class="help" tabindex="0" role="note" aria-label="Help">?<span
@@ -432,9 +468,11 @@
         Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
         <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
         <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
-        <b>date:today</b> · <b>hash:3f9a</b><br>
+        <b>date:today</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
         <b>tcfg:</b> is the scale the negative prompt ran at; <b>hash:</b> finds every
         image with the same pixels.<br>
+        <b>refine:</b> is the refine passes of that gallery image - <b>refine:none</b>
+        the direct renders - and <b>strength:</b> how far they were re-denoised.<br>
         <b>run:</b> is a grid however many times it was resumed; <b>job:</b> is one
         submission of it. <b>date:</b> takes <b>today</b>, <b>yesterday</b> or
         <b>2026-09-07</b> — a day on your clock, not UTC.<br>
@@ -520,6 +558,9 @@
     <div class="lb-actions">
       <button class="ghost" id="lb-fav" title="Favourite (F)">☆ Favourite</button>
       <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
+      <!-- Sets the panel up to scale this image up and re-denoise it part of
+           the way; Generate then runs the pass. -->
+      <button class="ghost" id="lb-refine" title="Set the panel up to refine this image: its settings, at 1.5x its size">⤢ Refine</button>
       <button class="ghost" id="lb-delete" title="Delete (Del)">⌦ Delete</button>
     </div>
   </div>

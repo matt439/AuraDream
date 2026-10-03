@@ -34,7 +34,9 @@ def test_klein_profiles_win_over_flux(model_id, steps, cfg):
     # klein is the one family here whose pipeline takes reference images.
     assert profile["reference_supported"] is True
     hints = hints_for(model_id)
-    assert set(hints) == {"steps", "guidance_scale", "mu", "true_cfg", "reference", "prompt", "size"}
+    assert set(hints) == {
+        "steps", "guidance_scale", "mu", "true_cfg", "reference", "refine", "prompt", "size"
+    }
     assert all(text and "{" not in text for text in hints.values())
 
 

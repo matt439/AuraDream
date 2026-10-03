@@ -45,7 +45,8 @@ _FLUX1_SIZE = (
     "Black Forest Labs documents FLUX.1 for 0.1 to 2 MP at any aspect ratio, "
     "sides in multiples of 16; 1024x1024 and 1360x768 are its reference sizes. "
     "Above 2 MP is outside that range and is where users report doubled "
-    "subjects and smeared detail: render at 1-2 MP and upscale."
+    "subjects and smeared detail: render at 1-2 MP and upscale, which the "
+    "Refine pass does here."
 )
 _FLUX1_EXAMPLES = [
     "A cat holding a sign that says hello world",
@@ -106,7 +107,7 @@ KREA_DEV_GUIDE = {
         "1.6 MP), in multiples of 16; the FLUX.1 family is documented for 0.1 to "
         "2 MP. The 1 and 1.5 MP presets are inside the recommendation; 2 MP is "
         "just past it and usually holds; 4 MP is well outside - render smaller "
-        "and upscale."
+        "and upscale, which the Refine pass does here."
     ),
     "pixels": (1.0, 1.64),
     "pixels_word": "recommended",
@@ -900,8 +901,8 @@ WAI_GUIDE = {
         # Quoted and closed: the recipe ends in a comma, and without the full
         # stop the next sentence - the app's, not the card's - ran into it.
         f"The v17 card recommends this negative prompt: '{_WAI_NEGATIVE}'. "
-        "The card's weighted-prompt syntax and high-resolution refinement pass "
-        "are not implemented by this text-to-image pipeline."
+        "The card's weighted-prompt syntax is not implemented by this "
+        "text-to-image pipeline."
     ),
     "size": (
         "The v17 author recommends original dimensions larger than 1024x1024 "
@@ -910,8 +911,11 @@ WAI_GUIDE = {
         "is given. A size above that reference span is not a claim of unsupported "
         "resolution. The author's examples then use a separate 1.5x high-resolution "
         "refinement pass at 20 steps and denoising strength 0.35-0.5 with "
-        "R-ESRGAN 4x+ Anime6B. This app generates directly at the requested size "
-        "and does not apply that refinement pass."
+        "R-ESRGAN 4x+ Anime6B. Generate renders directly at the requested size. "
+        "This app's Refine pass is the nearest it has to the author's: a gallery "
+        "image resized - 1.5x by default - and re-denoised at a strength, with a "
+        "plain Lanczos resize in place of that upscaling model, and the part of "
+        "Steps the strength leaves in place of a separate hires step count."
     ),
     "pixels": (1024**2 / 1e6, 1024 * 1344 / 1e6),
     "pixels_word": "documented",

@@ -16,7 +16,8 @@ through `storage` so the search index is built with the rows.
 
 With ``--database``, rows come from that gallery's database, so favorites and
 durations survive too. Gallery ids are local to a database; reference-image
-ids are remapped as the source rows are merged in ascending id order. Without
+and refine-source ids are remapped as the source rows are merged in ascending
+id order. Without
 a database, the favorite cannot come back and duration is recorded as 0 so the
 time estimate ignores it. The timestamp is parsed from the filename prefix as
 UTC, which is how it was written; failing that, the file's own mtime.
@@ -192,7 +193,9 @@ def _json_list(value) -> list:
     return decoded if isinstance(decoded, list) else []
 
 
-def _database_meta(row: dict, width: int, height: int, digest: str, references: list[int]) -> dict:
+def _database_meta(
+    row: dict, width: int, height: int, digest: str, references: list[int], refine: int | None
+) -> dict:
     variables = _json_list(row.get("variables"))
     if not variables and row.get("variables"):
         try:
@@ -218,6 +221,8 @@ def _database_meta(row: dict, width: int, height: int, digest: str, references: 
         "reference": references or None,
         "lora": row.get("lora"),
         "lora_scale": row.get("lora_scale") if row.get("lora") else None,
+        "refine": refine,
+        "strength": row.get("strength") if refine is not None else None,
     }
 
 
@@ -287,8 +292,18 @@ def merge_database(
                 counts["unresolved_references"] += 1
             else:
                 references.append(mapped)
+        # A refine source is a gallery id too, and points backwards the same
+        # way: remapped with the references, and dropped - with its strength,
+        # and counted - where the image it names did not come across.
+        refine = row.get("refine")
+        if isinstance(refine, int):
+            refine = id_map.get(refine)
+            if refine is None:
+                counts["unresolved_references"] += 1
+        else:
+            refine = None
         digest = storage.content_hash(image)
-        meta = _database_meta(row, width, height, digest, references)
+        meta = _database_meta(row, width, height, digest, references, refine)
         counts["indexed"] += 1
         if dry_run:
             print(f"  would import  {filename}", file=out)
@@ -321,6 +336,8 @@ def merge_database(
             "reference": json.dumps(references) if references else None,
             "lora": row.get("lora"),
             "lora_scale": row.get("lora_scale") if row.get("lora") else None,
+            "refine": refine,
+            "strength": row.get("strength") if refine is not None else None,
         }
         copied = source != outputs
         try:

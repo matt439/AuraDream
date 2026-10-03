@@ -25,7 +25,7 @@ import time
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from .. import latent_preview, loras
+from .. import latent_preview, loras, refine
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
@@ -80,6 +80,15 @@ class DiffusersBackend(GenerationBackend):
         # so the live answer replaces the configs' once and is kept across an
         # unload, the checkpoint being fixed for the life of the process.
         self._denoiser_cache: tuple[str, "loras.Denoiser | None"] | None = None
+        # The refine pass. `_refine_class` is (pipeline class, its
+        # image-to-image sibling or None), asked of diffusers once per class;
+        # `_refine_pipe` is that sibling built over the live pipeline's own
+        # components on the first refine, with its call's parameter names.
+        # It holds the same modules the pipeline does, so it goes when the
+        # pipeline goes - or an unload would free nothing.
+        self._refine_class: tuple[type, type | None] | None = None
+        self._refine_pipe: Any = None
+        self._refine_params: set[str] = set()
         # diffusers draws its own tqdm bar per denoising loop. Kept on by
         # default; the CLI turns it off because it renders its own status line.
         self._console_progress = True
@@ -221,6 +230,8 @@ class DiffusersBackend(GenerationBackend):
         self._console_progress = enabled
         if self._pipe is not None:
             self._apply_console_progress(self._pipe)
+        if self._refine_pipe is not None:
+            self._apply_console_progress(self._refine_pipe)
 
     def unload(self) -> None:
         with self._lock:
@@ -228,8 +239,10 @@ class DiffusersBackend(GenerationBackend):
                 return
             self._pipe = None
             self._call_params = set()
-            # The adapter lives on the pipeline that is going away.
+            # The adapter lives on the pipeline that is going away, and the
+            # refine pipeline is a second set of references to its modules.
             self._lora = None
+            self._refine_pipe, self._refine_params = None, set()
         self._release()
 
     def try_unload(self) -> bool:
@@ -245,6 +258,7 @@ class DiffusersBackend(GenerationBackend):
         try:
             loaded, self._pipe, self._call_params = self._pipe is not None, None, set()
             self._lora = None
+            self._refine_pipe, self._refine_params = None, set()
         finally:
             self._lock.release()
         if loaded:
@@ -295,6 +309,7 @@ class DiffusersBackend(GenerationBackend):
                 # Not a guess even here: whether an adapter can be loaded is a
                 # fact about this installation, not about the checkpoint.
                 lora_supported=self.lora_supported(),
+                refine_supported=profile["refine_supported"],
             )
         return request.applied(
             negative_prompt_supported="negative_prompt" in self._call_params,
@@ -303,6 +318,7 @@ class DiffusersBackend(GenerationBackend):
             true_cfg_supported=self._true_cfg_supported(),
             reference_supported=self._reference_supported(),
             lora_supported=self.lora_supported(),
+            refine_supported=self._refine_supported(),
         )
 
     def _reference_supported(self) -> bool:
@@ -315,6 +331,45 @@ class DiffusersBackend(GenerationBackend):
         got it would silently drop the whole point of the request.
         """
         return "image" in self._call_params
+
+    def _refine_supported(self) -> bool:
+        """Can this pipeline run a refine pass?
+
+        It can where diffusers ships an image-to-image class beside the
+        loaded pipeline's own (`refine.sibling`), since that class runs over
+        the components already here. The class is the whole answer, so it is
+        asked once per pipeline class and kept.
+        """
+        pipe = self._pipe
+        if pipe is None:
+            return False
+        if self._refine_class is None or self._refine_class[0] is not type(pipe):
+            self._refine_class = (type(pipe), refine.sibling(type(pipe)))
+        return self._refine_class[1] is not None
+
+    def _refiner(self, pipe: Any) -> Any:
+        """The image-to-image sibling over the live pipeline's components.
+
+        Built on the first refine and kept: a second pipeline object costs
+        nothing - it registers the modules the first one holds, hooks and
+        adapters included - but building it per cell would re-run a
+        constructor for every image of a strength sweep. Its scheduler is the
+        same object too, which is what lets `schedule.forced_mu` on the
+        loaded pipeline reach a refine pass.
+        """
+        if self._refine_pipe is None:
+            if not self._refine_supported():
+                raise RuntimeError(
+                    f"{type(pipe).__name__} has no image-to-image counterpart to refine with"
+                )
+            runner = refine.build(pipe, self._refine_class[1])
+            self._apply_console_progress(runner)
+            self._refine_params = set(inspect.signature(runner.__call__).parameters)
+            self._refine_pipe = runner
+            log.info(
+                "refine pass: %s over %s's components", type(runner).__name__, type(pipe).__name__
+            )
+        return self._refine_pipe
 
     def lora_unavailable_reason(self) -> str | None:
         """Why an adapter cannot be applied here, or None when one can.
@@ -484,9 +539,18 @@ class DiffusersBackend(GenerationBackend):
         if request.negative_prompt and "negative_prompt" not in self._call_params:
             log.info("this pipeline takes no negative prompt; ignoring it")
         request = self.applied(request)
+        # A refine pass runs the pipeline's image-to-image sibling, built over
+        # the same components; everything below hands `runner` what it would
+        # have handed `pipe`. `applied()` has already dropped the source where
+        # there is no sibling, so a source here means there is one.
+        refining = request.refine is not None
+        runner = self._refiner(pipe) if refining else pipe
+        params = self._refine_params if refining else self._call_params
         total = request.steps
         # Before the cancel check and the kwargs: a swap that fails must fail
         # the cell, not run it under whatever adapter the last cell left on.
+        # On the loaded pipeline either way: the adapter goes into the
+        # denoiser, which the sibling shares.
         self._apply_lora(pipe, request)
 
         if should_cancel is not None and should_cancel():
@@ -500,22 +564,31 @@ class DiffusersBackend(GenerationBackend):
         # the first failure: an exception out of this callback is how Cancelled
         # ends a job, and a wrong-shaped latent must cost a picture, not a night.
         preview = {"on": on_preview is not None, "last": 0.0}
+        # Where a refine batch is: its images are denoised one call each (see
+        # `_refine`), so progress counts through all of them rather than
+        # starting over per image. A text-to-image batch is one call.
+        batch = {"index": 0, "count": request.num_images if refining else 1}
 
         def _step_end(_pipe, step: int, _timestep, cb_kwargs):
+            # A refine pass runs the part of the schedule its strength leaves,
+            # and how that rounds is the pipeline's own - SDXL and the flow
+            # pipelines disagree by a step - so the count is read off the call.
+            steps = (getattr(_pipe, "num_timesteps", None) or total) if refining else total
+            done = batch["index"] * steps + step + 1
             if on_progress is not None:
-                on_progress(step + 1, total)
-            if preview["on"] and step + 1 < total:
+                on_progress(done, steps * batch["count"])
+            if preview["on"] and step + 1 < steps:
                 now = time.monotonic()
                 if now - preview["last"] >= latent_preview.INTERVAL_SECONDS:
                     try:
-                        jpeg = self._preview(pipe, cb_kwargs.get("latents"), request, step)
+                        jpeg = self._preview(runner, cb_kwargs.get("latents"), request, step)
                     except Exception as exc:  # noqa: BLE001 - a preview is never worth a cell
                         log.warning("live preview switched off: %s", exc)
                         preview["on"] = False
                     else:
                         if jpeg is not None:
                             preview["last"] = now
-                            on_preview(jpeg, step + 1, total)
+                            on_preview(jpeg, done, steps * batch["count"])
             if should_cancel is not None and should_cancel():
                 raise Cancelled
             return cb_kwargs
@@ -565,7 +638,14 @@ class DiffusersBackend(GenerationBackend):
         # sequence at every step - which is why one reference costs 2-3x the
         # time rather than a single VAE encode. `applied()` has already dropped
         # them where there is no such parameter, so this is the row's story too.
-        if request.reference and self._reference_supported():
+        # On a refine pass `image` is the source instead - resized to the
+        # requested size here, since SDXL's image-to-image call takes its size
+        # from the image and no width or height at all - and `strength` is how
+        # far down the schedule the pipeline noises it before denoising back.
+        if refining:
+            kwargs["image"] = refine.source_image(request.refine, request.width, request.height)
+            kwargs["strength"] = request.strength
+        elif request.reference and self._reference_supported():
             kwargs["image"] = self._reference_images(request.reference)
         if request.negative_prompt:
             kwargs["negative_prompt"] = request.negative_prompt
@@ -574,7 +654,7 @@ class DiffusersBackend(GenerationBackend):
         # ERNIE-Image's prompt rewriter, where the pipeline has the switch:
         # off, whether or not the component was loaded. The prompt the row
         # records is the prompt the model saw.
-        if "use_pe" in self._call_params:
+        if "use_pe" in params:
             kwargs["use_pe"] = False
         if settings.model_id.lower() == netayume_loading.MODEL_ID.lower():
             kwargs["system_prompt"] = netayume_loading.SYSTEM_PROMPT
@@ -591,7 +671,7 @@ class DiffusersBackend(GenerationBackend):
             )
             mu = None
 
-        for key in set(kwargs) - self._call_params:
+        for key in set(kwargs) - params:
             log.debug("dropping unsupported pipeline arg %r", key)
             kwargs.pop(key)
 
@@ -604,8 +684,51 @@ class DiffusersBackend(GenerationBackend):
         # no_grad avoids the functionalization path and is otherwise equivalent
         # here. Verified identical outputs for both fp8 and int8.
         with torch.no_grad(), schedule.forced_mu(pipe, mu):
+            if refining:
+                return self._refine(pipe, runner, kwargs, generator, batch, should_cancel)
             result = pipe(**kwargs)
         return list(result.images)
+
+    def _refine(
+        self,
+        pipe: Any,
+        runner: Any,
+        kwargs: dict[str, Any],
+        generators: list[Any],
+        batch: dict[str, int],
+        should_cancel: CancelFn | None,
+    ) -> list["Image"]:
+        """Run a refine cell: one image-to-image call per image of the batch.
+
+        One call each, with that image's own generator, because the batch
+        path does not keep the per-image seed: before the noise is drawn the
+        source goes through the VAE, whose encoding is *sampled*, and
+        `FluxImg2ImgPipeline` draws that sample for the whole batch from the
+        first generator alone. Image *i* of a batch would then differ from a
+        solo run of its recorded seed, which is the one thing a recorded seed
+        is for. A single call draws the sample and then the noise from one
+        generator, on every pipeline, so the two cannot disagree. The cost is
+        a text-encoder pass and a VAE encode per image rather than per batch.
+
+        The sibling never had `enable_model_cpu_offload` called on it - the
+        hooks are the modules' own, placed through the loaded pipeline - so
+        its end-of-call `maybe_free_model_hooks` does nothing and the last
+        component used stays on the card. The loaded pipeline's puts
+        everything back, after a cancel or a failure too.
+        """
+        images: list[Image] = []
+        try:
+            for index, generator in enumerate(generators):
+                if index and should_cancel is not None and should_cancel():
+                    raise Cancelled
+                batch["index"] = index
+                result = runner(**{**kwargs, "num_images_per_prompt": 1, "generator": generator})
+                images.extend(result.images)
+        finally:
+            free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
+            if callable(free_hooks):
+                free_hooks()
+        return images
 
     def _preview(self, pipe: Any, latents: Any, request: "GenerateRequest", step: int) -> bytes | None:
         """A JPEG of the first image so far, or None when this pipeline cannot show one.
@@ -624,9 +747,12 @@ class DiffusersBackend(GenerationBackend):
         if latent is None:
             raise RuntimeError(f"{type(pipe).__name__} has no _unpack_latents")
         # The latents are at the sigma of the step just taken; the terminal 0 is
-        # the last entry, so index step + 1 is always in range.
+        # the last entry, so index step + 1 is always in range. A refine pass
+        # starts part of the way down the schedule, at the index its pipeline
+        # set on the scheduler; a text-to-image call starts at 0 or sets none.
         try:
-            sigma = float(pipe.scheduler.sigmas[step + 1])
+            begin = getattr(pipe.scheduler, "begin_index", None) or 0
+            sigma = float(pipe.scheduler.sigmas[begin + step + 1])
         except Exception:  # noqa: BLE001 - a scheduler without sigmas: draw it plain
             sigma = 0.0
         return latent_preview.render(latent, factors, sigma)
@@ -667,6 +793,9 @@ class DiffusersBackend(GenerationBackend):
             "reference_supported": (
                 self._reference_supported() if self._pipe is not None else None
             ),
+            # The pipeline's class is the answer here: whether diffusers
+            # ships an image-to-image sibling for it.
+            "refine_supported": self._refine_supported() if self._pipe is not None else None,
             # Never None: peft and the quantization mode decide this one, and
             # both are known before a single weight is downloaded.
             "lora_supported": self.lora_supported(),

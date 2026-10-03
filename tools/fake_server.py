@@ -111,21 +111,36 @@ def main() -> int:
             return out
 
         def _draw(self, request, seed):
+            # A refine pass starts from its source, as the real one does: the
+            # gallery image at the requested size - cropped where the shape
+            # differs - under a stamp saying whose refinement it is and at
+            # what strength, so a strength sweep's cells can be told apart.
+            refining = request.refine is not None and self.refine_supported
             out = []
             for offset in range(request.num_images):
-                image = Image.new("RGB", (request.width, request.height))
-                draw = ImageDraw.Draw(image)
-                w, h = image.size
-                base = (seed * 37 + request.steps * 11) % 255
-                band = max(1, h // 64)
-                for y in range(0, h, band):
-                    shade = (base + y * 255 // h) % 255
-                    draw.rectangle([0, y, w, y + band], fill=(shade, (shade * 3) % 255, 255 - shade))
-                for x in range(0, w, max(8, w // 16)):
-                    draw.line([x, 0, x, h], fill=(255, 255, 255), width=1)
-                draw.rectangle([10, 10, 260, 70], fill=(0, 0, 0))
+                if refining:
+                    from backend import refine
+
+                    image = refine.source_image(request.refine, request.width, request.height).copy()
+                    draw = ImageDraw.Draw(image)
+                else:
+                    image = Image.new("RGB", (request.width, request.height))
+                    draw = ImageDraw.Draw(image)
+                    w, h = image.size
+                    base = (seed * 37 + request.steps * 11) % 255
+                    band = max(1, h // 64)
+                    for y in range(0, h, band):
+                        shade = (base + y * 255 // h) % 255
+                        draw.rectangle([0, y, w, y + band], fill=(shade, (shade * 3) % 255, 255 - shade))
+                    for x in range(0, w, max(8, w // 16)):
+                        draw.line([x, 0, x, h], fill=(255, 255, 255), width=1)
+                draw.rectangle([10, 10, 260, 70 + 20 * refining], fill=(0, 0, 0))
                 draw.text((16, 16), f"seed {seed + offset}", fill=(255, 255, 255))
                 draw.text((16, 36), f"steps {request.steps} cfg {request.guidance_scale}", fill=(255, 255, 255))
+                if refining:
+                    draw.text(
+                        (16, 56), f"refine of {request.refine} @ {request.strength:g}", fill=(255, 255, 255)
+                    )
                 out.append(image)
             return out
 
@@ -143,6 +158,10 @@ def main() -> int:
     # klein takes reference images and nothing else here does, so the greyed-out
     # panel the browser check drives is the one the real checkpoint would show.
     fake.reference_supported = profile["reference_supported"]
+    # And a refine pass only where diffusers has an image-to-image pipeline for
+    # the claimed checkpoint: greyed on a Krea 2 or klein fake, live on a
+    # FLUX.1, SDXL, Z-Image or Qwen-Image one.
+    fake.refine_supported = profile["refine_supported"]
     # ERNIE's browser check drives the real button and endpoint without the
     # multi-GB rewriter. FakeBackend's deterministic sentence makes it clear
     # that the chosen canvas size reached the operation.
