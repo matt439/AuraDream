@@ -17,8 +17,10 @@ through `storage` so the search index is built with the rows.
 With ``--database``, rows come from that gallery's database, so favorites and
 durations survive too. Gallery ids are local to a database; reference-image
 and refine-source ids are remapped as the source rows are merged in ascending
-id order. Without
-a database, the favorite cannot come back and duration is recorded as 0 so the
+id order. PNG-only imports use each source's recorded filename, pixel hash and
+size to recover its new id; legacy links without this provenance are dropped
+and counted, never treated as destination ids. Without a database, the
+favorite cannot come back and duration is recorded as 0 so the
 time estimate ignores it. The timestamp is parsed from the filename prefix as
 UTC, which is how it was written; failing that, the file's own mtime.
 
@@ -219,9 +221,11 @@ def _database_meta(
         "variables": variables,
         "hash": digest,
         "reference": references or None,
+        "reference_sources": [storage.image_provenance(i) for i in references] or None,
         "lora": row.get("lora"),
         "lora_scale": row.get("lora_scale") if row.get("lora") else None,
         "refine": refine,
+        "refine_source": storage.image_provenance(refine),
         "strength": row.get("strength") if refine is not None else None,
     }
 
@@ -303,7 +307,6 @@ def merge_database(
         else:
             refine = None
         digest = storage.content_hash(image)
-        meta = _database_meta(row, width, height, digest, references, refine)
         counts["indexed"] += 1
         if dry_run:
             print(f"  would import  {filename}", file=out)
@@ -313,6 +316,7 @@ def merge_database(
             id_map[source_id] = source_id
             continue
 
+        meta = _database_meta(row, width, height, digest, references, refine)
         values = {
             "filename": filename,
             "prompt": row["prompt"],
@@ -359,17 +363,59 @@ def reindex(
 ) -> dict[str, int]:
     if database is not None:
         return merge_database(source, database, dry_run=dry_run, out=out)
-    counts = {"indexed": 0, "present": 0, "no_metadata": 0, "conflicts": 0}
+    counts = {
+        "indexed": 0, "present": 0, "no_metadata": 0, "conflicts": 0,
+        "unresolved_references": 0,
+    }
     source = source.resolve()
     outputs = settings.outputs_dir.resolve()
     in_place = source == outputs
-    present = storage.existing_filenames() if settings.db_path.exists() else set()
+    existing = storage.existing_file_ids() if settings.db_path.exists() else {}
+    paths = {path.name: path for path in sorted(source.glob("*.png"))}
+    visited: set[str] = set()
+    visiting: set[str] = set()
+    identities: dict[str, dict] = {}
     if not dry_run:
         storage.init_db()
-    for path in sorted(source.glob("*.png")):
-        if path.name in present:
+
+    def resolve_source(provenance) -> int | None:
+        if not isinstance(provenance, dict):
+            return None
+        filename = provenance.get("filename")
+        if not isinstance(filename, str) or Path(filename).name != filename:
+            return None
+        # Visit dependencies first: names within one timestamp can sort in
+        # either order, and an in-place rebuild assigns entirely new ids.
+        if filename in paths and filename not in visiting:
+            index(paths[filename])
+        if filename not in existing or filename in visiting:
+            return None
+        actual = identities.get(filename)
+        if actual is None and (outputs / filename).is_file():
+            # An existing row's hash can be stale after a file was replaced
+            # outside the app. Verify the pixels the destination id loads.
+            try:
+                with Image.open(outputs / filename) as image:
+                    actual = {
+                        "filename": filename, "hash": storage.content_hash(image),
+                        "width": image.width, "height": image.height,
+                    }
+            except OSError:
+                return None
+            identities[filename] = actual
+        if actual is None or any(
+            actual.get(key) != provenance.get(key) for key in ("filename", "hash", "width", "height")
+        ):
+            return None
+        return existing[filename]
+
+    def index(path: Path) -> None:
+        if path.name in visited:
+            return
+        visited.add(path.name)
+        if path.name in existing:
             counts["present"] += 1
-            continue
+            return
         try:
             meta, (width, height), image = _read(path)
         except OSError:  # not a PNG at all, or truncated - UnidentifiedImageError is one
@@ -377,35 +423,76 @@ def reindex(
         if meta is None:
             counts["no_metadata"] += 1
             print(f"  skip  {path.name}: no Local Diffusion metadata", file=out)
-            continue
+            return
         target = outputs / path.name
         if not in_place and target.exists():
             # A different file under a name the gallery already uses on disk
             # but not in the index: not ours to overwrite.
             counts["conflicts"] += 1
             print(f"  skip  {path.name}: a different file of that name is already in outputs", file=out)
-            continue
+            return
+        visiting.add(path.name)
+        references = []
+        reference_sources = []
+        sources = _json_list(meta.get("reference_sources"))
+        for i, _reference in enumerate(_json_list(meta.get("reference"))):
+            provenance = sources[i] if i < len(sources) else None
+            mapped = resolve_source(provenance)
+            if mapped is None:
+                counts["unresolved_references"] += 1
+            else:
+                references.append(mapped)
+                reference_sources.append(provenance)
+        refine = None
+        if meta.get("refine") is not None:
+            refine = resolve_source(meta.get("refine_source"))
+            if refine is None:
+                counts["unresolved_references"] += 1
+        visiting.remove(path.name)
+        links_changed = (
+            meta.get("reference") != (references or None)
+            or meta.get("refine") != refine
+            or (refine is None and meta.get("strength") is not None)
+        )
+        meta = {
+            **meta,
+            "reference": references or None,
+            "reference_sources": reference_sources or None,
+            "refine": refine,
+            "refine_source": meta.get("refine_source") if refine is not None else None,
+            "strength": meta.get("strength") if refine is not None else None,
+        }
+        digest = storage.content_hash(image) if image is not None else None
+        identities[path.name] = {
+            "filename": path.name, "hash": digest, "width": width, "height": height,
+        }
         counts["indexed"] += 1
         if dry_run:
+            # Synthetic ids exist only in this plan, so dependent files can
+            # resolve their provenance without creating a database or a copy.
+            existing[path.name] = -counts["indexed"]
             print(f"  would index  {path.name}", file=out)
-            continue
-        if not in_place:
-            # Normalize copied pre-rename images to the current chunk name;
-            # an in-place rebuild leaves source files byte-for-byte alone.
+            return
+        if not in_place or links_changed:
+            # Keep --from-image safe after an in-place id remap as well. Only
+            # metadata changes; _copy_in preserves the compressed pixels.
             _copy_in(path, target, meta)
         # The hash of the pixels as decoded here, not the block's copy of it:
         # the file is the truth, and a PNG from before the hash has no copy.
-        storage.index_file(
+        record = storage.index_file(
             path.name,
             meta,
             width,
             height,
             _created_at(path),
-            digest=storage.content_hash(image) if image is not None else None,
+            digest=digest,
         )
         if image is not None:
             storage.thumbnail_for(image, path.name)
-        present.add(path.name)
+        existing[path.name] = record.id
+
+    for path in paths.values():
+        index(path)
     return counts
 
 
@@ -473,14 +560,11 @@ def main(argv: list[str] | None = None) -> int:
         summary += (
             (f", {counts['missing']} missing image(s)" if counts["missing"] else "")
             + (f", {counts['invalid']} invalid row/file(s)" if counts["invalid"] else "")
-            + (
-                f", {counts['unresolved_references']} unresolved reference(s)"
-                if counts["unresolved_references"]
-                else ""
-            )
         )
     else:
         summary += f", {counts['no_metadata']} without metadata" if counts["no_metadata"] else ""
+    if counts["unresolved_references"]:
+        summary += f", {counts['unresolved_references']} unresolved reference/refine source(s)"
     summary += f", {counts['conflicts']} name conflict(s)" if counts["conflicts"] else ""
     print(summary + f". {time.perf_counter() - started:.1f}s.")
     if args.dry_run:

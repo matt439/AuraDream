@@ -116,19 +116,14 @@ class GenerateRequest(BaseModel):
             self.strength = default_strength()
         return self
 
-    @model_validator(mode="after")
-    def _refine_leaves_a_step(self) -> "GenerateRequest":
-        # After the profile has filled the steps in. A refine pass runs only
-        # the part of the schedule its strength leaves, and below one step the
-        # pipeline raises - at the cell, which for a grid is 3am. Every cell
-        # of a grid is a request of its own, so a steps or strength axis that
-        # reaches too low is refused here, by name, when the grid is built.
+    def check_refine_steps(self) -> None:
+        # Check after capability validation, on actual cells: a grid's axes
+        # can replace an otherwise unusable base steps/strength pair.
         if self.refine is not None and not leaves_a_step(self.steps, self.strength):
             raise ValueError(
                 f"strength {self.strength:g} of {self.steps} steps is less than one step; "
                 "raise the strength or the steps"
             )
-        return self
 
     @field_validator("reference")
     @classmethod
@@ -277,6 +272,11 @@ class PromptAnalysisRequest(GenerateRequest):
     Krea 2 Turbo, or without True CFG on FLUX.1, never runs, and that is
     `applied()`'s answer, not the text's. The critic takes the same body.
     """
+
+    @model_validator(mode="after")
+    def _refine_leaves_a_step(self) -> "PromptAnalysisRequest":
+        self.check_refine_steps()
+        return self
 
 
 class PromptFinding(BaseModel):

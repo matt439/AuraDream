@@ -981,6 +981,7 @@ function comparePayload(variants) {
     cfg_axis: '',
     mu_axis: '',
     lora_scale_axis: '',
+    strength_axis: '',
     seed_axis: '',
     seeds: +els.compareSeeds.value / batch,
     resume: false,
@@ -1007,6 +1008,11 @@ async function previewComparison() {
       : 'Only the original so far: write a version of your own above to compare it against.';
     return;
   }
+  if (refineSource && !refineSupported) {
+    els.comparePreview.classList.add('warn');
+    els.comparePreview.textContent = unavailableRefineNote();
+    return;
+  }
   try {
     const payload = comparePayload(variants);
     const p = await api('/api/grid/preview', {
@@ -1021,6 +1027,7 @@ async function previewComparison() {
     // so changing a select while it runs cannot relabel an earlier reply.
     els.comparePreview.textContent = `${plural(p.images, 'image')} · ${plural(variants.length, 'variant')}`
       + ` × ${plural(payload.seeds * payload.num_images, 'seed')} · batch ${payload.num_images}`
+      + (payload.refine != null ? ` · refine passes of image ${payload.refine}` : '')
       + (p.seconds ? ` · about ${humanTime(p.seconds)}` : '')
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another cell` : '');
   } catch (err) {

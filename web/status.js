@@ -16,9 +16,8 @@ function applyDefaults(d) {
   if (!owned.steps) els.steps.value = d.steps;
   if (!owned.cfg) els.cfg.value = d.guidance_scale;
   if (!owned.mu) els.mu.value = d.mu ?? '';
-  // The refine strength likewise: 0.4 on SDXL and lower on the flow-matching
-  // checkpoints, whose shifted schedules put the same number at a noisier
-  // point. Null where the checkpoint has no pass; the box is dead there.
+  // The refine strength likewise: its start index belongs to the checkpoint's
+  // schedule. Null where the checkpoint has no pass; the box is dead there.
   if (!owned.strength && typeof d.refine_strength === 'number') els.strength.value = d.refine_strength;
   syncCfg();
 }

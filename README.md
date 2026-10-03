@@ -384,15 +384,16 @@ re-denoised part of the way under the prompt and settings given, which with
 `--from-image` are the image's own:
 
 ```powershell
-uv run python -m backend.generate --from-image outputs/….png --refine 412
+uv run python -m backend.generate --from-image outputs/….png --refine 412 --scale 1.5
 uv run python -m backend.generate --from-image outputs/….png --refine 412 --scale 2 --strength 0.3
-uv run python -m backend.generate --from-image outputs/….png --refine 412 --grid-strength 0.2-0.5x0.1
+uv run python -m backend.generate --from-image outputs/….png --refine 412 --scale 1.5 --grid-strength 0.2-0.5x0.1
 ```
 
 With no size given the pass renders at the source's own size times `--scale`
 (default 1.5, each side rounded to 16); `--width/--height` or `--aspect/--mp`
 set another, and a shape that is not the source's crops it rather than
-stretching it. `--strength` defaults to the checkpoint's own starting value
+stretching it. `--from-image` supplies the recorded size, so add `--scale`
+explicitly to enlarge it. `--strength` defaults to the checkpoint's own starting value
 (0.4 on SDXL, 0.1 on FLUX.1 [dev]), and `--grid-strength` sweeps it.
 Refused before the load on a checkpoint that has no such pass, for a source
 the gallery has not got, and for a strength that leaves less than one step.
@@ -590,20 +591,27 @@ and [dev], **0.15** on Z-Anime, 0.25 on Z-Image, 0.3 on Qwen-Image and 0.5 on
 the 4-step schnell. Each starts the pass at about half noise for a 1.5× pass
 of a 1 MP image. On FLUX.1 that is a small number because its schedule's
 shift grows with the size: measured here, 0.4 at 1.5× keeps the composition
-and repaints the face, and 2× redraws more than 1.5× at the same strength. A
+and repaints the face. The schedule predicts more redraw at 2× than at 1.5×
+at the same strength; a 2× pass has not been measured here. A
 Mu set for the pass moves it back (Mu 1.15 at strength 0.2 starts where the
 default schedule's 0.1 does, with twice the steps). The grid's **Refine
 strength** axis - `0.05-0.2x0.05` over one source - is a sheet of how much
 of it each value kept.
 
 It runs the image-to-image pipeline diffusers ships beside the checkpoint's
-own, over the weights already loaded: nothing is downloaded and nothing more
-is held on the card. So it exists where diffusers has one:
+own, over the weights already loaded, with no extra weight download or copy.
+Under model offload the source's VAE encode leaves the VAE on the card beside
+the denoiser until the pass finishes; measured WAI and FLUX.1 peaks are about
+0.16 GiB above direct renders at the same size. The pass is available where
+this app's pipeline has a compatible image-to-image counterpart:
 
 | Refine pass | Checkpoints |
 | --- | --- |
 | yes | FLUX.1 Krea [dev], FLUX.1 [dev] and [schnell], Animagine, Kohaku, Illustrious, WAI, Z-Image Turbo, Z-Anime, Qwen-Image |
 | no | Krea 2, FLUX.2 [klein], ERNIE-Image, NetaYume Lumina, Anima Turbo, NewBie |
+
+Anima Turbo uses this app's custom pipeline, which has no compatible sibling;
+diffusers itself does provide an Anima modular image-to-image workflow.
 
 Elsewhere the field is greyed, with the reason in its badge, and a request
 is refused at submit rather than rendered as something else.
@@ -635,7 +643,9 @@ checkpoint's ordinary renders are byte-identical before and after. A batch
 runs one pass per image, so it costs time rather than VRAM. The other three
 SDXL checkpoints, FLUX.1 [dev] and [schnell], Z-Image Turbo and Qwen-Image
 have not been run here: the SDXL ones share WAI's pipeline and starting
-strength, the rest start from the schedule's arithmetic alone, and the pass
+strength, FLUX.1 [dev] carries over Krea [dev]'s measurement on the same
+schedule, and schnell, Z-Image Turbo and Qwen-Image start from schedule
+arithmetic alone. The pass
 has not been tried under Nunchaku in WSL.
 
 ## Batch vs runs
@@ -1488,7 +1498,12 @@ name unless a different file already sits there. Two things do not come back:
 the favourite flag, which lives only in the database, and the duration,
 recorded as 0 so the time estimate ignores those rows. When the matching old
 database is available, pass both `--from` and `--database` (or `--db`) instead.
-That merge preserves favorites and durations, remaps reference-image ids into
+PNG-only recovery remaps reference and refine sources using their recorded
+filename, pixel hash and dimensions. Older PNGs without that source identity,
+or sources that cannot be verified, lose those links (and a refine's strength)
+and are counted as unresolved. Updated conditioning ids are also written into
+the PNG metadata during an in-place rebuild, keeping `--from-image` safe.
+The database merge preserves favorites and durations, remaps reference and refine ids into
 the current gallery, and updates the copied PNG's embedded Local Diffusion
 metadata to carry those new ids. Rows already present by filename are skipped,
 so the database merge is safe to rerun too. Missing images, unreadable files,

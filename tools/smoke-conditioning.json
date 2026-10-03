@@ -15,7 +15,7 @@
 
   {"log": "'klein has no image-to-image pipeline in diffusers: the Refine field is greyed and says why'"},
   {"expect": "!refineSupported && els.refineField.classList.contains('disabled') && els.refineNote.textContent.includes('no refine pass')"},
-  {"expect": "els.refineTip.textContent.includes('no image-to-image counterpart') && els.strength.disabled && els.gridStrength.disabled"},
+  {"expect": "els.refineTip.textContent.includes('no compatible image-to-image counterpart') && els.strength.disabled && els.gridStrength.disabled"},
 
   {"log": "'an image to point at'"},
   {"eval": "els.prompt.value = 'a fox in the snow'; els.seed.value = '5'; void startJob('/api/generate', collect());"},

@@ -246,7 +246,7 @@ function forgetImages(ids) {
   document.querySelectorAll('[data-id]').forEach((el) => { if (gone.has(+el.dataset.id)) el.remove(); });
   // A refine source that has just been deleted has nothing left to refine,
   // and a Generate naming it would only be refused.
-  if (refineSource && gone.has(refineSource.id)) setRefine(null);
+  if (refineSource && gone.has(refineSource.id)) forgetRefineSource(refineSource.id);
   // Only the grid's counters mirror the server's: the viewer holds whatever
   // this session made, and the sheet lays itself out from the grid's records.
   const inGallery = galleryRecords.filter((r) => gone.has(r.id)).length;
@@ -323,8 +323,10 @@ async function deleteUnstarred() {
     showError(err.message);
     return;
   }
+  const removedSource = refineSource && result.deleted.includes(refineSource.id);
   forgetImages(result.deleted);
-  showError(`Deleted ${result.deleted.length} image${plural}, keeping ${found.favorites} starred.`, true);
+  const sourceNote = removedSource ? ` ${els.error.textContent}` : '';
+  showError(`Deleted ${result.deleted.length} image${plural}, keeping ${found.favorites} starred.${sourceNote}`, true);
   // The page is now mostly holes; ask for it again from the top, which also
   // brings the badge back to the server's count.
   resetGallery();
@@ -374,7 +376,7 @@ function reuse(rec) {
   // A refined record reproduces as the same pass: its source, by id like a
   // reference, and the strength it ran at. A plain one clears the source -
   // Reuse restores what ran, and what ran there was the prompt alone.
-  refineSource = refineSupported && rec.refine != null ? { id: rec.refine, width: null, height: null } : null;
+  refineSource = rec.refine != null ? { id: rec.refine, width: null, height: null } : null;
   if (refineSource) {
     // The strength it ran at, owned like the steps Reuse restores beside it.
     if (rec.strength != null) { els.strength.value = rec.strength; own('strength'); }
@@ -393,16 +395,17 @@ function reuse(rec) {
   // a visibly broken image recorded under FLUX. The checkpoint is part of the
   // reproduction set as much as the seed, so say so - as a note, not a failure.
   const short = (id) => (id || '').split('/').pop();
+  const notes = [];
   if (loadedModel && rec.model_id !== loadedModel) {
-    showError(
+    const sampling = rec.refine != null ? 'steps, CFG, mu and Strength' : 'steps, CFG and mu';
+    notes.push(
       `These settings were made on ${short(rec.model_id)}; the server is running ` +
-      `${short(loadedModel)}, whose steps, CFG and mu differ. Prompt, size and seed carry ` +
-      'over; check the three sampling boxes before generating.',
-      true,
+      `${short(loadedModel)}, whose ${sampling} differ. Prompt, size and seed carry ` +
+      `over; check the ${sampling} boxes before generating.`,
     );
-  } else {
-    showError('');
   }
+  if (refineSource && !refineSupported) notes.push(unavailableRefineNote());
+  showError(notes.join(' '), true);
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
 }
@@ -415,8 +418,8 @@ function reuse(rec) {
 function refineFrom(rec) {
   if (!refineSupported) {
     showError(
-      'This checkpoint has no refine pass - diffusers ships no image-to-image pipeline '
-      + 'beside its own. The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.',
+      'This checkpoint has no refine pass compatible with this app. '
+      + 'The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.',
       true,
     );
     return false;
@@ -438,7 +441,7 @@ function refineFrom(rec) {
       ? `Refining an image made on ${short(rec.model_id)}: its prompt and seed carry over, and `
         + `the steps, CFG and mu stay ${short(loadedModel)}'s. Generate runs the pass.`
       : `Refining image ${rec.id} at ${els.width.value}×${els.height.value}, strength `
-        + `${els.strength.value || REFINE_STRENGTH}. Generate runs the pass.`,
+        + `${els.strength.value || (lastDefaults?.refine_strength ?? REFINE_STRENGTH)}. Generate runs the pass.`,
     true,
   );
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

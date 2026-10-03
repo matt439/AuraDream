@@ -129,26 +129,42 @@ def build(pipe: Any, cls: type) -> Any:
     return cls(**kwargs)
 
 
-def steps_run(steps: int, strength: float) -> int:
-    """About how many of `steps` a refine pass at `strength` denoises.
+def start_index(steps: int, strength: float, model_id: str) -> int | None:
+    """The supported checkpoint's integer start in its denoising schedule.
 
-    The pipeline starts part of the way down the schedule and runs the rest,
-    so a 28-step refine at 0.4 is 11 or 12 steps of work, not 28. Which of the
-    two is the pipeline's rounding - SDXL floors `steps * strength`, the flow
-    pipelines round the skipped part down instead - so this is the floor, at
-    least one, for the estimate and the progress bar's first frame; the step
-    callback reports the count the call really made.
+    SDXL floors the steps that run; the flow siblings floor those skipped.
+    Keep the operations in diffusers' order: rearranging the multiplication
+    changes boundary cases through floating-point rounding. Unknown profiles
+    return None rather than promising two strengths produce the same image.
     """
-    return max(1, int(steps * strength))
+    # Imported here to keep this a leaf during model_defaults' initialization.
+    from .model_defaults import defaults_for
+
+    profile = defaults_for(model_id)
+    if not profile["refine_supported"]:
+        return None
+    if profile["mu_supported"]:
+        return int(max(steps - min(steps * strength, steps), 0))
+    return max(steps - min(int(steps * strength), steps), 0)
+
+
+def steps_run(steps: int, strength: float, model_id: str | None = None) -> int:
+    """The profiled sibling's count, or the floor until its family is known.
+
+    The progress callback still reads the actual pipeline's num_timesteps;
+    this count is for the bar before that first callback and timing history.
+    """
+    start = start_index(steps, strength, model_id) if model_id is not None else None
+    return max(1, int(steps * strength) if start is None else steps - start)
 
 
 def leaves_a_step(steps: int, strength: float) -> bool:
     """Whether every pipeline here runs at least one step at this strength.
 
     SDXL's rule, the stricter of the two: `int(steps * strength)` steps, and
-    the call raises below one. Checked when the request is built, so a
-    4-step checkpoint at strength 0.2 is refused at submit rather than at the
-    first cell.
+    the call raises below one. Checked after the capability refusal, on each
+    resolved grid cell, so a 4-step checkpoint at strength 0.2 is refused at
+    submit rather than at generation.
     """
     return int(steps * strength) >= 1
 

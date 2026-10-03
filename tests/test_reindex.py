@@ -81,7 +81,10 @@ def test_reindex_copies_another_gallery_in(store, monkeypatch, tmp_path):
     (store.settings.outputs_dir / made[1].filename).write_bytes(b"something else")
 
     counts = reindex.reindex(elsewhere)
-    assert counts == {"indexed": 1, "present": 0, "no_metadata": 0, "conflicts": 1}
+    assert counts == {
+        "indexed": 1, "present": 0, "no_metadata": 0, "conflicts": 1,
+        "unresolved_references": 0,
+    }
     assert (store.settings.outputs_dir / made[0].filename).exists()
     assert (store.settings.outputs_dir / made[0].filename.replace(".png", ".webp")).exists()
     assert list(store.settings.outputs_dir.glob("*.part")) == []

@@ -280,7 +280,8 @@ function renderRefine() {
   const source = refineSource;
   els.refineSource.textContent = '';
   els.refineNote.textContent = !refineSupported
-    ? '(this checkpoint has no refine pass)'
+    ? (source ? `(image ${source.id} retained; refine unavailable - load the model or remove the source)`
+      : '(this checkpoint has no refine pass)')
     : !source
       ? '(pick an image with its ⤢ button)'
       : source.width ? `(image ${source.id}, ${source.width}×${source.height})` : `(image ${source.id})`;
@@ -354,29 +355,46 @@ function setRefine(source, scale = null) {
   persistPanel();
 }
 
+function unavailableRefineNote() {
+  return `Refine source image ${refineSource.id} is retained, but a refine pass is unavailable. `
+    + 'Load the model to check its support, or remove the source to generate from the prompt alone. '
+    + 'The selected size stays unchanged.';
+}
+
+// A missing source must never leave the previous "Generate runs the pass"
+// note behind, or silently turn a click that asked for a pass into a direct render.
+function forgetRefineSource(id) {
+  if (refineSource?.id !== id) return;
+  setRefine(null);
+  showError(`Image ${id}, the refine source, is no longer in the gallery. The source was cleared. `
+    + 'The selected size stays unchanged; the next Generate renders from the prompt alone.', true);
+}
+
 // The source's record, for a source that arrived as an id alone - restored
 // from the remembered panel, or from Reuse on a refined image - and to learn
 // that it has been deleted since, before a Generate is refused over it.
-async function loadRefineSource() {
-  const id = refineSource?.id;
-  if (!id) return;
+async function loadRefineSource(id = refineSource?.id, { strict = false } = {}) {
+  if (!id) return true;
   let record;
   try {
     record = await api(`/api/images/${id}`);
   } catch (err) {
     // Only a clear "unknown image" drops it: a server that is not up yet
     // says nothing about the gallery.
-    if (refineSource?.id === id && /unknown image/.test(err.message)) {
-      setRefine(null);
-      showError(`Image ${id}, the refine source, is no longer in the gallery.`, true);
+    if (/unknown image/.test(err.message)) {
+      if (refineSource?.id === id) forgetRefineSource(id);
+      else if (strict) showError(`Image ${id}, the requested refine source, is no longer in the gallery. Nothing was submitted.`, true);
+      return false;
     }
-    return;
+    if (strict) throw err;
+    return false;
   }
-  if (refineSource?.id !== id) return;  // another was picked while this was in flight
+  if (refineSource?.id !== id) return true;  // another was picked while this was in flight
   refineSource = { id, width: record.width, height: record.height };
   renderRefine();
   syncSize();
   persistPanel();
+  return true;
 }
 
 // Batch holds every image in VRAM at once, which is what stops a 2K batch from

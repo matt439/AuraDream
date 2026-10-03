@@ -48,8 +48,8 @@ until a loaded pipeline's class answers; `tests/test_refine.py` holds each
 guess to the installed diffusers. `refine_strength` is where the Strength box
 starts there, None where there is no pass: a profile number like the steps,
 because a strength is an index into the checkpoint's own schedule - 0.4 on
-SDXL, where WAI's author documents 0.35-0.5, and lower on the flow-matching
-checkpoints, whose shift puts the same index at a noisier point.
+SDXL, where WAI's author documents 0.35-0.5; 0.1 on the shifted FLUX.1 dev
+schedule, but 0.5 on schnell's unshifted four-step schedule.
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -883,7 +883,7 @@ _REFERENCE_HINTS = {
 _REFINE_HINTS = {
     False: (
         "A refine pass scales a gallery image up and re-denoises it part of the way. "
-        "This checkpoint's pipeline has no image-to-image counterpart in diffusers - "
+        "This app's pipeline has no compatible image-to-image counterpart - "
         "the FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one."
     ),
     True: (

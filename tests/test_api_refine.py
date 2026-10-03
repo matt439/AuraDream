@@ -3,6 +3,10 @@ the checkpoint has none or the source is gone, an ordinary grid axis, and
 recorded on the row at the strength it ran at."""
 from __future__ import annotations
 
+import threading
+
+import pytest
+
 from tests.api_helpers import run_grid, run_one, stream_job
 
 
@@ -23,7 +27,7 @@ def test_status_publishes_the_capability(client, fake):
     assert body["defaults"]["refine_supported"] is False
     # A dead control explains itself rather than repeating what a live one says.
     assert body["hints"]["refine"] != live
-    assert "no image-to-image counterpart" in body["hints"]["refine"]
+    assert "counterpart" in body["hints"]["refine"]
 
 
 def test_before_a_load_the_profile_guesses(client, fake, monkeypatch):
@@ -119,10 +123,10 @@ def test_a_sweep_that_would_run_no_step_is_refused_by_name(client, fake, store):
     response = client.post("/api/grid", json=grid)
     assert response.status_code == 422
     assert "strength 0.1 of 4 steps is less than one step" in response.json()["detail"]
-    # And the panel's own strength, which the schema refuses before any route.
+    # And the panel's own strength, checked after the capability refusal.
     response = client.post("/api/generate", json={**grid, "strength": 0.2})
     assert response.status_code == 422
-    assert "strength 0.2 of 4 steps is less than one step" in response.json()["detail"][0]["msg"]
+    assert "strength 0.2 of 4 steps is less than one step" in response.json()["detail"]
     assert len(fake.requests) == made
 
 
@@ -167,3 +171,137 @@ def test_a_refine_with_no_strength_runs_at_the_checkpoints_own(client, fake, sto
     assert fake.requests[-1].strength == default_strength()
     newest = client.get("/api/gallery").json()["items"][0]
     assert (newest["refine"], newest["strength"]) == (first["id"], default_strength())
+
+
+@pytest.mark.parametrize("base,axes", [
+    ({"steps": 8}, {"strength_axis": "0.3,0.5"}),
+    ({"steps": 8, "strength": 0.1}, {"strength_axis": "0.3,0.5"}),
+    ({"steps": 4, "strength": 0.1}, {"steps_axis": "20,28"}),
+])
+def test_axes_replace_an_unused_invalid_base_pair(client, fake, base, axes):
+    first = _first(client)
+    payload = {"prompt": "a fox", "width": 256, "height": 256,
+               "refine": first["id"], "seed": 1, **base, **axes}
+    preview = client.post("/api/grid/preview", json=payload)
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["cells"] == 2
+    _, events = run_grid(client, **payload)
+    assert events[-1]["status"] == "done"
+    for request in fake.requests[-2:]:
+        request.check_refine_steps()
+
+
+@pytest.mark.parametrize("route", ["/api/generate", "/api/grid", "/api/grid/preview"])
+def test_unsupported_refine_precedes_invalid_step_pair(client, fake, route):
+    fake.refine_supported = False
+    response = client.post(route, json={"prompt": "x", "refine": 4242,
+                                       "steps": 4, "strength": 0.1})
+    assert response.status_code == 422
+    assert "has no refine pass" in response.json()["detail"]
+    assert fake.requests == []
+
+
+def test_live_unprofiled_refine_gets_the_fallback_strength(client, fake, monkeypatch):
+    described = dict(fake.describe(), model_id="someone/unprofiled-sdxl", refine_supported=True)
+    monkeypatch.setattr(fake, "describe", lambda: described)
+    defaults = client.get("/api/status").json()["defaults"]
+    assert defaults["refine_supported"] is True
+    assert defaults["refine_strength"] == 0.4
+
+
+@pytest.mark.parametrize("route,extra", [
+    ("/api/generate", {}),
+    ("/api/grid", {"strength_axis": "0.2,0.4", "seed": 1}),
+])
+def test_load_disproving_refine_guess_fails_before_any_render(client, fake, monkeypatch, route, extra):
+    first = _first(client)
+    made = len(fake.requests)
+    fake.loaded = False
+    describe = fake.describe
+    load = fake.load
+
+    def live_description():
+        return dict(describe(), model_id="black-forest-labs/FLUX.1-Kontext-dev",
+                    refine_supported=fake.refine_supported if fake.loaded else None)
+
+    def unsupported_load():
+        load()
+        fake.refine_supported = False
+
+    monkeypatch.setattr(fake, "describe", live_description)
+    monkeypatch.setattr(fake, "load", unsupported_load)
+    response = client.post(route, json={"prompt": "x", "refine": first["id"], **extra})
+    assert response.status_code == 200, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    assert done["status"] == "error"
+    assert "has no refine pass" in done["error"]
+    assert done["images"] == []
+    assert len(fake.requests) == made
+
+
+def test_refine_progress_totals_exist_before_the_first_callback(client, fake, monkeypatch):
+    from backend import main
+
+    first = _first(client)
+    entered = [threading.Event(), threading.Event()]
+    release = [threading.Event(), threading.Event()]
+    original_generate = fake.generate
+    original_run = main.jobs._run
+    queued_totals = []
+    calls = 0
+
+    async def observe_queued(job):
+        queued_totals.append(job.total_steps)
+        await original_run(job)
+
+    def held_generate(*args, **kwargs):
+        nonlocal calls
+        index = calls
+        calls += 1
+        entered[index].set()
+        assert release[index].wait(10), "test did not release the callback gate"
+        return original_generate(*args, **kwargs)
+
+    monkeypatch.setattr(main.jobs, "_run", observe_queued)
+    monkeypatch.setattr(fake, "generate", held_generate)
+    response = client.post("/api/grid", json={
+        "prompt": "x", "width": 256, "height": 256, "refine": first["id"],
+        "steps": 28, "strength_axis": "0.1,0.4", "num_images": 2, "seed": 1,
+    })
+    assert response.status_code == 200, response.text
+    job_id = response.json()["job_id"]
+    try:
+        for index, total in enumerate((6, 24)):
+            assert entered[index].wait(10)
+            snapshot = client.get(f"/api/jobs/{job_id}").json()
+            assert (snapshot["run"], snapshot["step"], snapshot["total_steps"]) == (index + 1, 0, total)
+            release[index].set()
+        assert queued_totals == [6]
+    finally:
+        for event in release:
+            event.set()
+        stream_job(client, job_id)
+
+
+def test_preview_prices_refine_from_matching_full_durations(client, fake, store):
+    from PIL import Image
+
+    from backend.schemas import GenerateRequest
+
+    first = _first(client)
+    payload = {"prompt": "x", "width": 384, "height": 384, "steps": 28, "seed": 1}
+    for extra, duration in (({}, 101304), ({"refine": first["id"], "strength": 0.1}, 16900)):
+        store.save_image(
+            Image.new("RGB", (384, 384)), GenerateRequest(**payload, **extra),
+            seed=1, duration_ms=duration, model_id=store.settings.model_id,
+        )
+    direct = client.post("/api/grid/preview", json=payload).json()
+    refined = client.post("/api/grid/preview", json={
+        **payload, "refine": first["id"], "strength": 0.1,
+    }).json()
+    unmeasured = client.post("/api/grid/preview", json={
+        **payload, "refine": first["id"], "strength": 0.4,
+    }).json()
+    assert direct["seconds"] == 101.3
+    assert refined["seconds"] == 16.9
+    assert unmeasured["seconds"] is None

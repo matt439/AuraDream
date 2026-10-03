@@ -395,7 +395,11 @@ there under the request's own prompt, negative prompt, steps, CFG and seed.
 **It runs the sibling pipeline over the components already loaded.**
 diffusers ships an image-to-image class beside most text-to-image ones, by
 name (`FluxImg2ImgPipeline` beside `FluxPipeline`) and over the same
-components, so nothing is downloaded and nothing more is held on the card.
+components, so no extra weights are downloaded or allocated. With model
+offload, the source's VAE encode keeps the VAE resident beside the denoiser
+through the pass until the final cleanup; the measured WAI and FLUX.1 peaks
+are about 0.16 GiB above a direct render at the same size. Sharing weights
+does not imply the same peak residency.
 `refine.sibling(type(pipe))` is the lookup, and the whole capability: the
 name with `Img2Img` in it, only for the class diffusers itself exports under
 the pipeline's name (a local class that merely shares one has components
@@ -415,6 +419,8 @@ written: the loader is model-agnostic, and so is this. Each profile carries
 `refine_supported` as its guess before a load, `describe()` answers from the
 class after it, `/api/status` merges the two like `reference_supported`, and
 `tests/test_refine.py` holds every guess to the installed diffusers.
+If the live class supports the pass but the profile has no strength, status
+reports `refine.DEFAULT_STRENGTH`, matching request defaults and the tooltip.
 
 **`refine.build`, not `from_pipe`.** `DiffusionPipeline.from_pipe` is the
 library's own way to make one pipeline from another "without reallocating
@@ -468,16 +474,21 @@ The pipeline builds the full `num_inference_steps` schedule and starts part
 of the way down it, and how the count rounds is the pipeline's own: SDXL
 runs `int(steps * strength)`, the flow pipelines `steps - int(steps -
 steps * strength)`, so 28 steps at 0.4 is 11 on SDXL and 12 on FLUX.1. The
-row records `steps` as asked - it is what reproduces the pass - and three
-things count the steps that run instead: the step callback reads
-`pipe.num_timesteps` for the progress events, `storage.step_cost_ms` divides
-a refine row's duration by `refine.steps_run` (the floor, at least one) so
-that a size reached mostly by refining does not price a direct render at a
-third of its cost, and `grid.estimate_seconds` multiplies back by the same
-count. SDXL's call raises below one step, so
-`GenerateRequest._refine_leaves_a_step` refuses `int(steps * strength) < 1`
-when the request is built - which for a grid is every cell, at submit,
-by name. The preview reads its sigma at `scheduler.begin_index + step + 1`:
+row records `steps` as asked - it is what reproduces the pass. Progress and
+estimates account for the sliced schedule: the step callback reads
+`pipe.num_timesteps` for progress events, while the initial job total uses
+`refine.steps_run` with the checkpoint's integer rounding. `refine.start_index`
+also makes the duplicate advisory count strengths that begin at the same
+step; reproduction keys retain the requested strength. `storage.step_cost_ms`
+uses direct rows only. `storage.refine_cost_ms` keeps full per-image refine
+durations, including encoding and decoding, grouped by actual denoised step
+count at the same size and checkpoint. A refine estimate needs matching
+history for every count; it does not extrapolate from direct renders or a
+different count. SDXL's call raises below one step, so
+`GenerateRequest.check_refine_steps()` refuses `int(steps * strength) < 1`
+after the capability check, and for a grid checks each expanded cell by name
+instead of unused base values. The preview reads its sigma at
+`scheduler.begin_index + step + 1`:
 a pass starts at the index its pipeline set on the scheduler, and read from
 the top the gain was that of a far noisier step than the one just taken.
 
@@ -497,7 +508,9 @@ never a path, resolved through `storage.reference_paths` under its own noun;
 refused at submit (`_refuse_unusable_inputs`, and the CLI before its load)
 where the checkpoint has no pass or the image is gone, because a night of
 refinements that rendered as plain text-to-image at the larger size would be
-a night of new pictures; and dropped by `applied()` where it gets past that,
+a night of new pictures. Jobs and the CLI check again after loading, before
+any cell renders, and fail if the live capability would drop the requested
+source. `applied()` still normalises an unsupported pass away,
 with the strength back at its default - a strength with no source is not a
 setting, as a LoRA weight with no adapter is not - and with any references,
 since the sibling's `image` is the source. `refine` and `strength` are
@@ -507,10 +520,21 @@ grammar, `strength` and `refine` in `stats --by`, and the fourth optional
 element of `CellKey` (`grid.refine_key`, `id@strength`). Re-render,
 `--from-image` and Reuse carry both; a database merge remaps the source id
 with the reference ids and drops one whose image did not come across.
+PNG-only recovery uses `reference_sources` and `refine_source` descriptors
+(filename, decoded-pixel hash and dimensions), recorded by `save_image` and
+database merges. It imports each proven source first, then records its new id.
+Legacy ids without provenance, mismatches and missing sources are cleared
+and counted as unresolved; an unproven id is never used as a destination id.
+Changed links are written back into in-place PNG metadata too, without
+recompressing pixels, so `--from-image` sees the same links as the rebuilt row.
 `GridRequest.strength_axis` (`--grid-strength`) is an axis only beside a
 source. The page asks `GET /api/images/{id}` for a source it holds by id
 alone - restored from localStorage, or from Reuse on a refined record - to
-learn its size for the scale buttons, and that it is still there.
+learn its size for the scale buttons, and that it is still there. Submit
+checks a source again; a missing one is cleared with a note and aborts that
+submit. The size stays as shown, so another Generate is an explicit direct
+render. Reuse retains a source when support is unavailable and blocks Generate
+and Run grid until the model is loaded with support or the source is removed.
 
 **A strength is an index into the checkpoint's schedule, so where it starts
 is the profile's.** The first version had one default, 0.4, inside the
@@ -520,12 +544,13 @@ image the pass kept the composition and repainted the man's face, at 0.4 and
 still at 0.2. The pipelines turn a strength into a *step index* and the
 schedule's shift then decides the noise level at that index. SDXL's epsilon
 schedule at 0.4 starts where the signal-to-noise ratio is that of a flow
-sigma of about 0.53. FLUX.1's shift is dynamic and grows with the size - mu
+sigma of about 0.50 (leading spacing, 28 steps). FLUX.1's shift is dynamic and grows with the size - mu
 is 1.15 at 1 MP and 2.0 at the 2.4 MP a 1.5x pass renders - so its 28-step
 schedule there spends nearly all its steps at high noise: strength 0.4
 starts at sigma 0.85, 0.2 at 0.67, 0.15 at 0.62, 0.1 at 0.47 and 0.05 at
-0.37 (read off `scheduler.sigmas` at `begin_index` in each run, and equal to
-the formula's). The face held at 0.05 and 0.1 and began to change at 0.15.
+0.37. The 0.85 and 0.67 values are computed from the schedule; 0.62, 0.47 and
+0.37 were read off `scheduler.sigmas` at `begin_index` in the logged sweep
+and match the formula. The face held at 0.05 and 0.1 and began to change at 0.15.
 So `refine_strength` is a profile key, seeded into the Strength box per
 control like steps and CFG (`owned.strength`), filled in by the schema for a
 request that names none (`schemas.default_strength`), and what `applied()`
@@ -548,7 +573,8 @@ of its profile's own step count (`tests/test_refine.py`), or the Refine
 button on a 4-step checkpoint would set up a request the schema refuses. A
 checkpoint the table does not know has no number of its own and runs at
 `refine.DEFAULT_STRENGTH`. Two consequences are FLUX.1's alone and the
-tooltip says both: 2x redraws more than 1.5x at one strength (at 4 MP mu is
+tooltip says both: the schedule predicts 2x redraws more than 1.5x at one strength
+(no 2x pass was measured; at 4 MP mu is
 3.2, and even the schedule's last step starts near sigma 0.5), and a Mu set
 for the pass moves the index back - measured, Mu 1.15 at strength 0.2 starts
 at sigma 0.46 with 6 steps where the native schedule's 0.1 starts at 0.47
@@ -851,10 +877,12 @@ not something that round-trips back to the prompt it came from.
 
 `POST /api/grid/preview` runs the same expansion without queueing it, so the
 panel's count, its resolved axes and its error text are the run's own. Its
-duration estimate is per *step* (`storage.step_cost_ms`), measured from recent
-gallery rows at the same size **on the same checkpoint** (klein's step is half
+direct-render duration estimate is per *step* (`storage.step_cost_ms`), measured
+from recent direct gallery rows at the same size **on the same checkpoint** (klein's step is half
 of Turbo's at 1 MP): a grid's cells disagree about step count, so an average
-image duration would misstate most of them. No rows, no estimate.
+image duration would misstate most of them. Refine estimates instead use full
+per-image durations for the matching denoised step count, as described in
+the refine section. No matching history, no estimate.
 
 ## Resume keys on settings
 
@@ -1485,7 +1513,9 @@ as is a negative prompt the pipeline dropped against none. The companion is
 `grid.duplicate_count`: `GridPreview.duplicates` and the CLI's dry run
 count the cells whose *applied* key repeats an earlier one (a
 negative-prompt-only variable on klein, a CFG axis under the threshold),
-compared through `backend.applied()` so the capability flags decide; the
+compared through `backend.applied()` so the capability flags decide. Refine
+cells compare their integer schedule start, not the raw strength, only in
+this advisory; resume and run ids keep the requested strength. The
 cells are still rendered as spelled - dropping them would leave a `{avoid}`
 axis with one cell of three and a sheet unable to say why.
 

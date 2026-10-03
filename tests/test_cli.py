@@ -566,6 +566,10 @@ def test_refine_flags_need_a_source_and_one_way_of_sizing(cli, store):
         ["a fox", "--grid-strength", "0.2,0.4", *SIZE],
         ["a fox", "--refine", str(source.id), "--scale", "2", *SIZE],
         ["a fox", "--refine", str(source.id), "--scale", "0"],
+        ["a fox", "--refine", str(source.id), "--scale", "nan"],
+        ["a fox", "--refine", str(source.id), "--scale", "inf"],
+        ["a fox", "--refine", str(source.id), "--scale=-inf"],
+        ["a fox", "--refine", str(source.id), "--scale", "1e308"],
     ):
         with pytest.raises(SystemExit) as raised:
             generate.main(argv)
@@ -624,3 +628,33 @@ def test_a_strength_sweep_from_the_terminal(cli, store, capsys):
     # Resumed, all three are in the gallery under the keys the cells carry.
     assert generate.main([*argv, "--resume", "-q"]) == 0
     assert len(cli.requests) == 3
+
+
+@pytest.mark.parametrize("axes", [
+    ["--steps", "8", "--grid-strength", "0.3,0.5"],
+    ["--steps", "4", "--grid-steps", "20,28"],
+])
+def test_refine_cli_checks_actual_cells_after_axes_replace_base(cli, store, axes):
+    source = _to_refine(store)
+    argv = ["a fox", "--refine", str(source.id), "--strength", "0.1", *axes]
+    assert generate.main([*argv, "--dry-run"]) == 0
+    assert cli.loads == 0
+    assert generate.main([*argv, "-q"]) == 0
+    assert len(cli.requests) == 2
+
+
+def test_cli_rechecks_refine_after_loading_before_any_cell(cli, store, monkeypatch, capsys):
+    source = _to_refine(store)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.1-Kontext-dev"))
+    load = cli.load
+
+    def unsupported_load():
+        load()
+        cli.refine_supported = False
+
+    monkeypatch.setattr(cli, "load", unsupported_load)
+    assert generate.main(["a fox", "--refine", str(source.id),
+                          "--grid-strength", "0.2,0.4", "--seed", "1", "-q"]) == 2
+    assert "has no refine pass" in capsys.readouterr().err
+    assert cli.loads == 1 and not cli.loaded and cli.requests == []
+    assert store.list_images()[1] == 1

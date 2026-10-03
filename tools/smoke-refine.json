@@ -30,6 +30,10 @@
   {"expect": "lastDefaults.refine_strength === 0.1 && collect().strength === 0.1 && !owned.strength && els.refineTip.textContent.includes('starts at 0.1 on this checkpoint')"},
   {"expect": "els.error.textContent.includes('Generate runs the pass') && els.error.classList.contains('note')"},
 
+  {"log": "'an empty Strength box uses the profile in the note and in the generated row'"},
+  {"eval": "els.strength.value = ''; refineFrom(galleryRecords.find((r) => r.id === window.__source));"},
+  {"expect": "collect().strength === undefined && els.error.textContent.includes('strength 0.1. Generate runs the pass')"},
+
   {"log": "'the size line says it is a refine pass, and does not warn that 2.3 MP is past the range a direct render is recommended for'"},
   {"expect": "els.sizeHint.textContent.includes('refining image ' + window.__source + ' at 1.5× its size') && !els.sizeHint.classList.contains('warn')"},
 
@@ -70,6 +74,11 @@
   {"wait": 500},
   {"expect": "refineSource && refineSource.id === window.__source && refineSource.width === 896 && +els.strength.value === 0.1 && owned.strength"},
   {"expect": "+els.width.value === 1344 && +els.height.value === 1728 && els.refineScales.children[1].classList.contains('active')"},
+  {"log": "'Reuse of another checkpoints pass warns about its restored Strength as well as steps, CFG and mu'"},
+  {"eval": "reuse({...viewerRecords[0], model_id: 'LyliaEngine/waiIllustriousSDXL_v170', strength: 0.4});"},
+  {"wait": 500},
+  {"expect": "collect().strength === 0.4 && owned.strength && els.error.textContent.includes('steps, CFG, mu and Strength') && els.error.textContent.includes('before generating')"},
+  {"eval": "reuse(viewerRecords[0]);"},
   {"log": "'and Reuse on a plain record clears it'"},
   {"eval": "reuse(galleryRecords.find((r) => r.id === window.__source));"},
   {"expect": "refineSource === null && +els.width.value === 896 && collect().refine === null"},
@@ -93,9 +102,13 @@
   {"wait": 600},
 
   {"log": "'a sweep that would leave no step is refused in the preview, by name'"},
-  {"eval": "els.steps.value = 4; els.steps.dispatchEvent(new Event('input', {bubbles: true})); els.gridStrength.value = '0.1,0.5'; previewGrid();"},
+  {"eval": "els.steps.value = 4; els.steps.dispatchEvent(new Event('input', {bubbles: true})); els.strength.value = 0.5; els.gridStrength.value = '0.1,0.5'; previewGrid();"},
   {"wait": 900},
-  {"expect": "els.gridPreview.classList.contains('warn') && els.gridPreview.textContent.includes('less than one step')"},
+  {"expect": "els.gridPreview.classList.contains('warn') && els.gridPreview.textContent.includes('strength 0.1 of 4 steps') && els.gridPreview.textContent.includes('less than one step')"},
+  {"log": "'the valid axis replaces an invalid panel pair, proving the preview checks the actual cells'"},
+  {"eval": "els.strength.value = 0.1; els.gridStrength.value = '0.5,0.75'; previewGrid();"},
+  {"wait": 900},
+  {"expect": "!els.gridPreview.classList.contains('warn') && els.gridPreview.textContent.includes('2 images')"},
   {"eval": "els.steps.value = 28; els.steps.dispatchEvent(new Event('input', {bubbles: true})); els.gridStrength.value = '0.2,0.4,0.6'; els.strength.value = 0.25; els.strength.dispatchEvent(new Event('input', {bubbles: true})); persistPanel();"},
 
   {"log": "'the panel remembers the source and the axis across a reload, and a strength the user set stays theirs on this checkpoint'"},
@@ -110,11 +123,20 @@
   {"eval": "window.__kept = refineSource.id; refineSource = { id: 424242, width: null, height: null }; renderRefine(); void loadRefineSource();"},
   {"wait": 500},
   {"expect": "refineSource === null && els.error.textContent.includes('Image 424242, the refine source, is no longer in the gallery')"},
-  {"log": "'and deleting the source from the gallery drops the chip with it'"},
-  {"eval": "setRefine({ id: window.__kept, width: 896, height: 1152 }, 1.5); forgetImages([window.__kept]);"},
-  {"expect": "refineSource === null && document.querySelectorAll('#refine-source .chip').length === 0"},
+  {"log": "'and deleting the source from this tab drops the chip with an explicit note about the next direct render'"},
+  {"eval": "refineFrom(galleryRecords.find((r) => r.id === window.__kept)); window.__confirmDelete = window.confirm; window.confirm = () => true; deleteImage(galleryRecords.find((r) => r.id === window.__kept)).finally(() => { window.confirm = window.__confirmDelete; });"},
+  {"expect": "refineSource === null && document.querySelectorAll('#refine-source .chip').length === 0 && els.error.textContent.includes('The source was cleared') && els.error.textContent.includes('next Generate renders from the prompt alone') && !els.error.textContent.includes('Generate runs the pass')"},
+  {"expect": "+els.width.value === 1344 && +els.height.value === 1728"},
   {"eval": "resetGallery();"},
   {"wait": 600},
+
+  {"log": "'a source deleted elsewhere is checked before Generate, grid and comparison: that click makes no direct replacement'"},
+  {"eval": "window.__missingChecks = []; (async () => { for (const kind of ['generate', 'grid', 'comparison']) { resetPanel(); els.prompt.value = 'a source deleted elsewhere'; els.width.value = 256; els.height.value = 256; await startJob('/api/generate', collect()); const source = viewerRecords[0]; refineFrom(source); await api(`/api/images/${source.id}`, {method: 'DELETE'}); const before = (await api('/api/gallery?limit=1')).total; let payload = collect(); let path = '/api/generate'; if (kind !== 'generate') { path = '/api/grid'; payload = gridPayload(); } if (kind === 'comparison') { await checkPrompt(); els.compareOwn.value = 'another version'; compareOwnChanged(); payload = comparePayload(comparedVariants()); } await startJob(path, payload, kind === 'comparison'); const after = (await api('/api/gallery?limit=1')).total; window.__missingChecks.push({kind, before, after, cleared: refineSource === null, note: els.error.textContent, submitting, busy}); } })()"},
+  {"expect": "window.__missingChecks.length === 3 && window.__missingChecks.every((r) => r.before === r.after && r.cleared && !r.submitting && !r.busy && r.note.includes('The source was cleared') && r.note.includes('next Generate renders from the prompt alone'))"},
+
+  {"log": "'Delete unstarred keeps the source-cleared warning beside its deletion summary'"},
+  {"eval": "(async () => { resetPanel(); els.prompt.value = 'a source for bulk deletion'; els.width.value = 256; els.height.value = 256; await startJob('/api/generate', collect()); const source = viewerRecords[0]; refineFrom(source); els.search.value = 'job:' + source.job_id; await resetGallery(); const saved = window.prompt; window.prompt = () => '1'; try { await deleteUnstarred(); } finally { window.prompt = saved; } })()"},
+  {"expect": "refineSource === null && els.error.textContent.includes('Deleted 1 image') && els.error.textContent.includes('The source was cleared') && els.error.textContent.includes('next Generate renders from the prompt alone')"},
 
   {"log": "'Reset puts the box back: no source, the checkpoints starting strength, an empty axis'"},
   {"eval": "setRefine({ id: window.__kept, width: 896, height: 1152 }, 1.5); els.strength.value = 0.7; resetPanel(); showError('');"},

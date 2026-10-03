@@ -130,6 +130,13 @@ async function startJob(path, payload, showSheet = false) {
   if (critiquing) { showError('Wait for the critic to finish.'); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
+  // An unloaded, off-catalogue checkpoint may have a pass the profile cannot
+  // predict. Keep the selected source visible and never quietly submit the
+  // larger canvas as a direct render when collect() could not carry it.
+  if ('refine' in payload && payload.refine == null && refineSource && !refineSupported) {
+    showError(unavailableRefineNote(), true);
+    return;
+  }
   showError('');
   // Already watching a job: this one queues behind it on the server, and the
   // page picks it up when the watched one ends. The panel stays as it is.
@@ -141,6 +148,11 @@ async function startJob(path, payload, showSheet = false) {
   }
 
   try {
+    if (payload.refine != null && !await loadRefineSource(payload.refine, { strict: true })) {
+      setSubmitting(false);
+      if (!queueing) setBusy(false);
+      return;
+    }
     const { job_id, seed } = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -306,6 +318,11 @@ async function previewGrid() {
   if (!els.prompt.value.trim()) {
     els.gridPreview.classList.remove('warn');
     els.gridPreview.textContent = 'Enter a prompt above to see what this grid would run.';
+    return;
+  }
+  if (refineSource && !refineSupported) {
+    els.gridPreview.classList.add('warn');
+    els.gridPreview.textContent = unavailableRefineNote();
     return;
   }
   try {

@@ -325,11 +325,13 @@ Reproduction:
   was handed - and let go on unload. `refine_supported` is profiled before a
   load, each guess held to the installed diffusers, and the class's answer
   after it; unsupported, or a source that is gone, is refused at submit and
-  by the CLI, and `applied()` drops the source, puts `strength` back to
+  by the CLI. Both recheck after loading and fail before rendering if the
+  live capability would drop the requested source. `applied()` drops the source, puts `strength` back to
   the checkpoint's default with it, and drops references under a pass. That
   default is the profile's `refine_strength` (`schemas.default_strength`,
   `refine.DEFAULT_STRENGTH` where the profile names none), filled in for a
-  request that gives no strength and seeded into the Strength box per
+  request that gives no strength and returned by live status when an
+  unprofiled pipeline supports the pass, and seeded into the Strength box per
   control (`owned.strength`), because a strength is an index into the
   checkpoint's own schedule: 0.4 on SDXL, 0.1 on FLUX.1 [dev], where 0.4
   repaints a face. Each value must leave a step of its profile's own step
@@ -341,14 +343,24 @@ Reproduction:
   The loaded pipeline's `maybe_free_model_hooks()` runs in that method's
   `finally`: the sibling has no hook list of its own. `steps` on the row is
   the schedule's length, of which about `steps * strength` run
-  (`refine.steps_run`, the floor; the step callback reports the pipeline's
-  own count): `storage.step_cost_ms`, `grid.estimate_seconds` and a job's
-  `total_steps` count those. A strength that leaves less than one step is
-  refused when the request is built, so per grid cell. `refine_key`
+  (`refine.steps_run`, SDXL/flow rounding from `refine.start_index`; unknown
+  profiles use the floor until the callback supplies the pipeline's count).
+  A job's initial `total_steps` uses that count. `storage.step_cost_ms` prices
+  direct rows only; `storage.refine_cost_ms` prices a pass from full per-image
+  durations at the same size, checkpoint and denoised step count, with no
+  estimate where matching history is absent. The duplicate advisory compares
+  schedule start indices; reproduction keys retain the requested strength.
+  `GenerateRequest.check_refine_steps()` refuses less than one step after
+  the capability check and on each expanded grid cell, never the unused base.
+  `refine_key`
   (`id@strength`) is `CellKey`'s fourth optional element;
   `GridRequest.strength_axis` is an axis only beside a source, as the LoRA
   weight is only beside an adapter. Re-render, `--from-image` and Reuse carry
-  both; a database merge remaps the source id as it does a reference's. The
+  both; a database merge remaps the source id as it does a reference's.
+  PNGs also carry `reference_sources`/`refine_source` descriptors (filename,
+  pixel hash and dimensions): PNG-only recovery verifies these before
+  assigning new ids, clears/counts unproven legacy or missing links, and
+  rewrites changed ids in PNG metadata even during an in-place rebuild. The
   CLI's `--scale` and the page's scale buttons share one rounding
   (`refine.scaled`, half up).
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
@@ -727,14 +739,19 @@ Frontend and CLI:
   `setRefine`, `refineFrom` (the card's and the lightbox's Refine: the
   image's own settings through `fillPanel`, itself as the source, 1.5x its
   size or the largest factor that fits) and `reuse`, which restores a
-  refined record's pass and clears it for a plain one. `collect()` sends the
+  refined record's pass and clears it for a plain one. Reuse keeps a source
+  when support is unavailable and Generate/Run grid block until the model
+  has loaded with support or the source is removed. `collect()` sends the
   source only where `refineSupported`, and `strength` only beside one. The
   Strength box follows the profile's `refine_strength` until the user or
   Reuse sets it, and is remembered with the checkpoint like steps and CFG. The
   size line drops the documented-range warning under a source - the range is
   about direct renders - and says how the size relates to it. A source that
-  is deleted, here or elsewhere, is dropped with a note rather than left for
-  the server to refuse.
+  is deleted here is cleared with a note; before submit the source is checked
+  again, and a missing source is cleared with that note and the submit aborted.
+  The note explains that size stays unchanged and another Generate renders
+  directly. A prompt comparison blanks `strength_axis` along with every other
+  grid axis and names its refine source in the preview.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets
@@ -821,6 +838,11 @@ row, the PNG, the key, the migration, the reindex and the merge),
 strength axis with resume, `GET /api/images/{id}`, Re-render) and the CLI's
 flags in `tests/test_cli.py`. What a pass does to pixels, its time and its
 memory are the card's to say, in `docs/verified.md`.
+`tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
+databases, missing or mismatched source identities and safe in-place metadata
+remapping. API tests hold a fake before its first callback to check initial
+per-cell progress totals, and API/CLI tests cover axis replacements and the
+capability refusal both before and after loading.
 
 The prompt analyser is tested the same way, with no network and no GPU:
 `test_prompt_encoding.py` (budgets, cuts, templates held to the
@@ -956,6 +978,15 @@ Refine buttons answering with it.
 uv run python tools/fake_server.py --port 7875 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-refine.json
 ```
+
+On the same FLUX fake at 7875, `smoke-comparison-refine.json` checks that a
+remembered strength axis in a folded grid cannot multiply a comparison,
+including its saved records, paired seeds and complete sheet.
+`smoke-refine-unavailable.json` checks retained Reuse and remembered sources
+under an unloaded off-catalogue capability guess, blocked Generate/grid,
+recovery after loading, and explicit source removal. `smoke-refine.json` also
+covers source deletion here and elsewhere, blank Strength notes and a sweep's
+own invalid cell rather than its unused base strength.
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on
 7874: the CLIP cut, the negation and quote findings with their sources, span

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import math
 import signal
 import sys
 import time
@@ -139,7 +140,7 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="S",
         help="how much of the source a refine pass redraws, above 0 up to 1: low keeps "
         "the picture, 1 keeps nothing. Defaults to the checkpoint's own starting "
-        "strength (0.4 on SDXL, lower on the flow-matching checkpoints). About "
+        "strength (0.4 on SDXL, 0.1 on FLUX.1 dev, 0.5 on FLUX.1 schnell). About "
         "steps x S of the steps run",
     )
     conditioning.add_argument(
@@ -464,8 +465,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.scale is not None:
         if size_flags:
             parser.error("--scale and --width/--height/--aspect/--mp are alternatives; pick one")
-        if args.scale <= 0:
-            parser.error("--scale must be above zero")
+        if not math.isfinite(args.scale) or args.scale <= 0:
+            parser.error("--scale must be finite and above zero")
     # A size from the flags or from the PNG; a refine pass with neither takes
     # the source's own, scaled, once the gallery can be read.
     sized = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
@@ -480,8 +481,8 @@ def main(argv: list[str] | None = None) -> int:
     # reported, about a pass that could never have run.
     if args.refine is not None and not p.defaults_for(p.settings.model_id)["refine_supported"]:
         print(
-            f"{p.settings.model_id} has no refine pass - diffusers ships no image-to-image "
-            "pipeline beside its own. The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints "
+            f"{p.settings.model_id} has no refine pass in this app - its integration has no "
+            "compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints "
             "have one.",
             file=sys.stderr,
         )
@@ -498,9 +499,12 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
-        width, height = p.refine.scaled(
-            refined_from.width, refined_from.height, args.scale or p.refine.DEFAULT_SCALE
-        )
+        try:
+            width, height = p.refine.scaled(
+                refined_from.width, refined_from.height, args.scale or p.refine.DEFAULT_SCALE
+            )
+        except (ValueError, OverflowError):
+            parser.error("--scale produces a size outside the supported range")
 
     profile = p.defaults_for(p.settings.model_id)
     mu = None if args.no_mu else (args.mu if args.mu is not None else profile["mu"])
@@ -837,7 +841,8 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"WARNING  : {duplicates} of {total_images} image(s) would be identical to "
                 "an earlier one - an axis this checkpoint ignores (a negative-prompt "
-                "variable, a CFG at or below the threshold)"
+                "variable, a CFG at or below the threshold), or strengths selecting "
+                "the same denoising start"
             )
         print(
             f"output   : {total_images} image(s) - {len(cells)} run(s) x "
@@ -852,6 +857,9 @@ def main(argv: list[str] | None = None) -> int:
             seconds = p.grid.estimate_seconds(
                 cells,
                 p.storage.step_cost_ms(request.width, request.height, p.settings.model_id),
+                refine_costs=p.storage.refine_cost_ms(
+                    request.width, request.height, p.settings.model_id
+                ),
             )
             if seconds is not None:
                 print(f"estimate : about {_duration(seconds)} of generation, plus the load")
@@ -933,6 +941,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     loading = False
+    try:
+        for cell in cells:
+            backend.check_refine_supported(cell.request)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        backend.unload()
+        return 2
     if not args.quiet:
         info = backend.describe()
         device = info.get("device_name") or p.settings.device

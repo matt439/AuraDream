@@ -109,6 +109,18 @@ class GenerationBackend(abc.ABC):
         """
         return False
 
+    def check_refine_supported(self, request: "GenerateRequest") -> None:
+        """Refuse a pass the loaded pipeline cannot perform, before any cell.
+
+        A profile is only a pre-load guess for an unfamiliar checkpoint id.
+        Normalization must not turn an accepted refine job into direct renders.
+        """
+        if request.refine is not None and self.applied(request).refine != request.refine:
+            raise ValueError(
+                f"{self.describe()['model_id']} has no refine pass in this app; "
+                "the loaded pipeline has no compatible image-to-image counterpart"
+            )
+
     def prompt_expansion_supported(self) -> bool:
         """Whether this backend can turn a short prompt into a reviewed one.
 

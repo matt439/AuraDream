@@ -46,7 +46,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .config import settings
-from .refine import steps_run
+from .refine import start_index, steps_run
 from .schemas import GenerateRequest, PromptVariant
 from .seeds import random_seed, wrap_seed
 
@@ -502,7 +502,10 @@ def cell_key(cell: "Cell") -> CellKey:
     )
 
 
-def duplicate_count(cells: list["Cell"], applied: Callable[[GenerateRequest], GenerateRequest]) -> int:
+def duplicate_count(
+    cells: list["Cell"], applied: Callable[[GenerateRequest], GenerateRequest],
+    model_id: str | None = None,
+) -> int:
     """How many cells would render the very same image as an earlier cell.
 
     Compared as the pipeline will *run* them, not as the panel spelled them:
@@ -511,13 +514,21 @@ def duplicate_count(cells: list["Cell"], applied: Callable[[GenerateRequest], Ge
     under a CFG that never clears the threshold - those three cells run the
     same prompt, steps, seed and generator and produce three identical PNGs
     while the preview reports three prompts and triples the estimate. Counted
-    per image of a batch, like resume.
+    per image of a batch, like resume. Refine strengths that select the same
+    integer schedule start are identical here; resume keys and run ids still
+    retain the requested strength.
     """
     seen: set[CellKey] = set()
     duplicates = 0
     for cell in cells:
         ran = Cell(request=applied(cell.request), seed=cell.seed)
         for key in cell_keys(ran):
+            if ran.request.refine is not None:
+                start = start_index(
+                    ran.request.steps, ran.request.strength, model_id or settings.model_id
+                )
+                if start is not None:
+                    key = (*key[:8], f"{ran.request.refine}@step:{start}", key[9])
             if key in seen:
                 duplicates += 1
             else:
@@ -562,7 +573,7 @@ def denoised_steps(request: GenerateRequest) -> int:
     of the schedule a refine pass's strength leaves (`refine.steps_run`)."""
     if request.refine is None:
         return request.steps
-    return steps_run(request.steps, request.strength)
+    return steps_run(request.steps, request.strength, settings.model_id)
 
 
 def progress_steps(request: GenerateRequest) -> int:
@@ -577,21 +588,33 @@ def progress_steps(request: GenerateRequest) -> int:
     return denoised_steps(request) * request.num_images
 
 
-def estimate_seconds(cells: list[Cell], per_step_ms: float | None) -> float | None:
-    """How long these cells will take to generate, from a per-step cost.
+def estimate_seconds(
+    cells: list[Cell], per_step_ms: float | None, *,
+    refine_costs: dict[int, float] | None = None,
+) -> float | None:
+    """Generation time from direct step costs or matching refine durations.
 
     One helper for the preview and the CLI so the arithmetic is not written
     twice. Per *step* times the cell's steps times its batch: a grid's cells
     disagree about step count, so an average image duration would misstate
-    most of them. A refine cell counts the steps its strength leaves, which
-    is what `storage.step_cost_ms` divided its duration by. Generation time,
-    not wall clock - the CLI pays a load per invocation on top. None when
-    there was nothing to measure from.
+    most of them. Refine cells use full per-image durations at the same number
+    of denoised steps: their fixed encode/decode work must not be multiplied
+    away or priced from direct renders. No estimate if any cell has no matching
+    history. The CLI pays a load per invocation on top.
     """
-    if per_step_ms is None:
-        return None
-    total_steps = sum(denoised_steps(cell.request) * cell.request.num_images for cell in cells)
-    return round(per_step_ms * total_steps / 1000, 1)
+    total_ms = 0.0
+    for cell in cells:
+        request = cell.request
+        if request.refine is None:
+            if per_step_ms is None:
+                return None
+            image_ms = per_step_ms * request.steps
+        else:
+            image_ms = (refine_costs or {}).get(denoised_steps(request))
+            if image_ms is None:
+                return None
+        total_ms += image_ms * request.num_images
+    return round(total_ms / 1000, 1)
 
 
 def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
@@ -738,4 +761,5 @@ def expand(
                                         variables=assignment or None,
                                     )
                                 )
+                                cells[-1].request.check_refine_steps()
     return cells

@@ -326,6 +326,13 @@ share (15,600-15,800 MiB whole-card by `nvidia-smi` mid-pass), which is the
 spill the note at the head of this file describes: its per-step time there
 is about 4 s where the 1 MP source's is 1.5 s.
 
+Sharing the loaded weights does not imply the same peak memory. With model
+offload, the source's VAE encode leaves the VAE resident beside the denoiser
+until cleanup; WAI and FLUX.1 above peak about 0.16 GiB higher than their
+same-size direct renders. The October 3 review's tiny FLUX probe confirmed
+that residency ordering. It did not change offload behavior or measure other
+offload modes.
+
 | What | Result |
 | --- | --- |
 | The sibling over the loaded components | `StableDiffusionXLImg2ImgPipeline`, `FluxImg2ImgPipeline` and `ZImageImg2ImgPipeline` each ran from `refine.build` over the fp8-quantized, offload-hooked components of the loaded pipeline, with no second load; the device read 1.37-1.39 GiB after a pass, as after a text-to-image call |
@@ -344,8 +351,9 @@ These are single prompts per checkpoint, looked at by eye: they establish
 that the pass runs, reproduces and keeps the picture at each profile's
 starting strength, not a quality benchmark. Not measured: a 2x pass on any
 checkpoint; Animagine, Kohaku and Illustrious (the SDXL pipeline WAI
-exercises); FLUX.1 dev and schnell, Z-Image Turbo and Qwen-Image, whose
-starting strengths are the schedule arithmetic alone; int8 and full
+exercises); FLUX.1 dev, whose starting strength carries over the Krea dev
+measurement on the same schedule; schnell, Z-Image Turbo and Qwen-Image,
+whose starting strengths are schedule arithmetic alone; int8 and full
 bfloat16; any pass under Nunchaku in WSL, where seeds do not reproduce
 bit-for-bit to begin with; and the author's own WAI recipe, which upscales
 with R-ESRGAN 4x+ Anime6B where this pass resizes with Lanczos.

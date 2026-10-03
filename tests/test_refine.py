@@ -54,7 +54,7 @@ def test_the_profile_guess_matches_the_installed_diffusers(model_id, class_name)
     assert (found.__name__ if found else None) == SIBLINGS.get(class_name)
     # And the tooltip says which state the box is in.
     hint = hints_for(model_id)["refine"]
-    assert ("no image-to-image counterpart" in hint) is (found is None)
+    assert ("no compatible image-to-image counterpart" in hint) is (found is None)
 
 
 def test_the_local_pipelines_have_no_sibling():
@@ -107,9 +107,11 @@ def test_carried_names_every_argument_generate_passes():
 
 
 def test_the_steps_a_strength_leaves():
-    # A 28-step refine at 0.4 is 11 steps of work on SDXL and 12 on the flow
-    # pipelines; the estimate is the lower, and never nothing.
+    # An unknown family keeps the lower initial progress count; known
+    # profiles use their sibling's actual rounding.
     assert refine.steps_run(28, 0.4) == 11
+    assert refine.steps_run(28, 0.4, "black-forest-labs/FLUX.1-Krea-dev") == 12
+    assert refine.steps_run(28, 0.4, "KBlueLeaf/Kohaku-XL-Zeta") == 11
     assert refine.steps_run(8, 0.5) == 4
     assert refine.steps_run(4, 0.1) == 1
     assert refine.steps_run(28, 1.0) == 28
@@ -226,11 +228,11 @@ def test_references_have_nowhere_to_go_on_a_refine_pass():
     assert (ran.refine, ran.reference) == (None, [5])
 
 
-def test_a_strength_that_leaves_no_step_is_refused_when_the_request_is_built():
+def test_a_strength_that_leaves_no_step_is_refused_after_capability_is_checked():
     with pytest.raises(ValueError, match="strength 0.2 of 4 steps is less than one step"):
-        GenerateRequest(prompt="x", steps=4, refine=1, strength=0.2)
+        GenerateRequest(prompt="x", steps=4, refine=1, strength=0.2).check_refine_steps()
     # Not a setting without a source, so nothing to refuse.
-    GenerateRequest(prompt="x", steps=4, strength=0.2)
+    GenerateRequest(prompt="x", steps=4, strength=0.2).check_refine_steps()
     for bad in (0.0, 1.5, -0.1):
         with pytest.raises(ValueError):
             GenerateRequest(prompt="x", refine=1, strength=bad)
@@ -280,7 +282,11 @@ def test_the_estimate_and_the_progress_count_the_steps_that_run():
     assert grid.denoised_steps(request) == 14
     # Per image for the time, and through every image for the bar: a refine
     # batch is one call per image.
-    assert grid.estimate_seconds([cell], 100.0) == 2.8
+    assert grid.estimate_seconds([cell], 100.0, refine_costs={14: 1800.0}) == 3.6
+    # A direct timing cannot price a pass's fixed encode/decode work, nor
+    # can a pass with a different denoised count.
+    assert grid.estimate_seconds([cell], 100.0) is None
+    assert grid.estimate_seconds([cell], 100.0, refine_costs={13: 1700.0}) is None
     assert grid.progress_steps(request) == 28
     plain = GenerateRequest(prompt="a fox", steps=28, num_images=2)
     assert grid.denoised_steps(plain) == 28 and grid.progress_steps(plain) == 28
@@ -344,16 +350,33 @@ def test_a_gallery_from_before_refining_gains_the_columns(tmp_path, monkeypatch)
     assert (record.refine, record.strength) == (1, 0.5)
 
 
-def test_step_cost_divides_a_refine_row_by_the_steps_it_ran(store):
-    # 1000 ms over a 10-step schedule at strength 0.5 is 5 steps of work:
-    # 200 ms a step, not 100. Divided by all ten, a size reached only by
-    # refining would price a direct render of it at half its cost.
-    store.save_image(
-        Image.new("RGB", (256, 256)),
-        GenerateRequest(prompt="x", width=256, height=256, steps=10, refine=1, strength=0.5),
-        seed=1, duration_ms=1000, model_id="test/model",
-    )
-    assert store.step_cost_ms(256, 256, "test/model") == 200.0
+def test_refine_timing_keeps_fixed_costs_and_cannot_price_direct_renders(store):
+    model = "black-forest-labs/FLUX.1-Krea-dev"
+    image = Image.new("RGB", (256, 256))
+    request = GenerateRequest(prompt="x", width=256, height=256, steps=28, refine=1, strength=0.1)
+    # Three actual steps on FLUX, with substantial fixed work per image.
+    # The median full duration must survive, without a per-step extrapolation.
+    for seed, duration in enumerate((16_800, 16_900, 17_000)):
+        store.save_image(image, request, seed=seed, duration_ms=duration, model_id=model)
+    assert store.step_cost_ms(256, 256, model) is None
+    assert store.refine_cost_ms(256, 256, model) == {3: 16_900}
+    assert store.refine_cost_ms(384, 384, model) == {}
+    assert store.refine_cost_ms(256, 256, "other/model") == {}
+
+    plain = request.model_copy(update={"refine": None})
+    store.save_image(image, plain, seed=8, duration_ms=101_304, model_id=model)
+    assert store.step_cost_ms(256, 256, model) == 3618
+    costs = store.refine_cost_ms(256, 256, model)
+    assert costs == {3: 16_900}
+    assert grid.estimate_seconds([grid.Cell(plain, 8)], 3618, refine_costs=costs) == 101.3
+    assert grid.estimate_seconds([grid.Cell(request, 8)], None, refine_costs=costs) == 16.9
+    # Two strengths at the same integer start use the same measured duration.
+    same_count = request.model_copy(update={"strength": 0.09, "num_images": 2})
+    assert grid.estimate_seconds([grid.Cell(same_count, 8)], None, refine_costs=costs) == 33.8
+    unmeasured = request.model_copy(update={"strength": 0.4})
+    assert grid.estimate_seconds([grid.Cell(unmeasured, 8)], 3618, refine_costs=costs) is None
+    assert grid.estimate_seconds([grid.Cell(plain, 8), grid.Cell(request, 8)], 3618,
+                                 refine_costs=costs) == 118.2
 
 
 def test_a_reindex_reads_the_source_and_strength_back(store, monkeypatch):
@@ -374,9 +397,10 @@ def test_a_reindex_reads_the_source_and_strength_back(store, monkeypatch):
     counts = reindex.reindex(store.settings.outputs_dir)
     assert counts["indexed"] == 2
     rebuilt = {r.filename: r for r in store.list_images()[0]}
-    # The chunk's own values, as a reference's ids are read back: the id is
-    # the one the gallery that wrote the file knew the source by.
-    assert (rebuilt[refined.filename].refine, rebuilt[refined.filename].strength) == (source.id, 0.3)
+    # Provenance resolves the source to this gallery's newly allocated id.
+    assert (rebuilt[refined.filename].refine, rebuilt[refined.filename].strength) == (
+        rebuilt[source.filename].id, 0.3
+    )
     assert (rebuilt[source.filename].refine, rebuilt[source.filename].strength) == (None, None)
 
 
@@ -482,7 +506,14 @@ class Img2ImgStub:
             prompt=prompt, image=image, strength=strength, generator=generator,
             num_images_per_prompt=num_images_per_prompt, negative_prompt=negative_prompt,
         ))
-        self.num_timesteps = num_inference_steps - int(num_inference_steps * (1 - strength))
+        # Run the installed sibling's own CPU timestep selection rather than
+        # duplicating its arithmetic in the fake.
+        schedule_view = SimpleNamespace(
+            scheduler=SimpleNamespace(timesteps=range(num_inference_steps), order=1)
+        )
+        _, self.num_timesteps = diffusers.FluxImg2ImgPipeline.get_timesteps(
+            schedule_view, num_inference_steps, strength, "cpu"
+        )
         for step in range(self.num_timesteps):
             callback_on_step_end(self, step, None, {})
         self.finished += 1
@@ -508,13 +539,14 @@ def refinable(store, monkeypatch):
     return backend, source
 
 
-def test_a_refine_runs_the_sibling_over_the_same_components(refinable):
+@pytest.mark.parametrize("strength, steps_run", [(0.4, 4), (0.45, 5)])
+def test_a_refine_runs_the_sibling_over_the_same_components(refinable, strength, steps_run):
     backend, source = refinable
     pipe = backend._pipe
     assert backend.describe()["refine_supported"] is True
     request = GenerateRequest(
         prompt="a fox, sharper", negative_prompt="blurry", guidance_scale=4.0,
-        width=256, height=384, steps=10, refine=source.id, strength=0.4, num_images=2,
+        width=256, height=384, steps=10, refine=source.id, strength=strength, num_images=2,
     )
     assert backend.applied(request).refine == source.id
     progress: list[tuple[int, int]] = []
@@ -532,11 +564,12 @@ def test_a_refine_runs_the_sibling_over_the_same_components(refinable):
     assert [c["generator"].initial_seed() for c in runner.calls] == [7, 8]
     # The source at the size asked for, and the rest of the request with it.
     assert all(c["image"].size == (256, 384) for c in runner.calls)
-    assert all(c["strength"] == 0.4 and c["negative_prompt"] == "blurry" for c in runner.calls)
+    assert all(c["strength"] == strength and c["negative_prompt"] == "blurry" for c in runner.calls)
     assert [image.size for image in images] == [(256, 384), (256, 384)]
-    # Progress counts the steps the pipeline says it ran - four of ten here -
-    # through both images rather than starting over.
-    assert progress == [(n, 8) for n in range(1, 9)]
+    # At 0.45 the installed flow sibling runs five steps, where the floor is
+    # four. Count through both images using the pipeline's own count.
+    total = steps_run * 2
+    assert progress == [(n, total) for n in range(1, total + 1)]
     # And the offload hooks were put back through the pipeline that owns them.
     assert pipe.freed == 1
 
@@ -558,6 +591,21 @@ def test_the_cli_silences_the_siblings_progress_bar_too(refinable):
         seed=1,
     )
     assert backend._refine_pipe.progress_bar == {"disable": True}
+
+
+def test_refine_preview_keeps_the_real_penultimate_step_and_skips_the_last(refinable, monkeypatch):
+    backend, source = refinable
+    monkeypatch.setattr(latent_preview, "INTERVAL_SECONDS", 0)
+    monkeypatch.setattr(backend, "_preview", lambda *args: b"jpeg")
+    previews = []
+    backend.generate(
+        GenerateRequest(prompt="x", width=256, height=384, steps=10,
+                        refine=source.id, strength=0.45, num_images=2),
+        seed=1, on_preview=lambda jpeg, step, total: previews.append((step, total)),
+    )
+    # The real flow slicing leaves five steps per image, not the floor's
+    # four: step four gets a preview and step five is the finished image.
+    assert previews == [(step, 10) for step in (1, 2, 3, 4, 6, 7, 8, 9)]
 
 
 def test_a_cancelled_refine_still_hands_the_card_back(refinable):

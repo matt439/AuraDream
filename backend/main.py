@@ -307,6 +307,10 @@ def _merged_defaults(info: dict) -> dict:
         if info.get(key) is not None:
             defaults[key] = info[key]
     defaults["lora_supported"] = bool(info.get("lora_supported"))
+    if defaults["refine_supported"] and defaults.get("refine_strength") is None:
+        from .refine import DEFAULT_STRENGTH
+
+        defaults["refine_strength"] = DEFAULT_STRENGTH
     return defaults
 
 
@@ -404,8 +408,8 @@ async def _refuse_unusable_inputs(request: GenerateRequest) -> None:
         if not _merged_defaults(info)["refine_supported"]:
             raise HTTPException(
                 status_code=422,
-                detail=f"{info['model_id']} has no refine pass - diffusers ships no "
-                "image-to-image pipeline beside its own. The FLUX.1, SDXL, Z-Image and "
+                detail=f"{info['model_id']} has no refine pass in this app - its integration "
+                "has no compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and "
                 "Qwen-Image checkpoints have one.",
             )
         try:
@@ -940,6 +944,10 @@ async def generate(request: GenerateRequest) -> JobAccepted:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     await _refuse_unusable_inputs(request)
+    try:
+        request.check_refine_steps()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     # The job waits on ensure_loaded() itself, so a previously failed load is
     # retried here rather than short-circuiting - the user may have just been
     # granted repo access.
@@ -1122,6 +1130,11 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
             await _refuse_unusable_inputs(cells[0].request.model_copy(
                 update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2]}
             ))
+    try:
+        for cell in cells:
+            cell.request.check_refine_steps()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     run_id = grid.run_id(cells, settings.model_id, settings.quantization)
     done = await asyncio.to_thread(
         storage.completed_cells,
@@ -1157,6 +1170,9 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     per_step_ms = await asyncio.to_thread(
         storage.step_cost_ms, request.width, request.height, settings.model_id
     )
+    refine_costs = await asyncio.to_thread(
+        storage.refine_cost_ms, request.width, request.height, settings.model_id
+    )
     per_image_bytes = await asyncio.to_thread(
         storage.image_bytes, request.width, request.height, settings.model_id
     )
@@ -1172,7 +1188,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
         # into one picture before the night is spent finding out.
         duplicates=grid.duplicate_count(cells, backend.applied),
         summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
-        seconds=grid.estimate_seconds(cells, per_step_ms),
+        seconds=grid.estimate_seconds(cells, per_step_ms, refine_costs=refine_costs),
         bytes=per_image_bytes * images if per_image_bytes else None,
     )
 

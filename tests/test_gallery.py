@@ -50,6 +50,7 @@ def test_the_png_carries_the_whole_reproduction_set(store):
         "prompt", "negative_prompt", "steps", "guidance_scale", "true_cfg", "mu", "seed",
         "model", "quantization", "job", "run", "size", "variables", "hash",
         "reference", "lora", "lora_scale", "refine", "strength",
+        "reference_sources", "refine_source",
     }
     assert (meta["seed"], meta["mu"], meta["run"], meta["quantization"]) == (5, 1.15, "run1", "fp8")
     assert meta["size"] == "256x256"  # the image's, not the request's

@@ -1,4 +1,20 @@
 {
+ "remediation": {
+  "date": "2026-10-04",
+  "status": "implemented",
+  "python_validation": {"command": "uv run --group dev pytest -q", "passed": 1878, "skipped": 4, "warnings": 31, "seconds": 160.39},
+  "addressed": ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "P1"],
+  "browser_smokes_passed": ["smoke-refine", "smoke-comparison-refine", "smoke-refine-unavailable", "smoke-conditioning", "smoke-comparison-batch", "smoke-analysis"],
+  "gpu_validation": "not run",
+  "notes": [
+   "Original findings and verdicts below remain historical evidence for the reviewed commit.",
+   "F5 includes the disputed CLI branch as hardening; both execution paths recheck after loading.",
+   "P1 was reproduced in headless Edge with an injected unloaded off-catalogue status and the original Reuse function, then fixed and regression tested.",
+   "F10 drops and counts legacy conditioning ids without verifiable source identity rather than interpreting them in the destination gallery.",
+   "F11 leaves refine timing unknown until matching refine history exists, preserving full per-image overhead.",
+   "F13 is a documentation correction; no offload implementation change or new GPU measurement."
+  ]
+ },
  "commit": "212f41c",
  "head": "ad24fe5",
  "date": "2026-10-03",

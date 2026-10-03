@@ -429,6 +429,12 @@ class JobManager:
         are written once and both paths get them.
         """
 
+        # The live class may disagree with the profile used at submit. Check
+        # the entire job before it saves anything, rather than fail each cell
+        # or quietly normalize its source away.
+        for cell in job.cells:
+            self.backend.check_refine_supported(cell.request)
+
         def should_cancel() -> bool:
             return job.cancel_requested
 

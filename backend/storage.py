@@ -23,7 +23,7 @@ from .config import settings
 # groups by.
 from .grid import VARIANT, lora_key, reference_key, refine_key
 from .metadata import PNG_METADATA_KEY
-from .refine import steps_run
+from .refine import start_index
 from .search import TRUE_CFG_SQL, like_escape, split_search, strict_scope
 from .schemas import ImageRecord, RunSummary, effective_true_cfg
 
@@ -308,6 +308,24 @@ def human_bytes(n: int | float) -> str:
     return f"{size:.1f} GB"
 
 
+def image_provenance(image_id: int | None) -> dict[str, Any] | None:
+    """Portable identity for a gallery-local conditioning id in a PNG.
+
+    Dimensions accompany the decoded-pixel hash because the hash itself does
+    not encode the shape. A filename locates the source during PNG recovery;
+    the hash and size verify it before any destination id can be assigned.
+    """
+    record = get_image(image_id) if image_id is not None else None
+    if record is None or not record.content_hash:
+        return None
+    return {
+        "filename": record.filename,
+        "hash": record.content_hash,
+        "width": record.width,
+        "height": record.height,
+    }
+
+
 def save_image(
     image: Image.Image,
     request: "GenerateRequest",
@@ -361,11 +379,13 @@ def save_image(
         # a row with no adapter say so by absence, which is what `applied()`
         # has already normalised them to.
         "reference": list(request.reference) or None,
+        "reference_sources": [image_provenance(i) for i in request.reference] or None,
         "lora": request.lora,
         "lora_scale": request.lora_scale if request.lora else None,
         # Likewise null together: the image this one refines and how far it
         # was re-denoised, or a text-to-image render.
         "refine": request.refine,
+        "refine_source": image_provenance(request.refine),
         "strength": request.strength if request.refine is not None else None,
     }
     info = PngImagePlugin.PngInfo()
@@ -487,7 +507,7 @@ def _stale_partials() -> list:
 def step_cost_ms(
     width: int, height: int, model_id: str | None = None, sample: int = 20
 ) -> float | None:
-    """Median milliseconds per denoising step at this size on this checkpoint.
+    """Median direct-render milliseconds per step at this size and checkpoint.
 
     Per *step*, not per image: a grid varies the step count across its cells, so
     an average image duration would over- or under-state most of them. Matched
@@ -496,33 +516,49 @@ def step_cost_ms(
     since klein's step is about half of Turbo's at the same size. None when the
     gallery has nothing to measure, which is the caller's cue to promise nothing.
 
-    A refine row's `steps` is the schedule's length, of which its strength ran
-    a part: its cost is over the steps that part comes to (`refine.steps_run`),
-    the same count `grid.estimate_seconds` multiplies back by. Divided by all
-    of them, a size reached mostly by refining would price a direct render at
-    a third of what it costs.
+    Refine rows are kept out: their fixed encode/decode costs dominate at low
+    strengths and cannot price a direct render. See `refine_cost_ms`.
     """
     scope = "AND model_id = ?" if model_id else ""
     scope_params = (model_id,) if model_id else ()
     with _session() as conn:
         rows = conn.execute(
-            f"""SELECT duration_ms, steps, refine, strength FROM images
-               WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0 {scope}
+            f"""SELECT duration_ms, steps FROM images
+               WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0
+                 AND refine IS NULL {scope}
                ORDER BY id DESC LIMIT ?""",
             (width, height, *scope_params, sample),
         ).fetchall()
     if not rows:
         return None
-    costs = sorted(
-        row["duration_ms"]
-        / (
-            steps_run(row["steps"], row["strength"])
-            if row["refine"] is not None and row["strength"] is not None
-            else row["steps"]
-        )
-        for row in rows
-    )
+    costs = sorted(row["duration_ms"] / row["steps"] for row in rows)
     return costs[len(costs) // 2]
+
+
+def refine_cost_ms(
+    width: int, height: int, model_id: str, sample: int = 100,
+) -> dict[int, float]:
+    """Median full refine duration per image, grouped by denoised step count.
+
+    Same size and checkpoint only, like the direct estimate. Matching the
+    count keeps the fixed resize, text and VAE work in every image's price;
+    one strength's timing is never extrapolated as a per-step rate. Unknown
+    families provide no estimate until their schedule rounding is known.
+    """
+    with _session() as conn:
+        rows = conn.execute(
+            """SELECT duration_ms, steps, strength FROM images
+               WHERE width = ? AND height = ? AND model_id = ? AND steps > 0
+                 AND duration_ms > 0 AND refine IS NOT NULL AND strength IS NOT NULL
+               ORDER BY id DESC LIMIT ?""",
+            (width, height, model_id, sample),
+        ).fetchall()
+    durations: dict[int, list[float]] = {}
+    for row in rows:
+        start = start_index(row["steps"], row["strength"], model_id)
+        if start is not None:
+            durations.setdefault(row["steps"] - start, []).append(row["duration_ms"])
+    return {steps: sorted(values)[len(values) // 2] for steps, values in durations.items()}
 
 
 def _page(
