@@ -825,14 +825,29 @@ button { font: inherit; cursor: pointer; }
   color: #fff3c4;
   background: rgba(120, 84, 0, 0.82);
 }
+/* A starred card has to be found at a glance across a page of thumbnails: an
+   amber ring round the card, and the star on a dark badge so it reads on a
+   white render as well as a black one. The tools' own star turns amber with
+   it, so the toggle shows which way it will go. */
+.card.fav { border-color: #fbbf24; box-shadow: 0 0 0 1px #fbbf24; }
 .card.fav::after {
   content: "★";
   position: absolute;
-  top: 5px;
-  right: 7px;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.62);
   color: #fbbf24;
-  text-shadow: 0 1px 3px #000;
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 6px rgba(251, 191, 36, 0.55);
+  pointer-events: none;
 }
+.card.fav .tools .star { color: #fbbf24; }
 
 /* --------------------------------------------------------------- lightbox */
 
