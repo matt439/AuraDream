@@ -4890,9 +4890,12 @@ the image down by it. With no chips the image stays where it was after
 Check, after the answer and for a Generate pressed meanwhile, and Generate
 does not move. On a tag checkpoint the chips move from the full width into
 the left column, and the image moves down by exactly the lines they wrap
-onto there: none for a short prompt, 32 px for 40 tags at QHD and 43 px at
-2048x1040 at 125%, where the image's bottom is then 48 px above the fold - a
-prompt of 70 tags or so can take it past. Keeping the chips across both
+onto there. With the tray's own label, `+ tag` and pinned hint (the chip
+package's), measured on the integrated page: none for six tags at QHD (one
+line of chips there either way), 69 px for 40 tags at QHD, where the image's
+bottom is then 97 px above the fold, and 65 px for 32 tags at 2048x1040 at
+125%, where it is 25 px above. There a prompt of 40 tags - well past CLIP's
+75 tokens - takes the image's bottom 8 px past the fold. Keeping the chips across both
 columns would leave the image put, but the check would then start below them
 and its bottom, sized for a column under the topbar, would sit below the
 fold until the page scrolled. It is

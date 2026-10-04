@@ -13,7 +13,7 @@
   {"expect": "(() => { const notes = [...els.criticResult.querySelectorAll('.critic-checked > .analysis-note')].map((n) => n.textContent); return notes.length === 1 && notes[0].startsWith('Not flagged on the rewrite, whose check runs without the tag index - these may still apply: \"honkai: star rail\" (Series) comes before') && [...els.criticResult.querySelectorAll('.critic-checked .analysis-carried')].every((c) => c.textContent === 'also in your prompt'); })()"},
   {"eval": "closeAnalysis();"},
 
-  {"log": "'Docked from 1800 px on a tag checkpoint: the chips move into the left column and wrap onto more lines there, and the image just made moves down by exactly those lines - no more - staying wholly in view; Generate does not move. With chips that fit as they were, the image does not move at all'"},
+  {"log": "'Docked from 1800 px on a tag checkpoint: the chips move into the left column and wrap onto more lines there, and the image just made moves down by exactly those lines - no more - staying wholly in view; Generate does not move. With chips that fit as they were, the image does not move at all. Measured with the chip tray\\'s label, + tag and hint: 40 tags at 2560x1305, six that stay on one line there, and 32 at 2048x1040 at 125%, where 40 take the image 8 px past the fold'"},
   {"eval": "window.__img = () => els.viewer.querySelector('img:not(.preview)'); window.__inView = (el) => { const r = el.getBoundingClientRect(); return r.height > 0 && r.top >= document.querySelector('.topbar').getBoundingClientRect().bottom && r.bottom <= innerHeight; }; window.__docked = () => { const p = els.promptAnalysis.getBoundingClientRect(); const v = els.viewer.getBoundingClientRect(); return p.left >= v.right && p.left >= els.tagValidation.getBoundingClientRect().right && p.top < v.bottom && getComputedStyle(els.promptAnalysis).position === 'sticky'; }; window.__tags = (n) => ['1girl', 'solo', 'green hair', 'long hair', 'smile', 'looking at viewer', 'blue eyes', 'school uniform', 'outdoors', 'cherry blossoms', 'day', 'blue sky', 'cloud', 'standing', 'holding book', 'pleated skirt', 'white shirt', 'red ribbon', 'wind', 'petals', 'upper body', 'hair ornament', 'hair between eyes', 'bangs', 'closed mouth', 'collarbone', 'sailor collar', 'neckerchief', 'short sleeves', 'serafuku', 'tree', 'branch', 'falling petals', 'sunlight', 'depth of field', 'blurry background', 'light particles', 'from side', 'cowboy shot', 'masterpiece'].slice(0, n).join(', '); window.__render = (n) => { closeAnalysis(); els.prompt.value = __tags(n); els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.width.value = els.height.value = '1024'; els.steps.value = '4'; own('steps'); els.seed.value = ''; scrollTo(0, 0); generate(); }; window.__mark = () => { window.__at = [__img().getBoundingClientRect().top, els.tagValidation.getBoundingClientRect().height, els.generate.getBoundingClientRect().top]; }; window.__moved = () => __img().getBoundingClientRect().top - __at[0]; window.__grew = () => els.tagValidation.getBoundingClientRect().height - __at[1];"},
 
   {"viewport": [2560, 1305, 1]},
@@ -28,7 +28,7 @@
   {"click": "#critic-ask"},
   {"wait": 1500},
   {"expect": "!critiquing && critiqueResult !== null && document.activeElement === els.criticResult && __docked() && __img().getBoundingClientRect().top === window.__checked && __inView(__img())"},
-  {"eval": "__render(8);"},
+  {"eval": "__render(6);"},
   {"wait": 2000},
   {"eval": "__mark();"},
   {"click": "#btn-analyze"},
@@ -36,7 +36,7 @@
   {"expect": "!els.promptAnalysis.hidden && !els.tagValidation.hidden && __docked() && __grew() === 0 && __moved() === 0 && __inView(__img())"},
 
   {"viewport": [2048, 1040, 1.25]},
-  {"eval": "__render(40);"},
+  {"eval": "__render(32);"},
   {"wait": 2000},
   {"eval": "__mark();"},
   {"expect": "!busy && devicePixelRatio === 1.25 && innerWidth === 2048 && __inView(__img())"},
