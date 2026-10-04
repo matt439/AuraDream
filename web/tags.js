@@ -297,12 +297,13 @@ function clearTagDropMarkers() {
 }
 
 // The gap a click on the tray would insert at, marked as a drop is: the same
-// bar, on the chip either side of it.
+// bar, on the chip either side of it. None off the rows, where a click does
+// nothing.
 function markTagGap(x, y) {
   clearTagDropMarkers();
   const chips = els.tagValidation.querySelectorAll('.tag-check');
-  if (!chips.length) return;
-  const index = tagInsertionIndexAtPoint(x, y);
+  const index = tagInsertionIndexAtPoint(x, y, { gap: true });
+  if (index === null) return;
   const before = els.tagValidation.querySelector(`.tag-check[data-index="${index}"]`);
   if (before) before.classList.add('drop-before');
   else chips[chips.length - 1].classList.add('drop-after');
@@ -492,12 +493,20 @@ function openTagEdit(index) {
   );
 }
 
-function tagInsertionIndexAtPoint(x, y) {
+// The insertion index a point in the tray names: the nearest row of chips,
+// then the first chip whose middle is right of the point. Asked for a gap
+// (`gap`, a plain click and the pointer's marker), a point outside the rows -
+// above, below or between them past half the row gap, before a row's first
+// chip, or after the last row's + tag - names none: the label, the pinned hint
+// and the foot under the chips are text, and a click on "click a gap or + tag
+// to insert" opened an editor in the middle of the prompt. A right-click
+// still takes the nearest place.
+function tagInsertionIndexAtPoint(x, y, { gap = false } = {}) {
   const entries = [...els.tagValidation.querySelectorAll('.tag-check')].map((chip) => ({
     index: Number(chip.dataset.index),
     rect: chip.getBoundingClientRect(),
   }));
-  if (!entries.length) return 0;
+  if (!entries.length) return gap ? null : 0;
 
   const rows = [];
   for (const entry of entries) {
@@ -510,8 +519,17 @@ function tagInsertionIndexAtPoint(x, y) {
     row.entries.push(entry);
   }
   const distance = (row) => y < row.top ? row.top - y : y > row.bottom ? y - row.bottom : 0;
+  const last = rows[rows.length - 1];
   const row = rows.sort((a, b) => distance(a) - distance(b))[0];
   row.entries.sort((a, b) => a.rect.left - b.rect.left);
+  if (gap) {
+    const style = getComputedStyle(els.tagValidation);
+    const columnGap = parseFloat(style.columnGap) || 0;
+    const add = els.tagValidation.querySelector('.tag-add')?.getBoundingClientRect();
+    const end = row === last ? Math.max(row.entries[row.entries.length - 1].rect.right, add?.right ?? 0) : Infinity;
+    if (distance(row) > (parseFloat(style.rowGap) || 0) / 2
+        || x < row.entries[0].rect.left - columnGap || x > end + columnGap) return null;
+  }
   for (const entry of row.entries) {
     if (x < entry.rect.left + entry.rect.width / 2) return entry.index;
   }
@@ -877,7 +895,9 @@ function renderTagValidation(results, state = 'checked', detail = '') {
   // pause in typing and holds every chip.
   if (state !== 'pending' && results.length) {
     const known = results.filter((result) => result.valid === true).length;
-    const unknown = results.filter((result) => result.valid === false).length;
+    // Not the item still being typed, as the label does not count it: a
+    // lookup landing mid-word would read out an unfinished word as unknown.
+    const unknown = results.filter((result, index) => result.valid === false && index !== typing).length;
     const summary = (state === 'offline'
       ? `${results.length} prompt tags, not checked: Danbooru unreachable`
       : `${results.length} prompt tags: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
@@ -1008,10 +1028,23 @@ function tagCursorIndex() {
 // Every chip and Tags-helper edit writes the whole list back here, through
 // `writeBox`, so Ctrl+Z restores what the box held. That takes focus to the
 // prompt; it goes back to the chip `focusIndex` names, or to the helper's
-// button that made the write.
+// button that made the write. A chip's visit to the box is only in passing,
+// so neither the panel nor the page moves to show it - a panel held by its
+// bottom jumped 62 px at each Alt+Arrow in the other column - which is the
+// press's exemption from `revealInPanel`, and no scroll on the focus.
 function writePromptTags(parts, caret = null, focusIndex = null) {
   const from = document.activeElement;
-  writeBox(els.prompt, parts.join(', '));
+  const passing = focusIndex !== null && focusIndex >= 0;
+  const press = panelPos.press;
+  if (passing) {
+    panelPos.press = true;
+    els.prompt.focus({ preventScroll: true });
+  }
+  try {
+    writeBox(els.prompt, parts.join(', '));
+  } finally {
+    panelPos.press = press;
+  }
   promptReplaced();
   const end = caret == null ? els.prompt.value.length : Math.min(caret, els.prompt.value.length);
   els.prompt.setSelectionRange(end, end);

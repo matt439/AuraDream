@@ -153,8 +153,15 @@ async function expandPrompt() {
     syncPromptExpansion();
   }
 }
-els.examplesBtn.onclick = () => showExamples(els.examplesMenu.hidden);
-// A click from the keyboard (detail 0) takes focus into the helper.
+// A click from the keyboard (detail 0) - Enter or Space on the button - takes
+// focus into the menu on its first item, as ArrowDown does: its items are no
+// Tab stops, and Tab from the button went on to Tags, closing it unread.
+els.examplesBtn.onclick = (e) => {
+  const open = els.examplesMenu.hidden;
+  showExamples(open);
+  if (open && e.detail === 0) els.examplesMenu.querySelector('[role="menuitem"]')?.focus();
+};
+// A click from the keyboard takes focus into the helper too.
 els.tagsBtn.onclick = (e) => showTagHelper(els.tagsMenu.hidden, { focus: e.detail === 0 });
 els.expandPrompt.onclick = expandPrompt;
 // The prompt check: Check and Check again run it on the prompt as it is now;
@@ -192,8 +199,10 @@ els.tagValidation.addEventListener('pointerleave', () => {
 });
 els.tagValidation.addEventListener('click', (event) => {
   if (event.target !== els.tagValidation) return;
+  const index = tagInsertionIndexAtPoint(event.clientX, event.clientY, { gap: true });
+  if (index === null) return;
   clearTagDropMarkers();
-  openTagInsert(tagInsertionIndexAtPoint(event.clientX, event.clientY));
+  openTagInsert(index);
 });
 // Focus leaving the tray lets go of the chip it was on; a rebuild of the
 // tray, which removes the focused chip, is not leaving it.
@@ -361,8 +370,10 @@ document.addEventListener('keydown', (e) => {
     else generate();
     return;
   }
-  if (e.key === 'Escape' && !els.examplesMenu.hidden) { showExamples(false); return; }
-  if (e.key === 'Escape' && !els.tagsMenu.hidden) { showTagHelper(false); return; }
+  // An Escape the prompt's suggestion list or a chip's editor took closes that
+  // alone: the helper stays open under the box while its list comes and goes.
+  if (e.key === 'Escape' && !e.defaultPrevented && !els.examplesMenu.hidden) { showExamples(false); return; }
+  if (e.key === 'Escape' && !e.defaultPrevented && !els.tagsMenu.hidden) { showTagHelper(false); return; }
   if (!els.lightbox.open) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.

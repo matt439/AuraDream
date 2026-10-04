@@ -328,6 +328,12 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
   box-shadow: var(--shadow-pop); color: var(--text-2); font-size: var(--fs-sm);
 }
+/* On one column the chips come straight under the box, and the note lay over
+   their first row, taking their clicks; there it takes a line of its own -
+   the panel is not sticky, so nothing it moves was under the pointer. */
+@media (max-width: 900px) {
+  .prompt-note { position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none; }
+}
 
 /* The tag picker is data from the checkpoint guide, not a generic tag cloud:
    each checkpoint gets only the categories and terms its sources document. The
@@ -336,10 +342,12 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
    prompt box, the width of it, over the negative prompt and the sizes: hung
    from the Tags button it covered 209 of the box's 296 px, caret and all,
    and over the stage it would cover the chips that show what it did. Its
-   text is the chips' size. */
+   text is the chips' size. The window is its only cap: the longest helper,
+   Animagine's, is 573 px at that size and outgrew the 520 px it had, hiding
+   its closing note behind a scrollbar; from a 900 px window up it is whole. */
 .tag-menu {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
-  max-height: min(520px, 70vh); overflow-y: auto;
+  max-height: 70vh; overflow-y: auto;
   padding: 10px;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
   box-shadow: var(--shadow-pop);
@@ -408,11 +416,13 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
    chip, the editor or + tag. Amber where something is not as it looks: the
    index unreachable (unchecked, never invalid, so never red), or more tokens
    than the encoders read. */
-.tag-validation::before { content: attr(data-label); color: var(--text-readout); font-size: var(--fs-sm); margin-right: 3px; align-self: center; }
+.tag-validation::before { content: attr(data-label); color: var(--text-readout); font-size: var(--fs-sm); margin-right: 3px; align-self: center; cursor: default; }
 .tag-validation[data-state="offline"]::before, .tag-validation[data-over]::before { color: var(--warn); }
+/* The label and the hint are text: a click on either inserts nothing
+   (tagInsertionIndexAtPoint), so they do not show the gaps' cursor. */
 .tag-validation::after {
   content: "double-click edits · drag or Alt+←/→ moves · click a gap or + tag to insert";
-  color: var(--text-readout); font-size: var(--fs-xs); align-self: center;
+  color: var(--text-readout); font-size: var(--fs-xs); align-self: center; cursor: default;
 }
 /* Above the results the hint is pinned to the tray's foot, where it neither
    travels with the last chip nor wraps onto a row a right-click reads as the
@@ -465,11 +475,16 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   content: ""; position: absolute; left: -7px; top: 2px; bottom: 2px; width: 2px;
   border-radius: 1px; background: var(--warn);
 }
-/* A later copy of a tag already in the prompt: adds nothing. */
-.tag-check.duplicate { outline: 1px dotted var(--warn); outline-offset: 2px; }
+/* A later copy of a tag already in the prompt: adds nothing. On the text, not
+   the chip's outline, which is the focus ring's: a focused repeat drew no
+   ring at all, the dotted outline overriding the browser's. */
+.tag-check.duplicate .tag-check-text { text-decoration: underline dotted var(--warn); text-underline-offset: 3px; }
 .tag-check.dragging { opacity: 0.45; cursor: grabbing; }
 .tag-check.drop-before { box-shadow: -4px 0 0 var(--accent-2); }
 .tag-check.drop-after { box-shadow: 4px 0 0 var(--accent-2); }
+/* The chip the arrows are on, after every state above: whole, past the cut
+   too, where the dimming took the ring down with it. */
+.tag-check:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; opacity: 1; }
 /* + tag: the editor at the end of the prompt, for a pointer that does not
    right-click and for the keyboard. */
 .tag-add {

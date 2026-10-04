@@ -1938,8 +1938,13 @@ end" - recomputed on every insert and caret move. It does not slot tags
 itself: the documented order differs per checkpoint (Kohaku's rating is
 last, Illustrious's third, WAI's folded into subject and scene), the page
 has no order of its own, and Check's Use reordered places them. The text is
-the chips' 12 px. Opened from the keyboard it takes focus; Escape gives focus
-back to its button. The prompt remains visible, editable, persisted and recorded exactly as
+the chips' 12 px, and the window is its only height cap: at that size
+Animagine's helper is 573 px and outgrew the 520 px it had, its closing note
+behind a scrollbar. Opened from the keyboard it takes focus; Escape gives focus
+back to its button. Typing in the box with the helper open brings the
+suggestion list over it, and an Escape there closes that list alone (the
+document's Escape skips one already taken); the next closes the helper. The
+prompt remains visible, editable, persisted and recorded exactly as
 before; the helper never rewrites on generation. Its documented limitations
 are text, difficult anatomy, multiple characters, post-cutoff
 characters and degradation at high resolutions such as 1536x1536. Sources,
@@ -2027,7 +2032,12 @@ gap inserts there too, the pointer over a gap shows where with the drop's
 accent bar, and a "+ tag" button after the last chip inserts at the end -
 the visible way in for a pointer that does not right-click and for the
 keyboard, where right-click had only a 10 px hint that moved with the last
-chip. The hint is pinned to the tray's foot above the results. A double click on a chip (Enter or F2 while it has focus) opens the
+chip. The hint is pinned to the tray's foot above the results. A gap for a
+plain click and the marker is within a row of chips, from its first chip to
+the last row's + tag, and within half the row gap above or below it: the
+label before the chips and the hint under them are text, and a click on
+"click a gap or + tag to insert" opened an editor in the middle of the
+prompt. A right-click still takes the nearest place. A double click on a chip (Enter or F2 while it has focus) opens the
 same editor in the chip's place, holding its text, so a typo is fixed where it
 sits rather than by deleting the chip and inserting a new one; suggestions
 start with the first keystroke, not with the opening, so Enter on an untouched
@@ -2049,13 +2059,20 @@ one, the one after a deleted one, the edited or inserted one) or to the
 helper's button that made it, and every rebuild of the tray - a pending
 render, then the lookup's answer - puts focus back on its chip until focus
 leaves the tray, taking it only from `<body>`, where the rebuild left it:
-one Alt+Arrow used to drop it there for good. The tray is one tab stop: the
+one Alt+Arrow used to drop it there for good. A chip's visit to the prompt
+is only in passing, so it moves nothing: the focus scrolls nothing, and
+the panel's `revealInPanel` skips it as it skips a press in the panel - a
+panel held by its bottom at 1400x900 jumped 62 px at each Alt+Arrow in the
+other column. The helper's writes, whose focus does come back to the
+panel, still reveal the box. The tray is one tab stop: the
 chip last focused (or the first) takes Tab, arrows, Home and End walk the
 chips, × is out of the tab order (Delete does the same), and "+ tag" is the
 second stop. A chip's label says what it is and how to act on it; the tray
 is a labelled group, not a live region - it holds every chip and is rebuilt
 at each pause in typing - and a hidden polite summary says "N prompt tags:
-K known, U unknown" once a lookup answers.
+K known, U unknown" once a lookup answers, not counting the item still being
+typed, as the label does not. A focused chip draws a 2 px teal ring of its
+own after every state rule, at full opacity past the cut.
 Chip and suggestion text is 12 px. A valid chip uses high-contrast light text
 on neutral charcoal, with green confined to its checkmark and outline; unknown
 chips keep the corresponding red mark/outline instead of colour-on-colour text.
@@ -2063,8 +2080,10 @@ A valid chip's left edge carries the category the lookup returned, in
 Danbooru's colours (general blue, character green, copyright purple, artist
 red, meta yellow) and teal for the guide's own tags: what a tag is, never an
 order slot, which only the guide's `analysis.order` and Check may place. A
-later copy of a tag (the same canonical name) has an amber dotted outline,
-"repeated", as Check's heuristic says. An unknown chip's reason, with
+later copy of a tag (the same canonical name) has its text underlined in
+amber dots, "repeated", as Check's heuristic says - on the text, not the
+outline it first had, which overrode the focus ring, so the arrows landing
+on a repeat showed nothing. An unknown chip's reason, with
 "generation is still allowed", is in one shared tip outside the tray,
 shown under the chip as it is hovered or focused and named by its
 `aria-describedby`, so the chip's text stays the tag's own.
@@ -2647,12 +2666,17 @@ carried, so a status that lands minutes late behind a load is not stale by
 the first click. A pick writes the box through `writeBox`, as typing would,
 so Ctrl+Z brings back what it held, and tells the preview, the chips and the
 remembered panel the way `choose` does; over a prompt of the user's own it
-also shows "An example replaced your prompt." with an Undo, over the next
-field's caption so nothing moves, until the box holds anything else or 15 s
-pass. Assigning `.value` had emptied the undo history: the menu opens over
+also shows "An example replaced your prompt." with an Undo, until the box
+holds anything else or 15 s pass. On a two-column page it lies over the next
+field's caption, out of the sticky panel's flow, so nothing moves; on one
+column the chips come straight under the box, and lying over their first
+row it took their clicks, so there it takes a line of its own. Assigning
+`.value` had emptied the undo history: the menu opens over
 the prompt, and one stray click replaced minutes of work for good, the
-panel saving it at once. It is a `role=menu` and keeps that promise: ArrowDown
-on the button opens it on its first item, the arrows walk it round the ends,
+panel saving it at once. It is a `role=menu` and keeps that promise: ArrowDown,
+Enter or Space on the button opens it on its first item (its items are no
+Tab stops, so a Tab from the button went on to Tags and closed it unread),
+the arrows walk it round the ends,
 Home and End jump, Escape hands focus back to the button, and focus leaving
 it closes it - it stayed open over the prompt after a Tab. Where the
 checkpoint takes reference images and none is attached, an example that
