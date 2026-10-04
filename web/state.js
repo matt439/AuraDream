@@ -20,9 +20,12 @@ const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
   negNote: $('neg-note'), negEnable: $('neg-enable'), promptTip: $('prompt-tip'), sizeTip: $('size-tip'),
   examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
+  examplesBox: $('examples'),
+  promptNote: $('prompt-note'), promptNoteText: $('prompt-note-text'), promptNoteUndo: $('prompt-note-undo'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
   tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
+  tagTip: $('tag-tip'), tagSummary: $('tag-summary'),
   analyze: $('btn-analyze'), promptAnalysis: $('prompt-analysis'),
   analysisModel: $('analysis-model'), analysisSummary: $('analysis-summary'),
   analysisStale: $('analysis-stale'), analysisAgain: $('analysis-again'), analysisClose: $('analysis-close'),
@@ -259,7 +262,8 @@ let tagValidationEpoch = 0;
 let tagSuggestions = [];
 let tagSuggestionIndex = -1;
 let lastTagValidationResults = [];
-let lastTagValidationAvailable = true;
+// 'pending' (a lookup on its way), 'checked' or 'offline' (the index unreachable).
+let lastTagValidationState = 'checked';
 let lastTagValidationDetail = '';
 let draggedTagIndex = null;
 // The inline chip editor: at most one open, inserting before `tagInsertAt` or

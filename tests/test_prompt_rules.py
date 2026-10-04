@@ -12,6 +12,7 @@ import itertools
 import re
 from collections import Counter
 from itertools import pairwise
+from pathlib import Path
 
 import pytest
 
@@ -1016,6 +1017,31 @@ def test_references_are_named_when_there_are_several():
     assert partial.message.endswith("from image 3.")
     # One reference needs no number: "Turn this cat into a dog" is BFL's own.
     assert only(run(KLEIN, prompt, reference=[1]), "guide.references") == []
+
+
+def test_an_edit_with_no_reference_attached_is_noted_as_the_apps_reading():
+    # BFL's own "Turn this cat into a dog" renders from the words alone with
+    # no reference: a plain text-to-image that looks like a success.
+    [finding] = only(run(KLEIN, "Turn this cat into a dog"), "heuristic.no_reference")
+    assert finding.severity == "info" and finding.source == "heuristic"
+    assert finding.cite is None and finding.url is None and finding.suggestion is None
+    assert "no reference image is attached" in finding.message
+    for prompt in ("Make the photo black and white", "replace the sky in image 1 with stars"):
+        assert only(run(KLEIN, prompt), "heuristic.no_reference"), prompt
+    # Attached, or not an edit, or a checkpoint that takes no references.
+    assert silent(KLEIN, "Turn this cat into a dog", "heuristic.no_reference", reference=[1])
+    assert silent(KLEIN, "A cat holding a sign that says hello world", "heuristic.no_reference")
+    assert silent(KLEIN, "Put the jacket on the man", "heuristic.no_reference")
+    assert silent(FLUX_DEV, "Turn this cat into a dog", "heuristic.no_reference")
+
+
+def test_the_examples_menu_reads_edits_as_the_rule_does():
+    # web/app.js marks an author's example "needs a reference image" by the
+    # same pattern: one copy to drift would have the menu and Check disagree.
+    source = (Path(__file__).resolve().parents[1] / "web" / "app.js").read_text(encoding="utf-8")
+    match = re.search(r"^const EDIT_PROMPT = /(.+)/i;$", source, re.M)
+    assert match and match.group(1) == prompt_rules.EDIT_PROMPT.pattern
+    assert prompt_rules.EDIT_PROMPT.flags & re.IGNORECASE
 
 
 def test_netayume_system_prefix_is_not_typed_twice():

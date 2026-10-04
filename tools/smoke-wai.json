@@ -16,7 +16,7 @@
   {"expect": "els.prompt.value === '1girl, green hair'"},
   {"eval": "els.tagsBtn.click(); els.tagsMenu.querySelector('[data-action=\"recommended-suffix\"]').click();"},
   {"wait": 500},
-  {"expect": "els.prompt.value === '1girl, green hair, masterpiece, best quality, amazing quality' && [...els.tagValidation.children].filter(chip => chip.textContent.includes('quality') || chip.textContent.includes('masterpiece')).every(chip => chip.classList.contains('valid'))"},
+  {"expect": "els.prompt.value === '1girl, green hair, masterpiece, best quality, amazing quality' && [...els.tagValidation.querySelectorAll('.tag-check')].filter(chip => chip.textContent.includes('quality') || chip.textContent.includes('masterpiece')).every(chip => chip.classList.contains('valid'))"},
   {"eval": "els.tagsMenu.querySelector('[data-action=\"recommended-negative\"]').click();"},
   {"expect": "els.negative.value === 'bad quality,worst quality,worst detail,sketch,censor,'"},
   {"eval": "[...els.tagsMenu.querySelectorAll('[data-tag]')].find(b => b.dataset.tag === 'general').click();"},

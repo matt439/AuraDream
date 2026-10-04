@@ -166,6 +166,37 @@ def test_an_offline_tag_index_leaves_unknown_tags_unchecked(client, monkeypatch)
     assert [item["valid"] for item in body["results"]] == [True, None]
 
 
+def test_suggestions_never_lead_with_the_recommended_negative(client, monkeypatch):
+    # "lo" then Tab took the first item, and the guide's own tags came first
+    # by construction: `low quality` went into the positive prompt.
+    helper = {
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": "2025-01-07",
+        "groups": [{"tags": ["low quality", "great score"]}],
+        "recommended_suffix": [],
+        "negative_prompt": "lowres, low quality",
+    }
+
+    class Vocabulary:
+        def suggest(self, query, cutoff):
+            rows = {
+                "lo": [("lowres", 900_000), ("long_hair", 4_000_000)],
+                "gre": [("green_eyes", 900_000), ("green_hair", 590_000)],
+            }[query]
+            return [
+                {"text": name.replace("_", " "), "canonical": name, "category": "general",
+                 "post_count": count}
+                for name, count in rows
+            ]
+
+    monkeypatch.setattr(main, "_tag_helper_config", lambda: helper)
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    lo = [item["text"] for item in client.get("/api/tags/suggest?q=lo").json()["suggestions"]]
+    assert lo[0] == "long hair" and set(lo) == {"long hair", "lowres", "low quality"}
+    gre = [item["text"] for item in client.get("/api/tags/suggest?q=gre").json()["suggestions"]]
+    assert gre == ["green eyes", "green hair", "great score"]
+
+
 def test_tag_specials_allow_a_profile_without_quick_actions():
     helper = {"groups": [{"tags": ["masterpiece"]}]}
     assert main._special_tags(helper) == {"masterpiece"}

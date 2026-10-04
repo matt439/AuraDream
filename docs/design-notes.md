@@ -2403,7 +2403,23 @@ explicit editor action at the current caret; active tags toggle off, exclusive
 person/rating choices replace one another, and the suffix action moves that
 known set to the end. Character, series, subject, pose and scene stay free text
 because the card describes those slots but publishes no finite vocabulary for
-them. The prompt remains visible, editable, persisted and recorded exactly as
+them. The helper drops under the prompt box, the box's width, over the
+negative prompt and the sizes: hung from its button it covered 209 of the
+box's 296 px, caret included, so its own "insert at the prompt caret" pointed
+at a caret nobody could see, and a click in the box to move it closed the
+helper. A click in the box now moves the caret and leaves the helper open,
+and its second line names the place - "A tag goes after "absurdres", at the
+end" - recomputed on every insert and caret move. It does not slot tags
+itself: the documented order differs per checkpoint (Kohaku's rating is
+last, Illustrious's third, WAI's folded into subject and scene), the page
+has no order of its own, and Check's Use reordered places them. The text is
+the chips' 12 px, and the window is its only height cap: at that size
+Animagine's helper is 573 px and outgrew the 520 px it had, its closing note
+behind a scrollbar. Opened from the keyboard it takes focus; Escape gives focus
+back to its button. Typing in the box with the helper open brings the
+suggestion list over it, and an Escape there closes that list alone (the
+document's Escape skips one already taken); the next closes the helper. The
+prompt remains visible, editable, persisted and recorded exactly as
 before; the helper never rewrites on generation. Its documented limitations
 are text, difficult anatomy, multiple characters, post-cutoff
 characters and degradation at high resolutions such as 1536x1536. Sources,
@@ -2427,12 +2443,44 @@ prefix or the comma-separated tag names, never an image or generation setting.
 Suggestions exclude empty/deprecated tags and anything created after the
 checkpoint's 2025-01-07 knowledge cutoff. Model-card-only controls such as
 `great score` and `year 2023` validate locally; finite special tags are also
-merged into autocomplete ahead of remote results and remain available offline.
+merged into autocomplete and remain available offline, where they are the
+whole list. They used to be merged ahead of every remote result, which made
+"gre" offer `great score` before `green hair` and "lo" offer `low quality`
+first - the item Enter and Tab take. `tags.rank_suggestions` orders the
+list: an exact match, then names matching from their start, then at a later
+word, then alias matches; within that the index's post-count order, a guide
+tag going ahead of it only once the query covers half of it ("high s" is
+heading for `high score`); and a tag of the guide's recommended negative
+prompt is never first unless typed whole. The page selects the first item
+only from three typed characters and when it starts with them, in the box
+and in the chip editor alike, so Tab after "lo" moves on and Enter is a
+line break; ArrowDown still selects. The list calls the guide's own tags
+`guide`, as the chips do.
 A green chip means a model tag
 or a nonempty Danbooru tag at the cutoff; red means unknown, deprecated,
-empty or too new. An unavailable API makes ordinary tags grey and unchecked,
-not invalid, and never blocks generation: presence in the index is useful
-evidence, not proof that a particular caption reached training. Sources,
+empty or too new, with the reason as a `code` beside the sentence
+(`not_found`, `deprecated`, `empty`, `no_date`, `after_cutoff`): a tag too
+new for the checkpoint shows ⏲ where a typo shows ?, red either way, since
+the fixes differ, and matching the sentence would break with its wording.
+An unavailable API makes ordinary tags unchecked, not invalid, and never
+blocks generation: presence in the index is useful
+evidence, not proof that a particular caption reached training. The tray
+says which of three states it is in (`data-state`): checking (… on the
+chips waiting, title "Checking Danbooru…"), checked, or unreachable - the
+label amber, "Danbooru unreachable, not checked", never red, guide tags
+still green and the rest marked –. Checking and unreachable used to look
+the same, and the checking title claimed an outage. The chips ask about the
+first 64 items, the request's own ceiling, and mark the rest unchecked
+"past the 64-item lookup cap", the label saying "first 64 of N checked": a
+65-item prompt was one refused request that left every chip, guide tags
+included, waiting for good. What the index said is kept per checkpoint (a
+cutoff and guide tags change the answers), so a pause in typing renders
+every known chip at once and only a new item waits: every chip used to go
+grey and dashed at each pause and back to green a moment later. The item
+being typed - a keystroke or a deletion in it, not a whole-box write - has
+no verdict while it is unknown (`.typing`, no mark) until a comma, the caret
+leaving it, a blur or 1.5 s: the one red chip was the word still being
+written. A known one shows at once. Sources,
 checked 2026-09-10: the maintainer's answer
 (<https://huggingface.co/spaces/Asahina2K/animagine-xl-4.0/discussions/4>) and
 Danbooru's tag API documentation
@@ -2448,11 +2496,23 @@ moves a comma item and immediately serialises the whole order back through
 `writePromptTags`; Alt+Left/Right is the keyboard equivalent. Every chip has an
 × button and accepts Delete/Backspace while focused. A context click in any
 flex gap finds the nearest wrapped row and the boundary between the adjacent
-chip centres; a context click on a chip inserts after it. Its
+chip centres; a context click on a chip inserts after it, as the Menu key on
+a focused chip does. Its
 visible listbox reuses the same cached tag-suggestion endpoint; a native
 `datalist` did not reliably reopen when asynchronous results arrived. Click,
-Enter or Tab accepts a suggestion, while + commits literal text and Escape or ×
-cancels. A double click on a chip (Enter or F2 while it has focus) opens the
+Enter or Tab accepts a suggestion (the first is selected as the box's is, from
+three characters it starts with), while + commits literal text and Escape or ×
+cancels, focus going back to the chip or beside the gap. A plain click in a
+gap inserts there too, the pointer over a gap shows where with the drop's
+accent bar, and a "+ tag" button after the last chip inserts at the end -
+the visible way in for a pointer that does not right-click and for the
+keyboard, where right-click had only a 10 px hint that moved with the last
+chip. The hint is pinned to the tray's foot above the results. A gap for a
+plain click and the marker is within a row of chips, from its first chip to
+the last row's + tag, and within half the row gap above or below it: the
+label before the chips and the hint under them are text, and a click on
+"click a gap or + tag to insert" opened an editor in the middle of the
+prompt. A right-click still takes the nearest place. A double click on a chip (Enter or F2 while it has focus) opens the
 same editor in the chip's place, holding its text, so a typo is fixed where it
 sits rather than by deleting the chip and inserting a new one; suggestions
 start with the first keystroke, not with the opening, so Enter on an untouched
@@ -2462,9 +2522,68 @@ outside it - the textarea, a drop, a restored panel - closes it, because its
 index no longer names the item it opened on. Every edit goes through the same
 preview, validation and panel-persistence path, so the visible textarea,
 generated prompt and chips cannot become separate sources of truth.
+`writePromptTags` writes the box through `writeBox` - analysis.js's
+`replaceBoxText`, then no suggestion list or typing state over the new text -
+so Ctrl+Z restores what the chips changed: assigning `.value` emptied the
+undo history, and in Chromium a later Ctrl+Z could splice two prompts into
+one, which the panel then saved. An accepted suggestion replaces the word
+at the caret with an insert, one undo step from what was typed, and the
+recommended negative prompt is written the same way. The write takes focus
+to the prompt; it goes back to the chip the edit leaves in place (the moved
+one, the one after a deleted one, the edited or inserted one) or to the
+helper's button that made it, and every rebuild of the tray - a pending
+render, then the lookup's answer - puts focus back on its chip until focus
+leaves the tray, taking it only from `<body>`, where the rebuild left it:
+one Alt+Arrow used to drop it there for good. A chip's visit to the prompt
+is only in passing, so it moves nothing: the focus scrolls nothing, and
+the panel's `revealInPanel` skips it as it skips a press in the panel - a
+panel held by its bottom at 1400x900 jumped 62 px at each Alt+Arrow in the
+other column. The helper's writes, whose focus does come back to the
+panel, still reveal the box. The tray is one tab stop: the
+chip last focused (or the first) takes Tab, arrows, Home and End walk the
+chips, × is out of the tab order (Delete does the same), and "+ tag" is the
+second stop. A chip's label says what it is and how to act on it; the tray
+is a labelled group, not a live region - it holds every chip and is rebuilt
+at each pause in typing - and a hidden polite summary says "N prompt tags:
+K known, U unknown" once a lookup answers, not counting the item still being
+typed, as the label does not. A focused chip draws a 2 px teal ring of its
+own after every state rule, at full opacity past the cut.
 Chip and suggestion text is 12 px. A valid chip uses high-contrast light text
 on neutral charcoal, with green confined to its checkmark and outline; unknown
 chips keep the corresponding red mark/outline instead of colour-on-colour text.
+A valid chip's left edge carries the category the lookup returned, in
+Danbooru's colours (general blue, character green, copyright purple, artist
+red, meta yellow) and teal for the guide's own tags: what a tag is, never an
+order slot, which only the guide's `analysis.order` and Check may place. A
+later copy of a tag (the same canonical name) has its text underlined in
+amber dots, "repeated", as Check's heuristic says - on the text, not the
+outline it first had, which overrode the focus ring, so the arrows landing
+on a repeat showed nothing. An unknown chip's reason, with
+"generation is still allowed", is in one shared tip outside the tray,
+shown under the chip as it is hovered or focused and named by its
+`aria-describedby`, so the chip's text stays the tag's own.
+
+**The chips show where the encoders stop reading.** On these SDXL
+checkpoints both CLIP tokenizers stop at 77 tokens, and the guide's own
+quality suffix, written last, is the first thing a long list loses - while
+it showed four green ticks. `POST /api/prompt/measure` is Check's encoder
+layer alone (`prompt_encoding.measure`, no rules, no tag lookup: a Check's
+64 category lookups at every pause would be a second lookup beside the
+chips'), on a daemon thread like Check, never `ensure_loaded` or the gate.
+The tray asks it 600 ms after typing stops, with its own epoch. A chip past
+the earliest cut of an encoder that reads the words (not FLUX.1's pooled
+CLIP-L) is dimmed and dashed (`.past-cut`), an amber bar where reading
+stops; the one the cut splits keeps a dashed far edge, "partly read". The
+count is in the tray's label - "101/75 tokens", amber when over - with no
+element of its own, so every child of the tray is a chip, the editor or
+"+ tag". An encoder left uncounted (a tokenizer still loading past
+`LOAD_WAIT`, no network for a first fetch) is "cut unknown", never "no
+cut". A Check of the same text serves until the count lands, and the last
+count serves while the text up to its cut is unchanged, so a tag typed at
+the end of a long list is past the cut at once. A first measure on a cold
+server may fetch the checkpoint's tokenizer files before anyone presses
+Check; that is the tray's to do, not `/api/status`'s, which still loads
+none.
 
 ## Illustrious XL v2.0-STABLE: a single file converted once
 
@@ -3042,9 +3161,27 @@ the menu offers by name, on the official id and the lite-infer one.
 
 **The Examples menu builds on open** from the list the last status
 carried, so a status that lands minutes late behind a load is not stale by
-the first click; a pick assigns the textarea's value, which fires no
-`input`, so it calls `schedulePreview` and `persistPanel` the way `choose`
-does. The examples are verbatim from the authors - a model card's demo
+the first click. A pick writes the box through `writeBox`, as typing would,
+so Ctrl+Z brings back what it held, and tells the preview, the chips and the
+remembered panel the way `choose` does; over a prompt of the user's own it
+also shows "An example replaced your prompt." with an Undo, until the box
+holds anything else or 15 s pass. On a two-column page it lies over the next
+field's caption, out of the sticky panel's flow, so nothing moves; on one
+column the chips come straight under the box, and lying over their first
+row it took their clicks, so there it takes a line of its own. Assigning
+`.value` had emptied the undo history: the menu opens over
+the prompt, and one stray click replaced minutes of work for good, the
+panel saving it at once. It is a `role=menu` and keeps that promise: ArrowDown,
+Enter or Space on the button opens it on its first item (its items are no
+Tab stops, so a Tab from the button went on to Tags and closed it unread),
+the arrows walk it round the ends,
+Home and End jump, Escape hands focus back to the button, and focus leaving
+it closes it - it stayed open over the prompt after a Tab. Where the
+checkpoint takes reference images and none is attached, an example that
+edits a picture "this" prompt takes to be there (`prompt_rules.EDIT_PROMPT`,
+copied as `EDIT_PROMPT` in app.js and held equal by a test) says "needs a
+reference image" beside the authors' words, which stay as written. The
+examples are verbatim from the authors - a model card's demo
 prompt, a prompting guide's, a blog caption - because a checkpoint's own
 examples are the shortest way to learn its voice, and because an invented
 one would be a claim about the model with nothing behind it.
@@ -3172,7 +3309,9 @@ a moment on a cold server and beside a running night - a first use's tokenizer
 download holds it `LOAD_WAIT` at most (below). The negative prompt is
 measured and checked only as `applied()` runs it: a budget for a negative the
 pipeline drops is a number about nothing, and a negation in the prompt is a
-warning only where no negative prompt runs.
+warning only where no negative prompt runs. `POST /api/prompt/measure` is its
+encoder layer alone, for the tag chips' count and cut (under "Animagine XL
+4.0"): the same `_detached` thread, no rules and no tag lookup.
 
 **The encoder layer measures the string the pipeline builds.** No pipeline
 here parses A1111 or ComfyUI weighting - diffusers has no prompt weighting,
@@ -3637,7 +3776,10 @@ composition sentence is the v0.1 card's and stays citable); quality tags
 placed past CLIP's 77 tokens, which the encoder cut already reports;
 Illustrious's `sfw`, `nsfw` and `r-18`, which its release post accepts (only
 `safe` is corrected, to `general`); a single klein reference with no "image 1"
-(BFL's own "Turn this cat into a dog" names none - two or more are checked);
+(BFL's own "Turn this cat into a dog" names none - two or more are checked;
+with none attached, an edit of "this" picture - `EDIT_PROMPT` - gets the
+app's own note, `heuristic.no_reference`, since it renders from the words
+alone, a plain text-to-image that looks like a success);
 and `\(`/`\)` escapes, which the app's own autocomplete writes (below).
 FLUX.1's "English is the most precise language" was on this list until the
 2026-09-28 review took it out of the prose: BFL's current basics page says

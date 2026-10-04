@@ -189,6 +189,85 @@ def test_check_runs_on_a_daemon_thread(client, fake, monkeypatch, route, measure
     assert threads == [("prompt-check", True)] * measures
 
 
+# ------------------------------------------------------------------ measure
+
+
+def test_the_measure_is_the_encoder_layer_alone(client, fake, monkeypatch):
+    # The chip tray asks at every pause in typing: the counts and the cut,
+    # the same as Check's, and no rule and no tag lookup - a Check's would
+    # ask Danbooru about 64 items each time beside the chips' own lookup.
+    claim(monkeypatch, fake, ANIMAGINE)
+    fake.loaded = False
+
+    def never(*args, **kwargs):
+        raise AssertionError("the measure ran a rule or asked the tag index")
+
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    prompt = ", ".join(f"tag{i}" for i in range(50))
+    expected = analyse(client, prompt=prompt)["encoders"]
+    vocabulary = Vocabulary()
+    monkeypatch.setattr(vocabulary, "validate", never)
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(prompt_rules, "check", never)
+    threads: list[tuple[str, bool]] = []
+    measure = prompt_encoding.measure
+
+    def recording(*args):
+        thread = threading.current_thread()
+        threads.append((thread.name, thread.daemon))
+        return measure(*args)
+
+    monkeypatch.setattr(prompt_encoding, "measure", recording)
+    response = client.post("/api/prompt/measure", json={"prompt": prompt})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["model_id"] == ANIMAGINE and body["encoders_detail"] is None
+    assert body["encoders"] == expected
+    assert [(e["name"], e["budget"]) for e in body["encoders"]] == [("CLIP-L", 75), ("CLIP-G", 75)]
+    # A token per word or mark: 99 of them, and the cut inside the list.
+    assert all(e["tokens"] == 99 and 0 < e["cut"] < len(prompt) for e in body["encoders"])
+    # Off the loop on a daemon thread of its own, never the image model.
+    assert threads == [("prompt-measure", True)]
+    assert fake.loads == 0 and not fake.loaded
+
+
+def test_the_measure_answers_beside_a_running_job(client, fake, monkeypatch):
+    claim(monkeypatch, fake, ANIMAGINE)
+    running, release = threading.Event(), threading.Event()
+    generate = fake.generate
+
+    def held(*args, **kwargs):
+        running.set()
+        assert release.wait(10)
+        return generate(*args, **kwargs)
+
+    monkeypatch.setattr(fake, "generate", held)
+    job_id = client.post(
+        "/api/generate", json={"prompt": "a lighthouse", "width": 256, "height": 256}
+    ).json()["job_id"]
+    try:
+        assert running.wait(5) and main.jobs._gate.locked()
+        body = client.post("/api/prompt/measure", json={"prompt": "1girl, green hair"}).json()
+        assert [e["tokens"] for e in body["encoders"]] == [4, 4]
+        assert client.get(f"/api/jobs/{job_id}").json()["status"] == "running"
+    finally:
+        release.set()
+    assert stream_job(client, job_id)[-1]["status"] == "done"
+
+
+def test_an_unmeasured_encoder_is_said_never_shown_as_no_cut(client, fake, monkeypatch):
+    # The tray reads a reason here as "cut unknown": an empty list alone
+    # would read as a prompt every encoder takes whole.
+    claim(monkeypatch, fake, ANIMAGINE)
+
+    def offline(source):
+        raise OSError("no network for a first use")
+
+    monkeypatch.setattr(prompt_encoding, "_load_tokenizer", offline)
+    body = client.post("/api/prompt/measure", json={"prompt": "1girl, green hair"}).json()
+    assert body["encoders"] == [] and "CLIP-L" in body["encoders_detail"]
+
+
 def test_a_pathological_prompt_is_checked_not_a_500(client, fake, monkeypatch):
     claim(monkeypatch, fake, FLUX)
     body = analyse(client, prompt="[" * 3999)

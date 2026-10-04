@@ -39,9 +39,8 @@
         </span>
         <span class="tag-helper" id="tag-helper" hidden>
           <button type="button" class="ghost tiny" id="btn-tags" aria-haspopup="dialog"
-                  aria-expanded="false" title="Insert documented tags into this prompt">Tags</button>
-          <div class="tag-menu" id="tags-menu" role="dialog"
-               aria-label="Checkpoint tag helper" hidden></div>
+                  aria-controls="tags-menu" aria-expanded="false"
+                  title="Insert documented tags into this prompt">Tags</button>
         </span>
         <!-- Every checkpoint has a guide, so this is never hidden. It sends
              what Generate would send and needs no model: the answer is the
@@ -57,12 +56,29 @@
       </span>
       <div class="prompt-editor">
         <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
-                  aria-describedby="prompt-tip tag-validation" aria-autocomplete="list"
+                  aria-describedby="prompt-tip" aria-autocomplete="list"
                   aria-controls="tag-suggestions" aria-expanded="false"></textarea>
         <ul class="tag-suggestions" id="tag-suggestions" role="listbox" hidden></ul>
+        <!-- The Tags button's helper, under the box rather than over it: the
+             caret it inserts at stays in sight. -->
+        <div class="tag-menu" id="tags-menu" role="dialog"
+             aria-label="Checkpoint tag helper" hidden></div>
+        <!-- An Example written over a prompt in progress says so, with an
+             Undo (tags.js, offerPromptUndo): over the field below for a
+             while, rather than in the panel's flow, which would move
+             Generate as it came and went. -->
+        <p class="prompt-note" id="prompt-note" role="status" hidden><span
+          id="prompt-note-text"></span> <button type="button" class="ghost tiny"
+          id="prompt-note-undo">Undo</button></p>
       </div>
+      <!-- The chips' outcome read out, the tray itself being no live region:
+           it holds every chip and is rebuilt at each pause in typing. And one
+           tip for every unknown chip, outside the tray so a chip's text stays
+           the tag's own. -->
+      <p class="tag-summary" id="tag-summary" aria-live="polite"></p>
+      <div class="tag-tip" id="tag-tip" role="tooltip" hidden></div>
       <div class="tag-validation-host tag-validation-home" id="tag-validation-home">
-        <div class="tag-validation" id="tag-validation" role="status" hidden></div>
+        <div class="tag-validation" id="tag-validation" role="group" aria-label="Prompt tags" hidden></div>
         <!-- The prompt check, moved with the chips by placeTagValidation: above
              the results on a two-column page, here under 901 px. It is as long
              as what it found, and in the sticky settings column that length
