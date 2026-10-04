@@ -1091,6 +1091,11 @@ button { font: inherit; cursor: pointer; }
 
 /* --------------------------------------------------------- contact sheet */
 
+/* Where the page lands when it opens a sheet (showSheetScope): the gallery
+   head just under the sticky topbar, with the search, Favorites and Sheet -
+   the sheet's own filters - in view above the sheet. */
+.gallery-head { scroll-margin-top: calc(var(--topbar-h) + var(--sp-3)); }
+
 /* One run laid out as the grid that produced it: an axis across, an axis down,
    anything else pinned. */
 .sheet { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -1103,23 +1108,73 @@ button { font: inherit; cursor: pointer; }
   background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--text);
   border-radius: var(--r-sm); padding: 4px 6px; font: inherit;
 }
-/* Many columns scroll sideways rather than squeezing the thumbnails to nothing;
-   the page itself must never scroll horizontally. */
-.sheet-scroll { overflow-x: auto; }
-.sheet-grid { display: grid; gap: 6px; align-items: center; min-width: min-content; }
+/* "F stars the image in focus", at the end of the row. */
+.sheet-hint { margin-left: auto; }
+/* The settings every image shares, a readout rather than a hint: under the
+   Favorites tick it is what the keepers have in common. */
+.sheet-fixed { margin: 0; font-size: var(--fs-label); color: var(--text-readout); }
+/* The grid scrolls in a box of its own, both ways, so the heads can stick to
+   its edges while the cells move under them; many columns scroll sideways
+   rather than squeezing the thumbnails to nothing, and the page itself never
+   scrolls horizontally. The box is no taller than the window less what sits
+   round it once the page has landed on the gallery head (--sheet-chrome,
+   measured by renderSheet's fitSheet), and a matrix's cells are no taller
+   than its rows can share of that (--cell-max), so a 4 x 3 at QHD is one
+   screen and only a matrix whose rows pass the 96 px floor scrolls inside it.
+   Its scroll padding is the stuck heads' row and column and the gap past
+   them (fitSheet measures both), so a cell the keyboard focuses is scrolled
+   out from under them. A wrapped row lays out like the gallery and takes the
+   page's height. */
+.sheet-scroll {
+  overflow: auto; max-height: calc(100vh - var(--sheet-chrome, 0px));
+  scroll-padding: calc(var(--sheet-head, 0px) + 6px) 0 0 calc(var(--sheet-rowhead, 0px) + 6px);
+}
+.sheet.wrapped .sheet-scroll { max-height: none; }
+.sheet-grid {
+  display: grid; gap: 6px; align-items: center; justify-content: center; min-width: min-content;
+  --cell-max: calc(((100vh - var(--sheet-chrome, 0px) - var(--sheet-head, 0px)) / var(--sheet-rows, 1) - 6px)
+    * var(--sheet-ar, 1));
+}
+/* The heads at the text's size and colour - 11 px grey over cells 500 px and
+   more across - and stuck to the box's top and left edges, each over its
+   whole row or column and the gap beside it on the page's own background, so
+   the labels stay beside the rows being read while the cells pass under
+   them. A label wraps to three lines at most; the heading's title is the
+   whole value. */
+.sheet-grid .head, .sheet-grid .rowhead {
+  font-size: var(--fs-body-sm); color: var(--text); background: var(--bg);
+  box-shadow: 0 0 0 3px var(--bg);
+  position: sticky; z-index: 1; align-self: stretch; display: flex;
+}
+.sheet-grid .head > .label, .sheet-grid .rowhead > .label {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  overflow-wrap: break-word; min-width: 0;
+}
 .sheet-grid .head {
-  font-size: var(--fs-sm); color: var(--muted); text-align: center; white-space: nowrap;
-  padding-bottom: 2px;
+  top: 0; align-items: flex-end; justify-content: center; text-align: center; padding-bottom: 2px;
 }
 .sheet-grid .rowhead {
-  font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; padding-right: 6px;
-  text-align: right;
+  left: 0; align-items: center; justify-content: flex-end; text-align: right;
+  white-space: nowrap; padding-right: 6px;
 }
-/* The prompt axis. Its labels are the words that vary between the cells, which
-   is prose and occasionally a long phrase - so it wraps where a number never
-   needs to, and the row heading is capped rather than eating the sheet. */
-.sheet-grid .head.text { white-space: normal; }
+.sheet-grid .head.corner { left: 0; z-index: 2; }
+/* The prompt axis and the variables. Their labels are the words that vary
+   between the cells, which is prose and occasionally a long phrase - so a row
+   head wraps where a number never needs to, and is capped rather than eating
+   the sheet. */
 .sheet-grid .rowhead.text { white-space: normal; max-width: 170px; }
+@media (min-width: 1800px) {
+  .sheet-grid .rowhead.text { max-width: clamp(170px, 12vw, 320px); }
+}
+/* A comparison's version, named, with what it changed against the original
+   under the name. */
+.sheet-grid .rowhead.has-edit {
+  display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px;
+}
+.sheet-grid .rowhead-edit {
+  font-size: var(--fs-label); color: var(--text-readout);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+}
 /* The cells take the run's own aspect ratio (set by renderSheet from the
    commonest size on the sheet) and show the whole frame: `cover` centre-cropped
    every cell to its middle 68% on a portrait run, hiding the top and bottom of
@@ -1132,12 +1187,29 @@ button { font: inherit; cursor: pointer; }
 .sheet-cell img { width: 100%; height: 100%; object-fit: contain; display: block; cursor: zoom-in; }
 /* A hole in the matrix - a cell the run never reached, or was cancelled before. */
 .sheet-cell.empty { opacity: 0.3; }
-/* The star a card carries, so where the keepers cluster is visible on the
-   sheet rather than only in the user's head. `position: relative` above is
-   what keeps 1024 of these from piling up at the top of the page. */
-.sheet-cell.fav::after {
-  content: "★"; position: absolute; top: 3px; right: 5px;
-  color: var(--star); text-shadow: 0 1px 3px #000; font-size: 12px; pointer-events: none;
+/* A refine sweep's source, ahead of its passes: ringed in the focus colour's
+   teal, apart from the passes and from a star's amber. */
+.sheet-cell.source { border-color: var(--accent-2); }
+/* A starred cell carries the star a card does, ring and badge - the card's
+   own rules, which name .sheet-cell.fav beside .card.fav so the two cannot
+   drift - and where the keepers cluster is visible on the sheet rather than
+   only in the user's head; a 12 px glyph in a 690 px cell was not.
+   `position: relative` above is what keeps 1024 badges from piling up at the
+   top of the page. */
+/* A refine pass says so, and at what strength, where the sheet does not lay
+   the strength out already: a pass looks like its source by design. Top
+   left, clear of the star. */
+.sheet-cell.refined::before {
+  content: "⤢ " attr(data-strength); position: absolute; top: 6px; left: 6px; z-index: 1;
+  padding: 2px 7px; border-radius: var(--r-lg); background: rgba(0, 0, 0, 0.62);
+  color: #fff; font-size: var(--fs-label); pointer-events: none;
+}
+/* A wrapped row's cells carry their own label, the head they have no row for. */
+.sheet-cell .cap {
+  position: absolute; inset: auto 0 0 0; padding: 14px var(--sp-2) 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  color: #fff; font-size: var(--fs-label); text-align: center; pointer-events: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ghost.small.active { color: var(--accent); border-color: var(--accent); }
 
@@ -1183,8 +1255,8 @@ button { font: inherit; cursor: pointer; }
    amber ring round the card, and the star on a dark badge so it reads on a
    white render as well as a black one. The tools' own star turns amber with
    it, so the toggle shows which way it will go. */
-.card.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
-.card.fav::after {
+.card.fav, .sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
+.card.fav::after, .sheet-cell.fav::after {
   content: "★";
   position: absolute;
   top: 6px;

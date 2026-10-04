@@ -406,21 +406,49 @@ async function loadRuns() {
 // sheet says so.
 function showRun(runId, { fresh = false } = {}) {
   if (!runId) return;
-  showSheetScope(`run:${runId}`, { fresh });
+  return showSheetScope(`run:${runId}`, { fresh });
 }
 
 function showJob(jobId, { fresh = false } = {}) {
   if (!jobId) return;
-  showSheetScope(`job:${jobId}`, { fresh });
+  return showSheetScope(`job:${jobId}`, { fresh });
 }
 
-function showSheetScope(search, { fresh = false } = {}) {
+// Every sheet the page opens comes through here: a comparison, a refine sweep,
+// the Runs picker, a card's ⊞, Show run. It keeps the search it replaces for
+// Sheet off to put back (sheetReturn) - back to back, one comparison's sheet
+// after another's, still the search from before the first - and `notice` is a
+// line for the note while this query is the one shown.
+//
+// Then, once setSheet has resolved (after renderSheet) and only if this is
+// still the sheet shown, the page goes to it: a finished comparison's sheet
+// opened at y = 1650 on a 1305 px screen, under the prompt check and the
+// viewer, with nothing in view changed but a line in the panel. To the gallery
+// head rather than the sheet, so the search, Favorites and Sheet - the sheet's
+// own filters - stay in view above it. Not for the Sheet button (`scroll:
+// false`), pressed at the gallery head already. The scroll moves no focus and
+// hides nothing: the check and the viewer, where a running job lands, are a
+// scroll up.
+function showSheetScope(search, { fresh = false, notice = null, scroll = true } = {}) {
   const unticked = fresh && els.favOnly.checked;
   if (unticked) els.favOnly.checked = false;
+  if (!sheetMode || !sheetReturn || els.search.value.trim() !== sheetReturn.wrote) {
+    sheetReturn = { search: els.search.value, wrote: search };
+  } else {
+    sheetReturn.wrote = search;
+  }
   els.search.value = search;
-  setSheet(true);
+  const opened = setSheet(true);
   // setSheet has begun the query the notice belongs to; another one drops it.
-  if (unticked) sheetNotice = { epoch: galleryEpoch, text: 'Favorites unticked: nothing in a new comparison is starred yet' };
+  const epoch = galleryEpoch;
+  const text = unticked ? 'Favorites unticked: nothing in a new comparison is starred yet' : notice;
+  if (text) sheetNotice = { epoch, text };
+  if (!scroll) return opened;
+  return opened.then(() => {
+    if (!sheetMode || epoch !== galleryEpoch) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  });
 }
 
 function clearResults() {

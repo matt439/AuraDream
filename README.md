@@ -988,7 +988,33 @@ others; the labels then keep what is left once the shared head and tail come
 off, which is the whole phrase again when a second variable also varies (the
 worked example above, with `none` in it, labels each column with its full
 prompt). The trimming exists because a header repeating the whole sentence is
-unreadable.
+unreadable. Where it would still leave labels alike or longer than a line -
+successive edits of one prompt, searched by a word they share - each column
+is labelled by its edit against the oldest (`+, film grain`, `−golden +blue`),
+the columns in the order the prompts were written; a heading's tooltip is its
+whole prompt. A comparison's rows read Original, Reordered, Rewrite and Your
+version, each with its edit against the original under the name.
+
+A sheet the page opens - a comparison, a strength sweep, a run from **Runs**
+or a card's ⊞ - scrolls into view under the gallery's search bar, and its
+cells are sized to fit the screen's height as well as its width, so a 4 x 3
+is one screen; a matrix too tall even at the smallest cells scrolls in a box
+whose headings stay in view. A run where only the seed varies wraps into
+captioned cells rather than one long row. A line above the grid names what
+every image shares (**Fixed:** steps, CFG, seed…) - with Favorites ticked,
+what the keepers have in common. **F** on a focused cell stars it. A strength
+sweep shows its source as the first column, and a refine pass carries its
+strength on the cell where strength is not an axis. With and without
+reference images is an axis of its own on klein, and images that share a cell
+are counted in the note: repeats of the shown image (a grid run twice), or
+images that differ only in something the sheet does not lay out (size,
+checkpoint). **Sheet** over an empty search opens the newest run (clear the
+search for the whole gallery), and turning it off puts back the search a
+page-opened sheet replaced. On a run's sheet, **Resume this run** puts the
+seed the run started from and its size in the panel, ticks Resume and
+previews what is left - the grid in the panel has to be the one that made it,
+and the preview says when it is not. The exported PNG also carries the prompt, the variables as declared,
+the shared settings and when the run was made, and is named by its pins.
 
 ## Settings
 

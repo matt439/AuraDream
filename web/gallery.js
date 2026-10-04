@@ -132,8 +132,7 @@ function card(rec) {
       }
       // The run id spans every job that worked on the grid - a night that died
       // and was resumed is one run - where the job id names only one of them.
-      els.search.value = rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`;
-      setSheet(true);
+      showSheetScope(rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`);
     }),
     star,
     tool('⌦', 'Delete', () => deleteImage(rec)),
@@ -382,6 +381,7 @@ function forgetImages(ids) {
     els.viewer.classList.remove('multi', 'many');
     els.viewerNote.textContent = '';
   }
+  for (const id of gone) if (sheetSources.has(id)) sheetSources.set(id, null);
   if (sheetMode) renderSheet();
   // A reference that has gone would be refused at submit, naming an id the
   // chips never showed.

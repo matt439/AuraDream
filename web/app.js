@@ -224,14 +224,17 @@ els.negEnable.onclick = focusNegativeKnob;
 els.favOnly.onchange = resetGallery;
 // The Runs picker is the gallery's table of contents, so it follows the scope.
 els.allModels.onchange = () => { resetGallery(); loadRuns(); };
-els.sheetBtn.onclick = () => setSheet(!sheetMode);
+els.sheetBtn.onclick = toggleSheet;
+els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
+// The sheet's fit is measured against the window, so it follows a resize.
+window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
 els.runList.onchange = () => { showRun(els.runList.value); els.runList.value = ''; };
 els.lastRunShow.onclick = () => {
   const { run, job } = els.lastRun.dataset;
   if (run) showRun(run);
-  else if (job) { els.search.value = `job:${job}`; setSheet(true); }
+  else if (job) showJob(job);
   dismissLastRun();
 };
 els.lastRunDismiss.onclick = dismissLastRun;
