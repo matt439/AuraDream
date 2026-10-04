@@ -671,7 +671,7 @@ schedule, and schnell, Z-Image Turbo and Qwen-Image start from schedule
 arithmetic alone. The pass
 has not been tried under Nunchaku in WSL.
 
-## Batch vs runs
+## Batch vs Repeat
 
 **Batch** produces N images in a single pipeline call, all resident in VRAM
 together. It is the fastest way to get a handful of 1024s and the reason a
@@ -679,11 +679,16 @@ large 2K batch does not fit. The default guard allows every 1 MP preset at
 Batch 12 and two 4 MP images; because real usage varies by checkpoint and
 quantizer, `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` can override it.
 
-**Runs** produces N images one pipeline call after another, stepping the seed by
-the batch size each time, so a sweep costs no more VRAM than a single image.
-That is what makes an unattended run of large images possible: set Runs to 12 at
-2048×2048 and walk away. Leave the seed blank and the sweep starts from a random
-one; set it and the whole sweep is reproducible.
+**Repeat** produces N batches one pipeline call after another, stepping the
+seed by the batch size each time, so a sweep costs no more VRAM than a single
+batch. That is what makes an unattended run of large images possible: set
+Repeat to 12 at 2048×2048 and walk away. Leave the seed blank and the sweep
+starts from a random one; set it and the whole sweep is reproducible. The line
+under the boxes spells it out ("6 images: 3 batches of 2, one after another,
+seed +2 each, from a random start."). It is the request's `runs` field and the
+CLI's `--runs`; the panel calls it Repeat because a *run* is a submission -
+what the gallery's Runs picker lists, `run:` searches for and the last-run
+banner reports - and one Repeat-3 Generate is one run of three batches.
 
 **Cancel** appears next to the progress bar while a job is running. It stops at
 the end of the current step — within a second or two — and keeps every image the
@@ -755,7 +760,10 @@ the same character in a new pose, a sketch to finish, one composition against a
 prompt axis. Add one with the ❐ button on any gallery image (up to four), or
 `--reference 12,15` from the terminal. They are chosen by *id*, never by path:
 the server resolves them through the gallery, so nothing a request says can
-read a file the app did not write.
+read a file the app did not write. Each chip in the panel carries the number a
+prompt names it by - "the jacket from image 1" - and the order is what the
+numbers mean: drag a chip, or press Alt+Left/Right on its ×, to move it, and
+Delete on the × drops it. A chip whose image has since been deleted says so.
 
 They cost less than you would think. Attention is quadratic in the sequence
 length and each reference roughly doubles it, but measured here (klein 4B,

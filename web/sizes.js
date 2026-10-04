@@ -25,6 +25,24 @@ function buildPresets() {
   TIERS.forEach((tier) => {
     els.tiers.appendChild(presetButton(`${tier} MP`, () => choose(pickedAspect, tier)));
   });
+  for (const strip of [els.presets, els.tiers]) strip.addEventListener('keydown', (e) => stepPreset(strip, e));
+}
+
+// Each strip is one tab stop, the chosen preset (syncSize keeps the roving
+// tabindex), and the arrows move between its buttons - seventeen stops used to
+// stand between the prompt and Generate. Focus only: each choice persists the
+// panel and asks for a preview, so it waits for Enter or Space, as before.
+// The buttons are queried, not the strip's children: a pair is a box of two.
+function stepPreset(strip, e) {
+  const buttons = [...strip.querySelectorAll('button')];
+  const from = buttons.indexOf(e.target);
+  if (from < 0) return;
+  const to = { ArrowLeft: from - 1, ArrowRight: from + 1, Home: 0, End: buttons.length - 1 }[e.key];
+  if (to === undefined || !buttons[to]) return;
+  e.preventDefault();
+  buttons[from].tabIndex = -1;
+  buttons[to].tabIndex = 0;
+  buttons[to].focus();
 }
 
 function presetButton(label, onClick) {
@@ -84,18 +102,24 @@ function syncSize() {
   [...els.presets.querySelectorAll('button')].forEach((b, i) => {
     const aspect = ASPECTS[i];
     const guided = presetIsInGuide(aspect, pickedTier);
-    b.classList.toggle('active', !!match && aspect === match[0]);
-    b.classList.toggle('recommended', guided);
+    markPreset(b, !!match && aspect === match[0], guided);
     describePreset(b, aspect, pickedTier, guided);
   });
   [...els.tiers.children].forEach((b, i) => {
     const tier = TIERS[i];
     const guided = presetIsInGuide(pickedAspect, tier);
-    b.classList.toggle('active', !!match && tier === match[1]);
-    b.classList.toggle('recommended', guided);
+    markPreset(b, !!match && tier === match[1], guided);
     // Spell out what the tier means for the framing currently in play.
     describePreset(b, pickedAspect, tier, guided);
   });
+  for (const strip of [els.presets, els.tiers]) {
+    const buttons = [...strip.querySelectorAll('button')];
+    // A mark on every preset says nothing: the size line carries the range.
+    strip.classList.toggle('all-guided', buttons.every((b) => b.classList.contains('recommended')));
+    // The strip's one tab stop: the chosen preset, or the first where the
+    // size is none of them.
+    if (!buttons.some((b) => b.tabIndex === 0)) buttons[0].tabIndex = 0;
+  }
 
   const mp = (w * h) / 1e6;
   const notes = [];
@@ -139,6 +163,15 @@ function presetIsInGuide(aspect, tier) {
   return mp >= sizeRange[0] * 0.9 && mp <= sizeRange[1] * 1.1;
 }
 
+// The chosen preset was a class alone, so a screen reader could not tell which
+// one it was: aria-pressed says so, and it is the strip's tab stop.
+function markPreset(button, active, guided) {
+  button.classList.toggle('active', active);
+  button.classList.toggle('recommended', guided);
+  button.setAttribute('aria-pressed', String(active));
+  button.tabIndex = active ? 0 : -1;
+}
+
 function describePreset(button, aspect, tier, guided) {
   const dimensions = SIZES[aspect][tier].join(' × ');
   const note = guided
@@ -175,9 +208,29 @@ function syncCfg() {
     : !trueCfgSupported && gridMaxCfg !== null && +els.cfg.value <= cfgThreshold && reach > cfgThreshold
       ? `(applies to the grid cells above CFG ${cfgThreshold} — ~2× slower there)`
       : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
+  // The way to the box that wakes it, which on FLUX sits a field's height
+  // below and is named only in the note.
+  els.negEnable.hidden = !(off && negativeSupported);
+  els.negEnable.textContent = `Set ${knob}`;
+  els.negEnable.title = `Go to the ${knob} box: above ${cfgThreshold} it runs the negative prompt`;
   // A negative prompt greyed or woken here stops or starts running, and the
   // prompt check read it as it ran then.
   syncAnalysisStale();
+}
+
+// The greyed negative box's button, and a press on the box itself: focus the
+// box that decides, its value selected, and write nothing - a value is the
+// checkpoint's (Qwen-Image's guide asks for about 4, schnell's for none), and
+// its tip says which.
+function focusNegativeKnob() {
+  if (!negativeSupported || !els.negative.disabled) return;
+  const knob = trueCfgSupported ? els.trueCfg : els.cfg;
+  knob.focus();
+  // The press was in the panel, so its focusin moved nothing; the box it
+  // focused is elsewhere in the panel, and is brought into view the way a
+  // control focused from the keyboard is.
+  revealInPanel(knob);
+  knob.select();
 }
 
 // The conditioning controls, greyed for the checkpoint (references) or for
@@ -185,40 +238,142 @@ function syncCfg() {
 // has a reason, and the reason is in the badge beside it.
 function syncConditioning() {
   els.referenceField.classList.toggle('disabled', !referenceSupported);
+  // The badge says what references do where they are taken, and why the
+  // field is dead where they are not.
+  els.referenceTip.textContent = referenceSupported
+    ? 'Up to four gallery images the picture is conditioned on, in this order: drag a chip, '
+      + 'or press Alt+Left/Right on its ×, to move it. With two or more, say in the prompt '
+      + 'what to take from each by its number - "the jacket from image 1". Each is resized '
+      + 'to about 1 MP on the way in.'
+    : referenceTipDefault;
   els.lora.disabled = !loraSupported;
   els.loraScale.disabled = !loraSupported || !els.lora.value;
   els.loraField.classList.toggle('disabled', !loraSupported);
+  // A disabled box shows no tooltip, so the reason is its wrapper's - and only
+  // the value's: an installation with no adapters says why in the badge.
+  els.loraScale.closest('.sub').title = loraSupported && !els.lora.value ? 'Pick an adapter first' : '';
   els.gridLoraScale.disabled = !loraSupported || !els.lora.value;
   els.gridLoraField.classList.toggle('disabled', els.gridLoraScale.disabled);
+  // The sweep's box names the adapter it weighs, 570 px below the select.
+  const adapter = els.lora.value.replace(/\.safetensors$/i, '');
+  els.gridLoraScale.placeholder = !loraSupported ? '0-1x0.25'
+    : adapter ? `${adapter}: 0-1x0.25` : 'pick an adapter above';
   renderReferences();
 }
 
-// The chips: one per selected image, in order, each removable. Rendered from
-// `referenceIds` rather than from the DOM, because Reuse and the gallery's own
-// button both write the list.
+// The chips: one per selected image, in order, each numbered as the prompt
+// names it, movable and removable. Rendered from `referenceIds` rather than
+// from the DOM, because Reuse and the gallery's own button both write the
+// list - and every change, a move included, goes through setReferences on a
+// copy, so the panel is remembered, the preview asked again and the prompt
+// check marked stale.
+let draggedReference = null;
+
 function renderReferences() {
   els.referenceList.textContent = '';
-  els.referenceNote.textContent = !referenceSupported
-    ? '(this checkpoint takes none)'
-    : referenceIds.length
-      ? `(${referenceIds.length}, each lengthening the sequence)`
-      : '(add one with the ❐ button on a gallery image)';
-  for (const id of referenceIds) {
+  const n = referenceIds.length;
+  // One reference needs no number in the prompt; two or more do, and the
+  // chips' badges are the numbers.
+  els.referenceNote.textContent = !referenceSupported ? '(this checkpoint takes none)'
+    : n === 0 ? '(add one with the ❐ button on a gallery image)'
+    : n === 1 ? '(1 of 4)'
+    : `(${n} of 4 — name them ${n === 2 ? 'image 1 and image 2' : `image 1 to image ${n}`} in the prompt)`;
+  referenceIds.forEach((id, i) => {
+    const name = `Reference image ${i + 1} (gallery #${id})`;
     const chip = document.createElement('span');
     chip.className = 'chip';
+    chip.title = name;
+    chip.draggable = true;
     const img = document.createElement('img');
     img.src = `/api/images/${id}/thumb`;
-    img.alt = '';
+    img.alt = name;
+    img.draggable = false;
+    // Deleted since it was picked, or remembered by this browser from before.
+    img.onerror = () => {
+      chip.classList.add('gone');
+      chip.title = img.alt = `Reference image ${i + 1} (gallery #${id}, deleted)`;
+    };
+    const number = document.createElement('b');
+    number.className = 'chip-n';
+    number.textContent = i + 1;
+    number.setAttribute('aria-hidden', 'true');
     const drop = document.createElement('button');
     drop.type = 'button';
     drop.className = 'ghost';
     drop.textContent = '×';
-    drop.title = `Remove image ${id}`;
-    drop.setAttribute('aria-label', `Remove reference image ${id}`);
-    drop.onclick = () => setReferences(referenceIds.filter((other) => other !== id));
-    chip.append(img, drop);
+    drop.title = `Remove reference image ${i + 1} (#${id}) · Alt+Left/Right moves it`;
+    drop.setAttribute('aria-label', `Remove reference image ${i + 1}`);
+    drop.setAttribute('aria-keyshortcuts', 'Delete Alt+ArrowLeft Alt+ArrowRight');
+    drop.onclick = () => removeReference(i);
+    drop.onkeydown = (e) => {
+      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        const to = i + (e.key === 'ArrowLeft' ? -1 : 1);
+        if (moveReference(i, to)) focusReference(to);
+      } else if (e.key === 'Delete') {
+        e.preventDefault();
+        removeReference(i);
+      }
+    };
+    chip.ondragstart = (e) => {
+      draggedReference = i;
+      chip.classList.add('dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(id));
+      }
+    };
+    // Dropped on a chip's left half it goes before that chip, on its right half after.
+    const after = (e) => e.clientX >= chip.getBoundingClientRect().left + chip.offsetWidth / 2;
+    chip.ondragover = (e) => {
+      if (draggedReference === null) return;
+      e.preventDefault();
+      clearReferenceDropMarkers();
+      chip.classList.add(after(e) ? 'drop-after' : 'drop-before');
+    };
+    chip.ondrop = (e) => {
+      if (draggedReference === null) return;
+      e.preventDefault();
+      const from = draggedReference;
+      const insertion = i + (after(e) ? 1 : 0);
+      draggedReference = null;
+      clearReferenceDropMarkers();
+      moveReference(from, insertion > from ? insertion - 1 : insertion);
+    };
+    chip.ondragend = () => {
+      draggedReference = null;
+      chip.classList.remove('dragging');
+      clearReferenceDropMarkers();
+    };
+    chip.append(img, number, drop);
     els.referenceList.append(chip);
-  }
+  });
+}
+
+function clearReferenceDropMarkers() {
+  els.referenceList.querySelectorAll('.drop-before, .drop-after')
+    .forEach((chip) => chip.classList.remove('drop-before', 'drop-after'));
+}
+
+// False where there is nowhere to go: the first chip moved left, the last right.
+function moveReference(from, to) {
+  if (to < 0 || to >= referenceIds.length || to === from) return false;
+  const ids = referenceIds.slice();
+  ids.splice(to, 0, ids.splice(from, 1)[0]);
+  setReferences(ids);
+  return true;
+}
+
+// Focus stays in the field rather than dropping to <body>: the next chip's ×,
+// else the previous one's, else the field's badge.
+function removeReference(index) {
+  setReferences(referenceIds.filter((_, i) => i !== index));
+  if (referenceIds.length) focusReference(Math.min(index, referenceIds.length - 1));
+  else els.referenceField.querySelector('.help').focus();
+}
+
+function focusReference(index) {
+  els.referenceList.querySelectorAll('.chip button')[index]?.focus();
 }
 
 function setReferences(ids) {
@@ -231,14 +386,17 @@ function setReferences(ids) {
 }
 
 // Batch holds every image in VRAM at once, which is what stops a 2K batch from
-// fitting. Runs trade that for wall-clock: one pipeline call each, seed stepped
-// by the batch size so nothing in the sweep repeats.
+// fitting. Repeat (the request's `runs`) trades that for wall-clock: one
+// pipeline call each, seed stepped by the batch size so nothing in the sweep
+// repeats. Batches, not passes: a pass is the Refine dialog's word.
 function syncRuns() {
   const runs = Math.max(1, +els.runs.value || 1);
   const batch = Math.max(1, +els.batch.value || 1);
   const seed = els.seed.value.trim();
+  const start = seed === '' ? 'from a random start.' : `from ${seed}.`;
   els.runHint.textContent = runs === 1
-    ? (batch > 1 ? `${batch} images in one pass — all held in VRAM together.` : '')
-    : `${runs * batch} images over ${runs} passes, seed +${batch} each, ` +
-      (seed === '' ? 'from a random start.' : `from ${seed}.`);
+    ? (batch > 1 ? `${batch} images at once — all held in VRAM together.` : '')
+    : batch === 1
+      ? `${runs} images, one after another, seed +1 each, ${start}`
+      : `${runs * batch} images: ${runs} batches of ${batch}, one after another, seed +${batch} each, ${start}`;
 }

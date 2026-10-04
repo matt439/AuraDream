@@ -225,7 +225,11 @@ seeds its controls from it once, on load.
 ## mu is Turbo-only
 
 `mu` is Turbo-only. FLUX derives its own resolution-dependent shift, so forcing
-Turbo's constant on it degrades output; the profile leaves mu null there.
+Turbo's constant on it degrades output; the profile leaves mu null there. The
+panel's Mu box says "auto" while blank, where Mu applies at all, rather than
+sitting empty beside True CFG's "off"; the grid's Mu axis suggests
+`none,<the profile's mu>` and nothing where the profile has none, instead of
+Turbo's 1.15 on every checkpoint (U87, U106).
 
 ## True CFG is its own field
 
@@ -252,6 +256,15 @@ follows whichever box decides, and Reuse fills it only on a checkpoint that
 has it. Verified on the card 2026-09-08 (FLUX.1 Krea dev, fp8): a negative
 prompt with no true CFG produces the byte-identical image to no negative
 prompt; with true CFG 1.5 a different, reproducible one at ~1.65x the time.
+On the default checkpoint the negative box is therefore greyed on every fresh
+page, with the box that wakes it a field's height below. While it is greyed and
+the checkpoint takes a negative at all, a "Set True CFG" (or "Set CFG") button
+in the box's corner - and a press on the box itself, which `pointer-events:
+none` lets through to the field - focuses and selects the deciding box and
+writes nothing (`focusNegativeKnob`): a value is the checkpoint's, about 4 on
+Qwen-Image, none on schnell. The field is a `<div>` with a `<label
+for="negative">`, as the Prompt field is: inside a `<label>` the button became
+the label's control and the textarea lost its name (U100).
 
 ## FLUX.2 klein: no negative prompt, and the threshold rule
 
@@ -310,6 +323,24 @@ model offload the per-image weight transfer dominates both, so the estimate
 in the panel needs no reference-aware term. The conditioning itself is
 unmistakable and reproducible: the same fox, cabin and treeline as the
 referenced image, in the pose the prompt asked for, and the same hash twice.
+
+**The chips are numbered, and their order is editable.** klein's guide, its
+prompts and the check name references "image 1", "image 2", so the order is
+what the prompt means. Each chip carries its number at bottom left, its image
+is named "Reference image N (gallery #id)", and it moves the way the tag chips
+do - dragged, or Alt+Left/Right on its × - with Delete on the × dropping it and
+focus going to the next chip's ×, else the previous one's, else the field's
+badge, rather than to `<body>`. Every move builds a new array and goes through
+`setReferences`, the one writer, so the panel is remembered, the preview asked
+again and the prompt check marked stale ("references changed since"). A chip
+whose thumbnail does not load - an image deleted since, or an id this browser
+remembered - is marked deleted rather than showing a broken image. The note
+under the caption counts "1 of 4" and asks for numbers in the prompt only from
+two references on (one needs none, as BFL's own example shows); it no longer
+says each lengthens the sequence, a cost measured above as absent. Where the
+field is greyed its empty chip row is hidden, the caption, badge and note
+staying; the badge says what references do where they are taken, rather than
+the unsupported checkpoint's sentence (U36, U62, U77, U95).
 
 ## LoRA adapters are the environment's and are hot-swapped
 
@@ -371,7 +402,9 @@ follows either answers it or fails with the real reason - and the page
 fetches the list once more when the status turns ready. The listing carries
 each adapter's `detail`; the page hides an entry on it and names it in the
 tooltip with the reason, so a file dropped into the directory that never
-appears is explained rather than missing; `/api/generate`, `/api/grid` and
+appears is explained rather than missing - after the tooltip's own sentence
+(the directory it reads, what Weight does), not in its place, and without the
+file's name twice, since a `detail` starts with it (U118); `/api/generate`, `/api/grid` and
 `/api/rerender` answer 422 with the same reason and the CLI exits 2 with it.
 Measured on the frosting-lane file against the cached checkpoints: fits
 FLUX.1 Krea; 494 modules Z-Image has not got; 454 klein has not got; the
@@ -874,6 +907,14 @@ model. Large batches are still refused, and a machine with different headroom
 can set `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` explicitly. A refine pass is
 outside it: it makes one pipeline call per image, so its batch never holds
 more than one image at once ("A pass has a size guard of its own").
+
+The panel labels the count **Repeat**; `request.runs`, the `runs` box id, its
+remembered key and the CLI's `--runs` keep the name. "Run" is the
+submission everywhere else on the page - the gallery's Runs picker lists one
+Repeat-3 Generate as one run, `run:` searches for it, the last-run banner
+reports it - and a panel box of the same name counted something inside it
+(U88). Batch has a badge saying why Repeat exists, and the line under the
+boxes says batches, not passes, which is the Refine dialog's word.
 
 ## A job is a list of cells
 
@@ -1687,9 +1728,13 @@ scrolls nothing. `#btn-grid`'s `scroll-margin-bottom` is the gutter, the
 panel's bottom padding and its border, so the page's scroll leaves Run grid
 where a panel held by its bottom keeps it, with room for the preview's reply
 to add a line. `tools/smoke-wide.json` checks all of it at 2560 x 1305,
-2048 x 1040 at 125% and 1400 x 900, and that the page's scale is today's (the
-panel's width, the body's type, the gallery's columns), the baseline the
-wide tier will change.
+2048 x 1040 at 125% and 1400 x 900, and the page's scale at each (the wide
+tier's, below). The wide tier makes the panel taller and lets the prompt box
+grow with its text, by as much as seven lines: that is a change of the
+panel's height like any other, placed as above. At 2560 x 1305 the idle panel
+with the last-run banner is 1,155 px and still rests; at 2048 x 1040 it was
+already held by its bottom, and the short-window tier keeps it about as tall
+as it was (1,078 px against 1,089).
 
 ## Design tokens
 
@@ -1722,13 +1767,65 @@ padding is worked out from it, `(height - line - border) / 2`, which is
 exactly the 7 px a ghost button always had, so a tier that raises a height
 or a type token gets that height without restating a padding. `--warn` and
 `--star` are the same amber with different meanings; `--accent-strong`, the
-primary buttons' fill, is the accent itself until a tier darkens it for
-contrast, and `--line-strong`, the controls' borders (inputs, selects, ghost
-buttons, presets, the ? badges), is `--line` until a tier raises it, leaving
-`--line` on the panel, cards, viewer and folds. `--topbar-h` is the topbar's
+primary buttons' fill, came in as the accent itself and `--line-strong`, the
+controls' borders (inputs, selects, ghost buttons, presets, the ? badges), as
+`--line`, so that the step after could change them alone for contrast (below),
+leaving `--line` on the panel, cards, viewer and folds. `--topbar-h` is the topbar's
 set height rather than a floor under its content, so the sticky top and the
 check heading's scroll margin, which read it, read the real height whatever
 a tier does to the buttons in it.
+
+**The wide tier** (step 6 of the plan; U14, U15, U84, U96, U103, U90) is
+`@media (min-width: 1800px)` overriding `:root`, and a second query for a
+window under 1150 px tall inside it. At 2560 x 1305 the page had been the
+1400 px page stretched: a 330 px panel (12.9% of the width) of 10-12 px text
+and 19 px caption buttons, a five-line prompt box showing half of a
+guide-length prompt, twelve 171 px cards a row - smaller than at 1400. The
+type grows with the window: `--ramp` is `(100vw - 1800px) / 760`, a length
+from 0 at 1800 px to 1 px at 2560, and each size is today's plus its steps
+times it, capped at 2560's - body 14 to 15.5 px, captions 12 to 13.5, sub-labels,
+hints and tips 11 to 13, badges 10 to 12. So nothing jumps at 1800, and QHD at
+125% (2048 CSS px) gets a third of the increase: Windows already draws its
+11 px as 13.75 device px, and the review measured that panel past its window
+before any change (U15's verifier would have gated the type at 2200 px for
+that reason; the ramp is the plan's answer instead). The layout steps at
+1800: the panel `clamp(400px, 18vw, 480px)` (461 px at 2560, 400 at 2048),
+the cards `clamp(200px, 9vw, 260px)` (eight a row at 2560, seven at 2048),
+the search box to 480 px, tips to 320/380 px, small counters to 72 px, the
+controls taller (fields 44 px, the primary 48) and the topbar with them. In
+the wide tier the prompt box grows with what is typed, `field-sizing:
+content` from five lines to twelve (eight under 1150 px), capped in lines
+rather than in the window's height: a box 40% of the window tall would add
+400 px to a panel already past the fold at 125% (U14's rule tension). The
+short-window tier keeps the type and the widths and puts back today's
+control heights, gaps and panel padding, so at 2048 x 1040 the panel is about
+as tall as before while 70 px wider. Under 1800 px every token is today's,
+which is where the smokes run and why their computed-style checks hold.
+
+Some of the same change is not scale but contrast and focus, and applies at
+every width: `--line-strong` is `#666680`, 3.33:1 on the
+panel and 3.11:1 on the fields where `--line` was 1.24 and 1.15 (U24; the
+review plan's `#62627a` is 2.92:1 on a field), `--accent-strong` is `#6a4cf0`,
+white on it 5.4:1 where the accent gave 4.35 (U89, U92), placeholders are
+`--muted` (5.16:1, U89), and a disabled box in the panel is dimmed like a
+greyed one (U94). `color-scheme: dark` on `:root` turns the scrollbars,
+checkboxes, spinners and select lists dark and `accent-color` ticks the boxes
+in the accent (U21); it also turns Chromium's `outline: auto` focus ring near
+black on this background, so the same change gives every control the page's
+own ring, `:focus-visible` at the lowest specificity (2 px of `--accent-2`,
+10.4:1), which any control with a focus style of its own outranks. Checkboxes
+had none at all: the text boxes' `outline: none` caught them and their border
+does not render (U54). A text box's focus is two pixels of the accent, since
+one pixel of it beside the stronger border was a 1.3:1 change. The LoRA select
+is drawn as the text boxes are, by its id alone: a rule for every select would
+restyle the comparison's selects in the panel under 901 px (U21). Danger red
+on hover is a `.danger` class on Cancel, Cancel queued and Delete unstarred,
+not every small ghost button (U91), and a tip lets clicks through
+(`pointer-events: none`, U139): one pinned open by a click lay over the Refine
+dialog's scale buttons and swallowed the clicks meant for them. A tip's line
+breaks are kept only where its text has them (`.tip.pre`, set by the code
+that writes it), not on every wide tip, which broke a tip written in the
+markup wherever its source lines fell.
 
 ## The live preview
 
@@ -2507,11 +2604,34 @@ profile's word - `above the 1.6 MP this checkpoint is recommended for`,
 verb for all. The line warns a tenth outside the range: the 1 MP presets
 land at 1.04-1.08 MP and every profile's range has to admit them
 (`test_every_guide_admits_the_1_mp_presets`), or a fresh page would open
-on a warning. The preset buttons use that same tolerance and turn green when
-the full size they would choose is inside the range and, when a guide publishes
-a finite `aspects` list, uses one of those framings: aspect buttons are judged
-at the current megapixel tier, and tier buttons at the current aspect. The VRAM
-warning stays and stacks after it.
+on a warning. The preset buttons use that same tolerance and are marked
+(`.recommended`) when the full size they would choose is inside the range and,
+when a guide publishes a finite `aspects` list, uses one of those framings:
+aspect buttons are judged at the current megapixel tier, and tier buttons at
+the current aspect. The VRAM warning stays and stacks after it.
+
+**The selection reads first; the range is a mark.** A marked preset used to be
+filled green, and on Turbo all 17 buttons were, on FLUX 15 - the largest
+saturated block in the panel - while the chosen one differed from its
+neighbours by a 1.4:1 fill (the 2026-10-04 UI review, U81). Now the chosen
+preset is the accent's fill with white text and `aria-pressed="true"`, and a
+marked one has brighter text, a green edge and a dot in its corner, absolutely
+placed so it widens nothing. A strip where every button is marked
+(`all-guided`: FLUX's aspects at 1 MP, everything on Turbo) drops the marks,
+which say nothing there; the size line still quotes the range. The classes and
+`presetIsInGuide` are unchanged. Each strip is a `role="group"` with one tab
+stop, the chosen preset (or the first where the size is none of them), and
+the arrow keys, Home and End move focus along `strip.querySelectorAll('button')`
+- the pairs are nested - without choosing: a choice persists the panel and asks
+for a preview, so it waits for Enter, Space or a click. The 17 size stops had
+put Generate 36 Tab presses from the prompt (U105).
+
+**A tag checkpoint's empty prompt shows tags.** The static placeholder is
+prose, which failed Animagine's own style check. `applyGuide` writes the start
+of the authors' first example, cut at the last comma within 60 characters and
+ended with ", …", where the guide's `tag_helper` is Danbooru vocabulary and
+not `hybrid_prompt` (Kohaku, Illustrious and WAI document prose as well), and
+puts the markup's placeholder back elsewhere (U133).
 
 **A pair of inverses is one box on the strip.** The thirteen aspects used to
 sit in the order they were added - landscape/portrait pairs, but 16:9 ahead

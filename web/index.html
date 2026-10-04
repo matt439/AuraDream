@@ -152,10 +152,16 @@
       <textarea id="prompt-translation" rows="4" readonly></textarea>
     </label>
 
-    <label class="field" id="negative-field">
-      <span>Negative prompt <em id="neg-note"></em></span>
+    <!-- A div with a label, as the Prompt field is: inside a <label> the
+         button would become the label's control and the box would lose its
+         name. While the box is greyed, the button (and a press on the box)
+         focuses the box that decides - True CFG or CFG - and writes nothing:
+         what it should be is the checkpoint's, which its tip says. -->
+    <div class="field" id="negative-field">
+      <span><label for="negative">Negative prompt</label> <em id="neg-note"></em>
+        <button type="button" class="ghost tiny" id="neg-enable" hidden></button></span>
       <textarea id="negative" rows="2" placeholder="blurry, watermark"></textarea>
-    </label>
+    </div>
 
     <div class="field">
       <span>Size
@@ -163,13 +169,15 @@
           class="tip wide" id="size-tip">Sides are multiples of 16. Most checkpoints are
           trained around 1 MP; the size line says when a size is outside what this one
           is documented for.</span></span></span>
-      <div class="presets" id="presets"></div>
+      <!-- Each strip is one tab stop - the chosen preset - with the arrow keys
+           moving between its buttons, and Enter or Space choosing (sizes.js). -->
+      <div class="presets" id="presets" role="group" aria-label="Aspect"></div>
       <div class="size-tier-row">
-        <div class="presets tiers" id="tiers"></div>
+        <div class="presets tiers" id="tiers" role="group" aria-label="Size in megapixels"></div>
         <button type="button" class="ghost small orientation" id="btn-orientation"
                 title="Square has no portrait or landscape orientation" disabled>Orientation</button>
       </div>
-      <div class="row">
+      <div class="row size-row">
         <!-- max is the longest side of any preset - backend/sizes.py, which
              tests/test_profiles.py holds this to. -->
         <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="3168"></label>
@@ -186,40 +194,46 @@
          wording, replaced with the checkpoint's on every status poll.
          The badge sits outside the <label> on purpose - inside it, a tap would
          be forwarded to the input, taking focus off the badge and closing the
-         tooltip in the same gesture that opened it. -->
-    <div class="row">
-      <div class="sub grow">
-        <i><label for="steps">Steps</label>
-          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-            class="tip" id="steps-tip">Denoising steps. 28 is a safe starting point for an
-            unrecognised checkpoint; more steps cost proportionally more time.</span></span></i>
-        <input type="number" id="steps" value="28" min="1" max="100" aria-describedby="steps-tip">
-      </div>
-      <div class="sub grow">
-        <i><label for="cfg">CFG</label>
-          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-            class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
-            negative prompt applies, at roughly 2x the time per step.</span></span></i>
-        <input type="number" id="cfg" value="3.5" min="0" max="20" step="0.1" aria-describedby="cfg-tip">
-      </div>
-      <div class="sub grow" id="mu-field">
-        <i><label for="mu">Mu</label>
-          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-            class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
-            checkpoint is known to want a fixed one - otherwise the pipeline derives its
-            own.</span></span></i>
-        <input type="number" id="mu" min="0" max="10" step="0.05" aria-describedby="mu-tip">
-      </div>
-      <!-- Real CFG kept apart from the guidance value, on the one family where
-           they are two knobs (FLUX.1). Greyed out - not hidden, so the panel
-           keeps its shape - wherever the CFG box is real CFG already. -->
-      <div class="sub grow" id="true-cfg-field">
-        <i><label for="true-cfg">True CFG</label>
-          <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
-            class="tip" id="true-cfg-tip">Not a separate knob on this checkpoint: its CFG
-            box is real classifier-free guidance already, and the negative prompt follows
-            that.</span></span></i>
-        <input type="number" id="true-cfg" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
+         tooltip in the same gesture that opened it. The caption is the row's:
+         without one, the row read as part of Size above it. -->
+    <div class="field" role="group" aria-labelledby="sampling-caption">
+      <span id="sampling-caption">Sampling</span>
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="steps">Steps</label>
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="steps-tip">Denoising steps. 28 is a safe starting point for an
+              unrecognised checkpoint; more steps cost proportionally more time.</span></span></i>
+          <input type="number" id="steps" value="28" min="1" max="100" aria-describedby="steps-tip">
+        </div>
+        <div class="sub grow">
+          <i><label for="cfg">CFG</label>
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
+              negative prompt applies, at roughly 2x the time per step.</span></span></i>
+          <input type="number" id="cfg" value="3.5" min="0" max="20" step="0.1" aria-describedby="cfg-tip">
+        </div>
+        <div class="sub grow" id="mu-field">
+          <i><label for="mu">Mu</label>
+            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
+              checkpoint is known to want a fixed one - otherwise the pipeline derives its
+              own.</span></span></i>
+          <!-- Blank is the pipeline's own shift, which its tip explains:
+               "auto" says so where the box would otherwise be an empty patch. -->
+          <input type="number" id="mu" min="0" max="10" step="0.05" placeholder="auto" aria-describedby="mu-tip">
+        </div>
+        <!-- Real CFG kept apart from the guidance value, on the one family where
+             they are two knobs (FLUX.1). Greyed out - not hidden, so the panel
+             keeps its shape - wherever the CFG box is real CFG already. -->
+        <div class="sub grow" id="true-cfg-field">
+          <i><label for="true-cfg">True CFG</label>
+            <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip" id="true-cfg-tip">Not a separate knob on this checkpoint: its CFG
+              box is real classifier-free guidance already, and the negative prompt follows
+              that.</span></span></i>
+          <input type="number" id="true-cfg" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
+        </div>
       </div>
     </div>
 
@@ -240,8 +254,8 @@
       <div class="sub grow">
         <i><label for="lora">LoRA</label>
           <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-            class="tip" id="lora-tip">A LoRA adapter from the loras/ directory, at a
-            scale.</span></span></i>
+            class="tip" id="lora-tip">A LoRA adapter from the loras/ directory; Weight 0-2
+            scales its effect.</span></span></i>
         <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
       </div>
       <div class="sub narrow">
@@ -251,10 +265,19 @@
       </div>
     </div>
 
+    <!-- Repeat is the request's `runs`: batches one after another. Named
+         apart from a run, which is a submission - the gallery's Runs picker,
+         the run: search, the last-run banner. -->
     <div class="row">
       <label class="sub grow"><i>Seed</i><input type="number" id="seed" placeholder="random" min="0"></label>
-      <label class="sub narrow"><i>Batch</i><input type="number" id="batch" value="1" min="1" max="12"></label>
-      <label class="sub narrow"><i>Runs</i><input type="number" id="runs" value="1" min="1" max="64"></label>
+      <div class="sub narrow">
+        <i><label for="batch">Batch</label>
+          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            class="tip" id="batch-tip">Images rendered at once, all held in VRAM. For many
+            2 MP+ images raise Repeat instead: same VRAM, more time.</span></span></i>
+        <input type="number" id="batch" value="1" min="1" max="12" aria-describedby="batch-tip">
+      </div>
+      <label class="sub narrow"><i>Repeat</i><input type="number" id="runs" value="1" min="1" max="64"></label>
       <button class="ghost square" id="btn-dice" title="Clear seed (randomize)" aria-label="Clear the seed, so the next run draws a random one">🎲</button>
     </div>
     <p class="hint" id="run-hint"></p>
@@ -275,13 +298,13 @@
         </div>
       </div>
       <button class="ghost small" id="btn-pause" title="Hold after the current cell and hand the GPU back; Resume carries on">Pause</button>
-      <button class="ghost small" id="btn-cancel" title="Stop after the current step">Cancel</button>
+      <button class="ghost small danger" id="btn-cancel" title="Stop after the current step">Cancel</button>
     </div>
     <!-- Jobs queued behind the one being watched: the server runs them in
          turn, and a reload picks the next one up. -->
     <p class="hint" id="queue-note" hidden>
       <span id="queue-text"></span>
-      <button class="ghost small" id="btn-cancel-queued" title="Cancel every job waiting behind this one">Cancel queued</button>
+      <button class="ghost small danger" id="btn-cancel-queued" title="Cancel every job waiting behind this one">Cancel queued</button>
     </p>
     <!-- Which cell of a grid is running. Empty for an ordinary sweep, where the
          settings never change and the counters say everything. -->
@@ -460,7 +483,7 @@
       <!-- The inverse of the card's delete: star what stays, then remove the
            rest of what the filter matches in one confirmed gesture. Last in
            the bar, away from the view toggle. -->
-      <button class="ghost small" id="btn-delete-unstarred" hidden
+      <button class="ghost small danger" id="btn-delete-unstarred" hidden
         title="Delete every image the filter matches that is not starred, after a confirmation that shows the count. Takes key:value terms or an empty search; the files are removed from disk">⌦ Delete unstarred</button>
     </div>
     <div class="grid" id="gallery"></div>
