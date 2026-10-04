@@ -215,6 +215,7 @@ async function refreshStatus() {
     if (s.defaults && typeof s.defaults.refine_supported === 'boolean'
         && s.defaults.refine_supported !== refineSupported) {
       refineSupported = s.defaults.refine_supported;
+      syncCardTools();
       // An open dialog wakes, or says why it cannot run, and asks again.
       if (refineSource) scheduleRefinePreview();
       if (els.lightbox.open) renderLightbox();

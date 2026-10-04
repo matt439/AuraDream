@@ -696,6 +696,7 @@ function renderSheet() {
     }
     img.setAttribute('aria-keyshortcuts', 'F');
     cell.appendChild(img);
+    markReference(cell, referenceAt(rec.id));
     if (badge && rec.refine != null) {
       cell.classList.add('refined');
       cell.dataset.strength = rec.strength;
@@ -883,7 +884,7 @@ async function resumeRun(runId) {
     seed = sheetRecords.reduce((a, r) => (r.id < a.id ? r : a)).seed;
   }
   if (seed == null) {
-    showError(`Run ${runId} is not among the 200 newest; untick Favorites so the sheet holds its oldest image.`, false, slot);
+    showError(`Run ${runId} is not among the 200 newest; untick Starred so the sheet holds its oldest image.`, false, slot);
     return;
   }
   els.seed.value = seed;

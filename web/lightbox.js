@@ -100,9 +100,9 @@ function renderLightbox() {
   els.lbCount.textContent = lbList.length > 1 ? `${lbIndex + 1}/${lbList.length}` : '';
   els.lbPrev.disabled = lbIndex === 0;
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
-  els.lbFav.textContent = rec.favorite ? '★ Favourite' : '☆ Favourite';
+  els.lbFav.textContent = rec.favorite ? '★ Starred' : '☆ Star';
   els.lbFav.classList.toggle('active', !!rec.favorite);
-  syncReuseButton(els.lbReuse, rec.model_id);
+  syncReuseButton(els.lbReuse, rec);
   // aria-disabled, so the button keeps its place in the tab order and its
   // click can still say why: the reason is the checkpoint's, not the image's.
   els.lbRefine.setAttribute('aria-disabled', String(!refineSupported));

@@ -14,7 +14,7 @@
   {"wait": 800},
   {"expect": "els.search.value.startsWith('job:') && els.search.value !== window.__firstSearch && galleryRecords.length === 8"},
   {"expect": "galleryRecords.every((r) => r.run_id === window.__comparisonRun && r.prompt === (r.variables.variant === 'original' ? 'a blue fox' : 'a red fox'))"},
-  {"expect": "!els.favOnly.checked && galleryRecords.every((r) => !r.favorite) && els.sheetNote.textContent.includes('Favorites unticked')"},
+  {"expect": "!els.favOnly.checked && galleryRecords.every((r) => !r.favorite) && els.sheetNote.textContent.includes('Starred unticked')"},
   {"expect": "document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8"},
   {"log": "'Opening the shared run exposes conflicting prompt meanings as an axis instead of hiding them'"},
   {"eval": "showRun(window.__comparisonRun)"},

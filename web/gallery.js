@@ -14,6 +14,8 @@ function resetGallery() {
   // What the gallery said was about the grid this empties. Not the lightbox's
   // line: a job ending under an open lightbox resets the gallery too.
   showError('', false, { slot: els.galleryError, mirror: false });
+  // Every new query comes through here, so the Runs picker follows the box.
+  syncRunList();
   // The fresh query has to be issued *after* an in-flight page settles rather
   // than sharing its promise: that page carries the old epoch and drops
   // itself, so sharing it left the gallery empty with nothing outstanding and
@@ -56,9 +58,13 @@ function loadGallery() {
       const have = new Set(galleryRecords.map((r) => r.id));
       page.items.forEach((rec) => {
         if (have.has(rec.id)) return;
+        const before = galleryRecords.at(-1);
         galleryRecords.push(rec);
-        if (!sheetMode) els.gallery.appendChild(card(rec));
+        if (sheetMode) return;
+        if (before && localDay(before) !== localDay(rec)) els.gallery.appendChild(dayBreak(rec));
+        els.gallery.appendChild(card(rec));
       });
+      if (!sheetMode) keepCurrentCard();
       galleryMore = !!page.has_more;
       els.more.hidden = sheetMode || !galleryMore;
       watchMore();
@@ -96,36 +102,87 @@ function watchMore() {
   moreWatcher.observe(els.more);
 }
 
+// The local day a record was made on - the day `date:` searches by.
+function localDay(rec) {
+  return new Date(rec.created_at).toDateString();
+}
+
+// A line across the grid where the local day changes between one card and
+// the next: a night's grid and the next morning's renders ran together across
+// the rows, and the only way to find where one ended was to open images. It
+// carries no data-id, so paging, the deletes and the lightbox never see it;
+// a day whose cards are all deleted keeps it over their tombstones, which
+// hold their slots so that nothing moves under the pointer.
+function dayBreak(rec) {
+  const line = document.createElement('h3');
+  line.className = 'gallery-break';
+  const made = new Date(rec.created_at);
+  const now = new Date();
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toDateString();
+  const day = made.toLocaleDateString([], {
+    weekday: 'long', day: 'numeric', month: 'long',
+    ...(made.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  });
+  line.textContent = made.toDateString() === yesterday ? `Yesterday · ${day}` : day;
+  return line;
+}
+
+const REFINE_NONE = 'This checkpoint has no refine pass compatible with this app. '
+  + 'The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.';
+
 function card(rec) {
   const div = document.createElement('div');
-  div.className = `card${rec.favorite ? ' fav' : ''}`;
+  div.className = 'card';
+  div.classList.toggle('fav', !!rec.favorite);
   // Tagged by id so an action taken elsewhere - the lightbox, mostly - can
   // find this card and keep it in step.
   div.dataset.id = rec.id;
+  // A refine pass says so, and at what strength (the badge is the class's
+  // ::before): it keeps its source's picture by design, and the two sat side
+  // by side as the same card.
+  if (rec.refine != null) {
+    div.classList.add('refined');
+    div.dataset.strength = rec.strength;
+  }
 
   const img = thumb(rec, galleryRecords);
+  // Named as the page names images, by gallery id - the lightbox, the Refine
+  // dialog and the confirms say "#N" - with what tells it from the card
+  // beside it under the pointer: a sweep's cells share a prompt.
+  img.setAttribute('aria-label', `Open #${rec.id}: ${rec.prompt}`);
+  img.setAttribute('aria-keyshortcuts', 'F');
+  img.title = `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}`
+    + `${rec.refine != null ? ` · refine of #${rec.refine} @ ${rec.strength}` : ''}\n${rec.prompt}`;
 
-  const star = tool(rec.favorite ? '★' : '☆', 'Favorite', () => setFavorite(rec, !rec.favorite));
-  star.className = 'star';
+  // The star is a button of its own over the picture's corner, where a
+  // starred card's badge always was - a click on that badge went through to
+  // the lightbox, while the real toggle sat 4 px from Delete.
+  const star = document.createElement('button');
+  star.type = 'button';
+  star.className = 'star fav-badge';
+  star.onclick = () => setFavorite(rec, !rec.favorite);
+  syncStar(star, !!rec.favorite);
+
+  const refine = tool('⤢', '', () => {
+    // Said here rather than in openRefine, so the card can say it where it
+    // was pressed as well.
+    if (!refineSupported) { refuseInCard(div, REFINE_NONE, 'No refine pass here'); return; }
+    openRefine(rec, null, { slot: els.galleryError });
+  });
+  refine.classList.add('refine-tool');
+  syncRefineTool(refine);
+  const reference = tool('❐', '', () => toggleReference(div, rec));
+  reference.classList.add('ref-tool');
+  syncReferenceTool(reference, rec.id);
+  const del = tool('⌦', `Delete #${rec.id}`, () => deleteImage(rec), 'Delete');
+  del.classList.add('del');
 
   const tools = document.createElement('div');
   tools.className = 'tools';
   tools.append(
     reuseButton(rec, true),
-    tool('⤢', 'Refine: scale this image up and re-denoise it part of the way',
-      () => openRefine(rec, null, { slot: els.galleryError })),
-    tool('❐', 'Use as a reference image', () => {
-      if (!referenceSupported) {
-        showError("This checkpoint can't use reference images; FLUX.2 [klein] can.", true, { slot: els.galleryError });
-        return;
-      }
-      if (referenceIds.includes(rec.id)) { setReferences(referenceIds); return; }
-      if (referenceIds.length >= 4) {
-        showError('Four reference images is the most this panel sends; remove one first.', true, { slot: els.galleryError });
-        return;
-      }
-      setReferences([...referenceIds, rec.id]);
-    }),
+    refine,
+    reference,
     tool('⊞', 'Show this run as a sheet', () => {
       if (!rec.run_id && !rec.job_id) {
         showError('That image predates runs being grouped, so it belongs to no run.', true, { slot: els.galleryError });
@@ -134,25 +191,262 @@ function card(rec) {
       // The run id spans every job that worked on the grid - a night that died
       // and was resumed is one run - where the job id names only one of them.
       showSheetScope(rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`);
-    }),
-    star,
-    tool('⌦', 'Delete', () => deleteImage(rec)),
+    }, 'Sheet'),
+    del,
   );
 
-  div.append(img, tools);
+  div.append(img, star, tools);
+  markReference(div, referenceAt(rec.id));
+  cardStops(div, rec.id === galleryCurrent);
   return div;
 }
 
-function tool(label, title, onClick) {
+// `tip` is the short name the row shows on hover and keyboard focus
+// (style.css draws it from data-tip): the title is the long one, and a native
+// title came a second late or not at all.
+function tool(label, title, onClick, tip = '') {
   const b = document.createElement('button');
   b.textContent = label;
   b.title = title;
   // A button is named by its contents, and `title` is never exposed - so these
   // announced as their glyph, or as a bare "button" for a glyph the screen
-  // reader has no word for. The fourth of them deletes the image.
+  // reader has no word for. The last of them deletes the image.
   b.setAttribute('aria-label', title);
+  if (tip) b.dataset.tip = tip;
   b.onclick = onClick;
   return b;
+}
+
+// A star button anywhere the page draws one over a picture - the card's
+// badge, the result beside the viewer - from the state it shows.
+function syncStar(button, on) {
+  button.textContent = on ? '★' : '☆';
+  button.setAttribute('aria-pressed', String(on));
+  button.setAttribute('aria-label', on ? 'Unstar' : 'Star');
+  button.title = on ? 'Starred - click to unstar (F)' : 'Star (F)';
+}
+
+// The card's tools that need something of the checkpoint get the lightbox
+// Refine's treatment where it has not got it: aria-disabled with the reason
+// as their title, never disabled, so each keeps its tab stop and a press
+// still says why. They looked live and explained themselves only once
+// pressed, in a line a screen away. Set as a card is built and again where
+// the status flips the capability (`syncCardTools`), since cards can be on
+// the page before the first status has answered.
+function syncRefineTool(button) {
+  button.setAttribute('aria-disabled', String(!refineSupported));
+  const title = refineSupported ? 'Refine: scale this image up and re-denoise it part of the way'
+    : 'Refine - this checkpoint has no refine pass';
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  button.dataset.tip = refineSupported ? 'Refine…' : 'No refine pass here';
+}
+
+// ❐ is a toggle: pressed on an image already among the references, and named
+// by the number the prompt calls it. Re-adding one used to change nothing and
+// say nothing. At four, the others' are dead, saying why.
+function syncReferenceTool(button, id) {
+  const at = referenceAt(id);
+  const full = referenceIds.length >= 4;
+  const title = !referenceSupported ? 'Use as a reference image - this checkpoint takes none'
+    : at >= 0 ? `Reference image ${at + 1} - click to remove`
+      : full ? 'Use as a reference image - four is the most here; remove one first'
+        : 'Use as a reference image';
+  button.setAttribute('aria-disabled', String(!referenceSupported || (full && at < 0)));
+  button.setAttribute('aria-pressed', String(at >= 0));
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  button.dataset.tip = !referenceSupported ? 'No references here'
+    : at >= 0 ? `Reference ${at + 1} - remove` : full ? 'Four is the most' : 'Reference';
+}
+
+function syncCardTools() {
+  els.gallery.querySelectorAll('.card[data-id]').forEach((div) => {
+    syncRefineTool(div.querySelector('.refine-tool'));
+    syncReferenceTool(div.querySelector('.ref-tool'), +div.dataset.id);
+  });
+}
+
+// Where an image is among the references the panel sends: its index, or -1 -
+// and -1 for all of them where the checkpoint takes none, since `collect()`
+// then sends none.
+function referenceAt(id) {
+  return referenceSupported ? referenceIds.indexOf(id) : -1;
+}
+
+// A card or a sheet cell that is a reference: ringed and numbered as its chip
+// is, so the gallery says which images are in use - the chips could be 1,600
+// px from the card. `at` is referenceAt's.
+function markReference(el, at) {
+  el.classList.toggle('ref', at >= 0);
+  let badge = el.querySelector(':scope > .ref-n');
+  if (at < 0) {
+    delete el.dataset.refN;
+    badge?.remove();
+    return;
+  }
+  el.dataset.refN = at + 1;
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'ref-n';
+    badge.setAttribute('aria-hidden', 'true');
+    el.append(badge);
+  }
+  badge.textContent = at + 1;
+}
+
+// After every change of the references (renderReferences calls it): the
+// marks, and the card tools that follow them.
+function syncReferenceMarks() {
+  document.querySelectorAll('.card[data-id], .sheet-cell[data-id]').forEach((el) => {
+    markReference(el, referenceAt(+el.dataset.id));
+  });
+  syncCardTools();
+}
+
+// The card's ❐. References still change only through setReferences.
+function toggleReference(div, rec) {
+  if (!referenceSupported) {
+    refuseInCard(div, "This checkpoint can't use reference images; FLUX.2 [klein] can.", 'No references here');
+    return;
+  }
+  if (referenceIds.includes(rec.id)) {
+    setReferences(referenceIds.filter((id) => id !== rec.id));
+    cardNote(div, 'Removed');
+    return;
+  }
+  if (referenceIds.length >= 4) {
+    refuseInCard(div, 'Four reference images is the most this panel sends; remove one first.',
+      'Four is the most here; remove one first');
+    return;
+  }
+  setReferences([...referenceIds, rec.id]);
+  cardNote(div, `Added as image ${referenceIds.length}`);
+}
+
+// A card tool's refusal: in the gallery's line, which stays and is the one
+// that is announced, and for a moment where it was pressed too.
+function refuseInCard(div, message, short) {
+  showError(message, true, { slot: els.galleryError });
+  cardNote(div, short, { quiet: true });
+}
+
+// What a card tool did, over the row it was pressed in, for two seconds: the
+// panel's chips, and the line under the gallery's head, can be a screen away
+// from the card. A status for what is said nowhere else; `quiet` (hidden from
+// screen readers) where the gallery's line says it already.
+function cardNote(div, text, { quiet = false } = {}) {
+  div.querySelector(':scope > .card-note')?.remove();
+  const note = document.createElement('div');
+  note.className = `card-note${quiet ? ' refused' : ''}`;
+  if (quiet) note.setAttribute('aria-hidden', 'true');
+  else note.setAttribute('role', 'status');
+  div.append(note);
+  // A status is written once it is in the page: a live region added with its
+  // text in it already is not announced.
+  if (quiet) note.textContent = text;
+  else requestAnimationFrame(() => { note.textContent = text; });
+  setTimeout(() => note.remove(), 2000);
+}
+
+// The card the keyboard is on, by id: its image and its tools are the
+// gallery's tab stops, and every other card's are not - seven stops a card
+// put the 30th image some 270 Tab presses down the page. The arrow keys move
+// it (`galleryKey`), as does focus arriving any other way: a click, the
+// lightbox handing focus back. An id rather than the element, so a reloaded
+// page keeps it where the record is still loaded.
+let galleryCurrent = null;
+
+function currentCard() {
+  return galleryCurrent == null ? null : els.gallery.querySelector(`.card[data-id="${galleryCurrent}"]`);
+}
+
+function cardStops(div, on) {
+  div.querySelectorAll('img, button').forEach((el) => { el.tabIndex = on ? 0 : -1; });
+}
+
+function makeCurrent(div) {
+  if (!div) return;
+  const was = currentCard();
+  if (was === div) return;
+  if (was) cardStops(was, false);
+  galleryCurrent = +div.dataset.id;
+  cardStops(div, true);
+}
+
+// After a page lands: the grid keeps one way in from the keyboard.
+function keepCurrentCard() {
+  if (!currentCard()) makeCurrent(els.gallery.querySelector('.card[data-id]'));
+}
+
+// The next card along that is still an image, else the one before.
+function liveNeighbour(el) {
+  for (let n = el.nextElementSibling; n; n = n.nextElementSibling) if (n.matches('.card[data-id]')) return n;
+  for (let n = el.previousElementSibling; n; n = n.previousElementSibling) if (n.matches('.card[data-id]')) return n;
+  return null;
+}
+
+function galleryFocus(e) {
+  const div = e.target.closest?.('.card[data-id]');
+  if (div) makeCurrent(div);
+}
+
+// On a card's image: the arrows walk the grid, Home and End go to the first
+// and last card loaded, and F stars it, as in the lightbox and on the sheet.
+// The tools keep their own keys.
+function galleryKey(e) {
+  if (e.altKey || e.ctrlKey || e.metaKey || !e.target.matches?.('.card > img')) return;
+  const div = e.target.parentElement;
+  if (e.key === 'f' || e.key === 'F') {
+    e.preventDefault();
+    const rec = galleryRecords.find((r) => r.id === +div.dataset.id);
+    if (rec) void setFavorite(rec, !rec.favorite);
+    return;
+  }
+  const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: 'up', ArrowDown: 'down', Home: 'first', End: 'last' }[e.key];
+  if (step === undefined) return;
+  e.preventDefault();
+  void moveCard(div, step);
+}
+
+async function moveCard(from, step) {
+  const cards = [...els.gallery.querySelectorAll('.card[data-id]')];
+  const at = cards.indexOf(from);
+  const to = step === 'first' ? cards[0] : step === 'last' ? cards.at(-1)
+    : typeof step === 'number' ? cards[at + step] : rowNeighbour(cards, at, step === 'down');
+  if (!to) {
+    // Past the last card loaded, the next page, as scrolling there fetches
+    // it - and only if it brought cards, and focus is still where it was.
+    if (!(step === 1 || step === 'down') || !galleryMore || sheetMode) return;
+    await loadGallery().catch(() => {});
+    const img = from.querySelector('img');
+    if (!img || document.activeElement !== img) return;
+    if (els.gallery.querySelectorAll('.card[data-id]').length > cards.length) void moveCard(from, step);
+    return;
+  }
+  to.querySelector('img').focus({ preventScroll: true });
+  to.scrollIntoView({ block: 'nearest' });
+}
+
+// The card in the row above or below, the nearest across. Found from where
+// the cards are rather than from the grid's column count: a day's line starts
+// a row of its own, and a short row before it put "a row on" by the count
+// that many cards short.
+function rowNeighbour(cards, at, down) {
+  const box = cards[at].getBoundingClientRect();
+  const centre = box.left + box.width / 2;
+  const dir = down ? 1 : -1;
+  let row = null;
+  let best = null;
+  for (let i = at + dir; i >= 0 && i < cards.length; i += dir) {
+    const r = cards[i].getBoundingClientRect();
+    if (Math.abs(r.top - box.top) < 1) continue;
+    if (row !== null && Math.abs(r.top - row) >= 1) break;
+    row = r.top;
+    const off = Math.abs(r.left + r.width / 2 - centre);
+    if (!best || off < best.off) best = { card: cards[i], off };
+  }
+  return best?.card;
 }
 
 function modelsDiffer(modelId) {
@@ -162,34 +456,69 @@ function modelsDiffer(modelId) {
 // Warn before the click, not only after the panel has already been replaced.
 // Gallery cards use a compact glyph; the lightbox has room for the full label.
 // The data attributes let the first status response update buttons that were
-// rendered while the server was still answering.
-function syncReuseButton(button, modelId, compact = false) {
+// rendered while the server was still answering. `rec` is the record, or as
+// much of it as the button keeps: its checkpoint, the source of a pass, its
+// references and adapter.
+function syncReuseButton(button, rec, compact = false) {
+  const modelId = rec.model_id;
+  const pass = rec.refine ?? null;
   button.dataset.reuseModel = modelId || '';
+  button.dataset.reusePass = pass ?? '';
+  button.dataset.reuseReference = (rec.reference ?? []).join(',');
+  button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseCompact = String(compact);
   button.classList.add('reuse-settings');
   const mismatch = modelsDiffer(modelId);
   const from = (modelId || '').split('/').pop();
   const current = (loadedModel || '').split('/').pop();
+  const warning = `generated with ${from}; the current model is ${current}`;
   button.classList.toggle('model-mismatch', mismatch);
-  button.textContent = compact ? (mismatch ? '⚠' : '↻')
-    : `${mismatch ? '⚠ ' : ''}Reuse settings`;
-  button.title = mismatch
-    ? `Warning: generated with ${from}; the current model is ${current}`
-    : 'Load these settings into the panel';
-  button.setAttribute('aria-label', mismatch
-    ? `Reuse settings (warning: generated with ${from}; current model is ${current})`
-    : 'Reuse settings');
+  // A refined record's Reuse opens the Refine dialog on its source with the
+  // pass as it ran (`reusePass`), where "Load these settings into the panel"
+  // promised the panel and a dialog opened on another image.
+  if (pass != null) {
+    button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse pass…`;
+    button.title = mismatch ? `Warning: ${warning}`
+      : `Open the Refine dialog on #${pass} with this pass's size, strength and seed`;
+    button.setAttribute('aria-label', `Reuse this pass in the Refine dialog${mismatch ? ` (warning: ${warning})` : ''}`);
+    button.dataset.tip = 'Reuse pass…';
+    return;
+  }
+  const lost = mismatch ? notCarried(rec) : '';
+  button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse settings`;
+  button.title = mismatch ? `Warning: ${warning}${lost}` : 'Load these settings into the panel';
+  button.setAttribute('aria-label', mismatch ? `Reuse settings (warning: ${warning}${lost})` : 'Reuse settings');
+  button.dataset.tip = mismatch ? 'Reuse - other model' : 'Reuse';
+}
+
+// What a Reuse here leaves behind, as fillPanel decides it - references where
+// the checkpoint takes none, an adapter the LoRA box does not offer - for the
+// warning to name before the click; the note after it says so again.
+function notCarried(rec) {
+  const references = rec.reference?.length && !referenceSupported;
+  const adapter = rec.lora && !(loraSupported && [...els.lora.options].some((o) => o.value === rec.lora));
+  const what = [
+    references && `its reference image${rec.reference.length === 1 ? '' : 's'}`,
+    adapter && 'its adapter',
+  ].filter(Boolean);
+  return what.length ? `; ${what.join(' and ')} will not carry over` : '';
 }
 
 function reuseButton(rec, compact = false) {
   const button = tool('', '', () => reuse(rec));
-  syncReuseButton(button, rec.model_id, compact);
+  syncReuseButton(button, rec, compact);
   return button;
 }
 
 function syncReuseButtons() {
   document.querySelectorAll('.reuse-settings').forEach((button) => {
-    syncReuseButton(button, button.dataset.reuseModel, button.dataset.reuseCompact === 'true');
+    const kept = button.dataset;
+    syncReuseButton(button, {
+      model_id: kept.reuseModel,
+      refine: kept.reusePass ? +kept.reusePass : null,
+      reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
+      lora: kept.reuseLora || null,
+    }, kept.reuseCompact === 'true');
   });
 }
 
@@ -209,18 +538,16 @@ async function setFavorite(rec, value) {
     return;
   }
   recordsWithId(rec.id).forEach((r) => { r.favorite = value; });
-  document.querySelectorAll(`.card[data-id="${rec.id}"]`).forEach((div) => {
-    div.classList.toggle('fav', value);
-    const star = div.querySelector('.star');
-    star.textContent = value ? '★' : '☆';
-    star.setAttribute('aria-label', value ? 'Unfavorite' : 'Favorite');
+  // Every element showing the image - a card, a sheet cell, a result beside
+  // the viewer - by class and by its own star button, never by re-rendering:
+  // the sheet rebuilds up to a thousand <img> nodes and resets the scroll per
+  // keypress.
+  const shown = `.card[data-id="${rec.id}"], .sheet-cell[data-id="${rec.id}"], .result[data-id="${rec.id}"]`;
+  document.querySelectorAll(shown).forEach((el) => {
+    el.classList.toggle('fav', value);
+    el.querySelectorAll('.star').forEach((star) => syncStar(star, value));
   });
-  // The sheet's cell too - by class, never by re-rendering the sheet, which
-  // rebuilds up to a thousand <img> nodes and resets the scroll per keypress.
-  document.querySelectorAll(`.sheet-cell[data-id="${rec.id}"]`).forEach((cell) => {
-    cell.classList.toggle('fav', value);
-  });
-  if (els.lightbox.open) renderLightbox();
+  if (els.lightbox.open && lbList[lbIndex]?.id === rec.id) renderLightbox();
 }
 
 // Gallery ids as the page names images: "#8", "#8 and #4", "#8, #4 and #2".
@@ -334,6 +661,7 @@ function noteLightboxDelete(text) {
 function forgetImages(ids) {
   const gone = new Set(ids);
   const focused = document.activeElement;
+  const current = currentCard();
   let lost = null;
   document.querySelectorAll('[data-id]').forEach((el) => {
     if (!gone.has(+el.dataset.id)) return;
@@ -359,8 +687,11 @@ function forgetImages(ids) {
   }
   // Keyboard focus was on what went: it moves on to the next image in the
   // same strip, or back to the one before, rather than dropping to <body>.
+  // The keyboard's way into the grid goes to the same card.
+  if (current?.classList.contains('gone')) makeCurrent(liveNeighbour(current));
   if (lost) {
-    const strip = [...lost.parentElement.children].filter((el) => !el.matches('.gone, .tomb, .placeholder, .preview'));
+    const strip = [...lost.parentElement.children]
+      .filter((el) => !el.matches('.gone, .tomb, .placeholder, .preview, .gallery-break'));
     const after = strip.find((el) => lost.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
     const next = after ?? strip.at(-1);
     (next?.matches('img') ? next : next?.querySelector('img'))?.focus();
@@ -418,9 +749,11 @@ function tombstone(el) {
   tomb.textContent = `Deleted · ${imageNames([+el.dataset.id])}`;
   if (el.classList.contains('card')) {
     el.replaceChildren(tomb);
-    el.classList.remove('fav');
+    // Nor any mark of what the image was: a star, a reference, a pass.
+    el.classList.remove('fav', 'ref', 'refined');
     el.classList.add('gone');
     delete el.dataset.id;
+    delete el.dataset.refN;
     return el;
   }
   const box = el.getBoundingClientRect();

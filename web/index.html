@@ -494,13 +494,14 @@
         image with the same pixels.<br>
         <b>refine:</b> is the refine passes of that gallery image - <b>refine:none</b>
         the direct renders - and <b>strength:</b> how far they were re-denoised.<br>
+        <b>id:12</b> is the image the page calls #12, and <b>id:10-20</b> a span of them.<br>
         <b>run:</b> is a grid however many times it was resumed; <b>job:</b> is one
         submission of it. <b>date:</b> takes <b>today</b>, <b>yesterday</b> or
         <b>2026-09-07</b> — a day on your clock, not UTC.<br>
         Numbers also take a comparison or a range: <b>cfg:&gt;=1</b> · <b>steps:8-12</b>.<br>
         <b>mu:none</b> is the images that ran with no shift at all — not the same as
         <b>mu:0</b>.</span></span>
-      <label class="check"><input type="checkbox" id="fav-only"> Favorites</label>
+      <label class="check"><input type="checkbox" id="fav-only"> Starred</label>
       <!-- Off, the gallery is the running checkpoint's images: steps, CFG and
            mu are the checkpoint's, so another one's are settings that cannot
            be reused. The count is what the filter would add. -->
@@ -583,7 +584,7 @@
       <span class="lb-zoom" id="lb-zoom" aria-live="polite"></span>
     </div>
     <div class="lb-actions">
-      <button class="ghost" id="lb-fav" title="Favourite (F)">☆ Favourite</button>
+      <button class="ghost" id="lb-fav" title="Star (F)">☆ Star</button>
       <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
       <!-- Opens the Refine dialog on this image: scale it up and re-denoise
            it part of the way. -->

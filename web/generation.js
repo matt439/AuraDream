@@ -257,7 +257,7 @@ function syncRerender() {
   els.rerender.hidden = !show;
   if (show) {
     els.rerender.textContent =
-      `↻ Re-render ${total} at ${els.width.value}×${els.height.value}`;
+      `Re-render ${total} at ${els.width.value}×${els.height.value}`;
   }
 }
 

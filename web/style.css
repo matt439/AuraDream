@@ -1330,6 +1330,14 @@ button { font: inherit; cursor: pointer; }
   grid-template-columns: repeat(auto-fill, minmax(var(--thumb-min), 1fr));
   gap: 10px;
 }
+/* Where the local day changes between one card and the next (loadGallery's
+   dayBreak): a line across the grid, a row of its own. */
+.gallery-break {
+  grid-column: 1 / -1;
+  margin: var(--sp-2) 0 0; padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-body-sm); font-weight: 600; color: var(--text-readout);
+}
 
 /* --------------------------------------------------------- contact sheet */
 
@@ -1438,10 +1446,10 @@ button { font: inherit; cursor: pointer; }
    only in the user's head; a 12 px glyph in a 690 px cell was not.
    `position: relative` above is what keeps 1024 badges from piling up at the
    top of the page. */
-/* A refine pass says so, and at what strength, where the sheet does not lay
-   the strength out already: a pass looks like its source by design. Top
-   left, clear of the star. */
-.sheet-cell.refined::before {
+/* A refine pass says so, and at what strength - on a card always, on the
+   sheet where it does not lay the strength out already: a pass looks like its
+   source by design. Top left, clear of the star. */
+.card.refined::before, .sheet-cell.refined::before {
   content: "⤢ " attr(data-strength); position: absolute; top: 6px; left: 6px; z-index: 1;
   padding: 2px 7px; border-radius: var(--r-lg); background: rgba(0, 0, 0, 0.62);
   color: #fff; font-size: var(--fs-label); pointer-events: none;
@@ -1462,8 +1470,14 @@ button { font: inherit; cursor: pointer; }
   background: var(--panel-2);
   border: 1px solid var(--line);
   aspect-ratio: 1;
+  /* The arrow keys bring a card into view (moveCard): clear of the topbar. */
+  scroll-margin-top: calc(var(--topbar-h) + var(--sp-2));
 }
-.card img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+/* The whole frame, letterboxed on the card's own grey as the sheet's cells
+   are: `cover` cropped a 16:9 image to its middle 57%, and a portrait one to
+   its middle 57% of the height - the edges, the placement of any lettering,
+   and whether it was landscape at all. */
+.card img { width: 100%; height: 100%; object-fit: contain; display: block; cursor: zoom-in; }
 .card .tools {
   position: absolute;
   inset: auto 0 0 0;
@@ -1476,11 +1490,16 @@ button { font: inherit; cursor: pointer; }
 }
 /* Revealed by keyboard focus and on a coarse pointer too: hover alone left 192
    invisible tab stops per page, the first of which overwrites the prompt and the
-   fourth of which deletes the image. */
+   last of which deletes the image. */
 .card:hover .tools, .card:focus-within .tools { opacity: 1; }
 @media (pointer: coarse) { .card .tools { opacity: 1; } }
 .card .tools button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+/* The tools share the row at any card width, shrinking rather than running
+   off the card (Delete was clipped by its overflow at QHD), with Delete apart
+   at the far end, away from the others. */
 .card .tools button {
+  flex: 0 1 auto;
+  min-width: 0;
   background: rgba(0, 0, 0, 0.55);
   border: none;
   color: #fff;
@@ -1488,21 +1507,44 @@ button { font: inherit; cursor: pointer; }
   padding: 3px 7px;
   font-size: var(--fs-label);
 }
+.card .tools .del { margin-left: auto; }
 .card .tools button:hover { background: var(--accent); }
 .card .tools .reuse-settings.model-mismatch {
   color: #fff3c4;
   background: rgba(120, 84, 0, 0.82);
 }
+/* Each tool's name, at once, on hover and on keyboard focus: the glyphs were
+   named only by a native title, which came a second late or not at all.
+   Anchored at the row's left edge - the buttons are not positioned - so the
+   card's overflow never clips it, as it would one centred over Delete. */
+.card .tools button:is(:hover, :focus-visible)::after {
+  content: attr(data-tip);
+  position: absolute; left: 6px; bottom: 100%;
+  padding: 2px 6px; border-radius: var(--r-xs);
+  background: rgba(0, 0, 0, 0.85); color: #fff;
+  font-size: var(--fs-label); white-space: nowrap; pointer-events: none;
+}
+/* A tool this checkpoint cannot use, or ❐ with four references taken: the
+   glyph dimmed and no lit hover, as the lightbox's Refine - aria-disabled, so
+   it keeps its tab stop and a press still says why. The glyph's colour rather
+   than the button's opacity, which would dim its name above the row too. */
+.card .tools button[aria-disabled="true"] { color: rgba(255, 255, 255, 0.45); cursor: not-allowed; }
+.card .tools button[aria-disabled="true"]:hover { background: rgba(0, 0, 0, 0.55); }
+/* ❐ on an image that is a reference already: pressed, and a press removes it. */
+.card .tools .ref-tool[aria-pressed="true"] { background: var(--accent-strong); }
 /* A starred card has to be found at a glance across a page of thumbnails: an
    amber ring round the card, and the star on a dark badge so it reads on a
-   white render as well as a black one. The tools' own star turns amber with
-   it, so the toggle shows which way it will go. */
+   white render as well as a black one. On a card the badge is the toggle
+   itself (`.fav-badge`, a button): it used to be a picture of one that a
+   click went through to the lightbox, while the real star sat in the tool
+   row 4 px from Delete. Always there on a starred card; on another, ☆ where
+   the tools show - hover, keyboard focus, a coarse pointer. */
 .card.fav, .sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
-.card.fav::after, .sheet-cell.fav::after {
-  content: "★";
+.card .fav-badge, .sheet-cell.fav::after {
   position: absolute;
   top: 6px;
   right: 6px;
+  z-index: 1;
   width: 28px;
   height: 28px;
   display: grid;
@@ -1513,9 +1555,37 @@ button { font: inherit; cursor: pointer; }
   font-size: 18px;
   line-height: 1;
   text-shadow: 0 0 6px rgba(251, 191, 36, 0.55);
-  pointer-events: none;
 }
-.card.fav .tools .star { color: var(--star); }
+.sheet-cell.fav::after { content: "★"; pointer-events: none; }
+.card .fav-badge { border: none; padding: 0; opacity: 0; transition: opacity 0.15s; }
+.card:not(.fav) .fav-badge { color: #fff; text-shadow: none; }
+.card.fav .fav-badge, .card:hover .fav-badge, .card:focus-within .fav-badge { opacity: 1; }
+@media (pointer: coarse) { .card .fav-badge { opacity: 1; } }
+.card .fav-badge:hover { background: rgba(0, 0, 0, 0.85); }
+.card .fav-badge:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+/* A reference image in the panel: ringed in the accent - the border and its
+   shadow are the star's - and numbered as its chip is, top left, a pass's
+   badge moving over for it. */
+.card.ref, .sheet-cell.ref { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card > .ref-n, .sheet-cell > .ref-n {
+  position: absolute; top: 6px; left: 6px; z-index: 1;
+  min-width: 22px; padding: 2px 6px; border-radius: var(--r-lg);
+  background: var(--accent-strong); color: #fff; text-align: center;
+  font-size: var(--fs-label); font-weight: 600; line-height: 1.3; pointer-events: none;
+}
+.card.ref.refined::before, .sheet-cell.ref.refined::before { left: 36px; }
+/* What a card tool did - "Added as image 2", a refusal's gist - over the row
+   it was pressed in, for two seconds (cardNote): the chips, and the line
+   under the gallery's head, can be a screen away from the card. */
+.card > .card-note {
+  position: absolute; inset: auto 6px 6px 6px; z-index: 2;
+  padding: 3px var(--sp-2); border-radius: 5px;
+  background: var(--accent-strong); color: #fff; text-align: center;
+  font-size: var(--fs-label); pointer-events: none;
+}
+.card > .card-note:empty { display: none; }
+/* A refusal is not the accent's: dark, as the tools are. */
+.card > .card-note.refused { background: rgba(0, 0, 0, 0.85); }
 /* A deleted card keeps its slot as a tombstone until the gallery reloads:
    dashed and darker rather than faded, so its line keeps the muted text's
    contrast, and out of the pointer's way. */

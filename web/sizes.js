@@ -347,6 +347,8 @@ function renderReferences() {
     chip.append(img, number, drop);
     els.referenceList.append(chip);
   });
+  // The gallery's cards and the sheet's cells say which images these are.
+  syncReferenceMarks();
 }
 
 function clearReferenceDropMarkers() {

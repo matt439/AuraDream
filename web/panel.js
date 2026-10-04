@@ -384,24 +384,62 @@ function dismissLastRun() {
 // One line per run in the gallery, newest first. Picking one is the card's ⊞
 // button without having to find a card: it searches for the run and lays it
 // out as a sheet.
+//
+// What a sheet is for is a grid or a batch, and every plain Generate is a run
+// of its own: an afternoon's twenty of them pushed last night's grid off a
+// list of twenty, under twenty lines that differed in the minute alone. So
+// the server is asked for 200, the runs of more than one image (or one
+// resumed) come first, and after them the newest single images, eight at
+// most, each by its second and its seed - what tells two of them apart.
+const SINGLE_RUNS = 8;
+const whenExactly = (ms) => new Date(ms).toLocaleString([], {
+  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+});
+
 async function loadRuns() {
   let runs;
   // Under the gallery's scope: a run picked here opens as a sheet, and a run
   // the grid would not show is an empty one.
-  const params = new URLSearchParams({ limit: 20 });
+  const params = new URLSearchParams({ limit: 200 });
   if (els.allModels.checked) params.set('all_models', 'true');
   try { runs = await api(`/api/runs?${params}`); } catch { return; }
+  const several = (run) => run.images > 1 || run.jobs > 1;
+  const singles = runs.filter((run) => !several(run));
   els.runList.innerHTML = '';
-  els.runList.append(new Option(runs.length ? 'Runs…' : 'No runs yet', ''));
-  for (const run of runs) {
-    const stars = run.favorites ? ` · ${run.favorites}★` : '';
+  // What the picker shows while the gallery shows no run; not a run to pick.
+  const head = new Option(runs.length ? 'Runs…' : 'No runs yet', '');
+  head.disabled = head.hidden = true;
+  els.runList.append(head);
+  const group = (label, list, line) => {
+    if (!list.length) return;
+    const box = document.createElement('optgroup');
+    box.label = label;
+    for (const run of list) box.append(new Option(line(run), run.run_id));
+    els.runList.append(box);
+  };
+  const stars = (run) => (run.favorites ? ` · ${run.favorites}★` : '');
+  group('Grids and batches', runs.filter(several), (run) => {
     // A run that made fewer pictures than images says so in the list.
     const distinct = typeof run.distinct === 'number' && run.distinct < run.images
       ? ` (${run.distinct} distinct)` : '';
-    const label = `${when(Date.parse(run.started_at))} · ${run.images} img${distinct}${stars} · ${clip(run.prompt)}`;
-    els.runList.append(new Option(label, run.run_id));
-  }
+    const prompts = run.prompts > 1 ? ` · ${run.prompts} prompts` : '';
+    return `${when(Date.parse(run.started_at))} · ${run.images} img${distinct}${prompts}${stars(run)} · ${clip(run.prompt)}`;
+  });
+  group(singles.length > SINGLE_RUNS ? `Single images (the newest ${SINGLE_RUNS} of ${singles.length})` : 'Single images',
+    singles.slice(0, SINGLE_RUNS),
+    (run) => `${whenExactly(Date.parse(run.started_at))} · seed ${run.seed}${stars(run)} · ${clip(run.prompt)}`);
   els.runList.disabled = !runs.length;
+  syncRunList();
+}
+
+// The picker names the run the gallery is showing - the search box's
+// `run:<id>`, however it got there: a pick here, a card's ⊞, Show run, the
+// sheet's return, typing - and "Runs…" for anything else. It used to go back
+// to "Runs…" the moment a run was picked, leaving a hex id in the box as the
+// only label of what was on screen.
+function syncRunList() {
+  const shown = /^run:(\S+)$/.exec(els.search.value.trim())?.[1];
+  els.runList.value = shown && [...els.runList.options].some((o) => o.value === shown) ? shown : '';
 }
 
 // `fresh` is a comparison this page has just made: nothing in it is
@@ -447,7 +485,7 @@ function showSheetScope(search, { fresh = false, notice = null, scroll = true } 
   const opened = setSheet(true);
   // setSheet has begun the query the notice belongs to; another one drops it.
   const epoch = galleryEpoch;
-  const text = unticked ? 'Favorites unticked: nothing in a new comparison is starred yet' : notice;
+  const text = unticked ? 'Starred unticked: nothing in a new comparison is starred yet' : notice;
   if (text) sheetNotice = { epoch, text };
   if (!scroll) return opened;
   return opened.then(() => {
