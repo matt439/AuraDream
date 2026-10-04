@@ -1476,7 +1476,7 @@ pre-rename metadata key. `local-diffusion.db` indexes them for search.
 ```powershell
 uv run python -m backend.clear                   # preview, then confirm
 uv run python -m backend.clear --dry-run         # report only, change nothing
-uv run python -m backend.clear --keep-favorites  # spare starred images
+uv run python -m backend.clear --keep-favorites  # spare starred images and their sources
 uv run python -m backend.clear --yes             # no prompt
 ```
 

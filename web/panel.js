@@ -447,8 +447,10 @@ function appendResult(rec) {
   // Lazy on its own is not enough - the strip sets no height, so unloaded
   // images stack inside the viewport and all become eligible at once. The cap
   // is what bounds the fetches; the note lives outside the strip so it survives.
-  while (els.viewer.children.length > VIEWER_MAX) els.viewer.firstElementChild.remove();
-  const hidden = viewerRecords.length - els.viewer.children.length;
+  // Images only: a deleted tile's tombstone holds a slot, and shows none.
+  const tiles = () => els.viewer.querySelectorAll('img[data-id]').length;
+  while (tiles() > VIEWER_MAX) els.viewer.firstElementChild.remove();
+  const hidden = viewerRecords.length - tiles();
   els.viewerNote.textContent = hidden > 0
     ? `… and ${hidden} earlier image${hidden === 1 ? '' : 's'} this run — open one to walk them all`
     : '';

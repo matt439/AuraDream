@@ -822,6 +822,9 @@ button { font: inherit; cursor: pointer; }
   .viewer.many img.preview { height: auto; max-height: 20vh; }
 }
 .placeholder { color: var(--muted); }
+/* Back in a strip whose last image was deleted, held at the strip's height
+   (inline, measured) with its line in the middle, as on a fresh page. */
+.placeholder.held { display: grid; align-items: center; margin: 0; }
 /* A deleted image's place: a card's or a viewer tile's (sized from the tile
    it replaces), so nothing moves under the pointer that deleted it. */
 .tomb {

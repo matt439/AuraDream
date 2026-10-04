@@ -745,11 +745,14 @@ as Use and Apply do, so Ctrl+Z walks back through them, and still
 synchronously - the references are in place when Reuse returns. Before it,
 `reuseIntoPanel` keeps `panelState()` - the object the panel persists - with
 the raw steps/CFG/mu/true-CFG values and the `owned` flags beside it, and its
-note ("Settings from #N loaded - your prompt was replaced.", the last clause
-only when there was other text) ends with an **Undo** that puts all of that
-back, the boxes again through `replaceBoxText`. The note stays in the
-panel's line, where Reuse sends the user; the checkpoint-mismatch sentence
-is kept and the Undo comes after it. The note also says what `fillPanel`
+note opens with "Settings from #N loaded - your prompt was replaced." (the
+last clause only when there was other text) and an **Undo** right after that
+first sentence, which puts all of that back, the boxes again through
+`replaceBoxText`. The note stays in the panel's line, where Reuse sends the
+user; whatever else it has to say - the checkpoint-mismatch sentence, kept,
+and the rest below - follows the Undo, so the action is on the note's first
+lines, the ones in sight where the window shows the prompt and only the
+start of the note. The note also says what `fillPanel`
 could not carry, since a dropped reference renders a plain text-to-image
 that looks like a success: references on a checkpoint that takes none,
 and - found by asking, after the synchronous fill - an adapter the LoRA box
@@ -757,14 +760,38 @@ does not offer (the reason is `/api/loras`' own: a misfit's `detail`, an
 installation that cannot load adapters, or a file no longer in the
 directory) and a restored reference the server answers "unknown image" for,
 which is then dropped. Only that answer drops one: a passing failure must
-not take a live reference out. Reuse scrolls only when the prompt is out of
-sight (`block: 'nearest'`, honouring reduced motion) - a one-column page
-scrolled down to the gallery. Beside the gallery the panel holds the prompt
-in view wherever the page is, writing the boxes focuses it (a focused panel
-control is brought into view by moving the panel), and the scroll to the
-top that used to follow threw away the user's place in the gallery for
-nothing. The lightbox's Reuse closes the lightbox first: a modal dialog
-keeps focus to itself, and `replaceBoxText` needs the prompt focused.
+not take a live reference out. A reference deleted from the gallery while
+the Undo is still on offer leaves the Undo's copy of the panel too
+(`forgetImages`), or the Undo would bring back a chip the submit refuses.
+
+**Where Reuse leaves the page** is `revealReused`'s: the prompt's field,
+label and all, in sight under the topbar, and the user's place in the
+gallery kept wherever that allows. It used to scroll to the top of the page,
+which beside the gallery threw that place away for nothing; then to the
+prompt with `scrollIntoView({ block: 'nearest' })` when the prompt was out
+of sight, which left it under the sticky topbar on one column and, beside
+the gallery, scrolled a page whose stuck panel does not follow a page
+scroll - 600 to 750 px of gallery lost at 1400x900, the prompt still out of
+sight. The browser's own scroll to the focused box was no better:
+`replaceBoxText` focuses the box, and the browser scrolled the page as
+though a stuck panel moved with it (half a screen at the page's end), or
+not at all for a prompt focused already. So `fillPanel` and the Undo focus
+each box with `preventScroll` first (`rewriteBox`), and once the note is
+written - the panel at its final height, placed at once rather than after
+the frame - the panel is moved, not the page (`revealInPanel`, see "The
+settings panel's sticky top"). Only where it cannot be - a one-column page,
+or a panel at the page's end, which a sticky top cannot push down - does the
+page move, as far as puts the panel where it rests, smoothly unless reduced
+motion is asked for. Then, if the Undo is below the window, a stuck panel
+goes up to bring it into sight, but only as far as the prompt's field stays
+clear of the topbar (`showUndo`, after the smooth scroll ends): at QHD and
+at 125% both fit; at 1400x900, a four-line mismatch note included, they do
+not, and the prompt is what Reuse is about - Ctrl+Z in it still gives the
+text back. `smoke-delete.json` holds all four: the page unmoved
+mid-gallery with the prompt focused already, the page's end, one column,
+and the Undo in sight at 2048x1040 at 125%. The lightbox's Reuse closes the
+lightbox first: a modal dialog keeps focus to itself, and `replaceBoxText`
+needs the prompt focused.
 
 ## One worker thread
 
@@ -1485,9 +1512,20 @@ pointer events, no `data-id`) and a viewer tile one of the tile's frozen
 size - removed, the next card slid under the pointer that had pressed ⌦,
 its own ⌦ lit, and an emptied viewer shrank the page by 537 px - and focus
 on what went moves to the next image in the strip, else the one before.
-The emptied viewer says what it is for again. The per-image confirm names
+A viewer whose last image went, with no job to fill it, says what it is for
+again ("#9 was deleted. Generated images appear here.") in place of its
+tombstones - a frozen box with the placeholder beside it read as two
+leftovers - held at the strip's height so the gallery still does not move,
+until the next run's first image clears it; the results viewer counts its
+live tiles, not its slots, for the 48-tile cap and the "and N earlier" note.
+The per-image confirm names
 the image by id with the lightbox's settings line (`settingsLine`), since
-a sweep's cells share a prompt and a seed. In the lightbox a delete says
+a sweep's cells share a prompt and a seed. Asking `refine:<id>` for the
+passes made the confirm wait on a round trip, and a double-click asked
+twice and sent two deletes, both answered 200 since `delete_image` looked
+the row up outside the write lock; a delete under way now ignores a second
+press of the same image (`deleting`), and `delete_image` looks up and
+deletes under the one lock, so a second delete is "unknown image". In the lightbox a delete says
 which image went in its line until the next key or press, and a delete of
 the last image loaded, with more on the server, pages the next one in
 (`pageInBehind`, "Loading next…" meanwhile) rather than stepping back onto

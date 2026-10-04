@@ -150,7 +150,7 @@ def test_keep_favorites_keeps_what_a_favorite_was_made_from(fresh, capsys):
 
     assert clear.main(["--where", "job:n", "--keep-favorites", "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "Would delete 1 record(s) and their files, keeping 0 favorite(s) and 1 image(s) a favorite was made from." in out
+    assert "Would delete 1 record(s) and their files, keeping 0 starred and 1 image(s) a starred one was made from." in out
     assert clear.main(["--where", "job:n", "--keep-favorites", "--yes"]) == 0
     assert "Deleted 1 record(s)" in capsys.readouterr().out
     assert sorted(r.id for r in storage.list_images()[0]) == [made["source"].id, refined.id]
@@ -161,7 +161,7 @@ def test_keep_favorites_keeps_what_a_favorite_was_made_from(fresh, capsys):
         seed=4, duration_ms=1, model_id="m", job_id="n",
     )
     assert clear.main(["--keep-favorites", "--yes"]) == 0
-    assert "keeping 1 favorite(s) and 1 image(s) a favorite was made from." in capsys.readouterr().out
+    assert "keeping 1 starred and 1 image(s) a starred one was made from." in capsys.readouterr().out
     assert sorted(r.id for r in storage.list_images()[0]) == [made["source"].id, refined.id]
     assert (fresh.outputs_dir / made["source"].filename).exists()
 

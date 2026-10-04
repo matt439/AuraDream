@@ -1216,16 +1216,19 @@ def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
 
 
 def delete_image(image_id: int) -> bool:
-    record = get_image(image_id)
-    if record is None:
-        return False
+    # Looked up and deleted under the one lock: two deletes of the same image
+    # (a double-click, a second tab) both found the row before either removed
+    # it, and both answered as though they had deleted it.
     with _write_lock, _session() as conn:
+        row = conn.execute("SELECT filename FROM images WHERE id = ?", (image_id,)).fetchone()
+        if row is None:
+            return False
         conn.execute("DELETE FROM images WHERE id = ?", (image_id,))
     # The row is already gone, so a file someone else has open must not turn a
     # delete that did happen into a 500. clear_history's orphan sweep collects
     # whatever gets left behind.
-    _unlink(settings.outputs_dir / record.filename)
-    _unlink(_thumb_path(settings.outputs_dir / record.filename))
+    _unlink(settings.outputs_dir / row["filename"])
+    _unlink(_thumb_path(settings.outputs_dir / row["filename"]))
     return True
 
 

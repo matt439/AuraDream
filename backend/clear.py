@@ -44,14 +44,14 @@ _human = storage.human_bytes
 def _keeping(favorites: int, sources: int) -> str:
     """The end of the "Would delete" line: what --keep-favorites spares.
 
-    The favorites, and the images one of them was made from - a refine pass's
-    source, a render's reference images - which storage keeps with them.
+    The starred images, and the images one of them was made from - a refine
+    pass's source, a render's reference images - which storage keeps with them.
     """
     if not favorites and not sources:
         return "."
-    spared = f", keeping {favorites} favorite(s)"
+    spared = f", keeping {favorites} starred"
     if sources:
-        spared += f" and {sources} image(s) a favorite was made from"
+        spared += f" and {sources} image(s) a starred one was made from"
     return spared + "."
 
 
@@ -152,7 +152,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("-y", "--yes", action="store_true", help="skip the confirmation prompt")
     parser.add_argument(
-        "--keep-favorites", action="store_true", help="keep images starred in the gallery"
+        "--keep-favorites", action="store_true",
+        help="keep starred images, and the images they were made from (a refine pass's source, "
+        "a render's references)",
     )
     parser.add_argument(
         "-n", "--dry-run", action="store_true", help="report what would go, change nothing"

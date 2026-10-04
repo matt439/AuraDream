@@ -257,7 +257,23 @@ function confirmDelete(rec, passes) {
   ].join('\n'));
 }
 
+// The ids whose delete is under way, from the press to the server's answer.
+// The confirm waits on the question about passes now, and a second press in
+// that time - a double-click on ⌦, the lightbox's Delete held down - asked
+// about the same image twice and sent two deletes.
+const deleting = new Set();
+
 async function deleteImage(rec) {
+  if (deleting.has(rec.id)) return;
+  deleting.add(rec.id);
+  try {
+    await deleteOne(rec);
+  } finally {
+    deleting.delete(rec.id);
+  }
+}
+
+async function deleteOne(rec) {
   // Asked before the confirm, so it can name the passes - on any checkpoint.
   // A failed look asks without them; the delete then says what is wrong.
   let passes = null;
@@ -330,7 +346,7 @@ function forgetImages(ids) {
   // Only the grid's counters mirror the server's: the viewer holds whatever
   // this session made, and the sheet lays itself out from the grid's records.
   const inGallery = galleryRecords.filter((r) => gone.has(r.id)).length;
-  const inViewer = viewerRecords.some((r) => gone.has(r.id));
+  const fromViewer = viewerRecords.filter((r) => gone.has(r.id)).map((r) => r.id);
   for (const list of new Set([galleryRecords, viewerRecords, lbList])) {
     for (let at = list.length - 1; at >= 0; at--) if (gone.has(list[at].id)) list.splice(at, 1);
   }
@@ -342,15 +358,6 @@ function forgetImages(ids) {
     syncRerender();
     syncDeleteUnstarred();
   }
-  // The strip keeps its tier - its tombstones hold the slots - and says what
-  // it is for again once the last of its images has left it, unless a job is
-  // still to fill it.
-  if (inViewer && !viewerRecords.length && !busy) {
-    const placeholder = document.createElement('p');
-    placeholder.className = 'placeholder';
-    placeholder.textContent = 'Generated images appear here.';
-    els.viewer.append(placeholder);
-  }
   // Keyboard focus was on what went: it moves on to the next image in the
   // same strip, or back to the one before, rather than dropping to <body>.
   if (lost) {
@@ -359,11 +366,29 @@ function forgetImages(ids) {
     const next = after ?? strip.at(-1);
     (next?.matches('img') ? next : next?.querySelector('img'))?.focus();
   }
+  // A strip with images left keeps its tombstones in their slots. One whose
+  // last image has gone, with no job to fill it, says what it is for again -
+  // in place of the tombstones, which beside it read as leftovers - at the
+  // height the strip had, so the gallery below does not jump; the next run's
+  // first image clears it, height and all.
+  if (fromViewer.length && !viewerRecords.length && !busy) {
+    const css = getComputedStyle(els.viewer);
+    const placeholder = document.createElement('p');
+    placeholder.className = 'placeholder held';
+    placeholder.style.minHeight = `${els.viewer.clientHeight - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)}px`;
+    const names = fromViewer.length > 3 ? `${fromViewer.length} images` : imageNames(fromViewer);
+    placeholder.textContent = `${names} ${fromViewer.length === 1 ? 'was' : 'were'} deleted. Generated images appear here.`;
+    els.viewer.replaceChildren(placeholder);
+    els.viewer.classList.remove('multi', 'many');
+    els.viewerNote.textContent = '';
+  }
   if (sheetMode) renderSheet();
   // A reference that has gone would be refused at submit, naming an id the
   // chips never showed.
   const dropped = referenceIds.filter((id) => gone.has(id));
   if (dropped.length) setReferences(referenceIds.filter((id) => !gone.has(id)));
+  // Nor may a Reuse's Undo put one back.
+  if (reuseNote) reuseNote.before.state.reference = reuseNote.before.state.reference.filter((id) => !gone.has(id));
   const note = !dropped.length ? ''
     : dropped.length === 1 ? ` ${imageNames(dropped)} was a reference image; it is no longer in the references.`
       : ` ${imageNames(dropped)} were reference images; they are no longer in the references.`;
@@ -551,8 +576,8 @@ function syncDeleteUnstarred() {
 // so the caret ends in the prompt. Synchronous, all of it: the references are
 // in place when this returns.
 function fillPanel(rec, sampling) {
-  replaceBoxText(els.negative, rec.negative_prompt ?? '');
-  replaceBoxText(els.prompt, rec.prompt);
+  rewriteBox(els.negative, rec.negative_prompt ?? '');
+  rewriteBox(els.prompt, rec.prompt);
   // The insert's `input` asked for tag suggestions at the caret, as typing
   // does; a reused prompt is not typing, and none open over it.
   clearTimeout(tagSuggestionTimer);
@@ -576,6 +601,17 @@ function fillPanel(rec, sampling) {
   const listed = [...els.lora.options].some((o) => o.value === rec.lora);
   els.lora.value = loraSupported && rec.lora && listed ? rec.lora : '';
   els.loraScale.value = els.lora.value ? (rec.lora_scale ?? 1) : 1;
+}
+
+// `replaceBoxText`, with the box focused first without the browser's scroll to
+// it. Writing as typing does takes the focus, and the browser then scrolled the
+// page to the box as though a stuck panel moved with it: half a screen of the
+// gallery lost at the page's end, nothing at all for a box focused already.
+// Where the page goes after a Reuse is `revealReused`'s, and after its Undo,
+// pressed at the panel's foot, nowhere.
+function rewriteBox(el, text) {
+  el.focus({ preventScroll: true });
+  replaceBoxText(el, text);
 }
 
 // Reuse restores what made a record. A direct render's settings go into the
@@ -612,11 +648,13 @@ function reuseIntoPanel(rec, withSize, note = '') {
   scheduleTagValidation(0);
   persistPanel();
   // Reuse used to replace a half-written prompt with no word, and the work
-  // was gone; the note says so whenever there was other text to replace.
+  // was gone; the note says so whenever there was other text to replace. Its
+  // first sentence, the Undo after it, then whatever else there is to say:
+  // the note is at the panel's foot, and where the window shows the prompt
+  // and only the start of the note, the start is what is in sight.
   const replaced = before.state.prompt.trim() !== '' && before.state.prompt !== rec.prompt;
-  const notes = note
-    ? [note, replaced ? 'Your prompt was replaced.' : '']
-    : [`Settings from #${rec.id} loaded${replaced ? ' - your prompt was replaced' : ''}.`];
+  const lead = `Settings from #${rec.id} loaded${replaced ? ' - your prompt was replaced' : ''}.`;
+  const notes = [note];
   // Steps, CFG and mu are checkpoint-specific: Turbo's 8 / 0 / 1.15 on FLUX is
   // a visibly broken image recorded under FLUX. The checkpoint is part of the
   // reproduction set as much as the seed, so say so - as a note, not a failure.
@@ -640,26 +678,18 @@ function reuseIntoPanel(rec, withSize, note = '') {
       + 'so this renders from the prompt alone.',
     );
   }
-  reuseNote = { parts: notes, before, id: rec.id, button: null };
+  reuseNote = { lead, parts: notes, before, id: rec.id, button: null };
   showReuseNote();
-  // Only where the prompt is out of sight - a one-column page scrolled down
-  // to the gallery. Beside the gallery the panel holds the prompt in view
-  // wherever the page is (writing the boxes focused it, and a focused panel
-  // control is brought into view by moving the panel), and the jump to the
-  // top that used to follow lost the user's place in the gallery for nothing.
-  const box = els.prompt.getBoundingClientRect();
-  if (box.top < 0 || box.bottom > innerHeight) {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    els.prompt.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
-  }
+  revealReused(reuseNote);
   void checkReused(reuseNote, rec);
 }
 
-// The Reuse note, with its Undo. Written in the panel's slot - Reuse sends
-// the user to the panel - and rewritten when a follow-up has more to say.
+// The Reuse note: its first sentence, the Undo, the rest. Written in the
+// panel's slot - Reuse sends the user to the panel - and rewritten when a
+// follow-up has more to say.
 function showReuseNote() {
   const note = reuseNote;
-  showError(note.parts.filter(Boolean).join(' '), true);
+  showError(note.lead, true);
   const undo = document.createElement('button');
   undo.type = 'button';
   undo.className = 'ghost tiny undo';
@@ -667,7 +697,55 @@ function showReuseNote() {
   undo.title = 'Put the panel back as it was before this Reuse';
   undo.onclick = () => undoReuse(note);
   els.error.append(' ', undo);
+  const rest = note.parts.filter(Boolean).join(' ');
+  if (rest) els.error.append(` ${rest}`);
   note.button = undo;
+}
+
+// Where a Reuse leaves the page: the prompt in sight below the topbar, its
+// label with it, and the note's Undo too where the window has room for both.
+// Not the jump to the top of the page there used to be, which beside the
+// gallery lost the user's place for nothing.
+function revealReused(note) {
+  const panel = document.querySelector('.panel');
+  // The note has just made the panel taller: placed now rather than after
+  // the frame, so what is measured below is where the panel stays.
+  placePanel();
+  // Beside the gallery the panel moves, not the page (panel.js's sticky top).
+  revealInPanel(els.prompt);
+  if (promptInSight()) { showUndo(note); return; }
+  // In the page's flow - a one-column page, or a panel at the page's end,
+  // which a sticky top cannot push down - the page moves, as far as puts the
+  // panel where it rests: under the topbar as at the top of the page, or at
+  // its sticky top.
+  const rest = panelPos.top === null
+    ? document.querySelector('.topbar').getBoundingClientRect().bottom + parseFloat(getComputedStyle(panel.parentElement).paddingTop)
+    : panelPos.rest;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  scrollTo({ top: scrollY + panel.getBoundingClientRect().top - rest, behavior: reduce ? 'auto' : 'smooth' });
+  if (reduce) showUndo(note);
+  else addEventListener('scrollend', () => showUndo(note), { once: true });
+}
+
+// The prompt's field, label and all, between the topbar and the window's foot.
+function promptInSight() {
+  const field = els.prompt.closest('.field').getBoundingClientRect();
+  return field.top >= document.querySelector('.topbar').getBoundingClientRect().bottom - 0.5
+    && els.prompt.getBoundingClientRect().bottom <= innerHeight + 0.5;
+}
+
+// The Undo, after the note's first sentence: a stuck panel goes up to bring
+// it in sight - a gutter clear of the window's foot where there is room for
+// that - only as far as the prompt's field stays clear of the topbar. On a
+// window too short for both, the prompt is what Reuse is about, and Ctrl+Z
+// in it still gives the text back.
+function showUndo(note) {
+  if (panelPos.top === null || reuseNote !== note || !note.button.isConnected) return;
+  const room = els.prompt.closest('.field').getBoundingClientRect().top
+    - document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const bottom = note.button.getBoundingClientRect().bottom;
+  const lift = Math.min(bottom - (innerHeight - panelPos.gap), room);
+  if (lift > 0 && bottom - lift <= innerHeight) setPanelTop(panelPos.top - lift);
 }
 
 // What a Reuse could only find out by asking, once the panel is filled: a
@@ -712,8 +790,8 @@ async function checkReused(note, rec) {
 function undoReuse(note) {
   const { state, values } = note.before;
   if (reuseNote === note) reuseNote = null;
-  replaceBoxText(els.negative, state.negative);
-  replaceBoxText(els.prompt, state.prompt);
+  rewriteBox(els.negative, state.negative);
+  rewriteBox(els.prompt, state.prompt);
   clearTimeout(tagSuggestionTimer);
   hideTagSuggestions();
   els.seed.value = state.seed;
@@ -751,8 +829,7 @@ async function reusePass(rec) {
     if (!/unknown image/.test(err.message)) { showError(err.message); return; }
     reuseIntoPanel(rec, false,
       `Image ${rec.refine}, the source this was refined from, is no longer in the gallery, `
-      + 'so the pass cannot be made again. Its prompt and settings are in the panel; the size is '
-      + 'left as it was.');
+      + 'so the pass cannot be made again. The size is left as it was.');
     return;
   }
   openRefine(source, rec);
