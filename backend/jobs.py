@@ -32,6 +32,17 @@ class BackendBusy(RuntimeError):
     """An interactive backend operation would cut ahead of an image job."""
 
 
+class LoadFailed(RuntimeError):
+    """The image model's load failed. `detail` is the sentence the status
+    gives for it (`main.ensure_loaded`), what to do included, so a job that
+    ended at the load says what the topbar and the viewer say - not the
+    library's six lines - and the cause is the exception it was raised from."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
 def short_error(exc: BaseException, limit: int = 320) -> str:
     """A one-paragraph, UI-presentable form of an exception.
 
@@ -91,6 +102,12 @@ class Job:
     # transient OOM, a locked database - and reports it, rather than dropping
     # every remaining cell of the night on the first.
     failures: int = 0
+    # Which cells those were - each one's label, seed and error - so the page
+    # can name the hole in the sheet rather than count it.
+    failed_cells: list[dict] = field(default_factory=list)
+    # Submitted as cells (a grid, a sweep, a re-render) rather than as one
+    # request's repeats: what the page calls each one, a cell or an image.
+    grid: bool = False
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -112,7 +129,8 @@ class Job:
     finished_at: float | None = None
     last_progress_at: float | None = None
     # Start no cell after this moment (a grid's time budget), and what ended
-    # the job when it was not the user: "budget" so far. Ending at the deadline
+    # the job when it was not the user: "budget" (through the cancel path) or
+    # "failures" (the failure rule, through `error`). Ending at the deadline
     # reuses the cancel path - a fourth terminal state would have left
     # `active()` and `busy()` holding on and unload answering 409 for the
     # session - and the field tells the UI which kind of stop it was.
@@ -134,12 +152,24 @@ class Job:
         A copy, not the live list: what json.dumps serialises later on the loop
         must be the list as of now. The records replayed are the live ones: a
         page reattaching after a delete got the deleted image back as a broken
-        tile, and deleting it again answered "unknown image".
+        tile, and deleting it again answered "unknown image". The skipped
+        cells travel with the records, for the same reason: at most a third
+        of a grid, but every per-cell event would have carried them.
         """
         frame = {
             "job_id": self.id,
             "run_id": self.run_id,
             "seed": self.seed,
+            # What the job is, for a page that did not submit it - a reload,
+            # the queue note naming each job waiting, the line over the bars:
+            # the first cell's prompt, a pass's source, the size, and how many
+            # images the whole job makes.
+            "prompt": self.request.prompt[:120],
+            "refine": self.request.refine,
+            "width": self.request.width,
+            "height": self.request.height,
+            "planned_images": sum(cell.request.num_images for cell in self.cells),
+            "grid": self.grid,
             "status": self.status,
             "waiting_on": self.waiting_on,
             "pause_requested": self.pause_requested,
@@ -171,6 +201,7 @@ class Job:
         }
         if images:
             frame["images"] = [image for image in self.images if image["id"] not in self.deleted]
+            frame["failed_cells"] = list(self.failed_cells)
         return frame
 
 
@@ -284,11 +315,16 @@ class JobManager:
             [
                 Cell(request=request, seed=wrap_seed(base + index * request.num_images))
                 for index in range(request.runs)
-            ]
+            ],
+            grid=False,
         )
 
     async def submit_cells(
-        self, cells: list[Cell], run_id: str | None = None, budget_minutes: float | None = None
+        self,
+        cells: list[Cell],
+        run_id: str | None = None,
+        budget_minutes: float | None = None,
+        grid: bool = True,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -308,6 +344,7 @@ class JobManager:
             total_steps=progress_steps(cells[0].request),
             total_runs=len(cells),
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
+            grid=grid,
         )
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight
@@ -401,7 +438,8 @@ class JobManager:
             try:
                 await self._ensure_loaded()
             except Exception as exc:  # noqa: BLE001 - surfaced to the client
-                self._finish(loop, job, "error", short_error(exc))
+                detail = exc.detail if isinstance(exc, LoadFailed) else short_error(exc)
+                self._finish(loop, job, "error", detail)
                 return
         # One generation at a time; queued jobs simply wait their turn here. A
         # cancel that landed during the load or the wait ends the job untouched.
@@ -421,7 +459,18 @@ class JobManager:
                 # copy is cut, and an OOM's remedy is its last sentence.
                 log.error("job %s failed: %s", job.id, exc)
                 log.debug("job traceback", exc_info=True)
-                self._finish(loop, job, "error", short_error(exc))
+                error = short_error(exc)
+                if job.stopped_by == "failures":
+                    # The failure rule ended it, which is three in a row or a
+                    # third of the grid - not one bad cell, which the last
+                    # exception alone made it read as. Where, how many and
+                    # what was kept come first; Resume runs the rest.
+                    kept = len(job.images)
+                    error = (
+                        f"Stopped at cell {job.run} of {job.total_runs} after {job.failures} "
+                        f"cells failed; {kept} image{'' if kept == 1 else 's'} kept. Last: {error}"
+                    )
+                self._finish(loop, job, "error", error)
                 return
             # Cancelled only if the loop actually stopped early. A cancel that
             # lands after the last step - during the decode or the encode -
@@ -555,11 +604,13 @@ class JobManager:
                 consecutive += 1
                 job.failures += 1
                 job.error = short_error(exc)
+                job.failed_cells.append({"label": cell.label, "seed": seed, "error": job.error})
                 log.error(
                     "job %s: cell %d/%d failed: %s", job.id, index + 1, len(job.cells), exc
                 )
                 log.debug("cell traceback", exc_info=True)
                 if self._too_many_failures(consecutive, job.failures, len(job.cells)):
+                    job.stopped_by = "failures"
                     raise
                 continue
             consecutive = 0

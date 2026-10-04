@@ -395,8 +395,12 @@ function syncRuns() {
   const batch = Math.max(1, +els.batch.value || 1);
   const seed = els.seed.value.trim();
   const start = seed === '' ? 'from a random start.' : `from ${seed}.`;
+  // A seed the page put in the box - a grid's base written back for Resume,
+  // a finished image's through Use seed - says so while it is there: every
+  // Generate after it repeats it, where a blank box draws afresh each press.
+  const fixed = seed !== '' && seed === pageSeed ? `Seed fixed at ${seed}; 🎲 for a random one.` : '';
   els.runHint.textContent = runs === 1
-    ? (batch > 1 ? `${batch} images at once — all held in VRAM together.` : '')
+    ? [batch > 1 ? `${batch} images at once — all held in VRAM together.` : '', fixed].filter(Boolean).join(' ')
     : batch === 1
       ? `${runs} images, one after another, seed +1 each, ${start}`
       : `${runs * batch} images: ${runs} batches of ${batch}, one after another, seed +${batch} each, ${start}`;

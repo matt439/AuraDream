@@ -615,10 +615,10 @@ async function previewRefine() {
   syncRefineRun();
 }
 
-// Refine: the dialog closes and the job queues like Generate's - behind a
-// running one if there is one, its progress in the panel, its images in the
-// strip. A sweep opens as its sheet when done. Never the panel's Seed box:
-// the dialog's seed is its own.
+// Refine: the job queues like Generate's - behind a running one if there is
+// one, its progress in the panel, its images in the strip - and the dialog
+// closes once the server has taken it. A sweep opens as its sheet when done.
+// Never the panel's Seed box: the dialog's seed is its own.
 async function runRefine() {
   if (!refineSource || !els.refineDialog.open || submitting || refineWaiting) return;
   // The preview is what refuses a strength past 1 or one that leaves no step,
@@ -643,10 +643,33 @@ async function runRefine() {
   }
   const { path, body, sweep } = refineRequest();
   if (!body.prompt) { refineFailed('Enter a prompt first.'); return; }
-  rememberRefine();
-  refineRan = true;
-  els.refineDialog.close();
-  await startJob(path, body, { sheet: sweep, panel: false });
+  // The dialog closes once the server has taken the pass, not before: a
+  // refusal at submit - a source deleted elsewhere - landed in the panel's
+  // line with the dialog and its edits gone. It stays open now, the refusal
+  // in its own line. Until the pass's first frame, the viewer shows its
+  // source standing in for it (startJob's `placeholder`), captioned with
+  // where the pass is: on SDXL, which sends no frames, it showed whatever
+  // image was there before for the whole pass.
+  const source = refineSource;
+  const strength = els.refineStrength.value.trim() || String(refineDefaultStrength());
+  await startJob(path, body, {
+    sheet: sweep,
+    panel: false,
+    slot: els.refineError,
+    placeholder: {
+      src: source.thumb_url ?? source.url,
+      width: body.width,
+      height: body.height,
+      label: `Refining #${source.id} → ${body.width}×${body.height} · strength ${strength}`,
+    },
+    // Unless an Escape during the POST closed it already.
+    onAccepted: () => {
+      if (refineSource !== source || !els.refineDialog.open) return;
+      rememberRefine();
+      refineRan = true;
+      els.refineDialog.close();
+    },
+  });
 }
 
 // A press on a refused Refine says why in the dialog, once, and points at the

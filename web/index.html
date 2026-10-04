@@ -13,12 +13,17 @@
     <span class="dot" id="status-dot"></span>
     <span id="status-text" aria-live="polite">checking…</span>
   </div>
+  <!-- The watched job in one line, and a line along the bar's foot: in view
+       at any scroll and in the tab's title's company. aria-hidden, since the
+       panel's #progress-text is the status a screen reader hears. -->
+  <span class="job-mirror" id="job-mirror" aria-hidden="true" hidden></span>
   <div class="vram" id="vram"></div>
-  <!-- Shown while nothing is loaded, or after a failed load: the first
-       download, or a retry once repo access was granted, without queueing an
-       image to start it. -->
+  <!-- Shown while nothing is loaded, or after a failed load (as Retry load):
+       the first download, or a retry once repo access was granted, without
+       queueing an image to start it. Unload is hidden meanwhile. -->
   <button class="ghost" id="btn-load" title="Load the weights now" hidden>Load</button>
   <button class="ghost" id="btn-unload" title="Free VRAM">Unload</button>
+  <div class="topbar-line" id="topbar-line" aria-hidden="true" hidden><div class="fill" id="topbar-fill"></div></div>
 </header>
 
 <main>
@@ -321,6 +326,8 @@
     <button class="primary" id="btn-generate" title="Generate (Ctrl+Enter)"
             aria-keyshortcuts="Control+Enter">Generate</button>
     <div class="progress" id="progress" hidden>
+      <!-- Which job this is - the one Cancel stops - from its status frames. -->
+      <p class="now" id="progress-now"></p>
       <div class="bars">
         <div class="row">
           <div class="bar" role="progressbar" aria-label="Job progress" aria-valuemin="0"
@@ -334,18 +341,30 @@
           <span class="pt" id="step-text"></span>
         </div>
       </div>
-      <button class="ghost small" id="btn-pause" title="Hold after the current cell and hand the GPU back; Resume carries on">Pause</button>
-      <button class="ghost small danger" id="btn-cancel" title="Stop after the current step">Cancel</button>
+      <!-- A row of their own, under the bars rather than beside them: the
+           bars take the panel's width. -->
+      <div class="progress-actions">
+        <button class="ghost small" id="btn-pause" aria-pressed="false"
+                title="Hold after the current cell and hand the GPU back; Resume carries on">Pause</button>
+        <button class="ghost small danger" id="btn-cancel" title="Stop after the current step">Cancel</button>
+      </div>
     </div>
-    <!-- Jobs queued behind the one being watched: the server runs them in
-         turn, and a reload picks the next one up. -->
-    <p class="hint" id="queue-note" hidden>
-      <span id="queue-text"></span>
-      <button class="ghost small danger" id="btn-cancel-queued" title="Cancel every job waiting behind this one">Cancel queued</button>
-    </p>
-    <!-- Which cell of a grid is running. Empty for an ordinary sweep, where the
-         settings never change and the counters say everything. -->
+    <!-- Under the bars: which cell of a grid is running and the time left,
+         then the finished job's outcome with what to do next (Use seed, Show
+         sheet, a Retry). Outside #progress, which a finished job hides. -->
     <p class="hint" id="cell-note"></p>
+    <!-- A result that landed in the viewer while the page was down the
+         gallery: said here, and a press goes up to it. Never a scroll of the
+         page's own. Outside #progress, which a finished job hides. -->
+    <button class="ghost small" id="btn-new-image" hidden
+            aria-label="New image: scroll up to it in the viewer">New image ↑</button>
+    <!-- Jobs queued behind the one being watched, a row each with its own ×:
+         the server runs them in turn, and a reload picks the next one up. -->
+    <div class="hint" id="queue-note" hidden>
+      <span id="queue-text"></span>
+      <ul class="queue-list" id="queue-list"></ul>
+      <button class="ghost small danger" id="btn-cancel-queued" title="Cancel every job waiting behind this one">Cancel queued</button>
+    </div>
     <!-- role=alert: a failure written here has to be announced, not just
          painted. app.js unhides it *before* writing the text, since a node
          still display:none announces nothing. -->

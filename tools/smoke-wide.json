@@ -204,7 +204,7 @@
   {"expect": "__held() && !__inView(els.prompt)"},
   {"wheel": [900, 500, -150]},
   {"wait": 500},
-  {"expect": "scrollY < __before[0] && __top() > __before[1] && Math.abs((__top() - __before[1]) - (__before[0] - scrollY)) < 1"},
+  {"expect": "scrollY < __before[0] && __top() > __before[1] && Math.abs(__top() - Math.min(__rest, __before[1] + (__before[0] - scrollY))) < 1"},
   {"wheel": [900, 500, -400]},
   {"wait": 500},
   {"expect": "__rests() && __inView(els.prompt)"},

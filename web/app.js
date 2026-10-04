@@ -10,6 +10,7 @@ els.generate.onclick = generate;
 els.cancel.onclick = cancelJob;
 els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
+els.newImage.onclick = goToNewImage;
 els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); persistPanel(); };
 els.reset.onclick = resetPanel;
 els.orientation.onclick = swapOrientation;
@@ -255,15 +256,7 @@ document.addEventListener('click', (e) => {
   if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper, #tags-menu, #prompt')) showTagHelper(false);
   if (!e.target.closest('.prompt-editor')) hideTagSuggestions();
 });
-els.unload.onclick = async () => {
-  try {
-    await api('/api/model/unload', { method: 'POST' });
-    showError('');
-  } catch (err) {
-    showError(err.message);  // 409 while a job is still running
-  }
-  refreshStatus();
-};
+els.unload.onclick = unloadModel;
 els.more.onclick = () => loadGallery();
 // Scrolling to the end of the gallery fetches the next page: the trigger is
 // the button coming within a few hundred pixels of the viewport, so the page
@@ -290,15 +283,7 @@ for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gr
 els.gridSeedList.addEventListener('input', () => {
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
 });
-els.load.onclick = async () => {
-  try {
-    await api('/api/model/load', { method: 'POST' });
-    showError('');
-  } catch (err) {
-    showError(err.message);
-  }
-  refreshStatus();
-};
+els.load.onclick = loadModel;
 els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
 // On the summary's click (Enter and Space on it are clicks too), not on the
@@ -391,6 +376,9 @@ document.addEventListener('keydown', (e) => {
   // prompt's {placeholders} literally. Anywhere else, the prompt box included,
   // it generates. Run grid's click, so its handler and guards are the press's.
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    // Taken, so the Enter goes nowhere else: the button a closing dialog
+    // hands focus back to - the card's ⤢ - read it as a press of its own.
+    e.preventDefault();
     if (els.refineDialog.open) void runRefine();
     else if (els.gridSection.open && e.target.closest?.('#grid-section')) els.gridRun.click();
     else generate();

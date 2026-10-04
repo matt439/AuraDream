@@ -49,8 +49,10 @@ const els = {
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
   reset: $('btn-reset'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
-  queueNote: $('queue-note'), queueText: $('queue-text'), cancelQueued: $('btn-cancel-queued'),
+  queueNote: $('queue-note'), queueText: $('queue-text'), queueList: $('queue-list'),
+  cancelQueued: $('btn-cancel-queued'),
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
+  progressNow: $('progress-now'), newImage: $('btn-new-image'),
   stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
   cellNote: $('cell-note'),
   gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
@@ -74,6 +76,7 @@ const els = {
   lastRunShow: $('last-run-show'), lastRunDismiss: $('last-run-dismiss'),
   runList: $('run-list'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
+  jobMirror: $('job-mirror'), topbarLine: $('topbar-line'), topbarFill: $('topbar-fill'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
   lbPrompt: $('lb-prompt'), lbSettings: $('lb-settings'), lbCount: $('lb-count'),
   lbError: $('lb-error'), lbStage: $('lb-stage'), lbZoom: $('lb-zoom'),
@@ -157,6 +160,12 @@ const owned = { steps: false, cfg: false, mu: false, trueCfg: false };
 // compares a record against it: steps, CFG and mu are checkpoint-specific.
 let loadedModel = null;
 let statusPending = false;
+// The image model's state as the last status gave it (null before the
+// first), whether the last poll got no answer at all, and when the server
+// that did answer started - a change is a restart, which ended every job.
+let modelState = null;
+let serverOffline = false;
+let serverStartedAt = null;
 // The job whose stream the page is watching, and the ids queued behind it.
 // The server was written for a queue - jobs wait on its gate, a queued one
 // can be cancelled on the spot - and the browser used to refuse a second
@@ -164,6 +173,17 @@ let statusPending = false;
 let currentJob = null;
 let queuedIds = [];
 let submitting = false;
+// What this page knows of a job it submitted, by id: the submission itself
+// ({path, payload, seed, sheet, at}) - a grid's Retry sends its own payload
+// again, never the panel as it is now - the queue note's name for it, and
+// what the viewer shows of a pass until its first frame (refine.js).
+const submissions = new Map();
+const jobLabels = new Map();
+const jobPlaceholders = new Map();
+// The seed the page itself put in the Seed box - a grid's base, written back
+// for Resume, or a finished image's through Use seed - while it is still
+// there: the run hint says the next Generate repeats it.
+let pageSeed = null;
 // Jobs that open as a sheet when their stream reports done, by job id:
 // the prompt check's comparison, which is a question the sheet answers. Kept
 // here rather than on the stream, since the job may queue behind another and
@@ -308,12 +328,29 @@ let sheetRecords = [];
 
 // ------------------------------------------------------------------ helpers
 
+// No answer at all - the server stopped, or never started - rather than an
+// answer that refuses: fetch's own words for it are "Failed to fetch", which
+// named neither the app nor what to do. `offline` marks it, so the status poll
+// can take the page into its offline state and clear the message once the
+// server answers again.
+const OFFLINE_MESSAGE = 'No answer from the Local Diffusion server — is it still running?';
+
 async function api(path, options) {
-  const res = await fetch(path, options);
+  let res;
+  try {
+    res = await fetch(path, options);
+  } catch (err) {
+    // fetch's own network failure is a TypeError; anything else - an abort -
+    // is not the server's silence.
+    if (!(err instanceof TypeError)) throw err;
+    throw Object.assign(new Error(OFFLINE_MESSAGE), { offline: true });
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail ?? detail; } catch { /* non-JSON body */ }
-    throw new Error(readableDetail(detail));
+    // The status too, for a caller that tells "gone" from "refused" (a job
+    // the server no longer knows is a 404).
+    throw Object.assign(new Error(readableDetail(detail)), { status: res.status });
   }
   return res.status === 204 ? null : res.json();
 }
@@ -340,16 +377,35 @@ function readableDetail(detail) {
 // (`els.galleryError`) for what a gallery control did - a click among the
 // cards at QHD used to be answered 2,400 px away, in the other column. One
 // slot per message: both are role=alert, and a message in two is heard twice.
-function showError(message, note = false, { slot = els.error, mirror = true } = {}) {
+// `offline` is a message about the server not answering - any that carries
+// OFFLINE_MESSAGE, and those that say so in their own words - which the
+// first status poll the server answers takes back (clearOffline): it used to
+// stay up, red, long after the server was back.
+const offlineSlots = new Map();
+function showError(message, note = false, {
+  slot = els.error, mirror = true, offline = !!message?.includes(OFFLINE_MESSAGE),
+} = {}) {
   // Unhide *before* writing: the slot is role=alert, and text written into a
   // display:none node is never announced.
   slot.hidden = !message;
   slot.textContent = message || '';
   slot.classList.toggle('note', note);
+  if (offline && message) offlineSlots.set(slot, message);
+  else offlineSlots.delete(slot);
   if (!mirror) return;
   // The lightbox covers both slots; mirror into its own while it is up.
   const shown = els.lightbox.open;
   els.lbError.hidden = !(shown && message);
   els.lbError.textContent = shown ? message || '' : '';
   els.lbError.classList.toggle('note', note);
+}
+
+// The server answers again: every message about it not answering goes, where
+// it is still the one shown - the lightbox's copy of one included.
+function clearOffline() {
+  for (const [slot, message] of offlineSlots) {
+    if (slot.textContent === message) showError('', false, { slot, mirror: false });
+    if (els.lbError.textContent === message) { els.lbError.hidden = true; els.lbError.textContent = ''; }
+  }
+  offlineSlots.clear();
 }

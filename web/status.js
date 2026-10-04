@@ -105,10 +105,136 @@ function syncPromptExpansion() {
   els.expandPrompt.hidden = !promptExpansionSupported;
   els.expandPrompt.disabled = editing || busy;
   els.expandPrompt.textContent = expandingPrompt ? 'Expanding…' : 'Expand';
-  els.unload.disabled = editing || busy;
-  els.generate.setAttribute('aria-disabled', String(editing || submitting));
-  els.gridRun.setAttribute('aria-disabled', String(editing || submitting));
+  syncUnload();
+  syncSubmitButtons();
   syncCritic();
+}
+
+// Unload's one writer. setBusy, Expand and the critic each used to set it,
+// overwriting one another, and a load the page did not start left it live
+// for a press the server refuses (a 409 under a job or a load). Held, with
+// the reason, while it would be refused or could not be sent; hidden while
+// Load is shown, with nothing loaded to give back.
+function syncUnload() {
+  els.unload.hidden = modelState === 'unloaded' || modelState === 'error';
+  const why = serverOffline ? 'The server is not answering'
+    : busy ? 'A job is queued or running: it holds the weights until it ends'
+    : expandingPrompt ? 'Wait for prompt expansion to finish'
+    : critiquing ? 'Wait for the critic to finish'
+    : modelState === 'loading' ? 'The weights are still loading'
+    : '';
+  els.unload.disabled = !!why;
+  els.unload.title = why || 'Free VRAM';
+}
+
+// The topbar's Load - and the failed load's Retry load - starts the load
+// without queueing an image to do it, and the status says so at once.
+async function loadModel() {
+  try {
+    await api('/api/model/load', { method: 'POST' });
+    showError('');
+  } catch (err) {
+    showError(err.message);
+  }
+  refreshStatus();
+}
+
+// An Unload the server refused - a load another tab started - is said until
+// the load lands, when it no longer says anything true.
+let unloadRefusal = null;
+async function unloadModel() {
+  try {
+    await api('/api/model/unload', { method: 'POST' });
+    showError('');
+    unloadRefusal = null;
+  } catch (err) {
+    showError(err.message);  // 409 while a job or a load is still live
+    unloadRefusal = err.message;
+  }
+  refreshStatus();
+}
+
+// No answer to a status poll: fetch rejected, never a slow reply - a load's
+// CUDA read can stall one for a while, which the statusPending guard absorbs.
+// The topbar said "ready" in green over a dead server for as long as it was
+// down; it says what is true, and what would send to the server is held.
+function goOffline() {
+  if (serverOffline) return;
+  serverOffline = true;
+  els.dot.className = 'dot error';
+  els.statusText.textContent = 'server not answering — retrying';
+  els.load.hidden = true;
+  syncUnload();
+  syncSubmitButtons();
+}
+
+// The server that answers is not the one the page was talking to: its jobs,
+// the queue and the weights went with the old process. Said once, where the
+// panel's line has nothing more particular - a lost job's own account of
+// the same restart stays.
+function noteRestart(s) {
+  queuedIds = [];
+  syncQueueNote();
+  if (els.error.textContent) return;
+  const at = new Date(s.started_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  showError(`The server restarted at ${at} — ${s.state === 'ready' ? '' : 'the model is not loaded, and '}`
+    + 'any job that was running ended with it.', true);
+}
+
+// A failed load is said where the work is: in the viewer's empty state, a
+// card with the status's sentence and its steps, the model page, and Retry
+// load - rather than red text a column away, re-posted on every poll over
+// whatever else the line had to say, and into the lightbox. Where the viewer
+// holds images, the panel's line says it, once per failure and never in the
+// lightbox, which has nothing to do with a load.
+let shownLoadDetail = null;
+function syncLoadFailure(s) {
+  const failed = s.state === 'error' && !!s.detail;
+  let card = els.viewer.querySelector('.load-failed');
+  if (card && (!failed || card.dataset.detail !== s.detail)) { card.remove(); card = null; }
+  if (failed && !card && !els.viewer.querySelector('img, figure, .tomb')) {
+    card = loadFailureCard(s);
+    els.viewer.prepend(card);
+  }
+  els.viewer.querySelectorAll('.placeholder').forEach((p) => { p.hidden = !!card; });
+  if (!failed) { shownLoadDetail = null; return; }
+  if (s.detail === shownLoadDetail) return;
+  shownLoadDetail = s.detail;
+  if (!card) showError(s.detail, false, { mirror: false });
+}
+
+function loadFailureCard(s) {
+  const card = document.createElement('div');
+  card.className = 'load-failed';
+  card.dataset.detail = s.detail;
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-labelledby', 'load-failed-head');
+  const head = document.createElement('h2');
+  head.id = 'load-failed-head';
+  head.textContent = `Couldn't load ${(s.model_id ?? '').split('/').pop()}`;
+  // A `command` in the sentence is something to type: set as code.
+  const detail = document.createElement('p');
+  s.detail.split('`').forEach((part, i) => {
+    detail.append(i % 2 ? Object.assign(document.createElement('code'), { textContent: part }) : part);
+  });
+  card.append(head, detail);
+  if (s.detail_url) {
+    const link = document.createElement('a');
+    link.href = s.detail_url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Open the model page';
+    const line = document.createElement('p');
+    line.append(link);
+    card.append(line);
+  }
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'primary';
+  retry.textContent = 'Retry load';
+  retry.onclick = loadModel;
+  card.append(retry);
+  return card;
 }
 
 function clearPromptTranslation() {
@@ -145,6 +271,18 @@ async function refreshStatus() {
   statusPending = true;
   try {
     const s = await api('/api/status');
+    // An answer after none: what was held lets go, and what said the server
+    // was not answering goes. A restart is the start time changing - with or
+    // without a poll that failed between, which a quick one leaves none of.
+    const back = serverOffline;
+    if (back) {
+      serverOffline = false;
+      clearOffline();
+      syncSubmitButtons();
+    }
+    const restarted = serverStartedAt !== null && typeof s.started_at === 'number'
+      && s.started_at !== serverStartedAt;
+    if (typeof s.started_at === 'number') serverStartedAt = s.started_at;
     const previousModel = loadedModel;
     loadedModel = s.model_id ?? loadedModel;
     if (loadedModel !== previousModel) {
@@ -235,15 +373,31 @@ async function refreshStatus() {
     // The grid preview's budget line says whether the load counts against it.
     if (els.dot.classList.contains('ready') !== (s.state === 'ready')) schedulePreview();
     els.dot.className = `dot ${s.state}`;
+    const was = modelState;
+    modelState = s.state;
     // A way to start - or retry, after a gated-repo 403 - the load without
     // queueing an image to do it.
     els.load.hidden = !(s.state === 'unloaded' || s.state === 'error');
+    els.load.textContent = s.state === 'error' ? 'Retry load' : 'Load';
+    els.load.title = s.state === 'error' ? 'Try the load again, once what stopped it is fixed' : 'Load the weights now';
+    syncUnload();
+    // The checkpoint's name in every state: "loading weights…" for minutes
+    // never said which.
+    const name = (s.model_id ?? '').split('/').pop();
     els.statusText.textContent =
-      s.state === 'ready' ? s.model_id.split('/').pop()
-      : s.state === 'loading' ? 'loading weights…'
-      : s.state === 'error' ? 'load failed'
-      : 'not loaded';
-    if (s.state === 'error' && s.detail) showError(s.detail);
+      s.state === 'ready' ? name
+      : s.state === 'loading' ? `${name} · loading…`
+      : s.state === 'error' ? `${name} · load failed`
+      : `${name} · not loaded`;
+    syncLoadFailure(s);
+    if (s.state === 'ready' && was !== 'ready' && unloadRefusal) {
+      if (els.error.textContent === unloadRefusal) showError('');
+      unloadRefusal = null;
+    }
+    if (restarted) noteRestart(s);
+    // What a job saved before the server went quiet - or before it died -
+    // is in the gallery now, which the page could not ask for meanwhile.
+    if ((back || restarted) && loadedModel === previousModel) { void prependFinished(0); loadRuns(); }
     // Free space beside the VRAM: the disk is the other thing a night can
     // run out of, and the grid preview compares its size estimate against it.
     diskFreeMb = typeof s.disk_free_mb === 'number' ? s.disk_free_mb : null;
@@ -254,7 +408,10 @@ async function refreshStatus() {
         : '',
       disk,
     ].filter(Boolean).join(' · ');
-  } catch { /* server not up yet */ } finally { statusPending = false; }
+  } catch (err) {
+    // An answer that refused is not a server gone; no answer at all is.
+    if (err.offline) goOffline();
+  } finally { statusPending = false; }
 }
 
 // The adapters on disk, into the select. The chosen one survives a refresh

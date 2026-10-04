@@ -163,6 +163,31 @@ the gate, but through the backend, not the load lock.) The cost: a job that
 waits out a critique reports `waiting_on="load"` while the status does not
 yet say `loading`, for the critique's fifteen seconds or so.
 
+**A failed load says what to do, once, where the work is.** The default
+checkpoints are gated, so a new user's first Generate most often ends in
+huggingface_hub's `GatedRepoError`, whose text was a request id, a URL to
+`model_index.json` and "Please log in" - six red lines under Generate,
+re-posted on every 3 s poll over whatever else the line said, mirrored into
+the lightbox, and repeated by the morning-after banner after a reload.
+`ensure_loaded`'s except maps the exception by class name over its MRO, and
+over its `__cause__`/`__context__` chain (a loader's OSError raised from the
+Hub's error), as `prompt_encoding._reason` does for tokenizers:
+`GatedRepoError`, `RepositoryNotFoundError`, `OfflineModeIsEnabled`,
+`LocalEntryNotFoundError` (`main._load_failure`). Each becomes a sentence with
+the steps - for a gate, the catalogue's own word for it (`launch.CHECKPOINTS`:
+a click-through, or the authors' approval), `uv run hf auth login`, then Retry
+load - and `ModelStatus.detail_kind` and `detail_url` (the model page) beside
+`detail`; anything else is `short_error` as before. The log keeps the
+library's words. It is raised on as `jobs.LoadFailed(detail)` from the
+original, so the job that ended at the load carries the same sentence as the
+status (`_run`) and Expand answers with it too. The page puts it in the
+viewer's empty state - a card with the sentence, a link to the model page and
+a primary Retry load, the topbar's Load handler, which reads Retry load
+meanwhile - and says it in the panel's line only where the viewer holds images,
+once per failure (a retry that fails again counts as a new one) and never in
+the lightbox (`syncLoadFailure`). A job that ended at the load posts nothing
+of its own; the banner skips it while the status still says the same.
+
 ## The loader is model-agnostic
 
 The loader is model-agnostic: `DiffusionPipeline.from_pretrained` resolves the
@@ -1013,6 +1038,39 @@ reader would ever see `done`. The browser's automatic reconnect is left alone
 for the first few failures, and `GET /api/jobs` lists what is still live, so a
 reload reattaches instead of orphaning a sweep with no reachable id.
 
+**A stream that gives up asks what became of its job.** It used to say "Lost
+the generation stream. The run carries on - reload to pick it up.", which was
+false whenever the server had died: a reload found nothing, and an overnight
+grid's missing hours went unnoticed. After the five reconnects (or a reply that
+was no stream - a restarted server's 404 closes EventSource at once) the page
+probes `GET /api/jobs/<id>` (`gaveUp`): still there, it streams again (three
+times at most, then says the job runs on but its progress keeps getting lost);
+no answer, "Can't reach the server - it may have stopped", how many images
+were saved, and the offline state takes over; a 404, "The server restarted,
+and this job ended with it after N of M images" (M is the snapshot's
+`planned_images`), Generate again or a grid's Resume for the rest, and the
+gallery takes in what was saved. The live preview of the unfinished cell goes
+with the stream, rather than sitting in the strip like a second result.
+
+**When the server does not answer.** The topbar used to stay green, with the
+checkpoint's name, for as long as the server was dead, and every action said
+"Failed to fetch". `api()` turns a fetch rejection - only that, never an HTTP
+error or a slow reply, which a load's CUDA read can cause and `statusPending`
+absorbs - into an Error with `offline: true` and "No answer from the Local
+Diffusion server - is it still running?". A status poll that gets one turns
+the dot red ("server not answering - retrying"), hides Load, and holds
+Generate and Run grid (`aria-disabled`, titled with the reason; a press says
+it and polls at once) and Unload; Refine's preview fails with the same words.
+`showError` remembers which slots hold such a message (`offline`, set from the
+text or by the caller), and the first answer clears them (`clearOffline`).
+`ModelStatus.started_at` is set once, at import: a changed value is a restart,
+with or without a failed poll between, which a quick one leaves none of; the
+page then says "The server restarted at HH:MM - the model is not loaded, and
+any job that was running ended with it" where the panel's line holds nothing
+more particular, forgets the queue, and takes in what the old process saved
+(`prependFinished`). Load more stays the retry for a failed page and is not
+re-armed.
+
 ## Atomic PNG writes
 
 `save_image` writes `<name>.png.part` and renames only after the row commits.
@@ -1115,6 +1173,23 @@ failed. `generate.py` mirrors the per-cell rule and exits 1 when any cell
 was skipped. `Job.snapshot(images=False)` is what the per-cell status event
 and `/api/jobs` send: the per-cell event used to carry every record so far,
 258 MiB over a 1000-cell grid.
+
+**The page names the cells it skipped and offers them again.** A skipped cell
+used to show only as the cell line jumping a number and, at the end, "1
+cell(s) failed" - which cell, no one said - and the obvious retry, Run grid,
+rendered the whole grid again. `Job.failed_cells` keeps each one's label, seed
+and error, sent with the records (the full snapshot: attach and `done`), never
+on the per-cell events; the cell line counts "· N skipped" from the status
+frames' `failures` as they happen, and the done line names them. A grid's
+done line then offers "Retry the N skipped cells", which sends the payload the
+page submitted (`submissions`, by job id) again with `resume: true` and the
+base seed its POST returned - never the panel, which may have changed since -
+so only the missing cells run. When the failure rule itself ends the job,
+`stopped_by` is `"failures"` (still status `error`, through `_finish`) and the
+error leads with where and why - "Stopped at cell 4 of 5 after 3 cells failed;
+1 image kept. Last: <the exception>" - since three in a row or a third of the
+grid read as one bad cell when only the last exception was shown; the page
+offers "Resume the remaining N cells" (the total less the cells that rendered).
 
 ## Cooperative cancellation
 
@@ -1446,6 +1521,21 @@ a no-op on a paused job. `busy()` is unchanged, so unload still 409s - the
 weights are needed for the resume - which is the cheap half of the design;
 a full unload-while-paused only matters for `LOCAL_DIFFUSION_OFFLOAD=none`.
 
+The click is answered at once all the same: on the card a cell can take tens
+of seconds, and a button still reading Pause - its "pausing after this cell…"
+overwritten by the next step - invited a second press or Cancel. It reads
+"Pausing…" (`aria-pressed`) until the acknowledgement, which "claims nothing";
+a press on it withdraws the request, and each status frame's `pause_requested`
+sets it again, so a reattached page shows it. The cell line says "pausing
+after this image…", and once paused "Paused after image 1/3 · GPU handed
+back", while the counter beside the bar stays the counter - written there, the
+long text squeezed the bar to 5 px. A running job of one cell has no boundary
+to stop at (a queued one does: `_generate` checks before cell 0), so its Pause
+is `aria-disabled` and a press says why. A plain job's units are images, or
+batches where a repeat makes several (`unitWord`, from the snapshot's `grid`
+and `planned_images`): "cell" is a grid's word, and "run 2/3" was a fourth
+meaning of run.
+
 ## The browser's queue
 
 **The browser can hold a queue.** `startJob` no longer refuses while busy:
@@ -1455,6 +1545,51 @@ double-submit guard, and `watchNext()` attaches to the next job when the
 watched stream ends. `resumeActiveJob` attaches to the running job, else
 the *oldest* queued (`active[0]` - `active()` is newest last), never the
 newest. Cancel acts on the watched job; "Cancel queued" on the rest.
+
+**Every job is named.** With a queue the prompt box held another job's text,
+"1 more job queued behind this one" named none, and Cancel stopped the job the
+page did not show. The snapshot carries what the job is - `prompt` (its first
+120 characters), `refine`, `width`, `height`, `planned_images`, `grid` - so a
+page that did not submit it can name it too. A "Now:" line over the bars and
+Cancel's title name the watched one; under the bars a row per queued job (a
+submission's own words until `nameJob` has the server's: "refine of #10 ·
+1536×1536 · 1 image") carries an × that cancels that job alone, `aria-disabled`
+while its POST runs, focus moving to the next row's; Cancel queued stays for
+two or more. `startJob`'s `onAccepted(jobId)` runs once the server has taken a
+job, before it is watched - the Refine dialog closes there, so a refusal at
+submit leaves it open with the reason in its own line - and its `placeholder`
+is what the viewer shows of that job until a frame arrives (The live preview),
+keyed to the job so a pass queued behind another cannot paint over that one.
+
+**The job is in view wherever the eye is.** The tab's title follows it ("54%
+· image 2/4", "⏸ Paused", "✓ Finished 4 images" until the tab is looked at
+again - focus, a press or a key), and the topbar carries the same counters in
+one `aria-hidden` line, with a 2 px line along its foot: the panel's bar was
+113 px of 11 px text a column from the image, and at 125% below the fold.
+Pause and Cancel sit on a row of their own, so the bars take the panel's width.
+A job of this page's hides the morning-after banner without dismissing it
+(The morning after).
+
+**A finished job joins the gallery at its head.** It used to reset the
+gallery: a user browsing old images during the wait was scrolled to the top,
+the pages scrolled in dropped, at every job's end. `prependFinished(made)` asks
+for the newest page under the same search, Favorites and scope - `made` plus a
+page, the sheet's ceiling at most - once any page in flight has landed, drops
+the answer if the filters changed meanwhile, and puts the records newer than
+the head in front, in place (an open lightbox on the gallery keeps its image);
+the paging anchor, the last record, is untouched, and scroll anchoring keeps
+the rows in view. Where the answer does not join up with what the page holds,
+or the gallery is empty, it resets as before; never in sheet mode, whose sheet
+lays itself out from the whole run. The viewer may now be a screen above: a
+job's first image or frame landing out of sight shows "New image ↑" under the
+progress, whose press scrolls the viewer into view (reduced motion honoured)
+and focuses the newest image - never a scroll of the page's own - and which
+goes once the viewer is in view. The done line offers what comes next: a plain
+job's seed with Use seed (the Seed box alone - Reuse rewrites the prompt and
+size too - after which, as after a grid's write-back, the run hint says the
+seed is fixed and the dice frees it), Show sheet for a grid that does not open
+its own (grids are never opened for the user), the deleted count beside what
+the job made, and the Retry above.
 
 ## Time budget
 
@@ -1467,7 +1602,10 @@ early through the *cancel* path: a fourth terminal status would have left
 `active()`/`busy()` holding on and unload answering 409 for the session.
 The UI reads `stopped_by` to say the plan worked and a Resume finishes the
 rest; the CLI's `--budget` mirrors it and exits 130 like any other stop
-short of the full count.
+short of the full count. Its count is `run`, which at a budget stop is already
+the cells finished (the deadline is checked before `run` moves on) - the page's
+`run - 1` said 34 beside 35 images - and the banner says "stopped at its time
+budget" rather than "was cancelled".
 
 ## The variable assignment is recorded
 
@@ -1709,6 +1847,20 @@ of cells done, the job's own pace rather than the gallery's per-step
 median, so a run that has slowed shows it. The `done` summary goes into
 `#cell-note`, which sits outside the element `setBusy` hides.
 
+The load's wait is on the page's clock instead, from the submission, since the
+server's `elapsed` starts only when the job runs: "loading weights · 0:42",
+ticking each second, "The first load of a session takes a few minutes." under
+it, the bar indeterminate (a sliding stretch; still under reduced motion, no
+`aria-valuenow`), and the topbar "<checkpoint> · loading…" - asked for as soon
+as the POST returns - where it used to drop the name. A cancel during the load
+says the weights keep loading, which they do. Unload has one writer,
+`syncUnload` (busy, Expand, the critic, a load, no server), and is hidden while
+Load is shown; an Unload refused by a load goes when the state turns ready.
+Under a budget the estimate is held to it, on the server's clock alone:
+`deadline - started_at - elapsed`, "~1 min left (budget)" where that is the
+sooner - the budget means "start no cell after", so the end is up to a cell
+later.
+
 ## date: is a local day
 
 `date:` in the search box is a **local** day (`today`, `yesterday`,
@@ -1885,7 +2037,15 @@ cell it stopped at - for as long as the server is up. The UI reads the
 first into the Runs picker over the gallery (pick one: `run:<id>` search
 plus the sheet) and the second into a banner under the panel when nothing
 is live, gated to a job finished within 24 h and announced once per job
-per browser (`localStorage`, every access in try/catch).
+per browser (`localStorage`, every access in try/catch). A job this page
+watched to its end is remembered as announced in the `done` branch - its
+finish line said it - and never in `onerror`, so a lost stream is still
+announced after a reload; `setBusy(true)` hides the banner without
+remembering it, since it described an older job beside a newer one's finish
+line and its Show run opened that older run. A stopped job says where it
+stopped - "stopped at cell 6 of 12", or "never started" - where "(6/12
+cells)" read as six done; a failure stop's error says it already. A job that
+ended at the load is skipped while the status still gives the same detail.
 
 ## The gallery is the running checkpoint's
 
@@ -2392,6 +2552,15 @@ returns, by which time an idle server is inside the first cell, and the
 once-per-cell check skipped every first cell (found on the card, fixed).
 The matrices cannot be validated in CI; the fit script and its date are
 in the module docstring, and the frames were looked at.
+
+A refine pass has a stand-in until its first frame: SDXL sends none, and the
+viewer showed whatever image was there before for the whole pass, with nothing
+naming the source. `runRefine` hands `startJob` a `placeholder` (the source's
+thumbnail, the result's size, "Refining #N → W×H · strength s"), and at the
+job's first progress event with no frame `streamJob` clears the strip and shows
+the source dimmed and softened at the result's aspect, captioned with the step
+and the time left. A frame or the result replaces it, as either replaces the
+other; it is never a record.
 
 ## FLUX.1 dev and schnell, Z-Image Turbo, Qwen-Image
 

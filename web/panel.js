@@ -356,12 +356,27 @@ async function announceLastRun() {
   if (!last) return;
   if (Date.now() - last.finished_at * 1000 > ANNOUNCE_WINDOW_MS) return;
   if (announcedJob() === last.job_id) return;
+  // A job that ended at the load is the status's to say while the load still
+  // fails - the viewer's card, with the steps - and the banner said it again.
+  if (last.status === 'error' && !last.started_at) {
+    let status = null;
+    try { status = await api('/api/status'); } catch { /* announced below */ }
+    if (status?.state === 'error' && status.detail === last.error) return;
+  }
 
   const images = `${last.image_count} image${last.image_count === 1 ? '' : 's'}` +
     (typeof last.distinct_count === 'number' && last.image_count > 1 && last.distinct_count < last.image_count
       ? `, only ${last.distinct_count} distinct` : '');
-  const cells = last.total_runs > 1 ? ` (${last.run}/${last.total_runs} cells)` : '';
-  const outcome = last.status === 'cancelled' ? 'was cancelled'
+  // Where a stopped job got to, as that: "(6/12 cells)" read as six done for
+  // a job that stopped at the sixth with three images. A budget stop's count
+  // is its finished cells, and a failure stop's error says where already.
+  const stopped = last.status !== 'done' && last.stopped_by !== 'budget';
+  const cells = stopped && !last.run ? ', never started'
+    : last.stopped_by === 'failures' || last.total_runs <= 1 ? ''
+    : stopped ? `, stopped at cell ${last.run} of ${last.total_runs}`
+    : ` (${last.run}/${last.total_runs} cells)`;
+  const outcome = last.stopped_by === 'budget' ? 'stopped at its time budget'
+    : last.status === 'cancelled' ? 'was cancelled'
     : last.status === 'error' ? 'failed'
     : last.error ? 'finished with failures'
     : 'finished';

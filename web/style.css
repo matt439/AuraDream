@@ -232,6 +232,14 @@ body {
 
 .vram { margin-left: auto; color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
 
+/* The watched job beside the status, in the bar's unused width, and a 2 px
+   line along its foot: in view at any scroll, where the panel's bar is not. */
+.job-mirror {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
+}
+.topbar-line { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; }
+
 /* ----------------------------------------------------------------- layout */
 
 main {
@@ -1212,19 +1220,46 @@ button { font: inherit; cursor: pointer; }
 
 /* --------------------------------------------------------------- progress */
 
-.progress { display: flex; align-items: center; gap: 9px; font-size: var(--fs-label); color: var(--muted); }
-.progress .bars { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+/* What the job is, then the bars across the panel's width, then Pause and
+   Cancel on a row of their own: beside the bars they left them 113 px of a
+   461 px panel. The counters are the readouts' size, a step under the body,
+   and the line under them - the time, the cell, the outcome - the caption's. */
+.progress { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body-sm); color: var(--muted); }
+.progress .now { margin: 0; color: var(--text-readout); overflow-wrap: anywhere; }
+.progress .bars { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .progress .row { display: flex; align-items: center; gap: 9px; }
+.progress-actions { display: flex; gap: var(--sp-2); }
 .bar { flex: 1; height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
 .bar.thin { height: 3px; }
 .fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.15s ease; }
 /* The steps bar restarts every run, so it stays the quieter of the two. */
 .fill.step { background: var(--accent-2); opacity: 0.65; }
+/* While the weights load there is no fraction: a stretch of the fill slides
+   along the bar (the panel's and the topbar's), where 0% for minutes looked
+   like a hang. Still under reduced motion: the whole bar, faint. */
+.indeterminate .fill { width: 35%; animation: indeterminate 1.4s ease-in-out infinite; }
+@keyframes indeterminate { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+@media (prefers-reduced-motion: reduce) {
+  .indeterminate .fill { animation: none; width: 100%; opacity: 0.35; }
+}
 /* A shared width keeps the two bars ending at the same x as their labels change. */
 .pt { font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4.5em; text-align: right; }
 
-/* The queue line sits under the bars with its own small button. */
-#queue-note { display: flex; align-items: center; gap: var(--sp-2); }
+#cell-note { font-size: var(--fs-label); }
+/* A grid's skipped cells as they happen. */
+#cell-note .skipped { color: var(--danger); }
+/* What to do next, in the finished job's line: Use seed, Show sheet, Retry. */
+#cell-note button { font-size: var(--fs-label); margin-left: var(--sp-2); vertical-align: baseline; }
+#btn-new-image { align-self: flex-start; }
+/* Where New image ↑ brings the page: the viewer clear of the sticky topbar. */
+#viewer { scroll-margin-top: calc(var(--topbar-h) + var(--gutter)); }
+
+/* The queue under the bars: a line, then a row per job with its own ×, and
+   Cancel queued where there are several. */
+#queue-note { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+.queue-list { list-style: none; margin: 0; padding: 0; align-self: stretch; display: flex; flex-direction: column; gap: var(--sp-1); }
+.queue-list li { display: flex; align-items: center; gap: var(--sp-2); }
+.queue-list li span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--text-readout); }
 
 .error { color: var(--danger); font-size: var(--fs-label); margin: 0; word-break: break-word; }
 /* A cancelled run is an outcome, not a failure - same slot, no alarm. */
@@ -1289,6 +1324,25 @@ button { font: inherit; cursor: pointer; }
   .viewer.many img.preview { height: auto; max-height: 20vh; }
 }
 .placeholder { color: var(--muted); }
+/* A failed load, in the viewer's empty state: what went wrong and what to
+   do, the model page, and the retry. */
+.load-failed {
+  max-width: 62ch; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3);
+  font-size: var(--fs-md); color: var(--text);
+}
+.load-failed h2 { margin: 0; font-size: var(--fs-lg); color: var(--danger); }
+.load-failed p { margin: 0; }
+.load-failed code { font-size: var(--fs-body-sm); background: var(--pill); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 0 var(--sp-1); }
+.load-failed a { color: var(--accent-2); }
+/* A pass that has sent no frame yet - SDXL sends none - stands in the viewer
+   as its source, dimmed and softened at the result's shape, captioned with
+   where it is, until a frame or the result takes its place. */
+.viewer figure.pending { margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); }
+.viewer .pending img {
+  aspect-ratio: var(--w) / var(--h); height: 68vh; width: auto; object-fit: cover;
+  opacity: 0.45; filter: blur(1px); cursor: default;
+}
+.viewer .pending figcaption { font-size: var(--fs-label); color: var(--text-readout); font-variant-numeric: tabular-nums; }
 /* Back in a strip whose last image was deleted, held at the strip's height
    (inline, measured) with its line in the middle, as on a fresh page. */
 .placeholder.held { display: grid; align-items: center; margin: 0; }
