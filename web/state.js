@@ -394,6 +394,8 @@ function showError(message, note = false, {
   slot.hidden = !message;
   slot.textContent = message || '';
   slot.classList.toggle('note', note);
+  // A new message is nobody's "Previous job:" (generation.js, syncFinishLead).
+  slot.classList.remove('previous');
   if (offline && message) offlineSlots.set(slot, message);
   else offlineSlots.delete(slot);
   if (!mirror) return;

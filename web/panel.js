@@ -370,11 +370,15 @@ async function announceLastRun() {
   // Where a stopped job got to, as that: "(6/12 cells)" read as six done for
   // a job that stopped at the sixth with three images. A budget stop's count
   // is its finished cells, and a failure stop's error says where already.
+  // In the job's own units (unitWord): a grid's cells, a plain job's images
+  // or batches - "cell" is a grid's word.
   const stopped = last.status !== 'done' && last.stopped_by !== 'budget';
+  const unit = unitWord(last);
+  const units = unit === 'batch' ? 'batches' : `${unit}s`;
   const cells = stopped && !last.run ? ', never started'
     : last.stopped_by === 'failures' || last.total_runs <= 1 ? ''
-    : stopped ? `, stopped at cell ${last.run} of ${last.total_runs}`
-    : ` (${last.run}/${last.total_runs} cells)`;
+    : stopped ? `, stopped at ${unit} ${last.run} of ${last.total_runs}`
+    : ` (${last.run}/${last.total_runs} ${units})`;
   const outcome = last.stopped_by === 'budget' ? 'stopped at its time budget'
     : last.status === 'cancelled' ? 'was cancelled'
     : last.status === 'error' ? 'failed'
@@ -455,10 +459,13 @@ async function loadRuns() {
 function syncRunList() {
   const shown = /^run:(\S+)$/.exec(els.search.value.trim())?.[1];
   els.runList.value = shown && [...els.runList.options].some((o) => o.value === shown) ? shown : '';
+  // The closed picker is narrower than its labels (style.css, --runs-w): the
+  // picked run's is whole in the title.
+  els.runList.title = els.runList.value ? els.runList.selectedOptions[0].text : 'Recent runs';
 }
 
 // `fresh` is a comparison this page has just made: nothing in it is
-// starred yet, so under the Favorites tick its sheet opened empty. The tick
+// starred yet, so under the Starred tick its sheet opened empty. The tick
 // comes off rather than being bypassed - the gallery's filters are the
 // sheet's, and Re-render sends the tick with the search, so a sheet of
 // unstarred images under a ticked box would re-render none of them - and the
@@ -483,7 +490,7 @@ function showJob(jobId, { fresh = false } = {}) {
 // still the sheet shown, the page goes to it: a finished comparison's sheet
 // opened at y = 1650 on a 1305 px screen, under the prompt check and the
 // viewer, with nothing in view changed but a line in the panel. To the gallery
-// head rather than the sheet, so the search, Favorites and Sheet - the sheet's
+// head rather than the sheet, so the search, Starred and Sheet - the sheet's
 // own filters - stay in view above it. Not for the Sheet button (`scroll:
 // false`), pressed at the gallery head already. The scroll moves no focus and
 // hides nothing: the check and the viewer, where a running job lands, are a
@@ -505,9 +512,23 @@ function showSheetScope(search, { fresh = false, notice = null, scroll = true } 
   if (!scroll) return opened;
   return opened.then(() => {
     if (!sheetMode || epoch !== galleryEpoch) return;
+    const head = document.querySelector('.gallery-head');
+    reserveSheetRoom(head);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+    head.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   });
+}
+
+// Room under a sheet for its head to come up to the topbar: a short sheet
+// under a tall viewer - a refine sweep's three passes at QHD - ended the page
+// before the head could get there, and the scroll stopped 43 px down with the
+// sheet's cells at the window's foot. A margin, outside the sheet's box,
+// which fitSheet measures; setSheet takes it off again.
+function reserveSheetRoom(head) {
+  els.sheet.style.marginBottom = '';
+  const landing = head.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(head).scrollMarginTop);
+  const short = landing + innerHeight - document.documentElement.scrollHeight;
+  if (short > 0) els.sheet.style.marginBottom = `${Math.ceil(short)}px`;
 }
 
 function clearResults() {
@@ -560,7 +581,11 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url) {
   img.setAttribute('aria-label', `Open: ${rec.prompt}`);
   const open = () => openLightbox(rec, list);
   img.onclick = open;
+  // A plain Enter or Space only: Ctrl+Enter is Generate's from anywhere
+  // (app.js), and on a focused image - where closing the lightbox leaves the
+  // focus - it opened the lightbox and queued a job behind it.
   img.onkeydown = (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
   };
   return img;

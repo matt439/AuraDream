@@ -39,6 +39,13 @@ function collect() {
 }
 
 function setBusy(on) {
+  // A job ending with focus on Pause, Cancel or a queued row's × - a keyboard
+  // user who pressed Cancel and let the queue run out - lost it to <body> as
+  // #progress and the queue hid. Generate holds it until the finish line is
+  // drawn, which takes it on to its first button (setFinish).
+  finishTakesFocus = !on && (els.progress.contains(document.activeElement)
+    || els.queueNote.contains(document.activeElement));
+  if (finishTakesFocus) els.generate.focus({ preventScroll: true });
   busy = on;
   // The submit buttons stay live while a job runs: a second Generate or Run
   // grid queues behind it on the server. They are only held during the POST
@@ -77,6 +84,9 @@ function setBusy(on) {
   } else {
     els.progressText.textContent = '';
     currentJob = null;
+    // What a press on a held Pause or Unload said was about this job.
+    if (jobNote !== null && els.error.textContent === jobNote) showError('');
+    jobNote = null;
   }
   els.jobMirror.hidden = els.topbarLine.hidden = !on;
   mirrorJob();
@@ -88,22 +98,25 @@ function setBusy(on) {
 }
 
 // A job in a few words, from its snapshot or a submission shaped like one:
-// what it renders - the prompt's start, or the image a pass refines - at
-// what size, and how many images. The line over the bars and the queue's
-// rows; the page used to name neither the job Cancel stops nor those waiting.
-// A grid's cells differ in their prompts, so it is named by its own, its
-// {variables} unfilled - the first cell's named the whole night by a cell
-// that had long finished - and a re-render's cells are its records', with
-// no one prompt to name.
+// how many images, at what size, and what it renders - the prompt's start,
+// or the image a pass refines. The line over the bars and the queue's rows;
+// the page used to name neither the job Cancel stops nor those waiting. The
+// count and the size first: they are what tells two jobs apart, and the Now
+// line is cut at its end, where the prompt - whole in its title - can go:
+// put last, the count was the first thing cut, even at 2560. A grid's cells
+// differ in their prompts, so it is named by its own, its {variables}
+// unfilled - the first cell's named the whole night by a cell that had long
+// finished - and a re-render's cells are its records', with no one prompt to
+// name.
 function describeJob(job, length = 60) {
   const what = job.refine != null ? `refine of #${job.refine}`
     : !job.grid ? snippet(job.prompt ?? '', length)
     : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length)}`
     : 're-render';
   return [
-    what,
-    job.width && job.height ? `${job.width}×${job.height}` : '',
     job.planned_images ? plural(job.planned_images, 'image') : '',
+    job.width && job.height ? `${job.width}×${job.height}` : '',
+    what,
   ].filter(Boolean).join(' · ');
 }
 
@@ -483,7 +496,7 @@ async function cancelQueued() {
 async function togglePause() {
   if (!currentJob) return;
   if (els.pause.getAttribute('aria-disabled') === 'true') {
-    if (busy) showError(els.pause.title, true);
+    if (busy) showJobNote(els.pause.title);
     return;
   }
   const was = els.pause.textContent;
@@ -543,7 +556,7 @@ function generate() {
   return startJob('/api/generate', body);
 }
 
-// The gallery's current selection - the search box, the Favorites tick and
+// The gallery's current selection - the search box, the Starred tick and
 // the checkpoint scope - rendered again at the panel's size. Taken
 // server-side, since the browser holds only the page it has scrolled to; the
 // count in the button is the server's total for the filter, so it is also
@@ -1045,8 +1058,13 @@ function streamJob(jobId, { reattached = 0 } = {}) {
 // when it is replaced moves to the new line's first button, else Generate,
 // rather than to the page's body.
 let finishStale = false;
+// Set by setBusy where the ending job's Pause or Cancel had the focus, which
+// Generate holds until this line is drawn.
+let finishTakesFocus = false;
 function setFinish(nodes = []) {
-  const focused = els.finishNote.contains(document.activeElement);
+  const focused = els.finishNote.contains(document.activeElement)
+    || (finishTakesFocus && document.activeElement === els.generate);
+  finishTakesFocus = false;
   const lead = document.createElement('span');
   lead.className = 'lead';
   els.finishNote.replaceChildren(...(nodes.length ? [lead, ...nodes] : []));
@@ -1058,6 +1076,29 @@ function setFinish(nodes = []) {
 function syncFinishLead() {
   const lead = els.finishNote.querySelector('.lead');
   if (lead) lead.textContent = busy || finishStale ? 'Previous job: ' : '';
+  // The finished job's sentence in the panel's line says whose it is too.
+  els.error.classList.toggle('previous', busy && jobOutcome !== null && els.error.textContent === jobOutcome);
+}
+
+// The panel's line (#error) about the watched job and about the finished one.
+// A press on a held Pause or Unload says why (`jobNote`), which goes when the
+// job ends. A finished job's outcome - a cancel, its time budget, an error,
+// the cells it skipped (`jobOutcome`) - lasts as its finish line does: led by
+// "Previous job:" while another runs (#error.previous, style.css), and gone
+// once the next job's end is drawn. Both used to stay until the next press of
+// Generate, and under a queued job's own finish line "Cancelled before
+// anything finished." read as that job's outcome.
+let jobNote = null;
+let jobOutcome = null;
+
+function showJobNote(text) {
+  showError(text, true);
+  jobNote = text;
+}
+
+function showOutcome(text, note = false) {
+  showError(text, note);
+  jobOutcome = text;
 }
 
 // The finished job's outcome: the finish line, the panel's line for what
@@ -1067,6 +1108,9 @@ function syncFinishLead() {
 function finishJob(jobId, data, { submitted, sheet }) {
   const images = data.images ?? [];
   const made = data.image_count ?? images.length;
+  // The job before this one's outcome goes with its finish line.
+  if (jobOutcome !== null && els.error.textContent === jobOutcome) showError('');
+  jobOutcome = null;
   // A job that ended at the load is the status's to say - the viewer's card,
   // the topbar's Retry load - which it says once, with the steps; the panel
   // line used to give the same six lines again.
@@ -1138,20 +1182,20 @@ function finishJob(jobId, data, { submitted, sheet }) {
   setFinish(line);
 
   if (data.status === 'error') {
-    if (!atLoad) showError(data.error);
+    if (!atLoad) showOutcome(data.error);
   } else if (data.status === 'cancelled') {
     // A stop at the time budget is the plan working, not a cancel: say
     // which, and that a Resume finishes the rest. `run` is the cells
     // finished there - the budget is checked before a cell starts.
     const kept = `kept ${plural(images.length, 'image')}`;
-    showError(data.stopped_by === 'budget'
+    showOutcome(data.stopped_by === 'budget'
       ? `Time budget reached after ${data.run}/${data.total_runs} cells — ${kept}. Resume finishes the rest.`
       : data.waiting_on === 'load' ? 'Cancelled — the weights keep loading, so the next Generate starts sooner.'
       : images.length ? `Cancelled — ${kept}.` : 'Cancelled before anything finished.', true);
   } else if (data.error) {
     // Done, but not every cell: the grid carried on past a failure and says
     // which, rather than dropping the rest of the night.
-    showError(skippedCells(data));
+    showOutcome(skippedCells(data));
   }
   holdTitle(data.status === 'done' ? `✓ Finished ${plural(made, 'image')}`
     : data.stopped_by === 'budget' ? 'Time budget reached'
@@ -1239,18 +1283,36 @@ function prependFinished(made) {
     // its image as the head grows.
     galleryRecords.unshift(...fresh);
     if (lbList === galleryRecords && fresh.length) lbIndex += fresh.length;
-    // With the day's line wherever the day changes, as loadGallery draws it -
-    // between two new cards, or between the last of them and the old head: a
-    // job that ends after midnight under a page loaded the day before.
+    // With the day's lines as loadGallery draws them - over the first card
+    // where its day is not today's, between two new cards, and between the
+    // last of them and the old head (a job that ends after midnight under a
+    // page loaded the day before). The old head is the grid's first card as
+    // the page shows it, a tombstone included - its record has gone from
+    // galleryRecords, and the line worked out from the records stood a
+    // second time over it - unless the grid opens with a line already, which
+    // is the old head's.
+    const top = els.gallery.firstElementChild;
+    const oldHead = top?.matches('.gallery-break') ? null : top;
+    const firstLive = els.gallery.querySelector('.card[data-id]');
     const nodes = [];
     fresh.forEach((rec, i) => {
-      const next = fresh[i + 1] ?? head;
+      if (i === 0 && !isToday(rec)) nodes.push(dayBreak(rec));
       nodes.push(card(rec));
-      if (localDay(rec) !== localDay(next)) nodes.push(dayBreak(next));
+      const next = fresh[i + 1];
+      if (next ? localDay(next) !== localDay(rec) : oldHead && cardDay(oldHead) !== localDay(rec)) {
+        nodes.push(dayBreak(next ?? { created_at: oldHead.dataset.made }));
+      }
     });
     els.gallery.prepend(...nodes);
-    // The grid keeps one way in from the keyboard (gallery.js).
-    keepCurrentCard();
+    // The grid keeps one way in from the keyboard (gallery.js): the newest
+    // image, where the stop was the grid's default or the old head with focus
+    // elsewhere; a card the user chose further down keeps it.
+    const current = currentCard();
+    if (fresh.length && (!galleryChosen || (current === firstLive && !els.gallery.contains(document.activeElement)))) {
+      makeCurrent(els.gallery.querySelector('.card[data-id]'));
+    } else {
+      keepCurrentCard();
+    }
     total = page.total;
     els.count.textContent = total ? `(${total})` : '';
     els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';

@@ -60,6 +60,8 @@ let refineCapped = false;
 // another image unasked.
 let refineFilled = null;
 let refineRan = false;
+// The pass's POST is out (runRefine): the dialog is held until it answers.
+let refineSending = false;
 let unsentRefine = null;
 // The dialog's own prompt check (`checkRefinePrompt`), its tag lookup and its
 // list of passes, each with an epoch of its own: `refineEpoch` moves with
@@ -161,19 +163,14 @@ function refineSizeProblem(w, h) {
 // or, after a close that left settings unsent on this image, those, which it
 // says. Focus lands on Strength, its value selected: what the dialog is
 // opened to set. Answers whether it opened.
-function openRefine(rec, pass = null, { slot = els.error } = {}) {
-  // A ⤢ press on a checkpoint with no pass explains itself in place: a card's
-  // under the gallery's head (`slot`), as its other tools' refusals are, and
-  // the lightbox's in the lightbox too (showError mirrors there). Reuse of a
-  // refined record opens anyway: the pass is kept, with the reason, until a
-  // load says it can run.
+function openRefine(rec, pass = null) {
+  // The lightbox's Refine on a checkpoint with no pass explains itself in the
+  // panel's line, which showError mirrors into the lightbox, and opens
+  // nothing. A card's ⤢ never gets here: card() says it under the gallery's
+  // head and over the card (refuseInCard). Reuse of a refined record opens
+  // anyway: the pass is kept, with the reason, until a load says it can run.
   if (!refineSupported && !pass) {
-    showError(
-      'This checkpoint has no refine pass compatible with this app. '
-      + 'The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.',
-      true,
-      { slot },
-    );
+    showError(REFINE_NONE, true);
     return false;
   }
   // Opened from the lightbox, a close that does not run goes back to it
@@ -657,7 +654,18 @@ async function runRefine() {
   // the viewer, was a fourfold upscale at QHD.
   const source = refineSource;
   const strength = els.refineStrength.value.trim() || String(refineDefaultStrength());
-  await startJob(path, body, {
+  // Held while the POST is out (`refineSending`): an Escape or a Cancel then
+  // looked like a cancel, put the lightbox back as though nothing had run,
+  // and the pass the server had taken rendered behind it. The dialog says
+  // so in its Refine button, and closes once the server answers.
+  refineSending = true;
+  let accepted = false;
+  const settle = () => {
+    refineSending = false;
+    els.refineRun.textContent = busy ? 'Refine (queue)' : 'Refine';
+  };
+  // Resolves on a refusal, or once an accepted job has ended.
+  const sent = startJob(path, body, {
     sheet: sweep,
     panel: false,
     slot: els.refineError,
@@ -667,14 +675,35 @@ async function runRefine() {
       height: body.height,
       label: `Refining #${source.id} → ${body.width}×${body.height} · strength ${strength}`,
     },
-    // Unless an Escape during the POST closed it already.
     onAccepted: () => {
+      accepted = true;
+      settle();
+      // Unless a close the browser would not hold - a second Escape with no
+      // other press between - closed it already: then refineClosed took it
+      // as the run it is.
       if (refineSource !== source || !els.refineDialog.open) return;
       rememberRefine();
       refineRan = true;
       els.refineDialog.close();
     },
   });
+  // After startJob's own start, whose setBusy names it "Refine (queue)".
+  if (refineSending) els.refineRun.textContent = 'Sending…';
+  await sent;
+  if (accepted) return;
+  settle();
+  // Refused with the dialog gone: its line is out of sight, so the panel's says it.
+  if (!els.refineDialog.open && els.refineError.textContent) showError(els.refineError.textContent);
+}
+
+// Cancel, the cross and Escape, except while the pass's POST is out: the
+// server may already have it, and the dialog closes on its answer.
+function closeRefine() {
+  if (!refineSending) els.refineDialog.close();
+}
+
+function refineCancelEvent(event) {
+  if (refineSending) event.preventDefault();
 }
 
 // A press on a refused Refine says why in the dialog, once, and points at the
@@ -740,10 +769,14 @@ function rememberRefine() {
 // of the same image - a sweep, a size and a prompt edit used to be lost to a
 // look at the picture - where the boxes differ from what openRefine filled;
 // and, opened from the lightbox, gives the lightbox back where it was, unless
-// the strip has opened it on a pass already.
+// the strip has opened it on a pass already - or, where it ran, puts the
+// focus on the source's card.
 function refineClosed() {
   const src = refineSource;
-  const values = src && !refineRan ? refineValues() : null;
+  // A close the browser would not hold while the POST was out is a run too:
+  // the server most likely has the pass already (runRefine).
+  const ran = refineRan || refineSending;
+  const values = src && !ran ? refineValues() : null;
   const unsent = values && Object.keys(refineBoxes()).some((key) => values[key] !== refineFilled?.[key]);
   unsentRefine = unsent ? { id: src.id, model: loadedModel, values } : null;
   refineSource = null;
@@ -757,7 +790,15 @@ function refineClosed() {
   clearTimeout(refineTagTimer);
   const back = refineReturn;
   refineReturn = null;
-  if (back && !refineRan && !els.lightbox.open) returnToLightbox(back);
+  if (!back || els.lightbox.open) return;
+  if (!ran) { returnToLightbox(back); return; }
+  // Run from a dialog the lightbox opened: the dialog gives focus back to the
+  // lightbox's Refine, closed with it, which left it on <body>. It goes to
+  // the source's card, where the walk was, else Generate - without moving the
+  // page, whose progress is where the pass now shows.
+  const card = [...document.querySelectorAll(`#gallery .card[data-id="${back.rec.id}"] img`)]
+    .find((el) => el.checkVisibility?.() ?? true);
+  (card ?? els.generate).focus({ preventScroll: true });
 }
 
 // ------------------------------------------------- the pass's own prompt
@@ -1039,6 +1080,7 @@ async function loadRefinePasses(rec) {
     img.loading = 'lazy';
     button.append(img);
     button.onclick = () => {
+      if (refineSending) return;
       els.refineDialog.close();
       openLightbox(pass, [rec, ...page.items]);
     };

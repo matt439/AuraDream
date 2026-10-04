@@ -42,8 +42,11 @@
   {"eval": "els.allModels.checked = true; busy = true; window.prompt = (m) => { __asked.push(m); return null; }; deleteUnstarred().finally(() => { busy = false; els.allModels.checked = false; })"},
   {"expect": "__asked.at(-1).includes('in the gallery across 2 checkpoints (FLUX.1-Krea-dev, Krea-2-Turbo), keeping 2 starred') && __asked.at(-1).includes('A job is still running; if it adds an image here before you confirm, nothing is deleted.') && !busy"},
 
-  {"log": "'once the source has gone, the pass says so'"},
-  {"eval": "api('/api/images/' + __src, {method: 'DELETE'}).then(() => resetGallery())"},
+  {"log": "'once the source has gone, the pass says so: at once on the page that deleted it - its record, its card title and its Reuse, which fills the panel now - and after a reload'"},
+  {"eval": "window.confirm = () => true; deleteImage(__rec(__src)).then(() => { delete window.confirm; })"},
+  {"wait": 800},
+  {"expect": "__rec(__pass).refine_missing === true && (() => { const c = document.querySelector('#gallery .card[data-id=\"' + __pass + '\"]'); const b = c.querySelector('.reuse-settings'); return c.querySelector('img').title.includes('refine of #' + __src + ' (deleted) @ 0.1') && b.dataset.reusePassGone === 'true' && b.title.includes('#' + __src + ', its source, has been deleted') && b.dataset.tip === 'Reuse'; })()"},
+  {"eval": "showError('', false, {slot: els.galleryError}); resetGallery()"},
   {"wait": 800},
   {"eval": "openLightbox(__rec(__pass), galleryRecords)"},
   {"expect": "__rec(__pass).refine_missing === true && els.lbSettings.textContent.includes('Refined from#' + __src + ' (deleted) @ 0.1') && els.lbDesc.textContent.includes('refine of #' + __src + ' (deleted) @ 0.1')"},

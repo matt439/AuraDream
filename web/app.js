@@ -355,12 +355,35 @@ els.lightbox.onclick = (e) => { if (e.target === els.lightbox) dismissLightbox()
 els.lbCompareOn.onclick = () => { void toggleCompare(); };
 els.lbSwipe.onclick = () => { void toggleCompare('swipe'); };
 els.lbSideBySide.onclick = () => { void toggleCompare('side'); };
+// Every close, the native Escape's included, resets the strip.
+els.lightbox.addEventListener('close', closeLightbox);
+// The pictures: one that will not load says why, the next that loads takes it
+// back, and a source that will not load ends the comparison.
+els.lbImg.onerror = () => { void lbImageFailed(); };
+els.lbImg.onload = lbImageLoaded;
+els.lbSrcImg.onerror = lbSourceFailed;
+// Zoom and pan: the wheel non-passive, or the page behind the dialog
+// scrolls; a press, a drag, a release and a double-click on the stage; an
+// arrow's press, for the stage to know a double-click begun on it.
+els.lbMain.addEventListener('wheel', lbWheel, { passive: false });
+for (const nav of [els.lbPrev, els.lbNext]) nav.addEventListener('pointerdown', lbArrowDown);
+els.lbStage.onpointerdown = lbPointerDown;
+els.lbStage.onpointermove = lbPointerMove;
+els.lbStage.onpointerup = lbPointerUp;
+els.lbStage.onpointercancel = lbPointerCancel;
+els.lbStage.ondblclick = lbDoubleClick;
+els.lbSplit.onkeydown = lbSplitKey;
+els.lbFit.onclick = zoomFit;
+els.lbOne.onclick = () => zoomOneToOne();
+window.addEventListener('resize', layoutLightbox);
 
 // The Refine dialog. Every box asks the server's preview again, as the grid's
 // do; the scale buttons are built with the source they multiply. Keep shape
 // moves the other side before the box's own refineChanged reads the pair.
 els.refineRun.onclick = () => { void runRefine(); };
-els.refineCancel.onclick = els.refineClose.onclick = () => els.refineDialog.close();
+// Each close is held while the pass's POST is out (closeRefine), Escape's too.
+els.refineCancel.onclick = els.refineClose.onclick = closeRefine;
+els.refineDialog.addEventListener('cancel', refineCancelEvent);
 els.refineDialog.addEventListener('close', refineClosed);
 els.refineDialog.addEventListener('keydown', refineKeydown);
 els.refineWidth.addEventListener('input', refineSideTyped);

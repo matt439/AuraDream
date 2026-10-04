@@ -10,6 +10,9 @@ function resetGallery() {
   galleryEpoch += 1;
   galleryMore = false;
   galleryRecords = [];
+  // The keyboard's card is kept where it is still loaded, but as the grid's
+  // default, not a card chosen in this one (prependFinished).
+  galleryChosen = false;
   els.gallery.innerHTML = '';
   // What the gallery said was about the grid this empties. Not the lightbox's
   // line: a job ending under an open lightbox resets the gallery too.
@@ -58,10 +61,12 @@ function loadGallery() {
       const have = new Set(galleryRecords.map((r) => r.id));
       page.items.forEach((rec) => {
         if (have.has(rec.id)) return;
-        const before = galleryRecords.at(-1);
         galleryRecords.push(rec);
         if (sheetMode) return;
-        if (before && localDay(before) !== localDay(rec)) els.gallery.appendChild(dayBreak(rec));
+        // The day's line where it changes from the card before - a tombstone
+        // keeps its day - and over the first card where that is not today's.
+        const before = els.gallery.lastElementChild;
+        if (before ? cardDay(before) !== localDay(rec) : !isToday(rec)) els.gallery.appendChild(dayBreak(rec));
         els.gallery.appendChild(card(rec));
       });
       if (!sheetMode) keepCurrentCard();
@@ -107,12 +112,24 @@ function localDay(rec) {
   return new Date(rec.created_at).toDateString();
 }
 
+const isToday = (rec) => localDay(rec) === new Date().toDateString();
+
+// A card's day from the card itself (`data-made`), which its tombstone keeps:
+// the record behind a deleted card has gone from galleryRecords, and a day's
+// line worked out from the records stood a second time over a tombstone.
+function cardDay(el) {
+  return el?.dataset.made ? localDay({ created_at: el.dataset.made }) : null;
+}
+
 // A line across the grid where the local day changes between one card and
 // the next: a night's grid and the next morning's renders ran together across
-// the rows, and the only way to find where one ended was to open images. It
-// carries no data-id, so paging, the deletes and the lightbox never see it;
-// a day whose cards are all deleted keeps it over their tombstones, which
-// hold their slots so that nothing moves under the pointer.
+// the rows, and the only way to find where one ended was to open images. And
+// one over the first card where the newest images are not today's: drawn only
+// between days, the top group had no heading and read as today's, while the
+// first line on the page named the older day under it. It carries no
+// data-id, so paging, the deletes and the lightbox never see it; a day whose
+// cards are all deleted keeps it over their tombstones, which hold their
+// slots so that nothing moves under the pointer.
 function dayBreak(rec) {
   const line = document.createElement('h3');
   line.className = 'gallery-break';
@@ -127,16 +144,22 @@ function dayBreak(rec) {
   return line;
 }
 
+// The refusals a capability's absence gives, one sentence each wherever the
+// page says it: a card's ⤢ and ❐, the lightbox's Refine (openRefine) and its
+// Use these references (syncUseReferences).
 const REFINE_NONE = 'This checkpoint has no refine pass compatible with this app. '
   + 'The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.';
+const REFERENCES_NONE = "This checkpoint can't use reference images; FLUX.2 [klein] can.";
 
 function card(rec) {
   const div = document.createElement('div');
   div.className = 'card';
   div.classList.toggle('fav', !!rec.favorite);
   // Tagged by id so an action taken elsewhere - the lightbox, mostly - can
-  // find this card and keep it in step.
+  // find this card and keep it in step; and by when it was made, which its
+  // tombstone keeps for the day's lines (cardDay).
   div.dataset.id = rec.id;
+  div.dataset.made = rec.created_at;
   // A refine pass says so, and at what strength (the badge is the class's
   // ::before): it keeps its source's picture by design, and the two sat side
   // by side as the same card.
@@ -151,8 +174,7 @@ function card(rec) {
   // beside it under the pointer: a sweep's cells share a prompt.
   img.setAttribute('aria-label', `Open #${rec.id}: ${rec.prompt}`);
   img.setAttribute('aria-keyshortcuts', 'F');
-  img.title = `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}`
-    + `${rec.refine != null ? ` · refine of #${rec.refine} @ ${rec.strength}` : ''}\n${rec.prompt}`;
+  img.title = cardTitle(rec);
 
   // The star is a button of its own over the picture's corner, where a
   // starred card's badge always was - a click on that badge went through to
@@ -168,7 +190,7 @@ function card(rec) {
     // Said here rather than in openRefine, so the card can say it where it
     // was pressed as well.
     if (!refineSupported) { refuseInCard(div, REFINE_NONE, 'No refine pass here'); return; }
-    openRefine(rec, null, { slot: els.galleryError });
+    openRefine(rec);
   });
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
@@ -219,15 +241,24 @@ function tool(label, title, onClick, tip = '') {
 }
 
 // A star button anywhere the page draws one over a picture - the card's
-// badge, the result beside the viewer - from the state it shows. The title
-// names F only where the button declares the key (aria-keyshortcuts), as a
-// card's does: a title promising F where nothing handles it did nothing.
+// badge, the result beside the viewer - from the state it shows. A toggle:
+// its name is "Star" whatever the state, which `aria-pressed` and the glyph
+// carry - "Unstar, pressed" said the opposite of what it meant, as "Resume,
+// pressed" did on Pause, and the lightbox's star said the same state in
+// other words. The title (starTitle) is where the state is put in words.
 function syncStar(button, on) {
   button.textContent = on ? '★' : '☆';
   button.setAttribute('aria-pressed', String(on));
-  button.setAttribute('aria-label', on ? 'Unstar' : 'Star');
+  button.setAttribute('aria-label', 'Star');
+  button.title = starTitle(on, button);
+}
+
+// A star's title, the card's and the lightbox's alike. It names F only where
+// the button declares the key (aria-keyshortcuts), as both do: a title
+// promising F where nothing handles it did nothing.
+function starTitle(on, button) {
   const key = button.getAttribute('aria-keyshortcuts') === 'F' ? ' (F)' : '';
-  button.title = on ? `Starred - click to unstar${key}` : `Star${key}`;
+  return on ? `Starred - click to unstar${key}` : `Star${key}`;
 }
 
 // The card's tools that need something of the checkpoint get the lightbox
@@ -246,9 +277,12 @@ function syncRefineTool(button) {
   button.dataset.tip = refineSupported ? 'Refine…' : 'No refine pass here';
 }
 
-// ❐ is a toggle: pressed on an image already among the references, and named
-// by the number the prompt calls it. Re-adding one used to change nothing and
-// say nothing. At four, the others' are dead, saying why.
+// ❐ is a toggle: pressed on an image already among the references. Re-adding
+// one used to change nothing and say nothing. Named "Reference image" in
+// every state, as the star is "Star": the state is `aria-pressed`, and the
+// number the prompt calls it, or why it is dead (at four the others' are),
+// is its description and title: a name that changed with the state beside
+// aria-pressed misread, as Pause's first cut did.
 function syncReferenceTool(button, id) {
   const at = referenceAt(id);
   const full = referenceIds.length >= 4;
@@ -259,7 +293,8 @@ function syncReferenceTool(button, id) {
   button.setAttribute('aria-disabled', String(!referenceSupported || (full && at < 0)));
   button.setAttribute('aria-pressed', String(at >= 0));
   button.title = title;
-  button.setAttribute('aria-label', title);
+  button.setAttribute('aria-label', 'Reference image');
+  button.setAttribute('aria-description', title);
   button.dataset.tip = !referenceSupported ? 'No references here'
     : at >= 0 ? `Reference ${at + 1} - remove` : full ? 'Four is the most' : 'Reference';
 }
@@ -311,7 +346,7 @@ function syncReferenceMarks() {
 // The card's ❐. References still change only through setReferences.
 function toggleReference(div, rec) {
   if (!referenceSupported) {
-    refuseInCard(div, "This checkpoint can't use reference images; FLUX.2 [klein] can.", 'No references here');
+    refuseInCard(div, REFERENCES_NONE, 'No references here');
     return;
   }
   if (referenceIds.includes(rec.id)) {
@@ -360,6 +395,11 @@ function cardNote(div, text, { quiet = false } = {}) {
 // lightbox handing focus back. An id rather than the element, so a gallery
 // reset or queried again keeps it where the record is still loaded.
 let galleryCurrent = null;
+// Whether the user put it there - focus arrived in a card since the last
+// reset - or it is the grid's default, its first card. A job's images
+// prepended ahead of a default first card take the stop (prependFinished):
+// kept on the old head, Tab into the grid skipped everything just made.
+let galleryChosen = false;
 
 function currentCard() {
   return galleryCurrent == null ? null : els.gallery.querySelector(`.card[data-id="${galleryCurrent}"]`);
@@ -392,7 +432,9 @@ function liveNeighbour(el) {
 
 function galleryFocus(e) {
   const div = e.target.closest?.('.card[data-id]');
-  if (div) makeCurrent(div);
+  if (!div) return;
+  makeCurrent(div);
+  galleryChosen = true;
 }
 
 // F stars the card focus is in, from its image, its star or a tool, as in the
@@ -483,7 +525,12 @@ function syncReuseButton(button, rec, compact = false) {
   // A refined record's Reuse opens the Refine dialog on its source with the
   // pass as it ran (`reusePass`), where "Load these settings into the panel"
   // promised the panel and a dialog opened on another image.
-  if (pass != null) {
+  // A pass whose source has been deleted cannot be made again: its Reuse
+  // fills the panel (reusePass), and says so before the click rather than
+  // promising a dialog on an image that is gone.
+  const gone = pass != null && !!rec.refine_missing;
+  button.dataset.reusePassGone = String(gone);
+  if (pass != null && !gone) {
     button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse pass…`;
     button.title = mismatch ? `Warning: ${warning}`
       : `Open the Refine dialog on #${pass} with this pass's size, strength and seed`;
@@ -492,10 +539,20 @@ function syncReuseButton(button, rec, compact = false) {
     return;
   }
   const lost = mismatch ? notCarried(rec) : '';
+  const why = gone ? `; #${pass}, its source, has been deleted, so the pass cannot be made again` : '';
   button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse settings`;
-  button.title = mismatch ? `Warning: ${warning}${lost}` : 'Load these settings into the panel';
-  button.setAttribute('aria-label', mismatch ? `Reuse settings (warning: ${warning}${lost})` : 'Reuse settings');
+  button.title = mismatch ? `Warning: ${warning}${lost}${why}` : `Load these settings into the panel${why}`;
+  button.setAttribute('aria-label', mismatch ? `Reuse settings (warning: ${warning}${lost}${why})` : 'Reuse settings');
   button.dataset.tip = mismatch ? 'Reuse - other model' : 'Reuse';
+}
+
+// A card's image title: the facts that tell it from the card beside it, a
+// pass's source and strength among them - "(deleted)" where the source has
+// gone, as the lightbox's facts say it.
+function cardTitle(rec) {
+  const pass = rec.refine != null
+    ? ` · refine of #${rec.refine}${rec.refine_missing ? ' (deleted)' : ''} @ ${rec.strength}` : '';
+  return `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}${pass}\n${rec.prompt}`;
 }
 
 // What a Reuse here leaves behind, as fillPanel decides it - references where
@@ -523,6 +580,7 @@ function syncReuseButtons() {
     syncReuseButton(button, {
       model_id: kept.reuseModel,
       refine: kept.reusePass ? +kept.reusePass : null,
+      refine_missing: kept.reusePassGone === 'true',
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
       lora: kept.reuseLora || null,
     }, kept.reuseCompact === 'true');
@@ -720,6 +778,25 @@ function forgetImages(ids) {
     els.viewerNote.textContent = '';
   }
   for (const id of gone) if (sheetSources.has(id)) sheetSources.set(id, null);
+  // A pass whose source went with them cannot be made again: its records say
+  // so, as a reload's would (`refine_missing`), and so do its card's title,
+  // every Reuse that would have opened the dialog on the source, and the
+  // lightbox's facts and comparison.
+  const orphans = new Set([...galleryRecords, ...viewerRecords, ...lbList]
+    .filter((r) => r.refine != null && gone.has(r.refine) && !r.refine_missing));
+  for (const r of orphans) {
+    r.refine_missing = true;
+    const img = els.gallery.querySelector(`.card[data-id="${r.id}"] > img`);
+    if (img) img.title = cardTitle(r);
+  }
+  if (orphans.size) {
+    document.querySelectorAll('.reuse-settings').forEach((b) => {
+      if (b.dataset.reusePass && gone.has(+b.dataset.reusePass)) b.dataset.reusePassGone = 'true';
+    });
+    syncReuseButtons();
+    if (orphans.has(lbList[lbIndex])) lbDrawn = null;
+  }
+  for (const id of gone) if (lbSources.has(id)) lbSources.set(id, null);
   if (sheetMode) renderSheet();
   // A Reuse's Undo may not put a gone reference back; and one dropped from
   // what the Reuse left is no change that retires the Undo (`syncReuseUndo`,
@@ -906,7 +983,7 @@ async function deleteUnstarred() {
 }
 
 // Shown while there is something it could act on: the filter matches images
-// and the Favorites tick is off, since with it on every match is a keeper.
+// and the Starred tick is off, since with it on every match is a keeper.
 // Whether the search box reads as a strict scope is the server's call, at
 // the click.
 function syncDeleteUnstarred() {
@@ -1202,7 +1279,7 @@ async function reusePass(rec) {
   } catch (err) {
     if (!/unknown image/.test(err.message)) { showError(err.message); return; }
     reuseIntoPanel(rec, false,
-      `Image ${rec.refine}, the source this was refined from, is no longer in the gallery, `
+      `#${rec.refine}, the source this was refined from, is no longer in the gallery, `
       + 'so the pass cannot be made again. The size is left as it was.');
     return;
   }

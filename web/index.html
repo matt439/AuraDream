@@ -633,7 +633,9 @@
       <span class="lb-zoom" id="lb-zoom" aria-live="polite"></span>
     </div>
     <div class="lb-actions">
-      <button class="ghost" id="lb-fav" title="Star (F)" aria-pressed="false" aria-keyshortcuts="F">☆ Star</button>
+      <!-- A toggle named Star in either state, as the card's star is: the
+           state is aria-pressed, the glyph and the amber (renderLightbox). -->
+      <button class="ghost" id="lb-fav" title="Star (F)" aria-label="Star" aria-pressed="false" aria-keyshortcuts="F">☆ Star</button>
       <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
       <!-- Opens the Refine dialog on this image: scale it up and re-denoise
            it part of the way. -->

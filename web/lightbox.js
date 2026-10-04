@@ -246,9 +246,11 @@ function renderLightbox() {
   els.lbCount.textContent = lightboxCount(rec);
   els.lbPrev.disabled = lbIndex === 0;
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
-  els.lbFav.textContent = rec.favorite ? '★ Starred' : '☆ Star';
-  // The card's star's title (syncStar), as this one names F too.
-  els.lbFav.title = rec.favorite ? 'Starred - click to unstar (F)' : 'Star (F)';
+  // A toggle whose words stay "Star" (its aria-label too), as the card's
+  // star's name does: the state is the glyph, the amber and aria-pressed,
+  // and in words the card star's title (starTitle), as this one names F too.
+  els.lbFav.textContent = rec.favorite ? '★ Star' : '☆ Star';
+  els.lbFav.title = starTitle(!!rec.favorite, els.lbFav);
   els.lbFav.setAttribute('aria-pressed', String(!!rec.favorite));
   els.lbFav.classList.toggle('active', !!rec.favorite);
   // Kept facts keep their buttons, whose state follows the checkpoint's.
@@ -462,7 +464,7 @@ function referenceThumbs(rec) {
 function syncUseReferences(use) {
   const slots = [...use.parentElement?.querySelectorAll('.lb-ref') ?? []];
   const ids = slots.map((b) => b.dataset.id);
-  const why = !referenceSupported ? "This checkpoint can't use reference images; FLUX.2 [klein] can."
+  const why = !referenceSupported ? REFERENCES_NONE
     : slots.length && slots.every((b) => b.getAttribute('aria-disabled') === 'true')
       ? `${imageNames(ids)} ${ids.length === 1 ? 'is' : 'are'} no longer in the gallery.`
       : '';
@@ -669,7 +671,6 @@ function closeLightbox() {
   // walk, not between sessions of looking.
   lbView.aspect = null;
 }
-els.lightbox.addEventListener('close', closeLightbox);
 
 // Closed by the user - Escape, the cross, a click on the backdrop or beside
 // the picture - focus goes to where the walk ended: that image's card, tile
@@ -687,11 +688,18 @@ function dismissLightbox() {
     gallery: `#gallery .card[data-id="${last.id}"] img`, sheet: `#sheet-grid .sheet-cell[data-id="${last.id}"] img` };
   const order = from === viewerRecords ? ['viewer', 'gallery', 'sheet']
     : from === galleryRecords ? ['gallery', 'sheet', 'viewer'] : ['sheet', 'gallery', 'viewer'];
+  const shown = (selector) => [...document.querySelectorAll(selector)].find((el) => el.checkVisibility?.() ?? true);
   requestAnimationFrame(() => {
     for (const strip of order) {
-      const img = [...document.querySelectorAll(strips[strip])].find((el) => el.checkVisibility?.() ?? true);
+      const img = shown(strips[strip]);
       if (img) { img.focus(); return; }
     }
+    // The image is in no strip any more - the server came back under another
+    // checkpoint and the gallery is another scope, or it was deleted
+    // elsewhere - and the card that opened the lightbox went with it: the
+    // grid's way in, else the search box, rather than <body>.
+    (currentCard()?.querySelector('img') ?? shown('#gallery .card[data-id] img') ?? els.search)
+      .focus({ preventScroll: true });
   });
 }
 
@@ -743,7 +751,7 @@ function returnToLightbox(place) {
 // asks for the picture again (`retryLightboxImage`). A src emptied by a close
 // fires this too, and is no failure.
 let lbLoadError = '';
-els.lbImg.onerror = async () => {
+async function lbImageFailed() {
   const rec = lbList[lbIndex];
   if (!els.lightbox.open || !rec || els.lbImg.getAttribute('src') !== rec.url) return;
   let offline = serverOffline;
@@ -762,11 +770,13 @@ els.lbImg.onerror = async () => {
   if (lbList[lbIndex] !== rec || els.lbImg.complete && els.lbImg.naturalWidth) return;
   lbLoadError = said;
   showError(said, false, { slot: els.lbError, mirror: false, offline });
-};
-els.lbImg.onload = () => {
+}
+
+function lbImageLoaded() {
   if (lbLoadError && els.lbError.textContent === lbLoadError) showError('', false, { slot: els.lbError, mirror: false });
   lbLoadError = '';
-};
+}
+
 // The server answers again: a picture that failed for its silence is asked
 // for once more, rather than left broken under a line that has gone.
 function retryLightboxImage() {
@@ -775,22 +785,23 @@ function retryLightboxImage() {
   lbLoadError = '';
   els.lbImg.src = rec.url;
 }
+
 // The source's picture: the comparison ends, and says why.
-els.lbSrcImg.onerror = () => {
+function lbSourceFailed() {
   const rec = lbList[lbIndex];
   if (!rec || lbCompare.id !== rec.id || !els.lbSrcImg.getAttribute('src')) return;
   setCompare(null);
   els.lbCompareNote.textContent = `#${rec.refine} could not be loaded`;
-};
+}
 
-// Wheel: zoom about the pointer. Non-passive, or the page behind the dialog
-// scrolls with it. On the stage's parent, so the arrows' strips over its
-// edges zoom too: on the stage alone they were a band each side the wheel
-// scrolled the page behind the dialog.
-els.lbMain.addEventListener('wheel', (e) => {
+// Wheel: zoom about the pointer. Wired non-passive (app.js), or the page
+// behind the dialog scrolls with it, and on the stage's parent, so the
+// arrows' strips over its edges zoom too: on the stage alone they were a
+// band each side the wheel scrolled the page behind the dialog.
+function lbWheel(e) {
   e.preventDefault();
   zoomLightbox(Math.exp(-e.deltaY * 0.002), ...stagePoint(e));
-}, { passive: false });
+}
 
 // Drag to pan. A press that never moved is a click: on the stage beside the
 // image, it closes the lightbox - but only at or below the fit size, where
@@ -807,15 +818,17 @@ let lbDrag = null;
 // double-click time.
 let lbArrowPress = -Infinity;
 let lbAfterArrow = false;
-for (const nav of [els.lbPrev, els.lbNext]) nav.addEventListener('pointerdown', (e) => { lbArrowPress = e.timeStamp; });
-els.lbStage.onpointerdown = (e) => {
+function lbArrowDown(e) { lbArrowPress = e.timeStamp; }
+
+function lbPointerDown(e) {
   if (e.button !== 0) return;
   clearTimeout(lbCloseTimer);
   lbAfterArrow = e.timeStamp - lbArrowPress < 500;
   lbDrag = { x: e.clientX, y: e.clientY, moved: false, onStage: e.target === els.lbStage, split: e.target === els.lbSplit };
   els.lbStage.setPointerCapture(e.pointerId);
-};
-els.lbStage.onpointermove = (e) => {
+}
+
+function lbPointerMove(e) {
   if (!lbDrag) return;
   if (lbDrag.split) { lbDrag.moved = true; moveSplit(e.clientX); return; }
   const dx = e.clientX - lbDrag.x, dy = e.clientY - lbDrag.y;
@@ -825,37 +838,38 @@ els.lbStage.onpointermove = (e) => {
   lbView.x += dx; lbView.y += dy;
   lbDrag.x = e.clientX; lbDrag.y = e.clientY;
   layoutLightbox();
-};
-els.lbStage.onpointerup = () => {
+}
+
+function lbPointerUp() {
   const drag = lbDrag;
   lbDrag = null;
   els.lbStage.classList.remove('dragging');
   if (!drag || drag.moved || drag.split || !drag.onStage || lbAfterArrow || lbView.scale > 1) return;
   if (lbView.scale === 1) dismissLightbox();
   else lbCloseTimer = setTimeout(dismissLightbox, 400);
-};
-els.lbStage.onpointercancel = () => { lbDrag = null; els.lbStage.classList.remove('dragging'); };
+}
+
+function lbPointerCancel() { lbDrag = null; els.lbStage.classList.remove('dragging'); }
+
 // Double-click: 1:1 about the point on the picture, or back to fit from any
 // other scale, 1:1 below fit included. On the stage, not the image: the click
 // events come out of the captured pointer, so they are the stage's too, and
 // the picture is found by hit-testing the point instead. Beside the picture
 // at fit the first click already closed.
-els.lbStage.ondblclick = (e) => {
+function lbDoubleClick(e) {
   clearTimeout(lbCloseTimer);
   if (lbAfterArrow) return;
   if (lbView.scale !== 1) { zoomFit(); return; }
   if (onPicture(e)) zoomOneToOne(...stagePoint(e));
-};
+}
+
 // The divider's keys, while it has focus: the arrows move it rather than
 // walking the strip (app.js skips a key handled here).
-els.lbSplit.onkeydown = (e) => {
+function lbSplitKey(e) {
   const step = e.shiftKey ? 0.1 : 0.02;
   const to = { ArrowLeft: lbCompare.split - step, ArrowRight: lbCompare.split + step, Home: 0, End: 1 }[e.key];
   if (to === undefined) return;
   e.preventDefault();
   lbCompare.split = Math.min(1, Math.max(0, to));
   layoutLightbox();
-};
-els.lbFit.onclick = zoomFit;
-els.lbOne.onclick = () => zoomOneToOne();
-window.addEventListener('resize', layoutLightbox);
+}

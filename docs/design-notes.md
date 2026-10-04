@@ -1213,7 +1213,23 @@ for. The finish line stays until the next job's end replaces it, led by
 "Previous job:" while another runs (or after one whose stream gave up). A
 Retry or Resume is sent once: accepted, it reads "Retry sent", `aria-disabled`,
 and keeps focus where the press left it; when the line is replaced with focus
-in it, focus moves to the new line's first button, else Generate.
+in it, focus moves to the new line's first button, else Generate. A job that
+ends with focus on Pause or Cancel (or a queued row's ×), which hide with
+`#progress`, hands it to Generate (`setBusy(false)`), and the finish line
+then takes it on to its first button (`finishTakesFocus`): a keyboard user
+who pressed Cancel and let the queue run out was left on `<body>`.
+
+What the job's end says in the panel's line, `#error` - cancelled, a time
+budget, an error, the skipped cells, the failure rule's stop - is that job's
+outcome (`showOutcome`, `jobOutcome`) and lasts as the finish line does: led
+by "Previous job: " while another job runs (`#error.previous`, a generated
+`::before`, so the alert is not read out again) and taken away when the next
+job's end is drawn (`finishJob`). It used to stay until the next press of
+Generate, and with a queue "Cancelled before anything finished." sat under
+the next job's own "Finished 1 image" as though it were its outcome. A press
+on a held Pause or Unload says why in the same line (`showJobNote`), which
+goes when the job ends: "A single batch has no pause point" outlived the job
+and the button it explained.
 
 ## Cooperative cancellation
 
@@ -1582,16 +1598,33 @@ a quick walk every other press. The backdrop shows the default cursor, the
 picture the zoom one. A close of
 the user's own - Escape, the cross, a click on the backdrop or beside the
 picture (`dismissLightbox`) - focuses the image the walk ended on, its card,
-tile or sheet cell, which scrolls it into view; a close that hands the page
-to something else - Refine's dialog, Reuse's panel, a delete, Show this run
-- is `closeLightbox` alone, since a focused card would scroll the page back
-from where those took it. The Refine dialog closes the lightbox for itself;
+tile or sheet cell, which scrolls it into view - and where no strip holds it
+any more (the server came back under another checkpoint and the gallery is
+another scope, or it was deleted elsewhere, and the opener went with it),
+the grid's current card, else its first, else the search box, never
+`<body>`; a close that hands the page to something else - Refine's dialog,
+Reuse's panel, a delete, Show this run - is `closeLightbox` alone, since a
+focused card would scroll the page back from where those took it. The Refine dialog closes the lightbox for itself;
 closed without running, it gives the lightbox back on the same image of the
 same strip, at the same view and comparison (`refineReturn`, resolved by
 id, since a job landing meanwhile reloads the gallery into a new array; the
 comparison put back before the view, whose scale is relative to the fit of
 half the stage side by side - on the whole of it a 1:1 came back at 166%),
-unless its passes row has opened the lightbox on a pass already. Below 900px wide the column
+unless its passes row has opened the lightbox on a pass already. Run, it
+puts the focus on the source's card, else Generate, without moving the page
+(`refineClosed`): the dialog hands focus back to the lightbox's Refine,
+closed with the lightbox, which left it on `<body>`. While the pass's POST
+is out the dialog holds (`refineSending`): its button reads "Sending…", and
+Escape (the dialog's `cancel`, prevented), Cancel and the cross wait for the
+answer. Since the dialog closes only once the server has the pass (Refine
+closes on acceptance), an Escape in that window had closed it, given the
+lightbox back as though nothing ran, and saved the boxes as unsent, while
+the pass rendered behind it. A close the browser will not hold - a second
+Escape with no other press between - counts as the run it most likely is,
+and a refusal arriving after it is said in the panel's line. The lightbox's
+event wiring is app.js's, as every file's is: lightbox.js holds the named
+handlers (`lbImageFailed`, `lbWheel`, `lbPointerDown`, `lbSplitKey`...),
+and nothing in it runs at load. Below 900px wide the column
 drops under the stage as a wrapping row, without the keys line. The
 `tools/smoke.json` grid is 1152x896 for the same reason the layout changed:
 at the driver's 1400x900 a 1024x768 image fits at 104%, and its 1:1 is
@@ -1643,7 +1676,11 @@ withdraws the request, and each status frame's `pause_requested` sets it
 again, so a reattached page shows it. The label is the state, with no
 `aria-pressed` beside it: a toggle's label must not change, and the first cut,
 pressed on both "Pausing…" and "Resume", was read as "Resume, pressed" - as if
-resumed. The cell line says "pausing
+resumed. That is the page's one rule for buttons with a state: a button whose
+words say the state (Pause / Pausing… / Resume) has no `aria-pressed`, and a
+toggle with `aria-pressed` (a star, a card's ❐) keeps one name in every state,
+the state carried by `aria-pressed` and its glyph, and in words by its title
+(The star is a button). The cell line says "pausing
 after this image…", and once paused "Paused after image 1/3 · GPU handed
 back", while the counter beside the bar stays the counter - written there, the
 long text squeezed the bar to 5 px. A running job of one cell has no boundary
@@ -1672,13 +1709,15 @@ grid's own prompt, its variables unfilled (`prompt_template`, from
 named by that: by its first cell's prompt, the line named a cell that had
 long finished for the rest of the night ("grid · a fox, {mood}", Cancel's
 title "Stop this grid"; a re-render, whose cells are its records', is "re-
-render"). A "Now:" line over the bars and Cancel's title name the watched one;
-the line is one line, cut to the panel's width with its whole text in its
-title, and Pause and Cancel sit at its end - wrapped to two lines, with the
+render"). A "Now:" line over the bars and Cancel's title name the watched one,
+as "3 images · 1024×1024 · a fox in the snow": the count and the size first,
+since they tell two jobs apart and the line is cut at its end - put last, the
+count was the first thing cut, even at 2560 - while the prompt is whole in the
+title. The line is one line, cut to the panel's width, and Pause and Cancel sit at its end - wrapped to two lines, with the
 buttons on a row of their own, it pushed Cancel and the queue below a 1040 px
 window. Under the bars a row per queued job (a
-submission's own words until `nameJob` has the server's: "refine of #10 ·
-1536×1536 · 1 image") carries an × that cancels that job alone, `aria-disabled`
+submission's own words until `nameJob` has the server's: "1 image ·
+1536×1536 · refine of #10", in the Now line's order) carries an × that cancels that job alone, `aria-disabled`
 while its POST runs, focus moving to the next row's; one waiting is a single
 "Next:" row with no heading, and Cancel queued stays for two or more.
 `startJob`'s `onAccepted(jobId)` runs once the server has taken a
@@ -1702,12 +1741,20 @@ A job of this page's hides the morning-after banner without dismissing it
 **A finished job joins the gallery at its head.** It used to reset the
 gallery: a user browsing old images during the wait was scrolled to the top,
 the pages scrolled in dropped, at every job's end. `prependFinished(made)` asks
-for the newest page under the same search, Favorites and scope - `made` plus a
+for the newest page under the same search, Starred tick and scope - `made` plus a
 page, the sheet's ceiling at most - once any page in flight has landed, drops
 the answer if the filters changed meanwhile, and puts the records newer than
 the head in front, in place (an open lightbox on the gallery keeps its image);
 the paging anchor, the last record, is untouched, and scroll anchoring keeps
-the rows in view. Where the answer does not join up with what the page holds,
+the rows in view. The new cards get the day's lines as `loadGallery` draws
+them, and the old head's day is read off the grid's first card itself
+(`data-made`, which a tombstone keeps): worked out from `galleryRecords[0]`,
+it took the day of the first live record while the first card was a deleted
+head's tombstone, and drew a second line over it. The grid's one tab stop
+moves to the newest image where the stop was the grid's default - no card
+chosen since the last query (`galleryChosen`) - or the old head with focus
+elsewhere: kept on the old head, Tab into the grid skipped everything the job
+had just made. A card the user chose further down keeps it. Where the answer does not join up with what the page holds,
 or the gallery is empty, it resets as before; never in sheet mode, whose sheet
 lays itself out from the whole run. The viewer may now be a screen above: a
 job's first image or frame landing out of sight shows "New image ↑" under the
@@ -1791,9 +1838,9 @@ orders by the oldest image carrying each value: the grid renders values as
 declared and variants in the order given, seeds outermost, so the first
 image of each is in written order. Numeric and flat-prompt axes are
 unchanged. The oldest *loaded* image is only the oldest a filter kept: star
-the winners, tick Favorites, and the order was whichever survived (a
+the winners, tick Starred, and the order was whichever survived (a
 `size = small | large` grid over seeds 20 and 21, with s20-large and
-s21-small starred, read large, small). So when Favorites is ticked, or the
+s21-small starred, read large, small). So when Starred is ticked, or the
 search is anything but `run:<id>`, a sheet of one run with variables asks
 once more for that run unfiltered before it renders (`learnSheetOrder`, from
 `loadGallery`: the one extra request) and orders by the whole run's oldest
@@ -1804,7 +1851,7 @@ outnumbered them (3 x 3, 3 x 2 and 8 x 4 all turned them into columns, the
 tie going to the `var:` axes because `axesFor` lists them first). The
 variants and the axis across them are placed from every varying axis, not
 from what the listlike rule left. With one image per version loaded (a star
-each under Favorites, or what Delete unstarred kept), that rule dropped the
+each under Starred, or what Delete unstarred kept), that rule dropped the
 variants when each version had one image, or the seeds when each image had
 its own seed, and the pin that took their place showed one image of the
 comparison. Alone, the variants stay a strip in the columns, because rows
@@ -2013,7 +2060,7 @@ UTC date, which is the wrong one for anything made in the evening.
 
 **`POST /api/rerender` is the third producer of cells**, beside
 `/api/generate` and `/api/grid`: the gallery's own filter (search, the
-Favorites flag and the checkpoint scope, taken server-side because the
+Starred tick and the checkpoint scope, taken server-side because the
 browser holds one page) at another size, one cell per record with the
 record's prompt, negative prompt, steps, CFG, true CFG, mu, references,
 adapter and weight, refine source and strength, seed and variables, oldest
@@ -2031,7 +2078,7 @@ were built without `variables`: a re-rendered comparison lost its version
 labels, which live nowhere else, and its sheet fell back to a flat,
 alphabetical Prompt axis; a `{var}` grid lost its axes the same way. A
 selection mixing records with variables and records without them lays out
-like the same mixed filter over the originals - usually Favorites over a
+like the same mixed filter over the originals - usually Starred over a
 `{var}` grid plus some one-off prompts: the variable axis replaces the Prompt
 axis, the plain records sit under `none`, and where two land in one cell the
 sheet shows the newest (`axesFor` and `renderSheet` in `web/sheet.js`).
@@ -2070,7 +2117,7 @@ count confirmed for fewer. `expected` is required, not optional - the gate
 is the route's contract, not the page's manners.
 
 **The scope is strict, judged at the click.** The button shows whenever
-the filter matches something and the Favorites tick is off (with it on,
+the filter matches something and the Starred tick is off (with it on,
 every match is a keeper). Whether the box is a strict scope is the
 server's call: free text is refused with a 422 that says what to do,
 rather than the page guessing at the grammar with a second copy of the
@@ -2185,7 +2232,9 @@ announced after a reload; `setBusy(true)` hides the banner without
 remembering it, since it described an older job beside a newer one's finish
 line and its Show run opened that older run. A stopped job says where it
 stopped - "stopped at cell 6 of 12", or "never started" - where "(6/12
-cells)" read as six done; a failure stop's error says it already. A job that
+cells)" read as six done; a failure stop's error says it already. In the
+job's own units (`unitWord`): a plain job stopped "at image 2 of 3", or "(2/3
+batches)" - "cell" is a grid's word. A job that
 ended at the load is skipped while the status still gives the same detail.
 
 **The picker is grouped, and follows the search box.** Every plain Generate
@@ -2207,6 +2256,13 @@ sheet's return, typing - and "Runs…", a hidden and disabled first option,
 for anything else or a run it does not list. A refine-only label was not
 added: telling a pass's run from its grid's would need a field `/api/runs`
 does not have.
+
+Closed, the picker has a width of its own, `--runs-w` (190 px; 240-360 px
+from 1800 px), cut with an ellipsis, and the picked run's whole label is the
+select's title. A select is as wide as its longest option, and with these
+labels every one ran to the old 300 px cap: at 1400 the search box was
+squeezed to 175 px and its placeholder cut, and at 2560 a picked run's own
+label was cut mid-word. The open list is as wide as its labels need.
 
 ## The gallery is the running checkpoint's
 
@@ -2291,12 +2347,17 @@ is false, it never intersects.
 
 Where the local day changes between one record and the next, `loadGallery`
 puts a line across the grid (`dayBreak`, an `h3` spanning `1 / -1`), judged
-from the last record already held, so a page boundary is no day boundary.
-`prependFinished` draws it the same way at the head - between two new cards,
-or between the last of them and the old head - since a job that ends after
-midnight under a page loaded the day before ran the two days together, and
-calls `keepCurrentCard` as anything adding cards must. It carries no `data-id`: paging, the deletes, the lightbox and `.card`
-counts never see it. A day whose cards are all deleted keeps its line over
+from the card already last in the grid - its day is the card's own
+`data-made`, which a tombstone keeps - so a page boundary is no day boundary.
+It puts one over the first card too where that card's day is not today's:
+drawn only between days, a gallery whose newest images were yesterday's had
+no heading over them, read as today's, and the first line on the page named
+the older day under them. `prependFinished` draws it the same way at the
+head - between two new cards, or between the last of them and the old head,
+read off the grid's first card, tombstones included (A finished job joins
+the gallery at its head) - since a job that ends after midnight under a page
+loaded the day before ran the two days together. It carries no `data-id`:
+paging, the deletes, the lightbox and `.card` counts never see it. A day whose cards are all deleted keeps its line over
 their tombstones, which hold their slots so that nothing moves under the
 pointer that pressed ⌦ - taking the line out would move every card after it.
 
@@ -2313,7 +2374,10 @@ label's containing block is the row, and the card's `overflow: hidden` never
 clips it as it would one centred over Delete. Delete's is anchored at the
 right edge instead, over Delete: at the left it put the destructive tool's
 name over Reuse, some 200 px away. The glyphs stay the buttons' text - the
-smokes find them by it - and the title stays the long name.
+smokes find them by it - and the title stays the long name. Delete lights as
+the page's other destructive buttons do (`#lb-delete`, `.ghost.danger`): its
+glyph and an edge in the danger red on the dark fill, not the accent the
+harmless tools take on hover.
 
 **Dead tools are marked, as the lightbox's Refine is.** ⤢ where the
 checkpoint has no pass and ❐ where it takes no references are aria-disabled
@@ -2322,7 +2386,10 @@ never disabled, so each keeps its tab stop and a press still says why: in
 `#gallery-error`, which stays and is announced, and for two seconds in an
 `aria-hidden` note over the row (`refuseInCard`, `cardNote`). The card
 decides the ⤢ refusal itself rather than leaving it to `openRefine`, so it
-can say it there too. Cards can render before the first status, so the
+can say it there too; `openRefine` says it only for the lightbox's Refine,
+in the panel's line that the lightbox mirrors. Each refusal is one sentence
+in one place (`REFINE_NONE`, `REFERENCES_NONE` in gallery.js), which the
+card, the lightbox's Refine and Use these references all say. Cards can render before the first status, so the
 state is set in `card()` and again where the status flips a capability:
 `syncCardTools` from status.js for refine, `syncReferenceMarks` (through
 `syncConditioning` and `renderReferences`) for references.
@@ -2344,9 +2411,11 @@ show nothing, and the only sign of a reference was a chip up to 1,600 px
 away. `syncReferenceMarks`, which `renderReferences` calls, rings every card
 and sheet cell that is a reference in the accent (an outline: the border
 and its shadow are the star's) and numbers it top left as its chip is (a
-`.ref-n` span; a pass's badge moves over for it). Its ❐ is pressed, named
-"Reference image N - click to remove", and removes it; at four the other
-cards' ❐ are aria-disabled. A `role=status` note over the row says "Added as
+`.ref-n` span; a pass's badge moves over for it). Its ❐ is pressed and
+removes it; at four the other cards' ❐ are aria-disabled. Named "Reference
+image" in every state, as the star is "Star" (below): which reference it is
+("Reference image 2 - click to remove") or why it is dead is its title and
+`aria-description`. A `role=status` note over the row says "Added as
 image N" or "Removed" for two seconds, written once it is in the page so it
 is announced. `setReferences` stays the one writer.
 
@@ -2358,17 +2427,21 @@ fav-badge">` in the same place, before the tools: always shown on a starred
 card, and ☆ on another's hover, focus-within or a coarse pointer, as the
 tools are. It took the row's star's place, so a card's tab stops did not
 grow. `syncStar` draws any star button from the state - glyph,
-`aria-pressed`, label and title together, where the label followed only an
-in-page toggle and the title never. The title names F only on a button
+`aria-pressed` and title together, where the title followed only an in-page
+toggle. Its name is "Star" in both states: it was "Unstar" when pressed,
+heard as "Unstar, toggle button, pressed" - the misreading Pause's note
+describes - while the lightbox's star named the same state "★ Starred". The title names F only on a button
 that declares it in `aria-keyshortcuts`, as the card's does, and on a card
 F works from the star and the tools as from the image (`galleryKey`): it
 was the image's alone, under a star whose title promised it. `setFavorite`
 updates every element showing the record by class and its star button:
 cards, sheet cells, a `.result` beside the viewer, and the lightbox when it
-shows that record. The lightbox's button keeps its words (☆ Star / ★
-Starred, its name) but takes the card star's title and `aria-pressed` in
-`renderLightbox`, so the two say the same after a toggle from either, or
-from the sheet. `.sheet-cell.fav::after` keeps the badge as a picture:
+shows that record. The lightbox's button is named Star too (its
+`aria-label`, and its words, ☆ Star / ★ Star, with the amber of `.active`):
+its words had said "★ Starred" when pressed, which a fixed name could not
+contain. It takes the card star's title (`starTitle`, the one copy of
+those words) and `aria-pressed` in `renderLightbox`, so the two say the same
+after a toggle from either, or from the sheet. `.sheet-cell.fav::after` keeps the badge as a picture:
 F stars a cell.
 
 **The whole frame, and what it is.** Cards are `object-fit: contain` on
@@ -2377,10 +2450,17 @@ their own grey, the trade the sheet's cells made: `cover` showed 57% of a
 marked top left with its strength (`.card.refined::before`, the sheet's own
 rule), since it keeps its source's picture by design. The image's label and
 title name it as the page names images, "#N", with its size, seed and the
-source of a pass. Reuse on a pass says what it does: "Reuse pass…" in the
-lightbox, and on both the title "Open the Refine dialog on #4 with this
+source of a pass - "(deleted)" after it where the source has gone, as the
+lightbox's facts say it. Reuse on a pass says what it does: "Reuse pass…" in
+the lightbox, and on both the title "Open the Refine dialog on #4 with this
 pass's size, strength and seed" (`syncReuseButton` keeps the source in
-`data-reuse-pass` for `syncReuseButtons`); a ⚠ on another checkpoint's
+`data-reuse-pass` for `syncReuseButtons`); where the source has been deleted
+(`refine_missing`, kept in `data-reuse-pass-gone`) it is "Reuse settings",
+titled with why the pass cannot be made again, since the press fills the
+panel instead - it had promised the dialog on an image that was gone. A
+delete on this page marks the passes made from what it took the same way
+(`forgetImages`: the records' `refine_missing`, the cards' titles, every
+Reuse, the lightbox's facts), as a reload's records would be; a ⚠ on another checkpoint's
 record adds what the Reuse will leave behind - references the checkpoint
 takes none of, an adapter the LoRA box does not offer. Those are the
 status's to say, and the card can be older than it, so `syncReuseButtons`
@@ -2395,14 +2475,21 @@ loaded): its image, star and tools are tab stops and every other card's
 are -1. Focus arriving any way - a click, the lightbox handing it back -
 makes that card current; a page that lands without it makes the first
 card current; a delete moves it to the next card along (`forgetImages`). F
-stars the card from its image, star or tools; on the image the arrows walk
-the grid, and Home and End go to the first and last card loaded; Down from
+stars the card from its image, star or tools; a job's images prepended at
+the head take the stop where it was the grid's default (`galleryChosen`,
+set by focus arriving and cleared by `resetGallery`) or the old head with
+focus elsewhere; on the image the arrows walk the grid, and Home and End go
+to the first and last card loaded; Down from
 the last row loaded fetches the next page and goes on into it. Up and Down take the nearest card across in the next row, found
 from where the cards are rather than from the grid's column count: a day's
 line starts a row of its own, so a short row before it put "a row on" by
 the count that many cards short. Focus moves with `preventScroll` and the
 card is scrolled `nearest`, clear of the topbar by its `scroll-margin-top`.
-Nothing here is in `thumb()`, which the viewer and the sheet share.
+Nothing here is in `thumb()`, which the viewer and the sheet share - except
+that its Enter and Space open the lightbox only without Ctrl, Meta or Alt:
+Ctrl+Enter is Generate's from anywhere, and on a focused image - where the
+lightbox's close leaves focus - it opened the lightbox and queued a job
+behind it.
 
 ## LOCAL_DIFFUSION_DEVICE reaches the offload hooks
 
@@ -2433,7 +2520,7 @@ that made it: the two widest-varying axes become columns and rows, any third
 becomes a pinned selector rather than a third dimension nobody can read. The
 exception is a comparison's `var:variant` axis, which takes the rows whenever
 another axis varies, however few of its images are loaded (a star each under
-Favorites) - including a variable a user's own prompt grid happens to name
+Starred) - including a variable a user's own prompt grid happens to name
 `variant` (see "The variable assignment is recorded"). It asks for the whole
 run in one page (`sheetPage`, the status's `max_grid_images`) because a
 matrix with a page boundary through it is a puzzle.
@@ -2446,10 +2533,15 @@ shown, the page scrolls the gallery head under the topbar (its
 comparison's sheet used to open at y = 1650 on a 1305 px screen, under the
 prompt check and the viewer, with nothing in view changed but a line in the
 panel. The landing is the gallery head rather than the sheet so the search,
-Favorites and Sheet - the sheet's own filters - stay in view; the viewer is
+Starred and Sheet - the sheet's own filters - stay in view; the viewer is
 not hidden (a running job lands there) nor the check folded, both a scroll
 up, and scrolling moves no focus. The Sheet button does not scroll: it is
-pressed at the gallery head.
+pressed at the gallery head. A short sheet under a tall viewer - a refine
+sweep's three passes at QHD - ended the page before the head could reach
+the topbar, and the scroll stopped 43 px down with the sheet's cells at the
+window's foot: the scroll first reserves the room it needs under the sheet
+(`reserveSheetRoom`, a margin outside the sheet's box, which `fitSheet`
+measures; `setSheet` takes it off).
 
 **The cells fit the screen's height as well as its width.** Columns are
 `minmax(96px, var(--cell-max))`, and `--cell-max` is the window less what
@@ -2485,7 +2577,7 @@ row under its heads. Only a sheet with no row axis wraps, so a matrix and the
 variant rows are never reshaped.
 
 **Around the matrix.** A Fixed line names the settings every image shares -
-under Favorites, what the keepers have in common, which the tick otherwise
+under Starred, what the keepers have in common, which the tick otherwise
 takes off every axis - in an element of its own, since the note is read back
 exactly. A starred cell carries the card's ring and 28 px badge (a 12 px
 glyph in a 690 px cell was not seen) - the card's own rules, which name
@@ -5150,7 +5242,7 @@ The preview gives the count, seeds per version, batch size and estimate before
 anything runs, and the page opens that submission as the sheet when its
 stream says done (`showJob(jobId, { fresh: true })`). A run can contain the
 same prompts with original and yours swapped; `job:<id>` keeps each row's
-meaning fixed. If Favorites is ticked, it comes off first and the sheet's
+meaning fixed. If Starred is ticked, it comes off first and the sheet's
 note says so: nothing in the new comparison is starred yet, so
 under the tick the sheet opened empty. The tick is removed rather than
 bypassed because the gallery's filters are the sheet's, and Re-render sends
@@ -5364,7 +5456,7 @@ row by what the minimum lacked over the empty viewer's 380 px even beside a
 two faults with it. It was sticky under the topbar, and a sticky grid item
 is held by the whole stage, not by its rows: as the page scrolled it slid
 down over the gallery head, the cards and an open comparison sheet, hiding
-the search box, Favorites and Sheet and taking their clicks. And it was
+the search box, Starred and Sheet and taking their clicks. And it was
 sized by its own content up to the window's height, so the critic's answer
 always set the rows' height and put the gallery head past the fold at QHD,
 beside an empty viewer as much as beside an image (1,313 px of 1,305); it

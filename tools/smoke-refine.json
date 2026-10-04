@@ -256,7 +256,7 @@
   {"eval": "els.width.value = 1024; els.height.value = 1024; reuse({...window.__pass, refine: 424242});"},
   {"wait": 700},
   {"expect": "!els.refineDialog.open && els.prompt.value === window.__pass.prompt && els.seed.value === '11' && +els.width.value === 1024"},
-  {"expect": "els.error.textContent.includes('Image 424242, the source this was refined from, is no longer in the gallery')"},
+  {"expect": "els.error.textContent.includes('#424242, the source this was refined from, is no longer in the gallery')"},
 
   {"log": "'at 2560x1305 the dialog is two panes: the source large, at its own shape, the controls beside it; a reshaped size is framed on it; the dialog keeps its top, 8vh down, as the fold opens'"},
   {"viewport": [2560, 1305, 1]},

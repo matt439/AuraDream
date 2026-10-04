@@ -263,7 +263,7 @@ function sheetValues(records, whole = []) {
 }
 
 // The whole run behind a filtered sheet, read for its order alone. Under the
-// Favorites tick, or a search narrower than `run:<id>`, the oldest loaded image
+// Starred tick, or a search narrower than `run:<id>`, the oldest loaded image
 // of a value is the oldest that survived: star the winners and a comparison
 // read reordered, rewrite, original. So loadGallery asks once more, for the
 // same run unfiltered, before it renders. A row the server no longer has
@@ -282,7 +282,7 @@ async function learnRunOrder(epoch) {
   const [run] = runs;
   if (runs.size !== 1 || !run || !galleryRecords.some((r) => r.variables)) return;
   // A comparison's submission may reverse an earlier comparison's labels
-  // within this run. Learn its order from that job, even under Favorites.
+  // within this run. Learn its order from that job, even under Starred.
   const job = galleryRecords[0]?.job_id;
   const jobScope = job && galleryRecords.every((r) => r.job_id === job)
     && els.search.value.trim().split(/\s+/).includes(`job:${job}`);
@@ -321,7 +321,7 @@ async function learnSheetSource() {
 }
 
 // A line the sheet adds to its note while it shows the query it was opened
-// on: what the page changed to open it (showRun's Favorites tick, the Sheet
+// on: what the page changed to open it (showRun's Starred tick, the Sheet
 // button's newest run).
 let sheetNotice = null;
 
@@ -357,7 +357,7 @@ function chooseAxes(values, count) {
   varying.sort(wider);
   // The variants and what runs across them are placed from every varying
   // axis, not from what the list rule left: with one image per version loaded
-  // - a star each under Favorites, or what Delete unstarred kept - the rule
+  // - a star each under Starred, or what Delete unstarred kept - the rule
   // dropped the variants, or the seeds they cross, and the pin in their place
   // showed one image of the comparison.
   const variant = all.find((a) => a.key === VARIANT_AXIS);
@@ -470,7 +470,7 @@ const THUMB_SIDE = 384;
 // are left out of the Fixed line rather than listed as `none`.
 const ABSENT_WHEN_NONE = new Set(['tcfg', 'lora', 'adapter', 'ref', 'strength']);
 
-// The settings every image on the sheet shares. Under the Favorites tick they
+// The settings every image on the sheet shares. Under the Starred tick they
 // are what made the keepers, and the tick takes them off every axis: two
 // starred images read as two cells, with nothing saying they shared a seed,
 // steps and CFG. A line of its own rather than part of the note.
@@ -869,7 +869,7 @@ async function sheetKey(e) {
 // preview says so rather than Run grid rendering it.
 async function resumeRun(runId) {
   // A refusal is said under the gallery's head, by the sheet whose button
-  // this is - and beside the Favorites tick one of them asks to untick.
+  // this is - and beside the Starred tick one of them asks to untick.
   const slot = { slot: els.galleryError };
   const params = new URLSearchParams({ limit: 200 });
   if (els.allModels.checked) params.set('all_models', 'true');
@@ -1143,6 +1143,8 @@ function setSheet(on) {
   els.sheetBtn.classList.toggle('active', on);
   els.sheet.hidden = !on;
   els.gallery.hidden = on;
+  // The room a scroll to the last sheet reserved under it (reserveSheetRoom).
+  els.sheet.style.marginBottom = '';
   // Off is a real escape hatch: whatever layout and pins were picked go with
   // it, and so does a search the page wrote to open the sheet - a sweep's
   // three images under its job: search looked like a gallery whose other

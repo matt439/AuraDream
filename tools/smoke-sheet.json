@@ -119,7 +119,7 @@
   {"expect": "els.lbFav.textContent === '☆ Star' && els.lbFav.getAttribute('aria-pressed') === 'false' && els.lbFav.title === 'Star (F)'"},
   {"key": "f"},
   {"wait": 600},
-  {"expect": "els.lbFav.textContent === '★ Starred' && els.lbFav.getAttribute('aria-pressed') === 'true' && els.lbFav.title === 'Starred - click to unstar (F)' && __cell.classList.contains('fav')"},
+  {"expect": "els.lbFav.textContent === '★ Star' && els.lbFav.getAttribute('aria-label') === 'Star' && els.lbFav.getAttribute('aria-pressed') === 'true' && els.lbFav.title === 'Starred - click to unstar (F)' && __cell.classList.contains('fav')"},
   {"key": "Escape"},
   {"wait": 300},
   {"expect": "!els.lightbox.open && document.activeElement === __cell.querySelector('img')"},

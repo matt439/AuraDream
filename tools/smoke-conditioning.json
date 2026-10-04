@@ -42,7 +42,7 @@
   {"log": "'and the card says so where it was clicked: ringed and numbered as its chip, its button pressed, and a status over the tools'"},
   {"eval": "window.__refCard = document.querySelector('#gallery .card[data-id=\"' + referenceIds[0] + '\"]'); window.__refTool = __refCard.querySelector('.ref-tool');"},
   {"expect": "__refCard.classList.contains('ref') && __refCard.dataset.refN === '1' && __refCard.querySelector('.ref-n').textContent === '1' && getComputedStyle(__refCard).outlineStyle === 'solid'"},
-  {"expect": "__refTool.textContent === '❐' && __refTool.getAttribute('aria-pressed') === 'true' && __refTool.getAttribute('aria-label') === 'Reference image 1 - click to remove' && __refTool.getAttribute('aria-disabled') === 'false'"},
+  {"expect": "__refTool.textContent === '❐' && __refTool.getAttribute('aria-pressed') === 'true' && __refTool.getAttribute('aria-label') === 'Reference image' && __refTool.getAttribute('aria-description') === 'Reference image 1 - click to remove' && __refTool.title === 'Reference image 1 - click to remove' && __refTool.getAttribute('aria-disabled') === 'false'"},
   {"expect": "__refCard.querySelector('.card-note').getAttribute('role') === 'status' && __refCard.querySelector('.card-note').textContent === 'Added as image 1'"},
 
   {"log": "'the chips cross removes it again, and focus stays in the field on the emptied row, not on the badge, whose tip would open over LoRA and Seed'"},
@@ -51,7 +51,7 @@
   {"eval": "document.activeElement.blur();"},
   {"wait": 200},
   {"expect": "referenceIds.length === 0 && collect().reference.length === 0"},
-  {"expect": "!__refCard.classList.contains('ref') && !__refCard.querySelector('.ref-n') && __refTool.getAttribute('aria-pressed') === 'false' && __refTool.getAttribute('aria-label') === 'Use as a reference image'"},
+  {"expect": "!__refCard.classList.contains('ref') && !__refCard.querySelector('.ref-n') && __refTool.getAttribute('aria-pressed') === 'false' && __refTool.getAttribute('aria-label') === 'Reference image' && __refTool.getAttribute('aria-description') === 'Use as a reference image'"},
   {"log": "'❐ is a toggle: a second press on the same card takes it out again, and says so'"},
   {"eval": "__refTool.click();"},
   {"wait": 100},

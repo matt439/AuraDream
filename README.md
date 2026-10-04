@@ -513,6 +513,10 @@ uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriou
 node tools/browser.mjs tools/smoke-wai.json      # WAI recipes, defaults, reference sizes and saved settings
 uv run python tools/fake_server.py --port 7867 --fresh
 node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
+uv run python tools/fake_server.py --port 7885
+node tools/browser.mjs tools/smoke-gallery.json   # the cards, their tools and star, the Runs picker, the day lines, the keyboard
+uv run python tools/fake_server.py --port 7884 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-lightbox.json  # the facts, a pass against its source, the arrows, zoom and focus
 uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-analysis.json  # Check, the critic and Compare on a FLUX-shaped server
 ```
@@ -602,7 +606,9 @@ size it opened at leaves your scale as it was. On a wide window the source
 is shown large beside the controls. **Strength** has focus; **Refine**,
 Enter in any box or Ctrl+Enter runs the pass - once the server has read
 what the boxes hold, so a strength it refuses is said in the dialog - and
-its progress shows in the panel as any job's does. The **1× / 1.25× / 1.5× / 2×**
+its progress shows in the panel as any job's does. While the pass is being
+sent the button reads *Sending…* and the dialog stays open, Escape and
+Cancel included, until the server has it. The **1× / 1.25× / 1.5× / 2×**
 buttons multiply the source's size, shown under each - 1× re-denoises at the
 size it has - and any other size works too: with **Keep shape** ticked,
 typing W or H moves the other to the source's shape, and a shape that is not
@@ -734,9 +740,12 @@ banner reports - and one Repeat-3 Generate is one run of three batches.
 **Cancel** appears over the progress bars while a job is running, beside
 Pause. It stops at the end of the current step — within a second or two — and
 keeps every image the run had already finished. The line it sits on names the
-job it stops ("Now: a fox in the snow · 1024×1024 · 3 images", or "Now: grid ·
-a fox, {mood} · …" for a grid), since with a queue the prompt box may hold
-another job's text; hover it for the whole line where the panel cuts it.
+job it stops ("Now: 3 images · 1024×1024 · a fox in the snow", or "Now: 6
+images · 1024×1024 · grid · a fox, {mood}" for a grid), since with a queue the
+prompt box may hold another job's text; the count and the size come first, so
+where the panel cuts the line it cuts the prompt - hover it for the whole line.
+A job that ends with the focus on Pause or Cancel hands it on - to the finish
+line's first button, else Generate - rather than dropping it with the bars.
 
 **Live preview**: while a cell denoises, a small picture of it appears in the
 viewer from a few steps in - a linear read of the latents the step callback
@@ -921,7 +930,11 @@ job's seed and *Use seed*, which puts it in the Seed box and nothing else;
 *Retry the N skipped cells*, which sends the grid as it was submitted again
 with Resume and its base seed, whatever the panel holds now. That line stays
 until the next job finishes - "Previous job:" while a queued one runs - so a
-grid's Retry is still there in the morning with jobs queued behind it.
+grid's Retry is still there in the morning with jobs queued behind it. What
+the job's end says in the panel's line - cancelled, its time budget, an
+error, the cells it skipped - is led the same way while the next runs, and
+goes when that one finishes; a press on a held Pause or Unload says why
+there until the job ends.
 Skipped cells are counted on the running line as they happen and named, with
 their seeds, at the end. A job waiting for
 the weights says so, with the time it has waited and the checkpoint's name in
@@ -976,7 +989,8 @@ a lighthouse      anything left over searches the prompt
 
 `date:` is a local day, not a UTC one: an overnight run crosses midnight in
 every timezone, and the day you mean is the one on your calendar. The grid
-draws a line where the local day changes between one card and the next.
+draws a line where the local day changes between one card and the next, and
+one over the first card when the newest images are not today's.
 
 The **Runs…** picker over the gallery is the same thing by name: grids and
 batches first, each with its image count (and its prompt count where there
@@ -991,10 +1005,13 @@ reaches them. Refine and Reference are dimmed on a checkpoint that cannot
 use them, and still say why when pressed. ❐ is a toggle: a card that is a
 reference image is ringed and numbered as its chip is. The star in a card's
 corner is a button, shown on every starred card and on any card under the
-pointer, and a refine pass carries its strength (`⤢ 0.1`) top left. From
-the keyboard the gallery is one tab stop: Tab reaches the card you were on,
-the arrow keys walk the grid (Down past the last row loads the next page),
-Home and End jump, Enter opens the lightbox and F stars.
+pointer, and a refine pass carries its strength (`⤢ 0.1`) top left; a pass
+whose source has been deleted says so in its title, and its Reuse fills the
+panel, since the pass cannot be made again. From the keyboard the gallery is
+one tab stop: Tab reaches the card you were on - or the newest image, if you
+have not chosen one since the gallery was last searched - the arrow keys walk
+the grid (Down past the last row loads the next page), Home and End jump,
+Enter opens the lightbox and F stars; Ctrl+Enter there still generates.
 
 The gallery shows the images made on the checkpoint the server is running,
 and nothing else, until you tick **All models** beside Starred. Steps, CFG
@@ -1065,7 +1082,7 @@ comparison's versions (the `variant` axis, and so also a variable a prompt
 grid of your own names `variant`) always take the rows when anything else
 varies too, one row per version. A variable's values keep the order the grid
 declared them in - `size = small | big` reads small, big - and with
-Favorites ticked, or a search narrower than the run, the sheet asks for the
+Starred ticked, or a search narrower than the run, the sheet asks for the
 whole run once to keep that order; after Delete unstarred, a value whose
 first images were deleted can move down. Cells take the run's own
 aspect ratio and show the whole frame, and a starred cell carries its star, so
@@ -1096,7 +1113,7 @@ cells are sized to fit the screen's height as well as its width, so a 4 x 3
 is one screen; a matrix too tall even at the smallest cells scrolls in a box
 whose headings stay in view. A run where only the seed varies wraps into
 captioned cells rather than one long row. A line above the grid names what
-every image shares (**Fixed:** steps, CFG, seed…) - with Favorites ticked,
+every image shares (**Fixed:** steps, CFG, seed…) - with Starred ticked,
 what the keepers have in common. **F** on a focused cell stars it. A strength
 sweep shows its source as the first column, and a refine pass carries its
 strength on the cell where strength is not an axis. With and without
@@ -1415,7 +1432,7 @@ seeds per version and comparison **Batch** 1, 2 or 4 (default 1).
 **Run comparison** queues one grid - one image per version per seed,
 the panel's other settings, the Seed box's seed or a drawn one - and
 opens that submission's sheet with one row per version, original first,
-unticking Favorites if it was on: nothing in the new comparison is starred
+unticking Starred if it was on: nothing in the new comparison is starred
 yet, and the sheet's note says so. The main panel's **Batch** and **Repeat**
 do not apply. Comparison Batch controls how many images run together,
 without multiplying the seed count: two versions on four seeds still make

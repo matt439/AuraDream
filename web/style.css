@@ -9,9 +9,10 @@
                           buttons (Examples, Tags, Check, Reset), the chip tray's hint
      --fs-sm        11px  hints, tips, menus, presets, sub-labels, notes, sheet headings
      --fs-label     12px  field captions, small buttons, progress and the error line,
-                          the prompt check's text, the lightbox's settings
+                          the prompt check's text, the lightbox's counter and zoom
      --fs-body-sm   13px  the status line, the gallery count and its ticks, the
-                          lightbox's prompt, the prompt check's heading
+                          lightbox's prompt (--fs-md from 1800 px) and its facts,
+                          the prompt check's heading
      --fs-md        14px  body text, inputs and buttons
      --fs-lg        15px  the gallery's and the Refine dialog's headings
      --fs-xl        16px  the brand
@@ -57,6 +58,7 @@
      --narrow-w     62px  a small counter's box: Batch, Repeat, Weight
      --thumb-min    160px a gallery card's least width
      --search-w     240px the gallery's search box, at most
+     --runs-w       190px the Runs picker, closed: 240-360px from 1800 px
      --lb-side-w    280px the lightbox's column; 340-400px from 1800 px
      --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
      --tip-w, --tip-w-wide, --menu-w   the floating panels' widths
@@ -132,6 +134,7 @@
   --narrow-w: 62px;
   --thumb-min: 160px;
   --search-w: 240px;
+  --runs-w: 190px;
   --lb-side-w: 280px;
   --dock-w: clamp(520px, 30vw, 760px);
   --tip-w: 240px;
@@ -167,6 +170,7 @@
     --narrow-w: 72px;
     --thumb-min: clamp(200px, 9vw, 260px);
     --search-w: 480px;
+    --runs-w: clamp(240px, 14vw, 360px);
     --lb-side-w: clamp(340px, 15vw, 400px);
     --tip-w: 320px;
     --tip-w-wide: 380px;
@@ -1278,6 +1282,9 @@ button { font: inherit; cursor: pointer; }
 .error { color: var(--danger); font-size: var(--fs-label); margin: 0; word-break: break-word; }
 /* A cancelled run is an outcome, not a failure - same slot, no alarm. */
 .error.note { color: var(--muted); }
+/* A finished job's outcome while another job runs: whose it is, as the
+   finish line's lead says. Generated, so the alert is not read out again. */
+#error.previous::before { content: "Previous job: "; color: var(--text-readout); }
 /* Reuse's Undo, at the end of its note: the line's own size, and in the text
    colour, since it is the one thing in the line to act on. */
 .error .undo { font-size: var(--fs-label); color: var(--text); margin-left: var(--sp-1); vertical-align: baseline; }
@@ -1394,9 +1401,16 @@ button { font: inherit; cursor: pointer; }
 .gallery-head input[type="search"] {
   flex: 1 1 140px; min-width: 140px; max-width: var(--search-w); margin-left: auto;
 }
+/* The Runs picker, closed, at a width of its own (--runs-w): a select is as
+   wide as its longest option, and the labels - time, counts, stars, prompt -
+   all ran to the old 300 px cap, which cut the search box to 175 px at 1400
+   and the picked run's own label mid-word at 2560. The list opens as wide as
+   it needs; the picked run's whole label is the select's title. */
 .gallery-head .runs {
   background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--muted);
-  border-radius: var(--r-sm); padding: 5px 6px; font: inherit; font-size: var(--fs-label); max-width: 300px;
+  border-radius: var(--r-sm); padding: 5px 6px; font: inherit; font-size: var(--fs-label);
+  flex: 0 1 var(--runs-w); width: var(--runs-w); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .gallery-head .runs:disabled { opacity: 0.45; }
 /* The gallery's line (#gallery-error): a row of the head's own, 4 px under
@@ -1596,6 +1610,10 @@ button { font: inherit; cursor: pointer; }
 }
 .card .tools .del { margin-left: auto; }
 .card .tools button:hover { background: var(--accent); }
+/* Delete lights as the page's other destructive buttons do (#lb-delete,
+   .ghost.danger): its glyph and an edge in the danger red on the dark fill,
+   never the harmless tools' accent. */
+.card .tools .del:hover { background: rgba(0, 0, 0, 0.85); color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
 .card .tools .reuse-settings.model-mismatch {
   color: #fff3c4;
   background: rgba(120, 84, 0, 0.82);

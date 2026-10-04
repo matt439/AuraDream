@@ -149,6 +149,8 @@ async function unloadModel() {
     // As Generate's press: no answer is said in the offline words, which the
     // poll's first answer takes back, and the poll asks again at once.
     if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
+    // Held by a job: said until that job ends (generation.js).
+    else if (busy) showJobNote(els.unload.title);
     else showError(els.unload.title, true);
     return;
   }
