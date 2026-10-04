@@ -649,7 +649,9 @@ async function runRefine() {
   // in its own line. Until the pass's first frame, the viewer shows its
   // source standing in for it (startJob's `placeholder`), captioned with
   // where the pass is: on SDXL, which sends no frames, it showed whatever
-  // image was there before for the whole pass.
+  // image was there before for the whole pass. The full image - the wide
+  // dialog's source pane has it already - since the thumbnail, stretched to
+  // the viewer, was a fourfold upscale at QHD.
   const source = refineSource;
   const strength = els.refineStrength.value.trim() || String(refineDefaultStrength());
   await startJob(path, body, {
@@ -657,7 +659,7 @@ async function runRefine() {
     panel: false,
     slot: els.refineError,
     placeholder: {
-      src: source.thumb_url ?? source.url,
+      src: source.url ?? source.thumb_url,
       width: body.width,
       height: body.height,
       label: `Refining #${source.id} → ${body.width}×${body.height} · strength ${strength}`,

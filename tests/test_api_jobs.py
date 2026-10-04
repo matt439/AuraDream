@@ -250,10 +250,19 @@ def test_a_snapshot_says_what_the_job_is(client, fake):
     grid = client.post(
         "/api/grid", json={"prompt": "a fox", "width": 256, "height": 256, "steps_axis": "4,6", "seed": 1},
     ).json()["job_id"]
+    # A grid with variables is named by its own prompt, the variables
+    # unfilled: the first cell's prompt named it after that cell was done.
+    varied = client.post(
+        "/api/grid",
+        json={"prompt": "a fox, {mood}", "width": 256, "height": 256, "prompt_axis": "mood = calm | happy", "seed": 1},
+    ).json()["job_id"]
     listed = {j["job_id"]: j for j in client.get("/api/jobs").json()}
-    first, second = listed[plain], listed[grid]
+    first, second, third = listed[plain], listed[grid], listed[varied]
     assert first["prompt"] == ("a whale " * 30)[:120] and len(first["prompt"]) == 120
     assert (first["width"], first["height"], first["planned_images"], first["grid"]) == (512, 384, 6, False)
+    assert first["prompt_template"] is None
     assert (second["prompt"], second["planned_images"], second["grid"], second["refine"]) == ("a fox", 2, True, None)
+    assert (third["prompt"], third["prompt_template"]) == ("a fox, calm", "a fox, {mood}")
     client.post(f"/api/jobs/{plain}/cancel")
     stream_job(client, grid)
+    stream_job(client, varied)

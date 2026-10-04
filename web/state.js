@@ -54,7 +54,7 @@ const els = {
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
   progressNow: $('progress-now'), newImage: $('btn-new-image'),
   stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
-  cellNote: $('cell-note'),
+  cellNote: $('cell-note'), finishNote: $('finish-note'),
   gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'),

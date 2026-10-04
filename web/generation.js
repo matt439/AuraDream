@@ -54,7 +54,6 @@ function setBusy(on) {
   els.cancel.textContent = 'Cancel';
   els.cancel.title = 'Stop after the current step';
   els.pause.setAttribute('aria-disabled', String(!on));
-  els.pause.setAttribute('aria-pressed', 'false');
   els.pause.textContent = 'Pause';
   els.pause.title = 'Hold after the current cell and hand the GPU back; Resume carries on';
   setIndeterminate(false);
@@ -62,8 +61,12 @@ function setBusy(on) {
   setStep(false);
   els.cellNote.textContent = '';
   els.progressNow.textContent = '';
+  els.progressNow.title = '';
   jobEta = '';
   cellArgs = null;
+  // The finished job's line stays - only the next job's end replaces it -
+  // and says whose it is while another runs.
+  syncFinishLead();
   // A job this page watches supersedes the morning after's banner: hidden,
   // not dismissed - the done branch remembers a job watched to its end - so
   // "Last run finished" no longer sits under a newer job's own finish line,
@@ -88,8 +91,15 @@ function setBusy(on) {
 // what it renders - the prompt's start, or the image a pass refines - at
 // what size, and how many images. The line over the bars and the queue's
 // rows; the page used to name neither the job Cancel stops nor those waiting.
-function describeJob(job) {
-  const what = job.refine != null ? `refine of #${job.refine}` : snippet(job.prompt ?? '');
+// A grid's cells differ in their prompts, so it is named by its own, its
+// {variables} unfilled - the first cell's named the whole night by a cell
+// that had long finished - and a re-render's cells are its records', with
+// no one prompt to name.
+function describeJob(job, length = 60) {
+  const what = job.refine != null ? `refine of #${job.refine}`
+    : !job.grid ? snippet(job.prompt ?? '', length)
+    : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length)}`
+    : 're-render';
   return [
     what,
     job.width && job.height ? `${job.width}×${job.height}` : '',
@@ -97,9 +107,14 @@ function describeJob(job) {
   ].filter(Boolean).join(' · ');
 }
 
+// At a word's end where there is one in the second half: "under a pine a…"
+// named a word the prompt does not have.
 function snippet(text, length = 60) {
   const line = text.trim().split(/\s+/).join(' ');
-  return line.length > length ? `${line.slice(0, length - 1).replace(/[\s,;:.]+$/, '')}…` : line;
+  if (line.length <= length) return line;
+  const cut = line.slice(0, length - 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > length / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:.]+$/, '')}…`;
 }
 
 // The queue note's name for a job this page has just submitted, until the
@@ -109,9 +124,12 @@ function submissionLabel(path, payload) {
   if (path === '/api/rerender') {
     return `re-render of the gallery's selection at ${payload.width}×${payload.height}`;
   }
+  const grid = path === '/api/grid';
   return describeJob({
     ...payload,
-    planned_images: path === '/api/generate' ? payload.num_images * (payload.runs || 1) : null,
+    grid,
+    prompt_template: grid ? payload.prompt : null,
+    planned_images: grid ? null : payload.num_images * (payload.runs || 1),
   });
 }
 
@@ -131,26 +149,28 @@ function forgetJob(jobId) {
 // The jobs waiting behind the watched one, from the ids their submissions
 // returned - and, after a reload, from /api/jobs - one row each, named, with
 // an × that cancels that one: "1 more job" named none of them, and Cancel
-// queued was all or nothing. Rebuilt whole, with focus kept on the row it
-// was on.
+// queued was all or nothing. One waiting is one row, "Next:" under the Now
+// line, with no heading over it: a heading and a row kept the queue below a
+// 1040 px window. Rebuilt whole, with focus kept on the row it was on.
 const queueCancelling = new Set();
 function syncQueueNote() {
   const n = queuedIds.length;
   els.queueNote.hidden = !(busy && n > 0);
-  els.queueText.textContent = !n ? '' : n === 1 ? 'Queued behind this one:' : `${n} jobs queued behind this one:`;
+  els.queueText.textContent = n > 1 ? `${n} jobs queued behind this one:` : '';
+  els.queueText.hidden = n < 2;
   // Its × is the whole choice for one job; Cancel queued is for several.
   els.cancelQueued.hidden = n < 2;
   const focused = document.activeElement?.closest?.('#queue-list li')?.dataset.id;
-  els.queueList.replaceChildren(...queuedIds.map(queueRow));
+  els.queueList.replaceChildren(...queuedIds.map((id) => queueRow(id, n === 1)));
   if (focused) els.queueList.querySelector(`li[data-id="${focused}"] button`)?.focus();
 }
 
-function queueRow(jobId) {
+function queueRow(jobId, alone) {
   const label = jobLabels.get(jobId) ?? 'a job submitted elsewhere';
   const li = document.createElement('li');
   li.dataset.id = jobId;
   const text = document.createElement('span');
-  text.textContent = label;
+  text.textContent = alone ? `Next: ${label}` : label;
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'ghost tiny danger';
@@ -452,12 +472,14 @@ async function cancelQueued() {
 // Pause holds the watched job at its next cell boundary and hands the card
 // back; the same button resumes it. The worker's `paused` acknowledgement,
 // not the click, is what flips the label to Resume - until it lands a denoise
-// may still be running - but the click is answered at once: "Pausing…"
-// (pressed), since on the card the boundary can be tens of seconds away and
-// a button that kept saying Pause invited a second press, or Cancel. A press
-// on "Pausing…" withdraws the request, and one on Resume reads Pause at once:
-// the worker carries on within its quarter-second poll. A running job of one
-// cell has no boundary to pause at, and its Pause says so (syncPause).
+// may still be running - but the click is answered at once: "Pausing…", and
+// the cell line says the same, since on the card the boundary can be tens of
+// seconds away and a button that kept saying Pause invited a second press,
+// or Cancel. A press on "Pausing…" withdraws the request, and one on Resume
+// reads Pause at once: the worker carries on within its quarter-second poll.
+// The label is the state, with no aria-pressed beside it: a toggle's label
+// must not change, and "Resume, pressed" read as resumed. A running job of
+// one cell has no boundary to pause at, and its Pause says so (syncPause).
 async function togglePause() {
   if (!currentJob) return;
   if (els.pause.getAttribute('aria-disabled') === 'true') {
@@ -466,22 +488,17 @@ async function togglePause() {
   }
   const was = els.pause.textContent;
   const pausing = was === 'Pause';
-  pauseLabel(pausing ? 'Pausing…' : 'Pause');
+  els.pause.textContent = pausing ? 'Pausing…' : 'Pause';
   if (cellArgs) showCell(...cellArgs);
   mirrorJob();
   try {
     await api(`/api/jobs/${currentJob}/pause?value=${pausing}`, { method: 'POST' });
   } catch (err) {
-    pauseLabel(was);
+    els.pause.textContent = was;
     showError(err.message);
   }
   if (cellArgs) showCell(...cellArgs);
   mirrorJob();
-}
-
-function pauseLabel(text) {
-  els.pause.textContent = text;
-  els.pause.setAttribute('aria-pressed', String(text !== 'Pause'));
 }
 
 // The label from the worker's own account, every status frame - so a page
@@ -489,7 +506,7 @@ function pauseLabel(text) {
 // the reason, where the job is one cell that has started.
 function syncPause(job) {
   const unit = unitWord(job);
-  pauseLabel(job.paused ? 'Resume' : job.pause_requested ? 'Pausing…' : 'Pause');
+  els.pause.textContent = job.paused ? 'Resume' : job.pause_requested ? 'Pausing…' : 'Pause';
   const single = job.status === 'running' && (job.total_runs || 1) === 1 && !job.paused;
   els.pause.setAttribute('aria-disabled', String(single));
   els.pause.title = single ? `A single ${unit} has no pause point — Cancel stops it`
@@ -498,11 +515,15 @@ function syncPause(job) {
 
 // The job Cancel stops, named over the bars and in Cancel's own title: with a
 // queue, the prompt box held another job's text, and Cancel stopped the one
-// it did not show.
+// it did not show. One line, beside Pause and Cancel, which the panel's width
+// may cut: the line's title has it whole.
 function syncNow(job) {
   const what = describeJob(job);
   els.progressNow.textContent = what ? `Now: ${what}` : '';
-  const name = job.refine != null ? `the refine of #${job.refine}` : `"${snippet(job.prompt ?? '', 40)}"`;
+  els.progressNow.title = what ? `Now: ${describeJob(job, 120)}` : '';
+  const name = job.refine != null ? `the refine of #${job.refine}`
+    : job.grid ? (job.prompt_template != null ? 'this grid' : 'this re-render')
+    : `"${snippet(job.prompt ?? '', 40)}"`;
   els.cancel.title = `Stop ${name} after the current step`;
 }
 
@@ -775,6 +796,10 @@ async function cancelJob() {
 // running and opened again (gaveUp), so a stream that keeps failing on a live
 // job stops trying and says so.
 function streamJob(jobId, { reattached = 0 } = {}) {
+  // The finish line on show is a job's before this one from here on, until
+  // this one's own end replaces it - or for good, if its stream gives up.
+  finishStale = true;
+  syncFinishLead();
   return new Promise((resolve) => {
     const source = new EventSource(`/api/jobs/${jobId}/stream`);
     // Results replace the viewer only once the first image of this job lands,
@@ -819,9 +844,21 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       dropPreview();
       appendResult(rec);
     };
+    // The clock in a part a screen reader is not told about: #progress-text
+    // is a status, and a clock rewritten in it every second was read out
+    // every second for the minutes a load takes. "loading weights" is said
+    // once; the topbar's mirror and the tab's title take the whole text.
     const tick = () => {
       const s = Math.max(0, Math.floor((Date.now() - waitedFrom) / 1000));
-      els.progressText.textContent = `loading weights · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      let clock = els.progressText.querySelector('.clock');
+      if (!clock) {
+        els.progressText.textContent = 'loading weights';
+        clock = document.createElement('span');
+        clock.className = 'clock';
+        clock.setAttribute('aria-hidden', 'true');
+        els.progressText.append(clock);
+      }
+      clock.textContent = ` · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
       mirrorJob();
     };
     const stopTicker = () => { clearInterval(ticker); ticker = 0; };
@@ -894,11 +931,15 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         setIndeterminate(loading);
         // Paused, the counter stays the counter - "paused — GPU handed back"
         // in its place squeezed the bar to 5 px; the cell line says it.
-        els.progressText.textContent =
-          data.paused ? (runs > 1 && data.run ? `${unit} ${data.run}/${runs}` : 'paused')
-          : data.status === 'queued' ? (loading ? '' : 'waiting for the job ahead…')
-          : runs > 1 && data.run ? `${unit} ${data.run}/${runs}`
-          : 'denoising…';
+        // Loading, the ticker below writes it, and leaves "loading weights"
+        // as it is when it is there already.
+        if (!loading) {
+          els.progressText.textContent =
+            data.paused ? (runs > 1 && data.run ? `${unit} ${data.run}/${runs}` : 'paused')
+            : data.status === 'queued' ? 'waiting for the job ahead…'
+            : runs > 1 && data.run ? `${unit} ${data.run}/${runs}`
+            : 'denoising…';
+        }
         syncPause(data);
         syncNow(data);
         // A run boundary, so the steps bar starts over rather than sitting full
@@ -975,6 +1016,11 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     };
 
     source.onerror = () => {
+      // Whatever the stream does next, it is not the load ticking on: the
+      // ticker wrote "loading weights" over "reconnecting…" every second
+      // while the topbar said the server was not answering. The snapshot a
+      // reconnect opens with starts it again if the load goes on.
+      stopTicker();
       // EventSource reconnects on its own, and the server replays a snapshot to
       // whoever attaches; close() cancels that retry for good, which is what
       // used to strand a running sweep behind an idle-looking page. Ride out a
@@ -985,15 +1031,37 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         return;
       }
       source.close();
-      stopTicker();
       void gaveUp().then(resolve);
     };
   });
 }
 
-// The finished job's outcome: the cell line with what to do next - the
-// seed and Use seed, Show sheet, a Retry or a Resume - the panel's line for
-// what went wrong, the tab's title, and the gallery. `submitted` is the
+// The finished job's line, #finish-note: its outcome and what to do next -
+// the seed and Use seed, Show sheet, a Retry or a Resume. A line of its own,
+// which only the next job's end replaces: in the cell line, a job queued
+// behind cleared it the moment the watched one ended, and a grid's Retry
+// with it - in the overnight queue the button exists for. While another job
+// runs, or after one whose stream gave up, it says whose it is. Focus on it
+// when it is replaced moves to the new line's first button, else Generate,
+// rather than to the page's body.
+let finishStale = false;
+function setFinish(nodes = []) {
+  const focused = els.finishNote.contains(document.activeElement);
+  const lead = document.createElement('span');
+  lead.className = 'lead';
+  els.finishNote.replaceChildren(...(nodes.length ? [lead, ...nodes] : []));
+  finishStale = false;
+  syncFinishLead();
+  if (focused) (els.finishNote.querySelector('button') ?? els.generate).focus({ preventScroll: true });
+}
+
+function syncFinishLead() {
+  const lead = els.finishNote.querySelector('.lead');
+  if (lead) lead.textContent = busy || finishStale ? 'Previous job: ' : '';
+}
+
+// The finished job's outcome: the finish line, the panel's line for what
+// went wrong, the tab's title, and the gallery. `submitted` is the
 // submission this page made, which a Retry sends again; `sheet` a job that
 // opens as its sheet.
 function finishJob(jobId, data, { submitted, sheet }) {
@@ -1003,7 +1071,7 @@ function finishJob(jobId, data, { submitted, sheet }) {
   // the topbar's Retry load - which it says once, with the steps; the panel
   // line used to give the same six lines again.
   const atLoad = data.status === 'error' && !data.started_at;
-  const actions = [];
+  const line = [];
   // Nothing made - every cell skipped - leaves the line to the skipped cells.
   if (data.status === 'done' && data.started_at && data.finished_at && made) {
     // Fewer distinct pictures than images is an axis that changed nothing,
@@ -1021,16 +1089,16 @@ function finishJob(jobId, data, { submitted, sheet }) {
       : images.length === 1 ? `, seed ${images[0].seed}`
       : `, seeds ${images[0].seed}–${images.at(-1).seed}`;
     const took = humanTime(data.finished_at - data.started_at);
-    els.cellNote.textContent = `Finished ${plural(made, 'image')}${deleted} in ${took}${seeds}.${distinct}`;
+    line.push(`Finished ${plural(made, 'image')}${deleted} in ${took}${seeds}.${distinct}`);
     if (plain) {
-      actions.push(noteButton('Use seed', () => useSeed(images[0].seed), `Put ${images[0].seed} in the Seed box`));
+      line.push(noteButton('Use seed', () => useSeed(images[0].seed), `Put ${images[0].seed} in the Seed box`));
     }
   }
   // A grid's sheet is its payoff, and the way to it was the Runs picker or a
   // card's ⊞. Offered, never opened: a night ending under a user browsing
   // the gallery must not take the gallery away.
   if (data.grid && images.length && !sheet) {
-    actions.push(noteButton('Show sheet', () => (data.run_id ? showRun(data.run_id) : showJob(jobId)),
+    line.push(noteButton('Show sheet', () => (data.run_id ? showRun(data.run_id) : showJob(jobId)),
       'Lay this run out as a contact sheet'));
   }
   // The cells a grid skipped, or did not reach: its own payload again with
@@ -1041,19 +1109,33 @@ function finishJob(jobId, data, { submitted, sheet }) {
   // Stopped by the rule: every cell but the ones that rendered.
   const remaining = data.stopped_by === 'failures' ? data.total_runs - (data.run - data.failures) : 0;
   if (submitted?.path === '/api/grid' && (skipped || remaining)) {
-    const again = () => startJob('/api/grid', {
-      ...submitted.payload,
-      resume: true,
-      ...(submitted.payload.seed_axis ? {} : { seed: submitted.seed }),
-    }, { panel: false, sheet: submitted.sheet });
     const count = skipped || remaining;
-    actions.push(noteButton(
+    const button = noteButton(
       skipped ? `Retry the ${plural(skipped, 'skipped cell')}` : `Resume the remaining ${plural(remaining, 'cell')}`,
-      again,
+      () => {
+        if (button.getAttribute('aria-disabled') === 'true') return;
+        void startJob('/api/grid', {
+          ...submitted.payload,
+          resume: true,
+          ...(submitted.payload.seed_axis ? {} : { seed: submitted.seed }),
+        }, {
+          panel: false,
+          sheet: submitted.sheet,
+          // Sent once: a second press would queue the same cells again. The
+          // button stays where the press left focus, saying so, until the
+          // job it sent ends and its own line replaces this one.
+          onAccepted: () => {
+            button.setAttribute('aria-disabled', 'true');
+            button.textContent = skipped ? 'Retry sent' : 'Resume sent';
+            button.title = 'Sent: it runs as a job of its own';
+          },
+        });
+      },
       `Run the grid again with Resume: only the ${plural(count, 'missing cell')}`,
-    ));
+    );
+    line.push(button);
   }
-  els.cellNote.append(...actions);
+  setFinish(line);
 
   if (data.status === 'error') {
     if (!atLoad) showError(data.error);
@@ -1076,6 +1158,10 @@ function finishJob(jobId, data, { submitted, sheet }) {
     : data.status === 'cancelled' ? 'Cancelled'
     : atLoad ? 'Load failed' : 'Stopped');
   // The status says how the load went, at once rather than at the next poll.
+  // Said again, where it goes to the panel's line: the press that queued
+  // this job cleared that line, and a detail already posted once was
+  // otherwise never posted again (syncLoadFailure).
+  if (atLoad) shownLoadDetail = null;
   void refreshStatus();
   // A comparison opens this submission alone. Run ids name rendered
   // cells, so reversing original/yours on the same seeds shares a run

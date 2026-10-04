@@ -154,7 +154,7 @@
   {"expect": "els.gridPreview.classList.contains('warn') && els.gridPreview.textContent.includes('2 would be identical')"},
   {"eval": "els.seed.value = '5'; startJob('/api/grid', gridPayload());"},
   {"wait": 3000},
-  {"expect": "els.cellNote.textContent.includes('Finished 6 images') && els.cellNote.textContent.includes('Only 2 distinct')"},
+  {"expect": "els.finishNote.textContent.includes('Finished 6 images') && els.finishNote.textContent.includes('Only 2 distinct')"},
   {"eval": "loadRuns();"},
   {"wait": 800},
   {"expect": "[...els.runList.options].some((o) => o.textContent.includes('(2 distinct)'))"},

@@ -186,7 +186,13 @@ a primary Retry load, the topbar's Load handler, which reads Retry load
 meanwhile - and says it in the panel's line only where the viewer holds images,
 once per failure (a retry that fails again counts as a new one) and never in
 the lightbox (`syncLoadFailure`). A job that ended at the load posts nothing
-of its own; the banner skips it while the status still says the same.
+of its own, but it forgets the detail posted (`shownLoadDetail`): the press
+that queued it cleared the panel's line, and a Generate on a gated
+checkpoint with images in the viewer used to end in silence, the steps gone
+from the page and never posted again. The banner skips such a job while the
+status still says the same. A card that goes with focus in it - its Retry
+load pressed, the load on its way - hands focus to Generate, or to the new
+card's Retry load where the detail changed, not to the page's body.
 
 ## The loader is model-agnostic
 
@@ -1059,8 +1065,8 @@ error or a slow reply, which a load's CUDA read can cause and `statusPending`
 absorbs - into an Error with `offline: true` and "No answer from the Local
 Diffusion server - is it still running?". A status poll that gets one turns
 the dot red ("server not answering - retrying"), hides Load, and holds
-Generate and Run grid (`aria-disabled`, titled with the reason; a press says
-it and polls at once) and Unload; Refine's preview fails with the same words.
+Generate, Run grid and Unload (`aria-disabled`, titled with the reason; a press
+says it and polls at once); Refine's preview fails with the same words.
 `showError` remembers which slots hold such a message (`offline`, set from the
 text or by the caller), and the first answer clears them (`clearOffline`).
 `ModelStatus.started_at` is set once, at import: a changed value is a restart,
@@ -1190,6 +1196,14 @@ error leads with where and why - "Stopped at cell 4 of 5 after 3 cells failed;
 1 image kept. Last: <the exception>" - since three in a row or a third of the
 grid read as one bad cell when only the last exception was shown; the page
 offers "Resume the remaining N cells" (the total less the cells that rendered).
+Both live in the finish line, `#finish-note`, apart from the cell line: when
+they shared `#cell-note`, the next queued job's start cleared it the moment the
+grid ended, and the Retry with it - in the overnight queue the button exists
+for. The finish line stays until the next job's end replaces it, led by
+"Previous job:" while another runs (or after one whose stream gave up). A
+Retry or Resume is sent once: accepted, it reads "Retry sent", `aria-disabled`,
+and keeps focus where the press left it; when the line is replaced with focus
+in it, focus moves to the new line's first button, else Generate.
 
 ## Cooperative cancellation
 
@@ -1524,9 +1538,12 @@ a full unload-while-paused only matters for `LOCAL_DIFFUSION_OFFLOAD=none`.
 The click is answered at once all the same: on the card a cell can take tens
 of seconds, and a button still reading Pause - its "pausing after this cell…"
 overwritten by the next step - invited a second press or Cancel. It reads
-"Pausing…" (`aria-pressed`) until the acknowledgement, which "claims nothing";
-a press on it withdraws the request, and each status frame's `pause_requested`
-sets it again, so a reattached page shows it. The cell line says "pausing
+"Pausing…" until the acknowledgement, which "claims nothing"; a press on it
+withdraws the request, and each status frame's `pause_requested` sets it
+again, so a reattached page shows it. The label is the state, with no
+`aria-pressed` beside it: a toggle's label must not change, and the first cut,
+pressed on both "Pausing…" and "Resume", was read as "Resume, pressed" - as if
+resumed. The cell line says "pausing
 after this image…", and once paused "Paused after image 1/3 · GPU handed
 back", while the counter beside the bar stays the counter - written there, the
 long text squeezed the bar to 5 px. A running job of one cell has no boundary
@@ -1549,13 +1566,22 @@ newest. Cancel acts on the watched job; "Cancel queued" on the rest.
 **Every job is named.** With a queue the prompt box held another job's text,
 "1 more job queued behind this one" named none, and Cancel stopped the job the
 page did not show. The snapshot carries what the job is - `prompt` (its first
-120 characters), `refine`, `width`, `height`, `planned_images`, `grid` - so a
-page that did not submit it can name it too. A "Now:" line over the bars and
-Cancel's title name the watched one; under the bars a row per queued job (a
+120 characters), `refine`, `width`, `height`, `planned_images`, `grid`, and a
+grid's own prompt, its variables unfilled (`prompt_template`, from
+`/api/grid`) - so a page that did not submit it can name it too. A grid is
+named by that: by its first cell's prompt, the line named a cell that had
+long finished for the rest of the night ("grid · a fox, {mood}", Cancel's
+title "Stop this grid"; a re-render, whose cells are its records', is "re-
+render"). A "Now:" line over the bars and Cancel's title name the watched one;
+the line is one line, cut to the panel's width with its whole text in its
+title, and Pause and Cancel sit at its end - wrapped to two lines, with the
+buttons on a row of their own, it pushed Cancel and the queue below a 1040 px
+window. Under the bars a row per queued job (a
 submission's own words until `nameJob` has the server's: "refine of #10 ·
 1536×1536 · 1 image") carries an × that cancels that job alone, `aria-disabled`
-while its POST runs, focus moving to the next row's; Cancel queued stays for
-two or more. `startJob`'s `onAccepted(jobId)` runs once the server has taken a
+while its POST runs, focus moving to the next row's; one waiting is a single
+"Next:" row with no heading, and Cancel queued stays for two or more.
+`startJob`'s `onAccepted(jobId)` runs once the server has taken a
 job, before it is watched - the Refine dialog closes there, so a refusal at
 submit leaves it open with the reason in its own line - and its `placeholder`
 is what the viewer shows of that job until a frame arrives (The live preview),
@@ -1566,7 +1592,10 @@ keyed to the job so a pass queued behind another cannot paint over that one.
 again - focus, a press or a key), and the topbar carries the same counters in
 one `aria-hidden` line, with a 2 px line along its foot: the panel's bar was
 113 px of 11 px text a column from the image, and at 125% below the fold.
-Pause and Cancel sit on a row of their own, so the bars take the panel's width.
+Pause and Cancel sit on the Now line, so the bars take the panel's width. The
+cell line is inside the progress block and the finish line is its own line
+after it (A cell's failure is the cell's); either takes no room while empty,
+where an empty one was a 47 px hole between the progress and the queue.
 A job of this page's hides the morning-after banner without dismissing it
 (The morning after).
 
@@ -1584,7 +1613,7 @@ lays itself out from the whole run. The viewer may now be a screen above: a
 job's first image or frame landing out of sight shows "New image ↑" under the
 progress, whose press scrolls the viewer into view (reduced motion honoured)
 and focuses the newest image - never a scroll of the page's own - and which
-goes once the viewer is in view. The done line offers what comes next: a plain
+goes once the viewer is in view. The finish line offers what comes next: a plain
 job's seed with Use seed (the Seed box alone - Reuse rewrites the prompt and
 size too - after which, as after a grid's write-back, the run hint says the
 seed is fixed and the dice frees it), Show sheet for a grid that does not open
@@ -1844,18 +1873,29 @@ a multi-minute no-op. The label is set only when a load is actually
 needed. Progress events carry `elapsed` (server clock, since the job
 started running); the UI's ETA is `elapsed * (1 - f) / f` over the fraction
 of cells done, the job's own pace rather than the gallery's per-step
-median, so a run that has slowed shows it. The `done` summary goes into
-`#cell-note`, which sits outside the element `setBusy` hides.
+median, so a run that has slowed shows it. The `done` summary goes into the
+finish line, `#finish-note`, which sits outside the element `setBusy` hides
+and which the next job's start does not clear.
 
 The load's wait is on the page's clock instead, from the submission, since the
 server's `elapsed` starts only when the job runs: "loading weights · 0:42",
 ticking each second, "The first load of a session takes a few minutes." under
 it, the bar indeterminate (a sliding stretch; still under reduced motion, no
 `aria-valuenow`), and the topbar "<checkpoint> · loading…" - asked for as soon
-as the POST returns - where it used to drop the name. A cancel during the load
-says the weights keep loading, which they do. Unload has one writer,
-`syncUnload` (busy, Expand, the critic, a load, no server), and is hidden while
+as the POST returns - where it used to drop the name. The clock is an
+`aria-hidden` span inside `#progress-text`: that is a status, and the whole
+text rewritten each second was read out each second for minutes; "loading
+weights" is said once, and the topbar and the title carry the clock. The
+stream's error handler stops the ticker - it wrote "loading weights" over
+"reconnecting…" every second while the topbar said the server was not
+answering - and the snapshot a reconnect opens with starts it again. A cancel
+during the load says the weights keep loading, which they do. Unload has one
+writer, `syncUnload` (busy, Expand, the critic, a load, no server), held with
+`aria-disabled` and the reason as its title, which a press says (as Generate's
+does: disabled, the reason was out of a keyboard's reach), and hidden while
 Load is shown; an Unload refused by a load goes when the state turns ready.
+The two take each other's place, so the press that hides one hands focus to
+the other rather than to the page's body.
 Under a budget the estimate is held to it, on the server's clock alone:
 `deadline - started_at - elapsed`, "~1 min left (budget)" where that is the
 sooner - the budget means "start no cell after", so the end is up to a cell
@@ -2556,11 +2596,15 @@ in the module docstring, and the frames were looked at.
 A refine pass has a stand-in until its first frame: SDXL sends none, and the
 viewer showed whatever image was there before for the whole pass, with nothing
 naming the source. `runRefine` hands `startJob` a `placeholder` (the source's
-thumbnail, the result's size, "Refining #N → W×H · strength s"), and at the
-job's first progress event with no frame `streamJob` clears the strip and shows
-the source dimmed and softened at the result's aspect, captioned with the step
-and the time left. A frame or the result replaces it, as either replaces the
-other; it is never a record.
+full image - the thumbnail was a fourfold upscale at QHD - the result's size,
+"Refining #N → W×H · strength s"), and at the job's first progress event with
+no frame `streamJob` clears the strip and shows the source dimmed and softened
+at the result's aspect, captioned with the step and the time left. It is sized
+as the result will be - the figure as wide as the viewer allows at 68vh tall or
+less, the image filling it at the result's aspect - where a fixed 68vh height
+with the width clamped cropped the source and stood taller than the result,
+which jumped the viewer when it landed. A frame or the result replaces it, as
+either replaces the other; it is never a record.
 
 ## FLUX.1 dev and schnell, Z-Image Turbo, Qwen-Image
 

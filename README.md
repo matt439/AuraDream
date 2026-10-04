@@ -720,11 +720,12 @@ CLI's `--runs`; the panel calls it Repeat because a *run* is a submission -
 what the gallery's Runs picker lists, `run:` searches for and the last-run
 banner reports - and one Repeat-3 Generate is one run of three batches.
 
-**Cancel** appears under the progress bars while a job is running, beside
+**Cancel** appears over the progress bars while a job is running, beside
 Pause. It stops at the end of the current step — within a second or two — and
-keeps every image the run had already finished. The line over the bars names
-the job it stops ("Now: a fox in the snow · 1024×1024 · 3 images"), since with
-a queue the prompt box may hold another job's text.
+keeps every image the run had already finished. The line it sits on names the
+job it stops ("Now: a fox in the snow · 1024×1024 · 3 images", or "Now: grid ·
+a fox, {mood} · …" for a grid), since with a queue the prompt box may hold
+another job's text; hover it for the whole line where the panel cuts it.
 
 **Live preview**: while a cell denoises, a small picture of it appears in the
 viewer from a few steps in - a linear read of the latents the step callback
@@ -746,8 +747,9 @@ paused.
 
 **Queueing**: Generate and Run grid stay live while a job runs. A second press
 queues the job behind the current one on the server; under the bars a row per
-waiting job names it - its prompt, or the image a refine pass is of - with an ×
-that cancels that one (and *Cancel queued* for all, where there are several),
+waiting job names it - its prompt, or the image a refine pass is of; "Next:"
+where only one waits - with an × that cancels that one (and *Cancel queued*
+for all, where there are several),
 and the page moves on to the next job when the watched one ends. A reload
 attaches to whichever job holds the GPU, then to the oldest one waiting.
 
@@ -760,8 +762,8 @@ first image lands in the viewer while it is scrolled out of sight, *New image �
 beside the progress goes up to it - the page never scrolls on its own.
 
 **When the server stops answering** the top bar's dot turns red and reads
-"server not answering — retrying", Generate and Run grid are held with that
-reason, and a job being watched says how many of its images were saved rather
+"server not answering — retrying", Generate, Run grid and Unload are held with
+that reason, and a job being watched says how many of its images were saved rather
 than promising it carries on. Once the server answers again the messages go;
 if it was restarted, the page says when, that the model is not loaded, and
 that the job that was running ended with it (a grid's Resume finishes it).
@@ -898,14 +900,17 @@ the record.
 
 While a job runs, the line under the progress bars says how long it has been
 going and roughly how long is left, from the job's own pace so far - which is
-what shows a run that has slowed down. When it finishes, the same line says
-how many images it made and in how long - and how many of them were distinct
-pictures, when that is fewer - with what to do next: a plain job's seed and
-*Use seed*, which puts it in the Seed box and nothing else; *Show sheet* for a
-grid (never opened for you); and, where cells were skipped, *Retry the N
-skipped cells*, which sends the grid as it was submitted again with Resume and
-its base seed, whatever the panel holds now. Skipped cells are counted on that
-line as they happen and named, with their seeds, at the end. A job waiting for
+what shows a run that has slowed down. When it finishes, a line under the
+progress says how many images it made and in how long - and how many of them
+were distinct pictures, when that is fewer - with what to do next: a plain
+job's seed and *Use seed*, which puts it in the Seed box and nothing else;
+*Show sheet* for a grid (never opened for you); and, where cells were skipped,
+*Retry the N skipped cells*, which sends the grid as it was submitted again
+with Resume and its base seed, whatever the panel holds now. That line stays
+until the next job finishes - "Previous job:" while a queued one runs - so a
+grid's Retry is still there in the morning with jobs queued behind it.
+Skipped cells are counted on the running line as they happen and named, with
+their seeds, at the end. A job waiting for
 the weights says so, with the time it has waited and the checkpoint's name in
 the top bar, rather than claiming to be behind another job; **Load** in the top
 bar starts the download without queueing an image to do it. A failed load

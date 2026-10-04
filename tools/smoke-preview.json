@@ -9,6 +9,6 @@
   {"expect": "/^\\d+% · \\d\\/6 — Local Diffusion$/.test(document.title) && !els.topbarLine.hidden && els.jobMirror.textContent.startsWith(els.progressText.textContent)"},
   {"wait": 2500},
   {"expect": "!busy && !document.querySelector('#viewer img.preview') && viewerRecords.length === 1"},
-  {"expect": "document.title === '✓ Finished 1 image — Local Diffusion' && els.topbarLine.hidden && els.cellNote.textContent.includes(', seed 3.')"},
+  {"expect": "document.title === '✓ Finished 1 image — Local Diffusion' && els.topbarLine.hidden && els.finishNote.textContent.includes(', seed 3.')"},
   {"eval": "els.seed.value = ''; els.steps.value = ''; persistPanel();"}
 ]

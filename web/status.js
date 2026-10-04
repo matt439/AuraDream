@@ -113,8 +113,10 @@ function syncPromptExpansion() {
 // Unload's one writer. setBusy, Expand and the critic each used to set it,
 // overwriting one another, and a load the page did not start left it live
 // for a press the server refuses (a 409 under a job or a load). Held, with
-// the reason, while it would be refused or could not be sent; hidden while
-// Load is shown, with nothing loaded to give back.
+// the reason, while it would be refused or could not be sent - aria-disabled,
+// as Generate is, so it keeps focus and a press says why (unloadModel);
+// disabled, the reason was in a title no keyboard could reach - and hidden
+// while Load is shown, with nothing loaded to give back.
 function syncUnload() {
   els.unload.hidden = modelState === 'unloaded' || modelState === 'error';
   const why = serverOffline ? 'The server is not answering'
@@ -123,7 +125,7 @@ function syncUnload() {
     : critiquing ? 'Wait for the critic to finish'
     : modelState === 'loading' ? 'The weights are still loading'
     : '';
-  els.unload.disabled = !!why;
+  els.unload.setAttribute('aria-disabled', String(!!why));
   els.unload.title = why || 'Free VRAM';
 }
 
@@ -143,6 +145,13 @@ async function loadModel() {
 // the load lands, when it no longer says anything true.
 let unloadRefusal = null;
 async function unloadModel() {
+  if (els.unload.getAttribute('aria-disabled') === 'true') {
+    // As Generate's press: no answer is said in the offline words, which the
+    // poll's first answer takes back, and the poll asks again at once.
+    if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
+    else showError(els.unload.title, true);
+    return;
+  }
   try {
     await api('/api/model/unload', { method: 'POST' });
     showError('');
@@ -187,15 +196,26 @@ function noteRestart(s) {
 // whatever else the line had to say, and into the lightbox. Where the viewer
 // holds images, the panel's line says it, once per failure and never in the
 // lightbox, which has nothing to do with a load.
+// `shownLoadDetail` is the detail last posted there; a job that ended at the
+// load forgets it (finishJob), since the press that queued the job cleared
+// the line. A card that goes - its Retry load pressed, the load on its way -
+// hands focus to Generate, the next thing to press, or to the new card's
+// Retry load, rather than to the page's body.
 let shownLoadDetail = null;
 function syncLoadFailure(s) {
   const failed = s.state === 'error' && !!s.detail;
   let card = els.viewer.querySelector('.load-failed');
-  if (card && (!failed || card.dataset.detail !== s.detail)) { card.remove(); card = null; }
+  let focused = false;
+  if (card && (!failed || card.dataset.detail !== s.detail)) {
+    focused = card.contains(document.activeElement);
+    card.remove();
+    card = null;
+  }
   if (failed && !card && !els.viewer.querySelector('img, figure, .tomb')) {
     card = loadFailureCard(s);
     els.viewer.prepend(card);
   }
+  if (focused) (card?.querySelector('button') ?? els.generate).focus({ preventScroll: true });
   els.viewer.querySelectorAll('.placeholder').forEach((p) => { p.hidden = !!card; });
   if (!failed) { shownLoadDetail = null; return; }
   if (s.detail === shownLoadDetail) return;
@@ -376,11 +396,15 @@ async function refreshStatus() {
     const was = modelState;
     modelState = s.state;
     // A way to start - or retry, after a gated-repo 403 - the load without
-    // queueing an image to do it.
+    // queueing an image to do it. Load and Unload take each other's place,
+    // so the press that hides one hands focus to the other, not to the
+    // page's body.
+    const pressed = [els.load, els.unload].find((b) => b === document.activeElement);
     els.load.hidden = !(s.state === 'unloaded' || s.state === 'error');
     els.load.textContent = s.state === 'error' ? 'Retry load' : 'Load';
     els.load.title = s.state === 'error' ? 'Try the load again, once what stopped it is fixed' : 'Load the weights now';
     syncUnload();
+    if (pressed?.hidden) (pressed === els.load ? els.unload : els.load).focus({ preventScroll: true });
     // The checkpoint's name in every state: "loading weights…" for minutes
     // never said which.
     const name = (s.model_id ?? '').split('/').pop();

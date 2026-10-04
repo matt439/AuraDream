@@ -108,6 +108,11 @@ class Job:
     # Submitted as cells (a grid, a sweep, a re-render) rather than as one
     # request's repeats: what the page calls each one, a cell or an image.
     grid: bool = False
+    # A grid's prompt as submitted, its {variables} unfilled, which names
+    # the job: its cells' prompts differ, and the first one's named the whole
+    # night long after that cell had finished. None for a plain request, whose
+    # cells share theirs, and for a re-render, whose cells are its records'.
+    prompt_template: str | None = None
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -162,14 +167,15 @@ class Job:
             "seed": self.seed,
             # What the job is, for a page that did not submit it - a reload,
             # the queue note naming each job waiting, the line over the bars:
-            # the first cell's prompt, a pass's source, the size, and how many
-            # images the whole job makes.
+            # the first cell's prompt and a grid's own, a pass's source, the
+            # size, and how many images the whole job makes.
             "prompt": self.request.prompt[:120],
             "refine": self.request.refine,
             "width": self.request.width,
             "height": self.request.height,
             "planned_images": sum(cell.request.num_images for cell in self.cells),
             "grid": self.grid,
+            "prompt_template": None if self.prompt_template is None else self.prompt_template[:120],
             "status": self.status,
             "waiting_on": self.waiting_on,
             "pause_requested": self.pause_requested,
@@ -325,6 +331,7 @@ class JobManager:
         run_id: str | None = None,
         budget_minutes: float | None = None,
         grid: bool = True,
+        prompt_template: str | None = None,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -333,7 +340,8 @@ class JobManager:
         subtracted, so its images join the night they continue; left out, the
         cells themselves are the definition. `budget_minutes` is plumbed here
         rather than read off `job.request`: GridRequest-only fields are gone
-        by the time the cells are built.
+        by the time the cells are built - as is the grid's own prompt, which
+        `prompt_template` carries for the snapshot to name the job by.
         """
         job = Job(
             id=uuid.uuid4().hex[:12],
@@ -345,6 +353,7 @@ class JobManager:
             total_runs=len(cells),
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
             grid=grid,
+            prompt_template=prompt_template,
         )
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight

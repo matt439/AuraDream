@@ -326,8 +326,18 @@
     <button class="primary" id="btn-generate" title="Generate (Ctrl+Enter)"
             aria-keyshortcuts="Control+Enter">Generate</button>
     <div class="progress" id="progress" hidden>
-      <!-- Which job this is - the one Cancel stops - from its status frames. -->
-      <p class="now" id="progress-now"></p>
+      <!-- Which job this is - the one Cancel stops - from its status frames,
+           on one line with Pause and Cancel: a row of their own under the
+           bars pushed Cancel below a 1040 px window. The bars take the
+           panel's width under them. -->
+      <div class="progress-head">
+        <p class="now" id="progress-now"></p>
+        <div class="progress-actions">
+          <button class="ghost small" id="btn-pause"
+                  title="Hold after the current cell and hand the GPU back; Resume carries on">Pause</button>
+          <button class="ghost small danger" id="btn-cancel" title="Stop after the current step">Cancel</button>
+        </div>
+      </div>
       <div class="bars">
         <div class="row">
           <div class="bar" role="progressbar" aria-label="Job progress" aria-valuemin="0"
@@ -341,18 +351,15 @@
           <span class="pt" id="step-text"></span>
         </div>
       </div>
-      <!-- A row of their own, under the bars rather than beside them: the
-           bars take the panel's width. -->
-      <div class="progress-actions">
-        <button class="ghost small" id="btn-pause" aria-pressed="false"
-                title="Hold after the current cell and hand the GPU back; Resume carries on">Pause</button>
-        <button class="ghost small danger" id="btn-cancel" title="Stop after the current step">Cancel</button>
-      </div>
+      <!-- Under the bars: a pause on its way or taken, which cell of a grid
+           is running, the time left and the cells skipped so far. -->
+      <p class="hint" id="cell-note"></p>
     </div>
-    <!-- Under the bars: which cell of a grid is running and the time left,
-         then the finished job's outcome with what to do next (Use seed, Show
-         sheet, a Retry). Outside #progress, which a finished job hides. -->
-    <p class="hint" id="cell-note"></p>
+    <!-- The finished job's outcome with what to do next (Use seed, Show
+         sheet, a Retry). Outside #progress, which a finished job hides, and
+         apart from the cell line, which the next queued job's start clears:
+         only the next job's end replaces it. -->
+    <p class="hint" id="finish-note"></p>
     <!-- A result that landed in the viewer while the page was down the
          gallery: said here, and a press goes up to it. Never a scroll of the
          page's own. Outside #progress, which a finished job hides. -->
