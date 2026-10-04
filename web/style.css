@@ -1638,6 +1638,13 @@ button { font: inherit; cursor: pointer; }
 /* Our `display: flex` would beat the UA's `dialog:not([open]) { display: none }`.
    The two wrappers are the two-pane layout's; in one column their children
    are the dialog's own. */
+/* The wide tier's type grows with the window (--ramp) and the controls'
+   column with it, as the panel's does: at 460 px, Strength's 14.5 px label,
+   its badge and Compare 3 ran into Versions at 2560. 540 px there, about 486
+   at 2048 at 125%; nothing changes under 1800 px. */
+@media (min-width: 1800px) {
+  .refine-dialog { --rf-narrow: min(540px, calc(460px + 80 * var(--ramp))); }
+}
 .refine-dialog[open] { display: flex; flex-direction: column; gap: var(--panel-gap); }
 .rf-controls { display: contents; }
 /* It scrolls rather than squeezing its lines: a column too tall for the
@@ -1691,6 +1698,9 @@ button { font: inherit; cursor: pointer; }
   content: attr(data-size); display: block; font-size: var(--fs-xs); color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* The chosen factor is the presets' accent fill (white on --accent-strong):
+   its size line in --muted on that fill was about 1.5:1. */
+.refine-dialog .presets button.active::after { color: inherit; opacity: 0.85; }
 .refine-dialog .presets button:disabled { opacity: 0.45; cursor: not-allowed; }
 .rf-lock { flex: none; align-self: center; margin-top: var(--sp-3); font-size: var(--fs-label); }
 .refine-dialog .sub i .ghost.tiny { margin-left: auto; }
