@@ -106,10 +106,10 @@
   {"log": "'starring in the lightbox reaches the card, and the lightbox says Star / Starred'"},
   {"eval": "openLightbox(__rec(+__first.dataset.id), galleryRecords);"},
   {"wait": 300},
-  {"expect": "els.lbFav.textContent === '★ Starred'"},
+  {"expect": "els.lbFav.textContent === '★ Starred' && els.lbFav.getAttribute('aria-pressed') === 'true' && els.lbFav.title === __badge.title"},
   {"key": "f"},
   {"wait": 400},
-  {"expect": "els.lbFav.textContent === '☆ Star' && !__first.classList.contains('fav') && __badge.textContent === '☆' && __badge.getAttribute('aria-pressed') === 'false'"},
+  {"expect": "els.lbFav.textContent === '☆ Star' && !__first.classList.contains('fav') && __badge.textContent === '☆' && __badge.getAttribute('aria-pressed') === 'false' && els.lbFav.getAttribute('aria-pressed') === 'false' && els.lbFav.title === __badge.title && __badge.title === 'Star (F)'"},
   {"key": "Escape"},
   {"wait": 200},
 

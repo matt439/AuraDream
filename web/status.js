@@ -298,6 +298,7 @@ async function refreshStatus() {
     if (back) {
       serverOffline = false;
       clearOffline();
+      retryLightboxImage();
       syncSubmitButtons();
     }
     const restarted = serverStartedAt !== null && typeof s.started_at === 'number'

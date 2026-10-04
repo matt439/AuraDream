@@ -775,7 +775,9 @@ beside the progress goes up to it - the page never scrolls on its own.
 **When the server stops answering** the top bar's dot turns red and reads
 "server not answering — retrying", Generate, Run grid and Unload are held with
 that reason, and a job being watched says how many of its images were saved rather
-than promising it carries on. Once the server answers again the messages go;
+than promising it carries on; a picture the lightbox could not load says the
+same. Once the server answers again the messages go, and that picture is asked
+for again;
 if it was restarted, the page says when, that the model is not loaded, and
 that the job that was running ended with it (a grid's Resume finishes it).
 

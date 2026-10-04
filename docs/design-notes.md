@@ -1071,6 +1071,14 @@ Generate, Run grid and Unload (`aria-disabled`, titled with the reason; a press
 says it and polls at once); Refine's preview fails with the same words.
 `showError` remembers which slots hold such a message (`offline`, set from the
 text or by the caller), and the first answer clears them (`clearOffline`).
+The lightbox's own picture is one of them: one that fails to load asks for its
+record, and where the server is not answering (`serverOffline`, or the ask's
+`offline` error) `#lb-error` says the same sentence as an offline message -
+it had a second wording of its own - which the first answer takes back while
+asking for the picture again (`retryLightboxImage`). Otherwise it says
+"#N is no longer in the gallery." on an unknown image, "The file of #N could
+not be loaded." where the record is still there, and "This image could not be
+loaded." for any other refusal; the next picture that loads clears it.
 `ModelStatus.started_at` is set once, at import: a changed value is a restart,
 with or without a failed poll between, which a quick one leaves none of; the
 page then says "The server restarted at HH:MM - the model is not loaded, and
@@ -2284,7 +2292,10 @@ is false, it never intersects.
 Where the local day changes between one record and the next, `loadGallery`
 puts a line across the grid (`dayBreak`, an `h3` spanning `1 / -1`), judged
 from the last record already held, so a page boundary is no day boundary.
-It carries no `data-id`: paging, the deletes, the lightbox and `.card`
+`prependFinished` draws it the same way at the head - between two new cards,
+or between the last of them and the old head - since a job that ends after
+midnight under a page loaded the day before ran the two days together, and
+calls `keepCurrentCard` as anything adding cards must. It carries no `data-id`: paging, the deletes, the lightbox and `.card`
 counts never see it. A day whose cards are all deleted keeps its line over
 their tombstones, which hold their slots so that nothing moves under the
 pointer that pressed ⌦ - taking the line out would move every card after it.
@@ -2354,7 +2365,10 @@ F works from the star and the tools as from the image (`galleryKey`): it
 was the image's alone, under a star whose title promised it. `setFavorite`
 updates every element showing the record by class and its star button:
 cards, sheet cells, a `.result` beside the viewer, and the lightbox when it
-shows that record. `.sheet-cell.fav::after` keeps the badge as a picture:
+shows that record. The lightbox's button keeps its words (☆ Star / ★
+Starred, its name) but takes the card star's title and `aria-pressed` in
+`renderLightbox`, so the two say the same after a toggle from either, or
+from the sheet. `.sheet-cell.fav::after` keeps the badge as a picture:
 F stars a cell.
 
 **The whole frame, and what it is.** Cards are `object-fit: contain` on

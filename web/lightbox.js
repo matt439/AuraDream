@@ -247,6 +247,8 @@ function renderLightbox() {
   els.lbPrev.disabled = lbIndex === 0;
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
   els.lbFav.textContent = rec.favorite ? '★ Starred' : '☆ Star';
+  // The card's star's title (syncStar), as this one names F too.
+  els.lbFav.title = rec.favorite ? 'Starred - click to unstar (F)' : 'Star (F)';
   els.lbFav.setAttribute('aria-pressed', String(!!rec.favorite));
   els.lbFav.classList.toggle('active', !!rec.favorite);
   // Kept facts keep their buttons, whose state follows the checkpoint's.
@@ -735,29 +737,44 @@ function returnToLightbox(place) {
 // The picture failed to load: a broken image and nothing else said why. Most
 // often the server is not answering; the record is asked for to tell that
 // from an image deleted elsewhere. Said where the user is looking, and taken
-// back by the next picture that loads. A src emptied by a close fires this
-// too, and is no failure.
+// back by the next picture that loads. A server not answering is the page's
+// one sentence for it (OFFLINE_MESSAGE), an offline message like the panel's:
+// the first status poll the server answers takes it back (clearOffline) and
+// asks for the picture again (`retryLightboxImage`). A src emptied by a close
+// fires this too, and is no failure.
 let lbLoadError = '';
 els.lbImg.onerror = async () => {
   const rec = lbList[lbIndex];
   if (!els.lightbox.open || !rec || els.lbImg.getAttribute('src') !== rec.url) return;
-  let said = 'This image could not be loaded — the server is not answering.';
-  try {
-    await api(`/api/images/${rec.id}`);
-    said = `The file of #${rec.id} could not be loaded.`;
-  } catch (err) {
-    if (/unknown image/.test(err.message)) said = `#${rec.id} is no longer in the gallery.`;
+  let offline = serverOffline;
+  let said = OFFLINE_MESSAGE;
+  if (!offline) {
+    try {
+      await api(`/api/images/${rec.id}`);
+      said = `The file of #${rec.id} could not be loaded.`;
+    } catch (err) {
+      offline = !!err.offline;
+      said = offline ? OFFLINE_MESSAGE
+        : /unknown image/.test(err.message) ? `#${rec.id} is no longer in the gallery.`
+          : 'This image could not be loaded.';
+    }
   }
   if (lbList[lbIndex] !== rec || els.lbImg.complete && els.lbImg.naturalWidth) return;
   lbLoadError = said;
-  els.lbError.hidden = false;
-  els.lbError.textContent = said;
-  els.lbError.classList.remove('note');
+  showError(said, false, { slot: els.lbError, mirror: false, offline });
 };
 els.lbImg.onload = () => {
-  if (lbLoadError && els.lbError.textContent === lbLoadError) { els.lbError.hidden = true; els.lbError.textContent = ''; }
+  if (lbLoadError && els.lbError.textContent === lbLoadError) showError('', false, { slot: els.lbError, mirror: false });
   lbLoadError = '';
 };
+// The server answers again: a picture that failed for its silence is asked
+// for once more, rather than left broken under a line that has gone.
+function retryLightboxImage() {
+  const rec = lbList[lbIndex];
+  if (!els.lightbox.open || !rec || lbLoadError !== OFFLINE_MESSAGE || els.lbImg.naturalWidth) return;
+  lbLoadError = '';
+  els.lbImg.src = rec.url;
+}
 // The source's picture: the comparison ends, and says why.
 els.lbSrcImg.onerror = () => {
   const rec = lbList[lbIndex];
