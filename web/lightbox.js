@@ -129,10 +129,12 @@ function settingsLine(rec) {
     `${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
     // Only when there was one: most records carry neither.
     (rec.lora ? `LoRA ${rec.lora} @ ${rec.lora_scale}, ` : '') +
-    (rec.reference?.length ? `ref ${rec.reference.join('+')}, ` : '') +
+    // Gallery images by the page's one name for them, "#N" - the Refine
+    // dialog's title, the sheet's source column and the confirms say it so.
+    (rec.reference?.length ? `ref ${rec.reference.map((id) => `#${id}`).join('+')}, ` : '') +
     // A refine pass: the image it started from and how far it was re-denoised,
     // and whether that image is still in the gallery to make it again from.
-    (rec.refine != null ? `refine of ${rec.refine}${rec.refine_missing ? ' (deleted)' : ''} @ ${rec.strength}, ` : '') +
+    (rec.refine != null ? `refine of #${rec.refine}${rec.refine_missing ? ' (deleted)' : ''} @ ${rec.strength}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
   );
 }

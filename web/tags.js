@@ -55,8 +55,9 @@ const tagName = (text) => tagKey(text.replace(/\\([()])/g, '$1').replace(/_/g, '
 
 // ------------------------------------------------------ writing the prompt
 
-// replaceBoxText (analysis.js), for the tag tools and the Examples: the box
-// rewritten the way typing writes it, so Ctrl+Z brings back what it held -
+// replaceBoxText (analysis.js), for the tag tools, the Examples and Reuse
+// (gallery.js's rewriteBox): the box rewritten the way typing writes it, so
+// Ctrl+Z brings back what it held -
 // assigning `.value` emptied the undo history, and in Chromium a later Ctrl+Z
 // could splice two prompts together, which the panel then saved. The insert's
 // `input` asks for suggestions and marks the caret's item as being typed, as
@@ -74,6 +75,8 @@ function writeBox(el, text) {
 // puts it back. It goes once the box holds anything else, `undo` being about
 // the text it replaced, and after a while unless its Undo has focus: it sits
 // over the next field's caption. Ctrl+Z in the box does the same for longer.
+// One Undo on offer at a time: the write that brings this one takes a
+// Reuse's (gallery.js's syncReuseUndo), and a Reuse takes this.
 function offerPromptUndo(message, undo) {
   promptUndo = { after: els.prompt.value, undo };
   els.promptNote.hidden = false;

@@ -123,8 +123,12 @@ async function checkFromButton() {
 }
 
 // The panel's heading (tabindex=-1): where focus goes when the button that had
-// it is far from the answer, or gone. focus() scrolls it into view.
+// it is far from the answer, or gone. focus() scrolls it into view - the page;
+// docked, the head sticks inside the panel's own scroll and so is always "in
+// view" there, and the panel is put back at its top by hand, as focusing the
+// heading did before the head stuck.
 function focusAnalysisHeading() {
+  els.promptAnalysis.scrollTop = 0;
   els.promptAnalysis.querySelector('.analysis-head h2').focus();
 }
 
@@ -770,7 +774,12 @@ async function askCritic() {
       analysisMessage('The prompt, the negative prompt or the references changed while the critic ran: its answer is about the earlier text, so nothing from it can be applied. Check again for the current one.');
     }
   } catch (err) {
-    if (epoch === critiqueEpoch) showError(critiqueFailure ? critiqueFailureText(critiqueFailure) : err.message);
+    // The critique's own failure is said once: in the critic's block, which
+    // takes focus as an answer does, and in #error only where that block is
+    // not on show - the same sentence in both, each read out, was two problems.
+    if (epoch !== critiqueEpoch) { /* the panel was cleared meanwhile */ }
+    else if (!critiqueFailure) showError(err.message);
+    else if (els.promptAnalysis.hidden || els.analysisCritic.hidden) showError(critiqueFailureText(critiqueFailure));
   } finally {
     critiquing = false;
     stopCriticClock();
@@ -810,8 +819,9 @@ function stopCriticClock() {
 // A failed critique in the server's words, which say what to do where
 // anything can be done - shorten the prompt, install a library, wait for the
 // load - so nothing generic is added: "Ask again" contradicted a refusal
-// that asking again only repeats. Said whose failure it is, in #error too,
-// where the bare reason sat under Generate with nothing naming the critic.
+// that asking again only repeats. Said whose failure it is, in #error too
+// where it goes there (the critic's block not on show): the bare reason sat
+// under Generate with nothing naming the critic.
 const critiqueFailureText = (reason) => `The critic did not answer: ${reason.replace(/\.$/, '')}.`;
 
 // The rules whose finding on the prompt rests on the tag index's categories:
@@ -831,8 +841,8 @@ function renderCritic() {
   const box = els.criticResult;
   box.replaceChildren();
   if (!critiqueResult) {
-    // The server's reason, without the exception's class name; #error has
-    // it too, as an alert.
+    // The server's reason, without the exception's class name; here alone
+    // while the block is on show (askCritic).
     if (critiqueFailure) box.appendChild(note(critiqueFailureText(critiqueFailure), 'analysis-note critic-failure'));
     return;
   }

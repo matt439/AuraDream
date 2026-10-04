@@ -59,6 +59,8 @@
   {"wait": 1000},
   {"eval": "els.refinePrompt.value = 'masterpiece, green hair, 1girl, smile'; els.refinePrompt.dispatchEvent(new Event('input'));"},
   {"expect": "els.refineCheck.classList.contains('stale') && [...els.refineCheck.querySelectorAll('button')].every((b) => b.disabled)"},
+  {"log": "'dimmed while stale as the panel check is: 0.8, its quiet text raised to --text-3 (at 0.55 it was about 2.5:1)'"},
+  {"expect": "[...els.refineCheck.querySelectorAll('.hint')].every((p) => getComputedStyle(p).opacity === '0.8' && getComputedStyle(p).color === 'rgb(162, 162, 176)')"},
 
   {"log": "'a negative-prompt Apply is dead while the dialogs negative box is greyed, and says why there; CFG back above 1 wakes it'"},
   {"eval": "els.refinePrompt.value = window.__long; els.refinePrompt.dispatchEvent(new Event('input')); els.refineNegative.value = ''; els.refineCfg.value = '1'; els.refineCfg.dispatchEvent(new Event('input'));"},

@@ -59,7 +59,7 @@
      --search-w     240px the gallery's search box, at most
      --lb-side-w    280px the lightbox's column
      --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
-     --tip-w, --tip-w-wide, --menu-w, --tag-menu-w   the floating panels' widths
+     --tip-w, --tip-w-wide, --menu-w   the floating panels' widths
 
    The wide tier, from 1800 px (QHD at 100% is 2560, at 125% 2048): the type
    grows with the window from today's sizes at 1800 to its own at 2560 and
@@ -137,7 +137,6 @@
   --tip-w: 240px;
   --tip-w-wide: 300px;
   --menu-w: 300px;
-  --tag-menu-w: 320px;
 }
 
 /* At 2560 x 1305 the page was the 1400 px one stretched: a 330 px panel of
@@ -485,6 +484,13 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 @media (max-width: 900px) {
   .prompt-note { position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none; }
 }
+/* Nor over the caption while the negative box is greyed: the caption then
+   says why (the note in it) and holds the button that wakes it, and the
+   overlay left "Negative prompt (ne" of that. In the flow there too, a line
+   that comes and goes with the note. */
+.panel:has(#negative-field.disabled) .prompt-note {
+  position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
+}
 
 /* The tag picker is data from the checkpoint guide, not a generic tag cloud:
    each checkpoint gets only the categories and terms its sources document. The
@@ -703,7 +709,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    sized for a full-screen overlay. A 28 px target, not the glyph's 20x15. */
 .analysis-head .analysis-close {
   min-width: 28px; min-height: 28px; margin-left: auto; padding: var(--sp-1) var(--sp-2);
-  font-size: 15px; color: var(--muted);
+  font-size: var(--fs-lg); color: var(--muted);
 }
 .analysis-head .analysis-close:hover, .analysis-head .analysis-close:focus-visible { color: var(--text); }
 /* The status slot under Ask the critic stays at full strength as well: what
@@ -713,9 +719,12 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    light - 0.8, with the quiet text raised from --muted to --text-3 under it -
    so what is dimmed still reads (--text-3 at 0.8 is about 5:1 on the panel;
    --muted at 0.55 was under 3:1): the amber badge, Check again and the dead
-   Use and Apply buttons carry the stale signal, not the text's contrast. */
+   Use and Apply buttons carry the stale signal, not the text's contrast.
+   The Refine dialog's own check (.rf-check) goes stale the same way and is
+   dimmed by the same rule: at 0.55 its --muted lines were about 2.5:1. */
 .prompt-analysis.stale .analysis-body > :not(#analysis-critic),
-.prompt-analysis.stale #analysis-critic > :not(.analysis-status) { opacity: 0.8; --muted: var(--text-3); }
+.prompt-analysis.stale #analysis-critic > :not(.analysis-status),
+.rf-check.stale .hint { opacity: 0.8; --muted: var(--text-3); }
 /* Encoders and Order are short and sit side by side where there is room; the
    rest runs the full width. */
 .analysis-body {
@@ -917,12 +926,20 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    after a Check at QHD, none after the critic's answer at 125%) while the
    width beside the image stood empty. The stage becomes two columns while
    the check is open - the chips, the viewer and its note on the left, the
-   check on the right in their rows, sticky under the topbar and scrolling
-   inside itself - and everything from the gallery head on spans both, in
-   the rows after, in document order. The note's row is 1fr: the check's
-   height past the viewer's goes there, below the viewer, not above it. With
-   no chips there is no row for them - an empty one kept its gap, and
-   opening the check moved the image down by it. CSS alone, so the DOM
+   check on the right in their rows, scrolling inside itself - and
+   everything from the gallery head on spans both, in the rows after, in
+   document order. The check takes the height of the left column's rows
+   rather than setting it (`contain: size`, stretched), at most the window
+   under the topbar, and the viewer beside it is at least 36rem or that
+   window, whichever is less: sized by its own content the check pushed
+   the gallery head past the fold whenever the critic answered, even
+   beside an empty viewer. It is not sticky: sticky, it was held by the
+   whole stage, not by its rows, and slid down over the gallery head, the
+   cards and an open sheet as the page scrolled. The note's row is 1fr:
+   a check taller than the viewer would put its excess there, below the
+   viewer, not above it. With no chips there is no row for them - an empty
+   one kept its gap, and opening the check moved the image down by it.
+   CSS alone, so the DOM
    order placeTagValidation keeps - chips, then the check, in the wide host -
    is unchanged, and without :has() the check stays above the viewer. */
 @media (min-width: 1800px) {
@@ -938,9 +955,26 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-column: 2; grid-row: 1 / span 3;
-    position: sticky; top: var(--sticky-top);
+    contain: size; align-self: stretch;
     max-height: calc(100vh - var(--sticky-top) - var(--gutter));
     overflow-y: auto; overscroll-behavior: contain;
+  }
+  /* The column's least height is the viewer's, not its own: a min-height on
+     the column, which spans the note's 1fr row, grew that row by what the
+     minimum lacked over an empty viewer even beside a tall image. */
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer {
+    min-height: min(36rem, calc(100vh - var(--sticky-top) - var(--gutter)));
+  }
+  /* The head - the stale badge, Check again, Close - stays at the top of the
+     column's own scroll: the critic's answer takes focus and scrolls the
+     column down to it, and the head scrolled away with it, so a prompt
+     edited after the answer left only the dimming to say the check was
+     stale. The negative margin and the padding cover the column's own
+     padding above it, so nothing scrolls past in that strip. */
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-head {
+    position: sticky; top: -10px; z-index: 1;
+    margin: -10px -12px 0; padding: 10px 12px var(--sp-2);
+    background: var(--panel); border-bottom: 1px solid var(--line);
   }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
@@ -1011,8 +1045,9 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    setBusy rewrites the label as text, which would wipe a child element, and
    the accessible name stays the label (aria-keyshortcuts carries the keys).
    Quieter by size and weight, not opacity, which would take the white below
-   the label's own contrast on the accent. */
-#btn-generate::after, #btn-grid::after {
+   the label's own contrast on the accent. The Refine dialog's Refine is the
+   third button the shortcut presses, from inside the dialog. */
+#btn-generate::after, #btn-grid::after, #refine-run::after {
   content: 'Ctrl+Enter' / '';
   margin-left: var(--sp-2);
   font-size: var(--fs-sm);
@@ -1639,9 +1674,6 @@ button { font: inherit; cursor: pointer; }
   background: var(--panel);
   color: var(--text);
 }
-/* Our `display: flex` would beat the UA's `dialog:not([open]) { display: none }`.
-   The two wrappers are the two-pane layout's; in one column their children
-   are the dialog's own. */
 /* The wide tier's type grows with the window (--ramp) and the controls'
    column with it, as the panel's does: at 460 px, Strength's 14.5 px label,
    its badge and Compare 3 ran into Versions at 2560. 540 px there, about 486
@@ -1649,6 +1681,9 @@ button { font: inherit; cursor: pointer; }
 @media (min-width: 1800px) {
   .refine-dialog { --rf-narrow: min(540px, calc(460px + 80 * var(--ramp))); }
 }
+/* Our `display: flex` would beat the UA's `dialog:not([open]) { display: none }`.
+   The two wrappers are the two-pane layout's; in one column their children
+   are the dialog's own. */
 .refine-dialog[open] { display: flex; flex-direction: column; gap: var(--panel-gap); }
 .rf-controls { display: contents; }
 /* It scrolls rather than squeezing its lines: a column too tall for the
@@ -1703,21 +1738,21 @@ button { font: inherit; cursor: pointer; }
   font-variant-numeric: tabular-nums;
 }
 /* The chosen factor is the presets' accent fill (white on --accent-strong):
-   its size line in --muted on that fill was about 1.5:1. */
-.refine-dialog .presets button.active::after { color: inherit; opacity: 0.85; }
+   its size line in --muted on that fill was about 1.5:1. The button's own
+   white, quieter by its size alone: at 0.85 opacity it fell under 4.5:1. */
+.refine-dialog .presets button.active::after { color: inherit; }
 .refine-dialog .presets button:disabled { opacity: 0.45; cursor: not-allowed; }
 .rf-lock { flex: none; align-self: center; margin-top: var(--sp-3); font-size: var(--fs-label); }
 .refine-dialog .sub i .ghost.tiny { margin-left: auto; }
 #refine-negative-field.disabled textarea { opacity: 0.45; }
 /* Opened upward, over what is set already: downward they covered the very
-   controls they explain. Never a target: a tip over the scale buttons took
-   the clicks meant for them. */
+   controls they explain. Never a target, as no tip is (`.tip` above): one
+   over the scale buttons took the clicks meant for them. */
 .refine-dialog .help.above .tip { top: auto; bottom: calc(100% + 7px); }
-.refine-dialog .tip { pointer-events: none; }
 .rf-check { display: flex; flex-direction: column; gap: var(--sp-1); }
 .rf-check .hint { margin: 0; }
-/* Dimmed while the boxes hold other text than it checked, as the panel's is. */
-.rf-check.stale .hint { opacity: 0.55; }
+/* Dimmed while the boxes hold other text than it checked, by the panel's
+   check's own rule (the prompt check's section). */
 .rf-check .ghost.tiny { margin-left: var(--sp-2); vertical-align: 1px; }
 /* Why a negative-prompt Apply is dead: the box is greyed. */
 .rf-off { color: var(--text-3); }
@@ -1736,12 +1771,7 @@ button { font: inherit; cursor: pointer; }
 #refine-error { font-size: var(--fs-body-sm); margin-top: 2px; white-space: pre-line; }
 .rf-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
 .rf-actions .primary { min-width: 120px; }
-/* The shortcut, beside the label: a pseudo-element, since setBusy rewrites
-   the button's text, and empty alt text keeps it out of its name. */
-#refine-run::after {
-  content: 'Ctrl+Enter' / ''; margin-left: var(--sp-2);
-  font-size: var(--fs-sm); font-weight: 400; opacity: 0.7;
-}
+/* The shortcut beside the label is Generate's rule (#btn-generate::after). */
 
 /* Two panes: the source large on the left, the controls at the width they
    have in one column on the right. The figure spans every row and the last

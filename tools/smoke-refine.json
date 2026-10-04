@@ -31,6 +31,8 @@
   {"expect": "els.refinePreview.textContent.startsWith('1 image · strength 0.1 · about 3 of 28 steps run') && els.refineRun.getAttribute('aria-disabled') === 'false'"},
   {"log": "'Refine shows its shortcut beside its label, outside its name; its prompt check has nothing to say about a short prompt'"},
   {"expect": "getComputedStyle(els.refineRun, '::after').content.includes('Ctrl+Enter') && els.refineRun.getAttribute('aria-keyshortcuts') === 'Control+Enter' && els.refineRun.textContent === 'Refine'"},
+  {"log": "'the hint is Generate and Run grid own: smaller, never fainter, so its white keeps its contrast on the accent'"},
+  {"expect": "(() => { const r = getComputedStyle(els.refineRun, '::after'); const g = getComputedStyle(els.generate, '::after'); return r.opacity === '1' && r.fontSize === g.fontSize && r.fontWeight === g.fontWeight && r.marginLeft === g.marginLeft; })()"},
   {"expect": "els.refineCheck.hidden && els.refineTags.hidden"},
   {"log": "'it is anchored at the top, not centred: opening the fold grows it downward, where it scrolls short of the windows bottom rather than moving its controls'"},
   {"eval": "window.__closed = els.refineDialog.getBoundingClientRect(); els.refineMore.open = true;"},
@@ -69,7 +71,7 @@
   {"expect": "JSON.stringify(viewerRecords.map((r) => r.seed).sort()) === '[5,6]'"},
   {"eval": "document.querySelector('#viewer img').click()"},
   {"wait": 400},
-  {"expect": "els.lbMeta.textContent.includes('refine of ' + window.__source + ' @ 0.1') && els.lbRefine.getAttribute('aria-disabled') === 'false'"},
+  {"expect": "els.lbMeta.textContent.includes('refine of #' + window.__source + ' @ 0.1') && els.lbRefine.getAttribute('aria-disabled') === 'false'"},
 
   {"log": "'the lightboxs Refine refines the refined image: the lightbox gives way, and 1.5x of it is past what the card holds, so it opens at 1x - the skipped 1.5x a click away, saying it was the last run - and one click goes past 4 MP, which a pass may'"},
   {"eval": "window.__refined = lbList[lbIndex].id; els.lbRefine.click()"},

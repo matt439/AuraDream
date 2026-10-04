@@ -161,15 +161,18 @@ function refineSizeProblem(w, h) {
 // or, after a close that left settings unsent on this image, those, which it
 // says. Focus lands on Strength, its value selected: what the dialog is
 // opened to set. Answers whether it opened.
-function openRefine(rec, pass = null) {
-  // A ⤢ press on a checkpoint with no pass explains itself in place, in the
-  // lightbox too (showError mirrors there). Reuse of a refined record opens
-  // anyway: the pass is kept, with the reason, until a load says it can run.
+function openRefine(rec, pass = null, { slot = els.error } = {}) {
+  // A ⤢ press on a checkpoint with no pass explains itself in place: a card's
+  // under the gallery's head (`slot`), as its other tools' refusals are, and
+  // the lightbox's in the lightbox too (showError mirrors there). Reuse of a
+  // refined record opens anyway: the pass is kept, with the reason, until a
+  // load says it can run.
   if (!refineSupported && !pass) {
     showError(
       'This checkpoint has no refine pass compatible with this app. '
       + 'The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.',
       true,
+      { slot },
     );
     return false;
   }

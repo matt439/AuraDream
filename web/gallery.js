@@ -112,7 +112,8 @@ function card(rec) {
   tools.className = 'tools';
   tools.append(
     reuseButton(rec, true),
-    tool('⤢', 'Refine: scale this image up and re-denoise it part of the way', () => openRefine(rec)),
+    tool('⤢', 'Refine: scale this image up and re-denoise it part of the way',
+      () => openRefine(rec, null, { slot: els.galleryError })),
     tool('❐', 'Use as a reference image', () => {
       if (!referenceSupported) {
         showError("This checkpoint can't use reference images; FLUX.2 [klein] can.", true, { slot: els.galleryError });
@@ -332,14 +333,13 @@ function noteLightboxDelete(text) {
 // went with them, else ''.
 function forgetImages(ids) {
   const gone = new Set(ids);
-  const records = new Map([...galleryRecords, ...viewerRecords, ...lbList].map((r) => [r.id, r]));
   const focused = document.activeElement;
   let lost = null;
   document.querySelectorAll('[data-id]').forEach((el) => {
     if (!gone.has(+el.dataset.id)) return;
     if (!el.classList.contains('card') && el.parentElement !== els.viewer) { el.remove(); return; }
     const held = el.contains(focused);
-    const kept = tombstone(el, records.get(+el.dataset.id));
+    const kept = tombstone(el);
     if (held) lost = kept;
   });
   // Only the grid's counters mirror the server's: the viewer holds whatever
@@ -383,12 +383,17 @@ function forgetImages(ids) {
   }
   for (const id of gone) if (sheetSources.has(id)) sheetSources.set(id, null);
   if (sheetMode) renderSheet();
+  // A Reuse's Undo may not put a gone reference back; and one dropped from
+  // what the Reuse left is no change that retires the Undo (`syncReuseUndo`,
+  // which the drop below reaches), so both of its copies lose it first.
+  if (reuseNote) {
+    reuseNote.before.state.reference = reuseNote.before.state.reference.filter((id) => !gone.has(id));
+    reuseNote.after.reference = reuseNote.after.reference.filter((id) => !gone.has(id));
+  }
   // A reference that has gone would be refused at submit, naming an id the
   // chips never showed.
   const dropped = referenceIds.filter((id) => gone.has(id));
   if (dropped.length) setReferences(referenceIds.filter((id) => !gone.has(id)));
-  // Nor may a Reuse's Undo put one back.
-  if (reuseNote) reuseNote.before.state.reference = reuseNote.before.state.reference.filter((id) => !gone.has(id));
   const note = !dropped.length ? ''
     : dropped.length === 1 ? ` ${imageNames(dropped)} was a reference image; it is no longer in the references.`
       : ` ${imageNames(dropped)} were reference images; they are no longer in the references.`;
@@ -404,11 +409,13 @@ function forgetImages(ids) {
 
 // A card or a viewer tile that has gone, kept as a box of its size that says
 // so. Out of the id-tagged set and of the pointer's way: nothing acts on it.
+// Named as the page names images, by gallery id: the cells of a sweep share a
+// seed, and "Deleted · seed …" on each of them said nothing of which went.
 // Answers the element that holds the place now.
-function tombstone(el, rec) {
+function tombstone(el) {
   const tomb = document.createElement('div');
   tomb.className = 'tomb';
-  tomb.textContent = rec ? `Deleted · seed ${rec.seed}` : 'Deleted';
+  tomb.textContent = `Deleted · ${imageNames([+el.dataset.id])}`;
   if (el.classList.contains('card')) {
     el.replaceChildren(tomb);
     el.classList.remove('fav');
@@ -578,10 +585,6 @@ function syncDeleteUnstarred() {
 function fillPanel(rec, sampling) {
   rewriteBox(els.negative, rec.negative_prompt ?? '');
   rewriteBox(els.prompt, rec.prompt);
-  // The insert's `input` asked for tag suggestions at the caret, as typing
-  // does; a reused prompt is not typing, and none open over it.
-  clearTimeout(tagSuggestionTimer);
-  hideTagSuggestions();
   promptReplaced();
   els.seed.value = rec.seed;
   if (!sampling) return;
@@ -603,15 +606,17 @@ function fillPanel(rec, sampling) {
   els.loraScale.value = els.lora.value ? (rec.lora_scale ?? 1) : 1;
 }
 
-// `replaceBoxText`, with the box focused first without the browser's scroll to
-// it. Writing as typing does takes the focus, and the browser then scrolled the
-// page to the box as though a stuck panel moved with it: half a screen of the
-// gallery lost at the page's end, nothing at all for a box focused already.
-// Where the page goes after a Reuse is `revealReused`'s, and after its Undo,
-// pressed at the panel's foot, nowhere.
+// tags.js's `writeBox` - the page's one whole-box write: as typing writes it,
+// with no suggestion list or typing state over the new text - with the box
+// focused first without the browser's scroll to it. Writing as typing does
+// takes the focus, and the browser then scrolled the page to the box as
+// though a stuck panel moved with it: half a screen of the gallery lost at
+// the page's end, nothing at all for a box focused already. Where the page
+// goes after a Reuse is `revealReused`'s, and after its Undo, pressed at the
+// panel's foot, nowhere.
 function rewriteBox(el, text) {
   el.focus({ preventScroll: true });
-  replaceBoxText(el, text);
+  writeBox(el, text);
 }
 
 // Reuse restores what made a record. A direct render's settings go into the
@@ -623,10 +628,39 @@ function reuse(rec) {
 }
 
 // The note the last Reuse left in the panel - its sentences, the panel as it
-// was before, and the Undo button that puts it back - or null.
+// was before and as the Reuse left it, and the Undo button that puts it
+// back - or null once there is no Undo to offer.
 let reuseNote = null;
 
+// What a Reuse's Undo puts back, as the panel holds it now.
+function reuseFields() {
+  return {
+    prompt: els.prompt.value, negative: els.negative.value, seed: els.seed.value,
+    width: els.width.value, height: els.height.value,
+    steps: els.steps.value, cfg: els.cfg.value, mu: els.mu.value, trueCfg: els.trueCfg.value,
+    owned: { ...owned }, reference: [...referenceIds], lora: els.lora.value, loraScale: els.loraScale.value,
+  };
+}
+
+// The Examples' rule (tags.js's `syncPromptUndo`) for the whole of what the
+// Undo restores: it is on offer only while the panel holds what the Reuse
+// left there. It used to stay through any later edit, and pressing it then
+// threw away the typing, the seed or the Example picked since, and said the
+// panel was as it was. So the first change takes the button, and the note's
+// sentences stay. Asked by `persistPanel`, which every change of the panel
+// reaches - typing, a preset, the dice, an Example (whose own Undo then
+// stands alone).
+function syncReuseUndo() {
+  const note = reuseNote;
+  if (!note || JSON.stringify(reuseFields()) === JSON.stringify(note.after)) return;
+  reuseNote = null;
+  note.button?.remove();
+}
+
 function reuseIntoPanel(rec, withSize, note = '') {
+  // One Undo on offer at a time: an Example's, for the text this replaces,
+  // goes with it.
+  dropPromptUndo();
   // Ctrl+Z covers the two text boxes; Reuse also replaces the seed, the size,
   // steps/CFG/mu and which of those the user had taken off the profile, so
   // the note's Undo restores those from this.
@@ -678,7 +712,7 @@ function reuseIntoPanel(rec, withSize, note = '') {
       + 'so this renders from the prompt alone.',
     );
   }
-  reuseNote = { lead, parts: notes, before, id: rec.id, button: null };
+  reuseNote = { lead, parts: notes, before, after: reuseFields(), id: rec.id, button: null };
   showReuseNote();
   revealReused(reuseNote);
   void checkReused(reuseNote, rec);
@@ -759,6 +793,8 @@ async function checkReused(note, rec) {
     .then(() => null, (err) => (/unknown image/.test(err.message) ? id : null))));
   const dead = answers.filter((id) => id != null);
   if (dead.length) {
+    // Part of what the Reuse left, so not a change that retires its Undo.
+    if (reuseNote === note) note.after.reference = note.after.reference.filter((id) => !dead.includes(id));
     setReferences(referenceIds.filter((id) => !dead.includes(id)));
     const which = dead.map((id) => `reference image ${restored.indexOf(id) + 1} (gallery #${id})`).join(' and ');
     extra.push(`Its ${which} ${dead.length === 1 ? 'is' : 'are'} no longer in the gallery, so `
@@ -792,8 +828,6 @@ function undoReuse(note) {
   if (reuseNote === note) reuseNote = null;
   rewriteBox(els.negative, state.negative);
   rewriteBox(els.prompt, state.prompt);
-  clearTimeout(tagSuggestionTimer);
-  hideTagSuggestions();
   els.seed.value = state.seed;
   els.width.value = state.width;
   els.height.value = state.height;

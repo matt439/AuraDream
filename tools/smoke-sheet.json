@@ -129,6 +129,8 @@
   {"eval": "els.gridPrompt.value = 'size = huge | vast\\nground = grass | dirt'; [...els.sheetControls.querySelectorAll('button')].find((b) => b.textContent === 'Resume this run').click()"},
   {"wait": 2000},
   {"expect": "els.gridPreview.classList.contains('warn') && els.gridPreview.textContent.includes('None of these cells is in run ' + window.__vars)"},
+  {"log": "'the warning is added after the preview, whose totals line keeps its own span (rewriting textContent flattened it)'"},
+  {"expect": "!!els.gridPreview.querySelector('.totals') && els.gridPreview.firstChild.matches?.('.totals') && !els.gridPreview.querySelector('.totals').textContent.includes('None of these cells')"},
   {"eval": "els.gridResume.checked = false; els.gridSection.open = false; els.gridPrompt.value = ''; els.prompt.value = ''; promptReplaced(); persistPanel();"},
   {"log": "'A plain seeds run offers it too; a comparison, below, does not'"},
   {"eval": "showRun(window.__koi); window.__settled()"},
@@ -183,5 +185,10 @@
   {"eval": "showRun(window.__vars); window.__settled()"},
   {"eval": "setAxis('rows', '');"},
   {"expect": "sheetFileName() === 'sheet-' + window.__vars + '-ground-grass.png'"},
+  {"eval": "setSheet(false); els.search.value = ''; resetGallery();"},
+  {"wait": 600},
+  {"log": "'A sheet with nothing to lay out says so and draws no screen-tall empty cell'"},
+  {"eval": "showSheetScope('zzqqxx'); window.__settled()"},
+  {"expect": "sheetMode && sheetRecords.length === 0 && els.sheetNote.textContent.startsWith('Nothing matches') && els.sheetGrid.children.length === 0 && els.sheetGrid.getBoundingClientRect().height < 400"},
   {"eval": "setSheet(false); els.search.value = ''; resetGallery();"}
 ]

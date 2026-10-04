@@ -955,6 +955,20 @@ which is then dropped. Only that answer drops one: a passing failure must
 not take a live reference out. A reference deleted from the gallery while
 the Undo is still on offer leaves the Undo's copy of the panel too
 (`forgetImages`), or the Undo would bring back a chip the submit refuses.
+The Undo is on offer only while the panel holds what the Reuse left there
+(`reuseNote.after`, compared by `syncReuseUndo` on every `persistPanel`):
+the first change - typing, Ctrl+Z, a seed, a preset, an Example - takes the
+button and leaves the note's sentences. It used to stay through anything, and
+the integration review pressed it after typing, a new seed and an Example
+pick: all three were thrown away, the seed beyond Ctrl+Z's reach, and the
+note said the panel was as it was - while the Example's own Undo, which
+goes once its box changes, showed beside it with the opposite meaning. So
+the page has the Examples' rule for both and one Undo on offer at a time: an
+Example retires a Reuse's, and a Reuse an Example's (`dropPromptUndo`). A
+reference dropped from what the Reuse left - deleted, or answered "unknown
+image" - is no change of the user's, and comes out of `after` as well.
+Both boxes are written through tags.js's `writeBox`, the page's one
+whole-box write (`rewriteBox` focuses the box without a scroll first).
 
 **Where Reuse leaves the page** is `revealReused`'s: the prompt's field,
 label and all, in sight under the topbar, and the user's place in the
@@ -1777,7 +1791,7 @@ not a storage invariant; the invariant that stayed is that a delete with
 
 **A star keeps what its image was made from.** Refine a source, star the
 pass, sweep the rest: the sweep used to delete the source's PNG, the kept
-pass then read "refine of 63 @ 0.1" for good and could never be made again,
+pass then read "refine of #63 @ 0.1" for good and could never be made again,
 and nothing before the click said so. The source is part of the pass's
 reproduction set, and a klein render's references are part of its, so
 `keep_favorites` keeps them with the stars: one predicate in storage
@@ -1794,7 +1808,7 @@ A per-image delete of a source is still the user's to make, but its confirm
 first asks `refine:<id>` across every checkpoint and says which pass could
 not be made again; a record whose source has gone carries `refine_missing`
 (looked up by `list_images` and `GET /api/images/{id}`, not stored), and the
-lightbox's line reads "refine of 63 (deleted) @ 0.1".
+lightbox's line reads "refine of #63 (deleted) @ 0.1".
 
 **The dialog describes the scope, not three prompts.** The sample prompts
 are the first three alphabetically, and say nothing of how many runs are
@@ -1824,8 +1838,9 @@ a viewer tile whose image would not load - drops them from every list and
 element on the page in one pass, the panel's references included, then the
 sweep's `resetGallery` reloads the (now mostly empty) page from the top for
 the server's count and `loadRuns` the picker's. A single delete keeps its
-place: the card becomes a tombstone ("Deleted · seed N", dashed, no
-pointer events, no `data-id`) and a viewer tile one of the tile's frozen
+place: the card becomes a tombstone ("Deleted · #N", dashed, no
+pointer events, no `data-id`; by id, as the page names images, since the
+cells of a sweep share a seed) and a viewer tile one of the tile's frozen
 size - removed, the next card slid under the pointer that had pressed ⌦,
 its own ⌦ lit, and an emptied viewer shrank the page by 537 px - and focus
 on what went moves to the next image in the strip, else the one before.
@@ -3319,7 +3334,11 @@ also shows "An example replaced your prompt." with an Undo, until the box
 holds anything else or 15 s pass. On a two-column page it lies over the next
 field's caption, out of the sticky panel's flow, so nothing moves; on one
 column the chips come straight under the box, and lying over their first
-row it took their clicks, so there it takes a line of its own. Assigning
+row it took their clicks, so there it takes a line of its own - and so it
+does while the negative box is greyed, when that caption says why and holds
+the button that wakes it: lying over it, the note left "Negative prompt
+(ne" of the sentence. A Reuse takes it, and it takes a Reuse's Undo: one
+Undo on offer at a time ("Per-control defaults and Reuse"). Assigning
 `.value` had emptied the undo history: the menu opens over
 the prompt, and one stray click replaced minutes of work for good, the
 panel saving it at once. It is a `role=menu` and keeps that promise: ArrowDown,
@@ -4880,13 +4899,35 @@ after the answer - while about 1,270 px beside the image stood empty. So from
 1800 px the stylesheet docks the open check in a column of its own beside the
 viewer (`--dock-w`, 520-760 px): `.stage` becomes a grid while
 `#prompt-analysis` is open in the wide host (`:has()`), the chips, the viewer
-and its note on the left, the check on the right across their rows - sticky
-under the topbar, as tall as the window allows and scrolling inside itself -
-and everything from the gallery head on spans both columns in the rows after,
-in document order. The note's row is `1fr`, so the check's height past the
-viewer's goes below the viewer rather than above it; with no chips there is
-no row for them, since an empty one kept its gap and opening the check moved
-the image down by it. With no chips the image stays where it was after
+and its note on the left, the check on the right across their rows,
+scrolling inside itself - and everything from the gallery head on spans both
+columns in the rows after, in document order. The check takes the height of
+the left column's rows rather than setting it (`contain: size`, stretched),
+at most the window's height under the topbar; the viewer, while the check is
+docked, is at least 36rem or that height, whichever is less, so beside an
+empty viewer the column is still one to read. (The minimum sat on the column
+first, and since the column spans the note's `1fr` row, Chromium grew that
+row by what the minimum lacked over the empty viewer's 380 px even beside a
+917 px image.) The integration review found the first version's
+two faults with it. It was sticky under the topbar, and a sticky grid item
+is held by the whole stage, not by its rows: as the page scrolled it slid
+down over the gallery head, the cards and an open comparison sheet, hiding
+the search box, Favorites and Sheet and taking their clicks. And it was
+sized by its own content up to the window's height, so the critic's answer
+always set the rows' height and put the gallery head past the fold at QHD,
+beside an empty viewer as much as beside an image (1,313 px of 1,305); it
+is now at 708 px beside the empty viewer and, beside a 1024x1024 image, at
+1,049 with the check open or closed (866 of 1,040 at 2048x1040 at 125%).
+The note's row is `1fr`, so a check taller than the viewer would have its
+excess below the viewer rather than above it; with no
+chips there is no row for them, since an empty one kept its gap and opening
+the check moved the image down by it. The check's head - the title, the
+stale badge, Check again, Close - sticks at the top of the column's own
+scroll: the critic's answer takes focus and scrolls the column down to it,
+and the head went with it, so a prompt edited after the answer left only
+the light dimming to say the check no longer described it. Check, focusing
+the heading, puts the column back at its top by hand, since a stuck heading
+is always in view and `focus()` no longer did. With no chips the image stays where it was after
 Check, after the answer and for a Generate pressed meanwhile, and Generate
 does not move. On a tag checkpoint the chips move from the full width into
 the left column, and the image moves down by exactly the lines they wrap
@@ -4938,7 +4979,8 @@ dimmed lightly, to 0.8 with the quiet text raised from `--muted` to
 `--text-3` under it (about 5:1 on the panel), not to 0.55, where the notes
 fell under 3:1: stale results are still the last answer and must still read,
 and the amber badge, Check again and the dead buttons say they are stale
-(U89). The refusals
+(U89). The Refine dialog's own check goes stale by the same rule, one
+declaration for both; its lines had kept 0.55, about 2.5:1. The refusals
 ("Enter a prompt first.", "Wait for ...") stay in `#error`. A dead Use or
 Apply says why in its title, as Run comparison does, rather than keeping the
 offer it refuses. They stay `disabled`, not `aria-disabled` as Ask the critic
@@ -4948,8 +4990,10 @@ reader, and what makes them stale is an edit somewhere else - a prompt box,
 the references, the CFG - so focus is seldom on one when it dies. A critique
 that fails leaves a row in the critic's block in the
 server's words ("The critic did not answer: ...") and takes focus like an
-answer; `#error` gets the same sentence, so the reason under Generate says
-whose it is. Nothing generic follows the reason: the server's messages say
+answer. `#error` gets that sentence only where the critic's block is not on
+show (the panel closed while the critic thought): it had it every time at
+first, and the one failure was then read out twice, from two slots a column
+apart from 1800 px. Nothing generic follows the reason: the server's messages say
 what to do where anything can be done (shorten the prompt, install a
 library), and "Ask again", added to every row at first, contradicted a
 refusal that asking again only repeats. The failure is `critiqueFailure`,

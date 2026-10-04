@@ -41,6 +41,8 @@ function panelState() {
 }
 
 function persistPanel() {
+  // A change since a Reuse retires its Undo (gallery.js).
+  syncReuseUndo();
   clearTimeout(panelTimer);
   panelTimer = setTimeout(() => remember(PANEL_KEY, JSON.stringify(panelState())), 300);
 }
@@ -121,6 +123,9 @@ function resetPanel() {
   syncRuns();
   schedulePreview();
   scheduleTagValidation(0);
+  // Not persisted, but a change all the same: a Reuse's Undo goes, as an
+  // Example's does (scheduleTagValidation).
+  syncReuseUndo();
   els.prompt.focus();
 }
 

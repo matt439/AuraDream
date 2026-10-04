@@ -664,7 +664,7 @@ The source and the strength are part of the image's record - the row, the
 PNG, the resume key - so **Reuse** on a refined image opens the dialog on
 its source with the pass as it ran, `--from-image` reproduces a pass,
 **Re-render** carries it to another size, the lightbox reads
-`refine of 412 @ 0.4`, and `refine:412` in the search box finds every pass
+`refine of #412 @ 0.4`, and `refine:412` in the search box finds every pass
 made from image 412. The source is a gallery id, like a reference image:
 delete it and its refinements stay, but cannot be made again.
 

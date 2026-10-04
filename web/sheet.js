@@ -600,6 +600,15 @@ function renderSheet() {
   const colValues = colAxis ? values[colAxis.key] : [null];
   const rowValues = rowAxis ? values[rowAxis.key] : [null];
   els.sheetGrid.innerHTML = '';
+  // Nothing to lay out, and the note says so. Drawn anyway - a corner, two
+  // heads and one empty cell - the cell grew to the window's height (the
+  // fit's --cell-max) and the sheet was a screen-tall grey box.
+  if (!sheetRecords.length) {
+    sheetLayout = null;
+    els.sheet.classList.remove('wrapped');
+    els.sheetNote.textContent = 'Nothing matches. The filters above the sheet are the gallery search.';
+    return;
+  }
   if (colValues.length * rowValues.length > MAX_SHEET_CELLS) {
     sheetLayout = null;
     els.sheetNote.textContent =
@@ -767,12 +776,10 @@ function renderSheet() {
   const count = turned.length
     ? `${shown.length} of ${sheetRecords.length} shown · ${turned.join(' · ')}`
     : `${shown.length} of ${sheetRecords.length} loaded`;
-  els.sheetNote.textContent = sheetRecords.length === 0
-    ? 'Nothing matches. The filters above the sheet are the gallery search.'
-    : count + (pinned ? ` · pinned to ${pinned}` : '') +
-      (total > sheetRecords.length ? ` · ${total} match the search` : '') +
-      (sourceId !== null && sheetSources.get(sourceId) === null ? ` · source #${sourceId} (deleted)` : '') +
-      (notice ? ` · ${notice.text}` : '');
+  els.sheetNote.textContent = count + (pinned ? ` · pinned to ${pinned}` : '') +
+    (total > sheetRecords.length ? ` · ${total} match the search` : '') +
+    (sourceId !== null && sheetSources.get(sourceId) === null ? ` · source #${sourceId} (deleted)` : '') +
+    (notice ? ` · ${notice.text}` : '');
   fitSheet();
 }
 
@@ -860,20 +867,23 @@ async function sheetKey(e) {
 // preview's to say: one that would skip nothing is a different grid, and the
 // preview says so rather than Run grid rendering it.
 async function resumeRun(runId) {
+  // A refusal is said under the gallery's head, by the sheet whose button
+  // this is - and beside the Favorites tick one of them asks to untick.
+  const slot = { slot: els.galleryError };
   const params = new URLSearchParams({ limit: 200 });
   if (els.allModels.checked) params.set('all_models', 'true');
   let seed;
   try {
     seed = (await api(`/api/runs?${params}`)).find((r) => r.run_id === runId)?.seed;
   } catch (err) {
-    showError(err.message);
+    showError(err.message, false, slot);
     return;
   }
   if (seed == null && !els.favOnly.checked && sheetRecords.every((r) => r.run_id === runId)) {
     seed = sheetRecords.reduce((a, r) => (r.id < a.id ? r : a)).seed;
   }
   if (seed == null) {
-    showError(`Run ${runId} is not among the 200 newest; untick Favorites so the sheet holds its oldest image.`);
+    showError(`Run ${runId} is not among the 200 newest; untick Favorites so the sheet holds its oldest image.`, false, slot);
     return;
   }
   els.seed.value = seed;
@@ -904,9 +914,11 @@ async function resumeRun(runId) {
   await preview;
   if (p && !p.skipped && epoch === previewEpoch) {
     els.gridPreview.classList.add('warn');
-    els.gridPreview.textContent += `\nNone of these cells is in run ${runId}: the grid above is not the one that `
+    // Appended as a text node: the preview's first line is a .totals span,
+    // which rewriting textContent flattened into the rest.
+    els.gridPreview.append(`\nNone of these cells is in run ${runId}: the grid above is not the one that `
       + 'made it (its prompt, axes or other settings changed, or the server runs another quantization), '
-      + 'so Run grid would render a different grid.';
+      + 'so Run grid would render a different grid.');
   }
   // Last, once the preview has grown the fold to its height: brought into
   // view before it, Run grid ended a few lines under the window's edge.
@@ -1098,7 +1110,7 @@ async function exportSheet() {
   const canvas = await buildSheetCanvas();
   if (!canvas) return;
   canvas.toBlob((blob) => {
-    if (!blob) { showError('The browser could not encode the sheet.'); return; }
+    if (!blob) { showError('The browser could not encode the sheet.', false, { slot: els.galleryError }); return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
