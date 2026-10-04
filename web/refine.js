@@ -44,9 +44,15 @@ let refineEpoch = 0;
 // refused with, so the button says so before the click rather than after the
 // dialog has closed.
 let refineProblem = null;
+// The request the last preview answered for, as JSON: Refine waits for the
+// preview of what the boxes hold before it reads the answer (`runRefine`).
+let refinePreviewed = null;
+let refineWaiting = false;
 // The scale last run, where the opening size passed over it: its button says
-// so, one click away.
+// so, one click away. `refineCapped`: the dialog opened below the scale it
+// was asked for, so that size, run as it opened, is not the user's choice.
 let refineSkipped = null;
+let refineCapped = false;
 // What openRefine filled the boxes with, and whether the dialog closed by
 // running: a close that was neither keeps what was typed, in this page only,
 // for the next open of the same image on the same checkpoint -
@@ -60,7 +66,7 @@ let unsentRefine = null;
 // every preview, which would drop their replies.
 let refineCheckTimer;
 let refineCheckEpoch = 0;
-let refineChecked = null;  // { prompt, negative, body: PromptAnalysis }
+let refineChecked = null;  // { prompt, negative, negativeOff, body: PromptAnalysis }
 let refineTagTimer;
 let refineTagEpoch = 0;
 let refinePassesEpoch = 0;
@@ -85,10 +91,11 @@ const refineFits = ([w, h]) =>
 
 const refineDefaultStrength = () => lastDefaults?.refine_strength ?? REFINE_STRENGTH;
 
-// Where a pass may run tight on the card: the checkpoint's own line where
-// docs/verified.md measured one (`defaults.refine_tight_pixels` - FLUX.1 fills
+// Where a pass may run tight on the card: the profile's measured line where
+// docs/verified.md has one (`defaults.refine_tight_pixels` - FLUX.1 fills
 // the card at 2.4 MP, WAI ran 8.6), else the panel's. Past it the size line
-// warns, and the dialog does not open there.
+// warns, naming the run it quotes (`hints.refine_tight`), and the dialog does
+// not open there.
 function refineTight(w, h) {
   const measured = lastDefaults?.refine_tight_pixels;
   return typeof measured === 'number' ? w * h > measured : sizeIsTight(w, h);
@@ -198,13 +205,15 @@ function openRefine(rec, pass = null) {
   // Rebuilt by syncRefine for this source's size.
   els.refineScales.textContent = '';
   refineSkipped = null;
+  refineCapped = false;
   if (pass) {
     [els.refineWidth.value, els.refineHeight.value] = [pass.width, pass.height];
   } else {
     const scale = +prefs.scale || REFINE_SCALE;
     const { size, factor } = openingRefineSize(rec, scale);
     [els.refineWidth.value, els.refineHeight.value] = size;
-    if (prefs.scale && factor !== scale) refineSkipped = scale;
+    refineCapped = factor !== scale;
+    if (prefs.scale && refineCapped) refineSkipped = scale;
   }
   const kept = prefs.strength?.[loadedModel];
   els.refineStrength.value = pass && !foreign && pass.strength != null
@@ -244,7 +253,9 @@ function openRefine(rec, pass = null) {
   els.refineDraft.hidden = !draft;
   els.refineDraftText.textContent = draft ? `Your unsent settings for #${rec.id}, as you left them.` : '';
   refineProblem = null;
+  refinePreviewed = null;
   refineFailed('');
+  unmarkRefineFields();
   els.refinePreview.textContent = '';
   refineChecked = null;
   renderRefineCheck();
@@ -345,16 +356,14 @@ function syncRefine() {
     button.dataset.size = `${size[0]}×${size[1]}`;
   });
 
-  // Past the tight line, the checkpoint's own measured figure where it has
-  // one; and a size of another shape says how much of the source it keeps,
-  // and frames it on the large source.
+  // Past the tight line, the measured run it is, by name: a profile can be
+  // shared, and FLUX.1 dev quotes Krea dev's. A size of another shape says
+  // how much of the source it keeps, and frames it on the large source.
   const problem = refineSizeProblem(w, h);
-  const measured = lastDefaults?.refine_tight_pixels;
+  const run = typeof lastDefaults?.refine_tight_pixels === 'number' ? lastHints?.refine_tight : null;
   const tight = !problem && refineTight(w, h);
   const notes = problem ? [problem] : tight
-    ? [typeof measured === 'number'
-      ? `may run tight on 16GB VRAM, past the ${(measured / 1e6).toFixed(1)} MP measured on this checkpoint`
-      : 'may run tight on 16GB VRAM']
+    ? [run ? `may run tight on 16GB VRAM, ${run}` : 'may run tight on 16GB VRAM']
     : [];
   const fx = w / src.width;
   const fy = h / src.height;
@@ -421,6 +430,9 @@ function syncRefine() {
     : 'Refine is unavailable: as far as the server can tell, this checkpoint has no compatible '
       + 'image-to-image pipeline. A load answers for certain - the pass stays here until then.';
   syncRefineRun();
+  // After the negative's activation has moved: the check's Show and Apply
+  // follow it.
+  syncRefineCheck();
 }
 
 function syncRefineRun() {
@@ -434,6 +446,7 @@ function applyRefineScale(scale) {
   if (!refineSource) return;
   [els.refineWidth.value, els.refineHeight.value] = refineScaled(refineSource.width, refineSource.height, scale);
   unmarkRefineFields();
+  refineFailed('');
   syncRefine();
   scheduleRefinePreview(0);
 }
@@ -548,10 +561,12 @@ async function previewRefine() {
   if (!refineSource || !els.refineDialog.open) return;
   const epoch = ++refineEpoch;
   const { preview, sweep } = refineRequest();
+  const asked = JSON.stringify(preview);
   els.refinePreview.classList.remove('warn');
   refineProblem = null;
   if (!refineSupported || refineSizeProblem(preview.width, preview.height)) {
     els.refinePreview.textContent = '';
+    refinePreviewed = asked;
     syncRefineRun();
     return;
   }
@@ -559,6 +574,7 @@ async function previewRefine() {
     refineProblem = 'Enter a prompt: the pass is denoised under one.';
     els.refinePreview.classList.add('warn');
     els.refinePreview.textContent = refineProblem;
+    refinePreviewed = asked;
     syncRefineRun();
     return;
   }
@@ -592,6 +608,7 @@ async function previewRefine() {
     els.refinePreview.classList.add('warn');
     els.refinePreview.textContent = err.message;
   }
+  refinePreviewed = asked;
   syncRefineRun();
 }
 
@@ -600,7 +617,18 @@ async function previewRefine() {
 // strip. A sweep opens as its sheet when done. Never the panel's Seed box:
 // the dialog's seed is its own.
 async function runRefine() {
-  if (!refineSource || !els.refineDialog.open || submitting) return;
+  if (!refineSource || !els.refineDialog.open || submitting || refineWaiting) return;
+  // The preview is what refuses a strength past 1 or one that leaves no step,
+  // and it waits out the typing: Enter straight after "1.5" ran ahead of it,
+  // closed the dialog and put the server's refusal in the panel, the typed
+  // settings gone with it. So the preview of what the boxes hold answers
+  // first - again if they changed while it was asked.
+  while (refinePreviewed !== JSON.stringify(refineRequest().preview)) {
+    clearTimeout(refineTimer);
+    refineWaiting = true;
+    try { await previewRefine(); } finally { refineWaiting = false; }
+    if (!refineSource || !els.refineDialog.open || submitting) return;
+  }
   if (els.refineRun.getAttribute('aria-disabled') === 'true') {
     refuseRefine(els.refineRun.title);
     return;
@@ -620,15 +648,17 @@ async function runRefine() {
 
 // A press on a refused Refine says why in the dialog, once, and points at the
 // field. The preview's own refusal moves to the error line - the same sentence
-// twice, amber and red, read as two problems, and the extra line moved the
-// dialog - with Strength focused and marked where the sentence is about it;
-// the next change brings the preview back. A size past the guard keeps the
-// size line beside W and H, says it again by the button, and focuses W.
+// twice, amber and red, read as two problems - in the preview's place, which
+// it leaves hidden, and at its size (style.css), so Refine does not move under
+// the pointer; Strength is focused and marked where the sentence is about it,
+// and the next change brings the preview back. A size past the guard keeps
+// the size line beside W and H, says it again by the button, and focuses W.
 function refuseRefine(reason) {
   const size = refineSupported && refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value);
   if (refineSupported && !size && reason === refineProblem && els.refinePreview.textContent === reason) {
     els.refinePreview.textContent = '';
     els.refinePreview.classList.remove('warn');
+    els.refinePreview.hidden = true;
     refineFailed(reason);
     if (/strength/i.test(reason)) markRefineFields(els.refineStrength);
     return;
@@ -642,8 +672,10 @@ function markRefineFields(...fields) {
   fields[0].focus();
 }
 
+// A refusal's marks off, and the preview back in its place.
 function unmarkRefineFields() {
   for (const el of [els.refineStrength, els.refineWidth, els.refineHeight]) el.removeAttribute('aria-invalid');
+  els.refinePreview.hidden = false;
 }
 
 function rememberRefine() {
@@ -655,7 +687,11 @@ function rememberRefine() {
     const [sw, sh] = refineScaled(src.width, src.height, s);
     return sw === w && sh === h;
   });
-  if (scale) prefs.scale = scale;
+  // Only a scale the user chose. Where the dialog opened below the one it
+  // was asked for, that size run as it opened is the dialog's choice:
+  // remembered, one Enter on a large source opened every later one at 1x.
+  const chosen = !refineCapped || w !== +refineFilled?.width || h !== +refineFilled?.height;
+  if (scale && chosen) prefs.scale = scale;
   prefs.versions = +els.refineVersions.value || 1;
   const strengths = prefs.strength && typeof prefs.strength === 'object' ? prefs.strength : {};
   const text = els.refineStrength.value.trim();
@@ -718,7 +754,7 @@ async function checkRefinePrompt() {
   const epoch = ++refineCheckEpoch;
   const { body } = refineRequest();
   if (!body.prompt) { refineChecked = null; renderRefineCheck(); return; }
-  const asked = { prompt: body.prompt, negative: body.negative_prompt ?? '' };
+  const asked = refineCheckAsked(body);
   const slow = setTimeout(() => {
     if (epoch !== refineCheckEpoch) return;
     els.refineCheck.replaceChildren(refineCheckLine('Checking how much of the prompt the encoders read…'));
@@ -738,6 +774,17 @@ async function checkRefinePrompt() {
   renderRefineCheck();
 }
 
+// What a check was asked about: the two boxes' text as the request sends it,
+// and whether the negative runs - greying it changes what the rules read, as
+// the panel's check counts it.
+function refineCheckAsked(body) {
+  return {
+    prompt: body.prompt,
+    negative: body.negative_prompt ?? '',
+    negativeOff: els.refineNegative.disabled,
+  };
+}
+
 function refineCheckLine(text, warn = false) {
   const line = document.createElement('p');
   line.className = warn ? 'hint warn' : 'hint';
@@ -745,12 +792,16 @@ function refineCheckLine(text, warn = false) {
   return line;
 }
 
-function refineCheckButton(label, title, onClick) {
+// `field` is the box the button acts on: one on the negative prompt is dead
+// while that box is greyed (`syncRefineCheck`).
+function refineCheckButton(label, title, field, onClick) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'ghost tiny';
   button.textContent = label;
   button.title = title;
+  button.dataset.title = title;
+  button.dataset.field = field;
   button.onclick = onClick;
   return button;
 }
@@ -759,10 +810,14 @@ function refineCheckButton(label, title, onClick) {
 // reading - SDXL's two CLIP towers stop together, one line for both - with
 // Show selecting the rest, and each rule finding that rewrites its field
 // whole, with Apply. Not a pooled-only cut (FLUX.1's CLIP-L, while T5 reads
-// on), nor an encoder's advice, which is text and no rewrite.
+// on), nor an encoder's advice, which is text and no rewrite. The lines are
+// rebuilt on every reply; what a screen reader hears is their text, said
+// again only when it changed (`#refine-check-said`), since a reply comes a
+// moment after every pause in typing and is mostly the same as the last.
 function renderRefineCheck() {
   const box = els.refineCheck;
   box.replaceChildren();
+  const said = [];
   const checked = refineChecked;
   if (checked) {
     for (const [field, text] of [['prompt', checked.prompt], ['negative_prompt', checked.negative]]) {
@@ -771,18 +826,28 @@ function renderRefineCheck() {
         if (report.field !== field || report.cut == null || report.pooled_only) continue;
         cuts.set(report.cut, [...(cuts.get(report.cut) ?? []), report]);
       }
-      for (const [cut, reports] of cuts) box.append(refineCutLine(field, text, cut, reports));
+      for (const [cut, reports] of cuts) {
+        const line = refineCutLine(field, text, cut, reports);
+        said.push(line.firstChild.textContent.trim());
+        box.append(line);
+      }
     }
     for (const finding of checked.body.findings) {
       if (finding.source === 'encoder' || !finding.suggestion) continue;
+      const negative = finding.field === 'negative_prompt';
       const line = refineCheckLine(`${finding.message} `, finding.severity === 'warn');
-      line.append(refineCheckButton('Apply', `Rewrite the ${finding.field === 'negative_prompt'
-        ? 'negative prompt' : 'prompt'} as the check suggests (Ctrl+Z undoes it)`,
-      () => applyRefineFinding(finding)));
+      line.append(refineCheckButton('Apply', `Rewrite the ${negative ? 'negative prompt' : 'prompt'} `
+        + 'as the check suggests (Ctrl+Z undoes it)', finding.field, () => applyRefineFinding(finding)));
+      // Why its Apply is dead while the negative box is greyed, where the
+      // fold's own note may be out of sight.
+      if (negative) line.append(Object.assign(document.createElement('span'), { className: 'rf-off', hidden: true }));
+      said.push(finding.message);
       box.append(line);
     }
   }
   box.hidden = !box.children.length;
+  const text = said.join(' ');
+  if (els.refineCheckSaid.textContent !== text) els.refineCheckSaid.textContent = text;
   syncRefineCheck();
 }
 
@@ -809,20 +874,33 @@ function refineCutLine(field, text, cut, reports) {
     + `${tags}; the rest, from "${excerpt(text.slice(units(text, cut)))}", is never read. `,
     true,
   );
-  line.append(refineCheckButton('Show', 'Select what the encoders never read',
+  line.append(refineCheckButton('Show', 'Select what the encoders never read', field,
     () => selectRefineFrom(field, text, cut)));
   return line;
 }
 
 // Show and Apply act on the text the check read: dead, and the line dimmed,
-// while either box holds other text - the next check is on its way.
+// while either box holds other text or the negative's activation moved - the
+// next check is on its way. One on the negative prompt is dead too while that
+// box is greyed, as the panel's is: written there, nothing would run.
 function syncRefineCheck() {
   if (!refineSource) return;
   const { body } = refineRequest();
-  const stale = !refineChecked || body.prompt !== refineChecked.prompt
-    || (body.negative_prompt ?? '') !== refineChecked.negative;
+  const asked = refineCheckAsked(body);
+  const stale = !refineChecked || ['prompt', 'negative', 'negativeOff'].some((key) => asked[key] !== refineChecked[key]);
   els.refineCheck.classList.toggle('stale', stale);
-  for (const button of els.refineCheck.querySelectorAll('button')) button.disabled = stale;
+  const greyed = els.refineNegative.disabled;
+  const off = `The negative prompt is greyed at these settings, so nothing written there would run: it needs ${
+    trueCfgSupported ? 'True CFG' : 'CFG'} above ${cfgThreshold}.`;
+  for (const button of els.refineCheck.querySelectorAll('button')) {
+    const dead = greyed && button.dataset.field === 'negative_prompt';
+    button.disabled = stale || dead;
+    button.title = dead ? off : button.dataset.title;
+  }
+  for (const note of els.refineCheck.querySelectorAll('.rf-off')) {
+    note.hidden = !greyed;
+    note.textContent = greyed ? ` ${off}` : '';
+  }
 }
 
 function refineCheckChanged() {
@@ -866,7 +944,8 @@ function scheduleRefineTags(delay = 400) {
   clearTimeout(refineTagTimer);
   const epoch = ++refineTagEpoch;
   const text = els.refinePrompt.value;
-  const tags = text.split(',').map((part) => part.trim()).filter(Boolean).slice(0, 64);
+  // Each tag once: a repeated unknown one took the line's dozen names.
+  const tags = [...new Set(text.split(',').map((part) => part.trim()).filter(Boolean))].slice(0, 64);
   const sentence = tagHelper?.hybrid_prompt && !text.includes(',');
   if (!refineSource || !tagVocabularyEnabled || sentence || !tags.length) {
     els.refineTags.hidden = true;
@@ -884,13 +963,13 @@ function scheduleRefineTags(delay = 400) {
     } catch { /* unchecked is not unknown */ }
     if (epoch !== refineTagEpoch) return;
     // A dozen by name; a prompt the index knows little of is a count after that.
-    const names = unknown.map((r) => r.tag);
+    const names = [...new Set(unknown.map((r) => r.tag))];
     const listed = names.length > 12 ? [...names.slice(0, 12), `${names.length - 12} more`] : names;
-    els.refineTags.textContent = unknown.length
-      ? `Not a known tag: ${listed.join(', ')} - the pass still runs with ${unknown.length === 1 ? 'it' : 'them'}.`
+    els.refineTags.textContent = names.length
+      ? `Not a known tag: ${listed.join(', ')} - the pass still runs with ${names.length === 1 ? 'it' : 'them'}.`
       : '';
-    els.refineTags.title = unknown.map((r) => `${r.tag}: ${r.reason}`).join('\n');
-    els.refineTags.hidden = !unknown.length;
+    els.refineTags.title = names.map((tag) => `${tag}: ${unknown.find((r) => r.tag === tag).reason}`).join('\n');
+    els.refineTags.hidden = !names.length;
   }, delay);
 }
 

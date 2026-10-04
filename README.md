@@ -577,10 +577,12 @@ Generate, Batch, Runs and the grid always render from the prompt, and a pass
 never takes their settings. The dialog starts from the image's own prompt,
 sampling settings and seed, at 1.5× its size (or the last scale you ran)
 unless that is past what the checkpoint holds, when it opens at the largest
-factor that is - the one it skipped says so on its button. On a wide window
-the source is shown large beside the controls. **Strength** has focus;
-**Refine**, Enter in any box or Ctrl+Enter runs the pass, and its progress
-shows in the panel as any job's does. The **1× / 1.25× / 1.5× / 2×**
+factor that is - the one it skipped says so on its button, and running the
+size it opened at leaves your scale as it was. On a wide window the source
+is shown large beside the controls. **Strength** has focus; **Refine**,
+Enter in any box or Ctrl+Enter runs the pass - once the server has read
+what the boxes hold, so a strength it refuses is said in the dialog - and
+its progress shows in the panel as any job's does. The **1× / 1.25× / 1.5× / 2×**
 buttons multiply the source's size, shown under each - 1× re-denoises at the
 size it has - and any other size works too: with **Keep shape** ticked,
 typing W or H moves the other to the source's shape, and a shape that is not
@@ -605,8 +607,12 @@ side, 8.4 MP - because it takes its composition from the source, which is
 what a direct render at that size loses. That is a guard against typos, not
 a promise that it fits: measured here, WAI reached 8.6 MP in 46 s with
 the card two-thirds used, while Z-Anime filled the 16 GB at 4.2 MP and took
-12 minutes at 8.4 MP, and FLUX.1 fills it already at 2.4 MP. Past that point
-the driver spills into system memory and every step slows many times over.
+12 minutes at 8.4 MP, and FLUX.1 Krea [dev] fills it already at 2.4 MP. Past
+that point the driver spills into system memory and every step slows many
+times over. The dialog's size line warns past the largest pass measured,
+naming the run it quotes - FLUX.1 [dev] and the 4-bit builds were not
+measured, and quote Krea [dev]'s fp8 run as that - and past 1600×1600
+where nothing was.
 
 **Strength** is how much is redrawn. The source is resized, encoded, noised
 to that point on the schedule and denoised from there: low values keep the
@@ -626,7 +632,7 @@ and repaints the face, and at 2× even 0.1 starts at sigma 0.75 and repaints
 the man. A Mu set for the pass moves it back (Mu 1.15 at strength 0.2
 starts where the 1.5× default 0.1 does, with twice the steps, and at 2×
 kept him), and the dialog says so under Strength once a FLUX.1 pass is past
-2.4 MP. Several strengths typed into the dialog's **Strength** box -
+the 1536×1536 measured. Several strengths typed into the dialog's **Strength** box -
 `0.05,0.1,0.2` or `0.05-0.2x0.05` - run as one sweep over the source, which
 opens as a sheet of how much of it each value kept; **Compare 3** writes the
 checkpoint's own value and either side of it (0.05,0.1,0.15 on FLUX.1), and

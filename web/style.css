@@ -1120,6 +1120,10 @@ button { font: inherit; cursor: pointer; }
    are the dialog's own. */
 .refine-dialog[open] { display: flex; flex-direction: column; gap: var(--panel-gap); }
 .rf-controls { display: contents; }
+/* It scrolls rather than squeezing its lines: a column too tall for the
+   window shrank each item to its min-height, a hint's 15 px, and a two-line
+   preview ran over the line under it. */
+.refine-dialog[open] > *, .rf-controls > * { flex-shrink: 0; }
 .refine-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .rf-head { display: flex; align-items: center; justify-content: space-between; }
 .rf-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
@@ -1181,9 +1185,21 @@ button { font: inherit; cursor: pointer; }
 /* Dimmed while the boxes hold other text than it checked, as the panel's is. */
 .rf-check.stale .hint { opacity: 0.55; }
 .rf-check .ghost.tiny { margin-left: var(--sp-2); vertical-align: 1px; }
+/* Why a negative-prompt Apply is dead: the box is greyed. */
+.rf-off { color: var(--text-3); }
+/* The check's text for a screen reader, said when it changes. Out of the
+   flex column's flow, so it adds no gap. */
+.rf-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
 /* What the pass will do, in the dialog's own voice rather than a hint's. */
 #refine-preview { font-size: var(--fs-body-sm); color: var(--text); }
 #refine-preview.warn { color: var(--warn); }
+/* A refused press puts the preview's sentence here in the preview's place
+   (refuseRefine), so at the preview's size: a line of another height moved
+   Refine from under the pointer. */
+#refine-error { font-size: var(--fs-body-sm); margin-top: 2px; white-space: pre-line; }
 .rf-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
 .rf-actions .primary { min-width: 120px; }
 /* The shortcut, beside the label: a pseudo-element, since setBusy rewrites

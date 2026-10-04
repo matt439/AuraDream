@@ -520,11 +520,15 @@ scale whatever that came to: a 1.5 MP FLUX.1 source opened at 3.5 MP, and
 after one 2x pass every later source opened at 2x - past what the card
 holds (it fills at 2.4 MP), and on FLUX.1 at a size where the profile's
 own 0.1 starts near sigma 0.65-0.92 and repaints the subject. Open and
-Enter, the fastest path, ran exactly that. The line is the checkpoint's
+Enter, the fastest path, ran exactly that. The line is the profile's
 measured one where `verified.md` has it, so WAI, which ran 8.6 MP, still
 opens at 1.5x; an unmeasured SDXL checkpoint opens capped at the generic
 line, one click from 1.5x or 2x. The guard is unchanged and is still the
-only refusal.
+only refusal. A run at the size the dialog opened at in place of the scale
+it was asked for leaves the remembered scale alone (`refineCapped`): that
+size was the dialog's choice, and remembered as the user's, one Enter on a
+1.5 MP FLUX.1 source opened every later 1 MP source at 1x - the 2x trap
+above, turned round.
 
 **Everything else is the reference image's design.** The source is an id,
 never a path, resolved through `storage.reference_paths` under its own noun;
@@ -554,8 +558,9 @@ recompressing pixels, so `--from-image` sees the same links as the rebuilt row.
 source; on the page it is the Refine dialog's Strength box holding more
 than one value. Reuse on a refined record asks `GET /api/images/{id}` for
 its source, which the record holds by id alone, and opens the dialog on it.
-A source deleted while the dialog is open is the server's to refuse at
-submit, by name.
+A source deleted while the dialog is open is the server's to refuse, by
+name: in the dialog, where Refine waits for the preview of changed boxes
+(the preview runs the submit's checks), and at submit otherwise.
 
 **A strength is an index into the checkpoint's schedule, so where it starts
 is the profile's.** The first version had one default, 0.4, inside the
@@ -690,10 +695,20 @@ screen. Focus lands on Strength with its value selected, so a typed number
 replaces it, where it used to land on Refine, the last control, and the
 first Tab left the dialog; a plain Enter in a one-line box runs the pass,
 as a form's submit would, so "open, Enter" still runs what it opened with.
-A press on a refused Refine says why once: the preview's own refusal moves
-to the error line with Strength focused and marked `aria-invalid`, a size
-past the guard keeps its size line and focuses W - two copies of one
-sentence read as two problems, and the extra line moved the dialog.
+Refine - the button, Enter or Ctrl+Enter - first waits for the preview of
+what the boxes hold (`refinePreviewed`, the request the last preview
+answered, against the one they make now): the preview is what refuses a
+strength past 1 or one that leaves no step, and it is debounced, so
+"1.5, Enter" ran ahead of it, closed the dialog, put the server's refusal
+in the panel and lost the typed settings with it. A press on a refused
+Refine says why once: the preview's own refusal moves to the error line,
+in the preview's place and at its size, with Strength focused and marked
+`aria-invalid`; a size past the guard keeps its size line and focuses W -
+two copies of one sentence read as two problems, and a line of another
+height moved Refine from under the pointer. The dialog's column never
+shrinks its items (`flex-shrink: 0`): too tall for the window, it squeezed
+each to its min-height, a hint's 15 px, and a two-line preview ran over the
+line under it.
 
 **What is around the source.** Opened from Reuse on a pass, the title and a
 line of their own name the pass being run again ("Refine #4 as #5 was
@@ -723,10 +738,17 @@ added at the end of a long prompt is past the 77-token cut and does nothing,
 which a hires-style pass is exactly where people add them. A pooled-only cut
 (FLUX.1's CLIP-L) and an encoder's advice are not shown. It never holds
 Refine, says it is checking only while a first use fetches the tokenizers,
-and is silent when it fails. On a tag checkpoint the Prompt box grows with
+and is silent when it fails. Show and Apply go dead while the boxes hold
+other text than it read or the negative's activation has moved, and one on
+the negative prompt is dead, saying why, while the dialog's negative box is
+greyed - written there, nothing would run - as the panel's is. The lines
+are rebuilt on every reply, a moment after every pause in typing, so they
+are no live region: a screen reader re-read all of them each time, mostly
+unchanged. A visually hidden line beside them carries their text and is
+written only when it changes. On a tag checkpoint the Prompt box grows with
 what it holds, and a line under it names the comma items the tag index does
-not know, from `/api/tags/validate` - advisory, and silent when the lookup is
-unavailable, as the chips are. The source's prompt above is captioned:
+not know, each once, from `/api/tags/validate` - advisory, and silent when
+the lookup is unavailable, as the chips are. The source's prompt above is captioned:
 the box may hold another by now.
 
 **A pass has a size guard of its own.** `max_side` and `max_pixels` are the
@@ -744,17 +766,24 @@ in one call. It is a typo guard, not a VRAM model, as the preset one is:
 measured on 2026-10-04 (`verified.md`), WAI ran 8.6 MP at 5.5 GiB with the
 card two-thirds used, Z-Anime filled the card at 4.2 MP and took 715 s at
 8.4 MP while spilling into system memory, and FLUX.1 fills it at 2.4 MP.
-What fits is quoted, not modelled: `refine_tight_pixels` is the largest pass
-`verified.md`'s "Past 4 MP" table ran on the checkpoint without spilling -
-1536x1536 on FLUX.1 Krea dev (and FLUX.1 dev, the same profile and the same
-transformer) and on Z-Anime, 2560x3360 on WAI, past the guard, so no size
-the dialog offers is tight there - and `tests/test_profiles.py` holds each
-to its row. Past it the dialog's size line says "may run tight on 16GB
-VRAM, past the 2.4 MP measured on this checkpoint". Every checkpoint the
-table does not measure is None and keeps the panel's generic line past
-1600x1600: Animagine, Kohaku and Illustrious run WAI's pipeline, but were
-not measured, and do not borrow its number. The time estimate, from passes
-already made at that size, is still the honest per-checkpoint answer.
+What fits is quoted, not modelled: a profile's `refine_measured` is the
+largest pass `verified.md`'s "Past 4 MP" table ran without spilling - the
+row's checkpoint, its quantization and the size: 1536x1536 on FLUX.1 Krea
+dev and on Z-Anime, 2560x3360 on WAI, past the guard, so no size the dialog
+offers is tight there, all at fp8 - and `tests/test_profiles.py` holds each
+to its row. The page gets its pixels as `defaults.refine_tight_pixels` and
+its words as `hints.refine_tight`, so past it the size line says "may run
+tight on 16GB VRAM, past the 1536×1536 (2.36 MP) measured on FLUX.1 Krea
+dev at fp8". The run is named because a profile is shared: FLUX.1 dev and
+the lite repos are the flux profile in every number and were never
+measured - the same transformer at fp8 on the one, 4-bit under Nunchaku on
+the others - and "measured on this checkpoint" said otherwise; so did one
+decimal, "past the 2.4 MP measured" on a request it called 2.4 MP. Every
+checkpoint whose profile has no row is None and keeps the panel's generic
+line past 1600x1600: Animagine, Kohaku and Illustrious run WAI's pipeline,
+but were not measured, and do not borrow its number. The time estimate,
+from passes already made at that size, is still the honest per-checkpoint
+answer.
 
 ## CellKey and run_id
 

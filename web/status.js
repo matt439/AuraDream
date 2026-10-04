@@ -23,16 +23,20 @@ function applyDefaults(d) {
 // for Turbo and ruinous for FLUX - so the tooltips come from the same server
 // profile as the values, and unlike those values they keep following it: the
 // user owning the controls does not make the explanation stale.
+let lastHints = null;
 function applyHints(hints) {
   if (!hints) return;
+  lastHints = hints;
   const tips = {
     steps: els.stepsTip, guidance_scale: els.cfgTip, mu: els.muTip, true_cfg: els.trueCfgTip,
     prompt: els.promptTip, size: els.sizeTip, refine: els.refineStrengthTip,
-    refine_large: els.refineLarge,
   };
   for (const [key, el] of Object.entries(tips)) {
     if (hints[key]) el.textContent = hints[key];
   }
+  // The one some checkpoints have and others not: a server restarted under
+  // another must not leave FLUX.1's words under Strength.
+  els.refineLarge.textContent = hints.refine_large ?? '';
 }
 
 // The rest of the guide: the size range the checkpoint's authors vouch for,

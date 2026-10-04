@@ -590,39 +590,43 @@
       <p class="hint" id="refine-size-hint"></p>
     </div>
 
-    <div class="row">
-      <div class="sub grow">
-        <i><label for="refine-strength">Strength</label>
-          <span class="help above" tabindex="0" role="note" aria-label="Help">?<span
-            class="tip wide" id="refine-strength-tip">Strength: how much of the source is redrawn - low keeps the picture, 1 keeps nothing.</span></span>
-          <button type="button" class="ghost tiny" id="refine-compare">Compare 3</button></i>
-        <!-- Text, not a number: several strengths are a sweep. autofocus:
-             showModal() would otherwise focus the cross, the first control in
-             the tree, and this is what the dialog is opened to set
-             (openRefine selects its value, so a typed number replaces it). -->
-        <input type="text" id="refine-strength" autocomplete="off" inputmode="decimal" autofocus
-               aria-describedby="refine-strength-tip refine-sweep-hint">
-      </div>
-      <div class="sub narrow">
-        <i><label for="refine-versions">Versions</label></i>
-        <select id="refine-versions" autocomplete="off" aria-describedby="refine-seed-hint">
-          <option value="1" selected>1</option>
-          <option value="2">2</option>
-          <option value="4">4</option>
-        </select>
-      </div>
-      <div class="sub grow">
-        <i><label for="refine-seed">Seed</label></i>
-        <input type="number" id="refine-seed" min="0" placeholder="random" aria-describedby="refine-seed-hint">
-      </div>
-      <button type="button" class="ghost square" id="refine-dice" title="Clear the seed (random)"
-              aria-label="Clear the seed, so the pass draws a random one">🎲</button>
-    </div>
-    <p class="hint" id="refine-sweep-hint"></p>
-    <!-- The checkpoint's own word on a larger pass (`hints.refine_large`),
+    <!-- Strength, Versions and Seed, with their lines close under them: the
+         seeds the versions take, how a sweep is written, and the
+         checkpoint's own word on a larger pass (`hints.refine_large`),
          shown past the size the size line warns at. -->
-    <p class="hint warn" id="refine-large" hidden></p>
-    <p class="hint" id="refine-seed-hint"></p>
+    <div class="field rf-strength">
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="refine-strength">Strength</label>
+            <span class="help above" tabindex="0" role="note" aria-label="Help">?<span
+              class="tip wide" id="refine-strength-tip">Strength: how much of the source is redrawn - low keeps the picture, 1 keeps nothing.</span></span>
+            <button type="button" class="ghost tiny" id="refine-compare">Compare 3</button></i>
+          <!-- Text, not a number: several strengths are a sweep. autofocus:
+               showModal() would otherwise focus the cross, the first control in
+               the tree, and this is what the dialog is opened to set
+               (openRefine selects its value, so a typed number replaces it). -->
+          <input type="text" id="refine-strength" autocomplete="off" inputmode="decimal" autofocus
+                 aria-describedby="refine-strength-tip refine-sweep-hint">
+        </div>
+        <div class="sub narrow">
+          <i><label for="refine-versions">Versions</label></i>
+          <select id="refine-versions" autocomplete="off" aria-describedby="refine-seed-hint">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        <div class="sub grow">
+          <i><label for="refine-seed">Seed</label></i>
+          <input type="number" id="refine-seed" min="0" placeholder="random" aria-describedby="refine-seed-hint">
+        </div>
+        <button type="button" class="ghost square" id="refine-dice" title="Clear the seed (random)"
+                aria-label="Clear the seed, so the pass draws a random one">🎲</button>
+      </div>
+      <p class="hint" id="refine-seed-hint"></p>
+      <p class="hint" id="refine-sweep-hint"></p>
+      <p class="hint warn" id="refine-large" hidden></p>
+    </div>
 
     <!-- The source's own prompt and sampling, folded: a pass usually wants
          them as they were. Open from the start where they could not carry -
@@ -652,8 +656,11 @@
 
     <!-- The prompt check on the pass's own prompt: what the encoders never
          read, and a rule's whole-field fix. Outside the fold, so a cut shows
-         with it closed; it never holds Refine. -->
-    <div class="rf-check" id="refine-check" aria-live="polite" hidden></div>
+         with it closed; it never holds Refine. Rebuilt on every reply, so not
+         a live region itself: the line under it says its text to a screen
+         reader when that text changes. -->
+    <div class="rf-check" id="refine-check" hidden></div>
+    <p class="rf-said" id="refine-check-said" aria-live="polite"></p>
     <p class="hint pre" id="refine-preview" aria-live="polite"></p>
     <p class="error" id="refine-error" role="alert" hidden></p>
     <div class="rf-actions">

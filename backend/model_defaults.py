@@ -50,12 +50,15 @@ starts there, None where there is no pass: a profile number like the steps,
 because a strength is an index into the checkpoint's own schedule - 0.4 on
 SDXL, where WAI's author documents 0.35-0.5; 0.1 on the shifted FLUX.1 dev
 schedule, but 0.5 on schnell's unshifted four-step schedule.
-`refine_tight_pixels` is the largest pass `docs/verified.md` measured fitting
-the card on that checkpoint, where it measured one: the Refine dialog warns
-past it and does not open past it. None - every checkpoint not measured -
-leaves the dialog the panel's generic 1600x1600 line. A figure, never a VRAM
-model: each one is a row of that file, and `tests/test_profiles.py` holds it
-there.
+`refine_measured` is the largest pass `docs/verified.md` measured fitting the
+card, where it measured one - a `Measured` row: the checkpoint and
+quantization it ran on and its size. The Refine dialog warns past it and does
+not open past it. `defaults_for` gives the page its pixels as
+`refine_tight_pixels`, None for every profile with no row - the panel's
+generic 1600x1600 line - and `hints_for` the words naming the run
+(`refine_tight`), since a profile can be shared: FLUX.1 dev and the lite
+repos quote Krea dev's fp8 run, and say so. A figure, never a VRAM model:
+each one is a row of that file, and `tests/test_profiles.py` holds it there.
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -72,7 +75,7 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
-from typing import Any
+from typing import Any, NamedTuple
 
 from . import guides
 from .refine import DEFAULT_STRENGTH, leaves_a_step
@@ -92,6 +95,18 @@ DEFAULT_OFFLOAD = "model"
 # the typo back as if it meant something.
 QUANT_MODES: tuple[str, ...] = ("fp8", "int8", "none", "nunchaku")
 OFFLOAD_MODES: tuple[str, ...] = ("model", "sequential", "none")
+
+
+class Measured(NamedTuple):
+    """A refine pass `docs/verified.md`'s "Past 4 MP" table ran without
+    spilling: the checkpoint as the row names it, the quantization it ran
+    at, and the pass's size."""
+
+    checkpoint: str
+    quantization: str
+    width: int
+    height: int
+
 
 # Matched in order against a normalised model id.
 _PROFILES: list[tuple[str, dict[str, Any]]] = [
@@ -282,8 +297,9 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             # the face; 0.15 (0.62) and up repaint it.
             "refine_strength": 0.1,
             # Measured on Krea dev: 1536x1536 within a gigabyte of the card's
-            # top, 2048x2048 spilling.
-            "refine_tight_pixels": 1536 * 1536,
+            # top, 2048x2048 spilling. FLUX.1 dev and the lite repos share this
+            # profile, and so quote Krea dev's run, naming it.
+            "refine_measured": Measured("FLUX.1 Krea dev", "fp8", 1536, 1536),
             "true_cfg_supported": True,
             "guide": guides.FLUX1_GUIDE,
             "hints": {
@@ -311,12 +327,13 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
                     "leave this blank."
                 ),
                 # Under the Refine dialog's Strength, for a pass past
-                # `refine_tight_pixels`: the measured runs in verified.md,
+                # `refine_measured`: the measured runs in verified.md,
                 # "Past 4 MP".
                 "refine_large": (
                     "FLUX.1's shift grows with the size, so one strength starts a larger "
-                    "pass at more noise: measured at 2x of 1 MP, 0.1 started at sigma 0.75 "
-                    "and repainted the subject; Mu 1.15 at 0.2 started at 0.46 and kept it."
+                    "pass at more noise: measured on Krea dev at 2x of 1 MP, 0.1 started "
+                    "at sigma 0.75 and repainted the subject; Mu 1.15 at 0.2 started at "
+                    "0.46 and kept it."
                 ),
             },
         },
@@ -499,7 +516,7 @@ _PROFILES += [
             # Shift 6: 0.15 starts the pass at sigma 0.51.
             "refine_strength": 0.15,
             # Measured: 1536x1536 at 13.7 GB of the card, 2048x2048 filling it.
-            "refine_tight_pixels": 1536 * 1536,
+            "refine_measured": Measured("Z-Anime", "fp8", 1536, 1536),
             "true_cfg_supported": False,
             "guide": guides.Z_ANIME_GUIDE,
             "hints": {
@@ -675,7 +692,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "refine_strength": 0.4,
         # Measured: 2560x3360 at 11.4 GB of the card - past the pass's own
         # 8.4 MP guard, so nothing the dialog offers runs tight.
-        "refine_tight_pixels": 2560 * 3360,
+        "refine_measured": Measured("WAI v17", "fp8", 2560, 3360),
         "true_cfg_supported": False,
         "guide": guides.WAI_GUIDE,
         "hints": {
@@ -828,17 +845,24 @@ def _profile_for(model_id: str) -> dict[str, Any]:
     return _FALLBACK
 
 
-_PROSE = ("hints", "guide")
+# The prose, and the measured refine pass, whose pixels reach the defaults as
+# `refine_tight_pixels` and whose words the hints as `refine_tight`.
+_NOT_DEFAULTS = ("hints", "guide", "refine_measured")
 
 
 def defaults_for(model_id: str) -> dict[str, Any]:
     """The numbers only - callers put these straight into a request or a field.
 
-    `refine_tight_pixels` is named only where it was measured; every other
-    profile answers None for it, which the page reads as "not measured".
+    `refine_tight_pixels` is the measured pass's pixels where a pass was
+    measured; every other profile answers None for it, which the page reads
+    as "not measured".
     """
     profile = _profile_for(model_id)
-    return {"refine_tight_pixels": None, **{k: v for k, v in profile.items() if k not in _PROSE}}
+    measured = profile.get("refine_measured")
+    return {
+        **{k: v for k, v in profile.items() if k not in _NOT_DEFAULTS},
+        "refine_tight_pixels": measured.width * measured.height if measured else None,
+    }
 
 
 def guide_for(model_id: str) -> dict[str, Any]:
@@ -979,7 +1003,7 @@ def hints_for(
     do the same for their boxes.
     """
     profile = _profile_for(model_id)
-    values = {k: v for k, v in profile.items() if k not in _PROSE}
+    values = {k: v for k, v in profile.items() if k not in _NOT_DEFAULTS}
     if cfg_threshold is not None:
         values["cfg_threshold"] = cfg_threshold
     # A checkpoint whose profile names no starting strength - one the table
@@ -1008,6 +1032,17 @@ def hints_for(
     hints["reference"] = _REFERENCE_HINTS[bool(references)]
     refines = profile["refine_supported"] if refine_supported is None else refine_supported
     hints["refine"] = _REFINE_HINTS[bool(refines)]
+    # The Refine dialog's size line past the measured pass, naming the run it
+    # quotes - on FLUX.1 dev that is Krea dev's, and fp8 whatever this server
+    # runs - with its size as verified.md writes it: one decimal read 2.4 MP
+    # for both a 2.43 MP request and the 2.36 MP line it was past.
+    measured = profile.get("refine_measured")
+    if measured and refines:
+        hints["refine_tight"] = (
+            f"past the {measured.width}×{measured.height} "
+            f"({measured.width * measured.height / 1e6:.2f} MP) measured on "
+            f"{measured.checkpoint} at {measured.quantization}"
+        )
     if not refines:
         hints.pop("refine_large", None)
     # No profile guess to fall back on: whether an adapter can be loaded is a

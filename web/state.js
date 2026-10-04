@@ -95,7 +95,8 @@ const els = {
   refineSteps: $('refine-steps'), refineCfg: $('refine-cfg'),
   refineMu: $('refine-mu'), refineMuField: $('refine-mu-field'),
   refineTrueCfg: $('refine-true-cfg'), refineTrueCfgField: $('refine-true-cfg-field'),
-  refineCarried: $('refine-carried'), refineCheck: $('refine-check'), refinePreview: $('refine-preview'),
+  refineCarried: $('refine-carried'), refineCheck: $('refine-check'),
+  refineCheckSaid: $('refine-check-said'), refinePreview: $('refine-preview'),
   refineError: $('refine-error'), refineCancel: $('refine-cancel'), refineRun: $('refine-run'),
 };
 

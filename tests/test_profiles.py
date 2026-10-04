@@ -594,12 +594,13 @@ def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
 
 def test_a_refine_passs_tight_line_is_a_row_of_verified_md():
     # The Refine dialog warns past `refine_tight_pixels` and does not open
-    # past it. A VRAM figure, so it is quoted, never modelled: each one is the
-    # largest pass verified.md's "Past 4 MP" table ran on that checkpoint
+    # past it. A VRAM figure, so it is quoted, never modelled: each profile's
+    # `refine_measured` is the largest pass verified.md's "Past 4 MP" table ran
     # without spilling, and every checkpoint the table does not measure is
     # None - the panel's generic line - rather than a sibling's number:
-    # Animagine runs WAI's pipeline, but was not measured. FLUX.1 dev is Krea
-    # dev's profile in every number, the same transformer at the same size.
+    # Animagine runs WAI's pipeline, but was not measured. FLUX.1 dev and the
+    # lite repos are Krea dev's profile in every number, so they quote its
+    # run - and the size line names that run, never "this checkpoint".
     from backend.config import settings
 
     measured = {
@@ -609,26 +610,33 @@ def test_a_refine_passs_tight_line_is_a_row_of_verified_md():
         "LyliaEngine/waiIllustriousSDXL_v170": ("WAI v17", 2560, 3360),
     }
     text = (ROOT / "docs" / "verified.md").read_text(encoding="utf-8")
-    table = text.split("### Past 4 MP", 1)[1].split("\n## ", 1)[0]
-    rows = [line for line in table.splitlines() if line.startswith("| ")]
+    section = text.split("### Past 4 MP", 1)[1].split("\n## ", 1)[0]
+    intro = section.split("\n| ", 1)[0]
+    rows = [line for line in section.splitlines() if line.startswith("| ")]
     repos = [c.repo for c in launch.CHECKPOINTS] + [
         c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
     ]
     for repo in repos:
-        profile = defaults_for(repo)
-        tight = profile["refine_tight_pixels"]
+        tight = defaults_for(repo)["refine_tight_pixels"]
+        words = hints_for(repo).get("refine_tight")
         base = next((m for m in measured if _profile_for(repo) is _profile_for(m)), None)
         if base is None:
-            assert tight is None, repo
+            assert tight is None and words is None, repo
             continue
         label, width, height = measured[base]
+        assert _profile_for(repo)["refine_measured"] == (label, "fp8", width, height), repo
         assert tight == width * height, repo
         row = next(line for line in rows if line.startswith(f"| {label},") and f"{width}x{height}" in line)
         assert "spilling" not in row, row
+        assert words == f"past the {width}×{height} ({width * height / 1e6:.2f} MP) measured on {label} at fp8"
+    # Every run in the table is the quantization the profiles name.
+    assert "fp8 and model offload" in " ".join(intro.split())
+    assert "measured on FLUX.1 Krea dev" in hints_for("black-forest-labs/FLUX.1-dev")["refine_tight"]
     # WAI ran past the pass's own guard: nothing the dialog offers is tight.
     assert defaults_for("LyliaEngine/waiIllustriousSDXL_v170")["refine_tight_pixels"] > settings.refine_max_pixels
     # The size line keeps its words where the number is the generic one.
     assert defaults_for("cagliostrolab/animagine-xl-4.0")["refine_tight_pixels"] is None
+    assert "refine_tight" not in hints_for("black-forest-labs/FLUX.1-Krea-dev", refine_supported=False)
 
 
 def test_the_strength_sweep_is_the_dialogs_compare_3():
