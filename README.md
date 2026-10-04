@@ -226,8 +226,9 @@ for the default checkpoint (the transformer and the text encoder both) and
 loads them — expect several minutes. Subsequent loads read from the HF cache.
 
 `Ctrl`/`Cmd` + `Enter` generates from anywhere in the page, the prompt box
-included - except from a box of the open Grid search fold, where it runs the
-grid, and in the Refine dialog, where it runs the pass. With an image open,
+and a focused image included - except from a box of the open Grid search
+fold, where it runs the grid, and in the Refine dialog, where it runs the
+pass (the [Keyboard](#keyboard) table has the rest). With an image open,
 `←` and `→` walk the strip it came from — the current run, or the gallery, which
 pages in more as you reach the end of it — `F` stars it, `Delete` removes it
 after asking, and `Esc` closes it, leaving the focus on the image you walked
@@ -248,7 +249,29 @@ every cell.
 
 On a refine pass, `S` (or **Compare with source**) lays the image it was made
 from under the pass, shown left of a divider you drag, or **Side by side**,
-on the one zoom — cropped as the pass was, if it changed shape.
+on the one zoom — cropped as the pass was, if it changed shape. The facts
+column's **Use these references** puts an image's reference images back in
+the panel, leaving out (and naming) any since deleted.
+
+### Keyboard
+
+| Where | Key | Does |
+| --- | --- | --- |
+| Anywhere | `Ctrl`/`Cmd` + `Enter` | Generate; from a box of the open Grid search fold, Run grid; in the Refine dialog, the pass |
+| Refine dialog | `Enter` in a one-line box | runs the pass; `↑`/`↓` in Strength step it by 0.05 (0.01 with `Shift`) |
+| Lightbox | `←` `→` | the previous or next image of the strip it was opened from |
+| Lightbox | `F` · `S` · `Delete` · `Esc` | star · compare a pass with its source · delete (asks first) · close |
+| Lightbox | `+` `-` · `0` · `1` | zoom · fit · one image pixel per screen pixel (a double-click too) |
+| Gallery | `Tab` | the card you were on (the grid is one tab stop) |
+| Gallery | arrows · `Home` `End` | the next card, the nearest one up or down (`↓` past the last row loads more) · the first and last loaded |
+| Gallery | `Enter` · `F` | open the lightbox · star |
+| Contact sheet | `F` | star the focused cell |
+| Size strip | arrows · `Home` `End` | move along the presets; `Enter` or a click chooses |
+| Tag chips | `Alt` + `←` `→` · `Delete` · `Enter` | move the tag · remove it · edit it; `←` `→` walk the chips |
+| Prompt box | `Tab` or `Enter` | takes the first tag suggestion once three typed characters match it |
+| Examples menu | `↓`, `Enter` or `Space` · arrows · `Esc` | open on the first example · walk it · back to the button |
+| Tags helper | `Esc` | closes the suggestion list first, then the helper |
+| Prompt boxes | `Ctrl` + `Z` | gives back the text an Apply, Use rewrite, an Example, a chip edit or a Reuse replaced |
 
 ## Run under WSL 2 (4-bit Nunchaku)
 
@@ -493,35 +516,70 @@ uv run python tools/fake_server.py --port 7862 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-flux.json      # the True CFG box, on a FLUX-shaped server
 uv run python tools/fake_server.py --port 7863 --step 0.3
 node tools/browser.mjs tools/smoke-preview.json   # the live preview, on a server slow enough to show one
-uv run python tools/fake_server.py --port 7882 --step 0.3
-node tools/browser.mjs tools/smoke-jobs.json      # the queue, Pause, a grid's skipped cells, the load and the server gone
-uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
-node tools/browser.mjs tools/smoke-results.json   # the viewer: a result's tools and column, the preview's box, #recent, Reset's Undo
+uv run python tools/fake_server.py --port 7864 --model black-forest-labs/FLUX.2-klein-4B
+node tools/browser.mjs tools/smoke-conditioning.json # reference chips and ❐, the adapter and a weight sweep
 uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
 node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
 uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-xl-4.0
 node tools/browser.mjs tools/smoke-animagine.json # tag guide, defaults, size range and disabled Mu
-uv run python tools/fake_server.py --port 7878 --model cagliostrolab/animagine-xl-4.0
-node tools/browser.mjs tools/smoke-tags.json      # chips, autocomplete, Tags and Examples by keyboard, Undo
 uv run python tools/fake_server.py --port 7867 --model OnomaAIResearch/Illustrious-XL-v2.0
 node tools/browser.mjs tools/smoke-illustrious.json # hybrid prompting, native size range and disabled Mu
+uv run python tools/fake_server.py --port 7867 --fresh
+node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
+uv run python tools/fake_server.py --port 7868 --model SeeSee21/Z-Anime
+node tools/browser.mjs tools/smoke-z-anime.json   # Base defaults, negative guidance, Mu and the 4 MP ceiling
 uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
 node tools/browser.mjs tools/smoke-anima.json    # Turbo defaults, size range, disabled Mu and saved settings
 uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
 node tools/browser.mjs tools/smoke-kohaku.json   # hybrid tags, defaults, size guidance and saved settings
+uv run python tools/fake_server.py --port 7871 --model duongve/NetaYume-Lumina-Image-2.0
+node tools/browser.mjs tools/smoke-netayume.json # v4 defaults, the qualified size guide and saved settings
 uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
 node tools/browser.mjs tools/smoke-newbie.json   # XML examples, defaults, size guidance and saved settings
 uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
 node tools/browser.mjs tools/smoke-wai.json      # WAI recipes, defaults, reference sizes and saved settings
-uv run python tools/fake_server.py --port 7867 --fresh
-node tools/browser.mjs tools/smoke-paging.json    # the gallery paging itself on scroll; needs the fresh gallery
-uv run python tools/fake_server.py --port 7885
-node tools/browser.mjs tools/smoke-gallery.json   # the cards, their tools and star, the Runs picker, the day lines, the keyboard
+uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-analysis.json  # Check, the critic and Compare, docked beside the viewer at QHD
+node tools/browser.mjs tools/smoke-rewrite.json   # the critic's rewrite: its diff, gist and findings (same server)
+node tools/browser.mjs tools/smoke-comparison.json        # two comparisons on the same seeds (same server)
+node tools/browser.mjs tools/smoke-comparison-batch.json  # the comparison's Seeds and Batch (same server)
+uv run python tools/fake_server.py --port 7875 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-refine.json    # the Refine dialog end to end
+node tools/browser.mjs tools/smoke-refine-unavailable.json # a pass the unloaded checkpoint may not have (same server)
+uv run python tools/fake_server.py --port 7876 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-wide.json      # the page at 2560x1305, 2048x1040 at 125% and 1400x900
+uv run python tools/fake_server.py --port 7877 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-refine-sdxl.json # the Refine dialog on SDXL: its prompt check and tag line
+uv run python tools/fake_server.py --port 7878 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-tags.json      # chips, autocomplete, Tags and Examples by keyboard, Undo
+uv run python tools/fake_server.py --port 7879 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-grid.json      # the grid preview, its warnings and Ctrl+Enter's routing
+uv run python tools/fake_server.py --port 7880 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-sheet.json     # the contact sheet at QHD: fit, sticky heads, labels, Resume
+uv run python tools/fake_server.py --port 7881 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-delete.json    # deletes, tombstones, Delete unstarred's sources, Reuse's Undo
+uv run python tools/fake_server.py --port 7882 --step 0.3
+node tools/browser.mjs tools/smoke-jobs.json      # the queue, Pause, a grid's skipped cells, the load and the server gone
+uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
+node tools/browser.mjs tools/smoke-results.json   # the viewer: a result's tools and column, the preview's box, #recent, Reset's Undo
 uv run python tools/fake_server.py --port 7884 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-lightbox.json  # the facts, a pass against its source, the arrows, zoom and focus
-uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-analysis.json  # Check, the critic and Compare on a FLUX-shaped server
+uv run python tools/fake_server.py --port 7885
+node tools/browser.mjs tools/smoke-gallery.json   # the cards, their tools and star, the Runs picker, the day lines, the keyboard
+uv run python tools/fake_server.py --port 7886 --model black-forest-labs/FLUX.2-klein-4B
+node tools/browser.mjs tools/smoke-sheet-klein.json # the sheet's References axis and an adapter's heads
+uv run python tools/fake_server.py --port 7887 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-analysis-tags.json # the check on a tag checkpoint, docked beside chips at QHD
 ```
+
+Where two smokes share a port, run them one after another, restarting the
+server between them. Fake servers share one throwaway gallery unless
+`--data <dir>` gives each its own (`--fresh` empties it first), and
+`smoke.json` counts the images in it, so run that one on a gallery of its
+own while others are up. The browser opens at
+1400x900, where the smokes are written; `LOCAL_DIFFUSION_VIEWPORT=2560x1305`
+and `LOCAL_DIFFUSION_DPR=1.25` move it, and the wide-screen smokes resize it
+themselves.
 
 The fake server draws gradients stamped with seed and steps, so grid cells can
 be told apart on a sheet, behaves as the claimed checkpoint's profile predicts
@@ -576,7 +634,9 @@ those framings at roughly the tier's pixel count. The 1.5 MP row sits inside
 the 1024-1280 px (1-1.64 MP) FLUX.1 Krea [dev]'s
 README recommends, which the 2 MP row is past. The whole 4 MP row
 is within 0.4% of 2048×2048 in pixel count, so it costs the same VRAM at any
-aspect — if the old 2K preset ran, all of these run. Every checkpoint here
+aspect — if the old 2K preset ran, all of these run. Each strip of buttons
+is one stop for Tab: the arrow keys move along it and Enter or a click
+chooses. Every checkpoint here
 is trained around 1 MP and documented for something between 1 and 4; the
 ? badge beside Size says what, and the line under the boxes warns when the
 size or a finite model-card aspect is outside it (see
@@ -893,6 +953,10 @@ often `size = big, small`, commas where the `|` goes.
 third size is `dog sitting on grass`. That is how you compare saying something
 against not saying it at all.
 
+While the fold is open with variables in it and a `{name}` in the prompt,
+Generate refuses - it would render the braces - and says Run grid fills
+them; `Ctrl`+`Enter` from a box of the fold runs the grid.
+
 A variable no placeholder mentions is refused, and so is a placeholder with no
 variable: the first multiplies the night by a value that changes nothing, the
 second renders a literal `{ground}` into every image of the run. Both are caught
@@ -1026,6 +1090,19 @@ have not chosen one since the gallery was last searched - the arrow keys walk
 the grid (Down past the last row loads the next page), Home and End jump,
 Enter opens the lightbox and F stars; Ctrl+Enter there still generates.
 
+**Reuse** (↻) puts an image's prompt, negative prompt, seed, size, steps,
+CFG, Mu, references and adapter back in the panel and says so in the
+panel's line, with an **Undo** while the panel is still as the Reuse left
+it (Ctrl+Z in the prompt box gives the prompt back too). The page stays
+where it was and the panel moves to bring the prompt into sight. A ⚠ in its
+place means the image was made on another checkpoint: its tooltip says what
+will not carry over, and the note asks you to check the steps, CFG and Mu it
+filled in, which are that checkpoint's. **Delete** (⌦) asks first, naming the image by its number and settings
+and what else goes; the card then stays in its place as "Deleted · #N", so
+nothing slides under the pointer, and the focus moves on to the next image.
+What a gallery control did or refused - a delete, a dead ⤢ or ❐, a sweep -
+is said in the line under the gallery's own head, not in the panel.
+
 The gallery shows the images made on the checkpoint the server is running,
 and nothing else, until you tick **All models** beside Starred. Steps, CFG
 and mu are the checkpoint's, so a picture from another one is a set of
@@ -1081,12 +1158,14 @@ too, with how many runs the delete reaches into and when they were made.
 It is `clear --where ... --keep-favorites` (below) over HTTP: rows
 and their files, no orphan sweep.
 
-**Runs**, the picker beside the search box, lists the gallery one line per run
-- when it started, how many images, how many starred, the prompt - newest
-first; picking one searches for it and opens the sheet. And a page opened
-after a run has ended says so under the panel: when it finished or stopped,
-how many images and cells it reached, and the error if there was one - the
-server keeps that for as long as it is up, and the note is shown once.
+A page opened after a run has ended says so under the panel: when it
+finished or stopped, how many images and cells it reached, how many of them
+have been deleted since, and the error if there was one - the server keeps
+that for as long as it is up, and the note is shown once. **Show run** opens
+its sheet while any of it is left; a grid that stopped short - cancelled,
+out of time or stopped by its failures - also offers **Resume**, which puts
+the run's starting seed and size in the panel, ticks Resume and previews what
+is left (not for a re-render, a refine sweep or a prompt comparison).
 
 **Sheet**, above the gallery, lays that run out as the grid that made it: the
 two widest-varying axes become the columns and rows, and a third becomes a
@@ -1176,7 +1255,9 @@ gallery or deleting it.
 
 Each checkpoint wants a different kind of prompt and vouches for a different
 range of sizes, so the panel says which: the **?** beside Prompt is the
-checkpoint's prompting guide, the **?** beside Size its sizing, the line
+checkpoint's prompting guide, the **?** beside Size its sizing (every **?**
+opens its tip on hover or on keyboard focus, and a screen reader hears it
+named for what it explains), the line
 under the width and height warns when a size is outside what its authors
 documented, and **Examples** drops down the authors' own prompts - click one
 and it fills the box (Ctrl+Z, or the Undo the note under the box offers, brings
@@ -1505,7 +1586,10 @@ about 1 with True CFG doing the work at 3-5. The two used to be one number,
 which made a negative prompt typed at 3.5 stack guidance twice at double the
 cost and left the other recipe unreachable. On every other checkpoint the box
 is greyed out - its CFG *is* real CFG - and the panel's hints say which
-applies. Whatever the checkpoint, the record carries the scale the negative
+applies. While the CFG in force leaves the negative prompt unused, its box is
+greyed (still scrollable, so a carried-over negative can be read) and its
+caption says why, with **Set True CFG** (or **Set CFG**) to take you to the
+box that would wake it. Whatever the checkpoint, the record carries the scale the negative
 prompt actually ran at (`tcfg:` in the search box, `True CFG:` in the PNG's
 parameters line), and none when it did not; a record from before that was
 written reads as its CFG, which is what ran then.

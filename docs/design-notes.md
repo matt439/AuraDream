@@ -740,8 +740,10 @@ retained across reloads, Generate and Run grid blocked while a retained
 source could not run, a comparison clearing a remembered strength axis, a
 seed the panel shared between direct renders and passes. Since 2026-10-04
 the pass is a modal dialog (`web/refine.js`), opened by a card's ⤢, the
-lightbox's Refine and Reuse on a refined record, and `collect()` never sends
-a source. The dialog starts from the record itself - its prompt, negative
+lightbox's Refine and Reuse on a refined record - and, since the results
+viewer gave the image just made the card's tools (U28, U45), by a viewer
+result's ⤢ and its column's Refine…, which share the card's handler
+(`refineResult`) - and `collect()` never sends a source. The dialog starts from the record itself - its prompt, negative
 prompt, steps, CFG, Mu, True CFG, adapter and seed; this checkpoint's
 profile instead where the record is another checkpoint's, with the fold
 that holds them open to say so - and has its own size (scale buttons and
@@ -749,12 +751,18 @@ the two boxes), Strength, Versions and Seed. Versions is `num_images`, on
 consecutive seeds from the Seed box: a pass is one pipeline call per image,
 so they cost time, not VRAM. A Strength box holding a list or a range is
 the grid's strength axis instead, with Versions as its seed count, and the
-job opens as a sheet when done. Each change asks `/api/grid/preview` with
+job opens as a sheet when done. The dialog closes once the server has taken
+the pass (`startJob`'s `onAccepted`, U83), not on the press: closed first, a
+refusal at submit - a source deleted from another tab - landed in the
+panel's line and took the dialog's edits with it; it now stays in
+`#refine-error` with them. While the POST is out the dialog holds, Refine
+reading "Sending…" (the lightbox's section has why). Each change asks `/api/grid/preview` with
 the grid-shaped request - the same validation the submit runs - so a size
 past the guard or a strength that leaves no step is refused in the dialog,
 in the server's words, and Refine is aria-disabled with the reason as its
 title. A ⤢ press on a checkpoint with no pass says so and opens nothing
-(a card's ⤢ is aria-disabled there, as the lightbox's Refine is);
+(a card's or a viewer result's ⤢ is aria-disabled there, as the lightbox's
+Refine is, and says why over its tile and under the gallery's head);
 Reuse on a refined record opens the dialog anyway, with Refine dead and the
 reason shown, until a status says the loaded pipeline has one. The dialog
 remembers per browser (`local-diffusion.refine.v1`) the scale and versions
@@ -3058,7 +3066,12 @@ primary 44, the small and tiny buttons 28 and 21, two pixels over today's for
 the larger type in them), today's panel padding and topbar, and a 12 px gap
 where today's is 14 - so at 2048 x 1040 the panel is about as tall as before
 while 70 px wider. Under 1800 px every token is today's, which is where the
-smokes run and why their computed-style checks hold.
+smokes run and why their computed-style checks hold. The widths the review's
+later work added are tokens on the same table, each with its wide-tier value
+beside it: the Runs picker's `--runs-w`, the lightbox's column `--lb-side-w`,
+the docked prompt check's `--dock-w`, the result's column `--result-w`,
+`#recent`'s `--recent-w` and `--recent-min`, and a long run's least tile
+`--strip-min`.
 
 Some of the same change is not scale but contrast and focus, and applies at
 every width: `--line-strong` is `#666680`, 3.33:1 on the
@@ -3081,7 +3094,8 @@ one pixel of it beside the stronger border was a 1.3:1 change. The LoRA select
 is drawn as the text boxes are, by its id alone: a rule for every select would
 restyle the comparison's selects in the panel under 901 px (U21). Danger red
 on hover is a `.danger` class on Cancel, Cancel queued and Delete unstarred,
-not every small ghost button (U91), and a tip lets clicks through
+not every small ghost button (U91) - and on Reset since it took the panel
+with no way back (U68; "Panel persistence") - and a tip lets clicks through
 (`pointer-events: none`, U139): one pinned open by a click lay over the Refine
 dialog's scale buttons and swallowed the clicks meant for them. A tip's line
 breaks are kept only where its text has them (`.tip.pre`, set by the code
@@ -5815,9 +5829,14 @@ contract that makes the order safe is that eleven of the twelve only *declare*:
 a function in `sizes.js` may call one from `analysis.js` because every call
 happens after all twelve have loaded, from a handler or from `app.js`'s
 boot. A file that ran something at load would have to sit after everything
-it touches; keep the wiring in `app.js` (the lightbox's own pointer handlers
-are the exception, wired beside the code they belong to and touching nothing
-outside it).
+it touches; keep the wiring in `app.js`. The lightbox's pointer handlers
+were once the exception, wired beside the code they belong to; the
+2026-10-04 review's lightbox work (its comparison, strips and image
+failures) grew them past "touching nothing outside it", and they are now
+named functions in `lightbox.js` (`lbImageFailed`, `lbWheel`,
+`lbPointerDown` and the rest) that `app.js` wires with every other handler.
+Since then `panel.js` also holds the results viewer, and `lightbox.js` the
+shared facts list (`factsList`) the viewer's column uses too.
 
 The same pass moved `tests/test_api.py` (1,300 lines) into `tests/fakes.py`,
 the fixtures in `conftest.py`, `tests/api_helpers.py` and one `test_api*.py`
