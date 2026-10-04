@@ -5,8 +5,7 @@
   {"expect": "moreWatcher instanceof IntersectionObserver"},
 
   {"log": "'Sixty images, one more page than the grid shows at once'"},
-  {"eval": "fetch('/api/grid', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a fox', steps_axis: '1,2,3,4,5,6,7,8,9,10', cfg_axis: '0,1,2,3,4,5', width: 512, height: 512, seed: 7})}).then(r => r.json()).then(j => { window.__run = j.run_id; })"},
-  {"wait": 4000},
+  {"eval": "fetch('/api/grid', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a fox', steps_axis: '1,2,3,4,5,6,7,8,9,10', cfg_axis: '0,1,2,3,4,5', width: 512, height: 512, seed: 7})}).then(r => r.json()).then(async (j) => { window.__run = j.run_id; for (let i = 0; i < 300; i++) { const s = await (await fetch('/api/jobs/' + j.job_id)).json(); if (s.status !== 'queued' && s.status !== 'running') break; await new Promise((r) => setTimeout(r, 100)); } })"},
   {"eval": "scrollTo(0, 0); resetGallery();"},
   {"wait": 800},
 

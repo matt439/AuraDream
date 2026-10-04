@@ -12,10 +12,23 @@
 //   {"expect": js}               run JavaScript; a falsy value fails the run
 //   {"key": "1"}                 press a key (single characters and names like "Escape";
 //                                Escape also closes a modal <dialog>, as a real press does)
+//   {"keycombo": ["Control", "Enter"]}   press a key with a modifier held
+//   {"type": "text"}             type text into the focused element
 //   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
+//   {"hover": [x, y]}            move the mouse there (tooltips, hover states)
 //   {"click": [x, y]}            click a point; {"dblclick": [x, y]} double-clicks;
 //                                {"drag": [x1, y1, x2, y2]} drags
-//   {"shot": "file.png"}         screenshot the viewport
+//   {"viewport": [w, h, dpr]}    resize the page (dpr optional, default 1) and wait for layout
+//   {"shot": "file.png"}         screenshot the viewport; {"fullshot": "file.png"} the
+//                                whole scrollable page; {"elshot": ["selector", "file.png"]}
+//                                one element's box, scrolled into view
+//
+// The page opens at 1400x900, where the smokes are written. Two settings move it:
+//   LOCAL_DIFFUSION_VIEWPORT=2560x1305   (a maximized QHD browser at 100% scaling)
+//   LOCAL_DIFFUSION_DPR=1.25             (with 2048x1040, QHD at 125% scaling)
+// and LOCAL_DIFFUSION_PORT_OFFSET=N adds N to every 127.0.0.1:<port> and
+// localhost:<port> in the steps, so a second checkout can run the same smokes
+// against fake servers of its own without meeting the first one's.
 //
 // Page-side names (`els`, `lbView`, `sheetRecords`, ...) are the app's own
 // top-level bindings, reachable from `eval` because app.js is a classic script.
@@ -41,16 +54,30 @@ if (!browser) {
 }
 const file = process.argv[2];
 if (!file) { console.error('usage: node tools/browser.mjs <steps.json>'); process.exit(2); }
-const steps = JSON.parse(readFileSync(file, 'utf8'));
+const OFFSET = Number(process.env.LOCAL_DIFFUSION_PORT_OFFSET || 0);
+let text = readFileSync(file, 'utf8');
+if (OFFSET) {
+  text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
+}
+const steps = JSON.parse(text);
 
-const PORT = 9333 + Math.floor(Math.random() * 500);
+const [VW, VH] = (process.env.LOCAL_DIFFUSION_VIEWPORT || '1400x900').split('x').map(Number);
+const DPR = Number(process.env.LOCAL_DIFFUSION_DPR || 1);
+if (!(VW > 0 && VH > 0 && DPR > 0)) {
+  console.error('LOCAL_DIFFUSION_VIEWPORT is WIDTHxHEIGHT and LOCAL_DIFFUSION_DPR a positive number');
+  process.exit(2);
+}
+
 // A profile of this run's own. A shared one is held by whichever Edge is
 // still alive from a run that crashed, and the next launch then hands its
 // command line to that instance and exits without ever opening the port -
 // which reads as "the browser did not come up" for every run after it.
 const PROFILE = `${tmpdir()}/local-diffusion-browser-${process.pid}`;
+// Port 0: the browser picks a free one and writes it to DevToolsActivePort in
+// the profile. A port of our own choosing could be another run's - two runs on
+// one port drive each other's pages.
 const proc = spawn(browser, [
-  '--headless=new', `--remote-debugging-port=${PORT}`, '--window-size=1400,900',
+  '--headless=new', '--remote-debugging-port=0', `--window-size=${VW},${VH}`,
   '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-gpu',
   `--user-data-dir=${PROFILE}`, 'about:blank',
 ], { stdio: 'ignore' });
@@ -60,9 +87,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
 
 async function target() {
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 75; i++) {
     try {
-      const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
+      const port = Number(readFileSync(`${PROFILE}/DevToolsActivePort`, 'utf8').split('\n')[0]);
+      const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
       // The blank page asked for, not whatever else a fresh profile opens
       // first - Edge puts a sync prompt ahead of it.
       const pages = list.filter((t) => t.type === 'page');
@@ -90,11 +118,14 @@ const send = (method, params = {}) => new Promise((resolve) => {
   ws.send(JSON.stringify({ id: n, method, params }));
 });
 
+const viewport = (width, height, deviceScaleFactor = 1) =>
+  send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor, mobile: false });
+
 await send('Page.enable');
 await send('Network.enable');
 await send('Network.setCacheDisabled', { cacheDisabled: true });
 await send('Runtime.enable');
-await send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
+await viewport(VW, VH, DPR);
 
 async function evaluate(expression) {
   const res = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
@@ -104,6 +135,12 @@ async function evaluate(expression) {
 }
 const mouse = (type, x, y, extra = {}) =>
   send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
+// Escape carries its key code, as a real press does: a modal <dialog>
+// closes on that, not on the key's name alone. A plain Enter stays a bare
+// key name (the smokes' chip and autocomplete steps are written against
+// that); in a keycombo, Enter is sent as the real key, text and all.
+const ESCAPE = { code: 'Escape', windowsVirtualKeyCode: 27 };
+const COMBO_KEYS = { Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' }, Escape: ESCAPE };
 
 for (const step of steps) {
   if (step.navigate) { await send('Page.navigate', { url: step.navigate }); await sleep(800); }
@@ -116,17 +153,31 @@ for (const step of steps) {
     console.log(`  ${value ? 'ok  ' : 'FAIL'} ${step.expect}`);
   } else if (step.key) {
     const text = step.key.length === 1 ? step.key : undefined;
-    // Escape carries its key code, as a real press does: a modal <dialog>
-    // closes on that, not on the key's name alone.
-    const code = step.key === 'Escape' ? { code: 'Escape', windowsVirtualKeyCode: 27 } : {};
+    const code = step.key === 'Escape' ? ESCAPE : {};
     await send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, text, ...code });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, ...code });
+    await sleep(100);
+  } else if (step.keycombo) {
+    const [mod, key] = step.keycombo;
+    const bit = { Alt: 1, Control: 2, Meta: 4, Shift: 8 }[mod] || 0;
+    const code = COMBO_KEYS[key] ?? {};
+    await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: mod, modifiers: bit });
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key, modifiers: bit, ...code });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key, modifiers: bit, ...code, text: undefined });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: mod, modifiers: 0 });
+    await sleep(100);
+  } else if (step.type) {
+    await send('Input.insertText', { text: step.type });
     await sleep(100);
   } else if (step.wheel) {
     const [x, y, deltaY] = step.wheel;
     await mouse('mouseMoved', x, y);
     await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY });
     await sleep(100);
+  } else if (step.hover) {
+    const [x, y] = step.hover;
+    await mouse('mouseMoved', x, y);
+    await sleep(400);
   } else if (step.click) {
     const [x, y] = step.click;
     await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y);
@@ -144,10 +195,27 @@ for (const step of steps) {
     for (let i = 1; i <= 5; i++) await mouse('mouseMoved', x1 + (x2 - x1) * i / 5, y1 + (y2 - y1) * i / 5, { buttons: 1 });
     await mouse('mouseReleased', x2, y2);
     await sleep(150);
+  } else if (step.viewport) {
+    const [w, h, dpr = 1] = step.viewport;
+    await viewport(w, h, dpr);
+    await sleep(300);
   } else if (step.shot) {
     const res = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(step.shot, Buffer.from(res.result.data, 'base64'));
     console.log('  wrote ' + step.shot);
+  } else if (step.fullshot) {
+    const res = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
+    writeFileSync(step.fullshot, Buffer.from(res.result.data, 'base64'));
+    console.log('  wrote ' + step.fullshot);
+  } else if (step.elshot) {
+    const [sel, out] = step.elshot;
+    const box = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({block: 'nearest'}); const r = e.getBoundingClientRect(); return {x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height}; })()`);
+    if (!box || !box.width || !box.height) console.log('  ! elshot: no visible element for ' + sel);
+    else {
+      const res = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { ...box, scale: 1 } });
+      writeFileSync(out, Buffer.from(res.result.data, 'base64'));
+      console.log('  wrote ' + out + ' (' + Math.round(box.width) + 'x' + Math.round(box.height) + ')');
+    }
   }
 }
 
