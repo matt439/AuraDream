@@ -1,4 +1,1881 @@
 {
+ "remediation": {
+  "date": "2026-10-05",
+  "status": "implemented",
+  "branch": "ui-review-2026-10-04",
+  "base": "ecbb79a",
+  "reviewed_head": "281af6e",
+  "commits": "cf591ca..9ec6783 (46 commits on ecbb79a), then the commit recording this block",
+  "python_validation": {
+   "command": "uv run --group dev pytest -q -p no:cacheprovider",
+   "passed": 1929,
+   "skipped": 4,
+   "warnings": 31,
+   "seconds": 76.41
+  },
+  "browser_smokes_passed": [
+   "smoke",
+   "smoke-analysis",
+   "smoke-analysis-tags",
+   "smoke-anima",
+   "smoke-animagine",
+   "smoke-comparison",
+   "smoke-comparison-batch",
+   "smoke-conditioning",
+   "smoke-delete",
+   "smoke-ernie",
+   "smoke-flux",
+   "smoke-gallery",
+   "smoke-grid",
+   "smoke-illustrious",
+   "smoke-jobs",
+   "smoke-kohaku",
+   "smoke-lightbox",
+   "smoke-netayume",
+   "smoke-newbie",
+   "smoke-paging",
+   "smoke-preview",
+   "smoke-refine",
+   "smoke-refine-sdxl",
+   "smoke-refine-unavailable",
+   "smoke-results",
+   "smoke-rewrite",
+   "smoke-sheet",
+   "smoke-sheet-klein",
+   "smoke-tags",
+   "smoke-wai",
+   "smoke-wide",
+   "smoke-z-anime"
+  ],
+  "browser_smokes": {
+   "runner": "run_smokes.py --offset 3500 --jobs 4 (a session script outside the repository): each smoke on a fresh fake server with its own throwaway gallery",
+   "passed": 32,
+   "failed": 0,
+   "unknown_smoke_files": 0,
+   "expectations_passed": 1370,
+   "new_with_this_work": [
+    "smoke-wide",
+    "smoke-refine-sdxl",
+    "smoke-tags",
+    "smoke-grid",
+    "smoke-sheet",
+    "smoke-sheet-klein",
+    "smoke-delete",
+    "smoke-analysis-tags",
+    "smoke-jobs",
+    "smoke-results",
+    "smoke-lightbox",
+    "smoke-gallery"
+   ],
+   "viewports": "1400x900 by default; smoke-wide, -analysis, -analysis-tags, -gallery and -results also at 2560x1305 and 2048x1040@1.25, -grid, -lightbox, -refine, -sheet and -sheet-klein at 2560x1305, -delete at 2048x1040@1.25 and 800x900"
+  },
+  "browser_checks": "The final verifiers reproduced each finding's original observation on the integrated tree at 2560x1305 (DPR 1) and 2048x1040 (DPR 1.25) with real mouse and key events, on fake servers claiming FLUX.1 Krea [dev], FLUX.2 [klein], Animagine XL 4.0 and Krea 2 Turbo, a server killed mid-run and restarted included; a designer walked a whole session at both sizes.",
+  "gpu_validation": "not run",
+  "counts": {
+   "fixed": 140,
+   "partial": 1,
+   "not_fixed": 0,
+   "fixed_with_a_part_not_done_by_decision": 19,
+   "fixed_by_a_documented_alternative": 6
+  },
+  "outcomes": {
+   "U1": {
+    "status": "fixed",
+    "change": "The sticky panel's top is measured (placePanel): under the topbar while the panel fits, otherwise scrolling with the page until its bottom meets the window and held there, so Generate, progress, Run grid and Resume come into view as the page scrolls and stay there; opening Grid search by hand reveals Run grid, and the media queries that never applied are gone. Known cost, as the recommendation predicted: at the page's top with the fold open, Run grid is below the window until the page scrolls.",
+    "packages": [
+     "phase0"
+    ],
+    "commits": [
+     "4cb5a76",
+     "c58cee0"
+    ]
+   },
+   "U2": {
+    "status": "fixed",
+    "change": "showSheetScope scrolls the gallery head into view once a run, job, comparison or sweep sheet has rendered, reserving room under a short sheet, so a finished sheet opens in view.",
+    "packages": [
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff",
+     "69613b5",
+     "4aeaee7"
+    ]
+   },
+   "U3": {
+    "status": "fixed",
+    "change": "A pass in the lightbox has 'Compare with source' (S): swipe or side by side over the source on one shared view, so the zoom holds; 'Refined from #N' is a link, and a deleted source disables the comparison with the reason.",
+    "alternative": "The toggle is a labelled 'Compare with source' button with an S hint rather than the settings line; that line gave way to the facts list, whose '#N' links the source.",
+    "packages": [
+     "lb"
+    ],
+    "commits": [
+     "ac67024",
+     "4127ac2",
+     "4aeaee7"
+    ]
+   },
+   "U4": {
+    "status": "fixed",
+    "change": "Examples, the tag tools, Reuse and its Undo write through replaceBoxText/writeBox, so Ctrl+Z works, and an Example or a Reuse over the user's own prompt offers an Undo.",
+    "packages": [
+     "galdel",
+     "tag"
+    ],
+    "commits": [
+     "532e80c",
+     "88a642e",
+     "35e6514",
+     "a9a01b4",
+     "c616336"
+    ]
+   },
+   "U5": {
+    "status": "fixed",
+    "change": "From 1800 px the open prompt check docks in a column beside the viewer (a CSS :has() grid, --dock-w) and scrolls inside itself, so the image just made stays in view; on a tag checkpoint the image moves only by the chips' extra lines.",
+    "not_done": "Kept by decision: beside a long run's strip the docked check keeps the viewer's 36rem minimum (in the first column a comparison's sheet would open at half width); the chips are not kept across both columns, so on a tag checkpoint the image moves down by their extra lines (a 40-tag prompt at 2048x1040@1.25 takes its bottom 8 px past the fold); a .many batch is not excluded from the dock.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53",
+     "f77bb7a",
+     "c616336",
+     "4aeaee7"
+    ]
+   },
+   "U6": {
+    "status": "fixed",
+    "change": "The Refine dialog opens at the remembered scale or 1.5x only within the guard and the checkpoint's measured tight line, else the largest factor that is, else 1x; past that line the size line names the measured run, and FLUX.1 shows its measured sigma note under Strength.",
+    "not_done": "No live start sigma: for FLUX.1 without a Mu the shift comes from calculate_shift inside the pipeline's __call__, so reading it would mean re-deriving it outside the pipeline (which schedule.forced_mu exists to avoid) or running the pipeline on the gate; the measured note covers the warning.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U7": {
+    "status": "fixed",
+    "change": "Chips past an encoder's cut are dimmed and dashed with an amber bar at the cut, and the tray label carries the token count, measured without Check by the new POST /api/prompt/measure (the encoder layer alone, never the gate).",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U8": {
+    "status": "fixed",
+    "change": "The grid preview lists the resolved prompts whenever the variables box has text and warns when a variable has one value, naming the comma when commas caused it.",
+    "packages": [
+     "grid"
+    ],
+    "commits": [
+     "360bb46",
+     "6b7af23"
+    ]
+   },
+   "U9": {
+    "status": "fixed",
+    "change": "A lost stream probes GET /api/jobs/<id>: a live job is streamed again, no answer gives an offline message counting the images saved, a 404 says the server restarted and the job ended with it, and the viewer keeps a card with 'Run it again'.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe",
+     "4aeaee7"
+    ]
+   },
+   "U10": {
+    "status": "fixed",
+    "change": "Delete unstarred and clear --keep-favorites keep a starred image's refine source and references (one storage predicate, counted in the typed number and the expected pin), a single delete names the passes made from the image, and a pass whose source is gone says '(deleted)'.",
+    "packages": [
+     "galdel",
+     "lb",
+     "ref"
+    ],
+    "commits": [
+     "532e80c",
+     "7dae7b8",
+     "ab10c8b",
+     "35e6514",
+     "ac67024",
+     "4127ac2",
+     "69613b5",
+     "4aeaee7",
+     "9ec6783"
+    ]
+   },
+   "U11": {
+    "status": "fixed",
+    "change": "From 1600 px the Refine dialog has two panes, the source's full PNG at its own shape beside the controls (1400 px wide at QHD); below that the thumbnail shows the whole picture.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b",
+     "e9a0735"
+    ]
+   },
+   "U12": {
+    "status": "fixed",
+    "change": "From 2000 px a long run is an auto-fill strip of 160 px tiles under min(560px, 45vh) with its own scroll, holding its final height from the first frame, and this run's cards are outlined in the gallery.",
+    "not_done": "The optional L-sized two-column stage was not built; the empty width it aimed at is served by the result column (U28) and #recent (U34). The live preview of a run of five or more stays the size of the cell its image will take: a larger one would bring back the reflow U26 removed.",
+    "packages": [
+     "res"
+    ],
+    "commits": [
+     "1407e26",
+     "eb5ba35",
+     "4aeaee7"
+    ]
+   },
+   "U13": {
+    "status": "fixed",
+    "change": "Card tools carry named tips drawn on hover and focus (Delete's over Delete at the row's right edge), dead tools are aria-disabled with the reason, and tools are 32 px targets from 1800 px.",
+    "packages": [
+     "galcard"
+    ],
+    "commits": [
+     "83b0749",
+     "9bb99e1",
+     "4aeaee7"
+    ]
+   },
+   "U14": {
+    "status": "fixed",
+    "change": "A wide tier from 1800 px sets the panel to clamp(400px, 18vw, 480px) and lets the prompt grow with its content from 5 to 12 lines (8 on short windows), a dragged height winning.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U15": {
+    "status": "fixed",
+    "change": "Type tokens ramp up from 1800 px (body 15.5 px and captions 13.5 px at 2560, a third of the increase at 2048x1040@1.25), and the prompt's own buttons are 12 px text on 24 px targets.",
+    "alternative": "The plan's 1800 px gate with a ramp (a third of the increase at 2048x1040@1.25) rather than the verifier's 2200 px gate; height-safe because the panel is held (U1).",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c",
+     "4aeaee7"
+    ]
+   },
+   "U16": {
+    "status": "fixed",
+    "change": "Sheet cells are sized from the measured window (--cell-max from the chrome, heads and rows), so a matrix fits the screen, with a thumbnail/PNG srcset sized to the cell and a refit on resize.",
+    "not_done": "The optional Fit/Fill toggle was not built.",
+    "packages": [
+     "gen",
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff",
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U17": {
+    "status": "fixed",
+    "change": "The last-run banner hides while a job runs and is remembered only from a job's own end; the finish line has its own #finish-note.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U18": {
+    "status": "fixed",
+    "change": "Full width, Encoders takes a 260-360 px track and Order the rest; docked, the sections stack; the reordered prompt is shown whole.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U19": {
+    "status": "fixed",
+    "change": "The progress bars span the panel with Pause and Cancel on a one-line Now row, the tab title shows progress and the finish, and the topbar mirrors the job with a 2 px line.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U20": {
+    "status": "fixed",
+    "change": "Strength's placeholder, Compare 3, sweep line and tip come from the profile's strength_sweep (0.05,0.1,0.15 on FLUX.1), Compare 3 is held where Steps leaves too few values, and the server's refusals name the box and the range.",
+    "packages": [
+     "grid",
+     "ref"
+    ],
+    "commits": [
+     "360bb46",
+     "7dae7b8",
+     "6b7af23",
+     "ab10c8b",
+     "4aeaee7"
+    ]
+   },
+   "U21": {
+    "status": "fixed",
+    "change": "color-scheme: dark and accent-color are set on :root, and #lora is styled as the panel's fields.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U22": {
+    "status": "fixed",
+    "change": "Every image is named '#N' (cards, lightbox counter and facts, sheet, Refine dialog, settings line), a pass carries a '⤢ strength' badge, card titles give size, seed and lineage, and search takes id:.",
+    "packages": [
+     "galcard",
+     "lb",
+     "ref",
+     "res",
+     "sheet",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "7dae7b8",
+     "d540aa6",
+     "2acd92c",
+     "ab10c8b",
+     "898c7ff",
+     "c616336",
+     "83b0749",
+     "ac67024",
+     "9bb99e1",
+     "4127ac2",
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U23": {
+    "status": "fixed",
+    "change": "The idle viewer is one line with the Ctrl+Enter hint; an empty install keeps its box with the authors' Examples.",
+    "packages": [
+     "res"
+    ],
+    "commits": [
+     "1407e26",
+     "eb5ba35",
+     "4aeaee7"
+    ]
+   },
+   "U24": {
+    "status": "fixed",
+    "change": "Input and secondary-button borders use --line-strong #666680, 3.3:1 on the panel.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U25": {
+    "status": "fixed",
+    "change": "A finished job prepends its cards (prependFinished) instead of resetting the gallery, keeping the loaded pages, the scroll position, the day lines and the keyboard's current card; images a filter hides are counted under the head with Show all.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe",
+     "daacc9e",
+     "4aeaee7"
+    ]
+   },
+   "U26": {
+    "status": "fixed",
+    "change": "Each result tile's box is chosen from the job's planned count at its first frame, so the gallery head holds still through a Generate, a batch and a long run.",
+    "packages": [
+     "res"
+    ],
+    "commits": [
+     "1407e26",
+     "eb5ba35",
+     "4aeaee7"
+    ]
+   },
+   "U27": {
+    "status": "fixed",
+    "change": "Loading shows 'loading weights · m:ss' and an indeterminate bar, the topbar keeps the model name with 'loading…', 'not loaded' or 'load failed', Unload carries its reason, and Cancel says the weights keep loading.",
+    "not_done": "The optional ticker in the viewer's placeholder was not built; the progress line, the tab title and the topbar carry the elapsed time.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U28": {
+    "status": "fixed",
+    "change": "Each result is a figure with Reuse, Refine, Star, Reference and Delete, and from 1800 px a column with its lineage, Star / Refine… / Reuse / Use seed, the prompt and the facts.",
+    "packages": [
+     "res"
+    ],
+    "commits": [
+     "1407e26",
+     "eb5ba35",
+     "4aeaee7"
+    ]
+   },
+   "U29": {
+    "status": "fixed",
+    "change": "Card thumbnails use object-fit: contain, letterboxed on the card's own fill.",
+    "packages": [
+     "galcard"
+    ],
+    "commits": [
+     "83b0749",
+     "9bb99e1"
+    ]
+   },
+   "U30": {
+    "status": "fixed",
+    "change": "The lightbox's side column is clamp(340px, 15vw, 400px) at QHD and lists Model, Size, Sampling, Negative, LoRA, References, Refined from, Variables, Seed, Created and Run, over a 0.97 backdrop.",
+    "packages": [
+     "lb"
+    ],
+    "commits": [
+     "ac67024",
+     "4127ac2"
+    ]
+   },
+   "U31": {
+    "status": "fixed",
+    "change": "A grid's finish line has Show sheet, the Sheet button over an empty search opens the newest run and says so, and a new axis is pinned to the value most records carry.",
+    "packages": [
+     "gen",
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff",
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U32": {
+    "status": "fixed",
+    "change": "Sheet heads are body-size text in the text colour, sticky in the sheet's scroller, clamped to three lines with the whole value as the title.",
+    "packages": [
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff",
+     "f77bb7a"
+    ]
+   },
+   "U33": {
+    "status": "fixed",
+    "change": "Tag verdicts are cached per checkpoint, so known chips keep their state while typing, and the item under the caret stays neutral until a comma, the caret leaving, a blur or 1.5 s.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U34": {
+    "status": "fixed",
+    "change": "A single result opens the lightbox on the gallery's list, and from 2000 px #recent shows this session's earlier results beside the viewer.",
+    "packages": [
+     "res"
+    ],
+    "commits": [
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U35": {
+    "status": "fixed",
+    "change": "The card's ❐ is a toggle (aria-pressed) that numbers and rings reference cards, says 'Added as image N' in a status bubble and, at four, disables the others with the reason on the card and in #gallery-error.",
+    "alternative": "The toggle keeps one name, 'Reference image', with its number in the title and aria-description.",
+    "packages": [
+     "galcard"
+    ],
+    "commits": [
+     "83b0749",
+     "9bb99e1",
+     "4aeaee7"
+    ]
+   },
+   "U36": {
+    "status": "fixed",
+    "change": "The Reference images tip follows the capability (klein: up to four, named by number, about 1 MP), the count note reads '(n of 4 ...)', and the limit refusal says what to do.",
+    "packages": [
+     "galdel",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "532e80c",
+     "2acd92c",
+     "35e6514"
+    ]
+   },
+   "U37": {
+    "status": "fixed",
+    "change": "Ctrl+Enter is routed by focus: in the Refine dialog it runs the pass, from a box of the open grid fold it runs the grid, elsewhere Generate, which refuses to render {placeholders} while the fold has variables.",
+    "packages": [
+     "grid"
+    ],
+    "commits": [
+     "360bb46",
+     "6b7af23"
+    ]
+   },
+   "U38": {
+    "status": "fixed",
+    "change": "Use rewrite and Use reordered (the critic's and Check's) put the replaced prompt into an empty Your version, so Compare still offers the original, and the order finding's duplicate Apply is gone.",
+    "not_done": "Not extended to a finding's Apply (optional): an Apply fixes one rule's complaint rather than offering a version to compare.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U39": {
+    "status": "fixed",
+    "change": "Jobs are named: the snapshot carries prompt, size, refine and grid template, the Now line reads count · size · prompt, and a queue list has one row per job with its own ×.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe",
+     "69613b5"
+    ]
+   },
+   "U40": {
+    "status": "fixed",
+    "change": "The lightbox's zoom floor is min(1, 1:1), so 1, double-click and the 1:1 button reach 1:1 at QHD, and the label reads '1:1', 'fit · N%' or 'N%'.",
+    "packages": [
+     "lb"
+    ],
+    "commits": [
+     "ac67024",
+     "4127ac2"
+    ]
+   },
+   "U41": {
+    "status": "fixed",
+    "change": "Pause answers at once ('Pausing…', 'pausing after this image…', then 'Paused after image 1/3 · GPU handed back' and Resume) and is aria-disabled with the reason on a one-image job.",
+    "alternative": "No aria-pressed: the button's words are its state (Pause / Pausing… / Resume).",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U42": {
+    "status": "fixed",
+    "change": "Gallery and card notices go to #gallery-error under the gallery head (Delete unstarred, a failed page, Re-render, the card's ❐, ⊞ and ⤢ refusals, deletes, the sheet's refusals), a row that keeps its line so nothing moves.",
+    "packages": [
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "c616336"
+    ]
+   },
+   "U43": {
+    "status": "fixed",
+    "change": "Closing the lightbox by hand focuses the card, tile or sheet cell the walk ended on, cancelling a Refine opened from it reopens the lightbox where it was, and a pass that ran hands focus to the source's card or Generate, never <body>.",
+    "alternative": "Inverted mechanism: the user's own closes call dismissLightbox, and programmatic closes move no focus.",
+    "packages": [
+     "lb"
+    ],
+    "commits": [
+     "ac67024",
+     "4127ac2",
+     "daacc9e",
+     "69613b5",
+     "4aeaee7"
+    ]
+   },
+   "U44": {
+    "status": "fixed",
+    "change": "Reuse moves the held panel rather than the page (revealReused, focus with preventScroll), and an image landing out of sight shows 'New image ↑' instead of scrolling.",
+    "packages": [
+     "galdel",
+     "gen"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U45": {
+    "status": "fixed",
+    "change": "The finish line names the seed with Use seed, the result column offers Use seed, the run hint says when the seed is fixed, and the Seed boxes show 16 digits at QHD and in the Refine dialog at 125%.",
+    "not_done": "At 1400x900 the panel's Seed box still cannot show all 16 digits, which the recommendation allowed.",
+    "packages": [
+     "gen",
+     "res",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c",
+     "2254d4e",
+     "5b6a7fe",
+     "1407e26",
+     "eb5ba35",
+     "4aeaee7"
+    ]
+   },
+   "U46": {
+    "status": "fixed",
+    "change": "A single-axis sheet that would not fit wraps into gallery-sized captioned cells, and its export wraps the same way.",
+    "packages": [
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff"
+    ]
+   },
+   "U47": {
+    "status": "fixed",
+    "change": "Batches of 2-4 are laid out best-fit by fitViewer: two squares at 887 px each at QHD, a 16:9 batch of four as 2x2.",
+    "packages": [
+     "res"
+    ],
+    "commits": [
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U48": {
+    "status": "fixed",
+    "change": "F stars a focused sheet cell, a starred cell gets the card's ring and 28 px badge, and the Fixed line shows the settings every image shares.",
+    "not_done": "The optional hover-only star on sheet cells was not built.",
+    "packages": [
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff"
+    ]
+   },
+   "U49": {
+    "status": "fixed",
+    "change": "A sweep's sheet leads with a 'Source #N' column, cropped as the passes were, that comes first in the lightbox walk; the dialog has a 'Passes of #N' strip.",
+    "packages": [
+     "lb",
+     "ref",
+     "sheet"
+    ],
+    "commits": [
+     "7dae7b8",
+     "d540aa6",
+     "ab10c8b",
+     "898c7ff",
+     "ac67024",
+     "4127ac2",
+     "69613b5",
+     "4aeaee7"
+    ]
+   },
+   "U50": {
+    "status": "fixed",
+    "change": "Clicking a finding scrolls its selection into view inside the prompt box (scrollToSelection).",
+    "not_done": "The optional outline flash was not built.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U51": {
+    "status": "fixed",
+    "change": "The critic's answer is capped at 120ch, shows Rewrite and Reordered in .critic-variants, gives a gist line outside the closed diff, marks the rewrite's findings 'also in your prompt' or 'new', and captions the parts list.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U52": {
+    "status": "fixed",
+    "change": "Suggestions are ranked by the server (exact, prefix, later word, alias, then post count; a guide tag once half typed; a negative-prompt tag never first), and the first is pre-selected only after three matching characters, so Tab moves on.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U53": {
+    "status": "fixed",
+    "change": "The Tags helper drops under the prompt at its width, a click in the box moves the caret without closing it, and a line says where the next tag goes.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U54": {
+    "status": "fixed",
+    "change": "A universal :focus-visible ring (2 px --accent-2) reaches checkboxes too.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U55": {
+    "status": "fixed",
+    "change": "Run grid is full width like Generate, the preview's totals are a 600-weight line in the text colour, and factors of one are trimmed.",
+    "packages": [
+     "grid"
+    ],
+    "commits": [
+     "360bb46",
+     "6b7af23"
+    ]
+   },
+   "U56": {
+    "status": "fixed",
+    "change": "Load failures are mapped (gated, not found, offline, local entry) to a sentence with the steps and the model page's link, shown as a card with a primary Retry load while the viewer is empty; the topbar reads Retry load and a failed load's finish line says it was not made.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe",
+     "4aeaee7"
+    ]
+   },
+   "U57": {
+    "status": "fixed",
+    "change": "The load-failure detail is posted to #error only when it changes or after a job that ended at the load, and is never mirrored into the lightbox.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U58": {
+    "status": "fixed",
+    "change": "The per-image delete asks in a dialog of the page's own beside the button, naming #N, starred, the settings line, the prompt, what else goes and that the PNG is deleted.",
+    "packages": [
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "4aeaee7",
+     "9ec6783"
+    ]
+   },
+   "U59": {
+    "status": "fixed",
+    "change": "A deleted card leaves a 'Deleted · #N' tombstone in its slot and focus moves to the next image; a viewer emptied by deletes keeps its height with a held placeholder.",
+    "packages": [
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "c616336",
+     "4aeaee7"
+    ]
+   },
+   "U60": {
+    "status": "fixed",
+    "change": "A lightbox delete of the last loaded image pages the next one in from the server.",
+    "packages": [
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514"
+    ]
+   },
+   "U61": {
+    "status": "partial",
+    "change": "Part A: klein's edit Example is marked 'needs a reference image', Check adds a heuristic note for an edit prompt with no reference attached, and a dropped file no longer navigates away.",
+    "not_done": "Part B, importing one's own photo or sketch as a reference (the finding's title problem), is not built: an L-sized feature the recommendation itself proposed splitting off.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U62": {
+    "status": "fixed",
+    "change": "Reference chips are 66 px (up to 96 px in the wide tier) with number badges, titled 'Reference image N (gallery #id)', reorderable by drag or Alt+Arrow and removable with Delete, focus kept.",
+    "not_done": "The optional link from a finding's 'image 3' to its chip was not built.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c",
+     "4aeaee7"
+    ]
+   },
+   "U63": {
+    "status": "fixed",
+    "change": "The sheet has References and Adapter axes, and its note tells repeats apart from images that differ in something it does not lay out.",
+    "packages": [
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff"
+    ]
+   },
+   "U64": {
+    "status": "fixed",
+    "change": "The lightbox's References row shows 'image N · #id' thumbnails that open the reference, and 'Use these references' sets them without touching the prompt.",
+    "packages": [
+     "lb"
+    ],
+    "commits": [
+     "ac67024",
+     "4127ac2"
+    ]
+   },
+   "U65": {
+    "status": "fixed",
+    "change": "The Refine dialog runs its own prompt check: where the encoders stop reading, with Show, and Apply into the dialog's boxes, never holding Refine.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U66": {
+    "status": "fixed",
+    "change": "The dialog's prompt box autosizes, the source prompt is captioned, and unknown tags are listed under it on tag checkpoints.",
+    "not_done": "Part (d), tag autocomplete in the dialog's prompt, was not built (optional).",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U67": {
+    "status": "fixed",
+    "change": "While a pass sends no preview frames, a dimmed stand-in of the source, sized as the result, shows 'Refining #N → W×H · strength s · step k/n'.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U68": {
+    "status": "fixed",
+    "change": "Reset has the danger hover and an Undo ('Panel reset. Undo') for 20 s or until the next change.",
+    "packages": [
+     "res"
+    ],
+    "commits": [
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U69": {
+    "status": "fixed",
+    "change": "The size line says what a reshaped size keeps ('keeping the middle 56% × 100%'), the kept region is framed on the source, and Keep shape, on by default, locks the aspect.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U70": {
+    "status": "fixed",
+    "change": "'Resume this run' on a run's sheet and the banner's Resume fill the base seed from /api/runs and the run's size, a warning says when the panel's grid matches none of the run's cells, and pydantic's 'Value error,' prefix is stripped.",
+    "packages": [
+     "grid",
+     "res",
+     "sheet"
+    ],
+    "commits": [
+     "360bb46",
+     "6b7af23",
+     "d540aa6",
+     "898c7ff",
+     "c616336",
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U71": {
+    "status": "fixed",
+    "change": "The chip tray is one roving tab stop (role=group) walked by arrows, Home and End, Alt+Arrow moves keep focus on the chip, and a polite summary replaces the live tray.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U72": {
+    "status": "fixed",
+    "change": "Prompt-axis labels fall back to edits against the oldest prompt when they repeat or run long, the axis is in written order, and each head's title is the full prompt.",
+    "not_done": "The verifier's separate note on random-seed iterations (a sheet note pointing to Compare) was out of scope.",
+    "packages": [
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff"
+    ]
+   },
+   "U73": {
+    "status": "fixed",
+    "change": "Only a network failure counts as offline: the topbar goes red with 'server not answering — retrying', Generate, Run grid, Unload and Refine are held with the reason, and a changed ModelStatus.started_at says the server restarted.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe",
+     "4aeaee7"
+    ]
+   },
+   "U74": {
+    "status": "fixed",
+    "change": "Skipped cells are counted live and named in the done error (Job.failed_cells), 'Retry the N skipped cells' re-sends the grid with Resume, and the preview counts cells already in the gallery.",
+    "packages": [
+     "gen",
+     "grid"
+    ],
+    "commits": [
+     "360bb46",
+     "6b7af23",
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U75": {
+    "status": "fixed",
+    "change": "A failure stop reads 'Stopped at cell X of Y after N cells failed; K images kept' with 'Resume the remaining N cells', and the banner says where it stopped or 'never started'.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe",
+     "69613b5"
+    ]
+   },
+   "U76": {
+    "status": "fixed",
+    "change": "The delete routes call jobs.forget_images, so a reattached stream replays only live images, an 'unknown image' answer becomes '#N was already deleted.', and the finish line counts deletions.",
+    "packages": [
+     "galdel",
+     "gen"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U77": {
+    "status": "fixed",
+    "change": "Deleting a reference names it in the confirmation and drops it with a note, Reuse prunes references the server no longer has, and a stale chip shows 'deleted'.",
+    "packages": [
+     "galdel",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "532e80c",
+     "2acd92c",
+     "35e6514"
+    ]
+   },
+   "U78": {
+    "status": "fixed",
+    "change": "Reuse's note says when references or an adapter are not used here and why, and the ⚠ title names them.",
+    "packages": [
+     "galcard",
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "83b0749",
+     "9bb99e1"
+    ]
+   },
+   "U79": {
+    "status": "fixed",
+    "change": "Card images are titled '#N · W×H · seed' with the prompt, day dividers ('Yesterday · ...') break the gallery, and the lightbox counter uses the server's total.",
+    "not_done": "A day divider left with no cards is not removed: deleted cards stay as tombstones, so it never ends up empty, and removing it would move cards under the pointer.",
+    "packages": [
+     "galcard",
+     "lb",
+     "res"
+    ],
+    "commits": [
+     "83b0749",
+     "ac67024",
+     "9bb99e1",
+     "4127ac2",
+     "daacc9e",
+     "69613b5",
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U80": {
+    "status": "fixed",
+    "change": "Check's text is capped at 120ch, and short guide and author cites appear inline as quotations, the badge keeping its link.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U81": {
+    "status": "fixed",
+    "change": "The selected preset has the accent fill and aria-pressed, in-range presets a corner dot, and an all-guided strip drops the marks.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U82": {
+    "status": "fixed",
+    "change": "Card tools shrink to fit, so Delete is never clipped, ❐ and ⤢ are aria-disabled with the reason where the checkpoint lacks them, and the star moved to a badge of its own.",
+    "packages": [
+     "galcard"
+    ],
+    "commits": [
+     "83b0749",
+     "9bb99e1"
+    ]
+   },
+   "U83": {
+    "status": "fixed",
+    "change": "The dialog closes only once the pass is accepted (a refusal stays in it with the edits), queued passes are named, and #viewer-note reads 'Refined from #N at s · W×H' with the source as a button.",
+    "packages": [
+     "gen",
+     "res"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe",
+     "69613b5",
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U84": {
+    "status": "fixed",
+    "change": "Ask the critic and Run comparison are lit only while they would act, Close is a 28 px target, and the check's type comes from the tokens.",
+    "packages": [
+     "ana",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "0e08f4a",
+     "2acd92c",
+     "1f9ad53"
+    ]
+   },
+   "U85": {
+    "status": "fixed",
+    "change": "A valid chip's left edge carries its Danbooru category's colour (guide tags teal), and a repeated tag gets a dotted underline, 'repeated: adds nothing (heuristic)'.",
+    "not_done": "The optional server-supplied order slot was not built: it needs per-guide order data, and the review rejects client-side slots.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U86": {
+    "status": "fixed",
+    "change": "Generate, Run grid and Refine show 'Ctrl+Enter' with aria-keyshortcuts, and the lightbox has a keys line.",
+    "packages": [
+     "grid",
+     "lb",
+     "ref"
+    ],
+    "commits": [
+     "360bb46",
+     "7dae7b8",
+     "6b7af23",
+     "ab10c8b",
+     "c616336",
+     "ac67024",
+     "4127ac2"
+    ]
+   },
+   "U87": {
+    "status": "fixed",
+    "change": "Mu's placeholder is 'auto' in the panel and in the Refine dialog where Mu applies, and the lightbox writes 'True CFG x' and 'Mu x' or 'no Mu'.",
+    "not_done": "The optional qualifier on FLUX's CFG label was not added.",
+    "packages": [
+     "lb",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c",
+     "ac67024",
+     "4127ac2",
+     "4aeaee7"
+    ]
+   },
+   "U88": {
+    "status": "fixed",
+    "change": "Runs is labelled Repeat, Batch has help, progress words are cell, batch or image by the job's kind, and the comparison's tip says Batch and Repeat do not apply.",
+    "packages": [
+     "ana",
+     "gen",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "0e08f4a",
+     "2acd92c",
+     "1f9ad53",
+     "5a00282",
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U89": {
+    "status": "fixed",
+    "change": "Placeholders use --muted (5.16:1), the primary fill is --accent-strong #6a4cf0 (5.4:1 with white), and a stale check dims to 0.8 with its quiet text raised to --text-3.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c",
+     "5a00282",
+     "c616336"
+    ]
+   },
+   "U90": {
+    "status": "fixed",
+    "change": "The search box is 480 px in the wide tier, and the Runs picker follows the search's run: and names what each run varied, refine sweeps included.",
+    "packages": [
+     "galcard",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c",
+     "83b0749",
+     "9bb99e1",
+     "69613b5",
+     "4aeaee7"
+    ]
+   },
+   "U91": {
+    "status": "fixed",
+    "change": "Only .ghost.danger buttons (Cancel, Cancel queued, Delete unstarred, Reset) hover red.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U92": {
+    "status": "fixed",
+    "change": "A 'Sampling' caption groups Steps, CFG, Mu and True CFG, the badges are sentence case, Run grid matches Generate's width, and the primary fill is --accent-strong.",
+    "packages": [
+     "ana",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "0e08f4a",
+     "2acd92c",
+     "1f9ad53"
+    ]
+   },
+   "U93": {
+    "status": "fixed",
+    "change": "The Order 'Not checked' note is in plain words, the comparison's mechanics moved into a ? tip, and the 4-vs-8 caveat stays visible.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U94": {
+    "status": "fixed",
+    "change": "Disabled field boxes in the panel are dimmed, and LoRA Weight's reason is on its wrapper.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U95": {
+    "status": "fixed",
+    "change": "Unsupported features collapse: the reference field hides its chips where references do not apply, an empty run hint takes no row, and klein's negative field is its caption alone.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c",
+     "4aeaee7"
+    ]
+   },
+   "U96": {
+    "status": "fixed",
+    "change": "--thumb-min is clamp(200px, 9vw, 260px) in the wide tier: 8 cards a row at 2560, 7 at 2048x1040@1.25 and 5 at 1400, every tool fitting.",
+    "not_done": "The optional S/M density control was not built.",
+    "packages": [
+     "galcard",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c",
+     "83b0749",
+     "9bb99e1",
+     "4aeaee7"
+    ]
+   },
+   "U97": {
+    "status": "fixed",
+    "change": "The scale buttons fill their row and show their output size, and the outcome line is body-size text in the text colour.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b",
+     "e9a0735"
+    ]
+   },
+   "U98": {
+    "status": "fixed",
+    "change": "All 22 ? badges have distinct names ('Steps axis help') and are described by their own tips.",
+    "packages": [
+     "res"
+    ],
+    "commits": [
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U99": {
+    "status": "fixed",
+    "change": "Unsent dialog settings are kept in page memory for the same image and checkpoint and restored with a note and Start over.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U100": {
+    "status": "fixed",
+    "change": "The negative's caption has a 'Set True CFG' (or 'Set CFG') button that focuses the deciding box and writes nothing; the field is a div.",
+    "not_done": "The optional press on the greyed box was removed in review: it stopped a long greyed negative from being scrolled or read.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U101": {
+    "status": "fixed",
+    "change": "On a checkpoint with no pass the card's ⤢ is aria-disabled with the reason, and a press is refused on the card and in #gallery-error without moving the grid.",
+    "packages": [
+     "galcard"
+    ],
+    "commits": [
+     "c616336",
+     "83b0749",
+     "9bb99e1"
+    ]
+   },
+   "U102": {
+    "status": "fixed",
+    "change": "The exported sheet carries the prompt, the variables as declared, the Fixed line and the run's time, and its file name names the run and the pins.",
+    "not_done": "'Export all pins' (optional, M-sized) was not built.",
+    "packages": [
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff"
+    ]
+   },
+   "U103": {
+    "status": "fixed",
+    "change": "Help tips are cut to action-first text (Strength's to 37 words, Resume's to its instruction), wider at QHD, and open upward where they would cover what they explain.",
+    "packages": [
+     "grid",
+     "ref",
+     "vis"
+    ],
+    "commits": [
+     "360bb46",
+     "9d978f0",
+     "7dae7b8",
+     "6b7af23",
+     "2acd92c",
+     "ab10c8b"
+    ]
+   },
+   "U104": {
+    "status": "fixed",
+    "change": "One term, Star/Starred, runs through the tick, the card, the lightbox, the confirmations and the sheet, with aria-pressed, and ↻ means Reuse only.",
+    "packages": [
+     "galcard",
+     "lb"
+    ],
+    "commits": [
+     "83b0749",
+     "ac67024",
+     "9bb99e1",
+     "4127ac2",
+     "077ac4b",
+     "69613b5"
+    ]
+   },
+   "U105": {
+    "status": "fixed",
+    "change": "The size presets and tiers are role=group with a roving tabindex and arrow keys, so Generate is 23 Tab stops from the prompt, not 36.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U106": {
+    "status": "fixed",
+    "change": "Mu's placeholder is 'auto', the grid's Mu placeholder comes from the profile, and the grid's Mu tip explains none.",
+    "packages": [
+     "grid",
+     "vis"
+    ],
+    "commits": [
+     "360bb46",
+     "9d978f0",
+     "6b7af23",
+     "2acd92c"
+    ]
+   },
+   "U107": {
+    "status": "fixed",
+    "change": "The star is a real button in the card's corner, outside the tools, and stars without opening the lightbox.",
+    "packages": [
+     "galcard"
+    ],
+    "commits": [
+     "83b0749",
+     "9bb99e1"
+    ]
+   },
+   "U108": {
+    "status": "fixed",
+    "change": "At fit each lightbox arrow is a strip 48-160 px wide over 20-80% of the height, so a near miss steps rather than closes.",
+    "not_done": "The suggested guard ignoring e.detail > 1 on the arrows was rejected: it would drop every other press of a quick click-walk.",
+    "packages": [
+     "lb"
+    ],
+    "commits": [
+     "ac67024",
+     "4127ac2"
+    ]
+   },
+   "U109": {
+    "status": "fixed",
+    "change": "Sheet off restores the search a page-opened sheet replaced (sheetReturn), across back-to-back sheets.",
+    "packages": [
+     "sheet"
+    ],
+    "commits": [
+     "d540aa6",
+     "898c7ff"
+    ]
+   },
+   "U110": {
+    "status": "fixed",
+    "change": "The Refine dialog is anchored at the top (max(--sp-4, 8vh)) and grows downward.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U111": {
+    "status": "fixed",
+    "change": "The dialog's Seed has a dice that clears it, and the arrow keys step a single Strength by 0.05 (0.01 with Shift).",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U112": {
+    "status": "fixed",
+    "change": "A '+ tag' pill follows the last chip, a plain click in a gap inserts there with a drop marker on hover, and the hint is pinned at the tray's foot.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4",
+     "4aeaee7"
+    ]
+   },
+   "U113": {
+    "status": "fixed",
+    "change": "An unknown chip shows a shared #tag-tip with the reason and the fix on hover and focus, the backend sends a reason code (after_cutoff shows ⏲), and the label carries the count.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U114": {
+    "status": "fixed",
+    "change": "The Runs picker asks for 200 runs, groups 'Grids and batches' with counts and stars, and lists at most the newest 8 single images.",
+    "packages": [
+     "galcard"
+    ],
+    "commits": [
+     "83b0749",
+     "9bb99e1"
+    ]
+   },
+   "U115": {
+    "status": "fixed",
+    "change": "The dialog opens focused on Strength with its value selected, and Enter in a one-line box runs the pass once the preview of the current values is in.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U116": {
+    "status": "fixed",
+    "change": "A lightbox delete says 'Deleted #N (seed s).' in #lb-error and keeps the zoom.",
+    "packages": [
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "4aeaee7"
+    ]
+   },
+   "U117": {
+    "status": "fixed",
+    "change": "The Runs picker reloads after every delete, and the banner adds ', N since deleted' or ', all since deleted'.",
+    "packages": [
+     "galdel",
+     "res"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "1407e26",
+     "eb5ba35"
+    ]
+   },
+   "U118": {
+    "status": "fixed",
+    "change": "The LoRA tip keeps its default sentence and appends the hidden adapters once, as a wide pre-line tip.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U119": {
+    "status": "fixed",
+    "change": "Profiles carry refine_measured from verified.md's 'Past 4 MP' rows (FLUX.1 Krea dev, Z-Anime, WAI v17); the dialog's tight line quotes them and stays generic where nothing was measured.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U120": {
+    "status": "fixed",
+    "change": "A budget stop counts the cells it ran, the ETA is held to the budget, and the banner says 'stopped at its time budget'.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U121": {
+    "status": "fixed",
+    "change": "The grid preview adds 'budget N min ≈ k of S seeds complete', naming the load or the jobs ahead where they count.",
+    "packages": [
+     "grid"
+    ],
+    "commits": [
+     "360bb46",
+     "6b7af23"
+    ]
+   },
+   "U122": {
+    "status": "fixed",
+    "change": "Compare's labels outline their version's box, and Your version is a multi-line box capped at 120ch.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U123": {
+    "status": "fixed",
+    "change": "With the fold open, the preview and the fold's hint say Repeat does not apply to a grid.",
+    "packages": [
+     "grid"
+    ],
+    "commits": [
+     "360bb46",
+     "6b7af23"
+    ]
+   },
+   "U124": {
+    "status": "fixed",
+    "change": "The gallery is one roving tab stop walked by arrows, rows, Home and End: 7 stops in all, not 7 per card.",
+    "alternative": "Up and Down take the nearest card in the next row, measured from layout, since a day divider starts a row of its own.",
+    "packages": [
+     "galcard"
+    ],
+    "commits": [
+     "83b0749",
+     "9bb99e1",
+     "daacc9e",
+     "69613b5"
+    ]
+   },
+   "U125": {
+    "status": "fixed",
+    "change": "On a pass, Reuse reads 'Reuse pass…' and says that it opens the Refine dialog.",
+    "packages": [
+     "galcard",
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "83b0749",
+     "9bb99e1"
+    ]
+   },
+   "U126": {
+    "status": "fixed",
+    "change": "Reuse of a pass titles the dialog 'Refine #src as #pass was made', with a 'Reusing #pass ...' line it is described by.",
+    "packages": [
+     "galcard",
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b",
+     "83b0749",
+     "9bb99e1"
+    ]
+   },
+   "U127": {
+    "status": "fixed",
+    "change": "A refused Refine press puts the refusal in the preview's place and focuses the field at fault with aria-invalid; Refine does not move.",
+    "packages": [
+     "ref"
+    ],
+    "commits": [
+     "7dae7b8",
+     "ab10c8b"
+    ]
+   },
+   "U128": {
+    "status": "fixed",
+    "change": "parse_axis takes spaced ranges ('2 - 5', '6-12 x2'), explains '..' and 'to', and refuses a step-less range that would yield one value.",
+    "packages": [
+     "grid"
+    ],
+    "commits": [
+     "360bb46",
+     "6b7af23"
+    ]
+   },
+   "U129": {
+    "status": "fixed",
+    "change": "Comparison sheet rows are named Original, Reordered, Rewrite and Your version, each with its edit and its full prompt as the title, and the preview says versions.",
+    "packages": [
+     "ana",
+     "sheet"
+    ],
+    "commits": [
+     "0e08f4a",
+     "d540aa6",
+     "1f9ad53",
+     "898c7ff"
+    ]
+   },
+   "U130": {
+    "status": "fixed",
+    "change": "The check's messages go to #analysis-status under Ask the critic, and dead Use and Apply buttons give the reason in their titles.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U131": {
+    "status": "fixed",
+    "change": "A clock counts the critic's seconds, and the first-use line says the download can take a few minutes.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53"
+    ]
+   },
+   "U132": {
+    "status": "fixed",
+    "change": "The tray tells pending ('…', 'Checking Danbooru…'), checked and offline ('Danbooru unreachable, not checked' in amber, marks '–') apart, and names the 64-item cap.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U133": {
+    "status": "fixed",
+    "change": "On a tag checkpoint the empty prompt's placeholder is the authors' first example, cut at a comma.",
+    "packages": [
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "2acd92c"
+    ]
+   },
+   "U134": {
+    "status": "fixed",
+    "change": "Examples is a keyboard menu (Enter or ArrowDown open it on the first item, the arrows wrap, Escape returns focus), and Escape in the Tags helper returns to its button.",
+    "packages": [
+     "tag"
+    ],
+    "commits": [
+     "88a642e",
+     "a9a01b4"
+    ]
+   },
+   "U135": {
+    "status": "fixed",
+    "change": "During an outage every action says 'No answer from the Local Diffusion server — is it still running?' instead of 'Failed to fetch', the lightbox included, and the first good poll clears it and reloads the picture.",
+    "packages": [
+     "gen",
+     "lb"
+    ],
+    "commits": [
+     "ac67024",
+     "2254d4e",
+     "4127ac2",
+     "5b6a7fe",
+     "077ac4b"
+    ]
+   },
+   "U136": {
+    "status": "fixed",
+    "change": "When the stream gives up, the live preview is dropped from the viewer.",
+    "packages": [
+     "gen"
+    ],
+    "commits": [
+     "2254d4e",
+     "5b6a7fe"
+    ]
+   },
+   "U137": {
+    "status": "fixed",
+    "change": "Delete unstarred warns while a job runs, and a 409 refreshes the gallery and the Runs picker before saying why.",
+    "packages": [
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514"
+    ]
+   },
+   "U138": {
+    "status": "fixed",
+    "change": "A LoRA sweep names its adapter in the grid's placeholder, the preview, the sheet's heads, the Fixed line and the export.",
+    "packages": [
+     "grid",
+     "sheet",
+     "vis"
+    ],
+    "commits": [
+     "360bb46",
+     "9d978f0",
+     "6b7af23",
+     "d540aa6",
+     "2acd92c",
+     "898c7ff",
+     "4aeaee7"
+    ]
+   },
+   "U139": {
+    "status": "fixed",
+    "change": "Tips take no clicks (pointer-events: none), and the dialog's Size tip opens upward, clear of the scale buttons.",
+    "packages": [
+     "ref",
+     "vis"
+    ],
+    "commits": [
+     "9d978f0",
+     "7dae7b8",
+     "2acd92c",
+     "ab10c8b"
+    ]
+   },
+   "U140": {
+    "status": "fixed",
+    "change": "A failed critique draws 'The critic did not answer: <reason>.' in the critic's block and takes focus, and the exception-class prefix is dropped from the HTTP detail.",
+    "packages": [
+     "ana"
+    ],
+    "commits": [
+     "0e08f4a",
+     "1f9ad53",
+     "c616336"
+    ]
+   },
+   "U141": {
+    "status": "fixed",
+    "change": "Delete unstarred's dialog names the checkpoints it reaches under All models and the span of the runs.",
+    "packages": [
+     "galdel"
+    ],
+    "commits": [
+     "532e80c",
+     "35e6514",
+     "4aeaee7",
+     "9ec6783"
+    ]
+   }
+  },
+  "notes": [
+   "The findings, verdicts and directions below are unchanged: the historical review of 281af6e (main ecbb79a, the reviewed tree plus this record).",
+   "Each status is the final verifiers' verdict on the integrated tree; the fix rounds after it only closed residual issues. 4aeaee7 took the 40 issues the verifiers and the docs, bug and design reviewers raised: 38 fixed and 2 partly, both by decision and recorded under U5 and U12. Its re-check raised one more, the delete dialog's raw red, fixed in 9ec6783, and the re-check after that found none open.",
+   "U61 is partial: part A (the edit Example's note, Check's heuristic note, the dropped-file guard) is in; part B, importing one's own picture as a reference, is not built.",
+   "not_done names a part of a fixed finding's recommendation left undone by decision, mostly optional extras; alternative names a documented way round the recommendation's letter.",
+   "packages are the worktree packages that reported on the finding (phase0, vis, galdel, grid, sheet, tag, ana, ref, gen, galcard, lb, res); commits are their implementation and review-fix commits plus the integration and final-round commits whose reports name the finding. bd8f318 (documentation) touches all of them and is not listed per finding.",
+   "Backend changes made for the page: POST /api/prompt/measure; ranked suggestions and TagValidationItem.code in backend/tags.py; one keep predicate for starred images' sources and references in storage; jobs.forget_images and deleted_count; Job.failed_cells, Job.comparison and stopped_by 'failures'; mapped load failures with ModelStatus.detail_kind, detail_url and started_at; GridPreview.in_gallery; parse_axis's range handling; model_defaults' refine_measured; RunSummary.axes, refine and strengths; the job snapshot's prompt, size, refine and grid fields; the fake server's POST /api/fake/step.",
+   "smoke-delete failed intermittently during the fix rounds: two new count-dialog checks in full parallel runs (they now compare the server's count), then, twice in a row, an older check after Delete unstarred's wrong-count dialog. It has passed every run since, this one included; the cause was not found.",
+   "A race that predates this work is left as it was: watchNext checks busy before awaiting /api/jobs, so a job submitted during that await can be watched twice. smoke-grid spaces its two renders for it.",
+   "No GPU validation was run: everything above ran on the tests' fake backend, nothing here changes the pipeline or the schedule, and no measurement in docs/verified.md was added or changed. The refine tight lines (U6, U119) quote verified.md's existing rows."
+  ]
+ },
  "kind": "ui-ux review",
  "head": "281af6e",
  "date": "2026-10-04",
