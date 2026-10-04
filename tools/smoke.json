@@ -175,11 +175,11 @@
   {"wait": 800},
   {"expect": "window.__asked.length === 1 && window.__asked[0].includes('Delete ' + window.__n + ' unstarred images') && window.__asked[0].includes('keeping ' + window.__k + ' starred') && window.__asked[0].includes('a fox')"},
   {"expect": "window.__asked[0].includes('(' + loadedModel.split('/').pop() + ' only)')"},
-  {"expect": "total === window.__n + window.__k && els.error.textContent.includes('is not ' + window.__n)"},
+  {"expect": "total === window.__n + window.__k && els.galleryError.textContent.includes('is not ' + window.__n)"},
   {"eval": "window.prompt = () => String(window.__n); deleteUnstarred();"},
   {"wait": 1500},
   {"expect": "total === window.__k && galleryRecords.every((r) => r.favorite) && document.querySelectorAll('.card').length === window.__k"},
-  {"expect": "els.error.textContent.includes('Deleted ' + window.__n + ' images')"},
+  {"expect": "els.galleryError.textContent.includes('Deleted ' + window.__n + ' images')"},
   {"eval": "els.favOnly.checked = true; els.favOnly.onchange();"},
   {"wait": 600},
   {"expect": "els.deleteUnstarred.hidden"},
@@ -187,6 +187,6 @@
   {"wait": 800},
   {"eval": "window.prompt = () => { throw new Error('a free-text scope must be refused before any dialog'); }; deleteUnstarred();"},
   {"wait": 500},
-  {"expect": "els.error.textContent.includes('free text')"},
+  {"expect": "els.galleryError.textContent.includes('free text')"},
   {"eval": "delete window.prompt; els.search.value = ''; resetGallery();"}
 ]

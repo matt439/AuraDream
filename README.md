@@ -939,7 +939,10 @@ at yet, and the number is what gives that away. The delete is pinned to
 the number, so images a running job lands while the dialog is open are
 refused rather than swept, and the search has to be `key:value` terms or
 empty - free text is matched fuzzily, and a deletion is not confirmed
-blind. It is `clear --where ... --keep-favorites` (below) over HTTP: rows
+blind. A starred image keeps what it was made from - a refine pass its
+source, a klein render its reference images - and the dialog names those
+too, with how many runs the delete reaches into and when they were made.
+It is `clear --where ... --keep-favorites` (below) over HTTP: rows
 and their files, no orphan sweep.
 
 **Runs**, the picker beside the search box, lists the gallery one line per run
@@ -1481,7 +1484,7 @@ pre-rename metadata key. `local-diffusion.db` indexes them for search.
 ```powershell
 uv run python -m backend.clear                   # preview, then confirm
 uv run python -m backend.clear --dry-run         # report only, change nothing
-uv run python -m backend.clear --keep-favorites  # spare starred images
+uv run python -m backend.clear --keep-favorites  # spare starred images and their sources
 uv run python -m backend.clear --yes             # no prompt
 ```
 
@@ -1489,8 +1492,9 @@ Prints what it is about to remove — records, files, and any PNG with no row
 left pointing at it — and asks for confirmation before deleting anything, then
 vacuums the database. This clears the Windows gallery; the WSL one is a
 separate database, cleared by the same command from a WSL shell after
-`source wsl/env.sh` (see [Run under WSL 2](#run-under-wsl-2-4-bit-nunchaku)). `--keep-favorites` spares starred images, but an orphaned
-file has no row to carry a star and goes either way. Safe to run while the
+`source wsl/env.sh` (see [Run under WSL 2](#run-under-wsl-2-4-bit-nunchaku)). `--keep-favorites` spares starred images and the
+images one of them was made from (a refine pass's source, a render's reference
+images), but an orphaned file has no row to carry a star and goes either way. Safe to run while the
 server is up: rows go and the database file stays, so no open handle is
 invalidated, and an image still being written is a `.png.part` that the orphan
 sweep does not touch.

@@ -31,6 +31,33 @@ def test_a_stream_opened_after_the_end_still_terminates(client):
     assert events[0]["images"]
 
 
+def test_a_deleted_image_is_counted_but_not_replayed(client, fake):
+    # A page reattaching to a job is replayed what it made; an image deleted
+    # meanwhile came back as a broken tile, and deleting it again answered
+    # "unknown image". The count of what the job produced stays, beside how
+    # many of those have gone.
+    job_id, events = run_one(client, num_images=3, seed=3)
+    made = [image["id"] for image in events[-1]["images"]]
+    assert client.delete(f"/api/images/{made[0]}").status_code == 200
+
+    snapshot = client.get(f"/api/jobs/{job_id}").json()
+    assert [image["id"] for image in snapshot["images"]] == made[1:]
+    assert (snapshot["image_count"], snapshot["deleted_count"]) == (3, 1)
+    reattached = stream_job(client, job_id)
+    assert [image["id"] for image in reattached[0]["images"]] == made[1:]
+    listed = client.get("/api/jobs?include_finished=true").json()
+    assert [(j["image_count"], j["deleted_count"]) for j in listed if j["job_id"] == job_id] == [(3, 1)]
+
+    # Delete unstarred forgets on the jobs too, each counting only its own.
+    other, _ = run_one(client, seed=40)
+    client.post(f"/api/images/{made[1]}/favorite?value=true")
+    assert client.delete("/api/gallery/unstarred?expected=2").status_code == 200
+    snapshot = client.get(f"/api/jobs/{job_id}").json()
+    assert [image["id"] for image in snapshot["images"]] == [made[1]]
+    assert (snapshot["image_count"], snapshot["deleted_count"]) == (3, 2)
+    assert client.get(f"/api/jobs/{other}").json()["deleted_count"] == 1
+
+
 def test_active_jobs_are_listed_without_their_images(client, fake):
     fake.step_seconds = 0.02
     job_id = client.post(

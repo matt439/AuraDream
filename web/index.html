@@ -492,6 +492,10 @@
       <button class="ghost small danger" id="btn-delete-unstarred" hidden
         title="Delete every image the filter matches that is not starred, after a confirmation that shows the count. Takes key:value terms or an empty search; the files are removed from disk">⌦ Delete unstarred</button>
     </div>
+    <!-- What the gallery's own controls have to say - a sweep's outcome, a
+         search term that is not a number, a card's refusal - said here, by
+         them, rather than in the panel's line a column away. -->
+    <p class="error" id="gallery-error" role="alert" hidden></p>
     <div class="grid" id="gallery"></div>
     <!-- The contact sheet: one run laid out as the grid that produced it. -->
     <div class="sheet" id="sheet" hidden>

@@ -132,6 +132,40 @@ def test_where_keeps_favorites_and_refuses_free_text(fresh, capsys):
     assert [r.id for r in storage.list_images()[0]] == [made["a"].id]
 
 
+def test_keep_favorites_keeps_what_a_favorite_was_made_from(fresh, capsys):
+    # The browser's Delete unstarred and the CLI share `delete_matching`, so
+    # a starred refine pass keeps its source on both paths - and the CLI's
+    # count says so rather than promising one more deletion than happens.
+    from PIL import Image
+
+    from backend.schemas import GenerateRequest
+
+    made = _seed(fresh, source=(1, "n"), loose=(2, "n"))
+    refined = storage.save_image(
+        Image.new("RGB", (16, 16)),
+        GenerateRequest(prompt="pass", width=256, height=256, refine=made["source"].id, strength=0.5),
+        seed=3, duration_ms=1, model_id="m", job_id="later",
+    )
+    storage.set_favorite(refined.id, True)
+
+    assert clear.main(["--where", "job:n", "--keep-favorites", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "Would delete 1 record(s) and their files, keeping 0 starred and 1 image(s) a starred one was made from." in out
+    assert clear.main(["--where", "job:n", "--keep-favorites", "--yes"]) == 0
+    assert "Deleted 1 record(s)" in capsys.readouterr().out
+    assert sorted(r.id for r in storage.list_images()[0]) == [made["source"].id, refined.id]
+
+    # The whole-gallery path keeps it as well.
+    storage.save_image(
+        Image.new("RGB", (16, 16)), GenerateRequest(prompt="more", width=256, height=256),
+        seed=4, duration_ms=1, model_id="m", job_id="n",
+    )
+    assert clear.main(["--keep-favorites", "--yes"]) == 0
+    assert "keeping 1 starred and 1 image(s) a starred one was made from." in capsys.readouterr().out
+    assert sorted(r.id for r in storage.list_images()[0]) == [made["source"].id, refined.id]
+    assert (fresh.outputs_dir / made["source"].filename).exists()
+
+
 def test_a_stale_partial_is_named_in_the_preview(fresh, capsys):
     import os
     import time

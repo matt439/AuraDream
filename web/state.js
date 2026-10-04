@@ -55,7 +55,8 @@ const els = {
   gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),
   gridBudget: $('grid-budget'), gridPreview: $('grid-preview'),
   gridRun: $('btn-grid'),
-  error: $('error'), viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
+  error: $('error'), galleryError: $('gallery-error'),
+  viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
   allModels: $('all-models'), otherModels: $('other-models'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'),
@@ -318,16 +319,21 @@ function readableDetail(detail) {
 }
 
 // `note` styles the same slot as muted rather than red, for outcomes that are
-// not failures - a cancelled run in particular.
-function showError(message, note = false) {
+// not failures - a cancelled run in particular. `slot` is where it is said:
+// the panel's line under Generate, or the gallery's under its head
+// (`els.galleryError`) for what a gallery control did - a click among the
+// cards at QHD used to be answered 2,400 px away, in the other column. One
+// slot per message: both are role=alert, and a message in two is heard twice.
+function showError(message, note = false, { slot = els.error, mirror = true } = {}) {
   // Unhide *before* writing: the slot is role=alert, and text written into a
   // display:none node is never announced.
-  els.error.hidden = !message;
-  els.error.textContent = message || '';
-  els.error.classList.toggle('note', note);
-  // The lightbox covers the panel's slot; mirror into its own while it is up.
-  const mirror = els.lightbox.open;
-  els.lbError.hidden = !(mirror && message);
-  els.lbError.textContent = mirror ? message || '' : '';
+  slot.hidden = !message;
+  slot.textContent = message || '';
+  slot.classList.toggle('note', note);
+  if (!mirror) return;
+  // The lightbox covers both slots; mirror into its own while it is up.
+  const shown = els.lightbox.open;
+  els.lbError.hidden = !(shown && message);
+  els.lbError.textContent = shown ? message || '' : '';
   els.lbError.classList.toggle('note', note);
 }

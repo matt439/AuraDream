@@ -22,23 +22,27 @@ const PANEL_FIELDS = [
 ];
 let panelTimer;
 
+// The panel as it is remembered: every field, the fold, the references, and
+// the sampling values taken off the profile. Reuse keeps one too, for its Undo.
+function panelState() {
+  const state = { gridOpen: els.gridSection.open, reference: [...referenceIds] };
+  for (const key of PANEL_FIELDS) state[key] = els[key].value;
+  // Sampling values travel with the checkpoint they were set on, and only
+  // the ones the user took off the profile - the profile itself is the
+  // server's to give back.
+  state.sampling = {
+    model: loadedModel,
+    steps: owned.steps ? els.steps.value : null,
+    cfg: owned.cfg ? els.cfg.value : null,
+    mu: owned.mu ? els.mu.value : null,
+    trueCfg: owned.trueCfg ? els.trueCfg.value : null,
+  };
+  return state;
+}
+
 function persistPanel() {
   clearTimeout(panelTimer);
-  panelTimer = setTimeout(() => {
-    const state = { gridOpen: els.gridSection.open, reference: referenceIds };
-    for (const key of PANEL_FIELDS) state[key] = els[key].value;
-    // Sampling values travel with the checkpoint they were set on, and only
-    // the ones the user took off the profile - the profile itself is the
-    // server's to give back.
-    state.sampling = {
-      model: loadedModel,
-      steps: owned.steps ? els.steps.value : null,
-      cfg: owned.cfg ? els.cfg.value : null,
-      mu: owned.mu ? els.mu.value : null,
-      trueCfg: owned.trueCfg ? els.trueCfg.value : null,
-    };
-    remember(PANEL_KEY, JSON.stringify(state));
-  }, 300);
+  panelTimer = setTimeout(() => remember(PANEL_KEY, JSON.stringify(panelState())), 300);
 }
 
 function storedPanel() {
@@ -438,12 +442,15 @@ function appendResult(rec) {
   els.viewer.classList.toggle('multi', viewerRecords.length > 1);
   els.viewer.classList.toggle('many', viewerRecords.length > 4);
   const img = thumb(rec, viewerRecords, rec.url);
+  img.onerror = () => { void forgetIfGone(rec.id); };
   els.viewer.appendChild(img);
   // Lazy on its own is not enough - the strip sets no height, so unloaded
   // images stack inside the viewport and all become eligible at once. The cap
   // is what bounds the fetches; the note lives outside the strip so it survives.
-  while (els.viewer.children.length > VIEWER_MAX) els.viewer.firstElementChild.remove();
-  const hidden = viewerRecords.length - els.viewer.children.length;
+  // Images only: a deleted tile's tombstone holds a slot, and shows none.
+  const tiles = () => els.viewer.querySelectorAll('img[data-id]').length;
+  while (tiles() > VIEWER_MAX) els.viewer.firstElementChild.remove();
+  const hidden = viewerRecords.length - tiles();
   els.viewerNote.textContent = hidden > 0
     ? `… and ${hidden} earlier image${hidden === 1 ? '' : 's'} this run — open one to walk them all`
     : '';

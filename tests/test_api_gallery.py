@@ -128,6 +128,71 @@ def test_delete_unstarred_refuses_a_changed_selection(client, fake):
     assert client.delete("/api/gallery/unstarred").status_code == 422
 
 
+def _made_from(store, seed, **conditioning):
+    """A refine pass or a referenced render of gallery images, on this checkpoint."""
+    return store.save_image(
+        Image.new("RGB", (16, 16)),
+        GenerateRequest(prompt="a lighthouse in fog", width=256, height=256, **conditioning),
+        seed=seed, duration_ms=1, model_id=settings.model_id, run_id="later", job_id="later",
+    )
+
+
+def test_delete_unstarred_keeps_what_a_starred_image_was_made_from(client, store):
+    # Refine a source, star the pass, sweep the rest: the source used to go
+    # with the sweep, and the kept pass could never be made again. A star
+    # keeps what its image was made from - the pass's source, the render's
+    # references - and the count the dialog asks for leaves them out, so the
+    # number typed back is still the number the delete finds.
+    source = _plant(store, settings.model_id, seed=1, run_id="night")
+    reference = _plant(store, settings.model_id, seed=2, run_id="night")
+    loose = _plant(store, settings.model_id, seed=3, run_id="night")
+    refined = _made_from(store, seed=4, refine=source.id, strength=0.5)
+    rendered = _made_from(store, seed=5, reference=[reference.id])
+    _star(client, [{"id": refined.id}, {"id": rendered.id}])
+
+    preview = client.get("/api/gallery/unstarred").json()
+    assert (preview["records"], preview["favorites"], preview["sources_kept"]) == (5, 2, 2)
+    assert (preview["unstarred"], preview["sources"]) == (1, [source.id, reference.id])
+    # What goes is one run's, made at one moment.
+    assert (preview["runs"], preview["first"], preview["last"]) == (
+        1, loose.created_at, loose.created_at
+    )
+    # The count without the sources is no longer the delete's: the pin holds.
+    assert client.delete("/api/gallery/unstarred?expected=3").status_code == 409
+    response = client.delete("/api/gallery/unstarred?expected=1")
+    assert response.status_code == 200, response.text
+    assert response.json()["deleted"] == [loose.id]
+    assert (store.settings.outputs_dir / source.filename).exists()
+    left = client.get("/api/gallery").json()["items"]
+    assert sorted(r["id"] for r in left) == sorted([source.id, reference.id, refined.id, rendered.id])
+
+    # Unstarred, the pass no longer holds its source: both are swept together.
+    client.post(f"/api/images/{refined.id}/favorite?value=false")
+    preview = client.get("/api/gallery/unstarred").json()
+    assert (preview["unstarred"], preview["sources"]) == (2, [reference.id])
+    assert client.delete("/api/gallery/unstarred?expected=2").status_code == 200
+    assert sorted(r["id"] for r in client.get("/api/gallery").json()["items"]) == sorted(
+        [reference.id, rendered.id]
+    )
+
+
+def test_a_pass_whose_source_has_gone_says_so(client, store):
+    # The pass keeps its source's id - it is the reproduction set's - and the
+    # record says the source is gone, on the page and by id alike.
+    source = _plant(store, settings.model_id, seed=1)
+    refined = _made_from(store, seed=2, refine=source.id, strength=0.5)
+    plain = _plant(store, settings.model_id, seed=3)
+    items = {r["id"]: r for r in client.get("/api/gallery").json()["items"]}
+    assert not any(r["refine_missing"] for r in items.values())
+
+    assert client.delete(f"/api/images/{source.id}").status_code == 200
+    items = {r["id"]: r for r in client.get("/api/gallery").json()["items"]}
+    assert (items[refined.id]["refine"], items[refined.id]["refine_missing"]) == (source.id, True)
+    assert items[plain.id]["refine_missing"] is False
+    record = client.get(f"/api/images/{refined.id}").json()
+    assert record["refine_missing"] is True
+
+
 def test_delete_unstarred_refuses_free_text(client, fake):
     # The gallery matched "lighthouse" through FTS and its LIKE fallback; a
     # destructive scope is not resolved through either.

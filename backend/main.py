@@ -1369,6 +1369,9 @@ async def favorite(image_id: int, value: bool = True):
 async def delete(image_id: int) -> dict:
     if not await asyncio.to_thread(storage.delete_image, image_id):
         raise HTTPException(status_code=404, detail="unknown image")
+    # A page that reattaches to the job that made it is replayed the job's
+    # records; a deleted one came back as a broken tile.
+    jobs.forget_images([image_id])
     return {"deleted": image_id}
 
 
@@ -1405,12 +1408,17 @@ async def unstarred(search: str | None = None, all_models: bool = False) -> Unst
     """What "Delete unstarred" would remove under this filter, and what it would keep.
 
     Under the gallery's checkpoint scope too, since the delete is: the count
-    the dialog shows has to be the count of what the page is showing.
+    the dialog shows has to be the count of what the page is showing. What
+    the delete keeps besides the stars - the images a starred one was made
+    from - comes off the count with them, or every confirmed number would
+    meet a different one under the delete's lock and answer 409.
     """
     found = await asyncio.to_thread(
         storage.matching_preview, _unstarred_scope(search), _model_scope(all_models)
     )
-    return UnstarredPreview(unstarred=found["records"] - found["favorites"], **found)
+    return UnstarredPreview(
+        unstarred=found["records"] - found["favorites"] - found["sources_kept"], **found
+    )
 
 
 @app.delete("/api/gallery/unstarred")
@@ -1425,7 +1433,9 @@ async def delete_unstarred(
     strictly - `key:value` terms only, an empty box meaning the whole gallery
     - and `expected` is the count the dialog showed, so a sweep that landed
     more unstarred images while it was open is answered 409 rather than
-    swept up on a number confirmed for fewer. Rows and their files only: no
+    swept up on a number confirmed for fewer. A starred image keeps what it
+    was made from - a pass its source, a render its references - since the
+    star is a promise to keep it reproducible. Rows and their files only: no
     orphan sweep and no vacuum, which stay the CLI's. The checkpoint scope
     is the page's: with All models off, another checkpoint's images are not
     on the screen, and a sweep must not reach what is not on the screen.
@@ -1445,6 +1455,7 @@ async def delete_unstarred(
             detail=f"The selection changed: {exc.found} unstarred images match now, "
             f"not the {exc.expected} confirmed. Nothing was deleted; look again.",
         ) from exc
+    jobs.forget_images(result["ids"])
     return {"deleted": result["ids"], "files": result["files"]}
 
 

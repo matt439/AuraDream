@@ -96,21 +96,7 @@ function renderLightbox() {
   els.lbImg.src = rec.url;
   els.lbImg.alt = rec.prompt;
   els.lbPrompt.textContent = rec.prompt;
-  els.lbSettings.textContent =
-    // The checkpoint is part of the reproduction set as much as the seed is -
-    // the same prompt and settings on Turbo and on FLUX are different images.
-    `${rec.model_id.split('/').pop()}, ` +
-    `${rec.width}×${rec.height}, ${rec.steps} steps, ` +
-    `CFG ${rec.guidance_scale}, ` +
-    // Only where it differs from the CFG: on Krea 2 it is the same number.
-    (rec.true_cfg != null && rec.true_cfg !== rec.guidance_scale ? `true CFG ${rec.true_cfg}, ` : '') +
-    `${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
-    // Only when there was one: most records carry neither.
-    (rec.lora ? `LoRA ${rec.lora} @ ${rec.lora_scale}, ` : '') +
-    (rec.reference?.length ? `ref ${rec.reference.join('+')}, ` : '') +
-    // A refine pass: the image it started from and how far it was re-denoised.
-    (rec.refine != null ? `refine of ${rec.refine} @ ${rec.strength}, ` : '') +
-    `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`;
+  els.lbSettings.textContent = settingsLine(rec);
   els.lbCount.textContent = lbList.length > 1 ? `${lbIndex + 1}/${lbList.length}` : '';
   els.lbPrev.disabled = lbIndex === 0;
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
@@ -126,6 +112,29 @@ function renderLightbox() {
   // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();
   layoutLightbox();
+}
+
+// What made a record, in one line: the lightbox's settings, and what the
+// delete confirm names an image by - the cells of a sweep share a prompt and
+// a seed, and differ only here.
+function settingsLine(rec) {
+  return (
+    // The checkpoint is part of the reproduction set as much as the seed is -
+    // the same prompt and settings on Turbo and on FLUX are different images.
+    `${rec.model_id.split('/').pop()}, ` +
+    `${rec.width}×${rec.height}, ${rec.steps} steps, ` +
+    `CFG ${rec.guidance_scale}, ` +
+    // Only where it differs from the CFG: on Krea 2 it is the same number.
+    (rec.true_cfg != null && rec.true_cfg !== rec.guidance_scale ? `true CFG ${rec.true_cfg}, ` : '') +
+    `${rec.mu == null ? 'no mu' : `mu ${rec.mu}`}, ` +
+    // Only when there was one: most records carry neither.
+    (rec.lora ? `LoRA ${rec.lora} @ ${rec.lora_scale}, ` : '') +
+    (rec.reference?.length ? `ref ${rec.reference.join('+')}, ` : '') +
+    // A refine pass: the image it started from and how far it was re-denoised,
+    // and whether that image is still in the gallery to make it again from.
+    (rec.refine != null ? `refine of ${rec.refine}${rec.refine_missing ? ' (deleted)' : ''} @ ${rec.strength}, ` : '') +
+    `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
+  );
 }
 
 // Only the gallery strip has more behind it, and only while the server says so.

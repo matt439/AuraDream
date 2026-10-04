@@ -138,6 +138,29 @@ def test_deleting_an_image_takes_its_thumbnail(store):
     assert not thumb.exists()
 
 
+def test_two_deletes_of_one_image_answer_once(store):
+    # A double-clicked ⌦ or a second tab: both deletes used to find the row
+    # before either removed it, and both said they had deleted it - the page
+    # then had no "already deleted" to go on.
+    import threading
+
+    record = _add(store, "gone twice")
+    start = threading.Barrier(6)
+    answers: list[bool] = []
+
+    def delete() -> None:
+        start.wait()
+        answers.append(store.delete_image(record.id))
+
+    threads = [threading.Thread(target=delete) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(answers) == [False] * 5 + [True]
+    assert store.get_image(record.id) is None
+
+
 def test_favorites_survive_the_like_fallback(store):
     # An odd number of double quotes is what pushes the query off FTS: the
     # tokens go into MATCH quoted, and `26"` closes a string it never opened.
