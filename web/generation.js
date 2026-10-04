@@ -60,6 +60,9 @@ function setBusy(on) {
   if (!on) { els.progressText.textContent = ''; currentJob = null; }
   syncQueueNote();
   syncPromptExpansion();
+  // The grid preview reads both ends of a job: a budget's queue ahead, and
+  // the cells in the gallery, which now hold a finished job's.
+  schedulePreview();
 }
 
 // The jobs waiting behind the watched one, from the ids their submissions
@@ -217,7 +220,21 @@ async function togglePause() {
   }
 }
 
-function generate() { return startJob('/api/generate', collect()); }
+// Generate takes the prompt as typed, braces and all - a `{tag}` can be text or
+// emphasis pasted from elsewhere, so the server never refuses one. But with
+// the grid open and its variables filled in, a `{name}` in either prompt is
+// the grid's, and Generate would render it literally as one image: that is
+// Run grid's press. The same pattern as grid.PLACEHOLDER.
+const GRID_PLACEHOLDER = /\{[A-Za-z_]\w*\}/;
+function generate() {
+  const body = collect();
+  if (els.gridSection.open && els.gridPrompt.value.trim()
+      && GRID_PLACEHOLDER.test(`${body.prompt}\n${body.negative_prompt ?? ''}`)) {
+    showError('Run grid fills the {placeholders}; Generate would render the braces.');
+    return;
+  }
+  return startJob('/api/generate', body);
+}
 
 // The gallery's current selection - the search box, the Favorites tick and
 // the checkpoint scope - rendered again at the panel's size. Taken
@@ -274,16 +291,49 @@ function humanTime(seconds) {
 
 const axisText = (values) => values.map((v) => (v === null ? 'none' : v)).join(', ');
 
+// The server's summary names every axis, the ones of one value included, and
+// multiplies with an ASCII x: it is the CLI's log line too (grid.describe, held
+// to that by its tests). The axes line under it lists every value anyway, so
+// here a factor of one goes - all but the seeds, the count a night is planned
+// around - and the sign is the comparison preview's ×.
+function gridFactors(summary) {
+  const kept = summary.split(' x ').filter((factor) => !factor.startsWith('1 ') || /seeds?$/.test(factor));
+  return kept.join(' × ') || summary;
+}
+
 // The prompts a variable block resolved to, a few of them. Substitution is the
 // half of a prompt grid that goes wrong quietly - a value that reads fine in the
 // box lands badly in the middle of a sentence - so the panel shows the finished
-// text rather than the variables that produced it.
+// text rather than the variables that produced it. One prompt too, whenever the
+// variables box has text: a block that failed to vary - `size = big, small` -
+// is a grid of one prompt, and that prompt is where it shows.
 const PREVIEW_PROMPTS = 3;
 function promptLines(prompts) {
-  if (!prompts || prompts.length < 2) return [];
+  if (!prompts || !prompts.length) return [];
+  if (prompts.length === 1) return [`prompt: ${prompts[0]}`];
   const lines = prompts.slice(0, PREVIEW_PROMPTS).map((text) => `· ${text}`);
   if (prompts.length > PREVIEW_PROMPTS) {
     lines.push(`· … and ${prompts.length - PREVIEW_PROMPTS} more`);
+  }
+  return lines;
+}
+
+// A variable of one value never varies, which in a grid is always a slip - and
+// most often commas, where every other box in the fold splits on them. Read
+// off the box the way grid.parse_variables reads it (the first `=`, values
+// split on `|`, blanks and repeats dropped), but only to warn: the server's
+// parse is the one the run uses, and its errors are the ones shown.
+function singleValueLines(text) {
+  const lines = [];
+  for (const line of text.split('\n')) {
+    const match = /^\s*([A-Za-z_]\w*)\s*=(.*)$/.exec(line);
+    if (!match) continue;
+    const values = new Set(match[2].split('|').map((v) => v.trim().split(/\s+/).join(' ')).filter(Boolean));
+    if (values.size !== 1) continue;
+    const [value] = values;
+    lines.push(value.includes(',')
+      ? `${match[1]} has one value '${value}' - values split on |, not commas`
+      : `${match[1]} has one value: it never varies`);
   }
   return lines;
 }
@@ -296,8 +346,22 @@ function promptLines(prompts) {
 // after the reply for the boxes as they are. Same token the gallery uses.
 let previewEpoch = 0;
 
+// Opening the fold by hand brings Run grid into view on the next frame
+// (revealGridRun), and the preview's reply lands after that, under the same
+// pointer, where the panel holds still (panelResized): its lines pushed Run
+// grid back below the window the opening had just brought it into. The
+// summary's click sets this, and the first preview shown after it reveals
+// Run grid again, as part of the same opening.
+let gridRevealPending = false;
+function previewShown() {
+  if (!gridRevealPending) return;
+  gridRevealPending = false;
+  revealGridRun();
+}
+
 async function previewGrid() {
   if (!els.gridSection.open) {
+    gridRevealPending = false;
     if (gridMaxCfg !== null) { gridMaxCfg = null; syncCfg(); }
     return;
   }
@@ -308,13 +372,15 @@ async function previewGrid() {
   if (!els.prompt.value.trim()) {
     els.gridPreview.classList.remove('warn');
     els.gridPreview.textContent = 'Enter a prompt above to see what this grid would run.';
+    previewShown();
     return;
   }
+  const body = gridPayload();
   try {
     const p = await api('/api/grid/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(gridPayload()),
+      body: JSON.stringify(body),
     });
     if (epoch !== previewEpoch) return;  // superseded while in flight
     els.gridPreview.classList.remove('warn');
@@ -328,28 +394,69 @@ async function previewGrid() {
     // the free space is the warning colour, since the night would die at the
     // first save that does not fit.
     const short = p.bytes && diskFreeMb !== null && p.bytes > diskFreeMb * 1024 * 1024;
+    // Under the prompts, what would make the night not the one planned: cells
+    // the gallery has already (Resume skips them; Run grid as it stands draws
+    // them again), a variable that never varies, a budget that stops short,
+    // and the panel's Repeat, which a grid does not take.
+    const notes = [];
+    if (p.in_gallery) {
+      const n = p.in_gallery * body.num_images;
+      notes.push(`${n} of these ${n === 1 ? 'is' : 'are'} already in the gallery - tick Resume to skip them`);
+    }
+    const single = body.prompt_axis ? singleValueLines(body.prompt_axis) : [];
+    notes.push(...single);
+    // A seed's share of the estimate, against the budget: every seed runs the
+    // same cells (seeds are the outer loop), so the share is exact under the
+    // estimate - and there is no line without one. The budget counts from Run
+    // grid, so the load and any job ahead of it in the queue spend it too,
+    // which the estimate does not count: said while the topbar's dot (the
+    // status's state) is not ready, and while this page watches a job. Not
+    // under Resume, whose seeds are no longer alike.
+    let budgetShort = false;
+    if (body.budget_minutes && p.seconds && !body.resume) {
+      const seeds = p.values.seed?.length || body.seeds;
+      const done = Math.min(seeds, Math.floor(body.budget_minutes * 60 / (p.seconds / seeds)));
+      budgetShort = done === 0;
+      const ahead = (busy ? 1 : 0) + queuedIds.length;
+      const also = [
+        els.dot.classList.contains('ready') ? '' : 'the load',
+        ahead === 1 ? 'the job ahead' : ahead ? `the ${ahead} jobs ahead` : '',
+      ].filter(Boolean);
+      notes.push(`budget ${body.budget_minutes} min ≈ ${done} of ${seeds} seed${seeds === 1 ? '' : 's'} complete` +
+        (also.length ? ` (${also.join(' and ')} count${also.length > 1 || ahead > 1 ? '' : 's'} too)` : ''));
+    }
+    if (+els.runs.value > 1) notes.push(`Repeat (${+els.runs.value}) does not apply to a grid: Seeds is its count`);
     // Cells that would come out identical - an axis this checkpoint ignores -
     // are the other reason to fix the grid before the night rather than after.
-    if (short || p.duplicates) els.gridPreview.classList.add('warn');
-    els.gridPreview.textContent = [
-      `${p.images} image${p.images === 1 ? '' : 's'} · ${p.summary}` +
+    if (short || p.duplicates || p.in_gallery || single.length || budgetShort) {
+      els.gridPreview.classList.add('warn');
+    }
+    const totals = document.createElement('span');
+    totals.className = 'totals';
+    totals.textContent =
+      `${p.images} image${p.images === 1 ? '' : 's'} · ${gridFactors(p.summary)}` +
         (p.skipped ? ` · ${p.skipped} already done` : '') +
         (p.duplicates ? ` · ${p.duplicates} would be identical to another cell` : '') +
         (p.seconds ? ` · about ${humanTime(p.seconds)}` : '') +
-        (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : ''),
+        (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : '');
+    els.gridPreview.replaceChildren(totals, [
+      '',
       `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${axisText(p.values.mu)}` +
         // Only when it is an axis: every other run would carry a constant.
+        // Named, since a sweep's weights mean nothing without the adapter.
         (p.values.lora_scale && p.values.lora_scale.length > 1
-          ? `  ·  LoRA ${axisText(p.values.lora_scale)}` : '') +
+          ? `  ·  LoRA ${axisText(p.values.lora_scale)} (${els.lora.value.replace(/\.safetensors$/, '')})` : '') +
         (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),
-      ...promptLines(p.values.prompt),
-    ].join('\n');  // .hint.pre renders the breaks
+      ...(body.prompt_axis ? promptLines(p.values.prompt) : []),
+      ...notes,
+    ].join('\n'));  // .hint.pre renders the breaks
   } catch (err) {
     if (epoch !== previewEpoch) return;
     els.gridPreview.classList.add('warn');
     els.gridPreview.textContent = err.message;
   }
+  previewShown();
 }
 
 // The prompt check's comparison is a grid on the same panel, so whatever moves

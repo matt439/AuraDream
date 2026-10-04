@@ -1036,6 +1036,26 @@ so `{size} dog` is `dog` rather than ` dog`. The prompt loop sits just inside
 the seed loop, for the reason seeds are outermost: a night that ends early has
 swept every setting for the prompts it reached, which is a comparison.
 
+The one mistake neither check catches is a variable that does not vary.
+`size = big, small` is legal - one value, `big, small` - and the night runs
+`a big, small fox` on every cell. The preview listed the resolved prompts
+only from two up, so it went quiet exactly when the substitution failed. It
+now lists the prompt whenever the variables box has text (one as `prompt:
+...`), and the page marks any line of one value in the warning colour,
+naming the comma when that is why. That warning is the page's alone and
+advisory: the `|` split, and the parser that decides, stay the server's.
+
+The placeholders are also why **Ctrl+Enter goes where the focus is**. It
+used to generate from anywhere, so pressed in a grid box it rendered the
+literal `{size}` as one image, and the night's grid never started. From a
+box of the open fold it now presses Run grid (its click, so the guards are
+the button's), in the Refine dialog it runs the pass, and anywhere else it
+generates. Generate itself refuses, in the page only, while the fold is
+open, its variables box has text and either prompt holds a `{name}`: the
+server never refuses braces, which in a plain prompt can be text or pasted
+`{tag}` emphasis. Both buttons show the shortcut as generated content with
+empty alt text, since `setBusy` rewrites their labels as text.
+
 ## Prompt labels on the sheet
 
 The contact sheet's axes gained **Prompt**, whose labels are only the words
@@ -1056,6 +1076,48 @@ of Turbo's at 1 MP): a grid's cells disagree about step count, so an average
 image duration would misstate most of them. Refine estimates instead use full
 per-image durations for the matching denoised step count, as described in
 the refine section. No matching history, no estimate.
+
+`grid.describe` names every axis, ones included, with an ASCII `x`: it is
+the CLI's log line as well, and its tests hold it to that. The page trims
+the factors of one but the seeds from the preview's first line and writes
+the sign as `×`, since the axes line under it lists every value anyway. That
+first line - the count, the time, the disk - is what decides whether to
+start a night, so it reads at body size; the axes and notes stay hint text.
+Under the prompts come the notes: cells already in the gallery (below), a
+variable that never varies, Repeat above one (a grid steps its own seeds,
+so the panel's `runs` is sent as 1 and the preview says it does not apply),
+and a time budget. The budget line divides the estimate by the seed count -
+every seed runs the same cells, so a seed's share is exact under the
+estimate - and says how many seeds the minutes complete, warning at none;
+it needs the estimate, and is left out under Resume, whose seeds are no
+longer alike. The budget runs from submission (`jobs.submit_cells` sets the
+deadline), so the line says the load counts too while the model is not
+loaded, and the jobs ahead while the page is watching one: a Run grid
+pressed then queues, and its minutes go on the wait as well.
+
+The preview is asked again whenever something it reads moves, and not all
+of that is a box: `setBusy` asks on a job's start and end (the gallery
+holds a finished job's cells, and the queue ahead has emptied), and
+`refreshStatus` when the model becomes ready or stops being so. Before,
+only the boxes asked, and the two lines added for after a night - the
+cells already in the gallery, the load - stayed as they were before it.
+The first reply after the fold is opened by hand reveals Run grid again
+(`gridRevealPending`): the reply lands under the pointer that opened the
+fold, where the panel holds still (`panelResized`), and its lines pushed
+Run grid back below the window the opening had just brought it into.
+
+Axis messages lead with the name of the box they came from - `Steps`,
+`CFG`, `Mu`, `LoRA weight`, the Refine dialog's `Strength`, `Seed list` -
+since the preview prints them under the whole fold. A range may be typed
+with spaces (`6 - 12 x 2`): `parse_axis` closes up a `-` or an `x` between
+two numbers before it splits on whitespace, which had cut `2 - 5` into a
+`-` refused as a none token everywhere but Mu, where `0.8 - 1.2` silently
+became three cells. Closed up, `0.8-1.2` is a range with no step, counted in
+ones - the one value 0.8, which the trimmed totals would not show either -
+so a range its ones never sweep is asked for its step (`needs a step, e.g.
+0.8-1.2x0.1`), typed with the spaces or without. A `-` with no number on
+both sides is still Mu's none, and `6..12` or `6 to 12` is answered with the
+syntax this one uses.
 
 ## Resume keys on settings
 
@@ -1080,6 +1142,13 @@ carries a *derived* seed (`base + seed_index * num_images`, plus the batch
 offset), so `JobAccepted` and `Job.snapshot()` publish the base, the UI
 writes it into a blank Seed box after `Run grid`, and the recovery
 instruction everywhere says the *oldest* image of the run, never "any".
+
+Without Resume, the preview still asks the same lookup and reports what it
+found as `GridPreview.in_gallery`, dropping nothing: Run grid again after a
+night with a failed cell rendered the whole night again, with nothing
+before the press saying that Resume would not. Only where the seeds are
+fixed - an explicit base or a list - since a random base matches nothing
+and a lookup for it would be a scan per keystroke for a zero.
 
 ## job_id, run_id and _migrate
 

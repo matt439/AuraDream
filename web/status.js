@@ -227,6 +227,8 @@ async function refreshStatus() {
       void refreshLoras();
     }
     if (typeof s.max_grid_images === 'number') sheetPage = s.max_grid_images;
+    // The grid preview's budget line says whether the load counts against it.
+    if (els.dot.classList.contains('ready') !== (s.state === 'ready')) schedulePreview();
     els.dot.className = `dot ${s.state}`;
     // A way to start - or retry, after a gated-repo 403 - the load without
     // queueing an image to do it.

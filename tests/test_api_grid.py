@@ -614,6 +614,31 @@ def test_a_resumed_grid_skips_what_the_gallery_already_holds(client, fake):
     assert [r.steps for r in fake.requests] == [6, 8, 10]
 
 
+def test_without_resume_the_preview_counts_what_the_gallery_holds(client, fake):
+    body = {
+        "prompt": "a lighthouse in fog",
+        "width": 256,
+        "height": 256,
+        "steps_axis": "6,8,10",
+        "seed": 11,
+    }
+    stream_job(client, client.post("/api/grid", json={**body, "steps_axis": "6"}).json()["job_id"])
+
+    # Nothing is dropped - Run grid as it stands renders all three again - but
+    # the cell already there is counted, which is what says Resume would not.
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert (preview["cells"], preview["skipped"], preview["in_gallery"]) == (3, 0, 1)
+    resumed = client.post("/api/grid/preview", json={**body, "resume": True}).json()
+    assert (resumed["cells"], resumed["skipped"], resumed["in_gallery"]) == (2, 1, 0)
+    # A random base matches nothing, so it is not looked up; a listed seed is
+    # as fixed as an explicit base.
+    drawn = client.post("/api/grid/preview", json={**body, "seed": None}).json()
+    assert drawn["in_gallery"] == 0
+    listed = client.post("/api/grid/preview", json={**body, "seed": None, "seed_axis": "11"}).json()
+    assert listed["in_gallery"] == 1
+    assert len(fake.requests) == 1
+
+
 def test_resuming_a_finished_grid_refuses_rather_than_running_nothing(client, fake):
     body = {
         "prompt": "a lighthouse in fog",

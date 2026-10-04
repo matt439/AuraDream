@@ -659,6 +659,9 @@ class GridPreview(BaseModel):
     # Cells dropped because the gallery already holds them; always 0 unless the
     # request asked to resume.
     skipped: int = 0
+    # The same cells counted without being dropped, when the request did not
+    # ask to resume and its seeds are fixed: what ticking Resume would skip.
+    in_gallery: int = 0
     # Cells that will render the very same image as an earlier cell once the
     # pipeline's own drops are applied: a negative-prompt variable on a
     # checkpoint that takes none, a CFG axis that never clears the threshold

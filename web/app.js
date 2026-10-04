@@ -175,11 +175,12 @@ els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // control's own value, and both the size and the batch move the totals.
 // The negative prompt is in the list because a `{name}` placeholder may live
 // there - the server validates it - and Resume because the whole "N already
-// done" half of the preview is what ticking it is for.
+// done" half of the preview is what ticking it is for. Repeat (`runs`) moves
+// nothing a grid runs, but the preview says so while it is above one.
 for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
                   els.gridSeedList, els.gridBudget, els.prompt, els.negative, els.steps,
-                  els.cfg, els.trueCfg, els.mu, els.batch, els.width, els.height, els.seed,
-                  els.gridLoraScale, els.loraScale]) {
+                  els.cfg, els.trueCfg, els.mu, els.batch, els.runs, els.width, els.height,
+                  els.seed, els.gridLoraScale, els.loraScale]) {
   el.addEventListener('input', schedulePreview);
 }
 // A listed seed axis makes the count and the base seed moot; say so in place.
@@ -199,8 +200,9 @@ els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
 // On the summary's click (Enter and Space on it are clicks too), not on the
 // toggle event, which restorePanel and resetPanel set off as well; the fold
-// is open by the next frame.
+// is open by the next frame. And again once its preview lands (previewShown).
 els.gridSection.querySelector('summary').addEventListener('click', () => {
+  gridRevealPending = true;
   requestAnimationFrame(revealGridRun);
 });
 els.width.oninput = els.height.oninput = syncSize;
@@ -263,11 +265,14 @@ for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.ref
 els.refineVersions.addEventListener('change', refineChanged);
 
 document.addEventListener('keydown', (e) => {
-  // Ctrl/Cmd+Enter generates from anywhere, including inside the prompt box -
-  // and inside the Refine dialog runs the pass instead, which is what its
-  // boxes are for.
+  // Ctrl/Cmd+Enter submits whatever the focus is in: inside the Refine dialog
+  // it runs the pass and inside the open grid fold it runs the grid, which is
+  // what their boxes are for - from a grid box Generate would render the
+  // prompt's {placeholders} literally. Anywhere else, the prompt box included,
+  // it generates. Run grid's click, so its handler and guards are the press's.
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
     if (els.refineDialog.open) void runRefine();
+    else if (els.gridSection.open && e.target.closest?.('#grid-section')) els.gridRun.click();
     else generate();
     return;
   }

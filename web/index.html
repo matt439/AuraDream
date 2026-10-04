@@ -288,7 +288,8 @@
     </div>
     <p class="hint" id="run-hint"></p>
 
-    <button class="primary" id="btn-generate">Generate</button>
+    <button class="primary" id="btn-generate" title="Generate (Ctrl+Enter)"
+            aria-keyshortcuts="Control+Enter">Generate</button>
     <div class="progress" id="progress" hidden>
       <div class="bars">
         <div class="row">
@@ -333,7 +334,8 @@
       <summary>Grid search <em>overnight sweeps</em></summary>
       <p class="hint">
         Ranges on top of the settings above. A blank axis keeps the single value
-        already in the panel, so only what you fill in varies.
+        already in the panel, so only what you fill in varies. Repeat does not
+        apply: the grid's Seeds box counts seeds.
       </p>
       <div class="row">
         <div class="sub grow">
@@ -379,7 +381,7 @@
             <span class="help" tabindex="0" role="note" aria-label="Help">?<span
               class="tip" id="grid-mu-tip">Same syntax:<br><b>1.1,1.15,1.3</b> · <b>1-1.4x0.1</b>.<br>
               <b>none</b> is a cell with no shift of ours at all, so
-              <b>none,1.15</b> compares the pipeline's own against Turbo's.<br>
+              <b>none,1.15</b> compares the pipeline's own shift against a fixed 1.15.<br>
               Blank runs whatever Mu is set to above.</span></span></i>
           <input type="text" id="grid-mu" placeholder="none,1.15" autocomplete="off" aria-describedby="grid-mu-tip">
         </div>
@@ -425,18 +427,14 @@
       <label class="check">
         <input type="checkbox" id="grid-resume" aria-describedby="grid-resume-tip"> Resume
         <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-          class="tip" id="grid-resume-tip">Skip cells this prompt has already been rendered at, at this size and
-          on this checkpoint. Each prompt of a prompt grid counts on its own, so
-          finishing the big dog does not skip the small one.<br>
-          A night that died at cell 300 of 480 costs the cell it died on, not the run:
-          re-submit the same grid with this ticked.<br>
-          Needs the Seed field filled in with the seed the grid was <i>started</i> from —
-          Run grid writes it into the box when that was blank. Failing that, the oldest
-          image of the run carries it (the newest carries the last seed the night reached,
-          and with a batch above 1 only the first image of each batch is a cell's seed).</span></span>
+          class="tip" id="grid-resume-tip">Tick and run the same grid again to skip the cells
+          already in the gallery at this size on this checkpoint.<br>
+          Needs the Seed the grid was <i>started</i> from: Run grid writes it into a blank
+          Seed box, and the run's oldest image carries it.</span></span>
       </label>
       <p class="hint pre" id="grid-preview"></p>
-      <button class="primary" id="btn-grid">Run grid</button>
+      <button class="primary" id="btn-grid" title="Run grid (Ctrl+Enter from a grid box)"
+              aria-keyshortcuts="Control+Enter">Run grid</button>
     </details>
   </aside>
 

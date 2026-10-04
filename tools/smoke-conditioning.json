@@ -68,7 +68,7 @@
   {"log": "'a weight sweep is an ordinary grid axis'"},
   {"eval": "els.gridSection.open = true; els.gridLoraScale.value = '0,0.5,1'; els.seed.value = '11'; previewGrid();"},
   {"wait": 900},
-  {"expect": "els.gridPreview.textContent.includes('3 images') && els.gridPreview.textContent.includes('LoRA 0, 0.5, 1')"},
+  {"expect": "els.gridPreview.textContent.includes('3 images') && els.gridPreview.textContent.includes('LoRA 0, 0.5, 1 (demo-style)')"},
   {"eval": "void startJob('/api/grid', gridPayload());"},
   {"wait": 4000},
   {"expect": "viewerRecords.length === 3"},
