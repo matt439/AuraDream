@@ -936,7 +936,11 @@ by oldest image as it does a variable (alphabetical put `35mm photo, …`, the
 newest, first). On screen a label is whole - a heading wraps to three lines
 and its title is the full prompt - where a 540 px column used to show 44
 characters; `clip` stays for a line of fixed width: a pin's option, the note,
-the export's canvas.
+the export's canvas. Each edit is a diff, quadratic in the prompt's length, so
+the edits stop at `EDIT_LABELS_MAX` (64) prompts - past that the labels are the
+varying words, as before - and the labels of the last prompt list are kept
+(`promptLabelMemo`) for the redraws a pin, an axis, a star or a delete asks
+for: a typed search over a thousand 250-word prompts took 600 ms a redraw.
 
 A comparison's `var:variant` axis reads as the prompt check names its
 versions (`VERSION_NAMES`: Original, Reordered, Rewrite, Your version) under
@@ -946,7 +950,11 @@ groups by - and a label the map does not know reads as written. Where each
 label names one prompt (`versionPrompts`; where one names several, Prompt is
 kept as an axis instead), a version's row head carries the whole prompt as its
 title and, under the name, its edit against the original, up to 80
-characters: four 400-character versions open with the same words.
+characters: four 400-character versions open with the same words. A version
+that keeps the original's words and only moves some - the critic's Reordered -
+says `same words, moved: soft light` (`versionEdit`), each moved run once from
+the added side: as an edit it read `+soft light, … −, soft light`, every moved
+run twice.
 
 ## Grid preview and the per-step estimate
 
@@ -1585,10 +1593,18 @@ page's background, over their whole row or column, so a matrix still past
 the 96 px floor keeps its labels beside the rows being read; the page itself
 never scrolls sideways. Heads are at the body-small size in `--text` - 11 px
 grey over 500 px cells read as an afterthought - each label clamped to three
-lines with the whole value as the heading's title. A cell drawn wider than
-its 384 px thumbnail asks for the PNG (`srcset`, with `sizes` the measured
-cell width; lazy loading still fetches only what is on screen): the
-upscaled WEBP was soft exactly where a CFG or steps sweep differs.
+lines with the whole value as the heading's title. The heads' row and the row
+heads' column, plus the gap, are the box's `scroll-padding` (`fitSheet`
+measures both into `--sheet-head` and `--sheet-rowhead` on `.sheet`): a cell
+the keyboard focused while the box was scrolled was lined up with the box's
+edge, under the stuck heads, its top and its focus ring hidden. A cell drawn
+wider than its 384 px thumbnail asks for the PNG (`srcset`, with `sizes` the
+measured cell width; lazy loading still fetches only what is on screen): the
+upscaled WEBP was soft exactly where a CFG or steps sweep differs. All of it
+is measured, so it is measured again when the window is resized
+(`refitSheet`, debounced, from app.js), and a row that now fits or no longer
+does is laid out again: once per render, a QHD sheet resized to 1400 px kept
+the `sizes` of 339 px cells drawn at 204 and its note under the window's edge.
 
 **A long single row wraps.** With no row axis and more columns than fit at
 96 px - a seeds-only run, which every Batch or Runs over 1 is - the cells lay
@@ -1601,7 +1617,9 @@ variant rows are never reshaped.
 under Favorites, what the keepers have in common, which the tick otherwise
 takes off every axis - in an element of its own, since the note is read back
 exactly. A starred cell carries the card's ring and 28 px badge (a 12 px
-glyph in a 690 px cell was not seen), and F on a focused cell stars it, one
+glyph in a 690 px cell was not seen) - the card's own rules, which name
+`.sheet-cell.fav` beside `.card.fav` so the two cannot drift - and F on a
+focused cell stars it, one
 listener on the grid rather than a button per cell; the lightbox still walks
 the sheet in reading order. A refine pass says so (`⤢ 0.1`, top left) unless
 the strength is already an axis or a pin. Where every image is a pass of one
@@ -1613,9 +1631,14 @@ a direct render; a deleted source is said in the note. The axes gained
 References (`#8 + #10`) and Adapter, null where none applied as the LoRA
 weight is, so with and without a reference at one seed is three cells, not
 one; with one adapter the LoRA heads name it. Images that pass the pins but
-find their cell taken are counted - "3 of 4 shown · 1 shares a cell with
-another image and differs in something the sheet does not lay out" - where
-"1 of 3 loaded" read as images still on their way. Size stays off the axes.
+find their cell taken are counted, where "1 of 3 loaded" read as images still
+on their way, and in two kinds. One that has the cell's image's settings
+throughout (`sameSettings`: every axis there is, the size, the checkpoint and
+its quantization, the refined source) is a repeat - "2 of 4 shown · 2 repeat a
+shown image's settings": the same grid run again without Resume keeps its run
+id, and a repeat-seed check is exactly what a sheet is read for. The rest
+"share a cell with another image and differ in something the sheet does not
+lay out" - the size, mostly. Size stays off the axes.
 
 **The way back, and on.** Sheet off restores the search a page-opened sheet
 replaced (`sheetReturn`) while the box still holds what the page wrote, so a
@@ -1628,12 +1651,17 @@ carry under the pins already held (`reconcileAxes`): the first value is
 `none` for every variable of a mixed gallery and no image was `none` on all
 of them, so not one cell filled. Over a full run the counts tie and the first
 value still wins. A sheet of one run opened on `run:<id>` offers Resume this
-run: the run's base seed from `/api/runs` into the Seed box, Resume ticked
-for this session only, the grid fold opened and Run grid brought into view.
+run: the run's base seed from `/api/runs` into the Seed box and its size into
+Width and Height, Resume ticked for this session only, the grid fold opened
+and Run grid brought into view. Resume is scoped by the size, the checkpoint
+and the quantization: filling only the seed, the panel's size after any other
+render made the preview skip nothing and blame the grid, so the size is
+filled too, and a run of another checkpoint (All models) offers no button.
 The axes are not stored per run, so whether the panel still holds that grid
 is the preview's to say, and a preview that would skip nothing says the grid
-is a different one. Not on a comparison or a refine sweep, which the panel's
-grid did not make.
+- its prompt, axes or other settings, or the server's quantization - is a
+different one. Not on a comparison or a refine sweep, which the panel's grid
+did not make.
 
 ## The CLI's loop, and jobs.submit's
 

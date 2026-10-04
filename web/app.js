@@ -222,6 +222,8 @@ els.favOnly.onchange = resetGallery;
 els.allModels.onchange = () => { resetGallery(); loadRuns(); };
 els.sheetBtn.onclick = toggleSheet;
 els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
+// The sheet's fit is measured against the window, so it follows a resize.
+window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
 els.runList.onchange = () => { showRun(els.runList.value); els.runList.value = ''; };

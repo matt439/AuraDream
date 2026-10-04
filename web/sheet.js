@@ -89,6 +89,12 @@ function axesFor(records) {
 }
 const axisByKey = (key) => sheetAxesList.find((a) => a.key === key);
 const axisValue = (axis, rec) => axis.of(rec) ?? null;
+// Two images that agree on every axis a sheet can have and on what none lays
+// out - the size, the checkpoint and its quantization, the image a pass
+// refined - are one picture asked for twice. Every axis, not the sheet's own
+// list, which leaves True CFG out where it echoes CFG.
+const sameSettings = (a, b) => SHEET_AXES.every((axis) => axisValue(axis, a) === axisValue(axis, b))
+  && ['width', 'height', 'model_id', 'quantization', 'refine'].every((key) => a[key] === b[key]);
 
 // Full prompt -> the words that make it different from its neighbours, filled
 // in by sheetValues. Only the prompt axis is in here, so anything else that is
@@ -128,7 +134,7 @@ function headText(axis, v) {
 // `−dawn +dusk`, `+35mm photo,`. From promptChanges (analysis.js), the exact
 // diff the critic's rewrite is shown with; edits only spaces apart read as
 // one, and the runs are joined by an ellipsis for the words they kept.
-function promptEdit(base, text) {
+function editRuns(base, text) {
   const runs = [];
   let run = null;
   for (const { kind, text: part } of promptChanges(base, text)) {
@@ -137,10 +143,29 @@ function promptEdit(base, text) {
     if (kind === 'same') { run.removed += part; run.added += part; } else run[kind] += part;
   }
   const words = (part) => part.trim().replace(/\s+/g, ' ');
-  return runs.map(({ removed, added }) => [
-    words(removed) && `−${words(removed)}`,
-    words(added) && `+${words(added)}`,
+  return runs.map(({ removed, added }) => ({ removed: words(removed), added: words(added) }));
+}
+function promptEdit(base, text) {
+  return editRuns(base, text).map(({ removed, added }) => [
+    removed && `−${removed}`,
+    added && `+${added}`,
   ].filter(Boolean).join(' ')).join(' … ');
+}
+
+// A version's edit against the original, under its row head. One that keeps
+// the original's words and moves some - the critic's Reordered, mostly - read
+// as each moved run removed in one place and added in another, the same words
+// twice, a puzzle where "same words, new order" was meant; it says what moved
+// once, from the added side.
+function versionEdit(original, prompt) {
+  const words = (text) => text.match(/[\p{L}\p{N}]+/gu) ?? [];
+  const [before, after] = [words(original), words(prompt)];
+  const sorted = (list) => [...list].sort().join(' ');
+  if (before.join(' ') === after.join(' ') || sorted(before) !== sorted(after)) return promptEdit(original, prompt);
+  const moved = editRuns(original, prompt)
+    .map(({ added }) => added.replace(/^[\s,;:.]+|[\s,;:.]+$/g, ''))
+    .filter(Boolean);
+  return `same words, moved: ${moved.join(' … ')}`;
 }
 
 // A header that repeats the forty words every prompt shares is unreadable, and
@@ -158,7 +183,11 @@ function promptEdit(base, text) {
 // tail, so six iterations labelled themselves with three clipped openings.
 // Where the labels come out repeated or longer than a line, each prompt is
 // labelled by its edit against the oldest (`prompts` is in the order they were
-// written - sheetValues), which keeps its own words.
+// written - sheetValues), which keeps its own words. Not past EDIT_LABELS_MAX
+// prompts: each edit is a diff, quadratic in the prompt's length, and a typed
+// search over a mixed gallery - a thousand prompts of 250 words - froze the
+// tab for 600 ms to label columns nobody reads across sixty-odd.
+const EDIT_LABELS_MAX = 64;
 function promptLabels(prompts) {
   const words = prompts.map((p) => p.trim().split(/\s+/));
   const width = words[0].length;
@@ -180,9 +209,13 @@ function promptLabels(prompts) {
   // Nothing left means this cell is the one that dropped the word the others
   // carry, which is a value in its own right and reads as one.
   const labels = kept.map((w) => w.join(' ') || 'none');
+  if (prompts.length > EDIT_LABELS_MAX) return labels;
   if (new Set(labels).size === labels.length && labels.every((l) => l.length <= LABEL_CHARS)) return labels;
   return prompts.map((p, i) => (i === 0 ? p.trim() : promptEdit(prompts[0], p) || p.trim()));
 }
+// The labels of the last prompt list. Every redraw of the same records - a
+// pin, an axis, a star, a delete - asks for them again.
+let promptLabelMemo = { key: null, labels: [] };
 
 // The distinct values each axis takes across the loaded images, ascending - or,
 // for a variable, in the order the grid wrote them: by the oldest image carrying
@@ -220,7 +253,11 @@ function sheetValues(records, whole = []) {
   }
   // No prompt axis when variables carry the variation; nothing to label.
   const prompts = values.prompt || [];
-  const labels = prompts.length > 1 ? promptLabels(prompts) : prompts;
+  const key = prompts.join('\u0000');
+  if (promptLabelMemo.key !== key) {
+    promptLabelMemo = { key, labels: prompts.length > 1 ? promptLabels(prompts) : prompts };
+  }
+  const { labels } = promptLabelMemo;
   promptShort = new Map(prompts.map((text, i) => [text, labels[i]]));
   return values;
 }
@@ -467,12 +504,24 @@ function versionPrompts(records) {
 
 // The run the sheet shows, where it shows one and was opened on `run:<id>` -
 // the Runs picker, a card's ⊞, Show run: what Resume this run continues. Not
-// a comparison's or a refine sweep's, which the panel's grid did not make.
+// a comparison's or a refine sweep's, which the panel's grid did not make,
+// and not another checkpoint's (All models): resume is scoped to the
+// checkpoint the server runs, so its preview could only skip nothing.
 function sheetRun() {
   const runs = new Set(sheetRecords.map((r) => r.run_id));
   const [run] = runs;
   if (runs.size !== 1 || !run || !els.search.value.trim().split(/\s+/).includes(`run:${run}`)) return null;
+  if (loadedModel && sheetRecords[0].model_id !== loadedModel) return null;
   return sheetRecords.some((r) => r.refine != null || r.variables?.variant !== undefined) ? null : run;
+}
+
+// A sheet with nothing down it and more across than fits - a seeds-only run,
+// mostly, which is every Batch or Runs over 1 - wraps into rows of
+// gallery-sized cells, each captioned, rather than one ribbon of 96 px cells
+// several screens wide. One that fits stays a row under its heads.
+function sheetWraps(colAxis, rowAxis, columns) {
+  return !!colAxis && !rowAxis
+    && columns * (SHEET_CELL_MIN + SHEET_GAP) > els.sheetGrid.parentElement.clientWidth;
 }
 
 function renderSheet() {
@@ -532,7 +581,7 @@ function renderSheet() {
     const resume = document.createElement('button');
     resume.className = 'ghost small';
     resume.textContent = 'Resume this run';
-    resume.title = "Put the seed this run started from in the panel's Seed box, tick Resume and preview "
+    resume.title = 'Put the seed this run started from and its size in the panel, tick Resume and preview '
       + 'what is left of it. The grid in the panel has to be the one that made the run';
     resume.onclick = () => { void resumeRun(run); };
     els.sheetControls.append(resume);
@@ -562,32 +611,29 @@ function renderSheet() {
   // One pass over the records into a map keyed by (row, column), rather than a
   // scan of every record per cell, so the sheet costs O(records + cells). The
   // first record wins a cell; they arrive newest first. The ones it turns
-  // away are counted for the note: they differ only in something no axis
-  // lays out - the size, the checkpoint - and "1 of 3 loaded" read as two
-  // images still on their way.
+  // away are counted for the note, where "1 of 3 loaded" read as two images
+  // still on their way: a repeat of the cell's image - the same grid run
+  // again without Resume, which keeps its run id, or a Re-render - or one
+  // that differs in something no axis lays out, the size, the checkpoint.
   const pins = Object.entries(sheetAxes.pins).map(([key, v]) => [axisByKey(key), v]);
   const rowIndex = new Map(rowValues.map((v, i) => [v, i]));
   const colIndex = new Map(colValues.map((v, i) => [v, i]));
   const cellOf = new Map();
-  let crowded = 0;
+  let repeats = 0, crowded = 0;
   for (const rec of sheetRecords) {
     if (pins.some(([axis, v]) => axisValue(axis, rec) !== v)) continue;
     const r = rowAxis ? rowIndex.get(axisValue(rowAxis, rec)) : 0;
     const c = colAxis ? colIndex.get(axisValue(colAxis, rec)) : 0;
     const at = r * colValues.length + c;
-    if (cellOf.has(at)) crowded += 1;
-    else cellOf.set(at, rec);
+    if (!cellOf.has(at)) cellOf.set(at, rec);
+    else if (sameSettings(rec, cellOf.get(at))) repeats += 1;
+    else crowded += 1;
   }
 
   const sourceId = sharedSource(sheetRecords);
   const source = sourceId === null ? null : sheetSources.get(sourceId) ?? null;
   const columns = colValues.length + (source ? 1 : 0);
-  // A sheet with nothing down it and more across than fits - a seeds-only
-  // run, mostly, which is every Batch or Runs over 1 - wraps into rows of
-  // gallery-sized cells, each captioned, rather than one ribbon of 96 px
-  // cells several screens wide. One that fits stays a row under its heads.
-  const wrap = !!colAxis && !rowAxis
-    && columns * (SHEET_CELL_MIN + SHEET_GAP) > els.sheetGrid.parentElement.clientWidth;
+  const wrap = sheetWraps(colAxis, rowAxis, columns);
 
   // What the export draws: the same matrix, the same pins, the same labels.
   sheetLayout = { colAxis, rowAxis, colValues, rowValues, cellOf, pins, values, wrap, source };
@@ -666,7 +712,7 @@ function renderSheet() {
     if (!rowAxis) return headCell('', 'rowhead');
     const prompt = versions?.get(v);
     const head = headCell(headText(rowAxis, v), `rowhead${prose(rowAxis)}`, prompt ?? headTitle(rowAxis, v));
-    const edit = prompt && original && v !== 'original' ? promptEdit(original, prompt) : '';
+    const edit = prompt && original && v !== 'original' ? versionEdit(original, prompt) : '';
     if (edit) {
       const line = document.createElement('span');
       line.className = 'rowhead-edit';
@@ -677,17 +723,16 @@ function renderSheet() {
     return head;
   };
 
-  const heads = [];
   if (!wrap) {
-    heads.push(add(headCell('', 'head corner')));
+    add(headCell('', 'head corner'));
     if (source) {
-      heads.push(add(headCell(`Source #${source.id}`, 'head',
-        `#${source.id}, ${source.width}×${source.height}: the image every pass here was refined from`)));
+      add(headCell(`Source #${source.id}`, 'head',
+        `#${source.id}, ${source.width}×${source.height}: the image every pass here was refined from`));
     }
     colValues.forEach((v) => {
-      heads.push(add(colAxis
+      add(colAxis
         ? headCell(headText(colAxis, v), `head${prose(colAxis)}`, headTitle(colAxis, v))
-        : headCell('', 'head')));
+        : headCell('', 'head'));
     });
   }
   rowValues.forEach((rowValue, r) => {
@@ -712,10 +757,15 @@ function renderSheet() {
     .map(([axis, v]) => `${axis.label.toLowerCase()} ${clip(sheetText(axis, v))}`)
     .join(', ');
   const notice = current(sheetNotice);
-  const count = crowded
-    ? `${shown.length} of ${sheetRecords.length} shown · ${crowded} `
+  const turned = [
+    repeats && `${repeats} ${repeats === 1 ? 'repeats' : 'repeat'} a shown image's settings `
+      + '(the same grid run again, a Re-render)',
+    crowded && `${crowded} `
       + `${crowded === 1 ? 'shares a cell with another image and differs' : 'share a cell with another image and differ'} `
-      + 'in something the sheet does not lay out (size, checkpoint, quantization…)'
+      + 'in something the sheet does not lay out (size, checkpoint, quantization…)',
+  ].filter(Boolean);
+  const count = turned.length
+    ? `${shown.length} of ${sheetRecords.length} shown · ${turned.join(' · ')}`
     : `${shown.length} of ${sheetRecords.length} loaded`;
   els.sheetNote.textContent = sheetRecords.length === 0
     ? 'Nothing matches. The filters above the sheet are the gallery search.'
@@ -723,7 +773,7 @@ function renderSheet() {
       (total > sheetRecords.length ? ` · ${total} match the search` : '') +
       (sourceId !== null && sheetSources.get(sourceId) === null ? ` · source #${sourceId} (deleted)` : '') +
       (notice ? ` · ${notice.text}` : '');
-  fitSheet(heads);
+  fitSheet();
 }
 
 // The tallest a matrix's cells may be: the window, less what sits above the
@@ -734,9 +784,13 @@ function renderSheet() {
 // keeps its heads in view. Measured rather than guessed, so a tier that
 // scales the controls needs nothing here, and `100vh` follows the window from
 // there. At QHD a 4 x 3 used to be 524 px cells in a sheet 1,607 px tall.
-// Then each image's `sizes`, the width its cell is drawn at - the cells of a
-// sheet are one width - which picks the thumbnail or the PNG.
-function fitSheet(heads) {
+// The heads' row and the row heads' column (the corner is as wide) are also
+// the box's scroll padding: a cell focused from the keyboard is scrolled
+// clear of the heads stuck over it, where it lined up with the box's edge and
+// the heads hid its top and its focus ring. Then each image's `sizes`, the
+// width its cell is drawn at - the cells of a sheet are one width - which
+// picks the thumbnail or the PNG.
+function fitSheet() {
   const scroller = els.sheetGrid.parentElement;
   if (!els.sheet.classList.contains('wrapped')) {
     const head = document.querySelector('.gallery-head');
@@ -746,13 +800,32 @@ function fitSheet(heads) {
     const below = els.sheet.getBoundingClientRect().bottom - box.bottom
       + parseFloat(getComputedStyle(document.querySelector('main')).paddingBottom);
     els.sheet.style.setProperty('--sheet-chrome', `${Math.ceil(above + below)}px`);
-    const row = Math.max(0, ...heads.map((h) => h.getBoundingClientRect().height));
-    els.sheetGrid.style.setProperty('--sheet-head', `${Math.ceil(row)}px`);
   }
+  const heads = [...els.sheetGrid.querySelectorAll('.head')];
+  const row = Math.max(0, ...heads.map((h) => h.getBoundingClientRect().height));
+  els.sheet.style.setProperty('--sheet-head', `${Math.ceil(row)}px`);
+  els.sheet.style.setProperty('--sheet-rowhead', `${Math.ceil(heads[0]?.getBoundingClientRect().width ?? 0)}px`);
   const cell = els.sheetGrid.querySelector('.sheet-cell');
   if (!cell) return;
   const sizes = `${Math.ceil(cell.getBoundingClientRect().width)}px`;
   for (const img of els.sheetGrid.querySelectorAll('img[srcset]')) img.sizes = sizes;
+}
+
+// The fit follows the window (app.js): a resize measures the chrome again -
+// a narrower window wraps the gallery head onto more lines - and each image's
+// `sizes`, and a row that now fits, or no longer does, is laid out again.
+// Measured once per render, a QHD sheet dragged down to 1400 px kept the
+// `sizes` of 339 px cells drawn at 204 and its note under the window's edge,
+// and a row wrapped at 800 px stayed wrapped at QHD.
+let refitTimer = null;
+function refitSheet() {
+  clearTimeout(refitTimer);
+  refitTimer = setTimeout(() => {
+    if (!sheetMode || !sheetLayout) return;
+    const { colAxis, rowAxis, colValues, source, wrap } = sheetLayout;
+    if (sheetWraps(colAxis, rowAxis, colValues.length + (source ? 1 : 0)) !== wrap) renderSheet();
+    else fitSheet();
+  }, 150);
 }
 
 // F stars the image in focus, as it does in the lightbox, so keepers are
@@ -779,10 +852,13 @@ async function sheetKey(e) {
 // sheet. Resume needs the seed the grid started from, which every image
 // carries only derived from it; /api/runs reads it off the run's oldest image
 // - the sheet's own oldest where the run is past the 200 newest and nothing
-// filters it. Resume is ticked for this session only, never remembered. The
-// grid's axes are not stored per run, so whether the panel still holds the
-// grid that made it is the preview's to say: one that would skip nothing is
-// a different grid, and the preview says so rather than Run grid rendering it.
+// filters it. The size comes from the images, all one size in a run: resume
+// is scoped by it, and the panel's after any other render was the likelier
+// one, so the preview skipped nothing and blamed the grid. Resume is ticked
+// for this session only, never remembered. The grid's axes are not stored per
+// run, so whether the panel still holds the grid that made it is the
+// preview's to say: one that would skip nothing is a different grid, and the
+// preview says so rather than Run grid rendering it.
 async function resumeRun(runId) {
   const params = new URLSearchParams({ limit: 200 });
   if (els.allModels.checked) params.set('all_models', 'true');
@@ -801,6 +877,9 @@ async function resumeRun(runId) {
     return;
   }
   els.seed.value = seed;
+  els.width.value = sheetRecords[0].width;
+  els.height.value = sheetRecords[0].height;
+  syncSize();
   syncRuns();
   persistPanel();
   scheduleComparePreview();
@@ -826,7 +905,8 @@ async function resumeRun(runId) {
   if (p && !p.skipped && epoch === previewEpoch) {
     els.gridPreview.classList.add('warn');
     els.gridPreview.textContent += `\nNone of these cells is in run ${runId}: the grid above is not the one that `
-      + 'made it (its prompt or axes changed), so Run grid would render a different grid.';
+      + 'made it (its prompt, axes or other settings changed, or the server runs another quantization), '
+      + 'so Run grid would render a different grid.';
   }
   // Last, once the preview has grown the fold to its height: brought into
   // view before it, Run grid ended a few lines under the window's edge.

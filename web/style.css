@@ -881,8 +881,14 @@ button { font: inherit; cursor: pointer; }
    measured by renderSheet's fitSheet), and a matrix's cells are no taller
    than its rows can share of that (--cell-max), so a 4 x 3 at QHD is one
    screen and only a matrix whose rows pass the 96 px floor scrolls inside it.
-   A wrapped row lays out like the gallery and takes the page's height. */
-.sheet-scroll { overflow: auto; max-height: calc(100vh - var(--sheet-chrome, 0px)); }
+   Its scroll padding is the stuck heads' row and column and the gap past
+   them (fitSheet measures both), so a cell the keyboard focuses is scrolled
+   out from under them. A wrapped row lays out like the gallery and takes the
+   page's height. */
+.sheet-scroll {
+  overflow: auto; max-height: calc(100vh - var(--sheet-chrome, 0px));
+  scroll-padding: calc(var(--sheet-head, 0px) + 6px) 0 0 calc(var(--sheet-rowhead, 0px) + 6px);
+}
 .sheet.wrapped .sheet-scroll { max-height: none; }
 .sheet-grid {
   display: grid; gap: 6px; align-items: center; justify-content: center; min-width: min-content;
@@ -944,17 +950,12 @@ button { font: inherit; cursor: pointer; }
 /* A refine sweep's source, ahead of its passes: ringed in the focus colour's
    teal, apart from the passes and from a star's amber. */
 .sheet-cell.source { border-color: var(--accent-2); }
-/* The star a card carries, ring and badge (the card's own, below), so where
-   the keepers cluster is visible on the sheet rather than only in the user's
-   head; a 12 px glyph in a 690 px cell was not. `position: relative` above is
-   what keeps 1024 of these from piling up at the top of the page. */
-.sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
-.sheet-cell.fav::after {
-  content: "★"; position: absolute; top: 6px; right: 6px;
-  width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%;
-  background: rgba(0, 0, 0, 0.62); color: var(--star); font-size: 18px; line-height: 1;
-  text-shadow: 0 0 6px rgba(251, 191, 36, 0.55); pointer-events: none;
-}
+/* A starred cell carries the star a card does, ring and badge - the card's
+   own rules, which name .sheet-cell.fav beside .card.fav so the two cannot
+   drift - and where the keepers cluster is visible on the sheet rather than
+   only in the user's head; a 12 px glyph in a 690 px cell was not.
+   `position: relative` above is what keeps 1024 badges from piling up at the
+   top of the page. */
 /* A refine pass says so, and at what strength, where the sheet does not lay
    the strength out already: a pass looks like its source by design. Top
    left, clear of the star. */
@@ -1014,8 +1015,8 @@ button { font: inherit; cursor: pointer; }
    amber ring round the card, and the star on a dark badge so it reads on a
    white render as well as a black one. The tools' own star turns amber with
    it, so the toggle shows which way it will go. */
-.card.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
-.card.fav::after {
+.card.fav, .sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
+.card.fav::after, .sheet-cell.fav::after {
   content: "★";
   position: absolute;
   top: 6px;

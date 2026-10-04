@@ -983,14 +983,15 @@ every image shares (**Fixed:** steps, CFG, seed…) - with Favorites ticked,
 what the keepers have in common. **F** on a focused cell stars it. A strength
 sweep shows its source as the first column, and a refine pass carries its
 strength on the cell where strength is not an axis. With and without
-reference images is an axis of its own on klein, and images that differ only
-in something the sheet does not lay out (size, checkpoint) are counted in the
-note. **Sheet** over an empty search opens the newest run (clear the search
-for the whole gallery), and turning it off puts back the search a page-opened
-sheet replaced. On a run's sheet, **Resume this run** puts the seed the run
-started from in the Seed box, ticks Resume and previews what is left - the grid in
-the panel has to be the one that made it, and the preview says when it is
-not. The exported PNG also carries the prompt, the variables as declared,
+reference images is an axis of its own on klein, and images that share a cell
+are counted in the note: repeats of the shown image (a grid run twice), or
+images that differ only in something the sheet does not lay out (size,
+checkpoint). **Sheet** over an empty search opens the newest run (clear the
+search for the whole gallery), and turning it off puts back the search a
+page-opened sheet replaced. On a run's sheet, **Resume this run** puts the
+seed the run started from and its size in the panel, ticks Resume and
+previews what is left - the grid in the panel has to be the one that made it,
+and the preview says when it is not. The exported PNG also carries the prompt, the variables as declared,
 the shared settings and when the run was made, and is named by its pins.
 
 ## Settings
