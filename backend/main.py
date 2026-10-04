@@ -835,16 +835,25 @@ def _prompt_failure(exc: Exception, doing: str) -> HTTPException:
     when it ran and failed - a download that did not verify, a server that did
     not start or an answer that did not parse (`CriticError`) - and 500 for
     anything else, the analyser's own failures included.
+
+    The critic's own two classes reach the page without their names: their
+    messages are written to be read there, the page says whose failure it is
+    ("The critic did not answer: ..."), and "CriticError:" led every one of
+    them. The log line keeps the class; anything else keeps it in the reply
+    too, since there the class may be all that says what went wrong.
     """
     log.error("%s failed: %s", doing, short_error(exc))
     log.debug("%s traceback", doing, exc_info=exc)
+    detail = short_error(exc)
     if isinstance(exc, CriticUnavailable):
         status = 503
     elif isinstance(exc, CriticError):
         status = 502
     else:
         status = 500
-    return HTTPException(status_code=status, detail=short_error(exc))
+    if isinstance(exc, CriticError):
+        detail = detail.removeprefix(f"{type(exc).__name__}: ")
+    return HTTPException(status_code=status, detail=detail)
 
 
 @app.post("/api/prompt/analyze", response_model=PromptAnalysis)

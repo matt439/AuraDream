@@ -4566,13 +4566,41 @@ escapes and emoji. Added and removed text is built with `textContent` in
 `ins`/`del` elements, never HTML from the prompt. It compares against the
 checked source even if the editor has since changed. An absent rewrite says
 **No rewrite offered** alongside the existing set-aside explanations.
+The diff stays closed by default - opened, it prints the whole rewrite a
+second time directly above its own box - and a gist line after the
+`<details>` (a closed one shows only its summary) gives the first three
+changes, a few words of each, marked as the diff marks them ("Changed A
+quiet → An empty · added film grain · moved masterpiece"). The 2026-10-04
+review found the change hidden behind a click. The gist groups the diff's
+runs first (`changeHunks`, `gistItems`): a word replaced is one change, not a
+removal and an addition; edits only spaces and marks keep apart are one; and
+words taken out in one place and put back in another, separators aside, are
+one move. Run by run, a real rewrite's gist spent its three places on single
+words ("Removed A · added An · removed quiet"). Each finding the check makes
+on the rewrite says whether the prompt has one under the same rule and field
+("also in your prompt") or not ("new"), and the prompt's findings the
+rewrite no longer has follow as "No longer flagged: ..."; they are matched,
+never collapsed, by rule, since the same rule can be another instance - on
+Animagine the rewrite's order finding names other tags than the prompt's.
+The rewrite is checked without the tag index (`main._lint`), so a prompt
+finding that rests on it - the order, the style a known name reads as, an
+artist's @ (`readsTagIndex`) - is never called fixed: gone from the rewrite,
+it is listed as "Not flagged on the rewrite, whose check runs without the tag
+index - these may still apply". Review found "No longer flagged" naming a
+Series-before-Character order the rewrite kept word for word. (Linting the
+rewrite with the analysis's own categories would let the page say more; that
+is the route's to do.) The answer's parts list is captioned "How the critic
+read it"; uncaptioned, it read as part of the issue under it.
 `smoke-rewrite.json` checks the rendered diff, exact reconstruction,
-escape-only changes, Unicode, markup as text and unchanged/absent rewrites.
+escape-only changes, Unicode, markup as text, unchanged/absent rewrites, the
+gist and the carried, no-longer-flagged and not-flagged marks;
+`smoke-analysis-tags.json` the not-flagged one end to end on Animagine.
 
 Check sits in the Prompt caption after Tags and before Expand
 and sends what Generate would (`collect()`); its panel moves with the chips
-(`placeTagValidation`), above the results on a two-column page so its
-length cannot push Generate down the sticky settings column. The move keeps
+(`placeTagValidation`), above the results on a two-column page - beside them
+from 1800 px, docked by the stylesheet (below) - so its length cannot push
+Generate down the sticky settings column. The move keeps
 whatever had focus: `moveBefore` where the browser has it, elsewhere the
 focused element and its selection put back by hand. The 2026-09-28 review
 found the move re-appending the subtree, which blurred whoever was typing in
@@ -4620,8 +4648,19 @@ shows as text. Use and Apply write through `replaceBoxText`, which selects
 the box and inserts with `execCommand`, so Ctrl+Z brings back what was
 typed; assigning `.value` emptied the undo history, and the re-check that
 follows would have made the replacement the comparison's original, leaving
-the typed prompt nowhere on the page. Server offsets count code points, as
-Python indexes a str (`PromptFinding` says so); the page's strings count
+the typed prompt nowhere on the page. Use rewrite and Use reordered (the
+critic's, and Check's own reordering) also put the prompt they replace into
+Your version while that box is empty, with a note under it saying so: the
+2026-10-04 review tried the rewrite and then compared it with what it had,
+the obvious order, and found Compare offering only the new text and Run
+comparison dead. A box holding words of the user's own is left alone, the
+answer is still dropped by the re-check, and no new version label is added:
+Your version already has the lifetime rules the replaced prompt needs. A
+finding's Apply is not extended this way - it fixes one rule's complaint
+rather than offering a version - and the order finding, whose suggestion is
+the Order section's reordering byte for byte, says "Same as Use reordered
+above" instead of a second button for the one action. Server offsets count
+code points, as Python indexes a str (`PromptFinding` says so); the page's strings count
 UTF-16 units, so `units()` converts before selecting - one emoji ahead of a
 finding selected the wrong words, and the still-in-place guard, comparing
 two JS slices, could not notice. The cut link's excerpt ("stops reading at
@@ -4646,8 +4685,12 @@ hands focus to the heading first. The comparison temporarily sent `num_images: 1
 because inheriting the panel's Batch 4 had made "4 seeds" sixteen. It now
 uses its own Batch select and divides the grid seed count by that batch
 size, preserving the total seeds per version. The main panel's Batch and
-Runs still do not apply. It reads both comparison selects directly
-for its preview and its run (a browser restoring form state sets a select
+Repeat (the count once labelled Runs) still do not apply; that line and the
+rest of the mechanics are a `?` badge after the comparison's Batch select,
+opening upwards (from 1800 px the panel scrolls inside itself, and a tip
+opening down from its last section was cut off), while the 4-or-8 caveat
+stays in view beside it as the decision aid. It reads both comparison
+selects directly for its preview and its run (a browser restoring form state sets a select
 without a change event, and a copied variable had stayed at 4), never writes
 the prompt box or the grid's variables, which are the user's and persisted,
 and leaves out a version identical to another. Its Your version box is the
@@ -4677,6 +4720,100 @@ the same finding came back with the same button. The critic's `set_aside`
 lines are shown under its answer, and the `dropped` line says what dropping
 means - a citation that named nothing it was given, or an empty issue; an
 unfound quote only loses its quote.
+
+**Beside the results from 1800 px.** The 2026-10-04 review measured the
+check at QHD: opened above the viewer it was 2,161 px wide and 669 px tall
+after Check, 1,136 after the critic, and the image just made went from wholly
+in view to 59% and then 61 px of it; at 2048x1040 at 125% none of it was left
+after the answer - while about 1,270 px beside the image stood empty. So from
+1800 px the stylesheet docks the open check in a column of its own beside the
+viewer (`--dock-w`, 520-760 px): `.stage` becomes a grid while
+`#prompt-analysis` is open in the wide host (`:has()`), the chips, the viewer
+and its note on the left, the check on the right across their rows - sticky
+under the topbar, as tall as the window allows and scrolling inside itself -
+and everything from the gallery head on spans both columns in the rows after,
+in document order. The note's row is `1fr`, so the check's height past the
+viewer's goes below the viewer rather than above it; with no chips there is
+no row for them, since an empty one kept its gap and opening the check moved
+the image down by it. With no chips the image stays where it was after
+Check, after the answer and for a Generate pressed meanwhile, and Generate
+does not move. On a tag checkpoint the chips move from the full width into
+the left column, and the image moves down by exactly the lines they wrap
+onto there: none for a short prompt, 32 px for 40 tags at QHD and 43 px at
+2048x1040 at 125%, where the image's bottom is then 48 px above the fold - a
+prompt of 70 tags or so can take it past. Keeping the chips across both
+columns would leave the image put, but the check would then start below them
+and its bottom, sized for a column under the topbar, would sit below the
+fold until the page scrolled. It is
+CSS only: `placeTagValidation` and the DOM order - chips, then the check, in
+the wide host - are unchanged, the focus rules still hold (the heading after
+Check, the answer after the critic: `focus()` scrolls the panel's own box),
+and without `:has()` the check stays above the viewer, as below 1800 px. The
+cost is a `.many` batch's eight slots at about 160 px while the check is open;
+leaving the dock for a batch would flip the layout as the batch starts. In the
+column the sections stack - side by side, Order had 356 px - and full width
+above the results, from 1400 px, Encoders keeps a 260-360 px track and Order
+the rest, where `auto-fit` had made seven 286 px tracks of which two were
+used. Text is capped at 120 characters' width (`.analysis-list`,
+`.analysis-text`, `.critic-diff`): at QHD a finding's words ended 800-1,400 px
+from the badge saying what they rest on, and a version ran 400 characters a
+line. A guide or author cite under 80 characters is in the line, after the
+claim, as `<q class="analysis-cite">`; it was only the badge's tooltip, which
+nothing but a hover shows. The badge keeps its title and link. The critic's
+Rewrite and Reordered sit side by side where both fit at 60 characters a
+line: full width above the results from 1400 px; in the docked column,
+narrower than two such lines, they stack.
+Badges are sentence case at the notes' size; Ask the critic and Run comparison
+are lit while they would act (never while `disabled` or `aria-disabled`),
+since as ghost buttons enabled differed from disabled only by opacity; Close
+is a 28 px target. The reordering under Order is shown whole, scrolling past
+six lines - clamped at three, it cut off what Use reordered writes - and a
+version's tick under Compare outlines the box holding its text while it is
+pointed at or focused (`data-version`).
+
+The panel's own messages - a finding's words no longer where the check found
+them, an answer set aside or never asked for - are written to a status slot
+under Ask the critic (`analysisMessage`: unhidden before it is written, never
+rewritten with the same words, and `#error` where the critic's section is
+hidden), between the findings and the answer they are about; in `#error` they
+sat under Generate, a column away. The slot stays at full strength while the
+rest of a stale panel is dimmed - what it says is mostly why the panel went
+stale, and its amber at 0.55 opacity fell under 4.5:1 - so the dimming is on
+its siblings, since a child cannot undo an ancestor's opacity. The refusals
+("Enter a prompt first.", "Wait for ...") stay in `#error`. A dead Use or
+Apply says why in its title, as Run comparison does, rather than keeping the
+offer it refuses. They stay `disabled`, not `aria-disabled` as Ask the critic
+and Refine are: they are dead as a set, a dozen at a time, while the stale
+badge and Check again - at full strength in the head - say why to every
+reader, and what makes them stale is an edit somewhere else - a prompt box,
+the references, the CFG - so focus is seldom on one when it dies. A critique
+that fails leaves a row in the critic's block in the
+server's words ("The critic did not answer: ...") and takes focus like an
+answer; `#error` gets the same sentence, so the reason under Generate says
+whose it is. Nothing generic follows the reason: the server's messages say
+what to do where anything can be done (shorten the prompt, install a
+library), and "Ask again", added to every row at first, contradicted a
+refusal that asking again only repeats. The failure is `critiqueFailure`,
+never a `critiqueResult`, which Use and Apply read as an answer, and is
+cleared by the next Ask, a check of other text and a cleared panel. The route
+sends `CriticError`'s and `CriticUnavailable`'s messages without the class
+name, which led every one of them; the log line keeps it.
+While the critic runs, the seconds since the click count beside the line
+(aria-hidden, outside its live region, so it is not read out every second),
+and a first use's line says the download can take a few minutes: with nothing
+moving, slow could not be told from stuck while every generation button was
+held. A finding clicked, the cut link and a critic quote scroll the box to the
+words they select (`scrollToSelection`, a hidden copy of the box laid out as
+it is): `setSelectionRange` scrolls nothing in a box that has focus, and after
+typing a long prompt the box sits at its end while the words are near its
+start. The Order section's "Not checked" says the app checks word order only
+in a tag checkpoint's comma-separated tags - of the app, not of "Check" in the
+third person, and of a tag checkpoint's tags, since a comma tag prompt on FLUX
+is not placed and a prose one on Animagine is. The comparison's preview counts
+versions, the panel's word, not variants. `smoke-analysis.json` checks the
+dock at 2560x1305 and 2048x1040 at 125%, and the stacking at 1400x900;
+`smoke-analysis-tags.json` the dock on Animagine, where the image moves by
+exactly the chips' extra lines.
 
 **Open questions the build turned up**, for decisions rather than code:
 

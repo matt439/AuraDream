@@ -80,10 +80,11 @@
       <div class="tag-validation-host tag-validation-home" id="tag-validation-home">
         <div class="tag-validation" id="tag-validation" role="group" aria-label="Prompt tags" hidden></div>
         <!-- The prompt check, moved with the chips by placeTagValidation: above
-             the results on a two-column page, here under 901 px. It is as long
-             as what it found, and in the sticky settings column that length
-             would push Generate down. Sections are filled by analysis.js; the
-             critic's only on a server that has one. -->
+             the results on a two-column page (the stylesheet docks it beside
+             them from 1800 px), here under 901 px. It is as long as what it
+             found, and in the sticky settings column that length would push
+             Generate down. Sections are filled by analysis.js; the critic's
+             only on a server that has one. -->
         <section class="prompt-analysis" id="prompt-analysis" role="region" aria-label="Prompt check" hidden>
           <div class="analysis-head">
             <!-- Focusable from script only: a Check pressed on a two-column
@@ -117,7 +118,13 @@
                 <!-- Says what a click will cost, then that it is running: the
                      answer takes seconds, the first one minutes. -->
                 <span class="critic-line" id="critic-line" aria-live="polite"></span>
+                <!-- Seconds since the click, outside the live region. -->
+                <span class="critic-clock" id="critic-clock" aria-hidden="true" hidden></span>
               </div>
+              <!-- The panel's own messages: words a finding names no longer
+                   where the check found them, an answer set aside. In
+                   #error, under Generate, they were a column away. -->
+              <p class="hint warn analysis-status" id="analysis-status" role="status" hidden></p>
               <!-- Takes focus when an answer lands while focus is still on
                    Ask the critic: nothing else announces it. -->
               <div class="critic-result" id="critic-result" tabindex="-1" role="group"
@@ -137,8 +144,10 @@
                 </div>
                 <!-- These comparison fields are not persisted; autocomplete=off
                      also prevents the browser restoring them on reload. -->
-                <textarea id="compare-own" class="analysis-text" rows="2" spellcheck="true" autocomplete="off"
+                <textarea id="compare-own" class="analysis-text" rows="2" spellcheck="true" autocomplete="off" data-version="yours"
                           placeholder="The same words in another order, or any other wording - it runs on the same seeds as the original"></textarea>
+                <!-- Says where the text came from when a Use put it there. -->
+                <p class="analysis-note sub" id="compare-own-note" hidden></p>
               </div>
               <div class="compare-seeds">
                 <label>Seeds <select id="compare-seeds" autocomplete="off">
@@ -151,9 +160,14 @@
                   <option value="2">2</option>
                   <option value="4">4</option>
                 </select></label>
+                <!-- The mechanics, the same on every check, behind a badge;
+                     the caveat beside it is the decision aid and stays out. -->
+                <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+                  class="tip">Seeds is the total per version; Batch changes how many run together.
+                  Uses the main Seed field or a random start.
+                  The main Batch and Repeat settings do not apply.</span></span>
                 <span class="compare-note">4 seeds is a first look - even a change on every seed could be chance; 8 can tell a consistent change from chance.</span>
               </div>
-              <p class="hint">Seeds is the total per version; Batch changes how many run together. Uses the main Seed field or a random start. The main Batch and Runs settings do not apply.</p>
               <p class="hint" id="compare-preview"></p>
               <button type="button" class="ghost analysis-action" id="compare-run"
                       title="One grid: each version of the prompt on the same seeds, then the sheet with a row per version">Run comparison</button>

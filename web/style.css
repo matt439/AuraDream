@@ -58,6 +58,7 @@
      --thumb-min    160px a gallery card's least width
      --search-w     240px the gallery's search box, at most
      --lb-side-w    280px the lightbox's column
+     --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
      --tip-w, --tip-w-wide, --menu-w, --tag-menu-w   the floating panels' widths
 
    The wide tier, from 1800 px (QHD at 100% is 2560, at 125% 2048): the type
@@ -132,6 +133,7 @@
   --thumb-min: 160px;
   --search-w: 240px;
   --lb-side-w: 280px;
+  --dock-w: clamp(520px, 30vw, 760px);
   --tip-w: 240px;
   --tip-w-wide: 300px;
   --menu-w: 300px;
@@ -667,8 +669,9 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 
 /* What the checkpoint's encoders read of the prompt and what its guide says
    about it, then the critic and the comparison. It travels with the chips:
-   the same panel look above the results on a two-column page, a card under
-   the prompt below 901 px, where the panel around it is already --panel. */
+   the same panel look above the results on a two-column page - docked beside
+   them from 1800 px, at the end of this section - and a card under the
+   prompt below 901 px, where the panel around it is already --panel. */
 .prompt-analysis {
   display: flex; flex-direction: column; gap: var(--sp-3);
   padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line);
@@ -688,21 +691,47 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .analysis-model { color: var(--muted); }
 .analysis-summary { color: var(--text-readout); }
 /* Stale results stay readable - they are still the last answer - but dimmed,
-   with the badge and Check again at full strength in the head. */
+   with the badge and Check again at full strength in the head. The badges
+   here (this one, a finding's source, a critic issue's kind) are in sentence
+   case at the notes' size: 10 px capitals were the slowest words in the
+   panel to read, and the case said nothing a word does not. */
 .analysis-stale {
   padding: 0 7px; border: 1px solid var(--warn); border-radius: 999px;
-  color: var(--warn); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--warn); font-size: var(--fs-sm);
 }
 /* Under the head's specificity: the lightbox's `.close` comes later and is
-   sized for a full-screen overlay. */
-.analysis-head .analysis-close { margin-left: auto; padding: 0 var(--sp-1); font-size: 15px; color: var(--muted); }
+   sized for a full-screen overlay. A 28 px target, not the glyph's 20x15. */
+.analysis-head .analysis-close {
+  min-width: 28px; min-height: 28px; margin-left: auto; padding: var(--sp-1) var(--sp-2);
+  font-size: 15px; color: var(--muted);
+}
 .analysis-head .analysis-close:hover, .analysis-head .analysis-close:focus-visible { color: var(--text); }
-.prompt-analysis.stale .analysis-body { opacity: 0.55; }
+/* The status slot under Ask the critic stays at full strength as well: what
+   it says is mostly why the panel went stale, and its amber at 0.55 fell
+   under 4.5:1. A child cannot undo an ancestor's opacity, so the dimming is
+   on the slot's siblings and the body's other sections. */
+.prompt-analysis.stale .analysis-body > :not(#analysis-critic),
+.prompt-analysis.stale #analysis-critic > :not(.analysis-status) { opacity: 0.55; }
 /* Encoders and Order are short and sit side by side where there is room; the
    rest runs the full width. */
 .analysis-body {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px 22px; align-items: start;
+}
+/* Full width above the results, the panel is a thousand pixels and more:
+   auto-fit made that seven 286 px tracks, one each for Encoders and Order and
+   five empty, and the Order section - the chain, Partly checked, the
+   reordering - wrapped in the narrowest of them. Encoders keeps a track of
+   its own and Order takes the rest. */
+@media (min-width: 1400px) {
+  .tag-validation-wide .analysis-body { grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); }
+  /* The critic's Rewrite and Reordered side by side where both fit at 60
+     characters a line: here, full width; docked from 1800 px, the column is
+     narrower and auto-fit keeps them stacked. */
+  .tag-validation-wide .critic-variants {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 60ch), 1fr));
+    gap: var(--sp-4); align-items: start;
+  }
 }
 .analysis-section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .analysis-section.full { grid-column: 1 / -1; }
@@ -712,11 +741,16 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 .analysis-note { margin: 0; color: var(--muted); }
 .analysis-note.sub { font-size: var(--fs-sm); }
-/* A reordering to read before using it: the whole text, capped at three lines. */
+/* A reordering to read before using it: the whole text, scrolling past six
+   lines. Clamped at three, as it was, it cut off what Use reordered writes. */
 .analysis-quote {
   margin: 0; color: var(--text-2); overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  max-height: calc(1.45em * 6); overflow-y: auto;
 }
+/* A version named under Compare, pointed at while its tick is: the text
+   it stands for, outlined where it is shown. */
+.analysis-text.linked { border-color: var(--accent-2); }
+.analysis-quote.linked { outline: 1px solid var(--accent-2); outline-offset: 2px; border-radius: var(--r-xs); }
 /* For screen readers only: a finding's severity, which the mark shows by colour. */
 .analysis-sr {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -728,8 +762,21 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 .analysis-link:hover, .analysis-link:focus-visible { color: var(--text); outline: none; }
 .analysis-action { padding: 4px 10px; font-size: var(--fs-label); flex: none; }
+/* The two actions the panel builds towards, lit while they would act: as
+   ghost buttons they read as tertiary, and enabled differed from disabled
+   only by opacity. Not while dead either way - aria-disabled while the card
+   is held, disabled where Run comparison has nothing to compare. */
+#critic-ask:not(:disabled):not([aria-disabled="true"]),
+#compare-run:not(:disabled):not([aria-disabled="true"]) {
+  color: var(--text); border-color: var(--accent); background: var(--accent-soft);
+}
+#critic-ask:not(:disabled):not([aria-disabled="true"]):hover,
+#compare-run:not(:disabled):not([aria-disabled="true"]):hover { filter: brightness(1.25); }
 /* A version sized to its text, up to about ten lines, then it scrolls. */
 .analysis-text { font-size: var(--fs-label); color: var(--text-soft); field-sizing: content; min-height: 3.2em; max-height: 220px; }
+/* About 140 characters a line at most: full width at QHD a version ran 400 a
+   line, and a finding's words ended a thousand pixels from what they rest on. */
+.analysis-list, .analysis-text, .critic-diff { max-width: 120ch; }
 
 /* One row per encoder: name, count against budget, and a bar whose red tail is
    the part the pipeline cuts off - amber where the encoder only contributes a
@@ -784,10 +831,18 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .analysis-item.warn .analysis-mark { color: var(--warn); }
 .analysis-item.info .analysis-mark { color: var(--accent-2); }
 .analysis-message { min-width: 0; overflow-wrap: anywhere; }
+/* A short cite in the line itself, the authors' words beside the claim; a
+   long one stays in the badge's tooltip only. */
+.analysis-cite { color: var(--muted); font-style: italic; }
+/* Whether a finding on the critic's rewrite is one the prompt has too. */
+.analysis-carried {
+  margin-left: 6px; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--text-readout); font-size: var(--fs-sm); white-space: nowrap;
+}
 .analysis-extra { grid-column: 2 / -1; color: var(--muted); }
 .analysis-source {
   padding: 0 7px; border: 1px solid var(--line); border-radius: 999px;
-  color: var(--text-readout); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-readout); font-size: var(--fs-sm);
   text-decoration: none; white-space: nowrap; cursor: help;
 }
 a.analysis-source { cursor: pointer; }
@@ -796,18 +851,28 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 
 .critic-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .critic-line { color: var(--muted); }
+/* Seconds since the click, beside the line rather than in it: the line is a
+   live region, and a clock inside it would be read out every second. */
+.critic-clock { margin-left: -6px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The panel's own messages - words no longer where the check found them, an
+   answer set aside - under the button they are about, not under Generate. */
+.analysis-status { margin: 0; }
 .critic-result { display: flex; flex-direction: column; gap: 10px; }
 .critic-result:empty { display: none; }
+.critic-read { display: flex; flex-direction: column; gap: 2px; }
+/* A critique that failed, in the block that asked for it. */
+.critic-failure { padding-left: var(--sp-2); border-left: 2px solid var(--warn); }
 .critic-parts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; margin: 0; }
 .critic-parts dt { color: var(--muted); }
 .critic-parts dd { margin: 0; overflow-wrap: anywhere; }
 .analysis-item.critic-issue { grid-template-columns: max-content minmax(0, 1fr) auto; }
 .critic-kind {
   padding: 0 6px; border: 1px solid #343244; border-radius: var(--r-xs); background: var(--accent-soft);
-  color: #c9bfff; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.04em;
+  color: #c9bfff; font-size: var(--fs-sm);
 }
 .critic-fix { display: block; margin-top: 2px; color: var(--muted); }
-.critic-variant { display: flex; flex-direction: column; gap: 5px; }
+.critic-variants { display: flex; flex-direction: column; gap: 10px; }
+.critic-variant { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 /* The rewrite's own findings belong to the rewrite above them, not the prompt. */
 .critic-checked { padding-left: var(--sp-2); border-left: 2px solid var(--line); }
 .critic-variant-head { display: flex; align-items: center; gap: 10px; }
@@ -818,8 +883,11 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   margin-top: 5px; padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm);
   white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto;
 }
-.critic-diff del { color: #fecaca; background: #4c242c; }
-.critic-diff ins { color: #bbf7d0; background: #163b30; }
+.critic-diff del, .critic-gist del { color: #fecaca; background: #4c242c; }
+.critic-diff ins, .critic-gist ins { color: #bbf7d0; background: #163b30; }
+.critic-gist { font-size: var(--fs-sm); }
+.critic-gist ins, .critic-gist del { text-decoration: none; padding: 0 2px; border-radius: 2px; }
+.critic-gist .critic-moved { color: var(--text-2); }
 
 .compare-options { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); }
 .compare-options .check { font-size: var(--fs-label); color: var(--text); }
@@ -834,7 +902,50 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   border-radius: var(--r-sm); padding: 2px 6px; font: inherit;
 }
 .compare-note { font-size: var(--fs-sm); }
+/* The mechanics under the Batch select's badge open upwards: from 1800 px
+   the panel scrolls inside itself, and the bottom of its last section is
+   where a tip opening downwards would be cut off. */
+.compare-seeds .tip { top: auto; bottom: calc(100% + 7px); }
 #compare-run { align-self: flex-start; }
+
+/* From 1800 px the open check docks beside the viewer rather than above it:
+   above, it pushed the image just made below the fold (59% of it in view
+   after a Check at QHD, none after the critic's answer at 125%) while the
+   width beside the image stood empty. The stage becomes two columns while
+   the check is open - the chips, the viewer and its note on the left, the
+   check on the right in their rows, sticky under the topbar and scrolling
+   inside itself - and everything from the gallery head on spans both, in
+   the rows after, in document order. The note's row is 1fr: the check's
+   height past the viewer's goes there, below the viewer, not above it. With
+   no chips there is no row for them - an empty one kept its gap, and
+   opening the check moved the image down by it. CSS alone, so the DOM
+   order placeTagValidation keeps - chips, then the check, in the wide host -
+   is unchanged, and without :has() the check stays above the viewer. */
+@media (min-width: 1800px) {
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--dock-w);
+    grid-template-rows: auto auto 1fr;
+    align-items: start;
+  }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > * { grid-column: 1 / -1; }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1; grid-row: 1; }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
+    grid-column: 2; grid-row: 1 / span 3;
+    position: sticky; top: var(--sticky-top);
+    max-height: calc(100vh - var(--sticky-top) - var(--gutter));
+    overflow-y: auto; overscroll-behavior: contain;
+  }
+  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
+  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
+  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
+  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis { grid-row: 1 / span 2; }
+  /* A column of 520-760 px: the sections stack - Encoders, Order, Findings,
+     the critic, Compare - since side by side Order had 356 px and clamped. */
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-body { grid-template-columns: minmax(0, 1fr); }
+}
 
 .hint { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted); min-height: 15px; }
 .hint.warn { color: var(--warn); }
