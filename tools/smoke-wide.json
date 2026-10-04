@@ -217,7 +217,7 @@
   {"wait": 500},
   {"expect": "__inView(els.gridRun) && __held()"},
   {"log": "'the grid fold\\'s last rows sit at the window\\'s bottom: Resume\\'s tip opens upwards, inside the window, and a tip with room below still opens downwards'"},
-  {"hover": "#grid-section label.check .help"},
+  {"hover": "#grid-section .check .help"},
   {"wait": 300},
   {"expect": "(() => { const t = document.getElementById('grid-resume-tip').getBoundingClientRect(); return t.height > 0 && t.top >= __topbar() && t.bottom <= innerHeight; })()"},
   {"hover": [1200, 500]},

@@ -34,7 +34,7 @@
          /api/status like the ? badges below; the examples are its list. -->
     <div class="field">
       <span><label for="prompt">Prompt</label>
-        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+        <span class="help" tabindex="0" role="note" aria-label="Prompt help" aria-describedby="prompt-tip">?<span
           class="tip wide" id="prompt-tip">This checkpoint's prompting guide appears here once
           the server answers.</span></span>
         <span class="examples" id="examples">
@@ -55,9 +55,11 @@
         <button type="button" class="ghost tiny" id="btn-expand" hidden
                 title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
         <!-- The whole panel, not the prompt: back to the checkpoint's
-             defaults, and the browser forgets what it had remembered. -->
-        <button type="button" class="ghost tiny reset" id="btn-reset"
-                title="Clear every box and put the panel back to this checkpoint's defaults; the browser forgets the remembered settings">Reset</button>
+             defaults, and the browser forgets what it had remembered. Red
+             under the pointer, as the page's other destructive buttons are,
+             and followed for a while by an Undo (panel.js, resetPanel). -->
+        <button type="button" class="ghost tiny reset danger" id="btn-reset"
+                title="Clear every box and put the panel back to this checkpoint's defaults; the browser forgets the remembered settings, and Undo puts them back for a while">Reset</button>
       </span>
       <div class="prompt-editor">
         <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
@@ -167,8 +169,8 @@
                 </select></label>
                 <!-- The mechanics, the same on every check, behind a badge;
                      the caveat beside it is the decision aid and stays out. -->
-                <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-                  class="tip">Seeds is the total per version; Batch changes how many run together.
+                <span class="help" tabindex="0" role="note" aria-label="Comparison seeds and batch help" aria-describedby="compare-batch-tip">?<span
+                  class="tip" id="compare-batch-tip">Seeds is the total per version; Batch changes how many run together.
                   Uses the main Seed field or a random start.
                   The main Batch and Repeat settings do not apply.</span></span>
                 <span class="compare-note">4 seeds is a first look - even a change on every seed could be chance; 8 can tell a consistent change from chance.</span>
@@ -203,7 +205,7 @@
 
     <div class="field">
       <span>Size
-        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+        <span class="help" tabindex="0" role="note" aria-label="Size help" aria-describedby="size-tip">?<span
           class="tip wide" id="size-tip">Sides are multiples of 16. Most checkpoints are
           trained around 1 MP; the size line says when a size is outside what this one
           is documented for.</span></span></span>
@@ -239,21 +241,21 @@
       <div class="row">
         <div class="sub grow">
           <i><label for="steps">Steps</label>
-            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help" tabindex="0" role="note" aria-label="Steps help" aria-describedby="steps-tip">?<span
               class="tip" id="steps-tip">Denoising steps. 28 is a safe starting point for an
               unrecognised checkpoint; more steps cost proportionally more time.</span></span></i>
           <input type="number" id="steps" value="28" min="1" max="100" aria-describedby="steps-tip">
         </div>
         <div class="sub grow">
           <i><label for="cfg">CFG</label>
-            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help" tabindex="0" role="note" aria-label="CFG help" aria-describedby="cfg-tip">?<span
               class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
               negative prompt applies, at roughly 2x the time per step.</span></span></i>
           <input type="number" id="cfg" value="3.5" min="0" max="20" step="0.1" aria-describedby="cfg-tip">
         </div>
         <div class="sub grow" id="mu-field">
           <i><label for="mu">Mu</label>
-            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help" tabindex="0" role="note" aria-label="Mu help" aria-describedby="mu-tip">?<span
               class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
               checkpoint is known to want a fixed one - otherwise the pipeline derives its
               own.</span></span></i>
@@ -266,7 +268,7 @@
              keeps its shape - wherever the CFG box is real CFG already. -->
         <div class="sub grow" id="true-cfg-field">
           <i><label for="true-cfg">True CFG</label>
-            <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help end" tabindex="0" role="note" aria-label="True CFG help" aria-describedby="true-cfg-tip">?<span
               class="tip" id="true-cfg-tip">Not a separate knob on this checkpoint: its CFG
               box is real classifier-free guidance already, and the negative prompt follows
               that.</span></span></i>
@@ -280,7 +282,7 @@
          keeps its shape, and the badge says why the box is dead. -->
     <div class="field" id="reference-field">
       <span>Reference images
-        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+        <span class="help" tabindex="0" role="note" aria-label="Reference images help" aria-describedby="reference-tip">?<span
           class="tip" id="reference-tip">Reference images condition the picture on one you
           have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
           one here that does.</span></span>
@@ -294,7 +296,7 @@
     <div class="row" id="lora-field">
       <div class="sub grow">
         <i><label for="lora">LoRA</label>
-          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+          <span class="help" tabindex="0" role="note" aria-label="LoRA help" aria-describedby="lora-tip">?<span
             class="tip" id="lora-tip">A LoRA adapter from the loras/ directory; Weight 0-2
             scales its effect.</span></span></i>
         <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
@@ -313,7 +315,7 @@
       <label class="sub grow"><i>Seed</i><input type="number" id="seed" placeholder="random" min="0"></label>
       <div class="sub narrow">
         <i><label for="batch">Batch</label>
-          <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+          <span class="help" tabindex="0" role="note" aria-label="Batch help" aria-describedby="batch-tip">?<span
             class="tip" id="batch-tip">Images rendered at once, all held in VRAM. For many
             2 MP+ images raise Repeat instead: same VRAM, more time.</span></span></i>
         <input type="number" id="batch" value="1" min="1" max="12" aria-describedby="batch-tip">
@@ -382,6 +384,9 @@
     <div class="last-run" id="last-run" role="status" hidden>
       <span id="last-run-text"></span>
       <button class="ghost small" id="last-run-show" title="Search for this run and lay it out as a sheet">Show run</button>
+      <!-- A grid that stopped short: the panel made ready to finish it. -->
+      <button class="ghost small" id="last-run-resume" hidden
+              title="Put the seed this grid started from and its size in the panel, tick Resume and preview what is left of it">Resume</button>
       <button class="ghost small" id="last-run-dismiss" aria-label="Dismiss">✕</button>
     </div>
 
@@ -396,7 +401,7 @@
       <div class="row">
         <div class="sub grow">
           <i><label for="grid-prompt">Prompt variables</label>
-            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help" tabindex="0" role="note" aria-label="Prompt variables help" aria-describedby="grid-prompt-tip">?<span
               class="tip" id="grid-prompt-tip">Put <b>{name}</b> placeholders in the prompt above, then give each
               one its values here, one variable per line:<br>
               <b>{size} dog sitting on {ground}</b><br>
@@ -416,7 +421,7 @@
       <div class="row">
         <div class="sub grow">
           <i><label for="grid-steps">Steps</label>
-            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help" tabindex="0" role="note" aria-label="Steps axis help" aria-describedby="grid-steps-tip">?<span
               class="tip" id="grid-steps-tip">One value, a list or a range:<br>
               <b>8</b> · <b>6,8,10</b> · <b>6-12x2</b> — start-stop, step after the x, both
               ends included.<br>Blank runs whatever Steps is set to above.</span></span></i>
@@ -424,7 +429,7 @@
         </div>
         <div class="sub grow">
           <i><label for="grid-cfg">CFG</label>
-            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help" tabindex="0" role="note" aria-label="CFG axis help" aria-describedby="grid-cfg-tip">?<span
               class="tip" id="grid-cfg-tip">Same syntax, decimals allowed:<br>
               <b>0,0.5,1</b> · <b>0-2x0.5</b> — start-stop, step after the x.<br>
               Blank runs whatever CFG is set to above.</span></span></i>
@@ -434,7 +439,7 @@
       <div class="row">
         <div class="sub grow" id="grid-mu-field">
           <i><label for="grid-mu">Mu</label>
-            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help" tabindex="0" role="note" aria-label="Mu axis help" aria-describedby="grid-mu-tip">?<span
               class="tip" id="grid-mu-tip">Same syntax:<br><b>1.1,1.15,1.3</b> · <b>1-1.4x0.1</b>.<br>
               <b>none</b> is a cell with no shift of ours at all, so
               <b>none,1.15</b> compares the pipeline's own shift against a fixed 1.15.<br>
@@ -443,7 +448,7 @@
         </div>
         <div class="sub grow" id="grid-lora-field">
           <i><label for="grid-lora-scale">LoRA weight</label>
-            <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help end" tabindex="0" role="note" aria-label="LoRA weight axis help" aria-describedby="grid-lora-tip">?<span
               class="tip" id="grid-lora-tip">Same syntax:<br><b>0,0.5,1</b> ·
               <b>0-1x0.25</b>.<br>Needs an adapter selected above; without one the weight
               changes nothing.</span></span></i>
@@ -452,7 +457,7 @@
         </div>
         <div class="sub narrow">
           <i><label for="grid-seeds">Seeds</label>
-            <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help end" tabindex="0" role="note" aria-label="Grid seeds help" aria-describedby="grid-seeds-tip">?<span
               class="tip" id="grid-seeds-tip">How many consecutive seeds run the whole grid, counting up from the
               Seed above (a random one when that is blank).<br>
               Seeds are the outer loop: a grid stopped early has finished every setting for
@@ -463,7 +468,7 @@
       <div class="row">
         <div class="sub grow">
           <i><label for="grid-seed-list">Seed list</label>
-            <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help" tabindex="0" role="note" aria-label="Seed list help" aria-describedby="grid-seed-list-tip">?<span
               class="tip" id="grid-seed-list-tip">Run the whole grid at exactly these seeds instead of counting up
               from the Seed above: <b>4471, 8823</b> · <b>100-103</b>.<br>
               Night two of an investigation: the seeds that gave the composition you want,
@@ -472,7 +477,7 @@
         </div>
         <div class="sub narrow">
           <i><label for="grid-budget">Budget</label>
-            <span class="help end" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help end" tabindex="0" role="note" aria-label="Budget help" aria-describedby="grid-budget-tip">?<span
               class="tip" id="grid-budget-tip">Minutes. Start no cell after this long from Run grid, the
               load included. Seeds are the outer loop, so what the night reached is a
               complete comparison for those seeds - and what it did not is a Resume.
@@ -480,14 +485,16 @@
           <input type="number" id="grid-budget" min="1" step="1" placeholder="min" aria-describedby="grid-budget-tip">
         </div>
       </div>
-      <label class="check">
-        <input type="checkbox" id="grid-resume" aria-describedby="grid-resume-tip"> Resume
-        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
+      <!-- The badge beside the label, not in it, as everywhere: inside, a press
+           on it ticked Resume and took the focus, closing the tip it opened. -->
+      <div class="check">
+        <label class="check"><input type="checkbox" id="grid-resume" aria-describedby="grid-resume-tip"> Resume</label>
+        <span class="help" tabindex="0" role="note" aria-label="Resume help" aria-describedby="grid-resume-tip">?<span
           class="tip" id="grid-resume-tip">Tick and run the same grid again to skip the cells
           already in the gallery at this size on this checkpoint.<br>
           Needs the Seed the grid was <i>started</i> from: Run grid writes it into a blank
           Seed box, and the run's oldest image carries it.</span></span>
-      </label>
+      </div>
       <p class="hint pre" id="grid-preview"></p>
       <button class="primary" id="btn-grid" title="Run grid (Ctrl+Enter from a grid box)"
               aria-keyshortcuts="Control+Enter">Run grid</button>
@@ -496,12 +503,25 @@
 
   <section class="stage">
     <div class="tag-validation-host tag-validation-wide" id="tag-validation-wide"></div>
+    <!-- What this page's jobs make, the newest job's (panel.js). Before the
+         first, one line, so the gallery starts near the top of the window -
+         or, on a gallery with nothing in it at all, the tall box with the
+         checkpoint's examples a press away. -->
     <div class="viewer" id="viewer">
-      <p class="placeholder">Generated images appear here.</p>
+      <p class="placeholder"><span class="idle-line">Nothing generated this session - Ctrl+Enter runs the
+        prompt; click a gallery image to open it.</span><span class="first-run">Nothing here yet: write a
+        prompt and Generate (Ctrl+Enter), or start from one of this checkpoint's own examples.
+        <button type="button" class="ghost small" id="viewer-examples">Examples</button></span></p>
     </div>
     <!-- Outside the strip on purpose: the strip is capped and cleared per job,
          and a note inside it would be the first thing the cap removed. -->
     <p class="hint" id="viewer-note"></p>
+    <!-- This page's earlier results, beside a single image from 2000 px:
+         outside the strip, whose records and images are the newest job's. -->
+    <aside class="recent" id="recent" aria-labelledby="recent-head" hidden>
+      <h2 id="recent-head">Earlier this session</h2>
+      <div class="recent-list" id="recent-list"></div>
+    </aside>
 
     <div class="gallery-head">
       <h2>Gallery <span id="gallery-count"></span></h2>
@@ -511,7 +531,7 @@
         <option value="">Runs…</option>
       </select>
       <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
-      <span class="help" tabindex="0" role="note" aria-label="Help">?<span class="tip" id="search-tip">
+      <span class="help" tabindex="0" role="note" aria-label="Search help" aria-describedby="search-tip">?<span class="tip" id="search-tip">
         Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
         <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
         <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
@@ -691,7 +711,7 @@
     <div class="field">
       <!-- Both badges open upward: down, they cover the controls they explain. -->
       <span>Size
-        <span class="help above" tabindex="0" role="note" aria-label="Help">?<span
+        <span class="help above" tabindex="0" role="note" aria-label="Refine size help" aria-describedby="refine-size-tip">?<span
           class="tip wide" id="refine-size-tip">The source is scaled to cover this size and cropped to its shape, never stretched. A pass may go past the 4 MP a direct render takes, to any 2 MP preset at 2×, since it keeps the source's composition. What fits on the card is the checkpoint's.</span></span></span>
       <div class="presets" id="refine-scales" role="group"
            aria-label="Size, as a multiple of the source image's"></div>
@@ -713,7 +733,7 @@
       <div class="row">
         <div class="sub grow">
           <i><label for="refine-strength">Strength</label>
-            <span class="help above" tabindex="0" role="note" aria-label="Help">?<span
+            <span class="help above" tabindex="0" role="note" aria-label="Refine strength help" aria-describedby="refine-strength-tip">?<span
               class="tip wide" id="refine-strength-tip">Strength: how much of the source is redrawn - low keeps the picture, 1 keeps nothing.</span></span>
             <button type="button" class="ghost tiny" id="refine-compare">Compare 3</button></i>
           <!-- Text, not a number: several strengths are a sweep. autofocus:

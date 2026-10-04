@@ -41,8 +41,9 @@ function panelState() {
 }
 
 function persistPanel() {
-  // A change since a Reuse retires its Undo (gallery.js).
+  // A change since a Reuse or a Reset retires its Undo (gallery.js, below).
   syncReuseUndo();
+  syncResetUndo();
   clearTimeout(panelTimer);
   panelTimer = setTimeout(() => remember(PANEL_KEY, JSON.stringify(panelState())), 300);
 }
@@ -83,7 +84,23 @@ function restorePanel() {
 // way to empty the panel short of wiping the site's data: clearing the gallery
 // is a server-side deletion that never reaches this store, so the old prompt
 // used to come back on every open after it.
+//
+// One press took the prompt and a grid spec that has to be retyped exactly
+// for Resume to match, with nothing to bring them back: Ctrl+Z restored
+// nothing and a reload kept the reset. So the panel as it was is kept in
+// memory - from the page, not the store, which is 300 ms behind and absent
+// in a private window - and an Undo follows the reset for a while
+// (`offerResetUndo`). Nothing of it survives a reload, and Resume is never
+// put back ticked.
 function resetPanel() {
+  const before = {
+    state: panelState(),
+    values: { steps: els.steps.value, cfg: els.cfg.value, mu: els.mu.value, trueCfg: els.trueCfg.value },
+    owned: { ...owned },
+    size: [pickedAspect, pickedTier],
+    refine: remembered(REFINE_KEY),
+    unsent: unsentRefine,
+  };
   clearTimeout(panelTimer);
   forget(PANEL_KEY);
   for (const key of LEGACY_PANEL_KEYS) forget(key);
@@ -126,7 +143,78 @@ function resetPanel() {
   // Not persisted, but a change all the same: a Reuse's Undo goes, as an
   // Example's does (scheduleTagValidation).
   syncReuseUndo();
+  offerResetUndo(before);
   els.prompt.focus();
+}
+
+// The note a Reset leaves in the panel's line, with its Undo, while the
+// panel is as the Reset left it - the first change takes the button, as a
+// Reuse's does - and for 20 seconds at most; then the line goes too.
+let resetNote = null;
+const RESET_UNDO_MS = 20000;
+
+function offerResetUndo(before) {
+  if (resetNote) clearTimeout(resetNote.timer);
+  showError('Panel reset.', true);
+  const undo = document.createElement('button');
+  undo.type = 'button';
+  undo.className = 'ghost tiny undo';
+  undo.textContent = 'Undo';
+  undo.title = 'Put the panel back as it was before Reset';
+  const note = { before, after: JSON.stringify(panelState()), button: undo, timer: 0 };
+  undo.onclick = () => undoReset(note);
+  els.error.append(' ', undo);
+  note.timer = setTimeout(() => retireResetUndo(note, true), RESET_UNDO_MS);
+  resetNote = note;
+}
+
+function retireResetUndo(note, expired = false) {
+  if (resetNote !== note) return;
+  clearTimeout(note.timer);
+  resetNote = null;
+  const shown = note.button.isConnected;
+  note.button.remove();
+  if (expired && shown && els.error.textContent.trim() === 'Panel reset.') showError('');
+}
+
+// Asked by persistPanel, which every change of the panel reaches.
+function syncResetUndo() {
+  if (resetNote && JSON.stringify(panelState()) !== resetNote.after) retireResetUndo(resetNote);
+}
+
+// The panel as Reset found it: the boxes through `rewriteBox`, so Ctrl+Z in
+// either walks back to the reset, then every field, the fold, the references,
+// the sampling values with whose they were, the size's preset, and what the
+// Refine dialog remembered. The sync functions light the panel up from them.
+function undoReset(note) {
+  if (resetNote !== note) return;
+  retireResetUndo(note);
+  const { state, values } = note.before;
+  rewriteBox(els.negative, state.negative);
+  rewriteBox(els.prompt, state.prompt);
+  for (const key of PANEL_FIELDS) {
+    if (key !== 'prompt' && key !== 'negative') els[key].value = state[key];
+  }
+  els.gridSection.open = state.gridOpen;
+  els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
+  referenceIds = state.reference;
+  Object.assign(owned, note.before.owned);
+  els.steps.value = values.steps;
+  els.cfg.value = values.cfg;
+  els.mu.value = values.mu;
+  els.trueCfg.value = values.trueCfg;
+  [pickedAspect, pickedTier] = note.before.size;
+  if (note.before.refine !== null) remember(REFINE_KEY, note.before.refine);
+  unsentRefine = note.before.unsent;
+  promptReplaced();
+  syncSize();
+  syncCfg();
+  syncConditioning();
+  syncRuns();
+  schedulePreview();
+  scheduleTagValidation(0);
+  persistPanel();
+  showError('Reset undone: the panel is as it was.', true);
 }
 
 // The second phase, from refreshStatus once the checkpoint is known.
@@ -384,20 +472,46 @@ async function announceLastRun() {
     : last.status === 'error' ? 'failed'
     : last.error ? 'finished with failures'
     : 'finished';
+  // What is left of it: the count is what the job made, and the images
+  // deleted since used to be counted and offered as though still there -
+  // Show run opened a sheet of one for "6 images". All of them gone, there
+  // is no run to show.
+  const deleted = Math.min(last.deleted_count ?? 0, last.image_count);
+  const left = !deleted ? '' : deleted === last.image_count ? ', all since deleted' : `, ${deleted} since deleted`;
   els.lastRunText.textContent =
-    `Last run ${outcome} at ${when(last.finished_at * 1000)}: ${images}${cells}.` +
+    `Last run ${outcome} at ${when(last.finished_at * 1000)}: ${images}${cells}${left}.` +
     (last.error ? ` ${last.error}` : '');
   els.lastRun.classList.toggle('bad', last.status === 'error');
   els.lastRun.dataset.job = last.job_id;
   els.lastRun.dataset.run = last.run_id || '';
-  els.lastRunShow.hidden = !last.image_count;
+  els.lastRunShow.hidden = !last.image_count || deleted === last.image_count;
+  // A grid the night did not finish - cancelled, out of time, stopped by its
+  // failures - is finished by Resume, which needs the seed it started from:
+  // the snapshot has it, where the page that submitted it is long gone. Not
+  // a re-render's or a refine sweep's, which the panel's grid does not make.
+  lastRunJob = last;
+  els.lastRunResume.hidden = !(last.grid && last.prompt_template != null && last.refine == null
+    && (last.status === 'cancelled' || last.stopped_by === 'failures'));
   els.lastRun.hidden = false;
 }
+
+// The job the banner names, for its Resume.
+let lastRunJob = null;
 
 function dismissLastRun() {
   remember(ANNOUNCED_KEY, els.lastRun.dataset.job || '');
   for (const key of LEGACY_ANNOUNCED_KEYS) forget(key);
   els.lastRun.hidden = true;
+}
+
+// The banner's Resume: the sheet's Resume this run (sheet.js) with the
+// snapshot's own base seed and size, which the run's images carry only
+// derived - the panel's grid made ready, and its preview saying what is left.
+function resumeLastRun() {
+  const job = lastRunJob;
+  if (!job) return;
+  dismissLastRun();
+  void resumeRun(job.run_id, { seed: job.seed, width: job.width, height: job.height });
 }
 
 // One line per run in the gallery, newest first. Picking one is the card's ⊞
@@ -531,45 +645,330 @@ function reserveSheetRoom(head) {
   if (short > 0) els.sheet.style.marginBottom = `${Math.ceil(short)}px`;
 }
 
-function clearResults() {
-  viewerRecords = [];
-  els.viewer.innerHTML = '';
-  els.viewer.classList.remove('multi', 'many');
-  els.viewerNote.textContent = '';
-}
+// ------------------------------------------------------------- the viewer
 
 // The most full-resolution images the strip keeps in the DOM. A 1024-cell
 // night at 4 MP is ~5 GB of PNG; the strip is for watching images land, and
 // the lightbox still walks every record of the run through `viewerRecords`.
 const VIEWER_MAX = 48;
+// This page's earlier results beside a single image (#recent): how many it
+// shows, and how many it keeps for the lightbox to walk on from them.
+const RECENT_SHOWN = 6;
+const SESSION_MAX = VIEWER_MAX;
+
+// The job the strip is laid out for: how many images it makes and at what
+// size, from its status frame as its first frame or image lands - so the
+// tier is the whole job's from the start, and the live preview takes the box
+// the result will.
+const viewerJob = { expected: 0, width: 0, height: 0 };
+
+// A job's first frame or image clears the strip, which until then kept the
+// last job's up through the queue wait and the load. What it held becomes
+// the newest of this page's earlier results (#recent) - unless it is this
+// job's own, which a stream that reattached shows again. `job` is the job's
+// last status frame.
+function clearResults(job = null) {
+  const earlier = viewerRecords.filter((r) => !job || r.job_id !== job.job_id).reverse();
+  const kept = new Set(earlier.map((r) => r.id));
+  sessionRecords = [...earlier, ...sessionRecords.filter((r) => !kept.has(r.id))].slice(0, SESSION_MAX);
+  viewerRecords = [];
+  Object.assign(viewerJob, { expected: job?.planned_images ?? 0, width: job?.width ?? 0, height: job?.height ?? 0 });
+  els.viewer.innerHTML = '';
+  els.viewer.scrollTop = 0;
+  viewerTier();
+  els.viewerNote.replaceChildren();
+  // The gallery's cards of the run before are not what the strip shows now.
+  els.gallery.querySelectorAll('.card.this-run').forEach((div) => div.classList.remove('this-run'));
+}
+
+// Three layouts by how many images the job makes, so a long sweep does not
+// push the gallery a screen further down with every image it finishes: one
+// at 68vh, with its column beside it from 1800 px; two to four as large as
+// that height allows (`fitViewer`); more, a strip of small tiles. From the
+// job's count, not the images so far: by the running count the strip was
+// laid out three times in a sweep's first five images, and the gallery
+// under it jumped each time. #recent goes with the single tier, and before
+// the fit, which measures the width it leaves.
+function viewerTier() {
+  const n = Math.max(viewerJob.expected, viewerRecords.length);
+  els.viewer.classList.toggle('multi', n > 1);
+  const many = els.viewer.classList.toggle('many', n > 4);
+  // A long run's tiles are one tab stop each, their pictures, as before the
+  // tools came: four more a tile put a 48-image strip 240 presses deep. The
+  // lightbox a picture opens has every action; the pointer has the row.
+  els.viewer.querySelectorAll('.tools button').forEach((b) => { b.tabIndex = many ? -1 : 0; });
+  renderRecent();
+  fitViewer();
+}
+
+// Two to four images, best fit: the column count whose tile is largest
+// within the strip's width and the single image's height, the rows' gaps and
+// tools rows counted - two squares side by side at 68vh, four 16:9 images two
+// by two. A fixed 34vh used 42% of a QHD strip for a batch of two. The tile
+// is the job's shape; a strip whose images are not all of it wraps instead.
+let viewerWidth = 0;
+function fitViewer() {
+  const v = els.viewer;
+  const aspect = viewerJob.width && viewerJob.height ? viewerJob.width / viewerJob.height
+    : viewerRecords.length ? viewerRecords[0].width / viewerRecords[0].height : 0;
+  const alike = viewerRecords.every((r) => Math.abs(r.width / r.height - aspect) / aspect < 0.01);
+  const fits = v.classList.contains('multi') && !v.classList.contains('many') && aspect > 0 && alike;
+  v.classList.toggle('fitted', fits);
+  if (!fits) {
+    v.style.removeProperty('--cols');
+    v.style.removeProperty('--tile-h');
+    return;
+  }
+  const css = getComputedStyle(v);
+  const width = v.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight);
+  viewerWidth = v.clientWidth;
+  const gap = parseFloat(css.columnGap) || 0;
+  // A tile's tools row, under its picture (style.css).
+  const foot = parseFloat(css.getPropertyValue('--h-sm')) + parseFloat(css.getPropertyValue('--sp-1'));
+  const height = innerHeight * 0.68 + foot;
+  const n = Math.min(4, Math.max(viewerJob.expected, viewerRecords.length));
+  let best = null;
+  for (let cols = 1; cols <= n; cols++) {
+    const rows = Math.ceil(n / cols);
+    const w = Math.min((width - (cols - 1) * gap) / cols, ((height - (rows - 1) * gap) / rows - foot) * aspect);
+    if (!best || w > best.w) best = { cols, w };
+  }
+  v.style.setProperty('--cols', best.cols);
+  v.style.setProperty('--tile-h', `${Math.max(48, Math.floor(best.w / aspect))}px`);
+}
+
+// The strip's ResizeObserver: its width moved - the window, the panel, the
+// prompt check docked beside it - and the best fit with it, on the next
+// frame: refitted inside the observer's own callback, the strip's new height
+// was a resize the same frame could not deliver.
+function viewerResized() {
+  if (els.viewer.clientWidth === viewerWidth || !els.viewer.classList.contains('fitted')) return;
+  requestAnimationFrame(fitViewer);
+}
+
+// A tile of the strip, at its picture's shape and its tier's size: a result,
+// the live preview, a pass's stand-in. All three are the one box (style.css)
+// - the picture, and under it the tools row or a line of the same height -
+// so whichever replaces another leaves the gallery where it was: the
+// preview was a fixed 320 px, and the strip went from a 917 px result down
+// to it and back up at every Generate.
+function viewerTile(className, width, height) {
+  const figure = document.createElement('figure');
+  figure.className = className;
+  figure.style.setProperty('--w', width || 1);
+  figure.style.setProperty('--h', height || 1);
+  const tile = document.createElement('div');
+  tile.className = 'tile';
+  figure.append(tile);
+  return { figure, tile };
+}
+
+// The live preview's tile: its frames in place of the picture, the step
+// where the tools will be. Never a record; the result replaces it.
+function previewTile(width, height) {
+  const { figure, tile } = viewerTile('live', width, height);
+  const img = document.createElement('img');
+  img.className = 'preview';
+  img.alt = 'Live preview of the image being generated';
+  const foot = document.createElement('p');
+  foot.className = 'foot';
+  tile.append(img, foot);
+  return figure;
+}
 
 function appendResult(rec) {
+  const strip = els.viewer;
+  // The many tier scrolls inside itself from 2000 px: a strip at its end
+  // stays there as images land, one scrolled back up stays where it is.
+  const atEnd = strip.scrollTop + strip.clientHeight >= strip.scrollHeight - 2;
   viewerRecords.push(rec);
-  // Two size tiers, so a long sweep does not push the gallery a screen further
-  // down with every image it finishes. The lightbox is where they get looked at.
-  els.viewer.classList.toggle('multi', viewerRecords.length > 1);
-  els.viewer.classList.toggle('many', viewerRecords.length > 4);
-  const img = thumb(rec, viewerRecords, rec.url);
-  img.onerror = () => { void forgetIfGone(rec.id); };
-  els.viewer.appendChild(img);
+  viewerTier();
+  const figure = resultFigure(rec);
+  strip.appendChild(figure);
+  // The column beside the image only while it is the strip's one.
+  strip.querySelectorAll('.result-side').forEach((side) => side.remove());
+  if (viewerRecords.length === 1 && viewerJob.expected <= 1) figure.append(resultSide(rec, figure));
   // Lazy on its own is not enough - the strip sets no height, so unloaded
   // images stack inside the viewport and all become eligible at once. The cap
   // is what bounds the fetches; the note lives outside the strip so it survives.
   // Images only: a deleted tile's tombstone holds a slot, and shows none.
-  const tiles = () => els.viewer.querySelectorAll('img[data-id]').length;
-  while (tiles() > VIEWER_MAX) els.viewer.firstElementChild.remove();
-  const hidden = viewerRecords.length - tiles();
-  els.viewerNote.textContent = hidden > 0
-    ? `… and ${hidden} earlier image${hidden === 1 ? '' : 's'} this run — open one to walk them all`
-    : '';
+  const tiles = () => strip.querySelectorAll('img[data-id]').length;
+  while (tiles() > VIEWER_MAX) strip.firstElementChild.remove();
+  if (atEnd) strip.scrollTop = strip.scrollHeight;
+  noteViewer();
+  // The run's cards in the gallery say so (`this-run`, set in card() too),
+  // so the strip and the gallery's first rows read as the same images.
+  els.gallery.querySelector(`.card[data-id="${rec.id}"]`)?.classList.add('this-run');
+}
+
+// One result: its picture - thumb's, which opens the lightbox - and under
+// it the gallery card's own tools, by the card's own helpers (gallery.js):
+// Reuse, Refine, Star and Delete. The image just made had none: starring or
+// refining it took the lightbox, or the same image found among the cards. A
+// figure, never a .card - the gallery's counts and keyboard are the cards' -
+// tagged by id, so setFavorite keeps its stars in step and forgetImages
+// leaves a tombstone in its place.
+function resultFigure(rec) {
+  const { figure, tile } = viewerTile('result', rec.width, rec.height);
+  figure.dataset.id = rec.id;
+  figure.classList.toggle('fav', !!rec.favorite);
+  const img = thumb(rec, viewerRecords, rec.url, () => openViewerImage(rec));
+  img.onerror = () => { void forgetIfGone(rec.id); };
+  const star = tool('☆', '', () => setFavorite(rec, !rec.favorite), 'Star');
+  star.classList.add('star');
+  syncStar(star, !!rec.favorite);
+  const refine = tool('⤢', '', () => refineResult(rec, tile));
+  refine.classList.add('refine-tool');
+  syncRefineTool(refine);
+  const del = tool('⌦', `Delete #${rec.id}`, () => deleteImage(rec), 'Delete');
+  del.classList.add('del');
+  const tools = document.createElement('div');
+  tools.className = 'tools';
+  tools.append(reuseButton(rec, true), refine, star, del);
+  // Out of the tab order in a long run's strip (viewerTier).
+  if (els.viewer.classList.contains('many')) tools.querySelectorAll('button').forEach((b) => { b.tabIndex = -1; });
+  tile.append(img, tools);
+  return figure;
+}
+
+// The card's ⤢ on a result: on a checkpoint without a pass it says so under
+// the gallery's head and over the tile (`refuseInCard`), and opens nothing.
+function refineResult(rec, tile) {
+  if (!refineSupported) { refuseInCard(tile, REFINE_NONE, 'No refine pass here'); return; }
+  openRefine(rec);
+}
+
+// The image just made, while the strip holds it alone, with what it is and
+// what to do next in the width the picture leaves - shown from 1800 px
+// (style.css), where a square result left 1,270 px of the strip empty: which
+// image it refines, Star, Refine…, Reuse and Use seed in words, the prompt,
+// and the lightbox's own facts (factsList). In the figure, so a star and a
+// delete reach it as they reach the tile; Delete stays the tile's.
+function resultSide(rec, figure) {
+  const side = document.createElement('div');
+  side.className = 'result-side';
+  if (rec.refine != null) {
+    const line = document.createElement('p');
+    line.className = 'lineage';
+    line.append('⤢ Refine pass of ', sourceLink(rec), ` at strength ${rec.strength}`);
+    side.append(line);
+  }
+  const action = (button) => { button.classList.add('ghost', 'small'); return button; };
+  // Its word drawn after the glyph (`data-word`): syncStar writes the glyph.
+  const star = action(tool('☆', '', () => setFavorite(rec, !rec.favorite)));
+  star.classList.add('star');
+  star.dataset.word = 'Star';
+  syncStar(star, !!rec.favorite);
+  const refine = action(tool('⤢ Refine…', '', () => refineResult(rec, figure.querySelector('.tile'))));
+  refine.classList.add('refine-tool');
+  syncRefineTool(refine);
+  // Named by its words, as the finish line's is; the title has the seed.
+  const seed = document.createElement('button');
+  seed.type = 'button';
+  seed.className = 'ghost small';
+  seed.textContent = 'Use seed';
+  seed.title = `Put ${rec.seed} in the Seed box`;
+  seed.onclick = () => useSeed(rec.seed);
+  const actions = document.createElement('div');
+  actions.className = 'result-actions';
+  actions.append(star, refine, action(reuseButton(rec)), seed);
+  const prompt = document.createElement('p');
+  prompt.className = 'result-prompt';
+  prompt.textContent = rec.prompt;
+  side.append(actions, prompt, factsList(rec));
+  return side;
+}
+
+// A pass's source as the page names it: a press opens it in the lightbox
+// with the pass after it (lightbox.js's openRefineSource), unless it has gone.
+function sourceLink(rec) {
+  if (rec.refine_missing) return `#${rec.refine} (deleted)`;
+  return factButton(`#${rec.refine}`, `Open #${rec.refine}, the image this was refined from; → comes back to the pass`,
+    () => { void openRefineSource(rec); });
+}
+
+// Under the strip: where a pass came from - "Refined from #10 at 0.5 ·
+// 1344×1728", the source a press away (an empty note had said nothing of
+// what the image was) - and how much of a long run the strip does not show.
+function noteViewer() {
+  const parts = [];
+  const first = viewerRecords[0];
+  if (first?.refine != null && viewerRecords.every((r) => r.refine === first.refine)) {
+    const strengths = [...new Set(viewerRecords.map((r) => r.strength))].join(', ');
+    const line = document.createElement('span');
+    line.className = 'lineage';
+    line.append('Refined from ', sourceLink(first), ` at ${strengths} · ${first.width}×${first.height}`);
+    parts.push(line);
+  }
+  const shown = els.viewer.querySelectorAll('img[data-id]').length;
+  const hidden = viewerRecords.length - shown;
+  const scrolls = getComputedStyle(els.viewer).overflowY !== 'visible'
+    && els.viewer.scrollHeight > els.viewer.clientHeight + 1;
+  if (hidden > 0) {
+    parts.push(`… and ${hidden} earlier image${hidden === 1 ? '' : 's'} this run — open one to walk them all`);
+  } else if (scrolls) {
+    parts.push(`${viewerRecords.length} images this run — scroll the strip, or open one to walk them all`);
+  }
+  els.viewerNote.replaceChildren(...parts.flatMap((part, i) => (i ? [' · ', part] : [part])));
+}
+
+// The strip's image opens the lightbox on the strip - and, where it is the
+// only one, on the gallery from it, so → walks back through what came before
+// it: alone, it opened a lightbox of one, with both arrows dead. Not in the
+// gallery (a search, a sheet), it walks this page's earlier results.
+function openViewerImage(rec) {
+  if (viewerRecords.length === 1 && viewerRecords[0] === rec) {
+    const copy = !sheetMode && galleryRecords.find((r) => r.id === rec.id);
+    if (copy) { openLightbox(copy, galleryRecords, 'viewer'); return; }
+    if (sessionRecords.length) { openLightbox(rec, [rec, ...sessionRecords], 'viewer'); return; }
+  }
+  openLightbox(rec, viewerRecords, 'viewer');
+}
+
+// #recent: beside a single image from 2000 px (style.css), up to six of this
+// page's earlier results, each opening the lightbox on the image in the strip
+// and those, newest first. Iterating on a prompt showed one picture at a time
+// in a strip 2,000 px wide, the earlier ones a screen down among the cards -
+// below the fold whenever the prompt check was open. Rebuilt only when what
+// it shows changes, so a focused thumbnail keeps its focus.
+let recentShown = null;
+function renderRecent() {
+  const single = !els.viewer.classList.contains('multi');
+  const shown = single ? sessionRecords.slice(0, RECENT_SHOWN) : [];
+  const current = single && viewerRecords.length === 1 ? viewerRecords[0] : null;
+  els.recent.hidden = !shown.length;
+  const key = [current?.id, ...shown.map((r) => r.id)].join();
+  if (key === recentShown) return;
+  recentShown = key;
+  const walk = current ? [current, ...sessionRecords] : sessionRecords.slice();
+  els.recentList.replaceChildren(...shown.map((rec) => thumb(rec, walk, undefined, () => openLightbox(rec, walk, 'recent'))));
+}
+
+// A gallery with nothing in it at all - no image on any checkpoint, nothing
+// filtered out - is a first run: the empty viewer stays the tall box, with
+// the authors' examples a press away (`viewerExamples`), rather than the one
+// line every later visit gets. From each unfiltered gallery page.
+function syncEmptyInstall(page) {
+  if (els.search.value.trim() || els.favOnly.checked) return;
+  els.viewer.classList.toggle('empty-install', page.total === 0 && !page.other_models);
+}
+
+// The first run's Examples: the panel's own menu, open on its first item.
+// After the click is through, whose document handler closes an open menu.
+function viewerExamples() {
+  requestAnimationFrame(() => {
+    showExamples(true);
+    els.examplesMenu.querySelector('[role="menuitem"]')?.focus();
+  });
 }
 
 // One <img> for every place a record is shown: the viewer strip, a gallery
-// card, a sheet cell. Lazy and async-decoded, since all three can hold hundreds
-// of them; a thumbnail derivative where one exists, the full PNG otherwise.
-// Focusable and activated by Enter or Space, so the lightbox - the only place
-// the full image and its metadata are shown - is reachable without a mouse.
-function thumb(rec, list, src = rec.thumb_url ?? rec.url) {
+// card, a sheet cell, #recent. Lazy and async-decoded, since all of them can
+// hold hundreds; a thumbnail derivative where one exists, the full PNG
+// otherwise. Focusable and activated by Enter or Space, so the lightbox -
+// where the full image and its metadata are shown - is reachable without a
+// mouse; `open` is what a press does, the lightbox on `list` unless said.
+function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLightbox(rec, list)) {
   const img = document.createElement('img');
   img.src = src;
   img.alt = rec.prompt;
@@ -578,8 +977,12 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url) {
   img.dataset.id = rec.id;
   img.tabIndex = 0;
   img.setAttribute('role', 'button');
-  img.setAttribute('aria-label', `Open: ${rec.prompt}`);
-  const open = () => openLightbox(rec, list);
+  // Named as the page names images, by gallery id - the cells of a sweep
+  // share a prompt, and "Open: …" named none of them apart - and titled with
+  // what tells it from the one beside it under the pointer (cardTitle): its
+  // size, its seed and a pass's source, then the prompt.
+  img.setAttribute('aria-label', `Open #${rec.id}: ${rec.prompt}`);
+  img.title = cardTitle(rec);
   img.onclick = open;
   // A plain Enter or Space only: Ctrl+Enter is Generate's from anywhere
   // (app.js), and on a focused image - where closing the lightbox leaves the

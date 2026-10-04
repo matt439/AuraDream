@@ -32,6 +32,11 @@
   {"expect": "!els.refineDialog.open && refineSource === null && els.galleryError.textContent.includes('no refine pass') && !els.galleryError.hidden && !els.error.textContent.includes('no refine pass')"},
   {"expect": "document.querySelector('#gallery .card .card-note.refused').textContent === 'No refine pass here'"},
   {"eval": "showError(''); showError('', false, { slot: els.galleryError });"},
+  {"log": "'the image in the viewer has the card\\'s own Refine, a third way in: the same reason, said where it was pressed, and nothing opened'"},
+  {"expect": "(() => { const b = [...document.querySelectorAll('#viewer .result .tools button')].find((b) => b.textContent === '⤢'); return b.getAttribute('aria-disabled') === 'true' && b.title.includes('no refine pass') && b.dataset.tip === 'No refine pass here'; })()"},
+  {"eval": "[...document.querySelectorAll('#viewer .result .tools button')].find((b) => b.textContent === '⤢').click()"},
+  {"expect": "!els.refineDialog.open && refineSource === null && els.galleryError.textContent.includes('no refine pass') && document.querySelector('#viewer .tile > .card-note.refused').textContent === 'No refine pass here'"},
+  {"eval": "showError(''); showError('', false, { slot: els.galleryError });"},
 
   {"log": "'the cards reference button fills a chip, and collect() sends the id'"},
   {"eval": "[...document.querySelectorAll('.card .tools button')].find((b) => b.textContent === '❐').click()"},

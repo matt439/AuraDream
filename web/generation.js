@@ -815,20 +815,23 @@ function streamJob(jobId, { reattached = 0 } = {}) {
   syncFinishLead();
   return new Promise((resolve) => {
     const source = new EventSource(`/api/jobs/${jobId}/stream`);
-    // Results replace the viewer only once the first image of this job lands,
-    // so the previous one stays up through the queue wait and the model load.
+    // Results replace the viewer only once the first image or frame of this
+    // job lands, so the previous one stays up through the queue wait and the
+    // model load - and the strip is then laid out for the whole job, the
+    // frame in the box its image will take (panel.js, viewerTile), so the
+    // gallery under it does not move when the image replaces it.
     let cleared = false;
     let failures = 0;
     // Every snapshot carries the whole accumulated list, and a stream that
     // reattached missed the individual events, so images arrive by both routes.
     const shown = new Set();
-    // The live preview: one <img> at the end of the strip, its src replaced
-    // as frames arrive, gone the moment the real image lands. Never a record.
-    // Or, for a pass, its stand-in (startJob's `placeholder`): the source,
-    // dimmed, at the result's shape, captioned with the pass and its step,
-    // from the job's first step until a frame or the result replaces it -
-    // SDXL sends no frames, and the viewer showed an unrelated earlier image
-    // for the whole of a pass.
+    // The live preview: one tile at the end of the strip, its picture's src
+    // replaced as frames arrive, gone the moment the real image lands. Never
+    // a record. Or, for a pass, its stand-in (startJob's `placeholder`): the
+    // source, dimmed, at the result's shape, captioned with the pass and its
+    // step, from the job's first step until a frame or the result replaces
+    // it - SDXL sends no frames, and the viewer showed an unrelated earlier
+    // image for the whole of a pass.
     let previewEl = null;
     let caption = null;
     const placeholder = jobPlaceholders.get(jobId) ?? null;
@@ -846,7 +849,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     };
     const landed = () => {
       if (cleared) return;
-      clearResults();
+      clearResults(job);
       cleared = true;
       offerNewImage();
     };
@@ -881,15 +884,14 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     });
     const standIn = () => {
       landed();
-      const figure = document.createElement('figure');
-      figure.className = 'pending';
-      figure.style.setProperty('--w', placeholder.width);
-      figure.style.setProperty('--h', placeholder.height);
+      const { figure, tile } = viewerTile('pending', placeholder.width, placeholder.height);
       const img = document.createElement('img');
       img.src = placeholder.src;
       img.alt = '';
-      caption = document.createElement('figcaption');
-      figure.append(img, caption);
+      // Where the result's tools will be.
+      caption = document.createElement('p');
+      caption.className = 'foot';
+      tile.append(img, caption);
       els.viewer.appendChild(figure);
       previewEl = figure;
     };
@@ -924,13 +926,13 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         if (caption) dropPreview();
         landed();
         if (!previewEl) {
-          previewEl = document.createElement('img');
-          previewEl.className = 'preview';
-          previewEl.alt = 'Live preview of the image being generated';
+          previewEl = previewTile(job?.width, job?.height);
           els.viewer.appendChild(previewEl);
         }
-        previewEl.src = data.image;
-        previewEl.title = `live preview · step ${data.step}/${data.total_steps}`;
+        const frame = previewEl.querySelector('img');
+        frame.src = data.image;
+        frame.title = `live preview · step ${data.step}/${data.total_steps}`;
+        previewEl.querySelector('.foot').textContent = `Live preview · step ${data.step}/${data.total_steps}`;
       } else if (data.type === 'status') {
         // Either the snapshot every stream opens with or the start of a run;
         // both carry whatever landed while nobody was listening.
