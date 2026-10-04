@@ -1,0 +1,402 @@
+/* =====================================================================
+   Image-first loop - prototype layer over web/style.css.
+   Everything is scoped to body.loop (set by proto.js) so the page without
+   the class is the page as shipped. The app-shell layout applies from
+   1600 CSS px (QHD at 100% = 2560, at 125% = 2048); 901-1599 keeps today's
+   two columns with the gallery under the stage; under 901 is unchanged.
+   ===================================================================== */
+
+:root {
+  color-scheme: dark;
+  accent-color: #7c5cff;
+  /* type */
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 18px;
+  /* space */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px;
+  /* control heights */
+  --h-sm: 28px; --h-md: 36px; --h-lg: 44px;
+  /* colour additions (M36, M74) */
+  --line-strong: #4b4b5e;
+  --accent-strong: #6d4ff2;
+  --sel: #4ad6c8;
+  --star: #fbbf24;
+  --text-2: #b2b2c0;
+  /* shell */
+  --topbar-h: 48px;
+  --gap: 12px;
+  --rail-w: clamp(360px, 17vw, 420px);
+  --shelf-w: clamp(440px, 29vw, 760px);
+  --card-min: 160px;
+}
+/* QHD at 100% only: 125% (2048 CSS px) is already scaled by Windows. */
+@media (min-width: 2200px) {
+  :root { --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 17px; --fs-xl: 19px;
+          --h-sm: 30px; --h-md: 38px; --h-lg: 46px; }
+}
+
+body.loop { font-size: var(--fs-md); }
+body.loop ::placeholder { color: var(--muted); opacity: 1; }
+body.loop textarea, body.loop input[type="number"], body.loop input[type="search"],
+body.loop input[type="text"], body.loop select {
+  border-color: var(--line-strong); background: #1b1b23;
+}
+body.loop .panel select, body.loop .gallery-head .runs {
+  color: var(--text); border: 1px solid var(--line-strong); border-radius: 8px;
+  background: #1b1b23; padding: 0 8px; height: var(--h-md); font: inherit; font-size: var(--fs-sm);
+}
+body.loop .ghost { border-color: var(--line-strong); color: #c4c4d0; }
+body.loop .ghost.small:hover:not(:disabled):not([aria-disabled="true"]) { color: var(--text); border-color: var(--muted); }
+body.loop #btn-cancel:hover:not([aria-disabled="true"]) { color: var(--danger); border-color: var(--danger); }
+body.loop .primary { background: var(--accent-strong); }
+body.loop kbd {
+  display: inline-block; min-width: 1.6em; padding: 0 5px; margin-left: 6px;
+  border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px;
+  font: 600 var(--fs-xs)/1.5 "Segoe UI", system-ui, sans-serif; color: var(--text-2);
+  text-align: center; background: #15151b;
+}
+
+/* ------------------------------------------------------------- topbar */
+body.loop .topbar { gap: var(--s-3); }
+body.loop .status { font-size: var(--fs-sm); }
+body.loop .vram { font-size: var(--fs-sm); }
+.loop-top { display: flex; align-items: center; gap: var(--s-2); }
+.loop-top .ghost { height: 30px; padding: 0 10px; font-size: var(--fs-sm); display: inline-flex; align-items: center; }
+.loop-top .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
+#loop-generate-top { height: 30px; padding: 0 14px; font-size: var(--fs-sm); }
+
+/* ------------------------------------------------------------ the rail */
+body.loop .panel { gap: var(--s-3); }
+body.loop .field > span, body.loop .loop-group {
+  font-size: var(--fs-sm); letter-spacing: .03em;
+}
+body.loop .sub i { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; }
+body.loop .hint { font-size: var(--fs-sm); }
+body.loop .ghost.tiny { font-size: var(--fs-xs); padding: 2px 9px; }
+body.loop .help { width: 16px; height: 16px; font-size: 10px; }
+body.loop .tip { font-size: var(--fs-sm); width: 280px; }
+body.loop .tip.wide { width: 330px; }
+body.loop #prompt { min-height: 9.5em; font-size: var(--fs-md); line-height: 1.5; }
+.loop-group {
+  margin: 6px 0 -4px; padding-top: 10px; border-top: 1px solid var(--line);
+  font-weight: 600; color: var(--muted); text-transform: uppercase;
+}
+/* M30: recommended is a dot, selection is the accent. */
+body.loop .presets button { font-size: var(--fs-sm); padding: 4px 9px; color: #c4c4d0; border-color: var(--line-strong); }
+body.loop .presets button.recommended { color: #c4c4d0; border-color: var(--line-strong); background: var(--panel-2); }
+body.loop .presets button.recommended::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 5px; vertical-align: 2px; border-radius: 50%; background: var(--ok); }
+body.loop .presets button.active, body.loop .presets button.active.recommended { color: #fff; border-color: var(--accent); background: #2a2150; }
+body.loop #reference-field.disabled .chips { display: none; }
+body.loop .panel input:disabled, body.loop .panel select:disabled { cursor: not-allowed; }
+
+/* The job's status, moved out of the rail to the foot of the stage, beside
+   the rail's Generate and left of the strip the images land in (proto.js). */
+.stage-status {
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  min-width: 0; height: 100%; padding: 6px 12px; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: var(--fs-sm); color: var(--text-2);
+}
+.stage-status:not(:has(> :not(.loop-idle):not([hidden]):not(:empty))) .loop-idle { display: inline; }
+.stage-status .loop-idle { display: none; color: var(--muted); }
+.stage-status .progress { flex: none; font-size: var(--fs-sm); }
+.stage-status .bar { height: 6px; }
+.stage-status #cell-note, .stage-status #error, .stage-status #queue-note { margin: 0; min-height: 0; font-size: var(--fs-sm); }
+.stage-status #cell-note:empty, .stage-status #error:empty { display: none; }
+.stage-status .last-run { padding: 4px 8px; gap: 6px; }
+
+/* ---------------------------------------------------------- the stage */
+.stagebar {
+  display: flex; align-items: center; gap: var(--s-3); min-width: 0;
+  min-height: 46px; padding: 3px 8px 3px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.stagebar .cap { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.stagebar .cap-main { font-size: var(--fs-md); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stagebar .cap-main b { font-weight: 600; }
+.stagebar .cap-main .dim { color: var(--text-2); }
+.stagebar .cap-prompt { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stagebar .lineage {
+  margin-left: 8px; padding: 1px 8px; border: 1px solid #5b4bb0; border-radius: 999px;
+  background: #221c3d; color: #d4ccff; font: inherit; font-size: var(--fs-sm);
+}
+.stagebar .lineage:hover { border-color: var(--accent); color: #fff; }
+.stagebar .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+.stagebar .act {
+  height: var(--h-sm); padding: 0 10px; display: inline-flex; align-items: center;
+  font-size: var(--fs-sm); white-space: nowrap;
+}
+.stagebar .act kbd { margin-left: 7px; }
+.stagebar .act[aria-pressed="true"] { color: var(--text); border-color: var(--sel); background: #0f2a28; }
+.stagebar .act.star[aria-pressed="true"] { color: var(--star); border-color: var(--star); background: #2a2210; }
+.stagebar .act.primaryish { color: #e6e0ff; border-color: #5b4bb0; background: #1f1938; }
+.stagebar .act.danger:hover { color: var(--danger); border-color: var(--danger); }
+.stagebar .act[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.stagebar .sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+
+.focus {
+  position: relative; min-height: 0; overflow: hidden;
+  background: #09090c; border: 1px solid var(--line); border-radius: var(--radius);
+}
+.focus-frame { position: absolute; cursor: zoom-in; touch-action: none; user-select: none; }
+.focus-frame.zoomed { cursor: grab; }
+.focus-frame.comparing { cursor: ew-resize; }
+.focus-frame.comparing.zoomed { cursor: grab; }
+.focus-layer { position: absolute; top: 0; overflow: hidden; border-radius: 4px; background: #000; }
+.focus-layer img { position: absolute; max-width: none; max-height: none; user-select: none; -webkit-user-drag: none; }
+.focus-frame:not(.comparing) .focus-layer.b,
+.focus-frame:not(.comparing) .swipe,
+.focus-frame:not(.comparing) .focus-tag { display: none; }
+.focus-frame.side .swipe { display: none; }
+.focus-frame.blink .focus-layer.a { visibility: hidden; }
+.focus-frame.blink .focus-layer.b { clip-path: none !important; }
+.swipe {
+  position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+  background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.45); pointer-events: none; z-index: 2;
+}
+.swipe::after {
+  content: "⇆"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%;
+  background: #fff; color: #111; font-size: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.5);
+}
+.focus-tag {
+  position: absolute; top: 10px; z-index: 3; padding: 3px 10px; border-radius: 999px;
+  background: rgba(0,0,0,.72); color: #fff; font-size: var(--fs-sm); pointer-events: none;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.focus-tag b { color: var(--sel); margin-right: 4px; }
+.focus-tag.right b { color: #c9bfff; }
+/* The kept region of a pass: what the source contributes at W x H. */
+.focus-crop {
+  position: absolute; z-index: 4; pointer-events: none;
+  outline: 2px dashed #fff; box-shadow: 0 0 0 100vmax rgba(0,0,0,.55);
+}
+.focus-crop span {
+  position: absolute; left: 6px; top: 6px; padding: 2px 8px; border-radius: 4px;
+  background: rgba(0,0,0,.8); color: #fff; font-size: var(--fs-sm); white-space: nowrap;
+}
+.focus-preview {
+  position: absolute; z-index: 5; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  height: min(70%, 640px); width: auto; border: 1px dashed var(--line-strong); border-radius: 6px;
+  opacity: .9;
+}
+.focus-hud {
+  position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; gap: 4px; padding: 3px; border-radius: 10px; white-space: nowrap;
+  background: rgba(16,16,22,.88); border: 1px solid var(--line); font-size: var(--fs-sm);
+}
+.focus-hud button {
+  height: 26px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: #c4c4d0;
+  font-size: var(--fs-sm);
+}
+.focus-hud button:hover { color: #fff; background: rgba(255,255,255,.06); }
+.focus-hud button[aria-pressed="true"] { background: #2a2150; color: #fff; }
+.focus-hud .zoom { min-width: 5.5em; text-align: center; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.focus-hud .hint-k { color: var(--muted); padding: 0 6px; }
+.focus-hud .hint-k.keys { padding-left: 10px; border-left: 1px solid var(--line); }
+.focus-hud kbd { margin: 0 3px 0 0; }
+.focus-empty {
+  position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; text-align: center;
+  color: var(--muted); font-size: var(--fs-lg);
+}
+.focus-note {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 7;
+  padding: 6px 12px; border-radius: 8px; background: rgba(16,16,22,.92); border: 1px solid var(--line-strong);
+  font-size: var(--fs-sm); color: var(--text);
+}
+
+/* The bottom row: status, then the session strip (#viewer, restyled),
+   newest at the right. */
+.strip { display: grid; grid-template-columns: clamp(340px, 34%, 480px) auto minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; height: 92px; }
+.strip-label { flex: none; writing-mode: vertical-rl; transform: rotate(180deg); font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+body.loop .strip .viewer {
+  min-width: 0; min-height: 0; height: 92px;
+  display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start;
+  gap: 6px; padding: 7px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+}
+body.loop .strip .viewer img,
+body.loop .strip .viewer.multi img,
+body.loop .strip .viewer.many img {
+  height: 76px; width: auto; max-height: none; max-width: none; flex: none;
+  border-radius: 5px; border: 2px solid transparent; cursor: pointer;
+}
+body.loop .strip .viewer img.job-start { margin-left: 10px; }
+body.loop .strip .viewer img.job-start:first-child { margin-left: 0; }
+body.loop .strip .viewer img.selected { border-color: var(--sel); }
+body.loop .strip .viewer .placeholder { margin: 0 8px; font-size: var(--fs-sm); }
+body.loop .strip #viewer-note { display: none; }
+
+.legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 0 4px;
+  font-size: var(--fs-xs); color: var(--muted);
+}
+.legend kbd { margin: 0 4px 0 0; }
+
+/* ----------------------------------------------------------- the shelf */
+.shelf { position: relative; min-width: 0; }
+body.loop .shelf .gallery-head { gap: 8px 10px; }
+body.loop .shelf .gallery-head h2 { font-size: var(--fs-lg); }
+body.loop .shelf .gallery-head input[type="search"] { flex: 1 1 220px; max-width: none; height: var(--h-md); font-size: var(--fs-sm); }
+body.loop .shelf .gallery-head .runs { max-width: 260px; }
+body.loop .shelf .check { font-size: var(--fs-sm); }
+body.loop .shelf .ghost.small { height: 30px; font-size: var(--fs-sm); padding: 0 10px; }
+.shelf-sizes { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.shelf-sizes button { height: 28px; padding: 0 9px; border: 0; background: transparent; color: var(--muted); font-size: var(--fs-sm); }
+.shelf-sizes button[aria-pressed="true"] { background: #2a2150; color: #fff; }
+body.loop .shelf .grid { grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr)); gap: 8px; }
+body.loop .card img { object-fit: contain; background: #08080b; }
+body.loop .card .tools { display: none; }
+body.loop .card.selected { border-color: var(--sel); box-shadow: 0 0 0 2px var(--sel); }
+body.loop .card.fav.selected { box-shadow: 0 0 0 2px var(--sel), 0 0 0 4px var(--star); }
+body.loop .card.fav::after { width: 24px; height: 24px; font-size: 15px; }
+body.loop .card.refined::before {
+  content: "⤢ " attr(data-strength); position: absolute; top: 6px; left: 6px; z-index: 1;
+  padding: 1px 7px; border-radius: 999px; background: rgba(34,28,61,.92); border: 1px solid #5b4bb0;
+  color: #d4ccff; font-size: var(--fs-xs); pointer-events: none;
+}
+body.loop .card .cap {
+  position: absolute; inset: auto 0 0 0; padding: 14px 7px 5px;
+  background: linear-gradient(transparent, rgba(0,0,0,.85));
+  color: #e8e8ee; font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+  opacity: 0; transition: opacity .12s;
+}
+body.loop .card:hover .cap, body.loop .card.selected .cap, body.loop .card:focus-within .cap { opacity: 1; }
+
+/* The keys sheet. */
+.keys-pop {
+  position: fixed; top: calc(var(--topbar-h) + 8px); right: 16px; z-index: 40; width: 420px;
+  padding: 14px 16px; border-radius: var(--radius); background: var(--panel-2);
+  border: 1px solid var(--line-strong); box-shadow: 0 16px 40px rgba(0,0,0,.6); font-size: var(--fs-sm);
+}
+.keys-pop h3 { margin: 0 0 8px; font-size: var(--fs-md); }
+.keys-pop dl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; margin: 0; }
+.keys-pop dt { text-align: right; }
+.keys-pop dd { margin: 0; color: var(--text-2); }
+
+/* ======================== app shell: 1600 CSS px and wider ======================== */
+@media (min-width: 1600px) {
+  body.loop { height: 100vh; overflow: hidden; }
+  body.loop .topbar { height: var(--topbar-h); padding: 0 16px; }
+  body.loop main {
+    grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--shelf-w);
+    gap: var(--gap); padding: 10px 16px;
+    height: calc(100vh - var(--topbar-h)); align-items: stretch;
+  }
+  body.loop.rail-off main { grid-template-columns: minmax(0, 1fr) var(--shelf-w); }
+  body.loop.rail-off .panel { display: none; }
+
+  /* The rail scrolls itself; Generate is pinned to its foot (M1). */
+  body.loop .panel {
+    position: relative; top: auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: 14px 16px 0;
+  }
+  body.loop #btn-generate {
+    position: sticky; bottom: 0; z-index: 3; flex: none;
+    height: var(--h-lg); margin: 0 -16px; border-radius: 0 0 var(--radius) var(--radius);
+    box-shadow: 0 -14px 18px var(--panel); font-size: var(--fs-md);
+  }
+  body.loop #btn-generate::after { content: "Ctrl+Enter"; margin-left: 10px; font-weight: 400; font-size: var(--fs-xs); opacity: .75; }
+  body.loop #grid-section { margin-bottom: 16px; }
+
+  /* Stage: status, caption + actions, the image, the session strip, keys. */
+  body.loop .stage {
+    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px; min-height: 0;
+  }
+  body.loop.sheet-on .stage { display: none; }
+
+  /* Shelf: gallery header, then its own scroller. */
+  body.loop .shelf {
+    display: flex; flex-direction: column; min-height: 0;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  body.loop.sheet-on .shelf { grid-column: 2 / -1; }
+  body.loop .shelf .gallery-head { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  body.loop .shelf-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; overscroll-behavior: contain; }
+  body.loop .shelf .sheet .sheet-scroll { overflow: auto; }
+
+  /* Inspector: the prompt check and the Refine drawer cover the shelf, not the image. */
+  body.loop .shelf .prompt-analysis {
+    position: absolute; inset: 0; z-index: 6; overflow-y: auto;
+    padding: 14px 16px; font-size: var(--fs-sm); background: var(--panel);
+    box-shadow: -10px 0 30px rgba(0,0,0,.45);
+  }
+  body.loop .shelf .analysis-head h2 { font-size: var(--fs-lg); }
+  body.loop .shelf .analysis-section h3 { font-size: var(--fs-xs); }
+  body.loop .shelf .ghost.tiny, body.loop .shelf .analysis-source { font-size: var(--fs-xs); }
+  body.loop .shelf .analysis-action { font-size: var(--fs-sm); height: var(--h-sm); }
+
+  body.loop .refine-dialog[open]:not(:modal) {
+    position: fixed; inset: auto; z-index: 15;
+    top: calc(var(--topbar-h) + 10px); right: 16px; bottom: 10px;
+    width: var(--shelf-w); max-width: none; max-height: none; height: auto; margin: 0;
+    padding: 16px 18px; gap: 14px; font-size: var(--fs-md);
+    box-shadow: -12px 0 34px rgba(0,0,0,.55);
+  }
+  body.loop .refine-dialog:not(:modal) .rf-head h2 { font-size: var(--fs-xl); }
+  body.loop .refine-dialog:not(:modal) .rf-source img { display: none; }
+  body.loop .refine-dialog:not(:modal) .rf-prompt { -webkit-line-clamp: 2; color: var(--text-2); font-size: var(--fs-sm); }
+  body.loop .refine-dialog:not(:modal) .rf-source-line { font-size: var(--fs-sm); }
+  body.loop .refine-dialog:not(:modal) #refine-scales { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+  body.loop .refine-dialog:not(:modal) #refine-scales button {
+    height: 52px; border-radius: 0; margin-left: -1px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1px; font-size: var(--fs-md); color: var(--text);
+  }
+  body.loop .refine-dialog:not(:modal) #refine-scales button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+  body.loop .refine-dialog:not(:modal) #refine-scales button:last-child { border-radius: 0 8px 8px 0; }
+  body.loop .refine-dialog:not(:modal) #refine-scales button::after {
+    content: attr(title); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: var(--fs-xs); color: var(--muted); padding: 0 6px;
+  }
+  body.loop .refine-dialog:not(:modal) #refine-scales button:disabled::after { content: "too large"; }
+  body.loop .refine-dialog:not(:modal) .rf-actions {
+    position: sticky; bottom: -16px; margin: auto -18px -16px; padding: 12px 18px 16px;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  body.loop .refine-dialog:not(:modal) .rf-actions .primary { min-width: 180px; height: var(--h-lg); }
+  body.loop .refine-dialog:not(:modal) #refine-run::after { content: "Ctrl+Enter"; margin-left: 10px; font-weight: 400; font-size: var(--fs-xs); opacity: .75; }
+  body.loop .refine-dialog:not(:modal) #refine-preview { font-size: var(--fs-md); color: var(--text); min-height: 2.9em; }
+  body.loop .refine-dialog:not(:modal) .hint { font-size: var(--fs-sm); }
+  .rf-strengths { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -6px; }
+  .rf-passes:empty { display: none; }
+  .rf-passes { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .rf-passes h3 { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .rf-pass-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .rf-pass-row > p { grid-column: 1 / -1; margin: 0; }
+  .rf-pass { display: flex; flex-direction: column; gap: 4px; padding: 4px; border: 1px solid var(--line-strong); border-radius: 8px; background: #15151b; color: var(--text-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+  .rf-pass:hover { border-color: var(--sel); color: #fff; }
+  .rf-pass img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #08080b; border-radius: 5px; }
+  .rf-strengths button { height: 28px; padding: 0 10px; font-size: var(--fs-sm); }
+  .rf-strengths button.on { color: #fff; border-color: var(--accent); background: #2a2150; }
+}
+
+/* =============== 901-1599: two columns, gallery under the stage =============== */
+@media (min-width: 901px) and (max-width: 1599px) {
+  body.loop .stage { display: flex; flex-direction: column; gap: 10px; }
+  body.loop .focus { height: min(64vh, 720px); flex: none; }
+  body.loop .shelf { grid-column: 2; display: flex; flex-direction: column; gap: 12px; }
+  body.loop .shelf .prompt-analysis { order: -1; }
+  body.loop .legend { display: none; }
+}
+
+/* A job in flight: the status block packs its rows; the stage dims the last
+   image under the live preview so the two are never confused. */
+.stage-status { gap: 3px; }
+.stage-status .progress { gap: 8px; }
+.stage-status .progress .bars { gap: 3px; }
+.stage-status .progress .row { gap: 8px; }
+.stage-status .pt { min-width: 3.6em; color: var(--text); }
+.stage-status #queue-note { display: flex; align-items: center; gap: 8px; color: var(--text-2); }
+.stage-status #queue-note .ghost.small, .stage-status .progress .ghost.small { height: 24px; padding: 0 8px; font-size: var(--fs-xs); }
+.focus:has(.focus-preview) .focus-frame { opacity: .28; filter: grayscale(.6); }
+.focus:has(.focus-preview)::before {
+  content: "Live preview - the image lands here"; position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 6; padding: 3px 12px; border-radius: 999px; background: rgba(0,0,0,.75); color: var(--text-2);
+  font-size: var(--fs-sm); white-space: nowrap;
+}
+/* While a job is watched, the morning-after banner is about an older job (M19). */
+.stage-status:has(> .progress:not([hidden])) > .last-run { display: none; }
+.stage-status { justify-content: flex-start; padding-top: 8px; }
+.stage-status .progress .bar { height: 5px; }
+.stage-status .progress .bar.thin { height: 3px; }
+.stage-status .pt { font-size: var(--fs-xs); line-height: 1.2; }

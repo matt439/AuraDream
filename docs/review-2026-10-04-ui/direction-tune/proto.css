@@ -1,0 +1,435 @@
+/* ======================================================================
+   "Same bones, real scale" - prototype for web/style.css
+   Everything is scoped to min-width 1800px, so the 1400x900 smokes and
+   every narrower window render exactly as today. In the real change the
+   tokens would live on :root with today's values as the base, and only
+   the token block below would be media-scoped.
+   ====================================================================== */
+
+/* The one unscoped rule: the group headings proto.js inserts exist at every
+   width, so below the wide tier they take today's caption style (12 px
+   uppercase muted) rather than the UA's 16 px bold <h3>. */
+.group-head {
+  margin: 0; padding-top: 12px; border-top: 1px solid var(--line);
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+@media (min-width: 1800px) {
+
+  /* ------------------------------------------------------------ tokens */
+  :root {
+    /* Type: fluid between 1800 px (125% QHD lands at 2048) and 2560 px. */
+    --fs-xs: clamp(11.5px, 9.13px + 0.1316vw, 12.5px);   /* pills, source badges, kbd      12.5 @2560 */
+    --fs-sm: clamp(12.5px, 10.13px + 0.1316vw, 13.5px);  /* labels, hints, tips, notes     13.5 @2560 */
+    --fs-md: clamp(14px, 10.45px + 0.1974vw, 15.5px);    /* body, inputs, buttons          15.5 @2560 */
+    --fs-lg: clamp(15px, 10.26px + 0.2632vw, 17px);      /* section titles, dialog titles  17   @2560 */
+    --fs-xl: clamp(17px, 12.26px + 0.2632vw, 19px);      /* brand                          19   @2560 */
+    --lh: 1.5;
+    --lh-tight: 1.35;
+
+    /* Space: one 4 px ladder instead of ~20 one-off values. */
+    --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+    /* Control heights. */
+    --h-xs: 26px;   /* caption buttons (Examples, Check, Reset), analysis pills */
+    --h-sm: 32px;   /* presets, small ghost buttons, card tools, selects in bars */
+    --h-md: 38px;   /* inputs, selects, ordinary buttons */
+    --h-lg: 46px;   /* the primary action */
+
+    --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
+
+    /* Layout. */
+    --topbar-h: 56px;
+    --gutter: 24px;
+    --panel-w: clamp(400px, 18vw, 480px);   /* 460 @2560, 400 @2048 */
+    --thumb-min: clamp(200px, 9vw, 260px);  /* 8 cards across @2560, 7 @2048 */
+    --dock-w: clamp(520px, 27vw, 700px);    /* the docked prompt check */
+
+    /* Colour: control borders that can be seen, a primary that passes,
+       and the greys named once. */
+    --line-strong: #62627a;      /* input / ghost borders: 3.1:1 on --panel (was 1.24:1), WCAG 1.4.11 */
+    --field: #1c1c24;
+    --text-2: #c4c4d0;           /* labels */
+    --text-3: #a2a2b0;           /* quiet notes */
+    --accent-strong: #6a4cf0;    /* primary fill: white text 5.4:1 */
+    --accent-soft: #2a2250;      /* selected pill */
+    --warn: #fbbf24;
+    color-scheme: dark;
+    accent-color: var(--accent);
+  }
+
+  body { font-size: var(--fs-md); line-height: var(--lh); }
+
+  /* ------------------------------------------------------------ topbar */
+  .topbar { height: var(--topbar-h); padding: 0 var(--gutter); gap: var(--sp-5); }
+  .brand { font-size: var(--fs-xl); }
+  .status { font-size: var(--fs-md); color: var(--text-2); gap: var(--sp-2); }
+  .dot { width: 9px; height: 9px; }
+  .vram { font-size: var(--fs-sm); }
+  .topbar .ghost { height: var(--h-sm); padding: 0 var(--sp-3); font-size: var(--fs-sm); }
+
+  /* ------------------------------------------------------------ layout */
+  main {
+    grid-template-columns: var(--panel-w) minmax(0, 1fr);
+    gap: var(--gutter);
+    padding: var(--gutter);
+  }
+  .panel {
+    padding: var(--sp-5) 22px;
+    gap: var(--sp-4);
+    border-radius: var(--r-lg);
+    /* proto.js sets --panel-top: the gutter while the panel fits, and
+       viewport - height when it does not, so Generate and Run grid stay
+       reachable (M1). */
+    top: var(--panel-top, calc(var(--topbar-h) + var(--gutter)));
+  }
+
+  /* ------------------------------------------------- labels: two levels */
+  /* Field labels: sentence case, one size, one weight, one colour. */
+  .field > span, .sub i {
+    font-size: var(--fs-sm); font-weight: 600; color: var(--text-2);
+    text-transform: none; letter-spacing: 0; line-height: var(--lh-tight);
+    gap: var(--sp-2);
+  }
+  .field { gap: var(--sp-2); }
+  .sub { gap: 6px; }
+  .field em, .field > span em { font-size: var(--fs-sm); color: var(--text-3); font-weight: 400; }
+  /* Group headings and fold summaries: the level above. */
+  .group-head, .section > summary {
+    margin: 0; font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .group-head {
+    padding-top: var(--sp-4); border-top: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: var(--sp-2);
+  }
+  .section { padding-top: var(--sp-4); gap: var(--sp-3); }
+  .section > summary { gap: var(--sp-2); min-height: 22px; }
+  .section > summary em {
+    font-size: var(--fs-sm); color: var(--text-3); letter-spacing: 0; text-transform: none; font-weight: 400;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .section > summary::before { font-size: 11px; }
+
+  /* ------------------------------------------------------------ inputs */
+  textarea, input[type="number"], input[type="search"], input[type="text"], select,
+  .refine-dialog select, .gallery-head .runs, .compare-seeds select, .sheet-pick select {
+    font-size: var(--fs-md);
+    background: var(--field);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    color: var(--text);
+  }
+  input[type="number"], input[type="search"], input[type="text"], select,
+  .refine-dialog select, .gallery-head .runs {
+    height: var(--h-md); padding: 0 var(--sp-3);
+  }
+  textarea { padding: 10px var(--sp-3); line-height: var(--lh); }
+  ::placeholder { color: var(--muted); opacity: 1; }
+  textarea:focus, input:not([type="checkbox"]):focus, select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.22);
+  }
+  input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
+  /* color-scheme: dark turns Chromium's `outline: auto` ring near-black on
+     this background, so every button and checkbox gets the page's own ring
+     (and checkboxes get one at all, M69). */
+  button:focus-visible, input[type="checkbox"]:focus-visible, summary:focus-visible,
+  .help:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent-2); outline-offset: 2px;
+  }
+  .sub.narrow { width: 76px; }
+  .sub.narrow input { padding: 0 var(--sp-2); }
+
+  /* The prompt is the page's main input: seven lines to start, growing with
+     what is typed up to sixteen (Chromium; elsewhere rows=5 + min-height);
+     fewer to start on a short window. */
+  #prompt { min-height: calc(min(7lh, 12vh) + 22px); max-height: calc(16lh + 22px); field-sizing: content; }
+  #negative { min-height: calc(2lh + 22px); }
+
+  /* Dead controls collapse to their label and the reason, never vanish:
+     the caption, its ? badge and its note stay (M84, M83). */
+  #negative-field.disabled textarea {
+    min-height: 0; height: var(--h-md); resize: none; overflow: hidden; opacity: 0.5;
+  }
+  #reference-field.disabled .chips { display: none; }
+  .panel input:disabled, .panel select:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* ------------------------------------------------------------ help */
+  .help { width: 18px; height: 18px; font-size: 11px; border-color: var(--line-strong); color: var(--text-3); }
+  .field > span .help { margin-left: 2px; vertical-align: 0; }
+  .tip { width: 340px; padding: var(--sp-3) 14px; font-size: var(--fs-sm); line-height: 1.5; border-radius: var(--r-md); }
+  .tip.wide { width: 400px; }
+
+  /* ------------------------------------------------------------ buttons */
+  button { font-size: var(--fs-md); }
+  .ghost {
+    border-color: var(--line-strong); color: var(--text-2); border-radius: var(--r-md);
+    min-height: var(--h-md); padding: 0 14px;
+  }
+  .ghost:hover { color: var(--text); border-color: #8c8ca4; background: rgba(255, 255, 255, 0.03); }
+  .ghost.square { min-width: var(--h-md); padding: 0 var(--sp-2); }
+  .ghost.small { min-height: var(--h-sm); padding: 0 var(--sp-3); font-size: var(--fs-sm); }
+  .ghost.tiny { min-height: var(--h-xs); padding: 0 10px; font-size: var(--fs-xs); line-height: 1; border-radius: var(--r-sm); }
+  /* Red on hover only where the button destroys something (M76). */
+  .ghost.small:hover:not(:disabled):not([aria-disabled="true"]) { color: var(--text); border-color: #8c8ca4; }
+  #btn-cancel:hover, #btn-cancel-queued:hover, #btn-delete-unstarred:hover, #lb-delete:hover {
+    color: var(--danger) !important; border-color: var(--danger) !important;
+  }
+  .examples, .tag-helper { margin-left: var(--sp-1); }
+  .field > span .reset { margin-left: auto; float: none; }
+  .field > span:has(.reset) { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+
+  .primary {
+    background: var(--accent-strong); min-height: var(--h-lg); border-radius: var(--r-md);
+    font-size: var(--fs-md); font-weight: 650; letter-spacing: 0.01em;
+    display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
+  }
+  /* The shortcut, where the button is (M70). */
+  #btn-generate::after, #btn-grid::after, #refine-run::after {
+    content: "Ctrl+Enter" / ""; font-size: var(--fs-xs); font-weight: 500;
+    padding: 2px 7px; border-radius: 5px; background: rgba(255, 255, 255, 0.14); color: #e9e5ff;
+  }
+  #btn-grid::after { content: none; }
+
+  /* ------------------------------------------------------------ presets */
+  .presets { gap: 6px; }
+  .presets button {
+    min-height: var(--h-sm); padding: 0 9px; font-size: var(--fs-sm); border-radius: var(--r-sm);
+    border-color: var(--line-strong); color: var(--text-2); background: var(--panel-2);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Recommended is a quiet green underline that takes no width, not green
+     on nearly every pill; the selection is the accent fill, the one thing
+     that stands out (M30). */
+  .presets button.recommended {
+    color: var(--text-2); border-color: var(--line-strong); background: var(--panel-2);
+    box-shadow: inset 0 -2px 0 rgba(74, 222, 128, 0.7);
+  }
+  .presets button:hover, .presets button.recommended:hover { color: var(--text); border-color: #8c8ca4; }
+  .presets button.active, .presets button.active.recommended {
+    color: #fff; background: var(--accent-soft); border-color: var(--accent);
+  }
+  .presets .pair button:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+  .presets .pair button:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+  .presets.tiers { margin-top: 0; }
+  .size-tier-row { gap: var(--sp-2); }
+  .orientation { min-width: 0; margin-top: 0; }
+  .hint { font-size: var(--fs-sm); color: var(--text-3); margin: 0; min-height: 0; }
+  .hint:empty { display: none; }
+  .hint.warn { color: var(--warn); }
+
+  /* ------------------------------------------------------------ progress */
+  .progress { font-size: var(--fs-sm); gap: var(--sp-3); color: var(--text-2); }
+  .bar { height: 6px; }
+  .bar.thin { height: 4px; }
+  .error { font-size: var(--fs-sm); }
+  .last-run { font-size: var(--fs-sm); padding: var(--sp-3) 14px; border-radius: var(--r-md); }
+
+  /* ------------------------------------------------------------ stage */
+  .stage { gap: var(--gutter); }
+  .viewer { padding: var(--sp-4); border-radius: var(--r-lg); gap: var(--sp-3); }
+  /* One finished image at 58vh (757 px at 1305) instead of 68vh: the image
+     is still 3/4 of its 1024 px, and the gallery's first row of thumbnails
+     now lands above the fold. */
+  .viewer img { max-height: 58vh; border-radius: var(--r-md); }
+  .viewer.multi img { max-height: 40vh; }
+  /* An idle viewer is one line, not a 380 px empty box (M35). */
+  .viewer:has(> .placeholder:only-child) { min-height: 0; justify-content: flex-start; padding: 14px 18px; }
+  .placeholder { margin: 0; font-size: var(--fs-sm); }
+  /* One finished image: its prompt, facts and next steps beside it, in the
+     width the image never uses (proto.js builds .result-side). */
+  .viewer.single-result { flex-wrap: nowrap; gap: var(--sp-6); }
+  .result-side { flex: 0 1 340px; min-width: 260px; display: flex; flex-direction: column; gap: var(--sp-3); }
+  .result-prompt {
+    margin: 0; font-size: var(--fs-md); line-height: 1.5; color: var(--text);
+    display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .result-facts { margin: 0; font-size: var(--fs-sm); color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .result-actions { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+  .result-actions .ghost { text-align: left; }
+
+  /* ------------------------------------------------------------ gallery */
+  .gallery-head { gap: var(--sp-4); margin-top: var(--sp-2); }
+  .gallery-head h2 { font-size: var(--fs-lg); }
+  #gallery-count { font-size: var(--fs-md); }
+  .gallery-head input[type="search"] { max-width: 560px; flex-basis: 360px; }
+  .gallery-head .runs { max-width: 360px; font-size: var(--fs-sm); height: var(--h-sm); color: var(--text-2); }
+  .check { font-size: var(--fs-sm); color: var(--text-2); gap: var(--sp-2); }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(var(--thumb-min), 1fr)); gap: var(--sp-3); }
+  .card { border-radius: var(--r-md); }
+  /* The whole frame, letterboxed, as the sheet already does (M46). */
+  .card img { object-fit: contain; background: #050507; }
+  .card .tools { gap: var(--sp-1); padding: var(--sp-2); padding-top: 34px; }
+  .card .tools button {
+    position: static; min-width: 32px; height: 32px; padding: 0 8px;
+    font-size: 15px; border-radius: var(--r-sm); background: rgba(0, 0, 0, 0.6);
+  }
+  /* A word for each glyph, the moment it is pointed at or focused (M15):
+     proto.js gives each tool a data-tip. */
+  .card .tools button[data-tip]:hover::after, .card .tools button[data-tip]:focus-visible::after {
+    content: attr(data-tip);
+    position: absolute; left: var(--sp-2); bottom: 46px;
+    padding: 3px 8px; border-radius: 5px; background: rgba(10, 10, 14, 0.92);
+    color: #fff; font-size: var(--fs-xs); white-space: nowrap; pointer-events: none;
+  }
+  .card .tools button[data-tip="Delete"]:hover { background: var(--danger); }
+
+  /* ------------------------------------------------------------ prompt check, docked */
+  .prompt-analysis { font-size: var(--fs-sm); padding: var(--sp-4) 18px; gap: var(--sp-4); border-radius: var(--r-lg); }
+  .analysis-head h2 { font-size: var(--fs-lg); }
+  .analysis-section h3 { font-size: var(--fs-xs); letter-spacing: 0.07em; }
+  .analysis-note.sub, .compare-note, .analysis-note { font-size: var(--fs-sm); }
+  .analysis-source, .analysis-stale, .critic-kind { font-size: var(--fs-xs); padding: 1px 8px; }
+  .prompt-analysis .ghost.tiny, .analysis-action { min-height: var(--h-sm); font-size: var(--fs-sm); }
+  .analysis-mark { width: 18px; height: 18px; font-size: 11px; }
+  .analysis-item { grid-template-columns: 18px minmax(0, 1fr) auto; padding: 6px 8px; }
+  .analysis-text, .critic-changes { font-size: var(--fs-sm); }
+  .encoder-row { grid-template-columns: minmax(64px, max-content) 72px minmax(0, 1fr); }
+  .encoder-bar { height: 6px; }
+  .analysis-body { gap: var(--sp-4) var(--sp-5); }
+
+  /* Beside the image rather than above it (M3): when the check is open in
+     the wide host, the stage is two columns - the chips and the viewer on
+     the left, the check on the right at the viewer's height, scrolling
+     inside itself - and everything from the gallery head down spans both. */
+  .stage:has(#prompt-analysis:not([hidden])) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--dock-w);
+    /* Explicit rows for the left column - chips, viewer, note - so an
+       absent one is a zero row; the spacing is margins, which a hidden
+       item does not have, rather than row-gap, which an empty row does. */
+    grid-template-rows: auto auto auto;
+    column-gap: var(--gutter);
+    row-gap: 0;
+    align-items: start;
+  }
+  .stage:has(#prompt-analysis:not([hidden])) > :not(.tag-validation-wide) { grid-column: 1 / -1; margin-bottom: var(--gutter); }
+  .stage:has(#prompt-analysis:not([hidden])) #tag-validation { grid-column: 1; grid-row: 1; margin-bottom: var(--gutter); }
+  .stage:has(#prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; min-height: 560px; }
+  .stage:has(#prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
+  .tag-validation-wide > #prompt-analysis:not([hidden]) {
+    grid-column: 2; grid-row: 1 / 4;
+    align-self: stretch;
+    /* Takes no height of its own: it fills the rows the chips and the
+       viewer size and scrolls inside them, so opening it never moves the
+       gallery. */
+    height: 0; min-height: calc(100% - var(--gutter));
+    overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  /* In the dock the sections stack: Encoders, Order, Findings, Critic, Compare. */
+  .tag-validation-wide .analysis-body { grid-template-columns: minmax(0, 1fr); }
+  .tag-validation-wide .analysis-text, .tag-validation-wide .critic-diff { max-width: none; }
+
+  /* ------------------------------------------------------------ chips */
+  .tag-check { font-size: var(--fs-sm); padding: 4px 6px 4px 10px; }
+  .tag-validation::before { font-size: var(--fs-sm); }
+  .tag-validation::after { font-size: var(--fs-xs); }
+  .tag-validation-wide .tag-validation { padding: var(--sp-3) 14px; border-radius: var(--r-lg); }
+
+  /* ------------------------------------------------------------ menus */
+  .menu { width: 400px; max-height: 440px; }
+  .menu li { font-size: var(--fs-sm); padding: var(--sp-2) 10px; }
+  .tag-menu { width: 400px; font-size: var(--fs-sm); }
+
+  /* ------------------------------------------------------------ sheet */
+  .sheet-controls { font-size: var(--fs-sm); color: var(--text-2); }
+  .sheet-grid .head, .sheet-grid .rowhead { font-size: var(--fs-sm); color: var(--text-2); }
+  .sheet-cell.fav::after { font-size: 16px; }
+
+  /* ------------------------------------------------------------ lightbox (M47) */
+  .lightbox { padding: var(--gutter); gap: var(--gutter); }
+  .lb-side { flex-basis: 380px; width: 380px; gap: var(--sp-4); }
+  .lb-count { font-size: var(--fs-sm); }
+  .lb-prompt { font-size: var(--fs-md); line-height: 1.55; }
+  .lb-settings { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.6; }
+  .lb-zoom { font-size: var(--fs-sm); }
+  .lb-actions { gap: var(--sp-2); }
+  .lb-nav { width: 52px; height: 52px; font-size: 30px; }
+
+  /* ------------------------------------------------------------ refine dialog */
+  /* Two panes: the source large on the left with the kept region framed
+     (proto.js), the dialog's controls on the right at the panel's width.
+     It grows downward from a fixed top instead of re-centring (M91). */
+  .refine-dialog {
+    --rf-controls: var(--panel-w);
+    --rf-w: min(1400px, calc(100vw - 2 * var(--sp-6)));
+    width: var(--rf-w);
+    max-width: none;
+    max-height: calc(100vh - 2 * var(--sp-6));
+    min-height: min(820px, calc(100vh - 2 * var(--sp-6)));
+    margin: max(var(--sp-6), 6vh) auto auto;
+    /* The left padding is the image pane: the content box is the controls. */
+    padding: var(--sp-5) var(--sp-5) var(--sp-5) calc(var(--rf-w) - var(--rf-controls) - var(--sp-5));
+    border-radius: var(--r-lg);
+    border-color: var(--line-strong);
+    font-size: var(--fs-md);
+  }
+  .refine-dialog[open] { gap: var(--sp-4); }
+  .rf-head h2 { font-size: var(--fs-lg); }
+  .rf-stage {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: calc(var(--rf-w) - var(--rf-controls) - 2 * var(--sp-5) - 2px);
+    display: grid; place-items: center;
+    background: #050507; border-right: 1px solid var(--line);
+    border-radius: var(--r-lg) 0 0 var(--r-lg);
+    overflow: hidden;
+  }
+  .rf-stage img, .rf-source .rf-stage img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: contain;
+    border: 0; border-radius: 0; background: transparent;
+  }
+  .rf-source:not(:has(img)) .rf-source-text, .rf-source { gap: 0; }
+  .rf-source-line { font-size: var(--fs-sm); color: var(--text-2); }
+  .rf-prompt { font-size: var(--fs-sm); color: var(--text-3); -webkit-line-clamp: 2; }
+  /* Scale buttons: a segmented control that says the size it gives (M92). */
+  #refine-scales { gap: 0; display: grid; grid-template-columns: repeat(4, 1fr); }
+  #refine-scales button {
+    min-height: 52px; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+    font-size: var(--fs-md); font-weight: 600; border-radius: 0; margin-left: -1px;
+  }
+  #refine-scales button:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); margin-left: 0; }
+  #refine-scales button:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+  #refine-scales button:not(:disabled)::after {
+    content: attr(title); font-size: var(--fs-xs); font-weight: 400; color: var(--text-3);
+    width: auto; height: auto; margin: 0; background: none; border-radius: 0;
+  }
+  #refine-scales button:disabled::after { content: "too large"; font-size: var(--fs-xs); font-weight: 400; }
+  #refine-scales button.active::after { color: #d9d2ff; }
+  #refine-scales button.active { position: relative; z-index: 1; }
+  /* What Refine will do, as a summary box above the buttons, not an 11 px line. */
+  #refine-preview:not(:empty) {
+    padding: var(--sp-3) 14px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: var(--r-md); color: var(--text); font-size: var(--fs-sm); line-height: 1.5;
+  }
+  #refine-preview.warn { border-color: rgba(251, 191, 36, 0.5); color: var(--warn); }
+  .rf-actions { margin-top: auto; gap: var(--sp-2); }
+  .rf-actions .ghost { min-height: var(--h-lg); }
+  .rf-actions .primary { min-width: 200px; }
+  .rf-crop {
+    position: absolute; pointer-events: none;
+    outline: 2px dashed rgba(255, 255, 255, 0.85); outline-offset: -1px;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
+  }
+  .rf-crop[data-label]::after {
+    content: attr(data-label); position: absolute; left: 8px; top: 8px;
+    padding: 3px 8px; border-radius: 5px; background: rgba(10, 10, 14, 0.85);
+    color: #fff; font-size: var(--fs-xs); white-space: nowrap;
+  }
+  .rf-stage-caption {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 14px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+    color: var(--text-2); font-size: var(--fs-sm); font-variant-numeric: tabular-nums;
+  }
+
+  /* ------------------------------------------------------------ short windows */
+  /* QHD at 125% is 2048 x 1040 CSS px: the same type, a tighter vertical
+     rhythm, so Generate stays above the fold at load. */
+  @media (max-height: 1150px) {
+    :root { --h-md: 34px; --h-sm: 30px; --h-lg: 42px; --gutter: 20px; }
+    .panel { gap: var(--sp-3); padding: 18px 20px; }
+    .group-head, .section { padding-top: var(--sp-3); }
+  }
+}

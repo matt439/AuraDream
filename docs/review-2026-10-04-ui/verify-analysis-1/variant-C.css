@@ -1,0 +1,12 @@
+@media (min-width: 1800px) {
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) { display: grid; grid-template-columns: minmax(0, 1fr) clamp(520px, 30vw, 760px); column-gap: 18px; row-gap: 18px; align-items: start; grid-template-rows: auto auto 1fr; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > * { grid-column: 1 / -1; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1; grid-row: 1; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { grid-column: 2; grid-row: 1 / span 3; position: sticky; top: 68px; max-height: calc(100vh - 86px); overflow-y: auto; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .gallery-head { grid-row: 4; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #gallery { grid-row: 5; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #sheet { grid-row: 6; }
+.stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #btn-more { grid-row: 7; }
+}
