@@ -18,7 +18,7 @@ let sheetPage = 1024;
 
 const els = {
   prompt: $('prompt'), negative: $('negative'), negField: $('negative-field'),
-  negNote: $('neg-note'), promptTip: $('prompt-tip'), sizeTip: $('size-tip'),
+  negNote: $('neg-note'), negEnable: $('neg-enable'), promptTip: $('prompt-tip'), sizeTip: $('size-tip'),
   examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
@@ -233,6 +233,10 @@ let lorasLive = false;
 // The LoRA tooltip as the page shipped it, put back when a refetch has
 // nothing to say over it.
 const loraTipDefault = els.loraTip.textContent;
+// The Reference images tooltip for a checkpoint that takes none, and the
+// prompt's placeholder for one that reads prose: what the page shipped.
+const referenceTipDefault = els.referenceTip.textContent;
+const promptPlaceholderDefault = els.prompt.placeholder;
 // The checkpoint's prompting guide: the pixel range its authors document
 // (megapixels, [low, high], null until a status lands) for the size line's
 // warning, and the example prompts behind the Examples button.

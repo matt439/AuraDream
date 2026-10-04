@@ -25,9 +25,10 @@
      --text-3       the quiet note inside a caption: why a field is off, the grid's summary
    Colour
      --line-strong  a control's border: inputs, selects, ghost buttons, presets, the
-                    ? badges. It is --line until a tier raises it for contrast;
+                    ? badges, at 3.1:1 or better on both fills (WCAG 1.4.11);
                     --line stays on the panel, the cards and the folds
-     --accent-strong the primary buttons' fill
+     --accent-strong the primary buttons' fill and a selected preset's: white on it
+                    is 5.4:1, where on --accent it was 4.35:1
      --accent-soft  a selected or hovered row on the accent: preset, menu item, critic kind
      --warn         amber: stale, pooled-only, a warning, the loading dot, a mismatch
      --star         the favourite's amber, the same hue with a meaning of its own
@@ -53,15 +54,33 @@
      --sticky-top   68px  where the settings panel rests under the topbar, while it
                           fits the window (panel.js moves it while it does not)
      --panel-w      330px the settings column
+     --narrow-w     62px  a small counter's box: Batch, Repeat, Weight
      --thumb-min    160px a gallery card's least width
+     --search-w     240px the gallery's search box, at most
      --lb-side-w    280px the lightbox's column
-     --tip-w, --tip-w-wide, --menu-w, --tag-menu-w   the floating panels' widths */
+     --tip-w, --tip-w-wide, --menu-w, --tag-menu-w   the floating panels' widths
+
+   The wide tier, from 1800 px (QHD at 100% is 2560, at 125% 2048): the type
+   grows with the window from today's sizes at 1800 to its own at 2560 and
+   stops there (--ramp is 0 at 1800 px and 1px at 2560, so a size is
+   `today + steps * --ramp`), and the controls, the panel, the cards, the tips
+   and the search box take a size of their own. Under 1150 px of height - QHD
+   at 125% is 1040 - the controls take compact heights near today's and the
+   panel's gaps tighten to 12 px, so more of the panel is in the window.
+   Nothing changes under 1800 px, where the smokes run. */
 :root {
+  /* The scrollbars, checkboxes, number spinners and a select's list follow the
+     page rather than the platform's light theme, and a ticked box is the
+     accent. Its cost is the focus ring: the UA's `outline: auto` turns near
+     black on this background, so every control gets the page's own ring
+     (`:focus-visible` below) in the same change. */
+  color-scheme: dark;
+  accent-color: var(--accent);
   --bg: #0b0b0e;
   --panel: #131318;
   --panel-2: #1a1a21;
   --line: #26262f;
-  --line-strong: var(--line);
+  --line-strong: #666680;
   --text: #e8e8ee;
   --text-soft: #cfd0dc;
   --text-2: #c8c8d4;
@@ -69,7 +88,7 @@
   --text-3: #a2a2b0;
   --muted: #8b8b9a;
   --accent: #7c5cff;
-  --accent-strong: var(--accent);
+  --accent-strong: #6a4cf0;
   --accent-soft: #221c3d;
   --accent-2: #4ad6c8;
   --danger: #ff5c72;
@@ -109,12 +128,66 @@
   --topbar-h: 58px;
   --sticky-top: calc(var(--topbar-h) + 10px);
   --panel-w: 330px;
+  --narrow-w: 62px;
   --thumb-min: 160px;
+  --search-w: 240px;
   --lb-side-w: 280px;
   --tip-w: 240px;
   --tip-w-wide: 300px;
   --menu-w: 300px;
   --tag-menu-w: 320px;
+}
+
+/* At 2560 x 1305 the page was the 1400 px one stretched: a 330 px panel of
+   10-12 px text and 19 px buttons beside 2,000 px of stage, twelve 171 px
+   cards a row. Here the body is 15.5 px and a caption 13.5 px at 2560, the
+   panel 18% of the window (461 px at 2560, 400 at 2048), the cards about 9%. */
+@media (min-width: 1800px) {
+  :root {
+    --ramp: calc((100vw - 1800px) / 760);
+    --fs-xs: min(12px, calc(10px + 2 * var(--ramp)));
+    --fs-sm: min(13px, calc(11px + 2 * var(--ramp)));
+    --fs-label: min(13.5px, calc(12px + 1.5 * var(--ramp)));
+    --fs-body-sm: min(14.5px, calc(13px + 1.5 * var(--ramp)));
+    --fs-md: min(15.5px, calc(14px + 1.5 * var(--ramp)));
+    --fs-lg: min(17px, calc(15px + 2 * var(--ramp)));
+    --fs-xl: min(18px, calc(16px + 2 * var(--ramp)));
+
+    --panel-pad: 20px;
+    --h-xs: 24px;
+    --h-sm: 30px;
+    --h-md: 40px;
+    --h-field: 44px;
+    --h-lg: 48px;
+
+    /* The 40 px Unload button, the topbar's padding and its border. */
+    --topbar-h: 61px;
+    --panel-w: clamp(400px, 18vw, 480px);
+    --narrow-w: 72px;
+    --thumb-min: clamp(200px, 9vw, 260px);
+    --search-w: 480px;
+    --tip-w: 320px;
+    --tip-w-wide: 380px;
+    --menu-w: 360px;
+  }
+}
+/* A short window - QHD at 125%, a 1080p screen under a taskbar - keeps the
+   wide tier's type and widths with compact controls of its own: about
+   today's heights rather than the wide tier's (a field 40 px, the primary 44,
+   the small and tiny buttons 28 and 21, two pixels over today's for the
+   larger type in them), today's panel padding and topbar, and a 12 px gap
+   where today's is 14, so more of the panel is in the window. */
+@media (min-width: 1800px) and (max-height: 1150px) {
+  :root {
+    --panel-pad: 16px;
+    --panel-gap: 12px;
+    --h-xs: 21px;
+    --h-sm: 28px;
+    --h-md: 37px;
+    --h-field: 40px;
+    --h-lg: 44px;
+    --topbar-h: 58px;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -234,21 +307,77 @@ textarea, input[type="number"], input[type="search"], input[type="text"] {
   resize: vertical;
 }
 
-textarea:focus, input:focus { outline: none; border-color: var(--accent); }
+/* A text box's focus is its border, two pixels of the accent: one pixel of it
+   beside the controls' --line-strong was a 1.3:1 change. Not a checkbox's,
+   whose border does not render: it takes the ring below. Nor the chip
+   editor's borderless box, inside a pill that is its own focus. */
+textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { outline: none; border-color: var(--accent); }
+:where(textarea, input[type="number"], input[type="search"], input[type="text"]):not(.tag-editor input):focus {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+/* What a blank box will do - Seed "random", True CFG "off", Mu "auto" - is
+   read off its placeholder: the UA's grey was 3.76:1 on the fill, the muted
+   token is 5.16:1, and still nothing like a typed value. */
+::placeholder { color: var(--muted); opacity: 1; }
+
+/* The page's own focus ring, for every control without one of its own. With
+   `color-scheme: dark` the UA's ring is near black here, and checkboxes had
+   none at all (`outline: none` above used to catch them): a Space pressed on
+   an invisible Favorites re-filtered the gallery. A rule of a control's own
+   (a text box's border, a chip's inset ring, a menu item's fill) outranks it. */
+:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 
 .translation textarea {
   color: var(--text-soft);
   border-color: #343244;
   font-size: var(--fs-label);
 }
-.translation textarea:focus { border-color: var(--accent-2); }
+.translation textarea:focus { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
+
+/* The adapter list, drawn as the text boxes beside it are: the UA's select
+   was the one white control on the page, 19 px tall beside 41 px boxes, so
+   its label sat lower than Weight's. Only this one: the gallery's, the
+   comparison's and the sheet's selects are styled where they live, and a
+   rule for every select would restyle them too. */
+#lora {
+  width: 100%;
+  padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 6px;
+  font: inherit;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  color: var(--text);
+}
+#lora:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* A seed is up to 16 digits, all of them significant: same-width figures and
+   no spinner, whose arrows took the room of two digits and stepped a seed by
+   one. */
+#seed { font-variant-numeric: tabular-nums; appearance: textfield; }
+#seed::-webkit-inner-spin-button, #seed::-webkit-outer-spin-button { appearance: none; margin: 0; }
+
+/* The prompt is the page's main box: on a wide window it grows with what is
+   typed, from five lines to twelve (Chromium; elsewhere it stays at five and
+   scrolls), and W and H share their row. Capped in lines rather than in the
+   window's height: the panel stays where panel.js keeps it, and a box as tall
+   as 40% of the window would add 400 px to a panel already past the fold at
+   125%. A short window caps it at eight. The cap is the growth's, not the
+   user's: dragging the grip writes the box's height inline, and from then on
+   the box is the height it was dragged to, as it is under 1800 px - the drag
+   was the way round a long prompt before any of this, and a grip that stopped
+   at eight lines would take it away at 125%. */
+@media (min-width: 1800px) {
+  #prompt:not([style*="height"]) { field-sizing: content; min-height: calc(4lh + var(--h-field)); max-height: calc(11lh + var(--h-field)); }
+  .size-row .sub { flex: 1; }
+}
+@media (min-width: 1800px) and (max-height: 1150px) {
+  #prompt:not([style*="height"]) { max-height: calc(7lh + var(--h-field)); }
+}
 
 .row { display: flex; gap: var(--sp-2); align-items: flex-end; }
 .sub { display: flex; flex-direction: column; gap: var(--sp-1); }
 .sub.grow { flex: 1; min-width: 0; }
 /* Small counters. Without a fixed width a number input claims ~20 characters of
    intrinsic width and squeezes the seed field it shares a row with. */
-.sub.narrow { width: 62px; flex: none; }
+.sub.narrow { width: var(--narrow-w); flex: none; }
 .sub.narrow input { padding-left: 6px; padding-right: 2px; }
 .sub i { font-style: normal; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 5px; }
 
@@ -264,6 +393,15 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   cursor: help; user-select: none;
 }
 .help:hover, .help:focus { color: var(--text); border-color: var(--accent); outline: none; }
+.help:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+/* The badge grows with the type on a wide window, glyph and all. */
+@media (min-width: 1800px) {
+  .help { width: calc(var(--fs-sm) + 3px); height: calc(var(--fs-sm) + 3px); font-size: var(--fs-xs); }
+}
+/* A tip is something to read, never something to press: it holds only text,
+   and clicks go through it to whatever it covers. A ? clicked to read its tip
+   keeps the tip up (focus), and the Refine dialog's Size tip then lay over the
+   1.25x, 1.5x and 2x buttons and swallowed the clicks meant for them. */
 .tip {
   display: none;
   position: absolute; top: calc(100% + 7px); left: -6px; z-index: 30;
@@ -271,20 +409,31 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
   box-shadow: var(--shadow-pop);
   color: var(--text); font-size: var(--fs-sm); line-height: 1.45; text-align: left; cursor: auto;
+  pointer-events: none;
 }
 /* The rightmost badge's panel is wider than the field under it, so it hangs off
    the other edge instead of out past the panel. */
 .help.end .tip { left: auto; right: -6px; }
+/* In two columns Batch's badge is near the panel's middle and its tip opens
+   over the stage; in one column it is 600 px along an 800 px row, and the tip
+   ran out past the window and widened the page. */
+@media (max-width: 900px) {
+  #batch-tip { left: auto; right: -6px; }
+}
 /* And one that would run past the window's bottom opens upwards (placeTip,
    panel.js, sets `up` as it opens). */
 .help.up .tip { top: auto; bottom: calc(100% + 7px); }
 .help:hover .tip, .help:focus .tip { display: block; }
-/* The prompting and size guides are paragraphs, not a sentence: wider, and
-   with room for a line break between the two halves. */
-.tip.wide { width: var(--tip-w-wide); white-space: pre-line; }
+/* The prompting and size guides are paragraphs, not a sentence: wider. */
+.tip.wide { width: var(--tip-w-wide); }
+/* And a tip whose text has paragraphs keeps its line breaks (applyHints and
+   refreshLoras set `pre` where the text they write has one). Not every wide
+   tip: a tip written in the markup breaks its source lines wherever they fall,
+   and under pre-line those breaks showed up in the middle of its sentences. */
+.tip.pre { white-space: pre-line; }
 /* A caption's badges keep the caption's colour, not its letter-spacing. */
 .field > span .help, .field > span .tip, .field > span .examples,
-.field > span .tag-helper { letter-spacing: 0; text-transform: none; font-weight: 400; }
+.field > span .tag-helper, .field > span #neg-enable { letter-spacing: 0; text-transform: none; font-weight: 400; }
 .field > span .help { margin-left: 5px; vertical-align: 1px; }
 /* Reset sits at the far end of the Prompt caption, away from Generate: it
    empties every box, and a slip next to the one button people press all day
@@ -638,7 +787,8 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 #btn-grid { scroll-margin-bottom: calc(var(--gutter) + var(--panel-pad) + 1px); }
 
 /* Dim the textarea, not the whole field: the label and the note that explain
-   the state have to stay legible. */
+   the state have to stay legible. It still takes the wheel, so a negative
+   carried over from another checkpoint can be read while it is off. */
 #negative-field.disabled textarea { opacity: 0.45; }
 /* The True CFG box on a checkpoint where CFG is real CFG already: the badge
    beside it says why, so it stays where it is rather than vanishing. */
@@ -647,20 +797,54 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    badge keeps saying why - for the checkpoint (references) or for the
    installation (adapters), never for a value. */
 .row.disabled select, .row.disabled input { opacity: 0.45; }
-#reference-field.disabled .chips { opacity: 0.45; }
+/* A box dead for a value of another control - Weight with no adapter, Seeds
+   beside a seed list - looks dead too; its wrapper's title says why, since a
+   disabled box shows no tooltip of its own. The panel's own field rows only:
+   under 901 px the prompt check sits in the panel, and its comparison's
+   "original" box is disabled because it is always run, not because it is off. */
+.panel .sub > input:disabled, .panel .sub > select:disabled { opacity: 0.45; cursor: not-allowed; }
+/* The caption, its badge and "(this checkpoint takes none)" stay; the empty
+   row of chips under them was a blank gap in every non-klein panel. */
+#reference-field.disabled .chips { display: none; }
+/* Empty until Batch or Repeat goes past 1, and its gap with it. */
+#run-hint:empty { display: none; }
 
-/* One chip per reference image: the thumbnail, and the way to drop it. Small
-   enough that four of them are a row rather than a second panel. */
+/* One chip per reference image: the thumbnail, its number - the "image 2" a
+   prompt names it by, since the order is what the numbers mean - and the way
+   to drop it. Dragged, or Alt+Left/Right on its x, a chip changes places;
+   Delete on the x drops it. Four of them are a row, not a second panel. */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 20px; }
 .chip {
   position: relative;
-  width: 52px; height: 52px;
+  width: 66px; height: 66px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   overflow: hidden;
   background: var(--panel-2);
+  cursor: grab;
 }
 .chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.chip-n {
+  position: absolute; left: 0; bottom: 0;
+  padding: 1px 5px; border-radius: 0 var(--r-sm) 0 0;
+  background: rgba(0, 0, 0, 0.7); color: #fff;
+  font-size: var(--fs-label); font-weight: 600; line-height: 1.3;
+  pointer-events: none;
+}
+.chip.dragging { opacity: 0.45; cursor: grabbing; }
+.chip.drop-before { box-shadow: -4px 0 0 var(--accent-2); }
+.chip.drop-after { box-shadow: 4px 0 0 var(--accent-2); }
+/* An image deleted since it was picked, or an id this browser remembered from
+   before: the browser's broken-image icon said nothing, and Generate then
+   failed on an id the chip never showed. */
+.chip.gone { border-color: var(--danger); }
+.chip.gone img { visibility: hidden; }
+.chip.gone::after {
+  content: "deleted";
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  color: var(--danger); font-size: var(--fs-xs); text-align: center;
+  pointer-events: none;
+}
 .chip button {
   position: absolute; top: 0; right: 0;
   width: 18px; height: 18px;
@@ -675,8 +859,16 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 .chip button:hover { background: var(--accent); }
 .chip button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
 
+/* The selected preset is the one thing on the strip that stands out: the
+   accent's fill. A preset inside the checkpoint's documented range is marked,
+   not filled - brighter text, a green edge and a dot in its corner - and on a
+   strip where every preset is in range (all-guided: FLUX's aspects, all of
+   Turbo's) the mark says nothing, so it goes, and the size line speaks for the
+   range. Green on nearly every pill used to outshine the selection, which
+   differed from its neighbours by a 1.4:1 fill. */
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .presets button {
+  position: relative;
   background: var(--panel-2);
   border: 1px solid var(--line-strong);
   color: var(--muted);
@@ -686,25 +878,27 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   cursor: pointer;
 }
 .presets button:hover { color: var(--text); }
-.presets button.recommended {
-  border-color: #287548;
-  color: var(--ok);
-  background: #11271a;
+.presets button.recommended { border-color: #287548; color: var(--text); }
+.presets button.recommended::after {
+  content: ""; position: absolute; top: 3px; right: 3px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--ok);
 }
-.presets button.recommended:hover { border-color: var(--ok); color: #b7f7cc; }
-.presets button.active { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
-.presets button.active.recommended {
-  border-color: var(--ok);
-  color: #d8ffe5;
-  background: #174128;
+.presets.all-guided button.recommended { border-color: var(--line-strong); }
+.presets.all-guided button.recommended::after { content: none; }
+.presets button.recommended:hover { border-color: var(--ok); }
+.presets button.active, .presets button.active.recommended {
+  border-color: var(--accent-strong); color: #fff; background: var(--accent-strong);
 }
+.presets button.active.recommended::after { background: #fff; }
 /* A portrait framing and its landscape inverse share one segmented box: the
    two pills are joined on a common border, and whichever is lit draws it. */
 .presets .pair { display: flex; }
 .presets .pair button:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
 .presets .pair button:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; margin-left: -1px; }
-.presets .pair button.recommended { position: relative; z-index: 1; }
-.presets .pair button.active { position: relative; z-index: 2; }
+.presets .pair button.recommended { z-index: 1; }
+.presets .pair button.active { z-index: 2; }
+/* Its ring over the joined neighbour, which comes later and would paint over it. */
+.presets button:focus-visible { z-index: 3; }
 /* The megapixel row is a second axis over the same pills, not more aspect ratios. */
 .presets.tiers { margin-top: 2px; }
 .size-tier-row { display: flex; align-items: stretch; gap: 6px; }
@@ -740,7 +934,13 @@ button { font: inherit; cursor: pointer; }
 .ghost.wide { width: 100%; margin-top: var(--sp-3); }
 .ghost.small { padding: calc((var(--h-sm) - var(--lh) * var(--fs-label) - 2px) / 2) 8px; font-size: var(--fs-label); flex: none; }
 .ghost:disabled, .ghost[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
-.ghost.small:hover:not(:disabled):not([aria-disabled="true"]) { color: var(--danger); border-color: var(--danger); }
+/* A dead button does not brighten under the pointer as if a press would act. */
+.ghost:disabled:hover, .ghost[aria-disabled="true"]:hover { color: var(--muted); border-color: var(--line-strong); }
+/* Red under the pointer only where the press destroys or stops something:
+   Cancel, Cancel queued, Delete unstarred. It used to be every small ghost
+   button - Sheet, Pause, Export PNG - which taught the colour to mean nothing,
+   and at its specificity it beat the active Sheet's accent. */
+.ghost.danger:hover:not(:disabled):not([aria-disabled="true"]) { color: var(--danger); border-color: var(--danger); }
 
 /* --------------------------------------------------------------- progress */
 
@@ -771,7 +971,6 @@ button { font: inherit; cursor: pointer; }
 }
 .last-run span { flex: 1 1 100%; word-break: break-word; }
 .last-run.bad { border-color: var(--danger); }
-.last-run .ghost.small:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
 
 /* ------------------------------------------------------------------ stage */
 
@@ -832,9 +1031,11 @@ button { font: inherit; cursor: pointer; }
 #gallery-count { color: var(--muted); font-weight: 400; font-size: var(--fs-body-sm); }
 /* The row break is decided from each item's flex basis before anything
    shrinks, so the search box starts at 140px - the bar stays one row on a
-   laptop - and grows back to 240px wherever the row has the room. */
+   laptop - and grows back to --search-w (240px, 480 on a wide window, where
+   the bar had 1,000 px to spare and the placeholder was cut mid-number)
+   wherever the row has the room. */
 .gallery-head input[type="search"] {
-  flex: 1 1 140px; min-width: 140px; max-width: 240px; margin-left: auto;
+  flex: 1 1 140px; min-width: 140px; max-width: var(--search-w); margin-left: auto;
 }
 .gallery-head .runs {
   background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--muted);

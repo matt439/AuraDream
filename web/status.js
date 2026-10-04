@@ -16,6 +16,10 @@ function applyDefaults(d) {
   if (!owned.steps) els.steps.value = d.steps;
   if (!owned.cfg) els.cfg.value = d.guidance_scale;
   if (!owned.mu) els.mu.value = d.mu ?? '';
+  // The grid's example compares no shift against this checkpoint's own, not
+  // Turbo's 1.15 on every one: where the profile has none, forcing one is
+  // what degrades FLUX, so there is no example to give.
+  els.gridMu.placeholder = d.mu != null ? `none,${d.mu}` : '';
   syncCfg();
 }
 
@@ -30,7 +34,10 @@ function applyHints(hints) {
     prompt: els.promptTip, size: els.sizeTip, refine: els.refineStrengthTip,
   };
   for (const [key, el] of Object.entries(tips)) {
-    if (hints[key]) el.textContent = hints[key];
+    if (!hints[key]) continue;
+    el.textContent = hints[key];
+    // A guide's prompt and size halves are paragraphs; style.css's `.tip.pre`.
+    el.classList.toggle('pre', hints[key].includes('\n'));
   }
 }
 
@@ -58,9 +65,22 @@ function applyGuide(g) {
     tagHelper = helper;
     syncTagHelper();
   }
+  // A checkpoint whose guide wants Danbooru tags and not prose (Animagine; the
+  // hybrid ones document prose as well) shows the start of its authors' first
+  // example, cut at a comma: the prose placeholder failed its own style check.
+  const tags = helper?.vocabulary === 'danbooru' && !helper.hybrid_prompt && examples.length;
+  els.prompt.placeholder = tags ? tagPlaceholder(examples[0]) : promptPlaceholderDefault;
+}
+
+function tagPlaceholder(example) {
+  if (example.length <= 60) return example;
+  const cut = example.lastIndexOf(',', 60);
+  return cut > 0 ? `${example.slice(0, cut)}, …` : example;
 }
 
 function syncMu() {
+  // Blank is the pipeline's own shift; a dead box promises nothing.
+  els.mu.placeholder = muSupported ? 'auto' : '';
   els.mu.disabled = !muSupported;
   els.muField.classList.toggle('disabled', !muSupported);
   els.gridMu.disabled = !muSupported;
@@ -258,16 +278,25 @@ async function refreshLoras() {
     }
     els.lora.value = [...els.lora.options].some((o) => o.value === chosen) ? chosen : '';
     pendingLora = '';
-    if (body.detail) els.loraTip.textContent = body.detail;
+    // What an adapter is and where they come from, always; the files not
+    // offered and why after it, in a wider tip, rather than in its place. A
+    // detail names its file first, which the list already does.
+    const about = body.directory
+      ? `A LoRA adapter from ${body.directory}; Weight 0-2 scales its effect.` : loraTipDefault;
+    const why = (e) => (e.detail.startsWith(e.name) ? e.detail.slice(e.name.length).trim() : e.detail);
+    let tip = about;
+    if (body.detail) tip = body.detail;
     else if (!(body.loras ?? []).length) {
-      els.loraTip.textContent =
-        `No adapters found. Drop a .safetensors LoRA into ${body.directory} and reload.`;
+      tip = `No adapters found. Drop a .safetensors LoRA into ${body.directory} and reload.`;
     } else if (hidden.length) {
       const all = hidden.length === body.loras.length;
-      els.loraTip.textContent =
-        `${all ? 'Every adapter in the directory is for another checkpoint' : 'Not shown, for another checkpoint'}: `
-        + hidden.map((e) => `${e.name} - ${e.detail}`).join('; ');
-    } else els.loraTip.textContent = loraTipDefault;
+      tip = `${about}\n\n`
+        + `${all ? 'Every adapter in the directory is for another checkpoint' : 'Not shown, for another checkpoint'}: `
+        + hidden.map((e) => `${e.name} - ${why(e)}`).join('; ');
+    }
+    els.loraTip.textContent = tip;
+    els.loraTip.classList.toggle('wide', tip.includes('\n'));
+    els.loraTip.classList.toggle('pre', tip.includes('\n'));
     syncConditioning();
   } catch { /* the list is a convenience; the field simply stays empty */ }
 }

@@ -217,6 +217,8 @@ els.cfg.oninput = () => { own('cfg'); syncCfg(); };
 // them - and clearing it has to stop a stale axis reaching the server.
 els.lora.onchange = () => { syncConditioning(); schedulePreview(); };
 els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
+// The greyed negative box points at the box that wakes it.
+els.negEnable.onclick = focusNegativeKnob;
 els.favOnly.onchange = resetGallery;
 // The Runs picker is the gallery's table of contents, so it follows the scope.
 els.allModels.onchange = () => { resetGallery(); loadRuns(); };
