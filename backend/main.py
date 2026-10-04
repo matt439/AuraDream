@@ -1006,24 +1006,31 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
     run_id = grid.run_id(cells, settings.model_id, settings.quantization)
     if not request.resume:
         return cells, values, 0, run_id
-    # Compare what the pipeline would *run*, not what the panel says: the rows
-    # were written from `backend.applied()`, so a negative prompt a Turbo cell
-    # at CFG 0 never saw is None on both sides rather than on one. Off the
-    # loop: up to three chunked scans, fired by the preview on every keystroke.
+    kept = await _not_yet_rendered(cells, request.width, request.height)
+    return kept, values, len(cells) - len(kept), run_id
+
+
+async def _not_yet_rendered(cells: list[grid.Cell], width: int, height: int) -> list[grid.Cell]:
+    """The cells the gallery does not hold yet at this size: what Resume runs.
+
+    Compare what the pipeline would *run*, not what the panel says: the rows
+    were written from `backend.applied()`, so a negative prompt a Turbo cell
+    at CFG 0 never saw is None on both sides rather than on one. Off the
+    loop: up to three chunked scans, fired by the preview on every keystroke.
+    """
     done = await asyncio.to_thread(
         storage.completed_cells,
         grid.prompts_of(cells),
-        request.width,
-        request.height,
+        width,
+        height,
         settings.model_id,
         settings.quantization,
     )
-    kept = [
+    return [
         cell
         for cell in cells
         if grid.prune_done([grid.Cell(request=backend.applied(cell.request), seed=cell.seed)], done)
     ]
-    return kept, values, len(cells) - len(kept), run_id
 
 
 @app.post("/api/grid", response_model=JobAccepted)
@@ -1164,8 +1171,18 @@ async def preview_grid(request: GridRequest) -> GridPreview:
 
     Same expansion as the real thing, so the count and the error messages the
     panel shows are the ones the run would have produced.
+
+    Without Resume, the cells the gallery already holds are counted too: Run
+    grid again after a night with a failed cell renders the whole night again,
+    and the count is what says Resume would not. Only where the seeds are
+    fixed - an explicit base or a list - since a random base matches nothing.
     """
     cells, values, skipped, _ = await _expand(request)
+    in_gallery = 0
+    if not request.resume and (request.seed is not None or request.seed_axis.strip()):
+        in_gallery = len(cells) - len(
+            await _not_yet_rendered(cells, request.width, request.height)
+        )
     # Cost is per step, and a grid's cells rarely agree on how many they take.
     per_step_ms = await asyncio.to_thread(
         storage.step_cost_ms, request.width, request.height, settings.model_id
@@ -1183,6 +1200,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
         cells=len(cells),
         images=images,
         skipped=skipped,
+        in_gallery=in_gallery,
         # As the pipeline would run them: the capability flags the status
         # endpoint publishes, applied cell by cell, say which cells collapse
         # into one picture before the night is spent finding out.

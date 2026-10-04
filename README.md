@@ -225,7 +225,9 @@ Open <http://127.0.0.1:7860>. The first generation downloads ~32 GB of weights
 for the default checkpoint (the transformer and the text encoder both) and
 loads them — expect several minutes. Subsequent loads read from the HF cache.
 
-`Ctrl`/`Cmd` + `Enter` generates from anywhere in the page. With an image open,
+`Ctrl`/`Cmd` + `Enter` generates from anywhere in the page, the prompt box
+included - except from a box of the open Grid search fold, where it runs the
+grid, and in the Refine dialog, where it runs the pass. With an image open,
 `←` and `→` walk the strip it came from — the current run, or the gallery, which
 pages in more as you reach the end of it — `F` stars it, `Delete` removes it
 after asking, and `Esc` closes it. Both are also buttons under the image.
@@ -788,7 +790,9 @@ Prompt variables   size = big | small | none
 
 Six prompts, crossed with whatever the other axes do. Values split on `|` rather
 than on a comma, because `a big, fluffy dog` is one value and splitting it the
-other way makes two cells of nonsense.
+other way makes two cells of nonsense. The grid preview under the fold shows the
+prompts the block resolved to, and marks a variable left with one value - most
+often `size = big, small`, commas where the `|` goes.
 
 `none` is a value too — the word and the space it sat in both come out, so the
 third size is `dog sitting on grass`. That is how you compare saying something
@@ -822,8 +826,9 @@ night which ends early has finished every setting for the seeds it reached -
 and every way of ending early was an accident. Give the grid more than the
 night can do, set Budget to the minutes you have (`--budget` in the
 terminal; counted from the start, load included), and it starts no cell after
-that. The stop is reported as the budget working, not as a cancel, and Resume
-finishes what was not reached.
+that. Once the gallery has timed renders at the grid's size, the grid preview
+says how many of the seeds the minutes complete. The stop is reported as the
+budget working, not as a cancel, and Resume finishes what was not reached.
 
 **Seed list** is the second night: the two seeds that gave the composition you
 want, crossed with a finer sweep. `4471, 8823` or `100-103` runs the whole grid
@@ -841,9 +846,12 @@ starts (or, after a failed load, retries) the download without queueing an
 image to do it.
 
 **Resume** skips the cells the gallery already holds: tick it and re-submit the
-same grid. It matches on the settings that make the image rather than on the job
+same grid, and a night that died at cell 300 of 480 costs the cell it died on,
+not the run. Left unticked, the grid preview says how many of its cells are
+already there. It matches on the settings that make the image rather than on the job
 that ran them, so a *new* job continues a dead one and an image rendered by hand
-earlier counts too. Each prompt of a prompt grid counts on its own. It needs the
+earlier counts too. Each prompt of a prompt grid counts on its own - finishing
+the big dog does not skip the small one. It needs the
 Seed field filled in with the seed the grid was *started* from — a random base
 would match none of the run it is continuing and would quietly render the whole
 thing again. Run grid writes that seed into the box when it was left blank, and

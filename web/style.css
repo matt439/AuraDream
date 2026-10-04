@@ -634,8 +634,34 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 }
 /* Where opening the fold (revealGridRun) or a Tab brings Run grid: as high
    above the window's bottom as a panel held by its bottom keeps it, which
-   leaves the preview room to grow by a line or two when its reply lands. */
-#btn-grid { scroll-margin-bottom: calc(var(--gutter) + var(--panel-pad) + 1px); }
+   leaves the preview room to grow by a line or two when its reply lands.
+   Full width by hand, like Generate: a <details> lays out what it holds in
+   its ::details-content box, a block, so `.section`'s flex never reaches the
+   button and it shrank to its label. Not a flex gap on that box either - it
+   would open up every row of a fold that is already the panel's tallest -
+   only the button's own margin off the preview above it. */
+#btn-grid {
+  width: 100%;
+  margin-top: var(--sp-2);
+  scroll-margin-bottom: calc(var(--gutter) + var(--panel-pad) + 1px);
+}
+/* The count, the time and the disk are what decide whether to start a night:
+   the preview's first line reads at body size, the axes and notes under it
+   stay hint text. Amber with the rest under .warn. */
+#grid-preview .totals { font-size: var(--fs-body-sm); font-weight: 600; color: var(--text); }
+#grid-preview.warn .totals { color: var(--warn); }
+/* The shortcut on the two buttons it presses - Generate, and Run grid from a
+   grid box (app.js routes it by focus). Generated content with empty alt text:
+   setBusy rewrites the label as text, which would wipe a child element, and
+   the accessible name stays the label (aria-keyshortcuts carries the keys).
+   Quieter by size and weight, not opacity, which would take the white below
+   the label's own contrast on the accent. */
+#btn-generate::after, #btn-grid::after {
+  content: 'Ctrl+Enter' / '';
+  margin-left: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
 
 /* Dim the textarea, not the whole field: the label and the note that explain
    the state have to stay legible. */

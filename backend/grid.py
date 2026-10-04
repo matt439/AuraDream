@@ -12,6 +12,9 @@ An axis is a comma- or space-separated list of values and ranges:
     6-12x2          6 8 10 12 - start-stop, step after the x
     none,1.15       mu only: `none` is "let the pipeline derive its own shift"
 
+A range may be written spaced out, `6 - 12 x 2`: a space beside the `-` or
+the `x` between two numbers is part of the range, not a separator.
+
 The prompt is an axis too, but a numeric list is no use to it. It varies through
 named placeholders instead - `{size} dog sitting on {ground}` over a block of
 
@@ -64,6 +67,17 @@ _RANGE = re.compile(
     r"^(?P<start>\d+(?:\.\d+)?)\s*-\s*(?P<stop>\d+(?:\.\d+)?)"
     r"(?:\s*[x*/]\s*(?P<step>\d+(?:\.\d+)?))?$"
 )
+
+# A range written with spaces in it - `2 - 5`, `6-12 x2` - is closed up before
+# the split on whitespace, which otherwise cut it into tokens: `-` reached the
+# none check ("only meaningful for Mu") on every box but Mu, where `0.8 - 1.2`
+# quietly became three cells, one of them none, and `x2` was "not a number".
+# Only between two digits, so a `-` standing alone is still Mu's none.
+_SPACED_RANGE = re.compile(r"(?<=\d)\s*([-x*/])\s*(?=\d)")
+
+# A range in someone else's syntax, `6..12` or `6 to 12`: refused as a range,
+# with ours, rather than as a token that is not a number.
+_OTHER_RANGE = re.compile(r"\d\s*(?:\.{2,}|to)\s*\d", re.IGNORECASE)
 
 # `{size}` in a prompt. Braces because the user's own example - a bare `x` and
 # `y` - would substitute inside `box` and `sky` too, and a prompt is prose.
@@ -173,14 +187,19 @@ def parse_axis(
 
     An empty spec returns an empty list - the caller substitutes its own base
     value, which is what makes an untouched axis mean "leave this alone".
+    `label` is the name of the box the spec was typed into, which every
+    message leads with: the preview prints it under the whole fold.
     """
+    text = (text or "").strip()
+    if _OTHER_RANGE.search(text):
+        raise ValueError(f"{label}: write a range as 6-12 (or 6-12x2)")
     values: list[Any] = []
-    for token in re.split(r"[,;\s]+", (text or "").strip()):
+    for token in re.split(r"[,;\s]+", _SPACED_RANGE.sub(r"\1", text)):
         if not token:
             continue
         if token.lower() in NONE_TOKENS:
             if not allow_none:
-                raise ValueError(f"{label}: {token!r} is only meaningful for mu")
+                raise ValueError(f"{label}: {token!r} is only meaningful for Mu")
             values.append(None)
             continue
         match = _RANGE.match(token)
@@ -385,23 +404,27 @@ def _sampling_values(
     lora_scale: str = "",
     strength: str = "",
 ) -> dict[str, list[Any]]:
-    """The numeric axes, each falling back to the request's own value."""
+    """The numeric axes, each falling back to the request's own value.
+
+    Each is labelled with the box it is typed into - the grid fold's, and the
+    Refine dialog's Strength - so a refusal names the box to fix.
+    """
     return {
-        "steps": parse_axis(steps, int, label="steps") or [request.steps],
+        "steps": parse_axis(steps, int, label="Steps") or [request.steps],
         "guidance_scale": parse_axis(cfg, float, label="CFG") or [request.guidance_scale],
-        "mu": parse_axis(mu, float, allow_none=True, label="mu") or [request.mu],
+        "mu": parse_axis(mu, float, allow_none=True, label="Mu") or [request.mu],
         # Only an axis when an adapter is selected: without one the scale is
         # not a setting at all (see `GenerateRequest.applied`), and a sweep of
         # it would be the same image several times over.
         "lora_scale": (
-            parse_axis(lora_scale, float, label="LoRA scale") or [request.lora_scale]
+            parse_axis(lora_scale, float, label="LoRA weight") or [request.lora_scale]
             if request.lora
             else [request.lora_scale]
         ),
         # The same rule for the refine pass: with no source the strength is
         # not a setting, and the axis collapses to the one value.
         "strength": (
-            parse_axis(strength, float, label="strength") or [request.strength]
+            parse_axis(strength, float, label="Strength") or [request.strength]
             if request.refine is not None
             else [request.strength]
         ),
@@ -419,7 +442,7 @@ def parse_seeds(text: str | None) -> list[int]:
     rather than a valid 9.2-quintillion seed, and a cell outside them fails
     with the schema's message when the cells are built.
     """
-    return parse_axis(text, int, label="seeds")
+    return parse_axis(text, int, label="Seed list")
 
 
 def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> str:

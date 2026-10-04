@@ -42,9 +42,60 @@ def test_float_ranges_do_not_drift():
 
 
 def test_mu_takes_none_and_nothing_else_does():
-    assert grid.parse_axis("none,1.15", allow_none=True, label="mu") == [None, 1.15]
-    with pytest.raises(ValueError, match="only meaningful for mu"):
+    assert grid.parse_axis("none,1.15", allow_none=True, label="Mu") == [None, 1.15]
+    with pytest.raises(ValueError, match="only meaningful for Mu"):
         grid.parse_axis("none", label="CFG")
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        ("6 - 12", [6, 7, 8, 9, 10, 11, 12]),
+        ("6-12 x2", [6, 8, 10, 12]),
+        ("6 - 12 x 2", [6, 8, 10, 12]),
+        ("6-12 * 2", [6, 8, 10, 12]),
+        ("2 -5", [2, 3, 4, 5]),  # was 2 and -5, which the schema then refused on the CFG box
+        ("6 - 8, 20", [6, 7, 8, 20]),
+        ("6 8 10", [6, 8, 10]),  # spaces between plain numbers still separate
+    ],
+)
+def test_a_spaced_range_is_one_range(spec, expected):
+    # The range regex always allowed the spaces; the split on whitespace before
+    # it never let them through, and `-` alone was refused as a none token.
+    assert grid.parse_axis(spec, int, label="Steps") == expected
+
+
+def test_a_spaced_range_on_mu_is_not_a_none_cell():
+    # `0.8 - 1.2` on Mu was three cells - 0.8, a `-` that is Mu's none, 1.2 -
+    # with nothing said. A `-` with no number on both sides is still none.
+    assert grid.parse_axis("1 - 1.2 x 0.1", allow_none=True, label="Mu") == [1.0, 1.1, 1.2]
+    assert grid.parse_axis("- 1.15", allow_none=True, label="Mu") == [None, 1.15]
+    assert grid.parse_axis("1.15, -", allow_none=True, label="Mu") == [1.15, None]
+
+
+@pytest.mark.parametrize("spec", ["6..12", "6 .. 12", "0.5...2", "6 to 12", "6TO12"])
+def test_another_range_syntax_is_answered_with_ours(spec):
+    with pytest.raises(ValueError, match=r"^Steps: write a range as 6-12 \(or 6-12x2\)$"):
+        grid.parse_axis(spec, float, label="Steps")
+
+
+def test_each_axis_is_named_after_its_box():
+    # The preview prints the message under the whole fold, so it leads with the
+    # box to fix - the Refine dialog's Strength among them - as the page says it.
+    adapted = request(lora="style", refine=3, strength=0.4)
+    boxes = {
+        "Steps": dict(steps="abc"),
+        "CFG": dict(cfg="abc"),
+        "Mu": dict(mu="abc"),
+        "LoRA weight": dict(lora_scale="abc"),
+        "Strength": dict(strength="abc"),
+    }
+    for box, axes in boxes.items():
+        spec = {"steps": "", "cfg": "", "mu": "", **axes}
+        with pytest.raises(ValueError, match=f"^{box}: 'abc' is not a number$"):
+            grid.axis_values(adapted, **spec)
+    with pytest.raises(ValueError, match="^Seed list: 'abc' is not a number$"):
+        grid.parse_seeds("abc")
 
 
 @pytest.mark.parametrize(

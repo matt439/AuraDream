@@ -302,13 +302,16 @@ async function api(path, options) {
 
 // FastAPI's own 422s carry a list of {loc, msg, ctx, input} objects, which as
 // JSON.stringify is a wall of braces in the error slot. Ours are plain strings.
+// A model validator's message arrives behind pydantic's "Value error, ", which
+// is the library talking, not the sentence it wraps.
 function readableDetail(detail) {
   if (typeof detail === 'string') return detail;
   if (!Array.isArray(detail)) return JSON.stringify(detail);
   return detail
     .map((e) => {
       const field = (e.loc ?? []).filter((part) => part !== 'body').join('.');
-      return field ? `${field}: ${e.msg}` : e.msg;
+      const msg = String(e.msg ?? '').replace(/^Value error, /, '');
+      return field ? `${field}: ${msg}` : msg;
     })
     .join('; ');
 }
