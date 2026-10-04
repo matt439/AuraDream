@@ -967,9 +967,22 @@ so the panel's `runs` is sent as 1 and the preview says it does not apply),
 and a time budget. The budget line divides the estimate by the seed count -
 every seed runs the same cells, so a seed's share is exact under the
 estimate - and says how many seeds the minutes complete, warning at none;
-it needs the estimate, says the load counts too while the model is not
-loaded (the budget runs from submission), and is left out under Resume,
-whose seeds are no longer alike.
+it needs the estimate, and is left out under Resume, whose seeds are no
+longer alike. The budget runs from submission (`jobs.submit_cells` sets the
+deadline), so the line says the load counts too while the model is not
+loaded, and the jobs ahead while the page is watching one: a Run grid
+pressed then queues, and its minutes go on the wait as well.
+
+The preview is asked again whenever something it reads moves, and not all
+of that is a box: `setBusy` asks on a job's start and end (the gallery
+holds a finished job's cells, and the queue ahead has emptied), and
+`refreshStatus` when the model becomes ready or stops being so. Before,
+only the boxes asked, and the two lines added for after a night - the
+cells already in the gallery, the load - stayed as they were before it.
+The first reply after the fold is opened by hand reveals Run grid again
+(`gridRevealPending`): the reply lands under the pointer that opened the
+fold, where the panel holds still (`panelResized`), and its lines pushed
+Run grid back below the window the opening had just brought it into.
 
 Axis messages lead with the name of the box they came from - `Steps`,
 `CFG`, `Mu`, `LoRA weight`, the Refine dialog's `Strength`, `Seed list` -
@@ -977,8 +990,12 @@ since the preview prints them under the whole fold. A range may be typed
 with spaces (`6 - 12 x 2`): `parse_axis` closes up a `-` or an `x` between
 two numbers before it splits on whitespace, which had cut `2 - 5` into a
 `-` refused as a none token everywhere but Mu, where `0.8 - 1.2` silently
-became three cells. A `-` with no number on both sides is still Mu's none,
-and `6..12` or `6 to 12` is answered with the syntax this one uses.
+became three cells. Closed up, `0.8-1.2` is a range with no step, counted in
+ones - the one value 0.8, which the trimmed totals would not show either -
+so a range its ones never sweep is asked for its step (`needs a step, e.g.
+0.8-1.2x0.1`), typed with the spaces or without. A `-` with no number on
+both sides is still Mu's none, and `6..12` or `6 to 12` is answered with the
+syntax this one uses.
 
 ## Resume keys on settings
 

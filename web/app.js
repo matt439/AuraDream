@@ -200,8 +200,9 @@ els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
 // On the summary's click (Enter and Space on it are clicks too), not on the
 // toggle event, which restorePanel and resetPanel set off as well; the fold
-// is open by the next frame.
+// is open by the next frame. And again once its preview lands (previewShown).
 els.gridSection.querySelector('summary').addEventListener('click', () => {
+  gridRevealPending = true;
   requestAnimationFrame(revealGridRun);
 });
 els.width.oninput = els.height.oninput = syncSize;

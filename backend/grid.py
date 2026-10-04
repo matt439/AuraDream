@@ -72,6 +72,8 @@ _RANGE = re.compile(
 # the split on whitespace, which otherwise cut it into tokens: `-` reached the
 # none check ("only meaningful for Mu") on every box but Mu, where `0.8 - 1.2`
 # quietly became three cells, one of them none, and `x2` was "not a number".
+# Closed up, `0.8-1.2` is a range, which with no step counts in ones and
+# never gets past 0.8: `_range_values` asks for the step.
 # Only between two digits, so a `-` standing alone is still Mu's none.
 _SPACED_RANGE = re.compile(r"(?<=\d)\s*([-x*/])\s*(?=\d)")
 
@@ -170,6 +172,13 @@ def _range_values(match: re.Match[str], cast: Callable[[str], Any], label: str) 
     # The epsilon is what puts the endpoint of 0-1x0.1 in the list rather than
     # a hair outside it.
     count = int((stop - start) / step + 1e-9) + 1
+    # Without a step a range counts in ones, so `0.8-1.2` on Mu, CFG or a
+    # strength is the one value 0.8: a sweep that does not sweep, which the
+    # preview's totals - one value is a factor of one - would not show either.
+    if match["step"] is None and count == 1 and stop > start:
+        raise ValueError(
+            f"{label}: {match.string!r} needs a step, e.g. {match['start']}-{match['stop']}x0.1"
+        )
     if count > MAX_AXIS_VALUES:
         raise ValueError(f"{label}: {match.string!r} is {count} values, more than {MAX_AXIS_VALUES}")
     values = [start + index * step for index in range(count)]

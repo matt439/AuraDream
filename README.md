@@ -742,7 +742,9 @@ that lives only in the negative prompt on a checkpoint that ignores it, a CFG
 axis that never clears the threshold - and says so in amber, because the run
 would otherwise spend the night rendering the same picture (`--dry-run`
 prints the same warning). One grid is capped at `LOCAL_DIFFUSION_MAX_GRID_IMAGES` images
-and each axis at 64 values, because `1-1000` is eight characters.
+and each axis at 64 values, because `1-1000` is eight characters. A range
+without a step counts in ones, so one that would stop at its first value -
+`0.8-1.2` on Mu - is refused with a request for the step (`0.8-1.2x0.1`).
 
 ### Reference images and LoRA adapters
 
@@ -827,7 +829,8 @@ and every way of ending early was an accident. Give the grid more than the
 night can do, set Budget to the minutes you have (`--budget` in the
 terminal; counted from the start, load included), and it starts no cell after
 that. Once the gallery has timed renders at the grid's size, the grid preview
-says how many of the seeds the minutes complete. The stop is reported as the
+says how many of the seeds the minutes complete, and that the load or a job
+queued ahead spends them too while there is one. The stop is reported as the
 budget working, not as a cancel, and Resume finishes what was not reached.
 
 **Seed list** is the second night: the two seeds that gave the composition you

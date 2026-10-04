@@ -60,6 +60,9 @@ function setBusy(on) {
   if (!on) { els.progressText.textContent = ''; currentJob = null; }
   syncQueueNote();
   syncPromptExpansion();
+  // The grid preview reads both ends of a job: a budget's queue ahead, and
+  // the cells in the gallery, which now hold a finished job's.
+  schedulePreview();
 }
 
 // The jobs waiting behind the watched one, from the ids their submissions
@@ -340,8 +343,22 @@ function singleValueLines(text) {
 // after the reply for the boxes as they are. Same token the gallery uses.
 let previewEpoch = 0;
 
+// Opening the fold by hand brings Run grid into view on the next frame
+// (revealGridRun), and the preview's reply lands after that, under the same
+// pointer, where the panel holds still (panelResized): its lines pushed Run
+// grid back below the window the opening had just brought it into. The
+// summary's click sets this, and the first preview shown after it reveals
+// Run grid again, as part of the same opening.
+let gridRevealPending = false;
+function previewShown() {
+  if (!gridRevealPending) return;
+  gridRevealPending = false;
+  revealGridRun();
+}
+
 async function previewGrid() {
   if (!els.gridSection.open) {
+    gridRevealPending = false;
     if (gridMaxCfg !== null) { gridMaxCfg = null; syncCfg(); }
     return;
   }
@@ -352,6 +369,7 @@ async function previewGrid() {
   if (!els.prompt.value.trim()) {
     els.gridPreview.classList.remove('warn');
     els.gridPreview.textContent = 'Enter a prompt above to see what this grid would run.';
+    previewShown();
     return;
   }
   const body = gridPayload();
@@ -387,15 +405,22 @@ async function previewGrid() {
     // A seed's share of the estimate, against the budget: every seed runs the
     // same cells (seeds are the outer loop), so the share is exact under the
     // estimate - and there is no line without one. The budget counts from Run
-    // grid, the load included, which the estimate does not (the topbar's dot
-    // is the status's state). Not under Resume, whose seeds are no longer alike.
+    // grid, so the load and any job ahead of it in the queue spend it too,
+    // which the estimate does not count: said while the topbar's dot (the
+    // status's state) is not ready, and while this page watches a job. Not
+    // under Resume, whose seeds are no longer alike.
     let budgetShort = false;
     if (body.budget_minutes && p.seconds && !body.resume) {
       const seeds = p.values.seed?.length || body.seeds;
       const done = Math.min(seeds, Math.floor(body.budget_minutes * 60 / (p.seconds / seeds)));
       budgetShort = done === 0;
+      const ahead = (busy ? 1 : 0) + queuedIds.length;
+      const also = [
+        els.dot.classList.contains('ready') ? '' : 'the load',
+        ahead === 1 ? 'the job ahead' : ahead ? `the ${ahead} jobs ahead` : '',
+      ].filter(Boolean);
       notes.push(`budget ${body.budget_minutes} min ≈ ${done} of ${seeds} seed${seeds === 1 ? '' : 's'} complete` +
-        (els.dot.classList.contains('ready') ? '' : ' (the load counts too)'));
+        (also.length ? ` (${also.join(' and ')} count${also.length > 1 || ahead > 1 ? '' : 's'} too)` : ''));
     }
     if (+els.runs.value > 1) notes.push(`Repeat (${+els.runs.value}) does not apply to a grid: Seeds is its count`);
     // Cells that would come out identical - an axis this checkpoint ignores -
@@ -428,6 +453,7 @@ async function previewGrid() {
     els.gridPreview.classList.add('warn');
     els.gridPreview.textContent = err.message;
   }
+  previewShown();
 }
 
 // The prompt check's comparison is a grid on the same panel, so whatever moves

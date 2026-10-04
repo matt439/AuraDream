@@ -73,6 +73,23 @@ def test_a_spaced_range_on_mu_is_not_a_none_cell():
     assert grid.parse_axis("1.15, -", allow_none=True, label="Mu") == [1.15, None]
 
 
+@pytest.mark.parametrize("spec", ["0.8 - 1.2", "0.8-1.2", "1.15 - 1.3", "3.5-4"])
+def test_a_short_range_without_a_step_is_asked_for_one(spec):
+    # Closed up, `0.8 - 1.2` is a range - counted in ones, the one value 0.8,
+    # which the preview's totals drop as a factor of one. Asked for its step
+    # rather than run as a sweep of one.
+    with pytest.raises(ValueError, match=r"^Mu: '[0-9.-]+' needs a step, e\.g\. [0-9.]+-[0-9.]+x0\.1$"):
+        grid.parse_axis(spec, allow_none=True, label="Mu")
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [("0.8-1.2x0.2", [0.8, 1.0, 1.2]), ("1-1", [1]), ("1.5-1.5", [1.5]), ("3.5-5.5", [3.5, 4.5, 5.5])],
+)
+def test_a_range_without_a_step_counts_in_ones(spec, expected):
+    assert grid.parse_axis(spec, label="CFG") == expected
+
+
 @pytest.mark.parametrize("spec", ["6..12", "6 .. 12", "0.5...2", "6 to 12", "6TO12"])
 def test_another_range_syntax_is_answered_with_ours(spec):
     with pytest.raises(ValueError, match=r"^Steps: write a range as 6-12 \(or 6-12x2\)$"):
