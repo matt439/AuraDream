@@ -31,6 +31,8 @@
      --accent-strong the primary buttons' fill and a selected preset's: white on it
                     is 5.4:1, where on --accent it was 4.35:1
      --accent-soft  a selected or hovered row on the accent: preset, menu item, critic kind
+     --danger-strong the delete dialog's Delete fill: white on it is 6.5:1, where
+                    on --danger, the red of text and edges, it is 3.0:1
      --warn         amber: stale, pooled-only, a warning, the loading dot, a mismatch
      --star         the favourite's amber, the same hue with a meaning of its own
      --pill         a pill's fill: tag options, prompt chips, order steps
@@ -104,6 +106,7 @@
   --accent-soft: #221c3d;
   --accent-2: #4ad6c8;
   --danger: #ff5c72;
+  --danger-strong: #b4233a;
   --ok: #4ade80;
   --warn: #fbbf24;
   --star: #fbbf24;
@@ -2305,8 +2308,7 @@ button { font: inherit; cursor: pointer; }
 .confirm-text p:last-child { color: var(--text-readout); }
 .confirm-dialog .field span { font-size: var(--fs-body-sm); color: var(--text); text-transform: none; letter-spacing: 0; }
 .confirm-actions { display: flex; justify-content: space-between; gap: var(--sp-3); }
-/* White on it is 6.2:1. */
-.primary.destroy { background: #b4233a; }
+.primary.destroy { background: var(--danger-strong); }
 .rf-head { display: flex; align-items: center; justify-content: space-between; }
 .rf-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
 .rf-source { display: flex; gap: var(--sp-3); align-items: flex-start; }

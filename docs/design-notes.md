@@ -3192,7 +3192,9 @@ Some of the same change is not scale but contrast and focus, and applies at
 every width: `--line-strong` is `#666680`, 3.33:1 on the
 panel and 3.11:1 on the fields where `--line` was 1.24 and 1.15 (U24; the
 review plan's `#62627a` is 2.92:1 on a field), `--accent-strong` is `#6a4cf0`,
-white on it 5.4:1 where the accent gave 4.35 (U89, U92), placeholders are
+white on it 5.4:1 where the accent gave 4.35 (U89, U92), `--danger-strong`,
+the delete dialog's Delete fill, is `#b4233a`, white on it 6.5:1 where
+`--danger` - the red of text and edges - gives 3.0, placeholders are
 `--muted` (5.16:1, U89), and a disabled box in one of the panel's field rows
 (`.panel .sub > input`, `select`) is dimmed like a greyed one (U94) - not
 every disabled input in the panel, since under 901 px the prompt check sits

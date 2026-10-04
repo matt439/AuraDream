@@ -792,7 +792,8 @@ Frontend and CLI:
   smokes run. A component's wide-tier rule goes in its own section, inside an
   `@media (min-width: 1800px)` block, and new CSS uses the tokens. Contrast
   and focus are not scale and apply at every width: `--line-strong`
-  (#666680), `--accent-strong` (#6a4cf0), placeholders in `--muted`, and the
+  (#666680), `--accent-strong` (#6a4cf0), `--danger-strong` (#b4233a, the
+  delete dialog's Delete fill), placeholders in `--muted`, and the
   page's own `:focus-visible` ring (2 px of `--accent-2`), which ships with
   `color-scheme: dark` because that turns the UA ring near black; a control
   with a focus style of its own outranks the ring. A disabled box is dimmed
