@@ -50,6 +50,15 @@ starts there, None where there is no pass: a profile number like the steps,
 because a strength is an index into the checkpoint's own schedule - 0.4 on
 SDXL, where WAI's author documents 0.35-0.5; 0.1 on the shifted FLUX.1 dev
 schedule, but 0.5 on schnell's unshifted four-step schedule.
+`refine_measured` is the largest pass `docs/verified.md` measured fitting the
+card, where it measured one - a `Measured` row: the checkpoint and
+quantization it ran on and its size. The Refine dialog warns past it and does
+not open past it. `defaults_for` gives the page its pixels as
+`refine_tight_pixels`, None for every profile with no row - the panel's
+generic 1600x1600 line - and `hints_for` the words naming the run
+(`refine_tight`), since a profile can be shared: FLUX.1 dev and the lite
+repos quote Krea dev's fp8 run, and say so. A figure, never a VRAM model:
+each one is a row of that file, and `tests/test_profiles.py` holds it there.
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -64,11 +73,12 @@ way `/api/status` does.
 """
 from __future__ import annotations
 
+import math
 from copy import deepcopy
-from typing import Any
+from typing import Any, NamedTuple
 
 from . import guides
-from .refine import DEFAULT_STRENGTH
+from .refine import DEFAULT_STRENGTH, leaves_a_step
 
 # What the server runs when nothing says otherwise. Here rather than in
 # config.py because launch.py needs the same three values for its menu and
@@ -85,6 +95,18 @@ DEFAULT_OFFLOAD = "model"
 # the typo back as if it meant something.
 QUANT_MODES: tuple[str, ...] = ("fp8", "int8", "none", "nunchaku")
 OFFLOAD_MODES: tuple[str, ...] = ("model", "sequential", "none")
+
+
+class Measured(NamedTuple):
+    """A refine pass `docs/verified.md`'s "Past 4 MP" table ran without
+    spilling: the checkpoint as the row names it, the quantization it ran
+    at, and the pass's size."""
+
+    checkpoint: str
+    quantization: str
+    width: int
+    height: int
+
 
 # Matched in order against a normalised model id.
 _PROFILES: list[tuple[str, dict[str, Any]]] = [
@@ -274,6 +296,10 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             # already mu 2.0, so 0.1 starts the pass at sigma 0.47 and keeps
             # the face; 0.15 (0.62) and up repaint it.
             "refine_strength": 0.1,
+            # Measured on Krea dev: 1536x1536 within a gigabyte of the card's
+            # top, 2048x2048 spilling. FLUX.1 dev and the lite repos share this
+            # profile, and so quote Krea dev's run, naming it.
+            "refine_measured": Measured("FLUX.1 Krea dev", "fp8", 1536, 1536),
             "true_cfg_supported": True,
             "guide": guides.FLUX1_GUIDE,
             "hints": {
@@ -299,6 +325,15 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
                     "Flow-matching timestep shift. FLUX derives its own from the image "
                     "resolution, and forcing a constant over it degrades the result: "
                     "leave this blank."
+                ),
+                # Under the Refine dialog's Strength, for a pass past
+                # `refine_measured`: the measured runs in verified.md,
+                # "Past 4 MP".
+                "refine_large": (
+                    "FLUX.1's shift grows with the size, so one strength starts a larger "
+                    "pass at more noise: measured on Krea dev at 2x of 1 MP, 0.1 started "
+                    "at sigma 0.75 and repainted the subject; Mu 1.15 at 0.2 started at "
+                    "0.46 and kept it."
                 ),
             },
         },
@@ -480,6 +515,8 @@ _PROFILES += [
             "refine_supported": True,
             # Shift 6: 0.15 starts the pass at sigma 0.51.
             "refine_strength": 0.15,
+            # Measured: 1536x1536 at 13.7 GB of the card, 2048x2048 filling it.
+            "refine_measured": Measured("Z-Anime", "fp8", 1536, 1536),
             "true_cfg_supported": False,
             "guide": guides.Z_ANIME_GUIDE,
             "hints": {
@@ -653,6 +690,9 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "reference_supported": False,
         "refine_supported": True,
         "refine_strength": 0.4,
+        # Measured: 2560x3360 at 11.4 GB of the card - past the pass's own
+        # 8.4 MP guard, so nothing the dialog offers runs tight.
+        "refine_measured": Measured("WAI v17", "fp8", 2560, 3360),
         "true_cfg_supported": False,
         "guide": guides.WAI_GUIDE,
         "hints": {
@@ -805,12 +845,24 @@ def _profile_for(model_id: str) -> dict[str, Any]:
     return _FALLBACK
 
 
-_PROSE = ("hints", "guide")
+# The prose, and the measured refine pass, whose pixels reach the defaults as
+# `refine_tight_pixels` and whose words the hints as `refine_tight`.
+_NOT_DEFAULTS = ("hints", "guide", "refine_measured")
 
 
 def defaults_for(model_id: str) -> dict[str, Any]:
-    """The numbers only - callers put these straight into a request or a field."""
-    return {k: v for k, v in _profile_for(model_id).items() if k not in _PROSE}
+    """The numbers only - callers put these straight into a request or a field.
+
+    `refine_tight_pixels` is the measured pass's pixels where a pass was
+    measured; every other profile answers None for it, which the page reads
+    as "not measured".
+    """
+    profile = _profile_for(model_id)
+    measured = profile.get("refine_measured")
+    return {
+        **{k: v for k, v in profile.items() if k not in _NOT_DEFAULTS},
+        "refine_tight_pixels": measured.width * measured.height if measured else None,
+    }
 
 
 def guide_for(model_id: str) -> dict[str, Any]:
@@ -877,10 +929,12 @@ _REFERENCE_HINTS = {
 }
 
 # The Refine dialog's Strength badge. One sentence wherever the capability is,
-# like the reference box, with the profile's own starting strength in it: what
-# a strength does is the schedule's, which is why `refine_strength` is a
-# profile key and not one constant (see "The refine pass" in the design notes
-# for each value's basis).
+# like the reference box, with the profile's own starting strength in it, and
+# its own sweep for the example: what a strength does is the schedule's, which
+# is why `refine_strength` is a profile key and not one constant (see "The
+# refine pass" in the design notes for each value's basis, and for why one
+# strength redraws more of a larger pass on FLUX.1 - which the dialog says
+# under Strength there, `refine_large`, once the size gets that far).
 _REFINE_HINTS = {
     False: (
         "A refine pass scales a gallery image up and re-denoises it part of the way. "
@@ -888,16 +942,29 @@ _REFINE_HINTS = {
         "the FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one."
     ),
     True: (
-        "Strength is how much of the source is redrawn - low keeps the picture, 1 "
-        "keeps nothing - and starts at {refine_strength:g} on this checkpoint. Steps "
-        "is still the whole schedule, of which about Steps x Strength run. What a "
-        "number does is the schedule's: a flow-matching checkpoint's shift puts the "
-        "same strength at a noisier point than SDXL's, and FLUX.1's shift grows "
-        "with the size, so 2x redraws more than 1.5x at one strength. Several "
-        "strengths - 0.3,0.4,0.5 or 0.2-0.5x0.1 - run as one sweep and open as a "
-        "sheet."
+        "Strength: how much of the source is redrawn - low keeps the picture, 1 keeps "
+        "nothing. It starts at {refine_strength:g} on this checkpoint. Several values, "
+        "such as {refine_sweep}, run as one sweep and open as a sheet."
     ),
 }
+
+
+def strength_sweep(start: float, steps: int) -> list[float]:
+    """Three strengths around `start` - half of it, it, and half as much again -
+    on the 0.05 grid, less any that leaves no step of `steps` or passes 1.
+
+    The Refine dialog's Compare 3 writes the same values into Strength
+    (`compareStrengths` in web/refine.js, the same arithmetic in the same
+    order, so the floats round alike), and the Strength tip quotes them: the
+    checkpoint's own neighbourhood, where a fixed example would be SDXL's
+    0.3-0.5 everywhere - each of which repaints the subject on FLUX.1.
+    """
+    out: list[float] = []
+    for factor in (0.5, 1, 1.5):
+        value = round(math.floor(factor * start / 0.05 + 0.5) * 0.05, 2)
+        if 0 < value <= 1 and leaves_a_step(steps, value) and value not in out:
+            out.append(value)
+    return out
 
 # The LoRA box. Unlike every other capability here this one is the *environment*
 # talking, not the checkpoint: peft has to be installed and the base weights
@@ -936,13 +1003,16 @@ def hints_for(
     do the same for their boxes.
     """
     profile = _profile_for(model_id)
-    values = {k: v for k, v in profile.items() if k not in _PROSE}
+    values = {k: v for k, v in profile.items() if k not in _NOT_DEFAULTS}
     if cfg_threshold is not None:
         values["cfg_threshold"] = cfg_threshold
     # A checkpoint whose profile names no starting strength - one the table
     # guessed has no refine pass, or does not know - runs at the general one
     # if its pipeline turns out to have a pass, and the tooltip quotes that.
     values["refine_strength"] = values.get("refine_strength") or DEFAULT_STRENGTH
+    values["refine_sweep"] = ",".join(
+        f"{v:g}" for v in strength_sweep(values["refine_strength"], values["steps"])
+    )
     hints = dict(profile["hints"])
     hints["prompt"] = profile["guide"]["prompt"]
     hints["size"] = profile["guide"]["size"]
@@ -962,6 +1032,19 @@ def hints_for(
     hints["reference"] = _REFERENCE_HINTS[bool(references)]
     refines = profile["refine_supported"] if refine_supported is None else refine_supported
     hints["refine"] = _REFINE_HINTS[bool(refines)]
+    # The Refine dialog's size line past the measured pass, naming the run it
+    # quotes - on FLUX.1 dev that is Krea dev's, and fp8 whatever this server
+    # runs - with its size as verified.md writes it: one decimal read 2.4 MP
+    # for both a 2.43 MP request and the 2.36 MP line it was past.
+    measured = profile.get("refine_measured")
+    if measured and refines:
+        hints["refine_tight"] = (
+            f"past the {measured.width}×{measured.height} "
+            f"({measured.width * measured.height / 1e6:.2f} MP) measured on "
+            f"{measured.checkpoint} at {measured.quantization}"
+        )
+    if not refines:
+        hints.pop("refine_large", None)
     # No profile guess to fall back on: whether an adapter can be loaded is a
     # fact about this installation, which only the backend knows.
     if lora_supported is not None:

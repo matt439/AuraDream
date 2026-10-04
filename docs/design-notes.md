@@ -549,14 +549,41 @@ the top the gain was that of a far noisier step than the one just taken.
 
 **The source is covered and cropped, never stretched.** `refine.fitted`
 scales the source until it covers the requested size and crops the centre,
-Lanczos. The Refine dialog opens at the source's size times 1.5
-(`refine.scaled`, each side rounded to 16, half up - written out because
-`round()` rounds half to even and the page's `Math.round` does not, and the
-scale buttons and the CLI's `--scale` must land on the same size), where the crop
-is a few pixels at most; a size of another shape is a reframing, and the
-size line says "cropped to this shape". The resize is in the backend rather
-than left to the pipeline because SDXL's image-to-image call takes its size
-from the image and has no `width` or `height` at all.
+Lanczos. The scale buttons multiply the source's size (`refine.scaled`, each
+side rounded to 16, half up - written out because `round()` rounds half to
+even and the page's `Math.round` does not, and the scale buttons and the
+CLI's `--scale` must land on the same size), where the crop is a few pixels
+at most; a size of another shape is a reframing, and the size line says
+"cropped to this shape" and how much it keeps ("keeping the middle 56% ×
+100%"), from `refine.fitted`'s own arithmetic - cover, each side rounded
+half to even as Python's `round()` does, the centre cut out - which the
+page repeats (`refineKept`) so the number and the frame drawn on the large
+source are the pass's. Keep shape, on by default, moves the other side to
+the source's shape when W or H is typed: typing one side is how "2000 wide"
+is asked for, and alone it reframed the picture. It acts on typed input
+only, so a script that sets both sides means the size it sets; off, a
+reframing is one keystroke. The resize is in the backend rather than left to
+the pipeline because SDXL's image-to-image call takes its size from the
+image and has no `width` or `height` at all.
+
+**It opens at a size the checkpoint holds.** The dialog opens at the scale
+last run, 1.5x the first time, or the largest smaller factor that the pass
+takes and that is not past the tight line (below), else at the source's
+own size; a remembered scale it passed over says so on its button ("(last
+run at 2×)"), one click away. It used to open at 1.5x or the remembered
+scale whatever that came to: a 1.5 MP FLUX.1 source opened at 3.5 MP, and
+after one 2x pass every later source opened at 2x - past what the card
+holds (it fills at 2.4 MP), and on FLUX.1 at a size where the profile's
+own 0.1 starts near sigma 0.65-0.92 and repaints the subject. Open and
+Enter, the fastest path, ran exactly that. The line is the profile's
+measured one where `verified.md` has it, so WAI, which ran 8.6 MP, still
+opens at 1.5x; an unmeasured SDXL checkpoint opens capped at the generic
+line, one click from 1.5x or 2x. The guard is unchanged and is still the
+only refusal. A run at the size the dialog opened at in place of the scale
+it was asked for leaves the remembered scale alone (`refineCapped`): that
+size was the dialog's choice, and remembered as the user's, one Enter on a
+1.5 MP FLUX.1 source opened every later 1 MP source at 1x - the 2x trap
+above, turned round.
 
 **Everything else is the reference image's design.** The source is an id,
 never a path, resolved through `storage.reference_paths` under its own noun;
@@ -586,8 +613,9 @@ recompressing pixels, so `--from-image` sees the same links as the rebuilt row.
 source; on the page it is the Refine dialog's Strength box holding more
 than one value. Reuse on a refined record asks `GET /api/images/{id}` for
 its source, which the record holds by id alone, and opens the dialog on it.
-A source deleted while the dialog is open is the server's to refuse at
-submit, by name.
+A source deleted while the dialog is open is the server's to refuse, by
+name: in the dialog, where Refine waits for the preview of changed boxes
+(the preview runs the submit's checks), and at submit otherwise.
 
 **A strength is an index into the checkpoint's schedule, so where it starts
 is the profile's.** The first version had one default, 0.4, inside the
@@ -625,14 +653,47 @@ and `verified.md` says which are which. Every value leaves at least one step
 of its profile's own step count (`tests/test_refine.py`), or the Refine
 dialog on a 4-step checkpoint would open on a request the schema refuses. A
 checkpoint the table does not know has no number of its own and runs at
-`refine.DEFAULT_STRENGTH`. Two consequences are FLUX.1's alone and the
-tooltip says both: 2x redraws more than 1.5x at one strength (at 4 MP mu is
-3.2, and even the schedule's last step starts near sigma 0.5; measured
-2026-10-04, 0.1 at 2x starts at 0.752 and repaints the man), and a Mu set
-for the pass moves the index back - measured, Mu 1.15 at strength 0.2 starts
-at sigma 0.46 with 6 steps where the native schedule's 0.1 starts at 0.47
-with 3, and at 2x it starts at 0.463 and keeps him. The strength axis exists
-to put the candidates on one sheet.
+`refine.DEFAULT_STRENGTH`. Two consequences are FLUX.1's alone, and the
+dialog says both under Strength (the profile's `refine_large` hint) once a
+pass is past the tight line, where they bite: 2x redraws more than 1.5x at
+one strength (at 4 MP mu is 3.2, and even the schedule's last step starts
+near sigma 0.5; measured 2026-10-04, 0.1 at 2x starts at 0.752 and repaints
+the man), and a Mu set for the pass moves the index back - measured, Mu 1.15
+at strength 0.2 starts at sigma 0.46 with 6 steps where the native
+schedule's 0.1 starts at 0.47 with 3, and at 2x it starts at 0.463 and keeps
+him. The strength axis exists to put the candidates on one sheet.
+
+**The strength's help is the checkpoint's own numbers.** The Strength tip
+is two sentences - what it is, where it starts on this checkpoint - and a
+sweep example, all format strings over the profile: the example is
+`model_defaults.strength_sweep`, half the profile's strength, it, and half as
+much again on the 0.05 grid, less any value that leaves no step (0.05,0.1,0.15
+on FLUX.1, 0.2,0.4,0.6 on SDXL). The fixed example it replaced, 0.3,0.4,0.5,
+repaints the subject three times on FLUX.1, and so did the old 0.4
+placeholder. The dialog's Compare 3 writes the same three values into
+Strength - the page's `compareStrengths`, the same arithmetic in the same
+order so the floats round alike, at the Steps box's count - its placeholder
+is the start and the sweep, and one visible line says how a sweep is
+written. The button only fills the box; a sweep is never remembered. ArrowUp
+and ArrowDown step a single strength by 0.05 (0.01 with Shift) - one fixed
+step, since the profile's half would move SDXL's 0.4 past WAI's documented
+0.35-0.5 in one press - and a list or a range is left alone. A strength out
+of (0, 1] is refused in words that say what a strength is (`_a_fraction`, a
+custom error, since pydantic's own bound read "Input should be less than or
+equal to 1" in the dialog), and a single strength of 0.9 or more says in the
+preview that the pass keeps (almost) nothing of the source: description, not
+a refusal.
+
+**No live start sigma.** The review asked for the preview to read the pass's
+starting sigma off the loaded scheduler for the size. For an explicit Mu
+that is a copy of the scheduler and one `set_timesteps`, but the case that
+matters - FLUX.1 with no Mu, whose shift grows with the size - takes its mu
+from the pipeline's own `calculate_shift` over the latent sequence length,
+inside `__call__`. Reading it means re-deriving that outside the pipeline
+(the VAE scale factor, the patch size, the scheduler's base and max shift),
+which `schedule.forced_mu` exists to avoid, or running the pipeline, which
+needs the gate and the card. So the dialog says what was measured instead:
+the tight line, and on FLUX.1 the `refine_large` note.
 
 **Not the author's recipe.** WAI's hires pass upscales with R-ESRGAN 4x+
 Anime6B and has its own step count; this pass resizes with Lanczos and runs
@@ -668,7 +729,82 @@ remembers per browser (`local-diffusion.refine.v1`) the scale and versions
 last run and, per checkpoint, a single strength the user ran over the
 profile's - never a sweep, or the next open would start one; Reset forgets
 it with the panel. Ctrl+Enter inside the dialog runs the pass, not
-Generate.
+Generate, and its button shows the shortcut (a pseudo-element: `setBusy`
+rewrites the label).
+
+**Opened on the picture, at the controls it is opened for.** From 1600 px
+the dialog is two panes: the source's own PNG as large as the window allows
+on the left - a strength and a scale are judgements about this picture, and
+the 72 px cover-cropped thumbnail showed the middle 56% of a 16:9 source -
+with the kept region of a reshaped size framed on it and the rest dimmed,
+and the controls on the right at the width they have in one column. Under
+1600 px it is the one column, the thumbnail showing the whole picture. The
+two wrappers are `display: contents` there, so the tab order is the tree's
+at every width; the figure spans the grid's rows with the last row the
+flexible one, so a tall picture lengthens that row and never spreads the
+controls. It is anchored at a fixed top and grows downward: centred, every
+change of height - the fold, a sweep's second preview line, a refusal -
+moved the controls, the fold's own summary 136 px from under the pointer.
+The top margin comes out of `max-height`, so it still scrolls on a short
+screen. Focus lands on Strength with its value selected, so a typed number
+replaces it, where it used to land on Refine, the last control, and the
+first Tab left the dialog; a plain Enter in a one-line box runs the pass,
+as a form's submit would, so "open, Enter" still runs what it opened with.
+Refine - the button, Enter or Ctrl+Enter - first waits for the preview of
+what the boxes hold (`refinePreviewed`, the request the last preview
+answered, against the one they make now): the preview is what refuses a
+strength past 1 or one that leaves no step, and it is debounced, so
+"1.5, Enter" ran ahead of it, closed the dialog, put the server's refusal
+in the panel and lost the typed settings with it. A press on a refused
+Refine says why once: the preview's own refusal moves to the error line,
+in the preview's place and at its size, with Strength focused and marked
+`aria-invalid`; a size past the guard keeps its size line and focuses W -
+two copies of one sentence read as two problems, and a line of another
+height moved Refine from under the pointer. The dialog's column never
+shrinks its items (`flex-shrink: 0`): too tall for the window, it squeezed
+each to its min-height, a hint's 15 px, and a two-line preview ran over the
+line under it.
+
+**What is around the source.** Opened from Reuse on a pass, the title and a
+line of their own name the pass being run again ("Refine #4 as #5 was
+made", "Reusing #5: 1344×1728 at strength 0.2, seed 9"), since the dialog
+opens on the source. Images are named "#N" as the gallery's ids. The passes
+already made from the source are a row of thumbnails, newest first ("Passes
+of #4 (3)", the gallery's own `refine:` search on every checkpoint); one
+opens in the lightbox with the source ahead of it, so ← and → step between
+the pass and what it was made from. A close that did not run - Escape,
+Cancel, the cross, a pass opened from that row - keeps what was typed for
+the next open of the same image on the same checkpoint, in this page's
+memory only, and the reopened dialog says so with a Start over; Reuse, any
+other image, Reset or a run forgets it. It is never written to
+`local-diffusion.refine.v1`, where a sweep would start on another image.
+
+**The pass's own prompt is checked too.** The panel's Check reads the
+panel's prompt (`collect()`), which a pass never sends, so the dialog asks
+`/api/prompt/analyze` with its own request - the same cold, off-the-gate
+route, the strength left to the server - on open and a moment after the
+prompt, the negative or what switches it changes, under an epoch of its own.
+A line above the preview, outside the fold, says where each encoder stops
+reading ("CLIP-L/CLIP-G read 75 of 132 tokens (22 of 42 tags); the rest,
+from "outstretched arm", is never read") with Show selecting the rest, and
+each rule finding that rewrites its field whole has an Apply that writes
+the dialog's box through `replaceBoxText`, never the panel's: on SDXL a tag
+added at the end of a long prompt is past the 77-token cut and does nothing,
+which a hires-style pass is exactly where people add them. A pooled-only cut
+(FLUX.1's CLIP-L) and an encoder's advice are not shown. It never holds
+Refine, says it is checking only while a first use fetches the tokenizers,
+and is silent when it fails. Show and Apply go dead while the boxes hold
+other text than it read or the negative's activation has moved, and one on
+the negative prompt is dead, saying why, while the dialog's negative box is
+greyed - written there, nothing would run - as the panel's is. The lines
+are rebuilt on every reply, a moment after every pause in typing, so they
+are no live region: a screen reader re-read all of them each time, mostly
+unchanged. A visually hidden line beside them carries their text and is
+written only when it changes. On a tag checkpoint the Prompt box grows with
+what it holds, and a line under it names the comma items the tag index does
+not know, each once, from `/api/tags/validate` - advisory, and silent when
+the lookup is unavailable, as the chips are. The source's prompt above is captioned:
+the box may hold another by now.
 
 **A pass has a size guard of its own.** `max_side` and `max_pixels` are the
 largest preset because a direct render past a checkpoint's range composes
@@ -685,9 +821,24 @@ in one call. It is a typo guard, not a VRAM model, as the preset one is:
 measured on 2026-10-04 (`verified.md`), WAI ran 8.6 MP at 5.5 GiB with the
 card two-thirds used, Z-Anime filled the card at 4.2 MP and took 715 s at
 8.4 MP while spilling into system memory, and FLUX.1 fills it at 2.4 MP.
-The dialog's size line says "may run tight on 16GB VRAM" past 1600x1600, as
-the panel's does; the time estimate, from passes already made at that size,
-is the honest per-checkpoint answer.
+What fits is quoted, not modelled: a profile's `refine_measured` is the
+largest pass `verified.md`'s "Past 4 MP" table ran without spilling - the
+row's checkpoint, its quantization and the size: 1536x1536 on FLUX.1 Krea
+dev and on Z-Anime, 2560x3360 on WAI, past the guard, so no size the dialog
+offers is tight there, all at fp8 - and `tests/test_profiles.py` holds each
+to its row. The page gets its pixels as `defaults.refine_tight_pixels` and
+its words as `hints.refine_tight`, so past it the size line says "may run
+tight on 16GB VRAM, past the 1536×1536 (2.36 MP) measured on FLUX.1 Krea
+dev at fp8". The run is named because a profile is shared: FLUX.1 dev and
+the lite repos are the flux profile in every number and were never
+measured - the same transformer at fp8 on the one, 4-bit under Nunchaku on
+the others - and "measured on this checkpoint" said otherwise; so did one
+decimal, "past the 2.4 MP measured" on a request it called 2.4 MP. Every
+checkpoint whose profile has no row is None and keeps the panel's generic
+line past 1600x1600: Animagine, Kohaku and Illustrious run WAI's pipeline,
+but were not measured, and do not borrow its number. The time estimate,
+from passes already made at that size, is still the honest per-checkpoint
+answer.
 
 ## CellKey and run_id
 

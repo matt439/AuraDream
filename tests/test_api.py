@@ -39,7 +39,10 @@ def test_every_profile_explains_its_controls(model_id):
     # never quote a value the controls are not seeded with - and a mu of None or
     # a renamed key would blow up here rather than on the first hover.
     hints = hints_for(model_id)
-    assert set(hints) == {
+    # The Refine dialog's words past the size a pass was measured at - the run
+    # it quotes, `refine_tight`, and FLUX.1's `refine_large` - are only where
+    # a pass was measured.
+    assert set(hints) - {"refine_large", "refine_tight"} == {
         "steps", "guidance_scale", "mu", "true_cfg", "reference", "refine", "prompt", "size"
     }
     assert all(text and "{" not in text for text in hints.values())
