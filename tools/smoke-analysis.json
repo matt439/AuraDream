@@ -132,7 +132,7 @@
   {"eval": "els.seed.value = ''; window.__prompt = els.prompt.value; window.__gridPrompt = els.gridPrompt.value; void runComparison();"},
   {"wait": 3500},
   {"expect": "sheetMode && els.search.value.startsWith('job:') && document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8"},
-  {"expect": "[...document.querySelectorAll('#sheet-grid .rowhead')].map((e) => e.textContent).join() === 'variant original,variant rewrite'"},
+  {"expect": "[...document.querySelectorAll('#sheet-grid .rowhead')].map((e) => e.querySelector('.label').textContent).join() === 'Original,Rewrite'"},
   {"expect": "els.prompt.value === window.__prompt && els.gridPrompt.value === window.__gridPrompt && els.seed.value !== '' && els.batch.value === '4'"},
   {"eval": "setSheet(false); els.search.value = ''; resetGallery(); els.batch.value = '1'; els.batch.dispatchEvent(new Event('input', {bubbles: true}));"},
 
@@ -313,7 +313,7 @@
   {"log": "'(waits for the job and the sheet it opens - sheetMode on and its query settled - rather than a fixed time, which a loaded machine outran)'"},
   {"eval": "void runComparison(); window.__sheetSettled()"},
   {"expect": "sheetMode && !els.favOnly.checked && document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8 && els.sheetNote.textContent.endsWith(' · Favorites unticked: nothing in a new comparison is starred yet')"},
-  {"expect": "[...document.querySelectorAll('#sheet-grid .rowhead')].map((e) => e.textContent).join() === 'variant original,variant yours'"},
+  {"expect": "[...document.querySelectorAll('#sheet-grid .rowhead')].map((e) => e.querySelector('.label').textContent).join() === 'Original,Your version'"},
   {"log": "'The notice belongs to the query it was set for: the same run opened again from the Runs picker reads plainly'"},
   {"eval": "showJob(els.search.value.slice(4)); window.__sheetSettled()"},
   {"expect": "sheetMode && !els.favOnly.checked && document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8 && els.sheetNote.textContent === '8 of 8 loaded'"},

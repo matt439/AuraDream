@@ -128,8 +128,7 @@ function card(rec) {
       }
       // The run id spans every job that worked on the grid - a night that died
       // and was resumed is one run - where the job id names only one of them.
-      els.search.value = rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`;
-      setSheet(true);
+      showSheetScope(rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`);
     }),
     star,
     tool('⌦', 'Delete', () => deleteImage(rec)),
@@ -260,6 +259,7 @@ function forgetImages(ids) {
   }
   els.viewer.classList.toggle('multi', viewerRecords.length > 1);
   els.viewer.classList.toggle('many', viewerRecords.length > 4);
+  for (const id of gone) if (sheetSources.has(id)) sheetSources.set(id, null);
   if (sheetMode) renderSheet();
   if (!els.lightbox.open) return;
   // The strip has closed up under the viewer: the next image already sits at

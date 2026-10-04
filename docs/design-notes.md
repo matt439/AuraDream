@@ -924,6 +924,30 @@ shorter than its neighbours, and then the shared head and tail come off
 instead. Pins address their values by position, because a shortened label is
 not something that round-trips back to the prompt it came from.
 
+Successive edits of one prompt defeat both: different word counts, and a word
+added at the front keeps every head and tail, so six iterations of a portrait
+labelled themselves with three clipped openings, five of six columns alike.
+Where the two paths leave labels repeated or longer than `LABEL_CHARS`,
+each prompt is labelled by its edit against the oldest (`promptEdit`, over
+`promptChanges`, the critic's exact diff): `+, film grain`, `−golden +blue`,
+runs of edits joined by `…`; the oldest keeps its own words. That needs the
+prompt axis in the order the prompts were written, so `sheetValues` orders it
+by oldest image as it does a variable (alphabetical put `35mm photo, …`, the
+newest, first). On screen a label is whole - a heading wraps to three lines
+and its title is the full prompt - where a 540 px column used to show 44
+characters; `clip` stays for a line of fixed width: a pin's option, the note,
+the export's canvas.
+
+A comparison's `var:variant` axis reads as the prompt check names its
+versions (`VERSION_NAMES`: Original, Reordered, Rewrite, Your version) under
+the axis label Version, on the sheet and in its export, where it read `variant
+yours`. The stored labels are untouched - they are what `stats --by variant`
+groups by - and a label the map does not know reads as written. Where each
+label names one prompt (`versionPrompts`; where one names several, Prompt is
+kept as an axis instead), a version's row head carries the whole prompt as its
+title and, under the name, its edit against the original, up to 80
+characters: four 400-character versions open with the same words.
+
 ## Grid preview and the per-step estimate
 
 `POST /api/grid/preview` runs the same expansion without queueing it, so the
@@ -1029,6 +1053,19 @@ a canvas from the *thumbnails* (cells shrink so the longer edge stays under
 run and the time, and `exportSheet` downloads it. Not a server route: that
 would duplicate a layout contract the client already holds, the
 non-round-trippable prompt labels especially.
+
+The caption is what the image has to say on its own later: the prompt (the
+run's one prompt, else the first image's, with a variable run's values as
+declared - `size = big | small; ground = grass | dirt` - since a template is
+not a prompt any cell ran), the Fixed line, and the time the run was made,
+the oldest image's, where it used to print the moment of the export. The file
+is named by the run and the pins (`sheet-<run>-cfg-2_seed-42.png`), since
+every slice of a run used to download under one name. The export is still
+the slice on screen, as the screen is: an "every pin" export was left out. A
+wrapped single row (see "The contact sheet") wraps here too, `ceil(√n)`
+across with each cell captioned under it - drawn as one row, the 96 px floor
+beat the edge limit and a 120-seed run came out 12,254 px wide - and a refine
+sweep's source is drawn as the first column, headed `Source #<id>`.
 
 ## Pause
 
@@ -1521,6 +1558,82 @@ Favorites) - including a variable a user's own prompt grid happens to name
 `variant` (see "The variable assignment is recorded"). It asks for the whole
 run in one page (`sheetPage`, the status's `max_grid_images`) because a
 matrix with a page boundary through it is a puzzle.
+
+**Every sheet the page opens comes through `showSheetScope`** - a comparison,
+a refine sweep, the Runs picker, a card's ⊞, both branches of Show run - and
+once `setSheet` resolves (after `renderSheet`), if that is still the sheet
+shown, the page scrolls the gallery head under the topbar (its
+`scroll-margin-top`; smooth unless reduced motion is asked for). A finished
+comparison's sheet used to open at y = 1650 on a 1305 px screen, under the
+prompt check and the viewer, with nothing in view changed but a line in the
+panel. The landing is the gallery head rather than the sheet so the search,
+Favorites and Sheet - the sheet's own filters - stay in view; the viewer is
+not hidden (a running job lands there) nor the check folded, both a scroll
+up, and scrolling moves no focus. The Sheet button does not scroll: it is
+pressed at the gallery head.
+
+**The cells fit the screen's height as well as its width.** Columns are
+`minmax(96px, var(--cell-max))`, and `--cell-max` is the window less what
+sits round the grid at that landing - topbar, gallery head, controls, the
+Fixed line, the note - less the column heads, shared between the rows and
+times the aspect. `fitSheet` measures that chrome rather than guessing it, so
+a tier that scales the controls needs nothing, and `100vh` follows the window
+from there. A 4 x 3 at QHD went from 524 px cells in a 1,607 px sheet to
+339 px cells on one screen. The grid scrolls in a box of its own, no taller
+than the same space, and the heads stick to its top and left edges on the
+page's background, over their whole row or column, so a matrix still past
+the 96 px floor keeps its labels beside the rows being read; the page itself
+never scrolls sideways. Heads are at the body-small size in `--text` - 11 px
+grey over 500 px cells read as an afterthought - each label clamped to three
+lines with the whole value as the heading's title. A cell drawn wider than
+its 384 px thumbnail asks for the PNG (`srcset`, with `sizes` the measured
+cell width; lazy loading still fetches only what is on screen): the
+upscaled WEBP was soft exactly where a CFG or steps sweep differs.
+
+**A long single row wraps.** With no row axis and more columns than fit at
+96 px - a seeds-only run, which every Batch or Runs over 1 is - the cells lay
+out like the gallery (`minmax(var(--thumb-min), 1fr)`), each captioned with
+its value, rather than a ribbon several screens wide; one that fits stays a
+row under its heads. Only a sheet with no row axis wraps, so a matrix and the
+variant rows are never reshaped.
+
+**Around the matrix.** A Fixed line names the settings every image shares -
+under Favorites, what the keepers have in common, which the tick otherwise
+takes off every axis - in an element of its own, since the note is read back
+exactly. A starred cell carries the card's ring and 28 px badge (a 12 px
+glyph in a 690 px cell was not seen), and F on a focused cell stars it, one
+listener on the grid rather than a button per cell; the lightbox still walks
+the sheet in reading order. A refine pass says so (`⤢ 0.1`, top left) unless
+the strength is already an axis or a pin. Where every image is a pass of one
+source, the source leads as a column of its own, headed `Source #<id>`,
+spanning the rows and first in what the lightbox walks: it is fetched by id
+(`sheetSources`, alongside `learnSheetOrder`) and never a sheet record - no
+axis value, no cell of `cellOf`, no count - so a strength of null still means
+a direct render; a deleted source is said in the note. The axes gained
+References (`#8 + #10`) and Adapter, null where none applied as the LoRA
+weight is, so with and without a reference at one seed is three cells, not
+one; with one adapter the LoRA heads name it. Images that pass the pins but
+find their cell taken are counted - "3 of 4 shown · 1 shares a cell with
+another image and differs in something the sheet does not lay out" - where
+"1 of 3 loaded" read as images still on their way. Size stays off the axes.
+
+**The way back, and on.** Sheet off restores the search a page-opened sheet
+replaced (`sheetReturn`) while the box still holds what the page wrote, so a
+sweep's three images do not look like a gallery whose rest had gone; back to
+back sheets keep the search from before the first, and a search typed since
+stays. Over an empty search the Sheet button opens the newest run, saying so
+in the note, where a gallery of several runs gave a wall of `none` pins; a
+typed search is laid out as typed. A new pin takes the value most images
+carry under the pins already held (`reconcileAxes`): the first value is
+`none` for every variable of a mixed gallery and no image was `none` on all
+of them, so not one cell filled. Over a full run the counts tie and the first
+value still wins. A sheet of one run opened on `run:<id>` offers Resume this
+run: the run's base seed from `/api/runs` into the Seed box, Resume ticked
+for this session only, the grid fold opened and Run grid brought into view.
+The axes are not stored per run, so whether the panel still holds that grid
+is the preview's to say, and a preview that would skip nothing says the grid
+is a different one. Not on a comparison or a refine sweep, which the panel's
+grid did not make.
 
 ## The CLI's loop, and jobs.submit's
 

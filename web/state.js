@@ -63,7 +63,7 @@ const els = {
   gridResume: $('grid-resume'),
   sheetBtn: $('btn-sheet'), rerender: $('btn-rerender'), deleteUnstarred: $('btn-delete-unstarred'),
   sheet: $('sheet'), sheetControls: $('sheet-controls'),
-  sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'),
+  sheetFixed: $('sheet-fixed'), sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'),
   runHint: $('run-hint'),
   lastRun: $('last-run'), lastRunText: $('last-run-text'),
   lastRunShow: $('last-run-show'), lastRunDismiss: $('last-run-dismiss'),
