@@ -197,6 +197,12 @@ els.load.onclick = async () => {
 };
 els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
+// On the summary's click (Enter and Space on it are clicks too), not on the
+// toggle event, which restorePanel and resetPanel set off as well; the fold
+// is open by the next frame.
+els.gridSection.querySelector('summary').addEventListener('click', () => {
+  requestAnimationFrame(revealGridRun);
+});
 els.width.oninput = els.height.oninput = syncSize;
 // These run before the panel's delegated persist handler on the same event -
 // the target's listener fires before its ancestors' - so the `owned` flags
@@ -282,6 +288,11 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('resize', placeTagValidation);
 placeTagValidation();
+// The panel's sticky top follows its height - the grid fold, the progress,
+// the last-run banner, the hints all change it - and the window's. The
+// observer also reports once on observing, which places it at load.
+new ResizeObserver(placePanel).observe(document.querySelector('.panel'));
+window.addEventListener('resize', placePanel);
 buildPresets();
 // Before the sync functions, which light the presets, the CFG note and the
 // runs hint up from whatever is in the boxes.

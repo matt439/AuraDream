@@ -766,6 +766,16 @@ Frontend and CLI:
   remembers the scale, the versions and, per checkpoint, a single strength
   the user ran (`local-diffusion.refine.v1`); `resetPanel` forgets it.
   Ctrl+Enter in the dialog runs the pass, not Generate.
+- `web/style.css` takes its type, greys, spacing, control heights, radii and
+  layout widths from the tokens on `:root`, whose table says what each is
+  for; a size the page shares is a token, a one-off stays a literal, and a
+  control's vertical padding is worked out from its height token. The
+  settings panel's sticky top is measured (`placePanel`, from a
+  ResizeObserver and the window's resize, into `--panel-top`): under the
+  topbar while the panel fits, held by its bottom while it does not. Never a
+  window-height media query, and never `overflow-y: auto` on the panel,
+  which would clip the Examples menu, the tag menu and the tips; it stays
+  `position: sticky` at z-index 10 above 900 px and static at or below it.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets
@@ -894,7 +904,13 @@ Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom, the sheet, the export, the sheet's
 declared variable order (under Favorites too), a sparse comparison's rows,
 the re-render button, the panel's persistence and the duplicate/distinct
-counts, exiting 1 on a failed `expect`. `smoke-conditioning.json` runs
+counts, exiting 1 on a failed `expect`. It opens the page at 1400x900,
+where the smokes are written: `LOCAL_DIFFUSION_VIEWPORT=2560x1305` (a
+maximized QHD browser) and `LOCAL_DIFFUSION_DPR=1.25` (with 2048x1040, the
+same screen at 125% scaling) move it, a `viewport` step resizes it mid-run,
+and `LOCAL_DIFFUSION_PORT_OFFSET=N` adds N to every `127.0.0.1:<port>` in
+the steps, so a second checkout can run the same smokes against fake
+servers of its own. `smoke-conditioning.json` runs
 against a klein-claiming fake on 7864 for the reference chips, the adapter
 select, a weight sweep and the prompt check going stale when the references
 change (chips, Reuse); `smoke-flux.json` runs against a second fake server
@@ -1004,6 +1020,20 @@ key code, so a modal dialog closes on it as on a real press. Fake servers
 share one throwaway gallery unless `--data` gives each its own, and
 `smoke.json` counts the images planted under another checkpoint: run it on
 a fake of its own while others are up.
+
+`smoke-wide.json` checks the page at the sizes it is used at, switching
+with `viewport` steps between 2560x1305, 2048x1040 at 125% and 1400x900 on a
+FLUX.1 Krea [dev] fake on 7876: Generate on screen, and with the grid fold
+open - by a click on its summary, which scrolls Run grid into view - Run
+grid on screen after a wheel over the stage and at the end of a 160-image
+gallery, the panel's sticky top where `placePanel` puts it, a fold
+restored at load scrolling nothing, and the panel static in one column
+below 901 px:
+
+```powershell
+uv run python tools/fake_server.py --port 7876 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-wide.json
+```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on
 7874: the CLIP cut, the negation and quote findings with their sources, span

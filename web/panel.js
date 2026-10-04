@@ -1,4 +1,4 @@
-// Local Diffusion's page script: panel persistence, the last-run banner and the results viewer. Declarations only; state.js has
+// Local Diffusion's page script: panel persistence and its sticky top, the last-run banner and the results viewer. Declarations only; state.js has
 // the load-order contract these files share.
 'use strict';
 
@@ -130,6 +130,30 @@ function restoreSampling(modelId) {
     if (typeof sampling[key] === 'string') { el.value = sampling[key]; own(key); }
   }
   syncCfg();
+}
+
+// The panel's sticky top, measured (style.css has why): --sticky-top while
+// the whole panel fits the window, else the window's height less the panel's
+// and a gutter, so a panel taller than the window scrolls until its bottom is
+// in view and holds there. Written as an expression over the tokens rather
+// than a number, so a tier that changes --sticky-top or --gutter needs no
+// second measurement. app.js calls this whenever the panel's height or the
+// window's changes.
+function placePanel() {
+  const panel = document.querySelector('.panel');
+  const room = innerHeight - panel.getBoundingClientRect().height;
+  panel.style.setProperty('--panel-top', `min(var(--sticky-top), ${room}px - var(--gutter))`);
+}
+
+// Opening the grid fold by hand brings Run grid into view: the fold opens
+// downwards, past the window's bottom on most screens, and nothing in sight
+// says it did. The panel's top is placed first - the fold has just made it
+// taller, and the ResizeObserver would only report that after the scroll.
+function revealGridRun() {
+  if (!els.gridSection.open) return;
+  placePanel();
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  els.gridRun.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
 }
 
 // ------------------------------------------------------------ the morning after

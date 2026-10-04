@@ -1580,6 +1580,78 @@ portrait and landscape images keep their aspect ratio within the same slots.
 The live preview shares the columns and their height limit. Smaller windows
 and the single-image and two-to-four-image tiers keep their existing layout.
 
+## The settings panel's sticky top
+
+The settings panel is `position: sticky`, and its top is measured rather
+than fixed. `placePanel` (`web/panel.js`), run by a ResizeObserver on the
+panel and on the window's `resize`, sets `--panel-top` to
+`min(var(--sticky-top), <window height - panel height>px - var(--gutter))`.
+While the whole panel fits the window it rests under the topbar at
+`--sticky-top` (68 px), as it always has. While it does not - the grid fold
+open, the last-run banner, a short window, QHD at 125% scaling (2048 x 1040
+CSS px, where even the idle panel runs past the window) - its top goes
+negative, so the panel scrolls with the page until its bottom is a gutter
+above the window's, and holds there. Generate, Pause and Cancel, the error
+line and Run grid stay on screen at any scroll position; what the page gives
+up is the top of the panel, the prompt, which sits above the fold while the
+gallery is scrolled and comes back as the page scrolls up. The value is an
+expression over the tokens rather than a number, so a tier that changes
+`--sticky-top` or `--gutter` needs no second measurement.
+
+It replaces `@media (max-height: 900px) { .panel { position: static } }`
+(496bfb1), written because everything past the fold - Generate, Cancel, the
+error line, Run grid - was unreachable until the very end of the gallery
+released the panel. That rule never applied: it and the `max-width: 900px`
+query sat above the equally specific `.panel` rule, which came later and so
+won, and the panel stayed sticky at 1400 x 900 and in one column below 901
+px alike. 900 px was a guess besides: the 2026-10-04 UI review (U1) measured
+the panel at 1489 px with the grid open in a 1305 px QHD window and at 1089
+px idle in 1040 px, both past it, while the gallery's paging moves the end of
+the page away as it is reached. The `max-width` query now sits below `.panel`
+and really unpins the one-column page. No height query is kept as a fallback
+for a page without scripts, which cannot generate anyway, and one below the
+rule would override the measurement on every window under its height.
+`overflow-y: auto` on the panel was rejected: the Examples menu, Animagine's
+tag menu and the right-hand tips hang out past the panel's edge, and a scroll
+box clips them. The panel stays sticky at z-index 10, so its tips still paint
+over the cards.
+
+Opening the grid fold by hand - a click on its summary, as Enter and Space
+on it are - scrolls Run grid into view (`revealGridRun`, `block: 'nearest'`,
+smooth unless reduced motion is asked for), placing the panel for its new
+height first, since the ResizeObserver reports only after the frame. It
+listens for the click rather than the toggle event, which `restorePanel` and
+`resetPanel` set off as well: a fold restored at load scrolls nothing.
+`#btn-grid`'s `scroll-margin-bottom` is the gutter and the panel's bottom
+padding, so the reveal, or a Tab onto the button, leaves Run grid where a
+panel held by its bottom keeps it, with room for the preview's reply to add
+a line. `tools/smoke-wide.json` checks all of it at 2560 x 1305, 2048 x 1040
+at 125% and 1400 x 900.
+
+## Design tokens
+
+`web/style.css` opens with tokens on `:root` - seven type sizes, the four
+greys between `--text` and `--muted`, the spacing ladder, control heights,
+radii and the layout's widths - under a table saying what each is for. They
+came in on 2026-10-04 (step 5 of that day's UI review plan, U92) at the
+values the page already had, checked pixel for pixel against the commit
+before them at 1400 x 900, 2560 x 1305, 2048 x 1040 at 125% and 800 x 900,
+and by every element's computed style in thirteen states. The point is the
+steps after it: a wide tier or a short-window tier is one media query
+overriding `:root`, not a restyle of every rule. So the type scale keeps the
+page's seven steps (10 to 16 px) rather than the review prototype's five,
+each named for what uses it. A value one rule alone uses - a hairline, a
+pill's padding, a chip's state colours - stays a literal, and a glyph sized
+to a box of its own (the ? badge, a finding's mark, the stars, the close and
+arrow buttons) keeps its size, since scaling the type should not grow an
+icon inside a fixed circle. A control's height is its token: the vertical
+padding is worked out from it, `(height - line - border) / 2`, which is
+exactly the 7 px a ghost button always had, so a tier that raises a height
+or a type token gets that height without restating a padding. `--warn` and
+`--star` are the same amber with different meanings, and `--accent-strong`,
+the primary buttons' fill, is the accent itself until a tier darkens it for
+contrast.
+
 ## The live preview
 
 **The live preview is a linear map from the latents, keyed on the VAE.**
