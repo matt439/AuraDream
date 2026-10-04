@@ -123,14 +123,17 @@ function layoutLightbox() {
   els.lbZoom.textContent = Math.abs(lbView.scale - one) < 1e-3 ? '1:1'
     : lbView.scale === 1 ? `fit · ${percent}%` : `${percent}%`;
   els.lbStage.classList.toggle('zoomed', lbView.scale > 1);
-  // The arrows: at or below fit, strips as wide as the backdrop beside the
-  // picture (less a margin, 48-160 px) over the middle 60% of its height, so
-  // a press a little off the circle still steps rather than closing - and
-  // never over the picture, nor the corners, which still close. Zoomed in, or
-  // with no backdrop beside it, just the circle: the stage is a pan surface
-  // to its edges, and a strip there would take its drags and double-clicks.
+  // The arrows: at fit, strips as wide as the backdrop beside the picture
+  // (less a margin, 48-160 px) over the middle 60% of its height, so a press
+  // a little off the circle still steps rather than closing - and never over
+  // the picture, nor the corners, which still close. Anywhere else, or with
+  // no backdrop beside it, just the circle: the stage beside the picture has
+  // a gesture of its own there - zoomed in the pan, below fit the
+  // double-click that gives fit back - and a strip would take it. A disabled
+  // arrow is its circle alone too (style.css), so the end of the walk's
+  // backdrop still closes.
   const gutter = (pw - w) / 2 - 8;
-  const strips = lbView.scale <= 1 && gutter >= 48;
+  const strips = lbView.scale === 1 && gutter >= 48;
   els.lbMain.classList.toggle('strips', strips);
   els.lbMain.style.setProperty('--lb-gutter', `${strips ? Math.min(160, gutter) : 48}px`);
 }
@@ -246,6 +249,8 @@ function renderLightbox() {
   els.lbFav.textContent = rec.favorite ? '★ Starred' : '☆ Star';
   els.lbFav.setAttribute('aria-pressed', String(!!rec.favorite));
   els.lbFav.classList.toggle('active', !!rec.favorite);
+  // Kept facts keep their buttons, whose state follows the checkpoint's.
+  for (const use of els.lbSettings.querySelectorAll('.lb-use-refs')) syncUseReferences(use);
   syncReuseButton(els.lbReuse, rec.model_id);
   // aria-disabled, so the button keeps its place in the tab order and its
   // click can still say why: the reason is the checkpoint's, not the image's.
@@ -377,10 +382,14 @@ function referenceThumbs(rec) {
   block.className = 'lb-refs';
   const list = document.createElement('div');
   list.className = 'lb-ref-list';
+  const use = document.createElement('button');
+  // Each slot's "is it gone?" by id, for the Use press to ask again.
+  const goneBy = new Map();
   ids.forEach((id, i) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'lb-ref';
+    b.dataset.id = id;
     b.title = `Open #${id}, reference image ${i + 1}; → comes back here`;
     const img = document.createElement('img');
     img.src = `/api/images/${id}/thumb`;
@@ -395,8 +404,10 @@ function referenceThumbs(rec) {
       }
       b.setAttribute('aria-disabled', 'true');
       b.title = `#${id}, reference image ${i + 1}, has been deleted`;
+      syncUseReferences(use);
       return true;
     };
+    goneBy.set(id, gone);
     // A picture that will not load is asked about.
     img.onerror = () => { api(`/api/images/${id}`).catch(gone); };
     const caption = document.createElement('span');
@@ -415,21 +426,45 @@ function referenceThumbs(rec) {
     };
     list.append(b);
   });
-  const use = document.createElement('button');
   use.type = 'button';
-  use.className = 'ghost small';
+  use.className = 'ghost small lb-use-refs';
   use.textContent = 'Use these references';
-  const why = "This checkpoint can't use reference images; FLUX.2 [klein] can.";
-  use.setAttribute('aria-disabled', String(!referenceSupported));
-  use.title = referenceSupported ? 'Put these images in the panel as its references, in this order' : why;
-  use.onclick = () => {
-    if (!referenceSupported) { showError(why, true); return; }
-    setReferences([...ids]);
-    showError(ids.length === 1 ? `Reference ${imageNames(ids)} is in the panel.`
-      : `References ${imageNames(ids)} are in the panel.`, true);
+  // Every id is asked about again, as Reuse's are (`checkReused`): a slot
+  // drawn from the cache says nothing of an image deleted since, and a
+  // deleted one put in the panel was an empty chip and a refused Generate.
+  // Only the server's "unknown image" leaves one out; anything else keeps it.
+  use.onclick = async () => {
+    syncUseReferences(use);
+    if (use.getAttribute('aria-disabled') === 'true') { showError(use.title, true); return; }
+    const kept = await Promise.all(ids.map((id) => api(`/api/images/${id}`).then(() => true, (err) => !goneBy.get(id)(err))));
+    const live = ids.filter((_, i) => kept[i]);
+    const dead = ids.filter((_, i) => !kept[i]);
+    // Asked again after the answers: a load can change the checkpoint meanwhile.
+    syncUseReferences(use);
+    if (use.getAttribute('aria-disabled') === 'true') { showError(use.title, true); return; }
+    setReferences(live);
+    const put = live.length === 1 ? `Reference ${imageNames(live)} is in the panel`
+      : `References ${imageNames(live)} are in the panel`;
+    showError(!dead.length ? `${put}.` : `${put}; ${imageNames(dead)} ${dead.length === 1
+      ? 'is no longer in the gallery, so it was' : 'are no longer in the gallery, so they were'} left out.`, true);
   };
   block.append(list, use);
+  syncUseReferences(use);
   return block;
+}
+
+// Use these references, dead and saying why where the checkpoint takes none
+// or every one of them has gone - from the checkpoint as it is now, so a
+// render of the same facts (a status after a load) brings it up to date.
+function syncUseReferences(use) {
+  const slots = [...use.parentElement?.querySelectorAll('.lb-ref') ?? []];
+  const ids = slots.map((b) => b.dataset.id);
+  const why = !referenceSupported ? "This checkpoint can't use reference images; FLUX.2 [klein] can."
+    : slots.length && slots.every((b) => b.getAttribute('aria-disabled') === 'true')
+      ? `${imageNames(ids)} ${ids.length === 1 ? 'is' : 'are'} no longer in the gallery.`
+      : '';
+  use.setAttribute('aria-disabled', String(!!why));
+  use.title = why || 'Put these images in the panel as its references, in this order';
 }
 
 // The image a pass was refined from, by id: from a strip the page holds, else
@@ -560,6 +595,7 @@ async function compareSource(rec) {
 function setCompare(id, mode = lbCompare.mode) {
   const rec = lbList[lbIndex];
   const before = rec ? fitSize(rec)[0] : 0;
+  const held = els.lbSplit.contains(document.activeElement);
   lbCompare.id = id;
   lbCompare.mode = mode;
   if (id === null) lbCompare.source = null;
@@ -570,6 +606,10 @@ function setCompare(id, mode = lbCompare.mode) {
   }
   syncCompare(rec);
   layoutLightbox();
+  // S pressed on the divider hides it with the focus in it, which fell to the
+  // top of the dialog or out of it: it goes to the toggle that brings the
+  // divider back instead, or to the cross where this image has none.
+  if (held && els.lbSplit.hidden) (els.lbCompare.hidden ? els.lbClose : els.lbCompareOn).focus({ preventScroll: true });
 }
 
 // The divider, from a drag or its keys: a fraction of the picture on screen.
@@ -652,23 +692,41 @@ function dismissLightbox() {
   });
 }
 
-// Where the lightbox is - the image, the strip it is walking, the view - for
-// a Refine opened from it to go back to (`refineReturn`), and the way back
-// after a close that ran nothing: the image by id in the strip as it is now -
-// a job that landed meanwhile reloads the gallery, or starts a new viewer
-// strip, into a new array - else in the list it was walked in, at that view.
+// Where the lightbox is - the image, the strip it is walking, the view and
+// the comparison - for a Refine opened from it to go back to
+// (`refineReturn`), and the way back after a close that ran nothing: the
+// image by id in the strip as it is now - a job that landed meanwhile
+// reloads the gallery, or starts a new viewer strip, into a new array - else
+// in the list it was walked in, at that view.
 function lightboxPlace() {
   const rec = lbList[lbIndex];
   if (!els.lightbox.open || !rec) return null;
-  return { rec, list: lbList, gallery: lbList === galleryRecords, viewer: lbList === viewerRecords, view: { ...lbView } };
+  const compare = lbCompare.id === rec.id
+    ? { mode: lbCompare.mode, split: lbCompare.split, source: lbCompare.source } : null;
+  return {
+    rec, list: lbList, gallery: lbList === galleryRecords, viewer: lbList === viewerRecords,
+    view: { ...lbView }, compare,
+  };
 }
 
 function returnToLightbox(place) {
   const live = place.gallery ? galleryRecords : place.viewer ? viewerRecords : place.list;
   const list = live.some((r) => r.id === place.rec.id) ? live : place.list;
   openLightbox(list.find((r) => r.id === place.rec.id) ?? place.rec, list);
+  const rec = lbList[lbIndex];
+  // The comparison before the view: a scale is relative to the fit of the
+  // boxes it was taken in, and side by side that is half the stage - put on
+  // the whole of it, a 1:1 came back at 166%.
+  if (place.compare) {
+    lbSources.set(rec.refine, place.compare.source);
+    lbCompare.source = place.compare.source;
+    lbCompare.split = place.compare.split;
+    setCompare(rec.id, place.compare.mode);
+  }
   if (lbView.aspect === place.view.aspect) {
     Object.assign(lbView, place.view);
+    // Within this window's limits, which a resize meanwhile can have moved.
+    lbView.scale = clampScale(rec, lbView.scale);
     layoutLightbox();
   }
 }
@@ -708,8 +766,10 @@ els.lbSrcImg.onerror = () => {
 };
 
 // Wheel: zoom about the pointer. Non-passive, or the page behind the dialog
-// scrolls with it.
-els.lbStage.addEventListener('wheel', (e) => {
+// scrolls with it. On the stage's parent, so the arrows' strips over its
+// edges zoom too: on the stage alone they were a band each side the wheel
+// scrolled the page behind the dialog.
+els.lbMain.addEventListener('wheel', (e) => {
   e.preventDefault();
   zoomLightbox(Math.exp(-e.deltaY * 0.002), ...stagePoint(e));
 }, { passive: false });
@@ -722,9 +782,18 @@ els.lbStage.addEventListener('wheel', (e) => {
 // pointer capture, every later event's target is the stage, image or not. A
 // press on the swipe's divider drags the divider instead.
 let lbDrag = null;
+// A press on an arrow, for the stage to know the second half of a
+// double-click begun on one: the step can take the strip from under it - the
+// next picture fills the width - and that press is still the arrow's, neither
+// a close nor the double-click's 1:1. Half a second, Windows' default
+// double-click time.
+let lbArrowPress = -Infinity;
+let lbAfterArrow = false;
+for (const nav of [els.lbPrev, els.lbNext]) nav.addEventListener('pointerdown', (e) => { lbArrowPress = e.timeStamp; });
 els.lbStage.onpointerdown = (e) => {
   if (e.button !== 0) return;
   clearTimeout(lbCloseTimer);
+  lbAfterArrow = e.timeStamp - lbArrowPress < 500;
   lbDrag = { x: e.clientX, y: e.clientY, moved: false, onStage: e.target === els.lbStage, split: e.target === els.lbSplit };
   els.lbStage.setPointerCapture(e.pointerId);
 };
@@ -743,7 +812,7 @@ els.lbStage.onpointerup = () => {
   const drag = lbDrag;
   lbDrag = null;
   els.lbStage.classList.remove('dragging');
-  if (!drag || drag.moved || drag.split || !drag.onStage || lbView.scale > 1) return;
+  if (!drag || drag.moved || drag.split || !drag.onStage || lbAfterArrow || lbView.scale > 1) return;
   if (lbView.scale === 1) dismissLightbox();
   else lbCloseTimer = setTimeout(dismissLightbox, 400);
 };
@@ -755,6 +824,7 @@ els.lbStage.onpointercancel = () => { lbDrag = null; els.lbStage.classList.remov
 // at fit the first click already closed.
 els.lbStage.ondblclick = (e) => {
   clearTimeout(lbCloseTimer);
+  if (lbAfterArrow) return;
   if (lbView.scale !== 1) { zoomFit(); return; }
   if (onPicture(e)) zoomOneToOne(...stagePoint(e));
 };

@@ -1422,11 +1422,13 @@ ends it, its mode kept; a re-render of the same image (a star, a status)
 does not. Where the source has gone (`refine_missing`, or the fetch's
 "unknown image") the controls stay, `aria-disabled`, saying so. The divider
 is dragged (a press on it is not a pan) or moved by its arrow keys, which it
-takes before the lightbox's walk does.
+takes before the lightbox's walk does; hidden with the focus in it - S
+pressed there - it hands the focus to the toggle, not to the top of the
+dialog.
 
 **The controls are beside the stage, not under it.** The dialog is a row:
 `.lb-main` (the stage and its arrows) and a `.lb-side` column (280px;
-340-400px from 1800 px, `--lb-side-w` set in the lightbox's section) with
+340-400px from 1800 px, `--lb-side-w` with the wide tier's other widths) with
 the cross and the counter, the prompt and the facts, the error slot, the
 comparison, the keys line, the zoom row and the buttons. They used to sit
 under the stage as a meta line and a row of buttons, which cost it around
@@ -1444,7 +1446,12 @@ buried the seed and left out the negative prompt its True CFG applied to,
 the date and the run. The source, each reference (numbered as the panel's
 chips are, with "Use these references") and the run are buttons: the first
 two open that image with this one after it, so → comes back; the run opens
-as the card's ⊞ does. A source's passes are linked as the gallery's
+as the card's ⊞ does. Use these references asks for every id again, as
+Reuse does, and leaves out and names any the gallery no longer has: put in
+the panel, a deleted one was an empty chip and a refused Generate. It is
+`aria-disabled` with the reason where the checkpoint takes no references or
+every one has gone, and a render of the same facts brings that up to date
+(`syncUseReferences`), since a status after a load can change the first. A source's passes are linked as the gallery's
 `refine:` search once the gallery says there are any. The one-line
 `settingsLine` stays as the dialog's description (`#lb-desc`, hidden) and
 the delete confirm's. The counter names the image ("3/144 · #57") and
@@ -1457,14 +1464,24 @@ positioned in `.lb-main`, over the stage's edges but *not* inside the
 stage: the stage takes pointer capture on press, so a press on a child of
 it would have been a pan, and at fit a close, rather than the button's
 click. A 40 px circle there left 560 px of backdrop each side of a portrait
-picture at QHD, and a press 10 px off it closed the lightbox; so at or below
-fit, with backdrop beside the picture, each arrow is a strip as wide as
-that backdrop less a margin (48-160 px, `--lb-gutter`) over the middle 60%
-of the height, its circle where it always was. The corners stay backdrop,
-which `tools/smoke.json`'s close at [30, 30] relies on, and zoomed in, or
-with no backdrop beside the picture, the arrows are their circles again,
-since a strip there would take the pan surface's drags and double-clicks.
-The backdrop shows the default cursor, the picture the zoom one. A close of
+picture at QHD, and a press 10 px off it closed the lightbox; so at fit,
+with backdrop beside the picture, each arrow is a strip as wide as that
+backdrop less a margin (48-160 px, `--lb-gutter`) over the middle 60% of
+the height, its circle where it always was. The corners stay backdrop,
+which `tools/smoke.json`'s close at [30, 30] relies on. Anywhere else the
+arrows are their circles again: zoomed in, a strip would take the pan
+surface's drags, and below fit the double-click that gives fit back - a
+strip there stepped on its first click instead. So is a disabled arrow (the
+first image's ‹, the last's ›): a disabled button takes the press, and as a
+strip it left that side's backdrop closing nothing. The wheel is the
+stage's parent's, so it zooms over a strip as over the stage rather than
+scrolling the page behind the dialog. A press on the stage within half a
+second of one on an arrow is the second half of a double-click on the
+arrow (`lbAfterArrow`), neither a close nor a 1:1: the step can take the
+strip from under the pointer when the next picture fills the width. The
+arrows' own clicks are not filtered by click count, which would have cost
+a quick walk every other press. The backdrop shows the default cursor, the
+picture the zoom one. A close of
 the user's own - Escape, the cross, a click on the backdrop or beside the
 picture (`dismissLightbox`) - focuses the image the walk ended on, its card,
 tile or sheet cell, which scrolls it into view; a close that hands the page
@@ -1472,9 +1489,11 @@ to something else - Refine's dialog, Reuse's panel, a delete, Show this run
 - is `closeLightbox` alone, since a focused card would scroll the page back
 from where those took it. The Refine dialog closes the lightbox for itself;
 closed without running, it gives the lightbox back on the same image of the
-same strip, at the same view (`refineReturn`, resolved by id, since a job
-landing meanwhile reloads the gallery into a new array), unless its passes
-row has opened the lightbox on a pass already. Below 900px wide the column
+same strip, at the same view and comparison (`refineReturn`, resolved by
+id, since a job landing meanwhile reloads the gallery into a new array; the
+comparison put back before the view, whose scale is relative to the fit of
+half the stage side by side - on the whole of it a 1:1 came back at 166%),
+unless its passes row has opened the lightbox on a pass already. Below 900px wide the column
 drops under the stage as a wrapping row, without the keys line. The
 `tools/smoke.json` grid is 1152x896 for the same reason the layout changed:
 at the driver's 1400x900 a 1024x768 image fits at 104%, and its 1:1 is
