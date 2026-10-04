@@ -259,12 +259,18 @@ prompt; with true CFG 1.5 a different, reproducible one at ~1.65x the time.
 On the default checkpoint the negative box is therefore greyed on every fresh
 page, with the box that wakes it a field's height below. While it is greyed and
 the checkpoint takes a negative at all, a "Set True CFG" (or "Set CFG") button
-in the box's corner - and a press on the box itself, which `pointer-events:
-none` lets through to the field - focuses and selects the deciding box and
-writes nothing (`focusNegativeKnob`): a value is the checkpoint's, about 4 on
-Qwen-Image, none on schnell. The field is a `<div>` with a `<label
-for="negative">`, as the Prompt field is: inside a `<label>` the button became
-the label's control and the textarea lost its name (U100).
+after the note that names that box focuses and selects it and writes nothing
+(`focusNegativeKnob`): a value is the checkpoint's, about 4 on Qwen-Image,
+none on schnell. The field is a `<div>` with a `<label for="negative">`, as
+the Prompt field is: inside a `<label>` the button became the label's control
+and the textarea lost its name (U100). The button first sat in the box's
+corner, to cost no height, with `pointer-events: none` on the greyed box so a
+press on it reached the field and did the same. Both went: the button lay over
+the box's own text, a carried-over negative being what someone looking at a
+greyed box is reading, and the greyed box no longer took the wheel, so such a
+negative could be read only to its second line. In the caption it costs
+nothing where the note already wraps (the 330 px panel) and a line on a wide
+one.
 
 ## FLUX.2 klein: no negative prompt, and the threshold rule
 
@@ -329,8 +335,10 @@ prompts and the check name references "image 1", "image 2", so the order is
 what the prompt means. Each chip carries its number at bottom left, its image
 is named "Reference image N (gallery #id)", and it moves the way the tag chips
 do - dragged, or Alt+Left/Right on its × - with Delete on the × dropping it and
-focus going to the next chip's ×, else the previous one's, else the field's
-badge, rather than to `<body>`. Every move builds a new array and goes through
+focus going to the next chip's ×, else the previous one's, else the emptied
+row (`tabindex="-1"`, a group named "Reference images"), rather than to
+`<body>`. Not the field's badge: a focused badge opens its tip, which then lay
+over LoRA and Seed for someone who had only clicked the last × away. Every move builds a new array and goes through
 `setReferences`, the one writer, so the panel is remembered, the preview asked
 again and the prompt check marked stale ("references changed since"). A chip
 whose thumbnail does not load - an image deleted since, or an id this browser
@@ -914,7 +922,10 @@ submission everywhere else on the page - the gallery's Runs picker lists one
 Repeat-3 Generate as one run, `run:` searches for it, the last-run banner
 reports it - and a panel box of the same name counted something inside it
 (U88). Batch has a badge saying why Repeat exists, and the line under the
-boxes says batches, not passes, which is the Refine dialog's word.
+boxes says batches, not passes, which is the Refine dialog's word. In one
+column (under 901 px) the badge's tip opens leftwards: there the badge is
+600 px along an 800 px row, and a tip opening rightwards ran past the window
+and widened the page.
 
 ## A job is a list of cells
 
@@ -1731,10 +1742,11 @@ to add a line. `tools/smoke-wide.json` checks all of it at 2560 x 1305,
 2048 x 1040 at 125% and 1400 x 900, and the page's scale at each (the wide
 tier's, below). The wide tier makes the panel taller and lets the prompt box
 grow with its text, by as much as seven lines: that is a change of the
-panel's height like any other, placed as above. At 2560 x 1305 the idle panel
-with the last-run banner is 1,155 px and still rests; at 2048 x 1040 it was
-already held by its bottom, and the short-window tier keeps it about as tall
-as it was (1,078 px against 1,089).
+panel's height like any other, placed as above. On the FLUX fake with a
+one-image last-run banner, at 2560 x 1305 the idle panel is 1,132 px of the
+1,216 it can rest in, and still rests; at 2048 x 1040 it was already held by
+its bottom (1,071 px), and the short-window tier keeps it a little shorter
+than it was (1,034 px) while 70 px wider.
 
 ## Design tokens
 
@@ -1796,19 +1808,30 @@ controls taller (fields 44 px, the primary 48) and the topbar with them. In
 the wide tier the prompt box grows with what is typed, `field-sizing:
 content` from five lines to twelve (eight under 1150 px), capped in lines
 rather than in the window's height: a box 40% of the window tall would add
-400 px to a panel already past the fold at 125% (U14's rule tension). The
-short-window tier keeps the type and the widths and puts back today's
-control heights, gaps and panel padding, so at 2048 x 1040 the panel is about
-as tall as before while 70 px wider. Under 1800 px every token is today's,
-which is where the smokes run and why their computed-style checks hold.
+400 px to a panel already past the fold at 125% (U14's rule tension). The cap
+is the growth's, not the user's: dragging the grip writes the box's height
+inline, and the rule applies only to a box without one
+(`#prompt:not([style*="height"])`), so a dragged box keeps the height it was
+dragged to, as under 1800 px. The drag was the way round a long prompt before
+the tier, and a grip that stopped at eight lines took it away at 125%. The
+short-window tier keeps the type and the widths with compact controls of its
+own - about today's heights rather than the wide tier's (a field 40 px, the
+primary 44, the small and tiny buttons 28 and 21, two pixels over today's for
+the larger type in them), today's panel padding and topbar, and a 12 px gap
+where today's is 14 - so at 2048 x 1040 the panel is about as tall as before
+while 70 px wider. Under 1800 px every token is today's, which is where the
+smokes run and why their computed-style checks hold.
 
 Some of the same change is not scale but contrast and focus, and applies at
 every width: `--line-strong` is `#666680`, 3.33:1 on the
 panel and 3.11:1 on the fields where `--line` was 1.24 and 1.15 (U24; the
 review plan's `#62627a` is 2.92:1 on a field), `--accent-strong` is `#6a4cf0`,
 white on it 5.4:1 where the accent gave 4.35 (U89, U92), placeholders are
-`--muted` (5.16:1, U89), and a disabled box in the panel is dimmed like a
-greyed one (U94). `color-scheme: dark` on `:root` turns the scrollbars,
+`--muted` (5.16:1, U89), and a disabled box in one of the panel's field rows
+(`.panel .sub > input`, `select`) is dimmed like a greyed one (U94) - not
+every disabled input in the panel, since under 901 px the prompt check sits
+there and its comparison's "original" box is disabled because it always
+runs. `color-scheme: dark` on `:root` turns the scrollbars,
 checkboxes, spinners and select lists dark and `accent-color` ticks the boxes
 in the accent (U21); it also turns Chromium's `outline: auto` focus ring near
 black on this background, so the same change gives every control the page's

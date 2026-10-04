@@ -65,9 +65,9 @@
    stops there (--ramp is 0 at 1800 px and 1px at 2560, so a size is
    `today + steps * --ramp`), and the controls, the panel, the cards, the tips
    and the search box take a size of their own. Under 1150 px of height - QHD
-   at 125% is 1040 - the controls and the panel's gaps go back to today's, so
-   more of the panel is in the window. Nothing changes under 1800 px, where
-   the smokes run. */
+   at 125% is 1040 - the controls take compact heights near today's and the
+   panel's gaps tighten to 12 px, so more of the panel is in the window.
+   Nothing changes under 1800 px, where the smokes run. */
 :root {
   /* The scrollbars, checkboxes, number spinners and a select's list follow the
      page rather than the platform's light theme, and a ticked box is the
@@ -172,7 +172,11 @@
   }
 }
 /* A short window - QHD at 125%, a 1080p screen under a taskbar - keeps the
-   wide tier's type and widths with today's control heights and gaps. */
+   wide tier's type and widths with compact controls of its own: about
+   today's heights rather than the wide tier's (a field 40 px, the primary 44,
+   the small and tiny buttons 28 and 21, two pixels over today's for the
+   larger type in them), today's panel padding and topbar, and a 12 px gap
+   where today's is 14, so more of the panel is in the window. */
 @media (min-width: 1800px) and (max-height: 1150px) {
   :root {
     --panel-pad: 16px;
@@ -355,13 +359,17 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    scrolls), and W and H share their row. Capped in lines rather than in the
    window's height: the panel stays where panel.js keeps it, and a box as tall
    as 40% of the window would add 400 px to a panel already past the fold at
-   125%. A short window caps it at eight. */
+   125%. A short window caps it at eight. The cap is the growth's, not the
+   user's: dragging the grip writes the box's height inline, and from then on
+   the box is the height it was dragged to, as it is under 1800 px - the drag
+   was the way round a long prompt before any of this, and a grip that stopped
+   at eight lines would take it away at 125%. */
 @media (min-width: 1800px) {
-  #prompt { field-sizing: content; min-height: calc(4lh + var(--h-field)); max-height: calc(11lh + var(--h-field)); }
+  #prompt:not([style*="height"]) { field-sizing: content; min-height: calc(4lh + var(--h-field)); max-height: calc(11lh + var(--h-field)); }
   .size-row .sub { flex: 1; }
 }
 @media (min-width: 1800px) and (max-height: 1150px) {
-  #prompt { max-height: calc(7lh + var(--h-field)); }
+  #prompt:not([style*="height"]) { max-height: calc(7lh + var(--h-field)); }
 }
 
 .row { display: flex; gap: var(--sp-2); align-items: flex-end; }
@@ -406,6 +414,12 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 /* The rightmost badge's panel is wider than the field under it, so it hangs off
    the other edge instead of out past the panel. */
 .help.end .tip { left: auto; right: -6px; }
+/* In two columns Batch's badge is near the panel's middle and its tip opens
+   over the stage; in one column it is 600 px along an 800 px row, and the tip
+   ran out past the window and widened the page. */
+@media (max-width: 900px) {
+  #batch-tip { left: auto; right: -6px; }
+}
 /* And one that would run past the window's bottom opens upwards (placeTip,
    panel.js, sets `up` as it opens). */
 .help.up .tip { top: auto; bottom: calc(100% + 7px); }
@@ -420,10 +434,6 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 /* A caption's badges keep the caption's colour, not its letter-spacing. */
 .field > span .help, .field > span .tip, .field > span .examples,
 .field > span .tag-helper, .field > span #neg-enable { letter-spacing: 0; text-transform: none; font-weight: 400; }
-/* The greyed negative box's way out sits in the box's corner, where the press
-   that found it dead landed, rather than in a caption the note already wraps. */
-#negative-field { position: relative; }
-#neg-enable { position: absolute; right: var(--sp-2); bottom: var(--sp-2); }
 .field > span .help { margin-left: 5px; vertical-align: 1px; }
 /* Reset sits at the far end of the Prompt caption, away from Generate: it
    empties every box, and a slip next to the one button people press all day
@@ -777,9 +787,9 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 #btn-grid { scroll-margin-bottom: calc(var(--gutter) + var(--panel-pad) + 1px); }
 
 /* Dim the textarea, not the whole field: the label and the note that explain
-   the state have to stay legible. A press on it lands on the field, which
-   hands focus to the box that decides (app.js), rather than on a dead box. */
-#negative-field.disabled textarea { opacity: 0.45; pointer-events: none; }
+   the state have to stay legible. It still takes the wheel, so a negative
+   carried over from another checkpoint can be read while it is off. */
+#negative-field.disabled textarea { opacity: 0.45; }
 /* The True CFG box on a checkpoint where CFG is real CFG already: the badge
    beside it says why, so it stays where it is rather than vanishing. */
 .sub.disabled input { opacity: 0.45; }
@@ -789,8 +799,10 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 .row.disabled select, .row.disabled input { opacity: 0.45; }
 /* A box dead for a value of another control - Weight with no adapter, Seeds
    beside a seed list - looks dead too; its wrapper's title says why, since a
-   disabled box shows no tooltip of its own. */
-.panel input:disabled, .panel select:disabled { opacity: 0.45; cursor: not-allowed; }
+   disabled box shows no tooltip of its own. The panel's own field rows only:
+   under 901 px the prompt check sits in the panel, and its comparison's
+   "original" box is disabled because it is always run, not because it is off. */
+.panel .sub > input:disabled, .panel .sub > select:disabled { opacity: 0.45; cursor: not-allowed; }
 /* The caption, its badge and "(this checkpoint takes none)" stay; the empty
    row of chips under them was a blank gap in every non-klein panel. */
 #reference-field.disabled .chips { display: none; }

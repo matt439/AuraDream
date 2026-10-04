@@ -218,10 +218,9 @@ function syncCfg() {
   syncAnalysisStale();
 }
 
-// The greyed negative box's button, and a press on the box itself: focus the
-// box that decides, its value selected, and write nothing - a value is the
-// checkpoint's (Qwen-Image's guide asks for about 4, schnell's for none), and
-// its tip says which.
+// The greyed negative box's button: focus the box that decides, its value
+// selected, and write nothing - a value is the checkpoint's (Qwen-Image's
+// guide asks for about 4, schnell's for none), and its tip says which.
 function focusNegativeKnob() {
   if (!negativeSupported || !els.negative.disabled) return;
   const knob = trueCfgSupported ? els.trueCfg : els.cfg;
@@ -365,11 +364,13 @@ function moveReference(from, to) {
 }
 
 // Focus stays in the field rather than dropping to <body>: the next chip's ×,
-// else the previous one's, else the field's badge.
+// else the previous one's, else the emptied row itself. Not the field's
+// badge: a focused badge opens its tip, which then covered LoRA and Seed for
+// someone who had only clicked the last × away.
 function removeReference(index) {
   setReferences(referenceIds.filter((_, i) => i !== index));
   if (referenceIds.length) focusReference(Math.min(index, referenceIds.length - 1));
-  else els.referenceField.querySelector('.help').focus();
+  else els.referenceList.focus();
 }
 
 function focusReference(index) {

@@ -573,7 +573,7 @@ WAI's author renders at 1024×1344 and then runs a 1.5× hires pass.
 
 Press **⤢** on a gallery image, or **⤢ Refine** in the lightbox. A Refine
 dialog opens on that image, the *source*, and the panel is left as it was:
-Generate, Batch, Runs and the grid always render from the prompt, and a pass
+Generate, Batch, Repeat and the grid always render from the prompt, and a pass
 never takes their settings. The dialog starts from the image's own prompt,
 sampling settings and seed, at 1.5× its size (or the last scale you ran);
 **Refine** runs the pass and its progress shows in the panel as any job's
@@ -1267,7 +1267,7 @@ seeds per version and comparison **Batch** 1, 2 or 4 (default 1).
 the panel's other settings, the Seed box's seed or a drawn one - and
 opens that submission's sheet with one row per version, original first,
 unticking Favorites if it was on: nothing in the new comparison is starred
-yet, and the sheet's note says so. The main panel's **Batch** and **Runs**
+yet, and the sheet's note says so. The main panel's **Batch** and **Repeat**
 do not apply. Comparison Batch controls how many images run together,
 without multiplying the seed count: two versions on four seeds still make
 eight images; Batch 2 queues two batches per version. The line above

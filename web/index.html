@@ -154,9 +154,12 @@
 
     <!-- A div with a label, as the Prompt field is: inside a <label> the
          button would become the label's control and the box would lose its
-         name. While the box is greyed, the button (and a press on the box)
-         focuses the box that decides - True CFG or CFG - and writes nothing:
-         what it should be is the checkpoint's, which its tip says. -->
+         name. While the box is greyed, the button focuses the box that
+         decides - True CFG or CFG - and writes nothing: what it should be is
+         the checkpoint's, which its tip says. It follows the note that names
+         that box, in the caption: in the box's corner it lay over the
+         negative's own text. Where the note wraps (330 px) it costs nothing,
+         on a wide panel a line. -->
     <div class="field" id="negative-field">
       <span><label for="negative">Negative prompt</label> <em id="neg-note"></em>
         <button type="button" class="ghost tiny" id="neg-enable" hidden></button></span>
@@ -247,7 +250,10 @@
           have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
           one here that does.</span></span>
         <em id="reference-note"></em></span>
-      <div class="chips" id="reference-list" aria-describedby="reference-tip"></div>
+      <!-- Focusable by script alone (tabindex -1): where focus goes once the
+           last chip's × is gone (sizes.js, removeReference). -->
+      <div class="chips" id="reference-list" role="group" aria-label="Reference images"
+           tabindex="-1" aria-describedby="reference-tip"></div>
     </div>
 
     <div class="row" id="lora-field">

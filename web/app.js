@@ -217,10 +217,8 @@ els.cfg.oninput = () => { own('cfg'); syncCfg(); };
 // them - and clearing it has to stop a stale axis reaching the server.
 els.lora.onchange = () => { syncConditioning(); schedulePreview(); };
 els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
-// The greyed negative box points at the box that wakes it: its button, and a
-// press on the box itself, which style.css lets through to the field.
+// The greyed negative box points at the box that wakes it.
 els.negEnable.onclick = focusNegativeKnob;
-els.negField.addEventListener('click', (e) => { if (!e.target.closest('button, .help')) focusNegativeKnob(); });
 els.favOnly.onchange = resetGallery;
 // The Runs picker is the gallery's table of contents, so it follows the scope.
 els.allModels.onchange = () => { resetGallery(); loadRuns(); };
