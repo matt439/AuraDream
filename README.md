@@ -230,15 +230,25 @@ included - except from a box of the open Grid search fold, where it runs the
 grid, and in the Refine dialog, where it runs the pass. With an image open,
 `←` and `→` walk the strip it came from — the current run, or the gallery, which
 pages in more as you reach the end of it — `F` stars it, `Delete` removes it
-after asking, and `Esc` closes it. Both are also buttons under the image.
+after asking, and `Esc` closes it, leaving the focus on the image you walked
+to. The column beside the image lists what made it — checkpoint, size,
+sampling, negative prompt, adapter, references, source, variables, seed, date
+and run — with the source, each reference and the run one click away, and the
+keys are written under it.
 
 The image opens at the fit size. The mouse wheel zooms about the pointer,
 dragging pans, `+`/`-` zoom about the centre, `0` fits again and `1` (or a
 double-click) shows one image pixel per screen pixel — corrected for the
 display scaling, so a sharpening sweep is judged on its own pixels rather than
-on a 125% resample. The zoom and the crop carry across images of the same size
-as you walk with the arrows, which is what makes a steps or mu axis comparable:
-the same detail, at the same magnification, in every cell.
+on a 125% resample. On a large screen that is often smaller than the fit
+size; a second double-click goes back. The zoom and the crop carry across
+images of the same shape as you walk with the arrows, which is what makes a
+steps or mu axis comparable: the same detail, at the same magnification, in
+every cell.
+
+On a refine pass, `S` (or **Compare with source**) lays the image it was made
+from under the pass, shown left of a divider you drag, or **Side by side**,
+on the one zoom — cropped as the pass was, if it changed shape.
 
 ## Run under WSL 2 (4-bit Nunchaku)
 
@@ -670,9 +680,10 @@ The source and the strength are part of the image's record - the row, the
 PNG, the resume key - so **Reuse** on a refined image opens the dialog on
 its source with the pass as it ran, `--from-image` reproduces a pass,
 **Re-render** carries it to another size, the lightbox reads
-`refine of #412 @ 0.4`, and `refine:412` in the search box finds every pass
-made from image 412. The source is a gallery id, like a reference image:
-delete it and its refinements stay, but cannot be made again.
+`Refined from #412 @ 0.4` and compares the two, and `refine:412` in the
+search box (or the source's **Passes made from #412** in the lightbox) finds
+every pass made from image 412. The source is a gallery id, like a reference
+image: delete it and its refinements stay, but cannot be made again.
 
 It is not the WAI author's exact recipe, which upscales with R-ESRGAN 4x+
 Anime6B before its hires steps: the resize here is a plain Lanczos one and

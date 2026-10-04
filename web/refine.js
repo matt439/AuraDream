@@ -176,6 +176,9 @@ function openRefine(rec, pass = null, { slot = els.error } = {}) {
     );
     return false;
   }
+  // Opened from the lightbox, a close that does not run goes back to it
+  // (`refineClosed`): looking at the dialog used to cost the walk and the zoom.
+  refineReturn = lightboxPlace();
   if (els.lightbox.open) closeLightbox();
   showError('');
   // Unsent settings are one image's, on one checkpoint, and only a plain open
@@ -735,7 +738,9 @@ function rememberRefine() {
 // strip: nothing is open any more, and a reply still in flight lands on
 // nothing. A close that did not run keeps what was typed for the next open
 // of the same image - a sweep, a size and a prompt edit used to be lost to a
-// look at the picture - where the boxes differ from what openRefine filled.
+// look at the picture - where the boxes differ from what openRefine filled;
+// and, opened from the lightbox, gives the lightbox back where it was, unless
+// the strip has opened it on a pass already.
 function refineClosed() {
   const src = refineSource;
   const values = src && !refineRan ? refineValues() : null;
@@ -750,6 +755,9 @@ function refineClosed() {
   clearTimeout(refineTimer);
   clearTimeout(refineCheckTimer);
   clearTimeout(refineTagTimer);
+  const back = refineReturn;
+  refineReturn = null;
+  if (back && !refineRan && !els.lightbox.open) returnToLightbox(back);
 }
 
 // ------------------------------------------------- the pass's own prompt

@@ -46,7 +46,7 @@
   {"eval": "api('/api/images/' + __src, {method: 'DELETE'}).then(() => resetGallery())"},
   {"wait": 800},
   {"eval": "openLightbox(__rec(__pass), galleryRecords)"},
-  {"expect": "__rec(__pass).refine_missing === true && els.lbSettings.textContent.includes('refine of #' + __src + ' (deleted) @ 0.1')"},
+  {"expect": "__rec(__pass).refine_missing === true && els.lbSettings.textContent.includes('Refined from#' + __src + ' (deleted) @ 0.1') && els.lbDesc.textContent.includes('refine of #' + __src + ' (deleted) @ 0.1')"},
   {"key": "Escape"},
 
   {"log": "'a card delete leaves a tombstone in its slot: nothing slides under the pointer, the viewer keeps its height, and focus moves to the next card'"},
@@ -86,7 +86,7 @@
   {"wait": 1000},
   {"expect": "galleryRecords.length === 48 && galleryMore"},
   {"eval": "window.__last = galleryRecords[47]; openLightbox(__last, galleryRecords);"},
-  {"expect": "els.lbCount.textContent === '48/48'"},
+  {"expect": "total > 48 && els.lbCount.textContent === '48/' + total + ' · #' + __last.id"},
   {"key": "Delete"},
   {"wait": 1500},
   {"expect": "lbIndex === 47 && lbList[lbIndex].id < __last.id && els.lbCount.textContent.startsWith('48/') && els.lbImg.getAttribute('src') === lbList[lbIndex].url"},

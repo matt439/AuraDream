@@ -55,9 +55,12 @@
   {"wait": 300},
   {"expect": "lbIndex === 1 && lbView.scale > 1"},
   {"key": "0"},
+  {"eval": "window.__walked = lbList[lbIndex].id"},
   {"click": [30, 30]},
   {"wait": 300},
   {"expect": "!document.getElementById('lightbox').open"},
+  {"log": "'a close of the users own hands focus to the card the walk ended on, not the one it was opened from'"},
+  {"expect": "document.activeElement === document.querySelector('#gallery .card[data-id=\"' + window.__walked + '\"] img') && window.__walked !== +document.querySelector('#gallery .card').dataset.id"},
 
   {"eval": "els.search.value = 'run:' + window.__run; setSheet(true);"},
   {"wait": 1200},

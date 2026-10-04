@@ -804,7 +804,8 @@ opens on the source. Images are named "#N" as the gallery's ids. The passes
 already made from the source are a row of thumbnails, newest first ("Passes
 of #4 (3)", the gallery's own `refine:` search on every checkpoint); one
 opens in the lightbox with the source ahead of it, so ← and → step between
-the pass and what it was made from. A close that did not run - Escape,
+the pass and what it was made from at the same crop, and S lays the one
+over the other. A close that did not run - Escape,
 Cancel, the cross, a pass opened from that row - keeps what was typed for
 the next open of the same image on the same checkpoint, in this page's
 memory only, and the reopened dialog says so with a Start over; Reuse, any
@@ -1457,46 +1458,136 @@ guard would let the SELECT succeed and every INSERT after it fail.
 ## The lightbox zooms
 
 **The lightbox zooms, and the view carries across cells.** `lbView` in
-`web/lightbox.js` is a scale relative to fit (never below 1) plus a pan, keyed on
-the record's `width x height` and kept across records that share it, so the
+`web/lightbox.js` is a scale relative to fit plus a pan, never below fit or
+1:1, whichever is smaller, kept across records whose shape agrees, so the
 arrows compare the identical crop at the identical magnification down a
-steps or mu axis. The image is laid out with explicit width/height/left/top
-inside a `flex: 1 1 auto; min-height: 0` stage - not a CSS transform, which
-can composite a fit-size texture and scale it - and 1:1 divides by
-`devicePixelRatio`, or Windows scaling makes it a 1.25x resample, exactly
-the smoothing a sharpening sweep is judging. The wheel listener is
-non-passive; the zoom keys sit below the `input, textarea` guard. A click on
-the stage beside the image closes the lightbox only at fit: zoomed, the
-stage is a pan surface and only Escape or the cross close it. Where a press
-landed is read on `pointerdown` and kept in `lbDrag`, and the double-click
-handler is the stage's and hit-tests the image's box: the stage takes
-pointer capture on press, and from then on every event of that pointer -
-`pointerup`, the `click` and the `dblclick` made from it - targets the
-stage whether the mouse is over the image or not. Testing `e.target` on
-the way up closed the lightbox on a single click of the image, and a
-`dblclick` listener on the image never heard one; `tools/smoke.json` clicks
-and double-clicks the image for both.
+steps or mu axis - and, since 2026-10-04, between a pass and the source it
+was scaled up from, which share a shape and not a size. "Agrees" is a ratio
+within 1% (`lbView.aspect`), not a key: the 16-pixel grid puts 2048x1152
+and 1360x768 apart in the third decimal, where both rounded keys tried for
+it broke; a carried scale is clamped to the new record's own floor and
+ceiling. The floor used to be fit: on a 2560x1305 screen every preset up to
+about 2 MP fits larger than 1:1 (a 1 MP square at 124%), so the 1 key, the
+1:1 button and the double-click all did nothing on a default-size image,
+and a sharpening sweep was judged through a 1.1-1.65x upscale. The zoom
+line tests 1:1 first, then fit, then a plain percentage - a wheel stop
+between the two is neither - and a double-click goes back to fit from any
+other scale, a 1:1 below fit included. The image is laid out with explicit
+width/height/left/top inside a `flex: 1 1 auto; min-height: 0` stage - not a
+CSS transform, which can composite a fit-size texture and scale it - and
+1:1 divides by `devicePixelRatio`, or Windows scaling makes it a 1.25x
+resample, exactly the smoothing a sharpening sweep is judging. The wheel
+listener is non-passive; the zoom keys sit below the `input, textarea`
+guard, and below one for modifiers, so Ctrl+F and Ctrl+plus stay the
+browser's. A click on the stage beside the image closes the lightbox only
+at or below fit: zoomed, the stage is a pan surface and only Escape or the
+cross close it. Below fit that close waits out a double-click
+(`lbCloseTimer`): the picture is smaller there, and the double-click that
+gives fit back can start on the backdrop. Where a press landed is read on
+`pointerdown` and kept in `lbDrag`, and the double-click handler is the
+stage's and hit-tests the picture (`elementFromPoint`, which honours the
+comparison's clip-paths): the stage takes pointer capture on press, and from
+then on every event of that pointer - `pointerup`, the `click` and the
+`dblclick` made from it - targets the stage whether the mouse is over the
+image or not. Testing `e.target` on the way up closed the lightbox on a
+single click of the image, and a `dblclick` listener on the image never
+heard one; `tools/smoke.json` clicks and double-clicks the image for both.
+
+**A pass is compared with its source in place.** The only question a pass
+asks is whether it improved its source, on detail, at a strength of 0.1,
+and no route showed the two at one crop: the source was seldom next to its
+pass in a strip, a step between them reset the zoom, and the viewer had
+replaced it with the pass. On a record with `refine`, S (or Compare with
+source, with its two mode buttons) lays the source under the pass and shows
+it left of a divider (swipe), or beside it (side by side: each half fitted,
+showing the same crop), on the one `lbView`, through the same explicit
+geometry. The source is fetched by id once a session (`lbSources`; a strip
+that holds it already is looked in first) and drawn as `refine.fitted`
+cropped it - `refineKept`'s arithmetic places its whole picture so the kept
+part lands on the pass's box, and a clip-path cuts it to that box, its half
+and the divider - so a reshaped pass is compared with what it kept.
+Switching between the one view and the halves keeps the magnification and
+the centre (fit stays fit), so a 1:1 stays a 1:1. A step to another image
+ends it, its mode kept; a re-render of the same image (a star, a status)
+does not. Where the source has gone (`refine_missing`, or the fetch's
+"unknown image") the controls stay, `aria-disabled`, saying so. The divider
+is dragged (a press on it is not a pan) or moved by its arrow keys, which it
+takes before the lightbox's walk does; hidden with the focus in it - S
+pressed there - it hands the focus to the toggle, not to the top of the
+dialog.
 
 **The controls are beside the stage, not under it.** The dialog is a row:
-`.lb-main` (the stage and its arrows) and a 280px `.lb-side` column with
-the cross and the counter, the prompt and the settings line, the error
-slot, the zoom row and the buttons. They used to sit under the stage as a
-meta line and a row of buttons, which cost it around 150px of height on a
-900px screen - and the screen is wider than it is tall while most images
-are not, so height was the axis nearly every fit was bound by. A wide
-16:9 image is the one that fits a little smaller now. In the column the
-prompt and settings scroll (`flex: 1 1 auto; min-height: 0`) and the
-controls are pinned to the bottom, so Favourite and Delete are where the
-mouse left them from one image to the next however long the prompt is;
-`#lb-close` carries `autofocus`, or `showModal()` would focus the first
-control in the tree, which is now an arrow. The arrows are positioned in
-`.lb-main`, over the stage's edges but *not* inside the stage: the stage
-takes pointer capture on press, so a press on a child of it would have
-been a pan, and at fit a close, rather than the button's click. Below
-900px wide the column drops under the stage as a wrapping row. The
-`tools/smoke.json` grid is 1152×896 for the same reason the layout changed:
-at the driver's 1400×900 a 1024×768 image now fits at 104%, and 1:1 is
-below fit, which the zoom never goes to.
+`.lb-main` (the stage and its arrows) and a `.lb-side` column (280px;
+340-400px from 1800 px, `--lb-side-w` with the wide tier's other widths) with
+the cross and the counter, the prompt and the facts, the error slot, the
+comparison, the keys line, the zoom row and the buttons. They used to sit
+under the stage as a meta line and a row of buttons, which cost it around
+150px of height on a 900px screen - and the screen is wider than it is
+tall while most images are not, so height was the axis nearly every fit was
+bound by; a square or portrait picture is still bound by the height, so the
+wider column costs it nothing, and a 16:9 one about 3%. In the column the
+prompt and facts scroll (`flex: 1 1 auto; min-height: 0`) and the controls
+are pinned to the bottom, so Star and Delete are where the mouse left them
+from one image to the next however long the prompt is; `#lb-close` carries
+`autofocus`, or `showModal()` would focus the first control in the tree,
+which is now an arrow. The facts are a list (`factsList`, a `dl.facts` any
+view of one image can use): a row a fact, where a 12 px line of commas
+buried the seed and left out the negative prompt its True CFG applied to,
+the date and the run. The source, each reference (numbered as the panel's
+chips are, with "Use these references") and the run are buttons: the first
+two open that image with this one after it, so → comes back; the run opens
+as the card's ⊞ does. Use these references asks for every id again, as
+Reuse does, and leaves out and names any the gallery no longer has: put in
+the panel, a deleted one was an empty chip and a refused Generate. It is
+`aria-disabled` with the reason where the checkpoint takes no references or
+every one has gone, and a render of the same facts brings that up to date
+(`syncUseReferences`), since a status after a load can change the first. A source's passes are linked as the gallery's
+`refine:` search once the gallery says there are any. The one-line
+`settingsLine` stays as the dialog's description (`#lb-desc`, hidden) and
+the delete confirm's. The counter names the image ("3/144 · #57") and
+counts the gallery by the server's total, not the pages loaded. A picture
+that will not load says why in the lightbox's own line, the record asked
+for to tell an outage from a deletion.
+
+**The arrows are strips, and a close returns to the walk.** The arrows are
+positioned in `.lb-main`, over the stage's edges but *not* inside the
+stage: the stage takes pointer capture on press, so a press on a child of
+it would have been a pan, and at fit a close, rather than the button's
+click. A 40 px circle there left 560 px of backdrop each side of a portrait
+picture at QHD, and a press 10 px off it closed the lightbox; so at fit,
+with backdrop beside the picture, each arrow is a strip as wide as that
+backdrop less a margin (48-160 px, `--lb-gutter`) over the middle 60% of
+the height, its circle where it always was. The corners stay backdrop,
+which `tools/smoke.json`'s close at [30, 30] relies on. Anywhere else the
+arrows are their circles again: zoomed in, a strip would take the pan
+surface's drags, and below fit the double-click that gives fit back - a
+strip there stepped on its first click instead. So is a disabled arrow (the
+first image's ‹, the last's ›): a disabled button takes the press, and as a
+strip it left that side's backdrop closing nothing. The wheel is the
+stage's parent's, so it zooms over a strip as over the stage rather than
+scrolling the page behind the dialog. A press on the stage within half a
+second of one on an arrow is the second half of a double-click on the
+arrow (`lbAfterArrow`), neither a close nor a 1:1: the step can take the
+strip from under the pointer when the next picture fills the width. The
+arrows' own clicks are not filtered by click count, which would have cost
+a quick walk every other press. The backdrop shows the default cursor, the
+picture the zoom one. A close of
+the user's own - Escape, the cross, a click on the backdrop or beside the
+picture (`dismissLightbox`) - focuses the image the walk ended on, its card,
+tile or sheet cell, which scrolls it into view; a close that hands the page
+to something else - Refine's dialog, Reuse's panel, a delete, Show this run
+- is `closeLightbox` alone, since a focused card would scroll the page back
+from where those took it. The Refine dialog closes the lightbox for itself;
+closed without running, it gives the lightbox back on the same image of the
+same strip, at the same view and comparison (`refineReturn`, resolved by
+id, since a job landing meanwhile reloads the gallery into a new array; the
+comparison put back before the view, whose scale is relative to the fit of
+half the stage side by side - on the whole of it a 1:1 came back at 166%),
+unless its passes row has opened the lightbox on a pass already. Below 900px wide the column
+drops under the stage as a wrapping row, without the keys line. The
+`tools/smoke.json` grid is 1152x896 for the same reason the layout changed:
+at the driver's 1400x900 a 1024x768 image fits at 104%, and its 1:1 is
+below fit; `tools/smoke-lightbox.json` has the rest.
 
 ## The sheet exports client-side
 
@@ -2001,7 +2092,8 @@ A per-image delete of a source is still the user's to make, but its confirm
 first asks `refine:<id>` across every checkpoint and says which pass could
 not be made again; a record whose source has gone carries `refine_missing`
 (looked up by `list_images` and `GET /api/images/{id}`, not stored), and the
-lightbox's line reads "refine of #63 (deleted) @ 0.1".
+lightbox's facts read "Refined from #63 (deleted) @ 0.1", its comparison
+dead, saying "source #63 deleted".
 
 **The dialog describes the scope, not three prompts.** The sample prompts
 are the first three alphabetically, and say nothing of how many runs are
