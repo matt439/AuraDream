@@ -566,3 +566,27 @@ def test_the_size_guard_rails_are_the_largest_preset():
         GenerateRequest(
             prompt="x", width=width, height=height, num_images=MAX_BATCH
         ).check_budget()
+
+
+def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
+    # A pass's own guard: past the 4 MP presets, since it takes its
+    # composition from the source. The page's Refine dialog derives the same
+    # two numbers from its copy of the table (web/refine.js).
+    from backend.config import settings
+    from backend.schemas import GenerateRequest
+    from backend.seeds import MAX_BATCH
+
+    assert settings.refine_max_side == 2 * max(max(t[2]) for t in sizes.SIZES.values()) == 4448
+    assert settings.refine_max_pixels == 4 * sizes.largest_tier_pixels(2) == 4 * 1776 * 1184
+    for tiers in sizes.SIZES.values():
+        for tier in (1, 1.5, 2):
+            width, height = (2 * side for side in tiers[tier])
+            GenerateRequest(
+                prompt="x", width=width, height=height, refine=1, num_images=MAX_BATCH
+            ).check_budget()
+    src = (ROOT / "web" / "refine.js").read_text(encoding="utf-8")
+    assert "const REFINE_MAX_SIDE = 2 * Math.max(...ASPECTS.flatMap((a) => SIZES[a][2]));" in src
+    assert (
+        "const REFINE_MAX_PIXELS = 4 * Math.max(...ASPECTS.map((a) => SIZES[a][2][0] * SIZES[a][2][1]));"
+        in src
+    )

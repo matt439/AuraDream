@@ -121,7 +121,7 @@ function renderLightbox() {
   // click can still say why: the reason is the checkpoint's, not the image's.
   els.lbRefine.setAttribute('aria-disabled', String(!refineSupported));
   els.lbRefine.title = refineSupported
-    ? 'Set the panel up to refine this image: its settings, at 1.5× its size'
+    ? 'Refine this image: scale it up and re-denoise it part of the way'
     : 'This checkpoint has no refine pass';
   // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();

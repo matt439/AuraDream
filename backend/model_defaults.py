@@ -876,10 +876,11 @@ _REFERENCE_HINTS = {
     ),
 }
 
-# The Refine box. One sentence wherever the capability is, like the reference
-# box, with the profile's own starting strength in it: what a strength does is
-# the schedule's, which is why `refine_strength` is a profile key and not one
-# constant (see "The refine pass" in the design notes for each value's basis).
+# The Refine dialog's Strength badge. One sentence wherever the capability is,
+# like the reference box, with the profile's own starting strength in it: what
+# a strength does is the schedule's, which is why `refine_strength` is a
+# profile key and not one constant (see "The refine pass" in the design notes
+# for each value's basis).
 _REFINE_HINTS = {
     False: (
         "A refine pass scales a gallery image up and re-denoises it part of the way. "
@@ -887,17 +888,14 @@ _REFINE_HINTS = {
         "the FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one."
     ),
     True: (
-        "Scale a gallery image up and re-denoise it part of the way, keeping the "
-        "picture where a direct render at the larger size would be a new one. Pick "
-        "the image with its Refine button; the size is the source's times 1.5 unless "
-        "you change it, and a size of another shape crops the source rather than "
-        "stretching it. Strength is how much is redrawn - low keeps the picture, 1 "
+        "Strength is how much of the source is redrawn - low keeps the picture, 1 "
         "keeps nothing - and starts at {refine_strength:g} on this checkpoint. Steps "
         "is still the whole schedule, of which about Steps x Strength run. What a "
         "number does is the schedule's: a flow-matching checkpoint's shift puts the "
         "same strength at a noisier point than SDXL's, and FLUX.1's shift grows "
-        "with the size, so 2x redraws more than 1.5x at one strength. The grid's "
-        "Refine strength axis puts a few on one sheet."
+        "with the size, so 2x redraws more than 1.5x at one strength. Several "
+        "strengths - 0.3,0.4,0.5 or 0.2-0.5x0.1 - run as one sweep and open as a "
+        "sheet."
     ),
 }
 

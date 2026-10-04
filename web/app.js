@@ -1,4 +1,4 @@
-// Local Diffusion's page script, last of eleven: the event wiring and the boot.
+// Local Diffusion's page script, last of twelve: the event wiring and the boot.
 // Everything called here is declared in the files index.html loads before
 // it; state.js has the load-order contract.
 'use strict';
@@ -179,7 +179,7 @@ els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
                   els.gridSeedList, els.gridBudget, els.prompt, els.negative, els.steps,
                   els.cfg, els.trueCfg, els.mu, els.batch, els.width, els.height, els.seed,
-                  els.gridLoraScale, els.loraScale, els.gridStrength, els.strength]) {
+                  els.gridLoraScale, els.loraScale]) {
   el.addEventListener('input', schedulePreview);
 }
 // A listed seed axis makes the count and the base seed moot; say so in place.
@@ -203,7 +203,6 @@ els.width.oninput = els.height.oninput = syncSize;
 // are current by the time the panel is written.
 els.steps.oninput = () => own('steps');
 els.mu.oninput = () => own('mu');
-els.strength.oninput = () => own('strength');
 // The seed is not a sampling value and has no business freezing the profile.
 els.seed.oninput = syncRuns;
 els.batch.oninput = els.runs.oninput = syncRuns;
@@ -233,16 +232,35 @@ els.lbNext.onclick = () => stepLightbox(1);
 // The just-generated image only exists in the viewer, so reuse has to be
 // reachable from the lightbox as well as from a gallery card.
 els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { reuse(rec); closeLightbox(); } };
-// Refine likewise; where the checkpoint has no such pass the lightbox stays
-// open, since the note saying so is mirrored into it.
-els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec && refineFrom(rec)) closeLightbox(); };
+// Refine likewise: openRefine closes the lightbox for its dialog. Where the
+// checkpoint has no such pass the lightbox stays open, since the note saying
+// so is mirrored into it.
+els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec) openRefine(rec); };
 els.lbFav.onclick = () => { const rec = lbList[lbIndex]; if (rec) setFavorite(rec, !rec.favorite); };
 els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage(rec); };
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); };
 
+// The Refine dialog. Every box asks the server's preview again, as the grid's
+// do; the scale buttons are built with the source they multiply.
+els.refineRun.onclick = () => { void runRefine(); };
+els.refineCancel.onclick = els.refineClose.onclick = () => els.refineDialog.close();
+els.refineDialog.addEventListener('close', refineClosed);
+for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.refineVersions,
+                  els.refineSeed, els.refinePrompt, els.refineNegative, els.refineSteps,
+                  els.refineCfg, els.refineMu, els.refineTrueCfg]) {
+  el.addEventListener('input', refineChanged);
+}
+els.refineVersions.addEventListener('change', refineChanged);
+
 document.addEventListener('keydown', (e) => {
-  // Ctrl/Cmd+Enter generates from anywhere, including inside the prompt box.
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { generate(); return; }
+  // Ctrl/Cmd+Enter generates from anywhere, including inside the prompt box -
+  // and inside the Refine dialog runs the pass instead, which is what its
+  // boxes are for.
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    if (els.refineDialog.open) void runRefine();
+    else generate();
+    return;
+  }
   if (e.key === 'Escape' && !els.examplesMenu.hidden) { showExamples(false); return; }
   if (e.key === 'Escape' && !els.tagsMenu.hidden) { showTagHelper(false); return; }
   if (!els.lightbox.open) return;

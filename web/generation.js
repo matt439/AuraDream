@@ -29,11 +29,9 @@ function collect() {
     reference: referenceSupported ? referenceIds : [],
     lora: els.lora.disabled ? null : els.lora.value || null,
     lora_scale: els.loraScale.value.trim() === '' ? 1 : +els.loraScale.value,
-    // The refine source, by the same rule: none where the checkpoint has no
-    // such pass. The strength is a setting only beside one; an empty box is
-    // "not given", which the server fills with its default.
-    refine: refineSupported && refineSource ? refineSource.id : null,
-    strength: els.strength.disabled ? undefined : num(els.strength),
+    // Never a refine pass: that is the Refine dialog's (refine.js), so
+    // Generate, the grid and the comparison always render from the prompt.
+    refine: null,
     seed: seed === '' ? null : +seed,
     num_images: +els.batch.value,
     runs: +els.runs.value,
@@ -50,6 +48,7 @@ function setBusy(on) {
   els.unload.disabled = on;
   els.generate.textContent = on ? 'Generate (queue)' : 'Generate';
   els.gridRun.textContent = on ? 'Run grid (queue)' : 'Run grid';
+  els.refineRun.textContent = on ? 'Refine (queue)' : 'Refine';
   els.progress.hidden = !on;
   els.cancel.setAttribute('aria-disabled', String(!on));
   els.cancel.textContent = 'Cancel';
@@ -117,11 +116,12 @@ function setStep(show, fraction = 0, text = '') {
   els.stepText.textContent = text;
 }
 
-// Both buttons queue one job and then watch the same stream; only the endpoint
-// and the payload differ. `showSheet` opens the job as a sheet once its
-// stream reports done - the prompt check's comparison, whose answer is the
-// sheet rather than the strip.
-async function startJob(path, payload, showSheet = false) {
+// Every submit button queues one job and then watches the same stream; only
+// the endpoint and the payload differ. `sheet` opens the job as a sheet once
+// its stream reports done - the prompt check's comparison and a refine
+// strength sweep, whose answer is the sheet rather than the strip. `panel`
+// says the payload is the panel's own, whose Seed box a grid writes back to.
+async function startJob(path, payload, { sheet = false, panel = true } = {}) {
   if (submitting) return;
   if (expandingPrompt) { showError('Wait for prompt expansion to finish.'); return; }
   // The critic's server has the card until it answers; a job would queue
@@ -130,13 +130,6 @@ async function startJob(path, payload, showSheet = false) {
   if (critiquing) { showError('Wait for the critic to finish.'); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
-  // An unloaded, off-catalogue checkpoint may have a pass the profile cannot
-  // predict. Keep the selected source visible and never quietly submit the
-  // larger canvas as a direct render when collect() could not carry it.
-  if ('refine' in payload && payload.refine == null && refineSource && !refineSupported) {
-    showError(unavailableRefineNote(), true);
-    return;
-  }
   showError('');
   // Already watching a job: this one queues behind it on the server, and the
   // page picks it up when the watched one ends. The panel stays as it is.
@@ -148,25 +141,20 @@ async function startJob(path, payload, showSheet = false) {
   }
 
   try {
-    if (payload.refine != null && !await loadRefineSource(payload.refine, { strict: true })) {
-      setSubmitting(false);
-      if (!queueing) setBusy(false);
-      return;
-    }
     const { job_id, seed } = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     setSubmitting(false);
-    if (showSheet) jobsToShow.add(job_id);
+    if (sheet) jobsToShow.add(job_id);
     // A grid started from a blank Seed box drew its own base, and every image
     // it produces carries a *derived* seed - so the base is written back here,
     // where Resume will need it. Only for a grid: a plain Generate left blank is
     // asking for a fresh seed every click.
     // Not for a listed seed axis: the list is the record, and the first seed
     // of it written into the box would only mislead the next plain Generate.
-    if (path === '/api/grid' && !payload.seed_axis && els.seed.value.trim() === '' && seed != null) {
+    if (panel && path === '/api/grid' && !payload.seed_axis && els.seed.value.trim() === '' && seed != null) {
       els.seed.value = seed;
       syncRuns();
       persistPanel();
@@ -267,7 +255,6 @@ function gridPayload() {
     cfg_axis: els.gridCfg.value.trim(),
     mu_axis: els.gridMu.value.trim(),
     lora_scale_axis: els.gridLoraScale.disabled ? '' : els.gridLoraScale.value.trim(),
-    strength_axis: els.gridStrength.disabled ? '' : els.gridStrength.value.trim(),
     seeds: +els.gridSeeds.value || 1,
     seed_axis: els.gridSeedList.value.trim(),
     resume: els.gridResume.checked,
@@ -320,11 +307,6 @@ async function previewGrid() {
     els.gridPreview.textContent = 'Enter a prompt above to see what this grid would run.';
     return;
   }
-  if (refineSource && !refineSupported) {
-    els.gridPreview.classList.add('warn');
-    els.gridPreview.textContent = unavailableRefineNote();
-    return;
-  }
   try {
     const p = await api('/api/grid/preview', {
       method: 'POST',
@@ -357,8 +339,6 @@ async function previewGrid() {
         // Only when it is an axis: every other run would carry a constant.
         (p.values.lora_scale && p.values.lora_scale.length > 1
           ? `  ·  LoRA ${axisText(p.values.lora_scale)}` : '') +
-        (p.values.strength && p.values.strength.length > 1
-          ? `  ·  strength ${axisText(p.values.strength)}` : '') +
         (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),
       ...promptLines(p.values.prompt),
     ].join('\n');  // .hint.pre renders the breaks

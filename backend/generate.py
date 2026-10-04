@@ -149,7 +149,8 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="F",
         help="with --refine: render at the source's own size times this, each side "
         "rounded to 16 (default 1.5), instead of at a size given by --width/--height "
-        "or --aspect/--mp",
+        "or --aspect/--mp. A pass may go past the 4 MP presets, to any 2 MP preset "
+        "at 2x (4448 on the long side, 8.4 MP)",
     )
 
     sweep = parser.add_argument_group(

@@ -16,9 +16,6 @@ function applyDefaults(d) {
   if (!owned.steps) els.steps.value = d.steps;
   if (!owned.cfg) els.cfg.value = d.guidance_scale;
   if (!owned.mu) els.mu.value = d.mu ?? '';
-  // The refine strength likewise: its start index belongs to the checkpoint's
-  // schedule. Null where the checkpoint has no pass; the box is dead there.
-  if (!owned.strength && typeof d.refine_strength === 'number') els.strength.value = d.refine_strength;
   syncCfg();
 }
 
@@ -30,7 +27,7 @@ function applyHints(hints) {
   if (!hints) return;
   const tips = {
     steps: els.stepsTip, guidance_scale: els.cfgTip, mu: els.muTip, true_cfg: els.trueCfgTip,
-    prompt: els.promptTip, size: els.sizeTip, refine: els.refineTip,
+    prompt: els.promptTip, size: els.sizeTip, refine: els.refineStrengthTip,
   };
   for (const [key, el] of Object.entries(tips)) {
     if (hints[key]) el.textContent = hints[key];
@@ -193,13 +190,13 @@ async function refreshStatus() {
     if (s.defaults && typeof s.defaults.refine_supported === 'boolean'
         && s.defaults.refine_supported !== refineSupported) {
       refineSupported = s.defaults.refine_supported;
-      syncConditioning();
-      // The size line reads differently for a refine pass, and collect()
-      // sends the source, or none, from here: the preview's totals follow.
-      syncSize();
-      schedulePreview();
+      // An open dialog wakes, or says why it cannot run, and asks again.
+      if (refineSource) scheduleRefinePreview();
       if (els.lightbox.open) renderLightbox();
     }
+    // The dialog's negative prompt, Mu and True CFG follow the same answers
+    // as the panel's boxes above.
+    if (refineSource) syncRefine();
     // The adapter list is a directory read, so it rides on the first status
     // rather than on the 3 s poll: files appear when the user drops one in,
     // which is a page reload away either way. Once more when the load lands,

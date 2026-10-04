@@ -1,10 +1,10 @@
-// Local Diffusion's page script, part 1 of 11: shared state, the element table and
+// Local Diffusion's page script, part 1 of 12: shared state, the element table and
 // the fetch/error helpers. index.html loads these files in order as classic
 // scripts, so they share one global scope: a top-level `let`, `const` or
 // function in any of them is visible to all the others and to a smoke step's
 // `eval` (tools/browser.mjs). Only app.js, the last, runs anything at load;
 // the rest only declare. Order: state, sizes, status, generation, panel,
-// gallery, sheet, lightbox, tags, analysis, app.
+// gallery, sheet, lightbox, refine, tags, analysis, app.
 'use strict';
 
 const $ = (id) => document.getElementById(id);
@@ -42,10 +42,6 @@ const els = {
   lora: $('lora'), loraScale: $('lora-scale'), loraField: $('lora-field'),
   loraTip: $('lora-tip'), gridLoraScale: $('grid-lora-scale'),
   gridLoraField: $('grid-lora-field'),
-  refineField: $('refine-field'), refineSource: $('refine-source'),
-  refineScales: $('refine-scales'), refineNote: $('refine-note'), refineTip: $('refine-tip'),
-  strength: $('strength'), gridStrength: $('grid-strength'),
-  gridStrengthField: $('grid-strength-field'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
   reset: $('btn-reset'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
@@ -79,6 +75,21 @@ const els = {
   lbFit: $('lb-fit'), lbOne: $('lb-one'),
   lbReuse: $('lb-reuse'), lbRefine: $('lb-refine'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
   lbFav: $('lb-fav'), lbDelete: $('lb-delete'),
+  refineDialog: $('refine-dialog'), refineTitle: $('refine-title'), refineClose: $('refine-close'),
+  refineThumb: $('refine-thumb'), refineSourceLine: $('refine-source-line'),
+  refinePromptLine: $('refine-prompt-line'), refineUnavailable: $('refine-unavailable'),
+  refineScales: $('refine-scales'), refineWidth: $('refine-width'), refineHeight: $('refine-height'),
+  refineSizeHint: $('refine-size-hint'), refineStrength: $('refine-strength'),
+  refineStrengthTip: $('refine-strength-tip'), refineVersions: $('refine-versions'),
+  refineSeed: $('refine-seed'), refineSeedHint: $('refine-seed-hint'),
+  refineMore: $('refine-more'), refineMoreNote: $('refine-more-note'),
+  refinePrompt: $('refine-prompt'), refineNegative: $('refine-negative'),
+  refineNegField: $('refine-negative-field'), refineNegNote: $('refine-neg-note'),
+  refineSteps: $('refine-steps'), refineCfg: $('refine-cfg'),
+  refineMu: $('refine-mu'), refineMuField: $('refine-mu-field'),
+  refineTrueCfg: $('refine-true-cfg'), refineTrueCfgField: $('refine-true-cfg-field'),
+  refineCarried: $('refine-carried'), refinePreview: $('refine-preview'),
+  refineError: $('refine-error'), refineCancel: $('refine-cancel'), refineRun: $('refine-run'),
 };
 
 // Aspect × megapixel tier. Every side is a multiple of 16 (the VAE downsamples by
@@ -128,7 +139,7 @@ let busy = false;
 // Per control, not one flag for all three: touching Seed before the first
 // /api/status used to freeze steps, CFG and mu at the page's fallback numbers,
 // and on Turbo that is 28 steps at CFG 3.5 for a model trained for 8 at 0.
-const owned = { steps: false, cfg: false, mu: false, trueCfg: false, strength: false };
+const owned = { steps: false, cfg: false, mu: false, trueCfg: false };
 // The checkpoint the server is running, once /api/status has said. Reuse
 // compares a record against it: steps, CFG and mu are checkpoint-specific.
 let loadedModel = null;
@@ -197,20 +208,21 @@ let referenceSupported = false;
 let loraSupported = false;
 // The refine pass: whether the checkpoint has one (diffusers ships an
 // image-to-image pipeline beside its own - FLUX.1, SDXL, Z-Image, Qwen-Image),
-// following the server like the two above, and the gallery image picked to
-// refine: its id, which is all the request carries, and its own size, which
-// the scale buttons multiply. Null when the next Generate is a plain render.
-// The size is null for a moment after a restore - from localStorage, or from
-// Reuse on a refined record, which holds the id alone - until
-// /api/images/<id> answers.
+// following the server like the two above, and the record the Refine dialog
+// is open on - null while it is closed. Only the dialog sends a pass: the
+// panel's requests never carry a source.
 let refineSupported = false;
 let refineSource = null;
-// What the scale buttons offer, and what Refine picks: backend/refine.py's
-// DEFAULT_SCALE. The Strength box follows the checkpoint's profile like Steps
-// and CFG (`defaults.refine_strength`): what a strength does depends on the
+// The adapter a pass carries over from its record, {name, scale}, or null:
+// shown in the dialog rather than editable there, since the adapter is part
+// of how the picture was made.
+let refineLora = null;
+// What the scale buttons offer, and what the dialog opens at:
+// backend/refine.py's DEFAULT_SCALE. Strength starts at the checkpoint's
+// profile (`defaults.refine_strength`): what a strength does depends on the
 // schedule it indexes into. REFINE_STRENGTH is the server's own fallback,
 // DEFAULT_STRENGTH, for the moment before the first status lands.
-const REFINE_SCALES = [1, 1.5, 2];
+const REFINE_SCALES = [1, 1.25, 1.5, 2];
 const REFINE_SCALE = 1.5;
 const REFINE_STRENGTH = 0.4;
 let lorasLoaded = false;

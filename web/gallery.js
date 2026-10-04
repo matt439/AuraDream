@@ -104,7 +104,7 @@ function card(rec) {
   tools.className = 'tools';
   tools.append(
     reuseButton(rec, true),
-    tool('⤢', 'Refine: scale this image up and re-denoise it part of the way', () => refineFrom(rec)),
+    tool('⤢', 'Refine: scale this image up and re-denoise it part of the way', () => openRefine(rec)),
     tool('❐', 'Use as a reference image', () => {
       if (!referenceSupported) {
         showError(
@@ -244,9 +244,6 @@ async function deleteImage(rec) {
 function forgetImages(ids) {
   const gone = new Set(ids);
   document.querySelectorAll('[data-id]').forEach((el) => { if (gone.has(+el.dataset.id)) el.remove(); });
-  // A refine source that has just been deleted has nothing left to refine,
-  // and a Generate naming it would only be refused.
-  if (refineSource && gone.has(refineSource.id)) forgetRefineSource(refineSource.id);
   // Only the grid's counters mirror the server's: the viewer holds whatever
   // this session made, and the sheet lays itself out from the grid's records.
   const inGallery = galleryRecords.filter((r) => gone.has(r.id)).length;
@@ -323,10 +320,8 @@ async function deleteUnstarred() {
     showError(err.message);
     return;
   }
-  const removedSource = refineSource && result.deleted.includes(refineSource.id);
   forgetImages(result.deleted);
-  const sourceNote = removedSource ? ` ${els.error.textContent}` : '';
-  showError(`Deleted ${result.deleted.length} image${plural}, keeping ${found.favorites} starred.${sourceNote}`, true);
+  showError(`Deleted ${result.deleted.length} image${plural}, keeping ${found.favorites} starred.`, true);
   // The page is now mostly holes; ask for it again from the top, which also
   // brings the badge back to the server's count.
   resetGallery();
@@ -341,10 +336,8 @@ function syncDeleteUnstarred() {
 }
 
 // What made a record, into the panel: the prompt pair and the seed, and with
-// `sampling` its steps, CFG, true CFG, mu and conditioning too. Reuse takes
-// all of it; Refine leaves the sampling of a record from another checkpoint
-// where it is, since those numbers are that checkpoint's. Neither the size
-// nor the refine source is written here - the two callers differ on both.
+// `sampling` its steps, CFG, true CFG, mu and conditioning too. The size is
+// not written here: a refine pass whose source has gone keeps the panel's.
 function fillPanel(rec, sampling) {
   els.prompt.value = rec.prompt;
   promptReplaced();
@@ -369,20 +362,19 @@ function fillPanel(rec, sampling) {
   els.loraScale.value = els.lora.value ? (rec.lora_scale ?? 1) : 1;
 }
 
+// Reuse restores what made a record. A direct render's settings go into the
+// panel; a refine pass is the Refine dialog's, so a refined record opens the
+// dialog on its source with the pass as it ran (`reusePass`).
 function reuse(rec) {
+  if (rec.refine != null) { void reusePass(rec); return; }
+  reuseIntoPanel(rec, true);
+}
+
+function reuseIntoPanel(rec, withSize, note = '') {
   fillPanel(rec, true);
-  els.width.value = rec.width;
-  els.height.value = rec.height;
-  // A refined record reproduces as the same pass: its source, by id like a
-  // reference, and the strength it ran at. A plain one clears the source -
-  // Reuse restores what ran, and what ran there was the prompt alone.
-  refineSource = rec.refine != null ? { id: rec.refine, width: null, height: null } : null;
-  if (refineSource) {
-    // The strength it ran at, owned like the steps Reuse restores beside it.
-    if (rec.strength != null) { els.strength.value = rec.strength; own('strength'); }
-    // The record holds the source's id, not its size: asked for, so the
-    // scale buttons have something to multiply.
-    void loadRefineSource();
+  if (withSize) {
+    els.width.value = rec.width;
+    els.height.value = rec.height;
   }
   syncSize();
   syncCfg();
@@ -395,56 +387,36 @@ function reuse(rec) {
   // a visibly broken image recorded under FLUX. The checkpoint is part of the
   // reproduction set as much as the seed, so say so - as a note, not a failure.
   const short = (id) => (id || '').split('/').pop();
-  const notes = [];
+  const notes = [note];
   if (loadedModel && rec.model_id !== loadedModel) {
-    const sampling = rec.refine != null ? 'steps, CFG, mu and Strength' : 'steps, CFG and mu';
     notes.push(
       `These settings were made on ${short(rec.model_id)}; the server is running ` +
-      `${short(loadedModel)}, whose ${sampling} differ. Prompt, size and seed carry ` +
-      `over; check the ${sampling} boxes before generating.`,
+      `${short(loadedModel)}, whose steps, CFG and mu differ. Prompt` +
+      `${withSize ? ', size' : ''} and seed carry over; check the steps, CFG and mu ` +
+      'boxes before generating.',
     );
   }
-  if (refineSource && !refineSupported) notes.push(unavailableRefineNote());
-  showError(notes.join(' '), true);
+  showError(notes.filter(Boolean).join(' '), true);
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
 }
 
-// Refine: the panel set up to scale this image up and re-denoise it part of
-// the way - its own prompt and settings, itself as the source, 1.5x its size
-// (or what fits), the Strength box as it stands. Generate then runs the pass,
-// and Run grid with a Refine strength axis is the sweep that picks a strength.
-// Answers whether it did, for the lightbox to know whether to close.
-function refineFrom(rec) {
-  if (!refineSupported) {
-    showError(
-      'This checkpoint has no refine pass compatible with this app. '
-      + 'The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.',
-      true,
-    );
-    return false;
+// A refined record holds its source's id, not the source: asked for, so the
+// dialog has the picture and the size to scale. A source that has been
+// deleted cannot be refined again - the prompt and settings still go into
+// the panel, at the panel's own size, since the pass's may be past what a
+// direct render takes.
+async function reusePass(rec) {
+  let source;
+  try {
+    source = await api(`/api/images/${rec.refine}`);
+  } catch (err) {
+    if (!/unknown image/.test(err.message)) { showError(err.message); return; }
+    reuseIntoPanel(rec, false,
+      `Image ${rec.refine}, the source this was refined from, is no longer in the gallery, `
+      + 'so the pass cannot be made again. Its prompt and settings are in the panel; the size is '
+      + 'left as it was.');
+    return;
   }
-  // An image from another checkpoint refines like any other - the pass starts
-  // from pixels - but its steps, CFG and mu are that checkpoint's, so the
-  // sampling boxes stay this one's.
-  const foreign = modelsDiffer(rec.model_id);
-  fillPanel(rec, !foreign);
-  syncCfg();
-  syncRuns();
-  scheduleTagValidation(0);
-  // Writes the source and the size, and tells the size line, the preview and
-  // the remembered panel.
-  setRefine({ id: rec.id, width: rec.width, height: rec.height }, REFINE_SCALE);
-  const short = (id) => (id || '').split('/').pop();
-  showError(
-    foreign
-      ? `Refining an image made on ${short(rec.model_id)}: its prompt and seed carry over, and `
-        + `the steps, CFG and mu stay ${short(loadedModel)}'s. Generate runs the pass.`
-      : `Refining image ${rec.id} at ${els.width.value}×${els.height.value}, strength `
-        + `${els.strength.value || (lastDefaults?.refine_strength ?? REFINE_STRENGTH)}. Generate runs the pass.`,
-    true,
-  );
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
-  return true;
+  openRefine(source, rec);
 }

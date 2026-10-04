@@ -111,6 +111,34 @@ def test_a_strength_sweep_is_an_ordinary_grid_axis(client, fake, store):
     assert client.post("/api/grid/preview", json=plain).json()["cells"] == 1
 
 
+def test_a_pass_has_a_size_guard_of_its_own(client, fake, store):
+    # Past the 4 MP presets: a pass takes its composition from the source, so
+    # its guard is any 2 MP preset at 2x. Checked in the preview, which runs
+    # the submit's own validation without rendering an 8 MP image.
+    first = _first(client)
+    made = len(fake.requests)
+    wide = {"prompt": "a fox", "width": 3600, "height": 256, "seed": 1, "steps": 10}
+    response = client.post("/api/grid/preview", json={**wide, "refine": first["id"]})
+    assert response.status_code == 200 and response.json()["cells"] == 1
+    # A direct render is held to the presets' side, and told why.
+    response = client.post("/api/generate", json=wide)
+    assert response.status_code == 422
+    assert "past the 3168 a direct render takes; only a refine pass goes to 4448" in response.text
+    # The refine budget is pixels too: 4096x4096 fits the side, not the area.
+    big = {**wide, "width": 4096, "height": 4096, "refine": first["id"]}
+    response = client.post("/api/generate", json=big)
+    assert response.status_code == 422
+    assert "8,411,136 pixel budget of a refine pass" in response.json()["detail"]
+    # And no batch budget: a pass is one call per image, so four 4 MP passes
+    # hold one image's pixels at a time where four direct renders hold all.
+    batch = {**wide, "width": 2048, "height": 2048, "num_images": 4}
+    response = client.post("/api/grid/preview", json={**batch, "refine": first["id"]})
+    assert response.status_code == 200 and response.json()["images"] == 4
+    response = client.post("/api/grid/preview", json=batch)
+    assert response.status_code == 422 and "in one batch exceeds" in response.json()["detail"]
+    assert len(fake.requests) == made
+
+
 def test_a_sweep_that_would_run_no_step_is_refused_by_name(client, fake, store):
     first = _first(client)
     made = len(fake.requests)

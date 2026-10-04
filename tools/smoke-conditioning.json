@@ -13,9 +13,9 @@
   {"expect": "![...els.lora.options].some((o) => o.value === 'other-family.safetensors')"},
   {"expect": "els.loraTip.textContent.startsWith('Not shown, for another checkpoint: other-family.safetensors - ') && els.loraTip.textContent.includes('494 modules')"},
 
-  {"log": "'klein has no image-to-image pipeline in diffusers: the Refine field is greyed and says why'"},
-  {"expect": "!refineSupported && els.refineField.classList.contains('disabled') && els.refineNote.textContent.includes('no refine pass')"},
-  {"expect": "els.refineTip.textContent.includes('no compatible image-to-image counterpart') && els.strength.disabled && els.gridStrength.disabled"},
+  {"log": "'klein has no image-to-image pipeline in diffusers: the Refine dialogs tip says why'"},
+  {"expect": "!refineSupported && !document.getElementById('refine-field') && collect().refine === null"},
+  {"expect": "els.refineStrengthTip.textContent.includes('no compatible image-to-image counterpart')"},
 
   {"log": "'an image to point at'"},
   {"eval": "els.prompt.value = 'a fox in the snow'; els.seed.value = '5'; void startJob('/api/generate', collect());"},
@@ -24,9 +24,9 @@
   {"eval": "resetGallery();"},
   {"wait": 800},
 
-  {"log": "'and the cards Refine button explains itself rather than setting up a pass the server would refuse'"},
+  {"log": "'and the cards Refine button explains itself rather than opening a pass the server would refuse'"},
   {"eval": "[...document.querySelectorAll('.card .tools button')].find((b) => b.textContent === '⤢').click()"},
-  {"expect": "refineSource === null && collect().refine === null && els.error.textContent.includes('no refine pass')"},
+  {"expect": "!els.refineDialog.open && refineSource === null && els.error.textContent.includes('no refine pass')"},
   {"eval": "showError('');"},
 
   {"log": "'the cards reference button fills a chip, and collect() sends the id'"},
@@ -51,7 +51,7 @@
   {"log": "'the lightboxs Refine is greyed here too, and a press leaves it open with the reason in it'"},
   {"expect": "els.lbRefine.getAttribute('aria-disabled') === 'true'"},
   {"eval": "els.lbRefine.click()"},
-  {"expect": "els.lightbox.open && !els.lbError.hidden && els.lbError.textContent.includes('no refine pass')"},
+  {"expect": "els.lightbox.open && !els.refineDialog.open && !els.lbError.hidden && els.lbError.textContent.includes('no refine pass')"},
   {"key": "Escape"},
   {"eval": "setReferences([]);"},
 

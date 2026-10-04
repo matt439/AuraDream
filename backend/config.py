@@ -13,7 +13,13 @@ from .model_defaults import (
     QUANT_MODES,
 )
 from .seeds import MAX_BATCH
-from .sizes import largest_pixels, largest_side, largest_tier_pixels
+from .sizes import (
+    largest_pixels,
+    largest_side,
+    largest_tier_pixels,
+    refine_largest_pixels,
+    refine_largest_side,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -102,6 +108,16 @@ class Settings:
     # is how a table change would have left them describing nothing.
     max_side: int = largest_side()
     max_pixels: int = largest_pixels()
+    # A refine pass goes further. The presets stop at 4 MP because a direct
+    # render past a checkpoint's range composes badly, and a pass takes its
+    # composition from the source instead - which is the reason to run one.
+    # Its own guard is any 2 MP preset at 2x: 4448 on the long side and
+    # 1776x1184 x 4 = 8,411,136 pixels. Still a typo guard, not a VRAM model:
+    # measured 2026-10-04 (verified.md), WAI at 8.6 MP peaked at 5.5 GiB while
+    # Z-Anime at 4.2 MP already filled the card, so what fits is the
+    # checkpoint's and the page says so per size.
+    refine_max_side: int = refine_largest_side()
+    refine_max_pixels: int = refine_largest_pixels()
     # The pixels one *batch* may hold at once - `num_images` forward passes in a
     # single call, all resident together. A typo guard, not a VRAM model: cover
     # both two 4 MP images and a full batch (`MAX_BATCH`) at every 1 MP preset

@@ -33,8 +33,10 @@ def default_strength() -> float:
 class GenerateRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
     negative_prompt: str | None = Field(default=None, max_length=4000)
-    width: int = Field(default=1024, ge=256, le=settings.max_side)
-    height: int = Field(default=1024, ge=256, le=settings.max_side)
+    # Bounded by the larger of the two guards, a refine pass's; a direct
+    # render is held to the presets' by `_direct_renders_stay_in_the_presets`.
+    width: int = Field(default=1024, ge=256, le=settings.refine_max_side)
+    height: int = Field(default=1024, ge=256, le=settings.refine_max_side)
     # Sampling defaults are not constants: whether 8 steps at CFG 0 or 28 at 3.5
     # is right depends on the checkpoint, and a copy of one profile frozen here
     # is wrong for every other one - Turbo's numbers used to run on FLUX for any
@@ -116,6 +118,18 @@ class GenerateRequest(BaseModel):
             self.strength = default_strength()
         return self
 
+    @model_validator(mode="after")
+    def _direct_renders_stay_in_the_presets(self) -> "GenerateRequest":
+        # Only a refine pass goes past the largest preset's side (config's
+        # `refine_max_side`): it takes its composition from the source.
+        side = max(self.width, self.height)
+        if self.refine is None and side > settings.max_side:
+            raise ValueError(
+                f"a {side}-pixel side is past the {settings.max_side} a direct render takes; "
+                f"only a refine pass goes to {settings.refine_max_side}"
+            )
+        return self
+
     def check_refine_steps(self) -> None:
         # Check after capability validation, on actual cells: a grid's axes
         # can replace an otherwise unusable base steps/strength pair.
@@ -159,6 +173,16 @@ class GenerateRequest(BaseModel):
         return v
 
     def check_budget(self) -> None:
+        if self.refine is not None:
+            if self.width * self.height > settings.refine_max_pixels:
+                raise ValueError(
+                    f"{self.width}x{self.height} exceeds the {settings.refine_max_pixels:,} "
+                    "pixel budget of a refine pass"
+                )
+            # No batch budget: a pass is one pipeline call per image
+            # (`DiffusersBackend._refine`), so a batch never holds more than
+            # one image's pixels at once.
+            return
         if self.width * self.height > settings.max_pixels:
             raise ValueError(
                 f"{self.width}x{self.height} exceeds the {settings.max_pixels:,} pixel budget"

@@ -10,7 +10,8 @@
 //   {"eval": js}                 run JavaScript in the page (promises awaited)
 //   {"log": js}                  run JavaScript and print its value
 //   {"expect": js}               run JavaScript; a falsy value fails the run
-//   {"key": "1"}                 press a key (single characters and names like "Escape")
+//   {"key": "1"}                 press a key (single characters and names like "Escape";
+//                                Escape also closes a modal <dialog>, as a real press does)
 //   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
 //   {"click": [x, y]}            click a point; {"dblclick": [x, y]} double-clicks;
 //                                {"drag": [x1, y1, x2, y2]} drags
@@ -115,8 +116,11 @@ for (const step of steps) {
     console.log(`  ${value ? 'ok  ' : 'FAIL'} ${step.expect}`);
   } else if (step.key) {
     const text = step.key.length === 1 ? step.key : undefined;
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, text });
-    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key });
+    // Escape carries its key code, as a real press does: a modal <dialog>
+    // closes on that, not on the key's name alone.
+    const code = step.key === 'Escape' ? { code: 'Escape', windowsVirtualKeyCode: 27 } : {};
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, text, ...code });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, ...code });
     await sleep(100);
   } else if (step.wheel) {
     const [x, y, deltaY] = step.wheel;

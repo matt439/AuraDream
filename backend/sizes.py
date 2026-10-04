@@ -73,3 +73,13 @@ def largest_pixels() -> int:
 def largest_tier_pixels(tier: float) -> int:
     """The most pixels any aspect asks for at one megapixel tier."""
     return max(tiers[tier][0] * tiers[tier][1] for tiers in SIZES.values())
+
+
+def refine_largest_side() -> int:
+    """The longest side a refine pass reaches: any 2 MP preset at 2x - 4448, at 12:5."""
+    return 2 * max(max(tiers[2]) for tiers in SIZES.values())
+
+
+def refine_largest_pixels() -> int:
+    """The most pixels a refine pass asks for: any 2 MP preset at 2x - 1776x1184 x 4."""
+    return 4 * largest_tier_pixels(2)
