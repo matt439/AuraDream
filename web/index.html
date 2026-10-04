@@ -536,96 +536,130 @@
      seed, and starts from the source's own prompt and sampling, so the
      panel's Seed, Batch, Runs and grid never reach a pass and Generate never
      runs one. Modal like the lightbox: focus stays inside, Escape closes it.
-     refine.js fills it from the record each time it opens. -->
+     refine.js fills it from the record each time it opens. One column under
+     1600 px; from there two panes, the source large on the left - .rf-source
+     and .rf-controls are wrappers the grid sees through, so the tab order is
+     the tree's at every width. -->
 <dialog class="refine-dialog" id="refine-dialog" aria-labelledby="refine-title"
-        aria-describedby="refine-source-line">
+        aria-describedby="refine-source-line refine-reused">
   <div class="rf-head">
     <h2 id="refine-title">Refine</h2>
     <button type="button" class="close" id="refine-close" aria-label="Close (Escape)">✕</button>
   </div>
   <div class="rf-source">
-    <img id="refine-thumb" alt="">
+    <!-- The picture being refined: a thumbnail in one column, the full PNG
+         in two, with the part a reshaped size keeps framed on it. -->
+    <div class="rf-figure" id="refine-figure">
+      <img id="refine-thumb" alt="">
+      <div class="rf-kept" id="refine-kept" hidden></div>
+    </div>
     <div class="rf-source-text">
       <p class="rf-source-line" id="refine-source-line"></p>
-      <p class="rf-prompt" id="refine-prompt-line"></p>
+      <!-- Reuse of a pass opens on its source: which pass, and what it ran at. -->
+      <p class="rf-source-line" id="refine-reused" hidden></p>
+      <p class="rf-prompt"><span class="rf-caption">Source prompt</span> <span id="refine-prompt-line"></span></p>
+      <!-- What a close without Refine left behind on this image, put back. -->
+      <p class="hint rf-draft" id="refine-draft" hidden><span id="refine-draft-text"></span>
+        <button type="button" class="ghost tiny" id="refine-start-over">Start over</button></p>
+      <div class="rf-passes" id="refine-passes" hidden>
+        <p class="rf-source-line" id="refine-passes-head"></p>
+        <div class="rf-pass-list" id="refine-pass-list"></div>
+      </div>
     </div>
   </div>
-  <!-- Says why Refine is dead when the checkpoint has no pass: a refined
-       image's Reuse opens the dialog even then, so the pass is kept until a
-       loaded model can run it. -->
-  <p class="hint warn" id="refine-unavailable" hidden></p>
+  <div class="rf-controls">
+    <!-- Says why Refine is dead when the checkpoint has no pass: a refined
+         image's Reuse opens the dialog even then, so the pass is kept until a
+         loaded model can run it. -->
+    <p class="hint warn" id="refine-unavailable" hidden></p>
 
-  <div class="field">
-    <span>Size
-      <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-        class="tip wide" id="refine-size-tip">The source is scaled to cover this size and
-        cropped to its shape, never stretched. A pass may go past the 4 MP a direct render
-        takes, to any 2 MP preset at 2×: it keeps the source's composition, which is what a
-        direct render at that size loses. What fits on the card is the checkpoint's.</span></span></span>
-    <div class="presets" id="refine-scales" role="group"
-         aria-label="Size, as a multiple of the source image's"></div>
+    <div class="field">
+      <!-- Both badges open upward: down, they cover the controls they explain. -->
+      <span>Size
+        <span class="help above" tabindex="0" role="note" aria-label="Help">?<span
+          class="tip wide" id="refine-size-tip">The source is scaled to cover this size and cropped to its shape, never stretched. A pass may go past the 4 MP a direct render takes, to any 2 MP preset at 2×, since it keeps the source's composition. What fits on the card is the checkpoint's.</span></span></span>
+      <div class="presets" id="refine-scales" role="group"
+           aria-label="Size, as a multiple of the source image's"></div>
+      <div class="row">
+        <label class="sub grow"><i>W</i><input type="number" id="refine-width" step="16" min="256"></label>
+        <label class="sub grow"><i>H</i><input type="number" id="refine-height" step="16" min="256"></label>
+        <!-- Typing one side moves the other to the source's shape; off, a
+             size of another shape is a reframing, which the line below says. -->
+        <label class="check rf-lock" title="Typing W or H keeps the source's shape"><input type="checkbox" id="refine-lock" checked> Keep shape</label>
+      </div>
+      <p class="hint" id="refine-size-hint"></p>
+    </div>
+
     <div class="row">
-      <label class="sub grow"><i>W</i><input type="number" id="refine-width" step="16" min="256"></label>
-      <label class="sub grow"><i>H</i><input type="number" id="refine-height" step="16" min="256"></label>
+      <div class="sub grow">
+        <i><label for="refine-strength">Strength</label>
+          <span class="help above" tabindex="0" role="note" aria-label="Help">?<span
+            class="tip wide" id="refine-strength-tip">Strength: how much of the source is redrawn - low keeps the picture, 1 keeps nothing.</span></span>
+          <button type="button" class="ghost tiny" id="refine-compare">Compare 3</button></i>
+        <!-- Text, not a number: several strengths are a sweep. autofocus:
+             showModal() would otherwise focus the cross, the first control in
+             the tree, and this is what the dialog is opened to set
+             (openRefine selects its value, so a typed number replaces it). -->
+        <input type="text" id="refine-strength" autocomplete="off" inputmode="decimal" autofocus
+               aria-describedby="refine-strength-tip refine-sweep-hint">
+      </div>
+      <div class="sub narrow">
+        <i><label for="refine-versions">Versions</label></i>
+        <select id="refine-versions" autocomplete="off" aria-describedby="refine-seed-hint">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div class="sub grow">
+        <i><label for="refine-seed">Seed</label></i>
+        <input type="number" id="refine-seed" min="0" placeholder="random" aria-describedby="refine-seed-hint">
+      </div>
+      <button type="button" class="ghost square" id="refine-dice" title="Clear the seed (random)"
+              aria-label="Clear the seed, so the pass draws a random one">🎲</button>
     </div>
-    <p class="hint" id="refine-size-hint"></p>
-  </div>
+    <p class="hint" id="refine-sweep-hint"></p>
+    <!-- The checkpoint's own word on a larger pass (`hints.refine_large`),
+         shown past the size the size line warns at. -->
+    <p class="hint warn" id="refine-large" hidden></p>
+    <p class="hint" id="refine-seed-hint"></p>
 
-  <div class="row">
-    <div class="sub grow">
-      <i><label for="refine-strength">Strength</label>
-        <span class="help" tabindex="0" role="note" aria-label="Help">?<span
-          class="tip wide" id="refine-strength-tip">Strength is how much of the source is
-          redrawn - low keeps the picture, 1 keeps nothing.</span></span></i>
-      <!-- Text, not a number: several strengths are a sweep. -->
-      <input type="text" id="refine-strength" autocomplete="off" inputmode="decimal"
-             placeholder="0.4 or 0.3,0.4,0.5" aria-describedby="refine-strength-tip">
-    </div>
-    <div class="sub narrow">
-      <i><label for="refine-versions">Versions</label></i>
-      <select id="refine-versions" autocomplete="off" aria-describedby="refine-seed-hint">
-        <option value="1" selected>1</option>
-        <option value="2">2</option>
-        <option value="4">4</option>
-      </select>
-    </div>
-    <div class="sub grow">
-      <i><label for="refine-seed">Seed</label></i>
-      <input type="number" id="refine-seed" min="0" placeholder="random" aria-describedby="refine-seed-hint">
-    </div>
-  </div>
-  <p class="hint" id="refine-seed-hint"></p>
+    <!-- The source's own prompt and sampling, folded: a pass usually wants
+         them as they were. Open from the start where they could not carry -
+         an image made on another checkpoint. -->
+    <details class="section rf-more" id="refine-more">
+      <summary>Prompt and sampling <em id="refine-more-note"></em></summary>
+      <label class="field">
+        <span>Prompt</span>
+        <textarea id="refine-prompt" rows="3" spellcheck="false"></textarea>
+      </label>
+      <!-- A tag checkpoint's unknown comma items, as the panel's chips mark
+           them; advisory, and silent when the lookup fails. -->
+      <p class="hint warn" id="refine-tags" hidden></p>
+      <label class="field" id="refine-negative-field">
+        <span>Negative prompt <em id="refine-neg-note"></em></span>
+        <textarea id="refine-negative" rows="2" spellcheck="false"></textarea>
+      </label>
+      <div class="row">
+        <label class="sub grow"><i>Steps</i><input type="number" id="refine-steps" min="1" max="100"></label>
+        <label class="sub grow"><i>CFG</i><input type="number" id="refine-cfg" min="0" max="20" step="0.1"></label>
+        <label class="sub grow" id="refine-mu-field"><i>Mu</i><input type="number" id="refine-mu" min="0" max="10" step="0.05"></label>
+        <label class="sub grow" id="refine-true-cfg-field"><i>True CFG</i><input type="number" id="refine-true-cfg"
+               min="1" max="20" step="0.1" placeholder="off"></label>
+      </div>
+      <p class="hint" id="refine-carried"></p>
+    </details>
 
-  <!-- The source's own prompt and sampling, folded: a pass usually wants
-       them as they were. Open from the start where they could not carry -
-       an image made on another checkpoint. -->
-  <details class="section rf-more" id="refine-more">
-    <summary>Prompt and sampling <em id="refine-more-note"></em></summary>
-    <label class="field">
-      <span>Prompt</span>
-      <textarea id="refine-prompt" rows="3" spellcheck="false"></textarea>
-    </label>
-    <label class="field" id="refine-negative-field">
-      <span>Negative prompt <em id="refine-neg-note"></em></span>
-      <textarea id="refine-negative" rows="2" spellcheck="false"></textarea>
-    </label>
-    <div class="row">
-      <label class="sub grow"><i>Steps</i><input type="number" id="refine-steps" min="1" max="100"></label>
-      <label class="sub grow"><i>CFG</i><input type="number" id="refine-cfg" min="0" max="20" step="0.1"></label>
-      <label class="sub grow" id="refine-mu-field"><i>Mu</i><input type="number" id="refine-mu" min="0" max="10" step="0.05"></label>
-      <label class="sub grow" id="refine-true-cfg-field"><i>True CFG</i><input type="number" id="refine-true-cfg"
-             min="1" max="20" step="0.1" placeholder="off"></label>
+    <!-- The prompt check on the pass's own prompt: what the encoders never
+         read, and a rule's whole-field fix. Outside the fold, so a cut shows
+         with it closed; it never holds Refine. -->
+    <div class="rf-check" id="refine-check" aria-live="polite" hidden></div>
+    <p class="hint pre" id="refine-preview" aria-live="polite"></p>
+    <p class="error" id="refine-error" role="alert" hidden></p>
+    <div class="rf-actions">
+      <button type="button" class="ghost" id="refine-cancel">Cancel</button>
+      <button type="button" class="primary" id="refine-run" aria-keyshortcuts="Control+Enter">Refine</button>
     </div>
-    <p class="hint" id="refine-carried"></p>
-  </details>
-
-  <p class="hint pre" id="refine-preview" aria-live="polite"></p>
-  <p class="error" id="refine-error" role="alert" hidden></p>
-  <!-- autofocus: showModal() would otherwise focus the cross, the first
-       control in the tree. -->
-  <div class="rf-actions">
-    <button type="button" class="ghost" id="refine-cancel">Cancel</button>
-    <button type="button" class="primary" id="refine-run" autofocus>Refine</button>
   </div>
 </dialog>
 

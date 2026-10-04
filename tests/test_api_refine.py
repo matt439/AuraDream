@@ -158,6 +158,21 @@ def test_a_sweep_that_would_run_no_step_is_refused_by_name(client, fake, store):
     assert len(fake.requests) == made
 
 
+def test_a_strength_past_1_is_refused_as_a_fraction(client, fake, store):
+    # The Refine dialog shows the preview's refusal as it comes, so the words
+    # say what a strength is, not pydantic's bound - for the box's single
+    # value and for a value of a sweep alike.
+    first = _first(client)
+    base = {"prompt": "a fox", "width": 384, "height": 384, "seed": 1, "refine": first["id"]}
+    for body in ({**base, "strength": 1.5}, {**base, "strength_axis": "0.5,1.5"}):
+        response = client.post("/api/grid/preview", json=body)
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        text = detail if isinstance(detail, str) else " ".join(e["msg"] for e in detail)
+        assert "1.5 is not a fraction between 0 and 1" in text
+        assert "Value error" not in text and "less than or equal" not in text
+
+
 def test_one_images_record_by_id(client, fake, store):
     # What the panel's source chip asks for: the size the scale buttons
     # multiply, for an id that may be on no page the browser has loaded.

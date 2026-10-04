@@ -81,8 +81,9 @@ function resetPanel() {
   clearTimeout(panelTimer);
   forget(PANEL_KEY);
   for (const key of LEGACY_PANEL_KEYS) forget(key);
-  // The Refine dialog's scale, versions and per-checkpoint strengths too.
-  forget(REFINE_KEY);
+  // The Refine dialog's scale, versions and per-checkpoint strengths too, and
+  // anything left unsent in it.
+  forgetRefine();
   for (const key of Object.keys(owned)) owned[key] = false;
   els.prompt.value = '';
   promptReplaced();

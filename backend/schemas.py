@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 from .config import settings
 from .model_defaults import defaults_for
@@ -93,7 +94,9 @@ class GenerateRequest(BaseModel):
     # is "not given", filled from the checkpoint's profile like the steps:
     # what a strength does depends on the schedule it indexes into.
     refine: int | None = Field(default=None, ge=1)
-    strength: float | None = Field(default=None, gt=0.0, le=1.0)
+    # In (0, 1], checked by `_a_fraction` below rather than by gt/le, whose
+    # "Input should be less than or equal to 1" the Refine dialog would show.
+    strength: float | None = None
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
@@ -163,6 +166,22 @@ class GenerateRequest(BaseModel):
         if "/" in name or "\\" in name or name in (".", "..") or ":" in name:
             raise ValueError(f"{name!r} is not a file name in the loras directory")
         return name
+
+    @field_validator("strength")
+    @classmethod
+    def _a_fraction(cls, v: float | None) -> float | None:
+        # The Refine dialog shows a refusal in the server's words, under the
+        # field's name ("strength: ..."), so the words say what a strength is.
+        # A custom error, not a ValueError: pydantic prefixes those with
+        # "Value error, ". NaN fails the comparison too.
+        if v is not None and not 0.0 < v <= 1.0:
+            raise PydanticCustomError(
+                "strength_fraction",
+                "{value} is not a fraction between 0 and 1: a strength is more than 0, "
+                "and at 1 keeps nothing of the source",
+                {"value": f"{v:g}"},
+            )
+        return v
 
     @field_validator("width", "height")
     @classmethod

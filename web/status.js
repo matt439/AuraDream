@@ -28,6 +28,7 @@ function applyHints(hints) {
   const tips = {
     steps: els.stepsTip, guidance_scale: els.cfgTip, mu: els.muTip, true_cfg: els.trueCfgTip,
     prompt: els.promptTip, size: els.sizeTip, refine: els.refineStrengthTip,
+    refine_large: els.refineLarge,
   };
   for (const [key, el] of Object.entries(tips)) {
     if (hints[key]) el.textContent = hints[key];

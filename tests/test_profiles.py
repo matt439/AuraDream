@@ -590,3 +590,64 @@ def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
         "const REFINE_MAX_PIXELS = 4 * Math.max(...ASPECTS.map((a) => SIZES[a][2][0] * SIZES[a][2][1]));"
         in src
     )
+
+
+def test_a_refine_passs_tight_line_is_a_row_of_verified_md():
+    # The Refine dialog warns past `refine_tight_pixels` and does not open
+    # past it. A VRAM figure, so it is quoted, never modelled: each one is the
+    # largest pass verified.md's "Past 4 MP" table ran on that checkpoint
+    # without spilling, and every checkpoint the table does not measure is
+    # None - the panel's generic line - rather than a sibling's number:
+    # Animagine runs WAI's pipeline, but was not measured. FLUX.1 dev is Krea
+    # dev's profile in every number, the same transformer at the same size.
+    from backend.config import settings
+
+    measured = {
+        "black-forest-labs/FLUX.1-Krea-dev": ("FLUX.1 Krea dev", 1536, 1536),
+        "black-forest-labs/FLUX.1-dev": ("FLUX.1 Krea dev", 1536, 1536),
+        "SeeSee21/Z-Anime": ("Z-Anime", 1536, 1536),
+        "LyliaEngine/waiIllustriousSDXL_v170": ("WAI v17", 2560, 3360),
+    }
+    text = (ROOT / "docs" / "verified.md").read_text(encoding="utf-8")
+    table = text.split("### Past 4 MP", 1)[1].split("\n## ", 1)[0]
+    rows = [line for line in table.splitlines() if line.startswith("| ")]
+    repos = [c.repo for c in launch.CHECKPOINTS] + [
+        c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
+    ]
+    for repo in repos:
+        profile = defaults_for(repo)
+        tight = profile["refine_tight_pixels"]
+        base = next((m for m in measured if _profile_for(repo) is _profile_for(m)), None)
+        if base is None:
+            assert tight is None, repo
+            continue
+        label, width, height = measured[base]
+        assert tight == width * height, repo
+        row = next(line for line in rows if line.startswith(f"| {label},") and f"{width}x{height}" in line)
+        assert "spilling" not in row, row
+    # WAI ran past the pass's own guard: nothing the dialog offers is tight.
+    assert defaults_for("LyliaEngine/waiIllustriousSDXL_v170")["refine_tight_pixels"] > settings.refine_max_pixels
+    # The size line keeps its words where the number is the generic one.
+    assert defaults_for("cagliostrolab/animagine-xl-4.0")["refine_tight_pixels"] is None
+
+
+def test_the_strength_sweep_is_the_dialogs_compare_3():
+    # The tip's example and the dialog's Compare 3 are the same three
+    # strengths: half the checkpoint's own, it, and half as much again, on
+    # the 0.05 grid, less any that leaves no step. One arithmetic, written
+    # twice in the same order so the floats round alike.
+    from backend.model_defaults import strength_sweep
+
+    assert strength_sweep(0.1, 28) == [0.05, 0.1, 0.15]
+    assert strength_sweep(0.4, 28) == [0.2, 0.4, 0.6]
+    assert strength_sweep(0.5, 4) == [0.25, 0.5, 0.75]
+    # 0.05 of 10 steps leaves none, and 1.2 is past 1.
+    assert strength_sweep(0.1, 10) == [0.1, 0.15]
+    assert strength_sweep(0.8, 28) == [0.4, 0.8]
+    assert "such as 0.05,0.1,0.15," in hints_for("black-forest-labs/FLUX.1-Krea-dev")["refine"]
+    src = (ROOT / "web" / "refine.js").read_text(encoding="utf-8")
+    assert "Math.floor(factor * start / 0.05 + 0.5) * 0.05" in src
+    # The FLUX.1 note under Strength rides with the pass, and only there.
+    assert "sigma 0.75" in hints_for("black-forest-labs/FLUX.1-Krea-dev")["refine_large"]
+    assert "refine_large" not in hints_for("black-forest-labs/FLUX.1-Krea-dev", refine_supported=False)
+    assert "refine_large" not in hints_for("cagliostrolab/animagine-xl-4.0")

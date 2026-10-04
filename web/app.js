@@ -247,10 +247,24 @@ els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); };
 
 // The Refine dialog. Every box asks the server's preview again, as the grid's
-// do; the scale buttons are built with the source they multiply.
+// do; the scale buttons are built with the source they multiply. Keep shape
+// moves the other side before the box's own refineChanged reads the pair.
 els.refineRun.onclick = () => { void runRefine(); };
 els.refineCancel.onclick = els.refineClose.onclick = () => els.refineDialog.close();
 els.refineDialog.addEventListener('close', refineClosed);
+els.refineDialog.addEventListener('keydown', refineKeydown);
+els.refineWidth.addEventListener('input', refineSideTyped);
+els.refineHeight.addEventListener('input', refineSideTyped);
+els.refineDice.onclick = () => { els.refineSeed.value = ''; refineChanged(); };
+els.refineCompare.onclick = fillRefineCompare;
+els.refineStartOver.onclick = startRefineOver;
+els.refineMore.addEventListener('toggle', sizeRefinePrompt);
+REFINE_WIDE.addEventListener('change', showRefineSource);
+// The pass's own prompt check reads the text and whether the negative runs.
+els.refinePrompt.addEventListener('input', () => { sizeRefinePrompt(); scheduleRefineTags(); });
+for (const el of [els.refinePrompt, els.refineNegative, els.refineCfg, els.refineTrueCfg]) {
+  el.addEventListener('input', refineCheckChanged);
+}
 for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.refineVersions,
                   els.refineSeed, els.refinePrompt, els.refineNegative, els.refineSteps,
                   els.refineCfg, els.refineMu, els.refineTrueCfg]) {

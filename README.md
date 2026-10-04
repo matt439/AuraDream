@@ -575,11 +575,17 @@ Press **⤢** on a gallery image, or **⤢ Refine** in the lightbox. A Refine
 dialog opens on that image, the *source*, and the panel is left as it was:
 Generate, Batch, Runs and the grid always render from the prompt, and a pass
 never takes their settings. The dialog starts from the image's own prompt,
-sampling settings and seed, at 1.5× its size (or the last scale you ran);
-**Refine** runs the pass and its progress shows in the panel as any job's
-does. The **1× / 1.25× / 1.5× / 2×** buttons multiply the source's size -
-1× re-denoises at the size it has - and any other size works too: a shape
-that is not the source's crops it rather than stretching it. **Versions**
+sampling settings and seed, at 1.5× its size (or the last scale you ran)
+unless that is past what the checkpoint holds, when it opens at the largest
+factor that is - the one it skipped says so on its button. On a wide window
+the source is shown large beside the controls. **Strength** has focus;
+**Refine**, Enter in any box or Ctrl+Enter runs the pass, and its progress
+shows in the panel as any job's does. The **1× / 1.25× / 1.5× / 2×**
+buttons multiply the source's size, shown under each - 1× re-denoises at the
+size it has - and any other size works too: with **Keep shape** ticked,
+typing W or H moves the other to the source's shape, and a shape that is not
+the source's crops it rather than stretching it, which the size line
+quantifies and the large view frames. **Versions**
 makes 1, 2 or 4 passes on consecutive seeds from the **Seed** box, which
 starts at the source's. The prompt, negative prompt, steps, CFG and Mu are
 folded under **Prompt and sampling**: edit the prompt there if the detail
@@ -587,7 +593,12 @@ should change. An image made on another checkpoint keeps its prompt and
 seed, and takes this checkpoint's steps, CFG, Mu and strength, with the fold
 open to say so. Under the boxes the dialog says how many images the pass
 makes, about how many steps run and, once the gallery holds passes at that
-size, how long it will take.
+size, how long it will take; above that, where the encoders stop reading a
+long prompt (on SDXL, 77 tokens - a tag added at the end of a long prompt
+does nothing), with **Show** and the prompt check's **Apply**. The passes
+already made from the image are a row at the top, each opening in the
+lightbox beside the source. Closing the dialog without running keeps what
+you typed for the next time you open the same image; **Start over** drops it.
 
 A pass may go past the 4 MP presets, to any 2 MP preset at 2× - 4448 on a
 side, 8.4 MP - because it takes its composition from the source, which is
@@ -614,9 +625,12 @@ shift grows with the size: measured here, 0.4 at 1.5× keeps the composition
 and repaints the face, and at 2× even 0.1 starts at sigma 0.75 and repaints
 the man. A Mu set for the pass moves it back (Mu 1.15 at strength 0.2
 starts where the 1.5× default 0.1 does, with twice the steps, and at 2×
-kept him). Several strengths typed into the dialog's **Strength** box -
+kept him), and the dialog says so under Strength once a FLUX.1 pass is past
+2.4 MP. Several strengths typed into the dialog's **Strength** box -
 `0.05,0.1,0.2` or `0.05-0.2x0.05` - run as one sweep over the source, which
-opens as a sheet of how much of it each value kept.
+opens as a sheet of how much of it each value kept; **Compare 3** writes the
+checkpoint's own value and either side of it (0.05,0.1,0.15 on FLUX.1), and
+the arrow keys step a single value by 0.05.
 
 It runs the image-to-image pipeline diffusers ships beside the checkpoint's
 own, over the weights already loaded, with no extra weight download or copy.
