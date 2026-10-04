@@ -173,7 +173,7 @@ function goOffline() {
   if (serverOffline) return;
   serverOffline = true;
   els.dot.className = 'dot error';
-  els.statusText.textContent = 'server not answering — retrying';
+  els.statusText.textContent = LOST_PHRASE;
   els.load.hidden = true;
   syncUnload();
   syncSubmitButtons();
@@ -426,6 +426,8 @@ async function refreshStatus() {
       unloadRefusal = null;
     }
     if (restarted) noteRestart(s);
+    // A lost run's card in the viewer says the server is back, or restarted.
+    if (back || restarted) lostRunBack(restarted, s);
     // What a job saved before the server went quiet - or before it died -
     // is in the gallery now, which the page could not ask for meanwhile.
     if ((back || restarted) && loadedModel === previousModel) { void prependFinished(0); loadRuns(); }

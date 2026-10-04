@@ -202,9 +202,14 @@ function syncCfg() {
   const knob = trueCfgSupported ? 'True CFG' : 'CFG';
   const off = !negativeSupported || reach <= cfgThreshold;
   els.negField.classList.toggle('disabled', off);
+  // A checkpoint that takes none at all is its caption alone (style.css):
+  // a greyed two-line box that nothing could wake took the room the
+  // reference chips under it use. Its text is kept for one that does.
+  els.negField.classList.toggle('unsupported', !negativeSupported);
   els.negative.disabled = off;
   els.negNote.textContent = !negativeSupported
-    ? '(this checkpoint takes no negative prompt)'
+    ? (els.negative.value.trim() ? '(this checkpoint takes none; the text is kept for one that does)'
+      : '(this checkpoint takes no negative prompt)')
     : !trueCfgSupported && gridMaxCfg !== null && +els.cfg.value <= cfgThreshold && reach > cfgThreshold
       ? `(applies to the grid cells above CFG ${cfgThreshold} — ~2× slower there)`
       : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
@@ -253,10 +258,15 @@ function syncConditioning() {
   els.loraScale.closest('.sub').title = loraSupported && !els.lora.value ? 'Pick an adapter first' : '';
   els.gridLoraScale.disabled = !loraSupported || !els.lora.value;
   els.gridLoraField.classList.toggle('disabled', els.gridLoraScale.disabled);
-  // The sweep's box names the adapter it weighs, 570 px below the select.
+  // The sweep's box names the adapter it weighs, 570 px below the select -
+  // whole in its title, since the box is narrow - and, with none picked, says
+  // so in two words: "pick an adapter above" was cut to "…abov" at QHD. Where
+  // to pick one is the wrapper's title, as the panel's Weight has it.
   const adapter = els.lora.value.replace(/\.safetensors$/i, '');
   els.gridLoraScale.placeholder = !loraSupported ? '0-1x0.25'
-    : adapter ? `${adapter}: 0-1x0.25` : 'pick an adapter above';
+    : adapter ? `${adapter}: 0-1x0.25` : 'no adapter';
+  els.gridLoraScale.title = adapter ? els.gridLoraScale.placeholder : '';
+  els.gridLoraField.title = loraSupported && !adapter ? 'Pick an adapter in LoRA above first' : '';
   renderReferences();
 }
 

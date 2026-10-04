@@ -59,7 +59,7 @@
   {"expect": "tagInsertAt === null && document.activeElement === els.tagValidation.querySelector('.tag-add')"},
   {"eval": "(() => { const chips = els.tagValidation.querySelectorAll('.tag-check'); const a = chips[1].getBoundingClientRect(), b = chips[2].getBoundingClientRect(); window.__gap = {clientX: (a.right + b.left) / 2, clientY: (a.top + a.bottom) / 2}; els.tagValidation.dispatchEvent(new PointerEvent('pointermove', {bubbles: true, ...window.__gap})); })()"},
   {"wait": 100},
-  {"expect": "els.tagValidation.querySelector('.tag-check[data-index=\"2\"]').classList.contains('drop-before') && els.tagValidation.querySelectorAll('.drop-before, .drop-after').length === 1"},
+  {"expect": "(async () => { for (let i = 0; i < 40; i++) { if (els.tagValidation.querySelector('.tag-check[data-index=\"2\"]')?.classList.contains('drop-before') && els.tagValidation.querySelectorAll('.drop-before, .drop-after').length === 1) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"eval": "els.tagValidation.dispatchEvent(new PointerEvent('pointerleave', {...window.__gap}));"},
   {"expect": "!els.tagValidation.querySelector('.drop-before, .drop-after')"},
   {"eval": "els.tagValidation.dispatchEvent(new MouseEvent('click', {bubbles: true, ...window.__gap}));"},

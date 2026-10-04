@@ -38,7 +38,11 @@
 // An `eval` whose last expression is a promise is awaited - handy for a fetch,
 // but `startJob(...)` resolves when the job *ends*, so to look at a job while
 // it runs write `void startJob(...)`.
-// Exit status is 1 when any `expect` failed, so this can gate a check.
+// Exit status is 1 when any `expect` failed, so this can gate a check, and 2
+// for a script refused before the browser starts - among them an expect that
+// joins an async helper (`__until`, or a `window.__x = async` of the file's
+// own) to more with && or ||, which would never wait: put the whole
+// condition in the predicate.
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -63,6 +67,45 @@ if (OFFSET) {
   text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
 }
 const steps = JSON.parse(text);
+
+// An expect that joins an async helper's call to more with && or || never
+// waits: the promise is truthy, so the rest is evaluated at once, and only a
+// promise that is the whole value is awaited. `__until(() => A) && B` read B
+// a moment after the step began and failed whenever the page was slower
+// than that. Refused before the browser starts: the whole condition goes in
+// the predicate. The helpers are the ones the file's own evals define as
+// `window.__name = async`.
+const asyncHelpers = new Set(['__until']);
+for (const step of steps) {
+  for (const m of String(step.eval ?? '').matchAll(/window\.(__\w+)\s*=\s*async\b/g)) asyncHelpers.add(m[1]);
+}
+const closing = (s, open) => {
+  let depth = 0;
+  let quote = null;
+  for (let j = open; j < s.length; j++) {
+    const c = s[j];
+    if (quote) { if (c === '\\') j++; else if (c === quote) quote = null; continue; }
+    if (c === '\'' || c === '"' || c === '`') quote = c;
+    else if (c === '(') depth++;
+    else if (c === ')' && --depth === 0) return j;
+  }
+  return -1;
+};
+const unawaited = steps.flatMap((step, n) => {
+  const e = step.expect;
+  if (typeof e !== 'string') return [];
+  return [...e.matchAll(/(?<![\w.$])(__\w+)\(/g)].filter((m) => {
+    if (!asyncHelpers.has(m[1])) return false;
+    const before = e.slice(0, m.index).trimEnd();
+    if (before.endsWith('await')) return false;
+    const after = e.slice(closing(e, m.index + m[0].length - 1) + 1).trimStart();
+    return /^(&&|\|\|)/.test(after) || /(&&|\|\||!)$/.test(before);
+  }).map((m) => `step ${n + 1}: ${m[1]}(...) joined with && or || is never awaited`);
+});
+if (unawaited.length) {
+  console.error(unawaited.join('\n'));
+  process.exit(2);
+}
 
 const [VW, VH] = (process.env.LOCAL_DIFFUSION_VIEWPORT || '1400x900').split('x').map(Number);
 const DPR = Number(process.env.LOCAL_DIFFUSION_DPR || 1);

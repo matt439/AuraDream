@@ -47,6 +47,7 @@ function setBusy(on) {
     || els.queueNote.contains(document.activeElement));
   if (finishTakesFocus) els.generate.focus({ preventScroll: true });
   busy = on;
+  streamLost = false;
   // The submit buttons stay live while a job runs: a second Generate or Run
   // grid queues behind it on the server. They are only held during the POST
   // itself (see startJob), as the double-submit guard.
@@ -237,6 +238,8 @@ function syncSubmitButtons() {
   els.gridRun.setAttribute('aria-disabled', held);
   els.generate.title = serverOffline ? 'The server is not answering' : GENERATE_TITLE;
   els.gridRun.title = serverOffline ? 'The server is not answering' : GRID_RUN_TITLE;
+  // The Refine dialog's Refine says the same while the server is gone.
+  syncRefineRun();
 }
 
 function setSubmitting(on) {
@@ -278,8 +281,16 @@ function setTitle(text) {
   document.title = text ? `${text} — ${PAGE_TITLE}` : PAGE_TITLE;
 }
 
+// While the watched job's stream reconnects (streamJob's onerror): the topbar
+// says it already, so its mirror says nothing more, and the tab says the same.
+let streamLost = false;
 function mirrorJob() {
   if (!busy) { els.jobMirror.textContent = ''; setTitle(''); return; }
+  if (streamLost) {
+    els.jobMirror.textContent = '';
+    setTitle(`${LOST_PHRASE[0].toUpperCase()}${LOST_PHRASE.slice(1)}`);
+    return;
+  }
   const text = els.progressText.textContent;
   const steps = els.stepRow.hidden ? '' : els.stepText.textContent;
   els.jobMirror.textContent = [text, steps, jobEta].filter(Boolean).join(' · ');
@@ -897,6 +908,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     };
 
     source.onmessage = (event) => {
+      // Back after a reconnect: the strip's note is its own again.
+      if (streamLost) { streamLost = false; noteViewer(); }
       failures = 0;
       const data = JSON.parse(event.data);
       const runs = data.total_runs || 1;
@@ -1002,33 +1015,47 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       // that ended meanwhile.
       if (alive && reattached < 3) return streamJob(jobId, { reattached: reattached + 1 });
       const grid = job?.grid;
+      const submitted = submissions.get(jobId);
       forgetJob(jobId);
       setBusy(false);
+      // The strip's note was the reconnect's line; it is the strip's again.
+      noteViewer();
       const made = shown.size;
       const saved = made
         ? `The ${plural(made, 'image')} finished so far ${made === 1 ? 'is' : 'are'} saved.`
         : 'Nothing of it had finished.';
+      // What the viewer says where nothing of the job reached it (lostRun).
+      let lost = null;
       if (alive) {
         showError('This job is still running, but its progress keeps getting lost: '
           + `reload the page to follow it. ${saved}`);
       } else if (failure.offline) {
         // The status poll's offline state takes it from here, and its first
         // answer takes this back.
-        showError(`Can't reach the server — it may have stopped. ${saved} Start it again; the page will notice.`,
-          false, { offline: true });
+        const text = `Can't reach the server — it may have stopped. ${saved} Start it again; the page will notice.`;
+        showError(text, false, { offline: true });
+        lost = { heading: 'Lost the server', text };
         void refreshStatus();
       } else if (failure.status === 404) {
         const planned = job?.planned_images;
-        showError(made
+        const text = made
           ? `The server restarted, and this job ended with it after ${made}${planned ? ` of ${planned}` : ''} `
             + `image${(planned ?? made) === 1 ? '' : 's'}. They are in the gallery; `
             + `${grid ? 'run the grid again with Resume ticked' : 'Generate again'} for the rest.`
-          : 'The server restarted, and this job ended with it before any of it had finished.');
+          : 'The server restarted, and this job ended with it before any of it had finished.';
+        showError(text);
+        lost = { heading: 'The server restarted', text };
         void refreshStatus();
       } else {
-        showError(`Lost this job's progress: ${failure.message}`);
+        const text = `Lost this job's progress: ${failure.message}`;
+        showError(text);
+        lost = { heading: 'Lost this job', text };
       }
-      holdTitle('Lost the job');
+      // In the topbar's words where the server is what went.
+      holdTitle(failure?.offline ? 'Server not answering' : 'Lost the job');
+      // Its first frame had cleared the strip and nothing of it landed: the
+      // viewer was an empty box, the only words red in the panel.
+      if (lost && cleared && !made) showLostRun(lost, submitted);
       if (made && !failure?.offline) { void prependFinished(made); loadRuns(); }
     };
 
@@ -1043,7 +1070,20 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       // used to strand a running sweep behind an idle-looking page. Ride out a
       // few failures before asking the server what became of the job.
       if (source.readyState === EventSource.CONNECTING && ++failures <= 5) {
-        els.progressText.textContent = `reconnecting… (${failures})`;
+        // In the topbar's words, and nothing beside them that is no longer
+        // true: the progress row said "reconnecting… (2)" under the topbar's
+        // "server not answering", the step count and "~19s left" frozen
+        // beside it, and the tab a third thing. The next frame that lands
+        // brings the counts back (`showCell`, `setStep`, `noteViewer`).
+        els.progressText.textContent = `${LOST_PHRASE} (${failures})`;
+        setStep(false);
+        jobEta = '';
+        els.cellNote.textContent = '';
+        if (failures === 1) {
+          els.viewerNote.replaceChildren(`${LOST_PHRASE[0].toUpperCase()}${LOST_PHRASE.slice(1)}…`);
+          void refreshStatus();
+        }
+        streamLost = true;
         mirrorJob();
         return;
       }
@@ -1120,6 +1160,14 @@ function finishJob(jobId, data, { submitted, sheet }) {
   // line used to give the same six lines again.
   const atLoad = data.status === 'error' && !data.started_at;
   const line = [];
+  // Its finish line says it was not made, though: the press had queued an
+  // image, and the panel went back to Generate with no word of what became
+  // of it. The reason is the viewer's card, or the panel's line under this
+  // where the viewer holds images (syncLoadFailure).
+  if (atLoad) {
+    line.push(`Not made: the model could not load - ${els.viewer.querySelector('img, figure, .tomb')
+      ? 'why is said below' : 'why, and Retry load, are in the viewer'}.`);
+  }
   // Nothing made - every cell skipped - leaves the line to the skipped cells.
   if (data.status === 'done' && data.started_at && data.finished_at && made) {
     // Fewer distinct pictures than images is an axis that changed nothing,
@@ -1218,7 +1266,51 @@ function finishJob(jobId, data, { submitted, sheet }) {
   // cells, so reversing original/yours on the same seeds shares a run
   // but must not mix the two meanings of either version label.
   if (sheet && images.length) { showJob(jobId, { fresh: true }); loadRuns(); }
-  else if (images.length) { void prependFinished(made); loadRuns(); }
+  else if (images.length) {
+    void Promise.resolve(prependFinished(made)).then(() => noteOutsideView(images));
+    loadRuns();
+  }
+}
+
+// A finished job's images the gallery's filter leaves out - a comparison's
+// or a sweep's sheet still scoped to its job:, a search, Starred - said
+// under the gallery's head with a way to them: Generate after a comparison
+// left the 12 images of its sheet on screen, the count unchanged, as though
+// nothing had been saved. Counted across jobs while the filter is the same
+// (`outsideView`); the gallery's line clears with the next reset.
+let outsideView = null;
+function viewFilter() {
+  return [els.search.value.trim(), els.favOnly.checked, els.allModels.checked, sheetMode].join('|');
+}
+
+function noteOutsideView(images) {
+  if (!els.search.value.trim() && !els.favOnly.checked) { outsideView = null; return; }
+  const have = new Set(galleryRecords.map((r) => r.id));
+  const missing = images.filter((r) => !have.has(r.id)).map((r) => r.id);
+  if (!missing.length) return;
+  if (outsideView?.filter !== viewFilter()) outsideView = { filter: viewFilter(), ids: new Set() };
+  missing.forEach((id) => outsideView.ids.add(id));
+  const n = outsideView.ids.size;
+  showError(`${plural(n, 'new image')} outside this view`, true, { slot: els.galleryError, mirror: false });
+  const show = document.createElement('button');
+  show.type = 'button';
+  show.className = 'ghost tiny';
+  show.textContent = 'Show all';
+  show.title = 'Clear the search and Starred, and close the sheet, to see every image';
+  show.onclick = showAllImages;
+  els.galleryError.append(' · ', show);
+}
+
+// The gallery unfiltered: the search box emptied, Starred off, the sheet
+// closed - the escape the scope note offers.
+function showAllImages() {
+  outsideView = null;
+  els.search.value = '';
+  els.favOnly.checked = false;
+  sheetReturn = null;
+  if (sheetMode) setSheet(false);
+  else resetGallery();
+  loadRuns();
 }
 
 // The cells a grid skipped, by name: which settings, which seed, and the
@@ -1323,7 +1415,9 @@ function prependFinished(made) {
     total = page.total;
     els.count.textContent = total ? `(${total})` : '';
     els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
+    galleryOthers = page.other_models || 0;
     syncRerender();
+    syncGalleryEmpty();
     syncDeleteUnstarred();
     if (els.lightbox.open && lbList === galleryRecords) renderLightbox();
   });
@@ -1347,6 +1441,59 @@ function offerNewImage() {
     if (!els.newImage.hidden && !viewerOutOfSight()) els.newImage.hidden = true;
   }, { threshold: [0, 0.1, 0.25, 0.5, 1] });
   viewerWatch.observe(els.viewer);
+}
+
+// A job whose stream gave up with nothing of it in the strip: its first frame
+// had cleared the strip, the live preview went with the stream, and the
+// viewer was an empty box with the only words red in the panel - still empty
+// once the server was back. A card says it where the work is, as a failed
+// load's does (status.js), with the same request a press away where this
+// page sent it; its refusal - the server still gone - is said in the card.
+// The next job's first frame clears it; an answering server rewords it
+// (`lostRunBack`).
+function showLostRun({ heading, text }, submitted) {
+  const card = document.createElement('div');
+  card.className = 'lost-run';
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-labelledby', 'lost-run-head');
+  const head = document.createElement('h2');
+  head.id = 'lost-run-head';
+  head.textContent = heading;
+  const line = document.createElement('p');
+  line.textContent = text;
+  card.append(head, line);
+  if (submitted) {
+    const refused = document.createElement('p');
+    refused.className = 'error';
+    refused.setAttribute('role', 'alert');
+    refused.hidden = true;
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'primary';
+    again.textContent = 'Run it again';
+    again.title = 'Send the same request again';
+    again.onclick = () => {
+      void startJob(submitted.path, submitted.payload, { sheet: submitted.sheet, panel: false, slot: refused });
+    };
+    card.append(again, refused);
+  }
+  els.viewer.replaceChildren(card);
+  els.viewer.classList.remove('multi', 'many', 'fitted');
+  els.viewer.style.minHeight = els.viewer.style.maxHeight = '';
+  els.viewerNote.replaceChildren();
+}
+
+// The server answers again: the card says so rather than that it is gone.
+function lostRunBack(restarted, s) {
+  const card = els.viewer.querySelector(':scope > .lost-run');
+  if (!card) return;
+  const at = typeof s.started_at === 'number'
+    ? new Date(s.started_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  card.querySelector('h2').textContent = restarted ? `The server restarted${at ? ` at ${at}` : ''}` : 'The server is back';
+  card.querySelector('p').textContent = 'Nothing of the last run finished'
+    + (card.querySelector('button') ? ': Run it again sends the same request.' : '.');
+  const refused = card.querySelector('.error');
+  if (refused) { refused.hidden = true; refused.textContent = ''; }
 }
 
 // To the newest image, focused - Enter opens it - since the button goes the

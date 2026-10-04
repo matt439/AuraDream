@@ -62,7 +62,10 @@ const els = {
   gridBudget: $('grid-budget'), gridPreview: $('grid-preview'),
   gridRun: $('btn-grid'),
   error: $('error'), galleryError: $('gallery-error'),
-  viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
+  viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'), galleryEmpty: $('gallery-empty'),
+  confirmDialog: $('confirm-dialog'), confirmTitle: $('confirm-title'), confirmText: $('confirm-text'),
+  confirmCountField: $('confirm-count-field'), confirmCountLabel: $('confirm-count-label'),
+  confirmCount: $('confirm-count'), confirmCancel: $('confirm-cancel'), confirmOk: $('confirm-ok'),
   viewerExamples: $('viewer-examples'), recent: $('recent'), recentList: $('recent-list'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
   allModels: $('all-models'), otherModels: $('other-models'),
@@ -342,6 +345,10 @@ let sheetRecords = [];
 // can take the page into its offline state and clear the message once the
 // server answers again.
 const OFFLINE_MESSAGE = 'No answer from the Local Diffusion server — is it still running?';
+// The topbar's words for that state, which the watched job's line, the
+// topbar's mirror of it and the tab's title use too while its stream
+// reconnects (generation.js): one phrase, not three.
+const LOST_PHRASE = 'server not answering — retrying';
 
 async function api(path, options) {
   let res;

@@ -1347,9 +1347,12 @@ async function previewComparison() {
 }
 
 // One grid, then its submission's sheet: startJob keeps the job id and opens
-// it when the stream reports done, with one row per version as written.
+// it when the stream reports done, with one row per version as written. Not
+// the panel's grid (`panel: false`): a blank Seed box stays blank. Its base
+// was written back for a Resume no comparison takes, and every plain
+// Generate after it repeated that seed, said only in the run hint's grey.
 function runComparison() {
   const variants = comparedVariants();
   if (!analysisResult || variants.length < 2 || analysisStale) return undefined;
-  return startJob('/api/grid', comparePayload(variants), { sheet: true });
+  return startJob('/api/grid', comparePayload(variants), { sheet: true, panel: false });
 }

@@ -495,7 +495,9 @@ Prompt analyser:
   (`prompt_encoding.measure`, no rules, no tag lookup) for the chip tray's
   token count and cut, on the same terms; an encoder left uncounted is "cut
   unknown" there, never "no cut". The Refine dialog checks its own request
-  (never `collect()`) on the same route under an epoch of its own
+  (never `collect()`) on Check's route (`POST /api/prompt/analyze`, the
+  request without `strength`, `strength_axis` or `seeds`) under an epoch of
+  its own
   (`checkRefinePrompt`): the encoders' non-pooled cuts with Show, and rule
   findings' whole-field Apply written through `replaceBoxText` into the
   dialog's boxes, never the panel's; stale while either box's text or the
@@ -781,8 +783,12 @@ Frontend and CLI:
   height it was dragged to; nothing may write an inline height on `#prompt`
   for any other reason. A second query, for wide windows under 1150 px tall,
   sets compact control heights of its own (a field 40 px, the primary 44, the
-  small and tiny buttons 28 and 21), today's panel padding and topbar, a 12 px
-  gap and an eight-line prompt cap. Nothing changes under 1800 px, where the
+  small and tiny buttons 28 and 26), today's panel padding and topbar, a 12 px
+  gap and an eight-line prompt cap. In the wide tier the tiny buttons are
+  30 px at a caption's type, tick boxes 18 px, a tag chip's × and a
+  reference chip's × 24 px targets, reference chips up to 96 px badged
+  "image N", and a card's and a long run's tile tools and a result's row
+  `--h-tool` (32 px). Nothing changes under 1800 px, where the
   smokes run. A component's wide-tier rule goes in its own section, inside an
   `@media (min-width: 1800px)` block, and new CSS uses the tokens. Contrast
   and focus are not scale and apply at every width: `--line-strong`
@@ -800,8 +806,9 @@ Frontend and CLI:
   help", "Grid seeds help", the dialog's "Refine size help") and
   `aria-describedby` pointing at its own tip, keeps role=note and
   tabindex=0, and stays outside its field's `<label>`, where a press ticked
-  the box (Resume's). Red on hover is the `.ghost.danger` class (Cancel,
-  Cancel queued, Delete unstarred, Reset), never every small ghost button.
+  the box (Resume's). Red on hover is the `.ghost.danger` class (Cancel, a
+  queue row's ×, Cancel queued, Delete unstarred, Reset), never every small
+  ghost button.
   A button whose words are its state (Pause / Pausing… / Resume) has no
   `aria-pressed`. A toggle with `aria-pressed` keeps one name in every
   state - "Star" for every star (the lightbox's words are "☆ Star" / "★ Star"
@@ -811,10 +818,14 @@ Frontend and CLI:
   also its `aria-description`). A button held for a reason (Generate, Run
   grid, Unload, Pause, Refine, Ask the critic, a card's ⤢ and ❐) is
   `aria-disabled` with the reason as its title, never `disabled`, so it keeps
-  focus and a press can say why; the prompt check's dead Use and Apply are a
-  documented exception (below).
-- Each size strip is a `role="group"` with one tab stop (the chosen preset,
-  else the first) and `aria-pressed`; the arrow keys, Home and End move focus
+  focus and a press can say why. The prompt check's dead Use, Apply and Run
+  comparison (stale, or fewer than two versions), the Refine dialog's check
+  buttons (Show, Apply) and its scale buttons past the guard are `disabled`
+  with the reason as their title - the documented exceptions (below): each
+  dies with a state its own panel says in words beside it.
+- Each of the panel's size strips (`#presets`, `#tiers`) is a `role="group"`
+  with one tab stop (the chosen preset, else the first) and `aria-pressed`;
+  Left and Right, Home and End move focus
   along `strip.querySelectorAll('button')` without choosing (`stepPreset`),
   and `syncSize` resets the stop. A strip whose every preset is in range
   carries no marks (`all-guided`). While the negative box is greyed and the
@@ -822,9 +833,11 @@ Frontend and CLI:
   after the note in the field's caption, focuses and selects the deciding box
   and writes nothing (`focusNegativeKnob`); it never goes over the box, whose
   text is what a greyed negative shows, and the greyed box keeps the pointer,
-  so a carried-over negative can still be scrolled. `#negative-field` is a
-  div with `<label for="negative">`: a button inside a label becomes the
-  label's control.
+  so a carried-over negative can still be scrolled. Where the checkpoint
+  takes no negative prompt at all (klein) the field is its caption alone
+  (`.unsupported` hides the box; its text is kept, and the note says so).
+  `#negative-field` is a div with `<label for="negative">`: a button inside a
+  label becomes the label's control.
 - The size line compares the request against `guide.pixels` a tenth either
   way and quotes `pixels_word`; the Examples menu is built on open from the
   last status. A pick writes through `writeBox` (tags.js) and tells the
@@ -906,7 +919,9 @@ Frontend and CLI:
   `num_images` is its batch size and grid `seeds` is Seeds divided by Batch,
   keeping the image count versions times Seeds. Its preview states the total
   seeds per version and batch size. The main panel's Batch and Repeat do not
-  apply; its Seed still does. The mechanics are a ? tip after the
+  apply; its Seed still does, and a blank one stays blank: the comparison is
+  not the panel's grid (`startJob`'s `panel: false`), so its base seed is
+  never written back for a Resume it does not take. The mechanics are a ? tip after the
   comparison's Batch select; the 4-vs-8 caveat stays visible. Preview and Run
   read both comparison selects directly (they and Your version are
   `autocomplete=off`). It takes Check's `reordered` as its Reordered row, else
@@ -943,9 +958,13 @@ Frontend and CLI:
   `placeTagValidation` are unchanged, and without `:has()` the check stays
   above the results. The check takes the left column's height rather than
   setting it (`contain: size`, stretched, at most the window under the
-  topbar), and the viewer is then at least `min(36rem, that window)`; it
-  scrolls inside itself, its head sticky in that scroll, and
-  `focusAnalysisHeading` resets that scroll. Never `position: sticky` or a
+  topbar), and the viewer holding something is then at least `min(36rem,
+  that window)`; idle, it stays its one line and the gallery comes up beside
+  the content-sized check (the results viewer below). The check scrolls
+  inside itself, its head sticky at the scroller's very top (`top: 0`, the
+  column's top padding in the head's own, so nothing scrolls past above
+  it) with Close absolute in its top right corner, never wrapped onto a line
+  of its own, and `focusAnalysisHeading` resets that scroll. Never `position: sticky` or a
   min-height on the column itself. With no chips the image does not move; on
   a tag checkpoint it moves by exactly the lines the chips wrap onto in the
   narrower column (where `#recent` docks beside it they span both columns:
@@ -955,7 +974,10 @@ Frontend and CLI:
   chip's right-click or Menu key inserts after itself, + tag at the end) with
   autocomplete; a plain click and the hover marker count only within a row
   of chips (`tagInsertionIndexAtPoint(..., { gap: true })`, null on the label
-  and the hint), a right-click takes the nearest place. All mutations must go
+  and the hint), a right-click takes the nearest place; the marker is drawn
+  again at the end of every tray render while the pointer rests in a gap
+  (`tagHoverPoint`, not under an open editor), since a lookup or a count
+  landing rebuilt the chips without it. All mutations must go
   through `writePromptTags`, which writes through `writeBox` and hands focus
   back to the chip the edit leaves in place (`tagFocusIndex`); a chip's write
   visits the prompt in passing - focused with `preventScroll` and exempt from
@@ -1050,7 +1072,9 @@ Frontend and CLI:
   wait for the answer; a close the browser will not hold counts as a run in
   `refineClosed`, and a refusal after it is said in `#error`. A pass run from
   a dialog the lightbox opened puts focus on the source's gallery card, else
-  Generate, with `preventScroll`. Every change asks `/api/grid/preview` with
+  Generate, with `preventScroll`; any other run whose close leaves focus on
+  `<body>` (an open from script, Reuse of a pass) puts it on Generate, or New
+  image ↑ where that is shown, on the next frame. Every change asks `/api/grid/preview` with
   the grid-shaped request; its refusal, a size past the guard or no
   capability makes Refine aria-disabled with the reason as its title, and a
   press says it in the dialog. Every way of running a pass first waits for
@@ -1065,7 +1089,11 @@ Frontend and CLI:
   are the same three values - half, the profile's strength, half again on
   the 0.05 grid, less any that leaves no step - one arithmetic in the same
   order in both, held by `tests/test_profiles.py`; Compare 3 only fills the
-  box. From 1600 px the dialog is two panes (the source's PNG, the kept
+  box. Where Steps leaves fewer than two of them a step (a source made at 2
+  steps), Compare 3 is aria-disabled, its title naming the Steps that would
+  give a sweep (`compareStepsNeeded`), a press says so and writes nothing,
+  the placeholder is the start alone and the sweep line names no values.
+  From 1600 px the dialog is two panes (the source's PNG, the kept
   region of a reshaped size framed with `refine.fitted`'s arithmetic,
   `refineKept`), with the same DOM and tab order as the one column; Keep
   shape moves the other side on trusted input only. The dialog remembers the
@@ -1082,7 +1110,13 @@ Frontend and CLI:
   `GET /api/jobs/<id>`: alive, it streams again (three times at most); no
   answer, an offline message counting the saved images; a 404, "The server
   restarted, and this job ended with it after N of M images". The stale
-  preview is dropped. The progress block is a one-line Now row
+  preview is dropped, and where nothing of the job reached the strip the
+  viewer holds `showLostRun`'s card (the sentence, Run it again where this
+  page sent it, `lostRunBack` rewording it once the server answers). While
+  it reconnects the job line reads `LOST_PHRASE` (the topbar's "server not
+  answering — retrying") with the count, no steps or time left, no topbar
+  mirror (`streamLost`), the title and the strip's note the same phrase. The
+  progress block is a one-line Now row
   (`#progress-now`, count · size · what - "Now: 3 images · 1024×1024 · a fox
   in the snow" (`describeJob`), the prompt last so the ellipsis takes it,
   whole in its title) with Pause and Cancel at its end, the bars at the
@@ -1126,7 +1160,8 @@ Frontend and CLI:
   contains `OFFLINE_MESSAGE`), and `clearOffline()` empties them on the first
   answered status poll. A poll that gets an offline error calls `goOffline`:
   dot error, "server not answering — retrying", Load hidden, Generate and Run
-  grid aria-disabled with the reason (`syncSubmitButtons`, their one writer),
+  grid aria-disabled with the reason (`syncSubmitButtons`, their one writer,
+  which has the Refine dialog's Refine follow through `syncRefineRun`),
   Unload held. A changed `started_at` writes the restart note into an empty
   `#error`. The lightbox's picture is one such slot: `els.lbImg.onerror` asks
   for the record and, where the server is not answering, writes
@@ -1141,11 +1176,13 @@ Frontend and CLI:
   shown, and the press that hides one of the two hands focus to the other. A
   failed load is a card in the viewer's empty state (`syncLoadFailure`:
   heading, detail, model page link, a primary Retry load calling
-  `loadModel`); a card that goes with focus in it hands focus to Generate.
+  `loadModel`); a card that goes with focus in it hands focus to the new
+  card's Retry load where one replaces it, else to Generate.
   Where the viewer holds images the detail goes to `#error`, once per
   detail, with `mirror: false`, and again after a job that ended at the load
   (`finishJob` forgets `shownLoadDetail`, since the press that queued it
-  cleared the line). The topbar's Load reads Retry load meanwhile, and the
+  cleared the line); that job's finish line says "Not made: the model could
+  not load" and where the reason is. The card is centred in the viewer. The topbar's Load reads Retry load meanwhile, and the
   status text keeps the checkpoint's short name in every state. While a job
   waits on the load, a client ticker writes "loading weights" with an
   `aria-hidden` clock span ("· m:ss") in `#progress-text` over an
@@ -1204,25 +1241,38 @@ Frontend and CLI:
 - The results viewer (panel.js). `clearResults(job)` runs at a job's first
   frame or image: it moves what the strip held into `sessionRecords` (newest
   first, not the same job's) and sets the tier from the job's
-  `planned_images` (`viewerJob`), never the running count. One image is shown
+  `planned_images` (`viewerJob`), never the running count; focus inside the
+  strip it empties goes to Generate. One image is shown
   at 68vh; two to four are best-fit (`fitViewer`: `--cols`, `--rows`,
   `--tile-h`, `.fitted`, `grid-template-rows` reserving every row the job
   will fill from its first frame), refit on the next frame from a
   ResizeObserver and on the window's resize; more than four are small tiles,
   whose tools are out of the tab order, and from 2000 px those are
   `auto-fill minmax(--strip-min, 1fr)` under `min(560px, 45vh)` with their
-  own scroll and `scrollbar-gutter: stable both-edges`. Every tile appended
+  own scroll and `scrollbar-gutter: stable both-edges`, no 380 px floor, and
+  every row the job will fill reserved from its first tile (`reserveStrip`:
+  an inline min-height from that tile and the strip's column count, up to
+  the cap, never under the stylesheet's own minimum, recomputed when the
+  strip's width moves, let go by `clearResults`). Every tile appended
   goes through `stripAppend`, the preview and the stand-in included, so a
   strip at its end stays there, and `settleStrip` lets the strip grow by an
   overflow no bigger than its bottom padding. Every tile is a `viewerTile`
-  with `--w`/`--h`, `--tile-h` and a foot of `--h-sm`: a result, the live
+  with `--w`/`--h`, `--tile-h` and a foot of `--h-tool` (`fitViewer` reads
+  the same token): a result, the live
   preview `figure.live`, and a pass's stand-in `figure.pending`. A result is
   `figure.result[data-id]`, never `.card`, holding `thumb()`'s image and the
-  card's tools: `reuseButton`, ⤢ (`refineResult`), a `.star` via
-  `setFavorite`, and ⌦ via `deleteImage`; no ❐ or ⊞. Alone in the strip, a
-  result carries `.result-side` (from 1800 px, not while the check is
-  docked): the lineage chip (`passLineage`), Star / Refine… / Reuse / Use
-  seed in words, the prompt and `factsList(rec)`; its row then shows only ⌦.
+  card's tools: `reuseButton`, ⤢ (`refineResult`), ❐ (`toggleReference`,
+  hidden where the checkpoint takes no references), a `.star` via
+  `setFavorite`, and ⌦ via `deleteImage`; no ⊞. Alone in the strip, a
+  result carries `.result-side` from 1800 px: the lineage chip
+  (`passLineage`), Star / Refine… / Reuse / ❐ Reference / Use seed and
+  Delete (`.ghost.danger`, at the row's end) in words, the prompt and
+  `factsList(rec)`; its tile's tools row stays, empty, at its height. With
+  the check docked the side is a row under the picture in the tools row's
+  place, at `--h-tool`: its actions and `.result-brief` (seed, size, steps,
+  CFG; `settingsLine` in its title) - one set of words for the image just
+  made either way, and neither the picture nor the gallery moves as the
+  check opens.
   `#viewer-note` names a pass's source ("Refined from #N at s · W×H",
   `sourceLink` → `openRefineSource`). `#recent` (from 2000 px, single tier,
   in the viewer's row only) shows up to six `sessionRecords` and opens the
@@ -1239,14 +1289,25 @@ Frontend and CLI:
   Idle, the viewer is one line, keyed on `:has(> .placeholder:not(.held))`,
   never on `viewerRecords`; `.empty-install` (`syncEmptyInstall`, from an
   unfiltered gallery page with total 0 and no `other_models`) keeps the tall
-  box with an Examples button. The strip's run is `.card.this-run` in the
+  box with an Examples button. Idle with the check docked, the viewer stays
+  that line, the gallery comes up in the first column beside the check, and
+  the check is as tall as what it holds up to the window (`contain: none`,
+  spanning the rows down to the gallery's 1fr); the docked 36rem minimum is
+  only for a viewer holding something. A gallery with nothing to show says
+  so under its head (`syncGalleryEmpty`, `#gallery-empty`: what fills it and
+  the authors' Examples, or that nothing matches the filter, and what All
+  models would add), never over tombstones or in sheet mode. A finished
+  job's images the gallery's filter leaves out - a sheet's `job:` scope, a
+  search, Starred - are counted in the gallery's line with Show all
+  (`noteOutsideView`, per filter; `showAllImages` empties the search,
+  unticks Starred and closes the sheet). The strip's run is `.card.this-run` in the
   gallery. When ⌦ deletes the strip's last image, focus moves to the held
   placeholder, never `<body>`. `forgetImages` splices `sessionRecords` and
   re-renders `#recent`, retitles every `img[data-id]` of a pass whose source
   it deleted (`cardTitle`) and calls `viewerSourcesGone` (the note, the
   lineage and the facts read "#N (deleted)"); `recordsWithId` includes
   `sessionRecords`, and `syncCardTools` also syncs the viewer's
-  `.refine-tool`s.
+  `.refine-tool`s and `.ref-tool`s.
 - The lightbox (`web/lightbox.js`). `lbView` is a scale relative to fit,
   never below `min(1, oneToOneScale)` nor above 8x device pixels
   (`clampScale`), carried across records whose aspect agrees within 1%
@@ -1258,8 +1319,9 @@ Frontend and CLI:
   browser's find and zoom), and a key a lightbox control already handled
   (`defaultPrevented`: the swipe divider's arrows) is not walked. On a record
   with `refine`, S or Compare with source shows the source under the pass
-  left of a divider (swipe), or side by side with each half fitted
-  (`lbPorts`), on one `lbView`; switching keeps the magnification. The
+  left of a divider (swipe), or side by side with each half fitted inside
+  the arrows' circles (`lbPorts`, `LB_NAV_ROOM`), on one `lbView`;
+  switching keeps the magnification. The
   source is fetched by id once a session (`lbSources`) and drawn with
   `refineKept` and a clip-path. A step to another record ends the
   comparison; a re-render of the same record does not. A deleted source
@@ -1366,8 +1428,12 @@ Frontend and CLI:
   still holds what the page wrote. Once `setSheet` resolves, and only if that
   sheet is still shown, it scrolls the gallery head under the topbar,
   reserving the room under the sheet its head needs to reach the topbar
-  (`reserveSheetRoom`: a margin outside the box `fitSheet` measures, cleared
-  by `setSheet`). The Sheet button does not scroll; over an empty search with
+  (`reserveSheetRoom`: a margin outside the box `fitSheet` measures, from
+  where `main` ends - never the document's scroll height, which is at least
+  the window - cleared by `setSheet`). A refine sweep's source cell is
+  cropped to the passes' shape (`object-fit: cover`, `refine.fitted`'s
+  centre crop), captioned "cropped as the passes were" where the shapes
+  differ. The Sheet button does not scroll; over an empty search with
   several runs it opens the newest run, with a `sheetNotice`, and a typed
   search is never redirected. A matrix's cells are capped to the window's
   height (`--cell-max` from `fitSheet`'s measured `--sheet-chrome`) with a
@@ -1423,7 +1489,11 @@ Frontend and CLI:
   what the same filter matches elsewhere. Delete unstarred takes the scope
   because its count must be the grid's. The Runs picker asks
   `/api/runs?limit=200` and groups the result: "Grids and batches" (images > 1
-  or jobs > 1, labelled with count, distinct and "N prompts"), then at most
+  or jobs > 1, labelled with count, distinct, "N prompts" and what varied -
+  `runAxes` over `RunSummary.axes` (each setting's count of distinct values
+  where above one, from `storage._RUN_AXES`), `refine` and `strengths`:
+  "steps×CFG 3×2", "steps ×8 · 5 seeds", "strength 0.05-0.15 of #37",
+  "comparison · 3 versions"), then at most
   eight "Single images" by time to the second and seed. It names the run the
   search box shows (`syncRunList`, from `resetGallery` and `loadRuns`; its
   "Runs…" option is hidden and disabled), and picking one never resets it.
@@ -1456,7 +1526,18 @@ Frontend and CLI:
   in place of its tombstones, held at the strip's height ("#N was deleted.
   Generated images appear here."), and `appendResult` counts live tiles, not
   slots. A lightbox delete of the last loaded image pages the next one in
-  (`pageInBehind`), never stepping back. A delete under way ignores a second
+  (`pageInBehind`), never stepping back; one that takes the lightbox's only
+  image closes it with focus where the walk came from
+  (`closeLightboxAfterDelete`: the viewer's held line or tombstone, the
+  grid's current card, else the search box), never `<body>`. Both questions
+  - the per-image confirm and Delete unstarred's count - are the page's own
+  `<dialog id="confirm-dialog">` (`openAsk`, placed beside what was pressed
+  by `placeAsk`), never `window.confirm` or `window.prompt`: Cancel focused,
+  or the count's box; Escape and a press outside are Cancel; while it is up
+  the document's keys do nothing (its Escape closed the lightbox under it).
+  The smokes stand in for it by assigning `askConfirm`/`askCount` and put
+  back `confirmDialog`/`countDialog`; `smoke-delete.json` drives the dialog
+  itself. A delete under way ignores a second
   press of the same image (`deleting`), and `storage.delete_image` looks up
   and deletes under `_write_lock`, so a second delete is "unknown image". The
   gallery pages by id, never by offset,
@@ -1539,15 +1620,20 @@ There is no JavaScript test suite. `web/` is checked in a real browser
 instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
 tests' fake backend (gradient images stamped with seed and steps, a throwaway
 gallery under the system temp dir, `--step 0.3` to make pause and queueing
-observable; a cell whose prompt holds `[fail]` fails, and
+observable; a cell whose prompt holds `[fail]` fails,
 `POST /api/fake/load` (`{seconds, fail: "gated"}`) makes the loads after it
-slow or gated), and `node tools/browser.mjs tools/smoke.json` drives headless
+slow or gated, and `POST /api/fake/step` (`{seconds}`, answering the pace it
+replaced) slows the jobs after it, for a step that needs a job to outlast its
+own round trips - a cancel, a stream attaching), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the
 walked-to card, the sheet, the export, the sheet's declared variable order
 (under Starred too), a sparse comparison's rows, the re-render button, the
 panel's persistence and the duplicate/distinct counts, exiting 1 on a failed
-`expect`. A `hover` or `click` step takes a
+`expect` and 2 on a script it refuses before starting - among them an
+`expect` joining an async helper (`__until`, or a `window.__x = async` the
+file defines) to more with && or ||, which is never awaited: the whole
+condition goes inside the predicate. A `hover` or `click` step takes a
 CSS selector in place of a point, aiming at the middle of that element's box
 as it is then. It opens the page at 1400x900,
 where the smokes are written: `LOCAL_DIFFUSION_VIEWPORT=2560x1305` (a
@@ -1556,7 +1642,9 @@ same screen at 125% scaling) move it, a `viewport` step resizes it mid-run,
 and `LOCAL_DIFFUSION_PORT_OFFSET=N` adds N to every `127.0.0.1:<port>` in
 the steps, so a second checkout can run the same smokes against fake
 servers of its own. `smoke-conditioning.json` runs
-against a klein-claiming fake on 7864 for the reference chips (numbered and
+against a klein-claiming fake on 7864 for the negative field as its caption
+alone, the viewer result's ❐ (live, pressed once its image is a reference),
+the reference chips (numbered and
 named by gallery id, reordered by Alt+Arrow and by a drag, dropped by Delete
 with focus kept in the field, the last one's × clicked leaving the emptied
 row focused and the tip closed, a deleted image's chip marked), a deleted
@@ -1610,7 +1698,8 @@ dead once the negative box is edited.
 `smoke-tags.json` uses an Animagine-claiming fake on 7878 for the chips'
 verdict cache, typing state and live summary, an accepted suggestion's undo,
 category edges, repeats and the focus ring on one, the shared tip and the
-after-cutoff mark, + tag, gap hover and click (none on the label or hint),
+after-cutoff mark, + tag, gap hover (waited for, as a late tray render
+redraws it) and click (none on the label or hint),
 the Tags helper under the prompt and whole, Escape closing the suggestions
 before the helper, the Examples menu's keyboard (ArrowDown, Enter), its Undo
 note (on its own line at 800 px), the needs-a-reference note, the file-drop
@@ -1688,7 +1777,9 @@ preview, its sheet axis and `refine:` in the search box, the passes strip
 opening the lightbox beside the source, a sweep that leaves no step refused
 in the preview and a refusal moved to the error line at Strength or W with
 Refine not moving, a strength typed and entered at once refused in the
-dialog, a strength past 1 refused as a fraction, Compare 3, arrow-key
+dialog, a strength past 1 refused as a fraction, Compare 3 (held with the
+Steps that would give a sweep at 2 steps, writing nothing), Mu's "auto",
+Refine held while the server does not answer, arrow-key
 stepping and the dice, Ctrl+Enter and Enter running the pass, the
 remembered strength and Reset forgetting it, the unsent draft and Start
 over, Reuse opening a pass (its title and reused line, and another
@@ -1697,7 +1788,7 @@ a viewport step to 2560x1305 the two panes with the kept-region frame and a
 top 8vh down that does not move as the fold opens, the source standing in
 for a pass whose frames are dropped - full size, in the result's own box,
 captioned in the tile's `.foot` "Refining #N → W×H · strength s · step 1/…" -
-and a source deleted while the dialog is open refused in the dialog's own
+focus off `<body>` after that pass, opened from script, ran - and a source deleted while the dialog is open refused in the dialog's own
 line with the dialog kept open. `smoke-conditioning.json` has the other side
 on its klein fake: the card's, the viewer's and the lightbox's Refine
 answering with the reason and opening nothing.
@@ -1739,7 +1830,9 @@ FLUX.1 Krea [dev] fake on 7876: the wide tier's scale (the panel's 461 px at
 third of the way there at 2048, eight and seven gallery columns) and the
 unchanged one at 1400x900 (330 px, 14 px, 12 px, five columns), Generate on
 screen, the page's own focus ring on a checkbox and a button and the LoRA
-select drawn dark at both wide sizes, a 16-digit seed fitting its box, a
+select drawn dark at both wide sizes, the caption buttons 30 px at 13.5 px
+and the tick boxes 18 px at 2560, a 16-digit seed fitting its box - and the
+Refine dialog's at 125% - a
 size strip's one tab stop with aria-pressed and the arrows moving focus
 without choosing, the greyed negative's Set True CFG button above the box
 (never over its text, the box still under the pointer) focusing True CFG and
@@ -1810,7 +1903,9 @@ node tools/browser.mjs tools/smoke-sheet-klein.json
 
 `smoke-delete.json` checks deletes taken to completion on a FLUX.1 Krea
 [dev] fake on 7881 (a checkpoint with a refine pass, so a starred pass can
-keep its source): the per-image confirm, Delete unstarred keeping a starred
+keep its source): the per-image confirm - the page's own dialog beside the
+card's ⌦, Escape as Cancel, over the lightbox too - and its count box for
+Delete unstarred, a lightbox of one image deleted, Delete unstarred keeping a starred
 pass's source with the typed count, a landed image's 409, the All
 models/running-job dialog, a pass whose source has gone - marked at once on
 the page that deleted it (record, card title, Reuse) - tombstones
@@ -1846,8 +1941,13 @@ aria-hidden clock and indeterminate bar; a cancel during the load; a gated
 load's detail said in the panel line after every Generate while the viewer
 holds images; a gated load's card said once and not re-announced by the
 banner, its Retry load handing focus to Generate; Load and Unload handing
-focus to each other; and the banner hidden by a new job and not repeated
-after a watched one:
+focus to each other; the banner hidden by a new job and not repeated
+after a watched one; a gated load's finish line "Not made: the model could
+not load"; and a watched job whose server goes (a stand-in EventSource and
+fetch): the job line in the topbar's phrase with the count, no steps, time
+left or topbar mirror, the tab's title and the strip's note the same, then
+`showLostRun`'s card, reworded once the server answers, its Run it again
+running the request with focus going to Generate:
 
 ```powershell
 uv run python tools/fake_server.py --port 7882 --step 0.3
@@ -1857,17 +1957,22 @@ node tools/browser.mjs tools/smoke-jobs.json
 `smoke-results.json` checks the results viewer on a FLUX.1 Krea [dev] fake
 on 7883 (written at `--step 0.3`; it passes at the default step too): every
 ? badge named and described, and Resume's badge leaving Resume unticked; the
-one-line idle viewer, the empty-install box and its Examples; a result's
-figure, label, title and card tools at 1400x900, with `this-run`, the star
-and ⤢; at 2560x1305 the column with only ⌦ left in the row; the live preview
+one-line idle viewer, the empty-install box and its Examples; the empty
+gallery's line and its Examples; the idle viewer staying one line beside a
+docked, content-sized check with the gallery beside it; a result's
+figure, label, title and card tools at 1400x900 (❐ hidden on FLUX), with
+`this-run`, the star and ⤢; at 2560x1305 the column with Delete in words and
+the row under the picture empty at `--h-tool`; the live preview
 keeping the result's box; `#recent` level with the viewer, and staying
 beside it with the check docked while the image and the gallery head stay
-put; the fit at 2048@1.25; the lightbox walk from the single image; a batch
+put, the column's actions and `.result-brief` then the row under the
+picture; the fit at 2048@1.25; the lightbox walk from the single image; a batch
 of four best-fit; a pass's note and lineage, then its source deleted ("#N
 (deleted)", no buttons, the title); four landscape images two by two with
 the gallery head unmoved from the first frame; a deleted result held at its
-height with focus on its line; a 28-seed run at 2048@1.25 ending scrolled
-to its newest row; 28 at QHD with no padding-only scrollbar; the banner's
+height with focus on its line (the column's Delete); a 28-seed run at
+2048@1.25 ending scrolled to its newest row; 28 at QHD with no padding-only
+scrollbar and the gallery head unmoved from its first frame (`reserveStrip`); the banner's
 "2 since deleted" / "all since deleted"; the banner's Resume after a
 resumed-and-cancelled grid putting the run's base seed in Seed; no Resume
 for a cancelled comparison; and Reset with its Undo:
@@ -1881,7 +1986,8 @@ node tools/browser.mjs tools/smoke-results.json
 7884: the facts list and its rows; the keys line; the star ("★ Star",
 `aria-label` Star); a pass compared with its source (S, the button, a
 dragged and keyed divider, S on the focused divider handing focus to the
-toggle, swipe and side by side keeping 1:1 and fit, a pass reshaped to 3:2
+toggle, swipe and side by side keeping 1:1 and fit, side by side at fit
+clear of the arrows' circles, a pass reshaped to 3:2
 compared with the part it kept, a deleted source's dead controls); the
 source link with the view carried; the passes link; a pass whose source has
 gone (its Reuse and its card's title); the arrow strips (a press 60 px off
@@ -1908,7 +2014,8 @@ node tools/browser.mjs tools/smoke-lightbox.json
 
 `smoke-gallery.json` checks the gallery on a default (Krea 2 Turbo) fake on
 7885, a checkpoint with no pass and no references: the Runs picker's groups,
-labels and sync with the search box (a pick, a card's ⊞, typing, Sheet off),
+labels (what each run varied: "steps ×8 · 5 seeds", "2 seeds") and sync with
+the search box (a pick, a card's ⊞, typing, Sheet off),
 at its own width with the search box whole and the picked run in its title;
 `id:` and the search tip; the Starred tick and Re-render's label; the five
 tools and their names on hover and focus inside the card, with Delete's over
@@ -1945,7 +2052,9 @@ makes, neutral wording under an override - and its clock, its hold on
 Generate, inline cites, a cite's whose-words note and the General label, Use
 rewrite with undo and a reload and filling Your version, an edit while the
 critic thinks, a failed critique's row in one slot (`#error` only after
-Close), a two-version comparison opening its sheet, another opening all its
+Close), a two-version comparison opening its sheet with a blank Seed left
+blank, a Generate under that sheet's `job:` scope counted in the gallery's
+line with Show all opening the whole gallery, another opening all its
 cells with Starred ticked (the tick's notice gone once the run is
 reopened), the chips and the check moving from the wide host back under the
 prompt with focus and selection kept, a prose prompt's order shown as not
@@ -1962,7 +2071,7 @@ check at 2560x1305 and 2048x1040@1.25 (the image just made wholly in view
 and unmoved after Check, the critic's answer and Ctrl+Enter; the column not
 setting the rows' height; its head stuck after the answer, showing the stale
 badge; Check again resetting its scroll; the gallery's controls clear after a
-400 px page scroll), the critic's two versions stacked there and side by
+400 px page scroll; Close on the head's first line at 125%), the critic's two versions stacked there and side by
 side full width at 1400 px, and the stacking at 1400x900.
 `smoke-animagine.json` covers the tag-order check, the critic's reorder
 under full and partial tag placement end to end (set aside, kept as Check's

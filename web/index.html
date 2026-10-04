@@ -573,6 +573,9 @@
            never moves the grid under the pointer. -->
       <p class="error" id="gallery-error" role="alert" hidden></p>
     </div>
+    <!-- A gallery with nothing to show says so (syncGalleryEmpty): a blank
+         screen under a disabled "No runs yet" said nothing of what fills it. -->
+    <p class="hint gallery-empty" id="gallery-empty" hidden></p>
     <div class="grid" id="gallery"></div>
     <!-- The contact sheet: one run laid out as the grid that produced it. -->
     <div class="sheet" id="sheet" hidden>
@@ -802,6 +805,24 @@
       <button type="button" class="ghost" id="refine-cancel">Cancel</button>
       <button type="button" class="primary" id="refine-run" aria-keyshortcuts="Control+Enter">Refine</button>
     </div>
+  </div>
+</dialog>
+
+<!-- The questions a delete asks (gallery.js: confirmDialog, countDialog),
+     in the page's own dialog beside what was pressed rather than the
+     browser's light box at the top of the window. Cancel has focus; a count
+     to type back has its box. Escape and a press outside it are Cancel. -->
+<dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title"
+        aria-describedby="confirm-text">
+  <h2 id="confirm-title"></h2>
+  <div class="confirm-text" id="confirm-text"></div>
+  <label class="field" id="confirm-count-field" hidden>
+    <span id="confirm-count-label"></span>
+    <input type="text" id="confirm-count" inputmode="numeric" autocomplete="off" spellcheck="false">
+  </label>
+  <div class="confirm-actions">
+    <button type="button" class="ghost" id="confirm-cancel">Cancel</button>
+    <button type="button" class="primary destroy" id="confirm-ok">Delete</button>
   </div>
 </dialog>
 

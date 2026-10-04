@@ -853,6 +853,18 @@ def test_finished_jobs_are_listed_on_request_with_their_outcome(client, fake):
     assert (runs[0]["run_id"], runs[0]["images"], runs[0]["seed"]) == (job["run_id"], 2, 1)
 
 
+def test_a_run_says_what_varied_across_it(client, fake):
+    # The Runs picker names a run by its axes: every line used to read
+    # "6 img · A weathered...", a steps x CFG grid and a batch alike.
+    run_grid(client, steps_axis="6,8,10", cfg_axis="1,2", seed=1)
+    grid = client.get("/api/runs").json()[0]
+    assert grid["axes"] == {"steps": 3, "cfg": 2}
+    assert (grid["refine"], grid["strengths"]) == (None, None)
+    run_grid(client, prompt_variants=VARIANTS, seeds=2, seed=21)
+    compared = client.get("/api/runs").json()[0]
+    assert compared["axes"] == {"seed": 2, "variant": len(VARIANTS)}
+
+
 def test_the_gallery_pages_by_id_and_knows_when_it_is_done(client, store):
     for seed in range(5):
         store.save_image(

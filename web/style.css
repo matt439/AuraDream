@@ -41,7 +41,11 @@
      --panel-pad    16px  inside the settings panel
      --panel-gap    14px  between the panel's fields (and the Refine dialog's),
                           and from a fold's rule to its summary
-     --h-xs/-sm/-md 19, 26, 37px  the tiny, small and ordinary ghost buttons
+     --h-xs/-sm/-md 19, 26, 37px  the tiny, small and ordinary ghost buttons (the tiny
+                          30 px from 1800 px, 26 on a short window: Examples, Check,
+                          Apply, Use rewrite were 2 mm tall at QHD)
+     --h-tool       26px  a result tile's row of tools, or the line in its place, under
+                          the picture (32 px from 1800 px), and a card's tools there
      --h-field      41px  text inputs
      --h-lg         43px  the primary buttons
                           A control's vertical padding is what its height leaves
@@ -125,6 +129,7 @@
 
   --h-xs: 19px;
   --h-sm: 26px;
+  --h-tool: 26px;
   --h-md: 37px;
   --h-field: 41px;
   --h-lg: 43px;
@@ -167,8 +172,9 @@
     --fs-xl: min(18px, calc(16px + 2 * var(--ramp)));
 
     --panel-pad: 20px;
-    --h-xs: 24px;
+    --h-xs: 30px;
     --h-sm: 30px;
+    --h-tool: 32px;
     --h-md: 40px;
     --h-field: 44px;
     --h-lg: 48px;
@@ -189,14 +195,14 @@
 /* A short window - QHD at 125%, a 1080p screen under a taskbar - keeps the
    wide tier's type and widths with compact controls of its own: about
    today's heights rather than the wide tier's (a field 40 px, the primary 44,
-   the small and tiny buttons 28 and 21, two pixels over today's for the
-   larger type in them), today's panel padding and topbar, and a 12 px gap
+   the small buttons 28, two pixels over today's for the larger type in
+   them, and the tiny ones 26), today's panel padding and topbar, and a 12 px gap
    where today's is 14, so more of the panel is in the window. */
 @media (min-width: 1800px) and (max-height: 1150px) {
   :root {
     --panel-pad: 16px;
     --panel-gap: 12px;
-    --h-xs: 21px;
+    --h-xs: 26px;
     --h-sm: 28px;
     --h-md: 37px;
     --h-field: 40px;
@@ -374,8 +380,14 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 /* A seed is up to 16 digits, all of them significant: same-width figures and
    no spinner, whose arrows took the room of two digits and stepped a seed by
    one. */
-#seed { font-variant-numeric: tabular-nums; appearance: textfield; }
-#seed::-webkit-inner-spin-button, #seed::-webkit-outer-spin-button { appearance: none; margin: 0; }
+#seed, #refine-seed { font-variant-numeric: tabular-nums; appearance: textfield; }
+#seed::-webkit-inner-spin-button, #seed::-webkit-outer-spin-button,
+#refine-seed::-webkit-inner-spin-button, #refine-seed::-webkit-outer-spin-button { appearance: none; margin: 0; }
+/* The Refine dialog's Seed takes the room of its row Versions does not need:
+   at 125% its 16 digits were cut to 15 and a dot, beside a Strength box of
+   the same width that holds a few characters. */
+.rf-strength .row > .sub.grow:has(> #refine-seed) { flex-grow: 1.1; min-width: min(calc(16ch + 26px), 45%); }
+.rf-strength .row > .sub.grow:has(> #refine-strength) { min-width: max-content; }
 
 /* The prompt is the page's main box: on a wide window it grows with what is
    typed, from five lines to twelve (Chromium; elsewhere it stays at five and
@@ -469,6 +481,15 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    learn a checkpoint's voice. */
 .examples, .tag-helper { position: relative; display: inline-block; margin-left: var(--sp-2); }
 .ghost.tiny { padding: calc((var(--h-xs) - var(--lh) * var(--fs-xs) - 2px) / 2) 7px; font-size: var(--fs-xs); line-height: var(--lh); flex: none; }
+/* From 1800 px the tiny buttons are the most-used secondary controls - the
+   Prompt caption's Examples, Check and Reset, the check's Apply and Use
+   rewrite - at a caption's type and 30 px tall (26 on a short window): 12 px
+   on a 24 px button was 2 mm at QHD. The tick boxes, a tag chip's × and the
+   reference chips grow with them (below). */
+@media (min-width: 1800px) {
+  .ghost.tiny { padding-block: calc((var(--h-xs) - var(--lh) * var(--fs-label) - 2px) / 2); font-size: var(--fs-label); }
+  input[type="checkbox"] { width: 18px; height: 18px; }
+}
 .menu {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
   width: var(--menu-w); max-height: 320px; overflow-y: auto;
@@ -677,6 +698,12 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
   background: transparent; color: currentColor; font: inherit; line-height: 1;
 }
+/* A 24 px target from 1800 px, the glyph as it was: the room is padding,
+   taken back from the chip's own by the negative margin, so the chip keeps
+   its size. */
+@media (min-width: 1800px) {
+  .tag-remove { width: 24px; height: 24px; margin: -4px -6px -4px -2px; }
+}
 .tag-remove:hover, .tag-remove:focus-visible,
 .tag-editor button:hover, .tag-editor button:focus-visible {
   background: rgba(255, 255, 255, 0.12); outline: none;
@@ -706,7 +733,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   border-radius: var(--r-lg); font-size: var(--fs-label); line-height: 1.45;
 }
 .tag-validation-wide .prompt-analysis { background: var(--panel); }
-.analysis-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.analysis-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; position: relative; padding-right: 36px; }
 .analysis-head h2 { margin: 0; font-size: var(--fs-body-sm); font-weight: 600; }
 /* Focused from script only (tabindex=-1): the heading when a Check lands far
    from its button, the critic's answer when it lands under the button. The
@@ -728,9 +755,13 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   color: var(--warn); font-size: var(--fs-sm);
 }
 /* Under the head's specificity: the lightbox's `.close` comes later and is
-   sized for a full-screen overlay. A 28 px target, not the glyph's 20x15. */
+   sized for a full-screen overlay. A 28 px target, not the glyph's 20x15.
+   In the head's top right corner, out of its flow: in a wrapping row it
+   dropped to a line of its own under a long summary in the 614 px docked
+   column at 125%, which wraps in the room left of it now. */
 .analysis-head .analysis-close {
-  min-width: 28px; min-height: 28px; margin-left: auto; padding: var(--sp-1) var(--sp-2);
+  position: absolute; top: -4px; right: -6px;
+  min-width: 28px; min-height: 28px; margin: 0; padding: var(--sp-1) var(--sp-2);
   font-size: var(--fs-lg); color: var(--muted);
 }
 .analysis-head .analysis-close:hover, .analysis-head .analysis-close:focus-visible { color: var(--text); }
@@ -983,25 +1014,50 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   }
   /* The column's least height is the viewer's, not its own: a min-height on
      the column, which spans the note's 1fr row, grew that row by what the
-     minimum lacked over an empty viewer even beside a tall image. */
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer {
+     minimum lacked over an empty viewer even beside a tall image. Only while
+     the viewer holds something: idle, it stays its one line (below). */
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer:not(:has(> .placeholder:not(.held))) {
     min-height: min(36rem, calc(100vh - var(--sticky-top) - var(--gutter)));
+  }
+  /* Idle - nothing made this session - the viewer stays one line, and the
+     gallery comes up under it in the first column beside the check, which
+     is as tall as what it holds, up to the window: the 36rem minimum turned
+     the one line into an empty 576 px box with its sentence in the middle,
+     and the gallery head fell 535 px. The check spans the rows down to the
+     gallery's (1fr, which takes what the check needs past the rest). Not a
+     long run's strip, though short: the gallery would take a comparison's
+     sheet into the first column with it, at half its cells' size. */
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
+    grid-template-rows: auto auto auto auto 1fr;
+  }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) > * { grid-column: 1; }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+    grid-row: 1 / 6; contain: none; align-self: start;
   }
   /* The head - the stale badge, Check again, Close - stays at the top of the
      column's own scroll: the critic's answer takes focus and scrolls the
      column down to it, and the head scrolled away with it, so a prompt
      edited after the answer left only the dimming to say the check was
-     stale. The negative margin and the padding cover the column's own
-     padding above it, so nothing scrolls past in that strip. */
+     stale. At the scroller's very top, the column's own top padding moved
+     into the head's: with the padding on the column, a sliver of the
+     findings scrolled past above the head, their text cut in half. */
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { padding-top: 0; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-head {
-    position: sticky; top: -10px; z-index: 1;
-    margin: -10px -12px 0; padding: 10px 12px var(--sp-2);
+    position: sticky; top: 0; z-index: 1;
+    margin: 0 -12px; padding: 10px 48px var(--sp-2) 12px;
     background: var(--panel); border-bottom: 1px solid var(--line);
   }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-head .analysis-close { top: 6px; right: 8px; }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis { grid-row: 1 / span 2; }
+  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
+    grid-template-rows: auto auto auto 1fr;
+  }
+  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+    grid-row: 1 / 5;
+  }
   /* A column of 520-760 px: the sections stack - Encoders, Order, Findings,
      the critic, Compare - since side by side Order had 356 px and clamped. */
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-body { grid-template-columns: minmax(0, 1fr); }
@@ -1080,6 +1136,9 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    the state have to stay legible. It still takes the wheel, so a negative
    carried over from another checkpoint can be read while it is off. */
 #negative-field.disabled textarea { opacity: 0.45; }
+/* Nor any box where the checkpoint takes no negative prompt at all (klein):
+   the caption says so, and the box is back, with its text, on one that does. */
+#negative-field.unsupported textarea { display: none; }
 /* The True CFG box on a checkpoint where CFG is real CFG already: the badge
    beside it says why, so it stays where it is rather than vanishing. */
 .sub.disabled input { opacity: 0.45; }
@@ -1120,6 +1179,14 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   background: rgba(0, 0, 0, 0.7); color: #fff;
   font-size: var(--fs-label); font-weight: 600; line-height: 1.3;
   pointer-events: none;
+}
+/* From 1800 px, four to a row as large as the panel holds, up to 96 px, the
+   badge in the prompt's words ("image 2") and the × a 24 px target: a 66 px
+   chip with an 18 px × beside a 2,000 px stage. */
+@media (min-width: 1800px) {
+  .chip { width: min(96px, calc((100% - 18px) / 4)); height: auto; aspect-ratio: 1; }
+  .chip-n::before { content: "image "; font-weight: 400; }
+  .chip button { width: 24px; height: 24px; font-size: var(--fs-md); }
 }
 .chip.dragging { opacity: 0.45; cursor: grabbing; }
 .chip.drop-before { box-shadow: -4px 0 0 var(--accent-2); }
@@ -1336,7 +1403,7 @@ button { font: inherit; cursor: pointer; }
    does not push the gallery down. */
 .viewer.multi.fitted:not(.many) {
   display: grid; grid-template-columns: repeat(var(--cols), auto);
-  grid-template-rows: repeat(var(--rows), calc(var(--tile-h) + var(--sp-1) + var(--h-sm)));
+  grid-template-rows: repeat(var(--rows), calc(var(--tile-h) + var(--sp-1) + var(--h-tool)));
   justify-content: center; align-content: center;
 }
 
@@ -1348,7 +1415,9 @@ button { font: inherit; cursor: pointer; }
    checkpoint's examples a press away; a failed load's card has room. */
 .viewer:has(> .placeholder:not(.held)) { min-height: 0; padding: var(--sp-2) 14px; justify-content: flex-start; }
 .viewer.empty-install:has(> .placeholder:not(.held)) { min-height: 380px; padding: 14px; justify-content: center; }
-.viewer:has(> .load-failed:not([hidden])) { padding: var(--sp-4); }
+/* A failed load's card, in the middle of the box: at the left of a 1,580 px
+   viewer its 62 characters read as something left over. */
+.viewer:has(> :is(.load-failed:not([hidden]), .lost-run)) { min-height: 0; padding: var(--sp-4); justify-content: center; }
 .placeholder { color: var(--muted); }
 .viewer > .placeholder:not(.held) { margin: 0; font-size: var(--fs-body-sm); }
 .placeholder .first-run, .viewer.empty-install .placeholder .idle-line { display: none; }
@@ -1356,13 +1425,14 @@ button { font: inherit; cursor: pointer; }
 .viewer.empty-install > .placeholder { max-width: 60ch; text-align: center; font-size: var(--fs-md); }
 .placeholder .first-run button { margin-left: var(--sp-1); }
 /* A failed load, in the viewer's empty state: what went wrong and what to
-   do, the model page, and the retry. */
-.load-failed {
+   do, the model page, and the retry - and a run whose server went, with
+   nothing of it in the strip (showLostRun), the same way. */
+.load-failed, .lost-run {
   max-width: 62ch; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3);
   font-size: var(--fs-md); color: var(--text);
 }
-.load-failed h2 { margin: 0; font-size: var(--fs-lg); color: var(--danger); }
-.load-failed p { margin: 0; }
+.load-failed h2, .lost-run h2 { margin: 0; font-size: var(--fs-lg); color: var(--danger); }
+.load-failed p, .lost-run p { margin: 0; }
 .load-failed code { font-size: var(--fs-body-sm); background: var(--pill); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 0 var(--sp-1); }
 .load-failed a { color: var(--accent-2); }
 
@@ -1382,9 +1452,9 @@ button { font: inherit; cursor: pointer; }
   display: block; width: 100%; height: auto; aspect-ratio: var(--w) / var(--h);
   border-radius: var(--r-md); object-fit: contain; cursor: zoom-in;
 }
-.viewer .tile > .tools, .viewer .tile > .foot { flex: none; height: var(--h-sm); }
+.viewer .tile > .tools, .viewer .tile > .foot { flex: none; height: var(--h-tool); }
 .viewer .foot {
-  margin: 0; line-height: var(--h-sm); text-align: center;
+  margin: 0; line-height: var(--h-tool); text-align: center;
   font-size: var(--fs-label); color: var(--text-readout); font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -1453,19 +1523,30 @@ button { font: inherit; cursor: pointer; }
     scrollbar-gutter: stable both-edges;
   }
   .viewer.many > figure, .viewer.many .tile { width: 100%; }
+  /* Its height is its rows', reserved from the first frame (reserveStrip):
+     the 380 px least height of an empty viewer left a 6-image run's one row
+     of tiles at the top of an empty band. */
+  .viewer.many { min-height: 0; }
 }
 
 /* The image just made, alone in the strip, with its column beside it from
-   1800 px (resultSide): what it refines, Star, Refine…, Reuse and Use seed in
-   words, its prompt and its facts, in the width a square result left empty.
-   As tall as the picture and its row (`contain: size`, stretched), scrolling
+   1800 px (resultSide): what it refines, Star, Refine…, Reuse, Use seed and
+   Delete in words - ❐ Reference too where the checkpoint takes references -
+   its prompt and its facts, in the width a square result left empty. As
+   tall as the picture and its row (`contain: size`, stretched), scrolling
    inside itself, so it never sets the strip's height; the live preview and a
    pass's stand-in keep its room, so the picture does not move when it comes.
-   Its row keeps Delete alone, at the end: the column has the rest in words.
-   Not while the prompt check is docked beside the strip, which takes that
-   width: the picture would shrink as the check opened, and the gallery under
-   it move. Its row has every tool again there. */
+   Its row under the picture keeps its height, empty: the column has every
+   tool, Delete in words at the end of its row rather than a glyph stranded
+   under the picture's corner. With the prompt check docked beside the strip,
+   which takes that width, the column's row of actions and a line of the
+   facts (`.result-brief`) take the tools row's place under the picture, at
+   its height - so neither the picture nor the gallery under it moves as the
+   check opens - and the image keeps the one set of words for its tools: the
+   26 px glyphs it fell back to had sat beside an "Earlier this session"
+   strip that stayed. */
 .viewer .result-side { display: none; }
+.result-actions .result-brief { display: none; }
 @media (min-width: 1800px) {
   .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > figure {
     flex: 1 1 100%; gap: var(--sp-4);
@@ -1478,16 +1559,36 @@ button { font: inherit; cursor: pointer; }
     contain: size; align-self: stretch; overflow-y: auto; overscroll-behavior: contain;
     font-size: var(--fs-body-sm);
   }
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > .result:has(> .result-side) .tools > :not(.del) {
-    display: none;
-  }
+  .viewer:not(.multi) > .result:has(> .result-side) .tools > * { display: none; }
   /* The column names the source already. */
   .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #viewer:has(.result-side) + #viewer-note .lineage {
     display: none;
   }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result:has(> .result-side) {
+    flex-direction: column; align-items: center; gap: var(--sp-1);
+  }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result:has(> .result-side) .tile > .tools { display: none; }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side {
+    display: flex; flex: none; height: var(--h-tool); min-width: 0; max-width: 100%;
+    width: calc(var(--tile-h) * var(--w) / var(--h));
+  }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side > :not(.result-actions) { display: none; }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions {
+    flex: 1 1 auto; flex-wrap: nowrap; min-width: 0; gap: var(--sp-1);
+  }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions > button {
+    flex: 0 1 auto; min-width: 0; height: var(--h-tool); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
+    display: block; flex: 1 1 0; min-width: 0; line-height: var(--h-tool); text-align: right;
+    color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 }
 .result-side .lineage { margin: 0; color: var(--text-readout); }
 .result-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.result-actions .del { margin-left: auto; }
+.result-actions .ref-tool[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
 .result-actions .star::after { content: " " attr(data-word); }
 .result-actions .star[aria-pressed="true"] { color: var(--star); }
 .result-actions .reuse-settings.model-mismatch { color: var(--warn); }
@@ -1601,6 +1702,10 @@ button { font: inherit; cursor: pointer; }
 }
 #gallery-error[hidden] { display: block !important; visibility: hidden; }
 .check { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-body-sm); }
+/* The gallery with nothing to show (syncGalleryEmpty): one line under the
+   head, in the readout grey rather than a hint's, since it is all there is. */
+.gallery-empty { margin: 0; font-size: var(--fs-body-sm); color: var(--text-readout); }
+.gallery-empty button { margin: 0 2px; }
 
 .grid {
   display: grid;
@@ -1717,6 +1822,11 @@ button { font: inherit; cursor: pointer; }
 /* A refine sweep's source, ahead of its passes: ringed in the focus colour's
    teal, apart from the passes and from a star's amber. */
 .sheet-cell.source { border-color: var(--accent-2); }
+/* Framed as the passes are: their cells' shape, centre-cropped - what
+   refine.fitted kept of it - rather than the whole source letterboxed
+   beside crops of it (renderSheet captions the crop). The lightbox it opens
+   has the whole picture. */
+.sheet-cell.source img { object-fit: cover; }
 /* A starred cell carries the star a card does, ring and badge - the card's
    own rules, which name .sheet-cell.fav beside .card.fav so the two cannot
    drift - and where the keepers cluster is visible on the sheet rather than
@@ -1816,6 +1926,12 @@ button { font: inherit; cursor: pointer; }
 .card .tools button[aria-disabled="true"]:hover { background: rgba(0, 0, 0, 0.55); }
 /* ❐ on an image that is a reference already: pressed, and a press removes it. */
 .card .tools .ref-tool[aria-pressed="true"] { background: var(--accent-strong); }
+/* From 1800 px a card's tools, and a long run's tiles' over their pictures,
+   are --h-tool square at least (32 px): 25 x 26 px at QHD was 2 mm of glyph
+   on a 27-inch screen. The tiles of two to four have a row of that height. */
+@media (min-width: 1800px) {
+  .card .tools button, .viewer.many .tools button { min-height: var(--h-tool); min-width: var(--h-tool); }
+}
 /* A starred card has to be found at a glance across a page of thumbnails: an
    amber ring round the card, and the star on a dark badge so it reads on a
    white render as well as a black one. On a card the badge is the toggle
@@ -2165,6 +2281,32 @@ button { font: inherit; cursor: pointer; }
    preview ran over the line under it. */
 .refine-dialog[open] > *, .rf-controls > * { flex-shrink: 0; }
 .refine-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+/* A delete's question (gallery.js, openAsk): the Refine dialog's dark box,
+   placed beside what was pressed (placeAsk, inline) - centred by the UA where
+   nothing had focus - with Cancel first and focused, and Delete in the
+   danger red at the end, apart from it. */
+.confirm-dialog {
+  width: min(460px, calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - 2 * var(--sp-4));
+  overflow-y: auto;
+  padding: var(--gutter);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+.confirm-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.confirm-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.confirm-dialog h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.confirm-text { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body-sm); color: var(--text-2); }
+.confirm-text p { margin: 0; overflow-wrap: anywhere; }
+.confirm-text p:last-child { color: var(--text-readout); }
+.confirm-dialog .field span { font-size: var(--fs-body-sm); color: var(--text); text-transform: none; letter-spacing: 0; }
+.confirm-actions { display: flex; justify-content: space-between; gap: var(--sp-3); }
+/* White on it is 6.2:1. */
+.primary.destroy { background: #b4233a; }
 .rf-head { display: flex; align-items: center; justify-content: space-between; }
 .rf-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
 .rf-source { display: flex; gap: var(--sp-3); align-items: flex-start; }

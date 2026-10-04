@@ -36,8 +36,12 @@ log = logging.getLogger(__name__)
 _write_lock = threading.Lock()
 
 # The long side of the WEBP written beside every PNG. The gallery's cards are
-# 160 px and the sheet's cells 96 px; a 2048x2048 PNG is 5 MB on disk and 17 MB
-# decoded, and a page of 48 of them was 400 MB of bitmap to paint 48 squares.
+# 160 px squares under 1800 px and 200-260 CSS px from there (--thumb-min's
+# clamp: 245 at 2560, 217 at 2048, 271 device px at 125%), each showing the
+# whole frame on its long side, so 384 covers a card at any shape. A sheet
+# cell larger than this takes the PNG instead (sheet.js's srcset). A
+# 2048x2048 PNG is 5 MB on disk and 17 MB decoded, and a page of 48 of them
+# was 400 MB of bitmap to paint 48 squares.
 THUMB_SIDE = 384
 
 # A *.png.part older than this is not being written. Nothing streams a partial
@@ -1108,6 +1112,23 @@ def keep_rates(
     ]
 
 
+# The settings a run can vary, as the Runs picker names them: each one's
+# count of distinct values over the run (a NULL counted as a value of its own
+# where the column takes one), read back as RunSummary.axes.
+_RUN_AXES = {
+    "steps": "steps",
+    "cfg": "guidance_scale",
+    "mu": "COALESCE(mu, 'none')",
+    "true_cfg": "COALESCE(true_cfg, 'none')",
+    "lora_scale": "COALESCE(lora || '@' || lora_scale, 'none')",
+    "strength": "COALESCE(strength, 'none')",
+    "reference": "COALESCE(reference, 'none')",
+    "seed": "seed",
+    "variant": "CASE WHEN json_valid(variables) THEN json_extract(variables, '$.variant') END",
+}
+_AXIS_COUNTS = ", ".join(f"COUNT(DISTINCT {expr}) AS axis_{name}" for name, expr in _RUN_AXES.items())
+
+
 def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
     """The gallery grouped by run, the most recently written first.
 
@@ -1128,7 +1149,10 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
                       COUNT(content_hash) AS hashed,
                       COUNT(DISTINCT content_hash) AS distinct_hashes,
                       MIN(id) AS first_id, MAX(id) AS last_id,
-                      MIN(created_at) AS started_at, MAX(created_at) AS finished_at
+                      MIN(created_at) AS started_at, MAX(created_at) AS finished_at,
+                      {_AXIS_COUNTS},
+                      COUNT(DISTINCT COALESCE(refine, -1)) AS n_sources, MIN(refine) AS refine,
+                      MIN(strength) AS strength_min, MAX(strength) AS strength_max
                FROM images WHERE run_id IS NOT NULL {scope}
                GROUP BY run_id ORDER BY last_id DESC LIMIT ?""",
             (*scope_params, limit),
@@ -1163,6 +1187,12 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
                 height=first["height"],
                 started_at=group["started_at"],
                 finished_at=group["finished_at"],
+                axes={name: group[f"axis_{name}"] for name in _RUN_AXES if group[f"axis_{name}"] > 1},
+                refine=group["refine"] if group["n_sources"] == 1 else None,
+                strengths=(
+                    [group["strength_min"], group["strength_max"]]
+                    if group["n_sources"] == 1 and group["refine"] is not None else None
+                ),
             )
         )
     return summaries

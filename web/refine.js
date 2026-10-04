@@ -121,15 +121,28 @@ function openingRefineSize(rec, scale) {
 // the 0.05 grid, less any that leaves no step of the Steps box or passes 1.
 // model_defaults.strength_sweep is the same arithmetic in the same order, so
 // the Strength tip's example and this button's sweep are the same numbers.
-function compareStrengths() {
+function compareStrengths(steps = refineStepsNow()) {
   const start = refineDefaultStrength();
-  const steps = +els.refineSteps.value || lastDefaults?.steps || 28;
   const out = [];
   for (const factor of [0.5, 1, 1.5]) {
     const value = +(Math.floor(factor * start / 0.05 + 0.5) * 0.05).toFixed(2);
     if (value > 0 && value <= 1 && Math.floor(steps * value) >= 1 && !out.includes(value)) out.push(value);
   }
   return out;
+}
+
+function refineStepsNow() {
+  return +els.refineSteps.value || lastDefaults?.steps || 28;
+}
+
+// The least Steps at which Compare 3 has two values to sweep: a source made
+// at 2 steps - a 6-12x2 steps grid makes them - left none of 0.05, 0.1 and
+// 0.15 a step, and the button wrote an empty Strength.
+function compareStepsNeeded() {
+  for (let steps = refineStepsNow() + 1; steps <= 1000; steps++) {
+    if (compareStrengths(steps).length >= 2) return steps;
+  }
+  return null;
 }
 
 // What a pass at w x h keeps of a sw x sh source, as fractions of it:
@@ -392,12 +405,24 @@ function syncRefine() {
   // Strength's own help: the profile's number with the sweep around it, as
   // the placeholder, the Compare 3 button and a line saying how a sweep is
   // written - the same three numbers as the tip's example.
+  // Steps low enough to leave fewer than two of them a step has no sweep to
+  // offer: the button is held, saying the Steps that would, and the lines
+  // name none.
   const start = refineDefaultStrength();
-  const compare = compareStrengths().join(',');
-  els.refineStrength.placeholder = `${start} or ${compare}`;
-  els.refineCompare.title = `Write ${compare} into Strength: this checkpoint's ${start} and either side of it, `
-    + 'run side by side as one sweep';
-  els.refineSweepHint.textContent = `Several values (${compare}) run side by side and open as a sheet.`;
+  const sweepValues = compareStrengths();
+  const compare = sweepValues.join(',');
+  const swept = sweepValues.length >= 2;
+  const need = swept ? null : compareStepsNeeded();
+  els.refineStrength.placeholder = swept ? `${start} or ${compare}` : `${start}`;
+  els.refineCompare.setAttribute('aria-disabled', String(!swept));
+  els.refineCompare.title = swept
+    ? `Write ${compare} into Strength: this checkpoint's ${start} and either side of it, run side by side as one sweep`
+    : `No sweep at ${refineStepsNow()} steps: fewer than two strengths around ${start} leave a step`
+      + (need ? ` - raise Steps to ${need}` : '');
+  els.refineSweepHint.textContent = swept
+    ? `Several values (${compare}) run side by side and open as a sheet.`
+    : 'Several values, comma-separated, run side by side and open as a sheet'
+      + (need ? `; at ${refineStepsNow()} steps a sweep around ${start} needs Steps of ${need} or more.` : '.');
 
   // The seeds the versions take, counting up from the box like a Batch: one
   // request with that many images, or a sweep's seed count for every strength.
@@ -421,6 +446,9 @@ function syncRefine() {
   els.refineNegNote.textContent = !negativeSupported
     ? '(this checkpoint takes no negative prompt)'
     : `(needs ${trueCfgSupported ? 'True CFG' : 'CFG'} > ${cfgThreshold})`;
+  // Blank is the pipeline's own shift, as the panel's box says (syncMu); a
+  // dead box promises nothing.
+  els.refineMu.placeholder = muSupported ? 'auto' : '';
   els.refineMu.disabled = !muSupported;
   els.refineMuField.classList.toggle('disabled', !muSupported);
   if (!muSupported) els.refineMu.value = '';
@@ -438,8 +466,13 @@ function syncRefine() {
   syncRefineCheck();
 }
 
+// Held, with the reason as its title, as Generate and Run grid are
+// (syncSubmitButtons): no refine pass, a size past the guard, the preview's
+// refusal, or a server that does not answer - which startJob refuses anyway,
+// but the button said nothing of it before the press.
 function syncRefineRun() {
-  const problem = !refineSupported ? 'This checkpoint has no refine pass'
+  const problem = serverOffline ? 'The server is not answering'
+    : !refineSupported ? 'This checkpoint has no refine pass'
     : refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value) || refineProblem;
   els.refineRun.setAttribute('aria-disabled', String(!!problem));
   els.refineRun.title = problem || 'Run the pass (Ctrl+Enter)';
@@ -503,7 +536,14 @@ function refineKeydown(event) {
 // Compare 3 pressed: the sweep written into Strength, which the preview then
 // prices and Refine runs as one sheet. Never remembered, as no sweep is.
 function fillRefineCompare() {
-  els.refineStrength.value = compareStrengths().join(',');
+  // Held where Steps leaves no sweep: the press says why, and writes nothing
+  // over the user's Strength.
+  const values = compareStrengths();
+  if (els.refineCompare.getAttribute('aria-disabled') === 'true' || values.length < 2) {
+    refineFailed(`${els.refineCompare.title}.`);
+    return;
+  }
+  els.refineStrength.value = values.join(',');
   refineChanged();
   els.refineStrength.focus();
 }
@@ -634,6 +674,8 @@ async function runRefine() {
   }
   if (els.refineRun.getAttribute('aria-disabled') === 'true') {
     refuseRefine(els.refineRun.title);
+    // As Generate's press: the poll asks again at once.
+    if (serverOffline) void refreshStatus();
     return;
   }
   // As startJob refuses them, but here, while the dialog is still up to say so.
@@ -685,6 +727,16 @@ async function runRefine() {
       rememberRefine();
       refineRan = true;
       els.refineDialog.close();
+      // The dialog gives focus back to what opened it: nothing, where a
+      // script did (Reuse of a pass), or a button that has gone with the
+      // lightbox. Then Generate - or New image ↑, beside the progress, where
+      // the strip the pass shows in is out of sight - rather than <body>.
+      // refineClosed puts it on the source's card where the lightbox opened
+      // the dialog.
+      requestAnimationFrame(() => {
+        if (document.activeElement && document.activeElement !== document.body) return;
+        (els.newImage.hidden ? els.generate : els.newImage).focus({ preventScroll: true });
+      });
     },
   });
   // After startJob's own start, whose setBusy names it "Refine (queue)".

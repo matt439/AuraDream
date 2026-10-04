@@ -534,6 +534,31 @@ const whenExactly = (ms) => new Date(ms).toLocaleString([], {
   month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
 });
 
+// What a run varied, ahead of its prompt in the picker (/api/runs' `axes`):
+// "steps×CFG 3×2", "steps ×8 · 5 seeds", "strength 0.05-0.15 of #37",
+// "comparison · 3 versions", "4 seeds". Every line of a session read
+// "6 img · A weathered…", and a steps × CFG grid, a batch and a refine sweep
+// told apart by count and time.
+const RUN_AXIS_NAMES = {
+  steps: 'steps', cfg: 'CFG', mu: 'Mu', true_cfg: 'True CFG', lora_scale: 'LoRA', reference: 'refs',
+};
+function runAxes(run) {
+  const axes = run.axes ?? {};
+  if (axes.variant) return `comparison · ${axes.variant} versions`;
+  if (run.refine != null) {
+    const [low, high] = run.strengths ?? [];
+    const at = low == null ? '' : low === high ? `strength ${low} ` : `strength ${low}-${high} `;
+    return `${at}of #${run.refine}`;
+  }
+  const varied = Object.keys(RUN_AXIS_NAMES).filter((key) => axes[key] > 1);
+  const seeds = axes.seed > 1 ? `${axes.seed} seeds` : '';
+  if (!varied.length) return seeds;
+  const names = varied.map((key) => RUN_AXIS_NAMES[key]);
+  const counts = varied.map((key) => axes[key]);
+  const grid = varied.length === 1 ? `${names[0]} ×${counts[0]}` : `${names.join('×')} ${counts.join('×')}`;
+  return [grid, seeds].filter(Boolean).join(' · ');
+}
+
 async function loadRuns() {
   let runs;
   // Under the gallery's scope: a run picked here opens as a sheet, and a run
@@ -560,8 +585,10 @@ async function loadRuns() {
     // A run that made fewer pictures than images says so in the list.
     const distinct = typeof run.distinct === 'number' && run.distinct < run.images
       ? ` (${run.distinct} distinct)` : '';
-    const prompts = run.prompts > 1 ? ` · ${run.prompts} prompts` : '';
-    return `${when(Date.parse(run.started_at))} · ${run.images} img${distinct}${prompts}${stars(run)} · ${clip(run.prompt)}`;
+    const prompts = run.prompts > 1 && !run.axes?.variant ? ` · ${run.prompts} prompts` : '';
+    const axes = runAxes(run);
+    return `${when(Date.parse(run.started_at))} · ${run.images} img${distinct}${prompts}${stars(run)}`
+      + `${axes ? ` · ${axes}` : ''} · ${clip(run.prompt)}`;
   });
   group(singles.length > SINGLE_RUNS ? `Single images (the newest ${SINGLE_RUNS} of ${singles.length})` : 'Single images',
     singles.slice(0, SINGLE_RUNS),
@@ -646,7 +673,12 @@ function showSheetScope(search, { fresh = false, notice = null, scroll = true } 
 function reserveSheetRoom(head) {
   els.sheet.style.marginBottom = '';
   const landing = head.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(head).scrollMarginTop);
-  const short = landing + innerHeight - document.documentElement.scrollHeight;
+  // From where the page's content ends, not the document's scroll height,
+  // which is never less than the window: a page shorter than the window got
+  // a margin short by the difference, and the scroll stopped 85 px short,
+  // the viewer's tools row cut in half under the topbar above the head.
+  const end = document.querySelector('main').getBoundingClientRect().bottom + scrollY;
+  const short = landing + innerHeight - end;
   if (short > 0) els.sheet.style.marginBottom = `${Math.ceil(short)}px`;
 }
 
@@ -678,9 +710,14 @@ function clearResults(job = null) {
   sessionRecords = [...earlier, ...sessionRecords.filter((r) => !kept.has(r.id))].slice(0, SESSION_MAX);
   viewerRecords = [];
   Object.assign(viewerJob, { expected: job?.planned_images ?? 0, width: job?.width ?? 0, height: job?.height ?? 0 });
+  // Focus on what goes - a result's tool the Refine dialog handed it back
+  // to, its picture - goes to Generate rather than to <body>.
+  const focused = els.viewer.contains(document.activeElement);
   els.viewer.innerHTML = '';
+  if (focused) els.generate.focus({ preventScroll: true });
   els.viewer.scrollTop = 0;
   els.viewer.style.maxHeight = '';
+  els.viewer.style.minHeight = '';
   viewerTier();
   els.viewerNote.replaceChildren();
   // The gallery's cards of the run before are not what the strip shows now.
@@ -735,7 +772,7 @@ function fitViewer() {
   viewerWidth = v.clientWidth;
   const gap = parseFloat(css.columnGap) || 0;
   // A tile's tools row, under its picture (style.css).
-  const foot = parseFloat(css.getPropertyValue('--h-sm')) + parseFloat(css.getPropertyValue('--sp-1'));
+  const foot = parseFloat(css.getPropertyValue('--h-tool')) + parseFloat(css.getPropertyValue('--sp-1'));
   const height = innerHeight * 0.68 + foot;
   const n = Math.min(4, Math.max(viewerJob.expected, viewerRecords.length));
   let best = null;
@@ -757,6 +794,10 @@ function fitViewer() {
 // the refit it causes ends there.
 function viewerResized() {
   if (!els.recent.hidden) requestAnimationFrame(fitRecent);
+  // A long run's reserve, at the column count the new width has.
+  if (els.viewer.style.minHeight && els.viewer.clientWidth !== reservedWidth) {
+    requestAnimationFrame(() => { els.viewer.style.minHeight = ''; reserveStrip(); });
+  }
   if (els.viewer.clientWidth === viewerWidth || !els.viewer.classList.contains('fitted')) return;
   requestAnimationFrame(fitViewer);
 }
@@ -819,6 +860,7 @@ function stripAppend(el) {
 function settleStrip(atEnd) {
   const strip = els.viewer;
   strip.style.maxHeight = '';
+  reserveStrip();
   if (getComputedStyle(strip).overflowY !== 'visible') {
     const over = strip.scrollHeight - strip.clientHeight;
     if (over > 0 && over <= parseFloat(getComputedStyle(strip).paddingBottom)) {
@@ -826,6 +868,36 @@ function settleStrip(atEnd) {
     }
   }
   if (atEnd) strip.scrollTop = strip.scrollHeight;
+}
+
+// A long run's strip from 2000 px, where it has a cap of its own: every row
+// the job will fill, from its first tile (`min-height`, measured on that
+// tile, at the column count the strip has), up to the cap - so the gallery
+// under it does not move down a row at a time as the images land. The tier
+// and the tile size were the job's from its first frame; now the height is
+// too. Read before settleStrip's own max-height, and let go by clearResults.
+let reservedWidth = 0;
+function reserveStrip() {
+  const strip = els.viewer;
+  if (strip.style.minHeight || !strip.classList.contains('many') || viewerJob.expected <= 1) return;
+  const css = getComputedStyle(strip);
+  if (css.display !== 'grid' || css.overflowY === 'visible') return;
+  const first = strip.querySelector(':scope > figure');
+  if (!first) return;
+  const cols = css.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+  const rows = Math.ceil(Math.min(viewerJob.expected, VIEWER_MAX) / cols);
+  const edge = (side) => parseFloat(css[`padding${side}`]) + parseFloat(css[`border${side}Width`]);
+  const tall = rows * first.getBoundingClientRect().height + (rows - 1) * (parseFloat(css.rowGap) || 0)
+    + edge('Top') + edge('Bottom');
+  const cap = parseFloat(css.maxHeight);
+  // Past the cap by no more than the bottom padding, the strip is let grow
+  // by that rather than scroll (settleStrip), so that much is reserved too.
+  const height = !(cap > 0) || tall - cap <= parseFloat(css.paddingBottom) ? tall : cap;
+  // Never under the least the stylesheet gives it: beside a docked check
+  // that is the check's room (style.css), which the inline value overrides.
+  const least = parseFloat(css.minHeight) || 0;
+  strip.style.minHeight = `${Math.ceil(Math.max(height, least))}px`;
+  reservedWidth = strip.clientWidth;
 }
 
 function appendResult(rec) {
@@ -872,11 +944,17 @@ function resultFigure(rec) {
   const refine = tool('⤢', '', () => refineResult(rec, tile));
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
+  // A card's ❐, where the checkpoint takes references (syncCardTools keeps
+  // it to the status): on klein a reference had to come from a card.
+  const reference = tool('❐', '', () => toggleReference(tile, rec));
+  reference.classList.add('ref-tool');
+  syncReferenceTool(reference, rec.id);
+  reference.hidden = !referenceSupported;
   const del = tool('⌦', `Delete #${rec.id}`, () => deleteImage(rec), 'Delete');
   del.classList.add('del');
   const tools = document.createElement('div');
   tools.className = 'tools';
-  tools.append(reuseButton(rec, true), refine, star, del);
+  tools.append(reuseButton(rec, true), refine, reference, star, del);
   // Out of the tab order in a long run's strip (viewerTier).
   if (els.viewer.classList.contains('many')) tools.querySelectorAll('button').forEach((b) => { b.tabIndex = -1; });
   tile.append(img, tools);
@@ -909,6 +987,10 @@ function resultSide(rec, figure) {
   const refine = action(tool('⤢ Refine…', '', () => refineResult(rec, figure.querySelector('.tile'))));
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
+  const reference = action(tool('❐ Reference', '', () => toggleReference(figure.querySelector('.tile'), rec)));
+  reference.classList.add('ref-tool');
+  syncReferenceTool(reference, rec.id);
+  reference.hidden = !referenceSupported;
   // Named by its words, as the finish line's is; the title has the seed.
   const seed = document.createElement('button');
   seed.type = 'button';
@@ -916,9 +998,20 @@ function resultSide(rec, figure) {
   seed.textContent = 'Use seed';
   seed.title = `Put ${rec.seed} in the Seed box`;
   seed.onclick = () => useSeed(rec.seed);
+  // What the facts say, in a line, where the row stands in for the column
+  // under a docked check (style.css); the settings line whole in its title.
+  const brief = document.createElement('span');
+  brief.className = 'result-brief';
+  brief.textContent = `seed ${rec.seed} · ${rec.width}×${rec.height} · ${rec.steps} steps · CFG ${rec.guidance_scale}`;
+  brief.title = settingsLine(rec);
+  // Delete in words at the row's end, red under the pointer, as the page's
+  // other destructive buttons: a lone ⌦ under the picture's corner was the
+  // one tool the column did not have.
+  const del = action(tool('Delete', `Delete #${rec.id}`, () => deleteImage(rec)));
+  del.classList.add('del', 'danger');
   const actions = document.createElement('div');
   actions.className = 'result-actions';
-  actions.append(star, refine, action(reuseButton(rec)), seed);
+  actions.append(star, refine, action(reuseButton(rec)), reference, seed, brief, del);
   const prompt = document.createElement('p');
   prompt.className = 'result-prompt';
   prompt.textContent = rec.prompt;

@@ -266,7 +266,7 @@ the panel, leaving out (and naming) any since deleted.
 | Gallery | arrows · `Home` `End` | the next card, the nearest one up or down (`↓` past the last row loads more) · the first and last loaded |
 | Gallery | `Enter` · `F` | open the lightbox · star |
 | Contact sheet | `F` | star the focused cell |
-| Size strip | arrows · `Home` `End` | move along the presets; `Enter` or a click chooses |
+| Size strip (panel) | `←` `→` · `Home` `End` | move along the presets; `Enter` or a click chooses |
 | Tag chips | `Alt` + `←` `→` · `Delete` · `Enter` | move the tag · remove it · edit it; `←` `→` walk the chips |
 | Prompt box | `Tab` or `Enter` | takes the first tag suggestion once three typed characters match it |
 | Examples menu | `↓`, `Enter` or `Space` · arrows · `Esc` | open on the first example · walk it · back to the button |
@@ -540,12 +540,12 @@ uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriou
 node tools/browser.mjs tools/smoke-wai.json      # WAI recipes, defaults, reference sizes and saved settings
 uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-analysis.json  # Check, the critic and Compare, docked beside the viewer at QHD
-node tools/browser.mjs tools/smoke-rewrite.json   # the critic's rewrite: its diff, gist and findings (same server)
-node tools/browser.mjs tools/smoke-comparison.json        # two comparisons on the same seeds (same server)
-node tools/browser.mjs tools/smoke-comparison-batch.json  # the comparison's Seeds and Batch (same server)
+node tools/browser.mjs tools/smoke-rewrite.json   # the critic's rewrite: its diff, gist and findings (same port; restart the server first)
+node tools/browser.mjs tools/smoke-comparison.json        # two comparisons on the same seeds (same port; restart the server first)
+node tools/browser.mjs tools/smoke-comparison-batch.json  # the comparison's Seeds and Batch (same port; restart the server first)
 uv run python tools/fake_server.py --port 7875 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-refine.json    # the Refine dialog end to end
-node tools/browser.mjs tools/smoke-refine-unavailable.json # a pass the unloaded checkpoint may not have (same server)
+node tools/browser.mjs tools/smoke-refine-unavailable.json # a pass the unloaded checkpoint may not have (same port; restart the server first)
 uv run python tools/fake_server.py --port 7876 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-wide.json      # the page at 2560x1305, 2048x1040 at 125% and 1400x900
 uv run python tools/fake_server.py --port 7877 --model cagliostrolab/animagine-xl-4.0
@@ -573,7 +573,8 @@ node tools/browser.mjs tools/smoke-analysis-tags.json # the check on a tag check
 ```
 
 Where two smokes share a port, run them one after another, restarting the
-server between them. Fake servers share one throwaway gallery unless
+server (with `--fresh`) before each: a smoke expects the gallery and the
+queue it starts from, and the next one's server is a fresh one. Fake servers share one throwaway gallery unless
 `--data <dir>` gives each its own (`--fresh` empties it first), and
 `smoke.json` counts the images in it, so run that one on a gallery of its
 own while others are up. The browser opens at
@@ -666,7 +667,8 @@ unless that is past what the checkpoint holds, when it opens at the largest
 factor that is - the one it skipped says so on its button, and running the
 size it opened at leaves your scale as it was. On a wide window the source
 is shown large beside the controls. **Strength** has focus; **Refine**,
-Enter in any box or Ctrl+Enter runs the pass - once the server has read
+Enter in a one-line box (not the prompt boxes) or Ctrl+Enter anywhere in
+the dialog runs the pass - once the server has read
 what the boxes hold, so a strength it refuses is said in the dialog - and
 its progress shows in the panel as any job's does. While the pass is being
 sent the button reads *Sending…* and the dialog stays open, Escape and
@@ -854,8 +856,8 @@ first image lands in the viewer while it is scrolled out of sight, *New image �
 beside the progress goes up to it - the page never scrolls on its own.
 
 **When the server stops answering** the top bar's dot turns red and reads
-"server not answering — retrying", Generate, Run grid and Unload are held with
-that reason, and a job being watched says how many of its images were saved rather
+"server not answering — retrying", Generate, Run grid, the Refine dialog's
+Refine and Unload are held with that reason, and a job being watched says how many of its images were saved rather
 than promising it carries on; a picture the lightbox could not load says the
 same. Once the server answers again the messages go, and that picture is asked
 for again;
@@ -1071,7 +1073,8 @@ one over the first card when the newest images are not today's.
 
 The **Runs…** picker over the gallery is the same thing by name: grids and
 batches first, each with its image count (and its prompt count where there
-are several), then the newest eight single images, each by the second it was
+are several) and what it varied - "steps×CFG 3×2", "strength 0.05-0.15 of
+#37", "comparison · 3 versions" - then the newest eight single images, each by the second it was
 made and its seed. Picking one searches `run:<id>` and opens its sheet, and
 the picker keeps naming whichever run the search box shows, however it got
 there - a card's ⊞, Show run, typing.
@@ -1097,8 +1100,10 @@ it (Ctrl+Z in the prompt box gives the prompt back too). The page stays
 where it was and the panel moves to bring the prompt into sight. A ⚠ in its
 place means the image was made on another checkpoint: its tooltip says what
 will not carry over, and the note asks you to check the steps, CFG and Mu it
-filled in, which are that checkpoint's. **Delete** (⌦) asks first, naming the image by its number and settings
-and what else goes; the card then stays in its place as "Deleted · #N", so
+filled in, which are that checkpoint's. **Delete** (⌦) asks first, in a
+small dialog beside the button - Cancel has the focus, and Escape or a click
+outside it is Cancel - naming the image by its number and settings and what
+else goes; the card then stays in its place as "Deleted · #N", so
 nothing slides under the pointer, and the focus moves on to the next image.
 What a gallery control did or refused - a delete, a dead ⤢ or ❐, a sweep -
 is said in the line under the gallery's own head, not in the panel.
@@ -1524,7 +1529,8 @@ Check has no reordering and the critic's rarely survives its check, so
 there the order is tested by writing it under Your version. Pick 4 or 8
 seeds per version and comparison **Batch** 1, 2 or 4 (default 1).
 **Run comparison** queues one grid - one image per version per seed,
-the panel's other settings, the Seed box's seed or a drawn one - and
+the panel's other settings, the Seed box's seed or a drawn one, which is
+not written into the Seed box (the next Generate still draws afresh) - and
 opens that submission's sheet with one row per version, original first,
 unticking Starred if it was on: nothing in the new comparison is starred
 yet, and the sheet's note says so. The main panel's **Batch** and **Repeat**

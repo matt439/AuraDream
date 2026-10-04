@@ -705,7 +705,14 @@ placeholder. The dialog's Compare 3 writes the same three values into
 Strength - the page's `compareStrengths`, the same arithmetic in the same
 order so the floats round alike, at the Steps box's count - its placeholder
 is the start and the sweep, and one visible line says how a sweep is
-written. The button only fills the box; a sweep is never remembered. ArrowUp
+written. The button only fills the box; a sweep is never remembered. On a
+source made at few steps - a 6-12x2 steps grid makes them - a sweep around
+the profile's value can leave no strength a step: at 2 steps the list was
+empty, the placeholder read "0.1 or " and Compare 3 wrote an empty Strength
+over the user's. Where fewer than two values are left the button is held
+(aria-disabled, its title naming the Steps that would give two,
+`compareStepsNeeded`), a press says so and writes nothing, the placeholder
+is the start alone and the sweep line names no values. ArrowUp
 and ArrowDown step a single strength by 0.05 (0.01 with Shift) - one fixed
 step, since the profile's half would move SDXL's 0.4 past WAI's documented
 0.35-0.5 in one press - and a list or a range is left alone. A strength out
@@ -1067,6 +1074,20 @@ and this job ended with it after N of M images" (M is the snapshot's
 `planned_images`), Generate again or a grid's Resume for the rest, and the
 gallery takes in what was saved. The live preview of the unfinished cell goes
 with the stream, rather than sitting in the strip like a second result.
+Where nothing of the job had reached the strip - its first frame had cleared
+it - the viewer was then an empty box, still empty once the server was back,
+the only words red in the panel; it holds a card now (`showLostRun`, styled
+as a failed load's): what went, the same sentence, and Run it again where
+this page sent the request, its refusal said in the card. An answering
+server rewords it ("The server is back", or "restarted at 04:58",
+`lostRunBack`), and the next job's first frame clears it. While the stream
+reconnects, the job says it in the topbar's words, "server not answering -
+retrying (2)", and nothing beside them that has stopped being true: no step
+count, no time left, no mirror of it in the topbar, the tab's title the same
+phrase and the strip's note too ("reconnecting... (2)" sat under the
+topbar's phrase with a frozen "~19s left", and the tab said "Lost the job");
+the next frame brings the counts back. A give-up with the server gone holds
+"Server not answering" in the title.
 
 **When the server does not answer.** The topbar used to stay green, with the
 checkpoint's name, for as long as the server was dead, and every action said
@@ -1075,8 +1096,9 @@ error or a slow reply, which a load's CUDA read can cause and `statusPending`
 absorbs - into an Error with `offline: true` and "No answer from the Local
 Diffusion server - is it still running?". A status poll that gets one turns
 the dot red ("server not answering - retrying"), hides Load, and holds
-Generate, Run grid and Unload (`aria-disabled`, titled with the reason; a press
-says it and polls at once); Refine's preview fails with the same words.
+Generate, Run grid, the Refine dialog's Refine and Unload (`aria-disabled`,
+titled with the reason; a press says it and polls at once); Refine's preview
+fails with the same words.
 `showError` remembers which slots hold such a message (`offline`, set from the
 text or by the caller), and the first answer clears them (`clearOffline`).
 The lightbox's own picture is one of them: one that fails to load asks for its
@@ -1532,7 +1554,9 @@ pass in a strip, a step between them reset the zoom, and the viewer had
 replaced it with the pass. On a record with `refine`, S (or Compare with
 source, with its two mode buttons) lays the source under the pass and shows
 it left of a divider (swipe), or beside it (side by side: each half fitted,
-showing the same crop), on the one `lbView`, through the same explicit
+showing the same crop, the halves inside the arrows - `LB_NAV_ROOM` - whose
+circles had sat over the source's left edge and the pass's right one), on
+the one `lbView`, through the same explicit
 geometry. The source is fetched by id once a session (`lbSources`; a strip
 that holds it already is looked in first) and drawn as `refine.fitted`
 cropped it - `refineKept`'s arithmetic places its whole picture so the kept
@@ -1621,7 +1645,13 @@ half the stage side by side - on the whole of it a 1:1 came back at 166%),
 unless its passes row has opened the lightbox on a pass already. Run, it
 puts the focus on the source's card, else Generate, without moving the page
 (`refineClosed`): the dialog hands focus back to the lightbox's Refine,
-closed with the lightbox, which left it on `<body>`. While the pass's POST
+closed with the lightbox, which left it on `<body>`. A run from a dialog a
+script opened - Reuse of a pass - had nothing to hand focus back to, nor
+one whose opener the pass took away: on the next frame, focus still on
+`<body>` goes to Generate, or to New image ↑ where the strip is out of
+sight. And a job's first frame, clearing the strip, puts focus that was in
+it - a result's Refine… the dialog handed it back to - on Generate
+(`clearResults`). While the pass's POST
 is out the dialog holds (`refineSending`): its button reads "Sending…", and
 Escape (the dialog's `cancel`, prevented), Cancel and the cross wait for the
 answer. Since the dialog closes only once the server has the pass (Refine
@@ -2219,7 +2249,14 @@ twice and sent two deletes, both answered 200 since `delete_image` looked
 the row up outside the write lock; a delete under way now ignores a second
 press of the same image (`deleting`), and `delete_image` looks up and
 deletes under the one lock, so a second delete is "unknown image". In the lightbox a delete says
-which image went in its line until the next key or press, and a delete of
+which image went in its line until the next key or press - one listener
+pair per note, both taken off by whichever comes first and by the next
+note (an AbortController: `{ once: true }` took off only the one that
+fired, and a run of deletes left the other behind each time) - and a delete
+of the lightbox's only image closes it with focus where the walk came from
+(`closeLightboxAfterDelete`: the viewer's held line or tombstone, the
+grid's current card, else the search box), where its focused Delete went
+with the dialog and left focus on `<body>`. A delete of
 the last image loaded, with more on the server, pages the next one in
 (`pageInBehind`, "Loading next…" meanwhile) rather than stepping back onto
 an image already judged. A delete answered "unknown image" - another tab
@@ -2227,10 +2264,19 @@ took it, or a reattached job had replayed it - forgets it with a note. The
 server does its part: the delete routes call `jobs.forget_images`, and a
 job's snapshot replays only its live records, with `deleted_count` beside
 an unchanged `image_count` (what the night produced), so a reload during
-a run no longer brings a deleted image back as a broken tile. The smokes
-stub `window.prompt` to drive the dialog: a wrong number first, then the
-right one, then the free-text refusal, checking that nothing went until
-the right number was typed; `smoke-delete.json` takes the rest to the end,
+a run no longer brings a deleted image back as a broken tile. Both questions are
+the page's own dialog (`#confirm-dialog`, `openAsk`), beside what was pressed
+(`placeAsk`): the browser's confirm and prompt were a light box at the top
+of the window, far from the card whose ⌦ asked, and held the whole page -
+a headless run waited on one for good. Cancel has focus, or the count's
+box, where Enter answers; Escape and a press outside are Cancel, and the
+document's own keys are off while it is up, since its Escape also closed
+the lightbox under it. The smokes stand in for it through `askConfirm` and
+`askCount` (put back as `confirmDialog` and `countDialog`) to drive Delete
+unstarred: a wrong number first, then the right one, then the free-text
+refusal, checking that nothing went until the right number was typed - and
+drive the dialog itself, Escape and Delete, over the lightbox and with a
+typed count; `smoke-delete.json` takes the rest to the end,
 a starred pass's source and a landed image's 409 included.
 
 ## The morning after: runs and finished jobs
@@ -2293,9 +2339,16 @@ the box as the only label of what was on screen; it now names the run the
 search box shows (`syncRunList`, from `resetGallery` and the end of
 `loadRuns`), however the box got it - a pick, a card's ⊞, Show run, the
 sheet's return, typing - and "Runs…", a hidden and disabled first option,
-for anything else or a run it does not list. A refine-only label was not
-added: telling a pass's run from its grid's would need a field `/api/runs`
-does not have.
+for anything else or a run it does not list. Every line of a session still
+read alike - "6 img · A weathered lighthouse…" for a steps × CFG grid, a
+batch and a refine sweep - so `/api/runs` now says what varied: each
+setting's count of distinct values over the run where it is above one
+(`RunSummary.axes`, from `storage._RUN_AXES`: steps, cfg, mu, true_cfg, the
+adapter and its weight, strength, reference, seed and a comparison's
+variant label), and the source every image refines with the strengths it
+ran at (`refine`, `strengths`). The picker names the run by them ahead of
+its prompt (`runAxes`): "steps×CFG 3×2", "steps ×8 · 5 seeds", "strength
+0.05-0.15 of #37", "comparison · 3 versions", "4 seeds".
 
 Closed, the picker has a width of its own, `--runs-w` (190 px; 240-360 px
 from 1800 px), cut with an ellipsis, and the picked run's whole label is the
@@ -2400,6 +2453,22 @@ loaded the day before ran the two days together. It carries no `data-id`:
 paging, the deletes, the lightbox and `.card` counts never see it. A day whose cards are all deleted keeps its line over
 their tombstones, which hold their slots so that nothing moves under the
 pointer that pressed ⌦ - taking the line out would move every card after it.
+
+**A gallery with nothing to show says so, and so do new images it hides.**
+On a first visit the gallery was a blank screen under a disabled "No runs
+yet": nothing said it fills as images are made. A page with total 0 now says,
+under the head, what fills it and offers the authors' Examples (the first
+run's own button's handler), or under a filter that nothing matches it, and
+either way what the All models tick would add (`syncGalleryEmpty`; never
+over tombstones, which say it, nor in sheet mode). And a comparison's or a
+sweep's sheet keeps the gallery scoped to its `job:` after it opens: a plain
+Generate afterwards saved its image where the sheet could not show it, the
+count unchanged and the search box still reading `job:…`, as though nothing
+had been saved. Where a finished job's images fall outside the filter - that
+scope, a search, Starred - the gallery's line counts them, across jobs while
+the filter stays the same ("5 new images outside this view"), with Show all,
+which empties the search, unticks Starred and closes the sheet
+(`noteOutsideView`, `showAllImages`).
 
 ## The gallery's cards
 
@@ -2525,11 +2594,12 @@ from where the cards are rather than from the grid's column count: a day's
 line starts a row of its own, so a short row before it put "a row on" by
 the count that many cards short. Focus moves with `preventScroll` and the
 card is scrolled `nearest`, clear of the topbar by its `scroll-margin-top`.
-Nothing here is in `thumb()`, which the viewer and the sheet share - except
-that its Enter and Space open the lightbox only without Ctrl, Meta or Alt:
-Ctrl+Enter is Generate's from anywhere, and on a focused image - where the
-lightbox's close leaves focus - it opened the lightbox and queued a job
-behind it.
+The image's label ("Open #N: <prompt>") and title (`cardTitle`) are
+`thumb()`'s, shared by the card, the viewer, the sheet and #recent, and so
+is its Enter and Space, which open the lightbox only without Ctrl, Meta or
+Alt: Ctrl+Enter is Generate's from anywhere, and on a focused image - where
+the lightbox's close leaves focus - it opened the lightbox and queued a job
+behind it. The rest here is `card()`'s.
 
 ## LOCAL_DIFFUSION_DEVICE reaches the offload hooks
 
@@ -2581,7 +2651,11 @@ sweep's three passes at QHD - ended the page before the head could reach
 the topbar, and the scroll stopped 43 px down with the sheet's cells at the
 window's foot: the scroll first reserves the room it needs under the sheet
 (`reserveSheetRoom`, a margin outside the sheet's box, which `fitSheet`
-measures; `setSheet` takes it off).
+measures; `setSheet` takes it off). The room is counted from where `main`
+ends: counted from the document's scroll height, which is never less than
+the window, a page shorter than the window got a margin short by the
+difference, and the scroll stopped 85 px down with the viewer's tools row
+cut in half under the topbar above the head.
 
 **The cells fit the screen's height as well as its width.** Columns are
 `minmax(96px, var(--cell-max))`, and `--cell-max` is the window less what
@@ -2627,7 +2701,12 @@ listener on the grid rather than a button per cell; the lightbox still walks
 the sheet in reading order. A refine pass says so (`⤢ 0.1`, top left) unless
 the strength is already an axis or a pin. Where every image is a pass of one
 source, the source leads as a column of its own, headed `Source #<id>`,
-spanning the rows and first in what the lightbox walks: it is fetched by id
+spanning the rows and first in what the lightbox walks, framed as the
+passes are - their cells' shape, centre-cropped as `refine.fitted` kept it,
+captioned "cropped as the passes were" where the shapes differ (a whole 1:1
+source letterboxed beside 3:2 passes cut from it set two framings side by
+side, which the eye compared as one; the lightbox it opens has the whole
+picture): it is fetched by id
 (`sheetSources`, alongside `learnSheetOrder`) and never a sheet record - no
 axis value, no cell of `cellOf`, no count - so a strength of null still means
 a direct render; a deleted source is said in the note. The axes gained
@@ -2753,8 +2832,13 @@ before; no job here makes one.
 image and under it a row of the card's own tools: Reuse (`reuseButton`),
 Refine (the card's handler: on a checkpoint without a pass it says so in
 `#gallery-error` and over the tile, and opens nothing), Star (`setFavorite`,
-which updates `.result[data-id]` and its stars) and Delete (`deleteImage`;
-`forgetImages` leaves a tombstone). Not ❐ or ⊞, which are for browsing. The
+which updates `.result[data-id]` and its stars), ❐ where the checkpoint
+takes references (`toggleReference`; on klein a reference had to come from a
+card, the image just made a screen away from its own) and Delete
+(`deleteImage`; `forgetImages` leaves a tombstone). Not ⊞, which is for
+browsing. From 1800 px the row is `--h-tool`, 32 px - its buttons were 29 x
+30 at QHD, a card's 25 x 26 - as are a card's tools and a long run's tiles'
+there (a token rather than `--h-sm`, which every small button shares). The
 row is always shown under one to four images and over the picture on hover
 or focus in a long run's small tiles, as a card's - where they are no tab
 stops, only the pictures are, as before: four more a tile put a 48-image
@@ -2765,17 +2849,26 @@ the same image found among the cards.
 **The column beside one image (from 1800 px).** While the strip holds one
 result its figure carries a column (`resultSide`): which image a pass refines
 ("⤢ Refine pass of #5 at strength 0.1", the source a press away), Star,
-Refine…, Reuse and Use seed in words, the prompt, and the lightbox's own
+Refine…, Reuse, ❐ Reference (where the checkpoint takes references), Use
+seed and Delete in words - Delete red under the pointer at the row's end,
+where it had been a lone ⌦ stranded under the picture's corner, the one tool
+the column did not have - the prompt, and the lightbox's own
 `factsList` - one facts renderer for both. A square result at QHD had left
 1,270 px of the strip empty. The column is as tall as the picture and its
 row (`contain: size`, stretched) and scrolls inside itself, so it never sets
 the strip's height; the live preview and the stand-in keep its room
 (`figure:not(.result)::after`), so the picture does not move when it comes,
-and the row under the picture keeps Delete alone. The star's word is drawn
-after its glyph (`data-word`), since `syncStar` writes the glyph. Under 1800 px
-there is no column, nor while the prompt check is docked beside the strip:
-the check takes that width, and with the column the picture shrank as the
-check opened and the gallery moved under it - the row has every tool again.
+and the row under the picture stays, empty, at its height. The star's word
+is drawn after its glyph (`data-word`), since `syncStar` writes the glyph.
+Under 1800 px there is no column. While the prompt check is docked beside
+the strip the check takes that width - with the column there the picture
+shrank as the check opened and the gallery moved under it - so the column's
+actions become the row under the picture, in the tools row's place and at
+its height, with a line of the facts (`.result-brief`: seed, size, steps,
+CFG, the whole settings line in its title) before Delete. The image just
+made had fallen back to 26 px glyphs there, its words and facts gone while
+"Earlier this session" stayed beside it; now it has one set of words for
+its tools whether or not the check is open.
 
 **Under the strip.** `#viewer-note` names a pass's source - "Refined from #10
 at 0.5 · 1344×1728", the source opening in the lightbox with the pass after
@@ -2866,6 +2959,21 @@ starting a row is followed into view. And a strip that overflows by no more
 than its own bottom padding is let grow by that rather than scroll
 (`settleStrip`): 28 images at QHD came to 3 px past the cap, drawing a
 scrollbar for those 3 px while the note said to scroll the strip.
+
+**The strip's height is the run's from its first frame.** The tier and the
+tile size were the job's from the start, but the height was not: in the
+strip's cap of its own the rows still came one at a time as the images
+landed, and the gallery head moved mid-job (691 px from 512 for a batch of 4
+x Repeat 7 at QHD; 509 to 530 at 125%). At the first tile `reserveStrip`
+gives the strip a min-height of every row the planned count fills at the
+column count the strip has - measured on that tile - up to the cap, never
+under the least the stylesheet gives it (beside a docked check that is the
+check's room), again when the strip's width moves, and `clearResults` lets it
+go; the strip has no 380 px floor there either, which left a 6-image run's
+one row of tiles at the top of an empty band. The live preview stays the
+size of the cell its image will take: the finished layout of five or more
+is a strip of small tiles, and a larger preview cell would move the tiles
+as each image replaced it, which is what this layout exists to stop.
 
 ## The ? badges are named
 
@@ -3062,10 +3170,17 @@ dragged to, as under 1800 px. The drag was the way round a long prompt before
 the tier, and a grip that stopped at eight lines took it away at 125%. The
 short-window tier keeps the type and the widths with compact controls of its
 own - about today's heights rather than the wide tier's (a field 40 px, the
-primary 44, the small and tiny buttons 28 and 21, two pixels over today's for
-the larger type in them), today's panel padding and topbar, and a 12 px gap
-where today's is 14 - so at 2048 x 1040 the panel is about as tall as before
-while 70 px wider. Under 1800 px every token is today's, which is where the
+primary 44, the small buttons 28, two pixels over today's for the larger
+type in them, and the tiny ones 26), today's panel padding and topbar, and a
+12 px gap where today's is 14 - so at 2048 x 1040 the panel is about as tall
+as before while 70 px wider. The secondary controls followed the fields in
+a later pass: the tiny buttons - the Prompt caption's Examples, Check and
+Reset, the check's Apply and Use rewrite - were 24 px tall with 12 px type
+at QHD, about 2 mm on a 27-inch screen, and are 30 px at a caption's type;
+tick boxes 18 px; a tag chip's × a 24 px target taken from the chip's
+padding, so the chip keeps its size; reference chips up to 96 px, four to a
+row, badged "image N" as the prompt names them, their × 24 px; and the tools
+a card, a long run's tile or a result's row show `--h-tool`, 32 px. Under 1800 px every token is today's, which is where the
 smokes run and why their computed-style checks hold. The widths the review's
 later work added are tokens on the same table, each with its wide-tier value
 beside it: the Runs picker's `--runs-w`, the lightbox's column `--lb-side-w`,
@@ -3093,8 +3208,8 @@ does not render (U54). A text box's focus is two pixels of the accent, since
 one pixel of it beside the stronger border was a 1.3:1 change. The LoRA select
 is drawn as the text boxes are, by its id alone: a rule for every select would
 restyle the comparison's selects in the panel under 901 px (U21). Danger red
-on hover is a `.danger` class on Cancel, Cancel queued and Delete unstarred,
-not every small ghost button (U91) - and on Reset since it took the panel
+on hover is a `.danger` class on Cancel, a queue row's ×, Cancel queued and
+Delete unstarred, not every small ghost button (U91) - and on Reset since it took the panel
 with no way back (U68; "Panel persistence") - and a tip lets clicks through
 (`pointer-events: none`, U139): one pinned open by a click lay over the Refine
 dialog's scale buttons and swallowed the clicks meant for them. A tip's line
@@ -5674,7 +5789,21 @@ the check moved the image down by it. The check's head - the title, the
 stale badge, Check again, Close - sticks at the top of the column's own
 scroll: the critic's answer takes focus and scrolls the column down to it,
 and the head went with it, so a prompt edited after the answer left only
-the light dimming to say the check no longer described it. Check, focusing
+the light dimming to say the check no longer described it. It sits at the
+scroller's very top (`top: 0`), the column's top padding moved into its
+own: stuck 10 px up into a padding that stayed the column's, a sliver of
+the findings scrolled past above it at 125%, their text cut in half. Close
+is absolute in its top right corner; in the head's wrapping row it fell to a
+line of its own under a long summary in the 614 px column. And beside an
+idle viewer - nothing made this session - the 36rem minimum made the one
+line an empty 576 px box with its sentence in the middle and dropped the
+gallery head 535 px (U5 again, on a fresh session): there the viewer stays
+its line, everything from the gallery head on goes into the first column
+under it, and the check is as tall as what it holds up to the window
+(`contain: none`), spanning the rows down to the gallery's, which is `1fr`
+and takes whatever the check needs past the rest. A long run's strip stays
+in the ordinary layout: in the first column a comparison's sheet would
+have been half its width. Check, focusing
 the heading, puts the column back at its top by hand, since a stuck heading
 is always in view and `focus()` no longer did. With no chips the image stays where it was after
 Check, after the answer and for a Generate pressed meanwhile, and Generate

@@ -58,7 +58,7 @@
   {"wait": 300},
   {"expect": "lbCompare.mode === 'side' && els.lbSideBySide.getAttribute('aria-pressed') === 'true' && els.lbSplit.hidden && els.lbZoom.textContent === '1:1' && Math.abs(__box(els.lbImg).width - 1536) < 1 && Math.abs(__box(els.lbSrcImg).width - 1536) < 1"},
   {"key": "0"},
-  {"expect": "els.lbZoom.textContent.startsWith('fit') && (() => { const s = __box(els.lbStage), mid = s.left + s.width / 2; return __box(els.lbSrcImg).right <= mid && __box(els.lbImg).left >= mid && __box(els.lbImg).width === __box(els.lbSrcImg).width; })()"},
+  {"expect": "els.lbZoom.textContent.startsWith('fit') && (() => { const s = __box(els.lbStage), mid = s.left + s.width / 2; return __box(els.lbSrcImg).right <= mid && __box(els.lbImg).left >= mid && __box(els.lbImg).width === __box(els.lbSrcImg).width && __box(els.lbSrcImg).left >= __box(els.lbPrev.querySelector('span')).right && __box(els.lbImg).right <= __box(els.lbNext.querySelector('span')).left; })()"},
   {"log": "'back to swipe at fit stays fit, the button turns it off, and a step to another image ends it'"},
   {"eval": "els.lbSwipe.click()"},
   {"wait": 200},

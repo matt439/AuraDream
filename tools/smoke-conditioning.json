@@ -9,7 +9,7 @@
   {"expect": "els.referenceTip.textContent.startsWith('Up to four gallery images') && els.referenceTip.textContent.includes('image 1')"},
   {"expect": "loraSupported && [...els.lora.options].some((o) => o.value === 'demo-style.safetensors')"},
   {"expect": "els.loraScale.disabled && els.gridLoraScale.disabled"},
-  {"expect": "els.loraScale.closest('.sub').title === 'Pick an adapter first' && els.gridLoraScale.placeholder === 'pick an adapter above'"},
+  {"expect": "els.loraScale.closest('.sub').title === 'Pick an adapter first' && els.gridLoraScale.placeholder === 'no adapter' && els.gridLoraField.title === 'Pick an adapter in LoRA above first'"},
 
   {"log": "'an adapter for another checkpoint is not offered, and the tooltip says which and why'"},
   {"expect": "![...els.lora.options].some((o) => o.value === 'other-family.safetensors')"},
@@ -37,12 +37,16 @@
   {"eval": "[...document.querySelectorAll('#viewer .result .tools button')].find((b) => b.textContent === '⤢').click()"},
   {"expect": "!els.refineDialog.open && refineSource === null && els.galleryError.textContent.includes('no refine pass') && document.querySelector('#viewer .tile > .card-note.refused').textContent === 'No refine pass here'"},
   {"eval": "showError(''); showError('', false, { slot: els.galleryError });"},
+  {"log": "'klein takes no negative prompt: the field is its caption alone; and the image just made has a ❐ of its own, live here'"},
+  {"expect": "els.negField.classList.contains('unsupported') && getComputedStyle(els.negative).display === 'none' && els.negNote.textContent === '(this checkpoint takes no negative prompt)'"},
+  {"expect": "(() => { const b = document.querySelector('#viewer .result .tools .ref-tool'); return !b.hidden && b.textContent === '❐' && b.getAttribute('aria-disabled') === 'false' && b.getAttribute('aria-pressed') === 'false'; })()"},
 
   {"log": "'the cards reference button fills a chip, and collect() sends the id'"},
   {"eval": "[...document.querySelectorAll('.card .tools button')].find((b) => b.textContent === '❐').click()"},
   {"wait": 300},
   {"expect": "referenceIds.length === 1 && collect().reference.length === 1"},
   {"expect": "document.querySelectorAll('#reference-list .chip').length === 1"},
+  {"expect": "document.querySelector('#viewer .result[data-id=\"' + referenceIds[0] + '\"] .tools .ref-tool')?.getAttribute('aria-pressed') === 'true'"},
   {"expect": "els.referenceNote.textContent.includes('1 of 4') && document.querySelector('#reference-list .chip-n').textContent === '1' && document.querySelector('#reference-list .chip img').alt === 'Reference image 1 (gallery #' + referenceIds[0] + ')'"},
   {"log": "'and the card says so where it was clicked: ringed and numbered as its chip, its button pressed, and a status over the tools'"},
   {"eval": "window.__refCard = document.querySelector('#gallery .card[data-id=\"' + referenceIds[0] + '\"]'); window.__refTool = __refCard.querySelector('.ref-tool');"},
@@ -172,7 +176,7 @@
   {"log": "'a reference that is deleted leaves the chips: the confirm says which reference it is, and the gallery says it went'"},
   {"eval": "clearAnalysis(); window.__keep = galleryRecords[0].id; window.__gone = galleryRecords[1]; setReferences([__keep, __gone.id]); els.prompt.value = 'the jacket from image 1 on the woman from image 2'; els.seed.value = '21'; void startJob('/api/generate', collect());"},
   {"wait": 2500},
-  {"eval": "window.__made = viewerRecords[0]; window.__conf = []; window.confirm = (m) => { __conf.push(m); return true; }; deleteImage(__gone)"},
+  {"eval": "window.__made = viewerRecords[0]; window.__conf = []; askConfirm = (m) => { __conf.push(m); return true; }; deleteImage(__gone)"},
   {"expect": "__made.reference.join() === [__keep, __gone.id].join() && __conf[0].includes('It is reference image 2 in the panel, and leaves the references with it.')"},
   {"expect": "referenceIds.join() === String(__keep) && document.querySelectorAll('#reference-list .chip').length === 1 && els.galleryError.textContent === '#' + __gone.id + ' was a reference image; it is no longer in the references.'"},
   {"log": "'Reuse of the image made with it: the ids come back at once, and the gone one is dropped with a note once the server says it is gone'"},
@@ -205,6 +209,6 @@
   {"expect": "[...document.querySelectorAll('#gallery .card:not(.gone)')].slice(0, 4).map((c) => c.dataset.refN).join() === '1,2,3,4' && __fifth.querySelector('.ref-tool').getAttribute('aria-disabled') === 'true' && __fifth.querySelector('.ref-tool').title.includes('four is the most here')"},
   {"eval": "__fifth.querySelector('.tools button:nth-child(3)').click();"},
   {"expect": "referenceIds.length === 4 && els.galleryError.textContent === 'Four reference images is the most this panel sends; remove one first.' && __fifth.querySelector('.card-note').textContent === 'Four is the most' && __fifth.querySelector('.card-note').getAttribute('aria-hidden') === 'true'"},
-  {"eval": "delete window.confirm; showError('', false, {slot: els.galleryError});"},
+  {"eval": "askConfirm = confirmDialog; showError('', false, {slot: els.galleryError});"},
   {"eval": "setReferences([]); els.prompt.value = ''; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.seed.value = ''; clearAnalysis(); persistPanel(); showError('');"}
 ]

@@ -40,6 +40,10 @@ let tagMeasured = null;
 let tagMeasureTimer = null;
 let tagMeasureEpoch = 0;
 let tagHoverFrame = 0;
+// Where the pointer rests over one of the tray's gaps, or null: a re-render -
+// a lookup or a count landing - rebuilds the chips and with them the bar, which
+// a pointer resting in the gap brought back only by moving again.
+let tagHoverPoint = null;
 // An Example's write over a prompt of the user's: the note's Undo puts it
 // back while the box still holds what replaced it ({after, undo}).
 let promptUndo = null;
@@ -916,6 +920,10 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     target.focus({ preventScroll: true });
   }
   tagRefocus = false;
+  // Not under an open editor, which the bar would only point beside.
+  if (tagHoverPoint && draggedTagIndex === null && tagInsertAt === null && tagEditAt === null) {
+    markTagGap(tagHoverPoint.x, tagHoverPoint.y);
+  }
 }
 
 function uncheckedTag(tag, index) {

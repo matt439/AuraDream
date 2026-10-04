@@ -14,6 +14,10 @@ function resetGallery() {
   // default, not a card chosen in this one (prependFinished).
   galleryChosen = false;
   els.gallery.innerHTML = '';
+  els.galleryEmpty.hidden = true;
+  // The count of a finished job's images outside the view is the filter's
+  // (noteOutsideView): another filter starts it again.
+  if (outsideView && outsideView.filter !== viewFilter()) outsideView = null;
   // What the gallery said was about the grid this empties. Not the lightbox's
   // line: a job ending under an open lightbox resets the gallery too.
   showError('', false, { slot: els.galleryError, mirror: false });
@@ -54,6 +58,7 @@ function loadGallery() {
       // checkpoints, so a run made on the other model reads as "+12" on the
       // tick rather than as an empty grid. 0 once it is on.
       els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
+      galleryOthers = page.other_models || 0;
       syncEmptyInstall(page);
       syncRerender();
       syncDeleteUnstarred();
@@ -71,6 +76,7 @@ function loadGallery() {
         els.gallery.appendChild(card(rec));
       });
       if (!sheetMode) keepCurrentCard();
+      syncGalleryEmpty();
       galleryMore = !!page.has_more;
       els.more.hidden = sheetMode || !galleryMore;
       watchMore();
@@ -94,6 +100,38 @@ function loadGallery() {
       if (els.lightbox.open && lbList[lbIndex]) renderLightbox();
     });
   return galleryPending;
+}
+
+// The gallery with nothing to show, said under its head: on a first visit it
+// was a blank screen beside a disabled "No runs yet", with nothing saying it
+// fills as images are made. What fills it, and the authors' examples a press
+// away (the first run's own Examples, `viewerExamples`); under a filter,
+// that nothing matches; either way what the All models tick would add. Not
+// over the tombstones of a gallery deleted down to none - they say it - nor
+// in sheet mode, whose note does. From every page that lands and every count
+// a delete or a finished job moves.
+let galleryOthers = 0;
+function syncGalleryEmpty() {
+  const empty = !sheetMode && total <= 0 && !galleryRecords.length && !els.gallery.querySelector('.card');
+  els.galleryEmpty.hidden = !empty;
+  if (!empty) return;
+  const search = els.search.value.trim();
+  const others = galleryOthers && !els.allModels.checked
+    ? ` ${plural(galleryOthers, 'image')} on other checkpoints: tick All models.` : '';
+  if (search || els.favOnly.checked) {
+    els.galleryEmpty.replaceChildren(
+      `${search ? 'No image matches this search' : 'No starred image here yet'}`
+      + `${search && els.favOnly.checked ? ' among the starred' : ''}.${others}`);
+    return;
+  }
+  const examples = document.createElement('button');
+  examples.type = 'button';
+  examples.className = 'ghost tiny';
+  examples.textContent = 'Examples';
+  examples.title = 'Example prompts for this checkpoint, from its authors';
+  examples.onclick = viewerExamples;
+  els.galleryEmpty.replaceChildren('No images yet - Generate, or start from one of the authors\' ',
+    examples, `.${others}`);
 }
 
 // Re-arms the scroll trigger once a page has landed. The observer reports a
@@ -303,8 +341,13 @@ function syncCardTools() {
     syncRefineTool(div.querySelector('.refine-tool'));
     syncReferenceTool(div.querySelector('.ref-tool'), +div.dataset.id);
   });
-  // The viewer's results have a Refine of their own, and no ❐.
+  // The viewer's results have a Refine and a ❐ of their own - the ❐ only
+  // where the checkpoint takes references.
   els.viewer.querySelectorAll('.refine-tool').forEach(syncRefineTool);
+  els.viewer.querySelectorAll('.ref-tool').forEach((button) => {
+    syncReferenceTool(button, +button.closest('[data-id]').dataset.id);
+    button.hidden = !referenceSupported;
+  });
 }
 
 // Where an image is among the references the panel sends: its index, or -1 -
@@ -622,6 +665,101 @@ function imageNames(ids) {
   return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join('');
 }
 
+// The delete's two questions, in a dialog of the page's own (#confirm-dialog)
+// beside what was pressed: the browser's confirm and prompt were a light box
+// at the top of the window, far from the card whose ⌦ asked, and held the
+// whole page while they were up - a headless run waited on one for good.
+// `message` is the question's lines as they used to be shown: the first is
+// the title, a count's last is its box's label, the rest its paragraphs.
+// confirmDialog answers true for Delete and false for Cancel, Escape or a
+// press outside it; countDialog the typed text, or null. The smokes stand in
+// for them through `askConfirm` and `askCount`, and put these back.
+let askAnswer = null;
+function openAsk(message, { count = false } = {}) {
+  // One question at a time: an earlier one still up is answered Cancel.
+  if (els.confirmDialog.open) {
+    const earlier = askAnswer;
+    askAnswer = null;
+    els.confirmDialog.close('');
+    earlier?.('');
+  }
+  const lines = message.split('\n');
+  els.confirmTitle.textContent = lines.shift();
+  const label = count ? lines.pop() : '';
+  els.confirmText.replaceChildren(...lines.filter((line) => line.trim()).map((line) => {
+    const p = document.createElement('p');
+    p.textContent = line.trim();
+    return p;
+  }));
+  els.confirmCountField.hidden = !count;
+  els.confirmCountLabel.textContent = label;
+  els.confirmCount.value = '';
+  const anchor = document.activeElement !== document.body ? document.activeElement : null;
+  return new Promise((resolve) => {
+    askAnswer = resolve;
+    els.confirmDialog.returnValue = '';
+    els.confirmDialog.showModal();
+    placeAsk(anchor);
+    (count ? els.confirmCount : els.confirmCancel).focus();
+  });
+}
+
+function confirmDialog(message) {
+  return openAsk(message).then((answer) => answer === 'ok');
+}
+
+function countDialog(message) {
+  return openAsk(message, { count: true }).then((answer) => (answer === 'ok' ? els.confirmCount.value : null));
+}
+
+let askConfirm = confirmDialog;
+let askCount = countDialog;
+
+// Beside what asked, clear of the image it asks about - its card or tile, not
+// just the button, which sits on the picture: under it, over it, then to its
+// right or left, whichever the window has room for, else as near as fits -
+// and inside the window. Centred where nothing on the page has focus.
+function placeAsk(anchor) {
+  const dialog = els.confirmDialog;
+  for (const side of ['margin', 'top', 'left', 'right', 'bottom']) dialog.style[side] = '';
+  const near = anchor?.closest?.('.card, .viewer > figure, .sheet-cell, .lb-actions') ?? anchor;
+  const at = near?.getBoundingClientRect();
+  if (!at || (!at.width && !at.height)) return;
+  const box = dialog.getBoundingClientRect();
+  const room = 8;
+  const clampX = (x) => Math.max(room, Math.min(x, innerWidth - box.width - room));
+  const clampY = (y) => Math.max(room, Math.min(y, innerHeight - box.height - room));
+  const centreX = at.left + at.width / 2 - box.width / 2;
+  const centreY = at.top + at.height / 2 - box.height / 2;
+  const places = [
+    [centreX, at.bottom + room, at.bottom + room + box.height <= innerHeight - room],
+    [centreX, at.top - room - box.height, at.top - room - box.height >= room],
+    [at.right + room, centreY, at.right + room + box.width <= innerWidth - room],
+    [at.left - room - box.width, centreY, at.left - room - box.width >= room],
+  ];
+  const [x, y] = places.find(([, , fits]) => fits) ?? places[0];
+  Object.assign(dialog.style, {
+    margin: '0', top: `${clampY(y)}px`, left: `${clampX(x)}px`, right: 'auto', bottom: 'auto',
+  });
+}
+
+function askClosed() {
+  // The close of a question another has replaced, arriving once that one is up.
+  if (els.confirmDialog.open) return;
+  const answer = askAnswer;
+  askAnswer = null;
+  answer?.(els.confirmDialog.returnValue);
+}
+
+// A press outside the dialog's box - on its backdrop - is Cancel.
+function askBackdrop(event) {
+  if (event.target !== els.confirmDialog) return;
+  const box = els.confirmDialog.getBoundingClientRect();
+  const inside = event.clientX >= box.left && event.clientX <= box.right
+    && event.clientY >= box.top && event.clientY <= box.bottom;
+  if (!inside) els.confirmDialog.close('');
+}
+
 // The delete removes the PNG as well as the row, and on a card the button sits
 // a few pixels from the star. Say which image, so a slip is caught here: the
 // cells of a sweep share a prompt and a seed, and a pass shares both with its
@@ -639,7 +777,7 @@ function confirmDelete(rec, passes) {
   }
   const at = referenceIds.indexOf(rec.id);
   if (at >= 0) costs.push(`It is reference image ${at + 1} in the panel, and leaves the references with it.`);
-  return window.confirm([
+  return askConfirm([
     `Delete #${rec.id}${rec.favorite ? ' (starred)' : ''}?`,
     '',
     settingsLine(rec),
@@ -673,7 +811,7 @@ async function deleteOne(rec) {
   try {
     passes = await api(`/api/gallery?limit=3&all_models=true&search=refine:${rec.id}`);
   } catch { /* asked without */ }
-  if (!confirmDelete(rec, passes)) return;
+  if (!await confirmDelete(rec, passes)) return;
   const fromLightbox = els.lightbox.open;
   let already = false;
   try {
@@ -701,16 +839,24 @@ async function deleteOne(rec) {
 // and on a sweep's near-identical cells nothing showed that anything had
 // happened. Said in the gallery's slot, which mirrors into the lightbox's
 // role=alert line, and taken back at the next key or press in the lightbox.
+let lightboxDeleteNote = null;
 function noteLightboxDelete(text) {
   showError(text, true, { slot: els.galleryError });
   // Each copy only while it still says this: a job ending meanwhile resets
-  // the gallery's line and leaves the lightbox's.
+  // the gallery's line and leaves the lightbox's. The key and the press are
+  // one listener pair, both taken off by whichever comes first - and by the
+  // next delete's note - so a run of deletes leaves none behind.
+  lightboxDeleteNote?.abort();
+  const note = new AbortController();
+  lightboxDeleteNote = note;
   const clear = () => {
+    note.abort();
+    if (lightboxDeleteNote === note) lightboxDeleteNote = null;
     if (els.galleryError.textContent === text) showError('', false, { slot: els.galleryError });
     else if (els.lbError.textContent === text) { els.lbError.hidden = true; els.lbError.textContent = ''; }
   };
-  els.lightbox.addEventListener('keydown', clear, { once: true });
-  els.lightbox.addEventListener('pointerdown', clear, { once: true });
+  els.lightbox.addEventListener('keydown', clear, { signal: note.signal });
+  els.lightbox.addEventListener('pointerdown', clear, { signal: note.signal });
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     els.lbImg.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 180 });
   }
@@ -750,6 +896,7 @@ function forgetImages(ids) {
     els.count.textContent = total ? `(${total})` : '';
     syncRerender();
     syncDeleteUnstarred();
+    syncGalleryEmpty();
   }
   // Keyboard focus was on what went: it moves on to the next image in the
   // same strip, or back to the one before, rather than dropping to <body>.
@@ -789,6 +936,7 @@ function forgetImages(ids) {
   // This page's earlier results (#recent), with what went taken out.
   renderRecent();
   for (const id of gone) if (sheetSources.has(id)) sheetSources.set(id, null);
+  for (const id of gone) outsideView?.ids.delete(id);
   // A pass whose source went with them cannot be made again: its records say
   // so, as a reload's would (`refine_missing`), and so do every image's title
   // (thumb's, on a card, in the viewer, #recent and the sheet), the viewer's
@@ -829,9 +977,27 @@ function forgetImages(ids) {
   // this index - unless this was the last one loaded and the server has more,
   // when the next is on its next page, not the image before.
   if (lbIndex >= lbList.length && canPage()) pageInBehind();
-  else if (!lbList.length) closeLightbox();
+  else if (!lbList.length) closeLightboxAfterDelete();
   else { lbIndex = Math.min(lbIndex, lbList.length - 1); renderLightbox(); }
   return note;
+}
+
+// The lightbox's only image went - a strip of one, a gallery or a search of
+// one - and the dialog with it, its focused Delete too, which left focus on
+// <body>: the viewer's held line or tombstone was not focused (focus had been
+// in the lightbox, not the viewer), and closeLightbox restores nothing. It
+// goes where the walk came from - the viewer's line, the grid's way in -
+// else the search box, as dismissLightbox's last resort.
+function closeLightboxAfterDelete() {
+  const fromViewer = lbList === viewerRecords || lbOrigin === 'viewer' || lbOrigin === 'recent';
+  closeLightbox();
+  requestAnimationFrame(() => {
+    const held = els.viewer.querySelector(':scope > .placeholder.held, :scope > .tomb');
+    const card = currentCard()?.querySelector('img');
+    const target = (fromViewer ? held ?? card : card ?? held) ?? els.search;
+    if (target === held) target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+  });
 }
 
 // A card or a viewer tile that has gone, kept as a box of its size that says
@@ -962,7 +1128,7 @@ async function deleteUnstarred() {
     ...(busy ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
     `The files are removed from disk. Type ${found.unstarred} to continue:`,
   ].join('\n');
-  const typed = window.prompt(message, '');
+  const typed = await askCount(message);
   if (typed === null) return;
   if (typed.trim() !== String(found.unstarred)) {
     showError(`Nothing deleted: "${typed.trim()}" is not ${found.unstarred}.`, true, slot);

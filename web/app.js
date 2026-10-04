@@ -189,19 +189,26 @@ els.tagValidation.addEventListener('contextmenu', (event) => {
 els.tagValidation.addEventListener('pointermove', (event) => {
   cancelAnimationFrame(tagHoverFrame);
   tagHoverFrame = 0;
-  if (event.target !== els.tagValidation || draggedTagIndex !== null) { clearTagDropMarkers(); return; }
+  if (event.target !== els.tagValidation || draggedTagIndex !== null) {
+    tagHoverPoint = null;
+    clearTagDropMarkers();
+    return;
+  }
   const { clientX, clientY } = event;
+  tagHoverPoint = { x: clientX, y: clientY };
   tagHoverFrame = requestAnimationFrame(() => { tagHoverFrame = 0; markTagGap(clientX, clientY); });
 });
 els.tagValidation.addEventListener('pointerleave', () => {
   cancelAnimationFrame(tagHoverFrame);
   tagHoverFrame = 0;
+  tagHoverPoint = null;
   clearTagDropMarkers();
 });
 els.tagValidation.addEventListener('click', (event) => {
   if (event.target !== els.tagValidation) return;
   const index = tagInsertionIndexAtPoint(event.clientX, event.clientY, { gap: true });
   if (index === null) return;
+  tagHoverPoint = null;
   clearTagDropMarkers();
   openTagInsert(index);
 });
@@ -413,7 +420,20 @@ for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.ref
 }
 els.refineVersions.addEventListener('change', refineChanged);
 
+// A delete's question (gallery.js): Delete, Cancel, Enter in the count's box,
+// a press outside it. Escape is the dialog's own cancel, answered as Cancel.
+els.confirmOk.onclick = () => els.confirmDialog.close('ok');
+els.confirmCancel.onclick = () => els.confirmDialog.close('');
+els.confirmDialog.addEventListener('close', askClosed);
+els.confirmDialog.addEventListener('click', askBackdrop);
+els.confirmCount.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); els.confirmDialog.close('ok'); }
+});
+
 document.addEventListener('keydown', (e) => {
+  // Nothing of the page's while a delete asks: Escape there is its Cancel,
+  // which closed the lightbox under it as well, and Ctrl+Enter generated.
+  if (els.confirmDialog.open) return;
   // Ctrl/Cmd+Enter submits whatever the focus is in: inside the Refine dialog
   // it runs the pass and inside the open grid fold it runs the grid, which is
   // what their boxes are for - from a grid box Generate would render the

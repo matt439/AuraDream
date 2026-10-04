@@ -57,14 +57,20 @@ let lbCloseTimer;
 // lightbox for its dialog.
 let refineReturn = null;
 const LB_SIDE_GAP = 8;
+// What the arrows' circles take at the stage's edges (style.css: 40 px, 10 px
+// in) and a gap: side by side, the halves start past them.
+const LB_NAV_ROOM = 58;
 
 // The boxes the picture is fitted into, in the stage's pixels: the whole
-// stage, or side by side its two halves, each showing the same crop.
+// stage, or side by side its two halves, each showing the same crop - inside
+// the arrows, whose circles sat over the source's left edge and the pass's
+// right one there (alone, a picture is centred clear of them).
 function lbPorts() {
   const sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight;
   if (lbCompare.id === null || lbCompare.mode !== 'side') return [{ x: 0, w: sw, h: sh }];
-  const w = (sw - LB_SIDE_GAP) / 2;
-  return [{ x: 0, w, h: sh }, { x: w + LB_SIDE_GAP, w, h: sh }];
+  const inset = Math.min(LB_NAV_ROOM, sw / 8);
+  const w = (sw - 2 * inset - LB_SIDE_GAP) / 2;
+  return [{ x: inset, w, h: sh }, { x: inset + w + LB_SIDE_GAP, w, h: sh }];
 }
 
 // Fit is "contain": the largest size that shows the whole image inside its

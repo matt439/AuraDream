@@ -748,8 +748,15 @@ function renderSheet() {
   rowValues.forEach((rowValue, r) => {
     if (!wrap) add(rowHead(rowValue));
     // The source spans every row: one image the passes are all set against.
+    // Cropped as the passes were (style.css): a 1:1 source letterboxed
+    // beside 3:2 passes cut from it set two framings side by side, which
+    // the eye compared as one. Said where the shapes differ.
     if (source && r === 0) {
-      const cell = add(cellFor(source, wrap ? `Source #${source.id}` : '', true));
+      const passAspect = aspectH ? aspectW / aspectH : 1;
+      const cropped = Math.abs(source.width / source.height - passAspect) / passAspect > 0.01;
+      const caption = [wrap ? `Source #${source.id}` : '', cropped ? 'cropped as the passes were' : '']
+        .filter(Boolean).join(' · ');
+      const cell = add(cellFor(source, caption, true));
       cell.classList.add('source');
       if (!wrap) cell.style.gridRow = `span ${rowValues.length}`;
     }

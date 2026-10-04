@@ -13,7 +13,8 @@ cells of a grid can be told apart on a sheet. A cell whose prompt holds
 and the failure rule can be driven from the page; and `POST /api/fake/load`
 (the fake's alone) makes the loads after it slow (`seconds`) or gated
 (`fail=gated`, raised as huggingface_hub raises it), for the load's wait and
-a failed load's card. The prompt check reads the
+a failed load's card; `POST /api/fake/step` sets the seconds per step for
+the jobs after it and answers the pace it replaced. The prompt check reads the
 tests' word tokenizers - a token per word or mark, at each encoder's real
 budget - and the critic is the tests' FakeCritic, whose answer is built from
 the prompt. The gallery lives under the system temp directory (or --data),
@@ -315,6 +316,15 @@ def main() -> int:
     async def fake_load(seconds: float = Body(0.0), fail: str | None = Body(None)) -> dict:
         fake.load_seconds, fake.load_failure = seconds, fail
         return {"seconds": seconds, "fail": fail}
+
+    # And the steps' pace, for a smoke step that needs a job to outlast its
+    # own round trips - a cancel landing before the grid ends, a stream
+    # attaching before the pass is done - at any speed the server was started
+    # with. Answers the pace it replaces, for the step to put back.
+    @app_main.app.post("/api/fake/step", include_in_schema=False)
+    async def fake_step(seconds: float = Body(0.0, embed=True)) -> dict:
+        previous, fake.step_seconds = fake.step_seconds, max(0.0, seconds)
+        return {"seconds": fake.step_seconds, "previous": previous}
 
     import uvicorn
 

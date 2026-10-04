@@ -808,6 +808,16 @@ class RunSummary(BaseModel):
     height: int
     started_at: str
     finished_at: str
+    # What varied across it, so the Runs picker can name a run by its axes -
+    # "steps×CFG 3×2", "strength 0.05-0.15 of #37", "comparison · 3
+    # versions" - where every line read "6 img · A weathered…": each setting's
+    # count of distinct values, for those with more than one (steps, cfg,
+    # mu, true_cfg, lora_scale, strength, reference, seed, variant).
+    axes: dict[str, int] = {}
+    # The gallery image every image of the run refines, where they share one,
+    # and the strengths it ran at, lowest and highest.
+    refine: int | None = None
+    strengths: list[float] | None = None
 
 
 class GalleryPage(BaseModel):

@@ -152,7 +152,12 @@
   {"wait": 3500},
   {"expect": "sheetMode && els.search.value.startsWith('job:') && document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8"},
   {"expect": "[...document.querySelectorAll('#sheet-grid .rowhead')].map((e) => e.querySelector('.label').textContent).join() === 'Original,Rewrite'"},
-  {"expect": "els.prompt.value === window.__prompt && els.gridPrompt.value === window.__gridPrompt && els.seed.value !== '' && els.batch.value === '4'"},
+  {"expect": "els.prompt.value === window.__prompt && els.gridPrompt.value === window.__gridPrompt && els.seed.value === '' && els.batch.value === '4'"},
+  {"log": "'a Generate under the comparison sheet, still scoped to its job: the gallery line counts what the scope hides, and Show all opens the whole gallery'"},
+  {"eval": "showError('', false, {slot: els.galleryError}); window.__madeOut = null; startJob('/api/generate', {...collect(), num_images: 1, runs: 1, seed: 7}).then(() => { window.__madeOut = viewerRecords.at(-1)?.id; })"},
+  {"expect": "(async () => { for (let i = 0; i < 100; i++) { if (els.galleryError.textContent.startsWith('1 new image outside this view')) return sheetMode && els.search.value.startsWith('job:') && els.galleryError.querySelector('button')?.textContent === 'Show all'; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
+  {"eval": "els.galleryError.querySelector('button').click();"},
+  {"expect": "(async () => { for (let i = 0; i < 100; i++) { if (!sheetMode && els.search.value === '' && galleryRecords.some((r) => r.id === window.__madeOut)) return els.galleryError.hidden; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"eval": "setSheet(false); els.search.value = ''; resetGallery(); els.batch.value = '1'; els.batch.dispatchEvent(new Event('input', {bubbles: true}));"},
 
   {"log": "'A prose prompt with its subject last: the order is shown as not checked, and nothing flagged does not read as a pass'"},
@@ -441,6 +446,8 @@
   {"wait": 1300},
   {"expect": "!critiquing && critiqueResult !== null && document.activeElement === els.criticResult && __docked() && __inView(__img()) && __img().getBoundingClientRect().top === __at[0] && els.promptAnalysis.getBoundingClientRect().bottom <= innerHeight"},
 
+  {"log": "'125%: Close stays on the head\\'s first line, in its corner, however the summary wraps'"},
+  {"expect": "(() => { const head = els.promptAnalysis.querySelector('.analysis-head'), close = head.querySelector('.analysis-close').getBoundingClientRect(), h2 = head.querySelector('h2').getBoundingClientRect(); return close.top < h2.bottom && Math.abs(close.right - head.getBoundingClientRect().right) < 16 && getComputedStyle(head.querySelector('.analysis-close')).position === 'absolute'; })()"},
   {"viewport": [1400, 900, 1]},
   {"wait": 300},
   {"expect": "!els.promptAnalysis.hidden && getComputedStyle(document.querySelector('.stage')).display === 'flex' && getComputedStyle(els.promptAnalysis).position === 'static' && els.promptAnalysis.getBoundingClientRect().bottom <= els.viewer.getBoundingClientRect().top && els.promptAnalysis.getBoundingClientRect().width === els.viewer.getBoundingClientRect().width"},
