@@ -760,7 +760,12 @@ function forgetImages(ids) {
       .filter((el) => !el.matches('.gone, .tomb, .placeholder, .live, .pending, .gallery-break'));
     const after = strip.find((el) => lost.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
     const next = after ?? strip.at(-1);
-    (next?.matches('img') ? next : next?.querySelector('img'))?.focus();
+    const image = next?.matches('img') ? next : next?.querySelector('img');
+    if (image) image.focus();
+    // The viewer's last image, deleted by its own ⌦: nothing beside it to
+    // move on to, so its tombstone holds the focus - or the line that takes
+    // the strip's place below.
+    else if (lost.parentElement === els.viewer) { lost.tabIndex = -1; lost.focus({ preventScroll: true }); }
   }
   // A strip with images left keeps its tombstones in their slots. One whose
   // last image has gone, with no job to fill it, says what it is for again -
@@ -774,29 +779,33 @@ function forgetImages(ids) {
     placeholder.style.minHeight = `${els.viewer.clientHeight - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)}px`;
     const names = fromViewer.length > 3 ? `${fromViewer.length} images` : imageNames(fromViewer);
     placeholder.textContent = `${names} ${fromViewer.length === 1 ? 'was' : 'were'} deleted. Generated images appear here.`;
+    const focusHere = els.viewer.contains(document.activeElement);
     els.viewer.replaceChildren(placeholder);
     els.viewer.classList.remove('multi', 'many');
     els.viewerNote.textContent = '';
+    // Saying what went, where the focus was rather than on <body>.
+    if (focusHere) { placeholder.tabIndex = -1; placeholder.focus({ preventScroll: true }); }
   }
   // This page's earlier results (#recent), with what went taken out.
   renderRecent();
   for (const id of gone) if (sheetSources.has(id)) sheetSources.set(id, null);
   // A pass whose source went with them cannot be made again: its records say
-  // so, as a reload's would (`refine_missing`), and so do its card's title,
-  // every Reuse that would have opened the dialog on the source, and the
-  // lightbox's facts and comparison.
+  // so, as a reload's would (`refine_missing`), and so do every image's title
+  // (thumb's, on a card, in the viewer, #recent and the sheet), the viewer's
+  // note and column, every Reuse that would have opened the dialog on the
+  // source, and the lightbox's facts and comparison.
   const orphans = new Set([...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList]
     .filter((r) => r.refine != null && gone.has(r.refine) && !r.refine_missing));
   for (const r of orphans) {
     r.refine_missing = true;
-    const img = els.gallery.querySelector(`.card[data-id="${r.id}"] > img`);
-    if (img) img.title = cardTitle(r);
+    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { img.title = cardTitle(r); });
   }
   if (orphans.size) {
     document.querySelectorAll('.reuse-settings').forEach((b) => {
       if (b.dataset.reusePass && gone.has(+b.dataset.reusePass)) b.dataset.reusePassGone = 'true';
     });
     syncReuseButtons();
+    viewerSourcesGone();
     if (orphans.has(lbList[lbIndex])) lbDrawn = null;
   }
   for (const id of gone) if (lbSources.has(id)) lbSources.set(id, null);

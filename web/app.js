@@ -334,9 +334,10 @@ els.lastRunDismiss.onclick = dismissLastRun;
 // A first run's empty viewer offers the checkpoint's examples.
 els.viewerExamples.onclick = viewerExamples;
 // A batch of two to four is laid out to fit the strip (panel.js, fitViewer):
-// again when its width moves, and with the window's height, which its 68vh is.
+// again when its width moves, and with the window's height, which its 68vh is
+// - as a long run's scrolling strip is let grow by its padding (settleStrip).
 new ResizeObserver(viewerResized).observe(els.viewer);
-window.addEventListener('resize', fitViewer);
+window.addEventListener('resize', () => { fitViewer(); settleStrip(false); });
 els.search.oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetGallery, 250); };
 // The user's own closes - the cross, the backdrop, Escape below - hand focus
 // to the image the walk ended on (dismissLightbox); every other close is

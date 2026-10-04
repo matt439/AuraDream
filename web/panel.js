@@ -486,11 +486,14 @@ async function announceLastRun() {
   els.lastRun.dataset.run = last.run_id || '';
   els.lastRunShow.hidden = !last.image_count || deleted === last.image_count;
   // A grid the night did not finish - cancelled, out of time, stopped by its
-  // failures - is finished by Resume, which needs the seed it started from:
-  // the snapshot has it, where the page that submitted it is long gone. Not
-  // a re-render's or a refine sweep's, which the panel's grid does not make.
+  // failures - is finished by Resume. Not a re-render's, a refine sweep's or
+  // a comparison's, which the panel's grid does not make (the sheet's Resume
+  // this run refuses a comparison too), and not one with no image of its own
+  // left: nothing of it for the preview to skip, and the preview then said
+  // the panel's grid was another.
   lastRunJob = last;
   els.lastRunResume.hidden = !(last.grid && last.prompt_template != null && last.refine == null
+    && !last.comparison && last.image_count > deleted
     && (last.status === 'cancelled' || last.stopped_by === 'failures'));
   els.lastRun.hidden = false;
 }
@@ -504,14 +507,16 @@ function dismissLastRun() {
   els.lastRun.hidden = true;
 }
 
-// The banner's Resume: the sheet's Resume this run (sheet.js) with the
-// snapshot's own base seed and size, which the run's images carry only
-// derived - the panel's grid made ready, and its preview saying what is left.
+// The banner's Resume: the sheet's Resume this run (sheet.js) - the panel's
+// grid made ready, and its preview saying what is left - with the job's size.
+// Not its seed, which is the first cell it still had to run: a job that was
+// itself a Resume, the run's first seeds done, carries one past the base, and
+// that grid is another, with another run id.
 function resumeLastRun() {
   const job = lastRunJob;
   if (!job) return;
   dismissLastRun();
-  void resumeRun(job.run_id, { seed: job.seed, width: job.width, height: job.height });
+  void resumeRun(job.run_id, { width: job.width, height: job.height });
 }
 
 // One line per run in the gallery, newest first. Picking one is the card's ⊞
@@ -675,6 +680,7 @@ function clearResults(job = null) {
   Object.assign(viewerJob, { expected: job?.planned_images ?? 0, width: job?.width ?? 0, height: job?.height ?? 0 });
   els.viewer.innerHTML = '';
   els.viewer.scrollTop = 0;
+  els.viewer.style.maxHeight = '';
   viewerTier();
   els.viewerNote.replaceChildren();
   // The gallery's cards of the run before are not what the strip shows now.
@@ -706,6 +712,10 @@ function viewerTier() {
 // tools rows counted - two squares side by side at 68vh, four 16:9 images two
 // by two. A fixed 34vh used 42% of a QHD strip for a batch of two. The tile
 // is the job's shape; a strip whose images are not all of it wraps instead.
+// Every row the job will fill is there from its first frame (`--rows`): a
+// 2x2 held one row while the preview denoised, and grew by the second as
+// the images landed, the gallery under it pushed 466 px down at QHD at the
+// end of every such Generate.
 let viewerWidth = 0;
 function fitViewer() {
   const v = els.viewer;
@@ -716,6 +726,7 @@ function fitViewer() {
   v.classList.toggle('fitted', fits);
   if (!fits) {
     v.style.removeProperty('--cols');
+    v.style.removeProperty('--rows');
     v.style.removeProperty('--tile-h');
     return;
   }
@@ -731,17 +742,21 @@ function fitViewer() {
   for (let cols = 1; cols <= n; cols++) {
     const rows = Math.ceil(n / cols);
     const w = Math.min((width - (cols - 1) * gap) / cols, ((height - (rows - 1) * gap) / rows - foot) * aspect);
-    if (!best || w > best.w) best = { cols, w };
+    if (!best || w > best.w) best = { cols, w, rows };
   }
   v.style.setProperty('--cols', best.cols);
+  v.style.setProperty('--rows', best.rows);
   v.style.setProperty('--tile-h', `${Math.max(48, Math.floor(best.w / aspect))}px`);
 }
 
 // The strip's ResizeObserver: its width moved - the window, the panel, the
 // prompt check docked beside it - and the best fit with it, on the next
 // frame: refitted inside the observer's own callback, the strip's new height
-// was a resize the same frame could not deliver.
+// was a resize the same frame could not deliver. #recent beside a docked
+// check likewise (fitRecent); its own coming leaves the image as it was, so
+// the refit it causes ends there.
 function viewerResized() {
+  if (!els.recent.hidden) requestAnimationFrame(fitRecent);
   if (els.viewer.clientWidth === viewerWidth || !els.viewer.classList.contains('fitted')) return;
   requestAnimationFrame(fitViewer);
 }
@@ -776,11 +791,46 @@ function previewTile(width, height) {
   return figure;
 }
 
+// The many tier scrolls inside itself from 2000 px (style.css): a strip at
+// its end stays there as tiles come, one scrolled back up stays where it is.
+// Asked at every tile, the live preview's and a pass's stand-in's too
+// (`stripAppend`, generation.js): the preview's tile starts a row of its own
+// a few steps before its image, and a strip asked only as images landed was
+// by then a row short of its end - and so not at it, for the rest of the run.
+function stripAtEnd() {
+  const strip = els.viewer;
+  return strip.scrollTop + strip.clientHeight >= strip.scrollHeight - 2;
+}
+
+function stripAppend(el) {
+  const atEnd = stripAtEnd();
+  els.viewer.appendChild(el);
+  settleStrip(atEnd);
+  // A docked check's #recent, beside the box the image will take.
+  fitRecent();
+}
+
+// After the strip's tiles changed: back to its end if it was there. And a
+// strip that holds every row but for its own bottom padding shows them all
+// rather than scrolling: 28 images at QHD came to 3 px past the 560 px cap,
+// and the strip drew a scrollbar for those 3 px while its note said to scroll
+// it. Its scrollbar's room is kept whether it scrolls or not (style.css), so
+// a scrollbar coming or going does not change how many tiles a row holds.
+function settleStrip(atEnd) {
+  const strip = els.viewer;
+  strip.style.maxHeight = '';
+  if (getComputedStyle(strip).overflowY !== 'visible') {
+    const over = strip.scrollHeight - strip.clientHeight;
+    if (over > 0 && over <= parseFloat(getComputedStyle(strip).paddingBottom)) {
+      strip.style.maxHeight = `${strip.offsetHeight + over}px`;
+    }
+  }
+  if (atEnd) strip.scrollTop = strip.scrollHeight;
+}
+
 function appendResult(rec) {
   const strip = els.viewer;
-  // The many tier scrolls inside itself from 2000 px: a strip at its end
-  // stays there as images land, one scrolled back up stays where it is.
-  const atEnd = strip.scrollTop + strip.clientHeight >= strip.scrollHeight - 2;
+  const atEnd = stripAtEnd();
   viewerRecords.push(rec);
   viewerTier();
   const figure = resultFigure(rec);
@@ -794,7 +844,9 @@ function appendResult(rec) {
   // Images only: a deleted tile's tombstone holds a slot, and shows none.
   const tiles = () => strip.querySelectorAll('img[data-id]').length;
   while (tiles() > VIEWER_MAX) strip.firstElementChild.remove();
-  if (atEnd) strip.scrollTop = strip.scrollHeight;
+  settleStrip(atEnd);
+  // A docked check's #recent, measured beside the image now in the strip.
+  fitRecent();
   noteViewer();
   // The run's cards in the gallery say so (`this-run`, set in card() too),
   // so the strip and the gallery's first rows read as the same images.
@@ -847,12 +899,7 @@ function refineResult(rec, tile) {
 function resultSide(rec, figure) {
   const side = document.createElement('div');
   side.className = 'result-side';
-  if (rec.refine != null) {
-    const line = document.createElement('p');
-    line.className = 'lineage';
-    line.append('⤢ Refine pass of ', sourceLink(rec), ` at strength ${rec.strength}`);
-    side.append(line);
-  }
+  if (rec.refine != null) side.append(passLineage(rec));
   const action = (button) => { button.classList.add('ghost', 'small'); return button; };
   // Its word drawn after the glyph (`data-word`): syncStar writes the glyph.
   const star = action(tool('☆', '', () => setFavorite(rec, !rec.favorite)));
@@ -879,12 +926,34 @@ function resultSide(rec, figure) {
   return side;
 }
 
+// The column's first line for a pass: which image it refines, and how far.
+function passLineage(rec) {
+  const line = document.createElement('p');
+  line.className = 'lineage';
+  line.append('⤢ Refine pass of ', sourceLink(rec), ` at strength ${rec.strength}`);
+  return line;
+}
+
 // A pass's source as the page names it: a press opens it in the lightbox
 // with the pass after it (lightbox.js's openRefineSource), unless it has gone.
 function sourceLink(rec) {
   if (rec.refine_missing) return `#${rec.refine} (deleted)`;
   return factButton(`#${rec.refine}`, `Open #${rec.refine}, the image this was refined from; → comes back to the pass`,
     () => { void openRefineSource(rec); });
+}
+
+// A pass's source deleted while the pass is in the strip (forgetImages, once
+// its records say `refine_missing`): the note and the column's lineage and
+// facts say "#N (deleted)" rather than keep a button whose press said only,
+// in the panel's line a screen away, that #N had gone.
+function viewerSourcesGone() {
+  noteViewer();
+  els.viewer.querySelectorAll('.result > .result-side').forEach((side) => {
+    const rec = viewerRecords.find((r) => r.id === +side.parentElement.dataset.id);
+    if (!rec?.refine_missing) return;
+    side.querySelector('.lineage')?.replaceWith(passLineage(rec));
+    side.querySelector('.facts')?.replaceWith(factsList(rec));
+  });
 }
 
 // Under the strip: where a pass came from - "Refined from #10 at 0.5 ·
@@ -938,10 +1007,34 @@ function renderRecent() {
   const current = single && viewerRecords.length === 1 ? viewerRecords[0] : null;
   els.recent.hidden = !shown.length;
   const key = [current?.id, ...shown.map((r) => r.id)].join();
-  if (key === recentShown) return;
-  recentShown = key;
-  const walk = current ? [current, ...sessionRecords] : sessionRecords.slice();
-  els.recentList.replaceChildren(...shown.map((rec) => thumb(rec, walk, undefined, () => openLightbox(rec, walk, 'recent'))));
+  if (key !== recentShown) {
+    recentShown = key;
+    const walk = current ? [current, ...sessionRecords] : sessionRecords.slice();
+    els.recentList.replaceChildren(...shown.map((rec) => thumb(rec, walk, undefined, () => openLightbox(rec, walk, 'recent'))));
+  }
+  fitRecent();
+}
+
+// With the prompt check docked (style.css), #recent stays beside the image
+// in the width the image leaves at its own size - so neither the image nor
+// the gallery under it moves as the check opens - and goes where that is
+// under --recent-min. Measured with #recent out of the docked grid, the
+// viewer then the whole of its column. Again whenever the strip's width
+// moves (viewerResized): the check opening or closing, the window.
+function fitRecent() {
+  const stage = els.recent.parentElement;
+  stage.classList.remove('recent-docked');
+  const docked = matchMedia('(min-width: 2000px)').matches && !els.promptAnalysis.hidden
+    && els.promptAnalysis.parentElement === els.tagValidationWide;
+  // The image, or the preview in its box.
+  const tile = els.viewer.querySelector(':scope > figure > .tile');
+  if (els.recent.hidden || !docked || !tile) return;
+  const css = getComputedStyle(els.viewer);
+  const room = els.viewer.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight)
+    - tile.getBoundingClientRect().width - parseFloat(getComputedStyle(stage).columnGap);
+  if (room < parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--recent-min'))) return;
+  stage.style.setProperty('--recent-room', `${Math.floor(room)}px`);
+  stage.classList.add('recent-docked');
 }
 
 // A gallery with nothing in it at all - no image on any checkpoint, nothing

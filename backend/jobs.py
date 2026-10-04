@@ -113,6 +113,11 @@ class Job:
     # night long after that cell had finished. None for a plain request, whose
     # cells share theirs, and for a re-render, whose cells are its records'.
     prompt_template: str | None = None
+    # A prompt comparison's grid (`prompt_variants`): its versions are not in
+    # the panel, so the panel's grid can never resume one, and a page offering
+    # Resume for a stopped job has to know - the snapshot is otherwise a grid
+    # with a prompt like any other.
+    comparison: bool = False
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -176,6 +181,7 @@ class Job:
             "planned_images": sum(cell.request.num_images for cell in self.cells),
             "grid": self.grid,
             "prompt_template": None if self.prompt_template is None else self.prompt_template[:120],
+            "comparison": self.comparison,
             "status": self.status,
             "waiting_on": self.waiting_on,
             "pause_requested": self.pause_requested,
@@ -332,6 +338,7 @@ class JobManager:
         budget_minutes: float | None = None,
         grid: bool = True,
         prompt_template: str | None = None,
+        comparison: bool = False,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -341,7 +348,8 @@ class JobManager:
         cells themselves are the definition. `budget_minutes` is plumbed here
         rather than read off `job.request`: GridRequest-only fields are gone
         by the time the cells are built - as is the grid's own prompt, which
-        `prompt_template` carries for the snapshot to name the job by.
+        `prompt_template` carries for the snapshot to name the job by, and
+        whether its prompts were a comparison's versions (`comparison`).
         """
         job = Job(
             id=uuid.uuid4().hex[:12],
@@ -354,6 +362,7 @@ class JobManager:
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
             grid=grid,
             prompt_template=prompt_template,
+            comparison=comparison,
         )
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight

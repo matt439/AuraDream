@@ -222,6 +222,10 @@ def test_prompt_variants_run_as_one_grid_on_shared_seeds(client, fake):
     assert len({record["run_id"] for record in done["images"]}) == 1
     labels = [event["label"] for event in events if event.get("label")]
     assert any(label.startswith("variant=original,") for label in labels)
+    # The snapshot says it was a comparison: a stopped one is not the panel's
+    # grid to resume, and the last-run banner offers no Resume for it.
+    assert done["comparison"] is True
+    assert all(event["comparison"] for event in events if event["type"] == "status")
 
 
 @pytest.mark.parametrize("total_seeds", [4, 8])

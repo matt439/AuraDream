@@ -2253,11 +2253,21 @@ It says what is left of the job, from the snapshot's `deleted_count`: "6
 images (6/6 cells), 4 since deleted", or "all since deleted" with Show run
 hidden - it had counted and offered deleted images, and Show run opened a
 sheet of one. A grid the night did not finish (cancelled, out of time,
-stopped by its failures; not a re-render or a refine sweep) offers Resume,
-the sheet's Resume this run (`resumeRun`) with the snapshot's own base seed
-and size, which the run's images carry only derived: the panel's grid made
-ready, Resume ticked for this session, and the preview saying what is left -
-or, where it would skip nothing, that the panel holds another grid.
+stopped by its failures) offers Resume: the sheet's Resume this run
+(`resumeRun`) with the job's size, the panel's grid made ready, Resume ticked
+for this session, and the preview saying what is left - or, where it would
+skip nothing, that the panel holds another grid. The base seed is the run's,
+from /api/runs (its oldest image's), as the sheet's is: the snapshot's
+`seed` is the first cell the job had left, and a job that was itself a
+Resume, its first seeds done, carried one past the base - the panel then held
+another grid, with another run id, and Run grid rendered cells the night
+never had. The finish line's Retry and Resume send their payload's own seed
+for the same reason, and the POST's answer only where the payload gave none.
+Not for a re-render, a refine sweep or a prompt comparison (the snapshot's
+`comparison`, set from `prompt_variants`), none of which the panel's grid
+makes - the sheet's Resume this run refuses a comparison too - and not for a
+job with no image of its own left, which leaves the preview nothing to skip
+and so saying the panel's grid was another.
 
 **The picker is grouped, and follows the search box.** Every plain Generate
 is a run of its own (`run_id` comes from the cell keys), so in an afternoon
@@ -2719,7 +2729,12 @@ one with the largest tile within the strip's width and the single image's
 height - 68vh and a tools row - the rows' gaps and tools rows counted, and
 writes `--cols` and `--tile-h`: two squares side by side at 887 px at QHD,
 four in a row at 491, four 16:9 images two by two. A fixed 34vh had used 42%
-of the strip for a batch of two. A ResizeObserver refits on the next frame
+of the strip for a batch of two. It writes `--rows` too, and every row the
+job will fill is a track from the first frame (a tile's picture, its gap and
+its row): the strip had only the rows that were filled, so a 2x2 was one row
+while the preview denoised and grew by the second as the images landed - the
+gallery head went from 484 to 950 at QHD at the end of every landscape batch
+of three or four. A ResizeObserver refits on the next frame
 when the strip's width moves (refitted in the observer's own callback, the
 new height was a resize the frame could not deliver), and the window's resize
 for its height. A strip whose images are not all the job's shape wraps as
@@ -2758,7 +2773,13 @@ check opened and the gallery moved under it - the row has every tool again.
 at 0.5 · 1344×1728", the source opening in the lightbox with the pass after
 it - except where the column says it already; it was empty, and the image
 said nothing of where it came from. For a long run it says how many images
-there are and that the strip scrolls, or how many it no longer holds.
+there are and that the strip scrolls, or how many it no longer holds. A
+source deleted while its pass is in the strip (`forgetImages`, then
+`viewerSourcesGone`) turns the note's and the column's "#N" into "#N
+(deleted)" and redraws the column's facts; every image of the pass on the
+page - card, strip, #recent, sheet - is retitled with it (`cardTitle`). The
+note and the column had kept a live "#N" whose press said only, in the
+panel's line a screen away, that #N had gone.
 
 **Earlier results, from 2000 px.** Beside a single image the stage takes a
 second column, `#recent`, with up to six of this page's earlier results:
@@ -2768,14 +2789,34 @@ strip's records and its `#viewer img` are the newest job's as before. Each
 opens the lightbox on the image in the strip and those. Iterating on a prompt
 showed one picture at a time in a strip 2,000 px wide, the earlier ones a
 screen down among the cards and below the fold whenever the prompt check was
-open. It is a grid on `.stage` (`grid-auto-flow: dense`, the column spanning
-the viewer's and its note's rows, `contain: size`), hidden in the batch tiers
-and while the prompt check is docked beside the viewer, which takes that
-width. The strip's image, alone, opens the lightbox on the gallery from it -
+open. It is a grid on `.stage` (`grid-auto-flow: dense`, in the viewer's row
+alone, `contain: size`), hidden in the batch tiers. It spanned the note's
+row as well, and ended 35 px below the viewer beside it.
+
+With the prompt check docked it stays, between the image and the check: the
+check is part of iterating on a prompt, and with it open the gallery's first
+row - the only other place the earlier results were - is under the fold.
+It takes only the width the image leaves at its own size (`fitRecent`,
+measured with #recent out of the docked grid: the viewer's content width
+less the tile's, into `--recent-room` and `.recent-docked`), and none where
+that is under `--recent-min` (280 px), so neither the image nor the gallery
+under it moves as the check opens. At QHD a square result leaves 316 px; at
+125% it leaves 192 and #recent goes, while a portrait one leaves room for it
+there. A landscape image, already narrowed by the dock, leaves none. A tag
+checkpoint's chips above keep the width they had, over both columns: in the
+viewer's alone they wrapped onto another line, and the image moved down by
+it as the check opened. It is
+measured again on the strip's ResizeObserver - the check opening or closing,
+the window - and at each tile, and its own coming leaves the image as it was,
+so the refit it causes ends there.
+
+The strip's image, alone, opens the lightbox on the gallery from it -
 else on this page's earlier results - so → walks back through what came
 before: it had opened a lightbox of one, both arrows dead. A close gives the
 focus back to the image or the earlier result it was opened from
-(`openLightbox`'s `origin`), not to its card a screen down.
+(`openLightbox`'s `origin`), not to its card a screen down. A delete from the
+strip's own ⌦ that leaves nothing beside it gives the focus to the line that
+takes the strip's place (`forgetImages`), not to `<body>`.
 
 **Idle is one line.** Before the session's first image the viewer is one line
 naming Ctrl+Enter and the gallery: a 380 px box saying "Generated images
@@ -2795,14 +2836,28 @@ a second copy.
 
 At 2000 CSS pixels and wider, the results viewer's `many` tier (more than
 four images) is as many tiles across as fit - `auto-fill` at
-`--strip-min`, 160 px: eleven at QHD, nine at 125% - under a height of its
+`--strip-min`, 160 px: eleven at QHD, eight at 125% - under a height of its
 own, `min(560px, 45vh)`, that scrolls; a strip at its end stays at its end as
-images land, and the note under it says that it scrolls. Eight equal columns
+tiles come, and the note under it says that it scrolls. Eight equal columns
 had kept QHD at more than seven a row, where sizing by `20vh` fit seven, but a
 28-image run was four rows, 1,090 px, and 48 six rows, 1,625 px, with the
 gallery under it a screen down repeating the same images newest first. The
 live preview takes a cell like any tile. Smaller windows keep the 20vh
 wrapping row; the single and two-to-four tiers are "The results viewer"'s.
+
+Three details keep the strip honest. Its scrollbar's room is kept whether it
+scrolls or not (`scrollbar-gutter: stable both-edges`): taken only once the
+tiles overflowed, the scrollbar made each row one tile shorter, so 18 tiles
+at 125% were two rows that fitted or three that scrolled depending on what
+had come before - and once the live preview's tile had tipped it into three,
+dropping the tile left it there, scrolled to its top, and every image after
+found the strip "not at its end" and left the newest row out of view for the
+rest of the run. Every tile appended asks whether the strip is at its end,
+the preview's and a pass's stand-in's too (`stripAppend`), so the preview
+starting a row is followed into view. And a strip that overflows by no more
+than its own bottom padding is let grow by that rather than scroll
+(`settleStrip`): 28 images at QHD came to 3 px past the cap, drawing a
+scrollbar for those 3 px while the note said to scroll the strip.
 
 ## The ? badges are named
 
@@ -3070,7 +3125,8 @@ viewer when it landed. A frame or the result replaces it, as either replaces
 the other; it is never a record. The live preview is such a tile too
 (`previewTile`), its frames in place of the picture and the step under it,
 where it was a fixed 320 px image a third the size of the result it gave way
-to.
+to. Both go in at the strip's end through `stripAppend`, which a long run's
+scrolling strip follows ("The running batch on wide screens").
 
 ## FLUX.1 dev and schnell, Z-Image Turbo, Qwen-Image
 

@@ -844,7 +844,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     let ticker = 0;
     const waitedFrom = submissions.get(jobId)?.at ?? Date.now();
     const dropPreview = () => {
-      if (previewEl) { previewEl.remove(); previewEl = null; }
+      if (previewEl) { previewEl.remove(); previewEl = null; settleStrip(false); }
       caption = null;
     };
     const landed = () => {
@@ -892,8 +892,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       caption = document.createElement('p');
       caption.className = 'foot';
       tile.append(img, caption);
-      els.viewer.appendChild(figure);
       previewEl = figure;
+      stripAppend(figure);
     };
 
     source.onmessage = (event) => {
@@ -927,7 +927,9 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         landed();
         if (!previewEl) {
           previewEl = previewTile(job?.width, job?.height);
-          els.viewer.appendChild(previewEl);
+          // At the strip's end, which a long run's scrolling strip follows
+          // from the preview on (panel.js).
+          stripAppend(previewEl);
         }
         const frame = previewEl.querySelector('img');
         frame.src = data.image;
@@ -1149,8 +1151,11 @@ function finishJob(jobId, data, { submitted, sheet }) {
   }
   // The cells a grid skipped, or did not reach: its own payload again with
   // Resume and the base seed it ran from - never the panel, which may have
-  // changed since - so only the missing cells run. Resume needs a fixed seed,
-  // which the POST returned; a listed seed axis is its own.
+  // changed since - so only the missing cells run. Resume needs a fixed seed:
+  // the payload's own where it gave one, else the base the POST drew. Not the
+  // POST's answer then, which is the first cell the job had to run: past the
+  // base when the job was itself a Resume and its first seeds were done. A
+  // listed seed axis is its own.
   const skipped = data.status === 'done' ? data.failures : 0;
   // Stopped by the rule: every cell but the ones that rendered.
   const remaining = data.stopped_by === 'failures' ? data.total_runs - (data.run - data.failures) : 0;
@@ -1163,7 +1168,7 @@ function finishJob(jobId, data, { submitted, sheet }) {
         void startJob('/api/grid', {
           ...submitted.payload,
           resume: true,
-          ...(submitted.payload.seed_axis ? {} : { seed: submitted.seed }),
+          ...(submitted.payload.seed_axis ? {} : { seed: submitted.payload.seed ?? submitted.seed }),
         }, {
           panel: false,
           sheet: submitted.sheet,

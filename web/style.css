@@ -63,6 +63,8 @@
      --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
      --result-w     300-420px the column beside the one image just made, from 1800 px
      --recent-w     280-420px this page's earlier results beside it, from 2000 px
+     --recent-min   280px the least of it: docked beside the check it takes the
+                    width the image leaves, and none under this
      --strip-min    160px a long run's least tile in the viewer, from 2000 px
      --tip-w, --tip-w-wide, --menu-w   the floating panels' widths
 
@@ -141,7 +143,8 @@
   --lb-side-w: 280px;
   --dock-w: clamp(520px, 30vw, 760px);
   --result-w: clamp(300px, 17vw, 420px);
-  --recent-w: clamp(280px, 16vw, 420px);
+  --recent-min: 280px;
+  --recent-w: clamp(var(--recent-min), 16vw, 420px);
   --strip-min: 160px;
   --tip-w: 240px;
   --tip-w-wide: 300px;
@@ -1327,9 +1330,13 @@ button { font: inherit; cursor: pointer; }
 .viewer.multi { --tile-h: 34vh; }
 .viewer.many { --tile-h: 20vh; }
 /* Two to four images as large as the single image's height allows, in the
-   column count that fits them best (fitViewer: --cols, --tile-h). */
+   column count that fits them best (fitViewer: --cols, --tile-h), and every
+   row the job will fill there from its first frame (--rows: a tile's picture,
+   its gap and its row), so the second row of a 2x2 landing with the images
+   does not push the gallery down. */
 .viewer.multi.fitted:not(.many) {
   display: grid; grid-template-columns: repeat(var(--cols), auto);
+  grid-template-rows: repeat(var(--rows), calc(var(--tile-h) + var(--sp-1) + var(--h-sm)));
   justify-content: center; align-content: center;
 }
 
@@ -1428,16 +1435,22 @@ button { font: inherit; cursor: pointer; }
 @media (pointer: coarse) { .viewer.many .tile > .tools { opacity: 1; } }
 .viewer.many .tools button { background: rgba(0, 0, 0, 0.55); border: none; color: #fff; }
 
-/* A long run's strip from 2000 px: as many tiles across as fit - twelve at
-   QHD, nine at 125% - under a height of its own that scrolls, so a 48-image
+/* A long run's strip from 2000 px: as many tiles across as fit - eleven at
+   QHD, eight at 125% - under a height of its own that scrolls, so a 48-image
    night is not a screen and a half of tiles above the gallery, which then
    repeated them. Eight fixed columns had kept QHD at more than seven a row;
-   these keep it at more. The live preview takes a cell like any tile. */
+   these keep it at more. The live preview takes a cell like any tile. The
+   scrollbar's room is kept whether it scrolls or not: taken only once the
+   tiles overflowed, it made a row one tile shorter, and 18 tiles at 125%
+   were two rows that fitted or three that scrolled by what had come before.
+   A strip that overflows by no more than its bottom padding is let grow by
+   that (settleStrip). */
 @media (min-width: 2000px) {
   .viewer.many {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--strip-min), 1fr));
     align-content: start; align-items: start;
     max-height: min(560px, 45vh); overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-gutter: stable both-edges;
   }
   .viewer.many > figure, .viewer.many .tile { width: 100%; }
 }
@@ -1482,8 +1495,15 @@ button { font: inherit; cursor: pointer; }
 
 /* This page's earlier results (#recent, renderRecent), from 2000 px beside
    the single image, in the stage's second column: two across, as tall as the
-   viewer and its note and scrolling inside that (`contain: size`), so it
-   never pushes the gallery down. Not while the prompt check is docked there. */
+   viewer and scrolling inside that (`contain: size`), so it never pushes the
+   gallery down - the viewer's row alone, so the two panels end together (it
+   spanned the note's row too, and ended 35 px below the viewer).
+   With the prompt check docked it stays, between the image and the check, in
+   the width the image leaves (fitRecent: `.recent-docked`, `--recent-room`)
+   and none if that is under --recent-min: the check is part of iterating on
+   a prompt, and with it open the earlier results had gone from the screen
+   with the gallery's first row. In the viewer's row, which the chips' row
+   comes before when there are chips, as in the dock's own rules. */
 .recent { display: none; }
 @media (min-width: 2000px) {
   .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) {
@@ -1497,11 +1517,24 @@ button { font: inherit; cursor: pointer; }
   .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) > :is(#viewer, #viewer-note) {
     grid-column: 1;
   }
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #recent:not([hidden]) {
-    grid-column: 2; grid-row: span 2;
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #recent:not([hidden]),
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
+    grid-column: 2;
     display: flex; flex-direction: column; gap: var(--sp-2);
     contain: size; align-self: stretch; overflow-y: auto; overscroll-behavior: contain;
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3);
+  }
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr) min(var(--recent-w), var(--recent-room)) var(--dock-w);
+  }
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { grid-column: 3; }
+  /* The chips keep the width they had without it, over both: in the
+     viewer's column alone they wrapped onto another line, and the image
+     moved down by it as the check opened. */
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / 3; }
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) { grid-row: 2; }
+  .stage.recent-docked:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
+    grid-row: 1;
   }
 }
 .recent h2 { margin: 0; font-size: var(--fs-body-sm); font-weight: 600; color: var(--text-readout); }

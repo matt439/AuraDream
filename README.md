@@ -772,9 +772,10 @@ paused.
 tools under it (Reuse, Refine, Star, Delete); a batch of two to four is laid
 out as large as the window allows. From 1800 px a single image has its prompt,
 its settings and Star, Refine…, Reuse and Use seed in words beside it, and from
-2000 px this session's earlier results sit beside that; a press on the image
-opens the lightbox on the gallery from it, so → walks back through what came
-before. Before the first image of a session the viewer is one line.
+2000 px this session's earlier results sit beside that - beside the prompt
+check too, while it is open, wherever the image leaves them room; a press on
+the image opens the lightbox on the gallery from it, so → walks back through
+what came before. Before the first image of a session the viewer is one line.
 
 **Queueing**: Generate and Run grid stay live while a job runs. A second press
 queues the job behind the current one on the server; under the bars a row per
