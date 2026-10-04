@@ -24,6 +24,9 @@
                     badges, the chip tray's captions
      --text-3       the quiet note inside a caption: why a field is off, the grid's summary
    Colour
+     --line-strong  a control's border: inputs, selects, ghost buttons, presets, the
+                    ? badges. It is --line until a tier raises it for contrast;
+                    --line stays on the panel, the cards and the folds
      --accent-strong the primary buttons' fill
      --accent-soft  a selected or hovered row on the accent: preset, menu item, critic kind
      --warn         amber: stale, pooled-only, a warning, the loading dot, a mismatch
@@ -43,9 +46,12 @@
                           after the line and the border, so the height is the token.
      --r-xs..--r-lg 4, 6, 8, 10px: corner radii
    Layout
-     --topbar-h     58px  the topbar: its padding round a button
+     --topbar-h     58px  the topbar's height, set rather than left to its content (a
+                          37px button and its padding), so whatever reads the token -
+                          the sticky top, the check heading's scroll margin - reads
+                          the real height when a tier changes the buttons
      --sticky-top   68px  where the settings panel rests under the topbar, while it
-                          fits the window (placePanel's --panel-top, below)
+                          fits the window (panel.js moves it while it does not)
      --panel-w      330px the settings column
      --thumb-min    160px a gallery card's least width
      --lb-side-w    280px the lightbox's column
@@ -55,6 +61,7 @@
   --panel: #131318;
   --panel-2: #1a1a21;
   --line: #26262f;
+  --line-strong: var(--line);
   --text: #e8e8ee;
   --text-soft: #cfd0dc;
   --text-2: #c8c8d4;
@@ -131,7 +138,7 @@ body {
   align-items: center;
   gap: var(--sp-4);
   padding: 10px var(--gutter);
-  min-height: var(--topbar-h);
+  height: var(--topbar-h);
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   position: sticky;
@@ -161,23 +168,25 @@ main {
   align-items: start;
 }
 
-/* The settings panel sticks where app.js measures (`placePanel`). While the
-   whole panel fits the window it rests under the topbar at --sticky-top. While
-   it does not - the grid fold open, a banner, a short window, QHD at 125% - its
-   top is the window's height less the panel's and a gutter, a negative number,
-   so the panel scrolls with the page until its bottom meets the window's and
-   holds there: Generate, Pause and Cancel, the error line and Run grid stay
-   reachable at any scroll, and the top of the panel comes back as the page
-   scrolls up. This replaces a `max-height: 900px` query that set the panel
-   static, written because everything past the fold was not reachable until
-   the very end of the gallery released it. It never took effect - the query
-   sat above this equally specific rule, so sticky always won - and 900 px was
-   a guess besides: QHD at 125% is 1040 px tall and its panel still ran past
-   the fold. No such query is kept as a fallback for a page without scripts,
-   which cannot generate anyway, and one below this rule would undo the
-   measured top on every window under its height. Not `overflow-y: auto`
-   either: the Examples menu, the tag menu and the tips hang out past the
-   panel's edge, and a scroll box would clip them. */
+/* The settings panel rests under the topbar at --sticky-top (its `top` below)
+   while the whole panel fits the window. While it does not - the grid fold
+   open, a banner, a short window, QHD at 125% - panel.js writes its top inline
+   (`placePanel` and the rest there): from resting down to the window's height
+   less the panel's and a gutter, a negative number, at which the panel's bottom
+   holds a gutter above the window's. Scrolling down the gallery takes it there,
+   so Generate, Pause and Cancel, the error line and Run grid stay reachable at
+   any scroll; scrolling back up brings its top, the prompt, down again as far
+   as the page moves; and a control focused out of sight is brought into view.
+   This replaces a `max-height: 900px` query that set the panel static, written
+   because everything past the fold was not reachable until the very end of the
+   gallery released it. It never took effect - the query sat above this equally
+   specific rule, so sticky always won - and 900 px was a guess besides: QHD at
+   125% is 1040 px tall and its panel still ran past the fold. No such query is
+   kept as a fallback for a page without scripts, which cannot generate anyway,
+   and one below this rule would undo the measured top on every window under
+   its height. Not `overflow-y: auto` either: the Examples menu, the tag menu
+   and the tips hang out past the panel's edge, and a scroll box would clip
+   them. */
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -187,7 +196,7 @@ main {
   flex-direction: column;
   gap: var(--panel-gap);
   position: sticky;
-  top: var(--panel-top, var(--sticky-top));
+  top: var(--sticky-top);
   /* `position: sticky` makes this its own stacking context, so a tooltip inside
      it cannot out-z-index anything outside it however high it climbs - and the
      gallery's cards are `position: relative` and later in the document, so they
@@ -216,7 +225,7 @@ main {
 
 textarea, input[type="number"], input[type="search"], input[type="text"] {
   background: var(--panel-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   color: var(--text);
   border-radius: var(--r-md);
   padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 10px;
@@ -250,7 +259,7 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   position: relative;
   display: inline-flex; align-items: center; justify-content: center;
   flex: none; width: 14px; height: 14px;
-  border: 1px solid var(--line); border-radius: 50%; background: var(--panel-2);
+  border: 1px solid var(--line-strong); border-radius: 50%; background: var(--panel-2);
   color: var(--muted); font-size: 10px; line-height: 1;
   cursor: help; user-select: none;
 }
@@ -266,6 +275,9 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 /* The rightmost badge's panel is wider than the field under it, so it hangs off
    the other edge instead of out past the panel. */
 .help.end .tip { left: auto; right: -6px; }
+/* And one that would run past the window's bottom opens upwards (placeTip,
+   panel.js, sets `up` as it opens). */
+.help.up .tip { top: auto; bottom: calc(100% + 7px); }
 .help:hover .tip, .help:focus .tip { display: block; }
 /* The prompting and size guides are paragraphs, not a sentence: wider, and
    with room for a line break between the two halves. */
@@ -577,7 +589,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 .compare-seeds { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--muted); }
 .compare-seeds label { display: flex; align-items: center; gap: 6px; }
 .compare-seeds select {
-  background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--text);
   border-radius: var(--r-sm); padding: 2px 6px; font: inherit;
 }
 .compare-note { font-size: var(--fs-sm); }
@@ -666,7 +678,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .presets button {
   background: var(--panel-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   color: var(--muted);
   border-radius: var(--r-sm);
   padding: var(--sp-1) var(--sp-2);
@@ -718,7 +730,7 @@ button { font: inherit; cursor: pointer; }
 
 .ghost {
   background: transparent;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   color: var(--muted);
   border-radius: var(--r-md);
   padding: calc((var(--h-md) - var(--lh) * var(--fs-md) - 2px) / 2) 11px;
@@ -825,7 +837,7 @@ button { font: inherit; cursor: pointer; }
   flex: 1 1 140px; min-width: 140px; max-width: 240px; margin-left: auto;
 }
 .gallery-head .runs {
-  background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
+  background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--muted);
   border-radius: var(--r-sm); padding: 5px 6px; font: inherit; font-size: var(--fs-label); max-width: 300px;
 }
 .gallery-head .runs:disabled { opacity: 0.45; }
@@ -848,7 +860,7 @@ button { font: inherit; cursor: pointer; }
 }
 .sheet-pick { display: flex; align-items: center; gap: 6px; }
 .sheet-pick select {
-  background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--text);
   border-radius: var(--r-sm); padding: 4px 6px; font: inherit;
 }
 /* Many columns scroll sideways rather than squeezing the thumbnails to nothing;
@@ -1111,7 +1123,7 @@ button { font: inherit; cursor: pointer; }
 }
 .refine-dialog select {
   width: 100%; padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 6px; font: inherit;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md); color: var(--text);
 }
 .refine-dialog .presets button:disabled { opacity: 0.45; cursor: not-allowed; }
 #refine-negative-field.disabled textarea { opacity: 0.45; }

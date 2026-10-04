@@ -288,11 +288,49 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('resize', placeTagValidation);
 placeTagValidation();
-// The panel's sticky top follows its height - the grid fold, the progress,
-// the last-run banner, the hints all change it - and the window's. The
-// observer also reports once on observing, which places it at load.
-new ResizeObserver(placePanel).observe(document.querySelector('.panel'));
+// The panel's sticky top (panel.js has the rules). It follows the panel's
+// height - the grid fold, the progress, the last-run banner, the hints all
+// change it - and the window's; the observer also reports once on observing,
+// which places it at load. It moves with the user's scrolling, and for a
+// control focused out of sight - but not for focus a press in the panel gave,
+// where the control is under the pointer already. The press ends after the
+// click, which is where a label hands its control focus.
+new ResizeObserver(panelResized).observe(document.querySelector('.panel'));
 window.addEventListener('resize', placePanel);
+window.addEventListener('scroll', followScroll, { passive: true });
+window.addEventListener('scrollend', () => { panelPos.scrolling = panelPos.dragging; });
+window.addEventListener('wheel', userScrolls, { passive: true });
+window.addEventListener('touchmove', userScrolls, { passive: true });
+window.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented || !SCROLL_KEYS.has(e.key)) return;
+  if (!e.target.closest('input, textarea, select, button, summary, a, [tabindex], [contenteditable]')) userScrolls();
+});
+window.addEventListener('pointerdown', (e) => {
+  if (e.target !== document.documentElement && e.button !== 1) return;
+  panelPos.dragging = e.target === document.documentElement;
+  userScrolls();
+});
+document.querySelector('.panel').addEventListener('pointerenter', () => { panelPos.pointer = true; });
+document.querySelector('.panel').addEventListener('pointerleave', () => {
+  panelPos.pointer = false;
+  if (panelPos.deferred) placePanel();
+});
+document.querySelector('.panel').addEventListener('pointerdown', () => { panelPos.press = true; });
+window.addEventListener('pointerup', () => {
+  panelPos.dragging = false;
+  setTimeout(() => { panelPos.press = false; });
+}, true);
+window.addEventListener('pointercancel', () => { panelPos.press = panelPos.dragging = false; }, true);
+document.querySelector('.panel').addEventListener('focusin', (e) => {
+  if (!panelPos.press) revealInPanel(e.target);
+});
+// A tip is placed as it opens: entering its badge from outside, not moving
+// between the badge and the tip it holds.
+document.addEventListener('pointerover', (e) => {
+  const help = e.target.closest?.('.help');
+  if (help && !help.contains(e.relatedTarget)) placeTip(help);
+});
+document.addEventListener('focusin', (e) => { if (e.target.matches?.('.help')) placeTip(e.target); });
 buildPresets();
 // Before the sync functions, which light the presets, the CFG note and the
 // runs hint up from whatever is in the boxes.

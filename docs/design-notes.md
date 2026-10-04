@@ -1582,21 +1582,80 @@ and the single-image and two-to-four-image tiers keep their existing layout.
 
 ## The settings panel's sticky top
 
-The settings panel is `position: sticky`, and its top is measured rather
-than fixed. `placePanel` (`web/panel.js`), run by a ResizeObserver on the
-panel and on the window's `resize`, sets `--panel-top` to
-`min(var(--sticky-top), <window height - panel height>px - var(--gutter))`.
-While the whole panel fits the window it rests under the topbar at
-`--sticky-top` (68 px), as it always has. While it does not - the grid fold
-open, the last-run banner, a short window, QHD at 125% scaling (2048 x 1040
-CSS px, where even the idle panel runs past the window) - its top goes
-negative, so the panel scrolls with the page until its bottom is a gutter
-above the window's, and holds there. Generate, Pause and Cancel, the error
-line and Run grid stay on screen at any scroll position; what the page gives
-up is the top of the panel, the prompt, which sits above the fold while the
-gallery is scrolled and comes back as the page scrolls up. The value is an
-expression over the tokens rather than a number, so a tier that changes
-`--sticky-top` or `--gutter` needs no second measurement.
+The settings panel is `position: sticky`, and its top is kept by
+`web/panel.js` (`panelPos`) and written inline over the stylesheet's
+`--sticky-top`. While the whole panel fits the window it rests under the
+topbar at `--sticky-top` (68 px), as it always has. While it does not - the
+grid fold open, the last-run banner, a short window, QHD at 125% scaling
+(2048 x 1040 CSS px, where even the idle panel runs past the window) - its
+top lies anywhere from resting down to the window's height less the panel's
+and a gutter, a negative number at which the panel's bottom holds a gutter
+above the window's (the gutter is read off `main`'s padding, the one the page
+ends with, and the resting top off the stylesheet with the inline top
+cleared, so a tier that changes either needs nothing in the script). Within
+that range it moves four ways.
+
+- **With the user's scrolling** (`followScroll`), by as much as the page
+  moves: down the gallery it goes up until its bottom - Generate, Pause and
+  Cancel, the error line, Run grid - is in view and holds there; back up, it
+  comes down until its top, the prompt, is in view. The first version held the
+  bottom and nothing else (4cb5a76), and the prompt came back only within
+  about 180 px of the top of the page (580 px with the fold open), however
+  far up the user scrolled; the review of that commit found it, along with
+  the hidden focus and the moving Generate below. Only a scroll of the
+  user's moves the panel: the wheel, a touch, the scroll keys from outside any
+  control, a press on the page's scrollbar (Chrome dispatches it to the root
+  element) or the middle button open a window that each scroll event of the
+  movement keeps open and `scrollend` or a quiet 400 ms closes. The browser
+  scrolls on its own too, and following those slid the panel for nothing the
+  user did: scroll anchoring holds the gallery still when the viewer above it
+  empties at a run's start or fills as images land, so a lifted panel crept
+  up the page as images arrived and slid down at a run's start - Generate
+  from under the pointer that pressed it - and the page shortening under a
+  reloaded gallery did the same. Space on a button starts a run rather than
+  scrolling, which is why the keys count only from outside a control. The
+  panel moves a frame behind the page, since it follows scroll events on the
+  main thread; that was preferred to a lag-free scheme, which a sticky box
+  cannot give: holding its top at rest while the page scrolls up needs room
+  above its place in its containing block, and a margin there is taken out
+  of that room.
+- **With its height or the window's** (`placePanel`, from a ResizeObserver
+  and `resize`), keeping the bottom where it was while the bottom was in view
+  (held, or resting with room to spare), else the top. While the pointer is
+  over the panel a change of its height moves nothing (`panelResized`) and
+  the placement waits for the pointer to leave. A held panel otherwise grows
+  upwards: the progress row, the queue note and the error line appear below
+  Generate, Generate rose 40 px under the pointer that pressed it, and Pause
+  and Cancel took its place - with Generate still live as "Generate (queue)",
+  a second press meant to queue a run paused or cancelled the first. While
+  the placement waits, the panel grows downwards instead: what appears under
+  Generate is in view (Pause and Cancel at 2048 x 1040), and what goes below
+  the window is the fold's summary - with the fold open, Run grid - until the
+  pointer leaves or the user scrolls.
+- **With focus** (`revealInPanel`, on `focusin`): a control focused from the
+  keyboard or by the page - Shift+Tab, a finding clicked in the prompt check,
+  Use and Apply, an example picked - out of sight above the window, under the
+  topbar or below the window, has its block (its field, row or button)
+  brought between where the first block sits while the panel rests and where
+  the last sits while it is held, by moving the panel and not the page. The
+  browser scrolls the page to a focused control before it dispatches the
+  focus events, measuring a stuck panel as if it moved with the page, so that
+  scroll moved the page and left the control hidden (WCAG 2.4.11). Its scroll
+  event comes at the next frame, so the last position the panel saw is the
+  one before the focus: the scroll is taken back, and made again only if
+  moving the panel could not show the control - a panel still in the page's
+  flow near its top, or pinned by its containing block at the end of the
+  page. A press in the panel moves nothing, through to the click, where a
+  label hands its control focus: what was pointed at is in view already, and
+  moving the panel between press and release would move it from under the
+  pointer.
+- **With the grid fold opened by hand** (`revealGridRun`, below).
+
+A help's tip opens under its badge, and over it (`placeTip`, `.help.up`)
+where under would run past the window's bottom and over has more room: the
+fold's last rows - Resume, Budget, the seed list - sit at the window's
+bottom while the panel is held there, and their tips ran off the window,
+which scrolling could not fix since the held panel does not move with it.
 
 It replaces `@media (max-height: 900px) { .panel { position: static } }`
 (496bfb1), written because everything past the fold - Generate, Cancel, the
@@ -1617,16 +1676,20 @@ box clips them. The panel stays sticky at z-index 10, so its tips still paint
 over the cards.
 
 Opening the grid fold by hand - a click on its summary, as Enter and Space
-on it are - scrolls Run grid into view (`revealGridRun`, `block: 'nearest'`,
-smooth unless reduced motion is asked for), placing the panel for its new
-height first, since the ResizeObserver reports only after the frame. It
-listens for the click rather than the toggle event, which `restorePanel` and
-`resetPanel` set off as well: a fold restored at load scrolls nothing.
-`#btn-grid`'s `scroll-margin-bottom` is the gutter and the panel's bottom
-padding, so the reveal, or a Tab onto the button, leaves Run grid where a
-panel held by its bottom keeps it, with room for the preview's reply to add
-a line. `tools/smoke-wide.json` checks all of it at 2560 x 1305, 2048 x 1040
-at 125% and 1400 x 900.
+on it are - brings Run grid into view (`revealGridRun`): the panel is placed
+for its new height first, since the ResizeObserver reports only after the
+frame (and then under the pointer that opened it), Run grid is revealed as a
+focused control would be, and where the panel is still in the page's flow
+the page scrolls to it (`block: 'nearest'`, smooth unless reduced motion is
+asked for). It listens for the click rather than the toggle event, which
+`restorePanel` and `resetPanel` set off as well: a fold restored at load
+scrolls nothing. `#btn-grid`'s `scroll-margin-bottom` is the gutter, the
+panel's bottom padding and its border, so the page's scroll leaves Run grid
+where a panel held by its bottom keeps it, with room for the preview's reply
+to add a line. `tools/smoke-wide.json` checks all of it at 2560 x 1305,
+2048 x 1040 at 125% and 1400 x 900, and that the page's scale is today's (the
+panel's width, the body's type, the gallery's columns), the baseline the
+wide tier will change.
 
 ## Design tokens
 
@@ -1636,11 +1699,21 @@ radii and the layout's widths - under a table saying what each is for. They
 came in on 2026-10-04 (step 5 of that day's UI review plan, U92) at the
 values the page already had, checked pixel for pixel against the commit
 before them at 1400 x 900, 2560 x 1305, 2048 x 1040 at 125% and 800 x 900,
-and by every element's computed style in thirteen states. The point is the
-steps after it: a wide tier or a short-window tier is one media query
-overriding `:root`, not a restyle of every rule. So the type scale keeps the
-page's seven steps (10 to 16 px) rather than the review prototype's five,
-each named for what uses it. A value one rule alone uses - a hairline, a
+and by every element's computed style in thirteen states. Those shots are
+of freshly loaded pages, compared viewport by viewport. Rows of the panel
+sit on half pixels (the size presets are 26.5 px tall), so after a scroll or
+a change of the panel's top the browser can raster them a device pixel off
+from a fresh page's, with every box where it was; and a full-page or element
+capture lays the page out at a passing 1 x 1 viewport, where the one-column
+rule now applies and the panel goes static, so such captures of the panel
+are not comparable across the move of that rule below `.panel`. The point is
+the steps after it: a wide tier or a short-window tier is one media query
+overriding `:root`, not a restyle of every rule (the panel stays unpinned by
+measurement, never by a window-height query; see the sticky top above). So
+the type scale keeps the page's seven steps (10 to 16 px) rather than the
+review prototype's five: the prototype's size names where a size has one use
+(`--fs-xs` to `--fs-xl`), and role names, `--fs-label` and `--fs-body-sm`,
+for the two steps it does not have. A value one rule alone uses - a hairline, a
 pill's padding, a chip's state colours - stays a literal, and a glyph sized
 to a box of its own (the ? badge, a finding's mark, the stars, the close and
 arrow buttons) keeps its size, since scaling the type should not grow an
@@ -1648,9 +1721,14 @@ icon inside a fixed circle. A control's height is its token: the vertical
 padding is worked out from it, `(height - line - border) / 2`, which is
 exactly the 7 px a ghost button always had, so a tier that raises a height
 or a type token gets that height without restating a padding. `--warn` and
-`--star` are the same amber with different meanings, and `--accent-strong`,
-the primary buttons' fill, is the accent itself until a tier darkens it for
-contrast.
+`--star` are the same amber with different meanings; `--accent-strong`, the
+primary buttons' fill, is the accent itself until a tier darkens it for
+contrast, and `--line-strong`, the controls' borders (inputs, selects, ghost
+buttons, presets, the ? badges), is `--line` until a tier raises it, leaving
+`--line` on the panel, cards, viewer and folds. `--topbar-h` is the topbar's
+set height rather than a floor under its content, so the sticky top and the
+check heading's scroll margin, which read it, read the real height whatever
+a tier does to the buttons in it.
 
 ## The live preview
 

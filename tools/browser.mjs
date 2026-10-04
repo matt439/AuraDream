@@ -18,6 +18,9 @@
 //   {"hover": [x, y]}            move the mouse there (tooltips, hover states)
 //   {"click": [x, y]}            click a point; {"dblclick": [x, y]} double-clicks;
 //                                {"drag": [x1, y1, x2, y2]} drags
+//   {"hover": "selector"}, {"click": "selector"}   the same at the middle of that
+//                                element's box as it is at that moment, wherever the
+//                                layout has put it
 //   {"viewport": [w, h, dpr]}    resize the page (dpr optional, default 1) and wait for layout
 //   {"shot": "file.png"}         screenshot the viewport; {"fullshot": "file.png"} the
 //                                whole scrollable page; {"elshot": ["selector", "file.png"]}
@@ -135,6 +138,13 @@ async function evaluate(expression) {
 }
 const mouse = (type, x, y, extra = {}) =>
   send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
+// A point, or a selector standing for the middle of its element's box.
+async function point(at) {
+  if (Array.isArray(at)) return at;
+  const xy = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(at)}); if (!e) return null; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+  if (!xy) console.log('  ! no element for ' + at);
+  return xy ?? [0, 0];
+}
 // Escape carries its key code, as a real press does: a modal <dialog>
 // closes on that, not on the key's name alone. A plain Enter stays a bare
 // key name (the smokes' chip and autocomplete steps are written against
@@ -175,11 +185,11 @@ for (const step of steps) {
     await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY });
     await sleep(100);
   } else if (step.hover) {
-    const [x, y] = step.hover;
+    const [x, y] = await point(step.hover);
     await mouse('mouseMoved', x, y);
     await sleep(400);
   } else if (step.click) {
-    const [x, y] = step.click;
+    const [x, y] = await point(step.click);
     await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y);
     await sleep(150);
   } else if (step.dblclick) {

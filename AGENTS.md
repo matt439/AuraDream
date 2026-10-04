@@ -769,13 +769,21 @@ Frontend and CLI:
 - `web/style.css` takes its type, greys, spacing, control heights, radii and
   layout widths from the tokens on `:root`, whose table says what each is
   for; a size the page shares is a token, a one-off stays a literal, and a
-  control's vertical padding is worked out from its height token. The
-  settings panel's sticky top is measured (`placePanel`, from a
-  ResizeObserver and the window's resize, into `--panel-top`): under the
-  topbar while the panel fits, held by its bottom while it does not. Never a
-  window-height media query, and never `overflow-y: auto` on the panel,
-  which would clip the Examples menu, the tag menu and the tips; it stays
-  `position: sticky` at z-index 10 above 900 px and static at or below it.
+  control's vertical padding is worked out from its height token
+  (`--line-strong` is the controls' borders, `--topbar-h` the topbar's set
+  height). The settings panel's sticky top is `panel.js`'s (`panelPos`,
+  written inline): resting under the topbar while the panel fits, else
+  between that and the top that holds its bottom a gutter above the window's,
+  moved there by the user's own scrolling only (never by scroll anchoring or
+  a page that shortens), placed on a change of its height or the window's
+  but not while the pointer is over it (Generate must not move under the
+  pointer that pressed it), and moved to bring a control focused out of
+  sight into view, the browser's own scroll to it taken back. Never a
+  window-height media query to unpin it or set its top, and never
+  `overflow-y: auto` on the panel, which would clip the Examples menu, the
+  tag menu and the tips; it stays `position: sticky` at z-index 10 above 900
+  px and static at or below it, and a tip that would run past the window's
+  bottom opens upwards (`placeTip`).
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets
@@ -904,7 +912,9 @@ Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom, the sheet, the export, the sheet's
 declared variable order (under Favorites too), a sparse comparison's rows,
 the re-render button, the panel's persistence and the duplicate/distinct
-counts, exiting 1 on a failed `expect`. It opens the page at 1400x900,
+counts, exiting 1 on a failed `expect`. A `hover` or `click` step takes a
+CSS selector in place of a point, aiming at the middle of that element's box
+as it is then. It opens the page at 1400x900,
 where the smokes are written: `LOCAL_DIFFUSION_VIEWPORT=2560x1305` (a
 maximized QHD browser) and `LOCAL_DIFFUSION_DPR=1.25` (with 2048x1040, the
 same screen at 125% scaling) move it, a `viewport` step resizes it mid-run,
@@ -1023,12 +1033,20 @@ a fake of its own while others are up.
 
 `smoke-wide.json` checks the page at the sizes it is used at, switching
 with `viewport` steps between 2560x1305, 2048x1040 at 125% and 1400x900 on a
-FLUX.1 Krea [dev] fake on 7876: Generate on screen, and with the grid fold
-open - by a click on its summary, which scrolls Run grid into view - Run
-grid on screen after a wheel over the stage and at the end of a 160-image
-gallery, the panel's sticky top where `placePanel` puts it, a fold
-restored at load scrolling nothing, and the panel static in one column
-below 901 px:
+FLUX.1 Krea [dev] fake on 7876: today's scale (the panel's 330 px, the 14 px
+body, the gallery's columns), Generate on screen, and with the grid fold
+open - by a click on its summary, which brings Run grid into view - Run grid
+on screen after a wheel over the stage and at the end of a 160-image
+gallery, the panel holding its bottom a gutter above the window's (the
+gutter and the resting top read off the page), the panel coming back down
+as far as a wheel scrolls up, the prompt and Examples focused from deep in
+the gallery and by Shift+Tab brought into view with the page left where it
+was, a finding clicked in the prompt check selecting its words in view
+without the check moving, Generate pressed with the panel held staying under
+the pointer through its run and the panel holding its bottom again once the
+pointer leaves, Resume's tip opening upwards inside the window, a fold
+restored at load scrolling nothing, and the panel static in one column below
+901 px:
 
 ```powershell
 uv run python tools/fake_server.py --port 7876 --model black-forest-labs/FLUX.1-Krea-dev

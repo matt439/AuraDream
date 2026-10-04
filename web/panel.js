@@ -132,28 +132,176 @@ function restoreSampling(modelId) {
   syncCfg();
 }
 
-// The panel's sticky top, measured (style.css has why): --sticky-top while
-// the whole panel fits the window, else the window's height less the panel's
-// and a gutter, so a panel taller than the window scrolls until its bottom is
-// in view and holds there. Written as an expression over the tokens rather
-// than a number, so a tier that changes --sticky-top or --gutter needs no
-// second measurement. app.js calls this whenever the panel's height or the
-// window's changes.
+// ------------------------------------------------------------ the sticky top
+
+// The panel's sticky top (style.css has why it is not the stylesheet's alone),
+// kept here in px and written inline. While the whole panel fits the window it
+// rests under the topbar, at the stylesheet's top. While it does not, the top
+// lies anywhere from there down to the top that holds its bottom a gutter above
+// the window's - the gutter the page ends with - and moves within that range
+// four ways:
+//   - with the user's own scrolling (`followScroll`), as far as the page moves:
+//     down the gallery the panel goes up until its bottom (Generate, Pause and
+//     Cancel, the error line, Run grid) is in view and holds there, and back up
+//     it comes down until its top (the prompt) is. A scroll the browser makes
+//     on its own moves nothing: scroll anchoring holding the gallery still as
+//     the viewer above it fills or empties, or the page shortening under a
+//     reloaded gallery, would otherwise slide the panel - at a run's start,
+//     Generate from under the pointer that just pressed it.
+//   - with its height or the window's (`placePanel`), keeping the bottom where
+//     it was while the bottom was in view, else the top. While the pointer is
+//     over the panel nothing moves (`panelResized`): the progress row, the
+//     queue note and the error line appear below Generate, and a panel held by
+//     its bottom would lift Generate by as much, putting Pause and Cancel under
+//     the pointer that pressed it - a second press meant to queue another run
+//     stopped the first. The placement waits for the pointer to leave.
+//   - with focus (`revealInPanel`): a control focused from the keyboard or by
+//     the page, out of sight above the window, under the topbar or below the
+//     window, is brought into view by moving the panel, not the page. A
+//     focused control left out of sight (WCAG 2.4.11) was the cost of holding
+//     the panel by its bottom: the browser scrolls the page to a focused
+//     control, and a page scroll does not move a stuck panel.
+//   - with the grid fold opened by hand (`revealGridRun`).
+const panelPos = {
+  top: null,          // the inline top in px; null until placed, and while the panel is static
+  rest: 0,            // the stylesheet's top, --sticky-top, in px
+  gap: 0,             // between a held panel's bottom and the window's: main's padding
+  height: 0,          // the panel's, at the last placement
+  window: 0,          // innerHeight, at the last placement
+  deferred: false,    // a placement waiting for the pointer to leave the panel
+  pointer: false,     // the pointer is over the panel
+  press: false,       // a press in the panel is moving focus: the control is where it was pointed at
+  scrollY: 0,         // at the last scroll event
+  scrolling: false,   // a scroll of the user's is under way
+  dragging: false,    // the page's scrollbar is held
+  timer: 0,
+};
+
+// The range the top moves in: down to the one that holds the panel's bottom a
+// gutter above the window's (never below resting, for a panel that fits), up
+// to resting.
+function setPanelTop(top) {
+  const low = Math.min(panelPos.rest, innerHeight - panelPos.height - panelPos.gap);
+  panelPos.top = Math.min(panelPos.rest, Math.max(low, top));
+  document.querySelector('.panel').style.top = `${panelPos.top}px`;
+}
+
+// A change of the panel's height or the window's. The stylesheet's top is
+// read with the inline one cleared, so a tier that changes --sticky-top or the
+// gutter needs nothing here.
 function placePanel() {
   const panel = document.querySelector('.panel');
-  const room = innerHeight - panel.getBoundingClientRect().height;
-  panel.style.setProperty('--panel-top', `min(var(--sticky-top), ${room}px - var(--gutter))`);
+  panel.style.top = '';
+  const css = getComputedStyle(panel);
+  panelPos.deferred = false;
+  if (css.position !== 'sticky') { panelPos.top = null; return; }
+  if (panelPos.top === null) panelPos.scrollY = scrollY;
+  const keepBottom = panelPos.top === null
+    || panelPos.top + panelPos.height <= panelPos.window - panelPos.gap + 0.5;
+  panelPos.rest = parseFloat(css.top);
+  panelPos.gap = parseFloat(getComputedStyle(panel.parentElement).paddingBottom);
+  panelPos.height = panel.getBoundingClientRect().height;
+  panelPos.window = innerHeight;
+  setPanelTop(keepBottom ? -Infinity : panelPos.top);
+}
+
+// The ResizeObserver's: the panel grew or shrank.
+function panelResized() {
+  if (panelPos.pointer && panelPos.top !== null) panelPos.deferred = true;
+  else placePanel();
+}
+
+// What the user does to scroll: the wheel, a touch, the keys that scroll the
+// page from outside any control, a press on the page's scrollbar (Chrome sends
+// it to the root element) or the middle button's autoscroll - not Space on
+// Generate, whose run empties the viewer and has the page anchored by as much
+// within the window below. Each opens a window that every scroll event of the
+// movement keeps open, and `scrollend` or a quiet 400 ms closes, unless the
+// scrollbar is still held.
+const SCROLL_KEYS = new Set(['PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', ' ', 'Home', 'End']);
+function userScrolls() {
+  panelPos.scrolling = true;
+  clearTimeout(panelPos.timer);
+  panelPos.timer = setTimeout(() => { panelPos.scrolling = panelPos.dragging; }, 400);
+}
+
+function followScroll() {
+  const moved = scrollY - panelPos.scrollY;
+  panelPos.scrollY = scrollY;
+  if (!panelPos.scrolling || panelPos.top === null || !moved) return;
+  userScrolls();
+  if (panelPos.deferred) placePanel();
+  setPanelTop(panelPos.top - moved);
+}
+
+// The control's block - its field, its row, the button - is brought between
+// where the first block sits while the panel rests and where the last sits
+// while it is held, as far as the control itself stays in view. A panel still
+// in the page's flow, near the top of the page, does not move for its top
+// alone; there the top is only lowered far enough that the page's scroll to
+// the control carries the panel up the window, rather than sticking it on the
+// way.
+//
+// That scroll has happened by the time focusin fires: the browser scrolls the
+// page to a control before it dispatches the focus events, measuring a stuck
+// panel as though it moved with the page, so the page jumped and the control
+// stayed out of sight. Its scroll event comes only at the next frame, so the
+// position the panel last saw is the one before the focus. The scroll is taken
+// back - clicking a finding in the prompt check should not carry the check
+// away - and made again only if moving the panel left the control out of sight:
+// a panel still in the page's flow, or held at the end of the page.
+function revealInPanel(el) {
+  if (panelPos.top === null) return;
+  if (panelPos.deferred) placePanel();
+  const jumped = scrollY - panelPos.scrollY;
+  if (jumped) scrollTo(scrollX, panelPos.scrollY);
+  const panel = document.querySelector('.panel');
+  const css = getComputedStyle(panel);
+  const top = panelPos.rest + parseFloat(css.borderTopWidth) + parseFloat(css.paddingTop);
+  const bottom = innerHeight - panelPos.gap - parseFloat(css.borderBottomWidth) - parseFloat(css.paddingBottom);
+  const box = panel.getBoundingClientRect();
+  const block = (el.closest('.panel > *, .section > *') ?? el).getBoundingClientRect();
+  const own = el.getBoundingClientRect();
+  const down = block.top < top ? Math.min(top - block.top, Math.max(0, bottom - own.bottom)) : 0;
+  const up = !down && own.bottom > bottom ? Math.min(own.bottom - bottom, own.top - top) : 0;
+  if (down > 0) setPanelTop(Math.max(panelPos.top, box.top + down));
+  else if (up > 0) setPanelTop(Math.min(panelPos.top, box.top - up));
+  if (!jumped) return;
+  const now = el.getBoundingClientRect();
+  if (now.top < document.querySelector('.topbar').getBoundingClientRect().bottom || now.bottom > innerHeight) {
+    scrollTo(scrollX, panelPos.scrollY + jumped);
+  }
 }
 
 // Opening the grid fold by hand brings Run grid into view: the fold opens
 // downwards, past the window's bottom on most screens, and nothing in sight
-// says it did. The panel's top is placed first - the fold has just made it
-// taller, and the ResizeObserver would only report that after the scroll.
+// says it did. The panel is placed first - the fold has just made it taller,
+// and the ResizeObserver would report that only after the frame, and then
+// under the pointer that opened it - and the page scrolls where the panel is
+// still in its flow, at the top of the page.
 function revealGridRun() {
   if (!els.gridSection.open) return;
   placePanel();
+  revealInPanel(els.gridRun);
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   els.gridRun.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+}
+
+// A help's tip opens under its badge, and over it where under would run past
+// the window's bottom and over has more room: the grid fold's last rows sit
+// at the window's bottom while the panel is held there, and their tips ran
+// off it. Measured as the tip opens, shown for the measurement, since it is
+// display: none until the badge is hovered or focused.
+function placeTip(help) {
+  const tip = help.querySelector('.tip');
+  if (!tip) return;
+  help.classList.remove('up');
+  tip.style.display = 'block';
+  const badge = help.getBoundingClientRect();
+  const shown = tip.getBoundingClientRect();
+  tip.style.display = '';
+  const above = badge.top - (shown.top - badge.bottom) - document.querySelector('.topbar').getBoundingClientRect().bottom;
+  if (shown.bottom > innerHeight && above > innerHeight - shown.top) help.classList.add('up');
 }
 
 // ------------------------------------------------------------ the morning after
