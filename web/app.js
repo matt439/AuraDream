@@ -342,7 +342,10 @@ els.lastRunShow.onclick = () => {
 };
 els.lastRunDismiss.onclick = dismissLastRun;
 els.search.oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetGallery, 250); };
-els.lbClose.onclick = closeLightbox;
+// The user's own closes - the cross, the backdrop, Escape below - hand focus
+// to the image the walk ended on (dismissLightbox); every other close is
+// closeLightbox alone.
+els.lbClose.onclick = dismissLightbox;
 els.lbPrev.onclick = () => stepLightbox(-1);
 els.lbNext.onclick = () => stepLightbox(1);
 // The just-generated image only exists in the viewer, so reuse has to be
@@ -350,13 +353,19 @@ els.lbNext.onclick = () => stepLightbox(1);
 // Reuse writes the prompt as typing would, which needs the focus a modal
 // lightbox keeps to itself.
 els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { closeLightbox(); reuse(rec); } };
-// Refine likewise: openRefine closes the lightbox for its dialog. Where the
-// checkpoint has no such pass the lightbox stays open, since the note saying
-// so is mirrored into it.
+// Refine likewise: openRefine closes the lightbox for its dialog, and a close
+// that runs nothing gives it back (refineClosed). Where the checkpoint has no
+// such pass the lightbox stays open, since the note saying so is mirrored
+// into it.
 els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec) openRefine(rec); };
 els.lbFav.onclick = () => { const rec = lbList[lbIndex]; if (rec) setFavorite(rec, !rec.favorite); };
 els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage(rec); };
-els.lightbox.onclick = (e) => { if (e.target === els.lightbox) closeLightbox(); };
+els.lightbox.onclick = (e) => { if (e.target === els.lightbox) dismissLightbox(); };
+// A pass against its source: the button (and S) turns it on and off, a mode
+// turns it on in that mode or switches to it.
+els.lbCompareOn.onclick = () => { void toggleCompare(); };
+els.lbSwipe.onclick = () => { void toggleCompare('swipe'); };
+els.lbSideBySide.onclick = () => { void toggleCompare('side'); };
 
 // The Refine dialog. Every box asks the server's preview again, as the grid's
 // do; the scale buttons are built with the source they multiply. Keep shape
@@ -401,15 +410,19 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !e.defaultPrevented && !els.examplesMenu.hidden) { showExamples(false); return; }
   if (e.key === 'Escape' && !e.defaultPrevented && !els.tagsMenu.hidden) { showTagHelper(false); return; }
   if (!els.lightbox.open) return;
+  // A key the lightbox's own control took - the swipe divider's arrows.
+  if (e.defaultPrevented) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
-  if (e.key === 'Escape') { closeLightbox(); return; }
+  if (e.key === 'Escape') { dismissLightbox(); return; }
   if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); return; }
   if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); return; }
-  // F, Delete and the zoom keys act on the image in view - unless a text field
-  // still holds the caret, where they are typing.
-  if (e.target.matches('input, textarea')) return;
+  // F, S, Delete and the zoom keys act on the image in view - unless a text
+  // field still holds the caret, where they are typing, or a modifier makes
+  // them the browser's: Ctrl+F is find, Ctrl+plus the page's zoom.
+  if (e.target.matches('input, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'f' || e.key === 'F') els.lbFav.click();
+  else if (e.key === 's' || e.key === 'S') void toggleCompare();
   else if (e.key === 'Delete') els.lbDelete.click();
   else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomLightbox(ZOOM_STEP); }
   else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomLightbox(1 / ZOOM_STEP); }

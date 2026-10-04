@@ -52,7 +52,8 @@
   {"expect": "!els.lightbox.open && els.error.textContent.includes('These settings were made on Krea-2-Turbo') && els.error.textContent.includes('server is running FLUX.1-Krea-dev')"},
   {"eval": "document.querySelector('#viewer img').click()"},
   {"wait": 400},
-  {"expect": "els.lbMeta.textContent.includes('CFG 3.5, true CFG 1.5')"},
+  {"log": "'the lightbox names True CFG as the panel does, and shows the negative prompt it applied to'"},
+  {"expect": "(() => { const rows = Object.fromEntries([...els.lbSettings.querySelectorAll('.facts > div')].map((d) => [d.firstChild.textContent, d.lastChild.textContent])); return rows.Sampling.includes('CFG 3.5 · True CFG 1.5 · no Mu') && rows.Negative === 'blurry'; })() && els.lbDesc.textContent.includes('CFG 3.5, True CFG 1.5, no Mu')"},
   {"key": "Escape"},
 
   {"eval": "els.trueCfg.value = ''; els.trueCfg.oninput(); els.seed.value = '10'; startJob('/api/generate', collect());"},
