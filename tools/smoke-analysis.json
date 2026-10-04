@@ -119,6 +119,8 @@
   {"wait": 1200},
   {"expect": "!critiquing && critiqueResult !== null && els.promptAnalysis.classList.contains('stale') && !els.analysisStatus.hidden && els.analysisStatus.textContent.includes('changed while the critic ran') && els.analysisStatus.getAttribute('role') === 'status' && !!els.analysisStatus.closest('#analysis-critic') && els.error.hidden"},
   {"expect": "[...els.criticResult.querySelectorAll('button')].filter((b) => b.textContent.startsWith('Use')).every((b) => b.disabled && b.title === STALE_REASON) && els.compareRun.disabled && els.prompt.value.endsWith(' today')"},
+  {"log": "'The stale panel is dimmed, but not the message saying why: nothing around the status slot fades it'"},
+  {"expect": "(() => { for (let e = els.analysisStatus; e; e = e.parentElement) if (getComputedStyle(e).opacity !== '1') return false; return true; })() && getComputedStyle(els.analysisFindings.closest('.analysis-section')).opacity === '0.55' && getComputedStyle(els.criticResult).opacity === '0.55'"},
 
   {"log": "'Compare: the original against the rewrite on the same four seeds, then the sheet with a row each'"},
   {"eval": "els.prompt.value = els.prompt.value.replace(/ today$/, ''); els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
@@ -206,7 +208,8 @@
   {"expect": "els.negative.disabled && analysisStale"},
 
   {"log": "'On FLUX the activation boundary is True CFG, even with a main-CFG grid open: changes within the active range or to main CFG keep the check current'"},
-  {"eval": "els.gridCfg.value = '1,5'; els.gridSection.open = true; els.trueCfg.value = '4'; els.trueCfg.dispatchEvent(new Event('input', {bubbles: true})); previewGrid()"},
+  {"log": "'(waits for the grid preview to land: the fold opening fires a preview of its own and the True CFG box schedules a third, either superseding the one called here, and on a loaded machine the one that ends it can still be in flight at the next step)'"},
+  {"eval": "els.gridCfg.value = '1,5'; els.gridSection.open = true; els.trueCfg.value = '4'; els.trueCfg.dispatchEvent(new Event('input', {bubbles: true})); previewGrid().then(() => new Promise((r) => { const t0 = Date.now(); const t = setInterval(() => { if (gridMaxCfg === 5 || Date.now() - t0 > 10000) { clearInterval(t); r(); } }, 50); }))"},
   {"eval": "checkPrompt()"},
   {"eval": "els.cfg.value = '1'; els.cfg.dispatchEvent(new Event('input', {bubbles: true})); els.trueCfg.value = '2'; els.trueCfg.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "gridMaxCfg === 5 && !analysisStale && !els.negative.disabled && analysisResult.negative === 'people'"},
@@ -315,7 +318,11 @@
   {"wait": 600},
   {"eval": "window.__api2 = api; api = (path, options) => path === '/api/prompt/critique' ? Promise.reject(new Error('llama-server exited with code 1 before it was ready')) : window.__api2(path, options); els.criticAsk.focus(); els.criticAsk.click();"},
   {"wait": 600},
-  {"expect": "!critiquing && critiqueResult === null && critiqueFailure === 'llama-server exited with code 1 before it was ready' && els.criticResult.querySelector('.critic-failure').textContent === \"The critic did not answer: llama-server exited with code 1 before it was ready. Ask again, or check the server's log.\" && document.activeElement === els.criticResult && els.error.textContent === 'llama-server exited with code 1 before it was ready' && !els.criticResult.querySelector('[data-writes]')"},
+  {"expect": "!critiquing && critiqueResult === null && critiqueFailure === 'llama-server exited with code 1 before it was ready' && els.criticResult.querySelector('.critic-failure').textContent === 'The critic did not answer: llama-server exited with code 1 before it was ready.' && document.activeElement === els.criticResult && els.error.textContent === 'The critic did not answer: llama-server exited with code 1 before it was ready.' && !els.criticResult.querySelector('[data-writes]')"},
+  {"log": "'A refusal that says what to do is left to say it: nothing generic is added that asking again would contradict'"},
+  {"eval": "window.__tooLong = 'the prompt is too long for the critic: its answer repeats the prompt 3 times, which with the sources does not fit its 32768-token window; shorten the prompt or the negative prompt'; api = (path, options) => path === '/api/prompt/critique' ? Promise.reject(new Error(window.__tooLong)) : window.__api2(path, options); showError(''); els.criticAsk.focus(); els.criticAsk.click();"},
+  {"wait": 600},
+  {"expect": "!critiquing && critiqueFailure === window.__tooLong && els.criticResult.querySelector('.critic-failure').textContent === `The critic did not answer: ${window.__tooLong}.` && els.error.textContent === `The critic did not answer: ${window.__tooLong}.` && document.activeElement === els.criticResult"},
   {"eval": "api = window.__api2; showError(''); els.criticAsk.focus(); els.criticAsk.click();"},
   {"expect": "critiquing && critiqueFailure === null && !els.criticResult.querySelector('.critic-failure')"},
   {"wait": 1200},
@@ -392,6 +399,8 @@
   {"click": "#critic-ask"},
   {"wait": 1300},
   {"expect": "!critiquing && critiqueResult !== null && document.activeElement === els.criticResult && __docked() && __inView(__img()) && __img().getBoundingClientRect().top === __at[0] && els.promptAnalysis.getBoundingClientRect().bottom <= innerHeight"},
+  {"log": "\"In the docked column the critic's Rewrite and Reordered stack: two at 60 characters a line do not fit there\""},
+  {"expect": "(() => { const [a, b] = els.criticResult.querySelectorAll('.critic-variant'); return !!b && b.getBoundingClientRect().top >= a.getBoundingClientRect().bottom; })()"},
   {"keycombo": ["Control", "Enter"]},
   {"wait": 1500},
   {"expect": "!busy && !els.promptAnalysis.hidden && __docked() && __inView(__img()) && __img().getBoundingClientRect().top === __at[0]"},
@@ -411,5 +420,7 @@
   {"viewport": [1400, 900, 1]},
   {"wait": 300},
   {"expect": "!els.promptAnalysis.hidden && getComputedStyle(document.querySelector('.stage')).display === 'flex' && getComputedStyle(els.promptAnalysis).position === 'static' && els.promptAnalysis.getBoundingClientRect().bottom <= els.viewer.getBoundingClientRect().top && els.promptAnalysis.getBoundingClientRect().width === els.viewer.getBoundingClientRect().width"},
+  {"log": "'Full width above the results, from 1400 px, they sit side by side'"},
+  {"expect": "(() => { const [a, b] = els.criticResult.querySelectorAll('.critic-variant'); return !!b && b.getBoundingClientRect().top === a.getBoundingClientRect().top && b.getBoundingClientRect().left >= a.getBoundingClientRect().right; })()"},
   {"eval": "closeAnalysis(); scrollTo(0, 0);"}
 ]

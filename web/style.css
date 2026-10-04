@@ -465,7 +465,12 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   font-size: 15px; color: var(--muted);
 }
 .analysis-head .analysis-close:hover, .analysis-head .analysis-close:focus-visible { color: var(--text); }
-.prompt-analysis.stale .analysis-body { opacity: 0.55; }
+/* The status slot under Ask the critic stays at full strength as well: what
+   it says is mostly why the panel went stale, and its amber at 0.55 fell
+   under 4.5:1. A child cannot undo an ancestor's opacity, so the dimming is
+   on the slot's siblings and the body's other sections. */
+.prompt-analysis.stale .analysis-body > :not(#analysis-critic),
+.prompt-analysis.stale #analysis-critic > :not(.analysis-status) { opacity: 0.55; }
 /* Encoders and Order are short and sit side by side where there is room; the
    rest runs the full width. */
 .analysis-body {
@@ -479,6 +484,13 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
    its own and Order takes the rest. */
 @media (min-width: 1400px) {
   .tag-validation-wide .analysis-body { grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); }
+  /* The critic's Rewrite and Reordered side by side where both fit at 60
+     characters a line: here, full width; docked from 1800 px, the column is
+     narrower and auto-fit keeps them stacked. */
+  .tag-validation-wide .critic-variants {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 60ch), 1fr));
+    gap: var(--sp-4); align-items: start;
+  }
 }
 .analysis-section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .analysis-section.full { grid-column: 1 / -1; }
@@ -634,6 +646,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 .critic-diff ins, .critic-gist ins { color: #bbf7d0; background: #163b30; }
 .critic-gist { font-size: var(--fs-sm); }
 .critic-gist ins, .critic-gist del { text-decoration: none; padding: 0 2px; border-radius: 2px; }
+.critic-gist .critic-moved { color: var(--text-2); }
 
 .compare-options { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); }
 .compare-options .check { font-size: var(--fs-label); color: var(--text); }
@@ -691,9 +704,6 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   /* A column of 520-760 px: the sections stack - Encoders, Order, Findings,
      the critic, Compare - since side by side Order had 356 px and clamped. */
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-body { grid-template-columns: minmax(0, 1fr); }
-  /* The critic's two versions side by side where both fit at 60 characters
-     a line: full width, without :has(); the dock's column is narrower. */
-  .critic-variants { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 60ch), 1fr)); gap: var(--sp-4); align-items: start; }
 }
 
 .hint { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted); min-height: 15px; }

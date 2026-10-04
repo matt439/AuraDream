@@ -1220,7 +1220,9 @@ has nothing to show, and some of what the answer's schema forbids (a seventh
 issue, say), which only a `llama-server` of your own that ignores the schema
 can send. The rewrite is then put through the same checks as the prompt,
 listed under it, each marked "also in your prompt" or "new", with the
-prompt's findings it no longer has after them. **Changed from original**
+prompt's findings it no longer has after them - apart from those that rest
+on the tag index (a tag's order, an artist's @), which the rewrite's check
+does not ask, so they are listed as possibly still applying. **Changed from original**
 gives the number of characters added and removed, the line under it the
 first few changes; open it to see the marked text. If no rewrite survives,
 the answer says **No rewrite offered** and explains anything set aside.

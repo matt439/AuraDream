@@ -770,7 +770,7 @@ async function askCritic() {
       analysisMessage('The prompt, the negative prompt or the references changed while the critic ran: its answer is about the earlier text, so nothing from it can be applied. Check again for the current one.');
     }
   } catch (err) {
-    if (epoch === critiqueEpoch) showError(err.message);
+    if (epoch === critiqueEpoch) showError(critiqueFailure ? critiqueFailureText(critiqueFailure) : err.message);
   } finally {
     critiquing = false;
     stopCriticClock();
@@ -807,6 +807,25 @@ function stopCriticClock() {
   els.criticClock.textContent = '';
 }
 
+// A failed critique in the server's words, which say what to do where
+// anything can be done - shorten the prompt, install a library, wait for the
+// load - so nothing generic is added: "Ask again" contradicted a refusal
+// that asking again only repeats. Said whose failure it is, in #error too,
+// where the bare reason sat under Generate with nothing naming the critic.
+const critiqueFailureText = (reason) => `The critic did not answer: ${reason.replace(/\.$/, '')}.`;
+
+// The rules whose finding on the prompt rests on the tag index's categories:
+// the order's slots, the style a known name reads as, and which names are
+// artists (`prompt_rules._place`, `_detect_style`, `_artist_prefix`). The
+// prompt's check asks the index for a tag or hybrid prompt on a Danbooru
+// checkpoint, and the artist rule fires only with its answer; the rewrite's
+// check never asks (`main._lint`). Such a finding gone from the rewrite may
+// be one its check could not see, so it is not called fixed.
+const TAG_INDEX_RULES = new Set(['guide.order', 'guide.style', 'guide.artist_prefix']);
+const readsTagIndex = (finding) => TAG_INDEX_RULES.has(finding.rule)
+  && (finding.rule === 'guide.artist_prefix'
+    || (tagVocabularyEnabled && ['tags', 'hybrid'].includes(analysisResult.body.style)));
+
 function renderCritic() {
   syncCritic();
   const box = els.criticResult;
@@ -814,10 +833,7 @@ function renderCritic() {
   if (!critiqueResult) {
     // The server's reason, without the exception's class name; #error has
     // it too, as an alert.
-    if (critiqueFailure) {
-      box.appendChild(note(`The critic did not answer: ${critiqueFailure.replace(/\.$/, '')}. Ask again, or check the server's log.`,
-        'analysis-note critic-failure'));
-    }
+    if (critiqueFailure) box.appendChild(note(critiqueFailureText(critiqueFailure), 'analysis-note critic-failure'));
     return;
   }
   const { body } = critiqueResult;
@@ -883,9 +899,13 @@ function renderCritic() {
       carried: (f) => (before.has(key(f)) ? 'also in your prompt' : 'new'),
     });
     const gone = analysisResult.body.findings.filter((f) => !after.has(key(f)));
-    if (gone.length) {
-      checked.appendChild(note(`No longer flagged: ${gone.map((f) => excerpt(f.message, 60)).join('; ')}`,
-        'analysis-note sub'));
+    const listed = (findings) => findings.map((f) => excerpt(f.message, 60)).join('; ');
+    const fixed = gone.filter((f) => !readsTagIndex(f));
+    const unseen = gone.filter(readsTagIndex);
+    if (fixed.length) checked.appendChild(note(`No longer flagged: ${listed(fixed)}`, 'analysis-note sub'));
+    if (unseen.length) {
+      checked.appendChild(note('Not flagged on the rewrite, whose check runs without the tag index - '
+        + `these may still apply: ${listed(unseen)}`, 'analysis-note sub'));
     }
     block.append(head, rewriteChanges(analysisResult.source, body.rewrite), area,
       note('The same check, run on the rewrite:', 'analysis-note sub'), checked);
@@ -1007,24 +1027,93 @@ function rewriteChanges(original, rewrite) {
   return shown;
 }
 
-// The first few changes, a few words of each: "Added Rewritten: · removed no
-// people", marked as the diff marks them. Opened by default, the diff would
-// print the whole rewrite a second time above its own box.
+// The first few changes, a few words of each - "Changed red → blue · added
+// film grain · moved masterpiece" - marked as the diff marks them. Opened by
+// default, the diff would print the whole rewrite a second time above its
+// own box.
 function changeGist(changes) {
-  const edits = changes.filter((part) => part.kind !== 'same');
+  const items = gistItems(changeHunks(changes));
   // Not `sub`, the fields' flex column, which would stack its words.
   const line = note('', 'analysis-note critic-gist');
-  const each = Math.max(12, Math.floor(80 / Math.min(edits.length, 3)));
-  edits.slice(0, 3).forEach(({ kind, text }, i) => {
-    const verb = kind === 'added' ? 'added' : 'removed';
-    line.append(i ? ` · ${verb} ` : `${verb[0].toUpperCase()}${verb.slice(1)} `);
-    if (!text.trim()) { line.append('whitespace'); return; }
-    const words = document.createElement(kind === 'added' ? 'ins' : 'del');
-    words.textContent = excerpt(text, each);
-    line.append(words);
+  const shown = items.slice(0, 3);
+  const each = Math.max(12, Math.floor(96 / shown.length));
+  // Unless the separators are all there is.
+  const words = (tag, text, max) => {
+    const el = document.createElement(tag);
+    el.textContent = excerpt(gistCore(text) || text, max);
+    return el;
+  };
+  shown.forEach((item, i) => {
+    // The verb once for a run of the same kind: "Added ginger · curled".
+    if (!i) line.append(`${item.verb[0].toUpperCase()}${item.verb.slice(1)} `);
+    else line.append(item.verb === shown[i - 1].verb ? ' · ' : ` · ${item.verb} `);
+    // Moved words are in both texts: neither struck through nor underlined.
+    if (item.verb === 'moved') line.append(span('critic-moved', excerpt(item.text, each)));
+    else if (!item.removed && !item.added) line.append('spacing');
+    else if (!item.added) line.append(words('del', item.removed, each));
+    else if (!item.removed) line.append(words('ins', item.added, each));
+    else {
+      const half = Math.max(12, Math.floor(each / 2));
+      line.append(words('del', item.removed, half), ' → ', words('ins', item.added, half));
+    }
   });
-  if (edits.length > 3) line.append(' · …');
+  if (items.length > 3) line.append(' · …');
   return line;
+}
+
+// The diff's runs as changes a reader would name. A real rewrite changes
+// many words, and run by run the gist spent its three places on single ones:
+// a word replaced was a removal and an addition, and two edits a space or a
+// comma kept apart were two. So the runs are joined across what keeps them
+// apart when that is only spaces and marks - kept on both sides of the
+// change, since both texts have it - and each change holds what it took out
+// and what it put in.
+const GIST_GLUE = /^[\s\p{P}]*$/u;
+// A change's words without the separators at their ends: "film grain" for
+// ", film grain", "masterpiece" whichever side of it the comma moved with.
+const gistCore = (text) => text.replace(/^[\s,;，、；]+|[\s,;，、；]+$/gu, '');
+
+function changeHunks(changes) {
+  const hunks = [];
+  let hunk = null, glue = '';
+  for (const { kind, text } of changes) {
+    if (kind === 'same') {
+      // Joins only what comes next; at the end it joins nothing.
+      if (hunk && GIST_GLUE.test(text)) glue = text;
+      else { hunk = null; glue = ''; }
+      continue;
+    }
+    if (!hunk) hunks.push(hunk = { removed: '', added: '' });
+    hunk.removed += glue;
+    hunk.added += glue;
+    glue = '';
+    hunk[kind] += text;
+  }
+  return hunks.map(({ removed, added }) => ({ removed: removed.trim(), added: added.trim() }));
+}
+
+// Each change with its verb, words taken out in one place and put back in
+// another being one move: on a tag checkpoint a rewrite mostly moves tags,
+// and "removed masterpiece, · added , masterpiece" read as two edits.
+function gistItems(hunks) {
+  const items = [];
+  const paired = new Set();
+  hunks.forEach((hunk, i) => {
+    if (paired.has(i)) return;
+    const [from, to] = hunk.removed ? ['removed', 'added'] : ['added', 'removed'];
+    const words = gistCore(hunk[from]);
+    const other = words && !hunk[to]
+      ? hunks.findIndex((h, j) => j > i && !paired.has(j) && !h[from] && gistCore(h[to]) === words) : -1;
+    if (other >= 0) {
+      paired.add(other);
+      items.push({ verb: 'moved', text: words });
+      return;
+    }
+    // Spaces alone, both sides empty once trimmed, are a change of spacing.
+    const verb = hunk.removed && !hunk.added ? 'removed' : hunk.added && !hunk.removed ? 'added' : 'changed';
+    items.push({ ...hunk, verb });
+  });
+  return items;
 }
 
 function variantArea(text, label, version) {
