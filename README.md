@@ -483,6 +483,8 @@ uv run python tools/fake_server.py --port 7862 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-flux.json      # the True CFG box, on a FLUX-shaped server
 uv run python tools/fake_server.py --port 7863 --step 0.3
 node tools/browser.mjs tools/smoke-preview.json   # the live preview, on a server slow enough to show one
+uv run python tools/fake_server.py --port 7882 --step 0.3
+node tools/browser.mjs tools/smoke-jobs.json      # the queue, Pause, a grid's skipped cells, the load and the server gone
 uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
 node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
 uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-xl-4.0
@@ -510,7 +512,11 @@ be told apart on a sheet, behaves as the claimed checkpoint's profile predicts
 (the negative prompt's threshold, whether real CFG and Mu apply, and whether
 prompt expansion is available), and
 `--step 0.3` slows each denoising step enough to watch Pause, the queue and
-the preview work. Its prompt check counts with stand-in tokenizers (a token
+the preview work. A cell whose prompt holds `[fail]` raises, as an
+out-of-memory cell would, and `POST /api/fake/load` (`{"seconds": 4}`, or
+`{"fail": "gated"}`) makes the loads after it slow or gated - what
+`smoke-jobs.json` drives the skipped cells, the load's wait and a failed
+load with. Its prompt check counts with stand-in tokenizers (a token
 per word or mark, at each encoder's real budget) and its critic is a stand-in
 that answers from the prompt after `--critic-delay` seconds (0.4 by default),
 and refuses at once a prompt too long for its window - on the token
@@ -714,9 +720,12 @@ CLI's `--runs`; the panel calls it Repeat because a *run* is a submission -
 what the gallery's Runs picker lists, `run:` searches for and the last-run
 banner reports - and one Repeat-3 Generate is one run of three batches.
 
-**Cancel** appears next to the progress bar while a job is running. It stops at
-the end of the current step — within a second or two — and keeps every image the
-run had already finished.
+**Cancel** appears over the progress bars while a job is running, beside
+Pause. It stops at the end of the current step — within a second or two — and
+keeps every image the run had already finished. The line it sits on names the
+job it stops ("Now: a fox in the snow · 1024×1024 · 3 images", or "Now: grid ·
+a fox, {mood} · …" for a grid), since with a queue the prompt box may hold
+another job's text; hover it for the whole line where the panel cuts it.
 
 **Live preview**: while a cell denoises, a small picture of it appears in the
 viewer from a few steps in - a linear read of the latents the step callback
@@ -728,16 +737,36 @@ is going wrong costs five seconds rather than the render.
 
 **Pause** holds the run at the end of the current cell and hands the GPU back:
 between cells the weights are off the card under the default offload, and what
-it still holds is the allocator's cache, which is returned. The button reads
-*Resume* once the worker has actually stopped — until then a denoise may still
-be running — and resuming costs nothing but the next cell's own transfers. The
-weights stay loaded, so Unload is still refused while a job is paused.
+it still holds is the allocator's cache, which is returned. The button says
+*Pausing…* at once - pressed again, it withdraws the request - and *Resume*
+once the worker has actually stopped — until then a denoise may still be
+running — and resuming costs nothing but the next cell's own transfers. A job
+of one image (or one batch) has no boundary to stop at, so its Pause is held
+and says so. The weights stay loaded, so Unload is still refused while a job is
+paused.
 
 **Queueing**: Generate and Run grid stay live while a job runs. A second press
-queues the job behind the current one on the server; a line under the bars
-counts what is waiting, with a button to cancel all of it, and the page moves
-on to the next job when the watched one ends. A reload attaches to whichever
-job holds the GPU, then to the oldest one waiting.
+queues the job behind the current one on the server; under the bars a row per
+waiting job names it - its prompt, or the image a refine pass is of; "Next:"
+where only one waits - with an × that cancels that one (and *Cancel queued*
+for all, where there are several),
+and the page moves on to the next job when the watched one ends. A reload
+attaches to whichever job holds the GPU, then to the oldest one waiting.
+
+**Away from the panel**: the tab's title follows the job ("54% · image 2/4",
+"⏸ Paused", "✓ Finished 4 images" until you look at the tab again), and the
+top bar carries the same counters in one line with a thin progress line along
+its foot. A finished job's images join the head of the gallery without
+moving it, so browsing old images during a wait keeps your place; when the
+first image lands in the viewer while it is scrolled out of sight, *New image ↑*
+beside the progress goes up to it - the page never scrolls on its own.
+
+**When the server stops answering** the top bar's dot turns red and reads
+"server not answering — retrying", Generate, Run grid and Unload are held with
+that reason, and a job being watched says how many of its images were saved rather
+than promising it carries on. Once the server answers again the messages go;
+if it was restarted, the page says when, that the model is not loaded, and
+that the job that was running ended with it (a grid's Resume finishes it).
 
 ## Grid search
 
@@ -871,12 +900,23 @@ the record.
 
 While a job runs, the line under the progress bars says how long it has been
 going and roughly how long is left, from the job's own pace so far - which is
-what shows a run that has slowed down. When it finishes, the same line says
-how many images it made and in how long - and how many of them were distinct
-pictures, when that is fewer. A job waiting for the weights says
-so, rather than claiming to be behind another job; **Load** in the top bar
-starts (or, after a failed load, retries) the download without queueing an
-image to do it.
+what shows a run that has slowed down. When it finishes, a line under the
+progress says how many images it made and in how long - and how many of them
+were distinct pictures, when that is fewer - with what to do next: a plain
+job's seed and *Use seed*, which puts it in the Seed box and nothing else;
+*Show sheet* for a grid (never opened for you); and, where cells were skipped,
+*Retry the N skipped cells*, which sends the grid as it was submitted again
+with Resume and its base seed, whatever the panel holds now. That line stays
+until the next job finishes - "Previous job:" while a queued one runs - so a
+grid's Retry is still there in the morning with jobs queued behind it.
+Skipped cells are counted on the running line as they happen and named, with
+their seeds, at the end. A job waiting for
+the weights says so, with the time it has waited and the checkpoint's name in
+the top bar, rather than claiming to be behind another job; **Load** in the top
+bar starts the download without queueing an image to do it. A failed load
+fills the empty viewer with what went wrong and what to do - for a gated repo,
+the model page to accept its terms on and `uv run hf auth login` - and **Retry
+load**, which is also the top bar's button then.
 
 **Resume** skips the cells the gallery already holds: tick it and re-submit the
 same grid, and a night that died at cell 300 of 480 costs the cell it died on,

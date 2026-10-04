@@ -983,6 +983,15 @@ class ModelStatus(BaseModel):
     quantization: str
     offload: str
     detail: str | None = None
+    # Beside a failed load's detail: its kind where it was one of the Hub's
+    # ("gated", "not_found", "offline") and the model page that fixes it, for
+    # the viewer's card to link - None for every other failure.
+    detail_kind: str | None = None
+    detail_url: str | None = None
+    # When the server process started (Unix seconds, its clock). A page that
+    # sees it change knows the server restarted, and that every job it was
+    # following ended with it.
+    started_at: float | None = None
     # The most images one grid may queue, which is also the page size the
     # contact sheet asks for: a matrix with a page boundary through it is a
     # puzzle, so the client reads the ceiling from here rather than assuming it.

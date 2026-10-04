@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import threading
+import time
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -31,7 +32,8 @@ from . import grid, loras, prompt_encoding, prompt_rules, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .config import settings  # noqa: E402
 from .critic import CriticError, CriticUnavailable, prompt_critic  # noqa: E402
-from .jobs import BackendBusy, JobManager, short_error  # noqa: E402
+from .jobs import BackendBusy, JobManager, LoadFailed, short_error  # noqa: E402
+from .launch import CHECKPOINTS  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .prompt_sources import sources_for  # noqa: E402
 from .search import strict_scope  # noqa: E402
@@ -81,6 +83,80 @@ backend = get_backend("diffusers")
 _load_state: dict[str, str | None] = {"state": "unloaded", "detail": None}
 _load_lock = asyncio.Lock()
 
+# When this process started. A page that sees it change knows the server it
+# was talking to went away - and every job with it - which nothing else in a
+# status that reads "not loaded" again says.
+STARTED_AT = time.time()
+
+# huggingface_hub's errors a load can end in, by class name: the user can do
+# something about each, and their own text is a status line, a request id and
+# a URL to a JSON file rather than to the page with the Agree button.
+_HUB_FAILURES = (
+    "GatedRepoError", "RepositoryNotFoundError", "OfflineModeIsEnabled", "LocalEntryNotFoundError",
+)
+
+
+def _hub_failure(exc: BaseException) -> str | None:
+    """The first of `_HUB_FAILURES` this exception is, or was raised from or
+    during - a loader re-raising the Hub's error as an OSError of its own still
+    has the gate behind it. By class name over each one's MRO, as
+    prompt_encoding._reason reads a tokenizer's: GatedRepoError is a
+    RepositoryNotFoundError, and the narrower name wins."""
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        for kind in type(exc).__mro__:
+            if kind.__name__ in _HUB_FAILURES:
+                return kind.__name__
+        exc = exc.__cause__ or exc.__context__
+    return None
+
+
+def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
+    """What the status says about a failed load: the sentence, with the steps
+    that fix it; its kind ("gated", "not_found", "offline"); and the model page
+    where the fix is, for the page to link. The gate is the catalogue's, so the
+    sentence says whether it is a click or the authors' approval. Anything that
+    is not the Hub's is the exception as `short_error` puts it, and no kind."""
+    repo = settings.model_id
+    entry = next((checkpoint for checkpoint in CHECKPOINTS if checkpoint.repo == repo), None)
+    name = entry.name if entry else repo
+    page = f"https://huggingface.co/{repo}"
+    login = "run `uv run hf auth login` once with a read token"
+    kind = _hub_failure(exc)
+    if kind == "GatedRepoError":
+        gate = entry.gate if entry else ""
+        if gate.startswith("click-through"):
+            how = "accept its terms on the model page (a click-through)"
+        elif gate.startswith("manual"):
+            how = "ask for access on the model page and wait for its authors to approve it"
+        else:
+            how = "accept its terms, or ask for access, on the model page"
+        return f"{name} is gated on Hugging Face: {how}, {login}, then press Retry load.", "gated", page
+    if kind == "RepositoryNotFoundError":
+        return (
+            f"{repo} is not on Hugging Face, or is private: check the checkpoint id "
+            "(LOCAL_DIFFUSION_MODEL_ID, or the start-up menu); for a private repo, "
+            f"{login} that can read it, then press Retry load.",
+            "not_found",
+            page,
+        )
+    if kind == "OfflineModeIsEnabled":
+        return (
+            f"{name} is not all downloaded yet, and HF_HUB_OFFLINE is set: unset it for one "
+            "load, then press Retry load.",
+            "offline",
+            None,
+        )
+    if kind == "LocalEntryNotFoundError":
+        return (
+            f"{name} is not all downloaded yet, and Hugging Face cannot be reached: connect "
+            "to the network, then press Retry load.",
+            "offline",
+            None,
+        )
+    return short_error(exc), None, None
+
 
 async def ensure_loaded() -> None:
     """Load the weights once. Idempotent, and raises if the load failed.
@@ -102,11 +178,13 @@ async def ensure_loaded() -> None:
             await _detached(backend.load)
         except Exception as exc:
             # A gated-repo 403 is user-actionable, not a crash; keep the log to
-            # one line and put the traceback behind DEBUG.
+            # one line and put the traceback behind DEBUG. The log keeps the
+            # library's words; the status and the job say what to do.
             log.error("model load failed: %s", short_error(exc))
             log.debug("load traceback", exc_info=True)
-            _load_state.update(state="error", detail=short_error(exc))
-            raise
+            detail, kind, url = _load_failure(exc)
+            _load_state.update(state="error", detail=detail, detail_kind=kind, detail_url=url)
+            raise LoadFailed(detail) from exc
         _load_state.update(state="ready", detail=None)
         log.info("model ready")
 
@@ -275,6 +353,11 @@ async def status() -> ModelStatus:
         quantization=info["quantization"],
         offload=info["offload"],
         detail=_load_state["detail"],
+        # Only beside the detail they describe: every other update of the
+        # state clears the detail and leaves these behind.
+        detail_kind=_load_state.get("detail_kind") if _load_state["detail"] else None,
+        detail_url=_load_state.get("detail_url") if _load_state["detail"] else None,
+        started_at=STARTED_AT,
         device_name=info.get("device_name"),
         vram_total_mb=info.get("vram_total_mb"),
         vram_used_mb=info.get("vram_used_mb"),
@@ -553,6 +636,9 @@ async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
         )
     try:
         await ensure_loaded()
+    except LoadFailed as exc:
+        # Logged where it failed; the status's sentence, steps and all.
+        raise HTTPException(status_code=500, detail=exc.detail) from exc
     except Exception as exc:
         log.error("model load for prompt expansion failed: %s", short_error(exc))
         log.debug("prompt expansion load traceback", exc_info=True)
@@ -1096,7 +1182,9 @@ async def run_grid(request: GridRequest) -> JobAccepted:
         # Every cell is already in the gallery. Queueing an empty job would
         # report "done" having rendered nothing, which reads like a failure.
         raise HTTPException(status_code=409, detail="every cell is already rendered")
-    job = await jobs.submit_cells(cells, run_id=run_id, budget_minutes=request.budget_minutes)
+    job = await jobs.submit_cells(
+        cells, run_id=run_id, budget_minutes=request.budget_minutes, prompt_template=request.prompt
+    )
     return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 

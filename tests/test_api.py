@@ -5,6 +5,9 @@ have their own test_api_* files on the same fixtures (tests/conftest.py,
 tests/fakes.py, tests/api_helpers.py)."""
 from __future__ import annotations
 
+import dataclasses
+import time
+
 import pytest
 
 from backend import main
@@ -84,6 +87,82 @@ def test_status_says_whether_mu_applies_to_the_scheduler(client, fake, monkeypat
     described = dict(fake.describe(), mu_supported=not guess)
     monkeypatch.setattr(fake, "describe", lambda: described)
     assert client.get("/api/status").json()["defaults"]["mu_supported"] is not guess
+
+
+def test_status_carries_when_the_server_started(client):
+    # Set once, at import: a page that sees it change knows the server it was
+    # following restarted, and every job with it.
+    first = client.get("/api/status").json()["started_at"]
+    assert first == main.STARTED_AT
+    assert client.get("/api/status").json()["started_at"] == first
+
+
+def _gated():
+    from huggingface_hub.errors import GatedRepoError
+
+    # As huggingface_hub raises it, without the HTTP response its init wants.
+    error = GatedRepoError.__new__(GatedRepoError)
+    error.args = ("Cannot access gated repo for url https://huggingface.co/x/resolve/main/model_index.json.",)
+    return error
+
+
+def _wait_for_state(client, state):
+    for _ in range(200):
+        body = client.get("/api/status").json()
+        if body["state"] == state:
+            return body
+        time.sleep(0.01)
+    raise AssertionError(f"status never reached {state}")
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_a_gated_load_says_what_to_do(client, fake, monkeypatch, wrapped):
+    # The default checkpoints are gated, so this is the likeliest first
+    # failure: the library's words named a JSON file's URL and no steps. Said
+    # with the steps and the gate's kind from the catalogue, the model page
+    # beside it - and found through a loader's OSError raised from it too.
+    def load():
+        if not wrapped:
+            raise _gated()
+        try:
+            raise _gated()
+        except Exception as exc:
+            raise OSError("black-forest-labs is not a valid model identifier") from exc
+
+    fake.loaded = False
+    monkeypatch.setattr(fake, "load", load)
+    # The catalogue's entry for the id the status names - a click-through gate.
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id="black-forest-labs/FLUX.1-Krea-dev"))
+    client.post("/api/model/load")
+    body = _wait_for_state(client, "error")
+    assert body["detail"] == (
+        "FLUX.1 Krea [dev] is gated on Hugging Face: accept its terms on the model page "
+        "(a click-through), run `uv run hf auth login` once with a read token, then press Retry load."
+    )
+    assert body["detail_kind"] == "gated"
+    assert body["detail_url"] == "https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev"
+    # A job that ends at the load says the same sentence, not the library's.
+    job_id = client.post("/api/generate", json={"prompt": "x", "width": 256, "height": 256}).json()["job_id"]
+    done = stream_job(client, job_id)[-1]
+    assert (done["status"], done["error"], done["started_at"]) == ("error", body["detail"], None)
+    # And a load that then succeeds clears the kind and the page with the detail.
+    monkeypatch.setattr(fake, "load", lambda: setattr(fake, "loaded", True))
+    client.post("/api/model/load")
+    ready = _wait_for_state(client, "ready")
+    assert (ready["detail"], ready["detail_kind"], ready["detail_url"]) == (None, None, None)
+
+
+def test_any_other_load_failure_keeps_its_own_words(client, fake, monkeypatch):
+    def load():
+        raise RuntimeError("CUDA out of memory")
+
+    fake.loaded = False
+    monkeypatch.setattr(fake, "load", load)
+    client.post("/api/model/load")
+    body = _wait_for_state(client, "error")
+    assert (body["detail"], body["detail_kind"], body["detail_url"]) == (
+        "RuntimeError: CUDA out of memory", None, None,
+    )
 
 
 def test_status_carries_the_prompting_guide(client):

@@ -211,3 +211,58 @@ def test_three_failures_in_a_row_end_the_job(client, fake):
     _, events = run_grid(client, steps_axis="6,8,10,12", seed=1)
     assert events[-1]["status"] == "error"
     assert len(fake.requests) == 3
+    # Said as the rule that ended it, where, and what was kept - the last
+    # exception alone read as one bad cell - with the exception still there.
+    done = events[-1]
+    assert done["stopped_by"] == "failures"
+    assert done["error"] == (
+        "Stopped at cell 3 of 4 after 3 cells failed; 0 images kept. Last: RuntimeError: cell 3 blew up"
+    )
+
+
+def test_a_skipped_cell_is_named_by_its_label_and_seed(client, fake):
+    # The page names the hole in the sheet rather than counting it: which
+    # cell, which seed, and its own error. With the records, not on every
+    # per-cell event, and not in a listing.
+    fake.fail_on = {2}
+    job_id, events = run_grid(client, steps_axis="6,8,10", seed=5)
+    done = events[-1]
+    assert done["stopped_by"] is None
+    [skipped] = done["failed_cells"]
+    assert skipped["label"].startswith("8 steps, ")
+    assert (skipped["seed"], skipped["error"]) == (5, "RuntimeError: cell 2 blew up")
+    # The stream's opening snapshot carries them with the records; the
+    # per-cell events after it do not.
+    assert all("failed_cells" not in e for e in events[1:] if e["type"] == "status")
+    listed = client.get("/api/jobs?include_finished=true").json()
+    assert [j for j in listed if j["job_id"] == job_id][0].get("failed_cells") is None
+
+
+def test_a_snapshot_says_what_the_job_is(client, fake):
+    # A page that did not submit the job - a reload, the queue note - names
+    # it from the snapshot: the prompt, the size, how many images it makes,
+    # and whether it is a grid's cells or one request's repeats.
+    fake.step_seconds = 0.02
+    plain = client.post(
+        "/api/generate",
+        json={"prompt": "a whale " * 30, "width": 512, "height": 384, "num_images": 2, "runs": 3, "steps": 8},
+    ).json()["job_id"]
+    grid = client.post(
+        "/api/grid", json={"prompt": "a fox", "width": 256, "height": 256, "steps_axis": "4,6", "seed": 1},
+    ).json()["job_id"]
+    # A grid with variables is named by its own prompt, the variables
+    # unfilled: the first cell's prompt named it after that cell was done.
+    varied = client.post(
+        "/api/grid",
+        json={"prompt": "a fox, {mood}", "width": 256, "height": 256, "prompt_axis": "mood = calm | happy", "seed": 1},
+    ).json()["job_id"]
+    listed = {j["job_id"]: j for j in client.get("/api/jobs").json()}
+    first, second, third = listed[plain], listed[grid], listed[varied]
+    assert first["prompt"] == ("a whale " * 30)[:120] and len(first["prompt"]) == 120
+    assert (first["width"], first["height"], first["planned_images"], first["grid"]) == (512, 384, 6, False)
+    assert first["prompt_template"] is None
+    assert (second["prompt"], second["planned_images"], second["grid"], second["refine"]) == ("a fox", 2, True, None)
+    assert (third["prompt"], third["prompt_template"]) == ("a fox, calm", "a fox, {mood}")
+    client.post(f"/api/jobs/{plain}/cancel")
+    stream_job(client, grid)
+    stream_job(client, varied)

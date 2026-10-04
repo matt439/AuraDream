@@ -8,7 +8,12 @@
 
 No GPU, no weights: the backend is the tests' FakeBackend with a drawing on
 top, so every "image" is a gradient stamped with its seed and steps and the
-cells of a grid can be told apart on a sheet. The prompt check reads the
+cells of a grid can be told apart on a sheet. A cell whose prompt holds
+`[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
+and the failure rule can be driven from the page; and `POST /api/fake/load`
+(the fake's alone) makes the loads after it slow (`seconds`) or gated
+(`fail=gated`, raised as huggingface_hub raises it), for the load's wait and
+a failed load's card. The prompt check reads the
 tests' word tokenizers - a token per word or mark, at each encoder's real
 budget - and the critic is the tests' FakeCritic, whose answer is built from
 the prompt. The gallery lives under the system temp directory (or --data),
@@ -87,7 +92,29 @@ def main() -> int:
     class DrawingBackend(FakeBackend):
         """A fake whose images carry their seed and steps as pixels."""
 
+        load_seconds = 0.0
+        load_failure: str | None = None
+
+        def load(self) -> None:
+            # On the load's own daemon thread (main._detached), as the real one.
+            import time
+
+            time.sleep(self.load_seconds)
+            if self.load_failure == "gated":
+                from huggingface_hub.errors import GatedRepoError
+
+                gated = GatedRepoError.__new__(GatedRepoError)
+                gated.args = (
+                    f"Cannot access gated repo for url https://huggingface.co/{args.model}"
+                    "/resolve/main/model_index.json. Access to model is restricted. You must "
+                    "have access to it and be authenticated to access it. Please log in.",
+                )
+                raise gated
+            super().load()
+
         def generate(self, request, seed, on_progress=None, should_cancel=None, on_preview=None):
+            if "[fail]" in request.prompt:
+                raise RuntimeError("a [fail] cell, as the prompt asked")
             # Drawn first, so the steps can hand out ever-sharper previews of
             # it the way the real backend hands out latent previews.
             out = self._draw(request, seed)
@@ -278,6 +305,16 @@ def main() -> int:
             for seed in (1, 2)
         ]
         storage.set_favorite(planted[0].id, True)
+
+    # The fake's own knob for the load, which no flag can reach once the
+    # smokes' runner has started the server: how long the loads after it take,
+    # and whether they fail as a gated repo does.
+    from fastapi import Body
+
+    @app_main.app.post("/api/fake/load", include_in_schema=False)
+    async def fake_load(seconds: float = Body(0.0), fail: str | None = Body(None)) -> dict:
+        fake.load_seconds, fake.load_failure = seconds, fail
+        return {"seconds": seconds, "fail": fail}
 
     import uvicorn
 
