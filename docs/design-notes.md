@@ -311,6 +311,20 @@ in the panel needs no reference-aware term. The conditioning itself is
 unmistakable and reproducible: the same fox, cabin and treeline as the
 referenced image, in the pose the prompt asked for, and the same hash twice.
 
+**A deleted reference leaves the chips.** An id the gallery no longer holds
+used to stay a chip - with the browser's cached thumbnail in the session that
+deleted it, a broken image after a reload - until Generate was refused with
+"no gallery image with id 4", an id the chips never showed. `forgetImages`,
+the one place the page drops deleted ids, drops them from `referenceIds`
+too (through `setReferences`, the one writer) and its caller says so in the
+gallery's line; the per-image confirm says "It is reference image N in the
+panel" before the delete. Reuse restores a record's references
+synchronously and then asks `GET /api/images/{id}` for each, dropping only
+those answered "unknown image" (see "Per-control defaults and Reuse"). The
+server still refuses a missing reference at submit (`storage.reference_paths`).
+And a starred image keeps its references through Delete unstarred: they are
+part of what made it (see "Delete unstarred").
+
 ## LoRA adapters are the environment's and are hot-swapped
 
 **A LoRA is the environment's capability, not the checkpoint's.** All three
@@ -713,15 +727,44 @@ profile; `+''` is 0, and 0 is a valid CFG that generates unguided. Reuse
 does not carry a record's variables: it fills an editable panel, and what
 Generate then makes is a new image from `/api/generate`, which records none.
 A comparison version's name rides the two reproductions, Re-render and the
-CLI's `--from-image`, not Reuse. Reuse does restore a refine pass - the
-source by id and the strength it ran at, as it restores references and an
-adapter - and clears the panel's source for a record that was a plain
-render, since what Reuse promises is what ran. The card's and the lightbox's
-**Refine** share its field-filling (`fillPanel`) and differ in two things:
-the size becomes the image's own times 1.5, and for a record from another
-checkpoint the steps, CFG and mu stay this checkpoint's - a pass starts from
-pixels, so any image can be refined, but those three numbers are not
-portable.
+CLI's `--from-image`, not Reuse. A refine pass is the Refine dialog's, not
+the panel's (see "The refine pass"): Reuse on a refined record asks
+`GET /api/images/{id}` for its source and opens the dialog on it with the
+pass as it ran, and only when the source has gone does it fill the panel -
+its prompt and sampling, at the panel's own size, with a note saying the
+pass cannot be made again. The dialog fills its own boxes; nothing of the
+panel's `fillPanel` is shared with it.
+
+**Reuse can be taken back.** It replaces the prompt, the negative, the seed,
+the size, steps/CFG/mu and the references and adapter in one click, and it
+used to do so over a half-written prompt with no word: the boxes were
+assigned `.value`, which empties a textarea's undo history (and in Chromium
+a later Ctrl+Z could splice the old text into the new, which `persistPanel`
+then remembered). `fillPanel` now writes both boxes through `replaceBoxText`,
+as Use and Apply do, so Ctrl+Z walks back through them, and still
+synchronously - the references are in place when Reuse returns. Before it,
+`reuseIntoPanel` keeps `panelState()` - the object the panel persists - with
+the raw steps/CFG/mu/true-CFG values and the `owned` flags beside it, and its
+note ("Settings from #N loaded - your prompt was replaced.", the last clause
+only when there was other text) ends with an **Undo** that puts all of that
+back, the boxes again through `replaceBoxText`. The note stays in the
+panel's line, where Reuse sends the user; the checkpoint-mismatch sentence
+is kept and the Undo comes after it. The note also says what `fillPanel`
+could not carry, since a dropped reference renders a plain text-to-image
+that looks like a success: references on a checkpoint that takes none,
+and - found by asking, after the synchronous fill - an adapter the LoRA box
+does not offer (the reason is `/api/loras`' own: a misfit's `detail`, an
+installation that cannot load adapters, or a file no longer in the
+directory) and a restored reference the server answers "unknown image" for,
+which is then dropped. Only that answer drops one: a passing failure must
+not take a live reference out. Reuse scrolls only when the prompt is out of
+sight (`block: 'nearest'`, honouring reduced motion) - a one-column page
+scrolled down to the gallery. Beside the gallery the panel holds the prompt
+in view wherever the page is, writing the boxes focuses it (a focused panel
+control is brought into view by moving the panel), and the scroll to the
+top that used to follow threw away the user's place in the gallery for
+nothing. The lightbox's Reuse closes the lightbox first: a modal dialog
+keeps focus to itself, and `replaceBoxText` needs the prompt focused.
 
 ## One worker thread
 
@@ -1354,8 +1397,9 @@ was being skipped, leaving galleries of hundreds. The star already existed
 as the gesture made while looking (`F` in the lightbox), it is
 non-destructive, and it scales with what is kept rather than what was made;
 so the page offers `GET`/`DELETE /api/gallery/unstarred?search=` - the
-search box read through `strict_scope`, plus `favorite = 0`, plus the
-gallery's checkpoint scope unless `all_models=true` - which is
+search box read through `strict_scope`, plus `favorite = 0` less what a
+starred image was made from, plus the gallery's checkpoint scope unless
+`all_models=true` - which is
 `clear --where ... --keep-favorites` over HTTP, and shares `delete_matching`
 with it. Rows and their files only: no orphan sweep and no vacuum, for the
 reason the CLI's `--where` path has none.
@@ -1387,13 +1431,76 @@ an empty scope and `clear.py` refuses a blank `--where` itself - the
 not a storage invariant; the invariant that stayed is that a delete with
 *no* predicate at all still raises.
 
+**A star keeps what its image was made from.** Refine a source, star the
+pass, sweep the rest: the sweep used to delete the source's PNG, the kept
+pass then read "refine of 63 @ 0.1" for good and could never be made again,
+and nothing before the click said so. The source is part of the pass's
+reproduction set, and a klein render's references are part of its, so
+`keep_favorites` keeps them with the stars: one predicate in storage
+(`_UNKEPT`: `favorite = 0` and not the `refine` or a `json_each(reference)`
+value of any starred row, one level deep, neither arm able to yield the NULL
+that would turn `NOT IN` into NULL), shared by `delete_matching`,
+`clear_history` and the counts. The count gate moved with it, or every
+sweep would have answered 409: `matching_preview` returns `sources_kept`
+(and the first few as `sources`), the route's `unstarred` is `records -
+favorites - sources_kept`, and the CLI's two "Would delete" lines and
+`summarise()` take the same field. Sources stay ids, and the dialog names
+them: "keeping 4 starred and #63, which a starred image was made from".
+A per-image delete of a source is still the user's to make, but its confirm
+first asks `refine:<id>` across every checkpoint and says which pass could
+not be made again; a record whose source has gone carries `refine_missing`
+(looked up by `list_images` and `GET /api/images/{id}`, not stored), and the
+lightbox's line reads "refine of 63 (deleted) @ 0.1".
+
+**The dialog describes the scope, not three prompts.** The sample prompts
+are the first three alphabetically, and say nothing of how many runs are
+about to go or from when, so `matching_preview` also counts the runs the
+delete reaches into and the first and last creation times among what it
+takes ("From 23 runs, made Oct 4, 04:32 PM to Oct 4, 04:40 PM"). With All
+models ticked the scope names every checkpoint it reaches from the server's
+own `models` (six at most, "6 or more" at the cap), as the narrow scope
+names the one. While this page is watching a job, the dialog says a landed
+image refuses the sweep; and when one does - the 409 with both numbers -
+the page reloads the gallery and the Runs picker, so the count beside the
+message is the server's new one, and says to press again or let the job
+finish.
+
+**Everything it says, it says by the gallery.** The outcomes - "Deleted 12
+images, keeping 3 starred.", the wrong number, the free-text refusal, the
+409 - go to `#gallery-error` under the gallery's head (`showError`'s `slot`),
+as do a failed gallery page, Re-render's submit errors and a card's
+refusals. At QHD they used to land in the panel's line, 2,400 px from the
+button; a sighted user saw a click do nothing. One slot per message, since
+both are role=alert; the lightbox mirror is the same. `resetGallery` clears
+the slot, so the sweep writes its outcome after the reset it starts.
+
 **The page forgets by id.** The `DELETE` returns the ids it removed and
-`forgetImages` - factored out of the card's delete, which now goes through
-it too - drops them from every list and element on the page in one pass,
-then `resetGallery` reloads the (now mostly empty) page from the top for
-the server's count. The smoke script stubs `window.prompt` to drive the
-dialog: a wrong number first, then the right one, then the free-text
-refusal, checking that nothing went until the right number was typed.
+`forgetImages` - shared by the card's delete, the lightbox's, the sweep and
+a viewer tile whose image would not load - drops them from every list and
+element on the page in one pass, the panel's references included, then the
+sweep's `resetGallery` reloads the (now mostly empty) page from the top for
+the server's count and `loadRuns` the picker's. A single delete keeps its
+place: the card becomes a tombstone ("Deleted · seed N", dashed, no
+pointer events, no `data-id`) and a viewer tile one of the tile's frozen
+size - removed, the next card slid under the pointer that had pressed ⌦,
+its own ⌦ lit, and an emptied viewer shrank the page by 537 px - and focus
+on what went moves to the next image in the strip, else the one before.
+The emptied viewer says what it is for again. The per-image confirm names
+the image by id with the lightbox's settings line (`settingsLine`), since
+a sweep's cells share a prompt and a seed. In the lightbox a delete says
+which image went in its line until the next key or press, and a delete of
+the last image loaded, with more on the server, pages the next one in
+(`pageInBehind`, "Loading next…" meanwhile) rather than stepping back onto
+an image already judged. A delete answered "unknown image" - another tab
+took it, or a reattached job had replayed it - forgets it with a note. The
+server does its part: the delete routes call `jobs.forget_images`, and a
+job's snapshot replays only its live records, with `deleted_count` beside
+an unchanged `image_count` (what the night produced), so a reload during
+a run no longer brings a deleted image back as a broken tile. The smokes
+stub `window.prompt` to drive the dialog: a wrong number first, then the
+right one, then the free-text refusal, checking that nothing went until
+the right number was typed; `smoke-delete.json` takes the rest to the end,
+a starred pass's source and a landed image's 409 included.
 
 ## The morning after: runs and finished jobs
 

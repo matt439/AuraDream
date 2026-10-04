@@ -121,16 +121,19 @@ function setStep(show, fraction = 0, text = '') {
 // its stream reports done - the prompt check's comparison and a refine
 // strength sweep, whose answer is the sheet rather than the strip. `panel`
 // says the payload is the panel's own, whose Seed box a grid writes back to.
-async function startJob(path, payload, { sheet = false, panel = true } = {}) {
+// `slot` is where a refusal is said: Re-render's, from the gallery's head,
+// in the gallery's line.
+async function startJob(path, payload, { sheet = false, panel = true, slot = els.error } = {}) {
   if (submitting) return;
-  if (expandingPrompt) { showError('Wait for prompt expansion to finish.'); return; }
+  if (expandingPrompt) { showError('Wait for prompt expansion to finish.', false, { slot }); return; }
   // The critic's server has the card until it answers; a job would queue
   // behind it on the server anyway, but a click that seems to do nothing for
   // fifteen seconds reads as a lost one.
-  if (critiquing) { showError('Wait for the critic to finish.'); return; }
+  if (critiquing) { showError('Wait for the critic to finish.', false, { slot }); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
   showError('');
+  if (slot !== els.error) showError('', false, { slot });
   // Already watching a job: this one queues behind it on the server, and the
   // page picks it up when the watched one ends. The panel stays as it is.
   const queueing = busy;
@@ -168,7 +171,7 @@ async function startJob(path, payload, { sheet = false, panel = true } = {}) {
     await streamJob(job_id);
   } catch (err) {
     setSubmitting(false);
-    showError(err.message);
+    showError(err.message, false, { slot });
     if (!queueing) setBusy(false);
   }
 }
@@ -228,7 +231,7 @@ function rerenderSelection() {
     all_models: els.allModels.checked,
     width: +els.width.value,
     height: +els.height.value,
-  });
+  }, { slot: els.galleryError });
 }
 
 function syncRerender() {
@@ -451,7 +454,7 @@ function streamJob(jobId) {
         // idle page. The summary goes in the cell line, which setBusy has
         // just cleared and which is outside the element it hides.
         if (data.status === 'done' && data.started_at && data.finished_at) {
-          const made = data.images ? data.images.length : data.image_count;
+          const made = data.image_count ?? data.images.length;
           // Fewer distinct pictures than images is an axis that changed
           // nothing, said in one number rather than found on the sheet.
           const distinct = typeof data.distinct_count === 'number' && made > 1 && data.distinct_count < made

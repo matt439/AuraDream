@@ -41,6 +41,20 @@ except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
 _human = storage.human_bytes
 
 
+def _keeping(favorites: int, sources: int) -> str:
+    """The end of the "Would delete" line: what --keep-favorites spares.
+
+    The favorites, and the images one of them was made from - a refine pass's
+    source, a render's reference images - which storage keeps with them.
+    """
+    if not favorites and not sources:
+        return "."
+    spared = f", keeping {favorites} favorite(s)"
+    if sources:
+        spared += f" and {sources} image(s) a favorite was made from"
+    return spared + "."
+
+
 def _confirm(yes: bool) -> bool:
     if yes:
         return True
@@ -100,10 +114,14 @@ def _clear_where(args: argparse.Namespace) -> int:
     if found["records"] == 0:
         print("Nothing matches.")
         return 0
+    # --keep-favorites keeps what a starred image was made from as well - a
+    # pass's source, a render's references - and the count says so, since
+    # `delete_matching` takes exactly the rest.
     kept = found["favorites"] if args.keep_favorites else 0
+    sources = found["sources_kept"] if args.keep_favorites else 0
     print(
-        f"Would delete {found['records'] - kept} record(s) and their files"
-        + (f", keeping {kept} favorite(s)." if kept else ".")
+        f"Would delete {found['records'] - kept - sources} record(s) and their files"
+        + _keeping(kept, sources)
     )
     if args.dry_run:
         print("\nDry run - nothing changed.")
@@ -156,7 +174,9 @@ def main(argv: list[str] | None = None) -> int:
         storage.init_db()
     before = storage.summarise()
 
-    doomed = before["records"] - (before["favorites"] if args.keep_favorites else 0)
+    kept = before["favorites"] if args.keep_favorites else 0
+    sources = before["sources_kept"] if args.keep_favorites else 0
+    doomed = before["records"] - kept - sources
     print(f"database : {settings.db_path}")
     print(f"images   : {settings.outputs_dir}")
     print()
@@ -177,13 +197,12 @@ def main(argv: list[str] | None = None) -> int:
     # Name the orphans here too. They are deleted either way - they have no row
     # left to carry a favorite flag - and the line above the prompt is the last
     # thing anyone reads before typing 'clear'.
-    kept = before["favorites"] if args.keep_favorites else 0
     plan = f"Would delete {doomed} record(s) and their files"
     if before["orphan_files"]:
         plan += f", plus {before['orphan_files']} untracked PNG(s)"
     if before["partial_files"]:
         plan += f", plus {before['partial_files']} stale .part file(s)"
-    print(plan + (f", keeping {kept} favorite(s)." if kept else "."))
+    print(plan + _keeping(kept, sources))
 
     if args.dry_run:
         print("\nDry run - nothing changed.")

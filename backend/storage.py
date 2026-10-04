@@ -220,7 +220,7 @@ def init_db() -> None:
         conn.executescript(_SCHEMA)
 
 
-def _row_to_record(row: sqlite3.Row) -> ImageRecord:
+def _row_to_record(row: sqlite3.Row, refine_missing: bool = False) -> ImageRecord:
     """A gallery row as the record the API serves.
 
     Every column is read unguarded. Rows only ever come out of a connection
@@ -229,6 +229,8 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
     the build that wrote it knew nothing of the field. A new column therefore
     needs an entry in `_migrate`, not a read guard here: a guard would let the
     SELECT succeed and every INSERT after it fail on the missing column.
+    `refine_missing` is no column: the reader that has looked the source up
+    (`_missing_sources`) says so.
     """
     # Rows from before thumbnails were written have none; the client falls back
     # to the PNG. One stat per row, cheap next to the query.
@@ -254,6 +256,7 @@ def _row_to_record(row: sqlite3.Row) -> ImageRecord:
         lora=row["lora"],
         lora_scale=row["lora_scale"],
         refine=row["refine"],
+        refine_missing=refine_missing,
         strength=row["strength"],
         job_id=row["job_id"],
         run_id=row["run_id"],
@@ -665,7 +668,28 @@ def list_images(
             others = conn.execute(
                 f"SELECT COUNT(*) FROM images {other_clause}", other_params
             ).fetchone()[0]
-    return [_row_to_record(r) for r in rows], total, others
+        missing = _missing_sources(conn, rows)
+    return [_row_to_record(r, r["refine"] in missing) for r in rows], total, others
+
+
+def _missing_sources(conn: sqlite3.Connection, rows: Sequence[sqlite3.Row]) -> set[int]:
+    """The refine sources these rows name that are no longer in the gallery.
+
+    A pass keeps its source's id after the source is deleted - the id is the
+    reproduction set's, and a reindex can remap it - so the record says the
+    source has gone (`ImageRecord.refine_missing`) rather than every page
+    naming an image it cannot show. Chunked like `completed_cells`: a sheet's
+    page is a whole run.
+    """
+    wanted = list({row["refine"] for row in rows if row["refine"] is not None})
+    present: set[int] = set()
+    for start in range(0, len(wanted), 400):
+        chunk = wanted[start : start + 400]
+        marks = ",".join("?" * len(chunk))
+        present.update(
+            row[0] for row in conn.execute(f"SELECT id FROM images WHERE id IN ({marks})", chunk)
+        )
+    return set(wanted) - present
 
 
 def completed_cells(
@@ -734,6 +758,25 @@ def completed_cells(
     return keys
 
 
+# The images a starred one was made from: a refine pass's source and a klein
+# render's references, by id. They are part of the starred image's
+# reproduction set, and a sweep that took them left a kept pass that could
+# never be made again - with nothing before the click saying it depended on
+# them. One level: the source of a kept source is not the starred image's to
+# need. Neither arm can yield a NULL, which would turn every `NOT id IN` over
+# the set into NULL and keep - or, counted, miscount - every row.
+_STARRED_SOURCE = (
+    "id IN (SELECT refine FROM images WHERE favorite = 1 AND refine IS NOT NULL"
+    " UNION SELECT ref.value FROM images AS starred, json_each(starred.reference) AS ref"
+    " WHERE starred.favorite = 1 AND starred.reference IS NOT NULL AND ref.type = 'integer')"
+)
+# What `keep_favorites` leaves out of a delete: the stars and their sources.
+# The one predicate `delete_matching`, `clear_history` and the previews' counts
+# share, so the number a dialog asks to have typed back is the number the
+# delete then finds under its lock.
+_UNKEPT = f"favorite = 0 AND NOT ({_STARRED_SOURCE})"
+
+
 def matching_preview(search: str | None, model_id: str | None = None) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
     checkpoints a substring term (`job:`, `model:`) actually matched.
@@ -743,15 +786,41 @@ def matching_preview(search: str | None, model_id: str | None = None) -> dict[st
     CLI's, at its own prompt. `model_id` is the gallery's checkpoint scope,
     exact, and the preview has to take it because the delete does: a count
     over images the page is not showing is the wrong number to confirm.
+
+    `sources_kept` is what `keep_favorites` keeps besides the stars - the
+    unstarred images in scope that a starred image anywhere was made from -
+    and `sources` the first few of their ids, so `records - favorites -
+    sources_kept` is the count such a delete takes. `runs`, `first` and
+    `last` describe that delete too: how many runs it reaches into and the
+    span of their creation times, which three sample prompts never say.
     """
     filters, params = strict_scope(search)
     if model_id:
         filters.append("model_id = ?")
         params.append(model_id)
-    clause = f"WHERE {' AND '.join(filters)}" if filters else ""
+
+    def where(*extra: str) -> str:
+        parts = [*filters, *extra]
+        return f"WHERE {' AND '.join(parts)}" if parts else ""
+
+    clause = where()
     with _session() as conn:
-        records, favorites = conn.execute(
-            f"SELECT COUNT(*), COALESCE(SUM(favorite), 0) FROM images {clause}", params
+        records, favorites, sources_kept = conn.execute(
+            f"""SELECT COUNT(*), COALESCE(SUM(favorite), 0),
+                       COALESCE(SUM(favorite = 0 AND {_STARRED_SOURCE}), 0)
+                FROM images {clause}""",
+            params,
+        ).fetchone()
+        sources = [
+            row[0]
+            for row in conn.execute(
+                f"SELECT id FROM images {where('favorite = 0', _STARRED_SOURCE)} ORDER BY id LIMIT 6",
+                params,
+            )
+        ]
+        runs, first, last = conn.execute(
+            f"SELECT COUNT(DISTINCT run_id), MIN(created_at), MAX(created_at) FROM images {where(_UNKEPT)}",
+            params,
         ).fetchone()
         distinct = lambda column, limit: [  # noqa: E731
             row[0]
@@ -763,6 +832,11 @@ def matching_preview(search: str | None, model_id: str | None = None) -> dict[st
         return {
             "records": records,
             "favorites": favorites,
+            "sources_kept": sources_kept,
+            "sources": sources,
+            "runs": runs,
+            "first": first,
+            "last": last,
             "prompts": distinct("prompt", 4),
             "jobs": [j for j in distinct("job_id", 6) if j],
             "models": distinct("model_id", 6),
@@ -794,14 +868,15 @@ def delete_matching(
     and deletes nothing rather than taking them on a number confirmed for
     fewer. `keep_favorites` is a scope of its own - an otherwise empty one
     means every unstarred image - where a delete with no scope at all is
-    refused. No orphan sweep: a filtered clear that also removed every
+    refused; it keeps the images a starred one was made from as well as the
+    stars (`_UNKEPT`). No orphan sweep: a filtered clear that also removed every
     untracked PNG would be a new all-or-nothing hazard inside the feature
     meant to remove one. `model_id` is the gallery's checkpoint scope, the
     same exact predicate `matching_preview` counted under.
     """
     filters, params = strict_scope(search)
     if keep_favorites:
-        filters.append("favorite = 0")
+        filters.append(_UNKEPT)
     if model_id:
         filters.append("model_id = ?")
         params.append(model_id)
@@ -1130,7 +1205,8 @@ def reference_paths(ids: Sequence[int], noun: str = "reference image") -> list:
 def get_image(image_id: int) -> ImageRecord | None:
     with _session() as conn:
         row = conn.execute("SELECT * FROM images WHERE id = ?", (image_id,)).fetchone()
-    return _row_to_record(row) if row else None
+        missing = _missing_sources(conn, [row]) if row else set()
+    return _row_to_record(row, row["refine"] in missing) if row else None
 
 
 def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
@@ -1169,7 +1245,7 @@ def summarise() -> dict[str, int]:
     `clear.py --dry-run` promises it changed nothing, and _connect() writes the
     whole schema into any file it opens.
     """
-    total = favorites = 0
+    total = favorites = sources_kept = 0
     tracked: set[str] = set()
     # The directory first, the rows second: `save_image` commits before it
     # renames, so a PNG the scan can see already has a row by the time the rows
@@ -1182,6 +1258,10 @@ def summarise() -> dict[str, int]:
             total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
             favorites = conn.execute(
                 "SELECT COUNT(*) FROM images WHERE favorite = 1"
+            ).fetchone()[0]
+            # What `--keep-favorites` keeps besides them, as `_UNKEPT` reads it.
+            sources_kept = conn.execute(
+                f"SELECT COUNT(*) FROM images WHERE favorite = 0 AND {_STARRED_SOURCE}"
             ).fetchone()[0]
         tracked = {r["filename"] for r in _tracked_files()}
 
@@ -1198,6 +1278,7 @@ def summarise() -> dict[str, int]:
     return {
         "records": total,
         "favorites": favorites,
+        "sources_kept": sources_kept,
         "files_on_disk": len(on_disk),
         "orphan_files": len(on_disk - tracked),
         "partial_files": len(_stale_partials()),
@@ -1215,9 +1296,10 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
 
     Rows are deleted rather than the database file, so this is safe while the
     server holds the connection open - dropping the file mid-run would leave a
-    locked handle on Windows and lose the schema.
+    locked handle on Windows and lose the schema. `keep_favorites` keeps what
+    it keeps on the `--where` path too: the stars and their sources.
     """
-    where = " WHERE favorite = 0" if keep_favorites else ""
+    where = f" WHERE {_UNKEPT}" if keep_favorites else ""
     with _write_lock, _session() as conn:
         doomed = [r["filename"] for r in conn.execute(f"SELECT filename FROM images{where}")]
         conn.execute(f"DELETE FROM images{where}")

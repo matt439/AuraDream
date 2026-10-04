@@ -236,8 +236,10 @@ els.lbClose.onclick = closeLightbox;
 els.lbPrev.onclick = () => stepLightbox(-1);
 els.lbNext.onclick = () => stepLightbox(1);
 // The just-generated image only exists in the viewer, so reuse has to be
-// reachable from the lightbox as well as from a gallery card.
-els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { reuse(rec); closeLightbox(); } };
+// reachable from the lightbox as well as from a gallery card. Closed first:
+// Reuse writes the prompt as typing would, which needs the focus a modal
+// lightbox keeps to itself.
+els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { closeLightbox(); reuse(rec); } };
 // Refine likewise: openRefine closes the lightbox for its dialog. Where the
 // checkpoint has no such pass the lightbox stays open, since the note saying
 // so is mirrored into it.

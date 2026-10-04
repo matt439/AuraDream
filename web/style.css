@@ -761,6 +761,9 @@ button { font: inherit; cursor: pointer; }
 .error { color: var(--danger); font-size: var(--fs-label); margin: 0; word-break: break-word; }
 /* A cancelled run is an outcome, not a failure - same slot, no alarm. */
 .error.note { color: var(--muted); }
+/* Reuse's Undo, at the end of its note: the line's own size, and in the text
+   colour, since it is the one thing in the line to act on. */
+.error .undo { font-size: var(--fs-label); color: var(--text); margin-left: var(--sp-1); vertical-align: baseline; }
 
 /* What the newest finished job did, for a page opened the morning after. */
 .last-run {
@@ -819,6 +822,13 @@ button { font: inherit; cursor: pointer; }
   .viewer.many img.preview { height: auto; max-height: 20vh; }
 }
 .placeholder { color: var(--muted); }
+/* A deleted image's place: a card's or a viewer tile's (sized from the tile
+   it replaces), so nothing moves under the pointer that deleted it. */
+.tomb {
+  display: grid; place-items: center; padding: var(--sp-2); text-align: center;
+  color: var(--muted); font-size: var(--fs-label);
+  border: 1px dashed var(--line-strong); border-radius: var(--r-md);
+}
 
 /* Every image that opens the lightbox is in the tab order; the ring says which
    one Enter would open. Inset, since the card and the cell clip their overflow. */
@@ -962,6 +972,11 @@ button { font: inherit; cursor: pointer; }
   pointer-events: none;
 }
 .card.fav .tools .star { color: var(--star); }
+/* A deleted card keeps its slot as a tombstone until the gallery reloads:
+   dashed and darker rather than faded, so its line keeps the muted text's
+   contrast, and out of the pointer's way. */
+.card.gone { background: var(--panel); border-style: dashed; pointer-events: none; }
+.card .tomb { height: 100%; border: none; }
 
 /* --------------------------------------------------------------- lightbox */
 

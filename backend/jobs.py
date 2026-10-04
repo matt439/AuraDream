@@ -82,6 +82,10 @@ class Job:
     # What the current cell varies, for a grid; None for an ordinary sweep.
     label: str | None = None
     images: list[dict] = field(default_factory=list)
+    # The ids of those images deleted since (`JobManager.forget_images`).
+    # `images` keeps them - `image_count` is how much the job produced, which
+    # a delete does not undo - and the replay leaves them out.
+    deleted: set[int] = field(default_factory=set)
     error: str | None = None
     # Cells that raised and were skipped. A grid survives one bad cell - a
     # transient OOM, a locked database - and reports it, rather than dropping
@@ -128,7 +132,9 @@ class Job:
         N-1 records already delivered as their own `image` events, 258 MiB over
         a 1000-cell grid - where only the attach snapshot and `done` need them.
         A copy, not the live list: what json.dumps serialises later on the loop
-        must be the list as of now.
+        must be the list as of now. The records replayed are the live ones: a
+        page reattaching after a delete got the deleted image back as a broken
+        tile, and deleting it again answered "unknown image".
         """
         frame = {
             "job_id": self.id,
@@ -153,6 +159,9 @@ class Job:
             # pipeline ignored - a negative-prompt variable on klein - renders
             # the same image N times, and this is the number that says so.
             "distinct_count": len({image.get("content_hash") for image in self.images} - {None}),
+            # How many of them have been deleted since, so a banner can say
+            # what is left of a night without lowering what it produced.
+            "deleted_count": len(self.deleted),
             "created_at": self.created_at,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
@@ -161,7 +170,7 @@ class Job:
             "stopped_by": self.stopped_by,
         }
         if images:
-            frame["images"] = list(self.images)
+            frame["images"] = [image for image in self.images if image["id"] not in self.deleted]
         return frame
 
 
@@ -193,6 +202,19 @@ class JobManager:
         """
         done = [job for job in self._jobs.values() if job.status in _TERMINAL]
         return sorted(done, key=lambda job: job.finished_at or 0.0, reverse=True)
+
+    def forget_images(self, ids) -> None:
+        """Note gallery images deleted, on every job that made one of them.
+
+        Called by the delete routes once storage has committed. Live and
+        finished jobs alike: a reload after the run has ended reads the
+        finished job's snapshot as much as a reattach reads a running one's.
+        Event-loop thread; the worker only ever appends to `images`, which a
+        list survives being read across.
+        """
+        gone = set(ids)
+        for job in self._jobs.values():
+            job.deleted |= gone & {image["id"] for image in job.images}
 
     def busy(self) -> bool:
         """True while anything is queued or running.

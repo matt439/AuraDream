@@ -714,6 +714,10 @@ class ImageRecord(BaseModel):
     # the schedule's length, of which the pass ran about `steps * strength`.
     refine: int | None = None
     strength: float | None = None
+    # True when `refine` names an image no longer in the gallery: the pass is
+    # kept, and so is the id, but it cannot be made again. Read, not stored -
+    # the gallery's pages and `GET /api/images/{id}` look the source up.
+    refine_missing: bool = False
     seed: int
     model_id: str
     # The first 16 hex digits of the sha256 of the decoded pixels. What the
@@ -787,11 +791,22 @@ class UnstarredPreview(BaseModel):
 
     The confirmation's numbers, taken server-side like Re-render's selection:
     the browser holds one page. `unstarred` is the count the dialog asks to
-    have typed back and the DELETE is then pinned to.
+    have typed back and the DELETE is then pinned to: `records`, less the
+    starred ones and less `sources_kept`, the unstarred images a starred one
+    was made from (a pass's source, a render's references), which the delete
+    keeps with the stars.
     """
     records: int
     favorites: int
     unstarred: int
+    sources_kept: int = 0
+    # The first few of those, by id, for the dialog to name.
+    sources: list[int] = Field(default_factory=list)
+    # How many runs the delete reaches into, and its first and last creation
+    # times: the sample prompts are alphabetical and say nothing of either.
+    runs: int = 0
+    first: str | None = None
+    last: str | None = None
     # A few of the prompts, and the jobs and checkpoints a substring term
     # matched: the dialog names what is about to go, as `clear --where` does.
     prompts: list[str]
