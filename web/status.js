@@ -206,11 +206,14 @@ async function refreshStatus() {
       syncConditioning();
       // collect() sends the references, or none, from here: the check counted them.
       syncAnalysisStale();
+      // A ⚠ Reuse says whether another checkpoint's references carry over.
+      syncReuseButtons();
     }
     if (s.defaults && typeof s.defaults.lora_supported === 'boolean'
         && s.defaults.lora_supported !== loraSupported) {
       loraSupported = s.defaults.lora_supported;
       syncConditioning();
+      syncReuseButtons();
     }
     if (s.defaults && typeof s.defaults.refine_supported === 'boolean'
         && s.defaults.refine_supported !== refineSupported) {
@@ -306,5 +309,7 @@ async function refreshLoras() {
     els.loraTip.classList.toggle('wide', tip.includes('\n'));
     els.loraTip.classList.toggle('pre', tip.includes('\n'));
     syncConditioning();
+    // A ⚠ Reuse names an adapter this list does not offer.
+    syncReuseButtons();
   } catch { /* the list is a convenience; the field simply stays empty */ }
 }

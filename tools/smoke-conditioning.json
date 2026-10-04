@@ -177,7 +177,7 @@
   {"eval": "setReferences(galleryRecords.slice(0, 4).map((r) => r.id)); window.__fifth = [...document.querySelectorAll('#gallery .card:not(.gone)')][4];"},
   {"expect": "[...document.querySelectorAll('#gallery .card:not(.gone)')].slice(0, 4).map((c) => c.dataset.refN).join() === '1,2,3,4' && __fifth.querySelector('.ref-tool').getAttribute('aria-disabled') === 'true' && __fifth.querySelector('.ref-tool').title.includes('four is the most here')"},
   {"eval": "__fifth.querySelector('.tools button:nth-child(3)').click();"},
-  {"expect": "referenceIds.length === 4 && els.galleryError.textContent === 'Four reference images is the most this panel sends; remove one first.' && __fifth.querySelector('.card-note').textContent === 'Four is the most here; remove one first' && __fifth.querySelector('.card-note').getAttribute('aria-hidden') === 'true'"},
+  {"expect": "referenceIds.length === 4 && els.galleryError.textContent === 'Four reference images is the most this panel sends; remove one first.' && __fifth.querySelector('.card-note').textContent === 'Four is the most' && __fifth.querySelector('.card-note').getAttribute('aria-hidden') === 'true'"},
   {"eval": "delete window.confirm; showError('', false, {slot: els.galleryError});"},
   {"eval": "setReferences([]); els.prompt.value = ''; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.seed.value = ''; clearAnalysis(); persistPanel(); showError('');"}
 ]

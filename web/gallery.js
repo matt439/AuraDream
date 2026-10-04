@@ -160,6 +160,7 @@ function card(rec) {
   const star = document.createElement('button');
   star.type = 'button';
   star.className = 'star fav-badge';
+  star.setAttribute('aria-keyshortcuts', 'F');
   star.onclick = () => setFavorite(rec, !rec.favorite);
   syncStar(star, !!rec.favorite);
 
@@ -218,12 +219,15 @@ function tool(label, title, onClick, tip = '') {
 }
 
 // A star button anywhere the page draws one over a picture - the card's
-// badge, the result beside the viewer - from the state it shows.
+// badge, the result beside the viewer - from the state it shows. The title
+// names F only where the button declares the key (aria-keyshortcuts), as a
+// card's does: a title promising F where nothing handles it did nothing.
 function syncStar(button, on) {
   button.textContent = on ? '★' : '☆';
   button.setAttribute('aria-pressed', String(on));
   button.setAttribute('aria-label', on ? 'Unstar' : 'Star');
-  button.title = on ? 'Starred - click to unstar (F)' : 'Star (F)';
+  const key = button.getAttribute('aria-keyshortcuts') === 'F' ? ' (F)' : '';
+  button.title = on ? `Starred - click to unstar${key}` : `Star${key}`;
 }
 
 // The card's tools that need something of the checkpoint get the lightbox
@@ -316,8 +320,7 @@ function toggleReference(div, rec) {
     return;
   }
   if (referenceIds.length >= 4) {
-    refuseInCard(div, 'Four reference images is the most this panel sends; remove one first.',
-      'Four is the most here; remove one first');
+    refuseInCard(div, 'Four reference images is the most this panel sends; remove one first.', 'Four is the most');
     return;
   }
   setReferences([...referenceIds, rec.id]);
@@ -325,7 +328,8 @@ function toggleReference(div, rec) {
 }
 
 // A card tool's refusal: in the gallery's line, which stays and is the one
-// that is announced, and for a moment where it was pressed too.
+// that is announced, and for a moment where it was pressed too - its gist,
+// which has one line of a card at its narrowest.
 function refuseInCard(div, message, short) {
   showError(message, true, { slot: els.galleryError });
   cardNote(div, short, { quiet: true });
@@ -353,8 +357,8 @@ function cardNote(div, text, { quiet = false } = {}) {
 // gallery's tab stops, and every other card's are not - seven stops a card
 // put the 30th image some 270 Tab presses down the page. The arrow keys move
 // it (`galleryKey`), as does focus arriving any other way: a click, the
-// lightbox handing focus back. An id rather than the element, so a reloaded
-// page keeps it where the record is still loaded.
+// lightbox handing focus back. An id rather than the element, so a gallery
+// reset or queried again keeps it where the record is still loaded.
 let galleryCurrent = null;
 
 function currentCard() {
@@ -391,18 +395,21 @@ function galleryFocus(e) {
   if (div) makeCurrent(div);
 }
 
-// On a card's image: the arrows walk the grid, Home and End go to the first
-// and last card loaded, and F stars it, as in the lightbox and on the sheet.
-// The tools keep their own keys.
+// F stars the card focus is in, from its image, its star or a tool, as in the
+// lightbox and on the sheet - the star's title promises it. On the image the
+// arrows walk the grid and Home and End go to the first and last card loaded;
+// on a tool they are left to the tool.
 function galleryKey(e) {
-  if (e.altKey || e.ctrlKey || e.metaKey || !e.target.matches?.('.card > img')) return;
-  const div = e.target.parentElement;
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  const div = e.target.closest?.('.card[data-id]');
+  if (!div) return;
   if (e.key === 'f' || e.key === 'F') {
     e.preventDefault();
     const rec = galleryRecords.find((r) => r.id === +div.dataset.id);
     if (rec) void setFavorite(rec, !rec.favorite);
     return;
   }
+  if (e.target.parentElement !== div || e.target.tagName !== 'IMG') return;
   const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: 'up', ArrowDown: 'down', Home: 'first', End: 'last' }[e.key];
   if (step === undefined) return;
   e.preventDefault();

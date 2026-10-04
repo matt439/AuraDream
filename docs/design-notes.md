@@ -2007,8 +2007,10 @@ apart at the far end (`margin-left: auto`). Each carries a short name in
 `data-tip` that a `::after` shows at once on hover and on keyboard focus,
 anchored at the row's left edge: the buttons are not positioned, so the
 label's containing block is the row, and the card's `overflow: hidden` never
-clips it as it would one centred over Delete. The glyphs stay the buttons'
-text - the smokes find them by it - and the title stays the long name.
+clips it as it would one centred over Delete. Delete's is anchored at the
+right edge instead, over Delete: at the left it put the destructive tool's
+name over Reuse, some 200 px away. The glyphs stay the buttons' text - the
+smokes find them by it - and the title stays the long name.
 
 **Dead tools are marked, as the lightbox's Refine is.** ⤢ where the
 checkpoint has no pass and ❐ where it takes no references are aria-disabled
@@ -2021,6 +2023,17 @@ can say it there too. Cards can render before the first status, so the
 state is set in `card()` and again where the status flips a capability:
 `syncCardTools` from status.js for refine, `syncReferenceMarks` (through
 `syncConditioning` and `renderReferences`) for references.
+
+The press must leave the tool where it was. `#gallery-error` sat between
+the head and the grid, so its first message pushed the grid down 38 px and
+the repeat press a click that did nothing invites landed on the image
+below, opening the lightbox. It is now a row of the head's own whose line
+is kept while it is empty (`[hidden]` there is `visibility: hidden`); only
+a message that wraps still moves the grid, by its second line. The note
+over the row is a gist on one line - "Four is the most", with the sentence
+in the gallery's line - and the row's names stay down while it is up: the
+two-line note grew up into the pressed tool's name and the two were drawn
+over each other.
 
 **❐ is a toggle, and references are marked where they are picked.** A click
 on an image already among the references used to re-send the same list and
@@ -2043,10 +2056,14 @@ card, and ☆ on another's hover, focus-within or a coarse pointer, as the
 tools are. It took the row's star's place, so a card's tab stops did not
 grow. `syncStar` draws any star button from the state - glyph,
 `aria-pressed`, label and title together, where the label followed only an
-in-page toggle and the title never - and `setFavorite` updates every
-element showing the record by class and its star button: cards, sheet cells,
-a `.result` beside the viewer, and the lightbox when it shows that record.
-`.sheet-cell.fav::after` keeps the badge as a picture: F stars a cell.
+in-page toggle and the title never. The title names F only on a button
+that declares it in `aria-keyshortcuts`, as the card's does, and on a card
+F works from the star and the tools as from the image (`galleryKey`): it
+was the image's alone, under a star whose title promised it. `setFavorite`
+updates every element showing the record by class and its star button:
+cards, sheet cells, a `.result` beside the viewer, and the lightbox when it
+shows that record. `.sheet-cell.fav::after` keeps the badge as a picture:
+F stars a cell.
 
 **The whole frame, and what it is.** Cards are `object-fit: contain` on
 their own grey, the trade the sheet's cells made: `cover` showed 57% of a
@@ -2059,18 +2076,22 @@ lightbox, and on both the title "Open the Refine dialog on #4 with this
 pass's size, strength and seed" (`syncReuseButton` keeps the source in
 `data-reuse-pass` for `syncReuseButtons`); a ⚠ on another checkpoint's
 record adds what the Reuse will leave behind - references the checkpoint
-takes none of, an adapter the LoRA box does not offer.
+takes none of, an adapter the LoRA box does not offer. Those are the
+status's to say, and the card can be older than it, so `syncReuseButtons`
+runs again where references or adapters flip and where the adapter list
+lands (`refreshLoras`), not only where the checkpoint changes: a card kept
+under All models across a restart named the old checkpoint's verdict.
 
 **One tab stop for the grid.** Seven stops a card put the 30th image some
 270 Tab presses down the page. One card is current (`galleryCurrent`, an
-id, so a reloaded page keeps it where the record is still loaded): its image,
-star and tools are tab stops and every other card's are -1. Focus arriving
-any way - a click, the lightbox handing it back - makes that card current;
-a page that lands without it makes the first card current; a delete moves
-it to the next card along (`forgetImages`). On a card's image the arrows
-walk the grid, F stars it, and Home and End go to the first and last card
-loaded; Down from the last row loaded fetches the next page and goes on
-into it. Up and Down take the nearest card across in the next row, found
+id, so a gallery reset or queried again keeps it where the record is still
+loaded): its image, star and tools are tab stops and every other card's
+are -1. Focus arriving any way - a click, the lightbox handing it back -
+makes that card current; a page that lands without it makes the first
+card current; a delete moves it to the next card along (`forgetImages`). F
+stars the card from its image, star or tools; on the image the arrows walk
+the grid, and Home and End go to the first and last card loaded; Down from
+the last row loaded fetches the next page and goes on into it. Up and Down take the nearest card across in the next row, found
 from where the cards are rather than from the grid's column count: a day's
 line starts a row of its own, so a short row before it put "a row on" by
 the count that many cards short. Focus moves with `preventScroll` and the

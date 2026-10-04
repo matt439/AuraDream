@@ -1323,6 +1323,17 @@ button { font: inherit; cursor: pointer; }
   border-radius: var(--r-sm); padding: 5px 6px; font: inherit; font-size: var(--fs-label); max-width: 300px;
 }
 .gallery-head .runs:disabled { opacity: 0.45; }
+/* The gallery's line (#gallery-error): a row of the head's own, 4 px under
+   its controls, whose line is kept while it is empty. Shown between the head
+   and the grid, a card tool's refusal pushed the grid down 38 px, and a
+   second press on the same dead tool opened the image under it instead. A
+   message that wraps still grows it, by its second line. */
+#gallery-error {
+  flex: 1 0 100%;
+  min-height: calc(var(--fs-label) * var(--lh));
+  margin-top: calc(var(--sp-1) - var(--sp-3));
+}
+#gallery-error[hidden] { display: block !important; visibility: hidden; }
 .check { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-body-sm); }
 
 .grid {
@@ -1516,7 +1527,9 @@ button { font: inherit; cursor: pointer; }
 /* Each tool's name, at once, on hover and on keyboard focus: the glyphs were
    named only by a native title, which came a second late or not at all.
    Anchored at the row's left edge - the buttons are not positioned - so the
-   card's overflow never clips it, as it would one centred over Delete. */
+   card's overflow never clips it, as it would one centred over Delete; and
+   Delete's at the right edge, over Delete, where at the left it named the
+   destructive tool over the harmless one 200 px away. */
 .card .tools button:is(:hover, :focus-visible)::after {
   content: attr(data-tip);
   position: absolute; left: 6px; bottom: 100%;
@@ -1524,6 +1537,7 @@ button { font: inherit; cursor: pointer; }
   background: rgba(0, 0, 0, 0.85); color: #fff;
   font-size: var(--fs-label); white-space: nowrap; pointer-events: none;
 }
+.card .tools .del:is(:hover, :focus-visible)::after { left: auto; right: 6px; }
 /* A tool this checkpoint cannot use, or ❐ with four references taken: the
    glyph dimmed and no lit hover, as the lightbox's Refine - aria-disabled, so
    it keeps its tab stop and a press still says why. The glyph's colour rather
@@ -1576,14 +1590,19 @@ button { font: inherit; cursor: pointer; }
 .card.ref.refined::before, .sheet-cell.ref.refined::before { left: 36px; }
 /* What a card tool did - "Added as image 2", a refusal's gist - over the row
    it was pressed in, for two seconds (cardNote): the chips, and the line
-   under the gallery's head, can be a screen away from the card. */
+   under the gallery's head, can be a screen away from the card. One line, a
+   gist - the gallery's line has the sentence - and the row's names stay down
+   meanwhile: a note that wrapped grew up into the pressed tool's name and the
+   two were drawn over each other. */
 .card > .card-note {
   position: absolute; inset: auto 6px 6px 6px; z-index: 2;
-  padding: 3px var(--sp-2); border-radius: 5px;
+  padding: 3px var(--sp-2); border-radius: var(--r-sm);
   background: var(--accent-strong); color: #fff; text-align: center;
   font-size: var(--fs-label); pointer-events: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .card > .card-note:empty { display: none; }
+.card:has(> .card-note) .tools button::after { content: none; }
 /* A refusal is not the accent's: dark, as the tools are. */
 .card > .card-note.refused { background: rgba(0, 0, 0, 0.85); }
 /* A deleted card keeps its slot as a tombstone until the gallery reloads:
