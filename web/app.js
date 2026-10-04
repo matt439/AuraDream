@@ -14,13 +14,26 @@ els.dice.onclick = () => { els.seed.value = ''; syncRuns(); schedulePreview(); p
 els.reset.onclick = resetPanel;
 els.orientation.onclick = swapOrientation;
 
+// An edit of a picture the prompt takes to be there already - BFL's "Turn
+// this cat into a dog" - which with no reference image renders from the words
+// alone. prompt_rules.EDIT_PROMPT, the check's note on it, is the same
+// pattern; tests/test_prompt_rules.py holds the two equal.
+const EDIT_PROMPT = /^\s*(turn|change|make|replace|remove|put|give)\b.*\b(this|these|the (photo|image|picture)|image \d)\b/i;
+
 // The Examples menu is built on open from the guide's current list, so a
-// status that lands late (behind a load) is not stale by the first click.
+// status that lands late (behind a load) is not stale by the first click. It
+// is a role=menu and keeps that promise: its items are reached with the arrow
+// keys (ArrowDown on the button opens it there), and closing it with focus
+// inside - Escape, a pick - hands focus back to the button, not to <body>.
 function showExamples(open) {
   if (open && !els.tagsMenu.hidden) showTagHelper(false);
+  const inside = els.examplesMenu.contains(document.activeElement);
   els.examplesBtn.setAttribute('aria-expanded', String(open));
   els.examplesMenu.hidden = !open;
-  if (!open) return;
+  if (!open) {
+    if (inside) els.examplesBtn.focus();
+    return;
+  }
   els.examplesMenu.replaceChildren();
   if (!examples.length) {
     const li = document.createElement('li');
@@ -29,31 +42,74 @@ function showExamples(open) {
     els.examplesMenu.appendChild(li);
     return;
   }
+  // The example stays the authors' words; what it needs is said beside it.
+  const unreferenced = referenceSupported && !referenceIds.length;
   examples.forEach((text) => {
     const li = document.createElement('li');
     li.setAttribute('role', 'menuitem');
-    li.tabIndex = 0;
+    li.tabIndex = -1;
     const span = document.createElement('span');
     span.className = 'text';
     span.textContent = text;
     li.appendChild(span);
+    if (unreferenced && EDIT_PROMPT.test(text)) {
+      const needs = document.createElement('span');
+      needs.className = 'example-note';
+      needs.textContent = 'needs a reference image';
+      li.appendChild(needs);
+    }
     li.title = text;
-    const pick = () => {
-      els.prompt.value = text;
-      promptReplaced();
-      showExamples(false);
-      // Assigning .value fires no `input`: the preview and the remembered
-      // panel are told the way `choose` tells them.
-      schedulePreview();
-      scheduleTagValidation(0);
-      persistPanel();
-      els.prompt.focus();
-    };
-    li.onclick = pick;
-    li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+    li.onclick = () => pickExample(text);
+    li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickExample(text); } };
     els.examplesMenu.appendChild(li);
   });
 }
+
+// An example written the way typing writes it, so Ctrl+Z brings back what
+// the box held - and, over a prompt of the user's own, a note under the box
+// says so with an Undo: the menu opens over the prompt, and one stray click
+// used to replace minutes of work for good, the panel saving it at once.
+function pickExample(text) {
+  const before = els.prompt.value;
+  writeBox(els.prompt, text);
+  promptReplaced();
+  showExamples(false);
+  schedulePreview();
+  scheduleTagValidation(0);
+  persistPanel();
+  els.prompt.focus();
+  if (before.trim() && before !== text) {
+    offerPromptUndo('An example replaced your prompt.', () => {
+      writeBox(els.prompt, before);
+      promptReplaced();
+      schedulePreview();
+      scheduleTagValidation(0);
+      persistPanel();
+    });
+  }
+}
+
+// The menu's keyboard: ArrowDown and ArrowUp walk it (round the ends), Home
+// and End jump; leaving it - Tab, a click elsewhere - closes it, rather than
+// leaving it open over the prompt.
+els.examplesBtn.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowDown') return;
+  e.preventDefault();
+  if (els.examplesMenu.hidden) showExamples(true);
+  els.examplesMenu.querySelector('[role="menuitem"]')?.focus();
+});
+els.examplesMenu.addEventListener('keydown', (e) => {
+  const items = [...els.examplesMenu.querySelectorAll('[role="menuitem"]')];
+  const at = items.indexOf(document.activeElement);
+  const next = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: items.length - 1 }[e.key];
+  if (next === undefined || !items.length) return;
+  e.preventDefault();
+  items[(next + items.length) % items.length].focus();
+});
+els.examplesBox.addEventListener('focusout', (e) => {
+  if (!els.examplesMenu.hidden && !els.examplesBox.contains(e.relatedTarget)) showExamples(false);
+});
+els.promptNoteUndo.onclick = undoPromptWrite;
 
 async function expandPrompt() {
   if (expandingPrompt) return;
@@ -98,7 +154,8 @@ async function expandPrompt() {
   }
 }
 els.examplesBtn.onclick = () => showExamples(els.examplesMenu.hidden);
-els.tagsBtn.onclick = () => showTagHelper(els.tagsMenu.hidden);
+// A click from the keyboard (detail 0) takes focus into the helper.
+els.tagsBtn.onclick = (e) => showTagHelper(els.tagsMenu.hidden, { focus: e.detail === 0 });
 els.expandPrompt.onclick = expandPrompt;
 // The prompt check: Check and Check again run it on the prompt as it is now;
 // the rest of its buttons are built with the results they act on.
@@ -118,19 +175,55 @@ els.tagValidation.addEventListener('contextmenu', (event) => {
   event.preventDefault();
   openTagInsert(tagInsertionIndexAtPoint(event.clientX, event.clientY));
 });
-els.prompt.addEventListener('input', () => {
+// A gap takes a plain click too, and the pointer over one shows where the
+// tag would go - the drop's bar, once a frame for the last position. Over the
+// tray itself only, not a chip, the editor or + tag.
+els.tagValidation.addEventListener('pointermove', (event) => {
+  cancelAnimationFrame(tagHoverFrame);
+  tagHoverFrame = 0;
+  if (event.target !== els.tagValidation || draggedTagIndex !== null) { clearTagDropMarkers(); return; }
+  const { clientX, clientY } = event;
+  tagHoverFrame = requestAnimationFrame(() => { tagHoverFrame = 0; markTagGap(clientX, clientY); });
+});
+els.tagValidation.addEventListener('pointerleave', () => {
+  cancelAnimationFrame(tagHoverFrame);
+  tagHoverFrame = 0;
+  clearTagDropMarkers();
+});
+els.tagValidation.addEventListener('click', (event) => {
+  if (event.target !== els.tagValidation) return;
+  clearTagDropMarkers();
+  openTagInsert(tagInsertionIndexAtPoint(event.clientX, event.clientY));
+});
+// Focus leaving the tray lets go of the chip it was on; a rebuild of the
+// tray, which removes the focused chip, is not leaving it.
+els.tagValidation.addEventListener('focusout', (event) => {
+  if (tagRendering || els.tagValidation.contains(event.relatedTarget)) return;
+  tagFocusIndex = null;
+});
+els.prompt.addEventListener('input', (event) => {
   if (translatedSource !== null && els.prompt.value !== translatedSource) clearPromptTranslation();
   syncAnalysisStale();
+  noteTagTyping(event);
   syncTagSelection();
   scheduleTagSuggestions();
   scheduleTagValidation();
 });
 // The check read the negative prompt too; editing it dims the check as well.
 els.negative.addEventListener('input', () => syncAnalysisStale());
-els.prompt.addEventListener('click', () => scheduleTagSuggestions(0));
+// The caret moved: suggestions for the item it is in now, the item typed
+// before it checked, and the Tags helper's note on where a tag goes.
+els.prompt.addEventListener('click', () => { scheduleTagSuggestions(0); followTagCaret(); syncTagSelection(); });
 els.prompt.addEventListener('keyup', (event) => {
   if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) scheduleTagSuggestions(0);
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+    followTagCaret();
+    syncTagSelection();
+  }
 });
+// Leaving the box ends the typing, and the list goes with it: Tab, with
+// nothing selected, moves on, and must not leave suggestions open behind.
+els.prompt.addEventListener('blur', () => { hideTagSuggestions(); endTagTyping(); });
 els.prompt.addEventListener('keydown', (event) => {
   if (els.tagSuggestions.hidden || event.ctrlKey || event.metaKey) return;
   if (event.key === 'ArrowDown') {
@@ -149,7 +242,8 @@ els.prompt.addEventListener('keydown', (event) => {
 });
 document.addEventListener('click', (e) => {
   if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
-  if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper')) showTagHelper(false);
+  // The helper hangs under the prompt, which takes clicks to move its caret.
+  if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper, #tags-menu, #prompt')) showTagHelper(false);
   if (!e.target.closest('.prompt-editor')) hideTagSuggestions();
 });
 els.unload.onclick = async () => {
@@ -285,6 +379,16 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '0') zoomFit();
   else if (e.key === '1') zoomOneToOne();
 });
+
+// A file dragged over the page is dropped nowhere: the page takes no files,
+// and the browser's own drop opened the file in the app's place.
+for (const type of ['dragover', 'drop']) {
+  document.addEventListener(type, (e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'none';
+  });
+}
 
 window.addEventListener('resize', placeTagValidation);
 placeTagValidation();

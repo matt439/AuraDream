@@ -60,9 +60,57 @@ def unchecked_results(
                 "category": None,
                 "post_count": None,
                 "reason": None if known else "Danbooru lookup unavailable",
+                "code": None,
             }
         )
     return results
+
+
+def rank_suggestions(
+    query: str, local: list[dict], remote: list[dict], avoid: set[str], limit: int = 12
+) -> list[dict]:
+    """The guide's own tags and the index's, as one list for the box.
+
+    An exact match first; then by how the name matches - from its start
+    before at a later word's (the index also answers for an alias, which
+    matches neither). Within that the index's order stands, by post count,
+    and a guide tag, which has no count, goes ahead of it only once the query
+    covers half of the tag: "high s" is heading for `high score`, "gre" is no
+    more `great score` than `green hair`. Guide tags were merged ahead of
+    every remote result so they stay available offline, which they do here
+    too - offline they are the whole list. A tag of the guide's recommended
+    negative prompt (`avoid`, normalized) never comes first unless typed
+    whole: the first item is the one Enter and Tab take, and "lo" then Tab
+    used to write `low quality` into the positive prompt.
+    """
+    wanted = normalize_tag(query).replace("*", "").replace("?", "")
+    names = {item["canonical"] for item in local}
+    merged = [(item, True) for item in local] + [
+        (item, False) for item in remote if item["canonical"] not in names
+    ]
+
+    def key(entry: tuple[int, tuple[dict, bool]]) -> tuple:
+        index, (item, guide) = entry
+        name = normalize_tag(item["canonical"])
+        match = (
+            0 if name == wanted
+            else 1 if name.startswith(wanted)
+            else 2 if f"_{wanted}" in name
+            else 3
+        )
+        ahead = guide and 2 * len(wanted) >= len(name)
+        return (match, not ahead, guide, index)
+
+    def avoided(item: dict) -> bool:
+        name = normalize_tag(item["canonical"])
+        return name in avoid and name != wanted
+
+    ranked = [item for _, (item, _) in sorted(enumerate(merged), key=key)]
+    if ranked and avoided(ranked[0]):
+        first = next((i for i, item in enumerate(ranked) if not avoided(item)), None)
+        if first is not None:
+            ranked.insert(0, ranked.pop(first))
+    return ranked[:limit]
 
 
 class DanbooruTagVocabulary:
@@ -143,6 +191,7 @@ class DanbooruTagVocabulary:
                         "category": None,
                         "post_count": None,
                         "reason": None,
+                        "code": None,
                     }
                 )
                 continue
@@ -170,6 +219,10 @@ class DanbooruTagVocabulary:
         }
 
     def _validation(self, tag: str, row: dict | None, cutoff: str | None) -> dict:
+        # `code` names the reason for the page, which marks a tag too new for
+        # the checkpoint apart from one the index has never heard of: the
+        # fixes differ, and matching on the sentence would break with its
+        # wording.
         base = {
             "tag": tag,
             "valid": False,
@@ -178,18 +231,23 @@ class DanbooruTagVocabulary:
             "category": None,
             "post_count": None,
             "reason": "not found in Danbooru",
+            "code": "not_found",
         }
         if row is None:
             return base
         if bool(row.get("is_deprecated")):
-            return {**base, "reason": "deprecated Danbooru tag"}
+            return {**base, "reason": "deprecated Danbooru tag", "code": "deprecated"}
         if int(row.get("post_count", 0)) <= 0:
-            return {**base, "reason": "Danbooru tag has no posts"}
+            return {**base, "reason": "Danbooru tag has no posts", "code": "empty"}
         created = str(row.get("created_at") or "")[:10]
         if cutoff is not None and not created:
-            return {**base, "reason": "Danbooru tag has no creation date"}
+            return {**base, "reason": "Danbooru tag has no creation date", "code": "no_date"}
         if cutoff is not None and created > cutoff:
-            return {**base, "reason": f"created after this checkpoint's {cutoff} cutoff"}
+            return {
+                **base,
+                "reason": f"created after this checkpoint's {cutoff} cutoff",
+                "code": "after_cutoff",
+            }
         suggestion = self._suggestion(row)
         return {
             "tag": tag,
@@ -199,6 +257,7 @@ class DanbooruTagVocabulary:
             "category": suggestion["category"],
             "post_count": suggestion["post_count"],
             "reason": None,
+            "code": None,
         }
 
     @staticmethod

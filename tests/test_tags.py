@@ -12,6 +12,7 @@ from backend.tags import (
     TagLookupUnavailable,
     display_tag,
     normalize_tag,
+    rank_suggestions,
     unchecked_results,
 )
 from tests.fakes import CutReply
@@ -116,15 +117,84 @@ def test_validation_handles_model_tags_characters_unknowns_and_cutoff():
         "category": "character",
         "post_count": 16_000,
         "reason": None,
+        "code": None,
     }
     assert by_tag["great score"]["source"] == "model"
     assert by_tag["year 2023"]["source"] == "model"
     assert "cutoff" in by_tag["future character"]["reason"]
     assert "deprecated" in by_tag["retired tag"]["reason"]
     assert by_tag["made up tag"]["reason"] == "not found in Danbooru"
+    # The reason as data too, so the page can mark a tag too new for the
+    # checkpoint apart from a typo without reading the sentence.
+    assert [by_tag[tag]["code"] for tag in tags] == [
+        None, None, None, None, "after_cutoff", "deprecated", "not_found",
+    ]
 
     vocabulary.validate(tags, {"great score"}, CUTOFF)
     assert len(calls) == 1, "exact hits and misses are cached"
+
+
+def test_every_unknown_reason_has_its_code():
+    rows = {
+        "empty_tag": record("empty_tag", count=0),
+        "undated_tag": {**record("undated_tag"), "created_at": None},
+    }
+
+    def fetch(path, params):
+        return [rows[name] for name in params["search[name_normalize]"].split(",") if name in rows]
+
+    results = DanbooruTagVocabulary(fetch).validate(["empty tag", "undated tag"], set(), CUTOFF)
+    assert [(item["code"], item["reason"]) for item in results] == [
+        ("empty", "Danbooru tag has no posts"),
+        ("no_date", "Danbooru tag has no creation date"),
+    ]
+    assert all(item["code"] is None for item in unchecked_results(["a", "b"], {"a"}))
+
+
+def suggestion(name, count=None):
+    return {"text": display_tag(name), "canonical": name, "category": "general", "post_count": count}
+
+
+def guide(name):
+    return {"text": name.replace("_", " "), "canonical": name, "category": "model", "post_count": None}
+
+
+def ranked(query, local, remote, avoid=()):
+    return [item["canonical"] for item in rank_suggestions(query, local, remote, set(avoid))]
+
+
+def test_guide_tags_rank_among_the_index_by_how_much_of_them_is_typed():
+    remote = [suggestion("green_eyes", 900_000), suggestion("green_hair", 590_000)]
+    local = [guide("great_score")]
+    # "gre" is no more `great score` than `green hair`: the index's order first.
+    assert ranked("gre", local, remote) == ["green_eyes", "green_hair", "great_score"]
+    # Half of it typed, the guide tag leads its own match.
+    school = [suggestion("high_school_uniform", 300_000)]
+    assert ranked("high s", [guide("high_score")], school) == ["high_score", "high_school_uniform"]
+    # Offline, the guide's tags are the whole list.
+    assert ranked("great s", local, []) == ["great_score"]
+
+
+def test_an_exact_match_leads_and_a_name_match_beats_an_alias():
+    remote = [suggestion("abs_(muscle)", 500_000), suggestion("abs", 400_000)]
+    assert ranked("abs", [guide("absurdres")], remote) == ["abs", "abs_(muscle)", "absurdres"]
+    # The index answers for an alias too: a name that starts with the query
+    # comes before one found through an alias.
+    alias = [suggestion("long_hair", 4_000_000), suggestion("very_long_hair", 600_000),
+             suggestion("hair_twirling", 10_000)]
+    assert ranked("long", [], alias) == ["long_hair", "very_long_hair", "hair_twirling"]
+
+
+def test_the_recommended_negative_is_never_first_unless_typed_whole():
+    negative = {"low_quality", "low_score", "lowres"}
+    remote = [suggestion("lowres", 900_000), suggestion("long_hair", 4_000_000)]
+    local = [guide("low_quality"), guide("low_score")]
+    assert ranked("lo", local, remote, negative)[0] == "long_hair"
+    # Typed whole, it is what was asked for.
+    assert ranked("lowres", [], [suggestion("lowres", 900_000)], negative) == ["lowres"]
+    assert ranked("low quality", local, [], negative)[0] == "low_quality"
+    # Nothing else matches: it stays, rather than an empty list.
+    assert ranked("low q", [guide("low_quality")], [], negative) == ["low_quality"]
 
 
 def test_numeric_year_is_only_special_for_profiles_that_document_it():

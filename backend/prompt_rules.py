@@ -1586,6 +1586,15 @@ _IMAGE_MENTION = re.compile(
     r"(?i)\bimages?\s*#?\s*(\d+(?:\s*(?:,\s*(?:and\s+|&\s*)?|and\s+|&\s*|-|–|to\s+)#?\s*\d+)*)"
 )
 _IMAGE_RANGE = re.compile(r"(\d+)\s*(?:-|–|to)\s*(\d+)")
+# An edit of a picture the prompt takes to be there already: "Turn this cat
+# into a dog", "Make the photo brighter". The Examples menu reads the same
+# pattern for the authors' examples (web/app.js's EDIT_PROMPT, held equal to
+# this one by tests/test_prompt_rules.py), so both say the same thing.
+EDIT_PROMPT = re.compile(
+    r"^\s*(turn|change|make|replace|remove|put|give)\b"
+    r".*\b(this|these|the (photo|image|picture)|image \d)\b",
+    re.IGNORECASE,
+)
 
 
 def _named_images(text: str) -> set[int]:
@@ -1602,9 +1611,21 @@ def _named_images(text: str) -> set[int]:
 
 def _references(ctx: _Context) -> Iterable[PromptFinding]:
     entry = ctx.entry("references")
+    if entry is None:
+        return
     count = len(ctx.applied.reference)
+    # With none attached, an edit of "this" picture renders from the words
+    # alone - a plain text-to-image that looks like a success. No author
+    # sentence says so, so it is the app's own reading, and a note.
+    if count == 0 and EDIT_PROMPT.search(ctx.text):
+        yield _heuristic(
+            "heuristic.no_reference",
+            "This reads as an edit of an existing picture, but no reference image is "
+            "attached - it will render from the prompt alone. Add one with \"Use as a "
+            "reference image\" (❐) on a gallery image.",
+        )
     # One reference needs no number: "turn this cat into a dog" is BFL's own.
-    if entry is None or count < 2:
+    if count < 2:
         return
     named = _named_images(ctx.text)
     missing = [str(n) for n in range(1, count + 1) if n not in named]

@@ -485,6 +485,8 @@ uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
 node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
 uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-xl-4.0
 node tools/browser.mjs tools/smoke-animagine.json # tag guide, defaults, size range and disabled Mu
+uv run python tools/fake_server.py --port 7878 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-tags.json      # chips, autocomplete, Tags and Examples by keyboard, Undo
 uv run python tools/fake_server.py --port 7867 --model OnomaAIResearch/Illustrious-XL-v2.0
 node tools/browser.mjs tools/smoke-illustrious.json # hybrid prompting, native size range and disabled Mu
 uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
@@ -1006,9 +1008,11 @@ range of sizes, so the panel says which: the **?** beside Prompt is the
 checkpoint's prompting guide, the **?** beside Size its sizing, the line
 under the width and height warns when a size is outside what its authors
 documented, and **Examples** drops down the authors' own prompts - click one
-and it fills the box. Tag-caption checkpoints can also show **Tags**; for
+and it fills the box (Ctrl+Z, or the Undo the note under the box offers, brings
+back a prompt it replaced). Tag-caption checkpoints can also show **Tags**; for
 Animagine it exposes only the model card's person-count, rating, quality, score
-and year controls, inserts at the prompt caret, finishes with the recommended
+and year controls, inserts at the prompt caret - it opens under the box and
+says where that is - finishes with the recommended
 quality suffix, and can fill the recommended negative prompt. For Illustrious
 it uses that model's documented person-count, quality-tier and year-modifier
 terms and fills the authors' own negative prompt, without borrowing
@@ -1018,16 +1022,20 @@ artist or style tag. WAI v17 has its own quality suffix, negative prompt and
 rating buttons. Its author publishes no vocabulary cutoff, so WAI's
 autocomplete uses the live index without claiming those tags were learned by
 the checkpoint. While typing a supported checkpoint's
-tag prompt, autocomplete comes from Danbooru's live tag index and each
+tag prompt, autocomplete comes from Danbooru's live tag index (Tab or Enter
+takes the first suggestion once three characters match it) and each
 comma-separated item gets a green recognised, red unknown, or grey unchecked
-chip. Illustrious remains hybrid: spellcheck stays on and a single natural-
+chip; a green chip's edge is its Danbooru category, and the chips past where
+the CLIP encoders stop reading are dimmed, with the token count beside the
+tray's label. Illustrious remains hybrid: spellcheck stays on and a single natural-
 language sentence does not become one unknown tag chip. On a wide page the
 full validation list uses the results column, so it
 does not move Generate and never gets its own scrollbar. Drag chips to reorder
-the canonical comma-separated prompt; use each × or the Delete key to remove
-one. Right-click a gap to insert at that boundary, or a chip to insert after it,
-with inline autocomplete. The lookup is advisory
-and never blocks generation; if the network is
+the canonical comma-separated prompt (or Alt+Left/Right on a focused chip);
+use each × or the Delete key to remove one. Click or right-click a gap to
+insert at that boundary, right-click a chip to insert after it, or use
+**+ tag** at the end, with inline autocomplete; Ctrl+Z undoes any of it. The
+lookup is advisory and never blocks generation; if the network is
 unavailable, ordinary tags remain unchecked rather than being called invalid.
 Only tag text is sent to the index, never images or generation settings. ERNIE
 also shows

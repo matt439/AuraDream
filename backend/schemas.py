@@ -354,6 +354,25 @@ class EncoderReport(BaseModel):
     source: str | None = None
 
 
+class PromptMeasureRequest(BaseModel):
+    """The prompt alone, as `collect()` sends it (trimmed), for the chip
+    tray's count: what the encoders read of it needs nothing else."""
+
+    prompt: str = Field(min_length=1, max_length=4000)
+
+
+class PromptMeasure(BaseModel):
+    """The encoder layer of a prompt check and nothing more - the counts and
+    the cut, no rules and no tag lookup - for the chip tray to mark the tags
+    past the cut while the prompt is typed. `encoders_detail` says what went
+    unmeasured, a tokenizer still loading included: the tray then says the
+    cut is unknown, never that there is none."""
+
+    model_id: str
+    encoders: list[EncoderReport] = Field(default_factory=list)
+    encoders_detail: str | None = None
+
+
 class DocumentedOrder(BaseModel):
     """The order the checkpoint's guide states, when it states one."""
 
@@ -856,6 +875,10 @@ class TagValidationItem(BaseModel):
     category: str | None = None
     post_count: int | None = None
     reason: str | None = None
+    # Why an unknown tag is unknown, as data beside `reason`'s sentence: the
+    # page marks a tag created after the checkpoint's cutoff apart from one
+    # the index never had. None for a known or unchecked tag.
+    code: Literal["not_found", "deprecated", "empty", "no_date", "after_cutoff"] | None = None
 
 
 class TagValidationResponse(BaseModel):

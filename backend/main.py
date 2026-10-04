@@ -51,6 +51,8 @@ from .schemas import (  # noqa: E402
     PromptExpansion,
     PromptExpansionRequest,
     PromptFinding,
+    PromptMeasure,
+    PromptMeasureRequest,
     RerenderRequest,
     RunSummary,
     TagSuggestionResponse,
@@ -62,6 +64,7 @@ from .schemas import (  # noqa: E402
 from .tags import (  # noqa: E402
     TagLookupUnavailable,
     normalize_tag,
+    rank_suggestions,
     tag_vocabulary,
     unchecked_results,
 )
@@ -347,21 +350,34 @@ def _model_tag_suggestions(helper: dict, query: str) -> list[dict]:
     ]
 
 
+def _negative_tags(helper: dict) -> set[str]:
+    """The guide's recommended negative prompt as tag names: what the
+    suggestion list never puts first for the positive prompt."""
+    return {
+        normalize_tag(part)
+        for part in (helper.get("negative_prompt") or "").split(",")
+        if part.strip()
+    }
+
+
 @app.get("/api/tags/suggest", response_model=TagSuggestionResponse)
 async def suggest_tags(q: str = Query(min_length=1, max_length=100)) -> TagSuggestionResponse:
     helper = _tag_helper_config()
     local = _model_tag_suggestions(helper, q)
+    avoid = _negative_tags(helper)
     try:
         remote = await asyncio.to_thread(
             tag_vocabulary.suggest, q, helper["vocabulary_cutoff"]
         )
     except TagLookupUnavailable as exc:
         return TagSuggestionResponse(
-            available=False, suggestions=local[:12], detail=short_error(exc)
+            available=False,
+            suggestions=rank_suggestions(q, local, [], avoid),
+            detail=short_error(exc),
         )
-    local_names = {item["canonical"] for item in local}
-    suggestions = local + [item for item in remote if item["canonical"] not in local_names]
-    return TagSuggestionResponse(available=True, suggestions=suggestions[:12])
+    return TagSuggestionResponse(
+        available=True, suggestions=rank_suggestions(q, local, remote, avoid)
+    )
 
 
 def _lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
@@ -846,6 +862,32 @@ async def analyze_prompt(request: PromptAnalysisRequest) -> PromptAnalysis:
         return await _detached(lambda: _analyse(request), "prompt-check")
     except Exception as exc:
         raise _prompt_failure(exc, "prompt analysis") from exc
+
+
+@app.post("/api/prompt/measure", response_model=PromptMeasure)
+async def measure_prompt(request: PromptMeasureRequest) -> PromptMeasure:
+    """What the running checkpoint's encoders read of the prompt: Check's
+    encoder layer alone, for the chip tray's count and the tags it marks
+    past the cut while the prompt is typed.
+
+    No rules and no tag lookup - the tray asks at every pause in typing, and
+    a Check's 64 Danbooru lookups each time would be a second tag lookup
+    beside the chips' own - and like Check never the image model, never the
+    gate, and off the loop on a daemon thread: a first measure on a cold
+    server can fetch the checkpoint's tokenizer files before anyone presses
+    Check, and waits `prompt_encoding.LOAD_WAIT` for them at most, after
+    which `encoders_detail` says they are still loading.
+    """
+    model_id = settings.model_id
+
+    def measure() -> PromptMeasure:
+        reports, _findings, detail = prompt_encoding.measure(model_id, request.prompt, None)
+        return PromptMeasure(model_id=model_id, encoders=reports, encoders_detail=detail)
+
+    try:
+        return await _detached(measure, "prompt-measure")
+    except Exception as exc:
+        raise _prompt_failure(exc, "prompt measure") from exc
 
 
 def _critic_unsupported() -> str:

@@ -315,22 +315,40 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .menu li .text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .menu li:hover, .menu li:focus { background: var(--accent-soft); outline: none; }
 .menu li.empty { color: var(--muted); cursor: default; }
+/* What an example needs that the panel lacks - a reference image for an edit
+   of "this" picture - beside the authors' words, which stay as written. */
+.menu li .example-note { display: block; margin-top: 2px; color: var(--warn); }
+
+/* An Example written over a prompt of the user's own says so under the box,
+   with the Undo that puts it back: over the next field's caption, out of the
+   panel's flow, so its coming and going moves nothing - Generate least. */
+.prompt-note {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 25;
+  display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: 3px 4px 3px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop); color: var(--text-2); font-size: var(--fs-sm);
+}
 
 /* The tag picker is data from the checkpoint guide, not a generic tag cloud:
    each checkpoint gets only the categories and terms its sources document. The
    editor remains the source of truth; these compact buttons insert at its
-   caret and reflect exact tags already present there. */
+   caret and reflect exact tags already present there. It drops under the
+   prompt box, the width of it, over the negative prompt and the sizes: hung
+   from the Tags button it covered 209 of the box's 296 px, caret and all,
+   and over the stage it would cover the chips that show what it did. Its
+   text is the chips' size. */
 .tag-menu {
-  position: absolute; top: calc(100% + 6px); left: -68px; z-index: 30;
-  width: var(--tag-menu-w); max-height: min(520px, 70vh); overflow-y: auto;
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+  max-height: min(520px, 70vh); overflow-y: auto;
   padding: 10px;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
   box-shadow: var(--shadow-pop);
-  color: var(--text); font-size: var(--fs-sm); line-height: 1.4; text-align: left;
+  color: var(--text); font-size: var(--fs-label); line-height: 1.4; text-align: left;
 }
-.tag-order { margin: 0 0 10px; color: var(--text-2); }
+.tag-order { margin: 0 0 6px; color: var(--text-2); }
+.tag-insert { margin: 0 0 10px; color: var(--text); }
 .tag-group + .tag-group { margin-top: 9px; }
-.tag-group > strong { display: block; margin-bottom: var(--sp-1); color: var(--muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.04em; }
+.tag-group > strong { display: block; margin-bottom: var(--sp-1); color: var(--muted); font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: 0.04em; }
 .tag-options { display: flex; flex-wrap: wrap; gap: 5px; }
 .tag-option {
   padding: 3px 7px; border: 1px solid var(--line); border-radius: 999px;
@@ -339,9 +357,10 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .tag-option:hover { border-color: var(--accent); color: var(--text); }
 .tag-option.active { border-color: var(--accent-2); background: #10312e; color: #b9fff8; }
 .tag-year { display: flex; gap: 6px; }
-.tag-year input { width: 82px; padding: 4px 7px; font-size: var(--fs-sm); }
+.tag-year input { width: 82px; padding: 4px 7px; font-size: var(--fs-label); }
 .tag-actions { display: flex; flex-direction: column; gap: 6px; margin-top: var(--sp-3); }
 .tag-actions button { width: 100%; text-align: left; }
+.tag-menu .ghost.tiny { font-size: var(--fs-sm); }
 .tag-note { margin: 9px 0 0; color: var(--muted); }
 
 /* Live Danbooru assistance for tag-caption checkpoints. The suggestions float
@@ -378,13 +397,41 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   column-gap: 9px; row-gap: 6px; min-height: 18px; cursor: context-menu;
 }
 .tag-validation-wide .tag-validation {
-  padding: 10px 12px; background: var(--panel); border: 1px solid var(--line);
+  position: relative;
+  padding: 10px 12px calc(var(--fs-sm) * var(--lh) + var(--sp-3));
+  background: var(--panel); border: 1px solid var(--line);
   border-radius: var(--r-lg);
 }
-.tag-validation::before { content: "Prompt tags · Danbooru"; color: var(--text-readout); font-size: var(--fs-sm); margin-right: 3px; align-self: center; }
+/* The label is the tray's state, written by renderTagValidation: what the
+   lookup said, how many tags it did not know, the lookup's cap and the
+   encoders' count - in a pseudo-element, so every child of the tray is a
+   chip, the editor or + tag. Amber where something is not as it looks: the
+   index unreachable (unchecked, never invalid, so never red), or more tokens
+   than the encoders read. */
+.tag-validation::before { content: attr(data-label); color: var(--text-readout); font-size: var(--fs-sm); margin-right: 3px; align-self: center; }
+.tag-validation[data-state="offline"]::before, .tag-validation[data-over]::before { color: var(--warn); }
 .tag-validation::after {
-  content: "double-click to edit · drag to reorder · right-click between tags to insert";
+  content: "double-click edits · drag or Alt+←/→ moves · click a gap or + tag to insert";
   color: var(--text-readout); font-size: var(--fs-xs); align-self: center;
+}
+/* Above the results the hint is pinned to the tray's foot, where it neither
+   travels with the last chip nor wraps onto a row a right-click reads as the
+   start. */
+.tag-validation-wide .tag-validation::after {
+  position: absolute; left: 12px; bottom: 7px; font-size: var(--fs-sm);
+}
+/* The chips' outcome for a screen reader (the tray is no live region). */
+.tag-summary {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* One tip for every unknown chip, placed under it as it is hovered or
+   focused: why the index did not take it, and that nothing is blocked. */
+.tag-tip {
+  position: fixed; z-index: 40; max-width: var(--tip-w-wide); padding: 8px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop); pointer-events: none;
+  color: var(--text); font-size: var(--fs-sm); line-height: 1.45; white-space: pre-line;
 }
 .tag-check {
   display: inline-flex; align-items: center; gap: var(--sp-1);
@@ -398,9 +445,39 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .tag-check.unknown { border-color: var(--danger); color: #ffe1e6; background: #211619; }
 .tag-check.unknown .tag-check-mark { color: #ff7185; font-weight: 700; }
 .tag-check.unchecked { border-style: dashed; }
+/* The item still being typed: no verdict until it is finished. */
+.tag-check.typing { border-color: var(--line-strong); }
+/* The category the lookup gave, on the edge - Danbooru's colours, teal for
+   the checkpoint guide's own tags. What a tag is, never where it goes. */
+.tag-check.valid[data-category] { border-left-width: 3px; }
+.tag-check.valid[data-category="general"] { border-left-color: #4ba4ff; }
+.tag-check.valid[data-category="character"] { border-left-color: #35c64a; }
+.tag-check.valid[data-category="copyright"] { border-left-color: #c797ff; }
+.tag-check.valid[data-category="artist"] { border-left-color: #ff8a8b; }
+.tag-check.valid[data-category="meta"] { border-left-color: #ead084; }
+.tag-check.valid[data-category="guide"] { border-left-color: var(--accent-2); }
+/* Past the encoders' cut: never read, dimmed and dashed, with an amber bar
+   where reading stops; the chip the cut splits keeps a dashed far edge. */
+.tag-check.past-cut { opacity: 0.55; border-style: dashed; }
+.tag-check.part-cut { border-right-style: dashed; border-right-color: var(--warn); }
+.tag-check.cut-start { position: relative; }
+.tag-check.cut-start::before {
+  content: ""; position: absolute; left: -7px; top: 2px; bottom: 2px; width: 2px;
+  border-radius: 1px; background: var(--warn);
+}
+/* A later copy of a tag already in the prompt: adds nothing. */
+.tag-check.duplicate { outline: 1px dotted var(--warn); outline-offset: 2px; }
 .tag-check.dragging { opacity: 0.45; cursor: grabbing; }
 .tag-check.drop-before { box-shadow: -4px 0 0 var(--accent-2); }
 .tag-check.drop-after { box-shadow: 4px 0 0 var(--accent-2); }
+/* + tag: the editor at the end of the prompt, for a pointer that does not
+   right-click and for the keyboard. */
+.tag-add {
+  padding: 3px 9px; border: 1px dashed var(--line-strong); border-radius: 999px;
+  background: transparent; color: var(--text-readout); font: inherit; font-size: var(--fs-label);
+  line-height: inherit; cursor: pointer;
+}
+.tag-add:hover, .tag-add:focus-visible { border-color: var(--accent-2); color: var(--text); }
 .tag-remove, .tag-editor button {
   display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
