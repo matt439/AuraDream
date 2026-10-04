@@ -19,6 +19,10 @@ TRUE_CFG_SQL = (
 
 # `key:value` in the search box. The column, and what a bare value means.
 FILTERS: dict[str, tuple[str, Any]] = {
+    # One image by the number the page names it by ("#12"), or a span of them:
+    # "refine of #4" and the Refine dialog's title name ids the grid never
+    # showed, and a pass's source could not be found from them.
+    "id": ("id", int),
     "seed": ("seed", int),
     "steps": ("steps", int),
     "cfg": ("guidance_scale", float),

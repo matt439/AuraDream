@@ -258,6 +258,9 @@ document.addEventListener('click', (e) => {
 });
 els.unload.onclick = unloadModel;
 els.more.onclick = () => loadGallery();
+// One card at a time in the tab order, walked with the arrow keys (gallery.js).
+els.gallery.addEventListener('keydown', galleryKey);
+els.gallery.addEventListener('focusin', galleryFocus);
 // Scrolling to the end of the gallery fetches the next page: the trigger is
 // the button coming within a few hundred pixels of the viewport, so the page
 // is usually there before the button is. Hidden - no older rows, or the
@@ -318,7 +321,8 @@ els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
 window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
-els.runList.onchange = () => { showRun(els.runList.value); els.runList.value = ''; };
+// The picker then names the run on screen: resetGallery follows the search box.
+els.runList.onchange = () => showRun(els.runList.value);
 els.lastRunShow.onclick = () => {
   const { run, job } = els.lastRun.dataset;
   if (run) showRun(run);

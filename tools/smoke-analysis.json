@@ -360,7 +360,7 @@
   {"expect": "!sheetMode && els.favOnly.checked && els.comparePreview.textContent.startsWith('8 images · 2 versions') && !els.compareRun.disabled"},
   {"log": "'(waits for the job and the sheet it opens - sheetMode on and its query settled - rather than a fixed time, which a loaded machine outran)'"},
   {"eval": "void runComparison(); window.__sheetSettled()"},
-  {"expect": "sheetMode && !els.favOnly.checked && document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8 && els.sheetNote.textContent.endsWith(' · Favorites unticked: nothing in a new comparison is starred yet')"},
+  {"expect": "sheetMode && !els.favOnly.checked && document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8 && els.sheetNote.textContent.endsWith(' · Starred unticked: nothing in a new comparison is starred yet')"},
   {"expect": "[...document.querySelectorAll('#sheet-grid .rowhead')].map((e) => e.querySelector('.label').textContent).join() === 'Original,Your version'"},
   {"log": "'The notice belongs to the query it was set for: the same run opened again from the Runs picker reads plainly'"},
   {"eval": "showJob(els.search.value.slice(4)); window.__sheetSettled()"},

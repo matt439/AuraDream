@@ -956,19 +956,39 @@ mu:none           the images that ran with no shift at all — not the same as m
 hash:3f9a         every image with the same pixels (a prefix of the hash will do)
 refine:412        the refine passes of gallery image 412; refine:none for the direct renders
 strength:0.3-0.5  how far a refine pass was re-denoised
+id:412            one image by the number the page calls it, #412; id:400-420 a span
 date:today        a day on your clock: today, yesterday or 2026-09-07
 a lighthouse      anything left over searches the prompt
 ```
 
 `date:` is a local day, not a UTC one: an overnight run crosses midnight in
-every timezone, and the day you mean is the one on your calendar.
+every timezone, and the day you mean is the one on your calendar. The grid
+draws a line where the local day changes between one card and the next.
+
+The **Runs…** picker over the gallery is the same thing by name: grids and
+batches first, each with its image count (and its prompt count where there
+are several), then the newest eight single images, each by the second it was
+made and its seed. Picking one searches `run:<id>` and opens its sheet, and
+the picker keeps naming whichever run the search box shows, however it got
+there - a card's ⊞, Show run, typing.
+
+Each card's tools - ↻ Reuse, ⤢ Refine, ❐ Reference, ⊞ Sheet and ⌦ Delete,
+set apart at the end - name themselves as the pointer or the keyboard
+reaches them. Refine and Reference are dimmed on a checkpoint that cannot
+use them, and still say why when pressed. ❐ is a toggle: a card that is a
+reference image is ringed and numbered as its chip is. The star in a card's
+corner is a button, shown on every starred card and on any card under the
+pointer, and a refine pass carries its strength (`⤢ 0.1`) top left. From
+the keyboard the gallery is one tab stop: Tab reaches the card you were on,
+the arrow keys walk the grid (Down past the last row loads the next page),
+Home and End jump, Enter opens the lightbox and F stars.
 
 The gallery shows the images made on the checkpoint the server is running,
-and nothing else, until you tick **All models** beside Favorites. Steps, CFG
+and nothing else, until you tick **All models** beside Starred. Steps, CFG
 and mu are the checkpoint's, so a picture from another one is a set of
 settings you cannot reuse under a Reuse button that warns; hiding them is
 the default, not a filter you have to remember. The tick says what it would
-add - `All models (+40)` - counted under the same search and Favorites, so a
+add - `All models (+40)` - counted under the same search and Starred tick, so a
 run picked or typed that was made on the other model reads as forty hidden
 rather than as an empty grid. It is not remembered across a reload, and the
 Runs picker, Re-render and Delete unstarred all follow it: with it off, none
@@ -984,13 +1004,13 @@ says the same when a job finishes, and `hash:` finds every image identical to
 one. It rests on the pipeline being deterministic, which was checked on the
 card: the same request twice through the fp8 FLUX path is the same bytes.
 
-**Re-render** appears beside the filters whenever a search or the Favorites
+**Re-render** appears beside the filters whenever a search or the Starred
 tick narrows the gallery: it renders everything the filter matches again at
 the size set in the panel, one cell per image with its own prompt, negative
 prompt, steps, CFG, true CFG, mu, references, adapter and weight, seed and
 variables, as one job - the variables being a prompt grid's values or a
 comparison's version, so the re-rendered run's sheet keeps its rows. Star the
-winners of a 1 MP night, tick Favorites, pick 4 MP, click. Cells already
+winners of a 1 MP night, tick Starred, pick 4 MP, click. Cells already
 rendered at that size are skipped, so it can be resumed like a grid, and
 a selection made on another checkpoint - which only All models lets in -
 is refused rather than run with the wrong steps and CFG (untick it, or

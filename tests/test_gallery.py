@@ -1,6 +1,7 @@
 """Search, paging and the file/row pair that has to stay consistent."""
 from __future__ import annotations
 
+import pytest
 from PIL import Image
 
 from backend.schemas import GenerateRequest
@@ -89,6 +90,22 @@ def test_the_hash_is_of_the_pixels_and_finds_the_same_picture(store):
     assert (d.content_hash, e.content_hash) == (a.content_hash, a.content_hash)
     run = store.runs()[0]
     assert (run.run_id, run.images, run.distinct) == ("r1", 2, 1)
+
+
+def test_id_finds_the_image_the_page_names(store):
+    # "#12" is how the page names an image - "refine of #12", the Refine
+    # dialog's title - so `id:12` is the search that finds it, a span finds
+    # several, and a strict scope (Delete unstarred, `clear --where`) takes it
+    # as it takes any other key:value term.
+    a, b, c = (_add(store, f"a fox, take {n}", seed=n) for n in (1, 2, 3))
+    found, total, _ = store.list_images(search=f"id:{b.id}")
+    assert total == 1 and found[0].id == b.id
+    found, total, _ = store.list_images(search=f"id:{a.id}-{b.id} fox")
+    assert {r.id for r in found} == {a.id, b.id}
+    assert [r.id for r in store.list_images(search=f"id:>{b.id}")[0]] == [c.id]
+    assert store.matching_preview(f"id:{c.id}")["records"] == 1
+    with pytest.raises(ValueError, match="id: 'twelve' is not a number"):
+        store.list_images(search="id:twelve")
 
 
 def test_a_grid_cells_variables_round_trip(store):

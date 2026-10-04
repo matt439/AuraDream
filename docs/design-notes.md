@@ -753,7 +753,8 @@ job opens as a sheet when done. Each change asks `/api/grid/preview` with
 the grid-shaped request - the same validation the submit runs - so a size
 past the guard or a strength that leaves no step is refused in the dialog,
 in the server's words, and Refine is aria-disabled with the reason as its
-title. A ⤢ press on a checkpoint with no pass says so and opens nothing;
+title. A ⤢ press on a checkpoint with no pass says so and opens nothing
+(a card's ⤢ is aria-disabled there, as the lightbox's Refine is);
 Reuse on a refined record opens the dialog anyway, with Refine dead and the
 reason shown, until a status says the loaded pipeline has one. The dialog
 remembers per browser (`local-diffusion.refine.v1`) the scale and versions
@@ -2087,12 +2088,32 @@ stopped - "stopped at cell 6 of 12", or "never started" - where "(6/12
 cells)" read as six done; a failure stop's error says it already. A job that
 ended at the load is skipped while the status still gives the same detail.
 
+**The picker is grouped, and follows the search box.** Every plain Generate
+is a run of its own (`run_id` comes from the cell keys), so in an afternoon
+of single images the picker became a click log: twenty lines that differed
+in the minute, and the night's grid pushed off a list of twenty. `loadRuns`
+asks for the server's 200 and lays them out in two `<optgroup>`s: "Grids and
+batches" - more than one image, or more than one job - labelled with the
+image count, the distinct count where it is lower and "N prompts" where
+there are several; then "Single images", the newest eight, each by the
+second it was made and its seed, which is what tells two of them apart where
+the clipped prompt did not. Nothing new is asked of the server: `/api/runs`
+returns images, prompts and jobs per run already. The select used to go
+back to "Runs…" the moment a run was picked, leaving `run:949bbfa5c2c0` in
+the box as the only label of what was on screen; it now names the run the
+search box shows (`syncRunList`, from `resetGallery` and the end of
+`loadRuns`), however the box got it - a pick, a card's ⊞, Show run, the
+sheet's return, typing - and "Runs…", a hidden and disabled first option,
+for anything else or a run it does not list. A refine-only label was not
+added: telling a pass's run from its grid's would need a field `/api/runs`
+does not have.
+
 ## The gallery is the running checkpoint's
 
 **`GET /api/gallery` is scoped to `settings.model_id` unless `all_models=true`**,
 and so are `GET /api/runs`, `GET`/`DELETE /api/gallery/unstarred` and
 `POST /api/rerender` - every route that reads "the gallery's filter". The
-page's All models tick, beside Favorites and unpersisted like it, is the one
+page's All models tick, beside Starred and unpersisted like it, is the one
 switch. Steps, CFG and mu are the checkpoint's, so under a gallery that has
 seen three checkpoints the grid was mostly settings that could not be reused,
 each under a Reuse button that warned, and the working set - this checkpoint's
@@ -2168,6 +2189,115 @@ that just refused - which is why the button stays: it is the retry, and the
 visible sign that older rows exist. Hidden in the sheet and once `has_more`
 is false, it never intersects.
 
+Where the local day changes between one record and the next, `loadGallery`
+puts a line across the grid (`dayBreak`, an `h3` spanning `1 / -1`), judged
+from the last record already held, so a page boundary is no day boundary.
+It carries no `data-id`: paging, the deletes, the lightbox and `.card`
+counts never see it. A day whose cards are all deleted keeps its line over
+their tombstones, which hold their slots so that nothing moves under the
+pointer that pressed ⌦ - taking the line out would move every card after it.
+
+## The gallery's cards
+
+**Each tool names itself, and the row fits.** The tools were six glyphs named
+only by a native title, and at QHD the row ran 182 px in a 171 px card, so
+Delete was clipped. They are now five - the star left the row (below) - and
+shrink before they overflow (`flex: 0 1 auto; min-width: 0`), with Delete
+apart at the far end (`margin-left: auto`). Each carries a short name in
+`data-tip` that a `::after` shows at once on hover and on keyboard focus,
+anchored at the row's left edge: the buttons are not positioned, so the
+label's containing block is the row, and the card's `overflow: hidden` never
+clips it as it would one centred over Delete. Delete's is anchored at the
+right edge instead, over Delete: at the left it put the destructive tool's
+name over Reuse, some 200 px away. The glyphs stay the buttons' text - the
+smokes find them by it - and the title stays the long name.
+
+**Dead tools are marked, as the lightbox's Refine is.** ⤢ where the
+checkpoint has no pass and ❐ where it takes no references are aria-disabled
+with the reason as their title (`syncRefineTool`, `syncReferenceTool`),
+never disabled, so each keeps its tab stop and a press still says why: in
+`#gallery-error`, which stays and is announced, and for two seconds in an
+`aria-hidden` note over the row (`refuseInCard`, `cardNote`). The card
+decides the ⤢ refusal itself rather than leaving it to `openRefine`, so it
+can say it there too. Cards can render before the first status, so the
+state is set in `card()` and again where the status flips a capability:
+`syncCardTools` from status.js for refine, `syncReferenceMarks` (through
+`syncConditioning` and `renderReferences`) for references.
+
+The press must leave the tool where it was. `#gallery-error` sat between
+the head and the grid, so its first message pushed the grid down 38 px and
+the repeat press a click that did nothing invites landed on the image
+below, opening the lightbox. It is now a row of the head's own whose line
+is kept while it is empty (`[hidden]` there is `visibility: hidden`); only
+a message that wraps still moves the grid, by its second line. The note
+over the row is a gist on one line - "Four is the most", with the sentence
+in the gallery's line - and the row's names stay down while it is up: the
+two-line note grew up into the pressed tool's name and the two were drawn
+over each other.
+
+**❐ is a toggle, and references are marked where they are picked.** A click
+on an image already among the references used to re-send the same list and
+show nothing, and the only sign of a reference was a chip up to 1,600 px
+away. `syncReferenceMarks`, which `renderReferences` calls, rings every card
+and sheet cell that is a reference in the accent (an outline: the border
+and its shadow are the star's) and numbers it top left as its chip is (a
+`.ref-n` span; a pass's badge moves over for it). Its ❐ is pressed, named
+"Reference image N - click to remove", and removes it; at four the other
+cards' ❐ are aria-disabled. A `role=status` note over the row says "Added as
+image N" or "Removed" for two seconds, written once it is in the page so it
+is announced. `setReferences` stays the one writer.
+
+**The star is a button.** A starred card's amber ring and dark 28 px badge
+are what a page of thumbnails is scanned for, but the badge was a
+pseudo-element a click went through to the lightbox, while the real toggle
+sat in the hover row 4 px from Delete. It is now a `<button class="star
+fav-badge">` in the same place, before the tools: always shown on a starred
+card, and ☆ on another's hover, focus-within or a coarse pointer, as the
+tools are. It took the row's star's place, so a card's tab stops did not
+grow. `syncStar` draws any star button from the state - glyph,
+`aria-pressed`, label and title together, where the label followed only an
+in-page toggle and the title never. The title names F only on a button
+that declares it in `aria-keyshortcuts`, as the card's does, and on a card
+F works from the star and the tools as from the image (`galleryKey`): it
+was the image's alone, under a star whose title promised it. `setFavorite`
+updates every element showing the record by class and its star button:
+cards, sheet cells, a `.result` beside the viewer, and the lightbox when it
+shows that record. `.sheet-cell.fav::after` keeps the badge as a picture:
+F stars a cell.
+
+**The whole frame, and what it is.** Cards are `object-fit: contain` on
+their own grey, the trade the sheet's cells made: `cover` showed 57% of a
+16:9 image and could not tell landscape from square. A refine pass is
+marked top left with its strength (`.card.refined::before`, the sheet's own
+rule), since it keeps its source's picture by design. The image's label and
+title name it as the page names images, "#N", with its size, seed and the
+source of a pass. Reuse on a pass says what it does: "Reuse pass…" in the
+lightbox, and on both the title "Open the Refine dialog on #4 with this
+pass's size, strength and seed" (`syncReuseButton` keeps the source in
+`data-reuse-pass` for `syncReuseButtons`); a ⚠ on another checkpoint's
+record adds what the Reuse will leave behind - references the checkpoint
+takes none of, an adapter the LoRA box does not offer. Those are the
+status's to say, and the card can be older than it, so `syncReuseButtons`
+runs again where references or adapters flip and where the adapter list
+lands (`refreshLoras`), not only where the checkpoint changes: a card kept
+under All models across a restart named the old checkpoint's verdict.
+
+**One tab stop for the grid.** Seven stops a card put the 30th image some
+270 Tab presses down the page. One card is current (`galleryCurrent`, an
+id, so a gallery reset or queried again keeps it where the record is still
+loaded): its image, star and tools are tab stops and every other card's
+are -1. Focus arriving any way - a click, the lightbox handing it back -
+makes that card current; a page that lands without it makes the first
+card current; a delete moves it to the next card along (`forgetImages`). F
+stars the card from its image, star or tools; on the image the arrows walk
+the grid, and Home and End go to the first and last card loaded; Down from
+the last row loaded fetches the next page and goes on into it. Up and Down take the nearest card across in the next row, found
+from where the cards are rather than from the grid's column count: a day's
+line starts a row of its own, so a short row before it put "a row on" by
+the count that many cards short. Focus moves with `preventScroll` and the
+card is scrolled `nearest`, clear of the topbar by its `scroll-margin-top`.
+Nothing here is in `thumb()`, which the viewer and the sheet share.
+
 ## LOCAL_DIFFUSION_DEVICE reaches the offload hooks
 
 The offload hooks are handed `LOCAL_DIFFUSION_DEVICE` explicitly (when it is a CUDA
@@ -2180,12 +2310,15 @@ were the setting.
 
 The gallery search box is `key:value` terms plus free text: the terms become
 SQL predicates (`seed:42`, `cfg:<=0.5`, `steps:8-12`, `mu:none`, `model:flux`,
-`run:ab12cd`, `job:ab12cd`) and only what is left goes to the FTS index, so a prompt that
+`run:ab12cd`, `job:ab12cd`, `id:12`) and only what is left goes to the FTS index, so a prompt that
 happens to contain a colon still searches for itself. `mu:none` is `IS NULL` -
 no shift at all is a different image from `mu:0`, and SQL matches NULL with
 neither. `model:` is a substring by design, for the family; the running
 checkpoint's scope over the gallery is a separate, exact predicate (above),
-not a term the page writes into the box.
+not a term the page writes into the box. `id:` is the image the page names
+"#12" - in "refine of #4", the Refine dialog's title, a card's label - which
+no search could find before; a range is a span of them, and like any other
+term it is a strict scope for Delete unstarred and `clear --where`.
 
 ## The contact sheet
 
