@@ -63,8 +63,10 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   components (`build`), the steps a strength leaves, and the source scaled to
   cover the requested size and cropped; a leaf module like `seeds`
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
-  `max_side`/`max_pixels`, `web/state.js`'s copy, `index.html`'s `max=` and the
-  README table are all held to it by `tests/test_profiles.py`
+  `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
+  `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
+  `web/refine.js`'s two refine bounds, `index.html`'s `max=` and the README
+  table are all held to it by `tests/test_profiles.py`
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
 - `backend/backends/loading.py` — everything decided before the weights
@@ -105,11 +107,12 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; the page script is eleven classic
+- `web/` — served as-is from `/static`; the page script is twelve classic
   scripts `index.html` loads in order (`state`, `sizes`, `status`,
-  `generation`, `panel`, `gallery`, `sheet`, `lightbox`, `tags`, `analysis`,
-  `app`), sharing one global scope; only `app.js`, the last, runs anything at
-  load. `analysis.js` is the prompt check, the critic and the comparison
+  `generation`, `panel`, `gallery`, `sheet`, `lightbox`, `refine`, `tags`,
+  `analysis`, `app`), sharing one global scope; only `app.js`, the last, runs
+  anything at load. `refine.js` is the Refine dialog; `analysis.js` is the
+  prompt check, the critic and the comparison
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
   feature (headless browser over DevTools): the UI's stand-in for a test
@@ -331,8 +334,8 @@ Reproduction:
   default is the profile's `refine_strength` (`schemas.default_strength`,
   `refine.DEFAULT_STRENGTH` where the profile names none), filled in for a
   request that gives no strength and returned by live status when an
-  unprofiled pipeline supports the pass, and seeded into the Strength box per
-  control (`owned.strength`), because a strength is an index into the
+  unprofiled pipeline supports the pass, and where the Refine dialog's
+  Strength starts, because a strength is an index into the
   checkpoint's own schedule: 0.4 on SDXL, 0.1 on FLUX.1 [dev], where 0.4
   repaints a face. Each value must leave a step of its profile's own step
   count; `docs/design-notes.md` has each one's basis and `docs/verified.md`
@@ -361,8 +364,14 @@ Reproduction:
   pixel hash and dimensions): PNG-only recovery verifies these before
   assigning new ids, clears/counts unproven legacy or missing links, and
   rewrites changed ids in PNG metadata even during an in-place rebuild. The
-  CLI's `--scale` and the page's scale buttons share one rounding
-  (`refine.scaled`, half up).
+  CLI's `--scale` and the dialog's scale buttons share one rounding
+  (`refine.scaled`, half up). A pass has a size guard of its own,
+  `refine_max_side`/`refine_max_pixels` (any 2 MP preset at 2x: 4448 and
+  8,411,136): the schema's `width`/`height` bound is that,
+  `_direct_renders_stay_in_the_presets` holds a request with no source to
+  `max_side`, and `check_budget` holds a pass to `refine_max_pixels` and
+  skips the batch budget, since a pass is one call per image. A typo guard,
+  not a VRAM model: what fits is the checkpoint's (`docs/verified.md`).
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.
@@ -733,25 +742,30 @@ Frontend and CLI:
 - Validation chips edit the prompt: drag (or Alt+Left/Right) reorders, × or
   Delete removes, and right-clicking a gap inserts there (a chip inserts after
   itself) with autocomplete. All mutations must go through `writePromptTags`.
-- The Refine field is greyed for the checkpoint, like the reference field.
-  Its source is `refineSource` (`{id, width, height}`, the size null until
-  `loadRefineSource` has asked `GET /api/images/{id}`), written through
-  `setRefine`, `refineFrom` (the card's and the lightbox's Refine: the
-  image's own settings through `fillPanel`, itself as the source, 1.5x its
-  size or the largest factor that fits) and `reuse`, which restores a
-  refined record's pass and clears it for a plain one. Reuse keeps a source
-  when support is unavailable and Generate/Run grid block until the model
-  has loaded with support or the source is removed. `collect()` sends the
-  source only where `refineSupported`, and `strength` only beside one. The
-  Strength box follows the profile's `refine_strength` until the user or
-  Reuse sets it, and is remembered with the checkpoint like steps and CFG. The
-  size line drops the documented-range warning under a source - the range is
-  about direct renders - and says how the size relates to it. A source that
-  is deleted here is cleared with a note; before submit the source is checked
-  again, and a missing source is cleared with that note and the submit aborted.
-  The note explains that size stays unchanged and another Generate renders
-  directly. A prompt comparison blanks `strength_axis` along with every other
-  grid axis and names its refine source in the preview.
+- A refine pass is the Refine dialog's (`web/refine.js`), never the
+  panel's: `collect()` sends `refine: null`, so Generate, Batch, Runs, the
+  grid and the comparison always render from the prompt, and the grid has no
+  strength box. `openRefine(rec, pass)` - a card's ⤢, the lightbox's Refine
+  (which closes the lightbox) and `reuse` on a refined record, which first
+  asks `GET /api/images/{id}` for its source - fills the dialog from the
+  record: prompt, negative, steps, CFG, Mu, True CFG and an adapter the list
+  still offers, or this checkpoint's profile where the record is another
+  checkpoint's (the fold opened, saying so); the seed; 1.5x the source's size
+  or the remembered scale, else the largest factor that fits. `refineSource`
+  is that record while the dialog is open and null once it closes. A ⤢ on a
+  checkpoint without a pass says so and opens nothing; a refined record's
+  Reuse opens it anyway, Refine aria-disabled with the reason, until status
+  says the pipeline has one. A source gone at Reuse fills the panel instead,
+  its size unchanged, with a note. Versions is `num_images` on consecutive
+  seeds; a Strength holding a list or a range is a `/api/grid` strength axis
+  with Versions as `seeds`, opened as its sheet (`startJob(path, body,
+  { sheet, panel: false })`, which never writes the panel's Seed box). Every
+  change asks `/api/grid/preview` with the grid-shaped request; its refusal,
+  a size past the guard or no capability makes Refine aria-disabled with the
+  reason as its title, and a press says it in the dialog. The dialog
+  remembers the scale, the versions and, per checkpoint, a single strength
+  the user ran (`local-diffusion.refine.v1`); `resetPanel` forgets it.
+  Ctrl+Enter in the dialog runs the pass, not Generate.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch; `resetPanel` is the one thing that forgets
@@ -832,7 +846,8 @@ over a stub pipeline's components and called once per image with that
 image's generator, the cancel paths, mu through the shared scheduler, the
 row, the PNG, the key, the migration, the reindex and the merge),
 `tests/test_api_refine.py` (the status flag, the submit refusals, the
-strength axis with resume, `GET /api/images/{id}`, Re-render) and the CLI's
+strength axis with resume, the pass's own size guard and its lack of a
+batch budget, `GET /api/images/{id}`, Re-render) and the CLI's
 flags in `tests/test_cli.py`. What a pass does to pixels, its time and its
 memory are the card's to say, in `docs/verified.md`.
 `tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
@@ -960,30 +975,35 @@ uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriou
 node tools/browser.mjs tools/smoke-wai.json
 ```
 
-`smoke-refine.json` checks the refine pass on a FLUX.1 Krea [dev] fake on
-7875, whose refine cells are the source image under a stamp: the strength
-boxes dead with no source, the card's and the lightbox's Refine buttons, the
-scale buttons and the size line, the row and the lightbox's settings line,
-the chip's cross, Reuse restoring a pass and clearing one, a strength
-sweep's preview and its sheet axis, `refine:` in the search box, a sweep
-that leaves no step refused in the preview, the panel's memory across a
-reload, a source that has gone, and Reset. `smoke-conditioning.json` has the
-other side on its klein fake: the field greyed with its reason, and both
-Refine buttons answering with it.
+`smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
+7875, whose refine cells are the source image under a stamp: no refine
+control in the panel, the card's and the lightbox's Refine opening the
+dialog with the image's prompt and seed and the panel untouched, the
+profile's strength, the scale buttons and the size line, Versions and their
+seeds, the rows and the lightbox's settings line, a pass past 4 MP and one
+past the guard refused in place, Escape, a strength sweep's preview, its
+sheet axis and `refine:` in the search box, a sweep that leaves no step
+refused in the preview, Ctrl+Enter, the remembered strength and Reset
+forgetting it, Reuse opening a pass (and another checkpoint's, with this
+one's sampling), a pass whose source has gone, and a source deleted while
+the dialog is open. `smoke-conditioning.json` has the other side on its
+klein fake: both Refine buttons answering with the reason and opening
+nothing.
 
 ```powershell
 uv run python tools/fake_server.py --port 7875 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-refine.json
 ```
 
-On the same FLUX fake at 7875, `smoke-comparison-refine.json` checks that a
-remembered strength axis in a folded grid cannot multiply a comparison,
-including its saved records, paired seeds and complete sheet.
-`smoke-refine-unavailable.json` checks retained Reuse and remembered sources
-under an unloaded off-catalogue capability guess, blocked Generate/grid,
-recovery after loading, and explicit source removal. `smoke-refine.json` also
-covers source deletion here and elsewhere, blank Strength notes and a sweep's
-own invalid cell rather than its unused base strength.
+On the same FLUX fake at 7875, `smoke-refine-unavailable.json` checks an
+unloaded off-catalogue capability guess: ⤢ opening nothing, a refined
+record's Reuse keeping the pass in the dialog with Refine dead and nothing
+submitted, the dialog waking when status says the pipeline has a pass, and
+Generate meanwhile rendering directly. `browser.mjs` sends Escape with its
+key code, so a modal dialog closes on it as on a real press. Fake servers
+share one throwaway gallery unless `--data` gives each its own, and
+`smoke.json` counts the images planted under another checkpoint: run it on
+a fake of its own while others are up.
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on
 7874: the CLIP cut, the negation and quote findings with their sources, span

@@ -394,7 +394,9 @@ With no size given the pass renders at the source's own size times `--scale`
 set another, and a shape that is not the source's crops it rather than
 stretching it. `--from-image` supplies the recorded size, so add `--scale`
 explicitly to enlarge it. `--strength` defaults to the checkpoint's own starting value
-(0.4 on SDXL, 0.1 on FLUX.1 [dev]), and `--grid-strength` sweeps it.
+(0.4 on SDXL, 0.1 on FLUX.1 [dev]), and `--grid-strength` sweeps it. A pass
+may go past the 4 MP presets, to any 2 MP preset at 2× (4448 on a side,
+8.4 MP).
 Refused before the load on a checkpoint that has no such pass, for a source
 the gallery has not got, and for a strength that leaves less than one step.
 
@@ -555,7 +557,8 @@ size or a finite model-card aspect is outside it (see
 [Prompting guide](#prompting-guide)). 4 MP buys
 detail at some risk of repeated elements in the composition. A hand-typed
 size is accepted up to the largest preset - 3168 on
-a side, 3168×1328 in pixels - and refused past it; the table in
+a side, 3168×1328 in pixels - and refused past it; only a [Refine](#refine)
+pass goes further, to any 2 MP preset at 2×. The table in
 `backend/sizes.py` is the one source, and the CLI, the browser and this README
 are held to it by a test.
 
@@ -568,14 +571,31 @@ sample, and past a checkpoint's documented range the composition is what
 degrades - FLUX.1's own size advice is "render at 1-2 MP and upscale", and
 WAI's author renders at 1024×1344 and then runs a 1.5× hires pass.
 
-Press **⤢** on a gallery image, or **⤢ Refine** in the lightbox. The panel
-takes the image's prompt, settings and seed, the image itself as the
-*source* (the chip under Size) and 1.5× its size; **Generate** runs the
-pass. The **1× / 1.5× / 2×** buttons multiply the source's size - 1×
-re-denoises at the size it has - and any other size works too: a shape that
-is not the source's crops it rather than stretching it. Edit the prompt if
-the detail should change; the × on the chip goes back to rendering from the
-prompt alone.
+Press **⤢** on a gallery image, or **⤢ Refine** in the lightbox. A Refine
+dialog opens on that image, the *source*, and the panel is left as it was:
+Generate, Batch, Runs and the grid always render from the prompt, and a pass
+never takes their settings. The dialog starts from the image's own prompt,
+sampling settings and seed, at 1.5× its size (or the last scale you ran);
+**Refine** runs the pass and its progress shows in the panel as any job's
+does. The **1× / 1.25× / 1.5× / 2×** buttons multiply the source's size -
+1× re-denoises at the size it has - and any other size works too: a shape
+that is not the source's crops it rather than stretching it. **Versions**
+makes 1, 2 or 4 passes on consecutive seeds from the **Seed** box, which
+starts at the source's. The prompt, negative prompt, steps, CFG and Mu are
+folded under **Prompt and sampling**: edit the prompt there if the detail
+should change. An image made on another checkpoint keeps its prompt and
+seed, and takes this checkpoint's steps, CFG, Mu and strength, with the fold
+open to say so. Under the boxes the dialog says how many images the pass
+makes, about how many steps run and, once the gallery holds passes at that
+size, how long it will take.
+
+A pass may go past the 4 MP presets, to any 2 MP preset at 2× - 4448 on a
+side, 8.4 MP - because it takes its composition from the source, which is
+what a direct render at that size loses. That is a guard against typos, not
+a promise that it fits: measured here, WAI reached 8.6 MP in 46 s with
+the card two-thirds used, while Z-Anime filled the 16 GB at 4.2 MP and took
+12 minutes at 8.4 MP, and FLUX.1 fills it already at 2.4 MP. Past that point
+the driver spills into system memory and every step slows many times over.
 
 **Strength** is how much is redrawn. The source is resized, encoded, noised
 to that point on the schedule and denoised from there: low values keep the
@@ -591,12 +611,12 @@ and [dev], **0.15** on Z-Anime, 0.25 on Z-Image, 0.3 on Qwen-Image and 0.5 on
 the 4-step schnell. Each starts the pass at about half noise for a 1.5× pass
 of a 1 MP image. On FLUX.1 that is a small number because its schedule's
 shift grows with the size: measured here, 0.4 at 1.5× keeps the composition
-and repaints the face. The schedule predicts more redraw at 2× than at 1.5×
-at the same strength; a 2× pass has not been measured here. A
-Mu set for the pass moves it back (Mu 1.15 at strength 0.2 starts where the
-default schedule's 0.1 does, with twice the steps). The grid's **Refine
-strength** axis - `0.05-0.2x0.05` over one source - is a sheet of how much
-of it each value kept.
+and repaints the face, and at 2× even 0.1 starts at sigma 0.75 and repaints
+the man. A Mu set for the pass moves it back (Mu 1.15 at strength 0.2
+starts where the 1.5× default 0.1 does, with twice the steps, and at 2×
+kept him). Several strengths typed into the dialog's **Strength** box -
+`0.05,0.1,0.2` or `0.05-0.2x0.05` - run as one sweep over the source, which
+opens as a sheet of how much of it each value kept.
 
 It runs the image-to-image pipeline diffusers ships beside the checkpoint's
 own, over the weights already loaded, with no extra weight download or copy.
@@ -613,11 +633,12 @@ this app's pipeline has a compatible image-to-image counterpart:
 Anima Turbo uses this app's custom pipeline, which has no compatible sibling;
 diffusers itself does provide an Anima modular image-to-image workflow.
 
-Elsewhere the field is greyed, with the reason in its badge, and a request
-is refused at submit rather than rendered as something else.
+Elsewhere ⤢ says so instead of opening the dialog, and a request is refused
+at submit rather than rendered as something else.
 
 The source and the strength are part of the image's record - the row, the
-PNG, the resume key - so **Reuse** and `--from-image` reproduce a pass,
+PNG, the resume key - so **Reuse** on a refined image opens the dialog on
+its source with the pass as it ran, `--from-image` reproduces a pass,
 **Re-render** carries it to another size, the lightbox reads
 `refine of 412 @ 0.4`, and `refine:412` in the search box finds every pass
 made from image 412. The source is a gallery id, like a reference image:
@@ -639,8 +660,10 @@ Measured on the RTX 5080 (fp8, model offload, 2026-10-03; the rest is in
 
 On all three the same pass twice is the same pixels, image 2 of a batch is
 exactly what its own seed makes alone, a cancel lands within a step, and the
-checkpoint's ordinary renders are byte-identical before and after. A batch
-runs one pass per image, so it costs time rather than VRAM. The other three
+checkpoint's ordinary renders are byte-identical before and after. Versions
+run one pass per image, so they cost time rather than VRAM, and the batch
+pixel guard below does not apply to them. The passes past 4 MP are in
+[verified.md](docs/verified.md#past-4-mp). The other three
 SDXL checkpoints, FLUX.1 [dev] and [schnell], Z-Image Turbo and Qwen-Image
 have not been run here: the SDXL ones share WAI's pipeline and starting
 strength, FLUX.1 [dev] carries over Krea [dev]'s measurement on the same
@@ -703,7 +726,6 @@ you fill in varies. An empty grid is exactly the image Generate would have made.
 | Seeds | how many consecutive seeds run the whole grid | `4` |
 | Seed list | exactly these seeds instead, a list or a range | `4471, 8823` |
 | LoRA weight | the same syntax, needing an adapter selected | `0-1x0.25` |
-| Refine strength | the same syntax, needing a [Refine](#refine) source picked | `0.2-0.5x0.1` |
 | Budget | minutes; start no cell after this long | `420` |
 
 They cross: two sizes, two grounds, four step counts and two seeds is 32 images.

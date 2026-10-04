@@ -71,18 +71,20 @@ framing still changes what the model must compose. Check the subject,
 anatomy and layout as well as whether generation completes.
 
 **To get the same picture larger, use Refine rather than a larger render.**
-Press ⤢ on a finished image: it is resized by 1.5x and re-denoised part of
-the way, which keeps the composition where the same seed at the larger size
-would draw a new one. **WAI, Illustrious, Animagine, Kohaku and Z-Anime**
+Press ⤢ on a finished image and Refine in the dialog it opens: by default it
+is resized by 1.5x and re-denoised part of the way, which keeps the
+composition where the same seed at the larger size would draw a new one. **WAI, Illustrious, Animagine, Kohaku and Z-Anime**
 have the pass; **Anima Turbo, NetaYume and NewBie** do not have a compatible
 image-to-image sibling in this app. Anima Turbo uses the app's custom
 pipeline; Diffusers does ship an Anima modular image-to-image workflow, but
-it is not integrated here. The Strength box starts
+it is not integrated here. The dialog's Strength starts
 at each checkpoint's own value - **0.4** on the four SDXL models, **0.15**
 on Z-Anime - and lower keeps more of the original. In the local checks WAI's
 1024 x 1344 became 1536 x 2016 in about 12 seconds and Z-Anime's 1024 x 1024
 became 1536 x 1536 in about 33 seconds, both keeping the character and
-scene. Only WAI and Z-Anime were run; Illustrious, Animagine and Kohaku
+scene. A pass may go past 4 MP: WAI reached 2560 x 3360 (8.6 MP) in 46
+seconds, but Z-Anime fills the 16 GB card at 2048 x 2048 and slows to a crawl
+beyond it. Only WAI and Z-Anime were run; Illustrious, Animagine and Kohaku
 share WAI's pipeline. See the README's [Refine](../README.md#refine) section.
 
 ## Starting settings and likely waiting time

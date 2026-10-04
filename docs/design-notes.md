@@ -494,10 +494,10 @@ the top the gain was that of a far noisier step than the one just taken.
 
 **The source is covered and cropped, never stretched.** `refine.fitted`
 scales the source until it covers the requested size and crops the centre,
-Lanczos. The Refine button asks for the source's size times 1.5
+Lanczos. The Refine dialog opens at the source's size times 1.5
 (`refine.scaled`, each side rounded to 16, half up - written out because
 `round()` rounds half to even and the page's `Math.round` does not, and the
-button and the CLI's `--scale` must land on the same size), where the crop
+scale buttons and the CLI's `--scale` must land on the same size), where the crop
 is a few pixels at most; a size of another shape is a reframing, and the
 size line says "cropped to this shape". The resize is in the backend rather
 than left to the pipeline because SDXL's image-to-image call takes its size
@@ -528,13 +528,11 @@ and counted as unresolved; an unproven id is never used as a destination id.
 Changed links are written back into in-place PNG metadata too, without
 recompressing pixels, so `--from-image` sees the same links as the rebuilt row.
 `GridRequest.strength_axis` (`--grid-strength`) is an axis only beside a
-source. The page asks `GET /api/images/{id}` for a source it holds by id
-alone - restored from localStorage, or from Reuse on a refined record - to
-learn its size for the scale buttons, and that it is still there. Submit
-checks a source again; a missing one is cleared with a note and aborts that
-submit. The size stays as shown, so another Generate is an explicit direct
-render. Reuse retains a source when support is unavailable and blocks Generate
-and Run grid until the model is loaded with support or the source is removed.
+source; on the page it is the Refine dialog's Strength box holding more
+than one value. Reuse on a refined record asks `GET /api/images/{id}` for
+its source, which the record holds by id alone, and opens the dialog on it.
+A source deleted while the dialog is open is the server's to refuse at
+submit, by name.
 
 **A strength is an index into the checkpoint's schedule, so where it starts
 is the profile's.** The first version had one default, 0.4, inside the
@@ -551,8 +549,8 @@ starts at sigma 0.85, 0.2 at 0.67, 0.15 at 0.62, 0.1 at 0.47 and 0.05 at
 0.37. The 0.85 and 0.67 values are computed from the schedule; 0.62, 0.47 and
 0.37 were read off `scheduler.sigmas` at `begin_index` in the logged sweep
 and match the formula. The face held at 0.05 and 0.1 and began to change at 0.15.
-So `refine_strength` is a profile key, seeded into the Strength box per
-control like steps and CFG (`owned.strength`), filled in by the schema for a
+So `refine_strength` is a profile key, where the Refine dialog's Strength
+box starts on the checkpoint, filled in by the schema for a
 request that names none (`schemas.default_strength`), and what `applied()`
 puts a strength back to when there is no source. Each value starts the pass
 at about half noise for a 1.5x pass of a 1 MP image:
@@ -570,20 +568,71 @@ The rows marked arithmetic have not been run here: they are the installed
 scheduler's formula applied to each checkpoint's shift, not a measurement,
 and `verified.md` says which are which. Every value leaves at least one step
 of its profile's own step count (`tests/test_refine.py`), or the Refine
-button on a 4-step checkpoint would set up a request the schema refuses. A
+dialog on a 4-step checkpoint would open on a request the schema refuses. A
 checkpoint the table does not know has no number of its own and runs at
 `refine.DEFAULT_STRENGTH`. Two consequences are FLUX.1's alone and the
-tooltip says both: the schedule predicts 2x redraws more than 1.5x at one strength
-(no 2x pass was measured; at 4 MP mu is
-3.2, and even the schedule's last step starts near sigma 0.5), and a Mu set
+tooltip says both: 2x redraws more than 1.5x at one strength (at 4 MP mu is
+3.2, and even the schedule's last step starts near sigma 0.5; measured
+2026-10-04, 0.1 at 2x starts at 0.752 and repaints the man), and a Mu set
 for the pass moves the index back - measured, Mu 1.15 at strength 0.2 starts
 at sigma 0.46 with 6 steps where the native schedule's 0.1 starts at 0.47
-with 3. The strength axis exists to put the candidates on one sheet.
+with 3, and at 2x it starts at 0.463 and keeps him. The strength axis exists
+to put the candidates on one sheet.
 
 **Not the author's recipe.** WAI's hires pass upscales with R-ESRGAN 4x+
 Anime6B and has its own step count; this pass resizes with Lanczos and runs
 the part of Steps the strength leaves. An upscaling model would be another
 pinned download and another thing to verify; it is not here.
+
+**A dialog, not a mode of the panel.** The pass first shipped as a field
+under Size: the card's Refine button rewrote the panel - prompt, seed,
+steps, size - and from then on Generate, Batch, Runs, the grid and even a
+prompt comparison all ran passes until the source chip was removed. That
+was confusing in use, and it needed guards of its own: a remembered source
+retained across reloads, Generate and Run grid blocked while a retained
+source could not run, a comparison clearing a remembered strength axis, a
+seed the panel shared between direct renders and passes. Since 2026-10-04
+the pass is a modal dialog (`web/refine.js`), opened by a card's ⤢, the
+lightbox's Refine and Reuse on a refined record, and `collect()` never sends
+a source. The dialog starts from the record itself - its prompt, negative
+prompt, steps, CFG, Mu, True CFG, adapter and seed; this checkpoint's
+profile instead where the record is another checkpoint's, with the fold
+that holds them open to say so - and has its own size (scale buttons and
+the two boxes), Strength, Versions and Seed. Versions is `num_images`, on
+consecutive seeds from the Seed box: a pass is one pipeline call per image,
+so they cost time, not VRAM. A Strength box holding a list or a range is
+the grid's strength axis instead, with Versions as its seed count, and the
+job opens as a sheet when done. Each change asks `/api/grid/preview` with
+the grid-shaped request - the same validation the submit runs - so a size
+past the guard or a strength that leaves no step is refused in the dialog,
+in the server's words, and Refine is aria-disabled with the reason as its
+title. A ⤢ press on a checkpoint with no pass says so and opens nothing;
+Reuse on a refined record opens the dialog anyway, with Refine dead and the
+reason shown, until a status says the loaded pipeline has one. The dialog
+remembers per browser (`local-diffusion.refine.v1`) the scale and versions
+last run and, per checkpoint, a single strength the user ran over the
+profile's - never a sweep, or the next open would start one; Reset forgets
+it with the panel. Ctrl+Enter inside the dialog runs the pass, not
+Generate.
+
+**A pass has a size guard of its own.** `max_side` and `max_pixels` are the
+largest preset because a direct render past a checkpoint's range composes
+badly; a pass takes its composition from the source, so that reason does
+not hold for it, and a 4 MP image could not be refined to anything larger.
+`refine_max_side` and `refine_max_pixels` are any 2 MP preset at 2x (4448,
+and 1776x1184 x 4 = 8,411,136 pixels), read off `sizes.py` like the others;
+the page derives the same two numbers from its copy of the table, held to
+the server's by `tests/test_profiles.py`. The schema's `width`/`height`
+bound is the larger, and `_direct_renders_stay_in_the_presets` holds a
+request without a source to the presets' side; `check_budget` holds a pass
+to its own pixels and skips the batch budget, which bounds images resident
+in one call. It is a typo guard, not a VRAM model, as the preset one is:
+measured on 2026-10-04 (`verified.md`), WAI ran 8.6 MP at 5.5 GiB with the
+card two-thirds used, Z-Anime filled the card at 4.2 MP and took 715 s at
+8.4 MP while spilling into system memory, and FLUX.1 fills it at 2.4 MP.
+The dialog's size line says "may run tight on 16GB VRAM" past 1600x1600, as
+the panel's does; the time estimate, from passes already made at that size,
+is the honest per-checkpoint answer.
 
 ## CellKey and run_id
 
@@ -822,7 +871,9 @@ read 9.6 GB of the 16 as read off the card; it is 12 now, which the same
 reading puts at roughly 13 GB on that checkpoint. A heavier checkpoint at
 Batch 12 is the user's call, as it was at 8: the ceiling was never a VRAM
 model. Large batches are still refused, and a machine with different headroom
-can set `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` explicitly.
+can set `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` explicitly. A refine pass is
+outside it: it makes one pipeline call per image, so its batch never holds
+more than one image at once ("A pass has a size guard of its own").
 
 ## A job is a list of cells
 
@@ -3879,7 +3930,7 @@ unfound quote only loses its quote.
   `<n>`. The XML rule accepts both; whether the model reads `<name>` as it
   reads `<n>` has not been tried.
 
-## The page script is eleven files, not one module
+## The page script is twelve files, not one module
 
 `web/app.js` reached 3,200 lines - every section of the page in one
 file - and was split on 2026-09-10 along its own section comments into
@@ -3887,16 +3938,17 @@ ten scripts `index.html` loads in order: `state` (the element table, every
 `let` the page shares, the fetch helper), `sizes`, `status`, `generation`,
 `panel`, `gallery`, `sheet`, `lightbox`, `tags` and last `app`, the wiring
 and the boot; the prompt analyser added an eleventh, `analysis` (the check,
-the critic and the comparison), between `tags` and `app` on 2026-09-27. They
-stay *classic* scripts rather than ES modules on purpose.
+the critic and the comparison), between `tags` and `app` on 2026-09-27, and
+the Refine dialog a twelfth, `refine`, between `lightbox` and `tags` on
+2026-10-04. They stay *classic* scripts rather than ES modules on purpose.
 Classic scripts share one global scope: a top-level `let`, `const` or
 function in any of them is visible to all the others, so nothing needed an
 export or an import, and - the reason that matters - a smoke step's `eval`
 (`tools/browser.mjs`) still reaches `els`, `galleryRecords`, `startJob`,
 `analysisResult` and the rest by name, which a module's scope would hide. The
-contract that makes the order safe is that ten of the eleven only *declare*:
+contract that makes the order safe is that eleven of the twelve only *declare*:
 a function in `sizes.js` may call one from `analysis.js` because every call
-happens after all eleven have loaded, from a handler or from `app.js`'s
+happens after all twelve have loaded, from a handler or from `app.js`'s
 boot. A file that ran something at load would have to sit after everything
 it touches; keep the wiring in `app.js` (the lightbox's own pointer handlers
 are the exception, wired beside the code they belong to and touching nothing

@@ -349,8 +349,48 @@ offload modes.
 
 These are single prompts per checkpoint, looked at by eye: they establish
 that the pass runs, reproduces and keeps the picture at each profile's
-starting strength, not a quality benchmark. Not measured: a 2x pass on any
-checkpoint; Animagine, Kohaku and Illustrious (the SDXL pipeline WAI
+starting strength, not a quality benchmark.
+
+### Past 4 MP
+
+Measured 2026-10-04, the same card, Windows, fp8 and model offload, for the
+pass's own size guard (any 2 MP preset at 2x, 8.4 MP; see "The refine pass"
+in the design notes). The same three sources as above (seed 12345), each
+pass at its profile's starting strength unless a Mu is named. The desktop
+held 1,765-2,580 MiB of the card. "Card" is `nvidia-smi`'s whole-card
+`memory.used`, polled every half second; a reserved figure past the card's
+16 GiB, or per-step times that climb, is the driver spilling into system
+memory.
+
+| Checkpoint | Pass | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- | --- |
+| WAI v17, 0.4 | 1024x1344 to 1536x2016, 3.1 MP | 11 of 28 | 15.2 s (0.8 s) | 3.89 / 4.70 GiB | 7,676 MiB |
+| WAI v17, 0.4 | to 2048x2688, 5.5 MP | 11 of 28 | 24.1 s (1.7 s) | 4.61 / 5.98 GiB | 9,041 MiB |
+| WAI v17, 0.4 | to 2560x3360, 8.6 MP | 11 of 28 | 46.2 s (3.4 s) | 5.53 / 7.60 GiB | 11,363 MiB |
+| Z-Anime, 0.15 | 1024x1024 to 1536x1536, 2.4 MP | 6 of 40 | 39.6 s (5.2 s) | 8.10 / 10.58 GiB | 13,714 MiB |
+| Z-Anime, 0.15 | to 2048x2048, 4.2 MP | 6 of 40 | 79.2 s (10.7 s, rising to 14.4 s) | 9.73 / 14.11 GiB | 15,936 MiB |
+| Z-Anime, 0.15 | to 2896x2896, 8.4 MP | 6 of 40 | 715.1 s (107-125 s) | 13.46 / 21.94 GiB | 15,924 MiB, spilling |
+| FLUX.1 Krea dev, 0.1 | 1024x1024 to 1536x1536, 2.4 MP | 3 of 28 | 32.5 s (3.7 s) | 12.54 / 13.56 GiB | 15,278 MiB |
+| FLUX.1 Krea dev, 0.1 | to 2048x2048, 4.2 MP | 3 of 28 | 77.0 s (16-22 s) | 13.08 / 15.16 GiB | 15,922 MiB, spilling |
+| FLUX.1 Krea dev, 0.2, Mu 1.15 | to 2048x2048, 4.2 MP | 6 of 28 | 152.4 s (24 s) | 13.08 / 15.16 GiB | 15,918 MiB, spilling |
+| FLUX.1 Krea dev, 0.2, Mu 1.15 | to 2896x2896, 8.4 MP | stopped by hand mid-pass at 20.2 GB of dedicated and shared GPU memory | - | - | - |
+
+What fits is the checkpoint's: WAI reaches 8.6 MP with the card two-thirds
+used, while Z-Anime fills it at 4.2 MP and runs 8.4 MP at about 20 times
+the per-step time of 2.4 MP, and FLUX.1 fills it already at 2.4 MP (its
+1.5x pass here took 32.5 s where the October 3 run, under a smaller
+desktop share, took 16.9 s). The pictures, looked at downscaled side by
+side: WAI keeps the character and the composition at all three sizes, and
+Z-Anime the character and the scene. FLUX.1 at 2x and its own 0.1 starts
+at sigma 0.752, as its size-dependent shift predicts (design notes), and
+repaints the man - another face, coat and hands in the same composition -
+where Mu 1.15 at 0.2 starts at 0.463 and keeps him. The FLUX.1 8.4 MP pass
+was not repeated. Evidence is under `%TEMP%/local-diffusion-refine-large/`:
+`large_refine.py` (the measuring script, which lifts the size guard before
+the schema is built), each checkpoint's copied gallery with its
+`validation.log` and outputs, and `strip-*.jpg` (`strips.py`).
+
+Not measured: Animagine, Kohaku and Illustrious (the SDXL pipeline WAI
 exercises); FLUX.1 dev, whose starting strength carries over the Krea dev
 measurement on the same schedule; schnell, Z-Image Turbo and Qwen-Image,
 whose starting strengths are schedule arithmetic alone; int8 and full
@@ -358,11 +398,13 @@ bfloat16; any pass under Nunchaku in WSL, where seeds do not reproduce
 bit-for-bit to begin with; and the author's own WAI recipe, which upscales
 with R-ESRGAN 4x+ Anime6B where this pass resizes with Lanczos.
 
-Evidence is under `%TEMP%/local-diffusion-refine-validation/`:
-`validate_refine.py` and `sweep_refine.py`, and per checkpoint (`wai`,
-`flux`, `zanime`) the `validation.log`, `results.json`, the sweeps' JSON,
-the separate database and the `outputs/` PNGs. The browser checks are
-`tools/smoke-refine.json` and the additions to `smoke-conditioning.json`.
+The October 3 runs' evidence is under
+`%TEMP%/local-diffusion-refine-validation/`: `validate_refine.py` and
+`sweep_refine.py`, and per checkpoint (`wai`, `flux`, `zanime`) the
+`validation.log`, `results.json`, the sweeps' JSON, the separate database
+and the `outputs/` PNGs. The browser checks are `tools/smoke-refine.json`
+(the Refine dialog), `smoke-refine-unavailable.json` and the additions to
+`smoke-conditioning.json`.
 
 ## Prompt analyser
 
