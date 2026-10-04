@@ -495,6 +495,8 @@ uv run python tools/fake_server.py --port 7863 --step 0.3
 node tools/browser.mjs tools/smoke-preview.json   # the live preview, on a server slow enough to show one
 uv run python tools/fake_server.py --port 7882 --step 0.3
 node tools/browser.mjs tools/smoke-jobs.json      # the queue, Pause, a grid's skipped cells, the load and the server gone
+uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
+node tools/browser.mjs tools/smoke-results.json   # the viewer: a result's tools and column, the preview's box, #recent, Reset's Undo
 uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
 node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
 uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-xl-4.0
@@ -747,10 +749,11 @@ where the panel cuts the line it cuts the prompt - hover it for the whole line.
 A job that ends with the focus on Pause or Cancel hands it on - to the finish
 line's first button, else Generate - rather than dropping it with the bars.
 
-**Live preview**: while a cell denoises, a small picture of it appears in the
+**Live preview**: while a cell denoises, a picture of it appears in the
 viewer from a few steps in - a linear read of the latents the step callback
 already carries, blurry but honest about the composition, refreshed a few
-times a second and replaced by the real image when it lands. On FLUX.1 and
+times a second and replaced by the real image when it lands, in the same box,
+so the gallery under it does not move. On FLUX.1 and
 Krea 2; FLUX.2 [klein]'s pipeline gives the callback no way to unpack its
 latents, so it shows none. With Cancel landing within a step, a prompt that
 is going wrong costs five seconds rather than the render.
@@ -764,6 +767,15 @@ running — and resuming costs nothing but the next cell's own transfers. A job
 of one image (or one batch) has no boundary to stop at, so its Pause is held
 and says so. The weights stay loaded, so Unload is still refused while a job is
 paused.
+
+**The viewer** shows the newest job's images, each with the gallery card's
+tools under it (Reuse, Refine, Star, Delete); a batch of two to four is laid
+out as large as the window allows. From 1800 px a single image has its prompt,
+its settings and Star, Refine…, Reuse and Use seed in words beside it, and from
+2000 px this session's earlier results sit beside that - beside the prompt
+check too, while it is open, wherever the image leaves them room; a press on
+the image opens the lightbox on the gallery from it, so → walks back through
+what came before. Before the first image of a session the viewer is one line.
 
 **Queueing**: Generate and Run grid stay live while a job runs. A second press
 queues the job behind the current one on the server; under the bars a row per
@@ -900,7 +912,8 @@ they were set on. Resume is the one box that never comes back ticked - a
 resume you did not mean is a night that silently skips cells. Per browser,
 per origin, and dropped without complaint where storage is blocked. **Reset**,
 at the end of the Prompt caption, is the way out: every box back to the
-checkpoint's defaults and the memory forgotten. Clearing the gallery does not
+checkpoint's defaults and the memory forgotten - with an Undo in the panel's
+line for a little while, in case it was a slip. Clearing the gallery does not
 do this — that is a deletion on the server, and the browser's memory is its
 own.
 

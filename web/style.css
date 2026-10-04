@@ -61,6 +61,11 @@
      --runs-w       190px the Runs picker, closed: 240-360px from 1800 px
      --lb-side-w    280px the lightbox's column; 340-400px from 1800 px
      --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
+     --result-w     300-420px the column beside the one image just made, from 1800 px
+     --recent-w     280-420px this page's earlier results beside it, from 2000 px
+     --recent-min   280px the least of it: docked beside the check it takes the
+                    width the image leaves, and none under this
+     --strip-min    160px a long run's least tile in the viewer, from 2000 px
      --tip-w, --tip-w-wide, --menu-w   the floating panels' widths
 
    The wide tier, from 1800 px (QHD at 100% is 2560, at 125% 2048): the type
@@ -137,6 +142,10 @@
   --runs-w: 190px;
   --lb-side-w: 280px;
   --dock-w: clamp(520px, 30vw, 760px);
+  --result-w: clamp(300px, 17vw, 420px);
+  --recent-min: 280px;
+  --recent-w: clamp(var(--recent-min), 16vw, 420px);
+  --strip-min: 160px;
   --tip-w: 240px;
   --tip-w-wide: 300px;
   --menu-w: 300px;
@@ -1314,37 +1323,38 @@ button { font: inherit; cursor: pointer; }
   align-items: center;
   justify-content: center;
   padding: 14px;
+  /* How tall a tile's picture is (below): the single image's 68vh, a batch's
+     best fit (fitViewer writes it inline), a long run's 20vh. */
+  --tile-h: 68vh;
 }
-.viewer img {
-  max-width: 100%;
-  max-height: 68vh;
-  border-radius: var(--r-md);
-  object-fit: contain;
-  cursor: zoom-in;
+.viewer.multi { --tile-h: 34vh; }
+.viewer.many { --tile-h: 20vh; }
+/* Two to four images as large as the single image's height allows, in the
+   column count that fits them best (fitViewer: --cols, --tile-h), and every
+   row the job will fill there from its first frame (--rows: a tile's picture,
+   its gap and its row), so the second row of a 2x2 landing with the images
+   does not push the gallery down. */
+.viewer.multi.fitted:not(.many) {
+  display: grid; grid-template-columns: repeat(var(--cols), auto);
+  grid-template-rows: repeat(var(--rows), calc(var(--tile-h) + var(--sp-1) + var(--h-sm)));
+  justify-content: center; align-content: center;
 }
-.viewer.multi img { max-height: 34vh; }
-.viewer.many img { max-height: 20vh; }
-/* The live preview is a 256 px JPEG of the latents, shown larger than it is
-   and marked as provisional; the real image replaces it in the same slot. */
-.viewer img.preview {
-  height: min(34vh, 320px);
-  width: auto;
-  max-height: none;
-  opacity: 0.85;
-  border: 1px dashed var(--line);
-  cursor: default;
-}
-/* Eight slots across a QHD desktop, including at 125% scaling. Sizing only
-   from viewport height left seven square results per row at 2560 x 1440. */
-@media (min-width: 2000px) {
-  .viewer.many {
-    display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    justify-items: center;
-  }
-  .viewer.many img.preview { height: auto; max-height: 20vh; }
-}
+
+/* Idle - nothing made on this page yet - the viewer is one line: a 380 px
+   box saying so was 29% of a QHD window above the gallery after every
+   reload. Keyed on the placeholder, never on the records: a live preview
+   clears the strip before any record has landed. On a gallery with nothing
+   in it at all (syncEmptyInstall) it stays the tall box, with the
+   checkpoint's examples a press away; a failed load's card has room. */
+.viewer:has(> .placeholder:not(.held)) { min-height: 0; padding: var(--sp-2) 14px; justify-content: flex-start; }
+.viewer.empty-install:has(> .placeholder:not(.held)) { min-height: 380px; padding: 14px; justify-content: center; }
+.viewer:has(> .load-failed:not([hidden])) { padding: var(--sp-4); }
 .placeholder { color: var(--muted); }
+.viewer > .placeholder:not(.held) { margin: 0; font-size: var(--fs-body-sm); }
+.placeholder .first-run, .viewer.empty-install .placeholder .idle-line { display: none; }
+.viewer.empty-install .placeholder .first-run { display: inline; }
+.viewer.empty-install > .placeholder { max-width: 60ch; text-align: center; font-size: var(--fs-md); }
+.placeholder .first-run button { margin-left: var(--sp-1); }
 /* A failed load, in the viewer's empty state: what went wrong and what to
    do, the model page, and the retry. */
 .load-failed {
@@ -1355,23 +1365,189 @@ button { font: inherit; cursor: pointer; }
 .load-failed p { margin: 0; }
 .load-failed code { font-size: var(--fs-body-sm); background: var(--pill); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 0 var(--sp-1); }
 .load-failed a { color: var(--accent-2); }
-/* A pass that has sent no frame yet - SDXL sends none - stands in the viewer
+
+/* A tile: a result, the live preview, a pass's stand-in (viewerTile) - one
+   box for all three: the picture at its own shape, its tier's height and no
+   wider than the strip, and under it the result's tools row or a line of the
+   same height. Whichever replaces another leaves the gallery where it was:
+   the preview was a fixed 320 px, and the strip fell from a 917 px result to
+   it and rose back at every Generate. */
+.viewer > figure { margin: 0; display: flex; justify-content: center; min-width: 0; max-width: 100%; }
+.viewer .tile {
+  position: relative; display: flex; flex-direction: column; gap: var(--sp-1);
+  flex: 0 1 auto; min-width: 0; max-width: 100%;
+  width: calc(var(--tile-h) * var(--w) / var(--h));
+}
+.viewer .tile > img {
+  display: block; width: 100%; height: auto; aspect-ratio: var(--w) / var(--h);
+  border-radius: var(--r-md); object-fit: contain; cursor: zoom-in;
+}
+.viewer .tile > .tools, .viewer .tile > .foot { flex: none; height: var(--h-sm); }
+.viewer .foot {
+  margin: 0; line-height: var(--h-sm); text-align: center;
+  font-size: var(--fs-label); color: var(--text-readout); font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The live preview is a 256 px JPEG of the latents, shown larger than it is
+   and marked as provisional; the real image replaces it in the same box. */
+.viewer .live img { opacity: 0.85; border: 1px dashed var(--line); cursor: default; }
+/* A pass that has sent no frame yet - SDXL sends none - stands in the strip
    as its source, dimmed and softened at the result's shape, captioned with
    where it is, until a frame or the result takes its place. */
-/* Sized as the result that replaces it is: as wide as the viewer allows at
-   68vh tall or less, at the result's aspect. A fixed 68vh height with the
-   width clamped cropped the source and stood taller than the result, so
-   the viewer jumped when it landed. The figure's width is a definite share
-   of the viewer, so the image's 100% resolves against it. */
-.viewer figure.pending {
-  margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
-  width: min(100%, calc(68vh * var(--w) / var(--h)));
+.viewer .pending img { object-fit: cover; opacity: 0.45; filter: blur(1px); cursor: default; }
+/* A starred result: the star's amber round the picture, as a card's. */
+.viewer .result.fav .tile > img { box-shadow: 0 0 0 2px var(--star); }
+
+/* A result's tools, the gallery card's own (resultFigure): in a row under the
+   picture while the strip holds one to four - the image just made had none,
+   and starring or refining it took the lightbox - over its foot on hover and
+   focus in a long run's small tiles, as a card's are. Each named on hover
+   and keyboard focus from data-tip, Delete's at the row's end, over it. */
+.viewer .tools { position: relative; display: flex; gap: var(--sp-1); }
+.viewer .tools button {
+  flex: 0 1 auto; min-width: 0; padding: 0 var(--sp-2);
+  background: transparent; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  color: var(--muted); font-size: var(--fs-label);
 }
-.viewer .pending img {
-  aspect-ratio: var(--w) / var(--h); width: 100%; height: auto; max-height: none; object-fit: cover;
-  opacity: 0.45; filter: blur(1px); cursor: default;
+.viewer .tools button:hover { color: var(--text); border-color: var(--muted); }
+.viewer .tools .del { margin-left: auto; }
+.viewer .tools .del:hover { color: var(--danger); border-color: var(--danger); }
+.viewer .tools .star[aria-pressed="true"] { color: var(--star); }
+.viewer .tools .reuse-settings.model-mismatch { color: var(--warn); }
+.viewer .tools button[aria-disabled="true"],
+.viewer .tools button[aria-disabled="true"]:hover { color: var(--muted); border-color: var(--line-strong); opacity: 0.45; cursor: not-allowed; }
+.viewer .tools button:is(:hover, :focus-visible)::after {
+  content: attr(data-tip); position: absolute; left: 0; bottom: calc(100% + var(--sp-1)); z-index: 1;
+  padding: 2px 6px; border-radius: var(--r-xs);
+  background: rgba(0, 0, 0, 0.85); color: #fff; opacity: 1;
+  font-size: var(--fs-label); white-space: nowrap; pointer-events: none;
 }
-.viewer .pending figcaption { font-size: var(--fs-label); color: var(--text-readout); font-variant-numeric: tabular-nums; }
+.viewer .tools .del:is(:hover, :focus-visible)::after { left: auto; right: 0; }
+.viewer .tile:has(> .card-note) .tools button::after { content: none; }
+.viewer.many .tile > .foot { display: none; }
+.viewer.many .tile > .tools {
+  position: absolute; inset: auto 0 0 0; height: auto; padding: 6px;
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  opacity: 0; transition: opacity 0.15s;
+}
+.viewer.many .tile:is(:hover, :focus-within) > .tools { opacity: 1; }
+@media (pointer: coarse) { .viewer.many .tile > .tools { opacity: 1; } }
+.viewer.many .tools button { background: rgba(0, 0, 0, 0.55); border: none; color: #fff; }
+
+/* A long run's strip from 2000 px: as many tiles across as fit - eleven at
+   QHD, eight at 125% - under a height of its own that scrolls, so a 48-image
+   night is not a screen and a half of tiles above the gallery, which then
+   repeated them. Eight fixed columns had kept QHD at more than seven a row;
+   these keep it at more. The live preview takes a cell like any tile. The
+   scrollbar's room is kept whether it scrolls or not: taken only once the
+   tiles overflowed, it made a row one tile shorter, and 18 tiles at 125%
+   were two rows that fitted or three that scrolled by what had come before.
+   A strip that overflows by no more than its bottom padding is let grow by
+   that (settleStrip). */
+@media (min-width: 2000px) {
+  .viewer.many {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--strip-min), 1fr));
+    align-content: start; align-items: start;
+    max-height: min(560px, 45vh); overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-gutter: stable both-edges;
+  }
+  .viewer.many > figure, .viewer.many .tile { width: 100%; }
+}
+
+/* The image just made, alone in the strip, with its column beside it from
+   1800 px (resultSide): what it refines, Star, Refine…, Reuse and Use seed in
+   words, its prompt and its facts, in the width a square result left empty.
+   As tall as the picture and its row (`contain: size`, stretched), scrolling
+   inside itself, so it never sets the strip's height; the live preview and a
+   pass's stand-in keep its room, so the picture does not move when it comes.
+   Its row keeps Delete alone, at the end: the column has the rest in words.
+   Not while the prompt check is docked beside the strip, which takes that
+   width: the picture would shrink as the check opened, and the gallery under
+   it move. Its row has every tool again there. */
+.viewer .result-side { display: none; }
+@media (min-width: 1800px) {
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > figure {
+    flex: 1 1 100%; gap: var(--sp-4);
+  }
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > figure:not(.result)::after {
+    content: ""; flex: 0 0 var(--result-w);
+  }
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > .result > .result-side {
+    flex: 0 0 var(--result-w); display: flex; flex-direction: column; gap: var(--sp-3);
+    contain: size; align-self: stretch; overflow-y: auto; overscroll-behavior: contain;
+    font-size: var(--fs-body-sm);
+  }
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > .result:has(> .result-side) .tools > :not(.del) {
+    display: none;
+  }
+  /* The column names the source already. */
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #viewer:has(.result-side) + #viewer-note .lineage {
+    display: none;
+  }
+}
+.result-side .lineage { margin: 0; color: var(--text-readout); }
+.result-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.result-actions .star::after { content: " " attr(data-word); }
+.result-actions .star[aria-pressed="true"] { color: var(--star); }
+.result-actions .reuse-settings.model-mismatch { color: var(--warn); }
+.result-prompt { margin: 0; color: var(--text); font-size: var(--fs-md); line-height: 1.45; overflow-wrap: anywhere; }
+
+/* This page's earlier results (#recent, renderRecent), from 2000 px beside
+   the single image, in the stage's second column: two across, as tall as the
+   viewer and scrolling inside that (`contain: size`), so it never pushes the
+   gallery down - the viewer's row alone, so the two panels end together (it
+   spanned the note's row too, and ended 35 px below the viewer).
+   With the prompt check docked it stays, between the image and the check, in
+   the width the image leaves (fitRecent: `.recent-docked`, `--recent-room`)
+   and none if that is under --recent-min: the check is part of iterating on
+   a prompt, and with it open the earlier results had gone from the screen
+   with the gallery's first row. In the viewer's row, which the chips' row
+   comes before when there are chips, as in the dock's own rules. */
+.recent { display: none; }
+@media (min-width: 2000px) {
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) {
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--recent-w);
+    grid-auto-flow: row dense; align-items: start;
+  }
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) > *,
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) #tag-validation {
+    grid-column: 1 / -1;
+  }
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) > :is(#viewer, #viewer-note) {
+    grid-column: 1;
+  }
+  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #recent:not([hidden]),
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
+    grid-column: 2;
+    display: flex; flex-direction: column; gap: var(--sp-2);
+    contain: size; align-self: stretch; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3);
+  }
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr) min(var(--recent-w), var(--recent-room)) var(--dock-w);
+  }
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { grid-column: 3; }
+  /* The chips keep the width they had without it, over both: in the
+     viewer's column alone they wrapped onto another line, and the image
+     moved down by it as the check opened. */
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / 3; }
+  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) { grid-row: 2; }
+  .stage.recent-docked:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
+    grid-row: 1;
+  }
+}
+.recent h2 { margin: 0; font-size: var(--fs-body-sm); font-weight: 600; color: var(--text-readout); }
+.recent-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.recent-list img {
+  display: block; width: 100%; aspect-ratio: 1; object-fit: contain; cursor: zoom-in;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+}
+
+/* The cards of the images the strip shows (card(), appendResult), so the
+   gallery's first rows read as the run above them rather than a second copy. */
+.card.this-run:not(.gone) { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
+
 /* Back in a strip whose last image was deleted, held at the strip's height
    (inline, measured) with its line in the middle, as on a fresh page. */
 .placeholder.held { display: grid; align-items: center; margin: 0; }
@@ -1385,7 +1561,7 @@ button { font: inherit; cursor: pointer; }
 
 /* Every image that opens the lightbox is in the tab order; the ring says which
    one Enter would open. Inset, since the card and the cell clip their overflow. */
-.viewer img:focus-visible, .card img:focus-visible, .sheet-cell img:focus-visible {
+.viewer img:focus-visible, .recent img:focus-visible, .card img:focus-visible, .sheet-cell img:focus-visible {
   outline: 2px solid var(--accent-2);
   outline-offset: -2px;
 }
@@ -1688,17 +1864,17 @@ button { font: inherit; cursor: pointer; }
    gist - the gallery's line has the sentence - and the row's names stay down
    meanwhile: a note that wrapped grew up into the pressed tool's name and the
    two were drawn over each other. */
-.card > .card-note {
+.card > .card-note, .viewer .tile > .card-note {
   position: absolute; inset: auto 6px 6px 6px; z-index: 2;
   padding: 3px var(--sp-2); border-radius: var(--r-sm);
   background: var(--accent-strong); color: #fff; text-align: center;
   font-size: var(--fs-label); pointer-events: none;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.card > .card-note:empty { display: none; }
+.card > .card-note:empty, .viewer .tile > .card-note:empty { display: none; }
 .card:has(> .card-note) .tools button::after { content: none; }
 /* A refusal is not the accent's: dark, as the tools are. */
-.card > .card-note.refused { background: rgba(0, 0, 0, 0.85); }
+.card > .card-note.refused, .viewer .tile > .card-note.refused { background: rgba(0, 0, 0, 0.85); }
 /* A deleted card keeps its slot as a tombstone until the gallery reloads:
    dashed and darker rather than faded, so its line keeps the muted text's
    contrast, and out of the pointer's way. */

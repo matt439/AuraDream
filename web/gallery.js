@@ -54,6 +54,7 @@ function loadGallery() {
       // checkpoints, so a run made on the other model reads as "+12" on the
       // tick rather than as an empty grid. 0 once it is on.
       els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
+      syncEmptyInstall(page);
       syncRerender();
       syncDeleteUnstarred();
       // Keyset paging cannot repeat a row; the guard stays for a stream that
@@ -167,14 +168,12 @@ function card(rec) {
     div.classList.add('refined');
     div.dataset.strength = rec.strength;
   }
+  // One of the images the viewer shows now (panel.js).
+  div.classList.toggle('this-run', viewerRecords.some((r) => r.id === rec.id));
 
+  // Named "#N" and titled by thumb(), as every image of the page is.
   const img = thumb(rec, galleryRecords);
-  // Named as the page names images, by gallery id - the lightbox, the Refine
-  // dialog and the confirms say "#N" - with what tells it from the card
-  // beside it under the pointer: a sweep's cells share a prompt.
-  img.setAttribute('aria-label', `Open #${rec.id}: ${rec.prompt}`);
   img.setAttribute('aria-keyshortcuts', 'F');
-  img.title = cardTitle(rec);
 
   // The star is a button of its own over the picture's corner, where a
   // starred card's badge always was - a click on that badge went through to
@@ -304,6 +303,8 @@ function syncCardTools() {
     syncRefineTool(div.querySelector('.refine-tool'));
     syncReferenceTool(div.querySelector('.ref-tool'), +div.dataset.id);
   });
+  // The viewer's results have a Refine of their own, and no ❐.
+  els.viewer.querySelectorAll('.refine-tool').forEach(syncRefineTool);
 }
 
 // Where an image is among the references the panel sends: its index, or -1 -
@@ -592,7 +593,7 @@ function syncReuseButtons() {
 // fetched at different times. So both actions apply by id: to every record
 // that carries it, and to every element tagged with it.
 function recordsWithId(id) {
-  return [...galleryRecords, ...viewerRecords, ...lbList].filter((r) => r.id === id);
+  return [...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList].filter((r) => r.id === id);
 }
 
 async function setFavorite(rec, value) {
@@ -739,7 +740,7 @@ function forgetImages(ids) {
   // this session made, and the sheet lays itself out from the grid's records.
   const inGallery = galleryRecords.filter((r) => gone.has(r.id)).length;
   const fromViewer = viewerRecords.filter((r) => gone.has(r.id)).map((r) => r.id);
-  for (const list of new Set([galleryRecords, viewerRecords, lbList])) {
+  for (const list of new Set([galleryRecords, viewerRecords, sessionRecords, lbList])) {
     for (let at = list.length - 1; at >= 0; at--) if (gone.has(list[at].id)) list.splice(at, 1);
   }
   // The badge follows the server's count; the page anchor is an id, which a
@@ -756,10 +757,15 @@ function forgetImages(ids) {
   if (current?.classList.contains('gone')) makeCurrent(liveNeighbour(current));
   if (lost) {
     const strip = [...lost.parentElement.children]
-      .filter((el) => !el.matches('.gone, .tomb, .placeholder, .preview, .gallery-break'));
+      .filter((el) => !el.matches('.gone, .tomb, .placeholder, .live, .pending, .gallery-break'));
     const after = strip.find((el) => lost.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
     const next = after ?? strip.at(-1);
-    (next?.matches('img') ? next : next?.querySelector('img'))?.focus();
+    const image = next?.matches('img') ? next : next?.querySelector('img');
+    if (image) image.focus();
+    // The viewer's last image, deleted by its own ⌦: nothing beside it to
+    // move on to, so its tombstone holds the focus - or the line that takes
+    // the strip's place below.
+    else if (lost.parentElement === els.viewer) { lost.tabIndex = -1; lost.focus({ preventScroll: true }); }
   }
   // A strip with images left keeps its tombstones in their slots. One whose
   // last image has gone, with no job to fill it, says what it is for again -
@@ -773,27 +779,33 @@ function forgetImages(ids) {
     placeholder.style.minHeight = `${els.viewer.clientHeight - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)}px`;
     const names = fromViewer.length > 3 ? `${fromViewer.length} images` : imageNames(fromViewer);
     placeholder.textContent = `${names} ${fromViewer.length === 1 ? 'was' : 'were'} deleted. Generated images appear here.`;
+    const focusHere = els.viewer.contains(document.activeElement);
     els.viewer.replaceChildren(placeholder);
     els.viewer.classList.remove('multi', 'many');
     els.viewerNote.textContent = '';
+    // Saying what went, where the focus was rather than on <body>.
+    if (focusHere) { placeholder.tabIndex = -1; placeholder.focus({ preventScroll: true }); }
   }
+  // This page's earlier results (#recent), with what went taken out.
+  renderRecent();
   for (const id of gone) if (sheetSources.has(id)) sheetSources.set(id, null);
   // A pass whose source went with them cannot be made again: its records say
-  // so, as a reload's would (`refine_missing`), and so do its card's title,
-  // every Reuse that would have opened the dialog on the source, and the
-  // lightbox's facts and comparison.
-  const orphans = new Set([...galleryRecords, ...viewerRecords, ...lbList]
+  // so, as a reload's would (`refine_missing`), and so do every image's title
+  // (thumb's, on a card, in the viewer, #recent and the sheet), the viewer's
+  // note and column, every Reuse that would have opened the dialog on the
+  // source, and the lightbox's facts and comparison.
+  const orphans = new Set([...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList]
     .filter((r) => r.refine != null && gone.has(r.refine) && !r.refine_missing));
   for (const r of orphans) {
     r.refine_missing = true;
-    const img = els.gallery.querySelector(`.card[data-id="${r.id}"] > img`);
-    if (img) img.title = cardTitle(r);
+    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { img.title = cardTitle(r); });
   }
   if (orphans.size) {
     document.querySelectorAll('.reuse-settings').forEach((b) => {
       if (b.dataset.reusePass && gone.has(+b.dataset.reusePass)) b.dataset.reusePassGone = 'true';
     });
     syncReuseButtons();
+    viewerSourcesGone();
     if (orphans.has(lbList[lbIndex])) lbDrawn = null;
   }
   for (const id of gone) if (lbSources.has(id)) lbSources.set(id, null);

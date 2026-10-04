@@ -263,6 +263,9 @@ def test_a_snapshot_says_what_the_job_is(client, fake):
     assert first["prompt_template"] is None
     assert (second["prompt"], second["planned_images"], second["grid"], second["refine"]) == ("a fox", 2, True, None)
     assert (third["prompt"], third["prompt_template"]) == ("a fox, calm", "a fox, {mood}")
+    # None of them a prompt comparison, whose versions the panel's grid cannot
+    # resume (test_api_grid has one that is).
+    assert not any(job["comparison"] for job in (first, second, third))
     client.post(f"/api/jobs/{plain}/cancel")
     stream_job(client, grid)
     stream_job(client, varied)

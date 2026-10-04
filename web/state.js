@@ -63,6 +63,7 @@ const els = {
   gridRun: $('btn-grid'),
   error: $('error'), galleryError: $('gallery-error'),
   viewer: $('viewer'), viewerNote: $('viewer-note'), gallery: $('gallery'),
+  viewerExamples: $('viewer-examples'), recent: $('recent'), recentList: $('recent-list'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
   allModels: $('all-models'), otherModels: $('other-models'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'),
@@ -73,7 +74,7 @@ const els = {
   sheetFixed: $('sheet-fixed'), sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'),
   runHint: $('run-hint'),
   lastRun: $('last-run'), lastRunText: $('last-run-text'),
-  lastRunShow: $('last-run-show'), lastRunDismiss: $('last-run-dismiss'),
+  lastRunShow: $('last-run-show'), lastRunResume: $('last-run-resume'), lastRunDismiss: $('last-run-dismiss'),
   runList: $('run-list'),
   dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
   jobMirror: $('job-mirror'), topbarLine: $('topbar-line'), topbarFill: $('topbar-fill'),
@@ -317,10 +318,13 @@ const humanBytes = (n) => {
   return `${size.toFixed(1)} GB`;
 };
 
-// The two strips the lightbox can walk: what this job produced, and what the
-// gallery has paged in so far. Both are kept in the order they are displayed.
+// The strips the lightbox can walk: what this job produced, and what the
+// gallery has paged in so far, both in the order they are displayed - and
+// what this page's earlier jobs produced, newest first (the viewer's
+// `#recent`), which outlives a gallery reset or a search.
 let viewerRecords = [];
 let galleryRecords = [];
+let sessionRecords = [];
 let lbList = [];
 let lbIndex = -1;
 

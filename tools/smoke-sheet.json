@@ -11,7 +11,7 @@
   {"wait": 800},
 
   {"log": "'A run picked from Runs: the page goes to the gallery head, and a 4 x 3 is one screen - every cell, its heads and its note in view - at the page\\'s --fs-body-sm in the text colour (13 px, 14.5 at 2560 in the wide tier), the thumbnails sharp enough for the cell'"},
-  {"expect": "scrollY === 0 && document.querySelector('.gallery-head').getBoundingClientRect().top > 300"},
+  {"expect": "scrollY === 0 && document.querySelector('.gallery-head').getBoundingClientRect().top > 150"},
   {"eval": "els.runList.value = window.__4x3; els.runList.onchange(); window.__settled()"},
   {"expect": "sheetMode && els.search.value === 'run:' + window.__4x3 && scrollY > 0 && __landed()"},
   {"expect": "document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 12 && els.sheetNote.getBoundingClientRect().bottom <= innerHeight && els.sheetGrid.getBoundingClientRect().top > document.querySelector('.topbar').getBoundingClientRect().bottom"},

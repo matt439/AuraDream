@@ -4,7 +4,13 @@
 
 // ----------------------------------------------------------------- lightbox
 
-function openLightbox(rec, list) {
+// `origin` is where an open from a closed lightbox came from, where it is not
+// the strip it walks: the viewer's image walks the gallery from it, and
+// #recent this page's earlier results (panel.js) - a close hands focus back
+// there (dismissLightbox), not to a card a screen down.
+let lbOrigin = null;
+function openLightbox(rec, list, origin = null) {
+  if (!els.lightbox.open) lbOrigin = origin;
   lbList = list && list.includes(rec) ? list : [rec];
   lbIndex = lbList.indexOf(rec);
   renderLightbox();
@@ -662,6 +668,7 @@ function closeLightbox() {
   els.lbError.hidden = true;
   lbList = [];
   lbIndex = -1;
+  lbOrigin = null;
   lbDrawn = null;
   lbCompare.id = null;
   lbCompare.source = null;
@@ -682,12 +689,14 @@ function closeLightbox() {
 function dismissLightbox() {
   const last = lbList[lbIndex];
   const from = lbList;
+  const origin = lbOrigin;
   closeLightbox();
   if (!last) return;
-  const strips = { viewer: `#viewer img[data-id="${last.id}"]`,
+  const strips = { viewer: `#viewer img[data-id="${last.id}"]`, recent: `#recent img[data-id="${last.id}"]`,
     gallery: `#gallery .card[data-id="${last.id}"] img`, sheet: `#sheet-grid .sheet-cell[data-id="${last.id}"] img` };
-  const order = from === viewerRecords ? ['viewer', 'gallery', 'sheet']
-    : from === galleryRecords ? ['gallery', 'sheet', 'viewer'] : ['sheet', 'gallery', 'viewer'];
+  const order = origin === 'recent' ? ['recent', 'viewer', 'gallery', 'sheet']
+    : from === viewerRecords || origin === 'viewer' ? ['viewer', 'recent', 'gallery', 'sheet']
+    : from === galleryRecords ? ['gallery', 'sheet', 'viewer', 'recent'] : ['sheet', 'gallery', 'viewer', 'recent'];
   const shown = (selector) => [...document.querySelectorAll(selector)].find((el) => el.checkVisibility?.() ?? true);
   requestAnimationFrame(() => {
     for (const strip of order) {

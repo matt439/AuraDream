@@ -866,8 +866,11 @@ async function sheetKey(e) {
 // for this session only, never remembered. The grid's axes are not stored per
 // run, so whether the panel still holds the grid that made it is the
 // preview's to say: one that would skip nothing is a different grid, and the
-// preview says so rather than Run grid rendering it.
-async function resumeRun(runId) {
+// preview says so rather than Run grid rendering it. `known` is the last-run
+// banner's (panel.js): the job's size, with no sheet to read one off. Its
+// seed is looked up all the same - a job's own is the first cell it had left,
+// past the base when it was itself a Resume.
+async function resumeRun(runId, known = null) {
   // A refusal is said under the gallery's head, by the sheet whose button
   // this is - and beside the Starred tick one of them asks to untick.
   const slot = { slot: els.galleryError };
@@ -880,16 +883,20 @@ async function resumeRun(runId) {
     showError(err.message, false, slot);
     return;
   }
-  if (seed == null && !els.favOnly.checked && sheetRecords.every((r) => r.run_id === runId)) {
+  const onSheet = !known && sheetRecords.length && sheetRecords.every((r) => r.run_id === runId);
+  if (seed == null && !els.favOnly.checked && onSheet) {
     seed = sheetRecords.reduce((a, r) => (r.id < a.id ? r : a)).seed;
   }
   if (seed == null) {
-    showError(`Run ${runId} is not among the 200 newest; untick Starred so the sheet holds its oldest image.`, false, slot);
+    showError(known
+      ? `Run ${runId} is not among the 200 newest; open it as a sheet (a card's ⊞) and resume it from there.`
+      : `Run ${runId} is not among the 200 newest; untick Starred so the sheet holds its oldest image.`, false, slot);
     return;
   }
   els.seed.value = seed;
-  els.width.value = sheetRecords[0].width;
-  els.height.value = sheetRecords[0].height;
+  const size = known ?? sheetRecords[0];
+  els.width.value = size.width;
+  els.height.value = size.height;
   syncSize();
   syncRuns();
   persistPanel();
