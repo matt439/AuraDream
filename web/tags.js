@@ -994,10 +994,13 @@ function syncTagVocabulary() {
   scheduleTagValidation(0);
 }
 
-// The chips and the prompt check go together, in that order: above the results
-// on a two-column page, where their height cannot move Generate in the sticky
-// settings column, and back under the prompt at 900 px and below, where the
-// page is one scrolling column anyway. The move keeps focus where it was - a
+// The chips and the prompt check go together, in that order: in the results
+// column on a two-column page, where their height cannot move Generate in the
+// sticky settings column - above the results, except that from 1800 px
+// style.css docks an open check beside them (the chips and the viewer on the
+// left, the check on the right; CSS only, this DOM order unchanged) - and back
+// under the prompt at 900 px and below, where the page is one scrolling
+// column anyway. The move keeps focus where it was - a
 // window crossing 901 px under someone typing in Your version or on a chip
 // otherwise sent it to <body> with the next keystroke: moveBefore keeps it
 // whole where the browser has it, and elsewhere the focus and the selection

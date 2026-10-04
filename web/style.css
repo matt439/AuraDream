@@ -709,9 +709,13 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 /* The status slot under Ask the critic stays at full strength as well: what
    it says is mostly why the panel went stale, and its amber at 0.55 fell
    under 4.5:1. A child cannot undo an ancestor's opacity, so the dimming is
-   on the slot's siblings and the body's other sections. */
+   on the slot's siblings and the body's other sections. That dimming is
+   light - 0.8, with the quiet text raised from --muted to --text-3 under it -
+   so what is dimmed still reads (--text-3 at 0.8 is about 5:1 on the panel;
+   --muted at 0.55 was under 3:1): the amber badge, Check again and the dead
+   Use and Apply buttons carry the stale signal, not the text's contrast. */
 .prompt-analysis.stale .analysis-body > :not(#analysis-critic),
-.prompt-analysis.stale #analysis-critic > :not(.analysis-status) { opacity: 0.55; }
+.prompt-analysis.stale #analysis-critic > :not(.analysis-status) { opacity: 0.8; --muted: var(--text-3); }
 /* Encoders and Order are short and sit side by side where there is room; the
    rest runs the full width. */
 .analysis-body {

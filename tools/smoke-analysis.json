@@ -120,7 +120,7 @@
   {"expect": "!critiquing && critiqueResult !== null && els.promptAnalysis.classList.contains('stale') && !els.analysisStatus.hidden && els.analysisStatus.textContent.includes('changed while the critic ran') && els.analysisStatus.getAttribute('role') === 'status' && !!els.analysisStatus.closest('#analysis-critic') && els.error.hidden"},
   {"expect": "[...els.criticResult.querySelectorAll('button')].filter((b) => b.textContent.startsWith('Use')).every((b) => b.disabled && b.title === STALE_REASON) && els.compareRun.disabled && els.prompt.value.endsWith(' today')"},
   {"log": "'The stale panel is dimmed, but not the message saying why: nothing around the status slot fades it'"},
-  {"expect": "(() => { for (let e = els.analysisStatus; e; e = e.parentElement) if (getComputedStyle(e).opacity !== '1') return false; return true; })() && getComputedStyle(els.analysisFindings.closest('.analysis-section')).opacity === '0.55' && getComputedStyle(els.criticResult).opacity === '0.55'"},
+  {"expect": "(() => { for (let e = els.analysisStatus; e; e = e.parentElement) if (getComputedStyle(e).opacity !== '1') return false; return true; })() && getComputedStyle(els.analysisFindings.closest('.analysis-section')).opacity === '0.8' && getComputedStyle(els.criticResult).opacity === '0.8' && getComputedStyle(els.criticResult).getPropertyValue('--muted').trim() === getComputedStyle(document.documentElement).getPropertyValue('--text-3').trim()"},
 
   {"log": "'Compare: the original against the rewrite on the same four seeds, then the sheet with a row each'"},
   {"eval": "els.prompt.value = els.prompt.value.replace(/ today$/, ''); els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},

@@ -702,7 +702,7 @@ pinned download and another thing to verify; it is not here.
 
 **A dialog, not a mode of the panel.** The pass first shipped as a field
 under Size: the card's Refine button rewrote the panel - prompt, seed,
-steps, size - and from then on Generate, Batch, Runs, the grid and even a
+steps, size - and from then on Generate, Batch, Repeat, the grid and even a
 prompt comparison all ran passes until the source chip was removed. That
 was confusing in use, and it needed guards of its own: a remembered source
 retained across reloads, Generate and Run grid blocked while a retained
@@ -2024,7 +2024,7 @@ does is laid out again: once per render, a QHD sheet resized to 1400 px kept
 the `sizes` of 339 px cells drawn at 204 and its note under the window's edge.
 
 **A long single row wraps.** With no row axis and more columns than fit at
-96 px - a seeds-only run, which every Batch or Runs over 1 is - the cells lay
+96 px - a seeds-only run, which every Batch or Repeat over 1 is - the cells lay
 out like the gallery (`minmax(var(--thumb-min), 1fr)`), each captioned with
 its value, rather than a ribbon several screens wide; one that fits stays a
 row under its heads. Only a sheet with no row axis wraps, so a matrix and the
@@ -4933,7 +4933,12 @@ hidden), between the findings and the answer they are about; in `#error` they
 sat under Generate, a column away. The slot stays at full strength while the
 rest of a stale panel is dimmed - what it says is mostly why the panel went
 stale, and its amber at 0.55 opacity fell under 4.5:1 - so the dimming is on
-its siblings, since a child cannot undo an ancestor's opacity. The refusals
+its siblings, since a child cannot undo an ancestor's opacity. Those are
+dimmed lightly, to 0.8 with the quiet text raised from `--muted` to
+`--text-3` under it (about 5:1 on the panel), not to 0.55, where the notes
+fell under 3:1: stale results are still the last answer and must still read,
+and the amber badge, Check again and the dead buttons say they are stale
+(U89). The refusals
 ("Enter a prompt first.", "Wait for ...") stay in `#error`. A dead Use or
 Apply says why in its title, as Run comparison does, rather than keeping the
 offer it refuses. They stay `disabled`, not `aria-disabled` as Ask the critic

@@ -5,9 +5,9 @@
 // ------------------------------------------------------------ the refine pass
 
 // A pass used to be a mode of the panel: the ⤢ button rewrote the prompt,
-// seed, steps and size, and from then on Generate, Batch, Runs and the grid
+// seed, steps and size, and from then on Generate, Batch, Repeat and the grid
 // all ran passes until the source chip was removed - and a pass inherited a
-// Seed, Batch and Runs meant for direct renders. The dialog keeps the two
+// Seed, Batch and Repeat meant for direct renders. The dialog keeps the two
 // apart: it opens on one image with that image's own prompt and sampling, has
 // its own size, strength, versions and seed, and submits itself. The panel's
 // requests never carry a source (`collect()`).

@@ -516,7 +516,7 @@ function sheetRun() {
 }
 
 // A sheet with nothing down it and more across than fits - a seeds-only run,
-// mostly, which is every Batch or Runs over 1 - wraps into rows of
+// mostly, which is every Batch or Repeat over 1 - wraps into rows of
 // gallery-sized cells, each captioned, rather than one ribbon of 96 px cells
 // several screens wide. One that fits stays a row under its heads.
 function sheetWraps(colAxis, rowAxis, columns) {
