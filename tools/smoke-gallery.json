@@ -125,6 +125,8 @@
   {"expect": "__passCard.querySelector('.reuse-settings').dataset.tip === 'Reuse pass…' && els.lbReuse.textContent === 'Reuse pass…' && els.lbReuse.classList.contains('reuse-settings')"},
   {"key": "Escape"},
   {"wait": 200},
+  {"log": "'the lightbox closed by the user hands focus to the card it ended on, which becomes the grid\\'s one way in'"},
+  {"expect": "document.activeElement === __passCard.querySelector('img') && currentCard() === __passCard"},
   {"log": "'another checkpoint\\'s record with references and an adapter: the warning says they will not carry over'"},
   {"expect": "(() => { const b = card({...__rec(__pass), refine: null, strength: null, model_id: 'black-forest-labs/FLUX.2-klein-4B', reference: [1, 2], lora: 'gone.safetensors', lora_scale: 0.5}).querySelector('.reuse-settings'); return b.textContent === '⚠' && b.classList.contains('model-mismatch') && b.title.endsWith('; its reference images and its adapter will not carry over') && b.getAttribute('aria-label').includes('will not carry over'); })()"},
   {"log": "'a card already on the page follows the status: its warning is said again once references flip and once the adapter list lands'"},
@@ -141,9 +143,9 @@
   {"expect": "__breaks().length === 1 && __breaks()[0].textContent.startsWith('Yesterday · ') && !__breaks()[0].dataset.id && getComputedStyle(__breaks()[0]).gridColumnStart === '1' && getComputedStyle(__breaks()[0]).gridColumnEnd === '-1' && Math.abs(__breaks()[0].getBoundingClientRect().width - els.gallery.clientWidth) < 1"},
   {"expect": "+__breaks()[0].previousElementSibling.dataset.id > __oldest && +__breaks()[0].nextElementSibling.dataset.id === __oldest && els.gallery.firstElementChild.matches('.card')"},
 
-  {"log": "'one card is the keyboard\\'s way in: seven tab stops (its image, five tools, its star), every other card none'"},
+  {"log": "'one card is the keyboard\\'s way in: seven tab stops (its image, five tools, its star), every other card none - the one the lightbox handed focus back to'"},
   {"eval": "window.__stops = () => [...els.gallery.querySelectorAll('img, button')].filter((el) => el.tabIndex === 0);"},
-  {"expect": "__stops().length === 7 && __stops().every((el) => el.closest('.card') === __cards()[0])"},
+  {"expect": "__stops().length === 7 && __stops().every((el) => el.closest('.card') === __passCard)"},
   {"eval": "__cards()[0].querySelector('img').focus();"},
   {"key": "Tab"},
   {"wait": 300},
@@ -211,5 +213,11 @@
   {"expect": "getComputedStyle(els.gallery).gridTemplateColumns.split(' ').length === 7 && __fits()"},
   {"viewport": [1400, 900, 1]},
   {"wait": 300},
-  {"eval": "window.fetch = __realFetch; resetPanel(); showError(''); els.search.value = ''; resetGallery();"}
+
+  {"log": "'a job\\'s images join the head of the gallery the page holds: the day\\'s line where the day changes from the old head, and the keyboard\\'s card kept'"},
+  {"eval": "window.fetch = __realFetch; window.__cur = galleryCurrent; window.__head = galleryRecords[0]; __head.created_at = new Date(Date.parse(__head.created_at) - 2 * 86400000).toISOString(); window.__n = galleryRecords.length; els.prompt.value = 'a day later'; els.width.value = 256; els.height.value = 256; startJob('/api/generate', collect())"},
+  {"wait": 2500},
+  {"expect": "galleryRecords.length === __n + 1 && galleryRecords[1] === __head && +els.gallery.firstElementChild.dataset.id === galleryRecords[0].id && els.gallery.children[1].matches('.gallery-break') && els.gallery.children[2].dataset.id === String(__head.id) && galleryCurrent === __cur && __stops().length === 7 && __stops().every((el) => el.closest('.card') === currentCard())"},
+
+  {"eval": "resetPanel(); showError(''); els.search.value = ''; resetGallery();"}
 ]

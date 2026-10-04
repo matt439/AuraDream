@@ -1233,13 +1233,24 @@ function prependFinished(made) {
     if (epoch !== galleryEpoch || sheetMode) return;
     const have = new Set(galleryRecords.map((r) => r.id));
     if (!galleryRecords.length || !page.items.some((r) => have.has(r.id))) return resetGallery();
-    const head = galleryRecords[0].id;
-    const fresh = page.items.filter((r) => r.id > head && !have.has(r.id));
+    const head = galleryRecords[0];
+    const fresh = page.items.filter((r) => r.id > head.id && !have.has(r.id));
     // In place: every card's lightbox walks this array. One open on it keeps
     // its image as the head grows.
     galleryRecords.unshift(...fresh);
     if (lbList === galleryRecords && fresh.length) lbIndex += fresh.length;
-    els.gallery.prepend(...fresh.map(card));
+    // With the day's line wherever the day changes, as loadGallery draws it -
+    // between two new cards, or between the last of them and the old head: a
+    // job that ends after midnight under a page loaded the day before.
+    const nodes = [];
+    fresh.forEach((rec, i) => {
+      const next = fresh[i + 1] ?? head;
+      nodes.push(card(rec));
+      if (localDay(rec) !== localDay(next)) nodes.push(dayBreak(next));
+    });
+    els.gallery.prepend(...nodes);
+    // The grid keeps one way in from the keyboard (gallery.js).
+    keepCurrentCard();
     total = page.total;
     els.count.textContent = total ? `(${total})` : '';
     els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
