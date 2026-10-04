@@ -1015,17 +1015,27 @@ def test_the_critic_holds_its_reorder_to_the_categories_check_placed_with(
 
 
 @pytest.mark.parametrize(
-    ("failure", "status", "detail"),
+    ("failure", "status", "detail", "logged"),
     [
-        (True, 502, "CriticError: llama-server exited with code 1 before it was ready"),
-        (CriticUnavailable("the model file is gone"), 503, "CriticUnavailable: the model file is gone"),
-        (RuntimeError("out of memory"), 500, "RuntimeError: out of memory"),
+        (True, 502, "llama-server exited with code 1 before it was ready", "CriticError"),
+        (
+            CriticUnavailable("the model file is gone"), 503, "the model file is gone",
+            "CriticUnavailable",
+        ),
+        (RuntimeError("out of memory"), 500, "RuntimeError: out of memory", "RuntimeError"),
     ],
 )
-def test_a_failing_critique_answers_with_the_short_error(client, fake, failure, status, detail):
+def test_a_failing_critique_answers_with_the_short_error(
+    client, fake, caplog, failure, status, detail, logged
+):
+    # The critic's own failures reach the page without the class name, which
+    # the page replaces with its own "The critic did not answer"; the log
+    # line keeps it. Anything else keeps it in the reply as well.
     fake.critic.fail = failure
-    response = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"})
+    with caplog.at_level("ERROR", logger=main.log.name):
+        response = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"})
     assert response.status_code == status and response.json()["detail"] == detail
+    assert f"prompt critique failed: {logged}: " in caplog.text
 
 
 def test_a_prompt_too_long_for_the_critics_window_is_a_502(client, fake, monkeypatch):
@@ -1035,7 +1045,7 @@ def test_a_prompt_too_long_for_the_critics_window_is_a_502(client, fake, monkeyp
     claim(monkeypatch, fake, FLUX)
     response = client.post("/api/prompt/critique", json={"prompt": "0123456789" * 400})
     assert response.status_code == 502
-    assert response.json()["detail"].startswith("CriticError: the prompt is too long for the critic")
+    assert response.json()["detail"].startswith("the prompt is too long for the critic")
     # A prompt that fits is answered, as ever.
     assert client.post("/api/prompt/critique", json={"prompt": "a lighthouse"}).status_code == 200
 
@@ -1052,7 +1062,9 @@ def test_a_failing_prepare_answers_before_the_critic_runs(client, fake, failure,
     fake.critic.prepare_fail = failure
     response = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"})
     assert response.status_code == status
-    assert response.json()["detail"].endswith(str(failure))
+    # The critic's classes without their names, as for the critique itself.
+    expected = str(failure) if isinstance(failure, CriticError) else f"OSError: {failure}"
+    assert response.json()["detail"] == expected
     assert fake.critic.critiques == []
 
 

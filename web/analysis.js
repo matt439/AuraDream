@@ -18,6 +18,11 @@ let analysisStale = false;
 // again first when it has moved on, and a check of other text drops the answer.
 let critiqueResult = null;  // { body: PromptCritique }
 let critiqueEpoch = 0;
+// Why the critic last failed to answer, shown in its block until the next
+// ask or a check of other text. Never a critiqueResult: Use and Apply read
+// that as an answer, and a failure has nothing to apply.
+let critiqueFailure = null;
+let criticClockTimer = 0;
 // Which optional versions a comparison takes. An untick outlives the next
 // check, so a rewrite that lands later does not tick itself back in.
 const compareChoice = { reordered: true, rewrite: true, yours: true };
@@ -82,13 +87,15 @@ async function checkPrompt(payload = collect()) {
       body: JSON.stringify(payload),
     });
     if (epoch !== analysisEpoch) return null;  // superseded, or the panel was cleared
-    // The critic's answer is about the text checked last, negative prompt and all.
-    if (critiqueResult && !analysed(payload, effectiveNegative)) critiqueResult = null;
+    // The critic's answer is about the text checked last, negative prompt and
+    // all, and so is a failure to answer.
+    if (!analysed(payload, effectiveNegative)) critiqueResult = critiqueFailure = null;
     analysisResult = {
       source: payload.prompt, negative: payload.negative_prompt ?? '', effectiveNegative,
       reference: [...(payload.reference ?? [])], body,
     };
     showError('');
+    analysisMessage('');
     renderAnalysis();
     return analysisResult;
   } catch (err) {
@@ -104,10 +111,11 @@ function resetCheckButton() {
   els.analyze.removeAttribute('aria-busy');
 }
 
-// Check, pressed. On a two-column page the panel sits above the results, some
-// forty Tab stops past the button, and only its summary is announced; so the
-// answer takes focus, at its heading, while focus is still on the button.
-// Under 901 px the panel is three stops away, and focus stays where it is.
+// Check, pressed. On a two-column page the panel sits above the results (or
+// beside them, from 1800 px), some forty Tab stops past the button, and only
+// its summary is announced; so the answer takes focus, at its heading, while
+// focus is still on the button. Under 901 px the panel is three stops away,
+// and focus stays where it is.
 async function checkFromButton() {
   const result = await checkPrompt();
   if (result && document.activeElement === els.analyze
@@ -214,7 +222,7 @@ function syncAnalysisStale(force = false) {
   // pressed it would be left on <body>, so the panel's heading takes focus.
   if (!stale && document.activeElement === els.analysisAgain) focusAnalysisHeading();
   els.analysisAgain.hidden = !stale;
-  for (const button of els.promptAnalysis.querySelectorAll('[data-writes]')) button.disabled = writeBlocked(button);
+  for (const button of els.promptAnalysis.querySelectorAll('[data-writes]')) syncWriteButton(button);
   syncCompareRun();
 }
 
@@ -223,7 +231,7 @@ function syncAnalysisStale(force = false) {
 // Apply is dead while the box is, and says what would wake it.
 function syncNegativeApply() {
   for (const button of els.promptAnalysis.querySelectorAll('[data-negative]')) {
-    button.disabled = writeBlocked(button);
+    syncWriteButton(button);
     const off = button.parentElement.querySelector('.negative-off');
     off.hidden = !els.negative.disabled;
     off.textContent = `The negative prompt is greyed at these settings, so nothing written there would run: it needs ${trueCfgSupported ? 'True CFG' : 'CFG'} above ${cfgThreshold}.`;
@@ -231,6 +239,17 @@ function syncNegativeApply() {
 }
 
 const writeBlocked = (button) => analysisStale || ('negative' in button.dataset && els.negative.disabled);
+
+// Why a write is dead, in its title: a dead Use rewrite kept "Replace the
+// prompt with the rewrite", an offer it was refusing.
+const STALE_REASON = 'The prompt or the references changed since this check; Check again first';
+
+function syncWriteButton(button) {
+  button.disabled = writeBlocked(button);
+  button.title = analysisStale ? STALE_REASON
+    : button.disabled ? 'The negative prompt is greyed at these settings, so nothing written there would run'
+    : button.dataset.title;
+}
 
 // Close keeps what was found - the next Check replaces it anyway - and hands
 // focus back to the button that opened the panel; to the prompt while that
@@ -248,15 +267,37 @@ function clearAnalysis() {
   critiqueEpoch += 1;
   analysisResult = null;
   critiqueResult = null;
+  critiqueFailure = null;
   analysisStale = false;
   resetCheckButton();
+  analysisMessage('');
   els.promptAnalysis.hidden = true;
   els.promptAnalysis.classList.remove('stale');
   for (const box of [els.analysisEncoders, els.analysisOrder, els.analysisFindings,
     els.criticResult, els.compareOptions]) box.replaceChildren();
   els.comparePreview.textContent = '';
   els.compareOwn.value = '';
+  els.compareOwnNote.hidden = true;
   syncCompareRun();
+}
+
+// The panel's own messages - the words a finding names no longer where the
+// check found them, a critic's answer set aside or never asked for - in the
+// slot under Ask the critic, between the findings and the answer they are
+// about. In #error they sat under Generate, a column away. The slot is a
+// live region: unhidden before it is written, and never rewritten with the
+// same words. Without the critic's section (no critic here, or the panel
+// closed meanwhile) they go to #error as before.
+function analysisMessage(text) {
+  const slot = els.analysisStatus;
+  if (!text) {
+    slot.hidden = true;
+    slot.textContent = '';
+    return;
+  }
+  if (els.promptAnalysis.hidden || els.analysisCritic.hidden) { showError(text, true); return; }
+  slot.hidden = false;
+  if (slot.textContent !== text) slot.textContent = text;
 }
 
 // The analysed text of a field, which the offsets count into.
@@ -283,26 +324,55 @@ function selectIn(el, text, start, end) {
   const raw = el.value;
   const lead = raw.length - raw.trimStart().length;
   if (raw.slice(lead + from, lead + to) !== text.slice(from, to)) {
-    showError('Those words are no longer where the check found them; Check again.', true);
+    analysisMessage('Those words are no longer where the check found them; Check again.');
     return false;
   }
   el.focus();
   el.setSelectionRange(lead + from, lead + to);
+  scrollToSelection(el);
   return true;
+}
+
+// A selection scrolled out of its box looks like a click that did nothing,
+// and setSelectionRange scrolls nothing in a box that has focus already: a
+// long prompt just typed sits scrolled to its end, and the words a finding
+// names are near the start. So the box is scrolled to put them a third of
+// the way down, measured on a hidden copy of the box laid out as it is - its
+// width inside the scrollbar, its padding and font, its wrapping - holding
+// the text up to the selection and a marker where the selection starts.
+function scrollToSelection(el) {
+  const css = getComputedStyle(el);
+  const copy = document.createElement('div');
+  for (const prop of ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'fontFamily',
+    'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing', 'wordSpacing',
+    'textTransform', 'tabSize', 'overflowWrap', 'wordBreak']) copy.style[prop] = css[prop];
+  copy.style.boxSizing = 'content-box';
+  copy.style.width = `${el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight)}px`;
+  copy.style.whiteSpace = 'pre-wrap';
+  copy.style.position = 'absolute';
+  copy.style.top = copy.style.left = '0';
+  copy.style.visibility = 'hidden';
+  copy.textContent = el.value.slice(0, el.selectionStart);
+  const marker = document.createElement('span');
+  marker.textContent = '\u200b';
+  copy.appendChild(marker);
+  document.body.appendChild(copy);
+  el.scrollTop = Math.max(0, marker.offsetTop - el.clientHeight / 3);
+  copy.remove();
 }
 
 // A button that writes an answer into the panel's fields. Each is worked out
 // from the checked text, so every one goes dead while either box holds other
-// text.
+// text, its title saying so in place of what it offers.
 function writeButton(label, title, onClick, { negative = false } = {}) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'ghost tiny';
   button.textContent = label;
-  button.title = title;
+  button.dataset.title = title;
   button.dataset.writes = '';
   if (negative) button.dataset.negative = '';
-  button.disabled = writeBlocked(button);
+  syncWriteButton(button);
   button.onclick = onClick;
   return button;
 }
@@ -336,6 +406,24 @@ function usePromptText(text) {
   els.prompt.focus();
   els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length);
   void checkPrompt();
+}
+
+// Use rewrite and Use reordered (the critic's, and Check's own reordering):
+// a version of the prompt in its place, and the prompt it replaces in Your
+// version while that box is empty - where the comparison takes it, so after
+// the re-check the two run on the same seeds. Before, the re-check made the
+// version the comparison's original, and what it replaced was on the page
+// only as Ctrl+Z. A box with words of the user's own is left alone.
+const KEEPS_PROMPT = ' The prompt it replaces goes into Your version, if that is empty, to compare on the same seeds; Ctrl+Z brings it back.';
+
+function useVersion(text, button) {
+  if (!els.compareOwn.value.trim()) {
+    els.compareOwn.value = analysisResult.source;
+    compareChoice.yours = true;
+    els.compareOwnNote.textContent = `Your version holds the prompt before ${button} - Run comparison tests both on the same seeds.`;
+    els.compareOwnNote.hidden = false;
+  }
+  usePromptText(text);
 }
 
 // A rule's suggestion is its field rewritten whole - quotes added, tags moved,
@@ -454,9 +542,12 @@ function renderOrder(body) {
   if (!body.order_checked) {
     // Only a tag checkpoint's comma tags take slots here; a sentence's order,
     // an XML prompt's blocks, are the guide's words and nothing reads them.
-    box.appendChild(note(`Not checked: Check can only place a tag checkpoint's comma tags in its order. ${promptCritiqueSupported
-      ? 'Ask the critic whether this prompt follows it, or write'
-      : 'Write'} a reordered version under Compare to test it on your own seeds.`));
+    // Said of the app, not of "Check" in the third person - and of a tag
+    // checkpoint's tags, not of comma lists: a comma tag prompt on FLUX is
+    // not placed, and a prose one on Animagine is.
+    box.appendChild(note(`Not checked: this app checks word order only in a tag checkpoint's comma-separated tags. ${promptCritiqueSupported
+      ? 'Ask the critic, or test'
+      : 'Test'} a reordered version under Compare on your own seeds.`));
   } else if (body.order_detail) {
     // Placed, but an item with no category keeps every slot a category could
     // have put it in - which slots those are is the guide's (Animagine's order
@@ -465,14 +556,16 @@ function renderOrder(body) {
     box.appendChild(note(`Partly checked: ${body.order_detail}. Any of those may sit out of order unflagged.`));
   }
   // The prompt's own items moved into that order, nothing added or removed -
-  // shown, since it is read before it is used.
+  // shown whole, since it is read before it is used.
   if (body.reordered) {
     const moved = document.createElement('div');
     moved.className = 'order-reordered';
-    moved.append(span('analysis-note', 'In that order:'), note(body.reordered, 'analysis-quote'),
+    const quote = note(body.reordered, 'analysis-quote');
+    quote.dataset.version = 'reordered';
+    moved.append(span('analysis-note', 'In that order:'), quote,
       writeButton('Use reordered',
-        `Replace the prompt with the same words in the documented order: ${body.reordered}`,
-        () => usePromptText(body.reordered)));
+        `Replace the prompt with the same words in the documented order, then check it.${KEEPS_PROMPT}`,
+        () => useVersion(body.reordered, 'Use reordered')));
     box.appendChild(moved);
   }
 }
@@ -495,18 +588,24 @@ function sourceLabel(source, cite, url) {
 
 // Warnings first - the server sorts them so, and a stable sort keeps its order
 // within each. `select` puts a finding's words in their box, `apply` writes
-// its suggestion; a list without `apply` (the rewrite's) only reports.
-function renderFindings(box, findings, { select, apply, empty }) {
+// its suggestion; a list without `apply` (the rewrite's) only reports, and
+// `carried` names whether the prompt has the same finding.
+function renderFindings(box, findings, { select, apply, empty, carried = null }) {
   box.replaceChildren();
   if (!findings.length) { box.appendChild(note(empty)); return; }
   const list = document.createElement('ul');
   list.className = 'analysis-list';
   const ranked = [...findings].sort((a, b) => (a.severity === 'warn' ? 0 : 1) - (b.severity === 'warn' ? 0 : 1));
-  for (const finding of ranked) list.appendChild(findingItem(finding, select, apply));
+  for (const finding of ranked) list.appendChild(findingItem(finding, select, apply, carried));
   box.appendChild(list);
 }
 
-function findingItem(finding, select, apply) {
+// A cite this short goes in the line, after the claim it supports, where the
+// badge's tooltip alone hid it behind a hover; a longer one - an encoder's,
+// a paragraph - stays the tooltip.
+const INLINE_CITE = 80;
+
+function findingItem(finding, select, apply, carried) {
   const li = document.createElement('li');
   li.className = `analysis-item ${finding.severity}`;
   li.tabIndex = 0;
@@ -514,11 +613,23 @@ function findingItem(finding, select, apply) {
   mark.setAttribute('aria-hidden', 'true');
   const message = span('analysis-message');
   message.append(span('analysis-sr', finding.severity === 'warn' ? 'Warning: ' : 'Note: '), finding.message);
+  if ((finding.source === 'guide' || finding.source === 'author') && finding.cite
+      && [...finding.cite].length < INLINE_CITE) {
+    const cite = document.createElement('q');
+    cite.className = 'analysis-cite';
+    cite.textContent = finding.cite;
+    message.append(' ', cite);
+  }
+  if (carried) message.append(span('analysis-carried', carried(finding)));
   li.append(mark, message, sourceLabel(finding.source, finding.cite, finding.url));
   // The encoder's suggestion is advice about the text; a rule's is the whole
   // field rewritten, which applies in one click - but not to a rewrite the
-  // page only shows.
-  if (finding.suggestion && (finding.source === 'encoder' || apply)) {
+  // page only shows, nor twice: the order finding's suggestion is the Order
+  // section's reordering, byte for byte, and one action gets one button.
+  if (finding.suggestion && apply && finding.field !== 'negative_prompt'
+      && finding.suggestion === analysisResult?.body.reordered) {
+    li.appendChild(note('Same as Use reordered above.', 'analysis-note analysis-extra'));
+  } else if (finding.suggestion && (finding.source === 'encoder' || apply)) {
     const extra = document.createElement('div');
     extra.className = 'analysis-extra';
     if (finding.source === 'encoder') extra.textContent = finding.suggestion;
@@ -574,8 +685,11 @@ function syncCritic() {
   const critic = criticStatus ?? { label: 'model', pinned: false, fetch: [], fetch_bytes: 0 };
   const fetch = !promptCritiqueReady && critic.fetch.length
     ? `${critic.fetch.join(' and ')} (about ${humanBytes(critic.fetch_bytes)})` : '';
+  // A first use's download is minutes (114 s measured here, the bandwidth's
+  // to say elsewhere), with nothing to show its progress: said, with the
+  // clock beside the line counting.
   const line = critiquing
-    ? (fetch ? `Downloading ${fetch} once, then thinking…`
+    ? (fetch ? `Downloading ${fetch} once - this can take a few minutes - then thinking…`
       : critic.pinned ? 'Thinking… about 15 seconds on the GPU.' : `Thinking… (${critic.label})`)
     : busy ? 'An image job has the card; the critic waits for the queue to finish.'
     : fetch ? `First use downloads ${fetch} once.`
@@ -598,7 +712,10 @@ async function askCritic() {
   // Held from here, the check below included: a job or an Expand started
   // while it ran went ahead, and the critique behind it came back a 409.
   critiquing = true;
+  critiqueFailure = null;
   showError('');
+  analysisMessage('');
+  startCriticClock();
   syncPromptExpansion();
   let answered = false;
   try {
@@ -618,7 +735,7 @@ async function askCritic() {
         // A failed check said why, and a cleared panel shows nothing pending
         // (a Reset, another checkpoint); one replaced says nothing itself.
         if (epoch === critiqueEpoch && analysisEpoch !== before + 1) {
-          showError('The prompt check was replaced before the critic was asked, so nothing was sent. Ask again.', true);
+          analysisMessage('The prompt check was replaced before the critic was asked, so nothing was sent. Ask again.');
         }
         return;
       }
@@ -626,14 +743,23 @@ async function askCritic() {
     critiqueResult = null;
     renderCritic();
     renderCompare();
-    const body = await api('/api/prompt/critique', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    let body;
+    try {
+      body = await api('/api/prompt/critique', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      // The critique's own failure, not the check's before it: said in the
+      // critic's block too, where after the wait the line had gone back to
+      // its invitation as if nothing had been asked.
+      if (epoch === critiqueEpoch) critiqueFailure = err.message;
+      throw err;
+    }
     if (epoch !== critiqueEpoch) return;  // the panel was cleared meanwhile
     if (!analysed(payload, effectiveNegative)) {
-      showError('The prompt was checked again while the critic ran, so its answer was set aside. Ask again.', true);
+      analysisMessage('The prompt was checked again while the critic ran, so its answer was set aside. Ask again.');
       return;
     }
     critiqueResult = { body };
@@ -641,33 +767,66 @@ async function askCritic() {
     // Shown, and dimmed with the rest of the panel, but never applied: its
     // rewrite would replace what was typed while it thought.
     if (!analysed(collect())) {
-      showError('The prompt, the negative prompt or the references changed while the critic ran: its answer is about the earlier text, so nothing from it can be applied. Check again for the current one.', true);
+      analysisMessage('The prompt, the negative prompt or the references changed while the critic ran: its answer is about the earlier text, so nothing from it can be applied. Check again for the current one.');
     }
   } catch (err) {
     if (epoch === critiqueEpoch) showError(err.message);
   } finally {
     critiquing = false;
+    stopCriticClock();
     syncPromptExpansion();
     if (epoch === critiqueEpoch) {
       renderCritic();
       renderCompare();
       // Nothing else announces the answer - the line under the button goes
       // back to the cost - so it takes focus, if focus is still waiting on
-      // the button rather than on something typed meanwhile.
-      if (answered && document.activeElement === els.criticAsk) els.criticResult.focus();
+      // the button rather than on something typed meanwhile. A failure to
+      // answer is an answer here.
+      if ((answered || critiqueFailure) && document.activeElement === els.criticAsk) els.criticResult.focus();
     }
   }
+}
+
+// The seconds since Ask the critic, beside the line under it: a first use
+// downloads for minutes and an answer takes seconds, and with nothing on the
+// page moving, slow could not be told from stuck while every generation
+// button was held. A measurement, not a promise, so it counts for a critic of
+// the user's own too. aria-hidden, outside the line's live region.
+function startCriticClock() {
+  const start = performance.now();
+  clearInterval(criticClockTimer);
+  criticClockTimer = setInterval(() => {
+    els.criticClock.textContent = `· ${Math.round((performance.now() - start) / 1000)} s`;
+    els.criticClock.hidden = false;
+  }, 1000);
+}
+
+function stopCriticClock() {
+  clearInterval(criticClockTimer);
+  els.criticClock.hidden = true;
+  els.criticClock.textContent = '';
 }
 
 function renderCritic() {
   syncCritic();
   const box = els.criticResult;
   box.replaceChildren();
-  if (!critiqueResult) return;
+  if (!critiqueResult) {
+    // The server's reason, without the exception's class name; #error has
+    // it too, as an alert.
+    if (critiqueFailure) {
+      box.appendChild(note(`The critic did not answer: ${critiqueFailure.replace(/\.$/, '')}. Ask again, or check the server's log.`,
+        'analysis-note critic-failure'));
+    }
+    return;
+  }
   const { body } = critiqueResult;
 
   const parts = PART_LABELS.filter(([key]) => body.parts?.[key]);
   if (parts.length) {
+    // Captioned: unlabelled, the list read as part of the issue under it.
+    const read = document.createElement('div');
+    read.className = 'critic-read';
     const list = document.createElement('dl');
     list.className = 'critic-parts';
     for (const [key, label] of parts) {
@@ -677,7 +836,8 @@ function renderCritic() {
       value.textContent = body.parts[key];
       list.append(term, value);
     }
-    box.appendChild(list);
+    read.append(note('How the critic read it', 'analysis-note sub'), list);
+    box.appendChild(read);
   }
 
   if (body.issues.length) {
@@ -689,17 +849,28 @@ function renderCritic() {
     box.appendChild(note('No issue against the sources.'));
   }
 
+  // The two versions, side by side where the panel is wide enough for both.
+  const versions = document.createElement('div');
+  versions.className = 'critic-variants';
   if (body.rewrite) {
     const block = document.createElement('div');
     block.className = 'critic-variant';
-    const area = variantArea(body.rewrite, "The critic's rewrite");
+    const area = variantArea(body.rewrite, "The critic's rewrite", 'rewrite');
     const head = document.createElement('div');
     head.className = 'critic-variant-head';
     head.append(span('critic-variant-name', 'Rewrite'));
     if (body.rewrite !== analysisResult.source) {
-      head.append(writeButton('Use rewrite',
-        'Replace the prompt with the rewrite, then check it', () => usePromptText(body.rewrite)));
+      head.append(writeButton('Use rewrite', `Replace the prompt with the rewrite, then check it.${KEEPS_PROMPT}`,
+        () => useVersion(body.rewrite, 'Use rewrite')));
     }
+    // Whether the rewrite fixes what the prompt was flagged for: each of its
+    // findings says whether the prompt has one under the same rule - which
+    // need not be the same words (on Animagine the order finding names other
+    // tags) - and the prompt's findings it no longer has follow. A finding
+    // is matched by its rule and its field, never collapsed by them.
+    const key = (f) => `${f.field} ${f.rule}`;
+    const before = new Set(analysisResult.body.findings.map(key));
+    const after = new Set(body.rewrite_findings.map(key));
     const checked = document.createElement('div');
     checked.className = 'critic-checked';
     renderFindings(checked, body.rewrite_findings, {
@@ -709,10 +880,16 @@ function renderCritic() {
         ? selectAnalysed(f.field, f.start, f.end) : selectIn(area, body.rewrite, f.start, f.end)),
       apply: null,
       empty: 'The check finds nothing to flag in the rewrite.',
+      carried: (f) => (before.has(key(f)) ? 'also in your prompt' : 'new'),
     });
+    const gone = analysisResult.body.findings.filter((f) => !after.has(key(f)));
+    if (gone.length) {
+      checked.appendChild(note(`No longer flagged: ${gone.map((f) => excerpt(f.message, 60)).join('; ')}`,
+        'analysis-note sub'));
+    }
     block.append(head, rewriteChanges(analysisResult.source, body.rewrite), area,
       note('The same check, run on the rewrite:', 'analysis-note sub'), checked);
-    box.appendChild(block);
+    versions.appendChild(block);
   } else {
     box.appendChild(note('No rewrite offered.', 'analysis-note critic-change-summary'));
   }
@@ -736,12 +913,13 @@ function renderCritic() {
       : kind === 'allowed'
         ? "Replace the prompt with the critic's reordering of the same words - an order Check finds nothing wrong with, though it could not place every tag - then check it"
         : "Replace the prompt with the critic's reordering of the same words - its reading of the order, not one this app has checked - then check it";
-    head.append(span('critic-variant-name', 'Reordered'), writeButton('Use reordered', title,
-      () => usePromptText(body.reordered)));
+    head.append(span('critic-variant-name', 'Reordered'), writeButton('Use reordered', `${title}.${KEEPS_PROMPT}`,
+      () => useVersion(body.reordered, 'Use reordered')));
     block.append(head, variantArea(body.reordered,
-      kind === 'check' ? "The critic's reordering, Check's own order" : "The critic's reordering"));
-    box.appendChild(block);
+      kind === 'check' ? "The critic's reordering, Check's own order" : "The critic's reordering", 'reordered'));
+    versions.appendChild(block);
   }
+  if (versions.children.length) box.appendChild(versions);
 
   // What the server took out of the answer, and why. A quote not found in the
   // prompt drops nothing - the issue only loses its quote - so it is not here.
@@ -822,16 +1000,42 @@ function rewriteChanges(original, rewrite) {
     diff.appendChild(part);
   }
   details.append(summary, note('Removed text is struck through; added text is underlined.', 'analysis-note sub'), diff);
-  return details;
+  // The diff, then the gist of it after the <details> - a closed one shows
+  // nothing but its summary - so what changed reads before any click.
+  const shown = document.createDocumentFragment();
+  shown.append(details, changeGist(changes));
+  return shown;
 }
 
-function variantArea(text, label) {
+// The first few changes, a few words of each: "Added Rewritten: · removed no
+// people", marked as the diff marks them. Opened by default, the diff would
+// print the whole rewrite a second time above its own box.
+function changeGist(changes) {
+  const edits = changes.filter((part) => part.kind !== 'same');
+  // Not `sub`, the fields' flex column, which would stack its words.
+  const line = note('', 'analysis-note critic-gist');
+  const each = Math.max(12, Math.floor(80 / Math.min(edits.length, 3)));
+  edits.slice(0, 3).forEach(({ kind, text }, i) => {
+    const verb = kind === 'added' ? 'added' : 'removed';
+    line.append(i ? ` · ${verb} ` : `${verb[0].toUpperCase()}${verb.slice(1)} `);
+    if (!text.trim()) { line.append('whitespace'); return; }
+    const words = document.createElement(kind === 'added' ? 'ins' : 'del');
+    words.textContent = excerpt(text, each);
+    line.append(words);
+  });
+  if (edits.length > 3) line.append(' · …');
+  return line;
+}
+
+function variantArea(text, label, version) {
   const area = document.createElement('textarea');
   area.className = 'analysis-text';
   area.readOnly = true;
   area.rows = 2;
   area.value = text;
   area.setAttribute('aria-label', label);
+  // The Compare row it stands for, outlined from there (`linkVersion`).
+  area.dataset.version = version;
   return area;
 }
 
@@ -912,8 +1116,10 @@ const comparedVariants = () =>
   compareVariants().filter((v) => v.label === 'original' || compareChoice[v.label]);
 
 // Typing a version of your own: the ticks at once, the server's count and
-// estimate once the typing pauses.
+// estimate once the typing pauses. The box no longer holds only what a Use
+// put there, so its note goes.
 function compareOwnChanged() {
+  els.compareOwnNote.hidden = true;
   renderCompare(400);
 }
 
@@ -926,8 +1132,17 @@ function compareOwnFromPrompt() {
   compareOwnChanged();
 }
 
+// A version's text outlined where the panel shows it while its Compare tick
+// is pointed at or focused: the labels name the versions, the critic's boxes
+// and the Order section hold them.
+function linkVersion(version, on) {
+  for (const el of els.promptAnalysis.querySelectorAll(`[data-version="${version}"]`)) el.classList.toggle('linked', on);
+}
+
 function renderCompare(previewDelay = 0) {
   const variants = compareVariants();
+  // A label replaced under the pointer gets no pointerleave.
+  for (const el of els.promptAnalysis.querySelectorAll('.linked')) el.classList.remove('linked');
   els.compareOptions.replaceChildren();
   for (const variant of variants) {
     const label = document.createElement('label');
@@ -944,6 +1159,9 @@ function renderCompare(previewDelay = 0) {
       syncCompareRun();
       scheduleComparePreview(0);
     };
+    for (const [type, on] of [['pointerenter', true], ['pointerleave', false], ['focusin', true], ['focusout', false]]) {
+      label.addEventListener(type, () => linkVersion(variant.label, on));
+    }
     label.append(box, ` ${variant.name}`);
     els.compareOptions.appendChild(label);
   }
@@ -956,8 +1174,7 @@ function syncCompareRun() {
   els.compareRun.disabled = count < 2 || analysisStale;
   // Held like Generate and Run grid while the editor has the card.
   els.compareRun.setAttribute('aria-disabled', String(expandingPrompt || critiquing || submitting));
-  els.compareRun.title = analysisStale
-    ? 'The prompt or the references changed since this check; Check again first'
+  els.compareRun.title = analysisStale ? STALE_REASON
     : count < 2 ? 'Needs a second version of the prompt to compare against'
     : 'One grid: each version of the prompt on the same seeds, then the sheet with a row per version';
 }
@@ -1019,7 +1236,7 @@ async function previewComparison() {
     // The grid's summary counts batch starts as seeds; the comparison's
     // Seeds select counts every image seed. Describe the request just sent,
     // so changing a select while it runs cannot relabel an earlier reply.
-    els.comparePreview.textContent = `${plural(p.images, 'image')} · ${plural(variants.length, 'variant')}`
+    els.comparePreview.textContent = `${plural(p.images, 'image')} · ${plural(variants.length, 'version')}`
       + ` × ${plural(payload.seeds * payload.num_images, 'seed')} · batch ${payload.num_images}`
       + (p.seconds ? ` · about ${humanTime(p.seconds)}` : '')
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another cell` : '');

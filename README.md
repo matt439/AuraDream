@@ -1077,7 +1077,9 @@ for it. On a tag checkpoint - and on Anima, whose "@ before an artist name"
 needs to know which tags are artists - it asks Danbooru's tag index what the
 comma items are, sending the tag text only, as the chips do; offline, those
 checks stand down rather than guess, and the panel says they did (on Anima,
-that not every tag was checked for an artist name). The panel it opens has:
+that not every tag was checked for an artist name). The panel it opens -
+above the results, or beside the image in a column of its own on a window
+1800 px wide or more - has:
 
 - **Encoders**: one row per text encoder, tokens used against what the
   pipeline keeps, and - past that - "stops reading at ..." (click it to
@@ -1120,8 +1122,8 @@ that not every tag was checked for an artist name). The panel it opens has:
   `(word:1.2)`, `((word))` or `BREAK` (nothing here parses weighting; the
   encoder reads the brackets and numbers as text), a typed control token,
   NewBie XML that does not parse. Each finding says what it rests on:
-  **Guide** (the checkpoint's guide - hover for its words, click for the
-  source), **Authors** (an author's example), **Encoder** (what the
+  **Guide** (the checkpoint's guide - its words follow the finding when
+  short, and are the badge's tooltip either way; click for the source), **Authors** (an author's example), **Encoder** (what the
   pipeline's own tokenizer does) or **Heuristic** (this app's own pattern
   check, not an author's rule). Click a finding to select its words;
   **Apply** replaces the field with the fixed text - quotes added, tags moved,
@@ -1217,8 +1219,10 @@ said so under the answer - but for a reordering that moves nothing, which
 has nothing to show, and some of what the answer's schema forbids (a seventh
 issue, say), which only a `llama-server` of your own that ignores the schema
 can send. The rewrite is then put through the same checks as the prompt,
-listed under it. **Changed from original** gives the number of characters
-added and removed; open it to see the marked text. If no rewrite survives,
+listed under it, each marked "also in your prompt" or "new", with the
+prompt's findings it no longer has after them. **Changed from original**
+gives the number of characters added and removed, the line under it the
+first few changes; open it to see the marked text. If no rewrite survives,
 the answer says **No rewrite offered** and explains anything set aside.
 
 Character and series names are optional: the tag order describes where to
@@ -1228,7 +1232,9 @@ and the critic is instructed to keep them generic.
 What survives is still a 4B model's suggestion - it can misapply a source,
 and it pads short prompts with scenery and mood however it is told not to -
 so read the rewrite before **Use rewrite**. **Use rewrite** and
-**Use reordered** replace the prompt (Ctrl+Z restores it). A critique takes
+**Use reordered** replace the prompt (Ctrl+Z restores it), and put the
+prompt they replace into Your version under Compare while that box is
+empty, so **Run comparison** sets the two side by side. A critique takes
 10-20 seconds and about 6 GB (5.5 GiB) of VRAM, then the critic's server is
 stopped (`docs/verified.md` has the measurements). It waits for the image
 queue - the button is held while a job is queued or running - and Generate
@@ -1259,8 +1265,8 @@ seeds per version and comparison **Batch** 1, 2 or 4 (default 1).
 the panel's other settings, the Seed box's seed or a drawn one - and
 opens that submission's sheet with one row per version, original first,
 unticking Favorites if it was on: nothing in the new comparison is starred
-yet, and the sheet's note says so. The main panel's **Batch** and **Runs**
-do not apply. Comparison Batch controls how many images run together,
+yet, and the sheet's note says so. The main panel's **Batch** and
+**Repeat** do not apply. Comparison Batch controls how many images run together,
 without multiplying the seed count: two versions on four seeds still make
 eight images; Batch 2 queues two batches per version. The line above
 the button gives the image count, seeds per version, batch size and
