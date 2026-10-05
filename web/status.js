@@ -113,12 +113,14 @@ function applyHints(hints) {
   // The one some checkpoints have and others not: a server restarted under
   // another must not leave FLUX.1's words under Strength.
   els.refineLarge.textContent = hints.refine_large ?? '';
-  // The CFG box's name, the panel's and the grid's: FLUX.1's is a distilled
-  // guidance value, by its own tip, beside a True CFG that is the real one -
-  // "CFG (distilled)" there, plain CFG wherever a status gives no name.
+  // The CFG box's name, the panel's, the grid's and the Refine dialog's:
+  // FLUX.1's is a distilled guidance value, by its own tip, beside a True CFG
+  // that is the real one - "CFG (distilled)" there, plain CFG wherever a
+  // status gives no name.
   const cfgLabel = hints.cfg_label ?? 'CFG';
-  if (els.cfgLabel.textContent !== cfgLabel) els.cfgLabel.textContent = cfgLabel;
-  if (els.gridCfgLabel.textContent !== cfgLabel) els.gridCfgLabel.textContent = cfgLabel;
+  for (const el of [els.cfgLabel, els.gridCfgLabel, els.refineCfgLabel]) {
+    if (el.textContent !== cfgLabel) el.textContent = cfgLabel;
+  }
   // A dead grid Mu axis quotes the Mu tip's reason.
   syncMuWords();
 }
@@ -286,10 +288,14 @@ async function unloadModel() {
     // poll's first answer takes back, and the poll asks again at once.
     if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
     // Held by a job: said until that job ends (generation.js) - another
-    // tab's too (setElsewhereBusy).
-    else if (busy) showJobNote(els.unload.title);
-    else if (elsewhereBusy) { showError(els.unload.title, true); elsewhereNote = els.unload.title; }
-    else showError(els.unload.title, true);
+    // tab's too (setElsewhereBusy). A sentence, as every held press says its
+    // reason: the title is the reason without its stop.
+    else if (busy) showJobNote(`${els.unload.title}.`);
+    else if (elsewhereBusy) {
+      const said = `${els.unload.title}.`;
+      showError(said, true);
+      elsewhereNote = said;
+    } else showError(`${els.unload.title}.`, true);
     return;
   }
   try {
@@ -317,6 +323,7 @@ function goOffline() {
   syncUnload();
   syncSubmitButtons();
   syncExpandButton();
+  syncCritic();
 }
 
 // The server that answers is not the one the page was talking to: its jobs,
@@ -508,8 +515,10 @@ async function refreshStatus() {
       serverOffline = false;
       clearOffline();
       retryLightboxImage();
+      takeBackCriticOffline();
       syncSubmitButtons();
       syncExpandButton();
+      syncCritic();
     }
     const restarted = serverStartedAt !== null && typeof s.started_at === 'number'
       && s.started_at !== serverStartedAt;
@@ -547,6 +556,15 @@ async function refreshStatus() {
       expanderStatus = s.prompt_expander ?? null;
       syncPromptExpansion();
       // A download finished, the rewriter loaded: an Expand running says so.
+      syncExpandRunning();
+    }
+    // What holds the card: an Expand waiting behind another tab's critic or
+    // Expand says so, and stops saying it once its own press has the card.
+    const holder = typeof s.card_holder === 'string' ? s.card_holder : null;
+    const ticket = typeof s.card_ticket === 'string' ? s.card_ticket : null;
+    if (holder !== cardHolder || ticket !== cardTicket) {
+      cardHolder = holder;
+      cardTicket = ticket;
       syncExpandRunning();
     }
     if (pendingTranslation) {
@@ -634,8 +652,14 @@ async function refreshStatus() {
     els.dot.className = `dot ${s.state}`;
     const was = modelState;
     modelState = s.state;
-    // An Expand waiting on the load says so, and stops saying it once it lands.
-    if (modelState !== was) syncExpandRunning();
+    // An Expand waiting on the load says so, and stops saying it once it
+    // lands; the critic is held for the load (criticHold), and what a press
+    // on it said meanwhile goes with it.
+    if (modelState !== was) {
+      syncExpandRunning();
+      syncCritic();
+      if (modelState !== 'loading') takeBackCriticLoadNote();
+    }
     // A way to start - or retry, after a gated-repo 403 - the load without
     // queueing an image to do it. Load and Unload take each other's place,
     // so the press that hides one hands focus to the other, not to the
@@ -674,7 +698,11 @@ async function refreshStatus() {
     if (back || restarted) lostRunBack(restarted, s);
     // What a job saved before the server went quiet - or before it died -
     // is in the gallery now, which the page could not ask for meanwhile.
-    if ((back || restarted) && loadedModel === previousModel) { void prependFinished(0); loadRuns(); }
+    if ((back || restarted) && loadedModel === previousModel) {
+      elsewhereCatchUp = false;
+      void prependFinished(0);
+      loadRuns();
+    }
     // And the prompt's count, which a measure asked while it was gone could
     // not get: the line under the prompt kept "cut unknown", titled with the
     // offline sentence, until the next pause in typing (a checkpoint change

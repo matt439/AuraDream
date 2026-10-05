@@ -738,8 +738,10 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseCompact = String(compact);
   button.classList.add('reuse-settings');
   const mismatch = modelsDiffer(modelId);
-  const from = (modelId || '').split('/').pop();
-  const current = (loadedModel || '').split('/').pop();
+  // The running checkpoint by the name the topbar gives it (checkpointName):
+  // NetaYume v4's repository is named for its parent model.
+  const from = checkpointName(modelId);
+  const current = checkpointName(loadedModel);
   const warning = `generated with ${from}; the current model is ${current}`;
   button.classList.toggle('model-mismatch', mismatch);
   // A refined record's Reuse opens the Refine dialog on its source with the
@@ -1091,6 +1093,9 @@ function noteLightboxDelete(text) {
 function forgetImages(ids) {
   const gone = new Set(ids);
   const focused = document.activeElement;
+  // Where the sheet's focus was, before its cells go below: the redraw puts
+  // it back on the cell now in that place (sheet.js, renderSheet).
+  const sheetPlace = sheetMode ? sheetFocusPlace() : null;
   const current = currentCard();
   let lost = null;
   document.querySelectorAll('[data-id]').forEach((el) => {
@@ -1178,7 +1183,7 @@ function forgetImages(ids) {
     if (orphans.has(lbList[lbIndex])) lbDrawn = null;
   }
   for (const id of gone) if (lbSources.has(id)) lbSources.set(id, null);
-  if (sheetMode) renderSheet();
+  if (sheetMode) renderSheet(sheetPlace);
   // A Reuse's Undo may not put a gone reference back; and one dropped from
   // what the Reuse left is no change that retires the Undo (`syncReuseUndo`,
   // which the drop below reaches), so both of its copies lose it first.
@@ -1555,13 +1560,12 @@ function reuseIntoPanel(rec, withSize, note = '') {
   // Steps, CFG and mu are checkpoint-specific: Turbo's 8 / 0 / 1.15 on FLUX is
   // a visibly broken image recorded under FLUX. The checkpoint is part of the
   // reproduction set as much as the seed, so say so - as a note, not a failure.
-  const short = (id) => (id || '').split('/').pop();
   if (loadedModel && rec.model_id !== loadedModel) {
     // Mu named only where its box can be checked: on Anima it is greyed.
     const knobs = muSupported ? 'steps, CFG and mu' : 'steps and CFG';
     notes.push(
-      `These settings were made on ${short(rec.model_id)}; the server is running ` +
-      `${short(loadedModel)}, whose ${knobs} differ. Prompt` +
+      `These settings were made on ${checkpointName(rec.model_id)}; the server is running ` +
+      `${checkpointName(loadedModel)}, whose ${knobs} differ. Prompt` +
       `${withSize ? ', size' : ''} and seed carry over; check the ${knobs} ` +
       'boxes before generating.',
     );
@@ -1573,7 +1577,7 @@ function reuseIntoPanel(rec, withSize, note = '') {
     const one = references.length === 1;
     notes.push(
       `Its ${one ? '' : `${references.length} `}reference image${one ? '' : 's'} (${imageNames(references)}) `
-      + `${one ? 'is' : 'are'} not used: ${short(loadedModel) || 'this checkpoint'} takes none, `
+      + `${one ? 'is' : 'are'} not used: ${checkpointName(loadedModel) || 'this checkpoint'} takes none, `
       + 'so this renders from the prompt alone.',
     );
   }
@@ -1588,6 +1592,7 @@ function reuseIntoPanel(rec, withSize, note = '') {
 // follow-up has more to say.
 function showReuseNote() {
   const note = reuseNote;
+  reuseSaid = note.lead;
   showError(note.lead, true);
   const undo = document.createElement('button');
   undo.type = 'button';
@@ -1599,6 +1604,16 @@ function showReuseNote() {
   const rest = note.parts.filter(Boolean).join(' ');
   if (rest) els.error.append(` ${rest}`);
   note.button = undo;
+}
+
+// The lead of the last Reuse note written, which outlives its Undo: the first
+// change takes the button and keeps the words (syncReuseUndo). A Reset takes
+// the words too, while they are still what the panel's line says - "Settings
+// from #15 loaded - your prompt was replaced" stood over the emptied panel.
+let reuseSaid = null;
+function clearReuseNote() {
+  if (reuseSaid !== null && els.error.textContent.startsWith(reuseSaid)) showError('');
+  reuseSaid = null;
 }
 
 // Where a Reuse leaves the page: the prompt in sight below the topbar, its

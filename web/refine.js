@@ -237,7 +237,6 @@ function openRefine(rec, pass = null) {
   // from pixels - but its steps, CFG, mu and strength are that checkpoint's,
   // so this one's profile stands in for them.
   const foreign = modelsDiffer(from.model_id);
-  const short = (id) => (id || '').split('/').pop();
   // Opened on the source either way, since the pass starts from its pixels;
   // the title and a line of its own say which pass is being run again.
   els.refineTitle.textContent = pass ? `Refine #${rec.id} as #${pass.id} was made` : `Refine #${rec.id}`;
@@ -271,9 +270,9 @@ function openRefine(rec, pass = null) {
       ? `Reusing #${pass.id}: ${pass.width}×${pass.height}`
         + `${pass.strength != null ? ` at strength ${pass.strength}` : ''}, seed ${pass.seed}`
       : `Reusing #${pass.id}: ${pass.width}×${pass.height}, seed ${pass.seed} - its strength ${pass.strength} `
-        + `was ${short(pass.model_id)}'s; Strength starts at `
-        + (keptOne ? `${kept}, as last run on ${short(loadedModel)}`
-          : lastDefaults?.refine_strength_profiled ? `${short(loadedModel)}'s ${els.refineStrength.value}`
+        + `was ${checkpointName(pass.model_id)}'s; Strength starts at `
+        + (keptOne ? `${kept}, as last run on ${checkpointName(loadedModel)}`
+          : lastDefaults?.refine_strength_profiled ? `${checkpointName(loadedModel)}'s ${els.refineStrength.value}`
             : `${els.refineStrength.value}, the general starting strength`);
   els.refineVersions.value = !pass && ['1', '2', '4'].includes(String(prefs.versions))
     ? String(prefs.versions) : '1';
@@ -300,9 +299,12 @@ function openRefine(rec, pass = null) {
           : 'it is not in the adapter list now'}.`
       : '';
   // A pass's strength is replaced too (above); a source's never carries.
+  // Mu named only where its box can be checked, as Reuse's note does
+  // (reuseIntoPanel): it is greyed on every checkpoint without one.
+  const knobs = ['steps', 'CFG', ...(muSupported ? ['mu'] : []), ...(pass ? ['strength'] : [])];
   els.refineMoreNote.textContent = foreign
-    ? `made on ${short(from.model_id)}: ${pass ? 'steps, CFG, mu and strength' : 'steps, CFG and mu'} are `
-      + `${short(loadedModel)}'s`
+    ? `made on ${checkpointName(from.model_id)}: ${knobs.slice(0, -1).join(', ')} and ${knobs.at(-1)} are `
+      + `${checkpointName(loadedModel)}'s`
     : `as #${from.id} was made`;
   // Open where they could not carry over, so the substitution is seen.
   els.refineMore.open = foreign;
@@ -337,9 +339,8 @@ function openRefine(rec, pass = null) {
 // pass - and, once the server has refused it as gone (`refineSourceGone`),
 // that it is: "#28 (deleted)", as the viewer and the lightbox say it.
 function writeRefineSourceLine(rec, gone = false) {
-  const short = (id) => (id || '').split('/').pop();
   els.refineSourceLine.textContent = [
-    `${rec.width}×${rec.height}`, `seed ${rec.seed}`, short(rec.model_id),
+    `${rec.width}×${rec.height}`, `seed ${rec.seed}`, checkpointName(rec.model_id),
     rec.refine != null ? `itself a refine of #${rec.refine}${rec.refine_missing ? ', since deleted' : ''}` : '',
     gone ? `#${rec.id} (deleted)` : '',
   ].filter(Boolean).join(' · ');
@@ -531,9 +532,15 @@ function syncRefine() {
   const off = !negativeSupported || reach <= cfgThreshold;
   els.refineNegative.disabled = off;
   els.refineNegField.classList.toggle('disabled', off);
+  // In the panel's words for the same state (sizes.js, syncCfg): where CFG
+  // is the knob a live box costs nothing more, and only a greyed one says
+  // what waking it costs.
+  const knob = trueCfgSupported ? 'True CFG' : 'CFG';
   els.refineNegNote.textContent = !negativeSupported
     ? '(this checkpoint takes no negative prompt)'
-    : `(needs ${trueCfgSupported ? 'True CFG' : 'CFG'} > ${cfgThreshold})`;
+    : !trueCfgSupported && !off
+      ? `(runs at CFG > ${cfgThreshold}, no extra cost)`
+      : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
   // Blank is the pipeline's own shift, as the panel's box says (syncMu) -
   // with its value where the scheduler's shift is fixed; a dead box promises
   // nothing.
@@ -563,13 +570,14 @@ function syncRefine() {
 }
 
 // Held, with the reason as its title, as Generate and Run grid are
-// (syncSubmitButtons): no refine pass, a size past the guard, the preview's
-// refusal, or a server that does not answer - which startJob refuses anyway,
-// but the button said nothing of it before the press.
+// (syncSubmitButtons): first for what holds those - a server that does not
+// answer, Expand or the critic running (submitHold), which startJob refuses
+// anyway, but the button said nothing of it before the press - then no
+// refine pass, a size past the guard, or the preview's refusal.
 function syncRefineRun() {
-  const problem = serverOffline ? 'The server is not answering'
-    : !refineSupported ? 'This checkpoint has no refine pass'
-    : refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value) || refineProblem;
+  const problem = submitHold()
+    || (!refineSupported ? 'This checkpoint has no refine pass'
+      : refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value) || refineProblem);
   els.refineRun.setAttribute('aria-disabled', String(!!problem));
   els.refineRun.title = problem || 'Run the pass (Ctrl+Enter)';
 }
@@ -777,14 +785,13 @@ async function runRefine() {
     if (!refineSource || !els.refineDialog.open || submitting) return;
   }
   if (els.refineRun.getAttribute('aria-disabled') === 'true') {
-    refuseRefine(els.refineRun.title);
-    // As Generate's press: the poll asks again at once.
+    // What holds Generate too, said as a sentence in the dialog, where it is
+    // still up to say so; as Generate's press, the poll asks again at once
+    // where the server did not answer.
+    const held = submitHold();
+    if (held) refineFailed(`${held}.`);
+    else refuseRefine(els.refineRun.title);
     if (serverOffline) void refreshStatus();
-    return;
-  }
-  // As startJob refuses them, but here, while the dialog is still up to say so.
-  if (expandingPrompt || critiquing) {
-    refineFailed(`Wait for ${critiquing ? 'the critic' : 'prompt expansion'} to finish.`);
     return;
   }
   const { path, body, sweep } = refineRequest();

@@ -49,7 +49,7 @@ const els = {
   mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
-  cfgLabel: $('cfg-label'), gridCfgLabel: $('grid-cfg-label'),
+  cfgLabel: $('cfg-label'), gridCfgLabel: $('grid-cfg-label'), refineCfgLabel: $('refine-cfg-label'),
   referenceField: $('reference-field'), referenceList: $('reference-list'),
   referenceNote: $('reference-note'), referenceTip: $('reference-tip'),
   lora: $('lora'), loraScale: $('lora-scale'), loraField: $('lora-field'),
@@ -274,6 +274,12 @@ let translatedSource = null;
 // ModelStatus.prompt_expander: whether the rewriter is loaded and what a
 // first use downloads - what Expand's title and its running line say.
 let expanderStatus = null;
+// What holds the card now (`ModelStatus.card_holder`: "job", "critic",
+// "expand", or null) and the ticket an editor action holding it was sent
+// with (`card_ticket`): an Expand of this page's whose ticket it is not
+// waits for the card, and its running line says so (expandRunningText).
+let cardHolder = null;
+let cardTicket = null;
 // The prompt critic is the other editor action on the card: a local model
 // started for one answer and stopped after it, so it holds the same things
 // Expand does while it runs. Supported and ready follow /api/status - ready

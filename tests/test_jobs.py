@@ -192,6 +192,36 @@ def test_a_job_behind_an_editor_action_names_it(store):
     assert asyncio.run(scenario()) == ("critic", "done", None)
 
 
+def test_the_card_names_its_holder_and_an_editor_actions_ticket(store):
+    # What the status's card_holder/card_ticket read: free, a job (by kind,
+    # not id), or the editor action with the ticket it was sent with.
+    async def scenario():
+        manager = JobManager(FakeBackend(step_seconds=0.02), _ready)
+        free = manager.card()
+        release = threading.Event()
+        expand = asyncio.create_task(manager.run_when_idle(release.wait, holder="expand", ticket="t-1"))
+        while not manager._gate.locked():
+            await asyncio.sleep(0)
+        held = manager.card()
+        release.set()
+        await expand
+        after = manager.card()
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=20))
+        while job.status != "running":
+            await asyncio.sleep(0.01)
+        running = manager.card()
+        async for event in manager.events(job):
+            if event["type"] == "done":
+                break
+        await manager.shutdown()
+        return free, held, after, running
+
+    free, held, after, running = asyncio.run(scenario())
+    assert free == (None, None) and after == (None, None)
+    assert held == ("expand", "t-1")
+    assert running == ("job", None)
+
+
 def test_a_job_behind_another_says_queue_once_the_editor_action_is_done(store):
     # Two jobs queued during a critique both waited on "critic". When it
     # answered, the first took the gate, and the second went on saying

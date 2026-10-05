@@ -298,6 +298,10 @@ class PromptExpansionRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
     width: int = Field(default=1024, ge=256, le=settings.max_side)
     height: int = Field(default=1024, ge=256, le=settings.max_side)
+    # The page's own name for this press, which the status answers as
+    # `card_ticket` while the expansion holds the card: an expansion waiting
+    # behind another tab's tells the two apart and says it waits.
+    ticket: str | None = Field(default=None, max_length=64)
 
 
 class PromptExpansion(BaseModel):
@@ -971,9 +975,13 @@ class TagValidationRequest(BaseModel):
     @field_validator("tags")
     @classmethod
     def _usable_tags(cls, values: list[str]) -> list[str]:
+        # Any comma item of a prompt: one longer than a tag - a hybrid
+        # prompt's sentence - is answered unknown without asking the index
+        # (`tags.TAG_NAME_MAX`). Bounded at 200, the whole request was refused
+        # for one such item, and the tray said Danbooru was unreachable.
         tags = [value.strip() for value in values]
-        if any(not tag or len(tag) > 200 for tag in tags):
-            raise ValueError("tags must be 1-200 characters after trimming")
+        if any(not tag or len(tag) > TAG_SLOT_PROMPT_MAX for tag in tags):
+            raise ValueError(f"tags must be 1-{TAG_SLOT_PROMPT_MAX} characters after trimming")
         return tags
 
     @field_validator("prompt")
@@ -1138,6 +1146,14 @@ class ModelStatus(BaseModel):
     # images - and one watching its own never learned of a job queued behind
     # it from elsewhere, or of a queued one cancelled there.
     active_jobs: list[str] = []
+    # What holds the card - the generation gate - now: "job", or the editor
+    # action holding it ("critic", "expand"), with the ticket that action was
+    # sent with (`PromptExpansionRequest.ticket`); None while it is free. An
+    # Expand waiting behind another tab's critique said "Expanding…" for the
+    # whole of it; its running line now says it waits for the card, and for
+    # whose, where the holder is not its own press.
+    card_holder: str | None = None
+    card_ticket: str | None = None
     # The most images one grid may queue, which is also the page size the
     # contact sheet asks for: a matrix with a page boundary through it is a
     # puzzle, so the client reads the ceiling from here rather than assuming it.

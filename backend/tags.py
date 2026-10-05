@@ -44,13 +44,41 @@ def is_model_tag(tag: str, special_tags: set[str], allow_year_tag: bool = True) 
     return text in special_tags or (allow_year_tag and bool(_YEAR_TAG.fullmatch(text)))
 
 
+# Longer than any name the index holds: a comma item past this - a hybrid
+# prompt's sentence - is answered unknown here, never asked about, reachable
+# index or not. Asked, the whole request was refused for it (a 200-character
+# bound on every item), and the tray said Danbooru was unreachable.
+TAG_NAME_MAX = 200
+
+
+def too_long(tag: str) -> bool:
+    return len(tag.strip()) > TAG_NAME_MAX
+
+
+def too_long_result(tag: str) -> dict:
+    return {
+        "tag": tag,
+        "valid": False,
+        "canonical": None,
+        "source": None,
+        "category": None,
+        "post_count": None,
+        "reason": "longer than any Danbooru tag",
+        "code": "not_found",
+    }
+
+
 def unchecked_results(
     tags: list[str], special_tags: set[str], allow_year_tag: bool = True
 ) -> list[dict]:
-    """Preserve locally known model tags while the remote index is offline."""
+    """Preserve locally known model tags while the remote index is offline -
+    and what needs no index at all: an item longer than any tag."""
     results = []
     for tag in tags:
         known = is_model_tag(tag, special_tags, allow_year_tag)
+        if not known and too_long(tag):
+            results.append(too_long_result(tag))
+            continue
         results.append(
             {
                 "tag": tag,

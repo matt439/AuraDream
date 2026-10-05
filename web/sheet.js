@@ -782,7 +782,63 @@ async function starCell(cell, rec, options = {}) {
   if (now) rec.favorite = now.classList.contains('fav');
 }
 
-function renderSheet() {
+// The sheet laid out again from the records - a gallery page landing, a
+// delete, a pin or an axis picked, a resize that wraps it - rebuilds every
+// cell and control, and a keyboard's focus on one fell to <body>: F on a cell
+// another tab had deleted, the end of another tab's job, an ArrowDown on the
+// Columns select. `place` is where focus was (sheetFocusPlace), taken before
+// anything was removed - forgetImages takes it before it drops the cells -
+// and it goes back there: the same cell's image (or star) by its id, else
+// the image now at its place in reading order, else the last; the control
+// of the same name; the search box where the sheet has no cells left.
+function renderSheet(place = sheetFocusPlace()) {
+  drawSheet();
+  restoreSheetFocus(place);
+}
+
+function sheetFocusPlace() {
+  const at = document.activeElement;
+  if (!at || at === document.body || !els.sheet.contains(at)) return null;
+  const cell = at.closest('.sheet-cell[data-id]');
+  if (cell && els.sheetGrid.contains(cell)) {
+    const cells = [...els.sheetGrid.querySelectorAll('.sheet-cell[data-id]')];
+    return { id: cell.dataset.id, index: cells.indexOf(cell), star: at.matches('.star') };
+  }
+  if (els.sheetControls.contains(at)) {
+    const controls = [...els.sheetControls.querySelectorAll('select, button')];
+    return { control: sheetControlName(at), index: controls.indexOf(at) };
+  }
+  return null;
+}
+
+// A control's name across a redraw: a select by its label's words (Columns,
+// Rows, a pin's axis), a button by its own.
+function sheetControlName(el) {
+  const label = el.closest('label');
+  return label ? `select:${label.firstChild?.textContent ?? ''}` : `button:${el.textContent}`;
+}
+
+function restoreSheetFocus(place) {
+  if (!place) return;
+  const now = document.activeElement;
+  // Kept, or taken somewhere on purpose meanwhile.
+  if (now && now !== document.body && now.isConnected) return;
+  let to = null;
+  if (place.id !== undefined) {
+    const cell = els.sheetGrid.querySelector(`.sheet-cell[data-id="${place.id}"]`);
+    if (cell) to = (place.star && cell.querySelector('.star')) || cell.querySelector('img');
+    else {
+      const images = [...els.sheetGrid.querySelectorAll('.sheet-cell img[data-id]')];
+      to = images[Math.max(0, place.index)] ?? images.at(-1) ?? null;
+    }
+  } else {
+    const controls = [...els.sheetControls.querySelectorAll('select, button')];
+    to = controls.find((c) => sheetControlName(c) === place.control) ?? controls[place.index] ?? null;
+  }
+  (to ?? els.search).focus({ preventScroll: true });
+}
+
+function drawSheet() {
   sheetRecords = galleryRecords;
   sheetAxesList = axesFor(sheetRecords);
   const current = (held) => (held && held.epoch === galleryEpoch ? held : null);

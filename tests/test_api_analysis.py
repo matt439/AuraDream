@@ -20,10 +20,12 @@ import concurrent.futures.thread
 import dataclasses
 import inspect
 import json
+import re
 import signal
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 
 import httpx
@@ -41,6 +43,7 @@ from backend.schemas import (
     GenerateRequest,
     PromptAnalysis,
     PromptAnalysisRequest,
+    PromptMeasureRequest,
 )
 from backend.tags import TagLookupUnavailable
 from tests.api_helpers import ORIGIN, stream_job, wait_for
@@ -558,6 +561,57 @@ def test_a_chip_the_rules_cannot_place_has_no_slot(client, fake, monkeypatch):
     over = "1girl, " + "x" * TAG_SLOT_PROMPT_MAX
     body = client.post("/api/tags/validate", json={"tags": ["1girl"], "prompt": over}).json()
     assert body["results"] and body["slots"] is None
+
+
+# A hybrid prompt's sentence, longer than any tag: one comma item of 213
+# characters refused the whole request (a 1-200 bound on every item), and the
+# tray said Danbooru was unreachable, its guide tags unchecked and its order
+# captions gone.
+SENTENCE = (
+    "a girl with long green hair standing alone in the rain under a red umbrella while neon "
+    "lights from the shops reflect on the wet street and the crowd hurries past her in the "
+    "cold blue evening dusk light of the city"
+)
+
+
+def test_an_item_longer_than_any_tag_is_unknown_without_asking(client, fake, monkeypatch):
+    claim(monkeypatch, fake, KOHAKU)
+    vocabulary = Vocabulary({"1girl": "general"})
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    assert len(SENTENCE) > 200
+    body = chips(client, f"1girl, {SENTENCE}, masterpiece, safe")
+    assert body["available"] is True
+    verdicts = {r["tag"]: r for r in body["results"]}
+    assert verdicts[SENTENCE]["valid"] is False and verdicts[SENTENCE]["code"] == "not_found"
+    assert verdicts[SENTENCE]["reason"] == "longer than any Danbooru tag"
+    assert [r["tag"] for r in body["results"]] == ["1girl", SENTENCE, "masterpiece", "safe"]
+    # Never asked of the index; the slots ride beside the verdicts.
+    assert all(SENTENCE not in call[0] for call in vocabulary.calls)
+    assert body["slots"] is not None
+    # Unreachable, the guide's own tags are still the model's, and the long
+    # item is still unknown: no index is needed to say so.
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    offline = chips(client, f"1girl, {SENTENCE}, masterpiece, safe")
+    verdicts = {r["tag"]: r for r in offline["results"]}
+    assert offline["available"] is False
+    assert verdicts[SENTENCE]["valid"] is False and verdicts[SENTENCE]["code"] == "not_found"
+    assert verdicts["masterpiece"]["valid"] is True
+    # Only a blank item, or one longer than a prompt can be, is refused.
+    for tag in ("  ", "x" * 4001):
+        assert client.post("/api/tags/validate", json={"tags": [tag]}).status_code == 422
+
+
+def test_the_pages_measured_length_is_every_requests(client):
+    # tags.js measures the first PROMPT_MAX_CHARS code points: a prompt past
+    # it was refused whole, and the line said "cut unknown".
+    source = (Path(__file__).resolve().parents[1] / "web" / "tags.js").read_text(encoding="utf-8")
+    match = re.search(r"^const PROMPT_MAX_CHARS = (\d+);$", source, re.M)
+    assert match
+    for model in (PromptMeasureRequest, GenerateRequest):
+        field = model.model_fields["prompt"]
+        assert [m.max_length for m in field.metadata if hasattr(m, "max_length")] == [int(match.group(1))]
+    measured = client.post("/api/prompt/measure", json={"prompt": "a" * int(match.group(1))})
+    assert measured.status_code == 200
 
 
 def test_an_unreachable_index_costs_the_slots_one_wait(client, fake, monkeypatch):

@@ -235,14 +235,25 @@ def test_the_authors_examples_raise_no_warning(repo, example):
         assert warnings == [], (repo, example, warnings)
 
 
-@pytest.mark.parametrize("repo, example", list(_examples()))
+def _sentence_examples():
+    # Only the guides with a sentence rule: a guide without one has nothing
+    # to hold its examples to, and a skip per example hid the suite's real
+    # skips among them.
+    for repo, example in _examples():
+        if "sentences" in _profile_for(repo)["guide"].get("analysis", {}):
+            yield repo, example
+
+
+def test_some_guides_ask_for_a_number_of_sentences():
+    assert list(_sentence_examples())
+
+
+@pytest.mark.parametrize("repo, example", list(_sentence_examples()))
 def test_the_authors_examples_meet_their_guides_sentence_count(repo, example):
     # A note, not a warning, so the test above let it by: Anima's Example was
     # the card's caption cut by the app to its first sentence, and Check's
     # first word on the authors' own prompt was that it had too few. Where a
     # guide asks for a number of sentences its examples are quoted whole.
-    if "sentences" not in _profile_for(repo)["guide"].get("analysis", {}):
-        pytest.skip("no sentence rule in this guide")
     assert only(run(repo, example), "guide.sentences") == [], (repo, example)
 
 
