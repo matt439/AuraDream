@@ -170,7 +170,7 @@
   {"wait": 600},
   {"expect": "els.comparePreview.textContent.startsWith('8 images · 2 versions') && comparePayload(comparedVariants()).num_images === 1"},
   {"eval": "els.seed.value = ''; window.__prompt = els.prompt.value; window.__gridPrompt = els.gridPrompt.value; void runComparison();"},
-  {"expect": "__until(() => sheetMode && els.search.value.startsWith('job:') && document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8)"},
+  {"expect": "__until(() => sheetMode && !galleryPending && els.search.value.startsWith('job:') && document.querySelectorAll('#sheet-grid .sheet-cell:not(.empty)').length === 8)"},
   {"expect": "[...document.querySelectorAll('#sheet-grid .rowhead')].map((e) => e.querySelector('.label').textContent).join() === 'Original,Rewrite'"},
   {"expect": "els.prompt.value === window.__prompt && els.gridPrompt.value === window.__gridPrompt && els.seed.value === '' && els.batch.value === '4'"},
   {"log": "'a Generate under the comparison sheet, still scoped to its job: the gallery line counts what the scope hides, and Show all opens the whole gallery'"},
