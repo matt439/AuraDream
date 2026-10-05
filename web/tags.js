@@ -642,8 +642,11 @@ function tagTokenLine() {
 // NewBie's own two-character XML example is 488 of Gemma's 511 tokens, and a
 // third character's lines cut <general_tags> off unread. Shown once the
 // prompt has used three quarters of the tightest encoder's budget, past it,
-// or where an encoder went uncounted ("cut unknown", never "no cut"); under
-// that it would say only that there is room, and at 1400x900 its line put
+// or where an encoder went uncounted ("cut unknown", never "no cut") - at any
+// length, there being no count to hold to the three quarters: a tokenizer the
+// server cannot fetch, a checkpoint with none known, the server not
+// answering (asked again when it answers, status.js). Under three quarters
+// it would say only that there is room, and at 1400x900 its line put
 // Generate under the window's edge. The encoders named, and where reading
 // stops when it does (`tagCut`, while the text up to the cut is the counted
 // one); the title has every encoder's count. The line is no live region - it
@@ -714,11 +717,15 @@ function syncPromptTokens() {
   promptTokensOver = over;
 }
 
+// A measure that got no answer (`failed`: the server not answering, a refusal)
+// is asked again for the same text - status.js asks once the server answers
+// again - where an answer, "cut unknown" included, stands until the text or
+// the checkpoint changes.
 function scheduleTagMeasure(delay) {
   clearTimeout(tagMeasureTimer);
   const epoch = ++tagMeasureEpoch;
   const text = els.prompt.value.trim();
-  if (!text || (tagMeasured?.text === text && tagMeasured.model === loadedModel)) return;
+  if (!text || (tagMeasured?.text === text && tagMeasured.model === loadedModel && !tagMeasured.failed)) return;
   tagMeasureTimer = setTimeout(async () => {
     const model = loadedModel;
     try {
@@ -731,7 +738,7 @@ function scheduleTagMeasure(delay) {
       tagMeasured = { model, text, encoders: body.encoders || [], detail: body.encoders_detail || null };
     } catch (error) {
       if (epoch !== tagMeasureEpoch) return;
-      tagMeasured = { model, text, encoders: [], detail: error.message };
+      tagMeasured = { model, text, encoders: [], detail: error.message, failed: true };
     }
     // An open editor is not rebuilt under the user's typing: the label
     // changes now, the chips with the editor's close. The line under the

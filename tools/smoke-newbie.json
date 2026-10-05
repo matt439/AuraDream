@@ -45,5 +45,13 @@
   {"expect": "__until(() => __counted() && !els.promptTokens.hidden && !els.promptTokens.classList.contains('warn'))"},
   {"expect": "els.tagSummary.textContent === '' && !els.promptTokens.textContent.includes('stops reading')"},
   {"eval": "document.execCommand('undo');"},
-  {"expect": "__until(() => __counted() && els.promptTokens.hidden && els.prompt.value.endsWith('</general_tags>') && !els.prompt.value.includes('character_3'))"}
+  {"expect": "__until(() => __counted() && els.promptTokens.hidden && els.prompt.value.endsWith('</general_tags>') && !els.prompt.value.includes('character_3'))"},
+  {"log": "'With the server not answering the line says the cut is unknown, never that there is none, and once the server answers again the count is asked for again without a keystroke'"},
+  {"eval": "window.__online = window.fetch; window.fetch = (url, init) => String(url).includes('/api/') ? Promise.reject(new TypeError('Failed to fetch')) : window.__online(url, init); __more(3);"},
+  {"expect": "__until(() => !els.promptTokens.hidden && els.promptTokens.textContent === 'Tokens: cut unknown' && tagMeasured.failed && __counted())"},
+  {"expect": "__until(() => serverOffline)"},
+  {"eval": "window.fetch = window.__online;"},
+  {"expect": "__until(() => !serverOffline && __counted() && !tagMeasured.failed && /^\\d+\\/511 tokens · Gemma 3 4B$/.test(els.promptTokens.textContent) && !els.promptTokens.hidden)"},
+  {"eval": "els.prompt.focus(); document.execCommand('undo');"},
+  {"expect": "__until(() => __counted() && els.promptTokens.hidden && !els.prompt.value.includes('character_3'))"}
 ]
