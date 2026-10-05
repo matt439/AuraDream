@@ -708,7 +708,12 @@ function findingText(finding) {
 // To reference chip N's ×, in the panel: focused, which brings it into view
 // there (revealInPanel, or the page's own scroll in one column). The chips
 // may have changed since the check - the panel is stale then, and says so -
-// so a number past the last chip says that image is not attached now.
+// so a number past the last chip says that image is not attached now. A
+// link that finds its chip takes back only that sentence of its own
+// (`notAttachedSaid`): the slot may hold another one the user still needs,
+// such as why the critic's answer cannot be applied.
+let notAttachedSaid = '';
+
 function referenceLink(n, label) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -719,10 +724,12 @@ function referenceLink(n, label) {
   button.onclick = () => {
     if (n > referenceIds.length) {
       const have = referenceIds.length ? plural(referenceIds.length, 'reference image') : 'no reference images';
-      analysisMessage(`Image ${n} is not attached: the panel has ${have} now.`);
+      notAttachedSaid = `Image ${n} is not attached: the panel has ${have} now.`;
+      analysisMessage(notAttachedSaid);
       return;
     }
-    analysisMessage('');
+    if (notAttachedSaid && els.analysisStatus.textContent === notAttachedSaid) analysisMessage('');
+    notAttachedSaid = '';
     focusReference(n - 1);
     // A pointer's press leaves the × no focus ring to find it by.
     flashBox(els.referenceList.querySelectorAll('.chip')[n - 1]);
