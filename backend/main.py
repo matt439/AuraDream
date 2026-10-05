@@ -108,15 +108,23 @@ def _hub_failure(exc: BaseException) -> str | None:
     during - a loader re-raising the Hub's error as an OSError of its own still
     has the gate behind it. By class name over each one's MRO, as
     prompt_encoding._reason reads a tokenizer's: GatedRepoError is a
-    RepositoryNotFoundError, and the narrower name wins."""
+    RepositoryNotFoundError, and the narrower name wins.
+
+    Except that OfflineModeIsEnabled wins wherever it is in the chain:
+    huggingface_hub raises LocalEntryNotFoundError ("cannot be reached")
+    *from* it when HF_HUB_OFFLINE is set, and the outer one sent the user to
+    a network that was up rather than to the variable."""
     seen: set[int] = set()
+    found: list[str] = []
     while exc is not None and id(exc) not in seen:
         seen.add(id(exc))
-        for kind in type(exc).__mro__:
-            if kind.__name__ in _HUB_FAILURES:
-                return kind.__name__
+        kind = next((k.__name__ for k in type(exc).__mro__ if k.__name__ in _HUB_FAILURES), None)
+        if kind is not None:
+            found.append(kind)
         exc = exc.__cause__ or exc.__context__
-    return None
+    if "OfflineModeIsEnabled" in found:
+        return "OfflineModeIsEnabled"
+    return found[0] if found else None
 
 
 def _catalogue_label(repo: str) -> str | None:

@@ -194,6 +194,57 @@ def test_a_gated_load_says_what_to_do(client, fake, monkeypatch, wrapped):
     assert (ready["detail"], ready["detail_kind"], ready["detail_url"]) == (None, None, None)
 
 
+def _offline_miss(tmp_path, monkeypatch):
+    """What huggingface_hub raises for an uncached file under HF_HUB_OFFLINE:
+    the library's own call, its offline switch on and an empty cache, so the
+    chain is the one it builds - LocalEntryNotFoundError raised from
+    OfflineModeIsEnabled - and no request leaves the process. From its own
+    module: the conftest refuses the package's re-export."""
+    from huggingface_hub import constants
+    from huggingface_hub.file_download import hf_hub_download
+
+    monkeypatch.setattr(constants, "HF_HUB_OFFLINE", True)
+    try:
+        hf_hub_download("local-diffusion-test/none", "model_index.json", cache_dir=str(tmp_path))
+    except Exception as exc:  # noqa: BLE001 - the exception is the point
+        return exc
+    raise AssertionError("an offline download of an uncached file succeeded")
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_an_offline_load_names_the_variable_not_the_network(client, fake, monkeypatch, tmp_path, wrapped):
+    from huggingface_hub.errors import LocalEntryNotFoundError, OfflineModeIsEnabled
+
+    miss = _offline_miss(tmp_path, monkeypatch)
+    # The chain as huggingface_hub 1.29 builds it: the outer class alone sent
+    # the user to connect to a network that was up.
+    assert isinstance(miss, LocalEntryNotFoundError)
+    assert isinstance(miss.__cause__, OfflineModeIsEnabled)
+
+    def load():
+        if not wrapped:
+            raise miss
+        try:
+            raise miss
+        except Exception as exc:
+            raise OSError("Cannot load the pipeline's index") from exc
+
+    fake.loaded = False
+    monkeypatch.setattr(fake, "load", load)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id="black-forest-labs/FLUX.1-Krea-dev"))
+    client.post("/api/model/load")
+    body = _wait_for_state(client, "error")
+    assert body["detail"] == (
+        "FLUX.1 Krea [dev] is not all downloaded yet, and HF_HUB_OFFLINE is set: unset it for "
+        "one load, then press Retry load."
+    )
+    assert (body["detail_kind"], body["detail_url"]) == ("offline", None)
+    # A miss with the network merely down still says to connect.
+    down = LocalEntryNotFoundError("Cannot find the requested files in the local cache")
+    down.__cause__ = ConnectionError("no route")
+    assert main._load_failure(down)[0].endswith("connect to the network, then press Retry load.")
+
+
 def test_any_other_load_failure_keeps_its_own_words(client, fake, monkeypatch):
     def load():
         raise RuntimeError("CUDA out of memory")
