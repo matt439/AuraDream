@@ -1082,6 +1082,18 @@ function noteLightboxDelete(text) {
   }
 }
 
+// Every id this page has seen deleted (forgetImages). A pass that arrives
+// after its source went - its cell read the source as it began and was saved
+// after the delete, or its job's stream sent it late or replays it - is
+// marked as forgetImages marked the records already here (markGoneSource,
+// from the stream's show): it read "refine of #N" with no "(deleted)" and
+// offered the Refine dialog on a source that was gone, until a reload.
+const deletedIds = new Set();
+function markGoneSource(rec) {
+  if (rec.refine != null && deletedIds.has(rec.refine)) rec.refine_missing = true;
+  return rec;
+}
+
 // Every trace of these ids on the page, once the server has let them go: the
 // cards, the sheet cells, the viewer tiles, the panel's references and the
 // records behind them. Shared by the card's delete, the lightbox's, Delete
@@ -1092,6 +1104,7 @@ function noteLightboxDelete(text) {
 // went with them, else ''.
 function forgetImages(ids) {
   const gone = new Set(ids);
+  for (const id of gone) deletedIds.add(id);
   const focused = document.activeElement;
   // Where the sheet's focus was, before its cells go below: the redraw puts
   // it back on the cell now in that place (sheet.js, renderSheet).

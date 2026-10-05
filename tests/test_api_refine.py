@@ -103,6 +103,28 @@ def test_a_refine_reaches_the_backend_and_the_row(client, fake, store):
     assert [item["id"] for item in found["items"]] == [newest["id"]]
 
 
+def test_a_pass_whose_source_goes_while_it_runs_lands_saying_so(client, fake, store):
+    # The source is read as the cell begins; deleted before the pass is
+    # saved, the record that comes back with the job said it was still there,
+    # and the page offered to make the pass again until a reload.
+    first = _first(client)
+    fake.after_generate = lambda: store.delete_image(first["id"])
+    _, events = run_one(client, refine=first["id"], strength=0.5, steps=10)
+    fake.after_generate = None
+    landed = next(event["image"] for event in events if event["type"] == "image")
+    assert (landed["refine"], landed["refine_missing"]) == (first["id"], True)
+    assert events[-1]["images"][0]["refine_missing"] is True
+
+    # One that landed with its source there, which goes afterwards: the
+    # job's replay - a reload, a reattach - says so as the gallery does.
+    source = _first(client)
+    job_id, events = run_one(client, refine=source["id"], strength=0.5, steps=10)
+    assert next(e["image"] for e in events if e["type"] == "image")["refine_missing"] is False
+    assert client.delete(f"/api/images/{source['id']}").status_code == 200
+    replay = client.get(f"/api/jobs/{job_id}").json()["images"]
+    assert [(r["refine"], r["refine_missing"]) for r in replay] == [(source["id"], True)]
+
+
 def test_a_strength_sweep_is_an_ordinary_grid_axis(client, fake, store):
     first = _first(client)
     payload = {

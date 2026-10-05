@@ -277,6 +277,11 @@ class JobManager:
         gone = set(ids)
         for job in self._jobs.values():
             job.deleted |= gone & {image["id"] for image in job.images}
+            # And a pass made from one of them cannot be made again: its
+            # record says so in a replay, as the gallery's does.
+            for image in job.images:
+                if image.get("refine") in gone:
+                    image["refine_missing"] = True
 
     def busy(self) -> bool:
         """True while anything is queued or running.

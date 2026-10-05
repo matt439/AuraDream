@@ -465,6 +465,11 @@ def save_image(
                     "strength": request.strength if request.refine is not None else None,
                 },
             )
+            # A pass whose source was deleted while it ran - read as the
+            # cell began, gone by its end - says so as list_images would,
+            # under the lock a delete takes: returned as present, the page
+            # showed it as one that could be made again until a reload.
+            missing = _missing_sources(conn, [row])
         committed = True
         _rename_with_retry(partial, path)
     except BaseException:
@@ -477,7 +482,7 @@ def save_image(
             _unlink(partial)
         raise
     _write_thumb(image, _thumb_path(path))
-    return _row_to_record(row)
+    return _row_to_record(row, row["refine"] in missing)
 
 
 def _rename_with_retry(src, dst, attempts: int = 5) -> None:

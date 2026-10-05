@@ -1299,6 +1299,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       offerNewImage();
     };
     const show = (rec) => {
+      markGoneSource(rec);
       if (shown.has(rec.id)) return;
       shown.add(rec.id);
       if (foreign) return;

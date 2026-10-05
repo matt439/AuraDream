@@ -358,6 +358,19 @@
   {"wait": 200},
   {"expect": "!els.refineDialog.open"},
 
+  {"log": "'a pass whose source is deleted while it runs lands saying so - its record, its title, the note and its Reuse - as a reload would; and the page marks a pass that reaches it after a delete it saw'"},
+  {"eval": "window.__src2 = null; (async () => { showError(''); els.prompt.value = 'a brass lamp on a desk'; els.seed.value = '21'; choose('1:1', 1); await startJob('/api/generate', collect()); window.__src2 = viewerRecords[0]; })()"},
+  {"expect": "__until(() => !busy && window.__src2?.refine === null)"},
+  {"eval": "(async () => { window.__pace = (await (await fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0.3})})).json()).previous; openRefine(window.__src2); els.refineVersions.value = '1'; els.refineStrength.value = '0.5'; refineChanged(); })()"},
+  {"wait": 900},
+  {"eval": "void runRefine();"},
+  {"expect": "__until(() => busy && !els.refineDialog.open && !!els.viewer.querySelector('figure.pending, figure.live'))"},
+  {"eval": "askConfirm = () => true; deleteImage(window.__src2).then(() => { askConfirm = confirmDialog; })"},
+  {"expect": "__until(() => !busy && viewerRecords.length === 1 && viewerRecords[0].refine === window.__src2.id)"},
+  {"expect": "viewerRecords[0].refine_missing === true && els.viewer.querySelector('img[data-id=\"' + viewerRecords[0].id + '\"]').title.includes('refine of #' + window.__src2.id + ' (deleted)') && els.viewerNote.textContent.includes('#' + window.__src2.id + ' (deleted)')"},
+  {"expect": "(() => { const b = els.viewer.querySelector('.result .reuse-settings'); return b.dataset.reusePassGone === 'true' && b.title.includes('has been deleted'); })()"},
+  {"expect": "markGoneSource({id: -1, refine: window.__src2.id, refine_missing: false}).refine_missing === true && markGoneSource({id: -2, refine: 987654, refine_missing: false}).refine_missing === false"},
+
   {"log": "'Reset leaves nothing of a pass anywhere'"},
   {"eval": "resetPanel(); showError('');"},
   {"expect": "refineSource === null && !els.refineDialog.open && collect().refine === null && unsentRefine === null"}
