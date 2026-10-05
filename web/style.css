@@ -1445,6 +1445,11 @@ button { font: inherit; cursor: pointer; }
 .viewer:has(> :is(.load-failed:not([hidden]), .lost-run)) { min-height: 0; padding: var(--sp-4); justify-content: center; }
 .placeholder { color: var(--muted); }
 .viewer > .placeholder:not(.held) { margin: 0; font-size: var(--fs-body-sm); }
+/* The load's wait in that line (viewerWaiting, panel.js): still one line,
+   cut short at its end - the clock comes first - rather than a second. */
+.viewer:not(.empty-install) > .placeholder.waiting:not(.held) {
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .placeholder .first-run, .viewer.empty-install .placeholder .idle-line { display: none; }
 .viewer.empty-install .placeholder .first-run { display: inline; }
 .viewer.empty-install > .placeholder { max-width: 60ch; text-align: center; font-size: var(--fs-md); }

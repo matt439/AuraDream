@@ -886,9 +886,11 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         els.progressText.append(clock);
       }
       clock.textContent = ` · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      // And in the viewer's line while the strip is empty (panel.js).
+      viewerWaiting(clock.textContent);
       mirrorJob();
     };
-    const stopTicker = () => { clearInterval(ticker); ticker = 0; };
+    const stopTicker = () => { clearInterval(ticker); ticker = 0; viewerWaiting(null); };
     const note = (data) => showCell(data, {
       job,
       budget: job?.deadline && job.started_at ? job.deadline - job.started_at : null,

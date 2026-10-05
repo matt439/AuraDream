@@ -1140,6 +1140,38 @@ function fitRecent() {
   stage.classList.add('recent-docked');
 }
 
+// While a job waits on the load and the strip is empty - its one idle line,
+// or the line a delete left - the line says so, with the clock the progress
+// row ticks (generation.js's ticker): after Generate the eye is on the
+// viewer, where "Nothing generated this session" stayed for the minutes a
+// first load takes. The clock is aria-hidden, as the progress row's is,
+// which says "loading weights" once; the line stays one line (style.css).
+// `clock` null puts the line's own words back: the wait over, cancelled or
+// failed, or the stream lost. The first frame or image clears the strip, the
+// line with it. Not over a line holding the focus (a first run's Examples).
+let viewerWait = null;
+function viewerWaiting(clock) {
+  const line = els.viewer.querySelector(':scope > .placeholder');
+  if (viewerWait && (clock == null || viewerWait.line !== line)) {
+    if (viewerWait.line.isConnected) {
+      viewerWait.line.replaceChildren(...viewerWait.words);
+      viewerWait.line.classList.remove('waiting');
+    }
+    viewerWait = null;
+  }
+  if (clock == null || !line) return;
+  if (!viewerWait) {
+    if (line.contains(document.activeElement)) return;
+    viewerWait = { line, words: [...line.childNodes] };
+    const time = document.createElement('span');
+    time.className = 'clock';
+    time.setAttribute('aria-hidden', 'true');
+    line.replaceChildren('Loading weights', time, ' - the first load of a session takes a few minutes.');
+    line.classList.add('waiting');
+  }
+  line.querySelector('.clock').textContent = clock;
+}
+
 // A gallery with nothing in it at all - no image on any checkpoint, nothing
 // filtered out - is a first run: the empty viewer stays the tall box, with
 // the authors' examples a press away (`viewerExamples`), rather than the one
