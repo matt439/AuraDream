@@ -233,9 +233,11 @@
   {"expect": "!__gone.hasAttribute('role') && !__gone.hasAttribute('aria-label') && __gone.textContent.startsWith('Deleted · #')"},
   {"eval": "askConfirm = confirmDialog; showError('', false, {slot: els.galleryError});"},
   {"log": "'a star pressed on an image another tab has deleted: said as its delete says it, in the gallery\\'s line and not the panel\\'s, and the image forgotten - its card a tombstone - rather than left live'"},
-  {"eval": "showError(''); window.__t1 = total; window.__elsewhere = __cards().find((c) => c !== currentCard() && !c.classList.contains('fav') && c.getBoundingClientRect().top > 0); window.__eid = +__elsewhere.dataset.id; fetch('/api/images/' + __eid, {method: 'DELETE'}).then(() => __elsewhere.querySelector('.fav-badge').click())"},
+  {"eval": "showError(''); window.__runsBefore = els.runList.innerHTML; window.__t1 = total; window.__elsewhere = __cards().find((c) => c !== currentCard() && !c.classList.contains('fav') && c.getBoundingClientRect().top > 0); window.__eid = +__elsewhere.dataset.id; fetch('/api/images/' + __eid, {method: 'DELETE'}).then(() => __elsewhere.querySelector('.fav-badge').click())"},
   {"expect": "__until(() => __elsewhere.classList.contains('gone') && els.galleryError.textContent === '#' + __eid + ' was already deleted.')"},
   {"expect": "els.galleryError.classList.contains('note') && !els.galleryError.hidden && els.error.hidden && els.error.textContent === '' && !__rec(__eid) && total === __t1 - 1 && __elsewhere.textContent === 'Deleted · #' + __eid"},
+  {"log": "'(and the Runs picker, which counts images, is asked again, as after a delete)'"},
+  {"expect": "__until(() => els.runList.innerHTML !== __runsBefore)"},
   {"eval": "showError('', false, {slot: els.galleryError});"},
 
   {"log": "'the tools fit the card at both wide sizes: Delete apart at the far end, nothing clipped'"},

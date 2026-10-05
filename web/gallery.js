@@ -838,6 +838,8 @@ async function setFavorite(rec, value, { say = false } = {}) {
     const said = `#${rec.id} was already deleted.${forgetImages([rec.id])}`;
     if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
     else showError(said, true, { slot: els.galleryError });
+    // The Runs picker counts images, as after ⌦.
+    loadRuns();
     return;
   }
   recordsWithId(rec.id).forEach((r) => { r.favorite = value; });

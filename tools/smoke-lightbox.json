@@ -47,7 +47,7 @@
   {"expect": "__until(() => els.lbFav.getAttribute('aria-pressed') === 'true' && __rec(__pass).favorite)"},
   {"key": "f"},
   {"expect": "__until(() => els.lbFav.getAttribute('aria-pressed') === 'false' && !__rec(__pass).favorite)"},
-  {"expect": "els.lbStarSaid.textContent === '' && els.starSaid.textContent === '' && document.activeElement === els.lbFav"},
+  {"expect": "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))).then(() => els.lbStarSaid.textContent === '' && els.starSaid.textContent === '' && document.activeElement === els.lbFav)"},
   {"eval": "__focusWas?.focus?.();"},
   {"log": "'a pass\\'s Reuse is named with the words it shows, Reuse pass first'"},
   {"expect": "els.lbReuse.textContent === 'Reuse pass…' && els.lbReuse.getAttribute('aria-label') === 'Reuse pass in the Refine dialog'"},
