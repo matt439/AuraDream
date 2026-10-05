@@ -821,10 +821,12 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    a tag checkpoint's chips above it (`--chips-h`, tags.js's chipsResized):
    at 55vh beside 40 tags' chips the image's top was at 817 of 900 px. Its
    least is 15% of the window, between 8rem - the head and two or three lines
-   of findings, which scroll under it - and 12rem: a fixed 12rem, beside 40
-   tags at 1280x720, started the image at 0.80 of the window with 143 px of
-   it showing. Docked from 1800 px its own cap replaces this one. Under
-   901 px, in the panel, it is as long as what it holds. */
+   of findings, which scroll under it - and 12rem: a fixed 12rem, beside
+   smoke-analysis-tags' 40 tags (chips 227 px), started the image at 0.76 of
+   a 1280x720 window (175 px of it showing) and 0.91 of a 1280x600 one; it
+   starts at 0.73 (197 px) and 0.80 now. Docked from 1800 px its own cap
+   replaces this one. Under 901 px, in the panel, it is as long as what it
+   holds. */
 .tag-validation-wide .prompt-analysis {
   background: var(--panel);
   max-height: max(clamp(8rem, 15vh, 12rem), calc(55vh - var(--chips-h, 0px))); overflow-y: auto;
