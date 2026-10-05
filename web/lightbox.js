@@ -70,16 +70,17 @@ function lbNavReach() {
   return Math.max(0, els.lbStage.getBoundingClientRect().right - circle.left);
 }
 // Side by side, the halves start past the circles and a gap: 58 px, or 70.
-function lbNavRoom() { return lbNavReach() + 8; }
+function lbNavRoom(reach = lbNavReach()) { return reach + 8; }
 
 // The boxes the picture is fitted into, in the stage's pixels: the whole
 // stage, or side by side its two halves, each showing the same crop - inside
 // the arrows, whose circles sat over the source's left edge and the pass's
-// right one there (alone, a picture is centred clear of them).
-function lbPorts() {
+// right one there (alone, a picture is centred clear of them). `reach` is
+// lbNavReach's, where the caller has read it already.
+function lbPorts(reach) {
   const sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight;
   if (lbCompare.id === null || lbCompare.mode !== 'side') return [{ x: 0, w: sw, h: sh }];
-  const inset = Math.min(lbNavRoom(), sw / 8);
+  const inset = Math.min(lbNavRoom(reach), sw / 8);
   const w = (sw - 2 * inset - LB_SIDE_GAP) / 2;
   return [{ x: inset, w, h: sh }, { x: inset + w + LB_SIDE_GAP, w, h: sh }];
 }
@@ -87,8 +88,8 @@ function lbPorts() {
 // Fit is "contain": the largest size that shows the whole image inside its
 // viewport, taken from the record's own dimensions rather than the decoded
 // image, so the layout is right before the PNG has arrived.
-function fitSize(rec) {
-  const { w, h } = lbPorts()[0];
+function fitSize(rec, ports = lbPorts()) {
+  const { w, h } = ports[0];
   const k = Math.min(w / rec.width, h / rec.height);
   return [rec.width * k, rec.height * k];
 }
@@ -97,8 +98,8 @@ function fitSize(rec) {
 // devicePixelRatio is load-bearing: at 125-150% Windows scaling a plain
 // natural-size image is a 1.25-1.5x resample, which is precisely the smoothing
 // a sharpening sweep is being judged on.
-function oneToOneScale(rec) {
-  return (rec.width / window.devicePixelRatio) / fitSize(rec)[0];
+function oneToOneScale(rec, ports) {
+  return (rec.width / window.devicePixelRatio) / fitSize(rec, ports)[0];
 }
 
 // Between fit or 1:1, whichever is smaller, and 8x device pixels, past which
@@ -124,8 +125,12 @@ function clipBox(box, rect) {
 function layoutLightbox() {
   const rec = lbList[lbIndex];
   if (!rec || !els.lightbox.open) return;
-  const ports = lbPorts();
-  const [fw, fh] = fitSize(rec);
+  // Everything read off the page is read here, before the first write, so a
+  // wheel step, a pan move or a drag of the divider lays the page out once.
+  const reach = lbNavReach();
+  const ports = lbPorts(reach);
+  const [fw, fh] = fitSize(rec, ports);
+  const one = oneToOneScale(rec, ports);
   const w = fw * lbView.scale, h = fh * lbView.scale;
   const { w: pw, h: ph } = ports[0];
   // An image smaller than its viewport on an axis is centred on it; one
@@ -141,7 +146,6 @@ function layoutLightbox() {
   els.lbImg.style.clipPath = ports.length > 1 ? clipBox(pass, rectOf(ports.at(-1))) : '';
   layoutCompare(rec, ports, pass, boxIn, rectOf);
   // Tested in this order: a wheel stop between 1:1 and fit is neither.
-  const one = oneToOneScale(rec);
   const percent = Math.round((lbView.scale / one) * 100);
   els.lbZoom.textContent = Math.abs(lbView.scale - one) < 1e-3 ? '1:1'
     : lbView.scale === 1 ? `fit · ${percent}%` : `${percent}%`;
@@ -159,7 +163,7 @@ function layoutLightbox() {
   // The least strip is the circle's reach less 2 px - 48 for the 40 px
   // circle, 60 for the wide tier's 52 - so the circle never reaches past the
   // margin onto the picture.
-  const least = lbNavReach() - 2;
+  const least = reach - 2;
   const strips = lbView.scale === 1 && gutter >= least;
   els.lbMain.classList.toggle('strips', strips);
   els.lbMain.style.setProperty('--lb-gutter', `${strips ? Math.min(160, gutter) : least}px`);
