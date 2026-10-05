@@ -167,7 +167,7 @@ function versionEdit(original, prompt) {
   // NewBie's <character_2> moved first read "character_2 … kasane_teto …
   // pink_hair …", the markup's names and every tag inside it.
   const blocks = blockMove(original, prompt);
-  if (blocks) return blocks.move ? `same blocks, moved: ${blocks.move}` : `same blocks, in the order ${blocks.order}`;
+  if (blocks) return blocks.move ? `same blocks, moved: ${blocks.move}` : tagLine('same blocks, in the order', blocks.order);
   const words = (text) => text.match(/[\p{L}\p{N}]+/gu) ?? [];
   const [before, after] = [words(original), words(prompt)];
   const sorted = (list) => [...list].sort().join(' ');
@@ -178,20 +178,39 @@ function versionEdit(original, prompt) {
   return `same words, moved: ${moved.join(' … ')}`;
 }
 
-// A prompt's top-level XML blocks, as the critic finds them (critic.py's
-// _XML_BLOCK): each block's tag and its text, its spaces collapsed, and the
-// text outside them.
-const XML_BLOCK = /<([A-Za-z_][\w.-]*)>[\s\S]*?<\/\1>/g;
+// Tags after `lead` in at most EDIT_CHARS characters, cut between two tags
+// with an ellipsis: the row head's line was cut at its 80th character, and
+// four blocks' order ended inside a tag, "<character_" read as a block of
+// its own. The row head's title is the whole prompt.
+const EDIT_CHARS = 80;
+function tagLine(lead, tags) {
+  let line = lead;
+  for (const [i, tag] of tags.entries()) {
+    const more = i < tags.length - 1 ? ' …'.length : 0;
+    if (line.length + 1 + tag.length + more > EDIT_CHARS) return `${line} …`;
+    line += ` ${tag}`;
+  }
+  return line;
+}
+
+// A prompt's top-level XML blocks, as the critic finds them: critic.py's
+// _XML_BLOCK, Python's Unicode \w written out (JavaScript's \w is ASCII
+// alone), held equal by tests/test_critic.py. Each block's tag and its text,
+// its spaces collapsed, and `gaps`, the text before, between and after them,
+// each in its place: loose text that moves past a block is an edit too.
+const XML_BLOCK = /<([A-Za-z_][\p{L}\p{N}_.-]*)>[\s\S]*?<\/\1>/gu;
 function xmlBlocks(text) {
   const blocks = [];
-  let rest = '';
+  const gaps = [];
+  const squeeze = (t) => t.replace(/\s+/g, ' ').trim();
   let at = 0;
   for (const m of text.matchAll(XML_BLOCK)) {
-    rest += text.slice(at, m.index);
-    blocks.push({ tag: `<${m[1]}>`, text: m[0].replace(/\s+/g, ' ').trim() });
+    gaps.push(squeeze(text.slice(at, m.index)));
+    blocks.push({ tag: `<${m[1]}>`, text: squeeze(m[0]) });
     at = m.index + m[0].length;
   }
-  return { blocks, rest: (rest + text.slice(at)).replace(/\s+/g, ' ').trim() };
+  gaps.push(squeeze(text.slice(at)));
+  return { blocks, gaps };
 }
 
 // Where `prompt` is `original`'s top-level XML blocks in another order and
@@ -199,11 +218,11 @@ function xmlBlocks(text) {
 // blocks' tags: one block taken out and put back elsewhere is `move`
 // ("<general_tags> first", "<character_2> before <character_1>",
 // "<character_1> last"), named as the one that went earlier where either of
-// two could be; anything else is the new `order`. Null for any other edit,
-// which reads as words.
+// two could be; anything else is the new `order`, a list of the tags. Null
+// for any other edit, which reads as words.
 function blockMove(original, prompt) {
   const a = xmlBlocks(original), b = xmlBlocks(prompt);
-  if (a.blocks.length < 2 || a.blocks.length !== b.blocks.length || a.rest !== b.rest) return null;
+  if (a.blocks.length < 2 || a.blocks.length !== b.blocks.length || a.gaps.join('\n') !== b.gaps.join('\n')) return null;
   const was = a.blocks.map((x) => x.text), now = b.blocks.map((x) => x.text);
   const same = (x, y) => x.join('\n') === y.join('\n');
   if (same(was, now) || !same([...was].sort(), [...now].sort())) return null;
@@ -221,7 +240,7 @@ function blockMove(original, prompt) {
       return { move: i === now.length - 1 ? `${tag(i)} last` : `${tag(i)} after ${tag(i - 1)}` };
     }
   }
-  return { order: b.blocks.map((x) => x.tag).join(' ') };
+  return { order: b.blocks.map((x) => x.tag) };
 }
 
 // A header that repeats the forty words every prompt shares is unreadable, and
@@ -271,7 +290,7 @@ function promptLabels(prompts) {
   // (blockMove) - the oldest by its blocks' order where every other one is -
   // where the edit's words were the markup's names and every tag moved.
   const moves = prompts.map((p, i) => (i === 0 ? null : blockMove(prompts[0], p)));
-  const blockLabel = (m) => (m.move ? m.move : `blocks ${m.order}`);
+  const blockLabel = (m) => (m.move ? m.move : `blocks ${m.order.join(' ')}`);
   const first = moves.slice(1).every(Boolean)
     ? `blocks ${xmlBlocks(prompts[0]).blocks.map((x) => x.tag).join(' ')}` : prompts[0].trim();
   return prompts.map((p, i) => {
@@ -969,7 +988,7 @@ function renderSheet() {
     if (edit) {
       const line = document.createElement('span');
       line.className = 'rowhead-edit';
-      line.textContent = edit.length > 80 ? `${edit.slice(0, 79)}…` : edit;
+      line.textContent = edit.length > EDIT_CHARS ? `${edit.slice(0, EDIT_CHARS - 1)}…` : edit;
       head.classList.add('has-edit');
       head.appendChild(line);
     }

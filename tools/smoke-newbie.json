@@ -52,5 +52,9 @@
   {"expect": "[...document.querySelectorAll('#sheet-grid .rowhead')].map((h) => h.textContent).join('|') === 'Original|Your versionsame blocks, moved: <character_2> first'"},
   {"expect": "versionEdit(__xml, __g) === 'same blocks, moved: <general_tags> first' && versionEdit(__xml, [__parts[1], __parts[2], __parts[0]].join('\\n\\n')) === 'same blocks, moved: <character_1> last' && versionEdit(__xml, [__parts[2], __parts[1], __parts[0]].join('\\n\\n')) === 'same blocks, in the order <general_tags> <character_2> <character_1>' && versionEdit(__xml, __xml.replace('blue_hair', 'green_hair')) === '−blue_hair +green_hair'"},
   {"expect": "promptLabels([__xml, __c2, __g]).join('|') === 'blocks <character_1> <character_2> <general_tags>|<character_2> first|<general_tags> first' && promptLabels([__xml, __c2, __xml.replace('blue_hair', 'green_hair')]).slice(1).join('|') === '<character_2> first|−blue_hair +green_hair'"},
+  {"log": "'Loose text that moves past a block is an edit, not a block move; a tag in letters beyond ASCII is a block as the critic reads one; the order of four blocks is cut between two tags, never inside one'"},
+  {"expect": "blockMove('A <a>x</a> <b>y</b>', '<b>y</b> <a>x</a> A') === null && blockMove('A <a>x</a> <b>y</b>', 'A <b>y</b> <a>x</a>').move === '<b> first' && blockMove('<aé>x</aé> <b>y</b> <c>z</c>', '<c>z</c> <b>y</b> <aé>x</aé>').order.join(' ') === '<c> <b> <aé>'"},
+  {"eval": "window.__four = ['<character_1>a</character_1>', '<character_2>b</character_2>', '<character_3>c</character_3>', '<general_tags>d</general_tags>'];"},
+  {"expect": "(() => { const line = versionEdit(__four.join(' '), [__four[2], __four[3], __four[0], __four[1]].join(' ')); return line === 'same blocks, in the order <character_3> <general_tags> <character_1> …' && line.length <= 80; })()"},
   {"eval": "setSheet(false); els.search.value = ''; resetGallery(); resetPanel();"}
 ]

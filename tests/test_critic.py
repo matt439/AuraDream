@@ -2425,6 +2425,28 @@ def test_a_reorder_of_xml_moves_blocks_and_of_json_moves_keys():
     assert critic._json_forms(typed) is not None
 
 
+def test_the_sheet_finds_xml_blocks_as_the_critic_does():
+    # web/sheet.js names a comparison's moved XML blocks by their tags
+    # (blockMove), finding them with a copy of _XML_BLOCK - and web/ has no
+    # test suite. JavaScript's \w is ASCII alone, so the copy writes Python's
+    # Unicode \w out as letters, numbers and the underscore; [\s\S] is DOTALL's
+    # dot. A block one side reads and the other does not would name a move
+    # the critic never made.
+    sheet = (Path(__file__).resolve().parents[1] / "web" / "sheet.js").read_text(encoding="utf-8")
+    match = re.search(r"^const XML_BLOCK = /(.+)/gu;$", sheet, re.M)
+    assert match
+    written = match.group(1).replace(r"\p{L}\p{N}_", r"\w").replace(r"[\s\S]", ".").replace(r"<\/", "</")
+    assert written == critic._XML_BLOCK.pattern
+    assert critic._XML_BLOCK.flags & re.DOTALL
+    # Python's \w is exactly the letters, the numbers and the underscore.
+    word = re.compile(r"\w")
+    for code in (*range(0x80, 0x3100), *range(0x4E00, 0x4F00), *range(0xAC00, 0xAD00)):
+        char = chr(code)
+        assert bool(word.fullmatch(char)) == (unicodedata.category(char)[0] in "LN" or char == "_"), hex(code)
+    assert [m.group(1) for m in critic._XML_BLOCK.finditer("<人物>a</人物> <b>c</b>")] == ["b"]
+    assert [m.group(1) for m in critic._XML_BLOCK.finditer("<a人物>a</a人物> <b>c</b>")] == ["a人物", "b"]
+
+
 def test_the_rewrite_is_dropped_when_it_changes_nothing():
     # Layer 1's lint of the rewrite is the route's (test_api_analysis), once
     # the gate is open; validate adds only its own checks.
