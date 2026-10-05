@@ -1448,6 +1448,14 @@ button { font: inherit; cursor: pointer; }
 #finish-note button { font-size: var(--fs-label); margin-left: var(--sp-2); vertical-align: baseline; }
 /* "Previous job:" while another runs, so the line is not read as its. */
 #finish-note .lead { color: var(--text-readout); }
+/* For a screen reader only: the finish line's sentence, once per job end
+   (#job-said), and the counter's spoken state while its shown half - the
+   step count, rewritten every step - is aria-hidden (#progress-text .said).
+   Out of the panel's flex column, so neither adds a gap. */
+#job-said, #progress-text .said {
+  position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
 #btn-new-image { align-self: flex-start; }
 /* Where New image ↑ brings the page: the viewer clear of the sticky topbar. */
 #viewer { scroll-margin-top: calc(var(--topbar-h) + var(--gutter)); }

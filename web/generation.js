@@ -48,6 +48,9 @@ function setBusy(on) {
   if (finishTakesFocus) els.generate.focus({ preventScroll: true });
   busy = on;
   streamLost = false;
+  // A job of this page's own: whatever another tab runs, this page now
+  // watches the queue it is part of (followServerJobs).
+  if (on) setElsewhereBusy(false, { quiet: true });
   // The submit buttons stay live while a job runs: a second Generate or Run
   // grid queues behind it on the server. They are only held during the POST
   // itself (see startJob), as the double-submit guard.
@@ -83,7 +86,7 @@ function setBusy(on) {
     els.lastRun.hidden = true;
     els.newImage.hidden = true;
   } else {
-    els.progressText.textContent = '';
+    setProgressText('');
     currentJob = null;
     // What a press on a held Pause or Unload said was about this job.
     if (jobNote !== null && els.error.textContent === jobNote) showError('');
@@ -158,6 +161,65 @@ function forgetJob(jobId) {
   jobLabels.delete(jobId);
   jobPlaceholders.delete(jobId);
   jobsToShow.delete(jobId);
+  foreignJobs.delete(jobId);
+}
+
+// A job this page watches that it did not submit, while its viewer holds
+// results of its own: another tab's, picked up through watchNext when this
+// page's job ended. Its first frame used to clear the image just made from
+// the viewer, and its finish line, Use seed and held title spoke of it as
+// this page's. It is shown in the progress row only, named as another tab's
+// there, in the mirrors and at its end, and its images join the gallery. A
+// reload's attach, with nothing of this page's in the viewer, is not one:
+// the page shows it as it always has. A POST of this page's still out may
+// be the job listed, so nothing is decided then.
+const foreignJobs = new Set();
+const ANOTHER_TABS_JOB = "Another tab's job";
+function isForeign(jobId) {
+  if (foreignJobs.has(jobId)) return true;
+  if (ownJobs.has(jobId) || submissions.has(jobId) || submitting) return false;
+  if (!viewerRecords.some((rec) => ownJobs.has(rec.job_id))) return false;
+  foreignJobs.add(jobId);
+  return true;
+}
+
+// #progress-text is a status: every change to it is read out. `spoken` is
+// the coarse state - queued, denoising, image 2/3, cell 4/12, finishing -
+// written only when it changes, since a rewrite with the same words is read
+// out again. `shown`, where the eye gets something else in its place - a
+// single image's step count, "3/12", rewritten every step and read out every
+// step - goes into an aria-hidden half beside a visually hidden spoken one
+// (style.css), as the load's clock does (streamJob's tick). The mirrors and
+// the title take what is shown (progressShown).
+function setProgressText(spoken, shown = null) {
+  const el = els.progressText;
+  if (shown === null) {
+    if (el.childElementCount || el.textContent !== spoken) el.textContent = spoken;
+    return;
+  }
+  let said = el.querySelector(':scope > .said');
+  let seen = el.querySelector(':scope > .seen');
+  if (!said || !seen) {
+    said = document.createElement('span');
+    said.className = 'said';
+    seen = document.createElement('span');
+    seen.className = 'seen';
+    seen.setAttribute('aria-hidden', 'true');
+    el.replaceChildren(said, seen);
+  }
+  if (said.textContent !== spoken) said.textContent = spoken;
+  if (seen.textContent !== shown) seen.textContent = shown;
+}
+
+function progressShown() {
+  return els.progressText.querySelector(':scope > .seen')?.textContent ?? els.progressText.textContent;
+}
+
+// The hidden line a screen reader hears a job's end on (#job-said), and a
+// job joining the queue: written each time, the same words included, since
+// each is an event of its own.
+function sayJob(text) {
+  els.jobSaid.textContent = text;
 }
 
 // The jobs waiting behind the watched one, from the ids their submissions
@@ -167,6 +229,28 @@ function forgetJob(jobId) {
 // line, with no heading over it: a heading and a row kept the queue below a
 // 1040 px window. Rebuilt whole, with focus kept on the row it was on.
 const queueCancelling = new Set();
+// When each queued id was put in the list, so a status asked before then -
+// whose listing could not have it - does not take it out (resyncQueue).
+const queuedAt = new Map();
+
+// The queue replaced: a row whose job has gone keeps focus where it was - the
+// row now in its place, else the one before, else Cancel - as an × press does.
+function setQueue(ids) {
+  const now = Date.now();
+  for (const id of ids) if (!queuedAt.has(id)) queuedAt.set(id, now);
+  for (const id of queuedAt.keys()) if (!ids.includes(id)) queuedAt.delete(id);
+  const rows = [...els.queueList.children];
+  const row = rows.findIndex((li) => li.contains(document.activeElement));
+  const lost = row >= 0 && !ids.includes(rows[row].dataset.id);
+  queuedIds = ids;
+  syncQueueNote();
+  // A paused job's cell line says what waits behind it.
+  if (cellArgs) showCell(...cellArgs);
+  if (!lost) return;
+  const left = els.queueList.querySelectorAll('li button');
+  (left[row] ?? left[row - 1] ?? (busy ? els.cancel : els.generate)).focus();
+}
+
 function syncQueueNote() {
   const n = queuedIds.length;
   els.queueNote.hidden = !(busy && n > 0);
@@ -203,6 +287,8 @@ async function cancelQueuedJob(jobId) {
   const row = [...els.queueList.children].findIndex((li) => li.dataset.id === jobId);
   const focused = els.queueList.children[row]?.contains(document.activeElement);
   queueCancelling.add(jobId);
+  // Asked here: a page watching it says so as a cancel of its own.
+  cancelledHere.add(jobId);
   syncQueueNote();
   try {
     await api(`/api/jobs/${jobId}/cancel`, { method: 'POST' });
@@ -219,6 +305,7 @@ async function cancelQueuedJob(jobId) {
   queuedIds = queuedIds.filter((id) => id !== jobId);
   forgetJob(jobId);
   syncQueueNote();
+  if (cellArgs) showCell(...cellArgs);
   // Focus where the row was: the next row's ×, else the one before, else Cancel.
   if (!focused) return;
   const left = els.queueList.querySelectorAll('li button');
@@ -229,23 +316,36 @@ async function cancelQueuedJob(jobId) {
 // (the double-submit guard the old `if (busy) return` used to be), Expand or
 // the critic on the card, and a server that does not answer. aria-disabled,
 // not disabled: a disabled element cannot hold focus, and the Enter that
-// pressed Generate dropped a keyboard user's place; a press says why.
+// pressed Generate dropped a keyboard user's place; a press says why. The
+// reason is the title, in syncUnload's order - held by Expand, the title was
+// still "Generate (Ctrl+Enter)" and only a press said why - except for the
+// POST's own moment, which keeps the plain one. Another tab's job holds
+// neither: the server queues behind it.
 const GENERATE_TITLE = els.generate.title;
 const GRID_RUN_TITLE = els.gridRun.title;
+function submitHold() {
+  return serverOffline ? 'The server is not answering'
+    : expandingPrompt ? 'Wait for prompt expansion to finish'
+    : critiquing ? 'Wait for the critic to finish'
+    : '';
+}
+
 function syncSubmitButtons() {
-  const held = String(submitting || expandingPrompt || critiquing || serverOffline);
+  const why = submitHold();
+  const held = String(submitting || !!why);
   els.generate.setAttribute('aria-disabled', held);
   els.gridRun.setAttribute('aria-disabled', held);
-  els.generate.title = serverOffline ? 'The server is not answering' : GENERATE_TITLE;
-  els.gridRun.title = serverOffline ? 'The server is not answering' : GRID_RUN_TITLE;
-  // The Refine dialog's Refine says the same while the server is gone.
+  els.generate.title = why || GENERATE_TITLE;
+  els.gridRun.title = why || GRID_RUN_TITLE;
+  // The Refine dialog's Refine says the same while the server is gone, and
+  // the comparison's Run as Generate does.
   syncRefineRun();
+  syncCompareRun();
 }
 
 function setSubmitting(on) {
   submitting = on;
   syncSubmitButtons();
-  syncCompareRun();
 }
 
 // The watched job's fraction and time left, as the bars and the cell line
@@ -291,12 +391,16 @@ function mirrorJob() {
     setTitle(`${LOST_PHRASE[0].toUpperCase()}${LOST_PHRASE.slice(1)}`);
     return;
   }
-  const text = els.progressText.textContent;
+  const text = progressShown();
   const steps = els.stepRow.hidden ? '' : els.stepText.textContent;
-  els.jobMirror.textContent = [text, steps, jobEta].filter(Boolean).join(' · ');
+  // Another tab's job, picked up when this page's own ended, says whose it
+  // is wherever it is shown (isForeign).
+  const whose = foreignJobs.has(currentJob) ? ANOTHER_TABS_JOB : '';
+  els.jobMirror.textContent = [whose, text, steps, jobEta].filter(Boolean).join(' · ');
   const measured = jobFraction > 0 && !els.fill.parentElement.classList.contains('indeterminate');
-  setTitle(els.pause.textContent === 'Resume' ? '⏸ Paused'
-    : measured ? `${Math.round(jobFraction * 100)}% · ${text}` : text);
+  const shown = [whose, text].filter(Boolean).join(' · ');
+  setTitle(els.pause.textContent === 'Resume' ? `⏸ Paused${whose ? ` · ${whose}` : ''}`
+    : measured ? `${Math.round(jobFraction * 100)}% · ${shown}` : shown);
 }
 
 // A finished job's outcome stays in the title until the page is looked at
@@ -343,6 +447,12 @@ function showCell(data, { job = null, budget = null } = {}) {
     parts.push(job.run
       ? `Paused after ${unit} ${job.run}/${job.total_runs} · GPU handed back`
       : `Paused before the first ${unit} · GPU handed back`);
+    // The card's memory is handed back, but the queue does not move on: a
+    // job behind a pause - one another tab queued included - waits for
+    // Resume or Cancel here.
+    if (queuedIds.length) {
+      parts.push(`${queuedIds.length === 1 ? '1 job waits' : `${queuedIds.length} jobs wait`} behind it`);
+    }
   } else if (els.pause.textContent === 'Pausing…') {
     parts.push(`pausing after this ${unit}…`);
   }
@@ -420,7 +530,7 @@ async function startJob(path, payload, {
   setSubmitting(true);
   if (!queueing) {
     setBusy(true);
-    els.progressText.textContent = 'queued…';
+    setProgressText('queued…');
     mirrorJob();
   }
 
@@ -431,6 +541,7 @@ async function startJob(path, payload, {
       body: JSON.stringify(payload),
     });
     setSubmitting(false);
+    ownJobs.add(job_id);
     // The topbar's "loading…" now, not at the next poll, beside the panel's
     // own "loading weights".
     void refreshStatus();
@@ -474,14 +585,20 @@ async function startJob(path, payload, {
       }
       if (busy) {
         if (!queuedIds.includes(job_id)) {
-          queuedIds.push(job_id);
-          syncQueueNote();
+          setQueue([...queuedIds, job_id]);
           void nameJob(job_id);
+        } else {
+          // Listed already by a status poll (resyncQueue), under the
+          // server's name for it until now.
+          syncQueueNote();
         }
+        // The queue's rows are no live region: a screen reader hears that
+        // the press queued something, and what.
+        sayJob(`Queued: ${jobLabels.get(job_id)}`);
         return;
       }
       setBusy(true);
-      els.progressText.textContent = 'queued…';
+      setProgressText('queued…');
       mirrorJob();
     }
     currentJob = job_id;
@@ -490,7 +607,29 @@ async function startJob(path, payload, {
     setSubmitting(false);
     showError(err.message, false, { slot });
     if (!queueing) setBusy(false);
+    await dropRefusedReferences(err, path, payload, slot);
   }
+}
+
+// A submission refused for a reference the gallery no longer has - deleted
+// in another tab, where nothing here had marked it, or before a reload - is
+// refused at every press until the chip goes: so it goes, by forgetImages,
+// once the server says the image is unknown (dropGoneReferences), and the
+// refusal says so in the page's words. One more press is then enough.
+async function dropRefusedReferences(err, path, payload, slot) {
+  const named = /^no gallery image with id ([\d, ]+)$/.exec(err.message);
+  if (!named) return;
+  const ids = named[1].split(',').map((id) => +id.trim()).filter((id) => payload.reference?.includes(id));
+  const dead = await dropGoneReferences(ids);
+  if (!dead.length) return;
+  forgetImages(dead);
+  // Unless something else has been said there meanwhile.
+  if (slot.textContent !== err.message) return;
+  const one = dead.length === 1;
+  const again = path === '/api/grid' ? 'Run the grid again' : 'Generate again';
+  showError(`Nothing was queued: reference ${imageNames(dead)} ${one ? 'has' : 'have'} been deleted, `
+    + `so ${one ? 'it was' : 'they were'} taken out of the references. ${again} to run without ${one ? 'it' : 'them'}.`,
+  false, { slot });
 }
 
 // Once the watched job ends, the next one in the server's queue - oldest
@@ -519,13 +658,13 @@ function adoptListedJob(text) {
       let active;
       try { active = await api('/api/jobs'); } catch { return undefined; }
       if (busy) return null;
-      if (!active.length) { queuedIds = []; syncQueueNote(); return null; }
+      if (!active.length) { setQueue([]); return null; }
       const job = active.find((j) => j.status === 'running') ?? active[0];
       learnJobs(active);
-      queuedIds = active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id);
+      setQueue(active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id));
       setBusy(true);
       currentJob = job.job_id;
-      els.progressText.textContent = text;
+      setProgressText(text);
       syncQueueNote();
       void streamJob(job.job_id);
       return job.job_id;
@@ -544,14 +683,81 @@ function learnJobs(listed) {
   for (const job of listed) if (!jobLabels.has(job.job_id)) jobLabels.set(job.job_id, describeJob(job));
 }
 
+// What the status poll says is live on the server (`ModelStatus.active_jobs`,
+// oldest first) against what this page watches. A page watching nothing
+// learned of another tab's job only by a reload, or by its own next job: it
+// said nothing was running, offered Unload and the critic, and its gallery
+// missed that job's images. One watching its own listed only the jobs it
+// had queued itself, a row cancelled elsewhere included. `asked` is when the
+// status was asked for: a job this page listed since cannot be in it.
+function followServerJobs(ids, asked) {
+  if (busy) { void resyncQueue(ids, asked); return; }
+  // Between jobs the listing that picks the next one decides, and a POST
+  // out is this page's own job on its way.
+  if (jobListing || submitting) return;
+  setElsewhereBusy(ids.some((id) => !watchedJobs.has(id) && !submissions.has(id)));
+}
+
+// Another tab's job on the card, of which this page watches nothing: held,
+// with that reason, are Unload, the critic and Expand (syncUnload,
+// syncCritic, syncPromptExpansion), and once it has gone the gallery and
+// the Runs picker take in what it made, as they do when the server answers
+// again (refreshStatus). Not attached to: watching it would take this page's
+// viewer (isForeign is for one picked up after a job of this page's own).
+// `quiet` where this page's own job takes over - its end catches up.
+let elsewhereNote = null;
+function setElsewhereBusy(on, { quiet = false } = {}) {
+  if (elsewhereBusy === on) return;
+  elsewhereBusy = on;
+  syncPromptExpansion();
+  // The grid's budget line counts the job ahead.
+  schedulePreview();
+  if (on) return;
+  // What a press on a held button said was about that job.
+  if (elsewhereNote !== null && els.error.textContent === elsewhereNote) showError('');
+  elsewhereNote = null;
+  if (!quiet) { void prependFinished(0); loadRuns(); }
+}
+
+// The queue behind the watched job as the server has it: a row cancelled in
+// another tab goes, and a job queued from elsewhere comes in under the
+// server's name for it - the paused tab showed nothing waiting behind its
+// pause. Only the jobs after the watched one: one ahead of it is not its
+// queue. A job this page queued after the status was asked stays.
+let queueResyncing = false;
+async function resyncQueue(ids, asked) {
+  if (queueResyncing || !currentJob || submitting || jobListing) return;
+  const watched = currentJob;
+  const at = ids.indexOf(watched);
+  // Ended: its stream says so, and the next listing picks the queue up.
+  if (at < 0) return;
+  const behind = ids.slice(at + 1);
+  if (behind.some((id) => !jobLabels.has(id))) {
+    queueResyncing = true;
+    try {
+      learnJobs(await api('/api/jobs'));
+    } catch {
+      return;
+    } finally {
+      queueResyncing = false;
+    }
+    if (!busy || submitting || jobListing || currentJob !== watched) return;
+  }
+  const mine = queuedIds.filter((id) => !behind.includes(id) && (queuedAt.get(id) ?? 0) > asked);
+  const next = [...behind, ...mine];
+  if (next.length === queuedIds.length && next.every((id, i) => id === queuedIds[i])) return;
+  for (const id of queuedIds) if (!next.includes(id)) forgetJob(id);
+  setQueue(next);
+}
+
 async function cancelQueued() {
   const ids = queuedIds.slice();
   for (const id of ids) {
+    cancelledHere.add(id);
     try { await api(`/api/jobs/${id}/cancel`, { method: 'POST' }); } catch { /* already gone */ }
     forgetJob(id);
   }
-  queuedIds = queuedIds.filter((id) => !ids.includes(id));
-  syncQueueNote();
+  setQueue(queuedIds.filter((id) => !ids.includes(id)));
 }
 
 // Pause holds the watched job at its next cell boundary and hands the card
@@ -604,12 +810,14 @@ function syncPause(job) {
 // may cut: the line's title has it whole.
 function syncNow(job) {
   const what = describeJob(job);
-  els.progressNow.textContent = what ? `Now: ${what}` : '';
-  els.progressNow.title = what ? `Now: ${describeJob(job, 120)}` : '';
+  const foreign = foreignJobs.has(job.job_id);
+  const lead = foreign ? `${ANOTHER_TABS_JOB}:` : 'Now:';
+  els.progressNow.textContent = what ? `${lead} ${what}` : '';
+  els.progressNow.title = what ? `${lead} ${describeJob(job, 120)}` : '';
   const name = job.refine != null ? `the refine of #${job.refine}`
     : job.grid ? (job.prompt_template != null ? 'this grid' : 'this re-render')
     : `"${snippet(job.prompt ?? '', 40)}"`;
-  els.cancel.title = `Stop ${name} after the current step`;
+  els.cancel.title = `Stop ${name}${foreign ? " - another tab's job -" : ''} after the current step`;
 }
 
 // Generate takes the prompt as typed, braces and all - a `{tag}` can be text or
@@ -802,14 +1010,15 @@ async function previewGrid() {
     // estimate - and there is no line without one. The budget counts from Run
     // grid, so the load and any job ahead of it in the queue spend it too,
     // which the estimate does not count: said while the topbar's dot (the
-    // status's state) is not ready, and while this page watches a job. Not
-    // under Resume, whose seeds are no longer alike.
+    // status's state) is not ready, and while this page watches a job or
+    // another tab's runs (elsewhereBusy). Not under Resume, whose seeds are
+    // no longer alike.
     let budgetShort = false;
     if (body.budget_minutes && p.seconds && !body.resume) {
       const seeds = p.values.seed?.length || body.seeds;
       const done = Math.min(seeds, Math.floor(body.budget_minutes * 60 / (p.seconds / seeds)));
       budgetShort = done === 0;
-      const ahead = (busy ? 1 : 0) + queuedIds.length;
+      const ahead = (busy || elsewhereBusy ? 1 : 0) + queuedIds.length;
       const also = [
         els.dot.classList.contains('ready') ? '' : 'the load',
         ahead === 1 ? 'the job ahead' : ahead ? `the ${ahead} jobs ahead` : '',
@@ -866,16 +1075,35 @@ async function cancelJob() {
   if (!currentJob || els.cancel.getAttribute('aria-disabled') === 'true') return;
   els.cancel.setAttribute('aria-disabled', 'true');
   els.cancel.textContent = 'Stopping…';
+  // This page's own press: its end is said as a plain cancel (finishJob).
+  cancelledHere.add(currentJob);
   try {
     await api(`/api/jobs/${currentJob}/cancel`, { method: 'POST' });
-    els.progressText.textContent = 'finishing this step…';
+    setProgressText('finishing this step…');
     mirrorJob();
   } catch (err) {
+    cancelledHere.delete(currentJob);
     showError(err.message);
     els.cancel.setAttribute('aria-disabled', 'false');
     els.cancel.textContent = 'Cancel';
   }
 }
+
+// What a queued job waits behind (`Job.waiting_on`), in the counter's words
+// and, where it is not a job ahead running, the cell line's: a paused job
+// keeps the gate, so a job queued from another tab read "waiting for the job
+// ahead…" for as long as the pause lasted, and one submitted during another
+// tab's critique named a job that did not exist. This page's own Expand and
+// critic hold Generate, so either is another tab's.
+const WAITING = {
+  queue: { text: 'waiting for the job ahead…' },
+  paused: {
+    text: 'waiting: job ahead paused',
+    note: 'The job ahead is paused: this one runs once it is resumed or cancelled, in the tab or window that started it.',
+  },
+  critic: { text: 'waiting for the critic…', note: "Another tab's prompt critic has the card; this job starts once it answers." },
+  expand: { text: 'waiting for Expand…', note: "Another tab's prompt expansion has the card; this job starts once it is done." },
+};
 
 // `reattached` counts the times a stream that gave up found its job still
 // running and opened again (gaveUp), so a stream that keeps failing on a live
@@ -890,6 +1118,9 @@ function streamJob(jobId, { reattached = 0 } = {}) {
   // stream instead (`jobStreams`, the first stream opened for the job, which
   // a reattached one's end resolves).
   watchedJobs.add(jobId);
+  // Another tab's job, picked up over this page's own results: the progress
+  // row only (isForeign).
+  const foreign = isForeign(jobId);
   const stream = new Promise((resolve) => {
     const source = new EventSource(`/api/jobs/${jobId}/stream`);
     // Results replace the viewer only once the first image or frame of this
@@ -928,7 +1159,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       caption = null;
     };
     const landed = () => {
-      if (cleared) return;
+      if (cleared || foreign) return;
       clearResults(job);
       cleared = true;
       offerNewImage();
@@ -936,6 +1167,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     const show = (rec) => {
       if (shown.has(rec.id)) return;
       shown.add(rec.id);
+      if (foreign) return;
       landed();
       dropPreview();
       appendResult(rec);
@@ -990,9 +1222,11 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         const done = (data.run || 1) - 1;
         const within = data.step / data.total_steps;
         setProgress((done + within) / runs);
-        els.progressText.textContent = runs > 1
-          ? `${unitWord(job)} ${data.run}/${runs}`
-          : `${data.step}/${data.total_steps}`;
+        // A single image's step count is shown, not said: "1/12" to
+        // "12/12" was read out a step at a time. The run counter is said
+        // as it changes, and the bar's aria-valuenow has the fraction.
+        if (runs > 1) setProgressText(`${unitWord(job)} ${data.run}/${runs}`);
+        else setProgressText('denoising…', `${data.step}/${data.total_steps}`);
         setStep(runs > 1, within, `${data.step}/${data.total_steps}`);
         note(data);
         placeholder ??= jobPlaceholders.get(jobId) ?? null;
@@ -1007,7 +1241,9 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       } else if (data.type === 'preview') {
         // A rough picture of the cell so far, from the latents: blurry, but
         // the composition is there from a few steps in, which is soon enough
-        // to cancel a bad prompt rather than wait the render out.
+        // to cancel a bad prompt rather than wait the render out. Not over
+        // this page's own results for another tab's job.
+        if (foreign) return;
         if (caption) dropPreview();
         landed();
         if (!previewEl) {
@@ -1035,12 +1271,19 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         // in its place squeezed the bar to 5 px; the cell line says it.
         // Loading, the ticker below writes it, and leaves "loading weights"
         // as it is when it is there already.
+        // Behind the gate, what holds it: a job ahead, one ahead that is
+        // paused - which keeps the gate until it is resumed or cancelled,
+        // where it was started - or another tab's critic or Expand, with no
+        // job ahead at all (`waiting_on`).
+        const waiting = data.status !== 'queued' ? null
+          : data.waiting_on == null ? { text: 'queued…' } : WAITING[data.waiting_on] ?? WAITING.queue;
         if (!loading) {
-          els.progressText.textContent =
-            data.paused ? (runs > 1 && data.run ? `${unit} ${data.run}/${runs}` : 'paused')
-            : data.status === 'queued' ? 'waiting for the job ahead…'
-            : runs > 1 && data.run ? `${unit} ${data.run}/${runs}`
-            : 'denoising…';
+          if (data.paused) setProgressText(runs > 1 && data.run ? `${unit} ${data.run}/${runs}` : 'paused');
+          else if (waiting) setProgressText(waiting.text);
+          else if (runs > 1 && data.run) setProgressText(`${unit} ${data.run}/${runs}`);
+          // A single image's counter is the step count from here on, shown
+          // beside these words rather than said (the progress branch).
+          else setProgressText('denoising…', 'denoising…');
         }
         syncPause(data);
         syncNow(data);
@@ -1048,6 +1291,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         // until the first callback of the next run lands.
         setStep(runs > 1 && data.status !== 'queued' && !!data.run);
         note(data);
+        if (!loading && waiting?.note) els.cellNote.textContent = waiting.note;
         if (loading) {
           if (!ticker) ticker = setInterval(tick, 1000);
           tick();
@@ -1068,7 +1312,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         // Watched to its end, its finish line has said it: a reload's banner
         // would only say it again.
         remember(ANNOUNCED_KEY, jobId);
-        finishJob(jobId, data, { submitted, sheet });
+        finishJob(jobId, data, { submitted, sheet, foreign });
         resolve();
         watchNext();
       }
@@ -1147,7 +1391,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         // "server not answering", the step count and "~19s left" frozen
         // beside it, and the tab a third thing. The next frame that lands
         // brings the counts back (`showCell`, `setStep`, `noteViewer`).
-        els.progressText.textContent = `${LOST_PHRASE} (${failures})`;
+        setProgressText(`${LOST_PHRASE} (${failures})`);
         setStep(false);
         jobEta = '';
         els.cellNote.textContent = '';
@@ -1225,8 +1469,9 @@ function showOutcome(text, note = false) {
 // The finished job's outcome: the finish line, the panel's line for what
 // went wrong, the tab's title, and the gallery. `submitted` is the
 // submission this page made, which a Retry sends again; `sheet` a job that
-// opens as its sheet.
-function finishJob(jobId, data, { submitted, sheet }) {
+// opens as its sheet; `foreign` another tab's job this page picked up
+// (isForeign), whose end is said as that - no Use seed, no title held.
+function finishJob(jobId, data, { submitted, sheet, foreign = false }) {
   const images = data.images ?? [];
   const made = data.image_count ?? images.length;
   // The job before this one's outcome goes with its finish line.
@@ -1241,9 +1486,14 @@ function finishJob(jobId, data, { submitted, sheet }) {
   // image, and the panel went back to Generate with no word of what became
   // of it. The reason is the viewer's card, or the panel's line under this
   // where the viewer holds images (syncLoadFailure).
+  // Marked, so the status can reword it once the load is no longer failed
+  // (syncLoadFailure): the card and the line it pointed at go then.
   if (atLoad) {
-    line.push(`Not made: the model could not load - ${els.viewer.querySelector('img, figure, .tomb')
-      ? 'why is said below' : 'why, and Retry load, are in the viewer'}.`);
+    const notMade = document.createElement('span');
+    notMade.className = 'not-made';
+    notMade.dataset.lead = foreign ? `${ANOTHER_TABS_JOB} was not made` : 'Not made';
+    notMade.textContent = notMadeText(notMade.dataset.lead, 'error');
+    line.push(notMade);
   }
   // Nothing made - every cell skipped - leaves the line to the skipped cells.
   if (data.status === 'done' && data.started_at && data.finished_at && made) {
@@ -1262,9 +1512,14 @@ function finishJob(jobId, data, { submitted, sheet }) {
       : images.length === 1 ? `, seed ${images[0].seed}`
       : `, seeds ${images[0].seed}–${images.at(-1).seed}`;
     const took = humanTime(data.finished_at - data.started_at);
-    line.push(`Finished ${plural(made, 'image')}${deleted} in ${took}${seeds}.${distinct}`);
-    if (plain) {
-      line.push(noteButton('Use seed', () => useSeed(images[0].seed), `Put ${images[0].seed} in the Seed box`));
+    if (foreign) {
+      // Its seeds are another tab's to use; its images join the gallery.
+      line.push(`${ANOTHER_TABS_JOB} finished: ${plural(made, 'image')}${deleted.replace(/,$/, '')}.`);
+    } else {
+      line.push(`Finished ${plural(made, 'image')}${deleted} in ${took}${seeds}.${distinct}`);
+      if (plain) {
+        line.push(noteButton('Use seed', () => useSeed(images[0].seed), `Put ${images[0].seed} in the Seed box`));
+      }
     }
   }
   // A grid's sheet is its payoff, and the way to it was the Runs picker or a
@@ -1313,26 +1568,46 @@ function finishJob(jobId, data, { submitted, sheet }) {
   }
   setFinish(line);
 
+  // A cancel this page did not ask for - pressed in another tab or window,
+  // which watched the same job - was reported as this page's own.
+  const cancelledElsewhere = !cancelledHere.has(jobId);
+  cancelledHere.delete(jobId);
+  const whose = foreign ? `${ANOTHER_TABS_JOB}: ` : '';
   if (data.status === 'error') {
-    if (!atLoad) showOutcome(data.error);
+    if (!atLoad) showOutcome(`${whose}${data.error}`);
   } else if (data.status === 'cancelled') {
     // A stop at the time budget is the plan working, not a cancel: say
     // which, and that a Resume finishes the rest. `run` is the cells
-    // finished there - the budget is checked before a cell starts.
+    // finished there - the budget is checked before a cell starts. A stop
+    // at the server's shutdown is no one's cancel either.
     const kept = `kept ${plural(images.length, 'image')}`;
-    showOutcome(data.stopped_by === 'budget'
+    const by = cancelledElsewhere ? ' from another tab or window' : '';
+    showOutcome(whose + (data.stopped_by === 'budget'
       ? `Time budget reached after ${data.run}/${data.total_runs} cells — ${kept}. Resume finishes the rest.`
-      : data.waiting_on === 'load' ? 'Cancelled — the weights keep loading, so the next Generate starts sooner.'
-      : images.length ? `Cancelled — ${kept}.` : 'Cancelled before anything finished.', true);
+      : data.stopped_by === 'shutdown'
+        ? `Stopped: the server is shutting down — ${images.length ? kept : 'nothing had finished'}.`
+      : data.waiting_on === 'load' ? `Cancelled${by} — the weights keep loading, so the next Generate starts sooner.`
+      : images.length ? `Cancelled${by} — ${kept}.` : `Cancelled${by} before anything finished.`), true);
   } else if (data.error) {
     // Done, but not every cell: the grid carried on past a failure and says
     // which, rather than dropping the rest of the night.
-    showOutcome(skippedCells(data));
+    showOutcome(`${whose}${skippedCells(data)}`);
   }
-  holdTitle(data.status === 'done' ? `✓ Finished ${plural(made, 'image')}`
-    : data.stopped_by === 'budget' ? 'Time budget reached'
-    : data.status === 'cancelled' ? 'Cancelled'
-    : atLoad ? 'Load failed' : 'Stopped');
+  // Said once to a screen reader where the panel's alert line has not said
+  // the outcome already: the finish line's sentence, without its buttons.
+  if (!(data.status === 'cancelled' || (data.status === 'error' && !atLoad) || data.error)) {
+    sayJob([...els.finishNote.childNodes].filter((node) => node.nodeName !== 'BUTTON')
+      .map((node) => node.textContent).join('').trim());
+  }
+  // Another tab's job holds no title: the tab's own last result is what
+  // its title was about.
+  if (!foreign) {
+    holdTitle(data.status === 'done' ? `✓ Finished ${plural(made, 'image')}`
+      : data.stopped_by === 'budget' ? 'Time budget reached'
+      : data.stopped_by === 'shutdown' ? 'Server stopped'
+      : data.status === 'cancelled' ? (cancelledElsewhere ? 'Cancelled elsewhere' : 'Cancelled')
+      : atLoad ? 'Load failed' : 'Stopped');
+  }
   // The status says how the load went, at once rather than at the next poll.
   // Said again, where it goes to the panel's line: the press that queued
   // this job cleared that line, and a detail already posted once was
@@ -1347,6 +1622,18 @@ function finishJob(jobId, data, { submitted, sheet }) {
     void Promise.resolve(prependFinished(made)).then((coming) => noteOutsideView(images, coming));
     loadRuns();
   }
+}
+
+// The finish line's sentence for a job that ended at the load, by where the
+// load stands now: failed, it points at the reason - the viewer's card with
+// Retry load, or the panel's line where the viewer holds images; loading
+// again, or loaded since, that card and line have gone, and it said "why,
+// and Retry load, are in the viewer" over a ready topbar (syncLoadFailure).
+function notMadeText(lead, state) {
+  const now = state === 'error'
+    ? `- ${els.viewer.querySelector('img, figure, .tomb') ? 'why is said below' : 'why, and Retry load, are in the viewer'}`
+    : state === 'loading' ? 'then; it is loading now' : 'then; it has loaded since';
+  return `${lead}: the model could not load ${now}.`;
 }
 
 // A finished job's images the gallery's filter leaves out - a comparison's

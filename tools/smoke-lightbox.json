@@ -16,7 +16,7 @@
   {"wait": 400},
   {"expect": "els.lbCount.textContent === '3/4 · #' + __pass"},
   {"expect": "[...els.lbSettings.querySelectorAll('.facts dt')].map((d) => d.textContent).join('|') === 'Model|Size|Sampling|Negative|Refined from|Seed|Created|Run'"},
-  {"expect": "__rows().Model === 'FLUX.1-Krea-dev · fp8' && __rows().Size === '1536×1536' && __rows().Sampling === '28 steps · CFG 3.5 · True CFG 1.5 · no Mu' && __rows().Negative === 'blurry, watermark' && __rows()['Refined from'] === '#' + __src + ' @ 0.1' && __rows().Seed === '78 · Use seed' && __rows().Created.includes('took') && __rows().Run === '⊞ Show this run'"},
+  {"expect": "__rows().Model === 'FLUX.1 Krea [dev] · fp8' && __rows().Size === '1536×1536' && __rows().Sampling === '28 steps · CFG 3.5 · True CFG 1.5 · no Mu' && __rows().Negative === 'blurry, watermark' && __rows()['Refined from'] === '#' + __src + ' @ 0.1' && __rows().Seed === '78 · Use seed' && __rows().Created.includes('took') && __rows().Run === '⊞ Show this run'"},
   {"expect": "getComputedStyle(els.lbSettings.querySelector('.facts')).fontSize === getComputedStyle(document.documentElement).getPropertyValue('--fs-body-sm').trim()"},
   {"expect": "els.lightbox.getAttribute('aria-describedby') === 'lb-desc' && els.lbDesc.hidden && els.lbDesc.textContent.startsWith('FLUX.1-Krea-dev, 1536×1536, 28 steps, CFG 3.5, True CFG 1.5, no Mu, refine of #' + __src + ' @ 0.1')"},
   {"log": "'the Seed row puts the seed in the panel: Use seed, said in the lightbox\\'s own line since the panel is under it - the panel\\'s keeps what it held - the run hint then saying the next Generate repeats it'"},

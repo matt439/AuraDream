@@ -297,10 +297,18 @@ function renderReferences() {
     img.src = `/api/images/${id}/thumb`;
     img.alt = name;
     img.draggable = false;
-    // Deleted since it was picked, or remembered by this browser from before.
+    // Deleted since it was picked, or remembered by this browser from before:
+    // marked at once, and dropped once the server says it has no such image
+    // (dropGoneReferences) - marked only, it was still sent with every
+    // Generate, and every one was refused until the chip was taken out by hand.
     img.onerror = () => {
       chip.classList.add('gone');
       chip.title = img.alt = `Reference image ${i + 1} (gallery #${id}, deleted)`;
+      void dropGoneReferences([id]).then((dead) => {
+        if (!dead.length) return;
+        const note = forgetImages(dead);
+        if (note) showError(note.trim(), true);
+      });
     };
     const number = document.createElement('b');
     number.className = 'chip-n';
@@ -387,6 +395,22 @@ function removeReference(index) {
 
 function focusReference(index) {
   els.referenceList.querySelectorAll('.chip button')[index]?.focus();
+}
+
+// The references among `ids` the gallery no longer has, asked of the server
+// and dropped only on its "unknown image", as Reuse does (checkReused): a
+// passing failure - no server - keeps a live one, marked as the chip's
+// picture failing marks it. The caller forgets them (forgetImages), which
+// takes them out through setReferences, says so and unmarks the cards.
+// Each id is asked once at a time.
+const referenceChecks = new Set();
+async function dropGoneReferences(ids) {
+  const asked = ids.filter((id) => referenceIds.includes(id) && !referenceChecks.has(id));
+  asked.forEach((id) => referenceChecks.add(id));
+  const answers = await Promise.all(asked.map((id) => api(`/api/images/${id}`)
+    .then(() => null, (err) => (/unknown image/.test(err.message) ? id : null))));
+  asked.forEach((id) => referenceChecks.delete(id));
+  return answers.filter((id) => id != null && referenceIds.includes(id));
 }
 
 function setReferences(ids) {

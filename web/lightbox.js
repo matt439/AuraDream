@@ -366,7 +366,8 @@ function factsList(rec, { useSeed: seedButton = false } = {}) {
     dl.append(div);
     return dd;
   };
-  row('Model', [rec.model_id.split('/').pop(), rec.quantization].filter(Boolean).join(' · ')).title = rec.model_id;
+  // The running checkpoint by the catalogue's name, as the topbar has it (checkpointName).
+  row('Model', [checkpointName(rec.model_id), rec.quantization].filter(Boolean).join(' · ')).title = rec.model_id;
   row('Size', `${rec.width}×${rec.height}`);
   row('Sampling', [
     `${rec.steps} steps`, `CFG ${rec.guidance_scale}`,

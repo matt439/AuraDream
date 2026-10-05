@@ -105,11 +105,13 @@ function syncMu() {
 // The editor's two actions on the card - ERNIE's rewriter and the prompt
 // critic - and what either holds while it runs: the other one, Unload, and
 // the submit buttons (aria-disabled, as setSubmitting holds them). Both wait
-// for the image queue, so a job queued or running holds them in turn.
+// for the image queue, so a job queued or running holds them in turn -
+// another tab's included (elsewhereBusy), which the server refuses them
+// under as it does this page's.
 function syncPromptExpansion() {
   const editing = expandingPrompt || critiquing;
   els.expandPrompt.hidden = !promptExpansionSupported;
-  els.expandPrompt.disabled = editing || busy;
+  els.expandPrompt.disabled = editing || busy || elsewhereBusy;
   els.expandPrompt.textContent = expandingPrompt ? 'Expanding…' : 'Expand';
   syncUnload();
   syncSubmitButtons();
@@ -127,6 +129,7 @@ function syncUnload() {
   els.unload.hidden = modelState === 'unloaded' || modelState === 'error';
   const why = serverOffline ? 'The server is not answering'
     : busy ? 'A job is queued or running: it holds the weights until it ends'
+    : elsewhereBusy ? 'A job started in another tab or window is running; Unload once it ends'
     : expandingPrompt ? 'Wait for prompt expansion to finish'
     : critiquing ? 'Wait for the critic to finish'
     : modelState === 'loading' ? 'The weights are still loading'
@@ -155,8 +158,10 @@ async function unloadModel() {
     // As Generate's press: no answer is said in the offline words, which the
     // poll's first answer takes back, and the poll asks again at once.
     if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
-    // Held by a job: said until that job ends (generation.js).
+    // Held by a job: said until that job ends (generation.js) - another
+    // tab's too (setElsewhereBusy).
     else if (busy) showJobNote(els.unload.title);
+    else if (elsewhereBusy) { showError(els.unload.title, true); elsewhereNote = els.unload.title; }
     else showError(els.unload.title, true);
     return;
   }
@@ -190,8 +195,7 @@ function goOffline() {
 // panel's line has nothing more particular - a lost job's own account of
 // the same restart stays.
 function noteRestart(s) {
-  queuedIds = [];
-  syncQueueNote();
+  setQueue([]);
   if (els.error.textContent) return;
   const at = new Date(s.started_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   showError(`The server restarted at ${at} — ${s.state === 'ready' ? '' : 'the model is not loaded, and '}`
@@ -208,8 +212,15 @@ function noteRestart(s) {
 // load forgets it (finishJob), since the press that queued the job cleared
 // the line. A card that goes - its Retry load pressed, the load on its way -
 // hands focus to Generate, the next thing to press, or to the new card's
-// Retry load, rather than to the page's body.
+// Retry load, rather than to the page's body. Once the load is no longer
+// failed - retried here, or in another tab - the panel's line lets the
+// detail go (`loadDetailInError`, the one this function posted), and the
+// finish line of a job that ended at the load stops pointing at a card and
+// a Retry load that have gone (notMadeText): it said "why, and Retry load,
+// are in the viewer" over a ready topbar, and the other tab kept the red
+// detail under it.
 let shownLoadDetail = null;
+let loadDetailInError = null;
 function syncLoadFailure(s) {
   const failed = s.state === 'error' && !!s.detail;
   let card = els.viewer.querySelector('.load-failed');
@@ -225,10 +236,25 @@ function syncLoadFailure(s) {
   }
   if (focused) (card?.querySelector('button') ?? els.generate).focus({ preventScroll: true });
   els.viewer.querySelectorAll('.placeholder').forEach((p) => { p.hidden = !!card; });
-  if (!failed) { shownLoadDetail = null; return; }
+  const notMade = els.finishNote.querySelector('.not-made');
+  if (notMade && (failed || s.state === 'loading' || s.state === 'ready')) {
+    const text = notMadeText(notMade.dataset.lead, failed ? 'error' : s.state);
+    if (notMade.textContent !== text) notMade.textContent = text;
+  }
+  if (!failed) {
+    if (loadDetailInError !== null && els.error.textContent === loadDetailInError) {
+      showError('', false, { mirror: false });
+    }
+    loadDetailInError = null;
+    shownLoadDetail = null;
+    return;
+  }
   if (s.detail === shownLoadDetail) return;
   shownLoadDetail = s.detail;
-  if (!card) showError(s.detail, false, { mirror: false });
+  if (!card) {
+    showError(s.detail, false, { mirror: false });
+    loadDetailInError = s.detail;
+  }
 }
 
 function loadFailureCard(s) {
@@ -239,7 +265,7 @@ function loadFailureCard(s) {
   card.setAttribute('aria-labelledby', 'load-failed-head');
   const head = document.createElement('h2');
   head.id = 'load-failed-head';
-  head.textContent = `Couldn't load ${(s.model_id ?? '').split('/').pop()}`;
+  head.textContent = `Couldn't load ${checkpointName(s.model_id)}`;
   // A `command` in the sentence is something to type: set as code.
   const detail = document.createElement('p');
   s.detail.split('`').forEach((part, i) => {
@@ -287,6 +313,15 @@ function showPromptTranslation(source, translation) {
   els.promptTranslationField.hidden = false;
 }
 
+// What the page calls a checkpoint: the start-up catalogue's name for the
+// running one (`ModelStatus.model_label`) - "NetaYume Lumina v4", where the
+// repository is named for the parent model - else the id's last part, which
+// is all there is for another checkpoint's records and one off the
+// catalogue. The id itself goes in the titles beside it.
+function checkpointName(id) {
+  return id && id === loadedModel && checkpointLabel ? checkpointLabel : (id ?? '').split('/').pop();
+}
+
 // Anything the user picks - by hand or through Reuse - takes that control off
 // the profile. /api/status reads CUDA memory, which stalls behind a model load,
 // so its reply can land minutes late and used to wipe steps/CFG/mu long after
@@ -297,6 +332,8 @@ function ownControls() { own('steps', 'cfg', 'mu', 'trueCfg'); }
 async function refreshStatus() {
   if (statusPending) return;  // a stalled poll must not queue more behind it
   statusPending = true;
+  // A job this page queues after this is not in the answer (resyncQueue).
+  const asked = Date.now();
   try {
     const s = await api('/api/status');
     // An answer after none: what was held lets go, and what said the server
@@ -314,6 +351,7 @@ async function refreshStatus() {
     if (typeof s.started_at === 'number') serverStartedAt = s.started_at;
     const previousModel = loadedModel;
     loadedModel = s.model_id ?? loadedModel;
+    if (s.model_id) checkpointLabel = s.model_label ?? null;
     if (loadedModel !== previousModel) {
       syncReuseButtons();
       // The gallery is scoped to the checkpoint server-side, so a server
@@ -422,16 +460,22 @@ async function refreshStatus() {
     els.load.hidden = !(s.state === 'unloaded' || s.state === 'error');
     els.load.textContent = s.state === 'error' ? 'Retry load' : 'Load';
     els.load.title = s.state === 'error' ? 'Try the load again, once what stopped it is fixed' : 'Load the weights now';
+    // Another tab's job, or one queued behind this page's from elsewhere:
+    // before Unload's reason and the line below are written.
+    if (Array.isArray(s.active_jobs)) followServerJobs(s.active_jobs, asked);
     syncUnload();
     if (pressed?.hidden) (pressed === els.load ? els.unload : els.load).focus({ preventScroll: true });
     // The checkpoint's name in every state: "loading weights…" for minutes
-    // never said which.
-    const name = (s.model_id ?? '').split('/').pop();
-    els.statusText.textContent =
-      s.state === 'ready' ? name
+    // never said which. A live region, so written only when it changes: the
+    // same name every three seconds was a new node to read out at every
+    // poll, all session long. Its id is the title.
+    const name = checkpointName(s.model_id);
+    const line = s.state === 'ready' ? `${name}${elsewhereBusy ? " · another tab's job running" : ''}`
       : s.state === 'loading' ? `${name} · loading…`
       : s.state === 'error' ? `${name} · load failed`
       : `${name} · not loaded`;
+    if (els.statusText.textContent !== line) els.statusText.textContent = line;
+    if (s.model_id && els.statusText.title !== s.model_id) els.statusText.title = s.model_id;
     syncLoadFailure(s);
     if (s.state === 'ready' && was !== 'ready' && unloadRefusal) {
       if (els.error.textContent === unloadRefusal) showError('');

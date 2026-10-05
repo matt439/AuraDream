@@ -123,8 +123,12 @@
               <div class="critic-ask">
                 <button type="button" class="ghost analysis-action" id="critic-ask">Ask the critic</button>
                 <!-- Says what a click will cost, then that it is running: the
-                     answer takes seconds, the first one minutes. -->
-                <span class="critic-line" id="critic-line" aria-live="polite"></span>
+                     answer takes seconds, the first one minutes. Only the
+                     running half is a live region, since it answers the
+                     press: the cost and the job holding the card changed at
+                     every job's start and end and were read out each time. -->
+                <span class="critic-line" id="critic-line"><span id="critic-progress"
+                  aria-live="polite"></span><span id="critic-cost"></span></span>
                 <!-- Seconds since the click, outside the live region. -->
                 <span class="critic-clock" id="critic-clock" aria-hidden="true" hidden></span>
               </div>
@@ -376,6 +380,11 @@
          apart from the cell line, which the next queued job's start clears:
          only the next job's end replaces it. -->
     <p class="hint" id="finish-note"></p>
+    <!-- The finish line's sentence for a screen reader, once per job end, and
+         a job joining the queue: neither line is a live region of its own,
+         and the last thing said was the step count. Never what the panel's
+         alert line says already - a cancel, an error. -->
+    <p class="job-said" id="job-said" aria-live="polite"></p>
     <!-- A result that landed in the viewer while the page was down the
          gallery: said here, and a press goes up to it. Never a scroll of the
          page's own. Outside #progress, which a finished job hides. -->

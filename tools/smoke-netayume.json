@@ -18,5 +18,12 @@
   {"eval": "choose('1:1', 1); els.negative.value = 'blurry'; els.mu.value = '1.8'; els.seed.value = '7871'; void startJob('/api/generate', collect());"},
   {"wait": 2000},
   {"expect": "viewerRecords.length === 1 && viewerRecords[0].model_id === 'duongve/NetaYume-Lumina-Image-2.0' && viewerRecords[0].steps === 40 && viewerRecords[0].guidance_scale === 5"},
-  {"expect": "viewerRecords[0].negative_prompt === 'blurry' && viewerRecords[0].true_cfg === 5 && viewerRecords[0].mu === 1.8"}
+  {"expect": "viewerRecords[0].negative_prompt === 'blurry' && viewerRecords[0].true_cfg === 5 && viewerRecords[0].mu === 1.8"},
+
+  {"log": "'the checkpoint goes by the start-up menu\\'s name, v4 and all - the repository is named for the parent - in the topbar, the facts and the prompt check, with the public id in their titles and on the record'"},
+  {"expect": "els.statusText.textContent === 'NetaYume Lumina v4' && els.statusText.title === 'duongve/NetaYume-Lumina-Image-2.0'"},
+  {"expect": "(() => { const dd = [...factsList(viewerRecords[0]).querySelectorAll('div')].find((d) => d.querySelector('dt').textContent === 'Model').querySelector('dd'); return dd.textContent === 'NetaYume Lumina v4 · ' + viewerRecords[0].quantization && dd.title === 'duongve/NetaYume-Lumina-Image-2.0'; })()"},
+  {"eval": "els.analyze.click();"},
+  {"expect": "(async () => { for (let i = 0; i < 400; i++) { if (!els.promptAnalysis.hidden && els.analysisModel.textContent === 'NetaYume Lumina v4' && els.analysisModel.title === 'duongve/NetaYume-Lumina-Image-2.0') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
+  {"eval": "closeAnalysis(); showError('');"}
 ]

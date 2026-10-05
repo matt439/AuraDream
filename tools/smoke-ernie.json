@@ -17,5 +17,16 @@
   {"eval": "els.prompt.value += '!'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "els.promptTranslationField.hidden"},
   {"eval": "els.prompt.value = ''; els.expandPrompt.click();"},
-  {"expect": "els.error.textContent.includes('Enter a prompt') && document.activeElement === els.prompt"}
+  {"expect": "els.error.textContent.includes('Enter a prompt') && document.activeElement === els.prompt"},
+
+  {"log": "'held by Expand, Generate and Run grid give the reason as their titles, as Unload does, and their own titles come back after it'"},
+  {"eval": "showError(''); window.__fetch0 = window.fetch; window.fetch = (u, o) => (String(u) === '/api/prompt/expand' ? new Promise((r) => setTimeout(r, 1500)).then(() => window.__fetch0(u, o)) : window.__fetch0(u, o)); els.prompt.value = 'a heron'; els.expandPrompt.click();"},
+  {"expect": "expandingPrompt && els.generate.getAttribute('aria-disabled') === 'true' && els.generate.title === 'Wait for prompt expansion to finish' && els.gridRun.getAttribute('aria-disabled') === 'true' && els.gridRun.title === 'Wait for prompt expansion to finish' && els.unload.title === 'Wait for prompt expansion to finish'"},
+  {"expect": "(async () => { for (let i = 0; i < 400; i++) { if (!expandingPrompt && els.generate.title === 'Generate (Ctrl+Enter)' && els.gridRun.title === 'Run grid (Ctrl+Enter from a grid box)' && els.generate.getAttribute('aria-disabled') === 'false') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
+  {"eval": "window.fetch = window.__fetch0; showError('');"},
+  {"log": "'another tab\\'s job - one this page did not submit and does not watch - holds Expand as this page\\'s own does, and lets it go at its end'"},
+  {"eval": "(async () => { await fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0.3})}); await fetch('/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'another tab', width: 512, height: 512, steps: 8, runs: 3})}); })()"},
+  {"expect": "(async () => { for (let i = 0; i < 400; i++) { if (elsewhereBusy && els.expandPrompt.disabled && !busy && els.unload.title === 'A job started in another tab or window is running; Unload once it ends') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
+  {"eval": "fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0})})"},
+  {"expect": "(async () => { for (let i = 0; i < 400; i++) { if (!elsewhereBusy && !els.expandPrompt.disabled && els.unload.title === 'Free VRAM') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"}
 ]
