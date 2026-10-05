@@ -216,6 +216,51 @@ def test_expand_loads_once_then_returns_visible_size_specific_text(monkeypatch):
     assert pipe.hooks_freed == 2
 
 
+def test_the_status_names_the_rewriters_download_until_it_is_loaded(monkeypatch):
+    # The page names a first Expand's 7.7 GB before the press that starts it:
+    # off disk, the rewriter is what a first use fetches; registered on the
+    # pipeline, an Expand waits for nothing but itself.
+    pipe = ErnieLikePipeline()
+    backend = _backend(pipe)
+    cached = {"value": False}
+    monkeypatch.setattr(loading, "prompt_expander_cached", lambda model_id: cached["value"])
+    assert backend.prompt_expander_status() == {
+        "loaded": False, "fetch": [("ERNIE's prompt rewriter", loading.PROMPT_EXPANDER_BYTES)],
+    }
+    cached["value"] = True
+    assert backend.prompt_expander_status() == {"loaded": False, "fetch": []}
+    pipe.register_modules(pe=object(), pe_tokenizer=object())
+    cached["value"] = False
+    assert backend.prompt_expander_status() == {"loaded": True, "fetch": []}
+    # A pipeline with no rewriter has no status to give.
+    backend._call_params = set()
+    assert backend.prompt_expander_status() is None
+
+
+def test_the_rewriters_cache_check_reads_files_only(monkeypatch, tmp_path):
+    import huggingface_hub
+
+    tree = tmp_path / "ernie"
+    (tree / "pe").mkdir(parents=True)
+    assert not loading.prompt_expander_cached(str(tree))
+    (tree / "pe" / "model.safetensors").write_bytes(b"weights")
+    assert loading.prompt_expander_cached(str(tree))
+    # A Hub id is the cache's to answer, never the network's.
+    asked: list[tuple[str, str]] = []
+
+    def cache(repo_id, filename, **kwargs):
+        asked.append((repo_id, filename))
+        return str(tree / "pe" / "model.safetensors") if repo_id == "baidu/ERNIE-Image-Turbo" else None
+
+    monkeypatch.setattr(huggingface_hub, "try_to_load_from_cache", cache)
+    assert loading.prompt_expander_cached("baidu/ERNIE-Image-Turbo")
+    assert not loading.prompt_expander_cached("lite-infer/elsewhere")
+    assert asked == [
+        ("baidu/ERNIE-Image-Turbo", "pe/model.safetensors"),
+        ("lite-infer/elsewhere", "pe/model.safetensors"),
+    ]
+
+
 def test_cold_prompt_expansion_support_follows_the_model_id(monkeypatch):
     backend = DiffusersBackend()
     monkeypatch.setattr(

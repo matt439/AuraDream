@@ -99,3 +99,34 @@ def test_marian_refuses_empty_text_without_loading():
     else:
         raise AssertionError("empty text was accepted")
     assert translator._model is None
+
+
+def test_whether_a_first_translation_downloads_is_a_file_check(monkeypatch, tmp_path):
+    import huggingface_hub
+
+    # A local directory: the config and the weights in either form.
+    tree = tmp_path / "marian"
+    tree.mkdir()
+    translator = MarianTranslator(str(tree))
+    assert not translator.cached()
+    (tree / "config.json").write_text("{}", encoding="utf-8")
+    assert not translator.cached()
+    (tree / "pytorch_model.bin").write_bytes(b"weights")
+    assert translator.cached()
+    # A Hub id: the cache answers, file by file, and the network is never asked.
+    held = {"config.json": tree / "config.json", "pytorch_model.bin": tree / "pytorch_model.bin"}
+    monkeypatch.setattr(
+        huggingface_hub,
+        "try_to_load_from_cache",
+        lambda repo_id, filename, **kwargs: str(held[filename]) if filename in held else None,
+    )
+    hub = MarianTranslator("Helsinki-NLP/opus-mt-zh-en")
+    assert hub.cached()
+    del held["pytorch_model.bin"]
+    assert not hub.cached()
+    held["model.safetensors"] = tree / "pytorch_model.bin"
+    assert hub.cached()
+    # Loaded is cached, whatever the disk says.
+    held.clear()
+    hub._model = object()
+    assert hub.cached()

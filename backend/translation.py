@@ -2,11 +2,21 @@
 from __future__ import annotations
 
 import gc
+import os
 import re
 import threading
 from typing import Any
 
 MODEL_ID = "Helsinki-NLP/opus-mt-zh-en"
+# What a first translation downloads: the repository's `pytorch_model.bin`,
+# the weights Transformers loads from it (it publishes no safetensors on its
+# main branch). The page names it beside ERNIE's rewriter before a first
+# Expand (`ModelStatus.prompt_expander`); the tokenizer files are a few MB.
+MODEL_BYTES = 312_087_009
+# The files whose presence in the Hub cache means a first translation
+# downloads nothing: the config, and the weights in either form.
+_CONFIG = "config.json"
+_WEIGHTS = ("pytorch_model.bin", "model.safetensors")
 _MODEL_TOKEN_LIMIT = 512
 _SPECIAL_TOKEN_ROOM = 2
 _SENTENCE_END = re.compile(r"(?<=[。！？!?；;\n])")
@@ -25,6 +35,31 @@ class MarianTranslator:
         self._tokenizer: Any | None = None
         self._model: Any | None = None
         self._lock = threading.Lock()
+
+    def cached(self) -> bool:
+        """Whether a first translation would load without downloading.
+
+        File checks only - a local directory, or the Hub cache - with no
+        network and no import of the model code, so `/api/status` can ask it
+        on every poll, as it asks the critic's `ready()`. Loaded already is
+        cached too.
+        """
+        if self._model is not None:
+            return True
+        if os.path.isdir(self.model_id):
+            return os.path.isfile(os.path.join(self.model_id, _CONFIG)) and any(
+                os.path.isfile(os.path.join(self.model_id, name)) for name in _WEIGHTS
+            )
+        from huggingface_hub import try_to_load_from_cache
+
+        def present(filename: str) -> bool:
+            try:
+                found = try_to_load_from_cache(self.model_id, filename)
+            except (OSError, ValueError):
+                return False
+            return isinstance(found, str) and os.path.isfile(found)
+
+        return present(_CONFIG) and any(present(name) for name in _WEIGHTS)
 
     def _load(self) -> tuple[Any, Any]:
         if self._tokenizer is None or self._model is None:

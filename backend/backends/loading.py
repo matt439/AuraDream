@@ -58,6 +58,30 @@ UNUSED_COMPONENTS: dict[str, tuple[str, ...]] = {
     "ErnieImagePipeline": ("pe", "pe_tokenizer"),
 }
 
+# The rewriter's weights, the bulk of what a first Expand downloads: the same
+# file in every ERNIE-Image repository the catalogue names (7,663,346,520
+# bytes in Baidu's Turbo and base repos, 8 fewer in lite-infer's re-upload).
+# The page names the download before it is started (`ModelStatus.prompt_expander`).
+PROMPT_EXPANDER_WEIGHTS = "pe/model.safetensors"
+PROMPT_EXPANDER_BYTES = 7_663_346_520
+
+
+def prompt_expander_cached(model_id: str) -> bool:
+    """Whether the rewriter's weights are on disk already: in a local tree, or
+    in the Hub cache. File checks only - no network - so the status poll can
+    ask it every few seconds, as it asks the critic's `ready()`."""
+    import os
+
+    if os.path.isdir(model_id):
+        return os.path.isfile(os.path.join(model_id, *PROMPT_EXPANDER_WEIGHTS.split("/")))
+    from huggingface_hub import try_to_load_from_cache
+
+    try:
+        found = try_to_load_from_cache(model_id, PROMPT_EXPANDER_WEIGHTS)
+    except (OSError, ValueError):
+        return False
+    return isinstance(found, str) and os.path.isfile(found)
+
 # Pipeline-level from_pretrained in Diffusers 0.40 does not resolve a
 # subfolder. Materialize just this pinned tree in the Hub cache and hand the
 # ordinary loader its local directory; keep the public id in runtime metadata.
