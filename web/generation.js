@@ -1267,7 +1267,7 @@ function finishJob(jobId, data, { submitted, sheet }) {
   // but must not mix the two meanings of either version label.
   if (sheet && images.length) { showJob(jobId, { fresh: true }); loadRuns(); }
   else if (images.length) {
-    void Promise.resolve(prependFinished(made)).then(() => noteOutsideView(images));
+    void Promise.resolve(prependFinished(made)).then((coming) => noteOutsideView(images, coming));
     loadRuns();
   }
 }
@@ -1283,9 +1283,12 @@ function viewFilter() {
   return [els.search.value.trim(), els.favOnly.checked, els.allModels.checked, sheetMode].join('|');
 }
 
-function noteOutsideView(images) {
+// `coming`: the ids prependFinished's page holds, whose cards may still be
+// waiting for the pointer to leave the gallery's column (joinFinished) - in
+// this view all the same, and said at once.
+function noteOutsideView(images, coming) {
   if (!els.search.value.trim() && !els.favOnly.checked) { outsideView = null; return; }
-  const have = new Set(galleryRecords.map((r) => r.id));
+  const have = new Set([...galleryRecords.map((r) => r.id), ...(Array.isArray(coming) ? coming : [])]);
   const missing = images.filter((r) => !have.has(r.id)).map((r) => r.id);
   if (!missing.length) return;
   if (outsideView?.filter !== viewFilter()) outsideView = { filter: viewFilter(), ids: new Set() };
@@ -1355,7 +1358,9 @@ function useSeed(seed) {
 // job (`made` plus a page, the sheet's ceiling at most); where it does not
 // join up with what the page holds, or the gallery is empty, the gallery is
 // reset as before. Never in sheet mode, whose sheet lays itself out from the
-// whole run. The paging anchor - the last record - is untouched.
+// whole run. The paging anchor - the last record - is untouched. The head's
+// count is drawn as the page lands and the cards by joinFinished, which can
+// wait for the pointer; answers the ids that page holds (noteOutsideView).
 function prependFinished(made) {
   if (sheetMode || !galleryRecords.length) return resetGallery();
   const epoch = galleryEpoch;
@@ -1373,59 +1378,80 @@ function prependFinished(made) {
       // poll's first answer asks again (refreshStatus).
       return err.offline ? undefined : resetGallery();
     }
-    // Beside the viewer, a pointer resting on the gallery's cards keeps them
-    // where they are until it leaves (galleryPointerGone): one image ahead of
-    // them moves every card a place along the rows, which no scroll can
-    // take back.
-    await galleryPointerGone();
     if (epoch !== galleryEpoch || sheetMode) return;
-    const have = new Set(galleryRecords.map((r) => r.id));
-    if (!galleryRecords.length || !page.items.some((r) => have.has(r.id))) return resetGallery();
-    const head = galleryRecords[0];
-    const fresh = page.items.filter((r) => r.id > head.id && !have.has(r.id));
-    // In place: every card's lightbox walks this array. One open on it keeps
-    // its image as the head grows.
-    galleryRecords.unshift(...fresh);
-    if (lbList === galleryRecords && fresh.length) lbIndex += fresh.length;
-    // With the day's lines as loadGallery draws them - over the first card
-    // where its day is not today's, between two new cards, and between the
-    // last of them and the old head (a job that ends after midnight under a
-    // page loaded the day before). The old head is the grid's first card as
-    // the page shows it, a tombstone included - its record has gone from
-    // galleryRecords, and the line worked out from the records stood a
-    // second time over it - unless the grid opens with a line already, which
-    // is the old head's.
-    const top = els.gallery.firstElementChild;
-    const oldHead = top?.matches('.gallery-break') ? null : top;
-    const firstLive = els.gallery.querySelector('.card[data-id]');
-    const nodes = [];
-    fresh.forEach((rec, i) => {
-      if (i === 0 && !isToday(rec)) nodes.push(dayBreak(rec));
-      nodes.push(card(rec));
-      const next = fresh[i + 1];
-      if (next ? localDay(next) !== localDay(rec) : oldHead && cardDay(oldHead) !== localDay(rec)) {
-        nodes.push(dayBreak(next ?? { created_at: oldHead.dataset.made }));
-      }
-    });
-    holdGalleryView(() => els.gallery.prepend(...nodes));
-    // The grid keeps one way in from the keyboard (gallery.js): the newest
-    // image, where the stop was the grid's default or the old head with focus
-    // elsewhere; a card the user chose further down keeps it.
-    const current = currentCard();
-    if (fresh.length && (!galleryChosen || (current === firstLive && !els.gallery.contains(document.activeElement)))) {
-      makeCurrent(els.gallery.querySelector('.card[data-id]'));
-    } else {
-      keepCurrentCard();
-    }
+    if (!joinsUp(page)) return resetGallery();
+    // What the head says, at once: it is above the cards, and with the
+    // gallery beside the viewer above the column they scroll in.
     total = page.total;
     els.count.textContent = total ? `(${total})` : '';
     els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
     galleryOthers = page.other_models || 0;
     syncRerender();
-    syncGalleryEmpty();
     syncDeleteUnstarred();
     if (els.lightbox.open && lbList === galleryRecords) renderLightbox();
+    void joinFinished(page, epoch);
+    // For noteOutsideView: the images this page holds are the gallery's, in
+    // view or about to be.
+    return page.items.map((r) => r.id);
   });
+}
+
+// Whether a page of the gallery's newest joins up with the cards it holds.
+function joinsUp(page) {
+  const have = new Set(galleryRecords.map((r) => r.id));
+  return galleryRecords.length > 0 && page.items.some((r) => have.has(r.id));
+}
+
+// A finished job's cards, from the page prependFinished fetched, put in ahead
+// of the gallery's. Beside the viewer, a pointer resting on the gallery's
+// column keeps the cards where they are until it leaves (galleryPointerGone):
+// one image ahead of them moves every card a place along the rows, which no
+// scroll can take back. Only where there is something to put in.
+async function joinFinished(page, epoch) {
+  const newer = () => page.items.some((r) => r.id > galleryRecords[0].id && !galleryRecords.some((g) => g.id === r.id));
+  if (galleryRecords.length && newer()) await galleryPointerGone();
+  if (epoch !== galleryEpoch || sheetMode) return;
+  // Deleted from meanwhile, the gallery may no longer meet this page.
+  if (!joinsUp(page)) { void resetGallery(); return; }
+  const have = new Set(galleryRecords.map((r) => r.id));
+  const head = galleryRecords[0];
+  const fresh = page.items.filter((r) => r.id > head.id && !have.has(r.id));
+  // In place: every card's lightbox walks this array. One open on it keeps
+  // its image as the head grows.
+  galleryRecords.unshift(...fresh);
+  if (lbList === galleryRecords && fresh.length) lbIndex += fresh.length;
+  // With the day's lines as loadGallery draws them - over the first card
+  // where its day is not today's, between two new cards, and between the
+  // last of them and the old head (a job that ends after midnight under a
+  // page loaded the day before). The old head is the grid's first card as
+  // the page shows it, a tombstone included - its record has gone from
+  // galleryRecords, and the line worked out from the records stood a
+  // second time over it - unless the grid opens with a line already, which
+  // is the old head's.
+  const top = els.gallery.firstElementChild;
+  const oldHead = top?.matches('.gallery-break') ? null : top;
+  const firstLive = els.gallery.querySelector('.card[data-id]');
+  const nodes = [];
+  fresh.forEach((rec, i) => {
+    if (i === 0 && !isToday(rec)) nodes.push(dayBreak(rec));
+    nodes.push(card(rec));
+    const next = fresh[i + 1];
+    if (next ? localDay(next) !== localDay(rec) : oldHead && cardDay(oldHead) !== localDay(rec)) {
+      nodes.push(dayBreak(next ?? { created_at: oldHead.dataset.made }));
+    }
+  });
+  holdGalleryView(() => els.gallery.prepend(...nodes));
+  // The grid keeps one way in from the keyboard (gallery.js): the newest
+  // image, where the stop was the grid's default or the old head with focus
+  // elsewhere; a card the user chose further down keeps it.
+  const current = currentCard();
+  if (fresh.length && (!galleryChosen || (current === firstLive && !els.gallery.contains(document.activeElement)))) {
+    makeCurrent(els.gallery.querySelector('.card[data-id]'));
+  } else {
+    keepCurrentCard();
+  }
+  syncGalleryEmpty();
+  if (els.lightbox.open && lbList === galleryRecords) renderLightbox();
 }
 
 // A job's first image or frame landing in a viewer the page is scrolled past -

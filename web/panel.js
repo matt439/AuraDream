@@ -1121,8 +1121,10 @@ function renderRecent() {
 function fitRecent() {
   const stage = els.recent.parentElement;
   stage.classList.remove('recent-docked');
+  // Docked in the stage, which it is not with the gallery beside the viewer:
+  // the check takes the gallery's column there (style.css, `:not(.beside)`).
   const docked = matchMedia('(min-width: 2000px)').matches && !els.promptAnalysis.hidden
-    && els.promptAnalysis.parentElement === els.tagValidationWide;
+    && els.promptAnalysis.parentElement === els.tagValidationWide && !besideOn;
   // The image, or the preview in its box.
   const tile = els.viewer.querySelector(':scope > figure > .tile');
   if (els.recent.hidden || !docked || !tile) return;

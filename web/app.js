@@ -272,8 +272,9 @@ els.gallery.addEventListener('focusin', galleryFocus);
 // tick, the window crossing that width, and the tick as this browser left it.
 els.besideTick.onchange = toggleBeside;
 matchMedia(BESIDE_MEDIA).addEventListener('change', syncBeside);
-// A finished job's images wait for the pointer to leave its cards there.
-els.libraryScroll.addEventListener('pointerleave', releaseGallery);
+// A finished job's images wait for the pointer to leave its column there.
+els.libraryScroll.addEventListener('pointerenter', () => { galleryPointer = true; });
+els.libraryScroll.addEventListener('pointerleave', galleryPointerLeft);
 restoreBeside();
 // Scrolling to the end of the gallery fetches the next page: the trigger is
 // the button coming within a few hundred pixels of the viewport - or of the

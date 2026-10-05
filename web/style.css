@@ -63,7 +63,9 @@
      --panel-w      330px the settings column
      --narrow-w     62px  a small counter's box: Batch, Repeat, Weight
      --thumb-min    160px a gallery card's least width
-     --search-w     240px the gallery's search box, at most
+     --thumb-min-beside 200px  the same in the gallery's own column (Gallery
+                    beside): the room a card's five --h-tool tools take
+     --search-w    240px the gallery's search box, at most
      --runs-w       190px the Runs picker, closed: 240-360px from 1800 px
      --lb-side-w    280px the lightbox's column; 340-400px from 1800 px
      --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
@@ -150,6 +152,7 @@
   --panel-w: 330px;
   --narrow-w: 62px;
   --thumb-min: 160px;
+  --thumb-min-beside: 200px;
   --search-w: 240px;
   --runs-w: 190px;
   --lb-side-w: 280px;
@@ -1002,18 +1005,24 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    one kept its gap, and opening the check moved the image down by it.
    CSS alone, so the DOM
    order placeTagValidation keeps - chips, then the check, in the wide host -
-   is unchanged, and without :has() the check stays above the viewer. */
+   is unchanged, and without :has() the check stays above the viewer.
+   Not with the gallery beside the viewer (`.stage.beside`): there the rules
+   that lay the stage out around the check carry `:not(.beside)`, and the
+   check takes the gallery's column instead (that section, below). Docked
+   in the width left of that column it halved the image just made. The
+   rules of the check's own box and head below have no such guard: they are
+   the check's in either place. */
 @media (min-width: 1800px) {
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--dock-w);
     grid-template-rows: auto auto 1fr;
     align-items: start;
   }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > * { grid-column: 1 / -1; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1; grid-row: 1; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > * { grid-column: 1 / -1; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1; grid-row: 1; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-column: 2; grid-row: 1 / span 3;
     contain: size; align-self: stretch;
@@ -1024,7 +1033,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
      the column, which spans the note's 1fr row, grew that row by what the
      minimum lacked over an empty viewer even beside a tall image. Only while
      the viewer holds something: idle, it stays its one line (below). */
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer:not(:has(> .placeholder:not(.held))) {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer:not(:has(> .placeholder:not(.held))) {
     min-height: min(36rem, calc(100vh - var(--sticky-top) - var(--gutter)));
   }
   /* Idle - nothing made this session - the viewer stays one line, and the
@@ -1035,10 +1044,10 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
      gallery's (1fr, which takes what the check needs past the rest). Not a
      long run's strip, though short: the gallery would take a comparison's
      sheet into the first column with it, at half its cells' size. */
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
     grid-template-rows: auto auto auto auto 1fr;
   }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) > * { grid-column: 1; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) > * { grid-column: 1; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
     grid-row: 1 / 6; contain: none; align-self: start;
   }
@@ -1056,11 +1065,11 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
     background: var(--panel); border-bottom: 1px solid var(--line);
   }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-head .analysis-close { top: 6px; right: 8px; }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
+  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
+  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
+  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis { grid-row: 1 / span 2; }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
+  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
     grid-template-rows: auto auto auto 1fr;
   }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
@@ -1559,42 +1568,44 @@ button { font: inherit; cursor: pointer; }
    its height - so neither the picture nor the gallery under it moves as the
    check opens - and the image keeps the one set of words for its tools: the
    26 px glyphs it fell back to had sat beside an "Earlier this session"
-   strip that stayed. */
+   strip that stayed. With the gallery beside the viewer the check takes the
+   gallery's column, not that width, so the column stays (`:is(.beside, …)`,
+   `:not(.beside)`). */
 .viewer .result-side { display: none; }
 .result-actions .result-brief { display: none; }
 @media (min-width: 1800px) {
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > figure {
+  .stage:is(.beside, :not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden])))) > .viewer:not(.multi) > figure {
     flex: 1 1 100%; gap: var(--sp-4);
   }
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > figure:not(.result)::after {
+  .stage:is(.beside, :not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden])))) > .viewer:not(.multi) > figure:not(.result)::after {
     content: ""; flex: 0 0 var(--result-w);
   }
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > .viewer:not(.multi) > .result > .result-side {
+  .stage:is(.beside, :not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden])))) > .viewer:not(.multi) > .result > .result-side {
     flex: 0 0 var(--result-w); display: flex; flex-direction: column; gap: var(--sp-3);
     contain: size; align-self: stretch; overflow-y: auto; overscroll-behavior: contain;
     font-size: var(--fs-body-sm);
   }
   .viewer:not(.multi) > .result:has(> .result-side) .tools > * { display: none; }
   /* The column names the source already. */
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #viewer:has(.result-side) + #viewer-note .lineage {
+  .stage:is(.beside, :not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden])))) > #viewer:has(.result-side) + #viewer-note .lineage {
     display: none;
   }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result:has(> .result-side) {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result:has(> .result-side) {
     flex-direction: column; align-items: center; gap: var(--sp-1);
   }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result:has(> .result-side) .tile > .tools { display: none; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result:has(> .result-side) .tile > .tools { display: none; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side {
     display: flex; flex: none; height: var(--h-tool); min-width: 0; max-width: 100%;
     width: calc(var(--tile-h) * var(--w) / var(--h));
   }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side > :not(.result-actions) { display: none; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side > :not(.result-actions) { display: none; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions {
     flex: 1 1 auto; flex-wrap: nowrap; min-width: 0; gap: var(--sp-1);
   }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions > button {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions > button {
     flex: 0 1 auto; min-width: 0; height: var(--h-tool); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
     display: block; flex: 1 1 0; min-width: 0; line-height: var(--h-tool); text-align: right;
     color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1622,47 +1633,45 @@ button { font: inherit; cursor: pointer; }
    comes before when there are chips, as in the dock's own rules. */
 .recent { display: none; }
 @media (min-width: 2000px) {
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) {
+  .stage:not(.beside):not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) {
     display: grid; grid-template-columns: minmax(0, 1fr) var(--recent-w);
     grid-auto-flow: row dense; align-items: start;
   }
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) > *,
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) #tag-validation {
+  .stage:not(.beside):not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) > *,
+  .stage:not(.beside):not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) #tag-validation {
     grid-column: 1 / -1;
   }
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) > :is(#viewer, #viewer-note) {
+  .stage:not(.beside):not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) > :is(#viewer, #viewer-note) {
     grid-column: 1;
   }
-  .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #recent:not([hidden]),
-  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
+  .stage:not(.beside):not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #recent:not([hidden]),
+  .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
     grid-column: 2;
     display: flex; flex-direction: column; gap: var(--sp-2);
     contain: size; align-self: stretch; overflow-y: auto; overscroll-behavior: contain;
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3);
   }
-  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
+  .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
     grid-template-columns: minmax(0, 1fr) min(var(--recent-w), var(--recent-room)) var(--dock-w);
   }
-  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { grid-column: 3; }
+  .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { grid-column: 3; }
   /* The chips keep the width they had without it, over both: in the
      viewer's column alone they wrapped onto another line, and the image
      moved down by it as the check opened. */
-  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / 3; }
-  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) { grid-row: 2; }
-  .stage.recent-docked:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
+  .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / 3; }
+  .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) { grid-row: 2; }
+  .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
     grid-row: 1;
   }
-  /* With the gallery beside the viewer (Gallery beside, `.stage.beside`), in
-     a row of its own under the viewer's note rather than a column beside the
-     viewer: beside both, the image just made was 440 px at QHD. The stage is
-     its column again, and the thumbnails small enough that the image, the
+  /* With the gallery beside the viewer (Gallery beside, `.stage.beside`), a
+     row of its own under the viewer's note instead, the check open or not -
+     the rules above stand aside (`:not(.beside)`), and the stage stays its
+     one flex column: beside both it and the gallery's column, the image just
+     made was 440 px at QHD. The thumbnails small enough that the image, the
      note and the row fit the window at QHD and at 125%. */
-  .stage.beside:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) {
-    display: flex; align-items: stretch;
-  }
-  .stage.beside:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #recent:not([hidden]) {
-    flex-direction: row; align-items: center; gap: var(--sp-3);
-    contain: none; overflow: visible; padding: var(--sp-2) var(--sp-3);
+  .stage.beside > #recent:not([hidden]) {
+    display: flex; flex-direction: row; align-items: center; gap: var(--sp-3);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-2) var(--sp-3);
   }
   .stage.beside > #recent h2 { flex: none; max-width: 6em; }
   .stage.beside > #recent .recent-list { display: flex; gap: var(--sp-2); min-width: 0; }
@@ -1756,8 +1765,8 @@ button { font: inherit; cursor: pointer; }
 /* From 2000 px, with Gallery beside ticked (syncBeside, gallery.js), the
    gallery is a column of its own at the window's right - its head over a
    box that scrolls by itself - while the stage keeps its own layout in the
-   width left of it: the chips, the viewer and its note, #recent, the docked
-   check. Stacked under the viewer, the gallery was one row or none in view
+   width left of it: the chips, the viewer and its note, #recent (below the
+   note, its own section). Stacked under the viewer, the gallery was one row or none in view
    beside the image just made at QHD (12 cards beside one 1024² image, none
    beside a 28-image run). Fixed under the topbar rather than sticky: a
    sticky column is held only within the stage's height, and the page
@@ -1773,9 +1782,13 @@ button { font: inherit; cursor: pointer; }
   .gallery-head .beside-tick { display: flex; }
   html:has(.stage.beside) { scrollbar-gutter: stable; }
   .stage.beside { margin-right: calc(var(--library-w) + var(--gutter)); }
-  .stage.beside > .library {
+  /* The column's box: the gallery's, or the open prompt check's (below). */
+  .stage.beside > .library,
+  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     position: fixed; top: calc(var(--topbar-h) + var(--gutter)); right: var(--gutter); bottom: var(--gutter);
     width: var(--library-w);
+  }
+  .stage.beside > .library {
     display: flex; flex-direction: column; gap: var(--sp-3);
     padding: var(--sp-3) 0 0 var(--sp-3);
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
@@ -1802,11 +1815,24 @@ button { font: inherit; cursor: pointer; }
     overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-gutter: stable;
     padding: 0 var(--sp-3) var(--sp-3) 0;
   }
-  /* Cards at the wide tier's least width, the room their five 32 px tools
-     take (--h-tool): three across at QHD, two at 125%. */
-  .stage.beside .library .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  /* Cards at their least width in the column (--thumb-min-beside, the room
+     their five --h-tool tools take): three across at QHD, two at 125%. The
+     wide tier's own least width, 230 px at QHD, made two across there. */
+  .stage.beside .library { --thumb-min: var(--thumb-min-beside); }
   /* Brought into view inside the column, which starts under the topbar. */
   .stage.beside .library .card { scroll-margin-top: 0; }
+  /* The prompt check, open, takes the column's place, the gallery's column
+     hidden under it until Close: docked in the width left of the column, as
+     the stage docks it without Gallery beside, it took that width from the
+     image just made - 862 px to 520 at QHD, 620 to 354 at 125%, moved down
+     and its row of actions cut - and the image did not keep its place.
+     Here nothing in the stage moves as it opens or closes. The column is
+     `visibility: hidden` rather than gone, so its scroll is kept and nothing
+     in it takes focus or the pointer (the lightbox's and a pass's way back
+     to a card ask whether it is shown); a job's images still come in under
+     it. Its own box and head are the docked check's (that section). */
+  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { max-height: none; }
+  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .library { visibility: hidden; }
 }
 
 /* --------------------------------------------------------- contact sheet */

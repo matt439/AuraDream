@@ -176,6 +176,7 @@ function armMore() {
 // so Reset leaves it. In effect only while the window is that wide and the
 // contact sheet is closed: a sheet is laid out for the stage's whole width,
 // so the page goes back to one column for it and lands on it (setSheet).
+// The prompt check, open, takes the column's place (style.css).
 const BESIDE_KEY = 'local-diffusion.gallery-beside';
 const BESIDE_MEDIA = '(min-width: 2000px)';
 // Whether it is in effect, which the stage's class says to the stylesheet.
@@ -183,24 +184,50 @@ let besideOn = false;
 
 function syncBeside() {
   const on = els.besideTick.checked && matchMedia(BESIDE_MEDIA).matches && !sheetMode;
+  syncBesideTitle();
   if (on === besideOn) return;
   besideOn = on;
   els.stage.classList.toggle('beside', on);
   armMore();
+  // An open check docks in the stage or takes the gallery's column, and
+  // #recent's room beside it (fitRecent) goes with that.
+  fitRecent();
   // Back under the viewer, the page's own scroll anchoring has the gallery.
   if (!on) releaseGallery();
 }
 
+// While a sheet is open the tick changes nothing on screen - the page is one
+// column for the sheet - so its title says when it counts.
+function syncBesideTitle() {
+  const label = els.besideTick.closest('label');
+  label.dataset.title ??= label.title;
+  label.title = sheetMode
+    ? `${label.dataset.title}. With the sheet open, as now, it takes effect when the sheet closes`
+    : label.dataset.title;
+}
+
 // A finished job's images join the gallery beside the viewer
-// (prependFinished) once the pointer is off its cards: one image ahead of
-// them moves every card a place along the rows, and a card about to be
+// (prependFinished) once the pointer is off its scrolling column - its
+// cards, the gaps between them, its scrollbar and Load more: one image ahead
+// of them moves every card a place along the rows, and a card about to be
 // pressed was another by the press. Resolved at once where the gallery is
-// not beside the viewer or the pointer is elsewhere; else when it leaves
-// (app.js) or the gallery goes back under the viewer (syncBeside).
+// not beside the viewer, the pointer is elsewhere or the column is hidden
+// under the prompt check; else when the pointer leaves or the gallery goes
+// back under the viewer (syncBeside). Where the pointer is comes from its
+// enter and leave (app.js), as the panel's does (`panelPos.pointer`), not
+// from `:hover`: a tap leaves `:hover` on what it touched with no pointer
+// there, and a job that ended after one waited for the next tap in the
+// column.
 let galleryWaiting = [];
+let galleryPointer = false;
 function galleryPointerGone() {
-  if (!besideOn || !els.libraryScroll.matches(':hover')) return Promise.resolve();
+  if (!besideOn || !galleryPointer || !isShown(els.libraryScroll)) return Promise.resolve();
   return new Promise((resolve) => galleryWaiting.push(resolve));
+}
+
+function galleryPointerLeft() {
+  galleryPointer = false;
+  releaseGallery();
 }
 
 function releaseGallery() {
