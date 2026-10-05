@@ -249,6 +249,16 @@
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
+/* The page keeps its scrollbar's room whether it scrolls or not. A gallery
+   too short to scroll the page by itself took a scrollbar while a job's
+   progress block was up and gave it back at the end, so everything narrowed
+   by it and widened again: a batch of four refitted 491 -> 494 px a tile at
+   QHD and moved the gallery head 3 px as the job ended, and Gallery beside's
+   two columns narrowed under the pointer as the panel grew past the window.
+   The cost is the scrollbar's width left empty at the right of a page that
+   does not scroll; overlay scrollbars take no room and leave none. */
+html { scrollbar-gutter: stable; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -2152,12 +2162,12 @@ button { font: inherit; cursor: pointer; }
    open: a sheet is laid out for the stage's whole width, so the page is one
    column again for it and lands on it (setSheet). Nor under 2000 px, where
    the tick is not shown. The page keeps its scrollbar's room whether it
-   scrolls or not, so the panel growing past the window - the fold, a
-   banner - does not narrow both columns by a scrollbar under the pointer. */
+   scrolls or not (html, above), so the panel growing past the window - the
+   fold, a banner - does not narrow both columns by a scrollbar under the
+   pointer. */
 .gallery-head .beside-tick { display: none; }
 @media (min-width: 2000px) {
   .gallery-head .beside-tick { display: flex; }
-  html:has(.stage.beside) { scrollbar-gutter: stable; }
   .stage.beside { margin-right: calc(var(--library-w) + var(--gutter)); }
   /* The column's box: the gallery's, or the open prompt check's (below). */
   .stage.beside > .library,
