@@ -42,7 +42,7 @@
   {"expect": "!els.viewer.classList.contains('empty-install') && __box(els.viewer).height < 60"},
   {"viewport": [1400, 900, 1]},
 
-  {"log": "'a result at 1400x900: a figure (never a .card) with the image named #N and titled, and the card tools under it; no column, no #recent'"},
+  {"log": "'a result at 1400x900: a figure (never a .card) with the image named #N and titled, and the card tools under it; no column, no #recent; the figure a group named #N, as its card is, so its tools are heard as that image\\'s'"},
   {"eval": "__gen('a red lighthouse on a cliff', {seed: 11})"},
   {"expect": "viewerRecords.length === 1 && els.viewer.querySelectorAll('figure.result').length === 1 && !els.viewer.querySelector('.card')"},
   {"expect": "__until(() => els.galleryEmpty.hidden && total === 1)"},
@@ -52,6 +52,7 @@
   {"expect": "!__shown(document.querySelector('#viewer .result-side')) && !__shown(els.recent)"},
   {"expect": "els.viewerNote.textContent === '#' + __first.id + ' · 1024×1024 · seed 11 · Use seed' && __shown(els.viewerNote.querySelector('.seed-line'))"},
   {"expect": "__until(() => document.querySelector('#gallery .card[data-id=\"' + __first.id + '\"]')?.classList.contains('this-run'))"},
+  {"expect": "(() => { const fig = document.querySelector('#viewer figure.result'); const c = document.querySelector('#gallery .card[data-id=\"' + __first.id + '\"]'); return fig.getAttribute('role') === 'group' && fig.getAttribute('aria-label') === '#' + __first.id && c.getAttribute('role') === 'group' && c.getAttribute('aria-label') === '#' + __first.id && fig.querySelector('.star').getAttribute('aria-label') === 'Star'; })()"},
 
   {"log": "'its star is the card star: setFavorite marks the result, its card and both stars; its Refine opens the dialog on it'"},
   {"eval": "[...document.querySelectorAll('#viewer .result .tools button')].find((b) => b.textContent === '☆').click()"},

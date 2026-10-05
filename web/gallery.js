@@ -362,6 +362,14 @@ function card(rec) {
   // tombstone keeps for the day's lines (cardDay).
   div.dataset.id = rec.id;
   div.dataset.made = rec.created_at;
+  // A group named as the page names the image, so its star and tools - each
+  // named for what it does ("Star", "Reuse settings", "Refine: …"), the
+  // toggles by a name that never changes - are heard as #N's: focus landing on
+  // ⤢ back from the Refine dialog named no image. Not a list or a grid: the
+  // day's lines and the tombstones are the cards' siblings, and a grid role
+  // would want cells and put a screen reader in focus mode.
+  div.setAttribute('role', 'group');
+  div.setAttribute('aria-label', `#${rec.id}`);
   // A refine pass says so, and at what strength (the badge is the class's
   // ::before): it keeps its source's picture by design, and the two sat side
   // by side as the same card.
@@ -746,7 +754,9 @@ function syncReuseButton(button, rec, compact = false) {
     button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse pass…`;
     button.title = mismatch ? `Warning: ${warning}`
       : `Open the Refine dialog on #${pass} with this pass's size, strength and seed`;
-    button.setAttribute('aria-label', `Reuse this pass in the Refine dialog${mismatch ? ` (warning: ${warning})` : ''}`);
+    // Led by the words shown ("Reuse pass…"), so a voice command that says
+    // what it reads finds the button.
+    button.setAttribute('aria-label', `Reuse pass in the Refine dialog${mismatch ? ` (warning: ${warning})` : ''}`);
     button.dataset.tip = 'Reuse pass…';
     return;
   }
@@ -1185,9 +1195,12 @@ function tombstone(el) {
   tomb.textContent = `Deleted · ${imageNames([+el.dataset.id])}`;
   if (el.classList.contains('card')) {
     el.replaceChildren(tomb);
-    // Nor any mark of what the image was: a star, a reference, a pass.
+    // Nor any mark of what the image was: a star, a reference, a pass - nor
+    // the group (card()), which has no tools left to name; its text says it.
     el.classList.remove('fav', 'ref', 'refined');
     el.classList.add('gone');
+    el.removeAttribute('role');
+    el.removeAttribute('aria-label');
     delete el.dataset.id;
     delete el.dataset.refN;
     return el;
