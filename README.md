@@ -899,7 +899,8 @@ attaches to whichever job holds the GPU, then to the oldest one waiting.
 **Two tabs on one server**: a tab that is not watching the running job - one
 started in another tab or window - says so beside the checkpoint's name in the
 top bar ("busy in another tab"), holds Unload, Ask the critic and Expand with
-that reason, and catches its gallery up when the job ends; Generate still
+that reason, and catches its gallery up when the job ends (or, under an open
+sheet, when the sheet is closed); Generate still
 queues. A job another tab queued behind this tab's own is listed as another
 tab's, and one this tab picks up shows in the progress row without replacing
 the image just made. A cancel pressed elsewhere is said as one, and a server
@@ -1060,8 +1061,9 @@ resume you did not mean is a night that silently skips cells. Per browser,
 per origin, and dropped without complaint where storage is blocked; two tabs
 share it, each writing back only what it changed. **Reset**,
 at the end of the Prompt caption, is the way out: every box back to the
-checkpoint's defaults and the memory forgotten - with an Undo under the prompt
-for a little while, in case it was a slip, and Ctrl+Z in the prompt giving its
+checkpoint's defaults and the memory forgotten - with an Undo in the corner of
+the prompt box it emptied for a little while, in case it was a slip, and
+Ctrl+Z in the prompt giving its
 text back after that. It leaves the gallery's view settings (card size and fit,
 Gallery beside, the sheet's Fill width) alone. Clearing the gallery does not
 do this — that is a deletion on the server, and the browser's memory is its
@@ -1384,7 +1386,8 @@ landscape, NewBie's XML) says which slots it leaves to fill, and the pick
 selects the first, so what you type next replaces it. Where no tag chips show,
 a line under the prompt box counts its tokens once the prompt has used three
 quarters of the tightest encoder's budget, and turns amber past it, naming where
-reading stops. Tag-caption checkpoints can also show **Tags**; for
+reading stops and, past 4000 characters, that Generate and Check will refuse
+it. Tag-caption checkpoints can also show **Tags**; for
 Animagine it exposes only the model card's person-count, rating, quality, score
 and year controls, inserts at the prompt caret - it opens under the box and
 says where that is - finishes with the recommended

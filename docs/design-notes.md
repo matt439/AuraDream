@@ -384,13 +384,19 @@ beside the label at 1400x900 and 2048x1040 at 125% and moved the box, and
 everything under it, down a line - and at the threshold the caption changed
 height as CFG crossed it. `#negative` is described by that note
 (`aria-describedby="neg-note"`), so a greyed box says why to a screen reader
-too.
+too. The Refine dialog's negative caption uses the same words for the same
+state (`syncRefine`): "(runs at CFG > N, no extra cost)" where CFG is the knob
+and the box is live, and "(needs CFG > N — ~2× slower)", or True CFG, where it
+is greyed or True CFG is the knob; it had read "(needs CFG > N)" under a live
+box too (2026-10-05).
 
 **FLUX.1's CFG box is named "CFG (distilled)".** The box is the distilled
 guidance value, and the label said CFG, the one word every other checkpoint
 uses for real guidance (U87's optional qualifier, built 2026-10-05). The
 profile's `cfg_label` is the one hint that is a name: `applyHints` writes it
-on `#cfg-label` and `#grid-cfg-label`, plain "CFG" where a status has none,
+on `#cfg-label`, `#grid-cfg-label` and the Refine dialog's
+`#refine-cfg-label` (which had said plain CFG beside the panel's distilled
+one), plain "CFG" where a status has none,
 and `hints_for` drops it where a loaded pipeline's negative-prompt answer
 replaces the CFG tip; `krea-dev` carries it as the flux profile carries
 everything. No other profile has one: schnell's box is ignored and klein's
@@ -985,10 +991,13 @@ schedule index, so on another checkpoint Strength starts at this one's own -
 the profile's, or the general starting strength where the profile names none
 or the pipeline is unprofiled (`refine_strength_profiled`) - and
 `#refine-reused` says so ("its strength 0.4 was waiIllustriousSDXL_v170's;
-Strength starts at FLUX.1-Krea-dev's 0.1"; on Anima "... Strength starts at
+Strength starts at FLUX.1 Krea [dev]'s 0.1"; on Anima "... Strength starts at
 0.4, the general starting strength"), where it named the old strength beside a
 box holding another, and the fold's note counts strength among what is this
-checkpoint's. The dialog has its own size (scale buttons and
+checkpoint's. That note names only the knobs this checkpoint has, mu only
+where Mu is supported, as Reuse's note does ("steps, CFG and strength are
+Anima Turbo v1.1's"): it had named mu on checkpoints whose Mu box is
+greyed. The dialog has its own size (scale buttons and
 the two boxes), Strength, Versions and Seed. Versions is `num_images`, on
 consecutive seeds from the Seed box: a pass is one pipeline call per image,
 so they cost time, not VRAM. A Strength box holding a list or a range is
@@ -1209,11 +1218,15 @@ the marked defaults, so `wsl/env.sh` still gets what it set on a bare Enter.
 
 The page names the running checkpoint by this catalogue's label
 (`ModelStatus.model_label`, by exact id, through the page's `checkpointName`,
-which the topbar, the prompt check's head, the facts' Model row and the load
-card share), not the repository's last segment: NetaYume v4 read
+which the topbar, the prompt check's head, the facts' Model row, the load
+card, a Reuse's note and its ⚠ title, Expand's running line and the Refine
+dialog's lines share), not the repository's last segment: NetaYume v4 read
 "NetaYume-Lumina-Image-2.0", the parent's name, and Z-Anime Base and Anima
-Turbo v1.1 lost their versions (2026-10-05). Off the catalogue it is still the
-id's last part. The public id stays in every title, row and PNG chunk.
+Turbo v1.1 lost their versions (2026-10-05); a Reuse's note and the dialog's
+lines still did after the topbar had changed. Off the catalogue it is still
+the id's last part, and another checkpoint's records are named by their id's
+last part, since the status labels only the running one. The public id stays
+in every title, row and PNG chunk.
 
 ## no_grad, never inference_mode
 
@@ -1316,7 +1329,12 @@ goes once its box changes, showed beside it with the opposite meaning. So
 the page has the Examples' rule for both and one Undo on offer at a time: an
 Example retires a Reuse's, and a Reuse an Example's (`dropPromptUndo`). A
 reference dropped from what the Reuse left - deleted, or answered "unknown
-image" - is no change of the user's, and comes out of `after` as well.
+image" - is no change of the user's, and comes out of `after` as well. A
+Reset takes the note's words too, Undo or none, while they are still what
+the line says (`clearReuseNote`, from `resetPanel`; `reuseSaid` is the note's
+first sentence): once Reset's own note moved to the prompt box, "Settings
+from #N loaded - your prompt was replaced" had stood over the emptied panel
+(2026-10-05).
 Both boxes are written through tags.js's `writeBox`, the page's one
 whole-box write (`rewriteBox` focuses the box without a scroll first).
 
@@ -1564,9 +1582,15 @@ by "Previous job: " while another job runs (`#error.previous`, a generated
 job's end is drawn (`finishJob`). It used to stay until the next press of
 Generate, and with a queue "Cancelled before anything finished." sat under
 the next job's own "Finished 1 image" as though it were its outcome. A press
-on a held Pause or Unload says why in the same line (`showJobNote`), which
-goes when the job ends: "A single batch has no pause point" outlived the job
-and the button it explained.
+on a held Pause, Unload, Expand or Ask the critic says why in the same line
+(`showJobNote`; Expand's through `expandSay`, which puts it under the prompt
+while a Reuse's Undo holds the line), which goes when the job ends: "A single
+batch has no pause point" outlived the job and the button it explained. Every
+held press says its reason as a sentence with a closing stop (2026-10-05);
+Pause's, Unload's and Expand's titles are the same reason without it, and the
+critic's titles are whole sentences already. The critic's press during a job
+had been a red error that outlived the job, and Pause's and Unload's notes
+their bare titles, with no stop, beside Expand's sentence.
 
 A screen reader hears the job's end once (2026-10-05). `#finish-note` is no
 live region - its "Previous job:" lead is rewritten at every job's start - so
@@ -2023,8 +2047,18 @@ half is the stage's width less the arrows' room and half its height less the
 gap, and every reader of the ports takes a port's `y` as well as its `x`: the
 picture's box, the clip to its half, the names (the pass's at its own half's
 top), and the wheel's point (`stagePoint` takes the half whose centre is
-nearer). The mode keeps its name, and its title says which way the halves
-go.
+nearer). The mode keeps its name, and its title says which way a press puts
+the halves, before the press as well as after it (`lbStacked`, decided for
+any pass, compared or not): before the press it said "left of the pass"
+where the press stacked them (2026-10-05).
+
+The layout also runs again on the stage's own resize (a ResizeObserver in
+app.js), not only the window's. Under 901 px a line in `#lb-error` (Use
+seed's, a delete's) is a row of its own that took 30 px from the stage, and
+the picture laid out before kept its height, its foot cut off under a readout
+still saying "fit". The observer cannot loop: the layout writes the facts'
+room only when it changes (`lbFactsRoom`), from the stage as it would be with
+the facts at six lines.
 
 **The controls are beside the stage, not under it.** The dialog is a row:
 `.lb-main` (the stage and its arrows) and a `.lb-side` column (280px;
@@ -2417,9 +2451,13 @@ replaces it, or to Generate where nothing does; with nothing in the viewer it
 focuses the viewer itself (tabindex -1, let go on blur) or its held line.
 Focusing only an `img[data-id]` had left focus on the button as it hid, and so
 on `<body>`. It goes (`withdrawNewImage`, focus on it handed on, never to
-`<body>`) once the viewer is in view, at a new job's start, and when a job ends
-with nothing of it in the strip - cancelled or failed after its first frame,
-before any image, there is no image to go to. A refusal from Generate in one
+`<body>`) once the viewer is in view, when a job's first frame or stand-in
+clears the strip (`landed`), and when a job whose first frame cleared the strip
+ends or gives up with nothing of it in the strip - cancelled or failed after
+its first frame, before any image, there is no image to go to. Not at
+`setBusy(true)`, where it used to go: a job that never reaches the strip, such
+as another tab's job picked up over this page's results, leaves it pointing at
+this page's image, which is still there (2026-10-05). A refusal from Generate in one
 column is still said in the panel's line under it, without a scroll: scrolling
 to it would move the prompt being typed out of view.
 
@@ -2436,24 +2474,40 @@ the 3 s poll), which `followServerJobs` reads on every poll. A page watching
 none of them sets `elsewhereBusy` and holds what the server would refuse, with
 that reason: Unload, Ask the critic and Expand, aria-disabled - Expand too,
 since a hold that arrives with a poll, at a moment no one chose, must not take
-a keyboard user's focus - each press saying "A job started in another tab or
-window is running; … once it ends" until that job ends (`elsewhereNote`).
-Generate stays live: the server queues it. The topbar says "· busy in another
-tab" beside the checkpoint's name (`#status-aside`), aria-hidden and outside
-the name's live region, since it comes and goes with jobs nobody in this tab
-started, and hidden at 600 px and under, where the name would wrap. When the
-flag clears, the gallery and the Runs picker catch up (`prependFinished(0)`,
-`loadRuns`). The page does not attach to such a job: watching it would take
-its viewer.
+a keyboard user's focus. Unload and Expand are titled "A job started in
+another tab or window is running; Unload|Expand once it ends", and Ask the
+critic "A job started in another tab or window is running. The critic needs
+the card to itself, so it waits for that job to finish." Each press says it as
+a sentence until that job ends (`elsewhereNote`): in `#error`, and Expand's
+through `expandSay`. Generate stays live: the server queues it. The topbar says
+"· busy in another tab" beside the checkpoint's name while the model is ready
+(`#status-aside`), aria-hidden and outside the name's live region, since it
+comes and goes with jobs nobody in this tab started, and hidden at 600 px and
+under, where the name would wrap. When the flag clears, the gallery and the
+Runs picker catch up (`prependFinished(0)`, `loadRuns`) - never under a sheet
+(a run's or a search's), which would be laid out again whole, every cell and
+control rebuilt, at a moment no one chose; Sheet off resets the gallery, which
+takes the images in then. Where a job of this page's own took over while
+another tab's ran (`setBusy(true)` clears `elsewhereBusy` quietly), the
+catch-up is owed (`elsewhereCatchUp`). That job's end takes it, whatever the
+job made, a cancel before its first image included - such a job left the
+other tab's images out until a reload. A stream that gives up takes it too,
+and the server answering again clears it, since that answer takes everything
+in. The page does not attach to such a job: watching it would take its viewer.
 
 A page that picks up another tab's job when its own ends (`watchNext`), while
 its viewer holds this session's own results (`isForeign`), shows it in the
 progress row only - no `clearResults`, frame or stand-in - names it "Another
-tab's job:" in the Now line, the mirrors and the title, and ends it with
-"Another tab's job finished: N images.", no Use seed and no held title. Its
-first frame used to clear the image just made, its finish line offered the
-other tab's seed as this page's, and its progress wrote over this tab's own
-unseen outcome in the title, which its end now gives back (`titleHeld`). A
+tab's job:" in the Now line, the mirrors and the title, and says its end,
+"Another tab's job finished: N images.", once on `#job-said` alone, with no
+Use seed and no held title. Its first frame used to clear the image just made,
+its finish line offered the other tab's seed as this page's, and its progress
+wrote over this tab's own unseen outcome in the title, which its end now gives
+back (`titleHeld`). It leaves this page's own finish line alone - its last job,
+Use seed and all, with its lead as it was (`staleBefore`, saved as the stream
+starts) - and New image too, which only a job whose first frame clears the
+strip withdraws (`landed`): its finish line had replaced this page's, and its
+start had taken New image away from an image still there. A
 reload's attach, with nothing of this page's in the viewer, is shown as
 before. A page busy with its own job takes its queue rows from the server
 (`resyncQueue` through `setQueue`, the rows' one writer, which keeps focus as
@@ -2714,15 +2768,17 @@ and a reload kept the reset - so the panel as Reset found it is kept in
 memory (`panelState()`, the raw sampling values and `owned`, the size's
 preset, the Refine dialog's remembered settings and its unsent draft), read
 off the page rather than the store, which is 300 ms behind and absent in a
-private window. "Panel reset." under the prompt carries an Undo while the
-panel is as the Reset left it - the first change takes the button, as a
-Reuse's does (`syncResetUndo` from `persistPanel`) - and for 20 seconds at
-most. The Undo writes the boxes through `rewriteBox`, puts the rest back (the
-English translation too, where the prompt is the one it translates), runs the
-sync functions, remembers the panel again and says "Reset undone" in the same
-place; Resume is never put back ticked, and nothing of it survives a reload.
+private window. "Panel reset.", in the top right of the prompt box Reset has
+just emptied, carries an Undo while the panel is as the Reset left it - the
+first change takes the button, as a Reuse's does (`syncResetUndo` from
+`persistPanel`) - and for 20 seconds at most. The Undo writes the boxes
+through `rewriteBox`, puts the rest back (the English translation too, where
+the prompt is the one it translates), runs the sync functions, remembers the
+panel again and says "Reset undone: the panel is as it was." in the same
+place for 6 seconds (`RESET_UNDONE_MS`); Resume is never put back ticked, and
+nothing of it survives a reload.
 
-**Reset's Undo is under the prompt** (2026-10-05; `#prompt-note`, kind
+**Reset's Undo is in the prompt box** (2026-10-05; `#prompt-note`, kind
 `reset`), where Reset was pressed. In the panel's line under Generate it was
 below the window at 1400x900 and in one column, and was retired unseen after
 20 s. Reset empties the boxes through `rewriteBox`, so Ctrl+Z in the prompt,
@@ -2731,13 +2787,22 @@ which it focuses, gives the text back after the Undo has gone too: `.value =
 writes, whose `input` and `change` events would otherwise persist it 300 ms
 on, and stays forgotten until the panel changes (`resetLeft`): the prompt's
 later blur fires `change`, and a write of the panel as Reset left it is
-skipped, so another tab's next write still takes the whole panel. Where the
-negative box is greyed (FLUX.1, ERNIE and Turbo by default) the note takes a
-line of the panel's flow, as an Example's does there, and moves Generate down
-by that line (31 px at 1400x900) for the 20 s it stays: the overlay would
-cover the caption's Set CFG button, and the press that brought the note was
-Reset's, at the top of the panel, not one near Generate. Accepted, as it was
-for the Examples' note.
+skipped, so another tab's next write still takes the whole panel.
+
+In the panel's flow (one column, or a greyed negative: FLUX.1, ERNIE and Turbo
+by default) the note moved Generate down a line, 31 px, and when its 20 s ran
+out, Generate moved back up under whatever pointer rested there. smoke-narrow
+had to take the note back by hand so its fixed press on Generate landed
+(66bcf14). Over the next field's caption, as an Example's note lies on two
+columns, it would have covered the greyed negative's Set CFG button. So it
+lies in the top right of the prompt box it has just emptied, under Reset, at
+every width (`showPromptNote`'s `at: 'box'`, `data-at="box"`, which the two
+flow rules leave out). The box stays empty for as long as the note shows,
+since the panel's first change takes it. The placeholder, whose first line ran
+under the note at 1400 px, is transparent meanwhile. "Reset undone", which the
+Undo leaves over the text it put back, lies there too for 6 s, an 'info' note
+that holds no button, lets the pointer through (`pointer-events: none`) and
+goes as soon as the box is typed in. Nothing either note does moves Generate.
 
 **Two tabs, one store** (2026-10-05). Each tab wrote its whole panel on every
 change, so a second tab opened earlier that changed only its Seed wrote its
@@ -2832,7 +2897,10 @@ as long as the pause lasted, and the tab that could press Resume showed
 nothing waiting; a job submitted during another tab's critique said the same,
 with no job ahead at all. The manager now keeps who holds the gate
 (`JobManager._holder`: a job's id, or `run_when_idle`'s `holder`, "critic" or
-"expand", which the two routes pass), and a queued job's `waiting_on` is read
+"expand", which the two routes pass, with the ticket an editor action was sent
+with, `_ticket`; `JobManager.card()` answers ("job" | "critic" | "expand" |
+None, ticket) for the status's `card_holder` and `card_ticket`, which Expand's
+running line reads), and a queued job's `waiting_on` is read
 off it: `paused`, `critic`, `expand`, or `queue` behind a running job, and
 None for a lone job's first frame on an idle server. The label must follow
 the holder, not only the moment a job arrives: the second of two jobs queued
@@ -2845,7 +2913,11 @@ a resume. Both run on the event loop, which owns the job table the worker must
 not walk. The page says "waiting: job ahead paused" with a line on where to
 resume it, and "waiting for the critic…" or "waiting for Expand…" with whose
 they are; the paused tab lists the job behind it, from the server, and its
-cell line counts what waits.
+cell line counts what waits. What a queued job waits on, in words (the job
+ahead paused, another tab's critic or Expand, the first load), rides in
+`cellArgs` (`showCell`'s `note`), so the queue's redraw (`setQueue`) and a
+Pause press say it again: they had wiped it under a progress line still
+saying "waiting" (2026-10-05).
 
 **The live regions say only what changes.** `#progress-text` keeps its coarse
 state and is written only when its spoken text changes (`setProgressText`;
@@ -3338,7 +3410,10 @@ gallery head's two pairs (`#card-view`: S/M and Fit/Crop, shown from 1800 px
 only, hidden on a sheet by `setSheet`), each a group with one tab stop, the
 chosen button, `aria-pressed` and the size strips' arrows (`stepPreset`). S is
 `clamp(150px, 6.5vw, 180px)` on `#gallery[data-density="s"]` - eleven a row at
-QHD and nine at 125%, against eight and seven - and trades U13's 32 px-wide
+QHD and nine at 125%, against eight and seven, and four in Gallery beside's
+column at QHD, where M is three (`.stage.beside #gallery[data-density="s"]`,
+150 px: the S rule's own 166 px fitted three there, as M did, and S showed
+pressed with nothing changed) - and trades U13's 32 px-wide
 tool targets for a 24 px minimum width (32 tall), the least a target should
 be, Delete still apart. Crop is `#gallery[data-fit="cover"]`. Both belong to
 the gallery, not the panel (`cardView`, stored under
@@ -3598,6 +3673,21 @@ sweep run from the viewer's ⤢ left focus on Generate 566 px above its sheet.
 Focus anywhere else is never moved, because a comparison's job can end while
 the prompt is being typed in; the Runs picker, at the gallery head, stays in
 view and keeps its focus.
+
+**Laid out again, the sheet keeps the keyboard where it was** (2026-10-05).
+`renderSheet` - a gallery page landing, a delete, a pin or an axis picked, a
+resize whose wrap flips - rebuilds every cell and control, and a keyboard's
+focus on one fell to `<body>`: F on a cell another tab had deleted (the
+star's refusal forgets the image, and its cell goes), an ArrowDown on the
+Columns select, the end of
+another tab's job. `sheetFocusPlace` records the place before anything is
+removed - `forgetImages` takes it before it drops the cells - and
+`restoreSheetFocus` returns to it with `preventScroll`, unless focus was kept
+or moved on purpose meanwhile: the same cell's image, or its star, by id; else
+the image now at its place in reading order, else the last; a control by its
+name (a select by its label's words, a button by its own), else the control
+at its index; the search box where no cell is left. Another tab's job ending
+no longer reaches an open sheet at all (Two tabs on one server).
 
 **A table to a screen reader, and said as it opens.** The sheet exposed
 nothing of its structure: heads and cells were generic, and every cell was
@@ -4072,7 +4162,10 @@ scrollbar's room kept), and the page keeps its own scrollbar's room
 narrow both columns under the pointer. In the column the cards are at least
 `--thumb-min-beside` wide (200 px, the room their five `--h-tool` tools take),
 three across at QHD and two at 125% - the wide tier's own 230 px made two
-across at QHD. The search has a row of its own, since after the heading and
+across at QHD. That is M; at the head's S they are at least 150 px
+(`.stage.beside #gallery[data-density="s"]`), four across at QHD and three at
+125%. The S rule's own 166 px fitted three in the column, as M does, and S
+showed pressed with nothing changed (2026-10-05). The search has a row of its own, since after the heading and
 Runs it had 146 px and its placeholder cut at "Search prompts, or", and its tip
 hangs left, over the stage, since a fixed column does not scroll to a tip past
 the window's edge. A card brought into view there has no topbar margin.
@@ -4273,6 +4366,19 @@ widened the page, and the grid fold's LoRA weight tip, hung leftward by the
 markup's `.help.end`, ran 9 px past the left edge at 2560. It is a shift of its
 own, not the `end` class toggled, since badges set that class statically to
 hang left inside the panel; a tip that fits is not moved.
+
+A badge inside a box that clips its overflow (`tipClipper`, the nearest
+ancestor whose overflow is not visible: the prompt check's scroller, above the
+results and docked, and the Refine dialog) hangs its tip from the window
+instead (`floatTip`, `.tip.floating`, position fixed; 2026-10-05). Placed
+inside the check, the comparison's Batch tip was cut off by the check's edge
+and lay under its sticky head; the `.compare-seeds .tip` rule that opened it
+upwards is gone. The tip goes under the badge where it fits, else over it -
+neither past the topbar nor the window's foot - moved in from the window's
+sides, and is placed again on any scroll, the box's own included, while its
+badge holds the pointer or the focus (`followFloatingTip`, a capturing scroll
+listener in app.js). It is hidden while the badge is scrolled out of the box
+(`.help.clipped`).
 
 In one column `main` is `minmax(0, 1fr)`. A bare `1fr` is `minmax(auto, 1fr)`,
 whose least width is the panel's min-content, and a running job's Now line -
@@ -4684,7 +4790,12 @@ runs, during this page's job or another tab's, during a critique, or with the
 server offline), never `disabled`. A first use runs for minutes, and the
 disabled button had dropped a keyboard user's focus to `<body>` for all of them
 and after every failure, while a press during a job or a critique did nothing
-and said nothing. A press while it runs says what the result will do as things
+and said nothing. A press on it held now says why, as a sentence, through
+`expandSay`: this page's job's reason is a job note gone at the job's end
+(`jobNote`), another tab's is said until that job ends (`elsewhereNote`), and
+while a Reuse's Undo holds the panel's line it is said under the prompt, never
+over the Undo - written into the panel's line, it had taken the Undo and the
+panel it would have put back. A press while it runs says what the result will do as things
 stand (`expandOutcome`, the test its end applies): written in, held, or dropped.
 Running, it reads "Expand…": "Expanding…" was 23 px wider, and at 1400 px
 wrapped Reset onto a second caption line, moving the prompt box down for the
@@ -4707,9 +4818,18 @@ having loaded the `.bin`, Transformers had started a thread that fetched the
 conversion bot's safetensors copy from an open pull request on the repository -
 a second 312 MB, in the user's cache two minutes after the first, never read and
 never named. The running line says what the expansion waits on, in the server's
-order - the model's load, the rewriter's first download or its load, the
+order - first the card, while something else holds it (another tab's critic or
+Expand, or a job another tab queued during the load: `ModelStatus.card_holder`);
+then the model's load, the rewriter's first download or its load, the
 expansion, then the translator's first download - beside an aria-hidden clock,
-following the status (`syncExpandRunning`). The status is asked a quarter second
+following the status (`syncExpandRunning`). Another tab's critique or Expand
+holds the card through `run_when_idle`, and the load waits for it too: the line
+had said "Expanding…" for the whole of their run (2026-10-05). The press sends
+a `ticket` of its own (`PromptExpansionRequest.ticket`, a random id), which the
+status answers as `card_ticket` while that expansion holds the card, so the
+page tells its own press from another tab's ("Waiting for the card, which
+another tab's Expand has, then …"); `refreshStatus` asks for the line again as
+the holder or the ticket changes. The status is asked a quarter second
 after the press, so the topbar says loading at once, and again as Expand ends,
 so the title stops naming a download that is done. The line takes a line of the
 panel's flow, as a held expansion does (`data-kind`): as the overlay a 15 s
@@ -4723,7 +4843,8 @@ over a Reset's or a Reuse's Undo still on offer, taking the button and the
 panel it would have put back. The note holds one thing at a time, by
 `promptUndo.kind`: 'write' (an Example's or an expansion's Undo, gone once the
 box holds anything else), 'info' (gone the same way, with no button), 'reset'
-(Reset's Undo, under Reset's own rule), and 'running' and 'held' (Expand's
+(Reset's Undo, under Reset's own rule, lying in the emptied box itself,
+`data-at="box"`, at every width and never in the flow), and 'running' and 'held' (Expand's
 running line and a held expansion), which typing does not take, have no timer,
 and so always take a line of the flow. Each expires after its time unless focus
 is on its buttons, and `onDrop` runs whatever takes it; a Reuse's Undo and this
@@ -4887,7 +5008,15 @@ new for the checkpoint shows ⏲ where a typo shows ?, red either way, since
 the fixes differ, and matching the sentence would break with its wording.
 An unavailable API makes ordinary tags unchecked, not invalid, and never
 blocks generation: presence in the index is useful
-evidence, not proof that a particular caption reached training. The tray
+evidence, not proof that a particular caption reached training. The one
+exception needs no index: an item longer than any tag (`tags.TAG_NAME_MAX`,
+200 characters, such as a hybrid prompt's sentence) is answered unknown
+(`tags.too_long_result`: `code` not_found, "longer than any Danbooru tag")
+without asking it, reachable or not (`main._lookup_tags`,
+`tags.unchecked_results`), and only a blank item or one past 4000 characters
+is refused (`TagValidationRequest`). Every item had been bounded at 200, so
+one 213-character sentence on Kohaku refused the whole request (a 422), and
+the tray read "Danbooru unreachable" (2026-10-05). The tray
 says which of three states it is in (`data-state`): checking (… on the
 chips waiting, title "Checking Danbooru…"), checked, or unreachable - the
 label amber, "Danbooru unreachable, not checked", never red, guide tags
@@ -5063,8 +5192,16 @@ the excerpt Check's cut link gives). Under three quarters it is hidden: shown
 always, its line took Generate past the edge of a 1400x900 window and said only
 that there was room. An encoder left uncounted (a tokenizer still loading or
 one that cannot be fetched, the server not answering) is "Tokens: cut unknown",
-never "no cut", at any length, since there is no count to hold to the three
-quarters. The exception is a checkpoint the encoder table has no entry for (an
+never "no cut", since there is no count to hold to the three quarters. The
+page measures the first 4000 code points (`PROMPT_MAX_CHARS`, tags.js, held
+equal to `PromptMeasureRequest`'s and `GenerateRequest`'s `max_length` by
+`tests/test_api_analysis.py`). Past them the line leads with "Over 4000
+characters: Generate and Check refuse it", in amber, then the count of what
+was counted and its cut, and the summary line says it once (the chip tray's
+label says "over 4000 characters" the same way). Before, the measure refused
+the whole prompt, and the line read "Tokens: cut unknown" in its quiet
+colour, taking back the warning the prompt had already earned (2026-10-05).
+The exception to "cut unknown" is a checkpoint the encoder table has no entry for (an
 off-catalogue `LOCAL_DIFFUSION_MODEL_ID`): nothing will ever count that prompt,
 and "cut unknown" stood under every prompt, two words included, moving
 Generate's top from 888 to 911 px at 1400x900, so the measure says so
@@ -5738,8 +5875,9 @@ Undo on offer at a time ("Per-control defaults and Reuse"). Assigning
 `.value` had emptied the undo history: the menu opens over
 the prompt, and one stray click replaced minutes of work for good, the
 panel saving it at once. The note is the prompt's one note (`#prompt-note`,
-which Expand's and Reset's words share since 2026-10-05: ERNIE-Image Turbo,
-Panel persistence), and hangs under the token line where that shows (Animagine
+which Expand's and Reset's words share since 2026-10-05, Reset's lying in
+the box it emptied rather than under it: ERNIE-Image Turbo, Panel
+persistence), and hangs under the token line where that shows (Animagine
 XL 4.0). It is a `role=menu`, named by its button (`aria-labelledby`), and keeps that promise: ArrowDown,
 Enter or Space on the button opens it on its first item (its items are no
 Tab stops, so a Tab from the button went on to Tags and closed it unread),
@@ -7368,8 +7506,10 @@ uses its own Batch select and divides the grid seed count by that batch
 size, preserving the total seeds per version. The main panel's Batch and
 Repeat (the count once labelled Runs) still do not apply; that line and the
 rest of the mechanics are a `?` badge after the comparison's Batch select,
-opening upwards (from 1800 px the panel scrolls inside itself, and a tip
-opening down from its last section was cut off), while the 4-or-8 caveat
+its tip hung from the window (`floatTip`: placed inside the check, which
+scrolls inside itself, it was cut off by the check's edge and lay under its
+sticky head, and the `.compare-seeds .tip` rule that opened it upward is
+gone), while the 4-or-8 caveat
 stays in view beside it as the decision aid. It reads both comparison
 selects directly for its preview and its run (a browser restoring form state sets a select
 without a change event, and a copied variable had stayed at 4), never writes
@@ -7577,7 +7717,28 @@ refusal that asking again only repeats. The failure is `critiqueFailure`,
 never a `critiqueResult`, which Use and Apply read as an answer, and is
 cleared by the next Ask, a check of other text and a cleared panel. The route
 sends `CriticError`'s and `CriticUnavailable`'s messages without the class
-name, which led every one of them; the log line keeps it.
+name, which led every one of them; the log line keeps it. A critique the
+server never answered is the server's failure, not the critic's: it reads "The
+critic did not answer: the server did not answer." (`critiqueOffline`), and
+the status poll that answers again takes it back (`takeBackCriticOffline`), as
+every offline message is; it had stayed in the critic's block for good as "No
+answer from the Local Diffusion server — is it still running?.".
+`critiqueFailureText` drops any closing stop, question mark or exclamation
+mark of the reason's own, so a question no longer ends in "?.".
+
+**Ask the critic is held for what the server would refuse** (2026-10-05).
+Expand and Unload were held while the server did not answer, and Unload while
+the image model loaded, but the critic was left live for both: a press got the
+offline sentence in its block for good, or the route's 409 about the load
+(`main._refuse_critique_now`; Expand, by contrast, waits for the load). It is now held (`criticHold`) while the server does not answer and
+while the image model loads, then for a job (this page's or another tab's)
+and for Expand, aria-disabled with the reason as its title and on
+`#critic-cost`; `goOffline`, the poll that answers again and a change of the
+model's state each sync it. A press says why: offline, the offline words
+(`OFFLINE_MESSAGE`), which the poll that answers takes back; during the load,
+a note taken back when the load ends (`criticLoadNote`); during this page's
+job, a job note gone with the job (`showJobNote`); during another tab's job,
+said until it ends (`elsewhereNote`).
 While the critic runs, the seconds since the click count beside the line
 (aria-hidden, outside its live region, so it is not read out every second),
 and a first use's line says the download can take a few minutes: with nothing
@@ -7585,13 +7746,17 @@ moving, slow could not be told from stuck while every generation button was
 held. The line was one polite live region, and it spoke at every job's start
 and end about a button nobody had pressed; it is now a live half that answers
 the press (`#critic-progress`: Downloading…, Thinking…) and a quiet half for
-the cost and the job holding the card (`#critic-cost`, 2026-10-05). After a
+the cost and what holds the button - no server, the load, a job
+(`#critic-cost`, 2026-10-05). After a
 first answer it said a 4.5 GB download was still to come until the next poll;
 any answer now marks the critic ready at once (`promptCritiqueReady`), one set
 aside because the prompt changed meanwhile included. Generate's, Run grid's and
 Run comparison's titles say the critic holds them while it does
 (`syncSubmitButtons`, whose reasons are `submitHold()`'s, and
-`syncCompareRun`). A finding clicked, the cut link and a critic quote scroll the box to the
+`syncCompareRun`), and so does the Refine dialog's Refine (`syncRefineRun`,
+which checks `submitHold()` ahead of its own reasons; a press says it in the
+dialog as a sentence): it had looked live while the critic or Expand ran,
+and only a press said why. A finding clicked, the cut link and a critic quote scroll the box to the
 words they select (`scrollToSelection`, a hidden copy of the box laid out as
 it is): `setSelectionRange` scrolls nothing in a box that has focus, and after
 typing a long prompt the box sits at its end while the words are near its
