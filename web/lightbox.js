@@ -75,14 +75,60 @@ function lbNavRoom(reach = lbNavReach()) { return reach + 8; }
 // The boxes the picture is fitted into, in the stage's pixels: the whole
 // stage, or side by side its two halves, each showing the same crop - inside
 // the arrows, whose circles sat over the source's left edge and the pass's
-// right one there (alone, a picture is centred clear of them). `reach` is
-// lbNavReach's, where the caller has read it already.
-function lbPorts(reach) {
-  const sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight;
-  if (lbCompare.id === null || lbCompare.mode !== 'side') return [{ x: 0, w: sw, h: sh }];
+// right one there (alone, a picture is centred clear of them). Left and
+// right, or the source above the pass where that fits the picture larger
+// (`lbStacked`). `reach` is lbNavReach's, where the caller has read it
+// already; `sw` and `sh` a stage of another size than the one drawn
+// (lbFactsRoom); `stacked` the split, where the caller has decided it.
+function lbPorts(reach, sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight, stacked = undefined) {
+  if (lbCompare.id === null || lbCompare.mode !== 'side') return [{ x: 0, y: 0, w: sw, h: sh }];
+  return sidePorts(reach, sw, sh, stacked ?? lbStacked());
+}
+function sidePorts(reach, sw, sh, stacked) {
   const inset = Math.min(lbNavRoom(reach), sw / 8);
+  if (stacked) {
+    const w = sw - 2 * inset, h = (sh - LB_SIDE_GAP) / 2;
+    return [{ x: inset, y: 0, w, h }, { x: inset, y: h + LB_SIDE_GAP, w, h }];
+  }
   const w = (sw - 2 * inset - LB_SIDE_GAP) / 2;
-  return [{ x: inset, w, h: sh }, { x: inset + w + LB_SIDE_GAP, w, h: sh }];
+  return [{ x: inset, y: 0, w, h: sh }, { x: inset + w + LB_SIDE_GAP, y: 0, w, h: sh }];
+}
+
+// The stage as it is with the facts at six lines: under 901 px they take
+// what the picture leaves of it (lbFactsRoom), and this is the stage before
+// they did, whatever the picture before this one left them.
+function lbBaseStage() {
+  const sw = els.lbStage.clientWidth;
+  let sh = els.lbStage.clientHeight;
+  if (lbNarrow()) sh += Math.max(0, els.lbMeta.clientHeight - lbSixLines());
+  return [sw, sh];
+}
+const lbNarrow = () => matchMedia('(max-width: 900px)').matches;
+const lbSixLines = () => parseFloat(getComputedStyle(els.lbMeta).fontSize) * 6;
+
+// Whether side by side's halves go one above the other: where the window is
+// under 901 px, or the stage taller than it is wide, and the halves stacked
+// fit `rec` at least LB_STACK_GAIN larger than left and right do. At 600x900
+// left and right gave a square pass and its source 213 px each of a 549x626
+// stage, a 7:4 one 213x121, where stacked gives them 309 and 433; a portrait
+// pass keeps left and right, 213x372, where stacked would give it 177x309.
+// The gain is asked because stacked halves take the stage's height, which
+// was the facts' letterbox (lbFactsRoom): a square pass at 800x900 would
+// gain 15 px a side, 313 to 328, and lose every fact under Size. A
+// landscape stage from 901 px keeps left and right whatever the picture:
+// the layout side by side was designed in. Decided on the stage with the
+// facts at six lines (lbBaseStage), never on what the facts left of it:
+// decided there, a landscape pass's room was worked out for stacked halves,
+// the stage it left was wider than tall, and the halves were drawn left and
+// right at 213 px over a band of nothing.
+const LB_STACK_GAIN = 1.125;
+function lbStacked(rec = lbList[lbIndex]) {
+  if (!rec) return false;
+  const [sw, sh] = lbBaseStage();
+  if (!lbNarrow() && sh <= sw) return false;
+  const reach = lbNavReach();
+  const width = (stacked) => fitSize(rec, sidePorts(reach, sw, sh, stacked))[0];
+  return width(true) >= LB_STACK_GAIN * width(false);
 }
 
 // Fit is "contain": the largest size that shows the whole image inside its
@@ -125,10 +171,17 @@ function clipBox(box, rect) {
 function layoutLightbox() {
   const rec = lbList[lbIndex];
   if (!rec || !els.lightbox.open) return;
-  // Everything read off the page is read here, before the first write, so a
+  // First, as it moves the stage's edge: the facts under a one-column stage
+  // take what the picture leaves of it. It writes only when that changes -
+  // another image, another window - so what follows still holds:
+  // everything read off the page is read here, before the first write, so a
   // wheel step, a pan move or a drag of the divider lays the page out once.
+  // The split is decided before, on the stage as it is with the facts at
+  // six lines, so the room and the halves agree (lbStacked).
+  const stacked = lbCompare.id === rec.id && lbStacked(rec);
+  lbFactsRoom(rec, stacked);
   const reach = lbNavReach();
-  const ports = lbPorts(reach);
+  const ports = lbPorts(reach, undefined, undefined, stacked);
   const [fw, fh] = fitSize(rec, ports);
   const one = oneToOneScale(rec, ports);
   const w = fw * lbView.scale, h = fh * lbView.scale;
@@ -139,16 +192,22 @@ function layoutLightbox() {
   lbView.x = Math.min(maxX, Math.max(-maxX, lbView.x));
   lbView.y = Math.min(maxY, Math.max(-maxY, lbView.y));
   // The picture's box in a viewport; the pass is the last one's.
-  const boxIn = (port) => ({ left: port.x + (port.w - w) / 2 + lbView.x, top: (ph - h) / 2 + lbView.y, w, h });
-  const rectOf = (port) => ({ left: port.x, right: port.x + port.w, top: 0, bottom: ph });
+  const boxIn = (port) => ({
+    left: port.x + (port.w - w) / 2 + lbView.x, top: port.y + (port.h - h) / 2 + lbView.y, w, h,
+  });
+  const rectOf = (port) => ({ left: port.x, right: port.x + port.w, top: port.y, bottom: port.y + port.h });
   const pass = boxIn(ports.at(-1));
   placeBox(els.lbImg, pass);
   els.lbImg.style.clipPath = ports.length > 1 ? clipBox(pass, rectOf(ports.at(-1))) : '';
   layoutCompare(rec, ports, pass, boxIn, rectOf);
+  // The mode keeps its name where the halves are stacked; its title says
+  // which way they go, or would on a press (lbStacked).
+  const sides = stacked ? 'The source above the pass, each fitted to half the stage: larger here than left and right'
+    : 'The source left of the pass, each fitted to half the stage';
+  if (els.lbSideBySide.title !== sides) els.lbSideBySide.title = sides;
   // Tested in this order: a wheel stop between 1:1 and fit is neither.
   const percent = Math.round((lbView.scale / one) * 100);
-  els.lbZoom.textContent = Math.abs(lbView.scale - one) < 1e-3 ? '1:1'
-    : lbView.scale === 1 ? `fit · ${percent}%` : `${percent}%`;
+  writeZoom(Math.abs(lbView.scale - one) < 1e-3 ? '1:1' : lbView.scale === 1 ? `fit · ${percent}%` : `${percent}%`);
   els.lbStage.classList.toggle('zoomed', lbView.scale > 1);
   // The arrows: at fit, strips as wide as the backdrop beside the picture
   // (less a margin, 48-160 px) over the middle 60% of its height, so a press
@@ -167,6 +226,50 @@ function layoutLightbox() {
   const strips = lbView.scale === 1 && gutter >= least;
   els.lbMain.classList.toggle('strips', strips);
   els.lbMain.style.setProperty('--lb-gutter', `${strips ? Math.min(160, gutter) : least}px`);
+}
+
+// The zoom readout, written only when its words change: rewritten on every
+// layout, as it was, ten wheel notches queued ten announcements and a star
+// rewrote "fit · 124%" over itself. The readout on screen is aria-hidden
+// (index.html); what is said is its hidden copy, #lb-zoom-said, written
+// 400 ms after the last change - a wheel's burst, a resize, a step to an
+// image of another size - so a burst ends in one announcement, or at once
+// for a zoom a key, a button or a double-click asked for (`sayZoom`).
+let lbZoomTimer;
+function writeZoom(text) {
+  if (els.lbZoom.textContent === text) return;
+  els.lbZoom.textContent = text;
+  clearTimeout(lbZoomTimer);
+  lbZoomTimer = setTimeout(sayZoom, 400);
+}
+function sayZoom() {
+  clearTimeout(lbZoomTimer);
+  const text = els.lbZoom.textContent;
+  if (els.lbZoomSaid.textContent !== text) els.lbZoomSaid.textContent = text;
+}
+
+// Under a one-column stage (under 901 px) the facts are a scroller six lines
+// tall (style.css, .lb-meta), which showed Model and Size and hid the seed,
+// while a square picture at 600 px wide, or any landscape one, left the
+// stage a band of letterbox above and below it. The band is the facts':
+// --lb-room is how much taller than six lines they may grow - the stage's
+// height less the height the picture is fitted to, both as they would be
+// with the facts at six lines, so a tall picture keeps the whole stage and
+// nothing carries over from the image before.
+function lbFactsRoom(rec, stacked) {
+  const meta = els.lbMeta;
+  const was = meta.style.getPropertyValue('--lb-room');
+  if (!lbNarrow()) {
+    if (was) meta.style.removeProperty('--lb-room');
+    return;
+  }
+  const [sw, sh] = lbBaseStage();
+  const ports = lbPorts(undefined, sw, sh, stacked);
+  const [, fh] = fitSize(rec, ports);
+  // Stacked halves are two pictures and the gap between them.
+  const used = ports.length > 1 && ports[1].y > 0 ? 2 * fh + LB_SIDE_GAP : fh;
+  const room = `${Math.max(0, Math.floor(sh - used))}px`;
+  if (room !== was) meta.style.setProperty('--lb-room', room);
 }
 
 // The source's layer: over the pass and cut at the divider, or in the left
@@ -188,7 +291,7 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
   const port = rectOf(ports[0]);
   const seen = {
     left: Math.max(at.left, port.left), right: Math.min(at.left + at.w, port.right),
-    top: Math.max(at.top, 0), bottom: Math.min(at.top + at.h, port.bottom),
+    top: Math.max(at.top, port.top), bottom: Math.min(at.top + at.h, port.bottom),
   };
   let cut = seen;
   if (swipe) {
@@ -201,9 +304,11 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
     els.lbSplit.setAttribute('aria-valuetext', `#${source.id} on the left ${percent}%, #${rec.id} on the rest`);
   }
   els.lbSrcImg.style.clipPath = clipBox(box, cut);
+  // Side by side, the pass's own half: beside the source's, or under it.
+  const passPort = rectOf(ports.at(-1));
   const passSeen = swipe ? seen : {
-    left: Math.max(pass.left, ports.at(-1).x), right: Math.min(pass.left + pass.w, ports.at(-1).x + ports.at(-1).w),
-    top: seen.top,
+    left: Math.max(pass.left, passPort.left), right: Math.min(pass.left + pass.w, passPort.right),
+    top: Math.max(pass.top, passPort.top),
   };
   Object.assign(els.lbTagSrc.style, { left: `${seen.left + 8}px`, top: `${seen.top + 8}px` });
   // Swipe puts the pass's name at the far side, where the pass is.
@@ -217,8 +322,9 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
 // centre, keeping the image under that point where it is - the wheel zooms
 // about the pointer, the keys about the middle. Between fit or 1:1, whichever
 // is smaller, and 8x device pixels (`clampScale`); at or below fit the image
-// is centred.
-function zoomLightbox(factor, cx = 0, cy = 0) {
+// is centred. `say`: the new zoom is said at once - a key's, a button's -
+// rather than once the wheel's burst is over (`writeZoom`).
+function zoomLightbox(factor, cx = 0, cy = 0, say = true) {
   const rec = lbList[lbIndex];
   if (!rec) return;
   const next = clampScale(rec, lbView.scale * factor);
@@ -228,22 +334,26 @@ function zoomLightbox(factor, cx = 0, cy = 0) {
   lbView.scale = next;
   if (next <= 1) lbView.x = lbView.y = 0;
   layoutLightbox();
+  if (say) sayZoom();
 }
 
-function zoomFit() { lbView.scale = 1; lbView.x = lbView.y = 0; layoutLightbox(); }
+function zoomFit() { lbView.scale = 1; lbView.x = lbView.y = 0; layoutLightbox(); sayZoom(); }
 function zoomOneToOne(cx = 0, cy = 0) {
   const rec = lbList[lbIndex];
   if (rec) zoomLightbox(oneToOneScale(rec) / lbView.scale, cx, cy);
 }
 
 // Pointer position relative to the centre of the viewport it is in - either
-// half, side by side, since both show the same crop - for zooming about it.
+// half, side by side or stacked, since both show the same crop - for zooming
+// about it.
 function stagePoint(e) {
   const box = els.lbStage.getBoundingClientRect();
-  const x = e.clientX - box.left;
-  const ports = lbPorts();
-  const port = ports.find((p) => x < p.x + p.w + LB_SIDE_GAP / 2) ?? ports.at(-1);
-  return [x - port.x - port.w / 2, e.clientY - box.top - box.height / 2];
+  const x = e.clientX - box.left, y = e.clientY - box.top;
+  // The half whose centre is nearer: the halves are one size, so that is the
+  // one the point is in, or the gap's nearer side.
+  const offset = (p) => [x - p.x - p.w / 2, y - p.y - p.h / 2];
+  const [port] = lbPorts().sort((a, b) => Math.hypot(...offset(a)) - Math.hypot(...offset(b)));
+  return offset(port);
 }
 
 // Whether a point is on the picture - either picture, comparing - as drawn:
@@ -279,7 +389,11 @@ function renderLightbox() {
     lbDrawn = rec;
     els.lbSettings.replaceChildren(factsList(rec, { useSeed: true }), passesLine(rec));
   }
-  els.lbCount.textContent = lightboxCount(rec);
+  // A live region, written only when its words change: a star, a status or
+  // a delete elsewhere re-renders the same image, and each rewrite said the
+  // same words again (the zoom's likewise, writeZoom).
+  const count = lightboxCount(rec);
+  if (els.lbCount.textContent !== count) els.lbCount.textContent = count;
   els.lbPrev.disabled = lbIndex === 0;
   els.lbNext.disabled = lbIndex === lbList.length - 1 && !canPage();
   // A toggle whose words stay "Star" (its aria-label too), as the card's
@@ -722,6 +836,10 @@ function closeLightbox() {
   if (els.lightbox.open) els.lightbox.close();
   clearTimeout(lbCloseTimer);
   clearTimeout(lbPassesTimer);
+  // The readouts written only when they change start empty, so the next
+  // open says where it is and at what zoom, as a fresh open always did.
+  clearTimeout(lbZoomTimer);
+  els.lbCount.textContent = els.lbZoom.textContent = els.lbZoomSaid.textContent = '';
   els.lbImg.src = '';
   els.lbSrcImg.removeAttribute('src');
   els.lbError.hidden = true;
@@ -872,7 +990,7 @@ function lbSourceFailed() {
 // band each side the wheel scrolled the page behind the dialog.
 function lbWheel(e) {
   e.preventDefault();
-  zoomLightbox(Math.exp(-e.deltaY * 0.002), ...stagePoint(e));
+  zoomLightbox(Math.exp(-e.deltaY * 0.002), ...stagePoint(e), false);
 }
 
 // Drag to pan. A press that never moved is a click: on the stage beside the

@@ -71,6 +71,9 @@
      --lb-nav       40px  the lightbox's arrow circles; 52px from 1800 px, with the
                     wide tier's larger controls (lightbox.js measures the circle
                     for side by side's halves and the strips' least width)
+     --prompt-cap   12lh  a prompt shown above its facts - the result column's,
+                    the lightbox's - at most, scrolling inside itself past it: an
+                    85-word prompt is 8-11 lines there, a NewBie XML one 29
      --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
      --result-w     300-420px the column beside the one image just made, from 1800 px
      --recent-w     280-420px this page's earlier results beside it, from 2000 px
@@ -160,6 +163,7 @@
   --runs-w: 190px;
   --lb-side-w: 280px;
   --lb-nav: 40px;
+  --prompt-cap: 12lh;
   --dock-w: clamp(520px, 30vw, 760px);
   --result-w: clamp(300px, 17vw, 420px);
   --recent-min: 280px;
@@ -1781,7 +1785,15 @@ button { font: inherit; cursor: pointer; }
 .result-actions .star::after { content: " " attr(data-word); }
 .result-actions .star[aria-pressed="true"] { color: var(--star); }
 .result-actions .reuse-settings.model-mismatch { color: var(--warn); }
-.result-prompt { margin: 0; color: var(--text); font-size: var(--fs-md); line-height: 1.45; overflow-wrap: anywhere; }
+/* The prompt as it was written, its line breaks kept - an XML prompt's
+   blocks ran together into one paragraph, and which attributes were whose
+   could not be read - and at most --prompt-cap tall, scrolling inside
+   itself past that, so the facts under it stay in the column's view. Its
+   own size, not a flex share of what the column leaves (`flex: none`). */
+.result-prompt {
+  margin: 0; color: var(--text); font-size: var(--fs-md); line-height: 1.45; overflow-wrap: anywhere;
+  white-space: pre-line; max-height: var(--prompt-cap); overflow-y: auto; flex: none;
+}
 /* Under 1800 px the image just made, alone and made from the prompt, is
    named under the strip - "#12 · 1024×1024 · seed 5 · Use seed" (noteViewer)
    - where only its title had said its seed; from 1800 px the column beside
@@ -2091,6 +2103,15 @@ button { font: inherit; cursor: pointer; }
   --cell-w: var(--cell-max);
 }
 .sheet.fill-width .sheet-grid { --cell-w: 1fr; }
+/* A matrix's rows, for a screen reader's table (role=row, renderSheet): no
+   box of their own, so the heads and cells are still the grid's items and
+   the heads stick as they did. */
+.sheet-row { display: contents; }
+/* What a sheet is, said as it opens (sheet.js, saySheet). */
+.sheet-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
 /* The heads at the text's size and colour - 11 px grey over cells 500 px and
    more across - and stuck to the box's top and left edges, each over its
    whole row or column and the gap beside it on the page's own background, so
@@ -2106,6 +2127,12 @@ button { font: inherit; cursor: pointer; }
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
   overflow-wrap: break-word; min-width: 0;
 }
+/* A long number in a label - a seed - goes to a line of its own whole, and
+   breaks only where it alone is wider than its column, between its groups of
+   four digits (sheet.js, numberLabel): "Seed" over "7601520420449509", never
+   "Seed 760152042044" over "9509". Broken, its lines are balanced:
+   "76015204" over "20449509", not "760152042044" over "9509". */
+.sheet-grid .label > .number { display: inline-block; text-wrap: balance; }
 .sheet-grid .head {
   top: 0; align-items: flex-end; justify-content: center; text-align: center; padding-bottom: 2px;
 }
@@ -2443,7 +2470,13 @@ button { font: inherit; cursor: pointer; }
   font-variant-numeric: tabular-nums;
   word-break: break-word;
 }
-.lb-prompt { margin: 0 0 10px; font-size: var(--fs-body-sm); line-height: 1.45; }
+/* Its line breaks kept and its height capped, as the result column's prompt
+   (.result-prompt): a 29-line XML prompt run into one paragraph was 800 px
+   that put the facts below the column's fold. */
+.lb-prompt {
+  margin: 0 0 10px; font-size: var(--fs-body-sm); line-height: 1.45;
+  white-space: pre-line; max-height: var(--prompt-cap); overflow-y: auto;
+}
 /* What made an image, a fact a row (factsList): the term muted in a column
    of its own, the value beside it, so the seed is found by its name rather
    than read for in a sentence of commas. Not the lightbox's alone: anything
@@ -2493,6 +2526,12 @@ button { font: inherit; cursor: pointer; }
 .lb-keys { margin: 0; min-height: 0; }
 .lb-zoom-group { display: flex; align-items: center; gap: var(--sp-2); }
 .lb-zoom { color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; min-width: 4em; }
+/* The zoom for a screen reader, said once a wheel's burst is over (the
+   readout on screen is aria-hidden). Out of the row's flow, so no gap. */
+.lb-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
 .lb-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lb-actions .ghost { width: 100%; }
 #lb-fav.active { color: var(--star); border-color: var(--star); }
@@ -2571,7 +2610,14 @@ button { font: inherit; cursor: pointer; }
     flex-direction: row; flex-wrap: wrap; align-items: center;
   }
   .lb-head { order: 1; margin-left: auto; }
-  .lb-meta { flex: 1 1 100%; max-height: 6em; }
+  /* Six lines, and the letterbox a square or landscape picture leaves the
+     stage (--lb-room, lightbox.js's lbFactsRoom): the seed had been in the
+     hidden part of an 84 px scroller over 126 px of empty stage. */
+  .lb-meta { flex: 1 1 100%; max-height: calc(6em + var(--lb-room, 0px)); }
+  /* Four lines in a box at least six tall, so the facts follow it in view
+     and a long prompt scrolls inside a box smaller than the one round it:
+     at --prompt-cap's twelve it was a scroller taller than its scroller. */
+  .lb-prompt { max-height: 4lh; }
   .lightbox .error { flex: 1 1 100%; }
   .lb-compare { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; align-items: center; }
   /* No room for a legend here, and the buttons' titles name their keys. */

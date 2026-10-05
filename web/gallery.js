@@ -1167,7 +1167,7 @@ function forgetImages(ids) {
     .filter((r) => r.refine != null && gone.has(r.refine) && !r.refine_missing));
   for (const r of orphans) {
     r.refine_missing = true;
-    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { img.title = cardTitle(r); });
+    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
   }
   if (orphans.size) {
     document.querySelectorAll('.reuse-settings').forEach((b) => {

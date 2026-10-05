@@ -670,17 +670,67 @@ async function loadRuns() {
   syncRunList();
 }
 
+// The run the search box shows, if it shows one.
+const shownRun = () => /^run:(\S+)$/.exec(els.search.value.trim())?.[1] ?? null;
+
 // The picker names the run the gallery is showing - the search box's
 // `run:<id>`, however it got there: a pick here, a card's ⊞, Show run, the
 // sheet's return, typing - and "Runs…" for anything else. It used to go back
 // to "Runs…" the moment a run was picked, leaving a hex id in the box as the
 // only label of what was on screen.
 function syncRunList() {
-  const shown = /^run:(\S+)$/.exec(els.search.value.trim())?.[1];
+  // A run browsed to from the keyboard and not yet opened (runListKey) stays
+  // where the arrows left it through a rebuilt list.
+  const shown = runPending ?? shownRun();
   els.runList.value = shown && [...els.runList.options].some((o) => o.value === shown) ? shown : '';
   // The closed picker is narrower than its labels (style.css, --runs-w): the
   // picked run's is whole in the title.
   els.runList.title = els.runList.value ? els.runList.selectedOptions[0].text : 'Recent runs';
+}
+// A pick opens its run at once: a click in the open list, or Alt+Down and
+// Enter, which change the picker with no key on it first. Browsed from the
+// keyboard while closed - the arrows, Home and End, Page Up and Down, a
+// letter's type-ahead - the picker changes at every key, and each change
+// opened that run's sheet, asking the server for the whole run and
+// scrolling the page: reaching the tenth run opened nine. A change one of
+// those keys made is noted (`runPending`) and opened by Enter or by leaving
+// the picker; Escape puts back the run the gallery shows. The key marks the
+// change it causes alone - the change comes inside the key's own default -
+// and the mark is gone by the next task.
+let runKeyed = false;
+let runPending = null;
+const RUN_BROWSE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
+function runListKey(e) {
+  if (e.key === 'Enter') {
+    if (runPending !== null) { e.preventDefault(); commitRunList(); }
+    return;
+  }
+  if (e.key === 'Escape') {
+    if (runPending !== null) { e.preventDefault(); runPending = null; syncRunList(); }
+    return;
+  }
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (RUN_BROWSE_KEYS.has(e.key) || (e.key.length === 1 && e.key !== ' ')) {
+    runKeyed = true;
+    setTimeout(() => { runKeyed = false; });
+  }
+}
+
+function runListChange() {
+  if (runKeyed) {
+    runPending = els.runList.value;
+    syncRunList();
+    return;
+  }
+  runPending = null;
+  void showRun(els.runList.value);
+}
+
+function commitRunList() {
+  const run = runPending;
+  runPending = null;
+  if (run && run !== shownRun()) void showRun(run);
+  else syncRunList();
 }
 
 // `fresh` is a comparison this page has just made: nothing in it is
@@ -689,14 +739,14 @@ function syncRunList() {
 // sheet's, and Re-render sends the tick with the search, so a sheet of
 // unstarred images under a ticked box would re-render none of them - and the
 // sheet says so.
-function showRun(runId, { fresh = false } = {}) {
+function showRun(runId, { fresh = false, asker } = {}) {
   if (!runId) return;
-  return showSheetScope(`run:${runId}`, { fresh });
+  return showSheetScope(`run:${runId}`, { fresh, asker });
 }
 
-function showJob(jobId, { fresh = false } = {}) {
+function showJob(jobId, { fresh = false, asker } = {}) {
   if (!jobId) return;
-  return showSheetScope(`job:${jobId}`, { fresh });
+  return showSheetScope(`job:${jobId}`, { fresh, asker });
 }
 
 // Every sheet the page opens comes through here: a comparison, a refine sweep,
@@ -713,9 +763,12 @@ function showJob(jobId, { fresh = false } = {}) {
 // own filters - stay in view above it. Not for the Sheet button (`scroll:
 // false`), pressed at the gallery head already - unless the gallery stood
 // beside the viewer, where the sheet opens under it (setSheet). The scroll
-// moves no focus and hides nothing: the check and the viewer, where a running
-// job lands, are a scroll up.
-function showSheetScope(search, { fresh = false, notice = null, scroll = true } = {}) {
+// hides nothing - the check and the viewer, where a running job lands, are a
+// scroll up - and takes focus along only where the control that asked
+// (`asker`: the one focused now, unless the caller knows better - a job's
+// sheet, the one its submission was pressed on) is left out of sight, or
+// focus has fallen out of the page (sheet.js's focusSheet).
+function showSheetScope(search, { fresh = false, notice = null, scroll = true, asker = document.activeElement } = {}) {
   const unticked = fresh && els.favOnly.checked;
   if (unticked) els.favOnly.checked = false;
   if (!sheetMode || !sheetReturn || els.search.value.trim() !== sheetReturn.wrote) {
@@ -724,7 +777,7 @@ function showSheetScope(search, { fresh = false, notice = null, scroll = true } 
     sheetReturn.wrote = search;
   }
   els.search.value = search;
-  const opened = setSheet(true, { land: scroll });
+  const opened = setSheet(true, { land: scroll, asker });
   // setSheet has begun the query the notice belongs to; another one drops it.
   const epoch = galleryEpoch;
   const text = unticked ? 'Starred unticked: nothing in a new comparison is starred yet' : notice;
@@ -734,12 +787,15 @@ function showSheetScope(search, { fresh = false, notice = null, scroll = true } 
 
 // Where a sheet is landed on, once drawn (setSheet, only if it is still the
 // sheet shown): the gallery head under the topbar, room reserved under the
-// sheet for it to get there.
-function landOnSheet() {
+// sheet for it to get there - and, once the scroll is over and if the sheet
+// is still the one shown, the focus (focusSheet).
+function landOnSheet(asker = null) {
   const head = document.querySelector('.gallery-head');
   reserveSheetRoom(head);
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   head.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  const epoch = galleryEpoch;
+  void scrollSettled().then(() => { if (sheetMode && epoch === galleryEpoch) focusSheet(asker); });
 }
 
 // Room under a sheet for its head to come up to the topbar: a short sheet
@@ -788,10 +844,11 @@ function clearResults(job = null) {
   viewerRecords = [];
   Object.assign(viewerJob, { expected: job?.planned_images ?? 0, width: job?.width ?? 0, height: job?.height ?? 0 });
   // Focus on what goes - a result's tool the Refine dialog handed it back
-  // to, its picture - goes to Generate rather than to <body>.
+  // to, its picture - goes to Generate rather than to <body>, and a sheet the
+  // job opens takes it on from there (handJobFocus).
   const focused = els.viewer.contains(document.activeElement);
+  if (focused) handJobFocus(els.generate);
   els.viewer.innerHTML = '';
-  if (focused) els.generate.focus({ preventScroll: true });
   els.viewer.scrollTop = 0;
   els.viewer.style.maxHeight = '';
   els.viewer.style.minHeight = '';
@@ -1326,9 +1383,10 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   // Named as the page names images, by gallery id - the cells of a sweep
   // share a prompt, and "Open: …" named none of them apart - and titled with
   // what tells it from the one beside it under the pointer (cardTitle): its
-  // size, its seed and a pass's source, then the prompt.
+  // size, its seed and a pass's source, then the prompt. A sheet's cell is
+  // named by what the sheet lays out instead (renderSheet).
   img.setAttribute('aria-label', `Open #${rec.id}: ${rec.prompt}`);
-  img.title = cardTitle(rec);
+  titleImage(img, rec);
   img.onclick = open;
   // A plain Enter or Space only: Ctrl+Enter is Generate's from anywhere
   // (app.js), and on a focused image - where closing the lightbox leaves the
@@ -1338,4 +1396,20 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
   };
   return img;
+}
+
+// An image's title, cardTitle's facts and then its prompt, for the pointer,
+// and its description, the facts alone: the title was the description too,
+// so a long prompt was read twice an image, once in the name ("Open #N:
+// <prompt>") and again after "#N · W×H · seed N". `aria-description` takes
+// the title's place there, less any fact the name says already: a sheet's
+// cell is named by its settings ("Open #16 · Steps 2 · Seed 7", renderSheet,
+// which calls this again once it has named it), and its id and seed were
+// read twice. Again where a deleted source changes the facts (forgetImages).
+function titleImage(img, rec) {
+  const title = cardTitle(rec);
+  img.title = title;
+  const named = new Set((img.getAttribute('aria-label') ?? '').replace(/^Open /, '').toLowerCase().split(' · '));
+  const facts = title.split('\n')[0].split(' · ').filter((fact) => !named.has(fact.toLowerCase()));
+  img.setAttribute('aria-description', facts.join(' · '));
 }

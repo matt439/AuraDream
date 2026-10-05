@@ -506,6 +506,21 @@ function setStep(show, fraction = 0, text = '') {
   els.stepText.textContent = text;
 }
 
+// The page moving focus itself where a job it submitted took it from - the
+// Refine dialog closed on its run, the strip a job's first frame empties -
+// to `to`, without moving the page. A sheet a job opens at its end takes
+// focus along from the control pressed (sheet.js, focusSheet), so that
+// control becomes `to` where focus was on it or it has gone: a sweep run
+// from the viewer's ⤢ left focus on Generate, a screen above its sheet in
+// one column, and the next Tab took the page back up to it.
+function handJobFocus(to) {
+  const from = document.activeElement;
+  to.focus({ preventScroll: true });
+  for (const submitted of submissions.values()) {
+    if (submitted.asker && (submitted.asker === from || !isShown(submitted.asker))) submitted.asker = to;
+  }
+}
+
 // Every submit button queues one job and then watches the same stream; only
 // the endpoint and the payload differ. `sheet` opens the job as a sheet once
 // its stream reports done - the prompt check's comparison and a refine
@@ -535,6 +550,8 @@ async function startJob(path, payload, {
   if (critiquing) { showError('Wait for the critic to finish.', false, { slot }); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
+  // The control pressed, for a sheet the job opens at its end (finishJob).
+  const asker = document.activeElement;
   showError('');
   if (slot !== els.error) showError('', false, { slot });
   // Already watching a job: this one queues behind it on the server, and the
@@ -560,7 +577,7 @@ async function startJob(path, payload, {
     // The topbar's "loading…" now, not at the next poll, beside the panel's
     // own "loading weights".
     void refreshStatus();
-    submissions.set(job_id, { path, payload, seed, sheet, at: Date.now() });
+    submissions.set(job_id, { path, payload, seed, sheet, asker, at: Date.now() });
     jobLabels.set(job_id, submissionLabel(path, payload));
     if (placeholder) jobPlaceholders.set(job_id, placeholder);
     if (sheet) jobsToShow.add(job_id);
@@ -1658,7 +1675,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false }) {
   // A comparison opens this submission alone. Run ids name rendered
   // cells, so reversing original/yours on the same seeds shares a run
   // but must not mix the two meanings of either version label.
-  if (sheet && images.length) { showJob(jobId, { fresh: true }); loadRuns(); }
+  if (sheet && images.length) { showJob(jobId, { fresh: true, asker: submitted?.asker ?? null }); loadRuns(); }
   else if (images.length) {
     void Promise.resolve(prependFinished(made)).then((coming) => noteOutsideView(images, coming));
     loadRuns();

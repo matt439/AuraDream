@@ -173,6 +173,11 @@ function promptEdit(base, text) {
 // twice, a puzzle where "same words, new order" was meant; it says what moved
 // once, from the added side.
 function versionEdit(original, prompt) {
+  // Whole XML blocks in another order are named by their tags: as words,
+  // NewBie's <character_2> moved first read "character_2 … kasane_teto …
+  // pink_hair …", the markup's names and every tag inside it.
+  const blocks = blockMove(original, prompt);
+  if (blocks) return blocks.move ? `same blocks, moved: ${blocks.move}` : tagLine('same blocks, in the order', blocks.order);
   const words = (text) => text.match(/[\p{L}\p{N}]+/gu) ?? [];
   const [before, after] = [words(original), words(prompt)];
   const sorted = (list) => [...list].sort().join(' ');
@@ -181,6 +186,71 @@ function versionEdit(original, prompt) {
     .map(({ added }) => added.replace(/^[\s,;:.]+|[\s,;:.]+$/g, ''))
     .filter(Boolean);
   return `same words, moved: ${moved.join(' … ')}`;
+}
+
+// Tags after `lead` in at most EDIT_CHARS characters, cut between two tags
+// with an ellipsis: the row head's line was cut at its 80th character, and
+// four blocks' order ended inside a tag, "<character_" read as a block of
+// its own. The row head's title is the whole prompt.
+const EDIT_CHARS = 80;
+function tagLine(lead, tags) {
+  let line = lead;
+  for (const [i, tag] of tags.entries()) {
+    const more = i < tags.length - 1 ? ' …'.length : 0;
+    if (line.length + 1 + tag.length + more > EDIT_CHARS) return `${line} …`;
+    line += ` ${tag}`;
+  }
+  return line;
+}
+
+// A prompt's top-level XML blocks, as the critic finds them: critic.py's
+// _XML_BLOCK, Python's Unicode \w written out (JavaScript's \w is ASCII
+// alone), held equal by tests/test_critic.py. Each block's tag and its text,
+// its spaces collapsed, and `gaps`, the text before, between and after them,
+// each in its place: loose text that moves past a block is an edit too.
+const XML_BLOCK = /<([A-Za-z_][\p{L}\p{N}_.-]*)>[\s\S]*?<\/\1>/gu;
+function xmlBlocks(text) {
+  const blocks = [];
+  const gaps = [];
+  const squeeze = (t) => t.replace(/\s+/g, ' ').trim();
+  let at = 0;
+  for (const m of text.matchAll(XML_BLOCK)) {
+    gaps.push(squeeze(text.slice(at, m.index)));
+    blocks.push({ tag: `<${m[1]}>`, text: squeeze(m[0]) });
+    at = m.index + m[0].length;
+  }
+  gaps.push(squeeze(text.slice(at)));
+  return { blocks, gaps };
+}
+
+// Where `prompt` is `original`'s top-level XML blocks in another order and
+// nothing else - not a word in or between them changed - what moved, by the
+// blocks' tags: one block taken out and put back elsewhere is `move`
+// ("<general_tags> first", "<character_2> before <character_1>",
+// "<character_1> last"), named as the one that went earlier where either of
+// two could be; anything else is the new `order`, a list of the tags. Null
+// for any other edit, which reads as words.
+function blockMove(original, prompt) {
+  const a = xmlBlocks(original), b = xmlBlocks(prompt);
+  if (a.blocks.length < 2 || a.blocks.length !== b.blocks.length || a.gaps.join('\n') !== b.gaps.join('\n')) return null;
+  const was = a.blocks.map((x) => x.text), now = b.blocks.map((x) => x.text);
+  const same = (x, y) => x.join('\n') === y.join('\n');
+  if (same(was, now) || !same([...was].sort(), [...now].sort())) return null;
+  const without = (list, k) => list.filter((_, j) => j !== k);
+  const tag = (i) => b.blocks[i].tag;
+  for (let i = 0; i < now.length; i++) {
+    const from = was.indexOf(now[i]);
+    if (from > i && same(without(was, from), without(now, i))) {
+      return { move: i === 0 ? `${tag(i)} first` : `${tag(i)} before ${tag(i + 1)}` };
+    }
+  }
+  for (let i = now.length - 1; i >= 0; i--) {
+    const from = was.indexOf(now[i]);
+    if (from < i && same(without(was, from), without(now, i))) {
+      return { move: i === now.length - 1 ? `${tag(i)} last` : `${tag(i)} after ${tag(i - 1)}` };
+    }
+  }
+  return { order: b.blocks.map((x) => x.tag) };
 }
 
 // A header that repeats the forty words every prompt shares is unreadable, and
@@ -226,7 +296,17 @@ function promptLabels(prompts) {
   const labels = kept.map((w) => w.join(' ') || 'none');
   if (prompts.length > EDIT_LABELS_MAX) return labels;
   if (new Set(labels).size === labels.length && labels.every((l) => l.length <= LABEL_CHARS)) return labels;
-  return prompts.map((p, i) => (i === 0 ? p.trim() : promptEdit(prompts[0], p) || p.trim()));
+  // XML prompts whose blocks only moved are labelled by the blocks' tags
+  // (blockMove) - the oldest by its blocks' order where every other one is -
+  // where the edit's words were the markup's names and every tag moved.
+  const moves = prompts.map((p, i) => (i === 0 ? null : blockMove(prompts[0], p)));
+  const blockLabel = (m) => (m.move ? m.move : `blocks ${m.order.join(' ')}`);
+  const first = moves.slice(1).every(Boolean)
+    ? `blocks ${xmlBlocks(prompts[0]).blocks.map((x) => x.tag).join(' ')}` : prompts[0].trim();
+  return prompts.map((p, i) => {
+    if (i === 0) return first;
+    return moves[i] ? blockLabel(moves[i]) : promptEdit(prompts[0], p) || p.trim();
+  });
 }
 // The labels of the last prompt list. Every redraw of the same records - a
 // pin, an axis, a star, a delete - asks for them again.
@@ -445,16 +525,66 @@ function setAxis(side, key) {
 // A heading holds its label in a span of its own, which the stylesheet clamps
 // to three lines while the heading - stuck to the grid's edge - covers its
 // whole row or column; its title is the value whole, a prompt's full text
-// where the label is the words that vary.
-function headCell(text, className, title = text) {
+// where the label is the words that vary. A number's label (`numeric`: the
+// value is a number - a seed, steps, a weight) breaks only between groups of
+// four digits (`numberLabel`).
+function headCell(text, className, title = text, numeric = false) {
   const div = document.createElement('div');
   div.className = className || 'head';
   const label = document.createElement('span');
   label.className = 'label';
-  label.textContent = text;
+  if (numeric) label.append(...numberLabel(text));
+  else label.textContent = text;
   div.appendChild(label);
   if (title) div.title = title;
   return div;
+}
+
+// A head's 16-digit seed, broken by the label's `overflow-wrap: break-word`
+// wherever a column was under 112 px - an 8-seed comparison at 1400x900 read
+// "Seed 760152042044950" over "9", a number misread as another when typed
+// back - goes to a line of its own whole (`.number`, an inline-block), and
+// breaks only where the number alone is wider than its column, and then only
+// between groups of four digits counted from its end: a <wbr> between them
+// is a place to break, so a tail is never one to three digits. <wbr>s alone
+// filled the first line after "Seed" and split numbers that had gone onto a
+// line of their own whole, "Seed 760152042044" over "9509" in 112-143 px.
+// The text is the number whole, so a copy has every digit.
+function numberLabel(text) {
+  return text.split(/(\d{5,})/).flatMap((part, i) => {
+    if (i % 2 === 0) return part ? [part] : [];
+    const number = document.createElement('span');
+    number.className = 'number';
+    part.match(/\d{1,4}(?=(?:\d{4})*$)/g).forEach((group, j) => {
+      if (j) number.append(document.createElement('wbr'));
+      number.append(group);
+    });
+    return [number];
+  });
+}
+
+// What a sheet is, in words: the table's name ("Sheet: Steps × Seed"), and,
+// with its count of images, what is said as it opens (`saySheet`).
+function sheetSummary(wrap, colAxis, rowAxis, count, source = null) {
+  const axes = [colAxis, rowAxis].filter(Boolean).map((a) => a.label).join(' × ');
+  const parts = [
+    count == null ? '' : `${count} image${count === 1 ? '' : 's'}`,
+    axes && (wrap ? `by ${axes}` : axes),
+    source ? `beside source #${source.id}` : '',
+  ].filter(Boolean);
+  return parts.length ? `Sheet: ${parts.join(', ')}` : 'Sheet';
+}
+
+// Said as a sheet opens, from the page or the Sheet button (setSheet): the
+// page scrolled to it and nothing said what had happened. Written on the
+// next frame after an empty line, so the same sheet opened again is said
+// again; a sheet with nothing laid out says its note.
+function saySheet() {
+  const text = sheetLayout
+    ? sheetSummary(sheetLayout.wrap, sheetLayout.colAxis, sheetLayout.rowAxis, sheetLayout.shown, sheetLayout.source)
+    : `Sheet: ${els.sheetNote.textContent}`;
+  els.sheetSaid.textContent = '';
+  requestAnimationFrame(() => { if (sheetMode) els.sheetSaid.textContent = text; });
 }
 
 function labelled(text, control) {
@@ -733,6 +863,9 @@ function renderSheet() {
   const colValues = colAxis ? values[colAxis.key] : [null];
   const rowValues = rowAxis ? values[rowAxis.key] : [null];
   els.sheetGrid.innerHTML = '';
+  // A table, or a list where it wraps, once something is drawn (below).
+  els.sheetGrid.removeAttribute('role');
+  els.sheetGrid.removeAttribute('aria-label');
   // Nothing to lay out, and the note says so. Drawn anyway - a corner, two
   // heads and one empty cell - the cell grew to the window's height (the
   // fit's --cell-max) and the sheet was a screen-tall grey box.
@@ -800,9 +933,16 @@ function renderSheet() {
   // A pass looks like its source by design; a cell says it is one, unless
   // the strength is what the sheet lays out already (an axis or a pin).
   const strengthShown = values.strength.length > 1;
-  const cellFor = (rec, caption, badge) => {
+  // Each cell is named by what the sheet lays out - "Open #16 · Steps 2 ·
+  // Seed 7332…", a comparison's version by its name - where the name was
+  // "Open #16: <the prompt>", the one thing every cell of a run shares, and
+  // the setting each cell is there to show was nowhere in it. Where nothing
+  // is laid out (one image), the name is thumb's. A pin's value is every
+  // cell's, and the sheet's controls say it.
+  const cellFor = (rec, caption, badge, heads = []) => {
     const cell = document.createElement('div');
     cell.className = 'sheet-cell';
+    cell.setAttribute('role', wrap ? 'listitem' : 'cell');
     if (!rec) {
       cell.classList.add('empty');
       return cell;
@@ -810,6 +950,10 @@ function renderSheet() {
     cell.classList.toggle('fav', !!rec.favorite);
     cell.dataset.id = rec.id;
     const img = thumb(rec, walk);
+    if (heads.length) {
+      img.setAttribute('aria-label', [`Open #${rec.id}`, ...heads].join(' · '));
+      titleImage(img, rec);
+    }
     // The full PNG beside the thumbnail, for a cell drawn wider than the
     // thumbnail is (fitSheet sets `sizes`): 384 px shown at 520 was soft
     // exactly where a CFG or steps sweep differs. Lazy loading still fetches
@@ -840,7 +984,24 @@ function renderSheet() {
     }
     return cell;
   };
-  const add = (el) => els.sheetGrid.appendChild(el);
+  // A matrix is a table to a screen reader: each of its rows a role=row of
+  // its own that lays nothing out (`.sheet-row`, display: contents), so the
+  // heads and cells are still the grid's items, the heads are column and row
+  // headers, and a cell is read with the setting above it and the one
+  // beside it. A wrapped row is a list of captioned cells.
+  els.sheetGrid.setAttribute('role', wrap ? 'list' : 'table');
+  els.sheetGrid.setAttribute('aria-label', sheetSummary(wrap, colAxis, rowAxis, null, source));
+  let into = els.sheetGrid;
+  const startRow = () => {
+    into = document.createElement('div');
+    into.className = 'sheet-row';
+    into.setAttribute('role', 'row');
+    els.sheetGrid.appendChild(into);
+  };
+  const add = (el, role = null) => {
+    if (role) el.setAttribute('role', role);
+    return into.appendChild(el);
+  };
   // A prompt label is prose rather than a number, so its row head is capped
   // in width and wraps; a variable's values are prose too.
   const prose = (axis) => (
@@ -852,12 +1013,13 @@ function renderSheet() {
   const rowHead = (v) => {
     if (!rowAxis) return headCell('', 'rowhead');
     const prompt = versions?.get(v);
-    const head = headCell(headText(rowAxis, v), `rowhead${prose(rowAxis)}`, prompt ?? headTitle(rowAxis, v));
+    const head = headCell(headText(rowAxis, v), `rowhead${prose(rowAxis)}`, prompt ?? headTitle(rowAxis, v),
+      typeof v === 'number');
     const edit = prompt && original && v !== 'original' ? versionEdit(original, prompt) : '';
     if (edit) {
       const line = document.createElement('span');
       line.className = 'rowhead-edit';
-      line.textContent = edit.length > 80 ? `${edit.slice(0, 79)}…` : edit;
+      line.textContent = edit.length > EDIT_CHARS ? `${edit.slice(0, EDIT_CHARS - 1)}…` : edit;
       head.classList.add('has-edit');
       head.appendChild(line);
     }
@@ -865,19 +1027,23 @@ function renderSheet() {
   };
 
   if (!wrap) {
-    add(headCell('', 'head corner'));
+    startRow();
+    add(headCell('', 'head corner'), 'cell');
     if (source) {
       add(headCell(`Source #${source.id}`, 'head',
-        `#${source.id}, ${source.width}×${source.height}: the image every pass here was refined from`));
+        `#${source.id}, ${source.width}×${source.height}: the image every pass here was refined from`), 'columnheader');
     }
     colValues.forEach((v) => {
       add(colAxis
-        ? headCell(headText(colAxis, v), `head${prose(colAxis)}`, headTitle(colAxis, v))
-        : headCell('', 'head'));
+        ? headCell(headText(colAxis, v), `head${prose(colAxis)}`, headTitle(colAxis, v), typeof v === 'number')
+        : headCell('', 'head'), 'columnheader');
     });
   }
   rowValues.forEach((rowValue, r) => {
-    if (!wrap) add(rowHead(rowValue));
+    if (!wrap) {
+      startRow();
+      add(rowHead(rowValue), 'rowheader');
+    }
     // The source spans every row: one image the passes are all set against.
     // Cropped as the passes were (style.css): a 1:1 source letterboxed
     // beside 3:2 passes cut from it set two framings side by side, which
@@ -887,9 +1053,12 @@ function renderSheet() {
       const cropped = Math.abs(source.width / source.height - passAspect) / passAspect > 0.01;
       const caption = [wrap ? `Source #${source.id}` : '', cropped ? 'cropped as the passes were' : '']
         .filter(Boolean).join(' · ');
-      const cell = add(cellFor(source, caption, true));
+      const cell = add(cellFor(source, caption, true, ['Source']));
       cell.classList.add('source');
-      if (!wrap) cell.style.gridRow = `span ${rowValues.length}`;
+      if (!wrap) {
+        cell.style.gridRow = `span ${rowValues.length}`;
+        cell.setAttribute('aria-rowspan', String(rowValues.length));
+      }
     }
     colValues.forEach((v, c) => {
       const rec = cellOf.get(r * colValues.length + c);
@@ -897,9 +1066,12 @@ function renderSheet() {
         shown.push(rec);
         walk.push(rec);
       }
-      add(cellFor(rec, wrap ? headText(colAxis, v) : '', !strengthShown));
+      const heads = [colAxis && headText(colAxis, v), rowAxis && headText(rowAxis, rowValue)].filter(Boolean);
+      add(cellFor(rec, wrap ? headText(colAxis, v) : '', !strengthShown, heads));
     });
   });
+  // What saySheet counts.
+  sheetLayout.shown = shown.length;
 
   const pinned = pins
     .map(([axis, v]) => `${axis.label.toLowerCase()} ${clip(sheetText(axis, v))}`)
@@ -1500,7 +1672,9 @@ function toggleSheet() {
 // sheet takes the page out of the gallery's column beside the viewer, which
 // is no width for a sheet: the page is one column again, and the sheet,
 // under the viewer, would otherwise open out of sight of the press.
-function setSheet(on, { land = false } = {}) {
+// `asker` is the control that asked for it, for the landing's focus
+// (focusSheet). Every sheet opened is said (saySheet).
+function setSheet(on, { land = false, asker = null } = {}) {
   sheetMode = on;
   if (on && besideOn) land = true;
   syncBeside();
@@ -1522,8 +1696,71 @@ function setSheet(on, { land = false } = {}) {
     sheetReturn = null;
   }
   const opened = resetGallery();
-  if (!land) return opened;
-  // The query just begun: another one drops the landing with it.
+  if (!on) {
+    els.sheetSaid.textContent = '';
+    return opened;
+  }
+  // The query just begun: another one drops what follows with it.
   const epoch = galleryEpoch;
-  return opened.then(() => { if (sheetMode && epoch === galleryEpoch) landOnSheet(); });
+  return opened.then(() => {
+    if (!sheetMode || epoch !== galleryEpoch) return;
+    saySheet();
+    if (land) landOnSheet(asker);
+  });
+}
+
+// Resolves once the page has stopped scrolling - a smooth scroll's frames
+// run out, or there were none - read as three frames at one scrollY, or a
+// second and a half at most.
+function scrollSettled() {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    let last = scrollY, still = 0;
+    const tick = () => {
+      if (scrollY === last) still += 1;
+      else { still = 0; last = scrollY; }
+      if (still >= 3 || performance.now() - start > 1500) resolve();
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+// Once a page-opened sheet has been landed on (landOnSheet), the focus. Left
+// on what asked - Run comparison at every width, the finish line's Show
+// sheet in one column - it was out of sight above the sheet, and the next
+// Tab scrolled the page back away from it; where the sheet took it away -
+// a card's ⊞, the gallery hidden under the sheet - it had fallen to <body>.
+// Either goes to the sheet's first cell, without moving the page (else the
+// search box, over a sheet with nothing in it). `asker` is the control that
+// asked, or where the page itself put focus since (handJobFocus). Focus
+// anywhere else stays: a comparison's sheet opens when its job ends, maybe
+// while the prompt is being typed in.
+function focusSheet(asker) {
+  const now = document.activeElement;
+  const lost = !now || now === document.body || !isShown(now);
+  if (!lost && (now !== asker || wholeInSight(now))) return;
+  (els.sheetGrid.querySelector('.sheet-cell img[data-id]') ?? els.search).focus({ preventScroll: true });
+}
+
+// Whether all of `el` can be seen: inside the window under the topbar and
+// inside every box round it that clips what overflows it. The window alone
+// is not enough: at 2560 the docked prompt check scrolls inside itself, and
+// once the sheet was landed on, Run comparison lay in the window under the
+// topbar and wholly outside the check's own box - out of sight, and the next
+// Tab took the page back to it.
+function wholeInSight(el) {
+  const box = el.getBoundingClientRect();
+  let top = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  let bottom = innerHeight, left = 0, right = innerWidth;
+  for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
+    const style = getComputedStyle(up);
+    if (style.display === 'contents' || (style.overflowX === 'visible' && style.overflowY === 'visible')) continue;
+    const clip = up.getBoundingClientRect();
+    top = Math.max(top, clip.top);
+    bottom = Math.min(bottom, clip.bottom);
+    left = Math.max(left, clip.left);
+    right = Math.min(right, clip.right);
+  }
+  return box.top >= top - 0.5 && box.bottom <= bottom + 0.5 && box.left >= left - 0.5 && box.right <= right + 0.5;
 }

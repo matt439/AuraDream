@@ -645,7 +645,10 @@ window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
 // The picker then names the run on screen: resetGallery follows the search box.
-els.runList.onchange = () => showRun(els.runList.value);
+// Browsed from the keyboard, a run opens on Enter or as focus leaves (panel.js).
+els.runList.onchange = runListChange;
+els.runList.addEventListener('keydown', runListKey);
+els.runList.addEventListener('blur', commitRunList);
 els.lastRunShow.onclick = () => {
   const { run, job } = els.lastRun.dataset;
   if (run) showRun(run);

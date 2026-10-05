@@ -661,6 +661,10 @@
         <!-- A gallery with nothing to show says so (syncGalleryEmpty): a blank
              screen under a disabled "No runs yet" said nothing of what fills it. -->
         <p class="hint gallery-empty" id="gallery-empty" hidden></p>
+        <!-- What a sheet is, said as it opens ("Sheet: 6 images, Steps ×
+             Seed"; sheet.js's saySheet), outside the sheet, which is hidden
+             until then. -->
+        <p class="sheet-said" id="sheet-said" aria-live="polite"></p>
         <div class="grid" id="gallery"></div>
         <!-- The contact sheet: one run laid out as the grid that produced it. -->
         <div class="sheet" id="sheet" hidden>
@@ -743,7 +747,10 @@
     <div class="lb-zoom-group">
       <button class="ghost" id="lb-fit" title="Fit to the window (0)">Fit</button>
       <button class="ghost" id="lb-one" title="One image pixel per screen pixel (1)">1:1</button>
-      <span class="lb-zoom" id="lb-zoom" aria-live="polite"></span>
+      <!-- The readout on screen, and its hidden copy, which is what is said:
+           written once a wheel's burst is over (lightbox.js, writeZoom). -->
+      <span class="lb-zoom" id="lb-zoom" aria-hidden="true"></span>
+      <span class="lb-said" id="lb-zoom-said" aria-live="polite"></span>
     </div>
     <div class="lb-actions">
       <!-- A toggle named Star in either state, as the card's star is: the
