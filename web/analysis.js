@@ -413,11 +413,20 @@ function writeButton(label, title, onClick, { negative = false } = {}) {
 // check that follows makes the new text the comparison's original: what was
 // typed would be nowhere on the page. The insert fires `input` like typing;
 // a greyed box, or a browser that will not insert, gets the plain write.
+// `replacingBox` is true while it writes, for a listener to tell the page's
+// own whole-box writes - an Example, Reuse, Reset, a Use - from typing:
+// ERNIE's Expand holds a result the user typed over, never one they replaced.
+let replacingBox = false;
 function replaceBoxText(el, text) {
-  el.focus();
-  el.select();
-  const inserted = document.activeElement === el && document.execCommand('insertText', false, text);
-  if (!inserted) el.value = text;
+  replacingBox = true;
+  try {
+    el.focus();
+    el.select();
+    const inserted = document.activeElement === el && document.execCommand('insertText', false, text);
+    if (!inserted) el.value = text;
+  } finally {
+    replacingBox = false;
+  }
 }
 
 // Use and Apply: the prompt replaced the way Expand replaces it - the box, its

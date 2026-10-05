@@ -51,6 +51,12 @@ class FakeBackend(GenerationBackend):
         self.lora_mismatches: dict[str, str] = {}
         self.prompt_expander_supported = False
         self.expansions: list[tuple[str, int, int]] = []
+        # The rewriter as the real backend reports it: not on disk until a
+        # first expansion has fetched it, in memory from then until Unload.
+        self.expander_cached = False
+        self.expander_loaded = False
+        # An exception the next expansions raise, for the route's failures.
+        self.expand_error: Exception | None = None
         # Calls (1-based) that raise instead of rendering, and a hook run after
         # each render - for a cancel that lands after the last step.
         self.fail_on: set[int] = set()
@@ -70,7 +76,16 @@ class FakeBackend(GenerationBackend):
 
     def expand_prompt(self, prompt: str, width: int, height: int) -> str:
         self.expansions.append((prompt, width, height))
+        if self.expand_error is not None:
+            raise self.expand_error
+        self.expander_cached = self.expander_loaded = True
         return f"Expanded: {prompt} ({width}x{height})"
+
+    def prompt_expander_status(self) -> dict | None:
+        if not self.prompt_expander_supported:
+            return None
+        fetch = [] if self.expander_cached else [("ERNIE's prompt rewriter", 7_663_346_520)]
+        return {"loaded": self.loaded and self.expander_loaded, "fetch": fetch}
 
     def applied(self, request):
         # What this fake would drop, the way the real backend drops it: an
@@ -102,6 +117,7 @@ class FakeBackend(GenerationBackend):
 
     def unload(self) -> None:
         self.loaded = False
+        self.expander_loaded = False
 
     def is_ready(self) -> bool:
         return self.loaded
@@ -157,12 +173,18 @@ class FakeTranslator:
         self.translations: list[str] = []
         self.unloads = 0
         self.fail = False
+        # Not on disk until a first translation has fetched it.
+        self.downloaded = False
 
     def translate(self, text: str) -> str:
         self.translations.append(text)
         if self.fail:
             raise RuntimeError("translation broke")
+        self.downloaded = True
         return f"English: {text}"
+
+    def cached(self) -> bool:
+        return self.downloaded
 
     def unload(self) -> None:
         self.unloads += 1

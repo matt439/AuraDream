@@ -52,6 +52,9 @@
              tokenizers and the guide's rules, on the CPU. -->
         <button type="button" class="ghost tiny" id="btn-analyze" aria-controls="prompt-analysis"
                 title="Check this prompt against the checkpoint's guide and what its text encoders read - instant, on this machine">Check</button>
+        <!-- Held with aria-disabled and the reason as its title, never
+             disabled (status.js, syncExpandButton): a first use can take
+             minutes, and a disabled button dropped a keyboard user's focus. -->
         <button type="button" class="ghost tiny" id="btn-expand" hidden
                 title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
         <!-- The whole panel, not the prompt: back to the checkpoint's
@@ -70,13 +73,18 @@
              caret it inserts at stays in sight. -->
         <div class="tag-menu" id="tags-menu" role="dialog"
              aria-label="Checkpoint tag helper" hidden></div>
-        <!-- An Example written over a prompt in progress says so, with an
-             Undo (tags.js, offerPromptUndo): over the field below for a
-             while, rather than in the panel's flow, which would move
-             Generate as it came and went. -->
+        <!-- What a press in the Prompt caption did to the box, said under
+             it (tags.js, showPromptNote): an Example or an expansion written
+             over a prompt in progress, Reset, each with an Undo; Expand while
+             it runs, and an expansion typed over meanwhile (Use it,
+             Discard). Over the field below for a while, rather than in the
+             panel's flow, which would move Generate as it came and went -
+             but for those two, which stay for minutes (`data-kind`). -->
         <p class="prompt-note" id="prompt-note" role="status" hidden><span
           id="prompt-note-text"></span> <button type="button" class="ghost tiny"
-          id="prompt-note-undo">Undo</button></p>
+          id="prompt-note-undo">Undo</button> <button type="button" class="ghost tiny"
+          id="prompt-note-discard" title="Drop the expansion; the prompt stays as it is"
+          hidden>Discard</button></p>
       </div>
       <!-- The chips' outcome read out, the tray itself being no live region:
            it holds every chip and is rebuilt at each pause in typing. And one
@@ -184,10 +192,19 @@
       </div>
     </div>
 
-    <label class="field translation" id="prompt-translation-field" hidden>
-      <span>English translation <em>for reference; ERNIE uses the Chinese prompt above</em></span>
-      <textarea id="prompt-translation" rows="4" readonly></textarea>
-    </label>
+    <!-- ERNIE's English for the expanded prompt. Here under 1800 px; from
+         1800 px at the head of the results instead (status.js,
+         placeTranslation), at its own height, where the panel would have
+         pushed Generate below the window. -->
+    <!-- A div with a label, as the Prompt field is: an expansion's note and
+         its Undo come to its end on a wide window, and inside a <label> they
+         were part of the box's name. -->
+    <div class="field translation" id="prompt-translation-field" hidden>
+      <span><label for="prompt-translation">English translation</label> <em
+        id="prompt-translation-hint">for reference; ERNIE uses the Chinese prompt</em></span>
+      <textarea id="prompt-translation" rows="4" readonly
+                aria-describedby="prompt-translation-hint"></textarea>
+    </div>
 
     <!-- A div with a label, as the Prompt field is: inside a <label> the
          button would become the label's control and the box would lose its

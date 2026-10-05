@@ -145,6 +145,15 @@ class GenerationBackend(abc.ABC):
         """Synchronously expand one prompt for the requested canvas size."""
         raise RuntimeError("this checkpoint has no prompt expander")
 
+    def prompt_expander_status(self) -> dict | None:
+        """What an expansion would wait on before it runs, for `/api/status`:
+        ``{"loaded": bool, "fetch": [(name, bytes), ...]}`` - whether the
+        expander is in memory already, and what a first use downloads - or
+        None where there is no expander. File checks only, never the network:
+        the status is polled. Optional; the default has no expander.
+        """
+        return None
+
     def lora_unavailable_reason(self) -> str | None:
         """Why not, for that refusal. None when adapters can be applied."""
         return None if self.lora_supported() else "this backend cannot apply LoRA adapters"

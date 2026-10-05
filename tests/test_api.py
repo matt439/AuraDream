@@ -313,8 +313,70 @@ def test_translation_failure_keeps_the_expanded_prompt(client, fake):
         "original_prompt": "a lighthouse",
         "expanded_prompt": "Expanded: a lighthouse (1024x1024)",
         "translated_prompt": None,
-        "translation_detail": "RuntimeError: translation broke",
+        # The page says whose failure it is; the class name stays in the log.
+        "translation_detail": "translation broke",
     }
+
+
+def test_status_names_what_a_first_expansion_downloads(client, fake):
+    # Before the press that starts it: ERNIE's 7.7 GB rewriter and the
+    # translator behind it, as the critic's line names its own download.
+    assert client.get("/api/status").json()["prompt_expander"] is None
+    fake.prompt_expander_supported = True
+    first = client.get("/api/status").json()["prompt_expander"]
+    # Each at its step: the rewriter before the expansion, the translator
+    # after it - the order the page's running line names them in.
+    rewriter = {"name": "ERNIE's prompt rewriter", "bytes": 7_663_346_520, "step": "expand"}
+    translator = {"name": "the opus-mt-zh-en translator", "bytes": main.TRANSLATOR_BYTES, "step": "translate"}
+    assert first == {
+        "loaded": False,
+        "fetch": [rewriter, translator],
+        "fetch_bytes": 7_663_346_520 + main.TRANSLATOR_BYTES,
+    }
+    # The rewriter on disk already: the translator alone, still after the
+    # expansion, with the rewriter's load still ahead.
+    fake.expander_cached = True
+    assert client.get("/api/status").json()["prompt_expander"] == {
+        "loaded": False, "fetch": [translator], "fetch_bytes": main.TRANSLATOR_BYTES,
+    }
+    assert client.post("/api/prompt/expand", json={"prompt": "a lighthouse"}).status_code == 200
+    after = client.get("/api/status").json()["prompt_expander"]
+    assert after == {"loaded": True, "fetch": [], "fetch_bytes": 0}
+    # Unload lets the rewriter go; it stays on disk.
+    assert client.post("/api/model/unload").status_code == 200
+    assert client.get("/api/status").json()["prompt_expander"] == {
+        "loaded": False, "fetch": [], "fetch_bytes": 0,
+    }
+
+
+def test_an_expansion_failure_reads_without_the_class_name(client, fake):
+    # The page wraps it ("Expand did not finish: ..."); the log keeps the class.
+    fake.prompt_expander_supported = True
+    fake.expand_error = RuntimeError("CUDA out of memory. Tried to allocate 2.00 GiB")
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    assert response.status_code == 500
+    assert response.json()["detail"] == "CUDA out of memory. Tried to allocate 2.00 GiB"
+    # A message of one word keeps its class: it is most of what says why.
+    fake.expand_error = KeyError("pe")
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    assert response.status_code == 500 and response.json()["detail"] == "KeyError: 'pe'"
+
+
+def test_an_expansion_that_ends_at_the_load_is_a_503_with_the_status_sentence(client, fake, monkeypatch):
+    # The page tells it from the expander's own failures by the code, and
+    # points at the viewer's card rather than repeating the sentence.
+    fake.prompt_expander_supported = True
+    fake.loaded = False
+
+    def gated() -> None:
+        raise RuntimeError("401 Client Error: no access")
+
+    monkeypatch.setattr(fake, "load", gated)
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    status = client.get("/api/status").json()
+    assert response.status_code == 503 and status["state"] == "error"
+    assert response.json()["detail"] == status["detail"]
+    assert fake.expansions == []
 
 
 def test_prompt_expansion_refuses_an_unsupported_checkpoint(client):

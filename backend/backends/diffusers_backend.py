@@ -195,6 +195,19 @@ class DiffusersBackend(GenerationBackend):
             return "ernie-image" in settings.model_id.lower().replace("_", "-")
         return callable(getattr(pipe, "_enhance_prompt_with_pe", None)) and "use_pe" in self._call_params
 
+    def prompt_expander_status(self) -> dict | None:
+        """Whether the rewriter is registered on the live pipeline, and what a
+        first Expand downloads where its weights are not on disk: the 7.7 GB
+        the page should name before the press that starts it."""
+        if not self.prompt_expansion_supported():
+            return None
+        pipe = self._pipe
+        loaded = pipe is not None and getattr(pipe, "pe", None) is not None
+        fetch = []
+        if not loaded and not loading.prompt_expander_cached(settings.model_id):
+            fetch.append(("ERNIE's prompt rewriter", loading.PROMPT_EXPANDER_BYTES))
+        return {"loaded": loaded, "fetch": fetch}
+
     def expand_prompt(self, prompt: str, width: int, height: int) -> str:
         """Run ERNIE's rewriter once and return the text the image will record."""
         with self._lock:

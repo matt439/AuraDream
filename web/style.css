@@ -378,6 +378,18 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   font-size: var(--fs-label);
 }
 .translation textarea:focus { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
+/* From 1800 px ERNIE's English is at the head of the results, not in the
+   panel (status.js, placeTranslation): a box of its own, as the results'
+   other boxes are, and as tall as the text up to two fifths of the window -
+   in the panel its four rows showed a fifth of a long expansion, and the
+   field pushed Generate below the window at 125%. The viewer and the gallery
+   move down by it when an expansion lands, the user's own press. */
+@media (min-width: 1800px) {
+  .stage > .translation {
+    padding: var(--sp-3); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+  }
+  .stage > .translation textarea:not([style*="height"]) { field-sizing: content; min-height: calc(2lh + var(--h-field)); max-height: 40vh; }
+}
 
 /* The adapter list, drawn as the text boxes beside it are: the UA's select
    was the one white control on the page, 19 px tall beside 41 px boxes, so
@@ -587,6 +599,17 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .panel:has(#negative-field.disabled) .prompt-note {
   position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
 }
+/* Nor for the notes with no timer (tags.js, `data-kind`): ERNIE's Expand
+   while it runs - minutes, on a first use - and an expansion held until Use
+   it or Discard. Over a live negative box (ERNIE at CFG above 1) they hid its
+   caption and its first lines for as long as they stayed. The overlay is for
+   the notes that go by themselves. */
+.prompt-note:is([data-kind="running"], [data-kind="held"]) {
+  position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
+}
+/* And at the end of ERNIE's English, where an expansion's note goes while the
+   English heads the results (app.js, applyExpansion): a line of that box. */
+.translation > .prompt-note { position: static; width: fit-content; margin: 0 0 0 auto; box-shadow: none; }
 
 /* The tag picker is data from the checkpoint guide, not a generic tag cloud:
    each checkpoint gets only the categories and terms its sources document. The
@@ -1161,8 +1184,33 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
     grid-row: 1 / 5;
   }
   /* A column of 520-760 px: the sections stack - Encoders, Order, Findings,
-     the critic, Compare - since side by side Order had 356 px and clamped. */
+     the critic, Compare - since side by side Order had 356 px and clamped.
+     (One more rule after these, for ERNIE's translation.) */
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-body { grid-template-columns: minmax(0, 1fr); }
+  /* ERNIE's English translation (placeTranslation, at the head of the
+     results from 1800 px) beside the docked check: the first row of the
+     columns left of the check - the image's, and #recent's where it docks -
+     and the viewer, its note and #recent a row down, the check spanning one
+     row more. Auto-placed, it came after the viewer's note, under the image.
+     Without chips only: ERNIE, the one checkpoint with a translation, takes
+     prose, which the chips never show for. */
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) {
+    grid-template-rows: auto auto 1fr;
+  }
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #prompt-translation-field {
+    grid-column: 1 / -2; grid-row: 1;
+  }
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > :is(#viewer, #recent) { grid-row: 2; }
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 3; }
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
+    grid-row: 1 / span 3;
+  }
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
+    grid-template-rows: auto auto auto auto auto 1fr;
+  }
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+    grid-row: 1 / 6;
+  }
 }
 
 .hint { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted); min-height: 15px; }

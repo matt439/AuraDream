@@ -20,12 +20,20 @@ const PANEL_FIELDS = [
   'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
   'gridLoraScale',
 ];
+// What else is remembered beside the fields, merged key by key as they are.
+const PANEL_KEYS = [...PANEL_FIELDS, 'gridOpen', 'reference', 'translation'];
 let panelTimer;
 
-// The panel as it is remembered: every field, the fold, the references, and
-// the sampling values taken off the profile. Reuse keeps one too, for its Undo.
+// The panel as it is remembered: every field, the fold, the references, the
+// English an expansion came with (ERNIE's, with the prompt it translates),
+// and the sampling values taken off the profile. Reuse and Reset keep one too,
+// for their Undo.
 function panelState() {
-  const state = { gridOpen: els.gridSection.open, reference: [...referenceIds] };
+  const state = {
+    gridOpen: els.gridSection.open,
+    reference: [...referenceIds],
+    translation: translatedSource !== null ? { source: translatedSource, text: els.promptTranslation.value } : null,
+  };
   for (const key of PANEL_FIELDS) state[key] = els[key].value;
   // Sampling values travel with the checkpoint they were set on, and only
   // the ones the user took off the profile - the profile itself is the
@@ -45,7 +53,47 @@ function persistPanel() {
   syncReuseUndo();
   syncResetUndo();
   clearTimeout(panelTimer);
-  panelTimer = setTimeout(() => remember(PANEL_KEY, JSON.stringify(panelState())), 300);
+  panelTimer = setTimeout(writePanel, 300);
+}
+
+// Every tab of the page shares the one store, and each wrote its whole panel
+// on every change: a second tab, opened earlier, that changed only its Seed
+// wrote its own empty prompt, grid and steps over the first tab's, which were
+// gone at that tab's next load. So a write puts back only what this page
+// changed since it last read or wrote the store (`panelBase`), key by key -
+// each field, the fold, the references, the translation, each sampling value
+// - onto what the store holds now. An empty store - a first visit, another
+// tab's Reset - takes the whole panel, sampling's checkpoint with it: written
+// key by key into nothing, the sampling values lost the model they belong to.
+// Nothing listens to `storage`: what another tab wrote stays the store's
+// until this page changes the same key.
+let panelBase = null;
+// The panel as a Reset left it, until it changes: a write of that is no
+// change, and the store stays forgotten - the prompt's blur after a Reset
+// fires `change`, and wrote the reset panel back, which another tab then
+// merged its own changes over rather than taking whole.
+let resetLeft = null;
+function writePanel() {
+  const now = panelState();
+  if (resetLeft !== null) {
+    if (JSON.stringify(now) === resetLeft) return;
+    resetLeft = null;
+  }
+  const stored = storedPanel();
+  let out = now;
+  if (stored && panelBase) {
+    const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    out = { ...stored };
+    for (const key of PANEL_KEYS) {
+      if (!same(now[key], panelBase[key])) out[key] = now[key];
+    }
+    out.sampling = { ...(stored.sampling ?? {}) };
+    for (const key of Object.keys(now.sampling)) {
+      if (!same(now.sampling[key], panelBase.sampling?.[key])) out.sampling[key] = now.sampling[key];
+    }
+  }
+  remember(PANEL_KEY, JSON.stringify(out));
+  panelBase = now;
 }
 
 function storedPanel() {
@@ -64,6 +112,11 @@ function storedPanel() {
 
 function restorePanel() {
   const state = storedPanel();
+  // What a later write compares this page against: the store as read - the
+  // sampling half is applied once the checkpoint is known (restoreSampling),
+  // and the panel's own values before then would make it look changed - or
+  // the page as it opens, where nothing was stored.
+  panelBase = state ?? panelState();
   if (!state) return;
   for (const key of PANEL_FIELDS) {
     if (typeof state[key] === 'string') els[key].value = state[key];
@@ -75,6 +128,12 @@ function restorePanel() {
   // The ids are restored whatever the checkpoint; `collect()` sends none while
   // the field is greyed, so a klein selection survives a look at FLUX and back.
   if (Array.isArray(state.reference)) referenceIds = state.reference.filter(Number.isInteger);
+  // An expansion's English, while the prompt is still the one it translates:
+  // shown once the status says this checkpoint expands prompts (status.js).
+  const t = state.translation;
+  if (t && typeof t.source === 'string' && typeof t.text === 'string' && t.source === els.prompt.value) {
+    pendingTranslation = t;
+  }
   syncConditioning();
 }
 
@@ -101,19 +160,19 @@ function resetPanel() {
     refine: remembered(REFINE_KEY),
     unsent: unsentRefine,
   };
-  clearTimeout(panelTimer);
-  forget(PANEL_KEY);
-  for (const key of LEGACY_PANEL_KEYS) forget(key);
   // The Refine dialog's scale, versions and per-checkpoint strengths too, and
   // anything left unsent in it.
   forgetRefine();
   for (const key of Object.keys(owned)) owned[key] = false;
-  els.prompt.value = '';
+  // Emptied as typing would empty them (`rewriteBox`), so Ctrl+Z in the
+  // prompt, which Reset focuses, still gives its text back once the Undo has
+  // gone: assigning `.value` emptied the box's undo history.
+  rewriteBox(els.negative, '');
+  rewriteBox(els.prompt, '');
   promptReplaced();
   // A first visit has no check open, and one about the prompt just emptied
   // would only be stale.
   clearAnalysis();
-  els.negative.value = '';
   [pickedAspect, pickedTier] = ['1:1', 1];
   [els.width.value, els.height.value] = SIZES[pickedAspect][pickedTier];
   els.steps.value = lastDefaults?.steps ?? 28;
@@ -143,38 +202,45 @@ function resetPanel() {
   // Not persisted, but a change all the same: a Reuse's Undo goes, as an
   // Example's does (scheduleTagValidation).
   syncReuseUndo();
+  // Forgotten last: the boxes' writes above fire `input` and `change`, which
+  // persist the panel (app.js) and would write the store back 300 ms on.
+  clearTimeout(panelTimer);
+  forget(PANEL_KEY);
+  for (const key of LEGACY_PANEL_KEYS) forget(key);
+  // And kept forgotten until the panel changes (writePanel): the prompt's
+  // `change` comes at its next blur, after this. The panel as reset is what
+  // a forgotten store means, so it is what a later write compares against -
+  // never the panel before the Reset, whose every key would look changed
+  // and go over what another tab wrote meanwhile.
+  panelBase = panelState();
+  resetLeft = JSON.stringify(panelBase);
   offerResetUndo(before);
   els.prompt.focus();
 }
 
-// The note a Reset leaves in the panel's line, with its Undo, while the
-// panel is as the Reset left it - the first change takes the button, as a
-// Reuse's does - and for 20 seconds at most; then the line goes too.
+// The note a Reset leaves, with its Undo, where Reset was pressed: under the
+// prompt (tags.js, showPromptNote). In the panel's line under Generate it
+// was below the window at 1400x900 and in one column, and gone after 20
+// seconds unseen. On offer while the panel is as the Reset left it - the
+// first change takes it, as a Reuse's Undo goes - and for 20 seconds at most.
 let resetNote = null;
 const RESET_UNDO_MS = 20000;
 
 function offerResetUndo(before) {
-  if (resetNote) clearTimeout(resetNote.timer);
-  showError('Panel reset.', true);
-  const undo = document.createElement('button');
-  undo.type = 'button';
-  undo.className = 'ghost tiny undo';
-  undo.textContent = 'Undo';
-  undo.title = 'Put the panel back as it was before Reset';
-  const note = { before, after: JSON.stringify(panelState()), button: undo, timer: 0 };
-  undo.onclick = () => undoReset(note);
-  els.error.append(' ', undo);
-  note.timer = setTimeout(() => retireResetUndo(note, true), RESET_UNDO_MS);
+  const note = { before, after: JSON.stringify(panelState()), entry: null, undone: false };
+  note.entry = offerPromptUndo('Panel reset.', () => undoReset(note), {
+    kind: 'reset',
+    title: 'Put the panel back as it was before Reset',
+    ms: RESET_UNDO_MS,
+    onDrop: () => { if (resetNote === note) resetNote = null; },
+  });
   resetNote = note;
 }
 
-function retireResetUndo(note, expired = false) {
+function retireResetUndo(note) {
   if (resetNote !== note) return;
-  clearTimeout(note.timer);
   resetNote = null;
-  const shown = note.button.isConnected;
-  note.button.remove();
-  if (expired && shown && els.error.textContent.trim() === 'Panel reset.') showError('');
+  if (promptUndo === note.entry) dropPromptUndo();
 }
 
 // Asked by persistPanel, which every change of the panel reaches.
@@ -184,10 +250,12 @@ function syncResetUndo() {
 
 // The panel as Reset found it: the boxes through `rewriteBox`, so Ctrl+Z in
 // either walks back to the reset, then every field, the fold, the references,
-// the sampling values with whose they were, the size's preset, and what the
-// Refine dialog remembered. The sync functions light the panel up from them.
+// the sampling values with whose they were, the size's preset, what the
+// Refine dialog remembered, and an expansion's English where the prompt is
+// the one it translates. The sync functions light the panel up from them.
 function undoReset(note) {
-  if (resetNote !== note) return;
+  if (note.undone) return;
+  note.undone = true;
   retireResetUndo(note);
   const { state, values } = note.before;
   rewriteBox(els.negative, state.negative);
@@ -207,6 +275,8 @@ function undoReset(note) {
   if (note.before.refine !== null) remember(REFINE_KEY, note.before.refine);
   unsentRefine = note.before.unsent;
   promptReplaced();
+  const t = state.translation;
+  if (t && els.prompt.value === t.source) showPromptTranslation(t.source, t.text);
   syncSize();
   syncCfg();
   syncConditioning();
@@ -214,7 +284,7 @@ function undoReset(note) {
   schedulePreview();
   scheduleTagValidation(0);
   persistPanel();
-  showError('Reset undone: the panel is as it was.', true);
+  showPromptNote('Reset undone: the panel is as it was.', { kind: 'info' });
 }
 
 // The second phase, from refreshStatus once the checkpoint is known.

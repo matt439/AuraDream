@@ -40,6 +40,8 @@ from .search import strict_scope  # noqa: E402
 from .schemas import (  # noqa: E402
     AuthorOrder,
     EncoderReport,
+    ExpanderDownload,
+    ExpanderStatus,
     GalleryPage,
     GenerateRequest,
     GridPreview,
@@ -71,6 +73,7 @@ from .tags import (  # noqa: E402
     tag_vocabulary,
     unchecked_results,
 )
+from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
 from .translation import prompt_translator  # noqa: E402
 
 logging.basicConfig(
@@ -364,11 +367,34 @@ async def status() -> ModelStatus:
         vram_used_mb=info.get("vram_used_mb"),
         disk_free_mb=_disk_free_mb(),
         prompt_expansion_supported=backend.prompt_expansion_supported(),
+        prompt_expander=_expander_status(),
         # All three a few file checks at most - no network, no hashing - which
         # is what lets a route polled every three seconds ask them.
         prompt_critique_supported=prompt_critic.supported(),
         prompt_critique_ready=prompt_critic.ready(),
         prompt_critic=prompt_critic.describe(),
+    )
+
+
+def _expander_status() -> ExpanderStatus | None:
+    """ERNIE's Expand before it is pressed: whether the rewriter is loaded,
+    and what a first use downloads - the backend's rewriter before the
+    expansion, then the translator after it - for the page to say so, each
+    at its own step. A few file checks, as the critic's `describe()` is."""
+    state = backend.prompt_expander_status() if backend.prompt_expansion_supported() else None
+    if state is None:
+        return None
+    fetch = [
+        ExpanderDownload(name=name, bytes=size, step="expand") for name, size in state.get("fetch", [])
+    ]
+    if not prompt_translator.cached():
+        fetch.append(
+            ExpanderDownload(name="the opus-mt-zh-en translator", bytes=TRANSLATOR_BYTES, step="translate")
+        )
+    return ExpanderStatus(
+        loaded=bool(state.get("loaded")),
+        fetch=fetch,
+        fetch_bytes=sum(item.bytes for item in fetch),
     )
 
 
@@ -690,12 +716,15 @@ async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
     try:
         await ensure_loaded()
     except LoadFailed as exc:
-        # Logged where it failed; the status's sentence, steps and all.
-        raise HTTPException(status_code=500, detail=exc.detail) from exc
+        # Logged where it failed; the status's sentence, steps and all. 503,
+        # the one answer of this route that means "the model could not load":
+        # the page says so in a line of its own and leaves the sentence to
+        # the viewer's card, which says it already.
+        raise HTTPException(status_code=503, detail=exc.detail) from exc
     except Exception as exc:
         log.error("model load for prompt expansion failed: %s", short_error(exc))
         log.debug("prompt expansion load traceback", exc_info=True)
-        raise HTTPException(status_code=500, detail=short_error(exc)) from exc
+        raise HTTPException(status_code=500, detail=_expand_detail(exc)) from exc
     # The id is only a useful cold guess. A loaded pipeline's method and
     # signature are the capability, exactly as for the generation controls.
     if not backend.prompt_expansion_supported():
@@ -709,7 +738,7 @@ async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
     except Exception as exc:
         log.error("prompt expansion failed: %s", short_error(exc))
         log.debug("prompt expansion traceback", exc_info=True)
-        raise HTTPException(status_code=500, detail=short_error(exc)) from exc
+        raise HTTPException(status_code=500, detail=_expand_detail(exc)) from exc
     expanded = expanded.strip()
     if not expanded:
         raise HTTPException(status_code=500, detail="the prompt expander returned no text")
@@ -723,15 +752,28 @@ async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
     try:
         translated = await asyncio.to_thread(prompt_translator.translate, expanded)
     except Exception as exc:  # noqa: BLE001 - expansion remains useful on its own
-        translation_detail = short_error(exc)
-        log.error("expanded-prompt translation failed: %s", translation_detail)
+        log.error("expanded-prompt translation failed: %s", short_error(exc))
         log.debug("translation traceback", exc_info=True)
+        translation_detail = _expand_detail(exc)
     return PromptExpansion(
         original_prompt=request.prompt,
         expanded_prompt=expanded,
         translated_prompt=translated,
         translation_detail=translation_detail,
     )
+
+
+def _expand_detail(exc: Exception) -> str:
+    """An Expand failure as the page shows it: `short_error`'s message without
+    the class name in front - "RuntimeError: CUDA out of memory..." - which the
+    log line keeps. The page says whose failure it is ("Expand did not
+    finish: ...") as it does the critic's. A message of one word or none
+    keeps its class, which is then most of what says what went wrong:
+    "KeyError: 'pe'", not "'pe'".
+    """
+    detail = short_error(exc)
+    bare = detail.removeprefix(f"{type(exc).__name__}: ")
+    return bare if len(bare.split()) > 1 else detail
 
 
 # The chips' own ceiling on one validation request, so the analyser never

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 
 import torch
@@ -90,6 +91,48 @@ def test_marian_loads_once_on_cpu_and_keeps_long_prompt_chunks(monkeypatch):
     assert translator._tokenizer is None and translator._model is None
 
 
+def test_the_translators_load_fetches_no_second_copy_of_its_weights(monkeypatch):
+    # Transformers, having loaded the repository's `.bin`, starts a thread that
+    # downloads the conversion bot's safetensors copy too - a second 312 MB the
+    # status does not name. The load turns that off, for itself alone.
+    import inspect
+
+    import transformers.modeling_utils
+
+    from backend import translation
+
+    name = translation._NO_CONVERSION
+    assert f'"{name}"' in inspect.getsource(transformers.modeling_utils)
+    monkeypatch.delenv(name, raising=False)
+    seen = {}
+
+    def load_model(model_id, **kwargs):
+        seen["during"] = os.environ.get(name)
+        return StubModel()
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda model_id: StubTokenizer())
+    monkeypatch.setattr("transformers.AutoModelForSeq2SeqLM.from_pretrained", load_model)
+    MarianTranslator("local/marian")._load()
+    assert seen["during"] == "1"
+    assert name not in os.environ
+    # A value the environment already had is put back after the load, and
+    # one that a failed load interrupted too.
+    monkeypatch.setenv(name, "0")
+
+    def failing(model_id, **kwargs):
+        seen["failed"] = os.environ.get(name)
+        raise OSError("no network")
+
+    monkeypatch.setattr("transformers.AutoModelForSeq2SeqLM.from_pretrained", failing)
+    try:
+        MarianTranslator("local/marian")._load()
+    except OSError:
+        pass
+    else:
+        raise AssertionError("the failed load was not raised")
+    assert seen["failed"] == "1" and os.environ[name] == "0"
+
+
 def test_marian_refuses_empty_text_without_loading():
     translator = MarianTranslator("local/marian")
     try:
@@ -99,3 +142,34 @@ def test_marian_refuses_empty_text_without_loading():
     else:
         raise AssertionError("empty text was accepted")
     assert translator._model is None
+
+
+def test_whether_a_first_translation_downloads_is_a_file_check(monkeypatch, tmp_path):
+    import huggingface_hub
+
+    # A local directory: the config and the weights in either form.
+    tree = tmp_path / "marian"
+    tree.mkdir()
+    translator = MarianTranslator(str(tree))
+    assert not translator.cached()
+    (tree / "config.json").write_text("{}", encoding="utf-8")
+    assert not translator.cached()
+    (tree / "pytorch_model.bin").write_bytes(b"weights")
+    assert translator.cached()
+    # A Hub id: the cache answers, file by file, and the network is never asked.
+    held = {"config.json": tree / "config.json", "pytorch_model.bin": tree / "pytorch_model.bin"}
+    monkeypatch.setattr(
+        huggingface_hub,
+        "try_to_load_from_cache",
+        lambda repo_id, filename, **kwargs: str(held[filename]) if filename in held else None,
+    )
+    hub = MarianTranslator("Helsinki-NLP/opus-mt-zh-en")
+    assert hub.cached()
+    del held["pytorch_model.bin"]
+    assert not hub.cached()
+    held["model.safetensors"] = tree / "pytorch_model.bin"
+    assert hub.cached()
+    # Loaded is cached, whatever the disk says.
+    held.clear()
+    hub._model = object()
+    assert hub.cached()

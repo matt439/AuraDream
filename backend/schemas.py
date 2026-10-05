@@ -1024,6 +1024,32 @@ class CriticStatus(BaseModel):
     fetch_bytes: int = 0
 
 
+class ExpanderDownload(BaseModel):
+    """One thing a first Expand downloads, and where in the expansion it
+    falls: the page's running line names each at its own step."""
+
+    name: str
+    bytes: int
+    # "expand": fetched before the expansion runs (ERNIE's rewriter);
+    # "translate": after it, for the English (the translator).
+    step: Literal["expand", "translate"]
+
+
+class ExpanderStatus(BaseModel):
+    """What the page says about ERNIE's Expand before it is pressed, from the
+    live pipeline and a few file checks, as `CriticStatus` is the critic's: a
+    first use loads a 7.7 GB rewriter, and downloads it and a translator
+    where they are not on disk, behind a small button in the Prompt caption."""
+
+    # The rewriter is on the live pipeline: an Expand waits for nothing but
+    # itself. False before the image model loads, and again after Unload.
+    loaded: bool = False
+    # What a first use downloads, in the order it does - ERNIE's rewriter,
+    # the translator, both or neither - and their size together in bytes.
+    fetch: list[ExpanderDownload] = Field(default_factory=list)
+    fetch_bytes: int = 0
+
+
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
     defaults: dict[str, float | int | bool | None] = {}
@@ -1059,6 +1085,9 @@ class ModelStatus(BaseModel):
     # ERNIE's separate rewriter is an explicit editor action, never a hidden
     # part of generation. False for every pipeline without that facility.
     prompt_expansion_supported: bool = False
+    # Beside it, where it is True: whether the expander is loaded and what a
+    # first use downloads. None for every pipeline without one.
+    prompt_expander: ExpanderStatus | None = None
     # The local prompt critic: supported where it is not switched off and a
     # server can run - a platform with a pinned llama-server build, or one
     # LOCAL_DIFFUSION_CRITIC_SERVER names; ready once the binary and the model
