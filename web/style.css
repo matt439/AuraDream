@@ -1911,6 +1911,12 @@ button { font: inherit; cursor: pointer; }
   margin-top: calc(var(--sp-1) - var(--sp-3));
 }
 #gallery-error[hidden] { display: block !important; visibility: hidden; }
+/* What F did, for a screen reader (sayStar): out of sight, and out of the
+   head's flex rows, so it adds no gap. The lightbox's copy is the same. */
+.star-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 .check { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-body-sm); }
 /* The gallery with nothing to show (syncGalleryEmpty): one line under the
    head, in the readout grey rather than a hint's, since it is all there is. */

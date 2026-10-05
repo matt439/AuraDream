@@ -781,7 +781,9 @@ _STARRED_SOURCE = (
 _UNKEPT = f"favorite = 0 AND NOT ({_STARRED_SOURCE})"
 
 
-def matching_preview(search: str | None, model_id: str | None = None) -> dict[str, Any]:
+def matching_preview(
+    search: str | None, model_id: str | None = None, newer_than: int | None = None
+) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
     checkpoints a substring term (`job:`, `model:`) actually matched.
 
@@ -797,6 +799,11 @@ def matching_preview(search: str | None, model_id: str | None = None) -> dict[st
     sources_kept` is the count such a delete takes. `runs`, `first` and
     `last` describe that delete too: how many runs it reaches into and the
     span of their creation times, which three sample prompts never say.
+
+    `newer` is how many of the images that delete takes have an id above
+    `newer_than` - the newest the asking page held - or None where it was
+    not asked: the page's own count of them could not leave out a kept
+    source past the few `sources` names.
     """
     filters, params = strict_scope(search)
     if model_id:
@@ -826,6 +833,11 @@ def matching_preview(search: str | None, model_id: str | None = None) -> dict[st
             f"SELECT COUNT(DISTINCT run_id), MIN(created_at), MAX(created_at) FROM images {where(_UNKEPT)}",
             params,
         ).fetchone()
+        newer = None
+        if newer_than is not None:
+            newer = conn.execute(
+                f"SELECT COUNT(*) FROM images {where(_UNKEPT, 'id > ?')}", (*params, newer_than)
+            ).fetchone()[0]
         distinct = lambda column, limit: [  # noqa: E731
             row[0]
             for row in conn.execute(
@@ -841,6 +853,7 @@ def matching_preview(search: str | None, model_id: str | None = None) -> dict[st
             "runs": runs,
             "first": first,
             "last": last,
+            "newer": newer,
             "prompts": distinct("prompt", 4),
             "jobs": [j for j in distinct("job_id", 6) if j],
             "models": distinct("model_id", 6),

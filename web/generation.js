@@ -1769,7 +1769,11 @@ function useSeed(seed) {
 // whole run. The paging anchor - the last record - is untouched. The head's
 // count is drawn as the page lands and the cards by joinFinished, which can
 // wait for the pointer; answers the ids that page holds (noteOutsideView).
-function prependFinished(made) {
+// `now` puts them in without that wait: Delete unstarred brings the grid up
+// to what it would sweep before asking. Its press was on the head's own
+// button (or a key), not on the cards, and its modal question follows
+// within one round trip, so no card moves under a pointer about to press it.
+function prependFinished(made, { now = false } = {}) {
   if (sheetMode || !galleryRecords.length) return resetGallery();
   const epoch = galleryEpoch;
   return Promise.resolve(galleryPending).then(async () => {
@@ -1797,7 +1801,7 @@ function prependFinished(made) {
     syncRerender();
     syncDeleteUnstarred();
     if (els.lightbox.open && lbList === galleryRecords) renderLightbox();
-    void joinFinished(page, epoch);
+    void joinFinished(page, epoch, now);
     // For noteOutsideView: the images this page holds are the gallery's, in
     // view or about to be.
     return page.items.map((r) => r.id);
@@ -1815,9 +1819,9 @@ function joinsUp(page) {
 // column keeps the cards where they are until it leaves (galleryPointerGone):
 // one image ahead of them moves every card a place along the rows, which no
 // scroll can take back. Only where there is something to put in.
-async function joinFinished(page, epoch) {
+async function joinFinished(page, epoch, now = false) {
   const newer = () => page.items.some((r) => r.id > galleryRecords[0].id && !galleryRecords.some((g) => g.id === r.id));
-  if (galleryRecords.length && newer()) await galleryPointerGone();
+  if (!now && galleryRecords.length && newer()) await galleryPointerGone();
   if (epoch !== galleryEpoch || sheetMode) return;
   // Deleted from meanwhile, the gallery may no longer meet this page.
   if (!joinsUp(page)) { void resetGallery(); return; }

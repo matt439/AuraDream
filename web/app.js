@@ -808,7 +808,9 @@ document.addEventListener('keydown', (e) => {
   // field still holds the caret, where they are typing, or a modifier makes
   // them the browser's: Ctrl+F is find, Ctrl+plus the page's zoom.
   if (e.target.matches('input, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key === 'f' || e.key === 'F') els.lbFav.click();
+  // F does what the Star button's press does, and says so where focus is not
+  // on that button (setFavorite's `say`): its state alone changed.
+  if (e.key === 'f' || e.key === 'F') { const rec = lbList[lbIndex]; if (rec) void setFavorite(rec, !rec.favorite, { say: true }); }
   else if (e.key === 's' || e.key === 'S') void toggleCompare();
   else if (e.key === 'Delete') els.lbDelete.click();
   else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomLightbox(ZOOM_STEP); }

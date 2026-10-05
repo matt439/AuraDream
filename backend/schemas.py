@@ -896,11 +896,20 @@ class UnstarredPreview(BaseModel):
     runs: int = 0
     first: str | None = None
     last: str | None = None
+    # How many of `unstarred` have an id above the request's `newer_than` -
+    # the newest image the asking page held - or None where it was not asked:
+    # the dialog's "made since this page last loaded", by the delete's own
+    # predicate, which keeps a starred image's sources the page cannot see.
+    newer: int | None = None
     # A few of the prompts, and the jobs and checkpoints a substring term
     # matched: the dialog names what is about to go, as `clear --where` does.
     prompts: list[str]
     jobs: list[str]
     models: list[str]
+    # Whether a job is queued or running on the server - this page's or
+    # another's - which can land an image in scope before the count is typed
+    # back, and the pinned delete would then refuse.
+    job_active: bool = False
 
 
 class PromptTagGroup(BaseModel):

@@ -644,9 +644,10 @@ const ownSeeds = (values, records) => records.length > 1
 // order - the cell's image is its stop, and F there does the same - so the
 // grid's tab stops do not grow by a thousand. The value comes from the cell,
 // whose class setFavorite keeps, and goes back to the record after: a refine
-// sweep's source is no gallery record for setFavorite to find.
-async function starCell(cell, rec) {
-  await setFavorite(rec, !cell.classList.contains('fav'));
+// sweep's source is no gallery record for setFavorite to find. `options` is
+// setFavorite's: F says what it did (sheetKey).
+async function starCell(cell, rec, options = {}) {
+  await setFavorite(rec, !cell.classList.contains('fav'), options);
   const now = els.sheetGrid.querySelector(`.sheet-cell[data-id="${rec.id}"]`);
   if (now) rec.favorite = now.classList.contains('fav');
 }
@@ -994,7 +995,7 @@ async function sheetKey(e) {
   const rec = sheetRecords.find((r) => r.id === id) ?? (sheetLayout?.source?.id === id ? sheetLayout.source : null);
   if (!rec) return;
   e.preventDefault();
-  await starCell(cell, rec);
+  await starCell(cell, rec, { say: true });
 }
 
 // Resume this run: the panel's grid made ready to finish the run on the

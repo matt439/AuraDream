@@ -2,12 +2,13 @@
 re-render, the seeds it publishes and the gallery paging behind it."""
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import pytest
 from PIL import Image
 
-from backend import grid
+from backend import grid, main
 from backend.config import settings
 from backend.model_defaults import defaults_for
 from backend.schemas import GenerateRequest
@@ -819,7 +820,11 @@ def test_a_rerender_refuses_another_checkpoints_records(client, fake, store):
     assert client.post("/api/rerender", json=selection).status_code == 404
     response = client.post("/api/rerender", json={**selection, "all_models": True})
     assert response.status_code == 422
-    assert "somebody/else" in response.json()["detail"] and "model:" in response.json()["detail"]
+    assert response.json()["detail"] == (
+        f"1 of the selected images was made on somebody/else; the server is running "
+        f"{settings.model_id}, whose steps, CFG and mu differ. Untick All models, or add "
+        f"model:{settings.model_id} to the search."
+    )
     # With one of this checkpoint's own beside it, the scoped selection is
     # that one alone, and the other row never reaches the pipeline.
     store.save_image(
@@ -831,6 +836,53 @@ def test_a_rerender_refuses_another_checkpoints_records(client, fake, store):
     assert accepted.status_code == 200, accepted.text
     done = stream_job(client, accepted.json()["job_id"])[-1]
     assert [r.prompt for r in fake.requests] == ["mine"] and len(done["images"]) == 1
+
+
+def test_a_rerender_refusal_offers_only_a_search_that_leaves_the_others_out(
+    client, fake, store, monkeypatch
+):
+    # Anima's refusal said "add model:Anima to the search", and `model:` is a
+    # substring: Animagine stayed in, and following the advice gave the same
+    # refusal. The whole id is offered, and only where it leaves out every
+    # other checkpoint selected - else unticking All models alone, the exact
+    # scope.
+    monkeypatch.setattr(
+        main, "settings", dataclasses.replace(main.settings, model_id="circlestone-labs/Anima")
+    )
+
+    def plant(model_id, seed):
+        store.save_image(
+            Image.new("RGB", (256, 256)),
+            GenerateRequest(prompt="a smile", width=256, height=256),
+            seed=seed, duration_ms=1, model_id=model_id,
+        )
+
+    plant("cagliostrolab/animagine-xl-4.0", 1)
+    plant("circlestone-labs/Anima", 2)
+    plant("circlestone-labs/Anima", 3)
+    selection = {"width": 512, "height": 512, "favorites": False, "all_models": True}
+    response = client.post("/api/rerender", json=selection)
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "1 of the selected images was made on cagliostrolab/animagine-xl-4.0; the server is "
+        "running circlestone-labs/Anima, whose steps, CFG and mu differ. Untick All models, "
+        "or add model:circlestone-labs/Anima to the search."
+    )
+    # Following the advice works.
+    narrowed = {**selection, "search": "model:circlestone-labs/Anima"}
+    followed = client.post("/api/rerender", json=narrowed)
+    assert followed.status_code == 200, followed.text
+    assert len(stream_job(client, followed.json()["job_id"])[-1]["images"]) == 2
+
+    # An id that holds the running one whole: no `model:` would leave it out.
+    plant("circlestone-labs/Anima-Preview", 4)
+    plant("circlestone-labs/Anima-Preview", 5)
+    response = client.post("/api/rerender", json=narrowed)
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "2 of the selected images were made on circlestone-labs/Anima-Preview; the server is "
+        "running circlestone-labs/Anima, whose steps, CFG and mu differ. Untick All models."
+    )
 
 
 def test_finished_jobs_are_listed_on_request_with_their_outcome(client, fake):

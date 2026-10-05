@@ -362,6 +362,14 @@ function card(rec) {
   // tombstone keeps for the day's lines (cardDay).
   div.dataset.id = rec.id;
   div.dataset.made = rec.created_at;
+  // A group named as the page names the image, so its star and tools - each
+  // named for what it does ("Star", "Reuse settings", "Refine: …"), the
+  // toggles by a name that never changes - are heard as #N's: focus landing on
+  // ⤢ back from the Refine dialog named no image. Not a list or a grid: the
+  // day's lines and the tombstones are the cards' siblings, and a grid role
+  // would want cells and put a screen reader in focus mode.
+  div.setAttribute('role', 'group');
+  div.setAttribute('aria-label', `#${rec.id}`);
   // A refine pass says so, and at what strength (the badge is the class's
   // ::before): it keeps its source's picture by design, and the two sat side
   // by side as the same card.
@@ -660,7 +668,7 @@ function galleryKey(e) {
   if (e.key === 'f' || e.key === 'F') {
     e.preventDefault();
     const rec = galleryRecords.find((r) => r.id === +div.dataset.id);
-    if (rec) void setFavorite(rec, !rec.favorite);
+    if (rec) void setFavorite(rec, !rec.favorite, { say: true });
     return;
   }
   if (e.target.parentElement !== div || e.target.tagName !== 'IMG') return;
@@ -746,7 +754,9 @@ function syncReuseButton(button, rec, compact = false) {
     button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse pass…`;
     button.title = mismatch ? `Warning: ${warning}`
       : `Open the Refine dialog on #${pass} with this pass's size, strength and seed`;
-    button.setAttribute('aria-label', `Reuse this pass in the Refine dialog${mismatch ? ` (warning: ${warning})` : ''}`);
+    // Led by the words shown ("Reuse pass…"), so a voice command that says
+    // what it reads finds the button.
+    button.setAttribute('aria-label', `Reuse pass in the Refine dialog${mismatch ? ` (warning: ${warning})` : ''}`);
     button.dataset.tip = 'Reuse pass…';
     return;
   }
@@ -807,11 +817,29 @@ function recordsWithId(id) {
   return [...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList].filter((r) => r.id === id);
 }
 
-async function setFavorite(rec, value) {
+// `say` is F's: the key stars an image from wherever focus is in its card,
+// sheet cell or lightbox, and only a press on the star itself changes the
+// state of what has focus - so otherwise the outcome is said (sayStar).
+async function setFavorite(rec, value, { say = false } = {}) {
   try {
     await api(`/api/images/${rec.id}/favorite?value=${value}`, { method: 'POST' });
   } catch (err) {
-    showError(err.message);
+    // A star is a gallery control, and says what went wrong where they do -
+    // not in the panel's line a column away (the lightbox's line mirrors it).
+    if (!/unknown image/.test(err.message)) {
+      showError(err.message, false, { slot: els.galleryError });
+      return;
+    }
+    // Deleted elsewhere - another tab - while this page still showed it: said
+    // as ⌦ says it in the same case, and forgotten everywhere (forgetImages)
+    // rather than left on the page to be starred again. "unknown image" in
+    // the panel's line said neither, and stayed on under the next image.
+    const fromLightbox = els.lightbox.open;
+    const said = `#${rec.id} was already deleted.${forgetImages([rec.id])}`;
+    if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
+    else showError(said, true, { slot: els.galleryError });
+    // The Runs picker counts images, as after ⌦.
+    loadRuns();
     return;
   }
   recordsWithId(rec.id).forEach((r) => { r.favorite = value; });
@@ -825,6 +853,25 @@ async function setFavorite(rec, value) {
     el.querySelectorAll('.star').forEach((star) => syncStar(star, value));
   });
   if (els.lightbox.open && lbList[lbIndex]?.id === rec.id) renderLightbox();
+  // A star with focus says its own new state (aria-pressed); anywhere else
+  // F changed a button nobody was on, and nothing was heard.
+  if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
+}
+
+// What F did, for a screen reader: "Starred #12", "Unstarred #12", in a
+// visually hidden polite line - the lightbox's own while it is up, since the
+// page behind a modal dialog is inert, live regions and all. Emptied first
+// and written on the next frame, so the same words again are heard again,
+// and emptied after a while, so browse mode does not come on a stale one.
+let starSaidTimer = 0;
+function sayStar(rec, value) {
+  const line = els.lightbox.open ? els.lbStarSaid : els.starSaid;
+  const text = `${value ? 'Starred' : 'Unstarred'} #${rec.id}`;
+  els.starSaid.textContent = '';
+  els.lbStarSaid.textContent = '';
+  clearTimeout(starSaidTimer);
+  requestAnimationFrame(() => { line.textContent = text; });
+  starSaidTimer = setTimeout(() => { if (line.textContent === text) line.textContent = ''; }, 5000);
 }
 
 // Gallery ids as the page names images: "#8", "#8 and #4", "#8, #4 and #2".
@@ -895,14 +942,17 @@ function placeAsk(anchor) {
   if (!at || (!at.width && !at.height)) return;
   const box = dialog.getBoundingClientRect();
   const room = 8;
-  const clampX = (x) => Math.max(room, Math.min(x, innerWidth - box.width - room));
-  const clampY = (y) => Math.max(room, Math.min(y, innerHeight - box.height - room));
+  // The window less its scrollbars: innerWidth counts the page's, and a
+  // dialog placed for a card in the right-hand column ran 7 px under it.
+  const { clientWidth: width, clientHeight: height } = document.documentElement;
+  const clampX = (x) => Math.max(room, Math.min(x, width - box.width - room));
+  const clampY = (y) => Math.max(room, Math.min(y, height - box.height - room));
   const centreX = at.left + at.width / 2 - box.width / 2;
   const centreY = at.top + at.height / 2 - box.height / 2;
   const places = [
-    [centreX, at.bottom + room, at.bottom + room + box.height <= innerHeight - room],
+    [centreX, at.bottom + room, at.bottom + room + box.height <= height - room],
     [centreX, at.top - room - box.height, at.top - room - box.height >= room],
-    [at.right + room, centreY, at.right + room + box.width <= innerWidth - room],
+    [at.right + room, centreY, at.right + room + box.width <= width - room],
     [at.left - room - box.width, centreY, at.left - room - box.width >= room],
   ];
   const [x, y] = places.find(([, , fits]) => fits) ?? places[0];
@@ -1182,9 +1232,12 @@ function tombstone(el) {
   tomb.textContent = `Deleted · ${imageNames([+el.dataset.id])}`;
   if (el.classList.contains('card')) {
     el.replaceChildren(tomb);
-    // Nor any mark of what the image was: a star, a reference, a pass.
+    // Nor any mark of what the image was: a star, a reference, a pass - nor
+    // the group (card()), which has no tools left to name; its text says it.
     el.classList.remove('fav', 'ref', 'refined');
     el.classList.add('gone');
+    el.removeAttribute('role');
+    el.removeAttribute('aria-label');
     delete el.dataset.id;
     delete el.dataset.refN;
     return el;
@@ -1241,15 +1294,27 @@ async function forgetIfGone(id) {
 // under the gallery's head, where the button is.
 async function deleteUnstarred() {
   const slot = { slot: els.galleryError };
+  // The grid brought up to what the sweep would reach first: images another
+  // tab made since this page's last look were counted and deleted unseen -
+  // the newest ones, the likeliest still to be starred - and the count to
+  // type back was not the grid's. Under the same filters, as a finished job's
+  // are (prependFinished); not on a sheet, which is one run laid out whole.
+  const head = galleryRecords[0]?.id;
+  if (!sheetMode && head != null) await prependFinished(0, { now: true });
   const search = els.search.value.trim();
   const params = new URLSearchParams();
   if (search) params.set('search', search);
   if (els.allModels.checked) params.set('all_models', 'true');
+  // How many of the count are newer than the grid's head was is the
+  // server's to say: it keeps a starred image's sources the page cannot see.
+  const ask = new URLSearchParams(params);
+  if (!sheetMode && head != null) ask.set('newer_than', head);
   let found;
   try {
-    found = await api(`/api/gallery/unstarred?${params}`);
+    found = await api(`/api/gallery/unstarred?${ask}`);
   } catch (err) {
     showError(err.message, false, slot);
+    keepUnstarredFocus();
     return;
   }
   // The checkpoint scope is part of what is confirmed: with All models off
@@ -1269,8 +1334,12 @@ async function deleteUnstarred() {
   }
   const sources = found.sources_kept ?? 0;
   if (!found.unstarred) {
+    // None left at all - another tab deleted them since this page looked -
+    // is not "every image is starred".
     const kept = sources ? ' or one a starred image was made from' : '';
-    showError(`Nothing to delete: every image ${scope} is starred${kept}.`, true, slot);
+    showError(found.records ? `Nothing to delete: every image ${scope} is starred${kept}.`
+      : `Nothing to delete: no image is left ${scope}.`, true, slot);
+    keepUnstarredFocus();
     return;
   }
   const plural = found.unstarred === 1 ? '' : 's';
@@ -1291,12 +1360,14 @@ async function deleteUnstarred() {
   const message = [
     `Delete ${found.unstarred} unstarred image${plural} ${scope}, ${keeping}?`,
     ...(span ? [`${span}.`] : []),
+    ...freshLine(head, found.newer),
     '',
     ...prompts,
     '',
     // The count is pinned: an image a running job lands in scope before the
     // answer refuses the whole sweep, and that is better known before typing.
-    ...(busy ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
+    // The server's answer, since the job may be another tab's.
+    ...(found.job_active ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
     `The files are removed from disk. Type ${found.unstarred} to continue:`,
   ].join('\n');
   const typed = await askCount(message);
@@ -1313,22 +1384,46 @@ async function deleteUnstarred() {
     if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }
     // The server counts something else now - images a job landed in scope,
     // most often. The page shows the server's count rather than the one the
-    // message has just called stale.
-    resetGallery();
+    // message has just called stale. Whether a job is still running is in
+    // the server's sentence: it may be another tab's.
+    void resetGallery().then(keepUnstarredFocus);
     loadRuns();
-    showError(err.message + (busy
-      ? ' A running job is still adding images here: press Delete unstarred again, or let it finish first.'
-      : ''), false, slot);
+    showError(err.message, false, slot);
     return;
   }
   const also = forgetImages(result.deleted);
   // The page is now mostly holes; ask for it again from the top, which also
   // brings the badge back to the server's count - and clears the slot, so
   // the outcome is written after it.
-  resetGallery();
+  void resetGallery().then(keepUnstarredFocus);
   loadRuns();
   const went = result.deleted.length;
   showError(`Deleted ${went} image${went === 1 ? '' : 's'}, ${keeping}.${also}`, true, slot);
+}
+
+// A reload that leaves nothing in scope hides the button (syncDeleteUnstarred)
+// and, where focus was on it, dropped it to <body> - a sweep that took every
+// image, or one another tab had already emptied. The search box instead,
+// which says what the scope was, as the other delete paths keep focus off
+// <body>.
+function keepUnstarredFocus() {
+  const at = document.activeElement;
+  if (!els.deleteUnstarred.hidden || (at && at !== document.body && at !== els.deleteUnstarred)) return;
+  els.search.focus({ preventScroll: true });
+}
+
+// The dialog's line for what the grid has just been brought up to: `n`, the
+// server's count of the images the sweep takes that are newer than the
+// grid's head before the look (`head`, sent as `newer_than`). A page that
+// did not join up was loaded again from the top (prependFinished), and where
+// every card on it is newer and there is more, only the newest are on it.
+function freshLine(head, n) {
+  if (!n) return [];
+  // At the top of the grid: a page scrolled down keeps its view
+  // (holdGalleryView), so they may be above it rather than in sight.
+  const some = n > 1 && galleryMore && galleryRecords.at(-1)?.id > head;
+  return [`${n} of them ${n === 1 ? 'was' : 'were'} made since this page last loaded; `
+    + `${some ? 'the newest are' : n === 1 ? 'it is' : 'they are'} at the top of the grid now.`];
 }
 
 // Shown while there is something it could act on: the filter matches images

@@ -1012,6 +1012,10 @@ function appendResult(rec) {
 function resultFigure(rec) {
   const { figure, tile } = viewerTile('result', rec.width, rec.height);
   figure.dataset.id = rec.id;
+  // Named "#N" as a card is (card()), so its Star, Refine and the rest are
+  // heard as this image's.
+  figure.setAttribute('role', 'group');
+  figure.setAttribute('aria-label', `#${rec.id}`);
   figure.classList.toggle('fav', !!rec.favorite);
   const img = thumb(rec, viewerRecords, rec.url, () => openViewerImage(rec));
   img.onerror = () => { void forgetIfGone(rec.id); };
