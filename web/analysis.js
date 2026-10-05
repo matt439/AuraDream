@@ -341,7 +341,8 @@ function selectIn(el, text, start, end) {
 // The box the words were selected in is outlined for a moment (600 ms, the
 // stylesheet's `.box-flash`; not at all under reduced motion): a finding in
 // the column beside the panel selected words a column away, and a selection
-// in an unfocused-looking box was easy to miss. Restarted on every click.
+// in an unfocused-looking box was easy to miss. A reference chip a finding's
+// "image N" goes to is outlined the same way. Restarted on every click.
 let flashedBox = null;
 let flashTimer = 0;
 function flashBox(el) {
@@ -636,7 +637,7 @@ function findingItem(finding, select, apply, carried) {
   const mark = span('analysis-mark', finding.severity === 'warn' ? '!' : 'i');
   mark.setAttribute('aria-hidden', 'true');
   const message = span('analysis-message');
-  message.append(span('analysis-sr', finding.severity === 'warn' ? 'Warning: ' : 'Note: '), finding.message);
+  message.append(span('analysis-sr', finding.severity === 'warn' ? 'Warning: ' : 'Note: '), findingText(finding));
   if ((finding.source === 'guide' || finding.source === 'author') && finding.cite
       && [...finding.cite].length < INLINE_CITE) {
     const cite = document.createElement('q');
@@ -673,6 +674,50 @@ function findingItem(finding, select, apply, carried) {
   }
   if (select && finding.start != null && finding.end != null) makeSelectable(li, () => select(finding));
   return li;
+}
+
+// A finding's words. Klein's references rule names the images the prompt
+// never mentions - "never says what to take from image 2, 3" - and each of
+// those numbers is the reference chip of that number in the panel, which the
+// words take you to: "image 2" and "3" are links, their words unchanged.
+const REFERENCE_NAMES = /\bimage (\d+(?:, \d+)*)/;
+
+function findingText(finding) {
+  const match = finding.rule === 'guide.references' && REFERENCE_NAMES.exec(finding.message);
+  if (!match) return finding.message;
+  const text = document.createDocumentFragment();
+  text.append(finding.message.slice(0, match.index));
+  match[1].split(', ').forEach((n, i) => {
+    if (i) text.append(', ');
+    text.append(referenceLink(+n, i ? n : `image ${n}`));
+  });
+  text.append(finding.message.slice(match.index + match[0].length));
+  return text;
+}
+
+// To reference chip N's ×, in the panel: focused, which brings it into view
+// there (revealInPanel, or the page's own scroll in one column). The chips
+// may have changed since the check - the panel is stale then, and says so -
+// so a number past the last chip says that image is not attached now.
+function referenceLink(n, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'analysis-link reference-link';
+  button.textContent = label;
+  button.title = `Go to reference image ${n} in the panel`;
+  button.setAttribute('aria-label', `Reference image ${n}`);
+  button.onclick = () => {
+    if (n > referenceIds.length) {
+      const have = referenceIds.length ? plural(referenceIds.length, 'reference image') : 'no reference images';
+      analysisMessage(`Image ${n} is not attached: the panel has ${have} now.`);
+      return;
+    }
+    analysisMessage('');
+    focusReference(n - 1);
+    // A pointer's press leaves the × no focus ring to find it by.
+    flashBox(els.referenceList.querySelectorAll('.chip')[n - 1]);
+  };
+  return button;
 }
 
 // Clicking a finding (Enter or Space on a focused one) selects the words it is
