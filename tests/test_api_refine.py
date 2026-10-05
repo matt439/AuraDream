@@ -326,6 +326,22 @@ def test_live_unprofiled_refine_gets_the_fallback_strength(client, fake, monkeyp
     defaults = client.get("/api/status").json()["defaults"]
     assert defaults["refine_supported"] is True
     assert defaults["refine_strength"] == 0.4
+    # The general default, not this checkpoint's: the Refine dialog's reused
+    # line must not call it "unprofiled-sdxl's 0.4".
+    assert defaults["refine_strength_profiled"] is False
+
+
+def test_the_status_says_whose_the_strength_is(client, fake, monkeypatch):
+    for model_id, strength, profiled in (
+        ("black-forest-labs/FLUX.1-Krea-dev", 0.1, True),
+        ("cagliostrolab/animagine-xl-4.0", 0.4, True),
+        ("circlestone-labs/Anima", None, False),
+    ):
+        described = dict(fake.describe(), model_id=model_id, refine_supported=None)
+        monkeypatch.setattr(fake, "describe", lambda described=described: described)
+        defaults = client.get("/api/status").json()["defaults"]
+        assert defaults["refine_strength"] == strength, model_id
+        assert defaults["refine_strength_profiled"] is profiled, model_id
 
 
 @pytest.mark.parametrize("route,extra", [

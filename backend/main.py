@@ -400,6 +400,10 @@ def _merged_defaults(info: dict) -> dict:
     defaults["refine_settled"] = (
         bool(defaults.get("refine_settled")) or info.get("refine_supported") is not None
     )
+    # Whose the strength is: the profile's own, or the general default filled
+    # in below for an unprofiled pipeline that has a pass. The Refine dialog
+    # names it as the checkpoint's own only where it is.
+    defaults["refine_strength_profiled"] = defaults.get("refine_strength") is not None
     if defaults["refine_supported"] and defaults.get("refine_strength") is None:
         from .refine import DEFAULT_STRENGTH
 

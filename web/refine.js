@@ -273,7 +273,7 @@ function openRefine(rec, pass = null) {
       : `Reusing #${pass.id}: ${pass.width}×${pass.height}, seed ${pass.seed} - its strength ${pass.strength} `
         + `was ${short(pass.model_id)}'s; Strength starts at `
         + (keptOne ? `${kept}, as last run on ${short(loadedModel)}`
-          : lastDefaults?.refine_strength != null ? `${short(loadedModel)}'s ${els.refineStrength.value}`
+          : lastDefaults?.refine_strength_profiled ? `${short(loadedModel)}'s ${els.refineStrength.value}`
             : `${els.refineStrength.value}, the general starting strength`);
   els.refineVersions.value = !pass && ['1', '2', '4'].includes(String(prefs.versions))
     ? String(prefs.versions) : '1';
@@ -494,7 +494,10 @@ function syncRefine() {
   const need = swept ? null : compareStepsNeeded();
   els.refineStrength.placeholder = swept ? `${start} or ${compare}` : `${start}`;
   els.refineCompare.setAttribute('aria-disabled', String(!swept));
-  els.refineCompare.textContent = `Compare ${sweepValues.length === 2 ? 2 : 3}`;
+  // Written only when it changes: this runs on every status poll while the
+  // dialog is open, and the button may hold focus.
+  const compareLabel = `Compare ${sweepValues.length === 2 ? 2 : 3}`;
+  if (els.refineCompare.textContent !== compareLabel) els.refineCompare.textContent = compareLabel;
   const other = sweepValues.find((v) => v !== start);
   const around = sweepValues.length === 3 ? `this checkpoint's ${start} and either side of it`
     : sweepValues.includes(start) ? `this checkpoint's ${start} and ${other} ${other < start ? 'below' : 'above'} it`

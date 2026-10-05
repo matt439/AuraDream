@@ -19,7 +19,7 @@
   {"wait": 2000},
   {"expect": "viewerRecords.length === 1 && viewerRecords[0].model_id === 'circlestone-labs/Anima' && viewerRecords[0].steps === 8 && viewerRecords[0].guidance_scale === 1"},
   {"expect": "viewerRecords[0].negative_prompt === null && viewerRecords[0].true_cfg === null && viewerRecords[0].mu === null"},
-  {"log": "'a FLUX.1 pass reused here opens the dialog on its source; Anima has no refine pass, and that is final - its pipeline is this repos own, which diffusers has no image-to-image class beside - so the line says so as the cards refusal does, not that a load will decide'"},
+  {"log": "'a FLUX.1 pass reused here opens the dialog on its source; Anima has no refine pass, and the fake answers as a loaded pipeline does (final), so the line says so as the cards refusal does, not that a load will decide - Anima and NewBie answering final before a load (_OWN_PIPELINES) is pytests, test_refine and test_api_refine'"},
   {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__src = viewerRecords[0]; reuse({...window.__src, id: 9001, model_id: 'black-forest-labs/FLUX.1-Krea-dev', refine: window.__src.id, strength: 0.1, width: 1536, height: 1536, seed: 7, steps: 28, guidance_scale: 3.5});"},
   {"expect": "__until(() => els.refineDialog.open && refineSource?.id === window.__src.id)"},
   {"expect": "lastDefaults.refine_settled === true && !refineSupported && !els.refineUnavailable.hidden && els.refineUnavailable.textContent === 'Refine is unavailable. ' + REFINE_NONE && els.refineRun.getAttribute('aria-disabled') === 'true'"},
