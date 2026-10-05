@@ -254,15 +254,18 @@ function syncCfg() {
   // is the price of the field. Where CFG is the knob the pass runs above the
   // threshold whatever the box holds - against an empty prompt where it is
   // blank - so a live box costs nothing more, and only the greyed one, which
-  // needs a CFG raised to wake, says what raising it costs.
+  // needs a CFG raised to wake, says what raising it costs. Each as short
+  // as the greyed one, which fits beside the label: a two-line caption moved
+  // the box and everything under it down a line at 1400x900 and 2048x1040
+  // at 125%, and at CFG's threshold it changed height as CFG crossed it.
   const cfgPaysAlready = !trueCfgSupported && !off;
   els.negNote.textContent = !negativeSupported
     ? (els.negative.value.trim() ? '(this checkpoint takes none; the text is kept for one that does)'
       : '(this checkpoint takes no negative prompt)')
     : cfgPaysAlready && gridMaxCfg !== null && +els.cfg.value <= cfgThreshold
-      ? `(applies to the grid cells above CFG ${cfgThreshold}; no extra cost there)`
+      ? `(for grid cells above CFG ${cfgThreshold})`
       : cfgPaysAlready
-        ? `(runs while CFG > ${cfgThreshold}; no extra cost at this CFG)`
+        ? `(runs at CFG > ${cfgThreshold}, no extra cost)`
         : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
   // The way to the box that wakes it, which on FLUX sits a field's height
   // below and is named only in the note.

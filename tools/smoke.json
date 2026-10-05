@@ -154,7 +154,7 @@
   {"eval": "els.cfg.value = '2'; els.cfg.oninput();"},
   {"expect": "!els.negative.disabled && collect().true_cfg === null"},
   {"log": "'Woken by CFG, the negative costs nothing more: Krea 2 runs its uncond pass from 0 up whatever the box holds, and the caption says so where the greyed one said what waking it costs'"},
-  {"expect": "els.negNote.textContent === '(runs while CFG > 0; no extra cost at this CFG)'"},
+  {"expect": "els.negNote.textContent === '(runs at CFG > 0, no extra cost)'"},
   {"log": "'The grid' + \"'\" + 's examples are the profile' + \"'\" + 's own neighbourhood: 8 steps give 6,8,10, and a CFG-0 profile keeps 0,0.5,1 - one below would be negative'"},
   {"expect": "els.gridSteps.placeholder === '6,8,10' && els.gridCfg.placeholder === '0,0.5,1' && els.gridMu.placeholder === 'none,1.15' && els.mu.placeholder === 'auto'"},
 

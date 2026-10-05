@@ -261,8 +261,10 @@ function sheetValues(records, whole = []) {
         if (oldest.has(v) && rec.id < oldest.get(v)) oldest.set(v, rec.id);
       }
     }
-    // Mu's none at the shift it ran at, ahead of an explicit value equal to it.
-    const noneAt = axis.key === 'mu' ? sheetMuStatic : null;
+    // Mu's none at the shift it ran at, as its head prints it, ahead of an
+    // explicit value equal to that: 1.79 typed from the placeholder sits
+    // after "none (1.79)", where ln 6's 1.7918 put it before.
+    const noneAt = axis.key === 'mu' && sheetMuStatic !== null ? +muStaticText(sheetMuStatic) : null;
     seen.sort((a, b) => {
       if (noneAt !== null) return ((a ?? noneAt) - (b ?? noneAt)) || (a === null ? -1 : b === null ? 1 : 0);
       if (a === null) return -1;

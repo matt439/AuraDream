@@ -21,7 +21,7 @@
   {"eval": "choose('1:1', 1);"},
   {"expect": "els.tiers.children[0].getAttribute('aria-label') === \"1 MP, within the span of the authors' example sizes\" && els.tiers.children[0].title === \"1024 × 1024, within the span of the authors' example sizes\" && !els.tiers.children[2].title.includes('documented')"},
   {"log": "'At CFG 5 the uncond pass already runs, so the live negative costs nothing; the blank Mu is the fixed shift 6, mu 1.79; the grid suggests NetaYume\\'s own neighbourhood'"},
-  {"expect": "els.negNote.textContent === '(runs while CFG > 1; no extra cost at this CFG)' && els.mu.placeholder === '1.79' && els.gridSteps.placeholder === '30,40,50' && els.gridCfg.placeholder === '4,5,6'"},
+  {"expect": "els.negNote.textContent === '(runs at CFG > 1, no extra cost)' && els.mu.placeholder === '1.79' && els.gridSteps.placeholder === '30,40,50' && els.gridCfg.placeholder === '4,5,6'"},
   {"eval": "choose('1:1', 1); els.negative.value = 'blurry'; els.mu.value = '1.8'; els.seed.value = '7871'; void startJob('/api/generate', collect());"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => viewerRecords.length === 1 && !busy)"},
