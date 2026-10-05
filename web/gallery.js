@@ -668,7 +668,7 @@ function galleryKey(e) {
   if (e.key === 'f' || e.key === 'F') {
     e.preventDefault();
     const rec = galleryRecords.find((r) => r.id === +div.dataset.id);
-    if (rec) void setFavorite(rec, !rec.favorite);
+    if (rec) void setFavorite(rec, !rec.favorite, { say: true });
     return;
   }
   if (e.target.parentElement !== div || e.target.tagName !== 'IMG') return;
@@ -817,11 +817,27 @@ function recordsWithId(id) {
   return [...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList].filter((r) => r.id === id);
 }
 
-async function setFavorite(rec, value) {
+// `say` is F's: the key stars an image from wherever focus is in its card,
+// sheet cell or lightbox, and only a press on the star itself changes the
+// state of what has focus - so otherwise the outcome is said (sayStar).
+async function setFavorite(rec, value, { say = false } = {}) {
   try {
     await api(`/api/images/${rec.id}/favorite?value=${value}`, { method: 'POST' });
   } catch (err) {
-    showError(err.message);
+    // A star is a gallery control, and says what went wrong where they do -
+    // not in the panel's line a column away (the lightbox's line mirrors it).
+    if (!/unknown image/.test(err.message)) {
+      showError(err.message, false, { slot: els.galleryError });
+      return;
+    }
+    // Deleted elsewhere - another tab - while this page still showed it: said
+    // as ⌦ says it in the same case, and forgotten everywhere (forgetImages)
+    // rather than left on the page to be starred again. "unknown image" in
+    // the panel's line said neither, and stayed on under the next image.
+    const fromLightbox = els.lightbox.open;
+    const said = `#${rec.id} was already deleted.${forgetImages([rec.id])}`;
+    if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
+    else showError(said, true, { slot: els.galleryError });
     return;
   }
   recordsWithId(rec.id).forEach((r) => { r.favorite = value; });
@@ -835,6 +851,25 @@ async function setFavorite(rec, value) {
     el.querySelectorAll('.star').forEach((star) => syncStar(star, value));
   });
   if (els.lightbox.open && lbList[lbIndex]?.id === rec.id) renderLightbox();
+  // A star with focus says its own new state (aria-pressed); anywhere else
+  // F changed a button nobody was on, and nothing was heard.
+  if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
+}
+
+// What F did, for a screen reader: "Starred #12", "Unstarred #12", in a
+// visually hidden polite line - the lightbox's own while it is up, since the
+// page behind a modal dialog is inert, live regions and all. Emptied first
+// and written on the next frame, so the same words again are heard again,
+// and emptied after a while, so browse mode does not come on a stale one.
+let starSaidTimer = 0;
+function sayStar(rec, value) {
+  const line = els.lightbox.open ? els.lbStarSaid : els.starSaid;
+  const text = `${value ? 'Starred' : 'Unstarred'} #${rec.id}`;
+  els.starSaid.textContent = '';
+  els.lbStarSaid.textContent = '';
+  clearTimeout(starSaidTimer);
+  requestAnimationFrame(() => { line.textContent = text; });
+  starSaidTimer = setTimeout(() => { if (line.textContent === text) line.textContent = ''; }, 5000);
 }
 
 // Gallery ids as the page names images: "#8", "#8 and #4", "#8, #4 and #2".

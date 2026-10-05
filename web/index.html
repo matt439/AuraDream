@@ -621,6 +621,9 @@
              head's own, whose line is kept while it is empty, so a message
              never moves the grid under the pointer. -->
         <p class="error" id="gallery-error" role="alert" hidden></p>
+        <!-- What F did to a card's or a sheet cell's star, for a screen reader:
+             focus stays on the image, and nothing else says it (sayStar). -->
+        <p class="star-said" id="star-said" aria-live="polite"></p>
       </div>
       <div class="library-scroll" id="library-scroll">
         <!-- A gallery with nothing to show says so (syncGalleryEmpty): a blank
@@ -692,6 +695,9 @@
     <!-- Failures raised from inside the lightbox land here, over the overlay,
          rather than in the panel's slot underneath it. -->
     <p class="error" id="lb-error" role="alert" hidden></p>
+    <!-- F's outcome where focus is not on Star (sayStar): the page's own line
+         is behind this modal dialog, and inert with it. -->
+    <p class="star-said" id="lb-star-said" aria-live="polite"></p>
     <!-- On a refine pass only: the pass against the image it was made from. -->
     <div class="lb-compare" id="lb-compare" hidden>
       <button type="button" class="ghost" id="lb-compare-on" aria-pressed="false" aria-keyshortcuts="S">Compare with source</button>
