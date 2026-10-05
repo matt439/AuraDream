@@ -482,6 +482,10 @@ function buildTagEditor(initial = null) {
   menu.className = 'tag-editor-suggestions';
   menu.id = 'tag-editor-suggestions';
   menu.setAttribute('role', 'listbox');
+  // Named as the prompt box's list and the Refine dialog's are; one editor is
+  // open at a time, so the id - and its options' ids, which the input's
+  // aria-activedescendant names - are the page's only ones.
+  menu.setAttribute('aria-label', 'Tag suggestions');
   menu.hidden = true;
   input.setAttribute('aria-controls', menu.id);
   const accept = document.createElement('button');
@@ -986,9 +990,11 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     // Not the item still being typed, as the label does not count it: a
     // lookup landing mid-word would read out an unfinished word as unknown.
     const unknown = results.filter((result, index) => result.valid === false && index !== typing).length;
+    // A spoken line, so "1 prompt tag", never "1 prompt tags" (analysis.js's
+    // `plural`, read at call time).
     const summary = (state === 'offline'
-      ? `${results.length} prompt tags, not checked: Danbooru unreachable`
-      : `${results.length} prompt tags: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
+      ? `${plural(results.length, 'prompt tag')}, not checked: Danbooru unreachable`
+      : `${plural(results.length, 'prompt tag')}: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
       + (past ? `, ${past} past the encoders' token limit` : '');
     if (els.tagSummary.textContent !== summary) els.tagSummary.textContent = summary;
   }

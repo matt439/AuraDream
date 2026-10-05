@@ -40,7 +40,7 @@
         <span class="examples" id="examples">
           <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
                   aria-expanded="false" title="Example prompts for this checkpoint, from its authors">Examples</button>
-          <ul class="menu" id="examples-menu" role="menu" hidden></ul>
+          <ul class="menu" id="examples-menu" role="menu" aria-labelledby="btn-examples" hidden></ul>
         </span>
         <span class="tag-helper" id="tag-helper" hidden>
           <button type="button" class="ghost tiny" id="btn-tags" aria-haspopup="dialog"
@@ -65,7 +65,7 @@
         <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
                   aria-describedby="prompt-tip" aria-autocomplete="list"
                   aria-controls="tag-suggestions" aria-expanded="false"></textarea>
-        <ul class="tag-suggestions" id="tag-suggestions" role="listbox" hidden></ul>
+        <ul class="tag-suggestions" id="tag-suggestions" role="listbox" aria-label="Tag suggestions" hidden></ul>
         <!-- The Tags button's helper, under the box rather than over it: the
              caret it inserts at stays in sight. -->
         <div class="tag-menu" id="tags-menu" role="dialog"
