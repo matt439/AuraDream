@@ -2423,6 +2423,12 @@ button { font: inherit; cursor: pointer; }
 .lb-keys { margin: 0; min-height: 0; }
 .lb-zoom-group { display: flex; align-items: center; gap: var(--sp-2); }
 .lb-zoom { color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; min-width: 4em; }
+/* The zoom for a screen reader, said once a wheel's burst is over (the
+   readout on screen is aria-hidden). Out of the row's flow, so no gap. */
+.lb-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
 .lb-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lb-actions .ghost { width: 100%; }
 #lb-fav.active { color: var(--star); border-color: var(--star); }
@@ -2501,7 +2507,14 @@ button { font: inherit; cursor: pointer; }
     flex-direction: row; flex-wrap: wrap; align-items: center;
   }
   .lb-head { order: 1; margin-left: auto; }
-  .lb-meta { flex: 1 1 100%; max-height: 6em; }
+  /* Six lines, and the letterbox a square or landscape picture leaves the
+     stage (--lb-room, lightbox.js's lbFactsRoom): the seed had been in the
+     hidden part of an 84 px scroller over 126 px of empty stage. */
+  .lb-meta { flex: 1 1 100%; max-height: calc(6em + var(--lb-room, 0px)); }
+  /* Four lines in a box at least six tall, so the facts follow it in view
+     and a long prompt scrolls inside a box smaller than the one round it:
+     at --prompt-cap's twelve it was a scroller taller than its scroller. */
+  .lb-prompt { max-height: 4lh; }
   .lightbox .error { flex: 1 1 100%; }
   .lb-compare { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; align-items: center; }
   /* No room for a legend here, and the buttons' titles name their keys. */

@@ -90,7 +90,7 @@ const els = {
   jobMirror: $('job-mirror'), topbarLine: $('topbar-line'), topbarFill: $('topbar-fill'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
   lbPrompt: $('lb-prompt'), lbSettings: $('lb-settings'), lbCount: $('lb-count'),
-  lbError: $('lb-error'), lbStage: $('lb-stage'), lbZoom: $('lb-zoom'),
+  lbError: $('lb-error'), lbStage: $('lb-stage'), lbZoom: $('lb-zoom'), lbZoomSaid: $('lb-zoom-said'),
   lbFit: $('lb-fit'), lbOne: $('lb-one'),
   lbReuse: $('lb-reuse'), lbRefine: $('lb-refine'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
   lbFav: $('lb-fav'), lbDelete: $('lb-delete'),
