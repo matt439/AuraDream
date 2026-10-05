@@ -669,6 +669,15 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-check.valid[data-category="artist"] { border-left-color: #ff8a8b; }
 .tag-check.valid[data-category="meta"] { border-left-color: #ead084; }
 .tag-check.valid[data-category="guide"] { border-left-color: var(--accent-2); }
+/* Where the guide's documented order puts the item, as the server's order
+   rule placed it (data-slot, POST /api/tags/validate): a quiet caption ahead
+   of the mark, so the tag is still what reads first, and drawn here, so the
+   chip's text stays the tag's own. None where the rules gave it no one place. */
+.tag-check-label[data-slot]::before {
+  content: attr(data-slot);
+  padding-right: var(--sp-1); border-right: 1px solid var(--line);
+  color: var(--text-readout); font-size: var(--fs-xs); text-transform: lowercase; white-space: nowrap;
+}
 /* Past the encoders' cut: never read, dimmed and dashed, with an amber bar
    where reading stops; the chip the cut splits keeps a dashed far edge. */
 .tag-check.past-cut { opacity: 0.55; border-style: dashed; }
