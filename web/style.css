@@ -464,6 +464,19 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   border-radius: var(--r-sm); font-size: var(--fs-sm); line-height: 1;
 }
 #btn-dice::after { content: ""; position: absolute; inset: -6px -3px -4px; }
+/* The Output caption is shown from 1800 px and in one column, and is the
+   group's name alone on a two-column page under the wide tier: there the
+   330 px panel is at its tallest beside a window as short as 900 px, and the
+   caption's line and gap (24 px) took Generate's top, 16 px of which had
+   shown at 1400x900 at scroll 0, wholly below the window. The row's own names
+   - Seed, Batch, Repeat - say what it is, as LoRA's and Weight's do above it.
+   Visually hidden rather than gone, so the group keeps its name. */
+@media (min-width: 901px) and (max-width: 1799px) {
+  #output-caption {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+}
 .sub i { font-style: normal; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 5px; }
 
 /* An explicit hover target for the per-checkpoint help. A native `title` is
