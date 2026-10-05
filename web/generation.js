@@ -1117,18 +1117,20 @@ async function previewGrid() {
     }
     const single = body.prompt_axis ? singleValueLines(body.prompt_axis) : [];
     notes.push(...single);
-    // A seed's share of the estimate, against the budget: every seed runs the
-    // same cells (seeds are the outer loop), so the share is exact under the
-    // estimate - and there is no line without one. The budget counts from Run
-    // grid, so the load and any job ahead of it in the queue spend it too,
-    // which the estimate does not count: said while the topbar's dot (the
-    // status's state) is not ready, and while this page watches a job or
-    // another tab's runs (elsewhereBusy). Not under Resume, whose seeds are
-    // no longer alike.
+    // The seeds the budget completes, the server's count by the job's own
+    // rule (`budget_seeds`): a cell starts while the deadline has not passed
+    // and runs to its end, so the seed whose last cell starts in time
+    // completes past the deadline - the budget over a seed's share of the
+    // estimate said 4 of 6 for a grid that made 5. There is no line without
+    // an estimate. The budget counts from Run grid, so the load and any job
+    // ahead of it in the queue spend it too, which the estimate does not
+    // count: said while the topbar's dot (the status's state) is not ready,
+    // and while this page watches a job or another tab's runs
+    // (elsewhereBusy). Not under Resume, whose seeds are no longer alike.
     let budgetShort = false;
-    if (body.budget_minutes && p.seconds && !body.resume) {
+    if (body.budget_minutes && p.budget_seeds != null && !body.resume) {
       const seeds = p.values.seed?.length || body.seeds;
-      const done = Math.min(seeds, Math.floor(body.budget_minutes * 60 / (p.seconds / seeds)));
+      const done = p.budget_seeds;
       budgetShort = done === 0;
       const ahead = (busy || elsewhereBusy ? 1 : 0) + queuedIds.length;
       const also = [

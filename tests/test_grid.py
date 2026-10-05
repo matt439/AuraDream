@@ -168,6 +168,26 @@ def test_a_batch_steps_the_seed_past_itself():
     assert [c.seed for c in cells] == [100, 104, 108]
 
 
+def test_a_budget_completes_the_seeds_whose_last_cell_starts_in_time():
+    # Measured on the card (docs/verified.md, Kohaku): Steps 12,28,40 x 6
+    # seeds at 301 ms a step, a 2 min budget. A seed's share of the estimate
+    # (24.1 s) into 120 s said 4 of 6; the job, which starts no cell after the
+    # deadline and lets the one in flight finish, made 5 - the fifth seed's
+    # last cell began at 108 s.
+    cells = grid.expand(request(seed=1), steps="12,28,40", seeds=6)
+    assert grid.seeds_within_budget(cells, 6, 301.0, 120) == 5
+    assert grid.estimate_seconds(cells, 301.0) == pytest.approx(144.5)
+    # The deadline itself still starts a cell: the job stops only once it
+    # has passed. A seed's first cell starting at the deadline is not enough.
+    flat = grid.expand(request(seed=1, steps=10), seeds=3)
+    assert grid.seeds_within_budget(flat, 3, 1000.0, 10) == 2
+    assert grid.seeds_within_budget(flat, 3, 1000.0, 9.99) == 1
+    assert grid.seeds_within_budget(flat, 3, 1000.0, 0) == 1
+    assert grid.seeds_within_budget(flat, 3, 1000.0, 1000) == 3
+    # No price, no count.
+    assert grid.seeds_within_budget(cells, 6, None, 120) is None
+
+
 def test_every_cell_is_a_single_run():
     # `runs` would multiply the night behind the count the preview promised.
     cells = grid.expand(request(seed=1, runs=5), steps="6,8")

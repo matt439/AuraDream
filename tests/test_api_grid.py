@@ -575,6 +575,14 @@ def test_the_preview_estimates_from_what_the_gallery_measured(client, store):
     # 0.5s x 8 steps x 4 cells. Per step, not per image: a grid whose cells
     # disagree about the step count cannot be costed from an image average.
     assert preview["seconds"] == pytest.approx(16.0)
+    assert preview["budget_seeds"] is None
+    # A 6 s budget over 4 s seeds: the second starts at 4 s, before the
+    # deadline, and finishes past it - two seeds, where 6 / 4 said one.
+    body = {"prompt": "x", "width": 256, "height": 256, "steps_axis": "8", "seeds": 4, "budget_minutes": 0.1}
+    assert client.post("/api/grid/preview", json=body).json()["budget_seeds"] == 2
+    # Under Resume the seeds left are not alike; the page says nothing there.
+    resumed = client.post("/api/grid/preview", json={**body, "seed": 1, "resume": True}).json()
+    assert resumed["budget_seeds"] is None
 
 
 def test_a_bad_axis_is_refused_before_anything_runs(client, fake):

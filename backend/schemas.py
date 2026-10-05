@@ -749,6 +749,10 @@ class GridPreview(BaseModel):
     summary: str
     # Null until the gallery holds an image at this size to measure against.
     seconds: float | None = None
+    # With a time budget and no Resume: the seeds it completes under the
+    # job's stop rule, a cell starting until the deadline has passed
+    # (`grid.seeds_within_budget`). Null wherever `seconds` is.
+    budget_seeds: int | None = None
     # Likewise: the median PNG size at this size on this checkpoint times the
     # image count. The weakest of the estimates - PNG size follows content -
     # but a night that fills the disk dies at the first save.

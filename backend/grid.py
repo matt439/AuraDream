@@ -680,7 +680,16 @@ def estimate_seconds(
     away or priced from direct renders. No estimate if any cell has no matching
     history. The CLI pays a load per invocation on top.
     """
-    total_ms = 0.0
+    priced = _cell_ms(cells, per_step_ms, refine_costs)
+    return None if priced is None else round(sum(priced) / 1000, 1)
+
+
+def _cell_ms(
+    cells: list[Cell], per_step_ms: float | None, refine_costs: dict[int, float] | None,
+) -> list[float] | None:
+    """Each cell's price in milliseconds, as `estimate_seconds` sums them;
+    None if any cell has no matching history."""
+    priced = []
     for cell in cells:
         request = cell.request
         if request.refine is None:
@@ -691,8 +700,32 @@ def estimate_seconds(
             image_ms = (refine_costs or {}).get(denoised_steps(request))
             if image_ms is None:
                 return None
-        total_ms += image_ms * request.num_images
-    return round(total_ms / 1000, 1)
+        priced.append(image_ms * request.num_images)
+    return priced
+
+
+def seeds_within_budget(
+    cells: list[Cell], seeds: int, per_step_ms: float | None, budget_seconds: float, *,
+    refine_costs: dict[int, float] | None = None,
+) -> int | None:
+    """How many of a grid's seeds a time budget completes, by the job's own
+    rule: a cell starts while the deadline has not passed and runs to its end
+    (`JobManager._generate`), so a seed whose last cell starts in time
+    completes, though it ends past the deadline. Dividing the budget by a
+    seed's share of the estimate said 4 of 6 for a grid that made 5. Seeds are
+    the outer loop, each running the same cells; priced as `estimate_seconds`
+    prices, from the job's start - the load and any job ahead spend a budget
+    too, which no estimate counts. None where it has no price."""
+    priced = _cell_ms(cells, per_step_ms, refine_costs)
+    if priced is None or seeds < 1 or len(cells) % seeds:
+        return None
+    per_seed = len(cells) // seeds
+    elapsed_ms = 0.0
+    for index, ms in enumerate(priced):
+        if elapsed_ms > budget_seconds * 1000:
+            return index // per_seed
+        elapsed_ms += ms
+    return seeds
 
 
 def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:

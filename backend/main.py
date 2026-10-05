@@ -1541,6 +1541,16 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     )
     images = len(cells) * request.num_images
     listed = len(values.get("seed", []))
+    # Under Resume the seeds left are no longer alike, and the page says
+    # nothing of the budget there.
+    budget_seeds = (
+        grid.seeds_within_budget(
+            cells, listed or request.seeds, per_step_ms, request.budget_minutes * 60,
+            refine_costs=refine_costs,
+        )
+        if request.budget_minutes and not request.resume
+        else None
+    )
     # Where a refine pass starts on the schedule, for the Refine dialog: only
     # where every cell starts at one point - the same steps, mu and strength
     # as the pipeline will run them - which a sweep's do not. Schedulers
@@ -1562,6 +1572,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
         duplicates=grid.duplicate_count(cells, backend.applied),
         summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
         seconds=grid.estimate_seconds(cells, per_step_ms, refine_costs=refine_costs),
+        budget_seeds=budget_seeds,
         bytes=per_image_bytes * images if per_image_bytes else None,
         start_sigma=start_sigma,
     )
