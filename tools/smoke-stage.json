@@ -9,6 +9,8 @@
 
   {"log": "'sixty images, more than a page'"},
   {"eval": "fetch('/api/grid', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a fox in the snow', steps_axis: '1,2,3,4,5,6,7,8,9,10', cfg_axis: '0,1,2,3,4,5', width: 512, height: 512, seed: 7})}).then((r) => r.json()).then(async (j) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + j.job_id)).json(); if (s.status !== 'queued' && s.status !== 'running') break; await new Promise((r) => setTimeout(r, 100)); } })"},
+  {"log": "'the grid was posted from outside the page, so to the page it is a job from another tab, which holds the critic until a status poll says it has ended'"},
+  {"expect": "__until(() => !elsewhereBusy)"},
   {"eval": "scrollTo(0, 0); resetGallery();"},
   {"expect": "__until(() => __cards().length === 48 && galleryMore)"},
 
