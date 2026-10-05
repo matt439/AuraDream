@@ -22,6 +22,8 @@
 //                                element's box as it is at that moment, wherever the
 //                                layout has put it
 //   {"viewport": [w, h, dpr]}    resize the page (dpr optional, default 1) and wait for layout
+//   {"media": {"prefers-reduced-motion": "reduce"}}   emulate media features ("" for
+//                                one drops its override and the host's setting is back)
 //   {"shot": "file.png"}         screenshot the viewport; {"fullshot": "file.png"} the
 //                                whole scrollable page; {"elshot": ["selector", "file.png"]}
 //                                one element's box, scrolled into view
@@ -252,6 +254,9 @@ for (const step of steps) {
     const [w, h, dpr = 1] = step.viewport;
     await viewport(w, h, dpr);
     await sleep(300);
+  } else if (step.media) {
+    const features = Object.entries(step.media).map(([name, value]) => ({ name, value }));
+    await send('Emulation.setEmulatedMedia', { features });
   } else if (step.shot) {
     const res = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(step.shot, Buffer.from(res.result.data, 'base64'));

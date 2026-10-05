@@ -26,12 +26,17 @@
   {"expect": "(() => { const row = encoderRow({ name: 'Gemma 2 2B', field: 'prompt', tokens: 300, budget: 237, cut: 40, role: 'shares its 256 tokens with the anime system instruction', pooled_only: false, source: null }); return row.classList.contains('cut') && !row.classList.contains('pooled'); })()"},
 
   {"log": "'Clicking a finding selects its words; the cut selects what CLIP-L never reads; either scrolls the box to them from its far end - the words on line 2 to the top, the tail down from the top'"},
+  {"media": {"prefers-reduced-motion": "no-preference"}},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; els.prompt.scrollTop = els.prompt.scrollHeight; els.analysisFindings.querySelector('.analysis-item.warn .analysis-message').click(); window.__flash = [els.prompt.classList.contains('box-flash'), getComputedStyle(els.prompt).animationName, getComputedStyle(els.prompt).animationDuration];"},
   {"expect": "document.activeElement === els.prompt && els.prompt.value.slice(els.prompt.selectionStart, els.prompt.selectionEnd) === 'no people' && els.prompt.scrollHeight > els.prompt.clientHeight * 2 && els.prompt.scrollTop === 0"},
   {"log": "'The box the words were selected in flashes an outline for 600 ms, then is left as it was; under reduced motion the stylesheet takes the flash away'"},
   {"expect": "window.__flash.join() === 'true,box-flash,0.6s'"},
   {"expect": "__until(() => !els.prompt.classList.contains('box-flash') && getComputedStyle(els.prompt).animationName === 'none', 3000)"},
-  {"expect": "[...document.styleSheets].some((sheet) => [...sheet.cssRules].some((rule) => rule.conditionText?.includes('prefers-reduced-motion: reduce') && [...rule.cssRules].some((r) => r.selectorText === '.box-flash' && r.style.animationName === 'none')))"},
+  {"log": "'Under reduced motion the words are selected and the box is not flashed'"},
+  {"media": {"prefers-reduced-motion": "reduce"}},
+  {"eval": "els.analysisFindings.querySelector('.analysis-item.warn .analysis-message').click(); window.__flash = [els.prompt.classList.contains('box-flash'), getComputedStyle(els.prompt).animationName];"},
+  {"expect": "matchMedia('(prefers-reduced-motion: reduce)').matches && window.__flash.join() === 'true,none' && document.activeElement === els.prompt && els.prompt.value.slice(els.prompt.selectionStart, els.prompt.selectionEnd) === 'no people'"},
+  {"media": {"prefers-reduced-motion": ""}},
   {"eval": "els.prompt.scrollTop = 0; els.analysisEncoders.querySelector('.analysis-link').click();"},
   {"expect": "els.prompt.selectionEnd === els.prompt.value.length && els.prompt.value.slice(els.prompt.selectionStart).startsWith('a 35mm lens') && els.prompt.scrollTop > els.prompt.clientHeight / 2"},
 
