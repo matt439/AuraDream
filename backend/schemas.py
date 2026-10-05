@@ -415,7 +415,13 @@ class PromptAnalysis(BaseModel):
     model_id: str
     # How the text reads: sentences, a comma tag list, both, NewBie XML, JSON.
     style: Literal["prose", "tags", "hybrid", "xml", "json"]
+    # What the rules count as words (`prompt_rules.word_count`): each Han or
+    # kana character one, as Chinese and Japanese space no words, beside the
+    # spaced words. `characters` is how many of `words` are such characters,
+    # so the page says "300 characters" for a Chinese paragraph, not "300
+    # words".
     words: int
+    characters: int = 0
     encoders: list[EncoderReport] = Field(default_factory=list)
     # Why `encoders` is empty or partial - a gated tokenizer, no network on a
     # first use - so an unchecked budget is never shown as a passed one.

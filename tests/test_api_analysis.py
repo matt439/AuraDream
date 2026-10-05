@@ -825,6 +825,18 @@ def test_anima_asks_the_tag_index_which_items_are_artists(client, fake, monkeypa
     assert quiet.calls == []
 
 
+def test_the_check_says_how_many_of_its_words_are_characters(client, fake, monkeypatch):
+    # Each Han or kana character is one of the rules' words; the page calls
+    # them characters, from the count sent beside `words`.
+    claim(monkeypatch, fake, "baidu/ERNIE-Image-Turbo")
+    body = analyse(client, prompt="小狗，雪地，松树林，阴天，冷色调")
+    assert (body["words"], body["characters"]) == (12, 12)
+    body = analyse(client, prompt="一块写着'OPEN NOW'的木牌")
+    assert (body["words"], body["characters"]) == (9, 7)
+    body = analyse(client, prompt="A fox in fresh snow")
+    assert (body["words"], body["characters"]) == (5, 0)
+
+
 def test_a_failing_check_is_a_500_with_the_short_error(client, fake, monkeypatch):
     def broken(*args, **kwargs):
         raise RuntimeError("the rules broke\nRequest ID: 1234")

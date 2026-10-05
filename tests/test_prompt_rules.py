@@ -962,6 +962,33 @@ def test_style_against_the_guide():
     assert silent(ANIMAGINE, titled, "guide.style", known)
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "小狗，雪地，松树林，阴天，冷色调",
+        "一只狗，没有项圈，不要文字",
+        "puppy\nsnow\npine forest\novercast",
+        "puppy, snow\npine forest, overcast",
+    ],
+)
+def test_a_tag_list_is_one_however_its_items_are_parted(prompt):
+    # The style is read from pieces split at commas, "，" and line breaks; the
+    # note once counted the chips' comma items alone, so a Chinese list or a
+    # one-per-line one read as "a tag list" with nothing to say about it.
+    assert prompt_rules.detect_style(prompt) == "tags"
+    for model_id in (ERNIE, FLUX_DEV):
+        assert only(run(model_id, prompt), "guide.style"), (model_id, prompt)
+
+
+def test_lettering_is_one_piece_to_the_style_rule():
+    # A quotation's commas part no piece: two items are a phrase with a
+    # comma, not yet a tag list, as for the chips.
+    for prompt in ('1girl, "hi, there"', '1girl，"hi, there"', '1girl\n"hi, there"'):
+        assert prompt_rules.detect_style(prompt) == "tags"
+        assert only(run(ERNIE, prompt), "guide.style") == [], prompt
+    assert only(run(ERNIE, '1girl, "hi, there", smile'), "guide.style")
+
+
 def test_one_paragraph():
     prompt = "A fox in fresh snow.\n\nGolden hour light from the left."
     [finding] = only(run(KREA2, prompt), "guide.one_paragraph")

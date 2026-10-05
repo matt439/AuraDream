@@ -66,8 +66,13 @@ def comma_items(prompt: str) -> list[Item]:
     rules read a stretch of lettering as one item (`_units`); every other
     item they read is one of these.
     """
+    return _split(prompt, r"[^,]+")
+
+
+def _split(prompt: str, piece: str) -> list[Item]:
+    """`prompt`'s stretches matching `piece`, stripped, where each one sits."""
     items = []
-    for match in re.finditer(r"[^,]+", prompt):
+    for match in re.finditer(piece, prompt):
         raw = match.group()
         text = raw.strip()
         if text:
@@ -84,7 +89,13 @@ _WORD = re.compile(r"[^\W_]+(?:['’\-][^\W_]+)*")
 
 
 def word_count(prompt: str) -> int:
-    return len(_CJK.findall(prompt)) + len(_WORD.findall(_CJK.sub(" ", prompt)))
+    return cjk_count(prompt) + len(_WORD.findall(_CJK.sub(" ", prompt)))
+
+
+def cjk_count(prompt: str) -> int:
+    """How many of `word_count`'s words are Han or kana characters, one
+    each: the page calls those characters, not words."""
+    return len(_CJK.findall(prompt))
 
 
 _XML_ELEMENT = re.compile(r"<([A-Za-z_][\w.\-]*)>.*?</\1\s*>", re.S)
@@ -974,11 +985,18 @@ def _style(ctx: _Context) -> Iterable[PromptFinding]:
     if entry is None or ctx.style in entry.get("accepts", ()):
         return
     expects = entry["expects"]
-    if expects == "prose" and ctx.style == "tags" and len(ctx.items) >= 3:
+    # Three of the pieces the style was read from - split at commas, "，" and
+    # line breaks (`_pieces`), not at commas alone as the chips split - each
+    # stretch of lettering one piece, as `_units` makes it one comma item: a
+    # list written with "，" or one item a line is a tag list here too, while
+    # `1girl, "hi, there"` is still two.
+    pieces = _units(ctx.text, _split(ctx.text, r"[^,，\n]+"), ctx.quoted + ctx.rendered)
+    if expects == "prose" and ctx.style == "tags" and len(pieces) >= 3:
+        # Not "comma-separated": a list one item a line is one too.
         yield ctx.finding(
             entry, "guide.style", "info",
-            "This reads as a comma-separated tag list; this checkpoint's guide asks "
-            "for descriptive sentences.",
+            "This reads as a tag list; this checkpoint's guide asks for descriptive "
+            "sentences.",
         )
     elif expects == "tags" and ctx.style in ("prose", "hybrid"):
         what = "natural-language prose" if ctx.style == "prose" else "partly prose"

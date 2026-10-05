@@ -931,6 +931,7 @@ def _analyse(
         model_id=model_id,
         style=prompt_rules.detect_style(prompt, categories),
         words=prompt_rules.word_count(prompt),
+        characters=prompt_rules.cjk_count(prompt),
         encoders=reports,
         encoders_detail=detail,
         findings=findings,

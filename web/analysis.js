@@ -46,6 +46,19 @@ const PART_LABELS = [
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+// The rules' word count in a reader's words. Each Han or kana character
+// counts as one word there (`prompt_rules.word_count`: Chinese and Japanese
+// space no words), and "300 words" read as a miscount of a 300-character
+// Chinese paragraph; the server says how many of `words` are such characters.
+function wordsLine(body) {
+  const characters = body.characters ?? 0;
+  const words = body.words - characters;
+  if (!characters) return plural(body.words, 'word');
+  if (!words) return plural(characters, 'character');
+  const both = [plural(characters, 'character'), plural(words, 'word')];
+  return (characters >= words ? both : both.reverse()).join(' and ');
+}
+
 function span(className, text = '') {
   const el = document.createElement('span');
   el.className = className;
@@ -158,7 +171,7 @@ function renderAnalysis() {
     ? (unchecked ? 'nothing flagged · order not checked' : partly || artists ? 'nothing flagged' : 'nothing to flag')
     : `${warns ? plural(warns, 'warning') : 'no warnings'}${notes ? ` · ${plural(notes, 'note')}` : ''}`;
   els.analysisSummary.textContent =
-    `${plural(body.words, 'word')}, ${STYLE_NAMES[body.style] ?? body.style} · ${counts}`
+    `${wordsLine(body)}, ${STYLE_NAMES[body.style] ?? body.style} · ${counts}`
     + (partly ? ' · order partly checked' : artists ? ' · artists not all checked' : '');
   renderEncoders(body);
   renderOrder(body);
