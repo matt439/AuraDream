@@ -66,6 +66,9 @@
      --search-w     240px the gallery's search box, at most
      --runs-w       190px the Runs picker, closed: 240-360px from 1800 px
      --lb-side-w    280px the lightbox's column; 340-400px from 1800 px
+     --lb-nav       40px  the lightbox's arrow circles; 52px from 1800 px, with the
+                    wide tier's larger controls (lightbox.js measures the circle
+                    for side by side's halves and the strips' least width)
      --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
      --result-w     300-420px the column beside the one image just made, from 1800 px
      --recent-w     280-420px this page's earlier results beside it, from 2000 px
@@ -149,6 +152,7 @@
   --search-w: 240px;
   --runs-w: 190px;
   --lb-side-w: 280px;
+  --lb-nav: 40px;
   --dock-w: clamp(520px, 30vw, 760px);
   --result-w: clamp(300px, 17vw, 420px);
   --recent-min: 280px;
@@ -190,6 +194,7 @@
     --search-w: 480px;
     --runs-w: clamp(240px, 14vw, 360px);
     --lb-side-w: clamp(340px, 15vw, 400px);
+    --lb-nav: 52px;
     --tip-w: 320px;
     --tip-w-wide: 380px;
     --menu-w: 360px;
@@ -2175,8 +2180,8 @@ button { font: inherit; cursor: pointer; }
   z-index: 1;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
+  width: var(--lb-nav);
+  height: var(--lb-nav);
   padding: 0;
   border: 0;
   border-radius: var(--r-lg);
@@ -2186,16 +2191,17 @@ button { font: inherit; cursor: pointer; }
 .lb-nav span {
   position: absolute;
   top: 50%;
-  width: 40px;
-  height: 40px;
-  margin-top: -20px;
+  width: var(--lb-nav);
+  height: var(--lb-nav);
+  margin-top: calc(var(--lb-nav) / -2);
   display: grid;
   place-items: center;
   padding-bottom: 3px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--line);
   border-radius: 50%;
-  font-size: 24px;
+  /* The glyph to its circle: 24 px in 40. */
+  font-size: calc(var(--lb-nav) * 0.6);
   line-height: 1;
 }
 .lb-nav.prev, .lb-nav.prev span { left: 0; }

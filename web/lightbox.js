@@ -57,9 +57,18 @@ let lbCloseTimer;
 // lightbox for its dialog.
 let refineReturn = null;
 const LB_SIDE_GAP = 8;
-// What the arrows' circles take at the stage's edges (style.css: 40 px, 10 px
-// in) and a gap: side by side, the halves start past them.
-const LB_NAV_ROOM = 58;
+// How far the arrows' circles reach in from the stage's edges: style.css's
+// --lb-nav (40 px, 52 from 1800 px) and its 10 px inset, measured off the ›
+// circle as drawn, so the two below follow the circle wherever its size is
+// set - a constant for the 40 px one put side by side's halves under the
+// wide tier's. The circle is in the same place as a strip's and alone
+// (style.css), so either reads the same: 50 px, or 62.
+function lbNavReach() {
+  const circle = els.lbNext.firstElementChild.getBoundingClientRect();
+  return Math.max(0, els.lbStage.getBoundingClientRect().right - circle.left);
+}
+// Side by side, the halves start past the circles and a gap: 58 px, or 70.
+function lbNavRoom() { return lbNavReach() + 8; }
 
 // The boxes the picture is fitted into, in the stage's pixels: the whole
 // stage, or side by side its two halves, each showing the same crop - inside
@@ -68,7 +77,7 @@ const LB_NAV_ROOM = 58;
 function lbPorts() {
   const sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight;
   if (lbCompare.id === null || lbCompare.mode !== 'side') return [{ x: 0, w: sw, h: sh }];
-  const inset = Math.min(LB_NAV_ROOM, sw / 8);
+  const inset = Math.min(lbNavRoom(), sw / 8);
   const w = (sw - 2 * inset - LB_SIDE_GAP) / 2;
   return [{ x: inset, w, h: sh }, { x: inset + w + LB_SIDE_GAP, w, h: sh }];
 }
@@ -145,9 +154,13 @@ function layoutLightbox() {
   // arrow is its circle alone too (style.css), so the end of the walk's
   // backdrop still closes.
   const gutter = (pw - w) / 2 - 8;
-  const strips = lbView.scale === 1 && gutter >= 48;
+  // The least strip is the circle's reach less 2 px - 48 for the 40 px
+  // circle, 60 for the wide tier's 52 - so the circle never reaches past the
+  // margin onto the picture.
+  const least = lbNavReach() - 2;
+  const strips = lbView.scale === 1 && gutter >= least;
   els.lbMain.classList.toggle('strips', strips);
-  els.lbMain.style.setProperty('--lb-gutter', `${strips ? Math.min(160, gutter) : 48}px`);
+  els.lbMain.style.setProperty('--lb-gutter', `${strips ? Math.min(160, gutter) : least}px`);
 }
 
 // The source's layer: over the pass and cut at the divider, or in the left
