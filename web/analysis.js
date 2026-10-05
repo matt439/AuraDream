@@ -136,7 +136,7 @@ function renderAnalysis() {
   const { body } = analysisResult;
   // First: the comparison's preview is only fetched for a panel on show.
   els.promptAnalysis.hidden = false;
-  els.analysisModel.textContent = body.model_id.split('/').pop();
+  els.analysisModel.textContent = checkpointName(body.model_id);
   els.analysisModel.title = body.model_id;
   const warns = body.findings.filter((f) => f.severity === 'warn').length;
   const notes = body.findings.length - warns;
@@ -764,14 +764,18 @@ function makeSelectable(li, select) {
 
 // The critic button and its line. Called from syncPromptExpansion, so every
 // change to the queue, Expand or the critic itself passes through here.
+// Another tab's job holds it as this page's does (elsewhereBusy): the server
+// refused it then, in words naming a job this page did not show.
+const CRITIC_ELSEWHERE = 'A job started in another tab or window is running. The critic needs the card to itself, so it waits for that job to finish.';
 function syncCritic() {
   els.analysisCritic.hidden = !promptCritiqueSupported;
   // aria-disabled, as Generate is held: disabled, the button just pressed lost
   // a keyboard user's focus to <body>. askCritic refuses each case itself.
-  els.criticAsk.setAttribute('aria-disabled', String(critiquing || busy || expandingPrompt));
+  els.criticAsk.setAttribute('aria-disabled', String(critiquing || busy || elsewhereBusy || expandingPrompt));
   els.criticAsk.textContent = critiquing ? 'Thinking…' : 'Ask the critic';
   els.criticAsk.title = busy
     ? 'An image job is queued or running. The critic needs the card to itself, so it waits for the queue to finish.'
+    : elsewhereBusy ? CRITIC_ELSEWHERE
     : expandingPrompt ? 'Wait for prompt expansion to finish.'
     : "A local model reads the prompt against this checkpoint's guide and its authors' own texts, cites what it goes by, and suggests a rewrite";
   // Named as the answer's footer names it, and a first use's download only
@@ -783,22 +787,35 @@ function syncCritic() {
   // A first use's download is minutes (114 s measured here, the bandwidth's
   // to say elsewhere), with nothing to show its progress: said, with the
   // clock beside the line counting.
-  const line = critiquing
-    ? (fetch ? `Downloading ${fetch} once - this can take a few minutes - then thinking…`
-      : critic.pinned ? 'Thinking… about 15 seconds on the GPU.' : `Thinking… (${critic.label})`)
+  // Two halves, one shown at a time. What answers a press - the download,
+  // the thinking - is a live region (#critic-progress), written only when
+  // it changes, since the same words again are read out again. What a
+  // press would cost, and the job that holds the card, is not
+  // (#critic-cost): it changed at every job's start and end, read out about
+  // a button nobody had pressed.
+  const progress = !critiquing ? ''
+    : fetch ? `Downloading ${fetch} once - this can take a few minutes - then thinking…`
+    : critic.pinned ? 'Thinking… about 15 seconds on the GPU.' : `Thinking… (${critic.label})`;
+  const cost = critiquing ? ''
     : busy ? 'An image job has the card; the critic waits for the queue to finish.'
+    : elsewhereBusy ? "Another tab's image job has the card; the critic waits for it to finish."
     : fetch ? `First use downloads ${fetch} once.`
     : critic.pinned ? `Local ${critic.label} on the GPU, about 15 seconds; waits for image jobs.`
     : `Local ${critic.label}, as configured; waits for image jobs.`;
-  // The line is a live region: rewriting it with the same words would be
-  // read out again on every queue change.
-  if (els.criticLine.textContent !== line) els.criticLine.textContent = line;
+  if (els.criticProgress.textContent !== progress) els.criticProgress.textContent = progress;
+  if (els.criticCost.textContent !== cost) els.criticCost.textContent = cost;
   syncCompareRun();
 }
 
 async function askCritic() {
   if (critiquing) return;
   if (busy) { showError('Wait for the image queue to finish before asking the critic.'); return; }
+  if (elsewhereBusy) {
+    showError(CRITIC_ELSEWHERE, true);
+    // Gone with that job (setElsewhereBusy).
+    elsewhereNote = CRITIC_ELSEWHERE;
+    return;
+  }
   if (expandingPrompt) { showError('Wait for prompt expansion to finish.'); return; }
   const payload = collect();
   if (!payload.prompt) { showError('Enter a prompt first.'); els.prompt.focus(); return; }
@@ -852,6 +869,10 @@ async function askCritic() {
       if (epoch === critiqueEpoch) critiqueFailure = err.message;
       throw err;
     }
+    // An answer means the first use's download is done, whether or not it is
+    // shown: the line under the button said it was still to come until the
+    // next status poll.
+    promptCritiqueReady = true;
     if (epoch !== critiqueEpoch) return;  // the panel was cleared meanwhile
     if (!analysed(payload, effectiveNegative)) {
       analysisMessage('The prompt was checked again while the critic ran, so its answer was set aside. Ask again.');
@@ -1362,11 +1383,13 @@ function renderCompare(previewDelay = 0) {
 function syncCompareRun() {
   const count = comparedVariants().length;
   els.compareRun.disabled = count < 2 || analysisStale;
-  // Held like Generate and Run grid while the editor has the card.
-  els.compareRun.setAttribute('aria-disabled', String(expandingPrompt || critiquing || submitting));
+  // Held like Generate and Run grid - the editor on the card, no server -
+  // with their reason as its title (submitHold), which only a press said.
+  const why = submitHold();
+  els.compareRun.setAttribute('aria-disabled', String(!!why || submitting));
   els.compareRun.title = analysisStale ? STALE_REASON
     : count < 2 ? 'Needs a second version of the prompt to compare against'
-    : 'One grid: each version of the prompt on the same seeds, then the sheet with a row per version';
+    : why || 'One grid: each version of the prompt on the same seeds, then the sheet with a row per version';
 }
 
 // The grid's own payload - the panel's settings and seed - with every axis

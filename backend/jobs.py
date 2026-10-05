@@ -85,6 +85,11 @@ class Job:
     # turned Cancel-during-load from instant into a multi-minute no-op - but
     # the browser used to read "waiting for the job ahead…" for the whole of a
     # 32 GB download, under a top bar saying "loading weights…".
+    # Behind the gate it names what holds it (`JobManager._waiting_label`):
+    # "paused" for a job ahead that is paused - which keeps the gate, so a job
+    # queued from another tab waited all night under "the job ahead" - and
+    # "critic" or "expand" for an editor action on the card, where no job is
+    # ahead at all.
     waiting_on: str | None = None
     step: int = 0
     total_steps: int = 0
@@ -139,8 +144,10 @@ class Job:
     finished_at: float | None = None
     last_progress_at: float | None = None
     # Start no cell after this moment (a grid's time budget), and what ended
-    # the job when it was not the user: "budget" (through the cancel path) or
-    # "failures" (the failure rule, through `error`). Ending at the deadline
+    # the job when it was not the user: "budget" (through the cancel path),
+    # "shutdown" (the server stopping, through the cancel path too - a page
+    # must not report that as a Cancel pressed somewhere) or "failures" (the
+    # failure rule, through `error`). Ending at the deadline
     # reuses the cancel path - a fourth terminal state would have left
     # `active()` and `busy()` holding on and unload answering 409 for the
     # session - and the field tells the UI which kind of stop it was.
@@ -228,6 +235,14 @@ class JobManager:
         self._jobs: dict[str, Job] = {}
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="gen")
         self._gate = asyncio.Lock()
+        # Who holds the gate: a job's id, or the editor action `run_when_idle`
+        # was given ("critic", "expand"), None while it is free. What a job
+        # queued behind it waits on is read off this (`_waiting_label`).
+        self._holder: str | None = None
+        # Jobs past their load and waiting for the gate: the ones whose
+        # `waiting_on` follows the holder. A job still awaiting the load keeps
+        # saying so, whatever holds the gate.
+        self._at_gate: set[str] = set()
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
@@ -268,7 +283,7 @@ class JobManager:
         """
         return bool(self.active())
 
-    async def run_when_idle(self, fn: Callable[[], Any]) -> Any:
+    async def run_when_idle(self, fn: Callable[[], Any], holder: str = "editor") -> Any:
         """Run a synchronous backend operation without racing the job queue.
 
         Prompt expansion and the prompt critic use the same accelerator as
@@ -277,15 +292,55 @@ class JobManager:
         jobs. Refuse when work is already promised; once admitted, hold the
         generation gate so a newly submitted job waits behind it instead of
         running both models together. The check is made again inside the
-        gate: a job queued while this waited for it came first.
+        gate: a job queued while this waited for it came first. `holder`
+        names the operation ("critic", "expand") to a job queued behind it,
+        whose `waiting_on` says so: "waiting for the job ahead…" named a job
+        that did not exist.
         """
         if self.busy():
             raise BackendBusy("an image job is queued or running")
         async with self._gate:
             if self.busy():
                 raise BackendBusy("an image job was queued first")
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(self._pool, fn)
+            self._holder = holder
+            try:
+                loop = asyncio.get_running_loop()
+                return await loop.run_in_executor(self._pool, fn)
+            finally:
+                self._holder = None
+
+    def _waiting_label(self) -> str:
+        """What a job waiting for the gate is behind: the editor action that
+        holds it, a job ahead that is paused - it keeps the gate until it is
+        resumed or cancelled, where it was started - or a job ahead."""
+        holder = self._holder
+        if holder is None:
+            return "queue"
+        ahead = self._jobs.get(holder)
+        if ahead is None:
+            return holder
+        return "paused" if ahead.paused else "queue"
+
+    def _relabel_queued(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Say again what each job waiting for the gate is behind, to its
+        streams: when the gate changes hands, and after the job holding it
+        pauses or resumes. Behind the critic, "critic" outlived the critic's
+        answer: the second of two jobs queued during a critique said so for
+        the whole of the first's run. A job still waiting on the load is
+        left to say so."""
+        label = self._waiting_label()
+        for job in self.active():
+            if job.id in self._at_gate and job.status == "queued" and job.waiting_on != label:
+                job.waiting_on = label
+                self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
+
+    def stop_all(self, reason: str = "shutdown") -> None:
+        """Ask every live job to stop, saying why (`stopped_by`): the server
+        is going, which a page must not report as a Cancel pressed in some
+        other tab. The cancel itself is the button's, cooperative."""
+        for job in self.active():
+            job.stopped_by = job.stopped_by or reason
+            job.cancel_requested = True
 
     async def wait_for_gate(self) -> None:
         """Return once nothing holds the generation gate, without keeping it.
@@ -311,8 +366,7 @@ class JobManager:
         out from under a running denoise. The cancel is the same cooperative one
         the button uses, so it lands within a step and keeps what it finished.
         """
-        for job in self.active():
-            job.cancel_requested = True
+        self.stop_all("shutdown")
         await asyncio.to_thread(self._pool.shutdown, True)
 
     async def submit(self, request: GenerateRequest) -> Job:
@@ -450,8 +504,12 @@ class JobManager:
         # second one. Failing here keeps the error to a single report.
         if self._ensure_loaded is not None:
             # Only a load that is actually needed gets the label: a job that
-            # is genuinely queued behind another must not read "loading".
-            job.waiting_on = "load" if not self.backend.is_ready() else "queue"
+            # is genuinely queued behind another must not read "loading" -
+            # nor one with nothing ahead of it "the job ahead".
+            job.waiting_on = (
+                "load" if not self.backend.is_ready()
+                else self._waiting_label() if self._gate.locked() else None
+            )
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
             try:
                 await self._ensure_loaded()
@@ -461,41 +519,65 @@ class JobManager:
                 return
         # One generation at a time; queued jobs simply wait their turn here. A
         # cancel that landed during the load or the wait ends the job untouched.
-        job.waiting_on = "queue" if self._gate.locked() else None
-        async with self._gate:
-            if job.cancel_requested:
-                self._finish(loop, job, "cancelled")
-                return
-            job.status = "running"
-            job.waiting_on = None
-            job.started_at = time.time()
+        # Waiting, it says what it waits behind - a label the load's frame
+        # could not know, or one the gate's holder has changed since - and
+        # the page hears it rather than "loading weights" for the wait.
+        waiting = self._waiting_label() if self._gate.locked() else None
+        if waiting is not None and waiting != job.waiting_on:
+            job.waiting_on = waiting
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
-            try:
-                stopped = await loop.run_in_executor(self._pool, self._generate, job, loop)
-            except Exception as exc:  # noqa: BLE001 - surfaced to the client
-                # The whole message, here, where it can be read: the banner's
-                # copy is cut, and an OOM's remedy is its last sentence.
-                log.error("job %s failed: %s", job.id, exc)
-                log.debug("job traceback", exc_info=True)
-                error = short_error(exc)
-                if job.stopped_by == "failures":
-                    # The failure rule ended it, which is three in a row or a
-                    # third of the grid - not one bad cell, which the last
-                    # exception alone made it read as. Where, how many and
-                    # what was kept come first; Resume runs the rest.
-                    kept = len(job.images)
-                    error = (
-                        f"Stopped at cell {job.run} of {job.total_runs} after {job.failures} "
-                        f"cells failed; {kept} image{'' if kept == 1 else 's'} kept. Last: {error}"
-                    )
-                self._finish(loop, job, "error", error)
-                return
-            # Cancelled only if the loop actually stopped early. A cancel that
-            # lands after the last step - during the decode or the encode -
-            # changes nothing, and used to relabel a complete run anyway.
-            if job.failures and not stopped:
-                job.error = f"{job.failures} cell(s) failed and were skipped; last: {job.error}"
-            self._finish(loop, job, "cancelled" if stopped else "done")
+        job.waiting_on = waiting
+        self._at_gate.add(job.id)
+        try:
+            async with self._gate:
+                self._at_gate.discard(job.id)
+                self._holder = job.id
+                # The gate has changed hands: whoever still waits is now
+                # behind this job, whatever held it before - the critic, or a
+                # gate passed on while a job arrived (it read nothing ahead).
+                self._relabel_queued(loop)
+                try:
+                    await self._run_holding(job, loop)
+                finally:
+                    self._holder = None
+        finally:
+            self._at_gate.discard(job.id)
+
+    async def _run_holding(self, job: Job, loop: asyncio.AbstractEventLoop) -> None:
+        """The job's turn, the gate held."""
+        if job.cancel_requested:
+            self._finish(loop, job, "cancelled")
+            return
+        job.status = "running"
+        job.waiting_on = None
+        job.started_at = time.time()
+        self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
+        try:
+            stopped = await loop.run_in_executor(self._pool, self._generate, job, loop)
+        except Exception as exc:  # noqa: BLE001 - surfaced to the client
+            # The whole message, here, where it can be read: the banner's
+            # copy is cut, and an OOM's remedy is its last sentence.
+            log.error("job %s failed: %s", job.id, exc)
+            log.debug("job traceback", exc_info=True)
+            error = short_error(exc)
+            if job.stopped_by == "failures":
+                # The failure rule ended it, which is three in a row or a
+                # third of the grid - not one bad cell, which the last
+                # exception alone made it read as. Where, how many and
+                # what was kept come first; Resume runs the rest.
+                kept = len(job.images)
+                error = (
+                    f"Stopped at cell {job.run} of {job.total_runs} after {job.failures} "
+                    f"cells failed; {kept} image{'' if kept == 1 else 's'} kept. Last: {error}"
+                )
+            self._finish(loop, job, "error", error)
+            return
+        # Cancelled only if the loop actually stopped early. A cancel that
+        # lands after the last step - during the decode or the encode -
+        # changes nothing, and used to relabel a complete run anyway.
+        if job.failures and not stopped:
+            job.error = f"{job.failures} cell(s) failed and were skipped; last: {job.error}"
+        self._finish(loop, job, "cancelled" if stopped else "done")
 
     # A cell that raises is skipped and the next one runs - up to this many in a
     # row, or this share of the grid in total, after which the failure is taken
@@ -641,6 +723,10 @@ class JobManager:
         which cancels and then joins this thread, and would make `cancel()` a
         no-op on a paused job. A quarter second is well inside what a resume
         click can feel.
+
+        A paused job keeps the gate, so every job queued behind it is told -
+        "paused", then "queue" again - on the event loop, which owns the job
+        table this thread must not walk while a submission adds to it.
         """
         job.paused = True
         try:
@@ -649,12 +735,14 @@ class JobManager:
             log.debug("free_cache failed", exc_info=True)
         log.info("job %s paused before cell %d/%d", job.id, index + 1, len(job.cells))
         self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
+        loop.call_soon_threadsafe(self._relabel_queued, loop)
         while job.pause_requested and not job.cancel_requested:
             time.sleep(0.25)
         job.paused = False
         if not job.cancel_requested:
             log.info("job %s resumed at cell %d/%d", job.id, index + 1, len(job.cells))
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
+        loop.call_soon_threadsafe(self._relabel_queued, loop)
 
     def _save(
         self,

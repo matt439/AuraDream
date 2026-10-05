@@ -161,7 +161,12 @@ async function expandPrompt() {
         }[expandOutcome(expandRun)], true);
       }
     } else if (busy) showJobNote(`${els.expandPrompt.title}.`);
-    else expandSay(`${els.expandPrompt.title}.`, true);
+    // Another tab's job (syncExpandButton): said until it ends, as Unload's
+    // is - setElsewhereBusy takes back the line it left in the panel.
+    else if (elsewhereBusy) {
+      const said = expandSay(EXPAND_ELSEWHERE, true);
+      if (said.text) elsewhereNote = said.text;
+    } else expandSay(`${els.expandPrompt.title}.`, true);
     return;
   }
   const source = els.prompt.value;

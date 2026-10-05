@@ -38,6 +38,7 @@ const els = {
   analysisEncoders: $('analysis-encoders'), analysisOrder: $('analysis-order'),
   analysisFindings: $('analysis-findings'), analysisCritic: $('analysis-critic'),
   criticAsk: $('critic-ask'), criticLine: $('critic-line'), criticResult: $('critic-result'),
+  criticProgress: $('critic-progress'), criticCost: $('critic-cost'),
   criticClock: $('critic-clock'), analysisStatus: $('analysis-status'),
   compareOptions: $('compare-options'), compareSeeds: $('compare-seeds'), compareBatch: $('compare-batch'),
   compareOwn: $('compare-own'), compareOwnFill: $('compare-own-fill'), compareOwnNote: $('compare-own-note'),
@@ -61,7 +62,7 @@ const els = {
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),
   progressNow: $('progress-now'), newImage: $('btn-new-image'),
   stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
-  cellNote: $('cell-note'), finishNote: $('finish-note'),
+  cellNote: $('cell-note'), finishNote: $('finish-note'), jobSaid: $('job-said'),
   gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'),
@@ -87,7 +88,7 @@ const els = {
   lastRun: $('last-run'), lastRunText: $('last-run-text'),
   lastRunShow: $('last-run-show'), lastRunResume: $('last-run-resume'), lastRunDismiss: $('last-run-dismiss'),
   runList: $('run-list'),
-  dot: $('status-dot'), statusText: $('status-text'), vram: $('vram'),
+  dot: $('status-dot'), statusText: $('status-text'), statusAside: $('status-aside'), vram: $('vram'),
   jobMirror: $('job-mirror'), topbarLine: $('topbar-line'), topbarFill: $('topbar-fill'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
   lbPrompt: $('lb-prompt'), lbSettings: $('lb-settings'), lbCount: $('lb-count'),
@@ -178,7 +179,11 @@ let busy = false;
 const owned = { steps: false, cfg: false, mu: false, trueCfg: false };
 // The checkpoint the server is running, once /api/status has said. Reuse
 // compares a record against it: steps, CFG and mu are checkpoint-specific.
+// And the start-up catalogue's name for it (`ModelStatus.model_label`), which
+// the page shows in its place (checkpointName): the repository's name hid a
+// pinned version. Null off the catalogue.
 let loadedModel = null;
+let checkpointLabel = null;
 let statusPending = false;
 // The image model's state as the last status gave it (null before the
 // first), whether the last poll got no answer at all, and when the server
@@ -192,6 +197,12 @@ let serverStartedAt = null;
 // submission outright, so the queue was unreachable from the UI.
 let currentJob = null;
 let queuedIds = [];
+// A job another tab or window started is on the server while this page
+// watches none (`ModelStatus.active_jobs`, generation.js's followServerJobs):
+// Unload, the critic and Expand are held with that reason, and the gallery
+// takes in its images once it has gone. Generate stays live - the server
+// queues it.
+let elsewhereBusy = false;
 // The listing a page between jobs waits on to pick its next one (watchNext,
 // resumeActiveJob, through adoptListedJob), while it is out, and every job
 // a stream has been opened for. Which job the page watches next is that
@@ -212,6 +223,38 @@ let submitting = false;
 const submissions = new Map();
 const jobLabels = new Map();
 const jobPlaceholders = new Map();
+// Job ids this tab has a word about, kept in sessionStorage: a reload keeps
+// a tab's sessionStorage and another tab has its own, so what this tab did
+// before a reload is still this tab's when the reloaded page sees the job.
+// Read once, at load (an iframe of the page shares it); every change is
+// written through, the newest 50 kept. Never the page's state: a store that
+// throws or comes back empty leaves a set of this page's own memory.
+class TabJobIds extends Set {
+  constructor(key) {
+    super();
+    this.key = key;
+    try {
+      const ids = JSON.parse(sessionStorage.getItem(key) ?? '[]');
+      if (Array.isArray(ids)) for (const id of ids) if (typeof id === 'string') super.add(id);
+    } catch { /* unavailable */ }
+  }
+  add(id) { super.add(id); this.save(); return this; }
+  delete(id) { const had = super.delete(id); if (had) this.save(); return had; }
+  save() {
+    try { sessionStorage.setItem(this.key, JSON.stringify([...this].slice(-50))); } catch { /* unavailable */ }
+  }
+}
+// Every job this page's own submissions made, for good (a submission is
+// forgotten at its end): a job the page watches that it did not submit -
+// another tab's, picked up when its own ended - is said to be another tab's,
+// and so is a queue row (queueRow). Kept across a reload, whose listing
+// would otherwise call this tab's own queued jobs another tab's.
+const ownJobs = new TabJobIds('local-diffusion.own-jobs');
+// Cancels this page asked for - Cancel, a queued row's ×, Cancel queued - by
+// job id: finishJob says any other as one from elsewhere. Kept across a
+// reload: a Cancel pressed just before one is still this tab's when the
+// reloaded page sees the job end.
+const cancelledHere = new TabJobIds('local-diffusion.cancelled-jobs');
 // The seed the page itself put in the Seed box - a grid's base, written back
 // for Resume, or a finished image's through Use seed - while it is still
 // there: the run hint says the next Generate repeats it.

@@ -98,6 +98,47 @@ def test_status_carries_when_the_server_started(client):
     assert client.get("/api/status").json()["started_at"] == first
 
 
+def test_status_names_the_checkpoint_by_its_catalogue_label(client, fake, monkeypatch):
+    # The start-up menu's name, which carries the pinned version the
+    # repository's own name hides; off the catalogue, none, and the page
+    # shows the id. The id itself is unchanged either way.
+    body = client.get("/api/status").json()
+    assert body["model_id"] == settings.model_id
+    assert body["model_label"] == next(c.name for c in main.CHECKPOINTS if c.repo == settings.model_id)
+    for repo, label in (
+        ("duongve/NetaYume-Lumina-Image-2.0", "NetaYume Lumina v4"),
+        ("SeeSee21/Z-Anime", "Z-Anime Base"),
+        ("circlestone-labs/Anima", "Anima Turbo v1.1"),
+        ("someone/a-checkpoint-of-their-own", None),
+    ):
+        described = dict(fake.describe(), model_id=repo)
+        monkeypatch.setattr(fake, "describe", lambda described=described: described)
+        body = client.get("/api/status").json()
+        assert (body["model_id"], body["model_label"]) == (repo, label)
+
+
+def test_status_lists_the_live_jobs(client, fake):
+    # A page watching no job learns from the poll that another tab's holds
+    # the card; one watching its own, of jobs queued behind it from
+    # elsewhere and of queued ones cancelled there. Oldest first.
+    assert client.get("/api/status").json()["active_jobs"] == []
+    # Long enough to outlive every call below on a loaded machine (20 s);
+    # cancelled at the end, not waited out.
+    fake.step_seconds = 0.2
+    ahead = client.post(
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 100}
+    ).json()["job_id"]
+    behind = client.post(
+        "/api/generate", json={"prompt": "y", "width": 256, "height": 256, "steps": 2}
+    ).json()["job_id"]
+    assert client.get("/api/status").json()["active_jobs"] == [ahead, behind]
+    client.post(f"/api/jobs/{behind}/cancel")
+    assert client.get("/api/status").json()["active_jobs"] == [ahead]
+    client.post(f"/api/jobs/{ahead}/cancel")
+    stream_job(client, ahead)
+    assert client.get("/api/status").json()["active_jobs"] == []
+
+
 def _gated():
     from huggingface_hub.errors import GatedRepoError
 

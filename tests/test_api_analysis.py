@@ -1275,7 +1275,7 @@ def test_a_failing_prepare_answers_before_the_critic_runs(client, fake, failure,
 
 
 def test_a_job_queued_while_the_critique_waited_for_the_gate_is_a_409(client, fake, monkeypatch):
-    async def queued_first(fn):
+    async def queued_first(fn, holder="editor"):
         raise BackendBusy("an image job was queued first")
 
     monkeypatch.setattr(main.jobs, "run_when_idle", queued_first)
@@ -1616,6 +1616,8 @@ def test_the_exit_signal_cancels_the_jobs_and_stops_the_critic(client, fake, mon
     try:
         server.handle_exit(signal.SIGINT, None)
         assert main.jobs.get(job_id).cancel_requested
+        # Said as the server's stop, not a Cancel pressed in some other tab.
+        assert main.jobs.get(job_id).stopped_by == "shutdown"
         # Returned with the critic's stop still under way.
         assert stopping.wait(5) and not stopped.is_set()
     finally:

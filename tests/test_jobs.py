@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 
 from backend.jobs import JobManager, short_error
 from backend.schemas import GenerateRequest
@@ -114,3 +115,201 @@ def test_short_error_keeps_the_remedy_at_the_end():
     assert len(short) < 400
     assert short.endswith(remedy[-40:])
     assert short.startswith("RuntimeError: CUDA out of memory")
+
+
+async def _statuses_until(manager, job, predicate, timeout=5.0):
+    """The status frames a job's stream carries until one matches."""
+    seen = []
+
+    async def follow():
+        async for event in manager.events(job):
+            if event["type"] == "status":
+                seen.append(event["waiting_on"])
+                if predicate(event):
+                    return
+            if event["type"] == "done":
+                return
+
+    await asyncio.wait_for(follow(), timeout)
+    return seen
+
+
+def test_a_job_behind_a_paused_one_says_so_and_hears_the_resume(store):
+    # A paused job keeps the gate: a job queued behind it from another tab
+    # read "waiting for the job ahead…" all night, with nothing saying the
+    # job ahead was paused - and when it was resumed, nothing said that
+    # either. Its stream is told both, as they happen.
+    async def scenario():
+        manager = JobManager(FakeBackend(step_seconds=0.005))
+        ahead = await manager.submit(
+            GenerateRequest(prompt="x", width=256, height=256, steps=4, runs=4)
+        )
+        manager.pause(ahead.id, True)
+        while not ahead.paused:
+            await asyncio.sleep(0.01)
+        behind = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=2))
+        await asyncio.sleep(0.05)
+        paused = behind.snapshot()["waiting_on"]
+        following = asyncio.create_task(
+            _statuses_until(manager, behind, lambda e: e["waiting_on"] == "queue")
+        )
+        await asyncio.sleep(0.05)
+        manager.pause(ahead.id, False)
+        heard = await following
+        for job in (ahead, behind):
+            async for event in manager.events(job):
+                if event["type"] == "done":
+                    break
+        return paused, heard, behind.snapshot()
+
+    paused, heard, end = asyncio.run(scenario())
+    assert paused == "paused"
+    # The opening snapshot says "paused"; the resume's frame says "queue".
+    assert heard[0] == "paused" and heard[-1] == "queue"
+    assert end["status"] == "done" and end["waiting_on"] is None
+
+
+def test_a_job_behind_an_editor_action_names_it(store):
+    # Behind the prompt critic (or Expand) there is no job ahead at all.
+    async def scenario():
+        manager = JobManager(FakeBackend())
+        release = threading.Event()
+        critic = asyncio.create_task(manager.run_when_idle(release.wait, holder="critic"))
+        while not manager._gate.locked():
+            await asyncio.sleep(0)
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2))
+        await asyncio.sleep(0.05)
+        waiting = job.snapshot()["waiting_on"]
+        release.set()
+        await critic
+        async for event in manager.events(job):
+            if event["type"] == "done":
+                break
+        held = manager._holder
+        await manager.shutdown()
+        return waiting, job.status, held
+
+    assert asyncio.run(scenario()) == ("critic", "done", None)
+
+
+def test_a_job_behind_another_says_queue_once_the_editor_action_is_done(store):
+    # Two jobs queued during a critique both waited on "critic". When it
+    # answered, the first took the gate, and the second went on saying
+    # "waiting for the critic…" for the whole of the first's run.
+    async def scenario():
+        manager = JobManager(FakeBackend(step_seconds=0.02), _ready)
+        release = threading.Event()
+        critic = asyncio.create_task(manager.run_when_idle(release.wait, holder="critic"))
+        while not manager._gate.locked():
+            await asyncio.sleep(0)
+        first = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=60))
+        second = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=2))
+        while second.waiting_on != "critic":
+            await asyncio.sleep(0.01)
+        following = asyncio.create_task(
+            _statuses_until(manager, second, lambda e: e["waiting_on"] == "queue")
+        )
+        await asyncio.sleep(0.05)
+        release.set()
+        await critic
+        heard = await following
+        running = first.status
+        behind = second.snapshot()["waiting_on"]
+        for job in (first, second):
+            async for event in manager.events(job):
+                if event["type"] == "done":
+                    break
+        await manager.shutdown()
+        return heard, running, behind, second.status
+
+    heard, running, behind, end = asyncio.run(scenario())
+    assert heard[0] == "critic" and heard[-1] == "queue"
+    # Said while the first job runs, not when the second's own turn comes.
+    assert running == "running" and behind == "queue"
+    assert end == "done"
+
+
+def test_a_job_that_arrives_as_the_gate_passes_hears_the_job_ahead(store):
+    # A job whose check of the gate fell between its release and the next
+    # holder's start saw nothing ahead and read "queued…" for a whole run.
+    async def scenario():
+        loaded = asyncio.Event()
+        calls = 0
+
+        async def ensure_loaded():
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                await loaded.wait()
+
+        manager = JobManager(FakeBackend(step_seconds=0.02), ensure_loaded)
+        await manager._gate.acquire()
+        manager._holder = "critic"
+        first = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=60))
+        while first.waiting_on != "critic":
+            await asyncio.sleep(0.01)
+        late = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=2))
+        while calls < 2:
+            await asyncio.sleep(0.01)
+        # The late job's load ends in the same turn the gate is let go, so it
+        # looks at the gate after the release and before the woken job ahead
+        # has taken it.
+        loaded.set()
+        manager._holder = None
+        manager._gate.release()
+        while first.status != "running":
+            await asyncio.sleep(0.01)
+        behind = late.snapshot()["waiting_on"]
+        for job in (first, late):
+            async for event in manager.events(job):
+                if event["type"] == "done":
+                    break
+        await manager.shutdown()
+        return behind, late.status
+
+    assert asyncio.run(scenario()) == ("queue", "done")
+
+
+def test_a_shutdown_says_it_stopped_the_job(store):
+    # The server stopping ends a job through the cancel path, and a page
+    # read that as a Cancel pressed in some other tab. `stopped_by` says it
+    # was the shutdown; a user's own cancel leaves it unset.
+    async def scenario():
+        manager = JobManager(FakeBackend(step_seconds=0.01))
+        cancelled = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=50))
+        await asyncio.sleep(0.05)
+        manager.cancel(cancelled.id)
+        async for event in manager.events(cancelled):
+            if event["type"] == "done":
+                break
+        stopped = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=50))
+        await asyncio.sleep(0.05)
+        await manager.shutdown()
+        return cancelled.snapshot(), stopped.snapshot()
+
+    by_user, by_shutdown = asyncio.run(scenario())
+    assert by_user["status"] == "cancelled" and by_user["stopped_by"] is None
+    assert by_shutdown["status"] == "cancelled" and by_shutdown["stopped_by"] == "shutdown"
+
+
+def test_a_job_with_nothing_ahead_does_not_wait_for_the_job_ahead(store):
+    # Its first frame, sent before it takes the gate, said "queue" on an idle
+    # server - "waiting for the job ahead…" with no job ahead.
+    async def scenario():
+        manager = JobManager(FakeBackend(), _ready)
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2))
+        # Subscribed before the job's task has run at all: every frame it sends.
+        frames: asyncio.Queue = asyncio.Queue()
+        job.subscribers.append(frames)
+        first = await asyncio.wait_for(frames.get(), 5)
+        while (await asyncio.wait_for(frames.get(), 5))["type"] != "done":
+            pass
+        return first
+
+    first = asyncio.run(scenario())
+    assert first["type"] == "status" and first["status"] == "queued"
+    assert first["waiting_on"] is None
+
+
+async def _ready():
+    return None
