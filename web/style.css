@@ -1129,13 +1129,23 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    check takes the gallery's column instead (that section, below). Docked
    in the width left of that column it halved the image just made. The
    rules of the check's own box and head below have no such guard: they are
-   the check's in either place. */
+   the check's in either place.
+   Tab follows the grid's rows as they are drawn (`reading-flow`, where the
+   browser has it; the DOM order elsewhere): the image just made, on the
+   left, then the check beside it, then the gallery. In the DOM order the
+   check's fifteen-odd stops came first, and the image was the 41st stop from
+   the prompt, against the 26th with the check closed. Still CSS alone. The
+   chips and the check share their host (display: contents), which the
+   browser orders as one item where its first child is drawn - the chips'
+   row - so on a tag checkpoint with chips Tab still goes chips, check,
+   image. */
 @media (min-width: 1800px) {
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--dock-w);
     grid-template-rows: auto auto 1fr;
     align-items: start;
+    reading-flow: grid-rows;
   }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > * { grid-column: 1 / -1; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / -1; grid-row: 1; }
@@ -1171,17 +1181,17 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   }
   /* With no chips the check spans the viewer's rows from the first, and
      only the window under the topbar caps it. */
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
+  .stage:has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-row: 1 / span 2;
     max-height: calc(100vh - var(--sticky-top) - var(--gutter));
   }
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
     grid-template-rows: auto auto auto 1fr;
   }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+  .stage:has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
     grid-row: 1 / 5;
   }
   /* A column of 520-760 px: the sections stack - Encoders, Order, Findings,
@@ -1791,7 +1801,7 @@ button { font: inherit; cursor: pointer; }
   }
   .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { grid-column: 3; }
   .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) { grid-row: 2; }
-  .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
+  .stage.recent-docked:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
     grid-row: 1;
   }
   /* With the gallery beside the viewer (Gallery beside, `.stage.beside`), a
@@ -1988,7 +1998,12 @@ button { font: inherit; cursor: pointer; }
      `visibility: hidden` rather than gone, so its scroll is kept and nothing
      in it takes focus or the pointer (the lightbox's and a pass's way back
      to a card ask whether it is shown); a job's images still come in under
-     it. Its own box and head are the docked check's (that section). */
+     it. Its own box and head are the docked check's (that section).
+     Tab reaches it after the stage's own flow - the chips, the image just
+     made and its tools, the note - as it is drawn, at the right
+     (`reading-flow`: a fixed box comes after the flow's items); in the DOM
+     order it came before the image, as in the dock. */
+  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) { reading-flow: flex-visual; }
   .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { max-height: none; }
   .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .library { visibility: hidden; }
 }

@@ -1189,23 +1189,30 @@ function syncTagVocabulary() {
 // style.css docks an open check beside them (the chips and the viewer on the
 // left, the check on the right; CSS only, this DOM order unchanged) - and back
 // under the prompt at 900 px and below, where the page is one scrolling
-// column anyway. The move keeps focus where it was - a
+// column anyway. On a two-column page each has a host of its own, the chips'
+// first (`#tag-chips-wide`, `#tag-validation-wide`): the docked grid orders
+// Tab by its rows, and a host shared by both was one item at the chips' row,
+// which took Tab through the check before the image beside it. The move
+// keeps focus where it was - a
 // window crossing 901 px under someone typing in Your version or on a chip
 // otherwise sent it to <body> with the next keystroke: moveBefore keeps it
 // whole where the browser has it, and elsewhere the focus and the selection
 // are put back by hand.
 function placeTagValidation() {
-  const host = window.matchMedia('(min-width: 901px)').matches
-    ? els.tagValidationWide
-    : els.tagValidationHome;
+  const wide = window.matchMedia('(min-width: 901px)').matches;
   const focused = document.activeElement;
   const range = typeof focused?.selectionStart === 'number'
     ? [focused.selectionStart, focused.selectionEnd, focused.selectionDirection]
     : null;
-  for (const node of [els.tagValidation, els.promptAnalysis]) {
+  for (const [node, host] of [
+    [els.tagValidation, wide ? els.tagChipsWide : els.tagValidationHome],
+    [els.promptAnalysis, wide ? els.tagValidationWide : els.tagValidationHome],
+  ]) {
     if (node.parentElement === host) continue;
-    if (typeof host.moveBefore === 'function') host.moveBefore(node, null);
-    else host.appendChild(node);
+    // Under the prompt the chips go ahead of the check, wherever it is.
+    const before = node === els.tagValidation && els.promptAnalysis.parentElement === host ? els.promptAnalysis : null;
+    if (typeof host.moveBefore === 'function') host.moveBefore(node, before);
+    else host.insertBefore(node, before);
   }
   if (!focused || focused === document.activeElement || !focused.isConnected) return;
   focused.focus();
