@@ -1220,6 +1220,17 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    stay hint text. Amber with the rest under .warn. */
 #grid-preview .totals { font-size: var(--fs-body-sm); font-weight: 600; color: var(--text); }
 #grid-preview.warn .totals { color: var(--warn); }
+/* The prompts a variable block resolved to (promptListing), a line of their
+   own between the axes and the notes, at most eight lines tall and scrolling
+   inside themselves: three long prompts listed whole put Run grid thousands
+   of pixels under the window. A nested scroller, not the panel's overflow,
+   which would clip the menus and tips that hang out past its edge.
+   Inline-block, so the preview's text around it keeps its own line breaks
+   (pre-line) - the notes after it, and the line sheet.js appends. */
+#grid-preview .prompts {
+  display: inline-block; width: 100%; vertical-align: top;
+  max-height: 8lh; overflow-y: auto; overflow-wrap: anywhere;
+}
 /* The shortcut on the two buttons it presses - Generate, and Run grid from a
    grid box (app.js routes it by focus). Generated content with empty alt text:
    setBusy rewrites the label as text, which would wipe a child element, and

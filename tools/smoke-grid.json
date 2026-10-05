@@ -121,6 +121,17 @@
   {"wait": 1500},
   {"expect": "els.gridSection.open && els.gridPreview.textContent.includes(\"size has one value 'big, small'\") && els.gridPreview.textContent.includes('budget 600 min')"},
   {"expect": "els.gridRun.getBoundingClientRect().bottom <= innerHeight"},
+
+  {"log": "'newbie-1: a variable inside a prompt written over 30 lines (NewBie\\'s XML is 29) lists each resolved prompt by the line it is on, whole and numbered, not three copies of the prompt - the preview and Run grid in the window together once the fold is opened by hand'"},
+  {"eval": "els.gridSection.open = false; window.__lines = Array.from({length: 30}, (_, i) => i === 3 ? '<appearance>{fur} fur, green eyes, a long tail</appearance>' : `<detail_${i}>a long description of detail ${i} of the scene, in many words</detail_${i}>`); els.prompt.value = __lines.join('\\n'); els.gridPrompt.value = 'fur = red | white | none'; els.gridSteps.value = ''; els.gridCfg.value = ''; els.gridBudget.value = ''; scrollTo(0, 0);"},
+  {"click": "#grid-section > summary"},
+  {"expect": "__until(() => { const box = els.gridPreview.querySelector('.prompts'); const top = document.querySelector('.topbar').getBoundingClientRect().bottom; return els.gridSection.open && !!box && box.textContent === 'prompts, line 4 of 30:\\n· <appearance>red fur, green eyes, a long tail</appearance>\\n· <appearance>white fur, green eyes, a long tail</appearance>\\n· <appearance>fur, green eyes, a long tail</appearance>' && els.gridPreview.firstElementChild.matches('.totals') && els.gridPreview.getBoundingClientRect().top >= top && els.gridRun.getBoundingClientRect().bottom <= innerHeight; })"},
+  {"log": "'one value: the prompt\\'s line still listed, with the warning after it'"},
+  {"eval": "els.gridPrompt.value = 'fur = red'; els.gridPrompt.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "__until(() => { const box = els.gridPreview.querySelector('.prompts'); return !!box && box.textContent === 'prompt, line 4 of 30:\\n· <appearance>red fur, green eyes, a long tail</appearance>' && els.gridPreview.textContent.endsWith('fur has one value: it never varies') && box.nextSibling.textContent.startsWith('\\n'); })"},
+  {"log": "'a long prompt on one line: listed whole, in a box of eight lines at most that scrolls inside itself, the panel never'"},
+  {"eval": "els.prompt.value = 'a {fur} fox ' + 'with a long and winding description of the snowy forest around it, '.repeat(12); els.gridPrompt.value = 'fur = red | white | grey | none'; els.gridPrompt.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "__until(() => { const box = els.gridPreview.querySelector('.prompts'); if (!box || !box.textContent.startsWith('· a red fox with a long')) return false; const css = getComputedStyle(box); return box.textContent.endsWith('· … and 1 more') && css.overflowY === 'auto' && box.scrollHeight > box.clientHeight && box.clientHeight <= 8 * parseFloat(css.lineHeight) + 1 && getComputedStyle(document.querySelector('.panel')).overflowY === 'visible'; })"},
   {"viewport": [1400, 900]},
   {"eval": "api = window.__api; els.prompt.value = ''; els.gridPrompt.value = ''; els.gridSteps.value = ''; els.gridCfg.value = ''; els.gridBudget.value = ''; els.seed.value = ''; els.gridSection.open = false; persistPanel();"}
 ]

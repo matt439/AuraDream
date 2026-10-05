@@ -699,15 +699,42 @@ function gridFactors(summary) {
 // text rather than the variables that produced it. One prompt too, whenever the
 // variables box has text: a block that failed to vary - `size = big, small` -
 // is a grid of one prompt, and that prompt is where it shows.
+// A prompt written over lines - NewBie's XML, 29 of them - is listed by the
+// lines a {variable} is on, whole, so each value is read in its line: three
+// copies of the whole prompt, one word apart, grew the preview to 2,260 px at
+// QHD and put Run grid 2,200 px under the window. Its line numbers say the
+// rest of the prompt is there. Values are one line each, and a dropped one
+// leaves its line in place (grid.substitute), so line n of every resolved
+// prompt is line n of the prompt typed; a prompt that is not - no line holds
+// a variable, the variables are the negative's - is listed whole. Whatever
+// the listing, it is a box of a few lines that scrolls inside itself
+// (style.css): a nested scroller, never the panel, whose menus and tips hang
+// out past its edge.
 const PREVIEW_PROMPTS = 3;
-function promptLines(prompts) {
-  if (!prompts || !prompts.length) return [];
-  if (prompts.length === 1) return [`prompt: ${prompts[0]}`];
-  const lines = prompts.slice(0, PREVIEW_PROMPTS).map((text) => `· ${text}`);
-  if (prompts.length > PREVIEW_PROMPTS) {
-    lines.push(`· … and ${prompts.length - PREVIEW_PROMPTS} more`);
+function promptListing(prompts, template) {
+  if (!prompts || !prompts.length) return null;
+  const shown = prompts.slice(0, PREVIEW_PROMPTS);
+  const lines = template.split('\n');
+  const marked = lines.flatMap((line, i) => (GRID_PLACEHOLDER.test(line) ? [i] : []));
+  const byLine = lines.length > 1 && marked.length > 0 && marked.length < lines.length
+    && shown.every((text) => text.split('\n').length === lines.length);
+  let rows;
+  if (byLine) {
+    const where = `${marked.length === 1 ? 'line' : 'lines'} ${marked.map((i) => i + 1).join(', ')} of ${lines.length}`;
+    // Continuation lines are indented with no-break spaces, which pre-line
+    // keeps; each line's own indentation is the prompt's, not the listing's.
+    rows = [`${prompts.length === 1 ? 'prompt' : 'prompts'}, ${where}:`, ...shown.flatMap((text) => {
+      const own = text.split('\n');
+      return marked.map((i, k) => `${k ? '  ' : '· '}${own[i].trim()}`);
+    })];
+  } else {
+    rows = prompts.length === 1 ? [`prompt: ${prompts[0]}`] : shown.map((text) => `· ${text}`);
   }
-  return lines;
+  if (prompts.length > PREVIEW_PROMPTS) rows.push(`· … and ${prompts.length - PREVIEW_PROMPTS} more`);
+  const box = document.createElement('span');
+  box.className = 'prompts';
+  box.textContent = rows.join('\n');
+  return box;
 }
 
 // A variable of one value never varies, which in a grid is always a slip - and
@@ -831,18 +858,21 @@ async function previewGrid() {
         (p.duplicates ? ` · ${p.duplicates} would be identical to another cell` : '') +
         (p.seconds ? ` · about ${humanTime(p.seconds)}` : '') +
         (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : '');
-    els.gridPreview.replaceChildren(totals, [
-      '',
-      `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
+    // .hint.pre renders the breaks. The prompts are a box of their own
+    // between the axes and the notes (promptListing), on its own line.
+    const listing = body.prompt_axis ? promptListing(p.values.prompt, body.prompt) : null;
+    els.gridPreview.replaceChildren(
+      totals,
+      `\nsteps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${axisText(p.values.mu)}` +
         // Only when it is an axis: every other run would carry a constant.
         // Named, since a sweep's weights mean nothing without the adapter.
         (p.values.lora_scale && p.values.lora_scale.length > 1
           ? `  ·  LoRA ${axisText(p.values.lora_scale)} (${els.lora.value.replace(/\.safetensors$/, '')})` : '') +
         (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),
-      ...(body.prompt_axis ? promptLines(p.values.prompt) : []),
-      ...notes,
-    ].join('\n'));  // .hint.pre renders the breaks
+      ...(listing ? ['\n', listing] : []),
+      ...(notes.length ? [`\n${notes.join('\n')}`] : []),
+    );
   } catch (err) {
     if (epoch !== previewEpoch) return;
     els.gridPreview.classList.add('warn');
