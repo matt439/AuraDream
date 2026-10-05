@@ -993,6 +993,10 @@ class PromptGuide(BaseModel):
 
     pixels: tuple[float, float] | None = None
     pixels_word: str = "documented"
+    # Where `pixels_word` is "example": whose sizes those are and what, as the
+    # size prose names them ("the author's reference sizes"), for the size
+    # line's "above the 1.38 MP of ...". None for a range in writing.
+    pixels_source: str | None = None
     # Null means any framing inside the pixel range. A finite model-card table
     # can instead name the aspect buttons that deserve the recommended state.
     aspects: list[str] | None = None

@@ -8,7 +8,15 @@ the other hints, and a brace would fail
 range the checkpoint's authors put in writing, `pixels_word` is what that
 writing amounts to - a model card's "supports 0.1-2 MP", a README's
 "recommended 1024-1280" and a report's "trained to 1328" are not the same
-promise, and the size line quotes the word - and `examples` are the
+promise, and the size line quotes the word. `"example"` is the weakest:
+the span of the sizes the authors' own examples use, where they publish no
+range at all (NetaYume, NewBie, WAI), which the line words as the examples'
+size and never as what the checkpoint is "for" - in `pixels_source`'s words,
+whose sizes they are as the size prose names them ("the author's reference
+sizes" on WAI, one author and a floor that is no example). `aspects` and
+`resolutions`, where the card publishes a finite table of shapes, mark the
+presets that are its framings and recognise its exact sizes typed in. And
+`examples` are the
 authors' own prompts, verbatim, for the Examples menu. Every sentence is
 sourced from the model card, README, prompting guide or report, never
 invented; docs/design-notes.md ("The prompting guide") keeps the URLs.
@@ -453,11 +461,27 @@ _ERNIE_PROMPT = (
     "tokenizer config caps a prompt at 2048 tokens.\n"
 )
 _ERNIE_SIZE = (
-    "Baidu lists 1024x1024, 848x1264, 1264x848, 768x1376, 1376x768, 896x1200 "
+    "Baidu recommends 1024x1024, 848x1264, 1264x848, 768x1376, 1376x768, 896x1200 "
     "and 1200x896 - every one about 1 MP - and trained through 256, 512 and "
-    "1024 px stages; sides in multiples of 16. 2 and 4 MP render on this card "
+    "1024 px stages; sides in multiples of 16. The 1 MP 1:1, 2:3, 3:2, 3:4 and "
+    "4:3 presets are five of those sizes exactly, and 9:16 and 16:9 stand for "
+    "768x1376 and 1376x768 at 16 px shorter; those seven are marked, and the "
+    "size line names any other framing. 2 and 4 MP render on this card "
     "without failing, but nothing above 1 MP is documented."
 )
+# The card's "Recommended Parameters" table as data: the framings its seven
+# sizes are (9:16 is 768x1376's, 1.79:1 against the preset's 1.77:1), and the
+# sizes themselves, so Baidu's own 768x1376 typed in is recognised as one.
+_ERNIE_ASPECTS = ["1:1", "3:4", "4:3", "2:3", "3:2", "9:16", "16:9"]
+_ERNIE_RESOLUTIONS = [
+    (1024, 1024),
+    (848, 1264),
+    (1264, 848),
+    (768, 1376),
+    (1376, 768),
+    (896, 1200),
+    (1200, 896),
+]
 _ERNIE_EXAMPLES = [
     "This is a photograph depicting an urban street scene. Shot at eye level, it "
     "shows a covered pedestrian or commercial street. Slightly below the center "
@@ -481,6 +505,8 @@ ERNIE_TURBO_GUIDE = {
     "size": _ERNIE_SIZE,
     "pixels": (1.0, 1.0),
     "pixels_word": "documented",
+    "aspects": _ERNIE_ASPECTS,
+    "resolutions": _ERNIE_RESOLUTIONS,
     "examples": _ERNIE_EXAMPLES,
     "analysis": _ERNIE_ANALYSIS,
 }
@@ -492,6 +518,8 @@ ERNIE_GUIDE = {
     "size": _ERNIE_SIZE,
     "pixels": (1.0, 1.0),
     "pixels_word": "documented",
+    "aspects": _ERNIE_ASPECTS,
+    "resolutions": _ERNIE_RESOLUTIONS,
     "examples": _ERNIE_EXAMPLES,
     "analysis": _ERNIE_ANALYSIS,
 }
@@ -918,7 +946,11 @@ WAI_GUIDE = {
         "Steps the strength leaves in place of a separate hires step count."
     ),
     "pixels": (1024**2 / 1e6, 1024 * 1344 / 1e6),
-    "pixels_word": "documented",
+    # Reference sizes, not a range: the size line says so (sizes.js). One
+    # author's, and the floor is the size they say to exceed rather than an
+    # example, so the line calls them what the prose does.
+    "pixels_word": "example",
+    "pixels_source": "the author's reference sizes",
     # The author supplies this positive recipe, not a complete scene prompt.
     "examples": [",masterpiece,best quality,amazing quality,"],
     "tag_helper": {
@@ -994,17 +1026,20 @@ ANIMA_TURBO_GUIDE = {
     ),
     "size": (
         "The authors document 512x512 to 1536x1536 pixels for Anima, roughly "
-        "0.26-2.36 MP. The 1 and 2 MP presets are inside this range; the 4 MP "
-        "preset is outside it. This is the documented range, not a measurement "
+        "0.26-2.36 MP. The 1, 1.5 and 2 MP presets are inside this range; the "
+        "4 MP preset is outside it. This is the documented range, not a measurement "
         "on this card."
     ),
     "pixels": (512**2 / 1e6, 1536**2 / 1e6),
     "pixels_word": "documented",
-    # First sentence of the model card's dragon caption, without its optional
-    # dataset/title prefix. Keep the excerpt verbatim.
+    # The model card's dragon caption, both of its sentences, without its
+    # optional dataset/title prefix. Keep the excerpt verbatim, and whole: the
+    # card asks for at least two sentences, and its first alone drew the
+    # analyser's own "1 sentence" note on the authors' example.
     "examples": [
         "Digital painting of a fiery dragon with glowing yellow eyes, black "
-        "horns, and a long, sinuous tail, perched on a glowing, molten rock formation."
+        "horns, and a long, sinuous tail, perched on a glowing, molten rock formation. "
+        "The background is a gradient of dark purple to orange."
     ],
     # The card's tag order and positive prefix are not in the prose above, so
     # nothing here checks them.
@@ -1046,7 +1081,10 @@ NETAYUME_GUIDE = {
         "quality limit, and larger sizes have not been measured here."
     ),
     "pixels": (1024**2 / 1e6, 1024 * 1536 / 1e6),
-    "pixels_word": "documented",
+    # Two example sizes, which the prose above says are no bound: the Neta
+    # Lumina guide's and NetaYume's own workflow's, so more than one author.
+    "pixels_word": "example",
+    "pixels_source": "the authors' example sizes",
     # The v2 workflow's positive image prompt, verbatim after its system
     # instruction and <Prompt Start> marker. The loader applies the system
     # instruction itself, so copying that prefix here would duplicate it.
@@ -1087,7 +1125,10 @@ NEWBIE_GUIDE = {
         "quality limit."
     ),
     "pixels": (1024**2 / 1e6, 1024**2 / 1e6),
-    "pixels_word": "documented",
+    # One example size, which the prose above says is no bound: the
+    # author's quickstart.
+    "pixels_word": "example",
+    "pixels_source": "the author's example",
     # Model card's XML example, with indentation normalized. These are XML
     # fields, not a flat comma-separated tag list: do not add a tag helper.
     "examples": [

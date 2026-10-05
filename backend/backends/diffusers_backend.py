@@ -422,10 +422,9 @@ class DiffusersBackend(GenerationBackend):
                 "4-bit SVDQuant, whose linear layers are not the ones a LoRA attaches "
                 "to; run the same checkpoint under fp8, int8 or none to use adapters"
             )
-        if settings.model_id.lower() == anima_loading.MODEL_ID.lower():
-            return "User LoRAs are not supported by this Anima Turbo integration"
-        if settings.model_id.lower() == newbie_loading.MODEL_ID.lower():
-            return "User LoRAs are not supported by this NewBie integration"
+        refusal = loading.lora_refusal(settings.model_id)
+        if refusal is not None:
+            return refusal
         if not loading.importable("peft"):
             return "LoRA adapters need the peft package; `uv sync` installs it"
         if self._pipe is not None and not hasattr(self._pipe, "load_lora_weights"):

@@ -5,7 +5,8 @@
 // ------------------------------------------------------------ contact sheet
 
 // Everything a grid can vary. `of` reads one off a record; mu's null is a real
-// value - "no shift of ours" - not a missing one, so it prints as `none`. The
+// value - "no shift of ours" - not a missing one, so it prints as `none`, with
+// the shift it left where that is a fixed number (sheetMuStatic). The
 // prompt is the one axis whose values are prose, which is why it is labelled
 // rather than printed - see promptLabels.
 const SHEET_AXES = [
@@ -107,7 +108,7 @@ let promptShort = new Map();
 // adapter (sheetAdapter, below) - as they stand now. An export takes them
 // with its layout (exportLayout): Export all writes its slices one after
 // another, and a sheet redrawn on another run meanwhile replaces both.
-const sheetWords = () => ({ short: promptShort, adapter: sheetAdapter });
+const sheetWords = () => ({ short: promptShort, adapter: sheetAdapter, muStatic: sheetMuStatic });
 const valueText = (v, words = sheetWords()) => {
   if (v === null) return 'none';
   if (typeof v === 'string') return words.short.get(v) ?? v;
@@ -122,11 +123,20 @@ const clip = (text) => (text.length > LABEL_CHARS ? `${text.slice(0, LABEL_CHARS
 // and sheets of several adapters' sweeps can be told apart afterwards.
 let sheetAdapter = null;
 
+// The shift Mu's none ran at, where it is a number: every image on the sheet
+// the running checkpoint's, whose scheduler's shift is fixed (`muStatic`:
+// Z-Anime's, NetaYume's and NewBie's mu 1.79). "Mu 1, none, 2.5" laid out as
+// "Mu none | Mu 1 | Mu 2.5" there, the 1.79 column left of 1 with nothing to
+// say so; it reads "Mu none (1.79)" and sorts at 1.79. Null elsewhere - FLUX
+// derives its shift from the size - where none is no number and sorts first.
+let sheetMuStatic = null;
+
 // A value as its axis reads it - a version by its name - and a heading: the
 // axis and the value, a known version by its name alone ("Rewrite", not
 // "Version rewrite"), a weight with its adapter.
 function sheetText(axis, v, words = sheetWords()) {
   if (axis.key === VARIANT_AXIS && v !== null) return VERSION_NAMES.get(v) ?? v;
+  if (axis.key === 'mu' && v === null && words.muStatic != null) return `none (${muStaticText(words.muStatic)})`;
   return valueText(v, words);
 }
 function headText(axis, v, words = sheetWords()) {
@@ -233,6 +243,9 @@ let promptLabelMemo = { key: null, labels: [] };
 // oldest *loaded* image of a value is only the oldest the filter kept.
 function sheetValues(records, whole = []) {
   const values = {};
+  const fixedMu = muStatic();
+  sheetMuStatic = fixedMu !== null && records.length && records.every((r) => r.model_id === loadedModel)
+    ? fixedMu : null;
   for (const axis of sheetAxesList) {
     const seen = [];
     const written = axis.key.startsWith('var:') || axis.key === 'prompt';
@@ -248,7 +261,12 @@ function sheetValues(records, whole = []) {
         if (oldest.has(v) && rec.id < oldest.get(v)) oldest.set(v, rec.id);
       }
     }
+    // Mu's none at the shift it ran at, as its head prints it, ahead of an
+    // explicit value equal to that: 1.79 typed from the placeholder sits
+    // after "none (1.79)", where ln 6's 1.7918 put it before.
+    const noneAt = axis.key === 'mu' && sheetMuStatic !== null ? +muStaticText(sheetMuStatic) : null;
     seen.sort((a, b) => {
+      if (noneAt !== null) return ((a ?? noneAt) - (b ?? noneAt)) || (a === null ? -1 : b === null ? 1 : 0);
       if (a === null) return -1;
       if (b === null) return 1;
       if (written) return oldest.get(a) - oldest.get(b);
@@ -1331,7 +1349,9 @@ function sheetFileName(pins = sheetLayout?.pins ?? [], every = false, layout = n
     ? [`every-${pins.map(([axis]) => axis.key.replace(/^var:/, '')).join('_')}`]
     : pins.map(([axis, v]) => `${axis.key.replace(/^var:/, '')}-${clip(sheetText(axis, v, words))}`);
   const name = `sheet-${first?.run_id ?? 'gallery'}${parts.length ? `-${parts.join('_')}` : ''}`;
-  return `${name.replace(/[^\w.-]+/g, '-')}.png`;
+  // A value ending in a mark - "none (1.79)", a clipped label's "…" - leaves
+  // no hyphen dangling before the next pin or the extension.
+  return `${name.replace(/[^\w.-]+/g, '-').replace(/-+(?=_|$)/g, '')}.png`;
 }
 
 // One image to the browser's downloads: true once handed over, false where

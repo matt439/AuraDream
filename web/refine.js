@@ -534,9 +534,10 @@ function syncRefine() {
   els.refineNegNote.textContent = !negativeSupported
     ? '(this checkpoint takes no negative prompt)'
     : `(needs ${trueCfgSupported ? 'True CFG' : 'CFG'} > ${cfgThreshold})`;
-  // Blank is the pipeline's own shift, as the panel's box says (syncMu); a
-  // dead box promises nothing.
-  els.refineMu.placeholder = muSupported ? 'auto' : '';
+  // Blank is the pipeline's own shift, as the panel's box says (syncMu) -
+  // with its value where the scheduler's shift is fixed; a dead box promises
+  // nothing.
+  els.refineMu.placeholder = muPlaceholder();
   els.refineMu.disabled = !muSupported;
   els.refineMuField.classList.toggle('disabled', !muSupported);
   if (!muSupported) els.refineMu.value = '';

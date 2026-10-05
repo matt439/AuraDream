@@ -53,7 +53,7 @@ const els = {
   referenceNote: $('reference-note'), referenceTip: $('reference-tip'),
   lora: $('lora'), loraScale: $('lora-scale'), loraField: $('lora-field'),
   loraTip: $('lora-tip'), gridLoraScale: $('grid-lora-scale'),
-  gridLoraField: $('grid-lora-field'),
+  gridLoraField: $('grid-lora-field'), gridLoraTip: $('grid-lora-tip'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
   reset: $('btn-reset'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
@@ -65,7 +65,7 @@ const els = {
   cellNote: $('cell-note'), finishNote: $('finish-note'), jobSaid: $('job-said'),
   gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
-  gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'),
+  gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'), gridMuTip: $('grid-mu-tip'),
   gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),
   gridBudget: $('grid-budget'), gridPreview: $('grid-preview'),
   gridRun: $('btn-grid'),
@@ -347,12 +347,19 @@ const loraTipDefault = els.loraTip.textContent;
 // The Reference images tooltip for a checkpoint that takes none, and the
 // prompt's placeholder for one that reads prose: what the page shipped.
 const referenceTipDefault = els.referenceTip.textContent;
+// The grid's Mu and LoRA weight axes' syntax help, as nodes (its examples are
+// bold): put back where the axis applies again, after a reason stood in it.
+const gridMuTipDefault = [...els.gridMuTip.childNodes];
+const gridLoraTipDefault = [...els.gridLoraTip.childNodes];
 const promptPlaceholderDefault = els.prompt.placeholder;
 // The checkpoint's prompting guide: the pixel range its authors document
 // (megapixels, [low, high], null until a status lands) for the size line's
 // warning, and the example prompts behind the Examples button.
 let sizeRange = null;
 let sizeRangeWord = 'documented';
+// Whose an "example" span's sizes are, as the size prose names them ("the
+// author's reference sizes"); null for a range in writing.
+let sizeRangeSource = null;
 // Null means the checkpoint accepts any framing in its pixel range. Animagine
 // publishes a finite table, so its guide names the aspect buttons too.
 let sizeAspects = null;
@@ -384,6 +391,9 @@ let tagEditorSuggestionTimer = null;
 let tagEditorSuggestionEpoch = 0;
 // A remembered adapter name waiting for the list it belongs to.
 let pendingLora = '';
+// Why this server applies no adapter at all - /api/loras' detail, which the
+// LoRA badge shows - or null: the grid's LoRA weight axis quotes it.
+let loraRefusal = null;
 
 const humanBytes = (n) => {
   let size = n;

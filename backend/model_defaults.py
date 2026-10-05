@@ -65,6 +65,21 @@ sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
 its Euler scheduler is not flow matching; treating the argument alone as proof
 would replace Animagine's noise schedule with an unrelated flow schedule.
 
+`mu_static` is the shift a blank Mu leaves, as a mu, where the scheduler's
+shift is a fixed number: ln 6 (1.79) on Z-Anime, NetaYume and NewBie, ln 3
+(1.10) on Z-Image and Z-Image Turbo - the shipped `shift` of a scheduler with
+`use_dynamic_shifting: false`, which the loaders pin. None everywhere else:
+FLUX and Krea 2 Raw derive theirs from the size. The page shows the number
+in place of "auto" and puts a sheet's Mu none at it, rather than first; the
+stored mu stays null, and the grid's `none` stays its word. The Mu tips
+quote it.
+
+`cfg_ignored` says the CFG box never reaches the model: the distilled klein
+(guidance baked in; the pipeline warns above 1), schnell and Qwen-Image (no
+guidance input; True CFG is their knob). Their CFG tips open "Ignored", and
+a test holds the two together. The grid's CFG axis then offers no example:
+a sweep of it is the same image at every value.
+
 `hints` is the same knowledge as prose, for the UI's tooltips: what steps, CFG
 and mu mean *on this checkpoint*, which is not the same sentence twice. They are
 format strings over the profile's own numbers, so the text cannot drift from the
@@ -216,6 +231,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
         {
             "steps": 4,
             "guidance_scale": 1.0,
+            "cfg_ignored": True,
             "mu": None,
             "mu_supported": True,
             "cfg_threshold": 1.0,
@@ -251,6 +267,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
         {
             "steps": 4,
             "guidance_scale": 0.0,
+            "cfg_ignored": True,
             "mu": None,
             "mu_supported": True,
             "cfg_threshold": 1.0,
@@ -462,6 +479,7 @@ _PROFILES.append(
         {
             "steps": 50,
             "guidance_scale": 1.0,
+            "cfg_ignored": True,
             "mu": None,
             "mu_supported": True,
             "cfg_threshold": 1.0,
@@ -505,7 +523,7 @@ _PROFILES.append(
 # through the backend's static-shift fallback and replaces it exactly.
 _Z_IMAGE_MU_HINT = (
     "Flow-matching timestep shift. Z-Image ships a fixed shift of 3 (a mu of "
-    "1.10) and its scheduler ignores the value the pipeline derives from the "
+    "{mu_static:.2f}) and its scheduler ignores the value the pipeline derives from the "
     "image size; a number here replaces that shift outright. Leave blank."
 )
 _PROFILES += [
@@ -516,6 +534,7 @@ _PROFILES += [
             "guidance_scale": 4.0,
             "mu": None,
             "mu_supported": True,
+            "mu_static": math.log(6),
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -539,7 +558,7 @@ _PROFILES += [
                 ),
                 "mu": (
                     "Leave blank for the supplied FlowMatch Euler scheduler's "
-                    "fixed shift of 6 (mu 1.79). A value here replaces it. "
+                    "fixed shift of 6 (mu {mu_static:.2f}). A value here replaces it. "
                     "The author's ComfyUI Euler Ancestral/beta recommendation "
                     "is a different sampling setup."
                 ),
@@ -553,6 +572,7 @@ _PROFILES += [
             "guidance_scale": 0.0,
             "mu": None,
             "mu_supported": True,
+            "mu_static": math.log(3),
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -582,6 +602,7 @@ _PROFILES += [
             "guidance_scale": 5.0,
             "mu": None,
             "mu_supported": True,
+            "mu_static": math.log(3),
             "cfg_threshold": 0.0,
             "negative_prompt_supported": True,
             "reference_supported": False,
@@ -723,6 +744,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "guidance_scale": 4.0,
         "mu": None,
         "mu_supported": True,
+        "mu_static": math.log(6),
         "cfg_threshold": 1.0,
         "negative_prompt_supported": True,
         "reference_supported": False,
@@ -743,7 +765,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
             ),
             "mu": (
                 "Flow-matching timestep shift. Leave blank for NewBie's "
-                "standard FlowMatch Euler shift 6; a value here replaces "
+                "standard FlowMatch Euler shift 6 (mu {mu_static:.2f}); a value here replaces "
                 "its shift."
             ),
         },
@@ -753,6 +775,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "guidance_scale": 5.0,
         "mu": None,
         "mu_supported": True,
+        "mu_static": math.log(6),
         "cfg_threshold": 1.0,
         "negative_prompt_supported": True,
         "reference_supported": False,
@@ -774,7 +797,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
             ),
             "mu": (
                 "Leave blank for the standard Lumina 2 FlowMatch Euler "
-                "scheduler's fixed shift of 6 (mu 1.79). A value here "
+                "scheduler's fixed shift of 6 (mu {mu_static:.2f}). A value here "
                 "replaces it. The author's ComfyUI Euler Ancestral/normal "
                 "and res_multistep/linear_quadratic recommendations are "
                 "different sampling setups."
@@ -878,6 +901,10 @@ def defaults_for(model_id: str) -> dict[str, Any]:
     measured = profile.get("refine_measured")
     return {
         **{k: v for k, v in profile.items() if k not in _NOT_DEFAULTS},
+        # Every status says both: None where the shift is not a fixed number,
+        # False where the CFG box reaches the model.
+        "mu_static": profile.get("mu_static"),
+        "cfg_ignored": bool(profile.get("cfg_ignored", False)),
         "refine_tight_pixels": measured.width * measured.height if measured else None,
         "refine_settled": model_id.lower().replace("_", "-") in _OWN_PIPELINES,
     }
@@ -891,6 +918,7 @@ def guide_for(model_id: str) -> dict[str, Any]:
     return {
         "pixels": guide["pixels"],
         "pixels_word": guide["pixels_word"],
+        "pixels_source": guide.get("pixels_source"),
         "aspects": list(guide["aspects"]) if guide.get("aspects") is not None else None,
         "resolutions": list(guide["resolutions"]) if guide.get("resolutions") is not None else None,
         "examples": list(guide["examples"]),

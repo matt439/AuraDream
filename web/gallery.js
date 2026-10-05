@@ -1362,7 +1362,9 @@ function fillPanel(rec, sampling) {
   // CFG box, and the greyed box would only echo it.
   els.trueCfg.value = trueCfgSupported && rec.true_cfg != null ? rec.true_cfg : '';
   // Turbo's flow shift. Records from a pipeline that derives its own carry null.
-  els.mu.value = rec.mu ?? '';
+  // Only where Mu applies, as True CFG above: on Anima, say, the greyed box
+  // showed another checkpoint's 0.8 and the panel remembered it.
+  els.mu.value = muSupported ? (rec.mu ?? '') : '';
   // The conditioning that made it, where this server can still apply it: the
   // references are ids in this same gallery, and the adapter has to be a file
   // the select is offering or the request would be refused at submit.
@@ -1460,10 +1462,12 @@ function reuseIntoPanel(rec, withSize, note = '') {
   // reproduction set as much as the seed, so say so - as a note, not a failure.
   const short = (id) => (id || '').split('/').pop();
   if (loadedModel && rec.model_id !== loadedModel) {
+    // Mu named only where its box can be checked: on Anima it is greyed.
+    const knobs = muSupported ? 'steps, CFG and mu' : 'steps and CFG';
     notes.push(
       `These settings were made on ${short(rec.model_id)}; the server is running ` +
-      `${short(loadedModel)}, whose steps, CFG and mu differ. Prompt` +
-      `${withSize ? ', size' : ''} and seed carry over; check the steps, CFG and mu ` +
+      `${short(loadedModel)}, whose ${knobs} differ. Prompt` +
+      `${withSize ? ', size' : ''} and seed carry over; check the ${knobs} ` +
       'boxes before generating.',
     );
   }

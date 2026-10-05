@@ -122,6 +122,50 @@ def test_an_adapter_is_refused_where_it_cannot_be_applied(lora_dir, monkeypatch)
     assert ran.lora_scale == 1.0
 
 
+def test_the_integrations_that_take_no_adapter_are_refused_by_their_id(monkeypatch):
+    # One function of the id, read by the real backend and by the fake
+    # server the browser checks run on, so the two refuse the same ids with
+    # the same sentence - the fake used to offer adapters on both.
+    from backend.backends import anima_loading, loading, newbie_loading
+
+    anima = loading.lora_refusal(anima_loading.MODEL_ID)
+    newbie = loading.lora_refusal(newbie_loading.MODEL_ID)
+    assert anima == "User LoRAs are not supported by this Anima Turbo integration"
+    assert newbie == "User LoRAs are not supported by this NewBie integration"
+    # Matched as the profiles are, whatever the case of the id typed.
+    assert loading.lora_refusal(anima_loading.MODEL_ID.upper()) == anima
+    for other in ("black-forest-labs/FLUX.1-Krea-dev", "cagliostrolab/animagine-xl-4.0",
+                  "circlestone-labs/Anima-Base-v1.0-Diffusers", "krea/Krea-2-Turbo"):
+        assert loading.lora_refusal(other) is None, other
+    # The backend asks it first: ahead of peft and the loaded pipeline, and
+    # with the pipeline loaded too, since an id's refusal is the integration's.
+    backend = _loaded(SwapPipeline())
+    for model_id, reason in ((anima_loading.MODEL_ID, anima), (newbie_loading.MODEL_ID, newbie)):
+        monkeypatch.setattr(
+            backend_module, "settings",
+            dataclasses.replace(backend_module.settings, model_id=model_id, quantization="fp8"),
+        )
+        assert backend.lora_unavailable_reason() == reason
+        assert backend.lora_supported() is False
+
+
+def test_the_fake_drops_a_mu_its_claimed_schedule_cannot_take():
+    # tools/fake_server.py sets `mu_supported` from the claimed profile: a
+    # Mu sent to an Anima or SDXL fake must not reach the row, as the real
+    # backend's applied() keeps it off - with or without a threshold set.
+    from tests.fakes import FakeBackend
+
+    fake = FakeBackend()
+    request = GenerateRequest(prompt="a fox", mu=0.8)
+    assert fake.applied(request).mu == 0.8
+    fake.mu_supported = False
+    assert fake.applied(request).mu is None
+    fake.cfg_threshold = 1.0
+    assert fake.applied(request).mu is None
+    fake.mu_supported = True
+    assert fake.applied(request).mu == 0.8
+
+
 # -------------------------------------------------------------------- the key
 
 

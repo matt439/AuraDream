@@ -142,6 +142,26 @@ def importable(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
 
 
+def lora_refusal(model_id: str) -> str | None:
+    """Why this checkpoint takes no user LoRA whatever the installation, or None.
+
+    A fact about the integration, answerable from the id before anything
+    downloads: Anima Turbo's and NewBie's pipelines are the app's own, with no
+    adapter path. `DiffusersBackend.lora_unavailable_reason` asks this first,
+    and the browser checks' fake server asks it of the id it claims, so the
+    fake refuses an adapter exactly where the real server does. The ids are
+    the loaders' own constants, so the two cannot drift apart.
+    """
+    from . import anima_loading, newbie_loading
+
+    key = model_id.lower()
+    if key == anima_loading.MODEL_ID.lower():
+        return "User LoRAs are not supported by this Anima Turbo integration"
+    if key == newbie_loading.MODEL_ID.lower():
+        return "User LoRAs are not supported by this NewBie integration"
+    return None
+
+
 def hub_file(model_id: str, filename: str) -> str:
     """Path to one file of a checkpoint, downloading only that file.
 

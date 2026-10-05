@@ -9,6 +9,8 @@
   {"expect": "els.referenceTip.textContent.startsWith('Up to four gallery images') && els.referenceTip.textContent.includes('image 1')"},
   {"expect": "loraSupported && [...els.lora.options].some((o) => o.value === 'demo-style.safetensors')"},
   {"expect": "els.loraScale.disabled && els.gridLoraScale.disabled"},
+  {"log": "'The distilled klein ignores CFG: the grid offers steps around its 4 and no CFG sweep, which would be one image at every value'"},
+  {"expect": "els.gridSteps.placeholder === '3,4,5' && els.gridCfg.placeholder === '' && lastDefaults.cfg_ignored === true"},
   {"expect": "els.loraScale.closest('.sub').title === 'Pick an adapter first' && els.gridLoraScale.placeholder === 'no adapter' && els.gridLoraField.title === 'Pick an adapter in LoRA above first'"},
 
   {"log": "'an adapter for another checkpoint is not offered, and the tooltip says which and why'"},

@@ -22,7 +22,9 @@ function collect() {
     guidance_scale: num(els.cfg),
     // Blank is off; a greyed-out box is a knob this checkpoint has not got.
     true_cfg: els.trueCfg.disabled || els.trueCfg.value.trim() === '' ? null : +els.trueCfg.value,
-    mu: els.mu.value === '' ? null : +els.mu.value,
+    // Blank is the pipeline's own shift; a greyed box is a knob this
+    // checkpoint's schedule has not got, whatever a Reuse or a restore left.
+    mu: els.mu.disabled || els.mu.value === '' ? null : +els.mu.value,
     // A greyed-out control has been told it cannot apply, exactly as with the
     // negative prompt: sending its contents anyway would put an adapter or a
     // reference the pipeline never saw into every record.
@@ -897,7 +899,7 @@ function gridPayload() {
     prompt_axis: els.gridPrompt.value.trim(),
     steps_axis: els.gridSteps.value.trim(),
     cfg_axis: els.gridCfg.value.trim(),
-    mu_axis: els.gridMu.value.trim(),
+    mu_axis: els.gridMu.disabled ? '' : els.gridMu.value.trim(),
     lora_scale_axis: els.gridLoraScale.disabled ? '' : els.gridLoraScale.value.trim(),
     seeds: +els.gridSeeds.value || 1,
     seed_axis: els.gridSeedList.value.trim(),
@@ -914,6 +916,12 @@ function humanTime(seconds) {
 }
 
 const axisText = (values) => values.map((v) => (v === null ? 'none' : v)).join(', ');
+// Mu's none is the scheduler's own shift, which on a fixed-shift checkpoint
+// is a number: said, as the sheet's heads say it.
+const muAxisText = (values) => {
+  const fixed = muStatic();
+  return values.map((v) => (v !== null ? v : fixed === null ? 'none' : `none (${muStaticText(fixed)})`)).join(', ');
+};
 
 // The server's summary names every axis, the ones of one value included, and
 // multiplies with an ASCII x: it is the CLI's log line too (grid.describe, held
@@ -1067,7 +1075,7 @@ async function previewGrid() {
     els.gridPreview.replaceChildren(totals, [
       '',
       `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
-        `  ·  mu ${axisText(p.values.mu)}` +
+        `  ·  mu ${muAxisText(p.values.mu)}` +
         // Only when it is an axis: every other run would carry a constant.
         // Named, since a sweep's weights mean nothing without the adapter.
         (p.values.lora_scale && p.values.lora_scale.length > 1
