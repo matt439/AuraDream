@@ -499,6 +499,7 @@ for (const type of ['dragover', 'drop']) {
 
 window.addEventListener('resize', placeTagValidation);
 placeTagValidation();
+new ResizeObserver(chipsResized).observe(els.tagValidation);
 // The panel's sticky top (panel.js has the rules). It follows the panel's
 // height - the grid fold, the progress, the last-run banner, the hints all
 // change it - and the window's; the observer also reports once on observing,

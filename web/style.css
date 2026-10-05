@@ -1015,15 +1015,19 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    above, it pushed the image just made below the fold (59% of it in view
    after a Check at QHD, none after the critic's answer at 125%) while the
    width beside the image stood empty. The stage becomes two columns while
-   the check is open - the chips, the viewer and its note on the left, the
-   check on the right in their rows, scrolling inside itself - and
-   everything from the gallery head on spans both, in the rows after, in
-   document order. The check takes the height of the left column's rows
+   the check is open - the chips across both, as wide as they were with the
+   check closed, then the viewer and its note on the left and the check on
+   the right in their rows, scrolling inside itself - and everything from
+   the gallery head on spans both, in the rows after, in document order.
+   The chips keep their width so the image does not move as the check opens:
+   in the left column alone they wrapped onto more lines, and the image moved
+   down by them. The check takes the height of the left column's rows
    rather than setting it (`contain: size`, stretched), at most the window
-   under the topbar, and the viewer beside it is at least 36rem or that
-   window, whichever is less: sized by its own content the check pushed
-   the gallery head past the fold whenever the critic answered, even
-   beside an empty viewer. It is not sticky: sticky, it was held by the
+   under the topbar and the chips (`--chips-h`, their height, which
+   chipsResized writes on the stage), and the viewer beside it is at least
+   36rem or that window, whichever is less: sized by its own content the
+   check pushed the gallery head past the fold whenever the critic answered,
+   even beside an empty viewer. It is not sticky: sticky, it was held by the
    whole stage, not by its rows, and slid down over the gallery head, the
    cards and an open sheet as the page scrolled. The note's row is 1fr:
    a check taller than the viewer would put its excess there, below the
@@ -1040,13 +1044,13 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
     align-items: start;
   }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > * { grid-column: 1 / -1; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1; grid-row: 1; }
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / -1; grid-row: 1; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
-    grid-column: 2; grid-row: 1 / span 3;
+    grid-column: 2; grid-row: 2 / span 2;
     contain: size; align-self: stretch;
-    max-height: calc(100vh - var(--sticky-top) - var(--gutter));
+    max-height: calc(100vh - var(--sticky-top) - 2 * var(--gutter) - var(--chips-h, 0px));
     overflow-y: auto; overscroll-behavior: contain;
   }
   /* The column's least height is the viewer's, not its own: a min-height on
@@ -1069,26 +1073,17 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) > * { grid-column: 1; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
-    grid-row: 1 / 6; contain: none; align-self: start;
+    grid-row: 2 / 6; contain: none; align-self: start;
   }
-  /* The head - the stale badge, Check again, Close - stays at the top of the
-     column's own scroll: the critic's answer takes focus and scrolls the
-     column down to it, and the head scrolled away with it, so a prompt
-     edited after the answer left only the dimming to say the check was
-     stale. At the scroller's very top, the column's own top padding moved
-     into the head's: with the padding on the column, a sliver of the
-     findings scrolled past above the head, their text cut in half. */
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { padding-top: 0; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-head {
-    position: sticky; top: 0; z-index: 1;
-    margin: 0 -12px; padding: 10px 48px var(--sp-2) 12px;
-    background: var(--panel); border-bottom: 1px solid var(--line);
-  }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) .analysis-head .analysis-close { top: 6px; right: 8px; }
+  /* With no chips the check spans the viewer's rows from the first, and
+     only the window under the topbar caps it. */
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis { grid-row: 1 / span 2; }
+  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
+    grid-row: 1 / span 2;
+    max-height: calc(100vh - var(--sticky-top) - var(--gutter));
+  }
   .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
     grid-template-rows: auto auto auto 1fr;
   }
@@ -1641,7 +1636,8 @@ button { font: inherit; cursor: pointer; }
    and none if that is under --recent-min: the check is part of iterating on
    a prompt, and with it open the earlier results had gone from the screen
    with the gallery's first row. In the viewer's row, which the chips' row
-   comes before when there are chips, as in the dock's own rules. */
+   comes before when there are chips, across all three columns, as in the
+   dock's own rules. */
 .recent { display: none; }
 @media (min-width: 2000px) {
   .stage:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) {
@@ -1666,10 +1662,6 @@ button { font: inherit; cursor: pointer; }
     grid-template-columns: minmax(0, 1fr) min(var(--recent-w), var(--recent-room)) var(--dock-w);
   }
   .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { grid-column: 3; }
-  /* The chips keep the width they had without it, over both: in the
-     viewer's column alone they wrapped onto another line, and the image
-     moved down by it as the check opened. */
-  .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / 3; }
   .stage.recent-docked:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) { grid-row: 2; }
   .stage.recent-docked:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
     grid-row: 1;
