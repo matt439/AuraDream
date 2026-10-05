@@ -18,5 +18,17 @@
   {"eval": "choose('1:1', 1); els.negative.value = 'blurry'; els.mu.value = '1.8'; els.seed.value = '7871'; void startJob('/api/generate', collect());"},
   {"wait": 2000},
   {"expect": "viewerRecords.length === 1 && viewerRecords[0].model_id === 'duongve/NetaYume-Lumina-Image-2.0' && viewerRecords[0].steps === 40 && viewerRecords[0].guidance_scale === 5"},
-  {"expect": "viewerRecords[0].negative_prompt === 'blurry' && viewerRecords[0].true_cfg === 5 && viewerRecords[0].mu === 1.8"}
+  {"expect": "viewerRecords[0].negative_prompt === 'blurry' && viewerRecords[0].true_cfg === 5 && viewerRecords[0].mu === 1.8"},
+
+  {"log": "'Another workflow\\'s system instruction ahead of <Prompt Start> (diffusers\\' own Lumina 2 one) is cut with its marker: Apply leaves the image description alone, and the check of it is clean - Apply once cut the marker only and kept the instruction as description'"},
+  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__check = (text) => { els.prompt.value = text; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.analyze.click(); }; __check('You are an assistant designed to generate superior images with the superior degree of image-text alignment based on textual prompts or user prompts. <Prompt Start> 1girl, solo, silver hair, night, moon');"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value && !els.promptAnalysis.hidden)"},
+  {"expect": "analysisResult.body.findings.map((f) => [f.rule, f.start, f.end].join()).join('|') === 'guide.system_prefix,0,163' && els.analysisFindings.textContent.includes('is a system instruction and its <Prompt Start> marker')"},
+  {"eval": "els.analysisFindings.querySelector('[data-writes]').click();"},
+  {"expect": "__until(() => els.prompt.value === '1girl, solo, silver hair, night, moon' && analysisResult?.source === els.prompt.value)"},
+  {"expect": "analysisResult.body.findings.length === 0 && els.analysisSummary.textContent.endsWith(' · nothing to flag')"},
+  {"log": "'The author\\'s own instruction retyped without its closing full stop is found too, not only the marker after it'"},
+  {"eval": "__check('You are an assistant designed to generate anime images based on textual prompts <Prompt Start> 1girl, solo, moon');"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value)"},
+  {"expect": "analysisResult.body.findings.map((f) => [f.start, f.end].join('-')).join() === '0-79,80-94' && analysisResult.body.findings.every((f) => f.suggestion === '1girl, solo, moon')"}
 ]

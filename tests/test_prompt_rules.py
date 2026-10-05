@@ -1114,6 +1114,52 @@ def test_netayume_system_prefix_inside_lettering_is_left_alone(prompt):
     assert only(run(NETAYUME, prompt), "guide.system_prefix") == []
 
 
+# diffusers' own Lumina 2 instruction, and the anime one as a person retypes it.
+_LUMINA = (
+    "You are an assistant designed to generate superior images with the superior degree of "
+    "image-text alignment based on textual prompts or user prompts."
+)
+_NETA_LIKE = (
+    "You are an assistant designed to generate high-quality anime images with the highest "
+    "degree of image-text alignment based on textual prompts."
+)
+
+
+@pytest.mark.parametrize(
+    "prompt, spans, suggestion",
+    [
+        # The loader's own words without their full stop, or spaced oddly.
+        (f"{SYSTEM_PROMPT[:-1]} <Prompt Start> 1girl, solo, moon",
+         [SYSTEM_PROMPT[:-1], "<Prompt Start>"], "1girl, solo, moon"),
+        (SYSTEM_PROMPT.replace(" ", "  \n", 2).lower() + " 1girl, solo",
+         [SYSTEM_PROMPT.replace(" ", "  \n", 2).lower()], "1girl, solo"),
+        # Another workflow's instruction ahead of the marker: one span, whole.
+        (f"{_LUMINA} <Prompt Start> 1girl, solo", [f"{_LUMINA} <Prompt Start>"], "1girl, solo"),
+        (f"  {_NETA_LIKE}\n<Prompt Start> 1girl, solo",
+         [f"{_NETA_LIKE}\n<Prompt Start>"], "1girl, solo"),
+        # A marker after tags is cut alone.
+        ("1girl, solo <Prompt Start> moon", ["<Prompt Start>"], "1girl, solo moon"),
+        ("1girl <Prompt Start> moon", ["<Prompt Start>"], "1girl moon"),
+        # Lettering before the marker is the user's: the marker alone goes.
+        ('You are "my sunshine" <Prompt Start> 1girl', ["<Prompt Start>"],
+         'You are "my sunshine" 1girl'),
+    ],
+)
+def test_netayume_system_prefix_is_found_as_retyped(prompt, spans, suggestion):
+    findings = only(run(NETAYUME, prompt), "guide.system_prefix")
+    assert [spanned(prompt, finding) for finding in findings] == spans
+    assert all(finding.suggestion == suggestion for finding in findings)
+    # What Apply leaves is clean: no instruction kept as description.
+    assert only(run(NETAYUME, suggestion), "guide.system_prefix") == []
+
+
+def test_another_instruction_is_named_for_what_it_is():
+    prompt = f"{_LUMINA} <Prompt Start> 1girl, solo"
+    [finding] = only(run(NETAYUME, prompt), "guide.system_prefix")
+    assert "is a system instruction and its <Prompt Start> marker" in finding.message
+    assert "already sent" not in finding.message
+
+
 def test_netayume_quoted_prefix_does_not_hide_an_actual_duplicate():
     lettering = f'A poster says "{SYSTEM_PROMPT}" and a card reads "<Prompt Start>".'
     prompt = f"{lettering} {SYSTEM_PROMPT} <Prompt Start> 1girl"

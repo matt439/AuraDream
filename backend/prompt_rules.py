@@ -1630,6 +1630,18 @@ def _one_paragraph(ctx: _Context) -> Iterable[PromptFinding]:
 
 
 _PROMPT_START = re.compile(r"<\s*prompt\s+start\s*>", re.IGNORECASE)
+# The loader's own instruction, not a copy: what it sends is what doubles -
+# as a person retypes it, too: any case, any run of whitespace between its
+# words, the closing full stop or not. Without the stop it was missed, and
+# Apply cut only the marker after it.
+_NETAYUME_INSTRUCTION = re.compile(
+    r"(?<!\w)"
+    + r"\s+".join(map(re.escape, NETAYUME_SYSTEM_PROMPT.rstrip(".").split()))
+    + r"(?:\.|(?!\w))",
+    re.IGNORECASE,
+)
+# How a system instruction opens: "You are an assistant designed to ...".
+_INSTRUCTION = re.compile(r"\s*you\s+are\b", re.IGNORECASE)
 
 
 def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
@@ -1640,13 +1652,29 @@ def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
     # Lettering is the image description the user asked for, even where it
     # spells a marker or the whole instruction. Search the same-length bare
     # text so a quoted occurrence neither gets cut nor hides a later prefix.
-    spans = [match.span() for match in _PROMPT_START.finditer(ctx.bare)]
-    # The loader's own instruction, not a copy: what it sends is what doubles.
+    markers = list(_PROMPT_START.finditer(ctx.bare))
+    spans = [match.span() for match in markers]
     # Found in the text itself, not in text.lower(), whose offsets are not the
     # text's ("İ" lowers to two characters).
-    at = re.search(re.escape(NETAYUME_SYSTEM_PROMPT), ctx.bare, re.IGNORECASE)
+    at = _NETAYUME_INSTRUCTION.search(ctx.bare)
     if at:
         spans.append(at.span())
+    # Lumina's template is instruction, marker, prompt: what stands before
+    # the first marker, where it opens as an instruction does ("You are ..."),
+    # is a system instruction of some other workflow's - diffusers' own
+    # Lumina 2 one, a Neta variant - and the marker its separator. Cut as one,
+    # so Apply leaves the image description and nothing of the instruction;
+    # a marker after tags ("1girl <Prompt Start> moon") is cut alone, and so
+    # is one after lettering, which is the user's.
+    extended: tuple[int, int] | None = None
+    if markers and (at is None or at.start() >= markers[0].start()):
+        first = markers[0]
+        if _INSTRUCTION.match(ctx.bare, 0, first.start()) and (
+            ctx.bare[: first.start()] == text[: first.start()]
+        ):
+            head = text[: first.start()]
+            extended = (len(head) - len(head.lstrip()), first.end())
+            spans[0] = extended
     # Each cut's seam becomes one space, and a comma either side of it one
     # comma; whitespace anywhere else - a blank line, the spacing inside
     # quoted lettering - is the user's.
@@ -1657,11 +1685,17 @@ def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
             tail = tail[1:].lstrip()
         cleaned = head + (" " if head and tail else "") + tail
     for start, end in sorted(spans):
-        yield ctx.finding(
-            entry, "guide.system_prefix", "warn",
+        message = (
+            f'"{text[start:end]}" is a system instruction and its <Prompt Start> marker: the '
+            "pipeline adds the author's own instruction and marker itself, so here this one "
+            "is encoded as image description."
+            if (start, end) == extended else
             f'"{text[start:end]}" is already sent: the pipeline adds the author\'s '
             "system instruction and its <Prompt Start> marker itself, so here it "
-            "is encoded a second time as image description.",
+            "is encoded a second time as image description."
+        )
+        yield ctx.finding(
+            entry, "guide.system_prefix", "warn", message,
             start=start, end=end,
             suggestion=cleaned.strip() or None,
         )
