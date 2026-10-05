@@ -324,10 +324,20 @@ def test_status_names_what_a_first_expansion_downloads(client, fake):
     assert client.get("/api/status").json()["prompt_expander"] is None
     fake.prompt_expander_supported = True
     first = client.get("/api/status").json()["prompt_expander"]
+    # Each at its step: the rewriter before the expansion, the translator
+    # after it - the order the page's running line names them in.
+    rewriter = {"name": "ERNIE's prompt rewriter", "bytes": 7_663_346_520, "step": "expand"}
+    translator = {"name": "the opus-mt-zh-en translator", "bytes": main.TRANSLATOR_BYTES, "step": "translate"}
     assert first == {
         "loaded": False,
-        "fetch": ["ERNIE's prompt rewriter", "the opus-mt-zh-en translator"],
+        "fetch": [rewriter, translator],
         "fetch_bytes": 7_663_346_520 + main.TRANSLATOR_BYTES,
+    }
+    # The rewriter on disk already: the translator alone, still after the
+    # expansion, with the rewriter's load still ahead.
+    fake.expander_cached = True
+    assert client.get("/api/status").json()["prompt_expander"] == {
+        "loaded": False, "fetch": [translator], "fetch_bytes": main.TRANSLATOR_BYTES,
     }
     assert client.post("/api/prompt/expand", json={"prompt": "a lighthouse"}).status_code == 200
     after = client.get("/api/status").json()["prompt_expander"]

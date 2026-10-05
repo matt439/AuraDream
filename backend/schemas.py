@@ -1024,6 +1024,17 @@ class CriticStatus(BaseModel):
     fetch_bytes: int = 0
 
 
+class ExpanderDownload(BaseModel):
+    """One thing a first Expand downloads, and where in the expansion it
+    falls: the page's running line names each at its own step."""
+
+    name: str
+    bytes: int
+    # "expand": fetched before the expansion runs (ERNIE's rewriter);
+    # "translate": after it, for the English (the translator).
+    step: Literal["expand", "translate"]
+
+
 class ExpanderStatus(BaseModel):
     """What the page says about ERNIE's Expand before it is pressed, from the
     live pipeline and a few file checks, as `CriticStatus` is the critic's: a
@@ -1033,9 +1044,9 @@ class ExpanderStatus(BaseModel):
     # The rewriter is on the live pipeline: an Expand waits for nothing but
     # itself. False before the image model loads, and again after Unload.
     loaded: bool = False
-    # What a first use downloads, in order - ERNIE's rewriter, the translator,
-    # both or neither - and their size together in bytes.
-    fetch: list[str] = Field(default_factory=list)
+    # What a first use downloads, in the order it does - ERNIE's rewriter,
+    # the translator, both or neither - and their size together in bytes.
+    fetch: list[ExpanderDownload] = Field(default_factory=list)
     fetch_bytes: int = 0
 
 

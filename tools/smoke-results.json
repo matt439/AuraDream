@@ -261,7 +261,11 @@
   {"expect": "__until(() => els.promptNote.hidden && !resetNote)"},
   {"eval": "els.reset.click();"},
   {"expect": "!els.promptNote.hidden && !!resetNote"},
+  {"log": "'the store stays forgotten until the panel changes: the blur after a Reset fires the prompt change event, and its write - flushed here rather than waited for - puts nothing back'"},
+  {"eval": "window.__changed = 0; els.prompt.addEventListener('change', () => { __changed += 1; }, {once: true}); els.prompt.blur(); clearTimeout(panelTimer); writePanel();"},
+  {"expect": "__changed === 1 && localStorage.getItem('local-diffusion.panel.v1') === null && !!resetNote"},
   {"eval": "els.prompt.value = 'typed after the reset'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "els.promptNote.hidden && !resetNote && els.error.textContent === ''"},
+  {"expect": "__until(() => JSON.parse(localStorage.getItem('local-diffusion.panel.v1') ?? 'null')?.prompt === 'typed after the reset')"},
   {"eval": "resetPanel(); showError(''); dropPromptUndo();"}
 ]

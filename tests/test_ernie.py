@@ -329,3 +329,19 @@ def test_no_preview_without_a_map_for_the_flux2_vae_and_the_cell_completes(monke
     frames: list = []
     images = backend.generate(_request(), seed=1, on_preview=lambda *a: frames.append(a))
     assert frames == [] and len(images) == 1 and pipe.steps_run == STEPS
+
+
+def test_the_pages_prompt_length_for_expand_is_the_requests():
+    # web/app.js refuses a prompt past this in the panel's words, at the box,
+    # before sending it; one copy to drift and the page would send what the
+    # server refuses in pydantic's, or refuse what it would take.
+    import re
+    from pathlib import Path
+
+    from backend.schemas import PromptExpansionRequest
+
+    source = (Path(__file__).resolve().parents[1] / "web" / "app.js").read_text(encoding="utf-8")
+    match = re.search(r"^const EXPAND_MAX_CHARS = (\d+);$", source, re.M)
+    field = PromptExpansionRequest.model_fields["prompt"]
+    limits = [m.max_length for m in field.metadata if hasattr(m, "max_length")]
+    assert match and limits == [int(match.group(1))]

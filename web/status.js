@@ -141,7 +141,9 @@ function syncExpandButton() {
 function expandCost() {
   const s = expanderStatus;
   if (!s) return '';
-  if (s.fetch?.length) return `First use downloads ${s.fetch.join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`;
+  if (s.fetch?.length) {
+    return `First use downloads ${s.fetch.map((f) => f.name).join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`;
+  }
   return s.loaded ? '' : "Its first use this session loads ERNIE's prompt rewriter into memory first.";
 }
 
@@ -168,7 +170,9 @@ function syncUnload() {
 // without queueing an image to do it, and the status says so at once. It
 // takes back only what was said about the load - its own refusal, a failed
 // load's sentence or Expand's pointer to it (`loadLine`) - never the line's
-// other messages: an Undo on offer, a job's outcome.
+// other messages: an Undo on offer, a job's outcome. Expand's words about the
+// load said under the prompt instead, beside a Reuse's Undo (app.js,
+// expandSay), go too.
 let loadLine = null;
 async function loadModel() {
   try {
@@ -176,6 +180,7 @@ async function loadModel() {
     const said = els.error.textContent;
     if (said && (said === loadLine || said === shownLoadDetail)) showError('');
     loadLine = null;
+    if (promptUndo?.aboutLoad) dropPromptUndo();
   } catch (err) {
     showError(err.message);
     loadLine = err.message;
@@ -410,6 +415,8 @@ async function refreshStatus() {
       promptExpansionSupported = s.prompt_expansion_supported;
       expanderStatus = s.prompt_expander ?? null;
       syncPromptExpansion();
+      // A download finished, the rewriter loaded: an Expand running says so.
+      syncExpandRunning();
     }
     if (pendingTranslation) {
       const { source, text } = pendingTranslation;

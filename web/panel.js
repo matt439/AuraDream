@@ -68,8 +68,17 @@ function persistPanel() {
 // Nothing listens to `storage`: what another tab wrote stays the store's
 // until this page changes the same key.
 let panelBase = null;
+// The panel as a Reset left it, until it changes: a write of that is no
+// change, and the store stays forgotten - the prompt's blur after a Reset
+// fires `change`, and wrote the reset panel back, which another tab then
+// merged its own changes over rather than taking whole.
+let resetLeft = null;
 function writePanel() {
   const now = panelState();
+  if (resetLeft !== null) {
+    if (JSON.stringify(now) === resetLeft) return;
+    resetLeft = null;
+  }
   const stored = storedPanel();
   let out = now;
   if (stored && panelBase) {
@@ -198,6 +207,13 @@ function resetPanel() {
   clearTimeout(panelTimer);
   forget(PANEL_KEY);
   for (const key of LEGACY_PANEL_KEYS) forget(key);
+  // And kept forgotten until the panel changes (writePanel): the prompt's
+  // `change` comes at its next blur, after this. The panel as reset is what
+  // a forgotten store means, so it is what a later write compares against -
+  // never the panel before the Reset, whose every key would look changed
+  // and go over what another tab wrote meanwhile.
+  panelBase = panelState();
+  resetLeft = JSON.stringify(panelBase);
   offerResetUndo(before);
   els.prompt.focus();
 }

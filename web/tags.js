@@ -86,7 +86,7 @@ function writeBox(el, text) {
 // press was: over the next field's caption on a two-column page - out of the
 // panel's flow, so its coming and going moves nothing, Generate least - and
 // in the flow in one column and while the negative box is greyed (style.css).
-// What it holds is `promptUndo`, {kind, after, undo, discard, onDrop}:
+// What it holds is `promptUndo`, {kind, after, undo, discard, onDrop, again}:
 //   'write' - a write the user did not type over their own words, an Example
 //     picked over a prompt in progress or an expansion (app.js), with an Undo
 //     that puts it back. It goes once the box holds anything else, `undo`
@@ -103,14 +103,27 @@ function writeBox(el, text) {
 // the time it is shown - an expansion's, in its English at the head of the
 // results from 1800 px (app.js), where the panel would have pushed Generate
 // below the window - and the next note brings it back under the prompt.
+// Moved with `moveBefore` where the browser has it, which keeps the node's
+// state: a live region removed and inserted again just before its words are
+// written is often not read out. `again()` shows the same note anew - Expand
+// offers back the one its running line took, where it fails.
 const PROMPT_NOTE_HOME = els.promptNote.parentElement;
-function showPromptNote(message, {
-  kind = 'write', undo = null, label = 'Undo', title = '', discard = null, ms = 15000, onDrop = null,
-  host = PROMPT_NOTE_HOME,
-} = {}) {
+function showPromptNote(message, options = {}) {
+  const {
+    kind = 'write', undo = null, label = 'Undo', title = '', discard = null, ms = 15000, onDrop = null,
+    host = PROMPT_NOTE_HOME,
+  } = options;
   dropPromptUndo();
-  if (els.promptNote.parentElement !== host) host.append(els.promptNote);
-  const note = { kind, after: els.prompt.value, undo, discard, onDrop };
+  if (els.promptNote.parentElement !== host) {
+    let moved = false;
+    if (typeof host.moveBefore === 'function') {
+      try { host.moveBefore(els.promptNote, null); moved = true; } catch { /* inserted below */ }
+    }
+    if (!moved) host.append(els.promptNote);
+  }
+  const note = {
+    kind, after: els.prompt.value, undo, discard, onDrop, again: () => showPromptNote(message, options),
+  };
   promptUndo = note;
   // Shown before it is written: it is a live region, and words written into
   // a hidden one are never read out.

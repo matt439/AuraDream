@@ -15,8 +15,9 @@ and the failure rule can be driven from the page; and `POST /api/fake/load`
 (`fail=gated`, raised as huggingface_hub raises it), for the load's wait and
 a failed load's card; `POST /api/fake/step` sets the seconds per step for
 the jobs after it and answers the pace it replaced; `POST /api/fake/expand`
-slows ERNIE's Expand on the server (`seconds`) or makes it fail (`fail`, the
-message of a RuntimeError). The prompt check reads the
+slows ERNIE's Expand on the server (`seconds`), holds it until the next call
+(`hold`), makes it fail (`fail`, the message of a RuntimeError) or puts its
+rewriter and translator back off disk (`fresh`). The prompt check reads the
 tests' word tokenizers - a token per word or mark, at each encoder's real
 budget - and the critic is the tests' FakeCritic, whose answer is built from
 the prompt. The gallery lives under the system temp directory (or --data),
@@ -34,6 +35,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -115,14 +117,21 @@ def main() -> int:
                 raise gated
             super().load()
 
-        # ERNIE's Expand, slowed or failing on request (`POST /api/fake/expand`):
-        # a first use's minutes and the route's failures, on the server's side.
+        # ERNIE's Expand, slowed, held or failing on request
+        # (`POST /api/fake/expand`): a first use's minutes and the route's
+        # failures, on the server's side. Held, an expansion waits - inside
+        # the generation gate, as a real one runs - until the next call lets
+        # it go, or 30 s, so a smoke's steps under a running Expand never race
+        # its end however slow the machine.
         expand_seconds = 0.0
+        expand_gate = None
 
         def expand_prompt(self, prompt, width, height):
             import time
 
             time.sleep(self.expand_seconds)
+            if self.expand_gate is not None:
+                self.expand_gate.wait(timeout=30)
             return super().expand_prompt(prompt, width, height)
 
         def generate(self, request, seed, on_progress=None, should_cancel=None, on_preview=None):
@@ -350,12 +359,30 @@ def main() -> int:
     # ERNIE's Expand: the seconds each expansion takes on the server, inside
     # the generation gate as the real one's are, and an error the expansions
     # after it raise (None for none) - "RuntimeError" for the class name the
-    # route strips. Answers what it set.
+    # route strips. `hold` keeps the expansions after it waiting until a
+    # call without it (any call: each sets every knob); `fresh` puts the
+    # rewriter and the translator back off disk, so a first use's line shows
+    # again on a server a smoke has already run against. Answers what it set.
+    fake.expand_gate = threading.Event()
+    fake.expand_gate.set()
+
     @app_main.app.post("/api/fake/expand", include_in_schema=False)
-    async def fake_expand(seconds: float = Body(0.0), fail: str | None = Body(None)) -> dict:
+    async def fake_expand(
+        seconds: float = Body(0.0),
+        fail: str | None = Body(None),
+        hold: bool = Body(False),
+        fresh: bool = Body(False),
+    ) -> dict:
         fake.expand_seconds = max(0.0, seconds)
         fake.expand_error = RuntimeError(fail) if fail else None
-        return {"seconds": fake.expand_seconds, "fail": fail}
+        if hold:
+            fake.expand_gate.clear()
+        else:
+            fake.expand_gate.set()
+        if fresh:
+            fake.expander_cached = fake.expander_loaded = False
+            app_main.prompt_translator.downloaded = False
+        return {"seconds": fake.expand_seconds, "fail": fail, "hold": hold, "fresh": fresh}
 
     import uvicorn
 

@@ -120,7 +120,8 @@ els.promptNoteDiscard.onclick = discardPromptNote;
 // waits on - the model's load, a first use's download - and when it lands,
 // that it replaced the prompt, with an Undo (from 1800 px at the end of its
 // English, at the head of the results). Its failures go in the panel's
-// line, said as Expand's. A first use can take minutes:
+// line, said as Expand's - under the prompt instead while that line holds a
+// Reuse's Undo (`expandSay`). A first use can take minutes:
 //   - typing meanwhile is never overwritten; the result is held under the
 //     prompt (Use it, Discard) rather than thrown away, since it is sampled
 //     and cannot be made again exactly.
@@ -129,32 +130,53 @@ els.promptNoteDiscard.onclick = discardPromptNote;
 //   - nothing it says lands over an Undo another press left in the panel's
 //     line (a Reuse's), which would take the button and the panel it puts
 //     back (`expandSay`). Reset's Undo is under the prompt, where this one's
-//     running line gives way to it.
+//     running line gives way to it; an Example's, or a held expansion, the
+//     running line took is offered again where the expansion fails.
 // Focus stays on the button through the request and after a failure, and
 // goes to the prompt only with the text it brings.
 let expandRun = null;
-// What Expand last said in the panel's line - a failure, a press while it ran
-// - which the next Expand, and the end of this one, take back while it is
-// still what the line says.
+// What Expand last said - in the panel's line ({text}) or under the prompt
+// ({note}) - a failure, a press while it ran: the next Expand, and the end of
+// this one, take it back while it is still what is said there.
 let expandLine = null;
+// PromptExpansionRequest's `max_length` (tests/test_ernie.py holds them
+// equal), checked here so a long prompt is refused in the panel's words, at
+// the box, rather than in pydantic's.
+const EXPAND_MAX_CHARS = 4000;
 
 async function expandPrompt() {
   // Held: the press says why, as a held Unload's does.
   if (els.expandPrompt.getAttribute('aria-disabled') === 'true') {
     if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
-    else if (expandingPrompt) expandSay('Expanding… - the result goes into the prompt box when it lands.', true);
-    else if (busy) showJobNote(`${els.expandPrompt.title}.`);
-    else showError(`${els.expandPrompt.title}.`, true);
+    else if (expandingPrompt) {
+      // Beside a Reuse's Undo it would be said under the prompt, where the
+      // running line says as much already.
+      if (!(reuseNote?.button?.isConnected && promptUndo === expandRun?.note)) {
+        expandSay('Expanding… - the result goes into the prompt box when it lands.', true);
+      }
+    } else if (busy) showJobNote(`${els.expandPrompt.title}.`);
+    else expandSay(`${els.expandPrompt.title}.`, true);
     return;
   }
   const source = els.prompt.value;
   const prompt = source.trim();
   if (!prompt) { showError('Enter a prompt to expand first.'); els.prompt.focus(); return; }
-  // ERNIE writes the expansion for the size in W and H, which the server
-  // refused in pydantic's words: said in the panel's, at the box.
-  const side = [els.width, els.height].find((box) => !(+box.value >= +box.min && +box.value <= +box.max));
+  // What the server would refuse in pydantic's words, said in the panel's, at
+  // the box: a prompt past the request's length (in code points, as Python
+  // counts), and the size ERNIE writes the expansion for - whole pixels,
+  // inside the boxes' range.
+  const length = [...prompt].length;
+  if (length > EXPAND_MAX_CHARS) {
+    showError(`Expand takes a prompt of at most ${EXPAND_MAX_CHARS} characters; this one has ${length}.`);
+    els.prompt.focus();
+    return;
+  }
+  const side = [els.width, els.height].find((box) => {
+    const value = +box.value;
+    return box.value.trim() === '' || !Number.isInteger(value) || value < +box.min || value > +box.max;
+  });
   if (side) {
-    showError(`Expand writes for the size in W and H: set both from ${els.width.min} to ${els.width.max} first.`);
+    showError(`Expand writes for the size in W and H: set both to whole pixels from ${els.width.min} to ${els.width.max} first.`);
     side.focus();
     return;
   }
@@ -163,8 +185,12 @@ async function expandPrompt() {
   // The English of the prompt it replaces, for its Undo to bring back.
   const before = translatedSource === source ? { source, text: els.promptTranslation.value } : null;
   // Whether the box was rewritten whole meanwhile (replaceBoxText's flag),
-  // rather than typed in.
-  const run = { replaced: false, text: '', note: null, clock: 0, from: Date.now() };
+  // rather than typed in. And the note the running line takes the place of -
+  // an Example's Undo or a held expansion - to offer again where this fails.
+  const run = {
+    replaced: false, text: '', note: null, clock: 0, from: Date.now(),
+    displaced: ['write', 'held'].includes(promptUndo?.kind) ? promptUndo : null,
+  };
   const watch = () => { if (replacingBox) run.replaced = true; };
   els.prompt.addEventListener('input', watch);
   expandingPrompt = true;
@@ -185,6 +211,7 @@ async function expandPrompt() {
     } catch (err) {
       endExpandRunning(run);
       expandFailed(err);
+      offerDisplaced(run);
       return;
     }
     endExpandRunning(run);
@@ -201,39 +228,73 @@ async function expandPrompt() {
     expandRun = null;
     expandingPrompt = false;
     syncPromptExpansion();
+    // The topbar's "loading…" over, and the title's first-use cost with it,
+    // now rather than at the next poll.
+    void refreshStatus();
   }
 }
 
-// Expand's words in the panel's line, unless a Reuse's Undo is on offer
-// there: written over, the button went with the text, and the panel the
-// Undo would put back with it.
+// Expand's words in the panel's line - or, while a Reuse's Undo is on offer
+// there, under the prompt, where Expand was pressed: written over, the Undo's
+// button went with the text, and the panel it would put back with it; left
+// unsaid, a failure looked like nothing happening. Under the prompt it goes
+// as the panel line's words do not - once the box holds anything else, or
+// after 20 s, since it sits over the next field's caption - and the note it
+// takes the place of is the running line, or one Expand said itself: the
+// Reuse that put that Undo there took an Example's. Answers where it went,
+// {text} or {note}.
+const EXPAND_NOTE_MS = 20000;
 function expandSay(message, note = false, options = {}) {
-  if (reuseNote?.button?.isConnected) return false;
-  showError(message, note, options);
-  expandLine = message;
-  return true;
+  clearExpandLine();
+  if (reuseNote?.button?.isConnected) {
+    expandLine = { note: showPromptNote(message, { kind: 'info', ms: EXPAND_NOTE_MS }) };
+  } else {
+    showError(message, note, options);
+    expandLine = { text: message };
+  }
+  return expandLine;
 }
 
 function clearExpandLine() {
-  if (expandLine !== null && els.error.textContent === expandLine) showError('');
+  const said = expandLine;
   expandLine = null;
+  if (said?.note) {
+    if (promptUndo === said.note) dropPromptUndo();
+  } else if (said && els.error.textContent === said.text) showError('');
 }
 
-// The running line, with what the press waits on: the model's load, a first
-// use's download or the rewriter's load, then the expansion itself. A clock
+// The note the running line took the place of, offered again where the
+// expansion failed and nothing has taken its place since: an Example's Undo
+// while the box still holds what the Example wrote, a held expansion
+// whatever it holds - Ctrl+Z reached the one, and nothing the other. Not
+// after a Reset, a Reuse or an Example meanwhile, which replaced it on purpose.
+function offerDisplaced(run) {
+  const was = run.displaced;
+  if (!was || promptUndo || run.replaced) return;
+  if (was.kind === 'write' && els.prompt.value !== was.after) return;
+  was.again();
+}
+
+// The running line, with what the press waits on, in the order the server
+// does it: the model's load, the rewriter's first download or its load, the
+// expansion, the translator's first download, the translation. A clock
 // counts beside it, aria-hidden, as the load's does: a first use is minutes
-// with nothing else moving.
+// with nothing else moving. The status's `prompt_expander` gives each
+// download's step (`fetch[].step`), and refreshStatus asks for the line
+// again as that and the model's state move (syncExpandRunning).
 function expandRunningText() {
   const name = (loadedModel ?? '').split('/').pop() || 'the model';
-  const steps = [];
-  if (modelState !== 'ready') steps.push(`loading ${name}`);
-  if (expanderStatus?.fetch?.length) {
-    steps.push(`downloading ${expanderStatus.fetch.join(' and ')} (about ${humanBytes(expanderStatus.fetch_bytes)}) once`);
-  } else if (expanderStatus && !expanderStatus.loaded) {
-    steps.push("loading ERNIE's prompt rewriter");
-  }
-  steps.push(steps.length ? 'expanding and translating…' : 'expanding with ERNIE, then translating locally…');
-  const line = steps.join(', then ');
+  const s = expanderStatus;
+  const fetch = s?.fetch ?? [];
+  const download = (f) => `downloading ${f.name} (about ${humanBytes(f.bytes)}) once`;
+  const ahead = [];
+  if (modelState !== 'ready') ahead.push(`loading ${name}`);
+  const rewriter = fetch.filter((f) => f.step === 'expand');
+  if (rewriter.length) ahead.push(...rewriter.map(download));
+  else if (s && !s.loaded) ahead.push("loading ERNIE's prompt rewriter");
+  const after = fetch.filter((f) => f.step === 'translate').map(download);
+  if (!ahead.length && !after.length) return 'Expanding with ERNIE, then translating locally…';
+  const line = [...ahead, 'expanding', ...after, 'translating…'].join(', then ');
   return `${line[0].toUpperCase()}${line.slice(1)}`;
 }
 
@@ -329,18 +390,23 @@ function holdExpansion(body) {
 
 // A failed expansion, said as Expand's, with the prompt as it was. A load that
 // failed (a 503) is the status's to say: the viewer's card, where the viewer
-// is empty, has the sentence and Retry load, so the line only points there;
-// beside images the line says it once, as the poll would (shownLoadDetail),
-// without the sentence's `command` marks.
+// is empty, has the sentence and Retry load, so Expand only points there;
+// beside images Expand says the sentence once, as the poll would - the poll
+// then says it no more (shownLoadDetail) - its `command` marks made
+// quotation marks. Retry load's success takes either back (loadModel), as its
+// own messages: in the panel's line (`loadLine`) or under the prompt
+// (`aboutLoad`).
 function expandFailed(err) {
   if (err.status === 503) {
     void refreshStatus();
-    const pointer = loadFailureInViewer()
+    const inViewer = loadFailureInViewer();
+    const said = inViewer
       ? 'Expand needs the model, which could not load - why, and Retry load, are in the viewer.'
-      : `Expand needs the model, which could not load: ${err.message.replaceAll('`', '')}`;
-    if (!loadFailureInViewer()) shownLoadDetail = err.message;
-    // Retry load's success takes it back (loadModel), as its own messages.
-    if (expandSay(pointer, loadFailureInViewer())) loadLine = pointer;
+      : `Expand needs the model, which could not load: ${err.message.replace(/`([^`]*)`/g, '“$1”')}`;
+    const at = expandSay(said, inViewer);
+    if (!inViewer) shownLoadDetail = err.message;
+    if (at.note) at.note.aboutLoad = true;
+    else loadLine = said;
     return;
   }
   // A failure moves the prompt nowhere: the editor is as the user left it.

@@ -1588,7 +1588,8 @@ async function checkReused(note, rec) {
 
 // The panel as the Reuse found it: the boxes through `replaceBoxText` again,
 // so Ctrl+Z still walks back through both, and the seed, the size, the
-// sampling values with whose they were, the references and the adapter.
+// sampling values with whose they were, the references, the adapter and an
+// expansion's English.
 function undoReuse(note) {
   const { state, values } = note.before;
   if (reuseNote === note) reuseNote = null;
@@ -1606,6 +1607,10 @@ function undoReuse(note) {
   els.lora.value = state.lora;
   els.loraScale.value = state.loraScale;
   promptReplaced();
+  // An expansion's English, where the prompt put back is the one it
+  // translates, as Reset's Undo brings it back.
+  const t = state.translation;
+  if (t && els.prompt.value === t.source) showPromptTranslation(t.source, t.text);
   syncSize();
   syncCfg();
   syncConditioning();
