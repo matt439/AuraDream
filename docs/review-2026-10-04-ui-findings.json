@@ -1876,6 +1876,719 @@
    "No GPU validation was run: everything above ran on the tests' fake backend, nothing here changes the pipeline or the schedule, and no measurement in docs/verified.md was added or changed. The refine tight lines (U6, U119) quote verified.md's existing rows."
   ]
  },
+ "leftovers": {
+  "date": "2026-10-05",
+  "status": "done, except U61 part B (deferred by the user)",
+  "branch": "review-2026-10-04-leftovers",
+  "base": "e63f004",
+  "commits": "7212b32..bde3bc2 (179 commits on e63f004), then the commit recording this block",
+  "check": {
+   "items": 87,
+   "by_source": {
+    "undone-a": 14,
+    "undone-b": 17,
+    "plan": 17,
+    "outside": 5,
+    "gpu": 17,
+    "critic": 17
+   },
+   "what": "The record checked against e63f004: the parts left undone by decision and the alternatives' remainders, the plan's steps and grafts not taken, the outside issues, the GPU list, and a critic's corrections of the record."
+  },
+  "rounds": [
+   {
+    "name": "wave 1",
+    "what": "eight worktree packages (jobs, lightbox, prompt, refine, sheet, gallery, stage, tags), each implemented, reviewed, fixed and rechecked; 34 items, all done",
+    "merges": [
+     "f342854",
+     "4c0c6b9",
+     "bd2bb78",
+     "38a9c6a",
+     "d6a1f67",
+     "9975f76",
+     "13675dd",
+     "91b4caa"
+    ]
+   },
+   {
+    "name": "seven-area review",
+    "what": "ERNIE, NewBie, Z-Anime/NetaYume, Anima, under 901 px, two tabs, screen-reader exposure, run against e63f004: 92 found, 90 kept, merged into 85",
+    "record": "docs/review-2026-10-05-areas.md"
+   },
+   {
+    "name": "wave 2",
+    "what": "ten packages: nine for the 85 area findings, w2-integ for the 52 minor points wave 1's rechecks left",
+    "merges": [
+     "2bedf55",
+     "8bc6efe",
+     "5f2121a",
+     "b8d5352",
+     "e4ce22e",
+     "e1d918a",
+     "9a46d62",
+     "f8be93f",
+     "16bdcca",
+     "aef7022"
+    ],
+    "post_merge_fixes": [
+     "dcd1d1d",
+     "230c08e",
+     "183e001",
+     "66bcf14"
+    ]
+   },
+   {
+    "name": "final pass",
+    "what": "an integration review of the merged branch (18 findings, all fixed with five wave-2 leftovers), then the docs and a docs check",
+    "commits": [
+     "936ba28",
+     "c4515b9",
+     "f9de976",
+     "a3ab988",
+     "564f94d"
+    ]
+   },
+   {
+    "name": "the card",
+    "what": "the GPU list run on the RTX 5080, the measured refine lines, and the defects found",
+    "commits": [
+     "d814fc8",
+     "fd4f009",
+     "02cd1d9",
+     "81781bf",
+     "2b89ed5",
+     "ad01fdc",
+     "6a7570d",
+     "5ec8adb",
+     "b396e2e",
+     "2338697",
+     "9377de1",
+     "2a4d2cc",
+     "cb92838",
+     "7ff6eee",
+     "3e143b7",
+     "7733f81",
+     "bde3bc2"
+    ]
+   }
+  ],
+  "corrections": [
+   {
+    "about": "smoke-delete's flake",
+    "record_said": "it has passed every run since; the cause was not found",
+    "found": "It still failed (1 of 6 fresh runs, on the two server-count checks after the lightbox-of-one delete). The cause was an app defect: the lightbox's close event is queued, and its listener closed a lightbox reopened in the meantime, under the delete in flight.",
+    "fix": "The listener resets only a lightbox that is still closed; the smoke's fixed waits became conditions, and its viewer-tile delete waits for the picture to load.",
+    "commits": [
+     "24b7abe",
+     "d95589e",
+     "6ffe73b"
+    ]
+   },
+   {
+    "about": "U72",
+    "record_said": "the sheet note pointing to Compare was the verifier's separate note, out of scope",
+    "found": "It was item 5 of the published recommendation.",
+    "fix": "Built.",
+    "commits": [
+     "6dfa8f3"
+    ]
+   },
+   {
+    "about": "U43",
+    "record_said": "done by a documented alternative",
+    "found": "One path was left: Escape in the lightbox with the Tags helper or Examples menu left open closed the lightbox without dismissLightbox, so focus went to the image it opened on.",
+    "fix": "The lightbox's Escape comes first.",
+    "commits": [
+     "5c05195"
+    ]
+   },
+   {
+    "about": "profiles with no measured refine line",
+    "record_said": "Animagine, Kohaku and Illustrious keep the generic line",
+    "found": "FLUX.1 schnell, Z-Image Turbo, Qwen-Image and the off-catalogue Z-Image also had a pass and only the generic 1600x1600 line, looser for schnell and Z-Image Turbo than the 2.36 MP their siblings measured.",
+    "fix": "All seven measured on the card and given lines.",
+    "commits": [
+     "d814fc8"
+    ]
+   }
+  ],
+  "finding_updates": {
+   "U3": {
+    "part": "alternative's remainder: S visible, not only in the title",
+    "outcome": "built",
+    "change": "The lightbox's keys line names S on a pass ('S compare').",
+    "commits": [
+     "c5f5386",
+     "c6b5cea"
+    ]
+   },
+   "U5": {
+    "part": "the chips not kept across both columns; the 36rem minimum beside a long run's strip; .many not excluded from the dock",
+    "outcome": "built in part",
+    "change": "The chips span the stage and the docked check starts under them, so the image does not move as the check opens. Also built from U5's observation and its optional cap: Escape closes the check, and the stacked check is capped at 55vh. Not built: the strip minimum (a comparison's sheet would open at half width in the first column) and the .many exclusion (it would bring back the push-down U5 removed; it matters only between 1800 and 2000 px).",
+    "commits": [
+     "6a030b6",
+     "f21582e",
+     "4e701a2",
+     "b443433"
+    ]
+   },
+   "U6": {
+    "part": "no live start sigma",
+    "outcome": "built another way",
+    "change": "/api/grid/preview answers start_sigma, read off a copy of the loaded scheduler through the pipeline module's own calculate_shift and retrieve_timesteps; generate() asks the same schedule.requested_shift. The Refine dialog says 'starts at N% noise'. Tests hold each recipe to the installed diffusers source and reproduce verified.md's FLUX.1 sigmas. None before a load, off a flow-matching schedule, or for a sweep.",
+    "commits": [
+     "9efa352",
+     "4e848b7"
+    ]
+   },
+   "U12": {
+    "part": "the optional two-column stage; a larger live preview in a run of five or more",
+    "outcome": "built in part",
+    "change": "The two-column stage is an opt-in, Gallery beside, from 2000 px. The larger live preview is not built: it would bring back the reflow U26 removed.",
+    "commits": [
+     "657b712",
+     "045c421"
+    ]
+   },
+   "U15": {
+    "part": "alternative (an 1800 px gate with a ramp)",
+    "outcome": "nothing remained",
+    "commits": []
+   },
+   "U16": {
+    "part": "the optional Fit/Fill toggle",
+    "outcome": "built",
+    "change": "The sheet's Fill width toggle: a matrix's columns fill the width and the sheet scrolls, remembered per browser (local-diffusion.sheet.v1); held, with its reason, on a wrapped row.",
+    "commits": [
+     "6dfa8f3",
+     "feefbc8"
+    ]
+   },
+   "U27": {
+    "part": "the optional ticker in the viewer's placeholder",
+    "outcome": "built",
+    "change": "While a job waits on the load and the strip is empty, the viewer's line reads 'Loading weights · m:ss', the clock aria-hidden.",
+    "commits": [
+     "ca07be5"
+    ]
+   },
+   "U35": {
+    "part": "alternative (one name, 'Reference image')",
+    "outcome": "nothing remained",
+    "commits": []
+   },
+   "U38": {
+    "part": "not extended to a finding's Apply",
+    "outcome": "built",
+    "change": "A prompt Apply puts the prompt it replaces into an empty Your version, with a note.",
+    "commits": [
+     "1961169"
+    ]
+   },
+   "U41": {
+    "part": "alternative (no aria-pressed: the words are the state)",
+    "outcome": "nothing remained",
+    "commits": []
+   },
+   "U43": {
+    "part": "alternative (dismissLightbox for the user's closes); a path the record missed",
+    "outcome": "built",
+    "change": "With the Tags helper or the Examples menu left open, the lightbox's Escape went to the menu's branch and the dialog's own cancel closed the lightbox without dismissLightbox. The lightbox's Escape now comes first.",
+    "commits": [
+     "5c05195"
+    ]
+   },
+   "U45": {
+    "part": "the Seed box at 1400x900 cannot show 16 digits; the recommendation's caption under the viewer (missed by the record)",
+    "outcome": "built",
+    "change": "Seed, Batch and Repeat under an Output caption, the seed box never narrower than 16 digits; the caption shown in one column and on a wide window over 1150 px tall, elsewhere the group's hidden name. Below 1800 px the viewer's note names a single result's seed with Use seed.",
+    "commits": [
+     "1d83fe9",
+     "5bba72c",
+     "df6e0f1",
+     "abeee45",
+     "9f25b92"
+    ]
+   },
+   "U48": {
+    "part": "the optional star on sheet cells",
+    "outcome": "built",
+    "change": "Every sheet cell has the card's star button, shown on hover and focus-within.",
+    "commits": [
+     "6dfa8f3"
+    ]
+   },
+   "U50": {
+    "part": "the optional outline flash",
+    "outcome": "built",
+    "change": "The box a finding's words are selected in flashes its outline for 600 ms; not at all under reduced motion.",
+    "commits": [
+     "99fcd1c",
+     "32358be"
+    ]
+   },
+   "U61": {
+    "part": "part B: importing one's own photo or sketch as a reference",
+    "outcome": "not built",
+    "reason": "Deferred by the user, who does not use klein's references. The check's plan stands: an import route with byte and pixel caps that strips EXIF and stores a PNG; an imported-source marker through storage, reindex, the gallery scope, Re-render and keep rates; add, drop and paste on the reference field; about 700-1,000 lines with tests.",
+    "commits": []
+   },
+   "U62": {
+    "part": "the optional link from a finding's 'image 3' to its chip",
+    "outcome": "built",
+    "change": "A references finding's image numbers are buttons that focus the chip's ×.",
+    "commits": [
+     "067bfb0",
+     "949df4a"
+    ]
+   },
+   "U66": {
+    "part": "part (d), tag autocomplete in the Refine dialog's prompt",
+    "outcome": "built",
+    "change": "On a tag checkpoint the dialog's Prompt box suggests tags in a list of its own, never the panel's.",
+    "commits": [
+     "f2cce6b"
+    ]
+   },
+   "U72": {
+    "part": "the sheet note pointing to Compare (recorded as out of scope; it was the recommendation's item 5)",
+    "outcome": "built",
+    "change": "A sheet of prompt versions whose images each have their own seed says so and points to Check's Compare on the same seeds.",
+    "commits": [
+     "6dfa8f3"
+    ]
+   },
+   "U79": {
+    "part": "removing a day divider left with no cards",
+    "outcome": "not built",
+    "reason": "Moot: deleted cards stay as tombstones, so a divider never empties.",
+    "commits": []
+   },
+   "U85": {
+    "part": "the optional server-supplied order slot",
+    "outcome": "built",
+    "change": "/api/tags/validate takes the prompt and answers each comma item's step of the documented order from Check's own placement (prompt_rules.order_slots); each chip shows it as a caption.",
+    "commits": [
+     "7e804f0",
+     "4d99222",
+     "2da64e2",
+     "e3564e5"
+    ]
+   },
+   "U87": {
+    "part": "the optional qualifier on FLUX's CFG label",
+    "outcome": "built",
+    "change": "'CFG (distilled)' on the panel's and the grid's CFG labels (hints.cfg_label), and on the Refine dialog's.",
+    "commits": [
+     "c18a778",
+     "936ba28"
+    ]
+   },
+   "U96": {
+    "part": "the optional S/M density control",
+    "outcome": "built",
+    "change": "From 1800 px the gallery head has S or M cards and Fit or Crop thumbnails, remembered per browser (local-diffusion.gallery.v1).",
+    "commits": [
+     "2c4b135"
+    ]
+   },
+   "U100": {
+    "part": "the optional press on the greyed box",
+    "outcome": "not built",
+    "reason": "Taking the pointer off the box would stop a long greyed negative from scrolling; the caption's Set True CFG / Set CFG button covers the need.",
+    "commits": []
+   },
+   "U102": {
+    "part": "'Export all pins'",
+    "outcome": "built",
+    "change": "Export all: every pinned slice in one PNG under titles naming the pins, else one image per slice.",
+    "commits": [
+     "6dfa8f3",
+     "feefbc8"
+    ]
+   },
+   "U108": {
+    "part": "the suggested e.detail > 1 guard on the arrows",
+    "outcome": "not built",
+    "reason": "It would drop every other press of a quick click-walk; lbAfterArrow already takes a double-click's second press.",
+    "commits": []
+   },
+   "U124": {
+    "part": "alternative (Up and Down by layout)",
+    "outcome": "nothing remained",
+    "commits": []
+   }
+  },
+  "plan_and_set_aside": [
+   {
+    "item": "G4.3 From panel (set aside as a duplicate of U65)",
+    "outcome": "built",
+    "commits": [
+     "f2cce6b",
+     "d6355e7"
+    ]
+   },
+   {
+    "item": "graft: Use seed in the lightbox",
+    "outcome": "built",
+    "commits": [
+     "c5f5386"
+    ]
+   },
+   {
+    "item": "step 10: a pass opened from the passes strip already compared",
+    "outcome": "built",
+    "commits": [
+     "94a7032"
+    ]
+   },
+   {
+    "item": "step 11: Compare with source in a pass's result column",
+    "outcome": "built (left out of the docked row)",
+    "commits": [
+     "091f755",
+     "8ebcdcd"
+    ]
+   },
+   {
+    "item": "step 14: the lightbox's arrow circles at the wide tier's size",
+    "outcome": "built",
+    "commits": [
+     "4ce2d09"
+    ]
+   },
+   {
+    "item": "step 8: a hover caption on gallery cards",
+    "outcome": "built",
+    "commits": [
+     "a80a844",
+     "6c50212"
+    ]
+   },
+   {
+    "item": "step 13: the Output heading",
+    "outcome": "built",
+    "commits": [
+     "1d83fe9"
+    ]
+   },
+   {
+    "item": "ERNIE's Expand assigning .value (missed by the review, which never covered Expand)",
+    "outcome": "fixed",
+    "commits": [
+     "25f0a01"
+    ]
+   },
+   {
+    "item": "direction risk: field-sizing: content is Chromium-only",
+    "outcome": "noted in the design notes",
+    "commits": [
+     "f9de976"
+    ]
+   },
+   {
+    "item": "direction risk: a toggle back to cover thumbnails",
+    "outcome": "built (Fit/Crop)",
+    "commits": [
+     "2c4b135"
+    ]
+   },
+   {
+    "item": "step 13: the Conditioning fold",
+    "outcome": "superseded",
+    "reason": "U95's two CSS cuts; a fold would hide the LoRA select from anyone who uses an adapter every time."
+   },
+   {
+    "item": "step 13: the dead negative collapsed to one line",
+    "outcome": "superseded",
+    "reason": "The greyed box stays readable and scrollable for a carried-over negative (U100)."
+   },
+   {
+    "item": "graft: strength chips",
+    "outcome": "superseded",
+    "reason": "Compare 3 and arrow-key stepping; on FLUX.1 the plan's 0.2 'stronger' chip was a strength measured to repaint the face."
+   },
+   {
+    "item": "step 9: an equal 2x2 for batches of 2-4",
+    "outcome": "superseded",
+    "reason": "Best-fit gives larger tiles in every case U47 measured."
+   },
+   {
+    "item": "step 13: neutral presets with an underline",
+    "outcome": "superseded",
+    "reason": "U81's mark, not a fill; the selection reads first."
+   },
+   {
+    "item": "graft: a pass beside its source in the viewer",
+    "outcome": "superseded",
+    "reason": "The lightbox's side by side on one zoom."
+   },
+   {
+    "item": "step 6: #62627a borders scoped to the wide tier",
+    "outcome": "superseded",
+    "reason": "A contrast correction at every width (#666680)."
+   },
+   {
+    "item": "the plan's other wide-tier numbers",
+    "outcome": "superseded",
+    "reason": "Each follows its finding's measured recommendation."
+   },
+   {
+    "item": "step 12: Pause with aria-pressed",
+    "outcome": "superseded",
+    "reason": "The button's words are its state (U41)."
+   }
+  ],
+  "opt_ins": [
+   {
+    "name": "Gallery beside",
+    "where": "a tick in the gallery head from 2000 px",
+    "key": "local-diffusion.gallery-beside",
+    "what": "the gallery in a fixed column of its own at the window's right, scrolling by itself; a sheet still opens across the whole width",
+    "default": "off",
+    "smoke": "smoke-stage (7888)",
+    "commits": [
+     "657b712",
+     "045c421"
+    ]
+   },
+   {
+    "name": "card size and fit",
+    "where": "two pairs in the gallery head from 1800 px",
+    "key": "local-diffusion.gallery.v1",
+    "what": "S or M (eleven or eight cards a row at QHD); Fit (letterboxed, as before) or Crop (the card filled)",
+    "default": "M, Fit",
+    "commits": [
+     "2c4b135"
+    ]
+   },
+   {
+    "name": "the sheet's Fill width",
+    "where": "the contact sheet's controls",
+    "key": "local-diffusion.sheet.v1",
+    "what": "a matrix's columns fill the width and the sheet scrolls, instead of fitting the window; held on a wrapped row",
+    "default": "off (fitted)",
+    "commits": [
+     "6dfa8f3",
+     "feefbc8"
+    ]
+   }
+  ],
+  "outside": [
+   {
+    "id": "watchNext-race",
+    "outcome": "fixed",
+    "change": "watchNext and resumeActiveJob share one listing (adoptListedJob) that checks busy again when it answers and is jobListing while it is out; reproduced before in 8 of 60 back-to-back submissions. smoke-grid's 300 ms spacing is gone.",
+    "commits": [
+     "7212b32",
+     "48831f0"
+    ]
+   },
+   {
+    "id": "queued-submit-race",
+    "found": "beside the watchNext race",
+    "outcome": "fixed",
+    "change": "A queued POST waits for a listing still out, then takes the page if nothing is watched, and queues only an id that is neither watched nor queued; each stream is kept by job id (jobStreams), so await startJob waits for its job.",
+    "commits": [
+     "7212b32",
+     "48831f0"
+    ]
+   },
+   {
+    "id": "smoke-delete-flake",
+    "outcome": "fixed",
+    "change": "See corrections.",
+    "commits": [
+     "24b7abe",
+     "d95589e",
+     "6ffe73b"
+    ]
+   }
+  ],
+  "gpu_validation": {
+   "status": "run",
+   "where": "docs/verified.md: Behaviour rows dated 2026-10-05; the Refine pass's Past 4 MP and Nunchaku tables; the Checkpoints rows dated 2026-10-05",
+   "how": "The page checks ran the real server (--defaults, fp8, model offload) on a throwaway gallery, headless Edge at 2560x1305 pressed by real mouse events; the refine ladders one size per process. The pictures were not reviewed.",
+   "page_checks": [
+    {
+     "check": "results strip and live preview (U12, U26, U47)",
+     "checkpoint": "Anima Turbo v1.1",
+     "result": "the head held still through a 28-seed grid; a batch's lone preview sat centred, and the batch refitted 3 px as the page's scrollbar went",
+     "fixes": [
+      "9377de1",
+      "7733f81"
+     ]
+    },
+    {
+     "check": "the SDXL pass's stand-in (U67)",
+     "checkpoint": "WAI v17",
+     "result": "from the first progress event to the result, in the result's own box; the ETA ran long early",
+     "fixes": [
+      "2a4d2cc"
+     ]
+    },
+    {
+     "check": "Pause's words over real cells (U41)",
+     "checkpoint": "FLUX.1 Krea [dev]",
+     "result": "'Pausing…' 20 ms after the press; the pause at the cell boundary 36.8 s later"
+    },
+    {
+     "check": "Cancel during a real first load, and the ticker (U27)",
+     "checkpoint": "FLUX.1 Krea [dev]",
+     "result": "a tick a second; cancelled 40 ms after the press while the load went on to ready"
+    },
+    {
+     "check": "a time budget against real step times (U120, U121)",
+     "checkpoint": "Kohaku XL Zeta",
+     "result": "the preview said 4 of 6 seeds, the grid made 5",
+     "fixes": [
+      "6a7570d"
+     ]
+    },
+    {
+     "check": "a failure stop from a real exception (U74, U75)",
+     "checkpoint": "WAI v17",
+     "result": "'Stopped at cell 5 of 10 after 3 cells failed'; Resume refused at every press",
+     "fixes": [
+      "ad01fdc"
+     ]
+    },
+    {
+     "check": "the failed-load card against the real Hub (U56)",
+     "checkpoints": [
+      "FLUX.1 [dev] (gated)",
+      "Krea 2 Raw (gated)",
+      "a made-up id"
+     ],
+     "result": "each with its own steps and link; HF_HUB_OFFLINE named the network",
+     "fixes": [
+      "81781bf"
+     ]
+    },
+    {
+     "check": "the critic's first use over a real download (U131)",
+     "checkpoint": "FLUX.1 Krea [dev] profile",
+     "result": "the line followed each download; the clock reached 199 s for a 199.7 s first use",
+     "fixes": [
+      "b396e2e",
+      "5ec8adb"
+     ]
+    }
+   ],
+   "refine_lines": {
+    "commit": "d814fc8",
+    "fp8": {
+     "Animagine XL 4.0": "2896x2896",
+     "Kohaku XL Zeta": "2896x2896",
+     "Illustrious XL v2.0": "2896x2896",
+     "FLUX.1 schnell": "1536x1536",
+     "Z-Image Turbo": "2048x2048",
+     "Z-Image (undistilled)": "1536x1536"
+    },
+    "nunchaku": {
+     "Qwen-Image": "1280x1280",
+     "FLUX.1 dev": "1536x1536 (ran; the lite repos quote Krea dev's fp8 line)"
+    },
+    "note": "Every catalogued checkpoint with a pass now has a measured line."
+   },
+   "defects": [
+    {
+     "what": "A load started while the page's first adapter listing ran failed (Float8Tensor.__new__() got multiple values for argument 'qdata'), 3 of 3 on WAI v17",
+     "fix": "a load and the adapter fit's meta-device build never overlap",
+     "commits": [
+      "02cd1d9"
+     ],
+     "rechecked_on_card": true
+    },
+    {
+     "what": "A pass that landed after its source was deleted during its own cell was shown as live",
+     "commits": [
+      "2b89ed5"
+     ],
+     "rechecked_on_card": false
+    },
+    {
+     "what": "With HF_HUB_OFFLINE=1 the load card said to connect to the network",
+     "commits": [
+      "81781bf"
+     ],
+     "rechecked_on_card": false
+    }
+   ],
+   "docs": [
+    "fd4f009",
+    "7ff6eee",
+    "cb92838",
+    "bde3bc2"
+   ]
+  },
+  "area_review": {
+   "record": "docs/review-2026-10-05-areas.md",
+   "findings_json": "docs/review-2026-10-05-areas-findings.json",
+   "reviewed_head": "e63f004",
+   "found": 92,
+   "kept": 90,
+   "refuted": 1,
+   "duplicate": 1,
+   "entries": 85,
+   "severity": {
+    "medium": 19,
+    "low": 66
+   },
+   "outcome": {
+    "fixed": 84,
+    "partly_fixed": 1
+   },
+   "integration_review": {
+    "found": 18,
+    "fixed": 18,
+    "commit": "936ba28"
+   }
+  },
+  "python_validation": {
+   "command": "uv run --group dev pytest -q -p no:cacheprovider",
+   "passed": 2114,
+   "skipped": 4,
+   "warnings": 31,
+   "seconds": 98.93,
+   "main_e63f004_passed": 1929
+  },
+  "browser_smokes": {
+   "runner": "run_smokes.py (a session script outside the repository): each smoke on a fresh fake server with its own throwaway gallery",
+   "passed": 34,
+   "failed": 0,
+   "expectations_passed": 2482,
+   "new_with_this_work": {
+    "smoke-stage": {
+     "port": 7888,
+     "viewports": "2560x1305, 2048x1040@1.25, 1900x1100"
+    },
+    "smoke-narrow": {
+     "port": 7889,
+     "step": 0.3,
+     "viewports": "600x900, 700x900, 800x900, 900x700, 1400x900, 2560x1305"
+    }
+   }
+  },
+  "counts": {
+   "not_done_parts": 19,
+   "not_done_built": 14,
+   "not_done_built_in_part": 2,
+   "not_done_not_built": 3,
+   "alternatives": 6,
+   "alternatives_remainder_built": 2,
+   "alternatives_nothing_remained": 4,
+   "u61_part_b": "not built (deferred)",
+   "corrections": 4,
+   "outside_fixed": 3,
+   "opt_ins": 3
+  },
+  "notes": [
+   "The findings, verdicts and directions, and the remediation block, are unchanged: the historical review and its follow-up.",
+   "finding_updates covers every finding whose not_done or alternative part the follow-up recorded, changed or not; outcome is what became of that part on this branch.",
+   "commits are those that built or fixed the part; every one is in e63f004..bde3bc2."
+  ]
+ },
  "kind": "ui-ux review",
  "head": "281af6e",
  "date": "2026-10-04",
