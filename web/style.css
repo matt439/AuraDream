@@ -390,7 +390,11 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    at 125% its 16 digits were cut to 15 and a dot, beside a Strength box of
    the same width that holds a few characters. */
 .rf-strength .row > .sub.grow:has(> #refine-seed) { flex-grow: 1.1; min-width: min(calc(16ch + 26px), 45%); }
-.rf-strength .row > .sub.grow:has(> #refine-strength) { min-width: max-content; }
+/* Strength no narrower than its caption's one line (Strength, ?, Compare 3).
+   Min-content, not max-content: that took the text box's own 20-character
+   width too, and the row ran 15 px past the dialog at 1400x900 and at 125%,
+   cutting the dice off and giving the dialog a sideways scrollbar. */
+.rf-strength .row > .sub.grow:has(> #refine-strength) { min-width: min-content; }
 
 /* The prompt is the page's main box: on a wide window it grows with what is
    typed, from five lines to twelve (Chromium; elsewhere it stays at five and
