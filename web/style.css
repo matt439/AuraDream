@@ -1148,10 +1148,18 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
 .analysis-quoted { color: var(--text-2); }
 
 .critic-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.critic-words { min-width: 0; }
 .critic-line { color: var(--muted); }
 /* Seconds since the click, beside the line rather than in it: the line is a
-   live region, and a clock inside it would be read out every second. */
-.critic-clock { margin-left: -6px; color: var(--muted); font-variant-numeric: tabular-nums; }
+   live region, and a clock inside it would be read out every second. In the
+   same run of text (.critic-words), at the end of its last line - a flex item
+   of its own, it took a line to itself under a first use's long sentence -
+   kept whole, and joined to the word before it (a word joiner, U+2060, as
+   generated content: the text stays "· 12 s"), so a sentence that fills its
+   line gives up its last word to the clock's line rather than leave the
+   clock alone there. */
+.critic-clock { margin-left: 0.35em; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.critic-clock::before { content: "\2060"; }
 /* The panel's own messages - words no longer where the check found them, an
    answer set aside - under the button they are about, not under Generate. */
 .analysis-status { margin: 0; }
