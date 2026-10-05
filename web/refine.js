@@ -271,6 +271,7 @@ function openRefine(rec, pass = null) {
   refineProblem = null;
   refinePreviewed = null;
   refineFailed('');
+  sayRefineFromPanel('');
   unmarkRefineFields();
   els.refinePreview.textContent = '';
   refineChecked = null;
@@ -493,6 +494,7 @@ function applyRefineScale(scale) {
 function refineChanged() {
   unmarkRefineFields();
   refineFailed('');
+  sayRefineFromPanel('');
   syncRefine();
   scheduleRefinePreview();
 }
@@ -850,6 +852,7 @@ function refineClosed() {
   clearTimeout(refineCheckTimer);
   clearTimeout(refineTagTimer);
   hideRefineSuggestions();
+  sayRefineFromPanel('');
   const back = refineReturn;
   refineReturn = null;
   if (!back || els.lightbox.open) return;
@@ -1078,60 +1081,92 @@ function applyRefineFinding(finding) {
 // Every whole-box write into the dialog's Prompt or Negative prompt, as
 // tags.js's writeBox is the panel's: replaceBoxText, so Ctrl+Z gives back
 // what the box held, then no suggestion list over the new text - the
-// insert's `input` asked for one, as typing does. A greyed box takes the
-// write too, woken for it: assigned, its text could not be undone.
+// insert's `input` asked for one, as typing does. Never a greyed box: woken
+// for the write and greyed again straight after it, Chromium kept no undo
+// step for it, and the text it held was gone for good (Apply and From panel
+// leave it alone, and say so).
 function writeRefineBox(el, text) {
-  const greyed = el.disabled;
-  el.disabled = false;
+  if (el.disabled) return;
   replaceBoxText(el, text);
-  el.disabled = greyed;
   hideRefineSuggestions();
 }
 
 // From panel: the panel's prompt and negative prompt into the pass's boxes.
 // A critic's rewrite, Check's reorder or a comparison's winner is put to use
 // in the panel; a pass opens on its source's prompt, and this is the way from
-// one to the other. The negative first and the prompt last, so the prompt's
-// Ctrl+Z is the top of the undo history and gives the source's back. Never
-// the other way: the panel is not the dialog's to write.
-function refineFromPanelProblem() {
-  const prompt = els.prompt.value.trim();
-  if (!prompt) return "The panel's prompt is empty: there is nothing to copy";
-  if (prompt === els.refinePrompt.value.trim() && els.negative.value.trim() === els.refineNegative.value.trim()) {
-    return "This pass's prompt and negative prompt are the panel's already";
-  }
-  return null;
+// one to the other. Never the other way: the panel is not the dialog's to
+// write. What a press would write: the prompt where it differs, and the
+// negative where it differs and its box is live. A greyed negative is left
+// as it is (writeRefineBox) - the pass does not send it - and `knob`
+// says what would have it copied. A checkpoint with no negative prompt has
+// nothing there to compare.
+function refineFromPanelPlan() {
+  const prompt = els.prompt.value;
+  const negative = els.negative.value;
+  const promptDiffers = prompt.trim() !== els.refinePrompt.value.trim();
+  const negativeDiffers = negativeSupported && negative.trim() !== els.refineNegative.value.trim();
+  const greyed = els.refineNegative.disabled;
+  const knob = `set ${trueCfgSupported ? 'True CFG' : 'CFG'} above ${cfgThreshold}`;
+  const problem = !prompt.trim() ? "The panel's prompt is empty: there is nothing to copy"
+    : !promptDiffers && !negativeDiffers
+      ? (negativeSupported ? "This pass's prompt and negative prompt are the panel's already"
+        : "This pass's prompt is the panel's already")
+      : !promptDiffers && greyed
+        ? `This pass's prompt is the panel's already, and its negative prompt is greyed: ${knob} to copy the panel's`
+        : null;
+  return {
+    problem,
+    prompt: promptDiffers ? prompt : null,
+    negative: negativeDiffers && !greyed ? negative : null,
+    knob: negativeDiffers && greyed ? knob : null,
+  };
 }
 
-// Held, with the reason as its title, while there is nothing to copy - as
-// Compare 3 is - so it keeps focus and a press can say why.
+// Held, with the reason as its title, while there is nothing it would write -
+// as Compare 3 is - so it keeps focus and a press can say why.
 function syncRefineFromPanel() {
-  const problem = refineFromPanelProblem();
-  els.refineFromPanel.setAttribute('aria-disabled', String(!!problem));
-  els.refineFromPanel.title = problem
-    ?? "Put the panel's prompt and negative prompt in this pass's boxes (Ctrl+Z in the box undoes it)";
+  const plan = refineFromPanelPlan();
+  els.refineFromPanel.setAttribute('aria-disabled', String(!!plan.problem));
+  els.refineFromPanel.title = plan.problem
+    ?? (plan.knob
+      ? `Put the panel's prompt in this pass's box (Ctrl+Z in the box undoes it) - not its negative prompt, greyed here: ${plan.knob} to copy that too`
+      : negativeSupported
+        ? "Put the panel's prompt and negative prompt in this pass's boxes (Ctrl+Z in the box undoes it)"
+        : "Put the panel's prompt in this pass's box (Ctrl+Z in the box undoes it)");
 }
 
+// What a press did not do, beside the button: the dialog's error line is at
+// its foot, out of the window with the fold open on a 900 px screen, so a
+// press there seemed to do nothing. A status, written into a line that is in
+// the page already (empty, it has no height), and scrolled into the dialog's
+// view where the button was its last line; the next change clears it
+// (refineChanged), as do an open and a close.
+function sayRefineFromPanel(message) {
+  els.refineFromNote.textContent = message;
+  if (message) els.refineFromNote.scrollIntoView({ block: 'nearest' });
+}
+
+// The negative first and the prompt last, so the prompt's Ctrl+Z is the top
+// of the undo history and gives the source's back; focus ends in the box
+// written last.
 function copyRefineFromPanel() {
-  const problem = refineFromPanelProblem();
-  if (problem) {
-    refineFailed(`${problem}.`);
+  const plan = refineFromPanelPlan();
+  if (plan.problem) {
+    sayRefineFromPanel(`${plan.problem}.`);
     return;
   }
   els.refineMore.open = true;
-  const negative = els.negative.value;
-  const prompt = els.prompt.value;
-  if (els.refineNegative.value.trim() !== negative.trim()) writeRefineBox(els.refineNegative, negative);
-  if (els.refinePrompt.value.trim() !== prompt.trim()) writeRefineBox(els.refinePrompt, prompt);
-  // Where the last write left it, else - a greyed negative lets go of it,
-  // though Chromium calls it active until its next focus fixup - the
-  // button, now held.
-  const at = document.activeElement;
-  if (!els.refineDialog.contains(at) || at.disabled) els.refineFromPanel.focus();
+  if (plan.negative !== null) writeRefineBox(els.refineNegative, plan.negative);
+  if (plan.prompt !== null) writeRefineBox(els.refinePrompt, plan.prompt);
+  if (!els.refineDialog.contains(document.activeElement)) els.refineFromPanel.focus();
   sizeRefinePrompt();
   refineChanged();
   scheduleRefineCheck(0);
   scheduleRefineTags(0);
+  // After refineChanged, which clears the line.
+  if (plan.knob) {
+    sayRefineFromPanel(`Copied the prompt. The negative prompt is greyed, so the panel's was not copied: ${plan.knob} and press From panel again.`);
+  }
 }
 
 // ------------------------------------------------- the pass's tag suggestions
@@ -1141,16 +1176,23 @@ function copyRefineFromPanel() {
 // under the box, picked by a click, or Enter or Tab on the selected one - the
 // first selected only from three typed characters it starts with (`preselects`).
 // None of the panel's state: not its list, the chips' typing state or the
-// panel's box. Asked on typing, a click and the caret keys, as the panel's.
-function suggestRefineTags() {
+// panel's box. Asked on typing, a click and the caret keys, as the panel's;
+// a list already up stays while it asks (`keep`), and a click or a caret key
+// that stays in the item it lists asks nothing: before, the list blinked
+// shut on every key and on a click in the box.
+function suggestRefineTags(event) {
   if (!refineSource || !tagVocabularyEnabled || document.activeElement !== els.refinePrompt) {
     hideRefineSuggestions();
     return;
   }
-  scheduleEditorSuggestions(els.refinePrompt, els.refineTagSuggestions, {
-    query: currentTagRange(els.refinePrompt).query,
+  const menu = els.refineTagSuggestions;
+  const { query } = currentTagRange(els.refinePrompt);
+  if (event?.type !== 'input' && !menu.hidden && menu._query === query) return;
+  scheduleEditorSuggestions(els.refinePrompt, menu, {
+    query,
     pick: applyRefineSuggestion,
     place: placeRefineSuggestions,
+    keep: true,
   });
 }
 
@@ -1211,7 +1253,7 @@ function refinePromptKeydown(event) {
 }
 
 function refinePromptCaret(event) {
-  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) suggestRefineTags();
+  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) suggestRefineTags(event);
 }
 
 // A tag checkpoint's unknown comma items, as the panel's chips mark them but

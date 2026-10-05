@@ -381,10 +381,12 @@ function selectEditorSuggestion(menu, index) {
 // whole text, the dialog's item at the caret. A click, or Enter or Tab on
 // the selected item (the box's own keydown, through `menu._pick`), picks.
 // `place`, given, positions the list once it is drawn, at its real height.
+// `menu._query` is the item a drawn list answers.
 function renderEditorSuggestions(
   input, menu, suggestions, { query = input.value, pick = (s) => commitTagEdit(s.text), place = null } = {},
 ) {
   menu._suggestions = suggestions;
+  menu._query = suggestions.length ? query.trim() : null;
   menu._index = -1;
   menu._input = input;
   menu._pick = pick;
@@ -418,13 +420,28 @@ function renderEditorSuggestions(
   if (suggestions.length && preselects(query, suggestions[0])) selectEditorSuggestion(menu, 0);
 }
 
+// Nothing selected in a list left up: Enter and Tab are the box's own again.
+function deselectEditorSuggestions(menu) {
+  menu._index = -1;
+  for (const item of menu.children) {
+    item.classList.remove('active');
+    item.setAttribute('aria-selected', 'false');
+  }
+  menu._input?.removeAttribute('aria-activedescendant');
+}
+
 // The list emptied at once and asked again after a pause, so Enter never
-// takes a match for what was typed before. `options` is renderEditorSuggestions'.
+// takes a match for what was typed before. With `keep` (the Refine dialog's
+// prompt) a list already up stays while it asks, nothing in it selected -
+// the same guarantee, without the list blinking shut on every key, as the
+// panel's prompt keeps its own. The rest of `options` is
+// renderEditorSuggestions'.
 function scheduleEditorSuggestions(input, menu, options = {}) {
   clearTimeout(tagEditorSuggestionTimer);
   const epoch = ++tagEditorSuggestionEpoch;
   const query = (options.query ?? input.value).trim();
-  renderEditorSuggestions(input, menu, [], options);
+  if (options.keep && query && !menu.hidden) deselectEditorSuggestions(menu);
+  else renderEditorSuggestions(input, menu, [], options);
   if (!query) return;
   tagEditorSuggestionTimer = setTimeout(async () => {
     try {
