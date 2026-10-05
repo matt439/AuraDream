@@ -86,7 +86,7 @@ function setBusy(on) {
   // its Show run opening the older run.
   if (on) {
     els.lastRun.hidden = true;
-    els.newImage.hidden = true;
+    withdrawNewImage();
   } else {
     setProgressText('');
     currentJob = null;
@@ -114,10 +114,10 @@ function setBusy(on) {
 // unfilled - the first cell's named the whole night by a cell that had long
 // finished - and a re-render's cells are its records', with no one prompt to
 // name.
-function describeJob(job, length = 60) {
+function describeJob(job, length = 60, { markup = false } = {}) {
   const what = job.refine != null ? `refine of #${job.refine}`
-    : !job.grid ? snippet(job.prompt ?? '', length)
-    : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length)}`
+    : !job.grid ? snippet(job.prompt ?? '', length, { markup })
+    : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length, { markup })}`
     : 're-render';
   return [
     job.planned_images ? plural(job.planned_images, 'image') : '',
@@ -126,10 +126,24 @@ function describeJob(job, length = 60) {
   ].filter(Boolean).join(' · ');
 }
 
+// A prompt's words on one line, without the markup of an XML prompt
+// (NewBie's): its opening tags are the same in every prompt, so jobs and runs
+// that differed in an attribute - blue_hair, green_hair - were all named
+// "<character_1> <n>hatsune_miku</n> <gender>…", and a queued row's × did not
+// say which job it cancelled. A tag is `<name>` or `</name>` and nothing else,
+// so prose, Qwen's `<|…|>` control text and `<lora:…>` forms stay as written;
+// a prompt of nothing but tags keeps them.
+const MARKUP_TAG = /<\/?[A-Za-z_][\w.-]*>/g;
+function promptGist(text, { markup = false } = {}) {
+  const line = (s) => s.trim().split(/\s+/).join(' ');
+  return (!markup && line(text.replace(MARKUP_TAG, ' '))) || line(text);
+}
+
 // At a word's end where there is one in the second half: "under a pine a…"
-// named a word the prompt does not have.
-function snippet(text, length = 60) {
-  const line = text.trim().split(/\s+/).join(' ');
+// named a word the prompt does not have. `markup` keeps an XML prompt's tags,
+// for a title that has the prompt as written.
+function snippet(text, length = 60, { markup = false } = {}) {
+  const line = promptGist(text, { markup });
   if (line.length <= length) return line;
   const cut = line.slice(0, length - 1);
   const space = cut.lastIndexOf(' ');
@@ -850,13 +864,13 @@ function syncPause(job) {
 // The job Cancel stops, named over the bars and in Cancel's own title: with a
 // queue, the prompt box held another job's text, and Cancel stopped the one
 // it did not show. One line, beside Pause and Cancel, which the panel's width
-// may cut: the line's title has it whole.
+// may cut: the line's title has it whole, an XML prompt's markup and all.
 function syncNow(job) {
   const what = describeJob(job);
   const foreign = foreignJobs.has(job.job_id);
   const lead = foreign ? `${ANOTHER_TABS_JOB}:` : 'Now:';
   els.progressNow.textContent = what ? `${lead} ${what}` : '';
-  els.progressNow.title = what ? `${lead} ${describeJob(job, 120)}` : '';
+  els.progressNow.title = what ? `${lead} ${describeJob(job, 120, { markup: true })}` : '';
   const name = job.refine != null ? `the refine of #${job.refine}`
     : job.grid ? (job.prompt_template != null ? 'this grid' : 'this re-render')
     : `"${snippet(job.prompt ?? '', 40)}"`;
@@ -956,15 +970,42 @@ function gridFactors(summary) {
 // text rather than the variables that produced it. One prompt too, whenever the
 // variables box has text: a block that failed to vary - `size = big, small` -
 // is a grid of one prompt, and that prompt is where it shows.
+// A prompt written over lines - NewBie's XML, 29 of them - is listed by the
+// lines a {variable} is on, whole, so each value is read in its line: three
+// copies of the whole prompt, one word apart, grew the preview to 2,260 px at
+// QHD and put Run grid 2,200 px under the window. Its line numbers say the
+// rest of the prompt is there. Values are one line each, and a dropped one
+// leaves its line in place (grid.substitute), so line n of every resolved
+// prompt is line n of the prompt typed; a prompt that is not - no line holds
+// a variable, the variables are the negative's - is listed whole. Whatever
+// the listing, it is a box of a few lines that scrolls inside itself
+// (style.css): a nested scroller, never the panel, whose menus and tips hang
+// out past its edge.
 const PREVIEW_PROMPTS = 3;
-function promptLines(prompts) {
-  if (!prompts || !prompts.length) return [];
-  if (prompts.length === 1) return [`prompt: ${prompts[0]}`];
-  const lines = prompts.slice(0, PREVIEW_PROMPTS).map((text) => `· ${text}`);
-  if (prompts.length > PREVIEW_PROMPTS) {
-    lines.push(`· … and ${prompts.length - PREVIEW_PROMPTS} more`);
+function promptListing(prompts, template) {
+  if (!prompts || !prompts.length) return null;
+  const shown = prompts.slice(0, PREVIEW_PROMPTS);
+  const lines = template.split('\n');
+  const marked = lines.flatMap((line, i) => (GRID_PLACEHOLDER.test(line) ? [i] : []));
+  const byLine = lines.length > 1 && marked.length > 0 && marked.length < lines.length
+    && shown.every((text) => text.split('\n').length === lines.length);
+  let rows;
+  if (byLine) {
+    const where = `${marked.length === 1 ? 'line' : 'lines'} ${marked.map((i) => i + 1).join(', ')} of ${lines.length}`;
+    // Continuation lines are indented with no-break spaces, which pre-line
+    // keeps; each line's own indentation is the prompt's, not the listing's.
+    rows = [`${prompts.length === 1 ? 'prompt' : 'prompts'}, ${where}:`, ...shown.flatMap((text) => {
+      const own = text.split('\n');
+      return marked.map((i, k) => `${k ? '  ' : '· '}${own[i].trim()}`);
+    })];
+  } else {
+    rows = prompts.length === 1 ? [`prompt: ${prompts[0]}`] : shown.map((text) => `· ${text}`);
   }
-  return lines;
+  if (prompts.length > PREVIEW_PROMPTS) rows.push(`· … and ${prompts.length - PREVIEW_PROMPTS} more`);
+  const box = document.createElement('span');
+  box.className = 'prompts';
+  box.textContent = rows.join('\n');
+  return box;
 }
 
 // A variable of one value never varies, which in a grid is always a slip - and
@@ -1089,18 +1130,21 @@ async function previewGrid() {
         (p.duplicates ? ` · ${p.duplicates} would be identical to another cell` : '') +
         (p.seconds ? ` · about ${humanTime(p.seconds)}` : '') +
         (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : '');
-    els.gridPreview.replaceChildren(totals, [
-      '',
-      `steps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
+    // .hint.pre renders the breaks. The prompts are a box of their own
+    // between the axes and the notes (promptListing), on its own line.
+    const listing = body.prompt_axis ? promptListing(p.values.prompt, body.prompt) : null;
+    els.gridPreview.replaceChildren(
+      totals,
+      `\nsteps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${muAxisText(p.values.mu)}` +
         // Only when it is an axis: every other run would carry a constant.
         // Named, since a sweep's weights mean nothing without the adapter.
         (p.values.lora_scale && p.values.lora_scale.length > 1
           ? `  ·  LoRA ${axisText(p.values.lora_scale)} (${els.lora.value.replace(/\.safetensors$/, '')})` : '') +
         (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),
-      ...(body.prompt_axis ? promptLines(p.values.prompt) : []),
-      ...notes,
-    ].join('\n'));  // .hint.pre renders the breaks
+      ...(listing ? ['\n', listing] : []),
+      ...(notes.length ? [`\n${notes.join('\n')}`] : []),
+    );
   } catch (err) {
     if (epoch !== previewEpoch) return;
     els.gridPreview.classList.add('warn');
@@ -1204,9 +1248,23 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     // bar under "loading weights…" looked the same as a hang.
     let ticker = 0;
     const waitedFrom = submissions.get(jobId)?.at ?? Date.now();
+    // Focus on the preview's tile (goToNewImage) goes with it to what takes
+    // its place - the image, or the preview that follows a pass's stand-in -
+    // and to Generate where nothing does, never to <body>.
+    let previewFocused = false;
     const dropPreview = () => {
-      if (previewEl) { previewEl.remove(); previewEl = null; settleStrip(false); }
+      if (previewEl) {
+        previewFocused ||= previewEl.contains(document.activeElement);
+        previewEl.remove();
+        previewEl = null;
+        settleStrip(false);
+      }
       caption = null;
+    };
+    const focusReplacement = (el) => {
+      if (!previewFocused) return;
+      previewFocused = false;
+      focusTile(el ?? els.generate);
     };
     const landed = () => {
       if (cleared || foreign) return;
@@ -1221,6 +1279,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       landed();
       dropPreview();
       appendResult(rec);
+      focusReplacement(els.viewer.querySelector(`img[data-id="${rec.id}"]`));
     };
     // The clock in a part a screen reader is not told about: #progress-text
     // is a status, and a clock rewritten in it every second was read out
@@ -1301,6 +1360,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
           // At the strip's end, which a long run's scrolling strip follows
           // from the preview on (panel.js).
           stripAppend(previewEl);
+          focusReplacement(previewEl);
         }
         const frame = previewEl.querySelector('img');
         frame.src = data.image;
@@ -1359,6 +1419,11 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         setBusy(false);
         dropPreview();
         if (data.images) data.images.forEach(show);
+        focusReplacement(null);
+        // Cancelled or failed after its first frame, before any image: the
+        // frame that offered New image has gone, and the button offered an
+        // image there was none of.
+        if (!shown.size) withdrawNewImage();
         // Watched to its end, its finish line has said it: a reload's banner
         // would only say it again.
         remember(ANNOUNCED_KEY, jobId);
@@ -1374,6 +1439,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     // died, and after a restart a reload found nothing at all.
     const gaveUp = async () => {
       dropPreview();
+      focusReplacement(null);
       let alive = null;
       let failure = null;
       try { alive = await api(`/api/jobs/${jobId}`); } catch (err) { failure = err; }
@@ -1387,6 +1453,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       // The strip's note was the reconnect's line; it is the strip's again.
       noteViewer();
       const made = shown.size;
+      if (!made) withdrawNewImage();
       const saved = made
         ? `The ${plural(made, 'image')} finished so far ${made === 1 ? 'is' : 'are'} saved.`
         : 'Nothing of it had finished.';
@@ -1883,24 +1950,72 @@ async function joinFinished(page, epoch, now = false) {
   if (els.lightbox.open && lbList === galleryRecords) renderLightbox();
 }
 
-// A job's first image or frame landing in a viewer the page is scrolled past -
-// a user browsing the gallery during the wait - is said beside the progress,
-// with a press that goes up to it. Never a scroll of the page's own, which
-// would take the gallery from under the pointer. Gone once the viewer is in
-// view, however it got there.
+// A job's first image or frame landing in a viewer out of sight - above the
+// window, with a user browsing the gallery during the wait, or below it, in
+// one column, where the viewer sits under the whole panel and a Generate
+// pressed at the page's top put the image 150-800 px under the window's foot
+// - is said with a press that goes to it: "New image ↑" or "↓". Never a
+// scroll of the page's own, which would take the gallery from under the
+// pointer. In one column the button is a pill fixed under the topbar
+// (style.css): in the static panel it was as far out of view as the viewer.
+// Gone once the viewer is in view, however it got there; its arrow follows a
+// scroll that jumps past the viewer without showing it (End, Home).
 let viewerWatch = null;
 function viewerOutOfSight() {
   const top = document.querySelector('.topbar').getBoundingClientRect().bottom;
-  return els.viewer.getBoundingClientRect().bottom < top + 48;
+  const box = els.viewer.getBoundingClientRect();
+  return box.bottom < top + 48 ? 'above' : box.top > innerHeight - 48 ? 'below' : null;
+}
+
+const NEW_IMAGE_WORDS = {
+  above: ['New image ↑', 'New image: scroll up to it in the viewer'],
+  below: ['New image ↓', 'New image: scroll down to it in the viewer'],
+};
+function syncNewImage() {
+  if (els.newImage.hidden) return;
+  const where = viewerOutOfSight();
+  if (!where) { withdrawNewImage(newImageTarget()); return; }
+  const [text, label] = NEW_IMAGE_WORDS[where];
+  if (els.newImage.textContent === text) return;
+  els.newImage.textContent = text;
+  els.newImage.setAttribute('aria-label', label);
 }
 
 function offerNewImage() {
   if (!viewerOutOfSight()) return;
   els.newImage.hidden = false;
-  viewerWatch ??= new IntersectionObserver(() => {
-    if (!els.newImage.hidden && !viewerOutOfSight()) els.newImage.hidden = true;
-  }, { threshold: [0, 0.1, 0.25, 0.5, 1] });
+  syncNewImage();
+  if (!viewerWatch) {
+    viewerWatch = new IntersectionObserver(syncNewImage, { threshold: [0, 0.1, 0.25, 0.5, 1] });
+    window.addEventListener('scroll', syncNewImage, { passive: true });
+    const panel = document.querySelector('.panel');
+    panel.addEventListener('pointerdown', newImageBackToPanel, true);
+    panel.addEventListener('input', newImageBackToPanel, true);
+  }
   viewerWatch.observe(els.viewer);
+}
+
+// The pill (one column) lies over whatever scrolls under the topbar - the
+// prompt's first line, Check - once the page has moved at all, and a press
+// meant for that went to the viewer. While the job runs it stays: the image
+// is still coming. Once the job has ended, the user's own press in the panel
+// or typing in one of its boxes is a return to the panel, and withdraws it;
+// the finish line still names the result. Not a focus arriving: the finish
+// line takes focus itself, and a Tab towards the pill passes through the
+// panel. In two columns the button is in the panel's flow, over nothing.
+function newImageBackToPanel(event) {
+  if (busy || els.newImage.hidden || els.newImage.contains(event.target)) return;
+  if (getComputedStyle(els.newImage).position !== 'fixed') return;
+  withdrawNewImage();
+}
+
+// The button goes - the viewer in view, a new job, or a job that ended with
+// nothing of it in the strip - and focus on it goes with it to `to`, else
+// Generate: hidden with the focus, it fell to <body>.
+function withdrawNewImage(to = null) {
+  if (els.newImage.hidden) return;
+  if (document.activeElement === els.newImage) focusTile(to ?? els.generate);
+  els.newImage.hidden = true;
 }
 
 // A job whose stream gave up with nothing of it in the strip: its first frame
@@ -1956,13 +2071,38 @@ function lostRunBack(restarted, s) {
   if (refused) { refused.hidden = true; refused.textContent = ''; }
 }
 
+// What New image goes to: the newest image; before any has landed - the
+// first frame is what offered it - the live preview's tile, or a pass's
+// stand-in, which streamJob hands on to the image that replaces it; where
+// the viewer holds neither (an image deleted elsewhere), its held line.
+// Null where the viewer is empty: a stream that reconnects.
+function newImageTarget() {
+  const images = els.viewer.querySelectorAll('img[data-id]');
+  return images[images.length - 1]
+    ?? els.viewer.querySelector(':scope > figure.live, :scope > figure.pending')
+    ?? els.viewer.querySelector(':scope > .placeholder.held:not([hidden]), :scope > .tomb');
+}
+
+// Focus on an image or a button, or on a tile, a line or the viewer that
+// takes it only for this (tabindex -1). The viewer's own is let go with the
+// focus: kept, a click on its empty space would focus it.
+function focusTile(el) {
+  if (el === els.viewer) {
+    el.tabIndex = -1;
+    el.addEventListener('blur', () => el.removeAttribute('tabindex'), { once: true });
+  } else if (!el.matches('img, button')) {
+    el.tabIndex = -1;
+  }
+  el.focus({ preventScroll: true });
+}
+
 // To the newest image, focused - Enter opens it - since the button goes the
-// moment the viewer is in view.
+// moment the viewer is in view: focus left on it fell to <body> as the
+// pressed button hid. An empty viewer takes the focus itself.
 function goToNewImage() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   els.viewer.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
-  const images = els.viewer.querySelectorAll('img[data-id]');
-  images[images.length - 1]?.focus({ preventScroll: true });
+  focusTile(newImageTarget() ?? els.viewer);
 }
 
 // A job outlives the page that started it: the id lives on the server, so a

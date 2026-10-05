@@ -834,8 +834,9 @@ async function runRefine() {
       els.refineDialog.close();
       // The dialog gives focus back to what opened it: nothing, where a
       // script did (Reuse of a pass), or a button that has gone with the
-      // lightbox. Then Generate - or New image ↑, beside the progress, where
-      // the strip the pass shows in is out of sight - rather than <body>.
+      // lightbox. Then Generate - or New image, beside the progress (in one
+      // column, a pill under the topbar), where the strip the pass shows in
+      // is out of sight - rather than <body>.
       // refineClosed puts it on the source's card where the lightbox opened
       // the dialog. A sweep's sheet takes focus on from either (handJobFocus).
       requestAnimationFrame(() => {

@@ -283,6 +283,18 @@ body {
   color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
 }
 .topbar-line { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; }
+/* Under 700 px a load's state did not fit the bar: the status and the free
+   space wrapped to two lines each, and the mirror was cut to "loading weights
+   · …" - the clock, which tells a slow load from a hang, was the part cut,
+   and in one column the mirror is the job's only readout in view. While a job
+   is mirrored the free space gives it the room; wider, everything fits and
+   the reading stays. The status keeps the checkpoint's name in every state.
+   The mirror's own margin keeps Load and Unload at the bar's end, which the
+   free space's `margin-left: auto` did. */
+@media (max-width: 700px) {
+  .topbar:has(#job-mirror:not([hidden])) .vram { display: none; }
+  .topbar:has(#job-mirror:not([hidden])) .job-mirror { margin-right: auto; }
+}
 
 /* ----------------------------------------------------------------- layout */
 
@@ -334,9 +346,15 @@ main {
 
 /* One column gives the panel nothing to stick against. After the rule above,
    not before it: of two equally specific rules the later one wins, and while
-   this query sat above `.panel` the one-column panel stayed sticky. */
+   this query sat above `.panel` the one-column panel stayed sticky. The
+   column's least width is nothing, as the stage's is beside the panel: a
+   bare `1fr` is `minmax(auto, 1fr)`, whose least is the panel's min-content,
+   and a running job's Now line - one unbroken line - set that, so under
+   about 680 px the page scrolled sideways for as long as the job ran, Cancel
+   and the panel's right edge past the window, rather than letting the line's
+   ellipsis take the prompt. */
 @media (max-width: 900px) {
-  main { grid-template-columns: 1fr; }
+  main { grid-template-columns: minmax(0, 1fr); }
   .panel { position: static; }
 }
 
@@ -1280,6 +1298,17 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    stay hint text. Amber with the rest under .warn. */
 #grid-preview .totals { font-size: var(--fs-body-sm); font-weight: 600; color: var(--text); }
 #grid-preview.warn .totals { color: var(--warn); }
+/* The prompts a variable block resolved to (promptListing), a line of their
+   own between the axes and the notes, at most eight lines tall and scrolling
+   inside themselves: three long prompts listed whole put Run grid thousands
+   of pixels under the window. A nested scroller, not the panel's overflow,
+   which would clip the menus and tips that hang out past its edge.
+   Inline-block, so the preview's text around it keeps its own line breaks
+   (pre-line) - the notes after it, and the line sheet.js appends. */
+#grid-preview .prompts {
+  display: inline-block; width: 100%; vertical-align: top;
+  max-height: 8lh; overflow-y: auto; overflow-wrap: anywhere;
+}
 /* The shortcut on the two buttons it presses - Generate, and Run grid from a
    grid box (app.js routes it by focus). Generated content with empty alt text:
    setBusy rewrites the label as text, which would wipe a child element, and
@@ -1517,7 +1546,26 @@ button { font: inherit; cursor: pointer; }
   clip: rect(0 0 0 0); white-space: nowrap;
 }
 #btn-new-image { align-self: flex-start; }
-/* Where New image ↑ brings the page: the viewer clear of the sticky topbar. */
+/* In one column the panel is static and the viewer sits under the whole of
+   it, so the button, in the panel's flow, was as far out of view as the
+   image it pointed to - above the window, or below it with the image. There
+   it is a pill over the page, for as long as it is offered (generation.js:
+   once the viewer is in view it goes), centred under the sticky topbar.
+   Not in the window's foot: Generate is the panel's full width and rests
+   there at the page's top, and a pill in the corner took the right end of
+   it - a press there scrolled to the viewer and queued nothing, after the
+   job as well as during it. Under the topbar, at the page's top, it sits on
+   the panel's top edge, clear of the Prompt row's buttons; further down it
+   is over whatever scrolls under the topbar, the way a feed's "new posts"
+   pill is. */
+@media (max-width: 900px) {
+  #btn-new-image {
+    position: fixed; top: calc(var(--topbar-h) + var(--sp-2)); left: 50%; translate: -50% 0; z-index: 15;
+    padding-inline: var(--sp-3); border-radius: 999px;
+    background: var(--panel-2); color: var(--text); box-shadow: var(--shadow-pop);
+  }
+}
+/* Where New image brings the page: the viewer clear of the sticky topbar. */
 #viewer { scroll-margin-top: calc(var(--topbar-h) + var(--gutter)); }
 
 /* The queue under the bars: a line, then a row per job with its own ×, and

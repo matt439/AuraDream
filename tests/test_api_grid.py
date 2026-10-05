@@ -131,6 +131,22 @@ def test_a_grid_varies_the_prompt_through_its_placeholders(client, fake):
     ]
 
 
+def test_the_preview_keeps_an_indented_prompt_s_shape_in_its_none_cell(client):
+    # The preview is what the page lists the prompts from, by line number
+    # (generation.js, promptListing): every cell keeps the prompt's lines and
+    # their indentation, the none cell short of its value and its space only.
+    prompt = "<character_1>\n    <n>miku</n>\n    <appearance>chibi, {hair} long_hair</appearance>\n</character_1>"
+    body = {
+        "prompt": prompt, "width": 256, "height": 256,
+        "prompt_axis": "hair = blue_hair | none",
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["values"]["prompt"] == [
+        prompt.replace("{hair}", "blue_hair"),
+        prompt.replace("{hair} ", ""),
+    ]
+
+
 def test_a_grid_stops_at_its_time_budget_and_says_so(client, fake):
     # Over-provision on purpose and take what the night reaches; the rest is
     # a resume. The budget means "start no cell after": the cell in flight

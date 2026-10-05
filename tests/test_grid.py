@@ -241,6 +241,58 @@ def test_a_variable_can_be_nothing_at_all():
     assert prompts == ["big dog sitting on grass", "dog sitting on grass"]
 
 
+INDENTED = (
+    "<character_1>\n"
+    "    <n>miku</n>\n"
+    "    <appearance>chibi, red_eyes, {hair} long_hair</appearance>\n"
+    "</character_1>\n"
+    "<general_tags>\n"
+    "    <style>anime  style</style>\n"
+    "</general_tags>"
+)
+
+
+def test_a_none_value_takes_its_space_and_nothing_else():
+    # An indented prompt - XML as a model card writes it - lost every line's
+    # indentation and every doubled space in its none cell, some twenty Gemma
+    # tokens the other cells kept: the comparison was no longer the word alone.
+    with_value, without = (
+        c.request.prompt
+        for c in grid.expand(request(prompt=INDENTED, seed=1), prompt="hair = blue_hair | none")
+    )
+    assert with_value == INDENTED.replace("{hair}", "blue_hair")
+    assert without == INDENTED.replace("{hair} ", "")
+
+
+@pytest.mark.parametrize(
+    ("prompt", "filled"),
+    [
+        ("a {x} dog", "a dog"),  # the space after the word
+        ("{x} dog", "dog"),  # at the start, the space after it
+        ("a dog {x}", "a dog"),  # at a line's end, the space before it
+        ("a dog {x}\non a mat", "a dog\non a mat"),
+        ("a {x}\n  on a mat", "a\n  on a mat"),  # the next line's indent stays
+        ("  {x} dog\n  on a mat", "  dog\n  on a mat"),  # so does its own
+        ("a  {x} dog", "a  dog"),  # a doubled space the user wrote stays
+        ("dog, {x}, cat", "dog, , cat"),  # punctuation belongs inside the value
+        ("red_eyes, {x}long_hair", "red_eyes, long_hair"),  # no space to take
+        ("a {x} {y} dog", "a dog"),  # two holes side by side
+        ("<a>{x} fur</a>", "<a>fur</a>"),  # opening an element
+        ("({x} big) dog", "(big) dog"),  # or a bracket
+        ("<a>\n    {x}\n</a>", "<a>\n\n</a>"),  # alone on its line: the line empties
+        ("a {x}\r\nb", "a\r\nb"),
+    ],
+)
+def test_a_hole_closes_where_it_is(prompt, filled):
+    assert grid.substitute(prompt, {"x": "", "y": ""}) == filled
+
+
+def test_a_value_is_filled_in_as_written():
+    # Only an empty value closes anything: a filled one leaves the prompt's
+    # whitespace exactly as it was, and a name the grid does not set stays.
+    assert grid.substitute("  a {x}  {z} dog", {"x": "big"}) == "  a big  {z} dog"
+
+
 def test_the_prompt_crosses_with_the_sampling_axes():
     cells = grid.expand(dog(seed=1), prompt=VARS, steps="6,8", seeds=2)
     assert len(cells) == 2 * 2 * 2 * 2

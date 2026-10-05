@@ -460,16 +460,31 @@ function revealGridRun() {
 // at the window's bottom while the panel is held there, and their tips ran
 // off it. Measured as the tip opens, shown for the measurement, since it is
 // display: none until the badge is hovered or focused.
+// Sideways, it moves in by as much as it would run past either edge of the
+// window (TIP_EDGE short of it), whichever way the stylesheet hangs it: the
+// Search tip opened rightward past a 600 px window and widened the page, and
+// the grid fold's LoRA weight tip, hung leftward (.help.end) for the panel's
+// sake, ran past the window's left edge at 1400 and 2560. A shift of its own,
+// written inline and cleared at each placement, never the markup's `end`,
+// whose badges must keep hanging left inside the panel.
+const TIP_EDGE = 8;
 function placeTip(help) {
   const tip = help.querySelector('.tip');
   if (!tip) return;
   help.classList.remove('up');
+  tip.style.removeProperty('translate');
   tip.style.display = 'block';
   const badge = help.getBoundingClientRect();
   const shown = tip.getBoundingClientRect();
   tip.style.display = '';
   const above = badge.top - (shown.top - badge.bottom) - document.querySelector('.topbar').getBoundingClientRect().bottom;
   if (shown.bottom > innerHeight && above > innerHeight - shown.top) help.classList.add('up');
+  const right = document.documentElement.clientWidth - TIP_EDGE;
+  const past = shown.right > right ? right - shown.right : 0;
+  const shift = shown.left + past < TIP_EDGE ? TIP_EDGE - shown.left : past;
+  // Rounded away from the edge it clears: rounded to nearest, a 17.4 px shift
+  // left a tip 7.6 px from the window's left edge.
+  if (Math.abs(shift) >= 1) tip.style.translate = `${shift > 0 ? Math.ceil(shift) : Math.floor(shift)}px 0`;
 }
 
 // ------------------------------------------------------------ the morning after
@@ -654,6 +669,10 @@ async function loadRuns() {
     els.runList.append(box);
   };
   const stars = (run) => (run.favorites ? ` · ${run.favorites}★` : '');
+  // Its words on one line, an XML prompt's without the markup every run of
+  // it opens with (promptGist, generation.js): three NewBie runs that
+  // differed in an attribute read "<character_1>\n<n>hatsune_miku</n>\n<gen…".
+  const words = (run) => clip(promptGist(run.prompt ?? ''));
   group('Grids and batches', runs.filter(several), (run) => {
     // A run that made fewer pictures than images says so in the list.
     const distinct = typeof run.distinct === 'number' && run.distinct < run.images
@@ -661,11 +680,11 @@ async function loadRuns() {
     const prompts = run.prompts > 1 && !run.axes?.variant ? ` · ${run.prompts} prompts` : '';
     const axes = runAxes(run);
     return `${when(Date.parse(run.started_at))} · ${run.images} img${distinct}${prompts}${stars(run)}`
-      + `${axes ? ` · ${axes}` : ''} · ${clip(run.prompt)}`;
+      + `${axes ? ` · ${axes}` : ''} · ${words(run)}`;
   });
   group(singles.length > SINGLE_RUNS ? `Single images (the newest ${SINGLE_RUNS} of ${singles.length})` : 'Single images',
     singles.slice(0, SINGLE_RUNS),
-    (run) => `${whenExactly(Date.parse(run.started_at))} · seed ${run.seed}${stars(run)} · ${clip(run.prompt)}`);
+    (run) => `${whenExactly(Date.parse(run.started_at))} · seed ${run.seed}${stars(run)} · ${words(run)}`);
   els.runList.disabled = !runs.length;
   syncRunList();
 }
