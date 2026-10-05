@@ -423,7 +423,10 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    or ran into Mu. It takes its room from boxes that hold three characters;
    elsewhere the names are short and the four stay equal. */
 .sampling-row > .sub.grow { min-width: min-content; }
-.sampling-row > .sub > i { white-space: nowrap; }
+/* The names only: the line also holds each ? badge and its tip, which would
+   inherit the nowrap and run on as one line out of its box (`.tip` sets its
+   own white-space too). */
+.sampling-row > .sub > i > label { white-space: nowrap; }
 /* Its boxes hold a few characters, as the counters' do, and take their
    padding: beside a wider CFG the others are 62 px, and Mu's "auto" was cut
    to "aut" by the spinner. */
@@ -470,6 +473,9 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   box-shadow: var(--shadow-pop);
   color: var(--text); font-size: var(--fs-sm); line-height: 1.45; text-align: left; cursor: auto;
   pointer-events: none;
+  /* Its own, never its caption's: a name kept to one line (the sampling
+     row's) ran its tip on as one line out of the box and past the window. */
+  white-space: normal;
 }
 /* The rightmost badge's panel is wider than the field under it, so it hangs off
    the other edge instead of out past the panel. */
