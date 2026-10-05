@@ -497,8 +497,12 @@ class JobManager:
         # second one. Failing here keeps the error to a single report.
         if self._ensure_loaded is not None:
             # Only a load that is actually needed gets the label: a job that
-            # is genuinely queued behind another must not read "loading".
-            job.waiting_on = "load" if not self.backend.is_ready() else self._waiting_label()
+            # is genuinely queued behind another must not read "loading" -
+            # nor one with nothing ahead of it "the job ahead".
+            job.waiting_on = (
+                "load" if not self.backend.is_ready()
+                else self._waiting_label() if self._gate.locked() else None
+            )
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
             try:
                 await self._ensure_loaded()

@@ -212,3 +212,26 @@ def test_a_shutdown_says_it_stopped_the_job(store):
     by_user, by_shutdown = asyncio.run(scenario())
     assert by_user["status"] == "cancelled" and by_user["stopped_by"] is None
     assert by_shutdown["status"] == "cancelled" and by_shutdown["stopped_by"] == "shutdown"
+
+
+def test_a_job_with_nothing_ahead_does_not_wait_for_the_job_ahead(store):
+    # Its first frame, sent before it takes the gate, said "queue" on an idle
+    # server - "waiting for the job ahead…" with no job ahead.
+    async def scenario():
+        manager = JobManager(FakeBackend(), _ready)
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2))
+        # Subscribed before the job's task has run at all: every frame it sends.
+        frames: asyncio.Queue = asyncio.Queue()
+        job.subscribers.append(frames)
+        first = await asyncio.wait_for(frames.get(), 5)
+        while (await asyncio.wait_for(frames.get(), 5))["type"] != "done":
+            pass
+        return first
+
+    first = asyncio.run(scenario())
+    assert first["type"] == "status" and first["status"] == "queued"
+    assert first["waiting_on"] is None
+
+
+async def _ready():
+    return None
