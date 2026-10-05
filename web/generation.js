@@ -553,11 +553,12 @@ function handJobFocus(to) {
 // the dialog closes there, and a refusal leaves it open - and `placeholder`
 // is what the viewer shows of it until its first frame (streamJob, which
 // reads it again at each step until it is there), keyed to the job, so a
-// pass queued behind another cannot paint over that one. Resolves on a
-// refusal, once the job has ended, or - for one queued behind the watched
-// job - once the server has taken it.
+// pass queued behind another cannot paint over that one. `onRefused(err)`
+// runs after a refusal has been said in `slot`, for the caller to say it in
+// its own words. Resolves on a refusal, once the job has ended, or - for one
+// queued behind the watched job - once the server has taken it.
 async function startJob(path, payload, {
-  sheet = false, panel = true, slot = els.error, placeholder = null, onAccepted = null,
+  sheet = false, panel = true, slot = els.error, placeholder = null, onAccepted = null, onRefused = null,
 } = {}) {
   if (submitting) return;
   // Held while the status poll gets no answer: the press says why, and the
@@ -660,6 +661,7 @@ async function startJob(path, payload, {
     showError(err.message, false, { slot });
     if (!queueing) setBusy(false);
     await dropRefusedReferences(err, path, payload, slot);
+    onRefused?.(err);
   }
 }
 
@@ -1693,10 +1695,29 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   const remaining = data.stopped_by === 'failures' ? data.total_runs - (data.run - data.failures) : 0;
   if (submitted?.path === '/api/grid' && (skipped || remaining)) {
     const count = skipped || remaining;
+    // A sweep's source deleted - mid-run, the usual cause of the failures
+    // that stopped it - cannot be refined again, so neither Resume nor
+    // Retry can run: refused by the server as "no gallery image with id N",
+    // said under Generate as that and nothing more, and every press refused
+    // the same. Said in words and held instead, with the reason as the
+    // title, from the press that finds it - before sending where this page
+    // deleted it (deletedIds), else on the server's refusal.
+    const source = submitted.payload.refine ?? null;
+    const goneWhy = () => `${imageNames([source])}, this sweep's source, was deleted: `
+      + (skipped ? 'its skipped cells cannot run again.' : 'the run cannot resume.');
+    let sourceGone = false;
+    const holdGone = () => {
+      sourceGone = true;
+      button.setAttribute('aria-disabled', 'true');
+      button.title = goneWhy();
+      showError(goneWhy());
+    };
     const button = noteButton(
       skipped ? `Retry the ${plural(skipped, 'skipped cell')}` : `Resume the remaining ${plural(remaining, 'cell')}`,
       () => {
+        if (sourceGone) { showError(goneWhy()); return; }
         if (button.getAttribute('aria-disabled') === 'true') return;
+        if (source != null && deletedIds.has(source)) { holdGone(); return; }
         void startJob('/api/grid', {
           ...submitted.payload,
           resume: true,
@@ -1711,6 +1732,9 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
             button.setAttribute('aria-disabled', 'true');
             button.textContent = skipped ? 'Retry sent' : 'Resume sent';
             button.title = 'Sent: it runs as a job of its own';
+          },
+          onRefused: (err) => {
+            if (source != null && err.message === `no gallery image with id ${source}`) holdGone();
           },
         });
       },
