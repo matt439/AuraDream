@@ -1599,6 +1599,7 @@ def test_the_slots_are_the_order_the_rules_reorder_to(model_id, prompt, categori
     # the order of the steps its slot names, and the order rule's finding
     # names the same slots.
     steps = prompt_rules.documented_order(model_id).steps
+    assert prompt_rules.reads_order(model_id, prompt)
     reordered = prompt_rules.reorder_tags(model_id, prompt, categories)
     after = _slots(model_id, reordered, categories)
     placed = [steps.index(slot) for slot in after if slot is not None]
@@ -1675,6 +1676,9 @@ def test_lettering_and_names_never_looked_up_have_no_slot():
 def test_no_slots_where_the_rules_read_no_order(model_id, prompt):
     assert prompt_rules.order_slots(model_id, prompt, CATEGORIES) is None
     assert prompt_rules.order_slots(model_id, prompt, None) is None
+    # What the validate route asks before it looks any category up.
+    assert not prompt_rules.reads_order(model_id, prompt)
+    assert prompt_rules.reorder_tags(model_id, prompt, CATEGORIES) is None
     if prompt_rules.documented_order(model_id) is not None and len(
         prompt_rules.order_items(prompt)
     ) > 1:

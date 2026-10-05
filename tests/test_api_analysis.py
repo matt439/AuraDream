@@ -506,17 +506,28 @@ def test_the_chips_slots_are_checks_order(client, fake, monkeypatch):
 
 def test_a_chip_the_rules_cannot_place_has_no_slot(client, fake, monkeypatch):
     claim(monkeypatch, fake, ANIMAGINE)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({"green hair": "general"}))
+    vocabulary = Vocabulary({"green hair": "general"})
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
     # An unknown tag, an @ name and lettering, each beside placed tags.
     body = chips(client, '1girl, zzkx oc, @wlop, "hello, world", green hair, masterpiece')
     assert [s["slot"] for s in body["slots"]] == [
         "Person count", None, None, None, None, "Details", "Quality",
     ]
-    # One item, or a list the rules stand down from: no order, no slots.
-    for prompt in ("masterpiece", "1girl\ngreen hair\nmasterpiece", "<x>, 1girl, masterpiece"):
+    # Two items are an order, with the one lookup Check makes for what a
+    # rule reads beside the chips' own.
+    vocabulary.calls.clear()
+    assert chips(client, "1girl, smile")["slots"] is not None
+    assert [call[0] for call in vocabulary.calls] == [["1girl", "smile"], ["smile"]]
+    # One item, or a list the rules stand down from: no order, no slots -
+    # and no category lookup beside the chips' own for an order nothing reads.
+    for prompt in (
+        "masterpiece", "1girl\ngreen hair\nmasterpiece", "<x>, 1girl, masterpiece, smile",
+    ):
+        vocabulary.calls.clear()
         body = chips(client, prompt)
         assert body["slots"] is None and body["order_steps"] is None, prompt
         assert body["results"], prompt
+        assert len(vocabulary.calls) == 1, prompt
     # Past the 64 the chips look up, a guide tag still has its slot: the
     # slots cover every comma item, not only those asked about.
     long = ", ".join(["1girl", *(f"tag{i}" for i in range(70)), "masterpiece"])
@@ -541,6 +552,24 @@ def test_an_unreachable_index_costs_the_slots_one_wait(client, fake, monkeypatch
     assert [s["slot"] for s in body["slots"]] == [
         "Person count", None, None, "Quality", "Quality", "Quality", "Quality",
     ]
+
+
+def test_a_failure_in_the_slots_never_costs_the_verdicts(client, fake, monkeypatch):
+    # The slots are advisory, as the lookup is: a fault placing them leaves
+    # the chips' verdicts answered, and the page's chips checked.
+    claim(monkeypatch, fake, ANIMAGINE)
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({"green hair": "general"}))
+
+    def broken(*args, **kwargs):
+        raise ValueError("placement fault")
+
+    monkeypatch.setattr(prompt_rules, "order_slots", broken)
+    body = chips(client, TAG_PROMPT)
+    assert body["available"] is True
+    assert [row["tag"] for row in body["results"]] == [
+        part.strip() for part in TAG_PROMPT.split(",")
+    ]
+    assert body["slots"] is None and body["order_steps"] is None
 
 
 def test_no_slots_where_the_guide_states_no_order(client, fake, monkeypatch):
