@@ -36,8 +36,9 @@
 // Page-side names (`els`, `lbView`, `sheetRecords`, ...) are the app's own
 // top-level bindings, reachable from `eval` because app.js is a classic script.
 // An `eval` whose last expression is a promise is awaited - handy for a fetch,
-// but `startJob(...)` resolves when the job *ends*, so to look at a job while
-// it runs write `void startJob(...)`.
+// but `startJob(...)` resolves when the job *ends* - or, for one queued behind
+// a job the page watches, once the server has taken it - so to look at a job
+// while it runs write `void startJob(...)`.
 // Exit status is 1 when any `expect` failed, so this can gate a check, and 2
 // for a script refused before the browser starts - among them an expect that
 // joins an async helper (`__until`, or a `window.__x = async` of the file's

@@ -451,6 +451,9 @@ async function announceLastRun() {
     try { status = await api('/api/status'); } catch { /* announced below */ }
     if (status?.state === 'error' && status.detail === last.error) return;
   }
+  // A job of this page's own started while the listings were out: it hides
+  // the banner (setBusy), which must not come up over it afterwards.
+  if (busy) return;
 
   const images = `${last.image_count} image${last.image_count === 1 ? '' : 's'}` +
     (typeof last.distinct_count === 'number' && last.image_count > 1 && last.distinct_count < last.image_count
