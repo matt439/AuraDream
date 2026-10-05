@@ -30,16 +30,21 @@ function applyDefaults(d) {
 // A quarter either side of the profile's steps, and a step of CFG either
 // side of its CFG - clamped to the boxes' own bounds. A profile at CFG 0
 // (Krea 2 Turbo, Z-Image Turbo, schnell) keeps the shipped 0,0.5,1: one
-// below would be negative, and those checkpoints are distilled for 0.
+// below would be negative, and those checkpoints are distilled for 0. One
+// whose CFG leaves guidance off (Anima Turbo, ERNIE Turbo and klein at 1,
+// the threshold) sweeps upwards from it: 0,1,2 spent a cell on CFG 0, the
+// same image as the profile's own 1.
 function gridExamples(d) {
   const most = (el, fallback) => (Number.isFinite(+el.max) && el.max !== '' ? +el.max : fallback);
   const s = d.steps, c = d.guidance_scale;
+  const threshold = typeof d.cfg_threshold === 'number' ? d.cfg_threshold : cfgThreshold;
   const steps = [Math.round(0.75 * s), s, Math.round(1.25 * s)]
     .map((n) => Math.min(most(els.steps, 100), Math.max(1, n)));
-  const cfg = c > 0
-    ? [...new Set([Math.max(0, c - 1), c, Math.min(most(els.cfg, 20), c + 1)])].map((v) => +v.toFixed(2))
-    : null;
-  return { steps: [...new Set(steps)].join(','), cfg: cfg ? cfg.join(',') : '0,0.5,1' };
+  const top = most(els.cfg, 20);
+  const cfg = !(c > 0) ? null
+    : (c <= threshold ? [c, c + 1, c + 2] : [Math.max(0, c - 1), c, c + 1])
+      .map((v) => +Math.min(top, v).toFixed(2));
+  return { steps: [...new Set(steps)].join(','), cfg: cfg ? [...new Set(cfg)].join(',') : '0,0.5,1' };
 }
 
 // The shift a blank Mu leaves, where the checkpoint's scheduler has a fixed
@@ -155,7 +160,8 @@ function tagPlaceholder(example) {
 }
 
 function syncMu() {
-  // Blank is the pipeline's own shift; a dead box promises nothing.
+  // Blank is the pipeline's own shift. The panel's dead box promises
+  // nothing; the grid's says "unavailable", with its reason (syncMuWords).
   syncMuWords();
   els.mu.disabled = !muSupported;
   els.muField.classList.toggle('disabled', !muSupported);

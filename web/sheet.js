@@ -1347,7 +1347,9 @@ function sheetFileName(pins = sheetLayout?.pins ?? [], every = false, layout = n
     ? [`every-${pins.map(([axis]) => axis.key.replace(/^var:/, '')).join('_')}`]
     : pins.map(([axis, v]) => `${axis.key.replace(/^var:/, '')}-${clip(sheetText(axis, v, words))}`);
   const name = `sheet-${first?.run_id ?? 'gallery'}${parts.length ? `-${parts.join('_')}` : ''}`;
-  return `${name.replace(/[^\w.-]+/g, '-')}.png`;
+  // A value ending in a mark - "none (1.79)", a clipped label's "…" - leaves
+  // no hyphen dangling before the next pin or the extension.
+  return `${name.replace(/[^\w.-]+/g, '-').replace(/-+(?=_|$)/g, '')}.png`;
 }
 
 // One image to the browser's downloads: true once handed over, false where

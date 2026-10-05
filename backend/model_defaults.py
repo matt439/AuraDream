@@ -67,11 +67,12 @@ would replace Animagine's noise schedule with an unrelated flow schedule.
 
 `mu_static` is the shift a blank Mu leaves, as a mu, where the scheduler's
 shift is a fixed number: ln 6 (1.79) on Z-Anime, NetaYume and NewBie, ln 3
-(1.10) on Z-Image - the shipped `shift` of a scheduler with
+(1.10) on Z-Image and Z-Image Turbo - the shipped `shift` of a scheduler with
 `use_dynamic_shifting: false`, which the loaders pin. None everywhere else:
-FLUX and Krea 2 Raw derive theirs from the size. The page writes it beside
-"auto" and puts a sheet's Mu none at it, rather than first; the stored mu
-stays null, and the grid's `none` stays its word. The Mu tips quote it.
+FLUX and Krea 2 Raw derive theirs from the size. The page shows the number
+in place of "auto" and puts a sheet's Mu none at it, rather than first; the
+stored mu stays null, and the grid's `none` stays its word. The Mu tips
+quote it.
 
 `hints` is the same knowledge as prose, for the UI's tooltips: what steps, CFG
 and mu mean *on this checkpoint*, which is not the same sentence twice. They are
