@@ -1161,6 +1161,13 @@ _NETA_LIKE = (
         # Lettering before the marker is the user's: the marker alone goes.
         ('You are "my sunshine" <Prompt Start> 1girl', ["<Prompt Start>"],
          'You are "my sunshine" 1girl'),
+        # So is a scene that opens "You are", which no instruction is.
+        ("You are looking at a girl standing in the rain <Prompt Start> 1girl, moon",
+         ["<Prompt Start>"], "You are looking at a girl standing in the rain 1girl, moon"),
+        ("You are an assistant <Prompt Start> 1girl", ["You are an assistant <Prompt Start>"],
+         "1girl"),
+        ("you are a helpful AI <Prompt Start> 1girl", ["you are a helpful AI <Prompt Start>"],
+         "1girl"),
     ],
 )
 def test_netayume_system_prefix_is_found_as_retyped(prompt, spans, suggestion):

@@ -1690,8 +1690,14 @@ _NETAYUME_INSTRUCTION = re.compile(
     + r"(?:\.|(?!\w))",
     re.IGNORECASE,
 )
-# How a system instruction opens: "You are an assistant designed to ...".
-_INSTRUCTION = re.compile(r"\s*you\s+are\b", re.IGNORECASE)
+# How a system instruction opens: "You are an assistant designed to ...",
+# diffusers' Lumina 2 one and the Neta variants - an assistant, a model, an
+# AI, a generator - and not a scene a person describes ("You are looking at
+# a girl in the rain"), whose words Apply would otherwise cut.
+_INSTRUCTION = re.compile(
+    r"\s*you\s+are\s+an?\s+(?:[\w-]+\s+){0,3}(?:assistant|model|ai|generator|bot)\b",
+    re.IGNORECASE,
+)
 
 
 def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
@@ -1710,7 +1716,8 @@ def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
     if at:
         spans.append(at.span())
     # Lumina's template is instruction, marker, prompt: what stands before
-    # the first marker, where it opens as an instruction does ("You are ..."),
+    # the first marker, where it opens as an instruction does ("You are an
+    # assistant ..."),
     # is a system instruction of some other workflow's - diffusers' own
     # Lumina 2 one, a Neta variant - and the marker its separator. Cut as one,
     # so Apply leaves the image description and nothing of the instruction;
