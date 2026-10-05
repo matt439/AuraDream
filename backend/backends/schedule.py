@@ -181,7 +181,7 @@ class StartRecipe(NamedTuple):
     the pass starts, which `start_sigma` repeats on a copy: how it measures
     the latent sequence its shift is computed from, and the schedule it hands
     the scheduler when given none. `source` is the call's own statements, as
-    written there - `tests/test_refine.py` holds each to the installed
+    written there - `tests/test_refine_schedules.py` holds each to the installed
     diffusers - and the callables do the same over (the pipeline's
     `vae_scale_factor`, height, width) and (the class's own module, steps).
     """
