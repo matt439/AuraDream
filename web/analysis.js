@@ -238,8 +238,18 @@ function syncNegativeApply() {
     syncWriteButton(button);
     const off = button.parentElement.querySelector('.negative-off');
     off.hidden = !els.negative.disabled;
-    off.textContent = `The negative prompt is greyed at these settings, so nothing written there would run: it needs ${trueCfgSupported ? 'True CFG' : 'CFG'} above ${cfgThreshold}.`;
+    off.textContent = `${NEGATIVE_GREYED}: it needs ${trueCfgSupported ? 'True CFG' : 'CFG'} above ${cfgThreshold}.`;
   }
+  for (const show of els.promptAnalysis.querySelectorAll('[data-negative-show]')) syncNegativeShow(show);
+}
+
+// A negative prompt finding's Show, while the box is greyed: held, with the
+// reason as its title - aria-disabled, not disabled, so it keeps focus and a
+// press says why (selectIn), where it did nothing at all.
+function syncNegativeShow(show) {
+  if (els.negative.disabled) show.setAttribute('aria-disabled', 'true');
+  else show.removeAttribute('aria-disabled');
+  show.title = els.negative.disabled ? NEGATIVE_UNSHOWN : show.dataset.title;
 }
 
 const writeBlocked = (button) => analysisStale || ('negative' in button.dataset && els.negative.disabled);
@@ -247,11 +257,13 @@ const writeBlocked = (button) => analysisStale || ('negative' in button.dataset 
 // Why a write is dead, in its title: a dead Use rewrite kept "Replace the
 // prompt with the rewrite", an offer it was refusing.
 const STALE_REASON = 'The prompt or the references changed since this check; Check again first';
+const NEGATIVE_GREYED = 'The negative prompt is greyed at these settings, so nothing written there would run';
+const NEGATIVE_UNSHOWN = 'The negative prompt is greyed at these settings, so its words cannot be selected';
 
 function syncWriteButton(button) {
   button.disabled = writeBlocked(button);
   button.title = analysisStale ? STALE_REASON
-    : button.disabled ? 'The negative prompt is greyed at these settings, so nothing written there would run'
+    : button.disabled ? NEGATIVE_GREYED
     : button.dataset.title;
 }
 
@@ -331,9 +343,14 @@ function selectAnalysed(field, start, end) {
 // Offsets count code points from the analysed text's first character; the box
 // may hold it behind whitespace `collect()` trimmed off, or hold other text by
 // now. The words are selected only while they are still where the check found
-// them.
+// them - and never in a greyed box, which takes no focus or selection: that
+// says why, as words gone from their place do, where it said nothing.
 function selectIn(el, text, start, end) {
-  if (el.disabled) return false;
+  if (el.disabled) {
+    analysisMessage(el === els.negative ? `${NEGATIVE_UNSHOWN}: it needs ${trueCfgSupported ? 'True CFG' : 'CFG'} above ${cfgThreshold}.`
+      : 'That box is greyed, so its words cannot be selected.');
+    return false;
+  }
   const [from, to] = [units(text, start), units(text, end)];
   const raw = el.value;
   const lead = raw.length - raw.trimStart().length;
@@ -661,7 +678,8 @@ function findingItem(finding, { select, apply, carried, where }) {
     message.append(' ', cite);
   }
   if (select && finding.start != null && finding.end != null) {
-    message.append(makeSelectable(li, () => select(finding), said, where(finding)));
+    message.append(makeSelectable(li, () => select(finding), said, where(finding),
+      finding.field === 'negative_prompt'));
   }
   if (carried) message.append(span('analysis-carried', carried(finding)));
   li.append(mark, message, sourceLabel(finding.source, finding.cite, finding.url));
@@ -751,10 +769,12 @@ function referenceLink(n, label) {
 // its link or another button. The item itself is no tab stop: focusable, it
 // was read as a list item titled "Select these words", whose Enter and Space
 // did what no role said they would, and the items with nothing to select
-// were stops that did nothing. Returns the button, for the caller to place.
+// were stops that did nothing. A negative prompt finding's is held while that
+// box is greyed (`negative`, syncNegativeShow). Returns the button, for the
+// caller to place.
 let saidIds = 0;
 
-function makeSelectable(li, select, said, where) {
+function makeSelectable(li, select, said, where, negative = false) {
   li.classList.add('selectable');
   li.onclick = (event) => { if (!event.target.closest('a, button')) select(); };
   if (!said.id) said.id = `analysis-said-${++saidIds}`;
@@ -762,9 +782,14 @@ function makeSelectable(li, select, said, where) {
   show.type = 'button';
   show.className = 'ghost tiny analysis-show';
   show.textContent = 'Show';
-  show.title = `Select these words in ${where}`;
+  show.dataset.title = `Select these words in ${where}`;
+  show.title = show.dataset.title;
   show.setAttribute('aria-describedby', said.id);
   show.onclick = select;
+  if (negative) {
+    show.dataset.negativeShow = '';
+    syncNegativeShow(show);
+  }
   return show;
 }
 
