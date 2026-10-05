@@ -145,7 +145,7 @@
   {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__slots = () => [...els.tagValidation.querySelectorAll('.tag-check')].map((c) => c.dataset.slot ?? '-').join();"},
   {"expect": "__until(() => tagSlots?.prompt === els.prompt.value.trim() && __slots() === 'Quality,Details,Person count' && [...els.analysisFindings.querySelectorAll('.analysis-item')].some((li) => li.textContent.includes('\"masterpiece\" (Quality) comes before \"green hair\" (Details)')))"},
   {"log": "'The order finding suggests what Use reordered writes: it says so rather than offering a second button for it'"},
-  {"expect": "(() => { const li = [...els.analysisFindings.querySelectorAll('.analysis-item')].find((x) => x.textContent.includes('the documented order is')); return li.textContent.includes('Same as Use reordered above.') && !li.querySelector('button'); })()"},
+  {"expect": "(() => { const li = [...els.analysisFindings.querySelectorAll('.analysis-item')].find((x) => x.textContent.includes('the documented order is')); return li.textContent.includes('Same as Use reordered above.') && !li.querySelector('[data-writes]') && [...li.querySelectorAll('button')].every((b) => b.classList.contains('analysis-show')); })()"},
   {"eval": "[...els.analysisOrder.querySelectorAll('button')].find((b) => b.textContent === 'Use reordered').click();"},
   {"wait": 800},
   {"expect": "els.prompt.value === '1girl, green hair, masterpiece' && !analysisStale && analysisResult.source === els.prompt.value && els.tagSuggestions.hidden"},

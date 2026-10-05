@@ -991,8 +991,9 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .order-author .analysis-note { flex-basis: 100%; }
 
 /* Findings and the critic's issues: a mark, the message, and what it rests on
-   at the right. One with words to point at is a click target that selects
-   them in their box. */
+   at the right. One with words to point at has a Show after its words that
+   selects them in their box - the keyboard's way, the item being no tab
+   stop - and is a click target for the pointer as a whole. */
 .analysis-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .analysis-item {
   position: relative;
@@ -1002,7 +1003,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 .analysis-item.selectable { cursor: pointer; }
 .analysis-item.selectable:hover { background: rgba(255, 255, 255, 0.04); }
-.analysis-item:focus-visible { outline: none; border-color: var(--accent-2); }
+.analysis-show { margin-left: var(--sp-2); vertical-align: 1px; }
 .analysis-mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 15px; height: 15px; margin-top: 1px; border: 1px solid currentColor; border-radius: 50%;

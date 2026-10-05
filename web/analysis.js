@@ -622,16 +622,19 @@ function sourceLabel(source, cite, url) {
 }
 
 // Warnings first - the server sorts them so, and a stable sort keeps its order
-// within each. `select` puts a finding's words in their box, `apply` writes
-// its suggestion; a list without `apply` (the rewrite's) only reports, and
-// `carried` names whether the prompt has the same finding.
-function renderFindings(box, findings, { select, apply, empty, carried = null }) {
+// within each. `select` puts a finding's words in their box, which `where`
+// names for its Show; `apply` writes its suggestion; a list without `apply`
+// (the rewrite's) only reports, and `carried` names whether the prompt has the
+// same finding.
+const inPrompt = (f) => (f.field === 'negative_prompt' ? 'the negative prompt' : 'the prompt');
+
+function renderFindings(box, findings, { select, apply, empty, carried = null, where = inPrompt }) {
   box.replaceChildren();
   if (!findings.length) { box.appendChild(note(empty)); return; }
   const list = document.createElement('ul');
   list.className = 'analysis-list';
   const ranked = [...findings].sort((a, b) => (a.severity === 'warn' ? 0 : 1) - (b.severity === 'warn' ? 0 : 1));
-  for (const finding of ranked) list.appendChild(findingItem(finding, select, apply, carried));
+  for (const finding of ranked) list.appendChild(findingItem(finding, { select, apply, carried, where }));
   box.appendChild(list);
 }
 
@@ -640,20 +643,25 @@ function renderFindings(box, findings, { select, apply, empty, carried = null })
 // a paragraph - stays the tooltip.
 const INLINE_CITE = 80;
 
-function findingItem(finding, select, apply, carried) {
+function findingItem(finding, { select, apply, carried, where }) {
   const li = document.createElement('li');
   li.className = `analysis-item ${finding.severity}`;
-  li.tabIndex = 0;
   const mark = span('analysis-mark', finding.severity === 'warn' ? '!' : 'i');
   mark.setAttribute('aria-hidden', 'true');
   const message = span('analysis-message');
-  message.append(span('analysis-sr', finding.severity === 'warn' ? 'Warning: ' : 'Note: '), findingText(finding));
+  // What a finding says, with its severity in words: its Show's description.
+  const said = span('analysis-said');
+  said.append(span('analysis-sr', finding.severity === 'warn' ? 'Warning: ' : 'Note: '), findingText(finding));
+  message.append(said);
   if ((finding.source === 'guide' || finding.source === 'author') && finding.cite
       && [...finding.cite].length < INLINE_CITE) {
     const cite = document.createElement('q');
     cite.className = 'analysis-cite';
     cite.textContent = finding.cite;
     message.append(' ', cite);
+  }
+  if (select && finding.start != null && finding.end != null) {
+    message.append(makeSelectable(li, () => select(finding), said, where(finding)));
   }
   if (carried) message.append(span('analysis-carried', carried(finding)));
   li.append(mark, message, sourceLabel(finding.source, finding.cite, finding.url));
@@ -682,7 +690,6 @@ function findingItem(finding, select, apply, carried) {
     }
     li.appendChild(extra);
   }
-  if (select && finding.start != null && finding.end != null) makeSelectable(li, () => select(finding));
   return li;
 }
 
@@ -737,18 +744,28 @@ function referenceLink(n, label) {
   return button;
 }
 
-// Clicking a finding (Enter or Space on a focused one) selects the words it is
-// about - but not a click meant for its link or its button.
-function makeSelectable(li, select) {
+// A finding's or a critic issue's words, selected in their box: its Show
+// button - the Refine dialog's check's word for the same act - for the
+// keyboard and a screen reader, described by what the item says (`said`), and
+// a click anywhere else on the item for the pointer, though not one meant for
+// its link or another button. The item itself is no tab stop: focusable, it
+// was read as a list item titled "Select these words", whose Enter and Space
+// did what no role said they would, and the items with nothing to select
+// were stops that did nothing. Returns the button, for the caller to place.
+let saidIds = 0;
+
+function makeSelectable(li, select, said, where) {
   li.classList.add('selectable');
-  li.title = 'Select these words';
   li.onclick = (event) => { if (!event.target.closest('a, button')) select(); };
-  li.onkeydown = (event) => {
-    if ((event.key === 'Enter' || event.key === ' ') && event.target === li) {
-      event.preventDefault();
-      select();
-    }
-  };
+  if (!said.id) said.id = `analysis-said-${++saidIds}`;
+  const show = document.createElement('button');
+  show.type = 'button';
+  show.className = 'ghost tiny analysis-show';
+  show.textContent = 'Show';
+  show.title = `Select these words in ${where}`;
+  show.setAttribute('aria-describedby', said.id);
+  show.onclick = select;
+  return show;
 }
 
 // ------------------------------------------------------------------- critic
@@ -989,6 +1006,7 @@ function renderCritic() {
       apply: null,
       empty: 'The check finds nothing to flag in the rewrite.',
       carried: (f) => (before.has(key(f)) ? 'also in your prompt' : 'new'),
+      where: (f) => (f.field === 'negative_prompt' ? 'the negative prompt' : 'the rewrite'),
     });
     const gone = analysisResult.body.findings.filter((f) => !after.has(key(f)));
     const listed = (findings) => findings.map((f) => excerpt(f.message, 60)).join('; ');
@@ -1240,10 +1258,15 @@ function fitArea(area) {
 function issueItem(issue) {
   const li = document.createElement('li');
   li.className = 'analysis-item critic-issue';
-  li.tabIndex = 0;
   const text = span('analysis-message');
-  text.append(issue.problem);
-  if (issue.quote) text.append(' ', span('analysis-quoted', `"${issue.quote}"`));
+  // The problem and its quote: what Show selects, and its description.
+  const said = span('analysis-said');
+  said.append(issue.problem);
+  if (issue.quote) said.append(' ', span('analysis-quoted', `"${issue.quote}"`));
+  text.append(said);
+  if (issue.start != null && issue.end != null) {
+    text.append(makeSelectable(li, () => selectAnalysed('prompt', issue.start, issue.end), said, 'the prompt'));
+  }
   text.append(span('critic-fix', `Fix: ${issue.fix}`));
   if (issue.note) text.append(span('analysis-note sub critic-note', issue.note));
   const cite = sourceLabel(issue.source, issue.cite, issue.url);
@@ -1256,9 +1279,6 @@ function issueItem(issue) {
     if (issue.url) cite.setAttribute('aria-label', `${issue.cite_id} · ${label}, ${issue.note}`);
   }
   li.append(span('critic-kind', issue.kind), text, cite);
-  if (issue.start != null && issue.end != null) {
-    makeSelectable(li, () => selectAnalysed('prompt', issue.start, issue.end));
-  }
   return li;
 }
 
