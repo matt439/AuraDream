@@ -283,20 +283,66 @@ def _placeholders(request: GenerateRequest) -> set[str]:
     )
 
 
+_HSPACE = (" ", "\t")
+# What a word can open after with no space of its own: a bracket, a quotation
+# mark, an XML element's tag.
+_OPENERS = frozenset("([{<>\"“‘«")
+
+
 def substitute(text: str | None, assignment: dict[str, str]) -> str | None:
-    """Fill this cell's values into a prompt. Unknown names are left alone."""
+    """Fill this cell's values into a prompt. Unknown names are left alone.
+
+    A dropped value takes its space with it and nothing else (`_close_hole`).
+    """
     if text is None or not assignment:
         return text
-    filled = PLACEHOLDER.sub(lambda m: assignment.get(m.group(1), m.group(0)), text)
-    if any(value == "" for value in assignment.values()):
-        # A dropped value must not leave the hole it came out of: `{size} dog`
-        # with no size is `dog`, not ` dog`, and a doubled space is a token the
-        # encoder can do without. Only horizontal runs collapse, so a prompt
-        # written over several lines keeps its shape. Punctuation that belongs
-        # to the value belongs *inside* it - `mood = , at dusk | none`.
-        filled = re.sub(r"[ \t]{2,}", " ", filled)
-        filled = "\n".join(line.strip() for line in filled.split("\n"))
-    return filled
+    out = ""
+    pos = 0
+    for match in PLACEHOLDER.finditer(text):
+        value = assignment.get(match.group(1))
+        if value is None:
+            continue  # not this grid's: it stays in the text between the holes
+        out += text[pos:match.start()]
+        pos = match.end()
+        if value:
+            out += value
+        else:
+            out, pos = _close_hole(out, text, pos)
+    return out + text[pos:]
+
+
+def _close_hole(out: str, text: str, pos: int) -> tuple[str, int]:
+    """Close the gap an empty value left between `out` and `text[pos:]`.
+
+    `{size} dog` with no size is `dog`, not ` dog`, and `a {size} dog` is `a
+    dog`: one space goes with the word - the one after it where the word
+    followed a space or opened a line, a bracket or an XML element
+    (`<appearance>{hair} long_hair`), else, at a line's end, the one before.
+    Nothing else moves: `red_eyes, {hair}long_hair` keeps its one space.
+
+    This used to collapse every doubled space in the prompt and strip every
+    line whenever any value was empty, so on an indented prompt - XML pasted
+    from a model card - the none cell also lost every line's indentation,
+    some twenty Gemma tokens the other cells kept, and the comparison was no
+    longer the word alone. A placeholder alone on its line leaves the line
+    empty, its indentation gone with it, so the prompt keeps its line count
+    (the page's grid preview lists a multi-line prompt by line number).
+    Punctuation that belongs to the value belongs *inside* it - `mood = , at
+    dusk | none` - so `dog, {x}, cat` keeps both commas.
+    """
+    line_head = out[out.rfind("\n") + 1:]
+    end = text.find("\n", pos)
+    line_tail = text[pos:] if end < 0 else text[pos:end]
+    if not line_head.strip(" \t") and not line_tail.strip(" \t\r"):
+        # Alone on its line: the line's own whitespace was only the hole's.
+        return out[:len(out) - len(line_head)], pos + len(line_tail.rstrip("\r"))
+    before = out[-1:] in _HSPACE
+    after = text[pos:pos + 1] in _HSPACE
+    if after and (before or not line_head or line_head[-1] in _OPENERS):
+        return out, pos + 1
+    if before and not line_tail.strip("\r"):
+        return out[:-1], pos
+    return out, pos
 
 
 def prompt_assignments(
