@@ -135,10 +135,15 @@ async function expandPrompt() {
       showError('The prompt changed while expansion was running, so the result was not applied.', true);
       return;
     }
-    els.prompt.value = body.expanded_prompt;
-    syncAnalysisStale();
+    // Written as typing writes it, so Ctrl+Z brings back the prompt it
+    // replaced - an expansion is a long rewrite, and one that is hard to get
+    // again. The write's `input` clears a translation, so this one is shown
+    // after it.
+    writeBox(els.prompt, body.expanded_prompt);
+    promptReplaced();
     if (body.translated_prompt) showPromptTranslation(body.expanded_prompt, body.translated_prompt);
     schedulePreview();
+    scheduleTagValidation(0);
     persistPanel();
     els.prompt.focus();
     els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length);
@@ -463,6 +468,15 @@ document.addEventListener('keydown', (e) => {
   // alone: the helper stays open under the box while its list comes and goes.
   if (e.key === 'Escape' && !e.defaultPrevented && !els.examplesMenu.hidden) { showExamples(false); return; }
   if (e.key === 'Escape' && !e.defaultPrevented && !els.tagsMenu.hidden) { showTagHelper(false); return; }
+  // Then the prompt check, as its Close does - not under a dialog, whose
+  // Escape is its own (the lightbox's below), nor in the middle of a
+  // composition, nor in a search box with text, which Escape empties.
+  if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && !els.promptAnalysis.hidden
+      && !els.lightbox.open && !els.refineDialog.open
+      && !(e.target.matches?.('input[type="search"]') && e.target.value)) {
+    escapeAnalysis();
+    return;
+  }
   if (!els.lightbox.open) return;
   // A key the lightbox's own control took - the swipe divider's arrows.
   if (e.defaultPrevented) return;
@@ -495,6 +509,7 @@ for (const type of ['dragover', 'drop']) {
 
 window.addEventListener('resize', placeTagValidation);
 placeTagValidation();
+new ResizeObserver(chipsResized).observe(els.tagValidation);
 // The panel's sticky top (panel.js has the rules). It follows the panel's
 // height - the grid fold, the progress, the last-run banner, the hints all
 // change it - and the window's; the observer also reports once on observing,

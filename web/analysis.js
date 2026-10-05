@@ -264,6 +264,16 @@ function closeAnalysis() {
   (els.analyze.disabled ? els.prompt : els.analyze).focus();
 }
 
+// Escape closes it too, once nothing nearer took the key (app.js's keydown:
+// a dialog, a menu, a suggestion list, a search box emptying itself). Focus
+// in the panel, which would fall to <body> with it, goes back as Close's
+// does; focus anywhere else - the prompt being typed in - stays where it is.
+function escapeAnalysis() {
+  const focused = document.activeElement;
+  if (!focused || focused === document.body || els.promptAnalysis.contains(focused)) closeAnalysis();
+  else els.promptAnalysis.hidden = true;
+}
+
 // Forget the check: another checkpoint's tokenizers and guide, or a Reset. An
 // answer still on its way is dropped when it lands.
 function clearAnalysis() {
@@ -334,7 +344,24 @@ function selectIn(el, text, start, end) {
   el.focus();
   el.setSelectionRange(lead + from, lead + to);
   scrollToSelection(el);
+  flashBox(el);
   return true;
+}
+
+// The box the words were selected in is outlined for a moment (600 ms, the
+// stylesheet's `.box-flash`; not at all under reduced motion): a finding in
+// the column beside the panel selected words a column away, and a selection
+// in an unfocused-looking box was easy to miss. A reference chip a finding's
+// "image N" goes to is outlined the same way. Restarted on every click.
+let flashedBox = null;
+let flashTimer = 0;
+function flashBox(el) {
+  clearTimeout(flashTimer);
+  flashedBox?.classList.remove('box-flash');
+  void el.offsetWidth;  // a restart, not a class already there
+  el.classList.add('box-flash');
+  flashedBox = el;
+  flashTimer = setTimeout(() => { el.classList.remove('box-flash'); flashedBox = null; }, 600);
 }
 
 // A selection scrolled out of its box looks like a click that did nothing,
@@ -412,7 +439,8 @@ function usePromptText(text) {
   void checkPrompt();
 }
 
-// Use rewrite and Use reordered (the critic's, and Check's own reordering):
+// Use rewrite and Use reordered (the critic's, and Check's own reordering),
+// and a rule finding's Apply on the prompt (applyFinding):
 // a version of the prompt in its place, and the prompt it replaces in Your
 // version while that box is empty - where the comparison takes it, so after
 // the re-check the two run on the same seeds. Before, the re-check made the
@@ -432,8 +460,11 @@ function useVersion(text, button) {
 
 // A rule's suggestion is its field rewritten whole - quotes added, tags moved,
 // the recommended negative prompt - so it applies in one click, to its field.
+// On the prompt it is a version like Use rewrite's, and keeps the prompt it
+// replaces the same way (useVersion); the negative prompt has no Your
+// version to keep it in, and Ctrl+Z is its way back.
 function applyFinding(finding) {
-  if (finding.field !== 'negative_prompt') { usePromptText(finding.suggestion); return; }
+  if (finding.field !== 'negative_prompt') { useVersion(finding.suggestion, 'Apply'); return; }
   if (els.negative.disabled) return;  // its button is dead then; this is the backstop
   replaceBoxText(els.negative, finding.suggestion);
   syncAnalysisStale();
@@ -616,7 +647,7 @@ function findingItem(finding, select, apply, carried) {
   const mark = span('analysis-mark', finding.severity === 'warn' ? '!' : 'i');
   mark.setAttribute('aria-hidden', 'true');
   const message = span('analysis-message');
-  message.append(span('analysis-sr', finding.severity === 'warn' ? 'Warning: ' : 'Note: '), finding.message);
+  message.append(span('analysis-sr', finding.severity === 'warn' ? 'Warning: ' : 'Note: '), findingText(finding));
   if ((finding.source === 'guide' || finding.source === 'author') && finding.cite
       && [...finding.cite].length < INLINE_CITE) {
     const cite = document.createElement('q');
@@ -640,7 +671,7 @@ function findingItem(finding, select, apply, carried) {
     else {
       const negative = finding.field === 'negative_prompt';
       extra.append(writeButton(negative ? 'Apply to the negative prompt' : 'Apply',
-        `Replace the ${negative ? 'negative prompt' : 'prompt'} with: ${finding.suggestion}`,
+        `Replace the ${negative ? 'negative prompt' : 'prompt'} with: ${finding.suggestion}${negative ? '' : `\n${KEEPS_PROMPT.trim()}`}`,
         () => apply(finding), { negative }));
       if (negative) {
         // Said beside the dead button while the box is greyed.
@@ -653,6 +684,57 @@ function findingItem(finding, select, apply, carried) {
   }
   if (select && finding.start != null && finding.end != null) makeSelectable(li, () => select(finding));
   return li;
+}
+
+// A finding's words. Klein's references rule names the images the prompt
+// never mentions - "never says what to take from image 2, 3" - and each of
+// those numbers is the reference chip of that number in the panel, which the
+// words take you to: "image 2" and "3" are links, their words unchanged.
+const REFERENCE_NAMES = /\bimage (\d+(?:, \d+)*)/;
+
+function findingText(finding) {
+  const match = finding.rule === 'guide.references' && REFERENCE_NAMES.exec(finding.message);
+  if (!match) return finding.message;
+  const text = document.createDocumentFragment();
+  text.append(finding.message.slice(0, match.index));
+  match[1].split(', ').forEach((n, i) => {
+    if (i) text.append(', ');
+    text.append(referenceLink(+n, i ? n : `image ${n}`));
+  });
+  text.append(finding.message.slice(match.index + match[0].length));
+  return text;
+}
+
+// To reference chip N's ×, in the panel: focused, which brings it into view
+// there (revealInPanel, or the page's own scroll in one column). The chips
+// may have changed since the check - the panel is stale then, and says so -
+// so a number past the last chip says that image is not attached now. A
+// link that finds its chip takes back only that sentence of its own
+// (`notAttachedSaid`): the slot may hold another one the user still needs,
+// such as why the critic's answer cannot be applied.
+let notAttachedSaid = '';
+
+function referenceLink(n, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'analysis-link reference-link';
+  button.textContent = label;
+  button.title = `Go to reference image ${n} in the panel`;
+  button.setAttribute('aria-label', `Reference image ${n}`);
+  button.onclick = () => {
+    if (n > referenceIds.length) {
+      const have = referenceIds.length ? plural(referenceIds.length, 'reference image') : 'no reference images';
+      notAttachedSaid = `Image ${n} is not attached: the panel has ${have} now.`;
+      analysisMessage(notAttachedSaid);
+      return;
+    }
+    if (notAttachedSaid && els.analysisStatus.textContent === notAttachedSaid) analysisMessage('');
+    notAttachedSaid = '';
+    focusReference(n - 1);
+    // A pointer's press leaves the × no focus ring to find it by.
+    flashBox(els.referenceList.querySelectorAll('.chip')[n - 1]);
+  };
+  return button;
 }
 
 // Clicking a finding (Enter or Space on a focused one) selects the words it is

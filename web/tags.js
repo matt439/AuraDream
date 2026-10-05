@@ -1034,6 +1034,15 @@ function placeTagValidation() {
   if (range) focused.setSelectionRange(...range);
 }
 
+// The chips' height, on the stage: above the results the prompt check starts
+// under them - stacked below 1800 px, docked across both columns from it - and
+// its cap leaves them out, so the image just made stays on the screen
+// (style.css, `--chips-h`). From a ResizeObserver (app.js); a hidden tray is
+// 0, and in the panel under 901 px the check is not capped.
+function chipsResized() {
+  els.viewer.parentElement.style.setProperty('--chips-h', `${els.tagValidation.getBoundingClientRect().height}px`);
+}
+
 function tagCursorIndex() {
   const before = els.prompt.value.slice(0, els.prompt.selectionStart ?? els.prompt.value.length);
   return before.trim() ? before.split(',').length : 0;
