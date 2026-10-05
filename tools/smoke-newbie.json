@@ -26,6 +26,10 @@
 
   {"log": "'XML makes no chips, but the encoders still stop: a line under the prompt counts after a pause in typing - kept out of the way under three quarters of the budget, the count and the encoder from there, amber past it and naming where Gemma stops reading, as Check does; that change said once in the summary line, the line itself no live region'"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__measures = 0; window.__fetch = window.fetch; window.fetch = (url, init) => { if (String(url).includes('/api/prompt/measure')) window.__measures += 1; return window.__fetch(url, init); }; window.__warn = () => { const probe = document.createElement('span'); probe.style.color = 'var(--warn)'; document.body.append(probe); const color = getComputedStyle(probe).color; probe.remove(); return color; }; window.__counted = () => tagMeasured?.model === loadedModel && tagMeasured.text === els.prompt.value.trim(); window.__more = (n) => { const p = els.prompt.value; const i = p.indexOf('<character_2>'); const j = p.indexOf('</character_2>') + '</character_2>'.length; const block = p.slice(i, j).replaceAll('character_2', `character_${n}`); els.prompt.focus(); els.prompt.setSelectionRange(j, j); document.execCommand('insertText', false, `\\n${block}`); };"},
+  {"log": "'From the authors\\' first example with its placeholders at 1400x900, whatever ran before: the counts below are that text\\'s'"},
+  {"viewport": [1400, 900]},
+  {"eval": "resetPanel(); els.examplesBtn.click(); els.examplesMenu.children[0].click();"},
+  {"expect": "__until(() => els.prompt.value.startsWith('<character_1>') && els.prompt.value.endsWith('</general_tags>') && els.prompt.value.includes('<n>$character_2$</n>') && !els.prompt.value.includes('character_3'))"},
   {"expect": "__until(() => __counted() && els.promptTokens.hidden && els.tagValidation.hidden && !els.tagValidation.children.length)"},
   {"eval": "__more(3);"},
   {"expect": "__until(() => __counted() && !els.promptTokens.hidden)"},
