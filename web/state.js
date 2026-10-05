@@ -180,6 +180,14 @@ let serverStartedAt = null;
 // submission outright, so the queue was unreachable from the UI.
 let currentJob = null;
 let queuedIds = [];
+// The listing a page between jobs waits on to pick its next one (watchNext,
+// resumeActiveJob, through adoptListedJob), while it is out, and every job
+// a stream has been opened for. Which job the page watches next is that
+// listing's to say: a Generate pressed meanwhile took the page as well, and
+// when the listing found the new job the page streamed it twice - two tiles
+// of one image, a lost Retry, a second watch of the next job too.
+let jobListing = null;
+const watchedJobs = new Set();
 let submitting = false;
 // What this page knows of a job it submitted, by id: the submission itself
 // ({path, payload, seed, sheet, at}) - a grid's Retry sends its own payload
