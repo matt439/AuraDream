@@ -224,6 +224,10 @@ A run whose stdin is not a terminal - a service, a script - never asks either.
 Open <http://127.0.0.1:7860>. The first generation downloads ~32 GB of weights
 for the default checkpoint (the transformer and the text encoder both) and
 loads them — expect several minutes. Subsequent loads read from the HF cache.
+While it loads, the empty viewer's line shows the wait's clock, as the
+progress row does; a load that fails fills it with what went wrong and what to
+do, and the finish line says the image was not made - and, in every tab, that
+the model has loaded since, once it has.
 
 `Ctrl`/`Cmd` + `Enter` generates from anywhere in the page, the prompt box
 and a focused image included - except from a box of the open Grid search
@@ -249,9 +253,15 @@ every cell.
 
 On a refine pass, `S` (or **Compare with source**) lays the image it was made
 from under the pass, shown left of a divider you drag, or **Side by side**,
-on the one zoom — cropped as the pass was, if it changed shape. The facts
-column's **Use these references** puts an image's reference images back in
-the panel, leaving out (and naming) any since deleted.
+on the one zoom — cropped as the pass was, if it changed shape; on a narrow
+window the two halves stack where that shows the picture clearly larger. A
+pass opened from the Refine dialog's row of passes, or with **Compare with
+source** beside a pass just made, starts compared. The facts column's **Use
+seed** puts the image's seed in the Seed box (said in the lightbox's own line),
+and **Use these references** puts an image's reference images back in
+the panel, leaving out (and naming) any since deleted. Under 901 px the facts
+take whatever room the picture leaves above and below it. A screen reader hears
+the zoom once a wheel burst ends, and the counter only when it changes.
 
 ### Keyboard
 
@@ -270,8 +280,12 @@ the panel, leaving out (and naming) any since deleted.
 | Tag chips | `Alt` + `←` `→` · `Delete` · `Enter` | move the tag · remove it · edit it; `←` `→` walk the chips |
 | Prompt box | `Tab` or `Enter` | takes the first tag suggestion once three typed characters match it |
 | Examples menu | `↓`, `Enter` or `Space` · arrows · `Esc` | open on the first example · walk it · back to the button |
-| Tags helper | `Esc` | closes the suggestion list first, then the helper |
-| Prompt boxes | `Ctrl` + `Z` | gives back the text an Apply, Use rewrite, an Example, a chip edit or a Reuse replaced |
+| Tags helper | `Esc` | closes the suggestion list first, then the helper, then an open prompt check |
+| Prompt check | `Esc` | closes it once nothing nearer takes the key (the Examples menu, the Tags helper and their lists, the lightbox, the Refine dialog); from inside it, focus goes to Check |
+| Prompt boxes | `Ctrl` + `Z` | gives back the text an Apply, Use rewrite, an Expand, an Example, a chip edit, a Reuse or a Reset replaced |
+| Refine dialog's prompt | `Tab` or `Enter` · `Esc` | takes the first tag suggestion once three typed characters match it · closes the list, then the dialog |
+| Runs picker (closed) | arrows · `Enter` · `Esc` | browse the runs without opening one · open the one shown (leaving the picker does too) · put back the run shown |
+| Gallery head (from 1800 px) | `←` `→` | move along the S/M and Fit/Crop pairs; `Enter` or a click chooses |
 
 ## Run under WSL 2 (4-bit Nunchaku)
 
@@ -513,13 +527,13 @@ The browser side has no test suite; it is checked in a real browser instead:
 uv run python tools/fake_server.py          # the app on :7861, fake images, throwaway gallery
 node tools/browser.mjs tools/smoke.json     # headless Edge/Chrome through the UI; exit 1 on a failure
 uv run python tools/fake_server.py --port 7862 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-flux.json      # the True CFG box, on a FLUX-shaped server
+node tools/browser.mjs tools/smoke-flux.json      # the True CFG box and the "CFG (distilled)" label, on a FLUX-shaped server
 uv run python tools/fake_server.py --port 7863 --step 0.3
 node tools/browser.mjs tools/smoke-preview.json   # the live preview, on a server slow enough to show one
 uv run python tools/fake_server.py --port 7864 --model black-forest-labs/FLUX.2-klein-4B
 node tools/browser.mjs tools/smoke-conditioning.json # reference chips and ❐, the adapter and a weight sweep
 uv run python tools/fake_server.py --port 7865 --model baidu/ERNIE-Image-Turbo
-node tools/browser.mjs tools/smoke-ernie.json     # the explicit prompt expansion editor flow
+node tools/browser.mjs tools/smoke-ernie.json     # Expand: its holds, first-use line, Undo, a held result; Baidu's seven sizes
 uv run python tools/fake_server.py --port 7866 --model cagliostrolab/animagine-xl-4.0
 node tools/browser.mjs tools/smoke-animagine.json # tag guide, defaults, size range and disabled Mu
 uv run python tools/fake_server.py --port 7867 --model OnomaAIResearch/Illustrious-XL-v2.0
@@ -535,7 +549,7 @@ node tools/browser.mjs tools/smoke-kohaku.json   # hybrid tags, defaults, size g
 uv run python tools/fake_server.py --port 7871 --model duongve/NetaYume-Lumina-Image-2.0
 node tools/browser.mjs tools/smoke-netayume.json # v4 defaults, the qualified size guide and saved settings
 uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
-node tools/browser.mjs tools/smoke-newbie.json   # XML examples, defaults, size guidance and saved settings
+node tools/browser.mjs tools/smoke-newbie.json   # XML examples, the token line, XML jobs and labels, defaults and saved settings
 uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
 node tools/browser.mjs tools/smoke-wai.json      # WAI recipes, defaults, reference sizes and saved settings
 uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
@@ -551,15 +565,15 @@ node tools/browser.mjs tools/smoke-wide.json      # the page at 2560x1305, 2048x
 uv run python tools/fake_server.py --port 7877 --model cagliostrolab/animagine-xl-4.0
 node tools/browser.mjs tools/smoke-refine-sdxl.json # the Refine dialog on SDXL: its prompt check and tag line
 uv run python tools/fake_server.py --port 7878 --model cagliostrolab/animagine-xl-4.0
-node tools/browser.mjs tools/smoke-tags.json      # chips, autocomplete, Tags and Examples by keyboard, Undo
+node tools/browser.mjs tools/smoke-tags.json      # chips and their order steps, autocomplete, Tags and Examples by keyboard, Undo
 uv run python tools/fake_server.py --port 7879 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-grid.json      # the grid preview, its warnings and Ctrl+Enter's routing
 uv run python tools/fake_server.py --port 7880 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-sheet.json     # the contact sheet at QHD: fit, sticky heads, labels, Resume
+node tools/browser.mjs tools/smoke-sheet.json     # the contact sheet at QHD: fit and fill, sticky heads, labels, Export all, Resume
 uv run python tools/fake_server.py --port 7881 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-delete.json    # deletes, tombstones, Delete unstarred's sources, Reuse's Undo
 uv run python tools/fake_server.py --port 7882 --step 0.3
-node tools/browser.mjs tools/smoke-jobs.json      # the queue, Pause, a grid's skipped cells, the load and the server gone
+node tools/browser.mjs tools/smoke-jobs.json      # the queue, Pause, a grid's skipped cells, the load, the server gone, a second tab
 uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
 node tools/browser.mjs tools/smoke-results.json   # the viewer: a result's tools and column, the preview's box, #recent, Reset's Undo
 uv run python tools/fake_server.py --port 7884 --model black-forest-labs/FLUX.1-Krea-dev
@@ -569,7 +583,11 @@ node tools/browser.mjs tools/smoke-gallery.json   # the cards, their tools and s
 uv run python tools/fake_server.py --port 7886 --model black-forest-labs/FLUX.2-klein-4B
 node tools/browser.mjs tools/smoke-sheet-klein.json # the sheet's References axis and an adapter's heads
 uv run python tools/fake_server.py --port 7887 --model cagliostrolab/animagine-xl-4.0
-node tools/browser.mjs tools/smoke-analysis-tags.json # the check on a tag checkpoint, docked beside chips at QHD
+node tools/browser.mjs tools/smoke-analysis-tags.json # the check on a tag checkpoint: docked under the chips at QHD and 125%, stacked and capped at 1400x900, 1280x720 and 1280x600, in the gallery's column with Gallery beside
+uv run python tools/fake_server.py --port 7888 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-stage.json      # Gallery beside at QHD and 125%: the column, its paging, a job landing, the check in its place, the sheet
+uv run python tools/fake_server.py --port 7889 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
+node tools/browser.mjs tools/smoke-narrow.json     # one column and narrow windows: New image's pill, the topbar, tips inside the window
 ```
 
 Where two smokes share a port, run them one after another, restarting the
@@ -579,8 +597,11 @@ queue it starts from, and the next one's server is a fresh one. Fake servers sha
 `smoke.json` counts the images in it, so run that one on a gallery of its
 own while others are up. The browser opens at
 1400x900, where the smokes are written; `LOCAL_DIFFUSION_VIEWPORT=2560x1305`
-and `LOCAL_DIFFUSION_DPR=1.25` move it, and the wide-screen smokes resize it
-themselves.
+and `LOCAL_DIFFUSION_DPR=1.25` move it, the wide-screen smokes resize it
+themselves, and a `media` step emulates a media feature (reduced motion, say).
+An `expect` that throws or whose promise rejects fails like a false one, and
+a browser that leaves a DevTools call unanswered for five minutes ends the
+run, naming the step it was on.
 
 The fake server draws gradients stamped with seed and steps, so grid cells can
 be told apart on a sheet, behaves as the claimed checkpoint's profile predicts
@@ -591,7 +612,10 @@ the preview work. A cell whose prompt holds `[fail]` raises, as an
 out-of-memory cell would, and `POST /api/fake/load` (`{"seconds": 4}`, or
 `{"fail": "gated"}`) makes the loads after it slow or gated - what
 `smoke-jobs.json` drives the skipped cells, the load's wait and a failed
-load with. Its prompt check counts with stand-in tokenizers (a token
+load with. `POST /api/fake/step` (`{"seconds": 1}`) slows the jobs after it,
+and `POST /api/fake/expand` slows ERNIE's Expand, holds it, fails it, or puts
+its rewriter and translator back off disk so a first use shows again. The fake
+refuses adapters on Anima Turbo and NewBie as the real server does. Its prompt check counts with stand-in tokenizers (a token
 per word or mark, at each encoder's real budget) and its critic is a stand-in
 that answers from the prompt after `--critic-delay` seconds (0.4 by default),
 and refuses at once a prompt too long for its window - on the token
@@ -664,8 +688,9 @@ Generate, Batch, Repeat and the grid always render from the prompt, and a pass
 never takes their settings. The dialog starts from the image's own prompt,
 sampling settings and seed, at 1.5× its size (or the last scale you ran)
 unless that is past what the checkpoint holds, when it opens at the largest
-factor that is - the one it skipped says so on its button, and running the
-size it opened at leaves your scale as it was. On a wide window the source
+factor that is - the one it skipped says so on its button, the size line says
+which scale goes past which measured run, and running the size it opened at
+leaves your scale as it was. On a wide window the source
 is shown large beside the controls. **Strength** has focus; **Refine**,
 Enter in a one-line box (not the prompt boxes) or Ctrl+Enter anywhere in
 the dialog runs the pass - once the server has read
@@ -681,16 +706,24 @@ quantifies and the large view frames. **Versions**
 makes 1, 2 or 4 passes on consecutive seeds from the **Seed** box, which
 starts at the source's. The prompt, negative prompt, steps, CFG and Mu are
 folded under **Prompt and sampling**: edit the prompt there if the detail
-should change. An image made on another checkpoint keeps its prompt and
+should change - on a tag checkpoint it suggests tags as the panel's prompt
+does - or press **From panel** to copy in the panel's prompt and negative
+prompt (a rewrite or a comparison's winner you made there), Ctrl+Z undoing it;
+a negative box greyed at the dialog's CFG is left as it is, and the line under
+the button says so. An image made on another checkpoint keeps its prompt and
 seed, and takes this checkpoint's steps, CFG, Mu and strength, with the fold
-open to say so. Under the boxes the dialog says how many images the pass
-makes, about how many steps run and, once the gallery holds passes at that
-size, how long it will take; above that, where the encoders stop reading a
-long prompt (on SDXL, 77 tokens - a tag added at the end of a long prompt
-does nothing), with **Show** and the prompt check's **Apply**. The passes
-already made from the image are a row at the top, each opening in the
-lightbox beside the source. Closing the dialog without running keeps what
-you typed for the next time you open the same image; **Start over** drops it.
+open to say so (and, for a pass, whose the old strength was). Under the boxes
+the dialog says how many images the pass makes, about how many steps run, on
+a flow-matching checkpoint once the model is loaded how much noise a single
+strength starts at (read off the loaded schedule), and, once the gallery holds
+passes at that size, how long it will take; above that, where the encoders
+stop reading a long prompt (on SDXL, 77 tokens - a tag added at the end of a
+long prompt does nothing), with **Show** and the prompt check's **Apply**. The
+passes already made from the image are a row at the top, each opening in the
+lightbox over the source, compared. A source deleted meanwhile is said in the
+page's words ("#28 has been deleted, so it cannot be refined."). Closing the
+dialog without running keeps what you typed for the next time you open the
+same image; **Start over** drops it.
 
 A pass may go past the 4 MP presets, to any 2 MP preset at 2× - 4448 on a
 side, 8.4 MP - because it takes its composition from the source, which is
@@ -725,8 +758,10 @@ kept him), and the dialog says so under Strength once a FLUX.1 pass is past
 the 1536×1536 measured. Several strengths typed into the dialog's **Strength** box -
 `0.05,0.1,0.2` or `0.05-0.2x0.05` - run as one sweep over the source, which
 opens as a sheet of how much of it each value kept; **Compare 3** writes the
-checkpoint's own value and either side of it (0.05,0.1,0.15 on FLUX.1), and
-the arrow keys step a single value by 0.05.
+checkpoint's own value and either side of it (0.05,0.1,0.15 on FLUX.1,
+0.1,0.15,0.25 on Z-Anime) - **Compare 2**, saying which value it left out and
+why, where the Steps box leaves one of them no step - and the arrow keys step
+a single value by 0.05.
 
 It runs the image-to-image pipeline diffusers ships beside the checkpoint's
 own, over the weights already loaded, with no extra weight download or copy.
@@ -744,7 +779,10 @@ Anima Turbo uses this app's custom pipeline, which has no compatible sibling;
 diffusers itself does provide an Anima modular image-to-image workflow.
 
 Elsewhere ⤢ says so instead of opening the dialog, and a request is refused
-at submit rather than rendered as something else.
+at submit rather than rendered as something else. Before a load the table is
+the app's guess for most checkpoints, and the dialog says a load answers for
+certain; on Anima Turbo and NewBie, whose pipelines are this app's own, the
+answer is final.
 
 The source and the strength are part of the image's record - the row, the
 PNG, the resume key - so **Reuse** on a refined image opens the dialog on
@@ -793,8 +831,9 @@ quantizer, `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` can override it.
 **Repeat** produces N batches one pipeline call after another, stepping the
 seed by the batch size each time, so a sweep costs no more VRAM than a single
 batch. That is what makes an unattended run of large images possible: set
-Repeat to 12 at 2048×2048 and walk away. Leave the seed blank and the sweep
-starts from a random one; set it and the whole sweep is reproducible. The line
+Repeat to 12 at 2048×2048 and walk away. Leave the seed blank (the dice beside
+the Seed label clears it) and the sweep starts from a random one; set it and the
+whole sweep is reproducible. The Seed box shows a whole 16-digit seed. The line
 under the boxes spells it out ("6 images: 3 batches of 2, one after another,
 seed +2 each, from a random start."). It is the request's `runs` field and the
 CLI's `--runs`; the panel calls it Repeat because a *run* is a submission -
@@ -832,12 +871,22 @@ paused.
 
 **The viewer** shows the newest job's images, each with the gallery card's
 tools under it (Reuse, Refine, Star, Delete); a batch of two to four is laid
-out as large as the window allows. From 1800 px a single image has its prompt,
-its settings and Star, Refine…, Reuse and Use seed in words beside it, and from
-2000 px this session's earlier results sit beside that - beside the prompt
-check too, while it is open, wherever the image leaves them room; a press on
-the image opens the lightbox on the gallery from it, so → walks back through
-what came before. Before the first image of a session the viewer is one line.
+out as large as the window allows. Below 1800 px the line under a single new
+image names it and its seed, with Use seed. From 1800 px a single image has its
+prompt (its line breaks kept, scrolling past twelve lines), its settings and
+Star, Refine…, Reuse and Use seed (on a pass, Compare with source too) in words
+beside it, and from 2000 px this session's earlier results sit beside that -
+beside the prompt check too, while it is open, wherever the image leaves them
+room; a press on the image opens the lightbox on the gallery from it, so →
+walks back through what came before. Before the first image of a session the
+viewer is one line.
+
+From 2000 px, **Gallery beside** (a tick in the gallery head, off by default and
+remembered) puts the gallery in a column of its own at the window's right,
+scrolling by itself, so its cards stay in view beside a tall image or a long run;
+a finished job's cards wait while the pointer rests on the column, so nothing
+moves under it. The prompt check opens in that column's place, and the contact
+sheet still opens across the whole width.
 
 **Queueing**: Generate and Run grid stay live while a job runs. A second press
 queues the job behind the current one on the server; under the bars a row per
@@ -847,13 +896,25 @@ for all, where there are several),
 and the page moves on to the next job when the watched one ends. A reload
 attaches to whichever job holds the GPU, then to the oldest one waiting.
 
+**Two tabs on one server**: a tab that is not watching the running job - one
+started in another tab or window - says so beside the checkpoint's name in the
+top bar ("busy in another tab"), holds Unload, Ask the critic and Expand with
+that reason, and catches its gallery up when the job ends; Generate still
+queues. A job another tab queued behind this tab's own is listed as another
+tab's, and one this tab picks up shows in the progress row without replacing
+the image just made. A cancel pressed elsewhere is said as one, and a server
+shutting down says so rather than "cancelled". The panel's memory is shared:
+each tab writes only what it changed.
+
 **Away from the panel**: the tab's title follows the job ("54% · image 2/4",
 "⏸ Paused", "✓ Finished 4 images" until you look at the tab again), and the
 top bar carries the same counters in one line with a thin progress line along
 its foot. A finished job's images join the head of the gallery without
 moving it, so browsing old images during a wait keeps your place; when the
 first image lands in the viewer while it is scrolled out of sight, *New image ↑*
-beside the progress goes up to it - the page never scrolls on its own.
+(or *↓*; in a one-column window a pill under the top bar) goes to it - the page
+never scrolls on its own. A job's end, and a job joining the queue, are said
+once to a screen reader.
 
 **When the server stops answering** the top bar's dot turns red and reads
 "server not answering — retrying", Generate, Run grid, the Refine dialog's
@@ -882,9 +943,20 @@ you fill in varies. An empty grid is exactly the image Generate would have made.
 | LoRA weight | the same syntax, needing an adapter selected | `0-1x0.25` |
 | Budget | minutes; start no cell after this long | `420` |
 
+The boxes' placeholders are the checkpoint's own: a quarter of its steps
+either side, a step of CFG either side of its CFG (upward from a CFG that
+leaves guidance off, none where the model ignores the CFG box), and Mu's
+`none,<its mu>` where it has one. An axis the checkpoint or the installation
+cannot use reads *unavailable*, its badge saying why. Where the scheduler's
+shift is a fixed number (Z-Anime, NetaYume, NewBie: 1.79; Z-Image: 1.10), Mu's
+`none` is that number, which the Mu box shows in place of "auto" and the
+preview and the sheet read as `none (1.79)`.
+
 They cross: two sizes, two grounds, four step counts and two seeds is 32 images.
 The panel previews what it would run before you commit to it — the resolved
-axes, the finished prompts, the image count, and once the gallery holds anything
+axes, the finished prompts (in a box of their own that scrolls past eight
+lines; a prompt written over lines is listed by the lines a variable is on),
+the image count, and once the gallery holds anything
 at that size to measure against, roughly how long and roughly how many
 gigabytes of PNG. The top bar shows the free space on the images volume, and
 the preview turns amber when the estimate is more than that: a night that
@@ -932,7 +1004,15 @@ on the row and in the PNG, so Reuse restores them and a resumed grid tells a
 0.5 cell from a 0.75 one. Not available under `LOCAL_DIFFUSION_QUANT=nunchaku`: those
 checkpoints arrive quantized to 4-bit SVDQuant and their linear layers are not
 what an adapter attaches to — the server says so rather than failing at the
-first image.
+first image. Nor on Anima Turbo or NewBie, whose pipelines are this app's own
+with no adapter path: the select is greyed with that reason, and a request is
+refused at submit.
+
+A reference image deleted in another tab, or before a reload, is checked with
+the server once its chip's picture fails or a Generate is refused for it, and
+taken out of the references; the next press runs without it. Importing a
+picture of your own as a reference is not built yet: references come from the
+gallery.
 
 ### Varying the prompt
 
@@ -952,8 +1032,9 @@ prompts the block resolved to, and marks a variable left with one value - most
 often `size = big, small`, commas where the `|` goes.
 
 `none` is a value too — the word and the space it sat in both come out, so the
-third size is `dog sitting on grass`. That is how you compare saying something
-against not saying it at all.
+third size is `dog sitting on grass`, and nothing else in the prompt changes (an
+indented XML prompt keeps its indentation). That is how you compare saying
+something against not saying it at all.
 
 While the fold is open with variables in it and a `{name}` in the prompt,
 Generate refuses - it would render the braces - and says Run grid fills
@@ -976,10 +1057,13 @@ the grid axes and the variable block come back after a reload or a restart,
 and steps, CFG and mu come back when the server is running the checkpoint
 they were set on. Resume is the one box that never comes back ticked - a
 resume you did not mean is a night that silently skips cells. Per browser,
-per origin, and dropped without complaint where storage is blocked. **Reset**,
+per origin, and dropped without complaint where storage is blocked; two tabs
+share it, each writing back only what it changed. **Reset**,
 at the end of the Prompt caption, is the way out: every box back to the
-checkpoint's defaults and the memory forgotten - with an Undo in the panel's
-line for a little while, in case it was a slip. Clearing the gallery does not
+checkpoint's defaults and the memory forgotten - with an Undo under the prompt
+for a little while, in case it was a slip, and Ctrl+Z in the prompt giving its
+text back after that. It leaves the gallery's view settings (card size and fit,
+Gallery beside, the sheet's Fill width) alone. Clearing the gallery does not
 do this — that is a deletion on the server, and the browser's memory is its
 own.
 
@@ -1021,7 +1105,9 @@ the top bar, rather than claiming to be behind another job; **Load** in the top
 bar starts the download without queueing an image to do it. A failed load
 fills the empty viewer with what went wrong and what to do - for a gated repo,
 the model page to accept its terms on and `uv run hf auth login` - and **Retry
-load**, which is also the top bar's button then.
+load**, which is also the top bar's button then. A queued job says what it
+waits behind: the load, a job ahead, a job ahead that is paused (with where to
+resume it), or another tab's prompt critic or Expand.
 
 **Resume** skips the cells the gallery already holds: tick it and re-submit the
 same grid, and a night that died at cell 300 of 480 costs the cell it died on,
@@ -1075,23 +1161,31 @@ The **Runs…** picker over the gallery is the same thing by name: grids and
 batches first, each with its image count (and its prompt count where there
 are several) and what it varied - "steps×CFG 3×2", "strength 0.05-0.15 of
 #37", "comparison · 3 versions" - then the newest eight single images, each by the second it was
-made and its seed. Picking one searches `run:<id>` and opens its sheet, and
-the picker keeps naming whichever run the search box shows, however it got
-there - a card's ⊞, Show run, typing.
+made and its seed (an XML prompt by its words, not its tags). Picking one
+searches `run:<id>` and opens its sheet, and the picker keeps naming whichever
+run the search box shows, however it got there - a card's ⊞, Show run, typing.
+From the keyboard the arrows only browse the closed picker; Enter, or leaving
+it, opens the run shown, and Escape puts back the one that was.
 
 Each card's tools - ↻ Reuse, ⤢ Refine, ❐ Reference, ⊞ Sheet and ⌦ Delete,
 set apart at the end - name themselves as the pointer or the keyboard
-reaches them. Refine and Reference are dimmed on a checkpoint that cannot
+reaches them, and hovering or keyboard-focusing a card shows its #N, size and
+seed over the row. Refine and Reference are dimmed on a checkpoint that cannot
 use them, and still say why when pressed. ❐ is a toggle: a card that is a
 reference image is ringed and numbered as its chip is. The star in a card's
 corner is a button, shown on every starred card and on any card under the
-pointer, and a refine pass carries its strength (`⤢ 0.1`) top left; a pass
+pointer (a star on an image another tab deleted marks it deleted, as Delete
+would), and a refine pass carries its strength (`⤢ 0.1`) top left; a pass
 whose source has been deleted says so in its title, and its Reuse fills the
 panel, since the pass cannot be made again. From the keyboard the gallery is
 one tab stop: Tab reaches the card you were on - or the newest image, if you
 have not chosen one since the gallery was last searched - the arrow keys walk
 the grid (Down past the last row loads the next page), Home and End jump,
-Enter opens the lightbox and F stars; Ctrl+Enter there still generates.
+Enter opens the lightbox and F stars, which a screen reader hears; Ctrl+Enter
+there still generates. On a window 1800 px or wider the gallery's head chooses
+the cards' size (**S** fits eleven a row at QHD, **M** eight) and whether they
+show the whole picture (**Fit**) or fill the card (**Crop**); the browser
+remembers both, and below 1800 px neither applies.
 
 **Reuse** (↻) puts an image's prompt, negative prompt, seed, size, steps,
 CFG, Mu, references and adapter back in the panel and says so in the
@@ -1138,8 +1232,9 @@ comparison's version, so the re-rendered run's sheet keeps its rows. Star the
 winners of a 1 MP night, tick Starred, pick 4 MP, click. Cells already
 rendered at that size are skipped, so it can be resumed like a grid, and
 a selection made on another checkpoint - which only All models lets in -
-is refused rather than run with the wrong steps and CFG (untick it, or
-let `model:` narrow the selection). Be honest with yourself about what
+is refused rather than run with the wrong steps and CFG (untick it; the
+refusal offers a `model:` term only where the running checkpoint's whole id
+leaves every other one out, since `model:Anima` would match Animagine too). Be honest with yourself about what
 comes back: the pipeline draws its noise at the new shape, so the same seed
 at 4 MP is a new sample - the prompt and the settings carry over, the exact
 picture does not.
@@ -1160,6 +1255,9 @@ empty - free text is matched fuzzily, and a deletion is not confirmed
 blind. A starred image keeps what it was made from - a refine pass its
 source, a klein render its reference images - and the dialog names those
 too, with how many runs the delete reaches into and when they were made.
+Before it asks, the grid is brought up to what the sweep reaches, so images
+another tab made since this page loaded are at the top of the grid and counted
+in the dialog, and a job running in any tab is named as one that may land more.
 It is `clear --where ... --keep-favorites` (below) over HTTP: rows
 and their files, no orphan sweep.
 
@@ -1182,15 +1280,17 @@ declared them in - `size = small | big` reads small, big - and with
 Starred ticked, or a search narrower than the run, the sheet asks for the
 whole run once to keep that order; after Delete unstarred, a value whose
 first images were deleted can move down. Cells take the run's own
-aspect ratio and show the whole frame, and a starred cell carries its star, so
-where the keepers cluster is visible on the sheet rather than only in your
-head. A prompt grid's images record which variable took which value, so on
+aspect ratio and show the whole frame, and a starred cell carries its star (☆
+on hover stars one), so where the keepers cluster is visible on the sheet
+rather than only in your head. A prompt grid's images record which variable took which value, so on
 the sheet each variable is an axis of its own - `size` across, `ground` down -
 and a `none` value reads as `none`; images from before that was recorded fall
 back to the single Prompt axis below. **Export PNG** downloads the sheet as
 one image - labels, stars and a caption naming the search, the pins, the
 checkpoint and the run - which is the artefact worth keeping from a night
-and the one a screenshot cannot give you whole. The Prompt axis is labelled
+and the one a screenshot cannot give you whole. **Export all**, where something
+is pinned, puts every pinned slice in one image, a titled block per slice, or
+saves one image per slice when stacked they would pass 8,000 px. The Prompt axis is labelled
 with only the words that vary — `big grass`, `small dirt` — when every prompt
 has the same word count. A `none` value makes one prompt shorter than the
 others; the labels then keep what is left once the shared head and tail come
@@ -1201,17 +1301,27 @@ unreadable. Where it would still leave labels alike or longer than a line -
 successive edits of one prompt, searched by a word they share - each column
 is labelled by its edit against the oldest (`+, film grain`, `−golden +blue`),
 the columns in the order the prompts were written; a heading's tooltip is its
-whole prompt. A comparison's rows read Original, Reordered, Rewrite and Your
-version, each with its edit against the original under the name.
+whole prompt. Edits made on random seeds share no seed, so they lay out as a
+diagonal or with the seed pinned to one image; the note says so and points to
+Check's Compare on the same seeds. A comparison's rows read Original,
+Reordered, Rewrite and Your version, each with its edit against the original
+under the name - for an XML prompt whose blocks only moved, the move by tag
+("same blocks, moved: `<general_tags>` first").
 
 A sheet the page opens - a comparison, a strength sweep, a run from **Runs**
-or a card's ⊞ - scrolls into view under the gallery's search bar, and its
-cells are sized to fit the screen's height as well as its width, so a 4 x 3
-is one screen; a matrix too tall even at the smallest cells scrolls in a box
-whose headings stay in view. A run where only the seed varies wraps into
+or a card's ⊞ - scrolls into view under the gallery's search bar, taking the
+keyboard's focus with it where the control that opened it is left out of
+sight, and its cells are sized to fit the screen's height as well as its width,
+so a 4 x 3 is one screen; **Fill width** lets the cells take the whole width
+instead (the browser remembers it, and the export follows it, at the screen's
+own pixels). A matrix too tall even at the smallest cells scrolls in a box
+whose headings stay in view, and a long seed in a heading breaks only between
+groups of four digits. A run where only the seed varies wraps into
 captioned cells rather than one long row. A line above the grid names what
 every image shares (**Fixed:** steps, CFG, seed…) - with Starred ticked,
-what the keepers have in common. **F** on a focused cell stars it. A strength
+what the keepers have in common. **F** on a focused cell, or the ☆ in its
+corner, stars it. To a screen reader the sheet is a table whose cells are named
+by their settings, and its opening is said. A strength
 sweep shows its source as the first column, and a refine pass carries its
 strength on the cell where strength is not an axis. With and without
 reference images is an axis of its own on klein, and images that share a cell
@@ -1264,9 +1374,17 @@ checkpoint's prompting guide, the **?** beside Size its sizing (every **?**
 opens its tip on hover or on keyboard focus, and a screen reader hears it
 named for what it explains), the line
 under the width and height warns when a size is outside what its authors
-documented, and **Examples** drops down the authors' own prompts - click one
+documented - or, where they published no range and only example sizes
+(NetaYume, NewBie, WAI), says it is above or below those examples, not what the
+checkpoint is "for"; a size typed in is judged by the preset framing nearest
+it - and **Examples** drops down the authors' own prompts - click one
 and it fills the box (Ctrl+Z, or the Undo the note under the box offers, brings
-back a prompt it replaced). Tag-caption checkpoints can also show **Tags**; for
+back a prompt it replaced). A template among them (Z-Anime's portrait and
+landscape, NewBie's XML) says which slots it leaves to fill, and the pick
+selects the first, so what you type next replaces it. Where no tag chips show,
+a line under the prompt box counts its tokens once the prompt has used three
+quarters of the tightest encoder's budget, and turns amber past it, naming where
+reading stops. Tag-caption checkpoints can also show **Tags**; for
 Animagine it exposes only the model card's person-count, rating, quality, score
 and year controls, inserts at the prompt caret - it opens under the box and
 says where that is - finishes with the recommended
@@ -1282,9 +1400,10 @@ the checkpoint. While typing a supported checkpoint's
 tag prompt, autocomplete comes from Danbooru's live tag index (Tab or Enter
 takes the first suggestion once three characters match it) and each
 comma-separated item gets a green recognised, red unknown, or grey unchecked
-chip; a green chip's edge is its Danbooru category, and the chips past where
-the CLIP encoders stop reading are dimmed, with the token count beside the
-tray's label. Illustrious remains hybrid: spellcheck stays on and a single natural-
+chip; a green chip's edge is its Danbooru category, a small caption at its
+start names the step of the guide's documented order Check places it in (none
+where Check cannot place it), and the chips past where the CLIP encoders stop
+reading are dimmed, with the token count beside the tray's label. Illustrious remains hybrid: spellcheck stays on and a single natural-
 language sentence does not become one unknown tag chip. On a wide page the
 full validation list uses the results column, so it
 does not move Generate and never gets its own scrollbar. Drag chips to reorder
@@ -1294,15 +1413,21 @@ insert at that boundary, right-click a chip to insert after it, or use
 **+ tag** at the end, with inline autocomplete; Ctrl+Z undoes any of it. The
 lookup is advisory and never blocks generation; if the network is
 unavailable, ordinary tags remain unchecked rather than being called invalid.
-Only tag text is sent to the index, never images or generation settings. ERNIE
+Only tag text is sent to the index, never images or generation settings; the
+prompt itself goes only to the local server, which places the chips. ERNIE
 also shows
 **Expand**: it runs the checkpoint's
 rewriter once at the selected width and height and puts the result in the
-textarea for review, with a local English translation underneath. The Chinese
-text remains the generation prompt; the translation is a reading aid and is
-hidden as soon as that prompt is edited. The first use downloads and loads the
-separate 7.7 GB rewriter plus Marian's 312 MB Chinese-to-English weights; later
-uses reuse both until Unload. Image generation never rewrites silently, so the
+textarea for review, with a local English translation beside it (under the
+prompt, or at the head of the results on a window 1800 px wide or more).
+Ctrl+Z, or the note's Undo, gives back the prompt it replaced. While it runs,
+the line under the prompt says what it is waiting on, with a clock; if you type
+in the box meanwhile, the result waits under it (Use it, Discard) rather than
+writing over your edit. The Chinese text remains the generation prompt; the
+translation is a reading aid and goes as soon as that prompt is edited. The
+first use downloads and loads the separate 7.7 GB rewriter plus Marian's 312 MB
+Chinese-to-English weights, which Expand's tooltip says beforehand; later uses
+reuse both until Unload. Image generation never rewrites silently, so the
 visible Chinese prompt is still the prompt stored with the image.
 All of it is sourced from the model cards, READMEs and
 prompting guides (the URLs are in `docs/design-notes.md`), none of it
@@ -1318,7 +1443,7 @@ invented. In brief:
 | Krea 2 Raw | The same; an undistilled base Krea does not recommend for inference | Qwen3-VL, 512 | Trained to 1k: 1 MP |
 | Z-Image Turbo | Long, plain, objective description, English or Chinese; text in quotes | Qwen3-4B, 512 | 0.26-4.2 MP documented, trained to the 1k-1.5k range |
 | Qwen-Image | Dense caption in colour/shape/texture/quantity/text terms; append ", Ultra HD, 4K, cinematic composition."; True CFG 4 with a negative prompt | Qwen2.5-VL, 512 | Trained to 1328x1328; the README's shapes are 1.5-1.8 MP |
-| ERNIE-Image Turbo | Expand a short prompt, then review its detailed Chinese paragraph and local English translation | Ministral-3, 2048 | Seven 1 MP shapes listed, nothing above |
+| ERNIE-Image Turbo | Expand a short prompt, then review its detailed Chinese paragraph and local English translation | Ministral-3, 2048 | Seven recommended 1 MP sizes, nothing above |
 | Animagine XL 4.0 Opt | Danbooru tags: person count, character and series, rating, subject/pose/scene, then quality tags; use its negative prompt | CLIP + CLIP, 77 tokens | Trained at 1024x1024; nine recommended shapes around 1 MP |
 | Kohaku XL Zeta | Tags, natural-language descriptions or both; its own quality, rating and date tags | CLIP + CLIP, 77 tokens in this app | 1024x1024 or similar pixel count recommended |
 | Illustrious XL v2.0-STABLE | Tags or natural-language descriptions; an untuned base with no default style, so name an artist or style, one composition tag, and use its negative prompt | CLIP + CLIP, 77 tokens | Native 1-2.25 MP documented; up to 4 MP with some loss |
@@ -1342,9 +1467,12 @@ for it. On a tag checkpoint - and on Anima, whose "@ before an artist name"
 needs to know which tags are artists - it asks Danbooru's tag index what the
 comma items are, sending the tag text only, as the chips do; offline, those
 checks stand down rather than guess, and the panel says they did (on Anima,
-that not every tag was checked for an artist name). The panel it opens -
-above the results, or beside the image in a column of its own on a window
-1800 px wide or more - has:
+that no tag was checked for an artist name, or, past the first 64 tags a check
+looks up, that not every tag was). On Anima the comma tags of a prompt that
+otherwise reads as prose are asked about too. The panel it opens - above the
+results, at most about half the window and scrolling inside itself, or beside
+the image in a column of its own on a window 1800 px wide or more (or in the
+gallery's column with Gallery beside) - has (Escape closes it):
 
 - **Encoders**: one row per text encoder, tokens used against what the
   pipeline keeps, and - past that - "stops reading at ..." (click it to
@@ -1390,9 +1518,14 @@ above the results, or beside the image in a column of its own on a window
   **Guide** (the checkpoint's guide - its words follow the finding when
   short, and are the badge's tooltip either way; click for the source), **Authors** (an author's example), **Encoder** (what the
   pipeline's own tokenizer does) or **Heuristic** (this app's own pattern
-  check, not an author's rule). Click a finding to select its words;
+  check, not an author's rule). **Show** (or a click on the finding) selects
+  its words, and outlines the box it selects in for a moment (not under
+  reduced motion);
   **Apply** replaces the field with the fixed text - quotes added, tags moved,
-  the recommended suffix or negative prompt - and Ctrl+Z undoes it. Unquoted
+  the recommended suffix or negative prompt - and Ctrl+Z undoes it; on the
+  prompt it also puts the prompt it replaced into an empty Your version under
+  Compare. On klein, each "image N" a finding names is a link to that
+  reference chip. Unquoted
   sign text is quoted whole ("Fish and Chips", "Welcome to Paradise"); where
   its end is a guess ("says fish and chips for sale", Chinese lettering that
   runs into 的 or past twelve characters, English `MADE IN JAPAN`, or
@@ -1405,8 +1538,12 @@ above the results, or beside the image in a column of its own on a window
   for certain at 字样 or at a count of its characters (写有欢迎字样 and
   写着欢迎两个字 quote 欢迎); 等 before 字样, or a verb that places the sign
   (挂在, 位于), ends it as a guess, unless the sign itself asks for that verb
-  (请站在黄线外, 禁止停放在此). A negative prompt's Apply is dead, and says
-  why, while the negative box is greyed at the current CFG.
+  (请站在黄线外, 禁止停放在此). A negative prompt's Apply and Show are dead,
+  and say why, while the negative box is greyed at the current CFG. On
+  NetaYume a retyped copy of the system instruction the app adds, or another
+  workflow's instruction ahead of `<Prompt Start>`, is cut by Apply. A Chinese
+  or Japanese prompt is counted in characters, and a list parted by "，" or by
+  line breaks reads as a tag list.
 
 Editing either prompt, changing whether CFG or True CFG applies the negative
 prompt (even when an open grid keeps its editor enabled), or changing the
@@ -1462,7 +1599,9 @@ or for Y before X); an instruction in the negative ("avoid putting the
 style before the subject") asks for nothing it names. A part is kept only
 as the prompt's own words, and "text to render" only as words the prompt
 asks to letter. A "reordered" version that adds, drops or changes a word -
-or, in a JSON prompt, writes a number otherwise, 0.50 as 0.5 - is
+or, in a JSON prompt, writes a number otherwise, 0.50 as 0.5; or, in NewBie's
+XML, moves a word inside or between blocks, or puts `<general_tags>` ahead of a
+character block against the authors' order - is
 discarded; one that survives is shown in your own words - their case and
 spelling as you wrote them - in the critic's order. On a tag checkpoint
 whose tags Check placed, only Check's own reordering survives - unless
@@ -1487,7 +1626,9 @@ can send. The rewrite is then put through the same checks as the prompt,
 listed under it, each marked "also in your prompt" or "new", with the
 prompt's findings it no longer has after them - apart from those that rest
 on the tag index (a tag's order, an artist's @), which the rewrite's check
-does not ask, so they are listed as possibly still applying. **Changed from original**
+does not ask about on its own, so they are listed as possibly still applying.
+An artist's @ is called fixed where the check's own answer covers every artist
+the rewrite may name and the rewrite writes none without its @. **Changed from original**
 gives the number of characters added and removed, the line under it the
 first few changes; open it to see the marked text. If no rewrite survives,
 the answer says **No rewrite offered** and explains anything set aside.
@@ -1498,10 +1639,10 @@ and the critic is instructed to keep them generic.
 
 What survives is still a 4B model's suggestion - it can misapply a source,
 and it pads short prompts with scenery and mood however it is told not to -
-so read the rewrite before **Use rewrite**. **Use rewrite** and
-**Use reordered** replace the prompt (Ctrl+Z restores it), and put the
-prompt they replace into Your version under Compare while that box is
-empty, so **Run comparison** sets the two side by side. A critique takes
+so read the rewrite before **Use rewrite**. **Use rewrite**, **Use
+reordered** and a prompt finding's **Apply** replace the prompt (Ctrl+Z
+restores it), and put the prompt they replace into Your version under Compare
+while that box is empty, so **Run comparison** sets the two side by side. A critique takes
 10-20 seconds and about 6 GB (5.5 GiB) of VRAM, then the critic's server is
 stopped (`docs/verified.md` has the measurements). It waits for the image
 queue - the button is held while a job is queued or running - and Generate
@@ -1567,23 +1708,33 @@ Applied automatically; see `backend/model_defaults.py`.
 | FLUX.2 [klein] base 4B / 9B | 50 | 4.0 | — |
 | FLUX.1 [dev] | 28 | 3.5 | — |
 | FLUX.1 [schnell] | 4 | 0.0 (ignored) | — |
-| Z-Image Turbo | 8 | 0.0 | — |
+| Z-Image Turbo | 8 | 0.0 | Blank: fixed shift 3 (1.10) |
 | Qwen-Image | 50 | 1.0 (ignored; True CFG 4) | — |
 | ERNIE-Image Turbo | 8 | 1.0 | — |
 | Animagine XL 4.0 Opt | 28 | 5.0 | — |
 | Kohaku XL Zeta | 28 | 5.0 | Unavailable |
 | Illustrious XL v2.0-STABLE | 28 | 5.0 | — |
 | WAI Illustrious v17 | 28 | 6.0 | Unavailable |
+| Z-Anime Base | 40 | 4.0 | Blank: fixed shift 6 (1.79) |
 | Anima Turbo v1.1 | 8 | 1.0 | Unavailable |
-| NewBie image Exp0.1 | 28 | 4.0 | Blank; static shift 6 |
+| NetaYume Lumina v4 | 40 | 5.0 | Blank: fixed shift 6 (1.79) |
+| NewBie image Exp0.1 | 28 | 4.0 | Blank: fixed shift 6 (1.79) |
 
-A negative prompt roughly doubles generation time, because it adds a second
-forward pass per step. On Krea 2 it takes effect above CFG 0, on Krea 2 Raw
-likewise; FLUX.2 [klein] takes no negative prompt at all, and the field greys
-out for it.
+Where Mu is blank over a fixed shift, the Mu box shows that number rather
+than "auto": nothing about it is automatic, and a value typed there replaces
+it.
 
-**FLUX.1 is different**: its CFG box is the *distilled guidance value* the
-model takes as an input, not classifier-free guidance, and the negative prompt
+A negative prompt costs the second forward pass per step that classifier-free
+guidance runs; where CFG is real CFG that pass runs above the threshold whether
+the box holds anything or not, so the field's caption says "no extra cost" while
+it is live, and names the price only where waking it means raising CFG (or, on
+FLUX.1, setting True CFG, which runs the pass for the negative alone). On Krea 2
+it takes effect above CFG 0, on Krea 2 Raw likewise; FLUX.2 [klein] takes no
+negative prompt at all, and the field greys out for it.
+
+**FLUX.1 is different**: its CFG box - labelled **CFG (distilled)** - is the
+*distilled guidance value* the model takes as an input, not classifier-free
+guidance, and the negative prompt
 is driven by a fourth box, **True CFG** - real CFG kept apart from the
 guidance value, blank meaning off. Above 1 the pipeline runs the second,
 unconditioned pass against the negative prompt; the two usual recipes are
