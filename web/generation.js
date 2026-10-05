@@ -1439,7 +1439,9 @@ function useSeed(seed) {
 // count is drawn as the page lands and the cards by joinFinished, which can
 // wait for the pointer; answers the ids that page holds (noteOutsideView).
 // `now` puts them in without that wait: Delete unstarred brings the grid up
-// to what it would sweep before asking, under a dialog the pointer is not on.
+// to what it would sweep before asking. Its press was on the head's own
+// button (or a key), not on the cards, and its modal question follows
+// within one round trip, so no card moves under a pointer about to press it.
 function prependFinished(made, { now = false } = {}) {
   if (sheetMode || !galleryRecords.length) return resetGallery();
   const epoch = galleryEpoch;

@@ -1308,6 +1308,7 @@ async function deleteUnstarred() {
     found = await api(`/api/gallery/unstarred?${params}`);
   } catch (err) {
     showError(err.message, false, slot);
+    keepUnstarredFocus();
     return;
   }
   // The checkpoint scope is part of what is confirmed: with All models off
@@ -1327,8 +1328,12 @@ async function deleteUnstarred() {
   }
   const sources = found.sources_kept ?? 0;
   if (!found.unstarred) {
+    // None left at all - another tab deleted them since this page looked -
+    // is not "every image is starred".
     const kept = sources ? ' or one a starred image was made from' : '';
-    showError(`Nothing to delete: every image ${scope} is starred${kept}.`, true, slot);
+    showError(found.records ? `Nothing to delete: every image ${scope} is starred${kept}.`
+      : `Nothing to delete: no image is left ${scope}.`, true, slot);
+    keepUnstarredFocus();
     return;
   }
   const plural = found.unstarred === 1 ? '' : 's';
@@ -1375,7 +1380,7 @@ async function deleteUnstarred() {
     // most often. The page shows the server's count rather than the one the
     // message has just called stale. Whether a job is still running is in
     // the server's sentence: it may be another tab's.
-    resetGallery();
+    void resetGallery().then(keepUnstarredFocus);
     loadRuns();
     showError(err.message, false, slot);
     return;
@@ -1384,10 +1389,21 @@ async function deleteUnstarred() {
   // The page is now mostly holes; ask for it again from the top, which also
   // brings the badge back to the server's count - and clears the slot, so
   // the outcome is written after it.
-  resetGallery();
+  void resetGallery().then(keepUnstarredFocus);
   loadRuns();
   const went = result.deleted.length;
   showError(`Deleted ${went} image${went === 1 ? '' : 's'}, ${keeping}.${also}`, true, slot);
+}
+
+// A reload that leaves nothing in scope hides the button (syncDeleteUnstarred)
+// and, where focus was on it, dropped it to <body> - a sweep that took every
+// image, or one another tab had already emptied. The search box instead,
+// which says what the scope was, as the other delete paths keep focus off
+// <body>.
+function keepUnstarredFocus() {
+  const at = document.activeElement;
+  if (!els.deleteUnstarred.hidden || (at && at !== document.body && at !== els.deleteUnstarred)) return;
+  els.search.focus({ preventScroll: true });
 }
 
 // The dialog's line for what the grid has just been brought up to: the
@@ -1402,11 +1418,14 @@ function freshLine(head, found) {
   const n = Math.min(found.unstarred,
     galleryRecords.filter((r) => r.id > head && !r.favorite && !kept.has(r.id)).length);
   if (!n) return [];
+  // At the top of the grid: a page scrolled down keeps its view
+  // (holdGalleryView), so they may be above it rather than in sight.
+  const was = n === 1 ? 'was' : 'were';
   if (galleryMore && galleryRecords.at(-1).id > head) {
-    return [`At least ${n} of them were made since this page last loaded; the newest are shown now.`];
+    return [`At least ${n} of them ${was} made since this page last loaded; the newest are at the top of the grid now.`];
   }
-  return [`${n} of them ${n === 1 ? 'was' : 'were'} made since this page last loaded; `
-    + `${n === 1 ? 'it is' : 'they are'} shown now.`];
+  return [`${n} of them ${was} made since this page last loaded; `
+    + `${n === 1 ? 'it is' : 'they are'} at the top of the grid now.`];
 }
 
 // Shown while there is something it could act on: the filter matches images
