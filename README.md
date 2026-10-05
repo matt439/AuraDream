@@ -1079,8 +1079,9 @@ and every way of ending early was an accident. Give the grid more than the
 night can do, set Budget to the minutes you have (`--budget` in the
 terminal; counted from the start, load included), and it starts no cell after
 that. Once the gallery has timed renders at the grid's size, the grid preview
-says how many of the seeds the minutes complete, and that the load or a job
-queued ahead spends them too while there is one. The stop is reported as the
+says how many of the seeds the minutes complete - counting the seed whose
+last cell starts in time, since a cell in flight runs to its end - and that
+the load or a job queued ahead spends them too while there is one. The stop is reported as the
 budget working, not as a cancel, and Resume finishes what was not reached.
 
 **Seed list** is the second night: the two seeds that gave the composition you
@@ -1091,13 +1092,17 @@ the record.
 
 While a job runs, the line under the progress bars says how long it has been
 going and roughly how long is left, from the job's own pace so far - which is
-what shows a run that has slowed down. When it finishes, a line under the
+what shows a run that has slowed down - from its second step on: the first
+carries the model's move onto the card, and a refine pass's encode of its
+source. When it finishes, a line under the
 progress says how many images it made and in how long - and how many of them
 were distinct pictures, when that is fewer - with what to do next: a plain
 job's seed and *Use seed*, which puts it in the Seed box and nothing else;
 *Show sheet* for a grid (never opened for you); and, where cells were skipped,
 *Retry the N skipped cells*, which sends the grid as it was submitted again
-with Resume and its base seed, whatever the panel holds now. That line stays
+with Resume and its base seed, whatever the panel holds now; a refine sweep
+whose source has since been deleted cannot run again, and the button says so
+and holds. That line stays
 until the next job finishes - "Previous job:" while a queued one runs - so a
 grid's Retry is still there in the morning with jobs queued behind it. What
 the job's end says in the panel's line - cancelled, its time budget, an

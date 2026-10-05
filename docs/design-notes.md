@@ -194,6 +194,18 @@ status still says the same. A card that goes with focus in it - its Retry
 load pressed, the load on its way - hands focus to Generate, or to the new
 card's Retry load where the detail changed, not to the page's body.
 
+**`HF_HUB_OFFLINE` is named wherever the Hub's miss came from it**
+(2026-10-05). For an uncached file under `HF_HUB_OFFLINE`, huggingface_hub
+1.29's request hook refuses the HEAD with `OfflineModeIsEnabled` and
+`_raise_on_head_call_error` raises `LocalEntryNotFoundError` *from* it.
+`_hub_failure` took the first class on the chain, so the card said "Hugging
+Face cannot be reached: connect to the network" while the network was up
+and the variable was the cause (`docs/verified.md`, Behaviour). It now
+prefers `OfflineModeIsEnabled` wherever it is on the chain, and is
+first-found otherwise. The test builds the chain with the library's own
+`hf_hub_download` under its offline switch (`tests/test_api.py`), so a
+release that chains it differently fails there rather than on the card.
+
 **What became of the job, and where the load stands now** (2026-10-05). A
 Generate that ended at the load sent the panel back to Generate with no word
 of the image it had queued. Its finish line now says "Not made: the model
@@ -601,6 +613,39 @@ Measured on the frosting-lane file against the cached checkpoints: fits
 FLUX.1 Krea; 494 modules Z-Image has not got; 454 klein has not got; the
 right names at the wrong width on Krea 2; no `transformer` on SDXL.
 
+**The skeleton is never built beside a load** (2026-10-05).
+`accelerate.init_empty_weights()` builds on the meta device by replacing
+`torch.nn.Module.register_parameter` - for the whole process, every thread,
+while it lasts - and puts back what it found on entry. The page asks
+`/api/loras` on its first status, so on a cold process the listing built the
+denoiser's skeleton while a Load pressed within seconds of opening the page
+ran on another thread: the load's parameters went through the patch as
+torchao quantized them, and WAI failed three times out of three with
+`Float8Tensor.__new__() got multiple values for argument 'qdata'`
+(`docs/verified.md`, Behaviour). Two builds at once - two listings - were a
+second hazard: the one leaving last restores the other's patch, and every
+parameter registered after that, the next load's, would go to meta for the
+life of the process. `torch.device('meta')` as a context would patch nothing
+shared - its TorchFunctionMode stack is per thread in torch 2.13, and the
+one module global it sets, `torch.utils._device.CURRENT_DEVICE`, only
+dynamo's guards read - but it puts every tensor a constructor makes on meta,
+buffers and intermediates included, where `init_empty_weights` leaves buffers
+on the CPU, and a constructor that reads a value it computed (`.item()`,
+`.tolist()`) fails there; the catalogue's denoisers were not each checked
+against it. So the two are kept apart instead: `loading.weights_loading()`
+is held across the whole of `load()`, the single-file conversions that patch
+the same way inside it included, and `loading.empty_weights()` wraps the
+build. A load waits out a build in progress - tens of milliseconds; a build
+asked for during a load raises `LoadInProgress` rather than wait the minutes
+out, and the fit goes unchecked until the load, as for a config out of reach,
+the listing after the status turns ready answering from the live denoiser;
+builds go one at a time. Every other weight load in the process - Expand's
+rewriter, the translator - runs with the pipeline loaded, when the fit reads
+the live denoiser and builds nothing. `tests/test_conditioning.py` runs each
+case on threads; on the card, three fresh WAI processes with Load pressed
+0.87 s after the page opened each loaded, the listing logging the fit
+unchecked during the load.
+
 **Two integrations refuse adapters by the id, whatever the environment**
 (2026-10-05): Anima Turbo and NewBie, whose pipelines are this repo's own
 classes with no adapter path. `loading.lora_refusal(model_id)` is that one
@@ -816,6 +861,34 @@ any image that has gone - "#28 has been deleted, so it cannot be refined."
 with the source line ending "#28 (deleted)" - since the server's "no gallery
 image with id 28", under a dialog still titled Refine #28 over its picture,
 read as a setting gone wrong.
+
+**A source deleted while its pass runs** (2026-10-05). A cell reads its
+source as it begins, so a delete during the cell does not stop it: the pass
+lands, made from an image that has gone. `save_image` returned its record
+without looking the source up - `refine_missing` is no column, and only
+`list_images` and `get_image` asked (`_missing_sources`) - and the page's
+`forgetImages` marked only the records it already held, so on the card the
+late pass read "refine of #N @ 0.3" with no "(deleted)", and its Reuse
+offered the Refine dialog on the source until a reload, beside a pass that
+had landed before the delete and said the source had gone. `save_image` now
+asks `_missing_sources` in the transaction it inserts in, under the write
+lock a delete takes; `jobs.forget_images` marks a job's replayed records
+whose source a delete took, as the gallery's are; and the page keeps every
+id it has seen deleted (`deletedIds`, from `forgetImages`) and marks an
+arriving pass made from one (`markGoneSource`, in the stream's `show`), since
+a record saved just before the delete committed reaches the page after it.
+
+The sweep that delete stops cannot resume. On the card, the source deleted
+during cell 2 failed cells 3-5 within milliseconds (`ValueError: no gallery
+image with id 1`) and the failure rule ended the job; its finish line offered
+"Resume the remaining 8 cells", which the server refused at submit as "no
+gallery image with id 1", said under Generate as that and nothing more, and
+the button stayed live, refused the same at every press. Retry and Resume now
+say "#N, this sweep's source, was deleted: the run cannot resume." (Retry:
+"its skipped cells cannot run again") and hold, `aria-disabled` with the
+sentence as the title and a press saying it again: before sending where the
+page saw the delete (`deletedIds`), else on the server's refusal of the
+source by id (`startJob`'s `onRefused`).
 
 **A guess says it is one** (2026-10-05). `refine_supported` is the profile's
 guess before a load and the loaded class's answer after it, and the status
@@ -1825,11 +1898,16 @@ start a night, so it reads at body size; the axes and notes stay hint text.
 Under the prompts come the notes: cells already in the gallery (below), a
 variable that never varies, Repeat above one (a grid steps its own seeds,
 so the panel's `runs` is sent as 1 and the preview says it does not apply),
-and a time budget. The budget line divides the estimate by the seed count -
-every seed runs the same cells, so a seed's share is exact under the
-estimate - and says how many seeds the minutes complete, warning at none;
-it needs the estimate, and is left out under Resume, whose seeds are no
-longer alike. The budget runs from submission (`jobs.submit_cells` sets the
+and a time budget. The budget line says how many seeds the minutes complete,
+warning at none, as the server counts them (`GridPreview.budget_seeds`,
+`grid.seeds_within_budget`) by the job's own stop rule: each cell priced as
+the estimate prices it, in the order the job runs them, a cell starting while
+the deadline has not passed and running to its end. It had divided the
+budget by a seed's share of the estimate, which counts only the seeds that
+end in time; the seed whose last cell starts before the deadline completes
+past it, and on the card the line said 4 of 6 for a grid that made 5, its
+fifth seed's last cell begun at 110 s of 120 (2026-10-05). It needs the
+estimate, and is left out under Resume, whose seeds are no longer alike. The budget runs from submission (`jobs.submit_cells` sets the
 deadline), so the line says the load counts too while the model is not
 loaded, and the jobs ahead while the page is watching one: a Run grid
 pressed then queues, and its minutes go on the wait as well.
@@ -2862,9 +2940,16 @@ beside `status`, not a fourth state, because `cancel()` keys its instant
 path on `queued` and a new state would have turned Cancel-during-load into
 a multi-minute no-op. The label is set only when a load is actually
 needed. Progress events carry `elapsed` (server clock, since the job
-started running); the UI's ETA is `elapsed * (1 - f) / f` over the fraction
-of cells done, the job's own pace rather than the gallery's per-step
-median, so a run that has slowed shows it. The `done` summary goes into the
+started running); the UI's ETA is the job's own pace over the fraction of
+cells done, rather than the gallery's per-step median, so a run that has
+slowed shows it. It runs from the end of the job's first progress event
+(`etaFrom`: `(elapsed - e1) * (1 - f) / (f - f1)`), once a second has
+landed, and there is none before that (2026-10-05): the first step carries
+what no later one does - a pass's VAE encode of its source, the denoiser's
+move onto the card under offload - and extrapolated from the job's start a
+WAI pass said 28 s at step 1 for 9.5 s, FLUX.1's first image ~13 min. A
+one-step cell's next event is the next cell's, whose own encode every later
+cell carries too; a one-step job has nothing to estimate. The `done` summary goes into the
 finish line, `#finish-note`, which sits outside the element `setBusy` hides
 and which the next job's start does not clear.
 
@@ -3923,7 +4008,20 @@ job will fill is a track from the first frame (a tile's picture, its gap and
 its row): the strip had only the rows that were filled, so a 2x2 was one row
 while the preview denoised and grew by the second as the images landed - the
 gallery head went from 484 to 950 at QHD at the end of every landscape batch
-of three or four. A ResizeObserver refits on the next frame
+of three or four. So is every column (2026-10-05): the columns were `auto`,
+the empty ones no width, so a lone preview - or a pass's stand-in - sat
+centred, the first image landed there, and the row moved left by half a tile
+as each of the others landed (1248 to 512 px at QHD within 0.25 s, on Anima
+Turbo). `fitViewer` writes the tile's width as `--col-w` and the grid
+reserves every column at it, so the preview holds the first image's slot.
+The page keeps its scrollbar's room too (`html { scrollbar-gutter: stable }`,
+which Gallery beside's columns already had): a gallery too short to scroll
+the page took a scrollbar while the progress block was up and gave it back
+as the job ended, widening the strip by it - the tiles refitted 491 to 494 px
+and the gallery head moved 3 px at the end of a batch of four. The cost is
+the scrollbar's width left empty at the right of a page that does not
+scroll; overlay scrollbars take none. smoke-results follows a batch of four
+from its first frame to its end. A ResizeObserver refits on the next frame
 when the strip's width moves (refitted in the observer's own callback, the
 new height was a resize the frame could not deliver), and the window's resize
 for its height. A strip whose images are not all the job's shape wraps as
@@ -4820,7 +4918,7 @@ critic's `describe()` is (`ModelStatus.prompt_expander`, `ExpanderStatus`:
 `MarianTranslator.cached()`): the rewriter's `pe/model.safetensors`
 (`loading.PROMPT_EXPANDER_BYTES`, step `expand`) and the translator's `.bin`
 (`translation.MODEL_BYTES`, step `translate`), which the page prints as about
-7.1 GB and about 297.6 MB (`humanBytes`, binary units, as the critic's line). It
+7.1 GiB and about 297.6 MiB (`humanBytes`, binary units, as the critic's line). It
 says so in Expand's title before the press and, each at its own step, in the
 line under the prompt while it runs. The translator's load turns off
 Transformers' safetensors conversion for itself (`DISABLE_SAFETENSORS_CONVERSION`
@@ -6774,8 +6872,14 @@ error, whose own words for an unreachable Hub are only "the above error"; the
 entry is gone by then, which is right, since it was off the pin. A first use
 is about 5 GB (576 MB of binaries and runtime on Windows, 4.3 GB of model) -
 the page sums the pins' sizes for only what is still missing (`describe()`)
-and prints them in binary units, "about 4.5 GB" for both and "about 4.0 GB"
-for the model alone - so `prepare()` runs before the gate, on a daemon thread
+and prints them in binary units, labelled so: "about 4.5 GiB" for both and
+"about 4.0 GiB" for the model alone. Every size the page shows - the card's
+memory, the free disk, a download, a grid's PNGs - was computed in 1024s and
+labelled GB and MB, which made the critic's 4,856,283,677 bytes "about
+4.5 GB" where the Hub lists 4.86 GB; they are labelled as computed now
+(2026-10-05), GiB, MiB and KiB, as nvidia-smi reads the card, rather than
+recomputed to decimal, in which a 16 GiB card would read 17.1 GB. The CLI's
+`storage.human_bytes` says the same. So `prepare()` runs before the gate, on a daemon thread
 as the model load does (a Ctrl-C must not wait out a download), and the route
 checks the queue and the load again afterwards, since minutes may have passed.
 A cached `prepare()` is not quite offline: `hf_hub_download` builds
@@ -7752,6 +7856,12 @@ job, a job note gone with the job (`showJobNote`); during another tab's job,
 said until it ends (`elsewhereNote`).
 While the critic runs, the seconds since the click count beside the line
 (aria-hidden, outside its live region, so it is not read out every second),
+in the line's run of text, at the end of its last line (`.critic-words`,
+2026-10-05): a flex item of its own, the clock took a line to itself under a
+first use's long sentence at QHD. It is kept whole and joined to the word
+before it by a word joiner (U+2060) in its `::before` - its text stays
+"· 12 s" - so a sentence that fills its line gives its last word to the
+clock's line rather than leave the clock alone there;
 and a first use's line says the download can take a few minutes: with nothing
 moving, slow could not be told from stuck while every generation button was
 held. The line was one polite live region, and it spoke at every job's start
@@ -7759,7 +7869,7 @@ and end about a button nobody had pressed; it is now a live half that answers
 the press (`#critic-progress`: Downloading…, Thinking…) and a quiet half for
 the cost and what holds the button - no server, the load, a job
 (`#critic-cost`, 2026-10-05). After a
-first answer it said a 4.5 GB download was still to come until the next poll;
+first answer it said a 4.5 GiB download was still to come until the next poll;
 any answer now marks the critic ready at once (`promptCritiqueReady`), one set
 aside because the prompt changed meanwhile included. Generate's, Run grid's and
 Run comparison's titles say the critic holds them while it does

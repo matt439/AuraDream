@@ -88,7 +88,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/backends/loading.py` — everything decided before the weights
   move: the quantization config, the Nunchaku preflight and the
   prequantized refusal, the components left out of the download, the
-  device placement; takes `settings` as a parameter
+  device placement, and the guard that keeps the adapter fit's meta-device
+  build apart from a load (`weights_loading`, `empty_weights`); takes
+  `settings` as a parameter
 - `backend/backends/single_file.py` — pinned, CPU-only first-load conversion
   for Illustrious XL v2.0-STABLE and WAI v17; atomic cached trees feed the
   normal loader; `sweep_work`, which every converter calls first under its
@@ -254,8 +256,10 @@ Model and loader:
   `ModelStatus.detail_kind` and `detail_url` beside `detail`, for
   huggingface_hub's `GatedRepoError`, `RepositoryNotFoundError`,
   `OfflineModeIsEnabled` and `LocalEntryNotFoundError` (by class name over
-  the MRO and the `__cause__`/`__context__` chain; the gate's kind from
-  `launch.CHECKPOINTS`); anything else stays `short_error`, and the log
+  the MRO and the `__cause__`/`__context__` chain, the first found except
+  that `OfflineModeIsEnabled` wins wherever it is - huggingface_hub raises
+  `LocalEntryNotFoundError` from it under `HF_HUB_OFFLINE`; the gate's kind
+  from `launch.CHECKPOINTS`); anything else stays `short_error`, and the log
   keeps the library's words. It is raised on as `jobs.LoadFailed(detail)`,
   so a job that ended at the load and Expand (a 503 from its route) carry
   the status's sentence.
@@ -435,7 +439,13 @@ Reproduction:
   denoiser's, using the pipeline's adapter reader and PEFT key conversion -
   from the checkpoint's configs on the meta device before a load
   (`loading.denoiser`) and the live pipeline
-  after; a misfit is listed with its `detail`, hidden by the page and
+  after. That build is accelerate's `init_empty_weights`, which patches
+  `Module.register_parameter` for the whole process, so it goes through
+  `loading.empty_weights` and never overlaps a load: `load()` holds
+  `loading.weights_loading()` throughout (its conversions inside) and waits
+  out a build in progress, a build asked for during a load raises
+  `LoadInProgress` and the fit goes unchecked, and builds go one at a time.
+  A misfit is listed with its `detail`, hidden by the page and
   refused at submit and by the CLI, unreadable configs mean unchecked rather
   than refused, and a listing never converts a single-file checkpoint.
 - A refine pass is `GenerateRequest.refine` - a gallery id, like a reference -
@@ -531,7 +541,10 @@ Reproduction:
   preview's re-ask), so a load that lands with the dialog open adds the
   reading and an unload takes it away. The fake backend reads none.
   `ImageRecord.refine_missing` is read, not stored (`storage._missing_sources`,
-  from `list_images` and `get_image`), and is not in the reproduction set.
+  from `list_images`, `get_image` and `save_image`, which asks under the write
+  lock, so a pass whose source was deleted while it ran lands saying so;
+  `jobs.forget_images` marks a job's replayed passes), and is not in the
+  reproduction set.
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.
@@ -574,10 +587,19 @@ Jobs:
   job's own submitted payload (`submissions`) again with `resume: true` and
   `payload.seed ?? JobAccepted.seed` (none beside a seed list) - never the
   POST's seed over the payload's own, never the panel - each once ("Retry
-  sent", "Resume sent", `aria-disabled`, focus kept).
+  sent", "Resume sent", `aria-disabled`, focus kept). A sweep whose refine
+  source has gone cannot run again: the press holds the button
+  (`aria-disabled`, the sentence as its title, a press saying it again) and
+  says "#N, this sweep's source, was deleted: the run cannot resume."
+  (Retry: "its skipped cells cannot run again") - before sending where the
+  page saw the delete (`deletedIds`), else on the server's refusal of that
+  id (`startJob`'s `onRefused`).
 - Each SSE stream has its own queue; `events()` opens with `done` for a job
   that has finished; the per-cell event and `/api/jobs` send
-  `snapshot(images=False)`. Progress events carry `elapsed`; `waiting_on`
+  `snapshot(images=False)`. Progress events carry `elapsed`; the page's
+  estimate of the time left runs from the end of the job's first progress
+  event once a second has landed (`etaFrom`; none before it: the first step
+  carries a pass's VAE encode and the denoiser's move onto the card); `waiting_on`
   says `load`, or what holds the generation gate (`JobManager._holder`: a
   job's id, or `run_when_idle(fn, holder=)`'s "critic" / "expand", passed by
   the two routes, with the ticket an editor action was sent with,
@@ -1323,7 +1345,13 @@ Frontend and CLI:
   Its line is two spans:
   `#critic-progress` (aria-live polite) says only what answers a press
   (Downloading…, Thinking…), and `#critic-cost` (not live) says what a press
-  costs or what holds it (no server, the load, a job); any answer, shown or
+  costs or what holds it (no server, the load, a job). The clock
+  (`#critic-clock`, aria-hidden, outside the live region) follows them in
+  one run of text (`.critic-words`), never a flex item of its own, kept whole
+  and joined to the last word by a word joiner in its `::before`. A size is
+  binary and labelled so (`humanBytes`: KiB, MiB, GiB), as every size the
+  page shows is - the topbar's VRAM and free disk too - and the CLI's
+  `storage.human_bytes`; any answer, shown or
   set aside, sets `promptCritiqueReady` at once. An answer takes focus
   (`#critic-result`, tabindex=-1) while focus is still on the button; so does
   a failed critique's row (`critiqueFailure`, never a `critiqueResult`), which
@@ -1586,7 +1614,10 @@ Frontend and CLI:
   variable of one value, a budget that completes no seed, the panel's
   Repeat above one, cells already in the gallery) never refuse anything, and
   are appended to `#grid-preview` as nodes, never by rewriting `textContent`,
-  since `.totals` is its first child. The budget line needs the preview's
+  since `.totals` is its first child. The budget line's count is the
+  server's (`GridPreview.budget_seeds`, `grid.seeds_within_budget`: the
+  job's stop rule, a cell starting until the deadline has passed, so a seed
+  whose last cell starts in time completes); it needs the preview's
   estimate, is left out under Resume, and names what else spends a budget
   that runs from submission: the load while the topbar's dot is not ready,
   the jobs ahead while the page watches one. The preview is asked again by
@@ -1727,11 +1758,12 @@ Frontend and CLI:
   shape moves the other side on trusted input only. The dialog remembers the
   scale, the versions and, per checkpoint, a single strength the user ran
   (`local-diffusion.refine.v1`); `resetPanel` forgets it.
-- `startJob(path, body, { sheet, panel, slot, placeholder, onAccepted })`:
-  `slot` (default `els.error`) is where its refusals go. `onAccepted(jobId)`
-  runs once the server has taken the job, before startJob watches it,
-  though a listing between jobs (`jobListing`) may already be streaming it;
-  a refusal never calls it. `placeholder` ({src, width, height, label}) is
+- `startJob(path, body, { sheet, panel, slot, placeholder, onAccepted,
+  onRefused })`: `slot` (default `els.error`) is where its refusals go.
+  `onAccepted(jobId)` runs once the server has taken the job, before
+  startJob watches it, though a listing between jobs (`jobListing`) may
+  already be streaming it; a refusal never calls it, and calls
+  `onRefused(err)` once said in `slot`, for the caller's own words. `placeholder` ({src, width, height, label}) is
   keyed to the job (`jobPlaceholders`); the stream reads it again at each
   progress event until it is there, and shows it from the first such event
   with no frame as the viewer's `figure.pending` (the source dimmed and
@@ -2003,8 +2035,10 @@ Frontend and CLI:
   `planned_images` (`viewerJob`), never the running count; focus inside the
   strip it empties goes to Generate. One image is shown
   at 68vh; two to four are best-fit (`fitViewer`: `--cols`, `--rows`,
-  `--tile-h`, `.fitted`, `grid-template-rows` reserving every row the job
-  will fill from its first frame), refit on the next frame from a
+  `--tile-h`, `--col-w`, `.fitted`, the grid's rows and columns reserving
+  every row and column the job will fill from its first frame, so a lone
+  preview or stand-in holds the first image's slot and nothing moves
+  sideways as the images land), refit on the next frame from a
   ResizeObserver and on the window's resize; more than four are small tiles,
   whose tools are out of the tab order, and from 2000 px those are
   `auto-fill minmax(--strip-min, 1fr)` under `min(560px, 45vh)` with their
@@ -2115,7 +2149,9 @@ Frontend and CLI:
   wide, and the stage's `margin-right` is that width plus a gutter;
   `#library-scroll` scrolls by itself (`overscroll-behavior: contain`,
   `overflow-anchor: none`, scrollbar room kept), and the page keeps its
-  scrollbar's room (`html:has(.stage.beside)`). Never sticky: a sticky
+  scrollbar's room - always (`html { scrollbar-gutter: stable }`), since a
+  gallery too short to scroll took a scrollbar with a job's progress block
+  and gave it back at its end, refitting the strip. Never sticky: a sticky
   column is held only within the stage's height. In the column cards are at
   least `--thumb-min-beside` wide (200 px, the five `--h-tool` tools' room,
   set as `--thumb-min` on `.stage.beside .library`), three across at QHD and
@@ -2531,7 +2567,9 @@ Frontend and CLI:
   drops deleted ids - every list, the sheet, the panel's references and a
   Reuse's Undo snapshot (it answers the sentence the caller's note adds) -
   and marks at once the passes of what it deleted (records, card titles,
-  every Reuse, the lightbox's facts and `lbSources`). A single card or viewer
+  every Reuse, the lightbox's facts and `lbSources`); it keeps every id it
+  has seen deleted (`deletedIds`), and the stream marks a pass arriving
+  after its source went (`markGoneSource`, in `show`). A single card or viewer
   tile keeps its slot as a tombstone (`tombstone`, "Deleted · #N"), which
   drops the card's fav, ref and refined marks and keeps its `data-made`;
   focus and the keyboard's current card move to the next live image. A
@@ -2961,7 +2999,12 @@ buttons' aria-pressed, a first open passing over the usual 1.5x (its title
 and the size line's why), a foreign pass's reused line naming FLUX.1 Krea
 [dev] by its catalogue name, and the dialog's CFG named "CFG (distilled)"
 as the panel's, with the greyed negative's caption "(needs True CFG > 1 —
-~2× slower)".
+~2× slower)"; a pass whose source is deleted while it runs (`/api/fake/step`
+slowing it) landing with "(deleted)" in its title and the note and its
+Reuse saying so, `markGoneSource` marking an arriving pass, and a sweep
+stopped by failures when its source went: Resume held, in words, with focus
+kept and nothing sent, and the server's refusal of the resume in the words
+the button reads.
 `smoke-conditioning.json` has the other side
 on its klein fake: the card's, the viewer's and the lightbox's Refine
 answering with the reason and opening nothing.
@@ -3237,7 +3280,9 @@ gallery at its end, and taken in after this page's own job, queued behind
 it, is cancelled at its first step; its queued job picked up here as
 another tab's (viewer kept, this page's New image and its own finish line,
 Use seed and all, kept through it, its end said on `#job-said` only, this
-tab's own finished title given back until a key),
+tab's own finished title given back until a key), the estimate leaving the
+first step out once a second has landed (none at step 1, a one-step job
+none, a sweep of one-step cells from its second),
 a cancel and a queued row's cancel from that tab, a pause here with its job
 behind ("waiting: job ahead paused" there; its row marked as another tab's
 here, Cancel queued's title, the count), Cancel queued here said there as a
@@ -3283,7 +3328,10 @@ height with focus on its line (the column's Delete); a 28-seed run at
 scrollbar and the gallery head unmoved from its first frame (`reserveStrip`); the banner's
 "2 since deleted" / "all since deleted"; the banner's Resume after a
 resumed-and-cancelled grid putting the run's base seed in Seed; no Resume
-for a cancelled comparison; Reset with its Undo in the prompt box it
+for a cancelled comparison; a batch of four at QHD followed from its first
+frame to its end - the preview in the first image's column, no tile moving
+sideways, the gallery head where the first frame put it, the scrollbar's
+room kept; Reset with its Undo in the prompt box it
 emptied - inside the window at 1400x900 and at 800x900 - Ctrl+Z after it
 giving the prompt back, and the store kept forgotten past the prompt's
 blur; and Reset taking a Reuse's note from the panel line, with its Undo
@@ -3436,8 +3484,10 @@ and said in the dialog, while the critic thinks; the critic held offline
 (its title, the cost line, and the press's offline words taken back by the
 answer) and during a load (its note gone with the load), and a critique
 the server never answered said as the server's (no "?." after its
-question) and taken back; and a 900-word prompt's line over 4000
-characters, its cut and its summary.
+question) and taken back; a 900-word prompt's line over 4000
+characters, its cut and its summary; and, docked at QHD, the first use's
+download sentence and the clock as one run of text, the clock on its last
+line.
 `smoke-animagine.json` covers the tag-order check, the critic's reorder
 under full and partial tag placement end to end (set aside, kept as Check's
 own, kept as allowed, flagged, each with the kind the server says it kept),
