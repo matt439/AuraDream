@@ -238,7 +238,7 @@
          without one, the row read as part of Size above it. -->
     <div class="field" role="group" aria-labelledby="sampling-caption">
       <span id="sampling-caption">Sampling</span>
-      <div class="row">
+      <div class="row sampling-row">
         <div class="sub grow">
           <i><label for="steps">Steps</label>
             <span class="help" tabindex="0" role="note" aria-label="Steps help" aria-describedby="steps-tip">?<span
@@ -247,7 +247,7 @@
           <input type="number" id="steps" value="28" min="1" max="100" aria-describedby="steps-tip">
         </div>
         <div class="sub grow">
-          <i><label for="cfg">CFG</label>
+          <i><label for="cfg" id="cfg-label">CFG</label>
             <span class="help" tabindex="0" role="note" aria-label="CFG help" aria-describedby="cfg-tip">?<span
               class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
               negative prompt applies, at roughly 2x the time per step.</span></span></i>
@@ -308,22 +308,36 @@
       </div>
     </div>
 
-    <!-- Repeat is the request's `runs`: batches one after another. Named
-         apart from a run, which is a submission - the gallery's Runs picker,
-         the run: search, the last-run banner. -->
-    <div class="row">
-      <label class="sub grow"><i>Seed</i><input type="number" id="seed" placeholder="random" min="0"></label>
-      <div class="sub narrow">
-        <i><label for="batch">Batch</label>
-          <span class="help" tabindex="0" role="note" aria-label="Batch help" aria-describedby="batch-tip">?<span
-            class="tip" id="batch-tip">Images rendered at once, all held in VRAM. For many
-            2 MP+ images raise Repeat instead: same VRAM, more time.</span></span></i>
-        <input type="number" id="batch" value="1" min="1" max="12" aria-describedby="batch-tip">
+    <!-- What a press makes, under a caption of its own as Sampling's: the
+         seed it starts from, how many at once and how many times. Repeat is
+         the request's `runs`: batches one after another. Named apart from a
+         run, which is a submission - the gallery's Runs picker, the run:
+         search, the last-run banner. A seed is 16 digits, and the box has
+         the row's width less the counters' for them: the dice that clears it
+         sits in its name's line, as the ? badges do (style.css, #btn-dice),
+         where in the row it took the room of six digits. A <div> with
+         <label for>, not a <label> round it all: a button inside a label
+         becomes the label's control. -->
+    <div class="field" role="group" aria-labelledby="output-caption">
+      <span id="output-caption">Output</span>
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="seed">Seed</label>
+            <button type="button" class="ghost" id="btn-dice" title="Clear seed (randomize)"
+                    aria-label="Clear the seed, so the next run draws a random one">🎲</button></i>
+          <input type="number" id="seed" placeholder="random" min="0">
+        </div>
+        <div class="sub narrow">
+          <i><label for="batch">Batch</label>
+            <span class="help" tabindex="0" role="note" aria-label="Batch help" aria-describedby="batch-tip">?<span
+              class="tip" id="batch-tip">Images rendered at once, all held in VRAM. For many
+              2 MP+ images raise Repeat instead: same VRAM, more time.</span></span></i>
+          <input type="number" id="batch" value="1" min="1" max="12" aria-describedby="batch-tip">
+        </div>
+        <label class="sub narrow"><i>Repeat</i><input type="number" id="runs" value="1" min="1" max="64"></label>
       </div>
-      <label class="sub narrow"><i>Repeat</i><input type="number" id="runs" value="1" min="1" max="64"></label>
-      <button class="ghost square" id="btn-dice" title="Clear seed (randomize)" aria-label="Clear the seed, so the next run draws a random one">🎲</button>
+      <p class="hint" id="run-hint"></p>
     </div>
-    <p class="hint" id="run-hint"></p>
 
     <button class="primary" id="btn-generate" title="Generate (Ctrl+Enter)"
             aria-keyshortcuts="Control+Enter">Generate</button>
@@ -428,7 +442,7 @@
           <input type="text" id="grid-steps" placeholder="6-12x2" autocomplete="off" aria-describedby="grid-steps-tip">
         </div>
         <div class="sub grow">
-          <i><label for="grid-cfg">CFG</label>
+          <i><label for="grid-cfg" id="grid-cfg-label">CFG</label>
             <span class="help" tabindex="0" role="note" aria-label="CFG axis help" aria-describedby="grid-cfg-tip">?<span
               class="tip" id="grid-cfg-tip">Same syntax, decimals allowed:<br>
               <b>0,0.5,1</b> · <b>0-2x0.5</b> — start-stop, step after the x.<br>
@@ -525,6 +539,26 @@
 
     <div class="gallery-head">
       <h2>Gallery <span id="gallery-count"></span></h2>
+      <!-- How the cards are drawn, from 1800 px, where the grid has the
+           width to choose and the head the room (gallery.js, cardView):
+           smaller cards, more to a row; the whole picture or the card
+           filled. Each pair is one tab stop, the chosen one, the arrows
+           moving along it, as the panel's size strips are. Hidden on a
+           sheet, which draws its cells its own way. -->
+      <div class="card-view" id="card-view">
+        <div class="view-pick" role="group" aria-label="Card size">
+          <button type="button" class="ghost small" data-density="s" aria-pressed="false"
+                  title="Small cards: more to a row">S</button>
+          <button type="button" class="ghost small" data-density="m" aria-pressed="true"
+                  title="Medium cards: the wide screen's own size">M</button>
+        </div>
+        <div class="view-pick" role="group" aria-label="Thumbnails">
+          <button type="button" class="ghost small" data-fit="contain" aria-pressed="true"
+                  title="Fit: the whole picture, letterboxed on the card">Fit</button>
+          <button type="button" class="ghost small" data-fit="cover" aria-pressed="false"
+                  title="Crop: the card filled, the picture cut to its middle">Crop</button>
+        </div>
+      </div>
       <!-- One line per night's grid, newest first; picking one searches for
            `run:<id>` and opens the sheet. -->
       <select id="run-list" class="runs" aria-label="Recent runs" disabled>

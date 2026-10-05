@@ -146,6 +146,52 @@ function watchMore() {
   moreWatcher.observe(els.more);
 }
 
+// How the cards are drawn from 1800 px (style.css; the pairs in the head
+// are shown only there): `density` S, smaller cards and more to a row, or M,
+// the wide tier's own; `fit` the whole picture letterboxed (contain, the
+// default) or the card filled and the picture cut to its middle (cover).
+// This browser's choice, remembered apart from the panel - Reset is the
+// panel's and leaves it - every access in try/catch (remembered/remember).
+const CARD_VIEW_KEY = 'local-diffusion.gallery.v1';
+const CARD_VIEW = { density: ['m', 's'], fit: ['contain', 'cover'] };
+const cardView = { density: 'm', fit: 'contain' };
+
+function restoreCardView() {
+  let stored = null;
+  try { stored = JSON.parse(remembered(CARD_VIEW_KEY) ?? 'null'); } catch { /* unreadable: the defaults */ }
+  for (const [key, values] of Object.entries(CARD_VIEW)) {
+    if (values.includes(stored?.[key])) cardView[key] = stored[key];
+  }
+  syncCardView();
+}
+
+function setCardView(key, value) {
+  if (!CARD_VIEW[key]?.includes(value)) return;
+  cardView[key] = value;
+  remember(CARD_VIEW_KEY, JSON.stringify(cardView));
+  syncCardView();
+}
+
+// The grid's data attributes, which the stylesheet reads, and each pair as a
+// size strip is: the chosen one pressed and the pair's one tab stop.
+function syncCardView() {
+  els.gallery.dataset.density = cardView.density;
+  els.gallery.dataset.fit = cardView.fit;
+  for (const button of els.cardView.querySelectorAll('button')) {
+    const key = 'density' in button.dataset ? 'density' : 'fit';
+    const on = button.dataset[key] === cardView[key];
+    button.setAttribute('aria-pressed', String(on));
+    button.tabIndex = on ? 0 : -1;
+  }
+}
+
+function cardViewClick(e) {
+  const button = e.target.closest('button');
+  if (!button) return;
+  const key = 'density' in button.dataset ? 'density' : 'fit';
+  setCardView(key, button.dataset[key]);
+}
+
 // The local day a record was made on - the day `date:` searches by.
 function localDay(rec) {
   return new Date(rec.created_at).toDateString();
@@ -239,6 +285,11 @@ function card(rec) {
 
   const tools = document.createElement('div');
   tools.className = 'tools';
+  // What the card is, just over its tools on hover and keyboard focus -
+  // "#12 · 1024×1024 · seed 5" - which style.css draws from these, as it
+  // does the tools' names, with empty alt text: the image's label and title
+  // say it already. A pseudo-element, so the row's children stay its tools.
+  Object.assign(tools.dataset, { n: rec.id, size: `${rec.width}×${rec.height}`, seed: rec.seed });
   tools.append(
     reuseButton(rec, true),
     refine,
@@ -914,6 +965,9 @@ function forgetImages(ids) {
     // the strip's place below.
     else if (lost.parentElement === els.viewer) { lost.tabIndex = -1; lost.focus({ preventScroll: true }); }
   }
+  // The note under the strip named what it held: the image just made's seed
+  // is not a deleted image's to offer.
+  if (fromViewer.length) noteViewer();
   // A strip with images left keeps its tombstones in their slots. One whose
   // last image has gone, with no job to fill it, says what it is for again -
   // in place of the tombstones, which beside it read as leftovers - at the

@@ -69,7 +69,9 @@ would replace Animagine's noise schedule with an unrelated flow schedule.
 and mu mean *on this checkpoint*, which is not the same sentence twice. They are
 format strings over the profile's own numbers, so the text cannot drift from the
 values the controls are seeded with, and `hints_for` takes the live threshold the
-way `/api/status` does.
+way `/api/status` does. One of them is a name rather than a tip: `cfg_label`,
+FLUX.1's "CFG (distilled)", which the page writes on the panel's and the grid's
+CFG labels where a profile gives one (plain "CFG" elsewhere).
 """
 from __future__ import annotations
 
@@ -313,6 +315,11 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
                     "guidance. The negative prompt is driven by True CFG, the box "
                     "beside this one."
                 ),
+                # The CFG box's own name, the panel's and the grid's: the
+                # authors call it CFG, so it keeps the word, qualified - two
+                # boxes both called CFG read as one knob twice. A name, not a
+                # tip; every other profile's box is plain CFG.
+                "cfg_label": "CFG (distilled)",
                 "true_cfg": (
                     "Real classifier-free guidance, kept apart from the guidance value: "
                     "above {cfg_threshold:g} the pipeline runs a second, unconditioned "
@@ -993,7 +1000,7 @@ def hints_for(
     refine_supported: bool | None = None,
 ) -> dict[str, str]:
     """Tooltip text for steps/CFG/mu/true CFG, the prompt and the size on this
-    checkpoint.
+    checkpoint - and, on FLUX.1, the CFG box's own name (`cfg_label`).
 
     `cfg_threshold`, `negative_prompt_supported` and `true_cfg_supported`
     override the profile's guesses with what a loaded pipeline actually
@@ -1021,6 +1028,9 @@ def hints_for(
         and negative_prompt_supported != profile["negative_prompt_supported"]
     ):
         hints["guidance_scale"] = _NEGATIVE_HINTS[negative_prompt_supported]
+        # The tip now calls the box classifier-free guidance: its name must
+        # not say otherwise.
+        hints.pop("cfg_label", None)
     separate = profile["true_cfg_supported"] if true_cfg_supported is None else true_cfg_supported
     if not separate:
         hints["true_cfg"] = _NO_TRUE_CFG_HINT

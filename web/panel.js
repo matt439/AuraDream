@@ -1090,6 +1090,10 @@ function viewerSourcesGone() {
 // Under the strip: where a pass came from - "Refined from #10 at 0.5 ·
 // 1344×1728", the source a press away (an empty note had said nothing of
 // what the image was) - and how much of a long run the strip does not show.
+// The image just made, alone and made from the prompt, is named as a card's
+// caption names it, its seed with Use seed (`seed-line`): under 1800 px,
+// where nothing beside the image said its seed but its title; from there
+// the column beside it says it (style.css hides the line).
 function noteViewer() {
   const parts = [];
   const first = viewerRecords[0];
@@ -1098,6 +1102,12 @@ function noteViewer() {
     const line = document.createElement('span');
     line.className = 'lineage';
     line.append('Refined from ', sourceLink(first), ` at ${strengths} · ${first.width}×${first.height}`);
+    parts.push(line);
+  } else if (first && viewerRecords.length === 1 && viewerJob.expected <= 1) {
+    const line = document.createElement('span');
+    line.className = 'seed-line';
+    line.append(`#${first.id} · ${first.width}×${first.height} · seed ${first.seed} · `,
+      factButton('Use seed', `Put ${first.seed} in the Seed box`, () => useSeed(first.seed)));
     parts.push(line);
   }
   const shown = els.viewer.querySelectorAll('img[data-id]').length;
@@ -1166,6 +1176,38 @@ function fitRecent() {
   if (room < parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--recent-min'))) return;
   stage.style.setProperty('--recent-room', `${Math.floor(room)}px`);
   stage.classList.add('recent-docked');
+}
+
+// While a job waits on the load and the strip is empty - its one idle line,
+// or the line a delete left - the line says so, with the clock the progress
+// row ticks (generation.js's ticker): after Generate the eye is on the
+// viewer, where "Nothing generated this session" stayed for the minutes a
+// first load takes. The clock is aria-hidden, as the progress row's is,
+// which says "loading weights" once; the line stays one line (style.css).
+// `clock` null puts the line's own words back: the wait over, cancelled or
+// failed, or the stream lost. The first frame or image clears the strip, the
+// line with it. Not over a line holding the focus (a first run's Examples).
+let viewerWait = null;
+function viewerWaiting(clock) {
+  const line = els.viewer.querySelector(':scope > .placeholder');
+  if (viewerWait && (clock == null || viewerWait.line !== line)) {
+    if (viewerWait.line.isConnected) {
+      viewerWait.line.replaceChildren(...viewerWait.words);
+      viewerWait.line.classList.remove('waiting');
+    }
+    viewerWait = null;
+  }
+  if (clock == null || !line) return;
+  if (!viewerWait) {
+    if (line.contains(document.activeElement)) return;
+    viewerWait = { line, words: [...line.childNodes] };
+    const time = document.createElement('span');
+    time.className = 'clock';
+    time.setAttribute('aria-hidden', 'true');
+    line.replaceChildren('Loading weights', time, ' - the first load of a session takes a few minutes.');
+    line.classList.add('waiting');
+  }
+  line.querySelector('.clock').textContent = clock;
 }
 
 // A gallery with nothing in it at all - no image on any checkpoint, nothing

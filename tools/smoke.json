@@ -3,6 +3,8 @@
   {"wait": 1200},
   {"expect": "document.getElementById('status-dot').className.includes('ready')"},
   {"expect": "els.expandPrompt.hidden"},
+  {"log": "'on Krea 2 Turbo, whose CFG box is classifier-free guidance, the panel\\'s and the grid\\'s labels say plain CFG: only FLUX.1\\'s distilled guidance is qualified'"},
+  {"expect": "els.cfgLabel.textContent === 'CFG' && els.gridCfgLabel.textContent === 'CFG' && !('cfg_label' in lastHints)"},
   {"expect": "!tagVocabularyEnabled && els.tagValidation.hidden"},
   {"expect": "els.orientation.disabled && els.orientation.textContent === 'Orientation'"},
   {"eval": "choose('9:7', 1); els.orientation.click();"},

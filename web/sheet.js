@@ -1479,6 +1479,9 @@ function setSheet(on) {
   els.sheetBtn.classList.toggle('active', on);
   els.sheet.hidden = !on;
   els.gallery.hidden = on;
+  // The cards' size and fit (cardView) are the cards': a sheet's cells are
+  // its own.
+  els.cardView.hidden = on;
   // The room a scroll to the last sheet reserved under it (reserveSheetRoom).
   els.sheet.style.marginBottom = '';
   // Off is a real escape hatch: whatever layout and pins were picked go with

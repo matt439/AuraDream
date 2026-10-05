@@ -44,6 +44,12 @@ function applyHints(hints) {
   // The one some checkpoints have and others not: a server restarted under
   // another must not leave FLUX.1's words under Strength.
   els.refineLarge.textContent = hints.refine_large ?? '';
+  // The CFG box's name, the panel's and the grid's: FLUX.1's is a distilled
+  // guidance value, by its own tip, beside a True CFG that is the real one -
+  // "CFG (distilled)" there, plain CFG wherever a status gives no name.
+  const cfgLabel = hints.cfg_label ?? 'CFG';
+  if (els.cfgLabel.textContent !== cfgLabel) els.cfgLabel.textContent = cfgLabel;
+  if (els.gridCfgLabel.textContent !== cfgLabel) els.gridCfgLabel.textContent = cfgLabel;
 }
 
 // The rest of the guide: the size range the checkpoint's authors vouch for,
