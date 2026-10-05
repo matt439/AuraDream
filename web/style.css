@@ -703,7 +703,8 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 /* The item still being typed: no verdict until it is finished. */
 .tag-check.typing { border-color: var(--line-strong); }
 /* The category the lookup gave, on the edge - Danbooru's colours, teal for
-   the checkpoint guide's own tags. What a tag is, never where it goes. */
+   the checkpoint guide's own tags: what a tag is. Where it goes is the
+   caption below. */
 .tag-check.valid[data-category] { border-left-width: 3px; }
 .tag-check.valid[data-category="general"] { border-left-color: #4ba4ff; }
 .tag-check.valid[data-category="character"] { border-left-color: #35c64a; }
@@ -711,6 +712,16 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-check.valid[data-category="artist"] { border-left-color: #ff8a8b; }
 .tag-check.valid[data-category="meta"] { border-left-color: #ead084; }
 .tag-check.valid[data-category="guide"] { border-left-color: var(--accent-2); }
+/* Where the guide's documented order puts the item, as the server's order
+   rule placed it (data-slot, POST /api/tags/validate): a caption at the
+   chip's start, smaller and dimmer than the tag so the tag still dominates,
+   and drawn here, so the chip's text stays the tag's own. None where the
+   rules gave it no one place. */
+.tag-check-label[data-slot]::before {
+  content: attr(data-slot);
+  padding-right: var(--sp-1); border-right: 1px solid var(--line-strong);
+  color: var(--text-readout); font-size: var(--fs-xs); text-transform: lowercase; white-space: nowrap;
+}
 /* Past the encoders' cut: never read, dimmed and dashed, with an amber bar
    where reading stops; the chip the cut splits keeps a dashed far edge. */
 .tag-check.past-cut { opacity: 0.55; border-style: dashed; }

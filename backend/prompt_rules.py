@@ -450,6 +450,21 @@ def _place(
     return spec.unknown
 
 
+def _places(
+    spec: _OrderSpec,
+    items: list[Item],
+    lettered: list[bool],
+    lookup: dict[str, str] | None,
+) -> list[frozenset[int]]:
+    """Each of `items`' slots, `_place`d with `lookup` (`_category_lookup`):
+    the one placement the order rule, `reorder_tags`, `unplaced_items` and
+    `order_slots` all read."""
+    return [
+        _place(item, spec, lookup, lettering=held)
+        for item, held in zip(items, lettered, strict=True)
+    ]
+
+
 def _ordered(places: list[frozenset[int]]) -> list[int]:
     """The stable order in which nothing follows an item that must come after it.
 
@@ -628,18 +643,13 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
     A stretch of lettering moves whole, commas and all, and every quoted
     stretch comes out as it went in (`_reordered`).
     """
-    spec = _order_spec(_guide(model_id))
-    items, lettered, lettering = _tag_items(prompt)
-    if spec is None or len(items) < 2:
+    reading = _order_reading(model_id, prompt)
+    if reading is None:
         return None
-    if not _placeable(spec, detect_style(prompt), prompt, items, lettering):
-        return None
-    lookup = _category_lookup(categories)
-    places = [
-        _place(item, spec, lookup, lettering=held)
-        for item, held in zip(items, lettered, strict=True)
-    ]
-    return _reordered(prompt, items, places)
+    spec, items, lettered = reading
+    return _reordered(
+        prompt, items, _places(spec, items, lettered, _category_lookup(categories))
+    )
 
 
 def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None) -> list[str]:
@@ -671,11 +681,7 @@ def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None
     items, lettered, _ = _tag_items(prompt)
     if spec is None or len(items) < 2:
         return []
-    lookup = _category_lookup(categories)
-    places = [
-        _place(item, spec, lookup, lettering=held)
-        for item, held in zip(items, lettered, strict=True)
-    ]
+    places = _places(spec, items, lettered, _category_lookup(categories))
     # What `_place` reads: an item's text as typed, and whether it holds
     # lettering. Two items alike in both are placed alike by any categories.
     keys = [(item.text, held) for item, held in zip(items, lettered, strict=True)]
@@ -693,6 +699,68 @@ def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | N
     the page shows (`PromptAnalysis.order_detail`).
     """
     return not unplaced_items(model_id, prompt, categories)
+
+
+def _order_reading(
+    model_id: str, prompt: str
+) -> tuple[_OrderSpec, list[Item], list[bool]] | None:
+    """The order rule's reading of `prompt` outside `check` - its slots, its
+    items (`_units`) and which hold lettering - or None where it reads no
+    order among them: no slots in the guide, fewer than two items, or not
+    `_placeable` - the gate the order rule applies to its `_Context`, for
+    `reorder_tags` and `order_slots`."""
+    spec = _order_spec(_guide(model_id))
+    items, lettered, lettering = _tag_items(prompt)
+    if spec is None or len(items) < 2:
+        return None
+    if not _placeable(spec, detect_style(prompt), prompt, items, lettering):
+        return None
+    return spec, items, lettered
+
+
+def reads_order(model_id: str, prompt: str) -> bool:
+    """Whether the order rule reads an order among `prompt`'s items at all
+    (`order_checked`, and two items or more): where `reorder_tags` and
+    `order_slots` answer anything. Needs no categories, so a caller asks it
+    before looking any up - a prompt it is False for would cost the tag index
+    a request for nothing."""
+    return _order_reading(model_id, prompt) is not None
+
+
+def order_slots(
+    model_id: str, prompt: str, categories: dict[str, str] | None
+) -> list[tuple[str, str | None]] | None:
+    """Each comma item of `prompt` - `comma_items`, the chips' split - with
+    the step of the documented order the order rule places it in, or None.
+
+    The rule's own reading, placing with `categories` as `check`,
+    `reorder_tags` and `unplaced_items` do (`_places`), never a second one:
+    None for the whole prompt where the rules read no order in it
+    (`reads_order` false: no slots in the guide, fewer than two items, or
+    `order_checked` false) - and None for an item that holds lettering,
+    which the rules read as a piece of a longer item, commas and all, or that
+    keeps more than one slot: an item the guide's groups do not know and the
+    tag index gave no category (never asked - offline, past the lookup's
+    cap, an @ name, a prose prompt's clause - or asked and given none it
+    could use). Such an item has no one place, and the chip shows none
+    rather than a guess.
+    """
+    reading = _order_reading(model_id, prompt)
+    if reading is None:
+        return None
+    spec, items, lettered = reading
+    places = _places(spec, items, lettered, _category_lookup(categories))
+    slots: list[tuple[str, str | None]] = []
+    unit = 0
+    for item in comma_items(prompt):
+        # The rules' item holding this comma item: itself, or the stretch of
+        # lettering it is a piece of (`_units`).
+        while items[unit].end < item.end:
+            unit += 1
+        place = places[unit]
+        alone = len(place) == 1 and not lettered[unit]
+        slots.append((item.text, spec.steps[next(iter(place))] if alone else None))
+    return slots
 
 
 def order_items(text: str) -> list[str]:
@@ -1778,10 +1846,7 @@ def _order(ctx: _Context) -> Iterable[PromptFinding]:
         return
     if not _placeable(spec, ctx.style, ctx.text, ctx.items, ctx.quoted + ctx.rendered):
         return
-    places = [
-        _place(item, spec, ctx.lookup, lettering=norm is None)
-        for item, norm in zip(ctx.items, ctx.norms, strict=True)
-    ]
+    places = _places(spec, ctx.items, [norm is None for norm in ctx.norms], ctx.lookup)
     pair = _violation(places)
     if pair is None:
         return

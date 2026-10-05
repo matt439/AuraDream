@@ -16,6 +16,13 @@ const TAG_LOOKUP_CAP = 64;
 // changed item waits on the lookup - every chip used to go grey and dashed at
 // each keystroke and come back green a moment later.
 let tagVerdicts = { model: null, results: new Map() };
+// The last answer's order slots ({model, prompt, steps, slots}): each comma
+// item of `prompt` with the step of the guide's documented order the
+// server's order rule places it in - POST /api/tags/validate, given the
+// prompt, places it as a Check of that prompt would (prompt_rules'
+// `order_slots`). `slots` is null where the rules read no order in it. The
+// page places nothing itself: the order is the guide's, per checkpoint.
+let tagSlots = null;
 // The chip focus belongs to while it is in the tray - a number, or 'add' for
 // the + tag button - which every rebuild of the tray puts back: a move, a
 // delete and a validation landing each rebuild it, and focus fell to <body>
@@ -671,14 +678,38 @@ function syncTagTray(results, state, detail = '', typing = null) {
   els.tagValidation.dataset.label = label.join(' · ');
   els.tagValidation.dataset.state = state;
   els.tagValidation.toggleAttribute('data-over', !!tokens?.over);
+  // The caption's legend only where a chip carries one: the guide's steps,
+  // which the order rule placed each tag in.
+  const ordered = chipSlots(results).some(Boolean);
   els.tagValidation.title = [
     state === 'pending' ? 'Checking Danbooru…'
       : state === 'offline'
         ? `Danbooru unreachable; unchecked tags are not treated as invalid${detail ? `: ${detail}` : ''}`
         : 'Each comma-separated item checked against Danbooru or checkpoint guide tags',
     'edge colour: blue general, green character, purple copyright, red artist, yellow meta, teal guide tag',
+    ...(ordered
+      ? [`caption: the step of the guide's documented order Check places the tag in (${tagSlots.steps.join(' → ')}); none where it cannot place it`]
+      : []),
     'click or right-click a gap to insert there',
   ].join(' · ');
+}
+
+// Each chip's order slot, {name, n, of} or null, read off the server's last
+// answer: for this very text, index for index (the comma items, as the chips
+// split them). For a text not answered yet - every keystroke renders the tray,
+// and the answer lands a pause later - the last answer's slot for an item
+// written the same, which its own answer then confirms or takes away: every
+// mark went out and came back at each pause. Nothing is worked out here; an
+// item the last answer gave no slot, or did not hold, has none.
+function chipSlots(results) {
+  const answer = tagSlots?.model === loadedModel && tagSlots.slots ? tagSlots : null;
+  if (!answer) return results.map(() => null);
+  const slot = (name) => (name ? { name, n: answer.steps.indexOf(name) + 1, of: answer.steps.length } : null);
+  if (answer.prompt === els.prompt.value.trim()) {
+    return results.map((result, index) => (answer.slots[index]?.tag === result.tag ? slot(answer.slots[index].slot) : null));
+  }
+  const byTag = new Map(answer.slots.map((item) => [item.tag, item.slot]));
+  return results.map((result) => slot(byTag.get(result.tag)));
 }
 
 // The shared tip for an unknown chip: why, and that nothing is blocked. One
@@ -742,6 +773,7 @@ function renderTagValidation(results, state = 'checked', detail = '') {
   const roving = [focus, ...results.keys()]
     .find((index) => typeof index === 'number' && index >= 0 && index !== tagEditAt);
   const seen = new Set();
+  const slots = chipSlots(results);
   let past = 0;
   let unread = false;
   hideTagTip();
@@ -773,9 +805,9 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     const tip = [];
     if (result.valid === true) {
       chip.classList.add('valid');
-      // The category the lookup gave, as the edge's colour: what a tag is,
-      // never where it goes - the order is the guide's, per checkpoint, and
-      // Check's to place.
+      // The category the lookup gave, as the edge's colour: what a tag is.
+      // Where it goes is the caption (data-slot), the server's order rule's
+      // placement - never worked out here.
       chip.dataset.category = result.source === 'model' ? 'guide' : result.category || 'general';
       mark.textContent = '✓';
       status = `known ${chip.dataset.category} tag`;
@@ -822,6 +854,16 @@ function renderTagValidation(results, state = 'checked', detail = '') {
       status += ', repeated';
     }
     seen.add(key);
+    // Where the guide's documented order puts it, as the server's order rule
+    // placed it - a mark drawn by the stylesheet from data-slot, so the
+    // chip's text stays the tag's own.
+    const slot = slots[index];
+    if (slot) {
+      chip.dataset.slot = slot.name;
+      label.dataset.slot = slot.name;
+      notes.push(`documented order: ${slot.name}, step ${slot.n} of ${slot.of}`);
+      status += `, order step ${slot.n} of ${slot.of}, ${slot.name}`;
+    }
     label.append(mark, text);
     if (tip.length) {
       // The tip, not a title: a native tooltip would stack on it.
@@ -987,19 +1029,25 @@ function rememberTagVerdicts(results) {
   }
 }
 
-async function validatePromptTags(tags, epoch) {
+// The verdicts on the first 64 items and, with the prompt they were split
+// from, every item's order slot (`tagSlots`): one request, so the slots are
+// placed with the categories the same lookup just gave.
+async function validatePromptTags(tags, epoch, prompt) {
   const rest = tags.slice(TAG_LOOKUP_CAP).map((tag) => uncheckedTag(tag, TAG_LOOKUP_CAP));
+  const model = loadedModel;
   try {
     const body = await api('/api/tags/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tags: tags.slice(0, TAG_LOOKUP_CAP) }),
+      body: JSON.stringify({ tags: tags.slice(0, TAG_LOOKUP_CAP), prompt }),
     });
     if (epoch !== tagValidationEpoch) return;
     rememberTagVerdicts(body.results);
+    tagSlots = { model, prompt, steps: body.order_steps || [], slots: body.slots || null };
     renderTagValidation([...body.results, ...rest], body.available ? 'checked' : 'offline', body.detail || '');
   } catch (error) {
     if (epoch !== tagValidationEpoch) return;
+    tagSlots = { model, prompt, steps: [], slots: null };
     renderTagValidation(tags.map(uncheckedTag), 'offline', error.message);
   }
 }
@@ -1033,7 +1081,8 @@ function scheduleTagValidation(delay = 320) {
   });
   const waiting = results.some((result, index) => result.valid === null && index < TAG_LOOKUP_CAP);
   renderTagValidation(results, waiting ? 'pending' : 'checked');
-  tagValidationTimer = setTimeout(() => validatePromptTags(tags, epoch), delay);
+  const prompt = els.prompt.value.trim();
+  tagValidationTimer = setTimeout(() => validatePromptTags(tags, epoch, prompt), delay);
   scheduleTagMeasure(delay);
 }
 
