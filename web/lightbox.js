@@ -253,7 +253,7 @@ function renderLightbox() {
   els.lbDesc.textContent = settingsLine(rec);
   if (lbDrawn !== rec || !els.lbSettings.firstChild) {
     lbDrawn = rec;
-    els.lbSettings.replaceChildren(factsList(rec), passesLine(rec));
+    els.lbSettings.replaceChildren(factsList(rec, { useSeed: true }), passesLine(rec));
   }
   els.lbCount.textContent = lightboxCount(rec);
   els.lbPrev.disabled = lbIndex === 0;
@@ -325,8 +325,11 @@ function settingsLine(rec) {
 // negative prompt it gave the True CFG of, the date and the run. One row a
 // fact, in the reproduction set's order; a row the record has no value for is
 // left out. Its buttons open the image it was refined from (with this one
-// after it, so → comes back), each reference, and the run as a sheet.
-function factsList(rec) {
+// after it, so → comes back), each reference, and the run as a sheet - and,
+// where the view has no Use seed of its own (`useSeed`: the lightbox, where
+// older images' seeds are browsed; not the result column, whose row of
+// actions has one), put the seed in the panel's Seed box.
+function factsList(rec, { useSeed: seedButton = false } = {}) {
   const dl = document.createElement('dl');
   dl.className = 'facts';
   const row = (term, ...value) => {
@@ -362,7 +365,14 @@ function factsList(rec) {
     // A comparison's version by the name the sheet gives it.
     row('Variables', vars.map(([k, v]) => (k === 'variant' ? `version: ${VERSION_NAMES.get(v) ?? v}` : `${k} = ${v}`)).join(', '));
   }
-  row('Seed', String(rec.seed));
+  // The panel is under the dialog, so the press says what it did in the
+  // lightbox's own line - not the panel's, where it would replace a job's
+  // outcome - and the run hint says the rest once it closes ("Seed fixed
+  // at …").
+  row('Seed', String(rec.seed), ...(seedButton ? [' · ', factButton('Use seed', `Put ${rec.seed} in the Seed box`, () => {
+    useSeed(rec.seed);
+    showError(`Seed ${rec.seed} is in the Seed box.`, true, { slot: els.lbError, mirror: false });
+  })] : []));
   const made = new Date(rec.created_at).toLocaleString([], {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
@@ -544,6 +554,9 @@ function showPasses(rec) {
 function syncCompare(rec) {
   const pass = rec.refine != null;
   els.lbCompare.hidden = !pass;
+  // The keys line names S where it does something: on a pass. In the title
+  // and the button's hint alone, it was found only by hovering.
+  els.lbKeys.textContent = lbKeysLine(pass);
   if (!pass) return;
   const on = lbCompare.id === rec.id;
   const gone = rec.refine_missing || lbSources.get(rec.refine) === null;
@@ -566,6 +579,12 @@ function syncCompare(rec) {
   const cropped = kept && (kept.w < 1 || kept.h < 1);
   els.lbCompareNote.textContent = gone ? `source #${rec.refine} deleted`
     : source ? `#${source.id}, ${source.width}×${source.height}${cropped ? ', cropped as the pass was' : ''}` : '';
+}
+
+// The lightbox's keys, under the comparison (index.html has the line without
+// S, as it reads on any image that is not a pass).
+function lbKeysLine(pass) {
+  return `← → walk · F star${pass ? ' · S compare' : ''} · Del delete · 0 fit · 1 1:1 · +/− zoom · Esc close`;
 }
 
 // S, the button and the two modes. Off, a mode turns it on in that mode; on,

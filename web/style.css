@@ -1127,8 +1127,10 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    the accessible name stays the label (aria-keyshortcuts carries the keys).
    Quieter by size and weight, not opacity, which would take the white below
    the label's own contrast on the accent. The Refine dialog's Refine is the
-   third button the shortcut presses, from inside the dialog. */
-#btn-generate::after, #btn-grid::after, #refine-run::after {
+   third button the shortcut presses, from inside the dialog. The lightbox's
+   Compare with source takes the same hint for its own key, S (its content
+   is the lightbox section's). */
+#btn-generate::after, #btn-grid::after, #refine-run::after, #lb-compare-on::after {
   content: 'Ctrl+Enter' / '';
   margin-left: var(--sp-2);
   font-size: var(--fs-sm);
@@ -2131,17 +2133,14 @@ button { font: inherit; cursor: pointer; }
 /* Failures raised from inside the lightbox - a delete that 404s, a star
    that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
 .lightbox .error { min-height: 1.2em; }
-/* A pass against its source: the toggle with S beside it, as Generate shows
-   Ctrl+Enter (a pseudo-element with empty alt text, the name stays the
-   label's), then the two ways to look. */
+/* A pass against its source: the toggle with S beside it by Generate's rule
+   for Ctrl+Enter (#btn-generate::after: a pseudo-element with empty alt text,
+   the name stays the label's, and aria-keyshortcuts says S), then the two
+   ways to look. */
 .lb-compare { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lb-compare .hint:empty { display: none; }
 #lb-compare-on[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
-#lb-compare-on::after {
-  content: 'S' / '';
-  margin-left: var(--sp-2);
-  font-size: var(--fs-sm);
-}
+#lb-compare-on::after { content: 'S' / ''; }
 .lb-modes { display: flex; gap: var(--sp-2); }
 .lb-modes .ghost { flex: 1 1 0; white-space: nowrap; }
 .lb-modes .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
