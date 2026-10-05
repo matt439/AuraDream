@@ -310,6 +310,9 @@ const promptPlaceholderDefault = els.prompt.placeholder;
 // warning, and the example prompts behind the Examples button.
 let sizeRange = null;
 let sizeRangeWord = 'documented';
+// Whose an "example" span's sizes are, as the size prose names them ("the
+// author's reference sizes"); null for a range in writing.
+let sizeRangeSource = null;
 // Null means the checkpoint accepts any framing in its pixel range. Animagine
 // publishes a finite table, so its guide names the aspect buttons too.
 let sizeAspects = null;

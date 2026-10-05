@@ -151,13 +151,21 @@ function syncSize() {
 // Refine dialog's size line says the same past it.
 const sizeIsTight = (w, h) => w * h > 1600 * 1600;
 
-// Within 3% of one of the guide's framings: Animagine's 1216x832 is its
-// 3:2, 2.6% off; ERNIE's 768x1376 its 9:16, 0.8% off (tests/test_profiles.py
-// holds every listed size to the same tolerance).
-const framingIsGuided = (w, h) => (sizeAspects ?? []).some((aspect) => {
-  const [wide, high] = aspect.split(':').map(Number);
-  return Math.abs(w / h / (wide / high) - 1) < 0.03;
-});
+// A size's framing is the preset aspect nearest its ratio, within 3%:
+// Animagine's 1216x832 is its 3:2, 2.6% off; ERNIE's 768x1376 its 9:16, 0.8%
+// off (tests/test_profiles.py holds every listed size to the same rule). The
+// nearest, not any guided one within 3%: 7:4 and 16:9 are 1.6% apart, and
+// 1400x800, exactly ERNIE's unlisted 7:4, read as a guided framing.
+function framingOf(w, h) {
+  let best = null, gap = Infinity;
+  for (const aspect of ASPECTS) {
+    const [wide, high] = aspect.split(':').map(Number);
+    const off = Math.abs(Math.log(w / h / (wide / high)));
+    if (off < gap) [best, gap] = [aspect, off];
+  }
+  return gap < Math.log(1.03) ? best : null;
+}
+const framingIsGuided = (w, h) => !!sizeAspects && sizeAspects.includes(framingOf(w, h));
 
 function sizeMatchesGuideAspect(width, height, namedAspect) {
   if (!sizeAspects) return true;
@@ -190,8 +198,8 @@ function describePreset(button, aspect, tier, guided) {
   const note = !guided ? ''
     : sizeAspects ? ', a recommended aspect and size for this checkpoint'
     : sizeRangeWord !== 'example' ? `, within the size range this checkpoint is ${sizeRangeWord} for`
-    : sizeRange[0] === sizeRange[1] ? ", about the size of the authors' example"
-    : ", within the span of the authors' example sizes";
+    : sizeRange[0] === sizeRange[1] ? `, about the size of ${exampleSource()}`
+    : `, within the span of ${exampleSource()}`;
   button.title = dimensions + note;
   button.setAttribute('aria-label', button.textContent + note);
 }
@@ -202,19 +210,21 @@ function describePreset(button, aspect, tier, guided) {
 // no range at all) is only the sizes their examples use, and the size tip
 // beside the line says it is no maximum: the line said "above the 1.6 MP
 // this checkpoint is documented for" under a tip saying 1.57 MP was no bound.
+// Whose examples, in the guide's own words (`pixels_source`): one author's
+// on NewBie and WAI, whose floor is a size to exceed rather than an example.
 function rangeOwner() {
   if (sizeRangeWord !== 'example') return `this checkpoint is ${sizeRangeWord} for`;
-  return sizeRange[0] === sizeRange[1] ? "of the authors' example" : "of the authors' example sizes";
+  return `of ${exampleSource()}`;
 }
+const exampleSource = () => sizeRangeSource
+  ?? (sizeRange[0] === sizeRange[1] ? "the authors' example" : "the authors' example sizes");
 
-// A bound as its authors wrote it: one decimal where that is within 0.02 MP,
-// two where one decimal would change it - 1024x1024's 1.05 MP read 1.0,
-// Anima's 512² to 1536² (0.26-2.36) read 0.3-2.4, Illustrious's 2.25 read
-// 2.3. Integers and tenths stay as they are.
+// A bound as its authors wrote it, to two decimals at most: one decimal
+// misquoted 1024x1024's 1.05 MP as 1.0, Anima's 512² to 1536² (0.26-2.36)
+// as 0.3-2.4, Illustrious's 2.25 as 2.3 and Animagine's 0.98 as 1.0.
+// Integers and tenths stay as they are.
 function fmtMp(mp) {
-  if (Number.isInteger(mp)) return String(mp);
-  const tenth = mp.toFixed(1);
-  return Math.abs(+tenth - mp) > 0.02 + 1e-9 ? String(+mp.toFixed(2)) : tenth;
+  return Number.isInteger(mp) ? String(mp) : String(+mp.toFixed(2));
 }
 
 // The highest CFG the open grid's axis reaches, from the last preview; null when

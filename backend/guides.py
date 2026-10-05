@@ -11,7 +11,9 @@ writing amounts to - a model card's "supports 0.1-2 MP", a README's
 promise, and the size line quotes the word. `"example"` is the weakest:
 the span of the sizes the authors' own examples use, where they publish no
 range at all (NetaYume, NewBie, WAI), which the line words as the examples'
-size and never as what the checkpoint is "for". `aspects` and
+size and never as what the checkpoint is "for" - in `pixels_source`'s words,
+whose sizes they are as the size prose names them ("the author's reference
+sizes" on WAI, one author and a floor that is no example). `aspects` and
 `resolutions`, where the card publishes a finite table of shapes, mark the
 presets that are its framings and recognise its exact sizes typed in. And
 `examples` are the
@@ -944,8 +946,11 @@ WAI_GUIDE = {
         "Steps the strength leaves in place of a separate hires step count."
     ),
     "pixels": (1024**2 / 1e6, 1024 * 1344 / 1e6),
-    # Reference sizes, not a range: the size line says so (sizes.js).
+    # Reference sizes, not a range: the size line says so (sizes.js). One
+    # author's, and the floor is the size they say to exceed rather than an
+    # example, so the line calls them what the prose does.
     "pixels_word": "example",
+    "pixels_source": "the author's reference sizes",
     # The author supplies this positive recipe, not a complete scene prompt.
     "examples": [",masterpiece,best quality,amazing quality,"],
     "tag_helper": {
@@ -1076,8 +1081,10 @@ NETAYUME_GUIDE = {
         "quality limit, and larger sizes have not been measured here."
     ),
     "pixels": (1024**2 / 1e6, 1024 * 1536 / 1e6),
-    # Two example sizes, which the prose above says are no bound.
+    # Two example sizes, which the prose above says are no bound: the Neta
+    # Lumina guide's and NetaYume's own workflow's, so more than one author.
     "pixels_word": "example",
+    "pixels_source": "the authors' example sizes",
     # The v2 workflow's positive image prompt, verbatim after its system
     # instruction and <Prompt Start> marker. The loader applies the system
     # instruction itself, so copying that prefix here would duplicate it.
@@ -1118,8 +1125,10 @@ NEWBIE_GUIDE = {
         "quality limit."
     ),
     "pixels": (1024**2 / 1e6, 1024**2 / 1e6),
-    # One example size, which the prose above says is no bound.
+    # One example size, which the prose above says is no bound: the
+    # author's quickstart.
     "pixels_word": "example",
+    "pixels_source": "the author's example",
     # Model card's XML example, with indentation normalized. These are XML
     # fields, not a flat comma-separated tag list: do not add a tag helper.
     "examples": [

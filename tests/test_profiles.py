@@ -445,16 +445,30 @@ def test_a_guides_aspects_are_presets_and_its_sizes_their_framings():
     # The strip marks a preset by its aspect's name, so a name the table has
     # not got would mark nothing; and a size of the card's table should be
     # one of the framings marked, or the page would call it unrecommended
-    # once it is picked from the strip rather than typed.
+    # once it is picked from the strip rather than typed. A size's framing is
+    # the page's (sizes.js, `framingOf`): the preset aspect nearest its ratio,
+    # within 3% - the nearest, since 7:4 and 16:9 are 1.6% apart.
+    import math
+
+    def framing(width, height):
+        gaps = {
+            aspect: abs(math.log(width / height / (int(a) / int(b))))
+            for aspect, (a, b) in ((x, x.split(":")) for x in sizes.SIZES)
+        }
+        aspect = min(gaps, key=gaps.get)
+        return aspect if gaps[aspect] < math.log(1.03) else None
+
     for repo in _catalogue_repos():
         guide = guide_for(repo)
         if guide["aspects"] is None:
             assert guide["resolutions"] is None, repo
             continue
         assert set(guide["aspects"]) <= set(sizes.SIZES), repo
-        ratios = [int(a) / int(b) for a, b in (x.split(":") for x in guide["aspects"])]
         for width, height in guide["resolutions"]:
-            assert any(abs(width / height / r - 1) < 0.03 for r in ratios), (repo, width, height)
+            assert framing(width, height) in guide["aspects"], (repo, width, height)
+    # The aliasing the nearest rule avoids: ERNIE's unlisted 7:4, typed in
+    # exactly, is 7:4's and not the 16:9 it is within 3% of.
+    assert framing(1400, 800) == "7:4" and framing(768, 1376) == "9:16"
 
 
 def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
@@ -473,11 +487,27 @@ def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
         "duongve/NetaYume-Lumina-Image-2.0", "NewBie-AI/NewBie-image-Exp0.1",
         "LyliaEngine/waiIllustriousSDXL_v170",
     }
+    # Whose sizes the line names them as, exactly where the word is
+    # "example": what the size prose calls them, and one author's ("the
+    # author's") exactly where that prose names one author's sizes.
+    for repo in _catalogue_repos():
+        guide = guide_for(repo)
+        source = guide["pixels_source"]
+        assert (source is not None) == (guide["pixels_word"] == "example"), repo
+        if source is None:
+            continue
+        size = hints_for(repo)["size"]
+        whose, noun = source.split(" ", 2)[1:]
+        assert whose in {"author's", "authors'"}, (repo, source)
+        assert (whose == "author's") == ("author's" in size), (repo, source)
+        assert noun.split()[0] in size, (repo, source)
+    assert guide_for("LyliaEngine/waiIllustriousSDXL_v170")["pixels_source"] == "the author's reference sizes"
 
 
 def test_a_fixed_shift_is_the_profiles_mu_static():
     # Where the scheduler's shift is a fixed number, a blank Mu is that
-    # number, and the page says it ("auto (1.79)") and sorts a sheet's Mu
+    # number, and the page says it (the Mu box's placeholder, "1.79", in
+    # place of "auto") and sorts a sheet's Mu
     # none at it. NetaYume's and NewBie's are the loaders' pinned scheduler
     # shift; Z-Anime's and Z-Image's are the shipped scheduler configs' 6 and
     # 3 (design notes). Everywhere else the shift is derived, or Mu is off.

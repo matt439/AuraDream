@@ -121,13 +121,16 @@ function applyGuide(g) {
   if (!g) return;
   const range = Array.isArray(g.pixels) && g.pixels.length === 2 ? g.pixels : null;
   const word = g.pixels_word || 'documented';
+  const source = typeof g.pixels_source === 'string' && g.pixels_source ? g.pixels_source : null;
   const aspects = Array.isArray(g.aspects) && g.aspects.length ? g.aspects : null;
   const resolutions = Array.isArray(g.resolutions) && g.resolutions.length ? g.resolutions : null;
   if (JSON.stringify(range) !== JSON.stringify(sizeRange) || word !== sizeRangeWord
+      || source !== sizeRangeSource
       || JSON.stringify(aspects) !== JSON.stringify(sizeAspects)
       || JSON.stringify(resolutions) !== JSON.stringify(guideResolutions)) {
     sizeRange = range;
     sizeRangeWord = word;
+    sizeRangeSource = source;
     sizeAspects = aspects;
     guideResolutions = resolutions;
     syncSize();

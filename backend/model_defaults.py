@@ -895,6 +895,7 @@ def guide_for(model_id: str) -> dict[str, Any]:
     return {
         "pixels": guide["pixels"],
         "pixels_word": guide["pixels_word"],
+        "pixels_source": guide.get("pixels_source"),
         "aspects": list(guide["aspects"]) if guide.get("aspects") is not None else None,
         "resolutions": list(guide["resolutions"]) if guide.get("resolutions") is not None else None,
         "examples": list(guide["examples"]),

@@ -31,6 +31,13 @@
   {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent === '1.0 MP — this is not one of the recommended sizes for this checkpoint'"},
   {"eval": "els.width.value = '1536'; els.height.value = '512'; syncSize();"},
   {"expect": "els.sizeHint.textContent === '0.8 MP — this is not a recommended aspect for this checkpoint — below the 1 MP this checkpoint is documented for'"},
+  {"log": "'A typed size takes the framing of the preset aspect nearest it: 1400x800 is exactly 7:4, which the table has not got, though 16:9 is within 3% of it; 784x1360 is 4:7, not the 9:16 2.5% away'"},
+  {"eval": "els.width.value = '1400'; els.height.value = '800'; syncSize();"},
+  {"expect": "els.sizeHint.textContent === '1.1 MP — this is not a recommended aspect for this checkpoint — above the 1 MP this checkpoint is documented for'"},
+  {"eval": "els.width.value = '784'; els.height.value = '1360'; syncSize();"},
+  {"expect": "els.sizeHint.textContent === '1.1 MP — this is not a recommended aspect for this checkpoint'"},
+  {"eval": "els.width.value = '1376'; els.height.value = '768'; syncSize();"},
+  {"expect": "!els.sizeHint.classList.contains('warn') && els.sizeHint.textContent === '1.1 MP'"},
   {"eval": "choose('1:1', 1);"},
   {"expect": "!els.sizeHint.classList.contains('warn')"}
 ]
