@@ -101,6 +101,9 @@
   {"expect": "__until(() => !busy && els.error.textContent.startsWith('Time budget reached after'), 40000)"},
   {"expect": "(() => { const m = /^Time budget reached after (\\d+)\\/20 cells — kept (\\d+) images?\\. Resume finishes the rest\\.$/.exec(els.error.textContent); return m && m[1] === m[2] && __budgetSeen; })()"},
   {"eval": "clearInterval(window.__watch); els.gridBudget.value = ''; els.gridSeeds.value = '1'; els.gridSection.open = false; els.seed.value = ''; persistPanel(); showError('');"},
+  {"log": "'the estimate leaves the first step out once a second has landed: it carries what no later step does (a pass s VAE encode, the denoiser s move onto the card), and a WAI pass read 28 s at step 1 for 9.5 s (step 1 at 2.7 s, then 0.76 s a step); a one-step job estimates nothing, and a sweep of one-step cells runs from the second cell'"},
+  {"eval": "window.__eta = []; const run = (jobId, events) => { for (const [step, total_steps, run, total_runs, elapsed] of events) { showCell({type: 'progress', step, total_steps, run, total_runs, elapsed}, {jobId}); __eta.push(jobEta); } }; run('__eta11', [[1, 11, 1, 1, 2.7], [2, 11, 1, 1, 3.46], [5, 11, 1, 1, 5.74]]); run('__eta1', [[1, 1, 1, 1, 1.5]]); run('__eta3', [[1, 1, 1, 3, 2.0], [1, 1, 2, 3, 3.0]]); cellArgs = null; etaFrom = null; jobEta = ''; els.cellNote.textContent = '';"},
+  {"expect": "JSON.stringify(__eta) === JSON.stringify(['', '~7s left', '~5s left', '', '', '~1s left'])"},
 
   {"log": "'a finished job keeps the gallery where it was scrolled, and says New image instead of scrolling'"},
   {"eval": "(async () => { const j = await __post('/api/grid', {prompt: 'a heron', width: 256, height: 256, steps: 1, seeds: 40, seed: 3}); for (let i = 0; i < 400; i++) { const s = await (await fetch('/api/jobs/' + j.job_id)).json(); if (s.status === 'done') break; await new Promise((r) => setTimeout(r, 100)); } await resetGallery(); })()"},

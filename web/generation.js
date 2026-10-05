@@ -461,7 +461,7 @@ function unitWord(job) {
 // The cell line, under the bars: a pause on its way or taken, which cell of a
 // grid is running, the time so far and an estimate of what is left, and the
 // cells skipped so far. A sweep sends no label - its settings never change -
-// so only the timing shows there. The estimate is the job's own: elapsed over
+// so only the timing shows there. The estimate is the job's own: time over
 // the fraction of cells finished (the current cell's steps counting as a
 // fraction of one), which tracks a run that has slowed where the gallery's
 // per-step median would not. `elapsed` is the server's clock, so the two
@@ -469,12 +469,21 @@ function unitWord(job) {
 // the job's start to its deadline, both the server's, and a budget that
 // stops the job sooner than the estimate is the time left.
 let cellArgs = null;
+// Where a job's estimate is measured from (`jobId`, `elapsed`, `fraction`):
+// its first progress event this page saw. The first step carries what no
+// later one does - a pass's VAE encode of its source, the denoiser's move
+// onto the card under offload - so extrapolated from the job's start, a WAI
+// pass said 28 s at step 1 for 9.5 s, and FLUX.1's first image ~13 min. The
+// estimate waits for a second progress event and runs from the first one's
+// end; a one-step cell's next event is the next cell's, whose own encode
+// every later cell will carry too. A one-step job has nothing to estimate.
+let etaFrom = null;
 // `note` is what a queued job waits on, in words (the stream's status
 // branch: the job ahead paused, the first load): kept in `cellArgs` with
 // the rest, so a redraw - the queue resynced, a Pause pressed - says it
 // again rather than wiping it under a progress line still saying "waiting".
-function showCell(data, { job = null, budget = null, note = '' } = {}) {
-  cellArgs = [data, { job, budget, note }];
+function showCell(data, { job = null, budget = null, note = '', jobId = null } = {}) {
+  cellArgs = [data, { job, budget, note, jobId }];
   const unit = unitWord(job);
   const parts = [];
   if (job?.paused) {
@@ -493,13 +502,17 @@ function showCell(data, { job = null, budget = null, note = '' } = {}) {
   if (note) parts.push(note);
   if (data.label) parts.push(`cell ${data.run}/${data.total_runs} · ${data.label}`);
   jobEta = '';
+  const runs = data.total_runs || 1;
+  const within = data.total_steps ? (data.step || 0) / data.total_steps : 0;
+  const fraction = (((data.run || 1) - 1) + within) / runs;
+  if (jobId !== null && data.step && typeof data.elapsed === 'number' && etaFrom?.jobId !== jobId) {
+    etaFrom = { jobId, elapsed: data.elapsed, fraction };
+  }
   if (typeof data.elapsed === 'number' && data.elapsed >= 1) {
-    const runs = data.total_runs || 1;
-    const within = data.total_steps ? (data.step || 0) / data.total_steps : 0;
-    const fraction = (((data.run || 1) - 1) + within) / runs;
+    const from = etaFrom?.jobId === jobId ? etaFrom : null;
     let timing = `${humanTime(data.elapsed)} elapsed`;
-    if (fraction > 0.02 && fraction < 1) {
-      const eta = data.elapsed * (1 - fraction) / fraction;
+    if (from && fraction > from.fraction && data.elapsed > from.elapsed && fraction > 0.02 && fraction < 1) {
+      const eta = (data.elapsed - from.elapsed) * (1 - fraction) / (fraction - from.fraction);
       const left = budget === null ? Infinity : Math.max(0, budget - data.elapsed);
       jobEta = left < eta ? `~${humanTime(left)} left (budget)` : `~${humanTime(eta)} left`;
       timing += ` · ${jobEta}`;
@@ -1336,6 +1349,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       job,
       budget: job?.deadline && job.started_at ? job.deadline - job.started_at : null,
       note: extra,
+      jobId,
     });
     const standIn = () => {
       landed();
