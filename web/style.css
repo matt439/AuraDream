@@ -2363,6 +2363,15 @@ button { font: inherit; cursor: pointer; }
 .rf-lock { flex: none; align-self: center; margin-top: var(--sp-3); font-size: var(--fs-label); }
 .refine-dialog .sub i .ghost.tiny { margin-left: auto; }
 #refine-negative-field.disabled textarea { opacity: 0.45; }
+/* From panel at the far end of the Prompt caption, as Reset is in the
+   panel's; the caption's capitals are the label's, not the button's. */
+#refine-prompt-field > span .rf-from-panel { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; }
+/* The tag suggestions hang from the Prompt box, as the panel's do (.tag-
+   suggestions), and over it where the dialog shows no room below
+   (placeRefineSuggestions): past its bottom the list was cut off. */
+.rf-prompt-editor { position: relative; }
+.rf-prompt-editor textarea { display: block; }
+.rf-prompt-editor .tag-suggestions.up { top: auto; bottom: calc(100% + 4px); }
 /* Opened upward, over what is set already: downward they covered the very
    controls they explain. Never a target, as no tip is (`.tip` above): one
    over the scale buttons took the clicks meant for them. */

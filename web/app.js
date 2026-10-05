@@ -410,6 +410,15 @@ els.refineMore.addEventListener('toggle', sizeRefinePrompt);
 REFINE_WIDE.addEventListener('change', showRefineSource);
 // The pass's own prompt check reads the text and whether the negative runs.
 els.refinePrompt.addEventListener('input', () => { sizeRefinePrompt(); scheduleRefineTags(); });
+// Its tag suggestions, on a tag checkpoint: typing, a click and the caret
+// keys ask; leaving the box closes the list; the box's keys walk it, and an
+// Escape it takes is not the dialog's.
+els.refinePrompt.addEventListener('input', suggestRefineTags);
+els.refinePrompt.addEventListener('click', suggestRefineTags);
+els.refinePrompt.addEventListener('keyup', refinePromptCaret);
+els.refinePrompt.addEventListener('keydown', refinePromptKeydown);
+els.refinePrompt.addEventListener('blur', hideRefineSuggestions);
+els.refineFromPanel.onclick = copyRefineFromPanel;
 for (const el of [els.refinePrompt, els.refineNegative, els.refineCfg, els.refineTrueCfg]) {
   el.addEventListener('input', refineCheckChanged);
 }

@@ -276,6 +276,7 @@ function openRefine(rec, pass = null) {
   refineChecked = null;
   renderRefineCheck();
   els.refineTags.hidden = true;
+  hideRefineSuggestions();
   syncRefine();
   if (!els.refineDialog.open) els.refineDialog.showModal();
   els.refineDialog.scrollTop = 0;
@@ -460,6 +461,7 @@ function syncRefine() {
   els.refineUnavailable.textContent = refineSupported ? ''
     : 'Refine is unavailable: as far as the server can tell, this checkpoint has no compatible '
       + 'image-to-image pipeline. A load answers for certain - the pass stays here until then.';
+  syncRefineFromPanel();
   syncRefineRun();
   // After the negative's activation has moved: the check's Show and Apply
   // follow it.
@@ -847,6 +849,7 @@ function refineClosed() {
   clearTimeout(refineTimer);
   clearTimeout(refineCheckTimer);
   clearTimeout(refineTagTimer);
+  hideRefineSuggestions();
   const back = refineReturn;
   refineReturn = null;
   if (!back || els.lightbox.open) return;
@@ -1065,11 +1068,150 @@ function applyRefineFinding(finding) {
   const el = finding.field === 'negative_prompt' ? els.refineNegative : els.refinePrompt;
   if (el.disabled) return;
   els.refineMore.open = true;
-  replaceBoxText(el, finding.suggestion);
+  writeRefineBox(el, finding.suggestion);
   sizeRefinePrompt();
   refineChanged();
   scheduleRefineCheck(0);
   scheduleRefineTags(0);
+}
+
+// Every whole-box write into the dialog's Prompt or Negative prompt, as
+// tags.js's writeBox is the panel's: replaceBoxText, so Ctrl+Z gives back
+// what the box held, then no suggestion list over the new text - the
+// insert's `input` asked for one, as typing does. A greyed box takes the
+// write too, woken for it: assigned, its text could not be undone.
+function writeRefineBox(el, text) {
+  const greyed = el.disabled;
+  el.disabled = false;
+  replaceBoxText(el, text);
+  el.disabled = greyed;
+  hideRefineSuggestions();
+}
+
+// From panel: the panel's prompt and negative prompt into the pass's boxes.
+// A critic's rewrite, Check's reorder or a comparison's winner is put to use
+// in the panel; a pass opens on its source's prompt, and this is the way from
+// one to the other. The negative first and the prompt last, so the prompt's
+// Ctrl+Z is the top of the undo history and gives the source's back. Never
+// the other way: the panel is not the dialog's to write.
+function refineFromPanelProblem() {
+  const prompt = els.prompt.value.trim();
+  if (!prompt) return "The panel's prompt is empty: there is nothing to copy";
+  if (prompt === els.refinePrompt.value.trim() && els.negative.value.trim() === els.refineNegative.value.trim()) {
+    return "This pass's prompt and negative prompt are the panel's already";
+  }
+  return null;
+}
+
+// Held, with the reason as its title, while there is nothing to copy - as
+// Compare 3 is - so it keeps focus and a press can say why.
+function syncRefineFromPanel() {
+  const problem = refineFromPanelProblem();
+  els.refineFromPanel.setAttribute('aria-disabled', String(!!problem));
+  els.refineFromPanel.title = problem
+    ?? "Put the panel's prompt and negative prompt in this pass's boxes (Ctrl+Z in the box undoes it)";
+}
+
+function copyRefineFromPanel() {
+  const problem = refineFromPanelProblem();
+  if (problem) {
+    refineFailed(`${problem}.`);
+    return;
+  }
+  els.refineMore.open = true;
+  const negative = els.negative.value;
+  const prompt = els.prompt.value;
+  if (els.refineNegative.value.trim() !== negative.trim()) writeRefineBox(els.refineNegative, negative);
+  if (els.refinePrompt.value.trim() !== prompt.trim()) writeRefineBox(els.refinePrompt, prompt);
+  // Where the last write left it, else - a greyed negative lets go of it,
+  // though Chromium calls it active until its next focus fixup - the
+  // button, now held.
+  const at = document.activeElement;
+  if (!els.refineDialog.contains(at) || at.disabled) els.refineFromPanel.focus();
+  sizeRefinePrompt();
+  refineChanged();
+  scheduleRefineCheck(0);
+  scheduleRefineTags(0);
+}
+
+// ------------------------------------------------- the pass's tag suggestions
+
+// On a tag checkpoint the Prompt box suggests tags as the panel's does, for
+// the comma item at the caret: tags.js's editor list (`scheduleEditorSuggestions`)
+// under the box, picked by a click, or Enter or Tab on the selected one - the
+// first selected only from three typed characters it starts with (`preselects`).
+// None of the panel's state: not its list, the chips' typing state or the
+// panel's box. Asked on typing, a click and the caret keys, as the panel's.
+function suggestRefineTags() {
+  if (!refineSource || !tagVocabularyEnabled || document.activeElement !== els.refinePrompt) {
+    hideRefineSuggestions();
+    return;
+  }
+  scheduleEditorSuggestions(els.refinePrompt, els.refineTagSuggestions, {
+    query: currentTagRange(els.refinePrompt).query,
+    pick: applyRefineSuggestion,
+    place: placeRefineSuggestions,
+  });
+}
+
+function hideRefineSuggestions() {
+  clearTimeout(tagEditorSuggestionTimer);
+  tagEditorSuggestionEpoch += 1;
+  renderEditorSuggestions(els.refinePrompt, els.refineTagSuggestions, [], { pick: applyRefineSuggestion });
+}
+
+// Under the box, or over it where the part of the dialog in view has no room
+// below for the list as drawn and more above: the dialog scrolls, and a list
+// past its bottom edge was cut off there.
+function placeRefineSuggestions(menu) {
+  menu.classList.remove('up');
+  if (menu.hidden) return;
+  const box = els.refinePrompt.getBoundingClientRect();
+  const frame = els.refineDialog.getBoundingClientRect();
+  const below = frame.bottom - box.bottom;
+  const above = box.top - frame.top;
+  // The list's 4 px gap, the dialog's border and a scrollbar along its foot.
+  menu.classList.toggle('up', menu.offsetHeight + 20 > below && above > below);
+}
+
+// The comma item at the caret replaced by an insert, as typing replaces a
+// selection: one Ctrl+Z takes the suggestion back and leaves what was typed.
+// An accepted suggestion is a finished tag: nothing opens over it, and the
+// tag line checks it at once.
+function applyRefineSuggestion(suggestion) {
+  const el = els.refinePrompt;
+  const { start, end } = currentTagRange(el);
+  el.focus();
+  el.setSelectionRange(start, end);
+  if (!document.execCommand('insertText', false, suggestion.text)) {
+    el.setRangeText(suggestion.text, start, end, 'end');
+    el.dispatchEvent(new Event('input'));
+  }
+  hideRefineSuggestions();
+  scheduleRefineTags(0);
+}
+
+// The list's keys, on the box: ArrowDown and ArrowUp walk it, Enter or Tab
+// takes the selected item, and an Escape the list takes closes the list
+// alone - prevented, so the dialog's own Escape (its cancel) never sees it;
+// the next one closes the dialog. Ctrl+Enter stays the document's.
+function refinePromptKeydown(event) {
+  const menu = els.refineTagSuggestions;
+  if (menu.hidden || event.isComposing || event.ctrlKey || event.metaKey) return;
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    selectEditorSuggestion(menu, menu._index + (event.key === 'ArrowDown' ? 1 : -1));
+  } else if ((event.key === 'Enter' || event.key === 'Tab') && menu._index >= 0) {
+    event.preventDefault();
+    menu._pick(menu._suggestions[menu._index]);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    hideRefineSuggestions();
+  }
+}
+
+function refinePromptCaret(event) {
+  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) suggestRefineTags();
 }
 
 // A tag checkpoint's unknown comma items, as the panel's chips mark them but
