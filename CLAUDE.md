@@ -2038,7 +2038,11 @@ Frontend and CLI:
   `--tile-h`, `--col-w`, `.fitted`, the grid's rows and columns reserving
   every row and column the job will fill from its first frame, so a lone
   preview or stand-in holds the first image's slot and nothing moves
-  sideways as the images land), refit on the next frame from a
+  sideways as the images land; sized as if the page's scrollbar were there,
+  `pageScrollbarWidth()` off the width while the page has none, since a
+  gallery too short to scroll takes one with a job's progress block and
+  gives it back at its end - never a stable gutter on the root, which in
+  Chrome shrinks every vw size on every page), refit on the next frame from a
   ResizeObserver and on the window's resize; more than four are small tiles,
   whose tools are out of the tab order, and from 2000 px those are
   `auto-fill minmax(--strip-min, 1fr)` under `min(560px, 45vh)` with their
@@ -2149,9 +2153,7 @@ Frontend and CLI:
   wide, and the stage's `margin-right` is that width plus a gutter;
   `#library-scroll` scrolls by itself (`overscroll-behavior: contain`,
   `overflow-anchor: none`, scrollbar room kept), and the page keeps its
-  scrollbar's room - always (`html { scrollbar-gutter: stable }`), since a
-  gallery too short to scroll took a scrollbar with a job's progress block
-  and gave it back at its end, refitting the strip. Never sticky: a sticky
+  scrollbar's room (`html:has(.stage.beside)`). Never sticky: a sticky
   column is held only within the stage's height. In the column cards are at
   least `--thumb-min-beside` wide (200 px, the five `--h-tool` tools' room,
   set as `--thumb-min` on `.stage.beside .library`), three across at QHD and
@@ -3330,8 +3332,9 @@ scrollbar and the gallery head unmoved from its first frame (`reserveStrip`); th
 resumed-and-cancelled grid putting the run's base seed in Seed; no Resume
 for a cancelled comparison; a batch of four at QHD followed from its first
 frame to its end - the preview in the first image's column, no tile moving
-sideways, the gallery head where the first frame put it, the scrollbar's
-room kept; Reset with its Undo in the prompt box it
+within the strip, the tile size and the gallery head where the first frame
+put them - and the strip fitted alike with the page's scrollbar forced on
+and off; Reset with its Undo in the prompt box it
 emptied - inside the window at 1400x900 and at 800x900 - Ctrl+Z after it
 giving the prompt back, and the store kept forgotten past the prompt's
 blur; and Reset taking a Reuse's note from the panel line, with its Undo

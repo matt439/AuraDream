@@ -4014,14 +4014,20 @@ centred, the first image landed there, and the row moved left by half a tile
 as each of the others landed (1248 to 512 px at QHD within 0.25 s, on Anima
 Turbo). `fitViewer` writes the tile's width as `--col-w` and the grid
 reserves every column at it, so the preview holds the first image's slot.
-The page keeps its scrollbar's room too (`html { scrollbar-gutter: stable }`,
-which Gallery beside's columns already had): a gallery too short to scroll
-the page took a scrollbar while the progress block was up and gave it back
-as the job ended, widening the strip by it - the tiles refitted 491 to 494 px
-and the gallery head moved 3 px at the end of a batch of four. The cost is
-the scrollbar's width left empty at the right of a page that does not
-scroll; overlay scrollbars take none. smoke-results follows a batch of four
-from its first frame to its end. A ResizeObserver refits on the next frame
+The strip is also fitted as if the page's scrollbar were there, whether
+or not it is (`pageScrollbarWidth()`, measured once on a probe, 0 for
+overlay scrollbars, taken off the width while the page has none): a gallery
+too short to scroll the page took a scrollbar while the progress block was
+up and gave it back as the job ended, widening the strip by it, and the
+tiles refitted 491 to 494 px and moved the gallery head 3 px at the end of
+a batch of four. A stable gutter on the root was tried first and reverted:
+in Chrome it shrinks the viewport units by its width, so every vw size on
+every page narrowed - the panel's 18vw read 458.1 px for 460.8 at QHD, the
+type ramp 15.47 px for 15.5, the lightbox's fit and strips moved - for a
+3 px refit in one case. What is left is the strip's content moving sideways
+by half a scrollbar as it goes, with the rest of the page. smoke-results
+follows a batch of four from its first frame to its end and fits the strip
+with the page's scrollbar forced on and off. A ResizeObserver refits on the next frame
 when the strip's width moves (refitted in the observer's own callback, the
 new height was a resize the frame could not deliver), and the window's resize
 for its height. A strip whose images are not all the job's shape wraps as

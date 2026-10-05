@@ -330,8 +330,10 @@ scripts that wrote them, and per check its `server.log`, `browser.log`,
 The rest of what these rows found was fixed the same day and checked on the
 fake server and in pytest, not again on the card: a fitted batch's columns
 reserved from its first frame, so the preview or stand-in holds the first
-image's slot (9377de1); the page's scrollbar room kept, so a short gallery's
-batch of four no longer refits as the job ends (2338697); the budget line
+image's slot (9377de1); the strip fitted as if the page's scrollbar were
+there, so a short gallery's batch of four no longer refits as the job ends
+(7733f81; a stable gutter on the page, tried first, narrowed every vw size
+and was reverted); the budget line
 counting seeds by the job's stop rule, 5 of 6 for the Kohaku grid above
 (6a7570d); a sweep's Resume held in words once its source is gone (ad01fdc);
 the estimate of the time left running from the end of the first step (2a4d2cc);
