@@ -856,19 +856,30 @@ def _profile_for(model_id: str) -> dict[str, Any]:
 # `refine_tight_pixels` and whose words the hints as `refine_tight`.
 _NOT_DEFAULTS = ("hints", "guide", "refine_measured")
 
+# The checkpoints whose pipeline is this repo's own class - Anima Turbo's
+# modular blocks and NewBie's - beside which diffusers exports no
+# image-to-image class, so `refine.sibling` answers None loaded or not
+# (`tests/test_refine.py`). Their `refine_supported` is the answer a load
+# would give, not a guess: `refine_settled` says so, and the Refine dialog
+# stops telling the user that a load will decide.
+_OWN_PIPELINES = frozenset({"circlestone-labs/anima", "newbie-ai/newbie-image-exp0.1"})
+
 
 def defaults_for(model_id: str) -> dict[str, Any]:
     """The numbers only - callers put these straight into a request or a field.
 
     `refine_tight_pixels` is the measured pass's pixels where a pass was
     measured; every other profile answers None for it, which the page reads
-    as "not measured".
+    as "not measured". `refine_settled` is whether `refine_supported` is
+    final before a load (`_OWN_PIPELINES`); the status sets it once a loaded
+    pipeline has answered too (`main._merged_defaults`).
     """
     profile = _profile_for(model_id)
     measured = profile.get("refine_measured")
     return {
         **{k: v for k, v in profile.items() if k not in _NOT_DEFAULTS},
         "refine_tight_pixels": measured.width * measured.height if measured else None,
+        "refine_settled": model_id.lower().replace("_", "-") in _OWN_PIPELINES,
     }
 
 
@@ -965,10 +976,18 @@ def strength_sweep(start: float, steps: int) -> list[float]:
     order, so the floats round alike), and the Strength tip quotes them: the
     checkpoint's own neighbourhood, where a fixed example would be SDXL's
     0.3-0.5 everywhere - each of which repaints the subject on FLUX.1.
+
+    Half rounds up, on the quotient snapped to six places first: Z-Anime's
+    0.15 makes ties of both neighbours, and in floats 0.5 * 0.15 / 0.05 is
+    1.4999999999999998 and 1.5 * 0.15 / 0.05 is 4.499999999999999, which
+    floored to 0.05,0.15,0.2 - a sweep of -0.10/+0.05 where 0.1,0.15,0.25 are
+    the three verified.md measured. Rounding the hundredths instead does not
+    fix it, and `round()` would round half to even where the page's
+    `Math.round` does not.
     """
     out: list[float] = []
     for factor in (0.5, 1, 1.5):
-        value = round(math.floor(factor * start / 0.05 + 0.5) * 0.05, 2)
+        value = round(math.floor(round(factor * start / 0.05, 6) + 0.5) * 0.05, 2)
         if 0 < value <= 1 and leaves_a_step(steps, value) and value not in out:
             out.append(value)
     return out

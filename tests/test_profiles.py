@@ -697,12 +697,20 @@ def test_the_strength_sweep_is_the_dialogs_compare_3():
     assert strength_sweep(0.1, 28) == [0.05, 0.1, 0.15]
     assert strength_sweep(0.4, 28) == [0.2, 0.4, 0.6]
     assert strength_sweep(0.5, 4) == [0.25, 0.5, 0.75]
+    # Z-Anime's 0.15 puts both neighbours on a tie, which float error used
+    # to floor: 0.05,0.15,0.2. Half up on the snapped quotient is the three
+    # docs/verified.md measured there. And every profile's start, in a table
+    # the page's arithmetic gives too (see the expression below).
+    assert strength_sweep(0.15, 40) == [0.1, 0.15, 0.25]
+    assert "such as 0.1,0.15,0.25," in hints_for("SeeSee21/Z-Anime")["refine"]
+    assert strength_sweep(0.25, 28) == [0.15, 0.25, 0.4]
+    assert strength_sweep(0.3, 50) == [0.15, 0.3, 0.45]
     # 0.05 of 10 steps leaves none, and 1.2 is past 1.
     assert strength_sweep(0.1, 10) == [0.1, 0.15]
     assert strength_sweep(0.8, 28) == [0.4, 0.8]
     assert "such as 0.05,0.1,0.15," in hints_for("black-forest-labs/FLUX.1-Krea-dev")["refine"]
     src = (ROOT / "web" / "refine.js").read_text(encoding="utf-8")
-    assert "Math.floor(factor * start / 0.05 + 0.5) * 0.05" in src
+    assert "Math.floor(+(factor * start / 0.05).toFixed(6) + 0.5) * 0.05" in src
     # The FLUX.1 note under Strength rides with the pass, and only there.
     assert "sigma 0.75" in hints_for("black-forest-labs/FLUX.1-Krea-dev")["refine_large"]
     assert "refine_large" not in hints_for("black-forest-labs/FLUX.1-Krea-dev", refine_supported=False)

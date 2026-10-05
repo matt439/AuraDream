@@ -39,6 +39,28 @@ def test_before_a_load_the_profile_guesses(client, fake, monkeypatch):
         assert client.get("/api/status").json()["defaults"]["refine_supported"] is guess
 
 
+def test_the_status_says_when_the_answer_is_final(client, fake, monkeypatch):
+    # `refine_settled`: the Refine dialog's "a load answers for certain" is for
+    # a guess. A loaded pipeline's class has answered; before a load only a
+    # checkpoint whose pipeline is this repo's own (Anima Turbo, NewBie) has
+    # an answer no load would change.
+    assert client.get("/api/status").json()["defaults"]["refine_settled"] is True
+    fake.refine_supported = False
+    assert client.get("/api/status").json()["defaults"]["refine_settled"] is True
+    for model_id, settled in (
+        ("black-forest-labs/FLUX.1-Krea-dev", False),
+        ("someone/unprofiled-sdxl", False),
+        ("circlestone-labs/Anima", True),
+        ("NewBie-AI/NewBie-image-Exp0.1", True),
+    ):
+        described = dict(fake.describe(), refine_supported=None, model_id=model_id)
+        monkeypatch.setattr(fake, "describe", lambda described=described: described)
+        defaults = client.get("/api/status").json()["defaults"]
+        assert defaults["refine_settled"] is settled, model_id
+        if settled:
+            assert defaults["refine_supported"] is False
+
+
 def test_a_refine_is_refused_at_submit_where_the_checkpoint_has_none(client, fake, store):
     # A night of refinements must not discover at the first cell that every
     # one of them is a plain text-to-image at the larger size - a new picture,

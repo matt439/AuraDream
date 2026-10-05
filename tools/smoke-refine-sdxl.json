@@ -188,5 +188,13 @@
   {"key": "Escape"},
   {"wait": 200},
   {"expect": "!els.refineDialog.open && refineSource === null"},
-  {"eval": "resetPanel(); showError('');"}
+  {"eval": "resetPanel(); showError('');"},
+
+  {"log": "'a 1.5 MP source opens a step below the usual 1.5x where that is past the generic line: the 1.5x button says it is the usual size, and the size line why, in the panels words, since nothing was measured here'"},
+  {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; openRefine({...window.__src, width: 1024, height: 1536})"},
+  {"expect": "__until(() => els.refineDialog.open && refineSource?.id === window.__src.id)"},
+  {"expect": "+els.refineWidth.value === 1280 && +els.refineHeight.value === 1920 && els.refineScales.children[1].getAttribute('aria-pressed') === 'true' && els.refineScales.children[2].title === '1536 × 2304 (the usual opening size)'"},
+  {"expect": "els.refineSizeHint.textContent === '2.5 MP — 1.25× the source — 1.5× and larger may run tight on 16GB VRAM' && !els.refineSizeHint.classList.contains('warn')"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.refineDialog.open && refineSource === null)"}
 ]

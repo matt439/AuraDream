@@ -394,6 +394,12 @@ def _merged_defaults(info: dict) -> dict:
         if info.get(key) is not None:
             defaults[key] = info[key]
     defaults["lora_supported"] = bool(info.get("lora_supported"))
+    # Whether `refine_supported` is final: the loaded pipeline's class has
+    # answered, or the profile's pipeline is one diffusers has no sibling for.
+    # The Refine dialog's "a load answers for certain" is for the rest.
+    defaults["refine_settled"] = (
+        bool(defaults.get("refine_settled")) or info.get("refine_supported") is not None
+    )
     if defaults["refine_supported"] and defaults.get("refine_strength") is None:
         from .refine import DEFAULT_STRENGTH
 

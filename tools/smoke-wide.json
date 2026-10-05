@@ -143,6 +143,8 @@
   {"eval": "els.gridSection.open = false; scrollTo(0, 0); openRefine(galleryRecords[0]); els.refineSeed.value = '8904415545568074';"},
   {"wait": 300},
   {"expect": "els.refineDialog.open && els.refineSeed.scrollWidth <= els.refineSeed.clientWidth"},
+  {"log": "'and the row it is in fits the dialog: Strength took its text box\\'s own 20 characters, and the row ran past the dialog behind a sideways scrollbar, the dice cut off'"},
+  {"expect": "(() => { const row = els.refineDice.closest('.row'); return els.refineDialog.scrollWidth <= els.refineDialog.clientWidth && row.scrollWidth <= row.clientWidth && els.refineDice.getBoundingClientRect().right <= row.getBoundingClientRect().right + 0.5; })()"},
   {"eval": "closeRefine();"},
   {"wait": 300},
   {"eval": "els.gridSection.open = false; scrollTo(0, 0);"},
