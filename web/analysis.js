@@ -1333,8 +1333,10 @@ function renderCompare(previewDelay = 0) {
     box.type = 'checkbox';
     box.dataset.variant = variant.label;
     box.checked = variant.label === 'original' || compareChoice[variant.label];
-    // The row every other one is compared against.
+    // The row every other one is compared against - and why it cannot be
+    // unticked, which "Original, checked, unavailable" alone never said.
     box.disabled = variant.label === 'original';
+    if (box.disabled) box.setAttribute('aria-description', 'Always runs: the other versions are compared against it');
     box.onchange = () => {
       compareChoice[variant.label] = box.checked;
       syncCompareRun();

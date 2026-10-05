@@ -8,7 +8,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">Local<span>Diffusion</span></div>
+  <h1 class="brand">Local<span class="brand-gap"> </span><span>Diffusion</span></h1>
   <div class="status" id="status">
     <span class="dot" id="status-dot"></span>
     <span id="status-text" aria-live="polite">checking…</span>
@@ -27,7 +27,12 @@
 </header>
 
 <main>
-  <aside class="panel">
+  <!-- A named region, not an unnamed <aside>: the settings that drive every
+       job are the page's working area, not complementary to it, and heading
+       or landmark navigation could not reach them. The heading is read, not
+       seen (.sr-only). -->
+  <section class="panel" aria-labelledby="panel-head">
+    <h2 class="sr-only" id="panel-head">Settings</h2>
     <!-- A div, not a label: the ? badge and the Examples button sit in the
          caption, and inside a <label> a tap on either would be forwarded to
          the textarea. The tooltip is the checkpoint's prompting guide, from
@@ -196,11 +201,13 @@
          the checkpoint's, which its tip says. It follows the note that names
          that box, in the caption: in the box's corner it lay over the
          negative's own text. Where the note wraps (330 px) it costs nothing,
-         on a wide panel a line. -->
+         on a wide panel a line. The note is the box's description too: greyed,
+         the box was read as "unavailable" with no why (sizes.js, syncCfg,
+         rewrites the note, and the description follows it). -->
     <div class="field" id="negative-field">
       <span><label for="negative">Negative prompt</label> <em id="neg-note"></em>
         <button type="button" class="ghost tiny" id="neg-enable" hidden></button></span>
-      <textarea id="negative" rows="2" placeholder="blurry, watermark"></textarea>
+      <textarea id="negative" rows="2" placeholder="blurry, watermark" aria-describedby="neg-note"></textarea>
     </div>
 
     <div class="field">
@@ -513,14 +520,17 @@
       <button class="primary" id="btn-grid" title="Run grid (Ctrl+Enter from a grid box)"
               aria-keyshortcuts="Control+Enter">Run grid</button>
     </details>
-  </aside>
+  </section>
 
   <section class="stage" id="stage">
     <div class="tag-validation-host tag-validation-wide" id="tag-validation-wide"></div>
     <!-- What this page's jobs make, the newest job's (panel.js). Before the
          first, one line, so the gallery starts near the top of the window -
          or, on a gallery with nothing in it at all, the tall box with the
-         checkpoint's examples a press away. -->
+         checkpoint's examples a press away. Its heading is read, not seen:
+         idle, the viewer is that one line, and out of the flow (.sr-only)
+         it takes no row of the stage's grids. -->
+    <h2 class="sr-only" id="viewer-head">Results</h2>
     <div class="viewer" id="viewer">
       <p class="placeholder"><span class="idle-line">Nothing generated this session - Ctrl+Enter runs the
         prompt; click a gallery image to open it.</span><span class="first-run">Nothing here yet: write a
