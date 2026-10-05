@@ -264,6 +264,16 @@ function closeAnalysis() {
   (els.analyze.disabled ? els.prompt : els.analyze).focus();
 }
 
+// Escape closes it too, once nothing nearer took the key (app.js's keydown:
+// a dialog, a menu, a suggestion list, a search box emptying itself). Focus
+// in the panel, which would fall to <body> with it, goes back as Close's
+// does; focus anywhere else - the prompt being typed in - stays where it is.
+function escapeAnalysis() {
+  const focused = document.activeElement;
+  if (!focused || focused === document.body || els.promptAnalysis.contains(focused)) closeAnalysis();
+  else els.promptAnalysis.hidden = true;
+}
+
 // Forget the check: another checkpoint's tokenizers and guide, or a Reset. An
 // answer still on its way is dropped when it lands.
 function clearAnalysis() {
