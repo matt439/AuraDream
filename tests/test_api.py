@@ -122,9 +122,11 @@ def test_status_lists_the_live_jobs(client, fake):
     # the card; one watching its own, of jobs queued behind it from
     # elsewhere and of queued ones cancelled there. Oldest first.
     assert client.get("/api/status").json()["active_jobs"] == []
-    fake.step_seconds = 0.02
+    # Long enough to outlive every call below on a loaded machine (20 s);
+    # cancelled at the end, not waited out.
+    fake.step_seconds = 0.2
     ahead = client.post(
-        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 30}
+        "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 100}
     ).json()["job_id"]
     behind = client.post(
         "/api/generate", json={"prompt": "y", "width": 256, "height": 256, "steps": 2}
@@ -132,6 +134,7 @@ def test_status_lists_the_live_jobs(client, fake):
     assert client.get("/api/status").json()["active_jobs"] == [ahead, behind]
     client.post(f"/api/jobs/{behind}/cancel")
     assert client.get("/api/status").json()["active_jobs"] == [ahead]
+    client.post(f"/api/jobs/{ahead}/cancel")
     stream_job(client, ahead)
     assert client.get("/api/status").json()["active_jobs"] == []
 

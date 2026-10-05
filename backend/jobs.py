@@ -239,6 +239,10 @@ class JobManager:
         # was given ("critic", "expand"), None while it is free. What a job
         # queued behind it waits on is read off this (`_waiting_label`).
         self._holder: str | None = None
+        # Jobs past their load and waiting for the gate: the ones whose
+        # `waiting_on` follows the holder. A job still awaiting the load keeps
+        # saying so, whatever holds the gate.
+        self._at_gate: set[str] = set()
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
@@ -319,11 +323,14 @@ class JobManager:
 
     def _relabel_queued(self, loop: asyncio.AbstractEventLoop) -> None:
         """Say again what each job waiting for the gate is behind, to its
-        streams: after the job holding it pauses or resumes. A job still
-        waiting on the load is left to say so."""
+        streams: when the gate changes hands, and after the job holding it
+        pauses or resumes. Behind the critic, "critic" outlived the critic's
+        answer: the second of two jobs queued during a critique said so for
+        the whole of the first's run. A job still waiting on the load is
+        left to say so."""
         label = self._waiting_label()
         for job in self.active():
-            if job.status == "queued" and job.waiting_on not in (None, "load") and job.waiting_on != label:
+            if job.id in self._at_gate and job.status == "queued" and job.waiting_on != label:
                 job.waiting_on = label
                 self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
 
@@ -520,12 +527,21 @@ class JobManager:
             job.waiting_on = waiting
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
         job.waiting_on = waiting
-        async with self._gate:
-            self._holder = job.id
-            try:
-                await self._run_holding(job, loop)
-            finally:
-                self._holder = None
+        self._at_gate.add(job.id)
+        try:
+            async with self._gate:
+                self._at_gate.discard(job.id)
+                self._holder = job.id
+                # The gate has changed hands: whoever still waits is now
+                # behind this job, whatever held it before - the critic, or a
+                # gate passed on while a job arrived (it read nothing ahead).
+                self._relabel_queued(loop)
+                try:
+                    await self._run_holding(job, loop)
+                finally:
+                    self._holder = None
+        finally:
+            self._at_gate.discard(job.id)
 
     async def _run_holding(self, job: Job, loop: asyncio.AbstractEventLoop) -> None:
         """The job's turn, the gate held."""
