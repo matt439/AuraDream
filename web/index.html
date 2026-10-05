@@ -536,6 +536,26 @@
 
     <div class="gallery-head">
       <h2>Gallery <span id="gallery-count"></span></h2>
+      <!-- How the cards are drawn, from 1800 px, where the grid has the
+           width to choose and the head the room (gallery.js, cardView):
+           smaller cards, more to a row; the whole picture or the card
+           filled. Each pair is one tab stop, the chosen one, the arrows
+           moving along it, as the panel's size strips are. Hidden on a
+           sheet, which draws its cells its own way. -->
+      <div class="card-view" id="card-view">
+        <div class="view-pick" role="group" aria-label="Card size">
+          <button type="button" class="ghost small" data-density="s" aria-pressed="false"
+                  title="Small cards: more to a row">S</button>
+          <button type="button" class="ghost small" data-density="m" aria-pressed="true"
+                  title="Medium cards: the wide screen's own size">M</button>
+        </div>
+        <div class="view-pick" role="group" aria-label="Thumbnails">
+          <button type="button" class="ghost small" data-fit="contain" aria-pressed="true"
+                  title="Fit: the whole picture, letterboxed on the card">Fit</button>
+          <button type="button" class="ghost small" data-fit="cover" aria-pressed="false"
+                  title="Crop: the card filled, the picture cut to its middle">Crop</button>
+        </div>
+      </div>
       <!-- One line per night's grid, newest first; picking one searches for
            `run:<id>` and opens the sheet. -->
       <select id="run-list" class="runs" aria-label="Recent runs" disabled>

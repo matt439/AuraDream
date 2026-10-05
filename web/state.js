@@ -68,7 +68,7 @@ const els = {
   confirmCountField: $('confirm-count-field'), confirmCountLabel: $('confirm-count-label'),
   confirmCount: $('confirm-count'), confirmCancel: $('confirm-cancel'), confirmOk: $('confirm-ok'),
   viewerExamples: $('viewer-examples'), recent: $('recent'), recentList: $('recent-list'),
-  count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'),
+  count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'), cardView: $('card-view'),
   allModels: $('all-models'), otherModels: $('other-models'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'),
   orientation: $('btn-orientation'), sizeHint: $('size-hint'),

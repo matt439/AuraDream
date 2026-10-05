@@ -1761,6 +1761,33 @@ button { font: inherit; cursor: pointer; }
   border-bottom: 1px solid var(--line);
   font-size: var(--fs-body-sm); font-weight: 600; color: var(--text-readout);
 }
+/* How the cards are drawn (cardView, gallery.js), from 1800 px: S, smaller
+   cards and more to a row - eleven at QHD, nine at 125%, where M, the tier's
+   own --thumb-min, is eight and seven - and the whole picture (Fit, the
+   default: `contain`, below) or the card filled and the picture cut to its
+   middle (Crop: `cover`, which showed 57% of a 16:9 image but fills the grid
+   edge to edge). Two pairs in the head, segmented as a size strip's are, the
+   chosen one in the accent's fill. Under 1800 px the head has no room - it
+   is full at 1400 - and the cards are as they always were there, whatever
+   was chosen on a wider window. Not the sheet's: its cells are its own, and
+   a wrapped sheet keeps the tier's --thumb-min. At S a card is 150 px, too
+   narrow for five 32 px tools: there they are 24 px wide at least, the
+   least a target should be, Delete still apart. */
+.card-view { display: none; }
+@media (min-width: 1800px) {
+  .card-view { display: flex; gap: var(--sp-2); }
+  .view-pick { display: flex; }
+  .view-pick button { position: relative; }
+  .view-pick button:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+  .view-pick button:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; margin-left: -1px; }
+  .view-pick button[aria-pressed="true"] {
+    z-index: 1; border-color: var(--accent-strong); color: #fff; background: var(--accent-strong);
+  }
+  .view-pick button:focus-visible { z-index: 2; }
+  #gallery[data-density="s"] { --thumb-min: clamp(150px, 6.5vw, 180px); }
+  #gallery[data-density="s"] .card .tools button { min-width: 24px; padding-inline: var(--sp-1); }
+  #gallery[data-fit="cover"] .card img { object-fit: cover; }
+}
 
 /* --------------------------------------------------------- contact sheet */
 

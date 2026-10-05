@@ -323,6 +323,10 @@ els.favOnly.onchange = resetGallery;
 // The Runs picker is the gallery's table of contents, so it follows the scope.
 els.allModels.onchange = () => { resetGallery(); loadRuns(); };
 els.sheetBtn.onclick = toggleSheet;
+// How the cards are drawn (gallery.js): a press chooses; each pair is one
+// tab stop whose arrows move focus along it, as a size strip's do.
+els.cardView.addEventListener('click', cardViewClick);
+for (const pair of els.cardView.querySelectorAll('[role="group"]')) pair.addEventListener('keydown', (e) => stepPreset(pair, e));
 els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
 // The sheet's fit is measured against the window, so it follows a resize.
 window.addEventListener('resize', refitSheet);
@@ -541,6 +545,7 @@ syncRuns();
 document.querySelector('.panel').addEventListener('input', persistPanel);
 document.querySelector('.panel').addEventListener('change', persistPanel);
 els.gridSection.addEventListener('toggle', persistPanel);
+restoreCardView();
 refreshStatus();
 loadGallery();
 loadRuns();
