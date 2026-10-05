@@ -10,7 +10,7 @@
   {"eval": "els.criticAsk.click();"},
   {"wait": 1500},
   {"expect": "!critiquing && critiqueResult !== null && critiqueResult.body.rewrite.includes('honkai: star rail, firefly (honkai: star rail)') && !critiqueResult.body.rewrite_findings.some((f) => f.rule === 'guide.order')"},
-  {"expect": "(() => { const notes = [...els.criticResult.querySelectorAll('.critic-checked > .analysis-note')].map((n) => n.textContent); return notes.length === 1 && notes[0].startsWith('Not flagged on the rewrite, whose check runs without the tag index - these may still apply: \"honkai: star rail\" (Series) comes before') && [...els.criticResult.querySelectorAll('.critic-checked .analysis-carried')].every((c) => c.textContent === 'also in your prompt'); })()"},
+  {"expect": "(() => { const notes = [...els.criticResult.querySelectorAll('.critic-checked > .analysis-note')].map((n) => n.textContent); return notes.length === 1 && notes[0].startsWith('Not flagged on the rewrite, whose check asks the tag index nothing of its own - these may still apply: \"honkai: star rail\" (Series) comes before') && [...els.criticResult.querySelectorAll('.critic-checked .analysis-carried')].every((c) => c.textContent === 'also in your prompt'); })()"},
   {"eval": "closeAnalysis();"},
 
   {"log": "'Docked from 1800 px on a tag checkpoint: the chips stay across both columns, as wide as with the check closed, and the check starts under them - so the image just made does not move at all as the check opens, nor Generate, and stays wholly in view. With the chip tray label, + tag and hint: 6, 32 and 40 tags at 2560x1305 and at 2048x1040 at 125%, where 40 in the left column alone had taken the image 8 px past the fold'"},

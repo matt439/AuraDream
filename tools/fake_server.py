@@ -273,6 +273,9 @@ def main() -> int:
             "green_eyes": ("general", 900_000),
             "firefly_(honkai:_star_rail)": ("character", 16_000),
             "honkai:_star_rail": ("copyright", 160_000),
+            # Artists, for Anima's "put @ before an artist name".
+            "kantoku": ("artist", 9_000),
+            "wlop": ("artist", 31_000),
         }
 
         def suggest(self, query, cutoff, limit=12):

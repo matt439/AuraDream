@@ -23,9 +23,17 @@
   {"log": "'The grid\\'s Steps and CFG examples are Z-Anime\\'s neighbourhood (40 steps, CFG 4), not Krea 2 Turbo\\'s 6-12x2 and 0,0.5,1'"},
   {"expect": "els.gridSteps.placeholder === '30,40,50' && els.gridCfg.placeholder === '3,4,5'"},
   {"eval": "els.examplesBtn.click();"},
-  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
+  {"log": "'Both examples are the card templates, verbatim; beside each, the slots it leaves to fill (the guide data: guide.slots)'"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 2"},
+  {"expect": "[...els.examplesMenu.children].map((li) => li.querySelector('.example-note')?.textContent).join('|') === 'fill in [character]|fill in [location] and 3 more slots' && els.examplesMenu.children[1].querySelector('.text').textContent.startsWith('Anime [location] at [time of day], [lighting], [atmosphere],')"},
   {"eval": "els.examplesMenu.children[0].click();"},
   {"expect": "els.prompt.value.startsWith('Detailed anime portrait') && collect().steps === 40 && collect().guidance_scale === 4 && collect().mu === null"},
+  {"log": "'A pick selects the first slot, so what is typed next replaces it: left at the end, Generate rendered [character] as words'"},
+  {"expect": "els.examplesMenu.hidden && document.activeElement === els.prompt && els.prompt.value.slice(els.prompt.selectionStart, els.prompt.selectionEnd) === '[character]'"},
+  {"type": "Rem"},
+  {"expect": "els.prompt.value.startsWith('Detailed anime portrait of Rem, soft rim lighting,') && !els.prompt.value.includes('[character]')"},
+  {"eval": "els.examplesBtn.click(); els.examplesMenu.children[1].click();"},
+  {"expect": "document.activeElement === els.prompt && els.prompt.value.startsWith('Anime [location] at') && els.prompt.value.slice(els.prompt.selectionStart, els.prompt.selectionEnd) === '[location]' && !els.promptNote.hidden"},
   {"eval": "els.width.value = '1920'; els.height.value = '1088'; syncSize();"},
   {"expect": "!els.sizeHint.classList.contains('warn') && collect().width === 1920 && collect().height === 1088"},
   {"eval": "els.width.value = '2048'; els.height.value = '2048'; syncSize();"},
@@ -60,5 +68,18 @@
   {"log": "'Pinned to its none cell, the Fixed line names the shift too'"},
   {"eval": "els.search.value = els.search.value + ' mu:none'; resetGallery();"},
   {"expect": "__until(() => sheetMode && !galleryPending && els.sheetFixed.textContent === 'Fixed: Steps 40 · CFG 4 · Mu none (1.79) · Seed 4')"},
-  {"eval": "els.gridSection.open = false; els.gridMu.value = ''; els.search.value = ''; setSheet(false);"}
+  {"eval": "els.gridSection.open = false; els.gridMu.value = ''; els.search.value = ''; setSheet(false);"},
+
+  {"log": "'The guide recommends a negative prompt (the card: highly recommended on Base): Check notes a missing one at CFG 4, with no text to Apply, and none once one is typed'"},
+  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__check = (text, negative) => { els.prompt.value = text; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.negative.value = negative; els.negative.dispatchEvent(new Event('input', {bubbles: true})); els.analyze.click(); }; els.cfg.value = '4'; els.cfg.dispatchEvent(new Event('input', {bubbles: true})); __check('A girl with silver hair stands under cherry blossoms. Soft light falls on her face.', '');"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value && analysisResult.negative === '' && !els.promptAnalysis.hidden)"},
+  {"expect": "analysisResult.body.findings.map((f) => f.rule).join() === 'guide.negative_prompt' && els.analysisFindings.textContent.includes('No negative prompt runs, and the authors recommend one.') && els.analysisFindings.textContent.includes('Use a negative prompt for unwanted features; Base supports it fully.') && !els.analysisFindings.querySelector('[data-writes]')"},
+  {"eval": "__check(els.prompt.value, 'blurry, watermark');"},
+  {"expect": "__until(() => analysisResult?.negative === 'blurry, watermark')"},
+  {"expect": "analysisResult.body.findings.length === 0 && els.analysisSummary.textContent.endsWith('nothing to flag')"},
+
+  {"log": "'A slot standing as a whole comma item is one finding, the author\\'s - not A1111 de-emphasis on the same words as well'"},
+  {"eval": "__check('[character], soft rim lighting, expressive eyes.', 'blurry, watermark');"},
+  {"expect": "__until(() => analysisResult?.source === '[character], soft rim lighting, expressive eyes.')"},
+  {"expect": "analysisResult.body.findings.filter((f) => f.start === 0 && f.end === 11).map((f) => f.rule).join() === 'author.placeholder' && els.analysisFindings.textContent.includes(\"[character] is the author's template slot\") && !els.analysisFindings.textContent.includes('de-emphasis')"}
 ]

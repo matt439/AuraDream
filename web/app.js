@@ -45,6 +45,12 @@ function showExamples(open) {
   }
   // The example stays the authors' words; what it needs is said beside it.
   const unreferenced = referenceSupported && !referenceIds.length;
+  const needs = (words) => {
+    const span = document.createElement('span');
+    span.className = 'example-note';
+    span.textContent = words;
+    return span;
+  };
   examples.forEach((text) => {
     const li = document.createElement('li');
     li.setAttribute('role', 'menuitem');
@@ -53,11 +59,12 @@ function showExamples(open) {
     span.className = 'text';
     span.textContent = text;
     li.appendChild(span);
-    if (unreferenced && EDIT_PROMPT.test(text)) {
-      const needs = document.createElement('span');
-      needs.className = 'example-note';
-      needs.textContent = 'needs a reference image';
-      li.appendChild(needs);
+    if (unreferenced && EDIT_PROMPT.test(text)) li.appendChild(needs('needs a reference image'));
+    const slots = [...new Set(templateSlots(text).map((slot) => slot.text))];
+    if (slots.length) {
+      li.appendChild(needs(slots.length === 1 ? `fill in ${slots[0]}`
+        : slots.length === 2 ? `fill in ${slots[0]} and ${slots[1]}`
+        : `fill in ${slots[0]} and ${slots.length - 1} more slots`));
     }
     li.title = text;
     li.onclick = () => pickExample(text);
@@ -66,10 +73,22 @@ function showExamples(open) {
   });
 }
 
+// The authors' template slots in `text` - "[character]", "$character_1$" -
+// in reading order, from the placeholder rule's own patterns (`guide.slots`).
+function templateSlots(text) {
+  return exampleSlots
+    .flatMap((pattern) => [...text.matchAll(pattern)])
+    .map((match) => ({ text: match[0], start: match.index, end: match.index + match[0].length }))
+    .sort((a, b) => a.start - b.start);
+}
+
 // An example written the way typing writes it, so Ctrl+Z brings back what
 // the box held - and, over a prompt of the user's own, a note under the box
 // says so with an Undo: the menu opens over the prompt, and one stray click
 // used to replace minutes of work for good, the panel saving it at once.
+// An example that is a template has its first slot selected, so what is
+// typed next replaces it: left at the end, Generate rendered "[character]"
+// as words. Selecting writes nothing - the Undo and the panel are the same.
 function pickExample(text) {
   const before = els.prompt.value;
   writeBox(els.prompt, text);
@@ -79,6 +98,11 @@ function pickExample(text) {
   scheduleTagValidation(0);
   persistPanel();
   els.prompt.focus();
+  const [slot] = templateSlots(els.prompt.value);
+  if (slot) {
+    els.prompt.setSelectionRange(slot.start, slot.end);
+    scrollToSelection(els.prompt);
+  }
   if (before.trim() && before !== text) {
     offerPromptUndo('An example replaced your prompt.', () => {
       writeBox(els.prompt, before);

@@ -66,8 +66,13 @@ def comma_items(prompt: str) -> list[Item]:
     rules read a stretch of lettering as one item (`_units`); every other
     item they read is one of these.
     """
+    return _split(prompt, r"[^,]+")
+
+
+def _split(prompt: str, piece: str) -> list[Item]:
+    """`prompt`'s stretches matching `piece`, stripped, where each one sits."""
     items = []
-    for match in re.finditer(r"[^,]+", prompt):
+    for match in re.finditer(piece, prompt):
         raw = match.group()
         text = raw.strip()
         if text:
@@ -84,7 +89,13 @@ _WORD = re.compile(r"[^\W_]+(?:['’\-][^\W_]+)*")
 
 
 def word_count(prompt: str) -> int:
-    return len(_CJK.findall(prompt)) + len(_WORD.findall(_CJK.sub(" ", prompt)))
+    return cjk_count(prompt) + len(_WORD.findall(_CJK.sub(" ", prompt)))
+
+
+def cjk_count(prompt: str) -> int:
+    """How many of `word_count`'s words are Han or kana characters, one
+    each: the page calls those characters, not words."""
+    return len(_CJK.findall(prompt))
 
 
 _XML_ELEMENT = re.compile(r"<([A-Za-z_][\w.\-]*)>.*?</\1\s*>", re.S)
@@ -812,6 +823,88 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     return wanted
 
 
+def lookup_items(model_id: str, prompt: str) -> list[str]:
+    """What a check of `prompt` asks the tag index about: `category_items`
+    where the prompt reads as tags, or tags and prose. Where it reads as
+    prose, only on a guide whose rules read artists (Anima, whose card says
+    "Use tags, natural language, or both": its prefix and tags ahead of two
+    sentences read as prose, and an artist among them went unchecked while
+    the panel said nothing to flag) - and there only the tag-shaped items,
+    since the artist rule reads a whole comma item and a clause is no
+    artist's name; asking about every clause would cost the index a request
+    for each one Check. Prose is never looked up for the order rules: their
+    "partly checked" names a prose prompt's clauses as never asked
+    (`main._order_detail`), and no guide that states an order reads artists
+    (`tests/test_prompt_rules.py` holds that). Nothing for XML or JSON."""
+    style = detect_style(prompt)
+    if style in ("tags", "hybrid"):
+        return category_items(model_id, prompt)
+    if style != "prose" or not wants_artist_categories(model_id):
+        return []
+    return [item for item in category_items(model_id, prompt) if not _is_prose(item)]
+
+
+def _named(name: str) -> re.Pattern[str]:
+    """`name` - an item the tag index answered for - written anywhere in a
+    text as words of their own, with no @ just ahead: any case, a space or
+    an underscore between its words, its parentheses escaped or not."""
+    words = r"[\s_]+".join(re.escape(word) for word in _norm(name).split(" "))
+    words = words.replace(r"\(", r"\\?\(").replace(r"\)", r"\\?\)")
+    return re.compile(rf"(?<![@\w])(?<!@\s){words}(?!\w)", re.IGNORECASE)
+
+
+def artists_read(
+    model_id: str, text: str, asked: Iterable[str], artists: Iterable[str]
+) -> bool:
+    """Whether the artist rule, reading `text` with the categories a lookup
+    of `asked` answered with - `artists` the items it called artists - reads
+    every artist `text` may name: the critic's rewrite, checked with its
+    analysis's own categories and no lookup of its own (`main._lint`).
+
+    Every item a Danbooru name could be (`category_items`, a prose text's
+    clauses included, which a check of it never asks about) must be among
+    `asked`, read as the rules match an item (`_norm`); and no artist the
+    lookup named may stand in `text` other than as a whole item the rule
+    reads or after its @ - "a painting in the style of wlop", "A girl
+    painted by wlop smiles." keep the name with no @ and no finding, and the
+    page would otherwise call the prompt's finding on it fixed.
+    """
+    known = {_norm(item) for item in asked}
+    if not all(_norm(item) in known for item in category_items(model_id, text)):
+        return False
+    named = {_norm(name) for name in artists}
+    patterns = [_named(name) for name in named]
+    if detect_style(text) in ("xml", "json"):
+        # The rule reads no item of either.
+        return not any(pattern.search(text) for pattern in patterns)
+    items, lettered, _ = _tag_items(text)
+    for item, held in zip(items, lettered, strict=True):
+        if not held and not _is_sentence(item.text) and _norm(item.text) in named:
+            continue  # The rule reads it, and flags it unless it has its @.
+        if any(pattern.search(item.text) for pattern in patterns):
+            return False
+    return True
+
+
+def scene_ahead(model_id: str, text: str) -> str | None:
+    """The guide's scene block - NewBie's <general_tags> - where `text` puts
+    it ahead of a <character_N> block at the top level, against the order
+    the guide states (each character's block, then the shared scene); None
+    where it does not, or the guide states no such order. The order rule
+    never reads XML (`order_checked`); this is what a critic's reorder of
+    the blocks is held to."""
+    analysis = _analysis(_guide(model_id))
+    entry = analysis.get("xml")
+    if not isinstance(entry, dict) or not analysis.get("order"):
+        return None
+    names = [match.group(1) for match in _XML_ELEMENT.finditer(text)]
+    scene = entry["scene"]
+    if scene not in names:
+        return None
+    later = names[names.index(scene) + 1:]
+    return scene if any(re.fullmatch(r"character_\d+", name) for name in later) else None
+
+
 @dataclass
 class _Context:
     """One prompt, read once, for every rule."""
@@ -974,11 +1067,18 @@ def _style(ctx: _Context) -> Iterable[PromptFinding]:
     if entry is None or ctx.style in entry.get("accepts", ()):
         return
     expects = entry["expects"]
-    if expects == "prose" and ctx.style == "tags" and len(ctx.items) >= 3:
+    # Three of the pieces the style was read from - split at commas, "，" and
+    # line breaks (`_pieces`), not at commas alone as the chips split - each
+    # stretch of lettering one piece, as `_units` makes it one comma item: a
+    # list written with "，" or one item a line is a tag list here too, while
+    # `1girl, "hi, there"` is still two.
+    pieces = _units(ctx.text, _split(ctx.text, r"[^,，\n]+"), ctx.quoted + ctx.rendered)
+    if expects == "prose" and ctx.style == "tags" and len(pieces) >= 3:
+        # Not "comma-separated": a list one item a line is one too.
         yield ctx.finding(
             entry, "guide.style", "info",
-            "This reads as a comma-separated tag list; this checkpoint's guide asks "
-            "for descriptive sentences.",
+            "This reads as a tag list; this checkpoint's guide asks for descriptive "
+            "sentences.",
         )
     elif expects == "tags" and ctx.style in ("prose", "hybrid"):
         what = "natural-language prose" if ctx.style == "prose" else "partly prose"
@@ -1612,6 +1712,32 @@ def _one_paragraph(ctx: _Context) -> Iterable[PromptFinding]:
 
 
 _PROMPT_START = re.compile(r"<\s*prompt\s+start\s*>", re.IGNORECASE)
+# The loader's own instruction, not a copy: what it sends is what doubles -
+# as a person retypes it, too: any case, any run of whitespace between its
+# words, the closing full stop or not. Without the stop it was missed, and
+# Apply cut only the marker after it.
+_NETAYUME_INSTRUCTION = re.compile(
+    r"(?<!\w)"
+    + r"\s+".join(map(re.escape, NETAYUME_SYSTEM_PROMPT.rstrip(".").split()))
+    + r"(?:\.|(?!\w))",
+    re.IGNORECASE,
+)
+# How a system instruction opens: "You are an assistant designed to ...",
+# diffusers' Lumina 2 one and the Neta variants - an assistant, a model, an
+# AI, a generator - and not a scene a person describes ("You are looking at
+# a girl in the rain"), whose words Apply would otherwise cut. The noun ends
+# the opener: a stop or the end follows it, or a word an instruction goes on
+# with ("designed to", "that generates"), so "a model student walking in the
+# rain" and "an AI artist painting a girl" stay the user's.
+_INSTRUCTION = re.compile(
+    r"\s*you\s+are\s+an?\s+(?:[\w-]+\s+){0,3}(?:assistant|model|ai|generator|bot)"
+    r"(?=\s*(?:[.,;:]|$)|\s+(?:designed|that|which|who|built|trained|made|"
+    r"speciali[sz]ed|capable|for|to)\b)",
+    re.IGNORECASE,
+)
+# A sentence ending with more text after it. Not `_SENTENCE_BREAK`, which
+# reads "an AI. A girl" as an abbreviation's stop.
+_MORE_SENTENCES = re.compile(r"[.!?](?=\s+\S)|[。！？](?=\s*\S)")
 
 
 def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
@@ -1622,13 +1748,34 @@ def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
     # Lettering is the image description the user asked for, even where it
     # spells a marker or the whole instruction. Search the same-length bare
     # text so a quoted occurrence neither gets cut nor hides a later prefix.
-    spans = [match.span() for match in _PROMPT_START.finditer(ctx.bare)]
-    # The loader's own instruction, not a copy: what it sends is what doubles.
+    markers = list(_PROMPT_START.finditer(ctx.bare))
+    spans = [match.span() for match in markers]
     # Found in the text itself, not in text.lower(), whose offsets are not the
     # text's ("İ" lowers to two characters).
-    at = re.search(re.escape(NETAYUME_SYSTEM_PROMPT), ctx.bare, re.IGNORECASE)
+    at = _NETAYUME_INSTRUCTION.search(ctx.bare)
     if at:
         spans.append(at.span())
+    # Lumina's template is instruction, marker, prompt: what stands before
+    # the first marker, where it opens as an instruction does ("You are an
+    # assistant ..."),
+    # is a system instruction of some other workflow's - diffusers' own
+    # Lumina 2 one, a Neta variant - and the marker its separator. Cut as one,
+    # so Apply leaves the image description and nothing of the instruction;
+    # a marker after tags ("1girl <Prompt Start> moon") is cut alone, and so
+    # is one after lettering, which is the user's, and one after more than a
+    # sentence ("You are an AI. A girl stands in the rain."), where nothing
+    # says how much of it is the instruction.
+    extended: tuple[int, int] | None = None
+    if markers and (at is None or at.start() >= markers[0].start()):
+        first = markers[0]
+        head = text[: first.start()]
+        if (
+            _INSTRUCTION.match(ctx.bare, 0, first.start())
+            and ctx.bare[: first.start()] == head
+            and not _MORE_SENTENCES.search(head.strip())
+        ):
+            extended = (len(head) - len(head.lstrip()), first.end())
+            spans[0] = extended
     # Each cut's seam becomes one space, and a comma either side of it one
     # comma; whitespace anywhere else - a blank line, the spacing inside
     # quoted lettering - is the user's.
@@ -1639,11 +1786,17 @@ def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
             tail = tail[1:].lstrip()
         cleaned = head + (" " if head and tail else "") + tail
     for start, end in sorted(spans):
-        yield ctx.finding(
-            entry, "guide.system_prefix", "warn",
+        message = (
+            f'"{text[start:end]}" is a system instruction and its <Prompt Start> marker: the '
+            "pipeline adds the author's own instruction and marker itself, so here this one "
+            "is encoded as image description."
+            if (start, end) == extended else
             f'"{text[start:end]}" is already sent: the pipeline adds the author\'s '
             "system instruction and its <Prompt Start> marker itself, so here it "
-            "is encoded a second time as image description.",
+            "is encoded a second time as image description."
+        )
+        yield ctx.finding(
+            entry, "guide.system_prefix", "warn", message,
             start=start, end=end,
             suggestion=cleaned.strip() or None,
         )
@@ -1780,13 +1933,32 @@ def _xml_multi(ctx: _Context) -> Iterable[PromptFinding]:
         )
 
 
+def _slot_cite(entry: dict[str, Any], slot: str, lines: list[str]) -> str:
+    """What a slot's finding quotes: the entry's own cite where it shows this
+    slot, else the shortest line of the authors' examples that does - so
+    "$character_2$" quotes "<n>$character_2$</n>", not the first slot's line -
+    else the entry's cite."""
+    if slot.casefold() in entry["cite"].casefold():
+        return entry["cite"]
+    holding = [line for line in lines if slot.casefold() in line.casefold()]
+    return min(holding, key=len) if holding else entry["cite"]
+
+
 def _placeholders(ctx: _Context) -> Iterable[PromptFinding]:
+    lines = [
+        line.strip()
+        for example in ctx.guide.get("examples") or []
+        for line in example.splitlines()
+        if line.strip()
+    ]
     for entry in ctx.analysis.get("placeholders", []):
+        fill = entry.get("fill", "what it stands for")
         for match in re.finditer(entry["pattern"], ctx.text, re.IGNORECASE):
+            slot = match.group()
             yield ctx.finding(
-                entry, "author.placeholder", "warn",
-                f"{match.group()} is the author's template slot, and the encoder "
-                "reads it literally: put the character's name or description there.",
+                {**entry, "cite": _slot_cite(entry, slot, lines)}, "author.placeholder", "warn",
+                f"{slot} is the author's template slot, and the encoder "
+                f"reads it literally: put {fill} there.",
                 start=match.start(), end=match.end(),
             )
 
@@ -2097,14 +2269,25 @@ def _lowercase(ctx: _Context) -> Iterable[PromptFinding]:
         )
 
 
+def _listed(names: list[str]) -> str:
+    """"a", "a and b", "a, b and c"."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
 def _artist_prefix(ctx: _Context) -> Iterable[PromptFinding]:
+    # Item by item, whatever the whole prompt reads as: Anima's card says to
+    # use tags, natural language or both, and a tag list that ends in two
+    # sentences reads as prose - which once skipped this rule and reported
+    # nothing to flag over an artist written without its @. A sentence is no
+    # artist's name, and the lookup was never asked about one (`lookup_items`).
     entry = ctx.entry("artist_prefix")
-    if entry is None or ctx.lookup is None or not ctx.taglike:
+    if entry is None or ctx.lookup is None or ctx.style in ("xml", "json"):
         return
     flagged = [
         index for index, (item, norm) in enumerate(zip(ctx.items, ctx.norms, strict=True))
         if norm is not None
         and not item.text.startswith("@")
+        and not _is_sentence(item.text)
         and (ctx.lookup.get(item.text) or ctx.lookup.get(norm)) == "artist"
     ]
     if flagged:
@@ -2112,9 +2295,14 @@ def _artist_prefix(ctx: _Context) -> Iterable[PromptFinding]:
         for index in flagged:
             texts[index] = "@" + texts[index]
         first = ctx.items[flagged[0]]
+        # Each artist once, as first written: "wlop" and "WLOP" are one.
+        first_spelling: dict[str | None, str] = {}
+        for index in flagged:
+            first_spelling.setdefault(ctx.norms[index], ctx.items[index].text)
+        names = list(first_spelling.values())
         yield ctx.finding(
             entry, "guide.artist_prefix", "info",
-            f"{', '.join(ctx.items[i].text for i in flagged)} is an artist in "
+            f"{_listed(names)} {'is an artist' if len(names) == 1 else 'are artists'} in "
             "Danbooru's index; the guide puts @ before an artist name.",
             start=first.start, end=first.end,
             suggestion=_rebuild(ctx.text, ctx.items, texts),

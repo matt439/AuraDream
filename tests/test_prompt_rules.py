@@ -219,13 +219,16 @@ def _examples():
 
 @pytest.mark.parametrize("repo, example", list(_examples()))
 def test_the_authors_examples_raise_no_warning(repo, example):
-    # An author's own prompt should pass its own guide. Two are templates:
-    # Z-Anime's [character] and NewBie's $character_N$ are slots the author
-    # left for a name, and a slot left unfilled reaches the encoder as
-    # literal text - the one warning those examples are meant to raise.
+    # An author's own prompt should pass its own guide. Some are templates:
+    # Z-Anime's [character] and [location], NewBie's $character_N$ are slots
+    # the author left to fill, and a slot left unfilled reaches the encoder as
+    # literal text - the one warning those examples are meant to raise. The
+    # slots are the guide's own (`guide_for`'s `slots`, what the page reads).
     findings = run(repo, example)
     warnings = [finding for finding in findings if finding.severity == "warn"]
-    if repo in (Z_ANIME, NEWBIE) and ("[character]" in example or "$character_" in example):
+    slots = guide_for(repo)["slots"]
+    if any(re.search(pattern, example, re.IGNORECASE) for pattern in slots):
+        assert repo in (Z_ANIME, NEWBIE)
         assert warnings and all(finding.rule == "author.placeholder" for finding in warnings)
         assert all(finding.source == "author" for finding in warnings)
     else:
@@ -973,6 +976,33 @@ def test_style_against_the_guide():
     assert silent(ANIMAGINE, titled, "guide.style", known)
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "小狗，雪地，松树林，阴天，冷色调",
+        "一只狗，没有项圈，不要文字",
+        "puppy\nsnow\npine forest\novercast",
+        "puppy, snow\npine forest, overcast",
+    ],
+)
+def test_a_tag_list_is_one_however_its_items_are_parted(prompt):
+    # The style is read from pieces split at commas, "，" and line breaks; the
+    # note once counted the chips' comma items alone, so a Chinese list or a
+    # one-per-line one read as "a tag list" with nothing to say about it.
+    assert prompt_rules.detect_style(prompt) == "tags"
+    for model_id in (ERNIE, FLUX_DEV):
+        assert only(run(model_id, prompt), "guide.style"), (model_id, prompt)
+
+
+def test_lettering_is_one_piece_to_the_style_rule():
+    # A quotation's commas part no piece: two items are a phrase with a
+    # comma, not yet a tag list, as for the chips.
+    for prompt in ('1girl, "hi, there"', '1girl，"hi, there"', '1girl\n"hi, there"'):
+        assert prompt_rules.detect_style(prompt) == "tags"
+        assert only(run(ERNIE, prompt), "guide.style") == [], prompt
+    assert only(run(ERNIE, '1girl, "hi, there", smile'), "guide.style")
+
+
 def test_one_paragraph():
     prompt = "A fox in fresh snow.\n\nGolden hour light from the left."
     [finding] = only(run(KREA2, prompt), "guide.one_paragraph")
@@ -1007,6 +1037,21 @@ def test_a_recommended_negative_prompt():
     assert silent(QWEN, "A cat", "guide.negative_prompt", negative_prompt=" ", true_cfg=4.0)
     # Kohaku's author publishes no universal negative prompt.
     assert only(run(KOHAKU, "1girl"), "guide.negative_prompt") == []
+
+
+def test_z_anime_recommends_a_negative_prompt():
+    # Its guide: "Use a negative prompt for unwanted features; Base supports
+    # it fully." The card names no text to use, so nothing to Apply.
+    prompt = "A girl with silver hair stands under cherry blossoms. Soft light falls on her."
+    [finding] = only(run(Z_ANIME, prompt, guidance_scale=4), "guide.negative_prompt")
+    assert finding.field == "negative_prompt" and finding.severity == "info"
+    assert finding.suggestion is None and finding.message.startswith("No negative prompt runs")
+    assert silent(Z_ANIME, prompt, "guide.negative_prompt", negative_prompt="blurry", guidance_scale=4)
+    # At CFG 0 a typed one does not run, and the note says so.
+    [idle] = only(run(Z_ANIME, prompt, negative_prompt="blurry", guidance_scale=0), "guide.negative_prompt")
+    assert "does not run" in idle.message
+    # The undistilled Z-Image's card calls one optional: no note there.
+    assert silent("Tongyi-MAI/Z-Image", prompt, "guide.negative_prompt", guidance_scale=4)
 
 
 def test_references_are_named_when_there_are_several():
@@ -1098,6 +1143,75 @@ def test_netayume_system_prefix_inside_lettering_is_left_alone(prompt):
     assert only(run(NETAYUME, prompt), "guide.system_prefix") == []
 
 
+# diffusers' own Lumina 2 instruction, and the anime one as a person retypes it.
+_LUMINA = (
+    "You are an assistant designed to generate superior images with the superior degree of "
+    "image-text alignment based on textual prompts or user prompts."
+)
+_NETA_LIKE = (
+    "You are an assistant designed to generate high-quality anime images with the highest "
+    "degree of image-text alignment based on textual prompts."
+)
+
+
+@pytest.mark.parametrize(
+    "prompt, spans, suggestion",
+    [
+        # The loader's own words without their full stop, or spaced oddly.
+        (f"{SYSTEM_PROMPT[:-1]} <Prompt Start> 1girl, solo, moon",
+         [SYSTEM_PROMPT[:-1], "<Prompt Start>"], "1girl, solo, moon"),
+        (SYSTEM_PROMPT.replace(" ", "  \n", 2).lower() + " 1girl, solo",
+         [SYSTEM_PROMPT.replace(" ", "  \n", 2).lower()], "1girl, solo"),
+        # Another workflow's instruction ahead of the marker: one span, whole.
+        (f"{_LUMINA} <Prompt Start> 1girl, solo", [f"{_LUMINA} <Prompt Start>"], "1girl, solo"),
+        (f"  {_NETA_LIKE}\n<Prompt Start> 1girl, solo",
+         [f"{_NETA_LIKE}\n<Prompt Start>"], "1girl, solo"),
+        # A marker after tags is cut alone.
+        ("1girl, solo <Prompt Start> moon", ["<Prompt Start>"], "1girl, solo moon"),
+        ("1girl <Prompt Start> moon", ["<Prompt Start>"], "1girl moon"),
+        # Lettering before the marker is the user's: the marker alone goes.
+        ('You are "my sunshine" <Prompt Start> 1girl', ["<Prompt Start>"],
+         'You are "my sunshine" 1girl'),
+        # So is a scene that opens "You are", which no instruction is.
+        ("You are looking at a girl standing in the rain <Prompt Start> 1girl, moon",
+         ["<Prompt Start>"], "You are looking at a girl standing in the rain 1girl, moon"),
+        ("You are an assistant <Prompt Start> 1girl", ["You are an assistant <Prompt Start>"],
+         "1girl"),
+        ("you are a helpful AI <Prompt Start> 1girl", ["you are a helpful AI <Prompt Start>"],
+         "1girl"),
+        ("You are an AI assistant that generates anime images. <Prompt Start> 1girl",
+         ["You are an AI assistant that generates anime images. <Prompt Start>"], "1girl"),
+        ("You are an expert image generation model capable of anything <Prompt Start> 1girl",
+         ["You are an expert image generation model capable of anything <Prompt Start>"],
+         "1girl"),
+        # Only a noun that ends the opener makes one: "a model student" and
+        # "an AI artist" are the scene.
+        ("You are a model student walking in the rain <Prompt Start> 1girl",
+         ["<Prompt Start>"], "You are a model student walking in the rain 1girl"),
+        ("You are an AI artist painting a girl in the rain <Prompt Start> 1girl",
+         ["<Prompt Start>"], "You are an AI artist painting a girl in the rain 1girl"),
+        # More than a sentence ahead of the marker: nothing says how much of
+        # it is an instruction, so the marker alone goes.
+        ("You are an AI. A girl stands in the rain with a red umbrella. <Prompt Start> 1girl",
+         ["<Prompt Start>"],
+         "You are an AI. A girl stands in the rain with a red umbrella. 1girl"),
+    ],
+)
+def test_netayume_system_prefix_is_found_as_retyped(prompt, spans, suggestion):
+    findings = only(run(NETAYUME, prompt), "guide.system_prefix")
+    assert [spanned(prompt, finding) for finding in findings] == spans
+    assert all(finding.suggestion == suggestion for finding in findings)
+    # What Apply leaves is clean: no instruction kept as description.
+    assert only(run(NETAYUME, suggestion), "guide.system_prefix") == []
+
+
+def test_another_instruction_is_named_for_what_it_is():
+    prompt = f"{_LUMINA} <Prompt Start> 1girl, solo"
+    [finding] = only(run(NETAYUME, prompt), "guide.system_prefix")
+    assert "is a system instruction and its <Prompt Start> marker" in finding.message
+    assert "already sent" not in finding.message
+
+
 def test_netayume_quoted_prefix_does_not_hide_an_actual_duplicate():
     lettering = f'A poster says "{SYSTEM_PROMPT}" and a card reads "<Prompt Start>".'
     prompt = f"{lettering} {SYSTEM_PROMPT} <Prompt Start> 1girl"
@@ -1133,9 +1247,56 @@ def test_placeholders_are_the_authors_slots():
     findings = only(run(NEWBIE, example), "author.placeholder")
     assert [spanned(example, f) for f in findings] == ["$character_1$", "$character_2$"]
     assert all(f.source == "author" and f.cite in example for f in findings)
+    # Each quotes its own slot's line, not the first slot's.
+    assert [f.cite for f in findings] == ["<n>$character_1$</n>", "<n>$character_2$</n>"]
     filled = example.replace("$character_1$", "miku").replace("$character_2$", "teto")
     assert silent(NEWBIE, filled, "author.placeholder")
-    assert only(run(Z_ANIME, "Portrait of [character], soft light"), "author.placeholder")
+    [character] = only(run(Z_ANIME, "Portrait of [character], soft light"), "author.placeholder")
+    assert "put the character's name or description there" in character.message
+    # The card's landscape template's four slots, each cited from it.
+    template = guides.Z_ANIME_GUIDE["examples"][1]
+    slots = only(run(Z_ANIME, template), "author.placeholder")
+    assert [spanned(template, f) for f in slots] == [
+        "[location]", "[time of day]", "[lighting]", "[atmosphere]"
+    ]
+    assert all(f.cite == "Anime [location] at [time of day], [lighting], [atmosphere]" for f in slots)
+    assert all("put what it stands for there" in f.message for f in slots)
+    # A slot no example of the guide's has quotes the entry's own cite.
+    [third] = only(run(NEWBIE, "<character_3><n>$character_3$</n></character_3>"), "author.placeholder")
+    assert third.cite == "<n>$character_1$</n>"
+
+
+@pytest.mark.parametrize("name", sorted(_all_guides()))
+def test_each_slot_cites_the_authors_own_words(name):
+    # A slot's finding quotes a line of the examples holding that slot: the
+    # per-slot cite is held to the examples as the entry's own is.
+    guide = _all_guides()[name]
+    if not guide["analysis"].get("placeholders"):
+        return
+    model_id = next(repo for repo in _catalogue_repos() if _profile_for(repo)["guide"] is guide)
+    for example in guide["examples"]:
+        request = GenerateRequest(prompt=example)
+        for finding in only(prompt_rules.check(model_id, request, request), "author.placeholder"):
+            assert any(finding.cite in other for other in guide["examples"]), (name, finding.cite)
+            assert spanned(example, finding).casefold() in finding.cite.casefold()
+
+
+def test_the_page_reads_each_slot_pattern_as_the_rules_do():
+    # `guide_for` sends the placeholder patterns for the Examples menu's
+    # RegExp: only syntax both engines read alike - plain text, escapes,
+    # classes, non-capturing groups and alternation - with no inline flags,
+    # lookbehind or named groups, case left to each side's flag.
+    seen = 0
+    for repo in _catalogue_repos():
+        analysis = _profile_for(repo)["guide"]["analysis"]
+        patterns = [entry["pattern"] for entry in analysis.get("placeholders", [])]
+        assert guide_for(repo)["slots"] == patterns, repo
+        for pattern in patterns:
+            seen += 1
+            assert all(pattern[i + 2] == ":" for i in range(len(pattern)) if pattern.startswith("(?", i))
+            assert not re.search(r"\\[AZbBz]|\(\?P", pattern), pattern
+    assert seen
+    assert guide_for(FLUX_DEV)["slots"] == []
 
 
 # ------------------------------------------------------------------ tag order
@@ -1789,6 +1950,95 @@ def test_anima_tags_and_sentences():
     assert only(run(ANIMA, one), "guide.sentences")
     two = one + " Soft evening light falls across her face."
     assert only(run(ANIMA, two), "guide.sentences") == []
+
+
+def test_anima_reads_artists_whatever_the_whole_prompt_reads_as():
+    # The card's own shape - its prefix and tags, then sentences - reads as
+    # prose; the rule reads each item, and once read none in it.
+    prompt = (
+        "masterpiece, best quality, score_7, safe, 1girl, wlop, A girl stands in the rain "
+        "under a red umbrella. She looks up at the grey sky."
+    )
+    assert prompt_rules.detect_style(prompt) == "prose"
+    [artist] = only(run(ANIMA, prompt, {"wlop": "artist"}), "guide.artist_prefix")
+    assert spanned(prompt, artist) == "wlop"
+    assert artist.suggestion == prompt.replace(", wlop,", ", @wlop,")
+    # What a check asks the index: the tag-shaped items, never a clause.
+    assert prompt_rules.lookup_items(ANIMA, prompt) == [
+        "masterpiece", "best quality", "score_7", "safe", "1girl", "wlop"
+    ]
+    clauses = "A girl painted by wlop stands in the rain, smiling at the viewer, soft light"
+    assert prompt_rules.lookup_items(ANIMA, clauses) == ["soft light"]
+    # A sentence is no artist's name, whatever a lookup said of it.
+    sentence = "She looks up at the grey sky."
+    assert silent(ANIMA, f"1girl, {sentence}", "guide.artist_prefix", {sentence: "artist"})
+    # Nor XML or JSON, which no lookup asks about.
+    assert prompt_rules.lookup_items(ANIMA, '{"artist": "wlop"}') == []
+    # Several are named together, each once.
+    [both] = only(
+        run(ANIMA, "1girl, wlop, kantoku, wlop", {"wlop": "artist", "kantoku": "artist"}),
+        "guide.artist_prefix",
+    )
+    assert both.message.startswith("wlop and kantoku are artists in Danbooru's index")
+    assert both.suggestion == "1girl, @wlop, @kantoku, @wlop"
+
+
+def test_prose_is_looked_up_only_where_the_rules_read_artists():
+    # Elsewhere a prose prompt's clauses are never asked about, which the
+    # order's "partly checked" names; no guide that states an order reads
+    # artists, so the two never meet (`lookup_items`).
+    prose = "A girl with green hair stands in the rain, soft light, masterpiece"
+    assert prompt_rules.detect_style(prose) == "prose"
+    assert prompt_rules.lookup_items(ANIMAGINE, prose) == []
+    # A tag list is, less what the guide's own groups place (1girl).
+    assert prompt_rules.lookup_items(ANIMAGINE, "1girl, green hair, smile") == [
+        "green hair", "smile"
+    ]
+    for name, guide in _all_guides().items():
+        analysis = guide["analysis"]
+        assert not ("artist_prefix" in analysis and "order" in analysis), name
+
+
+def test_a_rewrite_is_covered_by_what_was_asked():
+    asked, artists = ["1girl", "wlop", "smile"], ["wlop"]
+
+    def read(text: str, asked: list[str] = asked) -> bool:
+        return prompt_rules.artists_read(ANIMA, text, asked, artists)
+
+    assert read("1girl, @wlop, smile")
+    assert read("1girl, @ wlop, smile")
+    # A whole item the rule reads, and flags: read.
+    assert read("Smile, WLOP, 1girl")
+    assert not read("1girl, kantoku, smile")
+    sentences = "A girl stands in the rain. She looks up at the grey sky."
+    assert read(sentences, [])
+    # The artist kept with no @ and no finding: in a clause no check asks
+    # about, or in a sentence the rule never reads as a name.
+    assert not read("1girl, smile, a painting in the style of wlop with soft light")
+    assert not read("A girl painted by wlop smiles in the rain.")
+    assert not read("1girl, smile. A girl painted by WLOP smiles in the rain.", asked)
+    # A clause no lookup asked about may itself be a name.
+    assert not read("1girl, @wlop, smile, a girl standing in the rain")
+    # Written as the tag autocomplete writes it, or with an underscore.
+    escaped = ["1girl", "mika pikazo", "smile"]
+    for text in ("1girl, smile. Drawn by mika_pikazo.", "1girl. Drawn by Mika Pikazo."):
+        assert not prompt_rules.artists_read(ANIMA, text, escaped, ["mika pikazo"])
+    assert prompt_rules.artists_read(ANIMA, "1girl, @mika_pikazo, smile", escaped, ["mika pikazo"])
+    # Part of a longer word is not the name.
+    assert read("1girl, smile. A wlopish glow fills the room.", asked)
+
+
+def test_the_scene_block_ahead_of_a_character_is_against_newbies_order():
+    example = guides.NEWBIE_GUIDE["examples"][0]
+    blocks = re.findall(r"<(\w+)>.*?</\1>", example, re.S)
+    assert blocks == ["character_1", "character_2", "general_tags"]
+    assert prompt_rules.scene_ahead(NEWBIE, example) is None
+    first, second, scene = [m.group() for m in re.finditer(r"<(\w+)>.*?</\1>", example, re.S)]
+    assert prompt_rules.scene_ahead(NEWBIE, "\n\n".join([scene, first, second])) == "general_tags"
+    assert prompt_rules.scene_ahead(NEWBIE, "\n\n".join([first, scene, second])) == "general_tags"
+    assert prompt_rules.scene_ahead(NEWBIE, "\n\n".join([second, first, scene])) is None
+    # No order stated, no scene block: nothing to hold it to.
+    assert prompt_rules.scene_ahead(FLUX_DEV, "\n\n".join([scene, first])) is None
 
 
 def test_wai_rating_and_the_nsfw_negative():

@@ -295,5 +295,20 @@
   {"eval": "els.expandPrompt.click();"},
   {"expect": "!expandingPrompt && document.activeElement === els.expandPrompt && els.error.textContent === 'A job started in another tab or window is running; Expand once it ends' && els.error.classList.contains('note')"},
   {"eval": "(async () => { await fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: window.__pace.previous ?? 0})}); await fetch('/api/jobs/' + window.__other + '/cancel', {method: 'POST'}); })()"},
-  {"expect": "(async () => { for (let i = 0; i < 400; i++) { if (!elsewhereBusy && !els.expandPrompt.disabled && els.expandPrompt.getAttribute('aria-disabled') === 'false' && els.expandPrompt.title.startsWith(\"Use ERNIE's prompt rewriter\") && els.unload.title === 'Free VRAM' && els.error.textContent === '') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"}
+  {"expect": "(async () => { for (let i = 0; i < 400; i++) { if (!elsewhereBusy && !els.expandPrompt.disabled && els.expandPrompt.getAttribute('aria-disabled') === 'false' && els.expandPrompt.title.startsWith(\"Use ERNIE's prompt rewriter\") && els.unload.title === 'Free VRAM' && els.error.textContent === '') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
+
+  {"log": "'A list parted by fullwidth commas, or one item a line, is a tag list as a comma list is, and gets the guide\\'s note - it once read as a tag list with nothing to flag. Han characters are counted as characters, not words'"},
+  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__check = (text) => { els.prompt.value = text; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.analyze.click(); }; __check('小狗，雪地，松树林，阴天，冷色调');"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value && !els.promptAnalysis.hidden)"},
+  {"expect": "els.analysisSummary.textContent === '12 characters, a tag list · no warnings · 1 note' && els.analysisFindings.textContent.includes(\"This reads as a tag list; this checkpoint's guide asks for descriptive sentences.\")"},
+  {"eval": "__check('puppy\\nsnow\\npine forest\\novercast');"},
+  {"expect": "__until(() => analysisResult?.source === 'puppy\\nsnow\\npine forest\\novercast')"},
+  {"expect": "els.analysisSummary.textContent === '5 words, a tag list · no warnings · 1 note' && analysisResult.body.findings.map((f) => f.rule).join() === 'guide.style'"},
+  {"log": "'Mixed text names both counts, the larger first'"},
+  {"eval": "__check(\"一块写着'OPEN NOW'的木牌挂在咖啡馆门口，阳光洒在木质招牌上，温暖的午后氛围。\");"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value && analysisResult.source.startsWith('一块'))"},
+  {"expect": "els.analysisSummary.textContent === '30 characters and 2 words, prose · nothing to flag'"},
+  {"eval": "__check('A wooden sign reads OPEN above the door of a small cafe, and a cat named 小花 sleeps below it.');"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value && analysisResult.source.startsWith('A wooden'))"},
+  {"expect": "els.analysisSummary.textContent.startsWith('19 words and 2 characters, prose · ')"}
 ]

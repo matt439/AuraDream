@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
 from .config import settings
@@ -415,7 +415,13 @@ class PromptAnalysis(BaseModel):
     model_id: str
     # How the text reads: sentences, a comma tag list, both, NewBie XML, JSON.
     style: Literal["prose", "tags", "hybrid", "xml", "json"]
+    # What the rules count as words (`prompt_rules.word_count`): each Han or
+    # kana character one, as Chinese and Japanese space no words, beside the
+    # spaced words. `characters` is how many of `words` are such characters,
+    # so the page says "300 characters" for a Chinese paragraph, not "300
+    # words".
     words: int
+    characters: int = 0
     encoders: list[EncoderReport] = Field(default_factory=list)
     # Why `encoders` is empty or partial - a gated tokenizer, no network on a
     # first use - so an unchecked budget is never shown as a passed one.
@@ -453,6 +459,20 @@ class PromptAnalysis(BaseModel):
     # for the critic to hold a reorder of its own to the same placement.
     # Never sent: the page has the chips' own lookup for what a tag is.
     categories: dict[str, str] | None = Field(default=None, exclude=True)
+    # The items the tag index was asked about, answered or not: what the
+    # categories above answer for. The critique route checks the rewrite's
+    # artists with them, and says whether they cover it. Never sent.
+    categories_asked: list[str] = Field(default_factory=list, exclude=True)
+
+    @computed_field
+    @property
+    def categories_unread(self) -> bool:
+        """Whether the lookup gave no category at all - the index unreachable,
+        or no usable reply - where `categories_detail` says why: no item was
+        checked, not only some (the cap). The page's artist note says "No tag
+        was checked" for this, "Not every tag" past the cap."""
+        return self.categories is None and self.categories_detail is not None
+
     # Where the guide states no order: orders the authors' own texts give
     # anyway (Anima's card, the rewriter instructions), shown as information,
     # never checked. Empty where `order` is set.
@@ -515,6 +535,17 @@ class PromptCritique(BaseModel):
     # and first by the critic's own checks on it: quoted words the prompt
     # does not ask to render.
     rewrite_findings: list[PromptFinding] = Field(default_factory=list)
+    # Whether the rewrite's artist check (Anima's @ rule) read every artist
+    # the rewrite may name (`prompt_rules.artists_read`): each item a name
+    # could be, a clause included, was asked by this critique's own analysis,
+    # whose categories the rewrite is checked with, no lookup of its own; and
+    # no artist that answer named stands in the rewrite without its @ other
+    # than as a whole item the rule reads. Then an artist finding of the
+    # prompt's that the rewrite no longer has is fixed, not merely unseen;
+    # False where any item - an artist the critic added - was never looked
+    # up, the name was kept inside a clause or a sentence, or the lookup gave
+    # nothing, and the page keeps its "may still apply".
+    rewrite_artists_checked: bool = False
     # Issues discarded because their citation named nothing the critic was
     # given, or they were empty. A quote that is not in the prompt only loses
     # its `quote`.
@@ -1004,6 +1035,11 @@ class PromptGuide(BaseModel):
     # without a loose ratio tolerance aliasing 16:9 to nearby 7:4.
     resolutions: list[tuple[int, int]] | None = None
     examples: list[str] = Field(default_factory=list)
+    # The authors' template slots in those examples - Z-Anime's "[character]",
+    # NewBie's "$character_1$" - as the placeholder rule's patterns, matched
+    # case-insensitively: the menu says "fill in" beside an example holding
+    # one, and a pick selects the first, so typing replaces it.
+    slots: list[str] = Field(default_factory=list)
     # Null for prose checkpoints. When present the UI exposes only vocabulary
     # the checkpoint authors documented, while the prompt stays freely editable.
     tag_helper: PromptTagHelper | None = None
