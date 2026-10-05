@@ -2051,25 +2051,50 @@ def _not_a_reorder(candidate: str, prompt: str, style: str) -> str:
     An XML prompt's blocks move whole, so no attribute changes owner
     (`_piece_spans`); a candidate with exactly the prompt's words that moved
     a field or a tag inside a block, or from one block to another, changed
-    no word, and the sentence once said it had.
+    no word, and the sentence once said it had. One whose every piece holds
+    the prompt's words in the prompt's order moved none either: it changed
+    the punctuation or spacing between them ("happy, smile" to "happy
+    smile", "<n>miku</n>" to "<n> miku </n>"), and says so.
     """
     if style == "xml" and _quoted(candidate) == _quoted(prompt) and (
         _words(candidate) == _words(prompt)
     ):
 
-        def loose(text: str) -> Counter[tuple]:
-            # Each piece, a block as its name and its words in any order.
-            pieces: Counter[tuple] = Counter()
-            for start, end, form in _piece_spans(text, style):
+        def pieces(text: str, ordered: bool) -> Counter[tuple]:
+            # Each piece as its block's name, or None outside a block, and
+            # its words: in their order, or in any.
+            found: Counter[tuple] = Counter()
+            for start, end, _ in _piece_spans(text, style):
                 block = _XML_BLOCK.fullmatch(text[start:end])
-                if block:
-                    pieces[(block.group(1).casefold(), *sorted(_words(block.group()).items()))] += 1
-                else:
-                    pieces[(form,)] += 1
-            return pieces
+                words = _WORDS.findall(text[start:end].translate(_FOLD).casefold())
+                found[(
+                    block.group(1).casefold() if block else None,
+                    tuple(words) if ordered else tuple(sorted(words)),
+                )] += 1
+            return found
 
-        where = "inside an XML block" if loose(candidate) == loose(prompt) else "between XML blocks"
-        return f"it moved words {where}, where only whole blocks move, so no attribute changes owner"
+        def blocks(text: str, ordered: bool) -> Counter[tuple]:
+            return Counter({
+                key: count for key, count in pieces(text, ordered).items() if key[0] is not None
+            })
+
+        def outside(text: str) -> list[str]:
+            # The words outside the blocks, in their order: a break added or
+            # taken out there parts or joins pieces and moves no word.
+            masked = _XML_BLOCK.sub(" ", text)
+            return _WORDS.findall(masked.translate(_FOLD).casefold())
+
+        if pieces(candidate, True) == pieces(prompt, True) or (
+            blocks(candidate, True) == blocks(prompt, True)
+            and outside(candidate) == outside(prompt)
+        ):
+            return "it changed punctuation or spacing, not only the order of whole blocks"
+        whole = "where only whole blocks move, so no attribute changes owner"
+        if blocks(candidate, False) != blocks(prompt, False):
+            return f"it moved words between XML blocks, {whole}"
+        if blocks(candidate, True) != blocks(prompt, True):
+            return f"it moved words inside an XML block, {whole}"
+        return "it changed the text outside the XML blocks, not only the order of whole pieces"
     return "it changed words, not only their order"
 
 
@@ -2979,8 +3004,10 @@ def validate(
             # character's block, then the shared scene - and the critic was
             # told to move pieces into it: the other way round is no reading
             # of it, and order issues asking for that are left out too.
+            # Where the prompt has it there already, the critic only left it.
+            verb = "keeps" if scene_ahead(context.sources.model_id, prompt) else "puts"
             set_aside.append(
-                f"The critic's reordered version was left out: it puts <{scene}> ahead of a "
+                f"The critic's reordered version was left out: it {verb} <{scene}> ahead of a "
                 "character block, against the documented order."
             )
         elif moved is None or not context.order_checked:

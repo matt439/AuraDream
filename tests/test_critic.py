@@ -2469,6 +2469,14 @@ def test_newbies_scene_block_is_not_moved_ahead_of_its_characters():
         result = _newbie_reorder(candidate)
         assert result.reordered is None and result.reordered_kind is None
         assert result.set_aside == [against]
+    # The prompt's own scene-first order, the characters swapped: still no
+    # reading of the documented order, but the critic only left it there.
+    own = f"{scene}\n\n{first}\n\n{second}"
+    result = _newbie_reorder(f"{scene}\n\n{second}\n\n{first}", own)
+    assert result.reordered is None and result.set_aside == [
+        "The critic's reordered version was left out: it keeps <general_tags> ahead of a "
+        "character block, against the documented order."
+    ]
 
 
 def test_words_moved_inside_an_xml_block_are_not_called_changed():
@@ -2508,6 +2516,23 @@ def test_words_moved_inside_an_xml_block_are_not_called_changed():
         "it moved words between XML blocks, where only whole blocks move, so no attribute "
         "changes owner"
     )
+    # Words moved in the text outside the blocks, the blocks as they were.
+    assert reason("masterpiece, quality best\n" + _FILLED, loose) == (
+        "it changed the text outside the XML blocks, not only the order of whole pieces"
+    )
+    # Every piece's words in their own order: punctuation or spacing changed,
+    # and no word moved.
+    spacing = "it changed punctuation or spacing, not only the order of whole blocks"
+    assert "<n>miku</n>" in _FILLED
+    for retyped in (
+        _FILLED.replace("happy, smile", "happy smile", 1),
+        _FILLED.replace("<n>miku</n>", "<n> miku </n>", 1),
+        _FILLED.replace("happy, smile", "happy; smile", 1),
+        f"masterpiece best quality\n{_FILLED}",
+    ):
+        assert retyped != _FILLED
+        prompt = loose if retyped.startswith("masterpiece") else _FILLED
+        assert reason(retyped, prompt) == spacing, retyped
     # A changed word is still called one.
     assert reason(_FILLED.replace("blue_hair", "green_hair")) == (
         "it changed words, not only their order"
