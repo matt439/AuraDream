@@ -1304,21 +1304,21 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
      row more. Auto-placed, it came after the viewer's note, under the image.
      Without chips only: ERNIE, the one checkpoint with a translation, takes
      prose, which the chips never show for. */
-  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) {
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
     grid-template-rows: auto auto 1fr;
   }
-  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #prompt-translation-field {
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #prompt-translation-field {
     grid-column: 1 / -2; grid-row: 1;
   }
-  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > :is(#viewer, #recent) { grid-row: 2; }
-  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 3; }
-  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > :is(#viewer, #recent) { grid-row: 2; }
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 3; }
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-row: 1 / span 3;
   }
-  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
     grid-template-rows: auto auto auto auto auto 1fr;
   }
-  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+  .stage:not(.beside):has(> #prompt-translation-field:not([hidden])):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
     grid-row: 1 / 6;
   }
 }
