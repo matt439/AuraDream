@@ -164,28 +164,33 @@ function renderAnalysis() {
   // reads too, never a guess of the page's.
   const partly = body.order_checked && !!body.order_detail;
   // Where the guide states no order, a category is read by one rule only -
-  // Anima's @ before an artist name (`category_items`) - and it read none
-  // (the index unreachable) or not all (past the lookup's 64).
+  // Anima's @ before an artist name (`lookup_items`) - and it read none (the
+  // index unreachable, or no usable reply: `categories_unread`) or not all
+  // (past the lookup's 64). "Not every tag" understated an outage in which
+  // no tag was checked.
   const artists = !body.order && !!body.categories_detail;
+  const noArtists = artists && !!body.categories_unread;
   const counts = !body.findings.length
     ? (unchecked ? 'nothing flagged · order not checked' : partly || artists ? 'nothing flagged' : 'nothing to flag')
     : `${warns ? plural(warns, 'warning') : 'no warnings'}${notes ? ` · ${plural(notes, 'note')}` : ''}`;
-  els.analysisSummary.textContent =
-    `${wordsLine(body)}, ${STYLE_NAMES[body.style] ?? body.style} · ${counts}`
-    + (partly ? ' · order partly checked' : artists ? ' · artists not all checked' : '');
+  els.analysisSummary.textContent = `${wordsLine(body)}, ${STYLE_NAMES[body.style] ?? body.style} · ${counts}`
+    + (partly ? ' · order partly checked' : noArtists ? ' · artists not checked' : artists ? ' · artists not all checked' : '');
   renderEncoders(body);
   renderOrder(body);
   renderFindings(els.analysisFindings, body.findings, {
     select: (f) => selectAnalysed(f.field, f.start, f.end),
     apply: applyFinding,
+    // The artist case's reason is the note right under this line, so the
+    // line does not say it a second time.
     empty: unchecked
       ? "Nothing flagged by the rules for this checkpoint's guide - but its word order was not checked (see Order)."
       : partly ? "Nothing flagged by the rules for this checkpoint's guide - but its word order was only partly checked (see Order)."
-      : artists ? "Nothing flagged by the rules for this checkpoint's guide - but not every tag was checked for an artist name (below)."
+      : artists ? "Nothing flagged by the rules for this checkpoint's guide."
       : "Nothing to flag against this checkpoint's guide.",
   });
   if (artists) {
-    els.analysisFindings.appendChild(note(`Not every tag was checked for an artist name: ${body.categories_detail}.`));
+    els.analysisFindings.appendChild(note(
+      `${noArtists ? 'No tag was checked' : 'Not every tag was checked'} for an artist name: ${body.categories_detail}.`));
   }
   renderCritic();
   renderCompare();
@@ -925,11 +930,16 @@ const critiqueFailureText = (reason) => `The critic did not answer: ${reason.rep
 // prompt's check asks the index for a tag or hybrid prompt on a Danbooru
 // checkpoint, and the artist rule fires only with its answer; the rewrite's
 // check never asks (`main._lint`). Such a finding gone from the rewrite may
-// be one its check could not see, so it is not called fixed.
+// be one its check could not see, so it is not called fixed - except the
+// artist rule's where the server says the rewrite's artist check read every
+// item it could with the analysis's own answer (`rewrite_artists_checked`):
+// a rewrite that adds the @ has then fixed it, while one naming an artist
+// the analysis never asked about keeps the hedge.
 const TAG_INDEX_RULES = new Set(['guide.order', 'guide.style', 'guide.artist_prefix']);
 const readsTagIndex = (finding) => TAG_INDEX_RULES.has(finding.rule)
   && (finding.rule === 'guide.artist_prefix'
-    || (tagVocabularyEnabled && ['tags', 'hybrid'].includes(analysisResult.body.style)));
+    ? !critiqueResult?.body?.rewrite_artists_checked
+    : tagVocabularyEnabled && ['tags', 'hybrid'].includes(analysisResult.body.style));
 
 function renderCritic() {
   syncCritic();

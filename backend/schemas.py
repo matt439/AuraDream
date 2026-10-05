@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
 from .config import settings
@@ -459,6 +459,20 @@ class PromptAnalysis(BaseModel):
     # for the critic to hold a reorder of its own to the same placement.
     # Never sent: the page has the chips' own lookup for what a tag is.
     categories: dict[str, str] | None = Field(default=None, exclude=True)
+    # The items the tag index was asked about, answered or not: what the
+    # categories above answer for. The critique route checks the rewrite's
+    # artists with them, and says whether they cover it. Never sent.
+    categories_asked: list[str] = Field(default_factory=list, exclude=True)
+
+    @computed_field
+    @property
+    def categories_unread(self) -> bool:
+        """Whether the lookup gave no category at all - the index unreachable,
+        or no usable reply - where `categories_detail` says why: no item was
+        checked, not only some (the cap). The page's artist note says "No tag
+        was checked" for this, "Not every tag" past the cap."""
+        return self.categories is None and self.categories_detail is not None
+
     # Where the guide states no order: orders the authors' own texts give
     # anyway (Anima's card, the rewriter instructions), shown as information,
     # never checked. Empty where `order` is set.
@@ -521,6 +535,14 @@ class PromptCritique(BaseModel):
     # and first by the critic's own checks on it: quoted words the prompt
     # does not ask to render.
     rewrite_findings: list[PromptFinding] = Field(default_factory=list)
+    # Whether the rewrite's artist check (Anima's @ rule) read every item it
+    # could: each one a check would ask the tag index about was asked by this
+    # critique's own analysis, whose categories the rewrite is checked with,
+    # no lookup of its own. Then an artist finding of the prompt's that the
+    # rewrite no longer has is fixed, not merely unseen; False where any item
+    # - an artist the critic added - was never looked up, or the lookup gave
+    # nothing, and the page keeps its "may still apply".
+    rewrite_artists_checked: bool = False
     # Issues discarded because their citation named nothing the critic was
     # given, or they were empty. A quote that is not in the prompt only loses
     # its `quote`.

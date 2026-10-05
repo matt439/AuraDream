@@ -808,21 +808,131 @@ def test_anima_asks_the_tag_index_which_items_are_artists(client, fake, monkeypa
     assert artist["suggestion"] == "1girl, @wlop, smile, @big chungus"
     assert prompt[artist["start"]:artist["end"]] == "wlop"
     assert body["categories_detail"] is None
+    assert body["categories_unread"] is False
     # Offline, the rule stands down, and the answer says why - there is no
-    # order here to say it beside; prose is not asked about.
+    # order here to say it beside - and that no item was checked at all.
     monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
     offline = analyse(client, prompt="1girl, wlop, smile")
     assert rules(offline["findings"], "guide.artist_prefix") == []
     assert offline["order"] is None and offline["categories_detail"].startswith(
         "the tag index was unreachable"
     )
+    assert offline["categories_unread"] is True
+    # Prose: only its tag-shaped items are asked about - an artist's name is
+    # a whole comma item, and a clause is none - never its clauses.
     quiet = Vocabulary()
     monkeypatch.setattr(main, "tag_vocabulary", quiet)
     prose = "A girl painted by wlop stands in the rain, smiling at the viewer, soft light"
     assert prompt_rules.detect_style(prose) == "prose"
-    assert prompt_rules.category_items(ANIMA, prose)
     analyse(client, prompt=prose)
-    assert quiet.calls == []
+    assert [asked for asked, *_ in quiet.calls] == [["soft light"]]
+
+
+def test_anima_checks_the_artists_of_tags_ahead_of_sentences(client, fake, monkeypatch):
+    # The card's own shape - its positive prefix and tags, then sentences
+    # ("Use tags, natural language, or both") - reads as prose. The artist
+    # check once skipped it without a word: "nothing to flag" over an artist
+    # written without its @, the index never asked.
+    claim(monkeypatch, fake, ANIMA)
+    vocabulary = Vocabulary({"wlop": "artist", "1girl": "general"})
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    prompt = (
+        "masterpiece, best quality, score_7, safe, 1girl, wlop, A girl stands in the rain "
+        "under a red umbrella. She looks up at the grey sky."
+    )
+    assert prompt_rules.detect_style(prompt) == "prose"
+    body = analyse(client, prompt=prompt)
+    ((asked, *_),) = vocabulary.calls
+    assert asked == ["masterpiece", "best quality", "score_7", "safe", "1girl", "wlop"]
+    (artist,) = rules(body["findings"], "guide.artist_prefix")
+    assert prompt[artist["start"]:artist["end"]] == "wlop"
+    assert artist["suggestion"] == prompt.replace(", wlop,", ", @wlop,")
+    assert artist["message"].startswith("wlop is an artist in Danbooru's index")
+    applied = analyse(client, prompt=artist["suggestion"])
+    assert rules(applied["findings"], "guide.artist_prefix") == []
+    # Offline, the panel is told no item was checked, not handed a clean bill.
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    offline = analyse(client, prompt=prompt)
+    assert rules(offline["findings"], "guide.artist_prefix") == []
+    assert offline["categories_detail"].startswith("the tag index was unreachable")
+    assert offline["categories_unread"] is True
+    # A prose prompt with no tag-shaped item asks nothing and says nothing.
+    quiet = Vocabulary()
+    monkeypatch.setattr(main, "tag_vocabulary", quiet)
+    sentences = "A girl stands in the rain under a red umbrella. She looks up at the grey sky."
+    body = analyse(client, prompt=sentences)
+    assert quiet.calls == [] and body["categories_detail"] is None
+
+
+def test_several_artists_are_named_together(client, fake, monkeypatch):
+    claim(monkeypatch, fake, ANIMA)
+    vocabulary = Vocabulary({"wlop": "artist", "kantoku": "artist", "smile": "general"})
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    body = analyse(client, prompt="1girl, wlop, kantoku, smile")
+    (artist,) = rules(body["findings"], "guide.artist_prefix")
+    assert artist["message"] == (
+        "wlop and kantoku are artists in Danbooru's index; the guide puts @ before an "
+        "artist name."
+    )
+    assert artist["suggestion"] == "1girl, @wlop, @kantoku, smile"
+
+
+def _rewriting(monkeypatch, rewrite: str) -> None:
+    """The fake critic answering with `rewrite` as its rewrite."""
+    answer = FakeCritic.answer
+
+    def rewritten(text, ordered):
+        raw = json.loads(answer(text, ordered))
+        raw["rewrite"] = rewrite
+        return json.dumps(raw)
+
+    monkeypatch.setattr(FakeCritic, "answer", staticmethod(rewritten))
+
+
+def test_a_rewrite_is_checked_for_artists_with_the_analysis_own_answer(
+    client, fake, monkeypatch
+):
+    # The rewrite's check asks the tag index nothing of its own: it reads the
+    # artists the critique's analysis was told about, and says whether those
+    # answer for every item of the rewrite's that a check would ask about.
+    claim(monkeypatch, fake, ANIMA)
+    vocabulary = Vocabulary(
+        {"wlop": "artist", "kantoku": "artist", "1girl": "general", "smile": "general"}
+    )
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+
+    def critique(rewrite):
+        _rewriting(monkeypatch, rewrite)
+        calls = len(vocabulary.calls)
+        response = client.post("/api/prompt/critique", json={"prompt": "1girl, wlop, smile"})
+        assert response.status_code == 200, response.text
+        # One lookup, the analysis's; none for the rewrite.
+        assert len(vocabulary.calls) == calls + 1
+        return response.json()
+
+    # The @ the guide asks for, added: fixed, and the page may say so.
+    body = critique("1girl, @wlop, smile")
+    assert rules(body["rewrite_findings"], "guide.artist_prefix") == []
+    assert body["rewrite_artists_checked"] is True
+    # Left out: flagged on the rewrite too, from the same answer.
+    body = critique("smile, wlop, 1girl")
+    (artist,) = rules(body["rewrite_findings"], "guide.artist_prefix")
+    assert artist["suggestion"] == "smile, @wlop, 1girl"
+    assert body["rewrite_artists_checked"] is True
+    # An artist the analysis never asked about is not called checked.
+    body = critique("1girl, @wlop, kantoku, smile")
+    assert rules(body["rewrite_findings"], "guide.artist_prefix") == []
+    assert body["rewrite_artists_checked"] is False
+    # Nor is anything where the analysis's lookup gave no answer.
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    _rewriting(monkeypatch, "1girl, @wlop, smile")
+    body = client.post("/api/prompt/critique", json={"prompt": "1girl, wlop, smile"}).json()
+    assert body["rewrite_artists_checked"] is False
+    # And never on a guide whose rules read no artist.
+    claim(monkeypatch, fake, FLUX)
+    _rewriting(monkeypatch, "A lighthouse in thick fog")
+    body = client.post("/api/prompt/critique", json={"prompt": "A lighthouse in fog"}).json()
+    assert body["rewrite_artists_checked"] is False
 
 
 def test_newbies_blocks_keep_their_documented_order_through_the_critic(

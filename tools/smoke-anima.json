@@ -18,5 +18,29 @@
   {"eval": "choose('1:1', 1); els.negative.value = 'blurry'; els.seed.value = '7869'; void startJob('/api/generate', collect());"},
   {"wait": 2000},
   {"expect": "viewerRecords.length === 1 && viewerRecords[0].model_id === 'circlestone-labs/Anima' && viewerRecords[0].steps === 8 && viewerRecords[0].guidance_scale === 1"},
-  {"expect": "viewerRecords[0].negative_prompt === null && viewerRecords[0].true_cfg === null && viewerRecords[0].mu === null"}
+  {"expect": "viewerRecords[0].negative_prompt === null && viewerRecords[0].true_cfg === null && viewerRecords[0].mu === null"},
+
+  {"log": "'The card\\'s own shape - its prefix and tags, then sentences - reads as prose, and its artist is still checked (the fake index knows kantoku and wlop as artists): written without its @ it is named, with an Apply, where it once read nothing to flag'"},
+  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__check = (text) => { els.prompt.value = text; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.analyze.click(); }; __check('masterpiece, best quality, score_7, safe, 1girl, kantoku, A girl stands in the rain under a red umbrella. She looks up at the grey sky.');"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value && !els.promptAnalysis.hidden)"},
+  {"expect": "analysisResult.body.style === 'prose' && els.analysisSummary.textContent === '25 words, prose · no warnings · 1 note' && els.analysisFindings.textContent.includes(\"kantoku is an artist in Danbooru's index; the guide puts @ before an artist name.\")"},
+  {"eval": "els.analysisFindings.querySelector('[data-writes]').click();"},
+  {"expect": "__until(() => els.prompt.value === 'masterpiece, best quality, score_7, safe, 1girl, @kantoku, A girl stands in the rain under a red umbrella. She looks up at the grey sky.' && analysisResult?.source === els.prompt.value)"},
+  {"expect": "analysisResult.body.findings.length === 0 && els.analysisSummary.textContent.endsWith(' · nothing to flag')"},
+  {"log": "'Several artists are named together, with one verb'"},
+  {"eval": "__check('1girl, wlop, kantoku, smile');"},
+  {"expect": "__until(() => analysisResult?.source === '1girl, wlop, kantoku, smile')"},
+  {"expect": "els.analysisFindings.textContent.includes(\"wlop and kantoku are artists in Danbooru's index; the guide puts @ before an artist name.\")"},
+
+  {"log": "'The rewrite is checked for artists with the analysis\\'s own answer: the fake critic\\'s keeps the artist without its @ and is flagged (also in your prompt), and its words include one the analysis never asked about, so the server does not call it checked'"},
+  {"eval": "__check('1girl, kantoku, smile');"},
+  {"expect": "__until(() => analysisResult?.source === '1girl, kantoku, smile')"},
+  {"eval": "els.criticAsk.click();"},
+  {"expect": "__until(() => !!critiqueResult && !critiquing)"},
+  {"expect": "critiqueResult.body.rewrite_artists_checked === false && [...els.criticResult.querySelectorAll('.critic-checked .analysis-item')].some((li) => li.textContent.includes('kantoku is an artist') && li.querySelector('.analysis-carried')?.textContent === 'also in your prompt')"},
+  {"log": "'A rewrite that adds the @, every item of it asked about by the analysis (the server says so: rewrite_artists_checked, as the route test holds), is called fixed - not may still apply'"},
+  {"eval": "window.__notes = () => [...els.criticResult.querySelectorAll('.critic-checked > .analysis-note')].map((n) => n.textContent).filter((t) => /^(No longer|Not flagged)/.test(t)); critiqueResult = { body: { ...critiqueResult.body, rewrite: '1girl, @kantoku, smile', rewrite_findings: [], rewrite_artists_checked: true } }; renderCritic();"},
+  {"expect": "__notes().length === 1 && __notes()[0].startsWith(\"No longer flagged: kantoku is an artist in Danbooru's index\")"},
+  {"eval": "critiqueResult = { body: { ...critiqueResult.body, rewrite_artists_checked: false } }; renderCritic();"},
+  {"expect": "__notes().length === 1 && __notes()[0].startsWith(\"Not flagged on the rewrite, whose check runs without the tag index - these may still apply: kantoku is an artist\")"}
 ]

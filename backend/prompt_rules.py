@@ -823,6 +823,37 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     return wanted
 
 
+def lookup_items(model_id: str, prompt: str) -> list[str]:
+    """What a check of `prompt` asks the tag index about: `category_items`
+    where the prompt reads as tags, or tags and prose. Where it reads as
+    prose, only on a guide whose rules read artists (Anima, whose card says
+    "Use tags, natural language, or both": its prefix and tags ahead of two
+    sentences read as prose, and an artist among them went unchecked while
+    the panel said nothing to flag) - and there only the tag-shaped items,
+    since the artist rule reads a whole comma item and a clause is no
+    artist's name; asking about every clause would cost the index a request
+    for each one Check. Prose is never looked up for the order rules: their
+    "partly checked" names a prose prompt's clauses as never asked
+    (`main._order_detail`), and no guide that states an order reads artists
+    (`tests/test_prompt_rules.py` holds that). Nothing for XML or JSON."""
+    style = detect_style(prompt)
+    if style in ("tags", "hybrid"):
+        return category_items(model_id, prompt)
+    if style != "prose" or not wants_artist_categories(model_id):
+        return []
+    return [item for item in category_items(model_id, prompt) if not _is_prose(item)]
+
+
+def asked_about(model_id: str, text: str, asked: Iterable[str]) -> bool:
+    """Whether every item a check of `text` would ask the tag index about
+    (`lookup_items`) is among `asked`, read as the rules match an item
+    (`_norm`): then the categories a lookup of `asked` answered with answer
+    for `text` too - the critic's rewrite, checked with its analysis's own
+    categories and no lookup of its own (`main._lint`)."""
+    known = {_norm(item) for item in asked}
+    return all(_norm(item) in known for item in lookup_items(model_id, text))
+
+
 def scene_ahead(model_id: str, text: str) -> str | None:
     """The guide's scene block - NewBie's <general_tags> - where `text` puts
     it ahead of a <character_N> block at the top level, against the order
@@ -2187,14 +2218,25 @@ def _lowercase(ctx: _Context) -> Iterable[PromptFinding]:
         )
 
 
+def _listed(names: list[str]) -> str:
+    """"a", "a and b", "a, b and c"."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
 def _artist_prefix(ctx: _Context) -> Iterable[PromptFinding]:
+    # Item by item, whatever the whole prompt reads as: Anima's card says to
+    # use tags, natural language or both, and a tag list that ends in two
+    # sentences reads as prose - which once skipped this rule and reported
+    # nothing to flag over an artist written without its @. A sentence is no
+    # artist's name, and the lookup was never asked about one (`lookup_items`).
     entry = ctx.entry("artist_prefix")
-    if entry is None or ctx.lookup is None or not ctx.taglike:
+    if entry is None or ctx.lookup is None or ctx.style in ("xml", "json"):
         return
     flagged = [
         index for index, (item, norm) in enumerate(zip(ctx.items, ctx.norms, strict=True))
         if norm is not None
         and not item.text.startswith("@")
+        and not _is_sentence(item.text)
         and (ctx.lookup.get(item.text) or ctx.lookup.get(norm)) == "artist"
     ]
     if flagged:
@@ -2202,9 +2244,10 @@ def _artist_prefix(ctx: _Context) -> Iterable[PromptFinding]:
         for index in flagged:
             texts[index] = "@" + texts[index]
         first = ctx.items[flagged[0]]
+        names = list(dict.fromkeys(ctx.items[i].text for i in flagged))
         yield ctx.finding(
             entry, "guide.artist_prefix", "info",
-            f"{', '.join(ctx.items[i].text for i in flagged)} is an artist in "
+            f"{_listed(names)} {'is an artist' if len(names) == 1 else 'are artists'} in "
             "Danbooru's index; the guide puts @ before an artist name.",
             start=first.start, end=first.end,
             suggestion=_rebuild(ctx.text, ctx.items, texts),

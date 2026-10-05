@@ -1918,6 +1918,61 @@ def test_anima_tags_and_sentences():
     assert only(run(ANIMA, two), "guide.sentences") == []
 
 
+def test_anima_reads_artists_whatever_the_whole_prompt_reads_as():
+    # The card's own shape - its prefix and tags, then sentences - reads as
+    # prose; the rule reads each item, and once read none in it.
+    prompt = (
+        "masterpiece, best quality, score_7, safe, 1girl, wlop, A girl stands in the rain "
+        "under a red umbrella. She looks up at the grey sky."
+    )
+    assert prompt_rules.detect_style(prompt) == "prose"
+    [artist] = only(run(ANIMA, prompt, {"wlop": "artist"}), "guide.artist_prefix")
+    assert spanned(prompt, artist) == "wlop"
+    assert artist.suggestion == prompt.replace(", wlop,", ", @wlop,")
+    # What a check asks the index: the tag-shaped items, never a clause.
+    assert prompt_rules.lookup_items(ANIMA, prompt) == [
+        "masterpiece", "best quality", "score_7", "safe", "1girl", "wlop"
+    ]
+    clauses = "A girl painted by wlop stands in the rain, smiling at the viewer, soft light"
+    assert prompt_rules.lookup_items(ANIMA, clauses) == ["soft light"]
+    # A sentence is no artist's name, whatever a lookup said of it.
+    sentence = "She looks up at the grey sky."
+    assert silent(ANIMA, f"1girl, {sentence}", "guide.artist_prefix", {sentence: "artist"})
+    # Nor XML or JSON, which no lookup asks about.
+    assert prompt_rules.lookup_items(ANIMA, '{"artist": "wlop"}') == []
+    # Several are named together, each once.
+    [both] = only(
+        run(ANIMA, "1girl, wlop, kantoku, wlop", {"wlop": "artist", "kantoku": "artist"}),
+        "guide.artist_prefix",
+    )
+    assert both.message.startswith("wlop and kantoku are artists in Danbooru's index")
+    assert both.suggestion == "1girl, @wlop, @kantoku, @wlop"
+
+
+def test_prose_is_looked_up_only_where_the_rules_read_artists():
+    # Elsewhere a prose prompt's clauses are never asked about, which the
+    # order's "partly checked" names; no guide that states an order reads
+    # artists, so the two never meet (`lookup_items`).
+    prose = "A girl with green hair stands in the rain, soft light, masterpiece"
+    assert prompt_rules.detect_style(prose) == "prose"
+    assert prompt_rules.lookup_items(ANIMAGINE, prose) == []
+    # A tag list is, less what the guide's own groups place (1girl).
+    assert prompt_rules.lookup_items(ANIMAGINE, "1girl, green hair, smile") == [
+        "green hair", "smile"
+    ]
+    for name, guide in _all_guides().items():
+        analysis = guide["analysis"]
+        assert not ("artist_prefix" in analysis and "order" in analysis), name
+
+
+def test_a_rewrite_is_covered_by_what_was_asked():
+    assert prompt_rules.asked_about(ANIMA, "1girl, @wlop, smile", ["1girl", "wlop", "smile"])
+    assert prompt_rules.asked_about(ANIMA, "Smile, WLOP, 1girl", ["1girl", "wlop", "smile"])
+    assert not prompt_rules.asked_about(ANIMA, "1girl, kantoku, smile", ["1girl", "wlop", "smile"])
+    sentences = "A girl stands in the rain. She looks up at the grey sky."
+    assert prompt_rules.asked_about(ANIMA, sentences, [])
+
+
 def test_the_scene_block_ahead_of_a_character_is_against_newbies_order():
     example = guides.NEWBIE_GUIDE["examples"][0]
     blocks = re.findall(r"<(\w+)>.*?</\1>", example, re.S)

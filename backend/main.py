@@ -502,10 +502,7 @@ def _order_slots(prompt: str | None, reachable: bool) -> dict:
         order = prompt_rules.documented_order(model_id)
         if order is None or not prompt_rules.reads_order(model_id, prompt):
             return {}
-        categories = (
-            _tag_categories(model_id, prompt, prompt_rules.detect_style(prompt))[0]
-            if reachable else None
-        )
+        categories = _tag_categories(model_id, prompt)[0] if reachable else None
         slots = prompt_rules.order_slots(model_id, prompt, categories)
         if slots is None:
             return {}
@@ -746,16 +743,17 @@ _BARE_DANBOORU = {"vocabulary": "danbooru", "vocabulary_cutoff": None}
 
 
 def _tag_categories(
-    model_id: str, prompt: str, style: str
+    model_id: str, prompt: str
 ) -> tuple[dict[str, str] | None, str | None, list[str]]:
     """Each comma item's Danbooru category, for the order and artist checks,
     or None - why some item a rule reads was never looked up, or None - and
     the items the index was asked about, answered or not.
 
     Only on a checkpoint whose guide names the Danbooru vocabulary, or whose
-    rules need to know an artist (`wants_artist_categories`), and a prompt
-    that reads as tags, and only for the items a rule would read
-    (`category_items`), the chips' 64 at most. No categories when there was
+    rules need to know an artist (`wants_artist_categories`), and only for
+    the items a rule would read (`lookup_items`: a prompt that reads as tags,
+    or - where the rules read artists - the tag-shaped items of one that
+    reads as prose), the chips' 64 at most. No categories when there was
     nothing to ask or the index could not be reached or gave a reply that
     did not read: the rules then place only what the guide's own groups
     know, and the index is never an error here, as it is never one for the
@@ -767,9 +765,7 @@ def _tag_categories(
         if not prompt_rules.wants_artist_categories(model_id):
             return None, None, []
         helper = _BARE_DANBOORU
-    if style not in ("tags", "hybrid"):
-        return None, None, []
-    wanted = prompt_rules.category_items(model_id, prompt)
+    wanted = prompt_rules.lookup_items(model_id, prompt)
     names = wanted[:_MAX_TAG_ITEMS]
     if not names:
         return None, None, []
@@ -937,9 +933,7 @@ def _analyse(
     # The shape alone decides whether to ask the tag index; what is reported
     # is the style the rules applied, which the answer's categories can move
     # ("the legend of zelda" is a series, not a phrase).
-    categories, categories_detail, asked = _tag_categories(
-        model_id, prompt, prompt_rules.detect_style(prompt)
-    )
+    categories, categories_detail, asked = _tag_categories(model_id, prompt)
     reports, findings, detail = _checked(model_id, request, applied, categories)
     order = prompt_rules.documented_order(model_id)
     order_checked = order is not None and prompt_rules.order_checked(model_id, prompt)
@@ -957,6 +951,7 @@ def _analyse(
         order_detail=_order_detail(model_id, prompt, categories, categories_detail, asked)
         if order_checked else None,
         categories=categories,
+        categories_asked=asked,
         author_orders=[] if order is not None else [
             AuthorOrder(text=excerpt.text, url=excerpt.url, note=excerpt.note)
             for excerpt in sources_for(model_id).excerpts
@@ -967,20 +962,39 @@ def _analyse(
 
 
 def _lint(
-    model_id: str, request: GenerateRequest, applied: GenerateRequest, text: str
-) -> list[PromptFinding]:
+    model_id: str,
+    request: GenerateRequest,
+    applied: GenerateRequest,
+    text: str,
+    analysis: PromptAnalysis,
+) -> tuple[list[PromptFinding], bool]:
     """Layer 1's findings for `text` in place of the prompt - the critic's
-    rewrite, held to the same rules as what the user typed.
+    rewrite, held to the same rules as what the user typed - and whether its
+    artist check read every item it could (`PromptCritique.rewrite_artists_checked`).
 
     Blocking, and like `_analyse` it can fetch a tokenizer, so the route runs
-    it off the loop and after the job gate. No tag categories: the analysis
-    asked the tag index once for this critique, and without them the order
-    check places only what the guide's groups know.
+    it off the loop and after the job gate. No tag lookup: the analysis asked
+    the tag index once for this critique. Its artists are handed on where the
+    guide's rules read them (Anima's @), so a rewrite that adds the @ is seen
+    to, and one that drops it is flagged; the rest of its categories are not,
+    and the order check places only what the guide's groups know, since the
+    rewrite's new tags have no category - the page keeps its "may still
+    apply" there.
     """
+    artists = None
+    if prompt_rules.wants_artist_categories(model_id) and analysis.categories is not None:
+        artists = {
+            name: category for name, category in analysis.categories.items()
+            if category == "artist"
+        }
     update = {"prompt": text}
-    return _checked(
-        model_id, request.model_copy(update=update), applied.model_copy(update=update), None
+    findings = _checked(
+        model_id, request.model_copy(update=update), applied.model_copy(update=update), artists
     )[1]
+    covered = artists is not None and prompt_rules.asked_about(
+        model_id, text, analysis.categories_asked
+    )
+    return findings, covered
 
 
 def _prompt_failure(exc: Exception, doing: str) -> HTTPException:
@@ -1130,15 +1144,17 @@ async def critique_prompt(request: PromptAnalysisRequest) -> PromptCritique:
     if critique.rewrite is None:
         return critique
     try:
-        findings = await _detached(
-            lambda: _lint(model_id, request, applied, critique.rewrite), "prompt-check"
+        findings, artists_checked = await _detached(
+            lambda: _lint(model_id, request, applied, critique.rewrite, analysis), "prompt-check"
         )
     except Exception as exc:
         raise _prompt_failure(exc, "prompt analysis") from exc
     # The critic's own checks on the rewrite first (quoted words the prompt
     # does not ask to render), then layer 1's, in the layers' one order.
     merged = sorted(critique.rewrite_findings + findings, key=_finding_order)
-    return critique.model_copy(update={"rewrite_findings": merged})
+    return critique.model_copy(
+        update={"rewrite_findings": merged, "rewrite_artists_checked": artists_checked}
+    )
 
 
 # -------------------------------------------------------------- generation
