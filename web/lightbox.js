@@ -75,23 +75,61 @@ function lbNavRoom(reach = lbNavReach()) { return reach + 8; }
 // The boxes the picture is fitted into, in the stage's pixels: the whole
 // stage, or side by side its two halves, each showing the same crop - inside
 // the arrows, whose circles sat over the source's left edge and the pass's
-// right one there (alone, a picture is centred clear of them). Split along
-// the stage's longer side: on a stage taller than it is wide - a window
-// under 901 px in portrait - left and right halves gave each picture 213 px
-// of a 549x626 stage, where the source above the pass gives each 309.
-// `reach` is lbNavReach's, where the caller has read it already; `sw` and
-// `sh` a stage of another size than the one drawn (lbFactsRoom).
-function lbPorts(reach, sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight) {
+// right one there (alone, a picture is centred clear of them). Left and
+// right, or the source above the pass where that fits the picture larger
+// (`lbStacked`). `reach` is lbNavReach's, where the caller has read it
+// already; `sw` and `sh` a stage of another size than the one drawn
+// (lbFactsRoom); `stacked` the split, where the caller has decided it.
+function lbPorts(reach, sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight, stacked = undefined) {
   if (lbCompare.id === null || lbCompare.mode !== 'side') return [{ x: 0, y: 0, w: sw, h: sh }];
+  return sidePorts(reach, sw, sh, stacked ?? lbStacked());
+}
+function sidePorts(reach, sw, sh, stacked) {
   const inset = Math.min(lbNavRoom(reach), sw / 8);
-  if (lbStacked(sw, sh)) {
+  if (stacked) {
     const w = sw - 2 * inset, h = (sh - LB_SIDE_GAP) / 2;
     return [{ x: inset, y: 0, w, h }, { x: inset, y: h + LB_SIDE_GAP, w, h }];
   }
   const w = (sw - 2 * inset - LB_SIDE_GAP) / 2;
   return [{ x: inset, y: 0, w, h: sh }, { x: inset + w + LB_SIDE_GAP, y: 0, w, h: sh }];
 }
-const lbStacked = (sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight) => sh > sw;
+
+// The stage as it is with the facts at six lines: under 901 px they take
+// what the picture leaves of it (lbFactsRoom), and this is the stage before
+// they did, whatever the picture before this one left them.
+function lbBaseStage() {
+  const sw = els.lbStage.clientWidth;
+  let sh = els.lbStage.clientHeight;
+  if (lbNarrow()) sh += Math.max(0, els.lbMeta.clientHeight - lbSixLines());
+  return [sw, sh];
+}
+const lbNarrow = () => matchMedia('(max-width: 900px)').matches;
+const lbSixLines = () => parseFloat(getComputedStyle(els.lbMeta).fontSize) * 6;
+
+// Whether side by side's halves go one above the other: where the window is
+// under 901 px, or the stage taller than it is wide, and the halves stacked
+// fit `rec` at least LB_STACK_GAIN larger than left and right do. At 600x900
+// left and right gave a square pass and its source 213 px each of a 549x626
+// stage, a 7:4 one 213x121, where stacked gives them 309 and 433; a portrait
+// pass keeps left and right, 213x372, where stacked would give it 177x309.
+// The gain is asked because stacked halves take the stage's height, which
+// was the facts' letterbox (lbFactsRoom): a square pass at 800x900 would
+// gain 15 px a side, 313 to 328, and lose every fact under Size. A
+// landscape stage from 901 px keeps left and right whatever the picture:
+// the layout side by side was designed in. Decided on the stage with the
+// facts at six lines (lbBaseStage), never on what the facts left of it:
+// decided there, a landscape pass's room was worked out for stacked halves,
+// the stage it left was wider than tall, and the halves were drawn left and
+// right at 213 px over a band of nothing.
+const LB_STACK_GAIN = 1.125;
+function lbStacked(rec = lbList[lbIndex]) {
+  if (!rec) return false;
+  const [sw, sh] = lbBaseStage();
+  if (!lbNarrow() && sh <= sw) return false;
+  const reach = lbNavReach();
+  const width = (stacked) => fitSize(rec, sidePorts(reach, sw, sh, stacked))[0];
+  return width(true) >= LB_STACK_GAIN * width(false);
+}
 
 // Fit is "contain": the largest size that shows the whole image inside its
 // viewport, taken from the record's own dimensions rather than the decoded
@@ -138,10 +176,12 @@ function layoutLightbox() {
   // another image, another window - so what follows still holds:
   // everything read off the page is read here, before the first write, so a
   // wheel step, a pan move or a drag of the divider lays the page out once.
-  lbFactsRoom(rec);
+  // The split is decided before, on the stage as it is with the facts at
+  // six lines, so the room and the halves agree (lbStacked).
+  const stacked = lbCompare.id === rec.id && lbStacked(rec);
+  lbFactsRoom(rec, stacked);
   const reach = lbNavReach();
-  const ports = lbPorts(reach);
-  const stacked = lbStacked();
+  const ports = lbPorts(reach, undefined, undefined, stacked);
   const [fw, fh] = fitSize(rec, ports);
   const one = oneToOneScale(rec, ports);
   const w = fw * lbView.scale, h = fh * lbView.scale;
@@ -160,9 +200,9 @@ function layoutLightbox() {
   placeBox(els.lbImg, pass);
   els.lbImg.style.clipPath = ports.length > 1 ? clipBox(pass, rectOf(ports.at(-1))) : '';
   layoutCompare(rec, ports, pass, boxIn, rectOf);
-  // The mode keeps its name on a stage taller than wide; its title says
-  // which way the halves go there (lbPorts).
-  const sides = stacked ? 'The source above the pass, each fitted to half the stage: it is taller than it is wide'
+  // The mode keeps its name where the halves are stacked; its title says
+  // which way they go, or would on a press (lbStacked).
+  const sides = stacked ? 'The source above the pass, each fitted to half the stage: larger here than left and right'
     : 'The source left of the pass, each fitted to half the stage';
   if (els.lbSideBySide.title !== sides) els.lbSideBySide.title = sides;
   // Tested in this order: a wheel stop between 1:1 and fit is neither.
@@ -216,17 +256,15 @@ function sayZoom() {
 // height less the height the picture is fitted to, both as they would be
 // with the facts at six lines, so a tall picture keeps the whole stage and
 // nothing carries over from the image before.
-function lbFactsRoom(rec) {
+function lbFactsRoom(rec, stacked) {
   const meta = els.lbMeta;
   const was = meta.style.getPropertyValue('--lb-room');
-  if (!matchMedia('(max-width: 900px)').matches) {
+  if (!lbNarrow()) {
     if (was) meta.style.removeProperty('--lb-room');
     return;
   }
-  const lines = parseFloat(getComputedStyle(meta).fontSize) * 6;
-  const given = Math.max(0, meta.clientHeight - lines);
-  const sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight + given;
-  const ports = lbPorts(undefined, sw, sh);
+  const [sw, sh] = lbBaseStage();
+  const ports = lbPorts(undefined, sw, sh, stacked);
   const [, fh] = fitSize(rec, ports);
   // Stacked halves are two pictures and the gap between them.
   const used = ports.length > 1 && ports[1].y > 0 ? 2 * fh + LB_SIDE_GAP : fh;
