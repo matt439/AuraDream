@@ -70,6 +70,13 @@
         <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
                   aria-describedby="prompt-tip" aria-autocomplete="list"
                   aria-controls="tag-suggestions" aria-expanded="false"></textarea>
+        <!-- What the encoders read of the prompt, where no chips show it: the
+             count after a pause in typing, from three quarters of the budget,
+             and where reading stops past it (tags.js, syncPromptTokens). Not
+             a live region - it is rewritten at every pause. Inside the editor,
+             so what hangs from the editor's foot - the Example's Undo note
+             above all - hangs under this line rather than over it. -->
+        <p class="hint prompt-tokens" id="prompt-tokens" hidden></p>
         <ul class="tag-suggestions" id="tag-suggestions" role="listbox" aria-label="Tag suggestions" hidden></ul>
         <!-- The Tags button's helper, under the box rather than over it: the
              caret it inserts at stays in sight. -->
@@ -83,11 +90,6 @@
           id="prompt-note-text"></span> <button type="button" class="ghost tiny"
           id="prompt-note-undo">Undo</button></p>
       </div>
-      <!-- What the encoders read of the prompt, where no chips show it: the
-           count after a pause in typing, from three quarters of the budget,
-           and where reading stops past it (tags.js, syncPromptTokens). Not a
-           live region - it is rewritten at every pause. -->
-      <p class="hint prompt-tokens" id="prompt-tokens" hidden></p>
       <!-- The chips' outcome read out, the tray itself being no live region:
            it holds every chip and is rebuilt at each pause in typing - and,
            without chips, a prompt going past the encoders' limit, once. And

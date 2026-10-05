@@ -266,7 +266,8 @@ document.addEventListener('click', (e) => {
   if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
   // The helper hangs under the prompt, which takes clicks to move its caret.
   if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper, #tags-menu, #prompt')) showTagHelper(false);
-  if (!e.target.closest('.prompt-editor')) hideTagSuggestions();
+  // The token line is in the editor (under the box) but no part of typing.
+  if (!e.target.closest('.prompt-editor') || e.target === els.promptTokens) hideTagSuggestions();
 });
 els.unload.onclick = unloadModel;
 els.more.onclick = () => loadGallery();

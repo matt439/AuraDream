@@ -702,10 +702,13 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    (syncPromptTokens), from three quarters of the budget: one line, cut with
    an ellipsis and whole in its title, amber past the limit. Hidden the rest
    of the time - kept, its line put Generate under the edge of a 1400x900
-   window - so it moves the panel only on a long prompt. The field's gap is
-   its space above (not .hint's margin). */
+   window - so it moves the panel only on a long prompt. Inside the prompt
+   editor, under the box at the field's own 6 px gap, so the editor's foot is
+   under it: the Example's Undo note hangs from that foot, and with the line
+   in the field's flow instead it lay over the line - the encoder's name and
+   where reading stops - on NewBie, whose own examples reach the line. */
 .hint.prompt-tokens {
-  margin-top: 0;
+  margin-top: 6px;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
 }
 /* The chips' outcome for a screen reader (the tray is no live region). */
