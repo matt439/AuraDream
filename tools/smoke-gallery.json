@@ -94,6 +94,9 @@
   {"expect": "__first.querySelector('.card-note').textContent === 'No refine pass here' && __first.querySelector('.card-note').getAttribute('aria-hidden') === 'true'"},
   {"log": "'while the note is up the row\\'s names stay down, so the two are never drawn over each other; the note is one line'"},
   {"expect": "getComputedStyle(__first.querySelector('.refine-tool'), '::after').content === 'none' && getComputedStyle(__first.querySelector('.card-note')).whiteSpace === 'nowrap' && __first.querySelector('.card-note').getBoundingClientRect().height < 2 * parseFloat(getComputedStyle(__first.querySelector('.card-note')).fontSize) * 1.5"},
+  {"log": "'and so does the card\\'s caption, with the pointer moved on to the image while the note is up (put up again here if this machine took its two seconds)'"},
+  {"hover": "#gallery .card:first-child img"},
+  {"expect": "(() => { if (!__first.querySelector('.card-note')) cardNote(__first, 'No refine pass here', {quiet: true}); return __first.matches(':hover') && !!__first.querySelector('.card-note') && __cap().content === 'none'; })()"},
   {"click": "#gallery .card:first-child .tools .refine-tool"},
   {"wait": 100},
   {"expect": "!els.lightbox.open && !els.refineDialog.open && __first.querySelectorAll('.card-note').length === 1 && __first.getBoundingClientRect().top === __cardTop"},
@@ -101,7 +104,7 @@
   {"wait": 100},
   {"expect": "referenceIds.length === 0 && els.galleryError.textContent.includes(\"can't use reference images\") && __first.querySelectorAll('.card-note').length === 1 && __first.querySelector('.card-note').textContent === 'No references here'"},
   {"wait": 2200},
-  {"expect": "!__first.querySelector('.card-note') && getComputedStyle(__first.querySelector('.ref-tool'), '::after').content !== 'none'"},
+  {"expect": "!__first.querySelector('.card-note') && getComputedStyle(__first.querySelector('.ref-tool'), '::after').content !== 'none' && __cap().content !== 'none'"},
   {"eval": "showError('', false, {slot: els.galleryError});"},
   {"expect": "els.galleryError.hidden && els.gallery.getBoundingClientRect().top === __gridTop"},
 
