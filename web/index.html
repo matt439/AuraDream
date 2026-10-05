@@ -83,10 +83,16 @@
           id="prompt-note-text"></span> <button type="button" class="ghost tiny"
           id="prompt-note-undo">Undo</button></p>
       </div>
+      <!-- What the encoders read of the prompt, where no chips show it: the
+           count after a pause in typing, from three quarters of the budget,
+           and where reading stops past it (tags.js, syncPromptTokens). Not a
+           live region - it is rewritten at every pause. -->
+      <p class="hint prompt-tokens" id="prompt-tokens" hidden></p>
       <!-- The chips' outcome read out, the tray itself being no live region:
-           it holds every chip and is rebuilt at each pause in typing. And one
-           tip for every unknown chip, outside the tray so a chip's text stays
-           the tag's own. -->
+           it holds every chip and is rebuilt at each pause in typing - and,
+           without chips, a prompt going past the encoders' limit, once. And
+           one tip for every unknown chip, outside the tray so a chip's text
+           stays the tag's own. -->
       <p class="tag-summary" id="tag-summary" aria-live="polite"></p>
       <div class="tag-tip" id="tag-tip" role="tooltip" hidden></div>
       <div class="tag-validation-host tag-validation-home" id="tag-validation-home">

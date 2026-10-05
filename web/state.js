@@ -30,7 +30,7 @@ const els = {
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
   tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
-  tagTip: $('tag-tip'), tagSummary: $('tag-summary'),
+  tagTip: $('tag-tip'), tagSummary: $('tag-summary'), promptTokens: $('prompt-tokens'),
   analyze: $('btn-analyze'), promptAnalysis: $('prompt-analysis'),
   analysisModel: $('analysis-model'), analysisSummary: $('analysis-summary'),
   analysisStale: $('analysis-stale'), analysisAgain: $('analysis-again'), analysisClose: $('analysis-close'),

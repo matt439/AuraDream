@@ -22,5 +22,24 @@
   {"expect": "viewerRecords[0].prompt === els.prompt.value && viewerRecords[0].negative_prompt === 'blurry' && viewerRecords[0].true_cfg === 4 && viewerRecords[0].mu === 1.8"},
   {"eval": "location.reload();"},
   {"wait": 1200},
-  {"expect": "els.prompt.value.startsWith('<character_1>') && els.prompt.value.endsWith('</general_tags>') && els.prompt.value.includes('<n>$character_2$</n>')"}
+  {"expect": "els.prompt.value.startsWith('<character_1>') && els.prompt.value.endsWith('</general_tags>') && els.prompt.value.includes('<n>$character_2$</n>')"},
+
+  {"log": "'XML makes no chips, but the encoders still stop: a line under the prompt counts after a pause in typing - kept out of the way under three quarters of the budget, the count and the encoder from there, amber past it and naming where Gemma stops reading, as Check does; that change said once in the summary line, the line itself no live region'"},
+  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__measures = 0; window.__fetch = window.fetch; window.fetch = (url, init) => { if (String(url).includes('/api/prompt/measure')) window.__measures += 1; return window.__fetch(url, init); }; window.__counted = () => tagMeasured?.model === loadedModel && tagMeasured.text === els.prompt.value.trim(); window.__more = (n) => { const p = els.prompt.value; const i = p.indexOf('<character_2>'); const j = p.indexOf('</character_2>') + '</character_2>'.length; const block = p.slice(i, j).replaceAll('character_2', `character_${n}`); els.prompt.focus(); els.prompt.setSelectionRange(j, j); document.execCommand('insertText', false, `\\n${block}`); };"},
+  {"expect": "__until(() => __counted() && els.promptTokens.hidden && els.tagValidation.hidden && !els.tagValidation.children.length)"},
+  {"eval": "__more(3);"},
+  {"expect": "__until(() => __counted() && !els.promptTokens.hidden)"},
+  {"expect": "(() => { const line = els.promptTokens; const [tokens, budget] = line.textContent.match(/^(\\d+)\\/(\\d+) tokens · Gemma 3 4B$/)?.slice(1).map(Number) ?? []; return budget === 511 && tokens >= 0.75 * budget && tokens <= budget && !line.classList.contains('warn') && line.title.startsWith(line.textContent) && line.title.includes('Jina CLIP v2') && line.previousElementSibling === els.prompt.closest('.prompt-editor') && !line.closest('[aria-live], [role=\"status\"], [role=\"alert\"]') && window.__measures > 0 && els.tagValidation.hidden && els.tagSummary.textContent === ''; })()"},
+  {"eval": "window.__generateTop = els.generate.getBoundingClientRect().top; __more(4);"},
+  {"expect": "__until(() => __counted() && els.promptTokens.classList.contains('warn'))"},
+  {"expect": "(() => { const line = els.promptTokens; const tokens = Number(line.textContent.match(/^(\\d+)\\/511 tokens · Gemma 3 4B stops reading at \"/)?.[1]); return tokens > 511 && getComputedStyle(line).color === 'rgb(251, 191, 36)' && getComputedStyle(line).whiteSpace === 'nowrap' && line.getBoundingClientRect().height < 2 * parseFloat(getComputedStyle(line).lineHeight) && els.tagSummary.textContent === 'The prompt is past the token limit: Gemma 3 4B stops reading at 511 tokens.' && Math.abs(els.generate.getBoundingClientRect().top - window.__generateTop) < 1 && els.tagValidation.hidden; })()"},
+  {"log": "'Where it says reading stops is where Check says Gemma stops'"},
+  {"eval": "els.analyze.click();"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value.trim())"},
+  {"expect": "(() => { const gemma = analysisResult.body.encoders.find((r) => r.field === 'prompt' && r.name === 'Gemma 3 4B'); const text = analysisResult.source; return gemma.cut != null && els.promptTokens.textContent.endsWith(`reading at \"${excerpt(text.slice(units(text, gemma.cut)))}\"`); })()"},
+  {"eval": "closeAnalysis(); els.prompt.focus(); document.execCommand('undo');"},
+  {"expect": "__until(() => __counted() && !els.promptTokens.hidden && !els.promptTokens.classList.contains('warn'))"},
+  {"expect": "els.tagSummary.textContent === '' && !els.promptTokens.textContent.includes('stops reading')"},
+  {"eval": "document.execCommand('undo');"},
+  {"expect": "__until(() => __counted() && els.promptTokens.hidden && els.prompt.value.endsWith('</general_tags>') && !els.prompt.value.includes('character_3'))"}
 ]

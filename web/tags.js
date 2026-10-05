@@ -625,14 +625,93 @@ function tagCut() {
 
 // The count the label shows: the tightest encoder of the last measure, or
 // "cut unknown" where an encoder went uncounted and none is known to cut -
-// a tokenizer still loading is never "no cut".
+// a tokenizer still loading is never "no cut". `tight` is that encoder's
+// report, for the line under the prompt to name.
 function tagTokenLine() {
   if (!tagMeasured || tagMeasured.model !== loadedModel) return null;
   const reports = tagMeasured.encoders.filter((report) => report.field === 'prompt' && !report.pooled_only);
   const cut = reports.some((report) => report.cut != null);
-  if (!reports.length || (tagMeasured.detail && !cut)) return { text: 'cut unknown', over: false };
+  if (!reports.length || (tagMeasured.detail && !cut)) return { text: 'cut unknown', over: false, tight: null };
   const tight = reports.reduce((a, b) => (b.tokens / b.budget > a.tokens / a.budget ? b : a));
-  return { text: `${tight.tokens}/${tight.budget} tokens`, over: cut };
+  return { text: `${tight.tokens}/${tight.budget} tokens`, over: cut, tight };
+}
+
+// The same count as a line under the prompt box (#prompt-tokens) where no
+// chips show it - a checkpoint without them, whose prompt is prose, XML or
+// JSON, and a tag checkpoint's sentence - which had no count before Check:
+// NewBie's own two-character XML example is 488 of Gemma's 511 tokens, and a
+// third character's lines cut <general_tags> off unread. Shown once the
+// prompt has used three quarters of the tightest encoder's budget, past it,
+// or where an encoder went uncounted ("cut unknown", never "no cut"); under
+// that it would say only that there is room, and at 1400x900 its line put
+// Generate under the window's edge. The encoders named, and where reading
+// stops when it does (`tagCut`, while the text up to the cut is the counted
+// one); the title has every encoder's count. The line is no live region - it
+// is rewritten at every pause in typing - and a change to past the limit is
+// said, once, in the chips' summary line, which no chips are using.
+const TOKENS_NEAR = 0.75;
+let promptTokensOver = false;
+
+function promptTokenLine() {
+  const tokens = tagTokenLine();
+  if (!tokens) return null;
+  if (!tokens.tight) {
+    return {
+      text: 'Tokens: cut unknown', over: false, shown: true, said: '',
+      title: tagMeasured.detail || 'No tokenizer is known for this checkpoint, so nothing was counted.',
+    };
+  }
+  const { tight } = tokens;
+  // The line is cut to one; its title is the whole of it, then every encoder.
+  const counts = tagMeasured.encoders.filter((report) => report.field === 'prompt')
+    .map((report) => `${report.name} ${report.tokens}/${report.budget}${report.pooled_only ? ' (one pooled vector)' : ''}`);
+  const titled = (text) => `${text}\n${counts.join(' · ')}: counted by this checkpoint's own tokenizers, as Check counts`;
+  const cut = tokens.over ? tagCut() : null;
+  if (!cut) {
+    // Every encoder as tight as the one counted: SDXL's two CLIP towers
+    // read the same 75 tokens, and naming CLIP-L alone said only one did.
+    const names = tagMeasured.encoders
+      .filter((r) => r.field === 'prompt' && !r.pooled_only && r.tokens * tight.budget === tight.tokens * r.budget)
+      .map((r) => r.name).join(' and ');
+    const text = `${tokens.text} · ${names}`;
+    return {
+      text, over: tokens.over, shown: tokens.over || tight.tokens >= TOKENS_NEAR * tight.budget,
+      title: titled(text), said: '',
+    };
+  }
+  const stops = cut.names.includes(' and ') ? 'stop' : 'stops';
+  const text = `${tokens.text} · ${cut.names} ${stops} reading at "${excerpt(els.prompt.value.slice(cut.offset))}"`;
+  return {
+    text,
+    over: true,
+    shown: true,
+    title: titled(text),
+    said: `The prompt is past the token limit: ${cut.names} ${stops} reading at ${cut.budget} tokens.`,
+  };
+}
+
+// The line's one writer: hidden while it has nothing to say, and while the
+// chips show - their label has the count, and under 901 px they come
+// straight after it in the panel.
+function syncPromptTokens() {
+  const line = els.promptTokens;
+  const chips = !els.tagValidation.hidden;
+  const count = !chips && els.prompt.value.trim() ? promptTokenLine() : null;
+  const shown = !!count?.shown;
+  const text = shown ? count.text : '';
+  if (line.textContent !== text) line.textContent = text;
+  line.title = shown ? count.title : '';
+  line.classList.toggle('warn', shown && count.over);
+  line.hidden = !shown;
+  // Said on the way past the limit, and taken back on the way under it - not
+  // read out, an emptied live region says nothing - so the next crossing is
+  // said again.
+  const over = shown && count.over;
+  if (over && !promptTokensOver && count.said) els.tagSummary.textContent = count.said;
+  else if (!over && promptTokensOver && els.tagSummary.textContent.startsWith('The prompt is past')) {
+    els.tagSummary.textContent = '';
+  }
+  promptTokensOver = over;
 }
 
 function scheduleTagMeasure(delay) {
@@ -655,11 +734,13 @@ function scheduleTagMeasure(delay) {
       tagMeasured = { model, text, encoders: [], detail: error.message };
     }
     // An open editor is not rebuilt under the user's typing: the label
-    // changes now, the chips with the editor's close.
+    // changes now, the chips with the editor's close. The line under the
+    // prompt has the count either way.
     if (tagInsertAt !== null || tagEditAt !== null) syncTagTray(lastTagValidationResults, lastTagValidationState);
     else if (!els.tagValidation.hidden) {
       renderTagValidation(lastTagValidationResults, lastTagValidationState, lastTagValidationDetail);
     }
+    syncPromptTokens();
   }, delay === 0 ? 0 : 600);
 }
 
@@ -982,6 +1063,7 @@ function renderTagValidation(results, state = 'checked', detail = '') {
   }
   syncTagTray(results, state, detail, typing);
   els.tagValidation.hidden = results.length === 0;
+  syncPromptTokens();
   // Read out once a lookup has answered, and only when it says something
   // new: the tray itself is no live region, since it is rebuilt at every
   // pause in typing and holds every chip.
@@ -1070,12 +1152,14 @@ function scheduleTagValidation(delay = 320) {
   const hybridSentence = tagHelper?.hybrid_prompt && !els.prompt.value.includes(',');
   const tags = tagVocabularyEnabled && !hybridSentence ? promptTagParts() : [];
   if (!tags.length) {
-    clearTimeout(tagMeasureTimer);
-    tagMeasureEpoch += 1;
     tagFocusIndex = null;
     hideTagTip();
     els.tagValidation.hidden = true;
     els.tagValidation.replaceChildren();
+    // No chips, but the encoders still stop somewhere: the line under the
+    // prompt counts, on the same pause and the same route as the tray.
+    scheduleTagMeasure(delay);
+    syncPromptTokens();
     return;
   }
   // What the index said before shows at once; only what it has not seen

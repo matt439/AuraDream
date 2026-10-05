@@ -324,6 +324,12 @@ async function refreshStatus() {
       // The check read another checkpoint's tokenizers and guide: none of it
       // is about this one.
       if (analysisResult && analysisResult.body.model_id !== loadedModel) clearAnalysis();
+      // Nor is the prompt's count, made before the first answer or under the
+      // last checkpoint: counted again, for the chips' label and the line
+      // under the prompt (tags.js). The tag helper's change asked again on a
+      // tag checkpoint; on one with no helper nothing did, and a restored
+      // prompt had no count until it was typed in.
+      scheduleTagMeasure(0);
     }
     applyDefaults(s.defaults);
     // After the profile, so a remembered value set on this checkpoint wins

@@ -696,6 +696,16 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-validation-wide .tag-validation::after {
   position: absolute; left: 12px; bottom: 7px; font-size: var(--fs-sm);
 }
+/* The encoders' count under the prompt box where no chips show it
+   (syncPromptTokens), from three quarters of the budget: one line, cut with
+   an ellipsis and whole in its title, amber past the limit. Hidden the rest
+   of the time - kept, its line put Generate under the edge of a 1400x900
+   window - so it moves the panel only on a long prompt. The field's gap is
+   its space above (not .hint's margin). */
+.hint.prompt-tokens {
+  margin-top: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
+}
 /* The chips' outcome for a screen reader (the tray is no live region). */
 .tag-summary {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
