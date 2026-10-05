@@ -428,6 +428,17 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    padding: beside a wider CFG the others are 62 px, and Mu's "auto" was cut
    to "aut" by the spinner. */
 .sampling-row input { padding-left: 6px; padding-right: 2px; }
+/* The Output row: Seed, its dice, the counters, the run hint. The seed box
+   is never narrower than its 16 digits (the Refine dialog's measure): at
+   1400 it was 107 px and showed eleven of them. Where the row cannot give it
+   that beside the counters - the 330 px panel - the counters wrap onto a
+   line of their own, and the run hint, when there is one, takes the room
+   beside them rather than a line of its own; where it can - the wide tier,
+   one column - the row is one line and the hint goes under it, as before. */
+.output-row { flex-wrap: wrap; }
+.output-row > .sub.grow { min-width: calc(16ch + 26px); }
+.output-row > .counts { display: flex; gap: var(--sp-2); align-items: flex-end; flex: none; }
+.output-row > #run-hint { flex: 1 1 0; min-width: 120px; margin: 0; align-self: center; }
 .sub i { font-style: normal; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 5px; }
 
 /* An explicit hover target for the per-checkpoint help. A native `title` is
