@@ -234,7 +234,9 @@ def test_wai_v17_has_its_own_profile_and_author_recipe():
 
     guide = PromptGuide(**guide_for(model))
     assert guide.pixels == (1024**2 / 1e6, 1024 * 1344 / 1e6)
-    assert guide.pixels_word == "documented"
+    # The author's reference sizes, which the tip says are no maximum: the
+    # size line words them as examples, never as what WAI is "for".
+    assert guide.pixels_word == "example"
     assert guide.examples == [",masterpiece,best quality,amazing quality,"]
     helper = guide.tag_helper
     assert helper is not None and helper.hybrid_prompt
@@ -278,6 +280,18 @@ def test_anima_turbo_has_its_own_defaults_and_documented_guide():
     assert guide.pixels == (512**2 / 1e6, 1536**2 / 1e6)
     assert guide.pixels_word == "documented" and guide.tag_helper is None
     assert guide.examples[0].startswith("Digital painting of a fiery dragon")
+    # The caption whole: the card asks for two sentences, and gives two.
+    assert guide.examples[0].endswith(
+        "molten rock formation. The background is a gradient of dark purple to orange."
+    )
+    # Every tier the strip marks in range is named in range: 1.5 MP too.
+    low, high = guide.pixels
+    marked = {
+        tier for tier in sizes.TIERS
+        if low * 0.9 <= sizes.SIZES["1:1"][tier][0] ** 2 / 1e6 <= high * 1.1
+    }
+    assert marked == {1, 1.5, 2}
+    assert "The 1, 1.5 and 2 MP presets are inside this range" in hints_for(model)["size"]
     hint = hints_for(model)
     assert "8-12" in hint["steps"]
     assert "natural language" in hint["prompt"] and "@" in hint["prompt"]
@@ -314,7 +328,7 @@ def test_netayume_uses_the_pinned_releases_profile_and_qualified_family_guide():
 
     guide = PromptGuide(**guide_for(model))
     assert guide.pixels == (1024**2 / 1e6, 1024 * 1536 / 1e6)
-    assert guide.pixels_word == "documented" and guide.tag_helper is None
+    assert guide.pixels_word == "example" and guide.tag_helper is None
     assert guide.examples[0].startswith("Gawr Gura, 1girl, solo, anime style")
     assert "<Prompt Start>" not in guide.examples[0]
     hints = hints_for(model)
@@ -346,7 +360,7 @@ def test_newbie_has_release_defaults_and_an_unparsed_xml_example():
 
     guide = PromptGuide(**guide_for(model))
     assert guide.pixels == (1024**2 / 1e6, 1024**2 / 1e6)
-    assert guide.pixels_word == "documented" and guide.tag_helper is None
+    assert guide.pixels_word == "example" and guide.tag_helper is None
     # XML is a structured prompt, not comma chips. Preserve two complete
     # character blocks, their distinct attributes and the shared scene.
     xml = ElementTree.fromstring("<prompt>" + guide.examples[0] + "</prompt>")
@@ -399,13 +413,97 @@ def test_every_catalogue_entry_has_a_prompting_guide():
         assert guide["pixels"] is not None, repo
         low, high = guide["pixels"]
         assert 0 < low <= high, repo
-        assert guide["pixels_word"] in {"documented", "recommended", "trained"}, repo
+        assert guide["pixels_word"] in {"documented", "recommended", "trained", "example"}, repo
         hints = hints_for(repo)
         assert "Unrecognised" not in hints["prompt"] and "Unrecognised" not in hints["size"], repo
     unknown = guide_for("nobody/whatever")
     assert unknown["examples"] == [] and unknown["pixels"] is None
     assert unknown["aspects"] is None
     assert unknown["tag_helper"] is None
+
+
+def test_ernies_guide_is_baidus_table_of_seven_sizes():
+    # Baidu's card recommends seven 1 MP sizes. Without them as data every
+    # 1 MP preset - 12:5's 2.4:1 included - was in the guide, the strip
+    # carried no marks, and Baidu's own 768x1376 typed in was not recognised.
+    table = [(1024, 1024), (848, 1264), (1264, 848), (768, 1376), (1376, 768), (896, 1200), (1200, 896)]
+    for repo in ("baidu/ERNIE-Image-Turbo", ERNIE_LITE, "baidu/ERNIE-Image"):
+        guide = guide_for(repo)
+        assert guide["resolutions"] == table, repo
+        assert guide["aspects"] == ["1:1", "3:4", "4:3", "2:3", "3:2", "9:16", "16:9"], repo
+    # Five framings are Baidu's sizes exactly at 1 MP; 9:16 and 16:9 stand
+    # for 768x1376 and 1376x768, 16 px shorter - which the size tip says.
+    exact = {sizes.SIZES[aspect][1] for aspect in ("1:1", "3:4", "4:3", "2:3", "3:2")}
+    assert exact <= set(table)
+    assert sizes.SIZES["9:16"][1] == (768, 1376 - 16) and sizes.SIZES["16:9"][1] == (1376 - 16, 768)
+    size = hints_for("baidu/ERNIE-Image-Turbo")["size"]
+    assert "9:16 and 16:9 stand for 768x1376 and 1376x768" in size
+    assert all(f"{w}x{h}" in size for w, h in table)
+
+
+def test_a_guides_aspects_are_presets_and_its_sizes_their_framings():
+    # The strip marks a preset by its aspect's name, so a name the table has
+    # not got would mark nothing; and a size of the card's table should be
+    # one of the framings marked, or the page would call it unrecommended
+    # once it is picked from the strip rather than typed.
+    for repo in _catalogue_repos():
+        guide = guide_for(repo)
+        if guide["aspects"] is None:
+            assert guide["resolutions"] is None, repo
+            continue
+        assert set(guide["aspects"]) <= set(sizes.SIZES), repo
+        ratios = [int(a) / int(b) for a, b in (x.split(":") for x in guide["aspects"])]
+        for width, height in guide["resolutions"]:
+            assert any(abs(width / height / r - 1) < 0.03 for r in ratios), (repo, width, height)
+
+
+def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
+    # "example" is the span of the authors' example sizes where they publish
+    # no range; the size line words it as the examples' size, never as what
+    # the checkpoint is "for". Each such guide's tip says it is no maximum,
+    # and no guide whose tip says so claims a stronger word.
+    disclaims = ("not a supported maximum", "no published maximum")
+    for repo in _catalogue_repos():
+        word = guide_for(repo)["pixels_word"]
+        size = hints_for(repo)["size"]
+        assert (word == "example") == any(phrase in size for phrase in disclaims), (repo, word)
+    assert {
+        repo for repo in _catalogue_repos() if guide_for(repo)["pixels_word"] == "example"
+    } == {
+        "duongve/NetaYume-Lumina-Image-2.0", "NewBie-AI/NewBie-image-Exp0.1",
+        "LyliaEngine/waiIllustriousSDXL_v170",
+    }
+
+
+def test_a_fixed_shift_is_the_profiles_mu_static():
+    # Where the scheduler's shift is a fixed number, a blank Mu is that
+    # number, and the page says it ("auto (1.79)") and sorts a sheet's Mu
+    # none at it. NetaYume's and NewBie's are the loaders' pinned scheduler
+    # shift; Z-Anime's and Z-Image's are the shipped scheduler configs' 6 and
+    # 3 (design notes). Everywhere else the shift is derived, or Mu is off.
+    import math
+
+    from backend.backends import netayume_loading, newbie_loading
+
+    fixed = {repo: defaults_for(repo)["mu_static"] for repo in _catalogue_repos()}
+    assert fixed["duongve/NetaYume-Lumina-Image-2.0"] == math.log(netayume_loading.RECIPE["shift"])
+    assert fixed["NewBie-AI/NewBie-image-Exp0.1"] == math.log(newbie_loading.RECIPE["shift"])
+    assert fixed["SeeSee21/Z-Anime"] == math.log(6)
+    assert fixed["Tongyi-MAI/Z-Image-Turbo"] == defaults_for("Tongyi-MAI/Z-Image")["mu_static"] == math.log(3)
+    named = {repo for repo, value in fixed.items() if value is not None}
+    assert {repo for repo in named if not repo.startswith("lite-infer/")} == {
+        "duongve/NetaYume-Lumina-Image-2.0", "NewBie-AI/NewBie-image-Exp0.1", "SeeSee21/Z-Anime",
+        "Tongyi-MAI/Z-Image-Turbo",
+    }
+    for repo in named:
+        profile = defaults_for(repo)
+        # A number only where Mu applies and the profile sends none itself.
+        assert profile["mu_supported"] and profile["mu"] is None, repo
+        # And the Mu tip quotes the same number the placeholder does.
+        assert f"mu {profile['mu_static']:.2f}" in hints_for(repo)["mu"].replace("mu of ", "mu "), repo
+    # FLUX derives its shift from the size: no number to give.
+    assert defaults_for("black-forest-labs/FLUX.1-Krea-dev")["mu_static"] is None
+    assert defaults_for("nobody/whatever")["mu_static"] is None
 
 
 def test_every_guide_admits_the_1_mp_presets():
