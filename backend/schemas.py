@@ -713,6 +713,13 @@ class GridPreview(BaseModel):
     # image count. The weakest of the estimates - PNG size follows content -
     # but a night that fills the disk dies at the first save.
     bytes: int | None = None
+    # A refine pass whose cells all start at one point: the sigma it starts
+    # at, read off the loaded pipeline's schedule for this size
+    # (`backend.start_sigma`) - on a flow-matching schedule, the share of
+    # noise the source is mixed with. One strength means different things at
+    # different sizes on FLUX.1, whose shift grows with the size. Null before
+    # a load, for a schedule that is not flow matching, and for a sweep.
+    start_sigma: float | None = None
 
 
 class ImageRecord(BaseModel):

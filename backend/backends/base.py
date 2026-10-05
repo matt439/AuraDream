@@ -121,6 +121,17 @@ class GenerationBackend(abc.ABC):
                 "the loaded pipeline has no compatible image-to-image counterpart"
             )
 
+    def start_sigma(self, request: "GenerateRequest") -> float | None:
+        """How much noise a refine pass starts at, as a fraction. Optional.
+
+        `request` is a pass as `applied()` runs it. The answer is read off the
+        loaded pipeline's own schedule for that size, steps, mu and strength,
+        or None where it cannot be read without a guess - before a load, or a
+        schedule whose sigmas are no noise fraction. The default cannot read
+        one: the Refine preview then says nothing of it.
+        """
+        return None
+
     def prompt_expansion_supported(self) -> bool:
         """Whether this backend can turn a short prompt into a reviewed one.
 

@@ -1338,6 +1338,15 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     )
     images = len(cells) * request.num_images
     listed = len(values.get("seed", []))
+    # Where a refine pass starts on the schedule, for the Refine dialog: only
+    # where every cell starts at one point - the same steps, mu and strength
+    # as the pipeline will run them - which a sweep's do not. Schedulers
+    # only, no weights, and None before a load.
+    start_sigma = None
+    if request.refine is not None and cells:
+        applied = [backend.applied(cell.request) for cell in cells]
+        if len({(r.steps, r.mu, r.strength) for r in applied}) == 1 and applied[0].refine is not None:
+            start_sigma = backend.start_sigma(applied[0])
     return GridPreview(
         values=values,
         cells=len(cells),
@@ -1351,6 +1360,7 @@ async def preview_grid(request: GridRequest) -> GridPreview:
         summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
         seconds=grid.estimate_seconds(cells, per_step_ms, refine_costs=refine_costs),
         bytes=per_image_bytes * images if per_image_bytes else None,
+        start_sigma=start_sigma,
     )
 
 

@@ -639,9 +639,16 @@ async function previewRefine() {
     const single = !sweep && strengths.length === 1 ? strengths[0] : null;
     const keeps = single === null ? '' : single >= 1 ? ' · keeps nothing of the source'
       : single >= 0.9 ? ' · keeps almost nothing of the source' : '';
+    // Where the pass starts, read off the loaded schedule for this size
+    // (`start_sigma`): on FLUX.1 one strength starts a larger pass at more
+    // noise, its shift growing with the size - 0.1 is 47% at 1.5x of 1 MP
+    // and 75% at 2x. Nothing before a load, or where the schedule's sigma is
+    // no noise fraction (SDXL).
+    const noise = single !== null && typeof p.start_sigma === 'number'
+      ? ` · starts at ${Math.round(p.start_sigma * 100)}% noise` : '';
     els.refinePreview.classList.toggle('warn', !!p.duplicates);
     els.refinePreview.textContent = plural(p.images, 'image')
-      + ` · strength ${axisText(strengths)}${run}${keeps}`
+      + ` · strength ${axisText(strengths)}${noise}${run}${keeps}`
       + (p.seconds ? ` · about ${humanTime(p.seconds)}` : '')
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another` : '')
       + (sweep ? '\nOpens as a sheet when it is done.' : '');
