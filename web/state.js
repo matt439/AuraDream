@@ -90,7 +90,7 @@ const els = {
   lbMain: $('lb-main'), lbDesc: $('lb-desc'), lbSrcImg: $('lb-src-img'), lbSplit: $('lb-split'),
   lbTagSrc: $('lb-tag-src'), lbTagPass: $('lb-tag-pass'), lbCompare: $('lb-compare'),
   lbCompareOn: $('lb-compare-on'), lbSwipe: $('lb-swipe'), lbSideBySide: $('lb-side-by-side'),
-  lbCompareNote: $('lb-compare-note'),
+  lbCompareNote: $('lb-compare-note'), lbKeys: $('lb-keys'),
   refineDialog: $('refine-dialog'), refineTitle: $('refine-title'), refineClose: $('refine-close'),
   refineThumb: $('refine-thumb'), refineSourceLine: $('refine-source-line'),
   refineFigure: $('refine-figure'), refineKept: $('refine-kept'), refineReused: $('refine-reused'),

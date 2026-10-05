@@ -181,5 +181,21 @@
   {"expect": "document.activeElement.dataset.index === '2' && els.prompt.value.startsWith('1girl, solo, long hair, green hair') && document.querySelector('.panel').getBoundingClientRect().top === __panelTop && scrollY === __y"},
   {"key": "Delete"},
   {"wait": 300},
-  {"expect": "document.activeElement.dataset.index === '2' && els.prompt.value.startsWith('1girl, solo, green hair, green eyes') && document.querySelector('.panel').getBoundingClientRect().top === __panelTop && scrollY === __y"}
+  {"expect": "document.activeElement.dataset.index === '2' && els.prompt.value.startsWith('1girl, solo, green hair, green eyes') && document.querySelector('.panel').getBoundingClientRect().top === __panelTop && scrollY === __y"},
+
+  {"log": "'The Tags helper left open while focus leaves it by keyboard, and a card opened and walked in the lightbox: Escape there is the lightbox\\'s, handing focus to the card the walk ended on rather than the one it was opened from, and the helper stays open under the prompt until the next Escape'"},
+  {"eval": "window.__until = async (fn, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; }; els.tagsBtn.focus({preventScroll: true}); els.tagsBtn.click();"},
+  {"expect": "__until(() => !els.tagsMenu.hidden && els.tagsMenu.contains(document.activeElement))"},
+  {"eval": "window.__opener = document.querySelector('#gallery .card[data-id] img'); window.__walked = galleryRecords[2].id; __opener.focus();"},
+  {"expect": "!els.tagsMenu.hidden && document.activeElement === __opener && +__opener.closest('.card').dataset.id === galleryRecords[0].id"},
+  {"key": "Enter"},
+  {"expect": "__until(() => els.lightbox.open && lbList === galleryRecords && lbIndex === 0)"},
+  {"key": "ArrowRight"},
+  {"key": "ArrowRight"},
+  {"expect": "__until(() => lbIndex === 2 && lbList[lbIndex].id === __walked)"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.lightbox.open && document.activeElement === document.querySelector('#gallery .card[data-id=\"' + __walked + '\"] img'))"},
+  {"expect": "!els.tagsMenu.hidden"},
+  {"key": "Escape"},
+  {"expect": "__until(() => els.tagsMenu.hidden && document.activeElement === document.querySelector('#gallery .card[data-id=\"' + __walked + '\"] img'))"}
 ]

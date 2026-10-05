@@ -1108,8 +1108,10 @@ function scheduleRefineTags(delay = 400) {
 // The passes already made from this source, newest first - the gallery's own
 // `refine:` search, on every checkpoint - so a pass is judged against what it
 // was made from before another is run. One opens in the lightbox with the
-// source ahead of it, ← and → stepping between them; the dialog closes for
-// it, keeping what was typed for the next open (`refineClosed`).
+// source ahead of it, ← and → stepping between them, and the comparison
+// already on - judging the pass against its source is what it was opened for,
+// and it took an S or a press more; the dialog closes for it, keeping what was
+// typed for the next open (`refineClosed`).
 async function loadRefinePasses(rec) {
   const epoch = ++refinePassesEpoch;
   els.refinePasses.hidden = true;
@@ -1126,7 +1128,7 @@ async function loadRefinePasses(rec) {
     const button = document.createElement('button');
     button.type = 'button';
     button.title = what;
-    button.setAttribute('aria-label', `Open the pass ${what} in the lightbox`);
+    button.setAttribute('aria-label', `Open the pass ${what} in the lightbox, compared with #${rec.id}`);
     const img = document.createElement('img');
     img.src = pass.thumb_url ?? pass.url;
     img.alt = '';
@@ -1136,6 +1138,7 @@ async function loadRefinePasses(rec) {
       if (refineSending) return;
       els.refineDialog.close();
       openLightbox(pass, [rec, ...page.items]);
+      void toggleCompare();
     };
     els.refinePassList.append(button);
   }

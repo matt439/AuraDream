@@ -56,19 +56,31 @@ let lbCloseTimer;
 // without running (`refineClosed`): set by openRefine, which closes the
 // lightbox for its dialog.
 let refineReturn = null;
+// The Seed row's Use seed note ({id, text}) while the lightbox's line holds it.
+let lbSeedNote = null;
 const LB_SIDE_GAP = 8;
-// What the arrows' circles take at the stage's edges (style.css: 40 px, 10 px
-// in) and a gap: side by side, the halves start past them.
-const LB_NAV_ROOM = 58;
+// How far the arrows' circles reach in from the stage's edges: style.css's
+// --lb-nav (40 px, 52 from 1800 px) and its 10 px inset, measured off the ›
+// circle as drawn, so the two below follow the circle wherever its size is
+// set - a constant for the 40 px one put side by side's halves under the
+// wide tier's. The circle is in the same place as a strip's and alone
+// (style.css), so either reads the same: 50 px, or 62.
+function lbNavReach() {
+  const circle = els.lbNext.firstElementChild.getBoundingClientRect();
+  return Math.max(0, els.lbStage.getBoundingClientRect().right - circle.left);
+}
+// Side by side, the halves start past the circles and a gap: 58 px, or 70.
+function lbNavRoom(reach = lbNavReach()) { return reach + 8; }
 
 // The boxes the picture is fitted into, in the stage's pixels: the whole
 // stage, or side by side its two halves, each showing the same crop - inside
 // the arrows, whose circles sat over the source's left edge and the pass's
-// right one there (alone, a picture is centred clear of them).
-function lbPorts() {
+// right one there (alone, a picture is centred clear of them). `reach` is
+// lbNavReach's, where the caller has read it already.
+function lbPorts(reach) {
   const sw = els.lbStage.clientWidth, sh = els.lbStage.clientHeight;
   if (lbCompare.id === null || lbCompare.mode !== 'side') return [{ x: 0, w: sw, h: sh }];
-  const inset = Math.min(LB_NAV_ROOM, sw / 8);
+  const inset = Math.min(lbNavRoom(reach), sw / 8);
   const w = (sw - 2 * inset - LB_SIDE_GAP) / 2;
   return [{ x: inset, w, h: sh }, { x: inset + w + LB_SIDE_GAP, w, h: sh }];
 }
@@ -76,8 +88,8 @@ function lbPorts() {
 // Fit is "contain": the largest size that shows the whole image inside its
 // viewport, taken from the record's own dimensions rather than the decoded
 // image, so the layout is right before the PNG has arrived.
-function fitSize(rec) {
-  const { w, h } = lbPorts()[0];
+function fitSize(rec, ports = lbPorts()) {
+  const { w, h } = ports[0];
   const k = Math.min(w / rec.width, h / rec.height);
   return [rec.width * k, rec.height * k];
 }
@@ -86,8 +98,8 @@ function fitSize(rec) {
 // devicePixelRatio is load-bearing: at 125-150% Windows scaling a plain
 // natural-size image is a 1.25-1.5x resample, which is precisely the smoothing
 // a sharpening sweep is being judged on.
-function oneToOneScale(rec) {
-  return (rec.width / window.devicePixelRatio) / fitSize(rec)[0];
+function oneToOneScale(rec, ports) {
+  return (rec.width / window.devicePixelRatio) / fitSize(rec, ports)[0];
 }
 
 // Between fit or 1:1, whichever is smaller, and 8x device pixels, past which
@@ -113,8 +125,12 @@ function clipBox(box, rect) {
 function layoutLightbox() {
   const rec = lbList[lbIndex];
   if (!rec || !els.lightbox.open) return;
-  const ports = lbPorts();
-  const [fw, fh] = fitSize(rec);
+  // Everything read off the page is read here, before the first write, so a
+  // wheel step, a pan move or a drag of the divider lays the page out once.
+  const reach = lbNavReach();
+  const ports = lbPorts(reach);
+  const [fw, fh] = fitSize(rec, ports);
+  const one = oneToOneScale(rec, ports);
   const w = fw * lbView.scale, h = fh * lbView.scale;
   const { w: pw, h: ph } = ports[0];
   // An image smaller than its viewport on an axis is centred on it; one
@@ -130,7 +146,6 @@ function layoutLightbox() {
   els.lbImg.style.clipPath = ports.length > 1 ? clipBox(pass, rectOf(ports.at(-1))) : '';
   layoutCompare(rec, ports, pass, boxIn, rectOf);
   // Tested in this order: a wheel stop between 1:1 and fit is neither.
-  const one = oneToOneScale(rec);
   const percent = Math.round((lbView.scale / one) * 100);
   els.lbZoom.textContent = Math.abs(lbView.scale - one) < 1e-3 ? '1:1'
     : lbView.scale === 1 ? `fit · ${percent}%` : `${percent}%`;
@@ -145,9 +160,13 @@ function layoutLightbox() {
   // arrow is its circle alone too (style.css), so the end of the walk's
   // backdrop still closes.
   const gutter = (pw - w) / 2 - 8;
-  const strips = lbView.scale === 1 && gutter >= 48;
+  // The least strip is the circle's reach less 2 px - 48 for the 40 px
+  // circle, 60 for the wide tier's 52 - so the circle never reaches past the
+  // margin onto the picture.
+  const least = reach - 2;
+  const strips = lbView.scale === 1 && gutter >= least;
   els.lbMain.classList.toggle('strips', strips);
-  els.lbMain.style.setProperty('--lb-gutter', `${strips ? Math.min(160, gutter) : 48}px`);
+  els.lbMain.style.setProperty('--lb-gutter', `${strips ? Math.min(160, gutter) : least}px`);
 }
 
 // The source's layer: over the pass and cut at the divider, or in the left
@@ -251,9 +270,14 @@ function renderLightbox() {
   els.lbImg.alt = rec.prompt;
   els.lbPrompt.textContent = rec.prompt;
   els.lbDesc.textContent = settingsLine(rec);
+  // Use seed's note names the seed of the image it was pressed on.
+  if (lbSeedNote && lbSeedNote.id !== rec.id) {
+    if (els.lbError.textContent === lbSeedNote.text) { els.lbError.hidden = true; els.lbError.textContent = ''; }
+    lbSeedNote = null;
+  }
   if (lbDrawn !== rec || !els.lbSettings.firstChild) {
     lbDrawn = rec;
-    els.lbSettings.replaceChildren(factsList(rec), passesLine(rec));
+    els.lbSettings.replaceChildren(factsList(rec, { useSeed: true }), passesLine(rec));
   }
   els.lbCount.textContent = lightboxCount(rec);
   els.lbPrev.disabled = lbIndex === 0;
@@ -325,8 +349,11 @@ function settingsLine(rec) {
 // negative prompt it gave the True CFG of, the date and the run. One row a
 // fact, in the reproduction set's order; a row the record has no value for is
 // left out. Its buttons open the image it was refined from (with this one
-// after it, so → comes back), each reference, and the run as a sheet.
-function factsList(rec) {
+// after it, so → comes back), each reference, and the run as a sheet - and,
+// where the view has no Use seed of its own (`useSeed`: the lightbox, where
+// older images' seeds are browsed; not the result column, whose row of
+// actions has one), put the seed in the panel's Seed box.
+function factsList(rec, { useSeed: seedButton = false } = {}) {
   const dl = document.createElement('dl');
   dl.className = 'facts';
   const row = (term, ...value) => {
@@ -362,7 +389,17 @@ function factsList(rec) {
     // A comparison's version by the name the sheet gives it.
     row('Variables', vars.map(([k, v]) => (k === 'variant' ? `version: ${VERSION_NAMES.get(v) ?? v}` : `${k} = ${v}`)).join(', '));
   }
-  row('Seed', String(rec.seed));
+  // The panel is under the dialog, so the press says what it did in the
+  // lightbox's own line - not the panel's, where it would replace a job's
+  // outcome - and the run hint says the rest once it closes ("Seed fixed
+  // at …").
+  row('Seed', String(rec.seed), ...(seedButton ? [' · ', factButton('Use seed', `Put ${rec.seed} in the Seed box`, () => {
+    useSeed(rec.seed);
+    const text = `Seed ${rec.seed} is in the Seed box.`;
+    showError(text, true, { slot: els.lbError, mirror: false });
+    // Until another image is drawn (renderLightbox), whose seed it is not.
+    lbSeedNote = { id: rec.id, text };
+  })] : []));
   const made = new Date(rec.created_at).toLocaleString([], {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
@@ -544,6 +581,9 @@ function showPasses(rec) {
 function syncCompare(rec) {
   const pass = rec.refine != null;
   els.lbCompare.hidden = !pass;
+  // The keys line names S where it does something: on a pass. In the title
+  // and the button's hint alone, it was found only by hovering.
+  els.lbKeys.textContent = lbKeysLine(pass);
   if (!pass) return;
   const on = lbCompare.id === rec.id;
   const gone = rec.refine_missing || lbSources.get(rec.refine) === null;
@@ -566,6 +606,17 @@ function syncCompare(rec) {
   const cropped = kept && (kept.w < 1 || kept.h < 1);
   els.lbCompareNote.textContent = gone ? `source #${rec.refine} deleted`
     : source ? `#${source.id}, ${source.width}×${source.height}${cropped ? ', cropped as the pass was' : ''}` : '';
+}
+
+// The lightbox's keys, under the comparison (index.html has the line without
+// S, as it reads on any image that is not a pass). Each key is bound to what
+// it does - no-break spaces, and a word joiner in +/− - so the line breaks
+// only after a ·: the longer line of a pass split "+/" from "−" at 1400 px.
+function lbKeysLine(pass) {
+  const keys = [['← →', 'walk'], ['F', 'star'], ...(pass ? [['S', 'compare']] : []), ['Del', 'delete'],
+    ['0', 'fit'], ['1', '1:1'], ['+/−', 'zoom'], ['Esc', 'close']];
+  return keys.map(([key, does]) => `${key.replace(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
+    .join('\u00a0· ');
 }
 
 // S, the button and the two modes. Off, a mode turns it on in that mode; on,
@@ -663,9 +714,10 @@ async function stepLightbox(delta) {
 }
 
 function closeLightbox() {
-  // close() fires the dialog's `close` event, which is wired back here - the
-  // guard is what keeps that from recursing, and what makes a native Escape
-  // (which closes the dialog first) still reset the strip.
+  // The dialog's `close` event is queued, not fired by close(), and app.js
+  // wires it back here only while the dialog is still closed when it comes -
+  // which covers a close the browser made itself - so a lightbox opened
+  // again at once keeps its strip. The guard only spares a second close().
   if (els.lightbox.open) els.lightbox.close();
   clearTimeout(lbCloseTimer);
   clearTimeout(lbPassesTimer);
@@ -676,6 +728,7 @@ function closeLightbox() {
   lbIndex = -1;
   lbOrigin = null;
   lbDrawn = null;
+  lbSeedNote = null;
   lbCompare.id = null;
   lbCompare.source = null;
   lbSources.clear();

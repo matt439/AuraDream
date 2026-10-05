@@ -370,8 +370,12 @@ els.lightbox.onclick = (e) => { if (e.target === els.lightbox) dismissLightbox()
 els.lbCompareOn.onclick = () => { void toggleCompare(); };
 els.lbSwipe.onclick = () => { void toggleCompare('swipe'); };
 els.lbSideBySide.onclick = () => { void toggleCompare('side'); };
-// Every close, the native Escape's included, resets the strip.
-els.lightbox.addEventListener('close', closeLightbox);
+// Every close, the native Escape's included, resets the strip - unless the
+// lightbox is open again by the time the event comes: the dialog's `close`
+// is queued, not fired by close() itself, and a close followed at once by an
+// open (a script's, a smoke's) had the late event shut the new lightbox, and
+// reset its strip, under whatever it was doing - a delete in flight.
+els.lightbox.addEventListener('close', () => { if (!els.lightbox.open) closeLightbox(); });
 // The pictures: one that will not load says why, the next that loads takes it
 // back, and a source that will not load ends the comparison.
 els.lbImg.onerror = () => { void lbImageFailed(); };
@@ -448,6 +452,13 @@ document.addEventListener('keydown', (e) => {
     else generate();
     return;
   }
+  // The lightbox's Escape before the menus': it is modal over a menu left
+  // open under it - the Tags helper stays open when focus leaves it by
+  // keyboard - and the menu's branch took the key, so the dialog's own
+  // cancel closed the lightbox without dismissLightbox, focus going back to
+  // the image it was opened on rather than the one the walk ended on. The
+  // menu stays open under the page, as it was before the lightbox came up.
+  if (e.key === 'Escape' && !e.defaultPrevented && els.lightbox.open) { dismissLightbox(); return; }
   // An Escape the prompt's suggestion list or a chip's editor took closes that
   // alone: the helper stays open under the box while its list comes and goes.
   if (e.key === 'Escape' && !e.defaultPrevented && !els.examplesMenu.hidden) { showExamples(false); return; }
@@ -457,7 +468,6 @@ document.addEventListener('keydown', (e) => {
   if (e.defaultPrevented) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
-  if (e.key === 'Escape') { dismissLightbox(); return; }
   if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); return; }
   if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); return; }
   // F, S, Delete and the zoom keys act on the image in view - unless a text

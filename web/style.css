@@ -66,6 +66,9 @@
      --search-w     240px the gallery's search box, at most
      --runs-w       190px the Runs picker, closed: 240-360px from 1800 px
      --lb-side-w    280px the lightbox's column; 340-400px from 1800 px
+     --lb-nav       40px  the lightbox's arrow circles; 52px from 1800 px, with the
+                    wide tier's larger controls (lightbox.js measures the circle
+                    for side by side's halves and the strips' least width)
      --dock-w       520-760px the prompt check docked beside the viewer, from 1800 px
      --result-w     300-420px the column beside the one image just made, from 1800 px
      --recent-w     280-420px this page's earlier results beside it, from 2000 px
@@ -149,6 +152,7 @@
   --search-w: 240px;
   --runs-w: 190px;
   --lb-side-w: 280px;
+  --lb-nav: 40px;
   --dock-w: clamp(520px, 30vw, 760px);
   --result-w: clamp(300px, 17vw, 420px);
   --recent-min: 280px;
@@ -190,6 +194,7 @@
     --search-w: 480px;
     --runs-w: clamp(240px, 14vw, 360px);
     --lb-side-w: clamp(340px, 15vw, 400px);
+    --lb-nav: 52px;
     --tip-w: 320px;
     --tip-w-wide: 380px;
     --menu-w: 360px;
@@ -1127,8 +1132,10 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    the accessible name stays the label (aria-keyshortcuts carries the keys).
    Quieter by size and weight, not opacity, which would take the white below
    the label's own contrast on the accent. The Refine dialog's Refine is the
-   third button the shortcut presses, from inside the dialog. */
-#btn-generate::after, #btn-grid::after, #refine-run::after {
+   third button the shortcut presses, from inside the dialog. The lightbox's
+   Compare with source takes the same hint for its own key, S (its content
+   is the lightbox section's). */
+#btn-generate::after, #btn-grid::after, #refine-run::after, #lb-compare-on::after {
   content: 'Ctrl+Enter' / '';
   margin-left: var(--sp-2);
   font-size: var(--fs-sm);
@@ -1534,7 +1541,8 @@ button { font: inherit; cursor: pointer; }
 
 /* The image just made, alone in the strip, with its column beside it from
    1800 px (resultSide): what it refines, Star, Refine…, Reuse, Use seed and
-   Delete in words - ❐ Reference too where the checkpoint takes references -
+   Delete in words - ❐ Reference too where the checkpoint takes references,
+   and on a pass Compare with source -
    its prompt and its facts, in the width a square result left empty. As
    tall as the picture and its row (`contain: size`, stretched), scrolling
    inside itself, so it never sets the strip's height; the live preview and a
@@ -1582,6 +1590,12 @@ button { font: inherit; cursor: pointer; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions > button {
     flex: 0 1 auto; min-width: 0; height: var(--h-tool); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  /* A pass's Compare with source is left out of the row: the row is only as
+     wide as the picture, and with it a portrait pass's 405 px at
+     2048x1040@1.25 cut every word in the row to an ellipsis. The picture
+     opens the lightbox, where S and the toggle compare; with the check
+     closed the column has the button again. */
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .compare-source { display: none; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
     display: block; flex: 1 1 0; min-width: 0; line-height: var(--h-tool); text-align: right;
     color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
@@ -2131,17 +2145,14 @@ button { font: inherit; cursor: pointer; }
 /* Failures raised from inside the lightbox - a delete that 404s, a star
    that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
 .lightbox .error { min-height: 1.2em; }
-/* A pass against its source: the toggle with S beside it, as Generate shows
-   Ctrl+Enter (a pseudo-element with empty alt text, the name stays the
-   label's), then the two ways to look. */
+/* A pass against its source: the toggle with S beside it by Generate's rule
+   for Ctrl+Enter (#btn-generate::after: a pseudo-element with empty alt text,
+   the name stays the label's, and aria-keyshortcuts says S), then the two
+   ways to look. */
 .lb-compare { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lb-compare .hint:empty { display: none; }
 #lb-compare-on[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
-#lb-compare-on::after {
-  content: 'S' / '';
-  margin-left: var(--sp-2);
-  font-size: var(--fs-sm);
-}
+#lb-compare-on::after { content: 'S' / ''; }
 .lb-modes { display: flex; gap: var(--sp-2); }
 .lb-modes .ghost { flex: 1 1 0; white-space: nowrap; }
 .lb-modes .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
@@ -2176,8 +2187,8 @@ button { font: inherit; cursor: pointer; }
   z-index: 1;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
+  width: var(--lb-nav);
+  height: var(--lb-nav);
   padding: 0;
   border: 0;
   border-radius: var(--r-lg);
@@ -2187,16 +2198,17 @@ button { font: inherit; cursor: pointer; }
 .lb-nav span {
   position: absolute;
   top: 50%;
-  width: 40px;
-  height: 40px;
-  margin-top: -20px;
+  width: var(--lb-nav);
+  height: var(--lb-nav);
+  margin-top: calc(var(--lb-nav) / -2);
   display: grid;
   place-items: center;
   padding-bottom: 3px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--line);
   border-radius: 50%;
-  font-size: 24px;
+  /* The glyph to its circle: 24 px in 40. */
+  font-size: calc(var(--lb-nav) * 0.6);
   line-height: 1;
 }
 .lb-nav.prev, .lb-nav.prev span { left: 0; }
