@@ -238,6 +238,17 @@
    `display: flex`, which left the lightbox covering the page on load. */
 [hidden] { display: none !important; }
 
+/* Read, not seen: a heading a screen reader moves by where the page shows
+   none - the settings panel's. Out of the flow, so no flex gap or grid cell
+   is spent on it - and so never a child of a `reading-flow` container (the
+   docked stage, below), which reads what is out of its flow after all its
+   items: the results viewer's "Results" heading was read after the gallery
+   there, and the viewer is a named region instead (index.html). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -260,8 +271,12 @@ body {
   z-index: 20;
 }
 
-.brand { font-weight: 700; letter-spacing: -0.02em; font-size: var(--fs-xl); }
+/* The page's h1, drawn as the word mark it was as a div. The two words meet
+   with no visible space; the space between them is there for a screen
+   reader, which read "LocalDiffusion" as one word, at no width. */
+.brand { margin: 0; font-weight: 700; letter-spacing: -0.02em; font-size: var(--fs-xl); }
 .brand span { color: var(--accent); }
+.brand .brand-gap { font-size: 0; }
 
 .status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: var(--fs-body-sm); }
 /* "· busy in another tab" (status.js) gives way in a phone-width bar, where
@@ -338,7 +353,7 @@ main {
   /* `position: sticky` makes this its own stacking context, so a tooltip inside
      it cannot out-z-index anything outside it however high it climbs - and the
      gallery's cards are `position: relative` and later in the document, so they
-     painted straight over the help panels. The whole aside has to sit above the
+     painted straight over the help panels. The whole panel has to sit above the
      stage instead. Below the topbar's 20 and the lightbox's 50, which both
      legitimately cover it. */
   z-index: 10;
@@ -755,6 +770,19 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-validation-wide .tag-validation::after {
   position: absolute; left: 12px; bottom: 7px; font-size: var(--fs-sm);
 }
+/* The encoders' count under the prompt box where no chips show it
+   (syncPromptTokens), from three quarters of the budget: one line, cut with
+   an ellipsis and whole in its title, amber past the limit. Hidden the rest
+   of the time - kept, its line put Generate under the edge of a 1400x900
+   window - so it moves the panel only on a long prompt. Inside the prompt
+   editor, under the box at the field's own 6 px gap, so the editor's foot is
+   under it: the Example's Undo note hangs from that foot, and with the line
+   in the field's flow instead it lay over the line - the encoder's name and
+   where reading stops - on NewBie, whose own examples reach the line. */
+.hint.prompt-tokens {
+  margin-top: 6px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
+}
 /* The chips' outcome for a screen reader (the tray is no live region). */
 .tag-summary {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
@@ -1054,8 +1082,9 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .order-author .analysis-note { flex-basis: 100%; }
 
 /* Findings and the critic's issues: a mark, the message, and what it rests on
-   at the right. One with words to point at is a click target that selects
-   them in their box. */
+   at the right. One with words to point at has a Show after its words that
+   selects them in their box - the keyboard's way, the item being no tab
+   stop - and is a click target for the pointer as a whole. */
 .analysis-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .analysis-item {
   position: relative;
@@ -1065,7 +1094,14 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 .analysis-item.selectable { cursor: pointer; }
 .analysis-item.selectable:hover { background: rgba(255, 255, 255, 0.04); }
-.analysis-item:focus-visible { outline: none; border-color: var(--accent-2); }
+.analysis-show { margin-left: var(--sp-2); vertical-align: 1px; }
+/* Show is a word in the finding's sentence, an inline target: in the wide
+   tier a tiny button is 30 px tall (26 at 2048x1040 at 125%), and inline it
+   stretched its line by 8 to 10 px, every finding with words taller than
+   one without. There it is the line's height instead. */
+@media (min-width: 1800px) {
+  .analysis-message > .analysis-show { padding-block: 0; line-height: 1.2; }
+}
 .analysis-mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 15px; height: 15px; margin-top: 1px; border: 1px solid currentColor; border-radius: 50%;
@@ -1174,7 +1210,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    viewer, not above it. With no chips there is no row for them - an empty
    one kept its gap, and opening the check moved the image down by it.
    CSS alone, so the DOM
-   order placeTagValidation keeps - chips, then the check, in the wide host -
+   order placeTagValidation keeps - chips, then the check, a wide host each -
    is unchanged, and without :has() the check stays above the viewer.
    Not with the gallery beside the viewer (`.stage.beside`): there every
    rule here that places or sizes something carries `:not(.beside)` - the
@@ -1184,14 +1220,32 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    `align-self: start`, unguarded, shrank the column's fixed box to its
    content, so the critic's answer ran it past the window with its head
    under the topbar. Only the sections' single column, which suits either
-   narrow column, is the check's in both places. */
+   narrow column, is the check's in both places.
+   Tab goes as the dock is drawn, column by column (`reading-flow`, where the
+   browser has it; the DOM order elsewhere): the chips, the image just made
+   and its tools, its note (a pass's "Refined from #N"), #recent where it
+   docks between, then the check at the right, then the gallery - the DOM
+   order with the check's host moved to just before the gallery
+   (`reading-order`). In the DOM order the check's fifteen-odd stops came
+   first, and the image was the 41st stop from the prompt, against the 26th
+   with the check closed; by the grid's rows the note under the image came
+   after the whole check, which starts in the image's row. Still CSS alone.
+   The browser orders a `display: contents` host as one item, so the chips
+   and the check have a host each (index.html): in one shared host Tab went
+   chips, check, image whatever the order asked. The reading order is the
+   accessibility tree's too, and it reads what is out of the flow after
+   every item - so the stage has no unseen heading of its own (`.sr-only`,
+   above). */
 @media (min-width: 1800px) {
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--dock-w);
     grid-template-rows: auto auto 1fr;
     align-items: start;
+    reading-flow: source-order;
   }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #tag-validation-wide { reading-order: 1; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .library { reading-order: 2; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > * { grid-column: 1 / -1; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / -1; grid-row: 1; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
@@ -1226,17 +1280,17 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   }
   /* With no chips the check spans the viewer's rows from the first, and
      only the window under the topbar caps it. */
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-row: 1 / span 2;
     max-height: calc(100vh - var(--sticky-top) - var(--gutter));
   }
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
     grid-template-rows: auto auto auto 1fr;
   }
-  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
     grid-row: 1 / 5;
   }
   /* A column of 520-760 px: the sections stack - Encoders, Order, Findings,
@@ -1927,7 +1981,7 @@ button { font: inherit; cursor: pointer; }
   }
   .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { grid-column: 3; }
   .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) { grid-row: 2; }
-  .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
+  .stage.recent-docked:not(.beside):has(> #tag-chips-wide > #tag-validation[hidden]):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
     grid-row: 1;
   }
   /* With the gallery beside the viewer (Gallery beside, `.stage.beside`), a
@@ -2133,7 +2187,12 @@ button { font: inherit; cursor: pointer; }
      it. Its box is the column's whatever the viewer holds - none of the
      dock's rules reach it here (`:not(.beside)`, that section) - and it
      scrolls inside that box, its head (the prompt check's) stuck at the
-     top. */
+     top.
+     Tab reaches it after the stage's own flow - the chips, the image just
+     made and its tools, the note - as it is drawn, at the right
+     (`reading-flow`: a fixed box comes after the flow's items); in the DOM
+     order it came before the image, as in the dock. */
+  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) { reading-flow: flex-visual; }
   .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     max-height: none; overflow-y: auto; overscroll-behavior: contain;
   }

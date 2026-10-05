@@ -527,6 +527,12 @@ async function refreshStatus() {
       // The check read another checkpoint's tokenizers and guide: none of it
       // is about this one.
       if (analysisResult && analysisResult.body.model_id !== loadedModel) clearAnalysis();
+      // Nor is the prompt's count, made before the first answer or under the
+      // last checkpoint: counted again, for the chips' label and the line
+      // under the prompt (tags.js). The tag helper's change asked again on a
+      // tag checkpoint; on one with no helper nothing did, and a restored
+      // prompt had no count until it was typed in.
+      scheduleTagMeasure(0);
     }
     applyDefaults(s.defaults);
     // After the profile, so a remembered value set on this checkpoint wins
@@ -669,6 +675,11 @@ async function refreshStatus() {
     // What a job saved before the server went quiet - or before it died -
     // is in the gallery now, which the page could not ask for meanwhile.
     if ((back || restarted) && loadedModel === previousModel) { void prependFinished(0); loadRuns(); }
+    // And the prompt's count, which a measure asked while it was gone could
+    // not get: the line under the prompt kept "cut unknown", titled with the
+    // offline sentence, until the next pause in typing (a checkpoint change
+    // asked above).
+    if (back && loadedModel === previousModel) scheduleTagMeasure(0);
     // Free space beside the VRAM: the disk is the other thing a night can
     // run out of, and the grid preview compares its size estimate against it.
     diskFreeMb = typeof s.disk_free_mb === 'number' ? s.disk_free_mb : null;

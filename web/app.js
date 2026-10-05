@@ -567,7 +567,8 @@ document.addEventListener('click', (e) => {
   if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
   // The helper hangs under the prompt, which takes clicks to move its caret.
   if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper, #tags-menu, #prompt')) showTagHelper(false);
-  if (!e.target.closest('.prompt-editor')) hideTagSuggestions();
+  // The token line is in the editor (under the box) but no part of typing.
+  if (!e.target.closest('.prompt-editor') || e.target === els.promptTokens) hideTagSuggestions();
 });
 els.unload.onclick = unloadModel;
 els.more.onclick = () => loadGallery();
@@ -863,7 +864,20 @@ document.querySelector('.panel').addEventListener('pointerenter', () => { panelP
 document.querySelector('.panel').addEventListener('pointerleave', () => {
   panelPos.pointer = false;
   if (panelPos.deferred) placePanel();
+  promptTokensAimed = false;
+  if (promptTokensHeld) syncPromptTokens();
 });
+// The token line under the prompt waits to show or go while the mouse is on a
+// control it would move (tags.js, syncPromptTokens): one whose top is at or
+// below the prompt box's bottom. Given back on leaving it and on a key.
+const TOKENS_AIMED = 'button, a, input, select, textarea, summary, label, [role="option"], [role="menuitem"], [tabindex]';
+document.querySelector('.panel').addEventListener('pointerover', (e) => {
+  const control = e.pointerType === 'touch' ? null : e.target.closest(TOKENS_AIMED);
+  promptTokensAimed = !!control && control !== els.prompt
+    && control.getBoundingClientRect().top >= els.prompt.getBoundingClientRect().bottom - 0.5;
+  if (promptTokensHeld && !promptTokensAimed) syncPromptTokens();
+});
+window.addEventListener('keydown', () => { if (promptTokensHeld) syncPromptTokens(true); }, true);
 document.querySelector('.panel').addEventListener('pointerdown', () => { panelPos.press = true; });
 window.addEventListener('pointerup', () => {
   panelPos.dragging = false;

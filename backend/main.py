@@ -1113,7 +1113,9 @@ async def analyze_prompt(request: PromptAnalysisRequest) -> PromptAnalysis:
 async def measure_prompt(request: PromptMeasureRequest) -> PromptMeasure:
     """What the running checkpoint's encoders read of the prompt: Check's
     encoder layer alone, for the chip tray's count and the tags it marks
-    past the cut while the prompt is typed.
+    past the cut while the prompt is typed, and, where no chips show, for
+    the token line under the prompt box - on every checkpoint, so a first
+    typing pause on a cold server may fetch any checkpoint's tokenizer files.
 
     No rules and no tag lookup - the tray asks at every pause in typing, and
     a Check's 64 Danbooru lookups each time would be a second tag lookup
@@ -1127,7 +1129,12 @@ async def measure_prompt(request: PromptMeasureRequest) -> PromptMeasure:
 
     def measure() -> PromptMeasure:
         reports, _findings, detail = prompt_encoding.measure(model_id, request.prompt, None)
-        return PromptMeasure(model_id=model_id, encoders=reports, encoders_detail=detail)
+        return PromptMeasure(
+            model_id=model_id,
+            encoders=reports,
+            encoders_detail=detail,
+            encoders_known=prompt_encoding.encoders_for(model_id) is not None,
+        )
 
     try:
         return await _detached(measure, "prompt-measure")

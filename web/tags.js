@@ -550,6 +550,10 @@ function buildTagEditor(initial = null) {
   menu.className = 'tag-editor-suggestions';
   menu.id = 'tag-editor-suggestions';
   menu.setAttribute('role', 'listbox');
+  // Named as the prompt box's list and the Refine dialog's are; one editor is
+  // open at a time, so the id - and its options' ids, which the input's
+  // aria-activedescendant names - are the page's only ones.
+  menu.setAttribute('aria-label', 'Tag suggestions');
   menu.hidden = true;
   input.setAttribute('aria-controls', menu.id);
   const accept = document.createElement('button');
@@ -689,21 +693,129 @@ function tagCut() {
 
 // The count the label shows: the tightest encoder of the last measure, or
 // "cut unknown" where an encoder went uncounted and none is known to cut -
-// a tokenizer still loading is never "no cut".
+// a tokenizer still loading is never "no cut". `tight` is that encoder's
+// report, for the line under the prompt to name.
 function tagTokenLine() {
   if (!tagMeasured || tagMeasured.model !== loadedModel) return null;
   const reports = tagMeasured.encoders.filter((report) => report.field === 'prompt' && !report.pooled_only);
   const cut = reports.some((report) => report.cut != null);
-  if (!reports.length || (tagMeasured.detail && !cut)) return { text: 'cut unknown', over: false };
+  if (!reports.length || (tagMeasured.detail && !cut)) return { text: 'cut unknown', over: false, tight: null };
   const tight = reports.reduce((a, b) => (b.tokens / b.budget > a.tokens / a.budget ? b : a));
-  return { text: `${tight.tokens}/${tight.budget} tokens`, over: cut };
+  return { text: `${tight.tokens}/${tight.budget} tokens`, over: cut, tight };
 }
 
+// The same count as a line under the prompt box (#prompt-tokens) where no
+// chips show it - a checkpoint without them, whose prompt is prose, XML or
+// JSON, and a tag checkpoint's sentence - which had no count before Check:
+// NewBie's own two-character XML example is 488 of Gemma's 511 tokens, and a
+// third character's lines cut <general_tags> off unread. Shown once the
+// prompt has used three quarters of the tightest encoder's budget, past it,
+// or where an encoder went uncounted ("cut unknown", never "no cut") - at any
+// length, there being no count to hold to the three quarters: a tokenizer the
+// server cannot fetch or is still fetching, the server not answering (asked
+// again when it answers, status.js). Not where the encoder table has no
+// entry for the checkpoint at all (`encoders_known` false): nothing will ever
+// count its prompt, "cut unknown" stood under every prompt, two words
+// included, and Check's Encoders section says why. Hidden is not "no cut".
+// Under three quarters it would say only that there is room, and at 1400x900
+// its line put Generate under the window's edge. The encoders named, and
+// where reading stops when it does (`tagCut`, while the text up to the cut is
+// the counted one); the title has every encoder's count. The line is no live
+// region - it is rewritten at every pause in typing - and a change to past
+// the limit is said, once, in the chips' summary line, which no chips are
+// using.
+const TOKENS_NEAR = 0.75;
+let promptTokensOver = false;
+
+function promptTokenLine() {
+  const tokens = tagTokenLine();
+  if (!tokens) return null;
+  if (!tokens.tight && tagMeasured.known === false && !tagMeasured.failed) {
+    return { text: '', over: false, shown: false, said: '', title: '' };
+  }
+  if (!tokens.tight) {
+    return {
+      text: 'Tokens: cut unknown', over: false, shown: true, said: '',
+      title: tagMeasured.detail || 'No tokenizer is known for this checkpoint, so nothing was counted.',
+    };
+  }
+  const { tight } = tokens;
+  // The line is cut to one; its title is the whole of it, then every encoder.
+  const counts = tagMeasured.encoders.filter((report) => report.field === 'prompt')
+    .map((report) => `${report.name} ${report.tokens}/${report.budget}${report.pooled_only ? ' (one pooled vector)' : ''}`);
+  const titled = (text) => `${text}\n${counts.join(' · ')}: counted by this checkpoint's own tokenizers, as Check counts`;
+  const cut = tokens.over ? tagCut() : null;
+  if (!cut) {
+    // Every encoder as tight as the one counted: SDXL's two CLIP towers
+    // read the same 75 tokens, and naming CLIP-L alone said only one did.
+    const names = tagMeasured.encoders
+      .filter((r) => r.field === 'prompt' && !r.pooled_only && r.tokens * tight.budget === tight.tokens * r.budget)
+      .map((r) => r.name).join(' and ');
+    const text = `${tokens.text} · ${names}`;
+    return {
+      text, over: tokens.over, shown: tokens.over || tight.tokens >= TOKENS_NEAR * tight.budget,
+      title: titled(text), said: '',
+    };
+  }
+  const stops = cut.names.includes(' and ') ? 'stop' : 'stops';
+  const text = `${tokens.text} · ${cut.names} ${stops} reading at "${excerpt(els.prompt.value.slice(cut.offset))}"`;
+  return {
+    text,
+    over: true,
+    shown: true,
+    title: titled(text),
+    said: `The prompt is past the token limit: ${cut.names} ${stops} reading at ${cut.budget} tokens.`,
+  };
+}
+
+// Whether the line shows moves everything under it in the panel by a line -
+// Generate, Pause and Cancel, Run grid, the negative box - and that change
+// lands a pause and a round trip after the typing stopped, as the pointer may
+// be arriving on Generate. So while the mouse is on a control the line would
+// move (`promptTokensAimed`, app.js: one whose top is at or below the prompt
+// box's bottom) the change waits (`promptTokensHeld`) for the mouse to leave
+// it or for a key, which no press of the mouse is; the text and the colour
+// change in place, the line being one line. Only on such a control: held for
+// the whole lower panel, a prompt past the limit went unsaid until the mouse
+// left it, and the mouse goes to Generate.
+let promptTokensAimed = false;
+let promptTokensHeld = false;
+
+// The line's one writer: hidden while it has nothing to say, and while the
+// chips show - their label has the count, and under 901 px they come
+// straight after it in the panel. `now` gives a held change (a key).
+function syncPromptTokens(now = false) {
+  const line = els.promptTokens;
+  const chips = !els.tagValidation.hidden;
+  const count = !chips && els.prompt.value.trim() ? promptTokenLine() : null;
+  const shown = !!count?.shown;
+  promptTokensHeld = !now && shown === line.hidden && promptTokensAimed;
+  if (promptTokensHeld) return;
+  const text = shown ? count.text : '';
+  if (line.textContent !== text) line.textContent = text;
+  line.title = shown ? count.title : '';
+  line.classList.toggle('warn', shown && count.over);
+  line.hidden = !shown;
+  // Said on the way past the limit, and taken back on the way under it - not
+  // read out, an emptied live region says nothing - so the next crossing is
+  // said again.
+  const over = shown && count.over;
+  if (over && !promptTokensOver && count.said) els.tagSummary.textContent = count.said;
+  else if (!over && promptTokensOver && els.tagSummary.textContent.startsWith('The prompt is past')) {
+    els.tagSummary.textContent = '';
+  }
+  promptTokensOver = over;
+}
+
+// A measure that got no answer (`failed`: the server not answering, a refusal)
+// is asked again for the same text - status.js asks once the server answers
+// again - where an answer, "cut unknown" included, stands until the text or
+// the checkpoint changes.
 function scheduleTagMeasure(delay) {
   clearTimeout(tagMeasureTimer);
   const epoch = ++tagMeasureEpoch;
   const text = els.prompt.value.trim();
-  if (!text || (tagMeasured?.text === text && tagMeasured.model === loadedModel)) return;
+  if (!text || (tagMeasured?.text === text && tagMeasured.model === loadedModel && !tagMeasured.failed)) return;
   tagMeasureTimer = setTimeout(async () => {
     const model = loadedModel;
     try {
@@ -713,17 +825,22 @@ function scheduleTagMeasure(delay) {
         body: JSON.stringify({ prompt: text }),
       });
       if (epoch !== tagMeasureEpoch) return;
-      tagMeasured = { model, text, encoders: body.encoders || [], detail: body.encoders_detail || null };
+      tagMeasured = {
+        model, text, encoders: body.encoders || [], detail: body.encoders_detail || null,
+        known: body.encoders_known !== false,
+      };
     } catch (error) {
       if (epoch !== tagMeasureEpoch) return;
-      tagMeasured = { model, text, encoders: [], detail: error.message };
+      tagMeasured = { model, text, encoders: [], detail: error.message, failed: true };
     }
     // An open editor is not rebuilt under the user's typing: the label
-    // changes now, the chips with the editor's close.
+    // changes now, the chips with the editor's close. The line under the
+    // prompt has the count either way.
     if (tagInsertAt !== null || tagEditAt !== null) syncTagTray(lastTagValidationResults, lastTagValidationState);
     else if (!els.tagValidation.hidden) {
       renderTagValidation(lastTagValidationResults, lastTagValidationState, lastTagValidationDetail);
     }
+    syncPromptTokens();
   }, delay === 0 ? 0 : 600);
 }
 
@@ -1046,6 +1163,7 @@ function renderTagValidation(results, state = 'checked', detail = '') {
   }
   syncTagTray(results, state, detail, typing);
   els.tagValidation.hidden = results.length === 0;
+  syncPromptTokens();
   // Read out once a lookup has answered, and only when it says something
   // new: the tray itself is no live region, since it is rebuilt at every
   // pause in typing and holds every chip.
@@ -1054,9 +1172,11 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     // Not the item still being typed, as the label does not count it: a
     // lookup landing mid-word would read out an unfinished word as unknown.
     const unknown = results.filter((result, index) => result.valid === false && index !== typing).length;
+    // A spoken line, so "1 prompt tag", never "1 prompt tags" (analysis.js's
+    // `plural`, read at call time).
     const summary = (state === 'offline'
-      ? `${results.length} prompt tags, not checked: Danbooru unreachable`
-      : `${results.length} prompt tags: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
+      ? `${plural(results.length, 'prompt tag')}, not checked: Danbooru unreachable`
+      : `${plural(results.length, 'prompt tag')}: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
       + (past ? `, ${past} past the encoders' token limit` : '');
     if (els.tagSummary.textContent !== summary) els.tagSummary.textContent = summary;
   }
@@ -1132,12 +1252,14 @@ function scheduleTagValidation(delay = 320) {
   const hybridSentence = tagHelper?.hybrid_prompt && !els.prompt.value.includes(',');
   const tags = tagVocabularyEnabled && !hybridSentence ? promptTagParts() : [];
   if (!tags.length) {
-    clearTimeout(tagMeasureTimer);
-    tagMeasureEpoch += 1;
     tagFocusIndex = null;
     hideTagTip();
     els.tagValidation.hidden = true;
     els.tagValidation.replaceChildren();
+    // No chips, but the encoders still stop somewhere: the line under the
+    // prompt counts, on the same pause and the same route as the tray.
+    scheduleTagMeasure(delay);
+    syncPromptTokens();
     return;
   }
   // What the index said before shows at once; only what it has not seen
@@ -1167,23 +1289,31 @@ function syncTagVocabulary() {
 // style.css docks an open check beside them (the chips and the viewer on the
 // left, the check on the right; CSS only, this DOM order unchanged) - and back
 // under the prompt at 900 px and below, where the page is one scrolling
-// column anyway. The move keeps focus where it was - a
+// column anyway. On a two-column page each has a host of its own, the chips'
+// first (`#tag-chips-wide`, `#tag-validation-wide`): the docked grid moves
+// the check's host to just before the gallery in its reading order, and a
+// host shared by both was one item, read at the chips' place, which took Tab
+// through the check before the image beside it. The move
+// keeps focus where it was - a
 // window crossing 901 px under someone typing in Your version or on a chip
 // otherwise sent it to <body> with the next keystroke: moveBefore keeps it
 // whole where the browser has it, and elsewhere the focus and the selection
 // are put back by hand.
 function placeTagValidation() {
-  const host = window.matchMedia('(min-width: 901px)').matches
-    ? els.tagValidationWide
-    : els.tagValidationHome;
+  const wide = window.matchMedia('(min-width: 901px)').matches;
   const focused = document.activeElement;
   const range = typeof focused?.selectionStart === 'number'
     ? [focused.selectionStart, focused.selectionEnd, focused.selectionDirection]
     : null;
-  for (const node of [els.tagValidation, els.promptAnalysis]) {
+  for (const [node, host] of [
+    [els.tagValidation, wide ? els.tagChipsWide : els.tagValidationHome],
+    [els.promptAnalysis, wide ? els.tagValidationWide : els.tagValidationHome],
+  ]) {
     if (node.parentElement === host) continue;
-    if (typeof host.moveBefore === 'function') host.moveBefore(node, null);
-    else host.appendChild(node);
+    // Under the prompt the chips go ahead of the check, wherever it is.
+    const before = node === els.tagValidation && els.promptAnalysis.parentElement === host ? els.promptAnalysis : null;
+    if (typeof host.moveBefore === 'function') host.moveBefore(node, before);
+    else host.insertBefore(node, before);
   }
   if (!focused || focused === document.activeElement || !focused.isConnected) return;
   focused.focus();
