@@ -56,6 +56,8 @@ let lbCloseTimer;
 // without running (`refineClosed`): set by openRefine, which closes the
 // lightbox for its dialog.
 let refineReturn = null;
+// The Seed row's Use seed note ({id, text}) while the lightbox's line holds it.
+let lbSeedNote = null;
 const LB_SIDE_GAP = 8;
 // How far the arrows' circles reach in from the stage's edges: style.css's
 // --lb-nav (40 px, 52 from 1800 px) and its 10 px inset, measured off the ›
@@ -264,6 +266,11 @@ function renderLightbox() {
   els.lbImg.alt = rec.prompt;
   els.lbPrompt.textContent = rec.prompt;
   els.lbDesc.textContent = settingsLine(rec);
+  // Use seed's note names the seed of the image it was pressed on.
+  if (lbSeedNote && lbSeedNote.id !== rec.id) {
+    if (els.lbError.textContent === lbSeedNote.text) { els.lbError.hidden = true; els.lbError.textContent = ''; }
+    lbSeedNote = null;
+  }
   if (lbDrawn !== rec || !els.lbSettings.firstChild) {
     lbDrawn = rec;
     els.lbSettings.replaceChildren(factsList(rec, { useSeed: true }), passesLine(rec));
@@ -384,7 +391,10 @@ function factsList(rec, { useSeed: seedButton = false } = {}) {
   // at …").
   row('Seed', String(rec.seed), ...(seedButton ? [' · ', factButton('Use seed', `Put ${rec.seed} in the Seed box`, () => {
     useSeed(rec.seed);
-    showError(`Seed ${rec.seed} is in the Seed box.`, true, { slot: els.lbError, mirror: false });
+    const text = `Seed ${rec.seed} is in the Seed box.`;
+    showError(text, true, { slot: els.lbError, mirror: false });
+    // Until another image is drawn (renderLightbox), whose seed it is not.
+    lbSeedNote = { id: rec.id, text };
   })] : []));
   const made = new Date(rec.created_at).toLocaleString([], {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -595,9 +605,14 @@ function syncCompare(rec) {
 }
 
 // The lightbox's keys, under the comparison (index.html has the line without
-// S, as it reads on any image that is not a pass).
+// S, as it reads on any image that is not a pass). Each key is bound to what
+// it does - no-break spaces, and a word joiner in +/− - so the line breaks
+// only after a ·: the longer line of a pass split "+/" from "−" at 1400 px.
 function lbKeysLine(pass) {
-  return `← → walk · F star${pass ? ' · S compare' : ''} · Del delete · 0 fit · 1 1:1 · +/− zoom · Esc close`;
+  const keys = [['← →', 'walk'], ['F', 'star'], ...(pass ? [['S', 'compare']] : []), ['Del', 'delete'],
+    ['0', 'fit'], ['1', '1:1'], ['+/−', 'zoom'], ['Esc', 'close']];
+  return keys.map(([key, does]) => `${key.replace(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
+    .join('\u00a0· ');
 }
 
 // S, the button and the two modes. Off, a mode turns it on in that mode; on,
@@ -695,9 +710,10 @@ async function stepLightbox(delta) {
 }
 
 function closeLightbox() {
-  // close() fires the dialog's `close` event, which is wired back here - the
-  // guard is what keeps that from recursing, and what makes a native Escape
-  // (which closes the dialog first) still reset the strip.
+  // The dialog's `close` event is queued, not fired by close(), and app.js
+  // wires it back here only while the dialog is still closed when it comes -
+  // which covers a close the browser made itself - so a lightbox opened
+  // again at once keeps its strip. The guard only spares a second close().
   if (els.lightbox.open) els.lightbox.close();
   clearTimeout(lbCloseTimer);
   clearTimeout(lbPassesTimer);
@@ -708,6 +724,7 @@ function closeLightbox() {
   lbIndex = -1;
   lbOrigin = null;
   lbDrawn = null;
+  lbSeedNote = null;
   lbCompare.id = null;
   lbCompare.source = null;
   lbSources.clear();
