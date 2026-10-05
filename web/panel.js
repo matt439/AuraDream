@@ -972,7 +972,9 @@ function viewerTier() {
 // Every row the job will fill is there from its first frame (`--rows`): a
 // 2x2 held one row while the preview denoised, and grew by the second as
 // the images landed, the gallery under it pushed 466 px down at QHD at the
-// end of every such Generate.
+// end of every such Generate. So is every column (`--col-w`): in `auto`
+// columns the lone preview sat centred, and the images moved left by half a
+// tile as each of the others landed.
 let viewerWidth = 0;
 function fitViewer() {
   const v = els.viewer;
@@ -985,6 +987,7 @@ function fitViewer() {
     v.style.removeProperty('--cols');
     v.style.removeProperty('--rows');
     v.style.removeProperty('--tile-h');
+    v.style.removeProperty('--col-w');
     return;
   }
   const css = getComputedStyle(v);
@@ -1001,9 +1004,13 @@ function fitViewer() {
     const w = Math.min((width - (cols - 1) * gap) / cols, ((height - (rows - 1) * gap) / rows - foot) * aspect);
     if (!best || w > best.w) best = { cols, w, rows };
   }
+  const tileH = Math.max(48, Math.floor(best.w / aspect));
   v.style.setProperty('--cols', best.cols);
   v.style.setProperty('--rows', best.rows);
-  v.style.setProperty('--tile-h', `${Math.max(48, Math.floor(best.w / aspect))}px`);
+  v.style.setProperty('--tile-h', `${tileH}px`);
+  // The tile's own width (style.css: --tile-h times its shape), so every
+  // column the job will fill is there from its first frame.
+  v.style.setProperty('--col-w', `${tileH * aspect}px`);
 }
 
 // The strip's ResizeObserver: its width moved - the window, the panel, the

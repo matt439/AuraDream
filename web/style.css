@@ -1738,11 +1738,14 @@ button { font: inherit; cursor: pointer; }
 .viewer.many { --tile-h: 20vh; }
 /* Two to four images as large as the single image's height allows, in the
    column count that fits them best (fitViewer: --cols, --tile-h), and every
-   row the job will fill there from its first frame (--rows: a tile's picture,
-   its gap and its row), so the second row of a 2x2 landing with the images
-   does not push the gallery down. */
+   row and column the job will fill there from its first frame (--rows: a
+   tile's picture, its gap and its row; --col-w: a tile's width), so the
+   second row of a 2x2 landing with the images does not push the gallery
+   down, and the lone preview holds the first image's slot: in `auto`
+   columns, the empty ones no width, it sat centred and each image moved
+   left by half a tile as the next one landed. */
 .viewer.multi.fitted:not(.many) {
-  display: grid; grid-template-columns: repeat(var(--cols), auto);
+  display: grid; grid-template-columns: repeat(var(--cols), var(--col-w));
   grid-template-rows: repeat(var(--rows), calc(var(--tile-h) + var(--sp-1) + var(--h-tool)));
   justify-content: center; align-content: center;
 }
