@@ -830,6 +830,18 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   font: inherit; text-align: left; text-decoration: underline dotted; text-underline-offset: 2px;
 }
 .analysis-link:hover, .analysis-link:focus-visible { color: var(--text); outline: none; }
+/* A finding's words just selected: the box they are in is outlined for a
+   moment (flashBox, 600 ms), over its own focus border - a box a column
+   away from the finding, and a selection, are easy to miss. Not at all
+   under reduced motion: the selection and the scroll to it stay. */
+.box-flash { animation: box-flash 600ms ease-out; }
+@keyframes box-flash {
+  from { outline: 2px solid var(--accent-2); outline-offset: 3px; }
+  to { outline: 2px solid transparent; outline-offset: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .box-flash { animation: none; }
+}
 .analysis-action { padding: 4px 10px; font-size: var(--fs-label); flex: none; }
 /* The two actions the panel builds towards, lit while they would act: as
    ghost buttons they read as tertiary, and enabled differed from disabled

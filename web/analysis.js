@@ -334,7 +334,23 @@ function selectIn(el, text, start, end) {
   el.focus();
   el.setSelectionRange(lead + from, lead + to);
   scrollToSelection(el);
+  flashBox(el);
   return true;
+}
+
+// The box the words were selected in is outlined for a moment (600 ms, the
+// stylesheet's `.box-flash`; not at all under reduced motion): a finding in
+// the column beside the panel selected words a column away, and a selection
+// in an unfocused-looking box was easy to miss. Restarted on every click.
+let flashedBox = null;
+let flashTimer = 0;
+function flashBox(el) {
+  clearTimeout(flashTimer);
+  flashedBox?.classList.remove('box-flash');
+  void el.offsetWidth;  // a restart, not a class already there
+  el.classList.add('box-flash');
+  flashedBox = el;
+  flashTimer = setTimeout(() => { el.classList.remove('box-flash'); flashedBox = null; }, 600);
 }
 
 // A selection scrolled out of its box looks like a click that did nothing,
