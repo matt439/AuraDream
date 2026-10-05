@@ -706,7 +706,8 @@ async function runRefine() {
     refineSending = false;
     els.refineRun.textContent = busy ? 'Refine (queue)' : 'Refine';
   };
-  // Resolves on a refusal, or once an accepted job has ended.
+  // Resolves on a refusal, once an accepted job has ended, or - for one
+  // queued behind the watched job - once the server has taken it (startJob).
   const sent = startJob(path, body, {
     sheet: sweep,
     panel: false,

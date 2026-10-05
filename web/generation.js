@@ -388,10 +388,14 @@ function setStep(show, fraction = 0, text = '') {
 // says the payload is the panel's own, whose Seed box a grid writes back to.
 // `slot` is where a refusal is said: Re-render's, from the gallery's head,
 // in the gallery's line; a pass's, in the Refine dialog. `onAccepted(jobId)`
-// runs once the server has taken the job, before it is watched - the dialog
-// closes there, and a refusal leaves it open - and `placeholder` is what the
-// viewer shows of it until its first frame (streamJob), keyed to the job, so
-// a pass queued behind another cannot paint over that one.
+// runs once the server has taken the job, before startJob watches it -
+// though a listing between jobs (`jobListing`) may be streaming it already -
+// the dialog closes there, and a refusal leaves it open - and `placeholder`
+// is what the viewer shows of it until its first frame (streamJob, which
+// reads it again at each step until it is there), keyed to the job, so a
+// pass queued behind another cannot paint over that one. Resolves on a
+// refusal, once the job has ended, or - for one queued behind the watched
+// job - once the server has taken it.
 async function startJob(path, payload, {
   sheet = false, panel = true, slot = els.error, placeholder = null, onAccepted = null,
 } = {}) {
@@ -456,13 +460,24 @@ async function startJob(path, payload, {
       // behind a later job; and one the listing had made the watched job
       // was listed as its own "Next:" row, whose × cancelled it.
       while (jobListing) await jobListing;
-      const watched = watchedJobs.has(job_id);
-      if (busy || watched) {
-        if (!watched && !queuedIds.includes(job_id)) {
+      if (watchedJobs.has(job_id)) {
+        // The listing made it the watched job: its stream is the page's, and
+        // this resolves at its end, as for a job the page took itself - an
+        // `await startJob(...)` back to back with another resolved with the
+        // job still running. One watched to its end before this answer
+        // landed (finishJob had no submission to read) leaves nothing to
+        // read what the answer recorded, which goes with it.
+        const stream = jobStreams.get(job_id);
+        if (stream) await stream;
+        else forgetJob(job_id);
+        return;
+      }
+      if (busy) {
+        if (!queuedIds.includes(job_id)) {
           queuedIds.push(job_id);
+          syncQueueNote();
           void nameJob(job_id);
         }
-        syncQueueNote();
         return;
       }
       setBusy(true);
@@ -483,32 +498,40 @@ async function startJob(path, payload, {
 async function watchNext() {
   if (busy || jobListing) return;
   const jobId = await adoptListedJob('next in the queue…');
-  if (jobId) await streamJob(jobId);
+  if (jobId) await jobStreams.get(jobId);
 }
 
 // A page between jobs asks the server which to watch: the one holding the
 // GPU, not the newest - with two live jobs the newest is the queued one, and
 // attaching to it made Cancel stop the wrong job while the running grid kept
 // the card with no reachable id - failing a running one the *oldest* queued,
-// the one about to run, with the rest as its queue. Resolves to that job's
-// id once the page is busy with it (null for nothing live, undefined for no
-// answer); the caller opens its stream. While it is out it is `jobListing`,
-// which a submission waits on (startJob) rather than taking the page beside
-// it, and the page is checked again once it answers.
+// the one about to run, with the rest as its queue. It opens that job's
+// stream itself, so whatever waits on the listing finds the job watched
+// already (`watchedJobs`, `jobStreams`), whichever of them hears the answer
+// first. Resolves to the job's id (null for nothing live, undefined for no
+// answer, or a page that threw on it - which resumeActiveJob's own catch
+// used to take, at load). While it is out it is `jobListing`, which a
+// submission waits on (startJob) rather than taking the page beside it, and
+// the page is checked again once it answers.
 function adoptListedJob(text) {
   const listing = (async () => {
-    let active;
-    try { active = await api('/api/jobs'); } catch { return undefined; }
-    if (busy) return null;
-    if (!active.length) { queuedIds = []; syncQueueNote(); return null; }
-    const job = active.find((j) => j.status === 'running') ?? active[0];
-    learnJobs(active);
-    queuedIds = active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id);
-    setBusy(true);
-    currentJob = job.job_id;
-    els.progressText.textContent = text;
-    syncQueueNote();
-    return job.job_id;
+    try {
+      let active;
+      try { active = await api('/api/jobs'); } catch { return undefined; }
+      if (busy) return null;
+      if (!active.length) { queuedIds = []; syncQueueNote(); return null; }
+      const job = active.find((j) => j.status === 'running') ?? active[0];
+      learnJobs(active);
+      queuedIds = active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id);
+      setBusy(true);
+      currentJob = job.job_id;
+      els.progressText.textContent = text;
+      syncQueueNote();
+      void streamJob(job.job_id);
+      return job.job_id;
+    } catch {
+      return undefined;
+    }
   })();
   jobListing = listing;
   void listing.finally(() => { if (jobListing === listing) jobListing = null; });
@@ -863,9 +886,11 @@ function streamJob(jobId, { reattached = 0 } = {}) {
   finishStale = true;
   syncFinishLead();
   // Watched: a queued submission's answer that lands after this does not
-  // queue it, or take the page with it, again (startJob).
+  // queue it, or take the page with it, again (startJob), and waits on this
+  // stream instead (`jobStreams`, the first stream opened for the job, which
+  // a reattached one's end resolves).
   watchedJobs.add(jobId);
-  return new Promise((resolve) => {
+  const stream = new Promise((resolve) => {
     const source = new EventSource(`/api/jobs/${jobId}/stream`);
     // Results replace the viewer only once the first image or frame of this
     // job lands, so the previous one stays up through the queue wait and the
@@ -886,8 +911,9 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     // image for the whole of a pass.
     let previewEl = null;
     let caption = null;
-    // Read again until the first step: a listing can make a submission the
-    // watched job before its POST's answer has registered the stand-in.
+    // Read again at each step until it is there: a listing can make a
+    // submission the watched job before its POST's answer has registered the
+    // stand-in, which then comes up at the first step after that answer.
     let placeholder = jobPlaceholders.get(jobId) ?? null;
     // The last status frame: what the job is (a grid's cells or a request's
     // repeats, its size, its budget) and what it waits on.
@@ -1135,6 +1161,11 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       void gaveUp().then(resolve);
     };
   });
+  if (!jobStreams.has(jobId)) {
+    jobStreams.set(jobId, stream);
+    void stream.finally(() => { if (jobStreams.get(jobId) === stream) jobStreams.delete(jobId); });
+  }
+  return stream;
 }
 
 // The finished job's line, #finish-note: its outcome and what to do next -
@@ -1556,7 +1587,7 @@ async function resumeActiveJob() {
   if (busy || jobListing) return;
   // No answer is a server not up yet: nothing to say.
   const jobId = await adoptListedJob('reattaching…');
-  if (jobId) { await streamJob(jobId); return; }
+  if (jobId) { await jobStreams.get(jobId); return; }
   // Nothing live: say what the last one did instead, if the server still
   // knows - not where a Generate pressed meanwhile has taken the page.
   if (jobId === null && !busy) announceLastRun();

@@ -188,6 +188,10 @@ let queuedIds = [];
 // of one image, a lost Retry, a second watch of the next job too.
 let jobListing = null;
 const watchedJobs = new Set();
+// The stream of each job being watched, by id, until it ends: a submission
+// the listing adopted before its POST answered waits on it, so startJob
+// resolves at the job's end whichever of the two opened the stream.
+const jobStreams = new Map();
 let submitting = false;
 // What this page knows of a job it submitted, by id: the submission itself
 // ({path, payload, seed, sheet, at}) - a grid's Retry sends its own payload
