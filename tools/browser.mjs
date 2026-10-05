@@ -41,7 +41,8 @@
 // but `startJob(...)` resolves when the job *ends* - or, for one queued behind
 // a job the page watches, once the server has taken it - so to look at a job
 // while it runs write `void startJob(...)`.
-// Exit status is 1 when any `expect` failed, so this can gate a check, and 2
+// Exit status is 1 when any `expect` failed - an expect that throws, or whose
+// promise rejects, has failed - so this can gate a check, and 2
 // for a script refused before the browser starts - among them an expect that
 // joins an async helper (`__until`, or a `window.__x = async` of the file's
 // own) to more with && or ||, which would never wait: put the whole
@@ -176,10 +177,16 @@ await send('Network.setCacheDisabled', { cacheDisabled: true });
 await send('Runtime.enable');
 await viewport(VW, VH, DPR);
 
+// What threw, or a promise that rejected, is no value: returnByValue turned
+// the Error into a truthy {}, and an expect that threw - a null element
+// dereferenced, a predicate throwing inside __until - passed.
 async function evaluate(expression) {
   const res = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
   const details = res.result?.exceptionDetails;
-  if (details) console.log('  ! ' + (details.exception?.description ?? details.text));
+  if (details) {
+    console.log('  ! ' + (details.exception?.description ?? details.text));
+    return undefined;
+  }
   return res.result?.result?.value;
 }
 const mouse = (type, x, y, extra = {}) =>
