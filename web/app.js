@@ -111,54 +111,247 @@ els.examplesBox.addEventListener('focusout', (e) => {
   if (!els.examplesMenu.hidden && !els.examplesBox.contains(e.relatedTarget)) showExamples(false);
 });
 els.promptNoteUndo.onclick = undoPromptWrite;
+els.promptNoteDiscard.onclick = discardPromptNote;
+
+// ERNIE's Expand: the prompt rewritten once by the checkpoint's own rewriter,
+// visibly, then the English of it - the button's state is status.js's
+// (syncExpandButton). What it does is said under the prompt, where it was
+// pressed (tags.js, showPromptNote): while it runs, with a clock, what it
+// waits on - the model's load, a first use's download - and when it lands,
+// that it replaced the prompt, with an Undo (from 1800 px at the end of its
+// English, at the head of the results). Its failures go in the panel's
+// line, said as Expand's. A first use can take minutes:
+//   - typing meanwhile is never overwritten; the result is held under the
+//     prompt (Use it, Discard) rather than thrown away, since it is sampled
+//     and cannot be made again exactly.
+//   - a Reset, a Reuse, an Example or a Use put another prompt there on
+//     purpose, and the result goes without a word.
+//   - nothing it says lands over an Undo another press left in the panel's
+//     line (a Reuse's), which would take the button and the panel it puts
+//     back (`expandSay`). Reset's Undo is under the prompt, where this one's
+//     running line gives way to it.
+// Focus stays on the button through the request and after a failure, and
+// goes to the prompt only with the text it brings.
+let expandRun = null;
+// What Expand last said in the panel's line - a failure, a press while it ran
+// - which the next Expand, and the end of this one, take back while it is
+// still what the line says.
+let expandLine = null;
 
 async function expandPrompt() {
-  if (expandingPrompt) return;
-  if (busy) { showError('Wait for the image queue to finish before expanding a prompt.'); return; }
-  if (critiquing) { showError('Wait for the critic to finish.'); return; }
+  // Held: the press says why, as a held Unload's does.
+  if (els.expandPrompt.getAttribute('aria-disabled') === 'true') {
+    if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
+    else if (expandingPrompt) expandSay('Expanding… - the result goes into the prompt box when it lands.', true);
+    else if (busy) showJobNote(`${els.expandPrompt.title}.`);
+    else showError(`${els.expandPrompt.title}.`, true);
+    return;
+  }
   const source = els.prompt.value;
   const prompt = source.trim();
   if (!prompt) { showError('Enter a prompt to expand first.'); els.prompt.focus(); return; }
-  clearPromptTranslation();
+  // ERNIE writes the expansion for the size in W and H, which the server
+  // refused in pydantic's words: said in the panel's, at the box.
+  const side = [els.width, els.height].find((box) => !(+box.value >= +box.min && +box.value <= +box.max));
+  if (side) {
+    showError(`Expand writes for the size in W and H: set both from ${els.width.min} to ${els.width.max} first.`);
+    side.focus();
+    return;
+  }
+  // The last expansion's failure is about that one.
+  clearExpandLine();
+  // The English of the prompt it replaces, for its Undo to bring back.
+  const before = translatedSource === source ? { source, text: els.promptTranslation.value } : null;
+  // Whether the box was rewritten whole meanwhile (replaceBoxText's flag),
+  // rather than typed in.
+  const run = { replaced: false, text: '', note: null, clock: 0, from: Date.now() };
+  const watch = () => { if (replacingBox) run.replaced = true; };
+  els.prompt.addEventListener('input', watch);
   expandingPrompt = true;
+  expandRun = run;
   syncPromptExpansion();
-  showError('Expanding with ERNIE, then translating locally…', true);
+  showExpandRunning();
+  // The topbar's "loading…" where the press starts the load, not at the
+  // next poll, as a job's submission asks too.
+  setTimeout(() => { void refreshStatus(); }, 250);
   try {
-    const body = await api('/api/prompt/expand', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, width: +els.width.value, height: +els.height.value }),
-    });
-    // A multi-GB first load can take long enough for the user to continue
-    // writing. Never replace work that happened after the click.
-    if (els.prompt.value !== source) {
-      showError('The prompt changed while expansion was running, so the result was not applied.', true);
+    let body;
+    try {
+      body = await api('/api/prompt/expand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, width: +els.width.value, height: +els.height.value }),
+      });
+    } catch (err) {
+      endExpandRunning(run);
+      expandFailed(err);
       return;
     }
-    // Written as typing writes it, so Ctrl+Z brings back the prompt it
-    // replaced - an expansion is a long rewrite, and one that is hard to get
-    // again. The write's `input` clears a translation, so this one is shown
-    // after it.
-    writeBox(els.prompt, body.expanded_prompt);
-    promptReplaced();
-    if (body.translated_prompt) showPromptTranslation(body.expanded_prompt, body.translated_prompt);
-    schedulePreview();
-    scheduleTagValidation(0);
-    persistPanel();
-    els.prompt.focus();
-    els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length);
-    if (body.translation_detail) {
-      showError(`Prompt expanded, but its English translation failed: ${body.translation_detail}`, true);
-    } else {
-      showError('Prompt expanded. Review the Chinese prompt and its English translation before generating.', true);
+    endExpandRunning(run);
+    // "Expanding…", said to a press while it ran, is over.
+    clearExpandLine();
+    if (els.prompt.value !== source) {
+      if (!run.replaced) holdExpansion(body);
+      return;
     }
-  } catch (err) {
-    showError(err.message);
+    applyExpansion(body, source, before);
   } finally {
+    els.prompt.removeEventListener('input', watch);
+    clearInterval(run.clock);
+    expandRun = null;
     expandingPrompt = false;
     syncPromptExpansion();
   }
 }
+
+// Expand's words in the panel's line, unless a Reuse's Undo is on offer
+// there: written over, the button went with the text, and the panel the
+// Undo would put back with it.
+function expandSay(message, note = false, options = {}) {
+  if (reuseNote?.button?.isConnected) return false;
+  showError(message, note, options);
+  expandLine = message;
+  return true;
+}
+
+function clearExpandLine() {
+  if (expandLine !== null && els.error.textContent === expandLine) showError('');
+  expandLine = null;
+}
+
+// The running line, with what the press waits on: the model's load, a first
+// use's download or the rewriter's load, then the expansion itself. A clock
+// counts beside it, aria-hidden, as the load's does: a first use is minutes
+// with nothing else moving.
+function expandRunningText() {
+  const name = (loadedModel ?? '').split('/').pop() || 'the model';
+  const steps = [];
+  if (modelState !== 'ready') steps.push(`loading ${name}`);
+  if (expanderStatus?.fetch?.length) {
+    steps.push(`downloading ${expanderStatus.fetch.join(' and ')} (about ${humanBytes(expanderStatus.fetch_bytes)}) once`);
+  } else if (expanderStatus && !expanderStatus.loaded) {
+    steps.push("loading ERNIE's prompt rewriter");
+  }
+  steps.push(steps.length ? 'expanding and translating…' : 'expanding with ERNIE, then translating locally…');
+  const line = steps.join(', then ');
+  return `${line[0].toUpperCase()}${line.slice(1)}`;
+}
+
+function showExpandRunning() {
+  const run = expandRun;
+  if (!run) return;
+  run.text = expandRunningText();
+  run.note = showPromptNote(run.text, { kind: 'running', ms: 0 });
+  const clock = document.createElement('span');
+  clock.className = 'clock';
+  clock.setAttribute('aria-hidden', 'true');
+  els.promptNoteText.append(clock);
+  const tick = () => {
+    if (promptUndo !== run.note) return;
+    const s = Math.max(0, Math.floor((Date.now() - run.from) / 1000));
+    clock.textContent = ` · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+  tick();
+  clearInterval(run.clock);
+  run.clock = setInterval(tick, 1000);
+}
+
+// From refreshStatus, as the model's state moves: the line says what the
+// expansion waits on now - while it is still the note shown.
+function syncExpandRunning() {
+  const run = expandRun;
+  if (!run || promptUndo !== run.note) return;
+  const text = expandRunningText();
+  if (text === run.text) return;
+  run.text = text;
+  els.promptNoteText.firstChild.textContent = text;
+}
+
+function endExpandRunning(run) {
+  clearInterval(run.clock);
+  if (run.note && promptUndo === run.note) dropPromptUndo();
+}
+
+// The expansion into the prompt box, as typing writes it (Ctrl+Z gives back
+// what it replaced), its English shown after the write, whose `input` would
+// clear it - and the review from the top: the caret and both boxes' scroll at
+// their start, where the caret at the end had scrolled a long expansion's
+// opening lines out of the box. The note under the prompt has its Undo:
+// the prompt it replaced, with that prompt's own English if it had one.
+function applyExpansion(body, source, before) {
+  rewriteBox(els.prompt, body.expanded_prompt);
+  promptReplaced();
+  if (body.translated_prompt) showPromptTranslation(body.expanded_prompt, body.translated_prompt);
+  schedulePreview();
+  scheduleTagValidation(0);
+  persistPanel();
+  els.prompt.setSelectionRange(0, 0);
+  els.prompt.scrollTop = 0;
+  els.promptTranslation.scrollTop = 0;
+  // From 1800 px, where the English heads the results, the note is said
+  // there, at the end of its box: under the prompt, in the panel's flow while
+  // the negative is greyed - ERNIE's CFG 1 - it pushed Generate below a
+  // 2048x1040 window at 125%.
+  const beside = !!body.translated_prompt && TRANSLATION_WIDE.matches;
+  const said = !body.translated_prompt ? 'Prompt expanded: review it before generating.'
+    : beside ? 'Prompt expanded: review it and this translation before generating.'
+    : 'Prompt expanded: review it and its English translation before generating.';
+  offerPromptUndo(said, () => {
+    rewriteBox(els.prompt, source);
+    promptReplaced();
+    if (before && els.prompt.value === before.source) showPromptTranslation(before.source, before.text);
+    schedulePreview();
+    scheduleTagValidation(0);
+    persistPanel();
+  }, {
+    title: 'Put back the prompt Expand replaced',
+    host: beside ? els.promptTranslationField : PROMPT_NOTE_HOME,
+  });
+  if (body.translation_detail) {
+    expandSay(`Prompt expanded; its English translation is unavailable: ${trimStop(body.translation_detail)}.`, true);
+  }
+}
+
+// An expansion the user typed over while it ran: kept under the prompt
+// rather than thrown away - Use it writes it in as Expand would have, with
+// the Undo back to what was typed; Discard, the next Expand, a Reset or a
+// Reuse let it go.
+function holdExpansion(body) {
+  showPromptNote('Expansion ready - made from the prompt before your edits.', {
+    kind: 'held',
+    ms: 0,
+    undo: () => applyExpansion(body, els.prompt.value, null),
+    label: 'Use it',
+    title: 'Replace the prompt with the expansion; Undo gives back what you typed',
+    discard: () => {},
+  });
+}
+
+// A failed expansion, said as Expand's, with the prompt as it was. A load that
+// failed (a 503) is the status's to say: the viewer's card, where the viewer
+// is empty, has the sentence and Retry load, so the line only points there;
+// beside images the line says it once, as the poll would (shownLoadDetail),
+// without the sentence's `command` marks.
+function expandFailed(err) {
+  if (err.status === 503) {
+    void refreshStatus();
+    const pointer = loadFailureInViewer()
+      ? 'Expand needs the model, which could not load - why, and Retry load, are in the viewer.'
+      : `Expand needs the model, which could not load: ${err.message.replaceAll('`', '')}`;
+    if (!loadFailureInViewer()) shownLoadDetail = err.message;
+    // Retry load's success takes it back (loadModel), as its own messages.
+    if (expandSay(pointer, loadFailureInViewer())) loadLine = pointer;
+    return;
+  }
+  // A failure moves the prompt nowhere: the editor is as the user left it.
+  expandSay(err.offline
+    ? 'Expand did not finish: the server did not answer. The prompt is unchanged.'
+    : `Expand did not finish: ${trimStop(err.message)}. The prompt is unchanged.`,
+  false, { offline: !!err.offline });
+}
+
+const trimStop = (text) => String(text).trim().replace(/[.\s]+$/, '');
+
 // A click from the keyboard (detail 0) - Enter or Space on the button - takes
 // focus into the menu on its first item, as ArrowDown does: its items are no
 // Tab stops, and Tab from the button went on to Tags, closing it unread.
@@ -528,6 +721,8 @@ for (const type of ['dragover', 'drop']) {
 
 window.addEventListener('resize', placeTagValidation);
 placeTagValidation();
+TRANSLATION_WIDE.addEventListener('change', placeTranslation);
+placeTranslation();
 new ResizeObserver(chipsResized).observe(els.tagValidation);
 // The panel's sticky top (panel.js has the rules). It follows the panel's
 // height - the grid fold, the progress, the last-run banner, the hints all

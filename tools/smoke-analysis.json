@@ -332,7 +332,7 @@
   {"log": "'Asking about an edited prompt holds Generate, Expand, Unload and Check through the check it runs first; Check waits instead of dropping the critique'"},
   {"eval": "window.__api = api; window.__slow = 1000; window.__critiques = 0; api = (path, options) => { if (path === '/api/prompt/critique') window.__critiques += 1; return path === '/api/prompt/analyze' && window.__slow ? new Promise((r) => setTimeout(r, window.__slow)).then(() => window.__api(path, options)) : window.__api(path, options); };"},
   {"eval": "els.prompt.value += ', calm'; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.criticAsk.click();"},
-  {"expect": "critiquing && analysisStale && els.analyze.disabled && els.analysisAgain.disabled && els.generate.getAttribute('aria-disabled') === 'true' && els.gridRun.getAttribute('aria-disabled') === 'true' && els.unload.getAttribute('aria-disabled') === 'true' && els.expandPrompt.disabled"},
+  {"expect": "critiquing && analysisStale && els.analyze.disabled && els.analysisAgain.disabled && els.generate.getAttribute('aria-disabled') === 'true' && els.gridRun.getAttribute('aria-disabled') === 'true' && els.unload.getAttribute('aria-disabled') === 'true' && els.expandPrompt.getAttribute('aria-disabled') === 'true' && !els.expandPrompt.disabled && els.expandPrompt.title === 'Wait for the critic to finish'"},
   {"eval": "generate(); els.analyze.click(); els.analysisAgain.click();"},
   {"expect": "els.error.textContent === 'Wait for the critic to finish.' && !busy"},
   {"wait": 2000},

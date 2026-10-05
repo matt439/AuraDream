@@ -107,13 +107,42 @@ function syncMu() {
 // the submit buttons (aria-disabled, as setSubmitting holds them). Both wait
 // for the image queue, so a job queued or running holds them in turn.
 function syncPromptExpansion() {
-  const editing = expandingPrompt || critiquing;
-  els.expandPrompt.hidden = !promptExpansionSupported;
-  els.expandPrompt.disabled = editing || busy;
-  els.expandPrompt.textContent = expandingPrompt ? 'Expanding…' : 'Expand';
+  syncExpandButton();
   syncUnload();
   syncSubmitButtons();
   syncCritic();
+}
+
+// Expand's one writer. Held - while it runs, a job is queued or running, the
+// critic thinks or the server does not answer - with aria-disabled and the
+// reason as its title, never disabled: a first use runs for minutes, and the
+// disabled button had dropped a keyboard user's focus to <body> for all of
+// them, and after a failure too; a press says why (expandPrompt). Running,
+// it reads "Expand…": "Expanding…" was 23 px wider, and at 1400 px wrapped
+// Reset onto a line of its own, moving the prompt box down under the pointer
+// for the length of the request. Its title names what a first use costs.
+const EXPAND_TITLE = els.expandPrompt.title;
+function syncExpandButton() {
+  els.expandPrompt.hidden = !promptExpansionSupported;
+  const why = expandingPrompt ? 'Expanding…'
+    : serverOffline ? 'The server is not answering'
+    : busy ? 'A job is queued or running: Expand waits for the image queue to finish'
+    : critiquing ? 'Wait for the critic to finish'
+    : '';
+  const cost = expandCost();
+  els.expandPrompt.setAttribute('aria-disabled', String(!!why));
+  els.expandPrompt.title = why || (cost ? `${EXPAND_TITLE}. ${cost}` : EXPAND_TITLE);
+  els.expandPrompt.textContent = expandingPrompt ? 'Expand…' : 'Expand';
+}
+
+// What a first Expand costs before it does anything, from the status: the
+// downloads a first use makes, else the rewriter's load into memory once a
+// session - as the critic's line names its own first download.
+function expandCost() {
+  const s = expanderStatus;
+  if (!s) return '';
+  if (s.fetch?.length) return `First use downloads ${s.fetch.join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`;
+  return s.loaded ? '' : "Its first use this session loads ERNIE's prompt rewriter into memory first.";
 }
 
 // Unload's one writer. setBusy, Expand and the critic each used to set it,
@@ -136,13 +165,20 @@ function syncUnload() {
 }
 
 // The topbar's Load - and the failed load's Retry load - starts the load
-// without queueing an image to do it, and the status says so at once.
+// without queueing an image to do it, and the status says so at once. It
+// takes back only what was said about the load - its own refusal, a failed
+// load's sentence or Expand's pointer to it (`loadLine`) - never the line's
+// other messages: an Undo on offer, a job's outcome.
+let loadLine = null;
 async function loadModel() {
   try {
     await api('/api/model/load', { method: 'POST' });
-    showError('');
+    const said = els.error.textContent;
+    if (said && (said === loadLine || said === shownLoadDetail)) showError('');
+    loadLine = null;
   } catch (err) {
     showError(err.message);
+    loadLine = err.message;
   }
   refreshStatus();
 }
@@ -183,6 +219,7 @@ function goOffline() {
   els.load.hidden = true;
   syncUnload();
   syncSubmitButtons();
+  syncExpandButton();
 }
 
 // The server that answers is not the one the page was talking to: its jobs,
@@ -219,7 +256,7 @@ function syncLoadFailure(s) {
     card.remove();
     card = null;
   }
-  if (failed && !card && !els.viewer.querySelector('img, figure, .tomb')) {
+  if (failed && !card && loadFailureInViewer()) {
     card = loadFailureCard(s);
     els.viewer.prepend(card);
   }
@@ -229,6 +266,12 @@ function syncLoadFailure(s) {
   if (s.detail === shownLoadDetail) return;
   shownLoadDetail = s.detail;
   if (!card) showError(s.detail, false, { mirror: false });
+}
+
+// Whether a failed load is said in the viewer (the card) rather than in the
+// panel's line: the viewer holds nothing of this session's.
+function loadFailureInViewer() {
+  return !els.viewer.querySelector('img, figure, .tomb');
 }
 
 function loadFailureCard(s) {
@@ -287,6 +330,35 @@ function showPromptTranslation(source, translation) {
   els.promptTranslationField.hidden = false;
 }
 
+// The translation's place. Under the prompt in the panel below 1800 px; from
+// 1800 px at the head of the results instead, where it has the column's
+// width and its own height (style.css): in the panel's sticky column its
+// four rows showed a fifth of a long expansion's English, and the field
+// pushed Generate below the window at 2048x1040 at 125% while the results
+// column stood idle. Moved whole, with focus and a selection in it kept, as
+// placeTagValidation keeps them.
+const TRANSLATION_WIDE = matchMedia('(min-width: 1800px)');
+function placeTranslation() {
+  const field = els.promptTranslationField;
+  const [host, before] = TRANSLATION_WIDE.matches
+    ? [els.stage, els.viewer] : [els.negField.parentElement, els.negField];
+  if (field.parentElement === host && field.nextElementSibling === before) return;
+  const focused = document.activeElement;
+  const inside = field.contains(focused);
+  const range = inside && typeof focused.selectionStart === 'number'
+    ? [focused.selectionStart, focused.selectionEnd, focused.selectionDirection] : null;
+  if (typeof host.moveBefore === 'function') host.moveBefore(field, before);
+  else host.insertBefore(field, before);
+  if (!inside || focused === document.activeElement) return;
+  focused.focus({ preventScroll: true });
+  if (range) focused.setSelectionRange(...range);
+}
+
+// A translation the panel remembered (panel.js, restorePanel), shown once the
+// first status says the checkpoint expands prompts, and only while the box
+// still holds the prompt it translates.
+let pendingTranslation = null;
+
 // Anything the user picks - by hand or through Reuse - takes that control off
 // the profile. /api/status reads CUDA memory, which stalls behind a model load,
 // so its reply can land minutes late and used to wipe steps/CFG/mu long after
@@ -308,6 +380,7 @@ async function refreshStatus() {
       clearOffline();
       retryLightboxImage();
       syncSubmitButtons();
+      syncExpandButton();
     }
     const restarted = serverStartedAt !== null && typeof s.started_at === 'number'
       && s.started_at !== serverStartedAt;
@@ -332,9 +405,18 @@ async function refreshStatus() {
     applyHints(s.hints);
     applyGuide(s.guide);
     if (typeof s.prompt_expansion_supported === 'boolean'
-        && s.prompt_expansion_supported !== promptExpansionSupported) {
+        && (s.prompt_expansion_supported !== promptExpansionSupported
+            || JSON.stringify(s.prompt_expander ?? null) !== JSON.stringify(expanderStatus))) {
       promptExpansionSupported = s.prompt_expansion_supported;
+      expanderStatus = s.prompt_expander ?? null;
       syncPromptExpansion();
+    }
+    if (pendingTranslation) {
+      const { source, text } = pendingTranslation;
+      pendingTranslation = null;
+      if (promptExpansionSupported && translatedSource === null && els.prompt.value === source) {
+        showPromptTranslation(source, text);
+      }
     }
     // Ready flips once, when a first critique has downloaded the critic; the
     // line under its button then stops promising the download.
@@ -414,6 +496,8 @@ async function refreshStatus() {
     els.dot.className = `dot ${s.state}`;
     const was = modelState;
     modelState = s.state;
+    // An Expand waiting on the load says so, and stops saying it once it lands.
+    if (modelState !== was) syncExpandRunning();
     // A way to start - or retry, after a gated-repo 403 - the load without
     // queueing an image to do it. Load and Unload take each other's place,
     // so the press that hides one hands focus to the other, not to the

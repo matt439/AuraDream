@@ -27,6 +27,7 @@ const els = {
   examplesBtn: $('btn-examples'), examplesMenu: $('examples-menu'), expandPrompt: $('btn-expand'),
   examplesBox: $('examples'),
   promptNote: $('prompt-note'), promptNoteText: $('prompt-note-text'), promptNoteUndo: $('prompt-note-undo'),
+  promptNoteDiscard: $('prompt-note-discard'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
   tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
@@ -226,6 +227,9 @@ const jobsToShow = new Set();
 let promptExpansionSupported = false;
 let expandingPrompt = false;
 let translatedSource = null;
+// ModelStatus.prompt_expander: whether the rewriter is loaded and what a
+// first use downloads - what Expand's title and its running line say.
+let expanderStatus = null;
 // The prompt critic is the other editor action on the card: a local model
 // started for one answer and stopped after it, so it holds the same things
 // Expand does while it runs. Supported and ready follow /api/status - ready
