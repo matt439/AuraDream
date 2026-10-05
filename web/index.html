@@ -376,9 +376,11 @@
          apart from the cell line, which the next queued job's start clears:
          only the next job's end replaces it. -->
     <p class="hint" id="finish-note"></p>
-    <!-- A result that landed in the viewer while the page was down the
-         gallery: said here, and a press goes up to it. Never a scroll of the
-         page's own. Outside #progress, which a finished job hides. -->
+    <!-- A result that landed in a viewer out of sight - above the window, or
+         below it in one column: said here (under 901 px a pill centred under
+         the topbar, style.css), and a press goes to it, its arrow and label
+         written by syncNewImage. Never a scroll of the page's own. Outside
+         #progress, which a finished job hides. -->
     <button class="ghost small" id="btn-new-image" hidden
             aria-label="New image: scroll up to it in the viewer">New image ↑</button>
     <!-- Jobs queued behind the one being watched, a row each with its own ×:

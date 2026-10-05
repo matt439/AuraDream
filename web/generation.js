@@ -81,7 +81,7 @@ function setBusy(on) {
   // its Show run opening the older run.
   if (on) {
     els.lastRun.hidden = true;
-    els.newImage.hidden = true;
+    withdrawNewImage();
   } else {
     els.progressText.textContent = '';
     currentJob = null;
@@ -983,8 +983,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     const focusReplacement = (el) => {
       if (!previewFocused) return;
       previewFocused = false;
-      if (el && !el.matches('img')) el.tabIndex = -1;
-      (el ?? els.generate).focus({ preventScroll: true });
+      focusTile(el ?? els.generate);
     };
     const landed = () => {
       if (cleared) return;
@@ -1127,6 +1126,10 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         dropPreview();
         if (data.images) data.images.forEach(show);
         focusReplacement(null);
+        // Cancelled or failed after its first frame, before any image: the
+        // frame that offered New image has gone, and the button offered an
+        // image there was none of.
+        if (!shown.size) withdrawNewImage();
         // Watched to its end, its finish line has said it: a reload's banner
         // would only say it again.
         remember(ANNOUNCED_KEY, jobId);
@@ -1156,6 +1159,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       // The strip's note was the reconnect's line; it is the strip's again.
       noteViewer();
       const made = shown.size;
+      if (!made) withdrawNewImage();
       const saved = made
         ? `The ${plural(made, 'image')} finished so far ${made === 1 ? 'is' : 'are'} saved.`
         : 'Nothing of it had finished.';
@@ -1600,7 +1604,7 @@ async function joinFinished(page, epoch) {
 // pressed at the page's top put the image 150-800 px under the window's foot
 // - is said with a press that goes to it: "New image ↑" or "↓". Never a
 // scroll of the page's own, which would take the gallery from under the
-// pointer. In one column the button is a pill fixed to the window's corner
+// pointer. In one column the button is a pill fixed under the topbar
 // (style.css): in the static panel it was as far out of view as the viewer.
 // Gone once the viewer is in view, however it got there; its arrow follows a
 // scroll that jumps past the viewer without showing it (End, Home).
@@ -1618,7 +1622,7 @@ const NEW_IMAGE_WORDS = {
 function syncNewImage() {
   if (els.newImage.hidden) return;
   const where = viewerOutOfSight();
-  if (!where) { els.newImage.hidden = true; return; }
+  if (!where) { withdrawNewImage(newImageTarget()); return; }
   const [text, label] = NEW_IMAGE_WORDS[where];
   if (els.newImage.textContent === text) return;
   els.newImage.textContent = text;
@@ -1634,6 +1638,15 @@ function offerNewImage() {
     window.addEventListener('scroll', syncNewImage, { passive: true });
   }
   viewerWatch.observe(els.viewer);
+}
+
+// The button goes - the viewer in view, a new job, or a job that ended with
+// nothing of it in the strip - and focus on it goes with it to `to`, else
+// Generate: hidden with the focus, it fell to <body>.
+function withdrawNewImage(to = null) {
+  if (els.newImage.hidden) return;
+  if (document.activeElement === els.newImage) focusTile(to ?? els.generate);
+  els.newImage.hidden = true;
 }
 
 // A job whose stream gave up with nothing of it in the strip: its first frame
@@ -1689,19 +1702,38 @@ function lostRunBack(restarted, s) {
   if (refused) { refused.hidden = true; refused.textContent = ''; }
 }
 
+// What New image goes to: the newest image; before any has landed - the
+// first frame is what offered it - the live preview's tile, or a pass's
+// stand-in, which streamJob hands on to the image that replaces it; where
+// the viewer holds neither (an image deleted elsewhere), its held line.
+// Null where the viewer is empty: a stream that reconnects.
+function newImageTarget() {
+  const images = els.viewer.querySelectorAll('img[data-id]');
+  return images[images.length - 1]
+    ?? els.viewer.querySelector(':scope > figure.live, :scope > figure.pending')
+    ?? els.viewer.querySelector(':scope > .placeholder.held:not([hidden]), :scope > .tomb');
+}
+
+// Focus on an image or a button, or on a tile, a line or the viewer that
+// takes it only for this (tabindex -1). The viewer's own is let go with the
+// focus: kept, a click on its empty space would focus it.
+function focusTile(el) {
+  if (el === els.viewer) {
+    el.tabIndex = -1;
+    el.addEventListener('blur', () => el.removeAttribute('tabindex'), { once: true });
+  } else if (!el.matches('img, button')) {
+    el.tabIndex = -1;
+  }
+  el.focus({ preventScroll: true });
+}
+
 // To the newest image, focused - Enter opens it - since the button goes the
-// moment the viewer is in view. Before any image has landed - the first
-// frame is what offered it - to the live preview's tile, or a pass's
-// stand-in, which streamJob hands on to the image that replaces it: focus
-// fell to <body> as the pressed button hid.
+// moment the viewer is in view: focus left on it fell to <body> as the
+// pressed button hid. An empty viewer takes the focus itself.
 function goToNewImage() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   els.viewer.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
-  const images = els.viewer.querySelectorAll('img[data-id]');
-  const target = images[images.length - 1] ?? els.viewer.querySelector(':scope > figure.live, :scope > figure.pending');
-  if (!target) return;
-  if (!target.matches('img')) target.tabIndex = -1;
-  target.focus({ preventScroll: true });
+  focusTile(newImageTarget() ?? els.viewer);
 }
 
 // A job outlives the page that started it: the id lives on the server, so a
