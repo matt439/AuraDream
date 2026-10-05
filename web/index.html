@@ -541,11 +541,14 @@
     <!-- What this page's jobs make, the newest job's (panel.js). Before the
          first, one line, so the gallery starts near the top of the window -
          or, on a gallery with nothing in it at all, the tall box with the
-         checkpoint's examples a press away. Its heading is read, not seen:
-         idle, the viewer is that one line, and out of the flow (.sr-only)
-         it takes no row of the stage's grids. -->
-    <h2 class="sr-only" id="viewer-head">Results</h2>
-    <div class="viewer" id="viewer">
+         checkpoint's examples a press away. A region named Results rather
+         than a heading: idle, the viewer is that one line, which a seen
+         heading would double, and an unseen one is out of the flow - which
+         the docked grid's reading-flow (style.css) reads after its items,
+         so "Results" was read after the gallery. The name moves with the
+         viewer in any order; the cards a failed load or a lost run put in
+         it have headings of their own. -->
+    <div class="viewer" id="viewer" role="region" aria-label="Results">
       <p class="placeholder"><span class="idle-line">Nothing generated this session - Ctrl+Enter runs the
         prompt; click a gallery image to open it.</span><span class="first-run">Nothing here yet: write a
         prompt and Generate (Ctrl+Enter), or start from one of this checkpoint's own examples.

@@ -234,10 +234,12 @@
    `display: flex`, which left the lightbox covering the page on load. */
 [hidden] { display: none !important; }
 
-/* Read, not seen: the headings a screen reader moves by where the page shows
-   none - the settings panel's, the results viewer's (idle, one line that a
-   visible heading would double). Out of the flow, so no flex gap or grid
-   cell is spent on it. */
+/* Read, not seen: a heading a screen reader moves by where the page shows
+   none - the settings panel's. Out of the flow, so no flex gap or grid cell
+   is spent on it - and so never a child of a `reading-flow` container (the
+   docked stage, below), which reads what is out of its flow after all its
+   items: the results viewer's "Results" heading was read after the gallery
+   there, and the viewer is a named region instead (index.html). */
 .sr-only {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
