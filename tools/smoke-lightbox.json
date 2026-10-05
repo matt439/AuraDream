@@ -3,7 +3,7 @@
   {"navigate": "http://127.0.0.1:7884/"},
   {"wait": 1200},
   {"expect": "document.getElementById('status-dot').className.includes('ready') && refineSupported && loadedModel === 'black-forest-labs/FLUX.1-Krea-dev'"},
-  {"eval": "resetPanel(); showError(''); window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__rec = (id) => galleryRecords.find((r) => r.id === id); window.__rows = () => Object.fromEntries([...els.lbSettings.querySelectorAll('.facts > div')].map((d) => [d.firstChild.textContent, d.lastChild.textContent])); window.__box = (el) => el.getBoundingClientRect();"},
+  {"eval": "resetPanel(); showError(''); window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__rec = (id) => galleryRecords.find((r) => r.id === id); window.__rows = () => Object.fromEntries([...els.lbSettings.querySelectorAll('.facts > div')].map((d) => [d.firstChild.textContent, d.lastChild.textContent])); window.__box = (el) => el.getBoundingClientRect(); window.__until = async (fn, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
 
   {"log": "'a 1 MP source with a negative prompt, a 1.5x pass of it, a pass reshaped to 3:2, and a pass whose source has been deleted'"},
   {"eval": "(async () => { const one = async (body) => (await __wait((await __post('/api/generate', body)).job_id)).images[0].id; const lighthouse = 'a lighthouse on a cliff at dusk, warm light in the windows'; window.__src = await one({prompt: lighthouse, negative_prompt: 'blurry, watermark', true_cfg: 1.5, width: 1024, height: 1024, seed: 78}); window.__pass = await one({prompt: lighthouse, negative_prompt: 'blurry, watermark', true_cfg: 1.5, width: 1536, height: 1536, seed: 78, refine: __src, strength: 0.1}); window.__wide = await one({prompt: lighthouse, width: 1536, height: 1024, seed: 78, refine: __src, strength: 0.2}); window.__gone = await one({prompt: 'a red fox in the snow', width: 1024, height: 1024, seed: 9}); window.__orphan = await one({prompt: 'a red fox in the snow', width: 1536, height: 1536, seed: 9, refine: __gone, strength: 0.1}); await fetch('/api/images/' + __gone, {method: 'DELETE'}); })()"},
@@ -157,6 +157,12 @@
   {"expect": "!els.lbMain.classList.contains('strips') && __box(els.lbPrev).width === 40 && __box(els.lbPrev).height === 40"},
   {"key": "0"},
 
+  {"log": "'a close followed at once by an open keeps the new lightbox: the dialog\\'s close event, queued by the close, comes after the open and is not the new one\\'s'"},
+  {"eval": "openLightbox(galleryRecords[0], galleryRecords); window.__closeEvents = 0; els.lightbox.addEventListener('close', () => { window.__closeEvents += 1; }, {once: true}); closeLightbox(); openLightbox(galleryRecords[1], galleryRecords);"},
+  {"expect": "__until(() => __closeEvents === 1)"},
+  {"expect": "els.lightbox.open && lbList === galleryRecords && lbIndex === 1 && els.lbCount.textContent.startsWith('2/')"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.lightbox.open)"},
   {"log": "'Escape after a walk hands focus to the card the walk ended on'"},
   {"eval": "openLightbox(galleryRecords[0], galleryRecords)"},
   {"wait": 300},

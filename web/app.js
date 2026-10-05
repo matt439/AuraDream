@@ -370,8 +370,12 @@ els.lightbox.onclick = (e) => { if (e.target === els.lightbox) dismissLightbox()
 els.lbCompareOn.onclick = () => { void toggleCompare(); };
 els.lbSwipe.onclick = () => { void toggleCompare('swipe'); };
 els.lbSideBySide.onclick = () => { void toggleCompare('side'); };
-// Every close, the native Escape's included, resets the strip.
-els.lightbox.addEventListener('close', closeLightbox);
+// Every close, the native Escape's included, resets the strip - unless the
+// lightbox is open again by the time the event comes: the dialog's `close`
+// is queued, not fired by close() itself, and a close followed at once by an
+// open (a script's, a smoke's) had the late event shut the new lightbox, and
+// reset its strip, under whatever it was doing - a delete in flight.
+els.lightbox.addEventListener('close', () => { if (!els.lightbox.open) closeLightbox(); });
 // The pictures: one that will not load says why, the next that loads takes it
 // back, and a source that will not load ends the comparison.
 els.lbImg.onerror = () => { void lbImageFailed(); };
