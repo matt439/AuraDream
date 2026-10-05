@@ -2,11 +2,13 @@
 inverse of the per-card delete."""
 from __future__ import annotations
 
+import threading
+
 from PIL import Image
 
 from backend.config import settings
 from backend.schemas import GenerateRequest
-from tests.api_helpers import run_grid
+from tests.api_helpers import run_grid, stream_job
 
 
 def _star(client, records):
@@ -124,8 +126,51 @@ def test_delete_unstarred_refuses_a_changed_selection(client, fake):
     assert response.status_code == 409
     assert "4 unstarred images match now, not the 2 confirmed" in response.json()["detail"]
     assert client.get("/api/gallery").json()["total"] == 4
+    # Nothing is running, so nothing says a job may move the count again.
+    assert "still running" not in response.json()["detail"]
     # `expected` is not optional: the gate is the contract.
     assert client.delete("/api/gallery/unstarred").status_code == 422
+
+
+def test_delete_unstarred_says_when_any_job_is_running(client, fake, store, monkeypatch):
+    # The dialog's "a job is still running" line and the 409's hint were the
+    # asking page's own `busy`, so a job another tab started - the one about to
+    # land images in scope - went unmentioned. The server says, for any job.
+    _plant(store, settings.model_id, seed=1)
+    _plant(store, settings.model_id, seed=2)
+    assert client.get("/api/gallery/unstarred").json()["job_active"] is False
+
+    running, release = threading.Event(), threading.Event()
+    generate = fake.generate
+
+    def held(*args, **kwargs):
+        running.set()
+        assert release.wait(10)
+        return generate(*args, **kwargs)
+
+    monkeypatch.setattr(fake, "generate", held)
+    job_id = client.post(
+        "/api/generate", json={"prompt": "a lighthouse in fog", "width": 256, "height": 256}
+    ).json()["job_id"]
+    try:
+        assert running.wait(5)
+        preview = client.get("/api/gallery/unstarred").json()
+        assert (preview["unstarred"], preview["job_active"]) == (2, True)
+        # A count that no longer holds, with the job still going: the refusal
+        # says the count can move again.
+        response = client.delete("/api/gallery/unstarred?expected=1")
+        assert response.status_code == 409
+        detail = response.json()["detail"]
+        assert "2 unstarred images match now, not the 1 confirmed" in detail
+        assert detail.endswith(
+            " A job is still running and may add more images here: press Delete "
+            "unstarred again, or let it finish first."
+        )
+    finally:
+        release.set()
+    assert stream_job(client, job_id)[-1]["status"] == "done"
+    preview = client.get("/api/gallery/unstarred").json()
+    assert (preview["unstarred"], preview["job_active"]) == (3, False)
 
 
 def _made_from(store, seed, **conditioning):

@@ -1653,12 +1653,19 @@ async def unstarred(search: str | None = None, all_models: bool = False) -> Unst
     the delete keeps besides the stars - the images a starred one was made
     from - comes off the count with them, or every confirmed number would
     meet a different one under the delete's lock and answer 409.
+
+    `job_active` is whether a job is queued or running here - the server's
+    answer, not the asking page's: a job another tab started can land an
+    image in scope while the dialog is open just the same, and the dialog
+    says so before the count is typed.
     """
     found = await asyncio.to_thread(
         storage.matching_preview, _unstarred_scope(search), _model_scope(all_models)
     )
     return UnstarredPreview(
-        unstarred=found["records"] - found["favorites"] - found["sources_kept"], **found
+        unstarred=found["records"] - found["favorites"] - found["sources_kept"],
+        job_active=jobs.busy(),
+        **found,
     )
 
 
@@ -1691,10 +1698,17 @@ async def delete_unstarred(
             model_id=_model_scope(all_models),
         )
     except storage.SelectionChanged as exc:
+        # Whether a job may move the count again is the server's to say: the
+        # job is as likely another tab's as the asking page's.
+        running = (
+            " A job is still running and may add more images here: press Delete "
+            "unstarred again, or let it finish first."
+            if jobs.busy() else ""
+        )
         raise HTTPException(
             status_code=409,
             detail=f"The selection changed: {exc.found} unstarred images match now, "
-            f"not the {exc.expected} confirmed. Nothing was deleted; look again.",
+            f"not the {exc.expected} confirmed. Nothing was deleted; look again.{running}",
         ) from exc
     jobs.forget_images(result["ids"])
     return {"deleted": result["ids"], "files": result["files"]}

@@ -870,6 +870,10 @@ class UnstarredPreview(BaseModel):
     prompts: list[str]
     jobs: list[str]
     models: list[str]
+    # Whether a job is queued or running on the server - this page's or
+    # another's - which can land an image in scope before the count is typed
+    # back, and the pinned delete would then refuse.
+    job_active: bool = False
 
 
 class PromptTagGroup(BaseModel):

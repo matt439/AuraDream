@@ -1241,6 +1241,13 @@ async function forgetIfGone(id) {
 // under the gallery's head, where the button is.
 async function deleteUnstarred() {
   const slot = { slot: els.galleryError };
+  // The grid brought up to what the sweep would reach first: images another
+  // tab made since this page's last look were counted and deleted unseen -
+  // the newest ones, the likeliest still to be starred - and the count to
+  // type back was not the grid's. Under the same filters, as a finished job's
+  // are (prependFinished); not on a sheet, which is one run laid out whole.
+  const head = galleryRecords[0]?.id;
+  if (!sheetMode && head != null) await prependFinished(0, { now: true });
   const search = els.search.value.trim();
   const params = new URLSearchParams();
   if (search) params.set('search', search);
@@ -1291,12 +1298,14 @@ async function deleteUnstarred() {
   const message = [
     `Delete ${found.unstarred} unstarred image${plural} ${scope}, ${keeping}?`,
     ...(span ? [`${span}.`] : []),
+    ...freshLine(head, found),
     '',
     ...prompts,
     '',
     // The count is pinned: an image a running job lands in scope before the
     // answer refuses the whole sweep, and that is better known before typing.
-    ...(busy ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
+    // The server's answer, since the job may be another tab's.
+    ...(found.job_active ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
     `The files are removed from disk. Type ${found.unstarred} to continue:`,
   ].join('\n');
   const typed = await askCount(message);
@@ -1313,12 +1322,11 @@ async function deleteUnstarred() {
     if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }
     // The server counts something else now - images a job landed in scope,
     // most often. The page shows the server's count rather than the one the
-    // message has just called stale.
+    // message has just called stale. Whether a job is still running is in
+    // the server's sentence: it may be another tab's.
     resetGallery();
     loadRuns();
-    showError(err.message + (busy
-      ? ' A running job is still adding images here: press Delete unstarred again, or let it finish first.'
-      : ''), false, slot);
+    showError(err.message, false, slot);
     return;
   }
   const also = forgetImages(result.deleted);
@@ -1329,6 +1337,25 @@ async function deleteUnstarred() {
   loadRuns();
   const went = result.deleted.length;
   showError(`Deleted ${went} image${went === 1 ? '' : 's'}, ${keeping}.${also}`, true, slot);
+}
+
+// The dialog's line for what the grid has just been brought up to: the
+// unstarred images newer than its head before the look (`head`), which the
+// sweep counts. A page that did not join up was loaded again from the top
+// (prependFinished), and where every card on it is newer and there is more,
+// the count is a floor. The few sources the preview names stay out of it:
+// the sweep keeps them.
+function freshLine(head, found) {
+  if (head == null || sheetMode) return [];
+  const kept = new Set(found.sources);
+  const n = Math.min(found.unstarred,
+    galleryRecords.filter((r) => r.id > head && !r.favorite && !kept.has(r.id)).length);
+  if (!n) return [];
+  if (galleryMore && galleryRecords.at(-1).id > head) {
+    return [`At least ${n} of them were made since this page last loaded; the newest are shown now.`];
+  }
+  return [`${n} of them ${n === 1 ? 'was' : 'were'} made since this page last loaded; `
+    + `${n === 1 ? 'it is' : 'they are'} shown now.`];
 }
 
 // Shown while there is something it could act on: the filter matches images
