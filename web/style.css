@@ -1691,11 +1691,14 @@ button { font: inherit; cursor: pointer; }
    need where that is more (`max-content`, the brief left out of it by its
    inline-size containment), centred under the picture as the picture is in
    the strip: under a 5:12 image at 2048x1040@1.25, 295 px wide, every word
-   of the row was cut to an ellipsis. It stays one line at the tools row's
-   height, so neither the picture nor the gallery moves; only where the strip
-   itself is narrower than the buttons does it cut them. With the gallery
-   beside the viewer the check takes the gallery's column, not that width, so
-   the column stays (`:is(.beside, …)`, `:not(.beside)`). */
+   of the row was cut to an ellipsis. Under so narrow a picture the row is
+   its actions alone: the brief has no room left, and the seed is in Use
+   seed's title and the image's own, the facts in the lightbox. It stays one
+   line at the tools row's height, so neither the picture nor the gallery
+   moves; only where the strip itself is narrower than the buttons does it
+   cut them. With the gallery beside the viewer the check takes the
+   gallery's column, not that width, so the column stays (`:is(.beside, …)`,
+   `:not(.beside)`). */
 .viewer .result-side { display: none; }
 .result-actions .result-brief { display: none; }
 @media (min-width: 1800px) {
