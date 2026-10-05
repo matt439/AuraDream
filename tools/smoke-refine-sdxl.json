@@ -1,5 +1,5 @@
 [
-  {"log": "'the Refine dialog on an SDXL tag checkpoint, against a fake server claiming Animagine XL 4.0 on 7877: the pass prompts own check and tag line, and the size line where nothing was measured'"},
+  {"log": "'the Refine dialog on an SDXL tag checkpoint, against a fake server claiming Animagine XL 4.0 on 7877: the pass prompts own check and tag line, the size line inside Animagine\\'s measured run, and, on a status stubbed to an unmeasured profile, the generic line'"},
   {"navigate": "http://127.0.0.1:7877/"},
   {"wait": 1200},
   {"expect": "document.getElementById('status-dot').className.includes('ready')"},
@@ -13,10 +13,10 @@
   {"eval": "window.__src = galleryRecords[0]; openRefine(window.__src)"},
   {"wait": 900},
 
-  {"log": "'unmeasured here: the generic tight line, so 1.5x opens, 2x warns in the panels words, and no FLUX.1 note'"},
-  {"expect": "els.refineDialog.open && lastDefaults.refine_tight_pixels === null && els.refineScales.children[2].classList.contains('active') && !els.refineSizeHint.classList.contains('warn') && els.refineLarge.hidden && !els.refineLarge.textContent"},
+  {"log": "'measured here: Animagine\\'s own run, 2896x2896 at fp8 (verified.md), so 1.5x opens and 2x stays inside it with no warning, and no FLUX.1 note'"},
+  {"expect": "els.refineDialog.open && lastDefaults.refine_tight_pixels === 2896 * 2896 && els.refineScales.children[2].classList.contains('active') && !els.refineSizeHint.classList.contains('warn') && els.refineLarge.hidden && !els.refineLarge.textContent"},
   {"eval": "els.refineScales.children[3].click()"},
-  {"expect": "els.refineSizeHint.textContent.endsWith('2× the source — may run tight on 16GB VRAM') && els.refineLarge.hidden"},
+  {"expect": "els.refineSizeHint.textContent.endsWith('2× the source') && !els.refineSizeHint.classList.contains('warn') && els.refineLarge.hidden"},
   {"eval": "els.refineScales.children[2].click()"},
   {"log": "'Strength starts at SDXLs 0.4, with SDXLs sweep around it'"},
   {"expect": "els.refineStrength.value === '0.4' && els.refineStrength.placeholder === '0.4 or 0.2,0.4,0.6' && els.refineStrengthTip.textContent.includes('such as 0.2,0.4,0.6')"},
@@ -190,11 +190,14 @@
   {"expect": "!els.refineDialog.open && refineSource === null"},
   {"eval": "resetPanel(); showError('');"},
 
-  {"log": "'a 1.5 MP source opens a step below the usual 1.5x where that is past the generic line: the 1.5x button says it is the usual size, and the size line why, in the panels words, since nothing was measured here'"},
-  {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; openRefine({...window.__src, width: 1024, height: 1536})"},
+  {"log": "'a profile nothing was measured on - every catalogued pass has a row now, so the status is stubbed to one with no refine_tight_pixels: the generic tight line, and a 1.5 MP source opens a step below the usual 1.5x where that is past it: the 1.5x button says it is the usual size, and the size line why, in the panels words'"},
+  {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__api = api; api = async (path, options) => { const result = await window.__api(path, options); if (path !== '/api/status' || !result?.defaults) return result; const hints = {...result.hints}; delete hints.refine_tight; return {...result, defaults: {...result.defaults, refine_tight_pixels: null}, hints}; };"},
+  {"expect": "(async () => { while (statusPending) await new Promise((r) => setTimeout(r, 20)); await refreshStatus(); return lastDefaults.refine_tight_pixels === null && !lastHints.refine_tight; })()"},
+  {"eval": "openRefine({...window.__src, width: 1024, height: 1536})"},
   {"expect": "__until(() => els.refineDialog.open && refineSource?.id === window.__src.id)"},
   {"expect": "+els.refineWidth.value === 1280 && +els.refineHeight.value === 1920 && els.refineScales.children[1].getAttribute('aria-pressed') === 'true' && els.refineScales.children[2].title === '1536 × 2304 (the usual opening size)'"},
   {"expect": "els.refineSizeHint.textContent === '2.5 MP — 1.25× the source — 1.5× and larger may run tight on 16GB VRAM' && !els.refineSizeHint.classList.contains('warn')"},
   {"key": "Escape"},
-  {"expect": "__until(() => !els.refineDialog.open && refineSource === null)"}
+  {"expect": "__until(() => !els.refineDialog.open && refineSource === null)"},
+  {"eval": "api = window.__api;"}
 ]

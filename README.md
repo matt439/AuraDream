@@ -734,8 +734,12 @@ the card two-thirds used, while Z-Anime filled the 16 GB at 4.2 MP and took
 that point the driver spills into system memory and every step slows many
 times over. The dialog's size line warns past the largest pass measured,
 naming the run it quotes - FLUX.1 [dev] and the 4-bit builds were not
-measured, and quote Krea [dev]'s fp8 run as that - and past 1600×1600
-where nothing was.
+measured, and quote Krea [dev]'s fp8 run as that. Every catalogued
+checkpoint with a pass has its own run: the SDXL ones (Animagine, Kohaku,
+Illustrious, WAI) reach the guard's 8.4 MP at about 10-11 GB, schnell and
+Krea [dev] stop at 2.4 MP, Z-Image Turbo at 4.2 MP, Z-Anime and Z-Image at
+2.4 MP, and Qwen-Image, under Nunchaku, at 1.6 MP. A checkpoint with no
+run warns past 1600×1600.
 
 **Strength** is how much is redrawn. The source is resized, encoded, noised
 to that point on the schedule and denoised from there: low values keep the

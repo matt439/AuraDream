@@ -50,6 +50,15 @@ slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
 | NewBie Image Exp0.1, XML prompt, CFG 4 | fp8, Windows | 1024x1024 | 28 | 39.39 s after cancellation; 38.74 s repeat | 4.81 GiB allocated, 4.86 GiB reserved | 2026-09-26 |
 | WAI Illustrious v17, CFG 6 | fp8, Windows | 1024x1344 | 28 | 9.25 s after cancellation; 9.64 s repeat | 3.69 GiB allocated, 4.37 GiB reserved (maximum of the pair) | 2026-09-26 |
 | FLUX.1 Krea dev, CFG 3.5 | fp8, Windows | 1024x1024 | 28 | 41.6-42.6 s; 60.8 s for the first after a 38.2 s load; 41.9 s repeat; about 42 s for the second of two images through the CLI, by the two PNGs' one-second save stamps (1m31s for both) from a clean worktree of the analyser's parent commit, 7a9c651 | 14,615 MiB whole-card by `nvidia-smi`, the desktop's 1,746 MiB included; 1,688 of 16,303 MiB free | 2026-09-27 |
+| Animagine XL 4.0, CFG 5 | fp8, Windows | 1024x1024 | 28 | 17.2 s, the first image of a process; 0.22 s a step after the first | 3.12 GiB allocated, 3.47 reserved; 6,203 MiB whole-card | 2026-10-05 |
+| Illustrious XL v2.0-STABLE, CFG 5 | fp8, Windows | 1024x1024 | 28 | 11.1 s, the first of a process; 0.22 s a step | 3.12 / 4.37 GiB; 7,170 MiB whole-card | 2026-10-05 |
+| FLUX.1 schnell | fp8, Windows | 1024x1024 | 4 | 27.3 s, the first of a process, 19.5 s of it the first step; 1.4 s a step after | 11.99 / 12.66 GiB; 15,433 MiB whole-card | 2026-10-05 |
+| Z-Image Turbo | fp8, Windows | 1024x1024 | 8 | 14.3 s, the first of a process; 0.9 s a step after the first | 6.43 / 7.17 GiB; 9,499 MiB whole-card | 2026-10-05 |
+| Z-Image (undistilled), CFG 5 | fp8, Windows | 1024x1024 | 50 | 102.5 s, the first of a process; 1.8 s a step | 6.77 / 8.44 GiB; 10,885 MiB whole-card | 2026-10-05 |
+
+The October 5 rows were each the source of a refine ladder ("Past 4 MP",
+below), with another project's processes keeping the CPU near 75% busy:
+their times are upper bounds.
 
 WAI Illustrious v17 was verified on the RTX 5080 with Windows FP8 and model
 offload. The pinned mirror checkpoint passed its SHA-256 check, converted
@@ -295,11 +304,12 @@ add to that, which is why schnell is not the speed win Z-Image Turbo is.
 Not verified: `LOCAL_DIFFUSION_DEVICE=cuda:1` (one card here); the fp8 path for klein
 on Windows; ERNIE-Image Turbo on the fp8 path; ERNIE's new explicit prompt
 expansion path on the card; a live-preview map for FLUX.2's VAE (ERNIE, klein);
-Animagine XL 4.0 speed, VRAM, LoRA behavior, fp8 path and four-channel SDXL VAE
-preview fit; the quantization and offload settings of its successful user run
-were not recorded. Illustrious XL v2.0-STABLE int8/full-bfloat16 GPU runs,
-LoRA behavior, batch scaling, peak VRAM and repeat-seed determinism are also
-unmeasured.
+Animagine XL 4.0 LoRA behavior and four-channel SDXL VAE preview fit (its fp8
+speed and memory are the October 5 row above; the quantization and offload
+settings of its earlier successful user run were not recorded). Illustrious XL
+v2.0-STABLE int8/full-bfloat16 GPU runs, LoRA behavior, batch scaling and
+repeat-seed determinism are also unmeasured; its fp8 peak is the October 5
+row.
 
 ## Refine pass
 
@@ -374,6 +384,54 @@ memory.
 | FLUX.1 Krea dev, 0.1 | to 2048x2048, 4.2 MP | 3 of 28 | 77.0 s (16-22 s) | 13.08 / 15.16 GiB | 15,922 MiB, spilling |
 | FLUX.1 Krea dev, 0.2, Mu 1.15 | to 2048x2048, 4.2 MP | 6 of 28 | 152.4 s (24 s) | 13.08 / 15.16 GiB | 15,918 MiB, spilling |
 | FLUX.1 Krea dev, 0.2, Mu 1.15 | to 2896x2896, 8.4 MP | stopped by hand mid-pass at 20.2 GB of dedicated and shared GPU memory | - | - | - |
+| Animagine XL 4.0, 0.4 | 1024x1024 to 1536x1536, 2.4 MP | 11 of 28 | 8.8 s (0.54 s) | 3.67 / 4.32 GiB | 7,072 MiB |
+| Animagine XL 4.0, 0.4 | to 2048x2048, 4.2 MP | 11 of 28 | 17.0 s (1.1 s) | 4.22 / 5.26 GiB | 8,033 MiB |
+| Animagine XL 4.0, 0.4 | to 2896x2896, 8.4 MP | 11 of 28 | 41.2 s (3.1 s) | 5.47 / 7.49 GiB | 10,311 MiB |
+| Kohaku XL Zeta, 0.4 | 1024x1024 to 1536x1536, 2.4 MP | 11 of 28 | 9.4 s (0.53 s) | 3.67 / 4.32 GiB | 7,074 MiB |
+| Kohaku XL Zeta, 0.4 | to 2048x2048, 4.2 MP | 11 of 28 | 17.9 s (1.1 s) | 4.21 / 5.26 GiB | 8,049 MiB |
+| Kohaku XL Zeta, 0.4 | to 2896x2896, 8.4 MP | 11 of 28 | 42.4 s (3.0 s) | 5.47 / 7.48 GiB | 10,311 MiB |
+| Illustrious XL v2.0, 0.4 | 1024x1024 to 1536x1536, 2.4 MP | 11 of 28 | 9.0 s (0.53 s) | 3.67 / 4.52 GiB | 7,344 MiB |
+| Illustrious XL v2.0, 0.4 | to 2048x2048, 4.2 MP | 11 of 28 | 19.0 s (1.1 s) | 4.22 / 5.26 GiB | 8,386 MiB |
+| Illustrious XL v2.0, 0.4 | to 2896x2896, 8.4 MP | 11 of 28 | 43.6 s (3.1 s) | 5.47 / 7.48 GiB | 10,397 MiB |
+| FLUX.1 schnell, 0.5 | 1024x1024 to 1536x1536, 2.4 MP | 2 of 4 | 15.4 s (3.6 s) | 12.53 / 13.65 GiB | 15,680 MiB |
+| Z-Image Turbo, 0.25 | 1024x1024 to 1536x1536, 2.4 MP | 2 of 8 | 10.0 s (2.6 s) | 7.04 / 8.84 GiB | 11,304 MiB |
+| Z-Image Turbo, 0.25 | to 2048x2048, 4.2 MP | 2 of 8 | 20.4 s (4.0 s) | 7.86 / 10.09 GiB | 12,493 MiB |
+| Z-Image, CFG 5, 0.25 | 1024x1024 to 1536x1536, 2.4 MP | 13 of 50 | 73.1 s (5.1 s) | 8.10 / 10.58 GiB | 13,052 MiB |
+
+The rows from Animagine down were measured 2026-10-05, the same way, one
+size per run (`ladder.py`, which makes a 1024x1024 seed-12345 source once
+per throwaway gallery and then runs one pass), each run stopping the ladder
+at the first size near the card's top. The desktop held 1,744-2,745 MiB of
+the card. Another project's processes kept the CPU near 75% busy
+throughout, so the times are upper bounds; the memory is not affected.
+Each per-step time leaves out the first step, which carries the source's
+VAE encode. The three SDXL profiles run the guard's own top size with a
+third of the card to spare, as WAI does; schnell sits within a gigabyte of
+the top at 2.4 MP, as Krea dev's same transformer does, and was taken no
+further; Z-Image Turbo, with no CFG, reaches 4.2 MP at 12.5 GB, and 8.4 MP
+was not run, its growth from 2.4 to 4.2 MP putting it past the card; the
+undistilled Z-Image, with CFG, reads as Z-Anime does at 2.4 MP and was
+taken no further, Z-Anime having filled the card at 4.2 MP. The passes'
+start sigmas, off the sibling's scheduler: schnell 0.5 at 0.5 (its
+unshifted schedule), Z-Image Turbo 0.5 at 0.25 at both sizes, Z-Image
+0.678 at 0.25. The pictures were not reviewed.
+
+Under Nunchaku (WSL 2, the lite-infer NVFP4 re-uploads, model offload),
+measured 2026-10-05 the same way. Qwen-Image fits this card only this way
+(the catalogue says so), so its row is its profile's measured line;
+FLUX.1 dev's shows a pass running on a lite repo at all, which the lite
+repos' profile otherwise takes from Krea dev's fp8 run. Seeds do not
+reproduce bit for bit here (Behaviour, above), so no hash is recorded.
+
+| Checkpoint | Pass | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- | --- |
+| Qwen-Image, true CFG 4, 0.3 | 1024x1024 to 1280x1280, 1.6 MP | 15 of 50 | 91.1 s (3.0 s; the first 40.1 s) | 12.20 / 12.46 GiB | 14,968 MiB |
+| FLUX.1 dev, 0.1 | 1024x1024 to 1536x1536, 2.4 MP | 3 of 28 | 17.3 s (1.5 s) | 8.05 / 9.41 GiB | 11,889 MiB |
+
+Qwen-Image's pass ran within 1.4 GB of the card's top and was taken no
+further: the generic 1600x1600 line would have opened the dialog past what
+was measured. Its start sigma was 0.478 at 0.3; FLUX.1 dev's 0.474 at 0.1,
+Krea dev's fp8 figure on the same schedule.
 
 What fits is the checkpoint's: WAI reaches 8.6 MP with the card two-thirds
 used, while Z-Anime fills it at 4.2 MP and runs 8.4 MP at about 20 times
@@ -390,13 +448,15 @@ was not repeated. Evidence is under `%TEMP%/local-diffusion-refine-large/`:
 the schema is built), each checkpoint's copied gallery with its
 `validation.log` and outputs, and `strip-*.jpg` (`strips.py`).
 
-Not measured: Animagine, Kohaku and Illustrious (the SDXL pipeline WAI
-exercises); FLUX.1 dev, whose starting strength carries over the Krea dev
-measurement on the same schedule; schnell, Z-Image Turbo and Qwen-Image,
-whose starting strengths are schedule arithmetic alone; int8 and full
-bfloat16; any pass under Nunchaku in WSL, where seeds do not reproduce
-bit-for-bit to begin with; and the author's own WAI recipe, which upscales
-with R-ESRGAN 4x+ Anime6B where this pass resizes with Lanczos.
+Not measured: FLUX.1 dev at fp8, whose starting strength carries over the
+Krea dev measurement on the same schedule; what schnell, Z-Image Turbo,
+Z-Image and Qwen-Image's starting strengths keep of a picture, which is
+schedule arithmetic alone; int8 and full bfloat16; a Nunchaku pass past
+the two above; and the author's own WAI recipe, which upscales with
+R-ESRGAN 4x+ Anime6B where this pass resizes with Lanczos. The October 5
+runs' evidence is under `%TEMP%/local-diffusion-leftovers-gpu/` (one
+throwaway gallery per checkpoint with its `ladder.log` and `ladder.jsonl`)
+and, for the Nunchaku runs, `~/ld-gpu/` in WSL.
 
 The October 3 runs' evidence is under
 `%TEMP%/local-diffusion-refine-validation/`: `validate_refine.py` and

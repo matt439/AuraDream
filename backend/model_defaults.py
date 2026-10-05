@@ -57,7 +57,8 @@ not open past it. `defaults_for` gives the page its pixels as
 `refine_tight_pixels`, None for every profile with no row - the panel's
 generic 1600x1600 line - and `hints_for` the words naming the run
 (`refine_tight`), since a profile can be shared: FLUX.1 dev and the lite
-repos quote Krea dev's fp8 run, and say so. A figure, never a VRAM model:
+repos quote Krea dev's fp8 run, and say so (Qwen-Image's is NVFP4, the
+only way it fits the card). A figure, never a VRAM model:
 each one is a row of that file, and `tests/test_profiles.py` holds it there.
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
@@ -115,9 +116,10 @@ OFFLOAD_MODES: tuple[str, ...] = ("model", "sequential", "none")
 
 
 class Measured(NamedTuple):
-    """A refine pass `docs/verified.md`'s "Past 4 MP" table ran without
+    """A refine pass `docs/verified.md`'s "Past 4 MP" section ran without
     spilling: the checkpoint as the row names it, the quantization it ran
-    at, and the pass's size."""
+    at (fp8, or NVFP4 where only Nunchaku's re-upload fits the card), and
+    the pass's size."""
 
     checkpoint: str
     quantization: str
@@ -275,6 +277,9 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "reference_supported": False,
             "refine_supported": True,
             "refine_strength": 0.5,
+            # Measured: 1536x1536 within a gigabyte of the card's top, as Krea
+            # dev's same transformer is; nothing larger was run.
+            "refine_measured": Measured("FLUX.1 schnell", "fp8", 1536, 1536),
             "true_cfg_supported": True,
             "guide": guides.SCHNELL_GUIDE,
             "hints": {
@@ -380,6 +385,8 @@ _PROFILES.append(
             "reference_supported": False,
             "refine_supported": True,
             "refine_strength": 0.4,
+            # Measured: 2896x2896, the pass's own guard, at 10.3 GB of the card.
+            "refine_measured": Measured("Animagine XL 4.0", "fp8", 2896, 2896),
             "true_cfg_supported": False,
             "guide": guides.ANIMAGINE_GUIDE,
             "hints": {
@@ -414,6 +421,8 @@ _PROFILES.append(
             "reference_supported": False,
             "refine_supported": True,
             "refine_strength": 0.4,
+            # Measured: 2896x2896, the pass's own guard, at 10.3 GB of the card.
+            "refine_measured": Measured("Kohaku XL Zeta", "fp8", 2896, 2896),
             "true_cfg_supported": False,
             "guide": guides.KOHAKU_GUIDE,
             "hints": {
@@ -448,6 +457,8 @@ _PROFILES.append(
             "reference_supported": False,
             "refine_supported": True,
             "refine_strength": 0.4,
+            # Measured: 2896x2896, the pass's own guard, at 10.4 GB of the card.
+            "refine_measured": Measured("Illustrious XL v2.0", "fp8", 2896, 2896),
             "true_cfg_supported": False,
             "guide": guides.ILLUSTRIOUS_GUIDE,
             "hints": {
@@ -487,6 +498,9 @@ _PROFILES.append(
             "reference_supported": False,
             "refine_supported": True,
             "refine_strength": 0.3,
+            # Measured under Nunchaku, the only way it fits this card:
+            # 1280x1280 with true CFG at 15.0 GB of the card; nothing larger.
+            "refine_measured": Measured("Qwen-Image", "NVFP4", 1280, 1280),
             "true_cfg_supported": True,
             "guide": guides.QWEN_IMAGE_GUIDE,
             "hints": {
@@ -578,6 +592,9 @@ _PROFILES += [
             "reference_supported": False,
             "refine_supported": True,
             "refine_strength": 0.25,
+            # Measured: 2048x2048 at 12.5 GB of the card; 8.4 MP not run, its
+            # growth putting it past the card.
+            "refine_measured": Measured("Z-Image Turbo", "fp8", 2048, 2048),
             "true_cfg_supported": False,
             "guide": guides.Z_IMAGE_TURBO_GUIDE,
             "hints": {
@@ -608,6 +625,9 @@ _PROFILES += [
             "reference_supported": False,
             "refine_supported": True,
             "refine_strength": 0.25,
+            # Measured: 1536x1536 at 13.1 GB of the card, as Z-Anime; its
+            # 2048x2048 filled the card, so nothing larger was run.
+            "refine_measured": Measured("Z-Image", "fp8", 1536, 1536),
             "true_cfg_supported": False,
             "guide": guides.Z_IMAGE_GUIDE,
             "hints": {

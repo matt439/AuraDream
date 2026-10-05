@@ -498,12 +498,15 @@ Reproduction:
   dialog's tight line - where its size line warns and past which it does not
   open - is the profile's `refine_measured` (`model_defaults.Measured`: the
   checkpoint and quantization of the largest pass verified.md's "Past 4 MP"
-  table ran without spilling, and its size; `tests/test_profiles.py` holds
+  section ran without spilling, and its size: fp8, or NVFP4 for Qwen-Image,
+  which fits the card only under Nunchaku; `tests/test_profiles.py` holds
   each to its row), reaching the page as `defaults.refine_tight_pixels` and,
   in words, `hints.refine_tight`; None, the generic 1600x1600 line, for
-  every profile with no row. A shared profile shares its row (FLUX.1 dev and
-  the lite repos quote Krea dev's fp8 run), so the size line names the run
-  it quotes, never "this checkpoint". FLUX.1's `hints.refine_large` is shown
+  every profile with no row - since 2026-10-05 every catalogued profile
+  with a pass has one, so only an unprofiled pipeline gets it. A shared
+  profile shares its row (FLUX.1 dev and the lite repos quote Krea dev's
+  fp8 run), so the size line names the run it quotes, never "this
+  checkpoint". FLUX.1's `hints.refine_large` is shown
   under Strength past it (`applyHints` clears it where a status has none).
   The preview reports where a pass of one strength starts
   (`GridPreview.start_sigma`, the dialog's "starts at N% noise"), read by
@@ -2981,7 +2984,8 @@ share one throwaway gallery unless `--data` gives each its own, and
 a fake of its own while others are up.
 
 `smoke-refine-sdxl.json` checks the Refine dialog on an Animagine fake on
-7877: the generic tight line where nothing was measured, SDXL's strength
+7877: Animagine's measured tight line (2896x2896, 2x inside it unwarned) and,
+on a status stubbed to an unmeasured profile, the generic one, SDXL's strength
 sweep, the pass prompt's own check (the 77-token cut outside the fold, Show,
 the checking line during a slow first use, Apply into the dialog's box with
 Ctrl+Z, dead while stale and dimmed by the shared 0.8 / `--text-3` rule, the

@@ -1178,10 +1178,21 @@ measured - the same transformer at fp8 on the one, 4-bit under Nunchaku on
 the others - and "measured on this checkpoint" said otherwise; so did one
 decimal, "past the 2.4 MP measured" on a request it called 2.4 MP. Every
 checkpoint whose profile has no row is None and keeps the panel's generic
-line past 1600x1600: Animagine, Kohaku and Illustrious run WAI's pipeline,
-but were not measured, and do not borrow its number. The time estimate,
-from passes already made at that size, is still the honest per-checkpoint
-answer.
+line past 1600x1600. Animagine, Kohaku and Illustrious run WAI's pipeline,
+and until 2026-10-05 were not measured and did not borrow its number; that
+day each was measured on its own, one size per run, and each runs the
+guard's own top size, 2896x2896, at about 10.3 GB of the card, so that is
+their row. The same day gave schnell 1536x1536 (within a gigabyte of the
+top, as Krea dev's same transformer), Z-Image Turbo 2048x2048 (12.5 GB with
+no CFG; 8.4 MP not run, its growth putting it past the card), the
+undistilled Z-Image 1536x1536 (as Z-Anime) and Qwen-Image 1280x1280. Qwen-
+Image fits this card only as Nunchaku's NVFP4 re-upload, so `Measured`
+took its first non-fp8 quantization there, and the words say "at NVFP4":
+the generic 1600x1600 line would have opened its dialog past the 1.6 MP
+that ran within 1.4 GB of the top. After that day every catalogued profile
+with a pass has a row, and the generic line is an unprofiled pipeline's
+alone. The time estimate, from passes already made at that size, is still
+the honest per-checkpoint answer.
 
 ## CellKey and run_id
 

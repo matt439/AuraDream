@@ -788,19 +788,28 @@ def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
 def test_a_refine_passs_tight_line_is_a_row_of_verified_md():
     # The Refine dialog warns past `refine_tight_pixels` and does not open
     # past it. A VRAM figure, so it is quoted, never modelled: each profile's
-    # `refine_measured` is the largest pass verified.md's "Past 4 MP" table ran
-    # without spilling, and every checkpoint the table does not measure is
-    # None - the panel's generic line - rather than a sibling's number:
-    # Animagine runs WAI's pipeline, but was not measured. FLUX.1 dev and the
+    # `refine_measured` is the largest pass verified.md's "Past 4 MP" section
+    # ran without spilling, and every checkpoint it does not measure is None -
+    # the panel's generic line - rather than a sibling's number: Animagine
+    # runs WAI's pipeline, and was measured on its own. FLUX.1 dev and the
     # lite repos are Krea dev's profile in every number, so they quote its
     # run - and the size line names that run, never "this checkpoint".
+    # Qwen-Image fits this card only as Nunchaku's NVFP4 re-upload, so its
+    # run is that one, and the words say so.
     from backend.config import settings
 
     measured = {
-        "black-forest-labs/FLUX.1-Krea-dev": ("FLUX.1 Krea dev", 1536, 1536),
-        "black-forest-labs/FLUX.1-dev": ("FLUX.1 Krea dev", 1536, 1536),
-        "SeeSee21/Z-Anime": ("Z-Anime", 1536, 1536),
-        "LyliaEngine/waiIllustriousSDXL_v170": ("WAI v17", 2560, 3360),
+        "black-forest-labs/FLUX.1-Krea-dev": ("FLUX.1 Krea dev", "fp8", 1536, 1536),
+        "black-forest-labs/FLUX.1-dev": ("FLUX.1 Krea dev", "fp8", 1536, 1536),
+        "black-forest-labs/FLUX.1-schnell": ("FLUX.1 schnell", "fp8", 1536, 1536),
+        "SeeSee21/Z-Anime": ("Z-Anime", "fp8", 1536, 1536),
+        "Tongyi-MAI/Z-Image-Turbo": ("Z-Image Turbo", "fp8", 2048, 2048),
+        "Tongyi-MAI/Z-Image": ("Z-Image", "fp8", 1536, 1536),
+        "LyliaEngine/waiIllustriousSDXL_v170": ("WAI v17", "fp8", 2560, 3360),
+        "cagliostrolab/animagine-xl-4.0": ("Animagine XL 4.0", "fp8", 2896, 2896),
+        "KBlueLeaf/Kohaku-XL-Zeta": ("Kohaku XL Zeta", "fp8", 2896, 2896),
+        "OnomaAIResearch/Illustrious-XL-v2.0": ("Illustrious XL v2.0", "fp8", 2896, 2896),
+        "Qwen/Qwen-Image": ("Qwen-Image", "NVFP4", 1280, 1280),
     }
     text = (ROOT / "docs" / "verified.md").read_text(encoding="utf-8")
     section = text.split("### Past 4 MP", 1)[1].split("\n## ", 1)[0]
@@ -816,19 +825,25 @@ def test_a_refine_passs_tight_line_is_a_row_of_verified_md():
         if base is None:
             assert tight is None and words is None, repo
             continue
-        label, width, height = measured[base]
-        assert _profile_for(repo)["refine_measured"] == (label, "fp8", width, height), repo
+        label, quantization, width, height = measured[base]
+        assert _profile_for(repo)["refine_measured"] == (label, quantization, width, height), repo
         assert tight == width * height, repo
         row = next(line for line in rows if line.startswith(f"| {label},") and f"{width}x{height}" in line)
         assert "spilling" not in row, row
-        assert words == f"past the {width}×{height} ({width * height / 1e6:.2f} MP) measured on {label} at fp8"
-    # Every run in the table is the quantization the profiles name.
+        assert words == (
+            f"past the {width}×{height} ({width * height / 1e6:.2f} MP) measured on {label} at {quantization}"
+        )
+    # The table's runs are fp8 with model offload; the NVFP4 one is its own,
+    # said so where it is.
     assert "fp8 and model offload" in " ".join(intro.split())
+    assert "NVFP4" in section and "Nunchaku" in section
     assert "measured on FLUX.1 Krea dev" in hints_for("black-forest-labs/FLUX.1-dev")["refine_tight"]
-    # WAI ran past the pass's own guard: nothing the dialog offers is tight.
+    # WAI ran past the pass's own guard: nothing the dialog offers is tight,
+    # and the SDXL profiles' guard-sized runs are the guard's own size.
     assert defaults_for("LyliaEngine/waiIllustriousSDXL_v170")["refine_tight_pixels"] > settings.refine_max_pixels
+    assert defaults_for("cagliostrolab/animagine-xl-4.0")["refine_tight_pixels"] <= settings.refine_max_pixels
     # The size line keeps its words where the number is the generic one.
-    assert defaults_for("cagliostrolab/animagine-xl-4.0")["refine_tight_pixels"] is None
+    assert defaults_for("someone/unprofiled-model")["refine_tight_pixels"] is None
     assert "refine_tight" not in hints_for("black-forest-labs/FLUX.1-Krea-dev", refine_supported=False)
 
 
