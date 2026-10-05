@@ -1636,8 +1636,25 @@ function offerNewImage() {
   if (!viewerWatch) {
     viewerWatch = new IntersectionObserver(syncNewImage, { threshold: [0, 0.1, 0.25, 0.5, 1] });
     window.addEventListener('scroll', syncNewImage, { passive: true });
+    const panel = document.querySelector('.panel');
+    panel.addEventListener('pointerdown', newImageBackToPanel, true);
+    panel.addEventListener('input', newImageBackToPanel, true);
   }
   viewerWatch.observe(els.viewer);
+}
+
+// The pill (one column) lies over whatever scrolls under the topbar - the
+// prompt's first line, Check - once the page has moved at all, and a press
+// meant for that went to the viewer. While the job runs it stays: the image
+// is still coming. Once the job has ended, the user's own press in the panel
+// or typing in one of its boxes is a return to the panel, and withdraws it;
+// the finish line still names the result. Not a focus arriving: the finish
+// line takes focus itself, and a Tab towards the pill passes through the
+// panel. In two columns the button is in the panel's flow, over nothing.
+function newImageBackToPanel(event) {
+  if (busy || els.newImage.hidden || els.newImage.contains(event.target)) return;
+  if (getComputedStyle(els.newImage).position !== 'fixed') return;
+  withdrawNewImage();
 }
 
 // The button goes - the viewer in view, a new job, or a job that ended with
