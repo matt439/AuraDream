@@ -68,7 +68,9 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   alias; post count within each; a guide tag ahead once half of it is typed;
   a tag of the recommended negative never first unless typed whole) and exact
   validation with a reason `code` for tag-caption checkpoints; remote failure
-  means unchecked, never invalid
+  means unchecked, never invalid - except an item longer than any tag
+  (`TAG_NAME_MAX`, 200), answered unknown without the index, reachable or
+  not
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
 - `backend/loras.py` — the adapter directory: what is in it, and the file
   behind a name (the only place a request's name becomes a path)
@@ -339,8 +341,9 @@ Schedule and guidance:
   checkpoint's; `mu` is Turbo's alone. `krea-dev` sits ahead of `flux` for
   its guide alone and is the flux profile in every number and control hint,
   `cfg_label` included. That is the one hint that is a name, "CFG
-  (distilled)": `applyHints` writes it on `#cfg-label` and
-  `#grid-cfg-label` (plain "CFG" where a status has none), and `hints_for`
+  (distilled)": `applyHints` writes it on `#cfg-label`, `#grid-cfg-label`
+  and the Refine dialog's `#refine-cfg-label` (plain "CFG" where a status
+  has none), and `hints_for`
   drops it where a loaded pipeline's negative-prompt answer replaces the CFG
   tip. No other profile has one: schnell's box is ignored and klein's
   guidance is baked in. `cfg_ignored` (in every status's defaults) marks a
@@ -574,14 +577,21 @@ Jobs:
   `snapshot(images=False)`. Progress events carry `elapsed`; `waiting_on`
   says `load`, or what holds the generation gate (`JobManager._holder`: a
   job's id, or `run_when_idle(fn, holder=)`'s "critic" / "expand", passed by
-  the two routes): `queue` behind a running job, `paused` behind a paused
+  the two routes, with the ticket an editor action was sent with,
+  `_ticket`; `JobManager.card()` answers ("job" | "critic" | "expand" |
+  None, ticket) for the status's `card_holder`/`card_ticket`): `queue`
+  behind a running job, `paused` behind a paused
   one, `critic` or `expand` behind an editor action, and None for a queued
   job with nothing ahead. Every job past its load and waiting at the gate
   (`_at_gate`) is relabelled, with a status frame, whenever the label would
   change: when a job takes the gate (the second of two jobs queued during a
   critique said "critic" for the whole of the first's run), and from
   `_hold` after a pause and after a resume (`_relabel_queued`, on the event
-  loop, which owns the job table). A
+  loop, which owns the job table). What a queued job waits on, in the
+  page's words (the job ahead paused, another tab's critic or Expand, the
+  first load), rides in `cellArgs` (`showCell`'s `note`), so the queue's
+  redraw (`setQueue`) and a Pause press say it again rather than wiping it
+  under a progress line still saying "waiting". A
   snapshot's `images` are the job's live records:
   the delete routes call `jobs.forget_images`, which takes deleted ones out
   of every job's replay and counts them in `deleted_count`; `image_count`
@@ -593,14 +603,25 @@ Jobs:
   a job can name it - a grid by its own prompt, never its first cell's.
 - `ModelStatus.active_jobs` (the live ids, oldest first) feeds
   `followServerJobs` on every status poll. A page watching nothing that sees
-  a job it neither submitted nor watched sets `elsewhereBusy`: Unload, Ask
-  the critic and Expand are held aria-disabled with "A job started in
-  another tab or window is running; … once it ends" (a press says it in
-  `#error` until that job ends, `elsewhereNote`), the topbar shows "· busy in
-  another tab" beside the name (`#status-aside`, aria-hidden and outside the
-  name's live region, hidden at 600 px and under), Generate stays live (the
-  server queues it), and when the flag clears the gallery and the Runs
-  picker catch up (`prependFinished(0)`, `loadRuns`). It is never attached
+  a job it neither submitted nor watched sets `elsewhereBusy`: Unload and
+  Expand are held aria-disabled with "A job started in another tab or
+  window is running; Unload|Expand once it ends", and Ask the critic with
+  "A job started in another tab or window is running. The critic needs the
+  card to itself, so it waits for that job to finish." A press says it as a
+  sentence until that job ends (`elsewhereNote`): in `#error`, and for
+  Expand through `expandSay`. The topbar shows "· busy in another tab"
+  beside the name while the model is ready (`#status-aside`, aria-hidden
+  and outside the name's live region, hidden at 600 px and under), Generate
+  stays live (the server queues it), and when the flag clears the gallery
+  and the Runs picker catch up (`prependFinished(0)`, `loadRuns`) - never
+  under a sheet (a run's or a search's), which would be laid out again
+  whole at a moment no one chose; Sheet off resets the gallery, which takes
+  the images in then. Where a job of this page's own took over while
+  another tab's ran (`setBusy(true)` clears `elsewhereBusy` quietly), the
+  catch-up is owed (`elsewhereCatchUp`). That job's end takes it, whatever
+  the job made, a cancel before its first image included; a stream that
+  gives up takes it too, and the server answering again clears it. It is
+  never attached
   to: watching it would take this page's viewer. A busy page sets its queue
   rows to the server's jobs behind the watched one (`resyncQueue`, keeping
   ids it listed after the poll was asked, `queuedAt`) through `setQueue`,
@@ -612,8 +633,12 @@ Jobs:
   submit, while its viewer holds this session's own results (`isForeign`),
   is shown in the progress row only - no `clearResults`, frame or stand-in -
   named "Another tab's job:" in the Now row, the mirrors and the title, and
-  ends with "Another tab's job finished: N images.", no Use seed and no held
-  title: the tab's own unseen outcome (`titleHeld`) gets the title back. A
+  its end, "Another tab's job finished: N images.", is said once on
+  `#job-said` alone, with no Use seed and no held title: the tab's own
+  unseen outcome (`titleHeld`) gets the title back. The finish line stays
+  this page's own last job, Use seed and all, with its lead as it was
+  (`staleBefore`), and New image is left alone (a job withdraws it only
+  once its first frame clears the strip, `landed`). A
   reload's attach, with nothing of this page's in the viewer, is shown as
   before. A cancel this page did not ask for (`cancelledHere`: Cancel, a
   row's ×, Cancel queued; a POST that got no answer is not one) reads
@@ -660,8 +685,15 @@ Prompt analyser:
   it gives the count and every encoder that is as tight, and past the limit
   it is amber and names where reading stops (`tagCut`, the excerpt Check's
   cut link gives). An encoder left uncounted (a tokenizer still loading or
-  unfetchable, the server not answering) is "cut unknown" in either place
-  and at any length, never "no cut". Where the encoder table has no entry
+  unfetchable, the server not answering) is "cut unknown" in either place,
+  never "no cut". The page measures the first 4000 code points
+  (`PROMPT_MAX_CHARS`, tags.js, held equal to `PromptMeasureRequest`'s and
+  `GenerateRequest`'s `max_length` by `tests/test_api_analysis.py`). Past
+  them the line leads with "Over 4000 characters: Generate and Check refuse
+  it", in amber, then the count of what was counted and its cut (the chip
+  tray's label says "over 4000 characters", the count of the first 4000
+  after it), and the summary line says it once; a refused measure had read
+  "Tokens: cut unknown" and taken the warning back. Where the encoder table has no entry
   for the checkpoint (`PromptMeasure.encoders_known` false) nothing will
   ever count the prompt, so the line stays hidden; Check's Encoders section
   says why. A measure that got no answer is asked again for the same text;
@@ -1025,7 +1057,15 @@ Frontend and CLI:
   that would run past the window's bottom opens upwards; one that would run
   past either side moves in by as much, 8 px short of the edge and rounded
   away from it (`placeTip`: an inline `translate` cleared at each placement,
-  never the markup's `.help.end`).
+  never the markup's `.help.end`). A badge inside a box that clips its
+  overflow (`tipClipper`: the prompt check's scroller, above the results
+  and docked, and the Refine dialog) hangs its tip from the window instead
+  (`floatTip`, `.tip.floating`, position fixed). The tip goes under the
+  badge where it fits, else over it, moved in from the window's sides, and
+  is placed again on any scroll while its badge holds the pointer or the
+  focus (`followFloatingTip`). It is hidden while the badge is scrolled out
+  of the box (`.help.clipped`). Placed inside the check, the comparison's
+  Batch tip was cut off by the check's edge and lay under its sticky head.
 - A window 1800 px and wider overrides the tokens in one media query (the
   wide tier): the type ramps by `--ramp` from its 1800 px size to its 2560
   one (body 14 to 15.5 px, captions 12 to 13.5), the panel is
@@ -1122,7 +1162,11 @@ Frontend and CLI:
   "(runs at CFG > N, no extra cost)", or "(for grid cells above CFG N)"
   where only an open grid's axis reaches past the threshold; each fits on
   one line beside the label at 1400x900 and at 2048x1040 at 125%, as the
-  greyed one does. Where the checkpoint
+  greyed one does. The Refine dialog's negative caption uses the same words
+  for the same state: "(runs at CFG > t, no extra cost)" where CFG is the
+  knob and the box is live, "(needs CFG|True CFG > t — ~2× slower)" where
+  it is greyed or True CFG is the knob, and "(this checkpoint takes no
+  negative prompt)" where it takes none. Where the checkpoint
   takes no negative prompt at all (klein) the field is its caption alone
   (`.unsupported` hides the box; its text is kept, and the note says so).
   `#negative-field` is a div with `<label for="negative">`: a button inside a
@@ -1168,10 +1212,13 @@ Frontend and CLI:
   user's own offers an Undo (`offerPromptUndo`) in the note under the prompt
   (`#prompt-note`, `showPromptNote`). The note is an overlay on two columns,
   and in the panel's flow under 901 px and while the negative box is
-  greyed. It holds one thing at a time, by `promptUndo.kind`, which it also
+  greyed - except Reset's notes (`at: 'box'`, `data-at="box"`), which lie
+  in the box itself at every width. It holds one thing at a time, by
+  `promptUndo.kind`, which it also
   sets as `data-kind`: 'write' (an Example's or an expansion's Undo, gone
   once the box holds anything else), 'info' (gone the same way, with no
-  button), 'reset' (Reset's Undo, under Reset's own rule), and 'running' and
+  button), 'reset' (Reset's Undo, under Reset's own rule, lying in the
+  emptied box itself), and 'running' and
   'held' (Expand's running line and a held expansion: typing does not take
   them and they have no timer, so they always take a line of the panel's
   flow, never the overlay over a negative box that may be live). Each kind
@@ -1200,14 +1247,24 @@ Frontend and CLI:
   (`EXPAND_ELSEWHERE`, after busy in its reasons), during a critique, or
   with the server offline - aria-disabled, with the reason as its title, so
   a keyboard user's focus stays; otherwise the title names a first use's
-  cost from `ModelStatus.prompt_expander`. A press on it held says why, and
-  while it runs says what the result will do as things stand
+  cost from `ModelStatus.prompt_expander`. A press on it held says why,
+  through `expandSay`: this page's job's reason is a job note gone at the
+  job's end, another tab's is said until that job ends, and while a Reuse's
+  Undo holds the panel's line it is said under the prompt, never over the
+  Undo. While it runs a press says what the result will do as things stand
   (`expandOutcome`: written in, held, or dropped). The line under the
   prompt (`#prompt-note`, kind 'running') says what Expand waits on, in the
-  server's order - the model's load, the rewriter's first download or its
-  load, the expansion, then the translator's first download - beside an
-  aria-hidden clock, and `syncExpandRunning` follows the status, which is
-  asked 250 ms after the press and again when Expand ends. Before sending, a
+  server's order - first the card, while something else holds it (another
+  tab's critic or Expand, or a job another tab queued during the load:
+  `ModelStatus.card_holder`); then the model's load, the rewriter's first
+  download or its load, the expansion, then the translator's first
+  download - beside an aria-hidden clock. The press sends a `ticket` of its
+  own (`PromptExpansionRequest.ticket`), which the status answers as
+  `card_ticket` while that expansion holds the card, so the page tells its
+  own press from another tab's ("Waiting for the card, which another tab's
+  Expand has, then …"). `syncExpandRunning` follows the status, which is
+  asked 250 ms after the press and again when Expand ends, and
+  `refreshStatus` asks for the line again as the holder changes. Before sending, a
   prompt past `EXPAND_MAX_CHARS` (app.js, held equal to
   `PromptExpansionRequest`'s `max_length` by `tests/test_ernie.py`), or a W
   or H that is not whole pixels in range, is refused at its box in the
@@ -1237,18 +1294,34 @@ Frontend and CLI:
   only, whose rules repeat the dock's selector and read "no chips" from the
   chips' host as the dock's do). Its hint (`#prompt-translation-hint`)
   describes the box.
-  The critic holds what Expand holds (Generate and Run grid aria-disabled,
-  Expand, Unload) from the click on, including the check it first runs on a
+  The critic holds what Expand holds (Generate, Run grid, Run comparison and
+  the Refine dialog's Refine aria-disabled, Expand, Unload) from the click
+  on, including the check it first runs on a
   changed prompt, and `startJob` refuses while it runs. Check and Check again
   are disabled during that check and re-enabled in a `finally`; if that check
   is replaced anyway the page says nothing was sent, if it is cleared (a
   Reset, another checkpoint) it says nothing, and Close pressed meanwhile
   focuses the prompt, not the disabled Check. Ask the critic is
-  aria-disabled, never disabled, so it keeps focus. Its line is two spans:
+  aria-disabled, never disabled, so it keeps focus. It is held
+  (`criticHold`) while the server does not answer and while the image
+  model loads (the route's 409), then for a job (this page's or another
+  tab's) and for Expand, with the reason as its title and on
+  `#critic-cost`; `goOffline`, the poll that answers again and a change of
+  the model's state each sync it. A press says why: offline, the offline
+  words (`OFFLINE_MESSAGE`), which the poll that answers takes back; during
+  the load, a note taken back when the load ends (`criticLoadNote`); during
+  this page's job, a job note (`showJobNote`); during another tab's job,
+  said until it ends (`elsewhereNote`). A critique the server never
+  answered reads "The critic did not answer: the server did not answer."
+  (`critiqueOffline`) and is taken back by the status poll that answers
+  again (`takeBackCriticOffline`); `critiqueFailureText` drops any closing
+  stop, question mark or exclamation mark of the reason's own ("…still
+  running?." came of keeping it).
+  Its line is two spans:
   `#critic-progress` (aria-live polite) says only what answers a press
   (Downloading…, Thinking…), and `#critic-cost` (not live) says what a press
-  costs or which job holds the card; any answer, shown or set aside, sets
-  `promptCritiqueReady` at once. An answer takes focus
+  costs or what holds it (no server, the load, a job); any answer, shown or
+  set aside, sets `promptCritiqueReady` at once. An answer takes focus
   (`#critic-result`, tabindex=-1) while focus is still on the button; so does
   a failed critique's row (`critiqueFailure`, never a `critiqueResult`), which
   reads "The critic did not answer: <the server's reason>." with nothing
@@ -1362,7 +1435,14 @@ Frontend and CLI:
   is selected. Validation asks about
   the first 64 items (`TAG_LOOKUP_CAP`, the request's ceiling; the order
   slots' category lookup can ask about names past it, as a Check would) and
-  marks the rest unchecked; verdicts are cached per checkpoint, and the
+  marks the rest unchecked. An item longer than any tag
+  (`tags.TAG_NAME_MAX`, 200 characters: a hybrid prompt's sentence) is
+  answered unknown (`tags.too_long_result`: `code` not_found, "longer than
+  any Danbooru tag") without asking the index, reachable or not (`main._lookup_tags`,
+  `tags.unchecked_results`); only a blank item or one past 4000 characters
+  is refused (`TagValidationRequest`). One 213-character sentence used to
+  make the whole tray read "Danbooru unreachable" (a 422). Verdicts are
+  cached per checkpoint, and the
   tray's state is pending, checked or offline (amber, never red) in
   `data-state`. Each chip that the server's last answer gives a step
   carries it as `data-slot`. That answer is `tagSlots`, sent with the
@@ -1542,7 +1622,9 @@ Frontend and CLI:
   for its source - fills the dialog from the record: prompt, negative, steps,
   CFG, Mu, True CFG and an adapter the list still offers, or this
   checkpoint's profile where the record is another checkpoint's (the fold
-  opened, saying so; a pass's strength is replaced too, and
+  opened, saying so, naming only the knobs this checkpoint has: mu only
+  where Mu is supported, as Reuse's note does; a pass's strength is
+  replaced too, and
   `#refine-reused` says whose the old strength was and what Strength starts
   at - the strength last run on this checkpoint, else its own where
   `defaults.refine_strength_profiled`, else "the general starting
@@ -1694,8 +1776,12 @@ Frontend and CLI:
   cells (`showOutcome`, `jobOutcome`) - lasts as the finish line does: led by
   "Previous job: " while another runs (`#error.previous`, a generated
   `::before`; `showError` drops the class) and cleared when the next job's
-  end is drawn (`finishJob`). A press on a held Pause or Unload says why
-  until the job ends (`showJobNote`, cleared by `setBusy(false)`). A job that
+  end is drawn (`finishJob`). A press on a held Pause, Unload, Expand or Ask
+  the critic says why until the job ends (`showJobNote`, cleared by
+  `setBusy(false)`; Expand's goes through `expandSay`). Every held press
+  says its reason as a sentence with a closing stop; Pause's, Unload's and
+  Expand's titles are the same reason without it (the critic's titles are
+  whole sentences already). A job that
   ends with focus in `#progress` or `#queue-note` hands it to Generate and
   the finish line takes it on to its first button (`finishTakesFocus`);
   replaced with focus inside it, the finish line hands focus to its new first
@@ -1737,8 +1823,12 @@ Frontend and CLI:
   Generate where nothing does; with nothing in the viewer, the viewer itself
   (tabindex -1, let go on blur) or its held line. It goes
   (`withdrawNewImage`, with focus on it handed on, never to `<body>`) once
-  the viewer is in view, at a new job's start, when a job ends with nothing
-  of it in the strip, and - the pill only, once the job has ended - at the
+  the viewer is in view, when a job's first frame or stand-in clears the
+  strip (`landed`, never at `setBusy(true)`: a job that never reaches the
+  strip, such as another tab's job picked up over this page's results,
+  leaves it pointing at this page's image), when a job whose first frame
+  cleared the strip ends or gives up with nothing of it in the strip,
+  and - the pill only, once the job has ended - at the
   user's own press in the panel or typing in one of its boxes
   (`newImageBackToPanel`), since it lies over whatever has scrolled under
   the topbar; never at a focus arriving, which the finish line makes
@@ -1758,8 +1848,9 @@ Frontend and CLI:
   grid aria-disabled with the reason (`syncSubmitButtons`, their one writer,
   its reasons from `submitHold()` - no server, Expand, the critic; the
   POST's own moment keeps the plain title - which has the Refine dialog's
-  Refine follow through `syncRefineRun` and the comparison's Run through
-  `syncCompareRun`), Unload held. A changed `started_at` writes the restart note into an empty
+  Refine follow through `syncRefineRun`, ahead of its own reasons, a press
+  saying it in the dialog as a sentence, and the comparison's Run through
+  `syncCompareRun`), Unload, Expand and Ask the critic held. A changed `started_at` writes the restart note into an empty
   `#error`. The lightbox's picture is one such slot: `els.lbImg.onerror` asks
   for the record and, where the server is not answering, writes
   `OFFLINE_MESSAGE` into `#lb-error` as an offline message, which the poll
@@ -1795,8 +1886,10 @@ Frontend and CLI:
   Load reads Retry load meanwhile, and the status text keeps the
   checkpoint's name in every state. That name is the start-up catalogue's
   (`ModelStatus.model_label`, by exact id, through `checkpointName`, which
-  the prompt check's head, the facts' Model row and the load card share), or
-  the id's last part off the catalogue, with the id in their titles. The
+  the prompt check's head, the facts' Model row, the load card, a Reuse's
+  note and its ⚠ title, Expand's running line and the Refine dialog's lines
+  share), or the id's last part off the catalogue, with the id in their
+  titles; another checkpoint's records are named by their id's last part. The
   status text is a live region, so it is written only when it changes. At
   700 px and below, while `#job-mirror` is shown, the free-space reading
   (`.vram`) is hidden so the mirror and its load clock fit; the mirror's
@@ -1846,13 +1939,21 @@ Frontend and CLI:
   so Ctrl+Z in the prompt brings the text back, forgets the store after
   those writes and keeps it forgotten until the panel changes (`resetLeft`:
   a write of the panel as Reset left it, such as the prompt's later blur,
-  is skipped). It says "Panel reset." with an Undo under the prompt
-  (`#prompt-note`, kind 'reset', `offerResetUndo`), in the panel's flow
-  where the negative is greyed, retired by the first panel change
-  (`syncResetUndo` from `persistPanel`) or after 20 s; the Undo writes the
-  boxes through `rewriteBox`, restores the rest (the English included where
-  the prompt is its source), runs the sync functions again and says "Reset
-  undone" in the same place. Resume is never restored, and
+  is skipped). It says "Panel reset." with an Undo in the top right of the
+  prompt box it has just emptied, under Reset (`#prompt-note`, kind
+  'reset', `offerResetUndo`, `showPromptNote`'s `at: 'box'`,
+  `data-at="box"`). This holds at every width, never in the panel's flow:
+  in the flow (one column, a greyed negative) it moved Generate down a
+  line, and back up under the pointer when its 20 s ran out. The box is
+  empty while the note shows, since the first panel change takes it, and
+  its placeholder is transparent under it. It is retired by that first
+  change (`syncResetUndo` from `persistPanel`) or after 20 s. The Undo
+  writes the boxes through `rewriteBox`, restores the rest (the English
+  included where the prompt is its source), runs the sync functions again
+  and says "Reset undone: the panel is as it was." in the same place for
+  6 s (`RESET_UNDONE_MS`): an 'info' note with no button and
+  `pointer-events: none` over the text it put back, which typing takes.
+  Nothing either note does moves Generate. Resume is never restored, and
   nothing of it survives a reload. Before it fills, Reuse keeps
   `panelState()` (what `persistPanel` stores), the raw steps/CFG/mu/true-CFG
   values and `owned`. `fillPanel` writes a record's Mu only where
@@ -1868,7 +1969,10 @@ Frontend and CLI:
   the Reuse left (`reuseNote.after`; `syncReuseUndo` from `persistPanel` and
   `resetPanel`): the first change removes the button and keeps the text, and
   a reference dropped from what it left (deleted, or "unknown image") is no
-  change. It drops a restored reference only on the server's "unknown
+  change. A Reset takes the words too, while they are still what the line
+  says (`clearReuseNote`, `reuseSaid`): "Settings from #N loaded - your
+  prompt was replaced" had stood over the emptied panel. It drops a
+  restored reference only on the server's "unknown
   image". Where the page goes is `revealReused`'s: the panel is placed and
   moved (`placePanel`, `revealInPanel`), and the page scrolls only where the
   panel cannot move (one column, the page's end), and only as far as the
@@ -2012,7 +2116,11 @@ Frontend and CLI:
   column is held only within the stage's height. In the column cards are at
   least `--thumb-min-beside` wide (200 px, the five `--h-tool` tools' room,
   set as `--thumb-min` on `.stage.beside .library`), three across at QHD and
-  two at 125%; the search has its own row, its tip hanging left; a card
+  two at 125% (M); at the head's S, 150 px
+  (`.stage.beside #gallery[data-density="s"]`), four across at QHD and
+  three at 125% - the S rule's own 166 px fitted three there, and S showed
+  pressed with nothing changed. The search has its own row, its tip
+  hanging left; a card
   brought into view there has no topbar margin. The stage keeps its own
   layouts in the width left: the result column and the strip, and
   `#recent` as a row under the note. The prompt check, open, takes the
@@ -2054,7 +2162,13 @@ Frontend and CLI:
   decided once per layout, on the stage with the facts at six lines
   (`lbBaseStage`), before `lbFactsRoom`, and both use that decision; every
   reader of the ports takes a port's y as well as its x. Side by side keeps
-  its name, and its title says which way the halves go. The Refine dialog's
+  its name, and its title says which way a press puts the halves, before
+  the press as well as after it (`lbStacked`). The layout also runs again
+  on the stage's own resize (a ResizeObserver in app.js), not only the
+  window's: under 901 px a line in `#lb-error` (Use seed's, a delete's) is
+  a row of its own that takes height from the stage, and the picture laid
+  out before had kept its height, its foot cut off under a readout saying
+  "fit". The Refine dialog's
   passes strip and a pass's Compare with source in the result column open
   the lightbox with it on (`toggleCompare` after the open). The
   source is fetched by id once a session (`lbSources`) and drawn with
@@ -2226,6 +2340,17 @@ Frontend and CLI:
   with conflicting texts for one assignment is refused with advice to group
   by prompt too. Ordinary multi-variable grids and explicit grouping fields
   still aggregate as requested. An empty sheet draws no grid, only its note.
+  Laid out again (`renderSheet`: a page landing, a delete, a pin, an axis, a
+  wrap that flips), the sheet keeps the keyboard where it was.
+  `sheetFocusPlace` records the place before anything is removed
+  (`forgetImages` takes it before it drops the cells), and
+  `restoreSheetFocus` returns to it, with `preventScroll`, unless focus was
+  kept or moved on purpose meanwhile: the same cell's image or star by id;
+  else the image now at its place in reading order, else the last; a
+  control by its name (a select by its label, a button by its words), else
+  the control at its index; the search box where nothing is left. F on a
+  cell another tab had deleted, and an ArrowDown on Columns, used to drop
+  focus to `<body>`.
 - Every sheet the page opens (a comparison, a refine sweep, Runs, a card's ⊞,
   both branches of Show run) goes through `showSheetScope`. It keeps the
   search it replaced (`sheetReturn`), which Sheet off restores while the box
@@ -2489,7 +2614,11 @@ remapping. API tests hold a fake before its first callback to check initial
 per-cell progress totals, and API/CLI tests cover axis replacements and the
 capability refusal both before and after loading. The job snapshot's
 `comparison` is asserted true for a prompt-variants grid (`test_api_grid`)
-and false for plain and variable grids (`test_api_jobs`).
+and false for plain and variable grids (`test_api_jobs`). What holds the
+card, and whose expansion it is, is
+`tests/test_jobs.py::test_the_card_names_its_holder_and_an_editor_actions_ticket`
+and, through the status,
+`tests/test_api.py::test_status_names_what_holds_the_card_and_whose_expansion`.
 
 The prompt analyser is tested the same way, with no network and no GPU:
 `test_prompt_encoding.py` (budgets, cuts, templates held to the
@@ -2503,7 +2632,10 @@ validation, grounding, and `web/sheet.js`'s copy of `_XML_BLOCK`) and
 `test_api_analysis.py` for the routes, the chips' order slots on
 `/api/tags/validate` (offline, past the 64, a prompt past Check's limit, no
 category lookup where no order is read, a fault in them leaving the
-verdicts), the gate
+verdicts), an item longer than any tag answered unknown without asking
+the index (`test_an_item_longer_than_any_tag_is_unknown_without_asking`),
+the page's `PROMPT_MAX_CHARS` held to every request's `max_length`
+(`test_the_pages_measured_length_is_every_requests`), the gate
 (Check beside a running job, off the loop; the critique's re-check after
 `prepare()`), the status flags (status never loads a tokenizer) and
 shutdown (the lifespan's order, `main.Server.handle_exit`). Where the point
@@ -2627,7 +2759,11 @@ docked check at 2560x1305; Baidu's seven sizes (the seven framings marked,
 12:5 named, a typed 768x1376 recognised, 1008x1008 not one of the sizes,
 and 1400x800 and 784x1360 read by the nearest framing, 7:4 and 4:7); and
 the check's character counts and tag-list note on a fullwidth-comma and a
-one-per-line list. The fake takes the claimed profile's threshold, true-CFG
+one-per-line list; Expand pressed during this page's job under a Reuse's
+Undo, said under the prompt with the Undo kept, and the critic's press then
+a muted note gone at the job's end; and an Expand waiting behind another
+tab's (a request held on the server, `card_holder` "expand") leading its
+running line with the wait for the card. The fake takes the claimed profile's threshold, true-CFG
 flag and `mu_supported` (a Mu dropped from the row where the schedule takes
 none), its model id's prompt-expansion capability, and
 `loading.lora_refusal` for the id (Anima Turbo and NewBie refuse adapters,
@@ -2720,7 +2856,10 @@ node tools/browser.mjs tools/smoke-anima.json
 ```
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
-(the exact 1.05 MP bound) and saved settings on port 7870:
+(the exact 1.05 MP bound), saved settings, and a hybrid prompt's
+213-character sentence answered unknown without the index, the rest
+checked (guide tags valid, the tray never "Danbooru unreachable") and the
+order slots there, on port 7870:
 
 ```powershell
 uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
@@ -2732,7 +2871,9 @@ author example, a retyped and a foreign system instruction cut by Apply,
 enabled Mu, applied saved settings, the catalogue's name in the topbar, the
 facts and the prompt check, the example-size wording (1.57 and 1.05 MP of
 the authors' example sizes, in the line and the tier titles), Mu's 1.79,
-the live negative's caption and the grid examples, on port 7871:
+the live negative's caption, the grid examples, and another checkpoint's
+record reused, the note and the ⚠ title naming NetaYume Lumina v4, on port
+7871:
 
 ```powershell
 uv run python tools/fake_server.py --port 7871 --model duongve/NetaYume-Lumina-Image-2.0
@@ -2814,7 +2955,10 @@ deleted while the dialog is open refused in the dialog's own line, in the
 page's words with the source line marked, with the dialog kept open, the
 dialog with no sideways scroll at 1400x900 and 2560x1305, the scale
 buttons' aria-pressed, a first open passing over the usual 1.5x (its title
-and the size line's why), and a foreign pass's reused line.
+and the size line's why), a foreign pass's reused line naming FLUX.1 Krea
+[dev] by its catalogue name, and the dialog's CFG named "CFG (distilled)"
+as the panel's, with the greyed negative's caption "(needs True CFG > 1 —
+~2× slower)".
 `smoke-conditioning.json` has the other side
 on its klein fake: the card's, the viewer's and the lightbox's Refine
 answering with the reason and opening nothing.
@@ -2853,8 +2997,10 @@ selected under three characters with Tab moving on; the preselect from
 three; Escape closing the list and not the dialog; Enter and Tab taking a
 suggestion; Ctrl+Z; a list kept up and unselected while the next key asks;
 a click in the listed item asking nothing; the list over the box at
-1400x620 where there is no room below; the panel's list untouched), and
-nothing reaching the panel:
+1400x620 where there is no room below; the panel's list untouched), the
+dialog's CFG named plain CFG and its negative caption in both states
+("(needs CFG > 1 — ~2× slower)" greyed, "(runs at CFG > 1, no extra
+cost)" live), and nothing reaching the panel:
 
 ```powershell
 uv run python tools/fake_server.py --port 7877 --model cagliostrolab/animagine-xl-4.0
@@ -2902,7 +3048,10 @@ node tools/browser.mjs tools/smoke-wide.json
 ```
 
 `smoke-narrow.json` checks one column and narrow windows on a FLUX.1 Krea
-[dev] fake on 7889 at `--step 0.3`: a running job with a long prompt
+[dev] fake on 7889 at `--step 0.3`: Reset's note in the box it emptied at
+1400x900 (greyed negative) and at 600x900, Generate unmoved as it and its
+Undo's note come and go, and the presses on Generate below landing with
+the note still up; a running job with a long prompt
 keeping the page its width at 600 px, the Now line ellipsized and Cancel in
 the window; at 600x900, 800x900 and 900x700, New image as a pill centred
 under the topbar and clear of Generate, for a viewer below the window, and
@@ -2910,8 +3059,7 @@ for one above it (scrolled to the gallery's end during a load), its arrow
 following a jump to the page's top and the page never scrolling by itself;
 its press focusing the live preview's tile, handed on to the image that
 replaces it; a real press on Generate's right end with the pill up starting
-a job (fixed points, each guarded by an `elementFromPoint` check, after
-Reset's Undo note, which would put Generate a line lower, is taken back); a
+a job (fixed points, each guarded by an `elementFromPoint` check); a
 job cancelled after its first frame withdrawing the pill, its focus going
 to Generate; a press with nothing in the viewer focusing the viewer, which
 lets its tabindex go on blur; after a job, focus arriving in the panel
@@ -2991,7 +3139,10 @@ sheet as a list; a 2 × 8 comparison's 16-digit seed heads whole under Seed
 at 1500x900, and at 1400x900 breaking between groups of four into balanced
 lines; and at 800x900 the finish line's Show sheet and a strength sweep run
 from the viewer's ⤢ each handing focus to the first cell, with Tab then not
-moving the page. `smoke-sheet-klein.json` uses a FLUX.2
+moving the page; and at 1400x900 the sheet's focus kept through F on a
+cell another tab deleted (onto the cell now in its place), a changed
+Columns select, and another tab's job ending under it, the sheet left as
+it was. `smoke-sheet-klein.json` uses a FLUX.2
 [klein] fake on 7886 for the References axis, the shared-cell count and the
 adapter named in LoRA heads, the Fixed line and the export:
 
@@ -3051,7 +3202,9 @@ seed); a time budget's held ETA and count; the gallery kept where it was
 scrolled with New image; the offline state through a stubbed fetch and a
 restart through a changed start time; the load's ticker with its
 aria-hidden clock and indeterminate bar, also shown in the empty viewer's
-one line, whose own words come back after a cancel; a cancel during the load; a gated
+one line, whose own words come back after a cancel; a second job queued
+during the load keeping the load's note under the bars through the queue's
+redraw; a cancel during the load; a gated
 load's detail said in the panel line after every Generate while the viewer
 holds images; a gated load's card said once and not re-announced by the
 banner, its Retry load handing focus to Generate; Load and Unload handing
@@ -3076,8 +3229,11 @@ counter said once, `#job-said` at a job's end and for a queued job, nothing
 there for a cancel or a load failure the panel line says); and a second
 tab, an iframe of the page: its job (held paused) holding Unload and the
 critic here with the reason and the topbar's aside, its images joining this
-gallery at its end, its queued job picked up here as another tab's (viewer
-kept, no Use seed, this tab's own finished title given back until a key),
+gallery at its end, and taken in after this page's own job, queued behind
+it, is cancelled at its first step; its queued job picked up here as
+another tab's (viewer kept, this page's New image and its own finish line,
+Use seed and all, kept through it, its end said on `#job-said` only, this
+tab's own finished title given back until a key),
 a cancel and a queued row's cancel from that tab, a pause here with its job
 behind ("waiting: job ahead paused" there; its row marked as another tab's
 here, Cancel queued's title, the count), Cancel queued here said there as a
@@ -3123,9 +3279,11 @@ height with focus on its line (the column's Delete); a 28-seed run at
 scrollbar and the gallery head unmoved from its first frame (`reserveStrip`); the banner's
 "2 since deleted" / "all since deleted"; the banner's Resume after a
 resumed-and-cancelled grid putting the run's base seed in Seed; no Resume
-for a cancelled comparison; and Reset with its Undo under the prompt -
-inside the window at 1400x900 and at 800x900 - Ctrl+Z after it giving the
-prompt back, and the store kept forgotten past the prompt's blur:
+for a cancelled comparison; Reset with its Undo in the prompt box it
+emptied - inside the window at 1400x900 and at 800x900 - Ctrl+Z after it
+giving the prompt back, and the store kept forgotten past the prompt's
+blur; and Reset taking a Reuse's note from the panel line, with its Undo
+on offer or already retired:
 
 ```powershell
 uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
@@ -3167,7 +3325,9 @@ giving fit back; at 800x900 no keys line; a wheel burst said once from the
 hidden `#lb-zoom-said`, a keyed zoom at once, and F rewriting neither the
 zoom nor the counter; at 600x900 the facts taking a square picture's
 letterbox (every row in view) while a portrait picture keeps the six-line
-scroller; side by side stacked at 600x900 for a square pass (a wheel
+scroller, and is fitted again, whole, once Use seed's line takes a row
+from the stage; Side by side titled stacked before the press; side by
+side stacked at 600x900 for a square pass (a wheel
 zooming about a point in the lower half) and a 7:4 pass (halves over 400
 px with the facts' room, opened again stacked again), and left and right
 for a portrait pass; and at 800x900 a square pass left and right with its
@@ -3211,8 +3371,9 @@ newest image taking the stop where none was chosen, prepended under an old
 head made two days older with the day's line between them; the head's
 S/M and Fit/Crop from 1800 px (eleven and nine a row at S with the tools
 fitting, Crop's cover, one tab stop per pair, remembered across a reload,
-hidden on a sheet, kept by Reset, not applied at 1400); and the tools
-fitting at 2560x1305 and 2048x1040@1.25:
+hidden on a sheet, kept by Reset, not applied at 1400); S four across in
+Gallery beside's column at QHD, M three; and the tools fitting at
+2560x1305 and 2048x1040@1.25:
 
 ```powershell
 uv run python tools/fake_server.py --port 7885
@@ -3263,7 +3424,16 @@ description, each finding's and critic issue's Show with no item a tab
 stop, the always-run Original's description; and, docked at 2560x1305, Tab
 from the panel to the image just made, its note (a stand-in stop),
 `#recent` where it sits between, the check, then the gallery, with nothing
-in the docked stage out of its flow.
+in the docked stage out of its flow; the comparison's Batch tip hung from
+the window, whole and on top with its row under the sticky head at
+1400x600, following its badge as the check scrolls, hidden with the badge
+scrolled out, and docked at 2560x1305; the Refine dialog's Refine held,
+and said in the dialog, while the critic thinks; the critic held offline
+(its title, the cost line, and the press's offline words taken back by the
+answer) and during a load (its note gone with the load), and a critique
+the server never answered said as the server's (no "?." after its
+question) and taken back; and a 900-word prompt's line over 4000
+characters, its cut and its summary.
 `smoke-animagine.json` covers the tag-order check, the critic's reorder
 under full and partial tag placement end to end (set aside, kept as Check's
 own, kept as allowed, flagged, each with the kind the server says it kept),
