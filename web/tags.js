@@ -700,14 +700,29 @@ function promptTokenLine() {
   };
 }
 
+// Whether the line shows moves everything under it in the panel by a line -
+// Generate, Pause and Cancel, Run grid, the negative box - and that change
+// lands a pause and a round trip after the typing stopped, as the pointer may
+// be arriving on Generate. So while the mouse is on a control the line would
+// move (`promptTokensAimed`, app.js: one whose top is at or below the prompt
+// box's bottom) the change waits (`promptTokensHeld`) for the mouse to leave
+// it or for a key, which no press of the mouse is; the text and the colour
+// change in place, the line being one line. Only on such a control: held for
+// the whole lower panel, a prompt past the limit went unsaid until the mouse
+// left it, and the mouse goes to Generate.
+let promptTokensAimed = false;
+let promptTokensHeld = false;
+
 // The line's one writer: hidden while it has nothing to say, and while the
 // chips show - their label has the count, and under 901 px they come
-// straight after it in the panel.
-function syncPromptTokens() {
+// straight after it in the panel. `now` gives a held change (a key).
+function syncPromptTokens(now = false) {
   const line = els.promptTokens;
   const chips = !els.tagValidation.hidden;
   const count = !chips && els.prompt.value.trim() ? promptTokenLine() : null;
   const shown = !!count?.shown;
+  promptTokensHeld = !now && shown === line.hidden && promptTokensAimed;
+  if (promptTokensHeld) return;
   const text = shown ? count.text : '';
   if (line.textContent !== text) line.textContent = text;
   line.title = shown ? count.title : '';
