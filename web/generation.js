@@ -410,6 +410,8 @@ async function startJob(path, payload, {
   if (critiquing) { showError('Wait for the critic to finish.', false, { slot }); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
+  // The control pressed, for a sheet the job opens at its end (finishJob).
+  const asker = document.activeElement;
   showError('');
   if (slot !== els.error) showError('', false, { slot });
   // Already watching a job: this one queues behind it on the server, and the
@@ -434,7 +436,7 @@ async function startJob(path, payload, {
     // The topbar's "loading…" now, not at the next poll, beside the panel's
     // own "loading weights".
     void refreshStatus();
-    submissions.set(job_id, { path, payload, seed, sheet, at: Date.now() });
+    submissions.set(job_id, { path, payload, seed, sheet, asker, at: Date.now() });
     jobLabels.set(job_id, submissionLabel(path, payload));
     if (placeholder) jobPlaceholders.set(job_id, placeholder);
     if (sheet) jobsToShow.add(job_id);
@@ -1342,7 +1344,7 @@ function finishJob(jobId, data, { submitted, sheet }) {
   // A comparison opens this submission alone. Run ids name rendered
   // cells, so reversing original/yours on the same seeds shares a run
   // but must not mix the two meanings of either version label.
-  if (sheet && images.length) { showJob(jobId, { fresh: true }); loadRuns(); }
+  if (sheet && images.length) { showJob(jobId, { fresh: true, asker: submitted?.asker ?? null }); loadRuns(); }
   else if (images.length) {
     void Promise.resolve(prependFinished(made)).then((coming) => noteOutsideView(images, coming));
     loadRuns();

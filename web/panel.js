@@ -619,14 +619,14 @@ function syncRunList() {
 // sheet's, and Re-render sends the tick with the search, so a sheet of
 // unstarred images under a ticked box would re-render none of them - and the
 // sheet says so.
-function showRun(runId, { fresh = false } = {}) {
+function showRun(runId, { fresh = false, asker } = {}) {
   if (!runId) return;
-  return showSheetScope(`run:${runId}`, { fresh });
+  return showSheetScope(`run:${runId}`, { fresh, asker });
 }
 
-function showJob(jobId, { fresh = false } = {}) {
+function showJob(jobId, { fresh = false, asker } = {}) {
   if (!jobId) return;
-  return showSheetScope(`job:${jobId}`, { fresh });
+  return showSheetScope(`job:${jobId}`, { fresh, asker });
 }
 
 // Every sheet the page opens comes through here: a comparison, a refine sweep,
@@ -643,9 +643,12 @@ function showJob(jobId, { fresh = false } = {}) {
 // own filters - stay in view above it. Not for the Sheet button (`scroll:
 // false`), pressed at the gallery head already - unless the gallery stood
 // beside the viewer, where the sheet opens under it (setSheet). The scroll
-// moves no focus and hides nothing: the check and the viewer, where a running
-// job lands, are a scroll up.
-function showSheetScope(search, { fresh = false, notice = null, scroll = true } = {}) {
+// hides nothing - the check and the viewer, where a running job lands, are a
+// scroll up - and takes focus along only where the control that asked
+// (`asker`: the one focused now, unless the caller knows better - a job's
+// sheet, the one its submission was pressed on) is left out of sight, or
+// focus has fallen out of the page (sheet.js's focusSheet).
+function showSheetScope(search, { fresh = false, notice = null, scroll = true, asker = document.activeElement } = {}) {
   const unticked = fresh && els.favOnly.checked;
   if (unticked) els.favOnly.checked = false;
   if (!sheetMode || !sheetReturn || els.search.value.trim() !== sheetReturn.wrote) {
@@ -654,7 +657,7 @@ function showSheetScope(search, { fresh = false, notice = null, scroll = true } 
     sheetReturn.wrote = search;
   }
   els.search.value = search;
-  const opened = setSheet(true, { land: scroll });
+  const opened = setSheet(true, { land: scroll, asker });
   // setSheet has begun the query the notice belongs to; another one drops it.
   const epoch = galleryEpoch;
   const text = unticked ? 'Starred unticked: nothing in a new comparison is starred yet' : notice;
@@ -664,12 +667,15 @@ function showSheetScope(search, { fresh = false, notice = null, scroll = true } 
 
 // Where a sheet is landed on, once drawn (setSheet, only if it is still the
 // sheet shown): the gallery head under the topbar, room reserved under the
-// sheet for it to get there.
-function landOnSheet() {
+// sheet for it to get there - and, once the scroll is over and if the sheet
+// is still the one shown, the focus (focusSheet).
+function landOnSheet(asker = null) {
   const head = document.querySelector('.gallery-head');
   reserveSheetRoom(head);
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   head.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  const epoch = galleryEpoch;
+  void scrollSettled().then(() => { if (sheetMode && epoch === galleryEpoch) focusSheet(asker); });
 }
 
 // Room under a sheet for its head to come up to the topbar: a short sheet
@@ -1252,7 +1258,8 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   // Named as the page names images, by gallery id - the cells of a sweep
   // share a prompt, and "Open: …" named none of them apart - and titled with
   // what tells it from the one beside it under the pointer (cardTitle): its
-  // size, its seed and a pass's source, then the prompt.
+  // size, its seed and a pass's source, then the prompt. A sheet's cell is
+  // named by what the sheet lays out instead (renderSheet).
   img.setAttribute('aria-label', `Open #${rec.id}: ${rec.prompt}`);
   titleImage(img, rec);
   img.onclick = open;

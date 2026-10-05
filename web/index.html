@@ -626,6 +626,10 @@
         <!-- A gallery with nothing to show says so (syncGalleryEmpty): a blank
              screen under a disabled "No runs yet" said nothing of what fills it. -->
         <p class="hint gallery-empty" id="gallery-empty" hidden></p>
+        <!-- What a sheet is, said as it opens ("Sheet: 6 images, Steps ×
+             Seed"; sheet.js's saySheet), outside the sheet, which is hidden
+             until then. -->
+        <p class="sheet-said" id="sheet-said" aria-live="polite"></p>
         <div class="grid" id="gallery"></div>
         <!-- The contact sheet: one run laid out as the grid that produced it. -->
         <div class="sheet" id="sheet" hidden>
