@@ -18,5 +18,14 @@
   {"eval": "choose('1:1', 1); els.negative.value = 'blurry'; els.seed.value = '7869'; void startJob('/api/generate', collect());"},
   {"wait": 2000},
   {"expect": "viewerRecords.length === 1 && viewerRecords[0].model_id === 'circlestone-labs/Anima' && viewerRecords[0].steps === 8 && viewerRecords[0].guidance_scale === 1"},
-  {"expect": "viewerRecords[0].negative_prompt === null && viewerRecords[0].true_cfg === null && viewerRecords[0].mu === null"}
+  {"expect": "viewerRecords[0].negative_prompt === null && viewerRecords[0].true_cfg === null && viewerRecords[0].mu === null"},
+  {"log": "'a FLUX.1 pass reused here opens the dialog on its source; Anima has no refine pass, and the fake answers as a loaded pipeline does (final), so the line says so as the cards refusal does, not that a load will decide - Anima and NewBie answering final before a load (_OWN_PIPELINES) is pytests, test_refine and test_api_refine'"},
+  {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__src = viewerRecords[0]; reuse({...window.__src, id: 9001, model_id: 'black-forest-labs/FLUX.1-Krea-dev', refine: window.__src.id, strength: 0.1, width: 1536, height: 1536, seed: 7, steps: 28, guidance_scale: 3.5});"},
+  {"expect": "__until(() => els.refineDialog.open && refineSource?.id === window.__src.id)"},
+  {"expect": "lastDefaults.refine_settled === true && !refineSupported && !els.refineUnavailable.hidden && els.refineUnavailable.textContent === 'Refine is unavailable. ' + REFINE_NONE && els.refineRun.getAttribute('aria-disabled') === 'true'"},
+  {"log": "'the strength it ran at was FLUX.1s, an index into another schedule: the line says what Strength starts at instead, and the fold that strength is this ones too'"},
+  {"expect": "els.refineTitle.textContent === 'Refine #' + window.__src.id + ' as #9001 was made' && els.refineStrength.value === '0.4' && els.refineReused.textContent === \"Reusing #9001: 1536×1536, seed 7 - its strength 0.1 was FLUX.1-Krea-dev's; Strength starts at 0.4, the general starting strength\""},
+  {"expect": "els.refineMore.open && els.refineMoreNote.textContent === \"made on FLUX.1-Krea-dev: steps, CFG, mu and strength are Anima's\" && +els.refineSteps.value === 8"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.refineDialog.open)"}
 ]

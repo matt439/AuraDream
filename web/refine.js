@@ -48,9 +48,14 @@ let refineProblem = null;
 // preview of what the boxes hold before it reads the answer (`runRefine`).
 let refinePreviewed = null;
 let refineWaiting = false;
-// The scale last run, where the opening size passed over it: its button says
-// so, one click away. `refineCapped`: the dialog opened below the scale it
-// was asked for, so that size, run as it opened, is not the user's choice.
+// The scale the opening size passed over - the one last run, or the 1.5x a
+// first open takes - with the factor and size it opened at instead: its
+// button says so, one click away, and the size line says why while the size
+// is the one it opened at (`refineCapNote`). A default passed over said
+// nothing: a 1.5 MP Z-Anime source opened at 1x, and the dialog never said
+// why it would not upscale. {scale, remembered, opened, size}, or null.
+// `refineCapped`: the dialog opened below the scale it was asked for, so that
+// size, run as it opened, is not the user's choice.
 let refineSkipped = null;
 let refineCapped = false;
 // What openRefine filled the boxes with, and whether the dialog closed by
@@ -121,14 +126,28 @@ function openingRefineSize(rec, scale) {
 // the 0.05 grid, less any that leaves no step of the Steps box or passes 1.
 // model_defaults.strength_sweep is the same arithmetic in the same order, so
 // the Strength tip's example and this button's sweep are the same numbers.
-function compareStrengths(steps = refineStepsNow()) {
+// Half rounds up on the quotient snapped to six places: Z-Anime's 0.15 makes
+// ties of both neighbours, which float error floored to 0.05,0.15,0.2.
+// `dropped` is each value left out and why, for the button's title: a source
+// of few steps loses the half first, and its label then counts two.
+function compareSweep(steps = refineStepsNow()) {
   const start = refineDefaultStrength();
-  const out = [];
+  const values = [];
+  const dropped = [];
   for (const factor of [0.5, 1, 1.5]) {
-    const value = +(Math.floor(factor * start / 0.05 + 0.5) * 0.05).toFixed(2);
-    if (value > 0 && value <= 1 && Math.floor(steps * value) >= 1 && !out.includes(value)) out.push(value);
+    const value = +(Math.floor(+(factor * start / 0.05).toFixed(6) + 0.5) * 0.05).toFixed(2);
+    if (values.includes(value)) continue;
+    const why = value <= 0 ? `half of ${start} rounds to 0`
+      : value > 1 ? `${value} is past 1`
+        : Math.floor(steps * value) < 1 ? `${value} leaves no step at ${steps} steps` : null;
+    if (why) dropped.push(why);
+    else values.push(value);
   }
-  return out;
+  return { start, values, dropped };
+}
+
+function compareStrengths(steps = refineStepsNow()) {
+  return compareSweep(steps).values;
 }
 
 function refineStepsNow() {
@@ -156,6 +175,19 @@ function refineKept(sw, sh, w, h) {
   const rw = Math.max(w, even(sw * cover));
   const rh = Math.max(h, even(sh * cover));
   return { x: Math.floor((rw - w) / 2) / rw, y: Math.floor((rh - h) / 2) / rh, w: w / rw, h: h / rh };
+}
+
+// Why the dialog opened below the scale it was asked for, named by the first
+// scale above the one it opened at: "1.25× and larger go past the 1536×1536
+// (2.36 MP) measured on Z-Anime at fp8". Pixels grow with the factor, so what
+// holds for that scale holds for every larger one.
+function refineCapNote(src, run) {
+  const next = REFINE_SCALES.find((s) => s > refineSkipped.opened);
+  if (next === undefined) return '';
+  const size = refineScaled(src.width, src.height, next);
+  const why = !refineFits(size) ? 'are past what a refine pass renders'
+    : run ? `go ${run}` : 'may run tight on 16GB VRAM';
+  return `${next}× and larger ${why}`;
 }
 
 function refineSizeProblem(w, h) {
@@ -210,13 +242,8 @@ function openRefine(rec, pass = null) {
   // the title and a line of its own say which pass is being run again.
   els.refineTitle.textContent = pass ? `Refine #${rec.id} as #${pass.id} was made` : `Refine #${rec.id}`;
   els.refineReused.hidden = !pass;
-  els.refineReused.textContent = pass
-    ? `Reusing #${pass.id}: ${pass.width}×${pass.height} at strength ${pass.strength}, seed ${pass.seed}` : '';
   showRefineSource();
-  els.refineSourceLine.textContent = [
-    `${rec.width}×${rec.height}`, `seed ${rec.seed}`, short(rec.model_id),
-    rec.refine != null ? `itself a refine of #${rec.refine}${rec.refine_missing ? ', since deleted' : ''}` : '',
-  ].filter(Boolean).join(' · ');
+  writeRefineSourceLine(rec);
   els.refinePromptLine.textContent = rec.prompt;
   // Rebuilt by syncRefine for this source's size.
   els.refineScales.textContent = '';
@@ -229,12 +256,25 @@ function openRefine(rec, pass = null) {
     const { size, factor } = openingRefineSize(rec, scale);
     [els.refineWidth.value, els.refineHeight.value] = size;
     refineCapped = factor !== scale;
-    if (prefs.scale && refineCapped) refineSkipped = scale;
+    if (refineCapped) refineSkipped = { scale, remembered: !!+prefs.scale, opened: factor, size };
   }
   const kept = prefs.strength?.[loadedModel];
-  els.refineStrength.value = pass && !foreign && pass.strength != null
-    ? pass.strength
-    : typeof kept === 'string' && SINGLE_STRENGTH.test(kept) ? kept : refineDefaultStrength();
+  const keptOne = typeof kept === 'string' && SINGLE_STRENGTH.test(kept);
+  const carried = pass && !foreign && pass.strength != null;
+  els.refineStrength.value = carried ? pass.strength : keptOne ? kept : refineDefaultStrength();
+  // A pass from another checkpoint ran at a strength of that checkpoint's
+  // schedule, which reads otherwise on this one's: Strength starts at this
+  // checkpoint's own, and the line says so - it named the old number beside a
+  // box holding another, with nothing to say which would run.
+  els.refineReused.textContent = !pass ? ''
+    : carried || pass.strength == null
+      ? `Reusing #${pass.id}: ${pass.width}×${pass.height}`
+        + `${pass.strength != null ? ` at strength ${pass.strength}` : ''}, seed ${pass.seed}`
+      : `Reusing #${pass.id}: ${pass.width}×${pass.height}, seed ${pass.seed} - its strength ${pass.strength} `
+        + `was ${short(pass.model_id)}'s; Strength starts at `
+        + (keptOne ? `${kept}, as last run on ${short(loadedModel)}`
+          : lastDefaults?.refine_strength_profiled ? `${short(loadedModel)}'s ${els.refineStrength.value}`
+            : `${els.refineStrength.value}, the general starting strength`);
   els.refineVersions.value = !pass && ['1', '2', '4'].includes(String(prefs.versions))
     ? String(prefs.versions) : '1';
   els.refineSeed.value = from.seed;
@@ -259,8 +299,10 @@ function openRefine(rec, pass = null) {
         : !loraSupported ? 'this installation cannot load adapters'
           : 'it is not in the adapter list now'}.`
       : '';
+  // A pass's strength is replaced too (above); a source's never carries.
   els.refineMoreNote.textContent = foreign
-    ? `made on ${short(from.model_id)}: steps, CFG and mu are ${short(loadedModel)}'s`
+    ? `made on ${short(from.model_id)}: ${pass ? 'steps, CFG, mu and strength' : 'steps, CFG and mu'} are `
+      + `${short(loadedModel)}'s`
     : `as #${from.id} was made`;
   // Open where they could not carry over, so the substitution is seen.
   els.refineMore.open = foreign;
@@ -289,6 +331,30 @@ function openRefine(rec, pass = null) {
   scheduleRefineTags(0);
   void loadRefinePasses(rec);
   return true;
+}
+
+// The source's size, seed and checkpoint, and its own source where it is a
+// pass - and, once the server has refused it as gone (`refineSourceGone`),
+// that it is: "#28 (deleted)", as the viewer and the lightbox say it.
+function writeRefineSourceLine(rec, gone = false) {
+  const short = (id) => (id || '').split('/').pop();
+  els.refineSourceLine.textContent = [
+    `${rec.width}×${rec.height}`, `seed ${rec.seed}`, short(rec.model_id),
+    rec.refine != null ? `itself a refine of #${rec.refine}${rec.refine_missing ? ', since deleted' : ''}` : '',
+    gone ? `#${rec.id} (deleted)` : '',
+  ].filter(Boolean).join(' · ');
+}
+
+// A refusal of the source itself - deleted from another tab while the
+// dialog was open - in the page's words, with the source line marked: the
+// server's "no gallery image with id 28" read as a setting gone wrong, in a
+// dialog still titled "Refine #28" over the picture. The dialog stays open
+// with its edits, as for any refusal. Any other message is returned as it is.
+function refineSourceGone(message, source = refineSource) {
+  const match = /^no gallery image with id (\d+)$/.exec(message ?? '');
+  if (!source || !match || +match[1] !== source.id) return message;
+  if (refineSource === source) writeRefineSourceLine(source, true);
+  return `#${source.id} has been deleted, so it cannot be refined.`;
 }
 
 // Every box openRefine fills, by name: what a close compares with what it
@@ -362,13 +428,20 @@ function syncRefine() {
       els.refineScales.append(button);
     }
   }
+  // The chosen scale is pressed, as the panel's size strips are: .active
+  // alone was the look of it, and a screen reader heard four plain buttons.
   [...els.refineScales.children].forEach((button, i) => {
     const size = refineScaled(src.width, src.height, REFINE_SCALES[i]);
     const fits = refineFits(size);
+    const chosen = fits && w === size[0] && h === size[1];
     button.disabled = !fits;
-    button.classList.toggle('active', fits && w === size[0] && h === size[1]);
+    button.classList.toggle('active', chosen);
+    button.setAttribute('aria-pressed', String(chosen));
+    const skipped = REFINE_SCALES[i] !== refineSkipped?.scale ? ''
+      : refineSkipped.remembered ? ` (last run at ${refineSkipped.scale}×)`
+        : ' (the usual opening size)';
     button.title = (fits ? `${size[0]} × ${size[1]}` : `${size[0]} × ${size[1]} is past what a refine pass renders`)
-      + (REFINE_SCALES[i] === refineSkipped ? ` (last run at ${refineSkipped}×)` : '');
+      + skipped;
     button.setAttribute('aria-label', `${REFINE_SCALES[i]} times the source's size, ${button.title}`);
     // Shown under the factor (style.css), so its text stays the factor.
     button.dataset.size = `${size[0]}×${size[1]}`;
@@ -391,7 +464,11 @@ function syncRefine() {
   const percent = (part) => `${Math.round(part * 100)}%`;
   const shape = !sized ? '' : !cropped ? `${+((fx + fy) / 2).toFixed(2)}× the source`
     : `the source cropped to this shape, keeping the middle ${percent(kept.w)} × ${percent(kept.h)}`;
-  els.refineSizeHint.textContent = [sized ? `${(w * h / 1e6).toFixed(1)} MP` : '', shape, ...notes]
+  // At the size it opened at in place of the scale asked for, why: the next
+  // scale up is past the line (or the guard), and so is every larger one.
+  const capped = !notes.length && refineSkipped && w === refineSkipped.size[0] && h === refineSkipped.size[1]
+    ? refineCapNote(src, run) : '';
+  els.refineSizeHint.textContent = [sized ? `${(w * h / 1e6).toFixed(1)} MP` : '', shape, ...notes, capped]
     .filter(Boolean).join(' — ');
   els.refineSizeHint.classList.toggle('warn', notes.length > 0);
   els.refineKept.hidden = !cropped;
@@ -409,16 +486,25 @@ function syncRefine() {
   // written - the same three numbers as the tip's example.
   // Steps low enough to leave fewer than two of them a step has no sweep to
   // offer: the button is held, saying the Steps that would, and the lines
-  // name none.
-  const start = refineDefaultStrength();
-  const sweepValues = compareStrengths();
+  // name none. Two of them is a sweep of two: the label counts them, and the
+  // title names the one left out and why - it promised "either side".
+  const { start, values: sweepValues, dropped } = compareSweep();
   const compare = sweepValues.join(',');
   const swept = sweepValues.length >= 2;
   const need = swept ? null : compareStepsNeeded();
   els.refineStrength.placeholder = swept ? `${start} or ${compare}` : `${start}`;
   els.refineCompare.setAttribute('aria-disabled', String(!swept));
+  // Written only when it changes: this runs on every status poll while the
+  // dialog is open, and the button may hold focus.
+  const compareLabel = `Compare ${sweepValues.length === 2 ? 2 : 3}`;
+  if (els.refineCompare.textContent !== compareLabel) els.refineCompare.textContent = compareLabel;
+  const other = sweepValues.find((v) => v !== start);
+  const around = sweepValues.length === 3 ? `this checkpoint's ${start} and either side of it`
+    : sweepValues.includes(start) ? `this checkpoint's ${start} and ${other} ${other < start ? 'below' : 'above'} it`
+      : `around this checkpoint's ${start}`;
   els.refineCompare.title = swept
-    ? `Write ${compare} into Strength: this checkpoint's ${start} and either side of it, run side by side as one sweep`
+    ? `Write ${compare} into Strength: ${around}, run side by side as one sweep`
+      + (dropped.length ? ` - ${dropped.join(', and ')}` : '')
     : `No sweep at ${refineStepsNow()} steps: fewer than two strengths around ${start} leave a step`
       + (need ? ` - raise Steps to ${need}` : '');
   els.refineSweepHint.textContent = swept
@@ -458,10 +544,16 @@ function syncRefine() {
   els.refineTrueCfgField.classList.toggle('disabled', !trueCfgSupported);
   if (!trueCfgSupported) els.refineTrueCfg.value = '';
 
+  // A guess - the profile's, before a load - is said as one, and the pass
+  // waits here for the load to answer. An answer that is final - the loaded
+  // pipeline's, or a pipeline of this repo's own, which diffusers has no
+  // image-to-image class beside (`refine_settled`) - is said as the card's ⤢
+  // says it: "a load answers" sent a user with Anima loaded off to load it.
   els.refineUnavailable.hidden = refineSupported;
   els.refineUnavailable.textContent = refineSupported ? ''
-    : 'Refine is unavailable: as far as the server can tell, this checkpoint has no compatible '
-      + 'image-to-image pipeline. A load answers for certain - the pass stays here until then.';
+    : lastDefaults?.refine_settled ? `Refine is unavailable. ${REFINE_NONE}`
+      : 'Refine is unavailable: as far as the server can tell, this checkpoint has no compatible '
+        + 'image-to-image pipeline. A load answers for certain - the pass stays here until then.';
   syncRefineFromPanel();
   syncRefineRun();
   // After the negative's activation has moved: the check's Show and Apply
@@ -658,9 +750,9 @@ async function previewRefine() {
       + (sweep ? '\nOpens as a sheet when it is done.' : '');
   } catch (err) {
     if (epoch !== refineEpoch) return;
-    refineProblem = err.message;
+    refineProblem = refineSourceGone(err.message);
     els.refinePreview.classList.add('warn');
-    els.refinePreview.textContent = err.message;
+    els.refinePreview.textContent = refineProblem;
   }
   refinePreviewed = asked;
   syncRefineRun();
@@ -756,6 +848,12 @@ async function runRefine() {
   await sent;
   if (accepted) return;
   settle();
+  // A source deleted since the last preview is refused at submit, in the
+  // server's words, which startJob wrote into the dialog's line: said again
+  // in the page's before the task ends, so the alert is read once, in these.
+  const refused = els.refineError.textContent;
+  const said = refineSourceGone(refused, source);
+  if (said !== refused) refineFailed(said);
   // Refused with the dialog gone: its line is out of sight, so the panel's says it.
   if (!els.refineDialog.open && els.refineError.textContent) showError(els.refineError.textContent);
 }

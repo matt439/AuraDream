@@ -14,5 +14,19 @@
   {"eval": "els.width.value = '1920'; els.height.value = '1088'; syncSize();"},
   {"expect": "!els.sizeHint.classList.contains('warn') && collect().width === 1920 && collect().height === 1088"},
   {"eval": "els.width.value = '2048'; els.height.value = '2048'; syncSize();"},
-  {"expect": "!els.sizeHint.textContent.includes('above the') && els.tiers.lastElementChild.classList.contains('recommended')"}
+  {"expect": "!els.sizeHint.textContent.includes('above the') && els.tiers.lastElementChild.classList.contains('recommended')"},
+  {"log": "'Refine: the authors 1024x1536 at the usual 1.5x is past the 1536x1536 Z-Anime was measured at, and so is 1.25x, so the dialog opens it at 1x - the 1.5x button says it is the usual size, the size line says why - and the row fits the dialog'"},
+  {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; forget(REFINE_KEY); els.width.value = '1024'; els.height.value = '1536'; syncSize(); els.seed.value = '7868'; void startJob('/api/generate', collect());"},
+  {"expect": "__until(() => !busy && viewerRecords.length === 1 && viewerRecords[0].height === 1536)"},
+  {"eval": "openRefine(viewerRecords[0])"},
+  {"expect": "__until(() => els.refineDialog.open && refinePreviewed !== null)"},
+  {"expect": "+els.refineWidth.value === 1024 && +els.refineHeight.value === 1536 && els.refineScales.children[0].getAttribute('aria-pressed') === 'true' && els.refineScales.children[2].title === '1536 × 2304 (the usual opening size)'"},
+  {"expect": "els.refineSizeHint.textContent === '1.6 MP — 1× the source — 1.25× and larger go past the 1536×1536 (2.36 MP) measured on Z-Anime at fp8' && !els.refineSizeHint.classList.contains('warn')"},
+  {"expect": "els.refineDialog.scrollWidth <= els.refineDialog.clientWidth"},
+  {"log": "'its 0.15 puts both neighbours on the 0.05 grid on a tie, which float error used to floor: the sweep is 0.1,0.15,0.25 - the three verified.md measured - in the placeholder, the tip, the sweep line and what Compare 3 writes'"},
+  {"expect": "els.refineStrength.value === '0.15' && els.refineStrength.placeholder === '0.15 or 0.1,0.15,0.25' && els.refineCompare.textContent === 'Compare 3' && els.refineStrengthTip.textContent.includes('such as 0.1,0.15,0.25') && els.refineSweepHint.textContent.includes('(0.1,0.15,0.25)')"},
+  {"eval": "els.refineCompare.click()"},
+  {"expect": "__until(() => els.refineStrength.value === '0.1,0.15,0.25' && els.refinePreview.textContent.startsWith('3 images · strength 0.1, 0.15, 0.25'))"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.refineDialog.open)"}
 ]

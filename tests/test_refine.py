@@ -67,8 +67,18 @@ def test_the_local_pipelines_have_no_sibling():
     assert refine.sibling(NewbiePipeline) is None
     assert not defaults_for("circlestone-labs/Anima")["refine_supported"]
     assert not defaults_for("NewBie-AI/NewBie-image-Exp0.1")["refine_supported"]
-    # An unrecognised checkpoint is not promised one either, until it loads.
+    # And that answer is final before a load: no load can find a sibling for
+    # a class diffusers does not export, so the Refine dialog says so rather
+    # than "a load answers for certain".
+    assert defaults_for("circlestone-labs/Anima")["refine_settled"]
+    assert defaults_for("NewBie-AI/NewBie-image-Exp0.1")["refine_settled"]
+    # An unrecognised checkpoint is not promised one either, until it loads -
+    # and that is a guess the load settles.
     assert not defaults_for("nobody/whatever")["refine_supported"]
+    assert not defaults_for("nobody/whatever")["refine_settled"]
+    # As is every diffusers pipeline's, either way.
+    assert not defaults_for("black-forest-labs/FLUX.1-Krea-dev")["refine_settled"]
+    assert not defaults_for("duongve/NetaYume-Lumina-Image-2.0")["refine_settled"]
 
 
 def test_a_class_that_only_shares_the_name_has_no_sibling():

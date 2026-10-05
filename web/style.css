@@ -424,6 +424,10 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    width too, and the row ran 15 px past the dialog at 1400x900 and at 125%,
    cutting the dice off and giving the dialog a sideways scrollbar. */
 .rf-strength .row > .sub.grow:has(> #refine-strength) { min-width: min-content; }
+/* Its caption (Strength, ?, Compare) stays one line, and the column is never
+   narrower than it: wrapped, the Compare button ran out of a squeezed column
+   instead of wrapping. */
+.rf-strength .sub:has(> #refine-strength) > i { white-space: nowrap; }
 
 /* The prompt is the page's main box: on a wide window it grows with what is
    typed, from five lines to twelve (Chromium; elsewhere it stays at five and
