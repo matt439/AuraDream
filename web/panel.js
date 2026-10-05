@@ -1026,7 +1026,9 @@ function resultSide(rec, figure) {
 // opens it (openViewerImage, so a close comes back here), with the
 // comparison already on - the question a pass that has just landed asks, a
 // press and an S away before. Dead where the source has gone, saying why
-// (`syncCompareResult`), as the lightbox's own is.
+// (`syncCompareResult`), as the lightbox's own is. The column's alone: the
+// row under the picture that stands in for it with the check docked leaves
+// it out (style.css), as it cut a portrait pass's row to ellipses.
 function compareButton(rec, figure) {
   const button = document.createElement('button');
   button.type = 'button';

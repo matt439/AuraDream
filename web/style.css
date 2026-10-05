@@ -1541,7 +1541,8 @@ button { font: inherit; cursor: pointer; }
 
 /* The image just made, alone in the strip, with its column beside it from
    1800 px (resultSide): what it refines, Star, Refine…, Reuse, Use seed and
-   Delete in words - ❐ Reference too where the checkpoint takes references -
+   Delete in words - ❐ Reference too where the checkpoint takes references,
+   and on a pass Compare with source -
    its prompt and its facts, in the width a square result left empty. As
    tall as the picture and its row (`contain: size`, stretched), scrolling
    inside itself, so it never sets the strip's height; the live preview and a
@@ -1589,6 +1590,12 @@ button { font: inherit; cursor: pointer; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions > button {
     flex: 0 1 auto; min-width: 0; height: var(--h-tool); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  /* A pass's Compare with source is left out of the row: the row is only as
+     wide as the picture, and with it a portrait pass's 405 px at
+     2048x1040@1.25 cut every word in the row to an ellipsis. The picture
+     opens the lightbox, where S and the toggle compare; with the check
+     closed the column has the button again. */
+  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .compare-source { display: none; }
   .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
     display: block; flex: 1 1 0; min-width: 0; line-height: var(--h-tool); text-align: right;
     color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
