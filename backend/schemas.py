@@ -1045,6 +1045,19 @@ class ModelStatus(BaseModel):
     # sees it change knows the server restarted, and that every job it was
     # following ended with it.
     started_at: float | None = None
+    # The start-up catalogue's name for the running checkpoint (launch.py's
+    # CHECKPOINTS, by exact id), which the page shows: the repository's own
+    # name hid the pinned version - NetaYume v4 read "NetaYume-Lumina-Image-
+    # 2.0", the parent model's - and None off the catalogue, where the page
+    # shows the id's last part. `model_id` stays the public id everywhere it
+    # is stored.
+    model_label: str | None = None
+    # The ids of the jobs queued or running, oldest first. A page watching
+    # none of them otherwise never learned that another tab had a job on the
+    # card - it offered Unload and the critic, and its gallery missed the
+    # images - and one watching its own never learned of a job queued behind
+    # it from elsewhere, or of a queued one cancelled there.
+    active_jobs: list[str] = []
     # The most images one grid may queue, which is also the page size the
     # contact sheet asks for: a matrix with a page boundary through it is a
     # puzzle, so the client reads the ceiling from here rather than assuming it.

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 
 from backend.jobs import JobManager, short_error
 from backend.schemas import GenerateRequest
@@ -114,3 +115,100 @@ def test_short_error_keeps_the_remedy_at_the_end():
     assert len(short) < 400
     assert short.endswith(remedy[-40:])
     assert short.startswith("RuntimeError: CUDA out of memory")
+
+
+async def _statuses_until(manager, job, predicate, timeout=5.0):
+    """The status frames a job's stream carries until one matches."""
+    seen = []
+
+    async def follow():
+        async for event in manager.events(job):
+            if event["type"] == "status":
+                seen.append(event["waiting_on"])
+                if predicate(event):
+                    return
+            if event["type"] == "done":
+                return
+
+    await asyncio.wait_for(follow(), timeout)
+    return seen
+
+
+def test_a_job_behind_a_paused_one_says_so_and_hears_the_resume(store):
+    # A paused job keeps the gate: a job queued behind it from another tab
+    # read "waiting for the job ahead…" all night, with nothing saying the
+    # job ahead was paused - and when it was resumed, nothing said that
+    # either. Its stream is told both, as they happen.
+    async def scenario():
+        manager = JobManager(FakeBackend(step_seconds=0.005))
+        ahead = await manager.submit(
+            GenerateRequest(prompt="x", width=256, height=256, steps=4, runs=4)
+        )
+        manager.pause(ahead.id, True)
+        while not ahead.paused:
+            await asyncio.sleep(0.01)
+        behind = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=2))
+        await asyncio.sleep(0.05)
+        paused = behind.snapshot()["waiting_on"]
+        following = asyncio.create_task(
+            _statuses_until(manager, behind, lambda e: e["waiting_on"] == "queue")
+        )
+        await asyncio.sleep(0.05)
+        manager.pause(ahead.id, False)
+        heard = await following
+        for job in (ahead, behind):
+            async for event in manager.events(job):
+                if event["type"] == "done":
+                    break
+        return paused, heard, behind.snapshot()
+
+    paused, heard, end = asyncio.run(scenario())
+    assert paused == "paused"
+    # The opening snapshot says "paused"; the resume's frame says "queue".
+    assert heard[0] == "paused" and heard[-1] == "queue"
+    assert end["status"] == "done" and end["waiting_on"] is None
+
+
+def test_a_job_behind_an_editor_action_names_it(store):
+    # Behind the prompt critic (or Expand) there is no job ahead at all.
+    async def scenario():
+        manager = JobManager(FakeBackend())
+        release = threading.Event()
+        critic = asyncio.create_task(manager.run_when_idle(release.wait, holder="critic"))
+        while not manager._gate.locked():
+            await asyncio.sleep(0)
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2))
+        await asyncio.sleep(0.05)
+        waiting = job.snapshot()["waiting_on"]
+        release.set()
+        await critic
+        async for event in manager.events(job):
+            if event["type"] == "done":
+                break
+        held = manager._holder
+        await manager.shutdown()
+        return waiting, job.status, held
+
+    assert asyncio.run(scenario()) == ("critic", "done", None)
+
+
+def test_a_shutdown_says_it_stopped_the_job(store):
+    # The server stopping ends a job through the cancel path, and a page
+    # read that as a Cancel pressed in some other tab. `stopped_by` says it
+    # was the shutdown; a user's own cancel leaves it unset.
+    async def scenario():
+        manager = JobManager(FakeBackend(step_seconds=0.01))
+        cancelled = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=50))
+        await asyncio.sleep(0.05)
+        manager.cancel(cancelled.id)
+        async for event in manager.events(cancelled):
+            if event["type"] == "done":
+                break
+        stopped = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=50))
+        await asyncio.sleep(0.05)
+        await manager.shutdown()
+        return cancelled.snapshot(), stopped.snapshot()
+
+    by_user, by_shutdown = asyncio.run(scenario())
+    assert by_user["status"] == "cancelled" and by_user["stopped_by"] is None
+    assert by_shutdown["status"] == "cancelled" and by_shutdown["stopped_by"] == "shutdown"

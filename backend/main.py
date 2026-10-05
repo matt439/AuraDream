@@ -113,6 +113,13 @@ def _hub_failure(exc: BaseException) -> str | None:
     return None
 
 
+def _catalogue_label(repo: str) -> str | None:
+    """The start-up menu's name for a checkpoint, by its exact id - "NetaYume
+    Lumina v4", where the repository's own name is the parent model's - or
+    None off the catalogue, where the page shows the id's last part."""
+    return next((checkpoint.name for checkpoint in CHECKPOINTS if checkpoint.repo == repo), None)
+
+
 def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
     """What the status says about a failed load: the sentence, with the steps
     that fix it; its kind ("gated", "not_found", "offline"); and the model page
@@ -359,6 +366,11 @@ async def status() -> ModelStatus:
         detail_kind=_load_state.get("detail_kind") if _load_state["detail"] else None,
         detail_url=_load_state.get("detail_url") if _load_state["detail"] else None,
         started_at=STARTED_AT,
+        model_label=_catalogue_label(info["model_id"]),
+        # The live jobs' ids, oldest first: a page watching none of them
+        # learns another tab's job holds the card, and one watching its own
+        # learns of jobs queued behind it from elsewhere or gone since.
+        active_jobs=[job.id for job in jobs.active()],
         device_name=info.get("device_name"),
         vram_total_mb=info.get("vram_total_mb"),
         vram_used_mb=info.get("vram_used_mb"),
@@ -702,7 +714,8 @@ async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
         raise HTTPException(status_code=422, detail="the loaded pipeline has no prompt expander")
     try:
         expanded = await jobs.run_when_idle(
-            lambda: backend.expand_prompt(request.prompt, request.width, request.height)
+            lambda: backend.expand_prompt(request.prompt, request.width, request.height),
+            holder="expand",
         )
     except BackendBusy as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -1104,7 +1117,8 @@ async def critique_prompt(request: PromptAnalysisRequest) -> PromptCritique:
     # than the critic's own download may.
     try:
         critique = await jobs.run_when_idle(
-            lambda: prompt_critic.critique(model_id, request, applied, analysis)
+            lambda: prompt_critic.critique(model_id, request, applied, analysis),
+            holder="critic",
         )
     except BackendBusy as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -1706,8 +1720,7 @@ class Server(uvicorn.Server):
     """
 
     def handle_exit(self, sig, frame) -> None:
-        for job in jobs.active():
-            job.cancel_requested = True
+        jobs.stop_all("shutdown")
         threading.Thread(target=_stop_critic, daemon=True, name="critic-stop").start()
         super().handle_exit(sig, frame)
 
