@@ -461,6 +461,168 @@ def test_the_fit_goes_unchecked_where_no_config_can_be_read(lora_dir, monkeypatc
     assert backend.lora_mismatch("style.safetensors") is None
 
 
+@pytest.fixture
+def cpu_settings(monkeypatch):
+    """A load the tests can run: no quantization, no offload, the CPU."""
+    monkeypatch.setattr(
+        backend_module, "settings",
+        dataclasses.replace(backend_module.settings, quantization="none", offload="none", device="cpu"),
+    )
+
+
+def _held_build(monkeypatch):
+    """The fit's meta-device build held open inside accelerate's patch until
+    `release` is set; `entered` says it is in there."""
+    import threading
+
+    from diffusers import FluxTransformer2DModel
+
+    entered, release = threading.Event(), threading.Event()
+    build = FluxTransformer2DModel.from_config
+
+    def held(cls, config, **kwargs):
+        entered.set()
+        assert release.wait(10)
+        return build(config, **kwargs)
+
+    monkeypatch.setattr(FluxTransformer2DModel, "from_config", classmethod(held))
+    return entered, release
+
+
+def test_a_load_waits_for_the_fits_meta_build_and_never_runs_under_its_patch(
+    lora_dir, tiny_flux, cpu_settings, monkeypatch,
+):
+    # accelerate's init_empty_weights replaces Module.register_parameter for
+    # every thread while the fit's skeleton is built: a load beside it had
+    # torchao's fp8 weights moved to meta as it registered them, and failed
+    # (`Float8Tensor.__new__() got multiple values for argument 'qdata'`).
+    import threading
+
+    import diffusers
+    import torch
+
+    original = torch.nn.Module.register_parameter
+    entered, release = _held_build(monkeypatch)
+    reached = threading.Event()
+    seen = {}
+
+    def from_pretrained(*args, **kwargs):
+        reached.set()
+        seen["patched"] = torch.nn.Module.register_parameter is not original
+        seen["device"] = torch.nn.Linear(2, 2).weight.device.type
+        return KleinLikePipeline()
+
+    monkeypatch.setattr(diffusers.DiffusionPipeline, "from_pretrained", from_pretrained)
+    listing = threading.Thread(target=lambda: seen.setdefault("fit", loading_denoiser()))
+    listing.start()
+    assert entered.wait(10)
+    backend = DiffusersBackend()
+    load = threading.Thread(target=backend.load)
+    load.start()
+    # The build is short; the load waits it out rather than start under it.
+    assert not reached.wait(0.5)
+    release.set()
+    listing.join(10)
+    load.join(10)
+    assert reached.is_set() and backend.is_ready()
+    assert seen["patched"] is False and seen["device"] == "cpu"
+    assert seen["fit"].layers["transformer_blocks.0.attn.to_q"] == (16, 16)
+    assert torch.nn.Module.register_parameter is original
+
+
+def loading_denoiser():
+    from backend.backends import loading
+
+    return loading.denoiser("any/id")
+
+
+def test_a_fit_asked_during_a_load_goes_unchecked_rather_than_wait(
+    lora_dir, tiny_flux, cpu_settings, monkeypatch,
+):
+    # The other way round, the load is minutes: the listing does not wait it
+    # out, and builds nothing under it - the adapter is listed unchecked, as
+    # for a config out of reach, and the live denoiser answers after.
+    import threading
+    import time
+
+    import diffusers
+    import torch
+
+    original = torch.nn.Module.register_parameter
+    started, finish = threading.Event(), threading.Event()
+    seen = {}
+    pipe = FitPipeline()
+
+    def from_pretrained(*args, **kwargs):
+        started.set()
+        assert finish.wait(10)
+        seen["patched"] = torch.nn.Module.register_parameter is not original
+        return pipe
+
+    monkeypatch.setattr(diffusers.DiffusionPipeline, "from_pretrained", from_pretrained)
+    built = []
+    monkeypatch.setattr(
+        diffusers.FluxTransformer2DModel, "from_config",
+        classmethod(lambda cls, config, **kwargs: built.append(config)),
+    )
+    _adapter(lora_dir / "other.safetensors", {"transformer_blocks.7.attn.to_q": (16, 16)})
+    backend = DiffusersBackend()
+    load = threading.Thread(target=backend.load)
+    load.start()
+    assert started.wait(10)
+    began = time.monotonic()
+    assert backend.lora_mismatch("other.safetensors") is None
+    assert time.monotonic() - began < 2
+    assert built == [] and backend._denoiser_cache == ("configs", None)
+    finish.set()
+    load.join(10)
+    assert backend.is_ready() and seen["patched"] is False
+    # Asked again once loaded: the live denoiser has no block 7.
+    assert "FluxTransformer2DModel has not got" in backend.lora_mismatch("other.safetensors")
+    assert built == []
+
+
+def test_two_meta_builds_never_overlap(lora_dir, tiny_flux):
+    # Each build puts back what it found on entry: overlapping, the one that
+    # left last restored the other's patch, and every parameter registered
+    # in the process from then on - the next load's - went to meta.
+    import threading
+
+    import torch
+    from diffusers import FluxTransformer2DModel
+
+    original = torch.nn.Module.register_parameter
+    calls = []
+    entered, release = threading.Event(), threading.Event()
+    build = FluxTransformer2DModel.from_config
+
+    def held(cls, config, **kwargs):
+        calls.append(threading.current_thread().name)
+        if len(calls) == 1:
+            entered.set()
+            assert release.wait(10)
+        return build(config, **kwargs)
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(FluxTransformer2DModel, "from_config", classmethod(held))
+    try:
+        first = threading.Thread(target=loading_denoiser, name="first")
+        second = threading.Thread(target=loading_denoiser, name="second")
+        first.start()
+        assert entered.wait(10)
+        second.start()
+        second.join(0.5)
+        # Waiting its turn, not building inside the first one's patch.
+        assert second.is_alive() and calls == ["first"]
+        release.set()
+        first.join(10)
+        second.join(10)
+    finally:
+        mp.undo()
+    assert calls == ["first", "second"]
+    assert torch.nn.Module.register_parameter is original
+
+
 def test_a_single_file_checkpoint_is_read_from_its_cached_conversion(tmp_path, monkeypatch):
     from backend.backends import single_file
 

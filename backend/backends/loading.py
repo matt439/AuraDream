@@ -13,6 +13,9 @@ import importlib.util
 import json
 import logging
 import sys
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -64,6 +67,72 @@ UNUSED_COMPONENTS: dict[str, tuple[str, ...]] = {
 # The page names the download before it is started (`ModelStatus.prompt_expander`).
 PROMPT_EXPANDER_WEIGHTS = "pe/model.safetensors"
 PROMPT_EXPANDER_BYTES = 7_663_346_520
+
+# accelerate's `init_empty_weights()`, which builds the adapter fit's
+# denoiser on the meta device (`denoiser`), works by replacing
+# `torch.nn.Module.register_parameter` - for the whole process, every thread,
+# while it lasts - and puts back whatever it found on entry. A load on another
+# thread meanwhile had its parameters moved to meta as torchao registered
+# them (`Float8Tensor.__new__() got multiple values for argument 'qdata'`,
+# three loads out of three pressed within seconds of opening the page on
+# WAI), and two of those builds overlapping can leave the patch in place for
+# good: the one that leaves last restores the other's patch. So they never
+# overlap a load or each other. A load waits for a build in progress, which
+# takes tens of milliseconds; a build asked for while a load runs - minutes -
+# does not wait but raises `LoadInProgress`, and the fit goes unchecked until
+# the load, as for a config out of reach. The conversions the load runs
+# (Anima, NetaYume, NewBie, Illustrious, WAI) patch the same way inside it,
+# under the load's own hold. Every other weight load in the process - Expand's
+# rewriter, the translator - runs with the pipeline loaded, when the fit reads
+# the live denoiser and builds nothing.
+_weights_guard = threading.Condition()
+_loads_running = 0
+_skeleton_building = False
+
+
+class LoadInProgress(RuntimeError):
+    """A meta-device build asked for while a load holds the weights guard."""
+
+
+@contextmanager
+def weights_loading() -> Iterator[None]:
+    """Held across a load: no meta-device build starts until it ends, and one
+    already under way is waited out first."""
+    global _loads_running
+    with _weights_guard:
+        _loads_running += 1
+        while _skeleton_building:
+            _weights_guard.wait()
+    try:
+        yield
+    finally:
+        with _weights_guard:
+            _loads_running -= 1
+            _weights_guard.notify_all()
+
+
+@contextmanager
+def empty_weights() -> Iterator[None]:
+    """accelerate's `init_empty_weights()`, one at a time and never beside a
+    load (above); raises `LoadInProgress` rather than wait a load out."""
+    global _skeleton_building
+    from accelerate import init_empty_weights
+
+    with _weights_guard:
+        while True:
+            if _loads_running:
+                raise LoadInProgress("a model load is in progress")
+            if not _skeleton_building:
+                break
+            _weights_guard.wait()
+        _skeleton_building = True
+    try:
+        with init_empty_weights():
+            yield
+    finally:
+        with _weights_guard:
+            _skeleton_building = False
+            _weights_guard.notify_all()
 
 
 def prompt_expander_cached(model_id: str) -> bool:
@@ -347,8 +416,9 @@ def denoiser(model_id: str) -> "loras.Denoiser":
     Linear's width, not one byte of weights, in tens of milliseconds - which
     is what lets the adapter listing and the submit check answer before the
     load. The live denoiser, once there is one, is the same map read off the
-    real thing. Raises when a config is out of reach; the caller decides what
-    an unanswered question means.
+    real thing. Raises when a config is out of reach, or while a load runs
+    (`LoadInProgress`, `empty_weights`); the caller decides what an
+    unanswered question means.
     """
     from .. import loras
 
@@ -360,11 +430,10 @@ def denoiser(model_id: str) -> "loras.Denoiser":
     with open(hub_file(model_id, f"{component}/config.json"), encoding="utf-8") as fh:
         config = json.load(fh)
     import diffusers
-    from accelerate import init_empty_weights
 
     pipeline = getattr(diffusers, index["_class_name"])
     model_cls = getattr(diffusers, index[component][1])
-    with init_empty_weights():
+    with empty_weights():
         module = model_cls.from_config(config)
     return loras.Denoiser.of(pipeline, component, module)
 

@@ -22,6 +22,7 @@ import inspect
 import logging
 import threading
 import time
+from contextlib import ExitStack
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
@@ -96,9 +97,13 @@ class DiffusersBackend(GenerationBackend):
     # ---------------------------------------------------------------- loading
 
     def load(self) -> None:
-        with self._lock:
+        with self._lock, ExitStack() as held:
             if self._pipe is not None:
                 return
+            # No meta-device build beside the load (`loading.weights_loading`):
+            # the adapter fit's patches every module's parameters process-wide.
+            # The conversions below run inside the hold.
+            held.enter_context(loading.weights_loading())
             import torch
             from diffusers import DiffusionPipeline
 
@@ -438,7 +443,8 @@ class DiffusersBackend(GenerationBackend):
         """What an adapter must fit: the live denoiser, else the configs'.
 
         None when neither can be read - a gated repo without a token, a
-        single-file checkpoint not yet converted - and then the fit goes
+        single-file checkpoint not yet converted, a load under way (the
+        meta-device build waits for none: `loading.empty_weights`) - and then the fit goes
         unchecked rather than refused: the load that follows either fixes
         the answer or fails with the real reason. An unanswered question is
         asked again on the next call; an answered one is kept.
