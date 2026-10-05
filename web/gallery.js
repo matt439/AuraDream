@@ -239,6 +239,11 @@ function card(rec) {
 
   const tools = document.createElement('div');
   tools.className = 'tools';
+  // What the card is, just over its tools on hover and keyboard focus -
+  // "#12 · 1024×1024 · seed 5" - which style.css draws from these, as it
+  // does the tools' names, with empty alt text: the image's label and title
+  // say it already. A pseudo-element, so the row's children stay its tools.
+  Object.assign(tools.dataset, { n: rec.id, size: `${rec.width}×${rec.height}`, seed: rec.seed });
   tools.append(
     reuseButton(rec, true),
     refine,

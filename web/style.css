@@ -1959,6 +1959,23 @@ button { font: inherit; cursor: pointer; }
   font-size: var(--fs-label); white-space: nowrap; pointer-events: none;
 }
 .card .tools .del:is(:hover, :focus-visible)::after { left: auto; right: 6px; }
+/* What the card is - "#12 · 1024×1024 · seed 5" - just over its tools on
+   hover and keyboard focus, where the names show: the image's title said it
+   a second late, and never to a keyboard. Drawn from the row's data
+   attributes, as the names are from theirs (card()), with empty alt text -
+   hidden from a screen reader, as Generate's Ctrl+Enter is, since the
+   image's label and title say it. A tool's name takes its place while one
+   shows. A narrow card breaks it before "seed", never inside the seed, and
+   the pointer goes through it to the image. */
+.card .tools::before {
+  content: "#" attr(data-n) "\00a0· " attr(data-size) "\00a0· seed\00a0" attr(data-seed) / "";
+  display: none; position: absolute; left: 6px; bottom: 100%; max-width: calc(100% - 12px);
+  padding: 2px 6px; border-radius: var(--r-xs);
+  background: rgba(0, 0, 0, 0.85); color: #fff;
+  font-size: var(--fs-label); font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.card:is(:hover, :focus-within) .tools::before { display: block; }
+.card .tools:has(> button:is(:hover, :focus-visible))::before { visibility: hidden; }
 /* A tool this checkpoint cannot use, or ❐ with four references taken: the
    glyph dimmed and no lit hover, as the lightbox's Refine - aria-disabled, so
    it keeps its tab stop and a press still says why. The glyph's colour rather
