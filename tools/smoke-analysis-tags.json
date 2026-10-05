@@ -103,8 +103,22 @@
   {"expect": "__until(() => !critiquing && critiqueResult !== null)"},
   {"eval": "scrollTo(0, 0); els.promptAnalysis.scrollTop = 0;"},
   {"log": "(() => { const p = els.promptAnalysis.getBoundingClientRect(); const c = els.tagValidation.getBoundingClientRect(); return { chips: [c.top, c.bottom], check: [p.top, p.bottom], scroll: [els.promptAnalysis.scrollHeight, els.promptAnalysis.clientHeight], viewer: els.viewer.getBoundingClientRect().top, image: __img().getBoundingClientRect().top, window: innerHeight }; })()"},
-  {"expect": "(() => { const p = els.promptAnalysis; const r = p.getBoundingClientRect(); const c = els.tagValidation.getBoundingClientRect(); const v = els.viewer.getBoundingClientRect(); const floor = 12 * parseFloat(getComputedStyle(document.documentElement).fontSize); return innerWidth < 1800 && p.parentElement === els.tagValidationWide && c.height > 100 && r.top >= c.bottom && getComputedStyle(p).overflowY === 'auto' && p.scrollHeight > p.clientHeight + 100 && r.height <= Math.max(floor, innerHeight * 0.55 - c.height) + 1 && v.top > r.bottom && v.top < innerHeight * 0.75 && __img().getBoundingClientRect().top < innerHeight * 0.75; })()"},
+  {"expect": "(() => { const p = els.promptAnalysis; const r = p.getBoundingClientRect(); const c = els.tagValidation.getBoundingClientRect(); const v = els.viewer.getBoundingClientRect(); const rem = parseFloat(getComputedStyle(document.documentElement).fontSize), floor = Math.min(12 * rem, Math.max(8 * rem, innerHeight * 0.15)); return innerWidth < 1800 && p.parentElement === els.tagValidationWide && c.height > 100 && r.top >= c.bottom && getComputedStyle(p).overflowY === 'auto' && p.scrollHeight > p.clientHeight + 100 && r.height <= Math.max(floor, innerHeight * 0.55 - c.height) + 1 && v.top > r.bottom && v.top < innerHeight * 0.75 && __img().getBoundingClientRect().top < innerHeight * 0.75; })()"},
   {"eval": "els.promptAnalysis.scrollTop = els.promptAnalysis.scrollHeight;"},
   {"expect": "(() => { const p = els.promptAnalysis; const r = p.getBoundingClientRect(); const head = p.querySelector('.analysis-head').getBoundingClientRect(); const close = els.analysisClose.getBoundingClientRect(); return p.scrollTop > 100 && Math.abs(head.top - r.top) <= 2 && document.elementFromPoint(close.left + close.width / 2, close.top + close.height / 2) === els.analysisClose; })()"},
-  {"eval": "closeAnalysis(); scrollTo(0, 0);"}
+  {"eval": "closeAnalysis(); scrollTo(0, 0);"},
+
+  {"viewport": [1280, 720, 1]},
+  {"log": "'At 1280x720 the cap\\'s least is 15% of the window between 8rem and 12rem, not a fixed 12rem: beside 40 tags\\' chips the check keeps its head and a few lines of findings, scrolling under it, and the image just made starts in the top three quarters of the window (at 12rem it started at 0.80 of it)'"},
+  {"eval": "scrollTo(0, 0); els.analyze.click();"},
+  {"expect": "__until(() => !els.promptAnalysis.hidden && analysisResult?.source === __tags(40) && !analysisStale)"},
+  {"eval": "els.criticAsk.click();"},
+  {"expect": "__until(() => !critiquing && critiqueResult !== null)"},
+  {"eval": "scrollTo(0, 0); els.promptAnalysis.scrollTop = 0;"},
+  {"log": "(() => { const p = els.promptAnalysis.getBoundingClientRect(); const c = els.tagValidation.getBoundingClientRect(); return { chips: [c.top, c.bottom], check: [p.top, p.bottom], cap: getComputedStyle(els.promptAnalysis).maxHeight, image: __img().getBoundingClientRect().top, window: innerHeight }; })()"},
+  {"expect": "(() => { const p = els.promptAnalysis; const r = p.getBoundingClientRect(); const c = els.tagValidation.getBoundingClientRect(); const rem = parseFloat(getComputedStyle(document.documentElement).fontSize); const least = Math.min(12 * rem, Math.max(8 * rem, innerHeight * 0.15)); return innerHeight === 720 && c.height > 150 && r.top >= c.bottom && getComputedStyle(p).overflowY === 'auto' && p.scrollHeight > p.clientHeight + 100 && r.height >= 8 * rem - 1 && r.height <= Math.max(least, innerHeight * 0.55 - c.height) + 1 && __img().getBoundingClientRect().top < innerHeight * 0.75; })()"},
+  {"eval": "els.promptAnalysis.scrollTop = els.promptAnalysis.scrollHeight;"},
+  {"expect": "(() => { const p = els.promptAnalysis; const r = p.getBoundingClientRect(); const head = p.querySelector('.analysis-head').getBoundingClientRect(); const close = els.analysisClose.getBoundingClientRect(); return p.scrollTop > 100 && Math.abs(head.top - r.top) <= 2 && document.elementFromPoint(close.left + close.width / 2, close.top + close.height / 2) === els.analysisClose; })()"},
+  {"eval": "closeAnalysis(); scrollTo(0, 0);"},
+  {"viewport": [1400, 900, 1]}
 ]
