@@ -333,7 +333,7 @@ main {
   /* `position: sticky` makes this its own stacking context, so a tooltip inside
      it cannot out-z-index anything outside it however high it climbs - and the
      gallery's cards are `position: relative` and later in the document, so they
-     painted straight over the help panels. The whole aside has to sit above the
+     painted straight over the help panels. The whole panel has to sit above the
      stage instead. Below the topbar's 20 and the lightbox's 50, which both
      legitimately cover it. */
   z-index: 10;
