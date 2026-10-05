@@ -1245,6 +1245,28 @@ async def run_grid(request: GridRequest) -> JobAccepted:
     return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 
+def _foreign_refusal(count: int, foreign: list[str]) -> str:
+    """Re-render's refusal of a selection that reaches other checkpoints, with the way out.
+
+    Unticking All models is the exact way: the gallery's scope is the running
+    id itself (`_model_scope`). The search box's `model:` is a substring, so
+    it is offered only where the running id, whole, is in none of the other
+    ids selected - and only then does adding it leave them out. The id's tail
+    was offered, and `model:Anima` is Animagine too; nor is the whole id safe
+    everywhere (`Qwen/Qwen-Image` is in `Qwen/Qwen-Image-Edit`).
+    """
+    running = settings.model_id
+    narrows = not any(ch.isspace() for ch in running) and not any(
+        running.lower() in other.lower() for other in foreign
+    )
+    search = f", or add model:{running} to the search" if narrows else ""
+    return (
+        f"{count} of the selected images {'was' if count == 1 else 'were'} made on "
+        f"{', '.join(foreign)}; the server is running {running}, whose steps, CFG and mu "
+        f"differ. Untick All models{search}."
+    )
+
+
 @app.post("/api/rerender", response_model=JobAccepted)
 async def rerender(request: RerenderRequest) -> JobAccepted:
     """Queue the gallery's current selection again at another size, as one job.
@@ -1284,13 +1306,8 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
     # `all_models`: the scope keeps them out of the selection otherwise.
     foreign = sorted({r.model_id for r in records if r.model_id != settings.model_id})
     if foreign:
-        raise HTTPException(
-            status_code=422,
-            detail=f"{sum(r.model_id != settings.model_id for r in records)} of the selected images "
-            f"were made on {', '.join(foreign)}; the server is running {settings.model_id}, whose "
-            f"steps, CFG and mu differ. Untick All models, or add "
-            f"model:{settings.model_id.split('/')[-1]} to the search.",
-        )
+        count = sum(r.model_id != settings.model_id for r in records)
+        raise HTTPException(status_code=422, detail=_foreign_refusal(count, foreign))
     # Oldest first, so the re-render lands in the order the originals did.
     cells = [
         grid.Cell(
