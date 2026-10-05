@@ -470,7 +470,7 @@ async function refreshStatus() {
     // same name every three seconds was a new node to read out at every
     // poll, all session long. Its id is the title.
     const name = checkpointName(s.model_id);
-    const line = s.state === 'ready' ? `${name}${elsewhereBusy ? " · another tab's job running" : ''}`
+    const line = s.state === 'ready' ? `${name}${elsewhereBusy ? ' · busy in another tab' : ''}`
       : s.state === 'loading' ? `${name} · loading…`
       : s.state === 'error' ? `${name} · load failed`
       : `${name} · not loaded`;

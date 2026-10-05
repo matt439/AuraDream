@@ -274,7 +274,7 @@
   {"expect": "__until(() => __b('loadedModel') === 'krea/Krea-2-Turbo' && __b('typeof startJob') === 'function' && !__b('busy'))"},
   {"eval": "__b(\"showError(''); els.prompt.value = 'B: a tractor'; els.steps.value = '8'; els.runs.value = '4'; syncRuns(); void startJob('/api/generate', collect());\")"},
   {"expect": "__until(() => elsewhereBusy && els.unload.getAttribute('aria-disabled') === 'true')"},
-  {"expect": "!busy && els.progress.hidden && els.unload.title === 'A job started in another tab or window is running; Unload once it ends' && els.statusText.textContent === \"Krea 2 Turbo · another tab's job running\" && els.generate.getAttribute('aria-disabled') === 'false' && els.criticAsk.getAttribute('aria-disabled') === 'true' && els.criticAsk.title.startsWith('A job started in another tab or window is running')"},
+  {"expect": "!busy && els.progress.hidden && els.unload.title === 'A job started in another tab or window is running; Unload once it ends' && els.statusText.textContent === 'Krea 2 Turbo · busy in another tab' && els.generate.getAttribute('aria-disabled') === 'false' && els.criticAsk.getAttribute('aria-disabled') === 'true' && els.criticAsk.title.startsWith('A job started in another tab or window is running')"},
   {"eval": "els.unload.focus(); els.unload.click();"},
   {"expect": "document.activeElement === els.unload && els.error.textContent === els.unload.title && els.error.classList.contains('note')"},
   {"expect": "__until(() => !elsewhereBusy && !__b('busy') && galleryRecords.filter((r) => r.prompt === 'B: a tractor').length === 4, 40000)"},
