@@ -312,28 +312,31 @@
          seed it starts from, how many at once and how many times. Repeat is
          the request's `runs`: batches one after another. Named apart from a
          run, which is a submission - the gallery's Runs picker, the run:
-         search, the last-run banner. The dice beside the box it clears. A
-         seed is 16 digits: where the row cannot give the box their width
-         beside the counters (a 330 px panel), Seed and the dice keep the
-         line and the counters wrap under them, the run hint beside them
-         (style.css, .output-row). -->
+         search, the last-run banner. A seed is 16 digits, and the box has
+         the row's width less the counters' for them: the dice that clears it
+         sits in its name's line, as the ? badges do (style.css, #btn-dice),
+         where in the row it took the room of six digits. A <div> with
+         <label for>, not a <label> round it all: a button inside a label
+         becomes the label's control. -->
     <div class="field" role="group" aria-labelledby="output-caption">
       <span id="output-caption">Output</span>
-      <div class="row output-row">
-        <label class="sub grow"><i>Seed</i><input type="number" id="seed" placeholder="random" min="0"></label>
-        <button class="ghost square" id="btn-dice" title="Clear seed (randomize)" aria-label="Clear the seed, so the next run draws a random one">🎲</button>
-        <div class="counts">
-          <div class="sub narrow">
-            <i><label for="batch">Batch</label>
-              <span class="help" tabindex="0" role="note" aria-label="Batch help" aria-describedby="batch-tip">?<span
-                class="tip" id="batch-tip">Images rendered at once, all held in VRAM. For many
-                2 MP+ images raise Repeat instead: same VRAM, more time.</span></span></i>
-            <input type="number" id="batch" value="1" min="1" max="12" aria-describedby="batch-tip">
-          </div>
-          <label class="sub narrow"><i>Repeat</i><input type="number" id="runs" value="1" min="1" max="64"></label>
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="seed">Seed</label>
+            <button type="button" class="ghost" id="btn-dice" title="Clear seed (randomize)"
+                    aria-label="Clear the seed, so the next run draws a random one">🎲</button></i>
+          <input type="number" id="seed" placeholder="random" min="0">
         </div>
-        <p class="hint" id="run-hint"></p>
+        <div class="sub narrow">
+          <i><label for="batch">Batch</label>
+            <span class="help" tabindex="0" role="note" aria-label="Batch help" aria-describedby="batch-tip">?<span
+              class="tip" id="batch-tip">Images rendered at once, all held in VRAM. For many
+              2 MP+ images raise Repeat instead: same VRAM, more time.</span></span></i>
+          <input type="number" id="batch" value="1" min="1" max="12" aria-describedby="batch-tip">
+        </div>
+        <label class="sub narrow"><i>Repeat</i><input type="number" id="runs" value="1" min="1" max="64"></label>
       </div>
+      <p class="hint" id="run-hint"></p>
     </div>
 
     <button class="primary" id="btn-generate" title="Generate (Ctrl+Enter)"
