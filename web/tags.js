@@ -1190,9 +1190,10 @@ function syncTagVocabulary() {
 // left, the check on the right; CSS only, this DOM order unchanged) - and back
 // under the prompt at 900 px and below, where the page is one scrolling
 // column anyway. On a two-column page each has a host of its own, the chips'
-// first (`#tag-chips-wide`, `#tag-validation-wide`): the docked grid orders
-// Tab by its rows, and a host shared by both was one item at the chips' row,
-// which took Tab through the check before the image beside it. The move
+// first (`#tag-chips-wide`, `#tag-validation-wide`): the docked grid moves
+// the check's host to just before the gallery in its reading order, and a
+// host shared by both was one item, read at the chips' place, which took Tab
+// through the check before the image beside it. The move
 // keeps focus where it was - a
 // window crossing 901 px under someone typing in Your version or on a chip
 // otherwise sent it to <body> with the next keystroke: moveBefore keeps it

@@ -1124,7 +1124,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    viewer, not above it. With no chips there is no row for them - an empty
    one kept its gap, and opening the check moved the image down by it.
    CSS alone, so the DOM
-   order placeTagValidation keeps - chips, then the check, in the wide host -
+   order placeTagValidation keeps - chips, then the check, a wide host each -
    is unchanged, and without :has() the check stays above the viewer.
    Not with the gallery beside the viewer (`.stage.beside`): there the rules
    that lay the stage out around the check carry `:not(.beside)`, and the
@@ -1132,23 +1132,31 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    in the width left of that column it halved the image just made. The
    rules of the check's own box and head below have no such guard: they are
    the check's in either place.
-   Tab follows the grid's rows as they are drawn (`reading-flow`, where the
-   browser has it; the DOM order elsewhere): the image just made, on the
-   left, then the check beside it, then the gallery. In the DOM order the
-   check's fifteen-odd stops came first, and the image was the 41st stop from
-   the prompt, against the 26th with the check closed. Still CSS alone. The
-   chips and the check share their host (display: contents), which the
-   browser orders as one item where its first child is drawn - the chips'
-   row - so on a tag checkpoint with chips Tab still goes chips, check,
-   image. */
+   Tab goes as the dock is drawn, column by column (`reading-flow`, where the
+   browser has it; the DOM order elsewhere): the chips, the image just made
+   and its tools, its note (a pass's "Refined from #N"), #recent where it
+   docks between, then the check at the right, then the gallery - the DOM
+   order with the check's host moved to just before the gallery
+   (`reading-order`). In the DOM order the check's fifteen-odd stops came
+   first, and the image was the 41st stop from the prompt, against the 26th
+   with the check closed; by the grid's rows the note under the image came
+   after the whole check, which starts in the image's row. Still CSS alone.
+   The browser orders a `display: contents` host as one item, so the chips
+   and the check have a host each (index.html): in one shared host Tab went
+   chips, check, image whatever the order asked. The reading order is the
+   accessibility tree's too, and it reads what is out of the flow after
+   every item - so the stage has no unseen heading of its own (`.sr-only`,
+   above). */
 @media (min-width: 1800px) {
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--dock-w);
     grid-template-rows: auto auto 1fr;
     align-items: start;
-    reading-flow: grid-rows;
+    reading-flow: source-order;
   }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #tag-validation-wide { reading-order: 1; }
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .library { reading-order: 2; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > * { grid-column: 1 / -1; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / -1; grid-row: 1; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
