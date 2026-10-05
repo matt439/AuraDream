@@ -1006,6 +1006,11 @@ class PromptGuide(BaseModel):
     # without a loose ratio tolerance aliasing 16:9 to nearby 7:4.
     resolutions: list[tuple[int, int]] | None = None
     examples: list[str] = Field(default_factory=list)
+    # The authors' template slots in those examples - Z-Anime's "[character]",
+    # NewBie's "$character_1$" - as the placeholder rule's patterns, matched
+    # case-insensitively: the menu says "fill in" beside an example holding
+    # one, and a pick selects the first, so typing replaces it.
+    slots: list[str] = Field(default_factory=list)
     # Null for prose checkpoints. When present the UI exposes only vocabulary
     # the checkpoint authors documented, while the prompt stays freely editable.
     tag_helper: PromptTagHelper | None = None

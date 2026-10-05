@@ -219,13 +219,16 @@ def _examples():
 
 @pytest.mark.parametrize("repo, example", list(_examples()))
 def test_the_authors_examples_raise_no_warning(repo, example):
-    # An author's own prompt should pass its own guide. Two are templates:
-    # Z-Anime's [character] and NewBie's $character_N$ are slots the author
-    # left for a name, and a slot left unfilled reaches the encoder as
-    # literal text - the one warning those examples are meant to raise.
+    # An author's own prompt should pass its own guide. Some are templates:
+    # Z-Anime's [character] and [location], NewBie's $character_N$ are slots
+    # the author left to fill, and a slot left unfilled reaches the encoder as
+    # literal text - the one warning those examples are meant to raise. The
+    # slots are the guide's own (`guide_for`'s `slots`, what the page reads).
     findings = run(repo, example)
     warnings = [finding for finding in findings if finding.severity == "warn"]
-    if repo in (Z_ANIME, NEWBIE) and ("[character]" in example or "$character_" in example):
+    slots = guide_for(repo)["slots"]
+    if any(re.search(pattern, example, re.IGNORECASE) for pattern in slots):
+        assert repo in (Z_ANIME, NEWBIE)
         assert warnings and all(finding.rule == "author.placeholder" for finding in warnings)
         assert all(finding.source == "author" for finding in warnings)
     else:
@@ -1025,6 +1028,21 @@ def test_a_recommended_negative_prompt():
     assert only(run(KOHAKU, "1girl"), "guide.negative_prompt") == []
 
 
+def test_z_anime_recommends_a_negative_prompt():
+    # Its guide: "Use a negative prompt for unwanted features; Base supports
+    # it fully." The card names no text to use, so nothing to Apply.
+    prompt = "A girl with silver hair stands under cherry blossoms. Soft light falls on her."
+    [finding] = only(run(Z_ANIME, prompt, guidance_scale=4), "guide.negative_prompt")
+    assert finding.field == "negative_prompt" and finding.severity == "info"
+    assert finding.suggestion is None and finding.message.startswith("No negative prompt runs")
+    assert silent(Z_ANIME, prompt, "guide.negative_prompt", negative_prompt="blurry", guidance_scale=4)
+    # At CFG 0 a typed one does not run, and the note says so.
+    [idle] = only(run(Z_ANIME, prompt, negative_prompt="blurry", guidance_scale=0), "guide.negative_prompt")
+    assert "does not run" in idle.message
+    # The undistilled Z-Image's card calls one optional: no note there.
+    assert silent("Tongyi-MAI/Z-Image", prompt, "guide.negative_prompt", guidance_scale=4)
+
+
 def test_references_are_named_when_there_are_several():
     prompt = "Put the jacket on the man"
     [finding] = only(run(KLEIN, prompt, reference=[1, 2]), "guide.references")
@@ -1195,9 +1213,56 @@ def test_placeholders_are_the_authors_slots():
     findings = only(run(NEWBIE, example), "author.placeholder")
     assert [spanned(example, f) for f in findings] == ["$character_1$", "$character_2$"]
     assert all(f.source == "author" and f.cite in example for f in findings)
+    # Each quotes its own slot's line, not the first slot's.
+    assert [f.cite for f in findings] == ["<n>$character_1$</n>", "<n>$character_2$</n>"]
     filled = example.replace("$character_1$", "miku").replace("$character_2$", "teto")
     assert silent(NEWBIE, filled, "author.placeholder")
-    assert only(run(Z_ANIME, "Portrait of [character], soft light"), "author.placeholder")
+    [character] = only(run(Z_ANIME, "Portrait of [character], soft light"), "author.placeholder")
+    assert "put the character's name or description there" in character.message
+    # The card's landscape template's four slots, each cited from it.
+    template = guides.Z_ANIME_GUIDE["examples"][1]
+    slots = only(run(Z_ANIME, template), "author.placeholder")
+    assert [spanned(template, f) for f in slots] == [
+        "[location]", "[time of day]", "[lighting]", "[atmosphere]"
+    ]
+    assert all(f.cite == "Anime [location] at [time of day], [lighting], [atmosphere]" for f in slots)
+    assert all("put what it stands for there" in f.message for f in slots)
+    # A slot no example of the guide's has quotes the entry's own cite.
+    [third] = only(run(NEWBIE, "<character_3><n>$character_3$</n></character_3>"), "author.placeholder")
+    assert third.cite == "<n>$character_1$</n>"
+
+
+@pytest.mark.parametrize("name", sorted(_all_guides()))
+def test_each_slot_cites_the_authors_own_words(name):
+    # A slot's finding quotes a line of the examples holding that slot: the
+    # per-slot cite is held to the examples as the entry's own is.
+    guide = _all_guides()[name]
+    if not guide["analysis"].get("placeholders"):
+        return
+    model_id = next(repo for repo in _catalogue_repos() if _profile_for(repo)["guide"] is guide)
+    for example in guide["examples"]:
+        request = GenerateRequest(prompt=example)
+        for finding in only(prompt_rules.check(model_id, request, request), "author.placeholder"):
+            assert any(finding.cite in other for other in guide["examples"]), (name, finding.cite)
+            assert spanned(example, finding).casefold() in finding.cite.casefold()
+
+
+def test_the_page_reads_each_slot_pattern_as_the_rules_do():
+    # `guide_for` sends the placeholder patterns for the Examples menu's
+    # RegExp: only syntax both engines read alike - plain text, escapes,
+    # classes, non-capturing groups and alternation - with no inline flags,
+    # lookbehind or named groups, case left to each side's flag.
+    seen = 0
+    for repo in _catalogue_repos():
+        analysis = _profile_for(repo)["guide"]["analysis"]
+        patterns = [entry["pattern"] for entry in analysis.get("placeholders", [])]
+        assert guide_for(repo)["slots"] == patterns, repo
+        for pattern in patterns:
+            seen += 1
+            assert all(pattern[i + 2] == ":" for i in range(len(pattern)) if pattern.startswith("(?", i))
+            assert not re.search(r"\\[AZbBz]|\(\?P", pattern), pattern
+    assert seen
+    assert guide_for(FLUX_DEV)["slots"] == []
 
 
 # ------------------------------------------------------------------ tag order

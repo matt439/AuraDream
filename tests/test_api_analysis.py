@@ -825,6 +825,27 @@ def test_anima_asks_the_tag_index_which_items_are_artists(client, fake, monkeypa
     assert quiet.calls == []
 
 
+def test_a_template_slot_is_one_finding(client, fake, monkeypatch):
+    # As a whole comma item, the author's "[character]" is also A1111's
+    # de-emphasis to the encoder layer: one span, reported once, as the slot.
+    claim(monkeypatch, fake, "SeeSee21/Z-Anime")
+    body = analyse(client, prompt="[character], soft rim lighting, expressive eyes.")
+    at_slot = [f["rule"] for f in body["findings"] if (f["start"], f["end"]) == (0, 11)]
+    assert at_slot == ["author.placeholder"]
+    # A bracketed item no example of the author's holds is still A1111's.
+    body = analyse(client, prompt="[scene], soft rim lighting, expressive eyes.")
+    assert [f["start"] for f in rules(body["findings"], "encoder.weighting")] == [0]
+    # The card's landscape template: each slot once, as the author's, mid
+    # clause or a whole item.
+    template = guide_for("SeeSee21/Z-Anime")["examples"][1]
+    body = analyse(client, prompt=template)
+    slots = rules(body["findings"], "author.placeholder")
+    assert [template[f["start"]:f["end"]] for f in slots] == [
+        "[location]", "[time of day]", "[lighting]", "[atmosphere]"
+    ]
+    assert rules(body["findings"], "encoder.weighting") == []
+
+
 def test_the_check_says_how_many_of_its_words_are_characters(client, fake, monkeypatch):
     # Each Han or kana character is one of the rules' words; the page calls
     # them characters, from the count sent beside `words`.

@@ -901,7 +901,23 @@ def _checked(
     reports, encoder_findings, detail = prompt_encoding.measure(
         model_id, request.prompt, applied.negative_prompt
     )
-    findings = prompt_rules.check(model_id, request, applied, categories) + encoder_findings
+    rule_findings = prompt_rules.check(model_id, request, applied, categories)
+    # One span, one finding: a bracketed slot standing as a whole comma item
+    # ("[character], soft rim lighting") is the author's template slot to the
+    # rules and A1111's de-emphasis to the encoder layer, whose own message
+    # already allows it may be a slot. The author's reading says what to do.
+    slots = {
+        (finding.field, finding.start, finding.end)
+        for finding in rule_findings if finding.rule == "author.placeholder"
+    }
+    encoder_findings = [
+        finding for finding in encoder_findings
+        if not (
+            finding.rule == "encoder.weighting"
+            and (finding.field, finding.start, finding.end) in slots
+        )
+    ]
+    findings = rule_findings + encoder_findings
     return reports, sorted(findings, key=_finding_order), detail
 
 

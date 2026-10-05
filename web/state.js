@@ -311,6 +311,9 @@ let sizeRangeWord = 'documented';
 let sizeAspects = null;
 let guideResolutions = null;
 let examples = [];
+// The authors' template slots in those examples (`guide.slots`: Z-Anime's
+// "[character]", NewBie's "$character_1$"), as RegExps, case aside.
+let exampleSlots = [];
 // Null for prose checkpoints. A tag checkpoint supplies its own finite,
 // documented vocabulary; the browser never guesses a generic tag cloud.
 let tagHelper = null;

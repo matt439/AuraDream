@@ -425,6 +425,9 @@ Z_ANIME_GUIDE = {
         "Detailed anime portrait of [character], soft rim lighting, expressive "
         "eyes with detailed reflections, fine hair strands, clean linework, "
         "professional anime illustration quality.",
+        # The card's "Backgrounds & Landscapes" template, verbatim.
+        "Anime [location] at [time of day], [lighting], [atmosphere], beautiful "
+        "background art, wallpaper quality, highly detailed environment.",
     ],
     "analysis": {
         "url": "https://huggingface.co/SeeSee21/Z-Anime",
@@ -432,11 +435,23 @@ Z_ANIME_GUIDE = {
             "expects": "prose",
             "cite": "The author favours descriptive sentences over tag lists.",
         },
-        # The example is a template: its bracket is a slot for a name.
+        # The card: "Negative prompts have full effect on Z-Anime Base and are
+        # highly recommended." It names no text to use, so no suggestion.
+        "negative_prompt": {
+            "cite": "Use a negative prompt for unwanted features; Base supports it fully.",
+        },
+        # The examples are templates: each bracket is a slot to fill. The
+        # patterns are read by the page's RegExp too (`guide_for`'s `slots`).
         "placeholders": [
             {
                 "pattern": r"\[character\]",
                 "cite": "Detailed anime portrait of [character]",
+                "source": "author",
+                "fill": "the character's name or description",
+            },
+            {
+                "pattern": r"\[(?:location|time of day|lighting|atmosphere)\]",
+                "cite": "Anime [location] at [time of day], [lighting], [atmosphere]",
                 "source": "author",
             },
         ],
@@ -1159,11 +1174,14 @@ NEWBIE_GUIDE = {
                 "keep each character's attributes together."
             ),
         },
+        # Each slot's finding quotes its own line of the example: this cite
+        # for $character_1$, "<n>$character_2$</n>" for the second.
         "placeholders": [
             {
                 "pattern": r"\$character_\d+\$",
                 "cite": "<n>$character_1$</n>",
                 "source": "author",
+                "fill": "the character's name or description",
             },
         ],
     },

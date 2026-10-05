@@ -1832,13 +1832,32 @@ def _xml_multi(ctx: _Context) -> Iterable[PromptFinding]:
         )
 
 
+def _slot_cite(entry: dict[str, Any], slot: str, lines: list[str]) -> str:
+    """What a slot's finding quotes: the entry's own cite where it shows this
+    slot, else the shortest line of the authors' examples that does - so
+    "$character_2$" quotes "<n>$character_2$</n>", not the first slot's line -
+    else the entry's cite."""
+    if slot.casefold() in entry["cite"].casefold():
+        return entry["cite"]
+    holding = [line for line in lines if slot.casefold() in line.casefold()]
+    return min(holding, key=len) if holding else entry["cite"]
+
+
 def _placeholders(ctx: _Context) -> Iterable[PromptFinding]:
+    lines = [
+        line.strip()
+        for example in ctx.guide.get("examples") or []
+        for line in example.splitlines()
+        if line.strip()
+    ]
     for entry in ctx.analysis.get("placeholders", []):
+        fill = entry.get("fill", "what it stands for")
         for match in re.finditer(entry["pattern"], ctx.text, re.IGNORECASE):
+            slot = match.group()
             yield ctx.finding(
-                entry, "author.placeholder", "warn",
-                f"{match.group()} is the author's template slot, and the encoder "
-                "reads it literally: put the character's name or description there.",
+                {**entry, "cite": _slot_cite(entry, slot, lines)}, "author.placeholder", "warn",
+                f"{slot} is the author's template slot, and the encoder "
+                f"reads it literally: put {fill} there.",
                 start=match.start(), end=match.end(),
             )
 

@@ -71,6 +71,11 @@ function applyGuide(g) {
     syncSize();
   }
   if (Array.isArray(g.examples)) examples = g.examples;
+  if (Array.isArray(g.slots)) {
+    exampleSlots = g.slots.flatMap((pattern) => {
+      try { return [new RegExp(pattern, 'gi')]; } catch { return []; }
+    });
+  }
   const helper = g.tag_helper || null;
   if (JSON.stringify(helper) !== JSON.stringify(tagHelper)) {
     tagHelper = helper;

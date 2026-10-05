@@ -1131,10 +1131,19 @@ def test_real_tokenizers_agree_with_the_pipelines_own_truncation(monkeypatch, mo
         read = tokenizer(prefix + long[: reading.cut], add_special_tokens=False)["input_ids"]
         assert len(read) == content
 
-    # The authors' own examples fit their encoders.
+    # The authors' own examples fit their encoders. A template's slot that
+    # stands as a whole comma item ("[lighting]") reads as A1111's brackets
+    # here; the assembled check reports that span once, as the author's slot
+    # (`main._checked`), so it is no warning of the encoder layer's.
+    slots = model_defaults.guide_for(model_id)["slots"]
     for example in model_defaults._profile_for(model_id)["guide"]["examples"]:
         _, findings, _ = pe.measure(model_id, example, None)
-        assert not [finding for finding in findings if finding.severity == "warn"], example[:60]
+        spans = {m.span() for pattern in slots for m in re.finditer(pattern, example, re.I)}
+        assert not [
+            finding for finding in findings
+            if finding.severity == "warn"
+            and not (finding.rule == "encoder.weighting" and (finding.start, finding.end) in spans)
+        ], example[:60]
 
 
 def test_real_clip_reads_its_control_tokens_in_any_case(monkeypatch):
