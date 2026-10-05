@@ -895,14 +895,17 @@ function placeAsk(anchor) {
   if (!at || (!at.width && !at.height)) return;
   const box = dialog.getBoundingClientRect();
   const room = 8;
-  const clampX = (x) => Math.max(room, Math.min(x, innerWidth - box.width - room));
-  const clampY = (y) => Math.max(room, Math.min(y, innerHeight - box.height - room));
+  // The window less its scrollbars: innerWidth counts the page's, and a
+  // dialog placed for a card in the right-hand column ran 7 px under it.
+  const { clientWidth: width, clientHeight: height } = document.documentElement;
+  const clampX = (x) => Math.max(room, Math.min(x, width - box.width - room));
+  const clampY = (y) => Math.max(room, Math.min(y, height - box.height - room));
   const centreX = at.left + at.width / 2 - box.width / 2;
   const centreY = at.top + at.height / 2 - box.height / 2;
   const places = [
-    [centreX, at.bottom + room, at.bottom + room + box.height <= innerHeight - room],
+    [centreX, at.bottom + room, at.bottom + room + box.height <= height - room],
     [centreX, at.top - room - box.height, at.top - room - box.height >= room],
-    [at.right + room, centreY, at.right + room + box.width <= innerWidth - room],
+    [at.right + room, centreY, at.right + room + box.width <= width - room],
     [at.left - room - box.width, centreY, at.left - room - box.width >= room],
   ];
   const [x, y] = places.find(([, , fits]) => fits) ?? places[0];
