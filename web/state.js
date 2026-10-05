@@ -107,6 +107,8 @@ const els = {
   refineSeed: $('refine-seed'), refineDice: $('refine-dice'), refineSeedHint: $('refine-seed-hint'),
   refineMore: $('refine-more'), refineMoreNote: $('refine-more-note'),
   refinePrompt: $('refine-prompt'), refineTags: $('refine-tags'), refineNegative: $('refine-negative'),
+  refineFromPanel: $('refine-from-panel'), refineFromNote: $('refine-from-note'),
+  refineTagSuggestions: $('refine-tag-suggestions'),
   refineNegField: $('refine-negative-field'), refineNegNote: $('refine-neg-note'),
   refineSteps: $('refine-steps'), refineCfg: $('refine-cfg'),
   refineMu: $('refine-mu'), refineMuField: $('refine-mu-field'),
@@ -319,6 +321,9 @@ let draggedTagIndex = null;
 // replacing the item at `tagEditAt`.
 let tagInsertAt = null;
 let tagEditAt = null;
+// The pending lookup of the editor's suggestion list - the chip editor's, or
+// the Refine dialog's prompt's, which share it (tags.js,
+// scheduleEditorSuggestions): never both at once, the dialog being modal.
 let tagEditorSuggestionTimer = null;
 let tagEditorSuggestionEpoch = 0;
 // A remembered adapter name waiting for the list it belongs to.

@@ -371,6 +371,28 @@ class DiffusersBackend(GenerationBackend):
             )
         return self._refine_pipe
 
+    def start_sigma(self, request: "GenerateRequest") -> float | None:
+        """How much noise this refine pass starts at, read off the schedule.
+
+        `schedule.start_sigma` over the loaded pipeline and its sibling class,
+        at the pass's start index (`refine.start_index`, the profile's, which
+        is None for a checkpoint the table does not know). None before a
+        load, without a sibling, on a scheduler that is not flow matching,
+        and where reading it fails: it is the preview's advice, and a
+        preview it broke would refuse the pass.
+        """
+        pipe = self._pipe
+        if pipe is None or request.refine is None or request.strength is None:
+            return None
+        start = refine.start_index(request.steps, request.strength, settings.model_id)
+        if start is None or not self._refine_supported():
+            return None
+        try:
+            return schedule.start_sigma(pipe, self._refine_class[1], request, start)
+        except Exception:  # noqa: BLE001 - advice: no answer rather than a refused preview
+            log.debug("no start sigma for this pass", exc_info=True)
+            return None
+
     def lora_unavailable_reason(self) -> str | None:
         """Why an adapter cannot be applied here, or None when one can.
 
@@ -661,15 +683,11 @@ class DiffusersBackend(GenerationBackend):
         # mu is the whole shift, not an addition to the pipeline's own. Where
         # the scheduler shifts dynamically, override the value it is given; where
         # it does not, hand it a pre-shifted schedule - minus the *static* shift
-        # it will apply on top regardless, so the total is still e^mu.
-        mu = request.mu
-        if mu is not None and not schedule.shifts_itself(pipe):
-            import math
-
-            kwargs["sigmas"] = schedule.shifted_sigmas(
-                request.steps, mu - math.log(schedule.static_shift(pipe))
-            )
-            mu = None
+        # it will apply on top regardless, so the total is still e^mu. The
+        # Refine preview's start sigma asks the same question (`start_sigma`).
+        sigmas, mu = schedule.requested_shift(pipe, request.steps, request.mu)
+        if sigmas is not None:
+            kwargs["sigmas"] = sigmas
 
         for key in set(kwargs) - params:
             log.debug("dropping unsupported pipeline arg %r", key)

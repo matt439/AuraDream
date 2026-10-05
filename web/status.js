@@ -397,8 +397,14 @@ async function refreshStatus() {
       void refreshLoras();
     }
     if (typeof s.max_grid_images === 'number') sheetPage = s.max_grid_images;
-    // The grid preview's budget line says whether the load counts against it.
-    if (els.dot.classList.contains('ready') !== (s.state === 'ready')) schedulePreview();
+    // The grid preview's budget line says whether the load counts against it,
+    // and an open Refine dialog's preview where its pass starts, which only
+    // the loaded schedule answers (`start_sigma`): a load that lands with the
+    // dialog open adds the line, an unload takes it away.
+    if (els.dot.classList.contains('ready') !== (s.state === 'ready')) {
+      schedulePreview();
+      if (refineSource) scheduleRefinePreview();
+    }
     els.dot.className = `dot ${s.state}`;
     const was = modelState;
     modelState = s.state;

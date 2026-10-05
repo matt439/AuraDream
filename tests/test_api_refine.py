@@ -111,6 +111,60 @@ def test_a_strength_sweep_is_an_ordinary_grid_axis(client, fake, store):
     assert client.post("/api/grid/preview", json=plain).json()["cells"] == 1
 
 
+def test_the_preview_says_where_a_pass_starts(client, fake, store, monkeypatch):
+    # The Refine dialog's "starts at N% noise": the backend's reading of the
+    # loaded schedule, for the pass as the pipeline will run it, and only
+    # where every cell starts at the same point.
+    first = _first(client)
+    asked = []
+    monkeypatch.setattr(fake, "start_sigma", lambda request: asked.append(request) or 0.474)
+    fake.cfg_threshold = 1.0  # a negative prompt below it is dropped, as FLUX.1 drops it
+    pass_ = {
+        "prompt": "a fox", "negative_prompt": "blurry", "guidance_scale": 1.0,
+        "width": 384, "height": 384, "steps": 10, "seed": 1, "refine": first["id"], "strength": 0.3,
+    }
+    assert client.post("/api/grid/preview", json=pass_).json()["start_sigma"] == 0.474
+    (request,) = asked
+    assert (request.refine, request.strength, request.steps) == (first["id"], 0.3, 10)
+    assert request.negative_prompt is None  # applied, not as typed
+
+    # A sweep starts at several points, and a direct render at none: not asked.
+    asked.clear()
+    sweep = {**pass_, "strength_axis": "0.2,0.4"}
+    assert client.post("/api/grid/preview", json=sweep).json()["start_sigma"] is None
+    plain = {k: v for k, v in pass_.items() if k not in ("refine", "strength")}
+    assert client.post("/api/grid/preview", json=plain).json()["start_sigma"] is None
+    assert asked == []
+
+    # A backend that cannot read one says nothing: the base class's answer.
+    monkeypatch.delattr(fake, "start_sigma")
+    assert client.post("/api/grid/preview", json=pass_).json()["start_sigma"] is None
+
+
+def test_the_previews_start_sigma_is_the_loaded_schedules(client, fake, store, monkeypatch):
+    # End to end with the real reading: a FLUX.1 pipeline's schedule (its
+    # scheduler, nothing else) behind the route, 1 MP to 1.5x at the
+    # profile's 0.1 - where the card measured sigma 0.474.
+    import diffusers
+    from diffusers import FlowMatchEulerDiscreteScheduler
+
+    from backend.backends.diffusers_backend import DiffusersBackend
+
+    from test_refine_schedules import FLUX1
+
+    first = _first(client)
+    real = DiffusersBackend()
+    pipe = diffusers.FluxPipeline.__new__(diffusers.FluxPipeline)
+    vars(pipe).update(scheduler=FlowMatchEulerDiscreteScheduler.from_config(FLUX1), vae_scale_factor=8)
+    real._pipe = pipe
+    monkeypatch.setattr(fake, "start_sigma", real.start_sigma)
+    body = {"prompt": "a fox", "width": 1536, "height": 1536, "steps": 28, "refine": first["id"], "strength": 0.1}
+    assert client.post("/api/grid/preview", json=body).json()["start_sigma"] == pytest.approx(0.474, abs=0.001)
+    # Mu 1.15 is the whole shift: at 0.2 the pass starts at 0.463 instead.
+    body.update(mu=1.15, strength=0.2)
+    assert client.post("/api/grid/preview", json=body).json()["start_sigma"] == pytest.approx(0.463, abs=0.001)
+
+
 def test_a_pass_has_a_size_guard_of_its_own(client, fake, store):
     # Past the 4 MP presets: a pass takes its composition from the source, so
     # its guard is any 2 MP preset at 2x. Checked in the preview, which runs

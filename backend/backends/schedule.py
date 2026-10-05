@@ -5,16 +5,24 @@ too. A scheduler that shifts dynamically takes the value through
 `set_timesteps(mu=...)`, which `forced_mu` intercepts; one that does not
 takes a pre-shifted `sigmas` list from `shifted_sigmas`, less the static
 shift it applies on top regardless (`static_shift`), so the total is still
-e^mu. Assert on `scheduler.sigmas`, never on the list computed here.
+e^mu - `requested_shift` says which, for the backend's call and for the
+Refine preview alike. Assert on `scheduler.sigmas`, never on the list
+computed here.
+
+`start_sigma` is how much noise a refine pass starts at, for the Refine
+dialog's preview: the schedule the image-to-image class would set, on a copy
+of the loaded scheduler, read at the pass's start index.
 """
 from __future__ import annotations
 
 import functools
+import importlib
 import inspect
 import logging
 import math
 from contextlib import contextmanager
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, Callable, NamedTuple
 
 log = logging.getLogger(__name__)
 
@@ -151,3 +159,126 @@ def mu_supported(pipe: Any, call_params: set[str]) -> bool:
         original = getattr(scheduler, "set_timesteps", None)
         return original is not None and "mu" in inspect.signature(original).parameters
     return "sigmas" in call_params
+
+
+def requested_shift(pipe: Any, steps: int, mu: float | None) -> tuple[list[float] | None, float | None]:
+    """How a requested mu reaches this pipeline's schedule: `(sigmas, mu)`.
+
+    Where the scheduler shifts for itself, the mu is for `forced_mu` and no
+    schedule is handed over; where it does not, a pre-shifted schedule less
+    its static shift, so the total is still e^mu, and no mu. `(None, None)`
+    for no request: the pipeline's own shift. The backend's call and the
+    Refine preview's `start_sigma` both ask here, so the preview's schedule is
+    the one the pass would run.
+    """
+    if mu is not None and not shifts_itself(pipe):
+        return shifted_sigmas(steps, mu - math.log(static_shift(pipe))), None
+    return None, mu
+
+
+class StartRecipe(NamedTuple):
+    """What an image-to-image class's `__call__` does to its scheduler before
+    the pass starts, which `start_sigma` repeats on a copy: how it measures
+    the latent sequence its shift is computed from, and the schedule it hands
+    the scheduler when given none. `source` is the call's own statements, as
+    written there - `tests/test_refine_schedules.py` holds each to the installed
+    diffusers - and the callables do the same over (the pipeline's
+    `vae_scale_factor`, height, width) and (the class's own module, steps).
+    """
+
+    source: tuple[str, ...]
+    length: Callable[[int, int, int], int]
+    ramp_source: str
+    ramp: Callable[[Any, int], Any]
+
+
+_PACKED = (
+    "image_seq_len = (int(height) // self.vae_scale_factor // 2) * (int(width) // self.vae_scale_factor // 2)",
+)
+_LINSPACE = "sigmas = np.linspace(1.0, 1 / num_inference_steps, num_inference_steps) if sigmas is None else sigmas"
+
+# The flow-matching image-to-image classes diffusers ships beside this app's
+# checkpoints. Each one's call takes mu from its module's `calculate_shift`
+# over the sequence length, with the scheduler config's base and max shift
+# (`SHIFT_CALL`), and hands both to its module's `retrieve_timesteps`. A
+# class not listed here has no start sigma: its arithmetic would be a guess.
+START_RECIPES: dict[str, StartRecipe] = {
+    "FluxImg2ImgPipeline": StartRecipe(
+        _PACKED,
+        lambda scale, height, width: (int(height) // scale // 2) * (int(width) // scale // 2),
+        _LINSPACE,
+        lambda module, steps: module.np.linspace(1.0, 1 / steps, steps),
+    ),
+    "QwenImageImg2ImgPipeline": StartRecipe(
+        _PACKED,
+        lambda scale, height, width: (int(height) // scale // 2) * (int(width) // scale // 2),
+        _LINSPACE,
+        lambda module, steps: module.np.linspace(1.0, 1 / steps, steps),
+    ),
+    "ZImageImg2ImgPipeline": StartRecipe(
+        (
+            "latent_height = 2 * (int(height) // (self.vae_scale_factor * 2))",
+            "latent_width = 2 * (int(width) // (self.vae_scale_factor * 2))",
+            "image_seq_len = (latent_height // 2) * (latent_width // 2)",
+        ),
+        lambda scale, height, width: (
+            (2 * (int(height) // (scale * 2)) // 2) * (2 * (int(width) // (scale * 2)) // 2)
+        ),
+        "sigmas = get_default_z_image_sigmas(num_inference_steps)",
+        lambda module, steps: module.get_default_z_image_sigmas(steps),
+    ),
+}
+
+# The shift each of them computes, as written in its call.
+SHIFT_CALL = (
+    "mu = calculate_shift(image_seq_len, "
+    "self.scheduler.config.get('base_image_seq_len', 256), "
+    "self.scheduler.config.get('max_image_seq_len', 4096), "
+    "self.scheduler.config.get('base_shift', 0.5), "
+    "self.scheduler.config.get('max_shift', 1.15))"
+)
+
+
+def start_sigma(pipe: Any, sibling: type, request: Any, start: int) -> float | None:
+    """The sigma a refine pass starts at: the share of noise the source is
+    mixed with before the pass denoises it, on a flow-matching schedule.
+
+    Read, not modelled: a copy of the loaded scheduler, built from its config
+    and given the loaded one's static shift, is handed what `sibling`'s call
+    would hand it - the module's own `calculate_shift` over the sequence
+    length its call measures (`START_RECIPES`), its default schedule, and a
+    requested mu exactly as `requested_shift` and `forced_mu` apply it to
+    the pass - through the module's own `retrieve_timesteps`, and the sigma
+    at `start` (`refine.start_index`, times the scheduler's order, as the
+    call's `get_timesteps` sets its begin index) is the answer. The loaded
+    scheduler itself is never touched: a job may be running on it.
+
+    None where that cannot be done without a guess: no scheduler, one that
+    is not flow matching (SDXL's epsilon sigmas are no noise fraction), or a
+    class whose call is not in `START_RECIPES`. `request` is the pass as
+    `applied()` runs it: steps, mu, width and height.
+    """
+    scheduler = getattr(pipe, "scheduler", None)
+    recipe = START_RECIPES.get(getattr(sibling, "__name__", ""))
+    scale = getattr(pipe, "vae_scale_factor", None)
+    if recipe is None or scale is None or not type(scheduler).__name__.startswith("FlowMatch"):
+        return None
+    module = importlib.import_module(sibling.__module__)
+    copy = type(scheduler).from_config(scheduler.config)
+    if callable(getattr(copy, "set_shift", None)):
+        copy.set_shift(static_shift(pipe))
+    steps = request.steps
+    sigmas, forced = requested_shift(pipe, steps, request.mu)
+    if sigmas is None:
+        sigmas = recipe.ramp(module, steps)
+    config = copy.config
+    mu = module.calculate_shift(
+        recipe.length(scale, request.height, request.width),
+        config.get("base_image_seq_len", 256),
+        config.get("max_image_seq_len", 4096),
+        config.get("base_shift", 0.5),
+        config.get("max_shift", 1.15),
+    )
+    with forced_mu(SimpleNamespace(scheduler=copy), forced):
+        module.retrieve_timesteps(copy, steps, "cpu", sigmas=sigmas, mu=mu)
+    return float(copy.sigmas[start * copy.order])

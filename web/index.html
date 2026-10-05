@@ -771,10 +771,24 @@
          an image made on another checkpoint. -->
     <details class="section rf-more" id="refine-more">
       <summary>Prompt and sampling <em id="refine-more-note"></em></summary>
-      <label class="field">
-        <span>Prompt</span>
-        <textarea id="refine-prompt" rows="3" spellcheck="false"></textarea>
-      </label>
+      <!-- A div with a label for the box, as the panel's negative field is: a
+           button inside a label becomes the label's control. From panel
+           copies the panel's prompt and negative into this pass's boxes - a
+           critic's rewrite or a comparison's winner reaches a pass that way -
+           and never writes the panel; what a press did not do is said on
+           the line under it (empty, it takes no room). On a tag checkpoint
+           the box suggests tags as the panel's prompt does, from the list
+           under it. -->
+      <div class="field" id="refine-prompt-field">
+        <span><label for="refine-prompt">Prompt</label>
+          <button type="button" class="ghost tiny rf-from-panel" id="refine-from-panel">From panel</button>
+          <em class="rf-from-note" id="refine-from-note" role="status"></em></span>
+        <div class="rf-prompt-editor">
+          <textarea id="refine-prompt" rows="3" spellcheck="false" aria-autocomplete="list"
+                    aria-controls="refine-tag-suggestions" aria-expanded="false"></textarea>
+          <ul class="tag-suggestions" id="refine-tag-suggestions" role="listbox" aria-label="Tag suggestions" hidden></ul>
+        </div>
+      </div>
       <!-- A tag checkpoint's unknown comma items, as the panel's chips mark
            them; advisory, and silent when the lookup fails. -->
       <p class="hint warn" id="refine-tags" hidden></p>

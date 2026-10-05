@@ -395,7 +395,11 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    at 125% its 16 digits were cut to 15 and a dot, beside a Strength box of
    the same width that holds a few characters. */
 .rf-strength .row > .sub.grow:has(> #refine-seed) { flex-grow: 1.1; min-width: min(calc(16ch + 26px), 45%); }
-.rf-strength .row > .sub.grow:has(> #refine-strength) { min-width: max-content; }
+/* Strength no narrower than its caption's one line (Strength, ?, Compare 3).
+   Min-content, not max-content: that took the text box's own 20-character
+   width too, and the row ran 15 px past the dialog at 1400x900 and at 125%,
+   cutting the dice off and giving the dialog a sideways scrollbar. */
+.rf-strength .row > .sub.grow:has(> #refine-strength) { min-width: min-content; }
 
 /* The prompt is the page's main box: on a wide window it grows with what is
    typed, from five lines to twelve (Chromium; elsewhere it stays at five and
@@ -2404,6 +2408,23 @@ button { font: inherit; cursor: pointer; }
 .rf-lock { flex: none; align-self: center; margin-top: var(--sp-3); font-size: var(--fs-label); }
 .refine-dialog .sub i .ghost.tiny { margin-left: auto; }
 #refine-negative-field.disabled textarea { opacity: 0.45; }
+/* From panel at the far end of the Prompt caption, as Reset is in the
+   panel's; the caption's capitals are the label's, not the button's. */
+#refine-prompt-field > span .rf-from-panel { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; }
+/* What its press did not do, on a line of the caption's own under it - in
+   view with the button, where the dialog's error line at its foot was not.
+   Empty, a block of no height: the live region is in the page before it
+   speaks, and takes no room until then. */
+#refine-prompt-field > span .rf-from-note {
+  display: block; clear: both;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--muted);
+}
+/* The tag suggestions hang from the Prompt box, as the panel's do (.tag-
+   suggestions), and over it where the dialog shows no room below
+   (placeRefineSuggestions): past its bottom the list was cut off. */
+.rf-prompt-editor { position: relative; }
+.rf-prompt-editor textarea { display: block; }
+.rf-prompt-editor .tag-suggestions.up { top: auto; bottom: calc(100% + 4px); }
 /* Opened upward, over what is set already: downward they covered the very
    controls they explain. Never a target, as no tip is (`.tip` above): one
    over the scale buttons took the clicks meant for them. */

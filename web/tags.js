@@ -139,9 +139,11 @@ function caretTagIndex() {
   return index < 0 ? null : index;
 }
 
-function currentTagRange() {
-  const text = els.prompt.value;
-  const caret = els.prompt.selectionStart ?? text.length;
+// The comma item at the caret, trimmed: what a suggestion replaces. The
+// panel's prompt, or the Refine dialog's (refine.js).
+function currentTagRange(el = els.prompt) {
+  const text = el.value;
+  const caret = el.selectionStart ?? text.length;
   let start = text.lastIndexOf(',', Math.max(0, caret - 1)) + 1;
   let end = text.indexOf(',', caret);
   if (end < 0) end = text.length;
@@ -365,17 +367,36 @@ function selectEditorSuggestion(menu, index) {
     const active = i === menu._index;
     item.classList.toggle('active', active);
     item.setAttribute('aria-selected', String(active));
-    if (active) item.scrollIntoView({ block: 'nearest' });
+    if (active) {
+      menu._input?.setAttribute('aria-activedescendant', item.id);
+      item.scrollIntoView({ block: 'nearest' });
+    }
   });
 }
 
-function renderEditorSuggestions(input, menu, suggestions) {
+// The suggestion list of a box other than the panel's prompt: the chip
+// editor's input, where a pick commits the edit, and the Refine dialog's
+// prompt (refine.js), where it replaces the comma item at the caret - `pick`.
+// `query` is what was looked up, which the preselect rule reads: the editor's
+// whole text, the dialog's item at the caret. A click, or Enter or Tab on
+// the selected item (the box's own keydown, through `menu._pick`), picks.
+// `place`, given, positions the list once it is drawn, at its real height.
+// `menu._query` is the item a drawn list answers.
+function renderEditorSuggestions(
+  input, menu, suggestions, { query = input.value, pick = (s) => commitTagEdit(s.text), place = null } = {},
+) {
   menu._suggestions = suggestions;
+  menu._query = suggestions.length ? query.trim() : null;
   menu._index = -1;
+  menu._input = input;
+  menu._pick = pick;
   menu.replaceChildren();
-  for (const suggestion of suggestions) {
+  input.removeAttribute('aria-activedescendant');
+  for (const [index, suggestion] of suggestions.entries()) {
     const item = document.createElement('li');
+    item.id = `${menu.id}-${index}`;
     item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', 'false');
     const kind = document.createElement('span');
     kind.className = 'tag-kind';
     kind.textContent = tagKind(suggestion.category);
@@ -387,30 +408,48 @@ function renderEditorSuggestions(input, menu, suggestions) {
     count.textContent = suggestion.post_count == null ? '' : humanCount(suggestion.post_count);
     item.append(kind, name, count);
     item.onmousedown = (event) => event.preventDefault();
-    item.onclick = () => commitTagEdit(suggestion.text);
+    item.onclick = () => pick(suggestion);
     menu.appendChild(item);
   }
   menu.hidden = suggestions.length === 0;
   input.setAttribute('aria-expanded', String(suggestions.length > 0));
   const editor = menu.parentElement.getBoundingClientRect();
   menu.classList.toggle('end', editor.left + 280 > window.innerWidth - 12);
+  place?.(menu);
   // The prompt box's rule: "lo" then Tab in the editor wrote `low quality`.
-  if (suggestions.length && preselects(input.value, suggestions[0])) selectEditorSuggestion(menu, 0);
+  if (suggestions.length && preselects(query, suggestions[0])) selectEditorSuggestion(menu, 0);
 }
 
-function scheduleEditorSuggestions(input, menu) {
+// Nothing selected in a list left up: Enter and Tab are the box's own again.
+function deselectEditorSuggestions(menu) {
+  menu._index = -1;
+  for (const item of menu.children) {
+    item.classList.remove('active');
+    item.setAttribute('aria-selected', 'false');
+  }
+  menu._input?.removeAttribute('aria-activedescendant');
+}
+
+// The list emptied at once and asked again after a pause, so Enter never
+// takes a match for what was typed before. With `keep` (the Refine dialog's
+// prompt) a list already up stays while it asks, nothing in it selected -
+// the same guarantee, without the list blinking shut on every key, as the
+// panel's prompt keeps its own. The rest of `options` is
+// renderEditorSuggestions'.
+function scheduleEditorSuggestions(input, menu, options = {}) {
   clearTimeout(tagEditorSuggestionTimer);
   const epoch = ++tagEditorSuggestionEpoch;
-  const query = input.value.trim();
-  renderEditorSuggestions(input, menu, []);
+  const query = (options.query ?? input.value).trim();
+  if (options.keep && query && !menu.hidden) deselectEditorSuggestions(menu);
+  else renderEditorSuggestions(input, menu, [], options);
   if (!query) return;
   tagEditorSuggestionTimer = setTimeout(async () => {
     try {
       const body = await api(`/api/tags/suggest?q=${encodeURIComponent(query)}`);
       if (epoch !== tagEditorSuggestionEpoch || !input.isConnected) return;
-      renderEditorSuggestions(input, menu, body.suggestions || []);
+      renderEditorSuggestions(input, menu, body.suggestions || [], options);
     } catch {
-      if (epoch === tagEditorSuggestionEpoch) renderEditorSuggestions(input, menu, []);
+      if (epoch === tagEditorSuggestionEpoch) renderEditorSuggestions(input, menu, [], options);
     }
   }, 160);
 }
