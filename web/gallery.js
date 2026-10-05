@@ -914,6 +914,9 @@ function forgetImages(ids) {
     // the strip's place below.
     else if (lost.parentElement === els.viewer) { lost.tabIndex = -1; lost.focus({ preventScroll: true }); }
   }
+  // The note under the strip named what it held: the image just made's seed
+  // is not a deleted image's to offer.
+  if (fromViewer.length) noteViewer();
   // A strip with images left keeps its tombstones in their slots. One whose
   // last image has gone, with no job to fill it, says what it is for again -
   // in place of the tombstones, which beside it read as leftovers - at the

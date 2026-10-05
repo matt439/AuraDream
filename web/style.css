@@ -1618,6 +1618,17 @@ button { font: inherit; cursor: pointer; }
 .result-actions .star[aria-pressed="true"] { color: var(--star); }
 .result-actions .reuse-settings.model-mismatch { color: var(--warn); }
 .result-prompt { margin: 0; color: var(--text); font-size: var(--fs-md); line-height: 1.45; overflow-wrap: anywhere; }
+/* Under 1800 px the image just made, alone and made from the prompt, is
+   named under the strip - "#12 · 1024×1024 · seed 5 · Use seed" (noteViewer)
+   - where only its title had said its seed; from 1800 px the column beside
+   it, or the row under it with the check docked, says both. The note keeps
+   its one line empty as well - a hint's 15 px was a pixel and a half short
+   of it - so the gallery under it moves neither as the image lands nor as a
+   delete takes the line away. */
+#viewer-note { min-height: calc(var(--fs-sm) * var(--lh)); }
+@media (min-width: 1800px) {
+  #viewer-note .seed-line { display: none; }
+}
 
 /* This page's earlier results (#recent, renderRecent), from 2000 px beside
    the single image, in the stage's second column: two across, as tall as the

@@ -1052,6 +1052,10 @@ function viewerSourcesGone() {
 // Under the strip: where a pass came from - "Refined from #10 at 0.5 ·
 // 1344×1728", the source a press away (an empty note had said nothing of
 // what the image was) - and how much of a long run the strip does not show.
+// The image just made, alone and made from the prompt, is named as a card's
+// caption names it, its seed with Use seed (`seed-line`): under 1800 px,
+// where nothing beside the image said its seed but its title; from there
+// the column beside it says it (style.css hides the line).
 function noteViewer() {
   const parts = [];
   const first = viewerRecords[0];
@@ -1060,6 +1064,12 @@ function noteViewer() {
     const line = document.createElement('span');
     line.className = 'lineage';
     line.append('Refined from ', sourceLink(first), ` at ${strengths} · ${first.width}×${first.height}`);
+    parts.push(line);
+  } else if (first && viewerRecords.length === 1 && viewerJob.expected <= 1) {
+    const line = document.createElement('span');
+    line.className = 'seed-line';
+    line.append(`#${first.id} · ${first.width}×${first.height} · seed ${first.seed} · `,
+      factButton('Use seed', `Put ${first.seed} in the Seed box`, () => useSeed(first.seed)));
     parts.push(line);
   }
   const shown = els.viewer.querySelectorAll('img[data-id]').length;
