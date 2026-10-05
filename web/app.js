@@ -116,6 +116,8 @@ async function expandPrompt() {
   if (expandingPrompt) return;
   if (busy) { showError('Wait for the image queue to finish before expanding a prompt.'); return; }
   if (critiquing) { showError('Wait for the critic to finish.'); return; }
+  // Another tab's job (syncPromptExpansion): said until it ends, as Unload's.
+  if (elsewhereBusy) { showError(EXPAND_ELSEWHERE, true); elsewhereNote = EXPAND_ELSEWHERE; return; }
   const source = els.prompt.value;
   const prompt = source.trim();
   if (!prompt) { showError('Enter a prompt to expand first.'); els.prompt.focus(); return; }

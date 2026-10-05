@@ -12,6 +12,10 @@
   <div class="status" id="status">
     <span class="dot" id="status-dot"></span>
     <span id="status-text" aria-live="polite">checking…</span>
+    <!-- Another tab's job, beside the name and outside its live region: it
+         came and went with jobs nobody here started, each read out. The held
+         buttons' titles and their presses say it to a screen reader. -->
+    <span id="status-aside" aria-hidden="true" hidden></span>
   </div>
   <!-- The watched job in one line, and a line along the bar's foot: in view
        at any scroll and in the tab's title's company. aria-hidden, since the

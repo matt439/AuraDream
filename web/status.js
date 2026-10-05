@@ -107,11 +107,19 @@ function syncMu() {
 // the submit buttons (aria-disabled, as setSubmitting holds them). Both wait
 // for the image queue, so a job queued or running holds them in turn -
 // another tab's included (elsewhereBusy), which the server refuses them
-// under as it does this page's.
+// under as it does this page's. That one arrives with a status poll, at a
+// moment no one chose, so Expand is held for it aria-disabled with the
+// reason, and keeps a keyboard user's focus: disabled, it dropped it to
+// <body> with nothing said (expandPrompt says why).
+const EXPAND_TITLE = els.expandPrompt.title;
+const EXPAND_ELSEWHERE = 'A job started in another tab or window is running; Expand once it ends';
 function syncPromptExpansion() {
   const editing = expandingPrompt || critiquing;
   els.expandPrompt.hidden = !promptExpansionSupported;
-  els.expandPrompt.disabled = editing || busy || elsewhereBusy;
+  els.expandPrompt.disabled = editing || busy;
+  const elsewhere = !els.expandPrompt.disabled && elsewhereBusy;
+  els.expandPrompt.setAttribute('aria-disabled', String(elsewhere));
+  els.expandPrompt.title = elsewhere ? EXPAND_ELSEWHERE : EXPAND_TITLE;
   els.expandPrompt.textContent = expandingPrompt ? 'Expanding…' : 'Expand';
   syncUnload();
   syncSubmitButtons();
@@ -185,6 +193,7 @@ function goOffline() {
   serverOffline = true;
   els.dot.className = 'dot error';
   els.statusText.textContent = LOST_PHRASE;
+  els.statusAside.hidden = true;
   els.load.hidden = true;
   syncUnload();
   syncSubmitButtons();
@@ -237,7 +246,7 @@ function syncLoadFailure(s) {
   if (focused) (card?.querySelector('button') ?? els.generate).focus({ preventScroll: true });
   els.viewer.querySelectorAll('.placeholder').forEach((p) => { p.hidden = !!card; });
   const notMade = els.finishNote.querySelector('.not-made');
-  if (notMade && (failed || s.state === 'loading' || s.state === 'ready')) {
+  if (notMade && (failed || ['loading', 'ready', 'unloaded'].includes(s.state))) {
     const text = notMadeText(notMade.dataset.lead, failed ? 'error' : s.state);
     if (notMade.textContent !== text) notMade.textContent = text;
   }
@@ -468,13 +477,17 @@ async function refreshStatus() {
     // The checkpoint's name in every state: "loading weights…" for minutes
     // never said which. A live region, so written only when it changes: the
     // same name every three seconds was a new node to read out at every
-    // poll, all session long. Its id is the title.
+    // poll, all session long. Its id is the title. Another tab's job is
+    // beside it, outside the live region (index.html, #status-aside).
     const name = checkpointName(s.model_id);
-    const line = s.state === 'ready' ? `${name}${elsewhereBusy ? ' · busy in another tab' : ''}`
+    const line = s.state === 'ready' ? name
       : s.state === 'loading' ? `${name} · loading…`
       : s.state === 'error' ? `${name} · load failed`
       : `${name} · not loaded`;
     if (els.statusText.textContent !== line) els.statusText.textContent = line;
+    const aside = s.state === 'ready' && elsewhereBusy ? '· busy in another tab' : '';
+    if (els.statusAside.textContent !== aside) els.statusAside.textContent = aside;
+    els.statusAside.hidden = !aside;
     if (s.model_id && els.statusText.title !== s.model_id) els.statusText.title = s.model_id;
     syncLoadFailure(s);
     if (s.state === 'ready' && was !== 'ready' && unloadRefusal) {

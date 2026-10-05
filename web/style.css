@@ -260,6 +260,10 @@ body {
 .brand span { color: var(--accent); }
 
 .status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: var(--fs-body-sm); }
+/* "· busy in another tab" (status.js) gives way in a phone-width bar, where
+   beside it the checkpoint's name wrapped onto three lines: the held
+   buttons' titles say it there. */
+@media (max-width: 600px) { #status-aside { display: none; } }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .dot.ready { background: var(--ok); }
 .dot.loading { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }

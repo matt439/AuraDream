@@ -860,6 +860,10 @@ async function askCritic() {
       if (epoch === critiqueEpoch) critiqueFailure = err.message;
       throw err;
     }
+    // An answer means the first use's download is done, whether or not it is
+    // shown: the line under the button said it was still to come until the
+    // next status poll.
+    promptCritiqueReady = true;
     if (epoch !== critiqueEpoch) return;  // the panel was cleared meanwhile
     if (!analysed(payload, effectiveNegative)) {
       analysisMessage('The prompt was checked again while the critic ran, so its answer was set aside. Ask again.');
@@ -881,9 +885,6 @@ async function askCritic() {
     else if (els.promptAnalysis.hidden || els.analysisCritic.hidden) showError(critiqueFailureText(critiqueFailure));
   } finally {
     critiquing = false;
-    // An answer means the first use's download is done: the line under the
-    // button said it was still to come until the next status poll.
-    if (answered) promptCritiqueReady = true;
     stopCriticClock();
     syncPromptExpansion();
     if (epoch === critiqueEpoch) {
