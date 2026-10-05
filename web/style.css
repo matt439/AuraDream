@@ -1841,12 +1841,11 @@ button { font: inherit; cursor: pointer; }
    has the whole picture. */
 .sheet-cell.source img { object-fit: cover; }
 /* A starred cell carries the star a card does, ring and badge - the card's
-   own rules, which name .sheet-cell beside .card so the two cannot drift -
-   and where the keepers cluster is visible on the sheet rather than only in
-   the user's head; a 12 px glyph in a 690 px cell was not. The badge is the
-   card's toggle too, ☆ where the pointer or the focus is (cellFor: out of the
-   tab order). `position: relative` above is what keeps 1024 badges from
-   piling up at the top of the page. */
+   own rules (the star's, with the card's tools below), which name .sheet-cell
+   beside .card so the two cannot drift - and where the keepers cluster is
+   visible on the sheet rather than only in the user's head; a 12 px glyph in
+   a 690 px cell was not. `position: relative` above is what keeps 1024
+   badges from piling up at the top of the page. */
 /* A refine pass says so, and at what strength - on a card always, on the
    sheet where it does not lay the strength out already: a pass looks like its
    source by design. Top left, clear of the star. */
@@ -1952,7 +1951,9 @@ button { font: inherit; cursor: pointer; }
    itself (`.fav-badge`, a button): it used to be a picture of one that a
    click went through to the lightbox, while the real star sat in the tool
    row 4 px from Delete. Always there on a starred card; on another, ☆ where
-   the tools show - hover, keyboard focus, a coarse pointer. */
+   the tools show - hover, keyboard focus, a coarse pointer. A sheet cell
+   has the same button, out of the tab order (sheet.js's cellFor: tabindex
+   -1), since the cell's image is its stop and F there does the same. */
 .card.fav, .sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
 .card .fav-badge, .sheet-cell .fav-badge {
   position: absolute;

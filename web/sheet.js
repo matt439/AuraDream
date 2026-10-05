@@ -103,9 +103,14 @@ const sameSettings = (a, b) => SHEET_AXES.every((axis) => axisValue(axis, a) ===
 // line of fixed width - a pin's option, the note, the export's canvas. A
 // 540 px column used to show 44 characters across half its width.
 let promptShort = new Map();
-const valueText = (v) => {
+// The words the sheet's text is made of - the prompts' short labels and the
+// adapter (sheetAdapter, below) - as they stand now. An export takes them
+// with its layout (exportLayout): Export all writes its slices one after
+// another, and a sheet redrawn on another run meanwhile replaces both.
+const sheetWords = () => ({ short: promptShort, adapter: sheetAdapter });
+const valueText = (v, words = sheetWords()) => {
   if (v === null) return 'none';
-  if (typeof v === 'string') return promptShort.get(v) ?? v;
+  if (typeof v === 'string') return words.short.get(v) ?? v;
   return String(v);
 };
 
@@ -120,14 +125,14 @@ let sheetAdapter = null;
 // A value as its axis reads it - a version by its name - and a heading: the
 // axis and the value, a known version by its name alone ("Rewrite", not
 // "Version rewrite"), a weight with its adapter.
-function sheetText(axis, v) {
+function sheetText(axis, v, words = sheetWords()) {
   if (axis.key === VARIANT_AXIS && v !== null) return VERSION_NAMES.get(v) ?? v;
-  return valueText(v);
+  return valueText(v, words);
 }
-function headText(axis, v) {
+function headText(axis, v, words = sheetWords()) {
   if (axis.key === VARIANT_AXIS && VERSION_NAMES.has(v)) return VERSION_NAMES.get(v);
-  if (axis.key === 'lora' && sheetAdapter && v !== null) return `LoRA ${sheetAdapter} ${v}`;
-  return `${axis.label} ${sheetText(axis, v)}`;
+  if (axis.key === 'lora' && words.adapter && v !== null) return `LoRA ${words.adapter} ${v}`;
+  return `${axis.label} ${sheetText(axis, v, words)}`;
 }
 
 // What one prompt changed against another, a run of edits at a time:
@@ -475,13 +480,13 @@ const ABSENT_WHEN_NONE = new Set(['tcfg', 'lora', 'adapter', 'ref', 'strength'])
 // are what made the keepers, and the tick takes them off every axis: two
 // starred images read as two cells, with nothing saying they shared a seed,
 // steps and CFG. A line of its own rather than part of the note.
-function fixedSettings(values) {
+function fixedSettings(values, axes = sheetAxesList, words = sheetWords()) {
   const fixed = [];
-  for (const axis of sheetAxesList) {
+  for (const axis of axes) {
     if (values[axis.key].length !== 1 || axis.key === 'prompt' || axis.key === 'negative') continue;
     const [v] = values[axis.key];
     if (v === null && (ABSENT_WHEN_NONE.has(axis.key) || axis.key.startsWith('var:'))) continue;
-    fixed.push(`${axis.label} ${sheetText(axis, v)}`);
+    fixed.push(`${axis.label} ${sheetText(axis, v, words)}`);
   }
   return fixed.length ? `Fixed: ${fixed.join(' · ')}` : '';
 }
@@ -1060,8 +1065,9 @@ async function resumeRun(runId, known = null) {
 // non-round-trippable prompt labels especially. Thumbnails, not the PNGs, on a
 // fitted sheet: a contact sheet is for seeing which cell, and 384 px cells of
 // a 32-wide grid are already a 12k-pixel image. A filled one (Fill width) is
-// drawn at the width its cells are on screen, from the PNG where that is wider
-// than the thumbnail, as the sheet's own srcset is.
+// drawn at the larger of the device pixels its cells take on screen and the
+// thumbnail's width - never smaller than the fitted export - from the PNG
+// where that is wider than the thumbnail, as the sheet's own srcset is.
 let sheetLayout = null;
 const EXPORT_MAX_EDGE = 8000;
 // Export all past the edge sends one file per slice, up to this many: the
@@ -1083,12 +1089,19 @@ function loadImage(src) {
 }
 
 // The sheet as an export draws it, taken when the export is asked for: the
-// layout, the search it shows and, on a filled matrix, the width its cells
-// are drawn at - so a redraw while the images load changes none of it.
+// layout, the axes and the words its labels are made of (sheetWords), the
+// search it shows and, on a filled matrix, the width its cells are drawn at
+// and the device pixels to the CSS pixel - so a redraw while the images load,
+// or while Export all writes its slices, changes none of it. Read live, a
+// sheet redrawn on another run halfway through Export all threw on the next
+// slice's caption.
 function exportLayout() {
   if (!sheetLayout) return null;
   const fill = sheetFill() && !sheetLayout.wrap;
-  return { ...sheetLayout, search: els.search.value.trim(), shown: fill ? sheetCellWidth() : 0 };
+  return {
+    ...sheetLayout, axes: sheetAxesList, words: sheetWords(), search: els.search.value.trim(),
+    shown: fill ? sheetCellWidth() : 0, dpr: window.devicePixelRatio || 1,
+  };
 }
 
 // The measures of an exported sheet: the gap, the type, the caption under a
@@ -1107,12 +1120,12 @@ function exportMetrics({ colAxis, rowAxis, wrap, source }, titled) {
 // cell captioned underneath: drawn as one row, the 96 px floor beat the edge
 // limit and a 120-seed run came out 12,254 px wide. A refine sweep's source
 // leads, a column of its own across the rows.
-function exportGrid({ colAxis, colValues, rowValues, wrap, source }) {
+function exportGrid({ colAxis, colValues, rowValues, wrap, source, words }) {
   if (wrap) {
     const n = colValues.length + (source ? 1 : 0);
     const cols = Math.ceil(Math.sqrt(n));
     const place = (cellOf) => {
-      const row = colValues.map((v, c) => ({ rec: cellOf.get(c), label: headText(colAxis, v) }));
+      const row = colValues.map((v, c) => ({ rec: cellOf.get(c), label: headText(colAxis, v, words) }));
       if (source) row.unshift({ rec: source, label: `Source #${source.id}` });
       return row.map((item, i) => ({ ...item, col: i % cols, row: Math.floor(i / cols) }));
     };
@@ -1129,12 +1142,15 @@ function exportGrid({ colAxis, colValues, rowValues, wrap, source }) {
   return { cols: colValues.length + lead, rows: rowValues.length, lead, place };
 }
 
-// A cell's width in the export: the thumbnail's at most, fitted, or the width
-// the sheet draws its cells at, filled - either shrunk so the longer edge
-// stays inside what a canvas can hold, and never past the sheet's 96 px floor.
+// A cell's width in the export: the thumbnail's at most, fitted; filled, the
+// device pixels the sheet draws its cells at, or the thumbnail's where that
+// is more - either shrunk so the longer edge stays inside what a canvas can
+// hold, and never past the sheet's 96 px floor. Filled at its CSS width, a
+// 1400 px window's 228 px cells exported smaller than the fitted sheet's
+// 384, and at 125% the file lost a fifth of what the screen showed.
 function exportCellWidth(layout) {
   const { cols, rows } = exportGrid(layout);
-  const most = layout.shown ? Math.round(layout.shown) : THUMB_SIDE;
+  const most = layout.shown ? Math.max(THUMB_SIDE, Math.round(layout.shown * layout.dpr)) : THUMB_SIDE;
   return Math.max(SHEET_CELL_MIN, Math.min(most, Math.floor(EXPORT_MAX_EDGE / Math.max(cols, rows))));
 }
 
@@ -1152,14 +1168,16 @@ function stackedCellWidth(layout, n) {
 
 // A slice's pins in words, "size big, ground grass": the caption's "pinned
 // to", and a stacked slice's title.
-const pinsText = (pins) => pins.map(([axis, v]) => `${axis.label.toLowerCase()} ${clip(sheetText(axis, v))}`).join(', ');
+const pinsText = (pins, words = sheetWords()) => pins
+  .map(([axis, v]) => `${axis.label.toLowerCase()} ${clip(sheetText(axis, v, words))}`).join(', ');
 
 // `slices` ({pins, cellOf} each) are drawn one under another, each titled by
 // its pins; without them, the slice on screen. `cellW` is a stack's
 // (stackedCellWidth).
 async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW = null } = {}) {
   if (!layout) return null;
-  const { colAxis, rowAxis, colValues, rowValues, values, wrap, source, records, aspect } = layout;
+  const { colAxis, rowAxis, colValues, rowValues, values, wrap, source, records, aspect, axes, words } = layout;
+  const head = (axis, v) => headText(axis, v, words);
   const blocks = slices ?? [{ pins: layout.pins, cellOf: layout.cellOf }];
   const titled = blocks.length > 1;
   const { cols, rows, lead, place } = exportGrid(layout);
@@ -1204,13 +1222,13 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
   const opening = placed.flat().find((item) => item.rec && item.rec !== source)?.rec;
   const prompt = values.prompt?.length === 1 ? `Prompt: ${values.prompt[0]}`
     : opening ? `Prompt of the first image: ${opening.prompt}` : '';
-  const declared = sheetAxesList.filter((a) => a.key.startsWith('var:'))
-    .map((a) => `${a.label} = ${values[a.key].map((v) => sheetText(a, v)).join(' | ')}`).join('; ');
-  const fixed = fixedSettings(values);
+  const declared = axes.filter((a) => a.key.startsWith('var:'))
+    .map((a) => `${a.label} = ${values[a.key].map((v) => sheetText(a, v, words)).join(' | ')}`).join('; ');
+  const fixed = fixedSettings(values, axes, words);
   const max = width - 2 * gap;
   const scope = titled
     ? ` · a slice per ${blocks[0].pins.map(([axis]) => axis.label.toLowerCase()).join(' × ')}`
-    : blocks[0].pins.length ? ` · pinned to ${pinsText(blocks[0].pins)}` : '';
+    : blocks[0].pins.length ? ` · pinned to ${pinsText(blocks[0].pins, words)}` : '';
   const lines = [
     clipText(`${layout.search || 'gallery'}${scope}`, max),
     ...(prompt ? wrapText(prompt, max, 3) : []),
@@ -1248,7 +1266,7 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
       }
       ctx.fillStyle = '#c4b5fd';
       ctx.textAlign = 'left';
-      ctx.fillText(clipText(pinsText(block.pins), max), gap, b * blockH + titleH / 2 + 2);
+      ctx.fillText(clipText(pinsText(block.pins, words), max), gap, b * blockH + titleH / 2 + 2);
     }
     ctx.fillStyle = '#e8e8ee';
     ctx.textAlign = 'center';
@@ -1256,13 +1274,13 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
     colValues.forEach((v, c) => {
       if (!colAxis || wrap) return;
       const x = headW + gap + (lead + c) * (cellWidth + gap) + cellWidth / 2;
-      ctx.fillText(clipText(headText(colAxis, v), cellWidth), x, top + headH / 2);
+      ctx.fillText(clipText(head(colAxis, v), cellWidth), x, top + headH / 2);
     });
     ctx.textAlign = 'right';
     rowValues.forEach((v, r) => {
       if (!rowAxis) return;
       const y = top + headH + gap + r * (cellH + gap) + cellH / 2;
-      ctx.fillText(clipText(headText(rowAxis, v), headW - 12), headW - 6, y);
+      ctx.fillText(clipText(head(rowAxis, v), headW - 12), headW - 6, y);
     });
 
     for (const item of placed[b]) {
@@ -1304,12 +1322,14 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
 // Named by the run and the pins: every slice of a run used to download as
 // sheet-<run>.png, told apart only by the browser's " (1)". A stack of every
 // slice is named by the axes its slices run through instead
-// (`sheet-<run>-every-cfg_seed.png`).
-function sheetFileName(pins = sheetLayout?.pins ?? [], every = false) {
-  const first = sheetRecords[0];
+// (`sheet-<run>-every-cfg_seed.png`). An export names its files from its own
+// layout (exportLayout); without one, the sheet on screen.
+function sheetFileName(pins = sheetLayout?.pins ?? [], every = false, layout = null) {
+  const first = (layout?.records ?? sheetRecords)[0];
+  const words = layout?.words ?? sheetWords();
   const parts = every
     ? [`every-${pins.map(([axis]) => axis.key.replace(/^var:/, '')).join('_')}`]
-    : pins.map(([axis, v]) => `${axis.key.replace(/^var:/, '')}-${clip(sheetText(axis, v))}`);
+    : pins.map(([axis, v]) => `${axis.key.replace(/^var:/, '')}-${clip(sheetText(axis, v, words))}`);
   const name = `sheet-${first?.run_id ?? 'gallery'}${parts.length ? `-${parts.join('_')}` : ''}`;
   return `${name.replace(/[^\w.-]+/g, '-')}.png`;
 }
@@ -1355,6 +1375,10 @@ function exportButtonFor(text, title, run) {
     els.sheetControls.querySelectorAll('.sheet-export').forEach(syncExportButton);
     try {
       await run();
+    } catch (err) {
+      // Said where the press was, never an unhandled rejection; what was
+      // saved before it stays saved.
+      showError(`The sheet could not be exported: ${err.message}.`, false, { slot: els.galleryError });
     } finally {
       sheetExporting = false;
       els.sheetControls.querySelectorAll('.sheet-export').forEach(syncExportButton);
@@ -1367,7 +1391,7 @@ function exportButtonFor(text, title, run) {
 async function exportSheet() {
   const layout = exportLayout();
   if (!layout) return;
-  const name = sheetFileName(layout.pins);
+  const name = sheetFileName(layout.pins, false, layout);
   const canvas = await buildSheetCanvas(null, { layout });
   if (canvas) await saveCanvas(canvas, name);
 }
@@ -1395,7 +1419,7 @@ async function exportAllSheet() {
     .filter((slice) => slice.cellOf.size);
   if (slices.length < 2) {
     const [only] = slices;
-    const name = sheetFileName(only?.pins ?? layout.pins);
+    const name = sheetFileName(only?.pins ?? layout.pins, false, layout);
     const canvas = await buildSheetCanvas(only ? [only] : null, { layout });
     if (canvas) await saveCanvas(canvas, name);
     return;
@@ -1403,7 +1427,7 @@ async function exportAllSheet() {
   const edge = EXPORT_MAX_EDGE.toLocaleString('en');
   const cellW = stackedCellWidth(layout, slices.length);
   if (cellW !== null) {
-    const name = sheetFileName(layout.pins, true);
+    const name = sheetFileName(layout.pins, true, layout);
     const canvas = await buildSheetCanvas(slices, { layout, cellW });
     if (canvas) await saveCanvas(canvas, name);
     return;
@@ -1416,7 +1440,7 @@ async function exportAllSheet() {
   }
   const taken = new Set();
   const named = slices.map((slice) => {
-    const base = sheetFileName(slice.pins);
+    const base = sheetFileName(slice.pins, false, layout);
     let name = base;
     for (let i = 2; taken.has(name); i += 1) name = base.replace(/\.png$/, `-${i}.png`);
     taken.add(name);
