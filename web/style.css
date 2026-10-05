@@ -2115,12 +2115,8 @@ button { font: inherit; cursor: pointer; }
    beside crops of it (renderSheet captions the crop). The lightbox it opens
    has the whole picture. */
 .sheet-cell.source img { object-fit: cover; }
-/* A starred cell carries the star a card does, ring and badge - the card's
-   own rules (the star's, with the card's tools below), which name .sheet-cell
-   beside .card so the two cannot drift - and where the keepers cluster is
-   visible on the sheet rather than only in the user's head; a 12 px glyph in
-   a 690 px cell was not. `position: relative` above is what keeps 1024
-   badges from piling up at the top of the page. */
+/* A starred cell's ring and badge are the card's own (the star's rules, with
+   the card's tools below). */
 /* A refine pass says so, and at what strength - on a card always, on the
    sheet where it does not lay the strength out already: a pass looks like its
    source by design. Top left, clear of the star. */
@@ -2245,7 +2241,13 @@ button { font: inherit; cursor: pointer; }
    row 4 px from Delete. Always there on a starred card; on another, ☆ where
    the tools show - hover, keyboard focus, a coarse pointer. A sheet cell
    has the same button, out of the tab order (sheet.js's cellFor: tabindex
-   -1), since the cell's image is its stop and F there does the same. */
+   -1), since the cell's image is its stop and F there does the same. A
+   starred cell carries the ring and the badge a card does - these rules name
+   .sheet-cell beside .card so the two cannot drift - and where the keepers
+   cluster is visible on the sheet rather than only in the user's head: a
+   12 px glyph in a 690 px cell was not. The cell's `position: relative` (its
+   own rule, above) is what keeps 1024 badges from piling up at the top of
+   the page. */
 .card.fav, .sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
 .card .fav-badge, .sheet-cell .fav-badge {
   position: absolute;
