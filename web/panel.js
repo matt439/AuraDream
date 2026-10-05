@@ -971,8 +971,9 @@ function refineResult(rec, tile) {
 // The image just made, while the strip holds it alone, with what it is and
 // what to do next in the width the picture leaves - shown from 1800 px
 // (style.css), where a square result left 1,270 px of the strip empty: which
-// image it refines, Star, Refine…, Reuse and Use seed in words, the prompt,
-// and the lightbox's own facts (factsList). In the figure, so a star and a
+// image it refines, Star, Refine…, Reuse, a pass's Compare with source and
+// Use seed in words, the prompt, and the lightbox's own facts (factsList,
+// without its Use seed: the row has one). In the figure, so a star and a
 // delete reach it as they reach the tile; Delete stays the tile's.
 function resultSide(rec, figure) {
   const side = document.createElement('div');
@@ -1011,12 +1012,42 @@ function resultSide(rec, figure) {
   del.classList.add('del', 'danger');
   const actions = document.createElement('div');
   actions.className = 'result-actions';
-  actions.append(star, refine, action(reuseButton(rec)), reference, seed, brief, del);
+  actions.append(star, refine, action(reuseButton(rec)), reference);
+  if (rec.refine != null) actions.append(compareButton(rec, figure));
+  actions.append(seed, brief, del);
   const prompt = document.createElement('p');
   prompt.className = 'result-prompt';
   prompt.textContent = rec.prompt;
   side.append(actions, prompt, factsList(rec));
   return side;
+}
+
+// A pass's Compare with source: the lightbox on the pass, as its picture
+// opens it (openViewerImage, so a close comes back here), with the
+// comparison already on - the question a pass that has just landed asks, a
+// press and an S away before. Dead where the source has gone, saying why
+// (`syncCompareResult`), as the lightbox's own is.
+function compareButton(rec, figure) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ghost small compare-source';
+  button.textContent = 'Compare with source';
+  button.onclick = () => {
+    if (button.getAttribute('aria-disabled') === 'true') {
+      refuseInCard(figure.querySelector('.tile'), `${button.title}.`, 'Source deleted');
+      return;
+    }
+    openViewerImage(rec);
+    void toggleCompare();
+  };
+  syncCompareResult(button, rec);
+  return button;
+}
+
+function syncCompareResult(button, rec) {
+  button.setAttribute('aria-disabled', String(!!rec.refine_missing));
+  button.title = rec.refine_missing ? `#${rec.refine}, the image this was refined from, has been deleted`
+    : `Compare this pass with #${rec.refine}, the image it was refined from, in the lightbox`;
 }
 
 // The column's first line for a pass: which image it refines, and how far.
@@ -1046,6 +1077,8 @@ function viewerSourcesGone() {
     if (!rec?.refine_missing) return;
     side.querySelector('.lineage')?.replaceWith(passLineage(rec));
     side.querySelector('.facts')?.replaceWith(factsList(rec));
+    const compare = side.querySelector('.compare-source');
+    if (compare) syncCompareResult(compare, rec);
   });
 }
 
