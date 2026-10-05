@@ -507,9 +507,9 @@
   {"expect": "!critiquing && critiqueResult !== null && document.activeElement === els.criticResult && __docked()"},
   {"log": "\"In the docked column the critic's Rewrite and Reordered stack: two at 60 characters a line do not fit there\""},
   {"expect": "(() => { const [a, b] = els.criticResult.querySelectorAll('.critic-variant'); return !!b && b.getBoundingClientRect().top >= a.getBoundingClientRect().bottom; })()"},
+  {"eval": "window.__before = viewerRecords[0]?.id;"},
   {"keycombo": ["Control", "Enter"]},
-  {"wait": 1500},
-  {"expect": "!busy && !els.promptAnalysis.hidden && __docked() && __inView(__img()) && __img().getBoundingClientRect().top === __at[0]"},
+  {"expect": "__until(() => !busy && viewerRecords[0]?.id !== __before && !els.promptAnalysis.hidden && __docked() && __inView(__img()) && __img().getBoundingClientRect().top === __at[0])"},
 
   {"viewport": [2048, 1040, 1.25]},
   {"eval": "closeAnalysis(); __dock(); generate();"},
