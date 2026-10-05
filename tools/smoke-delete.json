@@ -68,9 +68,9 @@
   {"eval": "deleteImage(__other)"},
   {"expect": "els.galleryError.textContent === '#' + __other.id + ' was already deleted.' && els.galleryError.classList.contains('note') && !document.querySelector('#gallery .card[data-id=\"' + __other.id + '\"]') && total === 0"},
 
-  {"log": "'a viewer tile whose image was deleted elsewhere turns into a tombstone, and the job it came from replays only what is left'"},
+  {"log": "'a viewer tile whose image was deleted elsewhere turns into a tombstone, and the job it came from replays only what is left - deleted once both of the viewer\\'s PNGs have loaded and the gallery has taken the run: on Windows a PNG the server is still streaming is not deleted (storage._unlink leaves it for the orphan sweep), and the reload then found it'"},
   {"eval": "void startJob('/api/generate', {...collect(), num_images: 2, seed: 30});"},
-  {"expect": "__until(() => !busy && viewerRecords.length === 2 && viewerRecords.every((r) => r.prompt === 'a lighthouse in fog'))"},
+  {"expect": "__until(() => !busy && !galleryPending && viewerRecords.length === 2 && viewerRecords.every((r) => r.prompt === 'a lighthouse in fog') && els.viewer.querySelectorAll('img[data-id]').length === 2 && [...els.viewer.querySelectorAll('img[data-id]')].every((i) => i.complete && i.naturalWidth > 0))"},
   {"eval": "window.__tile = viewerRecords[1]; api('/api/images/' + __tile.id, {method: 'DELETE'}).then(() => { els.viewer.querySelector('img[data-id=\"' + __tile.id + '\"]').src = __tile.url + '?again'; })"},
   {"expect": "__until(() => !els.viewer.querySelector('img[data-id=\"' + __tile.id + '\"]') && els.viewer.querySelectorAll('.tomb').length === 1 && viewerRecords.length === 1)"},
   {"eval": "api('/api/jobs/' + __tile.job_id).then((j) => { window.__job = j; })"},
