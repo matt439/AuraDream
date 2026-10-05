@@ -744,10 +744,10 @@ async function runRefine() {
       // lightbox. Then Generate - or New image ↑, beside the progress, where
       // the strip the pass shows in is out of sight - rather than <body>.
       // refineClosed puts it on the source's card where the lightbox opened
-      // the dialog.
+      // the dialog. A sweep's sheet takes focus on from either (handJobFocus).
       requestAnimationFrame(() => {
         if (document.activeElement && document.activeElement !== document.body) return;
-        (els.newImage.hidden ? els.generate : els.newImage).focus({ preventScroll: true });
+        handJobFocus(els.newImage.hidden ? els.generate : els.newImage);
       });
     },
   });
@@ -864,7 +864,7 @@ function refineClosed() {
   // page, whose progress is where the pass now shows. A card the prompt check
   // covers (Gallery beside) is not one focus can land on.
   const card = [...document.querySelectorAll(`#gallery .card[data-id="${back.rec.id}"] img`)].find(isShown);
-  (card ?? els.generate).focus({ preventScroll: true });
+  handJobFocus(card ?? els.generate);
 }
 
 // ------------------------------------------------- the pass's own prompt

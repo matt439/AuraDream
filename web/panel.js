@@ -649,7 +649,7 @@ function runListKey(e) {
 function runListChange() {
   if (runKeyed) {
     runPending = els.runList.value;
-    els.runList.title = els.runList.selectedOptions[0]?.text ?? 'Recent runs';
+    syncRunList();
     return;
   }
   runPending = null;
@@ -774,10 +774,11 @@ function clearResults(job = null) {
   viewerRecords = [];
   Object.assign(viewerJob, { expected: job?.planned_images ?? 0, width: job?.width ?? 0, height: job?.height ?? 0 });
   // Focus on what goes - a result's tool the Refine dialog handed it back
-  // to, its picture - goes to Generate rather than to <body>.
+  // to, its picture - goes to Generate rather than to <body>, and a sheet the
+  // job opens takes it on from there (handJobFocus).
   const focused = els.viewer.contains(document.activeElement);
+  if (focused) handJobFocus(els.generate);
   els.viewer.innerHTML = '';
-  if (focused) els.generate.focus({ preventScroll: true });
   els.viewer.scrollTop = 0;
   els.viewer.style.maxHeight = '';
   els.viewer.style.minHeight = '';
@@ -1327,10 +1328,14 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
 // and its description, the facts alone: the title was the description too,
 // so a long prompt was read twice an image, once in the name ("Open #N:
 // <prompt>") and again after "#N · W×H · seed N". `aria-description` takes
-// the title's place there. Again where a deleted source changes the facts
-// (forgetImages).
+// the title's place there, less any fact the name says already: a sheet's
+// cell is named by its settings ("Open #16 · Steps 2 · Seed 7", renderSheet,
+// which calls this again once it has named it), and its id and seed were
+// read twice. Again where a deleted source changes the facts (forgetImages).
 function titleImage(img, rec) {
   const title = cardTitle(rec);
   img.title = title;
-  img.setAttribute('aria-description', title.split('\n')[0]);
+  const named = new Set((img.getAttribute('aria-label') ?? '').replace(/^Open /, '').toLowerCase().split(' · '));
+  const facts = title.split('\n')[0].split(' · ').filter((fact) => !named.has(fact.toLowerCase()));
+  img.setAttribute('aria-description', facts.join(' · '));
 }

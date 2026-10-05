@@ -2057,6 +2057,12 @@ button { font: inherit; cursor: pointer; }
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
   overflow-wrap: break-word; min-width: 0;
 }
+/* A long number in a label - a seed - goes to a line of its own whole, and
+   breaks only where it alone is wider than its column, between its groups of
+   four digits (sheet.js, numberLabel): "Seed" over "7601520420449509", never
+   "Seed 760152042044" over "9509". Broken, its lines are balanced:
+   "76015204" over "20449509", not "760152042044" over "9509". */
+.sheet-grid .label > .number { display: inline-block; text-wrap: balance; }
 .sheet-grid .head {
   top: 0; align-items: flex-end; justify-content: center; text-align: center; padding-bottom: 2px;
 }

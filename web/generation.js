@@ -381,6 +381,21 @@ function setStep(show, fraction = 0, text = '') {
   els.stepText.textContent = text;
 }
 
+// The page moving focus itself where a job it submitted took it from - the
+// Refine dialog closed on its run, the strip a job's first frame empties -
+// to `to`, without moving the page. A sheet a job opens at its end takes
+// focus along from the control pressed (sheet.js, focusSheet), so that
+// control becomes `to` where focus was on it or it has gone: a sweep run
+// from the viewer's ⤢ left focus on Generate, a screen above its sheet in
+// one column, and the next Tab took the page back up to it.
+function handJobFocus(to) {
+  const from = document.activeElement;
+  to.focus({ preventScroll: true });
+  for (const submitted of submissions.values()) {
+    if (submitted.asker && (submitted.asker === from || !isShown(submitted.asker))) submitted.asker = to;
+  }
+}
+
 // Every submit button queues one job and then watches the same stream; only
 // the endpoint and the payload differ. `sheet` opens the job as a sheet once
 // its stream reports done - the prompt check's comparison and a refine

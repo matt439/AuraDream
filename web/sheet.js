@@ -525,14 +525,23 @@ function headCell(text, className, title = text, numeric = false) {
 // A head's 16-digit seed, broken by the label's `overflow-wrap: break-word`
 // wherever a column was under 112 px - an 8-seed comparison at 1400x900 read
 // "Seed 760152042044950" over "9", a number misread as another when typed
-// back - breaks only between groups of four digits: a <wbr> between them is
-// a place to break, and break-word breaks inside a word only where a line
-// has none. The text is the number whole, so a copy has every digit.
+// back - goes to a line of its own whole (`.number`, an inline-block), and
+// breaks only where the number alone is wider than its column, and then only
+// between groups of four digits counted from its end: a <wbr> between them
+// is a place to break, so a tail is never one to three digits. <wbr>s alone
+// filled the first line after "Seed" and split numbers that had gone onto a
+// line of their own whole, "Seed 760152042044" over "9509" in 112-143 px.
+// The text is the number whole, so a copy has every digit.
 function numberLabel(text) {
   return text.split(/(\d{5,})/).flatMap((part, i) => {
     if (i % 2 === 0) return part ? [part] : [];
-    const groups = part.match(/\d{1,4}/g);
-    return groups.flatMap((group, j) => (j ? [document.createElement('wbr'), group] : [group]));
+    const number = document.createElement('span');
+    number.className = 'number';
+    part.match(/\d{1,4}(?=(?:\d{4})*$)/g).forEach((group, j) => {
+      if (j) number.append(document.createElement('wbr'));
+      number.append(group);
+    });
+    return [number];
   });
 }
 
@@ -922,7 +931,10 @@ function renderSheet() {
     cell.classList.toggle('fav', !!rec.favorite);
     cell.dataset.id = rec.id;
     const img = thumb(rec, walk);
-    if (heads.length) img.setAttribute('aria-label', [`Open #${rec.id}`, ...heads].join(' · '));
+    if (heads.length) {
+      img.setAttribute('aria-label', [`Open #${rec.id}`, ...heads].join(' · '));
+      titleImage(img, rec);
+    }
     // The full PNG beside the thumbnail, for a cell drawn wider than the
     // thumbnail is (fitSheet sets `sizes`): 384 px shown at 520 was soft
     // exactly where a CFG or steps sweep differs. Lazy loading still fetches
@@ -1699,16 +1711,35 @@ function scrollSettled() {
 // Tab scrolled the page back away from it; where the sheet took it away -
 // a card's ⊞, the gallery hidden under the sheet - it had fallen to <body>.
 // Either goes to the sheet's first cell, without moving the page (else the
-// search box, over a sheet with nothing in it). Focus anywhere else stays:
-// a comparison's sheet opens when its job ends, maybe while the prompt is
-// being typed in.
+// search box, over a sheet with nothing in it). `asker` is the control that
+// asked, or where the page itself put focus since (handJobFocus). Focus
+// anywhere else stays: a comparison's sheet opens when its job ends, maybe
+// while the prompt is being typed in.
 function focusSheet(asker) {
   const now = document.activeElement;
   const lost = !now || now === document.body || !isShown(now);
-  if (!lost) {
-    if (now !== asker) return;
-    const box = now.getBoundingClientRect();
-    if (box.top >= document.querySelector('.topbar').getBoundingClientRect().bottom && box.bottom <= innerHeight) return;
-  }
+  if (!lost && (now !== asker || wholeInSight(now))) return;
   (els.sheetGrid.querySelector('.sheet-cell img[data-id]') ?? els.search).focus({ preventScroll: true });
+}
+
+// Whether all of `el` can be seen: inside the window under the topbar and
+// inside every box round it that clips what overflows it. The window alone
+// is not enough: at 2560 the docked prompt check scrolls inside itself, and
+// once the sheet was landed on, Run comparison lay in the window under the
+// topbar and wholly outside the check's own box - out of sight, and the next
+// Tab took the page back to it.
+function wholeInSight(el) {
+  const box = el.getBoundingClientRect();
+  let top = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  let bottom = innerHeight, left = 0, right = innerWidth;
+  for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
+    const style = getComputedStyle(up);
+    if (style.display === 'contents' || (style.overflowX === 'visible' && style.overflowY === 'visible')) continue;
+    const clip = up.getBoundingClientRect();
+    top = Math.max(top, clip.top);
+    bottom = Math.min(bottom, clip.bottom);
+    left = Math.max(left, clip.left);
+    right = Math.min(right, clip.right);
+  }
+  return box.top >= top - 0.5 && box.bottom <= bottom + 0.5 && box.left >= left - 0.5 && box.right <= right + 0.5;
 }
