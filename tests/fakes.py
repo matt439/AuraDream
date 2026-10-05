@@ -44,6 +44,9 @@ class FakeBackend(GenerationBackend):
         self.reference_supported = True
         # And it has an image-to-image sibling, so a refine pass runs.
         self.refine_supported = True
+        # And a flow schedule a requested mu can reach. Off, the mu goes
+        # from the row, as the real backend's `applied()` drops it.
+        self.mu_supported = True
         self.lora_reason: str | None = None
         # Adapters that do not fit the claimed checkpoint, by name, with the
         # reason the real backend would give: hidden by the page, refused at
@@ -78,6 +81,8 @@ class FakeBackend(GenerationBackend):
         changes = {}
         if request.reference and not self.reference_supported:
             changes["reference"] = []
+        if request.mu is not None and not self.mu_supported:
+            changes["mu"] = None
         if request.lora and not self.lora_supported():
             changes["lora"] = None
         if request.refine is not None and not self.refine_supported:
@@ -90,6 +95,7 @@ class FakeBackend(GenerationBackend):
         return request.applied(
             negative_prompt_supported=True,
             cfg_threshold=self.cfg_threshold,
+            mu_supported=self.mu_supported,
             true_cfg_supported=self.true_cfg_supported,
             reference_supported=self.reference_supported,
             lora_supported=self.lora_supported(),

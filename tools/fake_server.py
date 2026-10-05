@@ -190,6 +190,15 @@ def main() -> int:
     # the claimed checkpoint: greyed on a Krea 2 or klein fake, live on a
     # FLUX.1, SDXL, Z-Image or Qwen-Image one.
     fake.refine_supported = profile["refine_supported"]
+    # A Mu only where the claimed checkpoint's schedule can take one: on an
+    # Anima or SDXL fake the row drops it, as the real applied() does.
+    fake.mu_supported = profile["mu_supported"]
+    # And no adapter where the real backend refuses one by the id alone
+    # (Anima Turbo, NewBie): the same sentence, from the same function, so
+    # /api/loras, the greyed select and a submit's refusal are the real ones.
+    from backend.backends.loading import lora_refusal
+
+    fake.lora_reason = lora_refusal(args.model)
     # ERNIE's browser check drives the real button and endpoint without the
     # multi-GB rewriter. FakeBackend's deterministic sentence makes it clear
     # that the chosen canvas size reached the operation.
