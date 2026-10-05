@@ -42,7 +42,8 @@
 // a job the page watches, once the server has taken it - so to look at a job
 // while it runs write `void startJob(...)`.
 // Exit status is 1 when any `expect` failed - an expect that throws, or whose
-// promise rejects, has failed - so this can gate a check, and 2
+// promise rejects, has failed - or the browser left a call unanswered for
+// five minutes (the step it was on is printed), so this can gate a check, and 2
 // for a script refused before the browser starts - among them an expect that
 // joins an async helper (`__until`, or a `window.__x = async` of the file's
 // own) to more with && or ||, which would never wait: put the whole
@@ -162,9 +163,29 @@ ws.onmessage = (m) => {
   const msg = JSON.parse(m.data);
   if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
 };
+// A call the browser never answers - a renderer hung or gone, an eval
+// awaiting a promise that never settles - held the run until whatever ran it
+// gave up and killed it, and everything it had printed went with it, so a
+// stalled smoke never said where it stopped. Five minutes is far past any
+// step the smokes take (their longest wait is a 40 s __until); the run then
+// ends there, failed, naming the step, and so does a browser that closes the
+// connection with a call unanswered.
+const ANSWER_MS = 300000;
+let at = 'starting the browser';
+let abandoned = false;
+function abandon(reason) {
+  if (abandoned) return;
+  abandoned = true;
+  console.log(`  ! ${reason}, at ${at}`);
+  try { ws.close(); } catch { /* already closed */ }
+  proc.kill();
+  setTimeout(() => { cleanup(); process.exit(1); }, 500);
+}
+ws.onclose = () => { if (pending.size) abandon('the browser closed the connection'); };
 const send = (method, params = {}) => new Promise((resolve) => {
   const n = ++id;
-  pending.set(n, resolve);
+  const timer = setTimeout(() => abandon(`no answer to ${method} in ${ANSWER_MS / 1000} s`), ANSWER_MS);
+  pending.set(n, (msg) => { clearTimeout(timer); resolve(msg); });
   ws.send(JSON.stringify({ id: n, method, params }));
 });
 
@@ -205,7 +226,8 @@ async function point(at) {
 const ESCAPE = { code: 'Escape', windowsVirtualKeyCode: 27 };
 const COMBO_KEYS = { Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' }, Escape: ESCAPE };
 
-for (const step of steps) {
+for (const [n, step] of steps.entries()) {
+  at = `step ${n + 1}: ${JSON.stringify(step).slice(0, 160)}`;
   if (step.navigate) { await send('Page.navigate', { url: step.navigate }); await sleep(800); }
   else if (step.wait) await sleep(step.wait);
   else if (step.eval) await evaluate(step.eval);
@@ -285,6 +307,7 @@ for (const step of steps) {
   }
 }
 
+pending.clear();
 ws.close();
 proc.kill();
 await sleep(500);
