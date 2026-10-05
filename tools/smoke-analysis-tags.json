@@ -72,5 +72,17 @@
   {"expect": "__still()"},
 
   {"viewport": [1400, 900, 1]},
+  {"log": "'Below 1800 px the check stacks over the viewer, under the chips, and its cap - 55% of the window - leaves the chips out: with 40 tags and the critic answer in it, it scrolls inside itself, its head stuck, and the image just made still starts in the top three quarters of the window (at 55vh it started at 817 of 900)'"},
+  {"eval": "__render(40);"},
+  {"expect": "__until(() => __settled(40))"},
+  {"eval": "scrollTo(0, 0); els.analyze.click();"},
+  {"expect": "__until(() => !els.promptAnalysis.hidden && analysisResult?.source === __tags(40) && !analysisStale)"},
+  {"eval": "els.criticAsk.click();"},
+  {"expect": "__until(() => !critiquing && critiqueResult !== null)"},
+  {"eval": "scrollTo(0, 0); els.promptAnalysis.scrollTop = 0;"},
+  {"log": "(() => { const p = els.promptAnalysis.getBoundingClientRect(); const c = els.tagValidation.getBoundingClientRect(); return { chips: [c.top, c.bottom], check: [p.top, p.bottom], scroll: [els.promptAnalysis.scrollHeight, els.promptAnalysis.clientHeight], viewer: els.viewer.getBoundingClientRect().top, image: __img().getBoundingClientRect().top, window: innerHeight }; })()"},
+  {"expect": "(() => { const p = els.promptAnalysis; const r = p.getBoundingClientRect(); const c = els.tagValidation.getBoundingClientRect(); const v = els.viewer.getBoundingClientRect(); const floor = 12 * parseFloat(getComputedStyle(document.documentElement).fontSize); return innerWidth < 1800 && p.parentElement === els.tagValidationWide && c.height > 100 && r.top >= c.bottom && getComputedStyle(p).overflowY === 'auto' && p.scrollHeight > p.clientHeight + 100 && r.height <= Math.max(floor, innerHeight * 0.55 - c.height) + 1 && v.top > r.bottom && v.top < innerHeight * 0.75 && __img().getBoundingClientRect().top < innerHeight * 0.75; })()"},
+  {"eval": "els.promptAnalysis.scrollTop = els.promptAnalysis.scrollHeight;"},
+  {"expect": "(() => { const p = els.promptAnalysis; const r = p.getBoundingClientRect(); const head = p.querySelector('.analysis-head').getBoundingClientRect(); const close = els.analysisClose.getBoundingClientRect(); return p.scrollTop > 100 && Math.abs(head.top - r.top) <= 2 && document.elementFromPoint(close.left + close.width / 2, close.top + close.height / 2) === els.analysisClose; })()"},
   {"eval": "closeAnalysis(); scrollTo(0, 0);"}
 ]

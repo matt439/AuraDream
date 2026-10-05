@@ -735,14 +735,17 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line);
   border-radius: var(--r-lg); font-size: var(--fs-label); line-height: 1.45;
 }
-/* Above the results it is capped at 55% of the window and scrolls inside
-   itself: stacked over the viewer below 1800 px, the critic's answer took it
-   past a thousand pixels and the image just made off the screen. Docked
-   from 1800 px its own cap replaces this one. Under 901 px, in the panel,
-   it is as long as what it holds. */
+/* Above the results it is capped and scrolls inside itself: stacked over the
+   viewer below 1800 px, the critic's answer took it past a thousand pixels
+   and the image just made off the screen. The cap is 55% of the window less
+   a tag checkpoint's chips above it (`--chips-h`, tags.js's chipsResized):
+   at 55vh beside 40 tags' chips the image's top was at 817 of 900 px. Never
+   under 12rem, the head and a finding or two. Docked from 1800 px its own
+   cap replaces this one. Under 901 px, in the panel, it is as long as what
+   it holds. */
 .tag-validation-wide .prompt-analysis {
   background: var(--panel);
-  max-height: 55vh; overflow-y: auto;
+  max-height: max(12rem, calc(55vh - var(--chips-h, 0px))); overflow-y: auto;
   padding-top: 0;
 }
 .analysis-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; position: relative; padding-right: 36px; }

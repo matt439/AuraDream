@@ -1034,10 +1034,11 @@ function placeTagValidation() {
   if (range) focused.setSelectionRange(...range);
 }
 
-// The chips' height, on the stage: from 1800 px the docked prompt check
-// starts under them, across both columns, and its cap - the window under the
-// topbar - leaves them out (style.css, `--chips-h`). From a ResizeObserver
-// (app.js); a hidden tray is 0, and one in the panel is never docked over.
+// The chips' height, on the stage: above the results the prompt check starts
+// under them - stacked below 1800 px, docked across both columns from it - and
+// its cap leaves them out, so the image just made stays on the screen
+// (style.css, `--chips-h`). From a ResizeObserver (app.js); a hidden tray is
+// 0, and in the panel under 901 px the check is not capped.
 function chipsResized() {
   els.viewer.parentElement.style.setProperty('--chips-h', `${els.tagValidation.getBoundingClientRect().height}px`);
 }
