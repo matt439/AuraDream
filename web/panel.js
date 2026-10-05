@@ -584,6 +584,10 @@ async function loadRuns() {
     els.runList.append(box);
   };
   const stars = (run) => (run.favorites ? ` · ${run.favorites}★` : '');
+  // Its words on one line, an XML prompt's without the markup every run of
+  // it opens with (promptGist, generation.js): three NewBie runs that
+  // differed in an attribute read "<character_1>\n<n>hatsune_miku</n>\n<gen…".
+  const words = (run) => clip(promptGist(run.prompt ?? ''));
   group('Grids and batches', runs.filter(several), (run) => {
     // A run that made fewer pictures than images says so in the list.
     const distinct = typeof run.distinct === 'number' && run.distinct < run.images
@@ -591,11 +595,11 @@ async function loadRuns() {
     const prompts = run.prompts > 1 && !run.axes?.variant ? ` · ${run.prompts} prompts` : '';
     const axes = runAxes(run);
     return `${when(Date.parse(run.started_at))} · ${run.images} img${distinct}${prompts}${stars(run)}`
-      + `${axes ? ` · ${axes}` : ''} · ${clip(run.prompt)}`;
+      + `${axes ? ` · ${axes}` : ''} · ${words(run)}`;
   });
   group(singles.length > SINGLE_RUNS ? `Single images (the newest ${SINGLE_RUNS} of ${singles.length})` : 'Single images',
     singles.slice(0, SINGLE_RUNS),
-    (run) => `${whenExactly(Date.parse(run.started_at))} · seed ${run.seed}${stars(run)} · ${clip(run.prompt)}`);
+    (run) => `${whenExactly(Date.parse(run.started_at))} · seed ${run.seed}${stars(run)} · ${words(run)}`);
   els.runList.disabled = !runs.length;
   syncRunList();
 }

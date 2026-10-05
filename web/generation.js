@@ -109,10 +109,10 @@ function setBusy(on) {
 // unfilled - the first cell's named the whole night by a cell that had long
 // finished - and a re-render's cells are its records', with no one prompt to
 // name.
-function describeJob(job, length = 60) {
+function describeJob(job, length = 60, { markup = false } = {}) {
   const what = job.refine != null ? `refine of #${job.refine}`
-    : !job.grid ? snippet(job.prompt ?? '', length)
-    : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length)}`
+    : !job.grid ? snippet(job.prompt ?? '', length, { markup })
+    : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length, { markup })}`
     : 're-render';
   return [
     job.planned_images ? plural(job.planned_images, 'image') : '',
@@ -121,10 +121,24 @@ function describeJob(job, length = 60) {
   ].filter(Boolean).join(' · ');
 }
 
+// A prompt's words on one line, without the markup of an XML prompt
+// (NewBie's): its opening tags are the same in every prompt, so jobs and runs
+// that differed in an attribute - blue_hair, green_hair - were all named
+// "<character_1> <n>hatsune_miku</n> <gender>…", and a queued row's × did not
+// say which job it cancelled. A tag is `<name>` or `</name>` and nothing else,
+// so prose, Qwen's `<|…|>` control text and `<lora:…>` forms stay as written;
+// a prompt of nothing but tags keeps them.
+const MARKUP_TAG = /<\/?[A-Za-z_][\w.-]*>/g;
+function promptGist(text, { markup = false } = {}) {
+  const line = (s) => s.trim().split(/\s+/).join(' ');
+  return (!markup && line(text.replace(MARKUP_TAG, ' '))) || line(text);
+}
+
 // At a word's end where there is one in the second half: "under a pine a…"
-// named a word the prompt does not have.
-function snippet(text, length = 60) {
-  const line = text.trim().split(/\s+/).join(' ');
+// named a word the prompt does not have. `markup` keeps an XML prompt's tags,
+// for a title that has the prompt as written.
+function snippet(text, length = 60, { markup = false } = {}) {
+  const line = promptGist(text, { markup });
   if (line.length <= length) return line;
   const cut = line.slice(0, length - 1);
   const space = cut.lastIndexOf(' ');
@@ -601,11 +615,11 @@ function syncPause(job) {
 // The job Cancel stops, named over the bars and in Cancel's own title: with a
 // queue, the prompt box held another job's text, and Cancel stopped the one
 // it did not show. One line, beside Pause and Cancel, which the panel's width
-// may cut: the line's title has it whole.
+// may cut: the line's title has it whole, an XML prompt's markup and all.
 function syncNow(job) {
   const what = describeJob(job);
   els.progressNow.textContent = what ? `Now: ${what}` : '';
-  els.progressNow.title = what ? `Now: ${describeJob(job, 120)}` : '';
+  els.progressNow.title = what ? `Now: ${describeJob(job, 120, { markup: true })}` : '';
   const name = job.refine != null ? `the refine of #${job.refine}`
     : job.grid ? (job.prompt_template != null ? 'this grid' : 'this re-render')
     : `"${snippet(job.prompt ?? '', 40)}"`;
