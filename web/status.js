@@ -29,11 +29,14 @@ function applyDefaults(d) {
 
 // A quarter either side of the profile's steps, and a step of CFG either
 // side of its CFG - clamped to the boxes' own bounds. A profile at CFG 0
-// (Krea 2 Turbo, Z-Image Turbo, schnell) keeps the shipped 0,0.5,1: one
-// below would be negative, and those checkpoints are distilled for 0. One
-// whose CFG leaves guidance off (Anima Turbo, ERNIE Turbo and klein at 1,
-// the threshold) sweeps upwards from it: 0,1,2 spent a cell on CFG 0, the
-// same image as the profile's own 1.
+// (Krea 2 Turbo, Z-Image Turbo) keeps the shipped 0,0.5,1: one below would
+// be negative, and those checkpoints are distilled for 0. One whose CFG
+// leaves guidance off (Anima Turbo and ERNIE Turbo at 1, a threshold that
+// is CFG's own and not True CFG's) sweeps upwards from it: 0,1,2 spent a
+// cell on CFG 0, the same image as the profile's own 1. Where the box never
+// reaches the model (`cfg_ignored`: the distilled klein, schnell, Qwen-Image)
+// there is no example: 1,2,3 was three copies of one image, and on klein a
+// walk into the pipeline's warning above 1.
 function gridExamples(d) {
   const most = (el, fallback) => (Number.isFinite(+el.max) && el.max !== '' ? +el.max : fallback);
   const s = d.steps, c = d.guidance_scale;
@@ -41,10 +44,11 @@ function gridExamples(d) {
   const steps = [Math.round(0.75 * s), s, Math.round(1.25 * s)]
     .map((n) => Math.min(most(els.steps, 100), Math.max(1, n)));
   const top = most(els.cfg, 20);
-  const cfg = !(c > 0) ? null
-    : (c <= threshold ? [c, c + 1, c + 2] : [Math.max(0, c - 1), c, c + 1])
+  const cfg = d.cfg_ignored ? []
+    : !(c > 0) ? [0, 0.5, 1]
+    : (c <= threshold && !d.true_cfg_supported ? [c, c + 1, c + 2] : [Math.max(0, c - 1), c, c + 1])
       .map((v) => +Math.min(top, v).toFixed(2));
-  return { steps: [...new Set(steps)].join(','), cfg: cfg ? [...new Set(cfg)].join(',') : '0,0.5,1' };
+  return { steps: [...new Set(steps)].join(','), cfg: [...new Set(cfg)].join(',') };
 }
 
 // The shift a blank Mu leaves, where the checkpoint's scheduler has a fixed

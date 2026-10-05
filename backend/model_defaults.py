@@ -74,6 +74,12 @@ in place of "auto" and puts a sheet's Mu none at it, rather than first; the
 stored mu stays null, and the grid's `none` stays its word. The Mu tips
 quote it.
 
+`cfg_ignored` says the CFG box never reaches the model: the distilled klein
+(guidance baked in; the pipeline warns above 1), schnell and Qwen-Image (no
+guidance input; True CFG is their knob). Their CFG tips open "Ignored", and
+a test holds the two together. The grid's CFG axis then offers no example:
+a sweep of it is the same image at every value.
+
 `hints` is the same knowledge as prose, for the UI's tooltips: what steps, CFG
 and mu mean *on this checkpoint*, which is not the same sentence twice. They are
 format strings over the profile's own numbers, so the text cannot drift from the
@@ -225,6 +231,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
         {
             "steps": 4,
             "guidance_scale": 1.0,
+            "cfg_ignored": True,
             "mu": None,
             "mu_supported": True,
             "cfg_threshold": 1.0,
@@ -260,6 +267,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
         {
             "steps": 4,
             "guidance_scale": 0.0,
+            "cfg_ignored": True,
             "mu": None,
             "mu_supported": True,
             "cfg_threshold": 1.0,
@@ -471,6 +479,7 @@ _PROFILES.append(
         {
             "steps": 50,
             "guidance_scale": 1.0,
+            "cfg_ignored": True,
             "mu": None,
             "mu_supported": True,
             "cfg_threshold": 1.0,
@@ -882,8 +891,10 @@ def defaults_for(model_id: str) -> dict[str, Any]:
     measured = profile.get("refine_measured")
     return {
         **{k: v for k, v in profile.items() if k not in _NOT_DEFAULTS},
-        # Every status says it, None where the shift is not a fixed number.
+        # Every status says both: None where the shift is not a fixed number,
+        # False where the CFG box reaches the model.
         "mu_static": profile.get("mu_static"),
+        "cfg_ignored": bool(profile.get("cfg_ignored", False)),
         "refine_tight_pixels": measured.width * measured.height if measured else None,
     }
 

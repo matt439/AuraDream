@@ -536,6 +536,23 @@ def test_a_fixed_shift_is_the_profiles_mu_static():
     assert defaults_for("nobody/whatever")["mu_static"] is None
 
 
+def test_cfg_ignored_is_exactly_where_the_cfg_tip_says_ignored():
+    # The grid's CFG axis offers no example where the box never reaches the
+    # model - a sweep there is one image at every value, and on klein a walk
+    # into the pipeline's warning above 1. The flag and the tip say the same.
+    repos = [*_catalogue_repos(), "nobody/whatever"]
+    for repo in repos:
+        ignored = defaults_for(repo)["cfg_ignored"]
+        assert isinstance(ignored, bool), repo
+        assert ignored == hints_for(repo)["guidance_scale"].startswith("Ignored"), repo
+    assert {repo for repo in repos if defaults_for(repo)["cfg_ignored"] and not repo.startswith("lite-infer/")} == {
+        "black-forest-labs/FLUX.1-schnell", "black-forest-labs/FLUX.2-klein-4B",
+        "black-forest-labs/FLUX.2-klein-9B", "Qwen/Qwen-Image",
+    }
+    # klein base is real CFG, whatever its family shares.
+    assert defaults_for("black-forest-labs/FLUX.2-klein-base-4B")["cfg_ignored"] is False
+
+
 def test_every_guide_admits_the_1_mp_presets():
     # 1 MP is the size every one of these was trained around, and the page opens
     # on a 1 MP preset; the size line warns a tenth outside the range, so every
