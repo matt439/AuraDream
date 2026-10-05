@@ -417,6 +417,17 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    intrinsic width and squeezes the seed field it shares a row with. */
 .sub.narrow { width: var(--narrow-w); flex: none; }
 .sub.narrow input { padding-left: 6px; padding-right: 2px; }
+/* The sampling row's names on one line each, and no box narrower than its
+   name: FLUX.1's CFG is "CFG (distilled)" (applyHints), which a quarter of
+   the row - 68 px at 1400 - wrapped onto a second line under the other three,
+   or ran into Mu. It takes its room from boxes that hold three characters;
+   elsewhere the names are short and the four stay equal. */
+.sampling-row > .sub.grow { min-width: min-content; }
+.sampling-row > .sub > i { white-space: nowrap; }
+/* Its boxes hold a few characters, as the counters' do, and take their
+   padding: beside a wider CFG the others are 62 px, and Mu's "auto" was cut
+   to "aut" by the spinner. */
+.sampling-row input { padding-left: 6px; padding-right: 2px; }
 .sub i { font-style: normal; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 5px; }
 
 /* An explicit hover target for the per-checkpoint help. A native `title` is

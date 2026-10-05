@@ -20,7 +20,14 @@ import pytest
 from backend import generate, launch, sizes
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import DiffusersBackend
-from backend.model_defaults import _FALLBACK, _profile_for, defaults_for, guide_for, hints_for
+from backend.model_defaults import (
+    _FALLBACK,
+    _PROFILES,
+    _profile_for,
+    defaults_for,
+    guide_for,
+    hints_for,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -426,6 +433,47 @@ def test_krea_dev_is_flux_to_the_controls_and_its_own_to_the_guide():
     assert hints_for(krea)["prompt"] != hints_for(flux)["prompt"]
     assert guide_for(krea)["pixels_word"] == "recommended"
     assert guide_for(flux)["pixels"] == (0.1, 2.0)
+
+
+def test_flux1_names_its_cfg_box_distilled_and_no_other_profile_does():
+    # FLUX.1 [dev]'s box labelled CFG is, by its own tip, the distilled
+    # guidance value the model takes as an input; True CFG beside it is the
+    # real one. The authors call it CFG, so the name keeps the word and is
+    # qualified: "CFG (distilled)" on the panel's and the grid's labels. Every
+    # profile sharing FLUX.1 [dev]'s numbers - Krea dev and the lite repos -
+    # says so, and no other: schnell's transformer takes no guidance at all,
+    # klein's is baked in, and the rest run real CFG in that box.
+    distilled = {id(dict(_PROFILES)["flux"]), id(dict(_PROFILES)["krea-dev"])}
+    named = set()
+    for repo in _catalogue_repos():
+        label = hints_for(repo).get("cfg_label")
+        if id(_profile_for(repo)) in distilled:
+            assert label == "CFG (distilled)", repo
+            named.add(repo)
+        else:
+            assert label is None, repo
+    assert {"black-forest-labs/FLUX.1-dev", "black-forest-labs/FLUX.1-Krea-dev"} <= named
+    assert "cfg_label" not in hints_for("nobody/whatever")
+    # A loaded pipeline that answers the negative prompt otherwise gets the
+    # generic tip, which calls the box classifier-free guidance: the name
+    # goes with the tip it would contradict. One that agrees keeps both.
+    flux = "black-forest-labs/FLUX.1-Krea-dev"
+    assert hints_for(flux, negative_prompt_supported=True)["cfg_label"] == "CFG (distilled)"
+    assert "cfg_label" not in hints_for(flux, negative_prompt_supported=False)
+
+
+def test_the_page_writes_the_cfg_label_on_both_cfg_boxes():
+    # applyHints (status.js) writes the hint, or plain CFG where a status
+    # has none - a server restarted under another checkpoint must not keep
+    # FLUX.1's word - on the panel's box and the grid's axis, whose labels
+    # carry the ids it writes through and start as the plain word.
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    assert '<label for="cfg" id="cfg-label">CFG</label>' in html
+    assert '<label for="grid-cfg" id="grid-cfg-label">CFG</label>' in html
+    status = (ROOT / "web" / "status.js").read_text(encoding="utf-8")
+    apply = status[status.index("function applyHints"):status.index("function applyGuide")]
+    assert "hints.cfg_label ?? 'CFG'" in apply
+    assert "els.cfgLabel" in apply and "els.gridCfgLabel" in apply
 
 
 def test_the_size_table_is_the_same_in_the_browser_and_the_cli():

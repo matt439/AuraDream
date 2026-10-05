@@ -41,6 +41,7 @@ const els = {
   mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
+  cfgLabel: $('cfg-label'), gridCfgLabel: $('grid-cfg-label'),
   referenceField: $('reference-field'), referenceList: $('reference-list'),
   referenceNote: $('reference-note'), referenceTip: $('reference-tip'),
   lora: $('lora'), loraScale: $('lora-scale'), loraField: $('lora-field'),

@@ -44,8 +44,9 @@ def test_every_profile_explains_its_controls(model_id):
     hints = hints_for(model_id)
     # The Refine dialog's words past the size a pass was measured at - the run
     # it quotes, `refine_tight`, and FLUX.1's `refine_large` - are only where
-    # a pass was measured.
-    assert set(hints) - {"refine_large", "refine_tight"} == {
+    # a pass was measured; FLUX.1's name for its CFG box, `cfg_label`, only
+    # where the box is a distilled guidance value (test_profiles).
+    assert set(hints) - {"refine_large", "refine_tight", "cfg_label"} == {
         "steps", "guidance_scale", "mu", "true_cfg", "reference", "refine", "prompt", "size"
     }
     assert all(text and "{" not in text for text in hints.values())

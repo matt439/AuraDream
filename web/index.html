@@ -238,7 +238,7 @@
          without one, the row read as part of Size above it. -->
     <div class="field" role="group" aria-labelledby="sampling-caption">
       <span id="sampling-caption">Sampling</span>
-      <div class="row">
+      <div class="row sampling-row">
         <div class="sub grow">
           <i><label for="steps">Steps</label>
             <span class="help" tabindex="0" role="note" aria-label="Steps help" aria-describedby="steps-tip">?<span
@@ -247,7 +247,7 @@
           <input type="number" id="steps" value="28" min="1" max="100" aria-describedby="steps-tip">
         </div>
         <div class="sub grow">
-          <i><label for="cfg">CFG</label>
+          <i><label for="cfg" id="cfg-label">CFG</label>
             <span class="help" tabindex="0" role="note" aria-label="CFG help" aria-describedby="cfg-tip">?<span
               class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
               negative prompt applies, at roughly 2x the time per step.</span></span></i>
@@ -428,7 +428,7 @@
           <input type="text" id="grid-steps" placeholder="6-12x2" autocomplete="off" aria-describedby="grid-steps-tip">
         </div>
         <div class="sub grow">
-          <i><label for="grid-cfg">CFG</label>
+          <i><label for="grid-cfg" id="grid-cfg-label">CFG</label>
             <span class="help" tabindex="0" role="note" aria-label="CFG axis help" aria-describedby="grid-cfg-tip">?<span
               class="tip" id="grid-cfg-tip">Same syntax, decimals allowed:<br>
               <b>0,0.5,1</b> · <b>0-2x0.5</b> — start-stop, step after the x.<br>
