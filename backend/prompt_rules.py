@@ -1725,11 +1725,19 @@ _NETAYUME_INSTRUCTION = re.compile(
 # How a system instruction opens: "You are an assistant designed to ...",
 # diffusers' Lumina 2 one and the Neta variants - an assistant, a model, an
 # AI, a generator - and not a scene a person describes ("You are looking at
-# a girl in the rain"), whose words Apply would otherwise cut.
+# a girl in the rain"), whose words Apply would otherwise cut. The noun ends
+# the opener: a stop or the end follows it, or a word an instruction goes on
+# with ("designed to", "that generates"), so "a model student walking in the
+# rain" and "an AI artist painting a girl" stay the user's.
 _INSTRUCTION = re.compile(
-    r"\s*you\s+are\s+an?\s+(?:[\w-]+\s+){0,3}(?:assistant|model|ai|generator|bot)\b",
+    r"\s*you\s+are\s+an?\s+(?:[\w-]+\s+){0,3}(?:assistant|model|ai|generator|bot)"
+    r"(?=\s*(?:[.,;:]|$)|\s+(?:designed|that|which|who|built|trained|made|"
+    r"speciali[sz]ed|capable|for|to)\b)",
     re.IGNORECASE,
 )
+# A sentence ending with more text after it. Not `_SENTENCE_BREAK`, which
+# reads "an AI. A girl" as an abbreviation's stop.
+_MORE_SENTENCES = re.compile(r"[.!?](?=\s+\S)|[。！？](?=\s*\S)")
 
 
 def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
@@ -1754,14 +1762,18 @@ def _system_prefix(ctx: _Context) -> Iterable[PromptFinding]:
     # Lumina 2 one, a Neta variant - and the marker its separator. Cut as one,
     # so Apply leaves the image description and nothing of the instruction;
     # a marker after tags ("1girl <Prompt Start> moon") is cut alone, and so
-    # is one after lettering, which is the user's.
+    # is one after lettering, which is the user's, and one after more than a
+    # sentence ("You are an AI. A girl stands in the rain."), where nothing
+    # says how much of it is the instruction.
     extended: tuple[int, int] | None = None
     if markers and (at is None or at.start() >= markers[0].start()):
         first = markers[0]
-        if _INSTRUCTION.match(ctx.bare, 0, first.start()) and (
-            ctx.bare[: first.start()] == text[: first.start()]
+        head = text[: first.start()]
+        if (
+            _INSTRUCTION.match(ctx.bare, 0, first.start())
+            and ctx.bare[: first.start()] == head
+            and not _MORE_SENTENCES.search(head.strip())
         ):
-            head = text[: first.start()]
             extended = (len(head) - len(head.lstrip()), first.end())
             spans[0] = extended
     # Each cut's seam becomes one space, and a comma either side of it one

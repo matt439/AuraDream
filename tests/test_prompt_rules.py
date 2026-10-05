@@ -1168,6 +1168,22 @@ _NETA_LIKE = (
          "1girl"),
         ("you are a helpful AI <Prompt Start> 1girl", ["you are a helpful AI <Prompt Start>"],
          "1girl"),
+        ("You are an AI assistant that generates anime images. <Prompt Start> 1girl",
+         ["You are an AI assistant that generates anime images. <Prompt Start>"], "1girl"),
+        ("You are an expert image generation model capable of anything <Prompt Start> 1girl",
+         ["You are an expert image generation model capable of anything <Prompt Start>"],
+         "1girl"),
+        # Only a noun that ends the opener makes one: "a model student" and
+        # "an AI artist" are the scene.
+        ("You are a model student walking in the rain <Prompt Start> 1girl",
+         ["<Prompt Start>"], "You are a model student walking in the rain 1girl"),
+        ("You are an AI artist painting a girl in the rain <Prompt Start> 1girl",
+         ["<Prompt Start>"], "You are an AI artist painting a girl in the rain 1girl"),
+        # More than a sentence ahead of the marker: nothing says how much of
+        # it is an instruction, so the marker alone goes.
+        ("You are an AI. A girl stands in the rain with a red umbrella. <Prompt Start> 1girl",
+         ["<Prompt Start>"],
+         "You are an AI. A girl stands in the rain with a red umbrella. 1girl"),
     ],
 )
 def test_netayume_system_prefix_is_found_as_retyped(prompt, spans, suggestion):
