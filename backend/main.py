@@ -1645,7 +1645,11 @@ def _unstarred_scope(search: str | None) -> str | None:
 
 
 @app.get("/api/gallery/unstarred", response_model=UnstarredPreview)
-async def unstarred(search: str | None = None, all_models: bool = False) -> UnstarredPreview:
+async def unstarred(
+    search: str | None = None,
+    all_models: bool = False,
+    newer_than: int | None = Query(default=None, ge=0),
+) -> UnstarredPreview:
     """What "Delete unstarred" would remove under this filter, and what it would keep.
 
     Under the gallery's checkpoint scope too, since the delete is: the count
@@ -1658,9 +1662,13 @@ async def unstarred(search: str | None = None, all_models: bool = False) -> Unst
     answer, not the asking page's: a job another tab started can land an
     image in scope while the dialog is open just the same, and the dialog
     says so before the count is typed.
+
+    `newer_than` is the newest id the page held before it brought its grid
+    up to date, and `newer` how many of the count are above it: the dialog's
+    "made since this page last loaded", counted as the delete counts.
     """
     found = await asyncio.to_thread(
-        storage.matching_preview, _unstarred_scope(search), _model_scope(all_models)
+        storage.matching_preview, _unstarred_scope(search), _model_scope(all_models), newer_than
     )
     return UnstarredPreview(
         unstarred=found["records"] - found["favorites"] - found["sources_kept"],

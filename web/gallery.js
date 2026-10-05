@@ -1305,9 +1305,13 @@ async function deleteUnstarred() {
   const params = new URLSearchParams();
   if (search) params.set('search', search);
   if (els.allModels.checked) params.set('all_models', 'true');
+  // How many of the count are newer than the grid's head was is the
+  // server's to say: it keeps a starred image's sources the page cannot see.
+  const ask = new URLSearchParams(params);
+  if (!sheetMode && head != null) ask.set('newer_than', head);
   let found;
   try {
-    found = await api(`/api/gallery/unstarred?${params}`);
+    found = await api(`/api/gallery/unstarred?${ask}`);
   } catch (err) {
     showError(err.message, false, slot);
     keepUnstarredFocus();
@@ -1356,7 +1360,7 @@ async function deleteUnstarred() {
   const message = [
     `Delete ${found.unstarred} unstarred image${plural} ${scope}, ${keeping}?`,
     ...(span ? [`${span}.`] : []),
-    ...freshLine(head, found),
+    ...freshLine(head, found.newer),
     '',
     ...prompts,
     '',
@@ -1408,26 +1412,18 @@ function keepUnstarredFocus() {
   els.search.focus({ preventScroll: true });
 }
 
-// The dialog's line for what the grid has just been brought up to: the
-// unstarred images newer than its head before the look (`head`), which the
-// sweep counts. A page that did not join up was loaded again from the top
-// (prependFinished), and where every card on it is newer and there is more,
-// the count is a floor. The few sources the preview names stay out of it:
-// the sweep keeps them.
-function freshLine(head, found) {
-  if (head == null || sheetMode) return [];
-  const kept = new Set(found.sources);
-  const n = Math.min(found.unstarred,
-    galleryRecords.filter((r) => r.id > head && !r.favorite && !kept.has(r.id)).length);
+// The dialog's line for what the grid has just been brought up to: `n`, the
+// server's count of the images the sweep takes that are newer than the
+// grid's head before the look (`head`, sent as `newer_than`). A page that
+// did not join up was loaded again from the top (prependFinished), and where
+// every card on it is newer and there is more, only the newest are on it.
+function freshLine(head, n) {
   if (!n) return [];
   // At the top of the grid: a page scrolled down keeps its view
   // (holdGalleryView), so they may be above it rather than in sight.
-  const was = n === 1 ? 'was' : 'were';
-  if (galleryMore && galleryRecords.at(-1).id > head) {
-    return [`At least ${n} of them ${was} made since this page last loaded; the newest are at the top of the grid now.`];
-  }
-  return [`${n} of them ${was} made since this page last loaded; `
-    + `${n === 1 ? 'it is' : 'they are'} at the top of the grid now.`];
+  const some = n > 1 && galleryMore && galleryRecords.at(-1)?.id > head;
+  return [`${n} of them ${n === 1 ? 'was' : 'were'} made since this page last loaded; `
+    + `${some ? 'the newest are' : n === 1 ? 'it is' : 'they are'} at the top of the grid now.`];
 }
 
 // Shown while there is something it could act on: the filter matches images

@@ -865,6 +865,11 @@ class UnstarredPreview(BaseModel):
     runs: int = 0
     first: str | None = None
     last: str | None = None
+    # How many of `unstarred` have an id above the request's `newer_than` -
+    # the newest image the asking page held - or None where it was not asked:
+    # the dialog's "made since this page last loaded", by the delete's own
+    # predicate, which keeps a starred image's sources the page cannot see.
+    newer: int | None = None
     # A few of the prompts, and the jobs and checkpoints a substring term
     # matched: the dialog names what is about to go, as `clear --where` does.
     prompts: list[str]

@@ -221,6 +221,38 @@ def test_delete_unstarred_keeps_what_a_starred_image_was_made_from(client, store
     )
 
 
+def test_delete_unstarred_counts_what_is_newer_than_the_page(client, store):
+    # The dialog says how many of the count were made since the page last
+    # loaded. The page counted them itself, leaving out only the few kept
+    # sources the preview names - the oldest six - so a new image a starred
+    # pass was made from was counted as one the sweep takes. The server
+    # counts them by the delete's own predicate, in the same scope.
+    for seed in range(1, 7):
+        source = _plant(store, settings.model_id, seed=seed, run_id="old")
+        _star(client, [{"id": _made_from(store, seed=100 + seed, refine=source.id, strength=0.5).id}])
+    head = _plant(store, settings.model_id, seed=7, run_id="old").id
+    loose = _plant(store, settings.model_id, seed=8, run_id="new")
+    fresh_source = _plant(store, settings.model_id, seed=9, run_id="new")
+    _star(client, [{"id": _made_from(store, seed=10, refine=fresh_source.id, strength=0.5).id}])
+    _plant(store, "somebody/else", seed=11, run_id="new")
+
+    preview = client.get(f"/api/gallery/unstarred?newer_than={head}").json()
+    assert (preview["unstarred"], preview["sources_kept"]) == (2, 7)
+    assert fresh_source.id not in preview["sources"]
+    assert preview["newer"] == 1
+    # Asked under the page's own scope: All models, a search.
+    assert client.get(
+        f"/api/gallery/unstarred?newer_than={head}&all_models=true"
+    ).json()["newer"] == 2
+    assert client.get(
+        f"/api/gallery/unstarred?newer_than={head}&search=run:old"
+    ).json()["newer"] == 0
+    assert client.get(f"/api/gallery/unstarred?newer_than={loose.id}").json()["newer"] == 0
+    # Not asked, not answered: a sheet is one run laid out whole.
+    assert client.get("/api/gallery/unstarred").json()["newer"] is None
+    assert client.get("/api/gallery/unstarred?newer_than=-1").status_code == 422
+
+
 def test_a_pass_whose_source_has_gone_says_so(client, store):
     # The pass keeps its source's id - it is the reproduction set's - and the
     # record says the source is gone, on the page and by id alike.
