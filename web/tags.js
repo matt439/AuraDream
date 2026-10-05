@@ -766,9 +766,9 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     const tip = [];
     if (result.valid === true) {
       chip.classList.add('valid');
-      // The category the lookup gave, as the edge's colour: what a tag is,
-      // never where it goes - the order is the guide's, per checkpoint, and
-      // Check's to place.
+      // The category the lookup gave, as the edge's colour: what a tag is.
+      // Where it goes is the caption (data-slot), the server's order rule's
+      // placement - never worked out here.
       chip.dataset.category = result.source === 'model' ? 'guide' : result.category || 'general';
       mark.textContent = '✓';
       status = `known ${chip.dataset.category} tag`;
