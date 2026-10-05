@@ -1664,9 +1664,15 @@ button { font: inherit; cursor: pointer; }
    its height - so neither the picture nor the gallery under it moves as the
    check opens - and the image keeps the one set of words for its tools: the
    26 px glyphs it fell back to had sat beside an "Earlier this session"
-   strip that stayed. With the gallery beside the viewer the check takes the
-   gallery's column, not that width, so the column stays (`:is(.beside, …)`,
-   `:not(.beside)`). */
+   strip that stayed. The row is the picture's width, or what its buttons
+   need where that is more (`max-content`, the brief left out of it by its
+   inline-size containment), centred under the picture as the picture is in
+   the strip: under a 5:12 image at 2048x1040@1.25, 295 px wide, every word
+   of the row was cut to an ellipsis. It stays one line at the tools row's
+   height, so neither the picture nor the gallery moves; only where the strip
+   itself is narrower than the buttons does it cut them. With the gallery
+   beside the viewer the check takes the gallery's column, not that width, so
+   the column stays (`:is(.beside, …)`, `:not(.beside)`). */
 .viewer .result-side { display: none; }
 .result-actions .result-brief { display: none; }
 @media (min-width: 1800px) {
@@ -1691,8 +1697,8 @@ button { font: inherit; cursor: pointer; }
   }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result:has(> .result-side) .tile > .tools { display: none; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side {
-    display: flex; flex: none; height: var(--h-tool); min-width: 0; max-width: 100%;
-    width: calc(var(--tile-h) * var(--w) / var(--h));
+    display: flex; flex: none; height: var(--h-tool); max-width: 100%;
+    width: max-content; min-width: min(100%, calc(var(--tile-h) * var(--w) / var(--h)));
   }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side > :not(.result-actions) { display: none; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions {
@@ -1701,14 +1707,15 @@ button { font: inherit; cursor: pointer; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions > button {
     flex: 0 1 auto; min-width: 0; height: var(--h-tool); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  /* A pass's Compare with source is left out of the row: the row is only as
-     wide as the picture, and with it a portrait pass's 405 px at
-     2048x1040@1.25 cut every word in the row to an ellipsis. The picture
+  /* A pass's Compare with source is left out of the row: in a row as wide as
+     the picture, a portrait pass's 405 px at 2048x1040@1.25, it cut every
+     word to an ellipsis, and in one as wide as its buttons it would take
+     another 150 px from #recent beside a docked check. The picture
      opens the lightbox, where S and the toggle compare; with the check
      closed the column has the button again. */
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .compare-source { display: none; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
-    display: block; flex: 1 1 0; min-width: 0; line-height: var(--h-tool); text-align: right;
+    display: block; flex: 1 1 0; min-width: 0; contain: inline-size; line-height: var(--h-tool); text-align: right;
     color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }

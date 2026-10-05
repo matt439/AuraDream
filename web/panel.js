@@ -1173,12 +1173,16 @@ function fitRecent() {
   // the check takes the gallery's column there (style.css, `:not(.beside)`).
   const docked = matchMedia('(min-width: 2000px)').matches && !els.promptAnalysis.hidden
     && els.promptAnalysis.parentElement === els.tagValidationWide && !besideOn;
-  // The image, or the preview in its box.
+  // The image, or the preview in its box - or the row under the image, where
+  // that is wider: a narrow portrait's row is as wide as its buttons need
+  // (style.css), and #recent beside it cut them to ellipses again.
   const tile = els.viewer.querySelector(':scope > figure > .tile');
   if (els.recent.hidden || !docked || !tile) return;
+  const row = tile.parentElement.querySelector(':scope > .result-side');
+  const width = Math.max(tile.getBoundingClientRect().width, row ? row.getBoundingClientRect().width : 0);
   const css = getComputedStyle(els.viewer);
   const room = els.viewer.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight)
-    - tile.getBoundingClientRect().width - parseFloat(getComputedStyle(stage).columnGap);
+    - width - parseFloat(getComputedStyle(stage).columnGap);
   if (room < parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--recent-min'))) return;
   stage.style.setProperty('--recent-room', `${Math.floor(room)}px`);
   stage.classList.add('recent-docked');
