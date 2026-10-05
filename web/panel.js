@@ -976,6 +976,19 @@ function viewerTier() {
 // columns the lone preview sat centred, and the images moved left by half a
 // tile as each of the others landed.
 let viewerWidth = 0;
+// The room a page scrollbar takes where it takes any: a classic one's
+// width, 0 for overlay scrollbars. Measured once, on a probe of its own.
+let scrollbarRoom = null;
+function pageScrollbarWidth() {
+  if (scrollbarRoom === null) {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position: absolute; top: -200px; width: 100px; height: 100px; overflow: scroll; visibility: hidden;';
+    document.body.append(probe);
+    scrollbarRoom = probe.offsetWidth - probe.clientWidth;
+    probe.remove();
+  }
+  return scrollbarRoom;
+}
 function fitViewer() {
   const v = els.viewer;
   const aspect = viewerJob.width && viewerJob.height ? viewerJob.width / viewerJob.height
@@ -991,7 +1004,15 @@ function fitViewer() {
     return;
   }
   const css = getComputedStyle(v);
-  const width = v.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight);
+  // Sized as if the page's scrollbar were there, whether or not it is: a
+  // gallery too short to scroll the page takes one while a job's progress
+  // block is up and gives it back as the job ends, and the strip, a
+  // scrollbar wider, refitted then - 491 to 494 px a tile at QHD, the
+  // gallery head 3 px lower at the end of a batch of four. A stable gutter
+  // on the page would hold it too, but in Chrome it shrinks every vw size on
+  // every page by its width (the panel, the type ramp, the cards).
+  const missing = document.documentElement.clientWidth === innerWidth ? pageScrollbarWidth() : 0;
+  const width = v.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - missing;
   viewerWidth = v.clientWidth;
   const gap = parseFloat(css.columnGap) || 0;
   // A tile's tools row, under its picture (style.css).
