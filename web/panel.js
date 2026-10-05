@@ -1254,7 +1254,7 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   // what tells it from the one beside it under the pointer (cardTitle): its
   // size, its seed and a pass's source, then the prompt.
   img.setAttribute('aria-label', `Open #${rec.id}: ${rec.prompt}`);
-  img.title = cardTitle(rec);
+  titleImage(img, rec);
   img.onclick = open;
   // A plain Enter or Space only: Ctrl+Enter is Generate's from anywhere
   // (app.js), and on a focused image - where closing the lightbox leaves the
@@ -1264,4 +1264,16 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
   };
   return img;
+}
+
+// An image's title, cardTitle's facts and then its prompt, for the pointer,
+// and its description, the facts alone: the title was the description too,
+// so a long prompt was read twice an image, once in the name ("Open #N:
+// <prompt>") and again after "#N · W×H · seed N". `aria-description` takes
+// the title's place there. Again where a deleted source changes the facts
+// (forgetImages).
+function titleImage(img, rec) {
+  const title = cardTitle(rec);
+  img.title = title;
+  img.setAttribute('aria-description', title.split('\n')[0]);
 }

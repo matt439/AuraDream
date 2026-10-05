@@ -55,6 +55,7 @@
   {"eval": "window.__first = __cards()[0]; window.__t = (card) => [...card.querySelectorAll('.tools button')];"},
   {"expect": "__cards().every((c) => __t(c).map((b) => b.textContent).join('') === '↻⤢❐⊞⌦' && c.querySelector(':scope > button.star.fav-badge') && !c.querySelector('.tools .star'))"},
   {"expect": "__first.querySelector('img').getAttribute('aria-label') === 'Open #' + __first.dataset.id + ': ' + __rec(+__first.dataset.id).prompt && __first.querySelector('img').title.startsWith('#' + __first.dataset.id + ' · 256×256 · seed 109\\n')"},
+  {"expect": "(() => { const img = __first.querySelector('img'); const d = img.getAttribute('aria-description'); return d === img.title.split('\\n')[0] && d === '#' + __first.dataset.id + ' · 256×256 · seed 109' && !d.includes(__rec(+__first.dataset.id).prompt); })()"},
   {"expect": "__t(__first).map((b) => b.dataset.tip).join('|') === 'Reuse|No refine pass here|No references here|Sheet|Delete'"},
   {"log": "'where the checkpoint has neither, Refine and Reference are aria-disabled with the reason, never disabled'"},
   {"expect": "(([r, f]) => r.getAttribute('aria-disabled') === 'true' && !r.disabled && r.title.includes('no refine pass') && f.getAttribute('aria-disabled') === 'true' && !f.disabled && f.getAttribute('aria-pressed') === 'false' && f.title.includes('takes none'))([__first.querySelector('.refine-tool'), __first.querySelector('.ref-tool')])"},
