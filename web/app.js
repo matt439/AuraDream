@@ -150,9 +150,15 @@ async function expandPrompt() {
     if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
     else if (expandingPrompt) {
       // Beside a Reuse's Undo it would be said under the prompt, where the
-      // running line says as much already.
+      // running line says as much already. What becomes of the result is
+      // said as it will be decided now (expandOutcome): the box changed
+      // meanwhile keeps the change.
       if (!(reuseNote?.button?.isConnected && promptUndo === expandRun?.note)) {
-        expandSay('Expanding… - the result goes into the prompt box when it lands.', true);
+        expandSay({
+          apply: 'Expanding… - the result goes into the prompt box when it lands.',
+          hold: 'Expanding… - the prompt has been edited since, so the result will wait under it (Use it, Discard).',
+          drop: 'Expanding… - the prompt was replaced since, so the result will be dropped.',
+        }[expandOutcome(expandRun)], true);
       }
     } else if (busy) showJobNote(`${els.expandPrompt.title}.`);
     else expandSay(`${els.expandPrompt.title}.`, true);
@@ -188,7 +194,7 @@ async function expandPrompt() {
   // rather than typed in. And the note the running line takes the place of -
   // an Example's Undo or a held expansion - to offer again where this fails.
   const run = {
-    replaced: false, text: '', note: null, clock: 0, from: Date.now(),
+    source, replaced: false, text: '', note: null, clock: 0, from: Date.now(),
     displaced: ['write', 'held'].includes(promptUndo?.kind) ? promptUndo : null,
   };
   const watch = () => { if (replacingBox) run.replaced = true; };
@@ -217,11 +223,9 @@ async function expandPrompt() {
     endExpandRunning(run);
     // "Expanding…", said to a press while it ran, is over.
     clearExpandLine();
-    if (els.prompt.value !== source) {
-      if (!run.replaced) holdExpansion(body);
-      return;
-    }
-    applyExpansion(body, source, before);
+    const outcome = expandOutcome(run);
+    if (outcome === 'hold') holdExpansion(body);
+    if (outcome === 'apply') applyExpansion(body, source, before);
   } finally {
     els.prompt.removeEventListener('input', watch);
     clearInterval(run.clock);
@@ -232,6 +236,15 @@ async function expandPrompt() {
     // now rather than at the next poll.
     void refreshStatus();
   }
+}
+
+// What a result does with the box as it is now: written in where the box
+// still holds the prompt it was made from; held under it (Use it, Discard)
+// where that was typed over; dropped where a Reset, a Reuse, an Example or a
+// Use rewrote the box whole meanwhile (`replacingBox`), which was on purpose.
+function expandOutcome(run) {
+  if (els.prompt.value === run.source) return 'apply';
+  return run.replaced ? 'drop' : 'hold';
 }
 
 // Expand's words in the panel's line - or, while a Reuse's Undo is on offer

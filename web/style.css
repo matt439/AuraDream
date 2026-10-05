@@ -599,6 +599,14 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .panel:has(#negative-field.disabled) .prompt-note {
   position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
 }
+/* Nor for the notes with no timer (tags.js, `data-kind`): ERNIE's Expand
+   while it runs - minutes, on a first use - and an expansion held until Use
+   it or Discard. Over a live negative box (ERNIE at CFG above 1) they hid its
+   caption and its first lines for as long as they stayed. The overlay is for
+   the notes that go by themselves. */
+.prompt-note:is([data-kind="running"], [data-kind="held"]) {
+  position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
+}
 /* And at the end of ERNIE's English, where an expansion's note goes while the
    English heads the results (app.js, applyExpansion): a line of that box. */
 .translation > .prompt-note { position: static; width: fit-content; margin: 0 0 0 auto; box-shadow: none; }

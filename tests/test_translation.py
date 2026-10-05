@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 
 import torch
@@ -88,6 +89,48 @@ def test_marian_loads_once_on_cpu_and_keeps_long_prompt_chunks(monkeypatch):
 
     translator.unload()
     assert translator._tokenizer is None and translator._model is None
+
+
+def test_the_translators_load_fetches_no_second_copy_of_its_weights(monkeypatch):
+    # Transformers, having loaded the repository's `.bin`, starts a thread that
+    # downloads the conversion bot's safetensors copy too - a second 312 MB the
+    # status does not name. The load turns that off, for itself alone.
+    import inspect
+
+    import transformers.modeling_utils
+
+    from backend import translation
+
+    name = translation._NO_CONVERSION
+    assert f'"{name}"' in inspect.getsource(transformers.modeling_utils)
+    monkeypatch.delenv(name, raising=False)
+    seen = {}
+
+    def load_model(model_id, **kwargs):
+        seen["during"] = os.environ.get(name)
+        return StubModel()
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda model_id: StubTokenizer())
+    monkeypatch.setattr("transformers.AutoModelForSeq2SeqLM.from_pretrained", load_model)
+    MarianTranslator("local/marian")._load()
+    assert seen["during"] == "1"
+    assert name not in os.environ
+    # A value the environment already had is put back after the load, and
+    # one that a failed load interrupted too.
+    monkeypatch.setenv(name, "0")
+
+    def failing(model_id, **kwargs):
+        seen["failed"] = os.environ.get(name)
+        raise OSError("no network")
+
+    monkeypatch.setattr("transformers.AutoModelForSeq2SeqLM.from_pretrained", failing)
+    try:
+        MarianTranslator("local/marian")._load()
+    except OSError:
+        pass
+    else:
+        raise AssertionError("the failed load was not raised")
+    assert seen["failed"] == "1" and os.environ[name] == "0"
 
 
 def test_marian_refuses_empty_text_without_loading():

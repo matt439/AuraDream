@@ -78,7 +78,8 @@
              over a prompt in progress, Reset, each with an Undo; Expand while
              it runs, and an expansion typed over meanwhile (Use it,
              Discard). Over the field below for a while, rather than in the
-             panel's flow, which would move Generate as it came and went. -->
+             panel's flow, which would move Generate as it came and went -
+             but for those two, which stay for minutes (`data-kind`). -->
         <p class="prompt-note" id="prompt-note" role="status" hidden><span
           id="prompt-note-text"></span> <button type="button" class="ghost tiny"
           id="prompt-note-undo">Undo</button> <button type="button" class="ghost tiny"
@@ -199,8 +200,10 @@
          its Undo come to its end on a wide window, and inside a <label> they
          were part of the box's name. -->
     <div class="field translation" id="prompt-translation-field" hidden>
-      <span><label for="prompt-translation">English translation</label> <em>for reference; ERNIE uses the Chinese prompt above</em></span>
-      <textarea id="prompt-translation" rows="4" readonly></textarea>
+      <span><label for="prompt-translation">English translation</label> <em
+        id="prompt-translation-hint">for reference; ERNIE uses the Chinese prompt</em></span>
+      <textarea id="prompt-translation" rows="4" readonly
+                aria-describedby="prompt-translation-hint"></textarea>
     </div>
 
     <!-- A div with a label, as the Prompt field is: inside a <label> the

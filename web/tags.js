@@ -85,7 +85,9 @@ function writeBox(el, text) {
 // The note under the prompt (#prompt-note), one at a time, said where the
 // press was: over the next field's caption on a two-column page - out of the
 // panel's flow, so its coming and going moves nothing, Generate least - and
-// in the flow in one column and while the negative box is greyed (style.css).
+// in the flow in one column, while the negative box is greyed, and for the
+// kinds with no timer, 'running' and 'held' (`data-kind`, style.css), which
+// would otherwise cover a live negative box for minutes.
 // What it holds is `promptUndo`, {kind, after, undo, discard, onDrop, again}:
 //   'write' - a write the user did not type over their own words, an Example
 //     picked over a prompt in progress or an expansion (app.js), with an Undo
@@ -125,6 +127,10 @@ function showPromptNote(message, options = {}) {
     kind, after: els.prompt.value, undo, discard, onDrop, again: () => showPromptNote(message, options),
   };
   promptUndo = note;
+  // The kind is the stylesheet's too: Expand's running line and a held
+  // expansion, which stay for minutes, take a line of the panel's flow
+  // rather than lying over the next field.
+  els.promptNote.dataset.kind = kind;
   // Shown before it is written: it is a live region, and words written into
   // a hidden one are never read out.
   els.promptNote.hidden = false;
