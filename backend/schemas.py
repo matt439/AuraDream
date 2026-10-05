@@ -385,11 +385,16 @@ class PromptMeasure(BaseModel):
     the cut, no rules and no tag lookup - for the chip tray to mark the tags
     past the cut while the prompt is typed. `encoders_detail` says what went
     unmeasured, a tokenizer still loading included: the tray then says the
-    cut is unknown, never that there is none."""
+    cut is unknown, never that there is none. `encoders_known` is False where
+    the encoder table has no entry for the checkpoint at all: nothing will
+    ever count its prompt, so the line under the prompt box says nothing
+    rather than "cut unknown" under every prompt (Check's Encoders section
+    still says why)."""
 
     model_id: str
     encoders: list[EncoderReport] = Field(default_factory=list)
     encoders_detail: str | None = None
+    encoders_known: bool = True
 
 
 class DocumentedOrder(BaseModel):

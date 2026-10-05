@@ -271,6 +271,25 @@ def test_an_unmeasured_encoder_is_said_never_shown_as_no_cut(client, fake, monke
     monkeypatch.setattr(prompt_encoding, "_load_tokenizer", offline)
     body = client.post("/api/prompt/measure", json={"prompt": "1girl, green hair"}).json()
     assert body["encoders"] == [] and "CLIP-L" in body["encoders_detail"]
+    # Uncounted this time, but the table knows the encoders: the line under
+    # the prompt says "cut unknown" rather than nothing.
+    assert body["encoders_known"] is True
+
+
+def test_a_checkpoint_the_encoder_table_lacks_is_said_to_count_nothing(client, fake, monkeypatch):
+    # Nothing will ever count this prompt: the line under the prompt box stays
+    # hidden rather than saying "cut unknown" under every prompt, and the
+    # reason is still the detail Check's Encoders section shows.
+    off_table = "stabilityai/stable-diffusion-xl-base-1.0"
+    assert prompt_encoding.encoders_for(off_table) is None
+    claim(monkeypatch, fake, off_table)
+    body = client.post("/api/prompt/measure", json={"prompt": "a cat"}).json()
+    assert body["model_id"] == off_table and body["encoders"] == []
+    assert body["encoders_known"] is False
+    assert "no encoder table entry" in body["encoders_detail"]
+    claim(monkeypatch, fake, ANIMAGINE)
+    body = client.post("/api/prompt/measure", json={"prompt": "1girl, green hair"}).json()
+    assert body["encoders_known"] is True and [e["tokens"] for e in body["encoders"]] == [4, 4]
 
 
 def test_a_pathological_prompt_is_checked_not_a_500(client, fake, monkeypatch):

@@ -57,5 +57,11 @@
   {"eval": "window.fetch = window.__online;"},
   {"expect": "__until(() => !serverOffline && __counted() && !tagMeasured.failed && /^\\d+\\/511 tokens · Gemma 3 4B$/.test(els.promptTokens.textContent) && !els.promptTokens.hidden)"},
   {"eval": "els.prompt.focus(); document.execCommand('undo');"},
-  {"expect": "__until(() => __counted() && els.promptTokens.hidden && !els.prompt.value.includes('character_3'))"}
+  {"expect": "__until(() => __counted() && els.promptTokens.hidden && !els.prompt.value.includes('character_3'))"},
+  {"log": "'Where the encoder table has no entry for the checkpoint nothing will ever count the prompt: the line says nothing, rather than \"cut unknown\" under every prompt (the measure\\'s answer stubbed, the three characters that show the count above)'"},
+  {"eval": "window.__real = window.fetch; window.fetch = (url, init) => String(url).includes('/api/prompt/measure') ? Promise.resolve(new Response(JSON.stringify({ model_id: loadedModel, encoders: [], encoders_detail: 'Token budgets unchecked: no encoder table entry for this checkpoint.', encoders_known: false }), { status: 200, headers: { 'Content-Type': 'application/json' } })) : window.__real(url, init); __more(3);"},
+  {"expect": "__until(() => __counted() && tagMeasured.known === false && !tagMeasured.failed)"},
+  {"expect": "els.promptTokens.hidden && els.promptTokens.textContent === '' && els.tagSummary.textContent === ''"},
+  {"eval": "window.fetch = window.__real; els.prompt.focus(); document.execCommand('undo');"},
+  {"expect": "__until(() => __counted() && tagMeasured.known === true && els.promptTokens.hidden && !els.prompt.value.includes('character_3'))"}
 ]

@@ -644,20 +644,27 @@ function tagTokenLine() {
 // prompt has used three quarters of the tightest encoder's budget, past it,
 // or where an encoder went uncounted ("cut unknown", never "no cut") - at any
 // length, there being no count to hold to the three quarters: a tokenizer the
-// server cannot fetch, a checkpoint with none known, the server not
-// answering (asked again when it answers, status.js). Under three quarters
-// it would say only that there is room, and at 1400x900 its line put
-// Generate under the window's edge. The encoders named, and where reading
-// stops when it does (`tagCut`, while the text up to the cut is the counted
-// one); the title has every encoder's count. The line is no live region - it
-// is rewritten at every pause in typing - and a change to past the limit is
-// said, once, in the chips' summary line, which no chips are using.
+// server cannot fetch or is still fetching, the server not answering (asked
+// again when it answers, status.js). Not where the encoder table has no
+// entry for the checkpoint at all (`encoders_known` false): nothing will ever
+// count its prompt, "cut unknown" stood under every prompt, two words
+// included, and Check's Encoders section says why. Hidden is not "no cut".
+// Under three quarters it would say only that there is room, and at 1400x900
+// its line put Generate under the window's edge. The encoders named, and
+// where reading stops when it does (`tagCut`, while the text up to the cut is
+// the counted one); the title has every encoder's count. The line is no live
+// region - it is rewritten at every pause in typing - and a change to past
+// the limit is said, once, in the chips' summary line, which no chips are
+// using.
 const TOKENS_NEAR = 0.75;
 let promptTokensOver = false;
 
 function promptTokenLine() {
   const tokens = tagTokenLine();
   if (!tokens) return null;
+  if (!tokens.tight && tagMeasured.known === false && !tagMeasured.failed) {
+    return { text: '', over: false, shown: false, said: '', title: '' };
+  }
   if (!tokens.tight) {
     return {
       text: 'Tokens: cut unknown', over: false, shown: true, said: '',
@@ -735,7 +742,10 @@ function scheduleTagMeasure(delay) {
         body: JSON.stringify({ prompt: text }),
       });
       if (epoch !== tagMeasureEpoch) return;
-      tagMeasured = { model, text, encoders: body.encoders || [], detail: body.encoders_detail || null };
+      tagMeasured = {
+        model, text, encoders: body.encoders || [], detail: body.encoders_detail || null,
+        known: body.encoders_known !== false,
+      };
     } catch (error) {
       if (epoch !== tagMeasureEpoch) return;
       tagMeasured = { model, text, encoders: [], detail: error.message, failed: true };
