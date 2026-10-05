@@ -1765,11 +1765,17 @@ button { font: inherit; cursor: pointer; }
   scroll-padding: calc(var(--sheet-head, 0px) + 6px) 0 0 calc(var(--sheet-rowhead, 0px) + 6px);
 }
 .sheet.wrapped .sheet-scroll { max-height: none; }
+/* A matrix's columns are at most --cell-w (renderSheet's template): the
+   fitted --cell-max, or, with Fill width pressed (.sheet.fill-width, sheet.js's
+   setSheetFill), the sheet's whole width shared out - cells read one by one,
+   the box scrolling under its stuck heads. */
 .sheet-grid {
   display: grid; gap: 6px; align-items: center; justify-content: center; min-width: min-content;
   --cell-max: calc(((100vh - var(--sheet-chrome, 0px) - var(--sheet-head, 0px)) / var(--sheet-rows, 1) - 6px)
     * var(--sheet-ar, 1));
+  --cell-w: var(--cell-max);
 }
+.sheet.fill-width .sheet-grid { --cell-w: 1fr; }
 /* The heads at the text's size and colour - 11 px grey over cells 500 px and
    more across - and stuck to the box's top and left edges, each over its
    whole row or column and the gap beside it on the page's own background, so
@@ -1813,9 +1819,13 @@ button { font: inherit; cursor: pointer; }
 /* The cells take the run's own aspect ratio (set by renderSheet from the
    commonest size on the sheet) and show the whole frame: `cover` centre-cropped
    every cell to its middle 68% on a portrait run, hiding the top and bottom of
-   the composition, which is exactly what a CFG or mu axis moves. */
+   the composition, which is exactly what a CFG or mu axis moves. Each cell is
+   a stacking context of its own (`isolation`): its star, its pass's badge and
+   its reference number sit over its picture but under the heads stuck over
+   the scrolled box, which they shared a z-index with and, later in the page,
+   drew over. */
 .sheet-cell {
-  position: relative;
+  position: relative; isolation: isolate;
   aspect-ratio: var(--cell-aspect, 1); border-radius: var(--r-sm); overflow: hidden;
   background: var(--panel-2); border: 1px solid var(--line);
 }
@@ -1831,11 +1841,12 @@ button { font: inherit; cursor: pointer; }
    has the whole picture. */
 .sheet-cell.source img { object-fit: cover; }
 /* A starred cell carries the star a card does, ring and badge - the card's
-   own rules, which name .sheet-cell.fav beside .card.fav so the two cannot
-   drift - and where the keepers cluster is visible on the sheet rather than
-   only in the user's head; a 12 px glyph in a 690 px cell was not.
-   `position: relative` above is what keeps 1024 badges from piling up at the
-   top of the page. */
+   own rules, which name .sheet-cell beside .card so the two cannot drift -
+   and where the keepers cluster is visible on the sheet rather than only in
+   the user's head; a 12 px glyph in a 690 px cell was not. The badge is the
+   card's toggle too, ☆ where the pointer or the focus is (cellFor: out of the
+   tab order). `position: relative` above is what keeps 1024 badges from
+   piling up at the top of the page. */
 /* A refine pass says so, and at what strength - on a card always, on the
    sheet where it does not lay the strength out already: a pass looks like its
    source by design. Top left, clear of the star. */
@@ -1943,7 +1954,7 @@ button { font: inherit; cursor: pointer; }
    row 4 px from Delete. Always there on a starred card; on another, ☆ where
    the tools show - hover, keyboard focus, a coarse pointer. */
 .card.fav, .sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
-.card .fav-badge, .sheet-cell.fav::after {
+.card .fav-badge, .sheet-cell .fav-badge {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -1959,13 +1970,13 @@ button { font: inherit; cursor: pointer; }
   line-height: 1;
   text-shadow: 0 0 6px rgba(251, 191, 36, 0.55);
 }
-.sheet-cell.fav::after { content: "★"; pointer-events: none; }
-.card .fav-badge { border: none; padding: 0; opacity: 0; transition: opacity 0.15s; }
-.card:not(.fav) .fav-badge { color: #fff; text-shadow: none; }
-.card.fav .fav-badge, .card:hover .fav-badge, .card:focus-within .fav-badge { opacity: 1; }
-@media (pointer: coarse) { .card .fav-badge { opacity: 1; } }
-.card .fav-badge:hover { background: rgba(0, 0, 0, 0.85); }
-.card .fav-badge:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.card .fav-badge, .sheet-cell .fav-badge { border: none; padding: 0; opacity: 0; transition: opacity 0.15s; }
+.card:not(.fav) .fav-badge, .sheet-cell:not(.fav) .fav-badge { color: #fff; text-shadow: none; }
+.card.fav .fav-badge, .card:hover .fav-badge, .card:focus-within .fav-badge,
+.sheet-cell.fav .fav-badge, .sheet-cell:hover .fav-badge, .sheet-cell:focus-within .fav-badge { opacity: 1; }
+@media (pointer: coarse) { .card .fav-badge, .sheet-cell .fav-badge { opacity: 1; } }
+.card .fav-badge:hover, .sheet-cell .fav-badge:hover { background: rgba(0, 0, 0, 0.85); }
+.card .fav-badge:focus-visible, .sheet-cell .fav-badge:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
 /* A reference image in the panel: ringed in the accent - the border and its
    shadow are the star's - and numbered as its chip is, top left, a pass's
    badge moving over for it. */
