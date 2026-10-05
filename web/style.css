@@ -1100,12 +1100,15 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    CSS alone, so the DOM
    order placeTagValidation keeps - chips, then the check, in the wide host -
    is unchanged, and without :has() the check stays above the viewer.
-   Not with the gallery beside the viewer (`.stage.beside`): there the rules
-   that lay the stage out around the check carry `:not(.beside)`, and the
-   check takes the gallery's column instead (that section, below). Docked
-   in the width left of that column it halved the image just made. The
-   rules of the check's own box and head below have no such guard: they are
-   the check's in either place. */
+   Not with the gallery beside the viewer (`.stage.beside`): there every
+   rule here that places or sizes something carries `:not(.beside)` - the
+   check's own box too - and the check takes the gallery's column instead,
+   in a box that section gives it whole (below). Docked in the width left of
+   that column it halved the image just made; and the idle rule's
+   `align-self: start`, unguarded, shrank the column's fixed box to its
+   content, so the critic's answer ran it past the window with its head
+   under the topbar. Only the sections' single column, which suits either
+   narrow column, is the check's in both places. */
 @media (min-width: 1800px) {
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
     display: grid;
@@ -1117,7 +1120,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / -1; grid-row: 1; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-column: 2; grid-row: 2 / span 2;
     contain: size; align-self: stretch;
     max-height: calc(100vh - var(--sticky-top) - 2 * var(--gutter) - var(--chips-h, 0px));
@@ -1142,7 +1145,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
     grid-template-rows: auto auto auto auto 1fr;
   }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) > * { grid-column: 1; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
     grid-row: 2 / 6; contain: none; align-self: start;
   }
   /* With no chips the check spans the viewer's rows from the first, and
@@ -1150,14 +1153,14 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
   .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
   .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-row: 1 / span 2;
     max-height: calc(100vh - var(--sticky-top) - var(--gutter));
   }
   .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
     grid-template-rows: auto auto auto 1fr;
   }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
     grid-row: 1 / 5;
   }
   /* A column of 520-760 px: the sections stack - Encoders, Order, Findings,
@@ -1964,8 +1967,13 @@ button { font: inherit; cursor: pointer; }
      `visibility: hidden` rather than gone, so its scroll is kept and nothing
      in it takes focus or the pointer (the lightbox's and a pass's way back
      to a card ask whether it is shown); a job's images still come in under
-     it. Its own box and head are the docked check's (that section). */
-  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { max-height: none; }
+     it. Its box is the column's whatever the viewer holds - none of the
+     dock's rules reach it here (`:not(.beside)`, that section) - and it
+     scrolls inside that box, its head (the prompt check's) stuck at the
+     top. */
+  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
+    max-height: none; overflow-y: auto; overscroll-behavior: contain;
+  }
   .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .library { visibility: hidden; }
 }
 
