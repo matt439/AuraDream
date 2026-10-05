@@ -861,9 +861,9 @@ function refineClosed() {
   // Run from a dialog the lightbox opened: the dialog gives focus back to the
   // lightbox's Refine, closed with it, which left it on <body>. It goes to
   // the source's card, where the walk was, else Generate - without moving the
-  // page, whose progress is where the pass now shows.
-  const card = [...document.querySelectorAll(`#gallery .card[data-id="${back.rec.id}"] img`)]
-    .find((el) => el.checkVisibility?.() ?? true);
+  // page, whose progress is where the pass now shows. A card the prompt check
+  // covers (Gallery beside) is not one focus can land on.
+  const card = [...document.querySelectorAll(`#gallery .card[data-id="${back.rec.id}"] img`)].find(isShown);
   (card ?? els.generate).focus({ preventScroll: true });
 }
 

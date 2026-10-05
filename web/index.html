@@ -515,7 +515,7 @@
     </details>
   </aside>
 
-  <section class="stage">
+  <section class="stage" id="stage">
     <div class="tag-validation-host tag-validation-wide" id="tag-validation-wide"></div>
     <!-- What this page's jobs make, the newest job's (panel.js). Before the
          first, one line, so the gallery starts near the top of the window -
@@ -537,89 +537,107 @@
       <div class="recent-list" id="recent-list"></div>
     </aside>
 
-    <div class="gallery-head">
-      <h2>Gallery <span id="gallery-count"></span></h2>
-      <!-- How the cards are drawn, from 1800 px, where the grid has the
-           width to choose and the head the room (gallery.js, cardView):
-           smaller cards, more to a row; the whole picture or the card
-           filled. Each pair is one tab stop, the chosen one, the arrows
-           moving along it, as the panel's size strips are. Hidden on a
-           sheet, which draws its cells its own way. -->
-      <div class="card-view" id="card-view">
-        <div class="view-pick" role="group" aria-label="Card size">
-          <button type="button" class="ghost small" data-density="s" aria-pressed="false"
-                  title="Small cards: more to a row">S</button>
-          <button type="button" class="ghost small" data-density="m" aria-pressed="true"
-                  title="Medium cards: the wide screen's own size">M</button>
+    <!-- The gallery: its head, then what it shows. From 2000 px with Gallery
+         beside ticked, a column of its own beside the viewer, the head over a
+         box that scrolls by itself (style.css, `.stage.beside`). Otherwise
+         both wrappers are no boxes at all (display: contents): the head, the
+         grid, the sheet and Load more are the stage's own blocks under the
+         viewer, in its column or across its grid, as they always were. -->
+    <div class="library" id="library">
+      <div class="gallery-head">
+        <h2>Gallery <span id="gallery-count"></span></h2>
+        <!-- How the cards are drawn, from 1800 px, where the grid has the
+             width to choose and the head the room (gallery.js, cardView):
+             smaller cards, more to a row; the whole picture or the card
+             filled. Each pair is one tab stop, the chosen one, the arrows
+             moving along it, as the panel's size strips are. Hidden on a
+             sheet, which draws its cells its own way. -->
+        <div class="card-view" id="card-view">
+          <div class="view-pick" role="group" aria-label="Card size">
+            <button type="button" class="ghost small" data-density="s" aria-pressed="false"
+                    title="Small cards: more to a row">S</button>
+            <button type="button" class="ghost small" data-density="m" aria-pressed="true"
+                    title="Medium cards: the wide screen's own size">M</button>
+          </div>
+          <div class="view-pick" role="group" aria-label="Thumbnails">
+            <button type="button" class="ghost small" data-fit="contain" aria-pressed="true"
+                    title="Fit: the whole picture, letterboxed on the card">Fit</button>
+            <button type="button" class="ghost small" data-fit="cover" aria-pressed="false"
+                    title="Crop: the card filled, the picture cut to its middle">Crop</button>
+          </div>
         </div>
-        <div class="view-pick" role="group" aria-label="Thumbnails">
-          <button type="button" class="ghost small" data-fit="contain" aria-pressed="true"
-                  title="Fit: the whole picture, letterboxed on the card">Fit</button>
-          <button type="button" class="ghost small" data-fit="cover" aria-pressed="false"
-                  title="Crop: the card filled, the picture cut to its middle">Crop</button>
-        </div>
+        <!-- One line per night's grid, newest first; picking one searches for
+             `run:<id>` and opens the sheet. -->
+        <select id="run-list" class="runs" aria-label="Recent runs" disabled>
+          <option value="">Runs…</option>
+        </select>
+        <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
+        <span class="help" tabindex="0" role="note" aria-label="Search help" aria-describedby="search-tip">?<span class="tip" id="search-tip">
+          Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
+          <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
+          <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
+          <b>date:today</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
+          <b>tcfg:</b> is the scale the negative prompt ran at; <b>hash:</b> finds every
+          image with the same pixels.<br>
+          <b>refine:</b> is the refine passes of that gallery image - <b>refine:none</b>
+          the direct renders - and <b>strength:</b> how far they were re-denoised.<br>
+          <b>id:12</b> is the image the page calls #12, and <b>id:10-20</b> a span of them.<br>
+          <b>run:</b> is a grid however many times it was resumed; <b>job:</b> is one
+          submission of it. <b>date:</b> takes <b>today</b>, <b>yesterday</b> or
+          <b>2026-09-07</b> — a day on your clock, not UTC.<br>
+          Numbers also take a comparison or a range: <b>cfg:&gt;=1</b> · <b>steps:8-12</b>.<br>
+          <b>mu:none</b> is the images that ran with no shift at all — not the same as
+          <b>mu:0</b>.</span></span>
+        <label class="check"><input type="checkbox" id="fav-only"> Starred</label>
+        <!-- Off, the gallery is the running checkpoint's images: steps, CFG and
+             mu are the checkpoint's, so another one's are settings that cannot
+             be reused. The count is what the filter would add. -->
+        <label class="check" id="all-models-label"
+          title="Include images made on other checkpoints. Their steps, CFG and mu are not this checkpoint's, and Re-render refuses them"><input
+          type="checkbox" id="all-models"> All models<span id="other-models"></span></label>
+        <!-- Shown while a filter narrows the gallery: renders what it matches
+             again at the panel's size, one cell per image, same seeds. -->
+        <button class="ghost small" id="btn-rerender" hidden
+          title="Render every image the filter matches again, at the size set in the panel - same prompt, settings and seed"></button>
+        <button class="ghost small" id="btn-sheet" title="Arrange these images by their settings">
+          Sheet
+        </button>
+        <!-- From 2000 px: the gallery in a column of its own beside the viewer,
+             scrolling by itself (syncBeside, gallery.js). Off by default and
+             remembered per browser; the contact sheet still opens full width.
+             After Sheet, the other way of laying the images out, and before
+             Delete unstarred, which stays last. -->
+        <label class="check beside-tick" id="beside-label"
+          title="Show the gallery in a column of its own beside the image just made, scrolling by itself. The contact sheet still opens across the whole width"><input
+          type="checkbox" id="gallery-beside"> Gallery beside</label>
+        <!-- The inverse of the card's delete: star what stays, then remove the
+             rest of what the filter matches in one confirmed gesture. Last in
+             the bar, away from the view toggle. -->
+        <button class="ghost small danger" id="btn-delete-unstarred" hidden
+          title="Delete every image the filter matches that is not starred, after a confirmation that shows the count. Takes key:value terms or an empty search; the files are removed from disk">⌦ Delete unstarred</button>
+        <!-- What the gallery's own controls have to say - a sweep's outcome, a
+             search term that is not a number, a card's refusal - said here, by
+             them, rather than in the panel's line a column away. A row of the
+             head's own, whose line is kept while it is empty, so a message
+             never moves the grid under the pointer. -->
+        <p class="error" id="gallery-error" role="alert" hidden></p>
       </div>
-      <!-- One line per night's grid, newest first; picking one searches for
-           `run:<id>` and opens the sheet. -->
-      <select id="run-list" class="runs" aria-label="Recent runs" disabled>
-        <option value="">Runs…</option>
-      </select>
-      <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
-      <span class="help" tabindex="0" role="note" aria-label="Search help" aria-describedby="search-tip">?<span class="tip" id="search-tip">
-        Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
-        <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
-        <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
-        <b>date:today</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
-        <b>tcfg:</b> is the scale the negative prompt ran at; <b>hash:</b> finds every
-        image with the same pixels.<br>
-        <b>refine:</b> is the refine passes of that gallery image - <b>refine:none</b>
-        the direct renders - and <b>strength:</b> how far they were re-denoised.<br>
-        <b>id:12</b> is the image the page calls #12, and <b>id:10-20</b> a span of them.<br>
-        <b>run:</b> is a grid however many times it was resumed; <b>job:</b> is one
-        submission of it. <b>date:</b> takes <b>today</b>, <b>yesterday</b> or
-        <b>2026-09-07</b> — a day on your clock, not UTC.<br>
-        Numbers also take a comparison or a range: <b>cfg:&gt;=1</b> · <b>steps:8-12</b>.<br>
-        <b>mu:none</b> is the images that ran with no shift at all — not the same as
-        <b>mu:0</b>.</span></span>
-      <label class="check"><input type="checkbox" id="fav-only"> Starred</label>
-      <!-- Off, the gallery is the running checkpoint's images: steps, CFG and
-           mu are the checkpoint's, so another one's are settings that cannot
-           be reused. The count is what the filter would add. -->
-      <label class="check" id="all-models-label"
-        title="Include images made on other checkpoints. Their steps, CFG and mu are not this checkpoint's, and Re-render refuses them"><input
-        type="checkbox" id="all-models"> All models<span id="other-models"></span></label>
-      <!-- Shown while a filter narrows the gallery: renders what it matches
-           again at the panel's size, one cell per image, same seeds. -->
-      <button class="ghost small" id="btn-rerender" hidden
-        title="Render every image the filter matches again, at the size set in the panel - same prompt, settings and seed"></button>
-      <button class="ghost small" id="btn-sheet" title="Arrange these images by their settings">
-        Sheet
-      </button>
-      <!-- The inverse of the card's delete: star what stays, then remove the
-           rest of what the filter matches in one confirmed gesture. Last in
-           the bar, away from the view toggle. -->
-      <button class="ghost small danger" id="btn-delete-unstarred" hidden
-        title="Delete every image the filter matches that is not starred, after a confirmation that shows the count. Takes key:value terms or an empty search; the files are removed from disk">⌦ Delete unstarred</button>
-      <!-- What the gallery's own controls have to say - a sweep's outcome, a
-           search term that is not a number, a card's refusal - said here, by
-           them, rather than in the panel's line a column away. A row of the
-           head's own, whose line is kept while it is empty, so a message
-           never moves the grid under the pointer. -->
-      <p class="error" id="gallery-error" role="alert" hidden></p>
+      <div class="library-scroll" id="library-scroll">
+        <!-- A gallery with nothing to show says so (syncGalleryEmpty): a blank
+             screen under a disabled "No runs yet" said nothing of what fills it. -->
+        <p class="hint gallery-empty" id="gallery-empty" hidden></p>
+        <div class="grid" id="gallery"></div>
+        <!-- The contact sheet: one run laid out as the grid that produced it. -->
+        <div class="sheet" id="sheet" hidden>
+          <div class="sheet-controls" id="sheet-controls"></div>
+          <!-- What every image on the sheet shares: filled by renderSheet. -->
+          <p class="hint sheet-fixed" id="sheet-fixed" hidden></p>
+          <div class="sheet-scroll"><div class="sheet-grid" id="sheet-grid"></div></div>
+          <p class="hint" id="sheet-note"></p>
+        </div>
+        <button class="ghost wide" id="btn-more" hidden>Load more</button>
+      </div>
     </div>
-    <!-- A gallery with nothing to show says so (syncGalleryEmpty): a blank
-         screen under a disabled "No runs yet" said nothing of what fills it. -->
-    <p class="hint gallery-empty" id="gallery-empty" hidden></p>
-    <div class="grid" id="gallery"></div>
-    <!-- The contact sheet: one run laid out as the grid that produced it. -->
-    <div class="sheet" id="sheet" hidden>
-      <div class="sheet-controls" id="sheet-controls"></div>
-      <!-- What every image on the sheet shares: filled by renderSheet. -->
-      <p class="hint sheet-fixed" id="sheet-fixed" hidden></p>
-      <div class="sheet-scroll"><div class="sheet-grid" id="sheet-grid"></div></div>
-      <p class="hint" id="sheet-note"></p>
-    </div>
-    <button class="ghost wide" id="btn-more" hidden>Load more</button>
   </section>
 </main>
 

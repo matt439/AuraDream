@@ -8,6 +8,11 @@
 'use strict';
 
 const $ = (id) => document.getElementById(id);
+// Whether an element is drawn - not display: none or inside one, and not
+// visibility: hidden, as the gallery's column is under the prompt check with
+// Gallery beside (style.css) - so that focus sent to it would land. True
+// where the browser cannot say.
+const isShown = (el) => el.checkVisibility?.({ visibilityProperty: true, checkVisibilityCSS: true }) ?? true;
 const PAGE = 48;
 // A sheet wants the whole run in one go - it is a matrix, and a matrix with a
 // page boundary through it is a puzzle. The rows are small and the thumbnails
@@ -70,6 +75,7 @@ const els = {
   viewerExamples: $('viewer-examples'), recent: $('recent'), recentList: $('recent-list'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'), cardView: $('card-view'),
   allModels: $('all-models'), otherModels: $('other-models'),
+  stage: $('stage'), library: $('library'), libraryScroll: $('library-scroll'), besideTick: $('gallery-beside'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'),
   orientation: $('btn-orientation'), sizeHint: $('size-hint'),
   gridResume: $('grid-resume'),
@@ -156,9 +162,11 @@ let pickedTier = 1;
 // whether anything older exists, exactly.
 let galleryMore = false;
 // The grid pages itself: an IntersectionObserver on the "Load more" button,
-// armed in app.js and re-armed by `watchMore` after every page, fetches the
-// next page as the button scrolls near the viewport. The button stays as the
-// sign that older rows exist and as the retry after a page that failed.
+// made by `armMore` (from app.js, and again where the gallery's scroll moves
+// to a column of its own) and re-armed by `watchMore` after every page,
+// fetches the next page as the button scrolls near the viewport. The button
+// stays as the sign that older rows exist and as the retry after a page that
+// failed.
 let moreWatcher = null;
 let total = 0;
 let busy = false;

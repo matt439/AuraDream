@@ -756,18 +756,21 @@ function dismissLightbox() {
   const order = origin === 'recent' ? ['recent', 'viewer', 'gallery', 'sheet']
     : from === viewerRecords || origin === 'viewer' ? ['viewer', 'recent', 'gallery', 'sheet']
     : from === galleryRecords ? ['gallery', 'sheet', 'viewer', 'recent'] : ['sheet', 'gallery', 'viewer', 'recent'];
-  const shown = (selector) => [...document.querySelectorAll(selector)].find((el) => el.checkVisibility?.() ?? true);
+  const shown = (selector) => [...document.querySelectorAll(selector)].find(isShown);
   requestAnimationFrame(() => {
     for (const strip of order) {
       const img = shown(strips[strip]);
       if (img) { img.focus(); return; }
     }
-    // The image is in no strip any more - the server came back under another
-    // checkpoint and the gallery is another scope, or it was deleted
-    // elsewhere - and the card that opened the lightbox went with it: the
-    // grid's way in, else the search box, rather than <body>.
-    (currentCard()?.querySelector('img') ?? shown('#gallery .card[data-id] img') ?? els.search)
-      .focus({ preventScroll: true });
+    // The image is in no strip shown any more - the server came back under
+    // another checkpoint and the gallery is another scope, it was deleted
+    // elsewhere, or the prompt check covers the gallery's column (Gallery
+    // beside) - and the card that opened the lightbox may have gone with it:
+    // the grid's way in, else the search box, each where it is shown, else
+    // the viewer's first image, else Generate, rather than <body>.
+    const back = [currentCard()?.querySelector('img'), shown('#gallery .card[data-id] img'), els.search]
+      .find((el) => el && isShown(el));
+    (back ?? shown('#viewer img[data-id]') ?? els.generate).focus({ preventScroll: true });
   });
 }
 

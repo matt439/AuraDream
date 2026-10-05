@@ -1474,8 +1474,15 @@ function toggleSheet() {
   void setSheet(true);
 }
 
-function setSheet(on) {
+// `land`: once the sheet is drawn, bring its head up under the topbar
+// (landOnSheet) - asked by showSheetScope, and done regardless where the
+// sheet takes the page out of the gallery's column beside the viewer, which
+// is no width for a sheet: the page is one column again, and the sheet,
+// under the viewer, would otherwise open out of sight of the press.
+function setSheet(on, { land = false } = {}) {
   sheetMode = on;
+  if (on && besideOn) land = true;
+  syncBeside();
   els.sheetBtn.classList.toggle('active', on);
   els.sheet.hidden = !on;
   els.gallery.hidden = on;
@@ -1493,5 +1500,9 @@ function setSheet(on) {
     if (sheetReturn && els.search.value.trim() === sheetReturn.wrote) els.search.value = sheetReturn.search;
     sheetReturn = null;
   }
-  return resetGallery();
+  const opened = resetGallery();
+  if (!land) return opened;
+  // The query just begun: another one drops the landing with it.
+  const epoch = galleryEpoch;
+  return opened.then(() => { if (sheetMode && epoch === galleryEpoch) landOnSheet(); });
 }

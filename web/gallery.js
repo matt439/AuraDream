@@ -88,6 +88,9 @@ function loadGallery() {
       // leaving the gallery silently showing the last good page - and where
       // the empty grid is, without the count of the filter before it.
       if (epoch !== galleryEpoch) return;
+      // The button is the retry now: a trigger made again (armMore) waits
+      // for a page that lands rather than fetching from this server again.
+      moreArmed = false;
       showError(err.message, false, { slot: els.galleryError });
       if (!galleryRecords.length) els.count.textContent = els.otherModels.textContent = '';
     })
@@ -141,6 +144,7 @@ function syncGalleryEmpty() {
 // Called on success only: after a failed page the button is the retry, and
 // re-arming would fetch again from the server that just refused.
 function watchMore() {
+  moreArmed = true;
   if (!moreWatcher) return;
   moreWatcher.unobserve(els.more);
   moreWatcher.observe(els.more);
@@ -190,6 +194,119 @@ function cardViewClick(e) {
   if (!button) return;
   const key = 'density' in button.dataset ? 'density' : 'fit';
   setCardView(key, button.dataset[key]);
+}
+
+// The trigger itself, rooted where the gallery scrolls: the window, or the
+// gallery's own column beside the viewer (syncBeside). Rooted on the window,
+// a button in that column's box counted only once the box showed it, and
+// the 400 px of warning were gone. Made again whenever that changes - and
+// observing afresh reports once, so a button already near the new root's
+// edge fetches - unless the last page failed (`moreArmed`), where the button
+// is the retry, as in watchMore.
+let moreArmed = true;
+function armMore() {
+  moreWatcher?.disconnect();
+  moreWatcher = new IntersectionObserver((entries) => {
+    if (galleryMore && !sheetMode && entries.some((e) => e.isIntersecting)) loadGallery();
+  }, { root: besideOn ? els.libraryScroll : null, rootMargin: '0px 0px 400px 0px' });
+  if (moreArmed) moreWatcher.observe(els.more);
+}
+
+// ------------------------------------------------------------ gallery beside
+
+// From 2000 px the gallery can stand in a column of its own at the window's
+// right (style.css, `.stage.beside`), scrolling by itself, so its cards stay
+// in view however tall the viewer is: stacked under it, a single image left
+// one row of cards in view at QHD and a long run none. A tick in the gallery
+// head, off by default and remembered per browser - not part of the panel,
+// so Reset leaves it. In effect only while the window is that wide and the
+// contact sheet is closed: a sheet is laid out for the stage's whole width,
+// so the page goes back to one column for it and lands on it (setSheet).
+// The prompt check, open, takes the column's place (style.css).
+const BESIDE_KEY = 'local-diffusion.gallery-beside';
+const BESIDE_MEDIA = '(min-width: 2000px)';
+// Whether it is in effect, which the stage's class says to the stylesheet.
+let besideOn = false;
+
+function syncBeside() {
+  const on = els.besideTick.checked && matchMedia(BESIDE_MEDIA).matches && !sheetMode;
+  syncBesideTitle();
+  if (on === besideOn) return;
+  besideOn = on;
+  els.stage.classList.toggle('beside', on);
+  armMore();
+  // An open check docks in the stage or takes the gallery's column, and
+  // #recent's room beside it (fitRecent) goes with that.
+  fitRecent();
+  // Back under the viewer, the page's own scroll anchoring has the gallery.
+  if (!on) releaseGallery();
+}
+
+// While a sheet is open the tick changes nothing on screen - the page is one
+// column for the sheet - so its title says when it counts.
+function syncBesideTitle() {
+  const label = els.besideTick.closest('label');
+  label.dataset.title ??= label.title;
+  label.title = sheetMode
+    ? `${label.dataset.title}. With the sheet open, as now, it takes effect when the sheet closes`
+    : label.dataset.title;
+}
+
+// A finished job's images join the gallery beside the viewer
+// (prependFinished) once the pointer is off its scrolling column - its
+// cards, the gaps between them, its scrollbar and Load more: one image ahead
+// of them moves every card a place along the rows, and a card about to be
+// pressed was another by the press. Resolved at once where the gallery is
+// not beside the viewer, the pointer is elsewhere or the column is hidden
+// under the prompt check; else when the pointer leaves or the gallery goes
+// back under the viewer (syncBeside). Where the pointer is comes from its
+// enter and leave (app.js), as the panel's does (`panelPos.pointer`), not
+// from `:hover`: a tap leaves `:hover` on what it touched with no pointer
+// there, and a job that ended after one waited for the next tap in the
+// column.
+let galleryWaiting = [];
+let galleryPointer = false;
+function galleryPointerGone() {
+  if (!besideOn || !galleryPointer || !isShown(els.libraryScroll)) return Promise.resolve();
+  return new Promise((resolve) => galleryWaiting.push(resolve));
+}
+
+function galleryPointerLeft() {
+  galleryPointer = false;
+  releaseGallery();
+}
+
+function releaseGallery() {
+  const waiting = galleryWaiting;
+  galleryWaiting = [];
+  waiting.forEach((resolve) => resolve());
+}
+
+// Cards put in ahead of the ones the gallery's own column shows while it is
+// scrolled down keep those where they were, as the page's anchoring keeps a
+// gallery it is scrolled into: the column has none of its own (style.css), so
+// the first card or line in its view is measured across the change and the
+// column scrolled by what it moved. At the column's top the new cards come
+// in at the top, in view.
+function holdGalleryView(change) {
+  const box = els.libraryScroll;
+  if (!besideOn || box.scrollTop <= 0) { change(); return; }
+  const edge = box.getBoundingClientRect().top;
+  const anchor = [...els.gallery.children].find((el) => el.getBoundingClientRect().bottom > edge);
+  const before = anchor?.getBoundingClientRect().top;
+  change();
+  if (anchor?.isConnected) box.scrollTop += anchor.getBoundingClientRect().top - before;
+}
+
+function toggleBeside() {
+  if (els.besideTick.checked) remember(BESIDE_KEY, '1');
+  else forget(BESIDE_KEY);
+  syncBeside();
+}
+
+function restoreBeside() {
+  els.besideTick.checked = remembered(BESIDE_KEY) === '1';
+  syncBeside();
 }
 
 // The local day a record was made on - the day `date:` searches by.
