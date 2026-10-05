@@ -72,6 +72,10 @@
      --recent-min   280px the least of it: docked beside the check it takes the
                     width the image leaves, and none under this
      --strip-min    160px a long run's least tile in the viewer, from 2000 px
+     --library-w    440-720px the gallery's own column beside the stage, from
+                    2000 px with Gallery beside ticked: three cards across at
+                    QHD, two at 125%, the image just made beside it at or near
+                    its own size
      --tip-w, --tip-w-wide, --menu-w   the floating panels' widths
 
    The wide tier, from 1800 px (QHD at 100% is 2560, at 125% 2048): the type
@@ -154,6 +158,7 @@
   --recent-min: 280px;
   --recent-w: clamp(var(--recent-min), 16vw, 420px);
   --strip-min: 160px;
+  --library-w: clamp(440px, 27vw, 720px);
   --tip-w: 240px;
   --tip-w-wide: 300px;
   --menu-w: 300px;
@@ -1381,6 +1386,13 @@ button { font: inherit; cursor: pointer; }
 /* ------------------------------------------------------------------ stage */
 
 .stage { display: flex; flex-direction: column; gap: var(--gutter); min-width: 0; }
+/* The gallery's two wrappers (#library, #library-scroll) are no boxes at all
+   unless Gallery beside makes them its column (below, after the grid): the
+   head, the grid, the sheet and Load more stay the stage's own blocks, in its
+   flex column and across the docked check's and #recent's grids, whose
+   `> *` rules reach them through the wrappers' own grid-column. */
+.library, .library-scroll { display: contents; }
+.library > *, .library-scroll > * { grid-column: inherit; }
 
 .viewer {
   background: var(--panel);
@@ -1640,6 +1652,21 @@ button { font: inherit; cursor: pointer; }
   .stage.recent-docked:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
     grid-row: 1;
   }
+  /* With the gallery beside the viewer (Gallery beside, `.stage.beside`), in
+     a row of its own under the viewer's note rather than a column beside the
+     viewer: beside both, the image just made was 440 px at QHD. The stage is
+     its column again, and the thumbnails small enough that the image, the
+     note and the row fit the window at QHD and at 125%. */
+  .stage.beside:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) {
+    display: flex; align-items: stretch;
+  }
+  .stage.beside:not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))) > #recent:not([hidden]) {
+    flex-direction: row; align-items: center; gap: var(--sp-3);
+    contain: none; overflow: visible; padding: var(--sp-2) var(--sp-3);
+  }
+  .stage.beside > #recent h2 { flex: none; max-width: 6em; }
+  .stage.beside > #recent .recent-list { display: flex; gap: var(--sp-2); min-width: 0; }
+  .stage.beside > #recent .recent-list img { flex: none; width: 88px; }
 }
 .recent h2 { margin: 0; font-size: var(--fs-body-sm); font-weight: 600; color: var(--text-readout); }
 .recent-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
@@ -1722,6 +1749,64 @@ button { font: inherit; cursor: pointer; }
   margin: var(--sp-2) 0 0; padding-bottom: var(--sp-1);
   border-bottom: 1px solid var(--line);
   font-size: var(--fs-body-sm); font-weight: 600; color: var(--text-readout);
+}
+
+/* -------------------------------------------------------- gallery beside */
+
+/* From 2000 px, with Gallery beside ticked (syncBeside, gallery.js), the
+   gallery is a column of its own at the window's right - its head over a
+   box that scrolls by itself - while the stage keeps its own layout in the
+   width left of it: the chips, the viewer and its note, #recent, the docked
+   check. Stacked under the viewer, the gallery was one row or none in view
+   beside the image just made at QHD (12 cards beside one 1024² image, none
+   beside a 28-image run). Fixed under the topbar rather than sticky: a
+   sticky column is held only within the stage's height, and the page
+   scrolls by the panel's excess (the grid fold open, QHD at 125%), which
+   took the column's head under the topbar. Not while the contact sheet is
+   open: a sheet is laid out for the stage's whole width, so the page is one
+   column again for it and lands on it (setSheet). Nor under 2000 px, where
+   the tick is not shown. The page keeps its scrollbar's room whether it
+   scrolls or not, so the panel growing past the window - the fold, a
+   banner - does not narrow both columns by a scrollbar under the pointer. */
+.gallery-head .beside-tick { display: none; }
+@media (min-width: 2000px) {
+  .gallery-head .beside-tick { display: flex; }
+  html:has(.stage.beside) { scrollbar-gutter: stable; }
+  .stage.beside { margin-right: calc(var(--library-w) + var(--gutter)); }
+  .stage.beside > .library {
+    position: fixed; top: calc(var(--topbar-h) + var(--gutter)); right: var(--gutter); bottom: var(--gutter);
+    width: var(--library-w);
+    display: flex; flex-direction: column; gap: var(--sp-3);
+    padding: var(--sp-3) 0 0 var(--sp-3);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+  }
+  .stage.beside .library > .gallery-head { padding-right: var(--sp-3); }
+  /* The search on a row of its own with its ? (the badge is --fs-sm + 3px,
+     and a pixel of slack), under the heading and Runs: after them it had
+     146 px, its placeholder cut at "Search prompts, or". */
+  .stage.beside .gallery-head input[type="search"] {
+    flex: 1 1 calc(100% - var(--sp-3) - var(--fs-sm) - 4px); max-width: none; margin-left: 0;
+  }
+  /* The search's tip hangs leftwards, over the stage: rightwards it ran past
+     the window's edge, which a fixed column does not scroll to. */
+  .stage.beside .gallery-head .help .tip { left: auto; right: -6px; }
+  /* Its own scroll, which the browser does not anchor: a job's images wait
+     for the pointer to leave its cards, and come in above a column scrolled
+     down with its view kept (prependFinished: galleryPointerGone,
+     holdGalleryView), as the page's anchoring keeps a gallery it is
+     scrolled into. The scrollbar's room is kept, so the cards do not narrow
+     as the first page overflows. */
+  .stage.beside .library-scroll {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column; gap: var(--gutter);
+    overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-gutter: stable;
+    padding: 0 var(--sp-3) var(--sp-3) 0;
+  }
+  /* Cards at the wide tier's least width, the room their five 32 px tools
+     take (--h-tool): three across at QHD, two at 125%. */
+  .stage.beside .library .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  /* Brought into view inside the column, which starts under the topbar. */
+  .stage.beside .library .card { scroll-margin-top: 0; }
 }
 
 /* --------------------------------------------------------- contact sheet */

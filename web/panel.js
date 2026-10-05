@@ -638,9 +638,10 @@ function showJob(jobId, { fresh = false } = {}) {
 // viewer, with nothing in view changed but a line in the panel. To the gallery
 // head rather than the sheet, so the search, Starred and Sheet - the sheet's
 // own filters - stay in view above it. Not for the Sheet button (`scroll:
-// false`), pressed at the gallery head already. The scroll moves no focus and
-// hides nothing: the check and the viewer, where a running job lands, are a
-// scroll up.
+// false`), pressed at the gallery head already - unless the gallery stood
+// beside the viewer, where the sheet opens under it (setSheet). The scroll
+// moves no focus and hides nothing: the check and the viewer, where a running
+// job lands, are a scroll up.
 function showSheetScope(search, { fresh = false, notice = null, scroll = true } = {}) {
   const unticked = fresh && els.favOnly.checked;
   if (unticked) els.favOnly.checked = false;
@@ -650,19 +651,22 @@ function showSheetScope(search, { fresh = false, notice = null, scroll = true } 
     sheetReturn.wrote = search;
   }
   els.search.value = search;
-  const opened = setSheet(true);
+  const opened = setSheet(true, { land: scroll });
   // setSheet has begun the query the notice belongs to; another one drops it.
   const epoch = galleryEpoch;
   const text = unticked ? 'Starred unticked: nothing in a new comparison is starred yet' : notice;
   if (text) sheetNotice = { epoch, text };
-  if (!scroll) return opened;
-  return opened.then(() => {
-    if (!sheetMode || epoch !== galleryEpoch) return;
-    const head = document.querySelector('.gallery-head');
-    reserveSheetRoom(head);
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    head.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
-  });
+  return opened;
+}
+
+// Where a sheet is landed on, once drawn (setSheet, only if it is still the
+// sheet shown): the gallery head under the topbar, room reserved under the
+// sheet for it to get there.
+function landOnSheet() {
+  const head = document.querySelector('.gallery-head');
+  reserveSheetRoom(head);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  head.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
 }
 
 // Room under a sheet for its head to come up to the topbar: a short sheet

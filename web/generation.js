@@ -1373,6 +1373,11 @@ function prependFinished(made) {
       // poll's first answer asks again (refreshStatus).
       return err.offline ? undefined : resetGallery();
     }
+    // Beside the viewer, a pointer resting on the gallery's cards keeps them
+    // where they are until it leaves (galleryPointerGone): one image ahead of
+    // them moves every card a place along the rows, which no scroll can
+    // take back.
+    await galleryPointerGone();
     if (epoch !== galleryEpoch || sheetMode) return;
     const have = new Set(galleryRecords.map((r) => r.id));
     if (!galleryRecords.length || !page.items.some((r) => have.has(r.id))) return resetGallery();
@@ -1402,7 +1407,7 @@ function prependFinished(made) {
         nodes.push(dayBreak(next ?? { created_at: oldHead.dataset.made }));
       }
     });
-    els.gallery.prepend(...nodes);
+    holdGalleryView(() => els.gallery.prepend(...nodes));
     // The grid keeps one way in from the keyboard (gallery.js): the newest
     // image, where the stop was the grid's default or the old head with focus
     // elsewhere; a card the user chose further down keeps it.
