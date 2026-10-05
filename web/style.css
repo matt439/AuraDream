@@ -1478,7 +1478,19 @@ button { font: inherit; cursor: pointer; }
 /* "Previous job:" while another runs, so the line is not read as its. */
 #finish-note .lead { color: var(--text-readout); }
 #btn-new-image { align-self: flex-start; }
-/* Where New image ↑ brings the page: the viewer clear of the sticky topbar. */
+/* In one column the panel is static and the viewer sits under the whole of
+   it, so the button, in the panel's flow, was as far out of view as the
+   image it pointed to - above the window, or below it with the image. There
+   it is a pill in the window's corner, over the page, for as long as it is
+   offered (generation.js: once the viewer is in view it goes). */
+@media (max-width: 900px) {
+  #btn-new-image {
+    position: fixed; right: var(--gutter); bottom: var(--gutter); z-index: 15;
+    padding-inline: var(--sp-3); border-radius: 999px;
+    background: var(--panel-2); color: var(--text); box-shadow: var(--shadow-pop);
+  }
+}
+/* Where New image brings the page: the viewer clear of the sticky topbar. */
 #viewer { scroll-margin-top: calc(var(--topbar-h) + var(--gutter)); }
 
 /* The queue under the bars: a line, then a row per job with its own ×, and

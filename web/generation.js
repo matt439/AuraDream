@@ -967,9 +967,24 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     // bar under "loading weights…" looked the same as a hang.
     let ticker = 0;
     const waitedFrom = submissions.get(jobId)?.at ?? Date.now();
+    // Focus on the preview's tile (goToNewImage) goes with it to what takes
+    // its place - the image, or the preview that follows a pass's stand-in -
+    // and to Generate where nothing does, never to <body>.
+    let previewFocused = false;
     const dropPreview = () => {
-      if (previewEl) { previewEl.remove(); previewEl = null; settleStrip(false); }
+      if (previewEl) {
+        previewFocused ||= previewEl.contains(document.activeElement);
+        previewEl.remove();
+        previewEl = null;
+        settleStrip(false);
+      }
       caption = null;
+    };
+    const focusReplacement = (el) => {
+      if (!previewFocused) return;
+      previewFocused = false;
+      if (el && !el.matches('img')) el.tabIndex = -1;
+      (el ?? els.generate).focus({ preventScroll: true });
     };
     const landed = () => {
       if (cleared) return;
@@ -983,6 +998,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       landed();
       dropPreview();
       appendResult(rec);
+      focusReplacement(els.viewer.querySelector(`img[data-id="${rec.id}"]`));
     };
     // The clock in a part a screen reader is not told about: #progress-text
     // is a status, and a clock rewritten in it every second was read out
@@ -1059,6 +1075,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
           // At the strip's end, which a long run's scrolling strip follows
           // from the preview on (panel.js).
           stripAppend(previewEl);
+          focusReplacement(previewEl);
         }
         const frame = previewEl.querySelector('img');
         frame.src = data.image;
@@ -1109,6 +1126,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         setBusy(false);
         dropPreview();
         if (data.images) data.images.forEach(show);
+        focusReplacement(null);
         // Watched to its end, its finish line has said it: a reload's banner
         // would only say it again.
         remember(ANNOUNCED_KEY, jobId);
@@ -1124,6 +1142,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     // died, and after a restart a reload found nothing at all.
     const gaveUp = async () => {
       dropPreview();
+      focusReplacement(null);
       let alive = null;
       let failure = null;
       try { alive = await api(`/api/jobs/${jobId}`); } catch (err) { failure = err; }
@@ -1575,23 +1594,45 @@ async function joinFinished(page, epoch) {
   if (els.lightbox.open && lbList === galleryRecords) renderLightbox();
 }
 
-// A job's first image or frame landing in a viewer the page is scrolled past -
-// a user browsing the gallery during the wait - is said beside the progress,
-// with a press that goes up to it. Never a scroll of the page's own, which
-// would take the gallery from under the pointer. Gone once the viewer is in
-// view, however it got there.
+// A job's first image or frame landing in a viewer out of sight - above the
+// window, with a user browsing the gallery during the wait, or below it, in
+// one column, where the viewer sits under the whole panel and a Generate
+// pressed at the page's top put the image 150-800 px under the window's foot
+// - is said with a press that goes to it: "New image ↑" or "↓". Never a
+// scroll of the page's own, which would take the gallery from under the
+// pointer. In one column the button is a pill fixed to the window's corner
+// (style.css): in the static panel it was as far out of view as the viewer.
+// Gone once the viewer is in view, however it got there; its arrow follows a
+// scroll that jumps past the viewer without showing it (End, Home).
 let viewerWatch = null;
 function viewerOutOfSight() {
   const top = document.querySelector('.topbar').getBoundingClientRect().bottom;
-  return els.viewer.getBoundingClientRect().bottom < top + 48;
+  const box = els.viewer.getBoundingClientRect();
+  return box.bottom < top + 48 ? 'above' : box.top > innerHeight - 48 ? 'below' : null;
+}
+
+const NEW_IMAGE_WORDS = {
+  above: ['New image ↑', 'New image: scroll up to it in the viewer'],
+  below: ['New image ↓', 'New image: scroll down to it in the viewer'],
+};
+function syncNewImage() {
+  if (els.newImage.hidden) return;
+  const where = viewerOutOfSight();
+  if (!where) { els.newImage.hidden = true; return; }
+  const [text, label] = NEW_IMAGE_WORDS[where];
+  if (els.newImage.textContent === text) return;
+  els.newImage.textContent = text;
+  els.newImage.setAttribute('aria-label', label);
 }
 
 function offerNewImage() {
   if (!viewerOutOfSight()) return;
   els.newImage.hidden = false;
-  viewerWatch ??= new IntersectionObserver(() => {
-    if (!els.newImage.hidden && !viewerOutOfSight()) els.newImage.hidden = true;
-  }, { threshold: [0, 0.1, 0.25, 0.5, 1] });
+  syncNewImage();
+  if (!viewerWatch) {
+    viewerWatch = new IntersectionObserver(syncNewImage, { threshold: [0, 0.1, 0.25, 0.5, 1] });
+    window.addEventListener('scroll', syncNewImage, { passive: true });
+  }
   viewerWatch.observe(els.viewer);
 }
 
@@ -1649,12 +1690,18 @@ function lostRunBack(restarted, s) {
 }
 
 // To the newest image, focused - Enter opens it - since the button goes the
-// moment the viewer is in view.
+// moment the viewer is in view. Before any image has landed - the first
+// frame is what offered it - to the live preview's tile, or a pass's
+// stand-in, which streamJob hands on to the image that replaces it: focus
+// fell to <body> as the pressed button hid.
 function goToNewImage() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   els.viewer.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   const images = els.viewer.querySelectorAll('img[data-id]');
-  images[images.length - 1]?.focus({ preventScroll: true });
+  const target = images[images.length - 1] ?? els.viewer.querySelector(':scope > figure.live, :scope > figure.pending');
+  if (!target) return;
+  if (!target.matches('img')) target.tabIndex = -1;
+  target.focus({ preventScroll: true });
 }
 
 // A job outlives the page that started it: the id lives on the server, so a
