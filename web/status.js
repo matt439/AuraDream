@@ -16,11 +16,71 @@ function applyDefaults(d) {
   if (!owned.steps) els.steps.value = d.steps;
   if (!owned.cfg) els.cfg.value = d.guidance_scale;
   if (!owned.mu) els.mu.value = d.mu ?? '';
-  // The grid's example compares no shift against this checkpoint's own, not
-  // Turbo's 1.15 on every one: where the profile has none, forcing one is
-  // what degrades FLUX, so there is no example to give.
-  els.gridMu.placeholder = d.mu != null ? `none,${d.mu}` : '';
+  // The grid's examples are this checkpoint's neighbourhood, as its Mu one
+  // is, not Krea 2 Turbo's 6-12x2 and 0,0.5,1 on every checkpoint: those
+  // were sweeps far outside Z-Anime's 28-50 steps and CFG 3-5, where CFG 0
+  // turns guidance and the negative prompt off. The tips stay syntax help.
+  const sweep = gridExamples(d);
+  els.gridSteps.placeholder = sweep.steps;
+  els.gridCfg.placeholder = sweep.cfg;
+  syncMuWords();
   syncCfg();
+}
+
+// A quarter either side of the profile's steps, and a step of CFG either
+// side of its CFG - clamped to the boxes' own bounds. A profile at CFG 0
+// (Krea 2 Turbo, Z-Image Turbo, schnell) keeps the shipped 0,0.5,1: one
+// below would be negative, and those checkpoints are distilled for 0.
+function gridExamples(d) {
+  const most = (el, fallback) => (Number.isFinite(+el.max) && el.max !== '' ? +el.max : fallback);
+  const s = d.steps, c = d.guidance_scale;
+  const steps = [Math.round(0.75 * s), s, Math.round(1.25 * s)]
+    .map((n) => Math.min(most(els.steps, 100), Math.max(1, n)));
+  const cfg = c > 0
+    ? [...new Set([Math.max(0, c - 1), c, Math.min(most(els.cfg, 20), c + 1)])].map((v) => +v.toFixed(2))
+    : null;
+  return { steps: [...new Set(steps)].join(','), cfg: cfg ? cfg.join(',') : '0,0.5,1' };
+}
+
+// The shift a blank Mu leaves, where the checkpoint's scheduler has a fixed
+// one: Z-Anime's, NetaYume's and NewBie's shift 6 (mu 1.79), Z-Image's 3
+// (1.10) - the profile's `mu_static`. Null where the pipeline derives its
+// own from the size (FLUX) or Mu does not apply.
+function muStatic() {
+  const v = lastDefaults?.mu_static;
+  return muSupported && typeof v === 'number' ? v : null;
+}
+const muStaticText = (v) => v.toFixed(2);
+
+// What a blank Mu box says: "auto" where the pipeline derives its own shift,
+// and where that shift is a fixed number, the number - nothing there is
+// automatic, and the tip beside the box says "fixed shift of 6 (mu 1.79)".
+// The number alone: "auto (1.79)" is 66 px in a box with 58 at 1400x900, and
+// 2048x1040 at 125% has no more room. Nothing on a dead box. The Refine
+// dialog's Mu asks the same.
+function muPlaceholder() {
+  if (!muSupported) return '';
+  const fixed = muStatic();
+  return fixed === null ? 'auto' : muStaticText(fixed);
+}
+
+// The Mu boxes' words, which follow the status as the tips do: the panel's
+// placeholder, and the grid axis's example - or, where Mu cannot apply, its
+// reason. The axis sits far below the panel's badge and was greyed with its
+// syntax help still in its tip ("none,1.15 compares..."): a dead box gives
+// its reason in its badge and its wrapper's title, the panel's Mu tip's
+// words (hints.mu), and the syntax comes back where Mu applies.
+function syncMuWords() {
+  els.mu.placeholder = muPlaceholder();
+  const why = muSupported ? '' : (lastHints?.mu || 'Mu does not apply on this checkpoint.');
+  const d = lastDefaults;
+  els.gridMu.placeholder = !muSupported ? 'unavailable'
+    // The grid's example compares no shift against this checkpoint's own,
+    // not Turbo's 1.15 on every one: where the profile has none, forcing
+    // one is what degrades FLUX, so there is no example to give.
+    : d?.mu != null ? `none,${d.mu}` : '';
+  els.gridMuField.title = why;
+  els.gridMuTip.replaceChildren(...(why ? [why] : gridMuTipDefault));
 }
 
 // What steps/CFG/mu mean depends on the checkpoint - 8 steps at CFG 0 is right
@@ -50,6 +110,8 @@ function applyHints(hints) {
   const cfgLabel = hints.cfg_label ?? 'CFG';
   if (els.cfgLabel.textContent !== cfgLabel) els.cfgLabel.textContent = cfgLabel;
   if (els.gridCfgLabel.textContent !== cfgLabel) els.gridCfgLabel.textContent = cfgLabel;
+  // A dead grid Mu axis quotes the Mu tip's reason.
+  syncMuWords();
 }
 
 // The rest of the guide: the size range the checkpoint's authors vouch for,
@@ -91,7 +153,7 @@ function tagPlaceholder(example) {
 
 function syncMu() {
   // Blank is the pipeline's own shift; a dead box promises nothing.
-  els.mu.placeholder = muSupported ? 'auto' : '';
+  syncMuWords();
   els.mu.disabled = !muSupported;
   els.muField.classList.toggle('disabled', !muSupported);
   els.gridMu.disabled = !muSupported;
@@ -487,6 +549,7 @@ async function refreshLoras() {
     }
     els.lora.value = [...els.lora.options].some((o) => o.value === chosen) ? chosen : '';
     pendingLora = '';
+    loraRefusal = body.supported === false && body.detail ? body.detail : null;
     // What an adapter is and where they come from, always; the files not
     // offered and why after it, in a wider tip, rather than in its place. A
     // detail names its file first, which the list already does.

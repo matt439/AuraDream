@@ -8,7 +8,7 @@
   {"expect": "els.promptTip.textContent.includes('AI look') && els.stepsTip.textContent.includes('28')"},
   {"expect": "[...els.tiers.children].filter((b) => b.classList.contains('recommended')).map((b) => b.textContent).join() === '1 MP,1.5 MP'"},
   {"eval": "choose('16:9', 2);"},
-  {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent.includes('above the 1.6 MP this checkpoint is recommended for')"},
+  {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent.includes('above the 1.64 MP this checkpoint is recommended for')"},
   {"expect": "![...els.presets.querySelectorAll('button')].some((b) => b.classList.contains('recommended'))"},
   {"eval": "choose('16:9', 1);"},
   {"expect": "!els.sizeHint.classList.contains('warn')"},

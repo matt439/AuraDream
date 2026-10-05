@@ -29,7 +29,7 @@
   {"eval": "els.width.value = '1536'; els.height.value = '1536'; syncSize();"},
   {"expect": "!els.sizeHint.classList.contains('warn')"},
   {"eval": "els.width.value = '2048'; els.height.value = '2048'; syncSize();"},
-  {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent.includes('documented') && collect().width === 2048"},
+  {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent.includes('above the 2.25 MP this checkpoint is documented for') && collect().width === 2048"},
   {"eval": "els.examplesBtn.click();"},
   {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 3"},
   {"eval": "els.examplesMenu.children[0].click();"},

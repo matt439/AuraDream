@@ -260,7 +260,9 @@
               checkpoint is known to want a fixed one - otherwise the pipeline derives its
               own.</span></span></i>
           <!-- Blank is the pipeline's own shift, which its tip explains:
-               "auto" says so where the box would otherwise be an empty patch. -->
+               "auto" says so where the box would otherwise be an empty patch,
+               and where that shift is fixed the box shows its mu instead
+               (status.js, muPlaceholder). -->
           <input type="number" id="mu" min="0" max="10" step="0.05" placeholder="auto" aria-describedby="mu-tip">
         </div>
         <!-- Real CFG kept apart from the guidance value, on the one family where

@@ -125,17 +125,22 @@ function syncSize() {
   const notes = [];
   const namedAspect = match?.[0] || null;
   if (sizeAspects && !sizeMatchesGuideAspect(w, h, namedAspect)) {
+    // A size typed in is held to the card's exact sizes; one in a framing
+    // the card has (1000x1000 on ERNIE) is not a size it lists, but nor is
+    // its aspect wrong.
     notes.push(namedAspect
       ? `${namedAspect} is not a recommended aspect for this checkpoint`
-      : 'this is not a recommended aspect for this checkpoint');
+      : framingIsGuided(w, h)
+        ? 'this is not one of the recommended sizes for this checkpoint'
+        : 'this is not a recommended aspect for this checkpoint');
   }
   // The checkpoint's own range first: a 4 MP request of a model its authors
   // validated at 1 MP is the more likely disappointment. The presets land
   // within a few percent of their tier, so a tenth either way is still "at".
   if (sizeRange && mp > sizeRange[1] * 1.1) {
-    notes.push(`above the ${fmtMp(sizeRange[1])} MP this checkpoint is ${sizeRangeWord} for`);
+    notes.push(`above the ${fmtMp(sizeRange[1])} MP ${rangeOwner()}`);
   } else if (sizeRange && mp < sizeRange[0] * 0.9) {
-    notes.push(`below the ${fmtMp(sizeRange[0])} MP this checkpoint is ${sizeRangeWord} for`);
+    notes.push(`below the ${fmtMp(sizeRange[0])} MP ${rangeOwner()}`);
   }
   if (sizeIsTight(w, h)) notes.push('may run tight on 16GB VRAM');
   els.sizeHint.textContent = `${mp.toFixed(1)} MP` + notes.map((n) => ` — ${n}`).join('');
@@ -145,6 +150,14 @@ function syncSize() {
 // 4 MP on a 16GB card is the edge of what fits once the DiT is resident; the
 // Refine dialog's size line says the same past it.
 const sizeIsTight = (w, h) => w * h > 1600 * 1600;
+
+// Within 3% of one of the guide's framings: Animagine's 1216x832 is its
+// 3:2, 2.6% off; ERNIE's 768x1376 its 9:16, 0.8% off (tests/test_profiles.py
+// holds every listed size to the same tolerance).
+const framingIsGuided = (w, h) => (sizeAspects ?? []).some((aspect) => {
+  const [wide, high] = aspect.split(':').map(Number);
+  return Math.abs(w / h / (wide / high) - 1) < 0.03;
+});
 
 function sizeMatchesGuideAspect(width, height, namedAspect) {
   if (!sizeAspects) return true;
@@ -174,16 +187,35 @@ function markPreset(button, active, guided) {
 
 function describePreset(button, aspect, tier, guided) {
   const dimensions = SIZES[aspect][tier].join(' × ');
-  const note = guided
-    ? (sizeAspects
-      ? ', a recommended aspect and size for this checkpoint'
-      : `, within the size range this checkpoint is ${sizeRangeWord} for`)
-    : '';
+  const note = !guided ? ''
+    : sizeAspects ? ', a recommended aspect and size for this checkpoint'
+    : sizeRangeWord !== 'example' ? `, within the size range this checkpoint is ${sizeRangeWord} for`
+    : sizeRange[0] === sizeRange[1] ? ", about the size of the authors' example"
+    : ", within the span of the authors' example sizes";
   button.title = dimensions + note;
   button.setAttribute('aria-label', button.textContent + note);
 }
 
-function fmtMp(mp) { return Number.isInteger(mp) ? String(mp) : mp.toFixed(1); }
+// Whose the size line's bound is. A range in writing - documented,
+// recommended, trained - is what the checkpoint is that "for". An example
+// span (pixels_word "example": NetaYume, NewBie, WAI, whose authors publish
+// no range at all) is only the sizes their examples use, and the size tip
+// beside the line says it is no maximum: the line said "above the 1.6 MP
+// this checkpoint is documented for" under a tip saying 1.57 MP was no bound.
+function rangeOwner() {
+  if (sizeRangeWord !== 'example') return `this checkpoint is ${sizeRangeWord} for`;
+  return sizeRange[0] === sizeRange[1] ? "of the authors' example" : "of the authors' example sizes";
+}
+
+// A bound as its authors wrote it: one decimal where that is within 0.02 MP,
+// two where one decimal would change it - 1024x1024's 1.05 MP read 1.0,
+// Anima's 512² to 1536² (0.26-2.36) read 0.3-2.4, Illustrious's 2.25 read
+// 2.3. Integers and tenths stay as they are.
+function fmtMp(mp) {
+  if (Number.isInteger(mp)) return String(mp);
+  const tenth = mp.toFixed(1);
+  return Math.abs(+tenth - mp) > 0.02 + 1e-9 ? String(+mp.toFixed(2)) : tenth;
+}
 
 // The highest CFG the open grid's axis reaches, from the last preview; null when
 // the grid section is closed or the axis is blank. A grid decides guidance per
@@ -207,12 +239,21 @@ function syncCfg() {
   // reference chips under it use. Its text is kept for one that does.
   els.negField.classList.toggle('unsupported', !negativeSupported);
   els.negative.disabled = off;
+  // What the negative costs is the knob's to say. True CFG's uncond pass runs
+  // for the negative text alone (FLUX.1 runs none without one), so there it
+  // is the price of the field. Where CFG is the knob the pass runs above the
+  // threshold whatever the box holds - against an empty prompt where it is
+  // blank - so a live box costs nothing more, and only the greyed one, which
+  // needs a CFG raised to wake, says what raising it costs.
+  const cfgPaysAlready = !trueCfgSupported && !off;
   els.negNote.textContent = !negativeSupported
     ? (els.negative.value.trim() ? '(this checkpoint takes none; the text is kept for one that does)'
       : '(this checkpoint takes no negative prompt)')
-    : !trueCfgSupported && gridMaxCfg !== null && +els.cfg.value <= cfgThreshold && reach > cfgThreshold
-      ? `(applies to the grid cells above CFG ${cfgThreshold} — ~2× slower there)`
-      : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
+    : cfgPaysAlready && gridMaxCfg !== null && +els.cfg.value <= cfgThreshold
+      ? `(applies to the grid cells above CFG ${cfgThreshold}; no extra cost there)`
+      : cfgPaysAlready
+        ? `(runs while CFG > ${cfgThreshold}; no extra cost at this CFG)`
+        : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
   // The way to the box that wakes it, which on FLUX sits a field's height
   // below and is named only in the note.
   els.negEnable.hidden = !(off && negativeSupported);
@@ -262,11 +303,18 @@ function syncConditioning() {
   // whole in its title, since the box is narrow - and, with none picked, says
   // so in two words: "pick an adapter above" was cut to "…abov" at QHD. Where
   // to pick one is the wrapper's title, as the panel's Weight has it.
+  // Where this server applies no adapter at all (Anima, NewBie, a Nunchaku
+  // run) the axis said "0-1x0.25" and, in its badge, "needs an adapter
+  // selected above", which cannot be done there: it says "unavailable", and
+  // its badge and wrapper give /api/loras' reason, the LoRA badge's words.
+  // Until that list answers, the shipped words stand.
+  const why = loraSupported ? null : loraRefusal;
   const adapter = els.lora.value.replace(/\.safetensors$/i, '');
-  els.gridLoraScale.placeholder = !loraSupported ? '0-1x0.25'
+  els.gridLoraScale.placeholder = !loraSupported ? (why ? 'unavailable' : '0-1x0.25')
     : adapter ? `${adapter}: 0-1x0.25` : 'no adapter';
-  els.gridLoraScale.title = adapter ? els.gridLoraScale.placeholder : '';
-  els.gridLoraField.title = loraSupported && !adapter ? 'Pick an adapter in LoRA above first' : '';
+  els.gridLoraScale.title = loraSupported && adapter ? els.gridLoraScale.placeholder : '';
+  els.gridLoraField.title = why ?? (loraSupported && !adapter ? 'Pick an adapter in LoRA above first' : '');
+  els.gridLoraTip.replaceChildren(...(why ? [why] : gridLoraTipDefault));
   renderReferences();
 }
 

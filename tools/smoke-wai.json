@@ -28,7 +28,7 @@
   {"eval": "els.tagsBtn.click(); els.width.value = '1024'; els.height.value = '1344'; syncSize();"},
   {"expect": "!els.sizeHint.classList.contains('warn')"},
   {"eval": "choose('1:1', 4);"},
-  {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent.includes('documented') && collect().width === 2048"},
+  {"expect": "els.sizeHint.classList.contains('warn') && els.sizeHint.textContent === \"4.2 MP — above the 1.38 MP of the authors' example sizes — may run tight on 16GB VRAM\" && collect().width === 2048"},
   {"eval": "els.examplesBtn.click();"},
   {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
   {"eval": "els.examplesMenu.children[0].click();"},

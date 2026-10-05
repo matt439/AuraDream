@@ -10,6 +10,8 @@
   {"eval": "window.EventSource = __ESReal;"},
   {"expect": "(async () => { const g = await (await fetch('/api/gallery')).json(); return g.total === 2 && g.items.map((r) => r.seed).sort().join() === '1,2'; })()"},
 
+  {"log": "'The grid' + \"'\" + 's Steps and CFG examples are FLUX.1 Krea' + \"'\" + 's neighbourhood, a quarter and a step of CFG either side, not Krea 2 Turbo' + \"'\" + 's 6-12x2 and 0,0.5,1; FLUX derives its own shift, so Mu has no example and its blank is auto'"},
+  {"expect": "els.gridSteps.placeholder === '21,28,35' && els.gridCfg.placeholder === '2.5,3.5,4.5' && els.gridMu.placeholder === '' && els.mu.placeholder === 'auto' && muStatic() === null"},
   {"log": "'U8: commas in a variable make one prompt - the preview shows it, and says why it never varies'"},
   {"eval": "els.prompt.value = 'a {size} fox sitting in the snow'; els.gridPrompt.value = 'size = big, small'; els.gridSteps.value = '6-12x2'; els.gridCfg.value = '2,3.5,5'; els.gridSection.querySelector('summary').click();"},
   {"wait": 900},
