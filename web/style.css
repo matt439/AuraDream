@@ -735,8 +735,29 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line);
   border-radius: var(--r-lg); font-size: var(--fs-label); line-height: 1.45;
 }
-.tag-validation-wide .prompt-analysis { background: var(--panel); }
+/* Above the results it is capped at 55% of the window and scrolls inside
+   itself: stacked over the viewer below 1800 px, the critic's answer took it
+   past a thousand pixels and the image just made off the screen. Docked
+   from 1800 px its own cap replaces this one. Under 901 px, in the panel,
+   it is as long as what it holds. */
+.tag-validation-wide .prompt-analysis {
+  background: var(--panel);
+  max-height: 55vh; overflow-y: auto;
+  padding-top: 0;
+}
 .analysis-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; position: relative; padding-right: 36px; }
+/* The head - the stale badge, Check again, Close - stays at the top of that
+   scroll: the critic's answer takes focus and scrolls the panel down to it,
+   and the head went with it, so a prompt edited after the answer left only
+   the dimming to say the check was stale. At the scroller's very top, the
+   panel's own top padding moved into the head's: with the padding on the
+   panel, a sliver of the findings scrolled past above the head, their text
+   cut in half. */
+.tag-validation-wide .analysis-head {
+  position: sticky; top: 0; z-index: 1;
+  margin: 0 -12px; padding: 10px 48px var(--sp-2) 12px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
 .analysis-head h2 { margin: 0; font-size: var(--fs-body-sm); font-weight: 600; }
 /* Focused from script only (tabindex=-1): the heading when a Check lands far
    from its button, the critic's answer when it lands under the button. The
@@ -767,6 +788,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   min-width: 28px; min-height: 28px; margin: 0; padding: var(--sp-1) var(--sp-2);
   font-size: var(--fs-lg); color: var(--muted);
 }
+.tag-validation-wide .analysis-head .analysis-close { top: 6px; right: 8px; }
 .analysis-head .analysis-close:hover, .analysis-head .analysis-close:focus-visible { color: var(--text); }
 /* The status slot under Ask the critic stays at full strength as well: what
    it says is mostly why the panel went stale, and its amber at 0.55 fell
@@ -983,9 +1005,9 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   border-radius: var(--r-sm); padding: 2px 6px; font: inherit;
 }
 .compare-note { font-size: var(--fs-sm); }
-/* The mechanics under the Batch select's badge open upwards: from 1800 px
-   the panel scrolls inside itself, and the bottom of its last section is
-   where a tip opening downwards would be cut off. */
+/* The mechanics under the Batch select's badge open upwards: above the
+   results the panel scrolls inside itself, and the bottom of its last
+   section is where a tip opening downwards would be cut off. */
 .compare-seeds .tip { top: auto; bottom: calc(100% + 7px); }
 #compare-run { align-self: flex-start; }
 
