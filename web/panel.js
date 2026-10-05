@@ -600,17 +600,67 @@ async function loadRuns() {
   syncRunList();
 }
 
+// The run the search box shows, if it shows one.
+const shownRun = () => /^run:(\S+)$/.exec(els.search.value.trim())?.[1] ?? null;
+
 // The picker names the run the gallery is showing - the search box's
 // `run:<id>`, however it got there: a pick here, a card's ⊞, Show run, the
 // sheet's return, typing - and "Runs…" for anything else. It used to go back
 // to "Runs…" the moment a run was picked, leaving a hex id in the box as the
 // only label of what was on screen.
 function syncRunList() {
-  const shown = /^run:(\S+)$/.exec(els.search.value.trim())?.[1];
+  // A run browsed to from the keyboard and not yet opened (runListKey) stays
+  // where the arrows left it through a rebuilt list.
+  const shown = runPending ?? shownRun();
   els.runList.value = shown && [...els.runList.options].some((o) => o.value === shown) ? shown : '';
   // The closed picker is narrower than its labels (style.css, --runs-w): the
   // picked run's is whole in the title.
   els.runList.title = els.runList.value ? els.runList.selectedOptions[0].text : 'Recent runs';
+}
+// A pick opens its run at once: a click in the open list, or Alt+Down and
+// Enter, which change the picker with no key on it first. Browsed from the
+// keyboard while closed - the arrows, Home and End, Page Up and Down, a
+// letter's type-ahead - the picker changes at every key, and each change
+// opened that run's sheet, asking the server for the whole run and
+// scrolling the page: reaching the tenth run opened nine. A change one of
+// those keys made is noted (`runPending`) and opened by Enter or by leaving
+// the picker; Escape puts back the run the gallery shows. The key marks the
+// change it causes alone - the change comes inside the key's own default -
+// and the mark is gone by the next task.
+let runKeyed = false;
+let runPending = null;
+const RUN_BROWSE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
+function runListKey(e) {
+  if (e.key === 'Enter') {
+    if (runPending !== null) { e.preventDefault(); commitRunList(); }
+    return;
+  }
+  if (e.key === 'Escape') {
+    if (runPending !== null) { e.preventDefault(); runPending = null; syncRunList(); }
+    return;
+  }
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (RUN_BROWSE_KEYS.has(e.key) || (e.key.length === 1 && e.key !== ' ')) {
+    runKeyed = true;
+    setTimeout(() => { runKeyed = false; });
+  }
+}
+
+function runListChange() {
+  if (runKeyed) {
+    runPending = els.runList.value;
+    els.runList.title = els.runList.selectedOptions[0]?.text ?? 'Recent runs';
+    return;
+  }
+  runPending = null;
+  void showRun(els.runList.value);
+}
+
+function commitRunList() {
+  const run = runPending;
+  runPending = null;
+  if (run && run !== shownRun()) void showRun(run);
+  else syncRunList();
 }
 
 // `fresh` is a comparison this page has just made: nothing in it is
