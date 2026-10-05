@@ -496,9 +496,10 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    less the two counters - 156 px at 1400 for 121 px of digits - and the
    Output row stays one line at every width, costing no height. The button is
    the line's height, so the line does not grow: its target reaches past its
-   frame (::after) into the gaps above and below - 6 px up to the caption,
-   4 px down to the box, which takes the pixels at its edge - 25 px or more
-   tall at 1400, over nothing else that takes a click. */
+   frame (::after) into the gaps above and below - 6 px up (to the Output
+   caption where it shows), 4 px down to the box, which takes the pixels at
+   its edge - 25 px or more tall at 1400, over nothing else that takes a
+   click. */
 #btn-dice {
   position: relative; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
@@ -506,6 +507,24 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   border-radius: var(--r-sm); font-size: var(--fs-sm); line-height: 1;
 }
 #btn-dice::after { content: ""; position: absolute; inset: -6px -3px -4px; }
+/* The Output caption is shown in one column and in the wide tier on a window
+   taller than 1150 px. Elsewhere - a two-column page under 1800 px, and the
+   short wide windows the compact controls are for - it is the group's name
+   alone: there the panel is at its tallest beside a window as short as
+   900 px, and the caption's line and gap (24 px) put Generate wholly below
+   the window at scroll 0 (top 908 at 1400x900, where 16 px of it had shown;
+   901.5 at 1800x900) and cut 5 px off it on a maximized 1080p browser
+   (1920x947), where it is whole without. The row's own names - Seed, Batch,
+   Repeat - say what it is, as LoRA's and Weight's do above it. Visually
+   hidden rather than gone, so the group keeps its name. The width range is
+   the complement of the one-column query and the wide tier, fractional
+   widths included, which a 1799/1800 split would leave to neither. */
+@media (900px < width < 1800px), (min-width: 1800px) and (max-height: 1150px) {
+  #output-caption {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+}
 .sub i { font-style: normal; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 5px; }
 
 /* An explicit hover target for the per-checkpoint help. A native `title` is
@@ -853,13 +872,17 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    viewer below 1800 px, the critic's answer took it past a thousand pixels
    and the image just made off the screen. The cap is 55% of the window less
    a tag checkpoint's chips above it (`--chips-h`, tags.js's chipsResized):
-   at 55vh beside 40 tags' chips the image's top was at 817 of 900 px. Never
-   under 12rem, the head and a finding or two. Docked from 1800 px its own
-   cap replaces this one. Under 901 px, in the panel, it is as long as what
-   it holds. */
+   at 55vh beside 40 tags' chips the image's top was at 817 of 900 px. Its
+   least is 15% of the window, between 8rem - the head and two or three lines
+   of findings, which scroll under it - and 12rem: a fixed 12rem, beside
+   smoke-analysis-tags' 40 tags (chips 227 px), started the image at 0.76 of
+   a 1280x720 window (175 px of it showing) and 0.91 of a 1280x600 one; it
+   starts at 0.73 (197 px) and 0.80 now. Docked from 1800 px its own cap
+   replaces this one. Under 901 px, in the panel, it is as long as what it
+   holds. */
 .tag-validation-wide .prompt-analysis {
   background: var(--panel);
-  max-height: max(12rem, calc(55vh - var(--chips-h, 0px))); overflow-y: auto;
+  max-height: max(clamp(8rem, 15vh, 12rem), calc(55vh - var(--chips-h, 0px))); overflow-y: auto;
   padding-top: 0;
 }
 .analysis-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; position: relative; padding-right: 36px; }
@@ -1153,12 +1176,15 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
    CSS alone, so the DOM
    order placeTagValidation keeps - chips, then the check, in the wide host -
    is unchanged, and without :has() the check stays above the viewer.
-   Not with the gallery beside the viewer (`.stage.beside`): there the rules
-   that lay the stage out around the check carry `:not(.beside)`, and the
-   check takes the gallery's column instead (that section, below). Docked
-   in the width left of that column it halved the image just made. The
-   rules of the check's own box and head below have no such guard: they are
-   the check's in either place. */
+   Not with the gallery beside the viewer (`.stage.beside`): there every
+   rule here that places or sizes something carries `:not(.beside)` - the
+   check's own box too - and the check takes the gallery's column instead,
+   in a box that section gives it whole (below). Docked in the width left of
+   that column it halved the image just made; and the idle rule's
+   `align-self: start`, unguarded, shrank the column's fixed box to its
+   content, so the critic's answer ran it past the window with its head
+   under the topbar. Only the sections' single column, which suits either
+   narrow column, is the check's in both places. */
 @media (min-width: 1800px) {
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {
     display: grid;
@@ -1170,7 +1196,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #tag-validation { grid-column: 1 / -1; grid-row: 1; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer { grid-column: 1; grid-row: 2; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #viewer-note { grid-column: 1; grid-row: 3; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-column: 2; grid-row: 2 / span 2;
     contain: size; align-self: stretch;
     max-height: calc(100vh - var(--sticky-top) - 2 * var(--gutter) - var(--chips-h, 0px));
@@ -1195,7 +1221,7 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
     grid-template-rows: auto auto auto auto 1fr;
   }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) > * { grid-column: 1; }
-  .stage:has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
     grid-row: 2 / 6; contain: none; align-self: start;
   }
   /* With no chips the check spans the viewer's rows from the first, and
@@ -1203,14 +1229,14 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) { grid-template-rows: auto 1fr; }
   .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer { grid-row: 1; }
   .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) > #viewer-note { grid-row: 2; }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])) #prompt-analysis {
     grid-row: 1 / span 2;
     max-height: calc(100vh - var(--sticky-top) - var(--gutter));
   }
   .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) {
     grid-template-rows: auto auto auto 1fr;
   }
-  .stage:has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
+  .stage:not(.beside):has(> #tag-validation-wide > #tag-validation[hidden] + #prompt-analysis:not([hidden])):has(> #viewer > .placeholder:not(.held)) #prompt-analysis {
     grid-row: 1 / 5;
   }
   /* A column of 520-760 px: the sections stack - Encoders, Order, Findings,
@@ -1777,7 +1803,16 @@ button { font: inherit; cursor: pointer; }
    its height - so neither the picture nor the gallery under it moves as the
    check opens - and the image keeps the one set of words for its tools: the
    26 px glyphs it fell back to had sat beside an "Earlier this session"
-   strip that stayed. With the gallery beside the viewer the check takes the
+   strip that stayed. The row is the picture's width, or what its buttons
+   need where that is more (`max-content`, the brief left out of it by its
+   inline-size containment), centred under the picture as the picture is in
+   the strip: under a 5:12 image at 2048x1040@1.25, 295 px wide, every word
+   of the row was cut to an ellipsis. Under so narrow a picture the row is
+   its actions alone: the brief has no room left, and the seed is in Use
+   seed's title and the image's own, the facts in the lightbox. It stays one
+   line at the tools row's height, so neither the picture nor the gallery
+   moves; only where the strip itself is narrower than the buttons does it
+   cut them. With the gallery beside the viewer the check takes the
    gallery's column, not that width, so the column stays (`:is(.beside, …)`,
    `:not(.beside)`). */
 .viewer .result-side { display: none; }
@@ -1804,8 +1839,8 @@ button { font: inherit; cursor: pointer; }
   }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result:has(> .result-side) .tile > .tools { display: none; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side {
-    display: flex; flex: none; height: var(--h-tool); min-width: 0; max-width: 100%;
-    width: calc(var(--tile-h) * var(--w) / var(--h));
+    display: flex; flex: none; height: var(--h-tool); max-width: 100%;
+    width: max-content; min-width: min(100%, calc(var(--tile-h) * var(--w) / var(--h)));
   }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result > .result-side > :not(.result-actions) { display: none; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions {
@@ -1814,14 +1849,15 @@ button { font: inherit; cursor: pointer; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions > button {
     flex: 0 1 auto; min-width: 0; height: var(--h-tool); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  /* A pass's Compare with source is left out of the row: the row is only as
-     wide as the picture, and with it a portrait pass's 405 px at
-     2048x1040@1.25 cut every word in the row to an ellipsis. The picture
+  /* A pass's Compare with source is left out of the row: in a row as wide as
+     the picture, a portrait pass's 405 px at 2048x1040@1.25, it cut every
+     word to an ellipsis, and in one as wide as its buttons it would take
+     another 150 px from #recent beside a docked check. The picture
      opens the lightbox, where S and the toggle compare; with the check
      closed the column has the button again. */
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .compare-source { display: none; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
-    display: block; flex: 1 1 0; min-width: 0; line-height: var(--h-tool); text-align: right;
+    display: block; flex: 1 1 0; min-width: 0; contain: inline-size; line-height: var(--h-tool); text-align: right;
     color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
@@ -2094,8 +2130,13 @@ button { font: inherit; cursor: pointer; }
      `visibility: hidden` rather than gone, so its scroll is kept and nothing
      in it takes focus or the pointer (the lightbox's and a pass's way back
      to a card ask whether it is shown); a job's images still come in under
-     it. Its own box and head are the docked check's (that section). */
-  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis { max-height: none; }
+     it. Its box is the column's whatever the viewer holds - none of the
+     dock's rules reach it here (`:not(.beside)`, that section) - and it
+     scrolls inside that box, its head (the prompt check's) stuck at the
+     top. */
+  .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) #prompt-analysis {
+    max-height: none; overflow-y: auto; overscroll-behavior: contain;
+  }
   .stage.beside:has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .library { visibility: hidden; }
 }
 
@@ -2230,12 +2271,8 @@ button { font: inherit; cursor: pointer; }
    beside crops of it (renderSheet captions the crop). The lightbox it opens
    has the whole picture. */
 .sheet-cell.source img { object-fit: cover; }
-/* A starred cell carries the star a card does, ring and badge - the card's
-   own rules (the star's, with the card's tools below), which name .sheet-cell
-   beside .card so the two cannot drift - and where the keepers cluster is
-   visible on the sheet rather than only in the user's head; a 12 px glyph in
-   a 690 px cell was not. `position: relative` above is what keeps 1024
-   badges from piling up at the top of the page. */
+/* A starred cell's ring and badge are the card's own (the star's rules, with
+   the card's tools below). */
 /* A refine pass says so, and at what strength - on a card always, on the
    sheet where it does not lay the strength out already: a pass looks like its
    source by design. Top left, clear of the star. */
@@ -2360,7 +2397,13 @@ button { font: inherit; cursor: pointer; }
    row 4 px from Delete. Always there on a starred card; on another, ☆ where
    the tools show - hover, keyboard focus, a coarse pointer. A sheet cell
    has the same button, out of the tab order (sheet.js's cellFor: tabindex
-   -1), since the cell's image is its stop and F there does the same. */
+   -1), since the cell's image is its stop and F there does the same. A
+   starred cell carries the ring and the badge a card does - these rules name
+   .sheet-cell beside .card so the two cannot drift - and where the keepers
+   cluster is visible on the sheet rather than only in the user's head: a
+   12 px glyph in a 690 px cell was not. The cell's `position: relative` (its
+   own rule, above) is what keeps 1024 badges from piling up at the top of
+   the page. */
 .card.fav, .sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
 .card .fav-badge, .sheet-cell .fav-badge {
   position: absolute;
