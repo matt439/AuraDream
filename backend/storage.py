@@ -307,12 +307,14 @@ def _insert_row(conn: sqlite3.Connection, values: dict[str, Any]) -> sqlite3.Row
 
 
 def human_bytes(n: int | float) -> str:
+    """Binary, and labelled so (KiB, MiB, GiB), as the page's humanBytes:
+    the CLI's disk line and the preview's size are the same estimate."""
     size = float(n)
-    for unit in ("B", "KB", "MB", "GB"):
-        if size < 1024 or unit == "GB":
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if size < 1024 or unit == "GiB":
             return f"{size:.1f} {unit}"
         size /= 1024
-    return f"{size:.1f} GB"
+    return f"{size:.1f} GiB"
 
 
 def image_provenance(image_id: int | None) -> dict[str, Any] | None:

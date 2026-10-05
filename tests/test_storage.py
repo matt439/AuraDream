@@ -155,6 +155,16 @@ def test_step_cost_is_measured_on_the_same_checkpoint(store):
     assert store.step_cost_ms(256, 256, "other") is None
 
 
+def test_sizes_are_binary_and_say_so():
+    # The arithmetic was always 1024's and the labels decimal's: the critic's
+    # 4,856,283,677 bytes read "4.5 GB" where the Hub says 4.86 GB. The CLI's
+    # disk line and the page (state.js humanBytes) label what they compute.
+    assert storage.human_bytes(4_856_283_677) == "4.5 GiB"
+    assert storage.human_bytes(312_087_009) == "297.6 MiB"
+    assert storage.human_bytes(40 * 1024) == "40.0 KiB"
+    assert storage.human_bytes(512) == "512.0 B"
+
+
 # -------------------------------------------------------------------- filters
 
 

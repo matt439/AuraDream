@@ -711,10 +711,10 @@ async function refreshStatus() {
     // Free space beside the VRAM: the disk is the other thing a night can
     // run out of, and the grid preview compares its size estimate against it.
     diskFreeMb = typeof s.disk_free_mb === 'number' ? s.disk_free_mb : null;
-    const disk = diskFreeMb !== null ? `${(diskFreeMb / 1024).toFixed(1)} GB free` : '';
+    const disk = diskFreeMb !== null ? `${(diskFreeMb / 1024).toFixed(1)} GiB free` : '';
     els.vram.textContent = [
       s.vram_total_mb
-        ? `${s.device_name ?? ''} · ${(s.vram_used_mb / 1024).toFixed(1)}/${(s.vram_total_mb / 1024).toFixed(1)} GB · ${s.quantization}`
+        ? `${s.device_name ?? ''} · ${(s.vram_used_mb / 1024).toFixed(1)}/${(s.vram_total_mb / 1024).toFixed(1)} GiB · ${s.quantization}`
         : '',
       disk,
     ].filter(Boolean).join(' · ');

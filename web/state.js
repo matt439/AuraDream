@@ -405,13 +405,19 @@ let pendingLora = '';
 // LoRA badge shows - or null: the grid's LoRA weight axis quotes it.
 let loraRefusal = null;
 
+// Every size the page shows is binary and says so: the card's memory, the
+// free disk, a download, a grid's PNGs. The arithmetic was always 1024's and
+// the labels decimal's, so a first use's 4,856,283,677 bytes read "about
+// 4.5 GB" where the Hub lists 4.86 GB. Labelled as computed (GiB, MiB), as
+// nvidia-smi reads the card, rather than recomputed to a decimal gigabyte,
+// in which a 16 GiB card is 17.1 GB.
 const humanBytes = (n) => {
   let size = n;
-  for (const unit of ['B', 'KB', 'MB', 'GB']) {
-    if (size < 1024 || unit === 'GB') return `${size.toFixed(1)} ${unit}`;
+  for (const unit of ['B', 'KiB', 'MiB', 'GiB']) {
+    if (size < 1024 || unit === 'GiB') return `${size.toFixed(1)} ${unit}`;
     size /= 1024;
   }
-  return `${size.toFixed(1)} GB`;
+  return `${size.toFixed(1)} GiB`;
 };
 
 // The strips the lightbox can walk: what this job produced, and what the
