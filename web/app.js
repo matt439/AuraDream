@@ -452,6 +452,13 @@ document.addEventListener('keydown', (e) => {
     else generate();
     return;
   }
+  // The lightbox's Escape before the menus': it is modal over a menu left
+  // open under it - the Tags helper stays open when focus leaves it by
+  // keyboard - and the menu's branch took the key, so the dialog's own
+  // cancel closed the lightbox without dismissLightbox, focus going back to
+  // the image it was opened on rather than the one the walk ended on. The
+  // menu stays open under the page, as it was before the lightbox came up.
+  if (e.key === 'Escape' && !e.defaultPrevented && els.lightbox.open) { dismissLightbox(); return; }
   // An Escape the prompt's suggestion list or a chip's editor took closes that
   // alone: the helper stays open under the box while its list comes and goes.
   if (e.key === 'Escape' && !e.defaultPrevented && !els.examplesMenu.hidden) { showExamples(false); return; }
@@ -461,7 +468,6 @@ document.addEventListener('keydown', (e) => {
   if (e.defaultPrevented) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
-  if (e.key === 'Escape') { dismissLightbox(); return; }
   if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); return; }
   if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); return; }
   // F, S, Delete and the zoom keys act on the image in view - unless a text
