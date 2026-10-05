@@ -825,6 +825,37 @@ def test_anima_asks_the_tag_index_which_items_are_artists(client, fake, monkeypa
     assert quiet.calls == []
 
 
+def test_newbies_blocks_keep_their_documented_order_through_the_critic(
+    client, fake, monkeypatch
+):
+    # The fake critic's reorder puts the last comma item first: here the
+    # scene block ahead of the character, which the guide's order reverses.
+    newbie = "NewBie-AI/NewBie-image-Exp0.1"
+    claim(monkeypatch, fake, newbie)
+    prompt = (
+        "<character_1><n>miku</n><gender>1girl</gender></character_1>, "
+        "<general_tags><style>anime</style></general_tags>"
+    )
+    body = client.post("/api/prompt/critique", json={"prompt": prompt}).json()
+    assert body["reordered"] is None and body["reordered_kind"] is None
+    assert body["set_aside"] == [
+        "The critic's reordered version was left out: it puts <general_tags> ahead of a "
+        "character block, against the documented order."
+    ]
+    # The authors' own example, whose comma items the fake rotates across
+    # its blocks: refused for what it did, which changed no word.
+    example = guide_for(newbie)["examples"][0]
+    response = client.post("/api/prompt/critique", json={"prompt": example})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["reordered"] is None
+    assert (
+        "The critic's reordered version was left out: it moved words between XML blocks, where "
+        "only whole blocks move, so no attribute changes owner; a reordering of your own can go "
+        "under Compare."
+    ) in body["set_aside"]
+
+
 def test_a_template_slot_is_one_finding(client, fake, monkeypatch):
     # As a whole comma item, the author's "[character]" is also A1111's
     # de-emphasis to the encoder layer: one span, reported once, as the slot.

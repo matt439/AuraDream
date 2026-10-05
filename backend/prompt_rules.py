@@ -823,6 +823,25 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     return wanted
 
 
+def scene_ahead(model_id: str, text: str) -> str | None:
+    """The guide's scene block - NewBie's <general_tags> - where `text` puts
+    it ahead of a <character_N> block at the top level, against the order
+    the guide states (each character's block, then the shared scene); None
+    where it does not, or the guide states no such order. The order rule
+    never reads XML (`order_checked`); this is what a critic's reorder of
+    the blocks is held to."""
+    analysis = _analysis(_guide(model_id))
+    entry = analysis.get("xml")
+    if not isinstance(entry, dict) or not analysis.get("order"):
+        return None
+    names = [match.group(1) for match in _XML_ELEMENT.finditer(text)]
+    scene = entry["scene"]
+    if scene not in names:
+        return None
+    later = names[names.index(scene) + 1:]
+    return scene if any(re.fullmatch(r"character_\d+", name) for name in later) else None
+
+
 @dataclass
 class _Context:
     """One prompt, read once, for every rule."""

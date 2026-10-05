@@ -2425,6 +2425,98 @@ def test_a_reorder_of_xml_moves_blocks_and_of_json_moves_keys():
     assert critic._json_forms(typed) is not None
 
 
+_NEWBIE = "NewBie-AI/NewBie-image-Exp0.1"
+_FILLED = (
+    guides.NEWBIE_GUIDE["examples"][0]
+    .replace("$character_1$", "miku").replace("$character_2$", "teto")
+)
+
+
+def _newbie_reorder(candidate: str, prompt: str = _FILLED):
+    """`candidate` as the critic's reordered version of `prompt` - NewBie's
+    filled example - through the real analysis and validate."""
+    request = GenerateRequest(prompt=prompt)
+    analysis = PromptAnalysis(
+        model_id=_NEWBIE,
+        style=prompt_rules.detect_style(prompt),
+        words=prompt_rules.word_count(prompt),
+        order=prompt_rules.documented_order(_NEWBIE),
+        order_checked=prompt_rules.order_checked(_NEWBIE, prompt),
+    )
+    assert analysis.style == "xml" and analysis.order and not analysis.order_checked
+    context = critic.build_context(_NEWBIE, request, request, analysis)
+    return critic.validate(
+        _answer(parts={}, issues=[], rewrite=None, reordered=candidate),
+        context, prompt, model="test", seconds=0,
+    )
+
+
+def test_newbies_scene_block_is_not_moved_ahead_of_its_characters():
+    # Check reads no XML order, but the guide states one - each character's
+    # block, then <general_tags> - and the critic is told to move pieces into
+    # it: the other way round was kept and offered under Use reordered.
+    first, second, scene = [
+        match.group() for match in re.finditer(r"<(\w+)>.*?</\1>", _FILLED, re.S)
+    ]
+    swapped = _newbie_reorder(f"{second}\n\n{first}\n\n{scene}")
+    assert swapped.reordered == f"{second}\n\n{first}\n\n{scene}"
+    assert swapped.reordered_kind == "unchecked" and swapped.set_aside == []
+    against = (
+        "The critic's reordered version was left out: it puts <general_tags> ahead of a "
+        "character block, against the documented order."
+    )
+    for candidate in (f"{scene}\n\n{first}\n\n{second}", f"{first}\n\n{scene}\n\n{second}"):
+        result = _newbie_reorder(candidate)
+        assert result.reordered is None and result.reordered_kind is None
+        assert result.set_aside == [against]
+
+
+def test_words_moved_inside_an_xml_block_are_not_called_changed():
+    # Blocks move whole, so no attribute changes owner: a field or a tag
+    # moved inside one is still refused, but no word changed, and the
+    # sentence once said one had.
+    def reason(candidate, prompt=_FILLED):
+        result = _newbie_reorder(candidate, prompt)
+        assert result.reordered is None
+        (line,) = result.set_aside
+        return line.removeprefix("The critic's reordered version was left out: ").removesuffix(
+            "; a reordering of your own can go under Compare."
+        )
+
+    gender = "<gender>1girl</gender>\n"
+    appearance = _FILLED[_FILLED.index("<appearance>"):_FILLED.index("</appearance>") + 13] + "\n"
+    fields = _FILLED.replace(gender + appearance, appearance + gender, 1)
+    assert fields != _FILLED
+    inside = "it moved words inside an XML block, where only whole blocks move, so no attribute changes owner"
+    assert reason(fields) == inside
+    assert reason(_FILLED.replace("happy, smile", "smile, happy", 1)) == inside
+    # One tag moved to the other character changed no word either.
+    leaked = _FILLED.replace("blue_hair, long_hair", "long_hair").replace(
+        "pink_hair,", "pink_hair, blue_hair,"
+    )
+    assert reason(leaked) == (
+        "it moved words between XML blocks, where only whole blocks move, so no attribute "
+        "changes owner"
+    )
+    # Text outside the blocks is compared piece by piece, as ever.
+    loose = f"masterpiece, best quality\n{_FILLED}"
+    assert reason(f"masterpiece, best quality\n{fields}", loose) == inside
+    # The fake critic's reorder, its last comma item first, parts the blocks.
+    items = [item.strip() for item in loose.split(",")]
+    rotated = ", ".join(items[-1:] + items[:-1])
+    assert reason(rotated, loose) == (
+        "it moved words between XML blocks, where only whole blocks move, so no attribute "
+        "changes owner"
+    )
+    # A changed word is still called one.
+    assert reason(_FILLED.replace("blue_hair", "green_hair")) == (
+        "it changed words, not only their order"
+    )
+    assert reason(loose.replace("best quality", "top quality"), loose) == (
+        "it changed words, not only their order"
+    )
+
+
 def test_the_rewrite_is_dropped_when_it_changes_nothing():
     # Layer 1's lint of the rewrite is the route's (test_api_analysis), once
     # the gate is open; validate adds only its own checks.

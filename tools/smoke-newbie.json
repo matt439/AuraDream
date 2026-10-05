@@ -19,6 +19,10 @@
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; els.analyze.click();"},
   {"expect": "__until(() => analysisResult?.source === els.prompt.value && !els.promptAnalysis.hidden)"},
   {"expect": "analysisResult.body.findings.map((f) => f.cite).join('|') === '<n>$character_1$</n>|<n>$character_2$</n>' && [...els.analysisFindings.querySelectorAll('.analysis-item')].map((li) => li.textContent.includes('$character_2$ is') === li.textContent.includes('<n>$character_2$</n>')).every(Boolean)"},
+  {"log": "'The fake critic rotates the comma items across the blocks: refused, in words that say it moved words, not that it changed them'"},
+  {"eval": "els.criticAsk.click();"},
+  {"expect": "__until(() => !!critiqueResult && !critiquing)"},
+  {"expect": "critiqueResult.body.reordered === null && els.criticResult.textContent.includes(\"The critic's reordered version was left out: it moved words between XML blocks, where only whole blocks move, so no attribute changes owner;\") && !els.criticResult.textContent.includes('it changed words')"},
   {"expect": "!tagVocabularyEnabled && els.tagHelper.hidden"},
   {"eval": "choose('1:1', 1);"},
   {"expect": "!els.sizeHint.classList.contains('warn')"},
@@ -30,5 +34,12 @@
   {"expect": "viewerRecords[0].prompt === els.prompt.value && viewerRecords[0].negative_prompt === 'blurry' && viewerRecords[0].true_cfg === 4 && viewerRecords[0].mu === 1.8"},
   {"eval": "location.reload();"},
   {"wait": 1200},
-  {"expect": "els.prompt.value.startsWith('<character_1>') && els.prompt.value.endsWith('</general_tags>') && els.prompt.value.includes('<n>$character_2$</n>')"}
+  {"expect": "els.prompt.value.startsWith('<character_1>') && els.prompt.value.endsWith('</general_tags>') && els.prompt.value.includes('<n>$character_2$</n>')"},
+
+  {"log": "'A critic reorder that puts <general_tags> ahead of a character block - here the fake critic\\'s, its last comma item first - is set aside against the documented order, and no Use reordered or Reordered row is offered'"},
+  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; els.prompt.value = '<character_1><n>miku</n><gender>1girl</gender></character_1>, <general_tags><style>anime</style></general_tags>'; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.analyze.click();"},
+  {"expect": "__until(() => analysisResult?.source === els.prompt.value && !els.promptAnalysis.hidden)"},
+  {"eval": "els.criticAsk.click();"},
+  {"expect": "__until(() => !!critiqueResult && !critiquing)"},
+  {"expect": "critiqueResult.body.reordered === null && els.criticResult.textContent.includes(\"The critic's reordered version was left out: it puts <general_tags> ahead of a character block, against the documented order.\") && ![...els.criticResult.querySelectorAll('button')].some((b) => b.textContent === 'Use reordered') && !compareVariants().some((v) => v.label === 'reordered')"}
 ]

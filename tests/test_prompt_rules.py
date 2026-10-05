@@ -1918,6 +1918,19 @@ def test_anima_tags_and_sentences():
     assert only(run(ANIMA, two), "guide.sentences") == []
 
 
+def test_the_scene_block_ahead_of_a_character_is_against_newbies_order():
+    example = guides.NEWBIE_GUIDE["examples"][0]
+    blocks = re.findall(r"<(\w+)>.*?</\1>", example, re.S)
+    assert blocks == ["character_1", "character_2", "general_tags"]
+    assert prompt_rules.scene_ahead(NEWBIE, example) is None
+    first, second, scene = [m.group() for m in re.finditer(r"<(\w+)>.*?</\1>", example, re.S)]
+    assert prompt_rules.scene_ahead(NEWBIE, "\n\n".join([scene, first, second])) == "general_tags"
+    assert prompt_rules.scene_ahead(NEWBIE, "\n\n".join([first, scene, second])) == "general_tags"
+    assert prompt_rules.scene_ahead(NEWBIE, "\n\n".join([second, first, scene])) is None
+    # No order stated, no scene block: nothing to hold it to.
+    assert prompt_rules.scene_ahead(FLUX_DEV, "\n\n".join([scene, first])) is None
+
+
 def test_wai_rating_and_the_nsfw_negative():
     prompt = "1girl, general, beach, masterpiece, best quality, amazing quality"
     [bare] = only(run(WAI, prompt), "guide.rating_negative")

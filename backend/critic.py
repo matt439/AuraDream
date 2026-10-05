@@ -94,6 +94,7 @@ from .prompt_rules import (
     order_items,
     places_every_item,
     rendered_targets,
+    scene_ahead,
 )
 from .prompt_sources import Sources, sources_for
 from .schemas import (
@@ -2034,6 +2035,44 @@ def _reordered(candidate: str, prompt: str, style: str) -> tuple[bool, str | Non
     return True, "".join(out)
 
 
+_WORDS = re.compile(r"\w+")
+
+
+def _words(text: str) -> Counter[str]:
+    """`text`'s words in any order, as a piece's form reads them (`_FOLD`,
+    case aside); "blue_hair" is one word, so "hair_blue" is another."""
+    return Counter(_WORDS.findall(text.translate(_FOLD).casefold()))
+
+
+def _not_a_reorder(candidate: str, prompt: str, style: str) -> str:
+    """Why `candidate` is no reorder of `prompt` (`_reordered` false), in the
+    set-aside sentence's words.
+
+    An XML prompt's blocks move whole, so no attribute changes owner
+    (`_piece_spans`); a candidate with exactly the prompt's words that moved
+    a field or a tag inside a block, or from one block to another, changed
+    no word, and the sentence once said it had.
+    """
+    if style == "xml" and _quoted(candidate) == _quoted(prompt) and (
+        _words(candidate) == _words(prompt)
+    ):
+
+        def loose(text: str) -> Counter[tuple]:
+            # Each piece, a block as its name and its words in any order.
+            pieces: Counter[tuple] = Counter()
+            for start, end, form in _piece_spans(text, style):
+                block = _XML_BLOCK.fullmatch(text[start:end])
+                if block:
+                    pieces[(block.group(1).casefold(), *sorted(_words(block.group()).items()))] += 1
+                else:
+                    pieces[(form,)] += 1
+            return pieces
+
+        where = "inside an XML block" if loose(candidate) == loose(prompt) else "between XML blocks"
+        return f"it moved words {where}, where only whole blocks move, so no attribute changes owner"
+    return "it changed words, not only their order"
+
+
 def is_reorder(candidate: str, prompt: str, style: str) -> bool:
     """Whether `candidate` is `prompt` with its pieces moved and nothing else -
     the variant that isolates order, so a grid row of anything more would lie."""
@@ -2929,8 +2968,20 @@ def validate(
         kept, moved = _reordered(candidate, prompt, context.style)
         if not kept:
             set_aside.append(
-                "The critic's reordered version was left out: it changed words, not only "
-                "their order; a reordering of your own can go under Compare."
+                "The critic's reordered version was left out: "
+                f"{_not_a_reorder(candidate, prompt, context.style)}; a reordering of your "
+                "own can go under Compare."
+            )
+        elif moved is not None and context.style == "xml" and (
+            scene := scene_ahead(context.sources.model_id, moved)
+        ):
+            # Check reads no XML order, but the guide states one - each
+            # character's block, then the shared scene - and the critic was
+            # told to move pieces into it: the other way round is no reading
+            # of it, and order issues asking for that are left out too.
+            set_aside.append(
+                f"The critic's reordered version was left out: it puts <{scene}> ahead of a "
+                "character block, against the documented order."
             )
         elif moved is None or not context.order_checked:
             reordered = moved
