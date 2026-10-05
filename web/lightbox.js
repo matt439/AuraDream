@@ -178,7 +178,11 @@ function layoutLightbox() {
   // wheel step, a pan move or a drag of the divider lays the page out once.
   // The split is decided before, on the stage as it is with the facts at
   // six lines, so the room and the halves agree (lbStacked).
-  const stacked = lbCompare.id === rec.id && lbStacked(rec);
+  // Whether a press of Side by side would stack them, for its title, is
+  // decided the same way before the comparison is on (read before any write).
+  const comparing = lbCompare.id === rec.id;
+  const split = comparing || rec.refine != null ? lbStacked(rec) : false;
+  const stacked = comparing && split;
   lbFactsRoom(rec, stacked);
   const reach = lbNavReach();
   const ports = lbPorts(reach, undefined, undefined, stacked);
@@ -201,8 +205,9 @@ function layoutLightbox() {
   els.lbImg.style.clipPath = ports.length > 1 ? clipBox(pass, rectOf(ports.at(-1))) : '';
   layoutCompare(rec, ports, pass, boxIn, rectOf);
   // The mode keeps its name where the halves are stacked; its title says
-  // which way they go, or would on a press (lbStacked).
-  const sides = stacked ? 'The source above the pass, each fitted to half the stage: larger here than left and right'
+  // which way they go, or would on a press (lbStacked): before the press it
+  // said "left of the pass" where the press stacked them.
+  const sides = split ? 'The source above the pass, each fitted to half the stage: larger here than left and right'
     : 'The source left of the pass, each fitted to half the stage';
   if (els.lbSideBySide.title !== sides) els.lbSideBySide.title = sides;
   // Tested in this order: a wheel stop between 1:1 and fit is neither.

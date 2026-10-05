@@ -289,5 +289,18 @@
   {"eval": "els.prompt.value = 'typed after the reset'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "els.promptNote.hidden && !resetNote && els.error.textContent === ''"},
   {"expect": "__until(() => JSON.parse(localStorage.getItem('local-diffusion.panel.v1') ?? 'null')?.prompt === 'typed after the reset')"},
-  {"eval": "resetPanel(); showError(''); dropPromptUndo();"}
+  {"eval": "resetPanel(); showError(''); dropPromptUndo();"},
+  {"log": "'Reset takes a Reuse note from the panel line too - Settings from #N loaded, said over the emptied panel - with its Undo still on offer or already gone'"},
+  {"viewport": [1400, 900, 1]},
+  {"eval": "showError(''); reuse(galleryRecords.find((r) => r.refine == null));"},
+  {"expect": "__until(() => els.error.textContent.startsWith('Settings from #') && !!els.error.querySelector('button.undo'))"},
+  {"eval": "els.reset.click();"},
+  {"expect": "els.error.textContent === '' && els.prompt.value === ''"},
+  {"eval": "reuse(galleryRecords.find((r) => r.refine == null));"},
+  {"expect": "__until(() => els.error.textContent.startsWith('Settings from #') && !!els.error.querySelector('button.undo'))"},
+  {"eval": "els.seed.value = '5'; els.seed.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "els.error.textContent.startsWith('Settings from #') && !els.error.querySelector('button.undo')"},
+  {"eval": "els.reset.click();"},
+  {"expect": "els.error.textContent === ''"},
+  {"eval": "resetPanel(); showError('');"}
 ]

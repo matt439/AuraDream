@@ -420,6 +420,33 @@ def test_an_expansion_that_ends_at_the_load_is_a_503_with_the_status_sentence(cl
     assert fake.expansions == []
 
 
+def test_status_names_what_holds_the_card_and_whose_expansion(client, fake, monkeypatch):
+    # An Expand waiting behind another tab's critique or Expand said
+    # "Expanding…" for the whole of it: the status names what holds the card
+    # and the ticket it was sent with, so a page tells its own from another's.
+    fake.prompt_expander_supported = True
+    assert client.get("/api/status").json()["card_holder"] is None
+    seen = []
+    expand = fake.expand_prompt
+
+    def watched(prompt, width, height):
+        seen.append(main.jobs.card())
+        return expand(prompt, width, height)
+
+    monkeypatch.setattr(fake, "expand_prompt", watched)
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse", "ticket": "tab-a-1"})
+    assert response.status_code == 200
+    assert seen == [("expand", "tab-a-1")]
+    # Let go with the gate; a press with no ticket holds it anonymously.
+    status = client.get("/api/status").json()
+    assert status["card_holder"] is None and status["card_ticket"] is None
+    assert client.post("/api/prompt/expand", json={"prompt": "a lighthouse"}).status_code == 200
+    assert seen[-1] == ("expand", None)
+    # A ticket is a short name, not a payload.
+    long = client.post("/api/prompt/expand", json={"prompt": "a lighthouse", "ticket": "x" * 65})
+    assert long.status_code == 422
+
+
 def test_prompt_expansion_refuses_an_unsupported_checkpoint(client):
     response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
     assert response.status_code == 422 and "ERNIE-Image" in response.json()["detail"]

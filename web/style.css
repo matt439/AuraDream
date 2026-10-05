@@ -588,6 +588,12 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    panel.js, sets `up` as it opens). */
 .help.up .tip { top: auto; bottom: calc(100% + 7px); }
 .help:hover .tip, .help:focus .tip { display: block; }
+/* A badge inside a box that scrolls by itself - the prompt check's - hangs
+   its tip from the window (placeTip's floatTip writes where): placed in the
+   box, the comparison's Batch tip was cut off by the box's edge and lay
+   under its sticky head. Hidden while its badge is scrolled out of the box. */
+.help .tip.floating { position: fixed; translate: none; }
+.help.clipped .tip.floating { display: none; }
 /* The prompting and size guides are paragraphs, not a sentence: wider. */
 .tip.wide { width: var(--tip-w-wide); }
 /* And a tip whose text has paragraphs keeps its line breaks (applyHints and
@@ -654,13 +660,13 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    their first row, taking their clicks; there it takes a line of its own -
    the panel is not sticky, so nothing it moves was under the pointer. */
 @media (max-width: 900px) {
-  .prompt-note { position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none; }
+  .prompt-note:not([data-at="box"]) { position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none; }
 }
 /* Nor over the caption while the negative box is greyed: the caption then
    says why (the note in it) and holds the button that wakes it, and the
    overlay left "Negative prompt (ne" of that. In the flow there too, a line
    that comes and goes with the note. */
-.panel:has(#negative-field.disabled) .prompt-note {
+.panel:has(#negative-field.disabled) .prompt-note:not([data-at="box"]) {
   position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
 }
 /* Nor for the notes with no timer (tags.js, `data-kind`): ERNIE's Expand
@@ -671,6 +677,19 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .prompt-note:is([data-kind="running"], [data-kind="held"]) {
   position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
 }
+/* Reset's note lies in the top right of the prompt box it has just emptied,
+   under Reset itself, at every width (`data-at="box"`, tags.js): in the
+   panel's flow - one column, a greyed negative - it put a line above
+   Generate, and when it went 20 s later Generate came back up under a
+   pointer that may have been resting there. The box is empty for as long as
+   it shows: the panel's first change takes it. So is the note an Undo of it
+   leaves, over the text put back, for a few seconds; it holds no button,
+   and the pointer goes through it to the box. */
+.prompt-note[data-at="box"] { top: 4px; right: 4px; }
+.prompt-note[data-at="box"]:not(:has(button:not([hidden]))) { pointer-events: none; }
+/* The emptied box's placeholder - its first line runs under the note at
+   1400 px - waits for the note to go. */
+.prompt-editor:has(> .prompt-note[data-at="box"]:not([hidden])) > textarea::placeholder { color: transparent; }
 /* And at the end of ERNIE's English, where an expansion's note goes while the
    English heads the results (app.js, applyExpansion): a line of that box. */
 .translation > .prompt-note { position: static; width: fit-content; margin: 0 0 0 auto; box-shadow: none; }
@@ -1181,10 +1200,6 @@ a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--a
   border-radius: var(--r-sm); padding: 2px 6px; font: inherit;
 }
 .compare-note { font-size: var(--fs-sm); }
-/* The mechanics under the Batch select's badge open upwards: above the
-   results the panel scrolls inside itself, and the bottom of its last
-   section is where a tip opening downwards would be cut off. */
-.compare-seeds .tip { top: auto; bottom: calc(100% + 7px); }
 #compare-run { align-self: flex-start; }
 
 /* From 1800 px the open check docks beside the viewer rather than above it:
@@ -2173,6 +2188,11 @@ button { font: inherit; cursor: pointer; }
      their five --h-tool tools take): three across at QHD, two at 125%. The
      wide tier's own least width, 230 px at QHD, made two across there. */
   .stage.beside .library { --thumb-min: var(--thumb-min-beside); }
+  /* S there too: the card size's own least width (#gallery[data-density])
+     was 166 px at QHD, which a 646 px column fits three of, as M's 200 px
+     does - S showed pressed and changed nothing. At 150 px it is four across
+     at QHD and three at 125%, its tools at their 24 px floor (above). */
+  .stage.beside #gallery[data-density="s"] { --thumb-min: 150px; }
   /* Brought into view inside the column, which starts under the topbar. */
   .stage.beside .library .card { scroll-margin-top: 0; }
   /* The prompt check, open, takes the column's place, the gallery's column

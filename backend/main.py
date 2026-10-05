@@ -68,9 +68,12 @@ from .schemas import (  # noqa: E402
 )
 from .tags import (  # noqa: E402
     TagLookupUnavailable,
+    is_model_tag,
     normalize_tag,
     rank_suggestions,
     tag_vocabulary,
+    too_long,
+    too_long_result,
     unchecked_results,
 )
 from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
@@ -347,6 +350,7 @@ async def status() -> ModelStatus:
     if state == "unloaded" and backend.is_ready():
         state = "ready"
     defaults = _merged_defaults(info)
+    card_holder, card_ticket = jobs.card()
     return ModelStatus(
         state=state,
         defaults=defaults,
@@ -374,6 +378,10 @@ async def status() -> ModelStatus:
         # learns another tab's job holds the card, and one watching its own
         # learns of jobs queued behind it from elsewhere or gone since.
         active_jobs=[job.id for job in jobs.active()],
+        # And what holds the card meanwhile - a job, or a critic or an Expand
+        # - for an Expand waiting on it to say so.
+        card_holder=card_holder,
+        card_ticket=card_ticket,
         device_name=info.get("device_name"),
         vram_total_mb=info.get("vram_total_mb"),
         vram_used_mb=info.get("vram_used_mb"),
@@ -517,11 +525,20 @@ def _lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
     tags and year form. Blocking; raises `TagLookupUnavailable`.
 
     One call for the chips and the analyser, so the two cannot disagree about
-    what a tag is.
+    what a tag is. An item longer than any tag (`tags.TAG_NAME_MAX`: a hybrid
+    prompt's sentence) is answered unknown here, never asked about.
     """
-    return tag_vocabulary.validate(
-        tags, _special_tags(helper), helper["vocabulary_cutoff"], bool(helper.get("year_tag"))
+    special = _special_tags(helper)
+    year = bool(helper.get("year_tag"))
+
+    def asks(tag: str) -> bool:
+        return not too_long(tag) or is_model_tag(tag, special, year)
+
+    asked = [tag for tag in tags if asks(tag)]
+    answers = iter(
+        tag_vocabulary.validate(asked, special, helper["vocabulary_cutoff"], year) if asked else []
     )
+    return [next(answers) if asks(tag) else too_long_result(tag) for tag in tags]
 
 
 def _order_slots(prompt: str | None, reachable: bool) -> dict:
@@ -752,6 +769,7 @@ async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
         expanded = await jobs.run_when_idle(
             lambda: backend.expand_prompt(request.prompt, request.width, request.height),
             holder="expand",
+            ticket=request.ticket,
         )
     except BackendBusy as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

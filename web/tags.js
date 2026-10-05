@@ -95,7 +95,8 @@ function writeBox(el, text) {
 //     being about the text it replaced (syncPromptUndo); Ctrl+Z in the box
 //     does the same for longer. 'info' goes the same way, with no button.
 //   'reset' - Reset's Undo (panel.js), retired by Reset's own rule, the first
-//     change of the panel (syncResetUndo), and after 20 s.
+//     change of the panel (syncResetUndo), and after 20 s. It lies in the
+//     emptied box itself (`at: 'box'`), as does the note its Undo leaves.
 //   'running', 'held' - ERNIE's Expand while it runs, and an expansion the
 //     user typed over meanwhile (Use it, Discard): typing takes neither.
 // Each goes after `ms` (none for 0) unless focus is on its buttons. One Undo
@@ -113,7 +114,7 @@ const PROMPT_NOTE_HOME = els.promptNote.parentElement;
 function showPromptNote(message, options = {}) {
   const {
     kind = 'write', undo = null, label = 'Undo', title = '', discard = null, ms = 15000, onDrop = null,
-    host = PROMPT_NOTE_HOME,
+    host = PROMPT_NOTE_HOME, at = 'field',
   } = options;
   dropPromptUndo();
   if (els.promptNote.parentElement !== host) {
@@ -131,6 +132,11 @@ function showPromptNote(message, options = {}) {
   // expansion, which stay for minutes, take a line of the panel's flow
   // rather than lying over the next field.
   els.promptNote.dataset.kind = kind;
+  // Where it lies (style.css): over the next field's caption, or in the
+  // flow where that would cover something ('field'); in the box itself
+  // ('box') for Reset's, whose box is empty while it shows - never in the
+  // flow, which moved Generate as it came and went.
+  els.promptNote.dataset.at = at;
   // Shown before it is written: it is a live region, and words written into
   // a hidden one are never read out.
   els.promptNote.hidden = false;
@@ -699,9 +705,16 @@ function tagTokenLine() {
   if (!tagMeasured || tagMeasured.model !== loadedModel) return null;
   const reports = tagMeasured.encoders.filter((report) => report.field === 'prompt' && !report.pooled_only);
   const cut = reports.some((report) => report.cut != null);
-  if (!reports.length || (tagMeasured.detail && !cut)) return { text: 'cut unknown', over: false, tight: null };
+  // Past the length every request takes (`PROMPT_MAX_CHARS`), what was
+  // counted is its first part (scheduleTagMeasure), and the length is the
+  // first thing to say: Generate and Check refuse the prompt whole.
+  const long = tagMeasured.truncated ? `over ${PROMPT_MAX_CHARS} characters` : '';
+  if (!reports.length || (tagMeasured.detail && !cut)) {
+    return long ? { text: long, over: true, tight: null } : { text: 'cut unknown', over: false, tight: null };
+  }
   const tight = reports.reduce((a, b) => (b.tokens / b.budget > a.tokens / a.budget ? b : a));
-  return { text: `${tight.tokens}/${tight.budget} tokens`, over: cut, tight };
+  const count = `${tight.tokens}/${tight.budget} tokens`;
+  return { text: long ? `${long} · ${count} in the first ${PROMPT_MAX_CHARS}` : count, over: cut || !!long, tight };
 }
 
 // The same count as a line under the prompt box (#prompt-tokens) where no
@@ -726,12 +739,27 @@ function tagTokenLine() {
 // using.
 const TOKENS_NEAR = 0.75;
 let promptTokensOver = false;
+// What the summary line last said about it, so a new reason past the limit -
+// the length after the token cut - is said too.
+let promptTokensSaid = '';
+// Every request's prompt length (GenerateRequest, PromptMeasureRequest:
+// `max_length`, held equal by tests/test_api_analysis.py). The measure is
+// asked of the first this many code points, as Python counts them: past it
+// the whole was refused, and the line said "cut unknown", in its quiet
+// colour, taking back the warning the prompt had already earned.
+const PROMPT_MAX_CHARS = 4000;
+const LENGTH_SAID = `The prompt is past ${PROMPT_MAX_CHARS} characters, which Generate and Check refuse.`;
 
 function promptTokenLine() {
   const tokens = tagTokenLine();
   if (!tokens) return null;
-  if (!tokens.tight && tagMeasured.known === false && !tagMeasured.failed) {
+  const long = !!tagMeasured.truncated;
+  if (!tokens.tight && tagMeasured.known === false && !tagMeasured.failed && !long) {
     return { text: '', over: false, shown: false, said: '', title: '' };
+  }
+  if (!tokens.tight && long) {
+    const text = `Over ${PROMPT_MAX_CHARS} characters: Generate and Check refuse it`;
+    return { text, over: true, shown: true, said: LENGTH_SAID, title: `${text}.` };
   }
   if (!tokens.tight) {
     return {
@@ -745,6 +773,14 @@ function promptTokenLine() {
     .map((report) => `${report.name} ${report.tokens}/${report.budget}${report.pooled_only ? ' (one pooled vector)' : ''}`);
   const titled = (text) => `${text}\n${counts.join(' · ')}: counted by this checkpoint's own tokenizers, as Check counts`;
   const cut = tokens.over ? tagCut() : null;
+  // Over the length: said first, the count of what was counted after it.
+  if (long) {
+    const where = cut ? ` · ${cut.names} ${cut.names.includes(' and ') ? 'stop' : 'stops'} reading at `
+      + `"${excerpt(els.prompt.value.slice(cut.offset))}"` : '';
+    const text = `Over ${PROMPT_MAX_CHARS} characters: Generate and Check refuse it · `
+      + `${tight.tokens}/${tight.budget} tokens in the first ${PROMPT_MAX_CHARS}${where}`;
+    return { text, over: true, shown: true, title: titled(text), said: LENGTH_SAID };
+  }
   if (!cut) {
     // Every encoder as tight as the one counted: SDXL's two CLIP towers
     // read the same 75 tokens, and naming CLIP-L alone said only one did.
@@ -800,11 +836,12 @@ function syncPromptTokens(now = false) {
   // read out, an emptied live region says nothing - so the next crossing is
   // said again.
   const over = shown && count.over;
-  if (over && !promptTokensOver && count.said) els.tagSummary.textContent = count.said;
+  if (over && count.said && count.said !== promptTokensSaid) els.tagSummary.textContent = count.said;
   else if (!over && promptTokensOver && els.tagSummary.textContent.startsWith('The prompt is past')) {
     els.tagSummary.textContent = '';
   }
   promptTokensOver = over;
+  promptTokensSaid = over ? count.said || promptTokensSaid : '';
 }
 
 // A measure that got no answer (`failed`: the server not answering, a refusal)
@@ -816,22 +853,27 @@ function scheduleTagMeasure(delay) {
   const epoch = ++tagMeasureEpoch;
   const text = els.prompt.value.trim();
   if (!text || (tagMeasured?.text === text && tagMeasured.model === loadedModel && !tagMeasured.failed)) return;
+  // The first PROMPT_MAX_CHARS code points: a cut there still lands, where
+  // the whole prompt was refused, and the line says the length is over.
+  const points = [...text];
+  const truncated = points.length > PROMPT_MAX_CHARS;
+  const sent = truncated ? points.slice(0, PROMPT_MAX_CHARS).join('') : text;
   tagMeasureTimer = setTimeout(async () => {
     const model = loadedModel;
     try {
       const body = await api('/api/prompt/measure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ prompt: sent }),
       });
       if (epoch !== tagMeasureEpoch) return;
       tagMeasured = {
         model, text, encoders: body.encoders || [], detail: body.encoders_detail || null,
-        known: body.encoders_known !== false,
+        known: body.encoders_known !== false, truncated,
       };
     } catch (error) {
       if (epoch !== tagMeasureEpoch) return;
-      tagMeasured = { model, text, encoders: [], detail: error.message, failed: true };
+      tagMeasured = { model, text, encoders: [], detail: error.message, failed: true, truncated };
     }
     // An open editor is not rebuilt under the user's typing: the label
     // changes now, the chips with the editor's close. The line under the

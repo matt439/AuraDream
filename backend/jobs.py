@@ -239,6 +239,10 @@ class JobManager:
         # was given ("critic", "expand"), None while it is free. What a job
         # queued behind it waits on is read off this (`_waiting_label`).
         self._holder: str | None = None
+        # The ticket the editor action holding the gate was sent with, if any
+        # (`run_when_idle`): a page whose Expand is waiting tells its own from
+        # another tab's, which holds the card while this one waits for it.
+        self._ticket: str | None = None
         # Jobs past their load and waiting for the gate: the ones whose
         # `waiting_on` follows the holder. A job still awaiting the load keeps
         # saying so, whatever holds the gate.
@@ -283,7 +287,9 @@ class JobManager:
         """
         return bool(self.active())
 
-    async def run_when_idle(self, fn: Callable[[], Any], holder: str = "editor") -> Any:
+    async def run_when_idle(
+        self, fn: Callable[[], Any], holder: str = "editor", ticket: str | None = None
+    ) -> Any:
         """Run a synchronous backend operation without racing the job queue.
 
         Prompt expansion and the prompt critic use the same accelerator as
@@ -295,7 +301,8 @@ class JobManager:
         gate: a job queued while this waited for it came first. `holder`
         names the operation ("critic", "expand") to a job queued behind it,
         whose `waiting_on` says so: "waiting for the job ahead…" named a job
-        that did not exist.
+        that did not exist. `ticket` is the caller's own name for this call,
+        answered by `card()` while it holds the gate.
         """
         if self.busy():
             raise BackendBusy("an image job is queued or running")
@@ -303,11 +310,27 @@ class JobManager:
             if self.busy():
                 raise BackendBusy("an image job was queued first")
             self._holder = holder
+            self._ticket = ticket
             try:
                 loop = asyncio.get_running_loop()
                 return await loop.run_in_executor(self._pool, fn)
             finally:
                 self._holder = None
+                self._ticket = None
+
+    def card(self) -> tuple[str | None, str | None]:
+        """What holds the generation gate, for the status: "job", or the
+        editor action's name ("critic", "expand"), with the ticket it was
+        sent with; (None, None) while the gate is free. A page whose Expand
+        is waiting says it waits for the card, and for whose: Expand's
+        running line said "Expanding…" for the whole of another tab's
+        critique, which held the card."""
+        holder = self._holder
+        if holder is None:
+            return None, None
+        if holder in self._jobs:
+            return "job", None
+        return holder, self._ticket
 
     def _waiting_label(self) -> str:
         """What a job waiting for the gate is behind: the editor action that

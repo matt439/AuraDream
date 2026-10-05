@@ -83,10 +83,11 @@ function setBusy(on) {
   // A job this page watches supersedes the morning after's banner: hidden,
   // not dismissed - the done branch remembers a job watched to its end - so
   // "Last run finished" no longer sits under a newer job's own finish line,
-  // its Show run opening the older run.
+  // its Show run opening the older run. New image stays: the viewer still
+  // holds what it points at until this job's first frame clears it (landed)
+  // - and another tab's job, picked up after this page's, never does.
   if (on) {
     els.lastRun.hidden = true;
-    withdrawNewImage();
   } else {
     setProgressText('');
     currentJob = null;
@@ -468,8 +469,12 @@ function unitWord(job) {
 // the job's start to its deadline, both the server's, and a budget that
 // stops the job sooner than the estimate is the time left.
 let cellArgs = null;
-function showCell(data, { job = null, budget = null } = {}) {
-  cellArgs = [data, { job, budget }];
+// `note` is what a queued job waits on, in words (the stream's status
+// branch: the job ahead paused, the first load): kept in `cellArgs` with
+// the rest, so a redraw - the queue resynced, a Pause pressed - says it
+// again rather than wiping it under a progress line still saying "waiting".
+function showCell(data, { job = null, budget = null, note = '' } = {}) {
+  cellArgs = [data, { job, budget, note }];
   const unit = unitWord(job);
   const parts = [];
   if (job?.paused) {
@@ -485,6 +490,7 @@ function showCell(data, { job = null, budget = null } = {}) {
   } else if (els.pause.textContent === 'Pausing…') {
     parts.push(`pausing after this ${unit}…`);
   }
+  if (note) parts.push(note);
   if (data.label) parts.push(`cell ${data.run}/${data.total_runs} · ${data.label}`);
   jobEta = '';
   if (typeof data.elapsed === 'number' && data.elapsed >= 1) {
@@ -767,8 +773,22 @@ function setElsewhereBusy(on, { quiet = false } = {}) {
   // What a press on a held button said was about that job.
   if (elsewhereNote !== null && els.error.textContent === elsewhereNote) showError('');
   elsewhereNote = null;
-  if (!quiet) { void prependFinished(0); loadRuns(); }
+  // Where this page's own job takes over, its end catches up instead - owed,
+  // whatever that job makes (finishJob): a job of this page's cancelled
+  // before its first image left the other tab's images out until a reload.
+  if (quiet) { elsewhereCatchUp = true; return; }
+  // Not under a sheet: a sheet is a run's or a search's, laid out again
+  // whole by a reset - every cell and control rebuilt - at a moment no one
+  // here chose, after a job this page never started. Sheet off resets the
+  // gallery, which takes the other tab's images in then.
+  if (!sheetMode) void prependFinished(0);
+  loadRuns();
 }
+
+// Another tab's images this page has yet to take in: its job ended while a
+// job of this page's own was taking over (setElsewhereBusy's `quiet`), and
+// that job's end takes them in - with its own, or alone where it made none.
+let elsewhereCatchUp = false;
 
 // The queue behind the watched job as the server has it: a row cancelled in
 // another tab goes, and a job queued from elsewhere comes in under the
@@ -831,7 +851,7 @@ async function cancelQueued() {
 async function togglePause() {
   if (!currentJob) return;
   if (els.pause.getAttribute('aria-disabled') === 'true') {
-    if (busy) showJobNote(els.pause.title);
+    if (busy) showJobNote(`${els.pause.title}.`);
     return;
   }
   const was = els.pause.textContent;
@@ -1205,6 +1225,9 @@ const WAITING = {
 function streamJob(jobId, { reattached = 0 } = {}) {
   // The finish line on show is a job's before this one from here on, until
   // this one's own end replaces it - or for good, if its stream gives up.
+  // Another tab's job never replaces it (finishJob), and gives back what it
+  // was at its end.
+  const staleBefore = finishStale;
   finishStale = true;
   syncFinishLead();
   // Watched: a queued submission's answer that lands after this does not
@@ -1268,6 +1291,9 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     };
     const landed = () => {
       if (cleared || foreign) return;
+      // What New image pointed at goes with the strip: offered again below
+      // for what takes its place, where that is out of sight too.
+      withdrawNewImage();
       clearResults(job);
       cleared = true;
       offerNewImage();
@@ -1301,9 +1327,10 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       mirrorJob();
     };
     const stopTicker = () => { clearInterval(ticker); ticker = 0; viewerWaiting(null); };
-    const note = (data) => showCell(data, {
+    const note = (data, extra = '') => showCell(data, {
       job,
       budget: job?.deadline && job.started_at ? job.deadline - job.started_at : null,
+      note: extra,
     });
     const standIn = () => {
       landed();
@@ -1400,12 +1427,12 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         // A run boundary, so the steps bar starts over rather than sitting full
         // until the first callback of the next run lands.
         setStep(runs > 1 && data.status !== 'queued' && !!data.run);
-        note(data);
-        if (!loading && waiting?.note) els.cellNote.textContent = waiting.note;
+        // What it waits on, in words, carried with the cell's own so a
+        // redraw says it again (showCell).
+        note(data, loading ? 'The first load of a session takes a few minutes.' : waiting?.note ?? '');
         if (loading) {
           if (!ticker) ticker = setInterval(tick, 1000);
           tick();
-          els.cellNote.textContent = 'The first load of a session takes a few minutes.';
         } else {
           stopTicker();
         }
@@ -1422,12 +1449,13 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         focusReplacement(null);
         // Cancelled or failed after its first frame, before any image: the
         // frame that offered New image has gone, and the button offered an
-        // image there was none of.
-        if (!shown.size) withdrawNewImage();
+        // image there was none of. A job that never reached the strip left
+        // it as it was, and what New image points at with it.
+        if (cleared && !shown.size) withdrawNewImage();
         // Watched to its end, its finish line has said it: a reload's banner
         // would only say it again.
         remember(ANNOUNCED_KEY, jobId);
-        finishJob(jobId, data, { submitted, sheet, foreign });
+        finishJob(jobId, data, { submitted, sheet, foreign, staleBefore });
         resolve();
         watchNext();
       }
@@ -1453,7 +1481,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       // The strip's note was the reconnect's line; it is the strip's again.
       noteViewer();
       const made = shown.size;
-      if (!made) withdrawNewImage();
+      if (cleared && !made) withdrawNewImage();
       const saved = made
         ? `The ${plural(made, 'image')} finished so far ${made === 1 ? 'is' : 'are'} saved.`
         : 'Nothing of it had finished.';
@@ -1489,7 +1517,13 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       // Its first frame had cleared the strip and nothing of it landed: the
       // viewer was an empty box, the only words red in the panel.
       if (lost && cleared && !made) showLostRun(lost, submitted);
-      if (made && !failure?.offline) { void prependFinished(made); loadRuns(); }
+      // With another tab's images owed since this job took over (finishJob);
+      // offline, the poll's first answer takes everything in (refreshStatus).
+      if (!failure?.offline && (made || elsewhereCatchUp)) {
+        elsewhereCatchUp = false;
+        void prependFinished(made);
+        loadRuns();
+      }
     };
 
     source.onerror = () => {
@@ -1588,7 +1622,7 @@ function showOutcome(text, note = false) {
 // submission this page made, which a Retry sends again; `sheet` a job that
 // opens as its sheet; `foreign` another tab's job this page picked up
 // (isForeign), whose end is said as that - no Use seed, no title held.
-function finishJob(jobId, data, { submitted, sheet, foreign = false }) {
+function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore = false }) {
   const images = data.images ?? [];
   const made = data.image_count ?? images.length;
   // The job before this one's outcome goes with its finish line.
@@ -1683,7 +1717,18 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false }) {
     );
     line.push(button);
   }
-  setFinish(line);
+  // Another tab's job keeps out of this page's finish line: that line is
+  // this page's own last job, Use seed and all, and the foreign job's end
+  // is said once, on the hidden line, as the title is given back below.
+  // The line the foreign job's stream marked as a previous job's is this
+  // page's latest again.
+  if (foreign) {
+    finishTakesFocus = false;
+    finishStale = staleBefore;
+    syncFinishLead();
+  } else {
+    setFinish(line);
+  }
 
   // A cancel this page did not ask for - pressed in another tab or window,
   // which watched the same job - was reported as this page's own.
@@ -1718,8 +1763,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false }) {
   const inAlert = data.status === 'cancelled'
     || (atLoad ? !!els.viewer.querySelector('img, figure, .tomb') : data.status === 'error' || !!data.error);
   if (!inAlert) {
-    sayJob([...els.finishNote.childNodes].filter((node) => node.nodeName !== 'BUTTON')
-      .map((node) => node.textContent).join('').trim());
+    sayJob(line.filter((node) => node.nodeName !== 'BUTTON')
+      .map((node) => (typeof node === 'string' ? node : node.textContent)).join('').trim());
   }
   // Another tab's job holds no title: the tab's own last result is what
   // its title was about, and gets it back where it has not been seen yet -
@@ -1742,8 +1787,12 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false }) {
   // A comparison opens this submission alone. Run ids name rendered
   // cells, so reversing original/yours on the same seeds shares a run
   // but must not mix the two meanings of either version label.
+  // Another tab's images owed since this job took over (setElsewhereBusy)
+  // come in with this job's, or alone where it made none.
+  const owed = elsewhereCatchUp;
+  elsewhereCatchUp = false;
   if (sheet && images.length) { showJob(jobId, { fresh: true, asker: submitted?.asker ?? null }); loadRuns(); }
-  else if (images.length) {
+  else if (images.length || owed) {
     void Promise.resolve(prependFinished(made)).then((coming) => noteOutsideView(images, coming));
     loadRuns();
   }

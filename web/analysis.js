@@ -827,17 +827,30 @@ function makeSelectable(li, select, said, where, negative = false) {
 // Another tab's job holds it as this page's does (elsewhereBusy): the server
 // refused it then, in words naming a job this page did not show.
 const CRITIC_ELSEWHERE = 'A job started in another tab or window is running. The critic needs the card to itself, so it waits for that job to finish.';
+// And what the server would refuse it under (main._refuse_critique_now) or
+// could not be asked at all: Expand and Unload are held for both, and the
+// critic was the one editor action left live - a press got "No answer from
+// the Local Diffusion server — is it still running?." in the critic's block
+// for good, or the route's 409 about the load.
+const CRITIC_OFFLINE = 'The server is not answering.';
+const CRITIC_LOADING = 'The image model is loading; the critic waits for the load.';
+function criticHold() {
+  return serverOffline ? CRITIC_OFFLINE
+    : modelState === 'loading' ? CRITIC_LOADING
+    : busy ? 'An image job is queued or running. The critic needs the card to itself, so it waits for the queue to finish.'
+    : elsewhereBusy ? CRITIC_ELSEWHERE
+    : expandingPrompt ? 'Wait for prompt expansion to finish.'
+    : '';
+}
 function syncCritic() {
   els.analysisCritic.hidden = !promptCritiqueSupported;
   // aria-disabled, as Generate is held: disabled, the button just pressed lost
   // a keyboard user's focus to <body>. askCritic refuses each case itself.
-  els.criticAsk.setAttribute('aria-disabled', String(critiquing || busy || elsewhereBusy || expandingPrompt));
+  const hold = criticHold();
+  els.criticAsk.setAttribute('aria-disabled', String(critiquing || !!hold));
   els.criticAsk.textContent = critiquing ? 'Thinking…' : 'Ask the critic';
-  els.criticAsk.title = busy
-    ? 'An image job is queued or running. The critic needs the card to itself, so it waits for the queue to finish.'
-    : elsewhereBusy ? CRITIC_ELSEWHERE
-    : expandingPrompt ? 'Wait for prompt expansion to finish.'
-    : "A local model reads the prompt against this checkpoint's guide and its authors' own texts, cites what it goes by, and suggests a rewrite";
+  els.criticAsk.title = hold
+    || "A local model reads the prompt against this checkpoint's guide and its authors' own texts, cites what it goes by, and suggests a rewrite";
   // Named as the answer's footer names it, and a first use's download only
   // what it would fetch. The time and the GPU are the pinned pair's, measured
   // on the card; a server or a model of the user's own is promised neither.
@@ -857,6 +870,8 @@ function syncCritic() {
     : fetch ? `Downloading ${fetch} once - this can take a few minutes - then thinking…`
     : critic.pinned ? 'Thinking… about 15 seconds on the GPU.' : `Thinking… (${critic.label})`;
   const cost = critiquing ? ''
+    : serverOffline ? CRITIC_OFFLINE
+    : modelState === 'loading' ? CRITIC_LOADING
     : busy ? 'An image job has the card; the critic waits for the queue to finish.'
     : elsewhereBusy ? "Another tab's image job has the card; the critic waits for it to finish."
     : fetch ? `First use downloads ${fetch} once.`
@@ -869,14 +884,20 @@ function syncCritic() {
 
 async function askCritic() {
   if (critiquing) return;
-  if (busy) { showError('Wait for the image queue to finish before asking the critic.'); return; }
+  // Held (criticHold): the press says why, each as its sibling buttons'
+  // presses do. No answer is said in the offline words, which the poll's
+  // first answer takes back, and the poll asks again at once.
+  if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); return; }
+  if (modelState === 'loading') { showError(CRITIC_LOADING, true); criticLoadNote = CRITIC_LOADING; return; }
+  // A note, as Expand's and Unload's are, gone with that job (setBusy).
+  if (busy) { showJobNote(els.criticAsk.title); return; }
   if (elsewhereBusy) {
     showError(CRITIC_ELSEWHERE, true);
     // Gone with that job (setElsewhereBusy).
     elsewhereNote = CRITIC_ELSEWHERE;
     return;
   }
-  if (expandingPrompt) { showError('Wait for prompt expansion to finish.'); return; }
+  if (expandingPrompt) { showError('Wait for prompt expansion to finish.', true); return; }
   const payload = collect();
   if (!payload.prompt) { showError('Enter a prompt first.'); els.prompt.focus(); return; }
   const effectiveNegative = analysisNegative(payload);
@@ -885,6 +906,7 @@ async function askCritic() {
   // while it ran went ahead, and the critique behind it came back a 409.
   critiquing = true;
   critiqueFailure = null;
+  critiqueOffline = false;
   showError('');
   analysisMessage('');
   startCriticClock();
@@ -925,8 +947,13 @@ async function askCritic() {
     } catch (err) {
       // The critique's own failure, not the check's before it: said in the
       // critic's block too, where after the wait the line had gone back to
-      // its invitation as if nothing had been asked.
-      if (epoch === critiqueEpoch) critiqueFailure = err.message;
+      // its invitation as if nothing had been asked. No answer at all is
+      // the server's, not the critic's, said in a sentence of its own that
+      // the poll which answers again takes back (takeBackCriticOffline).
+      if (epoch === critiqueEpoch) {
+        critiqueOffline = !!err.offline;
+        critiqueFailure = err.offline ? 'the server did not answer' : err.message;
+      }
       throw err;
     }
     // An answer means the first use's download is done, whether or not it is
@@ -950,8 +977,10 @@ async function askCritic() {
     // takes focus as an answer does, and in #error only where that block is
     // not on show - the same sentence in both, each read out, was two problems.
     if (epoch !== critiqueEpoch) { /* the panel was cleared meanwhile */ }
-    else if (!critiqueFailure) showError(err.message);
-    else if (els.promptAnalysis.hidden || els.analysisCritic.hidden) showError(critiqueFailureText(critiqueFailure));
+    else if (!critiqueFailure) showError(err.message, false, { offline: !!err.offline });
+    else if (els.promptAnalysis.hidden || els.analysisCritic.hidden) {
+      showError(critiqueFailureText(critiqueFailure), false, { offline: critiqueOffline });
+    }
   } finally {
     critiquing = false;
     stopCriticClock();
@@ -994,7 +1023,28 @@ function stopCriticClock() {
 // that asking again only repeats. Said whose failure it is, in #error too
 // where it goes there (the critic's block not on show): the bare reason sat
 // under Generate with nothing naming the critic.
-const critiqueFailureText = (reason) => `The critic did not answer: ${reason.replace(/\.$/, '')}.`;
+// Any closing stop, ? or ! of the reason's own gives way to the sentence's:
+// "…still running?." came of keeping the question mark.
+const critiqueFailureText = (reason) => `The critic did not answer: ${reason.replace(/[.?!\s]+$/, '')}.`;
+
+// A critique that got no answer from the server: said as the server's, and
+// taken back by the status poll that answers again (status.js), as Expand's
+// and every offline message are - it stayed in the critic's block for good.
+let critiqueOffline = false;
+function takeBackCriticOffline() {
+  if (!critiqueOffline) return;
+  critiqueOffline = false;
+  if (!critiqueFailure) return;
+  critiqueFailure = null;
+  renderCritic();
+}
+
+// What a press under the load said, until the load is over (status.js).
+let criticLoadNote = null;
+function takeBackCriticLoadNote() {
+  if (criticLoadNote !== null && els.error.textContent === criticLoadNote) showError('');
+  criticLoadNote = null;
+}
 
 // The rules whose finding on the prompt rests on the tag index's categories:
 // the order's slots, the style a known name reads as, and which names are

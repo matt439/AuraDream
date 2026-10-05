@@ -184,11 +184,17 @@ async function expandPrompt() {
           drop: 'Expanding… - the prompt was replaced since, so the result will be dropped.',
         }[expandOutcome(expandRun)], true);
       }
-    } else if (busy) showJobNote(`${els.expandPrompt.title}.`);
+    } else if (busy) {
+      // Said until this page's job ends (setBusy takes the line back), and
+      // through expandSay, which puts it under the prompt rather than over a
+      // Reuse's Undo in the panel's line.
+      const said = expandSay(`${els.expandPrompt.title}.`, true);
+      if (said.text) jobNote = said.text;
+    }
     // Another tab's job (syncExpandButton): said until it ends, as Unload's
     // is - setElsewhereBusy takes back the line it left in the panel.
     else if (elsewhereBusy) {
-      const said = expandSay(EXPAND_ELSEWHERE, true);
+      const said = expandSay(`${EXPAND_ELSEWHERE}.`, true);
       if (said.text) elsewhereNote = said.text;
     } else expandSay(`${els.expandPrompt.title}.`, true);
     return;
@@ -222,9 +228,13 @@ async function expandPrompt() {
   // Whether the box was rewritten whole meanwhile (replaceBoxText's flag),
   // rather than typed in. And the note the running line takes the place of -
   // an Example's Undo or a held expansion - to offer again where this fails.
+  // `ticket` is this press's name to the server, which the status gives back
+  // while the expansion holds the card: any other holder is one it waits for
+  // (expandRunningText).
   const run = {
     source, replaced: false, text: '', note: null, clock: 0, from: Date.now(),
     displaced: ['write', 'held'].includes(promptUndo?.kind) ? promptUndo : null,
+    ticket: expandTicket(),
   };
   const watch = () => { if (replacingBox) run.replaced = true; };
   els.prompt.addEventListener('input', watch);
@@ -241,7 +251,7 @@ async function expandPrompt() {
       body = await api('/api/prompt/expand', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, width: +els.width.value, height: +els.height.value }),
+        body: JSON.stringify({ prompt, width: +els.width.value, height: +els.height.value, ticket: run.ticket }),
       });
     } catch (err) {
       endExpandRunning(run);
@@ -325,11 +335,16 @@ function offerDisplaced(run) {
 // download's step (`fetch[].step`), and refreshStatus asks for the line
 // again as that and the model's state move (syncExpandRunning).
 function expandRunningText() {
-  const name = (loadedModel ?? '').split('/').pop() || 'the model';
+  const name = checkpointName(loadedModel) || 'the model';
   const s = expanderStatus;
   const fetch = s?.fetch ?? [];
   const download = (f) => `downloading ${f.name} (about ${humanBytes(f.bytes)}) once`;
   const ahead = [];
+  // The card held by anything but this press: another tab's critic or
+  // Expand, which the server lets finish first (run_when_idle) - the load
+  // waits for it too. "Expanding…" was said for the whole of their run.
+  const holder = cardHolder && !(cardHolder === 'expand' && cardTicket === expandRun?.ticket) ? cardHolder : null;
+  if (holder) ahead.push(`waiting for the card, which ${CARD_HOLDERS[holder] ?? 'something else'} has`);
   if (modelState !== 'ready') ahead.push(`loading ${name}`);
   const rewriter = fetch.filter((f) => f.step === 'expand');
   if (rewriter.length) ahead.push(...rewriter.map(download));
@@ -338,6 +353,20 @@ function expandRunningText() {
   if (!ahead.length && !after.length) return 'Expanding with ERNIE, then translating locally…';
   const line = [...ahead, 'expanding', ...after, 'translating…'].join(', then ');
   return `${line[0].toUpperCase()}${line.slice(1)}`;
+}
+
+// Who has the card, as the running line names it: this page's own critic
+// and jobs hold Expand, so a critic or an Expand holding it is another tab's
+// - and a job, one that tab queued while this expansion's load ran.
+const CARD_HOLDERS = {
+  critic: "another tab's prompt critic",
+  expand: "another tab's Expand",
+  job: "another tab's image job",
+};
+
+// A press's name for the server (PromptExpansionRequest.ticket).
+function expandTicket() {
+  try { return crypto.randomUUID(); } catch { return `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
 }
 
 function showExpandRunning() {
@@ -715,6 +744,13 @@ els.lbSplit.onkeydown = lbSplitKey;
 els.lbFit.onclick = zoomFit;
 els.lbOne.onclick = () => zoomOneToOne();
 window.addEventListener('resize', layoutLightbox);
+// And the stage's own size, whatever moves it: under 901 px a line in
+// #lb-error (Use seed's, a delete's note) is a row of its own that took 30 px
+// off the stage, and the picture laid out before kept its height, its foot
+// cut off under a readout still saying "fit". Loop-safe: the layout writes
+// the facts' room only when it changes (lbFactsRoom), from the stage as it
+// would be with the facts at six lines.
+new ResizeObserver(() => { if (els.lightbox.open) layoutLightbox(); }).observe(els.lbStage);
 
 // The Refine dialog. Every box asks the server's preview again, as the grid's
 // do; the scale buttons are built with the source they multiply. Keep shape
@@ -894,6 +930,9 @@ document.addEventListener('pointerover', (e) => {
   if (help && !help.contains(e.relatedTarget)) placeTip(help);
 });
 document.addEventListener('focusin', (e) => { if (e.target.matches?.('.help')) placeTip(e.target); });
+// A tip hung from the window by a badge in a scrolling box keeps up with it
+// (panel.js, floatTip): any scroll, the box's own included.
+document.addEventListener('scroll', followFloatingTip, { capture: true, passive: true });
 buildPresets();
 // Before the sync functions, which light the presets, the CFG note and the
 // runs hint up from whatever is in the boxes.

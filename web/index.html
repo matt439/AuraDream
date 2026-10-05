@@ -95,7 +95,8 @@
              it runs, and an expansion typed over meanwhile (Use it,
              Discard). Over the field below for a while, rather than in the
              panel's flow, which would move Generate as it came and went -
-             but for those two, which stay for minutes (`data-kind`). -->
+             but for those two, which stay for minutes (`data-kind`) - and
+             Reset's in the box it emptied (`data-at`). -->
         <p class="prompt-note" id="prompt-note" role="status" hidden><span
           id="prompt-note-text"></span> <button type="button" class="ghost tiny"
           id="prompt-note-undo">Undo</button> <button type="button" class="ghost tiny"
@@ -928,7 +929,7 @@
       </label>
       <div class="row">
         <label class="sub grow"><i>Steps</i><input type="number" id="refine-steps" min="1" max="100"></label>
-        <label class="sub grow"><i>CFG</i><input type="number" id="refine-cfg" min="0" max="20" step="0.1"></label>
+        <label class="sub grow"><i id="refine-cfg-label">CFG</i><input type="number" id="refine-cfg" min="0" max="20" step="0.1"></label>
         <label class="sub grow" id="refine-mu-field"><i>Mu</i><input type="number" id="refine-mu" min="0" max="10" step="0.05"></label>
         <label class="sub grow" id="refine-true-cfg-field"><i>True CFG</i><input type="number" id="refine-true-cfg"
                min="1" max="20" step="0.1" placeholder="off"></label>

@@ -200,7 +200,9 @@ function resetPanel() {
   schedulePreview();
   scheduleTagValidation(0);
   // Not persisted, but a change all the same: a Reuse's Undo goes, as an
-  // Example's does (scheduleTagValidation).
+  // Example's does (scheduleTagValidation) - and its words with it, which
+  // describe the panel just emptied.
+  clearReuseNote();
   syncReuseUndo();
   // Forgotten last: the boxes' writes above fire `input` and `change`, which
   // persist the panel (app.js) and would write the store back 300 ms on.
@@ -218,18 +220,23 @@ function resetPanel() {
   els.prompt.focus();
 }
 
-// The note a Reset leaves, with its Undo, where Reset was pressed: under the
-// prompt (tags.js, showPromptNote). In the panel's line under Generate it
-// was below the window at 1400x900 and in one column, and gone after 20
-// seconds unseen. On offer while the panel is as the Reset left it - the
-// first change takes it, as a Reuse's Undo goes - and for 20 seconds at most.
+// The note a Reset leaves, with its Undo, where Reset was pressed: in the top
+// right of the prompt box it emptied, under Reset (tags.js, showPromptNote,
+// `at: 'box'`). In the panel's line under Generate it was below the window at
+// 1400x900 and in one column, and gone after 20 seconds unseen; in the
+// panel's flow under the prompt it moved Generate down a line, and back up
+// under the pointer when it went. On offer while the panel is as the Reset
+// left it - the first change takes it, as a Reuse's Undo goes - and for 20
+// seconds at most.
 let resetNote = null;
 const RESET_UNDO_MS = 20000;
+const RESET_UNDONE_MS = 6000;
 
 function offerResetUndo(before) {
   const note = { before, after: JSON.stringify(panelState()), entry: null, undone: false };
   note.entry = offerPromptUndo('Panel reset.', () => undoReset(note), {
     kind: 'reset',
+    at: 'box',
     title: 'Put the panel back as it was before Reset',
     ms: RESET_UNDO_MS,
     onDrop: () => { if (resetNote === note) resetNote = null; },
@@ -284,7 +291,9 @@ function undoReset(note) {
   schedulePreview();
   scheduleTagValidation(0);
   persistPanel();
-  showPromptNote('Reset undone: the panel is as it was.', { kind: 'info' });
+  // Where the Undo was pressed, over the box, a few seconds: nothing moves as
+  // it comes and goes, and typing takes it at once (an 'info' note).
+  showPromptNote('Reset undone: the panel is as it was.', { kind: 'info', at: 'box', ms: RESET_UNDONE_MS });
 }
 
 // The second phase, from refreshStatus once the checkpoint is known.
@@ -473,6 +482,15 @@ function placeTip(help) {
   if (!tip) return;
   help.classList.remove('up');
   tip.style.removeProperty('translate');
+  for (const side of ['left', 'top', 'right', 'bottom']) tip.style.removeProperty(side);
+  // A badge inside a box that scrolls by itself - the prompt check's, above
+  // the results and docked beside them - hangs its tip from the window
+  // instead (`floatTip`): placed inside, the comparison's Batch tip was cut
+  // off by the check's edge and lay under its sticky head.
+  const clip = tipClipper(help);
+  tip.classList.toggle('floating', !!clip);
+  if (clip) { floatTip(help, tip); return; }
+  floatingHelp = null;
   tip.style.display = 'block';
   const badge = help.getBoundingClientRect();
   const shown = tip.getBoundingClientRect();
@@ -485,6 +503,55 @@ function placeTip(help) {
   // Rounded away from the edge it clears: rounded to nearest, a 17.4 px shift
   // left a tip 7.6 px from the window's left edge.
   if (Math.abs(shift) >= 1) tip.style.translate = `${shift > 0 ? Math.ceil(shift) : Math.floor(shift)}px 0`;
+}
+
+// The box round a badge that clips what overflows it, short of the page.
+function tipClipper(help) {
+  for (let up = help.parentElement; up && up !== document.body; up = up.parentElement) {
+    const style = getComputedStyle(up);
+    if (style.display === 'contents') continue;
+    if (style.overflowX !== 'visible' || style.overflowY !== 'visible') return up;
+  }
+  return null;
+}
+
+// A tip fixed to the window by its badge (`.tip.floating`, style.css): under
+// the badge where it fits, over it where there is more room there - neither
+// past the topbar nor the window's foot - and moved in from either side as
+// placeTip moves one. Kept with its badge while that box scrolls (app.js's
+// scroll listener calls this again), and hidden (`.help.clipped`) while the
+// badge itself is scrolled out of the box's view.
+let floatingHelp = null;
+function floatTip(help, tip = help.querySelector('.tip')) {
+  floatingHelp = help;
+  tip.style.display = 'block';
+  const badge = help.getBoundingClientRect();
+  const { width, height } = tip.getBoundingClientRect();
+  tip.style.display = '';
+  const view = tipClipper(help)?.getBoundingClientRect();
+  help.classList.toggle('clipped', !!view && (badge.bottom <= view.top || badge.top >= view.bottom
+    || badge.right <= view.left || badge.left >= view.right));
+  const topbar = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const below = badge.bottom + 7;
+  const above = badge.top - 7 - height;
+  const up = below + height > innerHeight && badge.top - 7 - topbar > innerHeight - below;
+  const end = help.classList.contains('end');
+  const right = document.documentElement.clientWidth - TIP_EDGE;
+  let left = end ? badge.right + 6 - width : badge.left - 6;
+  left = Math.max(TIP_EDGE, Math.min(left, right - width));
+  tip.style.left = `${Math.round(left)}px`;
+  tip.style.top = `${Math.round(up ? above : below)}px`;
+  tip.style.right = 'auto';
+  tip.style.bottom = 'auto';
+}
+
+// The open floating tip follows its badge as anything scrolls; gone once
+// neither the pointer nor the focus holds the badge.
+function followFloatingTip() {
+  const help = floatingHelp;
+  if (!help) return;
+  if (!help.isConnected || !help.matches(':hover, :focus')) { floatingHelp = null; return; }
+  floatTip(help);
 }
 
 // ------------------------------------------------------------ the morning after

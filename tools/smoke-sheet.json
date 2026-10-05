@@ -400,5 +400,20 @@
   {"expect": "__until(() => els.sheet.classList.contains('fill-width'))"},
   {"eval": "Storage.prototype.getItem = window.__get; Storage.prototype.setItem = window.__set;"},
   {"expect": "sheetFill() && els.sheetControls.querySelector('.sheet-fill').getAttribute('aria-pressed') === 'true'"},
-  {"eval": "setSheetFill(false); setSheet(false); els.search.value = ''; resetGallery();"}
+  {"eval": "setSheetFill(false); setSheet(false); els.search.value = ''; resetGallery();"},
+  {"log": "'the sheet laid out again keeps the keyboard where it was: F on a cell another tab deleted puts focus on the cell now in its place, never <body>; the Columns select, changed, stays focused; and another tab job ending leaves an open sheet as it is, focus and all'"},
+  {"viewport": [1400, 900, 1]},
+  {"eval": "(async () => { const j = await (await fetch('/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a koi pond at noon', steps: 2, seed: 900, num_images: 3, width: 512, height: 512})})).json(); for (let i = 0; i < 300; i++) { const s = await (await fetch('/api/jobs/' + j.job_id)).json(); if (s.status !== 'queued' && s.status !== 'running') break; await new Promise((r) => setTimeout(r, 100)); } window.__koi = j; await showSheetScope('job:' + j.job_id); })()"},
+  {"expect": "__until(() => sheetMode && !galleryPending && els.sheetGrid.querySelectorAll('.sheet-cell img[data-id]').length === 3, 15000)"},
+  {"eval": "const imgs = [...els.sheetGrid.querySelectorAll('.sheet-cell img[data-id]')]; window.__third = +imgs[2].dataset.id; window.__second = +imgs[1].dataset.id; imgs[2].focus({preventScroll: true}); fetch('/api/images/' + __third, {method: 'DELETE'})"},
+  {"expect": "document.activeElement?.dataset?.id === String(__third)"},
+  {"key": "f"},
+  {"expect": "__until(() => !els.sheetGrid.querySelector('.sheet-cell[data-id=\"' + __third + '\"]') && document.activeElement.matches('.sheet-cell img[data-id]') && +document.activeElement.dataset.id === __second)"},
+  {"eval": "window.__cols = [...els.sheetControls.querySelectorAll('label')].find((l) => l.firstChild.textContent === 'Columns').querySelector('select'); __cols.focus({preventScroll: true}); window.__was = __cols.value; __cols.value = [...__cols.options].map((o) => o.value).find((v) => v !== __was); __cols.dispatchEvent(new Event('change'));"},
+  {"expect": "document.activeElement.tagName === 'SELECT' && document.activeElement.closest('label')?.firstChild.textContent === 'Columns' && document.activeElement !== __cols && document.activeElement.value !== __was"},
+  {"eval": "window.__cell = els.sheetGrid.querySelector('.sheet-cell img[data-id]'); __cell.focus({preventScroll: true}); (async () => { window.__pace = await (await fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0.25})})).json(); await fetch('/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'another tab: a carp', steps: 20, width: 512, height: 512})}); })()"},
+  {"expect": "__until(() => elsewhereBusy, 15000)"},
+  {"expect": "__until(() => !elsewhereBusy, 30000)"},
+  {"expect": "document.activeElement === __cell && __cell.isConnected && sheetMode"},
+  {"eval": "fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: __pace.previous ?? 0})}); setSheet(false); els.search.value = ''; resetGallery();"}
 ]

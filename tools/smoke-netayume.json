@@ -45,5 +45,9 @@
   {"log": "'The author\\'s own instruction retyped without its closing full stop is found too, not only the marker after it'"},
   {"eval": "__check('You are an assistant designed to generate anime images based on textual prompts <Prompt Start> 1girl, solo, moon');"},
   {"expect": "__until(() => analysisResult?.source === els.prompt.value)"},
-  {"expect": "analysisResult.body.findings.map((f) => [f.start, f.end].join('-')).join() === '0-79,80-94' && analysisResult.body.findings.every((f) => f.suggestion === '1girl, solo, moon')"}
+  {"expect": "analysisResult.body.findings.map((f) => [f.start, f.end].join('-')).join() === '0-79,80-94' && analysisResult.body.findings.every((f) => f.suggestion === '1girl, solo, moon')"},
+  {"log": "'another checkpoint record reused here names the running one as the topbar does - NetaYume Lumina v4, not the parent model repository - in the note and in the Reuse warning'"},
+  {"eval": "(async () => { const page = await (await fetch('/api/gallery?all_models=true&limit=50')).json(); window.__other = page.items.find((r) => r.model_id !== loadedModel); window.__btn = document.createElement('button'); syncReuseButton(__btn, __other); reuseIntoPanel(__other, false); })()"},
+  {"expect": "!!__other && els.statusText.textContent.startsWith('NetaYume Lumina v4') && els.error.textContent.includes('the server is running NetaYume Lumina v4,') && __btn.title.includes('the current model is NetaYume Lumina v4') && !__btn.title.includes('NetaYume-Lumina-Image-2.0')"},
+  {"eval": "resetPanel(); showError('');"}
 ]
