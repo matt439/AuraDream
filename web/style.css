@@ -454,9 +454,10 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    less the two counters - 156 px at 1400 for 121 px of digits - and the
    Output row stays one line at every width, costing no height. The button is
    the line's height, so the line does not grow: its target reaches past its
-   frame (::after) into the gaps above and below - 6 px up to the caption,
-   4 px down to the box, which takes the pixels at its edge - 25 px or more
-   tall at 1400, over nothing else that takes a click. */
+   frame (::after) into the gaps above and below - 6 px up (to the Output
+   caption where it shows), 4 px down to the box, which takes the pixels at
+   its edge - 25 px or more tall at 1400, over nothing else that takes a
+   click. */
 #btn-dice {
   position: relative; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
@@ -464,14 +465,19 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   border-radius: var(--r-sm); font-size: var(--fs-sm); line-height: 1;
 }
 #btn-dice::after { content: ""; position: absolute; inset: -6px -3px -4px; }
-/* The Output caption is shown from 1800 px and in one column, and is the
-   group's name alone on a two-column page under the wide tier: there the
-   330 px panel is at its tallest beside a window as short as 900 px, and the
-   caption's line and gap (24 px) took Generate's top, 16 px of which had
-   shown at 1400x900 at scroll 0, wholly below the window. The row's own names
-   - Seed, Batch, Repeat - say what it is, as LoRA's and Weight's do above it.
-   Visually hidden rather than gone, so the group keeps its name. */
-@media (min-width: 901px) and (max-width: 1799px) {
+/* The Output caption is shown in one column and in the wide tier on a window
+   taller than 1150 px. Elsewhere - a two-column page under 1800 px, and the
+   short wide windows the compact controls are for - it is the group's name
+   alone: there the panel is at its tallest beside a window as short as
+   900 px, and the caption's line and gap (24 px) put Generate wholly below
+   the window at scroll 0 (top 908 at 1400x900, where 16 px of it had shown;
+   901.5 at 1800x900) and cut 5 px off it on a maximized 1080p browser
+   (1920x947), where it is whole without. The row's own names - Seed, Batch,
+   Repeat - say what it is, as LoRA's and Weight's do above it. Visually
+   hidden rather than gone, so the group keeps its name. The width range is
+   the complement of the one-column query and the wide tier, fractional
+   widths included, which a 1799/1800 split would leave to neither. */
+@media (900px < width < 1800px), (min-width: 1800px) and (max-height: 1150px) {
   #output-caption {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
