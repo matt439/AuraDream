@@ -412,7 +412,9 @@ function placeTip(help) {
   const right = document.documentElement.clientWidth - TIP_EDGE;
   const past = shown.right > right ? right - shown.right : 0;
   const shift = shown.left + past < TIP_EDGE ? TIP_EDGE - shown.left : past;
-  if (Math.abs(shift) >= 1) tip.style.translate = `${Math.round(shift)}px 0`;
+  // Rounded away from the edge it clears: rounded to nearest, a 17.4 px shift
+  // left a tip 7.6 px from the window's left edge.
+  if (Math.abs(shift) >= 1) tip.style.translate = `${shift > 0 ? Math.ceil(shift) : Math.floor(shift)}px 0`;
 }
 
 // ------------------------------------------------------------ the morning after
