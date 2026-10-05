@@ -450,6 +450,22 @@ def _place(
     return spec.unknown
 
 
+def _places(
+    spec: _OrderSpec,
+    items: list[Item],
+    lettered: list[bool],
+    categories: dict[str, str] | None,
+) -> list[frozenset[int]]:
+    """Each of `items`' slots, `_place`d with `categories` - the one placement
+    `reorder_tags`, `unplaced_items` and `order_slots` read, as the order rule
+    does with its `_Context`'s lookup."""
+    lookup = _category_lookup(categories)
+    return [
+        _place(item, spec, lookup, lettering=held)
+        for item, held in zip(items, lettered, strict=True)
+    ]
+
+
 def _ordered(places: list[frozenset[int]]) -> list[int]:
     """The stable order in which nothing follows an item that must come after it.
 
@@ -634,12 +650,7 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
         return None
     if not _placeable(spec, detect_style(prompt), prompt, items, lettering):
         return None
-    lookup = _category_lookup(categories)
-    places = [
-        _place(item, spec, lookup, lettering=held)
-        for item, held in zip(items, lettered, strict=True)
-    ]
-    return _reordered(prompt, items, places)
+    return _reordered(prompt, items, _places(spec, items, lettered, categories))
 
 
 def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None) -> list[str]:
@@ -671,11 +682,7 @@ def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None
     items, lettered, _ = _tag_items(prompt)
     if spec is None or len(items) < 2:
         return []
-    lookup = _category_lookup(categories)
-    places = [
-        _place(item, spec, lookup, lettering=held)
-        for item, held in zip(items, lettered, strict=True)
-    ]
+    places = _places(spec, items, lettered, categories)
     # What `_place` reads: an item's text as typed, and whether it holds
     # lettering. Two items alike in both are placed alike by any categories.
     keys = [(item.text, held) for item, held in zip(items, lettered, strict=True)]
@@ -693,6 +700,43 @@ def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | N
     the page shows (`PromptAnalysis.order_detail`).
     """
     return not unplaced_items(model_id, prompt, categories)
+
+
+def order_slots(
+    model_id: str, prompt: str, categories: dict[str, str] | None
+) -> list[tuple[str, str | None]] | None:
+    """Each comma item of `prompt` - `comma_items`, the chips' split - with
+    the step of the documented order the order rule places it in, or None.
+
+    The rule's own reading, placing with `categories` as `check`,
+    `reorder_tags` and `unplaced_items` do (`_places`), never a second one:
+    None for the whole prompt where the rules read no order in it - no slots
+    in the guide, fewer than two items, or not `_placeable` (`order_checked`
+    false) - and None for an item that holds lettering, which the rules read
+    as a piece of a longer item, commas and all, or that keeps more than one
+    slot: an item the guide's groups do not know and the tag index gave no
+    category (never asked - offline, past the lookup's cap, an @ name, a
+    prose prompt's clause - or asked and given none it could use). Such an
+    item has no one place, and the chip shows none rather than a guess.
+    """
+    spec = _order_spec(_guide(model_id))
+    items, lettered, lettering = _tag_items(prompt)
+    if spec is None or len(items) < 2:
+        return None
+    if not _placeable(spec, detect_style(prompt), prompt, items, lettering):
+        return None
+    places = _places(spec, items, lettered, categories)
+    slots: list[tuple[str, str | None]] = []
+    unit = 0
+    for item in comma_items(prompt):
+        # The rules' item holding this comma item: itself, or the stretch of
+        # lettering it is a piece of (`_units`).
+        while items[unit].end < item.end:
+            unit += 1
+        place = places[unit]
+        alone = len(place) == 1 and not lettered[unit]
+        slots.append((item.text, spec.steps[next(iter(place))] if alone else None))
+    return slots
 
 
 def order_items(text: str) -> list[str]:

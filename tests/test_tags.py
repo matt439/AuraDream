@@ -249,3 +249,22 @@ def test_the_real_fetcher_wraps_a_broken_reply(monkeypatch):
     monkeypatch.setattr("backend.tags.urlopen", garbled)
     with pytest.raises(TagLookupUnavailable):
         DanbooruTagVocabulary().suggest("green", CUTOFF)
+
+
+def test_the_chips_prompt_is_what_a_check_reads_and_never_a_refusal():
+    # The prompt beside the chips' tags is for their order slots, Check's
+    # reading of it: as long as a Check takes, and anything else - blank,
+    # longer - is no prompt rather than a 422 that would leave every chip
+    # unchecked.
+    from backend.schemas import TAG_SLOT_PROMPT_MAX, PromptAnalysisRequest, TagValidationRequest
+
+    schema = PromptAnalysisRequest.model_json_schema()["properties"]["prompt"]
+    assert TAG_SLOT_PROMPT_MAX == schema["maxLength"]
+    assert TagValidationRequest(tags=["1girl"]).prompt is None
+    fits = "1girl, " + "x" * (TAG_SLOT_PROMPT_MAX - 7)
+    assert TagValidationRequest(tags=["1girl"], prompt=fits).prompt == fits
+    for prompt in ("", "  \n", fits + "x"):
+        assert TagValidationRequest(tags=["1girl"], prompt=prompt).prompt is None
+    # A code point is one character, as pydantic counts the Check's limit.
+    emoji = "😀" * TAG_SLOT_PROMPT_MAX
+    assert TagValidationRequest(tags=["1girl"], prompt=emoji).prompt == emoji

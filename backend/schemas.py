@@ -902,8 +902,19 @@ class TagSuggestionResponse(BaseModel):
     detail: str | None = None
 
 
+# The longest prompt a Check reads (`PromptAnalysisRequest.prompt`), held
+# equal to it by a test: the chips' order slots are Check's order reading.
+TAG_SLOT_PROMPT_MAX = 4000
+
+
 class TagValidationRequest(BaseModel):
     tags: list[str] = Field(min_length=1, max_length=64)
+    # The whole prompt the chips were split from, for their order slots
+    # (`TagValidationResponse.slots`). Optional - the Refine dialog's unknown
+    # tags line asks about tags alone - and never a reason to refuse the
+    # verdicts: a prompt longer than a Check reads, or blank, is no prompt
+    # here, and the answer has no slots.
+    prompt: str | None = None
 
     @field_validator("tags")
     @classmethod
@@ -912,6 +923,13 @@ class TagValidationRequest(BaseModel):
         if any(not tag or len(tag) > 200 for tag in tags):
             raise ValueError("tags must be 1-200 characters after trimming")
         return tags
+
+    @field_validator("prompt")
+    @classmethod
+    def _readable_prompt(cls, value: str | None) -> str | None:
+        if value is None or not value.strip() or len(value) > TAG_SLOT_PROMPT_MAX:
+            return None
+        return value
 
 
 class TagValidationItem(BaseModel):
@@ -928,10 +946,28 @@ class TagValidationItem(BaseModel):
     code: Literal["not_found", "deprecated", "empty", "no_date", "after_cutoff"] | None = None
 
 
+class TagSlot(BaseModel):
+    """One comma item of the prompt and the step of the guide's documented
+    order the order rule places it in (`prompt_rules.order_slots`), or None:
+    lettering, or an item with no one place - a tag the index gave no
+    category, one never asked about."""
+
+    tag: str
+    slot: str | None = None
+
+
 class TagValidationResponse(BaseModel):
     available: bool
     results: list[TagValidationItem] = Field(default_factory=list)
     detail: str | None = None
+    # With a `prompt` in the request, and only where the rules read an order
+    # in it (`prompt_rules.order_slots`): the documented order's steps and
+    # every comma item of the prompt - past the lookup's 64 too, where a guide
+    # tag still has its slot - index for index with the chips. None where the
+    # guide states no order, the rules read none in this prompt, or no prompt
+    # was sent.
+    order_steps: list[str] | None = None
+    slots: list[TagSlot] | None = None
 
 
 class PromptGuide(BaseModel):

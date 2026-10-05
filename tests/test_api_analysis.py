@@ -36,7 +36,12 @@ from backend.critic import RELEASE, CriticError, CriticUnavailable, PromptCritic
 from backend.jobs import BackendBusy, JobManager
 from backend.model_defaults import defaults_for, guide_for
 from backend.prompt_sources import sources_for
-from backend.schemas import GenerateRequest, PromptAnalysis, PromptAnalysisRequest
+from backend.schemas import (
+    TAG_SLOT_PROMPT_MAX,
+    GenerateRequest,
+    PromptAnalysis,
+    PromptAnalysisRequest,
+)
 from backend.tags import TagLookupUnavailable
 from tests.api_helpers import ORIGIN, stream_job, wait_for
 from tests.fakes import CutReply, FakeBackend, FakeCritic, fake_tokenizer
@@ -455,6 +460,99 @@ def test_the_tag_lookup_is_capped_at_the_chips_limit_and_skipped_for_prose(
     claim(monkeypatch, fake, FLUX)
     analyse(client, prompt="1girl, green hair")
     assert len(vocabulary.calls) == 1
+
+
+def chips(client, prompt, *, send_prompt=True):
+    """POST /api/tags/validate as the tray sends it: the first 64 comma items,
+    and the prompt they were split from."""
+    tags = [part.strip() for part in prompt.split(",") if part.strip()][:64]
+    body = {"tags": tags, **({"prompt": prompt} if send_prompt else {})}
+    response = client.post("/api/tags/validate", json=body)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_the_chips_slots_are_checks_order(client, fake, monkeypatch):
+    # Each chip's step of the documented order is the order rule's placement
+    # with the categories a Check of the same prompt places with - never one
+    # of the page's: the reorder Check offers puts the slots in order.
+    claim(monkeypatch, fake, ANIMAGINE)
+    vocabulary = Vocabulary({"green hair": "general", FIREFLY: "character"})
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    body = chips(client, TAG_PROMPT)
+    assert body["available"] is True
+    assert body["order_steps"] == guide_for(ANIMAGINE)["tag_helper"]["order"]
+    assert [(s["tag"], s["slot"]) for s in body["slots"]] == [
+        ("1girl", "Person count"), ("green hair", "Details"), (FIREFLY, "Character"),
+        ("masterpiece", "Quality"), ("high score", "Quality"), ("great score", "Quality"),
+        ("absurdres", "Quality"),
+    ]
+    # Asked as the chips ask, then as Check asks - only what a rule reads.
+    assert [call[0] for call in vocabulary.calls] == [
+        [s["tag"] for s in body["slots"]], ["green hair", FIREFLY],
+    ]
+    check = analyse(client, prompt=TAG_PROMPT)
+    assert check["reordered"] == IN_ORDER
+    steps = body["order_steps"]
+    ordered = [steps.index(s["slot"]) for s in chips(client, IN_ORDER)["slots"]]
+    assert ordered == sorted(ordered)
+    # Without the prompt - the Refine dialog's unknown-tag line - the
+    # verdicts alone, and nothing asked beyond the chips.
+    vocabulary.calls.clear()
+    bare = chips(client, TAG_PROMPT, send_prompt=False)
+    assert bare["slots"] is None and bare["order_steps"] is None
+    assert len(vocabulary.calls) == 1
+
+
+def test_a_chip_the_rules_cannot_place_has_no_slot(client, fake, monkeypatch):
+    claim(monkeypatch, fake, ANIMAGINE)
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({"green hair": "general"}))
+    # An unknown tag, an @ name and lettering, each beside placed tags.
+    body = chips(client, '1girl, zzkx oc, @wlop, "hello, world", green hair, masterpiece')
+    assert [s["slot"] for s in body["slots"]] == [
+        "Person count", None, None, None, None, "Details", "Quality",
+    ]
+    # One item, or a list the rules stand down from: no order, no slots.
+    for prompt in ("masterpiece", "1girl\ngreen hair\nmasterpiece", "<x>, 1girl, masterpiece"):
+        body = chips(client, prompt)
+        assert body["slots"] is None and body["order_steps"] is None, prompt
+        assert body["results"], prompt
+    # Past the 64 the chips look up, a guide tag still has its slot: the
+    # slots cover every comma item, not only those asked about.
+    long = ", ".join(["1girl", *(f"tag{i}" for i in range(70)), "masterpiece"])
+    body = chips(client, long)
+    assert len(body["results"]) == 64 and len(body["slots"]) == 72
+    assert body["slots"][-1] == {"tag": "masterpiece", "slot": "Quality"}
+    # A prompt longer than a Check reads is no prompt here: verdicts, no
+    # slots, never a refusal.
+    over = "1girl, " + "x" * TAG_SLOT_PROMPT_MAX
+    body = client.post("/api/tags/validate", json={"tags": ["1girl"], "prompt": over}).json()
+    assert body["results"] and body["slots"] is None
+
+
+def test_an_unreachable_index_costs_the_slots_one_wait(client, fake, monkeypatch):
+    # Offline, Check's categories are None too: the guide's own groups are
+    # placed, the rest have no slot - and the index is not asked twice.
+    claim(monkeypatch, fake, ANIMAGINE)
+    vocabulary = Vocabulary(offline=True)
+    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    body = chips(client, TAG_PROMPT)
+    assert body["available"] is False and len(vocabulary.calls) == 1
+    assert [s["slot"] for s in body["slots"]] == [
+        "Person count", None, None, "Quality", "Quality", "Quality", "Quality",
+    ]
+
+
+def test_no_slots_where_the_guide_states_no_order(client, fake, monkeypatch):
+    # Every Danbooru-vocabulary guide today documents an order; one that did
+    # not would get verdicts and no slots. Anima reads Danbooru-style tags
+    # and states none.
+    claim(monkeypatch, fake, ANIMA)
+    assert prompt_rules.documented_order(ANIMA) is None
+    monkeypatch.setattr(main, "_tag_helper_config", lambda: main._BARE_DANBOORU)
+    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({"green hair": "general"}))
+    body = chips(client, "1girl, green hair, masterpiece")
+    assert body["results"] and body["slots"] is None and body["order_steps"] is None
 
 
 def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(

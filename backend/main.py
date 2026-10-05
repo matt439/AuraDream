@@ -57,6 +57,7 @@ from .schemas import (  # noqa: E402
     PromptMeasureRequest,
     RerenderRequest,
     RunSummary,
+    TagSlot,
     TagSuggestionResponse,
     TagValidationRequest,
     TagValidationResponse,
@@ -475,11 +476,40 @@ def _lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
     )
 
 
-@app.post("/api/tags/validate", response_model=TagValidationResponse)
-async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:
-    helper = _tag_helper_config()
+def _order_slots(prompt: str | None, reachable: bool) -> dict:
+    """The chips' order slots: each comma item of `prompt` in the step of the
+    documented order Check's order rule places it in, with the categories a
+    Check of this prompt places with (`_tag_categories`, answered from the
+    lookup the chips' verdicts just cached) - Check's reading, not one of the
+    page's. Empty where no prompt was sent or the rules read no order in it.
+
+    `reachable` False: the chips' own lookup could not reach the index, so a
+    Check's would not either, and its categories are None
+    (`_tag_categories`' failure path) - asked again here, it would wait out
+    the same failure a second time.
+    """
+    if prompt is None:
+        return {}
+    model_id = settings.model_id
+    categories = (
+        _tag_categories(model_id, prompt, prompt_rules.detect_style(prompt))[0]
+        if reachable else None
+    )
+    slots = prompt_rules.order_slots(model_id, prompt, categories)
+    order = prompt_rules.documented_order(model_id)
+    if slots is None or order is None:
+        return {}
+    return {
+        "order_steps": order.steps,
+        "slots": [TagSlot(tag=tag, slot=slot) for tag, slot in slots],
+    }
+
+
+def _chip_verdicts(helper: dict, request: TagValidationRequest) -> TagValidationResponse:
+    """The tag index's verdict on the chips and, given the prompt, their
+    order slots. Blocking: the lookup reaches the network."""
     try:
-        results = await asyncio.to_thread(_lookup_tags, helper, request.tags)
+        results = _lookup_tags(helper, request.tags)
     except TagLookupUnavailable as exc:
         return TagValidationResponse(
             available=False,
@@ -487,8 +517,17 @@ async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:
                 request.tags, _special_tags(helper), bool(helper.get("year_tag"))
             ),
             detail=short_error(exc),
+            **_order_slots(request.prompt, reachable=False),
         )
-    return TagValidationResponse(available=True, results=results)
+    return TagValidationResponse(
+        available=True, results=results, **_order_slots(request.prompt, reachable=True)
+    )
+
+
+@app.post("/api/tags/validate", response_model=TagValidationResponse)
+async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:
+    helper = _tag_helper_config()
+    return await asyncio.to_thread(_chip_verdicts, helper, request)
 
 
 async def _refuse_unusable_inputs(request: GenerateRequest) -> None:
