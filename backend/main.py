@@ -970,7 +970,8 @@ def _lint(
 ) -> tuple[list[PromptFinding], bool]:
     """Layer 1's findings for `text` in place of the prompt - the critic's
     rewrite, held to the same rules as what the user typed - and whether its
-    artist check read every item it could (`PromptCritique.rewrite_artists_checked`).
+    artist check read every artist it may name (`prompt_rules.artists_read`,
+    `PromptCritique.rewrite_artists_checked`).
 
     Blocking, and like `_analyse` it can fetch a tokenizer, so the route runs
     it off the loop and after the job gate. No tag lookup: the analysis asked
@@ -991,8 +992,8 @@ def _lint(
     findings = _checked(
         model_id, request.model_copy(update=update), applied.model_copy(update=update), artists
     )[1]
-    covered = artists is not None and prompt_rules.asked_about(
-        model_id, text, analysis.categories_asked
+    covered = artists is not None and prompt_rules.artists_read(
+        model_id, text, analysis.categories_asked, artists
     )
     return findings, covered
 

@@ -875,6 +875,11 @@ def test_several_artists_are_named_together(client, fake, monkeypatch):
         "artist name."
     )
     assert artist["suggestion"] == "1girl, @wlop, @kantoku, smile"
+    # One artist written twice is named once, as first written.
+    (artist,) = rules(analyse(client, prompt="1girl, wlop, kantoku, WLOP, smile")["findings"],
+                      "guide.artist_prefix")
+    assert artist["message"].startswith("wlop and kantoku are artists in Danbooru's index;")
+    assert artist["suggestion"] == "1girl, @wlop, @kantoku, @WLOP, smile"
 
 
 def _rewriting(monkeypatch, rewrite: str) -> None:
@@ -923,6 +928,15 @@ def test_a_rewrite_is_checked_for_artists_with_the_analysis_own_answer(
     body = critique("1girl, @wlop, kantoku, smile")
     assert rules(body["rewrite_findings"], "guide.artist_prefix") == []
     assert body["rewrite_artists_checked"] is False
+    # Nor is the artist kept with no @ where the rule reads no name - in a
+    # clause, or a sentence - which the page would otherwise call fixed.
+    for kept in (
+        "1girl, smile, a painting in the style of wlop with soft light",
+        "A girl painted by wlop smiles in the rain.",
+    ):
+        body = critique(kept)
+        assert rules(body["rewrite_findings"], "guide.artist_prefix") == []
+        assert body["rewrite_artists_checked"] is False, kept
     # Nor is anything where the analysis's lookup gave no answer.
     monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
     _rewriting(monkeypatch, "1girl, @wlop, smile")

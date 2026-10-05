@@ -42,5 +42,5 @@
   {"eval": "window.__notes = () => [...els.criticResult.querySelectorAll('.critic-checked > .analysis-note')].map((n) => n.textContent).filter((t) => /^(No longer|Not flagged)/.test(t)); critiqueResult = { body: { ...critiqueResult.body, rewrite: '1girl, @kantoku, smile', rewrite_findings: [], rewrite_artists_checked: true } }; renderCritic();"},
   {"expect": "__notes().length === 1 && __notes()[0].startsWith(\"No longer flagged: kantoku is an artist in Danbooru's index\")"},
   {"eval": "critiqueResult = { body: { ...critiqueResult.body, rewrite_artists_checked: false } }; renderCritic();"},
-  {"expect": "__notes().length === 1 && __notes()[0].startsWith(\"Not flagged on the rewrite, whose check runs without the tag index - these may still apply: kantoku is an artist\")"}
+  {"expect": "__notes().length === 1 && __notes()[0].startsWith(\"Not flagged on the rewrite, whose check asks the tag index nothing of its own - these may still apply: kantoku is an artist\")"}
 ]

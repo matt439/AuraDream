@@ -1973,11 +1973,32 @@ def test_prose_is_looked_up_only_where_the_rules_read_artists():
 
 
 def test_a_rewrite_is_covered_by_what_was_asked():
-    assert prompt_rules.asked_about(ANIMA, "1girl, @wlop, smile", ["1girl", "wlop", "smile"])
-    assert prompt_rules.asked_about(ANIMA, "Smile, WLOP, 1girl", ["1girl", "wlop", "smile"])
-    assert not prompt_rules.asked_about(ANIMA, "1girl, kantoku, smile", ["1girl", "wlop", "smile"])
+    asked, artists = ["1girl", "wlop", "smile"], ["wlop"]
+
+    def read(text: str, asked: list[str] = asked) -> bool:
+        return prompt_rules.artists_read(ANIMA, text, asked, artists)
+
+    assert read("1girl, @wlop, smile")
+    assert read("1girl, @ wlop, smile")
+    # A whole item the rule reads, and flags: read.
+    assert read("Smile, WLOP, 1girl")
+    assert not read("1girl, kantoku, smile")
     sentences = "A girl stands in the rain. She looks up at the grey sky."
-    assert prompt_rules.asked_about(ANIMA, sentences, [])
+    assert read(sentences, [])
+    # The artist kept with no @ and no finding: in a clause no check asks
+    # about, or in a sentence the rule never reads as a name.
+    assert not read("1girl, smile, a painting in the style of wlop with soft light")
+    assert not read("A girl painted by wlop smiles in the rain.")
+    assert not read("1girl, smile. A girl painted by WLOP smiles in the rain.", asked)
+    # A clause no lookup asked about may itself be a name.
+    assert not read("1girl, @wlop, smile, a girl standing in the rain")
+    # Written as the tag autocomplete writes it, or with an underscore.
+    escaped = ["1girl", "mika pikazo", "smile"]
+    for text in ("1girl, smile. Drawn by mika_pikazo.", "1girl. Drawn by Mika Pikazo."):
+        assert not prompt_rules.artists_read(ANIMA, text, escaped, ["mika pikazo"])
+    assert prompt_rules.artists_read(ANIMA, "1girl, @mika_pikazo, smile", escaped, ["mika pikazo"])
+    # Part of a longer word is not the name.
+    assert read("1girl, smile. A wlopish glow fills the room.", asked)
 
 
 def test_the_scene_block_ahead_of_a_character_is_against_newbies_order():

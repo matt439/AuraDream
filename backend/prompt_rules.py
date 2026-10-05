@@ -844,14 +844,46 @@ def lookup_items(model_id: str, prompt: str) -> list[str]:
     return [item for item in category_items(model_id, prompt) if not _is_prose(item)]
 
 
-def asked_about(model_id: str, text: str, asked: Iterable[str]) -> bool:
-    """Whether every item a check of `text` would ask the tag index about
-    (`lookup_items`) is among `asked`, read as the rules match an item
-    (`_norm`): then the categories a lookup of `asked` answered with answer
-    for `text` too - the critic's rewrite, checked with its analysis's own
-    categories and no lookup of its own (`main._lint`)."""
+def _named(name: str) -> re.Pattern[str]:
+    """`name` - an item the tag index answered for - written anywhere in a
+    text as words of their own, with no @ just ahead: any case, a space or
+    an underscore between its words, its parentheses escaped or not."""
+    words = r"[\s_]+".join(re.escape(word) for word in _norm(name).split(" "))
+    words = words.replace(r"\(", r"\\?\(").replace(r"\)", r"\\?\)")
+    return re.compile(rf"(?<![@\w])(?<!@\s){words}(?!\w)", re.IGNORECASE)
+
+
+def artists_read(
+    model_id: str, text: str, asked: Iterable[str], artists: Iterable[str]
+) -> bool:
+    """Whether the artist rule, reading `text` with the categories a lookup
+    of `asked` answered with - `artists` the items it called artists - reads
+    every artist `text` may name: the critic's rewrite, checked with its
+    analysis's own categories and no lookup of its own (`main._lint`).
+
+    Every item a Danbooru name could be (`category_items`, a prose text's
+    clauses included, which a check of it never asks about) must be among
+    `asked`, read as the rules match an item (`_norm`); and no artist the
+    lookup named may stand in `text` other than as a whole item the rule
+    reads or after its @ - "a painting in the style of wlop", "A girl
+    painted by wlop smiles." keep the name with no @ and no finding, and the
+    page would otherwise call the prompt's finding on it fixed.
+    """
     known = {_norm(item) for item in asked}
-    return all(_norm(item) in known for item in lookup_items(model_id, text))
+    if not all(_norm(item) in known for item in category_items(model_id, text)):
+        return False
+    named = {_norm(name) for name in artists}
+    patterns = [_named(name) for name in named]
+    if detect_style(text) in ("xml", "json"):
+        # The rule reads no item of either.
+        return not any(pattern.search(text) for pattern in patterns)
+    items, lettered, _ = _tag_items(text)
+    for item, held in zip(items, lettered, strict=True):
+        if not held and not _is_sentence(item.text) and _norm(item.text) in named:
+            continue  # The rule reads it, and flags it unless it has its @.
+        if any(pattern.search(item.text) for pattern in patterns):
+            return False
+    return True
 
 
 def scene_ahead(model_id: str, text: str) -> str | None:
@@ -2251,7 +2283,11 @@ def _artist_prefix(ctx: _Context) -> Iterable[PromptFinding]:
         for index in flagged:
             texts[index] = "@" + texts[index]
         first = ctx.items[flagged[0]]
-        names = list(dict.fromkeys(ctx.items[i].text for i in flagged))
+        # Each artist once, as first written: "wlop" and "WLOP" are one.
+        first_spelling: dict[str | None, str] = {}
+        for index in flagged:
+            first_spelling.setdefault(ctx.norms[index], ctx.items[index].text)
+        names = list(first_spelling.values())
         yield ctx.finding(
             entry, "guide.artist_prefix", "info",
             f"{_listed(names)} {'is an artist' if len(names) == 1 else 'are artists'} in "

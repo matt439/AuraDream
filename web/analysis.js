@@ -931,10 +931,11 @@ const critiqueFailureText = (reason) => `The critic did not answer: ${reason.rep
 // checkpoint, and the artist rule fires only with its answer; the rewrite's
 // check never asks (`main._lint`). Such a finding gone from the rewrite may
 // be one its check could not see, so it is not called fixed - except the
-// artist rule's where the server says the rewrite's artist check read every
-// item it could with the analysis's own answer (`rewrite_artists_checked`):
-// a rewrite that adds the @ has then fixed it, while one naming an artist
-// the analysis never asked about keeps the hedge.
+// artist rule's where the server says the rewrite's artist check, with the
+// analysis's own answer, read every artist the rewrite may name
+// (`rewrite_artists_checked`): a rewrite that adds the @ has then fixed it,
+// while one naming an artist the analysis never asked about, or keeping the
+// name in a clause or a sentence, keeps the hedge.
 const TAG_INDEX_RULES = new Set(['guide.order', 'guide.style', 'guide.artist_prefix']);
 const readsTagIndex = (finding) => TAG_INDEX_RULES.has(finding.rule)
   && (finding.rule === 'guide.artist_prefix'
@@ -1019,7 +1020,7 @@ function renderCritic() {
     const unseen = gone.filter(readsTagIndex);
     if (fixed.length) checked.appendChild(note(`No longer flagged: ${listed(fixed)}`, 'analysis-note sub'));
     if (unseen.length) {
-      checked.appendChild(note('Not flagged on the rewrite, whose check runs without the tag index - '
+      checked.appendChild(note('Not flagged on the rewrite, whose check asks the tag index nothing of its own - '
         + `these may still apply: ${listed(unseen)}`, 'analysis-note sub'));
     }
     block.append(head, rewriteChanges(analysisResult.source, body.rewrite), area,

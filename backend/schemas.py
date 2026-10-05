@@ -535,12 +535,15 @@ class PromptCritique(BaseModel):
     # and first by the critic's own checks on it: quoted words the prompt
     # does not ask to render.
     rewrite_findings: list[PromptFinding] = Field(default_factory=list)
-    # Whether the rewrite's artist check (Anima's @ rule) read every item it
-    # could: each one a check would ask the tag index about was asked by this
-    # critique's own analysis, whose categories the rewrite is checked with,
-    # no lookup of its own. Then an artist finding of the prompt's that the
-    # rewrite no longer has is fixed, not merely unseen; False where any item
-    # - an artist the critic added - was never looked up, or the lookup gave
+    # Whether the rewrite's artist check (Anima's @ rule) read every artist
+    # the rewrite may name (`prompt_rules.artists_read`): each item a name
+    # could be, a clause included, was asked by this critique's own analysis,
+    # whose categories the rewrite is checked with, no lookup of its own; and
+    # no artist that answer named stands in the rewrite without its @ other
+    # than as a whole item the rule reads. Then an artist finding of the
+    # prompt's that the rewrite no longer has is fixed, not merely unseen;
+    # False where any item - an artist the critic added - was never looked
+    # up, the name was kept inside a clause or a sentence, or the lookup gave
     # nothing, and the page keeps its "may still apply".
     rewrite_artists_checked: bool = False
     # Issues discarded because their citation named nothing the critic was
