@@ -412,7 +412,8 @@ function usePromptText(text) {
   void checkPrompt();
 }
 
-// Use rewrite and Use reordered (the critic's, and Check's own reordering):
+// Use rewrite and Use reordered (the critic's, and Check's own reordering),
+// and a rule finding's Apply on the prompt (applyFinding):
 // a version of the prompt in its place, and the prompt it replaces in Your
 // version while that box is empty - where the comparison takes it, so after
 // the re-check the two run on the same seeds. Before, the re-check made the
@@ -432,8 +433,11 @@ function useVersion(text, button) {
 
 // A rule's suggestion is its field rewritten whole - quotes added, tags moved,
 // the recommended negative prompt - so it applies in one click, to its field.
+// On the prompt it is a version like Use rewrite's, and keeps the prompt it
+// replaces the same way (useVersion); the negative prompt has no Your
+// version to keep it in, and Ctrl+Z is its way back.
 function applyFinding(finding) {
-  if (finding.field !== 'negative_prompt') { usePromptText(finding.suggestion); return; }
+  if (finding.field !== 'negative_prompt') { useVersion(finding.suggestion, 'Apply'); return; }
   if (els.negative.disabled) return;  // its button is dead then; this is the backstop
   replaceBoxText(els.negative, finding.suggestion);
   syncAnalysisStale();
@@ -640,7 +644,7 @@ function findingItem(finding, select, apply, carried) {
     else {
       const negative = finding.field === 'negative_prompt';
       extra.append(writeButton(negative ? 'Apply to the negative prompt' : 'Apply',
-        `Replace the ${negative ? 'negative prompt' : 'prompt'} with: ${finding.suggestion}`,
+        `Replace the ${negative ? 'negative prompt' : 'prompt'} with: ${finding.suggestion}${negative ? '' : `\n${KEEPS_PROMPT.trim()}`}`,
         () => apply(finding), { negative }));
       if (negative) {
         // Said beside the dead button while the box is greyed.

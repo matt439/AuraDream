@@ -47,9 +47,14 @@
   {"expect": "!els.promptAnalysis.classList.contains('stale') && els.analysisStale.hidden && els.analysisAgain.hidden && analysisResult.source.endsWith('at sunrise')"},
 
   {"log": "'Apply: the quote finding puts the sign text in quotes, and the check runs again'"},
-  {"eval": "[...els.analysisFindings.querySelectorAll('.analysis-item')].find((li) => li.textContent.includes('reads as text to render')).querySelector('[data-writes]').click();"},
+  {"expect": "els.compareOwn.value === '' && [...els.analysisFindings.querySelectorAll('.analysis-item')].find((li) => li.textContent.includes('reads as text to render')).querySelector('[data-writes]').title.endsWith('\\n' + KEEPS_PROMPT.trim())"},
+  {"eval": "window.__beforeApply = analysisResult.source; [...els.analysisFindings.querySelectorAll('.analysis-item')].find((li) => li.textContent.includes('reads as text to render')).querySelector('[data-writes]').click();"},
   {"wait": 600},
   {"expect": "els.prompt.value.includes('a wooden sign that says \"open\" above') && !analysisStale && ![...els.analysisFindings.querySelectorAll('.analysis-item')].some((li) => li.textContent.includes('reads as text to render'))"},
+  {"log": "'... and, as Use rewrite does, it keeps the prompt it replaced in the empty Your version, saying so, where Compare offers the two on the same seeds'"},
+  {"expect": "els.compareOwn.value === window.__beforeApply && !els.compareOwnNote.hidden && els.compareOwnNote.textContent === 'Your version holds the prompt before Apply - Run comparison tests both on the same seeds.' && [...els.compareOptions.querySelectorAll('label')].map((l) => l.textContent.trim()).join() === 'Original,Your version'"},
+  {"eval": "els.compareOwn.value = ''; els.compareOwn.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "els.compareOwnNote.hidden && [...els.compareOptions.querySelectorAll('label')].map((l) => l.textContent.trim()).join() === 'Original'"},
 
   {"log": "'The critic: the first-use line (on a freshly started server), Thinking..., Generate refused until it answers'"},
   {"expect": "!els.analysisCritic.hidden && els.criticLine.getAttribute('aria-live') === 'polite' && criticStatus.label === 'fake critic' && els.criticLine.textContent === (promptCritiqueReady ? 'Local fake critic on the GPU, about 15 seconds; waits for image jobs.' : 'First use downloads llama.cpp b11206 and fake critic (about 4.5 GB) once.')"},
