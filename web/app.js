@@ -135,10 +135,15 @@ async function expandPrompt() {
       showError('The prompt changed while expansion was running, so the result was not applied.', true);
       return;
     }
-    els.prompt.value = body.expanded_prompt;
-    syncAnalysisStale();
+    // Written as typing writes it, so Ctrl+Z brings back the prompt it
+    // replaced - an expansion is a long rewrite, and one that is hard to get
+    // again. The write's `input` clears a translation, so this one is shown
+    // after it.
+    writeBox(els.prompt, body.expanded_prompt);
+    promptReplaced();
     if (body.translated_prompt) showPromptTranslation(body.expanded_prompt, body.translated_prompt);
     schedulePreview();
+    scheduleTagValidation(0);
     persistPanel();
     els.prompt.focus();
     els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length);

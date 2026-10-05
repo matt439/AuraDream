@@ -266,10 +266,10 @@ function clearPromptTranslation() {
 }
 
 // Every programmatic write to the prompt box - an example, Reuse, Reset, a tag
-// chip, an accepted suggestion - fires no `input` event, so what describes the
-// old text is told here instead: its translation goes, and the prompt check
-// marks itself stale. Expand's write keeps the translation it brings, so it
-// tells the check alone.
+// chip, an accepted suggestion, Expand - may fire no `input` event, so what
+// describes the old text is told here instead: its translation goes, and the
+// prompt check marks itself stale. Expand shows the translation it brings
+// after this.
 function promptReplaced() {
   clearPromptTranslation();
   syncAnalysisStale();
