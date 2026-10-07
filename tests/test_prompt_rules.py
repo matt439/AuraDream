@@ -166,15 +166,15 @@ def _examples():
 @pytest.mark.parametrize("repo, example", list(_examples()))
 def test_the_authors_examples_raise_no_warning(repo, example):
     # An author's own prompt should pass its own guide. Some are templates:
-    # Z-Anime's [character] and [location], NewBie's $character_N$ are slots
-    # the author left to fill, and a slot left unfilled reaches the encoder as
+    # Z-Anime's [character] and [location] are slots the author left to fill,
+    # and a slot left unfilled reaches the encoder as
     # literal text - the one warning those examples are meant to raise. The
     # slots are the guide's own (`guide_for`'s `slots`, what the page reads).
     findings = run(repo, example)
     warnings = [finding for finding in findings if finding.severity == "warn"]
     slots = guide_for(repo)["slots"]
     if any(re.search(pattern, example, re.IGNORECASE) for pattern in slots):
-        assert repo in (Z_ANIME, NEWBIE)
+        assert repo == Z_ANIME
         assert warnings and all(finding.rule == "author.placeholder" for finding in warnings)
         assert all(finding.source == "author" for finding in warnings)
     else:

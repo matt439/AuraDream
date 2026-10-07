@@ -829,7 +829,10 @@ _NETAYUME = (
 )
 
 _NEWBIE_CARD = "https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1"
-_NEWBIE_XML = "https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/blob/main/XML%20Prompt.json"
+_NEWBIE_XML = (
+    "https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/blob/"
+    "4f7825a1a7e1ed5c1882a52e3c51d1119a43e298/XML%20Prompt.json"
+)
 _NEWBIE_XML_NOTE = "the authors' captioning instruction that made the training captions"
 _NEWBIE = (
     Excerpt(
@@ -856,6 +859,13 @@ _NEWBIE = (
         "<interaction>, <position>",
         _NEWBIE_XML,
         "each <character_N> block's fields in the order of " + _NEWBIE_XML_NOTE,
+    ),
+    Excerpt(
+        "newbie.anonymous_names",
+        "Character names are temporarily unknown, please use placeholders like "
+        "$character_1$, $character_2$, etc.",
+        _NEWBIE_XML,
+        _NEWBIE_XML_NOTE + "; these identifiers may remain for unnamed characters",
     ),
     Excerpt(
         "newbie.general_fields",
@@ -982,7 +992,7 @@ GROUNDING: dict[str, Grounding] = {
             "CLIP limit; this app does not implement prompt chunking."
         ),
         unsourced=(
-            "Examples inserts that prefix alone; add your subject.",
+            "Examples includes the card's complete Diffusers prompt.",
             "Autocomplete checks Danbooru through the card's approximate 2024-10-23 "
             "cutoff; it does not check e621, and a match does not prove the model learned a tag.",
         ),
@@ -1027,7 +1037,7 @@ GROUNDING: dict[str, Grounding] = {
             "fallback is to put artist tags at the end, within the token limit."
         ),
         unsourced=(
-            "Examples inserts the optional positive quality recipe alone; add your subject.",
+            "Examples contains the author's scene excerpts without the separate style and quality chunk.",
             "This app does not implement separate chunks: BREAK is literal text, and both "
             "SDXL CLIP tokenizers stop at 77 tokens.",
             "Keep the complete prompt within that limit so the artists at its end are read.",
@@ -1205,7 +1215,7 @@ GROUNDING: dict[str, Grounding] = {
         _WAI,
         caveat="The author documents no tag order for WAI v17 beyond the quality recipe.",
         unsourced=(
-            "Examples inserts that recipe alone.",
+            "Examples contains scene excerpts from the author's v17 gallery.",
             "Autocomplete checks Danbooru's live index; WAI publishes no vocabulary cutoff, "
             "so a recognized tag is advisory rather than evidence that v17 learned it.",
             "The card's weighted-prompt syntax is not implemented by this text-to-image "
@@ -1246,10 +1256,20 @@ GROUNDING: dict[str, Grounding] = {
     ),
     "NEWBIE_GUIDE": Grounding(
         _NEWBIE,
+        caveat=(
+            "The XML example's $character_N$ identifiers are valid anonymous "
+            "character labels, used literally in the author's example. They do "
+            "not need to be replaced with names."
+        ),
         unsourced=("The Examples menu includes the author's two-character XML prompt.",),
         # The app's pipeline truncates where the author's own training code's
         # `encode_prompt` does.
         sentence_urls=(
+            (
+                "Keep $character_1$ and $character_2$ for unnamed characters, or "
+                "replace them with names.",
+                _NEWBIE_XML,
+            ),
             (
                 "Gemma reads up to 512 tokens and Jina CLIP up to 2048 in this app; keep "
                 "the main description within Gemma's shorter limit.",

@@ -282,7 +282,9 @@ def test_a_template_slot_is_one_finding(client, fake, monkeypatch):
     assert [f["start"] for f in rules(body["findings"], "encoder.weighting")] == [0]
     # The card's landscape template: each slot once, as the author's, mid
     # clause or a whole item.
-    template = guide_for("SeeSee21/Z-Anime")["examples"][1]
+    template = next(
+        prompt for prompt in guide_for("SeeSee21/Z-Anime")["examples"] if "[location]" in prompt
+    )
     body = analyse(client, prompt=template)
     slots = rules(body["findings"], "author.placeholder")
     assert [template[f["start"]:f["end"]] for f in slots] == [

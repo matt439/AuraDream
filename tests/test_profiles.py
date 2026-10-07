@@ -239,7 +239,9 @@ def test_wai_v17_has_its_own_profile_and_author_recipe():
     # The author's reference sizes, which the tip says are no maximum: the
     # size line words them as examples, never as what WAI is "for".
     assert guide.pixels_word == "example"
-    assert guide.examples == [",masterpiece,best quality,amazing quality,"]
+    assert len(guide.examples) == 2
+    assert "underwater" in guide.examples[0] and "kimono" in guide.examples[1]
+    assert set(guide.example_notes) == set(guide.examples)
     helper = guide.tag_helper
     assert helper is not None and helper.hybrid_prompt
     assert helper.vocabulary == "danbooru" and helper.vocabulary_cutoff is None
@@ -412,8 +414,9 @@ def test_newbie_has_release_defaults_and_an_unparsed_xml_example():
     assert xml.findtext("character_1/position") == "center_left"
     assert xml.findtext("character_2/position") == "center_right"
     assert xml.findtext("general_tags/objects") == "briefcase"
-    assert guide.examples[1] == "1girl"
+    assert len(guide.examples) == 1 and guide.slots == []
     hints = hints_for(model)
+    assert "Keep $character_1$ and $character_2$ for unnamed characters" in hints["prompt"]
     assert "quickstart" in hints["steps"]
     assert "author's sampling script" in hints["guidance_scale"]
     assert "starting point" in hints["guidance_scale"]
@@ -450,6 +453,22 @@ def test_every_catalogue_entry_has_a_prompting_guide():
     for repo in _catalogue_repos():
         guide = guide_for(repo)
         assert guide["examples"], repo
+        # A quality recipe or a collection of templates alone is not an
+        # example someone can pick and generate. Keep a complete scene too.
+        helper = guide["tag_helper"] or {}
+        controls = {
+            tag.casefold() for group in helper.get("groups", []) for tag in group["tags"]
+        }
+        assert all(
+            any(item.strip().casefold() not in controls for item in prompt.split(",")
+                if item.strip())
+            for prompt in guide["examples"]
+        ), repo
+        assert any(
+            not any(re.search(pattern, prompt, re.IGNORECASE) for pattern in guide["slots"])
+            for prompt in guide["examples"]
+        ), repo
+        assert set(guide["example_notes"]) <= set(guide["examples"]), repo
         assert guide["pixels"] is not None, repo
         low, high = guide["pixels"]
         assert 0 < low <= high, repo

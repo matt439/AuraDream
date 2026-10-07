@@ -59,6 +59,7 @@ function showExamples(open) {
     span.className = 'text';
     span.textContent = text;
     li.appendChild(span);
+    if (exampleNotes[text]) li.appendChild(needs(exampleNotes[text]));
     if (unreferenced && EDIT_PROMPT.test(text)) li.appendChild(needs('needs a reference image'));
     const slots = [...new Set(templateSlots(text).map((slot) => slot.text))];
     if (slots.length) {
@@ -73,7 +74,7 @@ function showExamples(open) {
   });
 }
 
-// The authors' template slots in `text` - "[character]", "$character_1$" -
+// The authors' template slots in `text` - "[character]", "[location]" -
 // in reading order, from the placeholder rule's own patterns (`guide.slots`).
 function templateSlots(text) {
   return exampleSlots

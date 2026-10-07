@@ -62,8 +62,9 @@ def test_quality_suffix_and_recipe():
     assert recipe.suggestion == "1girl,solo,masterpiece,best quality,amazing quality"
     finished = "1girl, beach, masterpiece, best quality, amazing quality"
     assert silent(WAI, finished, "guide.quality")
-    # The example is the recipe alone; the author says to add a subject first.
-    assert only(run(WAI, guides.WAI_GUIDE["examples"][0]), "guide.subject")
+    # A recipe alone still needs a subject; the Examples menu supplies scenes.
+    assert only(run(WAI, "masterpiece, best quality, amazing quality"), "guide.subject")
+    assert all(silent(WAI, prompt, "guide.subject") for prompt in guides.WAI_GUIDE["examples"])
     assert silent(WAI, finished, "guide.subject")
 
 

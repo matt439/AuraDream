@@ -373,8 +373,9 @@ let sizeRangeSource = null;
 let sizeAspects = null;
 let guideResolutions = null;
 let examples = [];
+let exampleNotes = {};
 // The authors' template slots in those examples (`guide.slots`: Z-Anime's
-// "[character]", NewBie's "$character_1$"), as RegExps, case aside.
+// "[character]" and "[location]"), as RegExps, case aside.
 let exampleSlots = [];
 // Null for prose checkpoints. A tag checkpoint supplies its own finite,
 // documented vocabulary; the browser never guesses a generic tag cloud.

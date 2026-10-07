@@ -430,28 +430,26 @@ def test_newbie_xml():
     assert only(run(NEWBIE, "1girl, school uniform"), "guide.xml") == []
 
 
-def test_placeholders_are_the_authors_slots():
+def test_newbie_anonymous_character_labels_are_ready_to_use():
     example = guides.NEWBIE_GUIDE["examples"][0]
-    findings = only(run(NEWBIE, example), "author.placeholder")
-    assert [spanned(example, f) for f in findings] == ["$character_1$", "$character_2$"]
-    assert all(f.source == "author" and f.cite in example for f in findings)
-    # Each quotes its own slot's line, not the first slot's.
-    assert [f.cite for f in findings] == ["<n>$character_1$</n>", "<n>$character_2$</n>"]
+    assert silent(NEWBIE, example, "author.placeholder")
+    assert guide_for(NEWBIE)["slots"] == []
     filled = example.replace("$character_1$", "miku").replace("$character_2$", "teto")
     assert silent(NEWBIE, filled, "author.placeholder")
+    assert silent(NEWBIE, "<character_3><n>$character_3$</n></character_3>", "author.placeholder")
+
+
+def test_placeholders_are_the_authors_slots():
     [character] = only(run(Z_ANIME, "Portrait of [character], soft light"), "author.placeholder")
     assert "put the character's name or description there" in character.message
     # The card's landscape template's four slots, each cited from it.
-    template = guides.Z_ANIME_GUIDE["examples"][1]
+    template = next(p for p in guides.Z_ANIME_GUIDE["examples"] if "[location]" in p)
     slots = only(run(Z_ANIME, template), "author.placeholder")
     assert [spanned(template, f) for f in slots] == [
         "[location]", "[time of day]", "[lighting]", "[atmosphere]"
     ]
     assert all(f.cite == "Anime [location] at [time of day], [lighting], [atmosphere]" for f in slots)
     assert all("put what it stands for there" in f.message for f in slots)
-    # A slot no example of the guide's has quotes the entry's own cite.
-    [third] = only(run(NEWBIE, "<character_3><n>$character_3$</n></character_3>"), "author.placeholder")
-    assert third.cite == "<n>$character_1$</n>"
 
 
 @pytest.mark.parametrize("name", sorted(_all_guides()))

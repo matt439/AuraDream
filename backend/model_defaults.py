@@ -1031,6 +1031,7 @@ def guide_for(model_id: str) -> dict[str, Any]:
         "aspects": list(guide["aspects"]) if guide.get("aspects") is not None else None,
         "resolutions": list(guide["resolutions"]) if guide.get("resolutions") is not None else None,
         "examples": list(guide["examples"]),
+        "example_notes": dict(guide.get("example_notes", {})),
         # The authors' template slots the placeholder rule finds, as data:
         # the Examples menu says an example holds one and selects it on a
         # pick. Patterns, not the rule; the rest of `analysis` stays out.

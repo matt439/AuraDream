@@ -17,7 +17,9 @@ sizes" on WAI, one author and a floor that is no example). `aspects` and
 `resolutions`, where the card publishes a finite table of shapes, mark the
 presets that are its framings and recognise its exact sizes typed in. And
 `examples` are the
-authors' own prompts, verbatim, for the Examples menu. Every sentence is
+authors' own prompts, verbatim, for the Examples menu; an `example_notes`
+entry labels a contiguous excerpt where the full prompt cannot run here.
+Every sentence is
 sourced from the model card, README, prompting guide or report, never
 invented; docs/design-notes.md ("The prompting guide") keeps the URLs.
 
@@ -430,6 +432,13 @@ Z_ANIME_GUIDE = {
     "pixels": (0.26, 4.2),
     "pixels_word": "documented",
     "examples": [
+        # The card's complete "Good" example, ahead of its editable templates.
+        "A young anime girl with long silver hair and golden eyes, wearing a "
+        "traditional shrine maiden outfit with white haori and red hakama. "
+        "She stands in a sunlit bamboo forest, cherry blossoms falling softly "
+        "around her. Warm afternoon light filtering through the trees, detailed "
+        "fabric shading, expressive face, calm serene expression, high quality "
+        "anime illustration with fine line work.",
         "Detailed anime portrait of [character], soft rim lighting, expressive "
         "eyes with detailed reflections, fine hair strands, clean linework, "
         "professional anime illustration quality.",
@@ -928,13 +937,23 @@ ILLUSTRIOUS_GUIDE = {
     },
 }
 _WAI_NEGATIVE = "bad quality,worst quality,worst detail,sketch,censor,"
+_WAI_EXAMPLES = [
+    # Contiguous scene excerpts from WAI0731's v17 Tensor.Art images
+    # 990778028365743217 and 990778122855024231. Full sources in design-notes.
+    "1girl, hatsune miku, dress, long hair, jewelry, white dress, blue eyes, "
+    "necklace, bubble, solo, underwater, hair between eyes, looking at viewer, "
+    "bangs, blue hair, bow",
+    "1girl, horns, solo, japanese clothes, red eyes, long hair, white hair, "
+    "sash, kimono, armor, obi, looking at viewer, oni horns, floral print, scarf",
+]
 WAI_GUIDE = {
     "prompt": (
         "WAI Illustrious v17 is an anime finetune with its own style. Use tags "
         "for the subject and scene; the family release notes also describe "
         "natural-language support. Finish with the author's quality recipe: "
         "masterpiece, best quality, amazing quality; add your subject before it. "
-        "Examples inserts that recipe alone. Both SDXL CLIP tokenizers "
+        "Examples contains scene excerpts from the author's v17 gallery. "
+        "Both SDXL CLIP tokenizers "
         "stop at 77 tokens, so keep essential details near the beginning.\n"
         "The author's rating tags are general, sensitive, nsfw and explicit; "
         "the author suggests adding nsfw to the negative prompt when filtering "
@@ -966,8 +985,12 @@ WAI_GUIDE = {
     # example, so the line calls them what the prose does.
     "pixels_word": "example",
     "pixels_source": "the author's reference sizes",
-    # The author supplies this positive recipe, not a complete scene prompt.
-    "examples": [",masterpiece,best quality,amazing quality,"],
+    # The author's gallery supplies scenes; the card's recipe remains in Tags.
+    "examples": _WAI_EXAMPLES,
+    "example_notes": {
+        prompt: "Author scene excerpt; quality suffix omitted"
+        for prompt in _WAI_EXAMPLES
+    },
     "tag_helper": {
         "order": ["Subject and scene", "Quality"],
         "groups": [
@@ -989,7 +1012,7 @@ WAI_GUIDE = {
     },
     # Two slots: everything the author calls subject and scene, then the
     # recipe. Where a rating tag goes is not written, so it is subject. The
-    # cites stay clear of "Examples inserts that recipe alone", which is the
+    # cites stay clear of the Examples-menu sentence, which is the
     # app's menu talking (`prompt_sources`, `unsourced`).
     "analysis": {
         "url": "https://tensor.art/models/990778216270553015/WAI-illustrious-v17",
@@ -1037,7 +1060,7 @@ NOOBAI_GUIDE = {
     "prompt": (
         "NoobAI-XL V-pred 1.0 was trained with native Danbooru and e621 tags "
         "and natural-language captions. The card recommends the prefix "
-        f"'{_NOOBAI_PREFIX}'. Examples inserts that prefix alone; add your subject. "
+        f"'{_NOOBAI_PREFIX}'. Examples includes the card's complete Diffusers prompt. "
         "Its separate caption template lists person count, character, series, "
         "artists, special tags, general tags, then other tags. The author's "
         "Diffusers example uses artist: before artist names.\n"
@@ -1067,9 +1090,14 @@ NOOBAI_GUIDE = {
         (768, 1344), (832, 1216), (896, 1152), (1024, 1024),
         (1152, 896), (1216, 832), (1344, 768),
     ],
-    # The author's prefix fits the runtime's short CLIP window. Their full
-    # Diffusers example is longer and is not silently trimmed into a new scene.
-    "examples": [_NOOBAI_PREFIX],
+    # The pinned card's complete Diffusers prompt: 76 tokens including the
+    # special tokens in each published CLIP tokenizer (77 available).
+    "examples": [
+        "masterpiece, best quality,artist:john_kafka,artist:nixeu,artist:quasarcake, "
+        "chromatic aberration, film grain, horror \\(theme\\), limited palette, "
+        "x-shaped pupils, high contrast, color contrast, cold colors, arlecchino "
+        "\\(genshin impact\\), black theme,  gritty, graphite \\(medium\\)",
+    ],
     "tag_helper": {
         # The prefix and caption template are distinct author recommendations,
         # not one unambiguous total order. Show the template through the critic
@@ -1102,6 +1130,19 @@ NOOBAI_GUIDE = {
     },
 }
 
+_ROUWEI_EXAMPLES = [
+    # The full scene chunks from the pinned author's examples_epsilon/28.png
+    # and 33.png, without their separate style/quality chunk and BREAK.
+    "Three girls Koyoi with white fox ears and red hakama, Kunoichi-chan with "
+    "wolf ears and blue floral kimono, and Mutsuki with cat ears and purple "
+    "kimonostand barefoot in shallow water at night, holding glowing paper "
+    "lanterns. The scene features soft bokeh lighting, water reflections, and "
+    "a soft-focus foliage background.",
+    "1girl, senko \\(sewayaki kitsune no senko-san\\), fox girl, fox ears, fox "
+    "tail, blonde hair, yellow eyes, hair ornament, miko, apron, red hakama, "
+    "white socks, geta, tilted head,\nindoors, kitchen, table, holding a plate "
+    "with a slice of strawberry cake",
+]
 ROUWEI_GUIDE = {
     "prompt": (
         "RouWei 0.8 epsilon is an Illustrious retrain for anime and other illustration "
@@ -1112,8 +1153,8 @@ ROUWEI_GUIDE = {
         "optional. The negative quality tags are low quality and worst quality; the "
         "author says to retain low quality. Do not use lowres: the author removed "
         "that meta tag. Keep the negative prompt short; the author's recipe is "
-        "worst quality, low quality, watermark. Examples inserts the optional "
-        "positive quality recipe alone; add your subject.\n"
+        "worst quality, low quality, watermark. Examples contains the author's "
+        "scene excerpts without the separate style and quality chunk.\n"
         "Put by followed by a space before each artist name. The author asks for "
         "artist tags in a separate CLIP chunk, or at least at the very end of the "
         "prompt. This app does not implement separate chunks: BREAK is literal "
@@ -1132,8 +1173,11 @@ ROUWEI_GUIDE = {
     ),
     "pixels": (1.0, 1.5),
     "pixels_word": "recommended",
-    # The author's quality recipe, not an invented example scene.
-    "examples": ["masterpiece, best quality"],
+    "examples": _ROUWEI_EXAMPLES,
+    "example_notes": {
+        prompt: "Author scene excerpt; separate style and quality chunk omitted"
+        for prompt in _ROUWEI_EXAMPLES
+    },
     "tag_helper": {
         "order": [],
         "groups": [
@@ -1292,7 +1336,9 @@ NEWBIE_GUIDE = {
         "together. Use a separate <character_1>, <character_2> block with "
         "name, gender, appearance, clothing, expression, action and position; "
         "put the shared scene in <general_tags>. The Examples menu includes "
-        "the author's two-character XML prompt. Gemma reads up to 512 tokens "
+        "the author's two-character XML prompt. Keep $character_1$ and "
+        "$character_2$ for unnamed characters, or replace them with names. "
+        "Gemma reads up to 512 tokens "
         "and Jina CLIP up to 2048 in this app; keep the main description "
         "within Gemma's shorter limit."
     ),
@@ -1347,7 +1393,6 @@ NEWBIE_GUIDE = {
         "<objects>briefcase</objects>\n"
         "<other>alternate_costume</other>\n"
         "</general_tags>",
-        "1girl",
     ],
     # The prose says "name"; the card's example writes <n>, so either counts.
     "analysis": {
@@ -1379,16 +1424,6 @@ NEWBIE_GUIDE = {
                 "keep each character's attributes together."
             ),
         },
-        # Each slot's finding quotes its own line of the example: this cite
-        # for $character_1$, "<n>$character_2$</n>" for the second.
-        "placeholders": [
-            {
-                "pattern": r"\$character_\d+\$",
-                "cite": "<n>$character_1$</n>",
-                "source": "author",
-                "fill": "the character's name or description",
-            },
-        ],
     },
 }
 

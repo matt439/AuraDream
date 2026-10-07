@@ -147,6 +147,7 @@ function applyGuide(g) {
     syncSize();
   }
   if (Array.isArray(g.examples)) examples = g.examples;
+  exampleNotes = g.example_notes || {};
   if (Array.isArray(g.slots)) {
     exampleSlots = g.slots.flatMap((pattern) => {
       try { return [new RegExp(pattern, 'gi')]; } catch { return []; }

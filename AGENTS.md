@@ -1313,13 +1313,17 @@ Frontend and CLI:
   attached, an example matching `EDIT_PROMPT` (app.js, held equal to
   `prompt_rules.EDIT_PROMPT` by `tests/test_prompt_rules_prose.py`) says it needs a
   reference image. An example holding one of the authors' template slots
+  (Z-Anime's; NewBie's anonymous character identifiers can stay as written)
   says which slots are left to fill. The slots are `ModelStatus.guide.slots`,
   the placeholder rule's patterns, read case-insensitively and held by a
   test to syntax both engines read alike. The note reads "fill in
   [character]", names two slots where there are two, and gives the first and
   a count where there are more. A pick selects the first slot
   (`templateSlots`, `setSelectionRange`, `scrollToSelection`); selecting
-  writes nothing.
+  writes nothing. `guide.example_notes` maps prompt text to an editing note,
+  displayed alongside an author scene excerpt and never inserted into the
+  prompt. Every catalogue guide has a substantive scene example; quality
+  recipes remain in Tags. Preserve author wording and label excerpts.
 - Prompt expansion is ERNIE-only and explicit. `syncExpandButton` is
   Expand's one writer: it is held while it runs (reading "Expand…", never
   the wider "Expanding…"), during this page's job or another tab's
@@ -2917,7 +2921,7 @@ prompting, the native 1-2.25 MP size range, 4 MP warning against the 2.25
 MP bound and disabled Mu.
 `smoke-z-anime.json` uses a Z-Anime-claiming fake on 7868 for Base defaults,
 natural-language prompting, negative guidance, enabled Mu, the documented
-4 MP ceiling, the two template Examples' fill-in notes and slot selection,
+4 MP ceiling, the complete scene example and two templates' fill-in notes and slot selection,
 the missing-negative note and a whole-item slot reported once; the fixed
 shift's 1.79 in the Mu box, the grid preview and a Mu sweep's sheet (none
 sorted between 1 and 2.5, just ahead of an explicit 1.79, in the Fixed line
@@ -2987,8 +2991,8 @@ node tools/browser.mjs tools/smoke-netayume.json
 ```
 
 `smoke-newbie.json` checks NewBie defaults, the qualified size guide (the
-author's example wording), XML example selection (its fill-in note and the
-first slot selected), each slot's own cite, the critic's XML reorders set
+author's example wording), XML example selection with its valid anonymous
+character identifiers and no fill-in warning, the critic's XML reorders set
 aside (words moved between blocks; `<general_tags>` ahead of a character)
 and persistence, applied saved settings, the live negative's caption, the
 grid examples, the refused adapter and its dead LoRA weight axis, Mu kept

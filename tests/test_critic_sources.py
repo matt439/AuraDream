@@ -160,6 +160,12 @@ _NEWBIE_CARD = (
 )
 
 
+_NEWBIE_XML = (
+    "https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/blob/"
+    "4f7825a1a7e1ed5c1882a52e3c51d1119a43e298/XML%20Prompt.json"
+)
+
+
 _NEWBIE_CODE = (
     "https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/"
     "709e9a482fb2b861ad6aa50dcafb0198cad66c1d/finetune.py"
@@ -269,6 +275,7 @@ _NEWBIE_CODE = (
                 ("It accepts natural language, t", _NEWBIE_CARD),
                 ("The authors recommend XML for ", _NEWBIE_CARD),
                 ("Use a separate <character_1>, ", _NEWBIE_CARD),
+                ("Keep $character_1$ and $charac", _NEWBIE_XML),
                 ("Gemma reads up to 512 tokens a", _NEWBIE_CODE),
             ],
         ),
@@ -285,6 +292,17 @@ def test_each_sentence_links_the_page_that_says_it(model_id, expected):
     assert [
         (sentence.text[:30], sentence.url) for sentence in sources.sentences
     ] == expected
+
+
+def test_newbie_critic_can_cite_anonymous_character_names():
+    model_id = "NewBie-AI/NewBie-image-Exp0.1"
+    sources = prompt_sources.sources_for(model_id)
+    excerpt = next(e for e in sources.excerpts if e.id == "newbie.anonymous_names")
+    assert excerpt.url == _NEWBIE_XML
+    assert "$character_1$, $character_2$" in excerpt.text
+    context = _context(model_id, prompt=guides.NEWBIE_GUIDE["examples"][0], style="xml")
+    assert any(c.text == excerpt.text and c.url == _NEWBIE_XML for c in context.citations.values())
+    assert "They do not need to be replaced with names." in context.system
 
 
 def test_an_unknown_checkpoint_has_only_the_fallback():

@@ -45,7 +45,9 @@ def test_noobai_guide_preserves_its_vocabulary_and_exact_recommended_shapes():
     assert helper.year_tag and helper.vocabulary_cutoff == "2024-10-23"
     assert helper.artist_prefix == "artist:"
     assert helper.negative_prompt.startswith("nsfw, worst quality, old, early, low quality")
-    assert guide.examples == ["masterpiece, best quality, newest, absurdres, highres, safe,"]
+    assert len(guide.examples) == 1
+    assert guide.examples[0].startswith("masterpiece, best quality,artist:john_kafka")
+    assert "arlecchino" in guide.examples[0] and "graphite" in guide.examples[0]
     assert guide.pixels_word == "recommended"
     assert guide.resolutions == [
         (768, 1344), (832, 1216), (896, 1152), (1024, 1024),
@@ -60,7 +62,7 @@ def test_noobai_prefix_and_caption_order_are_distinct_author_advice():
     [order] = [excerpt for excerpt in sources.excerpts if excerpt.order]
     assert order.id == "noobai.order" and "<artists>" in order.text
     assert prompt_rules.documented_order(MODEL) is None
-    prompt = guides.NOOBAI_GUIDE["examples"][0] + " artist:john_kafka, 1girl, greenhouse"
+    prompt = guides._NOOBAI_PREFIX + " artist:john_kafka, 1girl, greenhouse"
     # The author's two-quality prefix and underscored artist example must not
     # inherit another checkpoint's exclusive tiers, spelling or total order.
     findings = run(MODEL, prompt)

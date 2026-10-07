@@ -5577,8 +5577,10 @@ not invent a flow start-sigma value for this scheduler.
 The guide keeps NoobAI's quality/date vocabulary and author caption-order
 excerpt separate from other SDXL models. The card gives both a quality prefix
 and a caption order without defining their combined placement; the analyser
-does not impose an invented total order. Examples inserts the author's prefix
-and asks the user to add a subject. Both CLIP encoders have a 77-token sequence,
+does not impose an invented total order. Examples inserts the card's complete
+Diffusers prompt (76 tokens including special tokens in both published CLIPs).
+The earlier prefix-only menu incorrectly assumed that prompt was too long.
+Both CLIP encoders have a 77-token sequence,
 about 75 content tokens. Danbooru suggestions use the stated approximate
 2024-10-23 cutoff; the app has no e621 vocabulary lookup. A tag-index match
 does not prove that this checkpoint learned a tag.
@@ -5966,6 +5968,16 @@ example remains editable text, without comma-tag chip parsing. The size
 guide highlights the card's 1024-square example area and explicitly says
 it is not a minimum, maximum or quality limit.
 
+**Anonymous character labels are usable as written** (2026-10-07). The
+author's XML example uses `$character_1$` and `$character_2$` literally in
+the generation metadata of its [published example image](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/resolve/4f7825a1a7e1ed5c1882a52e3c51d1119a43e298/image/XML_prompt_image.png).
+The [pinned captioning recipe](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/blob/4f7825a1a7e1ed5c1882a52e3c51d1119a43e298/XML%20Prompt.json)
+specifies those labels when character names are unknown. The guide now
+explains that they may stay, and neither Examples nor Check treats them as
+slots that require names. The critic receives the same author excerpt and
+caveat. The one-word `1girl` quickstart stub is removed from Examples; the
+complete two-character XML remains verbatim.
+
 Sources, checked 2026-09-26:
 
 - [Pinned card and official files](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/tree/4f7825a1a7e1ed5c1882a52e3c51d1119a43e298).
@@ -5983,7 +5995,7 @@ Sources, checked 2026-09-26:
 persistence, size warning and saved settings using the fake server on 7872,
 and since 2026-10-05 what the area review found an XML prompt needs elsewhere
 on the page: the token line under the prompt where no chips count (Animagine
-XL 4.0), each template slot's own cite and the critic's XML reorders (The
+XL 4.0), its anonymous labels accepted unchanged and the critic's XML reorders (The
 prompt analyser), jobs and runs named by their words (The browser's queue), a
 grid prompt listed by its variable lines and a none that closes only its hole
 (Grid preview, The prompt is an axis), the prompt's lines kept beside its facts
@@ -6141,8 +6153,8 @@ checkpoint takes reference images and none is attached, an example that
 edits a picture "this" prompt takes to be there (`prompt_rules.EDIT_PROMPT`,
 copied as `EDIT_PROMPT` in app.js and held equal by a test) says "needs a
 reference image" beside the authors' words, which stay as written. An
-example that is a template - Z-Anime's portrait and landscape templates,
-NewBie's XML - says beside it which slots it leaves to fill ("fill in
+example that is a template - Z-Anime's portrait and landscape templates -
+says beside it which slots it leaves to fill ("fill in
 [character]"; two by name, more as the first and a count), and a pick selects
 the first (`templateSlots`, `setSelectionRange`, `scrollToSelection`), so what
 is typed next replaces it; selecting writes nothing. When the pick left the
@@ -6156,6 +6168,44 @@ examples are verbatim from the authors - a model card's demo
 prompt, a prompting guide's, a blog caption - because a checkpoint's own
 examples are the shortest way to learn its voice, and because an invented
 one would be a claim about the model with nothing behind it.
+
+**Examples describe a scene** (2026-10-07). The catalogue audit found three
+quality-only stubs: WAI, NoobAI and RouWei. NoobAI now uses its complete
+Diffusers example; Z-Anime puts its complete "Good" scene before its two
+editable templates. WAI and RouWei use explicitly labelled, contiguous
+author scene excerpts: WAI's full gallery prompts exceed the 77-token CLIP
+window, while RouWei separates style/quality from its scenes with `BREAK`,
+which this app does not implement. The words inside each excerpt are unchanged
+(including RouWei's original `kimonostand` typo). Quality actions remain in
+Tags; an excerpt is not the author's full sampling recipe or a claim to
+reproduce their image.
+
+`guide.example_notes` maps the exact prompt to its editing note; `guide_for`
+and `PromptGuide` carry it to `applyGuide`, which resets the map on every
+status. The Examples menu displays it beside the text and never inserts the
+note into the editor. Keying by text keeps a note attached when examples are
+reordered. The catalogue regression rejects quality-only examples and a menu
+containing only fill-in templates. Existing author-rule checks still apply.
+
+Sources checked 2026-10-07; token counts include special tokens in **both**
+of each SDXL checkpoint's actual CLIP tokenizers, loaded on CPU:
+
+- WAI: [Miku underwater](https://tensor.art/images/990778028365743217?model_id=990778216270553015)
+  and [oni in kimono](https://tensor.art/images/990778122855024231?model_id=990778216270553015),
+  WAI0731's v17 gallery; prefix excerpts, 44 and 40 tokens.
+- NoobAI: [pinned author card](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0/blob/66aa55e3469c27c29a89813cd35dd95fb7485fa1/README.md),
+  complete Arlecchino/graphite prompt, 76 tokens.
+- RouWei: the PNG parameter metadata in [epsilon example 28](https://huggingface.co/Minthy/RouWei-0.8/blob/95b524750edf2dcbc84967ded3d1bc99deed3b53/examples_epsilon/28.png)
+  and [epsilon example 33](https://huggingface.co/Minthy/RouWei-0.8/blob/95b524750edf2dcbc84967ded3d1bc99deed3b53/examples_epsilon/33.png),
+  complete scene chunks, 71 and 72 tokens. Both identify epsilon hash
+  `1aba15decd`; their omitted recipe includes hires/ADetailer.
+- Z-Anime: [pinned card's Prompting Guide](https://huggingface.co/SeeSee21/Z-Anime/blob/0f5fb51464638a2f7328a1d74590281e63e1fde2/README.md),
+  complete shrine-maiden scene; the template examples remain available.
+
+All other catalogue menus already had substantive author examples. The
+unknown-checkpoint fallback stays empty: there is no known author guide for
+an arbitrary model id. These are source and text-budget checks, not new GPU
+image-quality measurements.
 
 Sources, checked 2026-09-10. FLUX.1: BFL's prompting basics
 (<https://docs.bfl.ai/guides/prompting_unified_basics>), the launch post's
@@ -6372,7 +6422,7 @@ verbatim piece of the prose the ? badge shows, and
 contain - so a rule can only be a statement the page already makes, and a
 `guide` finding carries that cite and its URL to the page. What rests on an
 author's example rather than the prose is `author` (Z-Anime's `[character]`
-and NewBie's `$character_1$` slots). Pattern matching with no author sentence
+and `[location]` slots). Pattern matching with no author sentence
 behind it - quality boilerplate on a prose checkpoint, a repeated tag - is
 `heuristic`, carries no cite, and the page labels it Heuristic. The authors'
 own example prompts raise no warning against their own guide (a test), apart
@@ -6772,7 +6822,9 @@ assembled check (`main._checked`) now drops the encoder layer's weighting
 finding on exactly an author slot's span, that finding's own message having
 already allowed it might be a slot. The card's "Backgrounds & Landscapes"
 template is a second Z-Anime Example, and its four slots are the author's.
-NewBie's second slot quoted the first slot's line (`<n>$character_1$</n>`): an
+NewBie's second label was then treated as a slot and quoted the first one's
+line (`<n>$character_1$</n>`); the labels are accepted unchanged since the
+2026-10-07 source review above. An
 `author.placeholder` finding now quotes the entry's cite where it shows that
 slot, else the shortest line of the examples that does (`_slot_cite`,
 `test_each_slot_cites_the_authors_own_words`), and says what to put there (the
