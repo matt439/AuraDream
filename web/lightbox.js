@@ -6,7 +6,7 @@
 
 // `origin` is where an open from a closed lightbox came from, where it is not
 // the strip it walks: the viewer's image walks the gallery from it, and
-// #recent this page's earlier results (panel.js) - a close hands focus back
+// #recent this page's earlier results (viewer.js) - a close hands focus back
 // there (dismissLightbox), not to a card a screen down.
 let lbOrigin = null;
 function openLightbox(rec, list, origin = null) {

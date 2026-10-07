@@ -1854,9 +1854,9 @@ moved a whole block read as the words of every tag in it ("same words, moved:
 character_2 … kasane_teto … pink_hair …"), and as an edit label the oldest
 prompt was the whole XML clamped to its opening tags. `blockMove` finds each
 prompt's top-level blocks as the critic does (`xmlBlocks`); its `XML_BLOCK` is
-`critic._XML_BLOCK` with Python's Unicode `\w` written out as `[\p{L}\p{N}_]`
+`critic_reorder._XML_BLOCK` with Python's Unicode `\w` written out as `[\p{L}\p{N}_]`
 under the `u` flag, since JavaScript's `\w` is ASCII alone, and
-`tests/test_critic.py` reads sheet.js and holds the two equal. Where a version
+`tests/test_critic_reorder.py` reads sheet.js and holds the two equal. Where a version
 is the original's blocks in another order, nothing in them changed and the text
 between them the same gap by gap, it names the move by tag - concatenating
 that text had let loose text moved past a block pass as a block move. One
@@ -5308,9 +5308,9 @@ always, its line took Generate past the edge of a 1400x900 window and said only
 that there was room. An encoder left uncounted (a tokenizer still loading or
 one that cannot be fetched, the server not answering) is "Tokens: cut unknown",
 never "no cut", since there is no count to hold to the three quarters. The
-page measures the first 4000 code points (`PROMPT_MAX_CHARS`, tags.js, held
+page measures the first 4000 code points (`PROMPT_MAX_CHARS`, tag-tokens.js, held
 equal to `PromptMeasureRequest`'s and `GenerateRequest`'s `max_length` by
-`tests/test_api_analysis.py`). Past them the line leads with "Over 4000
+`tests/test_api_analysis_tags.py`). Past them the line leads with "Over 4000
 characters: Generate and Check refuse it", in amber, then the count of what
 was counted and its cut, and the summary line says it once (the chip tray's
 label says "over 4000 characters" the same way). Before, the measure refused
@@ -6682,7 +6682,7 @@ move whole so no attribute changes owner, but the set-aside sentence now says
 what it did, where it used to say it changed words: it moved words inside an
 XML block or between blocks, it changed only punctuation or spacing ("happy,
 smile" to "happy smile", `<n> miku </n>`), or it changed the text outside the
-blocks (`critic._not_a_reorder`). The area review's optional `_xml` info
+blocks (`critic_reorder._not_a_reorder`). The area review's optional `_xml` info
 finding for a scene block ahead of a character (newbie-5) was not built:
 Check's "order not checked" for XML is deliberate, and the note under the chain
 would contradict it.
@@ -6910,7 +6910,7 @@ could not stop.
 a script that does not `exec` - whose server is a grandchild. The 2026-09-28
 review found that stopping the child alone left such a server listening, and
 holding the card, after the gate opened, and that the log it still held turned
-a finished critique into a 500 (F19). So `critic._ServerProcess` stops a tree,
+a finished critique into a 500 (F19). So `critic_server._ServerProcess` stops a tree,
 even when the child itself has already exited, since a wrapper's server
 outlives it. On Windows the tree is a job object with kill-on-close. The child
 is created suspended and resumed only once it is in the job (by ntdll's
@@ -6960,7 +6960,7 @@ server's place (F43). Neither the bind failing (b11206 sets `SO_REUSEADDR`)
 nor the 401 probe (a stranger can answer 401 too) guards the gap between
 `_free_port()` and the server's bind. So, last before the key goes out (the
 count and the question both carry it), the port's listener must be the
-server's own process tree (`critic._listener_is_ours`, as
+server's own process tree (`critic_server._listener_is_ours`, as
 `_wait_until_healthy`'s comment says): on Windows the TCP tables' owning pid
 is checked against the job's processes, and on Linux, WSL included, the
 listening socket's inode in /proc/net/tcp and tcp6 against the descriptors of
@@ -8007,7 +8007,7 @@ finding's have a Show. The comparison's always-run Original box carries the
   `<n>`. The XML rule accepts both; whether the model reads `<name>` as it
   reads `<n>` has not been tried.
 
-## The page script is twelve files, not one module
+## The page scripts share one classic scope
 
 `web/app.js` reached 3,200 lines - every section of the page in one
 file - and was split on 2026-09-10 along its own section comments into
@@ -8023,9 +8023,9 @@ function in any of them is visible to all the others, so nothing needed an
 export or an import, and - the reason that matters - a smoke step's `eval`
 (`tools/browser.mjs`) still reaches `els`, `galleryRecords`, `startJob`,
 `analysisResult` and the rest by name, which a module's scope would hide. The
-contract that makes the order safe is that eleven of the twelve only *declare*:
+contract that makes the order safe is that every script except `app.js` only *declares*:
 a function in `sizes.js` may call one from `analysis.js` because every call
-happens after all twelve have loaded, from a handler or from `app.js`'s
+happens after all scripts have loaded, from a handler or from `app.js`'s
 boot. A file that ran something at load would have to sit after everything
 it touches; keep the wiring in `app.js`. The lightbox's pointer handlers
 were once the exception, wired beside the code they belong to; the
@@ -8033,8 +8033,8 @@ were once the exception, wired beside the code they belong to; the
 failures) grew them past "touching nothing outside it", and they are now
 named functions in `lightbox.js` (`lbImageFailed`, `lbWheel`,
 `lbPointerDown` and the rest) that `app.js` wires with every other handler.
-Since then `panel.js` also holds the results viewer, and `lightbox.js` the
-shared facts list (`factsList`) the viewer's column uses too.
+`viewer.js` now holds the results viewer, and `lightbox.js` the shared
+facts list (`factsList`) the viewer's column uses too.
 
 The same pass moved `tests/test_api.py` (1,300 lines) into `tests/fakes.py`,
 the fixtures in `conftest.py`, `tests/api_helpers.py` and one `test_api*.py`
@@ -8043,6 +8043,30 @@ per area, and pulled `backend/search.py`, `backend/guides.py`,
 three largest backend modules. `loading` takes `settings` as a parameter
 rather than importing it: the tests replace the backend's `settings`, and a
 second module-level copy would have gone on reading the real one.
+
+The 2026-10-07 source audit split the larger feature files again, bringing
+that list to 26 scripts. Submission, grid preview, streaming and job results
+are separate; so are panel/history/viewer, gallery/actions/reuse, sheet
+modelling/rendering/export, tag suggestions/token counts/chips, prompt
+check/critic/comparison and the Refine dialog's prompt controls. Each original
+group stays contiguous in `index.html`, with its executable declarations unchanged,
+and the shared bindings and `app.js` boot contract remain the same. The eight
+stylesheet links are consecutive sections of the old `style.css`, in its
+original order, preserving the cascade exactly. Tokens and base layout remain
+in `style.css`; the component rules live under `web/styles/`.
+
+The same audit split the critic into runtime installation, process ownership,
+context construction, pure reordering checks, answer validation and the coordinator; deterministic
+prompt checks now share `prompt_text.py` and `prompt_order.py`. Public callers
+still use `critic.py` and `prompt_rules.py`; tests patch the module that owns
+the implementation, rather than an imported alias. Gallery and job routes
+moved from `main.py` into router factories in `api_gallery.py` and
+`api_jobs.py`. They receive callbacks for the app-owned worker and checkpoint
+scope so they read current dependencies rather than capturing a second copy.
+The generated OpenAPI contract is unchanged. Test modules were split by
+responsibility too, retaining their test bodies and parameter cases. The full
+inventory, reasons for keeping other long files together and verification are
+in [the source audit](source-audit.md).
 
 ## uv.lock's hand-pinned torch hashes
 

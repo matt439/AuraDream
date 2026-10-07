@@ -287,7 +287,7 @@ async function unloadModel() {
     // As Generate's press: no answer is said in the offline words, which the
     // poll's first answer takes back, and the poll asks again at once.
     if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
-    // Held by a job: said until that job ends (generation.js) - another
+    // Held by a job: said until that job ends (job-results.js) - another
     // tab's too (setElsewhereBusy). A sentence, as every held press says its
     // reason: the title is the reason without its stop.
     else if (busy) showJobNote(`${els.unload.title}.`);

@@ -1,0 +1,530 @@
+
+/* ----------------------------------------------------------------- fields */
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > span { font-size: var(--fs-label); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+/* A colour, not an opacity: #a2a2b0 on the panel is 5.9:1, where the muted
+   token at 0.65 alpha composited to 3.0:1 - and to 1.55:1 once the field's own
+   dimming multiplied in, on the one line that explains why the field is off. */
+.field em { text-transform: none; font-style: normal; font-weight: 400; color: var(--text-3); letter-spacing: 0; }
+
+textarea, input[type="number"], input[type="search"], input[type="text"] {
+  background: var(--panel-2);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  border-radius: var(--r-md);
+  padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 10px;
+  font: inherit;
+  width: 100%;
+  resize: vertical;
+}
+
+/* A text box's focus is its border, two pixels of the accent: one pixel of it
+   beside the controls' --line-strong was a 1.3:1 change. Not a checkbox's,
+   whose border does not render: it takes the ring below. Nor the chip
+   editor's borderless box, inside a pill that is its own focus. */
+textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { outline: none; border-color: var(--accent); }
+:where(textarea, input[type="number"], input[type="search"], input[type="text"]):not(.tag-editor input):focus {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+/* What a blank box will do - Seed "random", True CFG "off", Mu "auto" - is
+   read off its placeholder: the UA's grey was 3.76:1 on the fill, the muted
+   token is 5.16:1, and still nothing like a typed value. */
+::placeholder { color: var(--muted); opacity: 1; }
+
+/* The page's own focus ring, for every control without one of its own. With
+   `color-scheme: dark` the UA's ring is near black here, and checkboxes had
+   none at all (`outline: none` above used to catch them): a Space pressed on
+   an invisible Favorites re-filtered the gallery. A rule of a control's own
+   (a text box's border, a chip's inset ring, a menu item's fill) outranks it. */
+:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+.translation textarea {
+  color: var(--text-soft);
+  border-color: #343244;
+  font-size: var(--fs-label);
+}
+.translation textarea:focus { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
+/* From 1800 px ERNIE's English is at the head of the results, not in the
+   panel (status.js, placeTranslation): a box of its own, as the results'
+   other boxes are, and as tall as the text up to two fifths of the window -
+   in the panel its four rows showed a fifth of a long expansion, and the
+   field pushed Generate below the window at 125%. The viewer and the gallery
+   move down by it when an expansion lands, the user's own press. */
+@media (min-width: 1800px) {
+  .stage > .translation {
+    padding: var(--sp-3); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+  }
+  .stage > .translation textarea:not([style*="height"]) { field-sizing: content; min-height: calc(2lh + var(--h-field)); max-height: 40vh; }
+}
+
+/* The adapter list, drawn as the text boxes beside it are: the UA's select
+   was the one white control on the page, 19 px tall beside 41 px boxes, so
+   its label sat lower than Weight's. Only this one: the gallery's, the
+   comparison's and the sheet's selects are styled where they live, and a
+   rule for every select would restyle them too. */
+#lora {
+  width: 100%;
+  padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 6px;
+  font: inherit;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  color: var(--text);
+}
+#lora:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* A seed is up to 16 digits, all of them significant: same-width figures and
+   no spinner, whose arrows took the room of two digits and stepped a seed by
+   one. */
+#seed, #refine-seed { font-variant-numeric: tabular-nums; appearance: textfield; }
+#seed::-webkit-inner-spin-button, #seed::-webkit-outer-spin-button,
+#refine-seed::-webkit-inner-spin-button, #refine-seed::-webkit-outer-spin-button { appearance: none; margin: 0; }
+/* The Refine dialog's Seed takes the room of its row Versions does not need:
+   at 125% its 16 digits were cut to 15 and a dot, beside a Strength box of
+   the same width that holds a few characters. */
+.rf-strength .row > .sub.grow:has(> #refine-seed) { flex-grow: 1.1; min-width: min(calc(16ch + 26px), 45%); }
+/* Strength no narrower than its caption's one line (Strength, ?, Compare 3).
+   Min-content, not max-content: that took the text box's own 20-character
+   width too, and the row ran 15 px past the dialog at 1400x900 and at 125%,
+   cutting the dice off and giving the dialog a sideways scrollbar. */
+.rf-strength .row > .sub.grow:has(> #refine-strength) { min-width: min-content; }
+/* Its caption (Strength, ?, Compare) stays one line, and the column is never
+   narrower than it: wrapped, the Compare button ran out of a squeezed column
+   instead of wrapping. */
+.rf-strength .sub:has(> #refine-strength) > i { white-space: nowrap; }
+
+/* The prompt is the page's main box: on a wide window it grows with what is
+   typed, from five lines to twelve (Chromium; elsewhere it stays at five and
+   scrolls), and W and H share their row. Capped in lines rather than in the
+   window's height: the panel stays where panel.js keeps it, and a box as tall
+   as 40% of the window would add 400 px to a panel already past the fold at
+   125%. A short window caps it at eight. The cap is the growth's, not the
+   user's: dragging the grip writes the box's height inline, and from then on
+   the box is the height it was dragged to, as it is under 1800 px - the drag
+   was the way round a long prompt before any of this, and a grip that stopped
+   at eight lines would take it away at 125%. */
+@media (min-width: 1800px) {
+  #prompt:not([style*="height"]) { field-sizing: content; min-height: calc(4lh + var(--h-field)); max-height: calc(11lh + var(--h-field)); }
+  .size-row .sub { flex: 1; }
+}
+@media (min-width: 1800px) and (max-height: 1150px) {
+  #prompt:not([style*="height"]) { max-height: calc(7lh + var(--h-field)); }
+}
+
+.row { display: flex; gap: var(--sp-2); align-items: flex-end; }
+.sub { display: flex; flex-direction: column; gap: var(--sp-1); }
+.sub.grow { flex: 1; min-width: 0; }
+/* Small counters. Without a fixed width a number input claims ~20 characters of
+   intrinsic width and squeezes the seed field it shares a row with. */
+.sub.narrow { width: var(--narrow-w); flex: none; }
+.sub.narrow input { padding-left: 6px; padding-right: 2px; }
+/* The sampling row's names on one line each, and no box narrower than its
+   name: FLUX.1's CFG is "CFG (distilled)" (applyHints), which a quarter of
+   the row - 68 px at 1400 - wrapped onto a second line under the other three,
+   or ran into Mu. It takes its room from boxes that hold three characters;
+   elsewhere the names are short and the four stay equal. */
+.sampling-row > .sub.grow { min-width: min-content; }
+/* The names only: the line also holds each ? badge and its tip, which would
+   inherit the nowrap and run on as one line out of its box (`.tip` sets its
+   own white-space too). */
+.sampling-row > .sub > i > label { white-space: nowrap; }
+/* Its boxes hold a few characters, as the counters' do, and take their
+   padding: beside a wider CFG the others are 62 px, and Mu's "auto" was cut
+   to "aut" by the spinner. */
+.sampling-row input { padding-left: 6px; padding-right: 2px; }
+/* The seed's dice, in the Seed name's line rather than the row: there it was
+   a 41 px square that, with its gap, took the room of six digits, and at
+   1400 the box showed eleven of a seed's sixteen. Now the box has the row
+   less the two counters - 156 px at 1400 for 121 px of digits - and the
+   Output row stays one line at every width, costing no height. The button is
+   the line's height, so the line does not grow: its target reaches past its
+   frame (::after) into the gaps above and below - 6 px up (to the Output
+   caption where it shows), 4 px down to the box, which takes the pixels at
+   its edge - 25 px or more tall at 1400, over nothing else that takes a
+   click. */
+#btn-dice {
+  position: relative; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: calc(var(--fs-sm) * var(--lh)); padding: 0 5px;
+  border-radius: var(--r-sm); font-size: var(--fs-sm); line-height: 1;
+}
+#btn-dice::after { content: ""; position: absolute; inset: -6px -3px -4px; }
+/* The Output caption is shown in one column and in the wide tier on a window
+   taller than 1150 px. Elsewhere - a two-column page under 1800 px, and the
+   short wide windows the compact controls are for - it is the group's name
+   alone: there the panel is at its tallest beside a window as short as
+   900 px, and the caption's line and gap (24 px) put Generate wholly below
+   the window at scroll 0 (top 908 at 1400x900, where 16 px of it had shown;
+   901.5 at 1800x900) and cut 5 px off it on a maximized 1080p browser
+   (1920x947), where it is whole without. The row's own names - Seed, Batch,
+   Repeat - say what it is, as LoRA's and Weight's do above it. Visually
+   hidden rather than gone, so the group keeps its name. The width range is
+   the complement of the one-column query and the wide tier, fractional
+   widths included, which a 1799/1800 split would leave to neither. */
+@media (900px < width < 1800px), (min-width: 1800px) and (max-height: 1150px) {
+  #output-caption {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+}
+.sub i { font-style: normal; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 5px; }
+
+/* An explicit hover target for the per-checkpoint help. A native `title` is
+   invisible until you happen to rest on the right pixels, and plenty of setups
+   never show one at all - so this is a badge you can see and a panel we draw. */
+.help {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none; width: 14px; height: 14px;
+  border: 1px solid var(--line-strong); border-radius: 50%; background: var(--panel-2);
+  color: var(--muted); font-size: 10px; line-height: 1;
+  cursor: help; user-select: none;
+}
+.help:hover, .help:focus { color: var(--text); border-color: var(--accent); outline: none; }
+.help:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+/* The badge grows with the type on a wide window, glyph and all. */
+@media (min-width: 1800px) {
+  .help { width: calc(var(--fs-sm) + 3px); height: calc(var(--fs-sm) + 3px); font-size: var(--fs-xs); }
+}
+/* A tip is something to read, never something to press: it holds only text,
+   and clicks go through it to whatever it covers. A ? clicked to read its tip
+   keeps the tip up (focus), and the Refine dialog's Size tip then lay over the
+   1.25x, 1.5x and 2x buttons and swallowed the clicks meant for them. */
+.tip {
+  display: none;
+  position: absolute; top: calc(100% + 7px); left: -6px; z-index: 30;
+  width: var(--tip-w); padding: 8px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  color: var(--text); font-size: var(--fs-sm); line-height: 1.45; text-align: left; cursor: auto;
+  pointer-events: none;
+  /* Its own, never its caption's: a name kept to one line (the sampling
+     row's) ran its tip on as one line out of the box and past the window. */
+  white-space: normal;
+}
+/* The rightmost badge's panel is wider than the field under it, so it hangs off
+   the other edge instead of out past the panel. */
+.help.end .tip { left: auto; right: -6px; }
+/* In two columns Batch's badge is near the panel's middle and its tip opens
+   over the stage; in one column it is 600 px along an 800 px row, and the tip
+   ran out past the window and widened the page. */
+@media (max-width: 900px) {
+  #batch-tip { left: auto; right: -6px; }
+}
+/* And one that would run past the window's bottom opens upwards (placeTip,
+   panel.js, sets `up` as it opens). */
+.help.up .tip { top: auto; bottom: calc(100% + 7px); }
+.help:hover .tip, .help:focus .tip { display: block; }
+/* A badge inside a box that scrolls by itself - the prompt check's - hangs
+   its tip from the window (placeTip's floatTip writes where): placed in the
+   box, the comparison's Batch tip was cut off by the box's edge and lay
+   under its sticky head. Hidden while its badge is scrolled out of the box. */
+.help .tip.floating { position: fixed; translate: none; }
+.help.clipped .tip.floating { display: none; }
+/* The prompting and size guides are paragraphs, not a sentence: wider. */
+.tip.wide { width: var(--tip-w-wide); }
+/* And a tip whose text has paragraphs keeps its line breaks (applyHints and
+   refreshLoras set `pre` where the text they write has one). Not every wide
+   tip: a tip written in the markup breaks its source lines wherever they fall,
+   and under pre-line those breaks showed up in the middle of its sentences. */
+.tip.pre { white-space: pre-line; }
+/* A caption's badges keep the caption's colour, not its letter-spacing. */
+.field > span .help, .field > span .tip, .field > span .examples,
+.field > span .tag-helper, .field > span #neg-enable { letter-spacing: 0; text-transform: none; font-weight: 400; }
+.field > span .help { margin-left: 5px; vertical-align: 1px; }
+/* Reset sits at the far end of the Prompt caption, away from Generate: it
+   empties every box, and a slip next to the one button people press all day
+   would cost them the prompt they were about to run. */
+.field > span .reset { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; }
+
+/* Example prompts: a button in the Prompt caption and a list that drops under
+   it. Clicking one fills the box - the guide says how to write a prompt, the
+   examples show it, and the authors' own examples are the shortest way to
+   learn a checkpoint's voice. */
+.examples, .tag-helper { position: relative; display: inline-block; margin-left: var(--sp-2); }
+.ghost.tiny { padding: calc((var(--h-xs) - var(--lh) * var(--fs-xs) - 2px) / 2) 7px; font-size: var(--fs-xs); line-height: var(--lh); flex: none; }
+/* From 1800 px the tiny buttons are the most-used secondary controls - the
+   Prompt caption's Examples, Check and Reset, the check's Apply and Use
+   rewrite - at a caption's type and 30 px tall (26 on a short window): 12 px
+   on a 24 px button was 2 mm at QHD. The tick boxes, a tag chip's × and the
+   reference chips grow with them (below). */
+@media (min-width: 1800px) {
+  .ghost.tiny { padding-block: calc((var(--h-xs) - var(--lh) * var(--fs-label) - 2px) / 2); font-size: var(--fs-label); }
+  input[type="checkbox"] { width: 18px; height: 18px; }
+}
+.menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  width: var(--menu-w); max-height: 320px; overflow-y: auto;
+  margin: 0; padding: var(--sp-1); list-style: none;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+}
+.menu li {
+  padding: 6px 8px; border-radius: var(--r-sm); cursor: pointer;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--text);
+}
+/* A long example is clamped to three lines. The clamp sits on an inner span,
+   not the item: `overflow: hidden` clips at the padding edge, so a clamped
+   item showed the top of its fourth line through its bottom padding, right
+   under the ellipsis, and the list read as prompts running into each other. */
+.menu li .text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.menu li:hover, .menu li:focus { background: var(--accent-soft); outline: none; }
+.menu li.empty { color: var(--muted); cursor: default; }
+/* What an example needs that the panel lacks - a reference image for an edit
+   of "this" picture - beside the authors' words, which stay as written. */
+.menu li .example-note { display: block; margin-top: 2px; color: var(--warn); }
+
+/* An Example written over a prompt of the user's own says so under the box,
+   with the Undo that puts it back: over the next field's caption, out of the
+   panel's flow, so its coming and going moves nothing - Generate least. */
+.prompt-note {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 25;
+  display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: 3px 4px 3px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop); color: var(--text-2); font-size: var(--fs-sm);
+}
+/* On one column the chips come straight under the box, and the note lay over
+   their first row, taking their clicks; there it takes a line of its own -
+   the panel is not sticky, so nothing it moves was under the pointer. */
+@media (max-width: 900px) {
+  .prompt-note:not([data-at="box"]) { position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none; }
+}
+/* Nor over the caption while the negative box is greyed: the caption then
+   says why (the note in it) and holds the button that wakes it, and the
+   overlay left "Negative prompt (ne" of that. In the flow there too, a line
+   that comes and goes with the note. */
+.panel:has(#negative-field.disabled) .prompt-note:not([data-at="box"]) {
+  position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
+}
+/* Nor for the notes with no timer (tags.js, `data-kind`): ERNIE's Expand
+   while it runs - minutes, on a first use - and an expansion held until Use
+   it or Discard. Over a live negative box (ERNIE at CFG above 1) they hid its
+   caption and its first lines for as long as they stayed. The overlay is for
+   the notes that go by themselves. */
+.prompt-note:is([data-kind="running"], [data-kind="held"]) {
+  position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none;
+}
+/* Reset's note lies in the top right of the prompt box it has just emptied,
+   under Reset itself, at every width (`data-at="box"`, tags.js): in the
+   panel's flow - one column, a greyed negative - it put a line above
+   Generate, and when it went 20 s later Generate came back up under a
+   pointer that may have been resting there. The box is empty for as long as
+   it shows: the panel's first change takes it. So is the note an Undo of it
+   leaves, over the text put back, for a few seconds; it holds no button,
+   and the pointer goes through it to the box. */
+.prompt-note[data-at="box"] { top: 4px; right: 4px; }
+.prompt-note[data-at="box"]:not(:has(button:not([hidden]))) { pointer-events: none; }
+/* The emptied box's placeholder - its first line runs under the note at
+   1400 px - waits for the note to go. */
+.prompt-editor:has(> .prompt-note[data-at="box"]:not([hidden])) > textarea::placeholder { color: transparent; }
+/* And at the end of ERNIE's English, where an expansion's note goes while the
+   English heads the results (app.js, applyExpansion): a line of that box. */
+.translation > .prompt-note { position: static; width: fit-content; margin: 0 0 0 auto; box-shadow: none; }
+
+/* The tag picker is data from the checkpoint guide, not a generic tag cloud:
+   each checkpoint gets only the categories and terms its sources document. The
+   editor remains the source of truth; these compact buttons insert at its
+   caret and reflect exact tags already present there. It drops under the
+   prompt box, the width of it, over the negative prompt and the sizes: hung
+   from the Tags button it covered 209 of the box's 296 px, caret and all,
+   and over the stage it would cover the chips that show what it did. Its
+   text is the chips' size. The window is its only cap: the longest helper,
+   Animagine's, is 573 px at that size and outgrew the 520 px it had, hiding
+   its closing note behind a scrollbar; from a 900 px window up it is whole. */
+.tag-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+  max-height: 70vh; overflow-y: auto;
+  padding: 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  color: var(--text); font-size: var(--fs-label); line-height: 1.4; text-align: left;
+}
+.tag-order { margin: 0 0 6px; color: var(--text-2); }
+.tag-insert { margin: 0 0 10px; color: var(--text); }
+.tag-group + .tag-group { margin-top: 9px; }
+.tag-group > strong { display: block; margin-bottom: var(--sp-1); color: var(--muted); font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: 0.04em; }
+.tag-options { display: flex; flex-wrap: wrap; gap: 5px; }
+.tag-option {
+  padding: 3px 7px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--pill); color: var(--text-2); font: inherit; cursor: pointer;
+}
+.tag-option:hover { border-color: var(--accent); color: var(--text); }
+.tag-option.active { border-color: var(--accent-2); background: #10312e; color: #b9fff8; }
+.tag-year { display: flex; gap: 6px; }
+.tag-year input { width: 82px; padding: 4px 7px; font-size: var(--fs-label); }
+.tag-actions { display: flex; flex-direction: column; gap: 6px; margin-top: var(--sp-3); }
+.tag-actions button { width: 100%; text-align: left; }
+.tag-menu .ghost.tiny { font-size: var(--fs-sm); }
+.tag-note { margin: 9px 0 0; color: var(--muted); }
+
+/* Live Danbooru assistance for tag-caption checkpoints. The suggestions float
+   over the next field; validation stays in flow as one compact chip per comma
+   item, so an unknown term is attributable without rewriting the prompt. */
+.prompt-editor { position: relative; }
+.prompt-editor textarea { display: block; }
+.tag-suggestions, .tag-editor-suggestions {
+  max-height: 250px; overflow-y: auto;
+  margin: 0; padding: var(--sp-1); list-style: none;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+}
+.tag-suggestions {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 35;
+}
+.tag-editor-suggestions {
+  position: absolute; top: calc(100% + 5px); left: 0; z-index: 45; width: 280px;
+}
+.tag-editor-suggestions.end { left: auto; right: 0; }
+.tag-suggestions li, .tag-editor-suggestions li {
+  display: flex; align-items: baseline; gap: 7px;
+  padding: 5px 7px; border-radius: var(--r-sm); cursor: pointer;
+  color: var(--text); font-size: var(--fs-label);
+}
+.tag-suggestions li:hover, .tag-suggestions li.active,
+.tag-editor-suggestions li:hover, .tag-editor-suggestions li.active { background: #30294d; }
+.tag-suggestions .tag-kind, .tag-editor-suggestions .tag-kind { color: var(--accent-2); min-width: 58px; font-size: var(--fs-xs); text-transform: uppercase; }
+.tag-suggestions .tag-name, .tag-editor-suggestions .tag-name { flex: 1; overflow-wrap: anywhere; }
+.tag-suggestions .tag-count, .tag-editor-suggestions .tag-count { color: var(--text-readout); font-variant-numeric: tabular-nums; }
+.tag-validation-host { display: contents; }
+.tag-validation {
+  display: flex; flex-wrap: wrap; align-content: flex-start;
+  column-gap: 9px; row-gap: 6px; min-height: 18px; cursor: context-menu;
+}
+.tag-validation-wide .tag-validation {
+  position: relative;
+  padding: 10px 12px calc(var(--fs-sm) * var(--lh) + var(--sp-3));
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+/* The label is the tray's state, written by renderTagValidation: what the
+   lookup said, how many tags it did not know, the lookup's cap and the
+   encoders' count - in a pseudo-element, so every child of the tray is a
+   chip, the editor or + tag. Amber where something is not as it looks: the
+   index unreachable (unchecked, never invalid, so never red), or more tokens
+   than the encoders read. */
+.tag-validation::before { content: attr(data-label); color: var(--text-readout); font-size: var(--fs-sm); margin-right: 3px; align-self: center; cursor: default; }
+.tag-validation[data-state="offline"]::before, .tag-validation[data-over]::before { color: var(--warn); }
+/* The label and the hint are text: a click on either inserts nothing
+   (tagInsertionIndexAtPoint), so they do not show the gaps' cursor. */
+.tag-validation::after {
+  content: "double-click edits · drag or Alt+←/→ moves · click a gap or + tag to insert";
+  color: var(--text-readout); font-size: var(--fs-xs); align-self: center; cursor: default;
+}
+/* Above the results the hint is pinned to the tray's foot, where it neither
+   travels with the last chip nor wraps onto a row a right-click reads as the
+   start. */
+.tag-validation-wide .tag-validation::after {
+  position: absolute; left: 12px; bottom: 7px; font-size: var(--fs-sm);
+}
+/* The encoders' count under the prompt box where no chips show it
+   (syncPromptTokens), from three quarters of the budget: one line, cut with
+   an ellipsis and whole in its title, amber past the limit. Hidden the rest
+   of the time - kept, its line put Generate under the edge of a 1400x900
+   window - so it moves the panel only on a long prompt. Inside the prompt
+   editor, under the box at the field's own 6 px gap, so the editor's foot is
+   under it: the Example's Undo note hangs from that foot, and with the line
+   in the field's flow instead it lay over the line - the encoder's name and
+   where reading stops - on NewBie, whose own examples reach the line. */
+.hint.prompt-tokens {
+  margin-top: 6px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
+}
+/* The chips' outcome for a screen reader (the tray is no live region). */
+.tag-summary {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* One tip for every unknown chip, placed under it as it is hovered or
+   focused: why the index did not take it, and that nothing is blocked. */
+.tag-tip {
+  position: fixed; z-index: 40; max-width: var(--tip-w-wide); padding: 8px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop); pointer-events: none;
+  color: var(--text); font-size: var(--fs-sm); line-height: 1.45; white-space: pre-line;
+}
+.tag-check {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  max-width: 100%; padding: 3px 5px 3px 8px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--text); background: var(--pill); font-size: var(--fs-label); overflow-wrap: anywhere;
+  cursor: grab; user-select: none;
+}
+.tag-check-label { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.tag-check.valid { border-color: #31985a; color: #f2f4f7; background: #17191c; }
+.tag-check.valid .tag-check-mark { color: #63e894; font-weight: 700; }
+.tag-check.unknown { border-color: var(--danger); color: #ffe1e6; background: #211619; }
+.tag-check.unknown .tag-check-mark { color: #ff7185; font-weight: 700; }
+.tag-check.unchecked { border-style: dashed; }
+/* The item still being typed: no verdict until it is finished. */
+.tag-check.typing { border-color: var(--line-strong); }
+/* The category the lookup gave, on the edge - Danbooru's colours, teal for
+   the checkpoint guide's own tags: what a tag is. Where it goes is the
+   caption below. */
+.tag-check.valid[data-category] { border-left-width: 3px; }
+.tag-check.valid[data-category="general"] { border-left-color: #4ba4ff; }
+.tag-check.valid[data-category="character"] { border-left-color: #35c64a; }
+.tag-check.valid[data-category="copyright"] { border-left-color: #c797ff; }
+.tag-check.valid[data-category="artist"] { border-left-color: #ff8a8b; }
+.tag-check.valid[data-category="meta"] { border-left-color: #ead084; }
+.tag-check.valid[data-category="guide"] { border-left-color: var(--accent-2); }
+/* Where the guide's documented order puts the item, as the server's order
+   rule placed it (data-slot, POST /api/tags/validate): a caption at the
+   chip's start, smaller and dimmer than the tag so the tag still dominates,
+   and drawn here, so the chip's text stays the tag's own. None where the
+   rules gave it no one place. */
+.tag-check-label[data-slot]::before {
+  content: attr(data-slot);
+  padding-right: var(--sp-1); border-right: 1px solid var(--line-strong);
+  color: var(--text-readout); font-size: var(--fs-xs); text-transform: lowercase; white-space: nowrap;
+}
+/* Past the encoders' cut: never read, dimmed and dashed, with an amber bar
+   where reading stops; the chip the cut splits keeps a dashed far edge. */
+.tag-check.past-cut { opacity: 0.55; border-style: dashed; }
+.tag-check.part-cut { border-right-style: dashed; border-right-color: var(--warn); }
+.tag-check.cut-start { position: relative; }
+.tag-check.cut-start::before {
+  content: ""; position: absolute; left: -7px; top: 2px; bottom: 2px; width: 2px;
+  border-radius: 1px; background: var(--warn);
+}
+/* A later copy of a tag already in the prompt: adds nothing. On the text, not
+   the chip's outline, which is the focus ring's: a focused repeat drew no
+   ring at all, the dotted outline overriding the browser's. */
+.tag-check.duplicate .tag-check-text { text-decoration: underline dotted var(--warn); text-underline-offset: 3px; }
+.tag-check.dragging { opacity: 0.45; cursor: grabbing; }
+.tag-check.drop-before { box-shadow: -4px 0 0 var(--accent-2); }
+.tag-check.drop-after { box-shadow: 4px 0 0 var(--accent-2); }
+/* The chip the arrows are on, after every state above: whole, past the cut
+   too, where the dimming took the ring down with it. */
+.tag-check:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; opacity: 1; }
+/* + tag: the editor at the end of the prompt, for a pointer that does not
+   right-click and for the keyboard. */
+.tag-add {
+  padding: 3px 9px; border: 1px dashed var(--line-strong); border-radius: 999px;
+  background: transparent; color: var(--text-readout); font: inherit; font-size: var(--fs-label);
+  line-height: inherit; cursor: pointer;
+}
+.tag-add:hover, .tag-add:focus-visible { border-color: var(--accent-2); color: var(--text); }
+.tag-remove, .tag-editor button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: currentColor; font: inherit; line-height: 1;
+}
+/* A 24 px target from 1800 px, the glyph as it was: the room is padding,
+   taken back from the chip's own by the negative margin, so the chip keeps
+   its size. */
+@media (min-width: 1800px) {
+  .tag-remove { width: 24px; height: 24px; margin: -4px -6px -4px -2px; }
+}
+.tag-remove:hover, .tag-remove:focus-visible,
+.tag-editor button:hover, .tag-editor button:focus-visible {
+  background: rgba(255, 255, 255, 0.12); outline: none;
+}
+.tag-editor {
+  display: inline-flex; align-items: center; gap: 3px; position: relative;
+  padding: 3px 4px 3px 7px; border: 1px solid var(--accent-2); border-radius: 999px;
+  background: #17191f; cursor: default;
+}
+.tag-editor input {
+  width: 170px; padding: 1px 5px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--text); font-size: var(--fs-label); cursor: text;
+}
+.tag-editor input:focus { border: 0; }
+.tag-editor button:disabled { opacity: 0.35; cursor: not-allowed; }

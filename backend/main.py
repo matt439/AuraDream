@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import threading
 import time
@@ -13,8 +12,6 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import (
     FileResponse,
     JSONResponse,
-    RedirectResponse,
-    StreamingResponse,
 )
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -28,7 +25,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import grid, loras, prompt_encoding, prompt_rules, storage  # noqa: E402
+from . import api_gallery, api_jobs, grid, loras, prompt_encoding, prompt_rules, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .config import settings  # noqa: E402
 from .critic import CriticError, CriticUnavailable, prompt_critic  # noqa: E402
@@ -36,17 +33,14 @@ from .jobs import BackendBusy, JobManager, LoadFailed, short_error  # noqa: E402
 from .launch import CHECKPOINTS  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .prompt_sources import sources_for  # noqa: E402
-from .search import strict_scope  # noqa: E402
 from .schemas import (  # noqa: E402
     AuthorOrder,
     EncoderReport,
     ExpanderDownload,
     ExpanderStatus,
-    GalleryPage,
     GenerateRequest,
     GridPreview,
     GridRequest,
-    ImageRecord,
     JobAccepted,
     ModelStatus,
     PromptAnalysis,
@@ -58,12 +52,10 @@ from .schemas import (  # noqa: E402
     PromptMeasure,
     PromptMeasureRequest,
     RerenderRequest,
-    RunSummary,
     TagSlot,
     TagSuggestionResponse,
     TagValidationRequest,
     TagValidationResponse,
-    UnstarredPreview,
     error_detail,
 )
 from .tags import (  # noqa: E402
@@ -1578,188 +1570,6 @@ async def preview_grid(request: GridRequest) -> GridPreview:
     )
 
 
-@app.get("/api/jobs")
-async def active_jobs(include_finished: bool = False) -> list[dict]:
-    """Jobs that have not finished yet - and, on request, the ones that have.
-
-    A job id is otherwise reachable only from the response that minted it, so a
-    reloaded page had no way back to the sweep it left running - and no way to
-    tell that the Generate it just fired is sitting behind one. The finished
-    ones are what the morning after reads: a 480-cell grid that stopped at
-    cell 300 used to leave an idle Generate button and nothing anywhere saying
-    when or why. They live in memory, so the answer lasts as long as the
-    process does.
-    """
-    # Without the images: a long sweep accumulates hundreds of records, and a
-    # caller looking for something to reattach to needs the id and the counters.
-    listed = jobs.active() + (jobs.finished() if include_finished else [])
-    return [job.snapshot(images=False) for job in listed]
-
-
-@app.get("/api/runs", response_model=list[RunSummary])
-async def recent_runs(
-    limit: int = Query(20, ge=1, le=200), all_models: bool = False
-) -> list[RunSummary]:
-    """The gallery grouped by run, newest first - one line per night's grid.
-
-    Scoped like the gallery it lists: this checkpoint's runs unless asked for
-    every one, so picking a run never opens an empty sheet.
-    """
-    return await asyncio.to_thread(storage.runs, limit, _model_scope(all_models))
-
-
-@app.get("/api/jobs/{job_id}")
-async def job_status(job_id: str) -> dict:
-    job = jobs.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="unknown job")
-    return job.snapshot()
-
-
-@app.post("/api/jobs/{job_id}/cancel")
-async def cancel_job(job_id: str) -> dict:
-    """Stop a job. Already-finished jobs answer with their final state, not 404."""
-    job = jobs.cancel(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="unknown job")
-    return job.snapshot()
-
-
-@app.post("/api/jobs/{job_id}/pause")
-async def pause_job(job_id: str, value: bool = True) -> dict:
-    """Hold a running job at its next cell boundary (`value=false` resumes).
-
-    Between cells the card holds little but allocator reserve, which the
-    worker hands back once it has stopped - so the GPU is usable for something
-    else mid-night, and the weights stay loaded for a seconds-long resume.
-    `paused` in the snapshot is the worker's acknowledgement; until it is set
-    a denoise may still be running.
-    """
-    job = jobs.pause(job_id, value)
-    if job is None:
-        raise HTTPException(status_code=404, detail="unknown job")
-    return job.snapshot(images=False)
-
-
-@app.get("/api/jobs/{job_id}/stream")
-async def job_stream(job_id: str) -> StreamingResponse:
-    job = jobs.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="unknown job")
-
-    async def event_source():
-        async for event in jobs.events(job):
-            yield f"data: {json.dumps(event)}\n\n"
-
-    return StreamingResponse(
-        event_source(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
-
-
-# ----------------------------------------------------------------- gallery
-
-
-@app.get("/api/gallery", response_model=GalleryPage)
-async def gallery(
-    # A sheet asks for a whole run at once - up to a full grid - where the grid
-    # view pages. The rows are small; the thumbnails load lazily either way.
-    # The ceiling follows LOCAL_DIFFUSION_MAX_GRID_IMAGES, which /api/status publishes, so
-    # the sheet's one-page request cannot be refused by the server that sized it.
-    limit: int = Query(48, ge=1, le=max(1024, settings.max_grid_images)),
-    offset: int = Query(0, ge=0),
-    # Keyset paging: rows older than this id. What the browser sends, because
-    # an offset over a gallery a sweep is writing into repeats the tail of one
-    # page at the head of the next and skips as many older rows for good.
-    before: int | None = Query(None, ge=1),
-    search: str | None = None,
-    favorites: bool = False,
-    # The running checkpoint's images unless asked for every checkpoint's:
-    # steps, CFG and mu are the checkpoint's, so another one's pictures are
-    # settings that cannot be reused, under a Reuse button that warns. The
-    # default is the server's because the page cannot know the checkpoint
-    # before /api/status answers, which behind a load is minutes.
-    all_models: bool = False,
-) -> GalleryPage:
-    # Every storage call runs off the loop, like describe() and step_cost_ms
-    # above: SQLite's busy handler waits up to 15 s, and a write that lands
-    # while `clear.py` holds the file would otherwise freeze the SSE stream,
-    # the cancel endpoint and the status poll for that long.
-    try:
-        # One row past the page, so `has_more` is a fact rather than a guess
-        # from a total that keeps growing while the page is read.
-        items, total, others = await asyncio.to_thread(
-            storage.list_images,
-            limit=limit + 1,
-            offset=offset,
-            search=search,
-            favorites_only=favorites,
-            before=before,
-            model_id=_model_scope(all_models),
-        )
-    except ValueError as exc:  # a filter term that is not a number
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return GalleryPage(
-        items=items[:limit],
-        total=total,
-        limit=limit,
-        offset=offset,
-        has_more=len(items) > limit,
-        other_models=others,
-    )
-
-
-@app.get("/api/images/{image_id}", response_model=ImageRecord)
-async def image_record(image_id: int) -> ImageRecord:
-    """One image's record, by id.
-
-    The panel's refine source is an id like a reference chip's, but it needs
-    more than a picture: the source's own size is what the scale buttons
-    multiply, and a source restored from localStorage or from a refined
-    record's `refine` may be on no gallery page the browser has loaded. A 404
-    is how the panel learns the source has been deleted.
-    """
-    record = await asyncio.to_thread(storage.get_image, image_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail="unknown image")
-    return record
-
-
-@app.get("/api/images/{image_id}/thumb")
-async def image_thumb(image_id: int):
-    """The thumbnail for one image, by id.
-
-    The panel's reference chips hold ids and nothing else - a reference
-    restored from a record or from localStorage may name an image no loaded
-    gallery page contains - so they need one request that turns an id into a
-    picture. A redirect rather than a read: the file is already served by the
-    `/outputs` mount, with its caching.
-    """
-    record = await asyncio.to_thread(storage.get_image, image_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail="unknown image")
-    return RedirectResponse(record.thumb_url or record.url)
-
-
-@app.post("/api/images/{image_id}/favorite")
-async def favorite(image_id: int, value: bool = True):
-    record = await asyncio.to_thread(storage.set_favorite, image_id, value)
-    if record is None:
-        raise HTTPException(status_code=404, detail="unknown image")
-    return record
-
-
-@app.delete("/api/images/{image_id}")
-async def delete(image_id: int) -> dict:
-    if not await asyncio.to_thread(storage.delete_image, image_id):
-        raise HTTPException(status_code=404, detail="unknown image")
-    # A page that reattaches to the job that made it is replayed the job's
-    # records; a deleted one came back as a broken tile.
-    jobs.forget_images([image_id])
-    return {"deleted": image_id}
-
-
 def _model_scope(all_models: bool) -> str | None:
     """The gallery's checkpoint scope: the configured id, or None for every one.
 
@@ -1771,99 +1581,11 @@ def _model_scope(all_models: bool) -> str | None:
     return None if all_models else settings.model_id
 
 
-def _unstarred_scope(search: str | None) -> str | None:
-    """The search box as a strict scope, or a 422 that says why it is not one.
-
-    `strict_scope` refuses free text with the grammar's own words; here the
-    reader has just watched the gallery match that text, so the reply says
-    what to do instead.
-    """
-    try:
-        strict_scope(search)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Delete unstarred takes key:value terms or an empty search - {exc}",
-        ) from exc
-    return search or None
-
-
-@app.get("/api/gallery/unstarred", response_model=UnstarredPreview)
-async def unstarred(
-    search: str | None = None,
-    all_models: bool = False,
-    newer_than: int | None = Query(default=None, ge=0),
-) -> UnstarredPreview:
-    """What "Delete unstarred" would remove under this filter, and what it would keep.
-
-    Under the gallery's checkpoint scope too, since the delete is: the count
-    the dialog shows has to be the count of what the page is showing. What
-    the delete keeps besides the stars - the images a starred one was made
-    from - comes off the count with them, or every confirmed number would
-    meet a different one under the delete's lock and answer 409.
-
-    `job_active` is whether a job is queued or running here - the server's
-    answer, not the asking page's: a job another tab started can land an
-    image in scope while the dialog is open just the same, and the dialog
-    says so before the count is typed.
-
-    `newer_than` is the newest id the page held before it brought its grid
-    up to date, and `newer` how many of the count are above it: the dialog's
-    "made since this page last loaded", counted as the delete counts.
-    """
-    found = await asyncio.to_thread(
-        storage.matching_preview, _unstarred_scope(search), _model_scope(all_models), newer_than
-    )
-    return UnstarredPreview(
-        unstarred=found["records"] - found["favorites"] - found["sources_kept"],
-        job_active=jobs.busy(),
-        **found,
-    )
-
-
-@app.delete("/api/gallery/unstarred")
-async def delete_unstarred(
-    search: str | None = None, expected: int = Query(ge=0), all_models: bool = False
-) -> dict:
-    """The gallery's Delete unstarred: `clear --where <search> --keep-favorites` over HTTP.
-
-    The one bulk delete the page offers, and the inverse of the per-card one:
-    star what is worth keeping, then remove the rest of the run in one gesture
-    rather than the rest one card at a time. The scope is the search box read
-    strictly - `key:value` terms only, an empty box meaning the whole gallery
-    - and `expected` is the count the dialog showed, so a sweep that landed
-    more unstarred images while it was open is answered 409 rather than
-    swept up on a number confirmed for fewer. A starred image keeps what it
-    was made from - a pass its source, a render its references - since the
-    star is a promise to keep it reproducible. Rows and their files only: no
-    orphan sweep and no vacuum, which stay the CLI's. The checkpoint scope
-    is the page's: with All models off, another checkpoint's images are not
-    on the screen, and a sweep must not reach what is not on the screen.
-    """
-    scope = _unstarred_scope(search)
-    try:
-        result = await asyncio.to_thread(
-            storage.delete_matching,
-            scope,
-            keep_favorites=True,
-            expected=expected,
-            model_id=_model_scope(all_models),
-        )
-    except storage.SelectionChanged as exc:
-        # Whether a job may move the count again is the server's to say: the
-        # job is as likely another tab's as the asking page's.
-        running = (
-            " A job is still running and may add more images here: press Delete "
-            "unstarred again, or let it finish first."
-            if jobs.busy() else ""
-        )
-        raise HTTPException(
-            status_code=409,
-            detail=f"The selection changed: {exc.found} unstarred images match now, "
-            f"not the {exc.expected} confirmed. Nothing was deleted; look again.{running}",
-        ) from exc
-    jobs.forget_images(result["ids"])
-    return {"deleted": result["ids"], "files": result["files"]}
+# The routers read the app-owned worker and scope when a request arrives.
+app.include_router(api_jobs.create_router(lambda: jobs))
+app.include_router(api_gallery.create_router(
+    lambda: jobs, _model_scope, max_grid_images=settings.max_grid_images,
+))
 
 
 class Server(uvicorn.Server):

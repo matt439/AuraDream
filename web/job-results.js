@@ -1,0 +1,627 @@
+// Local Diffusion's page script: job outcomes and newly completed images.
+// Declarations only; state.js has the shared-global load-order contract.
+'use strict';
+
+// The finished job's line, #finish-note: its outcome and what to do next -
+// the seed and Use seed, Show sheet, a Retry or a Resume. A line of its own,
+// which only the next job's end replaces: in the cell line, a job queued
+// behind cleared it the moment the watched one ended, and a grid's Retry
+// with it - in the overnight queue the button exists for. While another job
+// runs, or after one whose stream gave up, it says whose it is. Focus on it
+// when it is replaced moves to the new line's first button, else Generate,
+// rather than to the page's body.
+let finishStale = false;
+// Set by setBusy where the ending job's Pause or Cancel had the focus, which
+// Generate holds until this line is drawn.
+let finishTakesFocus = false;
+function setFinish(nodes = []) {
+  const focused = els.finishNote.contains(document.activeElement)
+    || (finishTakesFocus && document.activeElement === els.generate);
+  finishTakesFocus = false;
+  const lead = document.createElement('span');
+  lead.className = 'lead';
+  els.finishNote.replaceChildren(...(nodes.length ? [lead, ...nodes] : []));
+  finishStale = false;
+  syncFinishLead();
+  if (focused) (els.finishNote.querySelector('button') ?? els.generate).focus({ preventScroll: true });
+}
+
+function syncFinishLead() {
+  const lead = els.finishNote.querySelector('.lead');
+  if (lead) lead.textContent = busy || finishStale ? 'Previous job: ' : '';
+  // The finished job's sentence in the panel's line says whose it is too.
+  els.error.classList.toggle('previous', busy && jobOutcome !== null && els.error.textContent === jobOutcome);
+}
+
+// The panel's line (#error) about the watched job and about the finished one.
+// A press on a held Pause or Unload says why (`jobNote`), which goes when the
+// job ends. A finished job's outcome - a cancel, its time budget, an error,
+// the cells it skipped (`jobOutcome`) - lasts as its finish line does: led by
+// "Previous job:" while another runs (#error.previous, style.css), and gone
+// once the next job's end is drawn. Both used to stay until the next press of
+// Generate, and under a queued job's own finish line "Cancelled before
+// anything finished." read as that job's outcome.
+let jobNote = null;
+let jobOutcome = null;
+
+function showJobNote(text) {
+  showError(text, true);
+  jobNote = text;
+}
+
+function showOutcome(text, note = false) {
+  showError(text, note);
+  jobOutcome = text;
+}
+
+// The finished job's outcome: the finish line, the panel's line for what
+// went wrong, the tab's title, and the gallery. `submitted` is the
+// submission this page made, which a Retry sends again; `sheet` a job that
+// opens as its sheet; `foreign` another tab's job this page picked up
+// (isForeign), whose end is said as that - no Use seed, no title held.
+function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore = false }) {
+  const images = data.images ?? [];
+  const made = data.image_count ?? images.length;
+  // The job before this one's outcome goes with its finish line.
+  if (jobOutcome !== null && els.error.textContent === jobOutcome) showError('');
+  jobOutcome = null;
+  // A job that ended at the load is the status's to say - the viewer's card,
+  // the topbar's Retry load - which it says once, with the steps; the panel
+  // line used to give the same six lines again.
+  const atLoad = data.status === 'error' && !data.started_at;
+  const line = [];
+  // Its finish line says it was not made, though: the press had queued an
+  // image, and the panel went back to Generate with no word of what became
+  // of it. The reason is the viewer's card, or the panel's line under this
+  // where the viewer holds images (syncLoadFailure).
+  // Marked, so the status can reword it once the load is no longer failed
+  // (syncLoadFailure): the card and the line it pointed at go then.
+  if (atLoad) {
+    const notMade = document.createElement('span');
+    notMade.className = 'not-made';
+    notMade.dataset.lead = foreign ? `${ANOTHER_TABS_JOB} was not made` : 'Not made';
+    notMade.textContent = notMadeText(notMade.dataset.lead, 'error');
+    line.push(notMade);
+  }
+  // Nothing made - every cell skipped - leaves the line to the skipped cells.
+  if (data.status === 'done' && data.started_at && data.finished_at && made) {
+    // Fewer distinct pictures than images is an axis that changed nothing,
+    // said in one number rather than found on the sheet.
+    const distinct = typeof data.distinct_count === 'number' && made > 1 && data.distinct_count < made
+      ? ` Only ${data.distinct_count} distinct.` : '';
+    // What is left of it: the count is what the job made, which a delete
+    // since does not undo.
+    const deleted = data.deleted_count ? `, ${data.deleted_count} since deleted,` : '';
+    // A plain job's seeds, which a blank Seed box drew and nothing on the
+    // page showed short of the lightbox: Use seed keeps the composition for
+    // the next prompt, and writes nothing else.
+    const plain = !data.grid && data.refine == null && images.length;
+    const seeds = !plain ? ''
+      : images.length === 1 ? `, seed ${images[0].seed}`
+      : `, seeds ${images[0].seed}–${images.at(-1).seed}`;
+    const took = humanTime(data.finished_at - data.started_at);
+    if (foreign) {
+      // Its seeds are another tab's to use; its images join the gallery.
+      line.push(`${ANOTHER_TABS_JOB} finished: ${plural(made, 'image')}${deleted.replace(/,$/, '')}.`);
+    } else {
+      line.push(`Finished ${plural(made, 'image')}${deleted} in ${took}${seeds}.${distinct}`);
+      if (plain) {
+        line.push(noteButton('Use seed', () => useSeed(images[0].seed), `Put ${images[0].seed} in the Seed box`));
+      }
+    }
+  }
+  // A grid's sheet is its payoff, and the way to it was the Runs picker or a
+  // card's ⊞. Offered, never opened: a night ending under a user browsing
+  // the gallery must not take the gallery away.
+  if (data.grid && images.length && !sheet) {
+    line.push(noteButton('Show sheet', () => (data.run_id ? showRun(data.run_id) : showJob(jobId)),
+      'Lay this run out as a contact sheet'));
+  }
+  // The cells a grid skipped, or did not reach: its own payload again with
+  // Resume and the base seed it ran from - never the panel, which may have
+  // changed since - so only the missing cells run. Resume needs a fixed seed:
+  // the payload's own where it gave one, else the base the POST drew. Not the
+  // POST's answer then, which is the first cell the job had to run: past the
+  // base when the job was itself a Resume and its first seeds were done. A
+  // listed seed axis is its own.
+  const skipped = data.status === 'done' ? data.failures : 0;
+  // Stopped by the rule: every cell but the ones that rendered.
+  const remaining = data.stopped_by === 'failures' ? data.total_runs - (data.run - data.failures) : 0;
+  if (submitted?.path === '/api/grid' && (skipped || remaining)) {
+    const count = skipped || remaining;
+    // A sweep's source deleted - mid-run, the usual cause of the failures
+    // that stopped it - cannot be refined again, so neither Resume nor
+    // Retry can run: refused by the server as "no gallery image with id N",
+    // said under Generate as that and nothing more, and every press refused
+    // the same. Said in words and held instead, with the reason as the
+    // title, from the press that finds it - before sending where this page
+    // deleted it (deletedIds), else on the server's refusal.
+    const source = submitted.payload.refine ?? null;
+    const goneWhy = () => `${imageNames([source])}, this sweep's source, was deleted: `
+      + (skipped ? 'its skipped cells cannot run again.' : 'the run cannot resume.');
+    let sourceGone = false;
+    const holdGone = () => {
+      sourceGone = true;
+      button.setAttribute('aria-disabled', 'true');
+      button.title = goneWhy();
+      showError(goneWhy());
+    };
+    const button = noteButton(
+      skipped ? `Retry the ${plural(skipped, 'skipped cell')}` : `Resume the remaining ${plural(remaining, 'cell')}`,
+      () => {
+        if (sourceGone) { showError(goneWhy()); return; }
+        if (button.getAttribute('aria-disabled') === 'true') return;
+        if (source != null && deletedIds.has(source)) { holdGone(); return; }
+        void startJob('/api/grid', {
+          ...submitted.payload,
+          resume: true,
+          ...(submitted.payload.seed_axis ? {} : { seed: submitted.payload.seed ?? submitted.seed }),
+        }, {
+          panel: false,
+          sheet: submitted.sheet,
+          // Sent once: a second press would queue the same cells again. The
+          // button stays where the press left focus, saying so, until the
+          // job it sent ends and its own line replaces this one.
+          onAccepted: () => {
+            button.setAttribute('aria-disabled', 'true');
+            button.textContent = skipped ? 'Retry sent' : 'Resume sent';
+            button.title = 'Sent: it runs as a job of its own';
+          },
+          onRefused: (err) => {
+            if (source != null && err.message === `no gallery image with id ${source}`) holdGone();
+          },
+        });
+      },
+      `Run the grid again with Resume: only the ${plural(count, 'missing cell')}`,
+    );
+    line.push(button);
+  }
+  // Another tab's job keeps out of this page's finish line: that line is
+  // this page's own last job, Use seed and all, and the foreign job's end
+  // is said once, on the hidden line, as the title is given back below.
+  // The line the foreign job's stream marked as a previous job's is this
+  // page's latest again.
+  if (foreign) {
+    finishTakesFocus = false;
+    finishStale = staleBefore;
+    syncFinishLead();
+  } else {
+    setFinish(line);
+  }
+
+  // A cancel this page did not ask for - pressed in another tab or window,
+  // which watched the same job - was reported as this page's own.
+  const cancelledElsewhere = !cancelledHere.has(jobId);
+  cancelledHere.delete(jobId);
+  const whose = foreign ? `${ANOTHER_TABS_JOB}: ` : '';
+  if (data.status === 'error') {
+    if (!atLoad) showOutcome(`${whose}${data.error}`);
+  } else if (data.status === 'cancelled') {
+    // A stop at the time budget is the plan working, not a cancel: say
+    // which, and that a Resume finishes the rest. `run` is the cells
+    // finished there - the budget is checked before a cell starts. A stop
+    // at the server's shutdown is no one's cancel either.
+    const kept = `kept ${plural(images.length, 'image')}`;
+    const by = cancelledElsewhere ? ' from another tab or window' : '';
+    showOutcome(whose + (data.stopped_by === 'budget'
+      ? `Time budget reached after ${data.run}/${data.total_runs} cells — ${kept}. Resume finishes the rest.`
+      : data.stopped_by === 'shutdown'
+        ? `Stopped: the server is shutting down — ${images.length ? kept : 'nothing had finished'}.`
+      : data.waiting_on === 'load' ? `Cancelled${by} — the weights keep loading, so the next Generate starts sooner.`
+      : images.length ? `Cancelled${by} — ${kept}.` : `Cancelled${by} before anything finished.`), true);
+  } else if (data.error) {
+    // Done, but not every cell: the grid carried on past a failure and says
+    // which, rather than dropping the rest of the night.
+    showOutcome(`${whose}${skippedCells(data)}`);
+  }
+  // Said once to a screen reader where the panel's alert line has not said
+  // the outcome already: the finish line's sentence, without its buttons. A
+  // job that ended at the load has its reason there only where the viewer
+  // holds images (syncLoadFailure); over the load card, which is no live
+  // region, its "Not made" sentence is said here.
+  const inAlert = data.status === 'cancelled'
+    || (atLoad ? !!els.viewer.querySelector('img, figure, .tomb') : data.status === 'error' || !!data.error);
+  if (!inAlert) {
+    sayJob(line.filter((node) => node.nodeName !== 'BUTTON')
+      .map((node) => (typeof node === 'string' ? node : node.textContent)).join('').trim());
+  }
+  // Another tab's job holds no title: the tab's own last result is what
+  // its title was about, and gets it back where it has not been seen yet -
+  // the foreign job's progress wrote over it (setBusy cleared it again).
+  if (foreign) {
+    if (titleHeld !== null) setTitle(titleHeld);
+  } else {
+    holdTitle(data.status === 'done' ? `✓ Finished ${plural(made, 'image')}`
+      : data.stopped_by === 'budget' ? 'Time budget reached'
+      : data.stopped_by === 'shutdown' ? 'Server stopped'
+      : data.status === 'cancelled' ? (cancelledElsewhere ? 'Cancelled elsewhere' : 'Cancelled')
+      : atLoad ? 'Load failed' : 'Stopped');
+  }
+  // The status says how the load went, at once rather than at the next poll.
+  // Said again, where it goes to the panel's line: the press that queued
+  // this job cleared that line, and a detail already posted once was
+  // otherwise never posted again (syncLoadFailure).
+  if (atLoad) shownLoadDetail = null;
+  void refreshStatus();
+  // A comparison opens this submission alone. Run ids name rendered
+  // cells, so reversing original/yours on the same seeds shares a run
+  // but must not mix the two meanings of either version label.
+  // Another tab's images owed since this job took over (setElsewhereBusy)
+  // come in with this job's, or alone where it made none.
+  const owed = elsewhereCatchUp;
+  elsewhereCatchUp = false;
+  if (sheet && images.length) { showJob(jobId, { fresh: true, asker: submitted?.asker ?? null }); loadRuns(); }
+  else if (images.length || owed) {
+    void Promise.resolve(prependFinished(made)).then((coming) => noteOutsideView(images, coming));
+    loadRuns();
+  }
+}
+
+// The finish line's sentence for a job that ended at the load, by where the
+// load stands now: failed, it points at the reason - the viewer's card with
+// Retry load, or the panel's line where the viewer holds images; loading
+// again, or loaded since, that card and line have gone, and it said "why,
+// and Retry load, are in the viewer" over a ready topbar (syncLoadFailure);
+// so it did after a restart of the server, which starts unloaded.
+function notMadeText(lead, state) {
+  const now = state === 'error'
+    ? `- ${els.viewer.querySelector('img, figure, .tomb') ? 'why is said below' : 'why, and Retry load, are in the viewer'}`
+    : state === 'loading' ? 'then; it is loading now'
+    : state === 'unloaded' ? 'then; it is not loaded now'
+    : 'then; it has loaded since';
+  return `${lead}: the model could not load ${now}.`;
+}
+
+// A finished job's images the gallery's filter leaves out - a comparison's
+// or a sweep's sheet still scoped to its job:, a search, Starred - said
+// under the gallery's head with a way to them: Generate after a comparison
+// left the 12 images of its sheet on screen, the count unchanged, as though
+// nothing had been saved. Counted across jobs while the filter is the same
+// (`outsideView`); the gallery's line clears with the next reset.
+let outsideView = null;
+function viewFilter() {
+  return [els.search.value.trim(), els.favOnly.checked, els.allModels.checked, sheetMode].join('|');
+}
+
+// `coming`: the ids prependFinished's page holds, whose cards may still be
+// waiting for the pointer to leave the gallery's column (joinFinished) - in
+// this view all the same, and said at once.
+function noteOutsideView(images, coming) {
+  if (!els.search.value.trim() && !els.favOnly.checked) { outsideView = null; return; }
+  const have = new Set([...galleryRecords.map((r) => r.id), ...(Array.isArray(coming) ? coming : [])]);
+  const missing = images.filter((r) => !have.has(r.id)).map((r) => r.id);
+  if (!missing.length) return;
+  if (outsideView?.filter !== viewFilter()) outsideView = { filter: viewFilter(), ids: new Set() };
+  missing.forEach((id) => outsideView.ids.add(id));
+  const n = outsideView.ids.size;
+  showError(`${plural(n, 'new image')} outside this view`, true, { slot: els.galleryError, mirror: false });
+  const show = document.createElement('button');
+  show.type = 'button';
+  show.className = 'ghost tiny';
+  show.textContent = 'Show all';
+  show.title = 'Clear the search and Starred, and close the sheet, to see every image';
+  show.onclick = showAllImages;
+  els.galleryError.append(' · ', show);
+}
+
+// The gallery unfiltered: the search box emptied, Starred off, the sheet
+// closed - the escape the scope note offers.
+function showAllImages() {
+  outsideView = null;
+  els.search.value = '';
+  els.favOnly.checked = false;
+  sheetReturn = null;
+  if (sheetMode) setSheet(false);
+  else resetGallery();
+  loadRuns();
+}
+
+// The cells a grid skipped, by name: which settings, which seed, and the
+// error - "1 cell(s) failed" left the hole in the sheet to be found by eye.
+function skippedCells(data) {
+  const cells = data.failed_cells ?? [];
+  if (!cells.length) return data.error;
+  const named = cells.slice(0, 3).map((c) => [c.label, `seed ${c.seed}`].filter(Boolean).join(', '));
+  const more = cells.length > 3 ? `; and ${cells.length - 3} more` : '';
+  const last = cells.at(-1).error;
+  return `${cells.length} of ${data.total_runs} cells ${cells.length === 1 ? 'was' : 'were'} skipped: `
+    + `${named.join('; ')}${more} (${cells.length === 1 ? '' : 'last: '}${last})`;
+}
+
+function noteButton(text, onClick, title) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ghost tiny';
+  button.textContent = text;
+  button.title = title;
+  button.onclick = onClick;
+  return button;
+}
+
+// The finished image's seed into the Seed box, and nothing else: Reuse also
+// rewrites the prompt and the size, and "same seed, another prompt" is the
+// loop once something good turns up. The run hint then says it is fixed.
+function useSeed(seed) {
+  els.seed.value = seed;
+  pageSeed = els.seed.value;
+  syncRuns();
+  schedulePreview();
+  persistPanel();
+}
+
+// A finished job's images at the head of the gallery the page holds, under
+// the same filters, rather than the gallery reset: that scrolled a user
+// browsing old images during the wait back to the top, and dropped every page
+// they had scrolled in, at every job's end. Asked once any page in flight has
+// landed, and dropped if the filters changed meanwhile - the reset that
+// changed them fetches the new images itself. One page reaches back past the
+// job (`made` plus a page, the sheet's ceiling at most); where it does not
+// join up with what the page holds, or the gallery is empty, the gallery is
+// reset as before. Never in sheet mode, whose sheet lays itself out from the
+// whole run. The paging anchor - the last record - is untouched. The head's
+// count is drawn as the page lands and the cards by joinFinished, which can
+// wait for the pointer; answers the ids that page holds (noteOutsideView).
+// `now` puts them in without that wait: Delete unstarred brings the grid up
+// to what it would sweep before asking. Its press was on the head's own
+// button (or a key), not on the cards, and its modal question follows
+// within one round trip, so no card moves under a pointer about to press it.
+function prependFinished(made, { now = false } = {}) {
+  if (sheetMode || !galleryRecords.length) return resetGallery();
+  const epoch = galleryEpoch;
+  return Promise.resolve(galleryPending).then(async () => {
+    if (epoch !== galleryEpoch || sheetMode) return;
+    const params = new URLSearchParams({ limit: Math.min(made + PAGE, sheetPage) });
+    if (els.search.value.trim()) params.set('search', els.search.value.trim());
+    if (els.favOnly.checked) params.set('favorites', 'true');
+    if (els.allModels.checked) params.set('all_models', 'true');
+    let page;
+    try {
+      page = await api(`/api/gallery?${params}`);
+    } catch (err) {
+      // No server, no gallery to reload: what the page holds stays, and the
+      // poll's first answer asks again (refreshStatus).
+      return err.offline ? undefined : resetGallery();
+    }
+    if (epoch !== galleryEpoch || sheetMode) return;
+    if (!joinsUp(page)) return resetGallery();
+    // What the head says, at once: it is above the cards, and with the
+    // gallery beside the viewer above the column they scroll in.
+    total = page.total;
+    els.count.textContent = total ? `(${total})` : '';
+    els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
+    galleryOthers = page.other_models || 0;
+    syncRerender();
+    syncDeleteUnstarred();
+    if (els.lightbox.open && lbList === galleryRecords) renderLightbox();
+    void joinFinished(page, epoch, now);
+    // For noteOutsideView: the images this page holds are the gallery's, in
+    // view or about to be.
+    return page.items.map((r) => r.id);
+  });
+}
+
+// Whether a page of the gallery's newest joins up with the cards it holds.
+function joinsUp(page) {
+  const have = new Set(galleryRecords.map((r) => r.id));
+  return galleryRecords.length > 0 && page.items.some((r) => have.has(r.id));
+}
+
+// A finished job's cards, from the page prependFinished fetched, put in ahead
+// of the gallery's. Beside the viewer, a pointer resting on the gallery's
+// column keeps the cards where they are until it leaves (galleryPointerGone):
+// one image ahead of them moves every card a place along the rows, which no
+// scroll can take back. Only where there is something to put in.
+async function joinFinished(page, epoch, now = false) {
+  const newer = () => page.items.some((r) => r.id > galleryRecords[0].id && !galleryRecords.some((g) => g.id === r.id));
+  if (!now && galleryRecords.length && newer()) await galleryPointerGone();
+  if (epoch !== galleryEpoch || sheetMode) return;
+  // Deleted from meanwhile, the gallery may no longer meet this page.
+  if (!joinsUp(page)) { void resetGallery(); return; }
+  const have = new Set(galleryRecords.map((r) => r.id));
+  const head = galleryRecords[0];
+  const fresh = page.items.filter((r) => r.id > head.id && !have.has(r.id));
+  // In place: every card's lightbox walks this array. One open on it keeps
+  // its image as the head grows.
+  galleryRecords.unshift(...fresh);
+  if (lbList === galleryRecords && fresh.length) lbIndex += fresh.length;
+  // With the day's lines as loadGallery draws them - over the first card
+  // where its day is not today's, between two new cards, and between the
+  // last of them and the old head (a job that ends after midnight under a
+  // page loaded the day before). The old head is the grid's first card as
+  // the page shows it, a tombstone included - its record has gone from
+  // galleryRecords, and the line worked out from the records stood a
+  // second time over it - unless the grid opens with a line already, which
+  // is the old head's.
+  const top = els.gallery.firstElementChild;
+  const oldHead = top?.matches('.gallery-break') ? null : top;
+  const firstLive = els.gallery.querySelector('.card[data-id]');
+  const nodes = [];
+  fresh.forEach((rec, i) => {
+    if (i === 0 && !isToday(rec)) nodes.push(dayBreak(rec));
+    nodes.push(card(rec));
+    const next = fresh[i + 1];
+    if (next ? localDay(next) !== localDay(rec) : oldHead && cardDay(oldHead) !== localDay(rec)) {
+      nodes.push(dayBreak(next ?? { created_at: oldHead.dataset.made }));
+    }
+  });
+  holdGalleryView(() => els.gallery.prepend(...nodes));
+  // The grid keeps one way in from the keyboard (gallery.js): the newest
+  // image, where the stop was the grid's default or the old head with focus
+  // elsewhere; a card the user chose further down keeps it.
+  const current = currentCard();
+  if (fresh.length && (!galleryChosen || (current === firstLive && !els.gallery.contains(document.activeElement)))) {
+    makeCurrent(els.gallery.querySelector('.card[data-id]'));
+  } else {
+    keepCurrentCard();
+  }
+  syncGalleryEmpty();
+  if (els.lightbox.open && lbList === galleryRecords) renderLightbox();
+}
+
+// A job's first image or frame landing in a viewer out of sight - above the
+// window, with a user browsing the gallery during the wait, or below it, in
+// one column, where the viewer sits under the whole panel and a Generate
+// pressed at the page's top put the image 150-800 px under the window's foot
+// - is said with a press that goes to it: "New image ↑" or "↓". Never a
+// scroll of the page's own, which would take the gallery from under the
+// pointer. In one column the button is a pill fixed under the topbar
+// (style.css): in the static panel it was as far out of view as the viewer.
+// Gone once the viewer is in view, however it got there; its arrow follows a
+// scroll that jumps past the viewer without showing it (End, Home).
+let viewerWatch = null;
+function viewerOutOfSight() {
+  const top = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const box = els.viewer.getBoundingClientRect();
+  return box.bottom < top + 48 ? 'above' : box.top > innerHeight - 48 ? 'below' : null;
+}
+
+const NEW_IMAGE_WORDS = {
+  above: ['New image ↑', 'New image: scroll up to it in the viewer'],
+  below: ['New image ↓', 'New image: scroll down to it in the viewer'],
+};
+function syncNewImage() {
+  if (els.newImage.hidden) return;
+  const where = viewerOutOfSight();
+  if (!where) { withdrawNewImage(newImageTarget()); return; }
+  const [text, label] = NEW_IMAGE_WORDS[where];
+  if (els.newImage.textContent === text) return;
+  els.newImage.textContent = text;
+  els.newImage.setAttribute('aria-label', label);
+}
+
+function offerNewImage() {
+  if (!viewerOutOfSight()) return;
+  els.newImage.hidden = false;
+  syncNewImage();
+  if (!viewerWatch) {
+    viewerWatch = new IntersectionObserver(syncNewImage, { threshold: [0, 0.1, 0.25, 0.5, 1] });
+    window.addEventListener('scroll', syncNewImage, { passive: true });
+    const panel = document.querySelector('.panel');
+    panel.addEventListener('pointerdown', newImageBackToPanel, true);
+    panel.addEventListener('input', newImageBackToPanel, true);
+  }
+  viewerWatch.observe(els.viewer);
+}
+
+// The pill (one column) lies over whatever scrolls under the topbar - the
+// prompt's first line, Check - once the page has moved at all, and a press
+// meant for that went to the viewer. While the job runs it stays: the image
+// is still coming. Once the job has ended, the user's own press in the panel
+// or typing in one of its boxes is a return to the panel, and withdraws it;
+// the finish line still names the result. Not a focus arriving: the finish
+// line takes focus itself, and a Tab towards the pill passes through the
+// panel. In two columns the button is in the panel's flow, over nothing.
+function newImageBackToPanel(event) {
+  if (busy || els.newImage.hidden || els.newImage.contains(event.target)) return;
+  if (getComputedStyle(els.newImage).position !== 'fixed') return;
+  withdrawNewImage();
+}
+
+// The button goes - the viewer in view, a new job, or a job that ended with
+// nothing of it in the strip - and focus on it goes with it to `to`, else
+// Generate: hidden with the focus, it fell to <body>.
+function withdrawNewImage(to = null) {
+  if (els.newImage.hidden) return;
+  if (document.activeElement === els.newImage) focusTile(to ?? els.generate);
+  els.newImage.hidden = true;
+}
+
+// A job whose stream gave up with nothing of it in the strip: its first frame
+// had cleared the strip, the live preview went with the stream, and the
+// viewer was an empty box with the only words red in the panel - still empty
+// once the server was back. A card says it where the work is, as a failed
+// load's does (status.js), with the same request a press away where this
+// page sent it; its refusal - the server still gone - is said in the card.
+// The next job's first frame clears it; an answering server rewords it
+// (`lostRunBack`).
+function showLostRun({ heading, text }, submitted) {
+  const card = document.createElement('div');
+  card.className = 'lost-run';
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-labelledby', 'lost-run-head');
+  const head = document.createElement('h2');
+  head.id = 'lost-run-head';
+  head.textContent = heading;
+  const line = document.createElement('p');
+  line.textContent = text;
+  card.append(head, line);
+  if (submitted) {
+    const refused = document.createElement('p');
+    refused.className = 'error';
+    refused.setAttribute('role', 'alert');
+    refused.hidden = true;
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'primary';
+    again.textContent = 'Run it again';
+    again.title = 'Send the same request again';
+    again.onclick = () => {
+      void startJob(submitted.path, submitted.payload, { sheet: submitted.sheet, panel: false, slot: refused });
+    };
+    card.append(again, refused);
+  }
+  els.viewer.replaceChildren(card);
+  els.viewer.classList.remove('multi', 'many', 'fitted');
+  els.viewer.style.minHeight = els.viewer.style.maxHeight = '';
+  els.viewerNote.replaceChildren();
+}
+
+// The server answers again: the card says so rather than that it is gone.
+function lostRunBack(restarted, s) {
+  const card = els.viewer.querySelector(':scope > .lost-run');
+  if (!card) return;
+  const at = typeof s.started_at === 'number'
+    ? new Date(s.started_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  card.querySelector('h2').textContent = restarted ? `The server restarted${at ? ` at ${at}` : ''}` : 'The server is back';
+  card.querySelector('p').textContent = 'Nothing of the last run finished'
+    + (card.querySelector('button') ? ': Run it again sends the same request.' : '.');
+  const refused = card.querySelector('.error');
+  if (refused) { refused.hidden = true; refused.textContent = ''; }
+}
+
+// What New image goes to: the newest image; before any has landed - the
+// first frame is what offered it - the live preview's tile, or a pass's
+// stand-in, which streamJob hands on to the image that replaces it; where
+// the viewer holds neither (an image deleted elsewhere), its held line.
+// Null where the viewer is empty: a stream that reconnects.
+function newImageTarget() {
+  const images = els.viewer.querySelectorAll('img[data-id]');
+  return images[images.length - 1]
+    ?? els.viewer.querySelector(':scope > figure.live, :scope > figure.pending')
+    ?? els.viewer.querySelector(':scope > .placeholder.held:not([hidden]), :scope > .tomb');
+}
+
+// Focus on an image or a button, or on a tile, a line or the viewer that
+// takes it only for this (tabindex -1). The viewer's own is let go with the
+// focus: kept, a click on its empty space would focus it.
+function focusTile(el) {
+  if (el === els.viewer) {
+    el.tabIndex = -1;
+    el.addEventListener('blur', () => el.removeAttribute('tabindex'), { once: true });
+  } else if (!el.matches('img, button')) {
+    el.tabIndex = -1;
+  }
+  el.focus({ preventScroll: true });
+}
+
+// To the newest image, focused - Enter opens it - since the button goes the
+// moment the viewer is in view: focus left on it fell to <body> as the
+// pressed button hid. An empty viewer takes the focus itself.
+function goToNewImage() {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  els.viewer.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  focusTile(newImageTarget() ?? els.viewer);
+}
+
+// A job outlives the page that started it: the id lives on the server, so a
+// reload - or a stream that gave up - can find its way back to a running sweep
+// instead of leaving it unreachable until the process is killed.
+async function resumeActiveJob() {
+  if (busy || jobListing) return;
+  // No answer is a server not up yet: nothing to say.
+  const jobId = await adoptListedJob('reattaching…');
+  if (jobId) { await jobStreams.get(jobId); return; }
+  // Nothing live: say what the last one did instead, if the server still
+  // knows - not where a Generate pressed meanwhile has taken the page.
+  if (jobId === null && !busy) announceLastRun();
+}

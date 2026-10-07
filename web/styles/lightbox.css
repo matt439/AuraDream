@@ -1,0 +1,258 @@
+
+/* --------------------------------------------------------------- lightbox */
+
+/* A real <dialog>, opened with showModal(): the focus trap, the top layer, the
+   inert background and the focus restore all come with it. The UA sizes a
+   dialog to its content and centres it; this one is the whole viewport, laid
+   out as a row: the stage, then a fixed column with everything else. The
+   column is beside the stage rather than under it because the screen is
+   wider than it is tall and most images are not: a meta line and a row of
+   buttons under the stage cost it around 150px of the axis it was short of. */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: var(--text);
+  /* Near opaque: at 0.92 the panel and the cards showed through behind the
+     column's text, and round a picture being judged. */
+  background: rgba(0, 0, 0, 0.97);
+  z-index: 50;
+  display: flex;
+  gap: var(--gutter);
+  padding: var(--gutter);
+}
+/* Our `display: flex` would beat the UA's `dialog:not([open]) { display: none }`. */
+.lightbox:not([open]) { display: none; }
+.lightbox::backdrop { background: transparent; }
+/* The stage and its arrows. Positioned so the arrows can sit over the stage's
+   edges while staying outside it in the tree: the stage captures the pointer
+   on press, and a press on a child of it would be a pan or a close. */
+.lb-main {
+  flex: 1 1 auto; min-width: 0; min-height: 0;
+  position: relative; display: flex;
+}
+/* The stage takes whatever the column leaves, and clips. `flex: 1 1 auto`
+   with `min-width: 0` rather than a hard 92vw/78vh: flex shrinking plus
+   overflow: hidden would otherwise clip the fit view. The image is positioned
+   by lightbox.js - explicit width, height, left and top - so 1:1 is
+   rasterised at 1:1 rather than being a texture scaled up by a transform,
+   which is precisely the smoothing a sharpening sweep is trying to judge. */
+.lb-stage {
+  flex: 1 1 auto; min-width: 0; min-height: 0;
+  position: relative; overflow: hidden;
+  cursor: default; touch-action: none; user-select: none;
+}
+/* At fit the backdrop beside the picture closes on a click, so it does not
+   promise a zoom; the picture does, by double-click. Zoomed, all of it pans. */
+.lb-stage:not(.zoomed) img { cursor: zoom-in; }
+.lb-stage.zoomed { cursor: grab; }
+.lb-stage.dragging { cursor: grabbing; }
+.lb-stage img {
+  position: absolute; max-width: none; max-height: none;
+  border-radius: var(--r-xs); user-select: none; -webkit-user-drag: none;
+}
+/* Comparing a pass with its source (lightbox.js places them): the divider
+   the source shows left of, a line with a grip, and each picture's name on a
+   dark chip, which reads on a white render as on a black one. */
+.lb-split {
+  position: absolute; z-index: 1; width: 24px; margin-left: -12px;
+  cursor: ew-resize; touch-action: none;
+}
+.lb-split::before {
+  content: ''; position: absolute; left: 11px; top: 0; bottom: 0; width: 2px;
+  background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.lb-split::after {
+  content: '‹›' / ''; position: absolute; left: -4px; top: 50%; width: 32px; height: 32px;
+  margin-top: -16px; display: grid; place-items: center; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.62); border: 2px solid #fff; color: #fff; font-size: var(--fs-md); line-height: 1;
+}
+.lb-split:focus-visible { outline: none; }
+.lb-split:focus-visible::after { border-color: var(--accent-2); color: var(--accent-2); }
+.lb-tag {
+  position: absolute; z-index: 1; pointer-events: none; white-space: nowrap;
+  padding: 2px 8px; border-radius: var(--r-lg); background: rgba(0, 0, 0, 0.62);
+  color: #fff; font-size: var(--fs-label);
+}
+.lb-tag.end { transform: translateX(-100%); }
+/* The column: the cross and the counter, the prompt and the facts, then the
+   controls pinned to the bottom, where they stay put from one image to the
+   next however long its prompt is. */
+.lb-side {
+  flex: 0 0 var(--lb-side-w); width: var(--lb-side-w); min-height: 0;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.lb-head { display: flex; align-items: center; justify-content: space-between; }
+.lb-count { color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
+.lb-meta {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+/* Its line breaks kept and its height capped, as the result column's prompt
+   (.result-prompt): a 29-line XML prompt run into one paragraph was 800 px
+   that put the facts below the column's fold. */
+.lb-prompt {
+  margin: 0 0 10px; font-size: var(--fs-body-sm); line-height: 1.45;
+  white-space: pre-line; max-height: var(--prompt-cap); overflow-y: auto;
+}
+/* What made an image, a fact a row (factsList): the term muted in a column
+   of its own, the value beside it, so the seed is found by its name rather
+   than read for in a sentence of commas. Not the lightbox's alone: anything
+   showing one image with its settings draws the same list. */
+.facts {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px var(--sp-3);
+  margin: 0; font-size: var(--fs-body-sm); line-height: 1.45;
+}
+.facts > div { display: contents; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.facts dd.text { white-space: pre-wrap; }
+.lb-link {
+  padding: 0; border: 0; background: none; color: var(--accent-2);
+  font: inherit; text-align: left; text-decoration: underline dotted; text-underline-offset: 2px;
+}
+.lb-link:hover { color: var(--text); }
+/* A render's references, as the panel's chips number them. */
+.lb-refs { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.lb-ref-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.lb-ref {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 0; border: 0; background: none; color: var(--muted); font-size: var(--fs-sm);
+}
+.lb-ref img, .lb-ref .gone {
+  width: 64px; height: 64px; object-fit: cover;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+}
+.lb-ref .gone { display: grid; place-items: center; border-style: dashed; }
+.lb-ref:not([aria-disabled="true"]):hover img { border-color: var(--accent-2); }
+.lb-ref[aria-disabled="true"] { cursor: default; }
+.lb-passes { margin: var(--sp-3) 0 0; font-size: var(--fs-body-sm); }
+/* Failures raised from inside the lightbox - a delete that 404s, a star
+   that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
+.lightbox .error { min-height: 1.2em; }
+/* A pass against its source: the toggle with S beside it by Generate's rule
+   for Ctrl+Enter (#btn-generate::after: a pseudo-element with empty alt text,
+   the name stays the label's, and aria-keyshortcuts says S), then the two
+   ways to look. */
+.lb-compare { display: flex; flex-direction: column; gap: var(--sp-2); }
+.lb-compare .hint:empty { display: none; }
+#lb-compare-on[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
+#lb-compare-on::after { content: 'S' / ''; }
+.lb-modes { display: flex; gap: var(--sp-2); }
+.lb-modes .ghost { flex: 1 1 0; white-space: nowrap; }
+.lb-modes .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
+.lb-keys { margin: 0; min-height: 0; }
+.lb-zoom-group { display: flex; align-items: center; gap: var(--sp-2); }
+.lb-zoom { color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; min-width: 4em; }
+/* The zoom for a screen reader, said once a wheel's burst is over (the
+   readout on screen is aria-hidden). Out of the row's flow, so no gap. */
+.lb-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+.lb-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
+.lb-actions .ghost { width: 100%; }
+#lb-fav.active { color: var(--star); border-color: var(--star); }
+#lb-reuse.model-mismatch { color: var(--warn); border-color: var(--warn); }
+#lb-delete:hover { color: var(--danger); border-color: var(--danger); }
+.close {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+/* At the stage's edges rather than over the image's centre, so a portrait crop
+   is never covered. Above the stage, a positioned element later in the
+   document that would otherwise paint over them. The arrow keys do the same
+   job; these are here for the mouse. A button is the circle itself, or, at
+   fit with backdrop beside the picture (.strips, lightbox.js), a strip that
+   wide over the middle 60% of the height with the circle at its outer edge,
+   where it stays from one image to the next: a press 10 px off the circle
+   closed the lightbox. The corners stay backdrop and still close, and the
+   wheel over a strip zooms, as over the stage (lightbox.js). */
+.lb-nav {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--lb-nav);
+  height: var(--lb-nav);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: transparent;
+  color: var(--text);
+}
+.lb-nav span {
+  position: absolute;
+  top: 50%;
+  width: var(--lb-nav);
+  height: var(--lb-nav);
+  margin-top: calc(var(--lb-nav) / -2);
+  display: grid;
+  place-items: center;
+  padding-bottom: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  /* The glyph to its circle: 24 px in 40. */
+  font-size: calc(var(--lb-nav) * 0.6);
+  line-height: 1;
+}
+.lb-nav.prev, .lb-nav.prev span { left: 0; }
+.lb-nav.next, .lb-nav.next span { right: 0; }
+.lb-nav.prev { left: 10px; }
+.lb-nav.next { right: 10px; }
+/* A disabled arrow - the first image's ‹, the last's › - stays its circle: a
+   disabled button takes the press, and as a strip it left that side's
+   backdrop closing nothing. */
+.lb-main.strips .lb-nav:not(:disabled) { top: 20%; bottom: 20%; height: auto; transform: none; width: var(--lb-gutter); }
+.lb-main.strips .lb-nav.prev:not(:disabled) { left: 0; }
+.lb-main.strips .lb-nav.next:not(:disabled) { right: 0; }
+.lb-main.strips .lb-nav.prev:not(:disabled) span { left: 10px; }
+.lb-main.strips .lb-nav.next:not(:disabled) span { right: 10px; }
+.lb-main.strips .lb-nav:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); }
+.lb-nav:hover:not(:disabled) span { background: var(--accent); border-color: var(--accent); }
+.lb-nav:disabled { cursor: default; }
+.lb-nav:disabled span { opacity: 0.2; }
+
+/* Too narrow for a column beside the stage: it goes under, as a wrapping row
+   with the prompt on its own line. */
+@media (max-width: 900px) {
+  .lightbox { flex-direction: column; }
+  .lb-side {
+    flex: 0 0 auto; width: auto;
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+  }
+  .lb-head { order: 1; margin-left: auto; }
+  /* Six lines, and the letterbox a square or landscape picture leaves the
+     stage (--lb-room, lightbox.js's lbFactsRoom): the seed had been in the
+     hidden part of an 84 px scroller over 126 px of empty stage. */
+  .lb-meta { flex: 1 1 100%; max-height: calc(6em + var(--lb-room, 0px)); }
+  /* Four lines in a box at least six tall, so the facts follow it in view
+     and a long prompt scrolls inside a box smaller than the one round it:
+     at --prompt-cap's twelve it was a scroller taller than its scroller. */
+  .lb-prompt { max-height: 4lh; }
+  .lightbox .error { flex: 1 1 100%; }
+  .lb-compare { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  /* No room for a legend here, and the buttons' titles name their keys. */
+  .lb-keys { display: none; }
+  .lb-actions { flex-direction: row; }
+  .lb-actions .ghost { width: auto; }
+}
+/* The wide tier: a column of 340-400 px rather than 280 (--lb-side-w), where
+   the facts get a line each - square and portrait pictures are bound by the
+   height, so it costs them nothing, and a 16:9 one 3% - and the prompt at
+   body size. */
+@media (min-width: 1800px) {
+  .lb-prompt { font-size: var(--fs-md); }
+}

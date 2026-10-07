@@ -1,0 +1,217 @@
+
+/* --------------------------------------------------------- refine dialog */
+
+/* The Refine dialog: a column of the panel's own controls over the page. A
+   dimmed rather than a near-black backdrop: the page behind it is context, not
+   something to hide. Anchored at a fixed top and grown downward, not centred
+   by the UA: centred, every change of height - the fold, a sweep's second
+   preview line, a refusal - moved every control, the fold's own summary
+   136 px from under the pointer that opened it. The top margin comes out of
+   max-height too, so it still scrolls on a short screen rather than running
+   past the bottom. --rf-narrow is its one-column width; its content width is
+   what the controls keep in the second pane from 1600 px. */
+.refine-dialog {
+  --rf-narrow: 460px;
+  --rf-wide: 1400px;
+  --rf-top: max(var(--sp-4), 8vh);
+  width: min(var(--rf-narrow), calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - var(--rf-top) - var(--sp-4));
+  margin-top: var(--rf-top);
+  margin-bottom: auto;
+  overflow-y: auto;
+  padding: var(--gutter);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--text);
+}
+/* The wide tier's type grows with the window (--ramp) and the controls'
+   column with it, as the panel's does: at 460 px, Strength's 14.5 px label,
+   its badge and Compare 3 ran into Versions at 2560. 540 px there, about 486
+   at 2048 at 125%; nothing changes under 1800 px. */
+@media (min-width: 1800px) {
+  .refine-dialog { --rf-narrow: min(540px, calc(460px + 80 * var(--ramp))); }
+}
+/* Our `display: flex` would beat the UA's `dialog:not([open]) { display: none }`.
+   The two wrappers are the two-pane layout's; in one column their children
+   are the dialog's own. */
+.refine-dialog[open] { display: flex; flex-direction: column; gap: var(--panel-gap); }
+.rf-controls { display: contents; }
+/* It scrolls rather than squeezing its lines: a column too tall for the
+   window shrank each item to its min-height, a hint's 15 px, and a two-line
+   preview ran over the line under it. */
+.refine-dialog[open] > *, .rf-controls > * { flex-shrink: 0; }
+.refine-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+/* A delete's question (gallery.js, openAsk): the Refine dialog's dark box,
+   placed beside what was pressed (placeAsk, inline) - centred by the UA where
+   nothing had focus - with Cancel first and focused, and Delete in the
+   danger red at the end, apart from it. */
+.confirm-dialog {
+  width: min(460px, calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - 2 * var(--sp-4));
+  overflow-y: auto;
+  padding: var(--gutter);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+.confirm-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.confirm-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.confirm-dialog h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.confirm-text { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body-sm); color: var(--text-2); }
+.confirm-text p { margin: 0; overflow-wrap: anywhere; }
+.confirm-text p:last-child { color: var(--text-readout); }
+.confirm-dialog .field span { font-size: var(--fs-body-sm); color: var(--text); text-transform: none; letter-spacing: 0; }
+.confirm-actions { display: flex; justify-content: space-between; gap: var(--sp-3); }
+.primary.destroy { background: var(--danger-strong); }
+.rf-head { display: flex; align-items: center; justify-content: space-between; }
+.rf-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.rf-source { display: flex; gap: var(--sp-3); align-items: flex-start; }
+/* The whole picture, letterboxed in its square: cover showed a 16:9 source's
+   middle 56%, which is not the picture being refined. */
+.rf-figure { position: relative; flex: none; width: 72px; height: 72px; }
+.rf-figure img {
+  display: block; width: 100%; height: 100%; object-fit: contain;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
+}
+/* What a reshaped size keeps (refine.fitted's cover and centre crop), drawn
+   over the large source only: on the thumbnail the letterbox would put it in
+   the wrong place. The rest of the picture is dimmed by the frame's shadow,
+   inside the figure's clip. */
+.rf-kept { display: none; }
+.rf-source-text { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.rf-source-line { margin: 0; font-size: var(--fs-label); color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The source's prompt as a reminder of which picture this is, not to read -
+   captioned, since the fold's Prompt box may hold another by now. */
+.rf-prompt {
+  margin: 0; font-size: var(--fs-label); line-height: 1.4; word-break: break-word;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.rf-caption { color: var(--muted); }
+.rf-draft { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+/* The passes already made from this source, newest first: small enough to be
+   a row, each opening in the lightbox beside the source. */
+.rf-pass-list { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: 2px; }
+.rf-pass-list button {
+  width: 44px; height: 44px; padding: 0; flex: none; cursor: pointer;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel-2); overflow: hidden;
+}
+.rf-pass-list button:hover, .rf-pass-list button:focus-visible { border-color: var(--accent); outline: none; }
+.rf-pass-list img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.refine-dialog select {
+  width: 100%; padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 6px; font: inherit;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md); color: var(--text);
+}
+/* The factors are the choice the dialog is opened for: as wide as the row,
+   each with the size it lands on under it - a data attribute, so the
+   buttons' text stays the factor. */
+.refine-dialog .presets button { flex: 1; font-size: var(--fs-body-sm); }
+.refine-dialog .presets button::after {
+  content: attr(data-size); display: block; font-size: var(--fs-xs); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* The chosen factor is the presets' accent fill (white on --accent-strong):
+   its size line in --muted on that fill was about 1.5:1. The button's own
+   white, quieter by its size alone: at 0.85 opacity it fell under 4.5:1. */
+.refine-dialog .presets button.active::after { color: inherit; }
+.refine-dialog .presets button:disabled { opacity: 0.45; cursor: not-allowed; }
+.rf-lock { flex: none; align-self: center; margin-top: var(--sp-3); font-size: var(--fs-label); }
+.refine-dialog .sub i .ghost.tiny { margin-left: auto; }
+#refine-negative-field.disabled textarea { opacity: 0.45; }
+/* From panel at the far end of the Prompt caption, as Reset is in the
+   panel's; the caption's capitals are the label's, not the button's. */
+#refine-prompt-field > span .rf-from-panel { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; }
+/* What its press did not do, on a line of the caption's own under it - in
+   view with the button, where the dialog's error line at its foot was not.
+   Empty, a block of no height: the live region is in the page before it
+   speaks, and takes no room until then. */
+#refine-prompt-field > span .rf-from-note {
+  display: block; clear: both;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--muted);
+}
+/* The tag suggestions hang from the Prompt box, as the panel's do (.tag-
+   suggestions), and over it where the dialog shows no room below
+   (placeRefineSuggestions): past its bottom the list was cut off. */
+.rf-prompt-editor { position: relative; }
+.rf-prompt-editor textarea { display: block; }
+.rf-prompt-editor .tag-suggestions.up { top: auto; bottom: calc(100% + 4px); }
+/* Opened upward, over what is set already: downward they covered the very
+   controls they explain. Never a target, as no tip is (`.tip` above): one
+   over the scale buttons took the clicks meant for them. */
+.refine-dialog .help.above .tip { top: auto; bottom: calc(100% + 7px); }
+.rf-check { display: flex; flex-direction: column; gap: var(--sp-1); }
+.rf-check .hint { margin: 0; }
+/* Dimmed while the boxes hold other text than it checked, by the panel's
+   check's own rule (the prompt check's section). */
+.rf-check .ghost.tiny { margin-left: var(--sp-2); vertical-align: 1px; }
+/* Why a negative-prompt Apply is dead: the box is greyed. */
+.rf-off { color: var(--text-3); }
+/* The check's text for a screen reader, said when it changes. Out of the
+   flex column's flow, so it adds no gap. */
+.rf-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+/* What the pass will do, in the dialog's own voice rather than a hint's. */
+#refine-preview { font-size: var(--fs-body-sm); color: var(--text); }
+#refine-preview.warn { color: var(--warn); }
+/* A refused press puts the preview's sentence here in the preview's place
+   (refuseRefine), so at the preview's size: a line of another height moved
+   Refine from under the pointer. */
+#refine-error { font-size: var(--fs-body-sm); margin-top: 2px; white-space: pre-line; }
+.rf-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+.rf-actions .primary { min-width: 120px; }
+/* The shortcut beside the label is Generate's rule (#btn-generate::after). */
+
+/* Two panes: the source large on the left, the controls at the width they
+   have in one column on the right. The figure spans every row and the last
+   is the flexible one, so a picture taller than the controls lengthens that
+   row alone instead of spreading the controls apart. The figure takes the
+   record's shape (--rf-ratio, set by refine.js) so the kept-region frame's
+   percentages are the picture's. */
+@media (min-width: 1600px) {
+  .refine-dialog {
+    --rf-side: calc(var(--rf-narrow) - 2 * var(--gutter) - 2px);
+    --rf-image-h: calc(100vh - var(--rf-top) - var(--sp-4) - 2 * var(--gutter) - 2px);
+    width: min(var(--rf-wide), calc(100vw - 4 * var(--sp-4)));
+  }
+  .refine-dialog[open] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--rf-side);
+    grid-template-rows: auto auto 1fr;
+    column-gap: calc(var(--gutter) + var(--sp-1));
+    row-gap: var(--panel-gap);
+  }
+  .rf-head { grid-column: 2; grid-row: 1; }
+  .rf-source { display: contents; }
+  .rf-source-text { grid-column: 2; grid-row: 2; }
+  .rf-controls {
+    grid-column: 2; grid-row: 3; align-self: start;
+    display: flex; flex-direction: column; gap: var(--panel-gap);
+  }
+  .rf-figure {
+    grid-column: 1; grid-row: 1 / -1; align-self: start; justify-self: center;
+    width: min(100%, calc(var(--rf-image-h) * var(--rf-ratio, 1))); height: auto;
+    aspect-ratio: var(--rf-ratio, 1);
+    overflow: hidden; border-radius: var(--r-sm);
+  }
+  .rf-figure img { border-radius: 0; }
+  .rf-kept {
+    display: block; position: absolute;
+    outline: 1px dashed var(--text); outline-offset: -1px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+  }
+}
+
+/* --------------------------------------------------------------- motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
+  /* The load pulses for minutes; a steady dot says the same thing. */
+  .dot.loading { animation: none; opacity: 0.8; }
+}

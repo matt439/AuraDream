@@ -40,6 +40,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   checkpoint's own tokenizers, on the CPU, over the exact string its pipeline
   builds - token counts, where reading stops, template-tail loss, literal
   weighting syntax, typed control tokens, T5's unknown characters
+- `backend/prompt_text.py` — shared prompt parsing, prose/tag detection and lettering spans
+- `backend/prompt_order.py` — documented tag placement, ordering and category coverage
 - `backend/prompt_rules.py` — the analyser's rule checks against the guide's
   `analysis`: style, documented order, `reorder_tags`, the items left
   unplaced where that decides the order (`unplaced_items`), each comma
@@ -55,7 +57,11 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   their URLs, notes and caveats
 - `backend/critic.py` — the local prompt critic: pinned llama.cpp
   `llama-server` and Qwen3-4B GGUF, fetched and verified by `prepare()`, one
-  server per `critique()`, the answer validated against its sources
+  server per `critique()`, the answer validated against its sources;
+  `critic_runtime.py` owns pinned installation, `critic_server.py` the process
+  tree and loopback requests, `critic_context.py` the question and token budget,
+  `critic_reorder.py` pure prompt permutations, and `critic_validation.py`
+  answer grounding and rewrite validation
 - `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
   expanded Chinese prompt for the UI; the Chinese prompt remains canonical.
   `cached()` is a file check (a local tree or the Hub cache, no network) for
@@ -123,7 +129,10 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates, the LIKE escape, `strict_scope`
-- `backend/main.py` — routes
+- `backend/main.py` — app lifecycle, model/prompt routes and generation submission;
+  `api_gallery.py` owns gallery browsing, runs and deletion, and `api_jobs.py`
+  job inspection, cancellation, pause and SSE, with app-owned dependencies
+  supplied by router factories
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans
 - `backend/stats.py` — the starred *rate* per setting (`storage.keep_rates`),
@@ -131,14 +140,21 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; the page script is twelve classic
-  scripts `index.html` loads in order (`state`, `sizes`, `status`,
-  `generation`, `panel`, `gallery`, `sheet`, `lightbox`, `refine`, `tags`,
-  `analysis`, `app`), sharing one global scope; only `app.js`, the last, runs
-  anything at load. `panel.js` also holds the results viewer and Reset's
-  Undo; `refine.js` is the Refine dialog; `lightbox.js` is the lightbox, its
-  comparison of a pass with its source and the shared `factsList`;
-  `analysis.js` is the prompt check, the critic and the comparison
+- `web/` — served as-is from `/static`; `index.html` loads 26 classic
+  scripts in order, sharing one global scope; only `app.js`, the last, runs
+  the wiring and boot. `state.js` owns shared state; `generation.js`,
+  `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
+  previews and progress; `panel.js`, `runs.js` and `viewer.js` the settings,
+  run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
+  the cards and their actions; `sheet.js`, `sheet-render.js` and
+  `sheet-export.js` the contact sheet; `lightbox.js` the lightbox and shared
+  `factsList`; `refine.js` and `refine-prompt.js` the Refine dialog;
+  `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
+  `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
+  and `status.js` retain their control/profile roles. The stylesheet is
+  `style.css` (tokens and base layout), followed by `styles/*.css` in the
+  explicit link order; preserve that cascade. See `docs/source-audit.md`
+  for the responsibility map and retained long files.
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
   feature (headless browser over DevTools; among the features
@@ -712,8 +728,8 @@ Prompt analyser:
   cut link gives). An encoder left uncounted (a tokenizer still loading or
   unfetchable, the server not answering) is "cut unknown" in either place,
   never "no cut". The page measures the first 4000 code points
-  (`PROMPT_MAX_CHARS`, tags.js, held equal to `PromptMeasureRequest`'s and
-  `GenerateRequest`'s `max_length` by `tests/test_api_analysis.py`). Past
+  (`PROMPT_MAX_CHARS`, tag-tokens.js, held equal to `PromptMeasureRequest`'s and
+  `GenerateRequest`'s `max_length` by `tests/test_api_analysis_tags.py`). Past
   them the line leads with "Over 4000 characters: Generate and Check refuse
   it", in amber, then the count of what was counted and its cut (the chip
   tray's label says "over 4000 characters", the count of the first 4000
@@ -912,7 +928,7 @@ Prompt analyser:
   libgomp.so.1/libssl.so.3/libcrypto.so.3 asked of the dynamic loader in a
   child interpreter - and refuses (503) naming the apt packages.
   `install_server` sweeps, under its lock, the work directories interrupted
-  installs left (`critic._is_work`): exactly `<target>-` plus tempfile's 8
+  installs left (`critic_runtime._is_work`): exactly `<target>-` plus tempfile's 8
   characters (`[a-z0-9_]`), never another build's own directory, a real
   directory (no link or junction) holding only `tree` and `archive-<n>`
   (whole names) - never a user's copy named like one; best-effort, it never
@@ -1024,7 +1040,7 @@ Prompt analyser:
   reordered version too long, changed (an XML candidate with the prompt's
   own words says instead that it moved words inside or between blocks,
   changed only punctuation or spacing, or changed the text outside the
-  blocks - `critic._not_a_reorder`), with `<general_tags>` ahead of a
+  blocks - `critic_reorder._not_a_reorder`), with `<general_tags>` ahead of a
   character block ("puts", or "keeps" where the prompt already had it
   there), not Check's, regrouped, unread or flagged by the order rule - is
   said in `set_aside`. Typed Qwen3 control
@@ -1257,7 +1273,7 @@ Frontend and CLI:
   arrows, Home and End walk it, Escape hands focus back to the button, and
   focus leaving closes it. Where references are supported and none is
   attached, an example matching `EDIT_PROMPT` (app.js, held equal to
-  `prompt_rules.EDIT_PROMPT` by `tests/test_prompt_rules.py`) says it needs a
+  `prompt_rules.EDIT_PROMPT` by `tests/test_prompt_rules_prose.py`) says it needs a
   reference image. An example holding one of the authors' template slots
   says which slots are left to fill. The slots are `ModelStatus.guide.slots`,
   the placeholder rule's patterns, read case-insensitively and held by a
@@ -2454,8 +2470,8 @@ Frontend and CLI:
   puts the original's top-level XML blocks in another order, with nothing
   in or between them changed (the loose text compared gap by gap), reads
   "same blocks, moved: `<general_tags>` first" (`blockMove`, over
-  `xmlBlocks`); its `XML_BLOCK` is `critic._XML_BLOCK` with Python's Unicode
-  `\w` written out, held equal by `tests/test_critic.py`. One block's move
+  `xmlBlocks`); its `XML_BLOCK` is `critic_reorder._XML_BLOCK` with Python's Unicode
+  `\w` written out, held equal by `tests/test_critic_reorder.py`. One block's move
   reads "first", "last", or "before"/"after" another; anything else reads
   "in the order …", cut between two tags within 80 characters (`tagLine`,
   `EDIT_CHARS`). The edit fallback labels such a prompt by its move too,
@@ -2666,13 +2682,13 @@ and, through the status,
 The prompt analyser is tested the same way, with no network and no GPU:
 `test_prompt_encoding.py` (budgets, cuts, templates held to the
 installed diffusers source; its real-tokenizer cases skip when nothing is
-cached), `test_prompt_rules.py` (the `analysis` data against the prose, the
+cached), `test_prompt_rules*.py` (the `analysis` data against the prose, the
 authors' examples raising no warning, the chips' order slots against
 `reorder_tags` and the order finding's step labels, and `reads_order`
-wherever the slots are None), `test_critic.py` (pins, install,
+wherever the slots are None), `test_critic*.py` (pins, install,
 server command and stop, the server's count and the fit checks, answer
 validation, grounding, and `web/sheet.js`'s copy of `_XML_BLOCK`) and
-`test_api_analysis.py` for the routes, the chips' order slots on
+`test_api_analysis*.py` for the routes, the chips' order slots on
 `/api/tags/validate` (offline, past the 64, a prompt past Check's limit, no
 category lookup where no order is read, a fault in them leaving the
 verdicts), an item longer than any tag answered unknown without asking
@@ -2682,12 +2698,12 @@ the page's `PROMPT_MAX_CHARS` held to every request's `max_length`
 (Check beside a running job, off the loop; the critique's re-check after
 `prepare()`), the status flags (status never loads a tokenizer) and
 shutdown (the lifespan's order, `main.Server.handle_exit`). Where the point
-is the real thing, `test_critic.py` starts Python children and loopback
-servers: a wrapped stand-in llama-server's process tree, its listener and
+is the real thing, `test_critic_process.py` and `test_critic_server.py`
+start Python children and loopback servers: a wrapped stand-in llama-server's process tree, its listener and
 its counts, and the proxy bypass. The job-object cases run on Windows only;
 the wildcard-listener and half-exited-process cases run on Linux only. Its
-own real-tokenizer case, `test_measured_counts_and_pieces_are_the_tokenizers`,
-skips when klein's tokenizer is not cached. The `fake` fixture installs
+real-tokenizer case in `test_critic_tokens.py`,
+`test_measured_counts_and_pieces_are_the_tokenizers`, skips when klein's tokenizer is not cached. The `fake` fixture installs
 `FakeCritic` as `main.prompt_critic` - its six methods held to
 `PromptCritic`'s signatures by a test, its question sized by the real
 `critic.check_fits` on the unscaled estimate, standing in for the server's

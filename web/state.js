@@ -1,10 +1,11 @@
-// Local Diffusion's page script, part 1 of 12: shared state, the element table and
+// Local Diffusion's page script: shared state, the element table and
 // the fetch/error helpers. index.html loads these files in order as classic
 // scripts, so they share one global scope: a top-level `let`, `const` or
 // function in any of them is visible to all the others and to a smoke step's
 // `eval` (tools/browser.mjs). Only app.js, the last, runs anything at load;
-// the rest only declare. Order: state, sizes, status, generation, panel,
-// gallery, sheet, lightbox, refine, tags, analysis, app.
+// the rest only declare. index.html is the load-order list: state first,
+// each feature's declarations together, and app last. Keep shared bindings
+// at top level so the page and browser smokes can reach them by name.
 'use strict';
 
 const $ = (id) => document.getElementById(id);
@@ -446,7 +447,7 @@ let sheetRecords = [];
 const OFFLINE_MESSAGE = 'No answer from the Local Diffusion server — is it still running?';
 // The topbar's words for that state, which the watched job's line, the
 // topbar's mirror of it and the tab's title use too while its stream
-// reconnects (generation.js): one phrase, not three.
+// reconnects (job-stream.js): one phrase, not three.
 const LOST_PHRASE = 'server not answering — retrying';
 
 async function api(path, options) {
@@ -504,7 +505,7 @@ function showError(message, note = false, {
   slot.hidden = !message;
   slot.textContent = message || '';
   slot.classList.toggle('note', note);
-  // A new message is nobody's "Previous job:" (generation.js, syncFinishLead).
+  // A new message is nobody's "Previous job:" (job-results.js, syncFinishLead).
   slot.classList.remove('previous');
   if (offline && message) offlineSlots.set(slot, message);
   else offlineSlots.delete(slot);

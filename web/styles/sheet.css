@@ -1,0 +1,326 @@
+
+/* --------------------------------------------------------- contact sheet */
+
+/* Where the page lands when it opens a sheet (showSheetScope): the gallery
+   head just under the sticky topbar, with the search, Favorites and Sheet -
+   the sheet's own filters - in view above the sheet. */
+.gallery-head { scroll-margin-top: calc(var(--topbar-h) + var(--sp-3)); }
+
+/* One run laid out as the grid that produced it: an axis across, an axis down,
+   anything else pinned. */
+.sheet { display: flex; flex-direction: column; gap: var(--sp-3); }
+.sheet-controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
+  font-size: var(--fs-label); color: var(--muted);
+}
+.sheet-pick { display: flex; align-items: center; gap: 6px; }
+.sheet-pick select {
+  background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--text);
+  border-radius: var(--r-sm); padding: 4px 6px; font: inherit;
+}
+/* "F stars the image in focus", at the end of the row. */
+.sheet-hint { margin-left: auto; }
+/* The settings every image shares, a readout rather than a hint: under the
+   Favorites tick it is what the keepers have in common. */
+.sheet-fixed { margin: 0; font-size: var(--fs-label); color: var(--text-readout); }
+/* The grid scrolls in a box of its own, both ways, so the heads can stick to
+   its edges while the cells move under them; many columns scroll sideways
+   rather than squeezing the thumbnails to nothing, and the page itself never
+   scrolls horizontally. The box is no taller than the window less what sits
+   round it once the page has landed on the gallery head (--sheet-chrome,
+   measured by renderSheet's fitSheet), and a matrix's cells are no taller
+   than its rows can share of that (--cell-max), so a 4 x 3 at QHD is one
+   screen and only a matrix whose rows pass the 96 px floor scrolls inside it.
+   Its scroll padding is the stuck heads' row and column and the gap past
+   them (fitSheet measures both), so a cell the keyboard focuses is scrolled
+   out from under them. A wrapped row lays out like the gallery and takes the
+   page's height. */
+.sheet-scroll {
+  overflow: auto; max-height: calc(100vh - var(--sheet-chrome, 0px));
+  scroll-padding: calc(var(--sheet-head, 0px) + 6px) 0 0 calc(var(--sheet-rowhead, 0px) + 6px);
+}
+.sheet.wrapped .sheet-scroll { max-height: none; }
+/* A matrix's columns are at most --cell-w (renderSheet's template): the
+   fitted --cell-max, or, with Fill width pressed (.sheet.fill-width, sheet.js's
+   setSheetFill), the sheet's whole width shared out - cells read one by one,
+   the box scrolling under its stuck heads. */
+.sheet-grid {
+  display: grid; gap: 6px; align-items: center; justify-content: center; min-width: min-content;
+  --cell-max: calc(((100vh - var(--sheet-chrome, 0px) - var(--sheet-head, 0px)) / var(--sheet-rows, 1) - 6px)
+    * var(--sheet-ar, 1));
+  --cell-w: var(--cell-max);
+}
+.sheet.fill-width .sheet-grid { --cell-w: 1fr; }
+/* A matrix's rows, for a screen reader's table (role=row, renderSheet): no
+   box of their own, so the heads and cells are still the grid's items and
+   the heads stick as they did. */
+.sheet-row { display: contents; }
+/* What a sheet is, said as it opens (sheet.js, saySheet). */
+.sheet-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+/* The heads at the text's size and colour - 11 px grey over cells 500 px and
+   more across - and stuck to the box's top and left edges, each over its
+   whole row or column and the gap beside it on the page's own background, so
+   the labels stay beside the rows being read while the cells pass under
+   them. A label wraps to three lines at most; the heading's title is the
+   whole value. */
+.sheet-grid .head, .sheet-grid .rowhead {
+  font-size: var(--fs-body-sm); color: var(--text); background: var(--bg);
+  box-shadow: 0 0 0 3px var(--bg);
+  position: sticky; z-index: 1; align-self: stretch; display: flex;
+}
+.sheet-grid .head > .label, .sheet-grid .rowhead > .label {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  overflow-wrap: break-word; min-width: 0;
+}
+/* A long number in a label - a seed - goes to a line of its own whole, and
+   breaks only where it alone is wider than its column, between its groups of
+   four digits (sheet.js, numberLabel): "Seed" over "7601520420449509", never
+   "Seed 760152042044" over "9509". Broken, its lines are balanced:
+   "76015204" over "20449509", not "760152042044" over "9509". */
+.sheet-grid .label > .number { display: inline-block; text-wrap: balance; }
+.sheet-grid .head {
+  top: 0; align-items: flex-end; justify-content: center; text-align: center; padding-bottom: 2px;
+}
+.sheet-grid .rowhead {
+  left: 0; align-items: center; justify-content: flex-end; text-align: right;
+  white-space: nowrap; padding-right: 6px;
+}
+.sheet-grid .head.corner { left: 0; z-index: 2; }
+/* The prompt axis and the variables. Their labels are the words that vary
+   between the cells, which is prose and occasionally a long phrase - so a row
+   head wraps where a number never needs to, and is capped rather than eating
+   the sheet. */
+.sheet-grid .rowhead.text { white-space: normal; max-width: 170px; }
+@media (min-width: 1800px) {
+  .sheet-grid .rowhead.text { max-width: clamp(170px, 12vw, 320px); }
+}
+/* A comparison's version, named, with what it changed against the original
+   under the name. */
+.sheet-grid .rowhead.has-edit {
+  display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px;
+}
+.sheet-grid .rowhead-edit {
+  font-size: var(--fs-label); color: var(--text-readout);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+}
+/* The cells take the run's own aspect ratio (set by renderSheet from the
+   commonest size on the sheet) and show the whole frame: `cover` centre-cropped
+   every cell to its middle 68% on a portrait run, hiding the top and bottom of
+   the composition, which is exactly what a CFG or mu axis moves. Each cell is
+   a stacking context of its own (`isolation`): its star, its pass's badge and
+   its reference number sit over its picture but under the heads stuck over
+   the scrolled box, which they shared a z-index with and, later in the page,
+   drew over. */
+.sheet-cell {
+  position: relative; isolation: isolate;
+  aspect-ratio: var(--cell-aspect, 1); border-radius: var(--r-sm); overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.sheet-cell img { width: 100%; height: 100%; object-fit: contain; display: block; cursor: zoom-in; }
+/* A hole in the matrix - a cell the run never reached, or was cancelled before. */
+.sheet-cell.empty { opacity: 0.3; }
+/* A refine sweep's source, ahead of its passes: ringed in the focus colour's
+   teal, apart from the passes and from a star's amber. */
+.sheet-cell.source { border-color: var(--accent-2); }
+/* Framed as the passes are: their cells' shape, centre-cropped - what
+   refine.fitted kept of it - rather than the whole source letterboxed
+   beside crops of it (renderSheet captions the crop). The lightbox it opens
+   has the whole picture. */
+.sheet-cell.source img { object-fit: cover; }
+/* A starred cell's ring and badge are the card's own (the star's rules, with
+   the card's tools below). */
+/* A refine pass says so, and at what strength - on a card always, on the
+   sheet where it does not lay the strength out already: a pass looks like its
+   source by design. Top left, clear of the star. */
+.card.refined::before, .sheet-cell.refined::before {
+  content: "⤢ " attr(data-strength); position: absolute; top: 6px; left: 6px; z-index: 1;
+  padding: 2px 7px; border-radius: var(--r-lg); background: rgba(0, 0, 0, 0.62);
+  color: #fff; font-size: var(--fs-label); pointer-events: none;
+}
+/* A wrapped row's cells carry their own label, the head they have no row for. */
+.sheet-cell .cap {
+  position: absolute; inset: auto 0 0 0; padding: 14px var(--sp-2) 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  color: #fff; font-size: var(--fs-label); text-align: center; pointer-events: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ghost.small.active { color: var(--accent); border-color: var(--accent); }
+
+.card {
+  position: relative;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  aspect-ratio: 1;
+  /* The arrow keys bring a card into view (moveCard): clear of the topbar. */
+  scroll-margin-top: calc(var(--topbar-h) + var(--sp-2));
+}
+/* The whole frame, letterboxed on the card's own grey as the sheet's cells
+   are: `cover` cropped a 16:9 image to its middle 57%, and a portrait one to
+   its middle 57% of the height - the edges, the placement of any lettering,
+   and whether it was landscape at all. */
+.card img { width: 100%; height: 100%; object-fit: contain; display: block; cursor: zoom-in; }
+.card .tools {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  gap: var(--sp-1);
+  padding: 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+/* Revealed by keyboard focus and on a coarse pointer too: hover alone left 192
+   invisible tab stops per page, the first of which overwrites the prompt and the
+   last of which deletes the image. */
+.card:hover .tools, .card:focus-within .tools { opacity: 1; }
+@media (pointer: coarse) { .card .tools { opacity: 1; } }
+.card .tools button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+/* The tools share the row at any card width, shrinking rather than running
+   off the card (Delete was clipped by its overflow at QHD), with Delete apart
+   at the far end, away from the others. */
+.card .tools button {
+  flex: 0 1 auto;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  color: #fff;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: var(--fs-label);
+}
+.card .tools .del { margin-left: auto; }
+.card .tools button:hover { background: var(--accent); }
+/* Delete lights as the page's other destructive buttons do (#lb-delete,
+   .ghost.danger): its glyph and an edge in the danger red on the dark fill,
+   never the harmless tools' accent. */
+.card .tools .del:hover { background: rgba(0, 0, 0, 0.85); color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
+.card .tools .reuse-settings.model-mismatch {
+  color: #fff3c4;
+  background: rgba(120, 84, 0, 0.82);
+}
+/* Each tool's name, at once, on hover and on keyboard focus: the glyphs were
+   named only by a native title, which came a second late or not at all.
+   Anchored at the row's left edge - the buttons are not positioned - so the
+   card's overflow never clips it, as it would one centred over Delete; and
+   Delete's at the right edge, over Delete, where at the left it named the
+   destructive tool over the harmless one 200 px away. */
+.card .tools button:is(:hover, :focus-visible)::after {
+  content: attr(data-tip);
+  position: absolute; left: 6px; bottom: 100%;
+  padding: 2px 6px; border-radius: var(--r-xs);
+  background: rgba(0, 0, 0, 0.85); color: #fff;
+  font-size: var(--fs-label); white-space: nowrap; pointer-events: none;
+}
+.card .tools .del:is(:hover, :focus-visible)::after { left: auto; right: 6px; }
+/* What the card is - "#12 · 1024×1024 · seed 5" - just over its tools on
+   hover and keyboard focus, where the names show: the image's title said it
+   a second late, and never to a keyboard. Drawn from the row's data
+   attributes, as the names are from theirs (card()), with empty alt text -
+   hidden from a screen reader, as Generate's Ctrl+Enter is, since the
+   image's label and title say it. A tool's name takes its place while one
+   shows. A narrow card breaks it before "seed", never inside the seed, and
+   the pointer goes through it to the image. */
+.card .tools::before {
+  content: "#" attr(data-n) "\00a0· " attr(data-size) "\00a0· seed\00a0" attr(data-seed) / "";
+  display: none; position: absolute; left: 6px; bottom: 100%; max-width: calc(100% - 12px);
+  padding: 2px 6px; border-radius: var(--r-xs);
+  background: rgba(0, 0, 0, 0.85); color: #fff;
+  font-size: var(--fs-label); font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.card:is(:hover, :focus-within) .tools::before { display: block; }
+.card .tools:has(> button:is(:hover, :focus-visible))::before { visibility: hidden; }
+/* A tool this checkpoint cannot use, or ❐ with four references taken: the
+   glyph dimmed and no lit hover, as the lightbox's Refine - aria-disabled, so
+   it keeps its tab stop and a press still says why. The glyph's colour rather
+   than the button's opacity, which would dim its name above the row too. */
+.card .tools button[aria-disabled="true"] { color: rgba(255, 255, 255, 0.45); cursor: not-allowed; }
+.card .tools button[aria-disabled="true"]:hover { background: rgba(0, 0, 0, 0.55); }
+/* ❐ on an image that is a reference already: pressed, and a press removes it. */
+.card .tools .ref-tool[aria-pressed="true"] { background: var(--accent-strong); }
+/* From 1800 px a card's tools, and a long run's tiles' over their pictures,
+   are --h-tool square at least (32 px): 25 x 26 px at QHD was 2 mm of glyph
+   on a 27-inch screen. The tiles of two to four have a row of that height. */
+@media (min-width: 1800px) {
+  .card .tools button, .viewer.many .tools button { min-height: var(--h-tool); min-width: var(--h-tool); }
+}
+/* A starred card has to be found at a glance across a page of thumbnails: an
+   amber ring round the card, and the star on a dark badge so it reads on a
+   white render as well as a black one. On a card the badge is the toggle
+   itself (`.fav-badge`, a button): it used to be a picture of one that a
+   click went through to the lightbox, while the real star sat in the tool
+   row 4 px from Delete. Always there on a starred card; on another, ☆ where
+   the tools show - hover, keyboard focus, a coarse pointer. A sheet cell
+   has the same button, out of the tab order (sheet.js's cellFor: tabindex
+   -1), since the cell's image is its stop and F there does the same. A
+   starred cell carries the ring and the badge a card does - these rules name
+   .sheet-cell beside .card so the two cannot drift - and where the keepers
+   cluster is visible on the sheet rather than only in the user's head: a
+   12 px glyph in a 690 px cell was not. The cell's `position: relative` (its
+   own rule, above) is what keeps 1024 badges from piling up at the top of
+   the page. */
+.card.fav, .sheet-cell.fav { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
+.card .fav-badge, .sheet-cell .fav-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.62);
+  color: var(--star);
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 6px rgba(251, 191, 36, 0.55);
+}
+.card .fav-badge, .sheet-cell .fav-badge { border: none; padding: 0; opacity: 0; transition: opacity 0.15s; }
+.card:not(.fav) .fav-badge, .sheet-cell:not(.fav) .fav-badge { color: #fff; text-shadow: none; }
+.card.fav .fav-badge, .card:hover .fav-badge, .card:focus-within .fav-badge,
+.sheet-cell.fav .fav-badge, .sheet-cell:hover .fav-badge, .sheet-cell:focus-within .fav-badge { opacity: 1; }
+@media (pointer: coarse) { .card .fav-badge, .sheet-cell .fav-badge { opacity: 1; } }
+.card .fav-badge:hover, .sheet-cell .fav-badge:hover { background: rgba(0, 0, 0, 0.85); }
+.card .fav-badge:focus-visible, .sheet-cell .fav-badge:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+/* A reference image in the panel: ringed in the accent - the border and its
+   shadow are the star's - and numbered as its chip is, top left, a pass's
+   badge moving over for it. */
+.card.ref, .sheet-cell.ref { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card > .ref-n, .sheet-cell > .ref-n {
+  position: absolute; top: 6px; left: 6px; z-index: 1;
+  min-width: 22px; padding: 2px 6px; border-radius: var(--r-lg);
+  background: var(--accent-strong); color: #fff; text-align: center;
+  font-size: var(--fs-label); font-weight: 600; line-height: 1.3; pointer-events: none;
+}
+.card.ref.refined::before, .sheet-cell.ref.refined::before { left: 36px; }
+/* What a card tool did - "Added as image 2", a refusal's gist - over the row
+   it was pressed in, for two seconds (cardNote): the chips, and the line
+   under the gallery's head, can be a screen away from the card. One line, a
+   gist - the gallery's line has the sentence - and the row's names stay down
+   meanwhile: a note that wrapped grew up into the pressed tool's name and the
+   two were drawn over each other. */
+.card > .card-note, .viewer .tile > .card-note {
+  position: absolute; inset: auto 6px 6px 6px; z-index: 2;
+  padding: 3px var(--sp-2); border-radius: var(--r-sm);
+  background: var(--accent-strong); color: #fff; text-align: center;
+  font-size: var(--fs-label); pointer-events: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card > .card-note:empty, .viewer .tile > .card-note:empty { display: none; }
+.card:has(> .card-note) .tools button::after { content: none; }
+/* And the card's #N · size · seed over the row, which would sit just above
+   the note: a pointer moved from a refused tool to the image drew the two
+   on top of each other. */
+.card:has(> .card-note) .tools::before { content: none; }
+/* A refusal is not the accent's: dark, as the tools are. */
+.card > .card-note.refused, .viewer .tile > .card-note.refused { background: rgba(0, 0, 0, 0.85); }
+/* A deleted card keeps its slot as a tombstone until the gallery reloads:
+   dashed and darker rather than faded, so its line keeps the muted text's
+   contrast, and out of the pointer's way. */
+.card.gone { background: var(--panel); border-style: dashed; pointer-events: none; }
+.card .tomb { height: 100%; border: none; }

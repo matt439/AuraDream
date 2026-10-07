@@ -675,7 +675,7 @@ window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
 // The picker then names the run on screen: resetGallery follows the search box.
-// Browsed from the keyboard, a run opens on Enter or as focus leaves (panel.js).
+// Browsed from the keyboard, a run opens on Enter or as focus leaves (runs.js).
 els.runList.onchange = runListChange;
 els.runList.addEventListener('keydown', runListKey);
 els.runList.addEventListener('blur', commitRunList);
@@ -689,7 +689,7 @@ els.lastRunResume.onclick = resumeLastRun;
 els.lastRunDismiss.onclick = dismissLastRun;
 // A first run's empty viewer offers the checkpoint's examples.
 els.viewerExamples.onclick = viewerExamples;
-// A batch of two to four is laid out to fit the strip (panel.js, fitViewer):
+// A batch of two to four is laid out to fit the strip (viewer.js, fitViewer):
 // again when its width moves, and with the window's height, which its 68vh is
 // - as a long run's scrolling strip is let grow by its padding (settleStrip).
 new ResizeObserver(viewerResized).observe(els.viewer);
@@ -789,7 +789,7 @@ for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.ref
 }
 els.refineVersions.addEventListener('change', refineChanged);
 
-// A delete's question (gallery.js): Delete, Cancel, Enter in the count's box,
+// A delete's question (gallery-actions.js): Delete, Cancel, Enter in the count's box,
 // a press outside it. Escape is the dialog's own cancel, answered as Cancel.
 els.confirmOk.onclick = () => els.confirmDialog.close('ok');
 els.confirmCancel.onclick = () => els.confirmDialog.close('');
@@ -904,7 +904,7 @@ document.querySelector('.panel').addEventListener('pointerleave', () => {
   if (promptTokensHeld) syncPromptTokens();
 });
 // The token line under the prompt waits to show or go while the mouse is on a
-// control it would move (tags.js, syncPromptTokens): one whose top is at or
+// control it would move (tag-tokens.js, syncPromptTokens): one whose top is at or
 // below the prompt box's bottom. Given back on leaving it and on a key.
 const TOKENS_AIMED = 'button, a, input, select, textarea, summary, label, [role="option"], [role="menuitem"], [tabindex]';
 document.querySelector('.panel').addEventListener('pointerover', (e) => {

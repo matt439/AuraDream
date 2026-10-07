@@ -1,0 +1,346 @@
+
+/* ---------------------------------------------------------- grid search */
+
+/* Folded away: a grid is for leaving running overnight, not for the next image.
+   `display: flex` on a <details> still collapses to the summary when closed. */
+.section {
+  border-top: 1px solid var(--line);
+  padding-top: var(--panel-gap);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.section > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  list-style: none;
+}
+.section > summary::-webkit-details-marker { display: none; }
+.section > summary::before { content: "▸"; font-size: 10px; opacity: 0.7; }
+.section[open] > summary::before { content: "▾"; }
+.section > summary:hover { color: var(--text); }
+.section > summary em {
+  font-style: normal; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--text-3);
+}
+/* Where opening the fold (revealGridRun) or a Tab brings Run grid: as high
+   above the window's bottom as a panel held by its bottom keeps it, which
+   leaves the preview room to grow by a line or two when its reply lands.
+   Full width by hand, like Generate: a <details> lays out what it holds in
+   its ::details-content box, a block, so `.section`'s flex never reaches the
+   button and it shrank to its label. Not a flex gap on that box either - it
+   would open up every row of a fold that is already the panel's tallest -
+   only the button's own margin off the preview above it. */
+#btn-grid {
+  width: 100%;
+  margin-top: var(--sp-2);
+  scroll-margin-bottom: calc(var(--gutter) + var(--panel-pad) + 1px);
+}
+/* The count, the time and the disk are what decide whether to start a night:
+   the preview's first line reads at body size, the axes and notes under it
+   stay hint text. Amber with the rest under .warn. */
+#grid-preview .totals { font-size: var(--fs-body-sm); font-weight: 600; color: var(--text); }
+#grid-preview.warn .totals { color: var(--warn); }
+/* The prompts a variable block resolved to (promptListing), a line of their
+   own between the axes and the notes, at most eight lines tall and scrolling
+   inside themselves: three long prompts listed whole put Run grid thousands
+   of pixels under the window. A nested scroller, not the panel's overflow,
+   which would clip the menus and tips that hang out past its edge.
+   Inline-block, so the preview's text around it keeps its own line breaks
+   (pre-line) - the notes after it, and the line sheet.js appends. */
+#grid-preview .prompts {
+  display: inline-block; width: 100%; vertical-align: top;
+  max-height: 8lh; overflow-y: auto; overflow-wrap: anywhere;
+}
+/* The shortcut on the two buttons it presses - Generate, and Run grid from a
+   grid box (app.js routes it by focus). Generated content with empty alt text:
+   setBusy rewrites the label as text, which would wipe a child element, and
+   the accessible name stays the label (aria-keyshortcuts carries the keys).
+   Quieter by size and weight, not opacity, which would take the white below
+   the label's own contrast on the accent. The Refine dialog's Refine is the
+   third button the shortcut presses, from inside the dialog. The lightbox's
+   Compare with source takes the same hint for its own key, S (its content
+   is the lightbox section's). */
+#btn-generate::after, #btn-grid::after, #refine-run::after, #lb-compare-on::after {
+  content: 'Ctrl+Enter' / '';
+  margin-left: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+
+/* Dim the textarea, not the whole field: the label and the note that explain
+   the state have to stay legible. It still takes the wheel, so a negative
+   carried over from another checkpoint can be read while it is off. */
+#negative-field.disabled textarea { opacity: 0.45; }
+/* Nor any box where the checkpoint takes no negative prompt at all (klein):
+   the caption says so, and the box is back, with its text, on one that does. */
+#negative-field.unsupported textarea { display: none; }
+/* The True CFG box on a checkpoint where CFG is real CFG already: the badge
+   beside it says why, so it stays where it is rather than vanishing. */
+.sub.disabled input { opacity: 0.45; }
+/* The same rule for the two conditioning controls: the row is greyed and its
+   badge keeps saying why - for the checkpoint (references) or for the
+   installation (adapters), never for a value. */
+.row.disabled select, .row.disabled input { opacity: 0.45; }
+/* A box dead for a value of another control - Weight with no adapter, Seeds
+   beside a seed list - looks dead too; its wrapper's title says why, since a
+   disabled box shows no tooltip of its own. The panel's own field rows only:
+   under 901 px the prompt check sits in the panel, and its comparison's
+   "original" box is disabled because it is always run, not because it is off. */
+.panel .sub > input:disabled, .panel .sub > select:disabled { opacity: 0.45; cursor: not-allowed; }
+/* The caption, its badge and "(this checkpoint takes none)" stay; the empty
+   row of chips under them was a blank gap in every non-klein panel. */
+#reference-field.disabled .chips { display: none; }
+/* Empty until Batch or Repeat goes past 1, and its gap with it. */
+#run-hint:empty { display: none; }
+
+/* One chip per reference image: the thumbnail, its number - the "image 2" a
+   prompt names it by, since the order is what the numbers mean - and the way
+   to drop it. Dragged, or Alt+Left/Right on its x, a chip changes places;
+   Delete on the x drops it. Four of them are a row, not a second panel. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 20px; }
+.chip {
+  position: relative;
+  width: 66px; height: 66px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--panel-2);
+  cursor: grab;
+}
+.chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.chip-n {
+  position: absolute; left: 0; bottom: 0;
+  padding: 1px 5px; border-radius: 0 var(--r-sm) 0 0;
+  background: rgba(0, 0, 0, 0.7); color: #fff;
+  font-size: var(--fs-label); font-weight: 600; line-height: 1.3;
+  pointer-events: none;
+}
+/* From 1800 px, four to a row as large as the panel holds, up to 96 px, the
+   badge in the prompt's words ("image 2") and the × a 24 px target: a 66 px
+   chip with an 18 px × beside a 2,000 px stage. */
+@media (min-width: 1800px) {
+  .chip { width: min(96px, calc((100% - 18px) / 4)); height: auto; aspect-ratio: 1; }
+  .chip-n::before { content: "image "; font-weight: 400; }
+  .chip button { width: 24px; height: 24px; font-size: var(--fs-md); }
+}
+.chip.dragging { opacity: 0.45; cursor: grabbing; }
+.chip.drop-before { box-shadow: -4px 0 0 var(--accent-2); }
+.chip.drop-after { box-shadow: 4px 0 0 var(--accent-2); }
+/* An image deleted since it was picked, or an id this browser remembered from
+   before: the browser's broken-image icon said nothing, and Generate then
+   failed on an id the chip never showed. */
+.chip.gone { border-color: var(--danger); }
+.chip.gone img { visibility: hidden; }
+.chip.gone::after {
+  content: "deleted";
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  color: var(--danger); font-size: var(--fs-xs); text-align: center;
+  pointer-events: none;
+}
+.chip button {
+  position: absolute; top: 0; right: 0;
+  width: 18px; height: 18px;
+  padding: 0;
+  line-height: 1;
+  border: 0;
+  border-radius: 0 0 0 var(--r-sm);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+}
+.chip button:hover { background: var(--accent); }
+.chip button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+
+/* The selected preset is the one thing on the strip that stands out: the
+   accent's fill. A preset inside the checkpoint's documented range is marked,
+   not filled - brighter text, a green edge and a dot in its corner - and on a
+   strip where every preset is in range (all-guided: FLUX's aspects, all of
+   Turbo's) the mark says nothing, so it goes, and the size line speaks for the
+   range. Green on nearly every pill used to outshine the selection, which
+   differed from its neighbours by a 1.4:1 fill. */
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button {
+  position: relative;
+  background: var(--panel-2);
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.presets button:hover { color: var(--text); }
+.presets button.recommended { border-color: #287548; color: var(--text); }
+.presets button.recommended::after {
+  content: ""; position: absolute; top: 3px; right: 3px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--ok);
+}
+.presets.all-guided button.recommended { border-color: var(--line-strong); }
+.presets.all-guided button.recommended::after { content: none; }
+.presets button.recommended:hover { border-color: var(--ok); }
+.presets button.active, .presets button.active.recommended {
+  border-color: var(--accent-strong); color: #fff; background: var(--accent-strong);
+}
+.presets button.active.recommended::after { background: #fff; }
+/* A portrait framing and its landscape inverse share one segmented box: the
+   two pills are joined on a common border, and whichever is lit draws it. */
+.presets .pair { display: flex; }
+.presets .pair button:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.presets .pair button:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; margin-left: -1px; }
+.presets .pair button.recommended { z-index: 1; }
+.presets .pair button.active { z-index: 2; }
+/* Its ring over the joined neighbour, which comes later and would paint over it. */
+.presets button:focus-visible { z-index: 3; }
+/* The megapixel row is a second axis over the same pills, not more aspect ratios. */
+.presets.tiers { margin-top: 2px; }
+.size-tier-row { display: flex; align-items: stretch; gap: 6px; }
+.size-tier-row .tiers { flex: 1; }
+.orientation { min-width: 82px; margin-top: 2px; }
+
+/* ---------------------------------------------------------------- buttons */
+
+button { font: inherit; cursor: pointer; }
+
+.primary {
+  background: var(--accent-strong);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  padding: calc((var(--h-lg) - var(--lh) * var(--fs-md)) / 2) 11px;
+  font-weight: 600;
+}
+.primary:hover { filter: brightness(1.1); }
+/* aria-disabled rather than disabled: a disabled element cannot hold focus, so
+   pressing Enter on Generate used to drop a keyboard user's place to <body>. */
+.primary:disabled, .primary[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; filter: none; }
+
+.ghost {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  border-radius: var(--r-md);
+  padding: calc((var(--h-md) - var(--lh) * var(--fs-md) - 2px) / 2) 11px;
+}
+.ghost:hover { color: var(--text); border-color: var(--muted); }
+.ghost.square { padding: 8px 10px; }
+.ghost.wide { width: 100%; margin-top: var(--sp-3); }
+.ghost.small { padding: calc((var(--h-sm) - var(--lh) * var(--fs-label) - 2px) / 2) 8px; font-size: var(--fs-label); flex: none; }
+.ghost:disabled, .ghost[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+/* A dead button does not brighten under the pointer as if a press would act. */
+.ghost:disabled:hover, .ghost[aria-disabled="true"]:hover { color: var(--muted); border-color: var(--line-strong); }
+/* Red under the pointer only where the press destroys or stops something:
+   Cancel, Cancel queued, Delete unstarred. It used to be every small ghost
+   button - Sheet, Pause, Export PNG - which taught the colour to mean nothing,
+   and at its specificity it beat the active Sheet's accent. */
+.ghost.danger:hover:not(:disabled):not([aria-disabled="true"]) { color: var(--danger); border-color: var(--danger); }
+
+/* --------------------------------------------------------------- progress */
+
+/* What the job is on one line with Pause and Cancel, then the bars across the
+   panel's width: beside the bars the buttons left them 113 px of a 461 px
+   panel, and on a row of their own they pushed Cancel and the queue below a
+   1040 px window, the Now line wrapping to two. The line is cut to the
+   panel's width; its title has it whole. The counters are the readouts'
+   size, a step under the body, and the line under them - the time, the
+   cell - the caption's. */
+.progress { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body-sm); color: var(--muted); }
+.progress-head { display: flex; align-items: center; gap: var(--sp-2); }
+.progress .now {
+  flex: 1; min-width: 0; margin: 0; color: var(--text-readout);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.progress .bars { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.progress .row { display: flex; align-items: center; gap: 9px; }
+.progress-actions { display: flex; gap: var(--sp-2); flex: none; margin-left: auto; }
+.bar { flex: 1; height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
+.bar.thin { height: 3px; }
+.fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.15s ease; }
+/* The steps bar restarts every run, so it stays the quieter of the two. */
+.fill.step { background: var(--accent-2); opacity: 0.65; }
+/* While the weights load there is no fraction: a stretch of the fill slides
+   along the bar (the panel's and the topbar's), where 0% for minutes looked
+   like a hang. Still under reduced motion: the whole bar, faint. */
+.indeterminate .fill { width: 35%; animation: indeterminate 1.4s ease-in-out infinite; }
+@keyframes indeterminate { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+@media (prefers-reduced-motion: reduce) {
+  .indeterminate .fill { animation: none; width: 100%; opacity: 0.35; }
+}
+/* A shared width keeps the two bars ending at the same x as their labels change. */
+.pt { font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4.5em; text-align: right; }
+
+#cell-note, #finish-note { font-size: var(--fs-label); }
+.progress #cell-note { margin: 0; }
+/* Nothing to say is no line: an empty one was a 47 px hole in the panel,
+   between the progress and the queue. */
+#cell-note:empty, #finish-note:empty { display: none; }
+/* A grid's skipped cells as they happen. */
+#cell-note .skipped { color: var(--danger); }
+/* What to do next, in the finished job's line: Use seed, Show sheet, Retry. */
+#finish-note button { font-size: var(--fs-label); margin-left: var(--sp-2); vertical-align: baseline; }
+/* "Previous job:" while another runs, so the line is not read as its. */
+#finish-note .lead { color: var(--text-readout); }
+/* For a screen reader only: the finish line's sentence, once per job end
+   (#job-said), and the counter's spoken state while its shown half - the
+   step count, rewritten every step - is aria-hidden (#progress-text .said).
+   Out of the panel's flex column, so neither adds a gap. */
+#job-said, #progress-text .said {
+  position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+#btn-new-image { align-self: flex-start; }
+/* In one column the panel is static and the viewer sits under the whole of
+   it, so the button, in the panel's flow, was as far out of view as the
+   image it pointed to - above the window, or below it with the image. There
+   it is a pill over the page, for as long as it is offered (generation.js:
+   once the viewer is in view it goes), centred under the sticky topbar.
+   Not in the window's foot: Generate is the panel's full width and rests
+   there at the page's top, and a pill in the corner took the right end of
+   it - a press there scrolled to the viewer and queued nothing, after the
+   job as well as during it. Under the topbar, at the page's top, it sits on
+   the panel's top edge, clear of the Prompt row's buttons; further down it
+   is over whatever scrolls under the topbar, the way a feed's "new posts"
+   pill is. */
+@media (max-width: 900px) {
+  #btn-new-image {
+    position: fixed; top: calc(var(--topbar-h) + var(--sp-2)); left: 50%; translate: -50% 0; z-index: 15;
+    padding-inline: var(--sp-3); border-radius: 999px;
+    background: var(--panel-2); color: var(--text); box-shadow: var(--shadow-pop);
+  }
+}
+/* Where New image brings the page: the viewer clear of the sticky topbar. */
+#viewer { scroll-margin-top: calc(var(--topbar-h) + var(--gutter)); }
+
+/* The queue under the bars: a line, then a row per job with its own ×, and
+   Cancel queued where there are several. */
+#queue-note { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+.queue-list { list-style: none; margin: 0; padding: 0; align-self: stretch; display: flex; flex-direction: column; gap: var(--sp-1); }
+.queue-list li { display: flex; align-items: center; gap: var(--sp-2); }
+.queue-list li span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--text-readout); }
+
+.error { color: var(--danger); font-size: var(--fs-label); margin: 0; word-break: break-word; }
+/* A cancelled run is an outcome, not a failure - same slot, no alarm. */
+.error.note { color: var(--muted); }
+/* A finished job's outcome while another job runs: whose it is, as the
+   finish line's lead says. Generated, so the alert is not read out again. */
+#error.previous::before { content: "Previous job: "; color: var(--text-readout); }
+/* Reuse's Undo, at the end of its note: the line's own size, and in the text
+   colour, since it is the one thing in the line to act on. */
+.error .undo { font-size: var(--fs-label); color: var(--text); margin-left: var(--sp-1); vertical-align: baseline; }
+
+/* What the newest finished job did, for a page opened the morning after. */
+.last-run {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2);
+  font-size: var(--fs-label); color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 8px 10px;
+}
+.last-run span { flex: 1 1 100%; word-break: break-word; }
+.last-run.bad { border-color: var(--danger); }
