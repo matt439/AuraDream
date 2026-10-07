@@ -330,11 +330,13 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    text is the chips' size. The window is its only cap: the longest helper,
    Animagine's, is 573 px at that size and outgrew the 520 px it had, hiding
    its closing note behind a scrollbar; from a 900 px window up it is whole. */
+/* Keep transparent controls' outlines readable on the lighter tag surface. */
+.tag-menu, .tag-validation-wide .tag-validation { --line-strong: #746c89; }
 .tag-menu {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
   max-height: 70vh; overflow-y: auto;
   padding: 10px;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--panel-tags); border: 1px solid var(--line-tags); border-radius: var(--r-md);
   box-shadow: var(--shadow-pop);
   color: var(--text); font-size: var(--fs-label); line-height: 1.4; text-align: left;
 }
@@ -392,7 +394,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-validation-wide .tag-validation {
   position: relative;
   padding: 10px 12px calc(var(--fs-sm) * var(--lh) + var(--sp-3));
-  background: var(--panel); border: 1px solid var(--line);
+  background: var(--panel-tags); border: 1px solid var(--line-tags);
   border-radius: var(--r-lg);
 }
 /* The label is the tray's state, written by renderTagValidation: what the

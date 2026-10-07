@@ -25,6 +25,8 @@
                     badges, the chip tray's captions
      --text-3       the quiet note inside a caption: why a field is off, the grid's summary
    Colour
+     --panel-tags, --line-tags  the tag tray and picker: a muted purple surface
+                    and edge that separate them from the surrounding panels
      --line-strong  a control's border: inputs, selects, ghost buttons, presets, the
                     ? badges, at 3.1:1 or better on both fills (WCAG 1.4.11);
                     --line stays on the panel, the cards and the folds
@@ -105,6 +107,8 @@
   --bg: #0b0b0e;
   --panel: #131318;
   --panel-2: #1a1a21;
+  --panel-tags: #242034;
+  --line-tags: #51476b;
   --line: #26262f;
   --line-strong: #666680;
   --text: #e8e8ee;
