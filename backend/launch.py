@@ -101,6 +101,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open; community mirror, single file converted locally on first load",
     ),
     Checkpoint(
+        "RouWei 0.8 epsilon",
+        "Minthy/RouWei-0.8",
+        "open; official epsilon single file, converted locally on first load",
+    ),
+    Checkpoint(
         "Z-Anime Base",
         "SeeSee21/Z-Anime",
         "open; experimental anime model, natural-language prompts",

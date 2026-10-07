@@ -460,6 +460,7 @@ def test_author_orders_are_marked_only_where_the_guide_states_none():
         marked.update(ordered)
     assert marked == {
         "anima.order", "neta.sequence", "neta.prose_order", "ernie.sections", "qwen.portrait_flow",
+        "rouwei.artist_order",
     }
 
 

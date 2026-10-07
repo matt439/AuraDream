@@ -15,8 +15,8 @@ the frontend has no build step.
   use FP8 quantization and model offload. See [measured results](docs/verified.md).
 - **Python 3.13** and [uv](https://docs.astral.sh/uv/).
 - Disk space for the selected model: about **32 GiB for the default model's
-  weights**. Some checkpoints also need a converted copy; Illustrious and WAI
-  each use about 14 GB for the source and conversion together.
+  weights**. Some checkpoints also need a converted copy; Illustrious, WAI
+  and RouWei each use about 14 GB for the source and conversion together.
 
 ## Quick start
 
@@ -46,6 +46,7 @@ Open checkpoints need no login. Select one in the menu, or pass its id:
 
 ```powershell
 uv run python -m backend.main --model cagliostrolab/animagine-xl-4.0
+uv run python -m backend.main --model Minthy/RouWei-0.8   # epsilon release
 uv run python -m backend.main --defaults   # use environment/defaults without the menu
 uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8 --offload model
 ```
@@ -54,6 +55,11 @@ Krea 2 Turbo and Raw require **manual approval** on their Hugging Face pages.
 Any launch argument skips the menu; omitted settings come from the environment.
 Non-interactive launches never ask. To change checkpoints, restart the server
 with the new selection. The full catalogue is in [backend/launch.py](backend/launch.py).
+
+RouWei 0.8 selects the author's epsilon checkpoint and starts at 28 steps/CFG 6.
+Its first load converts the 6.94 GB single file on CPU. Start around 1 MP;
+the [anime model guide](docs/anime-model-guide.md) explains its hybrid prompts,
+artist placement and 77-token text limit.
 
 For everyday use:
 

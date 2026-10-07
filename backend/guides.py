@@ -1027,6 +1027,75 @@ WAI_GUIDE = {
     },
 }
 
+ROUWEI_GUIDE = {
+    "prompt": (
+        "RouWei 0.8 epsilon is an Illustrious retrain for anime and other illustration "
+        "styles. Use Danbooru tags, natural language, or both; the author recommends "
+        "combining tags with descriptive phrases. Write comma-separated tags with "
+        "spaces instead of underscores.\n"
+        "The only positive quality tags are masterpiece and best quality; both are "
+        "optional. The negative quality tags are low quality and worst quality; the "
+        "author says to retain low quality. Do not use lowres: the author removed "
+        "that meta tag. Keep the negative prompt short; the author's recipe is "
+        "worst quality, low quality, watermark. Examples inserts the optional "
+        "positive quality recipe alone; add your subject.\n"
+        "Put by followed by a space before each artist name. The author asks for "
+        "artist tags in a separate CLIP chunk, or at least at the very end of the "
+        "prompt. This app does not implement separate chunks: BREAK is literal "
+        "text, and both SDXL CLIP tokenizers stop at 77 tokens. Keep the complete "
+        "prompt within that limit so the artists at its end are read.\n"
+        "Autocomplete checks Danbooru through the author's end-of-April-2025 "
+        "dataset cutoff; a match is advisory, not proof the checkpoint learned it."
+    ),
+    "size": (
+        "The author recommends about 1-1.5 MP for direct generation, any aspect "
+        "ratio with dimensions divisible by 64. The app's presets are shared "
+        "between checkpoints; check custom dimensions against that multiple. "
+        "The author's separate hires pass uses a 1.5x latent upscale at strength "
+        "0.6, or a GAN upscaler at strength 0.3-0.55. This app's Refine pass uses "
+        "a Lanczos resize and starts at 0.4; it is not the same upscaling setup."
+    ),
+    "pixels": (1.0, 1.5),
+    "pixels_word": "recommended",
+    # The author's quality recipe, not an invented example scene.
+    "examples": ["masterpiece, best quality"],
+    "tag_helper": {
+        "order": [],
+        "groups": [
+            {"label": "Quality", "tags": ["masterpiece", "best quality"]},
+            {
+                "label": "Style",
+                "tags": [
+                    "2.5d", "anime screencap", "bold line", "sketch", "cgi",
+                    "digital painting", "flat colors", "smooth shading", "minimalistic",
+                    "ink style", "oil style", "pastel style",
+                ],
+            },
+            {
+                "label": "Color",
+                "tags": [
+                    "low brightness", "high brightness", "low saturation", "high saturation",
+                    "low gamma", "high gamma", "sharp colors", "soft colors", "hdr", "sdr",
+                ],
+            },
+        ],
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": "2025-04-30",
+        "artist_prefix": "by ",
+        "hybrid_prompt": True,
+        "negative_prompt": "worst quality, low quality, watermark",
+    },
+    "analysis": {
+        "url": "https://huggingface.co/Minthy/RouWei-0.8",
+        "underscores": {"cite": "Write comma-separated tags with spaces instead of underscores."},
+        "artist_prefix": {
+            "prefix": "by ",
+            "cite": "Put by followed by a space before each artist name.",
+        },
+        "negative_prompt": {"cite": "the author's recipe is worst quality, low quality, watermark"},
+    },
+}
+
 ANIMA_TURBO_GUIDE = {
     "prompt": (
         "Anima Turbo makes anime and other illustrations. Its distillation "

@@ -5508,6 +5508,57 @@ GPU samples and their quality limits are recorded in `verified.md`. The
 Illustrious smoke on the fake server; no GPU sample was taken for it, since
 it changes text and one button, not the pipeline.
 
+## RouWei 0.8 epsilon: an author checkpoint with hybrid prompting
+
+`Minthy/RouWei-0.8` selects the author's
+`rouwei_080_epsilon_fp16.safetensors`, pinned to revision
+`95b524750edf2dcbc84967ded3d1bc99deed3b53`: 6,938,040,808 bytes, SHA-256
+`1aba15decd15da1810054ed4c58984610dfafc728bef2fb3f3ebe846b2e287a4`.
+The repository also contains a V-pred release, base weights and FP32 variants.
+They are separate choices; this integration keeps the epsilon checkpoint's
+identity and schedule. The Hub's generated Diffusers snippet does not turn
+the single file into a loadable component tree.
+
+`single_file.ROUWEI_RECIPE` uses the existing CPU conversion and pinned
+SDXL descriptors, verifies the source hash, and retains the source VAE and
+both CLIP encoders. The converted tree has epsilon-prediction Euler Ancestral
+and uses its own recipe-derived cache key. The source and converted weights
+take about 14 GB together. Normal component loading then applies FP8, int8
+or bfloat16; Nunchaku is refused before conversion. Settings, metadata and
+resume keys retain the public model id.
+
+The exact-id profile starts at 28 steps and CFG 6, within the author's
+20-28 and 4-8 ranges for epsilon. Mu is disabled because this is SDXL's
+noise schedule. Its ordinary SDXL Refine sibling starts at strength 0.4.
+That pass resizes and denoises an image; it does not reproduce the author's
+latent or GAN upscaler. Direct-generation guidance is about 1-1.5 MP, with
+dimensions divisible by 64. The app's preset grid is divisible by 16, so
+the size hint retains the author's narrower recommendation without
+claiming every preset follows it.
+
+The guide supports tags, prose and mixtures, with a 2025-04-30 vocabulary
+cutoff. Tags use spaces, artists use `by `, and the recommended negative is
+`worst quality, low quality, watermark`. The author prefers artist styles
+in a separate CLIP chunk, with putting them last as a fallback. This app
+uses that fallback: ordinary SDXL reads 77 tokens per CLIP, about 75 of
+content, and neither prompt chunking nor a `BREAK` operator is implemented.
+An artist at the end still has to fit inside that limit. Keep this explicit
+in the prompt help; the checkpoint's training on long captions cannot
+extend the inference path's text budget.
+
+Source facts and implementation choices are distinct from local quality
+or performance measurements. The fake-browser recipe is
+`tools/smoke-rouwei.json`, port 7890; actual card results belong in
+`docs/verified.md`.
+
+Sources checked 2026-10-07:
+
+- [Author's model card](https://huggingface.co/Minthy/RouWei-0.8/blob/95b524750edf2dcbc84967ded3d1bc99deed3b53/README.md).
+- [Pinned epsilon checkpoint and hash](https://huggingface.co/Minthy/RouWei-0.8/blob/95b524750edf2dcbc84967ded3d1bc99deed3b53/rouwei_080_epsilon_fp16.safetensors).
+- [Pinned SDXL descriptors](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/tree/462165984030d82259a11f4367a4eed129e94a7b).
+  The author's licence section points to the original
+  [Illustrious release](https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0).
+
 ## WAI Illustrious v17: an author checkpoint through a pinned mirror
 
 `LyliaEngine/waiIllustriousSDXL_v170` selects WAI0731's v17 full SDXL

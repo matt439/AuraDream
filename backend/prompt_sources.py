@@ -939,6 +939,47 @@ _ERNIE_EXPAND = (
 # what runs, and `test_no_citable_sentence_misstates_a_token_limit` holds the
 # limits to prompt_encoding. No rule entry cites an unsourced sentence.
 GROUNDING: dict[str, Grounding] = {
+    "ROUWEI_GUIDE": Grounding(
+        (
+            Excerpt(
+                "rouwei.quality",
+                "All except low quality in negative can be ommited.",
+                "https://huggingface.co/Minthy/RouWei-0.8",
+                note="the four quality tags; positive quality tags are optional",
+            ),
+            Excerpt(
+                "rouwei.artist",
+                "Used with by",
+                "https://huggingface.co/Minthy/RouWei-0.8",
+                note="the artist-name prefix, including its trailing space",
+            ),
+            Excerpt(
+                "rouwei.artist_order",
+                "or at least put them in the very end.",
+                "https://huggingface.co/Minthy/RouWei-0.8",
+                note=(
+                    "artist tags: the author's fallback when separate CLIP chunks are "
+                    "unavailable, as in this app"
+                ),
+                order=True,
+            ),
+        ),
+        caveat=(
+            "This is RouWei 0.8 epsilon, not its v-prediction release. Positive quality "
+            "tags are optional. Do not invent a full tag order or import another "
+            "checkpoint's quality, rating or date vocabulary. This app has one 77-token "
+            "CLIP sequence: never recommend BREAK or separate chunks; the author's "
+            "fallback is to put artist tags at the end, within the token limit."
+        ),
+        unsourced=(
+            "Examples inserts the optional positive quality recipe alone; add your subject.",
+            "This app does not implement separate chunks: BREAK is literal text, and both "
+            "SDXL CLIP tokenizers stop at 77 tokens.",
+            "Keep the complete prompt within that limit so the artists at its end are read.",
+            "Autocomplete checks Danbooru through the author's end-of-April-2025 dataset "
+            "cutoff; a match is advisory, not proof the checkpoint learned it.",
+        ),
+    ),
     "FLUX1_GUIDE": Grounding(_bfl_family(_BFL_FAMILY), caveat=_FLUX1_CAVEAT),
     "KREA_DEV_GUIDE": Grounding(
         _bfl_family(_BFL_FAMILY + "; Krea published no prompting rules of its own"),

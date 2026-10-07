@@ -453,10 +453,14 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     if prompt_text.detect_style(prompt) in ("xml", "json"):
         return []
     wanted: list[str] = []
+    artist_prefix = _analysis(guide).get("artist_prefix", {}).get("prefix", "@")
     items, lettered, _ = _tag_items(prompt)
     for item, held in zip(items, lettered, strict=True):
         key = prompt_text._norm(item.text)
-        if held or prompt_text._is_sentence(item.text) or item.text.startswith("@") or item.text in wanted:
+        if (
+            held or prompt_text._is_sentence(item.text)
+            or item.text.lower().startswith(artist_prefix.lower()) or item.text in wanted
+        ):
             continue
         if spec is not None and (
             key in spec.local or (spec.year is not None and prompt_text._YEAR_TAG.fullmatch(key))
@@ -487,13 +491,16 @@ def lookup_items(model_id: str, prompt: str) -> list[str]:
     return [item for item in category_items(model_id, prompt) if not prompt_text._is_prose(item)]
 
 
-def _named(name: str) -> re.Pattern[str]:
+def _named(name: str, prefix: str = "@") -> re.Pattern[str]:
     """`name` - an item the tag index answered for - written anywhere in a
-    text as words of their own, with no @ just ahead: any case, a space or
+    text as words of their own, exempting @ only for that prefix: any case, a space or
     an underscore between its words, its parentheses escaped or not."""
     words = r"[\s_]+".join(re.escape(word) for word in prompt_text._norm(name).split(" "))
     words = words.replace(r"\(", r"\\?\(").replace(r"\)", r"\\?\)")
-    return re.compile(rf"(?<![@\w])(?<!@\s){words}(?!\w)", re.IGNORECASE)
+    # Only Anima's prefix exempts an inline name. A foreign @ on RouWei
+    # must not hide an artist the 'by ' rule never read.
+    ahead = r"(?<![@\w])(?<!@\s)" if prefix == "@" else r"(?<!\w)"
+    return re.compile(rf"{ahead}{words}(?!\w)", re.IGNORECASE)
 
 
 def artists_read(
@@ -516,12 +523,18 @@ def artists_read(
     if not all(prompt_text._norm(item) in known for item in category_items(model_id, text)):
         return False
     named = {prompt_text._norm(name) for name in artists}
-    patterns = [_named(name) for name in named]
+    prefix = _analysis(_guide(model_id)).get("artist_prefix", {}).get("prefix", "@")
+    patterns = [_named(name, prefix) for name in named]
     if prompt_text.detect_style(text) in ("xml", "json"):
         # The rule reads no item of either.
         return not any(pattern.search(text) for pattern in patterns)
     items, lettered, _ = _tag_items(text)
     for item, held in zip(items, lettered, strict=True):
+        if (
+            not held and item.text.lower().startswith(prefix.lower())
+            and prompt_text._norm(item.text[len(prefix):]) in named
+        ):
+            continue
         if not held and not prompt_text._is_sentence(item.text) and prompt_text._norm(item.text) in named:
             continue  # The rule reads it, and flags it unless it has its @.
         if any(pattern.search(item.text) for pattern in patterns):

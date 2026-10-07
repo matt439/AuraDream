@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 
 ILLUSTRIOUS_ID = "OnomaAIResearch/Illustrious-XL-v2.0"
 WAI_ID = "LyliaEngine/waiIllustriousSDXL_v170"
+ROUWEI_ID = "Minthy/RouWei-0.8"
 # Pin both weights and descriptors so a changed upstream main cannot silently
 # change this model's scheduler, conversion or recorded generation settings.
 ILLUSTRIOUS_SOURCE = {
@@ -34,6 +35,14 @@ WAI_SOURCE = {
     "revision": "5ef4e2da7173a160ad04aebcaa2fdcd6d20ed792",
 }
 WAI_SHA256 = "f116b0c78ff441467b0cdc8f1936e1ed18ea31e9997c7b132b1b8db533f0bd04"
+# The official repository also holds base and v-prediction releases. This
+# entry selects the polished epsilon checkpoint only, with its own cache.
+ROUWEI_SOURCE = {
+    "repo_id": ROUWEI_ID,
+    "filename": "rouwei_080_epsilon_fp16.safetensors",
+    "revision": "95b524750edf2dcbc84967ded3d1bc99deed3b53",
+}
+ROUWEI_SHA256 = "1aba15decd15da1810054ed4c58984610dfafc728bef2fb3f3ebe846b2e287a4"
 SDXL_CONFIG = {
     "repo_id": "stabilityai/stable-diffusion-xl-base-1.0",
     "revision": "462165984030d82259a11f4367a4eed129e94a7b",
@@ -51,6 +60,11 @@ WAI_RECIPE = {
     "source": WAI_SOURCE,
     "source_sha256": WAI_SHA256,
 }
+ROUWEI_RECIPE = {
+    **RECIPE,
+    "source": ROUWEI_SOURCE,
+    "source_sha256": ROUWEI_SHA256,
+}
 
 
 @dataclass(frozen=True)
@@ -65,6 +79,7 @@ _CHECKPOINTS = {
         "Illustrious XL v2.0-STABLE", "illustrious-xl-v2.0-stable", RECIPE,
     ),
     WAI_ID.lower(): _Checkpoint("WAI Illustrious v17", "wai-illustrious-v17", WAI_RECIPE),
+    ROUWEI_ID.lower(): _Checkpoint("RouWei 0.8 epsilon", "rouwei-0.8-epsilon", ROUWEI_RECIPE),
 }
 
 
@@ -143,7 +158,7 @@ def _convert(destination: Path, model_id: str = ILLUSTRIOUS_ID) -> None:
     # SDXL takes the preceding hidden state and pools only encoder 2. The real
     # encode_prompt regression in test_wai_conditioning checks this for all
     # three quantization modes; no replacement encoder is involved.
-    # Both entries recommend Euler A. Fix epsilon prediction and persist the
+    # These entries recommend Euler A. Fix epsilon prediction and persist the
     # scheduler with the component tree, before ordinary quantized loading.
     pipe.scheduler = diffusers.EulerAncestralDiscreteScheduler.from_config(
         pipe.scheduler.config, prediction_type="epsilon",

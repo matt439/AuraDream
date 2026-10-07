@@ -503,21 +503,39 @@ def _negative_tags(helper: dict) -> set[str]:
 @app.get("/api/tags/suggest", response_model=TagSuggestionResponse)
 async def suggest_tags(q: str = Query(min_length=1, max_length=100)) -> TagSuggestionResponse:
     helper = _tag_helper_config()
-    local = _model_tag_suggestions(helper, q)
+    prefix = helper.get("artist_prefix")
+    artist_only = bool(prefix and q.lower().startswith(prefix.lower()))
+    query = q[len(prefix):].strip() if artist_only else q
+    if not query:
+        return TagSuggestionResponse(available=True)
+    local = [] if artist_only else _model_tag_suggestions(helper, query)
     avoid = _negative_tags(helper)
     try:
         remote = await asyncio.to_thread(
-            tag_vocabulary.suggest, q, helper["vocabulary_cutoff"]
+            tag_vocabulary.suggest, query, helper["vocabulary_cutoff"]
         )
     except TagLookupUnavailable as exc:
         return TagSuggestionResponse(
             available=False,
-            suggestions=rank_suggestions(q, local, [], avoid),
+            suggestions=rank_suggestions(query, local, [], avoid),
             detail=short_error(exc),
         )
-    return TagSuggestionResponse(
-        available=True, suggestions=rank_suggestions(q, local, remote, avoid)
-    )
+    if artist_only:
+        remote = [item for item in remote if item["category"] == "artist"]
+    suggestions = rank_suggestions(query, local, remote, avoid)
+    if prefix:
+        suggestions = [
+            {**item, "text": prefix + item["text"]} if item["category"] == "artist" else item
+            for item in suggestions
+        ]
+    return TagSuggestionResponse(available=True, suggestions=suggestions)
+
+
+def _artist_tag_name(helper: dict, tag: str) -> str | None:
+    prefix = helper.get("artist_prefix")
+    if prefix and tag.lower().startswith(prefix.lower()):
+        return tag[len(prefix):].strip()
+    return None
 
 
 def _lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
@@ -531,14 +549,27 @@ def _lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
     special = _special_tags(helper)
     year = bool(helper.get("year_tag"))
 
-    def asks(tag: str) -> bool:
-        return not too_long(tag) or is_model_tag(tag, special, year)
+    prefix = helper.get("artist_prefix")
 
-    asked = [tag for tag in tags if asks(tag)]
+    def asks(tag: str) -> bool:
+        return not too_long(_artist_tag_name(helper, tag) or tag) or is_model_tag(tag, special, year)
+
+    asked = [_artist_tag_name(helper, tag) or tag for tag in tags if asks(tag)]
     answers = iter(
         tag_vocabulary.validate(asked, special, helper["vocabulary_cutoff"], year) if asked else []
     )
-    return [next(answers) if asks(tag) else too_long_result(tag) for tag in tags]
+    results = []
+    for tag in tags:
+        if not asks(tag):
+            results.append(too_long_result(tag))
+            continue
+        result = {**next(answers), "tag": tag}
+        if _artist_tag_name(helper, tag) is not None and result.get("valid") and result.get("category") != "artist":
+            result.update(
+                valid=False, reason=f"the name after {prefix.strip()} is not a Danbooru artist", code="not_found"
+            )
+        results.append(result)
+    return results
 
 
 def _order_slots(prompt: str | None, reachable: bool) -> dict:
@@ -587,11 +618,17 @@ def _chip_verdicts(helper: dict, request: TagValidationRequest) -> TagValidation
     try:
         results = _lookup_tags(helper, request.tags)
     except TagLookupUnavailable as exc:
+        special = _special_tags(helper)
+        year = bool(helper.get("year_tag"))
+        results = []
+        for tag in request.tags:
+            name = _artist_tag_name(helper, tag)
+            result = unchecked_results([name or tag], set() if name is not None else special,
+                                       False if name is not None else year)[0]
+            results.append({**result, "tag": tag})
         return TagValidationResponse(
             available=False,
-            results=unchecked_results(
-                request.tags, _special_tags(helper), bool(helper.get("year_tag"))
-            ),
+            results=results,
             detail=short_error(exc),
             **_order_slots(request.prompt, reachable=False),
         )

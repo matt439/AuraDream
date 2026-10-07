@@ -728,6 +728,34 @@ _PROFILES.insert(
 # whose name contains a family token. In particular, "anima" is also part of
 # "animagine", and Anima's Base and Aesthetic variants need different defaults.
 _EXACT_PROFILES: dict[str, dict[str, Any]] = {
+    "minthy/rouwei-0.8": {
+        "steps": 28,
+        "guidance_scale": 6.0,
+        "mu": None,
+        "mu_supported": False,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": False,
+        "refine_supported": True,
+        "refine_strength": 0.4,
+        "true_cfg_supported": False,
+        "guide": guides.ROUWEI_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. RouWei 0.8 recommends 20-28 with Euler Ancestral; "
+                "{steps} is this app's starting point."
+            ),
+            "guidance_scale": (
+                "Real classifier-free guidance. RouWei 0.8 epsilon recommends CFG "
+                "4-8; this app starts at {guidance_scale:g}. Above {cfg_threshold:g} "
+                "the negative prompt applies and adds an uncond pass per step."
+            ),
+            "mu": (
+                "Unavailable: RouWei 0.8 uses SDXL's Euler Ancestral noise schedule, "
+                "not flow matching."
+            ),
+        },
+    },
     "lyliaengine/waiillustrioussdxl-v170": {
         "steps": 28,
         "guidance_scale": 6.0,

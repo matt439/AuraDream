@@ -19,7 +19,14 @@ from backend.backends import loading, single_file
 from backend.schemas import GenerateRequest
 
 
-@pytest.fixture(params=[single_file.ILLUSTRIOUS_ID, single_file.WAI_ID])
+RECIPES = {
+    single_file.ILLUSTRIOUS_ID: single_file.RECIPE,
+    single_file.WAI_ID: single_file.WAI_RECIPE,
+    single_file.ROUWEI_ID: single_file.ROUWEI_RECIPE,
+}
+
+
+@pytest.fixture(params=list(RECIPES))
 def model_id(request):
     return request.param
 
@@ -41,8 +48,7 @@ def conversion(monkeypatch, tmp_path):
 def test_conversion_is_published_once_and_reused_across_quantizers(conversion, model_id):
     first = single_file.resolve_model(model_id, "fp8")
     assert Path(first, "model_index.json").is_file()
-    expected = single_file.RECIPE if model_id == single_file.ILLUSTRIOUS_ID else single_file.WAI_RECIPE
-    assert json.loads(Path(first, "local-diffusion-conversion.json").read_text()) == expected
+    assert json.loads(Path(first, "local-diffusion-conversion.json").read_text()) == RECIPES[model_id]
     for quant in ("int8", "none", "fp8"):
         assert single_file.resolve_model(model_id, quant) == first
     assert single_file.converted_tree(model_id) == first
@@ -205,16 +211,16 @@ def test_ordinary_models_pass_through_and_nunchaku_refuses_before_conversion(con
     assert not conversion
 
 
-def test_single_file_caches_cannot_be_confused(conversion):
-    assert single_file.converted_tree(single_file.WAI_ID) is None
-    illustrious = single_file.resolve_model(single_file.ILLUSTRIOUS_ID, "fp8")
-    assert single_file.converted_tree(single_file.WAI_ID) is None
-    wai = single_file.resolve_model(single_file.WAI_ID, "fp8")
-    assert illustrious != wai
-    assert single_file.converted_tree(single_file.WAI_ID.upper()) == wai
-    marker = Path(wai, "local-diffusion-conversion.json")
-    marker.write_text(Path(illustrious, marker.name).read_text(), encoding="utf-8")
-    assert single_file.converted_tree(single_file.WAI_ID) is None
+def test_single_file_caches_cannot_be_confused(conversion, model_id):
+    assert single_file.converted_tree(model_id) is None
+    others = [single_file.resolve_model(other, "fp8") for other in RECIPES if other != model_id]
+    assert single_file.converted_tree(model_id) is None
+    tree = single_file.resolve_model(model_id, "fp8")
+    assert len(set([tree, *others])) == len(RECIPES)
+    assert single_file.converted_tree(model_id.upper()) == tree
+    marker = Path(tree, "local-diffusion-conversion.json")
+    marker.write_text(Path(others[0], marker.name).read_text(), encoding="utf-8")
+    assert single_file.converted_tree(model_id) is None
 
 
 def test_conversion_uses_only_pinned_weights_and_fixed_epsilon_euler_a(monkeypatch, tmp_path, model_id):
@@ -223,7 +229,9 @@ def test_conversion_uses_only_pinned_weights_and_fixed_epsilon_euler_a(monkeypat
 
     source = tmp_path / "checkpoint.safetensors"
     source.write_bytes(b"checkpoint fixture")
-    monkeypatch.setitem(single_file.WAI_RECIPE, "source_sha256", hashlib.sha256(source.read_bytes()).hexdigest())
+    recipe = RECIPES[model_id]
+    if "source_sha256" in recipe:
+        monkeypatch.setitem(recipe, "source_sha256", hashlib.sha256(source.read_bytes()).hexdigest())
 
     def download(**kwargs):
         downloads.append(kwargs)
@@ -248,7 +256,7 @@ def test_conversion_uses_only_pinned_weights_and_fixed_epsilon_euler_a(monkeypat
     monkeypatch.setattr(diffusers.StableDiffusionXLPipeline, "from_single_file", load)
     single_file._convert(tmp_path, model_id)
     config, weights = downloads
-    assert weights == (single_file.ILLUSTRIOUS_SOURCE if model_id == single_file.ILLUSTRIOUS_ID else single_file.WAI_SOURCE)
+    assert weights == recipe["source"]
     assert config["revision"] == single_file.SDXL_CONFIG["revision"]
     assert config["allow_patterns"] == ["*.json", "tokenizer/*.txt", "tokenizer_2/*.txt"]
     assert kwargs_seen == {
@@ -257,7 +265,8 @@ def test_conversion_uses_only_pinned_weights_and_fixed_epsilon_euler_a(monkeypat
     }
 
 
-def test_wai_hash_mismatch_refuses_before_loading_or_publishing(monkeypatch, tmp_path):
+@pytest.mark.parametrize("model_id", [single_file.WAI_ID, single_file.ROUWEI_ID])
+def test_hash_mismatch_refuses_before_loading_or_publishing(monkeypatch, tmp_path, model_id):
     source = tmp_path / "bad.safetensors"
     source.write_bytes(b"wrong checkpoint")
     monkeypatch.setattr(single_file, "cache_root", lambda: tmp_path / "cache")
@@ -269,8 +278,8 @@ def test_wai_hash_mismatch_refuses_before_loading_or_publishing(monkeypatch, tmp
 
     monkeypatch.setattr(diffusers.StableDiffusionXLPipeline, "from_single_file", load)
     with pytest.raises(RuntimeError, match="SHA-256"):
-        single_file.resolve_model(single_file.WAI_ID, "fp8")
-    assert single_file.converted_tree(single_file.WAI_ID) is None
+        single_file.resolve_model(model_id, "fp8")
+    assert single_file.converted_tree(model_id) is None
     assert not list((tmp_path / "cache").glob("*/model_index.json"))
 
 

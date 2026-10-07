@@ -211,7 +211,7 @@ def test_ordinary_repos_read_their_own_tokenizers_and_pinned_releases_their_pins
         ("CLIP-L", lite, "tokenizer"), ("T5-XXL", lite, "tokenizer_2"),
     ]
     sdxl = single_file.SDXL_CONFIG
-    for model_id in (single_file.ILLUSTRIOUS_ID, single_file.WAI_ID):
+    for model_id in (single_file.ILLUSTRIOUS_ID, single_file.WAI_ID, "Minthy/RouWei-0.8"):
         sources = [spec.source for spec in pe.encoders_for(model_id)]
         assert [(s.repo, s.subfolder, s.revision, s.tree) for s in sources] == [
             (sdxl["repo_id"], "tokenizer", sdxl["revision"], model_id),

@@ -70,6 +70,14 @@ def test_numbers_and_names_both_select(clean_env):
     assert choice == launch.Choice(TURBO, "int8", "none")
 
 
+def test_rouwei_selects_the_official_epsilon_checkpoint(clean_env):
+    number = str(next(i for i, c in enumerate(launch.CHECKPOINTS, 1) if c.name == "RouWei 0.8 epsilon"))
+    out = io.StringIO()
+    choice = launch.prompt(ask=answers("fp8", number, "model"), out=out, env={}, linux=False)
+    assert choice == launch.Choice("Minthy/RouWei-0.8", "fp8", "model")
+    assert "official epsilon single file" in out.getvalue()
+
+
 def test_a_bad_answer_is_asked_again(clean_env):
     out = io.StringIO()
     ask = answers("9", "fp9", "", "", "")
@@ -86,6 +94,7 @@ def test_nunchaku_lists_the_lite_repos_and_asks_the_format(clean_env):
     listing = out.getvalue()
     assert "Krea 2 Raw" not in listing, "no Nunchaku Lite build exists for Raw"
     assert "base 4B" not in listing
+    assert "RouWei" not in listing, "no Nunchaku Lite build is mapped for RouWei"
 
 
 def test_int4_names_the_older_cards_repo(clean_env):

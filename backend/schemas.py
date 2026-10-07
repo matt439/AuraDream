@@ -945,6 +945,8 @@ class PromptTagHelper(BaseModel):
     # Keep spellcheck and single-sentence prose behavior for checkpoints trained
     # on both natural language and comma-separated tags.
     hybrid_prompt: bool = False
+    # A checkpoint-specific spelling, applied only to Danbooru artist names.
+    artist_prefix: str | None = None
     recommended_suffix: list[str] = Field(default_factory=list)
     negative_prompt: str | None = None
 

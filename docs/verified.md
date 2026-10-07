@@ -55,10 +55,55 @@ slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
 | FLUX.1 schnell | fp8, Windows | 1024x1024 | 4 | 27.3 s, the first of a process, 19.5 s of it the first step; 1.4 s a step after | 11.99 / 12.66 GiB; 15,433 MiB whole-card | 2026-10-05 |
 | Z-Image Turbo | fp8, Windows | 1024x1024 | 8 | 14.3 s, the first of a process; 0.9 s a step after the first | 6.43 / 7.17 GiB; 9,499 MiB whole-card | 2026-10-05 |
 | Z-Image (undistilled), CFG 5 | fp8, Windows | 1024x1024 | 50 | 102.5 s, the first of a process; 1.8 s a step | 6.77 / 8.44 GiB; 10,885 MiB whole-card | 2026-10-05 |
+| RouWei 0.8 epsilon, CFG 6 | fp8, Windows | 1024x1024 | 28 | 7.638 s after cancellation; 7.882 s repeat | 3.686 GiB allocated, 4.371 GiB reserved (maximum of the pair) | 2026-10-07 |
 
 The October 5 rows were each the source of a refine ladder ("Past 4 MP",
 below), with another project's processes keeping the CPU near 75% busy:
 their times are upper bounds.
+
+RouWei 0.8 epsilon was verified on 2026-10-07 with Windows FP8, model
+offload, batch 1 and seed 12345. CPU conversion and the first load took
+15.098 seconds after the source download. The loaded
+`StableDiffusionXLPipeline` uses `EulerAncestralDiscreteScheduler` with
+epsilon prediction; Mu is unavailable and the SDXL Refine sibling is
+available. The public selection is `Minthy/RouWei-0.8` and retains the
+author's pinned epsilon file described in `design-notes.md`.
+
+At 1024x1024, 28 steps and CFG 6, the prompt was `1girl, adult woman,
+auburn hair, navy coat, brown satchel, greenhouse, blue flowers, warm lantern
+light, anime illustration, masterpiece, best quality`, with negative
+`worst quality, low quality, watermark`. Visual inspection found a coherent
+illustration with the requested woman, clothing, satchel, flowers,
+greenhouse and warm lights. Cancellation stopped at step 2 in 3.205 seconds;
+the following two calls completed all 28 steps and had identical pixels,
+hash `c341477ac1b11267`.
+
+Refine from that source to 1536x1536 at strength 0.4 ran 11 of the requested
+28 steps. A cancellation stopped at step 2 in 3.296 seconds, then two full
+passes took 9.064 and 9.075 seconds, each peaking at 3.670 GiB allocated and
+4.516 GiB reserved. Their pixels matched exactly, hash `ad12c067d7a042c4`.
+Visual inspection found the source composition retained with details redrawn.
+These samples establish the direct and Refine paths, not a quality ranking
+or a reproduction of the author's latent or GAN upscaling recipe. Generation
+times exclude loading and PNG saving; allocator peaks exclude desktop and
+driver overhead.
+
+SQLite rows retained the public model id, True CFG 6 and null Mu; saved PNGs
+retained the public model id, FP8, negative prompt and refine source. The
+qualification also checked that CFG 1 drops the negative prompt. All runtime
+assertions completed and the pipeline unloaded (`passed: true`,
+`unloaded: true` in the result). The production gallery was not used.
+Evidence is under `%TEMP%/local-diffusion-rouwei-20261007/`: `qualify.py`,
+`gpu-results.json`, the separate `gpu.db` and `outputs/` PNGs. Batch scaling,
+int8/full-bfloat16 generation, sequential offload, user LoRAs and larger
+direct or Refine sizes remain unmeasured.
+
+The same checkout passed the full CPU suite (2,150 passed, 4 skipped) and
+all 22 expectations in `tools/smoke-rouwei.json` on a fresh fake server:
+the epsilon defaults, hybrid tag helper, optional quality tags, `by ` artist
+autocomplete and validation, the CLIP content budget and literal `BREAK`
+warning, saved generation identity, and the 1.5x Refine pass. These checks
+are separate from the real GPU samples above.
 
 WAI Illustrious v17 was verified on the RTX 5080 with Windows FP8 and model
 offload. The pinned mirror checkpoint passed its SHA-256 check, converted

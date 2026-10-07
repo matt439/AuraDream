@@ -916,22 +916,24 @@ def _artist_prefix(ctx: _Context) -> Iterable[PromptFinding]:
     # Item by item, whatever the whole prompt reads as: Anima's card says to
     # use tags, natural language or both, and a tag list that ends in two
     # sentences reads as prose - which once skipped this rule and reported
-    # nothing to flag over an artist written without its @. A sentence is no
+    # nothing to flag over an artist written without its @. RouWei uses by
+    # followed by a space instead, supplied by its analysis entry. A sentence is no
     # artist's name, and the lookup was never asked about one (`lookup_items`).
     entry = ctx.entry("artist_prefix")
     if entry is None or ctx.lookup is None or ctx.style in ("xml", "json"):
         return
+    prefix = entry.get("prefix", "@")
     flagged = [
         index for index, (item, norm) in enumerate(zip(ctx.items, ctx.norms, strict=True))
         if norm is not None
-        and not item.text.startswith("@")
+        and not item.text.lower().startswith(prefix.lower())
         and not prompt_text._is_sentence(item.text)
         and (ctx.lookup.get(item.text) or ctx.lookup.get(norm)) == "artist"
     ]
     if flagged:
         texts = [item.text for item in ctx.items]
         for index in flagged:
-            texts[index] = "@" + texts[index]
+            texts[index] = prefix + texts[index]
         first = ctx.items[flagged[0]]
         # Each artist once, as first written: "wlop" and "WLOP" are one.
         first_spelling: dict[str | None, str] = {}
@@ -941,7 +943,7 @@ def _artist_prefix(ctx: _Context) -> Iterable[PromptFinding]:
         yield ctx.finding(
             entry, "guide.artist_prefix", "info",
             f"{_listed(names)} {'is an artist' if len(names) == 1 else 'are artists'} in "
-            "Danbooru's index; the guide puts @ before an artist name.",
+            f"Danbooru's index; the guide puts {prefix.strip()} before an artist name.",
             start=first.start, end=first.end,
             suggestion=prompt_text._rebuild(ctx.text, ctx.items, texts),
         )

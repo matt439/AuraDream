@@ -197,7 +197,7 @@ def _sdxl(model_id: str) -> list[EncoderSpec]:
 
 
 def _sdxl_single_file(model_id: str) -> list[EncoderSpec]:
-    # Illustrious and WAI publish one file; their conversion takes its
+    # The single-file checkpoints' conversion takes its
     # tokenizers from the pinned SDXL base descriptors.
     config = single_file.SDXL_CONFIG
     return _clip_pair(
@@ -383,6 +383,7 @@ def _key(model_id: str) -> str:
 # sources the loaders convert from, not from the public id. Never a broad
 # "anima" token, which Animagine also contains.
 _EXACT: dict[str, Callable[[str], list[EncoderSpec]]] = {
+    _key(single_file.ROUWEI_ID): _sdxl_single_file,
     _key(single_file.ILLUSTRIOUS_ID): _sdxl_single_file,
     _key(single_file.WAI_ID): _sdxl_single_file,
     _key(_Z_ANIME_ID): _z_anime,

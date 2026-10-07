@@ -98,8 +98,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   build apart from a load (`weights_loading`, `empty_weights`); takes
   `settings` as a parameter
 - `backend/backends/single_file.py` — pinned, CPU-only first-load conversion
-  for Illustrious XL v2.0-STABLE and WAI v17; atomic cached trees feed the
-  normal loader; `sweep_work`, which every converter calls first under its
+  for Illustrious XL v2.0-STABLE, WAI v17 and RouWei 0.8 epsilon; atomic cached
+  trees feed the normal loader; `sweep_work`, which every converter calls first under its
   target's lock, removes interrupted conversions' work directories (exactly
   `<tree>-` plus tempfile's 8 characters, a real directory holding only
   `tree`), and each converter's work directory ignores its own cleanup
@@ -207,6 +207,18 @@ Model and loader:
   checking the used conditioning. The exact-id profile starts at 28 steps/CFG 6,
   disables Mu and has no Nunchaku mapping. The author's reference sizes and
   separate hires pass are not a published maximum or direct-generation guarantee.
+
+- `Minthy/RouWei-0.8` selects the author's pinned epsilon single file through
+  `single_file`, with its SHA-256 checked before CPU conversion. Preserve its
+  VAE, both CLIP encoders and public id in settings/metadata. Use the exact-id
+  28-step/CFG-6 profile, epsilon/Euler Ancestral, disabled Mu and the ordinary
+  SDXL Refine pass (strength 0.4); no Nunchaku mapping. Its hybrid tag/prose
+  guide uses the 2025-04-30 cutoff, `by ` artist prefixes and artist-last
+  fallback. The author prefers separate CLIP chunks, but this app has only
+  77 tokens per CLIP and no chunking or `BREAK` operator. The author's
+  1-1.5 MP recommendation and separate upscale recipes are not a direct
+  large-image guarantee. The same repository's V-pred file is a different
+  checkpoint and must not replace this epsilon recipe.
 
 - Z-Anime Base has a pinned nested `diffusers/` tree. `loading.resolve_model`
   resolves configs before quantization checks and weights after them; both
@@ -2974,6 +2986,14 @@ disabled Mu and saved settings on port 7873:
 ```powershell
 uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
 node tools/browser.mjs tools/smoke-wai.json
+```
+
+`smoke-rouwei.json` checks RouWei 0.8 epsilon's defaults, hybrid prompt
+help, artist-last fallback and recommended size range on the fake backend:
+
+```powershell
+uv run python tools/fake_server.py --port 7890 --model Minthy/RouWei-0.8
+node tools/browser.mjs tools/smoke-rouwei.json
 ```
 
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on

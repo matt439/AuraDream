@@ -1,11 +1,12 @@
 # Choosing an anime model
 
 Checked against this app's catalogue, profiles and recorded GPU checks on
-2026-10-01. Covers the eight dedicated anime checkpoints in the startup menu.
+2026-10-07. Covers the nine dedicated anime checkpoints in the startup menu.
 
 For a quick decision: **Anima Turbo for speed, WAI for a tuned anime look,
-Illustrious for deliberate style control and larger images, and NewBie for
-scenes with multiple characters.**
+RouWei for hybrid prompts and broad character/style knowledge, Illustrious
+for deliberate style control and larger images, and NewBie for scenes with
+multiple characters.**
 
 ## Which should I use?
 
@@ -13,6 +14,7 @@ scenes with multiple characters.**
 | --- | --- | --- | --- |
 | Quickly explore ideas and try several variations | **[Anima Turbo v1.1](https://huggingface.co/circlestone-labs/Anima)** | The fastest in the local recorded samples. Distillation gives it a stronger, more consistent default style, with less diversity than Anima Base. It also handles illustrations beyond anime. | Tags, prose, or both. For pure prose, describe the image in at least two sentences. |
 | An everyday anime illustration with a tuned default look | **[WAI Illustrious v17](https://tensor.art/models/990778216270553015/WAI-illustrious-v17)** | A separately tuned anime aesthetic. Its author emphasizes smoother colouring and cleaner subject/background rendering. A useful starting point when you like its default look. | Primarily tags, with prose support. Finish with `masterpiece, best quality, amazing quality`. |
+| Combine familiar anime tags with a concise scene description | **[RouWei 0.8 epsilon](https://huggingface.co/Minthy/RouWei-0.8)** | An Illustrious retrain aimed at prompt adherence and broad character/style knowledge, with an April 2025 dataset cutoff. The author's claims have not been compared locally. | Tags, prose, or both; spaces instead of underscores. Prefix artists with `by ` and put them last in this app. |
 | Direct the artistic style yourself, or work above 1 MP | **[Illustrious XL v2.0-STABLE](https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0)** | An untuned illustration base with less aesthetic preference imposed by the checkpoint. It has stronger documented support for larger native images. A bare subject can produce the dataset's average look. | Tags or concise prose. Specify a style and one clear composition, such as portrait or full body. |
 | A known anime character described with familiar tags | **[Animagine XL 4.0 Opt](https://huggingface.co/cagliostrolab/animagine-xl-4.0)** | Character-focused anime generation: identity, series, clothing and poses. The author says Opt improves anatomy, consistency, noise and colours. | Concise Danbooru tags. Put identity and essential details first; finish with its quality/score suffix. The author discourages prose. |
 | Mix anime tags with a naturally described scene, or explore styles | **[Kohaku XL Zeta](https://huggingface.co/KBlueLeaf/Kohaku-XL-Zeta)** | Emphasizes character and style fidelity with broad stylistic coverage. Flexible about mixing descriptions and tags. | Tags, prose, or both. Long elaborate prompts are optional; the app still has a short text limit. |
@@ -21,7 +23,7 @@ scenes with multiple characters.**
 | Keep multiple characters' clothes, colours, actions and positions separate | **[NewBie image Exp0.1](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1)** | Structured descriptions are its distinctive feature. The authors recommend XML to help keep each character's attributes together. This is an experimental release. | Use one XML block per character and a shared scene block. Ordinary tags and prose also work. The app's Examples menu has the author's XML example. |
 
 These are practical starting choices based on author guidance and the local
-checks. The project has not run a controlled eight-model image-quality
+checks. The project has not run a controlled nine-model image-quality
 comparison. Your preferred subjects and aesthetic will still decide which
 look you favour.
 
@@ -48,6 +50,7 @@ differently is identified.
 | --- | --- | --- |
 | **Anima** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. The guide does not establish that every shape at that area performs equally well; only a **1.05 MP** square has been measured locally. |
 | **WAI** | **1.05-1.38 MP reference area**; **no published maximum** | Reference sizes include a portrait. This is an example span, not an established operating range for every aspect ratio. Showcase images also use a separate 1.5x hires refinement pass; the app's **Refine** pass (below) is the nearest it has, with a plain resize in place of the author's upscaling model. |
+| **RouWei** | **About 1-1.5 MP recommended** | The author allows any aspect ratio with dimensions divisible by 64. Start at 1024 x 1024; app presets are multiples of 16, so not every preset follows that recommendation exactly. Refine is a separate pass with a plain resize; it does not reproduce the author's latent or GAN upscaling recipe. |
 | **Illustrious** | **About 1-2.25 MP native**, in the authors' wording; roughly **4 MP** possible with quality loss | The authors describe varied aspect ratios. Their higher training size is **2.36 MP** when converted exactly; treat the native range as approximate. A long side alone is not a ceiling. Start with the **1, 1.5 or 2 MP** presets. |
 | **Animagine** | **About 1 MP recommended**; author-listed shapes are **0.98-1.05 MP** | The author lists square, portrait and landscape shapes. Use those aspect presets where possible. Larger area can degrade; the warning includes a **2.36 MP** square. |
 | **Kohaku** | **About 1 MP recommended**; reference area **1.05 MP** | The recommendation explicitly allows a similar total pixel count, so the reference square is not a square-only requirement. Larger areas have not been measured locally. |
@@ -97,6 +100,7 @@ models and this Anima integration disable Mu.
 | --- | ---: | ---: | --- | --- |
 | Anima Turbo v1.1 | 8 | 1 | About 4-6 seconds | 1.05 MP, square |
 | WAI Illustrious v17 | 28 | 6 | About 9-10 seconds | 1.38 MP, portrait |
+| RouWei 0.8 epsilon | 28 | 6 | About 8 seconds | 1.05 MP, square |
 | Illustrious XL v2.0-STABLE | 28 | 5 | About 15 seconds | 1.05 MP, square |
 | Animagine XL 4.0 Opt | 28 | 5 | No comparable timing recorded | Generation and batch use verified |
 | Kohaku XL Zeta | 28 | 5 | About 9-10 seconds | 1.05 MP, square |
@@ -104,8 +108,9 @@ models and this Anima integration disable Mu.
 | NetaYume Lumina v4 | 40 | 5 | About 39 seconds | 1.05 MP, square |
 | NewBie image Exp0.1 | 28 | 4 | About 39 seconds | 1.05 MP, square, XML prompt |
 
-These are individual RTX 5080 checks recorded on September 17-26, 2026,
-using Windows FP8 and model offload. They indicate likely waiting time;
+The measured rows are individual RTX 5080 checks recorded on September 17-26,
+2026, with RouWei checked on October 7, using Windows FP8 and model offload.
+They indicate likely waiting time;
 different prompts, sizes and run conditions prevent a controlled speed
 ranking. Loading is excluded. Most samples also exclude PNG saving, while
 Illustrious's CLI timings include it. Animagine's earlier successful runs
@@ -114,7 +119,7 @@ See [the measurement record](verified.md#checkpoints) for the exact conditions.
 
 ## Prompt habits that matter when switching models
 
-- **Keep SDXL prompts short.** Animagine, Kohaku, Illustrious and WAI each
+- **Keep SDXL prompts short.** Animagine, Kohaku, Illustrious, WAI and RouWei each
   stop at 77 tokens per CLIP text encoder in this app, leaving about 75 for
   content. Tokens are pieces of words, not a word count. Put essential
   details early and use **Check** to see where reading stops. Kohaku's
@@ -124,6 +129,11 @@ See [the measurement record](verified.md#checkpoints) for the exact conditions.
   `masterpiece, best quality, amazing quality`. Illustrious and Kohaku have
   their own guidance. The **Tags**, **Examples** and prompt help reflect the
   selected checkpoint.
+- **Put RouWei artists last, with `by ` before each name.** Its author prefers
+  separate CLIP chunks, with putting artists last as a fallback. This app has
+  no prompt chunking: `BREAK` is literal text, and the entire prompt must fit
+  the CLIP limit. Keep the negative short; the author's recipe is
+  `worst quality, low quality, watermark`.
 - **Give Illustrious a style.** A style description or artist tag helps
   direct its untuned base. Choose a clear composition rather than stacking
   conflicting framing tags.
