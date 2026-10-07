@@ -116,6 +116,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open; official split files",
     ),
     Checkpoint(
+        "Anima Aesthetic v1.1",
+        "circlestone-labs/Anima@aesthetic-v1.1",
+        "open; official split files",
+    ),
+    Checkpoint(
         "NetaYume Lumina v4",
         "duongve/NetaYume-Lumina-Image-2.0",
         "open; split denoiser, converted locally on first load",

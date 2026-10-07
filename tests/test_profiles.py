@@ -311,6 +311,44 @@ def test_anima_turbo_profile_only_matches_the_official_resolved_id():
     assert defaults_for("cagliostrolab/animagine-xl-4.0")["steps"] == 28
 
 
+def test_anima_aesthetic_has_distinct_defaults_and_quality_advice():
+    from backend import guides
+    from backend.backends.anima_loading import AESTHETIC_MODEL_ID
+    from backend.schemas import PromptGuide
+
+    model = AESTHETIC_MODEL_ID
+    profile = defaults_for(model)
+    assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (30, 4.0, None)
+    assert profile["cfg_threshold"] == 1.0 and profile["negative_prompt_supported"]
+    assert not any(profile[key] for key in (
+        "mu_supported", "true_cfg_supported", "reference_supported", "refine_supported",
+    ))
+    assert profile["refine_settled"]
+    checkpoint = next(c for c in launch.CHECKPOINTS if c.repo == model)
+    assert checkpoint.name == "Anima Aesthetic v1.1" and checkpoint.lite is None
+    assert checkpoint.summary() == "30 steps, CFG 4"
+    assert _profile_for(model.upper()) is _profile_for(model)
+    assert _profile_for(model)["guide"] is guides.ANIMA_AESTHETIC_GUIDE
+    assert _profile_for(model) is not _profile_for("circlestone-labs/Anima")
+    for unrelated in (
+        "someone/Anima@aesthetic-v1.1", "circlestone-labs/Anima@aesthetic-v1.0",
+        "circlestone-labs/Anima-Aesthetic",
+    ):
+        assert _profile_for(unrelated) is _FALLBACK
+    guide = PromptGuide(**guide_for(model))
+    assert guide.pixels == (512**2 / 1e6, 1536**2 / 1e6)
+    assert guide.pixels_word == "documented" and guide.tag_helper is None
+    assert guide.examples == guide_for("circlestone-labs/Anima")["examples"]
+    hints = hints_for(model)
+    assert "30-50" in hints["steps"] and "4-5" in hints["guidance_scale"]
+    assert "does not need positive quality tags" in hints["prompt"]
+    assert "masterpiece and best quality may stay" in hints["prompt"]
+    assert "avoiding score_* tags in both the positive and negative prompts" in hints["prompt"]
+    assert "CFG > 1" in hints["prompt"]
+    assert "Turbo" not in hints["prompt"] and "distill" not in hints["prompt"]
+    assert "Unavailable" in hints["mu"]
+
+
 def test_netayume_uses_the_pinned_releases_profile_and_qualified_family_guide():
     from backend.schemas import PromptGuide
 

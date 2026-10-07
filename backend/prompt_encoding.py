@@ -357,7 +357,7 @@ def _anima(model_id: str) -> list[EncoderSpec]:
     return [
         EncoderSpec(
             "Qwen3-0.6B",
-            _pinned(shared, "tokenizer", anima_loading.MODEL_ID),
+            _pinned(shared, "tokenizer", model_id),
             ANIMA_SEQUENCE,
             f"Anima's text encoder step truncates the Qwen3 tokens to {ANIMA_SEQUENCE}, the "
             "length backend/backends/anima_pipeline.py passes",
@@ -365,7 +365,7 @@ def _anima(model_id: str) -> list[EncoderSpec]:
         ),
         EncoderSpec(
             "T5 ids",
-            _pinned(shared, "t5_tokenizer", anima_loading.MODEL_ID),
+            _pinned(shared, "t5_tokenizer", model_id),
             ANIMA_SEQUENCE,
             f"the same step truncates the T5 token ids to {ANIMA_SEQUENCE}, </s> included",
             file,
@@ -388,6 +388,7 @@ _EXACT: dict[str, Callable[[str], list[EncoderSpec]]] = {
     _key(single_file.WAI_ID): _sdxl_single_file,
     _key(_Z_ANIME_ID): _z_anime,
     _key(anima_loading.MODEL_ID): _anima,
+    _key(anima_loading.AESTHETIC_MODEL_ID): _anima,
     _key(netayume_loading.MODEL_ID): _netayume,
     _key(newbie_loading.MODEL_ID): _newbie,
 }

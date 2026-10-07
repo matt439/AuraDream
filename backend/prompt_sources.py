@@ -758,6 +758,23 @@ _ANIMA = (
     ),
 )
 
+# The family prefix recommends score_7, which Aesthetic's own advice rejects.
+# Keep the remaining family guidance and the variant's explicit exception.
+_ANIMA_AESTHETIC = tuple(excerpt for excerpt in _ANIMA if excerpt.id != "anima.prefix") + (
+    Excerpt(
+        "anima.aesthetic_quality",
+        "You don't need to use quality tags in the positive at all",
+        _ANIMA_CARD,
+        "Aesthetic Version Prompting",
+    ),
+    Excerpt(
+        "anima.aesthetic_scores",
+        "not using score_* tags in both the positive and negative prompt",
+        _ANIMA_CARD,
+        "the author's recommendation under Aesthetic Version Prompting",
+    ),
+)
+
 _NETA_BOOK = "https://neta.art/blog/neta_lumina_prompt_book/"
 _NETA_NOTE = "inherited from the parent Neta Lumina's prompt book"
 _NETAYUME = (
@@ -1162,6 +1179,16 @@ GROUNDING: dict[str, Grounding] = {
         caveat=(
             "The Anima card covers the whole family; this app runs Anima Turbo v1.1, "
             "where the recommended CFG 1 runs no negative prompt."
+        ),
+    ),
+    "ANIMA_AESTHETIC_GUIDE": Grounding(
+        _ANIMA_AESTHETIC,
+        caveat=(
+            "The Anima card covers the whole family; this app runs Anima Aesthetic "
+            "v1.1. Its Aesthetic Version Prompting advice takes precedence over "
+            "the family's quality-tag recipe: positive quality tags are optional, "
+            "masterpiece and best quality may stay, and score_* tags are discouraged "
+            "in both prompts. Turbo's distillation and CFG 1 advice do not apply."
         ),
     ),
     "NETAYUME_GUIDE": Grounding(

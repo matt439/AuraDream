@@ -60,17 +60,21 @@ def test_the_profile_guess_matches_the_installed_diffusers(model_id, class_name)
 def test_the_local_pipelines_have_no_sibling():
     # Anima and NewBie run this repo's own pipeline classes, which diffusers
     # exports nothing beside; their profiles say so before a load.
-    from backend.backends.anima_pipeline import AnimaTurboPipeline
+    from backend.backends.anima_loading import AESTHETIC_MODEL_ID
+    from backend.backends.anima_pipeline import AnimaAestheticPipeline, AnimaTurboPipeline
     from backend.backends.newbie_pipeline import NewbiePipeline
 
     assert refine.sibling(AnimaTurboPipeline) is None
+    assert refine.sibling(AnimaAestheticPipeline) is None
     assert refine.sibling(NewbiePipeline) is None
     assert not defaults_for("circlestone-labs/Anima")["refine_supported"]
+    assert not defaults_for(AESTHETIC_MODEL_ID)["refine_supported"]
     assert not defaults_for("NewBie-AI/NewBie-image-Exp0.1")["refine_supported"]
     # And that answer is final before a load: no load can find a sibling for
     # a class diffusers does not export, so the Refine dialog says so rather
     # than "a load answers for certain".
     assert defaults_for("circlestone-labs/Anima")["refine_settled"]
+    assert defaults_for(AESTHETIC_MODEL_ID)["refine_settled"]
     assert defaults_for("NewBie-AI/NewBie-image-Exp0.1")["refine_settled"]
     # An unrecognised checkpoint is not promised one either, until it loads -
     # and that is a guess the load settles.

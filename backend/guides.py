@@ -1142,6 +1142,26 @@ ANIMA_TURBO_GUIDE = {
     },
 }
 
+# The variants share the family's size range, example and spelling rules.
+# Aesthetic has its own quality advice and is not distilled like Turbo.
+ANIMA_AESTHETIC_GUIDE = {
+    **ANIMA_TURBO_GUIDE,
+    "prompt": (
+        "Anima Aesthetic makes anime and other illustrations. It is fine-tuned "
+        "for consistency and a higher-quality default art style. "
+        "Use tags, natural language, or both. Write tags in lowercase with "
+        "spaces instead of underscores, except score tags, and put @ before "
+        "an artist name.\n"
+        "For natural language, describe the image in at least two sentences. "
+        "Use normal capitalization for character and series names, and describe "
+        "each character's appearance when naming more than one. "
+        "Aesthetic does not need positive quality tags; masterpiece and best "
+        "quality may stay. The author recommends avoiding score_* tags in both "
+        "the positive and negative prompts. "
+        "A negative prompt applies at CFG > 1."
+    ),
+}
+
 NETAYUME_GUIDE = {
     "prompt": (
         "NetaYume Lumina v4 is an anime finetune of Neta Lumina. Its author's "

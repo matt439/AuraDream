@@ -129,18 +129,25 @@ def test_the_integrations_that_take_no_adapter_are_refused_by_their_id(monkeypat
     from backend.backends import anima_loading, loading, newbie_loading
 
     anima = loading.lora_refusal(anima_loading.MODEL_ID)
+    aesthetic = loading.lora_refusal("circlestone-labs/Anima@aesthetic-v1.1")
     newbie = loading.lora_refusal(newbie_loading.MODEL_ID)
     assert anima == "User LoRAs are not supported by this Anima Turbo integration"
+    assert aesthetic == "User LoRAs are not supported by this Anima Aesthetic integration"
     assert newbie == "User LoRAs are not supported by this NewBie integration"
     # Matched as the profiles are, whatever the case of the id typed.
     assert loading.lora_refusal(anima_loading.MODEL_ID.upper()) == anima
+    assert loading.lora_refusal("CIRCLESTONE-LABS/ANIMA@AESTHETIC-V1.1") == aesthetic
     for other in ("black-forest-labs/FLUX.1-Krea-dev", "cagliostrolab/animagine-xl-4.0",
                   "circlestone-labs/Anima-Base-v1.0-Diffusers", "krea/Krea-2-Turbo"):
         assert loading.lora_refusal(other) is None, other
     # The backend asks it first: ahead of peft and the loaded pipeline, and
     # with the pipeline loaded too, since an id's refusal is the integration's.
     backend = _loaded(SwapPipeline())
-    for model_id, reason in ((anima_loading.MODEL_ID, anima), (newbie_loading.MODEL_ID, newbie)):
+    for model_id, reason in (
+        (anima_loading.MODEL_ID, anima),
+        ("circlestone-labs/Anima@aesthetic-v1.1", aesthetic),
+        (newbie_loading.MODEL_ID, newbie),
+    ):
         monkeypatch.setattr(
             backend_module, "settings",
             dataclasses.replace(backend_module.settings, model_id=model_id, quantization="fp8"),

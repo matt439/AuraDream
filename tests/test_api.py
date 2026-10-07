@@ -109,6 +109,7 @@ def test_status_names_the_checkpoint_by_its_catalogue_label(client, fake, monkey
         ("duongve/NetaYume-Lumina-Image-2.0", "NetaYume Lumina v4"),
         ("SeeSee21/Z-Anime", "Z-Anime Base"),
         ("circlestone-labs/Anima", "Anima Turbo v1.1"),
+        ("circlestone-labs/Anima@aesthetic-v1.1", "Anima Aesthetic v1.1"),
         ("someone/a-checkpoint-of-their-own", None),
     ):
         described = dict(fake.describe(), model_id=repo)

@@ -881,6 +881,35 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
             ),
         },
     },
+    "circlestone-labs/anima@aesthetic-v1.1": {
+        "steps": 30,
+        "guidance_scale": 4.0,
+        "mu": None,
+        "mu_supported": False,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": False,
+        "refine_supported": False,
+        "refine_strength": None,
+        "true_cfg_supported": False,
+        "guide": guides.ANIMA_AESTHETIC_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. The Anima card recommends 30-50; "
+                "{steps} is this app's starting point for Aesthetic."
+            ),
+            "guidance_scale": (
+                "Classifier-free guidance. The Anima card recommends 4-5; "
+                "{guidance_scale:g} is this app's starting point for Aesthetic. "
+                "Above {cfg_threshold:g} the negative prompt applies and "
+                "adds a second pass per step."
+            ),
+            "mu": (
+                "Unavailable: Anima Aesthetic's pipeline uses its fixed flow "
+                "schedule and does not expose a Mu override."
+            ),
+        },
+    },
 }
 
 _FALLBACK: dict[str, Any] = {
@@ -927,13 +956,16 @@ def _profile_for(model_id: str) -> dict[str, Any]:
 # `refine_tight_pixels` and whose words the hints as `refine_tight`.
 _NOT_DEFAULTS = ("hints", "guide", "refine_measured")
 
-# The checkpoints whose pipeline is this repo's own class - Anima Turbo's
+# The checkpoints whose pipeline is this repo's own class - both Anima variants'
 # modular blocks and NewBie's - beside which diffusers exports no
 # image-to-image class, so `refine.sibling` answers None loaded or not
 # (`tests/test_refine.py`). Their `refine_supported` is the answer a load
 # would give, not a guess: `refine_settled` says so, and the Refine dialog
 # stops telling the user that a load will decide.
-_OWN_PIPELINES = frozenset({"circlestone-labs/anima", "newbie-ai/newbie-image-exp0.1"})
+_OWN_PIPELINES = frozenset({
+    "circlestone-labs/anima", "circlestone-labs/anima@aesthetic-v1.1",
+    "newbie-ai/newbie-image-exp0.1",
+})
 
 
 def defaults_for(model_id: str) -> dict[str, Any]:

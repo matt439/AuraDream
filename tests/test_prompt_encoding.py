@@ -239,11 +239,43 @@ def test_ordinary_repos_read_their_own_tokenizers_and_pinned_releases_their_pins
 def test_anima_is_matched_exactly_and_never_by_animagines_token():
     assert names("cagliostrolab/animagine-xl-4.0") == ["CLIP-L", "CLIP-G"]
     assert names("circlestone-labs/Anima") == ["Qwen3-0.6B", "T5 ids"]
+    assert names(anima_loading.AESTHETIC_MODEL_ID) == ["Qwen3-0.6B", "T5 ids"]
+    assert names(anima_loading.AESTHETIC_MODEL_ID.upper()) == ["Qwen3-0.6B", "T5 ids"]
+    assert pe.encoders_for("circlestone-labs/Anima@aesthetic-v1.0") is None
     assert pe.encoders_for("someone/anima-remix") is None
     assert pe.encoders_for("someone/unknown-model") is None
     # klein's encoder follows its size; FLUX.1's CLIP and T5 never reach it.
     assert names("black-forest-labs/FLUX.2-klein-9B") == ["Qwen3-8B"]
     assert names("black-forest-labs/FLUX.2-klein-base-4B") == ["Qwen3-4B"]
+
+
+def test_anima_variants_share_tokenizers_but_read_their_own_converted_tree(monkeypatch, tmp_path):
+    import huggingface_hub
+
+    turbo_specs = pe.encoders_for(anima_loading.MODEL_ID)
+    aesthetic_specs = pe.encoders_for(anima_loading.AESTHETIC_MODEL_ID)
+    for turbo, aesthetic in zip(turbo_specs, aesthetic_specs):
+        assert (aesthetic.source.repo, aesthetic.source.revision, aesthetic.source.subfolder) == (
+            turbo.source.repo, turbo.source.revision, turbo.source.subfolder,
+        )
+        assert aesthetic.source.tree == anima_loading.AESTHETIC_MODEL_ID
+        assert turbo.source.tree == anima_loading.MODEL_ID
+        assert aesthetic.max_length == turbo.max_length == pe.ANIMA_SEQUENCE
+    roots = {}
+    for model, specs in (
+        (anima_loading.MODEL_ID, turbo_specs),
+        (anima_loading.AESTHETIC_MODEL_ID, aesthetic_specs),
+    ):
+        root = tmp_path / ("aesthetic" if "@" in model else "turbo")
+        roots[model] = str(root)
+        for spec in specs:
+            (root / spec.source.tree_subfolder).mkdir(parents=True)
+    monkeypatch.setattr(pe, "_converted_tree", roots.get)
+    monkeypatch.setattr(pe, "_from_pretrained", lambda directory: directory)
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", lambda *a, **k: pytest.fail("cached tree ignored"))
+    for specs in (turbo_specs, aesthetic_specs):
+        for spec in specs:
+            assert pe._load_tokenizer(spec.source) == Path(roots[spec.source.tree]) / spec.source.tree_subfolder
 
 
 # --- budgets per family ---------------------------------------------------------

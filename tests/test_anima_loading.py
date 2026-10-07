@@ -22,7 +22,7 @@ def conversion(monkeypatch, tmp_path):
     monkeypatch.setattr(module, "cache_root", lambda: tmp_path)
     calls = []
 
-    def convert(path):
+    def convert(path, model_id=module.MODEL_ID):
         calls.append(path)
         path.mkdir()
         (path / "model_index.json").write_text("{}")
@@ -53,8 +53,8 @@ def test_other_models_pass_through_and_nunchaku_refuses_before_download(conversi
 def test_failed_conversion_cannot_publish_partial_tree(monkeypatch, conversion, tmp_path):
     convert = module._convert
 
-    def fail(path):
-        convert(path)
+    def fail(path, model_id=module.MODEL_ID):
+        convert(path, model_id)
         raise RuntimeError("disk full")
 
     monkeypatch.setattr(module, "_convert", fail)
@@ -73,8 +73,8 @@ def test_a_failed_conversion_reports_its_own_error_past_an_open_file(monkeypatch
     convert = module._convert
     held = []
 
-    def fail(path):
-        convert(path)
+    def fail(path, model_id=module.MODEL_ID):
+        convert(path, model_id)
         held.append((path / "model_index.json").open("rb"))
         raise RuntimeError("disk full")
 
@@ -166,7 +166,7 @@ def test_official_v11_prefix_split_and_cosmos_rename_preserve_tensors():
     {"unrecognized.weights": torch.zeros(1)},
 ])
 def test_missing_components_and_unexpected_checkpoint_format_fail(checkpoint):
-    with pytest.raises(ValueError, match="Anima Turbo checkpoint"):
+    with pytest.raises(ValueError, match="Anima checkpoint"):
         module._split_checkpoint(checkpoint)
 
 
@@ -190,7 +190,13 @@ def test_converted_conditioner_is_strict_and_has_no_meta_parameters(tmp_path):
         module._load_component(diffusers.AnimaTextConditioner, tmp_path, malformed)
 
 
-def test_conversion_downloads_only_pinned_turbo_and_shared_components(monkeypatch, tmp_path):
+@pytest.mark.parametrize("model_id,source,pipeline_name", [
+    (module.MODEL_ID, module.SOURCE, "AnimaTurboPipeline"),
+    (module.AESTHETIC_MODEL_ID, module.AESTHETIC_SOURCE, "AnimaAestheticPipeline"),
+])
+def test_conversion_downloads_only_pinned_variant_and_shared_components(
+    monkeypatch, tmp_path, model_id, source, pipeline_name,
+):
     from backend.backends import anima_pipeline
 
     downloads, loads, components = [], [], {}
@@ -238,10 +244,10 @@ def test_conversion_downloads_only_pinned_turbo_and_shared_components(monkeypatc
 
         return SimpleNamespace(save_pretrained=save)
 
-    monkeypatch.setattr(anima_pipeline, "AnimaTurboPipeline", pipeline)
-    module._convert(tmp_path)
-    shared, source = downloads
-    assert source == module.SOURCE
+    monkeypatch.setattr(anima_pipeline, pipeline_name, pipeline)
+    module._convert(tmp_path, model_id)
+    shared, downloaded_source = downloads
+    assert downloaded_source == source
     assert shared == {**module.SHARED, "allow_patterns": module.SHARED_PATTERNS}
     for filename in ("transformer/diffusion_pytorch_model.safetensors",
                      "text_conditioner/diffusion_pytorch_model.safetensors"):
@@ -254,13 +260,19 @@ def test_conversion_downloads_only_pinned_turbo_and_shared_components(monkeypatc
 
 
 @pytest.mark.parametrize("quant", ["fp8", "int8", "none"])
-def test_backend_quantizes_converted_tree_with_concrete_pipeline_and_keeps_public_id(monkeypatch, tmp_path, quant):
+@pytest.mark.parametrize("model_id,pipeline_name", [
+    (module.MODEL_ID, "AnimaTurboPipeline"),
+    (module.AESTHETIC_MODEL_ID, "AnimaAestheticPipeline"),
+])
+def test_backend_quantizes_converted_tree_with_concrete_pipeline_and_keeps_public_id(
+    monkeypatch, tmp_path, quant, model_id, pipeline_name,
+):
     from backend.backends import anima_pipeline, diffusers_backend, loading
     from backend.schemas import GenerateRequest
 
     tree = str(tmp_path / "converted")
     configured = replace(
-        diffusers_backend.settings, model_id=module.MODEL_ID,
+        diffusers_backend.settings, model_id=model_id,
         quantization=quant, device="cpu", offload="none",
     )
     monkeypatch.setattr(diffusers_backend, "settings", configured)
@@ -273,7 +285,7 @@ def test_backend_quantizes_converted_tree_with_concrete_pipeline_and_keeps_publi
 
     def unused(model_id):
         assert model_id == tree
-        return "AnimaTurboPipeline", {}
+        return pipeline_name, {}
 
     class Pipe:
         scheduler = diffusers.FlowMatchEulerDiscreteScheduler(shift=3.0)
@@ -299,7 +311,7 @@ def test_backend_quantizes_converted_tree_with_concrete_pipeline_and_keeps_publi
     monkeypatch.setattr(loading, "quantization_config", quantize)
     monkeypatch.setattr(loading, "unused_components", unused)
     monkeypatch.setattr(diffusers.DiffusionPipeline, "from_pretrained", wrong_loader)
-    monkeypatch.setattr(anima_pipeline.AnimaTurboPipeline, "from_pretrained", load)
+    monkeypatch.setattr(getattr(anima_pipeline, pipeline_name), "from_pretrained", load)
     backend = diffusers_backend.DiffusersBackend()
     request = GenerateRequest(prompt="a landscape", mu=1.15)
     assert not backend.lora_supported()
@@ -307,8 +319,33 @@ def test_backend_quantizes_converted_tree_with_concrete_pipeline_and_keeps_publi
     backend.load()
     assert backend.is_ready()
     assert concrete_loads == [tree]
-    assert diffusers_backend.settings.model_id == module.MODEL_ID
-    assert backend.describe()["model_id"] == module.MODEL_ID
+    assert diffusers_backend.settings.model_id == model_id
+    assert backend.describe()["model_id"] == model_id
     assert not backend.lora_supported()
     assert backend.describe()["mu_supported"] is False
     assert backend.applied(request).mu is None
+
+
+def test_variants_have_separate_pinned_caches_without_changing_turbo(conversion):
+    turbo = module.resolve_model(module.MODEL_ID, "fp8")
+    assert module.converted_tree(module.AESTHETIC_MODEL_ID) is None
+    aesthetic = module.resolve_model(module.AESTHETIC_MODEL_ID.upper(), "fp8")
+    assert turbo != aesthetic
+    assert Path(turbo).name.startswith("anima-turbo-v1.1-")
+    assert Path(aesthetic).name.startswith("anima-aesthetic-v1.1-")
+    assert json.loads(Path(turbo, "local-diffusion-conversion.json").read_text()) == module.RECIPE
+    assert json.loads(Path(aesthetic, "local-diffusion-conversion.json").read_text()) == module.AESTHETIC_RECIPE
+    assert module.AESTHETIC_SOURCE["repo_id"] == module.MODEL_ID
+    assert module.AESTHETIC_SOURCE["revision"] == "594c27fea35648b87c86a9b4d5436a6024c820b5"
+    for quant in ("fp8", "int8", "none"):
+        assert module.resolve_model(module.AESTHETIC_MODEL_ID, quant) == aesthetic
+    assert len(conversion) == 2
+
+
+def test_aesthetic_nunchaku_refuses_and_unknown_variants_pass_through(conversion):
+    with pytest.raises(RuntimeError, match="not a Nunchaku Lite"):
+        module.resolve_model(module.AESTHETIC_MODEL_ID, "nunchaku")
+    unknown = module.MODEL_ID + "@aesthetic-v2"
+    assert module.resolve_model(unknown, "fp8") == unknown
+    assert module.converted_tree(unknown) is None
+    assert not conversion

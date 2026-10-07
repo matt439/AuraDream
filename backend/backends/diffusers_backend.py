@@ -141,10 +141,8 @@ class DiffusersBackend(GenerationBackend):
             # the base class, resolving the same name from the same index,
             # would download and load it (see loading.UNUSED_COMPONENTS).
             loader: Any = DiffusionPipeline
-            if settings.model_id.lower() == anima_loading.MODEL_ID.lower():
-                from .anima_pipeline import AnimaTurboPipeline
-
-                loader = AnimaTurboPipeline
+            if anima_loading.matches(settings.model_id):
+                loader = anima_loading.pipeline_class(settings.model_id)
             elif settings.model_id.lower() == newbie_loading.MODEL_ID.lower():
                 from .newbie_pipeline import NewbiePipeline
 

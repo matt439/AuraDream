@@ -144,3 +144,29 @@ class AnimaTurboPipeline(DiffusionPipeline):
             self._step.callback = None
             # In particular, cancellation must offload the resident denoiser.
             self.maybe_free_model_hooks()
+
+
+class AnimaAestheticPipeline(AnimaTurboPipeline):
+    """Aesthetic v1.1 shares Anima's blocks with non-distilled call defaults."""
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        prompt: str | list[str],
+        height: int = 1024,
+        width: int = 1024,
+        num_inference_steps: int = 30,
+        guidance_scale: float = 4.0,
+        negative_prompt: str | list[str] | None = None,
+        num_images_per_prompt: int = 1,
+        generator: torch.Generator | list[torch.Generator] | None = None,
+        callback_on_step_end: Callable | None = None,
+        output_type: str = "pil",
+    ) -> ImagePipelineOutput:
+        return super().__call__(
+            prompt=prompt, height=height, width=width,
+            num_inference_steps=num_inference_steps, guidance_scale=guidance_scale,
+            negative_prompt=negative_prompt, num_images_per_prompt=num_images_per_prompt,
+            generator=generator, callback_on_step_end=callback_on_step_end,
+            output_type=output_type,
+        )

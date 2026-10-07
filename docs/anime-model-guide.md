@@ -1,7 +1,7 @@
 # Choosing an anime model
 
 Checked against this app's catalogue, profiles and recorded GPU checks on
-2026-10-07. Covers the nine dedicated anime checkpoints in the startup menu.
+2026-10-07. Covers the ten dedicated anime checkpoints in the startup menu.
 
 For a quick decision: **Anima Turbo for speed, WAI for a tuned anime look,
 RouWei for hybrid prompts and broad character/style knowledge, Illustrious
@@ -13,6 +13,7 @@ multiple characters.**
 | What you want | Start with | Why | How to prompt it |
 | --- | --- | --- | --- |
 | Quickly explore ideas and try several variations | **[Anima Turbo v1.1](https://huggingface.co/circlestone-labs/Anima)** | The fastest in the local recorded samples. Distillation gives it a stronger, more consistent default style, with less diversity than Anima Base. It also handles illustrations beyond anime. | Tags, prose, or both. For pure prose, describe the image in at least two sentences. |
+| Try Anima's aesthetic fine-tune with full guidance | **[Anima Aesthetic v1.1](https://huggingface.co/circlestone-labs/Anima)** | The authors describe a fine-tune for consistency and a stronger default art style. It uses more steps and CFG than Turbo; local samples are not a quality comparison. | Tags, prose, or both. Quality tags are optional; omit `score_*` from both positive and negative prompts. |
 | An everyday anime illustration with a tuned default look | **[WAI Illustrious v17](https://tensor.art/models/990778216270553015/WAI-illustrious-v17)** | A separately tuned anime aesthetic. Its author emphasizes smoother colouring and cleaner subject/background rendering. A useful starting point when you like its default look. | Primarily tags, with prose support. Finish with `masterpiece, best quality, amazing quality`. |
 | Combine familiar anime tags with a concise scene description | **[RouWei 0.8 epsilon](https://huggingface.co/Minthy/RouWei-0.8)** | An Illustrious retrain aimed at prompt adherence and broad character/style knowledge, with an April 2025 dataset cutoff. The author's claims have not been compared locally. | Tags, prose, or both; spaces instead of underscores. Prefix artists with `by ` and put them last in this app. |
 | Direct the artistic style yourself, or work above 1 MP | **[Illustrious XL v2.0-STABLE](https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0)** | An untuned illustration base with less aesthetic preference imposed by the checkpoint. It has stronger documented support for larger native images. A bare subject can produce the dataset's average look. | Tags or concise prose. Specify a style and one clear composition, such as portrait or full body. |
@@ -23,7 +24,7 @@ multiple characters.**
 | Keep multiple characters' clothes, colours, actions and positions separate | **[NewBie image Exp0.1](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1)** | Structured descriptions are its distinctive feature. The authors recommend XML to help keep each character's attributes together. This is an experimental release. | Use one XML block per character and a shared scene block. Ordinary tags and prose also work. The app's Examples menu has the author's XML example. |
 
 These are practical starting choices based on author guidance and the local
-checks. The project has not run a controlled nine-model image-quality
+checks. The project has not run a controlled ten-model image-quality
 comparison. Your preferred subjects and aesthetic will still decide which
 look you favour.
 
@@ -48,7 +49,8 @@ differently is identified.
 
 | Model | Total MP guidance | What that means for shape and larger images |
 | --- | --- | --- |
-| **Anima** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. The guide does not establish that every shape at that area performs equally well; only a **1.05 MP** square has been measured locally. |
+| **Anima Turbo** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. The guide does not establish that every shape at that area performs equally well; only a **1.05 MP** square has been measured locally. |
+| **Anima Aesthetic** | **About 0.26-2.36 MP documented** | The same family guidance covers the **1, 1.5 and 2 MP** tiers. Only a **1.05 MP** square has been measured locally; other shapes and larger areas remain unmeasured. |
 | **WAI** | **1.05-1.38 MP reference area**; **no published maximum** | Reference sizes include a portrait. This is an example span, not an established operating range for every aspect ratio. Showcase images also use a separate 1.5x hires refinement pass; the app's **Refine** pass (below) is the nearest it has, with a plain resize in place of the author's upscaling model. |
 | **RouWei** | **About 1-1.5 MP recommended** | The author allows any aspect ratio with dimensions divisible by 64. Start at 1024 x 1024; app presets are multiples of 16, so not every preset follows that recommendation exactly. Refine is a separate pass with a plain resize; it does not reproduce the author's latent or GAN upscaling recipe. |
 | **Illustrious** | **About 1-2.25 MP native**, in the authors' wording; roughly **4 MP** possible with quality loss | The authors describe varied aspect ratios. Their higher training size is **2.36 MP** when converted exactly; treat the native range as approximate. A long side alone is not a ceiling. Start with the **1, 1.5 or 2 MP** presets. |
@@ -77,8 +79,8 @@ anatomy and layout as well as whether generation completes.
 Press ⤢ on a finished image and Refine in the dialog it opens: by default it
 is resized by 1.5x and re-denoised part of the way, which keeps the
 composition where the same seed at the larger size would draw a new one. **WAI, Illustrious, Animagine, Kohaku and Z-Anime**
-have the pass; **Anima Turbo, NetaYume and NewBie** do not have a compatible
-image-to-image sibling in this app. Anima Turbo uses the app's custom
+have the pass; **Anima Turbo, Anima Aesthetic, NetaYume and NewBie** do not have a compatible
+image-to-image sibling in this app. Both Anima selections use the app's custom
 pipeline; Diffusers does ship an Anima modular image-to-image workflow, but
 it is not integrated here. The dialog's Strength starts
 at each checkpoint's own value - **0.4** on the four SDXL models, **0.15**
@@ -99,6 +101,7 @@ models and this Anima integration disable Mu.
 | Model | Steps | CFG | Recorded time per image | Sample area and shape |
 | --- | ---: | ---: | --- | --- |
 | Anima Turbo v1.1 | 8 | 1 | About 4-6 seconds | 1.05 MP, square |
+| Anima Aesthetic v1.1 | 30 | 4 | About 23 seconds | 1.05 MP, square |
 | WAI Illustrious v17 | 28 | 6 | About 9-10 seconds | 1.38 MP, portrait |
 | RouWei 0.8 epsilon | 28 | 6 | About 8 seconds | 1.05 MP, square |
 | Illustrious XL v2.0-STABLE | 28 | 5 | About 15 seconds | 1.05 MP, square |
@@ -109,7 +112,7 @@ models and this Anima integration disable Mu.
 | NewBie image Exp0.1 | 28 | 4 | About 39 seconds | 1.05 MP, square, XML prompt |
 
 The measured rows are individual RTX 5080 checks recorded on September 17-26,
-2026, with RouWei checked on October 7, using Windows FP8 and model offload.
+2026, with RouWei and Anima Aesthetic checked on October 7, using Windows FP8 and model offload.
 They indicate likely waiting time;
 different prompts, sizes and run conditions prevent a controlled speed
 ranking. Loading is excluded. Most samples also exclude PNG saving, while
@@ -142,10 +145,15 @@ See [the measurement record](verified.md#checkpoints) for the exact conditions.
 - **For lettering inside an image, avoid Animagine.** Its guide explicitly
   says text rendering is unsupported. The local checks do not establish a
   best anime model for reliable lettering.
-- **At Anima's default CFG 1, the negative prompt does nothing.** The
+- **At Anima Turbo's default CFG 1, the negative prompt does nothing.** The
   integration supports negatives above CFG 1, but Turbo's recommended
   starting point is CFG 1. Write tags in lowercase with spaces, and put `@`
   before artist names.
+- **Anima Aesthetic uses its own defaults and advice.** It starts at CFG 4,
+  where negative prompts apply. Leave `score_*` out of both prompts; quality
+  tags are unnecessary, though `masterpiece, best quality` may stay. Select
+  **Anima Aesthetic v1.1** in the menu or use
+  `--model circlestone-labs/Anima@aesthetic-v1.1`; the bare Anima id remains Turbo.
 - **Keep NetaYume's system prefix out of the editor.** The app adds it
   automatically. Its 256-token total sequence includes that instruction.
 - **For NewBie, group attributes by character.** XML provides separate

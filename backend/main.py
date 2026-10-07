@@ -135,7 +135,12 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
     repo = settings.model_id
     entry = next((checkpoint for checkpoint in CHECKPOINTS if checkpoint.repo == repo), None)
     name = entry.name if entry else repo
-    page = f"https://huggingface.co/{repo}"
+    # The Aesthetic selector records a distinct checkpoint from the same Hub
+    # repository. Error links must point at its real source, not the selector.
+    from .backends import anima_loading
+
+    hub_repo = anima_loading.MODEL_ID if anima_loading.matches(repo) else repo
+    page = f"https://huggingface.co/{hub_repo}"
     login = "run `uv run hf auth login` once with a read token"
     kind = _hub_failure(exc)
     if kind == "GatedRepoError":
@@ -149,7 +154,7 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
         return f"{name} is gated on Hugging Face: {how}, {login}, then press Retry load.", "gated", page
     if kind == "RepositoryNotFoundError":
         return (
-            f"{repo} is not on Hugging Face, or is private: check the checkpoint id "
+            f"{hub_repo} is not on Hugging Face, or is private: check the checkpoint id "
             "(LOCAL_DIFFUSION_MODEL_ID, or the start-up menu); for a private repo, "
             f"{login} that can read it, then press Retry load.",
             "not_found",

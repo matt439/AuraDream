@@ -1,6 +1,6 @@
-"""Pinned, CPU-only conversion of the official Anima Turbo checkpoint.
+"""Pinned, CPU-only conversion of official Anima checkpoints.
 
-Anima publishes Turbo's denoiser and text conditioner together. Its official
+Anima publishes each denoiser and text conditioner together. Its official
 Base Diffusers tree supplies their configs and the shared encoder, VAE and
 tokenizers, but never supplies Base denoiser or conditioner weights here.
 """
@@ -20,10 +20,18 @@ from .single_file import cache_root, sweep_work
 log = logging.getLogger(__name__)
 
 MODEL_ID = "circlestone-labs/Anima"
+# An app selector, not another Hub repository. Keep the bare id's historical
+# Turbo meaning so saved images and resume keys never change checkpoints.
+AESTHETIC_MODEL_ID = MODEL_ID + "@aesthetic-v1.1"
 SOURCE = {
     "repo_id": MODEL_ID,
     "filename": "split_files/diffusion_models/anima-turbo-v1.1.safetensors",
     "revision": "f973fc41ec7545364ac9776c2440285f43ff2a30",
+}
+AESTHETIC_SOURCE = {
+    "repo_id": MODEL_ID,
+    "filename": "split_files/diffusion_models/anima-aesthetic-v1.1.safetensors",
+    "revision": "594c27fea35648b87c86a9b4d5436a6024c820b5",
 }
 SHARED = {
     "repo_id": "circlestone-labs/Anima-Base-v1.0-Diffusers",
@@ -41,14 +49,33 @@ RECIPE = {
     "scheduler": "FlowMatchEulerDiscreteScheduler",
     "shift": 3.0,
 }
+AESTHETIC_RECIPE = {**RECIPE, "source": AESTHETIC_SOURCE}
+_RECIPES = {
+    MODEL_ID.lower(): RECIPE,
+    AESTHETIC_MODEL_ID.lower(): AESTHETIC_RECIPE,
+}
+
+
+def matches(model_id: str) -> bool:
+    return model_id.lower() in _RECIPES
+
+
+def pipeline_class(model_id: str) -> Any:
+    from .anima_pipeline import AnimaAestheticPipeline, AnimaTurboPipeline
+
+    if model_id.lower() == AESTHETIC_MODEL_ID.lower():
+        return AnimaAestheticPipeline
+    if model_id.lower() == MODEL_ID.lower():
+        return AnimaTurboPipeline
+    raise ValueError(f"Unknown Anima selection: {model_id}")
 
 
 def _split_checkpoint(checkpoint: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Convert Turbo's Cosmos names and retain its own learned conditioner.
+    """Convert the Cosmos names and retain the checkpoint's learned conditioner.
 
-The official conversion script uses an older ``net.`` prefix. Turbo v1.1's
-published safetensors instead uses ``model.diffusion_model.``. Normalize only
-that pinned format, then use Diffusers' Cosmos conversion for the denoiser.
+    The official conversion script uses an older ``net.`` prefix. Both v1.1
+    safetensors files instead use ``model.diffusion_model.``. Normalize only
+    that pinned format, then use Diffusers' Cosmos conversion for the denoiser.
     """
     from diffusers.loaders.single_file_utils import convert_cosmos_transformer_checkpoint_to_diffusers
 
@@ -61,9 +88,9 @@ that pinned format, then use Diffusers' Cosmos conversion for the denoiser.
         elif key.startswith(prefix):
             transformer["net." + key.removeprefix(prefix)] = value
         else:
-            raise ValueError(f"Unexpected Anima Turbo checkpoint key: {key}")
+            raise ValueError(f"Unexpected Anima checkpoint key: {key}")
     if not transformer or not conditioner:
-        raise ValueError("Anima Turbo checkpoint requires both denoiser and text conditioner weights")
+        raise ValueError("Anima checkpoint requires both denoiser and text conditioner weights")
     return convert_cosmos_transformer_checkpoint_to_diffusers(transformer), conditioner
 
 
@@ -79,7 +106,7 @@ def _load_component(model_cls: Any, config: str | Path, state_dict: dict[str, An
     return model
 
 
-def _convert(destination: Path) -> None:
+def _convert(destination: Path, model_id: str = MODEL_ID) -> None:
     import torch
     from diffusers import AnimaTextConditioner, AutoencoderKLQwenImage, CosmosTransformer3DModel
     from diffusers import FlowMatchEulerDiscreteScheduler
@@ -87,10 +114,9 @@ def _convert(destination: Path) -> None:
     from safetensors.torch import load_file
     from transformers import AutoTokenizer, Qwen3Model, T5TokenizerFast
 
-    from .anima_pipeline import AnimaTurboPipeline
-
     shared = Path(snapshot_download(**SHARED, allow_patterns=SHARED_PATTERNS))
-    checkpoint = load_file(hf_hub_download(**SOURCE), device="cpu")
+    source = _RECIPES[model_id.lower()]["source"]
+    checkpoint = load_file(hf_hub_download(**source), device="cpu")
     transformer_state, conditioner_state = _split_checkpoint(checkpoint)
     del checkpoint
     transformer = _load_component(CosmosTransformer3DModel, shared / "transformer", transformer_state)
@@ -99,7 +125,7 @@ def _convert(destination: Path) -> None:
     # The shared descriptors are local pinned files, so none of these loaders
     # can follow an unpinned Hub reference or load a different Base component.
     local = {"local_files_only": True}
-    pipe = AnimaTurboPipeline(
+    pipe = pipeline_class(model_id)(
         tokenizer=AutoTokenizer.from_pretrained(shared / "tokenizer", **local),
         t5_tokenizer=T5TokenizerFast.from_pretrained(shared / "t5_tokenizer", **local),
         text_encoder=Qwen3Model.from_pretrained(shared / "text_encoder", dtype=torch.bfloat16, **local),
@@ -111,10 +137,12 @@ def _convert(destination: Path) -> None:
     pipe.save_pretrained(destination, safe_serialization=True)
 
 
-def _target() -> tuple[Path, Path, str]:
-    recipe = json.dumps(RECIPE, sort_keys=True, indent=2) + "\n"
+def _target(model_id: str = MODEL_ID) -> tuple[Path, Path, str]:
+    selected = _RECIPES[model_id.lower()]
+    recipe = json.dumps(selected, sort_keys=True, indent=2) + "\n"
     digest = hashlib.sha256(recipe.encode()).hexdigest()[:16]
-    target = cache_root() / f"anima-turbo-v1.1-{digest}"
+    stem = Path(selected["source"]["filename"]).stem
+    target = cache_root() / f"{stem}-{digest}"
     return target, target / "local-diffusion-conversion.json", recipe
 
 
@@ -128,25 +156,25 @@ def _converted(target: Path, marker: Path, recipe: str) -> bool:
 
 def converted_tree(model_id: str) -> str | None:
     """Inspect an already converted tree without downloading or converting."""
-    if model_id.lower() != MODEL_ID.lower():
+    if not matches(model_id):
         return None
-    target, marker, recipe = _target()
+    target, marker, recipe = _target(model_id)
     return str(target) if _converted(target, marker, recipe) else None
 
 
 def resolve_model(model_id: str, quantization: str) -> str:
     """Return the cached standard component tree; retain the public id outside loading."""
-    if model_id.lower() != MODEL_ID.lower():
+    if not matches(model_id):
         return model_id
     if quantization == "nunchaku":
         raise RuntimeError(
-            "Anima Turbo is not a Nunchaku Lite checkpoint. "
+            "This Anima selection is not a Nunchaku Lite checkpoint. "
             "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
         )
 
     from huggingface_hub.utils import WeakFileLock
 
-    target, marker, recipe = _target()
+    target, marker, recipe = _target(model_id)
     root = target.parent
     root.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(root / f"{target.name}.lock"):
@@ -156,14 +184,14 @@ def resolve_model(model_id: str, quantization: str) -> str:
             return str(target)
         if target.exists():
             raise RuntimeError(f"Incomplete converted model cache; remove {target} and retry.")
-        log.info("converting official Anima Turbo v1.1 on CPU once: %s", target)
+        log.info("converting %s on CPU once: %s", model_id, target)
         # A cleanup that meets an open file leaves the rest to the next load's
         # sweep rather than raising over the conversion's own error.
         with TemporaryDirectory(prefix=f"{target.name}-", dir=root, ignore_cleanup_errors=True) as work:
             tree = Path(work) / "tree"
-            _convert(tree)
+            _convert(tree, model_id)
             if not (tree / "model_index.json").is_file():
-                raise RuntimeError("Anima Turbo conversion did not produce model_index.json")
+                raise RuntimeError("Anima conversion did not produce model_index.json")
             (tree / marker.name).write_text(recipe, encoding="utf-8")
             tree.rename(target)
     log.info("converted model cached: %s", target)

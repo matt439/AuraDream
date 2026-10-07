@@ -51,6 +51,7 @@ def test_the_status_says_when_the_answer_is_final(client, fake, monkeypatch):
         ("black-forest-labs/FLUX.1-Krea-dev", False),
         ("someone/unprofiled-sdxl", False),
         ("circlestone-labs/Anima", True),
+        ("circlestone-labs/Anima@aesthetic-v1.1", True),
         ("NewBie-AI/NewBie-image-Exp0.1", True),
     ):
         described = dict(fake.describe(), refine_supported=None, model_id=model_id)

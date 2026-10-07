@@ -23,6 +23,29 @@ def test_every_guide_constant_is_grounded():
     assert set(prompt_sources.GROUNDING) == set(prompt_sources.guide_constants())
 
 
+def test_aesthetic_critic_gets_its_quality_advice_instead_of_the_family_score_prefix():
+    from backend.backends.anima_loading import AESTHETIC_MODEL_ID
+
+    sources = prompt_sources.sources_for(AESTHETIC_MODEL_ID)
+    assert sources.guide is guides.ANIMA_AESTHETIC_GUIDE
+    excerpts = {excerpt.id: excerpt for excerpt in sources.excerpts}
+    assert "anima.prefix" not in excerpts
+    assert "anima.aesthetic_quality" in excerpts and "anima.aesthetic_scores" in excerpts
+    assert "anima.order" in excerpts and "anima.artist" in excerpts
+    assert "score_7" not in " ".join(excerpt.text for excerpt in sources.excerpts)
+    assert all(excerpt.url == sources.url for excerpt in sources.excerpts)
+    # The exception must reach the actual critic context, with Turbo's
+    # existing family prefix remaining available for Turbo.
+    context = _context(AESTHETIC_MODEL_ID, ordered=False)
+    cited = " ".join(citation.text for citation in context.citations.values())
+    assert "not using score_* tags in both the positive and negative prompt" in cited
+    assert "does not need positive quality tags" in cited
+    assert "score_7" not in cited and "distillation" not in cited
+    assert "anima.prefix" in {
+        excerpt.id for excerpt in prompt_sources.sources_for("circlestone-labs/Anima").excerpts
+    }
+
+
 @pytest.mark.parametrize("model_id", _catalogue_repos())
 def test_every_catalogue_checkpoint_resolves_to_its_sources(model_id):
     sources = prompt_sources.sources_for(model_id)

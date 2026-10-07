@@ -56,10 +56,43 @@ slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
 | Z-Image Turbo | fp8, Windows | 1024x1024 | 8 | 14.3 s, the first of a process; 0.9 s a step after the first | 6.43 / 7.17 GiB; 9,499 MiB whole-card | 2026-10-05 |
 | Z-Image (undistilled), CFG 5 | fp8, Windows | 1024x1024 | 50 | 102.5 s, the first of a process; 1.8 s a step | 6.77 / 8.44 GiB; 10,885 MiB whole-card | 2026-10-05 |
 | RouWei 0.8 epsilon, CFG 6 | fp8, Windows | 1024x1024 | 28 | 7.638 s after cancellation; 7.882 s repeat | 3.686 GiB allocated, 4.371 GiB reserved (maximum of the pair) | 2026-10-07 |
+| Anima Aesthetic v1.1, CFG 4 | fp8, Windows | 1024x1024 | 30 | 23.229 s after cancellation; 22.582 s repeat | 2.173 GiB allocated, 2.338 GiB reserved | 2026-10-07 |
 
 The October 5 rows were each the source of a refine ladder ("Past 4 MP",
 below), with another project's processes keeping the CPU near 75% busy:
 their times are upper bounds.
+
+Anima Aesthetic v1.1 was verified on 2026-10-07 with Windows FP8, model
+offload, batch 1 and seed 12345. Download, CPU conversion and first load took
+71.83 seconds with the shared Anima components already cached. The concrete
+`AnimaAestheticPipeline` loaded the variant's own denoiser and conditioner
+through the normal quantized component loader, using FlowMatch Euler shift 3.
+Its separate recorded selection is `circlestone-labs/Anima@aesthetic-v1.1`.
+
+The two-sentence prompt described an auburn-haired adult botanist in a navy
+coat with a brown satchel, examining blue flowers in a greenhouse at dusk,
+with warm lanterns and a blue evening sky. The negative was `blurry, jpeg
+artifacts`. Visual inspection found those scene elements in a coherent
+illustration. Cancellation stopped after step 1; both following calls
+completed all 30 steps and produced identical pixels, hash
+`a444e916bf7c064b`. Live previews arrived at steps 8 through 29. Generation
+times include previews and exclude loading/PNG saving; allocator peaks
+exclude desktop/driver memory. The CPU test suite also ran during these
+samples, so they are individual smoke timings, not a controlled benchmark
+or a quality comparison with Turbo.
+
+Rows and PNG metadata retained the Aesthetic selector, FP8, seed, 30 steps,
+CFG 4 and the applied negative prompt, with True CFG 4 and unsupported Mu
+null. The pipeline was unloaded afterward. Evidence is in
+`%TEMP%/local-diffusion-anima-aesthetic-validation/`: `validate.py`,
+`validation.log`, `results.json`, previews, a separate database and the
+`outputs/` PNGs. The production gallery was not used.
+The full Python suite passed 2,187 tests with 4 skips and 39
+dependency deprecation warnings. `smoke-anima-aesthetic.json` passed all 23
+browser expectations. Higher
+resolutions, batch scaling, int8/bfloat16 and sequential offload remain
+unmeasured for Aesthetic. Mu, references, Refine, user LoRAs and Nunchaku
+are unavailable in this integration.
 
 RouWei 0.8 epsilon was verified on 2026-10-07 with Windows FP8, model
 offload, batch 1 and seed 12345. CPU conversion and the first load took

@@ -289,6 +289,46 @@ and the installed Diffusers 0.40 Anima modular blocks. Runtime evidence belongs
 in `verified.md`; CPU stub tests and fake-browser checks do not measure quality
 or VRAM.
 
+## Anima Aesthetic v1.1: a distinct selection from the same repository
+
+Added 2026-10-07. `circlestone-labs/Anima@aesthetic-v1.1` is an app selector
+for the official `split_files/diffusion_models/anima-aesthetic-v1.1.safetensors`,
+pinned at `594c27fea35648b87c86a9b4d5436a6024c820b5`. It is not a separate
+Hub repository. Its release SHA-256 is
+`3c1868387a3a1ff504bbb87c33678321965ead381fcf87afbd0264daa600c082`.
+The loader translates the selector to the real repository; tokenizer reads
+use the pinned shared component repository, and load-error links use the
+real model page. Settings, PNGs, gallery scope and Resume retain the selector
+to distinguish it from Turbo. The bare Anima id and Turbo's conversion recipe
+and cache path are unchanged.
+
+Both v1.1 files have the same 685 tensor names, shapes and BF16 dtypes
+(567 denoiser and 118 conditioner tensors), checked against their pinned
+safetensors headers. The shared strict conversion therefore handles both;
+Aesthetic's own conditioner comes from its file. Its recipe and cache are
+separate. `AnimaAestheticPipeline` inherits the existing upstream-block
+implementation, changing call defaults to 30 steps/CFG 4. The author gives
+30-50 steps/CFG 4-5 and says Euler suits Aesthetic. The scheduler remains
+the official Diffusers conversion's FlowMatch Euler, shift 3; this does not
+implement the card's alternative ComfyUI samplers. Mu, references, user
+LoRAs, Refine and Nunchaku remain unavailable, with the same before-load
+refusals as Turbo.
+
+The guide shares the family size, spelling, artist and prose guidance, but
+replaces Turbo's distillation/CFG-1 text. The Aesthetic-specific advice says
+quality tags are unnecessary, `masterpiece, best quality` may stay, and
+`score_*` should be omitted from both prompts. Its critic grounding excludes
+the generic Anima positive prefix containing `score_7` and includes those
+Aesthetic exceptions. CPU tests cover both pipelines' guided arithmetic,
+seeds and cancellation, cache isolation and loader selection; API tests
+hold saved identity and Resume apart. `smoke-anima-aesthetic.json` checks the
+profile, guide, control refusals and applied saved settings in the browser.
+
+Sources: [official release](https://huggingface.co/circlestone-labs/Anima/commit/594c27fea35648b87c86a9b4d5436a6024c820b5),
+[Aesthetic prompting](https://huggingface.co/circlestone-labs/Anima#aesthetic-version-prompting),
+and the shared component/conversion sources above. GPU evidence is recorded
+separately in `verified.md`.
+
 ## Profiles key off the checkpoint id
 
 `model_defaults.py` keys recommended steps/CFG/mu off the checkpoint id, not the

@@ -12,7 +12,7 @@ import pytest
 import torch
 
 from backend.backends import Cancelled
-from backend.backends.anima_pipeline import AnimaTurboPipeline
+from backend.backends.anima_pipeline import AnimaAestheticPipeline, AnimaTurboPipeline
 from backend.latent_preview import unpack
 from diffusers import FlowMatchEulerDiscreteScheduler, ModelMixin
 
@@ -77,9 +77,9 @@ class _VAE(_CPUModel):
         return (latents.repeat_interleave(8, dim=-2).repeat_interleave(8, dim=-1),)
 
 
-@pytest.fixture
-def pipe():
-    pipeline = AnimaTurboPipeline(
+@pytest.fixture(params=[AnimaTurboPipeline, AnimaAestheticPipeline])
+def pipe(request):
+    pipeline = request.param(
         tokenizer=_Tokenizer(), t5_tokenizer=_Tokenizer(),
         text_encoder=_TextEncoder(), text_conditioner=_Conditioner(),
         transformer=_Transformer(), vae=_VAE(),
@@ -103,7 +103,7 @@ def _render(pipe, **changes):
     return pipe(**args).images
 
 
-@pytest.mark.parametrize("guidance", [1.0, 1.5])
+@pytest.mark.parametrize("guidance", [1.0, 4.0])
 def test_batch_images_reproduce_individually_with_cpu_generators(pipe, guidance):
     seeds = [17, 18, 19]
     images = _render(
@@ -120,7 +120,7 @@ def test_batch_images_reproduce_individually_with_cpu_generators(pipe, guidance)
     assert pipe.device == torch.device("cpu")
 
 
-@pytest.mark.parametrize("guidance", [0.0, 1.0, 1.5])
+@pytest.mark.parametrize("guidance", [0.0, 1.0, 4.0])
 def test_guidance_uses_negative_pass_only_above_one(pipe, guidance):
     finished = []
 

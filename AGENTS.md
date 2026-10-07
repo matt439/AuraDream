@@ -105,7 +105,8 @@ The model is *not* loaded at startup. The first `POST /api/generate` (or
   `tree`), and each converter's work directory ignores its own cleanup
   errors so a failed conversion reports its own error
 - `backend/backends/anima_loading.py` — pinned CPU conversion of full Anima
-  Turbo v1.1 and its conditioner, with official shared components and a cached tree
+  Turbo and Aesthetic v1.1 and their conditioners, with official shared components
+  and separate cached trees
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
 - `backend/backends/netayume_loading.py` — pinned CPU conversion of NetaYume
@@ -240,6 +241,18 @@ Model and loader:
   (8 steps, CFG 1), with Mu, references and user LoRAs disabled. No Nunchaku
   build is mapped to this entry.
 
+- `circlestone-labs/Anima@aesthetic-v1.1` is the app's distinct selector for
+  the official Aesthetic v1.1 split file in `circlestone-labs/Anima`.
+  `anima_loading` pins its own revision and cache, sharing the strict CPU
+  conversion and official shared components with Turbo. Keep the selector
+  in settings and saved metadata, but use the actual repository for Hub
+  downloads and links. Never change the bare id's Turbo meaning or cache.
+  `AnimaAestheticPipeline` shares the inference blocks with 30-step/CFG-4
+  defaults and fixed FlowMatch Euler shift 3. Mu, references, user LoRAs,
+  Refine and Nunchaku are unavailable. Its own guide and critic grounding
+  omit Turbo's CFG-1/distillation claims and the generic `score_7` prefix:
+  the authors discourage `score_*` in both Aesthetic prompts.
+
 - `duongve/NetaYume-Lumina-Image-2.0` selects the pinned v4 split denoiser.
   `netayume_loading` strictly converts it on CPU and uses the pinned official
   Lumina 2 parent for configs, Gemma 2, tokenizers and FLUX VAE, excluding the
@@ -355,7 +368,7 @@ Schedule and guidance:
   `negative_prompt_supported`, `true_cfg_supported`, `reference_supported`,
   `refine_supported` and `lora_supported`. It also says whether
   `refine_supported` is final (`refine_settled`: a live answer, or one of
-  `model_defaults._OWN_PIPELINES` - Anima Turbo and NewBie, whose pipelines
+  `model_defaults._OWN_PIPELINES` - Anima Turbo/Aesthetic and NewBie, whose pipelines
   are this repo's own classes, beside which diffusers exports no sibling),
   and whether `refine_strength` is the profile's own
   (`refine_strength_profiled`) or the general default filled in for an
@@ -1736,7 +1749,7 @@ Frontend and CLI:
   status says the pipeline has one; `#refine-unavailable` hedges ("A load
   answers for certain") only while `defaults.refine_settled` is false, and
   is `REFINE_NONE`'s sentence where the answer is final - a loaded
-  pipeline's, or one of `model_defaults._OWN_PIPELINES` (Anima Turbo,
+  pipeline's, or one of `model_defaults._OWN_PIPELINES` (Anima Turbo/Aesthetic,
   NewBie). A source gone at Reuse fills the panel
   instead, its size unchanged, with a note. Versions is `num_images` on
   consecutive seeds; a Strength holding a list or a range is a `/api/grid`
@@ -2837,7 +2850,7 @@ tab's (a request held on the server, `card_holder` "expand") leading its
 running line with the wait for the card. The fake takes the claimed profile's threshold, true-CFG
 flag and `mu_supported` (a Mu dropped from the row where the schedule takes
 none), its model id's prompt-expansion capability, and
-`loading.lora_refusal` for the id (Anima Turbo and NewBie refuse adapters,
+`loading.lora_refusal` for the id (Anima Turbo/Aesthetic and NewBie refuse adapters,
 422 at submit), so it behaves as the real one would.
 `smoke-animagine.json` runs against an Animagine-claiming fake on 7866 for its
 tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
@@ -2924,6 +2937,15 @@ grid's 1,2,3 CFG example, on port 7869:
 ```powershell
 uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
 node tools/browser.mjs tools/smoke-anima.json
+```
+
+`smoke-anima-aesthetic.json` checks Aesthetic's label, 30-step/CFG-4 defaults,
+its own prompt advice and Example, active negative prompt, unsupported
+controls, saved variant identity and final no-Refine answer on port 7895:
+
+```powershell
+uv run python tools/fake_server.py --port 7895 --model circlestone-labs/Anima@aesthetic-v1.1
+node tools/browser.mjs tools/smoke-anima-aesthetic.json
 ```
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
