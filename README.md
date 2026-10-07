@@ -47,6 +47,7 @@ Open checkpoints need no login. Select one in the menu, or pass its id:
 ```powershell
 uv run python -m backend.main --model cagliostrolab/animagine-xl-4.0
 uv run python -m backend.main --model Minthy/RouWei-0.8   # epsilon release
+uv run python -m backend.main --model Laxhar/noobai-XL-Vpred-1.0
 uv run python -m backend.main --model circlestone-labs/Anima@aesthetic-v1.1
 uv run python -m backend.main --defaults   # use environment/defaults without the menu
 uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8 --offload model
@@ -61,6 +62,11 @@ RouWei 0.8 selects the author's epsilon checkpoint and starts at 28 steps/CFG 6.
 Its first load converts the 6.94 GB single file on CPU. Start around 1 MP;
 the [anime model guide](docs/anime-model-guide.md) explains its hybrid prompts,
 artist placement and 77-token text limit.
+
+NoobAI-XL V-pred 1.0 starts at 28 steps/CFG 5 with Euler V-prediction and
+zero-terminal-SNR rescaling. Its pinned official Diffusers tree loads directly;
+no single-file conversion is needed. Start around 1 MP and keep prompts within
+the SDXL 77-token limit. Mu is disabled; the SDXL Refine pass is available.
 
 Anima Aesthetic v1.1 starts at 30 steps/CFG 4. Its selector above loads the
 official Aesthetic file from `circlestone-labs/Anima`; the bare repository id

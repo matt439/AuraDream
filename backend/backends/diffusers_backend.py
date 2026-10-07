@@ -129,7 +129,7 @@ class DiffusersBackend(GenerationBackend):
             source_id = netayume_loading.resolve_model(source_id, settings.quantization)
             source_id = newbie_loading.resolve_model(source_id, settings.quantization)
             source_id = single_file.resolve_model(source_id, settings.quantization)
-            model_id = loading.resolve_model(source_id)
+            model_id = loading.resolve_model(source_id, quantization=settings.quantization)
             load_settings = replace(settings, model_id=model_id)
             kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
             quant = loading.quantization_config(load_settings)
@@ -155,10 +155,10 @@ class DiffusersBackend(GenerationBackend):
                 log.info("leaving out %s via %s", ", ".join(sorted(unused)), loader.__name__)
                 kwargs.update(unused)
 
-            # Nested repos download only their component tree, after the
+            # Pinned repos download only their component tree, after the
             # quantizer checks above have had a chance to refuse the pairing.
             model_id = loading.resolve_model(source_id, weights=True)
-            kwargs.update(loading.component_overrides(settings.model_id, quant))
+            kwargs.update(loading.component_overrides(settings.model_id, quant, resolved_model_id=model_id))
             pipe = loader.from_pretrained(model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 

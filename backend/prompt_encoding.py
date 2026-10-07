@@ -196,6 +196,14 @@ def _sdxl(model_id: str) -> list[EncoderSpec]:
     return _clip_pair(_own(model_id, "tokenizer"), _own(model_id, "tokenizer_2"))
 
 
+def _noobai(model_id: str) -> list[EncoderSpec]:
+    # The ordinary Diffusers tree and its tokenizers share the loader's pin.
+    return _clip_pair(
+        TokenizerSource(loading.NOOB_MODEL_ID, "tokenizer", loading.NOOB_REVISION),
+        TokenizerSource(loading.NOOB_MODEL_ID, "tokenizer_2", loading.NOOB_REVISION),
+    )
+
+
 def _sdxl_single_file(model_id: str) -> list[EncoderSpec]:
     # The single-file checkpoints' conversion takes its
     # tokenizers from the pinned SDXL base descriptors.
@@ -383,6 +391,7 @@ def _key(model_id: str) -> str:
 # sources the loaders convert from, not from the public id. Never a broad
 # "anima" token, which Animagine also contains.
 _EXACT: dict[str, Callable[[str], list[EncoderSpec]]] = {
+    _key(loading.NOOB_MODEL_ID): _noobai,
     _key(single_file.ROUWEI_ID): _sdxl_single_file,
     _key(single_file.ILLUSTRIOUS_ID): _sdxl_single_file,
     _key(single_file.WAI_ID): _sdxl_single_file,

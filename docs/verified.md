@@ -57,10 +57,57 @@ slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
 | Z-Image (undistilled), CFG 5 | fp8, Windows | 1024x1024 | 50 | 102.5 s, the first of a process; 1.8 s a step | 6.77 / 8.44 GiB; 10,885 MiB whole-card | 2026-10-05 |
 | RouWei 0.8 epsilon, CFG 6 | fp8, Windows | 1024x1024 | 28 | 7.638 s after cancellation; 7.882 s repeat | 3.686 GiB allocated, 4.371 GiB reserved (maximum of the pair) | 2026-10-07 |
 | Anima Aesthetic v1.1, CFG 4 | fp8, Windows | 1024x1024 | 30 | 23.229 s after cancellation; 22.582 s repeat | 2.173 GiB allocated, 2.338 GiB reserved | 2026-10-07 |
+| NoobAI-XL V-pred 1.0, CFG 5 | fp8, Windows | 1024x1024 | 28 | 8.078 s after cancellation; 8.490 s repeat | 3.686 GiB allocated, 4.371 GiB reserved (maximum of the pair) | 2026-10-07 |
 
 The October 5 rows were each the source of a refine ladder ("Past 4 MP",
 below), with another project's processes keeping the CPU near 75% busy:
 their times are upper bounds.
+
+NoobAI-XL V-pred 1.0 was verified on 2026-10-07 with Windows FP8, model
+offload, batch 1 and seed 12345. The pinned official Diffusers tree loaded
+in 8.912 seconds from cache; the initial download and load took 106.800
+seconds. The live `StableDiffusionXLPipeline` used `EulerDiscreteScheduler`
+with `v_prediction`, zero-terminal-SNR rescaling and trailing spacing.
+At 28 steps it started at timestep 999 with sigma 4096 and ended at sigma 0.
+The public selection remained `Laxhar/noobai-XL-Vpred-1.0`.
+
+The prompt used the author's quality prefix followed by an adult woman with
+auburn hair, a navy coat and brown satchel, in a greenhouse with blue flowers
+and warm lantern light. The negative was the author's full recommended
+negative. Visual inspection found a coherent anime illustration with those
+scene elements. At 1024x1024, cancellation stopped after step 2 in 5.654
+seconds. The following two calls completed all 28 steps and produced
+identical pixels, hash `b7cf62907e9e6b65`.
+
+Refine from that source to 1536x1536 at strength 0.4 ran 11 of the requested
+28 steps. Cancellation stopped after step 2 in 3.573 seconds; the following
+two passes took 9.111 and 9.179 seconds, each peaking at 3.670 GiB allocated
+and 4.516 GiB reserved. Their pixels matched exactly, hash
+`7d579d891a2f06a5`. Visual inspection found the source composition retained,
+with facial, clothing and flower details redrawn. This is a functional check,
+not a quality ranking or a claim about larger direct renders. Other CPU work
+and part of the Python suite ran during qualification; these are individual
+smoke timings. Generation times exclude loading and PNG saving; allocator
+peaks exclude desktop/driver memory.
+
+Rows and PNG metadata retained the public id, FP8, seed, steps, CFG 5,
+negative prompt and Refine source/strength. True CFG was 5 and Mu null;
+CFG 1 dropped the negative prompt. The corrected qualification completed
+all runtime assertions and unloaded the pipeline (`passed: true`,
+`unloaded: true`). The first harness run incorrectly expected a strength
+on a direct-render row; storage correctly recorded null, and only the
+scratch assertion was corrected. Both attempts are retained under
+`%TEMP%/local-diffusion-noobai-20261007/`: `qualify.py`, `gpu.log`,
+`gpu-results.json`, `harness-first.log`, `harness-first-results.json`, the
+separate `gpu.db` and `outputs/` PNGs. The production gallery was not used.
+
+The full CPU suite passed 2,216 tests with 4 skips and 49 dependency
+deprecation warnings. `tools/smoke-noobai.json` passed all 19 browser
+expectations. The real pinned tokenizers both reported a 77-token sequence
+limit; the author's prefix used 17 tokens and negative 47, including special
+tokens. Larger direct/Refine sizes, batch scaling, int8/bfloat16, sequential
+offload and user LoRAs remain unmeasured. There is no SDXL live latent-preview
+map, and no Nunchaku build is mapped.
 
 Anima Aesthetic v1.1 was verified on 2026-10-07 with Windows FP8, model
 offload, batch 1 and seed 12345. Download, CPU conversion and first load took

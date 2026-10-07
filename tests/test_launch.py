@@ -86,6 +86,15 @@ def test_a_bad_answer_is_asked_again(clean_env):
     assert "pick 1-" in out.getvalue()
 
 
+def test_noobai_selects_the_v_prediction_release(clean_env):
+    number = str(next(i for i, c in enumerate(launch.CHECKPOINTS, 1)
+                      if c.name == "NoobAI-XL V-pred 1.0"))
+    out = io.StringIO()
+    choice = launch.prompt(ask=answers("fp8", number, "model"), out=out, env={}, linux=False)
+    assert choice == launch.Choice("Laxhar/noobai-XL-Vpred-1.0", "fp8", "model")
+    assert "V-prediction Euler" in out.getvalue()
+
+
 def test_nunchaku_lists_the_lite_repos_and_asks_the_format(clean_env):
     out = io.StringIO()
     # quant nunchaku, format nvfp4 (default), checkpoint Turbo, offload default
@@ -95,6 +104,7 @@ def test_nunchaku_lists_the_lite_repos_and_asks_the_format(clean_env):
     assert "Krea 2 Raw" not in listing, "no Nunchaku Lite build exists for Raw"
     assert "base 4B" not in listing
     assert "RouWei" not in listing, "no Nunchaku Lite build is mapped for RouWei"
+    assert "NoobAI" not in listing, "no Nunchaku Lite build is mapped for NoobAI"
 
 
 def test_int4_names_the_older_cards_repo(clean_env):

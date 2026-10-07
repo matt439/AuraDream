@@ -48,6 +48,7 @@ CASES = [
     ("OnomaAIResearch/Illustrious-XL-v2.0", "StableDiffusionXLPipeline"),
     ("LyliaEngine/waiIllustriousSDXL_v170", "StableDiffusionXLPipeline"),
     ("Minthy/RouWei-0.8", "StableDiffusionXLPipeline"),
+    ("Laxhar/noobai-XL-Vpred-1.0", "StableDiffusionXLPipeline"),
     ("duongve/NetaYume-Lumina-Image-2.0", "Lumina2Pipeline"),
 ]
 

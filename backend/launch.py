@@ -106,6 +106,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open; official epsilon single file, converted locally on first load",
     ),
     Checkpoint(
+        "NoobAI-XL V-pred 1.0",
+        "Laxhar/noobai-XL-Vpred-1.0",
+        "open; official SDXL tree, V-prediction Euler",
+    ),
+    Checkpoint(
         "Z-Anime Base",
         "SeeSee21/Z-Anime",
         "open; experimental anime model, natural-language prompts",

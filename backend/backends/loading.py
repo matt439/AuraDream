@@ -157,6 +157,11 @@ def prompt_expander_cached(model_id: str) -> bool:
 NESTED_MODELS = {
     "SeeSee21/Z-Anime": ("0f5fb51464638a2f7328a1d74590281e63e1fde2", "diffusers"),
 }
+# The official root component tree avoids converting the duplicate single
+# file. Its packaged scheduler is epsilon despite the author's v-pred recipe;
+# component_overrides corrects it without writing into the Hub snapshot.
+NOOB_MODEL_ID = "Laxhar/noobai-XL-Vpred-1.0"
+NOOB_REVISION = "66aa55e3469c27c29a89813cd35dd95fb7485fa1"
 # The nested Z-Anime encoder is scaled FP8 without a quantization_config:
 # Transformers silently drops its *.scale tensors. The author identifies the
 # default encoder as standard Z-Image Qwen3-4B. Load that parent's original
@@ -168,14 +173,32 @@ Z_ANIME_TEXT_ENCODER = {
 }
 
 
-def resolve_model(model_id: str, *, weights: bool = False) -> str:
-    """Resolve a nested component tree, reading configs before any weights.
+def resolve_model(model_id: str, *, weights: bool = False, quantization: str | None = None) -> str:
+    """Resolve a pinned component tree, reading configs before any weights.
 
     The first pass supplies the manifest and component configs for quantizer
     checks. Only after those checks pass does load() request the whole tree.
     Pin both passes to one revision so configs cannot race a weight update.
-    Ordinary Hub ids and explicit local directories pass through unchanged.
+    Other Hub ids and explicit local directories pass through unchanged.
     """
+    if model_id.lower() == NOOB_MODEL_ID.lower():
+        if quantization == NUNCHAKU:
+            raise RuntimeError(
+                "NoobAI-XL V-pred 1.0 is not a Nunchaku Lite checkpoint. "
+                "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
+            )
+        from huggingface_hub import snapshot_download
+
+        patterns = ["model_index.json", "*/config.json", "scheduler/scheduler_config.json"]
+        if weights:
+            patterns += [
+                "tokenizer/*", "tokenizer_2/*",
+                "unet/diffusion_pytorch_model.safetensors",
+                "vae/diffusion_pytorch_model.safetensors",
+                "text_encoder/model.safetensors", "text_encoder_2/model.safetensors",
+            ]
+        log.info("resolving %s (%s)", NOOB_MODEL_ID, "weights" if weights else "configs")
+        return snapshot_download(NOOB_MODEL_ID, revision=NOOB_REVISION, allow_patterns=patterns)
     source = NESTED_MODELS.get(model_id)
     if source is None:
         return model_id
@@ -193,8 +216,21 @@ def resolve_model(model_id: str, *, weights: bool = False) -> str:
     return str(Path(snapshot) / folder)
 
 
-def component_overrides(model_id: str, quant: Any) -> dict[str, Any]:
+def component_overrides(model_id: str, quant: Any, *, resolved_model_id: str | None = None) -> dict[str, Any]:
     """Pinned replacements for incorrectly packaged upstream components."""
+    if model_id.lower() == NOOB_MODEL_ID.lower():
+        from diffusers import EulerDiscreteScheduler
+
+        # The author prescribes Euler, v-prediction and zero terminal SNR.
+        # Diffusers recommends trailing spacing for that zero-SNR endpoint;
+        # the supplied leading spacing otherwise starts at 946 of 999 for
+        # 28 steps. Keep this explicit integration choice with the recipe.
+        source = resolved_model_id or resolve_model(model_id)
+        return {"scheduler": EulerDiscreteScheduler.from_pretrained(
+            source, subfolder="scheduler", local_files_only=True,
+            prediction_type="v_prediction", rescale_betas_zero_snr=True,
+            timestep_spacing="trailing",
+        )}
     if model_id != "SeeSee21/Z-Anime":
         return {}
     import torch

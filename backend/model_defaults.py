@@ -728,6 +728,35 @@ _PROFILES.insert(
 # whose name contains a family token. In particular, "anima" is also part of
 # "animagine", and Anima's Base and Aesthetic variants need different defaults.
 _EXACT_PROFILES: dict[str, dict[str, Any]] = {
+    "laxhar/noobai-xl-vpred-1.0": {
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "mu": None,
+        "mu_supported": False,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": False,
+        "refine_supported": True,
+        "refine_strength": 0.4,
+        "true_cfg_supported": False,
+        "guide": guides.NOOBAI_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. NoobAI-XL V-pred 1.0 recommends 28-35 with Euler; "
+                "{steps} is the author's Diffusers example."
+            ),
+            "guidance_scale": (
+                "Real classifier-free guidance. The author recommends CFG 4-5; "
+                "the Diffusers example uses {guidance_scale:g}. Above "
+                "{cfg_threshold:g} the negative prompt applies and adds an "
+                "uncond pass per step."
+            ),
+            "mu": (
+                "Unavailable: NoobAI-XL V-pred 1.0 uses SDXL's Euler "
+                "v-prediction noise schedule with zero terminal SNR, not flow matching."
+            ),
+        },
+    },
     "minthy/rouwei-0.8": {
         "steps": 28,
         "guidance_scale": 6.0,

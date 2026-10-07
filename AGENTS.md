@@ -209,6 +209,19 @@ Model and loader:
   disables Mu and has no Nunchaku mapping. The author's reference sizes and
   separate hires pass are not a published maximum or direct-generation guarantee.
 
+- `Laxhar/noobai-XL-Vpred-1.0` selects its pinned official Diffusers tree.
+  `loading.resolve_model` reads configs before quantization checks and then
+  only component weights/tokenizers, excluding the duplicate single file.
+  Keep the public id in settings/metadata. The published scheduler incorrectly
+  declares epsilon: `loading.component_overrides` installs Euler with
+  `v_prediction`, zero-terminal-SNR rescaling and trailing timesteps (999
+  first). Trailing is the app's Diffusers-backed integration choice; the
+  author explicitly specifies the other two overrides. Use exact-id 28
+  steps/CFG 5, disabled Mu and ordinary SDXL Refine at strength 0.4.
+  No Nunchaku build is mapped. Preserve the author's quality/date vocabulary,
+  approximate 2024-10-23 Danbooru cutoff, separate prefix and caption order,
+  77-token CLIP limit and approximately 1 MP size advice.
+
 - `Minthy/RouWei-0.8` selects the author's pinned epsilon single file through
   `single_file`, with its SHA-256 checked before CPU conversion. Preserve its
   VAE, both CLIP encoders and public id in settings/metadata. Use the exact-id
@@ -3016,6 +3029,14 @@ help, artist-last fallback and recommended size range on the fake backend:
 ```powershell
 uv run python tools/fake_server.py --port 7890 --model Minthy/RouWei-0.8
 node tools/browser.mjs tools/smoke-rouwei.json
+```
+
+`smoke-noobai.json` checks NoobAI V-pred's defaults, author prefix and negative,
+tag helper, CLIP budget, saved identity and SDXL Refine pass on a fake backend:
+
+```powershell
+uv run python tools/fake_server.py --port 7891 --model Laxhar/noobai-XL-Vpred-1.0
+node tools/browser.mjs tools/smoke-noobai.json
 ```
 
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on

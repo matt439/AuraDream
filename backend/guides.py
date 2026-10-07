@@ -1027,6 +1027,81 @@ WAI_GUIDE = {
     },
 }
 
+_NOOBAI_PREFIX = "masterpiece, best quality, newest, absurdres, highres, safe,"
+_NOOBAI_NEGATIVE = (
+    "nsfw, worst quality, old, early, low quality, lowres, signature, username, "
+    "logo, bad hands, mutated hands, mammal, anthro, furry, ambiguous form, "
+    "feral, semi-anthro"
+)
+NOOBAI_GUIDE = {
+    "prompt": (
+        "NoobAI-XL V-pred 1.0 was trained with native Danbooru and e621 tags "
+        "and natural-language captions. The card recommends the prefix "
+        f"'{_NOOBAI_PREFIX}'. Examples inserts that prefix alone; add your subject. "
+        "Its separate caption template lists person count, character, series, "
+        "artists, special tags, general tags, then other tags. The author's "
+        "Diffusers example uses artist: before artist names.\n"
+        "Quality tags are masterpiece, best quality, good quality, normal quality "
+        "and worst quality. Aesthetic tags include very awa and worst aesthetic. "
+        "Date tags use year followed by four digits, or old, early, mid, recent "
+        "and newest; newest covers the years 2021-2024. "
+        f"The card recommends this negative prompt: '{_NOOBAI_NEGATIVE}'.\n"
+        "Both SDXL CLIP tokenizers stop at 77 tokens, including special tokens. "
+        "Autocomplete checks Danbooru through the card's approximate 2024-10-23 "
+        "cutoff; it does not check e621, and a match does not prove the model "
+        "learned a tag."
+    ),
+    "size": (
+        "The author recommends about 1024x1024 total area, roughly 1 MP: "
+        "768x1344, 832x1216, 896x1152, 1024x1024, 1152x896, 1216x832 and "
+        "1344x768, with 832x1216 highlighted. The app's 2:3 and 3:2 presets "
+        "have slightly different dimensions; type the card's sizes for an exact "
+        "match. Direct generation has been checked at 1024x1024 and Refine "
+        "from that size to 1536x1536 at strength 0.4. Larger direct renders "
+        "remain unmeasured here."
+    ),
+    "pixels": (1.0, 1024**2 / 1e6),
+    "pixels_word": "recommended",
+    "aspects": ["1:1", "7:9", "9:7", "2:3", "3:2", "4:7", "7:4"],
+    "resolutions": [
+        (768, 1344), (832, 1216), (896, 1152), (1024, 1024),
+        (1152, 896), (1216, 832), (1344, 768),
+    ],
+    # The author's prefix fits the runtime's short CLIP window. Their full
+    # Diffusers example is longer and is not silently trimmed into a new scene.
+    "examples": [_NOOBAI_PREFIX],
+    "tag_helper": {
+        # The prefix and caption template are distinct author recommendations,
+        # not one unambiguous total order. Show the template through the critic
+        # sources, without inventing placement for its "other tags" bucket.
+        "order": [],
+        "groups": [
+            {"label": "Person count", "tags": ["1girl", "1boy", "1other"]},
+            {"label": "Rating", "tags": ["safe"]},
+            {
+                "label": "Quality",
+                "tags": [
+                    "masterpiece", "best quality", "good quality",
+                    "normal quality", "worst quality",
+                ],
+            },
+            {"label": "Aesthetic", "tags": ["very awa", "worst aesthetic"]},
+            {"label": "Year", "tags": ["old", "early", "mid", "recent", "newest"]},
+            {"label": "Resolution", "tags": ["absurdres", "highres"]},
+        ],
+        "year_tag": True,
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": "2024-10-23",
+        "artist_prefix": "artist:",
+        "hybrid_prompt": True,
+        "negative_prompt": _NOOBAI_NEGATIVE,
+    },
+    "analysis": {
+        "url": "https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0",
+        "negative_prompt": {"cite": "The card recommends this negative prompt"},
+    },
+}
+
 ROUWEI_GUIDE = {
     "prompt": (
         "RouWei 0.8 epsilon is an Illustrious retrain for anime and other illustration "

@@ -956,6 +956,44 @@ _ERNIE_EXPAND = (
 # what runs, and `test_no_citable_sentence_misstates_a_token_limit` holds the
 # limits to prompt_encoding. No rule entry cites an unsourced sentence.
 GROUNDING: dict[str, Grounding] = {
+    "NOOBAI_GUIDE": Grounding(
+        (
+            Excerpt(
+                "noobai.prefix",
+                "masterpiece, best quality, newest, absurdres, highres, safe,",
+                "https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0",
+                note="the recommended positive prefix, not a complete scene",
+            ),
+            Excerpt(
+                "noobai.order",
+                "<1girl/1boy/1other/...>, <character>, <series>, <artists>, "
+                "<special tags>, <general tags>, <other tags>",
+                "https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0",
+                note="the separate caption template; the card also recommends a quality prefix",
+                order=True,
+            ),
+        ),
+        caveat=(
+            "This is NoobAI-XL V-pred 1.0. The card gives a positive prefix and a "
+            "separate caption template; do not invent a combined total tag order. "
+            "Its quality, aesthetic and date tags are its own, not Illustrious's "
+            "or Animagine's. The artist: prefix occurs in its Diffusers example; "
+            "the card does not require it for every artist. Keep the 77-token "
+            "CLIP limit; this app does not implement prompt chunking."
+        ),
+        unsourced=(
+            "Examples inserts that prefix alone; add your subject.",
+            "Autocomplete checks Danbooru through the card's approximate 2024-10-23 "
+            "cutoff; it does not check e621, and a match does not prove the model learned a tag.",
+        ),
+        sentence_urls=(
+            (
+                "Both SDXL CLIP tokenizers stop at 77 tokens, including special tokens.",
+                "https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0/blob/"
+                "66aa55e3469c27c29a89813cd35dd95fb7485fa1/tokenizer/tokenizer_config.json",
+            ),
+        ),
+    ),
     "ROUWEI_GUIDE": Grounding(
         (
             Excerpt(

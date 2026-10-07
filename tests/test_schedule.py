@@ -101,6 +101,7 @@ def test_a_custom_sigma_argument_does_not_make_sdxl_flow_matching():
 @pytest.mark.parametrize("model_id", [
     "cagliostrolab/animagine-xl-4.0",
     "KBlueLeaf/Kohaku-XL-Zeta",
+    "Laxhar/noobai-XL-Vpred-1.0",
 ])
 def test_sdxl_drops_mu_before_the_weights_are_loaded(monkeypatch, model_id):
     monkeypatch.setattr(

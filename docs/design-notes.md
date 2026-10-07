@@ -5548,6 +5548,53 @@ GPU samples and their quality limits are recorded in `verified.md`. The
 Illustrious smoke on the fake server; no GPU sample was taken for it, since
 it changes text and one button, not the pipeline.
 
+## NoobAI-XL V-pred 1.0: pinned SDXL with an explicit V-prediction schedule
+
+`Laxhar/noobai-XL-Vpred-1.0` selects the official Diffusers tree at revision
+`66aa55e3469c27c29a89813cd35dd95fb7485fa1`. It needs no single-file conversion.
+The resolver fetches configs before quantization checks, then only the component
+weights and tokenizers; the duplicate single-file checkpoint is excluded.
+Settings, rows and PNG metadata retain the public repository id.
+
+The published scheduler config incorrectly declares epsilon prediction and
+leaves zero-terminal-SNR rescaling disabled. The author's Diffusers example
+explicitly replaces it with Euler, `prediction_type="v_prediction"` and
+`rescale_betas_zero_snr=True`. The loader applies those settings before the
+pipeline can generate. It also uses `timestep_spacing="trailing"`, following
+Diffusers' guidance to start from the final training timestep when rescaling
+the noise schedule. This is an integration choice beyond the author's two
+explicit overrides: at 28 steps the supplied leading schedule starts at 946,
+while trailing starts at 999. CPU tests inspect the real scheduler's timesteps
+and sigmas and its use by the ordinary SDXL Refine sibling.
+
+The exact-id profile starts at the author's example values, 28 steps and CFG 5.
+Mu is unavailable because Euler's noise schedule is not flow matching. Normal
+FP8, int8 and bfloat16 component loading is supported; no Nunchaku build is
+mapped. Refine starts at strength 0.4 and shares the corrected scheduler.
+There is no four-channel SDXL latent-preview map, and the Refine preview does
+not invent a flow start-sigma value for this scheduler.
+
+The guide keeps NoobAI's quality/date vocabulary and author caption-order
+excerpt separate from other SDXL models. The card gives both a quality prefix
+and a caption order without defining their combined placement; the analyser
+does not impose an invented total order. Examples inserts the author's prefix
+and asks the user to add a subject. Both CLIP encoders have a 77-token sequence,
+about 75 content tokens. Danbooru suggestions use the stated approximate
+2024-10-23 cutoff; the app has no e621 vocabulary lookup. A tag-index match
+does not prove that this checkpoint learned a tag.
+
+Size help recommends about 1 MP and retains the author's seven exact reference
+dimensions. Shared presets select nearby framings and do not exactly reproduce
+every listed size. Larger tiers remain available without a claim of author
+support or local quality. GPU evidence belongs in `verified.md`; fake-browser
+coverage is `tools/smoke-noobai.json`, port 7891.
+
+Sources checked 2026-10-07:
+
+- [Pinned author card](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0/blob/66aa55e3469c27c29a89813cd35dd95fb7485fa1/README.md).
+- [Published scheduler config](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0/blob/66aa55e3469c27c29a89813cd35dd95fb7485fa1/scheduler/scheduler_config.json).
+- [Diffusers noise-schedule guidance](https://huggingface.co/docs/diffusers/using-diffusers/scheduler_features#rescale-noise-schedule).
+
 ## RouWei 0.8 epsilon: an author checkpoint with hybrid prompting
 
 `Minthy/RouWei-0.8` selects the author's
