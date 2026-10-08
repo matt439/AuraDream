@@ -12,13 +12,16 @@ before changing it.
 - `backend/config.py` — settings, most overridable by `LOCAL_DIFFUSION_*` env vars
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
   flags, run before `config` is imported; the checkpoint catalogue lives here
+- `backend/loader_choices.py` — quantization, offload and Nunchaku format
+  choices, worded once for the `--menu` and the browser picker
 - `backend/model_selection.py` — the server's selected checkpoint, loader options
   and revision, separate from immutable startup settings; `current_model_id`
   and `current_settings` supply runtime reads, and `available` limits choices
   to the selected quantization/format/platform
 - `backend/startup_preferences.py` — validated atomic loader/startup persistence;
   the server launcher restores it before config imports
-- `backend/model_info.py` — cold catalogue details from existing sourced guides
+- `backend/model_info.py` — cold catalogue details from existing sourced guides,
+  plus each entry's Hugging Face access from its catalogue gate word
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
 - `backend/schemas.py` — pydantic request/response models
@@ -376,10 +379,21 @@ Model and loader:
   (`setModelOptions`); polls write only fields changed since the last applied
   snapshot. A runtime id missing from its own catalogue is requested once.
 - Picker speed facts use retained `docs/verified.md` measurements at their
-  recorded size and steps. Different quantization, format, offload or platform
-  is visibly a reference; unmeasured variants never inherit a family timing.
-  Fast is at most 15 s, Medium over 15 through 45 s, Slow over 45 s, using the
-  sample's upper time. These are not ETAs or new GPU evidence.
+  recorded size and steps. Only a sample matching quantization, format,
+  platform and offload gets Fast (at most 15 s), Medium (over 15 through
+  45 s) or Slow (over 45 s), from the sample's upper time. Any other is
+  Reference, or Unmeasured for BF16 or sequential offload, with a "timed
+  with/on ..." basis naming what differs; the closest sample is chosen by
+  exact quantization/format, then 4-bit or torchao family, then platform,
+  then offload. Unmeasured variants never inherit a family timing. These are
+  not ETAs or new GPU evidence.
+- Picker access (`details_for`'s `access`/`access_note`) comes from
+  `Checkpoint.gate`: click-through is Accept licence, manual is Needs approval,
+  anything else and every lite-infer build Open, a custom id Unknown. Nothing
+  checks the Hub or the cache for it.
+- Quantization and offload descriptions live in `loader_choices.py` and are
+  shared by the menu and the picker; only figures true of every catalogue
+  checkpoint go there.
 - On Linux, the server launcher prepares `DIFFUSERS_TRUST_REMOTE_KERNELS=true`
   before diffusers imports for optional browser Nunchaku selection; an explicit
   false remains authoritative and refuses Nunchaku before unload. The standalone
@@ -3275,7 +3289,9 @@ snapshots, metadata, refusal before releasing working weights, a failed
 teardown keeping the running model and saved file, and Switch & load retrying
 the selected model; `POST /api/fake/model` sets the fake's `overrides` and a
 `stuck_critic` for page checks;
-`test_model_benchmarks.py` covers speed categories and exact sample matching:
+`test_model_benchmarks.py` covers speed categories, exact sample matching and
+no category for an unmatched setup; `test_model_info.py` covers access and the
+shared loader descriptions:
 
 ```powershell
 uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev

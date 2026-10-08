@@ -345,12 +345,37 @@ the October 5 Animagine sample that the anime guide previously omitted. It
 shows Fast (up to 15 s), Medium (over 15 through 45 s) or Slow (over 45 s), based
 on the upper time of the recorded roughly 1 MP sample, plus that sample's
 time and area. WAI retains its 1.38 MP portrait. Exact checkpoint variants and
-quantization/format/platform/offload determine whether the sample matches;
-a different setup is visibly an FP8 or NVFP4 reference. Busy-CPU first-image
-samples say Upper bound. Missing timings say Unmeasured and show default steps,
-never an extrapolated speed from those steps. The tooltip preserves settings,
-date and warm/cold caveats. These are individual prior samples, not a controlled
+quantization/format/platform/offload determine whether the sample matches.
+Until 2026-10-09 an unmatched setup kept the sample's category and changed only
+its basis ("NVFP4 reference"), so on Windows Krea 2 Turbo read Fast ~15 s for
+FP8, and for BF16 with sequential offload too, from a 4-bit Linux sample. The
+category is now only a matched sample's. Otherwise the word is Reference, or
+Unmeasured for BF16 or sequential offload (too far from any sample to call),
+with the sample's time kept and a plain basis naming what differs ("timed on
+4-bit Linux build", "timed with FP8, model offload"). The closest sample is
+picked by exact quantization/format, then its family (4-bit against torchao),
+then platform, then offload, so INT8 on Linux borrows the Windows FP8 sample
+rather than NVFP4. Busy-CPU first-image samples say First run, busy PC.
+Missing timings say Unmeasured and show default steps, never an extrapolated
+speed from those steps. The tooltip preserves settings, date and warm/cold
+caveats, without file paths. These are single prior runs, not a controlled
 comparison, live ETA or measurements at the maximum MP shown beside them.
+
+The catalogue also reports Hugging Face access (2026-10-09). The `--menu`
+printed each entry's gate, but the browser picker that replaced it did not, so
+Krea 2 Turbo's manual approval surfaced only as a failed load, after the
+switch had already released the working model. `details_for` maps the gate
+word: click-through is Accept licence, manual approval is Needs approval
+(which can take days), other entries and lite-infer re-uploads Open, a custom
+id Unknown; the note says what to do on the model page. It is a catalogue
+fact, not a Hub or cache check: a network check would hold up the cold
+catalogue, and a pre-unload access check is left for later.
+
+The quantization and offload explanations were vaguer in the browser than in
+the menu, while the menu's figures were Krea 2's (~13 GB peak, ~25 GB in BF16)
+and would be wrong for the SDXL rows. `loader_choices.py` now words both once:
+FP8 and Model offload are recommended for a 16 GB card, BF16 and No offload
+need the most VRAM (24 GB+ for FLUX-size models), with no per-model figures.
 Changing draft offload settings refreshes these facts as changing quantization
 does, without applying either setting or loading a model.
 

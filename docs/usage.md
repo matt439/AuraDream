@@ -43,12 +43,22 @@ the choices. The load buttons stay in their own footer while the picker scrolls.
 
 **Speed** uses recorded RTX 5080 samples around 1 MP (WAI's portrait is 1.38 MP):
 **Fast** is up to 15 seconds, **Medium** over 15 through 45 seconds, and **Slow**
-over 45 seconds. The sample time and area appear below the category. **FP8
-reference** or **NVFP4 reference** means the timing used different loading
-settings or a different platform; **Upper bound** identifies the busy-CPU first
-images. The tooltip gives steps, settings and date. **Unmeasured** models show
-default steps instead of an invented timing. These are previous samples, not
-estimates for your current prompt, size or steps; loading time is separate.
+over 45 seconds. The sample time and area appear below the category. A
+category appears only when the sample used your chosen quantization, offload
+and platform. Otherwise the word is **Reference**, or **Unmeasured** for BF16
+or sequential offload, and "timed with FP8" or "timed on 4-bit Linux build"
+says how the sample differs. **First run, busy PC** marks the busy-CPU first
+images. The tooltip gives steps, settings and date. **Unmeasured** models
+without a sample show default steps instead of an invented timing. These are
+previous runs, not estimates for your current prompt, size or steps; loading
+time is separate.
+
+Some checkpoints are gated on Hugging Face. FLUX.1 Krea [dev] and FLUX.1 [dev]
+need their licence accepted on the model page; Krea 2 Turbo and Raw need the
+authors' approval, which can take days. Then sign in once with
+`uv run hf auth login`. The 4-bit lite-infer builds are not gated. The
+catalogue reports this as each model's access; FP8 with Model offload is
+recommended for a 16 GB card.
 
 **Apply & save** applies changed settings without loading their weights. Saving
 only the startup preference leaves an already loaded model in place. Both

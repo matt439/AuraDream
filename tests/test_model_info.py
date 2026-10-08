@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend import model_info, model_selection
+from backend import launch, model_info, model_selection
 from backend.launch import CHECKPOINTS, FORMATS
 from backend.model_defaults import defaults_for
 
@@ -32,9 +32,29 @@ def test_lite_variants_share_canonical_facts_and_favourites(fmt):
         if entry.lite:
             lite = model_info.details_for(entry.lite_repo(fmt))
             native = model_info.details_for(entry.repo)
-            assert {key: value for key, value in lite.items() if not key.startswith("speed_")} == {
-                key: value for key, value in native.items() if not key.startswith("speed_")
-            }
+            def shared(detail):
+                return {
+                    key: value for key, value in detail.items()
+                    if not key.startswith(("speed_", "access"))
+                }
+            assert shared(lite) == shared(native)
+            assert lite["access"] == "Open"
+            assert "lite-infer" in lite["access_note"]
+
+
+def test_every_catalogue_entry_reports_its_hugging_face_access():
+    words = {"click-through": "Accept licence", "manual": "Needs approval"}
+    for entry in CHECKPOINTS:
+        detail = model_info.details_for(entry.repo)
+        want = next((label for prefix, label in words.items() if entry.gate.startswith(prefix)), "Open")
+        assert detail["access"] == want, entry.repo
+        assert detail["access_note"]
+    assert model_info.details_for("krea/Krea-2-Turbo")["access"] == "Needs approval"
+    assert "can take days" in model_info.details_for("krea/Krea-2-Raw")["access_note"]
+    assert model_info.details_for("black-forest-labs/FLUX.1-Krea-dev")["access"] == "Accept licence"
+    assert model_info.details_for("cagliostrolab/animagine-xl-4.0")["access"] == "Open"
+    custom = model_info.details_for("local/custom-checkpoint")
+    assert custom["access"] == "Unknown" and custom["access_note"]
 
 
 def test_anima_releases_keep_separate_favourites_but_link_to_the_real_repo():
@@ -104,6 +124,17 @@ def test_browser_loader_options_are_short_and_keep_their_explanations(monkeypatc
     }
     assert [entry["label"] for entry in options["formats"]] == ["NVFP4", "INT4"]
     assert all(entry["description"] for choices in options.values() for entry in choices)
+    descriptions = {
+        key: {entry["value"]: entry["description"] for entry in options[key]}
+        for key in ("quantizations", "offloads")
+    }
+    assert "recommended for a 16 GB card" in descriptions["quantizations"]["fp8"]
+    assert "recommended for a 16 GB card" in descriptions["offloads"]["model"]
+    assert "may not fit 16 GB" in descriptions["quantizations"]["none"]
+    assert "24 GB+" in descriptions["offloads"]["none"]
+    # The terminal menu prints the same words.
+    assert dict(launch.QUANTIZATIONS) == descriptions["quantizations"]
+    assert dict(launch.OFFLOADS) == descriptions["offloads"]
     monkeypatch.setattr(model_selection.sys, "platform", "win32")
     assert "nunchaku" not in {
         entry["value"] for entry in model_selection.options(SimpleNamespace())["quantizations"]

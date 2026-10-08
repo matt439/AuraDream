@@ -20,27 +20,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TextIO
 
+from backend.loader_choices import FORMATS, OFFLOADS, QUANTIZATIONS
 from backend.model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT, defaults_for
 from backend.startup_preferences import (
     OVERRIDES_VARIABLE,
     apply_saved_environment,
     explicit_sources,
-)
-
-QUANTIZATIONS: tuple[tuple[str, str], ...] = (
-    ("fp8", "torchao float8 weight-only; ~13 GB peak, fits a 16 GB card"),
-    ("int8", "torchao int8 weight-only; smaller, slightly softer"),
-    ("none", "full bfloat16; ~25 GB VRAM for Krea 2"),
-    ("nunchaku", "Nunchaku Lite 4-bit, a pre-quantized lite-infer repo; Linux only"),
-)
-OFFLOADS: tuple[tuple[str, str], ...] = (
-    ("model", "one component on the GPU at a time; right for 16 GB"),
-    ("sequential", "per-submodule; lowest VRAM, much slower"),
-    ("none", "everything resident; 24 GB+, and Nunchaku still spills at 16"),
-)
-FORMATS: tuple[tuple[str, str], ...] = (
-    ("nvfp4", "RTX 50 (Blackwell)"),
-    ("int4", "RTX 20 to 40"),
 )
 
 

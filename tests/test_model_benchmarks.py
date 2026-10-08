@@ -2,7 +2,7 @@
 import pytest
 
 from backend import model_benchmarks, model_info
-from backend.launch import CHECKPOINTS
+from backend.launch import CHECKPOINTS, FORMATS
 from backend.model_defaults import defaults_for
 
 
@@ -56,30 +56,66 @@ def test_speed_tooltip_retains_noncomparable_size_and_cold_cpu_caveats():
     assert "1024×1344" in wai["speed_note"]
     animagine = model_info.details_for("cagliostrolab/animagine-xl-4.0")
     assert animagine["speed_label"] == "Medium"
-    assert animagine["speed_basis"] == "Upper bound"
+    assert animagine["speed_basis"] == "First run, busy PC"
     assert "17.2 s" in animagine["speed_note"]
     assert "2026-10-05" in animagine["speed_note"]
     assert "First image of a process" in animagine["speed_note"]
     assert "CPU about 75% busy" in animagine["speed_note"]
     assert "upper-bound" in animagine["speed_note"]
-    assert model_info.details_for("cagliostrolab/animagine-xl-4.0", "int8")["speed_basis"] == "FP8 reference"
+    int8 = model_info.details_for("cagliostrolab/animagine-xl-4.0", "int8")
+    assert (int8["speed_label"], int8["speed_basis"]) == ("Reference", "timed with FP8")
 
 
-@pytest.mark.parametrize(("quantization", "offload"), [
-    ("int8", "model"), ("none", "model"), ("fp8", "sequential"), ("fp8", "none"),
+@pytest.mark.parametrize(("quantization", "offload", "label", "basis"), [
+    ("int8", "model", "Reference", "timed with FP8"),
+    ("none", "model", "Unmeasured", "timed with FP8"),
+    ("fp8", "sequential", "Unmeasured", "timed with model offload"),
+    ("fp8", "none", "Reference", "timed with model offload"),
+    ("int8", "sequential", "Unmeasured", "timed with FP8, model offload"),
 ])
-def test_different_loader_settings_are_visibly_only_a_reference(quantization, offload):
+def test_different_loader_settings_are_visibly_only_a_reference(quantization, offload, label, basis):
     detail = model_info.details_for("Minthy/RouWei-0.8", quantization, offload)
-    assert detail["speed_basis"] == "FP8 reference"
+    assert (detail["speed_label"], detail["speed_basis"]) == (label, basis)
     assert "different setup" in detail["speed_note"]
+    assert "no speed category" in detail["speed_note"]
     assert "FP8, Windows, model offload" in detail["speed_note"]
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux"])
+def test_unmatched_selections_never_get_a_speed_category(monkeypatch, platform):
+    monkeypatch.setattr(model_benchmarks.sys, "platform", platform)
+    lite = {
+        entry.lite_repo(fmt) for entry in CHECKPOINTS for fmt, _ in FORMATS if entry.lite
+    } if platform == "linux" else set()
+    for model_id in {entry.repo for entry in CHECKPOINTS} | lite:
+        for quantization in ("fp8", "int8", "none", "nunchaku"):
+            for offload in ("model", "sequential", "none"):
+                detail = model_info.details_for(model_id, quantization, offload)
+                if detail["speed_basis"].startswith("timed "):
+                    assert detail["speed_label"] in {"Reference", "Unmeasured"}
+                    assert "no matching timing" in detail["speed_note"]
+                else:
+                    assert "no matching timing" not in detail["speed_note"]
+                if quantization == "none" or offload == "sequential":
+                    assert detail["speed_label"] == "Unmeasured"
+                assert "docs/verified.md" not in detail["speed_note"]
 
 
 def test_windows_cannot_claim_wsl_only_timing_as_its_own():
     detail = model_info.details_for("krea/Krea-2-Turbo", "fp8", "model")
-    assert detail["speed_basis"] == "NVFP4 reference"
-    assert detail["speed_label"] == "Fast"
+    assert detail["speed_basis"] == "timed on 4-bit Linux build"
+    assert detail["speed_label"] == "Reference"
     assert "Nunchaku NVFP4, Linux/WSL" in detail["speed_note"]
+    slow = model_info.details_for("krea/Krea-2-Turbo", "none", "sequential")
+    assert slow["speed_label"] == "Unmeasured"
+    assert slow["speed_basis"] == "timed on 4-bit Linux build, model offload"
+
+
+def test_reference_prefers_the_same_quantization_family_before_platform(monkeypatch):
+    monkeypatch.setattr(model_benchmarks.sys, "platform", "linux")
+    klein = model_info.details_for("black-forest-labs/FLUX.2-klein-4B", "int8")
+    assert "10.2 s" in klein["speed_note"]
+    assert klein["speed_basis"] == "timed with FP8 on Windows"
 
 
 def test_lite_format_and_platform_select_the_actual_recorded_sample(monkeypatch):
@@ -91,9 +127,9 @@ def test_lite_format_and_platform_select_the_actual_recorded_sample(monkeypatch)
     assert lite["speed_basis"] == "Measured"
     assert "4.0 s" in lite["speed_note"]
     int4 = model_info.details_for(klein.lite_repo("int4"))
-    assert int4["speed_basis"] == "NVFP4 reference"
+    assert (int4["speed_label"], int4["speed_basis"]) == ("Reference", "timed with NVFP4")
     native_linux = model_info.details_for(klein.repo)
-    assert native_linux["speed_basis"] == "FP8 reference"
+    assert (native_linux["speed_label"], native_linux["speed_basis"]) == ("Reference", "timed on Windows")
 
 
 def test_no_offload_has_its_own_slower_sample_where_recorded(monkeypatch):

@@ -36,7 +36,7 @@
     "expect": "(() => { const [style, refine, size, speed] = __cells(__flux); return __value(style) === 'Photorealism' && __value(refine) === 'Yes' && __small(size) === 'Max recommended' && __value(size) === '1.64 MP' && size.title.includes('recommends') && __row(__flux).querySelector('a.model-link').href.startsWith('https://huggingface.co/') && __value(__cells(__anime)[0]) === 'Anime' && parseFloat(getComputedStyle(style).fontSize) >= 13; })()"
   },
   {
-    "expect": "modelCatalogueEntries.every((e) => { const d = modelCatalogueDetails[e.model_id]; const speed = __cells(e.model_id)[3]; return ['Fast', 'Medium', 'Slow', 'Unmeasured'].includes(__value(speed)) && __value(speed) === d.speed_label && __small(speed).includes(d.speed_summary) && __small(speed).endsWith(d.speed_basis) && !!speed.title; })"
+    "expect": "modelCatalogueEntries.every((e) => { const d = modelCatalogueDetails[e.model_id]; const speed = __cells(e.model_id)[3]; return ['Fast', 'Medium', 'Slow', 'Reference', 'Unmeasured'].includes(__value(speed)) && (d.speed_basis.startsWith('timed ') ? ['Reference', 'Unmeasured'].includes(d.speed_label) : !d.speed_note.includes('no matching timing')) && ['Open', 'Accept licence', 'Needs approval'].includes(d.access) && !!d.access_note && __value(speed) === d.speed_label && __small(speed).includes(d.speed_summary) && __small(speed).endsWith(d.speed_basis) && !!speed.title; })"
   },
   {
     "expect": "[[els.modelQuantization, els.modelQuantizationHelp], [els.modelOffload, els.modelOffloadHelp]].every(([select, help]) => help.textContent === select.selectedOptions[0].dataset.description && !!help.textContent && select.getAttribute('aria-describedby') === help.id && parseFloat(getComputedStyle(help).fontSize) >= 13 && help.scrollHeight <= help.clientHeight)"
@@ -48,7 +48,7 @@
     "eval": "window.__speedBasis = __small(__cells(__flux)[3]); __radio(__flux).focus(); els.modelOffload.value = 'sequential'; els.modelOffload.dispatchEvent(new Event('change'));"
   },
   {
-    "expect": "__until(() => !modelCataloguePending && __small(__cells(__flux)[3]).endsWith('FP8 reference') && __cells(__flux)[3].title.includes('no matching timing') && modelRuntimeSettings.offload === 'model')"
+    "expect": "__until(() => !modelCataloguePending && __value(__cells(__flux)[3]) === 'Unmeasured' && __small(__cells(__flux)[3]).endsWith('timed with model offload') && __cells(__flux)[3].title.includes('no matching timing') && modelRuntimeSettings.offload === 'model')"
   },
   {
     "expect": "__allRows() && document.activeElement === __radio(__flux) && document.activeElement.isConnected && modelChoice() === __flux"
@@ -417,7 +417,7 @@
     "expect": "__until(() => !modelCataloguePending && els.modelQuantization.value === 'int8' && els.modelOffload.value === 'sequential' && !els.modelLoadOnStartup.checked)"
   },
   {
-    "expect": "__small(__cells(__flux)[3]).includes('reference') && __cells(__flux)[3].title.includes('no matching timing') && __allRows() && modelChoice() === __flux && els.modelQuantizationHelp.textContent === els.modelQuantization.selectedOptions[0].dataset.description && els.modelOffloadHelp.textContent === els.modelOffload.selectedOptions[0].dataset.description"
+    "expect": "__value(__cells(__flux)[3]) === 'Unmeasured' && __small(__cells(__flux)[3]).endsWith('timed with FP8, model offload') &&__cells(__flux)[3].title.includes('no matching timing') && __allRows() && modelChoice() === __flux && els.modelQuantizationHelp.textContent === els.modelQuantization.selectedOptions[0].dataset.description && els.modelOffloadHelp.textContent === els.modelOffload.selectedOptions[0].dataset.description"
   },
   {
     "eval": "(async () => { await refreshStatus(); window.__loaderRevision = modelRevision; })()"

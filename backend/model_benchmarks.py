@@ -58,7 +58,7 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
     ),
     "cagliostrolab/animagine-xl-4.0": (
         Sample(17.2, "~17 s · 1 MP", 28, "2026-10-05", "17.2 s", guidance="CFG 5",
-               caveat=_BUSY_CPU, basis="Upper bound"),
+               caveat=_BUSY_CPU, basis="First run, busy PC"),
     ),
     "KBlueLeaf/Kohaku-XL-Zeta": (
         Sample(9.68, "~10 s · 1 MP", 28, "2026-09-26", "9.33 / 9.68 s", guidance="CFG 5",
@@ -66,7 +66,7 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
     ),
     "OnomaAIResearch/Illustrious-XL-v2.0": (
         Sample(11.1, "~11 s · 1 MP", 28, "2026-10-05", "11.1 s", guidance="CFG 5",
-               caveat=_BUSY_CPU, basis="Upper bound"),
+               caveat=_BUSY_CPU, basis="First run, busy PC"),
     ),
     "LyliaEngine/waiIllustriousSDXL_v170": (
         Sample(9.64, "~10 s · 1.38 MP", 28, "2026-09-26", "9.25 / 9.64 s",
@@ -105,7 +105,7 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
     ),
     "black-forest-labs/FLUX.1-schnell": (
         Sample(27.3, "~27 s · 1 MP", 4, "2026-10-05", "27.3 s", caveat=_BUSY_CPU,
-               basis="Upper bound"),
+               basis="First run, busy PC"),
         Sample(23, "~16–23 s · 1 MP", 4, "2026-09-08", "16–23 s", **_NVFP4),
     ),
     "black-forest-labs/FLUX.2-klein-4B": (
@@ -114,7 +114,7 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
     ),
     "Tongyi-MAI/Z-Image-Turbo": (
         Sample(14.3, "~14 s · 1 MP", 8, "2026-10-05", "14.3 s", caveat=_BUSY_CPU,
-               basis="Upper bound"),
+               basis="First run, busy PC"),
         Sample(10.6, "~8–11 s · 1 MP", 8, "2026-09-08", "8 s and 10.6 s",
                caveat="Two same-day samples. A dropped WSL page cache also produced 17–19 s before warming.", **_NVFP4),
     ),
@@ -150,15 +150,18 @@ def speed_for(
             "speed_summary": f"{steps} default steps" if checkpoint else "No recorded timing",
             "speed_basis": "No timing",
             "speed_note": (
-                "No retained RTX 5080 generation timing for this exact checkpoint in docs/verified.md. "
+                "No RTX 5080 generation timing has been recorded for this exact checkpoint. "
                 "Step count alone does not establish speed."
             ),
         }
 
-    # Prefer the requested quantization/format, then platform and offload.
-    # The fallback is useful context but is never presented as a measured match.
+    # Prefer the requested quantization/format, then its family (4-bit or
+    # torchao), then platform and offload. A fallback is context only: its
+    # category is never shown as this selection's, and BF16 or sequential
+    # offload, far from any sample's setup, is Unmeasured.
     sample = max(samples, key=lambda value: (
         value.quantization == quantization and value.format == fmt,
+        (value.quantization == "nunchaku") == (quantization == "nunchaku"),
         value.platform == sys.platform,
         value.offload == offload,
     ))
@@ -166,19 +169,43 @@ def speed_for(
         sample.quantization == quantization and sample.format == fmt
         and sample.platform == sys.platform and sample.offload == offload
     )
-    basis = sample.basis if matched else f"{'NVFP4' if sample.format else 'FP8'} reference"
+    if matched:
+        label = "Fast" if sample.seconds <= 15 else "Medium" if sample.seconds <= 45 else "Slow"
+    else:
+        label = "Unmeasured" if quantization == "none" or offload == "sequential" else "Reference"
     guidance = f", {sample.guidance}" if sample.guidance else ""
-    context = "" if matched else "Reference from a different setup; this selection has no matching timing. "
+    context = "" if matched else (
+        "Reference from a different setup; this selection has no matching timing, "
+        "so it gets no speed category. "
+    )
     return {
-        "speed_label": "Fast" if sample.seconds <= 15 else "Medium" if sample.seconds <= 45 else "Slow",
+        "speed_label": label,
         "speed_summary": sample.summary,
-        "speed_basis": basis,
+        "speed_basis": sample.basis if matched else _timed_with(sample, quantization, fmt, offload),
         "speed_note": (
             f"{context}RTX 5080 sample: {sample.timing} per image at {sample.size}, "
             f"{sample.steps} steps{guidance}; {sample.settings}, {sample.date}. "
             f"{sample.caveat + ' ' if sample.caveat else ''}"
-            "Generation only; model loading is separate. Source: docs/verified.md. "
+            "Generation only; model loading is separate. "
             "Categories use the recorded sample's upper time: Fast ≤15 s, Medium >15–45 s, Slow >45 s. "
-            "Individual smoke samples, not a controlled comparison or an ETA; size, steps and other work change the time."
+            "Single test runs, not a controlled comparison or an ETA; size, steps and other work change the time."
         ),
     }
+
+
+def _timed_with(sample: Sample, quantization: str, fmt: str | None, offload: str) -> str:
+    """Name, in plain words, what the reference sample ran with that differs."""
+    if sample.quantization == "nunchaku":
+        quant = (
+            "" if quantization == "nunchaku" and sample.format == fmt
+            else sample.format.upper() if quantization == "nunchaku"
+            else "on 4-bit Linux build"
+        )
+    else:
+        quant = "" if sample.quantization == quantization else "FP8"
+    where = ""
+    if sample.platform != sys.platform and quant != "on 4-bit Linux build":
+        where = "on Windows" if sample.platform == "win32" else "on Linux"
+    placement = f"{'model' if sample.offload == 'model' else 'no'} offload" if sample.offload != offload else ""
+    setup = ", ".join(filter(None, [" ".join(filter(None, [quant, where])), placement]))
+    return f"timed {'' if setup.startswith('on ') else 'with '}{setup}"

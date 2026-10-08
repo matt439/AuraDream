@@ -4,7 +4,8 @@ The size labels show upper recommended or documented areas, not starting sizes
 or a measured quality ranking. Native, documented, trained and example bounds
 retain their own labels. Notes distinguish author guidance from local advice.
 Sources are backend/guides.py,
-docs/anime-model-guide.md and (for Z-Anime's iteration advice) docs/verified.md.
+docs/anime-model-guide.md and (for Z-Anime's iteration advice) docs/verified.md;
+Hugging Face access comes from the catalogue's gate word.
 """
 from .launch import CHECKPOINTS, FORMATS
 from .model_benchmarks import speed_for
@@ -144,6 +145,27 @@ _SIZE_LABELS = {
 }
 
 
+_LOGIN = "then sign in once with `uv run hf auth login` and a read token"
+# Hugging Face access before the first download, from the catalogue's own gate
+# word (launch.CHECKPOINTS, as the --menu prints it). lite-infer's re-uploads
+# are not gated.
+_ACCESS = {
+    "click-through": ("Accept licence", (
+        "Gated on Hugging Face: accept the licence on the model page (a click-through), "
+        f"{_LOGIN}, before the first download."
+    )),
+    "manual": ("Needs approval", (
+        "Gated on Hugging Face: request access on the model page. Its authors approve "
+        f"each request by hand, which can take days; once approved, {_LOGIN}."
+    )),
+}
+_OPEN = ("Open", "Not gated on Hugging Face: downloads without a sign-in or licence step.")
+_LITE_OPEN = ("Open", (
+    "This lite-infer 4-bit build is not gated on Hugging Face: downloads without a "
+    "sign-in or licence step. The model-page link opens the official repo."
+))
+
+
 def details_for(
     model_id: str, quantization: str | None = None, offload: str = "model",
 ) -> dict[str, str]:
@@ -159,9 +181,15 @@ def details_for(
             "megapixels_label": "Max recommended",
             "megapixels_note": "No catalogue size guidance; check the checkpoint's model card.",
             "favourite_id": model_id, "url": "",
+            "access": "Unknown",
+            "access_note": "Not in the catalogue; its model page says whether it is gated.",
             **speed_for(model_id, quantization, offload),
         }
     style, (megapixels, note) = _FACTS[checkpoint.repo]
+    lite = model_id != checkpoint.repo
+    access, access_note = _LITE_OPEN if lite else next((
+        value for prefix, value in _ACCESS.items() if checkpoint.gate.startswith(prefix)
+    ), _OPEN)
     profile = defaults_for(model_id)
     return {
         "style": style,
@@ -177,5 +205,7 @@ def details_for(
         # Lite builds share a favourite, but Anima's two releases stay distinct.
         "favourite_id": checkpoint.repo,
         "url": f"https://huggingface.co/{checkpoint.repo.split('@', 1)[0]}",
+        "access": access,
+        "access_note": access_note,
         **speed_for(model_id, quantization, offload),
     }
