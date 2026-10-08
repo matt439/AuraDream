@@ -348,7 +348,12 @@ Model and loader:
   native/documented maxima and examples distinctly; an example never becomes
   a guaranteed maximum. Model favourites are browser preferences, canonical across Nunchaku
   weight formats, and never mutate the selected model or loader settings.
-- The picker's selects are `appearance: base-select`, so their lists draw in
+- The checkpoint is a radio table (`#model-table`) showing every model's
+  facts; read and set it only through `modelChoice()` / `chooseModel()`, with
+  no row checked when the runtime id is missing. It is rebuilt only when its
+  key changes, keeping focus on the same model's control; a star toggles in
+  place while the picker is open and the grouping follows at the next opening.
+- The loader selects are `appearance: base-select`, so their lists draw in
   the page; never return them to the native popup, a separate window Chromium
   re-anchors under a still pointer. While any picker list is open
   (`modelListOpen()`, `:open`), the page's key handler leaves every key to it
@@ -3137,22 +3142,27 @@ different checkpoint and work again after switching back. It also checks a
 switch held during a job, failed target loading and Retry load recovery, and
 topbar/picker fit on narrow, laptop and QHD windows. It also checks cold
 Apply & save, quantization/offload changes, the saved startup checkbox,
-save errors, compact model facts, persistent model favourites and stable action
-placement across model choices and short viewports, visible loader descriptions
-and speed references that follow draft quantization/offload choices.
+save errors and stable action placement across choices and short viewports.
+For the checkpoint table it checks every catalogue model's row and facts
+(style, refine with its note, max size with its label, speed with its sample
+and basis) without choosing any, focus on the chosen radio at the first
+opening and through rebuilds, choosing by radio and by a fact cell, stars that
+toggle in place and group at the next opening, persistent favourites
+(corrupt data, blocked writes, other tabs) and speed references that follow
+draft quantization/offload choices.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
-for an idle unloaded/error server, suppression when ready/loading/busy, no
-reopening after dismissal or later Unload, and focus/caret preservation.
-`smoke-model-hover.json` hovers a row of the open in-page model list and checks
-that its highlight, row positions and open state survive real status polls, a
-catalogue reply and another tab's favourites, with no option mutations; that
-Escape closes only the list and the held changes then land. It checks that keys
-in an open list leave the prompt check open and start no job, and that a loader
-change made elsewhere reaches the closed controls when the user then picks from
-the open list. It covers keyboard drafts, a revision or checkbox-only change
-held behind an open loader list,
-a checkpoint changed elsewhere, recovery from an outdated catalogue reply and
-an off-catalogue runtime id requested once. CPU tests in
+for an idle unloaded/error server, with every model's row and facts shown,
+suppression when ready/loading/busy, no reopening after dismissal or later
+Unload, and focus/caret preservation.
+`smoke-model-hover.json` hovers a table row and checks that its hover, every
+row's position and the focus survive status polls, a catalogue reply and
+another tab's favourites, with only the star's glyph changing. For the
+base-select loader lists it checks that a revision or checkbox-only change
+waits for an open list to close, that keys in an open list leave the prompt
+check open and start no job, and that Escape closes only the list. It covers
+arrow-key drafts, a loader change elsewhere while a radio has the focus, a
+checkpoint changed elsewhere, recovery from an outdated catalogue reply and
+an off-catalogue runtime id requested once with no row chosen. CPU tests in
 `test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
 and `test_api_model_switch.py` cover persistence, explicit overrides, loader
 snapshots, metadata and refusal before releasing working weights;

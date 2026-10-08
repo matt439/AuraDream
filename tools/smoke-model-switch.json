@@ -3,7 +3,7 @@
     "navigate": "http://127.0.0.1:7896/"
   },
   {
-    "eval": "(async () => { window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; }; window.__model = async (id, state = 'ready') => __until(async () => { await refreshStatus(); return loadedModel === id && modelState === state && !modelSwitching && !modelSwitchSending; }); window.__flux = 'black-forest-labs/FLUX.1-Krea-dev'; window.__anime = 'cagliostrolab/animagine-xl-4.0'; window.__knob = (key, value) => { els[key].value = value; els[key].dispatchEvent(new Event('input', {bubbles: true})); }; })()"
+    "eval": "(async () => { window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; }; window.__model = async (id, state = 'ready') => __until(async () => { await refreshStatus(); return loadedModel === id && modelState === state && !modelSwitching && !modelSwitchSending; }); window.__flux = 'black-forest-labs/FLUX.1-Krea-dev'; window.__anime = 'cagliostrolab/animagine-xl-4.0'; window.__knob = (key, value) => { els[key].value = value; els[key].dispatchEvent(new Event('input', {bubbles: true})); }; window.__helpers = () => { window.__rows = () => [...els.modelTable.querySelectorAll('.model-row:not(.model-row-head)')]; window.__row = (id) => __rows().find((r) => r.dataset.model === id); window.__radio = (id) => __row(id)?.querySelector('input[name=\"model-choice\"]'); window.__star = (id) => __row(id)?.querySelector('.model-star'); window.__pick = (id) => { __radio(id).click(); return modelChoice() === id; }; window.__cells = (id) => [...__row(id).querySelectorAll('.model-fact')]; window.__value = (cell) => [...cell.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(''); window.__small = (cell) => cell.querySelector('small')?.textContent ?? ''; window.__shown = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility === 'visible'; }; window.__factsMatch = (id) => { const d = modelCatalogueDetails[id] ?? {}; const row = __row(id); const entry = modelCatalogueEntries.find((e) => e.model_id === id); const [style, refine, size, speed] = __cells(id); const label = (cell) => cell.querySelector('.sr-only')?.textContent; const link = row.querySelector('a.model-link'); return __cells(id).length === 4 && row.querySelector('.model-name').textContent === entry.label && __star(id).getAttribute('aria-label') === `Star ${entry.label}` && label(style) === 'Style: ' && __value(style) === (d.style || '—') && label(refine) === 'Refine: ' && __value(refine) === (d.refine || '—') && refine.title === (d.refine_note || '') && label(size) === 'Max size: ' && __value(size) === (d.megapixels || '—') && __small(size) === (d.megapixels_label || '') && size.title === (d.megapixels_note || '') && label(speed) === 'Speed: ' && __value(speed) === (d.speed_label || 'Unmeasured') && __small(speed) === [d.speed_summary, d.speed_basis].filter(Boolean).join(' · ') && speed.title === (d.speed_note || '') && (d.url ? link?.href === d.url && link.target === '_blank' : !link) && [row.querySelector('.model-name'), ...__cells(id)].every(__shown); }; window.__allRows = () => modelCatalogueEntries.length > 10 && __rows().length === modelCatalogueEntries.length && new Set(__rows().map((r) => r.dataset.model)).size === modelCatalogueEntries.length && modelCatalogueEntries.every((e) => __row(e.model_id) && __factsMatch(e.model_id)); window.__order = () => __rows().map((r) => r.dataset.model).join('|'); window.__groups = () => [...els.modelTable.children].filter((e) => !e.classList.contains('model-row-head')).reduce((out, e) => { if (e.classList.contains('model-group')) out.push([e.textContent, 0]); else if (out.length) out[out.length - 1][1] += 1; return out; }, []); window.__modelLayout = () => { const picker = els.modelPicker.getBoundingClientRect(), actions = els.modelSwitch.getBoundingClientRect(); return picker.left >= 0 && picker.right <= innerWidth && picker.bottom <= innerHeight && actions.bottom <= innerHeight && document.documentElement.scrollWidth <= document.documentElement.clientWidth && els.modelTable.scrollWidth <= els.modelTable.clientWidth + 2 && [...els.modelTable.querySelectorAll('.model-fact, .model-fact > small, .model-name, .model-row-head > span')].every((e) => e.scrollWidth <= e.clientWidth); }; window.__loaderFits = () => { const ctx = document.createElement('canvas').getContext('2d'); return [els.modelQuantization, els.modelOffload].every((el) => { const css = getComputedStyle(el); ctx.font = `${css.fontSize} ${css.fontFamily}`; return [...el.options].every((option) => ctx.measureText(option.textContent).width < el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - 24); }); }; }; __helpers(); })()"
   },
   {
     "expect": "__model(__flux)"
@@ -15,70 +15,106 @@
     "click": "#btn-models"
   },
   {
-    "expect": "__until(() => modelCatalogueLoaded && [...els.modelSelect.options].some((o) => o.value === __anime))"
+    "expect": "__until(() => modelCatalogueLoaded && !!__radio(__anime))"
   },
   {
-    "expect": "els.models.getAttribute('aria-expanded') === 'true' && els.modelSelect.value === __flux && els.modelSwitch.getAttribute('aria-disabled') === 'true' && !els.modelSwitch.disabled"
+    "expect": "__until(() => document.activeElement === __radio(__flux))"
+  },
+  {
+    "expect": "els.models.getAttribute('aria-expanded') === 'true' && modelChoice() === __flux && __radio(__flux).checked && modelRadios().filter((r) => r.checked).length === 1 && els.modelSwitch.getAttribute('aria-disabled') === 'true' && !els.modelSwitch.disabled && !document.getElementById('model-select') && !document.getElementById('btn-model-favourite') && !document.getElementById('model-info') && els.modelTable.getAttribute('role') === 'radiogroup'"
   },
   {
     "expect": "els.modelSave.getAttribute('aria-disabled') === 'false' && !els.modelSave.disabled && els.modelQuantization.value === modelRuntimeSettings.quantization && els.modelOffload.value === modelRuntimeSettings.offload && els.modelFormatField.hidden"
   },
   {
-    "log": "'Compact model facts and full-width loader choices stay readable without moving the actions'"
+    "log": "'Every catalogue model has a row with its facts visible without choosing it, and full-width loader choices stay readable'"
   },
   {
-    "expect": "els.modelStyle.textContent === 'Photorealism' && els.modelRefine.textContent === 'Yes' && els.modelMegapixelsLabel.textContent === 'Max recommended' && els.modelMegapixels.textContent === '1.64 MP' && els.modelMegapixels.title.includes('recommends') && els.modelPage.href.startsWith('https://huggingface.co/') && !els.modelInfo.querySelector('details, p') && parseFloat(getComputedStyle(els.modelStyle).fontSize) >= 14"
+    "expect": "__allRows() && modelChoice() === __flux && !modelPickerDirty && !els.modelTable.querySelector('details, p, select, optgroup') && !__groups().length"
   },
   {
-    "expect": "els.modelSpeed.textContent === modelCatalogueDetails[els.modelSelect.value].speed_label && ['Fast', 'Medium', 'Slow', 'Unmeasured'].includes(els.modelSpeed.textContent) && els.modelSpeedSummary.textContent === modelCatalogueDetails[els.modelSelect.value].speed_summary && els.modelSpeedBasis.textContent === modelCatalogueDetails[els.modelSelect.value].speed_basis && !!els.modelSpeed.title"
+    "expect": "(() => { const [style, refine, size, speed] = __cells(__flux); return __value(style) === 'Photorealism' && __value(refine) === 'Yes' && __small(size) === 'Max recommended' && __value(size) === '1.64 MP' && size.title.includes('recommends') && __row(__flux).querySelector('a.model-link').href.startsWith('https://huggingface.co/') && __value(__cells(__anime)[0]) === 'Anime' && parseFloat(getComputedStyle(style).fontSize) >= 13; })()"
+  },
+  {
+    "expect": "modelCatalogueEntries.every((e) => { const d = modelCatalogueDetails[e.model_id]; const speed = __cells(e.model_id)[3]; return ['Fast', 'Medium', 'Slow', 'Unmeasured'].includes(__value(speed)) && __value(speed) === d.speed_label && __small(speed).includes(d.speed_summary) && __small(speed).endsWith(d.speed_basis) && !!speed.title; })"
   },
   {
     "expect": "[[els.modelQuantization, els.modelQuantizationHelp], [els.modelOffload, els.modelOffloadHelp]].every(([select, help]) => help.textContent === select.selectedOptions[0].dataset.description && !!help.textContent && select.getAttribute('aria-describedby') === help.id && parseFloat(getComputedStyle(help).fontSize) >= 13 && help.scrollHeight <= help.clientHeight)"
   },
   {
-    "log": "'Changing only offload refreshes the timing context without applying the settings'"
+    "log": "'Changing only offload refreshes every row timing context without applying the settings, and the rebuilt table keeps focus on the same model'"
   },
   {
-    "eval": "window.__speedBasis = els.modelSpeedBasis.textContent; els.modelOffload.value = 'sequential'; els.modelOffload.dispatchEvent(new Event('change'));"
+    "eval": "window.__speedBasis = __small(__cells(__flux)[3]); __radio(__flux).focus(); els.modelOffload.value = 'sequential'; els.modelOffload.dispatchEvent(new Event('change'));"
   },
   {
-    "expect": "__until(() => !modelCataloguePending && els.modelSpeedBasis.textContent === 'FP8 reference' && els.modelSpeed.title.includes('no matching timing') && modelRuntimeSettings.offload === 'model')"
+    "expect": "__until(() => !modelCataloguePending && __small(__cells(__flux)[3]).endsWith('FP8 reference') && __cells(__flux)[3].title.includes('no matching timing') && modelRuntimeSettings.offload === 'model')"
   },
   {
-    "eval": "els.modelOffload.value = 'model'; els.modelOffload.dispatchEvent(new Event('change'));"
+    "expect": "__allRows() && document.activeElement === __radio(__flux) && document.activeElement.isConnected && modelChoice() === __flux"
   },
   {
-    "expect": "__until(() => !modelCataloguePending && els.modelSpeedBasis.textContent === __speedBasis)"
+    "eval": "__star(__anime).focus(); els.modelOffload.value = 'model'; els.modelOffload.dispatchEvent(new Event('change'));"
   },
   {
-    "eval": "window.__actionsY = els.modelSwitch.getBoundingClientRect().top; window.__chooseModel = (id) => { els.modelSelect.value = id; els.modelSelect.dispatchEvent(new Event('change')); }; window.__modelLayout = () => { const picker = els.modelPicker.getBoundingClientRect(), actions = els.modelSwitch.getBoundingClientRect(); return picker.left >= 0 && picker.right <= innerWidth && picker.bottom <= innerHeight && actions.bottom <= innerHeight && document.documentElement.scrollWidth <= document.documentElement.clientWidth && [...els.modelInfo.querySelectorAll('dt, dd')].every((e) => e.scrollHeight <= e.clientHeight && e.scrollWidth <= e.clientWidth); }; window.__loaderFits = () => { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); return [els.modelQuantization, els.modelOffload].every((el) => { const css = getComputedStyle(el); ctx.font = css.font; return [...el.options].every((option) => ctx.measureText(option.textContent).width < el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - 24); }); };"
+    "expect": "__until(() => !modelCataloguePending && __small(__cells(__flux)[3]) === __speedBasis)"
   },
   {
-    "expect": "[...els.modelSelect.options].every((option) => { __chooseModel(option.value); return els.modelSwitch.getBoundingClientRect().top === __actionsY && els.modelStyle.textContent === modelCatalogueDetails[option.value].style && els.modelRefine.textContent === modelCatalogueDetails[option.value].refine && els.modelMegapixelsLabel.textContent === modelCatalogueDetails[option.value].megapixels_label && __modelLayout(); }) && __loaderFits()"
+    "expect": "__allRows() && document.activeElement === __star(__anime) && document.activeElement.isConnected && !els.modelPicker.hidden"
   },
   {
-    "log": "'Stars group favourites without duplicate models, preserve unsaved settings and keep their accessible name'"
+    "log": "'Choosing any row keeps the actions fixed and all facts fitting; a press on a fact cell chooses its row'"
   },
   {
-    "eval": "__chooseModel(__anime); els.modelOffload.value = 'sequential'; els.modelOffload.dispatchEvent(new Event('change')); els.modelLoadOnStartup.checked = true; els.modelLoadOnStartup.dispatchEvent(new Event('change')); window.__optionCount = els.modelSelect.options.length; window.__starName = els.modelFavourite.getAttribute('aria-label');"
+    "eval": "window.__actionsY = els.modelSwitch.getBoundingClientRect().top;"
   },
   {
-    "click": "#btn-model-favourite"
+    "expect": "modelCatalogueEntries.every((e) => __pick(e.model_id) && modelPickerDirty && els.modelSwitch.getBoundingClientRect().top === __actionsY && __factsMatch(e.model_id) && __modelLayout()) && __loaderFits()"
   },
   {
-    "expect": "els.modelFavourite.getAttribute('aria-pressed') === 'true' && els.modelFavourite.getAttribute('aria-label') === __starName && els.modelFavourite.title.includes('favourite') && els.modelSelect.querySelector('optgroup').label === 'Favourites' && els.modelSelect.options[0].value === __anime && els.modelSelect.options.length === __optionCount && new Set([...els.modelSelect.options].map((o) => o.value)).size === __optionCount && els.modelSelect.value === __anime && els.modelOffload.value === 'sequential' && els.modelLoadOnStartup.checked && modelPickerDirty && els.modelSwitch.getBoundingClientRect().top === __actionsY && document.activeElement === els.modelFavourite"
+    "eval": "__pick(__flux); __cells(__anime)[0].scrollIntoView({block: 'nearest'});"
+  },
+  {
+    "click": "[data-model=\"cagliostrolab/animagine-xl-4.0\"] .model-fact"
+  },
+  {
+    "expect": "modelChoice() === __anime && __radio(__anime).checked && !__radio(__flux).checked && els.modelSwitch.getBoundingClientRect().top === __actionsY"
+  },
+  {
+    "eval": "__pick(__flux); __star(__flux).scrollIntoView({block: 'nearest'});"
+  },
+  {
+    "log": "'Stars toggle in place without moving rows, preserve unsaved settings and keep their accessible name'"
+  },
+  {
+    "eval": "__pick(__anime); els.modelOffload.value = 'sequential'; els.modelOffload.dispatchEvent(new Event('change')); els.modelLoadOnStartup.checked = true; els.modelLoadOnStartup.dispatchEvent(new Event('change')); window.__rowOrder = __order(); window.__starName = __star(__anime).getAttribute('aria-label'); __star(__anime).scrollIntoView({block: 'nearest'});"
+  },
+  {
+    "expect": "__until(() => !modelCataloguePending)"
+  },
+  {
+    "click": "[data-model=\"cagliostrolab/animagine-xl-4.0\"] .model-star"
+  },
+  {
+    "expect": "__star(__anime).getAttribute('aria-pressed') === 'true' && __star(__anime).textContent === '★' && __star(__anime).getAttribute('aria-label') === __starName && __star(__anime).title.includes('favourite') && modelFavourites.has(__anime) && __order() === __rowOrder && !__groups().length && modelChoice() === __anime && els.modelOffload.value === 'sequential' && els.modelLoadOnStartup.checked && modelPickerDirty && els.modelSwitch.getBoundingClientRect().top === __actionsY && document.activeElement === __star(__anime) && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 1"
   },
   {
     "keycombo": ["", "Enter"]
   },
   {
-    "expect": "els.modelFavourite.getAttribute('aria-pressed') === 'false' && els.modelFavourite.getAttribute('aria-label') === __starName && !els.modelSelect.querySelector('optgroup') && els.modelSelect.value === __anime && els.modelOffload.value === 'sequential' && els.modelSwitch.getBoundingClientRect().top === __actionsY"
+    "expect": "__star(__anime).getAttribute('aria-pressed') === 'false' && __star(__anime).textContent === '☆' && __star(__anime).getAttribute('aria-label') === __starName && !modelFavourites.has(__anime) && __order() === __rowOrder && modelChoice() === __anime && els.modelOffload.value === 'sequential' && els.modelSwitch.getBoundingClientRect().top === __actionsY"
   },
   {
-    "click": "#btn-model-favourite"
+    "click": "[data-model=\"cagliostrolab/animagine-xl-4.0\"] .model-star"
   },
   {
-    "eval": "__chooseModel(__flux); els.modelOffload.value = modelRuntimeSettings.offload; els.modelOffload.dispatchEvent(new Event('change')); els.modelLoadOnStartup.checked = false; els.modelLoadOnStartup.dispatchEvent(new Event('change'));"
+    "expect": "__star(__anime).getAttribute('aria-pressed') === 'true' && __order() === __rowOrder && !__groups().length"
+  },
+  {
+    "eval": "__pick(__flux); els.modelOffload.value = modelRuntimeSettings.offload; els.modelOffload.dispatchEvent(new Event('change')); els.modelLoadOnStartup.checked = false; els.modelLoadOnStartup.dispatchEvent(new Event('change'));"
+  },
+  {
+    "expect": "__until(() => !modelCataloguePending)"
   },
   {
     "log": "'Saving only the startup checkbox keeps the loaded weights and revision, and ordinary status polls keep unsaved edits'"
@@ -100,6 +136,24 @@
   },
   {
     "expect": "(async () => (await api('/api/models')).load_on_startup === true)()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "els.modelPicker.hidden && document.activeElement === els.models"
+  },
+  {
+    "log": "'The next opening groups the starred model first, without duplicates, and focuses the chosen row'"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => !els.modelPicker.hidden && !modelCataloguePending)"
+  },
+  {
+    "expect": "JSON.stringify(__groups()) === JSON.stringify([['Favourites', 1], ['All models', modelCatalogueEntries.length - 1]]) && __rows()[0].dataset.model === __anime && __allRows() && modelChoice() === __flux && document.activeElement === __radio(__flux) && __star(__anime).getAttribute('aria-pressed') === 'true'"
   },
   {
     "key": "Escape"
@@ -141,7 +195,10 @@
     "click": "#btn-models"
   },
   {
-    "eval": "els.modelSelect.value = __anime; els.modelSelect.dispatchEvent(new Event('change'));"
+    "expect": "__until(() => !!__radio(__anime))"
+  },
+  {
+    "eval": "__pick(__anime);"
   },
   {
     "click": "#btn-model-switch"
@@ -156,7 +213,7 @@
     "expect": "__model(__anime)"
   },
   {
-    "expect": "els.modelStyle.textContent === 'Anime' && els.modelRefine.textContent === 'Yes' && els.modelMegapixels.textContent === modelCatalogueDetails[els.modelSelect.value].megapixels && els.modelFavourite.getAttribute('aria-pressed') === 'true'"
+    "expect": "modelChoice() === __anime && __radio(__anime).checked && __value(__cells(__anime)[0]) === 'Anime' && __value(__cells(__anime)[1]) === 'Yes' && __factsMatch(__anime) && __star(__anime).getAttribute('aria-pressed') === 'true'"
   },
   {
     "eval": "__releaseLoras(); __releaseRuns(); api = __realApi;"
@@ -201,13 +258,13 @@
     "click": "#btn-models"
   },
   {
-    "eval": "els.modelSelect.value = __flux; els.modelSelect.dispatchEvent(new Event('change'));"
+    "eval": "__pick(__flux);"
   },
   {
     "click": "#btn-model-switch"
   },
   {
-    "expect": "els.modelSwitch.getAttribute('aria-disabled') === 'true' && els.modelPickerNote.textContent.includes('queued or running') && document.activeElement === els.modelSwitch && loadedModel === __anime"
+    "expect": "els.modelSwitch.getAttribute('aria-disabled') === 'true' && els.modelPickerNote.textContent.includes('queued or running') && document.activeElement === els.modelSwitch && loadedModel === __anime && modelChoice() === __flux"
   },
   {
     "expect": "__until(() => !busy)"
@@ -252,7 +309,10 @@
     "click": "#btn-models"
   },
   {
-    "eval": "els.modelSelect.value = __anime; els.modelSelect.dispatchEvent(new Event('change'));"
+    "expect": "__until(() => !!__radio(__anime) && modelChoice() === __flux)"
+  },
+  {
+    "eval": "__pick(__anime);"
   },
   {
     "click": "#btn-model-switch"
@@ -279,6 +339,9 @@
     "log": "'The picker and fixed topbar fit narrow, laptop and wide windows without a sideways page'"
   },
   {
+    "eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; };"
+  },
+  {
     "viewport": [
       600,
       900
@@ -288,7 +351,13 @@
     "click": "#btn-models"
   },
   {
-    "expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth && els.modelPicker.getBoundingClientRect().right <= innerWidth && els.modelPicker.getBoundingClientRect().left >= 0 && document.querySelector('.topbar').getBoundingClientRect().height === parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && els.modelFavourite.getAttribute('aria-pressed') === 'true' && els.modelSelect.options[0].value === 'cagliostrolab/animagine-xl-4.0'"
+    "expect": "__until(() => modelCatalogueLoaded && !modelCataloguePending && els.modelTable.querySelector('.model-row[data-model]'))"
+  },
+  {
+    "eval": "window.__h = (id) => [...els.modelTable.querySelectorAll('.model-row')].find((r) => r.dataset.model === id);"
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth && els.modelPicker.getBoundingClientRect().right <= innerWidth && els.modelPicker.getBoundingClientRect().left >= 0 && document.querySelector('.topbar').getBoundingClientRect().height === parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && __h('cagliostrolab/animagine-xl-4.0').querySelector('.model-star').getAttribute('aria-pressed') === 'true' && els.modelTable.querySelector('.model-row[data-model]').dataset.model === 'cagliostrolab/animagine-xl-4.0' && els.modelTable.querySelector('.model-group').textContent === 'Favourites' && modelChoice() === 'cagliostrolab/animagine-xl-4.0'"
   },
   {
     "viewport": [
@@ -306,7 +375,7 @@
     ]
   },
   {
-    "eval": "(async () => { els.modelSelect.value = 'black-forest-labs/FLUX.1-Krea-dev'; els.modelSelect.dispatchEvent(new Event('change')); await switchModel(); })()"
+    "eval": "(async () => { chooseModel('black-forest-labs/FLUX.1-Krea-dev'); modelPickerEdited(); await switchModel(); })()"
   },
   {
     "wait": 3400
@@ -321,13 +390,19 @@
     "log": "'Loader settings and startup choice are saved by the server; changed settings can be applied without loading weights'"
   },
   {
-    "eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; }; window.__originalLoader = {...modelRuntimeSettings};"
+    "eval": "(async () => { window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; }; window.__flux = 'black-forest-labs/FLUX.1-Krea-dev'; window.__anime = 'cagliostrolab/animagine-xl-4.0'; window.__originalLoader = {...modelRuntimeSettings}; })()"
   },
   {
     "click": "#btn-models"
   },
   {
     "expect": "__until(() => modelCatalogueLoaded && !modelCataloguePending && els.modelLoadOnStartup.checked)"
+  },
+  {
+    "eval": "(() => { window.__rows = () => [...els.modelTable.querySelectorAll('.model-row:not(.model-row-head)')]; window.__row = (id) => __rows().find((r) => r.dataset.model === id); window.__radio = (id) => __row(id)?.querySelector('input[name=\"model-choice\"]'); window.__star = (id) => __row(id)?.querySelector('.model-star'); window.__pick = (id) => { __radio(id).click(); return modelChoice() === id; }; window.__cells = (id) => [...__row(id).querySelectorAll('.model-fact')]; window.__value = (cell) => [...cell.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(''); window.__small = (cell) => cell.querySelector('small')?.textContent ?? ''; window.__shown = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility === 'visible'; }; window.__factsMatch = (id) => { const d = modelCatalogueDetails[id] ?? {}; const row = __row(id); const entry = modelCatalogueEntries.find((e) => e.model_id === id); const [style, refine, size, speed] = __cells(id); const label = (cell) => cell.querySelector('.sr-only')?.textContent; const link = row.querySelector('a.model-link'); return __cells(id).length === 4 && row.querySelector('.model-name').textContent === entry.label && __star(id).getAttribute('aria-label') === `Star ${entry.label}` && label(style) === 'Style: ' && __value(style) === (d.style || '—') && label(refine) === 'Refine: ' && __value(refine) === (d.refine || '—') && refine.title === (d.refine_note || '') && label(size) === 'Max size: ' && __value(size) === (d.megapixels || '—') && __small(size) === (d.megapixels_label || '') && size.title === (d.megapixels_note || '') && label(speed) === 'Speed: ' && __value(speed) === (d.speed_label || 'Unmeasured') && __small(speed) === [d.speed_summary, d.speed_basis].filter(Boolean).join(' · ') && speed.title === (d.speed_note || '') && (d.url ? link?.href === d.url && link.target === '_blank' : !link) && [row.querySelector('.model-name'), ...__cells(id)].every(__shown); }; window.__allRows = () => modelCatalogueEntries.length > 10 && __rows().length === modelCatalogueEntries.length && new Set(__rows().map((r) => r.dataset.model)).size === modelCatalogueEntries.length && modelCatalogueEntries.every((e) => __row(e.model_id) && __factsMatch(e.model_id)); window.__order = () => __rows().map((r) => r.dataset.model).join('|'); window.__groups = () => [...els.modelTable.children].filter((e) => !e.classList.contains('model-row-head')).reduce((out, e) => { if (e.classList.contains('model-group')) out.push([e.textContent, 0]); else if (out.length) out[out.length - 1][1] += 1; return out; }, []); window.__modelLayout = () => { const picker = els.modelPicker.getBoundingClientRect(), actions = els.modelSwitch.getBoundingClientRect(); return picker.left >= 0 && picker.right <= innerWidth && picker.bottom <= innerHeight && actions.bottom <= innerHeight && document.documentElement.scrollWidth <= document.documentElement.clientWidth && els.modelTable.scrollWidth <= els.modelTable.clientWidth + 2 && [...els.modelTable.querySelectorAll('.model-fact, .model-fact > small, .model-name, .model-row-head > span')].every((e) => e.scrollWidth <= e.clientWidth); }; window.__loaderFits = () => { const ctx = document.createElement('canvas').getContext('2d'); return [els.modelQuantization, els.modelOffload].every((el) => { const css = getComputedStyle(el); ctx.font = `${css.fontSize} ${css.fontFamily}`; return [...el.options].every((option) => ctx.measureText(option.textContent).width < el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - 24); }); }; })()"
+  },
+  {
+    "expect": "__allRows() && modelChoice() === __flux"
   },
   {
     "eval": "window.__realApi = api; window.__releaseCatalogue = null; api = async (path, options) => { const body = await __realApi(path, options); if (path.startsWith('/api/models?') && path.includes('quantization=int8') && !__releaseCatalogue) return new Promise((resolve) => { __releaseCatalogue = () => resolve(body); }); return body; }; els.modelQuantization.value = 'int8'; els.modelQuantization.dispatchEvent(new Event('change'));"
@@ -342,13 +417,13 @@
     "expect": "__until(() => !modelCataloguePending && els.modelQuantization.value === 'int8' && els.modelOffload.value === 'sequential' && !els.modelLoadOnStartup.checked)"
   },
   {
-    "expect": "els.modelSpeedBasis.textContent.includes('reference') && els.modelSpeed.title.includes('no matching timing') && els.modelQuantizationHelp.textContent === els.modelQuantization.selectedOptions[0].dataset.description && els.modelOffloadHelp.textContent === els.modelOffload.selectedOptions[0].dataset.description"
+    "expect": "__small(__cells(__flux)[3]).includes('reference') && __cells(__flux)[3].title.includes('no matching timing') && __allRows() && modelChoice() === __flux && els.modelQuantizationHelp.textContent === els.modelQuantization.selectedOptions[0].dataset.description && els.modelOffloadHelp.textContent === els.modelOffload.selectedOptions[0].dataset.description"
   },
   {
     "eval": "(async () => { await refreshStatus(); window.__loaderRevision = modelRevision; })()"
   },
   {
-    "expect": "modelState === 'ready' && modelRuntimeSettings.quantization === __originalLoader.quantization && els.modelQuantization.value === 'int8' && els.modelOffload.value === 'sequential' && !els.modelLoadOnStartup.checked"
+    "expect": "modelState === 'ready' && modelRuntimeSettings.quantization === __originalLoader.quantization && els.modelQuantization.value === 'int8' && els.modelOffload.value === 'sequential' && !els.modelLoadOnStartup.checked && modelChoice() === __flux"
   },
   {
     "click": "#btn-model-save"
@@ -357,7 +432,7 @@
     "expect": "__until(() => !modelSwitchSending && modelState === 'unloaded' && modelRuntimeSettings.quantization === 'int8' && modelRuntimeSettings.offload === 'sequential' && !modelRuntimeSettings.load_on_startup)"
   },
   {
-    "expect": "modelRevision > __loaderRevision && els.modelSwitch.getAttribute('aria-disabled') === 'false' && !els.load.hidden && els.prompt.value === '1girl, blue eyes, outdoors' && els.steps.value === '31' && els.cfg.value === '4'"
+    "expect": "modelRevision > __loaderRevision && els.modelSwitch.getAttribute('aria-disabled') === 'false' && !els.load.hidden && els.prompt.value === '1girl, blue eyes, outdoors' && els.steps.value === '31' && els.cfg.value === '4' && modelChoice() === __flux"
   },
   {
     "click": "#btn-model-switch"
@@ -390,16 +465,16 @@
     "expect": "__until(() => !modelSwitchSending && modelState === 'ready' && modelRuntimeSettings.load_on_startup && els.modelPickerNote.textContent.includes('Settings saved'))"
   },
   {
-    "log": "'Facts and loader labels fit a phone, with fixed actions even when its short body scrolls'"
+    "log": "'Every row facts and the loader labels fit a phone, with fixed actions even when its short body scrolls'"
   },
   {
     "viewport": [390, 600]
   },
   {
-    "eval": "window.__chooseModel = (id) => { els.modelSelect.value = id; els.modelSelect.dispatchEvent(new Event('change')); }; window.__modelLayout = () => { const picker = els.modelPicker.getBoundingClientRect(), actions = els.modelSwitch.getBoundingClientRect(); return picker.left >= 0 && picker.right <= innerWidth && picker.bottom <= innerHeight && actions.bottom <= innerHeight && document.documentElement.scrollWidth <= document.documentElement.clientWidth && [...els.modelInfo.querySelectorAll('dt, dd')].every((e) => e.scrollHeight <= e.clientHeight && e.scrollWidth <= e.clientWidth); }; window.__loaderFits = () => { const ctx = document.createElement('canvas').getContext('2d'); return [els.modelQuantization, els.modelOffload].every((el) => { const css = getComputedStyle(el); ctx.font = `${css.fontSize} ${css.fontFamily}`; return [...el.options].every((option) => ctx.measureText(option.textContent).width < el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - 24); }); }; window.__actionsY = els.modelSwitch.getBoundingClientRect().top;"
+    "eval": "window.__actionsY = els.modelSwitch.getBoundingClientRect().top;"
   },
   {
-    "expect": "[...els.modelSelect.options].every((option) => { __chooseModel(option.value); return els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout(); }) && __loaderFits()"
+    "expect": "__allRows() && __modelLayout() && modelCatalogueEntries.every((e) => __pick(e.model_id) && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()) && __loaderFits()"
   },
   {
     "eval": "window.__loaderHelpFits = () => { const saved = [els.modelQuantization.value, els.modelOffload.value]; const fits = [[els.modelQuantization, els.modelQuantizationHelp], [els.modelOffload, els.modelOffloadHelp]].every(([select, help]) => [...select.options].every(option => { select.value = option.value; syncModelSwitch(); return help.textContent === option.dataset.description && help.scrollHeight <= help.clientHeight && help.scrollWidth <= help.clientWidth && els.modelSwitch.getBoundingClientRect().top === __actionsY; })); [els.modelQuantization.value, els.modelOffload.value] = saved; syncModelSwitch(); return fits; };"
@@ -408,22 +483,10 @@
     "expect": "__loaderHelpFits()"
   },
   {
-    "eval": "__chooseModel('LyliaEngine/waiIllustriousSDXL_v170');"
+    "expect": "__small(__cells('LyliaEngine/waiIllustriousSDXL_v170')[2]) === 'Reference size' && __small(__cells('NewBie-AI/NewBie-image-Exp0.1')[2]) === 'Largest example' && __small(__cells(__flux)[2]) === 'Max recommended' && __value(__cells(__flux)[2]) === '1.64 MP' && [__flux, 'LyliaEngine/waiIllustriousSDXL_v170', 'NewBie-AI/NewBie-image-Exp0.1'].every((id) => [...__cells(id)].every(__shown)) && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()"
   },
   {
-    "expect": "els.modelMegapixelsLabel.textContent === 'Reference size' && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()"
-  },
-  {
-    "eval": "__chooseModel('NewBie-AI/NewBie-image-Exp0.1');"
-  },
-  {
-    "expect": "els.modelMegapixelsLabel.textContent === 'Largest example' && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()"
-  },
-  {
-    "eval": "__chooseModel('black-forest-labs/FLUX.1-Krea-dev');"
-  },
-  {
-    "expect": "els.modelMegapixelsLabel.textContent === 'Max recommended' && els.modelMegapixels.textContent === '1.64 MP' && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()"
+    "eval": "__pick(__flux);"
   },
   {
     "viewport": [390, 420]
@@ -432,7 +495,7 @@
     "eval": "window.__actionsY = els.modelSwitch.getBoundingClientRect().top; els.modelPickerBody.scrollTop = els.modelPickerBody.scrollHeight;"
   },
   {
-    "expect": "__modelLayout() && els.modelPickerBody.scrollHeight > els.modelPickerBody.clientHeight && els.modelSwitch.getBoundingClientRect().top === __actionsY && els.modelSave.getBoundingClientRect().top >= els.modelPicker.getBoundingClientRect().top"
+    "expect": "__modelLayout() && els.modelPickerBody.scrollHeight > els.modelPickerBody.clientHeight && els.modelPickerBody.scrollTop > 0 && els.modelSwitch.getBoundingClientRect().top === __actionsY && els.modelSave.getBoundingClientRect().top >= els.modelPicker.getBoundingClientRect().top"
   },
   {
     "viewport": [2560, 1305]
@@ -441,10 +504,10 @@
     "eval": "els.modelPickerBody.scrollTop = 0; window.__actionsY = els.modelSwitch.getBoundingClientRect().top;"
   },
   {
-    "expect": "[...els.modelSelect.options].every((option) => { __chooseModel(option.value); return els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout(); }) && __loaderFits() && parseFloat(getComputedStyle(els.modelStyle).fontSize) >= 15"
+    "expect": "__allRows() && modelCatalogueEntries.every((e) => __pick(e.model_id) && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()) && __loaderFits() && parseFloat(getComputedStyle(__cells(__flux)[0]).fontSize) >= 14"
   },
   {
-    "eval": "__chooseModel('black-forest-labs/FLUX.1-Krea-dev');"
+    "eval": "__pick(__flux);"
   },
   {
     "viewport": [1400, 900]
@@ -462,49 +525,49 @@
     "expect": "__until(() => !modelSwitchSending && modelState === 'ready' && modelRuntimeSettings.quantization === __originalLoader.quantization && modelRuntimeSettings.offload === __originalLoader.offload && !modelRuntimeSettings.load_on_startup)"
   },
   {
-    "log": "'Favourite persistence tolerates corrupt data, merges another tab and reports a blocked write without losing the choice'"
+    "log": "'Favourite persistence tolerates corrupt data, merges another tab and reports a blocked write without losing the choice; open stars change in place'"
   },
   {
-    "eval": "try { localStorage.setItem(MODEL_FAVOURITES_KEY, '{broken'); } catch {} restoreModelFavourites(); renderModelOptions(els.modelSelect.value);"
+    "eval": "window.__rowOrder = __order(); try { localStorage.setItem(MODEL_FAVOURITES_KEY, '{broken'); } catch {} restoreModelFavourites(); renderModelOptions(modelChoice());"
   },
   {
-    "expect": "modelFavourites.size === 0 && els.modelFavourite.getAttribute('aria-pressed') === 'false' && els.modelSelect.value === 'black-forest-labs/FLUX.1-Krea-dev'"
+    "expect": "modelFavourites.size === 0 && __rows().every((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'false') && modelChoice() === __flux && __order() === __rowOrder"
   },
   {
-    "eval": "try { localStorage.setItem(MODEL_FAVOURITES_KEY, JSON.stringify(['cagliostrolab/animagine-xl-4.0', null, 7, ''])); } catch {}"
+    "eval": "try { localStorage.setItem(MODEL_FAVOURITES_KEY, JSON.stringify(['cagliostrolab/animagine-xl-4.0', null, 7, ''])); } catch {} __star(__flux).scrollIntoView({block: 'nearest'});"
   },
   {
-    "click": "#btn-model-favourite"
+    "click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"
   },
   {
-    "expect": "modelFavourites.size === 2 && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && modelFavourites.has('black-forest-labs/FLUX.1-Krea-dev') && els.modelSelect.querySelector('optgroup').children.length === 2"
+    "expect": "modelFavourites.size === 2 && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && modelFavourites.has('black-forest-labs/FLUX.1-Krea-dev') && __star(__flux).getAttribute('aria-pressed') === 'true' && __star(__anime).getAttribute('aria-pressed') === 'true' && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 2 && __order() === __rowOrder && modelChoice() === __flux"
   },
   {
     "eval": "window.__storageSetItem = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (key === MODEL_FAVOURITES_KEY) throw new Error('Storage unavailable'); return __storageSetItem.call(this, key, value); };"
   },
   {
-    "click": "#btn-model-favourite"
+    "click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"
   },
   {
-    "expect": "els.modelFavourite.getAttribute('aria-pressed') === 'false' && els.modelPickerNote.textContent.includes('could not save') && els.modelSelect.value === 'black-forest-labs/FLUX.1-Krea-dev' && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && els.modelSave.getAttribute('aria-disabled') === 'false'"
+    "expect": "__star(__flux).getAttribute('aria-pressed') === 'false' && els.modelPickerNote.textContent.includes('could not save') && modelChoice() === 'black-forest-labs/FLUX.1-Krea-dev' && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && els.modelSave.getAttribute('aria-disabled') === 'false'"
   },
   {
     "eval": "Storage.prototype.setItem = __storageSetItem; try { const saved = JSON.stringify(['cagliostrolab/animagine-xl-4.0', 'black-forest-labs/FLUX.1-Krea-dev', 'SeeSee21/Z-Anime']); localStorage.setItem(MODEL_FAVOURITES_KEY, saved); window.dispatchEvent(new StorageEvent('storage', {key: MODEL_FAVOURITES_KEY, newValue: saved, storageArea: localStorage})); } catch {}"
   },
   {
-    "expect": "modelFavourites.has('SeeSee21/Z-Anime') && !modelFavourites.has('black-forest-labs/FLUX.1-Krea-dev') && els.modelFavourite.getAttribute('aria-pressed') === 'false' && els.modelPickerNote.textContent.includes('could not save')"
+    "expect": "modelFavourites.has('SeeSee21/Z-Anime') && !modelFavourites.has('black-forest-labs/FLUX.1-Krea-dev') && __star(__flux).getAttribute('aria-pressed') === 'false' && __star('SeeSee21/Z-Anime').getAttribute('aria-pressed') === 'true' && els.modelPickerNote.textContent.includes('could not save') && __order() === __rowOrder"
   },
   {
-    "click": "#btn-model-favourite"
+    "click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"
   },
   {
-    "expect": "els.modelFavourite.getAttribute('aria-pressed') === 'true' && !els.modelPickerNote.textContent.includes('could not save') && modelFavourites.size === 3"
+    "expect": "__star(__flux).getAttribute('aria-pressed') === 'true' && !els.modelPickerNote.textContent.includes('could not save') && modelFavourites.size === 3"
   },
   {
     "eval": "try { window.dispatchEvent(new StorageEvent('storage', {key: MODEL_FAVOURITES_KEY, newValue: '[]', storageArea: localStorage})); } catch {}"
   },
   {
-    "expect": "modelFavourites.size === 3 && els.modelFavourite.getAttribute('aria-pressed') === 'true' && modelFavourites.has('SeeSee21/Z-Anime') && els.modelSelect.querySelector('optgroup').children.length === 3"
+    "expect": "modelFavourites.size === 3 && __star(__flux).getAttribute('aria-pressed') === 'true' && modelFavourites.has('SeeSee21/Z-Anime') && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 3 && __order() === __rowOrder"
   },
   {
     "navigate": "http://127.0.0.1:7896/"
@@ -519,9 +582,27 @@
     "wait": 500
   },
   {
-    "expect": "modelFavourites.size === 3 && els.modelFavourite.getAttribute('aria-pressed') === 'true' && els.modelSelect.querySelector('optgroup').label === 'Favourites' && els.modelSelect.querySelector('optgroup').children.length === 3"
+    "eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; }; window.__rows = () => [...els.modelTable.querySelectorAll('.model-row:not(.model-row-head)')]; window.__groups = () => [...els.modelTable.children].filter((e) => !e.classList.contains('model-row-head')).reduce((out, e) => { if (e.classList.contains('model-group')) out.push([e.textContent, 0]); else if (out.length) out[out.length - 1][1] += 1; return out; }, []);"
+  },
+  {
+    "expect": "modelFavourites.size === 3 && JSON.stringify(__groups()) === JSON.stringify([['Favourites', 3], ['All models', modelCatalogueEntries.length - 3]]) && JSON.stringify(__rows().slice(0, 3).map((r) => r.dataset.model).sort()) === JSON.stringify(['SeeSee21/Z-Anime', 'black-forest-labs/FLUX.1-Krea-dev', 'cagliostrolab/animagine-xl-4.0']) && __rows().slice(0, 3).every((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true') && new Set(__rows().map((r) => r.dataset.model)).size === modelCatalogueEntries.length"
   },
   {
     "key": "Escape"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => !els.modelPicker.hidden && !modelCataloguePending)"
+  },
+  {
+    "expect": "JSON.stringify(__groups()) === JSON.stringify([['Favourites', 3], ['All models', modelCatalogueEntries.length - 3]]) && modelChoice() === 'black-forest-labs/FLUX.1-Krea-dev' && document.activeElement === __rows().find((r) => r.dataset.model === 'black-forest-labs/FLUX.1-Krea-dev').querySelector('input')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "els.modelPicker.hidden && document.activeElement === els.models"
   }
 ]

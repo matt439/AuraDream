@@ -280,12 +280,22 @@ documented/native maximum or reference/example size; the tooltip carries the
 source and qualifications. An author's example does not become a guaranteed
 maximum, and a documented range is not a measured quality ranking. A custom
 launch id gets unknown/after-load facts rather than another model's guide.
-The source model card remains a link; full prompting guidance stays beside the
-prompt controls. Facts use readable body text, quantization and offload use
-full-width selects with short labels and visible explanations, and the footer
-keeps the load/save buttons in place while the picker body scrolls.
-The facts use four columns on desktop and two on phones; explanation slots
-reserve enough height that changing an option does not shift the actions.
+Each model card stays one link away; full prompting guidance stays beside the
+prompt controls.
+
+The checkpoint is chosen from a table that shows every model's facts at once
+(2026-10-08). With a dropdown and one facts block, comparing meant choosing
+each model in turn. The picker is opened rarely, mostly at launch, so a large
+panel (up to 900 px wide, its body scrolling under fixed actions) costs little.
+Each row is a radio (Model, Style, Refine, Max size with its label, Speed
+with its sample and basis), its star and its model-page link; the label is
+`display: contents` on a shared column template, so cells line up and a
+press anywhere on the facts chooses the row. Below 700 px the facts take a
+second line, and below 480 px two facts a line. Quantization and offload sit
+side by side above the table, since they decide which checkpoints it offers
+and which timings its Speed column shows; their explanations reserve their
+height. A press on a row's gaps chooses the row, and the picker body takes the
+focus for presses on its empty space, so the focusout check keeps it open.
 
 On a fresh browser visit, the first accepted status opens Models if the server
 is idle and unloaded or has a load error. A ready model, an active load or work
@@ -302,7 +312,9 @@ land on another row when the rows move: the popup is a separate window that
 Chromium re-anchors (rewritten in M154), or rows are added or removed. Page
 code cannot correct the window's placement, so the picker's selects now use
 `appearance: base-select` (Chromium 135+) and draw their lists in the page,
-where hover is plain `:hover`. Other browsers keep native lists.
+where hover is plain `:hover`. Other browsers keep native lists. (The
+checkpoint dropdown has since become the table above; the loader selects
+keep this treatment.)
 
 An in-page list moves under the pointer (and loses its focus) if its options
 are rebuilt while open, so while any picker list matches `:open` catalogue
@@ -332,14 +344,18 @@ comparison, live ETA or measurements at the maximum MP shown beside them.
 Changing draft offload settings refreshes these facts as changing quantization
 does, without applying either setting or loading a model.
 
-A star beside the selected checkpoint saves a browser-local favourite
-immediately. The native select groups Favourites first and All models after,
-without duplicating choices. The canonical catalogue id keys the star so
+Each row's star saves a browser-local favourite immediately. The table groups
+Favourites first and All models after, without duplicating rows, but only when
+it is drawn for an opening (or while the picker is closed): a star pressed in
+an open picker changes in place, because regrouping then would move the row,
+and the next one, under the pointer. The canonical catalogue id keys the star so
 ordinary and Nunchaku formats share it; Anima Turbo and Aesthetic retain their
-distinct identities. Starring preserves the selection and unsaved loader edits,
-does not load weights, and keeps button focus. Browser storage is guarded;
-when unavailable the session can keep stars while the page reports that they
-could not be saved. Other tabs' storage changes refresh favourite ordering.
+distinct identities. Starring preserves the choice and unsaved loader edits,
+does not load weights, and keeps button focus. A table rebuilt for new loading
+options returns focus to the same model's control, since losing it would close
+the picker. Browser storage is guarded; when unavailable the session can keep
+stars while the page reports that they could not be saved. Other tabs' storage
+changes update the stars, and the grouping at the next opening.
 
 These details require no weights or tokenizer load. Unsaved picker edits
 survive status polling; a changed server revision retires them. Quantization

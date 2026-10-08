@@ -33,26 +33,27 @@
   <div class="vram" id="vram"></div>
   <button class="ghost" id="btn-models" aria-expanded="false" aria-controls="model-picker">Models</button>
   <section class="model-picker" id="model-picker" aria-labelledby="model-picker-label" hidden>
-    <div class="model-picker-body" id="model-picker-body">
-      <div class="model-picker-heading">
-        <label id="model-picker-label" for="model-select">Checkpoint</label>
-        <a id="model-page" target="_blank" rel="noopener" hidden>Model page ↗</a>
-      </div>
-      <div class="model-choice">
-        <select id="model-select" autocomplete="off" aria-describedby="model-picker-help model-picker-note"></select>
-        <button class="ghost model-favourite" id="btn-model-favourite" aria-label="Star model" aria-pressed="false" title="Add this model to your favourites">☆</button>
-      </div>
-      <dl class="model-facts" id="model-info" aria-label="Selected model">
-        <div><dt>Style</dt><dd id="model-style">—</dd></div>
-        <div><dt>Refine</dt><dd id="model-refine">—</dd></div>
-        <div><dt id="model-megapixels-label">Max recommended</dt><dd id="model-megapixels">—</dd></div>
-        <div class="model-speed-fact"><dt>Speed <span id="model-speed-basis"></span></dt><dd><span id="model-speed">—</span><span id="model-speed-summary"></span></dd></div>
-      </dl>
+    <!-- tabindex -1: a press on the picker's empty space or its heading keeps
+         the focus inside it, where the focusout check leaves the picker open. -->
+    <div class="model-picker-body" id="model-picker-body" tabindex="-1">
+      <!-- The loading options come first: they decide which checkpoints the
+           table offers and which timings its Speed column shows. -->
       <div class="model-loader-options">
         <div><label for="model-quantization">Quantization</label><select id="model-quantization" autocomplete="off" aria-describedby="model-quantization-help"></select><p class="model-loader-help" id="model-quantization-help"></p></div>
         <div><label for="model-offload">Offload</label><select id="model-offload" autocomplete="off" aria-describedby="model-offload-help"></select><p class="model-loader-help" id="model-offload-help"></p></div>
       </div>
       <label class="model-format" id="model-format-field" for="model-format" hidden>Nunchaku format<select id="model-format" autocomplete="off"></select></label>
+      <div class="model-picker-heading" id="model-picker-label">Checkpoint</div>
+      <!-- Every model with its facts, so they compare without choosing each in
+           turn. One radio per row (arrow keys move the choice); stars and model
+           pages sit beside, outside the label. model-switch.js fills the rows
+           after the heading; speeds follow the loading options below. -->
+      <div class="model-table" id="model-table" role="radiogroup" aria-labelledby="model-picker-label"
+           aria-describedby="model-picker-help model-picker-note">
+        <div class="model-row model-row-head" id="model-table-head" aria-hidden="true">
+          <span></span><span>Model</span><span>Style</span><span>Refine</span><span>Max size</span><span>Speed</span><span></span>
+        </div>
+      </div>
       <label class="check model-startup"><input type="checkbox" id="model-load-on-startup"> Load automatically on startup</label>
       <p id="model-picker-help">Both actions save for next time. Apply leaves changed settings unloaded; Switch loads them now.</p>
     </div>

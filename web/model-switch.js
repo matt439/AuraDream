@@ -11,7 +11,6 @@ let modelCatalogueEpoch = 0;
 let modelCatalogueKind = '';
 let modelCatalogueDetails = {};
 let modelCatalogueEntries = [];
-let modelInfoKey = null;
 let modelStatusEpoch = 0;
 let modelSwitchError = null;
 let modelPickerMessage = null;
@@ -27,6 +26,10 @@ const MODEL_FAVOURITES_KEY = 'local-diffusion.model-favourites.v1';
 let modelFavourites = new Set();
 let modelFavouriteMessage = null;
 let modelFavouriteChanges = new Map();
+// The favourites the table is grouped by. A star toggles in place while the
+// picker is open (moving its row would move a control under the pointer);
+// the next opening groups by the stars as they are then.
+let modelTableGrouping = null;
 
 function parseModelFavourites(raw) {
   try {
@@ -52,13 +55,13 @@ function modelFavouriteId(modelId) {
   return modelCatalogueDetails[modelId]?.favourite_id || modelId;
 }
 
-// The picker's lists draw in the page (base-select). Rebuilding or reselecting
-// an open one moves its rows under a still pointer, so status polls, catalogue
-// replies and other tabs' favourites wait for every list to close.
+// The loader selects draw their lists in the page (base-select). Rebuilding or
+// reselecting an open one moves its rows under a still pointer, so status
+// writes to it and catalogue replies wait for every list to close.
 function modelListOpen() {
   if (els.modelPicker.hidden) return false;
   try {
-    return [els.modelSelect, els.modelQuantization, els.modelOffload, els.modelFormat]
+    return [els.modelQuantization, els.modelOffload, els.modelFormat]
       .some((select) => select.matches(':open'));
   } catch { return false; } // No :open: a native popup the page cannot see.
 }
@@ -74,19 +77,6 @@ function setModelAttribute(element, name, value) {
   if (element.getAttribute(name) !== value) element.setAttribute(name, value);
 }
 
-function syncModelFavourite() {
-  const selected = els.modelSelect.value;
-  const on = !!selected && modelFavourites.has(modelFavouriteId(selected));
-  const name = modelCatalogueEntries.find((entry) => entry.model_id === selected)?.label || 'this model';
-  const star = on ? '★' : '☆';
-  if (els.modelFavourite.textContent !== star) els.modelFavourite.textContent = star;
-  setModelAttribute(els.modelFavourite, 'aria-pressed', String(on));
-  setModelAttribute(els.modelFavourite, 'aria-disabled', String(!selected));
-  setModelAttribute(els.modelFavourite, 'title', !selected ? 'Choose a checkpoint to add to your favourites'
-    : on ? `${name} is a favourite — click to remove`
-      : `Add ${name} to your favourites in this browser`);
-}
-
 // Replace a list's options only when they differ, so an unchanged catalogue
 // reply leaves the rows, and any highlight in them, where they were.
 function setModelOptions(control, key, build) {
@@ -99,48 +89,146 @@ function selectModelValue(control, value) {
   if (control.value !== value) control.value = value;
 }
 
-function renderModelOptions(wanted) {
-  const rows = modelCatalogueEntries.map((entry) => ({
-    id: entry.model_id, label: entry.label, style: modelCatalogueDetails[entry.model_id]?.style,
-    favourite: modelFavourites.has(modelFavouriteId(entry.model_id)),
-  }));
-  // A different weight format can expose a different set of model ids.
-  // Make the fresh choice explicit instead of silently selecting its head.
-  const missing = !rows.some((row) => row.id === wanted);
-  setModelOptions(els.modelSelect, JSON.stringify([missing, rows]), () => {
-    const favourites = [];
-    const others = [];
-    for (const row of rows) {
-      const option = new Option(`${row.label}${row.style ? ` · ${row.style}` : ''}`, row.id);
-      option.title = `${row.label}${row.style ? ` — ${row.style}` : ''}`;
-      (row.favourite ? favourites : others).push(option);
-    }
-    const children = missing ? [new Option('Choose a checkpoint…', '')] : [];
-    if (!favourites.length) return [...children, ...others];
-    for (const [label, options] of [['Favourites', favourites], ['All models', others]]) {
-      if (!options.length) continue;
-      const group = document.createElement('optgroup');
-      group.label = label;
-      group.append(...options);
-      children.push(group);
-    }
-    return children;
-  });
-  selectModelValue(els.modelSelect, missing ? '' : wanted);
-  syncModelFavourite();
+// The checkpoint table: one radio per model, with its facts beside it.
+function modelRadios() {
+  return [...els.modelTable.querySelectorAll('input[name="model-choice"]')];
 }
 
-function toggleModelFavourite() {
-  const selected = els.modelSelect.value;
-  if (!selected) {
-    modelFavouriteMessage = 'Choose a checkpoint to add to your favourites.';
-    syncModelSwitch();
-    return;
+function modelChoice() {
+  return modelRadios().find((radio) => radio.checked)?.value ?? '';
+}
+
+function chooseModel(id) {
+  for (const radio of modelRadios()) {
+    const on = radio.value === id;
+    if (radio.checked !== on) radio.checked = on;
   }
+}
+
+function modelLabel(id) {
+  return modelCatalogueEntries.find((entry) => entry.model_id === id)?.label || id;
+}
+
+function syncModelStars() {
+  for (const star of els.modelTable.querySelectorAll('.model-star')) {
+    const id = star.closest('.model-row').dataset.model;
+    const on = modelFavourites.has(modelFavouriteId(id));
+    const name = modelLabel(id);
+    const glyph = on ? '★' : '☆';
+    if (star.textContent !== glyph) star.textContent = glyph;
+    setModelAttribute(star, 'aria-pressed', String(on));
+    setModelAttribute(star, 'title', on ? `${name} is a favourite — click to remove`
+      : `Add ${name} to your favourites in this browser`);
+  }
+}
+
+function modelFactCell(label, value, detail, note) {
+  const cell = document.createElement('span');
+  cell.className = 'model-fact';
+  if (note) cell.title = note;
+  const hidden = document.createElement('span');
+  hidden.className = 'sr-only';
+  hidden.textContent = `${label}: `;
+  cell.append(hidden, value || '—');
+  if (detail) {
+    const small = document.createElement('small');
+    small.textContent = detail;
+    cell.append(small);
+  }
+  return cell;
+}
+
+function modelTableRow(entry) {
+  const id = entry.model_id;
+  const info = modelCatalogueDetails[id] ?? {};
+  const row = document.createElement('div');
+  row.className = 'model-row';
+  row.dataset.model = id;
+  const star = document.createElement('button');
+  star.type = 'button';
+  star.className = 'ghost model-star';
+  star.setAttribute('aria-label', `Star ${entry.label}`);
+  const choice = document.createElement('label');
+  choice.className = 'model-row-choice';
+  const name = document.createElement('span');
+  name.className = 'model-name';
+  const radio = document.createElement('input');
+  radio.type = 'radio';
+  radio.name = 'model-choice';
+  radio.value = id;
+  name.append(radio, entry.label);
+  const speedDetail = [info.speed_summary, info.speed_basis].filter(Boolean).join(' · ');
+  choice.append(
+    name,
+    modelFactCell('Style', info.style),
+    modelFactCell('Refine', info.refine, '', info.refine_note),
+    modelFactCell('Max size', info.megapixels, info.megapixels_label, info.megapixels_note),
+    modelFactCell('Speed', info.speed_label || 'Unmeasured', speedDetail, info.speed_note),
+  );
+  row.append(star, choice);
+  if (info.url) {
+    const link = document.createElement('a');
+    link.className = 'model-link';
+    link.href = info.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = '↗';
+    link.title = `Open ${entry.label}'s model page`;
+    link.setAttribute('aria-label', `${entry.label} model page`);
+    row.append(link);
+  }
+  return row;
+}
+
+function renderModelOptions(wanted) {
+  if (els.modelPicker.hidden || !modelTableGrouping) modelTableGrouping = new Set(modelFavourites);
+  const grouped = (id) => modelTableGrouping.has(modelFavouriteId(id));
+  const favourites = modelCatalogueEntries.filter((entry) => grouped(entry.model_id));
+  const others = modelCatalogueEntries.filter((entry) => !grouped(entry.model_id));
+  const key = JSON.stringify([
+    favourites.map((entry) => entry.model_id), modelCatalogueEntries,
+    modelCatalogueEntries.map((entry) => modelCatalogueDetails[entry.model_id] ?? null),
+  ]);
+  if (modelOptionKeys.get(els.modelTable) !== key) {
+    // A rebuild (new loading options, a regrouped opening) keeps the keyboard
+    // focus on the same model's control: losing it would close the picker.
+    // The body holds it on a first opening, before any row exists.
+    const focused = els.modelTable.contains(document.activeElement)
+      || document.activeElement === els.modelPickerBody ? document.activeElement : null;
+    const focusModel = focused?.closest('.model-row')?.dataset.model;
+    const focusKind = focused?.classList.contains('model-star') ? '.model-star'
+      : focused?.classList.contains('model-link') ? '.model-link' : 'input';
+    const children = [els.modelTableHead];
+    for (const [label, entries] of favourites.length ? [['Favourites', favourites], ['All models', others]] : [['', others]]) {
+      if (!entries.length) continue;
+      if (label) {
+        const heading = document.createElement('div');
+        heading.className = 'model-group';
+        heading.textContent = label;
+        children.push(heading);
+      }
+      children.push(...entries.map(modelTableRow));
+    }
+    els.modelTable.replaceChildren(...children);
+    modelOptionKeys.set(els.modelTable, key);
+    if (focused) {
+      const row = [...els.modelTable.querySelectorAll('.model-row')].find((r) => r.dataset.model === focusModel);
+      (row?.querySelector(focusKind) ?? row?.querySelector('input') ?? modelRadios().find((radio) => radio.checked)
+        ?? modelRadios()[0] ?? els.modelPickerBody).focus({ preventScroll: true });
+    }
+  }
+  // A different weight format can expose a different set of model ids. Then
+  // no row is chosen, and the actions say to choose one, rather than silently
+  // selecting the head of the list.
+  chooseModel(wanted);
+  syncModelStars();
+}
+
+function toggleModelFavourite(modelId) {
   // Merge against storage at the time of the click: another tab may have
   // saved a star before its asynchronous storage event reaches this one.
   restoreModelFavourites();
-  const id = modelFavouriteId(selected);
+  const id = modelFavouriteId(modelId);
   if (modelFavourites.has(id)) modelFavourites.delete(id);
   else modelFavourites.add(id);
   modelFavouriteChanges.set(id, modelFavourites.has(id));
@@ -151,25 +239,21 @@ function toggleModelFavourite() {
   } catch {
     modelFavouriteMessage = 'Favourites changed for this page, but this browser could not save them for next time.';
   }
-  // Reordering only the list keeps pending loading settings and its selection.
-  renderModelOptions(selected);
+  // The star changes in place; the choice and pending loading settings stay.
+  syncModelStars();
   syncModelSwitch();
 }
 
-async function receiveModelFavourites(event) {
+function receiveModelFavourites(event) {
   if (event.key !== MODEL_FAVOURITES_KEY && event.key !== null) return;
   try { if (event.storageArea !== localStorage) return; }
   catch { return; }
   // Read the latest store, rather than an event that may precede this tab's
   // own recent click. Keep session-only changes after a refused write.
-  const before = JSON.stringify([...modelFavourites].sort());
   restoreModelFavourites();
   if (!modelFavouriteChanges.size) modelFavouriteMessage = null;
-  if (modelCatalogueLoaded && before !== JSON.stringify([...modelFavourites].sort())) {
-    // Regrouping moves the rows, so an open list keeps its order until it closes.
-    await whenModelListsClosed();
-    if (modelCatalogueLoaded) renderModelOptions(els.modelSelect.value);
-  }
+  if (modelCatalogueLoaded && els.modelPicker.hidden) renderModelOptions(modelChoice());
+  else syncModelStars();
   syncModelSwitch();
 }
 
@@ -179,7 +263,7 @@ function modelChangeHold() {
 
 function modelPickerSettings() {
   return {
-    model_id: els.modelSelect.value,
+    model_id: modelChoice(),
     quantization: els.modelQuantization.value,
     offload: els.modelOffload.value,
     format: els.modelFormat.value || undefined,
@@ -208,7 +292,7 @@ function modelSwitchHold({ load = true } = {}) {
     || (cardHolder ? 'Wait for the current GPU work to finish' : '')
     || (modelState === 'loading' ? 'The weights are still loading' : '')
     || (!modelCatalogueLoaded || modelCataloguePending ? 'The checkpoint list is still loading' : '')
-    || (!els.modelSelect.value ? 'Choose a checkpoint compatible with these settings' : '')
+    || (!modelChoice() ? 'Choose a checkpoint compatible with these settings' : '')
     || (load && !modelLoaderChanged() && modelState === 'ready' ? 'These model settings are already loaded; use Apply & save to remember them' : '');
 }
 
@@ -222,7 +306,7 @@ function syncModelSwitch() {
   setModelAttribute(els.modelSave, 'title', saveWhy || 'Remember these settings without starting a new load');
   const formatHidden = els.modelQuantization.value !== 'nunchaku';
   if (els.modelFormatField.hidden !== formatHidden) els.modelFormatField.hidden = formatHidden;
-  for (const select of [els.modelSelect, els.modelQuantization, els.modelOffload, els.modelFormat]) {
+  for (const select of [els.modelQuantization, els.modelOffload, els.modelFormat]) {
     const option = select.selectedOptions[0];
     setModelAttribute(select, 'title', option?.dataset.description || option?.textContent || '');
   }
@@ -230,34 +314,10 @@ function syncModelSwitch() {
     const text = select.selectedOptions[0]?.dataset.description || '';
     if (help.textContent !== text) help.textContent = text;
   }
-  syncModelFavourite();
   if (!els.modelPicker.hidden) {
     const note = modelSwitchError || modelFavouriteMessage || saveWhy || modelPickerMessage || 'The first load may download weights and take several minutes.';
     if (els.modelPickerNote.textContent !== note) els.modelPickerNote.textContent = note;
   }
-}
-
-function syncModelInfo() {
-  const info = modelCatalogueDetails[els.modelSelect.value];
-  const key = `${els.modelSelect.value}|${JSON.stringify(info)}`;
-  if (key === modelInfoKey) return;
-  modelInfoKey = key;
-  els.modelStyle.textContent = info?.style || '—';
-  els.modelRefine.textContent = info?.refine || '—';
-  els.modelRefine.title = info?.refine_note || '';
-  els.modelMegapixelsLabel.textContent = info?.megapixels_label || 'Max recommended';
-  els.modelMegapixels.textContent = info?.megapixels || '—';
-  els.modelMegapixels.title = info?.megapixels_note || '';
-  els.modelSpeed.textContent = info?.speed_label || 'Unmeasured';
-  els.modelSpeed.title = info?.speed_note || '';
-  els.modelSpeedSummary.textContent = info?.speed_summary || '';
-  els.modelSpeedSummary.title = info?.speed_note || '';
-  els.modelSpeedBasis.textContent = info?.speed_basis || '';
-  els.modelSpeedBasis.title = info?.speed_note || '';
-  els.modelPage.hidden = !info?.url;
-  if (info?.url) els.modelPage.href = info.url;
-  else els.modelPage.removeAttribute('href');
-  syncModelFavourite();
 }
 
 function modelPickerEdited({ catalogue = false } = {}) {
@@ -266,7 +326,6 @@ function modelPickerEdited({ catalogue = false } = {}) {
   modelPickerMessage = null;
   syncModelSwitch();
   if (catalogue) void refreshModelCatalogue();
-  else syncModelInfo();
 }
 
 // Polls update the current settings without erasing unsubmitted picker edits.
@@ -303,10 +362,10 @@ function applyModelSettings(reset) {
   if (!modelCatalogueLoaded || modelPickerDirty) return;
   const selected = modelRuntimeSettings;
   const applied = modelPickerAppliedSettings;
+  if (reset || !applied || applied.model_id !== selected.model_id) chooseModel(selected.model_id);
   let held = false;
   for (const [control, key] of [
-    [els.modelSelect, 'model_id'], [els.modelQuantization, 'quantization'],
-    [els.modelOffload, 'offload'], [els.modelFormat, 'format'],
+    [els.modelQuantization, 'quantization'], [els.modelOffload, 'offload'], [els.modelFormat, 'format'],
   ]) {
     if (!reset && applied && applied[key] === selected[key]) continue;
     if (modelListOpen() && control.matches(':open')) held = true;
@@ -328,9 +387,9 @@ function applyModelSettings(reset) {
   // A runtime id missing from its own catalogue (an off-catalogue launch id
   // under other loading options) is asked for once, not on every poll.
   if (modelCatalogueKind !== modelCatalogueKey(selected)
-      || (!els.modelSelect.value && modelCatalogueRequested !== `${modelCatalogueKind}|${selected.model_id}`)) {
+      || (!modelChoice() && modelCatalogueRequested !== `${modelCatalogueKind}|${selected.model_id}`)) {
     void refreshModelCatalogue({ current: true });
-  } else syncModelInfo();
+  }
 }
 
 // The first usable status decides once. A later unload or recovery must not
@@ -349,9 +408,12 @@ function showModelPicker(on, { focus = true } = {}) {
   els.modelPicker.hidden = !on;
   els.models.setAttribute('aria-expanded', String(on));
   if (on) {
+    // Each opening groups the table by the stars as they are now.
+    modelTableGrouping = new Set(modelFavourites);
+    if (modelCatalogueLoaded) renderModelOptions(modelChoice() || modelRuntimeSettings?.model_id);
     syncModelSwitch();
     void refreshModelCatalogue();
-    if (focus) els.modelSelect.focus({ preventScroll: true });
+    if (focus) (modelRadios().find((radio) => radio.checked) ?? modelRadios()[0] ?? els.modelPickerBody).focus({ preventScroll: true });
   } else if (focus && els.modelPicker.contains(document.activeElement)) {
     els.models.focus({ preventScroll: true });
   }
@@ -408,12 +470,11 @@ async function refreshModelCatalogue({ current = false } = {}) {
     // in flight, the next status still reconciles that change. A checkpoint the
     // list lacks is recorded as asked for, so polls stop rewriting it.
     const wantedModel = wanted.model_id ?? loadedModel;
-    modelPickerAppliedSettings = { ...modelPickerSettings(), model_id: els.modelSelect.value || wantedModel };
+    modelPickerAppliedSettings = { ...modelPickerSettings(), model_id: modelChoice() || wantedModel };
     modelCatalogueKind = modelCatalogueKey(modelPickerSettings());
     modelCatalogueRequested = `${modelCatalogueKind}|${wantedModel}`;
     modelCatalogueLoaded = true;
     modelSwitchError = null;
-    syncModelInfo();
   } catch (err) {
     if (epoch !== modelCatalogueEpoch) return;
     modelSwitchError = err.message;

@@ -640,8 +640,16 @@ els.load.onclick = loadModel;
 restoreModelFavourites();
 window.addEventListener('storage', receiveModelFavourites);
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
-els.modelSelect.onchange = () => modelPickerEdited();
-els.modelFavourite.onclick = toggleModelFavourite;
+els.modelTable.addEventListener('change', (event) => {
+  if (event.target.name === 'model-choice') modelPickerEdited();
+});
+els.modelTable.addEventListener('click', (event) => {
+  const star = event.target.closest('.model-star');
+  if (star) toggleModelFavourite(star.closest('.model-row').dataset.model);
+  // The gaps between a row's cells belong to the row, not its label: a press
+  // there chooses the row too, as its hover promises.
+  else if (event.target.matches('.model-row:not(.model-row-head)')) event.target.querySelector('input')?.click();
+});
 els.modelOffload.onchange = () => modelPickerEdited({ catalogue: true });
 els.modelLoadOnStartup.onchange = () => modelPickerEdited();
 els.modelQuantization.onchange = () => modelPickerEdited({ catalogue: true });
@@ -828,7 +836,7 @@ document.addEventListener('keydown', (e) => {
   // Nothing of the page's while a delete asks: Escape there is its Cancel,
   // which closed the lightbox under it as well, and Ctrl+Enter generated.
   if (els.confirmDialog.open || els.bundlesDialog.open) return;
-  // An open checkpoint or loader list draws in the page, so its keys reach
+  // An open loader list (quantization, offload, format) draws in the page, so its keys reach
   // here; they are the list's own (Escape closes only it), as they were when
   // the native popup kept them from the page.
   if (modelListOpen()) return;
