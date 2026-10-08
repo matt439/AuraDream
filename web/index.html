@@ -53,20 +53,25 @@
            model-switch.js fills the rows after the heading; speeds follow the
            loading options above. The heading row stays in view. -->
       <div class="model-table" id="model-table" role="radiogroup" aria-labelledby="model-picker-label"
-           aria-describedby="model-picker-help model-picker-note">
+           aria-describedby="model-picker-help">
         <div class="model-row model-row-head" id="model-table-head" aria-hidden="true">
           <span></span><span>Model</span><span>Style</span><span title="Whether this app can run a second image-to-image pass on this checkpoint">Refine</span><span title="Largest size the authors document or show; 1 MP is about 1024x1024">Size</span><span title="Timed on an RTX 5080. Fast, Medium or Slow only for a timing with these loading options; otherwise Reference or Unmeasured, from another setup">Speed</span><span></span>
         </div>
       </div>
-      <label class="check model-startup"><input type="checkbox" id="model-load-on-startup"> Load automatically on startup</label>
-      <p id="model-picker-help">Both actions save for next time. Apply leaves changed settings unloaded; Switch loads them now.</p>
+      <!-- What each action does with this choice (syncModelSwitch): read with
+           the table, not a live region, so an opening announces nothing. -->
+      <p class="sr-only" id="model-picker-help">Apply &amp; save saves these settings without loading them; Switch &amp; load loads them now.</p>
     </div>
+    <!-- The checkbox sits by the actions it is saved with. The note is the
+         outcomes and the server's state in a reserved height; Revert (unsaved
+         edits only) floats in its first line. -->
     <div class="model-picker-footer">
+      <label class="check model-startup"><input type="checkbox" id="model-load-on-startup"> Load automatically on startup</label>
       <div class="model-actions">
         <button class="ghost" id="btn-model-save" aria-disabled="true" title="The checkpoint list is still loading">Apply &amp; save</button>
         <button class="primary" id="btn-model-switch" aria-disabled="true" title="The checkpoint list is still loading">Switch &amp; load</button>
       </div>
-      <p id="model-picker-note" role="status" tabindex="0"></p>
+      <p id="model-picker-note" role="status" tabindex="0"><button class="ghost tiny model-revert" id="btn-model-revert" type="button" title="Put back the server's checkpoint and loading options" hidden>Revert</button><span id="model-picker-note-text"></span></p>
     </div>
   </section>
   <!-- Shown while nothing is loaded, or after a failed load (as Retry load):

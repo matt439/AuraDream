@@ -454,6 +454,28 @@ opening (or a rebuild's refocus, unless the pointer is on the body) scrolls
 the picker's own body to the focused row below the sticky head. That is the
 newly opened popover showing its current entry, not page scrolling: the
 window never moves, and a hovered body is left alone.
+
+The note under the actions said the wrong thing at the wrong time (review,
+2026-10-09). "Settings saved" was wiped by the revision its own switch made,
+a few seconds later, and named nothing; a failed Switch & load left it or the
+generic first-load line, with the failure only in the viewer under the
+picker; a refusal stayed after its reason had gone; a failed catalogue read
+"still loading"; the live note repeated the first-load sentence on every
+opening; and Apply & save unloaded a loaded model without a word. The note
+now holds a request error, a refusal while its reason holds, the server's
+`switch_error`, a failed load's detail, or an accepted press's outcome by
+name with the `startup_overrides` that beat it, then Loading, the unsaved
+edits or the server's state. Holds stay in titles. The revision reset keeps
+the outcome only for this page's own switch; a failure replaces it. There is
+no load timer: status has no load start, and a page clock would disagree
+with another tab's. Apply & save's title and the table's help say what it
+unloads. The startup checkbox moved from under 23 rows to the footer, and the
+help went `.sr-only`, read with the table but not announced. Edits kept
+across a closing looked like the running settings; the note now says
+"Unsaved changes" with the server's settings and a Revert floated into its
+first line, where its scrolling never hides it. `startup_overrides` reports
+only which preferences an explicit model set aside, not whether it was the
+saved model, so the sentence says both cases.
 CPU and fake-browser checks establish these transitions, not real GPU load
 times, memory release or image quality.
 

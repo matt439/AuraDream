@@ -60,6 +60,7 @@ const els = {
   models: $('btn-models'), modelPicker: $('model-picker'),
   modelTable: $('model-table'), modelTableHead: $('model-table-head'),
   modelSwitch: $('btn-model-switch'), modelSave: $('btn-model-save'), modelPickerNote: $('model-picker-note'),
+  modelPickerNoteText: $('model-picker-note-text'), modelRevert: $('btn-model-revert'), modelPickerHelp: $('model-picker-help'),
   modelQuantization: $('model-quantization'), modelOffload: $('model-offload'),
   modelQuantizationHelp: $('model-quantization-help'), modelOffloadHelp: $('model-offload-help'),
   modelFormat: $('model-format'), modelFormatField: $('model-format-field'), modelFormatHelp: $('model-format-help'),

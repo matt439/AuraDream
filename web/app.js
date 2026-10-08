@@ -658,6 +658,7 @@ els.modelQuantization.onchange = () => modelPickerEdited('quantization', { catal
 els.modelFormat.onchange = () => modelPickerEdited('format', { catalogue: true });
 els.modelSwitch.onclick = () => switchModel();
 els.modelSave.onclick = () => switchModel({ load: false });
+els.modelRevert.onclick = revertModelPicker;
 document.addEventListener('pointerdown', (event) => {
   if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && event.target !== els.models) {
     showModelPicker(false, { focus: false });

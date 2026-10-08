@@ -391,6 +391,20 @@ Model and loader:
   then the listed id with its canonical `favourite_id`, else no row.
   `modelWorkHold` is the one list of page work a switch waits for;
   `offerModelPicker` uses it too.
+- The picker note (`modelPickerNote`, a live region) holds outcomes and
+  failures, then the server's state: a request error, a press's refusal
+  (`modelPressReason`, dropped once that action's hold changes or the picker
+  reopens), `switch_error`, a failed load's detail, then
+  `modelPickerMessage`; after it Loading, the unsaved edits with Revert, or
+  the loaded/not-loaded line. Holds go in the actions' titles and
+  `aria-disabled` only, never the note. `modelPickerMessage` is set only by
+  an accepted press, names what it did and the `startup_overrides` it cannot
+  beat; a new failure clears it, and the revision reset keeps it only for
+  this page's own switch (`modelOwnSwitch`). Revert clears the edited keys,
+  reapplies the server's settings and focuses the chosen radio. The help
+  describing the table is `.sr-only` and not live. A failed catalogue keeps
+  its rows, dimmed and `aria-busy`, and holds the actions with its own
+  reason.
 - The loader selects are `appearance: base-select`, so their lists draw in
   the page; never return them to the native popup, a separate window Chromium
   re-anchors under a still pointer. While any picker list is open
@@ -3285,6 +3299,12 @@ switch held during a job, failed target loading and Retry load recovery, and
 topbar/picker fit on narrow, laptop and QHD windows. It also checks cold
 Apply & save, quantization/offload changes, the saved startup checkbox,
 save errors and stable action placement across choices and short viewports.
+For the note it checks the loaded line with nothing boilerplate on opening,
+the checkbox in the footer above the actions, a refusal that goes when its
+reason does, Apply & save's unload title, the unsaved line with Revert
+(through a reopening), an Apply & save outcome kept through its revision,
+load progress, the `startup_overrides` sentence, a failed load and a failed
+switch in place of the outcome, and a failed list kept dimmed.
 For the checkpoint table it checks every catalogue model's row and facts
 (style, refine with its note, size with its label, speed with its sample
 and basis) without choosing any, focus on the chosen radio at the first
@@ -3304,7 +3324,8 @@ unscrolled; that an unsubmitted offload edit survives another tab's
 checkbox-only save, which still lands; and that a list lacking the chosen
 checkpoint chooses none, then the same one, or its other build, again.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
-for an idle unloaded/error server, with every model's row and facts shown,
+for an idle unloaded/error server, with the not-loaded or failed-load note
+and every model's row and facts shown,
 suppression when ready/loading/busy, no reopening after dismissal or later
 Unload, and focus/caret preservation.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every

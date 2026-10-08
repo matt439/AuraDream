@@ -26,7 +26,7 @@ tool: splits follow responsibilities, with no new build step or runtime feature.
 | `tests/test_api_analysis.py` | 1,913 | Analysis routes, tags, guides, critic and lifecycle. |
 
 Added after this audit, with no split: `model-switch.js` owns the Models
-picker (the checkpoint table, loader options, favourites, the switch request
+picker (the checkpoint table, loader options, favourites, the note, the switch request
 and retiring state prepared under the old checkpoint), styled by
 `styles/model-picker.css`; `bundles.js` and `styles/bundles.css` own gallery
 bundles.

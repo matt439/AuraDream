@@ -140,6 +140,10 @@
 .model-picker .model-loader-help { height: 3lh; color: var(--text-readout); }
 .model-format-help { color: var(--text-readout); font-size: var(--fs-body-sm); font-weight: 400; }
 #model-picker-note { height: 3lh; overflow-y: auto; overflow-wrap: anywhere; overscroll-behavior: contain; }
+/* In the note's first line, where its scrolling never hides it. */
+.model-revert { float: right; margin: 0 0 var(--sp-1) var(--sp-2); }
+/* A list that could not be fetched stays in place, dimmed, while it retries. */
+.model-table-stale > :not(.model-row-head) { opacity: .55; }
 @media (min-width: 601px) {
   .model-loader-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .model-picker .model-loader-help { height: 2lh; }

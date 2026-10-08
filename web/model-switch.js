@@ -13,7 +13,20 @@ let modelCatalogueDetails = {};
 let modelCatalogueEntries = [];
 let modelStatusEpoch = 0;
 let modelSwitchError = null;
+// An outcome of this page's own press (saved, switched); a load failure or a
+// failed switch replaces it.
 let modelPickerMessage = null;
+// A press on a held action: its reason, said until that action's hold
+// changes or the picker reopens.
+let modelPressReason = null;
+// The settings this page's switch asked for, until the revision it makes
+// arrives: that reset keeps the outcome rather than wiping it.
+let modelOwnSwitch = null;
+// From status: a failed load's detail, a switch that stopped before
+// selecting, and what this start's flags or environment set aside.
+let modelLoadDetail = null;
+let modelServerSwitchError = null;
+let modelStartupOverrides = {};
 // The picker fields changed here and not yet submitted (model_id,
 // quantization, offload, format, load_on_startup). Polls and catalogue
 // replies still write every other field.
@@ -422,16 +435,98 @@ function modelWorkHold() {
     || (cardHolder ? 'Wait for the current GPU work to finish' : '');
 }
 
+function modelCatalogueFailed() {
+  return !modelCatalogueLoaded && !modelCataloguePending && modelCatalogueFailedAt > 0;
+}
+
 function modelSwitchHold({ load = true } = {}) {
   return serverOffline ? 'The server is not answering'
     : modelWorkHold()
     || (modelState === 'loading' ? 'The weights are still loading' : '')
+    || (modelCatalogueFailed() ? 'The checkpoint list could not be loaded; retrying' : '')
     || (!modelCatalogueLoaded || modelCataloguePending ? 'The checkpoint list is still loading' : '')
     || (!modelChoice() ? 'Choose a checkpoint compatible with these settings' : '')
     || (load && !modelLoaderChanged() && modelState === 'ready' ? 'These model settings are already loaded; use Apply & save to remember them' : '');
 }
 
+function modelOptionLabel(select, value) {
+  return [...select.options].find((option) => option.value === value)?.textContent || value || '';
+}
+
+// The server's checkpoint and loading options, as the note names them.
+function modelRuntimeLabel() {
+  const current = modelRuntimeSettings;
+  return [modelLabel(current.model_id), modelOptionLabel(els.modelQuantization, current.quantization),
+    ...(current.quantization === 'nunchaku' ? [modelOptionLabel(els.modelFormat, current.format)] : []),
+    modelOptionLabel(els.modelOffload, current.offload)].filter(Boolean).join(' · ');
+}
+
+// Edits that differ from the server's settings, which Revert puts back.
+function modelPickerUnsaved() {
+  return modelPickerEditedKeys.size > 0 && !!modelRuntimeSettings
+    && (modelLoaderChanged() || els.modelLoadOnStartup.checked !== modelRuntimeSettings.load_on_startup);
+}
+
+const MODEL_PREFERENCE_NAMES = {
+  model_id: 'checkpoint', quantization: 'quantization', offload: 'offload', load_on_startup: 'startup load',
+};
+
+function joinWords(words) {
+  return words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`;
+}
+
+// The server's record of what this start's flags or environment set aside,
+// as a sentence: a saved choice does not apply at a start like this one.
+function modelOverridesSentence() {
+  const entries = Object.entries(modelStartupOverrides ?? {}).filter(([key]) => MODEL_PREFERENCE_NAMES[key]);
+  if (!entries.length) return '';
+  const sources = [...new Set(entries.map(([, source]) => source))];
+  if (sources.includes('--defaults')) {
+    return 'This server was started with --defaults, which ignores saved settings; they apply at a start without it.';
+  }
+  const names = Object.keys(MODEL_PREFERENCE_NAMES).filter((key) => entries.some(([k]) => k === key));
+  const model = entries.find(([key]) => key === 'model_id')?.[1];
+  return `This server was started with ${joinWords(sources)}, which ${sources.length > 1 ? 'override' : 'overrides'} `
+    + `the saved ${joinWords(names.map((key) => MODEL_PREFERENCE_NAMES[key]))} at a start like this one`
+    + (model ? `; when ${model} names another checkpoint, its saved loading options are set aside too.` : '.');
+}
+
+// What an accepted press did, by name, with the startup choice.
+function modelSavedMessage(selected, before, { load, wasReady, startup }) {
+  const name = modelLabel(selected.model_id);
+  const changed = !before || ['model_id', 'quantization', 'offload'].some((key) => selected[key] !== before[key])
+    || (selected.quantization === 'nunchaku' && selected.format !== before.format);
+  // A load of the same settings is the state line's to follow.
+  const done = load && changed ? `Switched to ${name}; settings saved.`
+    : !changed ? `Settings saved.${wasReady && !load ? ` ${name} stays loaded.` : ''}`
+    : `Settings saved; ${wasReady ? `${modelLabel(before.model_id)} was unloaded. ${name}` : name} loads on Load, Switch & load or Generate.`;
+  return [done, startup ? 'They will load automatically on startup.' : 'Next startup will wait for you to load or generate.',
+    modelOverridesSentence()].filter(Boolean).join(' ');
+}
+
+// The note: what went wrong or what a press did, then the server's state or
+// the unsaved edits (with Revert). Holds stay in the actions' titles until
+// one is pressed.
+function modelPickerNote() {
+  const current = modelLabel(modelRuntimeSettings?.model_id ?? loadedModel);
+  const lead = modelSwitchError || (modelPressReason ? `${modelPressReason.why}.` : '')
+    || modelServerSwitchError
+    || (modelState === 'error' && modelLoadDetail ? `Couldn't load ${current}: ${modelLoadDetail}` : '')
+    || modelFavouriteMessage || modelPickerMessage || '';
+  const firstLoad = 'A first load may download weights and take several minutes.';
+  const unsaved = modelState !== 'loading' && modelPickerUnsaved();
+  const state = modelState === 'loading' ? `Loading ${current}… ${firstLoad}`
+    : unsaved ? `Unsaved changes. ${modelState === 'ready' ? 'Loaded' : "Server's choice"}: ${modelRuntimeLabel()}.`
+      + (modelLoaderChanged() ? ` ${firstLoad}` : '')
+    : lead || modelState === 'error' ? ''
+    : modelState === 'ready' ? `${current} is loaded.`
+    : `${current} is not loaded. ${firstLoad}`;
+  return { text: [lead, state].filter(Boolean).join(' '), unsaved };
+}
+
 function syncModelSwitch() {
+  // A refusal goes once its action's reason changes.
+  if (modelPressReason && modelSwitchHold({ load: modelPressReason.load }) !== modelPressReason.why) modelPressReason = null;
   const why = modelSwitchHold();
   const saveWhy = modelSwitchHold({ load: false });
   syncModelRowStates();
@@ -439,8 +534,21 @@ function syncModelSwitch() {
   // Every poll runs this more than once; write only what changed.
   setModelAttribute(els.modelSwitch, 'aria-disabled', String(!!why));
   setModelAttribute(els.modelSwitch, 'title', why || 'Remember these settings and load the selected checkpoint');
+  // Apply & save releases a loaded model whose settings it changes.
+  const unloads = modelState === 'ready' && !!modelRuntimeSettings && modelChoice() !== '' && modelLoaderChanged();
+  const current = modelLabel(modelRuntimeSettings?.model_id ?? loadedModel);
   setModelAttribute(els.modelSave, 'aria-disabled', String(!!saveWhy));
-  setModelAttribute(els.modelSave, 'title', saveWhy || 'Remember these settings without starting a new load');
+  setModelAttribute(els.modelSave, 'title', saveWhy || (unloads
+    ? `Save and unload ${current} now; ${modelLabel(modelChoice())} loads on Load, Switch & load or Generate`
+    : 'Remember these settings without starting a new load'));
+  const help = unloads
+    ? `Apply & save saves these settings and unloads ${current} now; Switch & load loads ${modelLabel(modelChoice())} now.`
+    : 'Apply & save saves these settings without loading them; Switch & load loads them now.';
+  if (els.modelPickerHelp.textContent !== help) els.modelPickerHelp.textContent = help;
+  // A list that could not be fetched stays, dimmed, rather than moving rows.
+  const stale = modelCatalogueFailed();
+  if (els.modelTable.classList.contains('model-table-stale') !== stale) els.modelTable.classList.toggle('model-table-stale', stale);
+  setModelAttribute(els.modelTable, 'aria-busy', String(stale));
   const formatHidden = els.modelQuantization.value !== 'nunchaku';
   if (els.modelFormatField.hidden !== formatHidden) els.modelFormatField.hidden = formatHidden;
   for (const select of [els.modelQuantization, els.modelOffload, els.modelFormat]) {
@@ -457,9 +565,22 @@ function syncModelSwitch() {
     .map((option) => `${option.textContent}: ${option.dataset.description || option.textContent}`).join('; ');
   if (els.modelFormatHelp.textContent !== formats) els.modelFormatHelp.textContent = formats;
   if (!els.modelPicker.hidden) {
-    const note = modelSwitchError || modelFavouriteMessage || saveWhy || modelPickerMessage || 'The first load may download weights and take several minutes.';
-    if (els.modelPickerNote.textContent !== note) els.modelPickerNote.textContent = note;
+    const { text, unsaved } = modelPickerNote();
+    if (els.modelPickerNoteText.textContent !== text) els.modelPickerNoteText.textContent = text;
+    if (els.modelRevert.hidden === unsaved) els.modelRevert.hidden = !unsaved;
   }
+}
+
+// Revert puts the server's settings back in every field. The focus, which
+// the hidden button gives up, goes to the chosen row.
+function revertModelPicker() {
+  modelPickerEditedKeys.clear();
+  modelPressReason = null;
+  applyModelSettings(true);
+  syncModelSwitch();
+  const target = modelRadios().find((radio) => radio.checked) ?? els.modelPickerBody;
+  target.focus({ preventScroll: true });
+  revealModelControl(target);
 }
 
 function modelPickerEdited(key, { catalogue = false } = {}) {
@@ -482,12 +603,26 @@ function receiveModelSettings(status, { reset = false } = {}) {
     format: status.format ?? modelRuntimeSettings?.format,
     load_on_startup: status.load_on_startup ?? modelRuntimeSettings?.load_on_startup ?? false,
   };
+  if (status.startup_overrides) modelStartupOverrides = status.startup_overrides;
+  // A new failure takes the place of an outcome that said all went well.
+  const failed = status.state === 'error' ? status.detail ?? null : null;
+  const switchError = status.switch_error ?? null;
+  if ((failed && failed !== modelLoadDetail) || (switchError && switchError !== modelServerSwitchError)) {
+    modelPickerMessage = null;
+    modelOwnSwitch = null;
+  }
+  modelLoadDetail = failed;
+  modelServerSwitchError = switchError;
   if (!modelSwitchSending && previous && previous.load_on_startup !== modelRuntimeSettings.load_on_startup) {
     modelPickerMessage = null;
   }
   if (reset) {
     modelPickerEditedKeys.clear();
-    modelPickerMessage = null;
+    // The revision this page's own switch made keeps the note saying so.
+    const own = modelOwnSwitch && ['model_id', 'quantization', 'offload']
+      .every((key) => modelOwnSwitch[key] === modelRuntimeSettings[key]);
+    if (!own) modelPickerMessage = null;
+    modelOwnSwitch = null;
   }
   if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
       && Date.now() - modelCatalogueFailedAt > 10000) {
@@ -555,6 +690,9 @@ function showModelPicker(on, { focus = true } = {}) {
   els.modelPicker.hidden = !on;
   els.models.setAttribute('aria-expanded', String(on));
   if (on) {
+    // An opening starts from the state, not an earlier press's words.
+    modelPressReason = null;
+    modelPickerMessage = null;
     // Each opening groups the table by the stars as they are now.
     modelTableGrouping = new Set(modelFavourites);
     if (modelCatalogueLoaded) renderModelOptions(modelChoice() || modelRuntimeSettings?.model_id);
@@ -655,14 +793,18 @@ async function refreshModelCatalogue({ current = false } = {}) {
 async function switchModel({ load = true } = {}) {
   const why = modelSwitchHold({ load });
   if (why) {
-    modelPickerMessage = `${why}.`;
-    els.modelPickerNote.textContent = modelPickerMessage;
+    modelPressReason = { why, load };
+    syncModelSwitch();
     if (serverOffline) void refreshStatus();
     return;
   }
   const selected = modelPickerSettings();
+  const before = modelRuntimeSettings ? { ...modelRuntimeSettings } : null;
+  const wasReady = modelState === 'ready';
   modelSwitchError = null;
   modelPickerMessage = null;
+  modelPressReason = null;
+  modelOwnSwitch = selected;
   // Flush this checkpoint's edits while its identity still describes them.
   clearTimeout(panelTimer);
   writePanel();
@@ -677,13 +819,18 @@ async function switchModel({ load = true } = {}) {
     modelPickerEditedKeys.clear();
     rememberModelChoice(selected.model_id);
     receiveStatus(status, Date.now());
-    modelPickerMessage = `Settings saved. ${status.load_on_startup ? 'They will load automatically on startup.' : 'Next startup will wait for you to load or generate.'}`;
+    // No switch in the background: no revision of its own will come.
+    if (!status.switching) modelOwnSwitch = null;
+    modelPickerMessage = modelSavedMessage(selected, before, { load, wasReady, startup: status.load_on_startup });
+    syncModelSwitch();
   } catch (err) {
+    modelOwnSwitch = null;
     modelSwitchError = err.message;
     showError(err.message);
   } finally {
     modelSwitchSending = false;
     syncPromptExpansion();
+    syncModelSwitch();
     void refreshStatus();
   }
 }

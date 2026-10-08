@@ -69,12 +69,21 @@ authors' approval, which can take days. Then sign in once with
 row says **Open**, **Accept licence** or **Needs approval** under the name; FP8
 with Model offload is recommended for a 16 GB card.
 
-**Apply & save** applies changed settings without loading their weights. Saving
-only the startup preference leaves an already loaded model in place. Both
-buttons remember the model and loading options on the server for next time.
-Check **Load automatically on startup** to load them when the server starts;
-leave it unchecked to load only when you press Load, Switch & load or Generate.
-The checkbox takes effect after pressing either save button.
+**Apply & save** applies changed settings without loading their weights: a
+loaded model whose checkpoint or loading options change is unloaded at once,
+and its button's tooltip says so. Saving only the startup preference leaves
+an already loaded model in place. Both buttons remember the model and loading
+options on the server for next time. Check **Load automatically on startup**
+(beside the buttons) to load them when the server starts; leave it unchecked
+to load only when you press Load, Switch & load or Generate. The checkbox
+takes effect after pressing either save button.
+
+The line under the buttons says what the server has loaded, what a press did
+and what went wrong: a held button's reason when pressed, a failed load or
+switch, and a load in progress. Changes not yet applied read **Unsaved
+changes**, with the running settings and **Revert** to put them back; they
+stay while the picker is closed. If the server was started with flags or
+variables that beat the saved choice, the saved message names them.
 
 The list follows the chosen quantization. Nunchaku offers its mapped checkpoints
 and an nvfp4/int4 weight format on Linux/WSL. Explicit launch flags and environment
