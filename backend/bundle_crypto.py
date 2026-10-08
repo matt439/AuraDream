@@ -53,7 +53,11 @@ class WrongPassword(CryptoError):
 def _secret(password: str) -> bytes:
     if not isinstance(password, str) or not password:
         raise WrongPassword("enter the bundle password")
-    return unicodedata.normalize("NFC", password).encode("utf-8")
+    try:
+        return unicodedata.normalize("NFC", password).encode("utf-8")
+    except UnicodeEncodeError:
+        # A lone surrogate; the codec's message would name its position.
+        raise CryptoError("the bundle password contains characters that cannot be used") from None
 
 
 def _derive(password: str, log2_n: int, r: int, p: int, salt: bytes) -> tuple[bytes, bytes]:
@@ -103,6 +107,7 @@ class EncryptingWriter(io.RawIOBase):
         salt, prefix = os.urandom(16), os.urandom(8)
         key, check = _derive(password, _LOG2_N, _R, _P, salt)
         self._header = _HEADER.pack(MAGIC, _VERSION, _LOG2_N, _R, _P, salt, chunk, prefix, check)
+        self._key = key
         self._digest = hashlib.sha256(self._header).digest()
         self._aead = AESGCM(key)
         self._stream = stream
@@ -113,6 +118,11 @@ class EncryptingWriter(io.RawIOBase):
         self._position = 0
         self._finished = False
         stream.write(self._header)
+
+    @property
+    def derived(self) -> tuple[bytes, bytes]:
+        """The header written and the key derived for it, for export's read-back."""
+        return self._header, self._key
 
     def writable(self) -> bool:
         return True
@@ -128,21 +138,31 @@ class EncryptingWriter(io.RawIOBase):
 
     def _emit(self, data, final: bool) -> None:
         self._stream.write(self._aead.encrypt(
-            _nonce(self._prefix, self._index), bytes(data), _aad(self._digest, self._index, final)))
+            _nonce(self._prefix, self._index), data, _aad(self._digest, self._index, final)))
         self._index += 1
 
     def write(self, data) -> int:
         if self._finished:
             raise ValueError("write to a finished encrypted bundle")
-        data = memoryview(data).cast("B")
-        self._buffer += data
-        self._position += len(data)
-        # Hold back at least one byte so the final chunk is never empty unless
-        # the whole bundle is.
-        while len(self._buffer) > self._chunk:
-            self._emit(memoryview(self._buffer)[:self._chunk], False)
-            del self._buffer[:self._chunk]
-        return len(data)
+        view = memoryview(data).cast("B")
+        size = len(view)
+        self._position += size
+        # A full chunk is emitted only once more data follows, so the final
+        # chunk is never empty unless the whole bundle is. Whole chunks are
+        # encrypted straight from the caller's buffer; only a remainder is
+        # copied, to wait for the next write.
+        if self._buffer:
+            take = min(size, self._chunk - len(self._buffer))
+            self._buffer += view[:take]
+            view = view[take:]
+            if view:
+                self._emit(self._buffer, False)
+                self._buffer = bytearray()
+        while len(view) > self._chunk:
+            self._emit(view[:self._chunk], False)
+            view = view[self._chunk:]
+        self._buffer += view
+        return size
 
     def flush(self) -> None:
         pass
@@ -161,17 +181,26 @@ class EncryptingWriter(io.RawIOBase):
 
 
 class DecryptingReader(io.RawIOBase):
-    """Seekable plaintext view of an encrypted bundle; each chunk is authenticated before use."""
+    """Seekable plaintext view of an encrypted bundle; each chunk is authenticated before use.
 
-    def __init__(self, path: Path, password: str):
+    `derived` is the (header, key) an `EncryptingWriter` just used: export's
+    read-back reuses that key instead of running scrypt again, but only for a
+    byte-identical header. Every chunk is still authenticated with it, and
+    the header's digest is in every chunk's associated data.
+    """
+
+    def __init__(self, path: Path, password: str, *, derived: tuple[bytes, bytes] | None = None):
         super().__init__()
         self._file = Path(path).open("rb")
         try:
             header = self._file.read(HEADER_SIZE)
             log2_n, r, p, salt, chunk, prefix, check = _parse(header)
-            key, expected = _derive(password, log2_n, r, p, salt)
-            if not hmac.compare_digest(expected, check):
-                raise WrongPassword("the bundle password is incorrect")
+            if derived is not None and hmac.compare_digest(derived[0], header):
+                key = derived[1]
+            else:
+                key, expected = _derive(password, log2_n, r, p, salt)
+                if not hmac.compare_digest(expected, check):
+                    raise WrongPassword("the bundle password is incorrect")
             self._aead = AESGCM(key)
             self._digest = hashlib.sha256(header).digest()
             self._chunk, self._prefix = chunk, prefix
@@ -222,6 +251,21 @@ class DecryptingReader(io.RawIOBase):
             raise OSError("negative seek position")
         self._position = base + offset
         return self._position
+
+    def read(self, size: int = -1) -> bytes:
+        # Slices of the authenticated blocks, joined once: RawIOBase.read
+        # would copy each read twice more through readinto.
+        if size is None or size < 0:
+            size = max(0, self._size - self._position)
+        parts = []
+        while size > 0 and self._position < self._size:
+            index, offset = divmod(self._position, self._chunk)
+            block = self._block(index)
+            take = min(size, len(block) - offset)
+            parts.append(block[offset:offset + take] if offset or take != len(block) else block)
+            size -= take
+            self._position += take
+        return b"".join(parts)
 
     def readinto(self, buffer) -> int:
         view = memoryview(buffer).cast("B")

@@ -28,10 +28,19 @@ from tests.api_helpers import ORIGIN  # noqa: E402
 from tests.fakes import FakeBackend, FakeCritic, FakeTranslator, fake_tokenizer  # noqa: E402
 
 
+_SHIPPED_SCRYPT = (bundle_crypto._LOG2_N, bundle_crypto._R, bundle_crypto._P)
+
+
 @pytest.fixture(autouse=True)
 def cheap_scrypt(monkeypatch):
     # New bundles get the smallest cost readers accept (16 MiB, not 128 MiB).
     monkeypatch.setattr(bundle_crypto, "_LOG2_N", 14)
+
+
+@pytest.fixture
+def shipped_scrypt():
+    """The scrypt (log2 n, r, p) the module ships, before `cheap_scrypt`."""
+    return _SHIPPED_SCRYPT
 
 
 @pytest.fixture

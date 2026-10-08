@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
+import shutil
 import sqlite3
 import threading
 import time
@@ -11,6 +13,7 @@ import uuid
 from collections.abc import Sequence
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from PIL import Image, PngImagePlugin
@@ -93,13 +96,15 @@ def _migrate_thumbnails() -> None:
             _move_thumbnail(png)
 
 
-def _write_thumb(image: Image.Image, path) -> None:
-    """A small WEBP in the thumbnail directory, for the cards and the sheet.
+def _encode_thumb(image: Image.Image, path):
+    """A small WEBP for the cards and the sheet, encoded to `<path>.part`.
 
-    Written *after* the PNG's rename, so a failed INSERT leaves no thumbnail
-    for a row that never existed, and through the same `.part`-then-rename
-    step so the orphan sweep never sees a half-written one. A thumbnail that
-    fails costs bandwidth, not the image: the record falls back to the PNG.
+    Returns the partial for `_place_thumb`, or None when encoding failed. It
+    is encoded outside the gallery reservation, so readers on other threads
+    do not wait on it, and renamed into place *after* the PNG's rename, so a
+    failed INSERT leaves no thumbnail for a row that never existed. The
+    `.part` name keeps the orphan sweep off a half-written one. A thumbnail
+    that fails costs bandwidth, not the image: the record falls back to the PNG.
     """
     partial = path.with_name(path.name + ".part")
     try:
@@ -107,6 +112,19 @@ def _write_thumb(image: Image.Image, path) -> None:
         small = image.copy()
         small.thumbnail((THUMB_SIDE, THUMB_SIDE))
         small.save(partial, format="WEBP", quality=82, method=4)
+    except Exception:  # noqa: BLE001 - the PNG and its row are already safe
+        log.warning("thumbnail for %s not written", path.name, exc_info=True)
+        _unlink(partial)
+        return None
+    except BaseException:
+        _unlink(partial)
+        raise
+    return partial
+
+
+def _place_thumb(partial, path) -> None:
+    """Rename an encoded thumbnail into place; called under the reservation."""
+    try:
         partial.replace(path)
     except Exception:  # noqa: BLE001 - the PNG and its row are already safe
         log.warning("thumbnail for %s not written", path.name, exc_info=True)
@@ -249,7 +267,7 @@ def _session():
     a handle per call and keeps the file locked on Windows - deleting or moving
     local-diffusion.db then fails while the server runs.
     """
-    with gallery_lock.hold(settings.db_path):
+    with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
         conn = _connect()
         try:
             with conn:
@@ -258,7 +276,7 @@ def _session():
             conn.close()
 
 
-@gallery_lock.protected(lambda: settings.db_path)
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def init_db() -> None:
     ensure_outputs_dir()
     with _session() as conn:
@@ -379,7 +397,6 @@ def image_provenance(image_id: int | None) -> dict[str, Any] | None:
     }
 
 
-@gallery_lock.protected(lambda: settings.db_path)
 def save_image(
     image: Image.Image,
     request: "GenerateRequest",
@@ -477,48 +494,60 @@ def save_image(
     info.add_text(PNG_METADATA_KEY, json.dumps(meta))
 
     committed = False
+    thumb_path = _thumb_path(path)
+    thumb = None
     try:
         # Inside the guard: a KeyboardInterrupt mid-encode - the CLI's second
         # Ctrl-C - is a BaseException Pillow's own cleanup does not catch, and
-        # it left a *.png.part that nothing swept.
+        # it left a *.png.part that nothing swept. Both encodes run before the
+        # gallery reservation, which other threads' reads also need: held
+        # through a 2048x2048 encode, a 3 ms `get_image` took 330 ms. Only the
+        # row and the renames are reserved. Sweeps do glob `*.part`: only
+        # PARTIAL_SETTLE_SECONDS keeps them off an encode still running here,
+        # and a bundle inventory refuses while one exists.
         image.save(partial, format="PNG", pnginfo=info, compress_level=4)
-        with _write_lock, _session() as conn:
-            row = _insert_row(
-                conn,
-                {
-                    "filename": filename,
-                    "prompt": request.prompt,
-                    "negative_prompt": request.negative_prompt,
-                    "width": image.width,
-                    "height": image.height,
-                    "steps": request.steps,
-                    "guidance_scale": request.guidance_scale,
-                    "mu": request.mu,
-                    "seed": seed,
-                    "model_id": model_id,
-                    "duration_ms": duration_ms,
-                    "favorite": 0,
-                    "created_at": created.isoformat(),
-                    "job_id": job_id,
-                    "run_id": run_id,
-                    "quantization": quantization,
-                    "variables": variables_json,
-                    "true_cfg": request.true_cfg,
-                    "content_hash": digest,
-                    "reference": json.dumps(list(request.reference)) if request.reference else None,
-                    "lora": request.lora,
-                    "lora_scale": request.lora_scale if request.lora else None,
-                    "refine": request.refine,
-                    "strength": request.strength if request.refine is not None else None,
-                },
-            )
-            # A pass whose source was deleted while it ran - read as the
-            # cell began, gone by its end - says so as list_images would,
-            # under the lock a delete takes: returned as present, the page
-            # showed it as one that could be made again until a reload.
-            missing = _missing_sources(conn, [row])
-        committed = True
-        _rename_with_retry(partial, path)
+        thumb = _encode_thumb(image, thumb_path)
+        with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
+            with _write_lock, _session() as conn:
+                row = _insert_row(
+                    conn,
+                    {
+                        "filename": filename,
+                        "prompt": request.prompt,
+                        "negative_prompt": request.negative_prompt,
+                        "width": image.width,
+                        "height": image.height,
+                        "steps": request.steps,
+                        "guidance_scale": request.guidance_scale,
+                        "mu": request.mu,
+                        "seed": seed,
+                        "model_id": model_id,
+                        "duration_ms": duration_ms,
+                        "favorite": 0,
+                        "created_at": created.isoformat(),
+                        "job_id": job_id,
+                        "run_id": run_id,
+                        "quantization": quantization,
+                        "variables": variables_json,
+                        "true_cfg": request.true_cfg,
+                        "content_hash": digest,
+                        "reference": json.dumps(list(request.reference)) if request.reference else None,
+                        "lora": request.lora,
+                        "lora_scale": request.lora_scale if request.lora else None,
+                        "refine": request.refine,
+                        "strength": request.strength if request.refine is not None else None,
+                    },
+                )
+                # A pass whose source was deleted while it ran - read as the
+                # cell began, gone by its end - says so as list_images would,
+                # under the lock a delete takes: returned as present, the page
+                # showed it as one that could be made again until a reload.
+                missing = _missing_sources(conn, [row])
+            committed = True
+            _rename_with_retry(partial, path)
+            if thumb is not None:
+                _place_thumb(thumb, thumb_path)
+                thumb = None
     except BaseException:
         # A failed encode or INSERT must not leave a *.png.part behind for
         # nobody - and tidying up must not replace the error that got us here.
@@ -528,7 +557,9 @@ def save_image(
         if not committed:
             _unlink(partial)
         raise
-    _write_thumb(image, _thumb_path(path))
+    finally:
+        if thumb is not None:
+            _unlink(thumb)
     return _row_to_record(row, row["refine"] in missing)
 
 
@@ -550,13 +581,65 @@ def _rename_with_retry(src, dst, attempts: int = 5) -> None:
             time.sleep(0.05 * (attempt + 1))
 
 
+# Bundle imports unpack, and uploads land, in this directory on the images'
+# volume, so installing a staged image is a rename rather than a second copy.
+# Its name matches none of the sweeps' globs or `_BUNDLE_WORK`.
+BUNDLE_STAGING = ".local-diffusion-staging"
+# What bundles.py and api_bundles.py create beside the database: export's
+# snapshot directory and import's merge directory (tempfile's eight random
+# characters), and uploads from before they moved to BUNDLE_STAGING.
+_BUNDLE_WORK = re.compile(r"\.bundle-(?:import-|merge-|upload-)?[a-z0-9_]{8}(?:\.part)?")
+
+
+def bundle_staging_dir() -> Path:
+    """The staging directory on the images' volume, created on demand.
+
+    Beside the images directory, out of what `/outputs` serves, unless that
+    is another volume (the images directory is a mount point); then inside
+    it, where the inventory skips directories.
+    """
+    ensure_outputs_dir()
+    outputs = settings.outputs_dir.resolve()
+    root = outputs.parent
+    try:
+        if root.stat().st_dev != outputs.stat().st_dev:
+            root = outputs
+    except OSError:
+        root = outputs
+    staging = root / BUNDLE_STAGING
+    staging.mkdir(exist_ok=True)
+    return staging
+
+
+def _bundle_leftovers() -> list:
+    """Everything a bundle operation writes outside the gallery proper.
+
+    A finished or failed operation removes its own; a killed one (power cut,
+    a second Ctrl-C) leaves a gallery-sized copy that nothing else reaches.
+    """
+    beside = settings.db_path.parent
+    outputs = settings.outputs_dir
+    return [
+        *(beside / "bundles").glob("*.part"),
+        *(p for p in beside.glob(".bundle-*") if _BUNDLE_WORK.fullmatch(p.name)),
+        *(outputs.parent / BUNDLE_STAGING).glob("*"),
+        *(outputs / BUNDLE_STAGING).glob("*"),
+    ]
+
+
 def _stale_partials() -> list:
-    """Partials nothing can still be writing - see PARTIAL_SETTLE_SECONDS."""
+    """Partials nothing can still be writing - see PARTIAL_SETTLE_SECONDS.
+
+    Bundle leftovers too: an hour is as safe for them. Every bundle operation
+    holds the gallery reservation throughout, as every sweep does, and an
+    upload still arriving keeps writing its file.
+    """
     cutoff = time.time() - PARTIAL_SETTLE_SECONDS
     stale = []
     paths = [
         *settings.outputs_dir.glob("*.part"),
         *(settings.outputs_dir / "thumbnails").glob("*.part"),
+        *_bundle_leftovers(),
     ]
     for path in paths:
         try:
@@ -565,6 +648,21 @@ def _stale_partials() -> list:
         except OSError:
             continue
     return stale
+
+
+def _discard(path) -> bool:
+    """Remove a stale partial: a file, or a bundle's work directory."""
+    if path.is_dir() and not path.is_symlink() and not path.is_junction():
+        shutil.rmtree(path, ignore_errors=True)
+        return not path.exists()
+    return _unlink(path)
+
+
+@gallery_lock.protected(lambda: settings.db_path)
+def discard_bundle_leftovers() -> int:
+    """Sweep what killed bundle operations left; at startup and before each one."""
+    stale = set(_stale_partials())
+    return sum(1 for path in _bundle_leftovers() if path in stale and _discard(path))
 
 
 def step_cost_ms(
@@ -1017,7 +1115,7 @@ def existing_file_ids() -> dict[str, int]:
         return {row["filename"]: row["id"] for row in conn.execute("SELECT id, filename FROM images")}
 
 
-@gallery_lock.protected(lambda: settings.db_path)
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def import_file(values: dict[str, Any]) -> ImageRecord:
     """Insert one row copied from another gallery database.
 
@@ -1031,7 +1129,7 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
     return _row_to_record(row)
 
 
-@gallery_lock.protected(lambda: settings.db_path)
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def index_file(
     filename: str,
     meta: dict[str, Any],
@@ -1083,16 +1181,27 @@ def index_file(
     return _row_to_record(row)
 
 
-@gallery_lock.protected(lambda: settings.db_path)
 def thumbnail_for(image: Image.Image, filename: str) -> None:
     """Write the WEBP in thumbnails/ for an existing PNG, if it has none."""
     png = settings.outputs_dir / filename
-    # A lost index has no rows for the startup migration; reindex reaches this
-    # after recovering each PNG. Move its old cache instead of duplicating it.
-    _move_thumbnail(png)
     path = _thumb_path(png)
+    # Encoded before the reservation, as in save_image; only the move and the
+    # rename are reserved, and both checks are repeated under it.
+    partial = None
     if not path.exists() and not png.with_suffix(".webp").is_file():
-        _write_thumb(image, path)
+        partial = _encode_thumb(image, path)
+    try:
+        with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
+            # A lost index has no rows for the startup migration; reindex
+            # reaches this after recovering each PNG. Move its old cache
+            # instead of duplicating it.
+            _move_thumbnail(png)
+            if partial is not None and not path.exists() and not png.with_suffix(".webp").is_file():
+                _place_thumb(partial, path)
+                partial = None
+    finally:
+        if partial is not None:
+            _unlink(partial)
 
 
 # The columns `keep_rates` can group by, as SQL. CFG and mu are rounded to the
@@ -1316,14 +1425,14 @@ def get_image(image_id: int) -> ImageRecord | None:
     return _row_to_record(row, row["refine"] in missing) if row else None
 
 
-@gallery_lock.protected(lambda: settings.db_path)
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
     with _write_lock, _session() as conn:
         conn.execute("UPDATE images SET favorite = ? WHERE id = ?", (int(favorite), image_id))
     return get_image(image_id)
 
 
-@gallery_lock.protected(lambda: settings.db_path)
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def delete_image(image_id: int) -> bool:
     # Looked up and deleted under the one lock: two deletes of the same image
     # (a double-click, a second tab) both found the row before either removed
@@ -1443,7 +1552,7 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
             _unlink(path)
     # Partials from a power cut or a killed process, by age - never the fresh
     # one another process may be encoding right now.
-    partials = sum(1 for path in _stale_partials() if _unlink(path))
+    partials = sum(1 for path in _stale_partials() if _discard(path))
 
     return {"records": len(doomed), "files": removed, "orphans": orphans, "partials": partials}
 

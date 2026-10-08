@@ -340,8 +340,10 @@ open (file names included). The password is not saved anywhere and cannot be
 recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work
 must also finish before this operation can start.
 
-The server saves a ZIP in `bundles/` beside its gallery database, checks every
-file against its checksum, and only then removes the original PNGs and
+The server saves the bundle (a ZIP, or with a password an encrypted
+`.ldbundle`) in `bundles/` beside its gallery database, reads it back and
+checks every file against its checksum (decrypting and authenticating every
+part of a protected bundle), and only then removes the original PNGs and
 thumbnails. The old database is replaced with a compact empty gallery, ready
 for new images. The bundle includes the database, full-size PNGs, thumbnails
 and unindexed PNGs; generation settings, favourites, timings and image
@@ -354,13 +356,22 @@ bundles marked **Protected**, and selected `.ldbundle` files, need the
 password under **Password for protected bundles**; a wrong password is
 refused before a selected file is uploaded. Import
 merges into the current gallery, keeps existing images, remaps source-image
-links, and skips images already present. Different files using the same name
+links, and skips images already present. An image the gallery still lists
+but whose file is gone is restored from the bundle when the bundle holds that
+same picture. Different files using the same name
 are refused before changing the gallery. Missing source images cannot be
 restored; the result reports links that could not be recovered.
 
 Keep the server running until the operation finishes; closing the dialog or
-browser does not cancel it. Creating and importing a bundle need free space
-for the archive and staged files. If an image is locked or files change during
+browser does not cancel it. **Cancel upload** stops a selected file only
+while it is still being sent (so does closing the tab then); nothing is
+imported and the partial upload is removed. Once the upload has arrived the
+import is the server's to finish. If another Local Diffusion process (such as
+a running `reindex`) is using the gallery, the operation fails at once and
+can be retried when it ends. Creating and importing a bundle need free space
+for the archive and staged files: the bundle and the merged database on the
+database's drive, uploads and unpacked images in `.local-diffusion-staging`
+on the images' drive. If an image is locked or files change during
 export, the verified bundle remains available and the dialog lists what was
 not cleared. The status line shows the current step and how far it has got. Review that result before removing anything by hand. In Windows
 and WSL, the saved-bundle directory belongs to the server environment whose

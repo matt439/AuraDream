@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import storage
+from . import gallery_lock, storage
 from .backends import Cancelled, GenerationBackend
 from .model_selection import current_settings
 from .config import settings
@@ -793,17 +793,28 @@ class JobManager:
             # Each image in a batch gets its own reproducible seed. Wrapped
             # for the same reason the run seed is - and with the same helper
             # the generator uses, so the two cannot disagree.
-            record = storage.save_image(
-                image,
-                ran,
-                seed=wrap_seed(seed + offset),
-                duration_ms=elapsed_ms // max(len(images), 1),
-                model_id=selected.model_id,
-                job_id=job.id,
-                run_id=job.run_id,
-                quantization=selected.quantization,
-                variables=cell.variables,
-            )
+            while True:
+                try:
+                    record = storage.save_image(
+                        image,
+                        ran,
+                        seed=wrap_seed(seed + offset),
+                        duration_ms=elapsed_ms // max(len(images), 1),
+                        model_id=selected.model_id,
+                        job_id=job.id,
+                        run_id=job.run_id,
+                        quantization=selected.quantization,
+                        variables=cell.variables,
+                    )
+                    break
+                except gallery_lock.GalleryBusy:
+                    # Another process has held the gallery past one
+                    # SESSION_WAIT (a CLI reindex, another server's export).
+                    # The render is in memory: wait again rather than lose
+                    # it, until a cancel says otherwise.
+                    if job.cancel_requested:
+                        raise Cancelled() from None
+                    log.warning("job %s: gallery busy in another process; still waiting to save", job.id)
             job.images.append(record.model_dump())
             # Publish it now: a long sweep should fill the page as it goes
             # rather than all at once at the end.

@@ -1064,10 +1064,12 @@
       <label class="sr-only" for="bundle-file">Bundle file</label>
       <input id="bundle-file" type="file" accept=".zip,.ldbundle,application/zip">
       <button type="button" class="ghost" id="bundle-upload" aria-disabled="true">Import selected file</button>
+      <button type="button" class="ghost" id="bundle-upload-cancel" aria-disabled="true">Cancel upload</button>
     </div>
   </section>
   <div class="bundle-feedback">
     <p id="bundle-status" role="status" aria-live="polite"></p>
+    <p id="bundle-progress" class="hint"></p>
     <a id="bundle-download" hidden download>Download saved bundle</a>
     <details id="bundle-retained" hidden><summary>Files still on disk</summary><ul></ul></details>
   </div>

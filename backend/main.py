@@ -275,6 +275,10 @@ def _stop_critic() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     storage.init_db()
+    try:
+        storage.discard_bundle_leftovers()
+    except gallery_lock.GalleryBusy:
+        pass  # another process is mid-operation; the next bundle operation sweeps
     if settings.load_on_startup:
         asyncio.create_task(_load_in_background())
     yield

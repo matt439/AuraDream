@@ -12,6 +12,9 @@ loras/
 bundles/
 .bundle-*/
 .bundle-import-*/
+.bundle-upload-*.part
+.local-diffusion-staging/
+/bundle-dialog-*.png
 server.log
 server.err
 local-diffusion.settings.json

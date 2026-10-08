@@ -799,32 +799,101 @@ Jobs:
   browser filter. Publish and verify the ZIP and its SHA-256 manifest before
   removing source files; recheck the source inventory and hashes before
   cleanup. Use SQLite backup for WAL databases. Report retained files and the
-  durable bundle on incomplete cleanup. Compact the cleared database while
-  keeping its AUTOINCREMENT high-water mark: old browser ids must never name
-  a new image after a clear. Import validates names, checksums, database rows,
+  durable bundle on incomplete cleanup. Cleanup takes SQLite's write lock
+  (`BEGIN IMMEDIATE`) before removing any file, deletes rows only for files
+  that really went, and reports `deleted_ids` only once that commits. Compact
+  the cleared database while keeping its AUTOINCREMENT high-water mark: old
+  browser ids must never name a new image after a clear. Import validates names, checksums, database rows,
   images and conflicts in staging before installing new files and replacing
   the database; references/refine ids and PNG metadata are remapped together.
   Never extract arbitrary archive paths or overwrite conflicting images.
+  A present image is the same only by its pixel-deciding chunks or its full
+  decoded identity (mode, size, palette, transparency, full SHA-256 of the
+  raw bytes), never the 16-hex `content_hash`; a present image's thumbnail is
+  kept whatever its bytes, a new image's is held to the bundle's. A known row
+  whose file is missing is restored from the bundle (`restored`) only when
+  the copy is plain RGB (no transparency) at the row's size, its pixel hash
+  equals the row's `content_hash` and its identity metadata matches (the
+  short hash covers raw bytes only); the row is left unchanged and its PNG chunk rewritten
+  from it. Anything else is refused.
 - Every archive is read once: `_verify_archive` checks CRC, manifest SHA-256
   and (encrypted) every chunk tag, and tracked PNGs are decoded from the bytes
-  it just read on the bounded decode pool; errors are raised in row order.
-  Never add a second full pass, and never weaken a check for speed (no
-  zlib-only check, no size/mtime in place of the pre-cleanup hash, no trusting
-  the live `content_hash` for an existing image). Staged files are fsynced and
-  installed by an exclusive rename/link (copy fallback), never replacing one.
+  it just read on the bounded decode pool, which also hashes them; errors are
+  raised in row order. A present image whose pixel-deciding chunks equal the
+  bundle copy's is not decoded, but its bundle row is still validated against
+  the copy's IHDR size. Never add a second full pass, and never weaken a check
+  for speed (no zlib-only check, no size/mtime in place of the pre-cleanup
+  hash, no trusting the live `content_hash` for an existing image). Export's
+  read-back reuses the writer's scrypt key only for its byte-identical header;
+  import, upload and the password check always derive. Members whose
+  destination exists are not unpacked: a present image is compared by its
+  chunks, anything else (non-PNG) with its verified manifest size and
+  SHA-256, and one that has vanished by installation refuses the import.
+  Staged files are written, fsynced and closed off the reading thread
+  (`_Stager`, bounded by count and bytes) and metadata rewrites run on a pool;
+  every one finishes before installation, and on failure before the staging
+  directory goes. Staged files are installed by an exclusive rename/link,
+  never replacing one; the copy fallback writes `<name>.part` beside the
+  target and only then claims the name. A tracked member over
+  `_MAX_IMAGE_BYTES` (256 MiB) is refused before it is read into memory, and
+  so is any member whose `compress_size` exceeds what deflate could make of
+  its `file_size` (a whole `read()` fetches all of it in one call).
+- Imports unpack, and uploads land, in `storage.bundle_staging_dir()`
+  (`.local-diffusion-staging` beside the images directory, or inside it when
+  it is its own volume); the merged database is built in a `.bundle-merge-*`
+  directory beside the live one. Free space is checked per volume. Bundle
+  leftovers (`bundles/*.part`, `.bundle-*` work directories beside the
+  database, staging entries) are stale partials: counted by `summarise`, and
+  swept once older than `PARTIAL_SETTLE_SECONDS` at startup, before every
+  bundle operation and by `clear_history`, always under the reservation.
 - A password bundle (`.ldbundle`) is the ordinary ZIP streamed through
   `bundle_crypto`; no plaintext archive ever reaches disk, and export verifies
   it by decrypting before anything is cleared. The password is never stored,
   logged, put in a URL or echoed in an error; a raw upload carries it
-  base64-encoded in `X-Bundle-Password`. Header parameters are untrusted and
-  bounded before key derivation. A wrong password or altered file is refused
-  before anything is staged.
+  base64-encoded in `X-Bundle-Password`. Every route's password passes
+  `api_bundles._password` (length, and a UTF-8 form: JSON can carry a lone
+  surrogate), refused with a fixed 422 before any check or worker;
+  `bundle_crypto._secret` raises `CryptoError`, never a codec error that
+  names a position. Header parameters are untrusted and
+  bounded before key derivation. A wrong password, a bad header, or a
+  truncated or extended file is refused before anything is staged; any other
+  altered chunk is refused when it is read, before anything is installed, and
+  the staging directory is discarded. Never add an up-front pass to
+  authenticate every chunk.
+- An upload whose body stops early (the page's Cancel, a reload, a closed tab:
+  `ClientDisconnect`) or whose request is cancelled fails the reservation with
+  `api_bundles.UPLOAD_STOPPED` and removes its `.bundle-upload-*.part` before
+  anything is imported. `BundleManager.fail` never stores a bare class name.
+  The page's Cancel aborts only a request still being sent; once the server
+  answers 202 the import is the server's. The route checks for a disconnect
+  after the body ends, but a Cancel pressed after that check and before the
+  202 arrives cannot stop the import, so the page says only "Upload
+  cancelled." and leaves "nothing was imported" to the server's status.
+- The dialog acts on a finished operation (forget deleted ids, reload the
+  gallery) only when this page started it or saw it running. A result the
+  page's first status already holds ended before it loaded: it is shown as
+  "Last bundle operation:" and touches nothing; a result already read in the
+  open dialog is labelled the same way when it is reopened. Export clears its
+  password fields when pressed; the unlock field is kept after a failure (to
+  retry) and cleared once an import is done. `#bundle-status` is the live
+  region and says only the operation's sentence; phase and counts go in the
+  non-live `#bundle-progress`.
 - A bundle operation reserves HTTP admission before awaiting work, only when
   jobs, model loading and existing gallery requests are idle. Count complete
   image response streams. The reservation outlives request cancellation and
   lasts until its background worker finishes; graceful shutdown waits for it.
   `gallery_lock` also covers whole storage/reindex writes and SQLite sessions
-  across processes. Keep lock ordering consistent: gallery reservation before
+  across processes. SQLite sessions and per-record writers (`save_image`,
+  `thumbnail_for`, `import_file`, `index_file`, `set_favorite`,
+  `delete_image`, `init_db`) wait up to `gallery_lock.SESSION_WAIT` for
+  another process's reservation; whole maintenance operations (bundles,
+  `delete_matching`, `clear_history`, `vacuum`, reindex/merge) refuse at
+  once with `GalleryBusy`. The wait covers the in-process lock too (one
+  deadline in `hold`), never `wait` per thread queued behind it; `jobs._save`
+  retries a `GalleryBusy` save until the job is cancelled, never dropping a
+  finished render. `save_image` and `thumbnail_for` encode their
+  `.part` files before taking the reservation and reserve only the row and
+  the renames. Keep lock ordering consistent: gallery reservation before
   storage's write lock. Status and bundle downloads remain available.
 - The preview callback (`_step_end` -> `latent_preview`) never raises - an
   exception there is how `Cancelled` ends a job - and `jobs.on_preview` checks
@@ -2828,22 +2897,46 @@ HTTP guards.
 
 `tests/test_bundles.py` covers archive/merge round trips, preserved favourites
 and timings, remapped image links, WAL snapshots, monotonic ids, corrupt or
-unsafe archives, conflicts, rollback, changed source files, partial cleanup
-and process/thread reservations. `tests/test_api_bundles.py` covers browser
-export/download/upload/import, admission during jobs and maintenance, origins,
+unsafe archives, conflicts, rollback (including a database replacement
+refused after every file is installed), changed source files (a same-size,
+same-mtime edit included, so only the pre-cleanup hash catches it), partial
+cleanup (a database replacement refused after files went still reports
+`deleted_ids`) and process/thread reservations, a locked database stopping the clear before
+any file goes, restoring a lost file of a known row, palette/mode identity,
+regenerated thumbnails, oversized members, the cross-volume copy, staging
+and free space per volume, and the leftover sweep. `tests/test_api_bundles.py` covers browser
+export/download/upload/import, admission during jobs, the card's editor
+work, a model switch or load lock and maintenance, another process's
+reservation failing the operation readably, origins,
 image-stream lifetime, cancellation of the supervising task, progress, and
-password export/check/upload/import. `tests/test_bundle_crypto.py` covers the
+password export/check/upload/import, a password with no UTF-8 form refused
+with one 422 on every route, and an upload disconnected mid-body (driven as
+raw ASGI, since TestClient sends whole bodies) failing readably with no staging
+left. `tests/test_bundle_crypto.py` covers the
 cipher: round trips and seeks, Unicode normalisation, wrong passwords,
-flipped, truncated, extended and reordered chunks, unbounded parameters and an
-unfinished writer. Password bundles, altered ciphertext, a failed encrypted
+flipped, truncated, extended and reordered chunks, a short header or no body,
+unbounded parameters, the shipped scrypt parameters (17/8/1, 1 MiB chunks;
+`conftest` otherwise writes the cheapest cost) staying within the reader's
+bounds, and an unfinished writer. Password bundles, altered ciphertext (in a
+later chunk too, after members were staged), a failed encrypted
 read-back that clears nothing, and re-encoded existing images on repeat import
-are in `tests/test_bundles.py`.
+are in `tests/test_bundles.py`, with the speed paths' guarantees: one scrypt
+run per password export, `_raw_digest` equal to `tobytes()`, a repeat import
+that decodes and unpacks nothing present but still validates its rows, a
+declined member that vanished, and a failed parallel metadata rewrite.
+`test_bundle_crypto.py` also covers writes of any size and the writer's key
+opening only its own header; `test_api_bundles.py` an upload in many batches.
 
 `smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog,
 all-model scope, typed confirmation, preserved favourites and metadata,
 saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal,
 password export (mismatch refused, fields cleared, Protected tag), wrong
-password refused before upload, protected import and narrow layout:
+password refused before upload (the unlock field kept), protected import
+(the unlock field cleared), Cancel upload (refused with its reason while idle;
+mid-send it aborts, with a stubbed upload fetch), progress counts outside
+the live region, a reopened dialog's result labelled as past, narrow layout,
+and an export replayed to a reloaded page shown as past without forgetting
+ids:
 
 ```powershell
 uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>

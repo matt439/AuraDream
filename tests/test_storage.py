@@ -130,6 +130,36 @@ def test_a_committed_image_survives_a_rename_that_keeps_failing(store, monkeypat
     assert len(list(store.settings.outputs_dir.glob("*.png.part"))) == 1
 
 
+def test_a_read_does_not_wait_for_another_threads_png_encode(store, monkeypatch):
+    # The encode runs before the gallery reservation; held through it, every
+    # gallery read on another thread waited out each save.
+    import threading
+
+    first = keep(store)
+    encoding, release = threading.Event(), threading.Event()
+    real = Image.Image.save
+
+    def slow(self, fp, *args, **kwargs):
+        if str(fp).endswith(".png.part"):
+            encoding.set()
+            assert release.wait(10)
+        return real(self, fp, *args, **kwargs)
+
+    monkeypatch.setattr(Image.Image, "save", slow)
+    saver = threading.Thread(target=keep, args=(store,))
+    saver.start()
+    try:
+        assert encoding.wait(10)
+        reader = threading.Thread(target=store.get_image, args=(first.id,))
+        reader.start()
+        reader.join(5)
+        assert not reader.is_alive(), "a read waited on another thread's encode"
+    finally:
+        release.set()
+        saver.join(10)
+    assert store.list_images()[1] == 2
+
+
 def test_stale_partials_are_counted_and_swept_but_fresh_ones_are_not(store):
     import os
     import time

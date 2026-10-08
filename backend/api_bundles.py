@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, SecretStr
+from starlette.requests import ClientDisconnect
 
 from . import bundle_crypto, bundles, storage
 from .jobs import JobManager
@@ -21,6 +22,7 @@ log = logging.getLogger(__name__)
 PREFIX = "/api/gallery/bundles"
 PASSWORD_HEADER = "X-Bundle-Password"
 _UPLOAD_BUFFER = 8 * 1024 * 1024
+UPLOAD_STOPPED = "The upload stopped before the whole file arrived; nothing was imported."
 
 
 class ExportRequest(BaseModel):
@@ -43,6 +45,12 @@ def _password(value: SecretStr | str | None) -> str | None:
     text = value.get_secret_value() if isinstance(value, SecretStr) else value or ""
     if len(text) > 1024:
         raise HTTPException(422, "The bundle password is too long.")
+    try:
+        # JSON can carry a lone surrogate, which has no UTF-8 form. Refused
+        # here, with a fixed message, before any check or worker sees it.
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        raise HTTPException(422, "The bundle password contains characters that cannot be used.") from None
     return text or None
 
 
@@ -92,8 +100,11 @@ class BundleManager:
                       "result": None, "error": None}
         self.progress = None
 
-    def fail(self, exc: BaseException) -> None:
-        self.state = {**self.state, "state": "failed", "error": str(exc) or type(exc).__name__}
+    def fail(self, exc: BaseException | str) -> None:
+        # Some exceptions (ClientDisconnect, CancelledError) have no message;
+        # the page shows this text as it is, so never a bare class name.
+        error = str(exc) or f"The gallery bundle operation stopped unexpectedly ({type(exc).__name__})."
+        self.state = {**self.state, "state": "failed", "error": error}
 
     def start(self, fn: Callable[[], dict], cleanup: Path | None = None) -> dict:
         self.task = asyncio.create_task(self._run(fn, cleanup))
@@ -215,10 +226,10 @@ def create_router(get_manager: Callable[[], BundleManager]) -> APIRouter:
         try:
             # Raw streamed uploads avoid buffering a multi-gigabyte gallery in
             # RAM. The archive reader validates its contents before any merge.
-            # Staged beside the database, so unpacking stays on that volume;
-            # writes are batched so the socket does not wait on each chunk.
-            directory = storage.settings.db_path.parent
-            directory.mkdir(parents=True, exist_ok=True)
+            # Staged on the images' volume, where the import unpacks too;
+            # writes are batched, and one runs while the next batch arrives,
+            # so the socket does not wait on the disk.
+            directory = await asyncio.to_thread(storage.bundle_staging_dir)
             with tempfile.NamedTemporaryFile(prefix=".bundle-upload-", suffix=".part", dir=directory,
                                              delete=False) as stream:
                 path = Path(stream.name)
@@ -226,23 +237,53 @@ def create_router(get_manager: Callable[[], BundleManager]) -> APIRouter:
                 total = int(length) if length.isdigit() else 0
                 received = 0
                 pending = bytearray()
-                async for chunk in request.stream():
-                    pending += chunk
-                    received += len(chunk)
-                    if len(pending) >= _UPLOAD_BUFFER:
+                writing = None
+                try:
+                    async for chunk in request.stream():
+                        pending += chunk
+                        received += len(chunk)
+                        if len(pending) >= _UPLOAD_BUFFER:
+                            if writing is not None:
+                                # Shielded: a cancelled request must not
+                                # orphan the thread still writing the file.
+                                await asyncio.shield(writing)
+                            # Each batch is a new bytearray, never changed
+                            # while its write runs.
+                            writing = asyncio.ensure_future(asyncio.to_thread(stream.write, pending))
+                            pending = bytearray()
+                            manager.report("receiving", received, total)
+                    if writing is not None:
+                        await asyncio.shield(writing)
+                        writing = None
+                    if pending:
                         await asyncio.to_thread(stream.write, pending)
-                        pending = bytearray()
-                        manager.report("receiving", received, total)
-                if pending:
-                    await asyncio.to_thread(stream.write, pending)
+                finally:
+                    # A write still running holds the file: let it finish
+                    # before the file is closed and removed, even when this
+                    # request was cancelled.
+                    if writing is not None:
+                        await asyncio.wait({writing})
+                        if not writing.cancelled():
+                            writing.exception()  # retrieved; the original error wins
+            # A Cancel just after the last byte ends the body normally; one
+            # the server has already seen still stops the import. A later
+            # one is too late: the page then reports what the status says.
+            if await request.is_disconnected():
+                raise ClientDisconnect()
             return manager.start(lambda: bundles.import_bundle(path, password, manager.report), cleanup=path)
         except BaseException as exc:
-            manager.fail(exc)
+            # The browser's Cancel, a reload or a closed tab ends the body
+            # early (ClientDisconnect); shutdown cancels the request.
+            stopped = isinstance(exc, (ClientDisconnect, asyncio.CancelledError))
+            manager.fail(UPLOAD_STOPPED if stopped else exc)
             if path is not None:
                 try:
                     path.unlink(missing_ok=True)
                 except OSError:
                     log.warning("could not remove incomplete uploaded bundle %s", path, exc_info=True)
+            if isinstance(exc, ClientDisconnect):
+                # Nobody is listening; an answer instead of a traceback in the log.
+                return JSONResponse({"detail": UPLOAD_STOPPED}, status_code=400)
             raise
 
     @router.get(PREFIX + "/files/{name}")

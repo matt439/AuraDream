@@ -4,11 +4,14 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import os
 import sqlite3
 import subprocess
 import sys
 import threading
+import time
 import warnings
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
@@ -144,7 +147,8 @@ def test_import_publish_failure_rolls_back_rows_and_files_already_added(store, m
 
         def fail_second_copy(self, mode="r", *args, **kwargs):
             nonlocal published
-            if mode == "xb" and self.parent == dest.outputs_dir and self.suffix == ".png":
+            # The copy is written as a `.part` beside its target.
+            if mode == "xb" and self.parent == dest.outputs_dir and self.name.endswith(".png.part"):
                 published += 1
                 if published == 2:
                     raise OSError("destination disk full")
@@ -155,6 +159,83 @@ def test_import_publish_failure_rolls_back_rows_and_files_already_added(store, m
         bundles.import_bundle(Path(archive["path"]))
     assert published == 2
     assert _snapshot(store) == snapshot
+
+
+def _locked_database(staged):
+    raise sqlite3.OperationalError("database is locked")
+
+
+def test_a_database_replacement_refused_after_every_file_is_installed_rolls_them_back(store, monkeypatch, tmp_path):
+    _save("first", 1)
+    _save("second", 2)
+    archive = _export()
+    dest = _destination(store, monkeypatch, tmp_path)
+    _save("existing", 99)
+    snapshot = _snapshot(store)
+    installed = []
+    real_install = bundles._install
+
+    def counted(source, target, done):
+        real_install(source, target, done)
+        installed.append(target)
+
+    monkeypatch.setattr(bundles, "_install", counted)
+    monkeypatch.setattr(bundles, "_replace_database", _locked_database)
+    with pytest.raises(sqlite3.OperationalError, match="locked"):
+        bundles.import_bundle(Path(archive["path"]))
+    assert any(target.suffix == ".png" for target in installed)
+    assert not any(target.exists() for target in installed)
+    assert _snapshot(store) == snapshot
+    assert sorted(p.name for p in dest.outputs_dir.glob("*.png")) == sorted(
+        name for name in snapshot[1] if name.endswith(".png") and "/" not in name)
+
+
+def test_a_database_replacement_refused_after_files_went_still_reports_what_was_deleted(store, monkeypatch):
+    first = _save("first", 1)
+    second = _save("second", 2)
+    monkeypatch.setattr(bundles, "_replace_database", _locked_database)
+    archive = _export()
+    assert archive["cleared"] is False and "locked" in archive["cleanup_error"]
+    assert Path(archive["path"]).is_file()
+    assert str(store.settings.db_path.resolve()) in archive["retained"]
+    # The files and rows really went; the browser must still drop their ids.
+    assert sorted(archive["deleted_ids"]) == sorted([first.id, second.id])
+    assert store.get_image(first.id) is None and store.get_image(second.id) is None
+    assert not list(store.settings.outputs_dir.glob("*.png"))
+
+
+@pytest.mark.parametrize("links", [True, False])
+def test_a_copy_across_volumes_takes_its_final_name_only_once_complete(store, monkeypatch, tmp_path, links):
+    row = _save("first", 1)
+    archive = _export()
+    dest = _destination(store, monkeypatch, tmp_path)
+    real_rename, real_link = bundles.os.rename, getattr(bundles.os, "link", None)
+
+    def cross_device(source, target):
+        # The staged file is on another volume; within the images directory
+        # an exclusive rename (or, with `links`, a hard link) still works.
+        if Path(source).parent != Path(target).parent or not links:
+            raise OSError(18, "cross-device link")
+        return (real_rename if bundles.os.name == "nt" else real_link)(source, target)
+
+    monkeypatch.setattr(bundles.os, "rename", cross_device)
+    monkeypatch.setattr(bundles.os, "link", cross_device, raising=False)
+    seen = []
+    real_copy = bundles.shutil.copyfileobj
+
+    def copy(src, dst, *args):
+        target = dest.outputs_dir / row.filename
+        if Path(dst.name).parent == dest.outputs_dir and Path(dst.name).name == row.filename + ".part":
+            # A crash here leaves a partial the sweeps know, not the image.
+            seen.append(target.exists())
+        return real_copy(src, dst, *args)
+
+    monkeypatch.setattr(bundles.shutil, "copyfileobj", copy)
+    assert bundles.import_bundle(Path(archive["path"]))["imported"] == 1
+    assert seen == [False]
+    assert [r.filename for r in store.list_images()[0]] == [row.filename]
+    assert (dest.outputs_dir / row.filename).is_file()
+    assert not list(dest.outputs_dir.rglob("*.part"))
 
 
 def test_export_preserves_unindexed_images_and_thumbnails_byte_for_byte(store, monkeypatch, tmp_path):
@@ -273,7 +354,7 @@ def test_clear_compacts_old_data_and_preserves_highwater_after_highest_row_was_d
     assert next_row.id > highest.id > first.id
 
 
-@pytest.mark.parametrize("change", ["changed", "added"])
+@pytest.mark.parametrize("change", ["changed", "same-size", "added"])
 def test_a_file_changed_or_added_after_verification_keeps_the_durable_bundle_without_clearing(store, monkeypatch, change):
     first = _save("first", 1)
     _save("second", 2)
@@ -286,6 +367,11 @@ def test_a_file_changed_or_added_after_verification_keeps_the_durable_bundle_wit
         verified = real_verify(*args, **kwargs)
         if change == "changed":
             path.write_bytes(original + b"external edit after archive verification")
+        elif change == "same-size":
+            # Same size and mtime, one byte different: only the hash can tell.
+            st = path.stat()
+            path.write_bytes(original[:-1] + bytes([original[-1] ^ 0xFF]))
+            os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))
         else:
             Image.new("RGB", (8, 8), "green").save(store.settings.outputs_dir / "new-external.png")
         snapshots.append(_snapshot(store))
@@ -413,6 +499,9 @@ def test_locked_image_is_reported_and_keeps_its_row_after_a_verified_export(stor
 
 
 def test_export_reservation_holds_until_clear_so_a_new_image_cannot_be_lost(store, monkeypatch):
+    # The save encodes its `.png.part` before it waits for the reservation,
+    # so the export's post-verification inventory finds an incomplete write
+    # and clears nothing; the save then lands once the export lets go.
     original = _save()
     verifying = threading.Event()
     release = threading.Event()
@@ -443,10 +532,14 @@ def test_export_reservation_holds_until_clear_so_a_new_image_cannot_be_lost(stor
             assert not saved.wait(0.1), "save entered while export owned the gallery"
         finally:
             release.set()
-        assert export.result(timeout=10)["deleted_ids"] == [original.id]
+        result = export.result(timeout=10)
         new = save.result(timeout=10)
+    assert result["deleted_ids"] == [] and result["cleared"] is False
+    assert "incomplete image write" in result["cleanup_error"]
+    assert Path(result["path"]).is_file()
     assert new.id > original.id
-    assert store.list_images()[1] == 1
+    assert store.list_images()[1] == 2
+    assert (store.settings.outputs_dir / original.filename).is_file()
     assert (store.settings.outputs_dir / new.filename).is_file()
 
 
@@ -469,7 +562,88 @@ except GalleryBusy:
     assert child.returncode == 0, child.stdout + child.stderr
 
 
-@pytest.mark.parametrize("name", ["../outside.zip", "..\\outside.zip", "/outside.zip", "C:/outside.zip"])
+# The child reserves the gallery, says so, and keeps it until its stdin has a
+# line (or closes) - so the test, not a sleep, decides when it lets go.
+_HOLDING_CHILD = """
+from pathlib import Path
+import sys
+from backend.gallery_lock import hold
+with hold(Path(sys.argv[1])):
+    print('held', flush=True)
+    sys.stdin.readline()
+"""
+
+
+def _holding_child(db_path):
+    child = subprocess.Popen(
+        [sys.executable, "-c", _HOLDING_CHILD, str(db_path)],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+    )
+    assert child.stdout.readline().strip() == "held"
+    return child
+
+
+def test_a_waiting_session_gets_the_gallery_once_another_process_lets_go(store):
+    child = _holding_child(store.settings.db_path)
+    try:
+        # Maintenance fails fast, as documented.
+        with pytest.raises(gallery_lock.GalleryBusy):
+            with gallery_lock.hold(store.settings.db_path):
+                pass
+        threading.Timer(0.3, lambda: (child.stdin.write("\n"), child.stdin.flush())).start()
+        started = time.monotonic()
+        with gallery_lock.hold(store.settings.db_path, wait=15):
+            waited = time.monotonic() - started
+        assert 0.2 < waited < 15
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+
+
+def test_a_waiting_session_refuses_once_its_deadline_passes(store, monkeypatch):
+    child = _holding_child(store.settings.db_path)
+    try:
+        started = time.monotonic()
+        with pytest.raises(gallery_lock.GalleryBusy):
+            with gallery_lock.hold(store.settings.db_path, wait=0.4):
+                pass
+        assert time.monotonic() - started >= 0.35
+        # The ordinary storage calls wait SESSION_WAIT, read per call.
+        monkeypatch.setattr(gallery_lock, "SESSION_WAIT", 0.2)
+        with pytest.raises(gallery_lock.GalleryBusy):
+            storage.get_image(1)
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+
+
+def test_threads_waiting_on_another_process_share_one_deadline(store):
+    # Each thread's wait covers the in-process lock too: queued behind a
+    # thread polling for the child, four waiters once refused at 1, 2, 3, 4 x.
+    child = _holding_child(store.settings.db_path)
+    waited = []
+
+    def wait():
+        started = time.monotonic()
+        try:
+            with gallery_lock.hold(store.settings.db_path, wait=0.5):
+                pass
+        except gallery_lock.GalleryBusy:
+            waited.append(time.monotonic() - started)
+
+    try:
+        threads = [threading.Thread(target=wait) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=15)
+        assert len(waited) == 4 and max(waited) < 0.9, waited
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+
+
+@pytest.mark.parametrize("name",["../outside.zip", "..\\outside.zip", "/outside.zip", "C:/outside.zip"])
 def test_download_names_cannot_escape_the_bundle_directory(store, name):
     with pytest.raises(bundles.BundleError):
         bundles.bundle_path(name)
@@ -522,6 +696,28 @@ def test_altered_password_bundle_is_rejected_before_destination_changes(store, m
     assert _snapshot(store) == snapshot
 
 
+def test_a_password_bundle_altered_past_its_first_chunk_is_refused_and_staging_discarded(store, monkeypatch, tmp_path):
+    # Only the header and the final chunk are checked on open; any other
+    # chunk is authenticated as it is read, after earlier members are staged.
+    monkeypatch.setitem(bundle_crypto.EncryptingWriter.__init__.__kwdefaults__, "chunk", 4096)
+    _save("first", 1)
+    _save("second", 2)
+    bundle = Path(bundles.export_bundle(expected=2, password="pw")["path"])
+    blob = bytearray(bundle.read_bytes())
+    assert len(blob) > bundle_crypto.HEADER_SIZE + 3 * (4096 + 16)
+    blob[bundle_crypto.HEADER_SIZE + 4096 + 16 + 10] ^= 1  # inside the second chunk
+    bundle.write_bytes(bytes(blob))
+    _destination(store, monkeypatch, tmp_path)
+    _save("existing", 99)
+    snapshot = _snapshot(store)
+    with pytest.raises(bundles.BundleError, match="damaged or was changed"):
+        bundles.import_bundle(bundle, "pw")
+    assert _snapshot(store) == snapshot
+    staging = store.bundle_staging_dir()
+    assert not staging.exists() or not list(staging.iterdir())
+    assert not list(store.settings.db_path.parent.glob(".bundle-*"))
+
+
 def test_repeat_import_recognises_a_re_encoded_existing_image_by_its_pixels(store, monkeypatch, tmp_path):
     row = _save("source", 1)
     bundle = Path(_export()["path"])
@@ -535,3 +731,402 @@ def test_repeat_import_recognises_a_re_encoded_existing_image_by_its_pixels(stor
     Image.new("RGB", (256, 256), "white").save(path)
     with pytest.raises(bundles.BundleError, match="already uses the filename"):
         bundles.import_bundle(bundle)
+
+
+def test_a_locked_database_stops_the_clear_before_any_file_is_removed(store, monkeypatch):
+    first = _save("first", 1)
+    second = _save("second", 2)
+    snapshot = _snapshot(store)
+    real_connect = sqlite3.connect
+    # Another program's open write transaction; storage's 15 s wait shortened.
+    monkeypatch.setattr(sqlite3, "connect", lambda *a, **k: real_connect(*a, **{**k, "timeout": 0.2}))
+    with closing(real_connect(store.settings.db_path, isolation_level=None)) as other:
+        other.execute("BEGIN IMMEDIATE")
+        archive = _export()
+        other.execute("ROLLBACK")
+    assert "locked" in archive["cleanup_error"]
+    assert archive["deleted_ids"] == [] and archive["cleared"] is False
+    assert Path(archive["path"]).is_file()
+    assert _snapshot(store) == snapshot
+    assert store.get_image(first.id) and store.get_image(second.id)
+
+
+def test_re_import_restores_an_image_whose_row_outlived_its_file(store, monkeypatch, tmp_path):
+    source = _save("source", 1)
+    conditioned = _save("conditioned", 2, reference=[source.id])
+    bundle = Path(_export()["path"])
+    dest = _destination(store, monkeypatch, tmp_path)
+    _save("existing", 99)
+    assert bundles.import_bundle(bundle)["imported"] == 2
+    rows = {r.filename: r for r in store.list_images()[0]}
+    path = dest.outputs_dir / conditioned.filename
+    original = path.read_bytes()
+    # What a clear interrupted between removing files and rows leaves.
+    path.unlink()
+    snapshot_rows = _snapshot(store)[0]
+    result = bundles.import_bundle(bundle)
+    assert (result["imported"], result["present"], result["restored"]) == (0, 1, 1)
+    assert _snapshot(store)[0] == snapshot_rows  # the row is unchanged
+    assert path.read_bytes() == original
+    assert _metadata(path)["reference"] == [rows[source.filename].id]
+
+    # Only the very picture the row recorded, with the same identity.
+    path.unlink()
+    with closing(sqlite3.connect(dest.db_path)) as conn, conn:
+        conn.execute("UPDATE images SET content_hash = '0123456789abcdef' WHERE filename = ?", (conditioned.filename,))
+    with pytest.raises(bundles.BundleError, match="lost its image"):
+        bundles.import_bundle(bundle)
+    with closing(sqlite3.connect(dest.db_path)) as conn, conn:
+        conn.execute("UPDATE images SET content_hash = ?, seed = 7 WHERE filename = ?",
+                     (rows[conditioned.filename].content_hash, conditioned.filename))
+    with pytest.raises(bundles.BundleError, match="different image metadata"):
+        bundles.import_bundle(bundle)
+    assert not path.exists()
+
+    # The short hash is of the raw bytes alone: the size must match the row.
+    with closing(sqlite3.connect(dest.db_path)) as conn, conn:
+        conn.execute("UPDATE images SET seed = ?, width = 2 * width WHERE filename = ?",
+                     (conditioned.seed, conditioned.filename))
+    with pytest.raises(bundles.BundleError, match="lost its image"):
+        bundles.import_bundle(bundle)
+    with closing(sqlite3.connect(dest.db_path)) as conn, conn:
+        conn.execute("UPDATE images SET width = ?, height = ? WHERE filename = ?",
+                     (conditioned.width, conditioned.height, conditioned.filename))
+    assert bundles.import_bundle(bundle)["restored"] == 1
+
+
+def test_re_import_restores_only_a_plain_rgb_picture(store, monkeypatch, tmp_path):
+    # A palette copy's raw bytes are indices, so its short hash says nothing
+    # of the colours; a render is always RGB, so nothing else is restored.
+    row = _save("source", 1)
+    image = Image.new("P", (row.width, row.height), 0)
+    image.putpalette([255, 0, 0, *[0] * 765])
+    image.save(store.settings.outputs_dir / row.filename)
+    bundle = Path(_export()["path"])
+    dest = _destination(store, monkeypatch, tmp_path)
+    assert bundles.import_bundle(bundle)["imported"] == 1
+    (dest.outputs_dir / row.filename).unlink()
+    with pytest.raises(bundles.BundleError, match="lost its image"):
+        bundles.import_bundle(bundle)
+    assert not (dest.outputs_dir / row.filename).exists()
+
+
+@pytest.mark.parametrize("existing", ["palette", "gray"])
+def test_repeat_import_tells_apart_pictures_whose_raw_bytes_agree(store, monkeypatch, tmp_path, existing):
+    row = _save("source", 1)
+
+    def indexed(colour):
+        image = Image.new("P", (256, 256), 0)
+        image.putpalette([*colour, *[0] * 765])
+        return image
+
+    # A palette image's bytes are its indices: these three share them all.
+    indexed((255, 0, 0)).save(store.settings.outputs_dir / row.filename)
+    bundle = Path(_export()["path"])
+    dest = _destination(store, monkeypatch, tmp_path)
+    assert bundles.import_bundle(bundle)["imported"] == 1
+    path = dest.outputs_dir / row.filename
+    other = indexed((0, 0, 255)) if existing == "palette" else Image.new("L", (256, 256), 0)
+    other.save(path)
+    with pytest.raises(bundles.BundleError, match="already uses the filename"):
+        bundles.import_bundle(bundle)
+
+
+def test_repeat_import_keeps_a_known_image_s_own_thumbnail(store, monkeypatch, tmp_path):
+    kept = _save("kept", 1)
+    removed = _save("removed", 2)
+    bundle = Path(_export()["path"])
+    dest = _destination(store, monkeypatch, tmp_path)
+    assert bundles.import_bundle(bundle)["imported"] == 2
+    thumbs = dest.outputs_dir / "thumbnails"
+    # Another Pillow build, or a regenerated cache: different bytes.
+    regenerated = thumbs / Path(kept.filename).with_suffix(".webp").name
+    Image.new("RGB", (32, 32), "white").save(regenerated, format="WEBP")
+    ours = regenerated.read_bytes()
+    assert bundles.import_bundle(bundle)["present"] == 2
+    assert regenerated.read_bytes() == ours
+
+    # A new image's thumbnail is still held to its bundle bytes.
+    store.delete_image(next(r.id for r in store.list_images()[0] if r.filename == removed.filename))
+    (thumbs / Path(removed.filename).with_suffix(".webp").name).write_bytes(b"an unrelated file")
+    with pytest.raises(bundles.BundleError, match="another file already uses the filename thumbnails/"):
+        bundles.import_bundle(bundle)
+
+
+def test_an_oversized_tracked_image_is_refused_before_it_is_read(store, monkeypatch, tmp_path):
+    _save("source", 1)
+    bundle = Path(_export()["path"])
+    _destination(store, monkeypatch, tmp_path)
+    snapshot = _snapshot(store)
+    monkeypatch.setattr(bundles, "_MAX_IMAGE_BYTES", 1024)
+    with pytest.raises(bundles.BundleError, match="too large to be a gallery image"):
+        bundles.import_bundle(bundle)
+    assert _snapshot(store) == snapshot
+
+
+def test_a_member_padded_past_its_deflate_stream_is_refused_before_it_is_read(store, monkeypatch, tmp_path):
+    # A small file_size passes every size cap, but read() would fetch the
+    # whole compress_size at once; the CRC and SHA-256 still match.
+    row = _save()
+    archive = _export()
+    with ZipFile(archive["path"]) as source:
+        entries = {name: source.read(name) for name in source.namelist()}
+    image_name = "images/" + row.filename
+    real = zipfile._get_compressor
+
+    class Padded:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def compress(self, data):
+            return self.inner.compress(data)
+
+        def flush(self):
+            return self.inner.flush() + b"\0" * (256 * 1024)
+
+    padded = tmp_path / "padded.zip"
+    with ZipFile(padded, "w") as target:
+        for name, data in entries.items():
+            if name == image_name:
+                monkeypatch.setattr(zipfile, "_get_compressor", lambda *a, **k: Padded(real(*a, **k)))
+                target.writestr(name, data, compress_type=zipfile.ZIP_DEFLATED)
+                monkeypatch.setattr(zipfile, "_get_compressor", real)
+            else:
+                target.writestr(name, data)
+    with ZipFile(padded) as check:
+        info = check.getinfo(image_name)
+        assert info.compress_size > 256 * 1024 > info.file_size
+        assert check.read(image_name) == entries[image_name]  # zipfile alone accepts it
+    _destination(store, monkeypatch, tmp_path)
+    snapshot = _snapshot(store)
+    with pytest.raises(bundles.BundleError, match="stored larger than its contents"):
+        bundles.import_bundle(padded)
+    assert _snapshot(store) == snapshot
+
+
+def _leftovers(store):
+    beside = store.settings.db_path.parent
+    staging = store.bundle_staging_dir()
+    (beside / "bundles").mkdir(exist_ok=True)
+    made = {
+        "archive": beside / "bundles" / "local-diffusion-x.zip.part",
+        "export": beside / ".bundle-ab12cd_3",
+        "merge": beside / ".bundle-merge-ab12cd34",
+        "old upload": beside / ".bundle-upload-ab12cd34.part",
+        "import": staging / ".bundle-import-ab12cd34",
+        "upload": staging / ".bundle-upload-ab12cd34.part",
+    }
+    for path in made.values():
+        if path.suffix == ".part":
+            path.write_bytes(b"left by a killed process")
+        else:
+            (path / "images").mkdir(parents=True)
+            (path / "images" / "unpacked.png").write_bytes(b"a gallery-sized copy")
+    old = time.time() - storage.PARTIAL_SETTLE_SECONDS - 60
+    for path in made.values():
+        os.utime(path, (old, old))
+    fresh = staging / ".bundle-upload-fresh123.part"
+    fresh.write_bytes(b"an upload still arriving")
+    unrelated = beside / ".bundle-notes.txt"
+    unrelated.write_bytes(b"not ours")
+    os.utime(unrelated, (old, old))
+    return made, [fresh, unrelated]
+
+
+@pytest.mark.parametrize("sweep", ["startup", "export", "import", "clear"])
+def test_what_a_killed_bundle_operation_left_is_swept_once_settled(store, sweep):
+    _save("source", 1)
+    made, kept = _leftovers(store)
+    assert store.summarise()["partial_files"] == len(made)
+    if sweep == "startup":
+        assert store.discard_bundle_leftovers() == len(made)
+    elif sweep == "export":
+        bundle = Path(_export()["path"])
+    elif sweep == "import":
+        bad = store.settings.db_path.parent / "broken.zip"
+        bad.write_bytes(b"not a ZIP archive")
+        with pytest.raises(bundles.BundleError):
+            bundles.import_bundle(bad)
+    else:
+        assert store.clear_history()["partials"] == len(made)
+    assert not any(path.exists() for path in made.values())
+    assert all(path.exists() for path in kept)
+    if sweep == "export":
+        assert bundle.is_file()
+
+
+def test_import_unpacks_on_the_images_volume_and_merges_beside_the_database(store, monkeypatch, tmp_path):
+    _save("source", 1)
+    bundle = Path(_export()["path"])
+    dest = _destination(store, monkeypatch, tmp_path / "elsewhere")
+    seen = {}
+    real_verify = bundles._verify_archive
+
+    def capture(path, destination=None, **kwargs):
+        seen.update(destination=destination, merge=kwargs["merge"][0])
+        return real_verify(path, destination, **kwargs)
+
+    monkeypatch.setattr(bundles, "_verify_archive", capture)
+    assert bundles.import_bundle(bundle)["imported"] == 1
+    assert seen["destination"].parent == store.bundle_staging_dir()
+    assert store.bundle_staging_dir().parent == dest.outputs_dir.resolve().parent
+    assert seen["merge"].parent == dest.db_path.parent
+    assert not list(store.bundle_staging_dir().iterdir())
+
+
+def test_staging_moves_inside_an_images_directory_that_is_its_own_volume(store, monkeypatch):
+    _save("source", 1)
+    outputs = store.settings.outputs_dir.resolve()
+    real_stat = os.stat
+
+    def mounted(path, *args, **kwargs):
+        result = real_stat(path, *args, **kwargs)
+        if Path(path) == outputs.parent:
+            return os.stat_result((result.st_mode, result.st_ino, result.st_dev + 1, *result[3:10]))
+        return result
+
+    monkeypatch.setattr(os, "stat", mounted)
+    staging = store.bundle_staging_dir()
+    monkeypatch.setattr(os, "stat", real_stat)
+    assert staging.parent == outputs
+    # The inventory skips the directory, and an upload inside it.
+    (staging / ".bundle-upload-ab12cd34.part").write_bytes(b"arriving")
+    assert bundles.preview()["images"] == 1
+    assert store.discard_bundle_leftovers() == 0
+
+
+def test_free_space_is_checked_on_each_volume_written(monkeypatch, tmp_path):
+    images, database = tmp_path / "images", tmp_path / "database"
+    images.mkdir()
+    database.mkdir()
+    devices = {images: 1, database: 2}
+    free = {images: 100, database: 100}
+    real_stat = os.stat
+
+    def stat(path, *args, **kwargs):
+        result = real_stat(path, *args, **kwargs)
+        return os.stat_result((result.st_mode, result.st_ino, devices[Path(path)], *result[3:10]))
+
+    class Usage:
+        def __init__(self, path):
+            self.free = free[Path(path)]
+
+    monkeypatch.setattr(bundles.os, "stat", stat)
+    monkeypatch.setattr(bundles.shutil, "disk_usage", Usage)
+    bundles._check_space([(images, 90, "unpack this bundle"), (database, 90, "merge")])
+    with pytest.raises(bundles.BundleError, match="unpack this bundle"):
+        bundles._check_space([(images, 101, "unpack this bundle"), (database, 90, "merge")])
+    with pytest.raises(bundles.BundleError, match="merge"):
+        bundles._check_space([(images, 90, "unpack this bundle"), (database, 101, "merge")])
+    devices[database] = 1  # one volume: both land on it
+    with pytest.raises(bundles.BundleError, match="unpack this bundle"):
+        bundles._check_space([(images, 60, "unpack this bundle"), (database, 60, "merge")])
+
+
+def test_a_password_export_derives_its_key_once(store, monkeypatch, tmp_path):
+    _save("sealed", 1)
+    calls = []
+    real = bundle_crypto._derive
+    monkeypatch.setattr(bundle_crypto, "_derive", lambda *a: calls.append(a) or real(*a))
+    bundle = Path(bundles.export_bundle(expected=1, password="pw")["path"])
+    assert len(calls) == 1  # the read-back reuses the writer's key for its own header
+    _destination(store, monkeypatch, tmp_path)
+    assert bundles.import_bundle(bundle, "pw")["imported"] == 1
+    assert len(calls) == 2  # import derives from the password it was given
+
+
+@pytest.mark.parametrize("mode", ["RGB", "RGBA", "L", "P", "1", "I;16", "LA"])
+def test_raw_digest_is_tobytes(mode):
+    image = Image.effect_noise((37, 11), 64).convert(mode)
+    assert bundles._raw_digest(image) == hashlib.sha256(image.tobytes()).hexdigest()
+    assert bundles._raw_digest(Image.new(mode, (0, 5))) == hashlib.sha256(b"").hexdigest()
+
+
+def test_repeat_import_neither_decodes_nor_unpacks_what_is_already_there(store, monkeypatch, tmp_path):
+    for seed in (1, 2, 3):
+        _save(f"image {seed}", seed)
+    bundle = Path(_export()["path"])
+    _destination(store, monkeypatch, tmp_path)
+    assert bundles.import_bundle(bundle)["imported"] == 3
+    snapshot = _snapshot(store)
+    decoded, staged = [], []
+    real_pixels, real_stage = bundles._pixels, bundles._write_staged
+    monkeypatch.setattr(bundles, "_pixels", lambda *a, **k: decoded.append(a) or real_pixels(*a, **k))
+    monkeypatch.setattr(bundles, "_write_staged", lambda target, *a: staged.append(target.name) or real_stage(target, *a))
+    assert bundles.import_bundle(bundle)["present"] == 3
+    assert decoded == [] and staged == []
+    assert _snapshot(store) == snapshot
+
+
+def test_a_present_image_s_bundle_row_is_still_validated_without_a_decode(store, monkeypatch, tmp_path):
+    row = _save("source", 1)
+    bundle = Path(_export()["path"])
+    _destination(store, monkeypatch, tmp_path)
+    assert bundles.import_bundle(bundle)["imported"] == 1
+    with ZipFile(bundle) as archive:
+        members = {info.filename: archive.read(info) for info in archive.infolist()}
+    database = tmp_path / "bundle.sqlite3"
+    database.write_bytes(members["database.sqlite3"])
+    with closing(sqlite3.connect(database)) as conn:
+        conn.execute("UPDATE images SET width = 999 WHERE filename = ?", (row.filename,))
+        conn.commit()
+    members["database.sqlite3"] = database.read_bytes()
+    manifest = json.loads(members["manifest.json"])
+    manifest["files"]["database.sqlite3"] = {"size": len(members["database.sqlite3"]),
+                                             "sha256": hashlib.sha256(members["database.sqlite3"]).hexdigest()}
+    members["manifest.json"] = json.dumps(manifest).encode()
+    altered = tmp_path / "altered.zip"
+    with ZipFile(altered, "w") as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    snapshot = _snapshot(store)
+    with pytest.raises(bundles.BundleError, match="dimensions disagree"):
+        bundles.import_bundle(altered)
+    assert _snapshot(store) == snapshot
+
+
+def test_a_declined_member_whose_destination_vanished_refuses_the_import(store, monkeypatch, tmp_path):
+    row = _save("source", 1)
+    thumb = Path(row.thumb_url.removeprefix("/outputs/"))
+    bundle = Path(_export()["path"])
+    with ZipFile(bundle) as archive:
+        thumb_bytes = archive.read("images/" + thumb.as_posix())
+    dest = _destination(store, monkeypatch, tmp_path)
+    # A leftover copy of the new image's thumbnail: identical, so kept in place.
+    left = dest.outputs_dir.joinpath(*thumb.parts)
+    left.parent.mkdir(parents=True, exist_ok=True)
+    left.write_bytes(thumb_bytes)
+    real_verify = bundles._verify_archive
+
+    def vanish(*args, **kwargs):
+        result = real_verify(*args, **kwargs)
+        left.unlink()
+        return result
+    monkeypatch.setattr(bundles, "_verify_archive", vanish)
+    with pytest.raises(bundles.BundleError, match="gallery changed during import"):
+        bundles.import_bundle(bundle)
+    assert _snapshot(store) == ([], {})  # nothing installed, no row added
+    monkeypatch.setattr(bundles, "_verify_archive", real_verify)
+    left.write_bytes(thumb_bytes)
+    assert bundles.import_bundle(bundle)["imported"] == 1
+    assert left.read_bytes() == thumb_bytes
+
+
+def test_a_failed_metadata_rewrite_refuses_the_whole_merge(store, monkeypatch, tmp_path):
+    for seed in range(1, 7):
+        _save(f"image {seed}", seed)
+    bundle = Path(_export()["path"])
+    _destination(store, monkeypatch, tmp_path)
+    _save("existing", 99)
+    snapshot = _snapshot(store)
+    real = bundles._rewrite_metadata
+    victim = sorted(r for r in ZipFile(bundle).namelist() if r.count("/") == 1 and r.endswith(".png"))[3]
+
+    def rewrite(path, metadata):
+        if path.name == victim.removeprefix("images/"):
+            raise bundles.BundleError(f"not a PNG image: {path.name}")
+        real(path, metadata)
+    monkeypatch.setattr(bundles, "_rewrite_metadata", rewrite)
+    with pytest.raises(bundles.BundleError, match="invalid metadata for"):
+        bundles.import_bundle(bundle)
+    assert _snapshot(store) == snapshot

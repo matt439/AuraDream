@@ -343,3 +343,32 @@ def test_a_job_with_nothing_ahead_does_not_wait_for_the_job_ahead(store):
 
 async def _ready():
     return None
+
+
+def test_a_render_waits_out_another_process_holding_the_gallery(store, monkeypatch):
+    # save_image gives up after one SESSION_WAIT; the image is still in
+    # memory, so the worker tries again rather than discard a finished render.
+    from backend import gallery_lock, storage
+
+    real = storage.save_image
+    refusals = []
+
+    def busy_twice(*args, **kwargs):
+        if len(refusals) < 2:
+            refusals.append(1)
+            raise gallery_lock.GalleryBusy("held elsewhere")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(storage, "save_image", busy_twice)
+
+    async def scenario():
+        manager = JobManager(FakeBackend())
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2))
+        async for event in manager.events(job):
+            if event["type"] == "done":
+                break
+        return job
+
+    job = asyncio.run(scenario())
+    assert job.status == "done" and job.failures == 0
+    assert len(refusals) == 2 and len(job.images) == 1

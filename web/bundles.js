@@ -10,12 +10,22 @@ let bundleRequestEpoch = 0;
 let bundlePollPending = false;
 let bundlePollTimer = 0;
 let bundleHandled = null;
+// Whether this page has had any status yet, and has seen the current
+// operation run (or started it). A finished operation that the first status
+// already holds ended before this page loaded: its gallery is already current.
+let bundleStatusSeen = false;
+let bundleSeenRunning = false;
+// Whether the handled result has been on screen in the open dialog.
+let bundleResultShown = false;
 let bundleListKey = null;
 let bundlePreviewEpoch = 0;
 // The selected file's first bytes: a protected bundle's header, checked
 // against the password before a large upload starts. Null until read.
 let bundleFileHeader = null;
 let bundleFileEpoch = 0;
+// The AbortController of an upload whose body (or password check) is still
+// being sent; null otherwise. Once the server answers 202 the import is its own.
+let bundleUploadAbort = null;
 
 const BUNDLE_MAGIC = 'LDBUNDLE';
 const BUNDLE_HEADER_BYTES = 64;
@@ -61,6 +71,12 @@ function bundleSay(message, failed = false) {
   els.bundleStatus.classList.toggle('failed', failed);
 }
 
+// Phase and counts go beside the live region, not in it: rewritten at every
+// poll, they made a screen reader repeat the whole sentence each tick.
+function bundleProgressSay(text) {
+  if (els.bundleProgress.textContent !== text) els.bundleProgress.textContent = text;
+}
+
 function syncBundleControls() {
   const why = bundleActionHold();
   const hold = (el, reason, title) => {
@@ -79,6 +95,8 @@ function syncBundleControls() {
   hold(els.bundleRefresh, bundleHold() || (bundleReading ? 'Reading the gallery counts' : ''), 'Read the current gallery counts');
   hold(els.bundleUpload, why || (!els.bundleFile.files.length ? 'Choose a bundle file first' : '')
     || (bundleProtected(bundleFileHeader) ? locked : ''), 'Merge this file into the gallery');
+  hold(els.bundleUploadCancel, bundleUploadAbort && bundleSending ? '' : 'No upload is being sent',
+    'Stop sending the selected file; nothing is imported');
   for (const button of els.bundleList.querySelectorAll('[data-bundle-import]')) {
     hold(button, why || ('bundleEncrypted' in button.dataset ? locked : ''), 'Merge this saved bundle into the gallery');
   }
@@ -161,8 +179,11 @@ async function refreshBundleList() {
   } catch (err) { bundleSay(err.message, true); }
 }
 
-function renderBundleResult(status) {
+// `past` labels a result that ended before this page loaded, or one shown
+// again when the dialog is reopened, so it never reads as the gallery's state.
+function renderBundleResult(status, past = false) {
   const result = status.result;
+  const say = (message, failed) => bundleSay(past ? `Last bundle operation: ${message}` : message, failed);
   els.bundleDownload.hidden = !result?.name;
   if (result?.name) {
     els.bundleDownload.href = bundleFileURL(result.name);
@@ -175,37 +196,52 @@ function renderBundleResult(status) {
     const item = document.createElement('li'); item.textContent = name; return item;
   }));
   if (status.state === 'failed') {
-    bundleSay(`${status.error || 'The bundle operation failed.'}${result?.name ? ' The saved bundle is available below.' : ''}`, true);
+    say(`${status.error || 'The bundle operation failed.'}${result?.name ? ' The saved bundle is available below.' : ''}`, true);
   } else if (status.operation === 'export') {
-    const end = result.cleared ? 'The gallery is empty and ready for new images.'
+    const end = result.cleared ? (past ? 'The gallery was cleared.' : 'The gallery is empty and ready for new images.')
       : 'The gallery was not completely cleared; review the files still on disk.';
-    bundleSay(`Saved and verified ${result.images} images and ${result.records} gallery records. ${end}${result.cleanup_error ? ` ${result.cleanup_error}` : ''}`, !result.cleared);
+    say(`Saved and verified ${result.images} images and ${result.records} gallery records. ${end}${result.cleanup_error ? ` ${result.cleanup_error}` : ''}`, !result.cleared);
   } else if (status.operation === 'import') {
     const missing = result.unresolved_references || 0;
-    bundleSay(`Imported ${result.imported} gallery records; ${result.present} already present. Existing images were kept.${missing ? ` ${missing} links to missing source images could not be restored.` : ''}`, !!missing);
+    const restored = result.restored || 0;
+    say(`Imported ${result.imported} gallery records; ${result.present} already present. Existing images were kept.${restored ? ` ${restored} missing image files were restored from the bundle.` : ''}${missing ? ` ${missing} links to missing source images could not be restored.` : ''}`, !!missing);
   }
 }
 
 async function receiveBundleStatus(status) {
   const wasHeld = !!bundleHold();
+  const first = !bundleStatusSeen;
+  bundleStatusSeen = true;
   bundleStatus = status;
   if (status.state === 'running') {
-    const step = bundleProgressText(status.progress);
-    bundleSay((status.operation === 'export'
+    bundleSeenRunning = true;
+    bundleSay(status.operation === 'export'
       ? 'Creating and verifying the bundle, then clearing the gallery. You can close this dialog; the server will finish the operation.'
-      : 'Checking and importing the bundle. You can close this dialog; the server will finish the operation.')
-      + (step ? ` ${step}.` : ''));
-  }
+      : 'Checking and importing the bundle. You can close this dialog; the server will finish the operation.');
+    bundleProgressSay(bundleProgressText(status.progress));
+  } else bundleProgressSay('');
   if (status.id && ['done', 'failed'].includes(status.state) && bundleHandled !== status.id) {
     bundleHandled = status.id;
-    bundleSettling = true;
-    try {
-      renderBundleResult(status);
-      if (status.result?.deleted_ids?.length) forgetImages(status.result.deleted_ids);
-      els.bundleCount.value = '';
-      await Promise.all([resetGallery(), loadRuns()]);
-      if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
-    } finally { bundleSettling = false; }
+    if (first && !bundleSeenRunning) {
+      // Ended before this page loaded (the server keeps its last result until
+      // the next operation): show it as past, and leave the gallery alone.
+      renderBundleResult(status, true);
+      bundleResultShown = true;
+    } else {
+      bundleSeenRunning = false;
+      bundleSettling = true;
+      try {
+        renderBundleResult(status);
+        bundleResultShown = els.bundlesDialog.open;
+        // The unlock password is kept after a failure, so a mistyped one can
+        // be corrected, and goes once an import has used it.
+        if (status.operation === 'import' && status.state === 'done') els.bundleUnlock.value = '';
+        if (status.result?.deleted_ids?.length) forgetImages(status.result.deleted_ids);
+        els.bundleCount.value = '';
+        await Promise.all([resetGallery(), loadRuns()]);
+        if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
+      } finally { bundleSettling = false; }
+    }
   }
   syncBundleControls();
   if (wasHeld !== !!bundleHold()) syncSubmitButtons();
@@ -222,7 +258,8 @@ async function pollBundleStatus() {
     // an upload's own progress is still shown while its body is sent.
     if (!bundleSending && epoch === bundleRequestEpoch) await receiveBundleStatus(status);
     else if (bundleSending && status.state === 'running' && status.progress?.phase === 'receiving') {
-      bundleSay(`Sending the bundle for import… ${bundleProgressText(status.progress)}.`);
+      bundleSay('Sending the bundle for import…');
+      bundleProgressSay(bundleProgressText(status.progress));
     }
   } catch (err) {
     if (els.bundlesDialog.open) bundleSay(`${err.message} Reconnecting to the bundle operation…`, true);
@@ -236,6 +273,7 @@ async function pollBundleStatus() {
 async function startBundleOperation(path, options, operation, before = null) {
   ++bundleRequestEpoch;
   bundleSending = true;
+  bundleSeenRunning = true;
   bundleSay(operation === 'export' ? 'Starting the gallery bundle…' : before ? 'Checking the bundle password…' : 'Sending the bundle for import…');
   syncBundleControls(); syncSubmitButtons();
   try {
@@ -249,7 +287,11 @@ async function startBundleOperation(path, options, operation, before = null) {
     await receiveBundleStatus(status);
   } catch (err) {
     bundleSending = false;
-    bundleSay(err.message, true);
+    // The page's own Cancel: not a failure. A Cancel pressed once the whole
+    // file had arrived may be too late, so whether anything was imported is
+    // the server's to say: the poll below shows its words once it has them.
+    if (err.name === 'AbortError') bundleSay('Upload cancelled.');
+    else bundleSay(err.message, true);
     await pollBundleStatus();
     if (!bundleHold()) await refreshBundlePreview();
   } finally {
@@ -266,7 +308,8 @@ function clearBundlePasswords() {
 function exportGalleryBundle() {
   if (bundleRefused(els.bundleExport)) return;
   const password = els.bundlePassword.value;
-  // Passwords live only in these fields and this one request.
+  // The export password lives only in these fields and this one request;
+  // the unlock field is cleared when an import it opened is done.
   els.bundlePassword.value = els.bundlePasswordAgain.value = '';
   void startBundleOperation('/api/gallery/bundles/export', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -297,6 +340,7 @@ async function uploadGalleryBundle() {
   // A press straight after choosing a file reads its header first.
   if (!bundleFileHeader && (!(await readBundleFile()) || bundleRefused(els.bundleUpload))) return;
   const headers = { 'Content-Type': 'application/octet-stream' };
+  const abort = new AbortController();
   let check = null;
   if (bundleProtected(bundleFileHeader)) {
     const password = els.bundleUnlock.value;
@@ -305,14 +349,35 @@ async function uploadGalleryBundle() {
     // A wrong password is refused here, before the whole file is sent.
     check = () => api('/api/gallery/bundles/password', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ header, password }),
+      signal: abort.signal,
     });
   }
-  void startBundleOperation('/api/gallery/bundles/upload', { method: 'POST', headers, body: file }, 'import', check);
+  bundleUploadAbort = abort;
+  try {
+    await startBundleOperation('/api/gallery/bundles/upload', { method: 'POST', headers, body: file, signal: abort.signal }, 'import', check);
+  } finally {
+    if (bundleUploadAbort === abort) bundleUploadAbort = null;
+    syncBundleControls();
+  }
+}
+
+function cancelBundleUpload() {
+  if (bundleRefused(els.bundleUploadCancel)) return;
+  bundleSay('Cancelling the upload…');
+  bundleUploadAbort.abort();
 }
 
 async function openBundles() {
   if (!els.bundlesDialog.open) els.bundlesDialog.showModal();
   els.bundlesClose.focus({ preventScroll: true });
+  // A result already read in this dialog is labelled as past on reopening;
+  // one that arrived while it was closed is still news. A newer one the poll
+  // below brings is shown as it comes.
+  const status = bundleStatus;
+  if (status?.id && status.id === bundleHandled && ['done', 'failed'].includes(status.state) && !bundleSending) {
+    if (bundleResultShown) renderBundleResult(status, true);
+    bundleResultShown = true;
+  }
   syncBundleControls();
   await pollBundleStatus();
   await Promise.all([refreshBundlePreview(), refreshBundleList()]);
@@ -327,6 +392,7 @@ function initBundles() {
   els.bundleFile.onchange = () => { void readBundleFile(); };
   els.bundleExport.onclick = exportGalleryBundle;
   els.bundleUpload.onclick = () => { void uploadGalleryBundle(); };
+  els.bundleUploadCancel.onclick = cancelBundleUpload;
   els.bundleRefresh.onclick = () => { if (!bundleRefused(els.bundleRefresh)) void refreshBundlePreview(); };
   els.bundleList.onclick = (event) => {
     const button = event.target.closest('[data-bundle-import]');

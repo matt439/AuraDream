@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import threading
 import time
 
@@ -10,7 +11,8 @@ import pytest
 from fastapi import HTTPException
 
 from backend import api_bundles, bundles, main
-from tests.api_helpers import run_one
+from tests.api_helpers import ORIGIN, run_one
+from tests.test_bundles import _holding_child
 
 
 def _finish(client, operation_id):
@@ -98,6 +100,88 @@ def test_bundles_refuse_jobs_loading_and_foreign_origins(client, monkeypatch):
     monkeypatch.setitem(main._load_state, "state", "loading")
     assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
     assert main.bundle_manager.state["state"] == "idle"
+
+
+@pytest.mark.parametrize("busy", ["card", "switching", "load-lock"])
+def test_bundles_refuse_while_the_card_or_a_model_change_is_busy(client, monkeypatch, busy):
+    if busy == "card":
+        # Expand or the critic holding the gate through run_when_idle.
+        monkeypatch.setattr(main.jobs, "card", lambda: ("critic", "ticket"))
+    elif busy == "switching":
+        monkeypatch.setattr(main, "_switching", True)
+    else:
+        monkeypatch.setattr(main._load_lock, "locked", lambda: True)
+    assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
+    upload = client.post("/api/gallery/bundles/upload", content=b"PK",
+                         headers={"content-type": "application/zip"})
+    assert upload.status_code == 409
+    assert main.bundle_manager.state["state"] == "idle"
+    assert not list(main.storage.bundle_staging_dir().glob(".bundle-upload-*"))
+
+
+def test_another_process_holding_the_gallery_fails_the_operation_readably(client, store):
+    child = _holding_child(store.settings.db_path)
+    try:
+        response = client.post("/api/gallery/bundles/export", json={"expected": 0})
+        assert response.status_code == 202, response.text
+        result = _finish(client, response.json()["id"])
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+    assert result["state"] == "failed"
+    assert "another Local Diffusion process" in result["error"]
+
+
+def test_a_password_without_a_utf8_form_is_refused_before_any_work(client, store):
+    run_one(client, seed=41)
+    exported = _finish(client, client.post("/api/gallery/bundles/export",
+                                           json={"expected": 1, "password": "pass"}).json()["id"])
+    name = exported["result"]["name"]
+    header = base64.b64encode(client.get(f"/api/gallery/bundles/files/{name}").content[:64]).decode()
+    before = main.bundle_manager.state
+    # A lone surrogate survives JSON decoding (json.dumps escapes it) but has
+    # no UTF-8 form: one fixed 422 on every route, never a 500 or codec text.
+    bad = "a\ud800b"
+    for route, body in [("password", {"header": header, "password": bad}),
+                        ("export", {"expected": 0, "password": bad}),
+                        ("import", {"name": name, "password": bad})]:
+        response = client.post(f"/api/gallery/bundles/{route}", content=json.dumps(body),
+                               headers={"content-type": "application/json"})
+        assert response.status_code == 422, (route, response.text)
+        assert response.json()["detail"] == "The bundle password contains characters that cannot be used."
+    assert main.bundle_manager.state == before
+
+
+def test_a_disconnected_upload_fails_readably_and_leaves_no_staging(fake, store):
+    # TestClient sends a whole body before the app runs, so this drives the
+    # ASGI app directly: one chunk, then the client goes away.
+    scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "POST",
+             "scheme": "http", "path": "/api/gallery/bundles/upload", "raw_path": b"/api/gallery/bundles/upload",
+             "query_string": b"", "root_path": "", "client": ("127.0.0.1", 50000), "server": None,
+             "headers": [(b"host", ORIGIN.split("//", 1)[1].encode()), (b"content-type", b"application/zip"),
+                         (b"content-length", b"1000000")]}
+    messages = [{"type": "http.request", "body": b"PK" * 1000, "more_body": True}, {"type": "http.disconnect"}]
+    sent = []
+
+    async def receive():
+        return messages.pop(0) if messages else {"type": "http.disconnect"}
+
+    async def send(message):
+        sent.append(message)
+
+    asyncio.run(main.app(scope, receive, send))
+    starts = [m["status"] for m in sent if m["type"] == "http.response.start"]
+    assert starts and starts[0] != 202
+    state = main.bundle_manager.state
+    assert state["state"] == "failed" and state["error"] == api_bundles.UPLOAD_STOPPED
+    assert not list(store.bundle_staging_dir().glob(".bundle-upload-*"))
+
+
+def test_an_error_without_a_message_is_reported_readably():
+    manager = api_bundles.BundleManager(lambda: main.jobs, lambda: False)
+    manager.reserve("import")
+    manager.fail(asyncio.CancelledError())
+    assert manager.state["error"].startswith("The gallery bundle operation stopped unexpectedly")
 
 
 def test_bad_upload_and_changed_preview_leave_gallery_unchanged(client, store):
@@ -202,5 +286,27 @@ def test_password_bundle_export_check_and_upload(client, store):
     assert upload("sésame")["result"]["imported"] == 1
     saved = client.post("/api/gallery/bundles/import", json={"name": name, "password": "sésame"})
     assert _finish(client, saved.json()["id"])["result"]["present"] == 1
-    # Uploads are staged beside the database and removed afterwards.
-    assert not list(store.settings.db_path.parent.glob(".bundle-upload-*"))
+    # Uploads are staged on the images' volume and removed afterwards.
+    staging = store.bundle_staging_dir()
+    assert staging.parent == store.settings.outputs_dir.resolve().parent
+    assert not list(staging.iterdir())
+    assert not list(store.settings.db_path.parent.glob(".bundle-*"))
+
+
+def test_an_upload_in_many_batches_arrives_byte_for_byte(client, store, monkeypatch):
+    run_one(client, seed=31)
+    exported = _finish(client, client.post("/api/gallery/bundles/export", json={"expected": 1}).json()["id"])
+    blob = client.get(f"/api/gallery/bundles/files/{exported['result']['name']}").content
+    # Small batches: each write overlaps the next batch's arrival.
+    monkeypatch.setattr(api_bundles, "_UPLOAD_BUFFER", 4096)
+    written = []
+    real = bundles.import_bundle
+    monkeypatch.setattr(bundles, "import_bundle",
+                        lambda path, *a: written.append(path.read_bytes()) or real(path, *a))
+    pieces = (blob[i:i + 1000] for i in range(0, len(blob), 1000))
+    response = client.post("/api/gallery/bundles/upload", content=pieces,
+                           headers={"content-type": "application/zip"})
+    assert response.status_code == 202, response.text
+    merged = _finish(client, response.json()["id"])
+    assert merged["state"] == "done", merged
+    assert written == [blob] and merged["result"]["imported"] == 1
