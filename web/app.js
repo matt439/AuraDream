@@ -698,6 +698,7 @@ els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
 window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
+initBundles();
 // The picker then names the run on screen: resetGallery follows the search box.
 // Browsed from the keyboard, a run opens on Enter or as focus leaves (runs.js).
 els.runList.onchange = runListChange;
@@ -826,7 +827,7 @@ els.confirmCount.addEventListener('keydown', (e) => {
 document.addEventListener('keydown', (e) => {
   // Nothing of the page's while a delete asks: Escape there is its Cancel,
   // which closed the lightbox under it as well, and Ctrl+Enter generated.
-  if (els.confirmDialog.open) return;
+  if (els.confirmDialog.open || els.bundlesDialog.open) return;
   if (e.key === 'Escape' && !e.defaultPrevented && !els.modelPicker.hidden
       && !els.lightbox.open && !els.refineDialog.open) {
     e.preventDefault();

@@ -86,6 +86,10 @@ def fake(store, monkeypatch):
     # thread for good. Wired the way main.py wires it, so the single load path
     # the whole app relies on is the one under test.
     monkeypatch.setattr(main, "jobs", JobManager(backend, main.ensure_loaded))
+    monkeypatch.setattr(main, "bundle_manager", main.api_bundles.BundleManager(
+        lambda: main.jobs,
+        lambda: main._switching or main._load_lock.locked() or main._load_state["state"] == "loading",
+    ))
     # The analyser's tokenizers without the Hub, and a cache that starts and
     # ends empty: it is module state, and another test file reads it too.
     monkeypatch.setattr(prompt_encoding, "_load_tokenizer", fake_tokenizer)

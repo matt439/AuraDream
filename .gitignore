@@ -8,6 +8,10 @@ loras/
 *.db
 *.db-wal
 *.db-shm
+*.gallery.lock
+bundles/
+.bundle-*/
+.bundle-import-*/
 server.log
 server.err
 local-diffusion.settings.json

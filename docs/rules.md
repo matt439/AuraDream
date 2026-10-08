@@ -120,6 +120,11 @@ before changing it.
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/gallery_lock.py` — reentrant reservation of complete gallery
+  operations across threads and cooperating server/CLI processes
+- `backend/bundles.py` — verified ZIP snapshots, source cleanup and staged
+  database/image merges; `api_bundles.py` owns browser routes and exclusive
+  maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates (`size:WxH` both sides exact), the LIKE escape, `strict_scope`
 - `backend/main.py` — app lifecycle, model/prompt routes and generation submission;
@@ -133,7 +138,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 28 classic
+- `web/` — served as-is from `/static`; `index.html` loads 29 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -146,7 +151,8 @@ before changing it.
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
-  checkpoint selection and retiring state prepared under the old model. The stylesheet is
+  checkpoint selection and retiring state prepared under the old model;
+  `bundles.js` owns the gallery bundle dialog and background-operation polling. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order; preserve that cascade. See `docs/source-audit.md`
   for the responsibility map and retained long files.
@@ -777,6 +783,23 @@ Jobs:
   file remains readable at its old URL; an existing destination is never
   replaced. Deletion, disk totals and stale-partial cleanup cover both
   locations. Read-only previews never create directories or move files.
+- Gallery bundles cover all checkpoints and favourites, independent of the
+  browser filter. Publish and verify the ZIP and its SHA-256 manifest before
+  removing source files; recheck the source inventory and hashes before
+  cleanup. Use SQLite backup for WAL databases. Report retained files and the
+  durable bundle on incomplete cleanup. Compact the cleared database while
+  keeping its AUTOINCREMENT high-water mark: old browser ids must never name
+  a new image after a clear. Import validates names, checksums, database rows,
+  images and conflicts in staging before installing new files and replacing
+  the database; references/refine ids and PNG metadata are remapped together.
+  Never extract arbitrary archive paths or overwrite conflicting images.
+- A bundle operation reserves HTTP admission before awaiting work, only when
+  jobs, model loading and existing gallery requests are idle. Count complete
+  image response streams. The reservation outlives request cancellation and
+  lasts until its background worker finishes; graceful shutdown waits for it.
+  `gallery_lock` also covers whole storage/reindex writes and SQLite sessions
+  across processes. Keep lock ordering consistent: gallery reservation before
+  storage's write lock. Status and bundle downloads remain available.
 - The preview callback (`_step_end` -> `latent_preview`) never raises - an
   exception there is how `Cancelled` ends a job - and `jobs.on_preview` checks
   for subscribers per frame. A preview needs a matrix for the VAE and either
@@ -2776,6 +2799,23 @@ and adapter paths before anything imports `backend`, so a sourced
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
 HTTP guards.
+
+`tests/test_bundles.py` covers archive/merge round trips, preserved favourites
+and timings, remapped image links, WAL snapshots, monotonic ids, corrupt or
+unsafe archives, conflicts, rollback, changed source files, partial cleanup
+and process/thread reservations. `tests/test_api_bundles.py` covers browser
+export/download/upload/import, admission during jobs and maintenance, origins,
+image-stream lifetime, and cancellation of the supervising task.
+
+`smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog,
+all-model scope, typed confirmation, preserved favourites and metadata,
+saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal
+and narrow layout:
+
+```powershell
+uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-bundles.json
+```
 
 The refine pass is covered the same way: `tests/test_refine.py` (each
 profile's `refine_supported` and each sibling's call held to the installed

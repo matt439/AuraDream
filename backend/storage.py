@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, PngImagePlugin
 
 from .config import settings
+from . import gallery_lock
 # The three key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does. VARIANT is
@@ -248,14 +249,16 @@ def _session():
     a handle per call and keeps the file locked on Windows - deleting or moving
     local-diffusion.db then fails while the server runs.
     """
-    conn = _connect()
-    try:
-        with conn:
-            yield conn
-    finally:
-        conn.close()
+    with gallery_lock.hold(settings.db_path):
+        conn = _connect()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def init_db() -> None:
     ensure_outputs_dir()
     with _session() as conn:
@@ -376,6 +379,7 @@ def image_provenance(image_id: int | None) -> dict[str, Any] | None:
     }
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def save_image(
     image: Image.Image,
     request: "GenerateRequest",
@@ -921,6 +925,7 @@ class SelectionChanged(Exception):
         self.expected = expected
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def delete_matching(
     search: str | None,
     keep_favorites: bool = False,
@@ -1012,6 +1017,7 @@ def existing_file_ids() -> dict[str, int]:
         return {row["filename"]: row["id"] for row in conn.execute("SELECT id, filename FROM images")}
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def import_file(values: dict[str, Any]) -> ImageRecord:
     """Insert one row copied from another gallery database.
 
@@ -1025,6 +1031,7 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
     return _row_to_record(row)
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def index_file(
     filename: str,
     meta: dict[str, Any],
@@ -1076,6 +1083,7 @@ def index_file(
     return _row_to_record(row)
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def thumbnail_for(image: Image.Image, filename: str) -> None:
     """Write the WEBP in thumbnails/ for an existing PNG, if it has none."""
     png = settings.outputs_dir / filename
@@ -1308,12 +1316,14 @@ def get_image(image_id: int) -> ImageRecord | None:
     return _row_to_record(row, row["refine"] in missing) if row else None
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
     with _write_lock, _session() as conn:
         conn.execute("UPDATE images SET favorite = ? WHERE id = ?", (int(favorite), image_id))
     return get_image(image_id)
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def delete_image(image_id: int) -> bool:
     # Looked up and deleted under the one lock: two deletes of the same image
     # (a double-click, a second tab) both found the row before either removed
@@ -1393,6 +1403,7 @@ def _tracked_files():
         return conn.execute("SELECT filename FROM images").fetchall()
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def clear_history(keep_favorites: bool = False) -> dict[str, int]:
     """Delete image records and the PNGs they point at.
 
@@ -1437,6 +1448,7 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
     return {"records": len(doomed), "files": removed, "orphans": orphans, "partials": partials}
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def vacuum() -> None:
     """Shrink the database file after a bulk delete."""
     conn = _connect()

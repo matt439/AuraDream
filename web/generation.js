@@ -350,6 +350,7 @@ const GENERATE_TITLE = els.generate.title;
 const GRID_RUN_TITLE = els.gridRun.title;
 function submitHold() {
   return serverOffline ? 'The server is not answering'
+    : bundleHold() ? bundleHold()
     : modelChangeHold() ? modelChangeHold()
     : expandingPrompt ? 'Wait for prompt expansion to finish'
     : critiquing ? 'Wait for the critic to finish'

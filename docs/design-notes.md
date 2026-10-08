@@ -2967,6 +2967,52 @@ rewriting PNG chunks, not pixels. Filename uniqueness remains the idempotence
 key, and an unindexed destination file of the same name remains a conflict,
 never an overwrite.
 
+## Gallery bundles: verify before clearing, stage before merging
+
+Copying PNGs without SQLite loses favourites and timings. **Gallery bundles**
+packages both in one portable ZIP, with thumbnails and unindexed PNGs, then
+clears the server's gallery. Its scope is every checkpoint and favourite;
+the record count typed into the dialog is checked again under the reservation.
+SQLite's backup API captures committed WAL contents. A versioned manifest
+records each member's size and SHA-256; the archive is closed, flushed and
+read back before publication. Tracked PNGs are decoded from the ZIP and their
+dimensions and database fields pass the same validation as import; corrupt
+tracked images therefore prevent cleanup. Unindexed image files are preserved
+as bytes. A second source inventory and hash pass catches
+files changed outside the app before cleanup. A published bundle is retained
+even if cleanup cannot finish, and the result names the files that remain.
+
+Deletion can fail on Windows when another program holds an image open. Rows
+for retained PNGs survive; successful deletions retire their job and browser
+records. The cleared database is replaced with a compact copy that preserves
+its AUTOINCREMENT sequence. Simply deleting the database would reuse ids,
+allowing old reference chips and job snapshots to name unrelated new images.
+The running app therefore always has an empty usable database after a full
+clear, even though the old database file has been replaced.
+
+Import treats ZIP contents as untrusted. It accepts only the versioned
+manifest, database and known image locations; traversal, special files,
+duplicate/case-colliding names, checksum failures and conflicting destination
+files are refused. A private database copy receives the merge first. New ids,
+reference/refine links and the PNG metadata agree before installation. Existing
+rows and images win on repeated import; favourites changed since an earlier
+import are not reset. Only new image files are installed, with exclusive
+creation; a failed installation rolls those files back before the live
+database is replaced. Missing source links are counted and cleared rather
+than pointed at unrelated destination ids.
+
+`api_bundles.BundleManager` reserves the idle server synchronously. ASGI
+admission counts existing gallery requests through the end of image streams,
+and blocks new generation and gallery operations while maintenance runs.
+Normal status, job inspection and bundle download continue to answer. The
+worker is independent of its initiating request; disconnecting cannot release
+its reservation or remove an upload it is still reading. Graceful shutdown
+waits for completion. `gallery_lock` extends the reservation to full storage
+and reindex operations in other cooperating processes. Raw external programs
+do not take that lock, so the final inventory/hash check and SQLite checkpoint
+refusals remain necessary. No archive operation is run against the user's
+gallery as part of tests: core/API tests and browser smokes use scratch data.
+
 ## The CLI reads PNGs and probes the server
 
 **The CLI reads PNGs and probes the server.** `--from-image` reads

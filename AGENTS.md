@@ -52,7 +52,9 @@ Backend (`backend/`):
   profiles; `guides.py` each checkpoint's sourced prompting guide and its
   `analysis` data
 - `main.py` lifecycle, model/prompt/generation routes; `api_gallery.py`,
-  `api_jobs.py` the gallery and job routes
+  `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
+  routes and maintenance admission; `bundles.py` verified archive/merge;
+  `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `search.py` search grammar; `grid.py` axes, variables, variants, cells;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
@@ -127,6 +129,10 @@ Reproduction and storage:
   chunk; `CellKey`/`run_id` widen without changing existing ids.
 - A new column needs a `_migrate` entry; `_row_to_record` reads unguarded.
 - `save_image` writes `.png.part` and renames after the row commits.
+- Gallery bundles are verified before source cleanup; imports are staged
+  before merging. Keep gallery ids monotonic when replacing a cleared DB.
+  Whole storage operations take the gallery reservation before the write
+  lock; maintenance stays reserved until its worker has finished.
 - References and refine sources are gallery ids, never paths. A LoRA is a
   bare name only `loras.py` turns into a path, hot-swapped in `generate()`.
 
@@ -238,6 +244,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7891 | Laxhar/noobai-XL-Vpred-1.0 | `smoke-noobai` |
 | 7895 | circlestone-labs/Anima@aesthetic-v1.1 | `smoke-anima-aesthetic` |
 | 7896 | FLUX.1-Krea-dev | `smoke-model-switch`, `smoke-model-startup`, `smoke-model-hover` |
+| 7897 | default, fresh scratch `--data` | `smoke-bundles` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

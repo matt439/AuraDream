@@ -225,6 +225,11 @@ Existing indexed thumbnails move into that subfolder on the next app startup;
 refresh any open browser tabs afterwards. To filter originals in File Explorer,
 search the output folder for `*.png`.
 
+**Gallery bundles** in the browser saves all images and the gallery database
+in one verified ZIP, then clears the gallery. Download a saved bundle or import
+one to merge its images, favourites and timings into the current gallery.
+See [gallery bundles](docs/usage.md#gallery-bundles).
+
 `local-diffusion.db` indexes the gallery. Each PNG
 contains its generation settings in a `local-diffusion` JSON chunk and an
 A1111-style `parameters` block. Back up **both the PNGs and database** to retain

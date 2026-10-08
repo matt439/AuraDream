@@ -46,7 +46,7 @@ if __package__ in (None, ""):
 try:
     from PIL import Image
 
-    from backend import storage
+    from backend import gallery_lock, storage
     from backend.config import settings
     from backend.metadata import PNG_METADATA_KEY, PNG_METADATA_KEYS, embedded_metadata
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
@@ -230,6 +230,7 @@ def _database_meta(
     }
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def merge_database(
     source: Path, database: Path, dry_run: bool = False, out=sys.stdout
 ) -> dict[str, int]:
@@ -358,6 +359,7 @@ def merge_database(
     return counts
 
 
+@gallery_lock.protected(lambda: settings.db_path)
 def reindex(
     source: Path, dry_run: bool = False, out=sys.stdout, database: Path | None = None
 ) -> dict[str, int]:

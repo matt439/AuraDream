@@ -1,0 +1,41 @@
+/* Gallery bundles stay anchored as counts, progress and saved files arrive. */
+.gallery-footer {
+  display: flex; align-items: center; gap: var(--sp-3); flex: 1 0 100%; min-width: 0;
+  margin-top: calc(var(--sp-1) - var(--sp-3));
+}
+.gallery-footer #gallery-error { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+.gallery-footer #btn-bundles { flex: none; margin-left: auto; }
+.bundles-dialog {
+  width: min(680px, calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - 2 * var(--sp-4));
+  margin-top: var(--sp-4); margin-bottom: auto;
+  padding: var(--gutter); overflow-y: auto;
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--panel); color: var(--text); box-shadow: var(--shadow-pop);
+}
+.bundles-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.bundles-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-4); }
+.bundles-dialog[open] > * { flex-shrink: 0; }
+.bundles-dialog h2 { margin: 0; font-size: var(--fs-lg); }
+.bundles-dialog h3 { margin: 0; font-size: var(--fs-md); }
+.bundles-dialog p { margin: 0; }
+.bundles-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.bundle-section { display: flex; flex-direction: column; gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.bundle-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.bundle-confirm label { flex: 1 1 100%; font-size: var(--fs-label); color: var(--text-3); }
+#bundle-count { width: 110px; }
+#bundle-preview { min-height: 2lh; font-variant-numeric: tabular-nums; }
+.bundle-upload-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+#bundle-file { flex: 1 1 240px; min-width: 0; width: 100%; font-size: var(--fs-body-sm); }
+.bundle-feedback { min-height: 3lh; overflow-wrap: anywhere; }
+#bundle-status.failed { color: var(--danger); }
+.bundles-dialog a { color: var(--accent-2); }
+#bundle-directory { overflow-wrap: anywhere; }
+#bundle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.bundle-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2); }
+.bundle-name { flex: 1 1 100%; overflow-wrap: anywhere; font-size: var(--fs-body-sm); }
+.bundle-size { color: var(--muted); margin-right: auto; font-size: var(--fs-label); }
+.bundles-dialog button[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+@media (min-width: 1800px) {
+  .bundles-dialog { width: min(760px, calc(100vw - 2 * var(--sp-4))); }
+}

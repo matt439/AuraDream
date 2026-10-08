@@ -329,6 +329,37 @@ conditions, so its results are only indicative. Use `--job` for comparisons;
 if labels have different meanings across jobs, narrow the scope or group by
 `variant,prompt`.
 
+## Gallery bundles
+
+Open **Gallery bundles** beside the gallery controls. Its counts cover the
+entire gallery: every checkpoint and favourite, regardless of the current
+search or filters. Type the displayed record count and press **Bundle & clear
+gallery**. Finish or cancel generation first; loading and other gallery work
+must also finish before this operation can start.
+
+The server saves a ZIP in `bundles/` beside its gallery database, checks every
+file against its checksum, and only then removes the original PNGs and
+thumbnails. The old database is replaced with a compact empty gallery, ready
+for new images. The bundle includes the database, full-size PNGs, thumbnails
+and unindexed PNGs; generation settings, favourites, timings and image
+relationships are retained. Model weights, LoRAs and browser preferences are
+not part of a gallery bundle.
+
+The dialog lists saved bundles with **Download** and **Import** controls.
+You can also choose a bundle ZIP from your computer and import it. Import
+merges into the current gallery, keeps existing images, remaps source-image
+links, and skips images already present. Different files using the same name
+are refused before changing the gallery. Missing source images cannot be
+restored; the result reports links that could not be recovered.
+
+Keep the server running until the operation finishes; closing the dialog or
+browser does not cancel it. Creating and importing a bundle need free space
+for the archive and staged files. If an image is locked or files change during
+export, the verified bundle remains available and the dialog lists what was
+not cleared. Review that result before removing anything by hand. In Windows
+and WSL, the saved-bundle directory belongs to the server environment whose
+gallery is open.
+
 ## Clear or recover a gallery
 
 **Delete unstarred** removes unstarred images matching the current gallery

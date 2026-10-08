@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/static/styles/sheet.css">
 <link rel="stylesheet" href="/static/styles/lightbox.css">
 <link rel="stylesheet" href="/static/styles/refine.css">
+<link rel="stylesheet" href="/static/styles/bundles.css">
 </head>
 <body>
 <header class="topbar">
@@ -732,7 +733,11 @@
              them, rather than in the panel's line a column away. A row of the
              head's own, whose line is kept while it is empty, so a message
              never moves the grid under the pointer. -->
-        <p class="error" id="gallery-error" role="alert" hidden></p>
+        <div class="gallery-footer">
+          <p class="error" id="gallery-error" role="alert" hidden></p>
+          <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
+            title="Bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
+        </div>
         <!-- What F did to a card's or a sheet cell's star, for a screen reader:
              focus stays on the image, and nothing else says it (sayStar). -->
         <p class="star-said" id="star-said" aria-live="polite"></p>
@@ -1019,6 +1024,47 @@
 
 <!-- Classic scripts sharing one global scope; app.js, the last, is the
      only one that runs anything at load. Order matters: see state.js. -->
+<dialog class="bundles-dialog" id="bundles-dialog" aria-labelledby="bundles-title" aria-describedby="bundles-intro">
+  <header class="bundles-head">
+    <h2 id="bundles-title">Gallery bundles</h2>
+    <button type="button" class="ghost small" id="bundles-close">Close</button>
+  </header>
+  <p id="bundles-intro">Save all images, thumbnails and the gallery database in one ZIP file, then clear the gallery. Import a bundle to merge its images with the current gallery.</p>
+  <section class="bundle-section" aria-labelledby="bundle-export-title">
+    <div class="bundles-head">
+      <h3 id="bundle-export-title">Bundle &amp; clear</h3>
+      <button type="button" class="ghost small" id="bundle-refresh">Refresh counts</button>
+    </div>
+    <p class="hint">Includes every model and starred image. The gallery's search and filters do not limit this action.</p>
+    <p id="bundle-preview">Reading the gallery…</p>
+    <p class="hint">The bundle is saved on the server and verified before the originals and old database are removed. A new empty database is created so you can keep generating. You can download the bundle afterwards.</p>
+    <div class="bundle-confirm">
+      <label for="bundle-count" id="bundle-count-label">Type the gallery record count to confirm</label>
+      <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview">
+      <button type="button" class="ghost danger" id="bundle-export" aria-disabled="true">Bundle &amp; clear gallery</button>
+    </div>
+  </section>
+  <section class="bundle-section" aria-labelledby="bundle-upload-title">
+    <h3 id="bundle-upload-title">Import a file</h3>
+    <p class="hint">Existing images stay. Images already imported from this bundle are kept without creating duplicates.</p>
+    <div class="bundle-upload-row">
+      <label class="sr-only" for="bundle-file">Bundle ZIP file</label>
+      <input id="bundle-file" type="file" accept=".zip,application/zip">
+      <button type="button" class="ghost" id="bundle-upload" aria-disabled="true">Import selected file</button>
+    </div>
+  </section>
+  <div class="bundle-feedback">
+    <p id="bundle-status" role="status" aria-live="polite"></p>
+    <a id="bundle-download" hidden download>Download saved bundle</a>
+    <details id="bundle-retained" hidden><summary>Files still on disk</summary><ul></ul></details>
+  </div>
+  <section class="bundle-section" aria-labelledby="bundle-list-title">
+    <h3 id="bundle-list-title">Saved bundles</h3>
+    <p class="hint" id="bundle-directory"></p>
+    <ul id="bundle-list"><li>Reading saved bundles…</li></ul>
+  </section>
+</dialog>
+
 <script src="/static/state.js"></script>
 <script src="/static/sizes.js"></script>
 <script src="/static/status.js"></script>
@@ -1046,6 +1092,7 @@
 <script src="/static/analysis.js"></script>
 <script src="/static/analysis-critic.js"></script>
 <script src="/static/comparison.js"></script>
+<script src="/static/bundles.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

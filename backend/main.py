@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_gallery, api_jobs, grid, loras, model_selection, prompt_encoding, prompt_rules, startup_preferences, storage  # noqa: E402
+from . import api_bundles, api_gallery, api_jobs, bundles, gallery_lock, grid, loras, model_selection, prompt_encoding, prompt_rules, startup_preferences, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
 from .model_info import details_for  # noqa: E402
@@ -254,6 +254,10 @@ async def _load_in_background() -> None:
 
 
 jobs = JobManager(backend, ensure_loaded)
+bundle_manager = api_bundles.BundleManager(
+    lambda: jobs,
+    lambda: _switching or _load_lock.locked() or _load_state["state"] == "loading",
+)
 
 
 def _stop_critic() -> None:
@@ -277,6 +281,7 @@ async def lifespan(app: FastAPI):
     if _switch_task is not None and not _switch_task.done():
         _switch_task.cancel()
         await asyncio.gather(_switch_task, return_exceptions=True)
+    await bundle_manager.finish()
     # Stop the worker before dropping the weights it is using. unload() takes no
     # part in the job gate, so on its own it would leave a generation running
     # against a pipeline nobody can see any more. try_unload, off the loop: a
@@ -294,6 +299,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Local Diffusion", version="0.1.0", lifespan=lifespan)
+app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_manager)
+
+
+@app.exception_handler(gallery_lock.GalleryBusy)
+async def gallery_busy(request: Request, exc: gallery_lock.GalleryBusy):
+    return JSONResponse({"detail": str(exc)}, status_code=409)
+
+
+@app.exception_handler(bundles.BundleError)
+async def invalid_bundle(request: Request, exc: bundles.BundleError):
+    return JSONResponse({"detail": str(exc)}, status_code=409 if isinstance(exc, bundles.BundleChanged) else 422)
 
 # DNS rebinding: a hostile page served from evil.example, whose record is
 # re-answered as 127.0.0.1, talks to this API as same-origin - CORS never gets a
@@ -1819,6 +1835,7 @@ def _model_scope(all_models: bool) -> str | None:
 
 # The routers read the app-owned worker and scope when a request arrives.
 app.include_router(api_jobs.create_router(lambda: jobs))
+app.include_router(api_bundles.create_router(lambda: bundle_manager))
 app.include_router(api_gallery.create_router(
     lambda: jobs, _model_scope, max_grid_images=settings.max_grid_images,
 ))
