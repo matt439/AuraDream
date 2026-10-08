@@ -293,6 +293,15 @@ elsewhere keeps it closed. This decision is made once per page visit: later
 polls, manual Unload and a dismissed picker never reopen it. Automatic opening
 does not take focus or move the prompt caret.
 
+Status polls must not rewrite unchanged native select values. Doing that every
+three seconds reset the model menu's highlight while the pointer stayed still.
+`modelPickerAppliedSettings` records the last values installed by status or a
+catalogue reply; only changed fields or a genuine server revision are written
+again. Comparing that snapshot rather than a native menu's temporary DOM value
+preserves browsing and keyboard previews. A late catalogue reply records what it
+actually installed, so the next status can still repair an outdated selection.
+Status polling, loading progress and other-tab synchronization continue normally.
+
 The speed fact uses the retained RTX 5080 records in `verified.md`, including
 the October 5 Animagine sample that the anime guide previously omitted. It
 shows Fast (up to 15 s), Medium (over 15 through 45 s) or Slow (over 45 s), based

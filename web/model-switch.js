@@ -18,6 +18,7 @@ let modelPickerMessage = null;
 let modelPickerDirty = false;
 let modelPickerStartupSeen = false;
 let modelRuntimeSettings = null;
+let modelPickerAppliedSettings = null;
 const MODEL_FAVOURITES_KEY = 'local-diffusion.model-favourites.v1';
 let modelFavourites = new Set();
 let modelFavouriteMessage = null;
@@ -240,11 +241,20 @@ function receiveModelSettings(status, { reset = false } = {}) {
   }
   if (modelCatalogueLoaded && !modelPickerDirty) {
     const selected = modelRuntimeSettings;
-    els.modelSelect.value = selected.model_id;
-    els.modelQuantization.value = selected.quantization;
-    els.modelOffload.value = selected.offload;
-    els.modelFormat.value = selected.format;
-    els.modelLoadOnStartup.checked = selected.load_on_startup;
+    // Reassigning even the same value resets a native menu's hover/keyboard
+    // highlight. Compare with what we last applied, not the DOM's temporary
+    // menu preview. A genuine server change or revision still wins.
+    const applied = modelPickerAppliedSettings;
+    for (const [control, key] of [
+      [els.modelSelect, 'model_id'], [els.modelQuantization, 'quantization'],
+      [els.modelOffload, 'offload'], [els.modelFormat, 'format'],
+    ]) {
+      if (reset || !applied || applied[key] !== selected[key]) control.value = selected[key];
+    }
+    if (reset || !applied || applied.load_on_startup !== selected.load_on_startup) {
+      els.modelLoadOnStartup.checked = selected.load_on_startup;
+    }
+    modelPickerAppliedSettings = { ...selected };
     if (!els.modelSelect.value || modelCatalogueKind !== modelCatalogueKey(selected)) {
       void refreshModelCatalogue({ current: true });
     } else syncModelInfo();
@@ -316,6 +326,9 @@ async function refreshModelCatalogue({ current = false } = {}) {
       if ([...control.options].some((o) => o.value === value)) control.value = value;
     }
     els.modelLoadOnStartup.checked = wanted.load_on_startup ?? body.load_on_startup ?? false;
+    // Remember the values this reply actually installed. If the server changed
+    // while it was in flight, the next status still reconciles that change.
+    modelPickerAppliedSettings = modelPickerSettings();
     modelCatalogueKind = modelCatalogueKey(modelPickerSettings());
     modelCatalogueLoaded = true;
     modelSwitchError = null;

@@ -341,6 +341,10 @@ Model and loader:
   native/documented maxima and examples distinctly; an example never becomes
   a guaranteed maximum. Model favourites are browser preferences, canonical across Nunchaku
   weight formats, and never mutate the selected model or loader settings.
+- Unchanged status polls never reassign the native model/loader selects' values:
+  even assigning the same value can reset an open menu's highlight. Compare
+  against the last applied settings snapshot, not a transient DOM preview.
+  Catalogue replies update that snapshot; genuine revisions still synchronize.
 - Picker speed facts use retained `docs/verified.md` measurements at their
   recorded size and steps. Different quantization, format, offload or platform
   is visibly a reference; unmeasured variants never inherit a family timing.
@@ -3064,7 +3068,11 @@ placement across model choices and short viewports, visible loader descriptions
 and speed references that follow draft quantization/offload choices.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
 for an idle unloaded/error server, suppression when ready/loading/busy, no
-reopening after dismissal or later Unload, and focus/caret preservation. CPU tests in
+reopening after dismissal or later Unload, and focus/caret preservation.
+`smoke-model-hover.json` opens native dropdowns through repeated real status
+polls and checks zero redundant value writes or option replacements. It covers
+keyboard drafts, real model/loading-option changes, checkbox-only updates and
+recovery from an outdated catalogue reply. CPU tests in
 `test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
 and `test_api_model_switch.py` cover persistence, explicit overrides, loader
 snapshots, metadata and refusal before releasing working weights;
@@ -3074,6 +3082,7 @@ snapshots, metadata and refusal before releasing working weights;
 uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-model-switch.json
 node tools/browser.mjs tools/smoke-model-startup.json
+node tools/browser.mjs tools/smoke-model-hover.json
 ```
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance

@@ -237,7 +237,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7890 | Minthy/RouWei-0.8 | `smoke-rouwei` |
 | 7891 | Laxhar/noobai-XL-Vpred-1.0 | `smoke-noobai` |
 | 7895 | circlestone-labs/Anima@aesthetic-v1.1 | `smoke-anima-aesthetic` |
-| 7896 | FLUX.1-Krea-dev | `smoke-model-switch`, `smoke-model-startup` |
+| 7896 | FLUX.1-Krea-dev | `smoke-model-switch`, `smoke-model-startup`, `smoke-model-hover` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.
