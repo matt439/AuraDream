@@ -1,7 +1,7 @@
 # Design notes
 
-Why the code is the way it is, one section per area. `CLAUDE.md` states the
-rules; this file keeps the reasoning behind each, the history of what went
+Why the code is the way it is, one section per area. `docs/rules.md` states the
+rules in full (`CLAUDE.md` the ones that break things silently); this file keeps the reasoning behind each, the history of what went
 wrong before the rule existed, and the evidence, in the notes kept while the
 code was written. Read the section for an area before changing it. The
 measurements quoted here are indexed by date and checkpoint in `verified.md`.
