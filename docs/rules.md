@@ -12,6 +12,10 @@ before changing it.
 - `backend/config.py` — settings, most overridable by `LOCAL_DIFFUSION_*` env vars
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
   flags, run before `config` is imported; the checkpoint catalogue lives here
+- `backend/model_selection.py` — the server's selected checkpoint and revision,
+  separate from immutable startup settings; `current_model_id(settings)` is
+  the runtime read, and `available(settings)` limits choices to this process's
+  catalogue/quantization/platform
 - `backend/schemas.py` — pydantic request/response models
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint and
   the control tooltips; each profile hangs its prompting guide from
@@ -124,7 +128,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 26 classic
+- `web/` — served as-is from `/static`; `index.html` loads 28 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -136,7 +140,8 @@ before changing it.
   `factsList`; `refine.js` and `refine-prompt.js` the Refine dialog;
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
-  and `status.js` retain their control/profile roles. The stylesheet is
+  and `status.js` retain their control/profile roles; `model-switch.js` owns
+  checkpoint selection and retiring state prepared under the old model. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order; preserve that cascade. See `docs/source-audit.md`
   for the responsibility map and retained long files.
@@ -302,6 +307,19 @@ Model and loader:
   so a job that ended at the load and Expand (a 503 from its route) carry
   the status's sentence.
   `ModelStatus.started_at` is set once, at import.
+- `POST /api/model/switch` accepts only `GET /api/models` choices, preserving
+  startup quantization/offload and Nunchaku's weight format/platform restriction.
+  The server reserves `_switching` before any await and holds it through unload,
+  prompt-helper cleanup, selection and `ensure_loaded`; the background task owns
+  this even if the browser disconnects. Refuse queued/running/paused jobs, loads,
+  card holders and in-flight model-dependent requests. The middleware counts
+  those requests before Pydantic fills defaults and holds the selection until
+  their work finishes; new requests during a switch and stale browser revision
+  headers receive 409. Include scoped bulk deletion in this guard. Startup
+  `Settings` stays frozen; runtime model reads use `current_model_id(settings)`.
+  Model revisions distinguish A-to-B-to-A switches; status never pairs an old
+  threaded description with the new revision. LoRA denoiser caches must be
+  invalidated when the selected checkpoint changes.
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end` (`_REQUIRED_PARAMS`): the seed and the cancel depend
   on them.
@@ -2604,7 +2622,7 @@ Frontend and CLI:
   flags from `launch.add_model_arguments`.
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred` and `POST /api/rerender` scope to
-  `settings.model_id` (`main._model_scope`, an exact predicate, never the
+  `current_model_id(settings)` (`main._model_scope`, an exact predicate, never the
   `model:` LIKE) unless `all_models=true`; the page's All models tick is the
   one switch, unpersisted like Starred, and `GalleryPage.other_models` is
   what the same filter matches elsewhere. Delete unstarred takes the scope
@@ -2999,6 +3017,21 @@ controls, saved variant identity and final no-Refine answer on port 7895:
 ```powershell
 uv run python tools/fake_server.py --port 7895 --model circlestone-labs/Anima@aesthetic-v1.1
 node tools/browser.mjs tools/smoke-anima-aesthetic.json
+```
+
+`smoke-model-switch.json` runs a FLUX.1-claiming fake on port 7896 to check
+the Models picker, Escape/focus and held-button reasons, FLUX to Animagine
+and back without a server restart, preserved prompts, per-checkpoint sampling
+through a reload, guide/tag/capability refresh, old analysis retirement,
+gallery scope and saved model metadata. Delayed LoRA and run-list replies
+cannot replace the new checkpoint's data; saved requests are held under a
+different checkpoint and work again after switching back. It also checks a
+switch held during a job, failed target loading and Retry load recovery, and
+topbar/picker fit at 680, 1400 and 2560 pixels:
+
+```powershell
+uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-model-switch.json
 ```
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
@@ -3742,4 +3775,3 @@ top-level. `browser.mjs` gives
 each run its own profile directory: a shared one stays locked by an Edge a
 crashed run left behind, and every later launch then hands its command line
 to that instance and reports "the browser did not come up".
-

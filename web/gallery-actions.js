@@ -503,6 +503,7 @@ async function forgetIfGone(id) {
 // under the gallery's head, where the button is.
 async function deleteUnstarred() {
   const slot = { slot: els.galleryError };
+  const revision = modelRevision;
   // The grid brought up to what the sweep would reach first: images another
   // tab made since this page's last look were counted and deleted unseen -
   // the newest ones, the likeliest still to be starred - and the count to
@@ -581,6 +582,10 @@ async function deleteUnstarred() {
   ].join('\n');
   const typed = await askCount(message);
   if (typed === null) return;
+  if (revision !== modelRevision) {
+    showError('Nothing deleted: the checkpoint changed. Review the new gallery before deleting.', true, slot);
+    return;
+  }
   if (typed.trim() !== String(found.unstarred)) {
     showError(`Nothing deleted: "${typed.trim()}" is not ${found.unstarred}.`, true, slot);
     return;
@@ -588,7 +593,10 @@ async function deleteUnstarred() {
   params.set('expected', found.unstarred);
   let result;
   try {
-    result = await api(`/api/gallery/unstarred?${params}`, { method: 'DELETE' });
+    result = await api(`/api/gallery/unstarred?${params}`, {
+      method: 'DELETE',
+      headers: revision === null ? {} : { 'X-Local-Diffusion-Model-Revision': String(revision) },
+    });
   } catch (err) {
     if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }
     // The server counts something else now - images a job landed in scope,

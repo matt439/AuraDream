@@ -227,6 +227,39 @@ press's own refusal, Expand's pointer (`loadLine`), the status's sentence
 (`shownLoadDetail`) and Expand's words about the load under the prompt
 (`aboutLoad`) - never an Undo on offer or a job's outcome in the same line.
 
+## Switching checkpoints while the server stays open
+
+The browser's **Models > Switch & load** selects another catalogue checkpoint
+without restarting the process (2026-10-08). Startup `Settings` remains frozen;
+`model_selection` owns one immutable `(model_id, revision)` snapshot, and
+`current_model_id(settings)` supplies the model to defaults, the loader, jobs,
+saved metadata, resume lookups and gallery scope. Quantization and offload do
+not change. Nunchaku retains its startup format and Linux-only catalogue. An
+explicit startup id outside the catalogue remains available for switching back;
+the HTTP API cannot introduce arbitrary repository ids or paths.
+
+Switching requires no queued, running or paused jobs, no load or card holder,
+and no model-dependent request in flight. That last condition starts at HTTP
+middleware, before Pydantic fills checkpoint defaults: a Generate waiting on
+adapter or source validation must not resume under a new model. It also covers
+CPU prompt checks and scoped bulk deletion. The browser sends its observed
+revision so an old tab cannot submit old controls, or confirm a bulk deletion,
+against the model another tab just selected. Status and model-list reads stay
+available. The switch reserves its state before yielding, releases the old
+weights and helpers under the load lock, updates the selection, then loads only
+through `ensure_loaded`. A background task keeps that reservation if the browser
+disconnects. Load failures retain the selected checkpoint and normal Retry load
+behavior. LoRA compatibility caches are invalidated by checkpoint id.
+
+The page follows both the model id and revision, including an A-to-B-to-A
+change between polls. It retires old prompt answers and prepared Refine state,
+refreshes guides, controls, adapters and gallery scope, and restores sampling
+remembered for that checkpoint. Prompts and saved images remain. Old submissions
+can retry only after switching back to their checkpoint. A later server launch
+still uses its flags, menu and environment; switching does not rewrite them.
+CPU and fake-browser checks establish these transitions, not real GPU load
+times, memory release or image quality.
+
 ## The loader is model-agnostic
 
 The loader is model-agnostic: `DiffusionPipeline.from_pretrained` resolves the
@@ -3418,7 +3451,7 @@ and Enter in the open list, comes with no such key and opens at once
 
 ## The gallery is the running checkpoint's
 
-**`GET /api/gallery` is scoped to `settings.model_id` unless `all_models=true`**,
+**`GET /api/gallery` is scoped to `current_model_id(settings)` unless `all_models=true`**,
 and so are `GET /api/runs`, `GET`/`DELETE /api/gallery/unstarred` and
 `POST /api/rerender` - every route that reads "the gallery's filter". The
 page's All models tick, beside Starred and unpersisted like it, is the one
@@ -3438,7 +3471,7 @@ has to be exact: a full id matches every longer id that extends it, and
 substring scope would show under it. So `storage.list_images` takes
 `model_id` as a predicate of its own, kept out of the `where` list the FTS
 fallback rewrites, and `main._model_scope` turns the flag into
-`settings.model_id` or None.
+`current_model_id(settings)` or None.
 
 **`other_models` is on every page.** `list_images` answers a third number:
 how many rows the *rest* of the filter matches on other checkpoints, one
@@ -3462,11 +3495,11 @@ checkpoint's records stays, now reachable only with All models on; the
 Runs picker follows the tick because a run picked from it opens as a sheet,
 and a run the grid would not show is an empty one.
 
-`status.js` re-asks for the gallery and the runs when `model_id` *changes*
-between status polls with the tick off: the scope is server-side, so a
+`status.js` re-asks for the gallery and the runs when the selected model or
+its revision changes: the scope is server-side, so a runtime switch or a
 server restarted under another checkpoint while the page stayed open would
-otherwise keep showing the old one's images. The first answer is not a
-change - the page loaded under this checkpoint's scope already. The
+otherwise keep showing the old one's images. The revision also catches
+A-to-B-to-A changes between polls. The
 `tools/fake_server.py` gallery plants two images under a checkpoint it is
 not claiming, one starred, so `tools/smoke.json` can watch the tick reveal
 them, the badge count them, the Runs picker follow and the dialog name the

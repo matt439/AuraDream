@@ -379,6 +379,7 @@ function rememberTagVerdicts(results) {
 // from, every item's order slot (`tagSlots`): one request, so the slots are
 // placed with the categories the same lookup just gave.
 async function validatePromptTags(tags, epoch, prompt) {
+  if (modelChangeHold()) return;
   const rest = tags.slice(TAG_LOOKUP_CAP).map((tag) => uncheckedTag(tag, TAG_LOOKUP_CAP));
   const model = loadedModel;
   try {

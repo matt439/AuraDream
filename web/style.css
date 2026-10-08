@@ -295,6 +295,32 @@ body {
 
 .vram { margin-left: auto; color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
 
+/* A checkpoint choice stays outside the settings panel's flow and never
+   grows the fixed-height topbar. Its controls remain reachable while held. */
+.model-picker {
+  position: absolute; top: calc(100% + var(--sp-2)); right: var(--gutter);
+  width: min(420px, calc(100vw - 2 * var(--gutter))); padding: var(--panel-pad);
+  background: var(--panel); border: 1px solid var(--line-strong);
+  border-radius: var(--r-md); box-shadow: var(--shadow-pop);
+  display: grid; gap: var(--sp-3); color: var(--text);
+}
+.model-picker > label { font-size: var(--fs-label); font-weight: 600; }
+.model-picker > select {
+  width: 100%; min-width: 0; height: var(--h-field); padding: 0 var(--sp-2);
+  color: var(--text); background: var(--panel-2); border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm); font: inherit;
+}
+.model-picker p { margin: 0; color: var(--text-3); font-size: var(--fs-label); }
+#model-picker-note { min-height: 3lh; }
+.topbar > button { flex: none; }
+@media (max-width: 700px) {
+  .topbar { gap: var(--sp-2); }
+  .topbar .status { min-width: 0; }
+  #status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar > .vram { display: none; }
+  #btn-models { margin-left: auto; }
+}
+
 /* The watched job beside the status, in the bar's unused width, and a 2 px
    line along its foot: in view at any scroll, where the panel's bar is not. */
 .job-mirror {
@@ -313,6 +339,9 @@ body {
 @media (max-width: 700px) {
   .topbar:has(#job-mirror:not([hidden])) .vram { display: none; }
   .topbar:has(#job-mirror:not([hidden])) .job-mirror { margin-right: auto; }
+  /* Keep the load's clock whole; the checkpoint name can ellipsize beside
+     Models. Ordinary progress still shrinks when its words are longer. */
+  .topbar .job-mirror.load-wait { flex-shrink: 0; }
 }
 
 /* ----------------------------------------------------------------- layout */

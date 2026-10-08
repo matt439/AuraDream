@@ -19,6 +19,7 @@ from backend.backends.base import GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
 from backend.grid import progress_steps
+from backend.model_selection import current_model_id
 from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
 
 
@@ -28,6 +29,7 @@ class FakeBackend(GenerationBackend):
     name = "fake"
 
     def __init__(self, step_seconds: float = 0.0, cfg_threshold: float | None = None, loaded: bool = True):
+        self._profile_model = current_model_id(settings)
         self.step_seconds = step_seconds
         self.requests: list[GenerateRequest] = []
         self.seeds: list[int] = []
@@ -38,6 +40,7 @@ class FakeBackend(GenerationBackend):
         # CFG value, or on a separate true CFG when `true_cfg_supported`.
         self.cfg_threshold = cfg_threshold
         self.true_cfg_supported = False
+        self.negative_prompt_supported = True
         # A capable stand-in by default: the pipeline takes reference images
         # and an adapter can be applied, so a test that cares about either
         # turns it off rather than every other test having to turn it on.
@@ -65,16 +68,43 @@ class FakeBackend(GenerationBackend):
         self.fail_on: set[int] = set()
         self.after_generate = None
 
+    def _sync_model_profile(self) -> None:
+        """Switch the fake's capabilities with the server's selected model.
+
+        Initial capabilities stay deliberately generous so individual tests
+        can set just the flag they exercise. A runtime switch, unlike those
+        test overrides, takes the new checkpoint's complete profile, as the
+        browser fake's startup already does.
+        """
+        model_id = current_model_id(settings)
+        if model_id == self._profile_model:
+            return
+        from backend.backends.loading import lora_refusal
+        from backend.model_defaults import defaults_for
+
+        profile = defaults_for(model_id)
+        self._profile_model = model_id
+        for key in (
+            "cfg_threshold", "true_cfg_supported", "negative_prompt_supported",
+            "reference_supported", "refine_supported", "mu_supported",
+        ):
+            setattr(self, key, profile[key])
+        self.lora_reason = lora_refusal(model_id)
+        self.prompt_expander_supported = "ernie-image" in model_id.lower().replace("_", "-")
+
     def lora_supported(self) -> bool:
+        self._sync_model_profile()
         return self.lora_reason is None
 
     def lora_unavailable_reason(self) -> str | None:
+        self._sync_model_profile()
         return self.lora_reason
 
     def lora_mismatch(self, name: str) -> str | None:
         return self.lora_mismatches.get(name)
 
     def prompt_expansion_supported(self) -> bool:
+        self._sync_model_profile()
         return self.prompt_expander_supported
 
     def expand_prompt(self, prompt: str, width: int, height: int) -> str:
@@ -91,6 +121,7 @@ class FakeBackend(GenerationBackend):
         return {"loaded": self.loaded and self.expander_loaded, "fetch": fetch}
 
     def applied(self, request):
+        self._sync_model_profile()
         # What this fake would drop, the way the real backend drops it: an
         # input it cannot use must not reach the row.
         changes = {}
@@ -108,7 +139,7 @@ class FakeBackend(GenerationBackend):
         if self.cfg_threshold is None:
             return request
         return request.applied(
-            negative_prompt_supported=True,
+            negative_prompt_supported=self.negative_prompt_supported,
             cfg_threshold=self.cfg_threshold,
             mu_supported=self.mu_supported,
             true_cfg_supported=self.true_cfg_supported,
@@ -118,6 +149,7 @@ class FakeBackend(GenerationBackend):
         )
 
     def load(self) -> None:
+        self._sync_model_profile()
         self.loads += 1
         self.loaded = True
 
@@ -160,8 +192,9 @@ class FakeBackend(GenerationBackend):
         ]
 
     def describe(self) -> dict:
+        self._sync_model_profile()
         return {
-            "model_id": settings.model_id,
+            "model_id": current_model_id(settings),
             "quantization": settings.quantization,
             "offload": settings.offload,
             "cfg_threshold": None,

@@ -350,6 +350,7 @@ const GENERATE_TITLE = els.generate.title;
 const GRID_RUN_TITLE = els.gridRun.title;
 function submitHold() {
   return serverOffline ? 'The server is not answering'
+    : modelChangeHold() ? modelChangeHold()
     : expandingPrompt ? 'Wait for prompt expansion to finish'
     : critiquing ? 'Wait for the critic to finish'
     : '';
@@ -366,6 +367,7 @@ function syncSubmitButtons() {
   // the comparison's Run as Generate does.
   syncRefineRun();
   syncCompareRun();
+  syncModelSwitch();
 }
 
 function setSubmitting(on) {
@@ -410,6 +412,7 @@ function setTitle(text) {
 // says it already, so its mirror says nothing more, and the tab says the same.
 let streamLost = false;
 function mirrorJob() {
+  els.jobMirror.classList.toggle('load-wait', busy && !streamLost && !!els.progressText.querySelector('.clock'));
   if (!busy) { els.jobMirror.textContent = ''; setTitle(''); return; }
   if (streamLost) {
     els.jobMirror.textContent = '';
@@ -572,8 +575,15 @@ function handJobFocus(to) {
 // queued behind the watched job - once the server has taken it.
 async function startJob(path, payload, {
   sheet = false, panel = true, slot = els.error, placeholder = null, onAccepted = null, onRefused = null,
+  model = loadedModel, revision = modelRevision,
 } = {}) {
   if (submitting) return;
+  const modelHold = modelChangeHold() || submissionModelHold({ model, revision });
+  if (modelHold) { showError(modelHold, false, { slot }); return; }
+  // A saved request can run again after switching back to its checkpoint.
+  // Bind this new submission to the current selection so another tab cannot
+  // replace it between this check and the server accepting the request.
+  if (model === loadedModel) revision = modelRevision;
   // Held while the status poll gets no answer: the press says why, and the
   // poll asks again at once, so a server already back lets the next through.
   if (serverOffline) { showError(OFFLINE_MESSAGE, false, { slot }); void refreshStatus(); return; }
@@ -603,7 +613,7 @@ async function startJob(path, payload, {
   try {
     const { job_id, seed } = await api(path, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(revision === null ? {} : { 'X-Local-Diffusion-Model-Revision': String(revision) }) },
       body: JSON.stringify(payload),
     });
     setSubmitting(false);
@@ -611,7 +621,7 @@ async function startJob(path, payload, {
     // The topbar's "loading…" now, not at the next poll, beside the panel's
     // own "loading weights".
     void refreshStatus();
-    submissions.set(job_id, { path, payload, seed, sheet, asker, at: Date.now() });
+    submissions.set(job_id, { path, payload, seed, sheet, asker, model, revision, at: Date.now() });
     jobLabels.set(job_id, submissionLabel(path, payload));
     if (placeholder) jobPlaceholders.set(job_id, placeholder);
     if (sheet) jobsToShow.add(job_id);

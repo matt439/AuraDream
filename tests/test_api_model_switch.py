@@ -1,0 +1,497 @@
+"""Runtime checkpoint changes keep one loader, one queue and one gallery."""
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+import dataclasses
+import json
+import threading
+import time
+from types import SimpleNamespace
+
+import pytest
+import httpx
+from PIL import Image
+
+from backend import main, model_selection
+from backend.model_defaults import defaults_for, guide_for
+from backend.schemas import PromptGuide
+from tests.api_helpers import ORIGIN, run_one, stream_job, wait_for
+
+
+ANIMAGINE = "cagliostrolab/animagine-xl-4.0"
+TURBO = "krea/Krea-2-Turbo"
+PAYLOAD = {"prompt": "a lighthouse", "width": 256, "height": 256}
+
+
+@pytest.fixture(autouse=True)
+def fresh_selection(monkeypatch):
+    monkeypatch.setattr(model_selection, "_selection", (None, 0))
+    monkeypatch.setattr(main, "_switching", False)
+    monkeypatch.setattr(main, "_model_requests", 0)
+
+
+def _settled(client, model_id, state="ready"):
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        body = client.get("/api/status").json()
+        if body["model_id"] == model_id and body["state"] == state and not body["switching"]:
+            return body
+        time.sleep(0.01)
+    raise AssertionError(f"checkpoint did not settle as {model_id} / {state}: {body}")
+
+
+def _switch(client, model_id):
+    reply = client.post("/api/model/switch", json={"model_id": model_id})
+    assert reply.status_code == 200, reply.text
+    return _settled(client, model_id)
+
+
+def test_model_inventory_uses_catalogue_labels_and_current_loading_options(client, fake):
+    reply = client.get("/api/models")
+    assert reply.status_code == 200, reply.text
+    body = reply.json()
+    assert body["models"] == [
+        {"model_id": item.repo, "label": item.name} for item in main.CHECKPOINTS
+    ]
+    status = client.get("/api/status").json()
+    assert (body["quantization"], body["offload"]) == (
+        status["quantization"], status["offload"],
+    )
+    assert fake.loads == 0  # Listing the choices is cold.
+
+
+def test_switch_updates_defaults_saved_metadata_and_exact_gallery_scope(client, fake, store):
+    initial = client.get("/api/status").json()
+    old_job, old_events = run_one(client, seed=42, steps=2)
+    old_record = old_events[-1]["images"][0]
+    changed = _switch(client, ANIMAGINE)
+    assert changed["started_at"] == initial["started_at"]
+    assert changed["model_revision"] == initial["model_revision"] + 1
+    assert changed["guide"] == PromptGuide.model_validate(guide_for(ANIMAGINE)).model_dump(mode="json")
+    profile = defaults_for(ANIMAGINE)
+    for key in ("steps", "guidance_scale", "mu", "refine_strength"):
+        assert changed["defaults"][key] == profile[key]
+    assert client.get("/api/gallery").json()["total"] == 0
+
+    new_job, new_events = run_one(client, seed=42, mu=3, negative_prompt="blurry")
+    assert new_events[-1]["status"] == "done"
+    record = new_events[-1]["images"][0]
+    assert (record["model_id"], record["steps"], record["guidance_scale"], record["mu"]) == (
+        ANIMAGINE, profile["steps"], profile["guidance_scale"], None,
+    )
+    assert record["negative_prompt"] == "blurry"
+    assert record["true_cfg"] == profile["guidance_scale"]
+    assert record["quantization"] == initial["quantization"]
+    assert record["run_id"] != old_record["run_id"]
+    with Image.open(store.settings.outputs_dir / record["filename"]) as image:
+        metadata = json.loads(image.info["local-diffusion"])
+    assert (metadata["model"], metadata["steps"], metadata["mu"]) == (
+        ANIMAGINE, profile["steps"], None,
+    )
+    gallery = client.get("/api/gallery").json()
+    assert (gallery["total"], gallery["other_models"]) == (1, 1)
+    assert [item["id"] for item in gallery["items"]] == [record["id"]]
+    assert {item["id"] for item in client.get("/api/gallery?all_models=true").json()["items"]} == {
+        old_record["id"], record["id"],
+    }
+    assert [item["run_id"] for item in client.get("/api/runs").json()] == [record["run_id"]]
+    assert client.get(f"/api/jobs/{old_job}").json()["images"][0]["model_id"] == initial["model_id"]
+    assert client.get(f"/api/jobs/{new_job}").json()["images"][0]["model_id"] == ANIMAGINE
+
+    restored = _switch(client, initial["model_id"])
+    assert restored["model_revision"] == initial["model_revision"] + 2
+    assert client.get("/api/gallery").json()["items"][0]["id"] == old_record["id"]
+
+
+@pytest.mark.parametrize("model_id", ["not-a-catalogue/model", "", "../../a-local-checkpoint"])
+def test_unknown_model_is_refused_before_unloading(client, fake, monkeypatch, model_id):
+    initial = client.get("/api/status").json()
+    unloads = []
+    unload = fake.unload
+
+    def watched_unload():
+        unloads.append(True)
+        unload()
+
+    monkeypatch.setattr(fake, "unload", watched_unload)
+    reply = client.post("/api/model/switch", json={"model_id": model_id})
+    assert reply.status_code == 422, reply.text
+    current = client.get("/api/status").json()
+    assert (current["model_id"], current["model_revision"]) == (
+        initial["model_id"], initial["model_revision"],
+    )
+    assert fake.loaded and not unloads and fake.loads == 0
+
+
+def test_selecting_the_ready_model_is_a_noop(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    unloads = []
+    monkeypatch.setattr(fake, "try_unload", lambda: unloads.append(True))
+    reply = client.post("/api/model/switch", json={"model_id": initial["model_id"]})
+    assert reply.status_code == 200, reply.text
+    assert reply.json()["model_revision"] == initial["model_revision"]
+    assert not unloads and fake.loads == 0 and fake.loaded
+
+
+def test_switch_refuses_running_queued_and_paused_jobs(client, fake):
+    initial = client.get("/api/status").json()
+    fake.step_seconds = 0.05
+    ahead = client.post("/api/generate", json={**PAYLOAD, "steps": 10, "runs": 5}).json()["job_id"]
+    behind = client.post("/api/generate", json={**PAYLOAD, "steps": 2}).json()["job_id"]
+    try:
+        wait_for(client, ahead, lambda job: job["status"] == "running")
+        assert client.get(f"/api/jobs/{behind}").json()["status"] == "queued"
+        assert client.post("/api/model/switch", json={"model_id": ANIMAGINE}).status_code == 409
+        client.post(f"/api/jobs/{ahead}/pause")
+        wait_for(client, ahead, lambda job: job["paused"])
+        assert client.post("/api/model/switch", json={"model_id": ANIMAGINE}).status_code == 409
+        current = client.get("/api/status").json()
+        assert current["model_id"] == initial["model_id"] and not current["switching"]
+        assert fake.loaded and fake.loads == 0
+    finally:
+        client.post(f"/api/jobs/{behind}/cancel")
+        client.post(f"/api/jobs/{ahead}/cancel")
+        stream_job(client, ahead)
+
+
+def test_switch_refuses_an_existing_load(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    fake.loaded = False
+    started, release = threading.Event(), threading.Event()
+    load = fake.load
+
+    def waiting_load():
+        started.set()
+        assert release.wait(10)
+        load()
+
+    monkeypatch.setattr(fake, "load", waiting_load)
+    try:
+        assert client.post("/api/model/load").status_code == 200
+        assert started.wait(5)
+        reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+        assert reply.status_code == 409, reply.text
+        assert client.get("/api/status").json()["model_id"] == initial["model_id"]
+    finally:
+        release.set()
+    _settled(client, initial["model_id"])
+
+
+@pytest.mark.parametrize("holder", ["critic", "expand"])
+def test_switch_refuses_an_editor_action_holding_the_card(client, fake, monkeypatch, holder):
+    initial = client.get("/api/status").json()
+    started, release = threading.Event(), threading.Event()
+    if holder == "critic":
+        work = fake.critic.critique
+
+        def waiting_work(*args):
+            started.set()
+            assert release.wait(10)
+            return work(*args)
+
+        monkeypatch.setattr(fake.critic, "critique", waiting_work)
+        route = "/api/prompt/critique"
+    else:
+        fake.prompt_expander_supported = True
+        work = fake.expand_prompt
+
+        def waiting_work(*args):
+            started.set()
+            assert release.wait(10)
+            return work(*args)
+
+        monkeypatch.setattr(fake, "expand_prompt", waiting_work)
+        route = "/api/prompt/expand"
+    with ThreadPoolExecutor(1) as pool:
+        try:
+            pending = pool.submit(client.post, route, json=PAYLOAD)
+            assert started.wait(5)
+            assert client.get("/api/status").json()["card_holder"] == holder
+            reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+            assert reply.status_code == 409, reply.text
+            assert client.get("/api/status").json()["model_id"] == initial["model_id"]
+            assert fake.loaded
+        finally:
+            release.set()
+        assert pending.result(timeout=5).status_code == 200
+
+
+def test_switch_load_failure_can_be_retried_and_another_model_selected(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    load = fake.load
+
+    def failed_load():
+        raise RuntimeError("the requested model could not load")
+
+    monkeypatch.setattr(fake, "load", failed_load)
+    reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+    assert reply.status_code == 200, reply.text
+    failed = _settled(client, ANIMAGINE, "error")
+    assert "the requested model could not load" in failed["detail"]
+    assert failed["model_revision"] == initial["model_revision"] + 1
+    assert not fake.loaded
+    monkeypatch.setattr(fake, "load", load)
+    assert client.post("/api/model/load").status_code == 200
+    recovered = _settled(client, ANIMAGINE)
+    assert recovered["detail"] is None
+    assert recovered["model_revision"] == failed["model_revision"]
+    _switch(client, initial["model_id"])
+
+
+def test_failed_critic_cleanup_never_loads_a_second_model(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    unload = fake.critic.unload
+
+    def failed_cleanup():
+        raise RuntimeError("the critic process did not stop")
+
+    monkeypatch.setattr(fake.critic, "unload", failed_cleanup)
+    reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+    assert reply.status_code == 200, reply.text
+    failed = _settled(client, initial["model_id"], "error")
+    assert "the critic process did not stop" in failed["detail"]
+    assert failed["model_revision"] == initial["model_revision"]
+    assert not fake.loaded and fake.loads == 0
+    monkeypatch.setattr(fake.critic, "unload", unload)
+    _switch(client, ANIMAGINE)
+
+
+def test_switch_reserves_teardown_and_loading_against_new_model_work(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    unloading, release_unload = threading.Event(), threading.Event()
+    loading, release_load = threading.Event(), threading.Event()
+    unload, load = fake.try_unload, fake.load
+
+    def waiting_unload():
+        unloading.set()
+        assert release_unload.wait(10)
+        return unload()
+
+    def waiting_load():
+        loading.set()
+        assert release_load.wait(10)
+        load()
+
+    monkeypatch.setattr(fake, "try_unload", waiting_unload)
+    monkeypatch.setattr(fake, "load", waiting_load)
+    try:
+        reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+        assert reply.status_code == 200, reply.text
+        assert unloading.wait(5)
+        status = client.get("/api/status").json()
+        assert status["switching"] and status["model_id"] == initial["model_id"]
+        for route in (
+            "/api/generate", "/api/grid", "/api/grid/preview", "/api/rerender",
+            "/api/model/load", "/api/model/unload", "/api/prompt/analyze",
+            "/api/prompt/critique", "/api/prompt/expand",
+        ):
+            refused = client.post(route, json=PAYLOAD)
+            assert refused.status_code == 409, (route, refused.text)
+        assert client.post("/api/model/switch", json={"model_id": TURBO}).status_code == 409
+        assert not fake.requests and fake.loaded
+        release_unload.set()
+        assert loading.wait(5)
+        status = client.get("/api/status").json()
+        assert (status["model_id"], status["switching"], status["state"]) == (
+            ANIMAGINE, True, "loading",
+        )
+        assert client.post("/api/generate", json=PAYLOAD).status_code == 409
+    finally:
+        release_unload.set()
+        release_load.set()
+    _settled(client, ANIMAGINE)
+    assert fake.loads == 1
+    run_one(client, steps=2)
+
+
+def test_switch_refuses_a_request_between_validation_and_job_submission(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    validating, release = threading.Event(), threading.Event()
+    validate = main._refuse_unusable_inputs
+
+    async def waiting_validation(request):
+        validating.set()
+        assert await asyncio.to_thread(release.wait, 10)
+        await validate(request)
+
+    monkeypatch.setattr(main, "_refuse_unusable_inputs", waiting_validation)
+    with ThreadPoolExecutor(1) as pool:
+        try:
+            pending = pool.submit(client.post, "/api/generate", json=PAYLOAD)
+            assert validating.wait(5)
+            assert not main.jobs.active()  # Admission, before any queue entry.
+            refused = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+            assert refused.status_code == 409, refused.text
+            assert client.get("/api/status").json()["model_id"] == initial["model_id"]
+        finally:
+            release.set()
+        accepted = pending.result(timeout=5)
+    assert accepted.status_code == 200, accepted.text
+    done = stream_job(client, accepted.json()["job_id"])[-1]
+    assert done["images"][0]["model_id"] == initial["model_id"]
+    _switch(client, ANIMAGINE)
+
+
+def test_old_browser_revision_cannot_submit_settings_to_the_new_model(client, fake):
+    initial = client.get("/api/status").json()
+    current = _switch(client, ANIMAGINE)
+    header = "X-Local-Diffusion-Model-Revision"
+    stale = client.post(
+        "/api/generate", json=PAYLOAD, headers={header: str(initial["model_revision"])},
+    )
+    assert stale.status_code == 409, stale.text
+    malformed = client.post("/api/generate", json=PAYLOAD, headers={header: "not-a-number"})
+    assert malformed.status_code == 422 and not fake.requests and not main.jobs.active()
+    accepted = client.post(
+        "/api/generate", json=PAYLOAD, headers={header: str(current["model_revision"])},
+    )
+    assert accepted.status_code == 200, accepted.text
+    done = stream_job(client, accepted.json()["job_id"])[-1]
+    assert done["images"][0]["model_id"] == ANIMAGINE
+
+
+def test_status_retries_a_description_that_crossed_a_switch(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    describing, release = threading.Event(), threading.Event()
+    describe = fake.describe
+    first = True
+
+    def waiting_description():
+        nonlocal first
+        captured = describe()
+        if first:
+            first = False
+            describing.set()
+            assert release.wait(10)
+        return captured
+
+    monkeypatch.setattr(fake, "describe", waiting_description)
+    with ThreadPoolExecutor(1) as pool:
+        try:
+            pending = pool.submit(client.get, "/api/status")
+            assert describing.wait(5)
+            changed = _switch(client, ANIMAGINE)
+        finally:
+            release.set()
+        status = pending.result(timeout=5).json()
+    assert status["model_id"] == ANIMAGINE
+    assert status["model_revision"] == changed["model_revision"] == initial["model_revision"] + 1
+    assert status["defaults"]["steps"] == defaults_for(ANIMAGINE)["steps"]
+    assert not status["switching"]
+
+
+@pytest.mark.parametrize("platform", ["linux", "win32"])
+def test_nunchaku_inventory_and_refusal_keep_the_startup_runtime(client, fake, monkeypatch, platform):
+    first = main.CHECKPOINTS[0]
+    selected = first.lite_repo("int4")
+    monkeypatch.setattr(main, "settings", dataclasses.replace(
+        main.settings, model_id=selected, quantization="nunchaku",
+    ))
+    monkeypatch.setattr(model_selection, "sys", SimpleNamespace(platform=platform))
+    choices = client.get("/api/models").json()
+    assert choices["quantization"] == "nunchaku"
+    if platform == "linux":
+        assert choices["models"] == [
+            {"model_id": item.lite_repo("int4"), "label": item.name}
+            for item in main.CHECKPOINTS if item.lite
+        ]
+    else:
+        assert choices["models"] == []
+    unloads = []
+    monkeypatch.setattr(fake, "try_unload", lambda: unloads.append(True))
+    rejected = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+    assert rejected.status_code == 422, rejected.text
+    assert not unloads and fake.loaded
+
+
+def test_stale_gallery_confirmation_and_switch_do_not_act_on_the_new_selection(client):
+    initial = client.get("/api/status").json()
+    run_one(client, steps=2)
+    assert client.get("/api/gallery/unstarred").json()["unstarred"] == 1
+    current = _switch(client, ANIMAGINE)
+    run_one(client, steps=2)
+    # The old and new gallery happen to have the same count: count checking
+    # alone would accept this confirmation against a different image.
+    assert client.get("/api/gallery/unstarred").json()["unstarred"] == 1
+    headers = {"X-Local-Diffusion-Model-Revision": str(initial["model_revision"])}
+    deleted = client.delete("/api/gallery/unstarred?expected=1", headers=headers)
+    assert deleted.status_code == 409, deleted.text
+    switched = client.post("/api/model/switch", json={"model_id": TURBO}, headers=headers)
+    assert switched.status_code == 409, switched.text
+    assert client.get("/api/gallery?all_models=true").json()["total"] == 2
+    assert client.get("/api/status").json()["model_revision"] == current["model_revision"]
+
+
+def test_switch_rechecks_revision_after_a_slow_request_body(fake):
+    # Header validation runs before the body is parsed. A request whose
+    # upload stalls there must not undo a selection another tab completes
+    # while that original request is still arriving.
+    async def scenario():
+        body_started, release_body = asyncio.Event(), asyncio.Event()
+
+        async def slow_body():
+            yield b'{"model_id": "'
+            body_started.set()
+            await release_body.wait()
+            yield (TURBO + '"}').encode()
+
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(transport=transport, base_url=ORIGIN) as client:
+            initial = (await client.get("/api/status")).json()
+            pending = asyncio.create_task(client.post(
+                "/api/model/switch",
+                content=slow_body(),
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Local-Diffusion-Model-Revision": str(initial["model_revision"]),
+                },
+            ))
+            try:
+                await asyncio.wait_for(body_started.wait(), timeout=5)
+                reply = await client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+                assert reply.status_code == 200, reply.text
+                deadline = time.monotonic() + 5
+                while True:
+                    changed = (await client.get("/api/status")).json()
+                    if changed["model_id"] == ANIMAGINE and not changed["switching"]:
+                        break
+                    assert time.monotonic() < deadline, "the other tab's switch did not finish"
+                    await asyncio.sleep(0.01)
+                assert changed["state"] == "ready"
+                assert changed["model_revision"] == initial["model_revision"] + 1
+            finally:
+                release_body.set()
+            refused = await asyncio.wait_for(pending, timeout=5)
+            assert refused.status_code == 409, refused.text
+            current = (await client.get("/api/status")).json()
+            assert (current["model_id"], current["model_revision"], current["switching"]) == (
+                ANIMAGINE, changed["model_revision"], False,
+            )
+            assert fake.loads == 1
+        await main.jobs.shutdown()
+
+    asyncio.run(scenario())
+
+
+def test_real_backend_rechecks_lora_fit_after_model_selection_changes(monkeypatch):
+    from backend.backends.diffusers_backend import DiffusersBackend
+    from backend import loras
+
+    backend = DiffusersBackend()
+    flux = loras.Denoiser(object, "transformer", "FluxTransformer", {"attention": (4, 8)})
+    sdxl = loras.Denoiser(object, "unet", "SDXLUNet", {"conv": (4, 16)})
+    configurations = iter((flux, sdxl))
+    monkeypatch.setattr(backend, "_configured_denoiser", lambda: next(configurations))
+    seen = []
+
+    def mismatch(name, denoiser):
+        seen.append(denoiser)
+        return None if denoiser is flux else "this adapter does not fit the selected UNet"
+
+    monkeypatch.setattr(loras, "mismatch", mismatch)
+    assert backend.lora_mismatch("style.safetensors") is None
+    assert backend.lora_mismatch("style.safetensors") is None
+    model_selection.select(ANIMAGINE)
+    assert backend.lora_mismatch("style.safetensors") == "this adapter does not fit the selected UNet"
+    assert seen == [flux, flux, sdxl]

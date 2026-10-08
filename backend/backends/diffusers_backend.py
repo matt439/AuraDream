@@ -27,6 +27,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from .. import latent_preview, loras, refine
+from ..model_selection import current_model_id
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
@@ -79,8 +80,9 @@ class DiffusersBackend(GenerationBackend):
         # device before that, and None where neither could be read. The same
         # map either way - the configs are what the live one was built from -
         # so the live answer replaces the configs' once and is kept across an
-        # unload, the checkpoint being fixed for the life of the process.
+        # unload of the same checkpoint. A switch invalidates it by public id.
         self._denoiser_cache: tuple[str, "loras.Denoiser | None"] | None = None
+        self._denoiser_model_id: str | None = None
         # The refine pass. `_refine_class` is (pipeline class, its
         # image-to-image sibling or None), asked of diffusers once per class;
         # `_refine_pipe` is that sibling built over the live pipeline's own
@@ -100,6 +102,7 @@ class DiffusersBackend(GenerationBackend):
         with self._lock, ExitStack() as held:
             if self._pipe is not None:
                 return
+            checkpoint_id = current_model_id(settings)
             # No meta-device build beside the load (`loading.weights_loading`):
             # the adapter fit's patches every module's parameters process-wide.
             # The conversions below run inside the hold.
@@ -122,10 +125,10 @@ class DiffusersBackend(GenerationBackend):
 
             # DiffusionPipeline resolves the concrete class from model_index.json,
             # so this works for Krea2Pipeline, FluxPipeline, and anything else.
-            log.info("loading %s (quant=%s)", settings.model_id, settings.quantization)
+            log.info("loading %s (quant=%s)", checkpoint_id, settings.quantization)
             # Single-file catalogue entries are converted once on CPU. Keep
             # the official id in settings, status and saved reproduction data.
-            source_id = anima_loading.resolve_model(settings.model_id, settings.quantization)
+            source_id = anima_loading.resolve_model(checkpoint_id, settings.quantization)
             source_id = netayume_loading.resolve_model(source_id, settings.quantization)
             source_id = newbie_loading.resolve_model(source_id, settings.quantization)
             source_id = single_file.resolve_model(source_id, settings.quantization)
@@ -141,9 +144,9 @@ class DiffusersBackend(GenerationBackend):
             # the base class, resolving the same name from the same index,
             # would download and load it (see loading.UNUSED_COMPONENTS).
             loader: Any = DiffusionPipeline
-            if anima_loading.matches(settings.model_id):
-                loader = anima_loading.pipeline_class(settings.model_id)
-            elif settings.model_id.lower() == newbie_loading.MODEL_ID.lower():
+            if anima_loading.matches(checkpoint_id):
+                loader = anima_loading.pipeline_class(checkpoint_id)
+            elif checkpoint_id.lower() == newbie_loading.MODEL_ID.lower():
                 from .newbie_pipeline import NewbiePipeline
 
                 loader = NewbiePipeline
@@ -158,7 +161,7 @@ class DiffusersBackend(GenerationBackend):
             # Pinned repos download only their component tree, after the
             # quantizer checks above have had a chance to refuse the pairing.
             model_id = loading.resolve_model(source_id, weights=True)
-            kwargs.update(loading.component_overrides(settings.model_id, quant, resolved_model_id=model_id))
+            kwargs.update(loading.component_overrides(checkpoint_id, quant, resolved_model_id=model_id))
             pipe = loader.from_pretrained(model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 
@@ -195,7 +198,7 @@ class DiffusersBackend(GenerationBackend):
         if pipe is None:
             # Enough to expose the button before a load. Once loaded, the
             # method and call signature are the authoritative answer.
-            return "ernie-image" in settings.model_id.lower().replace("_", "-")
+            return "ernie-image" in current_model_id(settings).lower().replace("_", "-")
         return callable(getattr(pipe, "_enhance_prompt_with_pe", None)) and "use_pe" in self._call_params
 
     def prompt_expander_status(self) -> dict | None:
@@ -207,7 +210,7 @@ class DiffusersBackend(GenerationBackend):
         pipe = self._pipe
         loaded = pipe is not None and getattr(pipe, "pe", None) is not None
         fetch = []
-        if not loaded and not loading.prompt_expander_cached(settings.model_id):
+        if not loaded and not loading.prompt_expander_cached(current_model_id(settings)):
             fetch.append(("ERNIE's prompt rewriter", loading.PROMPT_EXPANDER_BYTES))
         return {"loaded": loaded, "fetch": fetch}
 
@@ -221,7 +224,7 @@ class DiffusersBackend(GenerationBackend):
             if not callable(enhance) or "use_pe" not in self._call_params:
                 raise RuntimeError(f"{type(pipe).__name__} has no prompt expander")
             if getattr(pipe, "pe", None) is None or getattr(pipe, "pe_tokenizer", None) is None:
-                components = loading.prompt_expander_components(settings.model_id)
+                components = loading.prompt_expander_components(current_model_id(settings))
                 pipe.register_modules(**components)
                 # The offload chain was built while PE was absent. Rebuild it
                 # so invoking pe.generate moves that model to the chosen card
@@ -315,7 +318,7 @@ class DiffusersBackend(GenerationBackend):
         when the grid was previewed.
         """
         if self._pipe is None:
-            profile = defaults_for(settings.model_id)
+            profile = defaults_for(current_model_id(settings))
             return request.applied(
                 negative_prompt_supported=profile["negative_prompt_supported"],
                 cfg_threshold=profile["cfg_threshold"],
@@ -400,7 +403,7 @@ class DiffusersBackend(GenerationBackend):
         pipe = self._pipe
         if pipe is None or request.refine is None or request.strength is None:
             return None
-        start = refine.start_index(request.steps, request.strength, settings.model_id)
+        start = refine.start_index(request.steps, request.strength, current_model_id(settings))
         if start is None or not self._refine_supported():
             return None
         try:
@@ -425,7 +428,7 @@ class DiffusersBackend(GenerationBackend):
                 "4-bit SVDQuant, whose linear layers are not the ones a LoRA attaches "
                 "to; run the same checkpoint under fp8, int8 or none to use adapters"
             )
-        refusal = loading.lora_refusal(settings.model_id)
+        refusal = loading.lora_refusal(current_model_id(settings))
         if refusal is not None:
             return refusal
         if not loading.importable("peft"):
@@ -447,6 +450,10 @@ class DiffusersBackend(GenerationBackend):
         the answer or fails with the real reason. An unanswered question is
         asked again on the next call; an answered one is kept.
         """
+        model_id = current_model_id(settings)
+        if self._denoiser_model_id != model_id:
+            self._denoiser_cache = None
+            self._denoiser_model_id = model_id
         pipe = self._pipe
         cached = self._denoiser_cache
         if pipe is not None:
@@ -475,12 +482,13 @@ class DiffusersBackend(GenerationBackend):
         # The same resolution `load()` makes ahead of the weights, minus the
         # one step that must never run from a listing: a single-file
         # checkpoint is read from its cached conversion or not at all.
+        model_id = current_model_id(settings)
         try:
             source_id = (
-                anima_loading.converted_tree(settings.model_id)
-                or netayume_loading.converted_tree(settings.model_id)
-                or single_file.converted_tree(settings.model_id)
-                or settings.model_id
+                anima_loading.converted_tree(model_id)
+                or netayume_loading.converted_tree(model_id)
+                or single_file.converted_tree(model_id)
+                or model_id
             )
             return loading.denoiser(loading.resolve_model(source_id))
         except Exception as exc:  # noqa: BLE001 - unanswered, not refused
@@ -694,7 +702,7 @@ class DiffusersBackend(GenerationBackend):
         # records is the prompt the model saw.
         if "use_pe" in params:
             kwargs["use_pe"] = False
-        if settings.model_id.lower() == netayume_loading.MODEL_ID.lower():
+        if current_model_id(settings).lower() == netayume_loading.MODEL_ID.lower():
             kwargs["system_prompt"] = netayume_loading.SYSTEM_PROMPT
         # mu is the whole shift, not an addition to the pipeline's own. Where
         # the scheduler shifts dynamically, override the value it is given; where
@@ -814,7 +822,7 @@ class DiffusersBackend(GenerationBackend):
 
     def describe(self) -> dict:
         info: dict[str, Any] = {
-            "model_id": settings.model_id,
+            "model_id": current_model_id(settings),
             "quantization": settings.quantization,
             "offload": settings.offload,
             "cfg_threshold": self.cfg_threshold(),

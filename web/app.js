@@ -637,6 +637,21 @@ els.gridSeedList.addEventListener('input', () => {
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
 });
 els.load.onclick = loadModel;
+els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
+els.modelSelect.onchange = () => { modelSwitchError = null; syncModelSwitch(); };
+els.modelSwitch.onclick = switchModel;
+document.addEventListener('pointerdown', (event) => {
+  if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && event.target !== els.models) {
+    showModelPicker(false, { focus: false });
+  }
+});
+els.modelPicker.addEventListener('focusout', () => {
+  setTimeout(() => {
+    if (!els.modelPicker.contains(document.activeElement) && document.activeElement !== els.models) {
+      showModelPicker(false, { focus: false });
+    }
+  }, 0);
+});
 els.gridResume.addEventListener('change', previewGrid);
 els.gridSection.addEventListener('toggle', previewGrid);
 // On the summary's click (Enter and Space on it are clicks too), not on the
@@ -804,6 +819,12 @@ document.addEventListener('keydown', (e) => {
   // Nothing of the page's while a delete asks: Escape there is its Cancel,
   // which closed the lightbox under it as well, and Ctrl+Enter generated.
   if (els.confirmDialog.open) return;
+  if (e.key === 'Escape' && !e.defaultPrevented && !els.modelPicker.hidden
+      && !els.lightbox.open && !els.refineDialog.open) {
+    e.preventDefault();
+    showModelPicker(false);
+    return;
+  }
   // Ctrl/Cmd+Enter submits whatever the focus is in: inside the Refine dialog
   // it runs the pass and inside the open grid fold it runs the grid, which is
   // what their boxes are for - from a grid box Generate would render the

@@ -162,13 +162,17 @@ function runAxes(run) {
   return [grid, seeds].filter(Boolean).join(' · ');
 }
 
+let runsEpoch = 0;
 async function loadRuns() {
+  const epoch = ++runsEpoch;
+  const model = loadedModel, revision = modelRevision, allModels = els.allModels.checked;
   let runs;
   // Under the gallery's scope: a run picked here opens as a sheet, and a run
   // the grid would not show is an empty one.
   const params = new URLSearchParams({ limit: 200 });
   if (els.allModels.checked) params.set('all_models', 'true');
   try { runs = await api(`/api/runs?${params}`); } catch { return; }
+  if (epoch !== runsEpoch || revision !== modelRevision || model !== loadedModel || allModels !== els.allModels.checked) return;
   const several = (run) => run.images > 1 || run.jobs > 1;
   const singles = runs.filter((run) => !several(run));
   els.runList.innerHTML = '';

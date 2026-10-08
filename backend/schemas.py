@@ -6,6 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
+from .model_selection import current_model_id
 from .config import settings
 from .model_defaults import defaults_for
 from .refine import DEFAULT_STRENGTH, leaves_a_step
@@ -28,7 +29,7 @@ def default_strength() -> float:
     pass. Also what `applied()` puts a strength back to when there is no
     source for it to act on, so that it is one value per checkpoint.
     """
-    return defaults_for(settings.model_id).get("refine_strength") or DEFAULT_STRENGTH
+    return defaults_for(current_model_id(settings)).get("refine_strength") or DEFAULT_STRENGTH
 
 
 class GenerateRequest(BaseModel):
@@ -106,7 +107,7 @@ class GenerateRequest(BaseModel):
 
     @model_validator(mode="after")
     def _profile_defaults(self) -> "GenerateRequest":
-        profile = defaults_for(settings.model_id)
+        profile = defaults_for(current_model_id(settings))
         if self.steps is None:
             self.steps = profile["steps"]
         if self.guidance_scale is None:
@@ -1132,8 +1133,14 @@ class ExpanderStatus(BaseModel):
     fetch_bytes: int = 0
 
 
+class ModelSwitchRequest(BaseModel):
+    model_id: str = Field(min_length=1, max_length=512)
+
+
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
+    switching: bool = False
+    model_revision: int = 0
     defaults: dict[str, float | int | bool | None] = {}
     # Prose for the same profile, keyed by control name - what steps/CFG/mu mean
     # on *this* checkpoint. Unlike `defaults`, which the UI applies once, these

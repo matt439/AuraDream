@@ -4,6 +4,31 @@ For installation, launch options, sizes and environment variables, start with
 the [README](../README.md). The [anime model guide](anime-model-guide.md) helps
 choose a checkpoint; [verified.md](verified.md) records measured performance.
 
+## Load and switch models
+
+**Load** loads the selected checkpoint; **Generate** loads it automatically when
+needed. First use may download weights or convert a checkpoint, taking several
+minutes. **Unload** releases the image weights and prompt helpers.
+
+Choose **Models**, select a checkpoint and press **Switch & load** to change
+models without restarting the server or closing the page. Finish or cancel the
+image queue first, including paused jobs, and wait for any current load, prompt
+check, critic or Expand request to finish. The old weights are released before
+the selected checkpoint loads. A failed load shows its reason and **Retry load**;
+you can also select another checkpoint.
+
+Prompts and saved images stay available. Sampling starts from that checkpoint's
+defaults or its remembered settings, and the guide, supported controls, adapters
+and gallery scope update. **All models** shows images from the other checkpoints.
+Reopen an existing Refine dialog after a switch to use the new schedule. Retry
+and Resume for an earlier submission require switching back to its checkpoint.
+Other open tabs follow the server's selection too.
+
+The list uses the server's current quantization mode; Nunchaku keeps its startup
+weight format and offers its mapped checkpoints on Linux. Quantization and
+offload changes require a restart. The browser's choice lasts for this server
+session; the next launch uses the menu, flags or environment again.
+
 ## Generate and manage jobs
 
 Enter a prompt, choose a size and press **Generate**. The checkpoint supplies

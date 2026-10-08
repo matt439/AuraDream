@@ -30,6 +30,14 @@
        panel's #progress-text is the status a screen reader hears. -->
   <span class="job-mirror" id="job-mirror" aria-hidden="true" hidden></span>
   <div class="vram" id="vram"></div>
+  <button class="ghost" id="btn-models" aria-expanded="false" aria-controls="model-picker">Models</button>
+  <section class="model-picker" id="model-picker" aria-labelledby="model-picker-label" hidden>
+    <label id="model-picker-label" for="model-select">Checkpoint</label>
+    <select id="model-select" autocomplete="off" aria-describedby="model-picker-help model-picker-note"></select>
+    <p id="model-picker-help">Switching frees the current weights and loads the selected checkpoint. Your prompt stays here.</p>
+    <button class="primary" id="btn-model-switch" aria-disabled="true" title="Choose a different checkpoint">Switch &amp; load</button>
+    <p id="model-picker-note" role="status"></p>
+  </section>
   <!-- Shown while nothing is loaded, or after a failed load (as Retry load):
        the first download, or a retry once repo access was granted, without
        queueing an image to start it. Unload is hidden meanwhile. -->
@@ -989,6 +997,7 @@
 <script src="/static/state.js"></script>
 <script src="/static/sizes.js"></script>
 <script src="/static/status.js"></script>
+<script src="/static/model-switch.js"></script>
 <script src="/static/generation.js"></script>
 <script src="/static/grid-preview.js"></script>
 <script src="/static/job-stream.js"></script>

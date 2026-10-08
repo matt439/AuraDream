@@ -23,6 +23,20 @@ const PANEL_FIELDS = [
 // What else is remembered beside the fields, merged key by key as they are.
 const PANEL_KEYS = [...PANEL_FIELDS, 'gridOpen', 'reference', 'translation'];
 let panelTimer;
+const SAMPLING_AXES = ['gridSteps', 'gridCfg', 'gridMu', 'gridLoraScale'];
+let samplingByModel = {};
+
+function currentSampling(model = loadedModel) {
+  return {
+    model,
+    ...Object.fromEntries(Object.keys(owned).map((key) => [key, owned[key] ? els[key].value : null])),
+    ...Object.fromEntries(SAMPLING_AXES.map((key) => [key, els[key].value])),
+  };
+}
+
+function keepSampling(model = loadedModel) {
+  if (model) samplingByModel[model] = currentSampling(model);
+}
 
 // The panel as it is remembered: every field, the fold, the references, the
 // English an expansion came with (ERNIE's, with the prompt it translates),
@@ -45,6 +59,8 @@ function panelState() {
     mu: owned.mu ? els.mu.value : null,
     trueCfg: owned.trueCfg ? els.trueCfg.value : null,
   };
+  state.samplingByModel = { ...samplingByModel };
+  if (loadedModel) state.samplingByModel[loadedModel] = currentSampling();
   return state;
 }
 
@@ -91,6 +107,15 @@ function writePanel() {
     for (const key of Object.keys(now.sampling)) {
       if (!same(now.sampling[key], panelBase.sampling?.[key])) out.sampling[key] = now.sampling[key];
     }
+    out.samplingByModel = { ...(stored.samplingByModel ?? {}) };
+    for (const [model, sampling] of Object.entries(now.samplingByModel)) {
+      const before = panelBase.samplingByModel?.[model];
+      const values = { ...(out.samplingByModel[model] ?? {}) };
+      for (const [key, value] of Object.entries(sampling)) {
+        if (!before || !same(value, before[key])) values[key] = value;
+      }
+      out.samplingByModel[model] = values;
+    }
   }
   remember(PANEL_KEY, JSON.stringify(out));
   panelBase = now;
@@ -112,6 +137,11 @@ function storedPanel() {
 
 function restorePanel() {
   const state = storedPanel();
+  samplingByModel = state?.samplingByModel && typeof state.samplingByModel === 'object'
+    ? { ...state.samplingByModel } : {};
+  if (state?.sampling?.model && !samplingByModel[state.sampling.model]) {
+    samplingByModel[state.sampling.model] = state.sampling;
+  }
   // What a later write compares this page against: the store as read - the
   // sampling half is applied once the checkpoint is known (restoreSampling),
   // and the panel's own values before then would make it look changed - or
@@ -163,6 +193,7 @@ function resetPanel() {
   // The Refine dialog's scale, versions and per-checkpoint strengths too, and
   // anything left unsent in it.
   forgetRefine();
+  samplingByModel = {};
   for (const key of Object.keys(owned)) owned[key] = false;
   // Emptied as typing would empty them (`rewriteBox`), so Ctrl+Z in the
   // prompt, which Reset focuses, still gives its text back once the Undo has
@@ -265,6 +296,7 @@ function undoReset(note) {
   note.undone = true;
   retireResetUndo(note);
   const { state, values } = note.before;
+  samplingByModel = { ...(state.samplingByModel ?? {}) };
   rewriteBox(els.negative, state.negative);
   rewriteBox(els.prompt, state.prompt);
   for (const key of PANEL_FIELDS) {
@@ -297,14 +329,17 @@ function undoReset(note) {
 }
 
 // The second phase, from refreshStatus once the checkpoint is known.
-let samplingRestored = false;
+let samplingRestored = null;
 function restoreSampling(modelId) {
-  if (samplingRestored) return;
-  samplingRestored = true;
-  const sampling = storedPanel()?.sampling;
+  if (samplingRestored === modelId) return;
+  samplingRestored = modelId;
+  const sampling = samplingByModel[modelId] ?? storedPanel()?.sampling;
   if (!sampling || sampling.model !== modelId) return;
   for (const [key, el] of [['steps', els.steps], ['cfg', els.cfg], ['mu', els.mu], ['trueCfg', els.trueCfg]]) {
     if (typeof sampling[key] === 'string') { el.value = sampling[key]; own(key); }
+  }
+  for (const key of SAMPLING_AXES) {
+    if (typeof sampling[key] === 'string') els[key].value = sampling[key];
   }
   syncCfg();
 }

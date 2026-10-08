@@ -25,8 +25,9 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_gallery, api_jobs, grid, loras, prompt_encoding, prompt_rules, storage  # noqa: E402
+from . import api_gallery, api_jobs, grid, loras, model_selection, prompt_encoding, prompt_rules, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
+from .model_selection import current_model_id  # noqa: E402
 from .config import settings  # noqa: E402
 from .critic import CriticError, CriticUnavailable, prompt_critic  # noqa: E402
 from .jobs import BackendBusy, JobManager, LoadFailed, short_error  # noqa: E402
@@ -43,6 +44,7 @@ from .schemas import (  # noqa: E402
     GridRequest,
     JobAccepted,
     ModelStatus,
+    ModelSwitchRequest,
     PromptAnalysis,
     PromptAnalysisRequest,
     PromptCritique,
@@ -81,6 +83,9 @@ backend = get_backend("diffusers")
 # Loading ~13GB of weights takes minutes, so it runs off-request.
 _load_state: dict[str, str | None] = {"state": "unloaded", "detail": None}
 _load_lock = asyncio.Lock()
+_switching = False
+_switch_task: asyncio.Task | None = None
+_model_requests = 0
 
 # When this process started. A page that sees it change knows the server it
 # was talking to went away - and every job with it - which nothing else in a
@@ -132,7 +137,7 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
     where the fix is, for the page to link. The gate is the catalogue's, so the
     sentence says whether it is a click or the authors' approval. Anything that
     is not the Hub's is the exception as `short_error` puts it, and no kind."""
-    repo = settings.model_id
+    repo = current_model_id(settings)
     entry = next((checkpoint for checkpoint in CHECKPOINTS if checkpoint.repo == repo), None)
     name = entry.name if entry else repo
     # The Aesthetic selector records a distinct checkpoint from the same Hub
@@ -267,6 +272,9 @@ async def lifespan(app: FastAPI):
     if settings.load_on_startup:
         asyncio.create_task(_load_in_background())
     yield
+    if _switch_task is not None and not _switch_task.done():
+        _switch_task.cancel()
+        await asyncio.gather(_switch_task, return_exceptions=True)
     # Stop the worker before dropping the weights it is using. unload() takes no
     # part in the job gate, so on its own it would leave a generation running
     # against a pipeline nobody can see any more. try_unload, off the loop: a
@@ -331,6 +339,60 @@ async def block_cross_site_writes(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def hold_model_for_request(request: Request, call_next):
+    """Keep one checkpoint throughout model-dependent request validation/work.
+
+    Pydantic fills sampling defaults before the route starts, and routes can
+    await gallery reads, tokenizer loads and adapter checks before submitting
+    a job. Counting at the HTTP boundary makes all of those one read of the
+    selected checkpoint: a switch refuses until they finish, and once a switch
+    starts no new reader can enter. This does not take the GPU gate, so cold
+    prompt checks continue to work beside generation.
+
+    A page may still have the previous checkpoint's controls between polls.
+    Its optional revision header refuses that stale submission before request
+    defaults or side effects are evaluated. Existing API clients without the
+    header continue to use the checkpoint currently selected by the server.
+    """
+    global _model_requests
+
+    path = request.url.path
+    depends_on_model = path in {
+        "/api/generate", "/api/grid", "/api/rerender", "/api/loras",
+        "/api/model/load", "/api/model/unload",
+        "/api/gallery/unstarred",
+    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/"))
+    selects_model = path == "/api/model/switch"
+    if not depends_on_model and not selects_model:
+        return await call_next(request)
+    if _switching:
+        return JSONResponse(
+            {"detail": "the checkpoint is switching; wait for the switch to finish"},
+            status_code=409,
+        )
+    expected = request.headers.get("x-local-diffusion-model-revision")
+    if expected is not None:
+        try:
+            expected_revision = int(expected)
+        except ValueError:
+            return JSONResponse({"detail": "invalid model revision"}, status_code=422)
+        if expected_revision != model_selection.revision():
+            return JSONResponse(
+                {"detail": "the checkpoint changed; refresh its settings before trying again"},
+                status_code=409,
+            )
+    if selects_model:
+        # The switch performs its own exclusive admission. Counting it as a
+        # model reader would make it refuse itself forever.
+        return await call_next(request)
+    _model_requests += 1
+    try:
+        return await call_next(request)
+    finally:
+        _model_requests -= 1
+
+
 # StaticFiles checks the directory exists at mount time; storage owns creating
 # it (config no longer does at import, so a --dry-run can promise "nothing").
 storage.ensure_outputs_dir()
@@ -350,7 +412,14 @@ async def index() -> FileResponse:
 async def status() -> ModelStatus:
     # describe() reads CUDA memory, which can queue behind a cold load for a
     # good while; off the event loop it cannot stall the SSE stream with it.
-    info = await asyncio.to_thread(backend.describe)
+    # A status poll is allowed during a switch. Never label an old threaded
+    # description with a new selection/revision or with the new load's state.
+    while True:
+        revision = model_selection.revision()
+        switching = _switching
+        info = await asyncio.to_thread(backend.describe)
+        if revision == model_selection.revision() and switching == _switching:
+            break
     state = _load_state["state"]
     if state == "unloaded" and backend.is_ready():
         state = "ready"
@@ -358,6 +427,8 @@ async def status() -> ModelStatus:
     card_holder, card_ticket = jobs.card()
     return ModelStatus(
         state=state,
+        switching=_switching,
+        model_revision=revision,
         defaults=defaults,
         hints=hints_for(
             info["model_id"],
@@ -463,7 +534,7 @@ def _merged_defaults(info: dict) -> dict:
 
 
 def _tag_helper_config() -> dict:
-    helper = guide_for(settings.model_id).get("tag_helper")
+    helper = guide_for(current_model_id(settings)).get("tag_helper")
     if not helper or helper.get("vocabulary") != "danbooru":
         raise HTTPException(status_code=404, detail="this checkpoint has no tag vocabulary")
     return helper
@@ -600,7 +671,7 @@ def _order_slots(prompt: str | None, reachable: bool) -> dict:
     """
     if prompt is None:
         return {}
-    model_id = settings.model_id
+    model_id = current_model_id(settings)
     try:
         order = prompt_rules.documented_order(model_id)
         if order is None or not prompt_rules.places_items(model_id, prompt):
@@ -744,7 +815,76 @@ def _disk_free_mb() -> int | None:
 @app.post("/api/model/load", response_model=ModelStatus)
 async def load_model() -> ModelStatus:
     if _load_state["state"] != "ready":
+        # Reserve the pending load before its task has entered the lock.
+        _load_state.update(state="loading", detail=None)
         asyncio.create_task(_load_in_background())
+    return await status()
+
+
+@app.get("/api/models")
+async def list_models() -> dict:
+    return {
+        "models": model_selection.available(settings),
+        "quantization": settings.quantization,
+        "offload": settings.offload,
+    }
+
+
+async def _switch_model(model_id: str) -> None:
+    """Own the whole transition even if the requesting browser disconnects."""
+    global _switching
+    try:
+        async with _load_lock:
+            if not await asyncio.to_thread(backend.try_unload):
+                raise RuntimeError("the weights are still loading; wait for the load")
+            _load_state.update(state="unloaded", detail=None)
+            await asyncio.to_thread(prompt_translator.unload)
+            # A failed critic stop must not put the new weights beside a
+            # process that may still hold the card.
+            await asyncio.to_thread(prompt_critic.unload)
+            await asyncio.to_thread(prompt_encoding.unload)
+            model_selection.select(model_id)
+            _load_state.update(state="loading", detail=None)
+        # The only weight-loading path, retaining load-lock -> gate ordering.
+        await ensure_loaded()
+    except LoadFailed:
+        pass  # ensure_loaded already preserved the actionable failure.
+    except Exception as exc:
+        log.error("model switch failed: %s", short_error(exc))
+        log.debug("switch traceback", exc_info=True)
+        detail, kind, url = _load_failure(exc)
+        _load_state.update(state="error", detail=detail, detail_kind=kind, detail_url=url)
+    finally:
+        _switching = False
+
+
+@app.post("/api/model/switch", response_model=ModelStatus)
+async def switch_model(request: ModelSwitchRequest, http_request: Request) -> ModelStatus:
+    global _switching, _switch_task
+    # Unlike model readers this route is not counted while its body arrives.
+    # Another switch can finish after the middleware's revision check.
+    expected = http_request.headers.get("x-local-diffusion-model-revision")
+    if expected is not None and int(expected) != model_selection.revision():
+        raise HTTPException(status_code=409, detail="the checkpoint changed; refresh its settings before trying again")
+    if request.model_id not in {m["model_id"] for m in model_selection.available(settings)}:
+        raise HTTPException(status_code=422, detail="choose a checkpoint from this server's model list")
+    if _switching:
+        raise HTTPException(status_code=409, detail="the checkpoint is switching; wait for the switch to finish")
+    if _load_lock.locked() or _load_state["state"] == "loading":
+        raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
+    if jobs.busy():
+        raise HTTPException(status_code=409, detail="jobs are queued or running; finish or cancel them before switching")
+    holder, _ = jobs.card()
+    if holder is not None:
+        raise HTTPException(status_code=409, detail=f"{holder} is using the card; wait before switching")
+    if _model_requests:
+        raise HTTPException(status_code=409, detail="another model request is in progress; wait for it to finish before switching")
+    if request.model_id == current_model_id(settings):
+        return await load_model()
+    # Admission and reservation happen without an await, so no submission can
+    # enter between the idle check and the background task's first instruction.
+    _switching = True
+    _switch_task = asyncio.create_task(_switch_model(request.model_id))
     return await status()
 
 
@@ -1054,7 +1194,7 @@ def _analyse(
     model: `applied()` answers from the profile before a load, and the
     tokenizers are read on the CPU.
     """
-    model_id = settings.model_id
+    model_id = current_model_id(settings)
     applied = applied if applied is not None else backend.applied(request)
     prompt = request.prompt
     # The shape alone decides whether to ask the tag index; what is reported
@@ -1184,7 +1324,7 @@ async def measure_prompt(request: PromptMeasureRequest) -> PromptMeasure:
     Check, and waits `prompt_encoding.LOAD_WAIT` for them at most, after
     which `encoders_detail` says they are still loading.
     """
-    model_id = settings.model_id
+    model_id = current_model_id(settings)
 
     def measure() -> PromptMeasure:
         reports, _findings, detail = prompt_encoding.measure(model_id, request.prompt, None)
@@ -1251,7 +1391,7 @@ async def critique_prompt(request: PromptAnalysisRequest) -> PromptCritique:
         await _detached(prompt_critic.prepare, "critic-prepare")
     except Exception as exc:
         raise _prompt_failure(exc, "preparing the prompt critic") from exc
-    model_id = settings.model_id
+    model_id = current_model_id(settings)
     applied = backend.applied(request)
     try:
         analysis = await _detached(lambda: _analyse(request, applied), "prompt-check")
@@ -1359,7 +1499,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
-    run_id = grid.run_id(cells, settings.model_id, settings.quantization)
+    run_id = grid.run_id(cells, current_model_id(settings), settings.quantization)
     if not request.resume:
         return cells, values, 0, run_id
     kept = await _not_yet_rendered(cells, request.width, request.height)
@@ -1379,7 +1519,7 @@ async def _not_yet_rendered(cells: list[grid.Cell], width: int, height: int) -> 
         grid.prompts_of(cells),
         width,
         height,
-        settings.model_id,
+        current_model_id(settings),
         settings.quantization,
     )
     return [
@@ -1421,7 +1561,7 @@ def _foreign_refusal(count: int, foreign: list[str]) -> str:
     was offered, and `model:Anima` is Animagine too; nor is the whole id safe
     everywhere (`Qwen/Qwen-Image` is in `Qwen/Qwen-Image-Edit`).
     """
-    running = settings.model_id
+    running = current_model_id(settings)
     narrows = not any(ch.isspace() for ch in running) and not any(
         running.lower() in other.lower() for other in foreign
     )
@@ -1470,9 +1610,9 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
     # is a broken image recorded under FLUX - so a record from another
     # checkpoint is refused rather than rendered wrong. Only reachable with
     # `all_models`: the scope keeps them out of the selection otherwise.
-    foreign = sorted({r.model_id for r in records if r.model_id != settings.model_id})
+    foreign = sorted({r.model_id for r in records if r.model_id != current_model_id(settings)})
     if foreign:
-        count = sum(r.model_id != settings.model_id for r in records)
+        count = sum(r.model_id != current_model_id(settings) for r in records)
         raise HTTPException(status_code=422, detail=_foreign_refusal(count, foreign))
     # Oldest first, so the re-render lands in the order the originals did.
     cells = [
@@ -1521,13 +1661,13 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
             cell.request.check_refine_steps()
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    run_id = grid.run_id(cells, settings.model_id, settings.quantization)
+    run_id = grid.run_id(cells, current_model_id(settings), settings.quantization)
     done = await asyncio.to_thread(
         storage.completed_cells,
         grid.prompts_of(cells),
         request.width,
         request.height,
-        settings.model_id,
+        current_model_id(settings),
         settings.quantization,
     )
     kept = [
@@ -1564,13 +1704,13 @@ async def preview_grid(request: GridRequest) -> GridPreview:
         )
     # Cost is per step, and a grid's cells rarely agree on how many they take.
     per_step_ms = await asyncio.to_thread(
-        storage.step_cost_ms, request.width, request.height, settings.model_id
+        storage.step_cost_ms, request.width, request.height, current_model_id(settings)
     )
     refine_costs = await asyncio.to_thread(
-        storage.refine_cost_ms, request.width, request.height, settings.model_id
+        storage.refine_cost_ms, request.width, request.height, current_model_id(settings)
     )
     per_image_bytes = await asyncio.to_thread(
-        storage.image_bytes, request.width, request.height, settings.model_id
+        storage.image_bytes, request.width, request.height, current_model_id(settings)
     )
     images = len(cells) * request.num_images
     listed = len(values.get("seed", []))
@@ -1614,12 +1754,12 @@ async def preview_grid(request: GridRequest) -> GridPreview:
 def _model_scope(all_models: bool) -> str | None:
     """The gallery's checkpoint scope: the configured id, or None for every one.
 
-    `settings.model_id` rather than the loaded pipeline's, so the scope holds
+    `current_model_id(settings)` rather than the loaded pipeline's, so the scope holds
     before the first load and the page's first paint is already the right
     checkpoint's. Exact, where the search box's `model:` is a substring -
     `model:flux` is both FLUX.1 checkpoints.
     """
-    return None if all_models else settings.model_id
+    return None if all_models else current_model_id(settings)
 
 
 # The routers read the app-owned worker and scope when a request arrives.

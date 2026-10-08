@@ -17,6 +17,7 @@ from typing import Any
 
 from . import storage
 from .backends import Cancelled, GenerationBackend
+from .model_selection import current_model_id
 from .config import settings
 from .grid import Cell, progress_steps, run_id as _run_id
 from .latent_preview import data_url
@@ -438,7 +439,7 @@ class JobManager:
             request=cells[0].request,
             cells=cells,
             seed=cells[0].seed,
-            run_id=run_id or _run_id(cells, settings.model_id, settings.quantization),
+            run_id=run_id or _run_id(cells, current_model_id(settings), settings.quantization),
             total_steps=progress_steps(cells[0].request),
             total_runs=len(cells),
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
@@ -795,7 +796,7 @@ class JobManager:
                 ran,
                 seed=wrap_seed(seed + offset),
                 duration_ms=elapsed_ms // max(len(images), 1),
-                model_id=settings.model_id,
+                model_id=current_model_id(settings),
                 job_id=job.id,
                 run_id=job.run_id,
                 quantization=settings.quantization,

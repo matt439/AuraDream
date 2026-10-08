@@ -194,6 +194,7 @@ function scheduleTagMeasure(delay) {
   const truncated = points.length > PROMPT_MAX_CHARS;
   const sent = truncated ? points.slice(0, PROMPT_MAX_CHARS).join('') : text;
   tagMeasureTimer = setTimeout(async () => {
+    if (modelChangeHold()) return;
     const model = loadedModel;
     try {
       const body = await api('/api/prompt/measure', {

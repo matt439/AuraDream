@@ -7,8 +7,8 @@
 // Seed the controls from the server's profile for the loaded checkpoint. Turbo
 // wants 8 steps / CFG 0 / mu 1.15; FLUX wants 28 / 3.5 and no mu at all, since
 // it derives its own resolution-dependent shift. Each control follows the
-// profile until the user touches *that* control; the checkpoint cannot change
-// under a running server, so re-applying to an untouched box is idempotent.
+// profile until the user touches *that* control. A checkpoint switch restores
+// that checkpoint's own edits before later polls apply its defaults again.
 let lastDefaults = null;
 function applyDefaults(d) {
   if (!d || d.steps === undefined) return;
@@ -216,6 +216,7 @@ function syncExpandButton() {
   els.expandPrompt.hidden = !promptExpansionSupported;
   const why = expandingPrompt ? 'Expanding…'
     : serverOffline ? 'The server is not answering'
+    : modelChangeHold() ? modelChangeHold()
     : busy ? 'A job is queued or running: Expand waits for the image queue to finish'
     : elsewhereBusy ? EXPAND_ELSEWHERE
     : critiquing ? 'Wait for the critic to finish'
@@ -248,6 +249,7 @@ function expandCost() {
 function syncUnload() {
   els.unload.hidden = modelState === 'unloaded' || modelState === 'error';
   const why = serverOffline ? 'The server is not answering'
+    : modelChangeHold() ? modelChangeHold()
     : busy ? 'A job is queued or running: it holds the weights until it ends'
     : elsewhereBusy ? 'A job started in another tab or window is running; Unload once it ends'
     : expandingPrompt ? 'Wait for prompt expansion to finish'
@@ -256,6 +258,7 @@ function syncUnload() {
     : '';
   els.unload.setAttribute('aria-disabled', String(!!why));
   els.unload.title = why || 'Free VRAM';
+  syncModelSwitch();
 }
 
 // The topbar's Load - and the failed load's Retry load - starts the load
@@ -267,6 +270,7 @@ function syncUnload() {
 // expandSay), go too.
 let loadLine = null;
 async function loadModel() {
+  if (modelChangeHold()) { showError(`${modelChangeHold()}.`, true); return; }
   try {
     await api('/api/model/load', { method: 'POST' });
     const said = els.error.textContent;
@@ -506,8 +510,17 @@ async function refreshStatus() {
   statusPending = true;
   // A job this page queues after this is not in the answer (resyncQueue).
   const asked = Date.now();
+  const epoch = modelStatusEpoch;
   try {
     const s = await api('/api/status');
+    if (epoch === modelStatusEpoch) receiveStatus(s, asked);
+  } catch (err) {
+    // An answer that refused is not a server gone; no answer at all is.
+    if (err.offline) goOffline();
+  } finally { statusPending = false; }
+}
+
+function receiveStatus(s, asked = Date.now()) {
     // An answer after none: what was held lets go, and what said the server
     // was not answering goes. A restart is the start time changing - with or
     // without a poll that failed between, which a quick one leaves none of.
@@ -525,24 +538,24 @@ async function refreshStatus() {
       && s.started_at !== serverStartedAt;
     if (typeof s.started_at === 'number') serverStartedAt = s.started_at;
     const previousModel = loadedModel;
+    const revision = Number.isInteger(s.model_revision) ? s.model_revision : 0;
+    if (!restarted && modelRevision !== null && revision < modelRevision) return;
+    const changed = (s.model_id && s.model_id !== previousModel)
+      || (modelRevision !== null && revision !== modelRevision);
+    const wasSwitching = modelSwitching;
+    modelSwitching = !!s.switching;
+    modelRevision = revision;
+    if (changed) checkpointChanged(previousModel);
     loadedModel = s.model_id ?? loadedModel;
     if (s.model_id) checkpointLabel = s.model_label ?? null;
-    if (loadedModel !== previousModel) {
+    if (changed) {
       syncReuseButtons();
-      // The gallery is scoped to the checkpoint server-side, so a server
-      // restarted under another one while this page stayed open is showing
-      // the old one's images: ask again. The first answer is not a change -
-      // the page loaded under this checkpoint's scope already.
-      if (previousModel && !els.allModels.checked) { resetGallery(); loadRuns(); }
-      // The check read another checkpoint's tokenizers and guide: none of it
-      // is about this one.
-      if (analysisResult && analysisResult.body.model_id !== loadedModel) clearAnalysis();
-      // Nor is the prompt's count, made before the first answer or under the
-      // last checkpoint: counted again, for the chips' label and the line
-      // under the prompt (tags.js). The tag helper's change asked again on a
-      // tag checkpoint; on one with no helper nothing did, and a restored
-      // prompt had no count until it was typed in.
-      scheduleTagMeasure(0);
+      if (previousModel) resetGallery();
+      loadRuns();
+      if (modelCatalogueLoaded) {
+        els.modelSelect.value = loadedModel;
+        if (!els.modelSelect.value) void refreshModelCatalogue();
+      }
     }
     applyDefaults(s.defaults);
     // After the profile, so a remembered value set on this checkpoint wins
@@ -636,7 +649,7 @@ async function refreshStatus() {
     // rather than on the 3 s poll: files appear when the user drops one in,
     // which is a page reload away either way. Once more when the load lands,
     // for the fit the live denoiser answers where the configs could not.
-    if (!lorasLoaded || (s.state === 'ready' && !lorasLive)) {
+    if (!modelSwitching && (!lorasLoaded || (s.state === 'ready' && !lorasLive))) {
       lorasLoaded = true;
       lorasLive = s.state === 'ready';
       void refreshLoras();
@@ -672,7 +685,12 @@ async function refreshStatus() {
     // Another tab's job, or one queued behind this page's from elsewhere:
     // before Unload's reason and the line below are written.
     if (Array.isArray(s.active_jobs)) followServerJobs(s.active_jobs, asked);
-    syncUnload();
+    syncPromptExpansion();
+    if (changed || (wasSwitching && !modelSwitching)) {
+      schedulePreview();
+      scheduleTagValidation(0);
+      if (previousModel) persistPanel();
+    }
     if (pressed?.hidden) (pressed === els.load ? els.unload : els.load).focus({ preventScroll: true });
     // The checkpoint's name in every state: "loading weights…" for minutes
     // never said which. A live region, so written only when it changes: the
@@ -719,10 +737,6 @@ async function refreshStatus() {
         : '',
       disk,
     ].filter(Boolean).join(' · ');
-  } catch (err) {
-    // An answer that refused is not a server gone; no answer at all is.
-    if (err.offline) goOffline();
-  } finally { statusPending = false; }
 }
 
 // The adapters on disk, into the select. The chosen one survives a refresh
@@ -731,9 +745,12 @@ async function refreshStatus() {
 // on the entry) is not offered at all: the tooltip names it and says why, so
 // a file dropped into the directory that never shows up is explained rather
 // than missing.
+let loraEpoch = 0;
 async function refreshLoras() {
+  const epoch = ++loraEpoch;
   try {
     const body = await api('/api/loras');
+    if (epoch !== loraEpoch) return;
     // The panel is restored at start-up and this list arrives later, so a
     // remembered name is a value the select has no option for yet - assigning
     // it silently does nothing. `pendingLora` carries it across the gap.

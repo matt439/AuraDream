@@ -48,6 +48,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .model_selection import current_model_id
 from .config import settings
 from .refine import start_index, steps_run
 from .schemas import GenerateRequest, PromptVariant
@@ -603,7 +604,7 @@ def duplicate_count(
         for key in cell_keys(ran):
             if ran.request.refine is not None:
                 start = start_index(
-                    ran.request.steps, ran.request.strength, model_id or settings.model_id
+                    ran.request.steps, ran.request.strength, model_id or current_model_id(settings)
                 )
                 if start is not None:
                     key = (*key[:8], f"{ran.request.refine}@step:{start}", key[9])
@@ -651,7 +652,7 @@ def denoised_steps(request: GenerateRequest) -> int:
     of the schedule a refine pass's strength leaves (`refine.steps_run`)."""
     if request.refine is None:
         return request.steps
-    return steps_run(request.steps, request.strength, settings.model_id)
+    return steps_run(request.steps, request.strength, current_model_id(settings))
 
 
 def progress_steps(request: GenerateRequest) -> int:

@@ -149,6 +149,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
     const button = noteButton(
       skipped ? `Retry the ${plural(skipped, 'skipped cell')}` : `Resume the remaining ${plural(remaining, 'cell')}`,
       () => {
+        const whyModel = submissionModelHold(submitted);
+        if (whyModel) { showError(whyModel); return; }
         if (sourceGone) { showError(goneWhy()); return; }
         if (button.getAttribute('aria-disabled') === 'true') return;
         if (source != null && deletedIds.has(source)) { holdGone(); return; }
@@ -159,6 +161,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
         }, {
           panel: false,
           sheet: submitted.sheet,
+          model: submitted.model,
+          revision: submitted.revision,
           // Sent once: a second press would queue the same cells again. The
           // button stays where the press left focus, saying so, until the
           // job it sent ends and its own line replaces this one.
@@ -556,7 +560,10 @@ function showLostRun({ heading, text }, submitted) {
     again.textContent = 'Run it again';
     again.title = 'Send the same request again';
     again.onclick = () => {
-      void startJob(submitted.path, submitted.payload, { sheet: submitted.sheet, panel: false, slot: refused });
+      void startJob(submitted.path, submitted.payload, {
+        sheet: submitted.sheet, panel: false, slot: refused,
+        model: submitted.model, revision: submitted.revision,
+      });
     };
     card.append(again, refused);
   }

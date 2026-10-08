@@ -57,6 +57,8 @@ const els = {
   loraTip: $('lora-tip'), gridLoraScale: $('grid-lora-scale'),
   gridLoraField: $('grid-lora-field'), gridLoraTip: $('grid-lora-tip'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
+  models: $('btn-models'), modelPicker: $('model-picker'), modelSelect: $('model-select'),
+  modelSwitch: $('btn-model-switch'), modelPickerNote: $('model-picker-note'),
   reset: $('btn-reset'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
   queueNote: $('queue-note'), queueText: $('queue-text'), queueList: $('queue-list'),
@@ -452,6 +454,15 @@ const OFFLINE_MESSAGE = 'No answer from the Local Diffusion server — is it sti
 const LOST_PHRASE = 'server not answering — retrying';
 
 async function api(path, options) {
+  const modelRequest = /^\/api\/(?:generate$|grid(?:\/|$)|rerender$|prompt\/|tags\/|loras$|gallery\/unstarred$|model\/(?:load|unload|switch)$)/.test(path.split('?')[0]);
+  const revision = modelRevision;
+  if (modelRequest && revision !== null) {
+    const headers = new Headers(options?.headers);
+    if (!headers.has('X-Local-Diffusion-Model-Revision')) {
+      headers.set('X-Local-Diffusion-Model-Revision', String(revision));
+    }
+    options = { ...options, headers };
+  }
   let res;
   try {
     res = await fetch(path, options);
@@ -468,7 +479,12 @@ async function api(path, options) {
     // the server no longer knows is a 404).
     throw Object.assign(new Error(readableDetail(detail)), { status: res.status });
   }
-  return res.status === 204 ? null : res.json();
+  const body = res.status === 204 ? null : await res.json();
+  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$)/.test(path.split('?')[0]);
+  if (advisory && revision !== null && revision !== modelRevision) {
+    throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
+  }
+  return body;
 }
 
 // FastAPI's own 422s carry a list of {loc, msg, ctx, input} objects, which as

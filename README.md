@@ -55,8 +55,16 @@ uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8 --offload m
 
 Krea 2 Turbo and Raw require **manual approval** on their Hugging Face pages.
 Any launch argument skips the menu; omitted settings come from the environment.
-Non-interactive launches never ask. To change checkpoints, restart the server
-with the new selection. The full catalogue is in [backend/launch.py](backend/launch.py).
+Non-interactive launches never ask. To change checkpoints while the server stays
+open, choose **Models**, select a checkpoint and press **Switch & load**. Finish
+or cancel queued/running jobs first, and wait for any load, prompt check, critic
+or Expand request to finish. The current weights are released before the next
+model loads; a first use can download weights and take several minutes.
+Your prompts and saved images remain, and the controls and gallery follow the
+selected checkpoint. Quantization and offload stay as chosen at startup;
+restart to change those. A browser selection lasts for this server session;
+the next launch uses its menu, flags or environment settings again. The full
+catalogue is in [backend/launch.py](backend/launch.py).
 
 RouWei 0.8 selects the author's epsilon checkpoint and starts at 28 steps/CFG 6.
 Its first load converts the 6.94 GB single file on CPU. Start around 1 MP;

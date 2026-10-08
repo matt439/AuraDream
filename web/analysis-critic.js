@@ -18,6 +18,7 @@ const CRITIC_OFFLINE = 'The server is not answering.';
 const CRITIC_LOADING = 'The image model is loading; the critic waits for the load.';
 function criticHold() {
   return serverOffline ? CRITIC_OFFLINE
+    : modelChangeHold() ? `${modelChangeHold()}.`
     : modelState === 'loading' ? CRITIC_LOADING
     : busy ? 'An image job is queued or running. The critic needs the card to itself, so it waits for the queue to finish.'
     : elsewhereBusy ? CRITIC_ELSEWHERE
@@ -66,6 +67,7 @@ function syncCritic() {
 
 async function askCritic() {
   if (critiquing) return;
+  if (modelChangeHold()) { showError(`${modelChangeHold()}.`, true); return; }
   // Held (criticHold): the press says why, each as its sibling buttons'
   // presses do. No answer is said in the offline words, which the poll's
   // first answer takes back, and the poll asks again at once.

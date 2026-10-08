@@ -134,6 +134,7 @@ function previewShown() {
 }
 
 async function previewGrid() {
+  if (modelChangeHold()) { ++previewEpoch; return; }
   if (!els.gridSection.open) {
     gridRevealPending = false;
     if (gridMaxCfg !== null) { gridMaxCfg = null; syncCfg(); }

@@ -29,6 +29,8 @@ source wsl/env.sh && bash wsl/serve.sh   # 4-bit Nunchaku, same URL
 
 The model is *not* loaded at startup. The first `POST /api/generate` (or
 `POST /api/model/load`) triggers a load that takes a few minutes.
+**Models > Switch & load** changes checkpoint while idle without restarting;
+quantization/offload and the next launch's selection remain startup choices.
 
 ## Layout
 
@@ -36,6 +38,8 @@ Backend (`backend/`):
 
 - `config.py` settings (`LOCAL_DIFFUSION_*`); `launch.py` start-up menu,
   `--model/--quant/--offload`, the checkpoint catalogue
+- `model_selection.py` current server checkpoint/revision, separate from frozen
+  startup settings; runtime readers use `current_model_id(settings)`
 - `schemas.py` request/response models; `model_defaults.py` per-checkpoint
   profiles; `guides.py` each checkpoint's sourced prompting guide and its
   `analysis` data
@@ -78,6 +82,9 @@ Model and loader:
   `jobs.wait_for_gate`. `generate()` raises on a missing pipeline; unload is
   409 while a job or load is live. Load failures go through
   `main._load_failure`.
+- Switching reserves the idle server through cleanup and `ensure_loaded`.
+  Model-dependent requests are counted before validation; stale browser
+  revisions are refused before submission. Never mutate frozen startup settings.
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end`.
 - Per-checkpoint loader rules (pinned revisions, single-file conversions,
@@ -222,6 +229,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7890 | Minthy/RouWei-0.8 | `smoke-rouwei` |
 | 7891 | Laxhar/noobai-XL-Vpred-1.0 | `smoke-noobai` |
 | 7895 | circlestone-labs/Anima@aesthetic-v1.1 | `smoke-anima-aesthetic` |
+| 7896 | FLUX.1-Krea-dev | `smoke-model-switch` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

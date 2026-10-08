@@ -1,0 +1,236 @@
+[
+  {
+    "navigate": "http://127.0.0.1:7896/"
+  },
+  {
+    "eval": "(async () => { window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; }; window.__model = async (id, state = 'ready') => __until(async () => { await refreshStatus(); return loadedModel === id && modelState === state && !modelSwitching && !modelSwitchSending; }); window.__flux = 'black-forest-labs/FLUX.1-Krea-dev'; window.__anime = 'cagliostrolab/animagine-xl-4.0'; window.__knob = (key, value) => { els[key].value = value; els[key].dispatchEvent(new Event('input', {bubbles: true})); }; })()"
+  },
+  {
+    "expect": "__model(__flux)"
+  },
+  {
+    "eval": "resetPanel(); dropPromptUndo();"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => modelCatalogueLoaded && [...els.modelSelect.options].some((o) => o.value === __anime))"
+  },
+  {
+    "expect": "els.models.getAttribute('aria-expanded') === 'true' && els.modelSelect.value === __flux && els.modelSwitch.getAttribute('aria-disabled') === 'true' && !els.modelSwitch.disabled"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "els.modelPicker.hidden && document.activeElement === els.models"
+  },
+  {
+    "eval": "writeBox(els.prompt, '1girl, blue eyes, outdoors'); promptReplaced(); writeBox(els.negative, 'blurry'); __knob('steps', '31'); __knob('cfg', '4'); __knob('trueCfg', '1.5'); els.seed.value = '5101';"
+  },
+  {
+    "eval": "checkPrompt()"
+  },
+  {
+    "expect": "analysisResult !== null"
+  },
+  {
+    "eval": "window.__savedFlux = {model: loadedModel, revision: modelRevision, payload: collect()};"
+  },
+  {
+    "eval": "startJob('/api/generate', collect())"
+  },
+  {
+    "expect": "viewerRecords[0].model_id === __flux && viewerRecords[0].steps === 31 && viewerRecords[0].guidance_scale === 4"
+  },
+  {
+    "eval": "(async () => { window.__fluxImage = viewerRecords[0].id; await api('/api/fake/load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0.8})}); })()"
+  },
+  {
+    "eval": "window.__realApi = api; window.__releaseLoras = null; window.__releaseRuns = null; api = async (path, options) => { const body = await __realApi(path, options); if (path === '/api/loras' && !__releaseLoras) return new Promise((resolve) => { __releaseLoras = () => resolve({loras: [{name: 'stale.safetensors', bytes: 1}], supported: true}); }); if (path.startsWith('/api/runs?') && !__releaseRuns) return new Promise((resolve) => { __releaseRuns = () => resolve([{run_id: 'stale-run', images: 1, jobs: 1, seed: 1, started_at: new Date().toISOString(), prompt: 'stale model response'}]); }); return body; }; void refreshLoras(); void loadRuns();"
+  },
+  {
+    "expect": "__until(() => __releaseLoras !== null && __releaseRuns !== null)"
+  },
+  {
+    "log": "'Switching preserves the prompt, uses the new profile, retires the old analysis and scopes the gallery'"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "eval": "els.modelSelect.value = __anime; els.modelSelect.dispatchEvent(new Event('change'));"
+  },
+  {
+    "click": "#btn-model-switch"
+  },
+  {
+    "expect": "__until(() => modelSwitchSending || modelSwitching)"
+  },
+  {
+    "expect": "els.generate.getAttribute('aria-disabled') === 'true' && els.modelSwitch.getAttribute('aria-disabled') === 'true' && document.activeElement === els.modelSwitch"
+  },
+  {
+    "expect": "__model(__anime)"
+  },
+  {
+    "eval": "__releaseLoras(); __releaseRuns(); api = __realApi;"
+  },
+  {
+    "wait": 100
+  },
+  {
+    "expect": "![...els.lora.options].some((o) => o.value === 'stale.safetensors') && ![...els.runList.options].some((o) => o.value === 'stale-run')"
+  },
+  {
+    "expect": "els.prompt.value === '1girl, blue eyes, outdoors' && els.negative.value === 'blurry' && els.steps.value === '28' && els.cfg.value === '5' && els.trueCfg.value === '' && els.mu.disabled && els.trueCfg.disabled && !els.tagHelper.hidden && analysisResult === null"
+  },
+  {
+    "eval": "startJob('/api/generate', __savedFlux.payload, {model: __savedFlux.model, revision: __savedFlux.revision})"
+  },
+  {
+    "expect": "!busy && els.error.textContent.includes('prepared for FLUX.1')"
+  },
+  {
+    "expect": "__until(() => galleryRecords.every((r) => r.model_id === __anime) && !galleryRecords.some((r) => r.id === __fluxImage))"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "(async () => { __knob('steps', '24'); __knob('cfg', '6'); els.seed.value = '5102'; await startJob('/api/generate', collect()); })()"
+  },
+  {
+    "expect": "viewerRecords[0].model_id === __anime && viewerRecords[0].steps === 24 && viewerRecords[0].guidance_scale === 6 && viewerRecords[0].mu === null"
+  },
+  {
+    "log": "'A running or queued job holds Switch with its reason, and a press keeps focus and explains it'"
+  },
+  {
+    "eval": "(async () => { await api('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0.12})}); void startJob('/api/generate', collect()); })()"
+  },
+  {
+    "expect": "__until(() => busy && !submitting)"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "eval": "els.modelSelect.value = __flux; els.modelSelect.dispatchEvent(new Event('change'));"
+  },
+  {
+    "click": "#btn-model-switch"
+  },
+  {
+    "expect": "els.modelSwitch.getAttribute('aria-disabled') === 'true' && els.modelPickerNote.textContent.includes('queued or running') && document.activeElement === els.modelSwitch && loadedModel === __anime"
+  },
+  {
+    "expect": "__until(() => !busy)"
+  },
+  {
+    "eval": "(async () => { await api('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0.01})}); await api('/api/fake/load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0.2, fail: 'gated'})}); await refreshStatus(); })()"
+  },
+  {
+    "log": "'A failed target load keeps its identity and restored settings, then Retry load recovers without a restart'"
+  },
+  {
+    "click": "#btn-model-switch"
+  },
+  {
+    "expect": "__model(__flux, 'error')"
+  },
+  {
+    "expect": "els.steps.value === '31' && els.cfg.value === '4' && els.trueCfg.value === '1.5' && els.prompt.value === '1girl, blue eyes, outdoors' && els.load.textContent === 'Retry load' && els.error.textContent.includes('gated')"
+  },
+  {
+    "eval": "(async () => { await api('/api/fake/load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0})}); })()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "click": "#btn-load"
+  },
+  {
+    "expect": "__model(__flux)"
+  },
+  {
+    "expect": "!els.trueCfg.disabled && els.cfgLabel.textContent === 'CFG (distilled)' && els.tagHelper.hidden"
+  },
+  {
+    "eval": "startJob('/api/generate', __savedFlux.payload, {model: __savedFlux.model, revision: __savedFlux.revision})"
+  },
+  {
+    "expect": "viewerRecords[0].model_id === __savedFlux.model && viewerRecords[0].steps === 31 && viewerRecords[0].guidance_scale === 4"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "eval": "els.modelSelect.value = __anime; els.modelSelect.dispatchEvent(new Event('change'));"
+  },
+  {
+    "click": "#btn-model-switch"
+  },
+  {
+    "expect": "__model(__anime)"
+  },
+  {
+    "expect": "els.steps.value === '24' && els.cfg.value === '6' && els.prompt.value === '1girl, blue eyes, outdoors'"
+  },
+  {
+    "eval": "writePanel();"
+  },
+  {
+    "navigate": "http://127.0.0.1:7896/"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "expect": "loadedModel === 'cagliostrolab/animagine-xl-4.0' && els.steps.value === '24' && els.cfg.value === '6' && els.prompt.value === '1girl, blue eyes, outdoors'"
+  },
+  {
+    "log": "'The picker and fixed topbar fit narrow, laptop and wide windows without a sideways page'"
+  },
+  {
+    "viewport": [
+      600,
+      900
+    ]
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth && els.modelPicker.getBoundingClientRect().right <= innerWidth && els.modelPicker.getBoundingClientRect().left >= 0 && document.querySelector('.topbar').getBoundingClientRect().height === parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'))"
+  },
+  {
+    "viewport": [
+      2560,
+      1305
+    ]
+  },
+  {
+    "expect": "els.modelPicker.getBoundingClientRect().right <= innerWidth && document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "(async () => { els.modelSelect.value = 'black-forest-labs/FLUX.1-Krea-dev'; els.modelSelect.dispatchEvent(new Event('change')); await switchModel(); })()"
+  },
+  {
+    "wait": 3400
+  },
+  {
+    "expect": "loadedModel === 'black-forest-labs/FLUX.1-Krea-dev' && modelState === 'ready' && els.steps.value === '31' && els.cfg.value === '4' && els.trueCfg.value === '1.5'"
+  },
+  {
+    "key": "Escape"
+  }
+]
