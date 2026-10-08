@@ -268,7 +268,11 @@ The page follows both the model id and revision, including an A-to-B-to-A
 change between polls. It retires old prompt answers and prepared Refine state,
 refreshes guides, controls, adapters and gallery scope, and restores sampling
 remembered for that checkpoint. Prompts and saved images remain. Old submissions
-can retry only after switching back to their checkpoint.
+can retry only after switching back to their checkpoint. `api()` once kept its
+own copy of the middleware's guarded routes, held equal by nothing, so a route
+added on one side alone lost its stale-tab refusal (review, 2026-10-09). It now
+sends the revision on every `/api/` request and the server decides; only the
+advisory routes' after-the-answer check stays in the page.
 
 The same picker now replaces the terminal questions (2026-10-08). **Switch &
 load** and **Apply & save** atomically remember model, quantization, offload and

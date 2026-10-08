@@ -27,7 +27,7 @@
     "expect": "els.modelSave.getAttribute('aria-disabled') === 'false' && !els.modelSave.disabled && els.modelQuantization.value === modelRuntimeSettings.quantization && els.modelOffload.value === modelRuntimeSettings.offload && els.modelFormatField.hidden && !els.modelFormatHelp.closest('label') && els.modelFormat.getAttribute('aria-describedby') === 'model-format-help' && document.querySelector('label[for=\"model-format\"]').textContent === 'Nunchaku format'"
   },
   {
-    "log": "'Every catalogue model has a row with its facts visible without choosing it, and full-width loader choices stay readable'"
+    "log": "'Every catalogue model has a row with its facts visible without choosing it, and loader choices stay readable'"
   },
   {
     "expect": "__allRows() && modelChoice() === __flux && !(modelPickerEditedKeys.size > 0) && !els.modelTable.querySelector('details, p, select, optgroup') && !__groups().length"

@@ -341,7 +341,10 @@ Model and loader:
   card holders and in-flight model-dependent requests. The middleware counts
   those requests before Pydantic fills defaults and holds the selection until
   their work finishes; new requests during a switch and stale browser revision
-  headers receive 409. Include scoped bulk deletion in this guard. Startup
+  headers receive 409. The page's `api()` sends its revision on every `/api/`
+  request; the middleware alone lists the guarded routes and ignores the
+  header elsewhere (`test_routes_that_read_no_checkpoint_ignore_the_revision_header`).
+  Include scoped bulk deletion in this guard. Startup
   `Settings` stays frozen; runtime model reads use `current_model_id(settings)`
   and loader/quantization/offload reads use `current_settings(settings)`.
   Model revisions distinguish A-to-B-to-A switches and start from the
@@ -3347,8 +3350,10 @@ teardown keeping the running model and saved file, and Switch & load retrying
 the selected model; `POST /api/fake/model` sets the fake's `overrides` and a
 `stuck_critic` for page checks;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
-no category for an unmatched setup; `test_model_info.py` covers access and the
-shared loader descriptions:
+no category for an unmatched setup; `test_model_info.py` covers compact facts
+for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
+access, size labels that never claim an unsourced maximum and the shared
+loader descriptions:
 
 ```powershell
 uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev

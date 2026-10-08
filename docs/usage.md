@@ -37,10 +37,17 @@ Other open tabs follow the server's selection too.
 Press the star beside a model to add or remove it from **Favourites** at the
 top of the list. This is saved immediately in this browser and survives page
 reloads and server restarts; it does not change or load the selected model.
-The ordinary and Nunchaku versions of a checkpoint share its star. Quantization
-and offload use full-width controls with short labels and visible explanations beneath
-the choices. The load buttons stay in their own footer while the picker scrolls,
-and the column names stay at the top of the table. The server's checkpoint says
+The ordinary and Nunchaku versions of a checkpoint share its star.
+
+**Quantization** trades memory for precision: FP8 and INT8 keep 8-bit weights
+(INT8 a little softer), BF16 is full precision and the largest, and Nunchaku
+4-bit builds are the smallest but run only on Linux or WSL. **Offload** trades
+memory for speed: Model offload keeps one component on the GPU at a time,
+Sequential moves smaller pieces and is much slower, and No offload is fastest
+but needs 24 GB or more for FLUX-size models. FP8 with Model offload is
+recommended for a 16 GB card; each choice's note says the same under its menu.
+
+The server's checkpoint says
 **Loaded**, **Loading…**, **Load failed** or **Current** under its name. A dotted
 label has a note: hover it, or a screen reader reads it with the row. Only the
 chosen row's star and model page are tab stops (Shift+Tab and Tab from its
@@ -66,8 +73,10 @@ Some checkpoints are gated on Hugging Face. FLUX.1 Krea [dev] and FLUX.1 [dev]
 need their licence accepted on the model page; Krea 2 Turbo and Raw need the
 authors' approval, which can take days. Then sign in once with
 `uv run hf auth login`. The 4-bit lite-infer builds are not gated. Each
-row says **Open**, **Accept licence** or **Needs approval** under the name; FP8
-with Model offload is recommended for a 16 GB card.
+row says **Open**, **Accept licence** or **Needs approval** under the name.
+Until access is granted, loading a gated model fails and says why; a page
+opened after that failure shows the picker with the reason. Choose an open
+model in **Models**, or press **Retry load** once access is granted.
 
 **Apply & save** applies changed settings without loading their weights: a
 loaded model whose checkpoint or loading options change is unloaded at once,

@@ -467,10 +467,12 @@ const OFFLINE_MESSAGE = 'No answer from the Local Diffusion server — is it sti
 // reconnects (job-stream.js): one phrase, not three.
 const LOST_PHRASE = 'server not answering — retrying';
 
+// Every /api/ request carries the checkpoint revision the page last saw; the
+// server alone decides which routes refuse a stale one, so a model-dependent
+// route added there needs nothing here.
 async function api(path, options) {
-  const modelRequest = /^\/api\/(?:generate$|grid(?:\/|$)|rerender$|prompt\/|tags\/|loras$|gallery\/unstarred$|model\/(?:load|unload|switch)$)/.test(path.split('?')[0]);
   const revision = modelRevision;
-  if (modelRequest && revision !== null) {
+  if (path.startsWith('/api/') && revision !== null) {
     const headers = new Headers(options?.headers);
     if (!headers.has('X-Local-Diffusion-Model-Revision')) {
       headers.set('X-Local-Diffusion-Model-Revision', String(revision));

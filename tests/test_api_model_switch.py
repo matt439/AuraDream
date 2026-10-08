@@ -539,6 +539,24 @@ def test_old_browser_revision_cannot_submit_settings_to_the_new_model(client, fa
     assert done["images"][0]["model_id"] == ANIMAGINE
 
 
+@pytest.mark.parametrize("revision", ["stale", "not-a-number"])
+def test_routes_that_read_no_checkpoint_ignore_the_revision_header(client, fake, revision):
+    # The page sends its revision on every /api/ request; only the server's
+    # model-dependent routes may refuse it.
+    initial = client.get("/api/status").json()
+    _switch(client, ANIMAGINE)
+    value = str(initial["model_revision"]) if revision == "stale" else revision
+    headers = {"X-Local-Diffusion-Model-Revision": value}
+    for path in (
+        "/api/status", "/api/models", "/api/gallery", "/api/runs", "/api/jobs",
+        "/api/gallery/bundles/status",
+    ):
+        reply = client.get(path, headers=headers)
+        assert reply.status_code == 200, (path, reply.text)
+    guarded = client.post("/api/model/load", headers=headers)
+    assert guarded.status_code == (409 if revision == "stale" else 422), guarded.text
+
+
 def test_status_retries_a_description_that_crossed_a_switch(client, fake, monkeypatch):
     initial = client.get("/api/status").json()
     describing, release = threading.Event(), threading.Event()
