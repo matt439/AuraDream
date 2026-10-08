@@ -435,8 +435,9 @@ function modelWorkHold() {
     || (cardHolder ? 'Wait for the current GPU work to finish' : '');
 }
 
+// The last request failed and none has succeeded since, its retry included.
 function modelCatalogueFailed() {
-  return !modelCatalogueLoaded && !modelCataloguePending && modelCatalogueFailedAt > 0;
+  return !modelCatalogueLoaded && modelCatalogueFailedAt > 0;
 }
 
 function modelSwitchHold({ load = true } = {}) {

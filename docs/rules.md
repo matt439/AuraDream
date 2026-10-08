@@ -403,8 +403,9 @@ Model and loader:
   this page's own switch (`modelOwnSwitch`). Revert clears the edited keys,
   reapplies the server's settings and focuses the chosen radio. The help
   describing the table is `.sr-only` and not live. A failed catalogue keeps
-  its rows, dimmed and `aria-busy`, and holds the actions with its own
-  reason.
+  its rows, dimmed by the shared stale rule (0.8, `--muted` raised) and
+  `aria-busy`, through its retries until one succeeds, and holds the actions
+  with its own reason.
 - The loader selects are `appearance: base-select`, so their lists draw in
   the page; never return them to the native popup, a separate window Chromium
   re-anchors under a still pointer. While any picker list is open
