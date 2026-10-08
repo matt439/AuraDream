@@ -434,9 +434,26 @@ stars while the page reports that they could not be saved. Other tabs' storage
 changes update the stars, and the grouping at the next opening.
 
 These details require no weights or tokenizer load. Unsaved picker edits
-survive status polling; a changed server revision retires them. Quantization
-catalogue requests use an epoch so delayed responses cannot restore an obsolete
-list.
+survive status polling; a changed server revision retires them. Until
+2026-10-09 one dirty flag froze every field, so after an offload edit another
+tab's checkbox-only save (no revision change) never showed, and the next
+Apply & save sent the old checkbox back. Edits are now per field, and the
+others keep following the server. A choice lost to a catalogue for other
+loading options also stayed lost: changing back left no row chosen. The last
+deliberate choice (`modelChoiceIntent`) now returns by exact id, or by
+canonical id to the same checkpoint's other build (Nunchaku formats).
+Quantization catalogue requests use an epoch so delayed responses cannot
+restore an obsolete list.
+
+The first opening focused the body until the rows arrived, and the rebuild
+put the focus back before checking the chosen row, so it landed on the
+first row: one arrow key changed the checkpoint to one never looked at.
+And `preventScroll` left a chosen row low in the table out of sight, with
+nothing visible checked or focused. The rebuild now checks first, and
+opening (or a rebuild's refocus, unless the pointer is on the body) scrolls
+the picker's own body to the focused row below the sticky head. That is the
+newly opened popover showing its current entry, not page scrolling: the
+window never moves, and a hovered body is left alone.
 CPU and fake-browser checks establish these transitions, not real GPU load
 times, memory release or image quality.
 

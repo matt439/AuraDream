@@ -30,7 +30,7 @@
     "log": "'Every catalogue model has a row with its facts visible without choosing it, and full-width loader choices stay readable'"
   },
   {
-    "expect": "__allRows() && modelChoice() === __flux && !modelPickerDirty && !els.modelTable.querySelector('details, p, select, optgroup') && !__groups().length"
+    "expect": "__allRows() && modelChoice() === __flux && !(modelPickerEditedKeys.size > 0) && !els.modelTable.querySelector('details, p, select, optgroup') && !__groups().length"
   },
   {
     "expect": "(() => { const [style, refine, size, speed] = __cells(__flux); return __value(style) === 'Photorealism' && __value(refine) === 'Yes' && __small(size) === 'Max recommended' && __value(size) === '1.64 MP' && size.title.includes('recommends') && __row(__flux).querySelector('a.model-link').href.startsWith('https://huggingface.co/') && __value(__cells(__anime)[0]) === 'Anime' && parseFloat(getComputedStyle(style).fontSize) >= 13; })()"
@@ -87,7 +87,7 @@
     "eval": "window.__actionsY = els.modelSwitch.getBoundingClientRect().top;"
   },
   {
-    "expect": "modelCatalogueEntries.every((e) => __pick(e.model_id) && modelPickerDirty && els.modelSwitch.getBoundingClientRect().top === __actionsY && __factsMatch(e.model_id) && __modelLayout()) && __loaderFits()"
+    "expect": "modelCatalogueEntries.every((e) => __pick(e.model_id) && (modelPickerEditedKeys.size > 0) && els.modelSwitch.getBoundingClientRect().top === __actionsY && __factsMatch(e.model_id) && __modelLayout()) && __loaderFits()"
   },
   {
     "eval": "__pick(__flux); __cells(__anime)[0].scrollIntoView({block: 'nearest'});"
@@ -114,7 +114,7 @@
     "click": "[data-model=\"cagliostrolab/animagine-xl-4.0\"] .model-star"
   },
   {
-    "expect": "__star(__anime).getAttribute('aria-pressed') === 'true' && __star(__anime).textContent === '★' && __star(__anime).getAttribute('aria-label') === __starName && __star(__anime).title.includes('favourite') && modelFavourites.has(__anime) && __order() === __rowOrder && !__groups().length && !__row(__anime).querySelector('.model-title .sr-only') && modelChoice() === __anime && els.modelOffload.value === 'sequential' && els.modelLoadOnStartup.checked && modelPickerDirty && els.modelSwitch.getBoundingClientRect().top === __actionsY && document.activeElement === __star(__anime) && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 1"
+    "expect": "__star(__anime).getAttribute('aria-pressed') === 'true' && __star(__anime).textContent === '★' && __star(__anime).getAttribute('aria-label') === __starName && __star(__anime).title.includes('favourite') && modelFavourites.has(__anime) && __order() === __rowOrder && !__groups().length && !__row(__anime).querySelector('.model-title .sr-only') && modelChoice() === __anime && els.modelOffload.value === 'sequential' && els.modelLoadOnStartup.checked && (modelPickerEditedKeys.size > 0) && els.modelSwitch.getBoundingClientRect().top === __actionsY && document.activeElement === __star(__anime) && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 1"
   },
   {
     "keycombo": ["", "Enter"]
@@ -141,7 +141,7 @@
     "eval": "window.__beforeStartupSave = modelRevision; els.modelLoadOnStartup.checked = true; els.modelLoadOnStartup.dispatchEvent(new Event('change')); refreshStatus();"
   },
   {
-    "expect": "els.modelLoadOnStartup.checked && modelPickerDirty && modelState === 'ready'"
+    "expect": "els.modelLoadOnStartup.checked && (modelPickerEditedKeys.size > 0) && modelState === 'ready'"
   },
   {
     "click": "#btn-model-save"
@@ -399,7 +399,7 @@
     ]
   },
   {
-    "eval": "(async () => { chooseModel('black-forest-labs/FLUX.1-Krea-dev'); modelPickerEdited(); await switchModel(); })()"
+    "eval": "(async () => { chooseModel('black-forest-labs/FLUX.1-Krea-dev'); modelPickerEdited('model_id'); await switchModel(); })()"
   },
   {
     "wait": 3400
@@ -477,7 +477,7 @@
     "expect": "__until(() => !modelSwitchSending && els.modelPickerNote.textContent.includes('Could not save model settings'))"
   },
   {
-    "expect": "modelState === 'ready' && !modelRuntimeSettings.load_on_startup && els.modelLoadOnStartup.checked && modelPickerDirty && document.activeElement === els.modelSave"
+    "expect": "modelState === 'ready' && !modelRuntimeSettings.load_on_startup && els.modelLoadOnStartup.checked && (modelPickerEditedKeys.size > 0) && document.activeElement === els.modelSave"
   },
   {
     "eval": "api = __realApi;"
@@ -628,5 +628,46 @@
   },
   {
     "expect": "els.modelPicker.hidden && document.activeElement === els.models"
-  }
+  },
+  {"log": "'An unsubmitted offload change stays while another tab’s checkbox-only save reaches the open picker'"},
+  {"eval": "window.__flux = 'black-forest-labs/FLUX.1-Krea-dev'; window.__anime = 'cagliostrolab/animagine-xl-4.0'; window.__row = (id) => __rows().find((r) => r.dataset.model === id); window.__set = (key, value) => { els[key].value = value; els[key].dispatchEvent(new Event('change', {bubbles: true})); }; window.__other = (body) => fetch('/api/model/switch', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_id: modelRuntimeSettings.model_id, quantization: modelRuntimeSettings.quantization, offload: modelRuntimeSettings.offload, load: false, ...body})}); window.__inView = () => { const focus = document.activeElement; const row = focus?.closest('.model-row'); if (!row) return false; const r = row.getBoundingClientRect(), b = els.modelPickerBody.getBoundingClientRect(), h = els.modelTableHead.getBoundingClientRect(); return focus.checked && focus.value === loadedModel && modelChoice() === loadedModel && r.top >= h.bottom - 1 && r.bottom <= b.bottom + 1 && els.modelPickerBody.scrollTop > 0 && scrollX === 0 && scrollY === 0; }; window.__startup = modelRuntimeSettings.load_on_startup; window.__q0 = modelRuntimeSettings.quantization;"},
+  {"click": "#btn-models"},
+  {"expect": "__until(() => !els.modelPicker.hidden && modelCatalogueLoaded && !modelCataloguePending && modelChoice() === __flux && !modelPickerEditedKeys.size)"},
+  {"eval": "__set('modelOffload', 'sequential')"},
+  {"expect": "__until(() => !modelCataloguePending && els.modelOffload.value === 'sequential' && [...modelPickerEditedKeys].join() === 'offload')"},
+  {"eval": "__other({load_on_startup: !__startup})"},
+  {"expect": "__until(async () => { await refreshStatus(); return modelRuntimeSettings.load_on_startup === !__startup && els.modelLoadOnStartup.checked === !__startup && modelPickerSettings().load_on_startup === !__startup && els.modelOffload.value === 'sequential' && modelChoice() === __flux && [...modelPickerEditedKeys].join() === 'offload'; })"},
+  {"eval": "__other({load_on_startup: __startup})"},
+  {"expect": "__until(async () => { await refreshStatus(); return modelRuntimeSettings.load_on_startup === __startup && els.modelLoadOnStartup.checked === __startup && els.modelOffload.value === 'sequential'; })"},
+  {"log": "'A list that lacks the chosen checkpoint leaves no row chosen; changing back, or a list holding the same checkpoint’s other build, chooses it again'"},
+  {"eval": "(() => { window.__realApi = api; window.__variant = __anime + '-variant'; window.api = async (path, ...rest) => { const body = await __realApi(path, ...rest); if (!path.startsWith('/api/models')) return body; const q = new URLSearchParams(path.split('?')[1] ?? '').get('quantization'); if (q === 'int8') return {...body, models: body.models.filter((e) => e.model_id !== __anime)}; if (q === 'none') return {...body, models: body.models.map((e) => e.model_id === __anime ? {...e, model_id: __variant} : e), details: {...body.details, [__variant]: {...body.details[__anime]}}}; return body; }; })()"},
+  {"eval": "__row(__anime).querySelector('input').click()"},
+  {"expect": "modelChoice() === __anime && modelPickerEditedKeys.has('model_id') && modelChoiceIntent?.id === __anime"},
+  {"eval": "__set('modelQuantization', 'int8')"},
+  {"expect": "__until(() => !modelCataloguePending && modelCatalogueKind.startsWith('int8|') && !__row(__anime) && modelChoice() === '' && els.modelSwitch.title === 'Choose a checkpoint compatible with these settings')"},
+  {"eval": "__set('modelQuantization', __q0)"},
+  {"expect": "__until(() => !modelCataloguePending && modelCatalogueKind.startsWith(__q0 + '|') && modelChoice() === __anime && __row(__anime).querySelector('input').checked)"},
+  {"eval": "__set('modelQuantization', 'none')"},
+  {"expect": "__until(() => !modelCataloguePending && modelCatalogueKind.startsWith('none|') && modelChoice() === __variant && !__row(__anime))"},
+  {"eval": "__set('modelQuantization', __q0)"},
+  {"expect": "__until(() => !modelCataloguePending && modelCatalogueKind.startsWith(__q0 + '|') && modelChoice() === __anime && els.modelOffload.value === 'sequential')"},
+  {"eval": "window.api = __realApi"},
+  {"key": "Escape"},
+  {"log": "'A chosen checkpoint low in the table takes the focus, scrolled into the picker body (not the page), on the first and a later opening'"},
+  {"eval": "(async () => { window.__bottom = __rows().filter((r) => !modelFavourites.has(modelFavouriteId(r.dataset.model))).at(-1).dataset.model; await __other({model_id: __bottom, load: true}); })()"},
+  {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __bottom && modelState === 'ready' && !modelSwitching; }, 20000)"},
+  {"navigate": "http://127.0.0.1:7896/"},
+  {"wait": 1200},
+  {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; }; window.__rows = () => [...els.modelTable.querySelectorAll('.model-row:not(.model-row-head)')]; window.__flux = 'black-forest-labs/FLUX.1-Krea-dev'; window.__anime = 'cagliostrolab/animagine-xl-4.0'; window.__row = (id) => __rows().find((r) => r.dataset.model === id); window.__set = (key, value) => { els[key].value = value; els[key].dispatchEvent(new Event('change', {bubbles: true})); }; window.__other = (body) => fetch('/api/model/switch', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_id: modelRuntimeSettings.model_id, quantization: modelRuntimeSettings.quantization, offload: modelRuntimeSettings.offload, load: false, ...body})}); window.__inView = () => { const focus = document.activeElement; const row = focus?.closest('.model-row'); if (!row) return false; const r = row.getBoundingClientRect(), b = els.modelPickerBody.getBoundingClientRect(), h = els.modelTableHead.getBoundingClientRect(); return focus.checked && focus.value === loadedModel && modelChoice() === loadedModel && r.top >= h.bottom - 1 && r.bottom <= b.bottom + 1 && els.modelPickerBody.scrollTop > 0 && scrollX === 0 && scrollY === 0; };"},
+  {"expect": "!modelCatalogueLoaded && els.modelPicker.hidden && loadedModel !== __rows()[0]?.dataset.model"},
+  {"click": "#btn-models"},
+  {"expect": "__until(() => modelCatalogueLoaded && !modelCataloguePending && __inView() && __rows().at(-1).dataset.model === loadedModel)"},
+  {"shot": "C:/Users/matsi/AppData/Local/Temp/claude/C--VSProjects-ImageGeneratorLocal/0a43d4f5-d1f3-4b78-85b8-cbb0a11d5b1d/scratchpad/d1-first-open.png"},
+  {"key": "Escape"},
+  {"expect": "els.modelPicker.hidden && document.activeElement === els.models"},
+  {"click": "#btn-models"},
+  {"expect": "__until(() => !modelCataloguePending && __inView())"},
+  {"key": "Escape"},
+  {"eval": "__other({model_id: __flux, load: true})"},
+  {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __flux && modelState === 'ready' && !modelSwitching; }, 20000)"}
 ]

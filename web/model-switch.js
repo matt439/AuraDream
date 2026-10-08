@@ -14,7 +14,14 @@ let modelCatalogueEntries = [];
 let modelStatusEpoch = 0;
 let modelSwitchError = null;
 let modelPickerMessage = null;
-let modelPickerDirty = false;
+// The picker fields changed here and not yet submitted (model_id,
+// quantization, offload, format, load_on_startup). Polls and catalogue
+// replies still write every other field.
+const modelPickerEditedKeys = new Set();
+// The checkpoint last chosen on purpose (a row, the server's selection, a
+// switch) and its canonical id. A catalogue for other loading options that
+// lacks it chooses it again, or the same checkpoint's build, when it can.
+let modelChoiceIntent = null;
 let modelPickerStartupSeen = false;
 let modelRuntimeSettings = null;
 let modelPickerAppliedSettings = null;
@@ -104,6 +111,24 @@ function chooseModel(id) {
     if (radio.checked !== on) radio.checked = on;
   }
   syncModelTabStops();
+}
+
+function rememberModelChoice(id) {
+  if (id) modelChoiceIntent = { id, canonical: modelFavouriteId(id) };
+}
+
+// Scroll only the picker's body (never the page) so a control's row shows
+// below the sticky heading row.
+function revealModelControl(control) {
+  const row = control?.closest?.('.model-row');
+  if (!row || !els.modelTable.contains(row)) return;
+  const body = els.modelPickerBody;
+  const inner = body.getBoundingClientRect().top + body.clientTop;
+  const top = inner + els.modelTableHead.offsetHeight;
+  const bottom = inner + body.clientHeight;
+  const box = row.getBoundingClientRect();
+  if (box.top < top) body.scrollTop -= top - box.top;
+  else if (box.bottom > bottom) body.scrollTop += Math.min(box.bottom - bottom, box.top - top);
 }
 
 function modelLabel(id) {
@@ -308,10 +333,16 @@ function renderModelOptions(wanted) {
     }
     els.modelTable.replaceChildren(...children);
     modelOptionKeys.set(els.modelTable, key);
+    // Checked before the focus lands: on a first opening the body held it,
+    // and the chosen row, not the first, takes it.
+    chooseModel(wanted);
     if (focused) {
       const row = [...els.modelTable.querySelectorAll('.model-row')].find((r) => r.dataset.model === focusModel);
-      (row?.querySelector(focusKind) ?? row?.querySelector('input') ?? modelRadios().find((radio) => radio.checked)
-        ?? modelRadios()[0] ?? els.modelPickerBody).focus({ preventScroll: true });
+      const target = row?.querySelector(focusKind) ?? row?.querySelector('input')
+        ?? modelRadios().find((radio) => radio.checked) ?? modelRadios()[0] ?? els.modelPickerBody;
+      target.focus({ preventScroll: true });
+      // A pointer resting on the body keeps its rows where they are.
+      if (!els.modelPickerBody.matches(':hover')) revealModelControl(target);
     }
   }
   // A different weight format can expose a different set of model ids. Then
@@ -379,15 +410,21 @@ function modelCatalogueKey(selected) {
   return `${selected.quantization}|${selected.quantization === 'nunchaku' ? selected.format : ''}|${selected.offload}`;
 }
 
-function modelSwitchHold({ load = true } = {}) {
-  return serverOffline ? 'The server is not answering'
-    : modelChangeHold()
+// Work in this page a switch waits for; the picker never opens by itself
+// over it either.
+function modelWorkHold() {
+  return modelChangeHold()
     || (submitting ? 'Wait for the job submission to finish' : '')
     || (busy || queuedIds.length ? 'A job is queued or running; switch once the image queue finishes' : '')
     || (elsewhereBusy ? 'A job started in another tab or window is running; switch once it ends' : '')
     || (expandingPrompt ? 'Wait for prompt expansion to finish' : '')
     || (critiquing ? 'Wait for the critic to finish' : '')
-    || (cardHolder ? 'Wait for the current GPU work to finish' : '')
+    || (cardHolder ? 'Wait for the current GPU work to finish' : '');
+}
+
+function modelSwitchHold({ load = true } = {}) {
+  return serverOffline ? 'The server is not answering'
+    : modelWorkHold()
     || (modelState === 'loading' ? 'The weights are still loading' : '')
     || (!modelCatalogueLoaded || modelCataloguePending ? 'The checkpoint list is still loading' : '')
     || (!modelChoice() ? 'Choose a checkpoint compatible with these settings' : '')
@@ -425,8 +462,9 @@ function syncModelSwitch() {
   }
 }
 
-function modelPickerEdited({ catalogue = false } = {}) {
-  modelPickerDirty = true;
+function modelPickerEdited(key, { catalogue = false } = {}) {
+  modelPickerEditedKeys.add(key);
+  if (key === 'model_id') rememberModelChoice(modelChoice());
   modelSwitchError = null;
   modelPickerMessage = null;
   syncModelSwitch();
@@ -448,7 +486,7 @@ function receiveModelSettings(status, { reset = false } = {}) {
     modelPickerMessage = null;
   }
   if (reset) {
-    modelPickerDirty = false;
+    modelPickerEditedKeys.clear();
     modelPickerMessage = null;
   }
   if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
@@ -458,21 +496,25 @@ function receiveModelSettings(status, { reset = false } = {}) {
   applyModelSettings(reset);
 }
 
-// Show the server's settings unless the user is editing them. Only fields that
-// changed since the last apply are written, so an unchanged poll leaves the
-// controls alone. An open list keeps its own value until it closes; the other
+// Show the server's settings in every field the user has not edited. Only
+// fields that changed since the last apply are written, so an unchanged poll
+// leaves the controls alone. An open list keeps its own value until it closes; the other
 // controls take theirs at once, so a pick made in that list still sits on the
 // server's new loading options.
 function applyModelSettings(reset) {
-  if (!modelCatalogueLoaded || modelPickerDirty) return;
+  if (!modelCatalogueLoaded) return;
+  const edited = (key) => modelPickerEditedKeys.has(key);
   const selected = modelRuntimeSettings;
   const applied = modelPickerAppliedSettings;
-  if (reset || !applied || applied.model_id !== selected.model_id) chooseModel(selected.model_id);
+  if (!edited('model_id') && (reset || !applied || applied.model_id !== selected.model_id)) {
+    chooseModel(selected.model_id);
+    rememberModelChoice(selected.model_id);
+  }
   let held = false;
   for (const [control, key] of [
     [els.modelQuantization, 'quantization'], [els.modelOffload, 'offload'], [els.modelFormat, 'format'],
   ]) {
-    if (!reset && applied && applied[key] === selected[key]) continue;
+    if (edited(key) || (!reset && applied && applied[key] === selected[key])) continue;
     if (modelListOpen() && control.matches(':open')) held = true;
     else selectModelValue(control, selected[key] ?? '');
   }
@@ -485,10 +527,12 @@ function applyModelSettings(reset) {
       syncModelSwitch();
     });
   }
-  if (reset || !applied || applied.load_on_startup !== selected.load_on_startup) {
+  if (!edited('load_on_startup') && (reset || !applied || applied.load_on_startup !== selected.load_on_startup)) {
     els.modelLoadOnStartup.checked = selected.load_on_startup;
   }
   modelPickerAppliedSettings = { ...selected };
+  // Edited loading options keep the catalogue their own change asked for.
+  if (['quantization', 'offload', 'format'].some(edited)) return;
   // A runtime id missing from its own catalogue (an off-catalogue launch id
   // under other loading options) is asked for once, not on every poll.
   if (modelCatalogueKind !== modelCatalogueKey(selected)
@@ -502,9 +546,7 @@ function applyModelSettings(reset) {
 function offerModelPicker(status) {
   if (modelPickerStartupSeen) return;
   modelPickerStartupSeen = true;
-  if (!['unloaded', 'error'].includes(status.state) || modelSwitching || modelSwitchSending
-      || busy || queuedIds.length || elsewhereBusy || submitting || expandingPrompt || critiquing
-      || cardHolder || status.active_jobs?.length) return;
+  if (!['unloaded', 'error'].includes(status.state) || modelWorkHold() || status.active_jobs?.length) return;
   showModelPicker(true, { focus: false });
 }
 
@@ -518,7 +560,12 @@ function showModelPicker(on, { focus = true } = {}) {
     if (modelCatalogueLoaded) renderModelOptions(modelChoice() || modelRuntimeSettings?.model_id);
     syncModelSwitch();
     void refreshModelCatalogue();
-    if (focus) (modelRadios().find((radio) => radio.checked) ?? modelRadios()[0] ?? els.modelPickerBody).focus({ preventScroll: true });
+    if (focus) {
+      const target = modelRadios().find((radio) => radio.checked) ?? modelRadios()[0] ?? els.modelPickerBody;
+      target.focus({ preventScroll: true });
+      // Opening scrolls the picker's own body to the focused row, not the page.
+      revealModelControl(target);
+    }
   } else if (focus && els.modelPicker.contains(document.activeElement)) {
     els.models.focus({ preventScroll: true });
   }
@@ -543,18 +590,28 @@ async function refreshModelCatalogue({ current = false } = {}) {
       if (epoch !== modelCatalogueEpoch) return;
     }
     const wanted = { ...(selected ?? body) };
-    if (modelPickerDirty) {
-      // Keep edits made while this request was in flight or a list was open,
-      // including a checkpoint picked during a poll's own refresh and the
-      // startup checkbox, neither of which asks for a catalogue of its own.
-      for (const [key, value] of Object.entries(modelPickerSettings())) {
-        if (value !== '' && value !== undefined) wanted[key] = value;
-      }
+    // Keep edits made while this request was in flight or a list was open,
+    // including a checkpoint picked during a poll's own refresh and the
+    // startup checkbox, neither of which asks for a catalogue of its own.
+    const edits = modelPickerSettings();
+    for (const key of modelPickerEditedKeys) {
+      if (edits[key] !== '' && edits[key] !== undefined) wanted[key] = edits[key];
     }
     modelCatalogueEntries = body.models ?? [];
     modelCatalogueDetails = body.details ?? {};
+    const wantedModel = wanted.model_id ?? loadedModel;
     // Only the server decides which checkpoint/loader combinations are valid.
-    renderModelOptions(wanted.model_id ?? loadedModel);
+    // A list for other loading options that lacks the choice takes the last
+    // deliberate one, else the same checkpoint's build it lists, else none.
+    const listed = (id) => modelCatalogueEntries.some((entry) => entry.model_id === id);
+    let chosen = wantedModel;
+    if (!current && !listed(chosen) && modelChoiceIntent) {
+      const { id, canonical } = modelChoiceIntent;
+      chosen = listed(id) ? id
+        : modelCatalogueEntries.find((entry) => modelFavouriteId(entry.model_id) === canonical)?.model_id ?? chosen;
+      if (chosen !== wantedModel) modelPickerEditedKeys.add('model_id');
+    }
+    renderModelOptions(chosen);
     for (const [control, key, choices] of [
       [els.modelQuantization, 'quantization', 'quantizations'],
       [els.modelOffload, 'offload', 'offloads'],
@@ -570,11 +627,13 @@ async function refreshModelCatalogue({ current = false } = {}) {
       const value = wanted[key] ?? body[key];
       if ([...control.options].some((o) => o.value === value)) selectModelValue(control, value);
     }
-    els.modelLoadOnStartup.checked = wanted.load_on_startup ?? body.load_on_startup ?? false;
+    // Unless edited, the server's checkbox as it is now: a poll may have
+    // brought another tab's save while this request was in flight.
+    els.modelLoadOnStartup.checked = (modelPickerEditedKeys.has('load_on_startup') ? wanted.load_on_startup
+      : modelRuntimeSettings?.load_on_startup ?? body.load_on_startup) ?? false;
     // Remember what this reply installed. If the server changed while it was
     // in flight, the next status still reconciles that change. A checkpoint the
     // list lacks is recorded as asked for, so polls stop rewriting it.
-    const wantedModel = wanted.model_id ?? loadedModel;
     modelPickerAppliedSettings = { ...modelPickerSettings(), model_id: modelChoice() || wantedModel };
     modelCatalogueKind = modelCatalogueKey(modelPickerSettings());
     modelCatalogueRequested = `${modelCatalogueKind}|${wantedModel}`;
@@ -615,7 +674,8 @@ async function switchModel({ load = true } = {}) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...selected, load }),
     });
-    modelPickerDirty = false;
+    modelPickerEditedKeys.clear();
+    rememberModelChoice(selected.model_id);
     receiveStatus(status, Date.now());
     modelPickerMessage = `Settings saved. ${status.load_on_startup ? 'They will load automatically on startup.' : 'Next startup will wait for you to load or generate.'}`;
   } catch (err) {

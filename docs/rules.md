@@ -376,7 +376,21 @@ Model and loader:
   row's, plus the row holding the focus. Each radio's `aria-describedby`
   points at a hidden span of its cells' notes; a favourite's hidden prefix
   follows `modelTableGrouping`. The heading row is sticky in the picker body,
-  whose `scroll-padding-top` keeps a focused row out from under it.
+  whose `scroll-padding-top` keeps a focused row out from under it. A rebuild
+  checks the wanted row before restoring focus, so a first opening (the body
+  held the focus) lands on the checked radio, not the first. Opening, and a
+  rebuild's refocus unless the body is hovered, scroll only
+  `#model-picker-body` to the focused row (`revealModelControl`, below the
+  sticky head); never `scrollIntoView`, never the page.
+- Picker edits are per field (`modelPickerEditedKeys`, filled by the change
+  handlers); polls and catalogue replies write every other field, so another
+  tab's checkbox-only save still lands. A revision change or a successful
+  switch clears them. While a loading option is edited, polls ask for no
+  catalogue. `modelChoiceIntent` (a row, the server's selection, a switch)
+  re-picks a choice a catalogue for other loading options lost: the exact id,
+  then the listed id with its canonical `favourite_id`, else no row.
+  `modelWorkHold` is the one list of page work a switch waits for;
+  `offerModelPicker` uses it too.
 - The loader selects are `appearance: base-select`, so their lists draw in
   the page; never return them to the native popup, a separate window Chromium
   re-anchors under a still pointer. While any picker list is open
@@ -3284,7 +3298,11 @@ another setup, the Size header and its titles, the Models section name, the
 new-tab link label, the Favourite prefix following the grouping, one row's
 star and link as tab stops (Tab from the radio reaches its link, then the
 startup checkbox) and the sticky heading row, with a focused row scrolled
-in below it.
+in below it. With the bottom row's model loaded it checks that the first and a
+later opening focus its checked radio inside the picker body, the page
+unscrolled; that an unsubmitted offload edit survives another tab's
+checkbox-only save, which still lands; and that a list lacking the chosen
+checkpoint chooses none, then the same one, or its other build, again.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
 for an idle unloaded/error server, with every model's row and facts shown,
 suppression when ready/loading/busy, no reopening after dismissal or later

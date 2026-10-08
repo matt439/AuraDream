@@ -44,7 +44,11 @@ and the column names stay at the top of the table. The server's checkpoint says
 **Loaded**, **Loading…**, **Load failed** or **Current** under its name. A dotted
 label has a note: hover it, or a screen reader reads it with the row. Only the
 chosen row's star and model page are tab stops (Shift+Tab and Tab from its
-radio), so Tab reaches the actions without passing every row.
+radio), so Tab reaches the actions without passing every row. Opening the
+picker focuses the chosen row and scrolls the table to it. If a quantization
+or format has no build of the chosen model, no row is chosen; the model is
+chosen again when a list has it. A field you changed keeps your value until
+you apply it; the others follow changes saved in another tab.
 
 **Speed** uses recorded RTX 5080 samples around 1 MP (WAI's portrait is 1.38 MP):
 **Fast** is up to 15 seconds, **Medium** over 15 through 45 seconds, and **Slow**

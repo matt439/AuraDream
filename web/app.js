@@ -641,7 +641,7 @@ restoreModelFavourites();
 window.addEventListener('storage', receiveModelFavourites);
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
 els.modelTable.addEventListener('change', (event) => {
-  if (event.target.name === 'model-choice') modelPickerEdited();
+  if (event.target.name === 'model-choice') modelPickerEdited('model_id');
 });
 // A row keeps its star and link tabbable while it holds the focus.
 els.modelTable.addEventListener('focusout', () => setTimeout(syncModelTabStops, 0));
@@ -652,10 +652,10 @@ els.modelTable.addEventListener('click', (event) => {
   // there chooses the row too, as its hover promises.
   else if (event.target.matches('.model-row:not(.model-row-head)')) event.target.querySelector('input')?.click();
 });
-els.modelOffload.onchange = () => modelPickerEdited({ catalogue: true });
-els.modelLoadOnStartup.onchange = () => modelPickerEdited();
-els.modelQuantization.onchange = () => modelPickerEdited({ catalogue: true });
-els.modelFormat.onchange = () => modelPickerEdited({ catalogue: true });
+els.modelOffload.onchange = () => modelPickerEdited('offload', { catalogue: true });
+els.modelLoadOnStartup.onchange = () => modelPickerEdited('load_on_startup');
+els.modelQuantization.onchange = () => modelPickerEdited('quantization', { catalogue: true });
+els.modelFormat.onchange = () => modelPickerEdited('format', { catalogue: true });
 els.modelSwitch.onclick = () => switchModel();
 els.modelSave.onclick = () => switchModel({ load: false });
 document.addEventListener('pointerdown', (event) => {
