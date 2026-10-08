@@ -8,7 +8,7 @@
    dimming multiplied in, on the one line that explains why the field is off. */
 .field em { text-transform: none; font-style: normal; font-weight: 400; color: var(--text-3); letter-spacing: 0; }
 
-textarea, input[type="number"], input[type="search"], input[type="text"] {
+textarea, input[type="number"], input[type="search"], input[type="text"], input[type="password"] {
   background: var(--panel-2);
   border: 1px solid var(--line-strong);
   color: var(--text);
@@ -24,7 +24,7 @@ textarea, input[type="number"], input[type="search"], input[type="text"] {
    whose border does not render: it takes the ring below. Nor the chip
    editor's borderless box, inside a pill that is its own focus. */
 textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { outline: none; border-color: var(--accent); }
-:where(textarea, input[type="number"], input[type="search"], input[type="text"]):not(.tag-editor input):focus {
+:where(textarea, input[type="number"], input[type="search"], input[type="text"], input[type="password"]):not(.tag-editor input):focus {
   box-shadow: 0 0 0 1px var(--accent);
 }
 /* What a blank box will do - Seed "random", True CFG "off", Mu "auto" - is

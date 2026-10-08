@@ -2,21 +2,27 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import shutil
 import sqlite3
 import stat
+import struct
 import tempfile
+import threading
 import uuid
 import zipfile
 import zlib
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
-from . import gallery_lock, reindex, storage
+from . import bundle_crypto, gallery_lock, reindex, storage
 
 
 class BundleError(ValueError):
@@ -31,6 +37,18 @@ _FORMAT = "local-diffusion-gallery"
 _DATABASE = "database.sqlite3"
 _MANIFEST = "manifest.json"
 _CHUNK = 1024 * 1024
+_SUFFIXES = (".zip", bundle_crypto.SUFFIX)
+# Decoding every tracked PNG dominates both directions; it runs on a small
+# pool while the archive is read. Admission is bounded by the decoded size
+# the PNG header announces, so a few huge images cannot multiply memory.
+_WORKERS = max(1, min(8, (os.cpu_count() or 2) - 1))
+_DECODE_BUDGET = 1024 * 1024 * 1024
+
+Progress = Callable[[str, int, int], None]
+
+
+def _quiet(phase: str, done: int, total: int) -> None:
+    pass
 
 
 def _settings():
@@ -64,8 +82,8 @@ def _basename(name: str) -> bool:
 
 
 def bundle_path(name: str) -> Path:
-    if not _basename(name) or Path(name).suffix.lower() != ".zip":
-        raise BundleError("choose a bundle filename ending in .zip")
+    if not _basename(name) or Path(name).suffix.lower() not in _SUFFIXES:
+        raise BundleError(f"choose a bundle filename ending in .zip or {bundle_crypto.SUFFIX}")
     path = _directory() / name
     if _is_link(path):
         raise BundleError("a bundle must be a regular file")
@@ -76,11 +94,17 @@ def list_bundles() -> list[dict]:
     directory = _directory()
     if not directory.exists():
         return []
-    return [
-        {"name": p.name, "bytes": p.stat().st_size, "created_at": p.stat().st_mtime}
-        for p in sorted(directory.glob("*.zip"), reverse=True)
-        if p.is_file() and not _is_link(p)
-    ]
+    found = []
+    for p in directory.iterdir():
+        if p.suffix.lower() not in _SUFFIXES or not p.is_file() or _is_link(p):
+            continue
+        try:
+            encrypted = bundle_crypto.is_encrypted(p)
+        except OSError:
+            continue
+        found.append({"name": p.name, "bytes": p.stat().st_size, "created_at": p.stat().st_mtime,
+                      "encrypted": encrypted})
+    return sorted(found, key=lambda b: b["name"], reverse=True)
 
 
 def _connect_read(path: Path):
@@ -194,10 +218,93 @@ def _valid_member(name: str) -> bool:
     )
 
 
-def _verify_archive(path: Path, destination: Path | None = None) -> dict:
-    """Read every member, verifying both ZIP CRC and the manifest SHA-256."""
+def _png_weight(data: bytes) -> int:
+    """Bytes held while decoding: the file plus the decoded pixels its header announces."""
+    if data[:8] == reindex._PNG_SIGNATURE and data[12:16] == b"IHDR" and len(data) >= 24:
+        width, height = struct.unpack(">II", data[16:24])
+        return len(data) + 8 * width * height
+    return len(data)
+
+
+class _Pool:
+    """Inspects tracked PNGs in parallel while the archive is still being read.
+
+    Results are collected in row order, so the first failure reported is the
+    one a serial pass would have reported.
+    """
+
+    def __init__(self):
+        self._executor = ThreadPoolExecutor(_WORKERS, thread_name_prefix="bundle-decode")
+        self._room = threading.Condition()
+        self._used = 0
+        self._pending = 0
+        self.futures = {}
+
+    def submit(self, key, weight: int, fn, *args) -> None:
+        weight = min(weight, _DECODE_BUDGET)
+        with self._room:
+            self._room.wait_for(lambda: self._pending < 2 * _WORKERS and self._used + weight <= _DECODE_BUDGET)
+            self._used += weight
+            self._pending += 1
+
+        def run():
+            try:
+                return fn(*args)
+            finally:
+                with self._room:
+                    self._used -= weight
+                    self._pending -= 1
+                    self._room.notify_all()
+        self.futures[key] = self._executor.submit(run)
+
+    def results(self, keys) -> dict:
+        return {key: self.futures[key].result() for key in keys}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        for future in self.futures.values():
+            future.cancel()
+        self._executor.shutdown(wait=True)
+
+
+@contextmanager
+def _open_archive(path: Path, password: str | None):
     try:
+        encrypted = bundle_crypto.is_encrypted(path)
+    except OSError as exc:
+        raise BundleError(f"cannot read the bundle: {exc}") from exc
+    if not encrypted:
         with zipfile.ZipFile(path) as archive:
+            yield archive
+        return
+    if not password:
+        raise BundleError("this bundle is password-protected; enter its password")
+    # Plaintext exists only in memory: every chunk is authenticated as read.
+    with bundle_crypto.DecryptingReader(path, password) as reader, zipfile.ZipFile(reader) as archive:
+        yield archive
+
+
+def _inspect_source(row: dict, data: bytes):
+    return _validate_source_row(row, io.BytesIO(data), name=row["filename"])
+
+
+def _verify_archive(path: Path, destination: Path | None = None, *, password: str | None = None,
+                    rows: list[dict] | None = None, inspect=_inspect_source,
+                    extract: Callable[[str], bool] | None = None,
+                    progress: Progress = _quiet) -> tuple[dict, list[dict] | None, dict]:
+    """Read every member once, verifying ZIP CRC, the manifest SHA-256 and, for
+    a password-protected bundle, every chunk's tag.
+
+    The database member is read first. Each tracked PNG (from `rows`, or from
+    the database unpacked into `destination`) is passed to `inspect` from the
+    bytes just read, on the decode pool. `extract` may decline to write a
+    member that will never be installed. Returns the manifest, the rows and
+    each tracked member's inspection result.
+    """
+    try:
+        with _open_archive(path, password) as archive, _Pool() as pool:
             infos = archive.infolist()
             names = [info.filename for info in infos]
             if len(names) != len(set(n.casefold() for n in names)):
@@ -222,15 +329,30 @@ def _verify_archive(path: Path, destination: Path | None = None) -> dict:
                 required = sum(info.file_size for info in infos)
                 if required > shutil.disk_usage(destination).free:
                     raise BundleError("not enough free space to unpack this bundle")
-            for name, expected in files.items():
+
+            def track(found: list[dict]) -> dict[str, dict]:
+                if len(found) != manifest.get("records"):
+                    raise BundleError("the manifest's record count does not match its database")
+                for row in found:
+                    if "images/" + row["filename"] not in files:
+                        raise BundleError(f"the bundle is missing {row['filename']}")
+                return {"images/" + row["filename"]: row for row in found}
+
+            tracked = track(rows) if rows is not None else {}
+            order = sorted(files, key=lambda n: n != _DATABASE)
+            for done, name in enumerate(order, 1):
+                expected = files[name]
                 info = archive.getinfo(name)
                 if (not isinstance(expected, dict) or type(expected.get("size")) is not int
                         or expected["size"] != info.file_size or not isinstance(expected.get("sha256"), str)):
                     raise BundleError(f"invalid size or checksum for {name}")
                 digest = hashlib.sha256()
-                target = destination.joinpath(*PurePosixPath(name).parts) if destination else None
+                write = destination is not None and (name == _DATABASE or extract is None or extract(name))
+                target = destination.joinpath(*PurePosixPath(name).parts) if write else None
                 if target:
                     target.parent.mkdir(parents=True, exist_ok=True)
+                row = tracked.get(name)
+                held = [] if row else None
                 output = target.open("xb") if target else None
                 try:
                     with archive.open(info) as source:
@@ -238,21 +360,31 @@ def _verify_archive(path: Path, destination: Path | None = None) -> dict:
                             digest.update(chunk)
                             if output:
                                 output.write(chunk)
+                            if held is not None:
+                                held.append(chunk)
+                    # Tracked PNGs are rewritten (and synced) before
+                    # installation; everything else may be installed as is.
+                    if output and name != _DATABASE and not row:
+                        output.flush()
+                        os.fsync(output.fileno())
                 finally:
                     if output:
                         output.close()
                 if digest.hexdigest() != expected["sha256"]:
                     raise BundleError(f"the bundle checksum failed for {name}")
-            if destination:
-                rows = _rows(destination / _DATABASE)
-                if len(rows) != manifest.get("records"):
-                    raise BundleError("the manifest's record count does not match its database")
-                for row in rows:
-                    if "images/" + row["filename"] not in files:
-                        raise BundleError(f"the bundle is missing {row['filename']}")
-            return manifest
+                if row:
+                    data = b"".join(held)
+                    pool.submit(name, _png_weight(data), inspect, row, data)
+                if name == _DATABASE and rows is None and destination is not None:
+                    rows = _rows(destination / _DATABASE)
+                    tracked = track(rows)
+                progress("verifying", done, len(order))
+            results = pool.results(["images/" + row["filename"] for row in rows or []])
+            return manifest, rows, results
     except (zipfile.BadZipFile, json.JSONDecodeError, UnicodeError, EOFError) as exc:
         raise BundleError(f"the bundle is damaged: {exc}") from exc
+    except bundle_crypto.CryptoError as exc:
+        raise BundleError(str(exc)) from exc
 
 
 def _checkpoint() -> None:
@@ -318,10 +450,70 @@ def _rewrite_metadata(path: Path, metadata: dict) -> None:
                 break
         if not inserted:
             raise BundleError(f"PNG has no image data: {path.name}")
+        # Installation moves this file into place rather than copying it.
+        target.flush()
+        os.fsync(target.fileno())
     temp.replace(path)
 
 
-def export_bundle(expected: int) -> dict:
+def _critical_digest(source) -> str | None:
+    """SHA-256 of the chunks that decide a PNG's pixels (None if malformed).
+
+    Equal digests mean equal decoded pixels; metadata chunks are ignored.
+    """
+    try:
+        if source.read(8) != reindex._PNG_SIGNATURE:
+            return None
+        digest = hashlib.sha256()
+        while header := source.read(8):
+            if len(header) != 8:
+                return None
+            length, kind = int.from_bytes(header[:4], "big"), header[4:]
+            if kind in {b"IHDR", b"PLTE", b"tRNS", b"IDAT"}:
+                digest.update(header)
+                remaining = length
+                while remaining:
+                    block = source.read(min(_CHUNK, remaining))
+                    if not block:
+                        return None
+                    digest.update(block)
+                    remaining -= len(block)
+                source.seek(4, 1)
+            else:
+                source.seek(length + 4, 1)
+            if kind == b"IEND":
+                return digest.hexdigest()
+        return None
+    except (OSError, ValueError):
+        return None
+
+
+def _install(source: Path, target: Path, installed: list[Path]) -> None:
+    """Move a synced staged file into place, never replacing an existing file."""
+    try:
+        if os.name == "nt":
+            os.rename(source, target)  # refuses an existing target on Windows
+        else:
+            os.link(source, target)  # rename would replace one on POSIX
+        installed.append(target)
+        return
+    except FileExistsError:
+        raise
+    except OSError:
+        pass  # another volume, or no hard links: copy instead
+    with target.open("xb") as dest:
+        installed.append(target)
+        with source.open("rb") as src:
+            shutil.copyfileobj(src, dest, _CHUNK)
+        dest.flush()
+        os.fsync(dest.fileno())
+
+
+def _unchanged(path: Path, saved: dict) -> bool:
+    return path.stat().st_size == saved["size"] and _hash(path) == saved["sha256"]
+
+
+def export_bundle(expected: int, password: str | None = None, progress: Progress = _quiet) -> dict:
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
         before = preview()
@@ -330,37 +522,43 @@ def export_bundle(expected: int) -> dict:
         files = _inventory()
         directory = _directory()
         directory.mkdir(parents=True, exist_ok=True)
-        name = f"local-diffusion-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}.zip"
+        name = f"local-diffusion-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
+        name += bundle_crypto.SUFFIX if password else ".zip"
         final = bundle_path(name)
-        partial = final.with_suffix(".zip.part")
+        partial = final.with_name(final.name + ".part")
         with tempfile.TemporaryDirectory(prefix=".bundle-", dir=settings.db_path.parent) as work:
             work = Path(work)
             snapshot = work / _DATABASE
             _backup(settings.db_path, snapshot)
             rows = _rows(snapshot)
             manifest = {"format": _FORMAT, "version": 1, "records": len(rows), "files": {}}
+            members = [(_DATABASE, snapshot), *files]
             try:
-                with zipfile.ZipFile(partial, "x", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
-                    for member, path in [(_DATABASE, snapshot), *files]:
-                        digest = hashlib.sha256()
-                        size = 0
-                        with path.open("rb") as source, archive.open(member, "w", force_zip64=True) as dest:
-                            while chunk := source.read(_CHUNK):
-                                digest.update(chunk)
-                                size += len(chunk)
-                                dest.write(chunk)
-                        manifest["files"][member] = {"size": size, "sha256": digest.hexdigest()}
-                    archive.writestr(_MANIFEST, json.dumps(manifest, ensure_ascii=True))
-                with partial.open("r+b") as stream:
+                with partial.open("xb") as stream:
+                    # A password streams the ZIP through the cipher; no
+                    # plaintext copy of the archive is ever written.
+                    sink = bundle_crypto.EncryptingWriter(stream, password) if password else stream
+                    with zipfile.ZipFile(sink, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+                        for done, (member, path) in enumerate(members, 1):
+                            digest = hashlib.sha256()
+                            size = 0
+                            with path.open("rb") as source, archive.open(member, "w", force_zip64=True) as dest:
+                                while chunk := source.read(_CHUNK):
+                                    digest.update(chunk)
+                                    size += len(chunk)
+                                    dest.write(chunk)
+                            manifest["files"][member] = {"size": size, "sha256": digest.hexdigest()}
+                            progress("writing", done, len(members))
+                        archive.writestr(_MANIFEST, json.dumps(manifest, ensure_ascii=True))
+                    if password:
+                        sink.finish()
+                    stream.flush()
                     os.fsync(stream.fileno())
-                _verify_archive(partial)
-                # Validate the archived originals themselves, so a damaged
-                # tracked PNG can never be cleared into an unusable import.
-                # ZipExtFile streams avoid a second extracted gallery on disk.
-                with zipfile.ZipFile(partial) as archive:
-                    for row in rows:
-                        with archive.open("images/" + row["filename"]) as source:
-                            _validate_source_row(row, source, name=row["filename"])
+                # The one read-back checks every member (and, with a password,
+                # every chunk's tag) and decodes the archived originals from
+                # the bytes it read, so a damaged tracked PNG can never be
+                # cleared into an unusable import.
+                _verify_archive(partial, password=password, rows=rows, progress=progress)
                 partial.rename(final)
             except BaseException:
                 partial.unlink(missing_ok=True)
@@ -376,10 +574,13 @@ def export_bundle(expected: int) -> dict:
                 if ({name for name, _ in current_files} != {name for name, _ in files}
                         or _rows(settings.db_path) != rows):
                     raise BundleError("the gallery changed outside the app while its bundle was written; nothing was cleared")
-                for member, source in current_files:
-                    saved = manifest["files"][member]
-                    if source.stat().st_size != saved["size"] or _hash(source) != saved["sha256"]:
+                progress("checking", 0, len(current_files))
+                with ThreadPoolExecutor(_WORKERS, thread_name_prefix="bundle-hash") as pool:
+                    same = list(pool.map(lambda item: _unchanged(item[1], manifest["files"][item[0]]), current_files))
+                for (_, source), unchanged in zip(current_files, same):
+                    if not unchanged:
                         raise BundleError(f"{source.name} changed while its bundle was written; nothing was cleared")
+                progress("clearing", 0, len(files))
                 for _, source in files:
                     try:
                         _remove_file(source)
@@ -479,17 +680,41 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
     }
 
 
-def import_bundle(path: Path) -> dict:
+def import_bundle(path: Path, password: str | None = None, progress: Progress = _quiet) -> dict:
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
         _inventory()  # A partial write or linked destination is not an import target.
         settings.db_path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix=".bundle-import-", dir=settings.db_path.parent) as work:
             work = Path(work)
-            manifest = _verify_archive(Path(path), work)
-            source_rows = _rows(work / _DATABASE)
             current = _rows(settings.db_path)
             existing = {r["filename"].casefold(): r for r in current}
+
+            def present_file(relative: str) -> Path | None:
+                known = existing.get(relative.casefold())
+                target = settings.outputs_dir / known["filename"] if known else None
+                return target if known and known["filename"] == relative and target.is_file() else None
+
+            def inspect(row: dict, data: bytes):
+                pixels = _inspect_source(row, data)
+                target = present_file(row["filename"])
+                same = False
+                if target is not None:
+                    # Identical pixel-deciding chunks skip a second decode;
+                    # anything else is compared by decoding the existing image.
+                    with target.open("rb") as stream:
+                        known = _critical_digest(stream)
+                    same = (known is not None and known == _critical_digest(io.BytesIO(data))) or _pixels(target) == pixels
+                return pixels, same
+
+            def extract(member: str) -> bool:
+                # An existing image wins on repeated import, so its bundle copy
+                # is verified and decoded from memory but never unpacked.
+                bits = member.split("/")
+                return not (len(bits) == 2 and bits[1].lower().endswith(".png") and present_file(bits[1]))
+
+            manifest, source_rows, inspected = _verify_archive(
+                Path(path), work, password=password, inspect=inspect, extract=extract, progress=progress)
             stage_db = work / "merged.sqlite3"
             _backup(settings.db_path, stage_db)
             conn = sqlite3.connect(stage_db)
@@ -508,13 +733,13 @@ def import_bundle(path: Path) -> dict:
                 mapping = {}
                 pending = []
                 present = 0
+                progress("merging", 0, len(source_rows))
                 for row in source_rows:
                     name = row["filename"]
-                    digest, width, height = _validate_source_row(row, work / "images" / name)
+                    (digest, _, _), same = inspected["images/" + name]
                     known = existing.get(name.casefold())
                     if known:
-                        target = settings.outputs_dir / known["filename"]
-                        if known["filename"] != name or not target.is_file() or _pixels(target) != (digest, width, height):
+                        if not same:
                             raise BundleError(f"another image already uses the filename {name}")
                         for key in ("prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed", "model_id"):
                             if known[key] != row[key]:
@@ -572,22 +797,22 @@ def import_bundle(path: Path) -> dict:
                             raise BundleError(f"a filename differing only by letter case already exists: {relative}")
                         if relative.casefold() in known_names and target.suffix.lower() == ".png":
                             continue
-                        if _hash(actual) != _hash(source):
+                        # Rewritten PNGs are compared as staged; other members
+                        # are byte-identical to their verified manifest entry.
+                        saved = manifest["files"][member]
+                        if source.stat().st_size != actual.stat().st_size or (
+                                _hash(actual) != (_hash(source) if source.suffix.lower() == ".png" else saved["sha256"])):
                             raise BundleError(f"another file already uses the filename {relative}")
                         continue
                     targets.append((source, target))
                 _checkpoint()
                 try:
-                    for source, target in targets:
+                    for done, (source, target) in enumerate(targets, 1):
                         target.parent.mkdir(parents=True, exist_ok=True)
                         # Exclusive creation also protects an external file that
                         # appeared after validation; rollback removes only ours.
-                        with target.open("xb") as dest:
-                            installed.append(target)
-                            with source.open("rb") as src:
-                                shutil.copyfileobj(src, dest, _CHUNK)
-                            dest.flush()
-                            os.fsync(dest.fileno())
+                        _install(source, target, installed)
+                        progress("installing", done, len(targets))
                     _replace_database(stage_db)
                 except BaseException:
                     for target in reversed(installed):

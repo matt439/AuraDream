@@ -26,6 +26,8 @@ dependencies = [
     "kernels>=0.16,<0.17; sys_platform == 'linux'",
     "bitsandbytes>=0.50; sys_platform == 'linux'",
     "peft>=0.20.0",
+    # Password-protected gallery bundles (backend/bundle_crypto.py).
+    "cryptography>=44",
 ]
 
 [dependency-groups]

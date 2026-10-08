@@ -334,7 +334,10 @@ if labels have different meanings across jobs, narrow the scope or group by
 Open **Gallery bundles** beside the gallery controls. Its counts cover the
 entire gallery: every checkpoint and favourite, regardless of the current
 search or filters. Type the displayed record count and press **Bundle & clear
-gallery**. Finish or cancel generation first; loading and other gallery work
+gallery**. To protect the bundle, enter a password twice first: the bundle is
+then saved as an encrypted `.ldbundle` file that only Local Diffusion can
+open (file names included). The password is not saved anywhere and cannot be
+recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work
 must also finish before this operation can start.
 
 The server saves a ZIP in `bundles/` beside its gallery database, checks every
@@ -346,7 +349,10 @@ relationships are retained. Model weights, LoRAs and browser preferences are
 not part of a gallery bundle.
 
 The dialog lists saved bundles with **Download** and **Import** controls.
-You can also choose a bundle ZIP from your computer and import it. Import
+You can also choose a bundle file from your computer and import it. Saved
+bundles marked **Protected**, and selected `.ldbundle` files, need the
+password under **Password for protected bundles**; a wrong password is
+refused before a selected file is uploaded. Import
 merges into the current gallery, keeps existing images, remaps source-image
 links, and skips images already present. Different files using the same name
 are refused before changing the gallery. Missing source images cannot be
@@ -356,7 +362,7 @@ Keep the server running until the operation finishes; closing the dialog or
 browser does not cancel it. Creating and importing a bundle need free space
 for the archive and staged files. If an image is locked or files change during
 export, the verified bundle remains available and the dialog lists what was
-not cleared. Review that result before removing anything by hand. In Windows
+not cleared. The status line shows the current step and how far it has got. Review that result before removing anything by hand. In Windows
 and WSL, the saved-bundle directory belongs to the server environment whose
 gallery is open.
 

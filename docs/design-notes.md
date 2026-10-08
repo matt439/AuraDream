@@ -3013,6 +3013,66 @@ do not take that lock, so the final inventory/hash check and SQLite checkpoint
 refusals remain necessary. No archive operation is run against the user's
 gallery as part of tests: core/API tests and browser smokes use scratch data.
 
+### Password bundles and the one-pass read-back
+
+**Why not an encrypted ZIP.** Python's `zipfile` cannot write encrypted
+archives, and the only scheme it reads, ZipCrypto, is broken. AES ZIP
+(WinZip AE-2, via `pyzipper`) would open in 7-Zip, but it leaves member names
+readable and relies on an old fork of `zipfile`. A password bundle is instead
+the ordinary bundle ZIP inside one authenticated layer (`bundle_crypto.py`).
+The header is magic, version, scrypt parameters, salt, chunk size, nonce
+prefix and a password check. It is followed by 1 MiB AES-256-GCM chunks.
+Each chunk's associated data binds the header digest, its index and a final
+flag, so a flipped bit, a reordered or dropped chunk, truncation and
+extension all fail authentication. The final chunk is authenticated before
+zipfile ever seeks. scrypt runs at n=2^17, r=8 (128 MiB, about 0.2 s). Header
+parameters come from an untrusted file, so they are bounded before any key
+is derived. The check value is a hash of the half of the scrypt output that
+the key does not use. A wrong password is reported as such, and the browser
+can test it against the file's first 64 bytes (`POST .../password`) before
+uploading gigabytes. Plain bundles stay plain ZIPs.
+
+**No extra pass.** Export points `zipfile` at `EncryptingWriter`. Its seek
+fails, so zipfile writes data descriptors (flag bit 3, which `_verify_archive`
+accepts). The archive is therefore written once, already encrypted.
+`_verify_archive` reads through the seekable `DecryptingReader`. The single
+existing read-back authenticates every chunk with the user's password
+*before* anything is cleared, and no plaintext copy ever touches disk. Import
+reads the uploaded ciphertext the same way. A writer closed without
+`finish()` (an exception mid-archive) never yields a validly terminated file.
+
+**Where export and import time went.** Profiling a 208-image, 495 MB scratch
+gallery (synthetic noise PNGs, warm cache, Defender on) gave: export 5.65 s,
+import 6.98 s, re-import 7.48 s, and HTTP import 8.93 s, all linear in image
+count. About half of export and import, and 81% of re-import, was decoding
+every PNG with PIL on a single thread to check its pixels. Import's work-file
+copies plus one fsync per installed file took about 30%. The upload wrote
+each ASGI chunk with its own thread hop into `%TEMP%`. The fixes keep every
+guarantee above:
+
+- Tracked PNGs are decoded from the bytes `_verify_archive` just read, on a
+  pool of up to 8 threads. Export no longer reopens the ZIP, and import no
+  longer reopens extracted files. Admission is bounded by the decoded size in
+  each PNG header, and errors surface in row order.
+- On repeat import the bundle copy of an image already present is never
+  unpacked. The existing image is compared by its pixel-deciding chunks
+  (IHDR, PLTE, tRNS, IDAT) and decoded only when those differ.
+- Staged files are fsynced and moved into place: rename on Windows (which
+  refuses an existing target), link on POSIX, and a copy across volumes.
+  Uploads are staged beside the database in 8 MiB writes.
+- The pre-cleanup inventory hash runs on the pool, after a size check.
+- The status reports phase and done/total; the dialog shows it.
+
+The same gallery then took 3.19 s to export, 3.63 s to import and 1.67 s to
+re-import; with a password, 3.93, 4.23 and 2.35 s. These are CPU and disk
+figures from the desktop, not card measurements.
+
+Rejected because each would weaken a check: a zlib-only validation instead
+of a full decode; size and mtime instead of the pre-cleanup hash (external
+tools do not take `gallery_lock`); and trusting the live `content_hash`
+instead of the existing file. A whole-file hash fast path for present images
+never fires anyway, since import rewrites their metadata chunk.
+
 ## The CLI reads PNGs and probes the server
 
 **The CLI reads PNGs and probes the server.** `--from-image` reads

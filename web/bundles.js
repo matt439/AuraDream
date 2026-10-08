@@ -12,6 +12,37 @@ let bundlePollTimer = 0;
 let bundleHandled = null;
 let bundleListKey = null;
 let bundlePreviewEpoch = 0;
+// The selected file's first bytes: a protected bundle's header, checked
+// against the password before a large upload starts. Null until read.
+let bundleFileHeader = null;
+let bundleFileEpoch = 0;
+
+const BUNDLE_MAGIC = 'LDBUNDLE';
+const BUNDLE_HEADER_BYTES = 64;
+const BUNDLE_PHASES = {
+  writing: 'Writing the bundle', verifying: 'Verifying the bundle', checking: 'Checking for changes made outside the app',
+  clearing: 'Clearing the gallery', receiving: 'Receiving the upload', merging: 'Merging gallery records',
+  installing: 'Installing images',
+};
+
+function bundleProtected(bytes) {
+  return !!bytes && String.fromCharCode(...bytes.slice(0, BUNDLE_MAGIC.length)) === BUNDLE_MAGIC;
+}
+
+function bundleBase64(bytes) {
+  let text = '';
+  for (const byte of bytes) text += String.fromCharCode(byte);
+  return btoa(text);
+}
+
+function bundleProgressText(progress) {
+  if (!progress) return '';
+  const label = BUNDLE_PHASES[progress.phase] || progress.phase;
+  if (progress.phase === 'receiving') {
+    return progress.total ? `${label}: ${humanBytes(progress.done)} of ${humanBytes(progress.total)}` : `${label}: ${humanBytes(progress.done)}`;
+  }
+  return progress.total && progress.done ? `${label}: ${progress.done} of ${progress.total}` : `${label}…`;
+}
 
 function bundleHold() {
   return bundleSending || bundleStatus?.state === 'running' ? 'Wait for the gallery bundle operation to finish' : '';
@@ -38,12 +69,19 @@ function syncBundleControls() {
   };
   const count = bundlePreview?.records;
   const confirmed = Number.isInteger(count) && els.bundleCount.value.trim() === String(count);
+  const password = els.bundlePassword.value;
+  const locked = !els.bundleUnlock.value ? 'Enter the password for this protected bundle' : '';
   hold(els.bundleExport, why || (bundleReading ? 'Wait for the gallery counts' : '')
     || (!bundlePreview ? 'Refresh the gallery counts first' : '')
-    || (!confirmed ? `Type ${count} to confirm the entire gallery` : ''), 'Save and verify a bundle, then clear the entire gallery');
+    || (password !== els.bundlePasswordAgain.value ? 'The two passwords differ' : '')
+    || (!confirmed ? `Type ${count} to confirm the entire gallery` : ''),
+    password ? 'Save, encrypt and verify a bundle, then clear the entire gallery' : 'Save and verify a bundle, then clear the entire gallery');
   hold(els.bundleRefresh, bundleHold() || (bundleReading ? 'Reading the gallery counts' : ''), 'Read the current gallery counts');
-  hold(els.bundleUpload, why || (!els.bundleFile.files.length ? 'Choose a bundle ZIP file first' : ''), 'Merge this file into the gallery');
-  for (const button of els.bundleList.querySelectorAll('[data-bundle-import]')) hold(button, why, 'Merge this saved bundle into the gallery');
+  hold(els.bundleUpload, why || (!els.bundleFile.files.length ? 'Choose a bundle file first' : '')
+    || (bundleProtected(bundleFileHeader) ? locked : ''), 'Merge this file into the gallery');
+  for (const button of els.bundleList.querySelectorAll('[data-bundle-import]')) {
+    hold(button, why || ('bundleEncrypted' in button.dataset ? locked : ''), 'Merge this saved bundle into the gallery');
+  }
 }
 
 function bundleRefused(button) {
@@ -95,6 +133,10 @@ async function refreshBundleList() {
         const size = document.createElement('span');
         size.className = 'bundle-size';
         size.textContent = humanBytes(bundle.bytes);
+        const tag = document.createElement('span');
+        tag.className = 'bundle-tag';
+        tag.textContent = 'Protected';
+        tag.hidden = !bundle.encrypted;
         const link = document.createElement('a');
         link.href = bundleFileURL(bundle.name);
         link.download = bundle.name;
@@ -103,8 +145,9 @@ async function refreshBundleList() {
         const button = document.createElement('button');
         button.type = 'button'; button.className = 'ghost small';
         button.dataset.bundleImport = bundle.name; button.textContent = 'Import';
-        button.setAttribute('aria-label', `Import ${bundle.name}`);
-        row.append(name, size, link, button);
+        if (bundle.encrypted) button.dataset.bundleEncrypted = '';
+        button.setAttribute('aria-label', `Import ${bundle.name}${bundle.encrypted ? ' (password-protected)' : ''}`);
+        row.append(name, tag, size, link, button);
         return row;
       });
       if (!rows.length) {
@@ -147,9 +190,11 @@ async function receiveBundleStatus(status) {
   const wasHeld = !!bundleHold();
   bundleStatus = status;
   if (status.state === 'running') {
-    bundleSay(status.operation === 'export'
+    const step = bundleProgressText(status.progress);
+    bundleSay((status.operation === 'export'
       ? 'Creating and verifying the bundle, then clearing the gallery. You can close this dialog; the server will finish the operation.'
-      : 'Checking and importing the bundle. You can close this dialog; the server will finish the operation.');
+      : 'Checking and importing the bundle. You can close this dialog; the server will finish the operation.')
+      + (step ? ` ${step}.` : ''));
   }
   if (status.id && ['done', 'failed'].includes(status.state) && bundleHandled !== status.id) {
     bundleHandled = status.id;
@@ -173,8 +218,12 @@ async function pollBundleStatus() {
   const epoch = bundleRequestEpoch;
   try {
     const status = await api('/api/gallery/bundles/status');
-    // A poll begun before this page's POST must not replace its pending state.
+    // A poll begun before this page's POST must not replace its pending state;
+    // an upload's own progress is still shown while its body is sent.
     if (!bundleSending && epoch === bundleRequestEpoch) await receiveBundleStatus(status);
+    else if (bundleSending && status.state === 'running' && status.progress?.phase === 'receiving') {
+      bundleSay(`Sending the bundle for import… ${bundleProgressText(status.progress)}.`);
+    }
   } catch (err) {
     if (els.bundlesDialog.open) bundleSay(`${err.message} Reconnecting to the bundle operation…`, true);
   } finally {
@@ -184,12 +233,17 @@ async function pollBundleStatus() {
   }
 }
 
-async function startBundleOperation(path, options, operation) {
+async function startBundleOperation(path, options, operation, before = null) {
   ++bundleRequestEpoch;
   bundleSending = true;
-  bundleSay(operation === 'export' ? 'Starting the gallery bundle…' : 'Sending the bundle for import…');
+  bundleSay(operation === 'export' ? 'Starting the gallery bundle…' : before ? 'Checking the bundle password…' : 'Sending the bundle for import…');
   syncBundleControls(); syncSubmitButtons();
   try {
+    if (before) {
+      await before();
+      bundleSay('Sending the bundle for import…');
+      void pollBundleStatus();
+    }
     const status = await api(path, options);
     bundleSending = false;
     await receiveBundleStatus(status);
@@ -205,19 +259,55 @@ async function startBundleOperation(path, options, operation) {
   }
 }
 
+function clearBundlePasswords() {
+  for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) input.value = '';
+}
+
 function exportGalleryBundle() {
   if (bundleRefused(els.bundleExport)) return;
+  const password = els.bundlePassword.value;
+  // Passwords live only in these fields and this one request.
+  els.bundlePassword.value = els.bundlePasswordAgain.value = '';
   void startBundleOperation('/api/gallery/bundles/export', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ expected: bundlePreview.records }),
+    body: JSON.stringify({ expected: bundlePreview.records, ...(password ? { password } : {}) }),
   }, 'export');
 }
 
-function uploadGalleryBundle() {
+async function readBundleFile() {
+  const epoch = ++bundleFileEpoch;
+  bundleFileHeader = null;
+  syncBundleControls();
+  const file = els.bundleFile.files[0];
+  if (!file) return null;
+  try {
+    const bytes = new Uint8Array(await file.slice(0, BUNDLE_HEADER_BYTES).arrayBuffer());
+    if (epoch === bundleFileEpoch) bundleFileHeader = bytes;
+  } catch (err) {
+    if (epoch === bundleFileEpoch) bundleSay(`The selected file could not be read: ${err.message}`, true);
+  } finally {
+    if (epoch === bundleFileEpoch) syncBundleControls();
+  }
+  return epoch === bundleFileEpoch ? bundleFileHeader : null;
+}
+
+async function uploadGalleryBundle() {
   if (bundleRefused(els.bundleUpload)) return;
-  void startBundleOperation('/api/gallery/bundles/upload', {
-    method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: els.bundleFile.files[0],
-  }, 'import');
+  const file = els.bundleFile.files[0];
+  // A press straight after choosing a file reads its header first.
+  if (!bundleFileHeader && (!(await readBundleFile()) || bundleRefused(els.bundleUpload))) return;
+  const headers = { 'Content-Type': 'application/octet-stream' };
+  let check = null;
+  if (bundleProtected(bundleFileHeader)) {
+    const password = els.bundleUnlock.value;
+    const header = bundleBase64(bundleFileHeader);
+    headers['X-Bundle-Password'] = bundleBase64(new TextEncoder().encode(password));
+    // A wrong password is refused here, before the whole file is sent.
+    check = () => api('/api/gallery/bundles/password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ header, password }),
+    });
+  }
+  void startBundleOperation('/api/gallery/bundles/upload', { method: 'POST', headers, body: file }, 'import', check);
 }
 
 async function openBundles() {
@@ -231,17 +321,20 @@ async function openBundles() {
 function initBundles() {
   els.bundles.onclick = () => { void openBundles(); };
   els.bundlesClose.onclick = () => els.bundlesDialog.close();
+  els.bundlesDialog.addEventListener('close', clearBundlePasswords);
   els.bundleCount.oninput = syncBundleControls;
-  els.bundleFile.onchange = syncBundleControls;
+  for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) input.oninput = syncBundleControls;
+  els.bundleFile.onchange = () => { void readBundleFile(); };
   els.bundleExport.onclick = exportGalleryBundle;
-  els.bundleUpload.onclick = uploadGalleryBundle;
+  els.bundleUpload.onclick = () => { void uploadGalleryBundle(); };
   els.bundleRefresh.onclick = () => { if (!bundleRefused(els.bundleRefresh)) void refreshBundlePreview(); };
   els.bundleList.onclick = (event) => {
     const button = event.target.closest('[data-bundle-import]');
     if (!button || bundleRefused(button)) return;
+    const password = 'bundleEncrypted' in button.dataset ? els.bundleUnlock.value : '';
     void startBundleOperation('/api/gallery/bundles/import', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: button.dataset.bundleImport }),
+      body: JSON.stringify({ name: button.dataset.bundleImport, ...(password ? { password } : {}) }),
     }, 'import');
   };
   void pollBundleStatus();

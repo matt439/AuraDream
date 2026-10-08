@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import threading
 import time
 
@@ -63,7 +64,8 @@ def test_browser_export_download_and_uploaded_merge(client, store):
 def test_running_bundle_blocks_mutations_but_status_stays_available(client, monkeypatch):
     entered, release = threading.Event(), threading.Event()
 
-    def held(expected):
+    def held(expected, password=None, progress=None):
+        progress("writing", 1, 3)
         entered.set()
         assert release.wait(5)
         return {"cleared": True, "deleted_ids": []}
@@ -74,7 +76,8 @@ def test_running_bundle_blocks_mutations_but_status_stays_available(client, monk
         assert start.status_code == 202
         assert entered.wait(2)
         assert client.get("/api/status").status_code == 200
-        assert client.get("/api/gallery/bundles/status").json()["state"] == "running"
+        status = client.get("/api/gallery/bundles/status").json()
+        assert status["state"] == "running" and status["progress"] == {"phase": "writing", "done": 1, "total": 3}
         assert client.get("/api/gallery").status_code == 409
         assert client.post("/api/generate", json={"prompt": "a fox"}).status_code == 409
         assert client.post("/api/images/1/favorite").status_code == 409
@@ -166,3 +169,38 @@ def test_cancelling_supervisor_keeps_reservation_until_worker_finishes(tmp_path)
         assert not upload.exists()
 
     asyncio.run(scenario())
+
+
+def test_password_bundle_export_check_and_upload(client, store):
+    run_one(client, seed=31)
+    response = client.post("/api/gallery/bundles/export", json={"expected": 1, "password": "sésame"})
+    result = _finish(client, response.json()["id"])
+    assert result["state"] == "done", result
+    name = result["result"]["name"]
+    assert name.endswith(".ldbundle")
+    assert [b["encrypted"] for b in client.get("/api/gallery/bundles").json()["bundles"] if b["name"] == name] == [True]
+    download = client.get(f"/api/gallery/bundles/files/{name}")
+    assert download.headers["content-type"] == "application/octet-stream"
+
+    header = base64.b64encode(download.content[:64]).decode()
+    wrong = client.post("/api/gallery/bundles/password", json={"header": header, "password": "nope"})
+    assert wrong.status_code == 400 and "nope" not in wrong.text
+    assert client.post("/api/gallery/bundles/password", json={"header": header, "password": "sésame"}).json() == {"ok": True}
+
+    def upload(password):
+        headers = {"content-type": "application/octet-stream"}
+        if password is not None:
+            headers["X-Bundle-Password"] = base64.b64encode(password.encode()).decode()
+        started = client.post("/api/gallery/bundles/upload", content=download.content, headers=headers)
+        assert started.status_code == 202, started.text
+        return _finish(client, started.json()["id"])
+
+    refused = upload("nope")
+    assert refused["state"] == "failed" and "incorrect" in refused["error"] and "nope" not in refused["error"]
+    assert upload(None)["state"] == "failed"
+    assert store.list_images()[1] == 0
+    assert upload("sésame")["result"]["imported"] == 1
+    saved = client.post("/api/gallery/bundles/import", json={"name": name, "password": "sésame"})
+    assert _finish(client, saved.json()["id"])["result"]["present"] == 1
+    # Uploads are staged beside the database and removed afterwards.
+    assert not list(store.settings.db_path.parent.glob(".bundle-upload-*"))

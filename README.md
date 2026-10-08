@@ -226,7 +226,8 @@ refresh any open browser tabs afterwards. To filter originals in File Explorer,
 search the output folder for `*.png`.
 
 **Gallery bundles** in the browser saves all images and the gallery database
-in one verified ZIP, then clears the gallery. Download a saved bundle or import
+in one verified ZIP, optionally encrypted with a password, then clears the
+gallery. Download a saved bundle or import
 one to merge its images, favourites and timings into the current gallery.
 See [gallery bundles](docs/usage.md#gallery-bundles).
 

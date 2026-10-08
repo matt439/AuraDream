@@ -22,10 +22,16 @@ _KEPT = {"LOCAL_DIFFUSION_OUTPUTS_DIR", "LOCAL_DIFFUSION_DB_PATH", "LOCAL_DIFFUS
 for _name in [name for name in os.environ if name.startswith("LOCAL_DIFFUSION_") and name not in _KEPT]:
     del os.environ[_name]
 
-from backend import main, prompt_encoding, storage  # noqa: E402
+from backend import bundle_crypto, main, prompt_encoding, storage  # noqa: E402
 from backend.jobs import JobManager  # noqa: E402
 from tests.api_helpers import ORIGIN  # noqa: E402
 from tests.fakes import FakeBackend, FakeCritic, FakeTranslator, fake_tokenizer  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def cheap_scrypt(monkeypatch):
+    # New bundles get the smallest cost readers accept (16 MiB, not 128 MiB).
+    monkeypatch.setattr(bundle_crypto, "_LOG2_N", 14)
 
 
 @pytest.fixture

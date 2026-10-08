@@ -17,7 +17,7 @@ from zipfile import ZipFile
 import pytest
 from PIL import Image
 
-from backend import bundles, gallery_lock, storage
+from backend import bundle_crypto, bundles, gallery_lock, storage
 from backend.schemas import GenerateRequest
 
 
@@ -111,25 +111,46 @@ def test_export_round_trip_merges_fields_stars_timings_and_conditioning_ids(stor
     assert _snapshot(store) == snapshot
 
 
-def test_import_publish_failure_rolls_back_rows_and_files_already_added(store, monkeypatch, tmp_path):
+@pytest.mark.parametrize("route", ["move", "copy"])
+def test_import_publish_failure_rolls_back_rows_and_files_already_added(store, monkeypatch, tmp_path, route):
     _save("first", 1)
     _save("second", 2)
     archive = _export()
     dest = _destination(store, monkeypatch, tmp_path)
     _save("existing", 99)
     snapshot = _snapshot(store)
-    real_open = Path.open
     published = 0
 
-    def fail_second_image(self, mode="r", *args, **kwargs):
-        nonlocal published
-        if mode == "xb" and self.parent == dest.outputs_dir and self.suffix == ".png":
-            published += 1
-            if published == 2:
-                raise OSError("destination disk full")
-        return real_open(self, mode, *args, **kwargs)
+    if route == "move":
+        real_install = bundles._install
 
-    monkeypatch.setattr(Path, "open", fail_second_image)
+        def fail_second_image(source, target, installed):
+            nonlocal published
+            if target.suffix == ".png":
+                published += 1
+                if published == 2:
+                    raise OSError("destination disk full")
+            return real_install(source, target, installed)
+
+        monkeypatch.setattr(bundles, "_install", fail_second_image)
+    else:
+        # Another volume: the move is refused and installation copies instead.
+        def cross_device(*args):
+            raise OSError(18, "cross-device link")
+
+        monkeypatch.setattr(bundles.os, "rename", cross_device)
+        monkeypatch.setattr(bundles.os, "link", cross_device, raising=False)
+        real_open = Path.open
+
+        def fail_second_copy(self, mode="r", *args, **kwargs):
+            nonlocal published
+            if mode == "xb" and self.parent == dest.outputs_dir and self.suffix == ".png":
+                published += 1
+                if published == 2:
+                    raise OSError("destination disk full")
+            return real_open(self, mode, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "open", fail_second_copy)
     with pytest.raises((OSError, bundles.BundleError), match="disk full"):
         bundles.import_bundle(Path(archive["path"]))
     assert published == 2
@@ -452,3 +473,65 @@ except GalleryBusy:
 def test_download_names_cannot_escape_the_bundle_directory(store, name):
     with pytest.raises(bundles.BundleError):
         bundles.bundle_path(name)
+
+
+def test_password_export_is_encrypted_and_imports_only_with_its_password(store, monkeypatch, tmp_path):
+    first = _save("first", 1)
+    _save("second", 2, reference=[first.id])
+    archive = bundles.export_bundle(expected=2, password="tea kettle")
+    bundle = Path(archive["path"])
+    assert archive["cleared"] and bundle.suffix == bundle_crypto.SUFFIX
+    blob = bundle.read_bytes()
+    assert blob.startswith(bundle_crypto.MAGIC) and b"manifest.json" not in blob and first.filename.encode() not in blob
+    assert [b["encrypted"] for b in bundles.list_bundles() if b["name"] == archive["name"]] == [True]
+
+    _destination(store, monkeypatch, tmp_path)
+    _save("existing", 99)
+    snapshot = _snapshot(store)
+    for password, message in [(None, "password-protected"), ("wrong", "incorrect")]:
+        with pytest.raises(bundles.BundleError, match=message):
+            bundles.import_bundle(bundle, password)
+        assert _snapshot(store) == snapshot
+    imported = bundles.import_bundle(bundle, "tea kettle")
+    assert imported["imported"] == 2 and imported["unresolved_references"] == 0
+    assert bundles.import_bundle(bundle, "tea kettle")["present"] == 2
+
+
+def test_a_password_bundle_that_fails_its_read_back_clears_nothing(store, monkeypatch):
+    _save("kept", 1)
+    snapshot = _snapshot(store)
+    # Without its final chunk the ciphertext cannot authenticate.
+    monkeypatch.setattr(bundle_crypto.EncryptingWriter, "finish", lambda self: None)
+    with pytest.raises(bundles.BundleError):
+        bundles.export_bundle(expected=1, password="pw")
+    assert _snapshot(store) == snapshot
+    assert not list(bundles._directory().iterdir())
+
+
+def test_altered_password_bundle_is_rejected_before_destination_changes(store, monkeypatch, tmp_path):
+    _save("source", 1)
+    bundle = Path(bundles.export_bundle(expected=1, password="pw")["path"])
+    blob = bytearray(bundle.read_bytes())
+    blob[len(blob) // 2] ^= 1
+    bundle.write_bytes(bytes(blob))
+    _destination(store, monkeypatch, tmp_path)
+    _save("existing", 99)
+    snapshot = _snapshot(store)
+    with pytest.raises(bundles.BundleError, match="damaged or was changed"):
+        bundles.import_bundle(bundle, "pw")
+    assert _snapshot(store) == snapshot
+
+
+def test_repeat_import_recognises_a_re_encoded_existing_image_by_its_pixels(store, monkeypatch, tmp_path):
+    row = _save("source", 1)
+    bundle = Path(_export()["path"])
+    dest = _destination(store, monkeypatch, tmp_path)
+    assert bundles.import_bundle(bundle)["imported"] == 1
+    path = dest.outputs_dir / row.filename
+    with Image.open(path) as image:
+        image.load()
+        image.save(path, compress_level=0)  # different IDAT bytes, same pixels
+    assert bundles.import_bundle(bundle)["present"] == 1
+    Image.new("RGB", (256, 256), "white").save(path)
+    with pytest.raises(bundles.BundleError, match="already uses the filename"):
+        bundles.import_bundle(bundle)

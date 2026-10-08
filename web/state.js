@@ -99,6 +99,7 @@ const els = {
   bundleCountLabel: $('bundle-count-label'), bundleExport: $('bundle-export'), bundleFile: $('bundle-file'),
   bundleUpload: $('bundle-upload'), bundleStatus: $('bundle-status'), bundleDownload: $('bundle-download'),
   bundleRetained: $('bundle-retained'), bundleDirectory: $('bundle-directory'), bundleList: $('bundle-list'),
+  bundlePassword: $('bundle-password'), bundlePasswordAgain: $('bundle-password-again'), bundleUnlock: $('bundle-unlock'),
   sheet: $('sheet'), sheetControls: $('sheet-controls'),
   sheetFixed: $('sheet-fixed'), sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'), sheetSaid: $('sheet-said'),
   runHint: $('run-hint'),

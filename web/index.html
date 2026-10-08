@@ -1029,7 +1029,7 @@
     <h2 id="bundles-title">Gallery bundles</h2>
     <button type="button" class="ghost small" id="bundles-close">Close</button>
   </header>
-  <p id="bundles-intro">Save all images, thumbnails and the gallery database in one ZIP file, then clear the gallery. Import a bundle to merge its images with the current gallery.</p>
+  <p id="bundles-intro">Save all images, thumbnails and the gallery database in one ZIP file, optionally protected by a password, then clear the gallery. Import a bundle to merge its images with the current gallery.</p>
   <section class="bundle-section" aria-labelledby="bundle-export-title">
     <div class="bundles-head">
       <h3 id="bundle-export-title">Bundle &amp; clear</h3>
@@ -1038,6 +1038,13 @@
     <p class="hint">Includes every model and starred image. The gallery's search and filters do not limit this action.</p>
     <p id="bundle-preview">Reading the gallery…</p>
     <p class="hint">The bundle is saved on the server and verified before the originals and old database are removed. A new empty database is created so you can keep generating. You can download the bundle afterwards.</p>
+    <div class="bundle-password">
+      <label for="bundle-password">Password <span class="optional">(optional)</span></label>
+      <input id="bundle-password" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
+      <label for="bundle-password-again">Repeat password</label>
+      <input id="bundle-password-again" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
+    </div>
+    <p class="hint" id="bundle-password-hint">With a password the bundle is encrypted as a .ldbundle file that only Local Diffusion can open. The password is not saved anywhere and cannot be recovered; without it the cleared gallery is lost.</p>
     <div class="bundle-confirm">
       <label for="bundle-count" id="bundle-count-label">Type the gallery record count to confirm</label>
       <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview">
@@ -1047,9 +1054,14 @@
   <section class="bundle-section" aria-labelledby="bundle-upload-title">
     <h3 id="bundle-upload-title">Import a file</h3>
     <p class="hint">Existing images stay. Images already imported from this bundle are kept without creating duplicates.</p>
+    <div class="bundle-password bundle-unlock">
+      <label for="bundle-unlock">Password for protected bundles</label>
+      <input id="bundle-unlock" type="password" autocomplete="current-password" maxlength="1024" aria-describedby="bundle-unlock-hint">
+    </div>
+    <p class="hint" id="bundle-unlock-hint">Used for a selected or saved bundle marked Protected.</p>
     <div class="bundle-upload-row">
-      <label class="sr-only" for="bundle-file">Bundle ZIP file</label>
-      <input id="bundle-file" type="file" accept=".zip,application/zip">
+      <label class="sr-only" for="bundle-file">Bundle file</label>
+      <input id="bundle-file" type="file" accept=".zip,.ldbundle,application/zip">
       <button type="button" class="ghost" id="bundle-upload" aria-disabled="true">Import selected file</button>
     </div>
   </section>

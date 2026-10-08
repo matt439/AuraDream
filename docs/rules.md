@@ -123,8 +123,9 @@ before changing it.
 - `backend/gallery_lock.py` — reentrant reservation of complete gallery
   operations across threads and cooperating server/CLI processes
 - `backend/bundles.py` — verified ZIP snapshots, source cleanup and staged
-  database/image merges; `api_bundles.py` owns browser routes and exclusive
-  maintenance admission through background completion
+  database/image merges; `bundle_crypto.py` the optional password layer
+  (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
+  and exclusive maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates (`size:WxH` both sides exact), the LIKE escape, `strict_scope`
 - `backend/main.py` — app lifecycle, model/prompt routes and generation submission;
@@ -793,6 +794,20 @@ Jobs:
   images and conflicts in staging before installing new files and replacing
   the database; references/refine ids and PNG metadata are remapped together.
   Never extract arbitrary archive paths or overwrite conflicting images.
+- Every archive is read once: `_verify_archive` checks CRC, manifest SHA-256
+  and (encrypted) every chunk tag, and tracked PNGs are decoded from the bytes
+  it just read on the bounded decode pool; errors are raised in row order.
+  Never add a second full pass, and never weaken a check for speed (no
+  zlib-only check, no size/mtime in place of the pre-cleanup hash, no trusting
+  the live `content_hash` for an existing image). Staged files are fsynced and
+  installed by an exclusive rename/link (copy fallback), never replacing one.
+- A password bundle (`.ldbundle`) is the ordinary ZIP streamed through
+  `bundle_crypto`; no plaintext archive ever reaches disk, and export verifies
+  it by decrypting before anything is cleared. The password is never stored,
+  logged, put in a URL or echoed in an error; a raw upload carries it
+  base64-encoded in `X-Bundle-Password`. Header parameters are untrusted and
+  bounded before key derivation. A wrong password or altered file is refused
+  before anything is staged.
 - A bundle operation reserves HTTP admission before awaiting work, only when
   jobs, model loading and existing gallery requests are idle. Count complete
   image response streams. The reservation outlives request cancellation and
@@ -2805,12 +2820,19 @@ and timings, remapped image links, WAL snapshots, monotonic ids, corrupt or
 unsafe archives, conflicts, rollback, changed source files, partial cleanup
 and process/thread reservations. `tests/test_api_bundles.py` covers browser
 export/download/upload/import, admission during jobs and maintenance, origins,
-image-stream lifetime, and cancellation of the supervising task.
+image-stream lifetime, cancellation of the supervising task, progress, and
+password export/check/upload/import. `tests/test_bundle_crypto.py` covers the
+cipher: round trips and seeks, Unicode normalisation, wrong passwords,
+flipped, truncated, extended and reordered chunks, unbounded parameters and an
+unfinished writer. Password bundles, altered ciphertext, a failed encrypted
+read-back that clears nothing, and re-encoded existing images on repeat import
+are in `tests/test_bundles.py`.
 
 `smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog,
 all-model scope, typed confirmation, preserved favourites and metadata,
-saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal
-and narrow layout:
+saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal,
+password export (mismatch refused, fields cleared, Protected tag), wrong
+password refused before upload, protected import and narrow layout:
 
 ```powershell
 uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>

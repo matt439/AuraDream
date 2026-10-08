@@ -53,7 +53,8 @@ Backend (`backend/`):
   `analysis` data
 - `main.py` lifecycle, model/prompt/generation routes; `api_gallery.py`,
   `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
-  routes and maintenance admission; `bundles.py` verified archive/merge;
+  routes and maintenance admission; `bundles.py` verified archive/merge,
+  `bundle_crypto.py` its optional password layer;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `search.py` search grammar; `grid.py` axes, variables, variants, cells;
