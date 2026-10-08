@@ -77,6 +77,28 @@ def test_catalogue_details_describe_unloaded_choices_without_changing_model(clie
     assert fake.loads == 0
 
 
+def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    calls = []
+
+    def details(model_id, *, quantization, offload):
+        calls.append((model_id, quantization, offload))
+        return {"speed_label": "Unmeasured"}
+
+    monkeypatch.setattr(main, "details_for", details)
+    reply = client.get("/api/models?quantization=int8&offload=sequential")
+    assert reply.status_code == 200
+    assert calls and all(quant == "int8" and offload == "sequential" for _, quant, offload in calls)
+    current = client.get("/api/status").json()
+    assert (current["quantization"], current["offload"], current["model_revision"]) == (
+        initial["quantization"], initial["offload"], initial["model_revision"],
+    )
+    assert fake.loads == 0
+    calls.clear()
+    assert client.get("/api/models?offload=unknown").status_code == 422
+    assert not calls
+
+
 def test_save_without_load_and_preload_toggle_preserve_the_selected_settings(client, fake):
     initial = client.get("/api/status").json()
     reply = client.post("/api/model/switch", json={

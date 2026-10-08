@@ -45,10 +45,11 @@
         <div><dt>Style</dt><dd id="model-style">—</dd></div>
         <div><dt>Refine</dt><dd id="model-refine">—</dd></div>
         <div><dt id="model-megapixels-label">Max recommended</dt><dd id="model-megapixels">—</dd></div>
+        <div class="model-speed-fact"><dt>Speed <span id="model-speed-basis"></span></dt><dd><span id="model-speed">—</span><span id="model-speed-summary"></span></dd></div>
       </dl>
       <div class="model-loader-options">
-        <label for="model-quantization">Quantization<select id="model-quantization" autocomplete="off"></select></label>
-        <label for="model-offload">Offload<select id="model-offload" autocomplete="off"></select></label>
+        <div><label for="model-quantization">Quantization</label><select id="model-quantization" autocomplete="off" aria-describedby="model-quantization-help"></select><p class="model-loader-help" id="model-quantization-help"></p></div>
+        <div><label for="model-offload">Offload</label><select id="model-offload" autocomplete="off" aria-describedby="model-offload-help"></select><p class="model-loader-help" id="model-offload-help"></p></div>
       </div>
       <label class="model-format" id="model-format-field" for="model-format" hidden>Nunchaku format<select id="model-format" autocomplete="off"></select></label>
       <label class="check model-startup"><input type="checkbox" id="model-load-on-startup"> Load automatically on startup</label>

@@ -273,7 +273,7 @@ browser persistence.
 
 The first **About** disclosure repeated long guide paragraphs in small type and
 pushed the load buttons down when opened. The picker now shows a fixed row of
-three compact facts instead: a short style label, Refine support and upper MP
+compact facts instead: a short style label, Refine support, recorded speed and upper MP
 guidance. The user preferred maximum recommendations to starting sizes, so
 the size fact shows one upper figure. Its label distinguishes a recommendation,
 documented/native maximum or reference/example size; the tooltip carries the
@@ -282,8 +282,30 @@ maximum, and a documented range is not a measured quality ranking. A custom
 launch id gets unknown/after-load facts rather than another model's guide.
 The source model card remains a link; full prompting guidance stays beside the
 prompt controls. Facts use readable body text, quantization and offload use
-full-width selects with short labels and explanatory titles, and the footer
+full-width selects with short labels and visible explanations, and the footer
 keeps the load/save buttons in place while the picker body scrolls.
+The facts use four columns on desktop and two on phones; explanation slots
+reserve enough height that changing an option does not shift the actions.
+
+On a fresh browser visit, the first accepted status opens Models if the server
+is idle and unloaded or has a load error. A ready model, an active load or work
+elsewhere keeps it closed. This decision is made once per page visit: later
+polls, manual Unload and a dismissed picker never reopen it. Automatic opening
+does not take focus or move the prompt caret.
+
+The speed fact uses the retained RTX 5080 records in `verified.md`, including
+the October 5 Animagine sample that the anime guide previously omitted. It
+shows Fast (up to 15 s), Medium (over 15 through 45 s) or Slow (over 45 s), based
+on the upper time of the recorded roughly 1 MP sample, plus that sample's
+time and area. WAI retains its 1.38 MP portrait. Exact checkpoint variants and
+quantization/format/platform/offload determine whether the sample matches;
+a different setup is visibly an FP8 or NVFP4 reference. Busy-CPU first-image
+samples say Upper bound. Missing timings say Unmeasured and show default steps,
+never an extrapolated speed from those steps. The tooltip preserves settings,
+date and warm/cold caveats. These are individual prior samples, not a controlled
+comparison, live ETA or measurements at the maximum MP shown beside them.
+Changing draft offload settings refreshes these facts as changing quantization
+does, without applying either setting or loading a model.
 
 A star beside the selected checkpoint saves a browser-local favourite
 immediately. The native select groups Favourites first and All models after,

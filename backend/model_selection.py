@@ -61,15 +61,21 @@ def options(settings) -> dict[str, list[dict[str, str]]]:
         "quantizations": [
             {"value": value, "label": {
                 "fp8": "FP8", "int8": "INT8", "none": "BF16", "nunchaku": "Nunchaku 4-bit",
-            }[value], "description": label} for value, label in QUANTIZATIONS
+            }[value], "description": {
+                "fp8": "Float8 weights reduce memory use; the app's default quantization.",
+                "int8": "Integer 8-bit weights; an alternative to FP8 for lower memory use than BF16.",
+                "none": "Unquantized bfloat16 weights; higher VRAM use.",
+                "nunchaku": "Pre-quantized 4-bit models; requires Linux or WSL.",
+            }[value]} for value, _ in QUANTIZATIONS
             if value != "nunchaku" or sys.platform == "linux"
         ],
         "offloads": [{"value": value, "label": {
             "model": "Model offload", "sequential": "Sequential", "none": "No offload",
-        }[value], "description": (
-            "Keep all components on the configured device."
-            if value == "none" else label
-        )} for value, label in OFFLOADS],
+        }[value], "description": {
+            "model": "Move one component to the GPU at a time; balances memory use and speed.",
+            "sequential": "Move smaller layers as needed; lowest VRAM use, but much slower.",
+            "none": "Keep all components on the configured device; uses the most device memory.",
+        }[value]} for value, _ in OFFLOADS],
         "formats": [
             {"value": value, "label": value.upper(), "description": label} for value, label in FORMATS
         ],

@@ -1,0 +1,184 @@
+"""Cold speed summaries from the RTX 5080 samples in docs/verified.md.
+
+These are coarse comparisons at the recorded settings, not generation ETAs.
+Keep exact catalogue variants separate and never infer a timing from steps.
+"""
+from __future__ import annotations
+
+import sys
+from dataclasses import dataclass
+
+from .launch import CHECKPOINTS, FORMATS
+from .model_defaults import defaults_for
+
+
+@dataclass(frozen=True)
+class Sample:
+    seconds: float  # Upper end of the recorded sample/range, for the category.
+    summary: str
+    steps: int
+    date: str
+    timing: str
+    size: str = "1024×1024 (1.05 MP)"
+    guidance: str = ""
+    caveat: str = ""
+    quantization: str = "fp8"
+    platform: str = "win32"
+    format: str | None = None
+    offload: str = "model"
+    basis: str = "Measured"
+
+    @property
+    def settings(self) -> str:
+        quantization = "Nunchaku NVFP4" if self.quantization == "nunchaku" else "FP8"
+        platform = "Windows" if self.platform == "win32" else "Linux/WSL"
+        offload = "model offload" if self.offload == "model" else "no offload"
+        return f"{quantization}, {platform}, {offload}"
+
+
+_AFTER_CANCEL = "First completed image after cancellation and a repeat, respectively."
+_BUSY_CPU = (
+    "First image of a process; CPU about 75% busy with other work, so this is an "
+    "upper-bound sample, not a warm timing."
+)
+_NVFP4 = {"quantization": "nunchaku", "platform": "linux", "format": "nvfp4", "size": "1 MP"}
+
+# The table's approximately 1 MP direct renders, at the model's normal step
+# count. Keep WAI's actual 1.38 MP portrait visible. Krea dev's old 8-step
+# samples must not price its 28-step default. Missing variants stay unmeasured.
+_SAMPLES: dict[str, tuple[Sample, ...]] = {
+    "black-forest-labs/FLUX.1-Krea-dev": (
+        Sample(42.6, "~42 s · 1 MP", 28, "2026-09-27", "41.6–42.6 s", guidance="CFG 3.5",
+               caveat="Warm samples; first image after loading took 60.8 s. Loading took 38.2 s separately."),
+    ),
+    "krea/Krea-2-Turbo": (
+        Sample(15, "~15 s · 1 MP", 8, "2026-09-05", "15 s", **_NVFP4),
+        Sample(26, "~26 s · 1 MP", 8, "2026-09-05", "26 s", offload="none",
+               caveat="The recorded no-offload setup spilled into system RAM; 2 MP took 72 s.", **_NVFP4),
+    ),
+    "cagliostrolab/animagine-xl-4.0": (
+        Sample(17.2, "~17 s · 1 MP", 28, "2026-10-05", "17.2 s", guidance="CFG 5",
+               caveat=_BUSY_CPU, basis="Upper bound"),
+    ),
+    "KBlueLeaf/Kohaku-XL-Zeta": (
+        Sample(9.68, "~10 s · 1 MP", 28, "2026-09-26", "9.33 / 9.68 s", guidance="CFG 5",
+               caveat=_AFTER_CANCEL),
+    ),
+    "OnomaAIResearch/Illustrious-XL-v2.0": (
+        Sample(11.1, "~11 s · 1 MP", 28, "2026-10-05", "11.1 s", guidance="CFG 5",
+               caveat=_BUSY_CPU, basis="Upper bound"),
+    ),
+    "LyliaEngine/waiIllustriousSDXL_v170": (
+        Sample(9.64, "~10 s · 1.38 MP", 28, "2026-09-26", "9.25 / 9.64 s",
+               size="1024×1344 (1.38 MP)", guidance="CFG 6", caveat=_AFTER_CANCEL),
+    ),
+    "Minthy/RouWei-0.8": (
+        Sample(7.882, "~8 s · 1 MP", 28, "2026-10-07", "7.638 / 7.882 s", guidance="CFG 6",
+               caveat=_AFTER_CANCEL),
+    ),
+    "Laxhar/noobai-XL-Vpred-1.0": (
+        Sample(8.490, "~8 s · 1 MP", 28, "2026-10-07", "8.078 / 8.490 s", guidance="CFG 5",
+               caveat=_AFTER_CANCEL + " Other CPU work and tests ran during qualification."),
+    ),
+    "SeeSee21/Z-Anime": (
+        Sample(79.2, "~79 s · 1 MP", 40, "2026-09-19", "78.1 / 79.2 s", guidance="CFG 4",
+               caveat=_AFTER_CANCEL + " The 4.19 MP sample took 519.1 s."),
+    ),
+    "circlestone-labs/Anima": (
+        Sample(5.68, "~4–6 s · 1 MP", 8, "2026-09-26", "5.68 / 4.40 s", guidance="CFG 1",
+               caveat=_AFTER_CANCEL),
+    ),
+    "circlestone-labs/Anima@aesthetic-v1.1": (
+        Sample(23.229, "~23 s · 1 MP", 30, "2026-10-07", "23.229 / 22.582 s", guidance="CFG 4",
+               caveat=_AFTER_CANCEL + " Includes previews; the CPU test suite ran during these samples."),
+    ),
+    "duongve/NetaYume-Lumina-Image-2.0": (
+        Sample(38.74, "~39 s · 1 MP", 40, "2026-09-26", "38.46 / 38.74 s", guidance="CFG 5",
+               caveat=_AFTER_CANCEL),
+    ),
+    "NewBie-AI/NewBie-image-Exp0.1": (
+        Sample(39.39, "~39 s · 1 MP", 28, "2026-09-26", "39.39 / 38.74 s", guidance="CFG 4",
+               caveat=_AFTER_CANCEL + " Author's XML prompt; includes previews."),
+    ),
+    "black-forest-labs/FLUX.1-dev": (
+        Sample(30, "~30 s · 1 MP", 28, "2026-09-08", "30 s", **_NVFP4),
+    ),
+    "black-forest-labs/FLUX.1-schnell": (
+        Sample(27.3, "~27 s · 1 MP", 4, "2026-10-05", "27.3 s", caveat=_BUSY_CPU,
+               basis="Upper bound"),
+        Sample(23, "~16–23 s · 1 MP", 4, "2026-09-08", "16–23 s", **_NVFP4),
+    ),
+    "black-forest-labs/FLUX.2-klein-4B": (
+        Sample(10.2, "~10 s · 1 MP", 4, "2026-09-08", "10.2 s", caveat="Text-to-image, without reference images."),
+        Sample(4, "~4 s · 1 MP", 4, "2026-09-05", "4.0 s", **_NVFP4),
+    ),
+    "Tongyi-MAI/Z-Image-Turbo": (
+        Sample(14.3, "~14 s · 1 MP", 8, "2026-10-05", "14.3 s", caveat=_BUSY_CPU,
+               basis="Upper bound"),
+        Sample(10.6, "~8–11 s · 1 MP", 8, "2026-09-08", "8 s and 10.6 s",
+               caveat="Two same-day samples. A dropped WSL page cache also produced 17–19 s before warming.", **_NVFP4),
+    ),
+    "Qwen/Qwen-Image": (
+        Sample(78, "~78 s · 1 MP", 50, "2026-09-08", "78 s", guidance="True CFG 4 with a negative prompt",
+               caveat="Warm sample; first image of a session took 210 s. Loading took 22 s separately.", **_NVFP4),
+    ),
+    "baidu/ERNIE-Image-Turbo": (
+        Sample(10.2, "~10 s · 1 MP", 8, "2026-09-08", "9.6–10.2 s",
+               caveat="Warm samples; first image of a process took 17–18 s. Loading took 22 s separately.", **_NVFP4),
+    ),
+}
+
+
+def speed_for(
+    model_id: str, quantization: str | None = None, offload: str = "model",
+) -> dict[str, str]:
+    """Return a measured sample or an explicitly labelled different-setup reference."""
+    checkpoint = next((
+        entry for entry in CHECKPOINTS
+        if model_id == entry.repo or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)
+    ), None)
+    fmt = next((
+        name for name, _ in FORMATS
+        if checkpoint is not None and checkpoint.lite_repo(name) == model_id
+    ), None)
+    quantization = quantization or ("nunchaku" if fmt else "fp8")
+    samples = _SAMPLES.get(checkpoint.repo, ()) if checkpoint else ()
+    if not samples:
+        steps = defaults_for(model_id)["steps"]
+        return {
+            "speed_label": "Unmeasured",
+            "speed_summary": f"{steps} default steps" if checkpoint else "No recorded timing",
+            "speed_basis": "No timing",
+            "speed_note": (
+                "No retained RTX 5080 generation timing for this exact checkpoint in docs/verified.md. "
+                "Step count alone does not establish speed."
+            ),
+        }
+
+    # Prefer the requested quantization/format, then platform and offload.
+    # The fallback is useful context but is never presented as a measured match.
+    sample = max(samples, key=lambda value: (
+        value.quantization == quantization and value.format == fmt,
+        value.platform == sys.platform,
+        value.offload == offload,
+    ))
+    matched = (
+        sample.quantization == quantization and sample.format == fmt
+        and sample.platform == sys.platform and sample.offload == offload
+    )
+    basis = sample.basis if matched else f"{'NVFP4' if sample.format else 'FP8'} reference"
+    guidance = f", {sample.guidance}" if sample.guidance else ""
+    context = "" if matched else "Reference from a different setup; this selection has no matching timing. "
+    return {
+        "speed_label": "Fast" if sample.seconds <= 15 else "Medium" if sample.seconds <= 45 else "Slow",
+        "speed_summary": sample.summary,
+        "speed_basis": basis,
+        "speed_note": (
+            f"{context}RTX 5080 sample: {sample.timing} per image at {sample.size}, "
+            f"{sample.steps} steps{guidance}; {sample.settings}, {sample.date}. "
+            f"{sample.caveat + ' ' if sample.caveat else ''}"
+            "Generation only; model loading is separate. Source: docs/verified.md. "
+            "Categories use the recorded sample's upper time: Fast ≤15 s, Medium >15–45 s, Slow >45 s. "
+            "Individual smoke samples, not a controlled comparison or an ETA; size, steps and other work change the time."
+        ),
+    }

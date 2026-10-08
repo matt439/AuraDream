@@ -10,10 +10,13 @@ choose a checkpoint; [verified.md](verified.md) records measured performance.
 needed. First use may download weights or convert a checkpoint, taking several
 minutes. **Unload** releases the image weights and prompt helpers.
 
-The server starts without asking questions in the terminal. Choose **Models**,
+The server starts without asking questions in the terminal. **Models** opens
+automatically when the browser first connects to an idle server with no model
+loaded, or a failed load. It stays closed if the server is already loading,
+ready or busy; closing it keeps it closed for that page visit. Choose **Models**,
 select a checkpoint, quantization and offload, and press **Switch & load** to
-apply them without restarting the server or closing the page. Three compact
-facts show **Style**, **Refine** support and the upper recommended size in
+apply them without restarting the server or closing the page. Compact
+facts show **Style**, **Refine** support, **Speed** and the upper recommended size in
 megapixels. The size label distinguishes a recommendation from a documented or
 native maximum, reference size or largest example. The tooltip explains its
 source and limits; a published example is not a guaranteed maximum, and equal
@@ -35,8 +38,17 @@ Press the star beside a model to add or remove it from **Favourites** at the
 top of the list. This is saved immediately in this browser and survives page
 reloads and server restarts; it does not change or load the selected model.
 The ordinary and Nunchaku versions of a checkpoint share its star. Quantization
-and offload use full-width controls with short labels; their titles explain
+and offload use full-width controls with short labels and visible explanations beneath
 the choices. The load buttons stay in their own footer while the picker scrolls.
+
+**Speed** uses recorded RTX 5080 samples around 1 MP (WAI's portrait is 1.38 MP):
+**Fast** is up to 15 seconds, **Medium** over 15 through 45 seconds, and **Slow**
+over 45 seconds. The sample time and area appear below the category. **FP8
+reference** or **NVFP4 reference** means the timing used different loading
+settings or a different platform; **Upper bound** identifies the busy-CPU first
+images. The tooltip gives steps, settings and date. **Unmeasured** models show
+default steps instead of an invented timing. These are previous samples, not
+estimates for your current prompt, size or steps; loading time is separate.
 
 **Apply & save** applies changed settings without loading their weights. Saving
 only the startup preference leaves an already loaded model in place. Both

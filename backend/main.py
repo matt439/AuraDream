@@ -827,18 +827,25 @@ async def load_model() -> ModelStatus:
 
 @app.get("/api/models")
 async def list_models(
-    quantization: str | None = None, format: str | None = None,
+    quantization: str | None = None, format: str | None = None, offload: str | None = None,
 ) -> dict:
     options = model_selection.options(settings)
     if quantization is not None and quantization not in {o["value"] for o in options["quantizations"]}:
         raise HTTPException(status_code=422, detail="choose a quantization available on this server")
     if format is not None and format not in {o["value"] for o in options["formats"]}:
         raise HTTPException(status_code=422, detail="choose a supported Nunchaku format")
+    if offload is not None and offload not in {o["value"] for o in options["offloads"]}:
+        raise HTTPException(status_code=422, detail="choose a supported offload mode")
     current = current_settings(settings)
     models = model_selection.available(settings, quantization=quantization, format=format)
     return {
         "models": models,
-        "details": {model["model_id"]: details_for(model["model_id"]) for model in models},
+        "details": {
+            model["model_id"]: details_for(
+                model["model_id"], quantization=quantization or current.quantization,
+                offload=offload or current.offload,
+            ) for model in models
+        },
         "model_id": current.model_id,
         "quantization": current.quantization,
         "offload": current.offload,

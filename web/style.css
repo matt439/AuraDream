@@ -299,7 +299,7 @@ body {
    grows the fixed-height topbar. Its controls remain reachable while held. */
 .model-picker {
   position: absolute; top: calc(100% + var(--sp-2)); right: var(--gutter);
-  width: min(480px, calc(100vw - 2 * var(--gutter)));
+  width: min(520px, calc(100vw - 2 * var(--gutter)));
   max-height: calc(100dvh - var(--topbar-h) - 2 * var(--sp-2));
   background: var(--panel); border: 1px solid var(--line-strong);
   border-radius: var(--r-md); box-shadow: var(--shadow-pop);
@@ -310,7 +310,7 @@ body {
   min-height: 0; overflow-y: auto; overscroll-behavior: contain;
 }
 .model-picker-heading { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); }
-.model-picker-heading > label, .model-loader-options > label, .model-format { font-weight: 600; }
+.model-picker-heading > label, .model-loader-options label, .model-format { font-weight: 600; }
 .model-picker-heading > a { font-size: var(--fs-body-sm); }
 .model-choice { display: grid; grid-template-columns: minmax(0, 1fr) var(--h-field); gap: var(--sp-2); }
 .model-picker select {
@@ -321,7 +321,7 @@ body {
 .model-favourite { padding: 0; font-size: 22px; }
 .model-favourite[aria-pressed="true"] { color: var(--star); border-color: var(--star); }
 .model-facts {
-  display: grid; grid-template-columns: 1.2fr .8fr 1fr; gap: var(--sp-2);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2);
   margin: 0; padding: var(--sp-3); background: var(--panel-2); border-radius: var(--r-sm);
 }
 .model-facts > div { min-width: 0; }
@@ -329,9 +329,12 @@ body {
 /* Reserve two lines for labels and values, so choosing a model never moves
    actions, including Max recommended / Largest example on a phone. */
 .model-facts dd { margin: var(--sp-1) 0 0; height: 2lh; line-height: var(--lh); font-weight: 600; }
+.model-speed-fact dt > span, #model-speed-summary {
+  display: block; color: var(--text-readout); font-size: var(--fs-body-sm); font-weight: 400;
+}
 .model-loader-options { display: grid; gap: var(--sp-3); }
 .model-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
-.model-loader-options > label, .model-format { display: grid; min-width: 0; gap: var(--sp-1); }
+.model-loader-options > div, .model-format { display: grid; min-width: 0; gap: var(--sp-1); }
 .model-picker .model-startup { color: var(--text); font-weight: 400; font-size: var(--fs-md); }
 .model-startup > input { flex: none; }
 .model-picker-footer {
@@ -340,9 +343,11 @@ body {
 }
 .model-actions > button { min-width: 0; padding-inline: var(--sp-2); }
 .model-picker p { margin: 0; color: var(--text-3); font-size: var(--fs-body-sm); }
+.model-picker .model-loader-help { height: 3lh; color: var(--text-readout); }
 #model-picker-note { height: 3lh; overflow-y: auto; overflow-wrap: anywhere; overscroll-behavior: contain; }
-@media (min-width: 1800px) {
-  .model-picker { width: min(520px, calc(100vw - 2 * var(--gutter))); }
+@media (min-width: 601px) {
+  .model-facts { grid-template-columns: 1.05fr .6fr 1.3fr 1.4fr; }
+  .model-picker .model-loader-help { height: 2lh; }
 }
 .topbar > button { flex: none; }
 @media (max-width: 700px) {

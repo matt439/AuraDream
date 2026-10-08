@@ -30,7 +30,11 @@ def test_every_catalogue_selection_has_explicit_compact_facts():
 def test_lite_variants_share_canonical_facts_and_favourites(fmt):
     for entry in CHECKPOINTS:
         if entry.lite:
-            assert model_info.details_for(entry.lite_repo(fmt)) == model_info.details_for(entry.repo)
+            lite = model_info.details_for(entry.lite_repo(fmt))
+            native = model_info.details_for(entry.repo)
+            assert {key: value for key, value in lite.items() if not key.startswith("speed_")} == {
+                key: value for key, value in native.items() if not key.startswith("speed_")
+            }
 
 
 def test_anima_releases_keep_separate_favourites_but_link_to_the_real_repo():

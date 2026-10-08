@@ -7,6 +7,7 @@ Sources are backend/guides.py,
 docs/anime-model-guide.md and (for Z-Anime's iteration advice) docs/verified.md.
 """
 from .launch import CHECKPOINTS, FORMATS
+from .model_benchmarks import speed_for
 from .model_defaults import defaults_for
 
 
@@ -143,7 +144,9 @@ _SIZE_LABELS = {
 }
 
 
-def details_for(model_id: str) -> dict[str, str]:
+def details_for(
+    model_id: str, quantization: str | None = None, offload: str = "model",
+) -> dict[str, str]:
     checkpoint = next((
         entry for entry in CHECKPOINTS
         if model_id == entry.repo or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)
@@ -156,6 +159,7 @@ def details_for(model_id: str) -> dict[str, str]:
             "megapixels_label": "Max recommended",
             "megapixels_note": "No catalogue size guidance; check the checkpoint's model card.",
             "favourite_id": model_id, "url": "",
+            **speed_for(model_id, quantization, offload),
         }
     style, (megapixels, note) = _FACTS[checkpoint.repo]
     profile = defaults_for(model_id)
@@ -173,4 +177,5 @@ def details_for(model_id: str) -> dict[str, str]:
         # Lite builds share a favourite, but Anima's two releases stay distinct.
         "favourite_id": checkpoint.repo,
         "url": f"https://huggingface.co/{checkpoint.repo.split('@', 1)[0]}",
+        **speed_for(model_id, quantization, offload),
     }

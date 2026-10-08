@@ -642,7 +642,7 @@ window.addEventListener('storage', receiveModelFavourites);
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
 els.modelSelect.onchange = () => modelPickerEdited();
 els.modelFavourite.onclick = toggleModelFavourite;
-els.modelOffload.onchange = () => modelPickerEdited();
+els.modelOffload.onchange = () => modelPickerEdited({ catalogue: true });
 els.modelLoadOnStartup.onchange = () => modelPickerEdited();
 els.modelQuantization.onchange = () => modelPickerEdited({ catalogue: true });
 els.modelFormat.onchange = () => modelPickerEdited({ catalogue: true });

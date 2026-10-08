@@ -108,20 +108,22 @@ models and this Anima integration disable Mu.
 | WAI Illustrious v17 | 28 | 6 | About 9-10 seconds | 1.38 MP, portrait |
 | RouWei 0.8 epsilon | 28 | 6 | About 8 seconds | 1.05 MP, square |
 | NoobAI-XL V-pred 1.0 | 28 | 5 | About 8 seconds | 1.05 MP, square |
-| Illustrious XL v2.0-STABLE | 28 | 5 | About 15 seconds | 1.05 MP, square |
-| Animagine XL 4.0 Opt | 28 | 5 | No comparable timing recorded | Generation and batch use verified |
+| Illustrious XL v2.0-STABLE | 28 | 5 | About 11 seconds, first image | 1.05 MP, square |
+| Animagine XL 4.0 Opt | 28 | 5 | About 17 seconds, first image | 1.05 MP, square |
 | Kohaku XL Zeta | 28 | 5 | About 9-10 seconds | 1.05 MP, square |
 | Z-Anime Base | 40 | 4 | About 78-79 seconds | 1.05 MP, square |
 | NetaYume Lumina v4 | 40 | 5 | About 39 seconds | 1.05 MP, square |
 | NewBie image Exp0.1 | 28 | 4 | About 39 seconds | 1.05 MP, square, XML prompt |
 
-The measured rows are individual RTX 5080 checks recorded on September 17-26,
-2026, with RouWei, NoobAI and Anima Aesthetic checked on October 7, using Windows FP8 and model offload.
+The measured rows are individual RTX 5080 checks recorded in September and
+October 2026, using Windows FP8 and model offload. The Animagine and Illustrious
+rows above are October 5 first-image samples with other processes keeping the
+CPU about 75% busy; they are upper bounds, not warm-loop measurements. RouWei,
+NoobAI and Anima Aesthetic were checked on October 7.
 They indicate likely waiting time;
 different prompts, sizes and run conditions prevent a controlled speed
-ranking. Loading is excluded. Most samples also exclude PNG saving, while
-Illustrious's CLI timings include it. Animagine's earlier successful runs
-did not record comparable timing or exact quantization/offload settings.
+ranking. Loading is excluded; sample methods and whether PNG saving is included
+vary across the retained measurements.
 See [the measurement record](verified.md#checkpoints) for the exact conditions.
 
 ## Prompt habits that matter when switching models

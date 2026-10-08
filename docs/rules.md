@@ -19,6 +19,8 @@ before changing it.
 - `backend/startup_preferences.py` — validated atomic loader/startup persistence;
   the server launcher restores it before config imports
 - `backend/model_info.py` — cold catalogue details from existing sourced guides
+- `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
+  checkpoint/loading-option matching and coarse speed categories; no live benchmark
 - `backend/schemas.py` — pydantic request/response models
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint and
   the control tooltips; each profile hangs its prompting guide from
@@ -339,6 +341,11 @@ Model and loader:
   native/documented maxima and examples distinctly; an example never becomes
   a guaranteed maximum. Model favourites are browser preferences, canonical across Nunchaku
   weight formats, and never mutate the selected model or loader settings.
+- Picker speed facts use retained `docs/verified.md` measurements at their
+  recorded size and steps. Different quantization, format, offload or platform
+  is visibly a reference; unmeasured variants never inherit a family timing.
+  Fast is at most 15 s, Medium over 15 through 45 s, Slow over 45 s, using the
+  sample's upper time. These are not ETAs or new GPU evidence.
 - On Linux, the server launcher prepares `DIFFUSERS_TRUST_REMOTE_KERNELS=true`
   before diffusers imports for optional browser Nunchaku selection; an explicit
   false remains authoritative and refuses Nunchaku before unload. The standalone
@@ -3053,14 +3060,20 @@ switch held during a job, failed target loading and Retry load recovery, and
 topbar/picker fit on narrow, laptop and QHD windows. It also checks cold
 Apply & save, quantization/offload changes, the saved startup checkbox,
 save errors, compact model facts, persistent model favourites and stable action
-placement across model choices and short viewports. CPU tests in
+placement across model choices and short viewports, visible loader descriptions
+and speed references that follow draft quantization/offload choices.
+`smoke-model-startup.json` uses the same fake to check one-time automatic opening
+for an idle unloaded/error server, suppression when ready/loading/busy, no
+reopening after dismissal or later Unload, and focus/caret preservation. CPU tests in
 `test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
 and `test_api_model_switch.py` cover persistence, explicit overrides, loader
-snapshots, metadata and refusal before releasing working weights:
+snapshots, metadata and refusal before releasing working weights;
+`test_model_benchmarks.py` covers speed categories and exact sample matching:
 
 ```powershell
 uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-model-switch.json
+node tools/browser.mjs tools/smoke-model-startup.json
 ```
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance

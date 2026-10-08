@@ -16,6 +16,7 @@ let modelStatusEpoch = 0;
 let modelSwitchError = null;
 let modelPickerMessage = null;
 let modelPickerDirty = false;
+let modelPickerStartupSeen = false;
 let modelRuntimeSettings = null;
 const MODEL_FAVOURITES_KEY = 'local-diffusion.model-favourites.v1';
 let modelFavourites = new Set();
@@ -146,7 +147,7 @@ function modelLoaderChanged() {
 }
 
 function modelCatalogueKey(selected) {
-  return `${selected.quantization}|${selected.quantization === 'nunchaku' ? selected.format : ''}`;
+  return `${selected.quantization}|${selected.quantization === 'nunchaku' ? selected.format : ''}|${selected.offload}`;
 }
 
 function modelSwitchHold({ load = true } = {}) {
@@ -176,6 +177,10 @@ function syncModelSwitch() {
     const option = select.selectedOptions[0];
     select.title = option?.dataset.description || option?.textContent || '';
   }
+  for (const [select, help] of [[els.modelQuantization, els.modelQuantizationHelp], [els.modelOffload, els.modelOffloadHelp]]) {
+    const text = select.selectedOptions[0]?.dataset.description || '';
+    if (help.textContent !== text) help.textContent = text;
+  }
   syncModelFavourite();
   if (!els.modelPicker.hidden) {
     const note = modelSwitchError || modelFavouriteMessage || saveWhy || modelPickerMessage || 'The first load may download weights and take several minutes.';
@@ -194,6 +199,12 @@ function syncModelInfo() {
   els.modelMegapixelsLabel.textContent = info?.megapixels_label || 'Max recommended';
   els.modelMegapixels.textContent = info?.megapixels || '—';
   els.modelMegapixels.title = info?.megapixels_note || '';
+  els.modelSpeed.textContent = info?.speed_label || 'Unmeasured';
+  els.modelSpeed.title = info?.speed_note || '';
+  els.modelSpeedSummary.textContent = info?.speed_summary || '';
+  els.modelSpeedSummary.title = info?.speed_note || '';
+  els.modelSpeedBasis.textContent = info?.speed_basis || '';
+  els.modelSpeedBasis.title = info?.speed_note || '';
   els.modelPage.hidden = !info?.url;
   if (info?.url) els.modelPage.href = info.url;
   else els.modelPage.removeAttribute('href');
@@ -240,7 +251,19 @@ function receiveModelSettings(status, { reset = false } = {}) {
   }
 }
 
+// The first usable status decides once. A later unload or recovery must not
+// reopen a picker the user dismissed, and an automatic open never takes the caret.
+function offerModelPicker(status) {
+  if (modelPickerStartupSeen) return;
+  modelPickerStartupSeen = true;
+  if (!['unloaded', 'error'].includes(status.state) || modelSwitching || modelSwitchSending
+      || busy || queuedIds.length || elsewhereBusy || submitting || expandingPrompt || critiquing
+      || cardHolder || status.active_jobs?.length) return;
+  showModelPicker(true, { focus: false });
+}
+
 function showModelPicker(on, { focus = true } = {}) {
+  modelPickerStartupSeen = true;
   els.modelPicker.hidden = !on;
   els.models.setAttribute('aria-expanded', String(on));
   if (on) {
@@ -262,6 +285,7 @@ async function refreshModelCatalogue({ current = false } = {}) {
   const query = new URLSearchParams();
   if (selected?.quantization) query.set('quantization', selected.quantization);
   if (selected?.format) query.set('format', selected.format);
+  if (selected?.offload) query.set('offload', selected.offload);
   try {
     const body = await api(`/api/models${query.size ? `?${query}` : ''}`);
     if (epoch !== modelCatalogueEpoch) return;

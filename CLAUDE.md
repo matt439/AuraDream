@@ -46,7 +46,8 @@ Backend (`backend/`):
   separate from frozen startup settings; runtime readers use
   `current_model_id(settings)` / `current_settings(settings)`;
   `startup_preferences.py` atomically saves loader/startup choices;
-  `model_info.py` supplies cold catalogue details from existing sourced guides
+  `model_info.py` supplies cold catalogue details from existing sourced guides;
+  `model_benchmarks.py` supplies retained timing references and speed categories
 - `schemas.py` request/response models; `model_defaults.py` per-checkpoint
   profiles; `guides.py` each checkpoint's sourced prompting guide and its
   `analysis` data
@@ -236,7 +237,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7890 | Minthy/RouWei-0.8 | `smoke-rouwei` |
 | 7891 | Laxhar/noobai-XL-Vpred-1.0 | `smoke-noobai` |
 | 7895 | circlestone-labs/Anima@aesthetic-v1.1 | `smoke-anima-aesthetic` |
-| 7896 | FLUX.1-Krea-dev | `smoke-model-switch` |
+| 7896 | FLUX.1-Krea-dev | `smoke-model-switch`, `smoke-model-startup` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.
