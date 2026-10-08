@@ -59,11 +59,20 @@ def options(settings) -> dict[str, list[dict[str, str]]]:
     """Cold browser choices; Nunchaku's kernels are Linux-only."""
     return {
         "quantizations": [
-            {"value": value, "label": f"{value.upper()}: {label}"} for value, label in QUANTIZATIONS
+            {"value": value, "label": {
+                "fp8": "FP8", "int8": "INT8", "none": "BF16", "nunchaku": "Nunchaku 4-bit",
+            }[value], "description": label} for value, label in QUANTIZATIONS
             if value != "nunchaku" or sys.platform == "linux"
         ],
-        "offloads": [{"value": value, "label": f"{value.title()}: {label}"} for value, label in OFFLOADS],
-        "formats": [{"value": value, "label": f"{value.upper()}: {label}"} for value, label in FORMATS],
+        "offloads": [{"value": value, "label": {
+            "model": "Model offload", "sequential": "Sequential", "none": "No offload",
+        }[value], "description": (
+            "Keep all components on the configured device."
+            if value == "none" else label
+        )} for value, label in OFFLOADS],
+        "formats": [
+            {"value": value, "label": value.upper(), "description": label} for value, label in FORMATS
+        ],
     }
 
 

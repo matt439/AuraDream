@@ -637,8 +637,11 @@ els.gridSeedList.addEventListener('input', () => {
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
 });
 els.load.onclick = loadModel;
+restoreModelFavourites();
+window.addEventListener('storage', receiveModelFavourites);
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
 els.modelSelect.onchange = () => modelPickerEdited();
+els.modelFavourite.onclick = toggleModelFavourite;
 els.modelOffload.onchange = () => modelPickerEdited();
 els.modelLoadOnStartup.onchange = () => modelPickerEdited();
 els.modelQuantization.onchange = () => modelPickerEdited({ catalogue: true });

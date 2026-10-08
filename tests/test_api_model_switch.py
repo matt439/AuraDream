@@ -66,10 +66,13 @@ def test_catalogue_details_describe_unloaded_choices_without_changing_model(clie
     body = client.get("/api/models?quantization=int8").json()
     assert set(body["details"]) == {entry["model_id"] for entry in body["models"]}
     anime = body["details"][ANIMAGINE]
-    assert anime["prompt"] == main.hints_for(ANIMAGINE)["prompt"]
-    assert anime["size"] == main.hints_for(ANIMAGINE)["size"]
+    assert (anime["style"], anime["refine"], anime["megapixels"]) == ("Anime", "Yes", "1 MP")
+    assert anime["megapixels_label"] == "Max recommended"
+    assert "Author-recommended" in anime["megapixels_note"]
+    assert anime["favourite_id"] == ANIMAGINE
     assert anime["url"] == f"https://huggingface.co/{ANIMAGINE}"
-    assert "28 steps" in anime["sampling"]
+    flux = body["details"]["black-forest-labs/FLUX.1-Krea-dev"]
+    assert (flux["megapixels_label"], flux["megapixels"]) == ("Max recommended", "1.64 MP")
     assert client.get("/api/status").json()["model_revision"] == initial["model_revision"]
     assert fake.loads == 0
 

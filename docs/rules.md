@@ -334,7 +334,11 @@ Model and loader:
   then saved preferences, then defaults; `--defaults` skips preferences. Malformed
   preferences warn and fall back. Only model id, quantization, offload and
   `load_on_startup` are saved, never secrets or unrelated settings. The browser's
-  collapsed model details reuse existing sourced guides and catalogue data.
+  compact model facts reuse sourced guides, catalogue data and recorded local
+  evidence. The size fact shows upper guidance and labels recommendations,
+  native/documented maxima and examples distinctly; an example never becomes
+  a guaranteed maximum. Model favourites are browser preferences, canonical across Nunchaku
+  weight formats, and never mutate the selected model or loader settings.
 - On Linux, the server launcher prepares `DIFFUSERS_TRUST_REMOTE_KERNELS=true`
   before diffusers imports for optional browser Nunchaku selection; an explicit
   false remains authoritative and refuses Nunchaku before unload. The standalone
@@ -3048,7 +3052,8 @@ different checkpoint and work again after switching back. It also checks a
 switch held during a job, failed target loading and Retry load recovery, and
 topbar/picker fit on narrow, laptop and QHD windows. It also checks cold
 Apply & save, quantization/offload changes, the saved startup checkbox,
-save errors, and the selected model's collapsible information. CPU tests in
+save errors, compact model facts, persistent model favourites and stable action
+placement across model choices and short viewports. CPU tests in
 `test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
 and `test_api_model_switch.py` cover persistence, explicit overrides, loader
 snapshots, metadata and refusal before releasing working weights:

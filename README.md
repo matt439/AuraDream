@@ -59,8 +59,10 @@ Krea 2 Turbo and Raw require **manual approval** on their Hugging Face pages.
 Explicit flags override environment values, which override saved browser choices;
 otherwise the app uses its defaults. To change checkpoints while the server stays
 open, choose **Models**, select a checkpoint, quantization and offload, and press
-**Switch & load**. Expand **About this model** for access requirements, app
-defaults and the existing prompting/size guide. Finish
+**Switch & load**. Compact facts show the model's style, Refine support and
+upper MP guidance, labelled as a recommendation, documented/native maximum or
+example size. Star models to keep favourites at the top of the
+list; favourites are remembered in this browser. Finish
 or cancel queued/running jobs first, and wait for any load, prompt check, critic
 or Expand request to finish. The current weights are released before the next
 model loads; a first use can download weights and take several minutes.

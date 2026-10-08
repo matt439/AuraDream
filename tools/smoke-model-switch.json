@@ -24,22 +24,40 @@
     "expect": "els.modelSave.getAttribute('aria-disabled') === 'false' && !els.modelSave.disabled && els.modelQuantization.value === modelRuntimeSettings.quantization && els.modelOffload.value === modelRuntimeSettings.offload && els.modelFormatField.hidden"
   },
   {
-    "log": "'Model information is available on demand from a keyboard, without crowding the checkpoint names'"
+    "log": "'Compact model facts and full-width loader choices stay readable without moving the actions'"
   },
   {
-    "eval": "els.modelInfoSummary.focus({preventScroll: true});"
+    "expect": "els.modelStyle.textContent === 'Photorealism' && els.modelRefine.textContent === 'Yes' && els.modelMegapixelsLabel.textContent === 'Max recommended' && els.modelMegapixels.textContent === '1.64 MP' && els.modelMegapixels.title.includes('recommends') && els.modelPage.href.startsWith('https://huggingface.co/') && !els.modelInfo.querySelector('details, p') && parseFloat(getComputedStyle(els.modelStyle).fontSize) >= 14"
+  },
+  {
+    "eval": "window.__actionsY = els.modelSwitch.getBoundingClientRect().top; window.__chooseModel = (id) => { els.modelSelect.value = id; els.modelSelect.dispatchEvent(new Event('change')); }; window.__modelLayout = () => { const picker = els.modelPicker.getBoundingClientRect(), actions = els.modelSwitch.getBoundingClientRect(); return picker.left >= 0 && picker.right <= innerWidth && picker.bottom <= innerHeight && actions.bottom <= innerHeight && document.documentElement.scrollWidth <= document.documentElement.clientWidth && [...els.modelInfo.querySelectorAll('dt, dd')].every((e) => e.scrollHeight <= e.clientHeight && e.scrollWidth <= e.clientWidth); }; window.__loaderFits = () => { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); return [els.modelQuantization, els.modelOffload].every((el) => { const css = getComputedStyle(el); ctx.font = css.font; return [...el.options].every((option) => ctx.measureText(option.textContent).width < el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - 24); }); };"
+  },
+  {
+    "expect": "[...els.modelSelect.options].every((option) => { __chooseModel(option.value); return els.modelSwitch.getBoundingClientRect().top === __actionsY && els.modelStyle.textContent === modelCatalogueDetails[option.value].style && els.modelRefine.textContent === modelCatalogueDetails[option.value].refine && els.modelMegapixelsLabel.textContent === modelCatalogueDetails[option.value].megapixels_label && __modelLayout(); }) && __loaderFits()"
+  },
+  {
+    "log": "'Stars group favourites without duplicate models, preserve unsaved settings and keep their accessible name'"
+  },
+  {
+    "eval": "__chooseModel(__anime); els.modelOffload.value = 'sequential'; els.modelOffload.dispatchEvent(new Event('change')); els.modelLoadOnStartup.checked = true; els.modelLoadOnStartup.dispatchEvent(new Event('change')); window.__optionCount = els.modelSelect.options.length; window.__starName = els.modelFavourite.getAttribute('aria-label');"
+  },
+  {
+    "click": "#btn-model-favourite"
+  },
+  {
+    "expect": "els.modelFavourite.getAttribute('aria-pressed') === 'true' && els.modelFavourite.getAttribute('aria-label') === __starName && els.modelFavourite.title.includes('favourite') && els.modelSelect.querySelector('optgroup').label === 'Favourites' && els.modelSelect.options[0].value === __anime && els.modelSelect.options.length === __optionCount && new Set([...els.modelSelect.options].map((o) => o.value)).size === __optionCount && els.modelSelect.value === __anime && els.modelOffload.value === 'sequential' && els.modelLoadOnStartup.checked && modelPickerDirty && els.modelSwitch.getBoundingClientRect().top === __actionsY && document.activeElement === els.modelFavourite"
   },
   {
     "keycombo": ["", "Enter"]
   },
   {
-    "expect": "!els.modelInfo.hidden && els.modelInfo.open && els.modelInfoSummary.textContent.includes('FLUX.1') && els.modelInfoBody.textContent.includes('Access:') && els.modelInfoBody.textContent.includes('Starting settings:') && els.modelInfoBody.querySelector('a').href.startsWith('https://huggingface.co/')"
+    "expect": "els.modelFavourite.getAttribute('aria-pressed') === 'false' && els.modelFavourite.getAttribute('aria-label') === __starName && !els.modelSelect.querySelector('optgroup') && els.modelSelect.value === __anime && els.modelOffload.value === 'sequential' && els.modelSwitch.getBoundingClientRect().top === __actionsY"
   },
   {
-    "keycombo": ["", "Enter"]
+    "click": "#btn-model-favourite"
   },
   {
-    "expect": "!els.modelInfo.open"
+    "eval": "__chooseModel(__flux); els.modelOffload.value = modelRuntimeSettings.offload; els.modelOffload.dispatchEvent(new Event('change')); els.modelLoadOnStartup.checked = false; els.modelLoadOnStartup.dispatchEvent(new Event('change'));"
   },
   {
     "log": "'Saving only the startup checkbox keeps the loaded weights and revision, and ordinary status polls keep unsaved edits'"
@@ -117,7 +135,7 @@
     "expect": "__model(__anime)"
   },
   {
-    "expect": "els.modelInfoSummary.textContent.includes('Animagine') && els.modelInfoBody.textContent.includes('Prompting:') && !els.modelInfo.open"
+    "expect": "els.modelStyle.textContent === 'Anime' && els.modelRefine.textContent === 'Yes' && els.modelMegapixels.textContent === modelCatalogueDetails[els.modelSelect.value].megapixels && els.modelFavourite.getAttribute('aria-pressed') === 'true'"
   },
   {
     "eval": "__releaseLoras(); __releaseRuns(); api = __realApi;"
@@ -249,7 +267,7 @@
     "click": "#btn-models"
   },
   {
-    "expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth && els.modelPicker.getBoundingClientRect().right <= innerWidth && els.modelPicker.getBoundingClientRect().left >= 0 && document.querySelector('.topbar').getBoundingClientRect().height === parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'))"
+    "expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth && els.modelPicker.getBoundingClientRect().right <= innerWidth && els.modelPicker.getBoundingClientRect().left >= 0 && document.querySelector('.topbar').getBoundingClientRect().height === parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && els.modelFavourite.getAttribute('aria-pressed') === 'true' && els.modelSelect.options[0].value === 'cagliostrolab/animagine-xl-4.0'"
   },
   {
     "viewport": [
@@ -348,19 +366,55 @@
     "expect": "__until(() => !modelSwitchSending && modelState === 'ready' && modelRuntimeSettings.load_on_startup && els.modelPickerNote.textContent.includes('Settings saved'))"
   },
   {
-    "log": "'The expanded model information stays usable in a short phone-width window'"
+    "log": "'Facts and loader labels fit a phone, with fixed actions even when its short body scrolls'"
   },
   {
-    "viewport": [600, 600]
+    "viewport": [390, 600]
   },
   {
-    "eval": "els.modelInfo.open = true;"
+    "eval": "window.__chooseModel = (id) => { els.modelSelect.value = id; els.modelSelect.dispatchEvent(new Event('change')); }; window.__modelLayout = () => { const picker = els.modelPicker.getBoundingClientRect(), actions = els.modelSwitch.getBoundingClientRect(); return picker.left >= 0 && picker.right <= innerWidth && picker.bottom <= innerHeight && actions.bottom <= innerHeight && document.documentElement.scrollWidth <= document.documentElement.clientWidth && [...els.modelInfo.querySelectorAll('dt, dd')].every((e) => e.scrollHeight <= e.clientHeight && e.scrollWidth <= e.clientWidth); }; window.__loaderFits = () => { const ctx = document.createElement('canvas').getContext('2d'); return [els.modelQuantization, els.modelOffload].every((el) => { const css = getComputedStyle(el); ctx.font = `${css.fontSize} ${css.fontFamily}`; return [...el.options].every((option) => ctx.measureText(option.textContent).width < el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - 24); }); }; window.__actionsY = els.modelSwitch.getBoundingClientRect().top;"
   },
   {
-    "expect": "els.modelPicker.getBoundingClientRect().bottom <= innerHeight && els.modelPicker.scrollHeight > els.modelPicker.clientHeight && document.documentElement.scrollWidth <= document.documentElement.clientWidth && els.modelInfoBody.textContent.includes('Prompting:')"
+    "expect": "[...els.modelSelect.options].every((option) => { __chooseModel(option.value); return els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout(); }) && __loaderFits()"
   },
   {
-    "eval": "els.modelInfo.open = false; els.modelPicker.scrollTop = 0;"
+    "eval": "__chooseModel('LyliaEngine/waiIllustriousSDXL_v170');"
+  },
+  {
+    "expect": "els.modelMegapixelsLabel.textContent === 'Reference size' && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()"
+  },
+  {
+    "eval": "__chooseModel('NewBie-AI/NewBie-image-Exp0.1');"
+  },
+  {
+    "expect": "els.modelMegapixelsLabel.textContent === 'Largest example' && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()"
+  },
+  {
+    "eval": "__chooseModel('black-forest-labs/FLUX.1-Krea-dev');"
+  },
+  {
+    "expect": "els.modelMegapixelsLabel.textContent === 'Max recommended' && els.modelMegapixels.textContent === '1.64 MP' && els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout()"
+  },
+  {
+    "viewport": [390, 420]
+  },
+  {
+    "eval": "window.__actionsY = els.modelSwitch.getBoundingClientRect().top; els.modelPickerBody.scrollTop = els.modelPickerBody.scrollHeight;"
+  },
+  {
+    "expect": "__modelLayout() && els.modelPickerBody.scrollHeight > els.modelPickerBody.clientHeight && els.modelSwitch.getBoundingClientRect().top === __actionsY && els.modelSave.getBoundingClientRect().top >= els.modelPicker.getBoundingClientRect().top"
+  },
+  {
+    "viewport": [2560, 1305]
+  },
+  {
+    "eval": "els.modelPickerBody.scrollTop = 0; window.__actionsY = els.modelSwitch.getBoundingClientRect().top;"
+  },
+  {
+    "expect": "[...els.modelSelect.options].every((option) => { __chooseModel(option.value); return els.modelSwitch.getBoundingClientRect().top === __actionsY && __modelLayout(); }) && __loaderFits() && parseFloat(getComputedStyle(els.modelStyle).fontSize) >= 15"
+  },
+  {
+    "eval": "__chooseModel('black-forest-labs/FLUX.1-Krea-dev');"
   },
   {
     "viewport": [1400, 900]
@@ -376,6 +430,66 @@
   },
   {
     "expect": "__until(() => !modelSwitchSending && modelState === 'ready' && modelRuntimeSettings.quantization === __originalLoader.quantization && modelRuntimeSettings.offload === __originalLoader.offload && !modelRuntimeSettings.load_on_startup)"
+  },
+  {
+    "log": "'Favourite persistence tolerates corrupt data, merges another tab and reports a blocked write without losing the choice'"
+  },
+  {
+    "eval": "try { localStorage.setItem(MODEL_FAVOURITES_KEY, '{broken'); } catch {} restoreModelFavourites(); renderModelOptions(els.modelSelect.value);"
+  },
+  {
+    "expect": "modelFavourites.size === 0 && els.modelFavourite.getAttribute('aria-pressed') === 'false' && els.modelSelect.value === 'black-forest-labs/FLUX.1-Krea-dev'"
+  },
+  {
+    "eval": "try { localStorage.setItem(MODEL_FAVOURITES_KEY, JSON.stringify(['cagliostrolab/animagine-xl-4.0', null, 7, ''])); } catch {}"
+  },
+  {
+    "click": "#btn-model-favourite"
+  },
+  {
+    "expect": "modelFavourites.size === 2 && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && modelFavourites.has('black-forest-labs/FLUX.1-Krea-dev') && els.modelSelect.querySelector('optgroup').children.length === 2"
+  },
+  {
+    "eval": "window.__storageSetItem = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (key === MODEL_FAVOURITES_KEY) throw new Error('Storage unavailable'); return __storageSetItem.call(this, key, value); };"
+  },
+  {
+    "click": "#btn-model-favourite"
+  },
+  {
+    "expect": "els.modelFavourite.getAttribute('aria-pressed') === 'false' && els.modelPickerNote.textContent.includes('could not save') && els.modelSelect.value === 'black-forest-labs/FLUX.1-Krea-dev' && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && els.modelSave.getAttribute('aria-disabled') === 'false'"
+  },
+  {
+    "eval": "Storage.prototype.setItem = __storageSetItem; try { const saved = JSON.stringify(['cagliostrolab/animagine-xl-4.0', 'black-forest-labs/FLUX.1-Krea-dev', 'SeeSee21/Z-Anime']); localStorage.setItem(MODEL_FAVOURITES_KEY, saved); window.dispatchEvent(new StorageEvent('storage', {key: MODEL_FAVOURITES_KEY, newValue: saved, storageArea: localStorage})); } catch {}"
+  },
+  {
+    "expect": "modelFavourites.has('SeeSee21/Z-Anime') && !modelFavourites.has('black-forest-labs/FLUX.1-Krea-dev') && els.modelFavourite.getAttribute('aria-pressed') === 'false' && els.modelPickerNote.textContent.includes('could not save')"
+  },
+  {
+    "click": "#btn-model-favourite"
+  },
+  {
+    "expect": "els.modelFavourite.getAttribute('aria-pressed') === 'true' && !els.modelPickerNote.textContent.includes('could not save') && modelFavourites.size === 3"
+  },
+  {
+    "eval": "try { window.dispatchEvent(new StorageEvent('storage', {key: MODEL_FAVOURITES_KEY, newValue: '[]', storageArea: localStorage})); } catch {}"
+  },
+  {
+    "expect": "modelFavourites.size === 3 && els.modelFavourite.getAttribute('aria-pressed') === 'true' && modelFavourites.has('SeeSee21/Z-Anime') && els.modelSelect.querySelector('optgroup').children.length === 3"
+  },
+  {
+    "navigate": "http://127.0.0.1:7896/"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "wait": 500
+  },
+  {
+    "expect": "modelFavourites.size === 3 && els.modelFavourite.getAttribute('aria-pressed') === 'true' && els.modelSelect.querySelector('optgroup').label === 'Favourites' && els.modelSelect.querySelector('optgroup').children.length === 3"
   },
   {
     "key": "Escape"

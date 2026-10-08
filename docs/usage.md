@@ -12,9 +12,13 @@ minutes. **Unload** releases the image weights and prompt helpers.
 
 The server starts without asking questions in the terminal. Choose **Models**,
 select a checkpoint, quantization and offload, and press **Switch & load** to
-apply them without restarting the server or closing the page. Expand **About
-this model** for its access requirements, app defaults, prompting notes, size
-guidance and model-card link. Finish or cancel the
+apply them without restarting the server or closing the page. Three compact
+facts show **Style**, **Refine** support and the upper recommended size in
+megapixels. The size label distinguishes a recommendation from a documented or
+native maximum, reference size or largest example. The tooltip explains its
+source and limits; a published example is not a guaranteed maximum, and equal
+MP does not guarantee equal quality for every aspect ratio. The model-page link opens the source card.
+Finish or cancel the
 image queue first, including paused jobs, and wait for any current load, prompt
 check, critic or Expand request to finish. The old weights are released before
 the selected checkpoint loads. A failed load shows its reason and **Retry load**;
@@ -26,6 +30,13 @@ and gallery scope update. **All models** shows images from the other checkpoints
 Reopen an existing Refine dialog after a switch to use the new schedule. Retry
 and Resume for an earlier submission require switching back to its checkpoint.
 Other open tabs follow the server's selection too.
+
+Press the star beside a model to add or remove it from **Favourites** at the
+top of the list. This is saved immediately in this browser and survives page
+reloads and server restarts; it does not change or load the selected model.
+The ordinary and Nunchaku versions of a checkpoint share its star. Quantization
+and offload use full-width controls with short labels; their titles explain
+the choices. The load buttons stay in their own footer while the picker scrolls.
 
 **Apply & save** applies changed settings without loading their weights. Saving
 only the startup preference leaves an already loaded model in place. Both

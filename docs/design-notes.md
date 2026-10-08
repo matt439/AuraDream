@@ -271,14 +271,33 @@ background `ensure_loaded` path on the next launch, keeping the browser availabl
 for progress and recovery. Prompts and sampling continue using their existing
 browser persistence.
 
-The picker keeps checkpoint names short. Its native **About** disclosure exposes
-the selected model's access requirements, app defaults and existing sourced
-prompt/size guides, plus its model-page link. It is available by keyboard and
-touch rather than relying on option hover support. These details require no
-weights or tokenizer load. A custom launch id gets a neutral description rather
-than borrowing another checkpoint's guide. Unsaved picker edits survive status
-polling; a changed server revision retires them. Quantization catalogue requests
-use an epoch so delayed responses cannot restore an obsolete list.
+The first **About** disclosure repeated long guide paragraphs in small type and
+pushed the load buttons down when opened. The picker now shows a fixed row of
+three compact facts instead: a short style label, Refine support and upper MP
+guidance. The user preferred maximum recommendations to starting sizes, so
+the size fact shows one upper figure. Its label distinguishes a recommendation,
+documented/native maximum or reference/example size; the tooltip carries the
+source and qualifications. An author's example does not become a guaranteed
+maximum, and a documented range is not a measured quality ranking. A custom
+launch id gets unknown/after-load facts rather than another model's guide.
+The source model card remains a link; full prompting guidance stays beside the
+prompt controls. Facts use readable body text, quantization and offload use
+full-width selects with short labels and explanatory titles, and the footer
+keeps the load/save buttons in place while the picker body scrolls.
+
+A star beside the selected checkpoint saves a browser-local favourite
+immediately. The native select groups Favourites first and All models after,
+without duplicating choices. The canonical catalogue id keys the star so
+ordinary and Nunchaku formats share it; Anima Turbo and Aesthetic retain their
+distinct identities. Starring preserves the selection and unsaved loader edits,
+does not load weights, and keeps button focus. Browser storage is guarded;
+when unavailable the session can keep stars while the page reports that they
+could not be saved. Other tabs' storage changes refresh favourite ordering.
+
+These details require no weights or tokenizer load. Unsaved picker edits
+survive status polling; a changed server revision retires them. Quantization
+catalogue requests use an epoch so delayed responses cannot restore an obsolete
+list.
 CPU and fake-browser checks establish these transitions, not real GPU load
 times, memory release or image quality.
 

@@ -10,12 +10,120 @@ let modelCatalogueLoaded = false;
 let modelCatalogueEpoch = 0;
 let modelCatalogueKind = '';
 let modelCatalogueDetails = {};
+let modelCatalogueEntries = [];
 let modelInfoKey = null;
 let modelStatusEpoch = 0;
 let modelSwitchError = null;
 let modelPickerMessage = null;
 let modelPickerDirty = false;
 let modelRuntimeSettings = null;
+const MODEL_FAVOURITES_KEY = 'local-diffusion.model-favourites.v1';
+let modelFavourites = new Set();
+let modelFavouriteMessage = null;
+let modelFavouriteChanges = new Map();
+
+function parseModelFavourites(raw) {
+  try {
+    const saved = JSON.parse(raw ?? '[]');
+    return new Set(Array.isArray(saved) ? saved.filter((id) => typeof id === 'string' && id.trim() && id.length <= 512) : []);
+  } catch { return new Set(); }
+}
+
+function restoreModelFavourites() {
+  try { modelFavourites = parseModelFavourites(localStorage.getItem(MODEL_FAVOURITES_KEY)); }
+  catch { /* A blocked store still allows favourites for this page. */ }
+  applyUnsavedModelFavourites();
+}
+
+function applyUnsavedModelFavourites() {
+  for (const [id, on] of modelFavouriteChanges) {
+    if (on) modelFavourites.add(id);
+    else modelFavourites.delete(id);
+  }
+}
+
+function modelFavouriteId(modelId) {
+  return modelCatalogueDetails[modelId]?.favourite_id || modelId;
+}
+
+function syncModelFavourite() {
+  const selected = els.modelSelect.value;
+  const on = !!selected && modelFavourites.has(modelFavouriteId(selected));
+  const name = modelCatalogueEntries.find((entry) => entry.model_id === selected)?.label || 'this model';
+  els.modelFavourite.textContent = on ? '★' : '☆';
+  els.modelFavourite.setAttribute('aria-pressed', String(on));
+  els.modelFavourite.setAttribute('aria-disabled', String(!selected));
+  els.modelFavourite.title = !selected ? 'Choose a checkpoint to add to your favourites'
+    : on ? `${name} is a favourite — click to remove`
+      : `Add ${name} to your favourites in this browser`;
+}
+
+function renderModelOptions(wanted) {
+  const favourites = [];
+  const others = [];
+  for (const entry of modelCatalogueEntries) {
+    const info = modelCatalogueDetails[entry.model_id];
+    const option = new Option(`${entry.label}${info?.style ? ` · ${info.style}` : ''}`, entry.model_id);
+    option.title = `${entry.label}${info?.style ? ` — ${info.style}` : ''}`;
+    (modelFavourites.has(modelFavouriteId(entry.model_id)) ? favourites : others).push(option);
+  }
+  els.modelSelect.replaceChildren();
+  if (favourites.length) {
+    for (const [label, options] of [['Favourites', favourites], ['All models', others]]) {
+      if (!options.length) continue;
+      const group = document.createElement('optgroup');
+      group.label = label;
+      group.append(...options);
+      els.modelSelect.append(group);
+    }
+  } else els.modelSelect.append(...others);
+  if ([...els.modelSelect.options].some((option) => option.value === wanted)) els.modelSelect.value = wanted;
+  else {
+    // A different weight format can expose a different set of model ids.
+    // Make the fresh choice explicit instead of silently selecting its head.
+    els.modelSelect.prepend(new Option('Choose a checkpoint…', ''));
+    els.modelSelect.value = '';
+  }
+  syncModelFavourite();
+}
+
+function toggleModelFavourite() {
+  const selected = els.modelSelect.value;
+  if (!selected) {
+    modelFavouriteMessage = 'Choose a checkpoint to add to your favourites.';
+    syncModelSwitch();
+    return;
+  }
+  // Merge against storage at the time of the click: another tab may have
+  // saved a star before its asynchronous storage event reaches this one.
+  restoreModelFavourites();
+  const id = modelFavouriteId(selected);
+  if (modelFavourites.has(id)) modelFavourites.delete(id);
+  else modelFavourites.add(id);
+  modelFavouriteChanges.set(id, modelFavourites.has(id));
+  try {
+    localStorage.setItem(MODEL_FAVOURITES_KEY, JSON.stringify([...modelFavourites]));
+    modelFavouriteChanges.clear();
+    modelFavouriteMessage = null;
+  } catch {
+    modelFavouriteMessage = 'Favourites changed for this page, but this browser could not save them for next time.';
+  }
+  // Reordering only the list keeps pending loading settings and its selection.
+  renderModelOptions(selected);
+  syncModelSwitch();
+}
+
+function receiveModelFavourites(event) {
+  if (event.key !== MODEL_FAVOURITES_KEY && event.key !== null) return;
+  try { if (event.storageArea !== localStorage) return; }
+  catch { return; }
+  // Read the latest store, rather than an event that may precede this tab's
+  // own recent click. Keep session-only changes after a refused write.
+  restoreModelFavourites();
+  if (!modelFavouriteChanges.size) modelFavouriteMessage = null;
+  if (modelCatalogueLoaded) renderModelOptions(els.modelSelect.value);
+  syncModelSwitch();
+}
 
 function modelChangeHold() {
   return modelSwitchSending || modelSwitching ? 'Wait for the model settings change to finish' : '';
@@ -65,10 +173,12 @@ function syncModelSwitch() {
   els.modelSave.title = saveWhy || 'Remember these settings without starting a new load';
   els.modelFormatField.hidden = els.modelQuantization.value !== 'nunchaku';
   for (const select of [els.modelSelect, els.modelQuantization, els.modelOffload, els.modelFormat]) {
-    select.title = select.selectedOptions[0]?.textContent ?? '';
+    const option = select.selectedOptions[0];
+    select.title = option?.dataset.description || option?.textContent || '';
   }
+  syncModelFavourite();
   if (!els.modelPicker.hidden) {
-    const note = modelSwitchError || saveWhy || modelPickerMessage || 'The first load may download weights and take several minutes.';
+    const note = modelSwitchError || modelFavouriteMessage || saveWhy || modelPickerMessage || 'The first load may download weights and take several minutes.';
     if (els.modelPickerNote.textContent !== note) els.modelPickerNote.textContent = note;
   }
 }
@@ -78,30 +188,16 @@ function syncModelInfo() {
   const key = `${els.modelSelect.value}|${JSON.stringify(info)}`;
   if (key === modelInfoKey) return;
   modelInfoKey = key;
-  els.modelInfo.hidden = !info;
-  const name = els.modelSelect.selectedOptions[0]?.textContent || 'this model';
-  els.modelInfoSummary.textContent = `About ${name}`;
-  els.modelInfoBody.replaceChildren();
-  if (!info) return;
-  for (const [key, label] of [['description', ''], ['access', 'Access'], ['sampling', 'Starting settings'], ['prompt', 'Prompting'], ['size', 'Size']]) {
-    if (!info[key]) continue;
-    const p = document.createElement('p');
-    if (label) {
-      const strong = document.createElement('strong');
-      strong.textContent = `${label}: `;
-      p.append(strong);
-    }
-    p.append(document.createTextNode(info[key]));
-    els.modelInfoBody.append(p);
-  }
-  if (info.url) {
-    const link = document.createElement('a');
-    link.href = info.url;
-    link.textContent = 'Model page ↗';
-    link.target = '_blank';
-    link.rel = 'noopener';
-    els.modelInfoBody.append(link);
-  }
+  els.modelStyle.textContent = info?.style || '—';
+  els.modelRefine.textContent = info?.refine || '—';
+  els.modelRefine.title = info?.refine_note || '';
+  els.modelMegapixelsLabel.textContent = info?.megapixels_label || 'Max recommended';
+  els.modelMegapixels.textContent = info?.megapixels || '—';
+  els.modelMegapixels.title = info?.megapixels_note || '';
+  els.modelPage.hidden = !info?.url;
+  if (info?.url) els.modelPage.href = info.url;
+  else els.modelPage.removeAttribute('href');
+  syncModelFavourite();
 }
 
 function modelPickerEdited({ catalogue = false } = {}) {
@@ -177,34 +273,26 @@ async function refreshModelCatalogue({ current = false } = {}) {
         if (value !== '' && value !== undefined) wanted[key] = value;
       }
     }
-    els.modelSelect.replaceChildren();
-    for (const entry of body.models ?? []) {
-      const option = document.createElement('option');
-      option.value = entry.model_id;
-      option.textContent = entry.label;
-      els.modelSelect.append(option);
-    }
+    modelCatalogueEntries = body.models ?? [];
+    modelCatalogueDetails = body.details ?? {};
     // Only the server decides which checkpoint/loader combinations are valid.
-    const model = wanted.model_id ?? loadedModel;
-    if ([...els.modelSelect.options].some((o) => o.value === model)) els.modelSelect.value = model;
-    else {
-      // A different weight format can expose a different set of model ids.
-      // Make the fresh choice explicit instead of silently selecting its head.
-      els.modelSelect.prepend(new Option('Choose a checkpoint…', ''));
-      els.modelSelect.value = '';
-    }
+    renderModelOptions(wanted.model_id ?? loadedModel);
     for (const [control, key, choices] of [
       [els.modelQuantization, 'quantization', 'quantizations'],
       [els.modelOffload, 'offload', 'offloads'],
       [els.modelFormat, 'format', 'formats'],
     ]) {
-      control.replaceChildren(...(body[choices] ?? []).map((entry) => new Option(entry.label, entry.value)));
+      control.replaceChildren(...(body[choices] ?? []).map((entry) => {
+        const option = new Option(entry.label, entry.value);
+        option.dataset.description = entry.description || entry.label;
+        option.title = option.dataset.description;
+        return option;
+      }));
       const value = wanted[key] ?? body[key];
       if ([...control.options].some((o) => o.value === value)) control.value = value;
     }
     els.modelLoadOnStartup.checked = wanted.load_on_startup ?? body.load_on_startup ?? false;
     modelCatalogueKind = modelCatalogueKey(modelPickerSettings());
-    modelCatalogueDetails = body.details ?? {};
     modelCatalogueLoaded = true;
     modelSwitchError = null;
     syncModelInfo();
