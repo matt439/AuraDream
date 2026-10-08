@@ -828,6 +828,10 @@ document.addEventListener('keydown', (e) => {
   // Nothing of the page's while a delete asks: Escape there is its Cancel,
   // which closed the lightbox under it as well, and Ctrl+Enter generated.
   if (els.confirmDialog.open || els.bundlesDialog.open) return;
+  // An open checkpoint or loader list draws in the page, so its keys reach
+  // here; they are the list's own (Escape closes only it), as they were when
+  // the native popup kept them from the page.
+  if (modelListOpen()) return;
   if (e.key === 'Escape' && !e.defaultPrevented && !els.modelPicker.hidden
       && !els.lightbox.open && !els.refineDialog.open) {
     e.preventDefault();

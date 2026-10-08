@@ -318,6 +318,22 @@ body {
   color: var(--text); background: var(--panel-2); border: 1px solid var(--line-strong);
   border-radius: var(--r-sm); font: inherit; font-weight: 400;
 }
+/* The lists draw inside the page (Chromium 135+). The native Windows popup is
+   a separate window that Chromium re-anchors, and its highlight slid rows
+   away from a still pointer. Browsers without base-select keep native lists. */
+.model-picker select, .model-picker select::picker(select) { appearance: base-select; }
+.model-picker select { display: flex; align-items: center; gap: var(--sp-2); }
+.model-picker select::picker-icon { color: var(--text-3); margin-left: auto; }
+.model-picker select::picker(select) {
+  max-height: min(60dvh, 480px); overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--sp-1); background: var(--panel); color: var(--text);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm); box-shadow: var(--shadow-pop);
+}
+.model-picker option { padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); }
+.model-picker option:hover, .model-picker option:focus-visible { background: var(--accent-soft); outline: none; }
+.model-picker option:checked { font-weight: 600; }
+.model-picker optgroup { font-weight: 600; color: var(--text-readout); }
+.model-picker optgroup > option { color: var(--text); font-weight: 400; }
 .model-favourite { padding: 0; font-size: 22px; }
 .model-favourite[aria-pressed="true"] { color: var(--star); border-color: var(--star); }
 .model-facts {

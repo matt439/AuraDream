@@ -19,6 +19,10 @@ let modelPickerDirty = false;
 let modelPickerStartupSeen = false;
 let modelRuntimeSettings = null;
 let modelPickerAppliedSettings = null;
+let modelPickerDeferredReset = null;
+let modelCatalogueRequested = null;
+let modelCatalogueFailedAt = 0;
+const modelOptionKeys = new WeakMap();
 const MODEL_FAVOURITES_KEY = 'local-diffusion.model-favourites.v1';
 let modelFavourites = new Set();
 let modelFavouriteMessage = null;
@@ -48,44 +52,81 @@ function modelFavouriteId(modelId) {
   return modelCatalogueDetails[modelId]?.favourite_id || modelId;
 }
 
+// The picker's lists draw in the page (base-select). Rebuilding or reselecting
+// an open one moves its rows under a still pointer, so status polls, catalogue
+// replies and other tabs' favourites wait for every list to close.
+function modelListOpen() {
+  if (els.modelPicker.hidden) return false;
+  try {
+    return [els.modelSelect, els.modelQuantization, els.modelOffload, els.modelFormat]
+      .some((select) => select.matches(':open'));
+  } catch { return false; } // No :open: a native popup the page cannot see.
+}
+
+function whenModelListsClosed() {
+  return new Promise((resolve) => {
+    const check = () => (modelListOpen() ? setTimeout(check, 150) : resolve());
+    check();
+  });
+}
+
+function setModelAttribute(element, name, value) {
+  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
+
 function syncModelFavourite() {
   const selected = els.modelSelect.value;
   const on = !!selected && modelFavourites.has(modelFavouriteId(selected));
   const name = modelCatalogueEntries.find((entry) => entry.model_id === selected)?.label || 'this model';
-  els.modelFavourite.textContent = on ? '★' : '☆';
-  els.modelFavourite.setAttribute('aria-pressed', String(on));
-  els.modelFavourite.setAttribute('aria-disabled', String(!selected));
-  els.modelFavourite.title = !selected ? 'Choose a checkpoint to add to your favourites'
+  const star = on ? '★' : '☆';
+  if (els.modelFavourite.textContent !== star) els.modelFavourite.textContent = star;
+  setModelAttribute(els.modelFavourite, 'aria-pressed', String(on));
+  setModelAttribute(els.modelFavourite, 'aria-disabled', String(!selected));
+  setModelAttribute(els.modelFavourite, 'title', !selected ? 'Choose a checkpoint to add to your favourites'
     : on ? `${name} is a favourite — click to remove`
-      : `Add ${name} to your favourites in this browser`;
+      : `Add ${name} to your favourites in this browser`);
+}
+
+// Replace a list's options only when they differ, so an unchanged catalogue
+// reply leaves the rows, and any highlight in them, where they were.
+function setModelOptions(control, key, build) {
+  if (modelOptionKeys.get(control) === key) return;
+  control.replaceChildren(...build());
+  modelOptionKeys.set(control, key);
+}
+
+function selectModelValue(control, value) {
+  if (control.value !== value) control.value = value;
 }
 
 function renderModelOptions(wanted) {
-  const favourites = [];
-  const others = [];
-  for (const entry of modelCatalogueEntries) {
-    const info = modelCatalogueDetails[entry.model_id];
-    const option = new Option(`${entry.label}${info?.style ? ` · ${info.style}` : ''}`, entry.model_id);
-    option.title = `${entry.label}${info?.style ? ` — ${info.style}` : ''}`;
-    (modelFavourites.has(modelFavouriteId(entry.model_id)) ? favourites : others).push(option);
-  }
-  els.modelSelect.replaceChildren();
-  if (favourites.length) {
+  const rows = modelCatalogueEntries.map((entry) => ({
+    id: entry.model_id, label: entry.label, style: modelCatalogueDetails[entry.model_id]?.style,
+    favourite: modelFavourites.has(modelFavouriteId(entry.model_id)),
+  }));
+  // A different weight format can expose a different set of model ids.
+  // Make the fresh choice explicit instead of silently selecting its head.
+  const missing = !rows.some((row) => row.id === wanted);
+  setModelOptions(els.modelSelect, JSON.stringify([missing, rows]), () => {
+    const favourites = [];
+    const others = [];
+    for (const row of rows) {
+      const option = new Option(`${row.label}${row.style ? ` · ${row.style}` : ''}`, row.id);
+      option.title = `${row.label}${row.style ? ` — ${row.style}` : ''}`;
+      (row.favourite ? favourites : others).push(option);
+    }
+    const children = missing ? [new Option('Choose a checkpoint…', '')] : [];
+    if (!favourites.length) return [...children, ...others];
     for (const [label, options] of [['Favourites', favourites], ['All models', others]]) {
       if (!options.length) continue;
       const group = document.createElement('optgroup');
       group.label = label;
       group.append(...options);
-      els.modelSelect.append(group);
+      children.push(group);
     }
-  } else els.modelSelect.append(...others);
-  if ([...els.modelSelect.options].some((option) => option.value === wanted)) els.modelSelect.value = wanted;
-  else {
-    // A different weight format can expose a different set of model ids.
-    // Make the fresh choice explicit instead of silently selecting its head.
-    els.modelSelect.prepend(new Option('Choose a checkpoint…', ''));
-    els.modelSelect.value = '';
-  }
+    return children;
+  });
+  selectModelValue(els.modelSelect, missing ? '' : wanted);
   syncModelFavourite();
 }
 
@@ -115,15 +156,20 @@ function toggleModelFavourite() {
   syncModelSwitch();
 }
 
-function receiveModelFavourites(event) {
+async function receiveModelFavourites(event) {
   if (event.key !== MODEL_FAVOURITES_KEY && event.key !== null) return;
   try { if (event.storageArea !== localStorage) return; }
   catch { return; }
   // Read the latest store, rather than an event that may precede this tab's
   // own recent click. Keep session-only changes after a refused write.
+  const before = JSON.stringify([...modelFavourites].sort());
   restoreModelFavourites();
   if (!modelFavouriteChanges.size) modelFavouriteMessage = null;
-  if (modelCatalogueLoaded) renderModelOptions(els.modelSelect.value);
+  if (modelCatalogueLoaded && before !== JSON.stringify([...modelFavourites].sort())) {
+    // Regrouping moves the rows, so an open list keeps its order until it closes.
+    await whenModelListsClosed();
+    if (modelCatalogueLoaded) renderModelOptions(els.modelSelect.value);
+  }
   syncModelSwitch();
 }
 
@@ -169,14 +215,16 @@ function modelSwitchHold({ load = true } = {}) {
 function syncModelSwitch() {
   const why = modelSwitchHold();
   const saveWhy = modelSwitchHold({ load: false });
-  els.modelSwitch.setAttribute('aria-disabled', String(!!why));
-  els.modelSwitch.title = why || 'Remember these settings and load the selected checkpoint';
-  els.modelSave.setAttribute('aria-disabled', String(!!saveWhy));
-  els.modelSave.title = saveWhy || 'Remember these settings without starting a new load';
-  els.modelFormatField.hidden = els.modelQuantization.value !== 'nunchaku';
+  // Every poll runs this more than once; write only what changed.
+  setModelAttribute(els.modelSwitch, 'aria-disabled', String(!!why));
+  setModelAttribute(els.modelSwitch, 'title', why || 'Remember these settings and load the selected checkpoint');
+  setModelAttribute(els.modelSave, 'aria-disabled', String(!!saveWhy));
+  setModelAttribute(els.modelSave, 'title', saveWhy || 'Remember these settings without starting a new load');
+  const formatHidden = els.modelQuantization.value !== 'nunchaku';
+  if (els.modelFormatField.hidden !== formatHidden) els.modelFormatField.hidden = formatHidden;
   for (const select of [els.modelSelect, els.modelQuantization, els.modelOffload, els.modelFormat]) {
     const option = select.selectedOptions[0];
-    select.title = option?.dataset.description || option?.textContent || '';
+    setModelAttribute(select, 'title', option?.dataset.description || option?.textContent || '');
   }
   for (const [select, help] of [[els.modelQuantization, els.modelQuantizationHelp], [els.modelOffload, els.modelOffloadHelp]]) {
     const text = select.selectedOptions[0]?.dataset.description || '';
@@ -239,26 +287,50 @@ function receiveModelSettings(status, { reset = false } = {}) {
     modelPickerDirty = false;
     modelPickerMessage = null;
   }
-  if (modelCatalogueLoaded && !modelPickerDirty) {
-    const selected = modelRuntimeSettings;
-    // Reassigning even the same value resets a native menu's hover/keyboard
-    // highlight. Compare with what we last applied, not the DOM's temporary
-    // menu preview. A genuine server change or revision still wins.
-    const applied = modelPickerAppliedSettings;
-    for (const [control, key] of [
-      [els.modelSelect, 'model_id'], [els.modelQuantization, 'quantization'],
-      [els.modelOffload, 'offload'], [els.modelFormat, 'format'],
-    ]) {
-      if (reset || !applied || applied[key] !== selected[key]) control.value = selected[key];
-    }
-    if (reset || !applied || applied.load_on_startup !== selected.load_on_startup) {
-      els.modelLoadOnStartup.checked = selected.load_on_startup;
-    }
-    modelPickerAppliedSettings = { ...selected };
-    if (!els.modelSelect.value || modelCatalogueKind !== modelCatalogueKey(selected)) {
-      void refreshModelCatalogue({ current: true });
-    } else syncModelInfo();
+  if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
+      && Date.now() - modelCatalogueFailedAt > 10000) {
+    void refreshModelCatalogue(); // A failed list retries while the picker is open.
   }
+  applyModelSettings(reset);
+}
+
+// Show the server's settings unless the user is editing them. Only fields that
+// changed since the last apply are written, so an unchanged poll leaves the
+// controls alone. An open list keeps its own value until it closes; the other
+// controls take theirs at once, so a pick made in that list still sits on the
+// server's new loading options.
+function applyModelSettings(reset) {
+  if (!modelCatalogueLoaded || modelPickerDirty) return;
+  const selected = modelRuntimeSettings;
+  const applied = modelPickerAppliedSettings;
+  let held = false;
+  for (const [control, key] of [
+    [els.modelSelect, 'model_id'], [els.modelQuantization, 'quantization'],
+    [els.modelOffload, 'offload'], [els.modelFormat, 'format'],
+  ]) {
+    if (!reset && applied && applied[key] === selected[key]) continue;
+    if (modelListOpen() && control.matches(':open')) held = true;
+    else selectModelValue(control, selected[key] ?? '');
+  }
+  if (held && !modelPickerDeferredReset) {
+    // On close, unless the user picked from that list, the held value lands.
+    modelPickerDeferredReset = true;
+    void whenModelListsClosed().then(() => {
+      modelPickerDeferredReset = null;
+      applyModelSettings(true);
+      syncModelSwitch();
+    });
+  }
+  if (reset || !applied || applied.load_on_startup !== selected.load_on_startup) {
+    els.modelLoadOnStartup.checked = selected.load_on_startup;
+  }
+  modelPickerAppliedSettings = { ...selected };
+  // A runtime id missing from its own catalogue (an off-catalogue launch id
+  // under other loading options) is asked for once, not on every poll.
+  if (modelCatalogueKind !== modelCatalogueKey(selected)
+      || (!els.modelSelect.value && modelCatalogueRequested !== `${modelCatalogueKind}|${selected.model_id}`)) {
+    void refreshModelCatalogue({ current: true });
+  } else syncModelInfo();
 }
 
 // The first usable status decides once. A later unload or recovery must not
@@ -299,10 +371,15 @@ async function refreshModelCatalogue({ current = false } = {}) {
   try {
     const body = await api(`/api/models${query.size ? `?${query}` : ''}`);
     if (epoch !== modelCatalogueEpoch) return;
+    if (modelListOpen()) {
+      await whenModelListsClosed();
+      if (epoch !== modelCatalogueEpoch) return;
+    }
     const wanted = { ...(selected ?? body) };
-    if (modelPickerDirty && !current) {
-      // Keep edits made while this catalogue request was in flight, including
-      // the startup checkbox, which does not need a new catalogue of its own.
+    if (modelPickerDirty) {
+      // Keep edits made while this request was in flight or a list was open,
+      // including a checkpoint picked during a poll's own refresh and the
+      // startup checkbox, neither of which asks for a catalogue of its own.
       for (const [key, value] of Object.entries(modelPickerSettings())) {
         if (value !== '' && value !== undefined) wanted[key] = value;
       }
@@ -316,20 +393,24 @@ async function refreshModelCatalogue({ current = false } = {}) {
       [els.modelOffload, 'offload', 'offloads'],
       [els.modelFormat, 'format', 'formats'],
     ]) {
-      control.replaceChildren(...(body[choices] ?? []).map((entry) => {
+      const entries = body[choices] ?? [];
+      setModelOptions(control, JSON.stringify(entries), () => entries.map((entry) => {
         const option = new Option(entry.label, entry.value);
         option.dataset.description = entry.description || entry.label;
         option.title = option.dataset.description;
         return option;
       }));
       const value = wanted[key] ?? body[key];
-      if ([...control.options].some((o) => o.value === value)) control.value = value;
+      if ([...control.options].some((o) => o.value === value)) selectModelValue(control, value);
     }
     els.modelLoadOnStartup.checked = wanted.load_on_startup ?? body.load_on_startup ?? false;
-    // Remember the values this reply actually installed. If the server changed
-    // while it was in flight, the next status still reconciles that change.
-    modelPickerAppliedSettings = modelPickerSettings();
+    // Remember what this reply installed. If the server changed while it was
+    // in flight, the next status still reconciles that change. A checkpoint the
+    // list lacks is recorded as asked for, so polls stop rewriting it.
+    const wantedModel = wanted.model_id ?? loadedModel;
+    modelPickerAppliedSettings = { ...modelPickerSettings(), model_id: els.modelSelect.value || wantedModel };
     modelCatalogueKind = modelCatalogueKey(modelPickerSettings());
+    modelCatalogueRequested = `${modelCatalogueKind}|${wantedModel}`;
     modelCatalogueLoaded = true;
     modelSwitchError = null;
     syncModelInfo();
@@ -337,6 +418,7 @@ async function refreshModelCatalogue({ current = false } = {}) {
     if (epoch !== modelCatalogueEpoch) return;
     modelSwitchError = err.message;
     modelCatalogueLoaded = false;
+    modelCatalogueFailedAt = Date.now();
   } finally {
     if (epoch === modelCatalogueEpoch) {
       modelCataloguePending = false;

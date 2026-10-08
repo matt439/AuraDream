@@ -348,10 +348,16 @@ Model and loader:
   native/documented maxima and examples distinctly; an example never becomes
   a guaranteed maximum. Model favourites are browser preferences, canonical across Nunchaku
   weight formats, and never mutate the selected model or loader settings.
-- Unchanged status polls never reassign the native model/loader selects' values:
-  even assigning the same value can reset an open menu's highlight. Compare
-  against the last applied settings snapshot, not a transient DOM preview.
-  Catalogue replies update that snapshot; genuine revisions still synchronize.
+- The picker's selects are `appearance: base-select`, so their lists draw in
+  the page; never return them to the native popup, a separate window Chromium
+  re-anchors under a still pointer. While any picker list is open
+  (`modelListOpen()`, `:open`), the page's key handler leaves every key to it
+  (Escape closes only the list), its own value and option rebuilds (catalogue
+  replies, other tabs' favourites) wait for it to close
+  (`whenModelListsClosed`), and the closed controls still take a server
+  change at once. Options are replaced only when they differ
+  (`setModelOptions`); polls write only fields changed since the last applied
+  snapshot. A runtime id missing from its own catalogue is requested once.
 - Picker speed facts use retained `docs/verified.md` measurements at their
   recorded size and steps. Different quantization, format, offload or platform
   is visibly a reference; unmeasured variants never inherit a family timing.
@@ -3137,10 +3143,16 @@ and speed references that follow draft quantization/offload choices.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
 for an idle unloaded/error server, suppression when ready/loading/busy, no
 reopening after dismissal or later Unload, and focus/caret preservation.
-`smoke-model-hover.json` opens native dropdowns through repeated real status
-polls and checks zero redundant value writes or option replacements. It covers
-keyboard drafts, real model/loading-option changes, checkbox-only updates and
-recovery from an outdated catalogue reply. CPU tests in
+`smoke-model-hover.json` hovers a row of the open in-page model list and checks
+that its highlight, row positions and open state survive real status polls, a
+catalogue reply and another tab's favourites, with no option mutations; that
+Escape closes only the list and the held changes then land. It checks that keys
+in an open list leave the prompt check open and start no job, and that a loader
+change made elsewhere reaches the closed controls when the user then picks from
+the open list. It covers keyboard drafts, a revision or checkbox-only change
+held behind an open loader list,
+a checkpoint changed elsewhere, recovery from an outdated catalogue reply and
+an off-catalogue runtime id requested once. CPU tests in
 `test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
 and `test_api_model_switch.py` cover persistence, explicit overrides, loader
 snapshots, metadata and refusal before releasing working weights;

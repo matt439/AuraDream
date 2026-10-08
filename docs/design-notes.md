@@ -293,14 +293,30 @@ elsewhere keeps it closed. This decision is made once per page visit: later
 polls, manual Unload and a dismissed picker never reopen it. Automatic opening
 does not take focus or move the prompt caret.
 
-Status polls must not rewrite unchanged native select values. Doing that every
-three seconds reset the model menu's highlight while the pointer stayed still.
-`modelPickerAppliedSettings` records the last values installed by status or a
-catalogue reply; only changed fields or a genuine server revision are written
-again. Comparing that snapshot rather than a native menu's temporary DOM value
-preserves browsing and keyboard previews. A late catalogue reply records what it
-actually installed, so the next status can still repair an outdated selection.
-Status polling, loading progress and other-tab synchronization continue normally.
+Hovering a row in the open checkpoint list made the highlight jump a few rows,
+first up, then (after a fix that stopped polls reassigning unchanged values)
+down. That fix had the wrong cause. Chromium's source shows a same-value
+assignment never reaches an open native popup, and on any refresh its list
+re-selects the row under the last pointer position. A still pointer can only
+land on another row when the rows move: the popup is a separate window that
+Chromium re-anchors (rewritten in M154), or rows are added or removed. Page
+code cannot correct the window's placement, so the picker's selects now use
+`appearance: base-select` (Chromium 135+) and draw their lists in the page,
+where hover is plain `:hover`. Other browsers keep native lists.
+
+An in-page list moves under the pointer (and loses its focus) if its options
+are rebuilt while open, so while any picker list matches `:open` catalogue
+replies, other tabs' favourites and a status write to that list wait for it
+to close, then land. The other controls take a server change at once, so a
+checkpoint picked from the open list still sits on the new loading options.
+Its keys now reach the page, which leaves them all to the list: Escape closes
+the list rather than the picker or the prompt check, and Ctrl+Enter runs nothing. Unchanged catalogue
+replies keep the existing option nodes. `modelPickerAppliedSettings` still
+limits poll writes to fields that changed; a catalogue reply records what it
+installed, or the id it asked for when the list lacks it, so an off-catalogue
+runtime id is requested once instead of rebuilding the list on every poll.
+Edits made while a poll's own catalogue refresh is in flight are merged, not
+replaced, and a failed list retries every ten seconds while the picker is open.
 
 The speed fact uses the retained RTX 5080 records in `verified.md`, including
 the October 5 Animagine sample that the anime guide previously omitted. It
