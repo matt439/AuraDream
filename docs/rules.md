@@ -771,6 +771,12 @@ Jobs:
   then `jobs.shutdown()`, then calls `try_unload()`.
 - `save_image` writes `.png.part` and renames after the row commits, retrying
   the rename; the orphan sweep leaves `.part` files younger than an hour.
+- Full-size PNGs stay in the output root; WebP previews live in its
+  `thumbnails/` subfolder. `init_db` moves indexed legacy previews there,
+  and `thumbnail_for` does the same during PNG-only recovery. A locked legacy
+  file remains readable at its old URL; an existing destination is never
+  replaced. Deletion, disk totals and stale-partial cleanup cover both
+  locations. Read-only previews never create directories or move files.
 - The preview callback (`_step_end` -> `latent_preview`) never raises - an
   exception there is how `Cancelled` ends a job - and `jobs.on_preview` checks
   for subscribers per frame. A preview needs a matrix for the VAE and either

@@ -120,6 +120,27 @@ def test_a_dry_run_with_resume_creates_no_database(cli, store):
     assert not store.settings.db_path.exists()
 
 
+def test_a_dry_run_with_resume_does_not_move_existing_thumbnails(cli, store, capsys):
+    assert generate.main(["a fox", "--seed", "3", "--grid-steps", "6", *SIZE, "-q"]) == 0
+    record = store.list_images()[0][0]
+    png = store.settings.outputs_dir / record.filename
+    legacy = png.with_suffix(".webp")
+    thumb = png.parent / "thumbnails" / legacy.name
+    original = thumb.read_bytes()
+    thumb.rename(legacy)
+    thumb.parent.rmdir()
+    capsys.readouterr()
+
+    assert generate.main([
+        "a fox", "--seed", "3", "--grid-steps", "6,8", "--resume", "--dry-run", *SIZE,
+    ]) == 0
+
+    assert "1 cell(s) already rendered, skipping" in capsys.readouterr().out
+    assert not thumb.parent.exists()
+    assert legacy.read_bytes() == original
+    assert cli.loads == 1 and len(cli.requests) == 1
+
+
 def test_a_cli_sweep_writes_the_seeds_the_server_would(cli, store):
     # --runs 3 --batch 2 --seed 7: cells at 7, 9, 11 and images 7..12 - the
     # same six the HTTP path's test asserts for the same request.

@@ -1700,6 +1700,25 @@ fresh one may be another process mid-encode. `_migrate`'s once-per-process
 flag is keyed on the database path, so a file restored under a running
 server gets its columns again.
 
+## Thumbnails have their own directory
+
+WebP previews used to sit beside full-size PNGs, making a batch selected in
+File Explorer include both. PNG filenames, metadata and gallery ids stay the
+same; previews now live in `outputs/thumbnails/`, served by the existing
+`/outputs` static mount. `init_db` moves only previews belonging to indexed
+PNGs that still exist. `thumbnail_for` also moves them during recovery of a
+lost index, before deciding whether a new preview needs encoding.
+
+Migration preserves the thumbnail bytes, skips an existing destination and
+leaves a locked file in place for a later startup. Record reads prefer the new
+location and fall back to the old one, then to the PNG in the browser. Open
+tabs should be refreshed after restarting. Both locations participate in
+deletion and disk accounting; partial cleanup scans those two directories
+with the same one-hour age guard. Directory creation belongs to writes, so a
+clear or reindex dry run does not reorganize files.
+The CLI's Resume lookup opens its schema-checking connection directly;
+`init_db` stays after the generation dry-run guard for the same reason.
+
 ## Shutdown has to reach the sweep first
 
 **Shutdown has to reach the sweep before uvicorn drains connections.**

@@ -693,7 +693,8 @@ def main(argv: list[str] | None = None) -> int:
     # connection writes the whole schema into any file it opens - which a
     # --dry-run promises not to do. No database means nothing is done yet.
     if args.resume and p.settings.db_path.exists():
-        p.storage.init_db()
+        # The lookup's connection checks the schema. Leave output setup and
+        # thumbnail migration to init_db() below, after the dry-run guard.
         done = p.storage.completed_cells(
             p.grid.prompts_of(cells),
             request.width,

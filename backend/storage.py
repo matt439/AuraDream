@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 _write_lock = threading.Lock()
 
-# The long side of the WEBP written beside every PNG. The gallery's cards are
+# The long side of the WEBP written in outputs/thumbnails. The gallery's cards are
 # 160 px squares under 1800 px and 200-260 CSS px from there (--thumb-min's
 # clamp: 245 at 2560, 217 at 2048, 271 device px at 125%), each showing the
 # whole frame on its long side, so 384 covers a card at any shape. A sheet
@@ -52,11 +52,48 @@ PARTIAL_SETTLE_SECONDS = 3600
 
 
 def _thumb_path(path):
-    return path.with_suffix(".webp")
+    return path.parent / "thumbnails" / path.with_suffix(".webp").name
+
+
+def _thumb_files() -> list:
+    """New thumbnails and any old siblings a migration could not move."""
+    return [
+        *settings.outputs_dir.glob("*.webp"),
+        *(settings.outputs_dir / "thumbnails").glob("*.webp"),
+    ]
+
+
+def _delete_thumbnails(path) -> None:
+    _unlink(_thumb_path(path))
+    _unlink(path.with_suffix(".webp"))
+
+
+def _move_thumbnail(png) -> None:
+    """Move a known PNG's legacy thumbnail, without replacing a destination."""
+    old = png.with_suffix(".webp")
+    target = _thumb_path(png)
+    try:
+        if target.exists() or not png.is_file() or not old.is_file():
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        old.rename(target)
+    except OSError:
+        # A locked file can wait for another startup; record reads still find
+        # it in the old location. A cache failure must never cost the PNG.
+        log.warning("thumbnail %s could not be moved to thumbnails/", old.name, exc_info=True)
+
+
+def _migrate_thumbnails() -> None:
+    """Relocate indexed thumbnails at startup, leaving unrelated WebPs alone."""
+    tracked = {row["filename"] for row in _tracked_files()}
+    for old in settings.outputs_dir.glob("*.webp"):
+        png = old.with_suffix(".png")
+        if png.name in tracked:
+            _move_thumbnail(png)
 
 
 def _write_thumb(image: Image.Image, path) -> None:
-    """A small WEBP beside the PNG, for the cards and the sheet.
+    """A small WEBP in the thumbnail directory, for the cards and the sheet.
 
     Written *after* the PNG's rename, so a failed INSERT leaves no thumbnail
     for a row that never existed, and through the same `.part`-then-rename
@@ -65,6 +102,7 @@ def _write_thumb(image: Image.Image, path) -> None:
     """
     partial = path.with_name(path.name + ".part")
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         small = image.copy()
         small.thumbnail((THUMB_SIDE, THUMB_SIDE))
         small.save(partial, format="WEBP", quality=82, method=4)
@@ -222,6 +260,7 @@ def init_db() -> None:
     ensure_outputs_dir()
     with _session() as conn:
         conn.executescript(_SCHEMA)
+    _migrate_thumbnails()
 
 
 def _row_to_record(row: sqlite3.Row, refine_missing: bool = False) -> ImageRecord:
@@ -237,13 +276,15 @@ def _row_to_record(row: sqlite3.Row, refine_missing: bool = False) -> ImageRecor
     (`_missing_sources`) says so.
     """
     # Rows from before thumbnails were written have none; the client falls back
-    # to the PNG. One stat per row, cheap next to the query.
+    # to the PNG. A locked legacy thumbnail may still be beside its PNG.
     thumb = _thumb_path(settings.outputs_dir / row["filename"])
+    if not thumb.is_file():
+        thumb = (settings.outputs_dir / row["filename"]).with_suffix(".webp")
     return ImageRecord(
         id=row["id"],
         filename=row["filename"],
         url=f"/outputs/{row['filename']}",
-        thumb_url=f"/outputs/{thumb.name}" if thumb.exists() else None,
+        thumb_url=f"/outputs/{thumb.relative_to(settings.outputs_dir).as_posix()}" if thumb.is_file() else None,
         prompt=row["prompt"],
         negative_prompt=row["negative_prompt"],
         variables=json.loads(row["variables"]) if row["variables"] else None,
@@ -509,7 +550,11 @@ def _stale_partials() -> list:
     """Partials nothing can still be writing - see PARTIAL_SETTLE_SECONDS."""
     cutoff = time.time() - PARTIAL_SETTLE_SECONDS
     stale = []
-    for path in settings.outputs_dir.glob("*.part"):
+    paths = [
+        *settings.outputs_dir.glob("*.part"),
+        *(settings.outputs_dir / "thumbnails").glob("*.part"),
+    ]
+    for path in paths:
         try:
             if path.stat().st_mtime < cutoff:
                 stale.append(path)
@@ -920,7 +965,7 @@ def delete_matching(
         path = settings.outputs_dir / row["filename"]
         if path.exists() and _unlink(path):
             removed += 1
-        _unlink(_thumb_path(path))
+        _delete_thumbnails(path)
     return {"records": len(doomed), "files": removed, "ids": [row["id"] for row in doomed]}
 
 
@@ -1032,9 +1077,13 @@ def index_file(
 
 
 def thumbnail_for(image: Image.Image, filename: str) -> None:
-    """Write the WEBP beside an existing PNG, if it has none."""
-    path = _thumb_path(settings.outputs_dir / filename)
-    if not path.exists():
+    """Write the WEBP in thumbnails/ for an existing PNG, if it has none."""
+    png = settings.outputs_dir / filename
+    # A lost index has no rows for the startup migration; reindex reaches this
+    # after recovering each PNG. Move its old cache instead of duplicating it.
+    _move_thumbnail(png)
+    path = _thumb_path(png)
+    if not path.exists() and not png.with_suffix(".webp").is_file():
         _write_thumb(image, path)
 
 
@@ -1278,7 +1327,7 @@ def delete_image(image_id: int) -> bool:
     # delete that did happen into a 500. clear_history's orphan sweep collects
     # whatever gets left behind.
     _unlink(settings.outputs_dir / row["filename"])
-    _unlink(_thumb_path(settings.outputs_dir / row["filename"]))
+    _delete_thumbnails(settings.outputs_dir / row["filename"])
     return True
 
 
@@ -1305,7 +1354,7 @@ def summarise() -> dict[str, int]:
     # are read. The other order judged an image that landed in between as an
     # orphan.
     files = list(settings.outputs_dir.glob("*.png"))
-    thumbs = list(settings.outputs_dir.glob("*.webp"))
+    thumbs = _thumb_files()
     if settings.db_path.exists():
         with _session() as conn:
             total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
@@ -1362,7 +1411,7 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
         path = settings.outputs_dir / filename
         if path.exists() and _unlink(path):
             removed += 1
-        _unlink(_thumb_path(path))
+        _delete_thumbnails(path)
 
     # Anything left with no row behind it: earlier deletions, interrupted runs.
     # An image still being written is a *.png.part and matches neither glob, so
@@ -1378,8 +1427,8 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
         if path.name not in keep and _unlink(path):
             orphans += 1
     # A thumbnail whose PNG is gone - deleted above, or by hand.
-    for path in settings.outputs_dir.glob("*.webp"):
-        if not path.with_suffix(".png").exists():
+    for path in _thumb_files():
+        if not (settings.outputs_dir / path.with_suffix(".png").name).exists():
             _unlink(path)
     # Partials from a power cut or a killed process, by age - never the fresh
     # one another process may be encoding right now.

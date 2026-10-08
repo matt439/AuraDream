@@ -86,7 +86,7 @@ def test_reindex_copies_another_gallery_in(store, monkeypatch, tmp_path):
         "unresolved_references": 0,
     }
     assert (store.settings.outputs_dir / made[0].filename).exists()
-    assert (store.settings.outputs_dir / made[0].filename.replace(".png", ".webp")).exists()
+    assert (store.settings.outputs_dir / "thumbnails" / made[0].filename.replace(".png", ".webp")).exists()
     assert list(store.settings.outputs_dir.glob("*.part")) == []
     items, total, _ = store.list_images()
     assert total == 1 and items[0].prompt == "from wsl"

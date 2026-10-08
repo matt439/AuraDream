@@ -219,7 +219,13 @@ All settings are defined in [backend/config.py](backend/config.py).
 
 ## Output
 
-Images go to `outputs/`; `local-diffusion.db` indexes the gallery. Each PNG
+Full-size PNGs go to `outputs/`; gallery previews go to `outputs/thumbnails/`,
+so you can select and copy a batch of originals without the previews mixed in.
+Existing indexed thumbnails move into that subfolder on the next app startup;
+refresh any open browser tabs afterwards. To filter originals in File Explorer,
+search the output folder for `*.png`.
+
+`local-diffusion.db` indexes the gallery. Each PNG
 contains its generation settings in a `local-diffusion` JSON chunk and an
 A1111-style `parameters` block. Back up **both the PNGs and database** to retain
 favourites and timings. See [gallery maintenance](docs/usage.md#clear-or-recover-a-gallery)

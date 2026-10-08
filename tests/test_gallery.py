@@ -127,7 +127,7 @@ def test_a_grid_cells_variables_round_trip(store):
         }
 
 
-def test_save_image_writes_a_thumbnail_beside_the_png(store):
+def test_save_image_writes_a_thumbnail_in_its_own_directory(store):
     record = store.save_image(
         Image.new("RGB", (1024, 768)),
         GenerateRequest(prompt="big", width=1024, height=768),
@@ -135,8 +135,9 @@ def test_save_image_writes_a_thumbnail_beside_the_png(store):
         duration_ms=100,
         model_id="test/model",
     )
-    thumb = store.settings.outputs_dir / record.filename.replace(".png", ".webp")
-    assert record.thumb_url == f"/outputs/{thumb.name}"
+    thumb = store.settings.outputs_dir / "thumbnails" / record.filename.replace(".png", ".webp")
+    assert record.thumb_url == f"/outputs/thumbnails/{thumb.name}"
+    assert not list(store.settings.outputs_dir.glob("*.webp"))
     with Image.open(thumb) as small:
         assert small.format == "WEBP"
         assert max(small.size) == store.THUMB_SIDE
@@ -149,7 +150,7 @@ def test_save_image_writes_a_thumbnail_beside_the_png(store):
 
 def test_deleting_an_image_takes_its_thumbnail(store):
     record = _add(store, "gone")
-    thumb = store.settings.outputs_dir / record.filename.replace(".png", ".webp")
+    thumb = store.settings.outputs_dir / "thumbnails" / record.filename.replace(".png", ".webp")
     assert thumb.exists()
     assert store.delete_image(record.id)
     assert not thumb.exists()
@@ -257,8 +258,8 @@ def test_clear_history_keeps_favorites_and_their_files(store):
     assert store.summarise()["records"] == 1
     # Thumbnails follow their PNGs both ways.
     outputs = store.settings.outputs_dir
-    assert (outputs / kept.filename.replace(".png", ".webp")).exists()
-    assert not (outputs / gone.filename.replace(".png", ".webp")).exists()
+    assert (outputs / "thumbnails" / kept.filename.replace(".png", ".webp")).exists()
+    assert not (outputs / "thumbnails" / gone.filename.replace(".png", ".webp")).exists()
 
 
 def test_clear_history_sweeps_orphans_but_not_partials(store):
