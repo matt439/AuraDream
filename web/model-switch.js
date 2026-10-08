@@ -202,9 +202,9 @@ function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
     modelFactCell('Style', info.style),
     modelFactCell('Refine', info.refine, '', info.refine_note),
     modelFactCell('Size', info.megapixels, info.megapixels_label, info.megapixels_note),
-    // A timing from another setup is a reference, not this setup's category.
+    // Only a category timed with these options reads at full strength.
     modelFactCell('Speed', info.speed_label || 'Unmeasured', speedDetail, info.speed_note,
-      { muted: !!info.speed_basis?.startsWith('timed ') }),
+      { muted: !['Fast', 'Medium', 'Slow'].includes(info.speed_label) }),
   );
   row.append(star, choice);
   if (info.url) {

@@ -311,7 +311,8 @@ A review of the table (2026-10-09) found it hard to read past the first
 screen and hard to use without a mouse. The changes:
 - The column names scrolled away after one wheel step, leaving 14 rows of
   bare values. The heading row is sticky in the picker body; its offset takes
-  back the body's padding.
+  back the body's padding, and the body's `scroll-padding-top` keeps a row
+  the arrow keys reach from scrolling in under it.
 - Nothing marked the server's checkpoint, so after another row was chosen the
   loaded one looked like the rest. Its row now carries `data-state` and a dot
   and a word (Loaded, Loading…, Load failed, Current). They sit on the name
@@ -336,10 +337,12 @@ screen and hard to use without a mouse. The changes:
   gallery's All models tick means something else.
 - The section is named Models after its opener. The Checkpoint heading names
   only the radiogroup. The model link says it opens a new tab.
-- A Reference or Unmeasured timing from another setup reads muted.
+- A Reference or Unmeasured speed reads muted; only a category timed with
+  these loading options reads at full strength.
 - The Nunchaku format list said which card each format is for only in its
   options' titles. A line under it now lists both ("NVFP4: RTX 50
-  (Blackwell); INT4: RTX 20 to 40") and describes the select.
+  (Blackwell); INT4: RTX 20 to 40") and describes the select. It sits
+  outside the select's label, which would otherwise add it to the name too.
 - From 1800 px the picker grows with the wide tier's type, to 1200 px, so the
   Speed basis no longer wraps to three lines.
 - The picker's rules moved to `styles/model-picker.css`, linked right after

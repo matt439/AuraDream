@@ -19,6 +19,9 @@
 .model-picker-body {
   display: grid; gap: var(--sp-3); padding: var(--panel-pad);
   min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  /* A row the arrow keys reach scrolls in below the sticky heading row
+     (one line and its padding), never under it. */
+  scroll-padding-top: calc(var(--fs-body-sm) * var(--lh) + 3 * var(--sp-1));
 }
 .model-picker-heading, .model-loader-options label, .model-format { font-weight: 600; }
 .model-picker select {

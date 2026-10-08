@@ -375,7 +375,8 @@ Model and loader:
   roving tab stop (`syncModelTabStops`): the checked row's, else the first
   row's, plus the row holding the focus. Each radio's `aria-describedby`
   points at a hidden span of its cells' notes; a favourite's hidden prefix
-  follows `modelTableGrouping`. The heading row is sticky in the picker body.
+  follows `modelTableGrouping`. The heading row is sticky in the picker body,
+  whose `scroll-padding-top` keeps a focused row out from under it.
 - The loader selects are `appearance: base-select`, so their lists draw in
   the page; never return them to the native popup, a separate window Chromium
   re-anchors under a still pointer. While any picker list is open
@@ -3282,7 +3283,8 @@ label and note, radio descriptions holding the notes, muted timings from
 another setup, the Size header and its titles, the Models section name, the
 new-tab link label, the Favourite prefix following the grouping, one row's
 star and link as tab stops (Tab from the radio reaches its link, then the
-startup checkbox) and the sticky heading row.
+startup checkbox) and the sticky heading row, with a focused row scrolled
+in below it.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
 for an idle unloaded/error server, with every model's row and facts shown,
 suppression when ready/loading/busy, no reopening after dismissal or later
