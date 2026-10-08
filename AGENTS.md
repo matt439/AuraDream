@@ -6,7 +6,7 @@ frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**
 Turbo** (`krea/Krea-2-Turbo`) needs manual approval on HuggingFace and is what
 the sizing notes in `docs/design-notes.md` are written around. The catalogue
 in `backend/launch.py` lists the rest; any of them runs unchanged - set
-`LOCAL_DIFFUSION_MODEL_ID`, or answer the start-up menu.
+`LOCAL_DIFFUSION_MODEL_ID`, or choose in the browser's Models panel.
 
 This file is the short version. Before changing an area, read its part of
 **`docs/rules.md`** (every rule in full, the module map, what each smoke
@@ -17,8 +17,9 @@ wrong before). `docs/verified.md` lists what has been measured on the card.
 ## Run
 
 ```powershell
-uv run python -m backend.main      # http://127.0.0.1:7860; bare on a terminal, asks
-uv run python -m backend.main --defaults   # LOCAL_DIFFUSION_* as set, no questions
+uv run python -m backend.main      # http://127.0.0.1:7860; restores saved browser choices
+uv run python -m backend.main --defaults   # ignore saved choices; environment/defaults
+uv run python -m backend.main --menu       # optional terminal picker
 uv run --group dev pytest          # no GPU, no weights, about a minute
 ```
 
@@ -27,10 +28,13 @@ bash wsl/setup.sh                  # WSL 2, once: Linux venv + CUDA check
 source wsl/env.sh && bash wsl/serve.sh   # 4-bit Nunchaku, same URL
 ```
 
-The model is *not* loaded at startup. The first `POST /api/generate` (or
+The model is *not* loaded at startup unless **Load automatically on startup**
+was saved (or `LOCAL_DIFFUSION_PRELOAD=true`). The first `POST /api/generate` (or
 `POST /api/model/load`) triggers a load that takes a few minutes.
-**Models > Switch & load** changes checkpoint while idle without restarting;
-quantization/offload and the next launch's selection remain startup choices.
+**Models** changes checkpoint, quantization and offload while idle without
+restarting. **Apply & save** selects without loading changed weights;
+**Switch & load** loads too. Both save the choices beside the gallery database
+in `local-diffusion.settings.json`; explicit environment/flags override them.
 
 ## Layout
 
@@ -38,8 +42,11 @@ Backend (`backend/`):
 
 - `config.py` settings (`LOCAL_DIFFUSION_*`); `launch.py` start-up menu,
   `--model/--quant/--offload`, the checkpoint catalogue
-- `model_selection.py` current server checkpoint/revision, separate from frozen
-  startup settings; runtime readers use `current_model_id(settings)`
+- `model_selection.py` current server checkpoint/loading options/revision,
+  separate from frozen startup settings; runtime readers use
+  `current_model_id(settings)` / `current_settings(settings)`;
+  `startup_preferences.py` atomically saves loader/startup choices;
+  `model_info.py` supplies cold catalogue details from existing sourced guides
 - `schemas.py` request/response models; `model_defaults.py` per-checkpoint
   profiles; `guides.py` each checkpoint's sourced prompting guide and its
   `analysis` data

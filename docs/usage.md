@@ -10,8 +10,11 @@ choose a checkpoint; [verified.md](verified.md) records measured performance.
 needed. First use may download weights or convert a checkpoint, taking several
 minutes. **Unload** releases the image weights and prompt helpers.
 
-Choose **Models**, select a checkpoint and press **Switch & load** to change
-models without restarting the server or closing the page. Finish or cancel the
+The server starts without asking questions in the terminal. Choose **Models**,
+select a checkpoint, quantization and offload, and press **Switch & load** to
+apply them without restarting the server or closing the page. Expand **About
+this model** for its access requirements, app defaults, prompting notes, size
+guidance and model-card link. Finish or cancel the
 image queue first, including paused jobs, and wait for any current load, prompt
 check, critic or Expand request to finish. The old weights are released before
 the selected checkpoint loads. A failed load shows its reason and **Retry load**;
@@ -24,10 +27,18 @@ Reopen an existing Refine dialog after a switch to use the new schedule. Retry
 and Resume for an earlier submission require switching back to its checkpoint.
 Other open tabs follow the server's selection too.
 
-The list uses the server's current quantization mode; Nunchaku keeps its startup
-weight format and offers its mapped checkpoints on Linux. Quantization and
-offload changes require a restart. The browser's choice lasts for this server
-session; the next launch uses the menu, flags or environment again.
+**Apply & save** applies changed settings without loading their weights. Saving
+only the startup preference leaves an already loaded model in place. Both
+buttons remember the model and loading options on the server for next time.
+Check **Load automatically on startup** to load them when the server starts;
+leave it unchecked to load only when you press Load, Switch & load or Generate.
+The checkbox takes effect after pressing either save button.
+
+The list follows the chosen quantization. Nunchaku offers its mapped checkpoints
+and an nvfp4/int4 weight format on Linux/WSL. Explicit launch flags and environment
+variables override remembered settings; `--defaults` ignores the saved file and
+`--menu` opens the optional terminal picker. The preference file is
+`local-diffusion.settings.json`, beside the gallery database.
 
 ## Generate and manage jobs
 

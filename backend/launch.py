@@ -1,22 +1,14 @@
 """Choose the checkpoint, quantization and offload before the settings freeze.
 
-`settings` (backend/config.py) is a frozen dataclass whose fields are read from
-the LOCAL_DIFFUSION_* variables at import time, so anything that wants a say in them - a
-command-line flag, or the menu the server shows when it is started bare - has
-to write os.environ *before* backend.config is imported. This module is that
-step. It imports nothing from the package but model_defaults, and both entry
-points (`backend.main`, `backend.generate`) run it before anything else.
+`settings` (backend/config.py) reads LOCAL_DIFFUSION_* at import time, so the
+server launcher restores browser preferences and applies flags before config
+is imported. Explicit environment values override remembered preferences,
+and flags override both. A bare launch opens the server without any questions;
+the browser owns normal setup. `--defaults` skips remembered preferences.
 
-The rule for the server: started with **no arguments** on a terminal, it asks.
-Any argument at all - `--model`, `--quant`, `--offload`, or `--defaults` - means
-the caller has decided, and whatever they did not name comes from the
-environment exactly as before. A service file, a script, or `wsl/serve.sh`
-(which forwards its arguments) is therefore never blocked on a prompt, and
-neither is a run whose stdin is not a terminal.
-
-The menu's defaults are the environment's values, so `wsl/env.sh`, which sets
-LOCAL_DIFFUSION_QUANT=nunchaku and a lite-infer checkpoint, still gets what it asked for
-on a bare Enter.
+`--menu` retains the optional terminal picker. It uses the resolved settings
+as its defaults, including `wsl/env.sh`'s explicit Nunchaku choices. The CLI
+shares the model flags but does not restore browser preferences.
 """
 from __future__ import annotations
 
@@ -28,6 +20,7 @@ from dataclasses import dataclass
 from typing import TextIO
 
 from backend.model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT, defaults_for
+from backend.startup_preferences import apply_saved_environment
 
 QUANTIZATIONS: tuple[tuple[str, str], ...] = (
     ("fp8", "torchao float8 weight-only; ~13 GB peak, fits a 16 GB card"),
@@ -256,30 +249,33 @@ def configure(
 ) -> Choice | None:
     """Settle the LOCAL_DIFFUSION_* model variables for a server start.
 
-    Returns the menu's choice when the menu ran, else None. `argv` defaults to
-    the process's own; `interactive` to whether stdin and stdout are terminals.
+    Returns the optional menu's choice, else None. `interactive` remains an
+    accepted compatibility argument; only an explicit --menu can ask questions.
     """
     if argv is None:
         argv = sys.argv[1:]
     parser = argparse.ArgumentParser(
         prog="python -m backend.main",
-        description="Serve the generator. With no arguments on a terminal, asks which "
-        "checkpoint, quantization and offload to use; any argument skips the menu "
-        "and what it does not name comes from LOCAL_DIFFUSION_* variables.",
+        description="Serve the generator without terminal questions. Restore the "
+        "browser's saved settings; LOCAL_DIFFUSION_* and command-line flags override them.",
     )
     add_model_arguments(parser)
     parser.add_argument(
         "--defaults",
         action="store_true",
-        help="start with the environment's settings without asking",
+        help="ignore saved browser settings; use environment and built-in defaults",
     )
+    parser.add_argument("--menu", action="store_true", help="use the optional terminal settings menu")
     args = parser.parse_args(argv)
-    if argv:
-        apply_env(args)
-        return None
-    if interactive is None:
-        interactive = sys.stdin.isatty() and sys.stdout.isatty()
-    if not interactive:
+    if not args.defaults:
+        apply_saved_environment()
+    apply_env(args)
+    # The Linux browser can choose Nunchaku later, after diffusers has already
+    # read this flag at import. Its loader still requires an explicit supported
+    # Nunchaku choice; retain an operator's explicit false.
+    if sys.platform == "linux":
+        os.environ.setdefault("DIFFUSERS_TRUST_REMOTE_KERNELS", "true")
+    if not args.menu:
         return None
     choice = prompt(ask=ask, out=out or sys.stdout)
     os.environ.update(choice.environ())
@@ -384,8 +380,8 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: 
     current_checkpoint, current_fmt = _match(current_model)
 
     out.write(
-        "Local Diffusion. Enter keeps the marked default; any argument "
-        "(--model, --quant, --offload, --defaults) skips this menu.\n"
+        "Local Diffusion. Enter keeps the marked default. Omit --menu next "
+        "time to choose settings in the browser.\n"
     )
 
     # Quantization first: it decides which family of repos the checkpoint list

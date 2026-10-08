@@ -17,17 +17,18 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 # Run as `python -m backend.main`, settle the checkpoint before `.config`
-# freezes it: the terminal menu when there are no arguments, the
-# --model/--quant/--offload flags otherwise. Imported by uvicorn or the tests
+# freezes it: remembered browser choices, overridden by environment and
+# --model/--quant/--offload flags. Imported by uvicorn or the tests
 # instead, this does nothing and the environment stands as it is.
 if __name__ == "__main__":
     from .launch import configure
 
     configure()
 
-from . import api_gallery, api_jobs, grid, loras, model_selection, prompt_encoding, prompt_rules, storage  # noqa: E402
+from . import api_gallery, api_jobs, grid, loras, model_selection, prompt_encoding, prompt_rules, startup_preferences, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
-from .model_selection import current_model_id  # noqa: E402
+from .model_selection import current_model_id, current_settings  # noqa: E402
+from .model_info import details_for  # noqa: E402
 from .config import settings  # noqa: E402
 from .critic import CriticError, CriticUnavailable, prompt_critic  # noqa: E402
 from .jobs import BackendBusy, JobManager, LoadFailed, short_error  # noqa: E402
@@ -86,6 +87,7 @@ _load_lock = asyncio.Lock()
 _switching = False
 _switch_task: asyncio.Task | None = None
 _model_requests = 0
+_startup_preload: bool | None = None
 
 # When this process started. A page that sees it change knows the server it
 # was talking to went away - and every job with it - which nothing else in a
@@ -160,7 +162,7 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
     if kind == "RepositoryNotFoundError":
         return (
             f"{hub_repo} is not on Hugging Face, or is private: check the checkpoint id "
-            "(LOCAL_DIFFUSION_MODEL_ID, or the start-up menu); for a private repo, "
+            "(Models in the browser, or LOCAL_DIFFUSION_MODEL_ID); for a private repo, "
             f"{login} that can read it, then press Retry load.",
             "not_found",
             page,
@@ -443,6 +445,8 @@ async def status() -> ModelStatus:
         model_id=info["model_id"],
         quantization=info["quantization"],
         offload=info["offload"],
+        format=model_selection.format_for(settings),
+        load_on_startup=_load_on_startup(),
         detail=_load_state["detail"],
         # Only beside the detail they describe: every other update of the
         # state clears the detail and leaves these behind.
@@ -822,15 +826,33 @@ async def load_model() -> ModelStatus:
 
 
 @app.get("/api/models")
-async def list_models() -> dict:
+async def list_models(
+    quantization: str | None = None, format: str | None = None,
+) -> dict:
+    options = model_selection.options(settings)
+    if quantization is not None and quantization not in {o["value"] for o in options["quantizations"]}:
+        raise HTTPException(status_code=422, detail="choose a quantization available on this server")
+    if format is not None and format not in {o["value"] for o in options["formats"]}:
+        raise HTTPException(status_code=422, detail="choose a supported Nunchaku format")
+    current = current_settings(settings)
+    models = model_selection.available(settings, quantization=quantization, format=format)
     return {
-        "models": model_selection.available(settings),
-        "quantization": settings.quantization,
-        "offload": settings.offload,
+        "models": models,
+        "details": {model["model_id"]: details_for(model["model_id"]) for model in models},
+        "model_id": current.model_id,
+        "quantization": current.quantization,
+        "offload": current.offload,
+        "format": model_selection.format_for(settings),
+        "load_on_startup": _load_on_startup(),
+        **options,
     }
 
 
-async def _switch_model(model_id: str) -> None:
+def _load_on_startup() -> bool:
+    return settings.load_on_startup if _startup_preload is None else _startup_preload
+
+
+async def _switch_model(target, *, load: bool) -> None:
     """Own the whole transition even if the requesting browser disconnects."""
     global _switching
     try:
@@ -843,10 +865,13 @@ async def _switch_model(model_id: str) -> None:
             # process that may still hold the card.
             await asyncio.to_thread(prompt_critic.unload)
             await asyncio.to_thread(prompt_encoding.unload)
-            model_selection.select(model_id)
-            _load_state.update(state="loading", detail=None)
+            model_selection.select(
+                target.model_id, quantization=target.quantization, offload=target.offload,
+            )
+            _load_state.update(state="loading" if load else "unloaded", detail=None)
         # The only weight-loading path, retaining load-lock -> gate ordering.
-        await ensure_loaded()
+        if load:
+            await ensure_loaded()
     except LoadFailed:
         pass  # ensure_loaded already preserved the actionable failure.
     except Exception as exc:
@@ -860,14 +885,19 @@ async def _switch_model(model_id: str) -> None:
 
 @app.post("/api/model/switch", response_model=ModelStatus)
 async def switch_model(request: ModelSwitchRequest, http_request: Request) -> ModelStatus:
-    global _switching, _switch_task
+    global _switching, _switch_task, _startup_preload
     # Unlike model readers this route is not counted while its body arrives.
     # Another switch can finish after the middleware's revision check.
     expected = http_request.headers.get("x-local-diffusion-model-revision")
     if expected is not None and int(expected) != model_selection.revision():
         raise HTTPException(status_code=409, detail="the checkpoint changed; refresh its settings before trying again")
-    if request.model_id not in {m["model_id"] for m in model_selection.available(settings)}:
-        raise HTTPException(status_code=422, detail="choose a checkpoint from this server's model list")
+    try:
+        target = model_selection.validate(
+            settings, request.model_id, quantization=request.quantization,
+            offload=request.offload, format=request.format,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if _switching:
         raise HTTPException(status_code=409, detail="the checkpoint is switching; wait for the switch to finish")
     if _load_lock.locked() or _load_state["state"] == "loading":
@@ -879,12 +909,30 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
         raise HTTPException(status_code=409, detail=f"{holder} is using the card; wait before switching")
     if _model_requests:
         raise HTTPException(status_code=409, detail="another model request is in progress; wait for it to finish before switching")
-    if request.model_id == current_model_id(settings):
-        return await load_model()
     # Admission and reservation happen without an await, so no submission can
     # enter between the idle check and the background task's first instruction.
     _switching = True
-    _switch_task = asyncio.create_task(_switch_model(request.model_id))
+    preload = _load_on_startup() if request.load_on_startup is None else request.load_on_startup
+    try:
+        # Save before releasing working weights: a disk error must be visible
+        # to the browser, and must leave both current and previous settings intact.
+        startup_preferences.save(settings.db_path,
+            startup_preferences.StartupPreferences(
+                model_id=target.model_id, quantization=target.quantization,
+                offload=target.offload, load_on_startup=preload,
+            ))
+    except Exception as exc:
+        _switching = False
+        log.error("could not save startup settings: %s", short_error(exc))
+        raise HTTPException(status_code=500, detail=f"Could not save startup settings: {short_error(exc)}") from exc
+    _startup_preload = preload
+    current = current_settings(settings)
+    if (target.model_id, target.quantization, target.offload) == (
+        current.model_id, current.quantization, current.offload,
+    ):
+        _switching = False
+        return await load_model() if request.load else await status()
+    _switch_task = asyncio.create_task(_switch_model(target, load=request.load))
     return await status()
 
 
@@ -1499,7 +1547,7 @@ async def _expand(request: GridRequest) -> tuple[list[grid.Cell], dict[str, list
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
-    run_id = grid.run_id(cells, current_model_id(settings), settings.quantization)
+    run_id = grid.run_id(cells, current_model_id(settings), current_settings(settings).quantization)
     if not request.resume:
         return cells, values, 0, run_id
     kept = await _not_yet_rendered(cells, request.width, request.height)
@@ -1520,7 +1568,7 @@ async def _not_yet_rendered(cells: list[grid.Cell], width: int, height: int) -> 
         width,
         height,
         current_model_id(settings),
-        settings.quantization,
+        current_settings(settings).quantization,
     )
     return [
         cell
@@ -1661,14 +1709,14 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
             cell.request.check_refine_steps()
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    run_id = grid.run_id(cells, current_model_id(settings), settings.quantization)
+    run_id = grid.run_id(cells, current_model_id(settings), current_settings(settings).quantization)
     done = await asyncio.to_thread(
         storage.completed_cells,
         grid.prompts_of(cells),
         request.width,
         request.height,
         current_model_id(settings),
-        settings.quantization,
+        current_settings(settings).quantization,
     )
     kept = [
         cell

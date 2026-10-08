@@ -27,7 +27,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from .. import latent_preview, loras, refine
-from ..model_selection import current_model_id
+from ..model_selection import current_model_id, current_settings
 from ..config import settings
 from ..model_defaults import defaults_for
 from ..seeds import wrap_seed
@@ -102,7 +102,8 @@ class DiffusersBackend(GenerationBackend):
         with self._lock, ExitStack() as held:
             if self._pipe is not None:
                 return
-            checkpoint_id = current_model_id(settings)
+            selected = current_settings(settings)
+            checkpoint_id = selected.model_id
             # No meta-device build beside the load (`loading.weights_loading`):
             # the adapter fit's patches every module's parameters process-wide.
             # The conversions below run inside the hold.
@@ -115,7 +116,7 @@ class DiffusersBackend(GenerationBackend):
             # `LOCAL_DIFFUSION_DEVICE=cpu` sailed past it and died after the download in
             # `enable_model_cpu_offload` with a message naming neither variable.
             needs_cuda = (
-                settings.offload != "none" or torch.device(settings.device).type == "cuda"
+                selected.offload != "none" or torch.device(selected.device).type == "cuda"
             )
             if needs_cuda and not torch.cuda.is_available():
                 raise RuntimeError(
@@ -125,15 +126,15 @@ class DiffusersBackend(GenerationBackend):
 
             # DiffusionPipeline resolves the concrete class from model_index.json,
             # so this works for Krea2Pipeline, FluxPipeline, and anything else.
-            log.info("loading %s (quant=%s)", checkpoint_id, settings.quantization)
+            log.info("loading %s (quant=%s)", checkpoint_id, selected.quantization)
             # Single-file catalogue entries are converted once on CPU. Keep
             # the official id in settings, status and saved reproduction data.
-            source_id = anima_loading.resolve_model(checkpoint_id, settings.quantization)
-            source_id = netayume_loading.resolve_model(source_id, settings.quantization)
-            source_id = newbie_loading.resolve_model(source_id, settings.quantization)
-            source_id = single_file.resolve_model(source_id, settings.quantization)
-            model_id = loading.resolve_model(source_id, quantization=settings.quantization)
-            load_settings = replace(settings, model_id=model_id)
+            source_id = anima_loading.resolve_model(checkpoint_id, selected.quantization)
+            source_id = netayume_loading.resolve_model(source_id, selected.quantization)
+            source_id = newbie_loading.resolve_model(source_id, selected.quantization)
+            source_id = single_file.resolve_model(source_id, selected.quantization)
+            model_id = loading.resolve_model(source_id, quantization=selected.quantization)
+            load_settings = replace(selected, model_id=model_id)
             kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
             quant = loading.quantization_config(load_settings)
             if quant is not None:
@@ -165,7 +166,7 @@ class DiffusersBackend(GenerationBackend):
             pipe = loader.from_pretrained(model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 
-            loading.place_pipeline(pipe, settings)
+            loading.place_pipeline(pipe, selected)
 
             # VAE decode at 2K is the other memory spike; slice and tile it. Most
             # pipelines expose the switches themselves; FLUX.2 klein's does not,
@@ -229,7 +230,7 @@ class DiffusersBackend(GenerationBackend):
                 # The offload chain was built while PE was absent. Rebuild it
                 # so invoking pe.generate moves that model to the chosen card
                 # and back just like the image pipeline's other components.
-                loading.place_pipeline(pipe, settings)
+                loading.place_pipeline(pipe, current_settings(settings))
             try:
                 expanded = enhance(prompt, pipe._execution_device, width=width, height=height)
             finally:
@@ -422,7 +423,7 @@ class DiffusersBackend(GenerationBackend):
         `nn.Linear` at all - so it is refused the way `loading.nunchaku_preflight`
         refuses, up front and by name, rather than at the first cell.
         """
-        if settings.quantization == loading.NUNCHAKU:
+        if current_settings(settings).quantization == loading.NUNCHAKU:
             return (
                 "LOCAL_DIFFUSION_QUANT=nunchaku loads a checkpoint that is already quantized to "
                 "4-bit SVDQuant, whose linear layers are not the ones a LoRA attaches "
@@ -821,10 +822,11 @@ class DiffusersBackend(GenerationBackend):
         return 1.0
 
     def describe(self) -> dict:
+        selected = current_settings(settings)
         info: dict[str, Any] = {
-            "model_id": current_model_id(settings),
-            "quantization": settings.quantization,
-            "offload": settings.offload,
+            "model_id": selected.model_id,
+            "quantization": selected.quantization,
+            "offload": selected.offload,
             "cfg_threshold": self.cfg_threshold(),
             "mu_supported": self._mu_supported(self._pipe) if self._pipe is not None else None,
             # None until loaded, like the threshold: the parameter list is the answer.
@@ -848,8 +850,8 @@ class DiffusersBackend(GenerationBackend):
             # The card the weights are on, not GPU 0: with offload the
             # components live on `LOCAL_DIFFUSION_DEVICE` between moves, and a status
             # line reporting another card's memory hides a dropped setting.
-            device = torch.device(settings.device)
-            if torch.cuda.is_available() and (device.type == "cuda" or settings.offload != "none"):
+            device = torch.device(selected.device)
+            if torch.cuda.is_available() and (device.type == "cuda" or selected.offload != "none"):
                 index = device.index if device.type == "cuda" and device.index is not None else 0
                 free, total = torch.cuda.mem_get_info(index)
                 info["device_name"] = torch.cuda.get_device_name(index)

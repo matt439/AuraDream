@@ -13,7 +13,7 @@ import pytest
 import httpx
 from PIL import Image
 
-from backend import main, model_selection
+from backend import main, model_selection, startup_preferences
 from backend.model_defaults import defaults_for, guide_for
 from backend.schemas import PromptGuide
 from tests.api_helpers import ORIGIN, run_one, stream_job, wait_for
@@ -59,6 +59,95 @@ def test_model_inventory_uses_catalogue_labels_and_current_loading_options(clien
         status["quantization"], status["offload"],
     )
     assert fake.loads == 0  # Listing the choices is cold.
+
+
+def test_catalogue_details_describe_unloaded_choices_without_changing_model(client, fake):
+    initial = client.get("/api/status").json()
+    body = client.get("/api/models?quantization=int8").json()
+    assert set(body["details"]) == {entry["model_id"] for entry in body["models"]}
+    anime = body["details"][ANIMAGINE]
+    assert anime["prompt"] == main.hints_for(ANIMAGINE)["prompt"]
+    assert anime["size"] == main.hints_for(ANIMAGINE)["size"]
+    assert anime["url"] == f"https://huggingface.co/{ANIMAGINE}"
+    assert "28 steps" in anime["sampling"]
+    assert client.get("/api/status").json()["model_revision"] == initial["model_revision"]
+    assert fake.loads == 0
+
+
+def test_save_without_load_and_preload_toggle_preserve_the_selected_settings(client, fake):
+    initial = client.get("/api/status").json()
+    reply = client.post("/api/model/switch", json={
+        "model_id": ANIMAGINE, "quantization": "int8", "offload": "sequential",
+        "load": False, "load_on_startup": True,
+    })
+    assert reply.status_code == 200, reply.text
+    selected = _settled(client, ANIMAGINE, "unloaded")
+    assert (selected["quantization"], selected["offload"], selected["load_on_startup"]) == (
+        "int8", "sequential", True,
+    )
+    assert fake.loads == 0 and not fake.loaded
+    assert main.settings.quantization == initial["quantization"]  # Frozen startup is unchanged.
+    saved = startup_preferences.load(main.settings.db_path)
+    assert saved == startup_preferences.StartupPreferences(ANIMAGINE, "int8", "sequential", True)
+    assert client.post("/api/model/load").status_code == 200
+    _settled(client, ANIMAGINE)
+    loads = fake.loads
+    reply = client.post("/api/model/switch", json={
+        "model_id": ANIMAGINE, "load": False, "load_on_startup": False,
+    })
+    assert reply.status_code == 200
+    assert reply.json()["state"] == "ready" and not reply.json()["load_on_startup"]
+    assert reply.json()["model_revision"] == selected["model_revision"]
+    assert fake.loads == loads and fake.loaded
+    assert not startup_preferences.load(main.settings.db_path).load_on_startup
+
+
+def test_same_checkpoint_new_quantization_reloads_and_records_actual_quantizer(client, fake, store):
+    initial = client.get("/api/status").json()
+    _, before = run_one(client, seed=41, steps=2)
+    reply = client.post("/api/model/switch", json={
+        "model_id": initial["model_id"], "quantization": "int8", "offload": "none",
+    })
+    assert reply.status_code == 200
+    changed = _settled(client, initial["model_id"])
+    assert changed["model_revision"] == initial["model_revision"] + 1
+    assert (changed["quantization"], changed["offload"]) == ("int8", "none")
+    _, after = run_one(client, seed=41, steps=2)
+    first, last = before[-1]["images"][0], after[-1]["images"][0]
+    assert first["run_id"] != last["run_id"]
+    assert last["quantization"] == "int8"
+    with Image.open(store.settings.outputs_dir / last["filename"]) as image:
+        assert json.loads(image.info["local-diffusion"])["quantization"] == "int8"
+    assert fake.loads == 1
+
+
+def test_failed_save_leaves_working_weights_and_previous_preferences(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    previous = startup_preferences.StartupPreferences(initial["model_id"], "fp8", "model", False)
+    startup_preferences.save(main.settings.db_path, previous)
+
+    def refuse(*args):
+        raise OSError("disk is full")
+
+    monkeypatch.setattr(startup_preferences, "save", refuse)
+    reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE, "load_on_startup": True})
+    assert reply.status_code == 500 and "disk is full" in reply.json()["detail"]
+    current = client.get("/api/status").json()
+    assert current["model_id"] == initial["model_id"]
+    assert current["model_revision"] == initial["model_revision"]
+    assert not current["switching"] and not current["load_on_startup"]
+    assert fake.loaded and fake.loads == 0
+    assert startup_preferences.load(main.settings.db_path) == previous
+
+
+@pytest.mark.parametrize("changes", [
+    {"quantization": "garbage"}, {"offload": "garbage"}, {"format": "garbage"},
+])
+def test_invalid_loader_settings_never_replace_saved_selection(client, fake, changes):
+    reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE, **changes})
+    assert reply.status_code == 422
+    assert fake.loaded and fake.loads == 0
+    assert startup_preferences.load(main.settings.db_path) is None
 
 
 def test_switch_updates_defaults_saved_metadata_and_exact_gallery_scope(client, fake, store):

@@ -34,8 +34,21 @@
   <section class="model-picker" id="model-picker" aria-labelledby="model-picker-label" hidden>
     <label id="model-picker-label" for="model-select">Checkpoint</label>
     <select id="model-select" autocomplete="off" aria-describedby="model-picker-help model-picker-note"></select>
-    <p id="model-picker-help">Switching frees the current weights and loads the selected checkpoint. Your prompt stays here.</p>
-    <button class="primary" id="btn-model-switch" aria-disabled="true" title="Choose a different checkpoint">Switch &amp; load</button>
+    <details class="model-info" id="model-info" hidden>
+      <summary id="model-info-summary">About this model</summary>
+      <div id="model-info-body"></div>
+    </details>
+    <div class="model-loader-options">
+      <label for="model-quantization">Quantization<select id="model-quantization" autocomplete="off"></select></label>
+      <label for="model-offload">Offload<select id="model-offload" autocomplete="off"></select></label>
+    </div>
+    <label class="model-format" id="model-format-field" for="model-format" hidden>Nunchaku format<select id="model-format" autocomplete="off"></select></label>
+    <label class="check model-startup"><input type="checkbox" id="model-load-on-startup"> Load automatically on startup</label>
+    <p id="model-picker-help">Both actions save these settings for next time. Apply &amp; save leaves a changed selection unloaded; Switch &amp; load loads it now. Your prompt stays here.</p>
+    <div class="model-actions">
+      <button class="ghost" id="btn-model-save" aria-disabled="true" title="The checkpoint list is still loading">Apply &amp; save</button>
+      <button class="primary" id="btn-model-switch" aria-disabled="true" title="The checkpoint list is still loading">Switch &amp; load</button>
+    </div>
     <p id="model-picker-note" role="status"></p>
   </section>
   <!-- Shown while nothing is loaded, or after a failed load (as Retry load):

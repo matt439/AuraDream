@@ -35,8 +35,9 @@ uv run hf auth login
 uv run python -m backend.main
 ```
 
-The terminal menu selects the checkpoint, quantization and offload mode.
-Open **<http://127.0.0.1:7860>**, enter a prompt, choose a size and press
+The server starts without terminal questions and restores your saved choices.
+Open **<http://127.0.0.1:7860>**, choose a checkpoint and loading settings under
+**Models**, then enter a prompt, choose a size and press
 **Generate**. Steps, CFG and Mu start at the selected checkpoint's defaults.
 The first generation downloads and loads the weights, which can take several
 minutes; later loads reuse the cache. Starting the server alone does not load
@@ -49,21 +50,27 @@ uv run python -m backend.main --model cagliostrolab/animagine-xl-4.0
 uv run python -m backend.main --model Minthy/RouWei-0.8   # epsilon release
 uv run python -m backend.main --model Laxhar/noobai-XL-Vpred-1.0
 uv run python -m backend.main --model circlestone-labs/Anima@aesthetic-v1.1
-uv run python -m backend.main --defaults   # use environment/defaults without the menu
+uv run python -m backend.main --defaults   # ignore saved browser choices
+uv run python -m backend.main --menu       # optional terminal picker
 uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8 --offload model
 ```
 
 Krea 2 Turbo and Raw require **manual approval** on their Hugging Face pages.
-Any launch argument skips the menu; omitted settings come from the environment.
-Non-interactive launches never ask. To change checkpoints while the server stays
-open, choose **Models**, select a checkpoint and press **Switch & load**. Finish
+Explicit flags override environment values, which override saved browser choices;
+otherwise the app uses its defaults. To change checkpoints while the server stays
+open, choose **Models**, select a checkpoint, quantization and offload, and press
+**Switch & load**. Expand **About this model** for access requirements, app
+defaults and the existing prompting/size guide. Finish
 or cancel queued/running jobs first, and wait for any load, prompt check, critic
 or Expand request to finish. The current weights are released before the next
 model loads; a first use can download weights and take several minutes.
 Your prompts and saved images remain, and the controls and gallery follow the
-selected checkpoint. Quantization and offload stay as chosen at startup;
-restart to change those. A browser selection lasts for this server session;
-the next launch uses its menu, flags or environment settings again. The full
+selected checkpoint. **Apply & save** selects changed settings without loading
+weights; an unchanged selection stays loaded. Both buttons remember the choice
+in `local-diffusion.settings.json` beside the gallery database. Save **Load
+automatically on startup** to preload next time; leave it unchecked to open
+quickly and load on demand. Nunchaku and its weight-format choices require Linux/WSL.
+The full
 catalogue is in [backend/launch.py](backend/launch.py).
 
 RouWei 0.8 selects the author's epsilon checkpoint and starts at 28 steps/CFG 6.
@@ -104,7 +111,7 @@ root in a **WSL shell**:
 ```bash
 bash wsl/setup.sh                 # once: Linux environment and CUDA check
 source wsl/env.sh                 # in every new shell
-bash wsl/serve.sh                 # add --defaults to skip the menu
+bash wsl/serve.sh                 # restores saved browser choices; no terminal prompts
 ```
 
 Use the same <http://127.0.0.1:7860> address in your Windows browser.

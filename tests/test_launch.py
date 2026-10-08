@@ -1,10 +1,4 @@
-"""The start-up menu: bare `python -m backend.main` asks, anything else does not.
-
-The menu writes LOCAL_DIFFUSION_* into the environment before config.py freezes them, so
-what these check is that the right variables come out of a given sequence of
-answers - and that no answer is ever waited for when there is an argument, or
-no terminal to ask on.
-"""
+"""Server startup is silent; --menu keeps the optional terminal picker."""
 from __future__ import annotations
 
 import io
@@ -35,16 +29,17 @@ def never_ask(_prompt: str) -> str:
 
 
 @pytest.fixture
-def clean_env(monkeypatch):
+def clean_env(monkeypatch, tmp_path):
     # Save and restore explicitly. `monkeypatch.delenv` records nothing for a
     # variable that was absent - the normal case - so a configure() that then
     # wrote LOCAL_DIFFUSION_MODEL_ID leaked it into every test collected afterwards.
     import os
 
-    names = ("LOCAL_DIFFUSION_MODEL_ID", "LOCAL_DIFFUSION_QUANT", "LOCAL_DIFFUSION_OFFLOAD")
+    names = ("LOCAL_DIFFUSION_MODEL_ID", "LOCAL_DIFFUSION_QUANT", "LOCAL_DIFFUSION_OFFLOAD", "LOCAL_DIFFUSION_PRELOAD")
     saved = {name: os.environ.get(name) for name in names}
     for name in names:
         os.environ.pop(name, None)
+    monkeypatch.setenv("LOCAL_DIFFUSION_DB_PATH", str(tmp_path / "local-diffusion.db"))
     yield
     for name, value in saved.items():
         if value is None:
@@ -196,14 +191,18 @@ def test_the_menu_prints_the_equivalent_command(clean_env):
 # --- configure(): when the menu runs at all ----------------------------------
 
 
-def test_no_arguments_on_a_terminal_asks_and_sets_the_environment(clean_env, monkeypatch):
-    choice = launch.configure([], ask=answers("", "2", ""), out=io.StringIO(), interactive=True)
+def test_menu_flag_asks_and_sets_the_environment(clean_env):
+    choice = launch.configure(["--menu"], ask=answers("", "2", ""), out=io.StringIO(), interactive=True)
     assert choice is not None
     import os
 
     assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == TURBO
     assert os.environ["LOCAL_DIFFUSION_QUANT"] == "fp8"
     assert os.environ["LOCAL_DIFFUSION_OFFLOAD"] == "model"
+
+
+def test_no_arguments_on_a_terminal_never_asks(clean_env):
+    assert launch.configure([], ask=never_ask, interactive=True) is None
 
 
 def test_any_argument_skips_the_menu(clean_env):

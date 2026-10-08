@@ -638,8 +638,13 @@ els.gridSeedList.addEventListener('input', () => {
 });
 els.load.onclick = loadModel;
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
-els.modelSelect.onchange = () => { modelSwitchError = null; syncModelSwitch(); };
-els.modelSwitch.onclick = switchModel;
+els.modelSelect.onchange = () => modelPickerEdited();
+els.modelOffload.onchange = () => modelPickerEdited();
+els.modelLoadOnStartup.onchange = () => modelPickerEdited();
+els.modelQuantization.onchange = () => modelPickerEdited({ catalogue: true });
+els.modelFormat.onchange = () => modelPickerEdited({ catalogue: true });
+els.modelSwitch.onclick = () => switchModel();
+els.modelSave.onclick = () => switchModel({ load: false });
 document.addEventListener('pointerdown', (event) => {
   if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && event.target !== els.models) {
     showModelPicker(false, { focus: false });

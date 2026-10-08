@@ -1135,6 +1135,11 @@ class ExpanderStatus(BaseModel):
 
 class ModelSwitchRequest(BaseModel):
     model_id: str = Field(min_length=1, max_length=512)
+    quantization: Literal["fp8", "int8", "none", "nunchaku"] | None = None
+    offload: Literal["model", "sequential", "none"] | None = None
+    format: Literal["nvfp4", "int4"] | None = None
+    load_on_startup: bool | None = None
+    load: bool = True
 
 
 class ModelStatus(BaseModel):
@@ -1150,6 +1155,8 @@ class ModelStatus(BaseModel):
     model_id: str
     quantization: str
     offload: str
+    format: str = "nvfp4"
+    load_on_startup: bool = False
     detail: str | None = None
     # Beside a failed load's detail: its kind where it was one of the Hub's
     # ("gated", "not_found", "offline") and the model page that fixes it, for

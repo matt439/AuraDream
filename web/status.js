@@ -548,14 +548,11 @@ function receiveStatus(s, asked = Date.now()) {
     if (changed) checkpointChanged(previousModel);
     loadedModel = s.model_id ?? loadedModel;
     if (s.model_id) checkpointLabel = s.model_label ?? null;
+    receiveModelSettings(s, { reset: changed || restarted });
     if (changed) {
       syncReuseButtons();
       if (previousModel) resetGallery();
       loadRuns();
-      if (modelCatalogueLoaded) {
-        els.modelSelect.value = loadedModel;
-        if (!els.modelSelect.value) void refreshModelCatalogue();
-      }
     }
     applyDefaults(s.defaults);
     // After the profile, so a remembered value set on this checkpoint wins

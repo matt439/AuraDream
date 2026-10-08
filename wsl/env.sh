@@ -18,7 +18,12 @@ export LOCAL_DIFFUSION_DB_PATH="${LOCAL_DIFFUSION_DB_PATH:-$_local_diffusion_hom
 # The reason to run here at all: Nunchaku Lite's 4-bit kernels are Linux-only.
 # These repos are the official weights re-uploaded pre-quantized, and not gated.
 # nvfp4 needs an RTX 50 (Blackwell); older cards use the same names with int4.
-export LOCAL_DIFFUSION_QUANT="${LOCAL_DIFFUSION_QUANT:-nunchaku}"
+if [ -z "${LOCAL_DIFFUSION_QUANT:-}" ]; then
+  export LOCAL_DIFFUSION_QUANT="nunchaku"
+  export LOCAL_DIFFUSION_WSL_DEFAULT_QUANT="$LOCAL_DIFFUSION_QUANT"
+elif [ "${LOCAL_DIFFUSION_WSL_DEFAULT_QUANT:-}" != "$LOCAL_DIFFUSION_QUANT" ]; then
+  unset LOCAL_DIFFUSION_WSL_DEFAULT_QUANT
+fi
 # The checkpoint default is tied to the quantization: a pre-quantized repo
 # under fp8 dies deep in transformers after the whole download ("quantized
 # with BitsAndBytesConfig but you are passing a TorchAoConfig"). Any other
@@ -27,11 +32,20 @@ export LOCAL_DIFFUSION_QUANT="${LOCAL_DIFFUSION_QUANT:-nunchaku}"
 # as setup.sh reports.
 if [ "$LOCAL_DIFFUSION_QUANT" = "nunchaku" ]; then
   _local_diffusion_fmt="${LOCAL_DIFFUSION_NUNCHAKU_FORMAT:-nvfp4}"
-  export LOCAL_DIFFUSION_MODEL_ID="${LOCAL_DIFFUSION_MODEL_ID:-lite-infer/krea-2-turbo-nunchaku-lite-${_local_diffusion_fmt}_r32-bnb4-text-encoder}"
+  if [ -z "${LOCAL_DIFFUSION_MODEL_ID:-}" ]; then
+    export LOCAL_DIFFUSION_MODEL_ID="lite-infer/krea-2-turbo-nunchaku-lite-${_local_diffusion_fmt}_r32-bnb4-text-encoder"
+    export LOCAL_DIFFUSION_WSL_DEFAULT_MODEL_ID="$LOCAL_DIFFUSION_MODEL_ID"
+  elif [ "${LOCAL_DIFFUSION_WSL_DEFAULT_MODEL_ID:-}" != "$LOCAL_DIFFUSION_MODEL_ID" ]; then
+    unset LOCAL_DIFFUSION_WSL_DEFAULT_MODEL_ID
+  fi
   # FLUX.1 Krea dev:  lite-infer/flux.1-krea-dev-nunchaku-lite-${_local_diffusion_fmt}_r32-bnb4-text-encoder
   # ERNIE-Image Turbo: lite-infer/ERNIE-Image-Turbo-nunchaku-lite-${_local_diffusion_fmt}-bnb4-text-encoder (no _r32)
   unset _local_diffusion_fmt
 fi
+
+# A bare server restores its browser choice over these marked defaults. The
+# standalone CLI still gets Nunchaku above, and an explicitly exported value
+# (including one changed after this file was sourced) keeps taking precedence.
 
 # torch 2.13 swaps some CUDA ops for Triton kernels even in eager mode, and
 # Triton compiles a small C module the first time it runs - which needs a C

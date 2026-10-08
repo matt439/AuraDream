@@ -67,6 +67,11 @@ def no_hub(monkeypatch):
 
 @pytest.fixture
 def fake(store, monkeypatch):
+    monkeypatch.setattr(main, "settings", dataclasses.replace(
+        main.settings, db_path=store.settings.db_path,
+    ))
+    monkeypatch.setattr(main, "_startup_preload", None)
+    monkeypatch.setattr(main.model_selection, "_selection", (None, 0))
     backend = FakeBackend()
     translator = FakeTranslator()
     backend.translator = translator

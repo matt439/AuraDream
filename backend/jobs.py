@@ -17,7 +17,7 @@ from typing import Any
 
 from . import storage
 from .backends import Cancelled, GenerationBackend
-from .model_selection import current_model_id
+from .model_selection import current_settings
 from .config import settings
 from .grid import Cell, progress_steps, run_id as _run_id
 from .latent_preview import data_url
@@ -434,12 +434,13 @@ class JobManager:
         `prompt_template` carries for the snapshot to name the job by, and
         whether its prompts were a comparison's versions (`comparison`).
         """
+        selected = current_settings(settings)
         job = Job(
             id=uuid.uuid4().hex[:12],
             request=cells[0].request,
             cells=cells,
             seed=cells[0].seed,
-            run_id=run_id or _run_id(cells, current_model_id(settings), settings.quantization),
+            run_id=run_id or _run_id(cells, selected.model_id, selected.quantization),
             total_steps=progress_steps(cells[0].request),
             total_runs=len(cells),
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
@@ -786,6 +787,7 @@ class JobManager:
         # dropped below its threshold, or a mu it had no way to take, must not
         # reach the row - resume compares against it.
         ran = self.backend.applied(cell.request)
+        selected = current_settings(settings)
         seed = cell.seed
         for offset, image in enumerate(images):
             # Each image in a batch gets its own reproducible seed. Wrapped
@@ -796,10 +798,10 @@ class JobManager:
                 ran,
                 seed=wrap_seed(seed + offset),
                 duration_ms=elapsed_ms // max(len(images), 1),
-                model_id=current_model_id(settings),
+                model_id=selected.model_id,
                 job_id=job.id,
                 run_id=job.run_id,
-                quantization=settings.quantization,
+                quantization=selected.quantization,
                 variables=cell.variables,
             )
             job.images.append(record.model_dump())

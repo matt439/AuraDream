@@ -12,10 +12,13 @@ before changing it.
 - `backend/config.py` — settings, most overridable by `LOCAL_DIFFUSION_*` env vars
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
   flags, run before `config` is imported; the checkpoint catalogue lives here
-- `backend/model_selection.py` — the server's selected checkpoint and revision,
-  separate from immutable startup settings; `current_model_id(settings)` is
-  the runtime read, and `available(settings)` limits choices to this process's
-  catalogue/quantization/platform
+- `backend/model_selection.py` — the server's selected checkpoint, loader options
+  and revision, separate from immutable startup settings; `current_model_id`
+  and `current_settings` supply runtime reads, and `available` limits choices
+  to the selected quantization/format/platform
+- `backend/startup_preferences.py` — validated atomic loader/startup persistence;
+  the server launcher restores it before config imports
+- `backend/model_info.py` — cold catalogue details from existing sourced guides
 - `backend/schemas.py` — pydantic request/response models
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint and
   the control tooltips; each profile hangs its prompting guide from
@@ -307,8 +310,13 @@ Model and loader:
   so a job that ended at the load and Expand (a 503 from its route) carry
   the status's sentence.
   `ModelStatus.started_at` is set once, at import.
-- `POST /api/model/switch` accepts only `GET /api/models` choices, preserving
-  startup quantization/offload and Nunchaku's weight format/platform restriction.
+- `POST /api/model/switch` accepts only `GET /api/models` choices for the selected
+  quantization/format; Nunchaku remains Linux-only. Checkpoint, quantization and
+  offload form one immutable runtime snapshot. `load=false` applies and saves
+  without loading changed weights; an unchanged selection keeps its weights.
+  Both actions atomically save the four loader/startup preferences beside the
+  database before releasing existing weights; a save failure is an HTTP error
+  and leaves the selection and existing preference file intact.
   The server reserves `_switching` before any await and holds it through unload,
   prompt-helper cleanup, selection and `ensure_loaded`; the background task owns
   this even if the browser disconnects. Refuse queued/running/paused jobs, loads,
@@ -316,10 +324,21 @@ Model and loader:
   those requests before Pydantic fills defaults and holds the selection until
   their work finishes; new requests during a switch and stale browser revision
   headers receive 409. Include scoped bulk deletion in this guard. Startup
-  `Settings` stays frozen; runtime model reads use `current_model_id(settings)`.
+  `Settings` stays frozen; runtime model reads use `current_model_id(settings)`
+  and loader/quantization/offload reads use `current_settings(settings)`.
   Model revisions distinguish A-to-B-to-A switches; status never pairs an old
   threaded description with the new revision. LoRA denoiser caches must be
   invalidated when the selected checkpoint changes.
+- Server launch restores `startup_preferences` before config imports, without
+  terminal input unless `--menu` is given. Flags override explicit environment,
+  then saved preferences, then defaults; `--defaults` skips preferences. Malformed
+  preferences warn and fall back. Only model id, quantization, offload and
+  `load_on_startup` are saved, never secrets or unrelated settings. The browser's
+  collapsed model details reuse existing sourced guides and catalogue data.
+- On Linux, the server launcher prepares `DIFFUSERS_TRUST_REMOTE_KERNELS=true`
+  before diffusers imports for optional browser Nunchaku selection; an explicit
+  false remains authoritative and refuses Nunchaku before unload. The standalone
+  CLI still enables it only when launched with Nunchaku.
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end` (`_REQUIRED_PARAMS`): the seed and the cancel depend
   on them.
@@ -3027,7 +3046,12 @@ gallery scope and saved model metadata. Delayed LoRA and run-list replies
 cannot replace the new checkpoint's data; saved requests are held under a
 different checkpoint and work again after switching back. It also checks a
 switch held during a job, failed target loading and Retry load recovery, and
-topbar/picker fit at 680, 1400 and 2560 pixels:
+topbar/picker fit on narrow, laptop and QHD windows. It also checks cold
+Apply & save, quantization/offload changes, the saved startup checkbox,
+save errors, and the selected model's collapsible information. CPU tests in
+`test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
+and `test_api_model_switch.py` cover persistence, explicit overrides, loader
+snapshots, metadata and refusal before releasing working weights:
 
 ```powershell
 uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev

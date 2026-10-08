@@ -231,11 +231,14 @@ press's own refusal, Expand's pointer (`loadLine`), the status's sentence
 
 The browser's **Models > Switch & load** selects another catalogue checkpoint
 without restarting the process (2026-10-08). Startup `Settings` remains frozen;
-`model_selection` owns one immutable `(model_id, revision)` snapshot, and
+`model_selection` owns one immutable `(model_id, revision, quantization, offload)` snapshot, and
 `current_model_id(settings)` supplies the model to defaults, the loader, jobs,
-saved metadata, resume lookups and gallery scope. Quantization and offload do
-not change. Nunchaku retains its startup format and Linux-only catalogue. An
-explicit startup id outside the catalogue remains available for switching back;
+saved metadata, resume lookups and gallery scope. `current_settings(settings)`
+supplies a frozen copy with the effective loader options. Quantization and
+offload can change through the same exclusive operation, even for the same
+checkpoint; the revision advances so old requests are refused. Nunchaku offers
+its nvfp4/int4 catalogue on Linux. An explicit startup id outside the catalogue
+remains available under its startup quantization for switching back;
 the HTTP API cannot introduce arbitrary repository ids or paths.
 
 Switching requires no queued, running or paused jobs, no load or card holder,
@@ -255,8 +258,27 @@ The page follows both the model id and revision, including an A-to-B-to-A
 change between polls. It retires old prompt answers and prepared Refine state,
 refreshes guides, controls, adapters and gallery scope, and restores sampling
 remembered for that checkpoint. Prompts and saved images remain. Old submissions
-can retry only after switching back to their checkpoint. A later server launch
-still uses its flags, menu and environment; switching does not rewrite them.
+can retry only after switching back to their checkpoint.
+
+The same picker now replaces the terminal questions (2026-10-08). **Switch &
+load** and **Apply & save** atomically remember model, quantization, offload and
+the startup-load checkbox in `local-diffusion.settings.json`, beside the
+database. Save happens before unloading: a write failure leaves usable weights
+in place and reports the error. Apply & save unloads changed settings without
+starting a download; saving only the checkbox leaves an unchanged ready model
+alone. Preload is false initially. An enabled checkbox loads through the same
+background `ensure_loaded` path on the next launch, keeping the browser available
+for progress and recovery. Prompts and sampling continue using their existing
+browser persistence.
+
+The picker keeps checkpoint names short. Its native **About** disclosure exposes
+the selected model's access requirements, app defaults and existing sourced
+prompt/size guides, plus its model-page link. It is available by keyboard and
+touch rather than relying on option hover support. These details require no
+weights or tokenizer load. A custom launch id gets a neutral description rather
+than borrowing another checkpoint's guide. Unsaved picker edits survive status
+polling; a changed server revision retires them. Quantization catalogue requests
+use an epoch so delayed responses cannot restore an obsolete list.
 CPU and fake-browser checks establish these transitions, not real GPU load
 times, memory release or image quality.
 
@@ -1357,21 +1379,38 @@ to 1.0 where `lora` is None, or two cells that differ on a number no pixel
 depends on would split the resume key, and `_sampling_values` returns the
 single value rather than the parsed list.
 
-## The start-up menu
+## Browser settings and the optional start-up menu
 
-**A bare `python -m backend.main` on a terminal asks** which checkpoint,
-quantization and offload to use; *any* argument (`--model`, `--quant`,
-`--offload`, `--defaults`) or a non-tty stdin skips the menu, and what the
-flags do not name comes from `LOCAL_DIFFUSION_*`. `settings` is frozen at
+**A bare `python -m backend.main` starts without questions** and restores the
+browser's saved loader settings. Explicit `--model`, `--quant` and `--offload`
+flags win over explicit `LOCAL_DIFFUSION_*`, then saved settings, then defaults.
+`--defaults` skips the saved file; `--menu` opts into the legacy terminal picker.
+A missing or malformed preference file does not block startup, and a saved
+Nunchaku configuration is ignored on Windows so the browser can open and repair
+it. Preference writes use a same-directory temporary file and atomic replace.
+`settings` is frozen at
 import, so `launch.configure()` runs from a `__name__ == "__main__"` guard
 placed *before* `main.py`'s own package imports - the same reason
 `generate.py` applies its flags before importing `backend.config`. Both entry
 points take the flags from `launch.add_model_arguments`, so they cannot
-drift. The menu asks quantization first because it decides the repo family:
+drift. Imported `backend.main` (tests or a custom uvicorn entry point) still uses
+its supplied environment directly; remembered launch behavior belongs to the
+documented `python -m backend.main` entry point. The optional menu asks
+quantization first because it decides the repo family:
 `nunchaku` (offered on Linux only) lists the lite-infer re-uploads for the
 families that have one and asks nvfp4 or int4; the environment's values are
 the marked defaults, so `wsl/env.sh` still gets what it set on a bare Enter.
-`wsl/serve.sh` forwards its arguments.
+`wsl/serve.sh` forwards its arguments. `wsl/env.sh` marks loader values it supplied
+as defaults, allowing saved browser settings to replace those unchanged defaults;
+actual environment overrides keep precedence. The standalone CLI still receives
+the WSL defaults and never reads browser preferences.
+
+The Linux server launcher prepares remote-kernel trust before diffusers freezes
+its import-time flag, because Nunchaku can now be chosen later in the browser.
+An explicit false remains in effect and Nunchaku is refused before unloading.
+This does not import diffusers or load kernels on startup; only an explicit
+Nunchaku selection reaches that loader. The standalone CLI retains its original
+startup-quantization behavior.
 
 The page names the running checkpoint by this catalogue's label
 (`ModelStatus.model_label`, by exact id, through the page's `checkpointName`,

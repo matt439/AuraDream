@@ -10,6 +10,8 @@ loras/
 *.db-shm
 server.log
 server.err
+local-diffusion.settings.json
+.local-diffusion.settings.*.tmp
 .env
 
 # HuggingFace tokens - never commit these

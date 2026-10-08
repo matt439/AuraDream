@@ -19,7 +19,7 @@ from backend.backends.base import GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
 from backend.grid import progress_steps
-from backend.model_selection import current_model_id
+from backend.model_selection import current_model_id, current_settings
 from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
 
 
@@ -193,10 +193,11 @@ class FakeBackend(GenerationBackend):
 
     def describe(self) -> dict:
         self._sync_model_profile()
+        selected = current_settings(settings)
         return {
-            "model_id": current_model_id(settings),
-            "quantization": settings.quantization,
-            "offload": settings.offload,
+            "model_id": selected.model_id,
+            "quantization": selected.quantization,
+            "offload": selected.offload,
             "cfg_threshold": None,
             "reference_supported": self.reference_supported,
             "refine_supported": self.refine_supported,
