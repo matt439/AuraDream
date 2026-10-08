@@ -248,11 +248,21 @@ adapter or source validation must not resume under a new model. It also covers
 CPU prompt checks and scoped bulk deletion. The browser sends its observed
 revision so an old tab cannot submit old controls, or confirm a bulk deletion,
 against the model another tab just selected. Status and model-list reads stay
-available. The switch reserves its state before yielding, releases the old
-weights and helpers under the load lock, updates the selection, then loads only
-through `ensure_loaded`. A background task keeps that reservation if the browser
-disconnects. Load failures retain the selected checkpoint and normal Retry load
-behavior. LoRA compatibility caches are invalidated by checkpoint id.
+available. The switch reserves its state before yielding, stops the prompt
+helpers and then releases the old weights under the load lock, updates the
+selection, then loads only through `ensure_loaded`. A background task keeps
+that reservation if the browser disconnects. Load failures retain the selected
+checkpoint and normal Retry load behavior. LoRA compatibility caches are
+invalidated by checkpoint id.
+
+A teardown failure once unloaded A, left it marked "error" with a bare
+`RuntimeError`, and kept B in the saved file, so the next start auto-loaded
+the choice that had failed (review, 2026-10-09). Helpers now stop first - a
+critic that will not die aborts with A still loaded - and anything failing
+before `select()` restores the previous preference file and auto-load flag and
+reports `switch_error` ("Could not switch to B: ...; A is still selected")
+instead of a load error. Revisions start from the process's start time, so
+a long-hidden tab's revision 0 is no longer accepted by a restarted server.
 
 The page follows both the model id and revision, including an A-to-B-to-A
 change between polls. It retires old prompt answers and prepared Refine state,
@@ -1466,6 +1476,13 @@ single value rather than the parsed list.
 **A bare `python -m backend.main` starts without questions** and restores the
 browser's saved loader settings. Explicit `--model`, `--quant` and `--offload`
 flags win over explicit `LOCAL_DIFFUSION_*`, then saved settings, then defaults.
+The saved values are one choice for one checkpoint: filled one by one, a small
+model saved with BF16, no offload and auto-load turned `--model
+krea/Krea-2-Turbo` into a ~25 GB unoffloaded auto-load. An explicit model other
+than the saved one now sets all four aside, with a warning; explicit loader
+flags still apply. The launcher records which values were explicit
+(`LOCAL_DIFFUSION_STARTUP_OVERRIDES`, reported as `startup_overrides`) so the
+page can say a saved choice will not apply to a start like this one.
 `--defaults` skips the saved file; `--menu` opts into the legacy terminal picker.
 A missing or malformed preference file does not block startup, and a saved
 Nunchaku configuration is ignored on Windows so the browser can open and repair

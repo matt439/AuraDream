@@ -1,7 +1,11 @@
 """Browser loading options reach the same loader and metadata as launch flags."""
 from __future__ import annotations
 
+import subprocess
+import sys
+import time
 from dataclasses import FrozenInstanceError, replace
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -180,3 +184,18 @@ def test_lora_refusal_tracks_runtime_quantization_before_loading():
     model_selection.select(CHECKPOINTS[0].lite_repo("nvfp4"), quantization="nunchaku")
     assert "4-bit SVDQuant" in backend.lora_unavailable_reason()
     assert not backend.is_ready()
+
+
+def test_each_process_starts_its_own_revision():
+    # A page still sending the last process's revision must be refused by a
+    # restarted server, so the count never starts at the same number twice.
+    script = "from backend import model_selection; print(model_selection.revision())"
+    root = Path(__file__).resolve().parents[1]
+    before = int(time.time() * 1000)
+    first, second = (
+        int(subprocess.run(
+            [sys.executable, "-c", script], cwd=root, capture_output=True, text=True,
+            check=True, timeout=60,
+        ).stdout) for _ in range(2)
+    )
+    assert before <= first < second < 2**53

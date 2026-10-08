@@ -59,8 +59,12 @@ The checkbox takes effect after pressing either save button.
 
 The list follows the chosen quantization. Nunchaku offers its mapped checkpoints
 and an nvfp4/int4 weight format on Linux/WSL. Explicit launch flags and environment
-variables override remembered settings; `--defaults` ignores the saved file and
-`--menu` opens the optional terminal picker. The preference file is
+variables override remembered settings. Starting with a different model
+(`--model` or `LOCAL_DIFFUSION_MODEL_ID`) ignores the whole saved choice,
+since its quantization, offload and auto-load were picked for its own model.
+`--defaults` ignores the saved file and `--menu` opens the optional terminal
+picker. If a switch cannot release the running model, that model stays
+selected and loaded and the saved settings are left as they were. The preference file is
 `local-diffusion.settings.json`, beside the gallery database.
 
 ## Generate and manage jobs

@@ -17,10 +17,12 @@ a failed load's card; `POST /api/fake/step` sets the seconds per step for
 the jobs after it and answers the pace it replaced; `POST /api/fake/expand`
 slows ERNIE's Expand on the server (`seconds`), holds it until the next call
 (`hold`), makes it fail (`fail`, the message of a RuntimeError) or puts its
-rewriter and translator back off disk (`fresh`). The prompt check reads the
-tests' word tokenizers - a token per word or mark, at each encoder's real
-budget - and the critic is the tests' FakeCritic, whose answer is built from
-the prompt. The gallery lives under the system temp directory (or --data),
+rewriter and translator back off disk (`fresh`); `POST /api/fake/model`
+sets the startup overrides the status reports (`overrides`) and a critic
+that will not stop, failing a switch's teardown (`stuck_critic`). The
+prompt check reads the tests' word tokenizers - a token per word or mark, at
+each encoder's real budget - and the critic is the tests' FakeCritic, whose
+answer is built from the prompt. The gallery lives under the system temp directory (or --data),
 never in the checkout, so nothing here can reach the real local-diffusion.db.
 Everything else - the job queue, SSE, resume, the runs summary, pause, the
 budget, the analyser's rules - is the real code, which is the point:
@@ -395,6 +397,26 @@ def main() -> int:
             fake.expander_cached = fake.expander_loaded = False
             app_main.prompt_translator.downloaded = False
         return {"seconds": fake.expand_seconds, "fail": fail, "hold": hold, "fresh": fresh}
+
+    # The Models picker's server facts no page can cause: which saved choices
+    # this start's flags or environment override (`overrides`, as
+    # launch.configure records them, e.g. {"model_id": "--model"}), and a
+    # critic that will not stop (`stuck_critic`), so a switch stops before
+    # selecting its checkpoint. Each call sets both; answers what it set.
+    from backend.critic import CriticError
+
+    critic_unload = critic.unload
+
+    def stuck_unload():
+        raise CriticError("the fake critic will not stop")
+
+    @app_main.app.post("/api/fake/model", include_in_schema=False)
+    async def fake_model(
+        overrides: dict[str, str] = Body({}), stuck_critic: bool = Body(False),
+    ) -> dict:
+        app_main._startup_overrides = overrides
+        critic.unload = stuck_unload if stuck_critic else critic_unload
+        return {"overrides": overrides, "stuck_critic": stuck_critic}
 
     import uvicorn
 

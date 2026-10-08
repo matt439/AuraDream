@@ -88,6 +88,11 @@ _switching = False
 _switch_task: asyncio.Task | None = None
 _model_requests = 0
 _startup_preload: bool | None = None
+# Why the last switch stopped before selecting its checkpoint, the running one
+# still selected; cleared by the next switch, load or unload.
+_switch_error: str | None = None
+# Which saved choices this start's flags/environment override (launch.configure).
+_startup_overrides = startup_preferences.startup_overrides()
 
 # When this process started. A page that sees it change knows the server it
 # was talking to went away - and every job with it - which nothing else in a
@@ -467,6 +472,8 @@ async def status() -> ModelStatus:
         offload=info["offload"],
         format=model_selection.format_for(settings),
         load_on_startup=_load_on_startup(),
+        startup_overrides=_startup_overrides,
+        switch_error=_switch_error,
         detail=_load_state["detail"],
         # Only beside the detail they describe: every other update of the
         # state clears the detail and leaves these behind.
@@ -838,6 +845,8 @@ def _disk_free_mb() -> int | None:
 
 @app.post("/api/model/load", response_model=ModelStatus)
 async def load_model() -> ModelStatus:
+    global _switch_error
+    _switch_error = None
     if _load_state["state"] != "ready":
         # Reserve the pending load before its task has entered the lock.
         _load_state.update(state="loading", detail=None)
@@ -871,6 +880,7 @@ async def list_models(
         "offload": current.offload,
         "format": model_selection.format_for(settings),
         "load_on_startup": _load_on_startup(),
+        "startup_overrides": _startup_overrides,
         **options,
     }
 
@@ -879,19 +889,26 @@ def _load_on_startup() -> bool:
     return settings.load_on_startup if _startup_preload is None else _startup_preload
 
 
-async def _switch_model(target, *, load: bool) -> None:
+def _model_name(model_id: str) -> str:
+    return _catalogue_label(model_id) or model_id.rsplit("/", 1)[-1]
+
+
+async def _switch_model(target, *, load: bool, previous, previous_preload) -> None:
     """Own the whole transition even if the requesting browser disconnects."""
-    global _switching
+    global _switching, _switch_error
+    revision = model_selection.revision()
+    current = current_model_id(settings)
     try:
         async with _load_lock:
+            # Helpers first: one that will not stop aborts the switch with the
+            # running weights still loaded, and the new weights never go
+            # beside a critic that may still hold the card.
+            await asyncio.to_thread(prompt_critic.unload)
+            await asyncio.to_thread(prompt_translator.unload)
+            await asyncio.to_thread(prompt_encoding.unload)
             if not await asyncio.to_thread(backend.try_unload):
                 raise RuntimeError("the weights are still loading; wait for the load")
             _load_state.update(state="unloaded", detail=None)
-            await asyncio.to_thread(prompt_translator.unload)
-            # A failed critic stop must not put the new weights beside a
-            # process that may still hold the card.
-            await asyncio.to_thread(prompt_critic.unload)
-            await asyncio.to_thread(prompt_encoding.unload)
             model_selection.select(
                 target.model_id, quantization=target.quantization, offload=target.offload,
             )
@@ -904,15 +921,37 @@ async def _switch_model(target, *, load: bool) -> None:
     except Exception as exc:
         log.error("model switch failed: %s", short_error(exc))
         log.debug("switch traceback", exc_info=True)
-        detail, kind, url = _load_failure(exc)
-        _load_state.update(state="error", detail=detail, detail_kind=kind, detail_url=url)
+        if model_selection.revision() == revision:
+            # Nothing was selected: the running choice stays, saved and loaded.
+            _restore_preferences(previous, previous_preload)
+            reason = "the prompt critic would not stop" if isinstance(exc, CriticError) else str(exc) or short_error(exc)
+            _switch_error = (
+                f"Could not switch to {_model_name(target.model_id)}: {reason}; "
+                f"{_model_name(current)} is still selected."
+            )
+        else:
+            detail, kind, url = _load_failure(exc)
+            _load_state.update(state="error", detail=detail, detail_kind=kind, detail_url=url)
     finally:
         _switching = False
 
 
+def _restore_preferences(previous, previous_preload) -> None:
+    """Put back the startup choice a switch saved before it failed."""
+    global _startup_preload
+    _startup_preload = previous_preload
+    try:
+        if previous is None:
+            startup_preferences.path_for(settings.db_path).unlink(missing_ok=True)
+        else:
+            startup_preferences.save(settings.db_path, previous)
+    except Exception as exc:
+        log.error("could not restore startup settings: %s", short_error(exc))
+
+
 @app.post("/api/model/switch", response_model=ModelStatus)
 async def switch_model(request: ModelSwitchRequest, http_request: Request) -> ModelStatus:
-    global _switching, _switch_task, _startup_preload
+    global _switching, _switch_task, _startup_preload, _switch_error
     # Unlike model readers this route is not counted while its body arrives.
     # Another switch can finish after the middleware's revision check.
     expected = http_request.headers.get("x-local-diffusion-model-revision")
@@ -939,6 +978,8 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
     # Admission and reservation happen without an await, so no submission can
     # enter between the idle check and the background task's first instruction.
     _switching = True
+    _switch_error = None
+    previous, previous_preload = startup_preferences.load(settings.db_path), _startup_preload
     preload = _load_on_startup() if request.load_on_startup is None else request.load_on_startup
     try:
         # Save before releasing working weights: a disk error must be visible
@@ -959,12 +1000,15 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
     ):
         _switching = False
         return await load_model() if request.load else await status()
-    _switch_task = asyncio.create_task(_switch_model(target, load=request.load))
+    _switch_task = asyncio.create_task(_switch_model(
+        target, load=request.load, previous=previous, previous_preload=previous_preload,
+    ))
     return await status()
 
 
 @app.post("/api/model/unload", response_model=ModelStatus)
 async def unload_model() -> ModelStatus:
+    global _switch_error
     # Unloading under a running job frees nothing - the worker holds its own
     # reference to the pipeline for the length of the call - while the status
     # dot says "not loaded" with 13GB still resident.
@@ -978,6 +1022,7 @@ async def unload_model() -> ModelStatus:
     # weights while the rest lets go, and a load asked for meanwhile must not
     # be relabelled "unloaded" when this route finishes.
     _load_state.update(state="unloaded", detail=None)
+    _switch_error = None
     await asyncio.to_thread(prompt_translator.unload)
     # Unload is "give the card and the memory back": a critic's server still
     # running is stopped - its critique then fails with a 502 - and the

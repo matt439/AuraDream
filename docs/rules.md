@@ -326,8 +326,13 @@ Model and loader:
   Both actions atomically save the four loader/startup preferences beside the
   database before releasing existing weights; a save failure is an HTTP error
   and leaves the selection and existing preference file intact.
-  The server reserves `_switching` before any await and holds it through unload,
-  prompt-helper cleanup, selection and `ensure_loaded`; the background task owns
+  The server reserves `_switching` before any await and holds it through
+  prompt-helper cleanup (critic, translator, tokenizers - before the weights, so
+  one that will not stop leaves them loaded), unload, selection and
+  `ensure_loaded`. Any failure before `select()` restores the previous
+  preference file (or removes the new one) and `load_on_startup`, leaves the
+  load state alone and reports `switch_error`, never a load error of the old
+  checkpoint; the next switch, load or unload clears it. The background task owns
   this even if the browser disconnects. Refuse queued/running/paused jobs, loads,
   card holders and in-flight model-dependent requests. The middleware counts
   those requests before Pydantic fills defaults and holds the selection until
@@ -335,12 +340,19 @@ Model and loader:
   headers receive 409. Include scoped bulk deletion in this guard. Startup
   `Settings` stays frozen; runtime model reads use `current_model_id(settings)`
   and loader/quantization/offload reads use `current_settings(settings)`.
-  Model revisions distinguish A-to-B-to-A switches; status never pairs an old
-  threaded description with the new revision. LoRA denoiser caches must be
+  Model revisions distinguish A-to-B-to-A switches and start from the
+  process's start in milliseconds, so a page holding a previous process's
+  revision is refused; status never pairs an old threaded description with the
+  new revision. LoRA denoiser caches must be
   invalidated when the selected checkpoint changes.
 - Server launch restores `startup_preferences` before config imports, without
   terminal input unless `--menu` is given. Flags override explicit environment,
-  then saved preferences, then defaults; `--defaults` skips preferences. Malformed
+  then saved preferences, then defaults; `--defaults` skips preferences. The
+  four are one choice: an explicit model (flag or environment, not env.sh's
+  marked default) other than the saved one sets all of them aside, with a
+  warning. `launch.configure` records what was explicit in
+  `LOCAL_DIFFUSION_STARTUP_OVERRIDES`; status and `/api/models` report it as
+  `startup_overrides` (empty when `backend.main` is imported). Malformed
   preferences warn and fall back. Only model id, quantization, offload and
   `load_on_startup` are saved, never secrets or unrelated settings. The browser's
   compact model facts reuse sourced guides, catalogue data and recorded local
@@ -3257,8 +3269,12 @@ arrow-key drafts, a loader change elsewhere while a radio has the focus, a
 checkpoint changed elsewhere, recovery from an outdated catalogue reply and
 an off-catalogue runtime id requested once with no row chosen. CPU tests in
 `test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
-and `test_api_model_switch.py` cover persistence, explicit overrides, loader
-snapshots, metadata and refusal before releasing working weights;
+and `test_api_model_switch.py` cover persistence, explicit overrides and the
+saved choice set aside for another model, per-process revisions, loader
+snapshots, metadata, refusal before releasing working weights, a failed
+teardown keeping the running model and saved file, and Switch & load retrying
+the selected model; `POST /api/fake/model` sets the fake's `overrides` and a
+`stuck_critic` for page checks;
 `test_model_benchmarks.py` covers speed categories and exact sample matching:
 
 ```powershell

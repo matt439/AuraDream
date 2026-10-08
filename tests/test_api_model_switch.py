@@ -94,9 +94,22 @@ def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client
         initial["quantization"], initial["offload"], initial["model_revision"],
     )
     assert fake.loads == 0
-    calls.clear()
-    assert client.get("/api/models?offload=unknown").status_code == 422
-    assert not calls
+
+
+@pytest.mark.parametrize("query", ["quantization=garbage", "format=garbage", "offload=unknown"])
+def test_catalogue_refuses_unknown_loading_options(client, fake, monkeypatch, query):
+    calls = []
+    monkeypatch.setattr(main, "details_for", lambda *args, **kwargs: calls.append(args))
+    assert client.get(f"/api/models?{query}").status_code == 422
+    assert not calls and fake.loads == 0
+
+
+def test_status_and_catalogue_report_this_starts_overrides(client, monkeypatch):
+    assert client.get("/api/status").json()["startup_overrides"] == {}
+    overrides = {"model_id": "--model", "quantization": "LOCAL_DIFFUSION_QUANT"}
+    monkeypatch.setattr(main, "_startup_overrides", overrides)
+    assert client.get("/api/status").json()["startup_overrides"] == overrides
+    assert client.get("/api/models").json()["startup_overrides"] == overrides
 
 
 def test_save_without_load_and_preload_toggle_preserve_the_selected_settings(client, fake):
@@ -353,22 +366,83 @@ def test_switch_load_failure_can_be_retried_and_another_model_selected(client, f
     _switch(client, initial["model_id"])
 
 
-def test_failed_critic_cleanup_never_loads_a_second_model(client, fake, monkeypatch):
+@pytest.mark.parametrize("start", ["error", "unloaded"])
+def test_switch_and_load_of_the_selected_model_retries_its_load(client, fake, monkeypatch, start):
+    load = fake.load
+    if start == "error":
+        def failed_load():
+            raise RuntimeError("the requested model could not load")
+
+        monkeypatch.setattr(fake, "load", failed_load)
+        assert client.post("/api/model/switch", json={"model_id": ANIMAGINE}).status_code == 200
+        before = _settled(client, ANIMAGINE, "error")
+        monkeypatch.setattr(fake, "load", load)
+    else:
+        _switch(client, ANIMAGINE)
+        assert client.post("/api/model/unload").status_code == 200
+        before = _settled(client, ANIMAGINE, "unloaded")
+    loads = fake.loads
+    # What Switch & load sends for the checkpoint already selected.
+    reply = client.post("/api/model/switch", json={
+        "model_id": ANIMAGINE, "quantization": before["quantization"],
+        "offload": before["offload"], "load": True,
+    })
+    assert reply.status_code == 200, reply.text
+    after = _settled(client, ANIMAGINE)
+    assert after["model_revision"] == before["model_revision"]
+    assert after["detail"] is None and fake.loads == loads + 1
+    assert startup_preferences.load(main.settings.db_path) == startup_preferences.StartupPreferences(
+        ANIMAGINE, before["quantization"], before["offload"], before["load_on_startup"],
+    )
+
+
+@pytest.mark.parametrize("preference", [None, ANIMAGINE])
+@pytest.mark.parametrize("helper", ["critic", "translator", "weights"])
+def test_failed_teardown_keeps_the_running_model_loaded_selected_and_saved(
+    client, fake, helper, preference,
+):
     initial = client.get("/api/status").json()
-    unload = fake.critic.unload
+    db_path = main.settings.db_path
+    if preference is not None:
+        # A choice saved earlier, beside the running one, survives intact.
+        earlier = startup_preferences.StartupPreferences(preference, "int8", "sequential", False)
+        startup_preferences.save(db_path, earlier)
+    loads = fake.loads
 
     def failed_cleanup():
-        raise RuntimeError("the critic process did not stop")
+        if helper == "critic":
+            raise main.CriticError("the critic process did not stop")
+        raise RuntimeError(f"the {helper} did not let go")
 
-    monkeypatch.setattr(fake.critic, "unload", failed_cleanup)
-    reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
-    assert reply.status_code == 200, reply.text
-    failed = _settled(client, initial["model_id"], "error")
-    assert "the critic process did not stop" in failed["detail"]
-    assert failed["model_revision"] == initial["model_revision"]
-    assert not fake.loaded and fake.loads == 0
-    monkeypatch.setattr(fake.critic, "unload", unload)
-    _switch(client, ANIMAGINE)
+    if helper == "weights":
+        target, name, stand_in = fake, "try_unload", lambda: False
+    else:
+        target = fake.critic if helper == "critic" else fake.translator
+        name, stand_in = "unload", failed_cleanup
+    original = getattr(target, name)
+    setattr(target, name, stand_in)
+    try:
+        reply = client.post("/api/model/switch", json={"model_id": TURBO, "load_on_startup": True})
+        assert reply.status_code == 200, reply.text
+        failed = _settled(client, initial["model_id"], initial["state"])
+        reason = {
+            "critic": "the prompt critic would not stop",
+            "translator": "the translator did not let go",
+            "weights": "the weights are still loading",
+        }[helper]
+        label = initial["model_label"] or initial["model_id"]
+        assert failed["switch_error"].startswith(f"Could not switch to Krea 2 Turbo: {reason}")
+        assert failed["switch_error"].endswith(f"{label} is still selected.")
+        assert failed["detail"] is None
+        assert failed["model_revision"] == initial["model_revision"]
+        assert fake.loaded and fake.loads == loads
+        # Neither the saved file nor this process's auto-load says the failed choice.
+        saved = startup_preferences.load(db_path)
+        assert saved == (None if preference is None else earlier)
+        assert failed["load_on_startup"] == initial["load_on_startup"]
+    finally:
+        setattr(target, name, original)
+    assert _switch(client, ANIMAGINE)["switch_error"] is None
 
 
 def test_switch_reserves_teardown_and_loading_against_new_model_work(client, fake, monkeypatch):

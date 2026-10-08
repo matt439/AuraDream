@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from dataclasses import replace
 from sys import modules as imported_modules
 
@@ -15,8 +16,10 @@ from .launch import CHECKPOINTS, FORMATS, OFFLOADS, QUANTIZATIONS
 from .model_defaults import OFFLOAD_MODES, QUANT_MODES
 
 # One assignment publishes the entire selection, including its revision. The
-# initial two-field form remains useful to reset the selection in tests.
-_selection: tuple = (None, 0)
+# initial two-field form remains useful to reset the selection in tests. The
+# revision starts at this process's start in milliseconds (below 2**53), so a
+# page still holding the last process's revision is refused after a restart.
+_selection: tuple = (None, int(time.time() * 1000))
 
 
 def current_settings(settings):

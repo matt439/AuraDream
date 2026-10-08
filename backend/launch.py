@@ -13,6 +13,7 @@ shares the model flags but does not restore browser preferences.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from collections.abc import Callable
@@ -20,7 +21,11 @@ from dataclasses import dataclass
 from typing import TextIO
 
 from backend.model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT, defaults_for
-from backend.startup_preferences import apply_saved_environment
+from backend.startup_preferences import (
+    OVERRIDES_VARIABLE,
+    apply_saved_environment,
+    explicit_sources,
+)
 
 QUANTIZATIONS: tuple[tuple[str, str], ...] = (
     ("fp8", "torchao float8 weight-only; ~13 GB peak, fits a 16 GB card"),
@@ -267,18 +272,30 @@ def configure(
     )
     parser.add_argument("--menu", action="store_true", help="use the optional terminal settings menu")
     args = parser.parse_args(argv)
-    if not args.defaults:
-        apply_saved_environment()
+    # Recorded before saved values fill the environment, for the page to say
+    # which of its saved choices this start (and one like it) overrides.
+    overrides = explicit_sources(flags={
+        "LOCAL_DIFFUSION_MODEL_ID": args.model,
+        "LOCAL_DIFFUSION_QUANT": args.quant,
+        "LOCAL_DIFFUSION_OFFLOAD": args.offload,
+    })
+    if args.defaults:
+        overrides = dict.fromkeys(("model_id", "quantization", "offload", "load_on_startup"), "--defaults") | overrides
+    else:
+        apply_saved_environment(model=args.model)
     apply_env(args)
     # The Linux browser can choose Nunchaku later, after diffusers has already
     # read this flag at import. Its loader still requires an explicit supported
     # Nunchaku choice; retain an operator's explicit false.
     if sys.platform == "linux":
         os.environ.setdefault("DIFFUSERS_TRUST_REMOTE_KERNELS", "true")
-    if not args.menu:
-        return None
-    choice = prompt(ask=ask, out=out or sys.stdout)
-    os.environ.update(choice.environ())
+    if args.menu:
+        choice = prompt(ask=ask, out=out or sys.stdout)
+        os.environ.update(choice.environ())
+        overrides |= dict.fromkeys(("model_id", "quantization", "offload"), "--menu")
+    else:
+        choice = None
+    os.environ[OVERRIDES_VARIABLE] = json.dumps(overrides)
     return choice
 
 

@@ -1157,6 +1157,14 @@ class ModelStatus(BaseModel):
     offload: str
     format: str = "nvfp4"
     load_on_startup: bool = False
+    # The saved choices this start's flags or environment set aside, as
+    # {preference: what set it} - "--model", "LOCAL_DIFFUSION_QUANT",
+    # "--defaults", "--menu" - so the page can say a saved choice will not
+    # apply to a start like this one. Empty when imported rather than launched.
+    startup_overrides: dict[str, str] = {}
+    # Why the last switch stopped before selecting its checkpoint, with the
+    # running one still selected and loaded as it was; not a load failure.
+    switch_error: str | None = None
     detail: str | None = None
     # Beside a failed load's detail: its kind where it was one of the Hub's
     # ("gated", "not_found", "offline") and the model page that fixes it, for

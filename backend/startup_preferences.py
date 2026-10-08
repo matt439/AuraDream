@@ -105,8 +105,74 @@ def save(db_path: Path, preferences: StartupPreferences) -> None:
                 pass
 
 
-def apply_saved_environment(env: MutableMapping[str, str] | None = None) -> None:
-    """Fill absent startup variables, without importing config or changing disk."""
+# env.sh supplies Linux-friendly defaults for the server and CLI. It marks
+# only values it supplied, so unchanged defaults can yield to a browser choice
+# while an operator's explicit environment still wins.
+_WSL_MARKERS = {
+    "LOCAL_DIFFUSION_MODEL_ID": "LOCAL_DIFFUSION_WSL_DEFAULT_MODEL_ID",
+    "LOCAL_DIFFUSION_QUANT": "LOCAL_DIFFUSION_WSL_DEFAULT_QUANT",
+}
+# Each startup variable, the preference it carries and the flag that sets it.
+_VARIABLES = (
+    ("LOCAL_DIFFUSION_MODEL_ID", "model_id", "--model"),
+    ("LOCAL_DIFFUSION_QUANT", "quantization", "--quant"),
+    ("LOCAL_DIFFUSION_OFFLOAD", "offload", "--offload"),
+    ("LOCAL_DIFFUSION_PRELOAD", "load_on_startup", None),
+)
+# Set by the launcher only: what a saved choice cannot change on this start.
+OVERRIDES_VARIABLE = "LOCAL_DIFFUSION_STARTUP_OVERRIDES"
+
+
+def _explicit(env: MutableMapping[str, str], name: str) -> bool:
+    marker = _WSL_MARKERS.get(name)
+    return name in env and not (marker is not None and marker in env and env[name] == env[marker])
+
+
+def explicit_sources(
+    env: MutableMapping[str, str] | None = None, flags: dict[str, str | None] | None = None,
+) -> dict[str, str]:
+    """Each preference an operator set for this start, keyed to what set it.
+
+    `flags` maps a variable to its command-line value; a flag beats the
+    environment. env.sh's unchanged marked defaults are not explicit.
+    """
+    env = os.environ if env is None else env
+    flags = flags or {}
+    sources = {}
+    for name, key, flag in _VARIABLES:
+        if flags.get(name) is not None:
+            sources[key] = flag
+        elif _explicit(env, name):
+            sources[key] = name
+    return sources
+
+
+def startup_overrides(env: MutableMapping[str, str] | None = None) -> dict[str, str]:
+    """The launcher's record of explicit startup values; none when imported."""
+    env = os.environ if env is None else env
+    try:
+        recorded = json.loads(env.get(OVERRIDES_VARIABLE) or "{}")
+    except ValueError:
+        return {}
+    keys = {key for _, key, _ in _VARIABLES}
+    if not isinstance(recorded, dict):
+        return {}
+    return {
+        key: value for key, value in recorded.items()
+        if key in keys and isinstance(value, str) and value
+    }
+
+
+def apply_saved_environment(
+    env: MutableMapping[str, str] | None = None, *, model: str | None = None,
+) -> None:
+    """Fill absent startup variables, without importing config or changing disk.
+
+    The four values are one choice made for one checkpoint. When the model is
+    explicit (`model`, the --model flag applied afterwards, or the
+    environment) and is not the saved one, none of them applies: a saved
+    BF16/no offload/auto-load for a small model must not load a large one so.
+    """
     env = os.environ if env is None else env
     db_path = Path(env.get("LOCAL_DIFFUSION_DB_PATH", str(_ROOT / "local-diffusion.db")))
     preferences = load(db_path)
@@ -115,13 +181,14 @@ def apply_saved_environment(env: MutableMapping[str, str] | None = None) -> None
     if preferences.quantization == "nunchaku" and sys.platform != "linux":
         log.warning("Ignoring saved Nunchaku startup settings: Nunchaku requires Linux/WSL")
         return
+    if model is None and _explicit(env, "LOCAL_DIFFUSION_MODEL_ID"):
+        model = env["LOCAL_DIFFUSION_MODEL_ID"]
+    if model is not None and model != preferences.model_id:
+        log.warning(
+            "Ignoring saved startup settings for %s: this start names %s",
+            preferences.model_id, model,
+        )
+        return
     for name, value in preferences.environ().items():
-        # env.sh supplies Linux-friendly defaults for the server and CLI. It
-        # marks only values it supplied, so unchanged defaults can yield to a
-        # browser choice while an operator's explicit environment still wins.
-        marker = {
-            "LOCAL_DIFFUSION_MODEL_ID": "LOCAL_DIFFUSION_WSL_DEFAULT_MODEL_ID",
-            "LOCAL_DIFFUSION_QUANT": "LOCAL_DIFFUSION_WSL_DEFAULT_QUANT",
-        }.get(name)
-        if name not in env or (marker is not None and marker in env and env[name] == env[marker]):
+        if not _explicit(env, name):
             env[name] = value

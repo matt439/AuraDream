@@ -22,7 +22,7 @@ def remembered(tmp_path, monkeypatch):
     path = tmp_path / "gallery" / "local-diffusion.db"
     choice = preferences.StartupPreferences(OTHER, "int8", "sequential", True)
     preferences.save(path, choice)
-    for name in choice.environ():
+    for name in [*choice.environ(), preferences.OVERRIDES_VARIABLE]:
         # Register restoration even for variables the launcher creates.
         monkeypatch.setenv(name, "")
         monkeypatch.delenv(name)
@@ -51,14 +51,59 @@ def test_bare_start_restores_preferences_even_without_a_terminal(remembered, int
 
 
 def test_flags_then_environment_then_saved_settings_win(remembered, monkeypatch):
-    monkeypatch.setenv("LOCAL_DIFFUSION_MODEL_ID", MODEL)
+    _, choice = remembered
     monkeypatch.setenv("LOCAL_DIFFUSION_QUANT", "none")
     monkeypatch.setenv("LOCAL_DIFFUSION_PRELOAD", "false")
-    launch.configure(["--model", "custom/checkpoint"], ask=never_ask)
-    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == "custom/checkpoint"
+    launch.configure(["--model", choice.model_id], ask=never_ask)
+    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == choice.model_id
     assert os.environ["LOCAL_DIFFUSION_QUANT"] == "none"
     assert os.environ["LOCAL_DIFFUSION_OFFLOAD"] == "sequential"
     assert os.environ["LOCAL_DIFFUSION_PRELOAD"] == "false"
+    assert preferences.startup_overrides() == {
+        "model_id": "--model", "quantization": "LOCAL_DIFFUSION_QUANT",
+        "load_on_startup": "LOCAL_DIFFUSION_PRELOAD",
+    }
+
+
+@pytest.mark.parametrize("by", ["flag", "environment"])
+def test_another_explicit_model_sets_the_whole_saved_choice_aside(remembered, monkeypatch, caplog, by):
+    # Saved loader options were chosen for their own checkpoint: BF16 with no
+    # offload for a small model must not auto-load a large one that way.
+    db_path, _ = remembered
+    preferences.save(db_path, preferences.StartupPreferences(
+        "black-forest-labs/FLUX.2-klein-4B", "none", "none", True,
+    ))
+    if by == "flag":
+        launch.configure(["--model", OTHER], ask=never_ask)
+    else:
+        monkeypatch.setenv("LOCAL_DIFFUSION_MODEL_ID", OTHER)
+        launch.configure([], ask=never_ask)
+    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == OTHER
+    assert all(name not in os.environ for name in (
+        "LOCAL_DIFFUSION_QUANT", "LOCAL_DIFFUSION_OFFLOAD", "LOCAL_DIFFUSION_PRELOAD",
+    ))
+    assert "Ignoring saved startup settings for black-forest-labs/FLUX.2-klein-4B" in caplog.text
+    source = "--model" if by == "flag" else "LOCAL_DIFFUSION_MODEL_ID"
+    assert preferences.startup_overrides() == {"model_id": source}
+
+
+def test_explicit_loader_options_still_apply_with_another_model(remembered):
+    launch.configure(["--model", MODEL, "--quant", "fp8", "--offload", "model"], ask=never_ask)
+    assert (os.environ["LOCAL_DIFFUSION_QUANT"], os.environ["LOCAL_DIFFUSION_OFFLOAD"]) == ("fp8", "model")
+    assert "LOCAL_DIFFUSION_PRELOAD" not in os.environ
+    assert preferences.startup_overrides() == {
+        "model_id": "--model", "quantization": "--quant", "offload": "--offload",
+    }
+
+
+def test_a_bare_start_records_no_overrides(remembered):
+    launch.configure([], ask=never_ask)
+    assert preferences.startup_overrides() == {}
+
+
+@pytest.mark.parametrize("recorded", ["", "{", "[]", '{"model_id": 3, "host": "--x"}'])
+def test_unusable_override_record_reads_as_none(recorded):
+    assert preferences.startup_overrides({preferences.OVERRIDES_VARIABLE: recorded}) == {}
 
 
 def test_defaults_bypasses_saved_choice_and_preserves_explicit_environment(remembered, monkeypatch):
@@ -68,6 +113,10 @@ def test_defaults_bypasses_saved_choice_and_preserves_explicit_environment(remem
     assert os.environ["LOCAL_DIFFUSION_QUANT"] == "fp8"
     assert "LOCAL_DIFFUSION_OFFLOAD" not in os.environ
     assert "LOCAL_DIFFUSION_PRELOAD" not in os.environ
+    assert preferences.startup_overrides() == {
+        "model_id": "LOCAL_DIFFUSION_MODEL_ID", "quantization": "--quant",
+        "offload": "--defaults", "load_on_startup": "--defaults",
+    }
     db_path, choice = remembered
     assert preferences.load(db_path) == choice, "one launch must not overwrite browser preferences"
 
@@ -164,12 +213,17 @@ def test_browser_choice_overrides_only_unchanged_wsl_script_defaults(remembered)
         "LOCAL_DIFFUSION_MODEL_ID": "lite-infer/wsl-default",
         "LOCAL_DIFFUSION_WSL_DEFAULT_MODEL_ID": "lite-infer/wsl-default",
     }
+    assert preferences.explicit_sources(env) == {}
     preferences.apply_saved_environment(env)
     assert env["LOCAL_DIFFUSION_QUANT"] == choice.quantization
     assert env["LOCAL_DIFFUSION_MODEL_ID"] == choice.model_id
     # Changing a supplied value makes it an explicit override, even if the
     # shell still carries env.sh's earlier marker.
     env.update(LOCAL_DIFFUSION_QUANT="none", LOCAL_DIFFUSION_MODEL_ID=MODEL)
+    assert preferences.explicit_sources(env) == {
+        "model_id": "LOCAL_DIFFUSION_MODEL_ID", "quantization": "LOCAL_DIFFUSION_QUANT",
+        "offload": "LOCAL_DIFFUSION_OFFLOAD", "load_on_startup": "LOCAL_DIFFUSION_PRELOAD",
+    }
     preferences.apply_saved_environment(env)
     assert env["LOCAL_DIFFUSION_QUANT"] == "none"
     assert env["LOCAL_DIFFUSION_MODEL_ID"] == MODEL

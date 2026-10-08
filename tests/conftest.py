@@ -86,6 +86,8 @@ def fake(store, monkeypatch):
         main.settings, db_path=store.settings.db_path,
     ))
     monkeypatch.setattr(main, "_startup_preload", None)
+    monkeypatch.setattr(main, "_switch_error", None)
+    monkeypatch.setattr(main, "_startup_overrides", {})
     monkeypatch.setattr(main.model_selection, "_selection", (None, 0))
     backend = FakeBackend()
     translator = FakeTranslator()
