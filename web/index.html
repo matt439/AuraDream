@@ -6,6 +6,7 @@
 <title>Local Diffusion</title>
 <!-- Keep this order: these sections preserve the original stylesheet cascade. -->
 <link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/styles/model-picker.css">
 <link rel="stylesheet" href="/static/styles/fields.css">
 <link rel="stylesheet" href="/static/styles/analysis.css">
 <link rel="stylesheet" href="/static/styles/generation.css">
@@ -32,7 +33,7 @@
   <span class="job-mirror" id="job-mirror" aria-hidden="true" hidden></span>
   <div class="vram" id="vram"></div>
   <button class="ghost" id="btn-models" aria-expanded="false" aria-controls="model-picker">Models</button>
-  <section class="model-picker" id="model-picker" aria-labelledby="model-picker-label" hidden>
+  <section class="model-picker" id="model-picker" aria-label="Models" hidden>
     <!-- tabindex -1: a press on the picker's empty space or its heading keeps
          the focus inside it, where the focusout check leaves the picker open. -->
     <div class="model-picker-body" id="model-picker-body" tabindex="-1">
@@ -42,16 +43,17 @@
         <div><label for="model-quantization">Quantization</label><select id="model-quantization" autocomplete="off" aria-describedby="model-quantization-help"></select><p class="model-loader-help" id="model-quantization-help"></p></div>
         <div><label for="model-offload">Offload</label><select id="model-offload" autocomplete="off" aria-describedby="model-offload-help"></select><p class="model-loader-help" id="model-offload-help"></p></div>
       </div>
-      <label class="model-format" id="model-format-field" for="model-format" hidden>Nunchaku format<select id="model-format" autocomplete="off"></select></label>
+      <label class="model-format" id="model-format-field" for="model-format" hidden>Nunchaku format<select id="model-format" autocomplete="off" aria-describedby="model-format-help"></select><span class="model-format-help" id="model-format-help"></span></label>
       <div class="model-picker-heading" id="model-picker-label">Checkpoint</div>
       <!-- Every model with its facts, so they compare without choosing each in
            turn. One radio per row (arrow keys move the choice); stars and model
-           pages sit beside, outside the label. model-switch.js fills the rows
-           after the heading; speeds follow the loading options below. -->
+           pages sit beside, outside the label, tabbable in one row at a time.
+           model-switch.js fills the rows after the heading; speeds follow the
+           loading options above. The heading row stays in view. -->
       <div class="model-table" id="model-table" role="radiogroup" aria-labelledby="model-picker-label"
            aria-describedby="model-picker-help model-picker-note">
         <div class="model-row model-row-head" id="model-table-head" aria-hidden="true">
-          <span></span><span>Model</span><span>Style</span><span>Refine</span><span>Max size</span><span>Speed</span><span></span>
+          <span></span><span>Model</span><span>Style</span><span title="Whether this app can run a second image-to-image pass on this checkpoint">Refine</span><span title="Largest size the authors document or show; 1 MP is about 1024x1024">Size</span><span title="Timed on an RTX 5080. Fast, Medium or Slow only for a timing with these loading options; otherwise Reference or Unmeasured, from another setup">Speed</span><span></span>
         </div>
       </div>
       <label class="check model-startup"><input type="checkbox" id="model-load-on-startup"> Load automatically on startup</label>

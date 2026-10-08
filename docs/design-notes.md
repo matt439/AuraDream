@@ -297,7 +297,7 @@ The checkpoint is chosen from a table that shows every model's facts at once
 (2026-10-08). With a dropdown and one facts block, comparing meant choosing
 each model in turn. The picker is opened rarely, mostly at launch, so a large
 panel (up to 900 px wide, its body scrolling under fixed actions) costs little.
-Each row is a radio (Model, Style, Refine, Max size with its label, Speed
+Each row is a radio (Model, Style, Refine, Size with its label, Speed
 with its sample and basis), its star and its model-page link; the label is
 `display: contents` on a shared column template, so cells line up and a
 press anywhere on the facts chooses the row. Below 700 px the facts take a
@@ -306,6 +306,44 @@ side by side above the table, since they decide which checkpoints it offers
 and which timings its Speed column shows; their explanations reserve their
 height. A press on a row's gaps chooses the row, and the picker body takes the
 focus for presses on its empty space, so the focusout check keeps it open.
+
+A review of the table (2026-10-09) found it hard to read past the first
+screen and hard to use without a mouse. The changes:
+- The column names scrolled away after one wheel step, leaving 14 rows of
+  bare values. The heading row is sticky in the picker body; its offset takes
+  back the body's padding.
+- Nothing marked the server's checkpoint, so after another row was chosen the
+  loaded one looked like the rest. Its row now carries `data-state` and a dot
+  and a word (Loaded, Loading…, Load failed, Current). They sit on the name
+  cell's second line, which every row keeps for its access label, so the
+  badge never shifts a name or a row. `syncModelRowStates` writes it in place
+  outside the rebuild key, so a poll changes one word, never the rows.
+- The header said Max size over values labelled Reference size or Largest
+  example. It now says Size; the row labels keep the distinction, and the
+  header's Refine, Size and Speed carry titles.
+- The cells' notes (sources, caveats, no GPU memory guarantee) lived only in
+  `title`s, which keyboard, touch and screen readers never reach. Each radio
+  is now described by a hidden span joining them. A row under the pointer or
+  focus dots the noted labels; on every row at once, 23 underlines were noise.
+- Each row's star and link were tab stops: 44 between a radio and Switch &
+  load. They are now one roving stop, the chosen row's (the first row's while
+  none is), as the gallery grid has one stop. The row holding the focus keeps
+  its stop until focus leaves, so a star pressed by keyboard stays reachable.
+- A row drawn in Favourites has a hidden "Favourite, " before its name, from
+  the opening's grouping, so a star toggled meanwhile does not rename the
+  radio. Groups are not `role=group` wrappers, which would break the
+  `display: contents` grid. The second group is Other models, since the
+  gallery's All models tick means something else.
+- The section is named Models after its opener. The Checkpoint heading names
+  only the radiogroup. The model link says it opens a new tab.
+- A Reference or Unmeasured timing from another setup reads muted.
+- The Nunchaku format list said which card each format is for only in its
+  options' titles. A line under it now lists both ("NVFP4: RTX 50
+  (Blackwell); INT4: RTX 20 to 40") and describes the select.
+- From 1800 px the picker grows with the wide tier's type, to 1200 px, so the
+  Speed basis no longer wraps to three lines.
+- The picker's rules moved to `styles/model-picker.css`, linked right after
+  `style.css`, the position they held in it.
 
 On a fresh browser visit, the first accepted status opens Models if the server
 is idle and unloaded or has a load error. A ready model, an active load or work
@@ -380,7 +418,7 @@ Changing draft offload settings refreshes these facts as changing quantization
 does, without applying either setting or loading a model.
 
 Each row's star saves a browser-local favourite immediately. The table groups
-Favourites first and All models after, without duplicating rows, but only when
+Favourites first and Other models after, without duplicating rows, but only when
 it is drawn for an opening (or while the picker is closed): a star pressed in
 an open picker changes in place, because regrouping then would move the row,
 and the next one, under the pointer. The canonical catalogue id keys the star so

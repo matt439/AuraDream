@@ -158,7 +158,8 @@ before changing it.
   checkpoint selection and retiring state prepared under the old model;
   `bundles.js` owns the gallery bundle dialog and background-operation polling. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
-  explicit link order; preserve that cascade. See `docs/source-audit.md`
+  explicit link order (`model-picker.css` first, at its old place in
+  `style.css`); preserve that cascade. See `docs/source-audit.md`
   for the responsibility map and retained long files.
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
@@ -368,6 +369,13 @@ Model and loader:
   no row checked when the runtime id is missing. It is rebuilt only when its
   key changes, keeping focus on the same model's control; a star toggles in
   place while the picker is open and the grouping follows at the next opening.
+  The server's row state (`data-state`, the name line's badge) is written in
+  place by `syncModelRowStates`, never through the rebuild key; that line is
+  always present, so the badge never resizes a row. Stars and links are one
+  roving tab stop (`syncModelTabStops`): the checked row's, else the first
+  row's, plus the row holding the focus. Each radio's `aria-describedby`
+  points at a hidden span of its cells' notes; a favourite's hidden prefix
+  follows `modelTableGrouping`. The heading row is sticky in the picker body.
 - The loader selects are `appearance: base-select`, so their lists draw in
   the page; never return them to the native popup, a separate window Chromium
   re-anchors under a still pointer. While any picker list is open
@@ -3263,19 +3271,26 @@ topbar/picker fit on narrow, laptop and QHD windows. It also checks cold
 Apply & save, quantization/offload changes, the saved startup checkbox,
 save errors and stable action placement across choices and short viewports.
 For the checkpoint table it checks every catalogue model's row and facts
-(style, refine with its note, max size with its label, speed with its sample
+(style, refine with its note, size with its label, speed with its sample
 and basis) without choosing any, focus on the chosen radio at the first
 opening and through rebuilds, choosing by radio and by a fact cell, stars that
 toggle in place and group at the next opening, persistent favourites
 (corrupt data, blocked writes, other tabs) and speed references that follow
-draft quantization/offload choices.
+draft quantization/offload choices. It also checks the server row's
+Loaded/Loading…/Load failed badge without a row resizing, each row's access
+label and note, radio descriptions holding the notes, muted timings from
+another setup, the Size header and its titles, the Models section name, the
+new-tab link label, the Favourite prefix following the grouping, one row's
+star and link as tab stops (Tab from the radio reaches its link, then the
+startup checkbox) and the sticky heading row.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
 for an idle unloaded/error server, with every model's row and facts shown,
 suppression when ready/loading/busy, no reopening after dismissal or later
 Unload, and focus/caret preservation.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every
 row's position and the focus survive status polls, a catalogue reply and
-another tab's favourites, with only the star's glyph changing. For the
+another tab's favourites, with only the star's glyph (and, for a server
+change, the current row's badge word) changing. For the
 base-select loader lists it checks that a revision or checkbox-only change
 waits for an open list to close, that keys in an open list leave the prompt
 check open and start no job, and that Escape closes only the list. It covers

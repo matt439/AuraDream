@@ -62,7 +62,7 @@ const els = {
   modelSwitch: $('btn-model-switch'), modelSave: $('btn-model-save'), modelPickerNote: $('model-picker-note'),
   modelQuantization: $('model-quantization'), modelOffload: $('model-offload'),
   modelQuantizationHelp: $('model-quantization-help'), modelOffloadHelp: $('model-offload-help'),
-  modelFormat: $('model-format'), modelFormatField: $('model-format-field'),
+  modelFormat: $('model-format'), modelFormatField: $('model-format-field'), modelFormatHelp: $('model-format-help'),
   modelLoadOnStartup: $('model-load-on-startup'),
   modelPickerBody: $('model-picker-body'),
   reset: $('btn-reset'),

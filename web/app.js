@@ -643,6 +643,8 @@ els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
 els.modelTable.addEventListener('change', (event) => {
   if (event.target.name === 'model-choice') modelPickerEdited();
 });
+// A row keeps its star and link tabbable while it holds the focus.
+els.modelTable.addEventListener('focusout', () => setTimeout(syncModelTabStops, 0));
 els.modelTable.addEventListener('click', (event) => {
   const star = event.target.closest('.model-star');
   if (star) toggleModelFavourite(star.closest('.model-row').dataset.model);

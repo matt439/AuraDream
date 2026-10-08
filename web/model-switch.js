@@ -103,6 +103,7 @@ function chooseModel(id) {
     const on = radio.value === id;
     if (radio.checked !== on) radio.checked = on;
   }
+  syncModelTabStops();
 }
 
 function modelLabel(id) {
@@ -122,9 +123,9 @@ function syncModelStars() {
   }
 }
 
-function modelFactCell(label, value, detail, note) {
+function modelFactCell(label, value, detail, note, { muted = false } = {}) {
   const cell = document.createElement('span');
-  cell.className = 'model-fact';
+  cell.className = muted ? 'model-fact model-fact-muted' : 'model-fact';
   if (note) cell.title = note;
   const hidden = document.createElement('span');
   hidden.className = 'sr-only';
@@ -138,7 +139,51 @@ function modelFactCell(label, value, detail, note) {
   return cell;
 }
 
-function modelTableRow(entry) {
+// The name cell's second line: the access label (its note as the title) and
+// a state badge that only the server's current checkpoint fills
+// (syncModelRowStates). The line is always there, so a badge never makes a
+// row taller.
+function modelNameCell(entry, info, favourite) {
+  const name = document.createElement('span');
+  name.className = 'model-name';
+  const radio = document.createElement('input');
+  radio.type = 'radio';
+  radio.name = 'model-choice';
+  radio.value = entry.model_id;
+  const title = document.createElement('span');
+  title.className = 'model-title';
+  if (favourite) {
+    // From the grouping, as the rows are drawn: a star toggled in an open
+    // picker does not rename the radio under the user.
+    const hidden = document.createElement('span');
+    hidden.className = 'sr-only';
+    hidden.textContent = 'Favourite, ';
+    title.append(hidden);
+  }
+  title.append(entry.label);
+  const line = document.createElement('small');
+  if (info.access) {
+    const access = document.createElement('span');
+    access.className = 'model-access';
+    access.dataset.access = info.access;
+    access.textContent = info.access;
+    if (info.access_note) access.title = info.access_note;
+    line.append(access);
+  }
+  const state = document.createElement('span');
+  state.className = 'model-state';
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  const word = document.createElement('span');
+  word.className = 'model-state-word';
+  state.append(dot, word);
+  line.append(state);
+  title.append(line);
+  name.append(radio, title);
+  return name;
+}
+
+function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
   const id = entry.model_id;
   const info = modelCatalogueDetails[id] ?? {};
   const row = document.createElement('div');
@@ -150,20 +195,16 @@ function modelTableRow(entry) {
   star.setAttribute('aria-label', `Star ${entry.label}`);
   const choice = document.createElement('label');
   choice.className = 'model-row-choice';
-  const name = document.createElement('span');
-  name.className = 'model-name';
-  const radio = document.createElement('input');
-  radio.type = 'radio';
-  radio.name = 'model-choice';
-  radio.value = id;
-  name.append(radio, entry.label);
+  const name = modelNameCell(entry, info, favourite);
   const speedDetail = [info.speed_summary, info.speed_basis].filter(Boolean).join(' · ');
   choice.append(
     name,
     modelFactCell('Style', info.style),
     modelFactCell('Refine', info.refine, '', info.refine_note),
-    modelFactCell('Max size', info.megapixels, info.megapixels_label, info.megapixels_note),
-    modelFactCell('Speed', info.speed_label || 'Unmeasured', speedDetail, info.speed_note),
+    modelFactCell('Size', info.megapixels, info.megapixels_label, info.megapixels_note),
+    // A timing from another setup is a reference, not this setup's category.
+    modelFactCell('Speed', info.speed_label || 'Unmeasured', speedDetail, info.speed_note,
+      { muted: !!info.speed_basis?.startsWith('timed ') }),
   );
   row.append(star, choice);
   if (info.url) {
@@ -173,11 +214,65 @@ function modelTableRow(entry) {
     link.target = '_blank';
     link.rel = 'noopener';
     link.textContent = '↗';
-    link.title = `Open ${entry.label}'s model page`;
-    link.setAttribute('aria-label', `${entry.label} model page`);
+    link.title = `Open ${entry.label}'s model page in a new tab`;
+    link.setAttribute('aria-label', `${entry.label} model page (opens in a new tab)`);
     row.append(link);
   }
+  // The cells' title notes, for a keyboard or a screen reader too: the radio
+  // is described by them (a title on a span inside its label is not).
+  const notes = [['Access', info.access_note], ['Refine', info.refine_note],
+    ['Size', info.megapixels_note], ['Speed', info.speed_note]]
+    .filter(([, note]) => note).map(([label, note]) => `${label}: ${note}`).join(' ');
+  if (notes) {
+    const described = document.createElement('span');
+    described.className = 'sr-only';
+    described.id = `model-notes-${index}`;
+    described.textContent = notes;
+    name.querySelector('input').setAttribute('aria-describedby', described.id);
+    row.append(described);
+  }
   return row;
+}
+
+// One tab stop for the table's stars and links, as for its radios: the
+// chosen row's (the first row's while none is), and the row holding the
+// focus until it leaves, so a star pressed by keyboard stays reachable.
+function syncModelTabStops() {
+  const rows = [...els.modelTable.querySelectorAll('.model-row[data-model]')];
+  const home = rows.find((row) => row.querySelector('input')?.checked) ?? rows[0];
+  const focused = els.modelTable.contains(document.activeElement) ? document.activeElement.closest('.model-row') : null;
+  for (const row of rows) {
+    const stop = row === home || row === focused ? '0' : '-1';
+    for (const control of row.querySelectorAll('.model-star, .model-link')) setModelAttribute(control, 'tabindex', stop);
+  }
+}
+
+const MODEL_ROW_STATES = {
+  ready: ['Loaded', 'The server has this checkpoint loaded'],
+  loading: ['Loading…', 'The server is loading this checkpoint'],
+  error: ['Load failed', "The server's checkpoint; its last load failed"],
+  unloaded: ['Current', "The server's checkpoint; not loaded"],
+};
+
+// The server's current checkpoint wears its state in its row. Written in
+// place, outside the rebuild key: a poll changes one word, never the rows.
+function syncModelRowStates() {
+  const current = modelRuntimeSettings?.model_id ?? loadedModel;
+  const state = MODEL_ROW_STATES[modelState] ? modelState : 'unloaded';
+  const [word, title] = MODEL_ROW_STATES[state];
+  for (const row of els.modelTable.querySelectorAll('.model-row[data-model]')) {
+    if (row.dataset.model !== current) {
+      if (row.hasAttribute('data-state')) row.removeAttribute('data-state');
+      continue;
+    }
+    setModelAttribute(row, 'data-state', state);
+    const badge = row.querySelector('.model-state');
+    if (!badge) continue;
+    setModelAttribute(badge, 'title', title);
+    setModelAttribute(badge.querySelector('.dot'), 'class', `dot ${state === 'unloaded' ? '' : state}`.trim());
+    const text = badge.querySelector('.model-state-word');
+    if (text.textContent !== word) text.textContent = word;
+  }
 }
 
 function renderModelOptions(wanted) {
@@ -199,7 +294,8 @@ function renderModelOptions(wanted) {
     const focusKind = focused?.classList.contains('model-star') ? '.model-star'
       : focused?.classList.contains('model-link') ? '.model-link' : 'input';
     const children = [els.modelTableHead];
-    for (const [label, entries] of favourites.length ? [['Favourites', favourites], ['All models', others]] : [['', others]]) {
+    let index = 0;
+    for (const [label, entries] of favourites.length ? [['Favourites', favourites], ['Other models', others]] : [['', others]]) {
       if (!entries.length) continue;
       if (label) {
         const heading = document.createElement('div');
@@ -207,7 +303,8 @@ function renderModelOptions(wanted) {
         heading.textContent = label;
         children.push(heading);
       }
-      children.push(...entries.map(modelTableRow));
+      const favourite = label === 'Favourites';
+      children.push(...entries.map((entry) => modelTableRow(entry, { favourite, index: index++ })));
     }
     els.modelTable.replaceChildren(...children);
     modelOptionKeys.set(els.modelTable, key);
@@ -222,6 +319,7 @@ function renderModelOptions(wanted) {
   // selecting the head of the list.
   chooseModel(wanted);
   syncModelStars();
+  syncModelRowStates();
 }
 
 function toggleModelFavourite(modelId) {
@@ -299,6 +397,8 @@ function modelSwitchHold({ load = true } = {}) {
 function syncModelSwitch() {
   const why = modelSwitchHold();
   const saveWhy = modelSwitchHold({ load: false });
+  syncModelRowStates();
+  syncModelTabStops();
   // Every poll runs this more than once; write only what changed.
   setModelAttribute(els.modelSwitch, 'aria-disabled', String(!!why));
   setModelAttribute(els.modelSwitch, 'title', why || 'Remember these settings and load the selected checkpoint');
@@ -314,6 +414,11 @@ function syncModelSwitch() {
     const text = select.selectedOptions[0]?.dataset.description || '';
     if (help.textContent !== text) help.textContent = text;
   }
+  // Which card each Nunchaku format is for, all at once: the choice is the
+  // GPU generation's, not a trade-off one option's text explains.
+  const formats = [...els.modelFormat.options]
+    .map((option) => `${option.textContent}: ${option.dataset.description || option.textContent}`).join('; ');
+  if (els.modelFormatHelp.textContent !== formats) els.modelFormatHelp.textContent = formats;
   if (!els.modelPicker.hidden) {
     const note = modelSwitchError || modelFavouriteMessage || saveWhy || modelPickerMessage || 'The first load may download weights and take several minutes.';
     if (els.modelPickerNote.textContent !== note) els.modelPickerNote.textContent = note;

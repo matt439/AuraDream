@@ -39,7 +39,12 @@ top of the list. This is saved immediately in this browser and survives page
 reloads and server restarts; it does not change or load the selected model.
 The ordinary and Nunchaku versions of a checkpoint share its star. Quantization
 and offload use full-width controls with short labels and visible explanations beneath
-the choices. The load buttons stay in their own footer while the picker scrolls.
+the choices. The load buttons stay in their own footer while the picker scrolls,
+and the column names stay at the top of the table. The server's checkpoint says
+**Loaded**, **Loading…**, **Load failed** or **Current** under its name. A dotted
+label has a note: hover it, or a screen reader reads it with the row. Only the
+chosen row's star and model page are tab stops (Shift+Tab and Tab from its
+radio), so Tab reaches the actions without passing every row.
 
 **Speed** uses recorded RTX 5080 samples around 1 MP (WAI's portrait is 1.38 MP):
 **Fast** is up to 15 seconds, **Medium** over 15 through 45 seconds, and **Slow**
@@ -47,7 +52,7 @@ over 45 seconds. The sample time and area appear below the category. A
 category appears only when the sample used your chosen quantization, offload
 and platform. Otherwise the word is **Reference**, or **Unmeasured** for BF16
 or sequential offload, and "timed with FP8" or "timed on 4-bit Linux build"
-says how the sample differs. **First run, busy PC** marks the busy-CPU first
+says how the sample differs; these read dimmer than a category. **First run, busy PC** marks the busy-CPU first
 images. The tooltip gives steps, settings and date. **Unmeasured** models
 without a sample show default steps instead of an invented timing. These are
 previous runs, not estimates for your current prompt, size or steps; loading
@@ -56,9 +61,9 @@ time is separate.
 Some checkpoints are gated on Hugging Face. FLUX.1 Krea [dev] and FLUX.1 [dev]
 need their licence accepted on the model page; Krea 2 Turbo and Raw need the
 authors' approval, which can take days. Then sign in once with
-`uv run hf auth login`. The 4-bit lite-infer builds are not gated. The
-catalogue reports this as each model's access; FP8 with Model offload is
-recommended for a 16 GB card.
+`uv run hf auth login`. The 4-bit lite-infer builds are not gated. Each
+row says **Open**, **Accept licence** or **Needs approval** under the name; FP8
+with Model offload is recommended for a 16 GB card.
 
 **Apply & save** applies changed settings without loading their weights. Saving
 only the startup preference leaves an already loaded model in place. Both
