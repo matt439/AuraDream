@@ -4,7 +4,16 @@
   margin-top: calc(var(--sp-1) - var(--sp-3));
 }
 .gallery-footer #gallery-error { flex: 1 1 auto; min-width: 0; margin-top: 0; }
-.gallery-footer #btn-bundles { flex: none; margin-left: auto; }
+/* No taller than the line it shares: as a small button (26 px) it grew the
+   18 px line and moved the grid down 8 px. In the controls' row instead, it
+   wrapped Delete unstarred onto a row of its own whenever a filter showed it. */
+.gallery-footer #btn-bundles {
+  flex: none; margin: -1px 0 -1px auto; padding-block: 0; border-color: transparent;
+  line-height: var(--lh); color: var(--muted);
+}
+.gallery-footer #btn-bundles:hover, .gallery-footer #btn-bundles:focus-visible {
+  color: var(--text); border-color: var(--line-strong);
+}
 .bundles-dialog {
   width: min(680px, calc(100vw - 2 * var(--sp-4)));
   max-height: calc(100vh - 2 * var(--sp-4));
