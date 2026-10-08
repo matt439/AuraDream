@@ -40,7 +40,7 @@ def test_noobai_guide_preserves_its_vocabulary_and_exact_recommended_shapes():
         "masterpiece", "best quality", "good quality", "normal quality", "worst quality",
     ]
     assert groups["Aesthetic"] == ["very awa", "worst aesthetic"]
-    assert groups["Year"] == ["old", "early", "mid", "recent", "newest"]
+    assert groups["Date"] == ["old", "early", "mid", "recent", "newest"]
     assert groups["Rating"] == ["safe"]
     assert helper.year_tag and helper.vocabulary_cutoff == "2024-10-23"
     assert helper.artist_prefix == "artist:"

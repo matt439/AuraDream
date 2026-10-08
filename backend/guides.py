@@ -560,6 +560,9 @@ ANIMAGINE_GUIDE = {
         "with: masterpiece, high score, great score, absurdres. Both CLIP "
         "tokenizers stop at 77 tokens, so put identity and essential details "
         "first. Text rendering is not supported.\n"
+        "The Tags menu and Check name those steps Person count, Character, "
+        "Series, Rating, Details and Quality; year, artist and meta tags go in "
+        "Details.\n"
         "Autocomplete and the chips check Danbooru's live tag index up to this "
         "checkpoint's 2025-01-07 cutoff. Unknown is advisory, not blocked.\n"
         f"The model card recommends this negative prompt: {_ANIMAGINE_NEGATIVE}."
@@ -677,7 +680,8 @@ KOHAKU_GUIDE = {
         "or both; long prompts are optional. Its Epsilon-style order is person "
         "count, character, series, artist, general tags or prose, quality, "
         "date, meta tags, rating. Use spaces instead of underscores in tags.\n"
-        "The Tags menu carries the author's quality, rating and date tags. "
+        "The Tags menu carries person count and the author's quality, rating "
+        "and date tags. "
         "For the explicit rating the author uses both nsfw and explicit. "
         "Autocomplete checks Danbooru through the 2024-07-10 dataset cutoff; "
         "unknown tags remain advisory. The author specifies no fixed quality "
@@ -801,8 +805,8 @@ ILLUSTRIOUS_GUIDE = {
         "natural-language example ends its prose with tags (persona 3, "
         "masterpiece). The training order is person count, character, rating, "
         "general tags, artist, quality, year. The two CLIP encoders each stop at "
-        "77 tokens, prose included, so keep it short or put the quality tags "
-        "early. Autocomplete and the chips check Danbooru's tag index through "
+        "77 tokens, prose included, so keep it short: the quality and year tags "
+        "at the end of that order are the first cut. Autocomplete and the chips check Danbooru's tag index through "
         "the dataset's August 2024 cutoff and label artist tags as artist.\n"
         "The rating slot takes Danbooru's own rating names - general, sensitive, "
         "questionable or explicit; the report's prompts use general. "
@@ -1114,7 +1118,9 @@ NOOBAI_GUIDE = {
                 ],
             },
             {"label": "Aesthetic", "tags": ["very awa", "worst aesthetic"]},
-            {"label": "Year", "tags": ["old", "early", "mid", "recent", "newest"]},
+            # "Date tags" in the prose above, as on the card; "Year" is the
+            # helper's own heading for the year-NNNN form beside it.
+            {"label": "Date", "tags": ["old", "early", "mid", "recent", "newest"]},
             {"label": "Resolution", "tags": ["absurdres", "highres"]},
         ],
         "year_tag": True,

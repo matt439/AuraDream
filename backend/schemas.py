@@ -949,6 +949,17 @@ class PromptTagHelper(BaseModel):
     artist_prefix: str | None = None
     recommended_suffix: list[str] = Field(default_factory=list)
     negative_prompt: str | None = None
+    # Served beside the guide's own keys (`model_defaults._served_tag_helper`)
+    # from what Check's Order section reads, so the two say one thing:
+    # `order` is `documented_order`'s steps (empty where there is none), its
+    # cite and page; `author_orders` the authors' orders Check lists where no
+    # order is checked; `group_steps` the step each group's tags are placed
+    # in, and `year_step` the year form's.
+    order_cite: str | None = None
+    order_url: str | None = None
+    author_orders: list[AuthorOrder] = Field(default_factory=list)
+    group_steps: dict[str, str] = Field(default_factory=dict)
+    year_step: str | None = None
 
 
 class TagSuggestion(BaseModel):
@@ -1026,11 +1037,11 @@ class TagValidationResponse(BaseModel):
     available: bool
     results: list[TagValidationItem] = Field(default_factory=list)
     detail: str | None = None
-    # With a `prompt` in the request, and only where the rules read an order
-    # in it (`prompt_rules.order_slots`): the documented order's steps and
+    # With a `prompt` in the request, and only where the rules place its items
+    # (`prompt_rules.order_slots`; a lone item too): the documented order's steps and
     # every comma item of the prompt - past the lookup's 64 too, where a guide
     # tag still has its slot - index for index with the chips. None where the
-    # guide states no order, the rules read none in this prompt, or no prompt
+    # guide states no order, the rules place nothing in this prompt, or no prompt
     # was sent.
     order_steps: list[str] | None = None
     slots: list[TagSlot] | None = None

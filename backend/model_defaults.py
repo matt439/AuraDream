@@ -1038,8 +1038,39 @@ def guide_for(model_id: str) -> dict[str, Any]:
         "slots": [
             entry["pattern"] for entry in guide.get("analysis", {}).get("placeholders", [])
         ],
-        "tag_helper": deepcopy(guide.get("tag_helper")),
+        "tag_helper": _served_tag_helper(model_id, guide),
     }
+
+
+def _served_tag_helper(model_id: str, guide: dict[str, Any]) -> dict[str, Any] | None:
+    """The guide's `tag_helper` with the order Check reads, so the Tags menu
+    shows what Check's Order section does and never a copy of its own: the
+    documented order's steps and cite (`prompt_order.documented_order`), or
+    where there is none the authors' orders Check lists
+    (`prompt_sources.author_orders`), and the step each of the menu's groups
+    - and its year form - is placed in (`analysis.order`'s `groups`/`year`,
+    which `prompt_order._order_spec` places them by)."""
+    helper = deepcopy(guide.get("tag_helper"))
+    if helper is None:
+        return None
+    # Lazy: both modules import this one.
+    from .prompt_order import documented_order
+    from .prompt_sources import author_orders
+
+    documented = documented_order(model_id)
+    order = (guide.get("analysis") or {}).get("order") or {}
+    placed = order.get("groups", {}) if documented else {}
+    helper["order"] = list(documented.steps) if documented else []
+    helper["order_cite"] = documented.cite if documented else None
+    helper["order_url"] = documented.url if documented else None
+    helper["author_orders"] = author_orders(model_id)
+    helper["group_steps"] = {
+        group["label"]: placed[group["label"]]
+        for group in helper.get("groups", [])
+        if group["label"] in placed
+    }
+    helper["year_step"] = order.get("year") if documented and helper.get("year_tag") else None
+    return helper
 
 
 # What the CFG tooltip says when the loaded pipeline disagrees with the profile

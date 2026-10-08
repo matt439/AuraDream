@@ -979,10 +979,11 @@ function refineClosed() {
 // The passes already made from this source, newest first - the gallery's own
 // `refine:` search, on every checkpoint - so a pass is judged against what it
 // was made from before another is run. One opens in the lightbox with the
-// source ahead of it, ← and → stepping between them, and the comparison
-// already on - judging the pass against its source is what it was opened for,
-// and it took an S or a press more; the dialog closes for it, keeping what was
-// typed for the next open (`refineClosed`).
+// source and the other passes beside it and the comparison already on
+// (judging the pass against its source is what it was opened for, and it
+// took an S or a press more); ← and → then swap between the passes, still
+// compared (`stepPass`). The dialog closes for it, keeping what was typed for
+// the next open (`refineClosed`).
 async function loadRefinePasses(rec) {
   const epoch = ++refinePassesEpoch;
   els.refinePasses.hidden = true;

@@ -203,6 +203,31 @@ def test_a_colon_in_a_prompt_is_still_a_prompt(store):
     assert store.list_images(search="portrait:")[1] == 1
 
 
+def test_the_size_filter_is_width_and_height(store):
+    # As the lightbox's facts print it (×) and as it is typed (x).
+    keep(store, seed=1, width=1024, height=1024)
+    keep(store, seed=2, width=1024, height=768)
+    keep(store, seed=3, width=768, height=1024)
+    assert [r.seed for r in store.list_images(search="size:1024x768")[0]] == [2]
+    assert [r.seed for r in store.list_images(search="size:768×1024")[0]] == [3]
+    assert store.list_images(search="size:1024X1024 seed:1")[1] == 1
+    with pytest.raises(ValueError, match="WIDTHxHEIGHT"):
+        store.list_images(search="size:large")
+
+
+def test_the_page_knows_every_search_key(store):
+    # The lightbox's search buttons tell a prompt word that would read as a
+    # filter from one that stays text by this list (gallery-search.js).
+    import re
+    from pathlib import Path
+
+    from backend.search import FILTERS
+
+    source = (Path(__file__).resolve().parents[1] / "web" / "gallery-search.js").read_text(encoding="utf-8")
+    listed = re.search(r"SEARCH_KEYS = new Set\(\[([^\]]*)\]\)", source).group(1)
+    assert set(re.findall(r"'([a-z]+)'", listed)) == set(FILTERS)
+
+
 def test_a_filter_that_is_not_a_number_says_so(store):
     with pytest.raises(ValueError, match="not a number"):
         store.list_images(search="seed:tuesday")

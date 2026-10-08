@@ -2127,6 +2127,23 @@ takes before the lightbox's walk does; hidden with the focus in it - S
 pressed there - it hands the focus to the toggle, not to the top of the
 dialog.
 
+**Comparing several passes, the arrows swap passes.** A Compare 3 run makes
+three passes of one source, and the question is which of them improved it
+most. The arrows moved the divider (the drag had left the focus on it) or
+walked to the next image and ended the comparison, so each pass took a walk,
+an S and the divider set again. Now, comparing, ← → go to the next pass of
+the same source in the strip (`stepPass`), wrapping round and skipping the
+source, with the comparison, its mode, the divider's place and the focus
+carried, so the three are flipped at one crop. The divider keeps keys of its
+own: Shift+← → from anywhere (`nudgeSplit`), and on the focused slider
+Shift+← →, PageUp/PageDown, Home and End, its `aria-keyshortcuts` and title
+naming them, since a screen reader user on a `role=slider` expects the
+arrows there and is told otherwise. With one pass in the strip nothing
+changed: the arrows on the divider move it and elsewhere walk. Shift+← → is
+2% wherever it is pressed: it was first 10% on the focused divider with one
+pass and 2% off it, so the same keys moved it by five times as much after a
+drag as after a click elsewhere. PageUp/PageDown is the bigger step.
+
 The keys line names S on a pass, and only there (`lbKeysLine`), and the toggle
 carries S by the shortcut hint's own rule (the `::after` Generate's
 Ctrl+Enter uses): with S only in its title and `aria-keyshortcuts`, and the
@@ -2222,7 +2239,21 @@ the panel, a deleted one was an empty chip and a refused Generate. It is
 `aria-disabled` with the reason where the checkpoint takes no references or
 every one has gone, and a render of the same facts brings that up to date
 (`syncUseReferences`), since a status after a load can change the first. A source's passes are linked as the gallery's
-`refine:` search once the gallery says there are any. The one-line
+`refine:` search once the gallery says there are any. Each fact the search
+grammar can say ends in a ⌕ that adds it to the gallery search, and the
+prompt has "Search for this prompt" (2026-10-08): finding the rest of a seed
+or a prompt had been a copy into the box by hand. They add to the box rather
+than replace it, so prompt then seed narrows twice; a second value for a key
+replaces the first, since two seeds AND to nothing. The prompt is one value
+the same way: its press replaces the box's free text and keeps the filters,
+since adding a second prompt's words to the first's ANDed both prompts and
+found nothing (review, 2026-10-08). The prompt goes in as its
+words - the grammar has no phrase, and FTS matches every word in any order,
+which for a whole prompt is near enough to the same prompt - leaving out a
+word that would read as a filter. The negative prompt, references and
+variables have no key and no button. `size:` was added to the grammar for
+the Size row. The press closes the lightbox, as the passes link does: the
+results are the gallery's. The one-line
 `settingsLine` stays as the dialog's description (`#lb-desc`, hidden) and
 the delete confirm's. The counter names the image ("3/144 · #57") and
 counts the gallery by the server's total, not the pages loaded. A picture
@@ -5105,7 +5136,8 @@ box's 296 px, caret included, so its own "insert at the prompt caret" pointed
 at a caret nobody could see, and a click in the box to move it closed the
 helper. A click in the box now moves the caret and leaves the helper open,
 and its second line names the place - "A tag goes after "absurdres", at the
-end" - recomputed on every insert and caret move. It does not slot tags
+end" - recomputed on every insert and caret move (since 2026-10-08 it names
+the steps that fit there too: "One order, three places" below). It does not slot tags
 itself: the documented order differs per checkpoint (Kohaku's rating is
 last, Illustrious's third, WAI's folded into subject and scene), the page
 has no order of its own, and Check's Use reordered places them. The text is
@@ -5277,9 +5309,13 @@ categories for that prompt through `_places`, the one placement the order rule,
 `reorder_tags` and `unplaced_items` read. The review had rejected a slot map in
 the page - Kohaku puts the rating last, Illustrious third, and WAI folds it into
 subject and scene - and the left-out option was waiting for per-guide order data
-the server already had. The route asks `prompt_rules.reads_order` first, so a
-prompt with no order to read costs the index nothing, and `slots` is None for
-the whole prompt there (`order_checked` false, or fewer than two items). An item
+the server already had. The route asks `prompt_rules.places_items` first, so a
+prompt with nothing to place costs the index nothing, and `slots` is None for
+the whole prompt there (`order_checked` false, or no items). It once asked
+`reads_order`, whose two-item gate belongs to the order finding: a lone tag
+got no slot, and the Tags helper's caret line, after 1girl was clicked into an
+empty prompt - the moment it is most used - said it could not tell where the
+next tag went; a lone item is placed now, as it would be beside any other. An item
 gets no slot where it holds lettering or keeps more than one possible slot - an
 @ name, a tag never looked up, or one with no usable category - so a chip never
 shows a guess. `slots` covers every comma item, past the lookup's 64 too; a
@@ -5300,6 +5336,48 @@ on a repeat showed nothing. An unknown chip's reason, with
 "generation is still allowed", is in one shared tip outside the tray,
 shown under the chip as it is hovered or focused and named by its
 `aria-describedby`, so the chip's text stays the tag's own.
+
+**One order, three places** (2026-10-08, user feedback). The Tags helper's
+caret line - "A tag goes after "x", at the end - click in the prompt to move
+its caret" - named a place but no order, and the user found it useless; and
+the Prompt ? text, the Tags menu and Check disagreed. What was found: on
+NoobAI and RouWei the menu read an empty "Recommended order:" (their
+`tag_helper.order` is `[]`, deliberately) and still pointed at Check's Use
+reordered, which they do not have, while their ? text quoted the authors'
+orders (NoobAI's caption template, RouWei's artists at the very end) and
+Check said "This app checks no word order for this checkpoint: its guide
+states none" above those same orders; Animagine's menu and Check name the
+steps Person count, Character, Series, Rating, Details and Quality, and its
+? text named neither Details nor where year, artist and meta tags go (Check
+places them in Details), nor that the menu's Score and Year groups go in
+Quality and Details; Illustrious's ? text said "keep it short or put the
+quality tags early" beside an order with quality sixth of seven, which
+Check flags; Kohaku's said the menu carries quality, rating and date tags,
+leaving out its person count; NoobAI's menu had two "Year" headings, one
+for the date tags its ? text calls date tags; WAI's menu put Rating under
+no step though Check places it in Subject and scene.
+
+All three now read one source. The menu's order is served with it
+(`_served_tag_helper`): `documented_order`'s steps and cite, Check's own,
+or where none is checked the `author_orders` Check lists, from one
+function. Each group says its step where that is not its name. The caret
+line says which steps fit at the caret, read off the chips' server slots
+for the nearest placed tags either side - the page places nothing; an
+unplaced tag is passed over as the order rule passes it over - and marks
+them in the order line and on the groups. Where no tag around the caret
+is placed, the line first said Check gave them "no step yet", which read as
+loading though often no answer was coming (the order not read for the
+prompt, or a failed request); it now says "still being looked up" only while
+this prompt's answer is pending, and otherwise names the whole order and
+why the caret cannot narrow it. The ? prose was corrected where
+it disagreed (Animagine names the steps, in a sentence marked as the
+app's in `prompt_sources`; Illustrious's token advice no longer moves
+quality forward; Kohaku lists person count; NoobAI's group is Date), and
+Check's no-order note drops "its guide states none" where author orders
+follow. `tests/test_tag_order_agreement.py` is the guard: served order and
+author orders equal to Check's answer over HTTP for every tag checkpoint,
+every menu group placed in a step, distinct headings, every step named in
+the ? prose, and no "quality tags early" under an order.
 
 **The chips show where the encoders stop reading.** On these SDXL
 checkpoints both CLIP tokenizers stop at 77 tokens, and the guide's own

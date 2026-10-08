@@ -17,7 +17,7 @@ tool: splits follow responsibilities, with no new build step or runtime feature.
 | `web/generation.js` | 2,209 | Submission/queue; `grid-preview.js`, `job-stream.js`, `job-results.js`. |
 | `web/sheet.js` | 1,822 | Sheet model/axes; `sheet-render.js`, `sheet-export.js`. |
 | `web/gallery.js` | 1,768 | Gallery layout/cards; `gallery-actions.js`, `reuse.js`. |
-| `web/tags.js` | 1,604 | Suggestions/editing; `tag-tokens.js`, `tag-chips.js`. |
+| `web/tags.js` | 1,604 | Suggestions/editing; `tag-tokens.js`, `tag-chips.js` (chips, order slots, the Tags helper and its caret line, which presents the server's order and slots). |
 | `web/analysis.js` | 1,593 | Prompt check; `analysis-critic.js`, `comparison.js`. |
 | `web/panel.js` | 1,533 | Settings/persistence; `runs.js`, `viewer.js`. |
 | `web/refine.js` | 1,444 | Dialog/source/request lifecycle; `refine-prompt.js` owns prompt controls. |
@@ -56,7 +56,7 @@ overrides and the final reduced-motion rule.
 | `backend/schemas.py` (1,195) | Related request/response contracts and normalization. A domain split is possible, but requires careful handling of shared defaults and type dependencies. |
 | `backend/generate.py` (1,081) | CLI argument normalization and execution. A parser/service boundary is possible if CLI work grows; no command-line behavior changed here. |
 | `web/index.html` (1,015 after adding asset links) | One page and its dialogs, kept as a single document. Splitting markup would add a template/include mechanism to the current no-build frontend. |
-| `web/lightbox.js` (1,070) | One tightly coupled image-navigation/zoom/comparison state machine. Retained with its existing browser coverage. |
+| `web/lightbox.js` (1,132) | One tightly coupled image-navigation/zoom/comparison state machine (including ← → swapping between passes of one source while compared). Retained with its existing browser coverage. |
 | `tests/test_prompt_encoding.py` (1,177) | Cohesive encoder/source-equivalence suite; preserved alongside its implementation. |
 | Remaining rule dispatch and Refine lifecycle | Still around 1,000 lines, but each now has a single role. No file-size ceiling is imposed. |
 

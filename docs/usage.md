@@ -186,6 +186,7 @@ Search combines these terms with free text matching the prompt:
 | `mu:none`, `quant:fp8`, `model:flux` | Default shift, quantization, model substring |
 | `refine:412`, `refine:none`, `strength:0.3-0.5` | Passes from a source, direct renders, strength |
 | `hash:3f9a` | Identical pixels by hash prefix |
+| `size:1024x768` | Width and height exactly |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
 
 **Re-render** renders the filtered images at the panel's size with their
@@ -216,6 +217,11 @@ retain their meaning. Star images directly on the sheet or in the lightbox.
 Lightbox zoom and position carry between images of the same shape, useful
 for comparing a detail across seeds or settings. Its facts include source,
 references and run links, plus **Use seed** and **Use these references**.
+**⌕** beside a setting (model, size, sampling, LoRA, source, seed, day, run)
+adds it to the gallery search; a value of the same kind replaces the old
+one. **⌕ Search for this prompt** replaces the search's text with the
+prompt's words and keeps its filters; it finds prompts containing all of
+those words in any order.
 
 ## Generate from the terminal
 

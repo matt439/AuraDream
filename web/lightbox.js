@@ -392,7 +392,7 @@ function renderLightbox() {
   }
   if (lbDrawn !== rec || !els.lbSettings.firstChild) {
     lbDrawn = rec;
-    els.lbSettings.replaceChildren(factsList(rec, { useSeed: true }), passesLine(rec));
+    els.lbSettings.replaceChildren(promptSearchLine(rec), factsList(rec, { useSeed: true, search: true }), passesLine(rec));
   }
   // A live region, written only when its words change: a star, a status or
   // a delete elsewhere re-renders the same image, and each rewrite said the
@@ -471,8 +471,10 @@ function settingsLine(rec) {
 // after it, so → comes back), each reference, and the run as a sheet - and,
 // where the view has no Use seed of its own (`useSeed`: the lightbox, where
 // older images' seeds are browsed; not the result column, whose row of
-// actions has one), put the seed in the panel's Seed box.
-function factsList(rec, { useSeed: seedButton = false } = {}) {
+// actions has one), put the seed in the panel's Seed box. `search` (the
+// lightbox's) ends each row the search grammar can say with a ⌕ that adds it
+// to the gallery's search (gallery-search.js).
+function factsList(rec, { useSeed: seedButton = false, search = false } = {}) {
   const dl = document.createElement('dl');
   dl.className = 'facts';
   const row = (term, ...value) => {
@@ -533,6 +535,7 @@ function factsList(rec, { useSeed: seedButton = false } = {}) {
       void showSheetScope(run);
     })
     : 'none: made before runs were grouped');
+  if (search) addFactSearches(dl, rec);
   return dl;
 }
 
@@ -688,12 +691,7 @@ function passesLine(rec) {
 }
 
 function showPasses(rec) {
-  closeLightbox();
-  els.search.value = `refine:${rec.id}`;
-  resetGallery();
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
-  els.search.focus({ preventScroll: true });
+  showGallerySearch(`refine:${rec.id}`);
 }
 
 // The comparison's controls, on a pass only: dead, saying why, where the
@@ -701,11 +699,24 @@ function showPasses(rec) {
 function syncCompare(rec) {
   const pass = rec.refine != null;
   els.lbCompare.hidden = !pass;
+  const on = pass && lbCompare.id === rec.id;
+  // Comparing, with another pass of the same source in the strip, the arrows
+  // swap passes (`stepPass`) and the divider takes Shift+arrows instead.
+  const passes = on && lbSiblingPass(1) >= 0;
+  const divider = on && lbCompare.mode === 'swipe';
   // The keys line names S where it does something: on a pass. In the title
-  // and the button's hint alone, it was found only by hovering.
-  els.lbKeys.textContent = lbKeysLine(pass);
+  // and the button's hint alone, it was found only by hovering. Likewise what
+  // the arrows do while comparing.
+  const keys = lbKeysLine(pass, { passes, divider });
+  if (els.lbKeys.textContent !== keys) els.lbKeys.textContent = keys;
+  if (passes) {
+    els.lbSplit.setAttribute('aria-keyshortcuts', 'Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End');
+    els.lbSplit.title = 'Drag, or Shift+← →, to move the divider; ← → switch to another pass of this source';
+  } else {
+    els.lbSplit.removeAttribute('aria-keyshortcuts');
+    els.lbSplit.removeAttribute('title');
+  }
   if (!pass) return;
-  const on = lbCompare.id === rec.id;
   const gone = rec.refine_missing || lbSources.get(rec.refine) === null;
   els.lbCompareOn.setAttribute('aria-pressed', String(on));
   for (const [button, mode] of [[els.lbSwipe, 'swipe'], [els.lbSideBySide, 'side']]) {
@@ -732,10 +743,13 @@ function syncCompare(rec) {
 // S, as it reads on any image that is not a pass). Each key is bound to what
 // it does - no-break spaces, and a word joiner in +/− - so the line breaks
 // only after a ·: the longer line of a pass split "+/" from "−" at 1400 px.
-function lbKeysLine(pass) {
-  const keys = [['← →', 'walk'], ['F', 'star'], ...(pass ? [['S', 'compare']] : []), ['Del', 'delete'],
+// Comparing, the arrows read "passes" where they swap passes of the source
+// (`passes`), and Shift+arrows move a swipe's divider (`divider`).
+function lbKeysLine(pass, { passes = false, divider = false } = {}) {
+  const keys = [['← →', passes ? 'passes' : 'walk'], ...(divider ? [['Shift+← →', 'divider']] : []),
+    ['F', 'star'], ...(pass ? [['S', 'compare']] : []), ['Del', 'delete'],
     ['0', 'fit'], ['1', '1:1'], ['+/−', 'zoom'], ['Esc', 'close']];
-  return keys.map(([key, does]) => `${key.replace(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
+  return keys.map(([key, does]) => `${key.replaceAll(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
     .join('\u00a0· ');
 }
 
@@ -1058,13 +1072,61 @@ function lbDoubleClick(e) {
   if (onPicture(e)) zoomOneToOne(...stagePoint(e));
 }
 
-// The divider's keys, while it has focus: the arrows move it rather than
-// walking the strip (app.js skips a key handled here).
+// The divider's keys, while it has focus (app.js skips a key handled here).
+// With no other pass of the source in the strip, the arrows move it rather
+// than walking the strip. With one, the plain arrows are left to app.js,
+// which swaps passes (`stepPass`) - comparing three passes against their
+// source is what the arrows were wanted for, and a drag left the focus here.
+// Shift+arrows move it by the same 2% either way, as `nudgeSplit` does off
+// it, so the step does not depend on where the focus is; PageUp/PageDown
+// (10%), Home and End move it either way, as a slider's do.
 function lbSplitKey(e) {
-  const step = e.shiftKey ? 0.1 : 0.02;
-  const to = { ArrowLeft: lbCompare.split - step, ArrowRight: lbCompare.split + step, Home: 0, End: 1 }[e.key];
+  const arrow = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+  if (arrow && !e.shiftKey && lbSiblingPass(1) >= 0) return;
+  const to = {
+    ArrowLeft: lbCompare.split - 0.02, ArrowRight: lbCompare.split + 0.02,
+    PageDown: lbCompare.split - 0.1, PageUp: lbCompare.split + 0.1, Home: 0, End: 1,
+  }[e.key];
   if (to === undefined) return;
   e.preventDefault();
   lbCompare.split = Math.min(1, Math.max(0, to));
   layoutLightbox();
+}
+
+// Shift+arrows anywhere in the lightbox while a swipe is up: the divider by
+// the slider's small step, so it moves without tabbing to it. False where
+// there is no divider, and the key walks as it always did.
+function nudgeSplit(delta) {
+  const rec = lbList[lbIndex];
+  if (!rec || lbCompare.id !== rec.id || lbCompare.mode !== 'swipe' || els.lbSplit.hidden) return false;
+  lbCompare.split = Math.min(1, Math.max(0, lbCompare.split + delta * 0.02));
+  layoutLightbox();
+  return true;
+}
+
+// Comparing, the index of the next pass of the same source in the strip in
+// the direction of `delta`, wrapping round - the source and other images in
+// between are skipped - or -1 where the strip holds no other. Only the strip
+// as loaded: a gallery page not yet fetched is not pulled for it.
+function lbSiblingPass(delta) {
+  const rec = lbList[lbIndex];
+  if (!rec || rec.refine == null || lbCompare.id !== rec.id) return -1;
+  const n = lbList.length;
+  for (let k = 1; k < n; k++) {
+    const i = (((lbIndex + delta * k) % n) + n) % n;
+    if (lbList[i].refine === rec.refine && lbList[i].id !== rec.id) return i;
+  }
+  return -1;
+}
+
+// ← → while comparing a pass with another pass of its source in the strip:
+// that pass, compared with the same source, in the same mode, at the same
+// divider. False where there is none, and the arrows walk (ending it).
+function stepPass(delta) {
+  const i = lbSiblingPass(delta);
+  if (i < 0) return false;
+  lbCompare.id = lbList[i].id;
+  lbIndex = i;
+  renderLightbox();
+  return true;
 }

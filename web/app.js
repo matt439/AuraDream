@@ -843,8 +843,16 @@ document.addEventListener('keydown', (e) => {
   if (e.defaultPrevented) return;
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
-  if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); return; }
-  if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); return; }
+  // Comparing a pass, they swap to another pass of the same source where the
+  // strip has one (`stepPass`), the comparison kept, and Shift+arrows move a
+  // swipe's divider (`nudgeSplit`); otherwise they walk, as ever.
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    e.preventDefault();
+    const delta = e.key === 'ArrowLeft' ? -1 : 1;
+    if (e.shiftKey ? nudgeSplit(delta) : stepPass(delta)) return;
+    void stepLightbox(delta);
+    return;
+  }
   // F, S, Delete and the zoom keys act on the image in view - unless a text
   // field still holds the caret, where they are typing, or a modifier makes
   // them the browser's: Ctrl+F is find, Ctrl+plus the page's zoom.

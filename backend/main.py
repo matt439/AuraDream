@@ -32,7 +32,7 @@ from .critic import CriticError, CriticUnavailable, prompt_critic  # noqa: E402
 from .jobs import BackendBusy, JobManager, LoadFailed, short_error  # noqa: E402
 from .launch import CHECKPOINTS  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
-from .prompt_sources import sources_for  # noqa: E402
+from .prompt_sources import author_orders  # noqa: E402
 from .schemas import (  # noqa: E402
     AuthorOrder,
     EncoderReport,
@@ -581,9 +581,11 @@ def _order_slots(prompt: str | None, reachable: bool) -> dict:
     """The chips' order slots: each comma item of `prompt` in the step of the
     documented order Check's order rule places it in, with the categories a
     Check of this prompt places with (`_tag_categories`) - Check's reading,
-    not one of the page's. Empty where no prompt was sent or the rules read
-    no order in it (`reads_order`, asked first, so such a prompt costs the
-    tag index nothing).
+    not one of the page's. Empty where no prompt was sent or the rules place
+    nothing in it (`places_items`, asked first, so such a prompt costs the
+    tag index nothing). A lone tag is placed too, though no order rule reads
+    one: the Tags helper's caret line says from its step where the next tag
+    goes, and that is the moment the helper is most used.
 
     The categories come from the cache the chips' lookup has just filled,
     except a name past the chips' 64 that Check's own 64 reach (guide tags
@@ -601,7 +603,7 @@ def _order_slots(prompt: str | None, reachable: bool) -> dict:
     model_id = settings.model_id
     try:
         order = prompt_rules.documented_order(model_id)
-        if order is None or not prompt_rules.reads_order(model_id, prompt):
+        if order is None or not prompt_rules.places_items(model_id, prompt):
             return {}
         categories = _tag_categories(model_id, prompt)[0] if reachable else None
         slots = prompt_rules.order_slots(model_id, prompt, categories)
@@ -1077,11 +1079,8 @@ def _analyse(
         if order_checked else None,
         categories=categories,
         categories_asked=asked,
-        author_orders=[] if order is not None else [
-            AuthorOrder(text=excerpt.text, url=excerpt.url, note=excerpt.note)
-            for excerpt in sources_for(model_id).excerpts
-            if excerpt.order
-        ],
+        # The Tags menu shows the same list (`guide_for`'s tag_helper).
+        author_orders=[AuthorOrder(**item) for item in author_orders(model_id)],
         reordered=prompt_rules.reorder_tags(model_id, prompt, categories),
     )
 

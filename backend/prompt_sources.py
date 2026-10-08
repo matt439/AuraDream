@@ -1168,13 +1168,17 @@ GROUNDING: dict[str, Grounding] = {
             "Autocomplete and the chips check Danbooru's live tag index up to this "
             "checkpoint's 2025-01-07 cutoff.",
             "Unknown is advisory, not blocked.",
+            # The app naming its own steps for the card's sequence, whose
+            # template ends "everything else in any order".
+            "The Tags menu and Check name those steps Person count, Character, Series, "
+            "Rating, Details and Quality; year, artist and meta tags go in Details.",
         ),
     ),
     "KOHAKU_GUIDE": Grounding(
         _KOHAKU,
         # The last is the app's advice: the card's context is 300 tokens.
         unsourced=(
-            "The Tags menu carries the author's quality, rating and date tags.",
+            "The Tags menu carries person count and the author's quality, rating and date tags.",
             "Autocomplete checks Danbooru through the 2024-07-10 dataset cutoff; unknown "
             "tags remain advisory.",
             "Keep prompts concise and put essential details first.",
@@ -1330,3 +1334,25 @@ def sources_for(model_id: str) -> Sources:
         excerpts=grounding.excerpts,
         caveat=grounding.caveat,
     )
+
+
+def author_orders(model_id: str) -> list[dict[str, str | None]]:
+    """The orders the authors' own texts give, on a checkpoint whose guide
+    states none this app checks: the `order` excerpts, as text, url and note.
+
+    Empty where a documented order exists (`prompt_order.documented_order`):
+    that order is the one shown. Check's Order section
+    (`PromptAnalysis.author_orders`) and the Tags menu
+    (`PromptTagHelper.author_orders`) both read this, so the two never
+    disagree about what the authors give.
+    """
+    from .prompt_order import documented_order  # lazy, as model_defaults imports this module lazily
+
+    if documented_order(model_id) is not None:
+        return []
+    guide = _profile_for(model_id)["guide"]
+    return [
+        {"text": excerpt.text, "url": excerpt.url, "note": excerpt.note}
+        for excerpt in GROUNDING[guide_name(guide)].excerpts
+        if excerpt.order
+    ]

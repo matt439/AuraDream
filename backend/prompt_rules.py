@@ -25,6 +25,7 @@ from .prompt_order import (
     order_items as order_items,
     order_slots as order_slots,
     places_every_item as places_every_item,
+    places_items as places_items,
     reads_order as reads_order,
     reorder_tags as reorder_tags,
     scene_ahead as scene_ahead,

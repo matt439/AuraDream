@@ -591,7 +591,12 @@ function renderOrder(body) {
     // book and the rewriter instructions give orders the guide leaves out.
     // What is missing is this app's check - and the authors' orders, where
     // they wrote some, are shown as theirs.
-    box.appendChild(note("This app checks no word order for this checkpoint: its guide states none."));
+    // "Its guide states none" only where no author order follows: NoobAI's and
+    // RouWei's ? text quotes the orders listed below, which the sentence then
+    // contradicted. The Tags menu says the same (tag-chips.js, tagOrderLines).
+    box.appendChild(note(body.author_orders?.length
+      ? 'This app checks no word order for this checkpoint.'
+      : 'This app checks no word order for this checkpoint: its guide states none.'));
     for (const order of body.author_orders ?? []) {
       const line = document.createElement('div');
       line.className = 'order-author';

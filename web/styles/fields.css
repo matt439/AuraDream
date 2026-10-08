@@ -342,6 +342,12 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 .tag-order { margin: 0 0 6px; color: var(--text-2); }
 .tag-insert { margin: 0 0 10px; color: var(--text); }
+/* The steps the caret line names (tag-chips.js, syncTagSelection): in the
+   order line, and on the groups whose tags go there. */
+.tag-author-order { color: var(--text); }
+.tag-step.fits { color: var(--text); font-weight: 600; text-decoration: underline 2px var(--accent); text-underline-offset: 3px; }
+.tag-group-step { text-transform: none; letter-spacing: 0; }
+.tag-group.fits > strong { color: var(--text-2); }
 .tag-group + .tag-group { margin-top: 9px; }
 .tag-group > strong { display: block; margin-bottom: var(--sp-1); color: var(--muted); font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: 0.04em; }
 .tag-options { display: flex; flex-wrap: wrap; gap: 5px; }

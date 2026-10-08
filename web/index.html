@@ -654,7 +654,7 @@
           Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
           <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
           <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
-          <b>date:today</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
+          <b>date:today</b> · <b>size:1024x768</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
           <b>tcfg:</b> is the scale the negative prompt ran at; <b>hash:</b> finds every
           image with the same pixels.<br>
           <b>refine:</b> is the refine passes of that gallery image - <b>refine:none</b>
@@ -665,7 +665,8 @@
           <b>2026-09-07</b> — a day on your clock, not UTC.<br>
           Numbers also take a comparison or a range: <b>cfg:&gt;=1</b> · <b>steps:8-12</b>.<br>
           <b>mu:none</b> is the images that ran with no shift at all — not the same as
-          <b>mu:0</b>.</span></span>
+          <b>mu:0</b>.<br>
+          In the full view, ⌕ beside a setting adds it here.</span></span>
         <label class="check"><input type="checkbox" id="fav-only"> Starred</label>
         <!-- Off, the gallery is the running checkpoint's images: steps, CFG and
              mu are the checkpoint's, so another one's are settings that cannot
@@ -1001,6 +1002,7 @@
 <script src="/static/sheet.js"></script>
 <script src="/static/sheet-render.js"></script>
 <script src="/static/sheet-export.js"></script>
+<script src="/static/gallery-search.js"></script>
 <script src="/static/lightbox.js"></script>
 <script src="/static/refine.js"></script>
 <script src="/static/refine-prompt.js"></script>

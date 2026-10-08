@@ -44,6 +44,9 @@ FILTERS: dict[str, tuple[str, Any]] = {
     "hash": ("content_hash", str),
     # Handled by date_clause: a day, not a column with a cast.
     "date": ("created_at", None),
+    # Handled by size_clause: `size:1024x1024`, the width and the height as
+    # the facts list says them - the lightbox's search buttons write it.
+    "size": ("width", None),
 }
 COMPARISONS = ("<=", ">=", "<", ">")
 NULL_TOKENS = {"none", "null", "off"}
@@ -78,6 +81,14 @@ def date_clause(raw: str) -> tuple[str, list]:
     return "created_at >= ? AND created_at < ?", [start.isoformat(), end.isoformat()]
 
 
+def size_clause(raw: str) -> tuple[str, list]:
+    """`size:1024x1024` (or `1024×1024`, as the page prints it): both sides exact."""
+    width, sep, height = raw.lower().replace("×", "x").partition("x")
+    if not sep or not width.isdigit() or not height.isdigit():
+        raise ValueError(f"size: {raw!r} is not WIDTHxHEIGHT")
+    return "(width = ? AND height = ?)", [int(width), int(height)]
+
+
 def filter_clause(key: str, raw: str) -> tuple[str, list]:
     """One `key:value` term as SQL. Raises ValueError on a value that is not one.
 
@@ -87,6 +98,8 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
     """
     if key == "date":
         return date_clause(raw)
+    if key == "size":
+        return size_clause(raw)
     column, cast = FILTERS[key]
     if cast is str:
         return rf"{column} LIKE ? ESCAPE '\'", [f"%{like_escape(raw)}%"]

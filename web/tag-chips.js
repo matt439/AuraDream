@@ -391,10 +391,13 @@ async function validatePromptTags(tags, epoch, prompt) {
     rememberTagVerdicts(body.results);
     tagSlots = { model, prompt, steps: body.order_steps || [], slots: body.slots || null };
     renderTagValidation([...body.results, ...rest], body.available ? 'checked' : 'offline', body.detail || '');
+    // The Tags helper's caret line reads these slots.
+    syncTagSelection();
   } catch (error) {
     if (epoch !== tagValidationEpoch) return;
-    tagSlots = { model, prompt, steps: [], slots: null };
+    tagSlots = { model, prompt, steps: [], slots: null, failed: true };
     renderTagValidation(tags.map(uncheckedTag), 'offline', error.message);
+    syncTagSelection();
   }
 }
 
@@ -410,6 +413,9 @@ function scheduleTagValidation(delay = 320) {
   const hybridSentence = tagHelper?.hybrid_prompt && !els.prompt.value.includes(',');
   const tags = tagVocabularyEnabled && !hybridSentence ? promptTagParts() : [];
   if (!tags.length) {
+    // Nothing is asked, so nothing will answer: the caret line reads this
+    // prompt as one the server placed nothing in, not as one still pending.
+    tagSlots = { model: loadedModel, prompt: els.prompt.value.trim(), steps: [], slots: null };
     tagFocusIndex = null;
     hideTagTip();
     els.tagValidation.hidden = true;
@@ -564,19 +570,68 @@ function finishWithTags(suffix) {
   writePromptTags([...parts, ...suffix]);
 }
 
-// Where the next tag goes, named: the helper inserts at the prompt's caret,
-// which it used to hide, and the usual caret - the end, after the quality
-// tags - is not where most of its groups belong. Placing is Check's: its Use
-// reordered puts the tags in the documented order. The page has no order of
-// its own.
+// Where the next tag goes, in the documented order's own steps: the helper
+// inserts at the prompt's caret, and the usual caret - the end, after the
+// quality tags - is not where most of its groups belong. The steps a tag
+// there would be in order at are read off the server's slots for the tags
+// either side (`chipSlots`, Check's placement - a lone tag included): from
+// the nearest placed tag before the caret to the nearest one after it - a
+// tag Check gives no step is passed over, as its order rule passes it over.
+// The page places nothing and has no order of its own. `answer` says what
+// the server said of this very prompt: 'pending' while its answer has not
+// landed, 'failed' where the request failed, 'unread' where it placed
+// nothing in it (`places_items` false), 'placed' otherwise.
+function tagCaretSteps(parts, at) {
+  const steps = tagHelper?.order ?? [];
+  if (!steps.length) return null;
+  const slots = chipSlots(parts.map((tag) => ({ tag })))
+    .map((slot) => (slot && slot.n > 0 ? slot : null));
+  let before = -1;
+  for (let i = at - 1; i >= 0; i--) if (slots[i]) { before = i; break; }
+  let after = -1;
+  for (let i = at; i < parts.length; i++) if (slots[i]) { after = i; break; }
+  const lo = !parts.length ? 0 : before >= 0 ? slots[before].n - 1 : 0;
+  const hi = !parts.length ? 0 : after >= 0 ? slots[after].n - 1 : steps.length - 1;
+  const current = tagSlots?.model === loadedModel && tagSlots.prompt === els.prompt.value.trim();
+  const answer = !current ? 'pending' : tagSlots.failed ? 'failed' : tagSlots.slots ? 'placed' : 'unread';
+  return { steps, slots, lo, hi, placed: before >= 0 || after >= 0, answer };
+}
+
+function tagStepList(steps) {
+  if (steps.length === 1) return `A ${steps[0]} tag`;
+  if (steps.length <= 3) return `A ${steps.slice(0, -1).join(', ')} or ${steps.at(-1)} tag`;
+  return `A tag from ${steps[0]} through ${steps.at(-1)}`;
+}
+
 function tagInsertionNote() {
   const parts = promptTagParts();
   const at = Math.min(tagCursorIndex(), parts.length);
-  const where = !parts.length ? 'A tag goes into the empty prompt'
-    : at === 0 ? `A tag goes before "${parts[0]}", at the start`
-      : at >= parts.length ? `A tag goes after "${parts[at - 1]}", at the end`
-        : `A tag goes after "${parts[at - 1]}", before "${parts[at]}"`;
-  return `${where} - click in the prompt to move its caret.`;
+  const fit = tagCaretSteps(parts, at);
+  const named = (i) => `"${parts[i]}"${fit?.slots[i] ? ` (${fit.slots[i].name})` : ''}`;
+  const where = !parts.length ? 'The prompt is empty'
+    : at === 0 ? `The caret is at the start, before ${named(0)}`
+      : at >= parts.length ? `The caret is at the end, after ${named(at - 1)}`
+        : `The caret is after ${named(at - 1)}, before ${named(at)}`;
+  const move = 'Click in the prompt to move the caret.';
+  if (!fit) return `${where}; a tag goes in there. ${move}`;
+  if (!parts.length) return `${where}: start with ${fit.steps[0]}.`;
+  if (fit.lo > fit.hi) {
+    return `${where}. The tags around it are already out of the recommended order - Check's Use reordered fixes that. ${move}`;
+  }
+  if (!fit.placed) {
+    const order = `the recommended order is ${fit.steps.join(' → ')}`;
+    if (fit.answer === 'pending') {
+      return `${where}. The steps of the tags around it are still being looked up. ${move}`;
+    }
+    if (fit.answer === 'failed') {
+      return `${where}. The tags could not be placed (the lookup failed), so ${order}. ${move}`;
+    }
+    if (fit.answer === 'unread') {
+      return `${where}. Check reads no order in this prompt, so ${order}. ${move}`;
+    }
+    return `${where}. Check places none of the tags around it in one step, so ${order}. ${move}`;
+  }
+  return `${where}. ${tagStepList(fit.steps.slice(fit.lo, fit.hi + 1))} fits there. ${move}`;
 }
 
 // The rest of how the buttons write, which stays put.
@@ -586,12 +641,14 @@ function tagHelperNote() {
   const replaces = exclusive.length
     ? `${exclusive.join(' and ').replace(/^./, (c) => c.toUpperCase())} choices replace their current tag in place. `
     : '';
-  return `${replaces}Select an active tag to remove it. Check's Use reordered puts the tags in the recommended order.`;
+  const reorder = tagHelper?.order?.length ? " Check's Use reordered puts the tags in the recommended order." : '';
+  return `${replaces}Select an active tag to remove it.${reorder}`;
 }
 
 function syncTagSelection() {
   if (!els.tagsMenu || els.tagsMenu.hidden) return;
-  const active = new Set(promptTagParts().map((tag) => tag.toLowerCase()));
+  const parts = promptTagParts();
+  const active = new Set(parts.map((tag) => tag.toLowerCase()));
   for (const button of els.tagsMenu.querySelectorAll('[data-tag]')) {
     const on = active.has(button.dataset.tag.toLowerCase());
     button.classList.toggle('active', on);
@@ -599,16 +656,68 @@ function syncTagSelection() {
   }
   const note = els.tagsMenu.querySelector('.tag-insert');
   if (note) note.textContent = tagInsertionNote();
+  // The steps the note names, marked in the order line and on the groups
+  // whose tags go there - the note's words, shown; nothing else reads them.
+  const fit = tagCaretSteps(parts, Math.min(tagCursorIndex(), parts.length));
+  const fits = new Set(fit && fit.lo <= fit.hi && (fit.placed || !parts.length)
+    ? fit.steps.slice(fit.lo, fit.hi + 1) : []);
+  for (const el of els.tagsMenu.querySelectorAll('[data-step]')) {
+    el.classList.toggle('fits', fits.has(el.dataset.step));
+  }
+}
+
+// The order line, as Check's Order section shows it - both from the server:
+// the documented order's steps, with its cite as the title, or where this app
+// checks none, the authors' own orders Check lists there, with their notes.
+function tagOrderLines() {
+  if (tagHelper.order?.length) {
+    const order = document.createElement('p');
+    order.className = 'tag-order';
+    if (tagHelper.order_cite) order.title = tagHelper.order_cite;
+    order.append('Recommended order: ');
+    tagHelper.order.forEach((step, index) => {
+      if (index) order.append(' → ');
+      const name = document.createElement('span');
+      name.className = 'tag-step';
+      name.dataset.step = step;
+      name.textContent = step;
+      order.appendChild(name);
+    });
+    return [order];
+  }
+  const authors = tagHelper.author_orders ?? [];
+  const none = document.createElement('p');
+  none.className = 'tag-order';
+  none.textContent = authors.length
+    ? "This app checks no tag order for this checkpoint. The authors' own texts give, as information:"
+    : 'This app checks no tag order for this checkpoint: its guide states none.';
+  return [none, ...authors.map((item) => {
+    const line = document.createElement('p');
+    line.className = 'tag-order tag-author-order';
+    line.textContent = item.note ? `${item.text} (${item.note})` : item.text;
+    return line;
+  })];
+}
+
+// A group's heading names its step where the step is not its own name -
+// Animagine's Score tags go in Quality, WAI's Rating in Subject and scene.
+function tagGroupHeading(label, step) {
+  const heading = document.createElement('strong');
+  heading.textContent = label;
+  if (step && step !== label) {
+    const where = document.createElement('span');
+    where.className = 'tag-group-step';
+    where.textContent = ` · ${step} step`;
+    heading.appendChild(where);
+  }
+  return heading;
 }
 
 function buildTagHelper() {
   els.tagsMenu.replaceChildren();
   if (!tagHelper) return;
 
-  const order = document.createElement('p');
-  order.className = 'tag-order';
-  order.textContent = `Recommended order: ${tagHelper.order.join(' → ')}`;
-  els.tagsMenu.appendChild(order);
+  els.tagsMenu.append(...tagOrderLines());
   const insert = document.createElement('p');
   insert.className = 'tag-insert';
   els.tagsMenu.appendChild(insert);
@@ -616,8 +725,9 @@ function buildTagHelper() {
   for (const group of tagHelper.groups) {
     const section = document.createElement('section');
     section.className = 'tag-group';
-    const heading = document.createElement('strong');
-    heading.textContent = group.label;
+    const step = tagHelper.group_steps?.[group.label];
+    if (step) section.dataset.step = step;
+    const heading = tagGroupHeading(group.label, step);
     const options = document.createElement('div');
     options.className = 'tag-options';
     for (const tag of group.tags) {
@@ -636,8 +746,8 @@ function buildTagHelper() {
   if (tagHelper.year_tag) {
     const section = document.createElement('section');
     section.className = 'tag-group';
-    const heading = document.createElement('strong');
-    heading.textContent = 'Year';
+    if (tagHelper.year_step) section.dataset.step = tagHelper.year_step;
+    const heading = tagGroupHeading('Year', tagHelper.year_step);
     const row = document.createElement('div');
     row.className = 'tag-year';
     const input = document.createElement('input');

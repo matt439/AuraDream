@@ -110,7 +110,7 @@
   {"eval": "document.querySelector('#viewer img').click()"},
   {"wait": 400},
   {"log": "'the lightbox names the source in its facts, a link to it, and S lays the source beside the pass and takes it away again'"},
-  {"expect": "(() => { const row = [...els.lbSettings.querySelectorAll('.facts > div')].find((d) => d.firstChild.textContent === 'Refined from'); return row && row.lastChild.textContent === '#' + window.__source + ' @ 0.1' && row.querySelector('button.lb-link').textContent === '#' + window.__source; })() && els.lbRefine.getAttribute('aria-disabled') === 'false'"},
+  {"expect": "(() => { const row = [...els.lbSettings.querySelectorAll('.facts > div')].find((d) => d.firstChild.textContent === 'Refined from'); return row && row.lastChild.textContent === '#' + window.__source + ' @ 0.1 ⌕' && row.querySelector('button.lb-link').textContent === '#' + window.__source; })() && els.lbRefine.getAttribute('aria-disabled') === 'false'"},
   {"expect": "!els.lbCompare.hidden && els.lbCompareOn.getAttribute('aria-pressed') === 'false' && els.lbSrcImg.hidden"},
   {"key": "s"},
   {"wait": 400},

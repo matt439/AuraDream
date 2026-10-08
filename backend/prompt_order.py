@@ -356,16 +356,18 @@ def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | N
 
 
 def _order_reading(
-    model_id: str, prompt: str
+    model_id: str, prompt: str, least: int = 2
 ) -> tuple[_OrderSpec, list[prompt_text.Item], list[bool]] | None:
     """The order rule's reading of `prompt` outside `check` - its slots, its
     items (`_units`) and which hold lettering - or None where it reads no
-    order among them: no slots in the guide, fewer than two items, or not
+    order among them: no slots in the guide, fewer than `least` items, or not
     `_placeable` - the gate the order rule applies to its `_Context`, for
-    `reorder_tags` and `order_slots`."""
+    `reorder_tags` and `order_slots`. `least` is two for an order, which a
+    lone item cannot be out of; one for placement (`order_slots`), where a
+    lone item still has the step it would take beside any other."""
     spec = _order_spec(_guide(model_id))
     items, lettered, lettering = _tag_items(prompt)
-    if spec is None or len(items) < 2:
+    if spec is None or len(items) < least:
         return None
     if not _placeable(spec, prompt_text.detect_style(prompt), prompt, items, lettering):
         return None
@@ -381,6 +383,13 @@ def reads_order(model_id: str, prompt: str) -> bool:
     return _order_reading(model_id, prompt) is not None
 
 
+def places_items(model_id: str, prompt: str) -> bool:
+    """Whether `order_slots` answers anything for `prompt`: `reads_order`,
+    but a lone item too - placement needs no second item, only an order
+    does. Needs no categories, asked before any are looked up."""
+    return _order_reading(model_id, prompt, least=1) is not None
+
+
 def order_slots(
     model_id: str, prompt: str, categories: dict[str, str] | None
 ) -> list[tuple[str, str | None]] | None:
@@ -389,9 +398,11 @@ def order_slots(
 
     The rule's own reading, placing with `categories` as `check`,
     `reorder_tags` and `unplaced_items` do (`_places`), never a second one:
-    None for the whole prompt where the rules read no order in it
-    (`reads_order` false: no slots in the guide, fewer than two items, or
-    `order_checked` false) - and None for an item that holds lettering,
+    None for the whole prompt where the rules place nothing in it
+    (`places_items` false: no slots in the guide, no items, or
+    `order_checked` false). A lone item is placed - its step is the one it
+    would take beside any other, which the Tags helper's caret line reads to
+    say where the next tag goes - though no order rule reads it. And None for an item that holds lettering,
     which the rules read as a piece of a longer item, commas and all, or that
     keeps more than one slot: an item the guide's groups do not know and the
     tag index gave no category (never asked - offline, past the lookup's
@@ -399,7 +410,7 @@ def order_slots(
     could use). Such an item has no one place, and the chip shows none
     rather than a guess.
     """
-    reading = _order_reading(model_id, prompt)
+    reading = _order_reading(model_id, prompt, least=1)
     if reading is None:
         return None
     spec, items, lettered = reading

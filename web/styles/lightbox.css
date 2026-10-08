@@ -133,6 +133,14 @@
 .lb-ref:not([aria-disabled="true"]):hover img { border-color: var(--accent-2); }
 .lb-ref[aria-disabled="true"] { cursor: default; }
 .lb-passes { margin: var(--sp-3) 0 0; font-size: var(--fs-body-sm); }
+/* The gallery search from a fact (gallery-search.js): a glyph after the
+   value, muted until pointed at, so the rows still read as facts. */
+.lb-search {
+  padding: 0 2px; border: 0; background: none; color: var(--muted);
+  font: inherit; line-height: 1; cursor: pointer;
+}
+.lb-search:hover, .lb-search:focus-visible { color: var(--accent-2); }
+.lb-prompt-search { margin: calc(-1 * var(--sp-1)) 0 var(--sp-2); font-size: var(--fs-body-sm); }
 /* Failures raised from inside the lightbox - a delete that 404s, a star
    that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
 .lightbox .error { min-height: 1.2em; }

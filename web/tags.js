@@ -20,8 +20,11 @@ let tagVerdicts = { model: null, results: new Map() };
 // item of `prompt` with the step of the guide's documented order the
 // server's order rule places it in - POST /api/tags/validate, given the
 // prompt, places it as a Check of that prompt would (prompt_rules'
-// `order_slots`). `slots` is null where the rules read no order in it. The
-// page places nothing itself: the order is the guide's, per checkpoint.
+// `order_slots`). `slots` is null where the rules place nothing in it - a
+// lone tag they do place - and `failed` is set where the request itself
+// failed, so the Tags helper's caret line can tell a pending answer from one
+// that will not come. The page places nothing itself: the order is the
+// guide's, per checkpoint.
 let tagSlots = null;
 // The chip focus belongs to while it is in the tray - a number, or 'add' for
 // the + tag button - which every rebuild of the tray puts back: a move, a

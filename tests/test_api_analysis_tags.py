@@ -212,11 +212,18 @@ def test_a_chip_the_rules_cannot_place_has_no_slot(client, fake, monkeypatch):
     vocabulary.calls.clear()
     assert chips(client, "1girl, smile")["slots"] is not None
     assert [call[0] for call in vocabulary.calls] == [["1girl", "smile"], ["smile"]]
-    # One item, or a list the rules stand down from: no order, no slots -
-    # and no category lookup beside the chips' own for an order nothing reads.
-    for prompt in (
-        "masterpiece", "1girl\ngreen hair\nmasterpiece", "<x>, 1girl, masterpiece, smile",
-    ):
+    # One item is no order, but it is placed: the Tags helper's caret line
+    # says from its step where the next tag goes. A guide tag needs no
+    # lookup beside the chips' own; a tag the index knows is placed by it.
+    vocabulary.calls.clear()
+    body = chips(client, "masterpiece")
+    assert body["slots"] == [{"tag": "masterpiece", "slot": "Quality"}]
+    assert body["order_steps"] == guide_for(ANIMAGINE)["tag_helper"]["order"]
+    assert len(vocabulary.calls) == 1
+    assert chips(client, "green hair")["slots"] == [{"tag": "green hair", "slot": "Details"}]
+    # A list the rules stand down from: no slots - and no category lookup
+    # beside the chips' own for an order nothing reads.
+    for prompt in ("1girl\ngreen hair\nmasterpiece", "<x>, 1girl, masterpiece, smile"):
         vocabulary.calls.clear()
         body = chips(client, prompt)
         assert body["slots"] is None and body["order_steps"] is None, prompt

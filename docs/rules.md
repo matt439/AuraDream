@@ -29,7 +29,7 @@ before changing it.
   `analysis`: style, documented order, `reorder_tags`, the items left
   unplaced where that decides the order (`unplaced_items`), each comma
   item's step for the chips (`order_slots`, answering only where
-  `reads_order`; these and the order rule itself place through one
+  `places_items` - `reads_order` but a lone item too; these and the order rule itself place through one
   `_places`) and what a critic's reorder is held to
   (`places_every_item`, `order_items`, `order_finding`, `scene_ahead`),
   what a check asks the tag index about (`lookup_items`) and whether a
@@ -112,7 +112,7 @@ before changing it.
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
-  predicates, the LIKE escape, `strict_scope`
+  predicates (`size:WxH` both sides exact), the LIKE escape, `strict_scope`
 - `backend/main.py` — app lifecycle, model/prompt routes and generation submission;
   `api_gallery.py` owns gallery browsing, runs and deletion, and `api_jobs.py`
   job inspection, cancellation, pause and SSE, with app-owned dependencies
@@ -130,7 +130,8 @@ before changing it.
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
   previews and progress; `panel.js`, `runs.js` and `viewer.js` the settings,
   run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
-  the cards and their actions; `sheet.js`, `sheet-render.js` and
+  the cards and their actions; `gallery-search.js` the lightbox's search
+  buttons; `sheet.js`, `sheet-render.js` and
   `sheet-export.js` the contact sheet; `lightbox.js` the lightbox and shared
   `factsList`; `refine.js` and `refine-prompt.js` the Refine dialog;
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
@@ -919,9 +920,11 @@ Prompt analyser:
   Check's own 64 reach (guide tags are not asked about): the validate route
   fetches those once, as a Check would, and caches misses. Offline the
   categories are None and the index is not asked again. The route asks
-  `prompt_rules.reads_order` first, so a prompt it is false for costs the
-  index nothing; where it is false (`order_checked` false, or fewer than
-  two items) `slots` is None for the whole prompt. An item's slot is None
+  `prompt_rules.places_items` first, so a prompt it is false for costs the
+  index nothing; where it is false (`order_checked` false, or no items)
+  `slots` is None for the whole prompt. A lone item is placed, though no
+  order rule or reorder reads one (`reads_order` keeps its two-item gate):
+  the Tags helper's caret line needs its step. An item's slot is None
   where the item holds lettering or keeps more than one slot: an @ name, an
   item never looked up, or one with no usable category. A failure placing
   the slots costs the slots, never the verdicts answered beside them. The
@@ -1624,7 +1627,33 @@ Frontend and CLI:
   its text). The Tags helper drops under the prompt box (`#tags-menu` inside
   `.prompt-editor`, capped by the window alone), a click in the box moves its
   caret without closing it, and it names where the next tag goes; it inserts
-  at the caret and never slots tags itself. An Escape the suggestion list or
+  at the caret and never slots tags itself. Its order lines are Check's
+  Order section's, served in `tag_helper` by `guide_for`
+  (`model_defaults._served_tag_helper`): `order` is
+  `prompt_order.documented_order`'s steps with `order_cite` as the line's
+  title, or, where no order is checked (NoobAI, RouWei), "This app checks
+  no tag order" and `author_orders`, the list `prompt_sources.author_orders`
+  gives Check's `PromptAnalysis.author_orders` too - never an empty
+  "Recommended order:". The caret line names the place and, under an order,
+  the steps a tag there fits (`tagCaretSteps`): from the step of the
+  nearest tag before the caret to the nearest after it that the server's
+  chip slots place (`chipSlots`; unplaced tags passed over, refreshed when
+  the slots land), "start with" the first step in an empty prompt, and the
+  tags around it out of order where those two are reversed. Where no tag
+  around the caret is placed it tells the cases apart (`tagCaretSteps`'
+  `answer`): "still being looked up" only while the answer for this very
+  prompt is pending; otherwise it names the whole order and why - Check
+  reads no order in this prompt (`slots` None, or no request was made),
+  the lookup failed (`tagSlots.failed`), or Check places none of those
+  tags in one step - never a "yet" that will not resolve. Those steps
+  are marked (`.fits`) in the order line and on the groups whose tags go
+  there; a group heading names its step where that is not its own name
+  (`group_steps`, `year_step`: Animagine's "Score · Quality step"). Check's
+  no-order note says "its guide states none" only where no author order
+  follows it. `tests/test_tag_order_agreement.py` holds the ? text, the
+  menu and Check to one order: the served order and author orders equal
+  Check's, every group placed in a step, distinct headings, every step
+  named in the ? prose. An Escape the suggestion list or
   a chip editor took closes that alone (the document's Escape skips
   `defaultPrevented`); the next closes the helper, and the one after that an
   open prompt check. In the Refine dialog the list's Escape is prevented on
@@ -2230,7 +2259,7 @@ Frontend and CLI:
   backdrop click below fit waits out a double-click (`lbCloseTimer`). F, S,
   Delete and the zoom keys skip a key with Ctrl, Meta or Alt held (the
   browser's find and zoom), and a key a lightbox control already handled
-  (`defaultPrevented`: the swipe divider's arrows) is not walked. On a record
+  (`defaultPrevented`: the swipe divider's keys) is not walked. On a record
   with `refine`, S or Compare with source shows the source under the pass
   left of a divider (swipe), or side by side with each half fitted inside
   the arrows' circles (`lbPorts`, `lbNavRoom`, measured off the circle as
@@ -2255,14 +2284,44 @@ Frontend and CLI:
   the lightbox with it on (`toggleCompare` after the open). The
   source is fetched by id once a session (`lbSources`) and drawn with
   `refineKept` and a clip-path. A step to another record ends the
-  comparison; a re-render of the same record does not. A deleted source
+  comparison; a re-render of the same record does not - except ← → while
+  comparing, where the strip holds another pass of the same source (the
+  Refine dialog's passes strip, a Compare 3 run's viewer, a `refine:`
+  search): they swap to the next such pass that way, wrapping round and
+  skipping the source and anything else, the comparison carried with its
+  mode, divider and focus (`stepPass`, `lbSiblingPass`; the strip as
+  loaded, no page pulled for it). Then the divider moves by Shift+← →
+  wherever focus is (`nudgeSplit`, 2%), and on the focused divider by
+  Shift+← →, PageUp/PageDown (10%), Home and End, its `aria-keyshortcuts`
+  and title saying so; the keys line reads "← → passes · Shift+← → divider".
+  With no other pass in the strip the arrows on the divider move it (2%,
+  Shift+← → the same) and elsewhere walk, ending the comparison, as before;
+  Shift+← → off the divider still move it while a swipe is up. Shift+← → is
+  2% everywhere, on the divider or off it, passes or not; PageUp/PageDown is
+  the 10% step. The nav
+  circles always walk. A deleted source
   leaves the controls aria-disabled with the reason ("source #N deleted"). S
   pressed on the focused divider hands the focus to the toggle.
   `factsList(rec, { useSeed })` (`dl.facts`) is the one facts renderer, the
   viewer's column's too; the lightbox's adds Use seed to its Seed row
   (`useSeed`, said in `#lb-error` alone, never the panel's `#error`, and
   taken back once another image is drawn - `lbSeedNote`), the column's does
-  not; a pass whose source has gone reads "Refined from #N
+  not. The lightbox's (`search: true`) ends each row the search grammar can
+  say (Model, Size, Sampling, LoRA without whitespace, Refined from, Seed,
+  Created as `date:` the local day, Run) with a muted ⌕ (`.lb-search`,
+  `aria-label` "Search the gallery for …", the terms in its title), and
+  `promptSearchLine` puts "⌕ Search for this prompt" over the facts: the
+  prompt's words, less any with no letter or digit or that would read as a
+  filter. A press goes through `showGallerySearch` (the passes link's too):
+  the lightbox closed, `mergeSearch` into the box - a filter replaces the
+  box's terms with its key, a word already there (any case) is not added
+  again, the rest is kept in order; the prompt's line goes through
+  `mergePromptSearch` instead, the box's filters kept and its free text
+  replaced by the prompt's words, so a second prompt is a change of prompt
+  as a second seed is - the gallery asked again only where the
+  box changed, the head brought into view and the box focused. Only keys
+  `search.FILTERS` has; `SEARCH_KEYS` is held equal to it by
+  `tests/test_storage.py`. A pass whose source has gone reads "Refined from #N
   (deleted) @ s". Its References row numbers the references as the panel's
   chips do. Use these references asks for every id again as Reuse does,
   leaves out and names the ones the gallery no longer has, and is
@@ -2576,7 +2635,8 @@ Frontend and CLI:
   prompt is `promptGist`'s, one line with an XML prompt's tags dropped,
   before `clip`.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
-  day, `mu:none` is `IS NULL`, `id:` is the gallery id the page shows as #N
+  day, `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
+  height exactly, `id:` is the gallery id the page shows as #N
   (a range is a span), and `search.strict_scope` is the reading for
   `clear --where`, `keep_rates` and the gallery's Delete unstarred
   (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
@@ -2874,7 +2934,11 @@ verdict cache, typing state and live summary, an accepted suggestion's undo,
 category edges, repeats and the focus ring on one, the shared tip and the
 after-cutoff mark, + tag, gap hover (waited for, as a late tray render
 redraws it) and click (none on the label or hint),
-the Tags helper under the prompt and whole, Escape closing the suggestions
+the Tags helper under the prompt and whole, its order line (the server's
+steps, the cite as title), the caret line naming the steps that fit from
+the chip slots and their marks, a lone tag's step (1girl clicked into an
+empty prompt: "Person count through Quality"), the no-placement lines for
+an unknown tag and a line-broken list, the group headings' steps, Escape closing the suggestions
 before the helper, and the open prompt check after both, the Examples
 menu's keyboard (ArrowDown, Enter), its Undo note (on its own line at
 800 px), the needs-a-reference note, the file-drop guard, the singular
@@ -3008,7 +3072,9 @@ node tools/browser.mjs tools/smoke-rouwei.json
 ```
 
 `smoke-noobai.json` checks NoobAI V-pred's defaults, author prefix and negative,
-tag helper, CLIP budget, saved identity and SDXL Refine pass on a fake backend:
+tag helper (no checked order: the authors' caption template as Check shows
+it, never an empty "Recommended order:", one Date and one Year heading,
+Check's no-order note without "its guide states none"), CLIP budget, saved identity and SDXL Refine pass on a fake backend:
 
 ```powershell
 uv run python tools/fake_server.py --port 7891 --model Laxhar/noobai-XL-Vpred-1.0
@@ -3407,11 +3473,20 @@ the keys line, naming S on a pass only with each key bound to its action,
 and the toggle's S by Generate's hint rule; the star ("★ Star",
 `aria-label` Star; F said in `#lb-star-said` away from Star, not on it); a
 pass's Reuse pass… name; a pass compared with its source (S, the button, a
-dragged and keyed divider, S on the focused divider handing focus to the
-toggle, swipe and side by side keeping 1:1 and fit, side by side at fit
+dragged and keyed divider, ← → swapping to the other pass of the source
+with the comparison, divider and focus kept and wrapping round past the
+source, Shift+arrows and PageDown moving the divider on it and Shift+arrows
+off it, the keys line and the divider's `aria-keyshortcuts` saying so, a
+pass with no other pass in the strip keeping the old keys and Shift+arrows
+the same 2% on the divider and off it, S on the focused
+divider handing focus to the toggle, swipe and side by side keeping 1:1 and fit, side by side at fit
 clear of the arrows' circles, a pass reshaped to 3:2
 compared with the part it kept, a deleted source's dead controls); the
-source link with the view carried; the passes link; a pass whose source has
+source link with the view carried; the passes link; the facts' ⌕ search
+buttons (which rows have one, their titles, a seed replacing the box's seed,
+a repeated press adding nothing, size, the prompt's words, the sampling row
+with True CFG and `mu:none`, model and the local day, each narrowing the
+gallery as the server reads it); a pass whose source has
 gone (its Reuse and its card's title); the arrow strips (a press 60 px off
 the circle steps, the backdrop below still closes, the wheel over a strip
 zooms, the first image's disabled arrow a circle with the backdrop beside it

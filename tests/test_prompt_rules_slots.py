@@ -128,6 +128,25 @@ def test_lettering_and_names_never_looked_up_have_no_slot():
     ]
 
 
+def test_a_lone_item_is_placed_though_no_order_reads_it():
+    # One item cannot be out of order, so the order rule and the reorder read
+    # none - but it still has the step it would take beside any other, which
+    # the Tags helper's caret line reads to say where the next tag goes.
+    for prompt, slot in (("1girl", "Person count"), ("masterpiece", "Quality"),
+                         ("year 2024", "Details")):
+        assert _slots(ANIMAGINE, prompt) == [slot]
+        assert prompt_rules.places_items(ANIMAGINE, prompt)
+        assert not prompt_rules.reads_order(ANIMAGINE, prompt)
+        assert prompt_rules.reorder_tags(ANIMAGINE, prompt, CATEGORIES) is None
+    # The same step it takes beside another item.
+    assert _slots(ANIMAGINE, "firefly", CATEGORIES) == ["Character"]
+    assert _slots(ANIMAGINE, "firefly, masterpiece", CATEGORIES)[0] == "Character"
+    # An item no group knows and no category places keeps no one step.
+    assert _slots(ANIMAGINE, "zzkx oc") == [None]
+    # Where the guide gives no slots, a lone item has none either.
+    assert prompt_rules.order_slots(ANIMA, "1girl", None) is None
+
+
 @pytest.mark.parametrize(
     "model_id, prompt",
     [
@@ -136,8 +155,8 @@ def test_lettering_and_names_never_looked_up_have_no_slot():
         (KREA2, "masterpiece, 1girl"),
         (ANIMA, "1girl, smile, masterpiece"),
         (NEWBIE, guides.NEWBIE_GUIDE["examples"][0]),
-        # Fewer than two items: no order to be in or out of.
-        (ANIMAGINE, "masterpiece"),
+        # No items at all.
+        (ANIMAGINE, ""),
         # Not placeable: what `order_checked` stands down from.
         (ANIMAGINE, "masterpiece\nsafe\n1girl"),
         (ANIMAGINE, "masterpiece，safe，1girl，smile"),
@@ -151,6 +170,7 @@ def test_no_slots_where_the_rules_read_no_order(model_id, prompt):
     assert prompt_rules.order_slots(model_id, prompt, CATEGORIES) is None
     assert prompt_rules.order_slots(model_id, prompt, None) is None
     # What the validate route asks before it looks any category up.
+    assert not prompt_rules.places_items(model_id, prompt)
     assert not prompt_rules.reads_order(model_id, prompt)
     assert prompt_rules.reorder_tags(model_id, prompt, CATEGORIES) is None
     if prompt_rules.documented_order(model_id) is not None and len(
