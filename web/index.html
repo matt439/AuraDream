@@ -817,8 +817,9 @@
          closes the lightbox only while it is at or below the fit size: zoomed
          in, the stage is a pan surface and only Escape or the cross close it.
          Comparing a pass, the source is laid out the same way beside or under
-         it, cut at the divider, and each is named. -->
-    <div class="lb-stage" id="lb-stage" title="Scroll to zoom, drag to pan, double-click for 1:1">
+         it, cut at the divider, and each is named. No title: its tooltip sat
+         over the picture being looked at; the zoom readout carries it. -->
+    <div class="lb-stage" id="lb-stage">
       <img id="lb-img" alt="" draggable="false">
       <img id="lb-src-img" class="lb-src" alt="" draggable="false" hidden>
       <div class="lb-split" id="lb-split" role="slider" tabindex="0" aria-label="Divider: the source left of it, the pass right"
@@ -862,8 +863,9 @@
       <button class="ghost" id="lb-fit" title="Fit to the window (0)">Fit</button>
       <button class="ghost" id="lb-one" title="One image pixel per screen pixel (1)">1:1</button>
       <!-- The readout on screen, and its hidden copy, which is what is said:
-           written once a wheel's burst is over (lightbox.js, writeZoom). -->
-      <span class="lb-zoom" id="lb-zoom" aria-hidden="true"></span>
+           written once a wheel's burst is over (lightbox.js, writeZoom). The
+           readout's title is the stage's mouse help, kept off the picture. -->
+      <span class="lb-zoom" id="lb-zoom" aria-hidden="true" title="Scroll to zoom, drag to pan, double-click for 1:1"></span>
       <span class="lb-said" id="lb-zoom-said" aria-live="polite"></span>
     </div>
     <div class="lb-actions">

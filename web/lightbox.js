@@ -392,7 +392,7 @@ function renderLightbox() {
   }
   if (lbDrawn !== rec || !els.lbSettings.firstChild) {
     lbDrawn = rec;
-    els.lbSettings.replaceChildren(promptSearchLine(rec), factsList(rec, { useSeed: true, search: true }), passesLine(rec));
+    els.lbSettings.replaceChildren(promptSearchLine(rec), factsList(rec, { useSeed: true, search: true, megapixels: true }), passesLine(rec));
   }
   // A live region, written only when its words change: a star, a status or
   // a delete elsewhere re-renders the same image, and each rewrite said the
@@ -473,8 +473,10 @@ function settingsLine(rec) {
 // older images' seeds are browsed; not the result column, whose row of
 // actions has one), put the seed in the panel's Seed box. `search` (the
 // lightbox's) ends each row the search grammar can say with a ⌕ that adds it
-// to the gallery's search (gallery-search.js).
-function factsList(rec, { useSeed: seedButton = false, search = false } = {}) {
+// to the gallery's search (gallery-search.js). `megapixels` (the lightbox's,
+// where a picture is looked at full size) follows the Size with its
+// megapixels to one decimal, "1536×1024 (1.6 MP)", as the size hints say them.
+function factsList(rec, { useSeed: seedButton = false, search = false, megapixels = false } = {}) {
   const dl = document.createElement('dl');
   dl.className = 'facts';
   const row = (term, ...value) => {
@@ -489,7 +491,7 @@ function factsList(rec, { useSeed: seedButton = false, search = false } = {}) {
   };
   // The running checkpoint by the catalogue's name, as the topbar has it (checkpointName).
   row('Model', [checkpointName(rec.model_id), rec.quantization].filter(Boolean).join(' · ')).title = rec.model_id;
-  row('Size', `${rec.width}×${rec.height}`);
+  row('Size', `${rec.width}×${rec.height}` + (megapixels ? ` (${(rec.width * rec.height / 1e6).toFixed(1)} MP)` : ''));
   row('Sampling', [
     `${rec.steps} steps`, `CFG ${rec.guidance_scale}`,
     // As the settings line has it: only where it is a number of its own.

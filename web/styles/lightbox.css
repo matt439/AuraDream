@@ -228,8 +228,13 @@
 .lb-main.strips .lb-nav.next:not(:disabled) { right: 0; }
 .lb-main.strips .lb-nav.prev:not(:disabled) span { left: 10px; }
 .lb-main.strips .lb-nav.next:not(:disabled) span { right: 10px; }
-.lb-main.strips .lb-nav:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); }
+/* The strip is a hit area only: nothing of it is painted, over the backdrop
+   or the picture - a hover tint and a focus ring round the whole strip drew
+   the box the user was looking past. Hover lights the circle, and keyboard
+   focus rings the circle rather than the strip. */
 .lb-nav:hover:not(:disabled) span { background: var(--accent); border-color: var(--accent); }
+.lb-nav:focus-visible { outline: none; }
+.lb-nav:focus-visible span { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .lb-nav:disabled { cursor: default; }
 .lb-nav:disabled span { opacity: 0.2; }
 

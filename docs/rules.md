@@ -2642,7 +2642,13 @@ Frontend and CLI:
   strips only at fit, with backdrop beside the image (`--lb-gutter`, from
   the circle's reach less 2 px - 48, 60 at the wide tier - to 160 px,
   20%-80% of the height); zoomed in, below fit, disabled or with no backdrop they are
-  their circles. The wheel listener is `.lb-main`'s, so a strip zooms too. A
+  their circles. A strip is a hit area only, never painted: no hover tint,
+  no ring round it - hover lights the circle and `:focus-visible` rings the
+  circle (`.lb-nav span`), not the button. The stage has no `title` (its
+  tooltip covered the picture); its mouse help is `#lb-zoom`'s title. The
+  lightbox's facts (`megapixels: true`) follow Size with its megapixels to
+  one decimal, "1536×1024 (1.6 MP)"; the viewer's column keeps the bare
+  size. The wheel listener is `.lb-main`'s, so a strip zooms too. A
   stage press within 500 ms of an arrow press (`lbAfterArrow`) neither closes
   nor zooms: it is the rest of a double-click on the arrow. The arrows'
   clicks are never filtered by click count. The keys line (`#lb-keys`,

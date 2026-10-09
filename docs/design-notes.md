@@ -2706,7 +2706,18 @@ strip from under the pointer when the next picture fills the width. The
 arrows' own clicks are not filtered by click count: the guard a later round
 of the 2026-10-04 review suggested (U108, ignoring `e.detail > 1`) was not
 built, since it would have cost a quick walk every other press, and
-`lbAfterArrow` already handles the double-click it was for. The backdrop shows the default cursor, the
+`lbAfterArrow` already handles the double-click it was for. In use
+(2026-10-10 testing notes) the strips themselves showed: a 5% white tint on
+hover and the focus ring drawn round the whole strip painted the hit area
+as a box over the backdrop beside the picture. Now nothing of a strip is
+painted; hover lights the circle and keyboard focus rings the circle. The
+stage's own title ("Scroll to zoom, drag to pan, double-click for 1:1")
+went the same way - a tooltip over the picture being judged - and is the
+zoom readout's title instead; the keys line already names the keys. The
+same notes asked for megapixels after the size, so the lightbox's Size
+row reads "1536×1024 (1.6 MP)", spaced as the size hints write MP; the
+viewer's column, which shares `factsList`, keeps the bare size (`megapixels` is the lightbox's
+option alone). The backdrop shows the default cursor, the
 picture the zoom one. A close of
 the user's own - Escape, the cross, a click on the backdrop or beside the
 picture (`dismissLightbox`) - focuses the image the walk ended on, its card,
