@@ -15,6 +15,7 @@
 //   {"keycombo": ["Control", "Enter"]}   press a key with a modifier held
 //   {"type": "text"}             type text into the focused element
 //   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
+//   {"wheel": ["selector", deltaY]}   the same at the middle of that element's box
 //   {"hover": [x, y]}            move the mouse there (tooltips, hover states)
 //   {"click": [x, y]}            click a point; {"dblclick": [x, y]} double-clicks;
 //                                {"drag": [x1, y1, x2, y2]} drags
@@ -255,7 +256,8 @@ for (const [n, step] of steps.entries()) {
     await send('Input.insertText', { text: step.type });
     await sleep(100);
   } else if (step.wheel) {
-    const [x, y, deltaY] = step.wheel;
+    const [x, y] = await point(typeof step.wheel[0] === 'string' ? step.wheel[0] : step.wheel.slice(0, 2));
+    const deltaY = step.wheel[step.wheel.length - 1];
     await mouse('mouseMoved', x, y);
     await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY });
     await sleep(100);

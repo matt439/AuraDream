@@ -153,12 +153,15 @@
    tiles overflowed, it made a row one tile shorter, and 18 tiles at 125%
    were two rows that fitted or three that scrolled by what had come before.
    A strip that overflows by no more than its bottom padding is let grow by
-   that (settleStrip). */
+   that (settleStrip). The wheel over it scrolls the page once the strip is
+   at its end that way (the browser's own chaining, no
+   `overscroll-behavior: contain`): contained, a wheel over a strip at its
+   end, or one with nothing to scroll, moved nothing at all. */
 @media (min-width: 2000px) {
   .viewer.many {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--strip-min), 1fr));
     align-content: start; align-items: start;
-    max-height: min(560px, 45vh); overflow-y: auto; overscroll-behavior: contain;
+    max-height: min(560px, 45vh); overflow-y: auto;
     scrollbar-gutter: stable both-edges;
   }
   .viewer.many > figure, .viewer.many .tile { width: 100%; }

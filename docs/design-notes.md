@@ -4986,6 +4986,18 @@ as each image replaced it, which is what this layout exists to stop. That is
 why U12's larger live preview for a run of five or more was not built: it
 would bring back the reflow U26 removed.
 
+**The wheel over the strip reaches the page.** The strip had
+`overscroll-behavior: contain`, as the scrolling columns do, and with the
+pointer over it the page could not be scrolled at all: a strip at its end,
+which a running batch always is, took the wheel and moved nothing, and at
+QHD a 28-image strip with nothing to scroll did the same (testing notes,
+2026-10-10). The strip is part of the page's flow, not a column of its own,
+so it keeps the browser's own chaining: the wheel scrolls the strip while
+it can go that way and the page once it is at its end. Chrome latches a
+gesture to the box it began in, so a flick that runs the strip to its end
+does not carry on into the page; the next one does. The strip scrolls only
+vertically; no wheel is translated sideways.
+
 ## The gallery beside the viewer
 
 **An opt-in second column, from 2000 px** (2026-10-05). Stacked under the
@@ -5035,8 +5047,8 @@ column, the strip - and `#recent` is a row under the viewer's note (The results
 viewer), since beside both it and the column the image was 440 px at QHD. The
 long-run strip keeps its `min(560px, 45vh)` cap on purpose: a cap at the
 window's height would put the strip's bottom under the fold wherever chips sit
-above it, with the strip's own `overscroll-behavior: contain` keeping a wheel
-over it from scrolling the page there.
+above it, where a wheel over the strip at its end goes on to the page
+(The running batch on wide screens).
 
 **The prompt check takes the column's place.** Docked in the stage's remaining
 width, as the stage docks it without the tick, it took that width from the

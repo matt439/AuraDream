@@ -2411,7 +2411,9 @@ Frontend and CLI:
   ResizeObserver and on the window's resize; more than four are small tiles,
   whose tools are out of the tab order, and from 2000 px those are
   `auto-fill minmax(--strip-min, 1fr)` under `min(560px, 45vh)` with their
-  own scroll and `scrollbar-gutter: stable both-edges`, no 380 px floor, and
+  own scroll and `scrollbar-gutter: stable both-edges` - never
+  `overscroll-behavior: contain`, so the wheel over a strip at its end, or
+  one with nothing to scroll, scrolls the page - no 380 px floor, and
   every row the job will fill reserved from its first tile (`reserveStrip`:
   an inline min-height from that tile and the strip's column count, up to
   the cap, never under the stylesheet's own minimum, recomputed when the
@@ -3892,8 +3894,11 @@ picture wider than it, centred, inside the strip, every word whole, the
 picture and the gallery head unmoved; four landscape images two by two with
 the gallery head unmoved from the first frame; a deleted result held at its
 height with focus on its line (the column's Delete); a 28-seed run at
-2048@1.25 ending scrolled to its newest row; 28 at QHD with no padding-only
-scrollbar and the gallery head unmoved from its first frame (`reserveStrip`); the banner's
+2048@1.25 ending scrolled to its newest row, the wheel over it scrolling
+the page at its end (down at its end, up at its top) and the strip while it
+can scroll; 28 at QHD with no padding-only
+scrollbar and the gallery head unmoved from its first frame (`reserveStrip`),
+the wheel over it scrolling the page; the banner's
 "2 since deleted" / "all since deleted"; the banner's Resume after a
 resumed-and-cancelled grid putting the run's base seed in Seed; no Resume
 for a cancelled comparison; a batch of four at QHD followed from its first
