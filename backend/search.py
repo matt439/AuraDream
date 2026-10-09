@@ -94,7 +94,8 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
 
     Exact (`cfg:0.5`), comparison (`steps:>=8`), range (`cfg:0-1`) or `none`,
     which is the only way to ask for the images that ran without a mu at all -
-    `mu:0` is a different image and SQL will not match NULL with either.
+    `mu:0` is a different image and SQL will not match NULL with either. A
+    text key matches a substring, or with a leading `=` the whole value.
     """
     if key == "date":
         return date_clause(raw)
@@ -102,6 +103,14 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
         return size_clause(raw)
     column, cast = FILTERS[key]
     if cast is str:
+        # `model:=<id>` is the whole id, exactly - the gallery's own checkpoint
+        # scope in the box's words, where `model:circlestone-labs/Anima` is a
+        # substring of Anima@aesthetic-v1.1 too. The Models picker's See all
+        # writes it, so the grid it opens is the strip it came from.
+        if raw.startswith("="):
+            if raw == "=":
+                raise ValueError(f"{key}: '=' names no value")
+            return f"{column} = ?", [raw[1:]]
         return rf"{column} LIKE ? ESCAPE '\'", [f"%{like_escape(raw)}%"]
     if raw.lower() in NULL_TOKENS:
         return f"{column} IS NULL", []

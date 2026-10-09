@@ -296,6 +296,8 @@ function markGoneSource(rec) {
 function forgetImages(ids) {
   const gone = new Set(ids);
   for (const id of gone) deletedIds.add(id);
+  // The Models picker's strip asks again for what is left (model-switch.js).
+  forgetModelShots(gone);
   const focused = document.activeElement;
   // Where the sheet's focus was, before its cells go below: the redraw puts
   // it back on the cell now in that place (sheet-render.js, renderSheet).

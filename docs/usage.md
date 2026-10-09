@@ -39,6 +39,15 @@ top of the list. This is saved immediately in this browser and survives page
 reloads and server restarts; it does not change or load the selected model.
 The ordinary and Nunchaku versions of a checkpoint share its star.
 
+Under the table, **Made with** shows the newest images the chosen checkpoint
+has made in this gallery and how many there are, so its style can be judged
+from its own pictures; it follows the row you choose and works while nothing
+is loaded. Click a picture (or Tab to the pictures, use the arrow keys and
+press Space) to open it in the viewer; closing the viewer goes back to the
+picker. **See all** closes the picker and shows every image made with that
+checkpoint in the gallery (it ticks **All models**, clears **Starred** and
+searches for `model:=<id>`). A checkpoint with no images says so instead.
+
 **Quantization** trades memory for precision: FP8 and INT8 keep 8-bit weights
 (INT8 a little softer), BF16 is full precision and the largest, and Nunchaku
 4-bit builds are the smallest but run only on Linux or WSL. **Offload** trades
@@ -284,6 +293,7 @@ Search combines these terms with free text matching the prompt:
 | `id:412`, `id:400-420`, `seed:42` | Image ids or seed |
 | `steps:6-12`, `cfg:<=1`, `tcfg:1.5` | Sampling values; `tcfg:none` means no active negative guidance |
 | `mu:none`, `quant:fp8`, `model:flux` | Default shift, quantization, model substring |
+| `model:=circlestone-labs/Anima` | One checkpoint's whole id exactly (a leading `=` on any text key) |
 | `refine:412`, `refine:none`, `strength:0.3-0.5` | Passes from a source, direct renders, strength |
 | `hash:3f9a` | Identical pixels by hash prefix |
 | `size:1024x768` | Width and height exactly |

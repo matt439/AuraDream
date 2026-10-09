@@ -58,6 +58,65 @@ def test_the_gallery_shows_the_running_checkpoint_unless_asked_for_every_one(cli
     ]
 
 
+def test_one_checkpoints_images_by_its_exact_id_whichever_is_running(client, store, monkeypatch):
+    # The Models picker's strip: the chosen row's images, newest first, by the
+    # gallery's own exact scope - Anima's are not Anima@aesthetic-v1.1's, as a
+    # `model:` substring would make them - and a page as small as the strip.
+    from backend import main
+
+    base = [_plant(store, "circlestone-labs/Anima", seed=s) for s in (1, 2, 3)]
+    aesthetic = _plant(store, "circlestone-labs/Anima@aesthetic-v1.1", seed=4)
+    _plant(store, settings.model_id, seed=5)
+
+    page = client.get("/api/gallery?model=circlestone-labs/Anima&limit=2").json()
+    assert [r["id"] for r in page["items"]] == [base[2].id, base[1].id]
+    assert (page["total"], page["has_more"]) == (3, True)
+    # In place of the running checkpoint's scope and of all_models.
+    both = client.get("/api/gallery?model=circlestone-labs/Anima&all_models=true").json()
+    assert both["total"] == 3
+    variant = client.get("/api/gallery", params={"model": aesthetic.model_id}).json()
+    assert [r["id"] for r in variant["items"]] == [aesthetic.id]
+    assert client.get("/api/gallery?model=nobody/made-this").json()["total"] == 0
+    assert client.get("/api/gallery?model=").status_code == 422
+
+    # A gallery read, not model work: answered during a switch, which refuses
+    # every model-dependent route, and under a stale revision header.
+    monkeypatch.setattr(main, "_switching", True)
+    stale = {"X-Local-Diffusion-Model-Revision": "-1"}
+    during = client.get("/api/gallery?model=circlestone-labs/Anima", headers=stale)
+    assert during.status_code == 200, during.text
+    assert during.json()["total"] == 3
+    # Bundle maintenance holds every gallery read, this one included: a 409
+    # the strip says quietly, and asks again later.
+    monkeypatch.setattr(main.bundle_manager, "state", {**main.bundle_manager.state, "state": "running"})
+    held = client.get("/api/gallery?model=circlestone-labs/Anima")
+    assert held.status_code == 409 and "bundle" in held.json()["detail"]
+
+
+def test_model_equals_in_the_search_is_the_whole_id(client, store):
+    # See all's words for the same scope: `model:=<id>` matches the whole id,
+    # where `model:<text>` stays a substring.
+    _plant(store, "circlestone-labs/Anima", seed=1)
+    _plant(store, "circlestone-labs/Anima@aesthetic-v1.1", seed=2)
+    _plant(store, "cagliostrolab/animagine-xl-4.0", seed=3)
+
+    def total(search):
+        return client.get("/api/gallery", params={"all_models": "true", "search": search}).json()["total"]
+
+    assert total("model:=circlestone-labs/Anima") == 1
+    assert total("model:=circlestone-labs/Anima@aesthetic-v1.1") == 1
+    assert total("model:circlestone-labs/Anima") == 2
+    assert total("model:=Anima") == 0
+    assert total("model:anima") == 3
+    # A bare `=` names nothing, and says so rather than matching every row.
+    refused = client.get("/api/gallery", params={"all_models": "true", "search": "model:="})
+    assert refused.status_code == 422 and "names no value" in refused.json()["detail"]
+    # The strip and the search agree on every checkpoint.
+    for model_id in ("circlestone-labs/Anima", "circlestone-labs/Anima@aesthetic-v1.1"):
+        strip = client.get("/api/gallery", params={"model": model_id}).json()
+        assert strip["total"] == total(f"model:={model_id}")
+
+
 def test_delete_unstarred_stays_within_the_checkpoint_scope(client, store):
     # The dialog's count is the count of what the page shows: with All models
     # off, another checkpoint's unstarred images are neither counted nor

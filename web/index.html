@@ -66,6 +66,21 @@
          outcomes and the server's state in a reserved height; Revert (unsaved
          edits only) floats in its first line. -->
     <div class="model-picker-footer">
+      <!-- What the chosen row's checkpoint has made, from the gallery: its
+           newest images and their count (model-switch.js, syncModelShots).
+           A fixed height, filled, empty or failed alike, so the checkbox and
+           the actions never move. One tab stop for the pictures (arrow keys
+           walk them); See all points the gallery there and closes this. -->
+      <div class="model-shots" id="model-shots">
+        <div class="model-shots-head">
+          <span class="model-shots-label" id="model-shots-label"></span>
+          <button class="ghost tiny" id="btn-model-shots-all" type="button" hidden>See all ›</button>
+        </div>
+        <div class="model-shots-box">
+          <ul class="model-shots-list" id="model-shots-list" aria-labelledby="model-shots-label"></ul>
+          <p class="model-shots-empty" id="model-shots-empty" hidden></p>
+        </div>
+      </div>
       <label class="check model-startup"><input type="checkbox" id="model-load-on-startup"> Load automatically on startup</label>
       <div class="model-actions">
         <button class="ghost" id="btn-model-save" aria-disabled="true" title="The checkpoint list is still loading">Apply &amp; save</button>

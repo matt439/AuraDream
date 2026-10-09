@@ -847,7 +847,9 @@ async function stepLightbox(delta) {
   renderLightbox();
 }
 
-function closeLightbox() {
+function closeLightbox({ keepPicker = false } = {}) {
+  // Opened from the Models picker's strip, which stays open under it.
+  const fromModels = lbOrigin === 'models';
   // The dialog's `close` event is queued, not fired by close(), and app.js
   // wires it back here only while the dialog is still closed when it comes -
   // which covers a close the browser made itself - so a lightbox opened
@@ -874,6 +876,10 @@ function closeLightbox() {
   // A fresh open starts at fit; the view is only carried between images of a
   // walk, not between sessions of looking.
   lbView.aspect = null;
+  // A close that hands the page to something else - Reuse, Refine, a
+  // search, Show this run - takes the picker with it; the user's own close
+  // (dismissLightbox) goes back to the strip.
+  if (fromModels && !keepPicker && !els.modelPicker.hidden) showModelPicker(false, { focus: false });
 }
 
 // Closed by the user - Escape, the cross, a click on the backdrop or beside
@@ -887,6 +893,12 @@ function dismissLightbox() {
   const last = lbList[lbIndex];
   const from = lbList;
   const origin = lbOrigin;
+  if (origin === 'models') {
+    // Back to the picture in the Models picker, still open under it.
+    closeLightbox({ keepPicker: true });
+    if (!els.modelPicker.hidden) focusModelShot(last?.id);
+    return;
+  }
   closeLightbox();
   if (!last) return;
   const strips = { viewer: `#viewer img[data-id="${last.id}"]`, recent: `#recent img[data-id="${last.id}"]`,

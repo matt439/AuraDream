@@ -1,0 +1,323 @@
+[
+  {
+    "navigate": "http://127.0.0.1:7896/"
+  },
+  {
+    "eval": "(async () => { window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 60)); } return false; }; window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__flux = 'black-forest-labs/FLUX.1-Krea-dev'; window.__turbo = 'krea/Krea-2-Turbo'; window.__anime = 'cagliostrolab/animagine-xl-4.0'; window.__row = (id) => [...els.modelTable.querySelectorAll('.model-row[data-model]')].find((r) => r.dataset.model === id); window.__radio = (id) => __row(id)?.querySelector('input[name=\"model-choice\"]'); window.__pick = (id) => { __radio(id).click(); return modelChoice() === id; }; window.__shots = () => [...els.modelShotsList.querySelectorAll('.model-shot')]; window.__footer = () => JSON.stringify([els.modelLoadOnStartup, els.modelSave, els.modelSwitch, els.modelPickerNote, els.modelShotsList].map((e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })); window.__ready = (id, total) => modelShots.id === id && modelShots.state === 'ready' && modelShots.total === total && !els.modelShots.classList.contains('model-shots-stale') && !els.modelShotsList.inert; window.__fetched = []; const real = window.fetch; window.__delay = null; window.__fail = null; window.fetch = (url, options) => { const text = String(url); if (text.includes('/api/gallery?model=')) { window.__fetched.push(text); if (__fail && text.includes(encodeURIComponent(__fail))) return Promise.resolve(new Response(JSON.stringify({detail: 'Gallery bundle operation in progress; wait for it to finish.'}), {status: 409, headers: {'Content-Type': 'application/json'}})); if (__delay && text.includes(encodeURIComponent(__delay))) return new Promise((resolve, reject) => { const t = setTimeout(() => real(url, options).then(resolve, reject), 900); options?.signal?.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('aborted', 'AbortError')); }); }); } return real(url, options); }; })()"
+  },
+  {
+    "eval": "(async () => { await fetch('/api/model/unload', {method: 'POST'}); await __post('/api/fake/load', {seconds: 5}); void fetch('/api/model/load', {method: 'POST'}); })()"
+  },
+  {
+    "expect": "__until(async () => { await refreshStatus(); return loadedModel === __flux && modelState === 'loading'; })"
+  },
+  {
+    "log": "'While the weights load, the picker shows the chosen row s images from the gallery: FLUX has none yet'"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => modelCatalogueLoaded && !!__radio(__turbo) && modelChoice() === __flux && __ready(__flux, 0))"
+  },
+  {
+    "expect": "modelState === 'loading' && els.modelShotsLabel.textContent === `Made with ${modelLabel(__flux)}` && !els.modelShotsEmpty.hidden && els.modelShotsEmpty.textContent === `No images made with ${modelLabel(__flux)} yet.` && els.modelShotsAll.hidden && __shots().length === 0 && els.modelShotsList.getAttribute('aria-labelledby') === 'model-shots-label' && els.modelShotsList.tagName === 'UL' && els.modelShots.closest('.model-picker-footer') && els.modelShots.compareDocumentPosition(els.modelLoadOnStartup) & Node.DOCUMENT_POSITION_FOLLOWING && __fetched.length >= 1 && __fetched.every((u) => u.includes('model=' + encodeURIComponent(__flux)))"
+  },
+  {
+    "eval": "window.__footerAt = __footer(); window.__table = els.modelPickerBody.getBoundingClientRect().bottom - els.modelTable.getBoundingClientRect().top;"
+  },
+  {
+    "eval": "__post('/api/fake/load', {seconds: 0})"
+  },
+  {
+    "log": "`at 1400x900 the picker body shows ${Math.round(els.modelPickerBody.clientHeight)} px, ${Math.floor((els.modelPickerBody.getBoundingClientRect().bottom - __row(__flux).getBoundingClientRect().top) / __row(__flux).offsetHeight)} rows from the chosen one`"
+  },
+  {
+    "expect": "(() => { const picker = els.modelPicker.getBoundingClientRect(), body = els.modelPickerBody.getBoundingClientRect(), row = __row(__flux).offsetHeight; return picker.bottom <= innerHeight && els.modelSwitch.getBoundingClientRect().bottom <= picker.bottom && body.height >= 8 * row && els.modelShotsList.getBoundingClientRect().height === parseFloat(getComputedStyle(els.modelShotsList).height); })()"
+  },
+  {
+    "log": "'Choosing another row shows that checkpoint s images and count; nothing below the strip moves'"
+  },
+  {
+    "eval": "__pick(__turbo)"
+  },
+  {
+    "expect": "els.modelShots.classList.contains('model-shots-stale') && els.modelShotsList.inert && els.modelShotsLabel.textContent === `Made with ${modelLabel(__turbo)}` && __footer() === __footerAt"
+  },
+  {
+    "expect": "__until(() => __ready(__turbo, 2))"
+  },
+  {
+    "expect": "__shots().length === 2 && els.modelShotsLabel.textContent === `Made with ${modelLabel(__turbo)} (2)` && els.modelShotsEmpty.hidden && !els.modelShotsAll.hidden && els.modelShotsAll.textContent === 'See all ›' && __shots().every((b) => b.querySelector('img').alt === 'a lighthouse on another checkpoint' && b.title === 'a lighthouse on another checkpoint' && b.querySelector('img').src.includes('/outputs/thumbnails/')) && __shots().map((b) => b.tabIndex).join() === '0,-1' && __footer() === __footerAt && modelShots.records.every((r) => r.model_id === __turbo)"
+  },
+  {
+    "expect": "__until(() => __shots().every((b) => b.querySelector('img').complete && b.querySelector('img').naturalWidth > 0))"
+  },
+  {
+    "log": "'An empty checkpoint says so in the same space; See all goes'"
+  },
+  {
+    "eval": "__pick(__anime)"
+  },
+  {
+    "expect": "__until(() => __ready(__anime, 0))"
+  },
+  {
+    "expect": "__shots().length === 0 && els.modelShotsEmpty.textContent === `No images made with ${modelLabel(__anime)} yet.` && els.modelShotsAll.hidden && __footer() === __footerAt"
+  },
+  {
+    "log": "'A quick run of choices asks once, for the last; a late reply never overwrites a newer choice'"
+  },
+  {
+    "eval": "(async () => { window.__fetched = []; __pick(__turbo); __pick(__flux); __pick(__turbo); await new Promise((r) => setTimeout(r, 700)); })()"
+  },
+  {
+    "expect": "__ready(__turbo, 2) && __fetched.length === 1 && __fetched[0].includes(encodeURIComponent(__turbo))"
+  },
+  {
+    "eval": "(async () => { window.__fetched = []; window.__delay = __anime; __pick(__anime); await __until(() => __fetched.length === 1, 3000); __pick(__turbo); await new Promise((r) => setTimeout(r, 1400)); window.__delay = null; })()"
+  },
+  {
+    "expect": "__ready(__turbo, 2) && __shots().length === 2 && __fetched.length === 2 && __fetched[1].includes(encodeURIComponent(__turbo)) && modelChoice() === __turbo"
+  },
+  {
+    "log": "'A gallery that cannot answer says so quietly in the same space, and a later poll asks again'"
+  },
+  {
+    "eval": "window.__fail = __anime; __pick(__anime)"
+  },
+  {
+    "expect": "__until(() => modelShots.id === __anime && modelShots.state === 'failed')"
+  },
+  {
+    "expect": "!els.modelShotsEmpty.hidden && els.modelShotsEmpty.textContent === `${modelLabel(__anime)}'s images cannot be shown now: Gallery bundle operation in progress; wait for it to finish.` && els.modelShotsAll.hidden && __shots().length === 0 && __footer() === __footerAt && !els.modelPicker.hidden"
+  },
+  {
+    "eval": "(async () => { window.__fail = null; modelShotsFailedAt = 1; await refreshStatus(); })()"
+  },
+  {
+    "expect": "__until(() => __ready(__anime, 0))"
+  },
+  {
+    "eval": "__pick(__flux)"
+  },
+  {
+    "expect": "__until(() => __ready(__flux, 0))"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "els.modelPicker.hidden"
+  },
+  {
+    "log": "'Fourteen FLUX images: the strip shows as many as fit, newest first, with the whole count'"
+  },
+  {
+    "eval": "(async () => { const job = await __post('/api/grid', {prompt: 'a heron in the reeds', steps_axis: '4', seeds: 14, width: 256, height: 256, seed: 40}); await __wait(job.job_id); })()"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => __ready(__flux, 14) && __shots().length > 0)"
+  },
+  {
+    "expect": "(() => { const fit = modelShotsFit(); const ids = __shots().map((b) => +b.dataset.image); return fit >= 8 && fit <= 12 && __shots().length === fit && ids.every((id, i) => i === 0 || id < ids[i - 1]) && __fetched.at(-1).includes(`limit=${fit}`) && els.modelShotsLabel.textContent === `Made with ${modelLabel(__flux)} (14)` && __shots().every((b) => b.getBoundingClientRect().right <= els.modelShotsList.getBoundingClientRect().right + 0.5 && b.getBoundingClientRect().bottom <= els.modelShotsList.getBoundingClientRect().bottom + 0.5) && __footer() === __footerAt; })()"
+  },
+  {
+    "log": "'Keyboard: one tab stop for See all and one for the pictures, arrows walk them, then the checkbox'"
+  },
+  {
+    "eval": "__radio(__flux).focus()"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "document.activeElement === __row(__flux).querySelector('.model-link')"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "document.activeElement === els.modelShotsAll"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "document.activeElement === __shots()[0]"
+  },
+  {
+    "key": "ArrowRight"
+  },
+  {
+    "key": "ArrowRight"
+  },
+  {
+    "expect": "document.activeElement === __shots()[2] && __shots().filter((b) => b.tabIndex === 0).length === 1 && __shots()[2].tabIndex === 0"
+  },
+  {
+    "key": "End"
+  },
+  {
+    "expect": "document.activeElement === __shots().at(-1)"
+  },
+  {
+    "key": "Home"
+  },
+  {
+    "key": "ArrowRight"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "document.activeElement === els.modelLoadOnStartup && !els.modelPicker.hidden && __shots()[1].tabIndex === 0"
+  },
+  {
+    "eval": "__shots()[1].focus()"
+  },
+  {
+    "log": "'A picture opens in the lightbox over the picker; its close comes back to that picture'"
+  },
+  {
+    "key": " "
+  },
+  {
+    "expect": "__until(() => els.lightbox.open && lbList[lbIndex]?.id === +__shots()[1].dataset.image)"
+  },
+  {
+    "expect": "__until(() => !els.modelPicker.hidden && lbOrigin === 'models' && lbList === modelShots.records && (() => { const r = els.modelPicker.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return els.lightbox.contains(top); })(), 1500)"
+  },
+  {
+    "key": "ArrowRight"
+  },
+  {
+    "expect": "__until(() => lbList[lbIndex]?.id === +__shots()[2].dataset.image && !els.modelPicker.hidden)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(() => !els.lightbox.open && !els.modelPicker.hidden && document.activeElement === __shots()[2] && __shots()[2].tabIndex === 0)"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "!els.modelPicker.hidden && document.activeElement === __shots()[2]"
+  },
+  {
+    "click": "#model-shots-list li:first-child .model-shot"
+  },
+  {
+    "expect": "__until(() => els.lightbox.open && lbList[lbIndex]?.id === +__shots()[0].dataset.image && !els.modelPicker.hidden)"
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "__until(() => !els.lightbox.open && !els.modelPicker.hidden && document.activeElement === __shots()[0])"
+  },
+  {
+    "log": "'A close that hands the page on (Reuse) takes the picker with it'"
+  },
+  {
+    "eval": "__shots()[0].click()"
+  },
+  {
+    "expect": "__until(() => els.lightbox.open && !els.modelPicker.hidden)"
+  },
+  {
+    "eval": "els.lbReuse.click()"
+  },
+  {
+    "expect": "__until(() => !els.lightbox.open && els.modelPicker.hidden && els.prompt.value === 'a heron in the reeds')"
+  },
+  {
+    "log": "'A delete elsewhere leaves the strip, which asks again for its count'"
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => __ready(__flux, 14) && __shots().length === modelShotsFit())"
+  },
+  {
+    "eval": "(async () => { window.__gone = +__shots()[0].dataset.image; await fetch('/api/images/' + __gone, {method: 'DELETE'}); forgetImages([__gone]); })()"
+  },
+  {
+    "expect": "__until(() => __ready(__flux, 13) && __shots().length === modelShotsFit() && !__shots().some((b) => +b.dataset.image === __gone) && els.modelShotsLabel.textContent.endsWith('(13)') && __footer() === __footerAt && !els.modelPicker.hidden)"
+  },
+  {
+    "log": "'See all closes the picker and points the gallery at that checkpoint'"
+  },
+  {
+    "eval": "els.favOnly.checked = true; els.allModels.checked = false; els.search.value = 'heron'; resetGallery(); __pick(__turbo)"
+  },
+  {
+    "expect": "__until(() => __ready(__turbo, 2) && !els.modelShotsAll.hidden)"
+  },
+  {
+    "expect": "els.modelShotsAll.title.includes('model:=krea/Krea-2-Turbo') && els.modelShotsAll.getAttribute('aria-label') === `See all 2 made with ${modelLabel(__turbo)}`"
+  },
+  {
+    "click": "#btn-model-shots-all"
+  },
+  {
+    "expect": "__until(() => els.modelPicker.hidden && els.search.value === 'model:=krea/Krea-2-Turbo' && els.allModels.checked && !els.favOnly.checked && !sheetMode && !galleryPending && total === 2 && galleryRecords.length === 2 && galleryRecords.every((r) => r.model_id === __turbo) && document.activeElement === els.search)"
+  },
+  {
+    "expect": "els.models.getAttribute('aria-expanded') === 'false' && loadedModel === __flux && modelChoice() === __turbo && modelPickerEditedKeys.has('model_id')"
+  },
+  {
+    "log": "'Short and narrow windows keep the strip in its space and the table usable'"
+  },
+  {
+    "eval": "els.search.value = ''; els.allModels.checked = false; resetGallery(); scrollTo(0, 0);"
+  },
+  {
+    "viewport": [
+      390,
+      600
+    ]
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => __ready(modelChoice(), modelShots.total) && modelShots.state === 'ready')"
+  },
+  {
+    "expect": "(() => { const picker = els.modelPicker.getBoundingClientRect(); return picker.bottom <= innerHeight && els.modelSwitch.getBoundingClientRect().bottom <= picker.bottom && els.modelPickerBody.clientHeight >= 120 && els.modelShotsList.getBoundingClientRect().height === 40 && document.documentElement.scrollWidth <= document.documentElement.clientWidth && __shots().every((b) => b.getBoundingClientRect().right <= els.modelShotsList.getBoundingClientRect().right + 0.5); })()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "viewport": [
+      2560,
+      1305
+    ]
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => modelShots.state === 'ready' && __shots().length === Math.min(modelShots.total, modelShotsFit()))"
+  },
+  {
+    "expect": "els.modelShotsList.getBoundingClientRect().height === 80 && els.modelPicker.getBoundingClientRect().bottom <= innerHeight"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  }
+]

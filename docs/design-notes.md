@@ -483,6 +483,46 @@ saved model, so the sentence says both cases.
 CPU and fake-browser checks establish these transitions, not real GPU load
 times, memory release or image quality.
 
+The picker shows the chosen row's own images (2026-10-09). The table's Style
+column says "Photorealism" or "Anime" in a word; what a checkpoint actually
+makes, at the settings this machine used, is best answered by the pictures it
+made. They are in the gallery already, but the picker covers the gallery,
+and finding them there meant closing the picker, ticking All models and
+typing a search, then opening the picker again to choose. So the strip is
+inside the picker, under the table and above the startup checkbox: "Made with
+<name> (<count>)", the newest pictures in one row, and See all. It follows the
+chosen row, not the server's checkpoint, and changes nothing until a press:
+choosing a row only reads. See all is the explicit way out, closing the
+picker and pointing the real gallery at that checkpoint.
+
+Which images belong to a checkpoint is the server's: `/api/gallery?model=`
+is the gallery's own exact scope (`model_id = ?`, Anima's are not
+Anima@aesthetic-v1.1's), in place of the running checkpoint's and of
+`all_models`. See all writes the same scope as one search word,
+`model:=<id>`, since the box's `model:` is a substring and
+`model:circlestone-labs/Anima` would also count the Aesthetic variant; the
+grid's count is then the strip's. It is a gallery read, not model work, so it
+is in no model-route list: it answers while the server is cold, loading or
+switching, and under a stale revision. Bundle maintenance refuses it like
+every gallery read; the strip says so in its own box and a status poll asks
+again. The strip asks for only the pictures its columns hold (up to 12, from
+the grid's resolved columns), after a 180 ms pause on a new choice, so
+arrowing through the rows asks once; a newer choice aborts the older request,
+and an epoch drops a reply that still arrives. The old pictures wait dimmed
+and inert until then, rather than leaving a gap.
+
+The strip has a fixed height (a head line and one row of `--model-shot`
+pictures, smaller on a window under 640 px tall), filled, empty, failed or
+waiting alike, so the checkbox and the actions never move under the pointer.
+It takes about 95 px from the table at 1400x900, which keeps about eight rows
+in view. Its pictures are one tab stop (arrow keys walk them), like the
+table's stars and links, so Tab still reaches the actions in a few presses. A
+picture opens in the lightbox, which is modal and above the picker; the
+picker's outside-press and focus-out closes ignore it while it is open, the
+user's own close focuses the picture again, and a close that hands the page to
+something else (Reuse, Refine, a search) closes the picker too. A delete
+anywhere (`forgetImages`) asks again for what is left.
+
 ## The loader is model-agnostic
 
 The loader is model-agnostic: `DiffusionPipeline.from_pretrained` resolves the

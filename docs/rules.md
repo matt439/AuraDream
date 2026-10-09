@@ -155,7 +155,8 @@ before changing it.
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
-  checkpoint selection and retiring state prepared under the old model;
+  checkpoint selection, retiring state prepared under the old model and the
+  picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog and background-operation polling. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
@@ -385,6 +386,24 @@ Model and loader:
   rebuild's refocus unless the body is hovered, scroll only
   `#model-picker-body` to the focused row (`revealModelControl`, below the
   sticky head); never `scrollIntoView`, never the page.
+- The strip under the table (`#model-shots`, `modelShots`) shows the chosen
+  row's newest images and count from `GET /api/gallery?model=<id>`, the
+  gallery's exact scope chosen by the server, never a page-side match. It
+  is a gallery read, in no model-route list, so it works cold, loading or
+  switching; a refused read (bundle maintenance, offline) is said in its
+  own box and retried from status polls (`retryModelShots`). It asks for
+  only what its grid's columns hold (`modelShotsFit`, at most 12), after a
+  pause on a new choice; a newer choice aborts the older request and an epoch
+  drops its reply, and the old pictures wait dimmed and `inert`. Its height
+  is fixed by `--model-shot` (40 px under 640 px tall, growing from 1800 px)
+  whatever it holds, so nothing under it moves. Its pictures are one roving
+  tab stop (`syncModelShotStops`, arrow keys/Home/End); a picture opens the
+  lightbox with origin `models`, which the picker's pointerdown and
+  focusout closes ignore while it is open: `dismissLightbox` focuses the
+  picture again (`focusModelShot`), any other `closeLightbox` closes the
+  picker. See all is hidden at count 0 (the empty line says why) and closes
+  the picker, ticks All models, clears Starred, closes the sheet and
+  searches `model:=<id>`. `forgetImages` calls `forgetModelShots`.
 - Picker edits are per field (`modelPickerEditedKeys`, filled by the change
   handlers); polls and catalogue replies write every other field, so another
   tab's checkbox-only save still lands. A revision change or a successful
@@ -2848,7 +2867,9 @@ Frontend and CLI:
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred` and `POST /api/rerender` scope to
   `current_model_id(settings)` (`main._model_scope`, an exact predicate, never the
-  `model:` LIKE) unless `all_models=true`; the page's All models tick is the
+  `model:` LIKE) unless `all_models=true`; `GET /api/gallery?model=<id>` is the
+  same exact scope for any id, in place of both, and `model:=<id>` in the
+  search (a leading `=` on any text key) its exact form; the page's All models tick is the
   one switch, unpersisted like Starred, and `GalleryPage.other_models` is
   what the same filter matches elsewhere. Delete unstarred takes the scope
   because its count must be the grid's. Re-render's refusal of another
@@ -3327,6 +3348,20 @@ later opening focus its checked radio inside the picker body, the page
 unscrolled; that an unsubmitted offload edit survives another tab's
 checkbox-only save, which still lands; and that a list lacking the chosen
 checkpoint chooses none, then the same one, or its other build, again.
+`smoke-model-gallery.json` uses the same fake (fresh `--data`) for the strip
+of the chosen checkpoint's images: shown while the weights load, FLUX's
+empty line, the planted Krea 2 Turbo pair with count, alt text and
+thumbnails on choosing its row, Animagine's empty line, one request for a
+quick run of choices, a delayed reply that cannot overwrite a newer choice,
+a refused read said in place and retried from a poll, as many of 14 images
+as fit newest first with the whole count, the footer's boxes unchanged
+through every state, Tab order (link, See all, one picture stop, checkbox)
+and arrow keys, the lightbox over the picker from a key and a click with
+focus back on the picture, Reuse closing both, a delete re-counted, See all
+closing the picker into an All models `model:=` gallery, and the sizes at
+390x600 and 2560x1305. `test_api_gallery.py` covers `?model=` (exact,
+during a switch, under a stale revision, refused during bundle maintenance)
+and `model:=`.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
 for an idle unloaded/error server, with the not-loaded or failed-load note
 and every model's row and facts shown,
@@ -3360,6 +3395,7 @@ uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-model-switch.json
 node tools/browser.mjs tools/smoke-model-startup.json
 node tools/browser.mjs tools/smoke-model-hover.json
+node tools/browser.mjs tools/smoke-model-gallery.json   # each on a fresh --data
 ```
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance

@@ -173,6 +173,8 @@
   --recent-min: 280px;
   --recent-w: clamp(var(--recent-min), 16vw, 420px);
   --strip-min: 160px;
+  /* A picture in the Models picker's strip of the chosen checkpoint's images. */
+  --model-shot: 64px;
   --library-w: clamp(440px, 27vw, 720px);
   --tip-w: 240px;
   --tip-w-wide: 300px;

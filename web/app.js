@@ -659,13 +659,24 @@ els.modelFormat.onchange = () => modelPickerEdited('format', { catalogue: true }
 els.modelSwitch.onclick = () => switchModel();
 els.modelSave.onclick = () => switchModel({ load: false });
 els.modelRevert.onclick = revertModelPicker;
+// The strip's pictures open in the lightbox over the picker, which stays open
+// under it: a press or the focus in the lightbox (or a dialog over it) is not
+// a move away.
+els.modelShotsList.addEventListener('click', (event) => {
+  const shot = event.target.closest('.model-shot');
+  if (shot) openModelShot(shot);
+});
+els.modelShotsList.addEventListener('keydown', moveModelShotFocus);
+els.modelShotsAll.onclick = showModelShotsGallery;
 document.addEventListener('pointerdown', (event) => {
+  if (els.lightbox.open) return;
   if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && event.target !== els.models) {
     showModelPicker(false, { focus: false });
   }
 });
 els.modelPicker.addEventListener('focusout', () => {
   setTimeout(() => {
+    if (els.lightbox.open) return;
     if (!els.modelPicker.contains(document.activeElement) && document.activeElement !== els.models) {
       showModelPicker(false, { focus: false });
     }

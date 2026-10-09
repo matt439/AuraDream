@@ -75,6 +75,12 @@ def create_router(
         # default is the server's because the page cannot know the checkpoint
         # before /api/status answers, which behind a load is minutes.
         all_models: bool = False,
+        # One checkpoint's images, exactly, whichever is running: the Models
+        # picker's strip of what the chosen row has made. The same exact
+        # scope as the running checkpoint's (Anima@aesthetic-v1.1 is not
+        # Anima), and in place of it and of `all_models`. A gallery read, not
+        # model work: it answers while the server is cold or switching.
+        model: str | None = Query(None, min_length=1, max_length=512),
     ) -> GalleryPage:
         # Every storage call runs off the loop: SQLite's busy handler waits up
         # to 15 s, and a write that lands
@@ -90,7 +96,7 @@ def create_router(
                 search=search,
                 favorites_only=favorites,
                 before=before,
-                model_id=model_scope(all_models),
+                model_id=model or model_scope(all_models),
             )
         except ValueError as exc:  # a filter term that is not a number
             raise HTTPException(status_code=422, detail=str(exc)) from exc

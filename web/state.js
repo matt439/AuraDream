@@ -66,6 +66,8 @@ const els = {
   modelFormat: $('model-format'), modelFormatField: $('model-format-field'), modelFormatHelp: $('model-format-help'),
   modelLoadOnStartup: $('model-load-on-startup'),
   modelPickerBody: $('model-picker-body'),
+  modelShots: $('model-shots'), modelShotsLabel: $('model-shots-label'), modelShotsAll: $('btn-model-shots-all'),
+  modelShotsList: $('model-shots-list'), modelShotsEmpty: $('model-shots-empty'),
   reset: $('btn-reset'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
   queueNote: $('queue-note'), queueText: $('queue-text'), queueList: $('queue-list'),
