@@ -111,7 +111,10 @@
   padding: 0; font-size: var(--fs-xl); line-height: 1;
 }
 .model-star[aria-pressed="true"] { color: var(--star); border-color: var(--star); }
-.model-link { text-decoration: none; text-align: center; }
+/* One colour whatever the browser's history: visited/unvisited would read
+   as a state the picker does not mean. */
+.model-link, .model-link:visited { color: var(--text-readout); text-decoration: none; text-align: center; }
+.model-link:hover, .model-link:focus-visible { color: var(--accent); }
 @media (max-width: 700px) {
   .model-row {
     grid-template-columns: var(--h-sm) repeat(4, minmax(0, 1fr)) 20px;
