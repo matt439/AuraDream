@@ -422,7 +422,12 @@ Model and loader:
   is `tabindex="-1"` like `#model-picker-body`: a press on its blank space
   (the column's under a short set of pictures is most of its height) keeps
   the focus in the picker, whose focusout would otherwise close it and
-  drop an unsaved choice. Its pictures are one roving
+  drop an unsaved choice. While the picker is open, `#library` (the
+  gallery, its Gallery beside column, the sheet) and `#recent` are
+  `visibility: hidden` by a `:has()` rule in `model-picker.css`, never
+  `display: none`: their layout and scroll stay, and they are back as it
+  closes, so the picker's pictures are never read as the gallery's. The
+  lightbox is outside them and still shows. Its pictures are one roving
   tab stop (`syncModelShotStops`, arrow keys/Home/End); a picture opens the
   lightbox with origin `models`, which the picker's pointerdown and
   focusout closes ignore while it is open: `dismissLightbox` focuses the

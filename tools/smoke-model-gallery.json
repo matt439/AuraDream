@@ -111,10 +111,19 @@
     "expect": "__until(() => __ready(__flux, 0))"
   },
   {
+    "log": "'While the picker is open the gallery and the last run s strip are hidden in place, and back as it closes'"
+  },
+  {
+    "eval": "window.__libraryAt = JSON.stringify(els.library.getBoundingClientRect())"
+  },
+  {
+    "expect": "getComputedStyle(els.library).visibility === 'hidden' && getComputedStyle(document.getElementById('recent')).visibility === 'hidden' && getComputedStyle(els.viewer).visibility === 'visible' && getComputedStyle(els.lightbox).visibility === 'visible'"
+  },
+  {
     "key": "Escape"
   },
   {
-    "expect": "els.modelPicker.hidden"
+    "expect": "els.modelPicker.hidden && getComputedStyle(els.library).visibility === 'visible' && getComputedStyle(document.getElementById('recent')).visibility === 'visible' && JSON.stringify(els.library.getBoundingClientRect()) === __libraryAt"
   },
   {
     "log": "'Fourteen FLUX images: the column shows as many as fit whole (four rows of two at 1400x900), newest first, with the whole count'"

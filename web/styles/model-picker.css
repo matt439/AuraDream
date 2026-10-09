@@ -226,6 +226,14 @@
 @media (min-width: 1800px) {
   .model-picker { --model-shots-cols: 3; }
 }
+/* While the picker is open the page's own pictures - the gallery (its
+   column with Gallery beside, the contact sheet) and the last run's strip -
+   are hidden beside it, so the picker's pictures are the only ones in view
+   and are not read as the gallery's. Hidden, not removed: their room, their
+   scroll and the page's layout stay as they are, and they are back as the
+   picker closes. Nothing there can be used meanwhile: a press outside
+   closes the picker first. */
+:root:has(#model-picker:not([hidden])) :is(#library, #recent) { visibility: hidden; }
 .model-picker p { margin: 0; color: var(--text-3); font-size: var(--fs-body-sm); }
 .model-picker .model-loader-help { height: 3lh; color: var(--text-readout); }
 .model-format-help { color: var(--text-readout); font-size: var(--fs-body-sm); font-weight: 400; }
