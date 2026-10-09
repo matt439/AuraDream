@@ -235,10 +235,13 @@ function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
   choice.className = 'model-row-choice';
   const name = modelNameCell(entry, info, favourite);
   const speedDetail = [info.speed_summary, info.speed_basis].filter(Boolean).join(' · ');
+  // Refine's Yes/No carries a mark the column can be scanned by.
+  const refine = modelFactCell('Refine', info.refine, '', info.refine_note);
+  if (info.refine === 'Yes' || info.refine === 'No') refine.dataset.refine = info.refine.toLowerCase();
   choice.append(
     name,
     modelFactCell('Style', info.style),
-    modelFactCell('Refine', info.refine, '', info.refine_note),
+    refine,
     modelFactCell('Size', info.megapixels, info.megapixels_label, info.megapixels_note),
     // Only a category timed with these options reads at full strength.
     modelFactCell('Speed', info.speed_label || 'Unmeasured', speedDetail, info.speed_note,
