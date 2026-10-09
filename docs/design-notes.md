@@ -5464,7 +5464,7 @@ caption now shows only in one column and in the wide tier on a window taller
 than 1150 px, where the Output group is exactly as tall as the Sampling one
 (Generate 1000-1048 of 1305 at 2560). Elsewhere it is the group's name alone,
 visually hidden (absolute, 1 px, clipped) - the row's own names say what it is,
-as LoRA's and Weight's do above it - under `(900px < width < 1800px),
+as LoRA's and Weight's do - under `(900px < width < 1800px),
 (min-width: 1800px) and (max-height: 1150px)`, the complement of the one-column
 query and the wide tier, fractional widths included. There the group is its
 row's height, and Generate's top at scroll 0 is 884 at 1400x900, 877.5 at
@@ -5475,6 +5475,30 @@ own measured against today's panel. Tightening the panel's gaps on short
 windows was the alternative; it would have moved every field under 1800 px,
 where the smokes are written, for 24 px. smoke-wide holds 1400x900, 1920x947 and
 2048x1040 at 125%.
+
+**References and LoRA under the grid fold** (2026-10-10). Testing found the
+panel short of height: on QHD at 125% (2048x1040) a running batch's bar sat
+at the window's foot (1038 of 1040 on the FLUX.1 fake, a two-line run hint)
+and the elapsed line under it (`#cell-note`, 1098) past it. At scroll 0 the
+panel is in the page's flow, and a sticky top - however negative - never
+lifts a box above its place in the flow, so nothing in `panelPos` could show
+them without the page scrolling, which it never does by itself. What sat
+between Sampling and Output was the reference field and the LoRA row, both
+rarely used and greyed on most checkpoints; they now sit last in the panel,
+under the grid fold's summary, and everything from Output down moved up by
+their 105-107 px: Generate's top at scroll 0 is 776.5 at 1400x900, 775 at
+1800x900, 780.3 at 1920x947, 786.4 at 2048x1040 at 125% and 884.3 at
+2560x1305, and a batch's bar and elapsed line end at 934 and 993.5 at
+2048x1040 (1044.6 and 1108 of 1305 at 2560). At 1400x900 and 1920x947 the
+elapsed line still runs past the window at scroll 0 (978.5, 985.3; the bar
+920.8 and 926.6) and comes into view as the page is scrolled, as before; the
+topbar's mirror shows the job at every size. No gap or control height was
+tightened for it, which would have moved every field under 1800 px. The
+grid's LoRA weight axis, which used to point up at the adapter, says LoRA
+below; opening the fold at 1400x900 now brings Run grid into view with
+References and LoRA still under the window rather than holding the panel by
+its bottom, Run grid no longer being its last block. Tab from the panel's
+last stop reaches the stage as before; that stop is now the LoRA row's.
 
 ## The live preview
 

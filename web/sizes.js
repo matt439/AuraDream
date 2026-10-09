@@ -312,13 +312,13 @@ function syncConditioning() {
   els.loraScale.closest('.sub').title = loraSupported && !els.lora.value ? 'Pick an adapter first' : '';
   els.gridLoraScale.disabled = !loraSupported || !els.lora.value;
   els.gridLoraField.classList.toggle('disabled', els.gridLoraScale.disabled);
-  // The sweep's box names the adapter it weighs, 570 px below the select -
-  // whole in its title, since the box is narrow - and, with none picked, says
-  // so in two words: "pick an adapter above" was cut to "…abov" at QHD. Where
-  // to pick one is the wrapper's title, as the panel's Weight has it.
-  // Where this server applies no adapter at all (Anima, NewBie, a Nunchaku
-  // run) the axis said "0-1x0.25" and, in its badge, "needs an adapter
-  // selected above", which cannot be done there: it says "unavailable", and
+  // The sweep's box names the adapter it weighs, a fold's height from the
+  // select under it - whole in its title, since the box is narrow - and, with
+  // none picked, says so in two words: "pick an adapter above" was cut to
+  // "…abov" at QHD. Where to pick one is the wrapper's title, as the panel's
+  // Weight has it. Where this server applies no adapter at all (Anima,
+  // NewBie, a Nunchaku run) the axis said "0-1x0.25" and, in its badge,
+  // "needs an adapter selected", which cannot be done there: it says "unavailable", and
   // its badge and wrapper give /api/loras' reason, the LoRA badge's words.
   // Until that list answers, the shipped words stand.
   const why = loraSupported ? null : loraRefusal;
@@ -326,7 +326,7 @@ function syncConditioning() {
   els.gridLoraScale.placeholder = !loraSupported ? (why ? 'unavailable' : '0-1x0.25')
     : adapter ? `${adapter}: 0-1x0.25` : 'no adapter';
   els.gridLoraScale.title = loraSupported && adapter ? els.gridLoraScale.placeholder : '';
-  els.gridLoraField.title = why ?? (loraSupported && !adapter ? 'Pick an adapter in LoRA above first' : '');
+  els.gridLoraField.title = why ?? (loraSupported && !adapter ? 'Pick an adapter in LoRA below first' : '');
   els.gridLoraTip.replaceChildren(...(why ? [why] : gridLoraTipDefault));
   renderReferences();
 }

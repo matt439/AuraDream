@@ -1553,8 +1553,20 @@ Frontend and CLI:
   (min-width: 1800px) and (max-height: 1150px)`, the complement of the
   one-column query and the wide tier, fractional widths included). There
   the group is its row's height, so Generate's top is in the window at
-  scroll 0 (884 at 1400x900, 16 px of it showing); smoke-wide holds
+  scroll 0 (776.5 at 1400x900); smoke-wide holds
   1400x900, 1920x947 and 2048x1040@1.25.
+- The panel's order is Prompt, Negative, Size, Sampling, Output, Generate
+  and what a job adds under it (`#progress`, the finish line, the queue,
+  `#error`, the last-run banner), the grid fold, then Reference images
+  (`#reference-field`) and LoRA (`#lora-field`) last. Nothing rarely used
+  goes between Sampling and Generate: at scroll 0 the panel is in the
+  page's flow and its sticky top cannot lift it, so every line above
+  Generate pushes a running job's bars and its elapsed line (`#cell-note`)
+  towards the window's foot - with References and LoRA there, at 2048x1040
+  at 125% the batch bar sat at 1038 of 1040 and the elapsed line past it.
+  A request reads every control wherever it sits; the grid's LoRA weight
+  axis says the adapter is picked in LoRA below. smoke-wide holds the order
+  and a batch's whole progress in the window at 2048x1040@1.25.
 - The size line compares the request against `guide.pixels` a tenth either
   way and quotes `pixels_word`. An `example` span reads "above/below the N
   MP of <pixels_source>", never what the checkpoint is "for", and its
@@ -3648,7 +3660,11 @@ window) with a dragged height winning over the cap, and with the grid fold
 open - by a click on its summary, which brings Run grid into view - Run grid
 on screen after a wheel over the stage and at the end of a 160-image
 gallery, the panel holding its bottom a gutter above the window's (the
-gutter and the resting top read off the page), the panel coming back down
+gutter and the resting top read off the page; at 1400x900, where References
+and LoRA run on under the fold, stuck with Run grid in view), the panel's
+order - References and LoRA last, under the grid fold - and a running
+batch's Now line, both bars and elapsed line in the window at scroll 0 at
+2048x1040@1.25, the panel coming back down
 as far as a wheel scrolls up, the prompt and Examples focused from deep in
 the gallery and by Shift+Tab (past the negative's button) brought into view
 with the page left where it was, a finding clicked in the prompt check

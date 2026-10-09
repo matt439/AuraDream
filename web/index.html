@@ -395,37 +395,6 @@
       </div>
     </div>
 
-    <!-- Conditioning: reference images, and an adapter. Both are greyed rather
-         than hidden where they do not apply, the way True CFG is - the panel
-         keeps its shape, and the badge says why the box is dead. -->
-    <div class="field" id="reference-field">
-      <span>Reference images
-        <span class="help" tabindex="0" role="note" aria-label="Reference images help" aria-describedby="reference-tip">?<span
-          class="tip" id="reference-tip">Reference images condition the picture on one you
-          have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
-          one here that does.</span></span>
-        <em id="reference-note"></em></span>
-      <!-- Focusable by script alone (tabindex -1): where focus goes once the
-           last chip's × is gone (sizes.js, removeReference). -->
-      <div class="chips" id="reference-list" role="group" aria-label="Reference images"
-           tabindex="-1" aria-describedby="reference-tip"></div>
-    </div>
-
-    <div class="row" id="lora-field">
-      <div class="sub grow">
-        <i><label for="lora">LoRA</label>
-          <span class="help" tabindex="0" role="note" aria-label="LoRA help" aria-describedby="lora-tip">?<span
-            class="tip" id="lora-tip">A LoRA adapter from the loras/ directory; Weight 0-2
-            scales its effect.</span></span></i>
-        <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
-      </div>
-      <div class="sub narrow">
-        <i><label for="lora-scale">Weight</label></i>
-        <input type="number" id="lora-scale" value="1" min="0" max="2" step="0.05"
-               aria-describedby="lora-tip">
-      </div>
-    </div>
-
     <!-- What a press makes, under a caption of its own as Sampling's (shown
          in one column and from 1800 px on a window taller than 1150 px;
          elsewhere only the group's name, so Generate keeps its place:
@@ -591,7 +560,7 @@
           <i><label for="grid-lora-scale">LoRA weight</label>
             <span class="help end" tabindex="0" role="note" aria-label="LoRA weight axis help" aria-describedby="grid-lora-tip">?<span
               class="tip" id="grid-lora-tip">Same syntax:<br><b>0,0.5,1</b> ·
-              <b>0-1x0.25</b>.<br>Needs an adapter selected above; without one the weight
+              <b>0-1x0.25</b>.<br>Needs an adapter selected in LoRA below; without one the weight
               changes nothing.</span></span></i>
           <input type="text" id="grid-lora-scale" placeholder="0-1x0.25" autocomplete="off"
                  aria-describedby="grid-lora-tip">
@@ -640,6 +609,42 @@
       <button class="primary" id="btn-grid" title="Run grid (Ctrl+Enter from a grid box)"
               aria-keyshortcuts="Control+Enter">Run grid</button>
     </details>
+
+    <!-- Conditioning: reference images, and an adapter. Both are greyed rather
+         than hidden where they do not apply, the way True CFG is - the panel
+         keeps its shape, and the badge says why the box is dead. Last in the
+         panel, under the grid fold's summary: both are rarely used, and
+         between Sampling and Output they put Generate's progress, its bar and
+         its time, past the foot of a 2048 x 1040 window (QHD at 125%) while
+         the page is at its top, where the panel cannot be lifted. A request
+         reads them wherever they sit (collect). -->
+    <div class="field" id="reference-field">
+      <span>Reference images
+        <span class="help" tabindex="0" role="note" aria-label="Reference images help" aria-describedby="reference-tip">?<span
+          class="tip" id="reference-tip">Reference images condition the picture on one you
+          have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
+          one here that does.</span></span>
+        <em id="reference-note"></em></span>
+      <!-- Focusable by script alone (tabindex -1): where focus goes once the
+           last chip's × is gone (sizes.js, removeReference). -->
+      <div class="chips" id="reference-list" role="group" aria-label="Reference images"
+           tabindex="-1" aria-describedby="reference-tip"></div>
+    </div>
+
+    <div class="row" id="lora-field">
+      <div class="sub grow">
+        <i><label for="lora">LoRA</label>
+          <span class="help" tabindex="0" role="note" aria-label="LoRA help" aria-describedby="lora-tip">?<span
+            class="tip" id="lora-tip">A LoRA adapter from the loras/ directory; Weight 0-2
+            scales its effect.</span></span></i>
+        <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
+      </div>
+      <div class="sub narrow">
+        <i><label for="lora-scale">Weight</label></i>
+        <input type="number" id="lora-scale" value="1" min="0" max="2" step="0.05"
+               aria-describedby="lora-tip">
+      </div>
+    </div>
   </section>
 
   <section class="stage" id="stage">

@@ -127,7 +127,7 @@
   {"expect": "els.trueCfg.disabled && !els.negative.disabled && els.negNote.textContent.includes('CFG > 1')"},
   {"expect": "els.negNote.textContent === '(runs at CFG > 1, no extra cost)'"},
   {"log": "'The grid' + \"'\" + 's dead Mu axis gives the Mu tip' + \"'\" + 's reason - SDXL' + \"'\" + 's schedule is not flow matching - in its badge and wrapper, not the none,1.15 syntax; the LoRA weight axis, live here, keeps its syntax help'"},
-  {"expect": "els.gridMu.placeholder === 'unavailable' && els.gridMuField.title === els.muTip.textContent && els.gridMuTip.textContent === els.muTip.textContent && !els.gridMuTip.textContent.includes('none,1.15') && els.gridLoraTip.textContent.includes('Needs an adapter selected above') && els.gridLoraScale.placeholder !== 'unavailable'"},
+  {"expect": "els.gridMu.placeholder === 'unavailable' && els.gridMuField.title === els.muTip.textContent && els.gridMuTip.textContent === els.muTip.textContent && !els.gridMuTip.textContent.includes('none,1.15') && els.gridLoraTip.textContent.includes('Needs an adapter selected in LoRA below') && els.gridLoraScale.placeholder !== 'unavailable'"},
   {"expect": "els.gridSteps.placeholder === '21,28,35' && els.gridCfg.placeholder === '4,5,6'"},
   {"expect": "els.tiers.children[0].classList.contains('recommended') && [...els.tiers.children].slice(1).every((b) => !b.classList.contains('recommended'))"},
   {"expect": "!els.tagHelper.hidden"},
