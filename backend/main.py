@@ -87,6 +87,16 @@ _load_lock = asyncio.Lock()
 _switching = False
 _switch_task: asyncio.Task | None = None
 _model_requests = 0
+# The counted requests in flight by path, for a refusal that names them.
+_model_request_paths: dict[str, int] = {}
+# A switch waiting for counted requests to finish: new ones are refused, as
+# during the switch itself, so the wait ends.
+_switch_draining = False
+# How long a switch waits for counted requests already in flight before it
+# refuses. The page's own cold reads - the adapter list, the token count and
+# the tag check it sends when a load lands or typing pauses - take a moment,
+# and a first tokenizer fetch or a slow Danbooru up to tens of seconds.
+SWITCH_DRAIN_SECONDS = 10.0
 _startup_preload: bool | None = None
 # Why the last switch stopped before selecting its checkpoint, the running one
 # still selected; cleared by the next switch, load or unload.
@@ -393,7 +403,7 @@ async def hold_model_for_request(request: Request, call_next):
     selects_model = path == "/api/model/switch"
     if not depends_on_model and not selects_model:
         return await call_next(request)
-    if _switching:
+    if _switching or _switch_draining:
         return JSONResponse(
             {"detail": "the checkpoint is switching; wait for the switch to finish"},
             status_code=409,
@@ -414,10 +424,15 @@ async def hold_model_for_request(request: Request, call_next):
         # model reader would make it refuse itself forever.
         return await call_next(request)
     _model_requests += 1
+    _model_request_paths[path] = _model_request_paths.get(path, 0) + 1
     try:
         return await call_next(request)
     finally:
         _model_requests -= 1
+        if _model_request_paths[path] > 1:
+            _model_request_paths[path] -= 1
+        else:
+            del _model_request_paths[path]
 
 
 # StaticFiles checks the directory exists at mount time; storage owns creating
@@ -949,9 +964,20 @@ def _restore_preferences(previous, previous_preload) -> None:
         log.error("could not restore startup settings: %s", short_error(exc))
 
 
+def _refuse_busy_switch() -> None:
+    """Refuse a switch while a load, a job or an editor action has the server."""
+    if _load_lock.locked() or _load_state["state"] == "loading":
+        raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
+    if jobs.busy():
+        raise HTTPException(status_code=409, detail="jobs are queued or running; finish or cancel them before switching")
+    holder, _ = jobs.card()
+    if holder is not None:
+        raise HTTPException(status_code=409, detail=f"{holder} is using the card; wait before switching")
+
+
 @app.post("/api/model/switch", response_model=ModelStatus)
 async def switch_model(request: ModelSwitchRequest, http_request: Request) -> ModelStatus:
-    global _switching, _switch_task, _startup_preload, _switch_error
+    global _switching, _switch_task, _startup_preload, _switch_error, _switch_draining
     # Unlike model readers this route is not counted while its body arrives.
     # Another switch can finish after the middleware's revision check.
     expected = http_request.headers.get("x-local-diffusion-model-revision")
@@ -964,17 +990,28 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    if _switching:
+    if _switching or _switch_draining:
         raise HTTPException(status_code=409, detail="the checkpoint is switching; wait for the switch to finish")
-    if _load_lock.locked() or _load_state["state"] == "loading":
-        raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
-    if jobs.busy():
-        raise HTTPException(status_code=409, detail="jobs are queued or running; finish or cancel them before switching")
-    holder, _ = jobs.card()
-    if holder is not None:
-        raise HTTPException(status_code=409, detail=f"{holder} is using the card; wait before switching")
+    _refuse_busy_switch()
     if _model_requests:
-        raise HTTPException(status_code=409, detail="another model request is in progress; wait for it to finish before switching")
+        # Counted requests already in flight - typically the page's own cold
+        # reads after a load lands - are waited out briefly rather than
+        # refused at once; new ones are refused meanwhile, so the wait ends.
+        _switch_draining = True
+        try:
+            deadline = time.monotonic() + SWITCH_DRAIN_SECONDS
+            while _model_requests and time.monotonic() < deadline:
+                await asyncio.sleep(0.05)
+        finally:
+            _switch_draining = False
+        _refuse_busy_switch()
+    if _model_requests:
+        paths = ", ".join(sorted(_model_request_paths)) or "unknown"
+        raise HTTPException(
+            status_code=409,
+            detail=f"another model request is still in progress ({paths}) after "
+            f"{SWITCH_DRAIN_SECONDS:g} s; wait for it to finish before switching",
+        )
     # Admission and reservation happen without an await, so no submission can
     # enter between the idle check and the background task's first instruction.
     _switching = True

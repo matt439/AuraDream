@@ -13,6 +13,8 @@ let modelCatalogueDetails = {};
 let modelCatalogueEntries = [];
 let modelStatusEpoch = 0;
 let modelSwitchError = null;
+// The error line's copy of the last refused switch, which a later accepted one clears.
+let modelSwitchRefusal = null;
 // An outcome of this page's own press (saved, switched); a load failure or a
 // failed switch replaces it.
 let modelPickerMessage = null;
@@ -832,10 +834,15 @@ async function switchModel({ load = true } = {}) {
     // No switch in the background: no revision of its own will come.
     if (!status.switching) modelOwnSwitch = null;
     modelPickerMessage = modelSavedMessage(selected, before, { load, wasReady, startup: status.load_on_startup });
+    // An earlier press's refusal ("wait for it to finish") is answered now;
+    // the error line must not go on saying it beside the switch it allowed.
+    if (modelSwitchRefusal && els.error.textContent === modelSwitchRefusal) showError('');
+    modelSwitchRefusal = null;
     syncModelSwitch();
   } catch (err) {
     modelOwnSwitch = null;
     modelSwitchError = err.message;
+    modelSwitchRefusal = err.message;
     showError(err.message);
   } finally {
     modelSwitchSending = false;

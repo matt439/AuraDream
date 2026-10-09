@@ -29,6 +29,10 @@ def fresh_selection(monkeypatch):
     monkeypatch.setattr(model_selection, "_selection", (None, 0))
     monkeypatch.setattr(main, "_switching", False)
     monkeypatch.setattr(main, "_model_requests", 0)
+    monkeypatch.setattr(main, "_model_request_paths", {}, raising=False)
+    monkeypatch.setattr(main, "_switch_draining", False, raising=False)
+    # A refusal behind a held request comes after the drain; keep it short.
+    monkeypatch.setattr(main, "SWITCH_DRAIN_SECONDS", 0.3, raising=False)
 
 
 def _settled(client, model_id, state="ready"):
@@ -518,6 +522,71 @@ def test_switch_refuses_a_request_between_validation_and_job_submission(client, 
     assert accepted.status_code == 200, accepted.text
     done = stream_job(client, accepted.json()["job_id"])[-1]
     assert done["images"][0]["model_id"] == initial["model_id"]
+    _switch(client, ANIMAGINE)
+
+
+def _held_measure(monkeypatch):
+    measuring, release = threading.Event(), threading.Event()
+
+    def measure(*args, **kwargs):
+        measuring.set()
+        assert release.wait(10)
+        return [], [], None
+
+    monkeypatch.setattr(main.prompt_encoding, "measure", measure)
+    return measuring, release
+
+
+def _until(predicate, timeout=5.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.01)
+    raise AssertionError("timed out")
+
+
+def test_switch_waits_out_a_model_request_already_in_flight(client, fake, monkeypatch):
+    # The page's own cold reads (adapter list, token count, tag check) go out
+    # as a load lands; a switch pressed then must not be refused for them.
+    monkeypatch.setattr(main, "SWITCH_DRAIN_SECONDS", 5.0)
+    measuring, release = _held_measure(monkeypatch)
+    with ThreadPoolExecutor(2) as pool:
+        try:
+            pending = pool.submit(client.post, "/api/prompt/measure", json={"prompt": "a lighthouse"})
+            assert measuring.wait(5)
+            switching = pool.submit(client.post, "/api/model/switch", json={"model_id": ANIMAGINE})
+            _until(lambda: main._switch_draining)
+            # New readers are refused meanwhile, so the wait ends.
+            refused = client.get("/api/loras")
+            assert refused.status_code == 409, refused.text
+            assert client.post("/api/model/switch", json={"model_id": TURBO}).status_code == 409
+        finally:
+            release.set()
+        assert pending.result(timeout=5).status_code == 200
+        reply = switching.result(timeout=5)
+    assert reply.status_code == 200, reply.text
+    _settled(client, ANIMAGINE)
+    assert not main._switch_draining and main._model_requests == 0
+
+
+def test_switch_names_a_model_request_that_outlasts_its_wait(client, fake, monkeypatch):
+    initial = client.get("/api/status").json()
+    measuring, release = _held_measure(monkeypatch)
+    with ThreadPoolExecutor(1) as pool:
+        try:
+            pending = pool.submit(client.post, "/api/prompt/measure", json={"prompt": "a lighthouse"})
+            assert measuring.wait(5)
+            refused = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
+            assert refused.status_code == 409, refused.text
+            assert "/api/prompt/measure" in refused.json()["detail"]
+            assert client.get("/api/status").json()["model_id"] == initial["model_id"]
+            # The refusal ends the wait: readers are admitted again.
+            assert not main._switch_draining
+            assert client.get("/api/loras").status_code == 200
+        finally:
+            release.set()
+        assert pending.result(timeout=5).status_code == 200
     _switch(client, ANIMAGINE)
 
 

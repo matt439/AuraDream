@@ -245,7 +245,16 @@ Switching requires no queued, running or paused jobs, no load or card holder,
 and no model-dependent request in flight. That last condition starts at HTTP
 middleware, before Pydantic fills checkpoint defaults: a Generate waiting on
 adapter or source validation must not resume under a new model. It also covers
-CPU prompt checks and scoped bulk deletion. The browser sends its observed
+CPU prompt checks and scoped bulk deletion. Those requests in flight are
+waited out for up to `SWITCH_DRAIN_SECONDS` (10 s), new ones refused
+meanwhile, before the switch refuses: refusing at once failed the switch
+whenever it was pressed just after a load landed, when the page's own adapter
+list, token count and tag check are out (a first tokenizer fetch or a slow
+Danbooru holds those for seconds on the real server), and the refusal then
+stayed in the picker and the error line though nothing was busy any more
+(2026-10-09). A refusal after the wait names the paths still counted, and a
+later accepted switch clears the earlier refusal from the error line. The
+browser sends its observed
 revision so an old tab cannot submit old controls, or confirm a bulk deletion,
 against the model another tab just selected. Status and model-list reads stay
 available. The switch reserves its state before yielding, stops the prompt

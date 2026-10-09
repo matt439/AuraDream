@@ -340,9 +340,15 @@ Model and loader:
   checkpoint; the next switch, load or unload clears it. The background task owns
   this even if the browser disconnects. Refuse queued/running/paused jobs, loads,
   card holders and in-flight model-dependent requests. The middleware counts
-  those requests before Pydantic fills defaults and holds the selection until
-  their work finishes; new requests during a switch and stale browser revision
-  headers receive 409. The page's `api()` sends its revision on every `/api/`
+  those requests (by path, `_model_request_paths`) before Pydantic fills
+  defaults and holds the selection until their work finishes; new requests
+  during a switch, and during its wait for counted requests to drain, and
+  stale browser revision headers receive 409. The switch waits up to
+  `SWITCH_DRAIN_SECONDS` for counted requests already in flight, then
+  rechecks jobs, loads and card holders without an await before reserving;
+  a refusal after the wait names the counted paths
+  (`test_switch_waits_out_a_model_request_already_in_flight`,
+  `test_switch_names_a_model_request_that_outlasts_its_wait`). The page's `api()` sends its revision on every `/api/`
   request; the middleware alone lists the guarded routes and ignores the
   header elsewhere (`test_routes_that_read_no_checkpoint_ignore_the_revision_header`).
   Include scoped bulk deletion in this guard. Startup
@@ -3351,7 +3357,8 @@ the checkbox in the footer above the actions, a refusal that goes when its
 reason does, Apply & save's unload title, the unsaved line with Revert
 (through a reopening), an Apply & save outcome kept through its revision,
 load progress, the `startup_overrides` sentence, a failed load and a failed
-switch in place of the outcome, and a failed list kept dimmed.
+switch in place of the outcome, a failed list kept dimmed, and a refused
+switch whose words leave the error line once a later press switches.
 For the checkpoint table it checks every catalogue model's row and facts
 (style, refine with its note, size with its label, speed with its sample
 and basis) without choosing any, focus on the chosen radio at the first

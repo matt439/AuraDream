@@ -731,5 +731,16 @@
   {"eval": "window.api = __realApi; void refreshModelCatalogue({current: true});"},
   {"expect": "__until(() => modelCatalogueLoaded && !modelCataloguePending && els.modelTable.getAttribute('aria-busy') === 'false' && !els.modelTable.classList.contains('model-table-stale') && modelChoice() === __flux)"},
   {"key": "Escape"},
-  {"expect": "els.modelPicker.hidden && loadedModel === __flux && modelState === 'ready'"}
+  {"expect": "els.modelPicker.hidden && loadedModel === __flux && modelState === 'ready'"},
+  {"log": "'A switch refused while another model request finishes leaves the error line once a later press switches'"},
+  {"click": "#btn-models"},
+  {"expect": "__until(() => !els.modelPicker.hidden && modelCatalogueLoaded && !modelCataloguePending && !!__radio(__anime))"},
+  {"eval": "window.__refusal = 'another model request is still in progress (/api/prompt/measure) after 10 s; wait for it to finish before switching'; window.__realApi = api; window.api = async (path, ...rest) => { if (path === '/api/model/switch') { window.api = __realApi; throw new Error(__refusal); } return __realApi(path, ...rest); }; __radio(__anime).click()"},
+  {"click": "#btn-model-switch"},
+  {"expect": "__until(() => !modelSwitchSending && els.error.textContent === __refusal && !els.error.hidden && __note().startsWith(__refusal) && loadedModel === __flux)"},
+  {"click": "#btn-model-switch"},
+  {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __anime && modelState === 'ready' && !modelSwitching && !modelSwitchSending; })"},
+  {"expect": "els.error.textContent !== __refusal && !__note().includes(__refusal) && __note().startsWith(`Switched to ${__animeName()}`)"},
+  {"key": "Escape"},
+  {"expect": "els.modelPicker.hidden"}
 ]
