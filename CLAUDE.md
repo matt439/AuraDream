@@ -28,6 +28,10 @@ bash wsl/setup.sh                  # WSL 2, once: Linux venv + CUDA check
 source wsl/env.sh && bash wsl/serve.sh   # 4-bit Nunchaku, same URL
 ```
 
+`bin\` (on the user PATH) holds `local-diffusion.cmd` and
+`local-diffusion-wsl.cmd`: the two server starts above from any folder,
+arguments passed through.
+
 The model is *not* loaded at startup unless **Load automatically on startup**
 was saved (or `LOCAL_DIFFUSION_PRELOAD=true`). The first `POST /api/generate` (or
 `POST /api/model/load`) triggers a load that takes a few minutes.
