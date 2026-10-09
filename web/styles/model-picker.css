@@ -4,8 +4,12 @@
 /* A checkpoint choice stays outside the settings panel's flow and never
    grows the fixed-height topbar. Its controls remain reachable while held. */
 .model-picker {
+  /* The table side's width, and the column of the chosen checkpoint's
+     pictures to its left (none until a window has room for it, below). */
+  --model-table-w: 900px;
+  --model-shots-w: 0px;
   position: absolute; top: calc(100% + var(--sp-2)); right: var(--gutter);
-  width: min(900px, calc(100vw - 2 * var(--gutter)));
+  width: min(calc(var(--model-table-w) + var(--model-shots-w)), calc(100vw - 2 * var(--gutter)));
   max-height: calc(100dvh - var(--topbar-h) - 2 * var(--sp-2));
   background: var(--panel); border: 1px solid var(--line-strong);
   border-radius: var(--r-md); box-shadow: var(--shadow-pop);
@@ -14,7 +18,7 @@
 /* The wide tier's type grows; the picker grows with it, so the Speed basis
    keeps to two lines. */
 @media (min-width: 1800px) {
-  .model-picker { width: min(calc(900px + 300 * var(--ramp)), 1200px, calc(100vw - 2 * var(--gutter))); }
+  .model-picker { --model-table-w: min(calc(900px + 300 * var(--ramp)), 1200px); }
 }
 .model-picker-body {
   display: grid; gap: var(--sp-3); padding: var(--panel-pad);
@@ -94,7 +98,7 @@
 .model-row:not([data-state]) .model-state { display: none; }
 .model-row[data-state="ready"] .model-state-word { color: var(--ok); }
 .model-row[data-state="error"] .model-state-word { color: var(--danger); }
-.model-picker-body:focus { outline: none; }
+.model-picker-body:focus, .model-picker-footer:focus { outline: none; }
 .model-fact { min-width: 0; font-size: var(--fs-body-sm); overflow-wrap: break-word; }
 .model-fact > small { display: block; color: var(--text-readout); font-size: var(--fs-sm); }
 /* A cell or label with a note says so in the row under the pointer or the
@@ -144,13 +148,14 @@
   border-top: 1px solid var(--line); background: var(--panel); border-radius: 0 0 var(--r-md) var(--r-md);
 }
 .model-actions > button { min-width: 0; padding-inline: var(--sp-2); }
-/* The chosen checkpoint's images (model-switch.js, drawModelShots): a head
-   line and one row of square pictures, in a height fixed by the tokens
+/* The chosen checkpoint's images (model-switch.js, drawModelShots). Under
+   1280 px wide, the strip under the table: a head line and one row of
+   square pictures, in a height fixed by the tokens
    whatever the strip holds - pictures, the empty line, a failure, nothing
    yet - so the checkbox and the actions under it never move. The pictures
    and the line share one cell; the columns decide how many are asked for
    (modelShotsFit). A short window takes smaller pictures, so the table
-   keeps rows to choose from. */
+   keeps rows to choose from. Wider, a column beside the table (below). */
 .model-shots { display: grid; grid-template-rows: var(--h-xs) var(--model-shot); gap: var(--sp-1); min-width: 0; }
 .model-shots-head {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
@@ -177,8 +182,49 @@
 @media (max-height: 640px) {
   .model-shots { --model-shot: 40px; }
 }
+/* A window with room for it: the strip becomes a column on the picker's
+   left, the room the gallery under the picker cannot use while it is open,
+   and its pictures the gallery's small cards' size (--model-shot-side), in
+   as many full rows as the picker's height holds. The picker grows leftward
+   by the column; the table side keeps its width and its layout, and gets
+   back the height the strip took under it. The column is out of the flow,
+   pinned to the picker's padding box, so the table side alone sets the
+   picker's height and the column clips to it, and nothing it holds -
+   pictures, the empty line, a failure, dimmed pictures waiting - moves
+   anything. The DOM, and so the tab order, is the strip's.
+   Two columns of 150 px (and a 1 px rule) make it 341 px: with the 900 px
+   table side and a gutter each side, 1277 px. 100vw counts a classic
+   scrollbar (17 px), which the right-aligned picker's containing block
+   does not, so the width also keeps that much back, or the left edge would
+   pass the gutter: from 1294 px nothing gives, and from 1280 (a 1920 px
+   screen at 150%) to there the table side gives up to 14 px, as it does on
+   any window under 936 px with the strip. 1400x900, where the smokes run,
+   has the column at full width. Under 1280 the strip stays under the
+   table. This is the picker's own layout breakpoint, not a scale tier. */
+@media (min-width: 1280px) {
+  .model-picker {
+    --model-shots-cols: 2;
+    --model-shots-w: calc(var(--model-shots-cols) * var(--model-shot-side)
+      + (var(--model-shots-cols) - 1) * var(--sp-2) + 2 * var(--panel-pad) + 1px);
+    width: min(calc(var(--model-table-w) + var(--model-shots-w)), calc(100vw - 2 * var(--gutter) - 17px));
+    padding-left: var(--model-shots-w);
+  }
+  .model-picker-footer { border-radius: 0 0 var(--r-md) 0; }
+  .model-shots {
+    --model-shot: var(--model-shot-side);
+    position: absolute; top: 0; bottom: 0; left: 0; width: var(--model-shots-w);
+    grid-template-rows: var(--h-xs) minmax(0, 1fr); padding: var(--panel-pad);
+    border-right: 1px solid var(--line); overflow: hidden;
+  }
+  .model-shots-list { grid-template-columns: repeat(var(--model-shots-cols), var(--model-shot)); height: 100%; }
+  .model-picker .model-shots-empty { align-self: start; }
+}
+/* Three columns from 1800 px: the picker is 900 + 499-507 px at 1800 (the
+   short window's 16 px padding or 20) and 1200 + 556 at 2560 (166 px
+   pictures), of 1764 and 2524 between the gutters. A fourth would leave about 200 px of the window beside it at
+   1800, and the column taller than wide no longer reads as one. */
 @media (min-width: 1800px) {
-  .model-shots { --model-shot: min(80px, calc(64px + 16 * var(--ramp))); }
+  .model-picker { --model-shots-cols: 3; }
 }
 .model-picker p { margin: 0; color: var(--text-3); font-size: var(--fs-body-sm); }
 .model-picker .model-loader-help { height: 3lh; color: var(--text-readout); }

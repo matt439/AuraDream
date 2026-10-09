@@ -903,15 +903,16 @@ function submissionModelHold(submitted) {
 }
 
 // ------------------------------------------- the chosen checkpoint's images
-// The strip under the table: the newest images the chosen row's checkpoint
-// has made and their count - what its style is, answered by its own
+// The strip under the table, a column beside it from 1280 px wide
+// (model-picker.css): the newest images the chosen row's checkpoint has made
+// and their count - what its style is, answered by its own
 // pictures. Which images those are is the server's (`/api/gallery?model=`,
 // the gallery's exact scope); the strip asks for only as many as it shows.
 // A gallery read, not model work: it answers while the server is cold,
 // loading or switching. A choice settles a moment before it is asked for, so
 // arrowing through the rows asks once; a newer choice aborts the older
 // request and an epoch drops its reply.
-const MODEL_SHOTS_MAX = 12;
+const MODEL_SHOTS_MAX = 24;
 const MODEL_SHOTS_WAIT = 180;
 // What the strip shows: the checkpoint (null until an opening asks), its
 // records and count, and its state - `pending` (asked; the last pictures
@@ -925,11 +926,21 @@ let modelShotsFailedAt = 0;
 // The picture that is the strip's one tab stop, by image id.
 let modelShotsStop = null;
 
-// As many pictures as the strip's columns hold at this width, up to 12.
+// As many pictures as the grid holds whole, up to 24: its columns times the
+// rows its height takes - one under the table, as many as the picker's
+// height allows in the side column (from 1280 px), never a row cut in half.
+// Measured as the picker stands when the request goes, and again on a
+// resize while it is open (refitModelShots).
 function modelShotsFit() {
-  const columns = getComputedStyle(els.modelShotsList).gridTemplateColumns;
-  const tracks = /repeat|none/.test(columns) ? 0 : columns.trim().split(/\s+/).length;
-  return Math.max(1, Math.min(MODEL_SHOTS_MAX, tracks || MODEL_SHOTS_MAX));
+  const style = getComputedStyle(els.modelShotsList);
+  const columns = style.gridTemplateColumns;
+  const tracks = /repeat|none/.test(columns) ? [] : columns.trim().split(/\s+/);
+  if (!tracks.length) return MODEL_SHOTS_MAX;
+  // Square pictures: a row is a column's width.
+  const size = parseFloat(tracks[0]);
+  const gap = parseFloat(style.rowGap) || 0;
+  const rows = size > 0 ? Math.floor((els.modelShotsList.clientHeight + gap) / (size + gap)) : 1;
+  return Math.max(1, Math.min(MODEL_SHOTS_MAX, tracks.length * Math.max(1, rows)));
 }
 
 // See all writes the id as one search word, `model:=<id>`, the same exact
@@ -968,6 +979,7 @@ function syncModelShots({ fresh = false } = {}) {
 // A closed picker asks for nothing; the next opening asks afresh.
 function stopModelShots() {
   clearTimeout(modelShotsTimer);
+  clearTimeout(modelShotsRefitTimer);
   modelShotsAbort?.abort();
   modelShotsAbort = null;
   ++modelShotsEpoch;
@@ -1005,6 +1017,28 @@ async function fetchModelShots(id, epoch) {
 function retryModelShots() {
   if (modelShots.state === 'failed' && !els.modelPicker.hidden && Date.now() - modelShotsFailedAt > 5000) {
     syncModelShots({ fresh: true });
+  }
+}
+
+// A resize while the picker is open (app.js), across the column's
+// breakpoint or to a shorter or taller window: the pictures follow the fit.
+// Fewer drop the oldest at once - newest first, so what stays is what a
+// request would answer - and leave no row cut in half or hidden in the
+// arrow keys' walk; more ask again in place (the pictures shown stay
+// undimmed) once the resize has rested.
+let modelShotsRefitTimer = 0;
+function refitModelShots() {
+  clearTimeout(modelShotsRefitTimer);
+  if (els.modelPicker.hidden || modelShots.state !== 'ready') return;
+  const fit = modelShotsFit();
+  if (modelShots.records.length > fit) {
+    modelShots.records = modelShots.records.slice(0, fit);
+    drawModelShots();
+  } else if (modelShots.records.length < Math.min(fit, modelShots.total)) {
+    const id = modelShots.id;
+    modelShotsRefitTimer = setTimeout(() => {
+      if (modelShots.state === 'ready' && modelShots.id === id) syncModelShots({ fresh: true });
+    }, MODEL_SHOTS_WAIT);
   }
 }
 

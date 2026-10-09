@@ -668,6 +668,8 @@ els.modelShotsList.addEventListener('click', (event) => {
 });
 els.modelShotsList.addEventListener('keydown', moveModelShotFocus);
 els.modelShotsAll.onclick = showModelShotsGallery;
+// The pictures' fit follows a resize while the picker is open.
+window.addEventListener('resize', refitModelShots);
 document.addEventListener('pointerdown', (event) => {
   if (els.lightbox.open) return;
   if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && event.target !== els.models) {

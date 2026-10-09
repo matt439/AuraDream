@@ -489,8 +489,9 @@ makes, at the settings this machine used, is best answered by the pictures it
 made. They are in the gallery already, but the picker covers the gallery,
 and finding them there meant closing the picker, ticking All models and
 typing a search, then opening the picker again to choose. So the strip is
-inside the picker, under the table and above the startup checkbox: "Made with
-<name> (<count>)", the newest pictures in one row, and See all. It follows the
+inside the picker, under the table and above the startup checkbox, or a
+column on its left on a wide enough window (below): "Made with
+<name> (<count>)", the newest pictures, and See all. It follows the
 chosen row, not the server's checkpoint, and changes nothing until a press:
 choosing a row only reads. See all is the explicit way out, closing the
 picker and pointing the real gallery at that checkpoint.
@@ -505,17 +506,72 @@ grid's count is then the strip's. It is a gallery read, not model work, so it
 is in no model-route list: it answers while the server is cold, loading or
 switching, and under a stale revision. Bundle maintenance refuses it like
 every gallery read; the strip says so in its own box and a status poll asks
-again. The strip asks for only the pictures its columns hold (up to 12, from
-the grid's resolved columns), after a 180 ms pause on a new choice, so
+again. The strip asks for only the pictures its grid holds whole (up to 24:
+the grid's resolved columns times the rows its height takes, measured when
+the request goes), after a 180 ms pause on a new choice, so
 arrowing through the rows asks once; a newer choice aborts the older request,
 and an epoch drops a reply that still arrives. The old pictures wait dimmed
 and inert until then, rather than leaving a gap.
 
-The strip has a fixed height (a head line and one row of `--model-shot`
-pictures, smaller on a window under 640 px tall), filled, empty, failed or
-waiting alike, so the checkbox and the actions never move under the pointer.
-It takes about 95 px from the table at 1400x900, which keeps about eight rows
-in view. Its pictures are one tab stop (arrow keys walk them), like the
+Under the table the strip has a fixed height (a head line and one row of
+`--model-shot` pictures, smaller on a window under 640 px tall), filled,
+empty, failed or waiting alike, so the checkbox and the actions never move
+under the pointer. There it took about 95 px from the table at 1400x900,
+and its 64 px squares (40 on a short window) were too small to tell one
+picture from another; the gallery's own smallest cards are 150 px. The
+gallery under the open picker is covered and cannot be used anyway, so on
+a window with room (from 1280 px wide, 2026-10-09) the strip is a column
+on the picker's left instead: the picker grows leftward by it, the pictures
+are `--model-shot-side` (the gallery's S density: 150 px, 150-180 px from
+1800), two across, three from 1800, in as many whole rows as the picker's
+height holds - four rows of two (8 pictures) at 1400x900, six of three (18)
+at 2560x1305. The table side keeps its 900 px (900-1200 px from 1800) and
+its layout and gets the strip's height back: its body shows 653 px at
+1400x900, nine rows from FLUX's. The column is out of the flow (absolute in
+the picker's padding box, which `padding-left` reserves), so the table side
+alone sets the picker's height and the column clips to it; nothing it holds
+moves the table side. The 900 px table, the 341 px column and a gutter
+each side make 1277 px, and `100vw` counts a classic 17 px scrollbar that
+the right-aligned picker's containing block does not, so the picker's
+width keeps 17 px back from it: from 1294 px all of it fits whole. The
+first cut was 1300 px, which left a 1280 px window - a 1920 px laptop
+screen at 150%, a common one - with the 64 px strip; from 1280 the table
+side gives up to 14 px instead (886 px at 1280), which it already does on
+any window under 936 px with the strip, and the left edge keeps its
+gutter. Under 1280 the strip stays under the table. This is the picker's
+own layout breakpoint, not the wide tier's scale, which is why it is not
+at 1800. Between 1280 and about 1850 px the wider picker also covers part
+of the settings panel, not only the gallery (from 465 px at 1400x900 its
+left edge goes to 126, over the panel's last 222 px): the picker already
+closes on a press outside it, and the panel cannot be used through it
+either way, so nothing is lost that a press elsewhere did not already
+give back. Three columns from 1800 make the picker 1399-1407 px of 1764
+there and 1756 of 2524 at 2560; a fourth would leave about 200 px of the
+window at 1800. The DOM, and so the tab order (link, See all, one picture
+stop, checkbox), is the strip's in both places. Whole rows leave a band
+under the last at most a picture high (about 145 px at 1400x900, under
+four rows of two); a cut row would say there is more to see in a way the
+count and See all already do.
+
+The first column did not follow a resize while the picker was open: a
+picker opened at 1200 px (twelve in one row) and widened to 1400 drew those
+twelve into a two-across column holding eight, its fifth row cut through,
+and one made shorter kept a bottom row clipped from view but still in the
+arrow keys' walk. `refitModelShots`, on the window's resize, now drops the
+oldest at once when fewer fit (newest first, so what stays is what a
+request would answer) and, when more fit, asks again in place after the
+resize rests, the pictures shown staying undimmed meanwhile.
+
+The column also made a press on the picker's blank space a way to lose a
+choice. A press on something unfocusable moves the focus to the nearest
+focusable ancestor, or to the page; the picker's focusout close then saw
+the focus leave and closed it, unsaved choice and all. `#model-picker-body`
+was already `tabindex="-1"` for this; the strip's band under the table had
+the same gap but was 64 px high, while the column's blank space under a
+short set of pictures, or its empty or failed line, is most of the
+picker's height. The footer, which holds the strip and so the column, is
+`tabindex="-1"` too (no outline on it). The pictures
+are one tab stop (arrow keys walk them), like the
 table's stars and links, so Tab still reaches the actions in a few presses. A
 picture opens in the lightbox, which is modal and above the picker; the
 picker's outside-press and focus-out closes ignore it while it is open, the

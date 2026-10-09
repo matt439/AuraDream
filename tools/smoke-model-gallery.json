@@ -24,6 +24,12 @@
     "expect": "modelState === 'loading' && els.modelShotsLabel.textContent === `Made with ${modelLabel(__flux)}` && !els.modelShotsEmpty.hidden && els.modelShotsEmpty.textContent === `No images made with ${modelLabel(__flux)} yet.` && els.modelShotsAll.hidden && __shots().length === 0 && els.modelShotsList.getAttribute('aria-labelledby') === 'model-shots-label' && els.modelShotsList.tagName === 'UL' && els.modelShots.closest('.model-picker-footer') && els.modelShots.compareDocumentPosition(els.modelLoadOnStartup) & Node.DOCUMENT_POSITION_FOLLOWING && __fetched.length >= 1 && __fetched.every((u) => u.includes('model=' + encodeURIComponent(__flux)))"
   },
   {
+    "log": "'At 1400x900 the strip is a column on the picker s left, beside the table side, which keeps its 900 px; the column is the picker s height, its pictures the gallery s small cards'"
+  },
+  {
+    "expect": "(() => { const picker = els.modelPicker.getBoundingClientRect(), shots = els.modelShots.getBoundingClientRect(), body = els.modelPickerBody.getBoundingClientRect(), footer = document.querySelector('.model-picker-footer').getBoundingClientRect(), cols = getComputedStyle(els.modelShotsList).gridTemplateColumns; return getComputedStyle(els.modelShots).position === 'absolute' && shots.left === picker.left + 1 && shots.top === picker.top + 1 && shots.bottom === picker.bottom - 1 && Math.abs(shots.right - body.left) < 0.5 && Math.abs(shots.right - footer.left) < 0.5 && body.right === picker.right - 1 && body.width === 898 && footer.width === 898 && cols === '150px 150px' && picker.left >= 18 && document.documentElement.scrollWidth <= document.documentElement.clientWidth; })()"
+  },
+  {
     "eval": "window.__footerAt = __footer(); window.__table = els.modelPickerBody.getBoundingClientRect().bottom - els.modelTable.getBoundingClientRect().top;"
   },
   {
@@ -111,7 +117,7 @@
     "expect": "els.modelPicker.hidden"
   },
   {
-    "log": "'Fourteen FLUX images: the strip shows as many as fit, newest first, with the whole count'"
+    "log": "'Fourteen FLUX images: the column shows as many as fit whole (four rows of two at 1400x900), newest first, with the whole count'"
   },
   {
     "eval": "(async () => { const job = await __post('/api/grid', {prompt: 'a heron in the reeds', steps_axis: '4', seeds: 14, width: 256, height: 256, seed: 40}); await __wait(job.job_id); })()"
@@ -123,7 +129,31 @@
     "expect": "__until(() => __ready(__flux, 14) && __shots().length > 0)"
   },
   {
-    "expect": "(() => { const fit = modelShotsFit(); const ids = __shots().map((b) => +b.dataset.image); return fit >= 8 && fit <= 12 && __shots().length === fit && ids.every((id, i) => i === 0 || id < ids[i - 1]) && __fetched.at(-1).includes(`limit=${fit}`) && els.modelShotsLabel.textContent === `Made with ${modelLabel(__flux)} (14)` && __shots().every((b) => b.getBoundingClientRect().right <= els.modelShotsList.getBoundingClientRect().right + 0.5 && b.getBoundingClientRect().bottom <= els.modelShotsList.getBoundingClientRect().bottom + 0.5) && __footer() === __footerAt; })()"
+    "expect": "(() => { const fit = modelShotsFit(); const ids = __shots().map((b) => +b.dataset.image); const tops = new Set(__shots().map((b) => b.getBoundingClientRect().top)); return fit === 8 && tops.size === 4 && __shots().every((b) => b.getBoundingClientRect().width === 150 && b.getBoundingClientRect().height === 150) && __shots().at(-1).getBoundingClientRect().bottom <= els.modelPicker.getBoundingClientRect().bottom && __shots().length === fit && ids.every((id, i) => i === 0 || id < ids[i - 1]) && __fetched.at(-1).includes(`limit=${fit}`) && els.modelShotsLabel.textContent === `Made with ${modelLabel(__flux)} (14)` && __shots().every((b) => b.getBoundingClientRect().right <= els.modelShotsList.getBoundingClientRect().right + 0.5 && b.getBoundingClientRect().bottom <= els.modelShotsList.getBoundingClientRect().bottom + 0.5) && __footer() === __footerAt; })()"
+  },
+  {
+    "expect": "(() => { const list = els.modelShotsList.getBoundingClientRect(), last = __shots().at(-1).getBoundingClientRect(); return last.bottom <= list.bottom + 0.5 && last.bottom + 8 + 150 > list.bottom; })()"
+  },
+  {
+    "log": "'A press on the column s blank space under the pictures keeps the picker open, the focus in it'"
+  },
+  {
+    "eval": "window.__blank = [200, 820]; __radio(__flux).focus();"
+  },
+  {
+    "expect": "els.modelShots.contains(document.elementFromPoint(...__blank)) && !document.elementFromPoint(...__blank).closest('button, a, input, img')"
+  },
+  {
+    "click": [
+      200,
+      820
+    ]
+  },
+  {
+    "expect": "__until(() => !els.modelPicker.hidden && document.activeElement === document.querySelector('.model-picker-footer'), 1000)"
+  },
+  {
+    "expect": "!els.modelPicker.hidden && __footer() === __footerAt"
   },
   {
     "log": "'Keyboard: one tab stop for See all and one for the pictures, arrows walk them, then the checkbox'"
@@ -273,7 +303,7 @@
     "expect": "els.models.getAttribute('aria-expanded') === 'false' && loadedModel === __flux && modelChoice() === __turbo && modelPickerEditedKeys.has('model_id')"
   },
   {
-    "log": "'Short and narrow windows keep the strip in its space and the table usable'"
+    "log": "'A short narrow window keeps the strip under the table; a wide one the column, three across at the S cards size'"
   },
   {
     "eval": "els.search.value = ''; els.allModels.checked = false; resetGallery(); scrollTo(0, 0);"
@@ -291,7 +321,7 @@
     "expect": "__until(() => __ready(modelChoice(), modelShots.total) && modelShots.state === 'ready')"
   },
   {
-    "expect": "(() => { const picker = els.modelPicker.getBoundingClientRect(); return picker.bottom <= innerHeight && els.modelSwitch.getBoundingClientRect().bottom <= picker.bottom && els.modelPickerBody.clientHeight >= 120 && els.modelShotsList.getBoundingClientRect().height === 40 && document.documentElement.scrollWidth <= document.documentElement.clientWidth && __shots().every((b) => b.getBoundingClientRect().right <= els.modelShotsList.getBoundingClientRect().right + 0.5); })()"
+    "expect": "(() => { const picker = els.modelPicker.getBoundingClientRect(); return getComputedStyle(els.modelShots).position === 'static' && els.modelShots.getBoundingClientRect().bottom <= els.modelLoadOnStartup.getBoundingClientRect().top && picker.bottom <= innerHeight && els.modelSwitch.getBoundingClientRect().bottom <= picker.bottom && els.modelPickerBody.clientHeight >= 120 && els.modelShotsList.getBoundingClientRect().height === 40 && document.documentElement.scrollWidth <= document.documentElement.clientWidth && __shots().every((b) => b.getBoundingClientRect().right <= els.modelShotsList.getBoundingClientRect().right + 0.5); })()"
   },
   {
     "key": "Escape"
@@ -309,7 +339,76 @@
     "expect": "__until(() => modelShots.state === 'ready' && __shots().length === Math.min(modelShots.total, modelShotsFit()))"
   },
   {
-    "expect": "els.modelShotsList.getBoundingClientRect().height === 80 && els.modelPicker.getBoundingClientRect().bottom <= innerHeight"
+    "expect": "(() => { const picker = els.modelPicker.getBoundingClientRect(), shots = els.modelShots.getBoundingClientRect(), body = els.modelPickerBody.getBoundingClientRect(), list = els.modelShotsList.getBoundingClientRect(), size = 0.065 * innerWidth, fit = modelShotsFit(), top = __shots()[0].getBoundingClientRect().top, rows = fit / 3; return picker.bottom <= innerHeight && picker.left >= 18 && document.documentElement.scrollWidth <= document.documentElement.clientWidth && Math.abs(shots.right - body.left) < 0.5 && body.width === 1198 && getComputedStyle(els.modelShotsList).gridTemplateColumns.split(' ').length === 3 && __shots().every((b) => Math.abs(b.getBoundingClientRect().width - size) < 0.5 && b.getBoundingClientRect().bottom <= list.bottom + 0.5) && Number.isInteger(rows) && rows >= 5 && (fit === 24 || (top + rows * (size + 8) - 8 <= list.bottom + 0.5 && top + (rows + 1) * (size + 8) - 8 > list.bottom)); })()"
+  },
+  {
+    "log": "'A resize while the picker is open follows the fit: to 1400x900 the oldest pictures go at once, to 1100x800 the strip asks again for its row'"
+  },
+  {
+    "eval": "__pick(__flux)"
+  },
+  {
+    "expect": "__until(() => __ready(__flux, 13) && __shots().length === Math.min(13, modelShotsFit()))"
+  },
+  {
+    "eval": "window.__asked = __fetched.length;"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "expect": "__until(() => !els.modelPicker.hidden && modelShotsFit() === 8 && __shots().length === Math.min(8, modelShots.total) && __shots().every((b) => b.getBoundingClientRect().bottom <= els.modelShotsList.getBoundingClientRect().bottom + 0.5))"
+  },
+  {
+    "expect": "__fetched.length === __asked"
+  },
+  {
+    "viewport": [
+      1100,
+      800
+    ]
+  },
+  {
+    "expect": "__until(() => !els.modelPicker.hidden && getComputedStyle(els.modelShots).position === 'static' && __fetched.length === __asked + 1 && __fetched.at(-1).includes(`limit=${modelShotsFit()}`) && __ready(__flux, modelShots.total) && __shots().length === Math.min(modelShots.total, modelShotsFit()))"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "log": "'1280 px (a 1920 px screen at 150%) has the column, the table side giving at most 14 px, the gutter kept'"
+  },
+  {
+    "viewport": [
+      1280,
+      800
+    ]
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => modelShots.state === 'ready' && __shots().length === Math.min(modelShots.total, modelShotsFit()))"
+  },
+  {
+    "expect": "(() => { const picker = els.modelPicker.getBoundingClientRect(), body = els.modelPickerBody.getBoundingClientRect(); return getComputedStyle(els.modelShots).position === 'absolute' && getComputedStyle(els.modelShotsList).gridTemplateColumns === '150px 150px' && picker.left >= 18 && body.width >= 884 && document.documentElement.scrollWidth <= document.documentElement.clientWidth; })()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "viewport": [
+      1279,
+      800
+    ]
+  },
+  {
+    "click": "#btn-models"
+  },
+  {
+    "expect": "__until(() => !els.modelPicker.hidden && getComputedStyle(els.modelShots).position === 'static' && getComputedStyle(els.modelShotsList).gridTemplateColumns.split(' ')[0] === '64px')"
   },
   {
     "key": "Escape"

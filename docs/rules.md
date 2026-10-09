@@ -386,17 +386,37 @@ Model and loader:
   rebuild's refocus unless the body is hovered, scroll only
   `#model-picker-body` to the focused row (`revealModelControl`, below the
   sticky head); never `scrollIntoView`, never the page.
-- The strip under the table (`#model-shots`, `modelShots`) shows the chosen
-  row's newest images and count from `GET /api/gallery?model=<id>`, the
+- The strip of the chosen checkpoint's images (`#model-shots`, `modelShots`)
+  is a column on the picker's left from 1280 px wide, under the table
+  below that; it shows the chosen row's newest images and count from `GET /api/gallery?model=<id>`, the
   gallery's exact scope chosen by the server, never a page-side match. It
   is a gallery read, in no model-route list, so it works cold, loading or
   switching; a refused read (bundle maintenance, offline) is said in its
   own box and retried from status polls (`retryModelShots`). It asks for
-  only what its grid's columns hold (`modelShotsFit`, at most 12), after a
-  pause on a new choice; a newer choice aborts the older request and an epoch
-  drops its reply, and the old pictures wait dimmed and `inert`. Its height
-  is fixed by `--model-shot` (40 px under 640 px tall, growing from 1800 px)
-  whatever it holds, so nothing under it moves. Its pictures are one roving
+  only the whole rows its grid holds (`modelShotsFit`: columns times rows,
+  at most 24, measured when the request goes and again on a window resize
+  while the picker is open: `refitModelShots` drops the oldest at once when
+  fewer fit, so no row is left cut in half or hidden in the arrow keys'
+  walk, and asks again in place when more do), after a pause on a new
+  choice; a newer choice aborts the older request and an epoch drops its
+  reply, and the old pictures wait dimmed and `inert`. Under the table its
+  height is fixed by `--model-shot` (64 px, 40 under 640 px tall) whatever
+  it holds, so nothing under it moves. The column is absolutely positioned
+  in the picker's padding box, which `padding-left` reserves, so the table
+  side alone sets the picker's height and keeps its width
+  (`--model-table-w`) and layout; the column clips to that height whatever
+  it holds. Its pictures are `--model-shot-side` (the gallery's S cards:
+  150 px, `clamp(150px, 6.5vw, 180px)` from 1800 px), two columns, three
+  from 1800 px. The picker's width keeps a classic scrollbar's 17 px back
+  from `100vw`, so its left edge never passes the gutter: from 1294 px the
+  900 px table side, the column and the gutters fit whole, and from 1280 (a
+  1920 px screen at 150%) the table side gives up to 14 px. This is the
+  picker's own layout breakpoint, not a scale tier. The DOM, and so the tab
+  order, is the same in both places. The footer, which holds the column,
+  is `tabindex="-1"` like `#model-picker-body`: a press on its blank space
+  (the column's under a short set of pictures is most of its height) keeps
+  the focus in the picker, whose focusout would otherwise close it and
+  drop an unsaved choice. Its pictures are one roving
   tab stop (`syncModelShotStops`, arrow keys/Home/End); a picture opens the
   lightbox with origin `models`, which the picker's pointerdown and
   focusout closes ignore while it is open: `dismissLightbox` focuses the
@@ -1415,7 +1435,9 @@ Frontend and CLI:
   long run's tile tools and a result's row `--h-tool` (32 px), and the
   lightbox's arrow circles `--lb-nav` (52 px; 40 under 1800 px). Nothing
   changes under 1800 px, where the
-  smokes run. A component's wide-tier rule goes in its own section, inside an
+  smokes run. That is scale; a component's own layout breakpoint is not,
+  and is named in its rule (the Models picker's column of pictures from
+  1280 px, under "Model and loader"; the panel's two columns). A component's wide-tier rule goes in its own section, inside an
   `@media (min-width: 1800px)` block, and new CSS uses the tokens. Contrast
   and focus are not scale and apply at every width: `--line-strong`
   (#666680), `--accent-strong` (#6a4cf0), `--danger-strong` (#b4233a, the
@@ -3353,13 +3375,21 @@ of the chosen checkpoint's images: shown while the weights load, FLUX's
 empty line, the planted Krea 2 Turbo pair with count, alt text and
 thumbnails on choosing its row, Animagine's empty line, one request for a
 quick run of choices, a delayed reply that cannot overwrite a newer choice,
-a refused read said in place and retried from a poll, as many of 14 images
-as fit newest first with the whole count, the footer's boxes unchanged
+a refused read said in place and retried from a poll, the column beside
+the 898 px table side at 1400x900 at the picker's height, as many of 14
+images as fit whole (four rows of two 150 px pictures, and no fifth would)
+newest first with the whole count, a press on the column's blank space
+leaving the picker open with the focus on its footer, the footer's boxes
+unchanged
 through every state, Tab order (link, See all, one picture stop, checkbox)
 and arrow keys, the lightbox over the picker from a key and a click with
 focus back on the picture, Reuse closing both, a delete re-counted, See all
-closing the picker into an All models `model:=` gallery, and the sizes at
-390x600 and 2560x1305. `test_api_gallery.py` covers `?model=` (exact,
+closing the picker into an All models `model:=` gallery, the strip under
+the table at 390x600 (40 px), and at 2560x1305 the column three across at
+the S cards' 6.5vw beside a 1,198 px table side in whole rows, no sideways
+page; then, still open, a resize to 1400x900 dropping the oldest pictures
+without asking and to 1100x800 asking again for the strip's row, and the
+column at 1280x800 (gutter kept) but the strip at 1279. `test_api_gallery.py` covers `?model=` (exact,
 during a switch, under a stale revision, refused during bundle maintenance)
 and `model:=`.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening

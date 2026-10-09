@@ -64,12 +64,16 @@
     </div>
     <!-- The checkbox sits by the actions it is saved with. The note is the
          outcomes and the server's state in a reserved height; Revert (unsaved
-         edits only) floats in its first line. -->
-    <div class="model-picker-footer">
+         edits only) floats in its first line. tabindex -1, as on the body:
+         a press on its empty space, or the pictures' column's (which it
+         holds), keeps the focus inside the picker. -->
+    <div class="model-picker-footer" tabindex="-1">
       <!-- What the chosen row's checkpoint has made, from the gallery: its
            newest images and their count (model-switch.js, syncModelShots).
            A fixed height, filled, empty or failed alike, so the checkbox and
-           the actions never move. One tab stop for the pictures (arrow keys
+           the actions never move; from 1280 px wide the stylesheet takes it
+           out of the footer's flow into a column on the picker's left, with
+           the same DOM and tab order. One tab stop for the pictures (arrow keys
            walk them); See all points the gallery there and closes this. -->
       <div class="model-shots" id="model-shots">
         <div class="model-shots-head">

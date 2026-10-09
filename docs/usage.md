@@ -39,9 +39,11 @@ top of the list. This is saved immediately in this browser and survives page
 reloads and server restarts; it does not change or load the selected model.
 The ordinary and Nunchaku versions of a checkpoint share its star.
 
-Under the table, **Made with** shows the newest images the chosen checkpoint
-has made in this gallery and how many there are, so its style can be judged
-from its own pictures; it follows the row you choose and works while nothing
+**Made with** shows the newest images the chosen checkpoint has made in this
+gallery and how many there are, so its style can be judged from its own
+pictures: on a window 1280 px or wider in a column on the picker's left, at
+the size of the gallery's small cards, and on a narrower one in a row under
+the table. It follows the row you choose and works while nothing
 is loaded. Click a picture (or Tab to the pictures, use the arrow keys and
 press Space) to open it in the viewer; closing the viewer goes back to the
 picker. **See all** closes the picker and shows every image made with that
