@@ -95,6 +95,7 @@ const els = {
   orientation: $('btn-orientation'), sizeHint: $('size-hint'),
   gridResume: $('grid-resume'),
   sheetBtn: $('btn-sheet'), rerender: $('btn-rerender'), deleteUnstarred: $('btn-delete-unstarred'),
+  select: $('btn-select'), selectClear: $('btn-select-clear'), selectCount: $('select-count'),
   bundles: $('btn-bundles'), bundlesDialog: $('bundles-dialog'), bundlesClose: $('bundles-close'),
   bundleRefresh: $('bundle-refresh'), bundlePreview: $('bundle-preview'), bundleCount: $('bundle-count'),
   bundleCountLabel: $('bundle-count-label'), bundleExport: $('bundle-export'), bundleFile: $('bundle-file'),

@@ -313,12 +313,20 @@ labels and settings, and **Export all** includes every pinned slice, splitting
 large exports. For a prompt comparison, use its `job:` scope so version labels
 retain their meaning. Star images directly on the sheet or in the lightbox.
 
+**Select** (under the search box, beside **Bundles…**) picks cards for an
+action on several images: in select mode a click or Space picks a card,
+Shift picks a range from the last card picked, and Enter still opens the
+lightbox. The selection survives searches, filters and paging; its count
+says how many picked images the current view does not show. **Clear** or
+Esc empties it, and a second Esc leaves select mode. Deleted images leave
+the selection on their own.
+
 ### Keyboard and lightbox
 
 | Where | Keys |
 | --- | --- |
 | Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass |
-| Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars |
+| Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, S compares a pass with its source, Delete asks to delete, Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Contact sheet | F stars the focused cell |

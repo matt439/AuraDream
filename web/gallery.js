@@ -76,6 +76,9 @@ function loadGallery() {
         els.gallery.appendChild(card(rec));
       });
       if (!sheetMode) keepCurrentCard();
+      // The selection's count of what this view does not show, and Select
+      // held or not as the sheet is open (gallery-select.js).
+      syncSelection();
       syncGalleryEmpty();
       galleryMore = !!page.has_more;
       els.more.hidden = sheetMode || !galleryMore;
@@ -381,7 +384,8 @@ function card(rec) {
   div.classList.toggle('this-run', viewerRecords.some((r) => r.id === rec.id));
 
   // Named "#N" and titled by thumb(), as every image of the page is.
-  const img = thumb(rec, galleryRecords);
+  // Its press picks it instead in select mode (cardPress, gallery-select.js).
+  const img = thumb(rec, galleryRecords, undefined, (e) => cardPress(div, rec, e));
   img.setAttribute('aria-keyshortcuts', 'F');
 
   // The star is a button of its own over the picture's corner, where a
@@ -434,6 +438,8 @@ function card(rec) {
   div.append(img, star, tools);
   markReference(div, referenceAt(rec.id));
   cardStops(div, rec.id === galleryCurrent);
+  // Picked, or in select mode, as the selection says (gallery-select.js).
+  syncCardSelected(div);
   return div;
 }
 

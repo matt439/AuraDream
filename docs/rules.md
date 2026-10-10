@@ -2772,6 +2772,35 @@ Frontend and CLI:
   card pages in. Anything that appends or prepends cards makes them with
   `card()` and calls `keepCurrentCard()` (or `prependFinished`'s tab-stop
   rule) afterwards.
+- The gallery's selection (`gallery-select.js`) is the one set of picked
+  images that actions on several images read (Swap tags, Mass refine):
+  `selectedIds()` (in the order picked), `selectedRecords()`, `isSelected`,
+  `onSelectionChange(fn)` (called with the ids after every change, every
+  toggle of Select and every page that lands) and `clearSelection()`. It is
+  ids with the record each was picked from, never the cards: a search, a
+  filter, a sheet or a page keeps it, and `#select-count` says "N selected ·
+  M not shown" for the ids no live card shows. `forgetImages` takes deleted
+  ids out of it (`forgetSelected`) and `tombstone` drops `.selected`; nothing
+  else removes an id unasked. Select (`#btn-select`, `aria-pressed`, the
+  footer row beside Bundles…, styled as it is so the line keeps its height)
+  turns a card image's press into a pick through `cardPress`, which `card()`
+  hands `thumb` as `open`: click or Space toggles, Shift+click or
+  Shift+Space adds every loaded card from the anchor (the last card toggled)
+  to this one in DOM order, Enter still opens the lightbox, F and the tools
+  are unchanged. Out of select mode a press opens the lightbox as before,
+  and a selection already made stays marked and counted. Escape on a card,
+  Select or Clear (`selectKey`, on `#library`) empties the selection, then
+  leaves select mode, and is otherwise left to the page. Clear hands its
+  focus to Select as it hides. The cap is `sheetPage` (the server's
+  `max_grid_images`): a pick past it is refused and a range picks what fits,
+  said in `#gallery-error`. On a sheet Select is aria-disabled with
+  `SELECT_ON_SHEET` as its title and says it when pressed; the sheet's cells
+  are not picked. A picked card is `.selected` (its group named "#N
+  (selected)"); in select mode `#gallery.selecting` draws a ring at each
+  card's top centre and the image is a toggle (`aria-pressed`, named
+  "Select #N: …"). `syncSelection` derives all of it from the state; call it
+  after anything that adds cards other than through `card()` and
+  `loadGallery`.
 - The sheet's layout contract - axes, prompt labels, pins, variables - lives in
   the client, and the export is client-side, not a route. Export PNG draws
   the slice on screen. Export all, shown only where something is pinned,
@@ -4053,6 +4082,27 @@ Gallery beside's column at QHD, M three; and the tools fitting at
 ```powershell
 uv run python tools/fake_server.py --port 7885
 node tools/browser.mjs tools/smoke-gallery.json
+```
+
+`smoke-select.json` checks the gallery selection on a default fake on 7898
+with a fresh `--data` (it builds a 60-image grid): Select in the footer row
+beside Bundles… at Bundles…'s height; a click opening the lightbox out of
+select mode; Select pressed with neither it nor the grid moving as the count
+appears; a click, Space, Shift+click and Shift+Space (a range from the anchor
+out, backwards too) picking, a second click unpicking, the image's
+`aria-pressed` and name and the group's "(selected)"; Enter still opening
+the lightbox and F still starring; a search showing one of eight counted as
+"7 not shown", and back; the next page's cards marked and a range across the
+page boundary; a picked image deleted by its ⌦ leaving the selection; the
+cap (a range picking what fits, a single pick refused, both said); Escape
+clearing, then leaving select mode, then left to the page; Select off
+keeping a selection that a click no longer changes; Clear handing focus to
+Select; and on a sheet Select held with its reason and the selection kept
+and counted:
+
+```powershell
+uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-select.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

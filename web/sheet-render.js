@@ -605,6 +605,8 @@ function setSheet(on, { land = false, asker = null } = {}) {
   // The cards' size and fit (cardView) are the cards': a sheet's cells are
   // its own.
   els.cardView.hidden = on;
+  // Select is held on a sheet, whose cells are not picked (gallery-select.js).
+  syncSelection();
   // The room a scroll to the last sheet reserved under it (reserveSheetRoom).
   els.sheet.style.marginBottom = '';
   // Off is a real escape hatch: whatever layout and pins were picked go with

@@ -342,6 +342,38 @@
    gallery's first rows read as the run above them rather than a second copy. */
 .card.this-run:not(.gone) { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
 
+/* The selection (gallery-select.js). In select mode every card shows an empty
+   ring at its top centre - clear of the pass or reference badge at the left
+   and the star at the right - and a picked card a filled check and a ring of
+   its own round the card, over a star's or this run's. Out of select mode a
+   picked card keeps both, so what is still selected stays in sight. The
+   image is a toggle there, not a zoom, and Shift picks a range rather than
+   the text between two presses. */
+#gallery.selecting { user-select: none; }
+#gallery.selecting .card:not(.gone) img { cursor: pointer; }
+#gallery.selecting .card:not(.gone)::after, #gallery .card.selected:not(.gone)::after {
+  content: ""; position: absolute; top: 6px; left: 50%; z-index: 1;
+  width: 24px; height: 24px; margin-left: -12px; box-sizing: border-box;
+  display: grid; place-items: center; border-radius: 50%;
+  border: 2px solid #fff; background: rgba(0, 0, 0, 0.55);
+  color: #fff; font-size: 14px; font-weight: 700; line-height: 1; pointer-events: none;
+}
+#gallery .card.selected:not(.gone)::after { content: "✓"; background: var(--accent-strong); border-color: var(--accent-strong); }
+#gallery .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+/* Select and Clear share the footer's line as Bundles… does (bundles.css),
+   no taller than it, so neither moves the grid; pressed, Select takes the
+   accent (.ghost.small.active). The count sits to their left. */
+.gallery-footer .foot-btn {
+  flex: none; margin-block: -1px; padding-block: 0; border-color: transparent;
+  line-height: var(--lh); color: var(--muted);
+}
+.gallery-footer .foot-btn:hover, .gallery-footer .foot-btn:focus-visible {
+  color: var(--text); border-color: var(--line-strong);
+}
+.gallery-footer .select-count {
+  flex: none; color: var(--text-readout); font-size: var(--fs-label); white-space: nowrap;
+}
+
 /* Back in a strip whose last image was deleted, held at the strip's height
    (inline, measured) with its line in the middle, as on a fresh page. */
 .placeholder.held { display: grid; align-items: center; margin: 0; }

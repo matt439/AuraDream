@@ -4436,6 +4436,58 @@ Alt: Ctrl+Enter is Generate's from anywhere, and on a focused image - where
 the lightbox's close leaves focus - it opened the lightbox and queued a job
 behind it. The rest here is `card()`'s.
 
+## The gallery selection
+
+**Picked cards, for actions on several images** (2026-10-10). Swap tags and
+Mass refine act on many images at once, and their only scope was the filter,
+as Re-render's and Delete unstarred's is: a search that matched exactly the
+images wanted was often not to be had - three cells of a sweep, a few keepers
+across two nights. The user chose click-to-select cards over a tick on each
+card or a lasso. `gallery-select.js` keeps one selection for every such
+action, and the actions read it (`selectedIds()`, `onSelectionChange`) and
+say whether they act on it or on the filter.
+
+**A mode, not a modifier.** Select in the head turns a card image's press
+into a pick; out of it the card does what it always did. Ctrl+click on the
+image was the other way, but the card already has a press of its own (the
+lightbox), a click's modifiers are invisible to a touch screen and to a
+screen reader, and a pick made by accident opens nothing to show it. In the
+mode Enter still opens the lightbox - the keyboard can look before it picks
+- and F and the tools stay the card's. Shift picks a range, from the last
+card toggled to this one, in the loaded order (the grid's DOM order), as a
+file manager's does: a night's sweep is a run of neighbours.
+
+**Ids that outlive the cards.** The selection is ids with the record each was
+picked from, so a new search, a filter, a sheet or another page keeps it:
+picking across two searches is the point. The count beside Select says how
+many of it the view does not show ("8 selected · 7 not shown"), since an
+action would reach images the user cannot see. A deleted image leaves it in
+`forgetImages`, which stays the one place the page drops deleted ids; its
+tombstone drops the mark. Leaving select mode keeps the selection, marked
+and counted - turning a mode off is no request to throw away forty picks -
+and Clear or Escape empties it; a second Escape leaves the mode. The cap is
+the grid ceiling the server holds the actions' `ids` to (`max_grid_images`,
+the sheet's page), said when a pick would pass it rather than at submit.
+
+**Where it sits, and what it must not move.** The head's control rows are
+full at 1400 px, so Select, its count and Clear share the footer row with
+Bundles…, styled as Bundles… is so the row keeps its 18 px line (a small
+button there grew it and moved the grid, as Bundles…'s note says). They are
+right-aligned with the count to Select's left, so the count coming and going
+never moves Select under the pointer, and Clear hands its focus to Select as
+it hides. On a sheet the cells are not picked: Select is held there
+(aria-disabled with the reason) rather than hidden, and a selection made
+before is kept and counted.
+
+**Marks.** The top-left corner holds a pass's strength and a reference's
+number and the top-right the star, so the pick's mark is a ring at the top
+centre: empty on every card in select mode, a filled check on a picked card,
+which also gets an accent ring round the card over a star's or this run's.
+The image is a toggle in the mode (`aria-pressed`, "Select #N: …"); out of
+it, a picked card's group is named "#N (selected)", since `aria-pressed` on
+a press that opens the lightbox would lie. The grid has `user-select: none`
+in the mode, so Shift+click picks a range rather than the page's text.
+
 ## LOCAL_DIFFUSION_DEVICE reaches the offload hooks
 
 The offload hooks are handed `LOCAL_DIFFUSION_DEVICE` explicitly (when it is a CUDA

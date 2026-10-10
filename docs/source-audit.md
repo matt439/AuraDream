@@ -29,7 +29,9 @@ Added after this audit, with no split: `model-switch.js` owns the Models
 picker (the checkpoint table, loader options, favourites, the note, the switch request
 and retiring state prepared under the old checkpoint), styled by
 `styles/model-picker.css`; `bundles.js` and `styles/bundles.css` own gallery
-bundles.
+bundles. `gallery-select.js` (loaded after `gallery-actions.js`)
+owns the gallery's selection - Select, the picked ids and the hook that
+actions on several images read - with its rules in `styles/gallery.css`.
 
 `critic.py` is now 311 lines, with no critic module above 983. The stylesheet
 is eight files, at most 532 lines each. The largest JavaScript file is now the

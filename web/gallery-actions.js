@@ -327,6 +327,8 @@ function forgetImages(ids) {
     syncDeleteUnstarred();
     syncGalleryEmpty();
   }
+  // Nor is a deleted image picked any longer (gallery-select.js).
+  forgetSelected(gone);
   // Keyboard focus was on what went: it moves on to the next image in the
   // same strip, or back to the one before, rather than dropping to <body>.
   // The keyboard's way into the grid goes to the same card.
@@ -443,9 +445,10 @@ function tombstone(el) {
   tomb.textContent = `Deleted · ${imageNames([+el.dataset.id])}`;
   if (el.classList.contains('card')) {
     el.replaceChildren(tomb);
-    // Nor any mark of what the image was: a star, a reference, a pass - nor
-    // the group (card()), which has no tools left to name; its text says it.
-    el.classList.remove('fav', 'ref', 'refined');
+    // Nor any mark of what the image was: a star, a reference, a pass, a
+    // pick - nor the group (card()), which has no tools left to name; its
+    // text says it.
+    el.classList.remove('fav', 'ref', 'refined', 'selected');
     el.classList.add('gone');
     el.removeAttribute('role');
     el.removeAttribute('aria-label');

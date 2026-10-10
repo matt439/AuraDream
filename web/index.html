@@ -779,6 +779,17 @@
              never moves the grid under the pointer. -->
         <div class="gallery-footer">
           <p class="error" id="gallery-error" role="alert" hidden></p>
+          <!-- The cards picked for an action on several images (gallery-select.js):
+               Select turns a card's press into picking it, the count says how
+               many are picked and how many of those this view does not show, and
+               Clear (or Escape) empties it. Right-aligned, the count to the left
+               of Select, so its coming and going never moves the toggle. -->
+          <span class="select-count" id="select-count" role="status"></span>
+          <button type="button" class="ghost small foot-btn" id="btn-select-clear" hidden
+            title="Empty the selection (Escape)">Clear</button>
+          <button type="button" class="ghost small foot-btn" id="btn-select" aria-pressed="false"
+            aria-keyshortcuts="Escape"
+            title="Pick cards to act on together: a click or Space picks a card, Shift picks a range; Escape clears">Select</button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
             title="Bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
         </div>
@@ -1138,6 +1149,7 @@
 <script src="/static/viewer.js"></script>
 <script src="/static/gallery.js"></script>
 <script src="/static/gallery-actions.js"></script>
+<script src="/static/gallery-select.js"></script>
 <script src="/static/reuse.js"></script>
 <script src="/static/sheet.js"></script>
 <script src="/static/sheet-render.js"></script>

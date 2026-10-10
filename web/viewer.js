@@ -612,7 +612,7 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   // focus - it opened the lightbox and queued a job behind it.
   img.onkeydown = (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
   };
   return img;
 }

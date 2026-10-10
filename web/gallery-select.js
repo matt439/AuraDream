@@ -1,0 +1,187 @@
+// Local Diffusion's page script: picking gallery cards for an action on several images.
+// Declarations only; state.js has the shared-global load-order contract.
+'use strict';
+
+// The gallery's selection: cards picked one by one for an action that takes
+// several images at once (Swap tags, Mass refine), where the filter alone was
+// the only scope - a search that matched exactly the right images was often
+// not to be had. The head's Select (in its footer row, beside Bundles…) turns
+// a card's press into picking it; out of that mode a card does what it always
+// did - its image opens the lightbox, F stars it, its tools are its own - and
+// a selection already made stays marked and counted until Clear or Escape.
+//
+// By id, in the order picked, with the record each id was picked from: the
+// selection outlives the cards. A new search, a filter, a sheet or a page
+// paged in keeps it, and the count says how many of it this view does not
+// show; only forgetImages, the one place the page drops deleted ids, takes
+// ids out of it unasked (forgetSelected).
+//
+// What other features read:
+//   selectedIds()          the ids in the order they were picked (a copy)
+//   selectedRecords()      their records, in the same order
+//   isSelected(id)
+//   onSelectionChange(fn)  fn(ids) after every change of the selection or of
+//                          Select, and whenever a page lands (syncSelection)
+//   clearSelection()
+let selectMode = false;
+const selection = new Map();
+// The card a plain pick was last made on, by id: a Shift pick runs from it.
+let selectAnchor = null;
+const selectionListeners = [];
+
+function selectedIds() { return [...selection.keys()]; }
+function selectedRecords() { return [...selection.values()]; }
+function isSelected(id) { return selection.has(id); }
+function onSelectionChange(fn) { selectionListeners.push(fn); }
+
+function clearSelection() {
+  selectAnchor = null;
+  if (!selection.size) return;
+  selection.clear();
+  syncSelection();
+}
+
+// The most one action takes: the server's grid ceiling (max_grid_images, from
+// /api/status), which the actions' `ids` are held to. Read as the sheet's
+// page is, since that is the same number.
+function selectionCap() { return sheetPage; }
+
+// On a sheet the cards are hidden and its cells are not picked: Select is
+// held there with the reason, a selection made before kept and counted.
+const SELECT_ON_SHEET = 'The sheet lays its cells out its own way; close it to pick cards. A selection made before is kept.';
+
+function setSelectMode(on) {
+  if (on && sheetMode) {
+    showError(SELECT_ON_SHEET, true, { slot: els.galleryError });
+    return;
+  }
+  selectMode = on;
+  if (!on) selectAnchor = null;
+  syncSelection();
+}
+
+// Everything the selection shows, from the state: each card's mark, Select
+// and the count, Clear - and then whoever listens. Called after every change,
+// from every page that lands (loadGallery) and from setSheet.
+function syncSelection() {
+  els.gallery.classList.toggle('selecting', selectMode);
+  const shown = new Set();
+  els.gallery.querySelectorAll('.card[data-id]').forEach((div) => {
+    syncCardSelected(div);
+    shown.add(+div.dataset.id);
+  });
+  els.select.setAttribute('aria-pressed', String(selectMode));
+  els.select.classList.toggle('active', selectMode);
+  els.select.setAttribute('aria-disabled', String(sheetMode));
+  els.select.dataset.title ??= els.select.title;
+  els.select.title = sheetMode ? SELECT_ON_SHEET : els.select.dataset.title;
+  const n = selection.size;
+  const away = n - selectedIds().filter((id) => shown.has(id)).length;
+  const text = n ? `${n} selected${away ? ` · ${away} not shown` : ''}`
+    : selectMode ? 'Click cards to pick them' : '';
+  // Written only when it changes: a page landing re-syncs, and a status
+  // repeated is read out again.
+  if (els.selectCount.textContent !== text) els.selectCount.textContent = text;
+  els.selectCount.title = away ? `${away} of the selected images are not among the cards this search and its pages show; they stay selected` : '';
+  // Clear goes with an empty selection. Focus on it moves to Select first,
+  // so it does not fall to <body>.
+  if (!n && document.activeElement === els.selectClear) els.select.focus({ preventScroll: true });
+  els.selectClear.hidden = !n;
+  const ids = selectedIds();
+  for (const fn of selectionListeners) {
+    try { fn(ids); } catch (err) { console.error(err); }
+  }
+}
+
+// One card's mark. Picking is the image's press in select mode, so the image
+// is the toggle there (aria-pressed, named "Select #N"); out of it, the press
+// opens the lightbox as ever and the group's name says the card is selected.
+function syncCardSelected(div) {
+  const id = +div.dataset.id;
+  const on = selection.has(id);
+  div.classList.toggle('selected', on);
+  div.setAttribute('aria-label', `#${id}${on ? ' (selected)' : ''}`);
+  const img = div.querySelector(':scope > img');
+  if (!img) return;
+  if (selectMode) img.setAttribute('aria-pressed', String(on));
+  else img.removeAttribute('aria-pressed');
+  const label = img.getAttribute('aria-label') ?? '';
+  img.setAttribute('aria-label', label.replace(/^(Open|Select) /, selectMode ? 'Select ' : 'Open '));
+  img.setAttribute('aria-keyshortcuts', selectMode ? 'F Space Shift+Space Escape' : 'F');
+}
+
+// A card image's press (thumb's `open`, from card()): the lightbox, as
+// always, out of select mode - and in it on Enter, so the keyboard can still
+// look before picking. In select mode a click or Space picks or unpicks it,
+// and with Shift picks every loaded card from the last one picked to it.
+function cardPress(div, rec, e) {
+  if (!selectMode || e?.key === 'Enter') { openLightbox(rec, galleryRecords); return; }
+  if (e?.shiftKey && selectRange(div)) return;
+  toggleSelected(rec);
+}
+
+function toggleSelected(rec) {
+  selectAnchor = rec.id;
+  if (selection.has(rec.id)) selection.delete(rec.id);
+  else if (!refuseOverCap(1)) selection.set(rec.id, rec);
+  syncSelection();
+}
+
+// The loaded cards from the anchor to this one, in the gallery's order, all
+// picked. False where there is no anchor among them - none yet, or one this
+// view does not show - and the press picks the one card instead.
+function selectRange(div) {
+  const cards = [...els.gallery.querySelectorAll('.card[data-id]')];
+  const from = cards.findIndex((c) => +c.dataset.id === selectAnchor);
+  const to = cards.indexOf(div);
+  if (from < 0 || to < 0) return false;
+  const span = cards.slice(Math.min(from, to), Math.max(from, to) + 1);
+  // In the order the range runs, from the anchor out.
+  if (to < from) span.reverse();
+  const fresh = span.map((c) => +c.dataset.id).filter((id) => !selection.has(id));
+  const room = Math.max(0, selectionCap() - selection.size);
+  refuseOverCap(fresh.length);
+  for (const id of fresh.slice(0, room)) {
+    const rec = galleryRecords.find((r) => r.id === id);
+    if (rec) selection.set(id, rec);
+  }
+  syncSelection();
+  return true;
+}
+
+// Said where the gallery says things, before the pick: true where `more`
+// would take the selection past the cap (and only what fits is picked).
+function refuseOverCap(more) {
+  const cap = selectionCap();
+  if (selection.size + more <= cap) return false;
+  const left = Math.max(0, cap - selection.size);
+  showError(`${cap} images is the most one action takes; ${left ? `only ${left} more were picked` : 'nothing more was picked'}.`,
+    true, { slot: els.galleryError });
+  return true;
+}
+
+// Escape in the gallery - on a card, on Select or Clear: a selection is
+// emptied first, then select mode left. False where it had nothing to do,
+// so the key goes on to the page's own Escapes (the prompt check's).
+function selectEscape() {
+  if (selection.size) { clearSelection(); return true; }
+  if (selectMode) { setSelectMode(false); return true; }
+  return false;
+}
+
+function selectKey(e) {
+  if (e.key !== 'Escape' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  // On a card or on the selection's own controls only: the search box's
+  // Escape empties it, the Runs picker's is its own, and the sheet's cells
+  // are not picked.
+  if (!e.target.closest?.('#gallery .card, #btn-select, #btn-select-clear')) return;
+  if (selectEscape()) e.preventDefault();
+}
+
+// From forgetImages, the one place the page drops deleted ids.
+function forgetSelected(gone) {
+  let changed = false;
+  for (const id of gone) changed = selection.delete(id) || changed;
+  if (gone.has(selectAnchor)) selectAnchor = null;
+  if (changed) syncSelection();
+}

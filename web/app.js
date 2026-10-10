@@ -605,6 +605,14 @@ els.more.onclick = () => loadGallery();
 // One card at a time in the tab order, walked with the arrow keys (gallery.js).
 els.gallery.addEventListener('keydown', galleryKey);
 els.gallery.addEventListener('focusin', galleryFocus);
+// The selection's Select, Clear and Escape (gallery-select.js); a card's
+// press picks through cardPress, which card() hands thumb.
+els.select.onclick = () => {
+  if (els.select.getAttribute('aria-disabled') === 'true') { setSelectMode(true); return; }
+  setSelectMode(!selectMode);
+};
+els.selectClear.onclick = clearSelection;
+els.library.addEventListener('keydown', selectKey);
 // The gallery beside the viewer, from 2000 px where ticked (gallery.js): the
 // tick, the window crossing that width, and the tick as this browser left it.
 els.besideTick.onchange = toggleBeside;
