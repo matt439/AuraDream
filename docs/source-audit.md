@@ -31,7 +31,9 @@ and retiring state prepared under the old checkpoint), styled by
 `styles/model-picker.css`; `bundles.js` and `styles/bundles.css` own gallery
 bundles. `gallery-select.js` (loaded after `gallery-actions.js`)
 owns the gallery's selection - Select, the picked ids and the hook that
-actions on several images read - with its rules in `styles/gallery.css`. `lightbox-cfg.js` (loaded after `lightbox.js`) owns the lightbox's
+actions on several images read - with its rules in `styles/gallery.css`. `gallery-batch.js` (loaded after
+`gallery-select.js`) owns a card's batch shown on hover, its rules in
+`styles/gallery.css` too. `lightbox-cfg.js` (loaded after `lightbox.js`) owns the lightbox's
 comparison across CFG, and `sheet-render.js` the sheet's Swipe CFG.
 `tag-swap.js` (loaded after `bundles.js`) and `styles/swap.css` (linked
 after `bundles.css`) own Swap tags - the footer button's state and its

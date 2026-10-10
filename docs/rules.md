@@ -147,7 +147,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 33 classic
+- `web/` — served as-is from `/static`; `index.html` loads 34 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -163,7 +163,8 @@ before changing it.
   checkpoint selection, retiring state prepared under the old model and the
   picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog and background-operation polling;
-  `gallery-select.js` the picked cards, `tag-swap.js` Swap tags and
+  `gallery-select.js` the picked cards, `gallery-batch.js` a card's batch
+  on hover, `tag-swap.js` Swap tags and
   `refine-batch.js` Mass refine. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
@@ -2906,6 +2907,17 @@ Frontend and CLI:
   card pages in. Anything that appends or prepends cards makes them with
   `card()` and calls `keepCurrentCard()` (or `prependFinished`'s tab-stop
   rule) afterwards.
+- A card's batch (`gallery-batch.js`) is presentation over records the
+  server already made: the images of the same `job_id` that agree with the
+  card on everything but the seed (`sameExcept(r, rec, ['seed'])`), so a
+  Batch x Repeat is one set and a grid's other cells are not. The mouse only
+  (`pointerType`), after `PEEK_DELAY`; one `job:=<id>` gallery page per job,
+  in the record's checkpoint scope, kept `PEEK_FRESH_MS`, and a failure falls
+  back to what the page holds. The panel (`#batch-peek`) is `position: fixed`,
+  `pointer-events: none` and `aria-hidden` (the cards it repeats are the
+  page's own), placed under or over the card, never across it, and taken
+  down by any scroll; the gallery's own cards of the set get `.batch-mate`,
+  an outline, so nothing moves. A card alone in its job shows nothing.
 - The gallery's selection (`gallery-select.js`) is the one set of picked
   images that actions on several images read (Swap tags, Mass refine):
   `selectedIds()` (in the order picked), `selectedRecords()`, `isSelected`,
@@ -4456,6 +4468,18 @@ Gallery beside's column at QHD, M three; and the tools fitting at
 ```powershell
 uv run python tools/fake_server.py --port 7885
 node tools/browser.mjs tools/smoke-gallery.json
+```
+
+`smoke-batch-peek.json` checks a card's batch on hover on a default fake on
+7892 with a fresh `--data`: a Batch 3 x Repeat 2 drawn as one set of six
+with the hovered one marked and the other five cards outlined; the panel
+off its card, taking no press, `aria-hidden`, and no card moving; a steps
+grid's cell at Batch 2 a set of two; a single image showing nothing; and the
+pointer leaving taking it down:
+
+```powershell
+uv run python tools/fake_server.py --port 7892 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-batch-peek.json
 ```
 
 `smoke-select.json` checks the gallery selection on a default fake on 7898
