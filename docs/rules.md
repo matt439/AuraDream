@@ -142,7 +142,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 29 classic
+- `web/` — served as-is from `/static`; `index.html` loads 31 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -151,7 +151,7 @@ before changing it.
   the cards and their actions; `gallery-search.js` the lightbox's search
   buttons; `sheet.js`, `sheet-render.js` and
   `sheet-export.js` the contact sheet; `lightbox.js` the lightbox and shared
-  `factsList`; `refine.js` and `refine-prompt.js` the Refine dialog;
+  `factsList`, `lightbox-cfg.js` its comparison across CFG; `refine.js` and `refine-prompt.js` the Refine dialog;
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
@@ -2629,7 +2629,84 @@ Frontend and CLI:
   the 10% step. The nav
   circles always walk. A deleted source
   leaves the controls aria-disabled with the reason ("source #N deleted"). S
-  pressed on the focused divider hands the focus to the toggle.
+  pressed on the focused divider hands the focus to the toggle of the kind
+  that was on.
+- The comparison across CFG (`web/lightbox-cfg.js`). `lbCompare.kind` is
+  `'source'` (a pass and its source, above) or `'cfg'`; `lbCompare.source`
+  is the partner either way. An image's ladder (`cfgLadder`) is the images
+  that agree with it on every sheet axis but CFG and True CFG and on size,
+  checkpoint, quantization and refine source (`sameExcept(a, b, ['cfg',
+  'tcfg'])`, beside `sameSettings` in sheet.js, which is
+  `sameExcept(a, b)`), filtered to the image's True CFG where True CFG is
+  not an echo of CFG across the set (`trueCfgEchoesCfg`), one image a CFG
+  value (the image itself, then the partner, then one in `lbList`, then the
+  newest), sorted ascending. It is worked out in the page from records the
+  server made - no route, no schema field - from `lbList`,
+  `galleryRecords` (the sheet's records are the same array, never added
+  twice), `viewerRecords`, `sessionRecords`, the gallery's answer and the
+  comparison's own ladder, deleted ids left out; recomputed on every sync
+  while off, built once when a comparison is turned on (`compareCfg`) and
+  frozen while it steps, taking in the gallery's answer for the image in
+  view when it comes. The answer: one `GET /api/gallery?model=<id>&limit=200`
+  200 ms after the image lands (`askLadder`, as `passesLine`), searching
+  `seed:` (or `run:` where the seed is not a safe JavaScript integer, and
+  nothing asked with neither), `size:`, `steps:`, `refine:` (`none`),
+  `mu:` (`none`; left out for an exponent) and `lora:=` (where there is an
+  adapter whose name has no space - the grammar has no "no adapter"),
+  cached by query in `lbLadders` until `closeLightbox`, pruned by
+  `forgetImages` (`forgetLadderImages`) and dropped for every query of a
+  landed image's checkpoint, seed and size (`noteLadderImages`, from the
+  stream and from `joinFinished`; an answer already on its way for one is
+  discarded by `lbLadderEpoch`). `has_more` or a failed request makes the
+  note add "may be incomplete: more may be in the gallery". The box
+  (`#lb-compare`) is on every image from 901 px: its note first (the column
+  is pinned to the bottom, so a line written there grows the box upward and
+  moves no button), Compare with source on a pass only, Compare CFG, Swipe
+  and Side by side, ← Lower CFG / Higher CFG → and Against. Each CFG
+  control is `aria-disabled` with the reason as its title - "Looking for
+  other CFG values of #N…" while the gallery is asked and the page holds no
+  other value, "No other CFG value of #N at this seed, size and settings"
+  once it has answered - and a press, S or a mode press says it in
+  `#lb-compare-note` (`lbCompareSaid`, kept for that image until another
+  is drawn or a comparison is turned on or off). Under 901 px the box is a
+  row under the stage that the picture and the facts' letterbox pay for: it
+  is drawn on a pass, or where the page's own records give the image a CFG
+  neighbour when the image is drawn (`cfgShown`, `lbCfgShown`), kept until
+  another image is, and from a comparison turned on - never on the
+  gallery's later answer; S works without it. S with no kind
+  (`toggleCompare()`) turns a comparison on as the image's kind (source on
+  a pass, else CFG) and off whichever kind is on; each kind's button turns
+  its own on and off, or switches the one on to it; a mode turns on the
+  default kind, or switches mode keeping the kind. The partner starts as
+  the CFG value directly below, or above for the lowest; Against picks
+  another (the comparison on, or turned on). The lower CFG is always on the
+  left (or the upper half): where the image in view has the lower CFG
+  (`lbSwapped`) `layoutLightbox` puts it in the first port and
+  `layoutCompare` cuts the partner's layer to the right of the divider and
+  places it in the second port, the tags following; the divider's
+  `aria-label` is "Divider: CFG a left of it, CFG b right" and its
+  `aria-valuetext` "CFG a (#i) on the left N%, CFG b (#j) on the rest". The
+  tags read "CFG 2 · #41" (with "· True CFG x" where it is not an echo),
+  the partner's alt "#41, CFG 2", the note "CFG 2, #41 · 2 of 4 CFG values"
+  with "· identical pixels: CFG changed nothing here" on an equal
+  `content_hash`. ← → while a CFG comparison is on step to the next value
+  that way that `lbList` holds (`stepCfg`, `cfgReach`), against the value
+  below it, mode, divider, zoom and focus kept; values only the gallery's
+  answer brought are partners, never steps, and `lbList` is never replaced
+  or added to. At an end the press stays and says "CFG 7 is the highest of
+  these" (the ladder is ordered; it does not wrap as passes do), and where
+  `lbList` holds no other value either way the arrows walk, ending it.
+  Lower/Higher CFG take the same step, turning the comparison on where it
+  was off, and are held with the reason at an end or where the next value
+  is not in the strip. `lbSiblingPass` answers only for kind `'source'`,
+  `stepCfg` only for `'cfg'`. The keys line names S on every image and
+  reads "← → CFG" while the arrows step along CFG; the divider's
+  `aria-keyshortcuts` and title say so. A partner deleted by this page ends
+  the comparison with "#N is no longer in the gallery"; a partner whose
+  picture will not load ends it with "#N could not be loaded", asked for by
+  id and then said as deleted (and dropped from every ladder) where the
+  server no longer has it; `returnToLightbox` puts back a CFG comparison's
+  frozen ladder less deleted ids, and not one whose partner went.
   `factsList(rec, { useSeed })` (`dl.facts`) is the one facts renderer, the
   viewer's column's too; the lightbox's adds Use seed to its Seed row
   (`useSeed`, said in `#lb-error` alone, never the panel's `#error`, and
@@ -2698,7 +2775,9 @@ Frontend and CLI:
   `lbArrowDown`, `lbPointerDown/Move/Up/Cancel`, `lbDoubleClick`,
   `lbSplitKey`) and the dialog's `close` → `closeLightbox`, only while the
   dialog is still closed (the event is queued; a close followed at once by
-  an open must not shut the new lightbox), are wired in app.js.
+  an open must not shut the new lightbox), are wired in app.js; so are
+  lightbox-cfg.js's (`pressCfgStep`, `pickAgainst`, Compare CFG's
+  `toggleCompare(null, 'cfg')`), which declares only too.
 - The gallery's cards. Each card is `role=group` named "#N" (`card()`; a
   viewer `.result` too, `resultFigure`), so its star and tools are heard as
   that image's; `tombstone` drops both attributes. Never a list or grid
@@ -2829,7 +2908,19 @@ Frontend and CLI:
   `#gallery-error` ("The sheet could not be exported: …"), and the smokes
   stand in for `saveCanvas`. `sheetFileName` drops a hyphen that a value's
   closing mark ("none (1.79)", a clipped label's "…") left before the next
-  pin or `.png` (`sheet-<run>-mu-none-1.79.png`). The sheet asks for
+  pin or `.png` (`sheet-<run>-mu-none-1.79.png`). Swipe CFG
+  (`cfgSwipeButton`, sheet-render.js) is drawn after the exports only where
+  CFG is a laid-out axis (Columns or Rows), never where it is pinned or
+  does not vary; it is `aria-disabled` with "No two cells here differ in CFG
+  alone" where no two shown cells agree on everything but CFG
+  (`syncCfgSwipe`, one pass over `sheetLayout.cells` by `cfgGroupKey`), its
+  press saying so in the page's line. A press opens the lightbox on the
+  cell the keyboard was last on in the sheet (`sheetCfgFrom`, a focusin in
+  app.js) where it has a CFG neighbour, else the first shown cell in
+  reading order with a lower CFG beside it, walking that cell's own ladder
+  from the shown cells (`cfgLadder(rec, sheetLayout.cells)`, ascending -
+  its row or column, never the pinned-out cells), with the CFG comparison
+  on in swipe (`toggleCompare('swipe', 'cfg')` after the open). The sheet asks for
   the whole run in one page. A variable axis, and the Prompt axis, list their
   values by first appearance, not alphabetically: the oldest image carrying
   each value. Under Starred or a search narrower than the run, that is the
@@ -2934,7 +3025,7 @@ Frontend and CLI:
   count; `forgetImages` nulls it. Records that pass the pins but find their
   cell taken are counted in the note, repeats of the cell's image
   (`sameSettings`: every axis, size, checkpoint, quantization, refined
-  source) apart from images that differ in something the sheet does not lay
+  source; `sameExcept` with no axes skipped) apart from images that differ in something the sheet does not lay
   out; the note reads "N of M loaded" only when none collide. Where the
   Prompt axis varies and every image has a seed of its own (`ownSeeds`),
   the note adds `OWN_SEEDS` ("each image has its own seed: Check's Compare
@@ -3995,7 +4086,7 @@ node tools/browser.mjs tools/smoke-results.json
 `smoke-lightbox.json` checks the lightbox on a FLUX.1 Krea [dev] fake on
 7884: the facts list and its rows, the Seed row's Use seed (said in the
 lightbox's line, the panel's kept, taken back by a step to another image);
-the keys line, naming S on a pass only with each key bound to its action,
+the keys line, naming S on every image with each key bound to its action,
 and the toggle's S by Generate's hint rule; the star ("★ Star",
 `aria-label` Star; F said in `#lb-star-said` away from Star, not on it); a
 pass's Reuse pass… name; a pass compared with its source (S, the button, a
@@ -4047,6 +4138,36 @@ facts in view:
 ```powershell
 uv run python tools/fake_server.py --port 7884 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-lightbox.json
+```
+
+`smoke-compare-cfg.json` checks the comparison across CFG on a FLUX.1 Krea
+[dev] fake on 7899 with a fresh `--data` of its own (another smoke's images
+at seed 78 would join its ladders): a CFG x steps grid, separate Generates
+at one seed, a refine pass and a grid with no CFG axis. On a sweep's image
+the box is there before the gallery answers, Compare CFG holding S, Compare
+with source absent, S on the keys line, Against listing the other CFG
+values at these steps only; S on against the value below (tags, the
+divider's `aria-label` and `aria-valuetext`, the note, the partner's alt,
+Compare CFG and Star where they were); → stepping with divider, mode and
+1:1 kept; at the top the arrow and the held Higher CFG saying why; Against
+swapping the partner; Lower CFG; side by side with the lower CFG left;
+Shift+→ on the divider; S on the divider handing focus to Compare CFG; the
+lowest value in view on the left, its partner cut to the right of the
+divider and in the right half; two separate Generates pairing and a 20-step
+one left out; an image with no other value held with the reason (S and a
+mode press saying it, a step taking it back); a job landing a new CFG value
+for the image in view; "may be incomplete" on a full page; an image opened
+alone held while asked ("Looking for…"), the request's terms, then a
+partner the arrows do not step to; a pass's S still the source's with
+Compare CFG held; a partner deleted by the page ending the comparison with
+its note; at 600x900 no box for an image with no neighbour and one for a
+sweep's image; and the sheet's Swipe CFG (laid-out CFG only, the first cell
+with a lower value, the keyboard's cell and its row, gone when CFG is
+pinned or on a run with none):
+
+```powershell
+uv run python tools/fake_server.py --port 7899 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-compare-cfg.json
 ```
 
 `smoke-gallery.json` checks the gallery on a default (Krea 2 Turbo) fake on

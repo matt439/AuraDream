@@ -122,6 +122,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       markGoneSource(rec);
       if (shown.has(rec.id)) return;
       shown.add(rec.id);
+      // A new CFG value for a ladder the lightbox has asked about.
+      noteLadderImages([rec]);
       if (foreign) return;
       landed();
       dropPreview();

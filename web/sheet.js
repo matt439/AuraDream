@@ -93,9 +93,13 @@ const axisValue = (axis, rec) => axis.of(rec) ?? null;
 // Two images that agree on every axis a sheet can have and on what none lays
 // out - the size, the checkpoint and its quantization, the image a pass
 // refined - are one picture asked for twice. Every axis, not the sheet's own
-// list, which leaves True CFG out where it echoes CFG.
-const sameSettings = (a, b) => SHEET_AXES.every((axis) => axisValue(axis, a) === axisValue(axis, b))
+// list, which leaves True CFG out where it echoes CFG. `sameExcept` is the
+// same test with some axes left out by key - the lightbox's CFG ladder
+// (lightbox-cfg.js) skips `cfg` and `tcfg` - so the two cannot drift.
+const sameExcept = (a, b, skip = []) => SHEET_AXES
+  .every((axis) => skip.includes(axis.key) || axisValue(axis, a) === axisValue(axis, b))
   && ['width', 'height', 'model_id', 'quantization', 'refine'].every((key) => a[key] === b[key]);
+const sameSettings = (a, b) => sameExcept(a, b);
 
 // Full prompt -> the words that make it different from its neighbours, filled
 // in by sheetValues. Only the prompt axis is in here, so anything else that is

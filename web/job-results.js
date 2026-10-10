@@ -428,6 +428,8 @@ async function joinFinished(page, epoch, now = false) {
   // its image as the head grows.
   galleryRecords.unshift(...fresh);
   if (lbList === galleryRecords && fresh.length) lbIndex += fresh.length;
+  // A lightbox open meanwhile: new CFG values for its ladders (lightbox-cfg.js).
+  if (fresh.length) noteLadderImages(fresh);
   // With the day's lines as loadGallery draws them - over the first card
   // where its day is not today's, between two new cards, and between the
   // last of them and the old head (a job that ends after midnight under a

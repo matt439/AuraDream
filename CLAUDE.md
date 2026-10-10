@@ -252,6 +252,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7896 | FLUX.1-Krea-dev | `smoke-model-switch`, `smoke-model-startup`, `smoke-model-hover`, `smoke-model-gallery` |
 | 7897 | default, fresh scratch `--data` | `smoke-bundles` |
 | 7898 | default, fresh scratch `--data` | `smoke-select` |
+| 7899 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compare-cfg` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

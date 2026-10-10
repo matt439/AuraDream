@@ -296,6 +296,9 @@ function markGoneSource(rec) {
 function forgetImages(ids) {
   const gone = new Set(ids);
   for (const id of gone) deletedIds.add(id);
+  // Out of the lightbox's CFG ladders, and a CFG comparison with one of them
+  // ends, saying so (lightbox-cfg.js) - before the strips close up under it.
+  forgetLadderImages(gone);
   // The Models picker's strip asks again for what is left (model-switch.js).
   forgetModelShots(gone);
   const focused = document.activeElement;

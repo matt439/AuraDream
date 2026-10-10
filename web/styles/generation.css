@@ -66,9 +66,10 @@
    Quieter by size and weight, not opacity, which would take the white below
    the label's own contrast on the accent. The Refine dialog's Refine is the
    third button the shortcut presses, from inside the dialog. The lightbox's
-   Compare with source takes the same hint for its own key, S (its content
-   is the lightbox section's). */
-#btn-generate::after, #btn-grid::after, #refine-run::after, #lb-compare-on::after {
+   Compare with source, and Compare CFG where S presses it, take the same
+   hint for their own key, S (its content is the lightbox section's). */
+#btn-generate::after, #btn-grid::after, #refine-run::after, #lb-compare-on::after,
+#lb-compare-cfg[aria-keyshortcuts="S"]::after {
   content: 'Ctrl+Enter' / '';
   margin-left: var(--sp-2);
   font-size: var(--fs-sm);

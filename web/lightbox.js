@@ -37,8 +37,16 @@ const ZOOM_STEP = 1.25;
 // source is drawn as `refine.fitted` cropped it (`refineKept`), so a reshaped
 // pass is compared with the part of the source it kept. On for the record it
 // was turned on for (`id`); a step to another image ends it, and the mode is
-// kept for the next.
-const lbCompare = { id: null, mode: 'swipe', split: 0.5, source: null, range: [0, 0] };
+// kept for the next. `kind` says which comparison it is: 'source', a pass
+// against the image it was refined from, or 'cfg', any image against another
+// that differs from it in CFG alone (lightbox-cfg.js), whose `ladder` is the
+// set of them sorted by CFG, built once when it is turned on. `source` is the
+// other image either way - the partner - drawn on the layer over this one.
+const lbCompare = { id: null, kind: 'source', mode: 'swipe', split: 0.5, source: null, ladder: [], range: [0, 0] };
+// A line for the comparison's note that the state does not say - a held
+// press's reason, a partner that has gone - for the image it was said on
+// ({id, text}), until another image is drawn or a comparison is turned on.
+let lbCompareSaid = null;
 // Sources by id, fetched once a session: a record, or null for one the
 // gallery no longer has.
 const lbSources = new Map();
@@ -180,8 +188,10 @@ function layoutLightbox() {
   // six lines, so the room and the halves agree (lbStacked).
   // Whether a press of Side by side would stack them, for its title, is
   // decided the same way before the comparison is on (read before any write).
+  // Any image can be compared (CFG, lightbox-cfg.js), so the split is decided
+  // for every one.
   const comparing = lbCompare.id === rec.id;
-  const split = comparing || rec.refine != null ? lbStacked(rec) : false;
+  const split = lbStacked(rec);
   const stacked = comparing && split;
   lbFactsRoom(rec, stacked);
   const reach = lbNavReach();
@@ -195,20 +205,26 @@ function layoutLightbox() {
   const maxX = Math.max(0, (w - pw) / 2), maxY = Math.max(0, (h - ph) / 2);
   lbView.x = Math.min(maxX, Math.max(-maxX, lbView.x));
   lbView.y = Math.min(maxY, Math.max(-maxY, lbView.y));
-  // The picture's box in a viewport; the pass is the last one's.
+  // The picture's box in a viewport; the pass is the last one's - or, in a
+  // CFG comparison where this image has the lower CFG, the first one's
+  // (`lbSwapped`): the lower CFG is always on the left.
   const boxIn = (port) => ({
     left: port.x + (port.w - w) / 2 + lbView.x, top: port.y + (port.h - h) / 2 + lbView.y, w, h,
   });
   const rectOf = (port) => ({ left: port.x, right: port.x + port.w, top: port.y, bottom: port.y + port.h });
-  const pass = boxIn(ports.at(-1));
+  const minePort = lbSwapped(rec) ? ports[0] : ports.at(-1);
+  const pass = boxIn(minePort);
   placeBox(els.lbImg, pass);
-  els.lbImg.style.clipPath = ports.length > 1 ? clipBox(pass, rectOf(ports.at(-1))) : '';
+  els.lbImg.style.clipPath = ports.length > 1 ? clipBox(pass, rectOf(minePort)) : '';
   layoutCompare(rec, ports, pass, boxIn, rectOf);
   // The mode keeps its name where the halves are stacked; its title says
   // which way they go, or would on a press (lbStacked): before the press it
-  // said "left of the pass" where the press stacked them.
-  const sides = split ? 'The source above the pass, each fitted to half the stage: larger here than left and right'
-    : 'The source left of the pass, each fitted to half the stage';
+  // said "left of the pass" where the press stacked them. In the words of
+  // the comparison on, or of the one a press would turn on.
+  const cfg = comparing ? lbCompare.kind === 'cfg' : rec.refine == null;
+  const [first, second] = cfg ? ['The lower CFG', 'the higher'] : ['The source', 'the pass'];
+  const sides = split ? `${first} above ${second}, each fitted to half the stage: larger here than left and right`
+    : `${first} left of ${second}, each fitted to half the stage`;
   if (els.lbSideBySide.title !== sides) els.lbSideBySide.title = sides;
   // Tested in this order: a wheel stop between 1:1 and fit is neither.
   const percent = Math.round((lbView.scale / one) * 100);
@@ -277,50 +293,75 @@ function lbFactsRoom(rec, stacked) {
   if (room !== was) meta.style.setProperty('--lb-room', room);
 }
 
-// The source's layer: over the pass and cut at the divider, or in the left
-// half - its full picture positioned so the part `refine.fitted` kept lands
+// The partner's layer: over the pass and cut at the divider, or in its half
+// - a source's full picture positioned so the part `refine.fitted` kept lands
 // exactly on the pass's box, and clipped to that box - with the two named.
+// The left side (or the upper half) is the source's, or the lower CFG's: in
+// a CFG comparison where the image in view has the lower CFG (`lbSwapped`)
+// the two trade places, the partner's layer cut to the right of the divider
+// and its half the second, so the lower CFG is on the left whichever of the
+// two is in view.
 function layoutCompare(rec, ports, pass, boxIn, rectOf) {
   const source = lbCompare.id === rec.id ? lbCompare.source : null;
   const swipe = !!source && lbCompare.mode === 'swipe';
   els.lbSrcImg.hidden = els.lbTagSrc.hidden = els.lbTagPass.hidden = !source;
   els.lbSplit.hidden = !swipe;
   if (!source) return;
-  const at = ports.length > 1 ? boxIn(ports[0]) : pass;
-  const kept = refineKept(source.width, source.height, rec.width, rec.height);
+  const swapped = lbSwapped(rec);
+  const halves = ports.length > 1;
+  const partnerPort = halves && swapped ? ports.at(-1) : ports[0];
+  const at = halves ? boxIn(partnerPort) : pass;
+  // Two images of one size in a CFG comparison: the whole frame.
+  const kept = lbCompare.kind === 'source' ? refineKept(source.width, source.height, rec.width, rec.height)
+    : { x: 0, y: 0, w: 1, h: 1 };
   const full = { w: at.w / kept.w, h: at.h / kept.h };
   const box = { left: at.left - kept.x * full.w, top: at.top - kept.y * full.h, ...full };
   placeBox(els.lbSrcImg, box);
-  // What of the picture is on screen in the source's viewport: the
-  // divider's range, and where the names go.
-  const port = rectOf(ports[0]);
-  const seen = {
-    left: Math.max(at.left, port.left), right: Math.min(at.left + at.w, port.right),
-    top: Math.max(at.top, port.top), bottom: Math.min(at.top + at.h, port.bottom),
-  };
-  let cut = seen;
+  // What of a picture is on screen in a viewport: the divider's range, the
+  // partner's cut, and where the names go.
+  const seenIn = (pic, rect) => ({
+    left: Math.max(pic.left, rect.left), right: Math.min(pic.left + pic.w, rect.right),
+    top: Math.max(pic.top, rect.top), bottom: Math.min(pic.top + pic.h, rect.bottom),
+  });
+  const seen = seenIn(halves ? boxIn(ports[0]) : at, rectOf(ports[0]));
+  let cut = halves ? seenIn(at, rectOf(partnerPort)) : seen;
+  const [leftName, rightName] = compareNames(rec, source, swapped);
   if (swipe) {
     const x = seen.left + lbCompare.split * (seen.right - seen.left);
-    cut = { ...seen, right: x };
+    cut = swapped ? { ...seen, left: x } : { ...seen, right: x };
     lbCompare.range = [seen.left, seen.right];
     Object.assign(els.lbSplit.style, { left: `${x}px`, top: `${seen.top}px`, height: `${seen.bottom - seen.top}px` });
     const percent = Math.round(lbCompare.split * 100);
     els.lbSplit.setAttribute('aria-valuenow', String(percent));
-    els.lbSplit.setAttribute('aria-valuetext', `#${source.id} on the left ${percent}%, #${rec.id} on the rest`);
+    els.lbSplit.setAttribute('aria-valuetext', `${leftName} on the left ${percent}%, ${rightName} on the rest`);
   }
   els.lbSrcImg.style.clipPath = clipBox(box, cut);
-  // Side by side, the pass's own half: beside the source's, or under it.
-  const passPort = rectOf(ports.at(-1));
-  const passSeen = swipe ? seen : {
-    left: Math.max(pass.left, passPort.left), right: Math.min(pass.left + pass.w, passPort.right),
-    top: Math.max(pass.top, passPort.top),
-  };
-  Object.assign(els.lbTagSrc.style, { left: `${seen.left + 8}px`, top: `${seen.top + 8}px` });
-  // Swipe puts the pass's name at the far side, where the pass is.
-  els.lbTagPass.classList.toggle('end', swipe);
-  Object.assign(els.lbTagPass.style, {
-    left: `${swipe ? passSeen.right - 8 : passSeen.left + 8}px`, top: `${passSeen.top + 8}px`,
+  // Side by side, the second half: beside the first, or under it.
+  const secondSeen = swipe ? seen : seenIn(boxIn(ports.at(-1)), rectOf(ports.at(-1)));
+  const [leftTag, rightTag] = swapped ? [els.lbTagPass, els.lbTagSrc] : [els.lbTagSrc, els.lbTagPass];
+  leftTag.classList.remove('end');
+  Object.assign(leftTag.style, { left: `${seen.left + 8}px`, top: `${seen.top + 8}px` });
+  // Swipe puts the right-hand name at the far side, where that picture is.
+  rightTag.classList.toggle('end', swipe);
+  Object.assign(rightTag.style, {
+    left: `${swipe ? secondSeen.right - 8 : secondSeen.left + 8}px`, top: `${secondSeen.top + 8}px`,
   });
+}
+
+// The two pictures by the names the divider's value says them in, left
+// first: "#12" and "#14" for a pass and its source, as ever; "CFG 2 (#41)"
+// for a CFG comparison.
+function compareNames(rec, partner, swapped) {
+  if (lbCompare.kind !== 'cfg') return [`#${partner.id}`, `#${rec.id}`];
+  const name = (r) => `${cfgName(r)} (#${r.id})`;
+  return swapped ? [name(rec), name(partner)] : [name(partner), name(rec)];
+}
+
+// Whether the image in view has the lower CFG of a CFG comparison, and so
+// takes the left side (layoutCompare).
+function lbSwapped(rec) {
+  return lbCompare.id === rec.id && lbCompare.kind === 'cfg' && !!lbCompare.source
+    && rec.guidance_scale < lbCompare.source.guidance_scale;
 }
 
 // Zoom by a factor about a point (cx, cy) given relative to the viewport's
@@ -372,7 +413,12 @@ function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
   // Another image ends a comparison: it was that pass's with its source.
+  // stepPass and stepCfg carry it by setting `id` to the next image first.
   if (lbCompare.id !== null && lbCompare.id !== rec.id) setCompare(null);
+  if (lbCompareSaid && lbCompareSaid.id !== rec.id) lbCompareSaid = null;
+  // The gallery is asked for this image's other CFG values a moment after
+  // it lands (lightbox-cfg.js), as for its passes.
+  askLadder(rec);
   const aspect = rec.width / rec.height;
   if (lbView.aspect === null || Math.abs(aspect - lbView.aspect) / lbView.aspect >= 0.01) {
     lbView.scale = 1; lbView.x = lbView.y = 0;
@@ -696,84 +742,155 @@ function showPasses(rec) {
   showGallerySearch(`refine:${rec.id}`);
 }
 
-// The comparison's controls, on a pass only: dead, saying why, where the
-// source has gone.
+// The comparison's controls, on every image: the shared part here - the two
+// modes, the keys line, the divider's keys, the names and the note - and
+// each kind's own in syncSourceCompare and syncCfgCompare (lightbox-cfg.js).
+// A control with nothing to do is held, saying why.
 function syncCompare(rec) {
   const pass = rec.refine != null;
-  els.lbCompare.hidden = !pass;
-  const on = pass && lbCompare.id === rec.id;
+  const on = lbCompare.id === rec.id;
+  const kind = on ? lbCompare.kind : pass ? 'source' : 'cfg';
+  const sourceHeld = syncSourceCompare(rec, on && kind === 'source');
+  const cfg = syncCfgCompare(rec, on && kind === 'cfg', !pass, cfgShown(rec, on && kind === 'cfg'));
+  // The box: on every image from 901 px, where it is the column's; under it
+  // only where there is something in it (cfgShown), as the CFG part is.
+  els.lbCompare.hidden = !pass && !cfg.shown;
+  // A mode turns on the kind a press of S would, or switches the one on: held
+  // where that has nothing to compare with, its press saying why.
+  const held = on ? '' : pass ? sourceHeld : cfg.held;
+  for (const [button, mode] of [[els.lbSwipe, 'swipe'], [els.lbSideBySide, 'side']]) {
+    button.setAttribute('aria-pressed', String(on && lbCompare.mode === mode));
+    // A deleted source holds them on a pass whether or not CFG is on, as ever.
+    const why = held || (pass && kind === 'source' ? sourceHeld : '');
+    button.setAttribute('aria-disabled', String(!!why));
+  }
   // Comparing, with another pass of the same source in the strip, the arrows
-  // swap passes (`stepPass`) and the divider takes Shift+arrows instead.
+  // swap passes (`stepPass`), or with another CFG value of the image in it,
+  // step along CFG (`stepCfg`); the divider takes Shift+arrows instead.
   const passes = on && lbSiblingPass(1) >= 0;
+  const cfgSteps = on && kind === 'cfg' && cfg.steps;
   const divider = on && lbCompare.mode === 'swipe';
-  // The keys line names S where it does something: on a pass. In the title
-  // and the button's hint alone, it was found only by hovering. Likewise what
-  // the arrows do while comparing.
-  const keys = lbKeysLine(pass, { passes, divider });
+  // The keys line names S, which does something on every image: it compares
+  // a pass with its source, any other image across CFG, or says why it
+  // cannot. In the title and the button's hint alone, it was found only by
+  // hovering. Likewise what the arrows do while comparing.
+  const keys = lbKeysLine({ passes, cfg: cfgSteps, divider });
   if (els.lbKeys.textContent !== keys) els.lbKeys.textContent = keys;
-  if (passes) {
+  if (passes || cfgSteps) {
     els.lbSplit.setAttribute('aria-keyshortcuts', 'Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End');
-    els.lbSplit.title = 'Drag, or Shift+← →, to move the divider; ← → switch to another pass of this source';
+    els.lbSplit.title = passes ? 'Drag, or Shift+← →, to move the divider; ← → switch to another pass of this source'
+      : 'Drag, or Shift+← →, to move the divider; ← → step along CFG';
   } else {
     els.lbSplit.removeAttribute('aria-keyshortcuts');
     els.lbSplit.removeAttribute('title');
   }
-  if (!pass) return;
-  const gone = rec.refine_missing || lbSources.get(rec.refine) === null;
-  els.lbCompareOn.setAttribute('aria-pressed', String(on));
-  for (const [button, mode] of [[els.lbSwipe, 'swipe'], [els.lbSideBySide, 'side']]) {
-    button.setAttribute('aria-pressed', String(on && lbCompare.mode === mode));
-    button.setAttribute('aria-disabled', String(gone));
-  }
-  els.lbCompareOn.setAttribute('aria-disabled', String(gone));
-  els.lbCompareOn.title = gone ? `#${rec.refine}, the image this was refined from, has been deleted`
-    : `Compare this pass with #${rec.refine}, the image it was refined from, at the same crop (S)`;
   const source = on ? lbCompare.source : null;
   if (source && els.lbSrcImg.getAttribute('src') !== source.url) els.lbSrcImg.src = source.url;
-  if (source) {
+  if (source && kind === 'source') {
     els.lbSrcImg.alt = `#${source.id}, the image this was refined from`;
     els.lbTagSrc.textContent = `Source #${source.id}`;
     els.lbTagPass.textContent = `Pass #${rec.id}`;
+    els.lbSplit.setAttribute('aria-label', 'Divider: the source left of it, the pass right');
+  } else if (source) {
+    // Named by CFG, the lower on the left (layoutCompare) and said so.
+    els.lbSrcImg.alt = `#${source.id}, ${cfgName(source)}`;
+    els.lbTagSrc.textContent = cfgTag(source);
+    els.lbTagPass.textContent = cfgTag(rec);
+    const [low, high] = lbSwapped(rec) ? [rec, source] : [source, rec];
+    els.lbSplit.setAttribute('aria-label', `Divider: ${cfgName(low)} left of it, ${cfgName(high)} right`);
   }
-  const kept = source && refineKept(source.width, source.height, rec.width, rec.height);
-  const cropped = kept && (kept.w < 1 || kept.h < 1);
-  els.lbCompareNote.textContent = gone ? `source #${rec.refine} deleted`
-    : source ? `#${source.id}, ${source.width}×${source.height}${cropped ? ', cropped as the pass was' : ''}` : '';
+  const said = lbCompareSaid?.id === rec.id ? lbCompareSaid.text : '';
+  const note = said || (kind === 'source' ? sourceNote(rec, source) : on ? cfg.note : '');
+  if (els.lbCompareNote.textContent !== note) els.lbCompareNote.textContent = note;
 }
 
-// The lightbox's keys, under the comparison (index.html has the line without
-// S, as it reads on any image that is not a pass). Each key is bound to what
-// it does - no-break spaces, and a word joiner in +/− - so the line breaks
-// only after a ·: the longer line of a pass split "+/" from "−" at 1400 px.
-// Comparing, the arrows read "passes" where they swap passes of the source
-// (`passes`), and Shift+arrows move a swipe's divider (`divider`).
-function lbKeysLine(pass, { passes = false, divider = false } = {}) {
-  const keys = [['← →', passes ? 'passes' : 'walk'], ...(divider ? [['Shift+← →', 'divider']] : []),
-    ['F', 'star'], ...(pass ? [['S', 'compare']] : []), ['Del', 'delete'],
+// Whether the CFG part of the comparison is drawn. From 901 px always, held
+// where there is nothing to compare: the box is the column's, pinned above
+// the buttons, and an answer from the gallery changes no layout. Under 901 px
+// the box is a row of the strip under the stage, and a row there is height
+// the picture and the facts' letterbox lose (lbFactsRoom): a square picture
+// at 600x900 kept 77 px of letterbox where it had 126, and lost its last
+// facts. There it is drawn where the page's own records give the image a
+// CFG neighbour, decided when the image is drawn and kept until another one
+// is (`lbCfgShown`) - never on the gallery's later answer, which would move
+// the strip under the pointer - and once a comparison across CFG is on (S
+// works without it).
+let lbCfgShown = { id: null, shown: false };
+function cfgShown(rec, on) {
+  if (lbCfgShown.id !== rec.id) lbCfgShown = { id: rec.id, shown: cfgLadder(rec).length > 1 };
+  if (on) lbCfgShown.shown = true;
+  return !lbNarrow() || lbCfgShown.shown;
+}
+
+// Compare with source, on a pass only: dead, saying why, where the source has
+// gone. Answers that reason, or '' where it can be pressed.
+function syncSourceCompare(rec, on) {
+  const pass = rec.refine != null;
+  els.lbCompareOn.hidden = !pass;
+  if (!pass) return '';
+  const gone = rec.refine_missing || lbSources.get(rec.refine) === null;
+  els.lbCompareOn.setAttribute('aria-pressed', String(on));
+  els.lbCompareOn.setAttribute('aria-disabled', String(gone));
+  const why = gone ? `#${rec.refine}, the image this was refined from, has been deleted` : '';
+  els.lbCompareOn.title = why || `Compare this pass with #${rec.refine}, the image it was refined from, at the same crop (S)`;
+  return why;
+}
+
+// A pass's note: its source and how much of it the pass kept, or that the
+// source has gone.
+function sourceNote(rec, source) {
+  if (rec.refine == null) return '';
+  if (rec.refine_missing || lbSources.get(rec.refine) === null) return `source #${rec.refine} deleted`;
+  if (!source) return '';
+  const kept = refineKept(source.width, source.height, rec.width, rec.height);
+  const cropped = kept.w < 1 || kept.h < 1;
+  return `#${source.id}, ${source.width}×${source.height}${cropped ? ', cropped as the pass was' : ''}`;
+}
+
+// The lightbox's keys, under the comparison (index.html has the line as the
+// first image will read it). Each key is bound to what it does - no-break
+// spaces, and a word joiner in +/− - so the line breaks only after a ·: the
+// longer line of a pass split "+/" from "−" at 1400 px. Comparing, the arrows
+// read "passes" where they swap passes of the source (`passes`), "CFG" where
+// they step along CFG (`cfg`), and Shift+arrows move a swipe's divider
+// (`divider`).
+function lbKeysLine({ passes = false, cfg = false, divider = false } = {}) {
+  const keys = [['← →', passes ? 'passes' : cfg ? 'CFG' : 'walk'], ...(divider ? [['Shift+← →', 'divider']] : []),
+    ['F', 'star'], ['S', 'compare'], ['Del', 'delete'],
     ['0', 'fit'], ['1', '1:1'], ['+/−', 'zoom'], ['Esc', 'close']];
-  return keys.map(([key, does]) => `${key.replaceAll(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
-    .join('\u00a0· ');
+  return keys.map(([key, does]) => `${key.replaceAll(' ', ' ').replace('/', '/⁠')} ${does}`)
+    .join(' · ');
 }
 
-// S, the button and the two modes. Off, a mode turns it on in that mode; on,
-// the button and S turn it off and the other mode switches to it. The source
-// is fetched the first time, and a source the gallery no longer has leaves
-// the controls dead with the reason.
-async function toggleCompare(mode = null) {
+// S, the buttons and the two modes. Off, a mode turns on the comparison S
+// would - a pass's with its source, any other image's across CFG - in that
+// mode; on, S and the pressed kind's button turn it off, the other kind's
+// button switches to that kind, and the other mode switches to it, keeping
+// the kind. The source is fetched the first time, and a source the gallery
+// no longer has leaves the controls dead with the reason; a press with
+// nothing to compare says why (compareCfg).
+async function toggleCompare(mode = null, kind = null) {
   const rec = lbList[lbIndex];
-  if (!rec || rec.refine == null) return;
-  if (lbCompare.id === rec.id) {
+  if (!rec) return;
+  if (lbCompare.id === rec.id && (!kind || kind === lbCompare.kind)) {
     if (!mode) setCompare(null);
     else if (mode !== lbCompare.mode) setCompare(rec.id, mode);
     return;
   }
+  kind ??= rec.refine != null ? 'source' : 'cfg';
+  if (kind === 'cfg') { compareCfg(rec, null, mode); return; }
+  if (rec.refine == null) return;
   const source = await compareSource(rec);
   if (lbList[lbIndex] !== rec || !els.lightbox.open) return;
   if (!source) { syncCompare(rec); return; }
+  lbCompare.kind = 'source';
+  lbCompare.ladder = [];
   lbCompare.source = source;
+  lbCompareSaid = null;
   setCompare(rec.id, mode ?? lbCompare.mode);
 }
 
+// A pass's source by id, once a session (`lbSources`).
 async function compareSource(rec) {
   const id = rec.refine;
   if (rec.refine_missing) return null;
@@ -802,7 +919,9 @@ function setCompare(id, mode = lbCompare.mode) {
   const held = els.lbSplit.contains(document.activeElement);
   lbCompare.id = id;
   lbCompare.mode = mode;
-  if (id === null) lbCompare.source = null;
+  // A line said for the last state (an end of the ladder) is not this one's.
+  lbCompareSaid = null;
+  if (id === null) { lbCompare.source = null; lbCompare.ladder = []; }
   if (!rec) return;
   if (lbView.scale !== 1) {
     lbView.scale = clampScale(rec, lbView.scale * before / fitSize(rec)[0]);
@@ -812,8 +931,10 @@ function setCompare(id, mode = lbCompare.mode) {
   layoutLightbox();
   // S pressed on the divider hides it with the focus in it, which fell to the
   // top of the dialog or out of it: it goes to the toggle that brings the
-  // divider back instead, or to the cross where this image has none.
-  if (held && els.lbSplit.hidden) (els.lbCompare.hidden ? els.lbClose : els.lbCompareOn).focus({ preventScroll: true });
+  // divider back instead: the toggle of the kind that was on.
+  if (held && els.lbSplit.hidden) {
+    (lbCompare.kind === 'cfg' || els.lbCompareOn.hidden ? els.lbCompareCfg : els.lbCompareOn).focus({ preventScroll: true });
+  }
 }
 
 // The divider, from a drag or its keys: a fraction of the picture on screen.
@@ -873,8 +994,12 @@ function closeLightbox({ keepPicker = false } = {}) {
   lbSeedNote = null;
   lbCompare.id = null;
   lbCompare.source = null;
+  lbCompare.ladder = [];
+  lbCompareSaid = null;
+  lbCfgShown = { id: null, shown: false };
   lbSources.clear();
   lbPasses.clear();
+  forgetLadders();
   // A fresh open starts at fit; the view is only carried between images of a
   // walk, not between sessions of looking.
   lbView.aspect = null;
@@ -935,8 +1060,9 @@ function dismissLightbox() {
 function lightboxPlace() {
   const rec = lbList[lbIndex];
   if (!els.lightbox.open || !rec) return null;
-  const compare = lbCompare.id === rec.id
-    ? { mode: lbCompare.mode, split: lbCompare.split, source: lbCompare.source } : null;
+  const compare = lbCompare.id === rec.id ? {
+    kind: lbCompare.kind, mode: lbCompare.mode, split: lbCompare.split, source: lbCompare.source, ladder: lbCompare.ladder,
+  } : null;
   return {
     rec, list: lbList, gallery: lbList === galleryRecords, viewer: lbList === viewerRecords,
     view: { ...lbView }, compare,
@@ -951,8 +1077,13 @@ function returnToLightbox(place) {
   // The comparison before the view: a scale is relative to the fit of the
   // boxes it was taken in, and side by side that is half the stage - put on
   // the whole of it, a 1:1 came back at 166%.
-  if (place.compare) {
-    lbSources.set(rec.refine, place.compare.source);
+  // A CFG partner deleted meanwhile is not put back.
+  if (place.compare && !(place.compare.kind === 'cfg' && deletedIds.has(place.compare.source.id))) {
+    // A pass's source back in the cache; a CFG comparison's ladder as it was
+    // frozen, less anything deleted meanwhile.
+    if (place.compare.kind === 'source') lbSources.set(rec.refine, place.compare.source);
+    lbCompare.kind = place.compare.kind;
+    lbCompare.ladder = place.compare.ladder.filter((r) => !deletedIds.has(r.id));
     lbCompare.source = place.compare.source;
     lbCompare.split = place.compare.split;
     setCompare(rec.id, place.compare.mode);
@@ -1009,12 +1140,26 @@ function retryLightboxImage() {
   els.lbImg.src = rec.url;
 }
 
-// The source's picture: the comparison ends, and says why.
-function lbSourceFailed() {
+// The partner's picture: the comparison ends, and says why. A CFG partner
+// is asked for, as lbImageFailed asks for the image in view, to tell one
+// deleted elsewhere - dropped from every ladder - from a file that failed.
+async function lbSourceFailed() {
   const rec = lbList[lbIndex];
   if (!rec || lbCompare.id !== rec.id || !els.lbSrcImg.getAttribute('src')) return;
+  const { kind, source } = lbCompare;
   setCompare(null);
-  els.lbCompareNote.textContent = `#${rec.refine} could not be loaded`;
+  lbCompareSaid = { id: rec.id, text: `#${source.id} could not be loaded` };
+  syncCompare(rec);
+  if (kind !== 'cfg') return;
+  try {
+    await api(`/api/images/${source.id}`);
+  } catch (err) {
+    if (!/unknown image/.test(err.message)) return;
+    forgetLadderImages(new Set([source.id]));
+    if (lbList[lbIndex] !== rec || lbCompareSaid?.id !== rec.id) return;
+    lbCompareSaid = { id: rec.id, text: `#${source.id} is no longer in the gallery` };
+    syncCompare(rec);
+  }
 }
 
 // Wheel: zoom about the pointer. Wired non-passive (app.js), or the page
@@ -1090,13 +1235,15 @@ function lbDoubleClick(e) {
 // With no other pass of the source in the strip, the arrows move it rather
 // than walking the strip. With one, the plain arrows are left to app.js,
 // which swaps passes (`stepPass`) - comparing three passes against their
-// source is what the arrows were wanted for, and a drag left the focus here.
+// source is what the arrows were wanted for, and a drag left the focus here -
+// and likewise with another CFG value of a CFG comparison in the strip,
+// which they step to (`stepCfg`, lightbox-cfg.js).
 // Shift+arrows move it by the same 2% either way, as `nudgeSplit` does off
 // it, so the step does not depend on where the focus is; PageUp/PageDown
 // (10%), Home and End move it either way, as a slider's do.
 function lbSplitKey(e) {
   const arrow = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
-  if (arrow && !e.shiftKey && lbSiblingPass(1) >= 0) return;
+  if (arrow && !e.shiftKey && (lbSiblingPass(1) >= 0 || cfgArrows())) return;
   const to = {
     ArrowLeft: lbCompare.split - 0.02, ArrowRight: lbCompare.split + 0.02,
     PageDown: lbCompare.split - 0.1, PageUp: lbCompare.split + 0.1, Home: 0, End: 1,
@@ -1118,13 +1265,14 @@ function nudgeSplit(delta) {
   return true;
 }
 
-// Comparing, the index of the next pass of the same source in the strip in
-// the direction of `delta`, wrapping round - the source and other images in
-// between are skipped - or -1 where the strip holds no other. Only the strip
-// as loaded: a gallery page not yet fetched is not pulled for it.
+// Comparing a pass with its source, the index of the next pass of the same
+// source in the strip in the direction of `delta`, wrapping round - the
+// source and other images in between are skipped - or -1 where the strip
+// holds no other, or the comparison is across CFG. Only the strip as
+// loaded: a gallery page not yet fetched is not pulled for it.
 function lbSiblingPass(delta) {
   const rec = lbList[lbIndex];
-  if (!rec || rec.refine == null || lbCompare.id !== rec.id) return -1;
+  if (!rec || rec.refine == null || lbCompare.id !== rec.id || lbCompare.kind !== 'source') return -1;
   const n = lbList.length;
   for (let k = 1; k < n; k++) {
     const i = (((lbIndex + delta * k) % n) + n) % n;

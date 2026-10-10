@@ -31,7 +31,8 @@ and retiring state prepared under the old checkpoint), styled by
 `styles/model-picker.css`; `bundles.js` and `styles/bundles.css` own gallery
 bundles. `gallery-select.js` (loaded after `gallery-actions.js`)
 owns the gallery's selection - Select, the picked ids and the hook that
-actions on several images read - with its rules in `styles/gallery.css`.
+actions on several images read - with its rules in `styles/gallery.css`. `lightbox-cfg.js` (loaded after `lightbox.js`) owns the lightbox's
+comparison across CFG, and `sheet-render.js` the sheet's Swipe CFG.
 
 `critic.py` is now 311 lines, with no critic module above 983. The stylesheet
 is eight files, at most 532 lines each. The largest JavaScript file is now the
@@ -64,7 +65,7 @@ overrides and the final reduced-motion rule.
 | `backend/schemas.py` (1,195) | Related request/response contracts and normalization. A domain split is possible, but requires careful handling of shared defaults and type dependencies. |
 | `backend/generate.py` (1,081) | CLI argument normalization and execution. A parser/service boundary is possible if CLI work grows; no command-line behavior changed here. |
 | `web/index.html` (1,015 after adding asset links) | One page and its dialogs, kept as a single document. Splitting markup would add a template/include mechanism to the current no-build frontend. |
-| `web/lightbox.js` (1,132) | One tightly coupled image-navigation/zoom/comparison state machine (including ← → swapping between passes of one source while compared). Retained with its existing browser coverage. |
+| `web/lightbox.js` (1,294) | One tightly coupled image-navigation/zoom/comparison state machine (including ← → swapping between passes of one source while compared). Retained with its existing browser coverage. The comparison across CFG - its ladder, the gallery search behind it, stepping and its controls - is `web/lightbox-cfg.js` (383, loaded right after it), split off by responsibility on 2026-10-10. |
 | `tests/test_prompt_encoding.py` (1,177) | Cohesive encoder/source-equivalence suite; preserved alongside its implementation. |
 | Remaining rule dispatch and Refine lifecycle | Still around 1,000 lines, but each now has a single role. No file-size ceiling is imposed. |
 

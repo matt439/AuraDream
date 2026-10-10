@@ -105,6 +105,68 @@ function restoreSheetFocus(place) {
   (to ?? els.search).focus({ preventScroll: true });
 }
 
+// Swipe CFG: the lightbox on a cell, compared with its neighbour in CFG by
+// swipe, walking only that cell's ladder - the cells of its row, or column,
+// that differ from it in CFG alone (cfgLadder, lightbox-cfg.js) - so ← →
+// step along CFG and nothing else. Drawn only where CFG is laid out (a
+// column or row axis), as the axis pickers list only what varies; held,
+// saying why, where no two cells differ in CFG alone. The cell is the one
+// the keyboard was last on in the sheet (`sheetCfgFrom`, app.js), or else the
+// first in reading order with a lower CFG beside it.
+let sheetCfgFrom = null;
+const CFG_SWIPE_NONE = 'No two cells here differ in CFG alone';
+function cfgSwipeButton() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ghost small sheet-cfg-swipe';
+  button.textContent = 'Swipe CFG';
+  button.setAttribute('aria-disabled', 'true');
+  button.title = CFG_SWIPE_NONE;
+  button.onclick = () => openCfgSwipe(button);
+  return button;
+}
+
+// One key for "agrees on everything but CFG", for the hold's one pass over
+// the cells: what sameExcept compares, as JSON.
+const cfgGroupKey = (rec) => JSON.stringify([
+  ...SHEET_AXES.filter((axis) => !CFG_SKIP.includes(axis.key)).map((axis) => axisValue(axis, rec)),
+  rec.width, rec.height, rec.model_id, rec.quantization, rec.refine,
+]);
+
+function syncCfgSwipe() {
+  const button = els.sheetControls.querySelector('.sheet-cfg-swipe');
+  if (!button) return;
+  const values = new Map();
+  for (const rec of sheetLayout?.cells ?? []) {
+    const key = cfgGroupKey(rec);
+    if (!values.has(key)) values.set(key, new Set());
+    values.get(key).add(rec.guidance_scale);
+  }
+  const some = [...values.values()].some((set) => set.size > 1);
+  button.setAttribute('aria-disabled', String(!some));
+  button.title = some
+    ? 'Open these cells as a swipe between neighbouring CFG values; ← → step along CFG, S turns it off'
+    : CFG_SWIPE_NONE;
+}
+
+function cfgSwipeStart(cells) {
+  const ladderOf = (rec) => cfgLadder(rec, cells);
+  const from = cells.find((r) => r.id === sheetCfgFrom);
+  if (from && ladderOf(from).length > 1) return from;
+  return cells.find((r) => {
+    const ladder = ladderOf(r);
+    return ladder.length > 1 && ladder[0].id !== r.id;
+  }) ?? null;
+}
+
+function openCfgSwipe(button) {
+  const cells = sheetLayout?.cells ?? [];
+  const rec = button.getAttribute('aria-disabled') === 'true' ? null : cfgSwipeStart(cells);
+  if (!rec) { showError(button.title, true); return; }
+  openLightbox(rec, cfgLadder(rec, cells), 'sheet');
+  void toggleCompare('swipe', 'cfg');
+}
+
 function drawSheet() {
   sheetRecords = galleryRecords;
   sheetAxesList = axesFor(sheetRecords);
@@ -145,6 +207,8 @@ function drawSheet() {
         exportAllSheet,
       ));
     }
+    // A swipe between neighbouring CFG values, where CFG is laid out.
+    if (sheetAxes.cols === 'cfg' || sheetAxes.rows === 'cfg') els.sheetControls.append(cfgSwipeButton());
   }
   for (const [key, pinned] of Object.entries(sheetAxes.pins)) {
     const axis = axisByKey(key);
@@ -393,8 +457,10 @@ function drawSheet() {
       add(cellFor(rec, wrap ? headText(colAxis, v) : '', !strengthShown, heads));
     });
   });
-  // What saySheet counts.
+  // What saySheet counts, and the cells Swipe CFG opens from.
   sheetLayout.shown = shown.length;
+  sheetLayout.cells = shown;
+  syncCfgSwipe();
 
   const pinned = pins
     .map(([axis, v]) => `${axis.label.toLowerCase()} ${clip(sheetText(axis, v))}`)

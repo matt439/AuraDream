@@ -726,6 +726,11 @@ els.sheetBtn.onclick = toggleSheet;
 els.cardView.addEventListener('click', cardViewClick);
 for (const pair of els.cardView.querySelectorAll('[role="group"]')) pair.addEventListener('keydown', (e) => stepPreset(pair, e));
 els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
+// The cell Swipe CFG starts from: the one the keyboard was last on.
+els.sheetGrid.addEventListener('focusin', (e) => {
+  const cell = e.target.closest?.('.sheet-cell[data-id]:not(.source)');
+  if (cell) sheetCfgFrom = +cell.dataset.id;
+});
 // The sheet's fit is measured against the window, so it follows a resize.
 window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
@@ -771,11 +776,17 @@ els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec) openRefine(
 els.lbFav.onclick = () => { const rec = lbList[lbIndex]; if (rec) setFavorite(rec, !rec.favorite); };
 els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage(rec); };
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) dismissLightbox(); };
-// A pass against its source: the button (and S) turns it on and off, a mode
-// turns it on in that mode or switches to it.
-els.lbCompareOn.onclick = () => { void toggleCompare(); };
+// A pass against its source, or any image across CFG (lightbox-cfg.js):
+// each kind's button turns it on and off, or switches to its kind; a mode
+// turns on the kind S would in that mode, or switches to it. Lower and
+// Higher CFG step along CFG, and Against picks the partner.
+els.lbCompareOn.onclick = () => { void toggleCompare(null, 'source'); };
+els.lbCompareCfg.onclick = () => { void toggleCompare(null, 'cfg'); };
 els.lbSwipe.onclick = () => { void toggleCompare('swipe'); };
 els.lbSideBySide.onclick = () => { void toggleCompare('side'); };
+els.lbCfgLower.onclick = () => pressCfgStep(-1);
+els.lbCfgHigher.onclick = () => pressCfgStep(1);
+els.lbCompareAgainst.onchange = pickAgainst;
 // Every close, the native Escape's included, resets the strip - unless the
 // lightbox is open again by the time the event comes: the dialog's `close`
 // is queued, not fired by close() itself, and a close followed at once by an
@@ -910,12 +921,14 @@ document.addEventListener('keydown', (e) => {
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
   // Comparing a pass, they swap to another pass of the same source where the
-  // strip has one (`stepPass`), the comparison kept, and Shift+arrows move a
-  // swipe's divider (`nudgeSplit`); otherwise they walk, as ever.
+  // strip has one (`stepPass`), comparing across CFG they step along CFG
+  // where the strip has another value (`stepCfg`), the comparison kept, and
+  // Shift+arrows move a swipe's divider (`nudgeSplit`); otherwise they walk,
+  // as ever.
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     e.preventDefault();
     const delta = e.key === 'ArrowLeft' ? -1 : 1;
-    if (e.shiftKey ? nudgeSplit(delta) : stepPass(delta)) return;
+    if (e.shiftKey ? nudgeSplit(delta) : stepPass(delta) || stepCfg(delta)) return;
     void stepLightbox(delta);
     return;
   }

@@ -875,16 +875,28 @@
     <!-- F's outcome where focus is not on Star (sayStar): the page's own line
          is behind this modal dialog, and inert with it. -->
     <p class="star-said" id="lb-star-said" aria-live="polite"></p>
-    <!-- On a refine pass only: the pass against the image it was made from. -->
-    <div class="lb-compare" id="lb-compare" hidden>
-      <button type="button" class="ghost" id="lb-compare-on" aria-pressed="false" aria-keyshortcuts="S">Compare with source</button>
+    <!-- The comparison: a refine pass against the image it was made from
+         (Compare with source, on a pass only), and any image against its
+         neighbours in CFG (lightbox-cfg.js). On every image, its controls
+         held with the reason where there is nothing to compare, so nothing
+         in the column moves when the gallery's answer comes in. The note is
+         first: the column is pinned to the bottom, and a line written there
+         grows the box upward rather than moving a button under the pointer. -->
+    <div class="lb-compare" id="lb-compare">
+      <p class="hint" id="lb-compare-note"></p>
+      <button type="button" class="ghost" id="lb-compare-on" aria-pressed="false" aria-keyshortcuts="S" hidden>Compare with source</button>
+      <button type="button" class="ghost" id="lb-compare-cfg" aria-pressed="false" aria-disabled="true">Compare CFG</button>
       <div class="lb-modes" role="group" aria-label="Compare by">
         <button type="button" class="ghost small" id="lb-swipe" aria-pressed="false">Swipe</button>
         <button type="button" class="ghost small" id="lb-side-by-side" aria-pressed="false">Side by side</button>
       </div>
-      <p class="hint" id="lb-compare-note"></p>
+      <div class="lb-modes lb-cfg-steps" id="lb-cfg-steps" role="group" aria-label="Step along CFG">
+        <button type="button" class="ghost small" id="lb-cfg-lower" aria-disabled="true">← Lower CFG</button>
+        <button type="button" class="ghost small" id="lb-cfg-higher" aria-disabled="true">Higher CFG →</button>
+      </div>
+      <label class="lb-against" id="lb-against">Against <select id="lb-compare-against"></select></label>
     </div>
-    <p class="hint lb-keys" id="lb-keys">←&nbsp;→&nbsp;walk&nbsp;· F&nbsp;star&nbsp;· Del&nbsp;delete&nbsp;· 0&nbsp;fit&nbsp;· 1&nbsp;1:1&nbsp;· +/&#8288;−&nbsp;zoom&nbsp;· Esc&nbsp;close</p>
+    <p class="hint lb-keys" id="lb-keys">←&nbsp;→&nbsp;walk&nbsp;· F&nbsp;star&nbsp;· S&nbsp;compare&nbsp;· Del&nbsp;delete&nbsp;· 0&nbsp;fit&nbsp;· 1&nbsp;1:1&nbsp;· +/&#8288;−&nbsp;zoom&nbsp;· Esc&nbsp;close</p>
     <div class="lb-zoom-group">
       <button class="ghost" id="lb-fit" title="Fit to the window (0)">Fit</button>
       <button class="ghost" id="lb-one" title="One image pixel per screen pixel (1)">1:1</button>
@@ -1156,6 +1168,7 @@
 <script src="/static/sheet-export.js"></script>
 <script src="/static/gallery-search.js"></script>
 <script src="/static/lightbox.js"></script>
+<script src="/static/lightbox-cfg.js"></script>
 <script src="/static/refine.js"></script>
 <script src="/static/refine-prompt.js"></script>
 <script src="/static/tags.js"></script>

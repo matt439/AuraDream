@@ -2548,7 +2548,8 @@ changed: the arrows on the divider move it and elsewhere walk. Shift+← → is
 pass and 2% off it, so the same keys moved it by five times as much after a
 drag as after a click elsewhere. PageUp/PageDown is the bigger step.
 
-The keys line names S on a pass, and only there (`lbKeysLine`), and the toggle
+The keys line named S on a pass, and only there (`lbKeysLine`; on every
+image since the comparison across CFG, below), and the toggle
 carries S by the shortcut hint's own rule (the `::after` Generate's
 Ctrl+Enter uses): with S only in its title and `aria-keyshortcuts`, and the
 always-visible keys line not mentioning it, it was found only by hovering
@@ -2558,6 +2559,68 @@ split "+/" from "−" at 1400 px. The Refine dialog's passes strip and a pass's
 Compare with source in the result column (The results viewer) open the
 lightbox with the comparison on (`toggleCompare` after the open), since
 judging the pass against its source is what both are opened for.
+
+**Any image is compared across CFG** (2026-10-10). The swipe was built for
+one question, whether a pass improved its source, and only that: the
+controls existed on a pass alone, the partner was always `rec.refine`, the
+labels said source and pass, and a step to any other image ended it. A CFG
+sweep asks the other question the swipe is good at - what did CFG change,
+at one crop - and its cells were walked one image at a time, the zoom kept
+but the eye left to remember the last picture. Now `lbCompare.kind` is
+`'source'` or `'cfg'`, and an image is compared with another that differs
+from it in CFG alone (`web/lightbox-cfg.js`): the sheet's own test of "same
+settings" with CFG and True CFG skipped (`sameExcept`, so the two cannot
+drift), split by True CFG where it is a number of its own, one image a CFG
+value, sorted. That ladder is presentation over records the server already
+decided, so there is no route: the page's own strips first, then one
+gallery search 200 ms after the image lands, as the passes' count is asked.
+The search is narrowed to the seed, size, steps, refine source, mu and
+LoRA, in the checkpoint's exact scope: a seed reused for hundreds of
+prompts would otherwise fill the page with images the filter throws away,
+and a full page says the ladder "may be incomplete". A seed past 2**53 (a
+grid's `seed + i` at the top of the range) cannot be written exactly from a
+JavaScript number, so the run is asked for instead; separate Generates are
+reached through the seed, which is why the run is not asked for always.
+
+The lower CFG is always on the left. The comparison first kept the image in
+view under the partner, and stepping up the ladder put the higher value on
+the right while the lowest image, its partner the one above, put the
+higher value on the left: a reader had to check the tags to know which
+side was which. The layers trade places instead (`lbSwapped`): the image in
+view goes in the first port, and the partner's layer is cut to the right of
+the divider. The tags, the divider's name and its value say the CFG.
+
+The arrows step only within what they walk. Images the gallery's answer
+brought are partners - Against offers them, the default neighbour may be
+one - but never a step, and `lbList` is never replaced or added to: a
+splice into the strip, or a copy of it, changed what ← → walked after the
+comparison ended and what the counter said. At an end the press stays and
+says why rather than walking off and ending it: the ladder is ordered, and
+passes wrap only because they are not. Where the strip holds no other value
+either way the arrows walk, as with a lone pass. The sheet's Swipe CFG
+therefore opens the lightbox on the cell's own ladder as its strip, so its
+whole row (or column) is a step away; it is drawn only where CFG is laid
+out, as the axis pickers list only what varies.
+
+The box is on every image from 901 px, its controls held with the reason
+while the gallery is asked ("Looking for other CFG values of #N…") and
+where there is nothing ("No other CFG value of #N at this seed, size and
+settings"), and S is on the keys line everywhere, since it does something
+everywhere - compares, or says why not. A box that appeared when the answer
+came would have grown the column under the pointer; with the box always
+there, its note first and the column pinned to the bottom, an answer, a
+note or a press moves no button. Under 901 px the box is a row under the
+stage, paid for by the picture and the facts' letterbox: a square picture
+at 600x900 kept 77 px of letterbox where it had 126, and lost its last
+facts. There the box is drawn only where the page's own records give the
+image a neighbour, decided when the image is drawn and kept until another
+is, never on the answer.
+
+The plan had a second group, images with the same seed whose CFG differs
+and which also differ in steps or mu, offered under Against. It was left
+out: the narrowed search does not bring them, so the group would have
+depended on what the page happened to hold, and a pair that differs in two
+settings is not a CFG comparison.
 
 **The zoom is said once, the readouts only when they change** (2026-10-05).
 `#lb-zoom` and `#lb-count` were polite live regions rewritten on every layout
