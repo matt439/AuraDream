@@ -1990,9 +1990,10 @@ async def swap_tags(request: SwapTagsRequest) -> SwapTagsAccepted:
     (`tag_swap`). One job per distinct size, so every job keeps one size
     and its run id the shape every other run's has. `expected` is the ids
     the preview resolved: a selection that changed since is refused. An
-    image the preview would have queued that the gallery holds by now is
-    left out and counted in `pruned`; with nothing left, 409 where it was
-    all already rendered, else 422.
+    image whose cell the gallery holds at queue time is left out and
+    counted in `pruned` - the preview's "already rendered" ones and any
+    rendered since; with nothing left, 409 where it was all already
+    rendered, else 422.
     """
     ids, results, cells = await _swap_plan(request)
     if request.expected is not None and sorted(set(request.expected)) != ids:

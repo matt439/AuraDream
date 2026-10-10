@@ -116,6 +116,20 @@ def test_a_cell_rendered_since_the_preview_is_left_out_and_counted(client, fake,
     assert [r.prompt for r in fake.requests] == ["silver hair"]
 
 
+def test_pruned_counts_every_cell_held_at_queue_time(client, fake, store):
+    # What `pruned` means: the preview's "already rendered" ones too, not
+    # only those rendered since it.
+    a = plant(store, "red hair, long hair", seed=1)
+    b = plant(store, "red hair, long hair, smile", seed=2)
+    plant(store, "silver hair, smile", seed=2)
+    answer = preview(client, ids=[a.id, b.id])
+    assert (answer["queued"], answer["counts"].get("rendered")) == (1, 1)
+    response = client.post("/api/swap-tags", json={"swaps": SWAP, "ids": [a.id, b.id], "expected": answer["ids"]})
+    assert response.status_code == 200, response.text
+    assert (response.json()["queued"], response.json()["pruned"]) == (1, 1)
+    stream_job(client, response.json()["job_id"])
+
+
 def test_one_image_never_refuses_the_rest(client, fake, store):
     good = plant(store, "red hair, long hair, smile", seed=1)
     emptied = plant(store, "red hair, long hair", seed=2)

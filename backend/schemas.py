@@ -1327,6 +1327,6 @@ class SwapTagsAccepted(BaseModel):
     run_id: str
     more: list[JobAccepted] = Field(default_factory=list)
     queued: int
-    # Images the preview would have queued that the gallery holds by now,
-    # left out without a refusal.
+    # Images whose cell the gallery holds at queue time, left out without a
+    # refusal: the preview's "already rendered" ones plus any rendered since.
     pruned: int = 0

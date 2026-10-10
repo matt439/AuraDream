@@ -208,7 +208,7 @@ def swap(text: str | None, rows: list[Row]) -> Outcome:
         hits = [[i for i, read in enumerate(reads) if read.key == key] for key in row.keys]
         found: list[tuple[int, int, int]] = []
         if len(row.keys) == 1:
-            pattern = _phrase(row.finds[0])
+            pattern = _phrase(_unwrap(row.finds[0])[0])
             cjk = bool(_CJK.search(row.finds[0]))
             for i, read in enumerate(reads):
                 if i in hits[0] or not (read.prose or cjk):
@@ -227,7 +227,7 @@ def swap(text: str | None, rows: list[Row]) -> Outcome:
                     if any(
                         not lettered(read.item.start + m.start(), read.item.start + m.end())
                         for read in reads if read.prose
-                        for m in _phrase(find).finditer(read.item.text)
+                        for m in _phrase(_unwrap(find)[0]).finditer(read.item.text)
                     )
                 ]
                 if len(prose_has) == len(lacking):
@@ -236,6 +236,14 @@ def swap(text: str | None, rows: list[Row]) -> Outcome:
                     missing.extend(find for find in lacking if find not in prose_has)
         whole.append(sorted({i for hit in hits for i in hit}))
         phrases.append(found)
+    # A phrase match inside another row's (`hair` in the `red hair` a row
+    # rewrites) is not applied - `_put_phrases` keeps the earlier - so a row
+    # left with no item and no phrase of its own is missing, as strictness
+    # has it, rather than queued without it.
+    applied = _applied_phrases(phrases)
+    for r, (row, indexes, found) in enumerate(zip(rows, whole, phrases)):
+        if len(row.keys) == 1 and found and not indexes and r not in applied:
+            missing.append(row.finds[0])
     if missing:
         return Outcome(text, "missing", missing=missing, by_hand=by_hand)
     if by_hand:
@@ -307,12 +315,31 @@ def swap(text: str | None, rows: list[Row]) -> Outcome:
     return Outcome(new, "changed" if new != text else "unchanged", spans=spans, notes=notes)
 
 
+def _applied_phrases(phrases: list[list[tuple[int, int, int]]]) -> set[int]:
+    """The rows at least one of whose phrase matches `_put_phrases` applies:
+    per item, by position, an overlapping match losing to the earlier one
+    (the same order `_put_phrases` takes, ties in row order)."""
+    by_item: dict[int, list[tuple[int, int, int]]] = {}
+    for r, found in enumerate(phrases):
+        for i, start, end in found:
+            by_item.setdefault(i, []).append((start, end, r))
+    applied: set[int] = set()
+    for edits in by_item.values():
+        position = -1
+        for start, end, r in sorted(edits, key=lambda edit: (edit[0], edit[1])):
+            if start < position:
+                continue
+            applied.add(r)
+            position = end
+    return applied
+
+
 def _put_phrases(text: str, item: Item, edits: list[tuple[int, int, str]], put) -> None:
     """One prose item with its phrase matches replaced, in place. Overlapping
     matches (two rows' finds in one phrase) keep the earlier one. A phrase
     removed takes one space beside it with it, so no double space is left."""
     position = item.start
-    for start, end, replacement in sorted(edits):
+    for start, end, replacement in sorted(edits, key=lambda edit: (edit[0], edit[1])):
         if start < position:
             continue
         if not replacement:

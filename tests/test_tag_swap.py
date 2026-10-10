@@ -119,3 +119,25 @@ def test_variables_follow_the_text_and_a_variant_label_does_not():
     # The negative prompt only when asked, and then not the prompt.
     swapped = swap_record("red hair", "red hair, blurry", None, rows, "negative_prompt")
     assert (swapped.prompt, swapped.negative_prompt) == ("red hair", "silver hair, blurry")
+
+
+def test_a_phrase_inside_another_rows_phrase_is_missing_not_dropped():
+    # `hair` sits only inside the `red hair` the first row rewrites: the
+    # second row would never be applied, so the image is not queued with it.
+    outcome, _ = run("a girl with red hair walking, smile", ("red hair", "x"), ("hair", "y"))
+    assert (outcome.status, outcome.missing) == ("missing", ["hair"])
+    # Either order of the rows: the earlier phrase in the text is kept.
+    outcome, _ = run("a girl with red hair walking, smile", ("hair", "y"), ("red hair", "x"))
+    assert (outcome.status, outcome.missing) == ("missing", ["hair"])
+    # A `hair` of its own elsewhere is applied, so the row is not missing.
+    outcome, _ = run("a girl with red hair and long hair walking", ("red hair", "x"), ("long hair", "z"))
+    assert outcome.text == "a girl with x and z walking"
+    outcome, _ = run("a girl with red hair, her hair in the wind", ("red hair", "x"), ("hair", "y"))
+    assert (outcome.status, outcome.text) == ("changed", "a girl with x, her y in the wind")
+
+
+def test_a_weight_in_find_is_looked_through_in_prose_as_in_items():
+    outcome, _ = run("1girl, red hair, smile", ("(red hair:1.2)", "gold hair"))
+    assert outcome.text == "1girl, gold hair, smile"
+    outcome, marked = run("a girl with red hair standing in a field, masterpiece", ("(red hair:1.2)", "gold hair"))
+    assert outcome.status == "changed" and marked == ["gold hair"]
