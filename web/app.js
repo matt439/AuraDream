@@ -606,10 +606,13 @@ els.more.onclick = () => loadGallery();
 els.gallery.addEventListener('keydown', galleryKey);
 els.gallery.addEventListener('focusin', galleryFocus);
 // A card's batch over the page while the mouse rests on it (gallery-batch.js);
-// any scroll takes it down, the gallery's own column's included.
+// any scroll, press or card moving takes it down, the gallery's own column's
+// scroll included.
 els.gallery.addEventListener('pointerover', batchPeekOver);
 els.gallery.addEventListener('pointerout', batchPeekOut);
+els.gallery.addEventListener('pointerdown', batchPeekPressed);
 document.addEventListener('scroll', batchPeekScrolled, { capture: true, passive: true });
+new MutationObserver(batchPeekShifted).observe(els.gallery, { childList: true });
 // The selection's Select, Clear and Escape (gallery-select.js); a card's
 // press picks through cardPress, which card() hands thumb.
 els.select.onclick = () => {

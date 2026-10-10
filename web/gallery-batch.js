@@ -30,6 +30,9 @@ let peekTimer;
 // The card the pointer is on, and the one the panel was drawn for.
 let peekOver = null;
 let peekShown = null;
+// Where peekOver stood when the pointer reached it, so a gallery that moves
+// it (cards prepended or deleted) is told from one that does not.
+let peekAt = null;
 
 // The images of `rec`'s batch the page holds, `rec` among them, oldest first
 // (one generator per image, seeded `seed + i`, so by id is by seed too).
@@ -75,6 +78,8 @@ function batchPeekOver(e) {
   const rec = peekRecord(cardEl);
   if (!rec?.job_id) return;
   peekOver = cardEl;
+  const { top, left } = cardEl.getBoundingClientRect();
+  peekAt = { top, left };
   peekTimer = setTimeout(async () => {
     await fetchPeekJob(rec);
     if (peekOver === cardEl && cardEl.isConnected) showBatchPeek(cardEl, rec);
@@ -91,6 +96,7 @@ function hideBatchPeek() {
   clearTimeout(peekTimer);
   peekOver = null;
   peekShown = null;
+  peekAt = null;
   const panel = $('batch-peek');
   if (panel) panel.hidden = true;
   els.gallery.querySelectorAll('.card.batch-mate').forEach((el) => el.classList.remove('batch-mate'));
@@ -119,8 +125,9 @@ function showBatchPeek(cardEl, rec) {
   const head = document.createElement('div');
   head.className = 'batch-peek-head';
   const seeds = mates.map((r) => r.seed);
+  // Past PEEK_LIMIT the seeds are the held ones' only, and the range says so.
   head.textContent = `#${rec.id} · ${at + 1} of ${mates.length}${more ? '+' : ''} in its batch`
-    + (Number.isSafeInteger(seeds[0]) ? ` · seeds ${Math.min(...seeds)}–${Math.max(...seeds)}` : '');
+    + (Number.isSafeInteger(seeds[0]) ? ` · seeds ${Math.min(...seeds)}–${Math.max(...seeds)}${more ? '…' : ''}` : '');
   const list = document.createElement('div');
   list.className = 'batch-peek-list';
   // The window of PEEK_SHOWN round the hovered image, so it is always drawn.
@@ -139,7 +146,7 @@ function showBatchPeek(cardEl, rec) {
   if (rest > 0 || more) {
     const note = document.createElement('span');
     note.className = 'batch-peek-more';
-    note.textContent = rest > 0 ? `+${rest}${more ? '+' : ''} more` : 'and more';
+    note.textContent = rest > 0 ? `+${rest} more${more ? '…' : ''}` : 'and more';
     list.append(note);
   }
   panel.replaceChildren(head, list);
@@ -173,5 +180,20 @@ function placeBatchPeek(panel, cardEl) {
 // A scroll moves the card out from under the panel; it goes, and comes back
 // with the next card the pointer settles on.
 function batchPeekScrolled() {
+  if (peekOver || peekShown) hideBatchPeek();
+}
+
+// Cards prepended or deleted under a still mouse move the card from under
+// the panel as a scroll does (a MutationObserver on #gallery, app.js); the
+// next pointer move brings it back for whatever card is there.
+function batchPeekShifted() {
+  if (!peekOver) return;
+  const { top, left } = peekOver.getBoundingClientRect();
+  if (!peekOver.isConnected || top !== peekAt.top || left !== peekAt.left) hideBatchPeek();
+}
+
+// A press is for the card, not its batch: the panel goes until the pointer
+// settles on a card again.
+function batchPeekPressed() {
   if (peekOver || peekShown) hideBatchPeek();
 }

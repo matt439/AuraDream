@@ -33,6 +33,19 @@
   {"wait": 800},
   {"expect": "!__shown() && __mates().length === 0"},
 
+  {"log": "'a press on the card takes the panel down'"},
+  {"hover": ".__t-six > img"},
+  {"expect": "__until(() => __shown())"},
+  {"eval": "document.querySelector('.__t-six > img').dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerType: 'mouse'}))"},
+  {"expect": "!__shown() && __mates().length === 0"},
+
+  {"log": "'a card landing at the head of the gallery moves the hovered one, and the panel goes'"},
+  {"hover": ".__t-grid > img"},
+  {"expect": "__until(() => __shown())"},
+  {"eval": "const el = document.createElement('div'); el.className = 'card __t-pushed'; els.gallery.prepend(el)"},
+  {"expect": "__until(() => !__shown() && __mates().length === 0)"},
+  {"eval": "document.querySelector('.__t-pushed').remove()"},
+
   {"log": "'back over the six, then off the gallery: the panel goes'"},
   {"hover": ".__t-six > img"},
   {"expect": "__until(() => __shown())"},

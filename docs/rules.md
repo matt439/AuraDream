@@ -2916,7 +2916,8 @@ Frontend and CLI:
   back to what the page holds. The panel (`#batch-peek`) is `position: fixed`,
   `pointer-events: none` and `aria-hidden` (the cards it repeats are the
   page's own), placed under or over the card, never across it, and taken
-  down by any scroll; the gallery's own cards of the set get `.batch-mate`,
+  down by any scroll, a press, or cards added or removed moving the hovered
+  one (a `childList` observer on `#gallery`); the gallery's own cards of the set get `.batch-mate`,
   an outline, so nothing moves. A card alone in its job shows nothing.
 - The gallery's selection (`gallery-select.js`) is the one set of picked
   images that actions on several images read (Swap tags, Mass refine):
@@ -4474,8 +4475,9 @@ node tools/browser.mjs tools/smoke-gallery.json
 7892 with a fresh `--data`: a Batch 3 x Repeat 2 drawn as one set of six
 with the hovered one marked and the other five cards outlined; the panel
 off its card, taking no press, `aria-hidden`, and no card moving; a steps
-grid's cell at Batch 2 a set of two; a single image showing nothing; and the
-pointer leaving taking it down:
+grid's cell at Batch 2 a set of two; a single image showing nothing; a press,
+a card prepended ahead of the hovered one, and the pointer leaving each
+taking it down:
 
 ```powershell
 uv run python tools/fake_server.py --port 7892 --data <new-scratch-directory>
