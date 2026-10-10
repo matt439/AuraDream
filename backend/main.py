@@ -2221,8 +2221,9 @@ async def refine_batch_submit(request: RefineBatchRequest) -> RefineBatchAccepte
     distinct size, as Swap tags queues, so each job keeps one size and the
     run id every run's has; `expected` pins the ids the preview resolved,
     and a pass the gallery holds at queue time is left out and counted in
-    `pruned`. With nothing left: 409 where it was all already rendered,
-    else 422 with the counts.
+    `pruned`. With nothing left: 409 where every image already has the
+    pass, else 422 with every count - the already rendered among them - so
+    the images the user could still fix (too big, a LoRA missing) are said.
     """
     ids, results, cells, _ = await _refine_batch_plan(request)
     if request.expected is not None and sorted(set(request.expected)) != ids:
@@ -2232,7 +2233,9 @@ async def refine_batch_submit(request: RefineBatchRequest) -> RefineBatchAccepte
         )
     counts = _refine_batch_counts(results)
     if not cells:
-        if counts.get("rendered"):
+        # As the dialog's hold words it (`refineBatchHold`): "already has the
+        # pass" only where that is every image's status.
+        if set(counts) == {"rendered"}:
             raise HTTPException(
                 status_code=409,
                 detail="every image that could be refined already has this pass in the gallery",

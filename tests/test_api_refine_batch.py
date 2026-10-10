@@ -215,6 +215,25 @@ def test_a_source_deleted_mid_run_fails_only_its_own_cell(client, fake, store, m
     assert final["failed_cells"][0]["label"] == f"#{b.id}"
 
 
+def test_nothing_to_queue_names_every_reason_unless_all_are_rendered(client, fake, store):
+    a = plant(store, "a fox", seed=1)
+    first = client.post("/api/refine/batch", json={"ids": [a.id], "strength": 0.5})
+    assert first.status_code == 200, first.text
+    assert stream_job(client, first.json()["job_id"])[-1]["status"] == "done"
+    adapter = plant(store, "with an adapter", seed=2, lora="nowhere")
+    # The rendered one and one whose LoRA is gone: not "every image already
+    # has this pass", which would hide the one the user could fix.
+    refused = client.post("/api/refine/batch", json={"ids": [a.id, adapter.id], "strength": 0.5})
+    assert refused.status_code == 422
+    detail = refused.json()["detail"]
+    assert detail.startswith("no selected image can be refined (")
+    assert "1 rendered" in detail and "1 lora missing" in detail
+    # Only the rendered one: the 409 that says so.
+    alone = client.post("/api/refine/batch", json={"ids": [a.id], "strength": 0.5})
+    assert alone.status_code == 409
+    assert alone.json()["detail"] == "every image that could be refined already has this pass in the gallery"
+
+
 def test_the_queue_is_pinned_to_the_ids_the_preview_answered(client, fake, store):
     a = plant(store, "one", seed=1)
     b = plant(store, "two", seed=2)
