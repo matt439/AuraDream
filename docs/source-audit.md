@@ -33,6 +33,11 @@ bundles. `gallery-select.js` (loaded after `gallery-actions.js`)
 owns the gallery's selection - Select, the picked ids and the hook that
 actions on several images read - with its rules in `styles/gallery.css`. `lightbox-cfg.js` (loaded after `lightbox.js`) owns the lightbox's
 comparison across CFG, and `sheet-render.js` the sheet's Swipe CFG.
+`tag-swap.js` (loaded after `bundles.js`) and `styles/swap.css` (linked
+after `bundles.css`) own Swap tags - the footer button's state and its
+dialog; the rewrite is the server's, `backend/tag_swap.py`, its routes and
+the shared selection resolver in `main.py`, and the record-to-cell helper
+`grid.cell_from_record` that Re-render shares.
 
 `critic.py` is now 311 lines, with no critic module above 983. The stylesheet
 is eight files, at most 532 lines each. The largest JavaScript file is now the

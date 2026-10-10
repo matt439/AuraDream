@@ -321,6 +321,19 @@ says how many picked images the current view does not show. **Clear** or
 Esc empties it, and a second Esc leaves select mode. Deleted images leave
 the selection on their own.
 
+**Swap tags…** (beside **Select**) runs the selected images again - or,
+with nothing selected, what the filter matches - with some tags swapped:
+each row finds comma-separated tags and puts its replacement where the
+first of them sat (an empty replacement removes them), in the prompt or the
+negative prompt. Case, spacing, underscores and a weight wrapping the
+whole tag do not matter, and the replacement keeps the tag's underscores
+and weight. Inside a prose prompt a single tag also matches as a phrase.
+An image has to have every tag of every row; the dialog lists, per image,
+what it would run (the swap marked) or why it is left out - a missing tag,
+already rendered, a deleted source or LoRA, the same as another image.
+Each image keeps its own seed, size and settings; one job is queued per
+size.
+
 ### Keyboard and lightbox
 
 | Where | Keys |

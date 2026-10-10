@@ -118,7 +118,10 @@ before changing it.
   default-schedule statements) and `SHIFT_CALL`, held to the installed
   diffusers source by `tests/test_refine_schedules.py`
 - `backend/grid.py` — axis specs (`6-12x2`), prompt variables and prompt
-  variants, and the cell expansion, shared
+  variants, and the cell expansion, shared; `cell_from_record` /
+  `cells_from_records`, a gallery record as a cell
+- `backend/tag_swap.py` — Swap tags' rewrite of a record's prompt or
+  negative prompt (pure; the routes are `main.py`'s)
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
@@ -142,7 +145,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 31 classic
+- `web/` — served as-is from `/static`; `index.html` loads 32 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -157,7 +160,8 @@ before changing it.
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection, retiring state prepared under the old model and the
   picker's strip of the chosen checkpoint's images;
-  `bundles.js` owns the gallery bundle dialog and background-operation polling. The stylesheet is
+  `bundles.js` owns the gallery bundle dialog and background-operation polling;
+  `gallery-select.js` the picked cards and `tag-swap.js` Swap tags. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
   `style.css`); preserve that cascade. See `docs/source-audit.md`
@@ -610,6 +614,22 @@ Reproduction:
 - `grid.expand()` is the one cell loop for the CLI and `/api/grid`;
   `jobs.submit()` keeps its inline copy of the seed loop deliberately, asserted
   equal to the CLI's in `tests/test_cli.py`.
+- A producer that runs gallery records again builds its cells with
+  `grid.cell_from_record` (one record, naming only what changes: a size, a
+  prompt, a negative prompt, variables) or `grid.cells_from_records` (a list
+  at one optional size, in the order given - oldest first), never a
+  `GenerateRequest` of its own: the reproduction set carried (prompt pair,
+  steps, CFG, effective true CFG, mu, references, LoRA and weight, refine
+  source and strength - a strength only beside a source - seed, variables)
+  is one list. Re-render and Swap tags use it; Mass refine is next. Their
+  images are `main._resolve_selection`'s: with `ids` (the picked cards),
+  exactly those, oldest first, and the ids gone reported per image, never a
+  refusal; without, the gallery's filter (search, Starred, `_model_scope`),
+  404 for none, 422 past `max_grid_images` by count. What to do with
+  another checkpoint's records is the caller's (Re-render refuses the
+  selection, `_foreign_refusal`; Swap tags reports each image `foreign`).
+  `_unusable_input` is `_refuse_unusable_inputs`' finding without the
+  refusal, (kind, why), for a per-image status.
 - The reproduction set - prompt pair, size, steps, CFG, true CFG, mu, seed,
   checkpoint, quantization, references, LoRA and weight, refine source and
   strength, variables, hash - is on the row and in the PNG's
@@ -2906,6 +2926,61 @@ Frontend and CLI:
   "Select #N: …"). `syncSelection` derives all of it from the state; call it
   after anything that adds cards other than through `card()` and
   `loadGallery`.
+- Swap tags (`POST /api/swap-tags/preview`, `POST /api/swap-tags`,
+  `tag_swap.py`, `tag-swap.js`, `styles/swap.css`) is the fourth producer of
+  cells. The server rewrites, the page shows: rows of `find` (comma items)
+  and `replace` (empty removes), at most 16 rows and 20 finds a row, a find
+  that two rows share refused (`parse_rows`, in the request's validator);
+  `field` is `prompt` or `negative_prompt`, the latter 422 where the
+  checkpoint has no negative prompt. Matching: whole comma items through
+  `prompt_text._norm`; a weight wrapper (`(x:1.2)`, `((x))`, `[x]`) looked
+  through only where it wraps the whole item and put back round the
+  replacement, which takes the matched item's underscores and escaped
+  parentheses; inside a `_is_prose` item a one-find row also matches as a
+  phrase bounded by lookarounds on the find's own word edges, never inside
+  `rendered_spans`; a find with Han or kana is a plain substring; a
+  many-to-one row that would need a phrase is `by_hand`; XML and JSON
+  prompts are `structured`. All rows match the original at once; strict -
+  an image missing any find of any row is `missing` and not queued. Many to
+  one lands at the first matched item in the prompt's order, the others
+  removed with the separator before each; a replacement already in the
+  prompt is not written twice. A variable's value is rewritten where it is
+  part of the swapped text, never `variant`. Per image, never a whole
+  refusal: `queued`, `missing`, `unchanged`, `rendered` (the gallery holds
+  the cell at its size), `invalid` (pydantic, the budget, the refine steps:
+  `error_detail`), `source_deleted`, `lora_missing`, `duplicate` ("same as
+  #N": cell keys as `applied()` runs them, plus the size), `by_hand`,
+  `structured`, `deleted` (an id gone), `foreign`. The preview lists the
+  first `SWAP_PREVIEW_ROWS` (200) of them and counts all, with the ids the
+  selection resolved (`ids`), how many are queued and in how many jobs; it
+  has no side effects and is not a model-dependent request (the page's
+  `api` treats it as advisory). The queueing route is model-dependent
+  (`hold_model_for_request`), recomputes everything, refuses 409 when
+  `expected` is not the ids resolved now, leaves out what the gallery holds
+  by now (`pruned`), answers 409 when everything is rendered and 422 when
+  nothing else is queueable, and submits one job per distinct size
+  (`jobs.submit_cells(..., swap=summary)`, run id per job as any run's),
+  answering the first job at the top level and the rest in `more`; the
+  snapshot's `swap` names the job (`describeJob`: "swap · …").
+  `startJob` registers `more` as this page's own and queues them behind
+  the first. The button is `#btn-swap`, in the footer row between Select
+  and Bundles…, always shown and styled as they are: it acts on the
+  selection when one exists, else on the filter under Re-render's
+  conditions, and is `aria-disabled` with the reason otherwise
+  (`swapTarget`, `syncSwapButton` from `syncRerender` and
+  `onSelectionChange`), its title naming what it takes; a held press says
+  why in `#gallery-error`. The dialog fixes its scope at open, checks
+  400 ms after an edit (at once on open, on a row removed, on the field
+  changed, and from `forgetImages` when an id it listed went:
+  `forgetSwapImages`), aborting a check still out; Queue is aria-disabled
+  with "Add a tag to find", "Checking the swaps…" (the answer is not to the
+  payload typed now), the server's refusal, "The checkpoint changed…" or
+  "No image would change", a press saying it in `#swap-error`, and sends
+  the answer's `ids` as `expected`; accepted, the dialog closes, refused,
+  it checks again. Its marks are the server's `spans`; the results list has
+  a fixed height and scrolls inside the dialog, the count line keeps two
+  lines and `#swap-error` one, so nothing below them moves. Enter in a box
+  is Queue's press; Escape, Cancel and a press outside close it.
 - The sheet's layout contract - axes, prompt labels, pins, variables - lives in
   the client, and the export is client-side, not a route. Export PNG draws
   the slice on screen. Export all, shown only where something is pinned,
@@ -3084,7 +3159,8 @@ Frontend and CLI:
   `backend.config`, as `launch.configure()` does for the server; both take the
   flags from `launch.add_model_arguments`.
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
-  `GET`/`DELETE /api/gallery/unstarred` and `POST /api/rerender` scope to
+  `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender` and
+  `POST /api/swap-tags[/preview]` without `ids` scope to
   `current_model_id(settings)` (`main._model_scope`, an exact predicate, never the
   `model:` LIKE) unless `all_models=true`; `GET /api/gallery?model=<id>` is the
   same exact scope for any id, in place of both, and `model:=<id>` in the
@@ -3279,7 +3355,13 @@ remapping. API tests hold a fake before its first callback to check initial
 per-cell progress totals, and API/CLI tests cover axis replacements and the
 capability refusal both before and after loading. The job snapshot's
 `comparison` is asserted true for a prompt-variants grid (`test_api_grid`)
-and false for plain and variable grids (`test_api_jobs`). What holds the
+and false for plain and variable grids (`test_api_jobs`). Swap tags is
+`tests/test_tag_swap.py` (the rewrite as text: matching, weights and
+underscores, strictness, rows at once, phrases and lettering, Han, XML,
+variables) and `tests/test_api_swap.py` (every per-image status, one job
+per size keeping seeds, sizes and settings, `expected`, `pruned`, the
+filter scope, the negative field, the revision header, the resolver, and
+Re-render over mixed sizes through `cells_from_records`). What holds the
 card, and whose expansion it is, is
 `tests/test_jobs.py::test_the_card_names_its_holder_and_an_editor_actions_ticket`
 and, through the status,
@@ -4242,7 +4324,7 @@ node tools/browser.mjs tools/smoke-gallery.json
 
 `smoke-select.json` checks the gallery selection on a default fake on 7898
 with a fresh `--data` (it builds a 60-image grid): Select in the footer row
-beside Bundles… at Bundles…'s height; a click opening the lightbox out of
+before Swap tags… and Bundles…, at Bundles…'s height; a click opening the lightbox out of
 select mode; Select pressed with neither it nor the grid moving as the count
 appears; a click, Space, Shift+click and Shift+Space (a range from the anchor
 out, backwards too) picking, a second click unpicking, the image's
@@ -4264,6 +4346,26 @@ and beside the viewer at 2560:
 ```powershell
 uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-select.json
+```
+
+`smoke-swap.json` checks Swap tags on an Animagine XL 4.0 fake on 7900 with a
+fresh `--data` (a `{hair}` grid at 832x1216 and one 1024x1024 image): the
+button between Select and Bundles… at their height, held with its reason
+and saying it, titled by a search and then by picked cards, not moving as
+cards are picked; the dialog's scope line, focus, both fields, Queue held
+("Add a tag to find", "Checking the swaps…" while typing) and saying it;
+the server's statuses, counts and marks (a weight and underscores kept, the
+missing cells' text unmarked), Queue and Cancel unmoved; a second row's
+duplicate find refused in the count line and back on removal; an image
+deleted while open shown as deleted; Queue watching the first of two jobs
+(one per size) and listing the second as its own, both named "swap · …";
+the new images' prompts, seeds, sizes and rewritten variables; the same
+swap again all already rendered, held with "No image would change"; the
+negative prompt field; Escape; the page never scrolled:
+
+```powershell
+uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-swap.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

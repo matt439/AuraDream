@@ -3913,6 +3913,95 @@ everywhere - `Qwen/Qwen-Image` is contained in `Qwen/Qwen-Image-Edit` - which is
 why the check runs against the ids actually selected rather than a rule about
 ids. The count agrees with its verb ("1 of the selected images was made").
 
+## Swap tags
+
+**"Redo with tags swapped"** (2026-10-10): a night's keepers again with
+`red hair, long hair` as `silver hair`, each with its own seed, size and
+settings. Reuse, edit, Generate was the way, once per image, and a typo in
+the twelfth prompt was found in the morning. `POST /api/swap-tags` is the
+fourth producer of cells, beside Generate, Run grid and Re-render.
+
+**What it acts on.** The picked cards where there are any (the gallery
+selection, `ids`), else the filter as Re-render takes it, and the button's
+title says which. Re-render and Swap tags - and Mass refine next - read
+their images through one resolver (`main._resolve_selection`) and build
+their cells through one helper (`grid.cell_from_record`), so what "the
+selection" means and what a record carries into its new cell cannot drift
+between them; Re-render's behaviour, refusals and tests are unchanged by
+the extraction. Picked ids that have gone since are reported per image
+rather than refused: the user picked forty, one was deleted in another
+tab, and the other thirty-nine are still wanted.
+
+**The server rewrites, the page shows.** The page could split commas, but
+the rules - what counts as the same tag, a weight wrapper, prose, lettering,
+an XML prompt - are `prompt_text`'s, already written and tested on the
+server, and the result is what runs: the preview is the server's own
+answer per image (`tag_swap.swap`), with the offsets of what it wrote in
+for the page to mark, and the queue recomputes it. Every row matches the
+original prompt at the same time, so two rows can swap two tags with each
+other and a replacement is never matched again.
+
+**Strict, no partial.** An image that lacks any find of any row is left out
+as `missing`, listed with what it lacks. A "queue the ones that have some"
+tick was planned and dropped (the coordinator's decision, after a
+critique): a row applied to half an image is a different swap from the one
+typed, and the preview already names the images to pick out.
+
+**Whole items, then phrases.** Tags are compared whole (`_norm`: case,
+spacing, `_`, `\(`), never by substring - `hair` is not in `red hair`. A
+weight wrapper is looked through only where it wraps the whole item, so
+`(red hair) and more` is not `red hair`; the replacement goes back inside
+it and takes the item's underscores and escapes, since `silver hair` typed
+into a list of `long_hair` tags should read like them. In prose
+(`_is_prose`) a one-tag row also matches as a phrase, bounded only on an
+edge of the find that is a word character (so `hair` does not hit
+`hairstyle`, and a find ending in `)` still matches before a comma); never
+inside lettering, which is text to render. Han and kana match as plain
+substrings: there are no spaces to bound on. A many-to-one row in prose is
+`by_hand` - which phrase keeps the replacement and what becomes of the
+other's words is an edit, not a rule. XML and JSON prompts are not
+rewritten at all. None of this is an analyser rule: it cites nothing and
+claims nothing about a checkpoint, and the preview is its safeguard.
+
+**Many to one.** The replacement lands where the first matched item sits
+in the prompt (not the first find of the row), and the others go with the
+separator before each, so a `,\n` layout keeps its shape. A replacement
+already present as an untouched item is not written a second time.
+
+**Per image, never the whole job.** One image whose prompt the swap empties
+or pushes past 4000 characters, whose refine source or adapter has gone, or
+that another checkpoint made (through All models) is a status of its own;
+the rest are queued. Two images that become the same cell at the same size
+(`applied()`'s keys) are queued once, "same as #N". A cell the gallery
+already holds is "already rendered", which makes the same swap asked twice
+a no-op and a cancelled one resumable by asking again - there is no Resume
+for it, since the dialog is the definition.
+
+**Pinned to the ids, not the derived set.** The queueing request sends the
+ids the preview resolved as `expected`; a selection that changed (a delete,
+a filter that now matches more) is a 409 and the dialog checks again. What
+became rendered between the preview and the press is left out silently and
+counted (`pruned`): the outcome the user agreed to, minus work already done.
+
+**One job per size.** Every job had one size until now - the snapshot, the
+log line, the ETA and `run_id`'s definition read the first request's. A
+mixed-size job would have needed each of them taught; one job per distinct
+size keeps them all true, at the cost of more than one row in the queue.
+The route answers the first job at the top level, as every submission
+does, and the rest in `more`, which `startJob` registers as the page's own
+and queues behind it. The snapshot's `swap` (the rows, as the server reads
+them) names each job, "swap · red hair, long hair → silver hair".
+
+**Where the button sits.** The head's control row is full at 1400 px, and a
+button that came and went beside Select would move it. Swap tags… sits in
+the footer row between Select and Bundles…, styled as they are, and is
+always there: held, with the reason as its title and said on a press, when
+nothing is picked and no filter narrows the gallery. The dialog's results
+list has a fixed height and scrolls inside it, the count keeps two lines
+and the error line one (`showError` hides an empty slot; `#swap-error`
+keeps its line as `#gallery-error` does), so a check that lists more never
+moves Queue under the pointer.
+
 ## Delete unstarred
 
 **The gallery's one bulk delete is the inverse of the card's.** A night

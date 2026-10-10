@@ -736,6 +736,8 @@ window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
 initBundles();
+// Swap tags in the gallery's footer row and its dialog (tag-swap.js).
+setupSwap();
 // The picker then names the run on screen: resetGallery follows the search box.
 // Browsed from the keyboard, a run opens on Enter or as focus leaves (runs.js).
 els.runList.onchange = runListChange;

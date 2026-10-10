@@ -96,6 +96,9 @@ const els = {
   gridResume: $('grid-resume'),
   sheetBtn: $('btn-sheet'), rerender: $('btn-rerender'), deleteUnstarred: $('btn-delete-unstarred'),
   select: $('btn-select'), selectClear: $('btn-select-clear'), selectCount: $('select-count'),
+  swap: $('btn-swap'), swapDialog: $('swap-dialog'), swapScope: $('swap-scope'), swapRows: $('swap-rows'),
+  swapAdd: $('swap-add'), swapNegative: $('swap-negative-label'), swapCount: $('swap-count'),
+  swapResults: $('swap-results'), swapError: $('swap-error'), swapCancel: $('swap-cancel'), swapQueue: $('swap-queue'),
   bundles: $('btn-bundles'), bundlesDialog: $('bundles-dialog'), bundlesClose: $('bundles-close'),
   bundleRefresh: $('bundle-refresh'), bundlePreview: $('bundle-preview'), bundleCount: $('bundle-count'),
   bundleCountLabel: $('bundle-count-label'), bundleExport: $('bundle-export'), bundleFile: $('bundle-file'),
@@ -502,7 +505,7 @@ async function api(path, options) {
     throw Object.assign(new Error(readableDetail(detail)), { status: res.status });
   }
   const body = res.status === 204 ? null : await res.json();
-  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$)/.test(path.split('?')[0]);
+  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$)/.test(path.split('?')[0]);
   if (advisory && revision !== null && revision !== modelRevision) {
     throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
   }

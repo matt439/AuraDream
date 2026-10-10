@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/static/styles/lightbox.css">
 <link rel="stylesheet" href="/static/styles/refine.css">
 <link rel="stylesheet" href="/static/styles/bundles.css">
+<link rel="stylesheet" href="/static/styles/swap.css">
 </head>
 <body>
 <header class="topbar">
@@ -790,6 +791,12 @@
           <button type="button" class="ghost small foot-btn" id="btn-select" aria-pressed="false"
             aria-keyshortcuts="Escape"
             title="Pick cards to act on together: a click or Space picks a card, Shift picks a range; Escape clears">Select</button>
+          <!-- Swap tags (tag-swap.js): the selection when there is one, else what
+               the filter matches. Always here, held with its reason where
+               there is nothing to act on, so it never comes and goes beside
+               Select; the title says which images it would take. -->
+          <button type="button" class="ghost small foot-btn" id="btn-swap" aria-haspopup="dialog"
+            aria-disabled="true">Swap tags…</button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
             title="Bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
         </div>
@@ -1091,6 +1098,36 @@
   </div>
 </dialog>
 
+<!-- Swap tags (tag-swap.js): rows of tags to find and what to put in their
+     place, checked against every image on the server as they are typed;
+     each image's outcome listed, and Queue held with its reason until the
+     check matches what is typed. Escape and Cancel close it. -->
+<dialog class="swap-dialog" id="swap-dialog" aria-labelledby="swap-title" aria-describedby="swap-scope">
+  <header class="swap-head">
+    <h2 id="swap-title">Swap tags</h2>
+    <p id="swap-scope"></p>
+  </header>
+  <div class="swap-rows" id="swap-rows"></div>
+  <div class="swap-options">
+    <button type="button" class="ghost small" id="swap-add">+ Add row</button>
+    <fieldset class="swap-field">
+      <legend>Swap in</legend>
+      <label><input type="radio" name="swap-field" value="prompt" checked> Prompt</label>
+      <label id="swap-negative-label"><input type="radio" name="swap-field" value="negative_prompt"> Negative prompt</label>
+    </fieldset>
+  </div>
+  <p class="swap-hint" id="swap-hint">Whole comma items match, whatever their case, spacing or underscores; a weight round
+    the whole item is kept. Inside prose a single tag also matches as a phrase. Every row has to find all
+    of its tags or the image is left out. Each image keeps its own seed, size and settings.</p>
+  <p class="swap-count" id="swap-count" role="status"></p>
+  <ol class="swap-results" id="swap-results" aria-label="What happens to each image"></ol>
+  <p class="error one-line" id="swap-error" role="alert"></p>
+  <div class="swap-actions">
+    <button type="button" class="ghost" id="swap-cancel">Cancel</button>
+    <button type="button" class="primary" id="swap-queue" aria-disabled="true">Queue</button>
+  </div>
+</dialog>
+
 <!-- Classic scripts sharing one global scope; app.js, the last, is the
      only one that runs anything at load. Order matters: see state.js. -->
 <dialog class="bundles-dialog" id="bundles-dialog" aria-labelledby="bundles-title" aria-describedby="bundles-intro">
@@ -1178,6 +1215,7 @@
 <script src="/static/analysis-critic.js"></script>
 <script src="/static/comparison.js"></script>
 <script src="/static/bundles.js"></script>
+<script src="/static/tag-swap.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

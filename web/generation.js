@@ -114,11 +114,12 @@ function setBusy(on) {
 // differ in their prompts, so it is named by its own, its {variables}
 // unfilled - the first cell's named the whole night by a cell that had long
 // finished - and a re-render's cells are its records', with no one prompt to
-// name.
+// name. A swap's are its records' too, and it is named by its rows.
 function describeJob(job, length = 60, { markup = false } = {}) {
   const what = job.refine != null ? `refine of #${job.refine}`
     : !job.grid ? snippet(job.prompt ?? '', length, { markup })
     : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length, { markup })}`
+    : job.swap != null ? `swap · ${snippet(job.swap, length, { markup: true })}`
     : 're-render';
   return [
     job.planned_images ? plural(job.planned_images, 'image') : '',
@@ -157,6 +158,9 @@ function snippet(text, length = 60, { markup = false } = {}) {
 function submissionLabel(path, payload) {
   if (path === '/api/rerender') {
     return `re-render of the gallery's selection at ${payload.width}×${payload.height}`;
+  }
+  if (path === '/api/swap-tags') {
+    return describeJob({ grid: true, swap: swapSummary(payload) });
   }
   const grid = path === '/api/grid';
   return describeJob({
@@ -612,7 +616,7 @@ async function startJob(path, payload, {
   }
 
   try {
-    const { job_id, seed } = await api(path, {
+    const { job_id, seed, more = [] } = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(revision === null ? {} : { 'X-Local-Diffusion-Model-Revision': String(revision) }) },
       body: JSON.stringify(payload),
@@ -624,6 +628,17 @@ async function startJob(path, payload, {
     void refreshStatus();
     submissions.set(job_id, { path, payload, seed, sheet, asker, model, revision, at: Date.now() });
     jobLabels.set(job_id, submissionLabel(path, payload));
+    // A submission the server split into several jobs (Swap tags: one per
+    // size) answers the first as every other does and the rest in `more`:
+    // this page's own, queued behind the first, each named by the server.
+    for (const extra of more) {
+      ownJobs.add(extra.job_id);
+      submissions.set(extra.job_id, { path, payload, seed: extra.seed, sheet: false, asker, model, revision, at: Date.now() });
+      jobLabels.set(extra.job_id, submissionLabel(path, payload));
+      void nameJob(extra.job_id);
+    }
+    // Read when they join the queue, which may have changed by then.
+    const extras = () => more.map((extra) => extra.job_id).filter((id) => !queuedIds.includes(id));
     if (placeholder) jobPlaceholders.set(job_id, placeholder);
     if (sheet) jobsToShow.add(job_id);
     onAccepted?.(job_id);
@@ -662,7 +677,7 @@ async function startJob(path, payload, {
       }
       if (busy) {
         if (!queuedIds.includes(job_id)) {
-          setQueue([...queuedIds, job_id]);
+          setQueue([...queuedIds, job_id, ...extras()]);
           void nameJob(job_id);
         } else {
           // Listed already by a status poll (resyncQueue), under the
@@ -679,6 +694,7 @@ async function startJob(path, payload, {
       mirrorJob();
     }
     currentJob = job_id;
+    if (more.length) setQueue([...queuedIds, ...extras()]);
     await streamJob(job_id);
   } catch (err) {
     setSubmitting(false);
@@ -918,7 +934,7 @@ function syncNow(job) {
   els.progressNow.textContent = what ? `${lead} ${what}` : '';
   els.progressNow.title = what ? `${lead} ${describeJob(job, 120, { markup: true })}` : '';
   const name = job.refine != null ? `the refine of #${job.refine}`
-    : job.grid ? (job.prompt_template != null ? 'this grid' : 'this re-render')
+    : job.grid ? (job.prompt_template != null ? 'this grid' : job.swap != null ? 'this swap' : 'this re-render')
     : `"${snippet(job.prompt ?? '', 40)}"`;
   els.cancel.title = `Stop ${name}${foreign ? " - another tab's job -" : ''} after the current step`;
 }
@@ -962,4 +978,6 @@ function syncRerender() {
     els.rerender.textContent =
       `Re-render ${total} at ${els.width.value}×${els.height.value}`;
   }
+  // Swap tags takes the same filter where nothing is picked (tag-swap.js).
+  syncSwapButton();
 }

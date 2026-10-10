@@ -62,7 +62,8 @@ Backend (`backend/`):
   `bundle_crypto.py` its optional password layer;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
-  `search.py` search grammar; `grid.py` axes, variables, variants, cells;
+  `search.py` search grammar; `grid.py` axes, variables, variants, cells,
+  records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
   paths; `refine.py` the image-to-image pass; `latent_preview.py`
 - Prompt analyser: `prompt_encoding.py` (tokenizers), `prompt_text.py`,
@@ -130,7 +131,9 @@ Reproduction and storage:
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1` (`seeds.py`);
   one generator per image, seeded `seed + i`.
 - `grid.expand()` is the one cell loop; `jobs.submit()` and `generate.py`
-  keep deliberate copies, held equal by `tests/test_cli.py`.
+  keep deliberate copies, held equal by `tests/test_cli.py`. Gallery records
+  run again (Re-render, Swap tags) become cells only through
+  `grid.cell_from_record`, their images through `main._resolve_selection`.
 - The reproduction set lives on the row and in the PNG's `local-diffusion`
   chunk; `CellKey`/`run_id` widen without changing existing ids.
 - A new column needs a `_migrate` entry; `_row_to_record` reads unguarded.
@@ -253,6 +256,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7897 | default, fresh scratch `--data` | `smoke-bundles` |
 | 7898 | default, fresh scratch `--data` | `smoke-select` |
 | 7899 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compare-cfg` |
+| 7900 | animagine-xl-4.0, fresh scratch `--data` | `smoke-swap` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

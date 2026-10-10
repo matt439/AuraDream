@@ -1,0 +1,85 @@
+/* Swap tags (tag-swap.js): its dialog; the button is a footer one (gallery.css). The
+   results list has a fixed height and scrolls inside the dialog, so a check
+   that lists more or fewer images never moves Queue or Cancel under the
+   pointer; the count and the error line keep their lines while empty. */
+.swap-dialog {
+  width: min(760px, calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - 2 * var(--sp-4));
+  margin-top: var(--sp-4); margin-bottom: auto;
+  padding: var(--gutter); overflow-y: auto;
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--panel); color: var(--text); box-shadow: var(--shadow-pop);
+}
+.swap-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.swap-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.swap-dialog[open] > * { flex-shrink: 0; }
+.swap-dialog p { margin: 0; }
+.swap-head { display: flex; flex-direction: column; gap: var(--sp-1); }
+.swap-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+#swap-scope { color: var(--text-readout); font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+
+.swap-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+.swap-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center; gap: var(--sp-2);
+}
+.swap-row input { width: 100%; min-width: 0; }
+.swap-arrow { color: var(--muted); }
+.swap-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.swap-field {
+  display: flex; align-items: center; gap: var(--sp-3); margin: 0; padding: 0; border: 0;
+  font-size: var(--fs-body-sm);
+}
+.swap-field legend { float: left; padding: 0; margin-right: var(--sp-1); color: var(--text-3); font-size: var(--fs-label); }
+.swap-field label { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.swap-field label[hidden] { display: none; }
+.swap-hint { color: var(--text-3); font-size: var(--fs-label); }
+/* Two lines, always: a longer count or a refusal never pushes the list and
+   the buttons down. What does not fit is in its title. */
+.swap-count {
+  height: calc(2 * var(--fs-body-sm) * var(--lh)); overflow: hidden;
+  color: var(--text-readout); font-size: var(--fs-body-sm); font-variant-numeric: tabular-nums;
+}
+.swap-count.failed { color: var(--danger); }
+
+.swap-results {
+  list-style: none; margin: 0; padding: 0;
+  height: min(38vh, 340px); overflow-y: auto;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
+}
+.swap-result {
+  display: flex; gap: var(--sp-3); align-items: flex-start;
+  padding: var(--sp-2); border-bottom: 1px solid var(--line);
+}
+.swap-result:last-child { border-bottom: 0; }
+.swap-result > img, .swap-thumb-gone {
+  flex: none; width: 48px; height: 48px; object-fit: contain;
+  border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--bg);
+}
+.swap-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-body-sm); }
+.swap-line { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.swap-chip {
+  display: inline-block; padding: 0 var(--sp-1); border: 1px solid var(--line-strong);
+  border-radius: var(--r-xs); font-size: var(--fs-label); color: var(--text-3);
+}
+.swap-result[data-status="queued"] .swap-chip { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.swap-result:not([data-status="queued"]) .swap-text { color: var(--muted); }
+.swap-detail { color: var(--text-3); overflow-wrap: anywhere; }
+.swap-text { color: var(--text-2); overflow-wrap: anywhere; white-space: pre-wrap; }
+.swap-text mark { background: var(--accent-soft); color: var(--text); border-radius: 2px; outline: 1px solid var(--accent); }
+.swap-notes { color: var(--text-3); font-size: var(--fs-label); }
+
+#swap-error {
+  min-height: calc(var(--fs-body-sm) * var(--lh)); margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* showError hides an empty slot; this one keeps its line, as #gallery-error does. */
+#swap-error[hidden] { display: block !important; visibility: hidden; }
+.swap-actions { display: flex; justify-content: space-between; gap: var(--sp-3); }
+
+@media (max-width: 560px) {
+  .swap-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .swap-arrow { display: none; }
+  .swap-row .swap-replace { grid-column: 1; }
+  .swap-row .swap-remove { grid-row: 1 / span 2; grid-column: 2; }
+}
