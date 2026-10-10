@@ -285,7 +285,10 @@
    a prompt, and with it open the earlier results had gone from the screen
    with the gallery's first row. In the viewer's row, which the chips' row
    comes before when there are chips, across all three columns, as in the
-   dock's own rules. */
+   dock's own rules. It is in the page's flow, level with the viewer, so,
+   like the long-run strip, it keeps the browser's chaining (no
+   `overscroll-behavior: contain`): contained, a wheel over it with nothing
+   to scroll moved nothing at all. */
 .recent { display: none; }
 @media (min-width: 2000px) {
   .stage:not(.beside):not(:has(> #tag-validation-wide > #prompt-analysis:not([hidden]))):has(> #recent:not([hidden])) {
@@ -303,7 +306,7 @@
   .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > #recent:not([hidden]) {
     grid-column: 2;
     display: flex; flex-direction: column; gap: var(--sp-2);
-    contain: size; align-self: stretch; overflow-y: auto; overscroll-behavior: contain;
+    contain: size; align-self: stretch; overflow-y: auto;
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3);
   }
   .stage.recent-docked:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) {

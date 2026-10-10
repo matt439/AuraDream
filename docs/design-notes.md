@@ -5005,6 +5005,13 @@ gesture to the box it began in, so a flick that runs the strip to its end
 does not carry on into the page; the next one does. The strip scrolls only
 vertically; no wheel is translated sideways.
 
+`#recent`, the earlier results docked beside a single image from 2000 px,
+had kept `contain` as a column that scrolls on its own, and swallowed the
+wheel the same way: at QHD, after four Generates, it had nothing to scroll
+(951 px of content in 951) and a wheel over it moved neither it nor the
+page. It sits in the page's flow level with the viewer, as the strip does,
+so it chains as well.
+
 ## The gallery beside the viewer
 
 **An opt-in second column, from 2000 px** (2026-10-05). Stacked under the

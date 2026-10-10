@@ -2475,7 +2475,8 @@ Frontend and CLI:
   it again (`forgetImages` → `noteViewer`). `#recent` (from 2000 px, single
   tier, in the viewer's row only - with Gallery beside, a row of its own
   under the viewer's note, check open or not, 88 px thumbnails beside its
-  heading) shows up to six `sessionRecords` and opens the
+  heading) shows up to six `sessionRecords` - its own scroll never
+  `overscroll-behavior: contain`, as the strip's - and opens the
   lightbox on [current, ...sessionRecords]; with the check docked, `fitRecent`
   keeps it between the image and the check in the width the image - or the
   row under it, where that is wider - leaves at its own size
@@ -3895,7 +3896,8 @@ note under it, "#N · W×H · seed N · Use seed", with the gallery head
 unmoved as a single image lands at 1400, and hidden at QHD; at 2560x1305 the
 column with Delete in words and
 the row under the picture empty at `--h-tool`; the live preview
-keeping the result's box; `#recent` level with the viewer, and staying
+keeping the result's box; `#recent` level with the viewer, the wheel over
+it with nothing to scroll scrolling the page, and staying
 beside it with the check docked while the image and the gallery head stay
 put, the column's actions and `.result-brief` then the row under the
 picture; the fit at 2048@1.25; the lightbox walk from the single image; a batch
