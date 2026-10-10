@@ -18,7 +18,7 @@ import zlib
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import NamedTuple
 
@@ -728,7 +728,9 @@ def export_bundle(expected: int, password: str | None = None, progress: Progress
         files = _inventory()
         directory = _directory()
         directory.mkdir(parents=True, exist_ok=True)
-        name = f"local-diffusion-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
+        # The name is for the person saving it, on their own machine: local
+        # wall-clock time. Nothing reads a time back out of the name.
+        name = f"local-diffusion-{datetime.now().astimezone():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
         name += bundle_crypto.SUFFIX if password else ".zip"
         final = bundle_path(name)
         partial = final.with_name(final.name + ".part")

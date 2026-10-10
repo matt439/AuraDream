@@ -3256,6 +3256,13 @@ as bytes. A second source inventory and hash pass catches
 files changed outside the app before cleanup. A published bundle is retained
 even if cleanup cannot finish, and the result names the files that remain.
 
+The server names the bundle `local-diffusion-YYYYMMDD-HHMMSS-<8 hex>` from its
+own local wall clock (`datetime.now().astimezone()`), since it runs on the
+user's machine; the name once used UTC and read hours off. Nothing parses a
+time back out of the name: rows keep their own `created_at`, and the list's
+newest-first order by name can misplace a bundle only across a clock change
+or against older UTC-named files.
+
 Deletion can fail on Windows when another program holds an image open. Rows
 for retained PNGs survive; successful deletions retire their job and browser
 records. The cleared database is replaced with a compact copy that preserves

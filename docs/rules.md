@@ -3069,7 +3069,8 @@ declined member that vanished, and a failed parallel metadata rewrite.
 opening only its own header; `test_api_bundles.py` an upload in many batches.
 
 `smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog,
-all-model scope, typed confirmation, preserved favourites and metadata,
+all-model scope, typed confirmation, a bundle name stamped in local time,
+preserved favourites and metadata,
 saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal,
 password export (mismatch refused, fields cleared, Protected tag), wrong
 password refused before upload (the unlock field kept), protected import

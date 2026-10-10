@@ -31,6 +31,7 @@
   {"expect": "els.bundleStatus.textContent.includes('Saved and verified 4 images and 4 gallery records') && els.bundleStatus.textContent.includes('gallery is empty') && els.bundleDirectory.textContent.includes('Saved on the server:') && els.bundleRetained.hidden"},
   {"eval": "(async () => { window.__bundleName = bundleStatus.result.name; window.__bundleBlob = await (await fetch(els.bundleDownload.href)).blob(); window.__bundleMagic = [...new Uint8Array(await __bundleBlob.slice(0, 4).arrayBuffer())]; })()"},
   {"expect": "__bundleBlob.size > 1000 && __bundleMagic.join() === '80,75,3,4' && els.bundleCountLabel.textContent.startsWith('Type 0')"},
+  {"expect": "(() => { const m = /^local-diffusion-(\\d{4})(\\d{2})(\\d{2})-(\\d{2})(\\d{2})(\\d{2})-[0-9a-f]{8}\\.zip$/.exec(__bundleName); if (!m) return false; const stamp = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]); return Math.abs(Date.now() - stamp.getTime()) < 10 * 60 * 1000; })()"},
   {"key": "Escape"},
   {"eval": "(async () => { els.search.value = ''; els.favOnly.checked = false; els.allModels.checked = true; await resetGallery(); await startJob('/api/generate', {prompt: 'bundle smoke image kept during merge', width: 256, height: 256, steps: 1, seed: 801}); window.__keptBundleImage = viewerRecords[0]; await setFavorite(__keptBundleImage, true); })()"},
   {"expect": "__until(() => __keptBundleImage.id > __bundleMax && total === 1)"},

@@ -643,6 +643,25 @@ def test_threads_waiting_on_another_process_share_one_deadline(store):
         child.wait(timeout=15)
 
 
+def test_bundle_names_carry_the_local_wall_clock_time(store, monkeypatch):
+    # A clock whose local time and UTC differ by hours: a name stamped from
+    # UTC reads 1506, the local one 0506.
+    import datetime as real
+
+    class Clock(real.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return real.datetime(2026, 3, 4, 5, 6, 7)
+            return real.datetime(2026, 3, 4, 15, 6, 7, tzinfo=real.timezone.utc).astimezone(tz)
+
+    monkeypatch.setattr(bundles, "datetime", Clock)
+    _save("named", 1)
+    name = bundles.export_bundle(expected=1)["name"]
+    assert name.startswith("local-diffusion-20260304-050607-") and name.endswith(".zip")
+    assert len(name) == len("local-diffusion-20260304-050607-") + 8 + len(".zip")
+
+
 @pytest.mark.parametrize("name",["../outside.zip", "..\\outside.zip", "/outside.zip", "C:/outside.zip"])
 def test_download_names_cannot_escape_the_bundle_directory(store, name):
     with pytest.raises(bundles.BundleError):
