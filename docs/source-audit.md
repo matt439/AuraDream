@@ -43,9 +43,14 @@ the shared selection resolver in `main.py`, and the record-to-cell helper
 after `tag-swap.js`) and `styles/refine-batch.css` (linked after
 `swap.css`) own Mass refine - the footer's Refine… and its dialog; what
 each image becomes is the server's, `backend/refine_batch.py` and its
-routes in `main.py`, through the same resolver and helper. The selection
-target and scope line both actions word alike are `gallery-select.js`'s
-`galleryActionTarget` and `galleryActionScopeLine`.
+routes in `main.py`, through the same resolver and helper. `more-seeds.js`
+(loaded after `refine-batch.js`) and `styles/more-seeds.css` (linked after
+`refine-batch.css`) own More seeds - the footer's More seeds… and its
+dialog; the batches, their seeds and Batch are the server's,
+`backend/more_seeds.py` and its routes in `main.py`, through the same
+resolver and helper. The selection target and scope line the three actions
+word alike are `gallery-select.js`'s `galleryActionTarget` and
+`galleryActionScopeLine`.
 
 `critic.py` is now 311 lines, with no critic module above 983. The stylesheet
 is eight files, at most 532 lines each. The largest JavaScript file is now the

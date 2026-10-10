@@ -107,6 +107,11 @@ const els = {
   refineBatchForeignLabel: $('refine-batch-foreign-label'), refineBatchCount: $('refine-batch-count'),
   refineBatchResults: $('refine-batch-results'), refineBatchError: $('refine-batch-error'),
   refineBatchCancel: $('refine-batch-cancel'), refineBatchRun: $('refine-batch-run'),
+  moreSeeds: $('btn-more-seeds'), moreSeedsDialog: $('more-seeds-dialog'),
+  moreSeedsTitle: $('more-seeds-title'), moreSeedsScope: $('more-seeds-scope'),
+  moreSeedsCount: $('more-seeds-count'), moreSeedsLine: $('more-seeds-line'),
+  moreSeedsResults: $('more-seeds-results'), moreSeedsError: $('more-seeds-error'),
+  moreSeedsCancel: $('more-seeds-cancel'), moreSeedsRun: $('more-seeds-run'),
   bundles: $('btn-bundles'), bundlesDialog: $('bundles-dialog'), bundlesClose: $('bundles-close'),
   bundleRefresh: $('bundle-refresh'), bundlePreview: $('bundle-preview'), bundleCount: $('bundle-count'),
   bundleCountLabel: $('bundle-count-label'), bundleExport: $('bundle-export'), bundleFile: $('bundle-file'),
@@ -513,7 +518,7 @@ async function api(path, options) {
     throw Object.assign(new Error(readableDetail(detail)), { status: res.status });
   }
   const body = res.status === 204 ? null : await res.json();
-  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$)/.test(path.split('?')[0]);
+  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$)/.test(path.split('?')[0]);
   if (advisory && revision !== null && revision !== modelRevision) {
     throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
   }

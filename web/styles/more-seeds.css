@@ -1,0 +1,68 @@
+/* More seeds (more-seeds.js): its dialog; the button is a footer one (gallery.css).
+   Laid out as Mass refine's (refine-batch.css): the results list has a fixed
+   height and scrolls inside the dialog, and the count and error lines keep
+   their height while empty, so a check that lists more or fewer batches, or
+   a refusal, never moves Queue or Cancel under the pointer. */
+.ms-dialog {
+  width: min(720px, calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - 2 * var(--sp-4));
+  margin-top: var(--sp-4); margin-bottom: auto;
+  padding: var(--gutter); overflow-y: auto;
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--panel); color: var(--text); box-shadow: var(--shadow-pop);
+}
+.ms-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.ms-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ms-dialog[open] > * { flex-shrink: 0; }
+.ms-dialog p { margin: 0; }
+.ms-head { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ms-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
+#more-seeds-scope { color: var(--text-readout); font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+
+/* The count: a label over its box, as Mass refine's Strength. */
+.ms-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-3) var(--sp-4); }
+.ms-controls .field { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; }
+.ms-controls .field > i { font-style: normal; color: var(--text-3); font-size: var(--fs-label); }
+.ms-count input { width: 7em; }
+
+.ms-hint { color: var(--text-3); font-size: var(--fs-label); }
+/* Two lines, always; what does not fit is in its title. */
+.ms-count-line {
+  height: calc(2 * var(--fs-body-sm) * var(--lh)); overflow: hidden;
+  color: var(--text-readout); font-size: var(--fs-body-sm); font-variant-numeric: tabular-nums;
+}
+.ms-count-line.failed { color: var(--danger); }
+
+.ms-results {
+  list-style: none; margin: 0; padding: 0;
+  height: min(34vh, 300px); overflow-y: auto;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
+}
+.ms-result {
+  display: flex; gap: var(--sp-3); align-items: flex-start;
+  padding: var(--sp-2); border-bottom: 1px solid var(--line);
+}
+.ms-result:last-child { border-bottom: 0; }
+.ms-result > img, .ms-thumb-gone {
+  flex: none; width: 48px; height: 48px; object-fit: contain;
+  border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--bg);
+}
+.ms-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-body-sm); }
+.ms-line { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ms-chip {
+  display: inline-block; padding: 0 var(--sp-1); border: 1px solid var(--line-strong);
+  border-radius: var(--r-xs); font-size: var(--fs-label); color: var(--text-3);
+}
+.ms-result[data-status="queued"] .ms-chip { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+/* The prompt on one line: the row is a batch, and its title has it whole. */
+.ms-prompt { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ms-detail { color: var(--text-3); overflow-wrap: anywhere; }
+.ms-notes { color: var(--text-3); font-size: var(--fs-label); }
+
+#more-seeds-error {
+  min-height: calc(var(--fs-body-sm) * var(--lh)); margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* showError hides an empty slot; this one keeps its line, as #swap-error does. */
+#more-seeds-error[hidden] { display: block !important; visibility: hidden; }
+.ms-actions { display: flex; justify-content: space-between; gap: var(--sp-3); }

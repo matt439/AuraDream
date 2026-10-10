@@ -10,9 +10,9 @@
   {"eval": "resetGallery()"},
   {"expect": "__until(() => total === 7 && galleryRecords.length === 7)"},
 
-  {"log": "'Swap tags sits in the footer row between Select and Refine (then Bundles), held with its reason while nothing is picked and no filter narrows the gallery; a press says it'"},
+  {"log": "'Swap tags sits in the footer row between Select and Refine (then More seeds and Bundles), held with its reason while nothing is picked and no filter narrows the gallery; a press says it'"},
   {"eval": "scrollTo(0, 0); window.__swapAt = JSON.stringify(els.swap.getBoundingClientRect()); window.__footH = els.swap.parentElement.getBoundingClientRect().height; window.__gridTop = els.gallery.getBoundingClientRect().top;"},
-  {"expect": "els.swap.previousElementSibling === els.select && els.swap.nextElementSibling === els.refineBatch && els.refineBatch.nextElementSibling === els.bundles && !els.swap.hidden && els.swap.getAttribute('aria-disabled') === 'true' && els.swap.title.startsWith('Pick cards with Select, or narrow the gallery')"},
+  {"expect": "els.swap.previousElementSibling === els.select && els.swap.nextElementSibling === els.refineBatch && els.refineBatch.nextElementSibling === els.moreSeeds && els.moreSeeds.nextElementSibling === els.bundles && !els.swap.hidden && els.swap.getAttribute('aria-disabled') === 'true' && els.swap.title.startsWith('Pick cards with Select, or narrow the gallery')"},
   {"click": "#btn-swap"},
   {"expect": "!els.swapDialog.open && els.galleryError.textContent === els.swap.title"},
   {"expect": "Math.abs(els.swap.getBoundingClientRect().height - els.bundles.getBoundingClientRect().height) < 1"},

@@ -124,6 +124,8 @@ before changing it.
   negative prompt (pure; the routes are `main.py`'s)
 - `backend/refine_batch.py` — Mass refine's plan of one record: the pass
   it becomes or why not (pure; the routes are `main.py`'s)
+- `backend/more_seeds.py` — More seeds' batches of a selection, each one's
+  next seeds, Batch and cells (pure; the routes are `main.py`'s)
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
@@ -147,7 +149,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 34 classic
+- `web/` — served as-is from `/static`; `index.html` loads 35 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -164,8 +166,8 @@ before changing it.
   picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog and background-operation polling;
   `gallery-select.js` the picked cards, `gallery-batch.js` a card's batch
-  on hover, `tag-swap.js` Swap tags and
-  `refine-batch.js` Mass refine. The stylesheet is
+  on hover, `tag-swap.js` Swap tags,
+  `refine-batch.js` Mass refine and `more-seeds.js` More seeds. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
   `style.css`); preserve that cascade. See `docs/source-audit.md`
@@ -627,8 +629,9 @@ Reproduction:
   source and strength - a strength only beside a source - seed, variables)
   is one list. Any other `GenerateRequest` field is named through
   `**changes` (validated with the rest; a name that is no field is a
-  TypeError) and the cell's caption through `label`. Re-render, Swap tags
-  and Mass refine use it. Their
+  TypeError; a `seed` there is the cell's base seed as well as the
+  request's) and the cell's caption through `label`. Re-render, Swap tags,
+  Mass refine and More seeds use it. Their
   images are `main._resolve_selection`'s: with `ids` (the picked cards),
   exactly those, oldest first, and the ids gone reported per image, never a
   refusal; without, the gallery's filter (search, Starred, `_model_scope`),
@@ -636,13 +639,19 @@ Reproduction:
   another checkpoint's records is the caller's (Re-render refuses the
   selection, `_foreign_refusal`; Swap tags reports each image `foreign`;
   Mass refine reports it `foreign` unless `include_foreign`, then
-  substitutes the running profile).
+  substitutes the running profile; More seeds reports each batch
+  `foreign`).
   `_unusable_input` is `_refuse_unusable_inputs`' finding without the
   refusal, (kind, why), for a per-image status.
 - The reproduction set - prompt pair, size, steps, CFG, true CFG, mu, seed,
   checkpoint, quantization, references, LoRA and weight, refine source and
   strength, variables, hash - is on the row and in the PNG's
-  `local-diffusion` chunk. `CellKey` holds the prompt pair, steps, CFG, mu,
+  `local-diffusion` chunk. So is `batch`, the image count of the call that
+  made the image (`cell.request.num_images`, from `jobs._save` and the CLI;
+  NULL on older rows), which is no part of it - one generator per image -
+  but what More seeds runs a batch's next images at; a reindex, a merge
+  and a bundle carry it, and a chunk's value that is no positive integer
+  is read as NULL (`storage._batch`). `CellKey` holds the prompt pair, steps, CFG, mu,
   true CFG, references, LoRA and weight, refine source and strength, and the
   seed; size, checkpoint and quantization scope the resume lookup
   (`storage.completed_cells`) and, with the batch, `run_id`'s definition;
@@ -2908,19 +2917,24 @@ Frontend and CLI:
   `card()` and calls `keepCurrentCard()` (or `prependFinished`'s tab-stop
   rule) afterwards.
 - A card's batch (`gallery-batch.js`) is presentation over records the
-  server already made: the images of the same `job_id` that agree with the
-  card on everything but the seed (`sameExcept(r, rec, ['seed'])`), so a
-  Batch x Repeat is one set and a grid's other cells are not. The mouse only
-  (`pointerType`), after `PEEK_DELAY`; one `job:=<id>` gallery page per job,
+  server already made: the images of the same `run_id` (`job_id` for a
+  record with none, `peekRun`) that agree with the card on everything but
+  the seed (`sameExcept(r, rec, ['seed'])`), so a Batch x Repeat, a resumed
+  grid's cell and the More seeds that extended it (which join its run) are
+  one set and a grid's other cells are not - the set More seeds takes as one
+  batch. The mouse only
+  (`pointerType`), after `PEEK_DELAY`; one `run:=<id>` (else `job:=<id>`)
+  gallery page per run,
   in the record's checkpoint scope, kept `PEEK_FRESH_MS`, and a failure falls
   back to what the page holds. The panel (`#batch-peek`) is `position: fixed`,
   `pointer-events: none` and `aria-hidden` (the cards it repeats are the
   page's own), placed under or over the card, never across it, and taken
   down by any scroll, a press, or cards added or removed moving the hovered
   one (a `childList` observer on `#gallery`); the gallery's own cards of the set get `.batch-mate`,
-  an outline, so nothing moves. A card alone in its job shows nothing.
+  an outline, so nothing moves. A card alone in its run shows nothing.
 - The gallery's selection (`gallery-select.js`) is the one set of picked
-  images that actions on several images read (Swap tags, Mass refine):
+  images that actions on several images read (Swap tags, Mass refine, More
+  seeds):
   `selectedIds()` (in the order picked), `selectedRecords()`, `isSelected`,
   `onSelectionChange(fn)` (called with the ids after every change, every
   toggle of Select, every page that lands and a page that fails) and
@@ -3116,6 +3130,73 @@ Frontend and CLI:
   reason and checks again. ↑/↓ step Strength by 0.05, 0.01 with Shift. The
   results list has a fixed height and scrolls, the count keeps two lines
   and `#refine-batch-error` one, so nothing below moves.
+- More seeds (`POST /api/more-seeds/preview`, `POST /api/more-seeds`,
+  `more_seeds.py`, `more-seeds.js`, `styles/more-seeds.css`) is the sixth
+  producer of cells: `count` more images of each batch the selection
+  holds. A batch is `more_seeds.batch_key`: the lineage (`run_id`, else
+  `job_id`, else the image alone), checkpoint, quantization, size and the
+  resume key's elements but the seed (`settings_key`, as
+  `completed_cells` reads a row) - the card hover's set - so picked images
+  of one batch are one batch, in the order of their oldest. Per batch, in
+  the resolver's order: `foreign` (another checkpoint's), else
+  `more_seeds.plan` over every image the gallery holds of its lineage
+  (`storage.lineage_images`, picked or not): the Batch is the largest
+  `batch` recorded on them (a call that ends a batch holds fewer), else the
+  request's `batch` (the panel's), noted, and held to `max_batch_pixels` at
+  its size (`fitting`; a refine pass is not), noted; the seeds are
+  `next_seeds` from one past its highest, stepping over every key the
+  gallery holds at its size (`completed_cells`) or a live job will write
+  (`jobs.planned_keys()`) as `applied()` runs them, the chosen ones added so
+  a later batch of the same settings steps past them too; consecutive seeds
+  are one cell of up to the Batch (`calls`), each `grid.cell_from_record`
+  of its newest picked image with `seed` and `num_images` named and a
+  `seeds a–b` label, `invalid` where that or `check_budget`/
+  `check_refine_steps` refuses. The route then adds `source_deleted` and
+  `lora_missing` (`_unusable_input` once per spec), a note where the batch
+  was made under another quantizer, and `deleted` (an id gone); nothing is
+  ever `rendered`. Past `max_grid_images` images in all (batches ×
+  `count`) is a 422 for the whole, by count. The preview lists the first
+  `MORE_SEEDS_PREVIEW_ROWS` (200) by id - each batch's newest picked image,
+  its picked `ids`, the prompt (300 characters), the images and seed range
+  it holds, `first`/`last` new seed, `skipped`, `batch` and `recorded` -
+  counts all, and answers the resolved `ids`, `queued` (images),
+  `batches`, `jobs`, `unrecorded` and `seconds` (per size from
+  `step_cost_ms`/`refine_cost_ms`, None with `unpriced_sizes` where any
+  size has none); it has no side effects, is not model-dependent and is
+  advisory in `api`. The queueing route is model-dependent, refuses 409
+  when `expected` is not the ids resolved now, 422 naming every count when
+  no batch is queued, and submits one job per lineage and size
+  (`_more_seeds_jobs`; `jobs.submit_cells(..., run_id=<the batch's run>,
+  more_seeds=count)`), so the images join the run they extend and every
+  job keeps one size; a batch with no run id gets a run of its own. The
+  snapshot's `more_seeds` names the job ("more seeds · <first prompt>",
+  `describeJob`); the Cancel title is "Stop these more seeds"; the finish
+  line gives the seed span (min–max) as a plain job's does, without Use
+  seed, and a split job's says "Job k of n of these more seeds, at WxH".
+  The button is `#btn-more-seeds` ("More seeds…"), in the footer row
+  after Refine… and before Bundles…, always shown, held with
+  `galleryActionTarget`'s reason; synced from `syncRerender` and
+  `onSelectionChange` (`syncMoreSeedsButton`), a held press said in
+  `#gallery-error`. The dialog opens on the first answer, the count at the
+  last one queued (`MORE_SEEDS_KEY`) else 4, focused and selected; it is a
+  text box, refused on the page unless a whole number 1 to `sheetPage`
+  (`msCountProblem`), ↑/↓ stepping it by one. Checks run 250 ms after an
+  edit (at once from `forgetImages` when a listed id went:
+  `forgetMoreSeedsImages`, and, on a filter scope, when the gallery's
+  `total` changes under it: `moreSeedsGalleryChanged`), aborting one still
+  out; the scope line ("From …") counts the answer's `ids`. Queue is
+  aria-disabled with `submitHold()` (re-synced from `syncSubmitButtons`),
+  the count's refusal, "Checking the batches…", the server's refusal,
+  "The checkpoint changed…" or "No batch can have more seeds here; each
+  one says why"; a press (Queue, Enter in the box, Ctrl+Enter) waits for
+  the check of what the dialog says, then says a hold in
+  `#more-seeds-error`, marking the box where it is about the count. While
+  the POST is out Queue reads "Sending…" and Escape, Cancel and the
+  backdrop wait (`msSending`); accepted, the dialog closes and the count is
+  remembered; refused, it stays open with the reason and checks again. The
+  results list has a fixed height and scrolls, the count line keeps two
+  lines and `#more-seeds-error` one, so nothing below moves; Queue is
+  right-aligned, its right edge fixed.
 - The sheet's layout contract - axes, prompt labels, pins, variables - lives in
   the client, and the export is client-side, not a route. Export PNG draws
   the slice on screen. Export all, shown only where something is pinned,
@@ -3295,8 +3376,8 @@ Frontend and CLI:
   flags from `launch.add_model_arguments`.
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender` and
-  `POST /api/swap-tags[/preview]` and `POST /api/refine/batch[/preview]`
-  without `ids` scope to
+  `POST /api/swap-tags[/preview]`, `POST /api/refine/batch[/preview]` and
+  `POST /api/more-seeds[/preview]` without `ids` scope to
   `current_model_id(settings)` (`main._model_scope`, an exact predicate, never the
   `model:` LIKE) unless `all_models=true`; `GET /api/gallery?model=<id>` is the
   same exact scope for any id, in place of both, and `model:=<id>` in the
@@ -3507,7 +3588,15 @@ Include other checkpoints, the whole refusal without a pass, a live
 capability drop failing the job before any image, a source deleted mid-run
 failing its own cell only, `expected`, `pruned`, the filter scope, the
 start-sigma range and its cap, the per-size price, and the revision
-header). What holds the
+header). More seeds is `tests/test_more_seeds.py` (batches by run, job or
+image, the Batch as the largest recorded, the budget's cap, seeds stepping
+over and wrapping, calls of consecutive seeds) and
+`tests/test_api_more_seeds.py` (a picked image taking its whole batch, two
+of one batch as one, the batch's own Batch and run, a second press past
+the first, seeds the gallery or a live job holds stepped over, the panel's
+Batch for an unrecorded batch and the budget's cap, a grid's cells as
+batches of one job, one job per run, every per-batch status, `expected`,
+the whole refusals, the filter scope, and `batch` through a reindex). What holds the
 card, and whose expansion it is, is
 `tests/test_jobs.py::test_the_card_names_its_holder_and_an_editor_actions_ticket`
 and, through the status,
@@ -4477,7 +4566,8 @@ with the hovered one marked and the other five cards outlined; the panel
 off its card, taking no press, `aria-hidden`, and no card moving; a steps
 grid's cell at Batch 2 a set of two; a single image showing nothing; a press,
 a card prepended ahead of the hovered one, and the pointer leaving each
-taking it down:
+taking it down (a batch More seeds extended, one set across its jobs, is
+`smoke-more-seeds.json`'s):
 
 ```powershell
 uv run python tools/fake_server.py --port 7892 --data <new-scratch-directory>
@@ -4486,7 +4576,7 @@ node tools/browser.mjs tools/smoke-batch-peek.json
 
 `smoke-select.json` checks the gallery selection on a default fake on 7898
 with a fresh `--data` (it builds a 60-image grid): Select in the footer row
-before Swap tags…, Refine… and Bundles…, at Bundles…'s height; a click opening the lightbox out of
+before Swap tags…, Refine…, More seeds… and Bundles…, at Bundles…'s height; a click opening the lightbox out of
 select mode; Select pressed with neither it nor the grid moving as the count
 appears; a click, Space, Shift+click and Shift+Space (a range from the anchor
 out, backwards too) picking, a second click unpicking, the image's
@@ -4512,7 +4602,7 @@ node tools/browser.mjs tools/smoke-select.json
 
 `smoke-swap.json` checks Swap tags on an Animagine XL 4.0 fake on 7900 with a
 fresh `--data` (a `{hair}` grid at 832x1216 and one 1024x1024 image): the
-button between Select and Refine… (then Bundles…) at their height, held with its reason
+button between Select and Refine… (then More seeds… and Bundles…) at their height, held with its reason
 and saying it, titled by a search and then by picked cards, not moving as
 cards are picked; the dialog's scope line, focus, both fields, Queue held
 ("Add a tag to find", "Checking the swaps…" while typing) and saying it;
@@ -4539,7 +4629,7 @@ node tools/browser.mjs tools/smoke-swap.json
 
 `smoke-refine-batch.json` checks Mass refine on a FLUX.1 Krea [dev] fake on
 7901 with a fresh `--data` (four images, three starred, and the fake's two
-of another checkpoint): Refine… after Swap tags… and before Bundles… at
+of another checkpoint): Refine… after Swap tags… and before More seeds… at
 their height, held with its reason and saying it, then titled by Starred,
 nothing in the footer or the grid moving; the dialog opening on the
 server's answer - its title's count, the scope line, Strength focused and
@@ -4567,6 +4657,32 @@ picker; the page never scrolled:
 ```powershell
 uv run python tools/fake_server.py --port 7901 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-refine-batch.json
+```
+
+`smoke-more-seeds.json` checks More seeds on a FLUX.1 Krea [dev] fake on
+7902 with a fresh `--data` (a Batch 2 x Repeat 2 at seed 100, a single
+256x384 image at seed 7, a single one at seed 50): More seeds… after
+Refine… and before Bundles… at their height, held with its reason and
+saying it, titled by a search and then by picked cards, the footer and the
+grid unmoved once the search is cleared; the dialog opening on the
+server's answer - "8 more images", the scope line, the count at 4 focused
+and selected, one picked image of the four taking all four ("4 images,
+seeds 100–103 → seeds 104–107 · Batch 2") beside the single one, the
+count line, Queue's label and title; a count of 0 refused on the page, a
+press saying it and marking the box, Queue's right edge, Cancel and the
+list unmoved; "Checking the batches…" while typing, ↑ and ↓ stepping it;
+Ctrl+Enter queueing one job per run, the Now line "more seeds · …",
+Cancel's "Stop these more seeds", the last finish line "seeds 8–10. Job 2
+of 2 of these more seeds, at 256×384."; the new images in the run they
+extend, each recording its call's Batch (2, 2, then 1); the four's hover
+one set of seven, seeds 100–106; asked again from an image of the
+extension, the seven carried on at Batch 2 (seeds 107–109); the single
+image deleted while listed shown as deleted, the count line and Queue
+saying what is left; Escape closing it with focus on More seeds…:
+
+```powershell
+uv run python tools/fake_server.py --port 7902 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-more-seeds.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

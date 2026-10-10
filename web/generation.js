@@ -63,6 +63,7 @@ function setBusy(on) {
   els.gridRun.textContent = on ? 'Run grid (queue)' : 'Run grid';
   els.refineRun.textContent = on ? 'Refine (queue)' : 'Refine';
   syncRefineBatchRun();
+  syncMoreSeedsRun();
   els.progress.hidden = !on;
   els.cancel.setAttribute('aria-disabled', String(!on));
   els.cancel.textContent = 'Cancel';
@@ -117,9 +118,11 @@ function setBusy(on) {
 // finished - and a re-render's cells are its records', with no one prompt to
 // name. A swap's are its records' too, and it is named by its rows; a
 // batch refine's are passes of as many images, named by the scale and the
-// strength they share.
+// strength they share; more seeds' continue batches, named by the first
+// one's prompt.
 function describeJob(job, length = 60, { markup = false } = {}) {
   const what = job.refine_batch != null ? `refine ×${job.refine_batch} at strength ${job.strength}`
+    : job.more_seeds != null ? `more seeds · ${snippet(job.prompt ?? '', length, { markup })}`
     : job.refine != null ? `refine of #${job.refine}`
     : !job.grid ? snippet(job.prompt ?? '', length, { markup })
     : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length, { markup })}`
@@ -168,6 +171,9 @@ function submissionLabel(path, payload) {
   }
   if (path === '/api/refine/batch') {
     return describeJob({ grid: true, refine_batch: payload.scale, strength: payload.strength ?? refineDefaultStrength() });
+  }
+  if (path === '/api/more-seeds') {
+    return `${plural(payload.count, 'more image')} of each batch in the gallery's selection`;
   }
   const grid = path === '/api/grid';
   return describeJob({
@@ -379,6 +385,7 @@ function syncSubmitButtons() {
   // the comparison's Run as Generate does.
   syncRefineRun();
   syncRefineBatchRun();
+  syncMoreSeedsRun();
   syncCompareRun();
   syncModelSwitch();
 }
@@ -945,6 +952,7 @@ function syncNow(job) {
   els.progressNow.textContent = what ? `${lead} ${what}` : '';
   els.progressNow.title = what ? `${lead} ${describeJob(job, 120, { markup: true })}` : '';
   const name = job.refine_batch != null ? 'this batch refine'
+    : job.more_seeds != null ? 'these more seeds'
     : job.refine != null ? `the refine of #${job.refine}`
     : job.grid ? (job.prompt_template != null ? 'this grid' : job.swap != null ? 'this swap' : 'this re-render')
     : `"${snippet(job.prompt ?? '', 40)}"`;
@@ -990,8 +998,9 @@ function syncRerender() {
     els.rerender.textContent =
       `Re-render ${total} at ${els.width.value}×${els.height.value}`;
   }
-  // Swap tags and Mass refine take the same filter where nothing is picked
-  // (tag-swap.js, refine-batch.js).
+  // Swap tags, Mass refine and More seeds take the same filter where nothing
+  // is picked (tag-swap.js, refine-batch.js, more-seeds.js).
   syncSwapButton();
   syncRefineBatchButton();
+  syncMoreSeedsButton();
 }

@@ -4155,6 +4155,87 @@ every image's status; mixed with images left out for a fixable reason
 (too big, a LoRA gone) the refusal is the 422 that counts them all, as the
 dialog's hold words it.
 
+## More seeds
+
+**"Do four more of these"** (2026-10-10): a Batch 4 that turned out well
+wanted four more like it, which meant Reuse, add 4 to the seed by hand,
+Generate - and the seed added wrong rendered an image the gallery already
+had, or skipped four. `POST /api/more-seeds` is the sixth producer of
+cells: N more images of each selected batch, its seeds following on, every
+other setting the batch's own.
+
+**A batch, not an image.** The unit is what a card's hover shows: one run's
+images that agree on everything but the seed. Picking one image of a
+Batch 4 takes all four, and picking two of them asks for one set more, not
+two - the user picks "a grouping", and the grouping is the batch whichever
+of its images was clicked. A selection over several batches (a grid's
+cells, a few separate Generates) gets N more of each. The key is the
+lineage (run, else job for a row from before run ids, else the image
+alone), the checkpoint, the quantizer, the size and the resume key's
+elements, read off the record as `completed_cells` reads a row, so no
+request has to be built to group a thousand records.
+
+**N counts images per batch** (the user's choice, 2026-10-10, over N more
+Repeats of the original): "4 more" is four images whatever the batch was
+made at. The alternative made "1 more" of a Batch 4 x Repeat 2 eight
+images, which is not what the number says.
+
+**Seeds after the batch's highest, never one already made.** Adjacent seeds
+are no more alike than random ones; following on is what keeps the batch
+readable as one range ("seeds 100–107") and what the user asked for. The
+start is the highest seed the gallery holds of the whole batch - picked or
+not, earlier extensions included, since they join its run - and every seed
+the gallery holds at the batch's settings and size, under any run, is
+stepped over: another run that used seed 104 by hand would otherwise be
+rendered twice. So are the keys the live jobs will write
+(`jobs.planned_keys()`): a second press while the first is still queued
+used to compute the same seeds and render the same four images again. The
+seeds one batch takes are added to what the next batch of the same settings
+steps over, for two runs of one prompt picked together. A deleted image's
+seed is not known and can come back if it was the batch's highest; one in
+the middle never can.
+
+**The batch's own Batch, recorded.** One generator per image makes the
+Batch irrelevant to the pixels but not to the card: the user's Batch 4 at
+1 MP is a choice about memory and speed that "keep batch settings from the
+original run" asked to keep. Rows never recorded it - a Batch 2 x Repeat 2
+and a Batch 4 are the same four rows - so `batch` is now a column and a
+chunk key, the image count of the call that made the image. Rows from
+before it run at the panel's Batch (the user's choice over Batch 1 or a
+guess from equal durations), said per batch; either is held to
+`max_batch_pixels` at the batch's size, said too. The batch's Batch is the
+largest recorded on its images, not the newest's: each image records its
+own call, and 3 more at Batch 2 is a call of two and a call of one, so the
+next press read Batch 1 off the image of the second call (smoke, before
+release). A run has one Batch - `run_id` hashes it - so the largest is it.
+
+**Joining the run** (the user's choice, over a run of its own). Each job is
+stamped with the run its batches extend, as a resumed grid's is, so the
+new images and the old are one set to the hover, the Runs picker, `run:`
+and Show sheet. The hover groups by run for it (by job before): a resumed
+grid's cell reads as one set now too. A run_id is a definition's hash, and
+an extension is not in the definition; nothing reads it as one - resume
+keys on settings and the Runs line counts what carries the id. One job per
+run and size, not per press: a job has one run id (and one size), and
+per-cell run ids would have needed `_save`, the snapshot and the finish
+line's Show sheet taught that a job spans runs. A press over ten separate
+single images is ten jobs, each named and each a part of the press's
+finish line ("Job 2 of 10 of these more seeds").
+
+**Another quantizer is said, not refused.** A batch made under fp8 extended
+under int8 is new seeds either way - new pictures - but its images were
+all made one way, so the row notes it. Another checkpoint's batch is
+refused, as Re-render refuses it: its steps, CFG and mu are another
+schedule's.
+
+**The button and the dialog** are Mass refine's shape: More seeds… after
+Refine… in the footer row, always there and held with the reason; the
+dialog opens on the first answer, its list and lines of fixed height, the
+count a text box refused in words on the page, Queue held until the
+answer is to what the box says, the ids pinned by `expected`. The count
+opens at the number last queued, else 4. Not "More…": in a row of
+buttons that reads as an overflow menu.
+
 ## Delete unstarred
 
 **The gallery's one bulk delete is the inverse of the card's.** A night

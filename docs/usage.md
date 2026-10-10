@@ -346,6 +346,22 @@ other checkpoints**: they take this checkpoint's steps, CFG and mu), too
 large at this scale, no step left at this strength, a missing file or
 LoRA, already refined. One job is queued per size.
 
+**More seeds…** (beside **Refine…**) makes more images of each batch the
+selection holds - or, with nothing selected, of each batch the filter
+matches. A batch is what hovering a card shows: the images of one run that
+differ only in their seed, so picking one image of a Batch 4 takes all
+four, and picking two of them still asks for one set more. Type how many
+more each batch gets (4 to start, then the number last queued). Each new
+image keeps the batch's prompt, size and settings, takes the next seed
+after the batch's highest - stepping over any seed already made or still
+queued at those settings - and runs at the Batch the batch was made with;
+images from before the Batch was recorded run at the panel's **Batch**,
+and a Batch too large for the size runs fewer at a time. The dialog lists
+each batch's seeds now and the seeds it will get, or why it gets none
+(another checkpoint's, a deleted refine source or LoRA). One job is
+queued per run, and the new images join it: the batch's hover, the
+**Runs** list and `run:` show them as one set.
+
 ### Keyboard and lightbox
 
 | Where | Keys |

@@ -96,19 +96,24 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
     // page showed short of the lightbox: Use seed keeps the composition for
     // the next prompt, and writes nothing else.
     const plain = !data.grid && data.refine == null && images.length;
-    const seeds = !plain ? ''
+    // More seeds' too, where the seeds they took are the news: a batch's
+    // run on from its highest, the same span for each batch of one run.
+    const seeded = plain || (data.more_seeds != null && images.length);
+    const span = images.map((image) => image.seed);
+    const seeds = !seeded ? ''
       : images.length === 1 ? `, seed ${images[0].seed}`
-      : `, seeds ${images[0].seed}–${images.at(-1).seed}`;
+      : `, seeds ${Math.min(...span)}–${Math.max(...span)}`;
     const took = humanTime(data.finished_at - data.started_at);
     if (foreign) {
       // Its seeds are another tab's to use; its images join the gallery.
       line.push(`${ANOTHER_TABS_JOB} finished: ${plural(made, 'image')}${deleted.replace(/,$/, '')}.`);
     } else {
-      // One of the jobs a press split by size (Swap tags, Mass refine): which one, since
-      // its count is that job's, not the press's.
+      // One of the jobs a press split by size (Swap tags, Mass refine) or by
+      // run (More seeds): which one, since its count is that job's, not the
+      // press's.
       const split = submitted?.split;
       const part = split && split.includes(jobId)
-        ? ` Job ${split.indexOf(jobId) + 1} of ${split.length} of this ${data.swap != null ? 'swap' : data.refine_batch != null ? 'batch refine' : 'submission'}${data.width && data.height ? `, at ${data.width}×${data.height}` : ''}.`
+        ? ` Job ${split.indexOf(jobId) + 1} of ${split.length} of ${data.swap != null ? 'this swap' : data.refine_batch != null ? 'this batch refine' : data.more_seeds != null ? 'these more seeds' : 'this submission'}${data.width && data.height ? `, at ${data.width}×${data.height}` : ''}.`
         : '';
       line.push(`Finished ${plural(made, 'image')}${deleted} in ${took}${seeds}.${part}${distinct}`);
       if (plain) {

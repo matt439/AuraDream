@@ -12,7 +12,7 @@
 
   {"log": "'Refine… sits in the footer row after Swap tags and before Bundles, at their height, held with its reason while nothing is picked and no filter narrows the gallery; a press says it'"},
   {"eval": "scrollTo(0, 0); window.__btnAt = JSON.stringify(els.refineBatch.getBoundingClientRect()); window.__footH = els.refineBatch.parentElement.getBoundingClientRect().height; window.__gridTop = els.gallery.getBoundingClientRect().top;"},
-  {"expect": "els.refineBatch.previousElementSibling === els.swap && els.refineBatch.nextElementSibling === els.bundles && els.refineBatch.textContent === 'Refine…' && els.refineBatch.getAttribute('aria-disabled') === 'true' && els.refineBatch.title === 'Pick cards with Select, or narrow the gallery with a search or Starred, to choose the images to refine'"},
+  {"expect": "els.refineBatch.previousElementSibling === els.swap && els.refineBatch.nextElementSibling === els.moreSeeds && els.refineBatch.textContent === 'Refine…' && els.refineBatch.getAttribute('aria-disabled') === 'true' && els.refineBatch.title === 'Pick cards with Select, or narrow the gallery with a search or Starred, to choose the images to refine'"},
   {"expect": "Math.abs(els.refineBatch.getBoundingClientRect().height - els.bundles.getBoundingClientRect().height) < 1 && els.refineBatch.getBoundingClientRect().right <= els.bundles.getBoundingClientRect().left"},
   {"click": "#btn-refine-batch"},
   {"expect": "!els.refineBatchDialog.open && els.galleryError.textContent === els.refineBatch.title"},

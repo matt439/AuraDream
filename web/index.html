@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="/static/styles/bundles.css">
 <link rel="stylesheet" href="/static/styles/swap.css">
 <link rel="stylesheet" href="/static/styles/refine-batch.css">
+<link rel="stylesheet" href="/static/styles/more-seeds.css">
 </head>
 <body>
 <header class="topbar">
@@ -804,6 +805,12 @@
                is nothing to act on or no refine pass on this checkpoint. -->
           <button type="button" class="ghost small foot-btn" id="btn-refine-batch" aria-haspopup="dialog"
             aria-disabled="true">Refine…</button>
+          <!-- More seeds (more-seeds.js): more images of each batch the
+               selection holds, else the filter's, its seeds following on.
+               Always here, after Refine…, held with its reason where there
+               is nothing to act on. -->
+          <button type="button" class="ghost small foot-btn" id="btn-more-seeds" aria-haspopup="dialog"
+            aria-disabled="true">More seeds…</button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
             title="Bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
         </div>
@@ -1180,6 +1187,37 @@
   </div>
 </dialog>
 
+<!-- More seeds (more-seeds.js): how many more of each batch, every batch
+     checked on the server as it changes and each outcome listed; Queue held
+     with its reason until the answer is to what the dialog says. -->
+<dialog class="ms-dialog" id="more-seeds-dialog" aria-labelledby="more-seeds-title"
+        aria-describedby="more-seeds-scope">
+  <header class="ms-head">
+    <h2 id="more-seeds-title">More seeds</h2>
+    <p id="more-seeds-scope"></p>
+  </header>
+  <div class="ms-controls">
+    <div class="field ms-count">
+      <i><label for="more-seeds-count">More of each batch</label></i>
+      <!-- Text, as Mass refine's boxes: a number box reports what it cannot
+           parse as blank, and the page refuses it in words instead. -->
+      <input type="text" id="more-seeds-count" autocomplete="off" inputmode="numeric"
+             title="How many more images each batch gets. ↑ and ↓ step it">
+    </div>
+  </div>
+  <p class="ms-hint">A batch is the images of one run that differ only in their seed; picking one of its images
+    takes all of it. Its new images keep its prompt, size and settings, take the seeds after its highest - any already
+    made are stepped over - and run at the Batch it was made with, or the panel's Batch where that was not recorded.
+    They join its run.</p>
+  <p class="ms-count-line" id="more-seeds-line" role="status"></p>
+  <ol class="ms-results" id="more-seeds-results" aria-label="What happens to each batch"></ol>
+  <p class="error one-line" id="more-seeds-error" role="alert"></p>
+  <div class="ms-actions">
+    <button type="button" class="ghost" id="more-seeds-cancel">Cancel</button>
+    <button type="button" class="primary" id="more-seeds-run" aria-disabled="true">Queue</button>
+  </div>
+</dialog>
+
 <!-- Classic scripts sharing one global scope; app.js, the last, is the
      only one that runs anything at load. Order matters: see state.js. -->
 <dialog class="bundles-dialog" id="bundles-dialog" aria-labelledby="bundles-title" aria-describedby="bundles-intro">
@@ -1270,6 +1308,7 @@
 <script src="/static/bundles.js"></script>
 <script src="/static/tag-swap.js"></script>
 <script src="/static/refine-batch.js"></script>
+<script src="/static/more-seeds.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

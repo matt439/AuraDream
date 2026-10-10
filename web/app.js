@@ -748,6 +748,8 @@ initBundles();
 setupSwap();
 // Mass refine in the same row, and its dialog (refine-batch.js).
 setupRefineBatch();
+// More seeds after it, and its dialog (more-seeds.js).
+setupMoreSeeds();
 // The picker then names the run on screen: resetGallery follows the search box.
 // Browsed from the keyboard, a run opens on Enter or as focus leaves (runs.js).
 els.runList.onchange = runListChange;
@@ -888,10 +890,10 @@ document.addEventListener('keydown', (e) => {
   // the native popup kept them from the page.
   if (modelListOpen()) return;
   // Not under a dialog: Escape there is the dialog's (Refine, Mass refine,
-  // Swap tags), the picker staying open under it.
+  // Swap tags, More seeds), the picker staying open under it.
   if (e.key === 'Escape' && !e.defaultPrevented && !els.modelPicker.hidden
       && !els.lightbox.open && !els.refineDialog.open
-      && !els.refineBatchDialog.open && !els.swapDialog.open) {
+      && !els.refineBatchDialog.open && !els.swapDialog.open && !els.moreSeedsDialog.open) {
     e.preventDefault();
     showModelPicker(false);
     return;
@@ -908,6 +910,7 @@ document.addEventListener('keydown', (e) => {
     if (els.refineDialog.open) void runRefine();
     else if (els.refineBatchDialog.open) void runRefineBatch();
     else if (els.swapDialog.open) queueSwap();
+    else if (els.moreSeedsDialog.open) void runMoreSeeds();
     else if (els.gridSection.open && e.target.closest?.('#grid-section')) els.gridRun.click();
     else generate();
     return;
@@ -928,7 +931,7 @@ document.addEventListener('keydown', (e) => {
   // composition, nor in a search box with text, which Escape empties.
   if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && !els.promptAnalysis.hidden
       && !els.lightbox.open && !els.refineDialog.open
-      && !els.refineBatchDialog.open && !els.swapDialog.open
+      && !els.refineBatchDialog.open && !els.swapDialog.open && !els.moreSeedsDialog.open
       && !(e.target.matches?.('input[type="search"]') && e.target.value)) {
     escapeAnalysis();
     return;

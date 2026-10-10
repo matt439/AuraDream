@@ -5,26 +5,28 @@
 // ------------------------------------------------------------ batch peek
 
 // A card held under the mouse for a moment shows the images made with it -
-// its batch: the same job, and the same settings but for the seed (`sameExcept`,
-// sheet.js, with Seed skipped), so a Batch 4 and its repeats are one set and a
-// grid's other cells are not. A small panel of their pictures, over the page
-// and never under the pointer's press (`pointer-events: none`), with the
-// gallery's own cards of the set outlined. Worked out in the page from the
-// records it holds and one gallery search per job (`job:=<id>`), as the
-// lightbox's CFG ladder is: the grouping is presentation, so no route of its
-// own. A card alone in its job shows nothing.
+// its batch: the same run (the job, for a record from before runs had ids),
+// and the same settings but for the seed (`sameExcept`, sheet.js, with Seed
+// skipped), so a Batch 4, its repeats and the More seeds that extended it
+// (which join its run) are one set and a grid's other cells are not. A small
+// panel of their pictures, over the page and never under the pointer's press
+// (`pointer-events: none`), with the gallery's own cards of the set outlined.
+// Worked out in the page from the records it holds and one gallery search per
+// run (`run:=<id>`, else `job:=<id>`), as the lightbox's CFG ladder is: the
+// grouping is presentation, so no route of its own. A card alone in its run
+// shows nothing.
 const PEEK_DELAY = 350;
 // One page of the job's images; past it the panel says more were made.
 const PEEK_LIMIT = 200;
 // The pictures the panel draws; past them a "+N more" in their place.
 const PEEK_SHOWN = 12;
-// How long a job's answer stands: a job still running lands more images, and
+// How long a run's answer stands: a job still running lands more images, and
 // a hover a while later should see them.
 const PEEK_FRESH_MS = 15000;
 
-// What the gallery holds of each job: { records, more, at }.
+// What the gallery holds of each run, by its search term: { records, more, at }.
 const peekJobs = new Map();
-// The job ids being asked for, so two hovers do not ask twice.
+// The runs being asked for, so two hovers do not ask twice.
 const peekFlights = new Map();
 let peekTimer;
 // The card the pointer is on, and the one the panel was drawn for.
@@ -34,34 +36,39 @@ let peekShown = null;
 // it (cards prepended or deleted) is told from one that does not.
 let peekAt = null;
 
+// What a record's batch belongs to, as the gallery search that finds it:
+// its run, else its job (a record from before runs had ids), else nothing.
+const peekRun = (rec) => (rec?.run_id ? `run:=${rec.run_id}` : rec?.job_id ? `job:=${rec.job_id}` : null);
+
 // The images of `rec`'s batch the page holds, `rec` among them, oldest first
 // (one generator per image, seeded `seed + i`, so by id is by seed too).
 function batchMates(rec) {
-  if (!rec?.job_id) return [];
-  const fetched = peekJobs.get(rec.job_id)?.records ?? [];
+  const run = peekRun(rec);
+  if (!run) return [];
+  const fetched = peekJobs.get(run)?.records ?? [];
   const seen = new Set();
   const mates = [];
   for (const r of [rec, ...galleryRecords, ...viewerRecords, ...sessionRecords, ...fetched]) {
     if (seen.has(r.id) || deletedIds.has(r.id)) continue;
     seen.add(r.id);
-    if (r.job_id === rec.job_id && sameExcept(r, rec, ['seed'])) mates.push(r);
+    if (peekRun(r) === run && sameExcept(r, rec, ['seed'])) mates.push(r);
   }
   return mates.sort((a, b) => a.id - b.id);
 }
 
-// The job's images from the gallery, in their checkpoint's exact scope. A
+// The run's images from the gallery, in their checkpoint's exact scope. A
 // failure leaves the set to what the page holds.
 async function fetchPeekJob(rec) {
-  const job = rec.job_id;
-  const held = peekJobs.get(job);
+  const run = peekRun(rec);
+  const held = peekJobs.get(run);
   if (held && Date.now() - held.at < PEEK_FRESH_MS) return;
-  if (peekFlights.has(job)) return peekFlights.get(job);
-  const params = new URLSearchParams({ limit: String(PEEK_LIMIT), model: rec.model_id, search: `job:=${job}` });
+  if (peekFlights.has(run)) return peekFlights.get(run);
+  const params = new URLSearchParams({ limit: String(PEEK_LIMIT), model: rec.model_id, search: run });
   const flight = api(`/api/gallery?${params}`)
-    .then((page) => peekJobs.set(job, { records: page.items, more: !!page.has_more, at: Date.now() }))
+    .then((page) => peekJobs.set(run, { records: page.items, more: !!page.has_more, at: Date.now() }))
     .catch(() => {})
-    .finally(() => peekFlights.delete(job));
-  peekFlights.set(job, flight);
+    .finally(() => peekFlights.delete(run));
+  peekFlights.set(run, flight);
   return flight;
 }
 
@@ -76,7 +83,7 @@ function batchPeekOver(e) {
   hideBatchPeek();
   if (!cardEl || cardEl.classList.contains('gone') || sheetMode) return;
   const rec = peekRecord(cardEl);
-  if (!rec?.job_id) return;
+  if (!peekRun(rec)) return;
   peekOver = cardEl;
   const { top, left } = cardEl.getBoundingClientRect();
   peekAt = { top, left };
@@ -119,7 +126,7 @@ function batchPeekPanel() {
 function showBatchPeek(cardEl, rec) {
   const mates = batchMates(rec);
   if (mates.length < 2) return;
-  const more = peekJobs.get(rec.job_id)?.more;
+  const more = peekJobs.get(peekRun(rec))?.more;
   const panel = batchPeekPanel();
   const at = mates.findIndex((r) => r.id === rec.id);
   const head = document.createElement('div');
