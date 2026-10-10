@@ -475,7 +475,7 @@ def test_switch_reserves_teardown_and_loading_against_new_model_work(client, fak
         assert status["switching"] and status["model_id"] == initial["model_id"]
         for route in (
             "/api/generate", "/api/grid", "/api/grid/preview", "/api/rerender",
-            "/api/model/load", "/api/model/unload", "/api/prompt/analyze",
+            "/api/swap-tags", "/api/model/load", "/api/model/unload", "/api/prompt/analyze",
             "/api/prompt/critique", "/api/prompt/expand",
         ):
             refused = client.post(route, json=PAYLOAD)

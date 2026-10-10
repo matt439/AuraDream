@@ -51,7 +51,7 @@ from typing import Any, Callable
 from .model_selection import current_model_id
 from .config import settings
 from .refine import start_index, steps_run
-from .schemas import GenerateRequest, PromptVariant
+from .schemas import GenerateRequest, ImageRecord, PromptVariant
 from .seeds import random_seed, wrap_seed
 
 # Per axis, and then over the whole grid. Both are guard rails against a typo
@@ -645,6 +645,65 @@ def prune_done(cells: list[Cell], done: set[CellKey]) -> list[Cell]:
 def prompts_of(cells: list[Cell]) -> list[str]:
     """The distinct prompts a grid would render, for the resume lookup."""
     return list(dict.fromkeys(cell.request.prompt for cell in cells))
+
+
+_KEEP: Any = object()
+
+
+def cell_from_record(
+    record: ImageRecord,
+    *,
+    width: int | None = None,
+    height: int | None = None,
+    prompt: str | None = None,
+    negative_prompt: Any = _KEEP,
+    variables: Any = _KEEP,
+) -> Cell:
+    """One gallery record as one cell: its whole reproduction set, with only
+    what the caller names changed.
+
+    The producers that run records again - Re-render (another size), Swap
+    tags (another prompt or negative) - build their cells here, so what
+    carries over cannot drift between them: the prompt pair, steps, CFG, the
+    effective true CFG (a FLUX record from before the knob was separate
+    carries the real CFG it ran), mu, the references, the adapter and its
+    weight, the refine source and its strength (a refined record runs again
+    as a pass of the same source), the seed and the variables - what the
+    placeholders were set to, or which version of a comparison this is, the
+    only place a variant's label lives. Raises pydantic's ValidationError
+    where the result is no valid request (an emptied prompt, a size past the
+    guards).
+    """
+    return Cell(
+        request=GenerateRequest(
+            prompt=record.prompt if prompt is None else prompt,
+            negative_prompt=record.negative_prompt if negative_prompt is _KEEP else negative_prompt,
+            width=record.width if width is None else width,
+            height=record.height if height is None else height,
+            steps=record.steps,
+            guidance_scale=record.guidance_scale,
+            true_cfg=record.true_cfg,
+            mu=record.mu,
+            reference=record.reference or [],
+            lora=record.lora,
+            lora_scale=record.lora_scale if record.lora_scale is not None else 1.0,
+            refine=record.refine,
+            strength=record.strength if record.refine is not None else None,
+            seed=record.seed,
+        ),
+        seed=record.seed,
+        variables=(record.variables if variables is _KEEP else variables) or None,
+    )
+
+
+def cells_from_records(
+    records: Sequence[ImageRecord], *, width: int | None = None, height: int | None = None
+) -> list[Cell]:
+    """`cell_from_record` over `records`, in the order given - the callers
+    pass them oldest first, so a run again lands in the order the originals
+    did. One size for every cell where `width`/`height` are given, else each
+    record's own."""
+    return [cell_from_record(record, width=width, height=height) for record in records]
 
 
 def denoised_steps(request: GenerateRequest) -> int:

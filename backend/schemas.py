@@ -726,6 +726,91 @@ class RerenderRequest(BaseModel):
     _multiple_of_16 = GenerateRequest._multiple_of_16
 
 
+class TagSwap(BaseModel):
+    """One row of Swap tags: the comma items to find, what goes in their place."""
+
+    find: str = Field(min_length=1, max_length=1000)
+    # Empty removes what was found.
+    replace: str = Field(default="", max_length=1000)
+
+
+class SwapTagsRequest(BaseModel):
+    """Run images again with some of their tags swapped, each keeping its own
+    seed, size and settings.
+
+    The images are the gallery selection's `ids` where the page has picked
+    cards, else the gallery's filter as Re-render takes it (search, Starred,
+    the checkpoint scope). `field` is the prompt or the negative prompt;
+    `expected`, on the queueing request, is the `ids` the preview answered,
+    so a selection that changed in between is refused rather than queued
+    unseen. The rows are parsed by `tag_swap.parse_rows`.
+    """
+
+    ids: list[int] | None = Field(default=None, min_length=1, max_length=settings.max_grid_images)
+    search: str | None = Field(default=None, max_length=2000)
+    favorites: bool = True
+    all_models: bool = False
+    swaps: list[TagSwap] = Field(min_length=1, max_length=16)
+    field: Literal["prompt", "negative_prompt"] = "prompt"
+    expected: list[int] | None = Field(default=None, max_length=settings.max_grid_images)
+
+    @field_validator("ids")
+    @classmethod
+    def _positive_ids(cls, value: list[int] | None) -> list[int] | None:
+        if value is not None and any(image_id < 1 for image_id in value):
+            raise ValueError("gallery ids start at 1")
+        return value
+
+    @model_validator(mode="after")
+    def _rows_parse(self) -> "SwapTagsRequest":
+        from .tag_swap import parse_rows
+
+        parse_rows([(row.find, row.replace) for row in self.swaps])
+        return self
+
+
+SwapStatus = Literal[
+    "queued", "missing", "unchanged", "rendered", "invalid", "source_deleted",
+    "lora_missing", "duplicate", "by_hand", "structured", "deleted", "foreign",
+]
+
+
+class SwapResult(BaseModel):
+    """What Swap tags makes of one image.
+
+    `text` is the swapped field as it would run (the original where nothing
+    changed) and `spans` the offsets of what was written in, which the page
+    marks; `detail` says why an image is not queued ("missing: long hair",
+    "same as #12", a validation message).
+    """
+
+    id: int
+    thumb_url: str | None = None
+    width: int | None = None
+    height: int | None = None
+    seed: int | None = None
+    status: SwapStatus
+    detail: str | None = None
+    text: str = ""
+    spans: list[tuple[int, int]] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class SwapTagsPreview(BaseModel):
+    """Swap tags without queueing: every image's status, counted, and the
+    first `SWAP_PREVIEW_ROWS` of them listed."""
+
+    # Every image the selection resolved to, oldest first: what the queueing
+    # request sends back as `expected`.
+    ids: list[int]
+    counts: dict[str, int]
+    queued: int
+    # How many jobs the queued images make: one per distinct size.
+    jobs: int
+    images: list[SwapResult]
+    total: int
+
+
 class GridPreview(BaseModel):
     """What a grid would do, without queueing it."""
 
@@ -1231,3 +1316,17 @@ class JobAccepted(BaseModel):
     # needs the base.
     seed: int
     run_id: str
+
+
+class SwapTagsAccepted(BaseModel):
+    """The jobs Swap tags queued, one per distinct size, the first one's ids
+    at the top level as every other submission answers them."""
+
+    job_id: str
+    seed: int
+    run_id: str
+    more: list[JobAccepted] = Field(default_factory=list)
+    queued: int
+    # Images the preview would have queued that the gallery holds by now,
+    # left out without a refusal.
+    pruned: int = 0

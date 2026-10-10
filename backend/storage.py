@@ -1425,6 +1425,23 @@ def get_image(image_id: int) -> ImageRecord | None:
     return _row_to_record(row, row["refine"] in missing) if row else None
 
 
+def get_images(ids: Sequence[int]) -> list[ImageRecord]:
+    """The records of those of `ids` the gallery holds, oldest first; an id
+    it does not hold is simply absent. In chunks, under SQLite's variable
+    limit, for a selection of up to `max_grid_images` cards."""
+    wanted = sorted(set(ids))
+    rows: list[sqlite3.Row] = []
+    with _session() as conn:
+        for at in range(0, len(wanted), 500):
+            chunk = wanted[at:at + 500]
+            rows.extend(conn.execute(
+                f"SELECT * FROM images WHERE id IN ({','.join('?' * len(chunk))}) ORDER BY id",
+                chunk,
+            ).fetchall())
+        missing = _missing_sources(conn, rows) if rows else set()
+    return [_row_to_record(row, row["refine"] in missing) for row in rows]
+
+
 @gallery_lock.protected(lambda: settings.db_path, waits=True)
 def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
     with _write_lock, _session() as conn:

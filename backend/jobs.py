@@ -124,6 +124,9 @@ class Job:
     # Resume for a stopped job has to know - the snapshot is otherwise a grid
     # with a prompt like any other.
     comparison: bool = False
+    # Swap tags' rows ("red hair → silver hair"), which name its job as a
+    # grid's prompt names a grid's: its cells' prompts are its records'.
+    swap: str | None = None
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -190,6 +193,7 @@ class Job:
             "grid": self.grid,
             "prompt_template": None if self.prompt_template is None else self.prompt_template[:120],
             "comparison": self.comparison,
+            "swap": None if self.swap is None else self.swap[:120],
             "status": self.status,
             "waiting_on": self.waiting_on,
             "pause_requested": self.pause_requested,
@@ -422,6 +426,7 @@ class JobManager:
         grid: bool = True,
         prompt_template: str | None = None,
         comparison: bool = False,
+        swap: str | None = None,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -432,7 +437,8 @@ class JobManager:
         rather than read off `job.request`: GridRequest-only fields are gone
         by the time the cells are built - as is the grid's own prompt, which
         `prompt_template` carries for the snapshot to name the job by, and
-        whether its prompts were a comparison's versions (`comparison`).
+        whether its prompts were a comparison's versions (`comparison`), and
+        Swap tags' rows (`swap`).
         """
         selected = current_settings(settings)
         job = Job(
@@ -447,6 +453,7 @@ class JobManager:
             grid=grid,
             prompt_template=prompt_template,
             comparison=comparison,
+            swap=swap,
         )
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight

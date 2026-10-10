@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_jobs, bundles, gallery_lock, grid, loras, model_selection, prompt_encoding, prompt_rules, startup_preferences, storage  # noqa: E402
+from . import api_bundles, api_gallery, api_jobs, bundles, gallery_lock, grid, loras, model_selection, prompt_encoding, prompt_rules, startup_preferences, storage, tag_swap  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
 from .model_info import details_for  # noqa: E402
@@ -43,6 +43,7 @@ from .schemas import (  # noqa: E402
     GenerateRequest,
     GridPreview,
     GridRequest,
+    ImageRecord,
     JobAccepted,
     ModelStatus,
     ModelSwitchRequest,
@@ -55,6 +56,10 @@ from .schemas import (  # noqa: E402
     PromptMeasure,
     PromptMeasureRequest,
     RerenderRequest,
+    SwapResult,
+    SwapTagsAccepted,
+    SwapTagsPreview,
+    SwapTagsRequest,
     TagSlot,
     TagSuggestionResponse,
     TagValidationRequest,
@@ -396,7 +401,7 @@ async def hold_model_for_request(request: Request, call_next):
 
     path = request.url.path
     depends_on_model = path in {
-        "/api/generate", "/api/grid", "/api/rerender", "/api/loras",
+        "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/loras",
         "/api/model/load", "/api/model/unload",
         "/api/gallery/unstarred",
     } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/"))
@@ -778,45 +783,54 @@ async def _refuse_unusable_inputs(request: GenerateRequest) -> None:
     `applied()` keeps the *record* honest about that; this is what stops it
     happening at cell 1 of 64.
     """
+    unusable = await _unusable_input(request)
+    if unusable is not None:
+        raise HTTPException(status_code=422, detail=unusable[1])
+
+
+async def _unusable_input(request: GenerateRequest) -> tuple[str, str] | None:
+    """`_refuse_unusable_inputs`' finding without the refusal: (kind, why) or
+    None. The kind - `refine`, `source`, `reference`, `references`, `lora` -
+    is what Swap tags reports per image (a deleted source, a missing adapter)
+    where a whole submission is refused for one."""
     if request.refine is not None:
         info = await asyncio.to_thread(backend.describe)
         if not _merged_defaults(info)["refine_supported"]:
-            raise HTTPException(
-                status_code=422,
-                detail=f"{info['model_id']} has no refine pass in this app - its integration "
+            return "refine", (
+                f"{info['model_id']} has no refine pass in this app - its integration "
                 "has no compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and "
-                "Qwen-Image checkpoints have one.",
+                "Qwen-Image checkpoints have one."
             )
         try:
             await asyncio.to_thread(storage.reference_paths, [request.refine], "source image")
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            return "source", str(exc)
     if request.reference:
         info = await asyncio.to_thread(backend.describe)
         if not _merged_defaults(info)["reference_supported"]:
-            raise HTTPException(
-                status_code=422,
-                detail=f"{info['model_id']} takes no reference images - its pipeline has no "
+            return "reference", (
+                f"{info['model_id']} takes no reference images - its pipeline has no "
                 "`image` parameter. FLUX.2 [klein] is the checkpoint here that conditions "
-                "on them.",
+                "on them."
             )
         try:
             await asyncio.to_thread(storage.reference_paths, request.reference)
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            return "references", str(exc)
     if request.lora:
         reason = backend.lora_unavailable_reason()
         if reason is not None:
-            raise HTTPException(status_code=422, detail=reason)
+            return "lora", reason
         try:
             loras.path_for(request.lora)
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            return "lora", str(exc)
         # And one that is there but for another checkpoint: a FLUX.1 adapter
         # on Z-Image fails at the first cell, deep in PEFT, naming neither.
         reason = await asyncio.to_thread(backend.lora_mismatch, request.lora)
         if reason is not None:
-            raise HTTPException(status_code=422, detail=reason)
+            return "lora", reason
+    return None
 
 
 def _listed_loras() -> list[dict]:
@@ -1730,6 +1744,45 @@ def _foreign_refusal(count: int, foreign: list[str]) -> str:
     )
 
 
+async def _resolve_selection(
+    *, ids: list[int] | None, search: str | None, favorites: bool, all_models: bool,
+) -> tuple[list[ImageRecord], list[int]]:
+    """The images an action on several of them acts on, oldest first, and
+    the picked ids the gallery no longer holds.
+
+    With `ids` - the gallery's picked cards (`gallery-select.js`) - exactly
+    those, whatever the filter; an id deleted since it was picked is
+    returned in the second list for the action to report per image, not
+    refused. Without them, the gallery's filter as Re-render has always taken
+    it: the search, Starred and the checkpoint scope (`_model_scope`), 404
+    where nothing matches and 422 past `max_grid_images` - by count, never
+    truncated to the newest N. Re-render, Swap tags and Mass refine share it;
+    what to do with another checkpoint's records is each caller's.
+    """
+    if ids is not None:
+        wanted = list(dict.fromkeys(ids))
+        records = await asyncio.to_thread(storage.get_images, wanted)
+        held = {record.id for record in records}
+        return records, sorted(image_id for image_id in wanted if image_id not in held)
+    # One past the ceiling, so an oversize selection is refused by count rather
+    # than silently truncated to the newest N.
+    records, total, _ = await asyncio.to_thread(
+        storage.list_images,
+        limit=settings.max_grid_images + 1,
+        search=search,
+        favorites_only=favorites,
+        model_id=_model_scope(all_models),
+    )
+    if not records:
+        raise HTTPException(status_code=404, detail="nothing in the gallery matches that selection")
+    if total > settings.max_grid_images:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{total} images match; a job may queue {settings.max_grid_images}. Narrow the search.",
+        )
+    return list(reversed(records)), []
+
+
 @app.post("/api/rerender", response_model=JobAccepted)
 async def rerender(request: RerenderRequest) -> JobAccepted:
     """Queue the gallery's current selection again at another size, as one job.
@@ -1747,22 +1800,9 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
         probe.check_budget()
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    # One past the ceiling, so an oversize selection is refused by count rather
-    # than silently truncated to the newest N.
-    records, total, _ = await asyncio.to_thread(
-        storage.list_images,
-        limit=settings.max_grid_images + 1,
-        search=request.search,
-        favorites_only=request.favorites,
-        model_id=_model_scope(request.all_models),
+    records, _ = await _resolve_selection(
+        ids=None, search=request.search, favorites=request.favorites, all_models=request.all_models,
     )
-    if not records:
-        raise HTTPException(status_code=404, detail="nothing in the gallery matches that selection")
-    if total > settings.max_grid_images:
-        raise HTTPException(
-            status_code=422,
-            detail=f"{total} images match; a job may queue {settings.max_grid_images}. Narrow the search.",
-        )
     # Steps, CFG and mu are checkpoint-specific - Turbo's 8 / 0 / 1.15 on FLUX
     # is a broken image recorded under FLUX - so a record from another
     # checkpoint is refused rather than rendered wrong. Only reachable with
@@ -1771,41 +1811,9 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
     if foreign:
         count = sum(r.model_id != current_model_id(settings) for r in records)
         raise HTTPException(status_code=422, detail=_foreign_refusal(count, foreign))
-    # Oldest first, so the re-render lands in the order the originals did.
-    cells = [
-        grid.Cell(
-            request=GenerateRequest(
-                prompt=r.prompt,
-                negative_prompt=r.negative_prompt,
-                width=request.width,
-                height=request.height,
-                steps=r.steps,
-                guidance_scale=r.guidance_scale,
-                # The effective value, so a FLUX record from before the knob
-                # was separate re-renders with the real CFG it actually ran.
-                true_cfg=r.true_cfg,
-                mu=r.mu,
-                # The rest of the reproduction set: an adapter or a reference
-                # that made the original is as much a part of it as the seed,
-                # and the selection is already pinned to this checkpoint.
-                reference=r.reference or [],
-                lora=r.lora,
-                lora_scale=r.lora_scale if r.lora_scale is not None else 1.0,
-                # A refined record re-renders as a refine pass of the same
-                # source at the new size: the source and the strength are its
-                # reproduction set as much as the seed.
-                refine=r.refine,
-                strength=r.strength if r.refine is not None else None,
-                seed=r.seed,
-            ),
-            seed=r.seed,
-            # What the placeholders were set to, or which version of a
-            # comparison this is: the only place a variant's label lives, so
-            # the re-rendered run's sheet keeps the rows the original had.
-            variables=r.variables or None,
-        )
-        for r in reversed(records)
-    ]
+    # Oldest first (the resolver's order), so the re-render lands in the
+    # order the originals did; every record's reproduction set but its size.
+    cells = grid.cells_from_records(records, width=request.width, height=request.height)
     # One check per distinct combination rather than per cell: a selection of
     # 400 images carries at most a handful of adapters and sources between them.
     for spec in {(c.request.lora, tuple(c.request.reference), c.request.refine) for c in cells}:
@@ -1819,19 +1827,7 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     run_id = grid.run_id(cells, current_model_id(settings), current_settings(settings).quantization)
-    done = await asyncio.to_thread(
-        storage.completed_cells,
-        grid.prompts_of(cells),
-        request.width,
-        request.height,
-        current_model_id(settings),
-        current_settings(settings).quantization,
-    )
-    kept = [
-        cell
-        for cell in cells
-        if grid.prune_done([grid.Cell(request=backend.applied(cell.request), seed=cell.seed)], done)
-    ]
+    kept = await _not_yet_rendered(cells, request.width, request.height)
     if not kept:
         raise HTTPException(
             status_code=409,
@@ -1839,6 +1835,196 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
         )
     job = await jobs.submit_cells(kept, run_id=run_id)
     return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
+
+
+# How many images the Swap tags preview lists; its counts cover all of them.
+# A thousand records with their prompts, every keystroke, is megabytes.
+SWAP_PREVIEW_ROWS = 200
+
+# The per-image status a reason from `_unusable_input` becomes.
+_SWAP_UNUSABLE = {"source": "source_deleted", "lora": "lora_missing"}
+
+_SWAP_SAYS = {
+    "structured": "an XML or JSON prompt is not rewritten",
+    "unchanged": "the swaps change nothing here",
+    "rendered": "already in the gallery",
+}
+
+
+async def _swap_plan(request: SwapTagsRequest) -> tuple[list[int], list[SwapResult], list[grid.Cell]]:
+    """What Swap tags does to every selected image, and the cells it queues.
+
+    Per image, never for the whole selection: one record that is missing a
+    tag, that the swap leaves empty or too long, whose refine source or
+    adapter has gone, or that another checkpoint made is reported as such and
+    left out, and the rest are queued. Two records that come out as the same
+    cell at the same size are queued once ("same as #N"), and a cell the
+    gallery already holds is `rendered`, as resume would skip it. Returns the
+    ids the selection resolved to (what `expected` pins), every result in id
+    order, and the cells to queue in the same order.
+    """
+    if request.field == "negative_prompt":
+        info = await asyncio.to_thread(backend.describe)
+        if not _merged_defaults(info)["negative_prompt_supported"]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{info['model_id']} takes no negative prompt; swap tags in the prompt",
+            )
+    rows = tag_swap.parse_rows([(row.find, row.replace) for row in request.swaps])
+    records, gone = await _resolve_selection(
+        ids=request.ids, search=request.search, favorites=request.favorites,
+        all_models=request.all_models,
+    )
+    running = current_model_id(settings)
+    results: list[SwapResult] = [
+        SwapResult(id=image_id, status="deleted", detail="no longer in the gallery") for image_id in gone
+    ]
+    queued: list[tuple[SwapResult, grid.Cell]] = []
+    checked: dict[tuple, tuple[str, str] | None] = {}
+    seen: dict[tuple, int] = {}
+    for record in records:
+        result = SwapResult(
+            id=record.id, thumb_url=record.thumb_url, width=record.width, height=record.height,
+            seed=record.seed, status="unchanged",
+            text=(record.prompt if request.field == "prompt" else record.negative_prompt) or "",
+        )
+        results.append(result)
+        if record.model_id != running:
+            # Steps, CFG and mu are the checkpoint's: refused as Re-render
+            # refuses them, but per image.
+            result.status = "foreign"
+            result.detail = f"made on {record.model_id}; the server is running {running}"
+            continue
+        swapped = tag_swap.swap_record(
+            record.prompt, record.negative_prompt, record.variables, rows, request.field
+        )
+        outcome = swapped.outcome
+        result.notes = outcome.notes
+        if outcome.status == "missing":
+            result.status, result.detail = "missing", f"missing: {', '.join(outcome.missing)}"
+            continue
+        if outcome.status == "by_hand":
+            result.status = "by_hand"
+            result.detail = f"needs editing by hand - a phrase in prose: {'; '.join(outcome.by_hand)}"
+            continue
+        if outcome.status != "changed":
+            result.status, result.detail = outcome.status, _SWAP_SAYS[outcome.status]
+            continue
+        result.text, result.spans = outcome.text, outcome.spans
+        try:
+            cell = grid.cell_from_record(
+                record, prompt=swapped.prompt, negative_prompt=swapped.negative_prompt,
+                variables=swapped.variables,
+            )
+            cell.request.check_budget()
+            cell.request.check_refine_steps()
+        except ValueError as exc:
+            result.status, result.detail = "invalid", error_detail(exc)
+            continue
+        spec = (cell.request.lora, tuple(cell.request.reference), cell.request.refine)
+        if spec != (None, (), None):
+            if spec not in checked:
+                checked[spec] = await _unusable_input(cell.request)
+            if checked[spec] is not None:
+                kind, why = checked[spec]
+                result.status, result.detail = _SWAP_UNUSABLE.get(kind, "invalid"), why
+                continue
+        ran = grid.Cell(request=backend.applied(cell.request), seed=cell.seed)
+        key = (tuple(grid.cell_keys(ran)), cell.request.width, cell.request.height)
+        if key in seen:
+            result.status, result.detail = "duplicate", f"same as #{seen[key]}"
+            continue
+        seen[key] = record.id
+        result.status = "queued"
+        queued.append((result, cell))
+    # The gallery's own answer, per size: `completed_cells` is scoped to one.
+    sizes: dict[tuple[int, int], list[grid.Cell]] = {}
+    for _, cell in queued:
+        sizes.setdefault((cell.request.width, cell.request.height), []).append(cell)
+    kept: set[int] = set()
+    for (width, height), group in sizes.items():
+        kept.update(id(cell) for cell in await _not_yet_rendered(group, width, height))
+    cells = []
+    for result, cell in queued:
+        if id(cell) in kept:
+            cells.append(cell)
+        else:
+            result.status, result.detail = "rendered", _SWAP_SAYS["rendered"]
+    results.sort(key=lambda result: result.id)
+    return [record.id for record in records], results, cells
+
+
+def _swap_counts(results: list[SwapResult]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for result in results:
+        counts[result.status] = counts.get(result.status, 0) + 1
+    return counts
+
+
+@app.post("/api/swap-tags/preview", response_model=SwapTagsPreview)
+async def preview_swap_tags(request: SwapTagsRequest) -> SwapTagsPreview:
+    """What Swap tags would queue, image by image, without queueing it.
+
+    No side effects, so it is not a model-dependent request in the
+    middleware's sense: the queueing request is, and carries the revision.
+    """
+    ids, results, cells = await _swap_plan(request)
+    return SwapTagsPreview(
+        ids=ids,
+        counts=_swap_counts(results),
+        queued=len(cells),
+        jobs=len({(cell.request.width, cell.request.height) for cell in cells}),
+        images=results[:SWAP_PREVIEW_ROWS],
+        total=len(results),
+    )
+
+
+@app.post("/api/swap-tags", response_model=SwapTagsAccepted)
+async def swap_tags(request: SwapTagsRequest) -> SwapTagsAccepted:
+    """Queue the selected images again with some of their tags swapped.
+
+    The fourth producer of cells, beside Generate, Run grid and Re-render:
+    each image is a cell with its own seed, size and settings
+    (`grid.cell_from_record`), only the prompt or the negative prompt - and
+    the variables that name parts of it - rewritten, server-side
+    (`tag_swap`). One job per distinct size, so every job keeps one size
+    and its run id the shape every other run's has. `expected` is the ids
+    the preview resolved: a selection that changed since is refused. An
+    image the preview would have queued that the gallery holds by now is
+    left out and counted in `pruned`; with nothing left, 409 where it was
+    all already rendered, else 422.
+    """
+    ids, results, cells = await _swap_plan(request)
+    if request.expected is not None and sorted(set(request.expected)) != ids:
+        raise HTTPException(
+            status_code=409,
+            detail="the selection changed since the check; review the swaps again",
+        )
+    counts = _swap_counts(results)
+    if not cells:
+        if counts.get("rendered"):
+            raise HTTPException(
+                status_code=409, detail="every image the swap would change is already in the gallery"
+            )
+        said = ", ".join(f"{n} {status.replace('_', ' ')}" for status, n in counts.items())
+        raise HTTPException(status_code=422, detail=f"no selected image would change ({said})")
+    rows = tag_swap.parse_rows([(row.find, row.replace) for row in request.swaps])
+    summary = "; ".join(row.describe() for row in rows)
+    if request.field == "negative_prompt":
+        summary = f"negative: {summary}"
+    sizes: dict[tuple[int, int], list[grid.Cell]] = {}
+    for cell in cells:
+        sizes.setdefault((cell.request.width, cell.request.height), []).append(cell)
+    model, quantization = current_model_id(settings), current_settings(settings).quantization
+    accepted = []
+    for group in sizes.values():
+        job = await jobs.submit_cells(group, run_id=grid.run_id(group, model, quantization), swap=summary)
+        accepted.append(JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id))
+    first = accepted[0]
+    return SwapTagsAccepted(
+        job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],
+        queued=len(cells), pruned=counts.get("rendered", 0),
+    )
 
 
 @app.post("/api/grid/preview", response_model=GridPreview)
