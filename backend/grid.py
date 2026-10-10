@@ -658,6 +658,8 @@ def cell_from_record(
     prompt: str | None = None,
     negative_prompt: Any = _KEEP,
     variables: Any = _KEEP,
+    label: str | None = None,
+    **changes: Any,
 ) -> Cell:
     """One gallery record as one cell: its whole reproduction set, with only
     what the caller names changed.
@@ -673,25 +675,37 @@ def cell_from_record(
     only place a variant's label lives. Raises pydantic's ValidationError
     where the result is no valid request (an emptied prompt, a size past the
     guards).
+
+    `changes` names any other `GenerateRequest` field to set instead of the
+    record's - Mass refine's source, strength and steps, and the running
+    checkpoint's sampling for a record another one made - and goes through
+    the same validation; `label` is the cell's caption in the progress line
+    and a failed cell's report.
     """
+    fields: dict[str, Any] = {
+        "prompt": record.prompt if prompt is None else prompt,
+        "negative_prompt": record.negative_prompt if negative_prompt is _KEEP else negative_prompt,
+        "width": record.width if width is None else width,
+        "height": record.height if height is None else height,
+        "steps": record.steps,
+        "guidance_scale": record.guidance_scale,
+        "true_cfg": record.true_cfg,
+        "mu": record.mu,
+        "reference": record.reference or [],
+        "lora": record.lora,
+        "lora_scale": record.lora_scale if record.lora_scale is not None else 1.0,
+        "refine": record.refine,
+        "strength": record.strength if record.refine is not None else None,
+        "seed": record.seed,
+    }
+    unknown = set(changes) - set(GenerateRequest.model_fields)
+    if unknown:
+        raise TypeError(f"no GenerateRequest field {', '.join(sorted(unknown))}")
+    fields.update(changes)
     return Cell(
-        request=GenerateRequest(
-            prompt=record.prompt if prompt is None else prompt,
-            negative_prompt=record.negative_prompt if negative_prompt is _KEEP else negative_prompt,
-            width=record.width if width is None else width,
-            height=record.height if height is None else height,
-            steps=record.steps,
-            guidance_scale=record.guidance_scale,
-            true_cfg=record.true_cfg,
-            mu=record.mu,
-            reference=record.reference or [],
-            lora=record.lora,
-            lora_scale=record.lora_scale if record.lora_scale is not None else 1.0,
-            refine=record.refine,
-            strength=record.strength if record.refine is not None else None,
-            seed=record.seed,
-        ),
+        request=GenerateRequest(**fields),
         seed=record.seed,
+        label=label,
         variables=(record.variables if variables is _KEEP else variables) or None,
     )
 

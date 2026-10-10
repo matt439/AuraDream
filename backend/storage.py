@@ -1418,6 +1418,13 @@ def reference_paths(ids: Sequence[int], noun: str = "reference image") -> list:
     return [by_id[image_id] for image_id in ids]
 
 
+def missing_files(records: Sequence[ImageRecord]) -> set[int]:
+    """The ids of those `records` whose PNG is not in the gallery directory:
+    a row whose file went - deleted by hand, a disk restored without it -
+    which Mass refine reports per image rather than at its cell."""
+    return {record.id for record in records if not (settings.outputs_dir / record.filename).exists()}
+
+
 def get_image(image_id: int) -> ImageRecord | None:
     with _session() as conn:
         row = conn.execute("SELECT * FROM images WHERE id = ?", (image_id,)).fetchone()

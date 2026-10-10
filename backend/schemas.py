@@ -811,6 +811,102 @@ class SwapTagsPreview(BaseModel):
     total: int
 
 
+class RefineBatchRequest(BaseModel):
+    """Mass refine: a refine pass of every selected image, each from its own
+    pixels under its own prompt, negative prompt, seed, CFG, mu and LoRA, at
+    one shared strength and scale.
+
+    The images are the gallery selection's `ids` where cards are picked,
+    else the gallery's filter as Re-render takes it. `strength` None is the
+    checkpoint's own; `steps` None keeps each image's own (the profile's for
+    another checkpoint's). Another checkpoint's records are refused per
+    image unless `include_foreign`, and a record that is itself a refine
+    pass is left out while `skip_passes`. `expected`, on the queueing
+    request, is the `ids` the preview answered.
+    """
+
+    ids: list[int] | None = Field(default=None, min_length=1, max_length=settings.max_grid_images)
+    search: str | None = Field(default=None, max_length=2000)
+    favorites: bool = True
+    all_models: bool = False
+    scale: float = Field(default=1.5, ge=1.0, le=2.0)
+    strength: float | None = None
+    steps: int | None = Field(default=None, ge=1, le=100)
+    include_foreign: bool = False
+    skip_passes: bool = True
+    expected: list[int] | None = Field(default=None, max_length=settings.max_grid_images)
+
+    # Written out: a validator assigned from another model is not run.
+    @field_validator("ids")
+    @classmethod
+    def _positive_ids(cls, value: list[int] | None) -> list[int] | None:
+        return SwapTagsRequest._positive_ids.__func__(cls, value)
+
+    @field_validator("strength")
+    @classmethod
+    def _a_fraction(cls, value: float | None) -> float | None:
+        return GenerateRequest._a_fraction.__func__(cls, value)
+
+
+RefineBatchStatus = Literal[
+    "queued", "pass", "foreign", "too_big", "no_step", "file_missing", "lora_missing",
+    "rendered", "deleted", "invalid",
+]
+
+
+class RefineBatchResult(BaseModel):
+    """What Mass refine makes of one image: its size, the pass's size, and
+    why it is not queued where it is not (`detail`); `notes` say what the
+    pass changes of how it was made (another checkpoint's steps, CFG and
+    mu; a LoRA left out)."""
+
+    id: int
+    thumb_url: str | None = None
+    width: int | None = None
+    height: int | None = None
+    target_width: int | None = None
+    target_height: int | None = None
+    seed: int | None = None
+    status: RefineBatchStatus
+    detail: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class RefineBatchPreview(BaseModel):
+    """Mass refine without queueing: every image's status, counted, the
+    first `REFINE_BATCH_PREVIEW_ROWS` listed, and what the dialog prices
+    and caps the scale by."""
+
+    ids: list[int]
+    counts: dict[str, int]
+    queued: int
+    jobs: int
+    images: list[RefineBatchResult]
+    total: int
+    # The strength the passes run at: the request's, else the checkpoint's.
+    strength: float
+    # Records another checkpoint made, queued or not, and those checkpoints:
+    # what the dialog's Include other checkpoints is offered on.
+    foreign: int = 0
+    models: list[str] = Field(default_factory=list)
+    # Records that are refine passes themselves, skipped or not.
+    passes: int = 0
+    # The largest source the scale applies to (by pixels), [width, height]:
+    # the dialog caps its opening scale by it, as the single Refine does by
+    # its one source.
+    largest: list[int] | None = None
+    # Summed per size from refine history; None where any size queued has
+    # none, and then how many sizes have none.
+    seconds: float | None = None
+    unpriced_sizes: int = 0
+    # Where the queued passes start on the schedule, lowest and highest:
+    # one strength starts a larger pass at more noise on a shifted flow
+    # schedule. None before a load, on a schedule with no noise fraction, or
+    # past `REFINE_BATCH_SIGMA_KEYS` distinct passes.
+    start_sigma_low: float | None = None
+    start_sigma_high: float | None = None
+
+
 class GridPreview(BaseModel):
     """What a grid would do, without queueing it."""
 
@@ -1330,3 +1426,8 @@ class SwapTagsAccepted(BaseModel):
     # Images whose cell the gallery holds at queue time, left out without a
     # refusal: the preview's "already rendered" ones plus any rendered since.
     pruned: int = 0
+
+
+class RefineBatchAccepted(SwapTagsAccepted):
+    """The jobs Mass refine queued, one per distinct size, as Swap tags
+    answers them."""

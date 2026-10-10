@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_jobs, bundles, gallery_lock, grid, loras, model_selection, prompt_encoding, prompt_rules, startup_preferences, storage, tag_swap  # noqa: E402
+from . import api_bundles, api_gallery, api_jobs, bundles, gallery_lock, grid, loras, model_selection, prompt_encoding, prompt_rules, refine_batch, startup_preferences, storage, tag_swap  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
 from .model_info import details_for  # noqa: E402
@@ -55,6 +55,10 @@ from .schemas import (  # noqa: E402
     PromptFinding,
     PromptMeasure,
     PromptMeasureRequest,
+    RefineBatchAccepted,
+    RefineBatchPreview,
+    RefineBatchRequest,
+    RefineBatchResult,
     RerenderRequest,
     SwapResult,
     SwapTagsAccepted,
@@ -64,6 +68,7 @@ from .schemas import (  # noqa: E402
     TagSuggestionResponse,
     TagValidationRequest,
     TagValidationResponse,
+    default_strength,
     error_detail,
 )
 from .tags import (  # noqa: E402
@@ -401,7 +406,7 @@ async def hold_model_for_request(request: Request, call_next):
 
     path = request.url.path
     depends_on_model = path in {
-        "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/loras",
+        "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/loras",
         "/api/model/load", "/api/model/unload",
         "/api/gallery/unstarred",
     } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/"))
@@ -794,13 +799,9 @@ async def _unusable_input(request: GenerateRequest) -> tuple[str, str] | None:
     is what Swap tags reports per image (a deleted source, a missing adapter)
     where a whole submission is refused for one."""
     if request.refine is not None:
-        info = await asyncio.to_thread(backend.describe)
-        if not _merged_defaults(info)["refine_supported"]:
-            return "refine", (
-                f"{info['model_id']} has no refine pass in this app - its integration "
-                "has no compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and "
-                "Qwen-Image checkpoints have one."
-            )
+        reason = await _refine_unavailable()
+        if reason is not None:
+            return "refine", reason
         try:
             await asyncio.to_thread(storage.reference_paths, [request.refine], "source image")
         except ValueError as exc:
@@ -831,6 +832,19 @@ async def _unusable_input(request: GenerateRequest) -> tuple[str, str] | None:
         if reason is not None:
             return "lora", reason
     return None
+
+
+async def _refine_unavailable() -> str | None:
+    """Why this server has no refine pass, or None where it has one: what a
+    pass's submission is refused with, Mass refine's included."""
+    info = await asyncio.to_thread(backend.describe)
+    if _merged_defaults(info)["refine_supported"]:
+        return None
+    return (
+        f"{info['model_id']} has no refine pass in this app - its integration "
+        "has no compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and "
+        "Qwen-Image checkpoints have one."
+    )
 
 
 def _listed_loras() -> list[dict]:
@@ -2023,6 +2037,217 @@ async def swap_tags(request: SwapTagsRequest) -> SwapTagsAccepted:
         accepted.append(JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id))
     first = accepted[0]
     return SwapTagsAccepted(
+        job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],
+        queued=len(cells), pruned=counts.get("rendered", 0),
+    )
+
+
+# How many images the Mass refine preview lists; its counts cover all of them.
+REFINE_BATCH_PREVIEW_ROWS = 200
+# How many distinct passes (size, steps, mu, strength as they run) the
+# preview reads a start sigma for: each builds a scheduler copy, and a
+# selection of many shapes is priced without one rather than slowly.
+REFINE_BATCH_SIGMA_KEYS = 8
+
+
+async def _refine_batch_plan(
+    request: RefineBatchRequest,
+) -> tuple[list[int], list[RefineBatchResult], list[grid.Cell], list[refine_batch.Planned]]:
+    """What Mass refine does to every selected image, and the cells it queues.
+
+    Per image, never for the whole selection (`refine_batch.plan` for what
+    the record alone decides): one that is a pass itself, that another
+    checkpoint made and was not asked for, whose pass is past the size
+    guard, that the strength leaves no step, whose file has gone, whose
+    LoRA is not here, or whose pass the gallery already holds is reported as
+    such and left out, and the rest are queued, oldest first. Only a server
+    with no refine pass at all refuses the whole of it (422), as a single
+    pass is refused. Returns the ids the selection resolved (what `expected`
+    pins), every result in id order, the cells to queue in the same order,
+    and every record's plan.
+    """
+    reason = await _refine_unavailable()
+    if reason is not None:
+        raise HTTPException(status_code=422, detail=reason)
+    records, gone = await _resolve_selection(
+        ids=request.ids, search=request.search, favorites=request.favorites,
+        all_models=request.all_models,
+    )
+    running = current_model_id(settings)
+    profile = defaults_for(running)
+    strength = request.strength if request.strength is not None else default_strength()
+    plans = [
+        refine_batch.plan(
+            record, running=running, profile=profile, scale=request.scale, strength=strength,
+            steps=request.steps, include_foreign=request.include_foreign,
+            skip_passes=request.skip_passes,
+        )
+        for record in records
+    ]
+    # The record's own file, which the pass starts from: one look per image,
+    # off the loop.
+    missing = await asyncio.to_thread(
+        storage.missing_files, [p.record for p in plans if p.cell is not None]
+    )
+    checked: dict[str, tuple[str, str] | None] = {}
+    for p in plans:
+        if p.cell is None:
+            continue
+        if p.record.id in missing:
+            p.status = "file_missing"
+            p.detail = f"the file for #{p.record.id} is missing from the gallery directory"
+            p.cell = None
+            continue
+        # Another checkpoint's adapter was dropped by the plan; this one's
+        # has to be here, and fit, or the pass would run without it.
+        lora = p.cell.request.lora
+        if lora:
+            if lora not in checked:
+                checked[lora] = await _unusable_input(GenerateRequest(prompt="x", lora=lora))
+            if checked[lora] is not None:
+                p.status, p.detail = "lora_missing", checked[lora][1]
+                p.cell = None
+    # The gallery's own answer, per size: `completed_cells` is scoped to one.
+    sizes: dict[tuple[int, int], list[grid.Cell]] = {}
+    for p in plans:
+        if p.cell is not None:
+            sizes.setdefault((p.width, p.height), []).append(p.cell)
+    kept: set[int] = set()
+    for (width, height), group in sizes.items():
+        kept.update(id(cell) for cell in await _not_yet_rendered(group, width, height))
+    cells: list[grid.Cell] = []
+    for p in plans:
+        if p.cell is None:
+            continue
+        if id(p.cell) in kept:
+            cells.append(p.cell)
+        else:
+            p.status, p.detail = "rendered", "already has this pass in the gallery"
+            p.cell = None
+    results = [
+        RefineBatchResult(id=image_id, status="deleted", detail="no longer in the gallery")
+        for image_id in gone
+    ] + [
+        RefineBatchResult(
+            id=p.record.id, thumb_url=p.record.thumb_url, width=p.record.width,
+            height=p.record.height, target_width=p.width, target_height=p.height,
+            seed=p.record.seed, status=p.status, detail=p.detail, notes=p.notes,
+        )
+        for p in plans
+    ]
+    results.sort(key=lambda result: result.id)
+    return [record.id for record in records], results, cells, plans
+
+
+def _refine_batch_counts(results: list[RefineBatchResult]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for result in results:
+        counts[result.status] = counts.get(result.status, 0) + 1
+    return counts
+
+
+def _cells_by_size(cells: list[grid.Cell]) -> dict[tuple[int, int], list[grid.Cell]]:
+    sizes: dict[tuple[int, int], list[grid.Cell]] = {}
+    for cell in cells:
+        sizes.setdefault((cell.request.width, cell.request.height), []).append(cell)
+    return sizes
+
+
+@app.post("/api/refine/batch/preview", response_model=RefineBatchPreview)
+async def preview_refine_batch(request: RefineBatchRequest) -> RefineBatchPreview:
+    """What Mass refine would queue, image by image, without queueing it,
+    with its time and where the passes start on the schedule.
+
+    No side effects, so not a model-dependent request in the middleware's
+    sense, as Swap tags' preview is not: the queueing request is.
+    """
+    ids, results, cells, plans = await _refine_batch_plan(request)
+    model = current_model_id(settings)
+    sizes = _cells_by_size(cells)
+    # Time, summed per size from that size's refine history; a size with
+    # none leaves the whole estimate out, and how many have none is said.
+    seconds = 0.0
+    unpriced = 0
+    for (width, height), group in sizes.items():
+        costs = await asyncio.to_thread(storage.refine_cost_ms, width, height, model)
+        priced = grid.estimate_seconds(group, None, refine_costs=costs)
+        if priced is None:
+            unpriced += 1
+        else:
+            seconds += priced
+    # Where the passes start: one strength is more noise on a larger pass of
+    # a shifted flow schedule, so a mixed selection is a range. Advisory,
+    # never a refusal, and read only under a cap of distinct passes.
+    low = high = None
+    applied: dict[tuple, GenerateRequest] = {}
+    for cell in cells:
+        ran = backend.applied(cell.request)
+        applied.setdefault((ran.width, ran.height, ran.steps, ran.mu, ran.strength), ran)
+    if applied and len(applied) <= REFINE_BATCH_SIGMA_KEYS:
+        sigmas = [backend.start_sigma(ran) for ran in applied.values()]
+        if all(isinstance(sigma, (int, float)) for sigma in sigmas):
+            low, high = min(sigmas), max(sigmas)
+    # The scale applies to every image not left out before its size is
+    # looked at: the largest of those caps the dialog's opening scale.
+    scaled = [p.record for p in plans if p.status not in ("pass", "foreign")]
+    largest = max(scaled, key=lambda r: (r.width * r.height, r.width), default=None)
+    foreign = [p for p in plans if p.foreign]
+    return RefineBatchPreview(
+        ids=ids,
+        counts=_refine_batch_counts(results),
+        queued=len(cells),
+        jobs=len(sizes),
+        images=results[:REFINE_BATCH_PREVIEW_ROWS],
+        total=len(results),
+        strength=request.strength if request.strength is not None else default_strength(),
+        foreign=len(foreign),
+        models=sorted({p.record.model_id for p in foreign}),
+        passes=sum(p.record.refine is not None for p in plans),
+        largest=None if largest is None else [largest.width, largest.height],
+        seconds=None if unpriced or not cells else round(seconds, 1),
+        unpriced_sizes=unpriced,
+        start_sigma_low=low,
+        start_sigma_high=high,
+    )
+
+
+@app.post("/api/refine/batch", response_model=RefineBatchAccepted)
+async def refine_batch_submit(request: RefineBatchRequest) -> RefineBatchAccepted:
+    """Queue a refine pass of every selected image at one strength and scale.
+
+    The fifth producer of cells: each image a cell of its own
+    (`refine_batch.plan` through `grid.cell_from_record`) with its own
+    prompt pair, seed, CFG, mu and LoRA, a pass of itself. One job per
+    distinct size, as Swap tags queues, so each job keeps one size and the
+    run id every run's has; `expected` pins the ids the preview resolved,
+    and a pass the gallery holds at queue time is left out and counted in
+    `pruned`. With nothing left: 409 where it was all already rendered,
+    else 422 with the counts.
+    """
+    ids, results, cells, _ = await _refine_batch_plan(request)
+    if request.expected is not None and sorted(set(request.expected)) != ids:
+        raise HTTPException(
+            status_code=409,
+            detail="the selection changed since the check; review the refine again",
+        )
+    counts = _refine_batch_counts(results)
+    if not cells:
+        if counts.get("rendered"):
+            raise HTTPException(
+                status_code=409,
+                detail="every image that could be refined already has this pass in the gallery",
+            )
+        said = ", ".join(f"{n} {status.replace('_', ' ')}" for status, n in counts.items())
+        raise HTTPException(status_code=422, detail=f"no selected image can be refined ({said})")
+    model, quantization = current_model_id(settings), current_settings(settings).quantization
+    accepted = []
+    for group in _cells_by_size(cells).values():
+        job = await jobs.submit_cells(
+            group, run_id=grid.run_id(group, model, quantization), refine_batch=request.scale,
+        )
+        accepted.append(JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id))
+    first = accepted[0]
+    return RefineBatchAccepted(
         job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],
         queued=len(cells), pruned=counts.get("rendered", 0),
     )

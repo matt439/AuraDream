@@ -127,6 +127,10 @@ class Job:
     # Swap tags' rows ("red hair → silver hair"), which name its job as a
     # grid's prompt names a grid's: its cells' prompts are its records'.
     swap: str | None = None
+    # Mass refine's scale: its cells are passes of as many sources, so the
+    # job is named by the scale and the strength they share, not by the
+    # first cell's source as a single pass is.
+    refine_batch: float | None = None
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -186,7 +190,9 @@ class Job:
             # the first cell's prompt and a grid's own, a pass's source, the
             # size, and how many images the whole job makes.
             "prompt": self.request.prompt[:120],
-            "refine": self.request.refine,
+            "refine": None if self.refine_batch is not None else self.request.refine,
+            "refine_batch": self.refine_batch,
+            "strength": self.request.strength if self.refine_batch is not None else None,
             "width": self.request.width,
             "height": self.request.height,
             "planned_images": sum(cell.request.num_images for cell in self.cells),
@@ -427,6 +433,7 @@ class JobManager:
         prompt_template: str | None = None,
         comparison: bool = False,
         swap: str | None = None,
+        refine_batch: float | None = None,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -438,7 +445,7 @@ class JobManager:
         by the time the cells are built - as is the grid's own prompt, which
         `prompt_template` carries for the snapshot to name the job by, and
         whether its prompts were a comparison's versions (`comparison`), and
-        Swap tags' rows (`swap`).
+        Swap tags' rows (`swap`), and Mass refine's scale (`refine_batch`).
         """
         selected = current_settings(settings)
         job = Job(
@@ -454,6 +461,7 @@ class JobManager:
             prompt_template=prompt_template,
             comparison=comparison,
             swap=swap,
+            refine_batch=refine_batch,
         )
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight
