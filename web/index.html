@@ -406,7 +406,9 @@
          sits in its name's line, as the ? badges do (style.css, #btn-dice),
          where in the row it took the room of six digits. A <div> with
          <label for>, not a <label> round it all: a button inside a label
-         becomes the label's control. -->
+         becomes the label's control. What Batch and Repeat add up to is
+         said under Generate (#run-hint), not in the group: there, a running
+         batch's progress sits under Generate. -->
     <div class="field" role="group" aria-labelledby="output-caption">
       <span id="output-caption">Output</span>
       <div class="row">
@@ -421,11 +423,11 @@
             <span class="help" tabindex="0" role="note" aria-label="Batch help" aria-describedby="batch-tip">?<span
               class="tip" id="batch-tip">Images rendered at once, all held in VRAM. For many
               2 MP+ images raise Repeat instead: same VRAM, more time.</span></span></i>
-          <input type="number" id="batch" value="1" min="1" max="12" aria-describedby="batch-tip">
+          <input type="number" id="batch" value="1" min="1" max="12" aria-describedby="batch-tip run-hint">
         </div>
-        <label class="sub narrow"><i>Repeat</i><input type="number" id="runs" value="1" min="1" max="64"></label>
+        <label class="sub narrow"><i>Repeat</i><input type="number" id="runs" value="1" min="1" max="64"
+                                                    aria-describedby="run-hint"></label>
       </div>
-      <p class="hint" id="run-hint"></p>
     </div>
 
     <button class="primary" id="btn-generate" title="Generate (Ctrl+Enter)"
@@ -456,10 +458,18 @@
           <span class="pt" id="step-text"></span>
         </div>
       </div>
-      <!-- Under the bars: a pause on its way or taken, which cell of a grid
-           is running, the time left and the cells skipped so far. -->
+      <!-- Under the bars, after the counters on their line (generation.css):
+           a pause on its way or taken, which cell of a grid is running, the
+           time left and the cells skipped so far. -->
       <p class="hint" id="cell-note"></p>
     </div>
+    <!-- What the next press makes - "12 images: 3 batches of 4, ..." - and a
+         seed the page fixed (sizes.js, syncRuns). Under Generate, not above
+         it in the Output group: there its two lines pushed Generate down as
+         Batch or Repeat went past 1, and a running batch's bars and elapsed
+         line past the foot of a 900 px window at scroll 0. Here a running
+         job's progress comes between, and the hint, not a control, moves. -->
+    <p class="hint" id="run-hint"></p>
     <!-- The finished job's outcome with what to do next (Use seed, Show
          sheet, a Retry). Outside #progress, which a finished job hides, and
          apart from the cell line, which the next queued job's start clears:

@@ -5514,6 +5514,36 @@ References and LoRA still under the window rather than holding the panel by
 its bottom, Run grid no longer being its last block. Tab from the panel's
 last stop reaches the stage as before; that stop is now the LoRA row's.
 
+**The run hint under Generate, the counters on the time's line**
+(2026-10-10). The review of the move above sent it back: at 1400x900, the
+size the smokes are written at, a running batch still showed only its Now
+line, and at 1920x947 the step bar and the time ran past the foot. Two things
+stood between Generate and the time that a job's own lines could do without.
+The run hint ("12 images: 3 batches of 4, one after another, seed +4 each,
+from a random start.") sat in the Output group above Generate, two lines
+that came the moment Batch or Repeat passed 1 - exactly when a batch runs -
+and pushed Generate down 41 px as they did. It now sits under Generate,
+after `#progress`: Generate no longer moves as Batch and Repeat change, and
+while a job runs its progress comes between, so the hint, not a control,
+moves (Batch and Repeat are described by it, since it left their group).
+And the progress block gave each bar a 20 px row for its counter beside it
+and the time a line of its own: 78 px under the Now line. The bars are now
+two full-width lines and the counters share one line under them with the
+time ("batch 1/3 · 13/20  4s elapsed · ~14s left"), 42 px: the rows are
+`display: contents` in a wrapping flex line, so a long grid cell line wraps
+whole to a line of its own under the counters rather than in a column. On
+the FLUX.1 fake (a two-line negative caption) a 4 x 3 batch's progress ends
+at 895.1 at 1400x900, 901.2 at 1920x947 and 906.6 at 2048x1040 at 125%, all
+at scroll 0; before, 978.5, 985.3 and 993.5. At 1536x864 (1080p at 125%
+with no browser frame) the Now line, Pause and Cancel are in view and the
+bars (864.5-875.5) and time (895.1) are not; fitting them too would mean
+tightening the gaps or the box heights of every field under 1800 px, and a
+real browser at that scaling is shorter still. The alternatives looked at:
+a sticky-bottom `#progress` would sit over Generate on any window shorter
+than the panel down to it, putting Cancel under the pointer that pressed
+Generate; hiding the run hint during a job would lift Generate under it.
+smoke-narrow runs that batch at all three sizes.
+
 ## The live preview
 
 **The live preview is a linear map from the latents, keyed on the VAE.**

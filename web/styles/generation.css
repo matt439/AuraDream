@@ -250,15 +250,32 @@ button { font: inherit; cursor: pointer; }
    1040 px window, the Now line wrapping to two. The line is cut to the
    panel's width; its title has it whole. The counters are the readouts'
    size, a step under the body, and the line under them - the time, the
-   cell - the caption's. */
-.progress { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body-sm); color: var(--muted); }
-.progress-head { display: flex; align-items: center; gap: var(--sp-2); }
+   cell - the caption's.
+   The bars are two full-width lines under the Now line, and their counters
+   share one line under them with the time ("batch 1/3 · 13/20  4s elapsed
+   · ~14s left"). A counter beside each bar made each bar a 20 px row and
+   put the time on a line of its own: 78 px under the Now line where this
+   is 42, and at 1400x900 the bars and the time ran past the window's foot
+   at scroll 0, where the panel is in the page's flow and cannot be lifted.
+   The rows are `display: contents`, so the bars and counters are this
+   wrapping line's items, put in place by `order`; a long cell line wraps
+   to a line of its own under the counters, as a whole. The head's least
+   width is nothing, or the Now line's unbroken text would set it. */
+.progress {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  font-size: var(--fs-body-sm); color: var(--muted);
+}
+.progress-head { display: flex; align-items: center; gap: var(--sp-2); flex: 1 0 100%; min-width: 0; }
 .progress .now {
   flex: 1; min-width: 0; margin: 0; color: var(--text-readout);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.progress .bars { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.progress .row { display: flex; align-items: center; gap: 9px; }
+.progress .bars, .progress .bars > .row { display: contents; }
+.progress .bar { flex: 1 0 100%; order: 1; margin-top: 5px; align-self: flex-start; }
+.progress .bar.thin { order: 2; margin-top: 3px; }
+.progress .pt { order: 3; margin: 3px var(--sp-3) 0 0; line-height: 1.3; }
+.progress:has(#step-row:not([hidden])) #progress-text { margin-right: 0; }
+#step-text::before { content: '\00a0·\00a0' / ''; }
 .progress-actions { display: flex; gap: var(--sp-2); flex: none; margin-left: auto; }
 .bar { flex: 1; height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
 .bar.thin { height: 3px; }
@@ -273,11 +290,10 @@ button { font: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .indeterminate .fill { animation: none; width: 100%; opacity: 0.35; }
 }
-/* A shared width keeps the two bars ending at the same x as their labels change. */
-.pt { font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4.5em; text-align: right; }
+.pt { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 #cell-note, #finish-note { font-size: var(--fs-label); }
-.progress #cell-note { margin: 0; }
+.progress #cell-note { order: 4; min-width: 0; margin: 3px 0 0; line-height: 1.3; }
 /* Nothing to say is no line: an empty one was a 47 px hole in the panel,
    between the progress and the queue. */
 #cell-note:empty, #finish-note:empty { display: none; }

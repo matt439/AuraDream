@@ -353,8 +353,9 @@ function restoreSampling(modelId) {
 // the window's - the gutter the page ends with - and moves within that range
 // four ways:
 //   - with the user's own scrolling (`followScroll`), as far as the page moves:
-//     down the gallery the panel goes up until its bottom (Generate, Pause and
-//     Cancel, the error line, Run grid) is in view and holds there, and back up
+//     down the gallery the panel goes up until its bottom - the LoRA row, under
+//     References and the grid fold, with Generate, its progress and Run grid
+//     above them - is in view and holds there, and back up
 //     it comes down until its top (the prompt) is. A scroll the browser makes
 //     on its own moves nothing: scroll anchoring holding the gallery still as
 //     the viewer above it fills or empties, or the page shortening under a

@@ -1537,8 +1537,11 @@ Frontend and CLI:
   which also holds the ? badge and its tip. No box is narrower than its name
   (`min-width: min-content`), and its boxes take the counters' padding.
   Seed, Batch and Repeat form the Output group (`#output-caption`, the
-  Sampling caption's twin, role=group), one line at every width, with
-  `#run-hint` under the row inside the group. The seed's dice (`#btn-dice`)
+  Sampling caption's twin, role=group), one line at every width.
+  `#run-hint`, what Batch and Repeat add up to (Batch and Repeat are
+  described by it), sits under Generate after `#progress`, not in the group:
+  above Generate its two lines moved Generate as Batch or Repeat passed 1
+  and put a running batch's bars past the window's foot. The seed's dice (`#btn-dice`)
   sits in the Seed name's line, as the ? badges do, at that line's height,
   its target reaching past its frame (`::after`: 6 px up - to the caption
   where it shows - 4 px down to the box, 25 px or more in all); the seed
@@ -1556,8 +1559,8 @@ Frontend and CLI:
   scroll 0 (776.5 at 1400x900); smoke-wide holds
   1400x900, 1920x947 and 2048x1040@1.25.
 - The panel's order is Prompt, Negative, Size, Sampling, Output, Generate
-  and what a job adds under it (`#progress`, the finish line, the queue,
-  `#error`, the last-run banner), the grid fold, then Reference images
+  and what a job adds under it (`#progress`, then the run hint, the finish
+  line, the queue, `#error`, the last-run banner), the grid fold, then Reference images
   (`#reference-field`) and LoRA (`#lora-field`) last. Nothing rarely used
   goes between Sampling and Generate: at scroll 0 the panel is in the
   page's flow and its sticky top cannot lift it, so every line above
@@ -1565,8 +1568,15 @@ Frontend and CLI:
   towards the window's foot - with References and LoRA there, at 2048x1040
   at 125% the batch bar sat at 1038 of 1040 and the elapsed line past it.
   A request reads every control wherever it sits; the grid's LoRA weight
-  axis says the adapter is picked in LoRA below. smoke-wide holds the order
-  and a batch's whole progress in the window at 2048x1040@1.25.
+  axis says the adapter is picked in LoRA below. With the run hint under
+  the progress and the counters on the time's line, a running 4 x 3 batch's
+  progress ends at 895 at 1400x900 (FLUX.1 fake, scroll 0), 901 at
+  1920x947 and 907 at 2048x1040@1.25; at 1536x864 the Now line with Pause
+  and Cancel is in view and the bars (864.5-875.5) and time (895) are not -
+  a window that short needs a scroll, or the topbar's mirror. smoke-wide
+  holds the order; smoke-narrow holds a real batch's whole progress in the
+  window at 1400x900, 1920x947 and 2048x1040@1.25, and Generate unmoved as
+  Batch and Repeat change.
 - The size line compares the request against `guide.pixels` a tenth either
   way and quotes `pixels_word`. An `example` span reads "above/below the N
   MP of <pixels_source>", never what the checkpoint is "for", and its
@@ -2174,7 +2184,13 @@ Frontend and CLI:
   `<name>`/`</name>` tags dropped (`promptGist`), here, in the queue rows,
   in Cancel's title and in the Runs picker's labels, the title keeping it as
   written) with Pause and Cancel at its end, the bars at the
-  panel's width, and the live cell line (`#cell-note`) inside `#progress`;
+  panel's width, and under them one line holding the counters
+  (`#progress-text`, then `#step-text` after a dot) and the live cell line
+  (`#cell-note`), all inside `#progress` - the rows are `display: contents`
+  and `.progress` a wrapping flex line, so a long cell line wraps whole to a
+  line of its own; a counter beside each bar put the time on a fourth line
+  past the foot of a 900 px window at scroll 0. Never a counter back beside
+  its bar, nor anything between the bars and Generate but the Now line;
   queue rows read the same, and a single queued job is one "Next:" row. A
   finished job's outcome and actions (Use seed, Show sheet, Retry/Resume) are
   the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
@@ -3664,7 +3680,8 @@ on screen after a wheel over the stage and at the end of a 160-image
 gallery, the panel holding its bottom a gutter above the window's (the
 gutter and the resting top read off the page; at 1400x900, where References
 and LoRA run on under the fold, stuck with Run grid in view), the panel's
-order - References and LoRA last, under the grid fold - and a running
+order - the run hint under `#progress`, References and LoRA last, under
+the grid fold - and a hand-drawn running
 batch's Now line, both bars and elapsed line in the window at scroll 0 at
 2048x1040@1.25, the panel coming back down
 as far as a wheel scrolls up, the prompt and Examples focused from deep in
@@ -3705,7 +3722,11 @@ back at 1400; the Search tip inside the window at 600 and 700 px and
 unshifted at 1400; the grid's LoRA weight tip clear of the left edge at
 1400 and 2560x1305; a fitting `.end` tip unshifted; and in two columns New
 image offered for a viewer scrolled above the window, static in the panel
-after the finish line and kept past the job's end:
+after the finish line and kept past the job's end; and, at scroll 0, Batch
+4 and Repeat 3 leaving Generate where it was with the run hint under it,
+then that batch running with its Now line, Pause, Cancel, both bars, the
+counters and the elapsed line (one line) in the window and the run hint
+under them, at 1400x900, 1920x947 and 2048x1040@1.25:
 
 ```powershell
 uv run python tools/fake_server.py --port 7889 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
