@@ -35,8 +35,11 @@ the note).
 
 ## Features
 
-- [ ] **Swipe comparison across CFG.** The swipe comparison between images
-  that differ in CFG.
-- [ ] **Redo with tags swapped.** Select several images and run them again
+- [x] **Swipe comparison across CFG.** The swipe comparison between images
+  that differ in CFG. (ccd999d, f1079c3, 2db4787)
+- [x] **Redo with tags swapped.** Select several images and run them again
   with some tags swapped for others - including replacing two tags with one.
-- [ ] **Mass refine.** Refine many images in one action.
+  (Select on the gallery: 6d259b6, 56216c6; Swap tags: a4b6a19, 9611a8d,
+  d7beaa9, ba2fa31, e3172c5)
+- [x] **Mass refine.** Refine many images in one action. (481af25, beeeb65,
+  abbbcf1, e3172c5)
