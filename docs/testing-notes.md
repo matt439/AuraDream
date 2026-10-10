@@ -9,24 +9,29 @@ the note).
 
 ## Bugs
 
-- [ ] **Run thumbnails swallow the wheel.** With the pointer over the run's
-  thumbnail panel, the page can't be scrolled up or down.
-- [ ] **Lightbox arrow hit-boxes show.** Viewing an image full size, the
-  hit-boxes of the back and next arrows are visible.
-- [ ] **Lightbox hint covers the image.** Viewing an image full size, the
+- [x] **Run thumbnails swallow the wheel.** With the pointer over the run's
+  thumbnail panel, the page can't be scrolled up or down. (d506c9d; the
+  docked "Earlier this session" panel too, 3ec1e98)
+- [x] **Lightbox arrow hit-boxes show.** Viewing an image full size, the
+  hit-boxes of the back and next arrows are visible. (6bc7af0)
+- [x] **Lightbox hint covers the image.** Viewing an image full size, the
   hover helper ("Scroll to zoom...") gets in the way of looking at the image.
-- [ ] **Bundle file names aren't local time.** Gallery bundle file names use
-  a time that isn't the local one.
+  (6bc7af0; the help is now on the zoom readout)
+- [x] **Bundle file names aren't local time.** Gallery bundle file names use
+  a time that isn't the local one. (4c161ad)
 
 ## Layout
 
-- [ ] **Left pane is short of height.** The left pane feels restricted
+- [x] **Left pane is short of height.** The left pane feels restricted
   vertically: the batch progress bar is almost cut off, and the elapsed text
-  is cut off.
-- [ ] **References and LoRA below Grid search.** Reference images and LoRA
-  are rarely used, so they could move below Grid search.
-- [ ] **Megapixels in the lightbox.** Viewing an image full size, give the
-  megapixels after the resolution, e.g. `1500x1000 (1.5MP)`.
+  is cut off. (f339e61, fae66bf; fits at 1400x900, 1920x947 and
+  2048x1040@1.25, not yet at 1536x864, where every field would need
+  tightening)
+- [x] **References and LoRA below Grid search.** Reference images and LoRA
+  are rarely used, so they could move below Grid search. (f339e61)
+- [x] **Megapixels in the lightbox.** Viewing an image full size, give the
+  megapixels after the resolution, e.g. `1500x1000 (1.5MP)`. (6bc7af0;
+  written `1536×1536 (2.4 MP)` with a space, as the size hints are)
 
 ## Features
 
