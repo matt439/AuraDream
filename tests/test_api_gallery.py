@@ -8,7 +8,7 @@ from PIL import Image
 
 from backend.config import settings
 from backend.schemas import GenerateRequest
-from tests.api_helpers import run_grid, stream_job
+from tests.api_helpers import run_grid, run_one, stream_job
 
 
 def _star(client, records):
@@ -338,3 +338,64 @@ def test_delete_unstarred_refuses_free_text(client, fake):
         assert response.status_code == 422
         assert "free text" in response.json()["detail"]
     assert client.get("/api/gallery").json()["total"] == 2
+
+
+def _ladder_terms(record, *, by_run=False):
+    # What the lightbox's CFG comparison asks the gallery (web/lightbox-cfg.js,
+    # ladderQuery): the seed - or the run, for a seed past 2**53 - with the
+    # size, steps, refine source and mu, in the checkpoint's exact scope.
+    mu = "none" if record["mu"] is None else record["mu"]
+    first = f"run:{record['run_id']}" if by_run else f"seed:{record['seed']}"
+    return (f"{first} size:{record['width']}x{record['height']} steps:{record['steps']} "
+            f"refine:{record['refine'] if record['refine'] is not None else 'none'} mu:{mu}")
+
+
+def test_the_cfg_ladder_query_finds_every_cfg_value_at_one_seed_and_settings(client, fake, store):
+    # A CFG x steps grid, and a separate Generate at the same seed and
+    # settings: every CFG value at the cell's steps comes back, from either
+    # run, and nothing at the other steps, another size or another seed.
+    _, events = run_grid(client, cfg_axis="2,3.5,5", steps_axis="6,8", seed=78)
+    cells = [e["image"] for e in events if e["type"] == "image"]
+    assert len(cells) == 6
+    _, plain = run_one(client, guidance_scale=7, steps=8, seed=78)
+    run_one(client, guidance_scale=4, steps=8, seed=78, width=512, height=512)
+    run_one(client, guidance_scale=4, steps=8, seed=79)
+    cell = next(r for r in cells if r["steps"] == 8 and r["guidance_scale"] == 3.5)
+    params = {"model": cell["model_id"], "limit": 200, "search": _ladder_terms(cell)}
+    page = client.get("/api/gallery", params=params).json()
+    assert sorted(r["guidance_scale"] for r in page["items"]) == [2, 3.5, 5, 7]
+    assert {r["steps"] for r in page["items"]} == {8}
+    assert page["has_more"] is False
+    # A page shorter than the ladder says there is more, which the note
+    # reads as "may be incomplete".
+    short = client.get("/api/gallery", params={**params, "limit": 2}).json()
+    assert (len(short["items"]), short["has_more"]) == (2, True)
+    # The run instead of the seed (the fallback for a seed JavaScript cannot
+    # say exactly) finds the grid's cells, not the separate Generate.
+    by_run = client.get("/api/gallery", params={**params, "search": _ladder_terms(cell, by_run=True)}).json()
+    assert sorted(r["guidance_scale"] for r in by_run["items"]) == [2, 3.5, 5]
+    assert [e["image"]["run_id"] for e in plain if e["type"] == "image"] != [cell["run_id"]]
+
+
+def test_the_cfg_ladder_query_is_one_checkpoints_and_skips_refine_passes(client, fake, store):
+    # The `model=` scope is exact: the same seed and settings under another
+    # checkpoint are another picture. A refine pass of a cell is asked for
+    # by its own source (`refine:<id>`), and a direct render's query
+    # (`refine:none`) leaves passes out.
+    _, events = run_grid(client, cfg_axis="2,5", steps_axis="8", seed=78)
+    cells = [e["image"] for e in events if e["type"] == "image"]
+    elsewhere = store.save_image(
+        Image.new("RGB", (256, 256)), GenerateRequest(prompt="a lighthouse in fog", width=256, height=256, steps=8),
+        seed=78, duration_ms=1, model_id="somebody/else",
+    )
+    _, passed = run_one(client, guidance_scale=2, steps=8, seed=78, refine=cells[0]["id"], strength=0.3,
+                        width=256, height=256)
+    cell = cells[0]
+    params = {"model": cell["model_id"], "limit": 200, "search": _ladder_terms(cell)}
+    ids = [r["id"] for r in client.get("/api/gallery", params=params).json()["items"]]
+    assert sorted(ids) == sorted(r["id"] for r in cells)
+    everyone = client.get("/api/gallery", params={"all_models": "true", "search": "seed:78 size:256x256"}).json()
+    assert elsewhere.id in [r["id"] for r in everyone["items"]]
+    refined = next(e["image"] for e in passed if e["type"] == "image")
+    own = client.get("/api/gallery", params={**params, "search": _ladder_terms(refined)}).json()
+    assert [r["id"] for r in own["items"]] == [refined["id"]]
