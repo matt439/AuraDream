@@ -44,7 +44,7 @@
   {"expect": "document.querySelectorAll('.card').length === 48"},
 
   {"log": "'A page that fails is fetched once, and the button stays as the retry'"},
-  {"eval": "window.__hits = 0; window.__fetch = window.fetch; window.fetch = (u, ...a) => { if (String(u).includes('/api/gallery')) { window.__hits += 1; return Promise.reject(new Error('boom')); } return window.__fetch(u, ...a); };"},
+  {"eval": "window.__hits = 0; window.__fetch = window.fetch; window.fetch = (u, ...a) => { if (String(u).includes('/api/gallery?')) { window.__hits += 1; return Promise.reject(new Error('boom')); } return window.__fetch(u, ...a); };"},
   {"wheel": [900, 500, 4000]},
   {"wait": 1500},
   {"expect": "__hits === 1 && !els.more.hidden && !els.more.disabled && els.more.textContent === 'Load more' && els.galleryError.textContent === 'boom' && els.count.textContent === '(60)'"},
