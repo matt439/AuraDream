@@ -156,7 +156,8 @@ CREATE TABLE IF NOT EXISTS images (
     lora            TEXT,
     lora_scale      REAL,
     refine          INTEGER,
-    strength        REAL
+    strength        REAL,
+    batch           INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -214,6 +215,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
         # strength; NULL together on a text-to-image row.
         ("refine", "INTEGER", None),
         ("strength", "REAL", None),
+        # How many images the pipeline call that made this one held - the
+        # panel's Batch - which More seeds runs a batch's extra images at.
+        # NULL on rows from before it was recorded.
+        ("batch", "INTEGER", None),
     )
     for column, kind, index in added:
         if column in columns:
@@ -324,6 +329,7 @@ def _row_to_record(row: sqlite3.Row, refine_missing: bool = False) -> ImageRecor
         refine=row["refine"],
         refine_missing=refine_missing,
         strength=row["strength"],
+        batch=row["batch"],
         job_id=row["job_id"],
         run_id=row["run_id"],
         duration_ms=row["duration_ms"],
@@ -339,7 +345,7 @@ _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
-    "refine", "strength",
+    "refine", "strength", "batch",
 )
 
 
@@ -407,12 +413,16 @@ def save_image(
     run_id: str | None = None,
     quantization: str | None = None,
     variables: dict[str, str] | None = None,
+    batch: int | None = None,
 ) -> ImageRecord:
     """Write the PNG and its row. `request` must be what actually ran -
     `backend.applied()` - not what was asked for: a negative prompt the
     pipeline never saw, recorded here, defeats resume and misleads Reuse.
     `variables` is the prompt-variable assignment behind a grid cell, kept so
     the sheet can show what varied rather than reconstruct it from prose.
+    `batch` is how many images the call that made this one held: not part
+    of the reproduction set (one generator per image), but what More seeds
+    runs the batch's next images at.
     """
     created = datetime.now(timezone.utc)
     variables_json = json.dumps(variables) if variables else None
@@ -458,6 +468,7 @@ def save_image(
         "refine": request.refine,
         "refine_source": image_provenance(request.refine),
         "strength": request.strength if request.refine is not None else None,
+        "batch": batch,
     }
     info = PngImagePlugin.PngInfo()
     # A1111-style single-line block, so other tools can read the params back.
@@ -536,6 +547,7 @@ def save_image(
                         "lora_scale": request.lora_scale if request.lora else None,
                         "refine": request.refine,
                         "strength": request.strength if request.refine is not None else None,
+                        "batch": batch,
                     },
                 )
                 # A pass whose source was deleted while it ran - read as the
@@ -1176,9 +1188,17 @@ def index_file(
                 "lora_scale": meta.get("lora_scale") if meta.get("lora") else None,
                 "refine": meta.get("refine"),
                 "strength": meta.get("strength") if meta.get("refine") is not None else None,
+                "batch": _batch(meta.get("batch")),
             },
         )
     return _row_to_record(row)
+
+
+def _batch(value: Any) -> int | None:
+    """A PNG chunk's `batch`, where it is one: a block written by hand or by
+    another tool says what it likes, and a row is not refused for the one
+    field that is no part of the reproduction set."""
+    return value if type(value) is int and value >= 1 else None
 
 
 def thumbnail_for(image: Image.Image, filename: str) -> None:
@@ -1447,6 +1467,23 @@ def get_images(ids: Sequence[int]) -> list[ImageRecord]:
             ).fetchall())
         missing = _missing_sources(conn, rows) if rows else set()
     return [_row_to_record(row, row["refine"] in missing) for row in rows]
+
+
+def lineage_images(run_ids: Sequence[str], job_ids: Sequence[str]) -> list[ImageRecord]:
+    """Every image of these runs, and of these jobs where the image has no
+    run id, oldest first: what More seeds reads a batch's highest seed and
+    its Batch from, picked or not. In chunks, under SQLite's variable limit."""
+    rows: list[sqlite3.Row] = []
+    with _session() as conn:
+        for column, names, extra in (("run_id", run_ids, ""), ("job_id", job_ids, " AND run_id IS NULL")):
+            wanted = sorted(set(names))
+            for at in range(0, len(wanted), 500):
+                chunk = wanted[at:at + 500]
+                rows.extend(conn.execute(
+                    f"SELECT * FROM images WHERE {column} IN ({','.join('?' * len(chunk))}){extra}",
+                    chunk,
+                ).fetchall())
+    return [_row_to_record(row) for row in sorted(rows, key=lambda row: row["id"])]
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)

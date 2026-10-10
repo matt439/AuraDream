@@ -44,16 +44,20 @@ def test_the_png_carries_the_whole_reproduction_set(store):
         job_id="job1",
         run_id="run1",
         quantization="fp8",
+        batch=4,
     )
     with Image.open(store.settings.outputs_dir / record.filename) as png:
         meta = json.loads(png.info["local-diffusion"])
+    # `batch` is no part of the reproduction set, but like `job` and `run`
+    # it is what a reindex has to restore it from: More seeds reads it.
     assert set(meta) == {
         "prompt", "negative_prompt", "steps", "guidance_scale", "true_cfg", "mu", "seed",
         "model", "quantization", "job", "run", "size", "variables", "hash",
         "reference", "lora", "lora_scale", "refine", "strength",
-        "reference_sources", "refine_source",
+        "reference_sources", "refine_source", "batch",
     }
     assert (meta["seed"], meta["mu"], meta["run"], meta["quantization"]) == (5, 1.15, "run1", "fp8")
+    assert meta["batch"] == record.batch == 4
     assert meta["size"] == "256x256"  # the image's, not the request's
     assert meta["variables"] is None  # a plain prompt
     # Absent rather than empty: a text-to-image row with no adapter says so by

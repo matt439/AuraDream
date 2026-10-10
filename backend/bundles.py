@@ -949,6 +949,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "reference_sources": [provenance(i) for i in refs] or None,
         "refine": row["refine"], "refine_source": provenance(row["refine"]),
         "strength": row["strength"], "lora": row["lora"], "lora_scale": row["lora_scale"],
+        "batch": row.get("batch"),
     }
 
 
@@ -1016,7 +1017,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 columns = {r["name"] for r in conn.execute("PRAGMA table_info(images)")}
                 for column in storage._COLUMNS:
                     if column not in columns:
-                        kind = "REAL" if column in {"true_cfg", "lora_scale", "strength"} else "INTEGER" if column == "refine" else "TEXT"
+                        kind = "REAL" if column in {"true_cfg", "lora_scale", "strength"} else "INTEGER" if column in {"refine", "batch"} else "TEXT"
                         conn.execute(f"ALTER TABLE images ADD COLUMN {column} {kind}")
                 seq = conn.execute("SELECT seq FROM sqlite_sequence WHERE name='images'").fetchone()
                 next_id = max([r["id"] for r in current] + [seq[0] if seq else 0])

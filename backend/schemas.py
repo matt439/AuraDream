@@ -907,6 +907,92 @@ class RefineBatchPreview(BaseModel):
     start_sigma_high: float | None = None
 
 
+class MoreSeedsRequest(BaseModel):
+    """More seeds: `count` more images of each selected batch, every setting
+    the batch's own, the seeds continuing past its highest.
+
+    A batch is the images of one run that agree on everything but the seed,
+    as a card's batch hover shows it; two picked images of one batch ask for
+    `count` more of it, not of each (`more_seeds`). The images are the
+    gallery selection's `ids` where cards are picked, else the gallery's
+    filter as Re-render takes it. The new images run at the batch's own
+    Batch where its images recorded one, else at `batch` - the page's -
+    either held to the pixel budget. `expected`, on the queueing request, is
+    the `ids` the preview answered.
+    """
+
+    ids: list[int] | None = Field(default=None, min_length=1, max_length=settings.max_grid_images)
+    search: str | None = Field(default=None, max_length=2000)
+    favorites: bool = True
+    all_models: bool = False
+    count: int = Field(default=4, ge=1, le=settings.max_grid_images)
+    batch: int = Field(default=1, ge=1, le=MAX_BATCH)
+    expected: list[int] | None = Field(default=None, max_length=settings.max_grid_images)
+
+    # Written out: a validator assigned from another model is not run.
+    @field_validator("ids")
+    @classmethod
+    def _positive_ids(cls, value: list[int] | None) -> list[int] | None:
+        return SwapTagsRequest._positive_ids.__func__(cls, value)
+
+
+MoreSeedsStatus = Literal["queued", "foreign", "invalid", "source_deleted", "lora_missing", "deleted"]
+
+
+class MoreSeedsResult(BaseModel):
+    """What More seeds makes of one batch, or of a picked id the gallery no
+    longer holds (`deleted`, `id` its own and nothing else known).
+
+    `id` is the batch's newest picked image, whose picture and prompt the
+    row shows, and `ids` every picked image of it. `images` and
+    `seed_low`/`seed_high` are what the gallery holds of the batch; `first`
+    and `last` the new seeds, `skipped` the seeds past `seed_high` stepped
+    over as already made or queued. `batch` is the Batch they run at,
+    `recorded` whether that is the batch's own rather than the page's.
+    """
+
+    id: int
+    ids: list[int] = Field(default_factory=list)
+    thumb_url: str | None = None
+    width: int | None = None
+    height: int | None = None
+    prompt: str = ""
+    images: int = 0
+    seed_low: int | None = None
+    seed_high: int | None = None
+    first: int | None = None
+    last: int | None = None
+    queued: int = 0
+    skipped: int = 0
+    batch: int | None = None
+    recorded: bool = False
+    status: MoreSeedsStatus
+    detail: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class MoreSeedsPreview(BaseModel):
+    """More seeds without queueing: every batch's outcome, counted, the
+    first `MORE_SEEDS_PREVIEW_ROWS` listed, and the time it would take."""
+
+    # Every image the selection resolved to, oldest first: what the queueing
+    # request sends back as `expected`.
+    ids: list[int]
+    counts: dict[str, int]
+    # Images queued, and the batches and jobs they make: one job per run.
+    queued: int
+    batches: int
+    jobs: int
+    results: list[MoreSeedsResult]
+    total: int
+    # Queued batches running at the page's Batch, theirs not recorded.
+    unrecorded: int = 0
+    # Summed per size from that size's history; None where any size queued
+    # has none, and then how many sizes have none.
+    seconds: float | None = None
+    unpriced_sizes: int = 0
+
+
 class GridPreview(BaseModel):
     """What a grid would do, without queueing it."""
 
@@ -992,6 +1078,11 @@ class ImageRecord(BaseModel):
     # kept, and so is the id, but it cannot be made again. Read, not stored -
     # the gallery's pages and `GET /api/images/{id}` look the source up.
     refine_missing: bool = False
+    # How many images the pipeline call that made this one held (the panel's
+    # Batch). No part of the reproduction set - each image has its own
+    # generator - but what More seeds runs the batch's next images at. Null
+    # for rows from before it was recorded.
+    batch: int | None = None
     seed: int
     model_id: str
     # The first 16 hex digits of the sha256 of the decoded pixels. What the
@@ -1431,3 +1522,16 @@ class SwapTagsAccepted(BaseModel):
 class RefineBatchAccepted(SwapTagsAccepted):
     """The jobs Mass refine queued, one per distinct size, as Swap tags
     answers them."""
+
+
+class MoreSeedsAccepted(BaseModel):
+    """The jobs More seeds queued, one per run its batches extend, the
+    first one's ids at the top level as every other submission answers
+    them. `queued` counts images, `batches` the batches they extend."""
+
+    job_id: str
+    seed: int
+    run_id: str
+    more: list[JobAccepted] = Field(default_factory=list)
+    queued: int
+    batches: int

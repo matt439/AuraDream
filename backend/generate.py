@@ -1048,6 +1048,7 @@ def main(argv: list[str] | None = None) -> int:
                     run_id=run_id,
                     quantization=p.settings.quantization,
                     variables=cell.variables,
+                    batch=cell.request.num_images,
                 )
                 saved += 1
                 if record.content_hash:

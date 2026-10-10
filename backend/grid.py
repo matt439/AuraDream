@@ -677,9 +677,10 @@ def cell_from_record(
     guards).
 
     `changes` names any other `GenerateRequest` field to set instead of the
-    record's - Mass refine's source, strength and steps, and the running
-    checkpoint's sampling for a record another one made - and goes through
-    the same validation; `label` is the cell's caption in the progress line
+    record's - Mass refine's source, strength and steps, the running
+    checkpoint's sampling for a record another one made, More seeds' seed and
+    batch - and goes through the same validation; a `seed` there is the
+    cell's base seed too. `label` is the cell's caption in the progress line
     and a failed cell's report.
     """
     fields: dict[str, Any] = {
@@ -704,7 +705,7 @@ def cell_from_record(
     fields.update(changes)
     return Cell(
         request=GenerateRequest(**fields),
-        seed=record.seed,
+        seed=fields["seed"],
         label=label,
         variables=(record.variables if variables is _KEEP else variables) or None,
     )

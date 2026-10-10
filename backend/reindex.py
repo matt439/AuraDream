@@ -227,6 +227,7 @@ def _database_meta(
         "refine": refine,
         "refine_source": storage.image_provenance(refine),
         "strength": row.get("strength") if refine is not None else None,
+        "batch": storage._batch(row.get("batch")),
     }
 
 
@@ -343,6 +344,7 @@ def merge_database(
             "lora_scale": row.get("lora_scale") if row.get("lora") else None,
             "refine": refine,
             "strength": row.get("strength") if refine is not None else None,
+            "batch": storage._batch(row.get("batch")),
         }
         copied = source != outputs
         try:

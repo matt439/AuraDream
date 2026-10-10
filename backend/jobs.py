@@ -19,7 +19,7 @@ from . import gallery_lock, storage
 from .backends import Cancelled, GenerationBackend
 from .model_selection import current_settings
 from .config import settings
-from .grid import Cell, progress_steps, run_id as _run_id
+from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .latent_preview import data_url
 from .schemas import GenerateRequest
 from .seeds import random_seed, wrap_seed
@@ -131,6 +131,9 @@ class Job:
     # job is named by the scale and the strength they share, not by the
     # first cell's source as a single pass is.
     refine_batch: float | None = None
+    # More seeds' count: its cells continue batches the gallery already
+    # holds, so the job is named as more of its prompt, not as a new one.
+    more_seeds: int | None = None
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -200,6 +203,7 @@ class Job:
             "prompt_template": None if self.prompt_template is None else self.prompt_template[:120],
             "comparison": self.comparison,
             "swap": None if self.swap is None else self.swap[:120],
+            "more_seeds": self.more_seeds,
             "status": self.status,
             "waiting_on": self.waiting_on,
             "pause_requested": self.pause_requested,
@@ -293,6 +297,19 @@ class JobManager:
             for image in job.images:
                 if image.get("refine") in gone:
                     image["refine_missing"] = True
+
+    def planned_keys(self) -> dict[tuple[int, int], set[CellKey]]:
+        """What the live jobs will write, by size: every image's resume key
+        as `applied()` runs its cell. More seeds counts these as made, so a
+        second press while the first is still queued continues past it
+        rather than rendering the same seeds again. Event-loop thread; a
+        job's cells are fixed when it is made."""
+        planned: dict[tuple[int, int], set[CellKey]] = {}
+        for job in self.active():
+            for cell in job.cells:
+                ran = Cell(request=self.backend.applied(cell.request), seed=cell.seed)
+                planned.setdefault((cell.request.width, cell.request.height), set()).update(cell_keys(ran))
+        return planned
 
     def busy(self) -> bool:
         """True while anything is queued or running.
@@ -434,6 +451,7 @@ class JobManager:
         comparison: bool = False,
         swap: str | None = None,
         refine_batch: float | None = None,
+        more_seeds: int | None = None,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -445,7 +463,8 @@ class JobManager:
         by the time the cells are built - as is the grid's own prompt, which
         `prompt_template` carries for the snapshot to name the job by, and
         whether its prompts were a comparison's versions (`comparison`), and
-        Swap tags' rows (`swap`), and Mass refine's scale (`refine_batch`).
+        Swap tags' rows (`swap`), Mass refine's scale (`refine_batch`) and
+        More seeds' count (`more_seeds`).
         """
         selected = current_settings(settings)
         job = Job(
@@ -462,6 +481,7 @@ class JobManager:
             comparison=comparison,
             swap=swap,
             refine_batch=refine_batch,
+            more_seeds=more_seeds,
         )
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight
@@ -820,6 +840,7 @@ class JobManager:
                         run_id=job.run_id,
                         quantization=selected.quantization,
                         variables=cell.variables,
+                        batch=cell.request.num_images,
                     )
                     break
                 except gallery_lock.GalleryBusy:
