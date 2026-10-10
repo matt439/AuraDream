@@ -96,6 +96,8 @@ function loadGallery() {
       moreArmed = false;
       showError(err.message, false, { slot: els.galleryError });
       if (!galleryRecords.length) els.count.textContent = els.otherModels.textContent = '';
+      // The grid resetGallery emptied shows none of the selection now.
+      syncSelection();
     })
     .finally(() => {
       galleryPending = null;

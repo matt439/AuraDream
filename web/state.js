@@ -541,6 +541,9 @@ function showError(message, note = false, {
   slot.hidden = !message;
   slot.textContent = message || '';
   slot.classList.toggle('note', note);
+  // A one-line slot (the gallery's) cuts a long message with an ellipsis
+  // rather than growing; its whole text is the title.
+  if (slot.classList.contains('one-line')) slot.title = message || '';
   // A new message is nobody's "Previous job:" (job-results.js, syncFinishLead).
   slot.classList.remove('previous');
   if (offline && message) offlineSlots.set(slot, message);

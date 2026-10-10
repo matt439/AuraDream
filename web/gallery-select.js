@@ -18,7 +18,9 @@
 //
 // What other features read:
 //   selectedIds()          the ids in the order they were picked (a copy)
-//   selectedRecords()      their records, in the same order
+//   selectedRecords()      their records, in the same order: the loaded
+//                          page's copy where there is one, else the record
+//                          as picked (a snapshot; the ids are what to send)
 //   isSelected(id)
 //   onSelectionChange(fn)  fn(ids) after every change of the selection or of
 //                          Select, and whenever a page lands (syncSelection)
@@ -30,7 +32,13 @@ let selectAnchor = null;
 const selectionListeners = [];
 
 function selectedIds() { return [...selection.keys()]; }
-function selectedRecords() { return [...selection.values()]; }
+// Each id's record as the gallery holds it now where a loaded page has it
+// (a star or a pass since is on that copy), else as it was when picked. The
+// ids are what an action sends; the server reads the rows.
+function selectedRecords() {
+  const now = new Map(galleryRecords.map((r) => [r.id, r]));
+  return [...selection].map(([id, rec]) => now.get(id) ?? rec);
+}
 function isSelected(id) { return selection.has(id); }
 function onSelectionChange(fn) { selectionListeners.push(fn); }
 
@@ -70,19 +78,22 @@ function syncSelection() {
     syncCardSelected(div);
     shown.add(+div.dataset.id);
   });
-  els.select.setAttribute('aria-pressed', String(selectMode));
-  els.select.classList.toggle('active', selectMode);
+  // Held on a sheet, Select does not read as pressed there, nor does the
+  // count invite picks the sheet's cells cannot take.
+  const picking = selectMode && !sheetMode;
+  els.select.setAttribute('aria-pressed', String(picking));
+  els.select.classList.toggle('active', picking);
   els.select.setAttribute('aria-disabled', String(sheetMode));
   els.select.dataset.title ??= els.select.title;
   els.select.title = sheetMode ? SELECT_ON_SHEET : els.select.dataset.title;
   const n = selection.size;
   const away = n - selectedIds().filter((id) => shown.has(id)).length;
   const text = n ? `${n} selected${away ? ` · ${away} not shown` : ''}`
-    : selectMode ? 'Click cards to pick them' : '';
+    : picking ? 'Click cards to pick them' : '';
   // Written only when it changes: a page landing re-syncs, and a status
   // repeated is read out again.
   if (els.selectCount.textContent !== text) els.selectCount.textContent = text;
-  els.selectCount.title = away ? `${away} of the selected images are not among the cards this search and its pages show; they stay selected` : '';
+  els.selectCount.title = away ? `${away} of the selected images are not among the cards this search and its pages show; they stay selected` : text;
   // Clear goes with an empty selection. Focus on it moves to Select first,
   // so it does not fall to <body>.
   if (!n && document.activeElement === els.selectClear) els.select.focus({ preventScroll: true });
@@ -120,10 +131,14 @@ function cardPress(div, rec, e) {
   toggleSelected(rec);
 }
 
+// The anchor moves only with a toggle that happened: a pick refused at the
+// cap leaves it where the last real one was, so the next Shift range starts
+// from a card that is picked.
 function toggleSelected(rec) {
-  selectAnchor = rec.id;
   if (selection.has(rec.id)) selection.delete(rec.id);
-  else if (!refuseOverCap(1)) selection.set(rec.id, rec);
+  else if (refuseOverCap(1)) return;
+  else selection.set(rec.id, rec);
+  selectAnchor = rec.id;
   syncSelection();
 }
 

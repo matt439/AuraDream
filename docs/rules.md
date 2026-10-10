@@ -2347,8 +2347,10 @@ Frontend and CLI:
   `#gallery-error` is the gallery head's last row (a full-width flex item
   inside `.gallery-head`), and its line is kept while it is empty
   (`#gallery-error[hidden]` is `visibility: hidden`, not `display: none`), so
-  a message never moves the grid under the pointer; only one that wraps
-  grows it.
+  a message never moves the grid under the pointer. It is one line whatever
+  the message (`white-space: nowrap` with an ellipsis): a long one is cut,
+  and `showError` makes the whole text the title of a `.one-line` slot.
+  Nothing in the footer row it shares may let it wrap.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
   with every access in try/catch. A write is a merge (`writePanel`): only
@@ -2776,8 +2778,11 @@ Frontend and CLI:
   images that actions on several images read (Swap tags, Mass refine):
   `selectedIds()` (in the order picked), `selectedRecords()`, `isSelected`,
   `onSelectionChange(fn)` (called with the ids after every change, every
-  toggle of Select and every page that lands) and `clearSelection()`. It is
-  ids with the record each was picked from, never the cards: a search, a
+  toggle of Select, every page that lands and a page that fails) and
+  `clearSelection()`. It is ids, never the cards; `selectedRecords()` hands
+  over the loaded page's copy of each record where `galleryRecords` has one,
+  else the record as picked (a snapshot - actions send the ids and the
+  server reads the rows). A search, a
   filter, a sheet or a page keeps it, and `#select-count` says "N selected ·
   M not shown" for the ids no live card shows. `forgetImages` takes deleted
   ids out of it (`forgetSelected`) and `tombstone` drops `.selected`; nothing
@@ -2785,8 +2790,8 @@ Frontend and CLI:
   footer row beside Bundles…, styled as it is so the line keeps its height)
   turns a card image's press into a pick through `cardPress`, which `card()`
   hands `thumb` as `open`: click or Space toggles, Shift+click or
-  Shift+Space adds every loaded card from the anchor (the last card toggled)
-  to this one in DOM order, Enter still opens the lightbox, F and the tools
+  Shift+Space adds every loaded card from the anchor (the last card toggled;
+  a pick refused at the cap and a range leave it) to this one in DOM order, Enter still opens the lightbox, F and the tools
   are unchanged. Out of select mode a press opens the lightbox as before,
   and a selection already made stays marked and counted. Escape on a card,
   Select or Clear (`selectKey`, on `#library`) empties the selection, then
@@ -2794,8 +2799,10 @@ Frontend and CLI:
   focus to Select as it hides. The cap is `sheetPage` (the server's
   `max_grid_images`): a pick past it is refused and a range picks what fits,
   said in `#gallery-error`. On a sheet Select is aria-disabled with
-  `SELECT_ON_SHEET` as its title and says it when pressed; the sheet's cells
-  are not picked. A picked card is `.selected` (its group named "#N
+  `SELECT_ON_SHEET` as its title, reads `aria-pressed="false"` and says it
+  when pressed, and the count offers no "Click cards" hint; the sheet's
+  cells are not picked. `#select-count` shrinks with an ellipsis before the
+  buttons do. A picked card is `.selected` (its group named "#N
   (selected)"); in select mode `#gallery.selecting` draws a ring at each
   card's top centre and the image is a toggle (`aria-pressed`, named
   "Select #N: …"). `syncSelection` derives all of it from the state; call it
@@ -4097,8 +4104,13 @@ page boundary; a picked image deleted by its ⌦ leaving the selection; the
 cap (a range picking what fits, a single pick refused, both said); Escape
 clearing, then leaving select mode, then left to the page; Select off
 keeping a selection that a click no longer changes; Clear handing focus to
-Select; and on a sheet Select held with its reason and the selection kept
-and counted:
+Select; on a sheet Select held with its reason, not pressed and with no
+hint, and the selection kept and counted; a refused pick leaving the anchor;
+`selectedRecords()` giving the loaded page's records after a search; a
+rejected search counting the whole selection as not shown; and a long
+message in the gallery's line beside a long count staying one line - the
+footer, Select and the grid unmoved, the text the title - at 1400, at 600
+and beside the viewer at 2560:
 
 ```powershell
 uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>

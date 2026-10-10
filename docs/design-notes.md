@@ -4289,8 +4289,14 @@ The press must leave the tool where it was. `#gallery-error` sat between
 the head and the grid, so its first message pushed the grid down 38 px and
 the repeat press a click that did nothing invites landed on the image
 below, opening the lightbox. It is now a row of the head's own whose line
-is kept while it is empty (`[hidden]` there is `visibility: hidden`); only
-a message that wraps still moves the grid, by its second line. The note
+is kept while it is empty (`[hidden]` there is `visibility: hidden`). A
+message that wrapped still moved the grid, by its second line - rare while
+only Bundles… shared the row, common once Select, its count and Clear did:
+"This checkpoint can't use reference images; FLUX.2 [klein] can." wrapped
+beside "2 selected · 2 not shown" beside the viewer at 2560 and at 600 px,
+and the grid dropped 20 px under the pressed ❐. The line is now one line
+whatever it says, a long message ending in an ellipsis with its whole text
+as the title; the alert still reads all of it. The note
 over the row is a gist on one line - "Four is the most", with the sentence
 in the gallery's line - and the row's names stay down while it is up: the
 two-line note grew up into the pressed tool's name and the two were drawn
@@ -4457,17 +4463,25 @@ mode Enter still opens the lightbox - the keyboard can look before it picks
 card toggled to this one, in the loaded order (the grid's DOM order), as a
 file manager's does: a night's sweep is a run of neighbours.
 
-**Ids that outlive the cards.** The selection is ids with the record each was
-picked from, so a new search, a filter, a sheet or another page keeps it:
-picking across two searches is the point. The count beside Select says how
-many of it the view does not show ("8 selected · 7 not shown"), since an
-action would reach images the user cannot see. A deleted image leaves it in
-`forgetImages`, which stays the one place the page drops deleted ids; its
-tombstone drops the mark. Leaving select mode keeps the selection, marked
-and counted - turning a mode off is no request to throw away forty picks -
-and Clear or Escape empties it; a second Escape leaves the mode. The cap is
-the grid ceiling the server holds the actions' `ids` to (`max_grid_images`,
-the sheet's page), said when a pick would pass it rather than at submit.
+**Ids that outlive the cards.** The selection is ids, so a new search, a
+filter, a sheet or another page keeps it: picking across two searches is the
+point. The count beside Select says how many of it the view does not show
+("8 selected · 7 not shown"), since an action would reach images the user
+cannot see. A deleted image leaves it in `forgetImages`, which stays the one
+place the page drops deleted ids; its tombstone drops the mark. Leaving
+select mode keeps the selection, marked and counted - turning a mode off is
+no request to throw away forty picks - and Clear or Escape empties it; a
+second Escape leaves the mode. The cap is the grid ceiling the server holds
+the actions' `ids` to (`max_grid_images`, the sheet's page), said when a
+pick would pass it rather than at submit. The record kept with each id is
+only a fallback: `selectedRecords()` reads the loaded page's copy where
+there is one, since a search replaces `galleryRecords` with new objects and
+a star made since lands on those; an action sends ids and the server reads
+the rows. A page that fails to load re-counts too, as none of the selection
+is shown then. A pick refused at the cap leaves the Shift anchor where the
+last real toggle put it, so a range never starts from an unpicked card. On a
+sheet Select is held, so it does not read as pressed and the count does not
+invite picks.
 
 **Where it sits, and what it must not move.** The head's control rows are
 full at 1400 px, so Select, its count and Clear share the footer row with
