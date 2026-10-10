@@ -58,6 +58,24 @@
   {"expect": "__until(() => els.refineBatchRun.getAttribute('aria-disabled') === 'true' && els.refineBatchRun.title === RB_STEPS_PROBLEM)"},
   {"eval": "els.refineBatchSteps.value = ''; els.refineBatchSteps.dispatchEvent(new Event('input'))"},
   {"expect": "__until(() => els.refineBatchRun.getAttribute('aria-disabled') === 'false')"},
+  {"log": "'Steps text a number box cannot parse (1e) is refused too, not taken as blank: Steps is a text box, as Strength'"},
+  {"click": "#refine-batch-steps"},
+  {"type": "1e"},
+  {"expect": "__until(() => els.refineBatchSteps.value === '1e' && els.refineBatchRun.getAttribute('aria-disabled') === 'true' && els.refineBatchRun.title === RB_STEPS_PROBLEM)"},
+  {"eval": "els.refineBatchSteps.value = ''; els.refineBatchSteps.dispatchEvent(new Event('input'))"},
+  {"expect": "__until(() => els.refineBatchRun.getAttribute('aria-disabled') === 'false')"},
+
+  {"log": "'the server stops answering with the dialog open: Refine is held with the reason at once, and freed when it answers again'"},
+  {"eval": "goOffline()"},
+  {"expect": "els.refineBatchRun.getAttribute('aria-disabled') === 'true' && els.refineBatchRun.title === 'The server is not answering'"},
+  {"eval": "void refreshStatus()"},
+  {"expect": "__until(() => !serverOffline && els.refineBatchRun.getAttribute('aria-disabled') === 'false' && els.refineBatchRun.title === 'Refine 3 images at strength 0.3 and 1.5× (Ctrl+Enter)')"},
+
+  {"log": "'an image the filter matches lands while the dialog is open: it checks again on its own, and the title, scope line and Refine say the four; gone again, three'"},
+  {"eval": "(async () => { await fetch('/api/images/' + __made[2].id + '/favorite?value=true', {method: 'POST'}); await prependFinished(1); })()"},
+  {"expect": "__until(() => els.refineBatchTitle.textContent === 'Refine 4 images' && els.refineBatchScope.textContent === 'Refining the 4 images starred, this checkpoint only.' && els.refineBatchRun.getAttribute('aria-disabled') === 'false' && els.refineBatchRun.textContent === 'Refine 4 images (2 jobs)' && rbAnswer.ids.includes(__made[2].id))"},
+  {"eval": "(async () => { await fetch('/api/images/' + __made[2].id + '/favorite?value=false', {method: 'POST'}); await resetGallery(); })()"},
+  {"expect": "__until(() => els.refineBatchTitle.textContent === 'Refine 3 images' && els.refineBatchScope.textContent === 'Refining the 3 images starred, this checkpoint only.' && els.refineBatchRun.getAttribute('aria-disabled') === 'false' && els.refineBatchRun.textContent === 'Refine 3 images (2 jobs)' && !rbAnswer.ids.includes(__made[2].id))"},
 
   {"log": "'a scale pressed is checked again: 2x, the same images at twice their size'"},
   {"click": "#refine-batch-scales button:nth-child(4)"},
@@ -125,6 +143,15 @@
   {"expect": "__until(() => __rows().find((li) => +li.dataset.id === __made[2].id)?.dataset.status === 'deleted' && els.refineBatchCount.textContent.includes('1 will be refined') && els.refineBatchCount.textContent.includes('1 deleted'))"},
   {"key": "Escape"},
   {"expect": "__until(() => !els.refineBatchDialog.open)"},
+
+  {"log": "'the model picker opened under the dialog without focus, as offerModelPicker opens it: Escape in the dialog closes the dialog, not the picker'"},
+  {"click": "#btn-refine-batch"},
+  {"expect": "__until(() => els.refineBatchDialog.open)"},
+  {"eval": "showModelPicker(true, {focus: false})"},
+  {"expect": "__until(() => !els.modelPicker.hidden && els.refineBatchDialog.contains(document.activeElement))"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.refineBatchDialog.open && !els.modelPicker.hidden)"},
+  {"eval": "showModelPicker(false)"},
   {"eval": "clearSelection(); setSelectMode(false); api = window.__api;"},
   {"expect": "scrollY === __scrollY"}
 ]

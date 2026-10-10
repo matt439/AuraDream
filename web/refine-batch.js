@@ -35,8 +35,14 @@ const RB_CHIP = {
   rendered: 'already refined', deleted: 'deleted', invalid: 'invalid',
 };
 
-// What the dialog acts on, fixed when it opens: `{ids}` or the filter.
+// What the dialog acts on, fixed when it opens: `{ids}` or the filter, and
+// the galleryActionTarget it came from, whose count the scope line says.
 let rbScope = null;
+let rbTarget = null;
+// The gallery's count (`total`) the last check was asked under: a filter's
+// matches grow as a job lands images, and the check is asked again
+// (refineBatchGalleryChanged) so the press pins what the filter holds now.
+let rbSeenTotal = null;
 let rbRevision = null;
 // The scale the passes run at: one of REFINE_SCALES. `rbOpened` is the one
 // the dialog opened at, and `rbCapped` why that is not the one asked for
@@ -81,7 +87,31 @@ function syncRefineBatchButton() {
   els.refineBatch.title = target.scope
     ? `Refine ${target.words} at one strength and scale - each keeps its own prompt, seed, CFG and mu`
     : target.why;
+  refineBatchGalleryChanged();
   syncRefineBatchRun();
+}
+
+// The gallery's count changed under an open dialog acting on the filter: a
+// job landed images the filter matches (or a delete elsewhere). The modal
+// dialog holds the filter the gallery shows, so `total` is its count; the
+// check is asked again so the answer, and the ids a press pins, are the
+// filter's now - not a refusal at every press while a job keeps landing.
+function refineBatchGalleryChanged() {
+  if (!els.refineBatchDialog.open || !rbScope || rbScope.ids || rbSending) return;
+  if (total === rbSeenTotal) return;
+  rbSeenTotal = total;
+  // Not the answer to what the filter holds now: a press waits for the next.
+  rbAnswerKey = '';
+  scheduleRefineBatchCheck(0);
+}
+
+// The scope line, from the target the dialog opened on and, for a filter,
+// the count of the latest answer.
+function rbSayScope(answer) {
+  if (!rbTarget) return;
+  if (!rbScope.ids && answer && typeof answer.total === 'number') rbTarget = { ...rbTarget, n: answer.total };
+  const line = galleryActionScopeLine(rbTarget, 'Refining');
+  if (els.refineBatchScope.textContent !== line) els.refineBatchScope.textContent = line;
 }
 
 function rbStrengthText() { return els.refineBatchStrength.value.trim(); }
@@ -130,6 +160,8 @@ async function openRefineBatch() {
   const target = refineBatchTarget();
   if (!target.scope) { showError(target.why, true, { slot: els.galleryError }); return; }
   rbScope = target.scope;
+  rbTarget = target;
+  rbSeenTotal = total;
   rbRevision = modelRevision;
   const prefs = refinePrefs();
   const kept = prefs.strength?.[loadedModel];
@@ -175,7 +207,6 @@ async function openRefineBatch() {
   rbAnswerKey = JSON.stringify(rbPayload());
   rbProblem = '';
   rbRefused = false;
-  els.refineBatchScope.textContent = galleryActionScopeLine(target, 'Refining');
   showError('', false, { slot: els.refineBatchError });
   renderRefineBatch(answer);
   els.refineBatchDialog.showModal();
@@ -285,6 +316,7 @@ function rbSay(text, failed = false) {
 }
 
 function renderRefineBatch(answer) {
+  rbSayScope(answer);
   els.refineBatchTitle.textContent = answer.queued ? `Refine ${plural(answer.queued, 'image')}` : 'Refine';
   syncRefineBatchScales(answer.largest);
   // Offered only where the selection holds another checkpoint's images, and
@@ -511,6 +543,7 @@ function setupRefineBatch() {
     rbAsking?.abort();
     rbAsking = null;
     rbScope = null;
+    rbTarget = null;
   });
   onSelectionChange(syncRefineBatchButton);
   syncRefineBatchButton();

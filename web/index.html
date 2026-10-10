@@ -1158,7 +1158,9 @@
     </div>
     <div class="field rb-steps">
       <i><label for="refine-batch-steps">Steps</label></i>
-      <input type="number" id="refine-batch-steps" min="1" max="100" placeholder="each image's own">
+      <!-- Text, as Strength: a number box reports what it cannot parse
+           ("1e", "-") as blank, which here means each image's own. -->
+      <input type="text" id="refine-batch-steps" autocomplete="off" inputmode="numeric" placeholder="each image's own">
     </div>
   </div>
   <div class="rb-ticks">

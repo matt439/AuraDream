@@ -1755,8 +1755,12 @@ Frontend and CLI:
   when it hides; under 901 px focus stays on Check. Escape closes the check
   as Close does (`escapeAnalysis`, app.js's keydown): after the Examples
   menu, the Tags helper and anything that took the key
-  (`defaultPrevented`), never under the lightbox or the Refine dialog,
-  during a composition or in a search box with text; focus inside the check
+  (`defaultPrevented`), never under the lightbox, the Refine dialog, Mass
+  refine's or Swap tags', during a composition or in a search box with
+  text. The open Models picker's Escape (it closes the picker and takes the
+  key) is skipped under those dialogs too: a picker opened under one
+  (`offerModelPicker` on a status answer) stays, and the Escape is the
+  dialog's cancel. Focus inside the check
   (or on `<body>`) goes to Check (to the prompt while Check is held), focus
   elsewhere stays.
 - The prompt check describes one text: the prompt and negative prompt as
@@ -2993,8 +2997,12 @@ Frontend and CLI:
   `onSelectionChange`), its title naming what it takes; a held press says
   why in `#gallery-error`. The dialog fixes its scope at open, checks
   400 ms after an edit (at once on open, on a row removed, on the field
-  changed, and from `forgetImages` when an id it listed went:
-  `forgetSwapImages`), aborting a check still out; Queue is aria-disabled
+  changed, from `forgetImages` when an id it listed went:
+  `forgetSwapImages`, and, on a filter scope, when the gallery's `total`
+  changes under it - a job landing matching images - with the answer
+  dropped first: `swapGalleryChanged` from `syncSwapButton`), aborting a
+  check still out; the scope line says the filter's count from the latest
+  answer's `total` (`swapSayScope`); Queue is aria-disabled
   with "Add a tag to find", "Checking the swaps…" (the answer is not to the
   payload typed now), the server's refusal, "The checkpoint changed…" or
   "No image would change", a press saying it in `#swap-error`, and sends
@@ -3047,8 +3055,9 @@ Frontend and CLI:
   it has no side effects, is not model-dependent and is advisory in `api`.
   The queueing route is model-dependent, refuses 409 when `expected` is
   not the ids resolved now, prunes what the gallery holds (`pruned`),
-  answers 409 when everything was rendered and 422 when nothing else can
-  run, and submits one job per distinct size
+  answers 409 only where every image's status is `rendered` and
+  otherwise 422 naming every count (the rendered among them, so the ones
+  the user could fix are said), as the dialog's hold words it, and submits one job per distinct size
   (`jobs.submit_cells(..., refine_batch=scale)`), the rest in `more` as
   Swap tags'. The snapshot's `refine_batch` and `strength` name the job
   ("refine ×1.5 at strength 0.3", `describeJob`), its `refine` is None;
@@ -3069,11 +3078,18 @@ Frontend and CLI:
   else its default, focused and selected; Steps blank; Skip refine passes
   ticked; Include other checkpoints hidden unless the answer's `foreign` is
   above 0 (or it is ticked). A list or range in Strength is refused on the
-  page (`RB_ONE_STRENGTH`), as is Steps outside 1-100 (`RB_STEPS_PROBLEM`),
-  without asking the server. Checks run 250 ms after an edit (at once on a
-  scale, a tick, and from `forgetImages` when a listed id went:
-  `forgetRefineBatchImages`), aborting one still out. Refine is
-  aria-disabled with `submitHold()`, no refine pass, the field's refusal,
+  page (`RB_ONE_STRENGTH`), as is Steps that is not a whole number 1-100
+  (`RB_STEPS_PROBLEM`), without asking the server. Steps is a text box, as
+  Strength: a number box reports text it cannot parse ("1e", "-") as an
+  empty value, which here means each image's own. Checks run 250 ms after
+  an edit (at once on a scale, a tick, from `forgetImages` when a listed id
+  went: `forgetRefineBatchImages`, and, on a filter scope, when the
+  gallery's `total` changes under the dialog: `refineBatchGalleryChanged`
+  from `syncRefineBatchButton`, the answer dropped first so a press waits
+  for the new one), aborting one still out. The scope line says the filter's
+  count from the latest answer's `total` (`rbSayScope`). Refine is
+  aria-disabled with `submitHold()` (re-synced from `syncSubmitButtons`, so
+  "The server is not answering" holds it at once), no refine pass, the field's refusal,
   "Checking the images…", the server's refusal, "The checkpoint
   changed…", "Every image already has this pass at this strength and
   scale" or "No image can be refined at these settings; each one says
@@ -4486,7 +4502,9 @@ own, both named "swap · …", the last one's finish line "Job 2 of 2 of this
 swap, at 1024×1024."; the new images' prompts, seeds, sizes and rewritten
 variables; the same swap again all already rendered, held with "No image
 would change"; the negative prompt field; + Add row held at sixteen rows;
-Escape; the page never scrolled:
+Escape; the page never scrolled; then a search for one image, and a second
+matching image landing while the dialog is open, checked again on its own
+with Queue and the scope line saying two:
 
 ```powershell
 uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
@@ -4513,7 +4531,12 @@ the same again all already refined, Ctrl+Enter saying the hold; All
 models offering Include other checkpoints and its row's note; picked
 cards over the filter, the opening scale capped by a 1024x1024 image with
 2× saying it was last run there; an image deleted while open listed as
-deleted; the page never scrolled:
+deleted; Steps "1e" refused rather than read as blank; Refine held with
+"The server is not answering" as soon as the page goes offline, and freed
+when it answers; a starred image landing while open checked again on its
+own, title, scope line and Refine saying four, then three; with the model
+picker opened under the dialog, Escape closing the dialog and not the
+picker; the page never scrolled:
 
 ```powershell
 uv run python tools/fake_server.py --port 7901 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>

@@ -375,9 +375,10 @@ function syncSubmitButtons() {
   els.gridRun.setAttribute('aria-disabled', held);
   els.generate.title = why || GENERATE_TITLE;
   els.gridRun.title = why || GRID_RUN_TITLE;
-  // The Refine dialog's Refine says the same while the server is gone, and
+  // The Refine dialogs' Refine say the same while the server is gone, and
   // the comparison's Run as Generate does.
   syncRefineRun();
+  syncRefineBatchRun();
   syncCompareRun();
   syncModelSwitch();
 }

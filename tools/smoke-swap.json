@@ -143,5 +143,22 @@
   {"expect": "__until(() => !els.swapDialog.open)"},
   {"expect": "scrollY === __scrollY"},
   {"eval": "clearSelection(); setSelectMode(false);"},
-  {"expect": "els.swap.getAttribute('aria-disabled') === 'true' && els.swap.previousElementSibling === els.select"}
+  {"expect": "els.swap.getAttribute('aria-disabled') === 'true' && els.swap.previousElementSibling === els.select"},
+
+  {"log": "'an image the filter matches lands while the dialog is open: it checks again on its own, and the scope line and Queue say the two - a press pins what the filter holds now'"},
+  {"eval": "(async () => { await __wait((await __post('/api/generate', {prompt: '1girl, lakeside', width: 832, height: 1216, seed: 21})).job_id); els.search.value = 'lakeside'; els.search.dispatchEvent(new Event('input', {bubbles: true})); })()"},
+  {"expect": "__until(() => total === 1 && els.swap.getAttribute('aria-disabled') === 'false')"},
+  {"eval": "els.swapRows.replaceChildren()"},
+  {"click": "#btn-swap"},
+  {"expect": "__until(() => els.swapDialog.open)"},
+  {"click": "#swap-dialog input[value=\"prompt\"]"},
+  {"eval": "els.swapRows.querySelector('.swap-find').focus()"},
+  {"type": "lakeside"},
+  {"eval": "els.swapRows.querySelector('.swap-replace').value = 'riverside'; els.swapRows.querySelector('.swap-replace').dispatchEvent(new Event('input', {bubbles: true}))"},
+  {"expect": "__until(() => els.swapQueue.getAttribute('aria-disabled') === 'false' && els.swapQueue.textContent === 'Queue 1 image' && els.swapScope.textContent === 'In the 1 image matching \"lakeside\", this checkpoint only.')"},
+  {"eval": "(async () => { await __wait((await __post('/api/generate', {prompt: '1girl, lakeside, night', width: 832, height: 1216, seed: 22})).job_id); await prependFinished(1); })()"},
+  {"expect": "__until(() => els.swapQueue.getAttribute('aria-disabled') === 'false' && els.swapQueue.textContent === 'Queue 2 images' && els.swapScope.textContent === 'In the 2 images matching \"lakeside\", this checkpoint only.' && swapAnswer.ids.length === 2)"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.swapDialog.open)"},
+  {"eval": "els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true}))"}
 ]

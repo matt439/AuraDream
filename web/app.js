@@ -879,8 +879,11 @@ document.addEventListener('keydown', (e) => {
   // here; they are the list's own (Escape closes only it), as they were when
   // the native popup kept them from the page.
   if (modelListOpen()) return;
+  // Not under a dialog: Escape there is the dialog's (Refine, Mass refine,
+  // Swap tags), the picker staying open under it.
   if (e.key === 'Escape' && !e.defaultPrevented && !els.modelPicker.hidden
-      && !els.lightbox.open && !els.refineDialog.open) {
+      && !els.lightbox.open && !els.refineDialog.open
+      && !els.refineBatchDialog.open && !els.swapDialog.open) {
     e.preventDefault();
     showModelPicker(false);
     return;
@@ -917,6 +920,7 @@ document.addEventListener('keydown', (e) => {
   // composition, nor in a search box with text, which Escape empties.
   if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && !els.promptAnalysis.hidden
       && !els.lightbox.open && !els.refineDialog.open
+      && !els.refineBatchDialog.open && !els.swapDialog.open
       && !(e.target.matches?.('input[type="search"]') && e.target.value)) {
     escapeAnalysis();
     return;

@@ -4128,6 +4128,33 @@ dialog is Swap tags' shape: fixed-height results, a two-line count and a
 one-line error, so a check never moves Refine; "Sending…" holds Escape and
 Cancel while the POST is out, as the single dialog does.
 
+**A filter that grows under the dialog** (2026-10-10, review). Pinning
+`expected` to the answer's ids has a cost on a filter scope: a job that
+keeps landing images the filter matches made every press a 409 ("the
+selection changed"), since each refusal's fresh check was stale again by
+the next press, and the scope line still said the count it opened with.
+The modal dialog cannot change the filter, so the gallery's own `total` is
+the filter's count; when it changes under an open dialog (the job-landing
+`prependFinished`, a reload) the answer is dropped - Refine reads
+"Checking the images…" and a press waits - and asked again, and the scope
+line takes the latest answer's `total`. A press can still race an image
+that lands between the poll and the click, refused once with the reason,
+never repeatedly. Swap tags pins the same way and takes the same fix.
+Pinning a filter's ids at open instead was rejected: the dialog says "the
+images matching …", and an image that matches when Refine is pressed
+belongs to it.
+
+**Small holds that went quiet.** Steps is a text box: a number box reports
+text it cannot parse ("1e", "-") as an empty value, which here means
+"each image's own", so the pass ran with settings the box did not show;
+the `^\d+$` test now sees what was typed. `syncSubmitButtons` re-syncs
+this dialog's Refine as it does the single dialog's, so a server that
+stops answering holds it at once rather than at the press. The 409 that
+says every image already has the pass is kept for the case where that is
+every image's status; mixed with images left out for a fixable reason
+(too big, a LoRA gone) the refusal is the 422 that counts them all, as the
+dialog's hold words it.
+
 ## Delete unstarred
 
 **The gallery's one bulk delete is the inverse of the card's.** A night

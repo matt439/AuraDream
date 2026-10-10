@@ -36,6 +36,12 @@ const SWAP_CHIP = {
 // modal page cannot change the selection under it; a delete that lands
 // meanwhile (forgetImages) is shown as "deleted" by the next check.
 let swapScope = null;
+// The galleryActionTarget the dialog opened on, whose count the scope line
+// says, and the gallery's count (`total`) the last check was asked under: a
+// filter's matches grow as a job lands images, and the check is asked again
+// (swapGalleryChanged) so a press pins what the filter holds now.
+let swapScopeTarget = null;
+let swapSeenTotal = null;
 let swapRevision = null;
 // The last check's answer and the payload it answered (as a string): Queue
 // goes only while that is what the dialog says now.
@@ -72,14 +78,39 @@ function syncSwapButton() {
   els.swap.title = target.scope
     ? `Run ${target.words} again with some tags swapped - each keeps its own seed, size and settings`
     : target.why;
+  swapGalleryChanged();
+}
+
+// The gallery's count changed under an open dialog acting on the filter (a
+// job landed matching images): the modal dialog holds the filter the
+// gallery shows, so `total` is its count. The answer is dropped, so Queue
+// reads as checking, and asked again - not a refusal at every press while
+// a job keeps landing.
+function swapGalleryChanged() {
+  if (!els.swapDialog.open || !swapScope || swapScope.ids) return;
+  if (total === swapSeenTotal) return;
+  swapSeenTotal = total;
+  swapAnswerKey = '';
+  scheduleSwapCheck(0);
+}
+
+// The scope line, from the target the dialog opened on and, for a filter,
+// the count of the latest answer.
+function swapSayScope(answer) {
+  if (!swapScopeTarget) return;
+  if (!swapScope.ids && answer && typeof answer.total === 'number') swapScopeTarget = { ...swapScopeTarget, n: answer.total };
+  const line = galleryActionScopeLine(swapScopeTarget, 'In');
+  if (els.swapScope.textContent !== line) els.swapScope.textContent = line;
 }
 
 function openSwapDialog() {
   const target = swapTarget();
   if (!target.scope) { showError(target.why, true, { slot: els.galleryError }); return; }
   swapScope = target.scope;
+  swapScopeTarget = target;
+  swapSeenTotal = total;
   swapRevision = modelRevision;
-  els.swapScope.textContent = galleryActionScopeLine(target, 'In');
+  swapSayScope(null);
   // A checkpoint with no negative prompt has nothing to swap there.
   els.swapNegative.hidden = !negativeSupported;
   if (!negativeSupported) swapFieldInput('prompt').checked = true;
@@ -272,6 +303,7 @@ function swapSay(text, failed = false) {
 }
 
 function renderSwapResults(answer) {
+  swapSayScope(answer);
   const parts = [`${answer.queued} will be queued`];
   // In one order whatever the server's, so the line reads alike check to check.
   for (const [status, words] of Object.entries(SWAP_STATUS_WORDS)) {
