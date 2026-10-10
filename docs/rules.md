@@ -2938,7 +2938,11 @@ Frontend and CLI:
   replacement, which takes the matched item's underscores and escaped
   parentheses; inside a `_is_prose` item a one-find row also matches as a
   phrase bounded by lookarounds on the find's own word edges, never inside
-  `rendered_spans`; a find with Han or kana is a plain substring; a
+  `rendered_spans`, a weight typed round the find looked through as for
+  items; a phrase match inside another row's phrase match is not applied
+  (`_put_phrases` keeps the earlier, `_applied_phrases` says which), so a
+  row left with none of its own is `missing`; a find with Han or kana is a
+  plain substring; a
   many-to-one row that would need a phrase is `by_hand`; XML and JSON
   prompts are `structured`. All rows match the original at once; strict -
   an image missing any find of any row is `missing` and not queued. Many to
@@ -2951,20 +2955,25 @@ Frontend and CLI:
   `error_detail`), `source_deleted`, `lora_missing`, `duplicate` ("same as
   #N": cell keys as `applied()` runs them, plus the size), `by_hand`,
   `structured`, `deleted` (an id gone), `foreign`. The preview lists the
-  first `SWAP_PREVIEW_ROWS` (200) of them and counts all, with the ids the
+  first `SWAP_PREVIEW_ROWS` (200) of them - each with its text, the
+  original where it is not changed, so a missing image can be read - and
+  counts all, with the ids the
   selection resolved (`ids`), how many are queued and in how many jobs; it
   has no side effects and is not a model-dependent request (the page's
   `api` treats it as advisory). The queueing route is model-dependent
   (`hold_model_for_request`), recomputes everything, refuses 409 when
-  `expected` is not the ids resolved now, leaves out what the gallery holds
-  by now (`pruned`), answers 409 when everything is rendered and 422 when
+  `expected` is not the ids resolved now, leaves out every cell the gallery
+  holds at queue time (`pruned`: the preview's already rendered ones and any
+  since), answers 409 when everything is rendered and 422 when
   nothing else is queueable, and submits one job per distinct size
   (`jobs.submit_cells(..., swap=summary)`, run id per job as any run's),
   answering the first job at the top level and the rest in `more`; the
   snapshot's `swap` names the job (`describeJob`: "swap · …").
   `startJob` registers `more` as this page's own and queues them behind
-  the first. The button is `#btn-swap`, in the footer row between Select
-  and Bundles…, always shown and styled as they are: it acts on the
+  the first, recording all of them as the submission's `split`, so each
+  one's finish line says "Job k of n of this swap, at WxH". The button is
+  `#btn-swap`, in the footer row between Select and Bundles…, always
+  shown and styled as they are: it acts on the
   selection when one exists, else on the filter under Re-render's
   conditions, and is `aria-disabled` with the reason otherwise
   (`swapTarget`, `syncSwapButton` from `syncRerender` and
@@ -2977,9 +2986,18 @@ Frontend and CLI:
   payload typed now), the server's refusal, "The checkpoint changed…" or
   "No image would change", a press saying it in `#swap-error`, and sends
   the answer's `ids` as `expected`; accepted, the dialog closes, refused,
-  it checks again. Its marks are the server's `spans`; the results list has
-  a fixed height and scrolls inside the dialog, the count line keeps two
-  lines and `#swap-error` one, so nothing below them moves. Enter in a box
+  the old answer is dropped and it checks again, the server's reason kept in
+  `#swap-error` (`swapRefused`) until the next edit (`swapEdited`) or
+  press - a check that frees Queue does not clear it. Its marks are the
+  server's `spans`; the rows box and the results list have fixed heights
+  and scroll inside the dialog, the count line keeps two lines and
+  `#swap-error` one, so neither a row added nor a check moves anything
+  below them. A removed row keeps its slot hidden (`.gone`, left out by
+  `swapLiveRows`) until the pointer leaves the rows box
+  (`collapseSwapRows`), so the next row's × never comes under the pointer;
+  the Add row button is aria-disabled at 16 rows ("At most 16 rows in one
+  swap"), and both boxes take at most 1000 characters (`maxLength`), the request's
+  own limits. Enter in a box
   is Queue's press; Escape, Cancel and a press outside close it.
 - The sheet's layout contract - axes, prompt labels, pins, variables - lives in
   the client, and the export is client-side, not a route. Export PNG draws
@@ -4356,12 +4374,17 @@ cards are picked; the dialog's scope line, focus, both fields, Queue held
 ("Add a tag to find", "Checking the swaps…" while typing) and saying it;
 the server's statuses, counts and marks (a weight and underscores kept, the
 missing cells' text unmarked), Queue and Cancel unmoved; a second row's
-duplicate find refused in the count line and back on removal; an image
-deleted while open shown as deleted; Queue watching the first of two jobs
-(one per size) and listing the second as its own, both named "swap · …";
-the new images' prompts, seeds, sizes and rewritten variables; the same
-swap again all already rendered, held with "No image would change"; the
-negative prompt field; Escape; the page never scrolled:
+duplicate find refused in the count line; rows added moving neither + Add
+row nor Queue, four scrolling in the rows box; two clicks on one row's ×
+removing that row only, its slot kept until the pointer leaves; an image
+deleted while open shown as deleted; one deleted on the server only, with
+Queue's 409 kept in `#swap-error` after the check frees Queue; Queue
+watching the first of two jobs (one per size) and listing the second as its
+own, both named "swap · …", the last one's finish line "Job 2 of 2 of this
+swap, at 1024×1024."; the new images' prompts, seeds, sizes and rewritten
+variables; the same swap again all already rendered, held with "No image
+would change"; the negative prompt field; + Add row held at sixteen rows;
+Escape; the page never scrolled:
 
 ```powershell
 uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>

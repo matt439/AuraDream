@@ -18,11 +18,21 @@
 .swap-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
 #swap-scope { color: var(--text-readout); font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
 
-.swap-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+/* A fixed height, three rows, scrolling past that: a row added or removed
+   never moves + Add row, the list or Queue. A removed row keeps its slot
+   (.gone) until the pointer leaves the rows, so the next row's × does not
+   slide under it (tag-swap.js, collapseSwapRows). */
+.swap-rows {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  height: calc(3 * var(--h-field) + 2 * var(--sp-2)); overflow-y: auto;
+  padding-right: var(--sp-1); scrollbar-gutter: stable;
+}
+.swap-row.gone { visibility: hidden; }
 .swap-row {
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   align-items: center; gap: var(--sp-2);
 }
+.swap-row { flex-shrink: 0; }
 .swap-row input { width: 100%; min-width: 0; }
 .swap-arrow { color: var(--muted); }
 .swap-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }

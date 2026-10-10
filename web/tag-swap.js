@@ -15,6 +15,10 @@
 // rather than queued unseen.
 
 const SWAP_CHECK_DELAY = 400;
+// The request's own limits (schemas.SwapTagsRequest, TagSwap): held on the
+// page with the reason, never met as the server's validation text.
+const SWAP_MAX_ROWS = 16;
+const SWAP_MAX_TEXT = 1000;
 const SWAP_STATUS_WORDS = {
   queued: 'queued', missing: 'missing a tag', unchanged: 'unchanged', rendered: 'already rendered',
   invalid: 'invalid', source_deleted: 'source deleted', lora_missing: 'LoRA missing',
@@ -40,6 +44,10 @@ let swapAnswerKey = '';
 // A check the server refused (a row two Finds share), said in the count line
 // and held on Queue.
 let swapProblem = '';
+// The server refused a Queue press (the selection changed, or it is all in
+// the gallery now): said in #swap-error until the next edit or press, though
+// the check it asks again for may free Queue at once.
+let swapRefused = false;
 let swapAsking = null;
 let swapTimer = null;
 
@@ -93,16 +101,18 @@ function openSwapDialog() {
   // A checkpoint with no negative prompt has nothing to swap there.
   els.swapNegative.hidden = !negativeSupported;
   if (!negativeSupported) swapFieldInput('prompt').checked = true;
+  collapseSwapRows();
   if (!els.swapRows.children.length) els.swapRows.append(swapRow());
   syncSwapRowNames();
   swapAnswer = null;
   swapAnswerKey = '';
   swapProblem = '';
+  swapRefused = false;
   swapSay('');
   els.swapResults.replaceChildren();
   showError('', false, { slot: els.swapError });
   els.swapDialog.showModal();
-  els.swapRows.querySelector('.swap-find')?.focus();
+  swapLiveRows()[0]?.querySelector('.swap-find').focus();
   scheduleSwapCheck(0);
 }
 
@@ -133,6 +143,7 @@ function swapRow(find = '', replace = '') {
   findBox.value = find;
   findBox.spellcheck = false;
   findBox.autocomplete = 'off';
+  findBox.maxLength = SWAP_MAX_TEXT;
   const arrow = document.createElement('span');
   arrow.className = 'swap-arrow';
   arrow.setAttribute('aria-hidden', 'true');
@@ -144,6 +155,7 @@ function swapRow(find = '', replace = '') {
   replaceBox.value = replace;
   replaceBox.spellcheck = false;
   replaceBox.autocomplete = 'off';
+  replaceBox.maxLength = SWAP_MAX_TEXT;
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'ghost tiny swap-remove';
@@ -153,43 +165,79 @@ function swapRow(find = '', replace = '') {
   return row;
 }
 
+// The rows that count: a removed row keeps its slot, empty and hidden
+// (`.gone`), until the pointer leaves the rows (collapseSwapRows), so the ×
+// of the row after it never slides under the pointer that pressed one - a
+// double click removes one row, not two.
+function swapLiveRows() {
+  return [...els.swapRows.children].filter((row) => !row.classList.contains('gone'));
+}
+
+function collapseSwapRows() {
+  els.swapRows.querySelectorAll('.swap-row.gone').forEach((row) => row.remove());
+}
+
 function syncSwapRowNames() {
-  [...els.swapRows.children].forEach((row, i) => {
+  const rows = swapLiveRows();
+  rows.forEach((row, i) => {
     const n = i + 1;
     row.querySelector('.swap-find').setAttribute('aria-label', `Find, row ${n}: comma-separated tags`);
     row.querySelector('.swap-replace').setAttribute('aria-label', `Replace with, row ${n}`);
     const remove = row.querySelector('.swap-remove');
-    const last = els.swapRows.children.length === 1;
+    const last = rows.length === 1;
     remove.setAttribute('aria-label', last ? 'Empty this row' : `Remove row ${n}`);
     remove.title = last ? 'Empty this row' : 'Remove this row';
   });
+  const full = rows.length >= SWAP_MAX_ROWS;
+  els.swapAdd.setAttribute('aria-disabled', String(full));
+  els.swapAdd.title = full ? `At most ${SWAP_MAX_ROWS} rows in one swap` : 'Add a row of tags to find';
 }
 
+// The rows have a fixed height and scroll, so a row added never moves
+// + Add row, the list or Queue; the new one scrolls into view inside them.
 function addSwapRow() {
+  if (swapLiveRows().length >= SWAP_MAX_ROWS) {
+    showError(els.swapAdd.title, false, { slot: els.swapError });
+    return;
+  }
+  collapseSwapRows();
   const row = swapRow();
   els.swapRows.append(row);
   syncSwapRowNames();
+  swapEdited(0);
   row.querySelector('.swap-find').focus();
 }
 
-// Focus goes to the row now in its place, else the one before.
+// Focus goes to the next row still there, else the one before.
 function removeSwapRow(row) {
-  const rows = [...els.swapRows.children];
+  const rows = swapLiveRows();
+  if (!rows.includes(row)) return;
   if (rows.length === 1) {
     row.querySelectorAll('input').forEach((box) => { box.value = ''; });
     row.querySelector('.swap-find').focus();
   } else {
     const at = rows.indexOf(row);
-    row.remove();
-    const next = els.swapRows.children[Math.min(at, els.swapRows.children.length - 1)];
-    next.querySelector('.swap-find').focus();
+    // Focus first: the row about to hide holds it.
+    (rows[at + 1] ?? rows[at - 1]).querySelector('.swap-find').focus();
+    row.querySelectorAll('input').forEach((box) => { box.value = ''; });
+    row.classList.add('gone');
+    row.setAttribute('aria-hidden', 'true');
   }
   syncSwapRowNames();
-  scheduleSwapCheck();
+  swapEdited(0);
+}
+
+// An edit: a refusal said for the press before it is no longer the news.
+function swapEdited(delay = SWAP_CHECK_DELAY) {
+  if (swapRefused) {
+    swapRefused = false;
+    showError('', false, { slot: els.swapError });
+  }
+  scheduleSwapCheck(delay);
 }
 
 function swapPayload() {
-  const swaps = [...els.swapRows.children]
+  const swaps = swapLiveRows()
     .map((row) => ({ find: row.querySelector('.swap-find').value.trim(), replace: row.querySelector('.swap-replace').value.trim() }))
     .filter((row) => row.find);
   const field = els.swapDialog.querySelector('input[name="swap-field"]:checked')?.value ?? 'prompt';
@@ -331,11 +379,13 @@ function syncSwapQueue() {
     : 'Queue';
   els.swapQueue.setAttribute('aria-disabled', String(Boolean(hold)));
   els.swapQueue.title = hold || `Queue ${plural(swapAnswer.queued, 'image')} with the tags swapped - each keeps its own seed, size and settings${swapAnswer.jobs > 1 ? `, one job per size` : ''}`;
-  // A reason said for a press is about the state it was pressed in.
-  if (!hold && els.swapError.textContent) showError('', false, { slot: els.swapError });
+  // A reason said for a press is about the state it was pressed in; a
+  // refusal from the server stays until the next edit or press.
+  if (!hold && !swapRefused && els.swapError.textContent) showError('', false, { slot: els.swapError });
 }
 
 function queueSwap() {
+  swapRefused = false;
   const hold = swapHold();
   if (hold) { showError(hold, false, { slot: els.swapError }); return; }
   const payload = { ...swapPayload(), expected: swapAnswer.ids };
@@ -344,8 +394,14 @@ function queueSwap() {
     panel: false,
     onAccepted: () => { els.swapDialog.close(); },
     // Refused - the selection changed, the gallery holds them all now: the
-    // dialog stays open, and the check is asked again.
-    onRefused: () => { scheduleSwapCheck(0); },
+    // dialog stays open with the reason, and the check is asked again, the
+    // old answer dropped so Queue reads as checking until it lands.
+    onRefused: () => {
+      swapRefused = Boolean(els.swapError.textContent);
+      swapAnswer = null;
+      swapAnswerKey = '';
+      scheduleSwapCheck(0);
+    },
   });
 }
 
@@ -370,8 +426,11 @@ function setupSwap() {
   els.swapCancel.onclick = () => els.swapDialog.close();
   els.swapQueue.onclick = queueSwap;
   els.swapDialog.addEventListener('click', swapBackdrop);
-  els.swapRows.addEventListener('input', () => scheduleSwapCheck());
-  els.swapDialog.addEventListener('change', (e) => { if (e.target.name === 'swap-field') scheduleSwapCheck(0); });
+  els.swapRows.addEventListener('input', () => swapEdited());
+  // Out of the rows, the slots removed rows kept can go: nothing in there is
+  // under the pointer, and the rows' fixed height moves nothing outside.
+  els.swapRows.addEventListener('pointerleave', collapseSwapRows);
+  els.swapDialog.addEventListener('change', (e) => { if (e.target.name === 'swap-field') swapEdited(0); });
   // Enter in a box is Queue's press, as in any form.
   els.swapRows.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing && e.target.matches('input')) { e.preventDefault(); queueSwap(); }

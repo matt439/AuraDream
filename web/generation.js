@@ -626,14 +626,17 @@ async function startJob(path, payload, {
     // The topbar's "loading…" now, not at the next poll, beside the panel's
     // own "loading weights".
     void refreshStatus();
-    submissions.set(job_id, { path, payload, seed, sheet, asker, model, revision, at: Date.now() });
-    jobLabels.set(job_id, submissionLabel(path, payload));
     // A submission the server split into several jobs (Swap tags: one per
     // size) answers the first as every other does and the rest in `more`:
     // this page's own, queued behind the first, each named by the server.
+    // `split` is all of them in order, for each one's finish line to say
+    // which part of the press it was (finishJob).
+    const split = more.length ? [job_id, ...more.map((extra) => extra.job_id)] : null;
+    submissions.set(job_id, { path, payload, seed, sheet, asker, model, revision, split, at: Date.now() });
+    jobLabels.set(job_id, submissionLabel(path, payload));
     for (const extra of more) {
       ownJobs.add(extra.job_id);
-      submissions.set(extra.job_id, { path, payload, seed: extra.seed, sheet: false, asker, model, revision, at: Date.now() });
+      submissions.set(extra.job_id, { path, payload, seed: extra.seed, sheet: false, asker, model, revision, split, at: Date.now() });
       jobLabels.set(extra.job_id, submissionLabel(path, payload));
       void nameJob(extra.job_id);
     }

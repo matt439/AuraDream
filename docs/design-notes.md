@@ -3959,7 +3959,14 @@ edge of the find that is a word character (so `hair` does not hit
 inside lettering, which is text to render. Han and kana match as plain
 substrings: there are no spaces to bound on. A many-to-one row in prose is
 `by_hand` - which phrase keeps the replacement and what becomes of the
-other's words is an edit, not a rule. XML and JSON prompts are not
+other's words is an edit, not a rule. Two one-tag rows whose phrases
+overlap (`red hair` and `hair` in "a girl with red hair") cannot both be
+written; the earlier phrase wins, and the row that lost every match is
+`missing`, since queueing it with that row silently unapplied is the
+partial swap strictness rules out. A weight typed round a find (`(red
+hair:1.2)`) is looked through in prose as it is for items: it cannot be
+the way to aim at weighted occurrences only, and the hint says it is
+ignored. XML and JSON prompts are not
 rewritten at all. None of this is an analyser rule: it cites nothing and
 claims nothing about a checkpoint, and the preview is its safeguard.
 
@@ -3979,9 +3986,19 @@ for it, since the dialog is the definition.
 
 **Pinned to the ids, not the derived set.** The queueing request sends the
 ids the preview resolved as `expected`; a selection that changed (a delete,
-a filter that now matches more) is a 409 and the dialog checks again. What
-became rendered between the preview and the press is left out silently and
-counted (`pruned`): the outcome the user agreed to, minus work already done.
+a filter that now matches more) is a 409 and the dialog checks again. A
+cell the gallery holds at the press - the preview's "already rendered" ones
+and any rendered since - is left out silently and counted (`pruned`): the
+outcome the user agreed to, minus work already done. A refusal stays said
+in the dialog's error line until the next edit or press: the check it asks
+again for usually frees Queue at once, and clearing the reason then (as a
+hold-reason is cleared once the hold ends) left a press that did nothing
+visible but change the count (review, 2026-10-10).
+
+**Every listed image carries its text.** The preview sends the swapped
+text for an image that changes and the original for one that does not -
+"missing: long hair" is read against the prompt that lacks it. The cap on
+listed rows (200) is what keeps the answer small, not leaving texts out.
 
 **One job per size.** Every job had one size until now - the snapshot, the
 log line, the ETA and `run_id`'s definition read the first request's. A
@@ -3990,7 +4007,10 @@ size keeps them all true, at the cost of more than one row in the queue.
 The route answers the first job at the top level, as every submission
 does, and the rest in `more`, which `startJob` registers as the page's own
 and queues behind it. The snapshot's `swap` (the rows, as the server reads
-them) names each job, "swap · red hair, long hair → silver hair".
+them) names each job, "swap · red hair, long hair → silver hair". Each
+job's finish line counts only that job's images, so it says which part of
+the press it was ("Job 2 of 2 of this swap, at 1024×1024."): "Finished 1
+image" after a press that queued six read as five lost.
 
 **Where the button sits.** The head's control row is full at 1400 px, and a
 button that came and went beside Select would move it. Swap tags… sits in
@@ -4000,7 +4020,16 @@ nothing is picked and no filter narrows the gallery. The dialog's results
 list has a fixed height and scrolls inside it, the count keeps two lines
 and the error line one (`showError` hides an empty slot; `#swap-error`
 keeps its line as `#gallery-error` does), so a check that lists more never
-moves Queue under the pointer.
+moves Queue under the pointer. The rows box has a fixed height (three
+rows) and scrolls too: a row added used to land where + Add row was and
+push it, the options and Queue down a row's height. A removed row keeps
+its slot, hidden, until the pointer leaves the rows box - as a browser's
+tab strip keeps its tab widths while the pointer is on it - so a double
+click on a × removes one row, not that row and the next one that slid
+under the pointer; the box's fixed height means the slots going moves
+nothing outside it. The request's own limits (16 rows, 1000 characters a
+box) are held on the page - + Add row aria-disabled with the reason,
+`maxLength` on the boxes - rather than met as pydantic's text.
 
 ## Delete unstarred
 
