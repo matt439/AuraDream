@@ -2647,8 +2647,11 @@ Frontend and CLI:
   comparison's own ladder, deleted ids left out; recomputed on every sync
   while off, built once when a comparison is turned on (`compareCfg`) and
   frozen while it steps, taking in the gallery's answer for the image in
-  view when it comes. The answer: one `GET /api/gallery?model=<id>&limit=200`
-  200 ms after the image lands (`askLadder`, as `passesLine`), searching
+  view when it comes. The answer: `GET /api/gallery?model=<id>&limit=200`
+  200 ms after the image lands (`askLadder`, as `passesLine`), read on by
+  the id cursor (`before=<last id>`, `fetchLadder`) while `has_more`, up to
+  `LADDER_PAGES` (5) pages - one page let a seed kept across a few hundred
+  prompts fill it with the others and hide an older neighbour - searching
   `seed:` (or `run:` where the seed is not a safe JavaScript integer, and
   nothing asked with neither), `size:`, `steps:`, `refine:` (`none`),
   `mu:` (`none`; left out for an exponent) and `lora:=` (where there is an
@@ -2656,9 +2659,13 @@ Frontend and CLI:
   cached by query in `lbLadders` until `closeLightbox`, pruned by
   `forgetImages` (`forgetLadderImages`) and dropped for every query of a
   landed image's checkpoint, seed and size (`noteLadderImages`, from the
-  stream and from `joinFinished`; an answer already on its way for one is
-  discarded by `lbLadderEpoch`). `has_more` or a failed request makes the
-  note add "may be incomplete: more may be in the gallery". The box
+  stream and from `joinFinished`; every answer already on its way for one,
+  whichever image asked it, is marked stale in `lbLadderFlights` and taken
+  out, so it is not kept and the image in view asks again; one still
+  waiting out its 200 ms reads after the save and stands). `has_more` past
+  the last page, or a failed request, makes the note add "may be
+  incomplete: more may be in the gallery", and the held reason says how far
+  it looked (below). The box
   (`#lb-compare`) is on every image from 901 px: its note first (the column
   is pinned to the bottom, so a line written there grows the box upward and
   moves no button), Compare with source on a pass only, Compare CFG, Swipe
@@ -2666,7 +2673,16 @@ Frontend and CLI:
   control is `aria-disabled` with the reason as its title - "Looking for
   other CFG values of #N…" while the gallery is asked and the page holds no
   other value, "No other CFG value of #N at this seed, size and settings"
-  once it has answered - and a press, S or a mode press says it in
+  once it has answered, "No other CFG value of #N in the newest K at this
+  seed and size: more may be in the gallery" where the answer was cut
+  short, and "… in what the page holds: the gallery could not be asked"
+  where it failed (`cfgHeldReason`). Swipe and Side by side, held with
+  them where a press would turn this comparison on (or on a pass whose
+  source is gone), take the same reason as their title, and their own
+  title back when they can be pressed (Side by side's from
+  `layoutLightbox`, `lbSidesTitle`, which way the halves go) - shown on
+  every image now, a plain Generate's held mode buttons were untitled. A
+  press, S or a mode press says it in
   `#lb-compare-note` (`lbCompareSaid`, kept for that image until another
   is drawn or a comparison is turned on or off). Under 901 px the box is a
   row under the stage that the picture and the facts' letterbox pay for: it
@@ -2762,9 +2778,12 @@ Frontend and CLI:
   stage press within 500 ms of an arrow press (`lbAfterArrow`) neither closes
   nor zooms: it is the rest of a double-click on the arrow. The arrows'
   clicks are never filtered by click count. The keys line (`#lb-keys`,
-  `lbKeysLine`) sits outside `#lb-meta`, names S on a pass only, binds each
+  `lbKeysLine`) sits outside `#lb-meta`, names S on every image, binds each
   key to what it does (no-break spaces, a word joiner in +/−) so it breaks
-  only after a ·, and is hidden under 901 px. There `#lb-meta` is six lines
+  only after a ·, and is hidden under 901 px. The no-break spaces and the
+  word joiner are written as ` ` and `⁠` escapes, never the
+  characters themselves: a literal one reads as a plain space, and an
+  editor turning it back into one splits "+/" from "−" again. There `#lb-meta` is six lines
   plus `--lb-room`, the letterbox the fitted picture (or stacked halves)
   leaves the stage with the facts at six lines; `lbFactsRoom` sets it,
   after the split is decided and first in `layoutLightbox`, and writes it
@@ -2912,9 +2931,12 @@ Frontend and CLI:
   (`cfgSwipeButton`, sheet-render.js) is drawn after the exports only where
   CFG is a laid-out axis (Columns or Rows), never where it is pinned or
   does not vary; it is `aria-disabled` with "No two cells here differ in CFG
-  alone" where no two shown cells agree on everything but CFG
-  (`syncCfgSwipe`, one pass over `sheetLayout.cells` by `cfgGroupKey`), its
-  press saying so in the page's line. A press opens the lightbox on the
+  alone" where no shown cell has a ladder of two (`syncCfgSwipe`: the
+  cells grouped by `cfgGroupKey`, then the press's own `cfgLadder` within
+  each group with more than one CFG value - the key leaves True CFG out, and
+  a CFG x True CFG grid with cells missing grouped two values no ladder
+  held), its press saying so in the page's line, and saying the hold's
+  reason, never the pressable title, where the cells changed under it. A press opens the lightbox on the
   cell the keyboard was last on in the sheet (`sheetCfgFrom`, a focusin in
   app.js) where it has a CFG neighbour, else the first shown cell in
   reading order with a lower CFG beside it, walking that cell's own ladder
@@ -4155,15 +4177,21 @@ Shift+→ on the divider; S on the divider handing focus to Compare CFG; the
 lowest value in view on the left, its partner cut to the right of the
 divider and in the right half; two separate Generates pairing and a 20-step
 one left out; an image with no other value held with the reason (S and a
-mode press saying it, a step taking it back); a job landing a new CFG value
-for the image in view; "may be incomplete" on a full page; an image opened
-alone held while asked ("Looking for…"), the request's terms, then a
-partner the arrows do not step to; a pass's S still the source's with
+mode press saying it, Swipe and Side by side titled with the reason, a
+step taking it back) and their own titles back on an image with a
+neighbour; the held reason "in the newest 1" for an answer cut short; a job
+landing a new CFG value for the image in view; "may be incomplete" on a
+full page; an image opened alone held while asked ("Looking for…"), the
+request's terms, then a partner the arrows do not step to; the ladder read
+past a full page by `before=` (one-row pages); an answer held in flight
+while the walk moves on and a job lands a value it would have held, not
+kept, and asked again on the way back; a pass's S still the source's with
 Compare CFG held; a partner deleted by the page ending the comparison with
 its note; at 600x900 no box for an image with no neighbour and one for a
 sweep's image; and the sheet's Swipe CFG (laid-out CFG only, the first cell
-with a lower value, the keyboard's cell and its row, gone when CFG is
-pinned or on a run with none):
+with a lower value, the keyboard's cell and its row, held for two cells at
+different True CFG and saying why on a press, gone when CFG is pinned or on
+a run with none):
 
 ```powershell
 uv run python tools/fake_server.py --port 7899 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>

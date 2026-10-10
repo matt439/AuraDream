@@ -2572,8 +2572,9 @@ from it in CFG alone (`web/lightbox-cfg.js`): the sheet's own test of "same
 settings" with CFG and True CFG skipped (`sameExcept`, so the two cannot
 drift), split by True CFG where it is a number of its own, one image a CFG
 value, sorted. That ladder is presentation over records the server already
-decided, so there is no route: the page's own strips first, then one
-gallery search 200 ms after the image lands, as the passes' count is asked.
+decided, so there is no route: the page's own strips first, then a
+gallery search 200 ms after the image lands, as the passes' count is asked,
+read on by its id cursor for up to five pages.
 The search is narrowed to the seed, size, steps, refine source, mu and
 LoRA, in the checkpoint's exact scope: a seed reused for hundreds of
 prompts would otherwise fill the page with images the filter throws away,
@@ -2615,6 +2616,28 @@ at 600x900 kept 77 px of letterbox where it had 126, and lost its last
 facts. There the box is drawn only where the page's own records give the
 image a neighbour, decided when the image is drawn and kept until another
 is, never on the answer.
+
+A review after it landed found four things the first version said or kept
+wrongly (2026-10-10). Swipe and Side by side, now shown on every image, were
+held on a plain Generate with no CFG neighbour with no reason in their
+titles - Swipe had none, Side by side kept a description of a comparison
+that could not start - so they take the held reason as their title and get
+their own back when pressable. The ladder was one page of 200, and
+"No other CFG value" was said outright where that page was full: a seed
+kept fixed across a few hundred prompts at one size filled it with the
+other prompts, and an image whose CFG neighbour was older was told it had
+none. The page now reads on by the id cursor for up to five pages, and
+where even that is cut short the held reason says how far it looked ("in
+the newest K at this seed and size: more may be in the gallery"); the
+search was not narrowed by prompt words, which the grammar matches by FTS
+and would not match exactly. An answer on its way was dropped when a job
+landed a value it would have held only if it was still the latest asked;
+walking on to another seed let it be cached for the session, so every
+query on its way is tracked and marked stale (`lbLadderFlights`). And the
+sheet's Swipe CFG was held by a grouping that left True CFG out where the
+press's ladder keeps it: a CFG x True CFG grid with cells missing showed a
+pressable button whose press said its own pressable title as the error.
+The hold now asks the press's question within each group.
 
 The plan had a second group, images with the same seed whose CFG differs
 and which also differ in steps or mu, offered under Against. It was left

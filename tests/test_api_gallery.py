@@ -399,3 +399,27 @@ def test_the_cfg_ladder_query_is_one_checkpoints_and_skips_refine_passes(client,
     refined = next(e["image"] for e in passed if e["type"] == "image")
     own = client.get("/api/gallery", params={**params, "search": _ladder_terms(refined)}).json()
     assert [r["id"] for r in own["items"]] == [refined["id"]]
+
+
+def test_the_cfg_ladder_query_pages_past_a_full_page_of_other_prompts(client, fake, store):
+    # A seed kept fixed across many prompts at one size fills the ladder's
+    # first page with images of other prompts; the lightbox reads on by the
+    # id cursor (`before`, fetchLadder in web/lightbox-cfg.js) and finds the
+    # older neighbour on a later page, in the same scope and search.
+    _, low = run_one(client, prompt="an old mill", guidance_scale=2, steps=8, seed=42)
+    _, high = run_one(client, prompt="an old mill", guidance_scale=5, steps=8, seed=42)
+    mill = [e["image"] for e in low + high if e["type"] == "image"]
+    for n in range(5):
+        run_one(client, prompt=f"filler {n}", guidance_scale=3, steps=8, seed=42)
+    cell = mill[0]
+    params = {"model": cell["model_id"], "limit": 3, "search": _ladder_terms(cell)}
+    first = client.get("/api/gallery", params=params).json()
+    assert first["has_more"] is True
+    assert not {r["id"] for r in mill} & {r["id"] for r in first["items"]}
+    seen = list(first["items"])
+    page = first
+    while page["has_more"]:
+        page = client.get("/api/gallery", params={**params, "before": seen[-1]["id"]}).json()
+        seen.extend(page["items"])
+    assert len(seen) == 7 == len({r["id"] for r in seen})
+    assert {r["id"] for r in mill} <= {r["id"] for r in seen}

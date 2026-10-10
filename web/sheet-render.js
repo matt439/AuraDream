@@ -136,13 +136,19 @@ const cfgGroupKey = (rec) => JSON.stringify([
 function syncCfgSwipe() {
   const button = els.sheetControls.querySelector('.sheet-cfg-swipe');
   if (!button) return;
-  const values = new Map();
+  const groups = new Map();
   for (const rec of sheetLayout?.cells ?? []) {
     const key = cfgGroupKey(rec);
-    if (!values.has(key)) values.set(key, new Set());
-    values.get(key).add(rec.guidance_scale);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(rec);
   }
-  const some = [...values.values()].some((set) => set.size > 1);
+  // The key leaves True CFG out, as sameExcept does; the press's ladder
+  // (cfgLadder) keeps only the cell's True CFG where that is not an echo of
+  // CFG, so a CFG x True CFG grid with cells missing can group two CFG
+  // values no ladder holds. The hold asks the press's own question, within
+  // each group rather than of the whole sheet a cell at a time.
+  const some = [...groups.values()].some((group) => new Set(group.map((r) => r.guidance_scale)).size > 1
+    && group.some((r) => cfgLadder(r, group).length > 1));
   button.setAttribute('aria-disabled', String(!some));
   button.title = some
     ? 'Open these cells as a swipe between neighbouring CFG values; ← → step along CFG, S turns it off'
@@ -162,7 +168,12 @@ function cfgSwipeStart(cells) {
 function openCfgSwipe(button) {
   const cells = sheetLayout?.cells ?? [];
   const rec = button.getAttribute('aria-disabled') === 'true' ? null : cfgSwipeStart(cells);
-  if (!rec) { showError(button.title, true); return; }
+  // Held, the title is the reason; otherwise the cells changed since the
+  // hold was worked out, and the reason is the hold's own.
+  if (!rec) {
+    showError(button.getAttribute('aria-disabled') === 'true' ? button.title : CFG_SWIPE_NONE, true);
+    return;
+  }
   openLightbox(rec, cfgLadder(rec, cells), 'sheet');
   void toggleCompare('swipe', 'cfg');
 }

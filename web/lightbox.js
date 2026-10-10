@@ -47,6 +47,9 @@ const lbCompare = { id: null, kind: 'source', mode: 'swipe', split: 0.5, source:
 // press's reason, a partner that has gone - for the image it was said on
 // ({id, text}), until another image is drawn or a comparison is turned on.
 let lbCompareSaid = null;
+// Side by side's title while it can be pressed (layoutLightbox's): which way
+// the halves go. Held, the title is the reason instead.
+let lbSidesTitle = '';
 // Sources by id, fetched once a session: a record, or null for one the
 // gallery no longer has.
 const lbSources = new Map();
@@ -225,7 +228,11 @@ function layoutLightbox() {
   const [first, second] = cfg ? ['The lower CFG', 'the higher'] : ['The source', 'the pass'];
   const sides = split ? `${first} above ${second}, each fitted to half the stage: larger here than left and right`
     : `${first} left of ${second}, each fitted to half the stage`;
-  if (els.lbSideBySide.title !== sides) els.lbSideBySide.title = sides;
+  // Held, its title is the reason instead (syncCompare), put back from here.
+  lbSidesTitle = sides;
+  if (els.lbSideBySide.getAttribute('aria-disabled') !== 'true' && els.lbSideBySide.title !== sides) {
+    els.lbSideBySide.title = sides;
+  }
   // Tested in this order: a wheel stop between 1:1 and fit is neither.
   const percent = Math.round((lbView.scale / one) * 100);
   writeZoom(Math.abs(lbView.scale - one) < 1e-3 ? '1:1' : lbView.scale === 1 ? `fit · ${percent}%` : `${percent}%`);
@@ -763,6 +770,14 @@ function syncCompare(rec) {
     // A deleted source holds them on a pass whether or not CFG is on, as ever.
     const why = held || (pass && kind === 'source' ? sourceHeld : '');
     button.setAttribute('aria-disabled', String(!!why));
+    // Held, the title is why - on every image with no CFG neighbour, most
+    // plain Generates; otherwise what the mode shows, in the words of the
+    // kind it would compare (Side by side's, which way the halves go, is
+    // layoutLightbox's).
+    const title = why || (mode === 'side' ? lbSidesTitle : kind === 'cfg'
+      ? 'The lower CFG and the higher over each other, a divider between them to drag'
+      : 'The source and the pass over each other, a divider between them to drag');
+    if (title && button.title !== title) button.title = title;
   }
   // Comparing, with another pass of the same source in the strip, the arrows
   // swap passes (`stepPass`), or with another CFG value of the image in it,
@@ -858,8 +873,8 @@ function lbKeysLine({ passes = false, cfg = false, divider = false } = {}) {
   const keys = [['← →', passes ? 'passes' : cfg ? 'CFG' : 'walk'], ...(divider ? [['Shift+← →', 'divider']] : []),
     ['F', 'star'], ['S', 'compare'], ['Del', 'delete'],
     ['0', 'fit'], ['1', '1:1'], ['+/−', 'zoom'], ['Esc', 'close']];
-  return keys.map(([key, does]) => `${key.replaceAll(' ', ' ').replace('/', '/⁠')} ${does}`)
-    .join(' · ');
+  return keys.map(([key, does]) => `${key.replaceAll(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
+    .join('\u00a0· ');
 }
 
 // S, the buttons and the two modes. Off, a mode turns on the comparison S

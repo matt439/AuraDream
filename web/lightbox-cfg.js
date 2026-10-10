@@ -12,9 +12,13 @@
 // server has already made - the cells of a CFG grid, or separate Generates
 // at one seed - with no route of its own: the pairing is presentation.
 const CFG_SKIP = ['cfg', 'tcfg'];
-// The gallery's answer is one page this long; past it the note says more
-// may be in the gallery.
+// The gallery's answer is up to LADDER_PAGES pages this long, read newest
+// first; past them the held reason and the note say more may be in the
+// gallery. One page was too few: a seed kept fixed across a few hundred
+// prompts at one size filled it with the other prompts, and an image whose
+// neighbour was older was told it had none.
 const LADDER_LIMIT = 200;
+const LADDER_PAGES = 5;
 
 // What the gallery holds of each ladder, by its query (ladderQuery's key):
 // { records, more, failed, model, seed, width, height }, asked once a
@@ -22,12 +26,15 @@ const LADDER_LIMIT = 200;
 // a job lands an image of the same checkpoint, seed and size.
 const lbLadders = new Map();
 let lbLadderTimer;
-// The query on its way (ladderQuery's), so a re-render of the same image (a
-// star, a status) does not put it back by 200 ms each time.
+// The query waiting out its 200 ms (ladderQuery's), so a re-render of the
+// same image (a star, a status) does not put it back by 200 ms each time.
 let lbLadderAsking = null;
-// Bumped when the answer on its way is out of date - a job landed an image
-// it would have held, or the lightbox closed - and then not kept.
-let lbLadderEpoch = 0;
+// Every query on its way, by key: { match, stale }. A job landing an image
+// it would have held, or the lightbox closing, marks it stale and takes it
+// out, and its answer is then not kept - whichever image is in view by then,
+// so a walk on to another seed does not let an out-of-date answer be cached
+// for the rest of the session.
+const lbLadderFlights = new Map();
 
 const cfgName = (rec) => `CFG ${rec.guidance_scale}`;
 // A picture's name on the stage: its CFG and id, and its True CFG where that
@@ -113,27 +120,42 @@ function ladderQuery(rec) {
 // incomplete"; it is a convenience, as the passes' count is.
 function askLadder(rec) {
   const q = ladderQuery(rec);
-  if (!q || lbLadders.has(q.key) || lbLadderAsking?.key === q.key) return;
+  if (!q || lbLadders.has(q.key) || lbLadderFlights.has(q.key) || lbLadderAsking?.key === q.key) return;
   clearTimeout(lbLadderTimer);
   lbLadderAsking = q;
-  const epoch = lbLadderEpoch;
-  lbLadderTimer = setTimeout(async () => {
-    const params = new URLSearchParams({ limit: String(LADDER_LIMIT), model: q.model, search: q.search });
-    let entry;
-    try {
-      const page = await api(`/api/gallery?${params}`);
-      entry = { records: page.items, more: !!page.has_more, failed: false };
-    } catch {
-      entry = { records: [], more: false, failed: true };
-    }
-    if (epoch !== lbLadderEpoch) return;
+  lbLadderTimer = setTimeout(() => {
     if (lbLadderAsking === q) lbLadderAsking = null;
-    if (!els.lightbox.open) return;
-    const now = lbList[lbIndex];
-    entry.records = entry.records.filter((r) => !deletedIds.has(r.id));
-    lbLadders.set(q.key, { ...entry, ...q.match });
-    if (now && ladderQuery(now)?.key === q.key) ladderAnswered(now);
+    void fetchLadder(q);
   }, 200);
+}
+
+// The gallery's pages for `q`, newest first by the id cursor (`before`), as
+// the grid pages, until one says there is no more or LADDER_PAGES are read.
+async function fetchLadder(q) {
+  const flight = { match: q.match, stale: false };
+  lbLadderFlights.set(q.key, flight);
+  let entry;
+  try {
+    const records = [];
+    let more = false;
+    for (let n = 0; n < LADDER_PAGES && !flight.stale; n += 1) {
+      const params = new URLSearchParams({ limit: String(LADDER_LIMIT), model: q.model, search: q.search });
+      if (records.length) params.set('before', String(records.at(-1).id));
+      const page = await api(`/api/gallery?${params}`);
+      records.push(...page.items);
+      more = !!page.has_more && page.items.length > 0;
+      if (!more) break;
+    }
+    entry = { records, more, failed: false };
+  } catch {
+    entry = { records: [], more: false, failed: true };
+  }
+  if (lbLadderFlights.get(q.key) === flight) lbLadderFlights.delete(q.key);
+  if (flight.stale || !els.lightbox.open) return;
+  const now = lbList[lbIndex];
+  entry.records = entry.records.filter((r) => !deletedIds.has(r.id));
+  lbLadders.set(q.key, { ...entry, ...q.match });
+  if (now && ladderQuery(now)?.key === q.key) ladderAnswered(now);
 }
 
 // The gallery's answer for the image in view: a comparison on takes in what
@@ -153,18 +175,27 @@ function ladderState(rec) {
   const q = ladderQuery(rec);
   if (!q) return { known: true, more: false };
   const entry = lbLadders.get(q.key);
-  return entry ? { known: true, more: entry.more || entry.failed } : { known: false, more: false };
+  return entry ? { known: true, more: entry.more || entry.failed, failed: entry.failed, count: entry.records.length }
+    : { known: false, more: false };
 }
 
+// Why there is nothing to compare: still asking, or none - said as far as
+// the page knows it, where the gallery's answer was cut short or never came.
 function cfgHeldReason(rec, state = ladderState(rec)) {
-  return state.known ? `No other CFG value of #${rec.id} at this seed, size and settings`
-    : `Looking for other CFG values of #${rec.id}…`;
+  if (!state.known) return `Looking for other CFG values of #${rec.id}…`;
+  if (state.failed) return `No other CFG value of #${rec.id} in what the page holds: the gallery could not be asked`;
+  if (state.more) {
+    return `No other CFG value of #${rec.id} in the newest ${state.count} at this seed and size: `
+      + 'more may be in the gallery';
+  }
+  return `No other CFG value of #${rec.id} at this seed, size and settings`;
 }
 
 function forgetLadders() {
   clearTimeout(lbLadderTimer);
   lbLadderAsking = null;
-  lbLadderEpoch += 1;
+  for (const flight of lbLadderFlights.values()) flight.stale = true;
+  lbLadderFlights.clear();
   lbLadders.clear();
 }
 
@@ -176,11 +207,13 @@ function noteLadderImages(records) {
     && match.width === rec.width && match.height === rec.height;
   for (const rec of records) {
     for (const [key, entry] of lbLadders) if (same(entry, rec)) lbLadders.delete(key);
-    // An answer on its way may have been read before this image was saved.
-    if (lbLadderAsking && same(lbLadderAsking.match, rec)) {
-      clearTimeout(lbLadderTimer);
-      lbLadderEpoch += 1;
-      lbLadderAsking = null;
+    // Any answer on its way may have been read before this image was saved,
+    // whichever image asked for it; one still waiting out its 200 ms reads
+    // after, and stands.
+    for (const [key, flight] of lbLadderFlights) {
+      if (!same(flight.match, rec)) continue;
+      flight.stale = true;
+      lbLadderFlights.delete(key);
     }
   }
   const now = lbList[lbIndex];
