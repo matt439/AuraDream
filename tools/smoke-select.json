@@ -11,7 +11,7 @@
   {"expect": "__until(() => total === 60 && galleryRecords.length === 48 && galleryMore && __cards().length === 48)"},
 
   {"log": "'Select sits in the footer row with Bundles, unpressed; no count, no Clear, and the grid where it was'"},
-  {"expect": "els.select.parentElement.classList.contains('gallery-footer') && els.select.nextElementSibling === els.swap && els.swap.nextElementSibling === els.bundles && els.select.getAttribute('aria-pressed') === 'false' && els.selectCount.textContent === '' && els.selectClear.hidden && !els.gallery.classList.contains('selecting') && selectedIds().length === 0"},
+  {"expect": "els.select.parentElement.classList.contains('gallery-footer') && els.select.nextElementSibling === els.swap && els.swap.nextElementSibling === els.refineBatch && els.refineBatch.nextElementSibling === els.bundles && els.select.getAttribute('aria-pressed') === 'false' && els.selectCount.textContent === '' && els.selectClear.hidden && !els.gallery.classList.contains('selecting') && selectedIds().length === 0"},
   {"eval": "scrollTo(0, 0); window.__selectAt = JSON.stringify(els.select.getBoundingClientRect()); window.__gridTop = els.gallery.getBoundingClientRect().top; window.__footH = els.select.parentElement.getBoundingClientRect().height; window.__bundlesH = els.bundles.getBoundingClientRect().height;"},
   {"expect": "Math.abs(els.select.getBoundingClientRect().height - __bundlesH) < 1"},
 

@@ -122,6 +122,8 @@ before changing it.
   `cells_from_records`, a gallery record as a cell
 - `backend/tag_swap.py` — Swap tags' rewrite of a record's prompt or
   negative prompt (pure; the routes are `main.py`'s)
+- `backend/refine_batch.py` — Mass refine's plan of one record: the pass
+  it becomes or why not (pure; the routes are `main.py`'s)
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
@@ -145,7 +147,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 32 classic
+- `web/` — served as-is from `/static`; `index.html` loads 33 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -161,7 +163,8 @@ before changing it.
   checkpoint selection, retiring state prepared under the old model and the
   picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog and background-operation polling;
-  `gallery-select.js` the picked cards and `tag-swap.js` Swap tags. The stylesheet is
+  `gallery-select.js` the picked cards, `tag-swap.js` Swap tags and
+  `refine-batch.js` Mass refine. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
   `style.css`); preserve that cascade. See `docs/source-audit.md`
@@ -621,13 +624,18 @@ Reproduction:
   `GenerateRequest` of its own: the reproduction set carried (prompt pair,
   steps, CFG, effective true CFG, mu, references, LoRA and weight, refine
   source and strength - a strength only beside a source - seed, variables)
-  is one list. Re-render and Swap tags use it; Mass refine is next. Their
+  is one list. Any other `GenerateRequest` field is named through
+  `**changes` (validated with the rest; a name that is no field is a
+  TypeError) and the cell's caption through `label`. Re-render, Swap tags
+  and Mass refine use it. Their
   images are `main._resolve_selection`'s: with `ids` (the picked cards),
   exactly those, oldest first, and the ids gone reported per image, never a
   refusal; without, the gallery's filter (search, Starred, `_model_scope`),
   404 for none, 422 past `max_grid_images` by count. What to do with
   another checkpoint's records is the caller's (Re-render refuses the
-  selection, `_foreign_refusal`; Swap tags reports each image `foreign`).
+  selection, `_foreign_refusal`; Swap tags reports each image `foreign`;
+  Mass refine reports it `foreign` unless `include_foreign`, then
+  substitutes the running profile).
   `_unusable_input` is `_refuse_unusable_inputs`' finding without the
   refusal, (kind, why), for a per-image status.
 - The reproduction set - prompt pair, size, steps, CFG, true CFG, mu, seed,
@@ -1998,7 +2006,9 @@ Frontend and CLI:
   closes the list, and the next one closes the dialog.
 - Ctrl+Enter is routed by focus (app.js's keydown): in the Refine dialog it
   runs the pass, and so does a plain Enter in the dialog's one-line boxes
-  (`refineKeydown`); from a box of the open grid fold it clicks Run grid;
+  (`refineKeydown`); in Mass refine's dialog it runs that
+  (`runRefineBatch`) and in Swap tags' it queues (`queueSwap`); from a box
+  of the open grid fold it clicks Run grid;
   anywhere else, a focused image included, it generates - `thumb()`'s Enter
   and Space open the lightbox only without Ctrl, Meta or Alt. Generate
   itself refuses in the page alone (never the server, where braces can be
@@ -2897,7 +2907,10 @@ Frontend and CLI:
   `selectedIds()` (in the order picked), `selectedRecords()`, `isSelected`,
   `onSelectionChange(fn)` (called with the ids after every change, every
   toggle of Select, every page that lands and a page that fails) and
-  `clearSelection()`. It is ids, never the cards; `selectedRecords()` hands
+  `clearSelection()`; `galleryActionTarget(purpose, one)` is what such an
+  action takes now - `{scope, n, words}` (the ids, else the filter under
+  Re-render's conditions) or `{why}` - and `galleryActionScopeLine(target,
+  lead)` its dialog's scope line, so the actions hold and word alike. It is ids, never the cards; `selectedRecords()` hands
   over the loaded page's copy of each record where `galleryRecords` has one,
   else the record as picked (a snapshot - actions send the ids and the
   server reads the rows). A search, a
@@ -2998,7 +3011,82 @@ Frontend and CLI:
   the Add row button is aria-disabled at 16 rows ("At most 16 rows in one
   swap"), and both boxes take at most 1000 characters (`maxLength`), the request's
   own limits. Enter in a box
-  is Queue's press; Escape, Cancel and a press outside close it.
+  is Queue's press, as Ctrl+Enter is anywhere in the dialog; Escape, Cancel
+  and a press outside close it.
+- Mass refine (`POST /api/refine/batch/preview`, `POST /api/refine/batch`,
+  `refine_batch.py`, `refine-batch.js`, `styles/refine-batch.css`) is the
+  fifth producer of cells: a refine pass of each selected image, from its
+  own pixels (`refine = record.id`), at one `strength` (None: the
+  checkpoint's, `default_strength`) and one `scale` (1-2, the record's
+  sides times it through `refine.scaled`), `steps` None keeping each
+  record's own. `refine_batch.plan` decides per record from the record
+  alone, in this order: `pass` (a record that is itself a pass, while
+  `skip_passes`, the default; unticked, the pass is refined itself, its
+  source the pass), `foreign` (another checkpoint's, unless
+  `include_foreign`; then its prompt pair and seed with the running
+  profile's steps, CFG and mu, no true CFG and no LoRA, each said in the
+  row's `notes`), `too_big` (the scaled size past `refine_max_side` or
+  `refine_max_pixels`, checked before the request is built), `invalid`
+  (pydantic), `no_step` (`check_refine_steps`), else a cell through
+  `grid.cell_from_record` with `reference=[]` and `label="#<id>"` - one
+  record, one cell, in the resolver's order (oldest first), never a loop
+  over axes, so `grid.expand()` stays the one cell loop. The route adds
+  `file_missing` (`storage.missing_files`), `lora_missing` (a same
+  checkpoint's adapter, `_unusable_input` once per name), `rendered`
+  (`_not_yet_rendered` per size) and `deleted` (an id gone). Only a
+  checkpoint with no pass refuses the whole of it (422,
+  `_refine_unavailable`, the single pass's words). The preview lists the
+  first `REFINE_BATCH_PREVIEW_ROWS` (200) with each source's size and the
+  pass's, counts all, and answers the resolved `ids`, the strength, the
+  `foreign` count and `models`, `passes`, `largest` (the largest source the
+  scale applies to, by pixels, `pass` and `foreign` left out), `seconds`
+  (summed per size from `storage.refine_cost_ms`, None with
+  `unpriced_sizes` where any size has no history) and
+  `start_sigma_low`/`high` (`backend.start_sigma` over the distinct applied
+  passes, None where any reads None or past `REFINE_BATCH_SIGMA_KEYS`, 8);
+  it has no side effects, is not model-dependent and is advisory in `api`.
+  The queueing route is model-dependent, refuses 409 when `expected` is
+  not the ids resolved now, prunes what the gallery holds (`pruned`),
+  answers 409 when everything was rendered and 422 when nothing else can
+  run, and submits one job per distinct size
+  (`jobs.submit_cells(..., refine_batch=scale)`), the rest in `more` as
+  Swap tags'. The snapshot's `refine_batch` and `strength` name the job
+  ("refine ×1.5 at strength 0.3", `describeJob`), its `refine` is None;
+  the Cancel title is "Stop this batch refine" and a split job's finish
+  line "Job k of n of this batch refine, at WxH". Cells run oldest first;
+  a source deleted mid-run fails its own cell, named by its label. The
+  button is `#btn-refine-batch` ("Refine…"), in the footer row after
+  Swap tags… and before Bundles…, always shown: `refineBatchTarget` holds
+  it with `REFINE_NONE` (settled) or the hedge (a guess) where the
+  checkpoint has no pass, else with `galleryActionTarget`'s reason; synced
+  from `syncRerender`, `onSelectionChange`, `syncCardTools` and every
+  status (`syncRefineBatchButton`), a held press said in `#gallery-error`.
+  The dialog opens only on the first preview's answer: the opening scale
+  is the remembered one (`REFINE_KEY`'s `scale`, else 1.5×) capped by
+  `openingRefineSize` over `largest`, asked again where capped, the passed
+  over factor's button saying "(last run at 2×)" or "(the usual opening
+  size)"; Strength opens at this checkpoint's remembered single strength,
+  else its default, focused and selected; Steps blank; Skip refine passes
+  ticked; Include other checkpoints hidden unless the answer's `foreign` is
+  above 0 (or it is ticked). A list or range in Strength is refused on the
+  page (`RB_ONE_STRENGTH`), as is Steps outside 1-100 (`RB_STEPS_PROBLEM`),
+  without asking the server. Checks run 250 ms after an edit (at once on a
+  scale, a tick, and from `forgetImages` when a listed id went:
+  `forgetRefineBatchImages`), aborting one still out. Refine is
+  aria-disabled with `submitHold()`, no refine pass, the field's refusal,
+  "Checking the images…", the server's refusal, "The checkpoint
+  changed…", "Every image already has this pass at this strength and
+  scale" or "No image can be refined at these settings; each one says
+  why"; a press (Refine, Enter in a box, Ctrl+Enter) first waits for the
+  check of what the dialog says, then says a hold in `#refine-batch-error`
+  and marks Strength or Steps where it is about them. While the POST is out
+  Refine reads "Sending…" and Escape, Cancel and the backdrop wait
+  (`rbSending`); accepted, the dialog closes and the scale (unless it is
+  the capped opening one, unchanged) and a single strength are remembered
+  in `REFINE_KEY` (`rememberRefineBatch`); refused, it stays open with the
+  reason and checks again. ↑/↓ step Strength by 0.05, 0.01 with Shift. The
+  results list has a fixed height and scrolls, the count keeps two lines
+  and `#refine-batch-error` one, so nothing below moves.
 - The sheet's layout contract - axes, prompt labels, pins, variables - lives in
   the client, and the export is client-side, not a route. Export PNG draws
   the slice on screen. Export all, shown only where something is pinned,
@@ -3178,7 +3266,8 @@ Frontend and CLI:
   flags from `launch.add_model_arguments`.
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender` and
-  `POST /api/swap-tags[/preview]` without `ids` scope to
+  `POST /api/swap-tags[/preview]` and `POST /api/refine/batch[/preview]`
+  without `ids` scope to
   `current_model_id(settings)` (`main._model_scope`, an exact predicate, never the
   `model:` LIKE) unless `all_models=true`; `GET /api/gallery?model=<id>` is the
   same exact scope for any id, in place of both, and `model:=<id>` in the
@@ -3379,7 +3468,17 @@ underscores, strictness, rows at once, phrases and lettering, Han, XML,
 variables) and `tests/test_api_swap.py` (every per-image status, one job
 per size keeping seeds, sizes and settings, `expected`, `pruned`, the
 filter scope, the negative field, the revision header, the resolver, and
-Re-render over mixed sizes through `cells_from_records`). What holds the
+Re-render over mixed sizes through `cells_from_records`). Mass refine
+is `tests/test_refine_batch.py` (the per-record plan's order, the cell it
+builds, the profile a foreign record takes, `cell_from_record`'s named
+changes) and `tests/test_api_refine_batch.py` (every per-image status, one
+job per size keeping each image's prompt pair, seed, CFG, mu and variables,
+references dropped, the PNG chunk's `refine`, Steps, Skip refine passes,
+Include other checkpoints, the whole refusal without a pass, a live
+capability drop failing the job before any image, a source deleted mid-run
+failing its own cell only, `expected`, `pruned`, the filter scope, the
+start-sigma range and its cap, the per-size price, and the revision
+header). What holds the
 card, and whose expansion it is, is
 `tests/test_jobs.py::test_the_card_names_its_holder_and_an_editor_actions_ticket`
 and, through the status,
@@ -3869,7 +3968,10 @@ record's Reuse keeping the pass in the dialog with Refine dead and nothing
 submitted, the dialog waking when status says the pipeline has a pass,
 Generate meanwhile rendering directly, a final answer's wording
 (`refine_settled`) and the guess's back, and a foreign pass's general
-starting strength (`refine_strength_profiled` false). `browser.mjs` sends Escape with its
+starting strength (`refine_strength_profiled` false); and Mass refine's
+Refine… held with the hedge, then `REFINE_NONE`, even under a search that
+gives it images, a press opening nothing, and live once the status says
+the pipeline has a pass. `browser.mjs` sends Escape with its
 key code, so a modal dialog closes on it as on a real press. Fake servers
 share one throwaway gallery unless `--data` gives each its own, and
 `smoke.json` counts the images planted under another checkpoint: run it on
@@ -4342,7 +4444,7 @@ node tools/browser.mjs tools/smoke-gallery.json
 
 `smoke-select.json` checks the gallery selection on a default fake on 7898
 with a fresh `--data` (it builds a 60-image grid): Select in the footer row
-before Swap tags… and Bundles…, at Bundles…'s height; a click opening the lightbox out of
+before Swap tags…, Refine… and Bundles…, at Bundles…'s height; a click opening the lightbox out of
 select mode; Select pressed with neither it nor the grid moving as the count
 appears; a click, Space, Shift+click and Shift+Space (a range from the anchor
 out, backwards too) picking, a second click unpicking, the image's
@@ -4368,7 +4470,7 @@ node tools/browser.mjs tools/smoke-select.json
 
 `smoke-swap.json` checks Swap tags on an Animagine XL 4.0 fake on 7900 with a
 fresh `--data` (a `{hair}` grid at 832x1216 and one 1024x1024 image): the
-button between Select and Bundles… at their height, held with its reason
+button between Select and Refine… (then Bundles…) at their height, held with its reason
 and saying it, titled by a search and then by picked cards, not moving as
 cards are picked; the dialog's scope line, focus, both fields, Queue held
 ("Add a tag to find", "Checking the swaps…" while typing) and saying it;
@@ -4389,6 +4491,33 @@ Escape; the page never scrolled:
 ```powershell
 uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-swap.json
+```
+
+`smoke-refine-batch.json` checks Mass refine on a FLUX.1 Krea [dev] fake on
+7901 with a fresh `--data` (four images, three starred, and the fake's two
+of another checkpoint): Refine… after Swap tags… and before Bundles… at
+their height, held with its reason and saying it, then titled by Starred,
+nothing in the footer or the grid moving; the dialog opening on the
+server's answer - its title's count, the scope line, Strength focused and
+selected, 1.5× pressed and titled with the largest image's pass, every
+image listed with the pass's size, the count line with the start-sigma
+range (stood in for, the fake reads none) and "no estimate: 2 sizes…";
+a list in Strength refused on the page and a press saying it at Strength,
+Refine and Cancel unmoved; "Checking the images…" while typing, ↑ stepping
+0.05; Steps 500 refused; 2× checked again; the POST held as "Sending…"
+with Escape waiting; the Now line and the queued row named "refine ×1.5
+at strength 0.3", Cancel's "Stop this batch refine", the last finish line
+"Job 2 of 2 of this batch refine, at 768×384."; each pass of its own
+image with its own seed and prompt; the scale and strength remembered;
+the same again all already refined, Ctrl+Enter saying the hold; All
+models offering Include other checkpoints and its row's note; picked
+cards over the filter, the opening scale capped by a 1024x1024 image with
+2× saying it was last run there; an image deleted while open listed as
+deleted; the page never scrolled:
+
+```powershell
+uv run python tools/fake_server.py --port 7901 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-refine-batch.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

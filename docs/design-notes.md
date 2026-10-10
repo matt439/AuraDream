@@ -3923,7 +3923,7 @@ fourth producer of cells, beside Generate, Run grid and Re-render.
 
 **What it acts on.** The picked cards where there are any (the gallery
 selection, `ids`), else the filter as Re-render takes it, and the button's
-title says which. Re-render and Swap tags - and Mass refine next - read
+title says which. Re-render, Swap tags and Mass refine read
 their images through one resolver (`main._resolve_selection`) and build
 their cells through one helper (`grid.cell_from_record`), so what "the
 selection" means and what a record carries into its new cell cannot drift
@@ -4030,6 +4030,103 @@ under the pointer; the box's fixed height means the slots going moves
 nothing outside it. The request's own limits (16 rows, 1000 characters a
 box) are held on the page - + Add row aria-disabled with the reason,
 `maxLength` on the boxes - rather than met as pydantic's text.
+
+## Mass refine
+
+**A pass of every keeper** (2026-10-10): the night's starred images at
+1.5x, each refined from its own pixels, was a card's ⤢, Refine, Enter,
+twenty times over. `POST /api/refine/batch` is the fifth producer of
+cells: one cell per image, `refine = record.id`, one strength and one
+scale for all of them, every other setting the image's own.
+
+**Records to cells, not a loop.** Each record becomes one cell through
+`grid.cell_from_record`, the helper Re-render and Swap tags build theirs
+with, now taking any other request field by name (`**changes`, validated
+with the rest, an unknown name a TypeError rather than a silent drop) and
+a `label`, so what carries over cannot drift from theirs. A pass of the
+record itself, not a re-run of the record's own pass: Re-render runs a
+refined record again as a pass of the same source, which is reproduction;
+here a refined record in the selection would be refined again, which is
+seldom wanted, so **Skip refine passes** is on by default and an image
+that is a pass is listed and left out until it is unticked. One record is
+one cell in the resolver's order, oldest first; nothing loops over axes,
+so `grid.expand()` stays the one cell loop. References never carry: a
+pass's image is its source, and `_refuse_unusable_inputs` would otherwise
+refuse an image with references on a checkpoint that takes none.
+
+**Per image, never the whole job** (the coordinator's decision, after a
+critique). Re-render refuses a selection over one bad record; a batch of
+forty passes left nothing for one image whose pass at 2x is past the
+pixel guard, whose few steps the strength leaves no step of, whose file or
+adapter has gone, or that is already refined. Each is a status of its
+own, decided before any request is built - the scaled size is checked
+against `refine_max_side`/`refine_max_pixels` first, since pydantic's
+"less than or equal to 4096" names no image - and the rest are queued.
+Only a checkpoint with no refine pass refuses the whole of it, as it
+refuses a single pass, in the same words.
+
+**Another checkpoint's images only when asked.** Re-render refuses them:
+their steps, CFG and mu are another schedule's. A pass starts from pixels,
+so the single Refine dialog takes them, substituting this checkpoint's
+profile, and Mass refine can too - but a starred Krea 2 image refined on
+FLUX.1 under All models is easy to queue without noticing, so they are
+listed `foreign` and left out unless **Include other checkpoints** is
+ticked, a tick offered only where the answer counts any. Ticked, each
+keeps its prompt pair and seed and takes the running profile's steps, CFG
+and mu, no true CFG and no LoRA (the adapter was the other checkpoint's),
+and its row says so. A same checkpoint's LoRA that has gone is
+`lora_missing`, never silently dropped.
+
+**The scale is capped by the largest image.** The single dialog opens
+below the remembered scale where the source's pass would pass the guard or
+the measured tight line (`openingRefineSize`). A batch has many sources,
+and the largest decides: one 1.5 MP image in the selection at 2x spills
+the card for every image after it. The server answers `largest` (the page
+may not hold every selected record), the dialog opens only once the first
+answer is in, at the capped scale, asked again there, and the passed-over
+factor's button says why. A smaller factor never refuses anything; a
+larger one pressed is the user's, and images it takes past the guard are
+`too_big`, listed.
+
+**One strength, refused as a list on the page.** A sweep of strengths is
+a contact sheet of one image (the single dialog's Compare 3); over forty
+images it is forty sheets. "0.1,0.2" is refused in the dialog without
+asking the server ("One strength for a batch. A sweep is one image's
+Refine."). The strength and the scale are remembered in the single
+dialog's `REFINE_KEY` - what was last run on this checkpoint is the same
+number whichever dialog ran it - and a capped opening scale run as it
+opened is not remembered as the user's choice, as `rememberRefine` has it.
+
+**The start sigma is a range.** On a shifted flow schedule one strength
+starts a larger pass at more noise (FLUX.1: 0.1 is 47% at 1.5x of 1 MP and
+75% at 2x), and a selection of several sizes has several. The preview
+reads `start_sigma` once per distinct pass as `applied()` runs it - size,
+steps, mu, strength - and says the lowest and highest; any reading None
+(before a load, SDXL) or more than eight distinct passes (each reading
+builds a scheduler copy) says nothing. Advisory, never a refusal.
+
+**Time, honestly unknown.** The price is summed per size from that size's
+refine history (`refine_cost_ms`), and one size without history leaves the
+whole estimate out, said as "no estimate: N sizes have no refine history"
+rather than a total that silently prices part of the batch.
+
+**One job per size, pinned to the ids** - as Swap tags, for the same
+reasons: every reader of a job (snapshot, log, ETA, `run_id`) assumes one
+size, and a selection that changed between the check and the press is a
+409 rather than a batch queued unseen. The snapshot's `refine_batch` (the
+scale) and `strength` name each job, "refine ×1.5 at strength 0.3"; its
+`refine` is None, since "refine of #12" named forty passes by the first.
+Each cell's label is its source's `#id`, which the progress line and a
+failed cell's report show: a source deleted mid-run fails only its own
+cell, named.
+
+**Where the button sits.** Beside Swap tags… in the footer row, always
+there, and held with the reason where nothing is picked, no filter
+narrows the gallery or the checkpoint has no pass - the hedge until a load
+answers, `REFINE_NONE` once it has, refreshed with every status. Its
+dialog is Swap tags' shape: fixed-height results, a two-line count and a
+one-line error, so a check never moves Refine; "Sending…" holds Escape and
+Cancel while the POST is out, as the single dialog does.
 
 ## Delete unstarred
 

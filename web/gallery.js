@@ -532,6 +532,8 @@ function syncCardTools() {
     syncReferenceTool(button, +button.closest('[data-id]').dataset.id);
     button.hidden = !referenceSupported;
   });
+  // And the footer's Refine…, held with the same reason (refine-batch.js).
+  syncRefineBatchButton();
 }
 
 // Where an image is among the references the panel sends: its index, or -1 -

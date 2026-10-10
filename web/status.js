@@ -642,6 +642,9 @@ function receiveStatus(s, asked = Date.now()) {
     // The dialog's negative prompt, Mu and True CFG follow the same answers
     // as the panel's boxes above.
     if (refineSource) syncRefine();
+    // Mass refine's Refine… says the hedge or the final answer as the status
+    // settles it, and an open dialog's Refine what holds it now.
+    syncRefineBatchButton();
     // The adapter list is a directory read, so it rides on the first status
     // rather than on the 3 s poll: files appear when the user drops one in,
     // which is a page reload away either way. Once more when the load lands,

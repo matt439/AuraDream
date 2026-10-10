@@ -331,9 +331,11 @@ function forgetImages(ids) {
     syncGalleryEmpty();
   }
   // Nor is a deleted image picked any longer (gallery-select.js), and an
-  // open Swap tags that listed one checks again (tag-swap.js).
+  // open Swap tags or Mass refine that listed one checks again (tag-swap.js,
+  // refine-batch.js).
   forgetSelected(gone);
   forgetSwapImages(gone);
+  forgetRefineBatchImages(gone);
   // Keyboard focus was on what went: it moves on to the next image in the
   // same strip, or back to the one before, rather than dropping to <body>.
   // The keyboard's way into the grid goes to the same card.

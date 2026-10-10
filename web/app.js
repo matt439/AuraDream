@@ -738,6 +738,8 @@ els.deleteUnstarred.onclick = deleteUnstarred;
 initBundles();
 // Swap tags in the gallery's footer row and its dialog (tag-swap.js).
 setupSwap();
+// Mass refine in the same row, and its dialog (refine-batch.js).
+setupRefineBatch();
 // The picker then names the run on screen: resetGallery follows the search box.
 // Browsed from the keyboard, a run opens on Enter or as focus leaves (runs.js).
 els.runList.onchange = runListChange;
@@ -893,6 +895,8 @@ document.addEventListener('keydown', (e) => {
     // hands focus back to - the card's ⤢ - read it as a press of its own.
     e.preventDefault();
     if (els.refineDialog.open) void runRefine();
+    else if (els.refineBatchDialog.open) void runRefineBatch();
+    else if (els.swapDialog.open) queueSwap();
     else if (els.gridSection.open && e.target.closest?.('#grid-section')) els.gridRun.click();
     else generate();
     return;

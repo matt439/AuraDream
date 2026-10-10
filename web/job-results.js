@@ -104,11 +104,11 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
       // Its seeds are another tab's to use; its images join the gallery.
       line.push(`${ANOTHER_TABS_JOB} finished: ${plural(made, 'image')}${deleted.replace(/,$/, '')}.`);
     } else {
-      // One of the jobs a press split by size (Swap tags): which one, since
+      // One of the jobs a press split by size (Swap tags, Mass refine): which one, since
       // its count is that job's, not the press's.
       const split = submitted?.split;
       const part = split && split.includes(jobId)
-        ? ` Job ${split.indexOf(jobId) + 1} of ${split.length} of this ${data.swap != null ? 'swap' : 'submission'}${data.width && data.height ? `, at ${data.width}×${data.height}` : ''}.`
+        ? ` Job ${split.indexOf(jobId) + 1} of ${split.length} of this ${data.swap != null ? 'swap' : data.refine_batch != null ? 'batch refine' : 'submission'}${data.width && data.height ? `, at ${data.width}×${data.height}` : ''}.`
         : '';
       line.push(`Finished ${plural(made, 'image')}${deleted} in ${took}${seeds}.${part}${distinct}`);
       if (plain) {

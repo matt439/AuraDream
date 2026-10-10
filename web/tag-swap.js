@@ -58,27 +58,9 @@ function swapSummary(payload) {
   return payload.field === 'negative_prompt' ? `negative: ${rows}` : rows;
 }
 
-// What Swap tags would act on now: the picked cards, else the filter where
-// it narrows the gallery to at most a job's worth, else nothing - with why.
+// What Swap tags would act on now (galleryActionTarget).
 function swapTarget() {
-  const ids = selectedIds();
-  if (ids.length) {
-    return { scope: { ids }, n: ids.length, words: `the ${ids.length === 1 ? 'selected image' : `${ids.length} selected images`}` };
-  }
-  const search = els.search.value.trim();
-  const filtered = els.favOnly.checked || search !== '';
-  if (!filtered) {
-    return { why: 'Pick cards with Select, or narrow the gallery with a search or Starred, to choose the images to swap tags in' };
-  }
-  if (total === 0) return { why: 'Nothing in the gallery matches the filter' };
-  if (total > sheetPage) {
-    return { why: `${total} images match; one swap takes at most ${sheetPage}. Narrow the search, or pick cards with Select` };
-  }
-  return {
-    scope: { search: search || null, favorites: els.favOnly.checked, all_models: els.allModels.checked },
-    n: total,
-    words: `the ${total === 1 ? 'image' : `${total} images`} the filter matches`,
-  };
+  return galleryActionTarget('to choose the images to swap tags in', 'one swap');
 }
 
 // The button's state: held with the reason, or titled with what it takes.
@@ -97,7 +79,7 @@ function openSwapDialog() {
   if (!target.scope) { showError(target.why, true, { slot: els.galleryError }); return; }
   swapScope = target.scope;
   swapRevision = modelRevision;
-  els.swapScope.textContent = swapScopeLine(target);
+  els.swapScope.textContent = galleryActionScopeLine(target, 'In');
   // A checkpoint with no negative prompt has nothing to swap there.
   els.swapNegative.hidden = !negativeSupported;
   if (!negativeSupported) swapFieldInput('prompt').checked = true;
@@ -114,17 +96,6 @@ function openSwapDialog() {
   els.swapDialog.showModal();
   swapLiveRows()[0]?.querySelector('.swap-find').focus();
   scheduleSwapCheck(0);
-}
-
-function swapScopeLine(target) {
-  if (target.scope.ids) {
-    const shown = new Set(galleryRecords.map((r) => r.id));
-    const away = target.scope.ids.filter((id) => !shown.has(id)).length;
-    return `In ${target.words}${away ? ` (${away} not in the gallery's view)` : ''}.`;
-  }
-  const { search, favorites, all_models: everywhere } = target.scope;
-  const parts = [search ? `matching "${search}"` : '', favorites ? 'starred' : ''].filter(Boolean);
-  return `In the ${plural(target.n, 'image')} ${parts.join(', ')}${everywhere ? ', across checkpoints' : ', this checkpoint only'}.`;
 }
 
 function swapFieldInput(value) {

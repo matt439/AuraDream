@@ -62,6 +62,7 @@ function setBusy(on) {
   els.generate.textContent = on ? 'Generate (queue)' : 'Generate';
   els.gridRun.textContent = on ? 'Run grid (queue)' : 'Run grid';
   els.refineRun.textContent = on ? 'Refine (queue)' : 'Refine';
+  syncRefineBatchRun();
   els.progress.hidden = !on;
   els.cancel.setAttribute('aria-disabled', String(!on));
   els.cancel.textContent = 'Cancel';
@@ -114,9 +115,12 @@ function setBusy(on) {
 // differ in their prompts, so it is named by its own, its {variables}
 // unfilled - the first cell's named the whole night by a cell that had long
 // finished - and a re-render's cells are its records', with no one prompt to
-// name. A swap's are its records' too, and it is named by its rows.
+// name. A swap's are its records' too, and it is named by its rows; a
+// batch refine's are passes of as many images, named by the scale and the
+// strength they share.
 function describeJob(job, length = 60, { markup = false } = {}) {
-  const what = job.refine != null ? `refine of #${job.refine}`
+  const what = job.refine_batch != null ? `refine ×${job.refine_batch} at strength ${job.strength}`
+    : job.refine != null ? `refine of #${job.refine}`
     : !job.grid ? snippet(job.prompt ?? '', length, { markup })
     : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length, { markup })}`
     : job.swap != null ? `swap · ${snippet(job.swap, length, { markup: true })}`
@@ -161,6 +165,9 @@ function submissionLabel(path, payload) {
   }
   if (path === '/api/swap-tags') {
     return describeJob({ grid: true, swap: swapSummary(payload) });
+  }
+  if (path === '/api/refine/batch') {
+    return describeJob({ grid: true, refine_batch: payload.scale, strength: payload.strength ?? refineDefaultStrength() });
   }
   const grid = path === '/api/grid';
   return describeJob({
@@ -936,7 +943,8 @@ function syncNow(job) {
   const lead = foreign ? `${ANOTHER_TABS_JOB}:` : 'Now:';
   els.progressNow.textContent = what ? `${lead} ${what}` : '';
   els.progressNow.title = what ? `${lead} ${describeJob(job, 120, { markup: true })}` : '';
-  const name = job.refine != null ? `the refine of #${job.refine}`
+  const name = job.refine_batch != null ? 'this batch refine'
+    : job.refine != null ? `the refine of #${job.refine}`
     : job.grid ? (job.prompt_template != null ? 'this grid' : job.swap != null ? 'this swap' : 'this re-render')
     : `"${snippet(job.prompt ?? '', 40)}"`;
   els.cancel.title = `Stop ${name}${foreign ? " - another tab's job -" : ''} after the current step`;
@@ -981,6 +989,8 @@ function syncRerender() {
     els.rerender.textContent =
       `Re-render ${total} at ${els.width.value}×${els.height.value}`;
   }
-  // Swap tags takes the same filter where nothing is picked (tag-swap.js).
+  // Swap tags and Mass refine take the same filter where nothing is picked
+  // (tag-swap.js, refine-batch.js).
   syncSwapButton();
+  syncRefineBatchButton();
 }

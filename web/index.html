@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/static/styles/refine.css">
 <link rel="stylesheet" href="/static/styles/bundles.css">
 <link rel="stylesheet" href="/static/styles/swap.css">
+<link rel="stylesheet" href="/static/styles/refine-batch.css">
 </head>
 <body>
 <header class="topbar">
@@ -797,6 +798,12 @@
                Select; the title says which images it would take. -->
           <button type="button" class="ghost small foot-btn" id="btn-swap" aria-haspopup="dialog"
             aria-disabled="true">Swap tags…</button>
+          <!-- Mass refine (refine-batch.js): a refine pass of each image the
+               selection holds, else the filter, at one strength and scale.
+               Always here, beside Swap tags, held with its reason where there
+               is nothing to act on or no refine pass on this checkpoint. -->
+          <button type="button" class="ghost small foot-btn" id="btn-refine-batch" aria-haspopup="dialog"
+            aria-disabled="true">Refine…</button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
             title="Bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
         </div>
@@ -1128,6 +1135,49 @@
   </div>
 </dialog>
 
+<!-- Mass refine (refine-batch.js): one strength, one scale, every image
+     checked on the server as they change and each outcome listed; Refine held
+     with its reason until the answer is to what the dialog says. -->
+<dialog class="rb-dialog" id="refine-batch-dialog" aria-labelledby="refine-batch-title"
+        aria-describedby="refine-batch-scope">
+  <header class="rb-head">
+    <h2 id="refine-batch-title">Refine</h2>
+    <p id="refine-batch-scope"></p>
+  </header>
+  <div class="rb-controls">
+    <div class="field rb-strength">
+      <i><label for="refine-batch-strength">Strength</label></i>
+      <!-- Text, as the single dialog's, so a list typed in can be refused in
+           words: one strength for a batch. -->
+      <input type="text" id="refine-batch-strength" autocomplete="off" inputmode="decimal"
+             title="How much of each image is redrawn - low keeps the picture, 1 keeps nothing. ↑ and ↓ step it">
+    </div>
+    <div class="field rb-scale">
+      <i id="refine-batch-scale-label">Scale</i>
+      <div class="presets" id="refine-batch-scales" role="group" aria-labelledby="refine-batch-scale-label"></div>
+    </div>
+    <div class="field rb-steps">
+      <i><label for="refine-batch-steps">Steps</label></i>
+      <input type="number" id="refine-batch-steps" min="1" max="100" placeholder="each image's own">
+    </div>
+  </div>
+  <div class="rb-ticks">
+    <label class="check"><input type="checkbox" id="refine-batch-skip" checked> Skip refine passes</label>
+    <!-- Offered only where the selection holds another checkpoint's images. -->
+    <label class="check" id="refine-batch-foreign-label" hidden><input type="checkbox" id="refine-batch-foreign">
+      Include other checkpoints</label>
+  </div>
+  <p class="rb-hint">Each image keeps its own prompt, negative prompt, seed, CFG, mu and LoRA, and is refined from
+    its own pixels. A reference image does not apply to a pass.</p>
+  <p class="rb-count" id="refine-batch-count" role="status"></p>
+  <ol class="rb-results" id="refine-batch-results" aria-label="What happens to each image"></ol>
+  <p class="error one-line" id="refine-batch-error" role="alert"></p>
+  <div class="rb-actions">
+    <button type="button" class="ghost" id="refine-batch-cancel">Cancel</button>
+    <button type="button" class="primary" id="refine-batch-run" aria-disabled="true">Refine</button>
+  </div>
+</dialog>
+
 <!-- Classic scripts sharing one global scope; app.js, the last, is the
      only one that runs anything at load. Order matters: see state.js. -->
 <dialog class="bundles-dialog" id="bundles-dialog" aria-labelledby="bundles-title" aria-describedby="bundles-intro">
@@ -1216,6 +1266,7 @@
 <script src="/static/comparison.js"></script>
 <script src="/static/bundles.js"></script>
 <script src="/static/tag-swap.js"></script>
+<script src="/static/refine-batch.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

@@ -334,11 +334,23 @@ already rendered, a deleted source or LoRA, the same as another image.
 Each image keeps its own seed, size and settings; one job is queued per
 size.
 
+**Refine…** (beside **Swap tags…**) runs a refine pass of each selected
+image - or, with nothing selected, of what the filter matches - from its
+own pixels, at one strength and one scale; each keeps its own prompt,
+negative prompt, seed, CFG, mu and LoRA, and Steps left blank keeps each
+image's own. It opens at the scale last run, lowered where the largest
+image would go past what fits on the card, and lists per image the pass it
+makes or why it is left out: a refine pass itself (untick **Skip refine
+passes** to refine those again), another checkpoint's (tick **Include
+other checkpoints**: they take this checkpoint's steps, CFG and mu), too
+large at this scale, no step left at this strength, a missing file or
+LoRA, already refined. One job is queued per size.
+
 ### Keyboard and lightbox
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass |
+| Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues |
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, S compares a pass with its source, Delete asks to delete, Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |

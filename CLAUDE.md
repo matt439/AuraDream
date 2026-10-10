@@ -64,6 +64,7 @@ Backend (`backend/`):
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `search.py` search grammar; `grid.py` axes, variables, variants, cells,
   records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
+  `refine_batch.py` Mass refine's per-image plan;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
   paths; `refine.py` the image-to-image pass; `latent_preview.py`
 - Prompt analyser: `prompt_encoding.py` (tokenizers), `prompt_text.py`,
@@ -257,6 +258,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7898 | default, fresh scratch `--data` | `smoke-select` |
 | 7899 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compare-cfg` |
 | 7900 | animagine-xl-4.0, fresh scratch `--data` | `smoke-swap` |
+| 7901 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-refine-batch` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

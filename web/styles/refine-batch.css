@@ -1,0 +1,72 @@
+/* Mass refine (refine-batch.js): its dialog; the button is a footer one (gallery.css).
+   Laid out as Swap tags' (swap.css): the results list has a fixed height and
+   scrolls inside the dialog, and the count and error lines keep their
+   height while empty, so a check that lists more or fewer images, or a
+   refusal, never moves Refine or Cancel under the pointer. */
+.rb-dialog {
+  width: min(720px, calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - 2 * var(--sp-4));
+  margin-top: var(--sp-4); margin-bottom: auto;
+  padding: var(--gutter); overflow-y: auto;
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--panel); color: var(--text); box-shadow: var(--shadow-pop);
+}
+.rb-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.rb-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.rb-dialog[open] > * { flex-shrink: 0; }
+.rb-dialog p { margin: 0; }
+.rb-head { display: flex; flex-direction: column; gap: var(--sp-1); }
+.rb-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
+#refine-batch-scope { color: var(--text-readout); font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+
+/* Strength, Scale and Steps on one row; each a label over its control. */
+.rb-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-3) var(--sp-4); }
+.rb-controls .field { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; }
+.rb-controls .field > i { font-style: normal; color: var(--text-3); font-size: var(--fs-label); }
+.rb-strength input { width: 7em; }
+.rb-steps input { width: 12em; }
+/* The factors centred on the boxes' line, as tall as they are. */
+.rb-scale .presets { min-height: var(--h-field); align-items: center; }
+
+/* The foreign tick appears beside Skip, at the row's end: nothing moves. */
+.rb-ticks { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); font-size: var(--fs-body-sm); }
+.rb-ticks label[hidden] { display: none; }
+.rb-hint { color: var(--text-3); font-size: var(--fs-label); }
+/* Two lines, always; what does not fit is in its title. */
+.rb-count {
+  height: calc(2 * var(--fs-body-sm) * var(--lh)); overflow: hidden;
+  color: var(--text-readout); font-size: var(--fs-body-sm); font-variant-numeric: tabular-nums;
+}
+.rb-count.failed { color: var(--danger); }
+
+.rb-results {
+  list-style: none; margin: 0; padding: 0;
+  height: min(34vh, 300px); overflow-y: auto;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
+}
+.rb-result {
+  display: flex; gap: var(--sp-3); align-items: flex-start;
+  padding: var(--sp-2); border-bottom: 1px solid var(--line);
+}
+.rb-result:last-child { border-bottom: 0; }
+.rb-result > img, .rb-thumb-gone {
+  flex: none; width: 48px; height: 48px; object-fit: contain;
+  border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--bg);
+}
+.rb-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-body-sm); }
+.rb-line { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.rb-chip {
+  display: inline-block; padding: 0 var(--sp-1); border: 1px solid var(--line-strong);
+  border-radius: var(--r-xs); font-size: var(--fs-label); color: var(--text-3);
+}
+.rb-result[data-status="queued"] .rb-chip { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.rb-detail { color: var(--text-3); overflow-wrap: anywhere; }
+.rb-notes { color: var(--text-3); font-size: var(--fs-label); }
+
+#refine-batch-error {
+  min-height: calc(var(--fs-body-sm) * var(--lh)); margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* showError hides an empty slot; this one keeps its line, as #swap-error does. */
+#refine-batch-error[hidden] { display: block !important; visibility: hidden; }
+.rb-actions { display: flex; justify-content: space-between; gap: var(--sp-3); }

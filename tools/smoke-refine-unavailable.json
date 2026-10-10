@@ -12,6 +12,13 @@
   {"expect": "!refineSupported"},
   {"eval": "openRefine(viewerRecords[0])"},
   {"expect": "!els.refineDialog.open && els.error.textContent.includes('no refine pass')"},
+  {"log": "'Mass refine's Refine… in the gallery footer is held with the same hedge, even where a search would give it images, and a press says it and opens nothing'"},
+  {"eval": "els.search.value = 'fox'; els.search.dispatchEvent(new Event('input', {bubbles: true}))"},
+  {"wait": 1000},
+  {"expect": "__until(() => !galleryPending && total > 0 && els.refineBatch.getAttribute('aria-disabled') === 'true' && els.refineBatch.title.startsWith('Refine is unavailable: as far as the server can tell') && els.refineBatch.title.endsWith('A load answers for certain.'))"},
+  {"eval": "els.refineBatch.click()"},
+  {"wait": 300},
+  {"expect": "!els.refineBatchDialog.open && els.galleryError.textContent === els.refineBatch.title"},
   {"log": "'Reuse of a refined record keeps the pass in the dialog, says why it cannot run, and Refine is dead'"},
   {"eval": "reuse(window.__pass);"},
   {"wait": 600},
@@ -21,6 +28,7 @@
   {"log": "'an answer that is final - the loaded pipelines, or a pipeline of this repos own (refine_settled) - is said as one: a load would not change it, and the hedge sent a user with the model loaded off to load it; a guess again takes the hedge back'"},
   {"eval": "window.__final = true; __refresh()"},
   {"expect": "__until(() => els.refineUnavailable.textContent === 'Refine is unavailable. ' + REFINE_NONE)"},
+  {"expect": "els.refineBatch.getAttribute('aria-disabled') === 'true' && els.refineBatch.title === REFINE_NONE"},
   {"expect": "!els.refineUnavailable.hidden && !refineSupported && els.refineDialog.open && els.refineRun.getAttribute('aria-disabled') === 'true' && els.refineRun.title === 'This checkpoint has no refine pass'"},
   {"eval": "window.__final = false; __refresh()"},
   {"expect": "__until(() => els.refineUnavailable.textContent.includes('A load answers for certain'))"},
@@ -34,6 +42,7 @@
   {"eval": "window.__unloaded = false; __refresh()"},
   {"wait": 800},
   {"expect": "refineSupported && els.refineUnavailable.hidden && els.refineRun.getAttribute('aria-disabled') === 'false'"},
+  {"expect": "els.refineBatch.getAttribute('aria-disabled') === 'false' && els.refineBatch.title.startsWith('Refine the ') && els.refineBatch.title.endsWith(' the filter matches at one strength and scale - each keeps its own prompt, seed, CFG and mu')"},
   {"eval": "runRefine()"},
   {"expect": "window.__submissions === 1 && !els.refineDialog.open && viewerRecords[0].refine === window.__pass.refine && viewerRecords[0].strength === 0.4"},
   {"log": "'another checkpoints pass reused here, where the pass is the loaded pipelines and the strength the general one the status filled in (refine_strength_profiled false): the line says it is the general starting strength, not this checkpoints own'"},
@@ -46,5 +55,5 @@
   {"eval": "window.__unloaded = true; __refresh()"},
   {"eval": "startJob('/api/generate', collect())"},
   {"expect": "window.__submissions === 2 && viewerRecords[0].refine === null"},
-  {"eval": "api = window.__api; refreshStatus()"}
+  {"eval": "api = window.__api; refreshStatus(); els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true}))"}
 ]

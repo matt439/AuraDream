@@ -37,7 +37,13 @@ comparison across CFG, and `sheet-render.js` the sheet's Swipe CFG.
 after `bundles.css`) own Swap tags - the footer button's state and its
 dialog; the rewrite is the server's, `backend/tag_swap.py`, its routes and
 the shared selection resolver in `main.py`, and the record-to-cell helper
-`grid.cell_from_record` that Re-render shares.
+`grid.cell_from_record` that Re-render shares. `refine-batch.js` (loaded
+after `tag-swap.js`) and `styles/refine-batch.css` (linked after
+`swap.css`) own Mass refine - the footer's Refine… and its dialog; what
+each image becomes is the server's, `backend/refine_batch.py` and its
+routes in `main.py`, through the same resolver and helper. The selection
+target and scope line both actions word alike are `gallery-select.js`'s
+`galleryActionTarget` and `galleryActionScopeLine`.
 
 `critic.py` is now 311 lines, with no critic module above 983. The stylesheet
 is eight files, at most 532 lines each. The largest JavaScript file is now the
