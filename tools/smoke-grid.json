@@ -4,11 +4,11 @@
   {"wait": 1200},
   {"eval": "resetPanel(); showError('');"},
   {"log": "'two direct renders at the panel size, so the preview has an estimate to give, the second sent the moment the first ends - while the page asks the server for the next job in the queue, which used to find it and watch it twice beside its own stream - each awaited to its end, with one stream and one tile'"},
-  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__opens = new Map(); window.__ESReal = window.EventSource; window.EventSource = class extends __ESReal { constructor(url, init) { super(url, init); const id = String(url).split('/')[3]; __opens.set(id, (__opens.get(id) || 0) + 1); } }; window.__look = () => ({ busy, tiles: els.viewer.querySelectorAll('figure.result').length, records: viewerRecords.length, seed: viewerRecords[0]?.seed }); (async () => { els.prompt.value = 'a fox'; els.seed.value = '1'; await startJob('/api/generate', collect()); window.__first = __look(); els.seed.value = '2'; await startJob('/api/generate', collect()); window.__second = __look(); els.seed.value = ''; })()"},
+  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__opens = new Map(); window.__ESReal = window.EventSource; window.EventSource = class extends __ESReal { constructor(url, init) { super(url, init); const id = String(url).split('/')[3]; __opens.set(id, (__opens.get(id) || 0) + 1); } }; window.__look = () => ({ busy, tiles: els.viewer.querySelectorAll('figure.result').length, records: viewerRecords.length, seed: viewerRecords[0]?.seed }); (async () => { window.__galleryBefore = (await (await fetch('/api/gallery')).json()).total; els.prompt.value = 'a fox'; els.seed.value = '1'; await startJob('/api/generate', collect()); window.__first = __look(); els.seed.value = '2'; await startJob('/api/generate', collect()); window.__second = __look(); els.seed.value = ''; })()"},
   {"expect": "!__first.busy && __first.tiles === 1 && __first.records === 1 && __first.seed === 1 && !__second.busy && __second.tiles === 1 && __second.records === 1 && __second.seed === 2"},
   {"expect": "__until(() => !busy && !jobListing && __opens.size === 2 && [...__opens.values()].every((n) => n === 1))"},
   {"eval": "window.EventSource = __ESReal;"},
-  {"expect": "(async () => { const g = await (await fetch('/api/gallery')).json(); return g.total === 2 && g.items.map((r) => r.seed).sort().join() === '1,2'; })()"},
+  {"expect": "(async () => { const g = await (await fetch('/api/gallery')).json(); return g.total === __galleryBefore + 2 && g.items.slice(0, 2).map((r) => r.seed).sort().join() === '1,2'; })()"},
 
   {"log": "'The grid' + \"'\" + 's Steps and CFG examples are FLUX.1 Krea' + \"'\" + 's neighbourhood, a quarter and a step of CFG either side, not Krea 2 Turbo' + \"'\" + 's 6-12x2 and 0,0.5,1; FLUX derives its own shift, so Mu has no example and its blank is auto'"},
   {"expect": "els.gridSteps.placeholder === '21,28,35' && els.gridCfg.placeholder === '2.5,3.5,4.5' && els.gridMu.placeholder === '' && els.mu.placeholder === 'auto' && muStatic() === null"},
@@ -82,7 +82,8 @@
   {"wait": 700},
 
   {"log": "'U74: without Resume, the cells the gallery already has are counted and Resume is offered - as soon as the grid that rendered them ends, with no box touched; with Resume, they are skipped'"},
-  {"eval": "(async () => { els.seed.value = '5'; els.gridSteps.value = '4,6'; await previewGrid(); })()"},
+  {"log": "'a seed no earlier run of this smoke used, so a gallery it shares starts with none of these cells'"},
+  {"eval": "(async () => { els.seed.value = String(Date.now() * 1000 + Math.floor(Math.random() * 1000)); els.gridSteps.value = '4,6'; await previewGrid(); })()"},
   {"expect": "!els.gridPreview.textContent.includes('already in the gallery')"},
   {"eval": "(async () => { await startJob('/api/grid', gridPayload()); })()"},
   {"wait": 900},

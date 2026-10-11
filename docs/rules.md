@@ -4110,7 +4110,10 @@ uv run python tools/fake_server.py --port 7895 --model circlestone-labs/Anima@ae
 node tools/browser.mjs tools/smoke-anima-aesthetic.json
 ```
 
-`smoke-model-switch.json` runs a FLUX.1-claiming fake on port 7896 to check
+`smoke-model-switch.json` runs a FLUX.1-claiming fake on port 7896, on a
+fresh `--data` (its Tab from the chosen row's link to the startup checkbox
+holds only while FLUX has made no images, so a gallery other smokes or an
+earlier run wrote FLUX images into fails there, saying so), to check
 the Models picker, Escape/focus and held-button reasons, FLUX to Animagine
 and back without a server restart, preserved prompts, per-checkpoint sampling
 through a reload, guide/tag/capability refresh, old analysis retirement,
@@ -4146,7 +4149,10 @@ later opening focus its checked radio inside the picker body, the page
 unscrolled; that an unsubmitted offload edit survives another tab's
 checkbox-only save, which still lands; and that a list lacking the chosen
 checkpoint chooses none, then the same one, or its other build, again.
-`smoke-model-gallery.json` uses the same fake (fresh `--data`) for the strip
+`smoke-model-gallery.json` uses a fake like it, but one of its own on a
+fresh `--data`, run apart from the other three (smoke-model-switch
+leaves FLUX and Animagine images behind, and it counts exactly: FLUX and
+Animagine empty, the planted pair, then fourteen), for the strip
 of the chosen checkpoint's images: shown while the weights load, FLUX's
 empty line, the planted Krea 2 Turbo pair with count, alt text and
 thumbnails on choosing its row, Animagine's empty line, one request for a
@@ -4197,11 +4203,13 @@ access, size labels that never claim an unsourced maximum and the shared
 loader descriptions:
 
 ```powershell
-uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev
+uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-model-switch.json
 node tools/browser.mjs tools/smoke-model-startup.json
 node tools/browser.mjs tools/smoke-model-hover.json
-node tools/browser.mjs tools/smoke-model-gallery.json   # each on a fresh --data
+# stop that fake; smoke-model-gallery needs one of its own on another new directory
+uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-model-gallery.json
 ```
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
