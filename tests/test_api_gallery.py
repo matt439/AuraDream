@@ -551,3 +551,24 @@ def test_a_pass_whose_source_is_in_the_bin_says_so_until_it_is_restored(client, 
     client.delete(f"/api/images/{source.id}")
     record = client.get(f"/api/images/{refined.id}").json()
     assert (record["refine_missing"], record["refine_binned"]) == (True, False)
+
+
+# ---------------------------------------------------------------- newest id
+
+
+def test_the_status_names_the_galleries_newest_id_binned_rows_included(client, store):
+    # A page learns of images it did not watch being made - another tab's job
+    # that ran between two polls - by this moving past what it has seen.
+    assert client.get("/api/status").json()["newest_image_id"] == 0
+    job_id, events = run_one(client, seed=7)
+    made = events[-1]["images"][0]["id"]
+    assert client.get("/api/status").json()["newest_image_id"] == made
+    # Binned, still counted: only an insert raises it.
+    assert client.post("/api/images/bin", json={"ids": [made]}).status_code == 200
+    assert client.get("/api/status").json()["newest_image_id"] == made
+    # Cleared, the table is empty and the next image's id is past the old one.
+    store.clear_history()
+    assert client.get("/api/status").json()["newest_image_id"] == 0
+    planted = _plant(store, settings.model_id, seed=8)
+    assert planted.id > made
+    assert client.get("/api/status").json()["newest_image_id"] == planted.id

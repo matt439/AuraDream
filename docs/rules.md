@@ -763,9 +763,10 @@ Reproduction:
   `matching_preview(live_only=True)` / `delete_matching(to_bin=True)` for
   Delete unstarred. `_tracked_files`, `existing_filenames`,
   `existing_file_ids`, bundles, `clear`, `completed_cells`, `lineage_images`,
-  `image_provenance` and the cost/size samples read every row: filtered to
-  live rows, the orphan sweep would delete binned PNGs and a reindex would
-  add them back as new rows. There is no `bin:` search key - it would reach
+  `image_provenance`, `newest_image_id` and the cost/size samples read every
+  row: filtered to live rows, the orphan sweep would delete binned PNGs and a
+  reindex would add them back as new rows, and the status's newest id would
+  fall at a bin and rise at its restore - an image the page already knew. There is no `bin:` search key - it would reach
   `strict_scope`, and through it Delete unstarred, `clear --where` and
   `keep_rates`; the bin's view is its own route. A starred image binned
   keeps `favorite = 1`, so a Restore brings the star back.
@@ -1042,6 +1043,30 @@ Jobs:
   reload in sessionStorage (`TabJobIds`: `local-diffusion.own-jobs`,
   `local-diffusion.cancelled-jobs`, read once at load, the newest 50, every
   access in try/catch).
+- `ModelStatus.newest_image_id` is the gallery's highest id over every row,
+  the bin's included (`storage.newest_image_id`: `MAX(id)` on the rowid, 0
+  when empty), so only an insert raises it - a save, an import, a reindex;
+  ids are AUTOINCREMENT and stay monotonic across a clear and a replaced
+  database. The read waits `NEWEST_ID_WAIT` (0.2 s) for the gallery
+  reservation and answers None rather than queue behind a bundle operation
+  or a clear (`/api/status` is exempt from maintenance admission); the
+  route reads `active_jobs` first, so a job missing from it has every image
+  counted. The page's `followGalleryHead` (job-queue.js) compares it with
+  `newestImageSeen` (state.js) on every status: the first answer, a restart,
+  the server back, a checkpoint change and another tab's job just ended
+  (`wasElsewhere && !elsewhereBusy`) only set it, since that answer took
+  everything in; a fall (a permanent delete of the newest, a clear) and None
+  change nothing to show. A rise is decided later while this page submits,
+  lists (`jobListing`) or sees another tab's job (whose end catches up); is
+  explained, and only remembered, where every id up to it is one this
+  page's watched jobs streamed or finished (`ownImageIds`, pruned at or
+  below the value); is owed to this page's running job's end
+  (`elsewhereCatchUp`); and otherwise is taken in as another tab's job's end
+  is - `prependFinished(0)` (never under a sheet nor in the bin, cards held
+  while the pointer rests on the column beside the viewer, no duplicates:
+  `joinFinished`, `noteLadderImages` for the fresh) and `loadRuns`. A job
+  queued, run and ended between two polls never showed in `active_jobs`,
+  and its images otherwise stayed out of the gallery and the CFG ladders.
 - `main.Server.handle_exit` stops the active jobs (`jobs.stop_all("shutdown")`)
   and starts the critic's stop on the signal itself. The load, the critic's `prepare()`, Check's
   analysis and the critique's analysis and lint run on daemon threads
@@ -4583,7 +4608,7 @@ node tools/browser.mjs tools/smoke-delete.json
 ```
 
 `smoke-jobs.json` runs against the default Turbo fake on 7882 at
-`--step 0.3`: the tab title and topbar mirror; the one-line Now row, count
+`--step 0.3` (it passes at `--step 0.15` too): the tab title and topbar mirror; the one-line Now row, count
 first, with Pause and Cancel and its title; the queue's named rows, a
 per-row cancel and the single "Next:" row; Unload held with its reason;
 Pause answered at once with no aria-pressed and held on a one-image job,
@@ -4626,7 +4651,9 @@ there for a cancel or a load failure the panel line says); and a second
 tab, an iframe of the page: its job (held paused) holding Unload and the
 critic here with the reason and the topbar's aside, its images joining this
 gallery at its end, and taken in after this page's own job, queued behind
-it, is cancelled at its first step; its queued job picked up here as
+it, is cancelled at its first step (that job of B's held paused until this
+page's poll has seen it, which a two-image job at `--step 0.15` outran);
+its queued job picked up here as
 another tab's (viewer kept, this page's New image and its own finish line,
 Use seed and all, kept through it, its end said on `#job-said` only, this
 tab's own finished title given back until a key), the estimate leaving the
@@ -4772,10 +4799,9 @@ one left out; an image with no other value held with the reason (S and a
 mode press saying it, Swipe and Side by side titled with the reason, a
 step taking it back) and their own titles back on an image with a
 neighbour; the held reason "in the newest 1" for an answer cut short; a job
-landing a new CFG value for the image in view (the script's, which the page
-learns of as another tab's from its status poll: paced by `/api/fake/step`
-until `elsewhereBusy` shows the poll saw it - at the server's own pace a
-job ends between two polls and the page never hears of it); "may be incomplete" on a
+landing a new CFG value for the image in view (the script's, at the fake's
+own pace: it ends between two status polls, never in `active_jobs`, and
+the status's `newest_image_id` moving takes it in); "may be incomplete" on a
 full page; an image opened alone held while asked ("Looking for…"), the
 request's terms, then a partner the arrows do not step to; the ladder read
 past a full page by `before=` (one-row pages); an answer held in flight
@@ -4827,8 +4853,13 @@ head made two days older with the day's line between them; the head's
 S/M and Fit/Crop from 1800 px (eleven and nine a row at S with the tools
 fitting, Crop's cover, one tab stop per pair, remembered across a reload,
 hidden on a sheet, kept by Reset, not applied at 1400); S four across in
-Gallery beside's column at QHD, M three; and the tools fitting at
-2560x1305 and 2048x1040@1.25:
+Gallery beside's column at QHD, M three; the tools fitting at
+2560x1305 and 2048x1040@1.25; and a job a script sends at the fake's full
+speed just after a status poll, ended before the next and never in
+`active_jobs` (`elsewhereBusy` never set, the page watching none of it),
+taken in by the status's `newest_image_id` (`followGalleryHead`) within a
+poll or two - once, at the head, one more card and one more in the count,
+and two more polls adding nothing:
 
 ```powershell
 uv run python tools/fake_server.py --port 7885

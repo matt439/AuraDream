@@ -920,6 +920,38 @@ def existing_file_ids() -> dict[str, int]:
         return {row["filename"]: row["id"] for row in conn.execute("SELECT id, filename FROM images")}
 
 
+# How long the status poll's newest-id read waits for the gallery reservation
+# before answering "unknown": a save holds it for a moment, a bundle operation
+# or a clear for as long as it runs, and the poll must not stall behind either.
+NEWEST_ID_WAIT = 0.2
+
+
+def newest_image_id() -> int | None:
+    """The gallery's highest id over every row, the recycle bin's included, or
+    0 for an empty gallery; None where the gallery is reserved or unreadable.
+
+    For the status poll: a page sees images it did not watch being made - a
+    job of another tab's that ran between two polls, the CLI's - by this
+    number moving up. Every row, because only an insert raises it: ids are
+    AUTOINCREMENT and stay monotonic across a clear and a replaced database,
+    so a new image always lands above it, while a bin or a restore leaves it
+    where it was (a live-only maximum would fall at a bin and rise again at
+    its restore, an image the page already knew). A permanent delete of the
+    newest lowers it, and the next insert lands above the old value anyway.
+    MAX(id) on the rowid is one b-tree descent. Short wait, no queueing: the
+    poll answers "unknown" while maintenance holds the gallery."""
+    try:
+        with gallery_lock.hold(settings.db_path, wait=NEWEST_ID_WAIT):
+            conn = _connect()
+            try:
+                row = conn.execute("SELECT MAX(id) FROM images").fetchone()
+            finally:
+                conn.close()
+    except (gallery_lock.GalleryBusy, sqlite3.Error, OSError):
+        return None
+    return int(row[0] or 0)
+
+
 @gallery_lock.protected(lambda: settings.db_path, waits=True)
 def import_file(values: dict[str, Any]) -> ImageRecord:
     """Insert one row copied from another gallery database.

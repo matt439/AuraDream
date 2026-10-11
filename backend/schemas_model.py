@@ -200,6 +200,14 @@ class ModelStatus(BaseModel):
     # contact sheet asks for: a matrix with a page boundary through it is a
     # puzzle, so the client reads the ceiling from here rather than assuming it.
     max_grid_images: int = settings.max_grid_images
+    # The gallery's highest image id, binned rows included (0 when empty;
+    # `storage.newest_image_id`). A page learned of another tab's job only by
+    # seeing it in `active_jobs`, and one queued, run and finished between two
+    # polls never showed there: its images stayed out of the gallery until a
+    # reload. The page catches up when this moves past what it has seen and
+    # its own jobs do not explain it. None while the gallery is reserved
+    # (a bundle operation, a clear) - the page keeps what it had.
+    newest_image_id: int | None = None
     vram_total_mb: int | None = None
     vram_used_mb: int | None = None
     device_name: str | None = None

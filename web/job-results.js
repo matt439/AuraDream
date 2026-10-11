@@ -62,6 +62,8 @@ function showOutcome(text, note = false) {
 function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore = false }) {
   const images = data.images ?? [];
   const made = data.image_count ?? images.length;
+  // Taken in below: the status's newest id reaching them is this page's own.
+  images.forEach((r) => ownImageIds.add(r.id));
   // The job before this one's outcome goes with its finish line.
   if (jobOutcome !== null && els.error.textContent === jobOutcome) showError('');
   jobOutcome = null;

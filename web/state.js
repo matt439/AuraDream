@@ -245,6 +245,15 @@ let queuedIds = [];
 // takes in its images once it has gone. Generate stays live - the server
 // queues it.
 let elsewhereBusy = false;
+// The gallery's newest id as the last status said it (`ModelStatus.
+// newest_image_id`, binned rows included), null before the first: a job
+// queued, run and ended between two polls never showed in `active_jobs`, so
+// only this moving says another tab's (or the CLI's) images are in
+// (job-queue.js's followGalleryHead). And the ids this page's watched jobs
+// streamed to it (job-stream.js), which explain a move without a catch-up;
+// pruned below what the status has said.
+let newestImageSeen = null;
+const ownImageIds = new Set();
 // The listing a page between jobs waits on to pick its next one (watchNext,
 // resumeActiveJob, through adoptListedJob), while it is out, and every job
 // a stream has been opened for. Which job the page watches next is that

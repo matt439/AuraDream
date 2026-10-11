@@ -407,6 +407,12 @@ async def status() -> ModelStatus:
         state = "ready"
     defaults = _merged_defaults(info)
     card_holder, card_ticket = jobs.card()
+    # The live jobs first, then the gallery's newest id: a job saves its rows
+    # before it ends, so one missing from `active` has every image counted in
+    # `newest`, and the page never sees a job gone with its images not yet
+    # in. Off the event loop: the read waits a moment for the reservation.
+    active = [job.id for job in jobs.active()]
+    newest = await asyncio.to_thread(storage.newest_image_id)
     return ModelStatus(
         state=state,
         switching=_switching,
@@ -439,11 +445,12 @@ async def status() -> ModelStatus:
         # The live jobs' ids, oldest first: a page watching none of them
         # learns another tab's job holds the card, and one watching its own
         # learns of jobs queued behind it from elsewhere or gone since.
-        active_jobs=[job.id for job in jobs.active()],
+        active_jobs=active,
         # And what holds the card meanwhile - a job, or a critic or an Expand
         # - for an Expand waiting on it to say so.
         card_holder=card_holder,
         card_ticket=card_ticket,
+        newest_image_id=newest,
         device_name=info.get("device_name"),
         vram_total_mb=info.get("vram_total_mb"),
         vram_used_mb=info.get("vram_used_mb"),

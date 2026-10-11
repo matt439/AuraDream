@@ -575,3 +575,44 @@ def test_a_pass_says_its_source_is_in_the_bin(store):
     store.delete_image(source.id)
     record = store.get_image(made.id)
     assert (record.refine_missing, record.refine_binned) == (True, False)
+
+
+# ---------------------------------------------------------------- newest id
+
+
+def test_the_newest_id_counts_every_row_and_only_an_insert_raises_it(store):
+    # The status poll's: a page catches up when it moves past what it saw.
+    assert store.newest_image_id() == 0
+    first, second = keep(store), keep(store, seed=2)
+    assert store.newest_image_id() == second.id > first.id
+    # A bin is not a new image, nor is its restore: the binned row counts.
+    store.bin_images([second.id])
+    assert store.newest_image_id() == second.id
+    store.restore_images([second.id])
+    assert store.newest_image_id() == second.id
+    # A permanent delete of the newest lowers it; the next insert lands past
+    # the old value anyway (AUTOINCREMENT).
+    store.delete_image(second.id)
+    assert store.newest_image_id() == first.id
+    assert keep(store, seed=3).id > second.id
+    # A clear empties the table, and ids stay monotonic past it.
+    before = store.newest_image_id()
+    store.clear_history()
+    assert store.newest_image_id() == 0
+    assert keep(store, seed=4).id > before == store.newest_image_id() - 1
+
+
+def test_the_newest_id_is_unknown_rather_than_waited_for_while_reserved(store):
+    from tests.bundle_helpers import _holding_child
+    import time
+
+    keep(store)
+    child = _holding_child(store.settings.db_path)
+    try:
+        started = time.monotonic()
+        assert store.newest_image_id() is None
+        assert time.monotonic() - started < store.NEWEST_ID_WAIT + 2
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+    assert store.newest_image_id() == 1

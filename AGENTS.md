@@ -159,8 +159,8 @@ Reproduction and storage:
 - A new column needs a `_migrate` entry; `_row_to_record` reads unguarded.
 - `save_image` writes `.png.part` and renames after the row commits.
 - Page deletes bin (`binned_at`); live reads exclude it,
-  `_tracked_files`/`existing_*`/bundles/`clear`/`completed_cells`/`lineage_images`
-  read every row; only Empty bin, `DELETE /api/images/{id}` and `clear`
+  `_tracked_files`/`existing_*`/bundles/`clear`/`completed_cells`/`lineage_images`/
+  `newest_image_id` read every row; only Empty bin, `DELETE /api/images/{id}` and `clear`
   remove PNGs.
 - Gallery bundles are verified before source cleanup; imports are staged
   before merging. Keep gallery ids monotonic when replacing a cleared DB.

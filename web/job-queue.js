@@ -209,6 +209,44 @@ function setElsewhereBusy(on, { quiet = false } = {}) {
 // that job's end takes them in - with its own, or alone where it made none.
 let elsewhereCatchUp = false;
 
+// The gallery's newest id on a status (`ModelStatus.newest_image_id`), against
+// the last one said. `active_jobs` alone missed a job queued, run and ended
+// between two polls - a turbo checkpoint's single image, a scripted fetch -
+// which never set elsewhereBusy, so its images stayed out of this gallery and
+// its CFG ladders until something else reset them. A move up that this page's
+// own watched jobs do not explain (`ownImageIds`, every id between) is taken
+// in as setElsewhereBusy's end takes another tab's job: prependFinished(0)
+// with its rules (nothing under a sheet or in the bin; cards held while the
+// pointer rests on the gallery's column; no duplicates, joinFinished), and
+// the Runs picker. While a job of this page's runs it is owed to that job's
+// end (`elsewhereCatchUp`); while another tab's runs, its end catches up and
+// this waits for that. `settled`: this status took everything in already -
+// the first one (the baseline, no refresh), a restart, the server back, a
+// checkpoint change, another tab's job just ended. Unknown (None: a bundle
+// operation or a clear holds the gallery) keeps what was said. A fall - a
+// permanent delete of the newest, a clear - is only remembered: the next
+// insert lands past the old value either way.
+function followGalleryHead(newest, settled) {
+  if (!Number.isInteger(newest)) return;
+  const seen = newestImageSeen;
+  if (seen === null || settled || newest <= seen) { keepGalleryHead(newest); return; }
+  // This page's own job on its way, or the listing that picks the next one:
+  // decided once they settle. Another tab's job running: its end catches up.
+  if (submitting || jobListing || elsewhereBusy) return;
+  let explained = newest - seen <= 4096;
+  for (let id = seen + 1; explained && id <= newest; id += 1) explained = ownImageIds.has(id);
+  keepGalleryHead(newest);
+  if (explained) return;
+  if (busy) { elsewhereCatchUp = true; return; }
+  if (!sheetMode) void prependFinished(0);
+  loadRuns();
+}
+
+function keepGalleryHead(newest) {
+  newestImageSeen = newest;
+  for (const id of ownImageIds) if (id <= newest) ownImageIds.delete(id);
+}
+
 // The queue behind the watched job as the server has it: a row cancelled in
 // another tab goes, and a job queued from elsewhere comes in under the
 // server's name for it - the paused tab showed nothing waiting behind its

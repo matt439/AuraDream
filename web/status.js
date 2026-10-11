@@ -684,6 +684,7 @@ function receiveStatus(s, asked = Date.now()) {
     els.load.title = s.state === 'error' ? 'Try the load again, once what stopped it is fixed' : 'Load the weights now';
     // Another tab's job, or one queued behind this page's from elsewhere:
     // before Unload's reason and the line below are written.
+    const wasElsewhere = elsewhereBusy;
     if (Array.isArray(s.active_jobs)) followServerJobs(s.active_jobs, asked);
     syncPromptExpansion();
     if (changed || (wasSwitching && !modelSwitching)) {
@@ -722,6 +723,13 @@ function receiveStatus(s, asked = Date.now()) {
       void prependFinished(0);
       loadRuns();
     }
+    // Images made between two polls by a job this page never saw - queued,
+    // run and ended in that time - by the gallery's newest id moving. Not
+    // where this answer took everything in already: another tab's job just
+    // ended (setElsewhereBusy), the server back or restarted, the checkpoint
+    // changed (its gallery reset above).
+    followGalleryHead(s.newest_image_id,
+      back || restarted || changed || (wasElsewhere && !elsewhereBusy));
     // And the prompt's count, which a measure asked while it was gone could
     // not get: the line under the prompt kept "cut unknown", titled with the
     // offline sentence, until the next pause in typing (a checkpoint change

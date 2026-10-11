@@ -3169,6 +3169,47 @@ other tab's images out until a reload. A stream that gives up takes it too,
 and the server answering again clears it, since that answer takes everything
 in. The page does not attach to such a job: watching it would take its viewer.
 
+**A job that ends between two polls is seen by the gallery's newest id**
+(2026-10-12). `active_jobs` only says what is live at the moment of the poll.
+A job queued, run and ended inside the 3 s between two - a turbo checkpoint's
+single image on the card, a scripted fetch, the fake at full speed - never
+set `elsewhereBusy`, so its end never caught up, and its images stayed out
+of this tab's gallery and CFG ladders until something else reset them. The
+CFG smoke had been paced with `/api/fake/step` to outlast a poll, and
+smoke-jobs' second-tab section failed at `--step 0.15`, for this reason. The
+status now also carries `newest_image_id`, the gallery's highest id, and a
+page catches up (`followGalleryHead`) when it moves past the last one said
+and the page's own watched jobs do not explain it - the same
+`prependFinished(0)` as another tab's job's end, with its rules for a
+sheet, the bin, a filter and the pointer, and no duplicates. The server
+decides what is new; the page only compares two numbers.
+
+It counts every row, the bin's included, because the question is "was
+anything inserted": ids are AUTOINCREMENT and stay monotonic across a clear
+and a replaced database, so every new image lands above the value, and
+nothing else raises it. A live-only maximum would fall when the newest is
+binned and rise again at its restore, a catch-up for an image the page
+already knew; a permanent delete of the newest lowers it either way, which
+the page only remembers, since the next insert lands above the old value.
+The page keeps the last value said rather than the highest seen, so a
+gallery that starts again from 1 (a database deleted by hand) still moves
+it. `MAX(id)` on the rowid is one b-tree descent, cheap enough for the poll;
+the read takes the gallery reservation as every read does but waits only
+0.2 s for it and answers None, "unknown", rather than stall the status
+(exempt from maintenance admission) behind a bundle operation or a clear.
+The route lists the live jobs before it reads the id, so a job absent from
+`active_jobs` has all its rows counted: a job's saves commit before it ends.
+
+What the page's own jobs made it knows by id (`ownImageIds`, from the
+stream's images and the finished snapshot), and a rise that is all its own
+is only remembered: those images land through `finishJob`. A rise while one
+of its own jobs runs is owed to that job's end (`elsewhereCatchUp`), as an
+ended other tab's job is; while it submits or lists, or another tab's job is
+live, the rise waits for the poll after, since each of those ends with a
+catch-up of its own. The first status, a restart, the server answering
+again, a checkpoint change and another tab's job ending in the same answer
+only set the baseline: each of those has just taken everything in.
+
 A page that picks up another tab's job when its own ends (`watchNext`), while
 its viewer holds this session's own results (`isForeign`), shows it in the
 progress row only - no `clearResults`, frame or stand-in - names it "Another
