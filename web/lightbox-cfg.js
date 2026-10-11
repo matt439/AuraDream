@@ -358,7 +358,7 @@ function pickAgainst() {
 // is no pass, `sKey`), Lower and Higher CFG, and Against. Each is held, its
 // title saying why, while the gallery is still being asked and the page
 // holds no other value, and where there is none; a press says so. Under
-// 901 px drawn only where `shown` (cfgShown, lightbox.js). Answers what the
+// 901 px drawn only where `shown` (cfgShown, lightbox-compare.js). Answers what the
 // shared part needs: `held`, the reason a mode press cannot turn it on;
 // `steps`, whether ← → step along CFG; `note`, the line while on; `shown`.
 function syncCfgCompare(rec, on, sKey, shown) {

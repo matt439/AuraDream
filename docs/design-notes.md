@@ -2862,7 +2862,8 @@ the pass rendered behind it. A close the browser will not hold - a second
 Escape with no other press between - counts as the run it most likely is,
 and a refusal arriving after it is said in the panel's line. The lightbox's
 event wiring is app.js's, as every file's is: lightbox.js holds the named
-handlers (`lbImageFailed`, `lbWheel`, `lbPointerDown`, `lbSplitKey`...),
+handlers (`lbImageFailed`, `lbWheel`, `lbPointerDown`...; `lbSplitKey` is
+lightbox-compare.js's since 2026-10-11),
 and nothing in it runs at load. Below 900px wide the column
 drops under the stage as a wrapping row, without the keys line. The
 `tools/smoke.json` grid is 1152x896 for the same reason the layout changed:
@@ -9670,7 +9671,10 @@ failures) grew them past "touching nothing outside it", and they are now
 named functions in `lightbox.js` (`lbImageFailed`, `lbWheel`,
 `lbPointerDown` and the rest) that `app.js` wires with every other handler.
 `viewer.js` now holds the results viewer, and `lightbox.js` the shared
-facts list (`factsList`) the viewer's column uses too.
+facts list (`factsList`) the viewer's column uses too. (2026-10-11: the
+facts list and settings line moved to `facts.js`, and the comparison's
+controls, divider keys and pass stepping to `lightbox-compare.js`;
+`lightbox.js` keeps the view, layout, walk and gestures.)
 
 The same pass moved `tests/test_api.py` (1,300 lines) into `tests/fakes.py`,
 the fixtures in `conftest.py`, `tests/api_helpers.py` and one `test_api*.py`

@@ -325,7 +325,7 @@ function refineResult(rec, tile) {
 // what to do next in the width the picture leaves - shown from 1800 px
 // (style.css), where a square result left 1,270 px of the strip empty: which
 // image it refines, Star, Refine…, Reuse, a pass's Compare with source and
-// Use seed in words, the prompt, and the lightbox's own facts (factsList,
+// Use seed in words, the prompt, and the lightbox's own facts (factsList, facts.js,
 // without its Use seed: the row has one). In the figure, so a star and a
 // delete reach it as they reach the tile; Delete stays the tile's.
 function resultSide(rec, figure) {
@@ -414,7 +414,7 @@ function passLineage(rec) {
 }
 
 // A pass's source as the page names it: a press opens it in the lightbox
-// with the pass after it (lightbox.js's openRefineSource), unless it has gone.
+// with the pass after it (facts.js's openRefineSource), unless it has gone.
 function sourceLink(rec) {
   if (rec.refine_missing) return `#${rec.refine} (${goneWord(rec)})`;
   return factButton(`#${rec.refine}`, `Open #${rec.refine}, the image this was refined from; → comes back to the pass`,

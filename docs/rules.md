@@ -202,7 +202,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 36 classic
+- `web/` — served as-is from `/static`; `index.html` loads 38 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -210,8 +210,11 @@ before changing it.
   run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
   the cards and their actions; `gallery-search.js` the lightbox's search
   buttons; `sheet.js`, `sheet-render.js` and
-  `sheet-export.js` the contact sheet; `lightbox.js` the lightbox and shared
-  `factsList`, `lightbox-cfg.js` its comparison across CFG; `refine.js` and `refine-prompt.js` the Refine dialog;
+  `sheet-export.js` the contact sheet; `facts.js` a record's settings line
+  and facts list (`settingsLine`, `factsList`), shared by the lightbox and
+  the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
+  `lightbox-compare.js` its comparison's controls, divider and pass
+  stepping, `lightbox-cfg.js` its comparison across CFG; `refine.js` and `refine-prompt.js` the Refine dialog;
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
@@ -2885,7 +2888,7 @@ Frontend and CLI:
   id and then said as deleted (and dropped from every ladder) where the
   server no longer has it; `returnToLightbox` puts back a CFG comparison's
   frozen ladder less deleted ids, and not one whose partner went.
-  `factsList(rec, { useSeed })` (`dl.facts`) is the one facts renderer, the
+  `factsList(rec, { useSeed })` (`dl.facts`, facts.js) is the one facts renderer, the
   viewer's column's too; the lightbox's adds Use seed to its Seed row
   (`useSeed`, said in `#lb-error` alone, never the panel's `#error`, and
   taken back once another image is drawn - `lbSeedNote`), the column's does
@@ -2952,12 +2955,13 @@ Frontend and CLI:
   only when it changes; its prompt is four lines there (`#lb-prompt` keeps
   its line breaks, `pre-line`, at most `--prompt-cap` elsewhere).
   lightbox.js declares only; its
-  handlers (`lbImageFailed`, `lbImageLoaded`, `lbSourceFailed`, `lbWheel`,
-  `lbArrowDown`, `lbPointerDown/Move/Up/Cancel`, `lbDoubleClick`,
-  `lbSplitKey`) and the dialog's `close` → `closeLightbox`, only while the
+  handlers (`lbImageFailed`, `lbImageLoaded`, `lbWheel`,
+  `lbArrowDown`, `lbPointerDown/Move/Up/Cancel`, `lbDoubleClick`) and the
+  dialog's `close` → `closeLightbox`, only while the
   dialog is still closed (the event is queued; a close followed at once by
   an open must not shut the new lightbox), are wired in app.js; so are
-  lightbox-cfg.js's (`pressCfgStep`, `pickAgainst`, Compare CFG's
+  lightbox-compare.js's (`lbSourceFailed`, `lbSplitKey`, `nudgeSplit`,
+  `stepPass`, `toggleCompare`) and lightbox-cfg.js's (`pressCfgStep`, `pickAgainst`, Compare CFG's
   `toggleCompare(null, 'cfg')`), which declares only too.
 - The gallery's cards. Each card is `role=group` named "#N" (`card()`; a
   viewer `.result` too, `resultFigure`), so its star and tools are heard as
