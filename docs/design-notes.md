@@ -2940,9 +2940,14 @@ of seconds, and a button still reading Pause - its "pausing after this cell…"
 overwritten by the next step - invited a second press or Cancel. It reads
 "Pausing…" until the acknowledgement, which "claims nothing"; a press on it
 withdraws the request, and each status frame's `pause_requested` sets it
-again, so a reattached page shows it. The label is the state, with no
-`aria-pressed` beside it: a toggle's label must not change, and the first cut,
-pressed on both "Pausing…" and "Resume", was read as "Resume, pressed" - as if
+again, so a reattached page shows it - except a frame that contradicts the
+page's own press while its POST is still out (`pauseAsking`): that frame
+predates the request. A press at a job's start lands before the stream's
+opening snapshot, which read Pause again over the pause on its way; the
+next press then asked for the pause a second time rather than withdrawing
+it, and the job stayed paused (smoke-jobs' tab B, intermittently). The
+label is the state, with no `aria-pressed` beside it: a toggle's label
+must not change, and the first cut, pressed on both "Pausing…" and "Resume", was read as "Resume, pressed" - as if
 resumed. That is the page's one rule for buttons with a state: a button whose
 words say the state (Pause / Pausing… / Resume) has no `aria-pressed`, and a
 toggle with `aria-pressed` (a star, a card's ❐) keeps one name in every state,

@@ -928,8 +928,10 @@ Jobs:
   every quarter second. Never `Event.wait()`. The page answers a Pause press
   at once ("Pausing…"; a press on it withdraws the request, one on Resume
   reads Pause) and shows Resume only on the worker's `paused`, deriving the
-  label from every status frame's `paused`/`pause_requested`; the label is
-  the state, so it has no `aria-pressed` (the toggle rule, Frontend). A
+  label from every status frame's `paused`/`pause_requested` but one that
+  contradicts its own press while that POST is out (`pauseAsking`); the
+  label is the state, so it has no `aria-pressed` (the toggle rule,
+  Frontend). A
   running job of one cell has Pause `aria-disabled` with the reason. A plain
   job's units are images, or batches where a repeat makes several
   (`unitWord`, from the snapshot's `grid` and `planned_images`), in the

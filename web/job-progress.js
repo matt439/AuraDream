@@ -212,22 +212,34 @@ function setStep(show, fraction = 0, text = '') {
 // The label is the state, with no aria-pressed beside it: a toggle's label
 // must not change, and "Resume, pressed" read as resumed. A running job of
 // one cell has no boundary to pause at, and its Pause says so (syncPause).
+// While the request is out, a status frame says what the server had before
+// it - the stream's opening snapshot of a job just started lands after a
+// press made at once - and left to relabel the button it read Pause again
+// over a pause on its way, so the next press asked for the pause a second
+// time instead of withdrawing it, and the job stayed paused (`pauseAsking`:
+// the job and the `pause_requested` asked for, until the server answers).
+let pauseAsking = null;
 async function togglePause() {
   if (!currentJob) return;
   if (els.pause.getAttribute('aria-disabled') === 'true') {
     if (busy) showJobNote(`${els.pause.title}.`);
     return;
   }
+  const jobId = currentJob;
   const was = els.pause.textContent;
   const pausing = was === 'Pause';
   els.pause.textContent = pausing ? 'Pausing…' : 'Pause';
   if (cellArgs) showCell(...cellArgs);
   mirrorJob();
+  const asking = { jobId, value: pausing };
+  pauseAsking = asking;
   try {
-    await api(`/api/jobs/${currentJob}/pause?value=${pausing}`, { method: 'POST' });
+    await api(`/api/jobs/${jobId}/pause?value=${pausing}`, { method: 'POST' });
   } catch (err) {
     els.pause.textContent = was;
     showError(err.message);
+  } finally {
+    if (pauseAsking === asking) pauseAsking = null;
   }
   if (cellArgs) showCell(...cellArgs);
   mirrorJob();
@@ -235,10 +247,16 @@ async function togglePause() {
 
 // The label from the worker's own account, every status frame - so a page
 // that reattached shows a pause already asked for - and the button held, with
-// the reason, where the job is one cell that has started.
+// the reason, where the job is one cell that has started. Not the label from
+// a frame that contradicts this page's own press still on its way
+// (togglePause): the press set it, and the frame predates the request. One
+// that agrees with it - the worker's `paused` landing first - is taken.
 function syncPause(job) {
   const unit = unitWord(job);
-  els.pause.textContent = job.paused ? 'Resume' : job.pause_requested ? 'Pausing…' : 'Pause';
+  const stale = pauseAsking?.jobId === job.job_id && !!job.pause_requested !== pauseAsking.value;
+  if (!stale) {
+    els.pause.textContent = job.paused ? 'Resume' : job.pause_requested ? 'Pausing…' : 'Pause';
+  }
   const single = job.status === 'running' && (job.total_runs || 1) === 1 && !job.paused;
   els.pause.setAttribute('aria-disabled', String(single));
   els.pause.title = single ? `A single ${unit} has no pause point — Cancel stops it`
