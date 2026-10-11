@@ -245,5 +245,8 @@
   {"expect": "__until(() => els.confirmDialog.open && document.activeElement === els.confirmCount)"},
   {"type": "2"},
   {"key": "Enter"},
-  {"expect": "__until(() => els.galleryError.textContent.startsWith('Moved 2 images') && els.deleteUnstarred.hidden && total === 0 && !galleryPending && document.activeElement === els.search)"}
+  {"expect": "__until(() => els.galleryError.textContent.startsWith('Moved 2 images') && els.deleteUnstarred.hidden && total === 0 && !galleryPending && document.activeElement === els.search)"},
+  {"log": "'a catch-up landing after the sweep\\'s own reset read past its images - a slow status after the wrens\\' job: nothing to fetch, no reset, and the outcome line stays (prependFinished skips what galleryReadHead covers)'"},
+  {"eval": "(async () => { await __until(() => !statusPending); window.__epoch = galleryEpoch; window.__line = els.galleryError.textContent; newestImageSeen -= 2; await refreshStatus(); await __until(() => !galleryPending); })()"},
+  {"expect": "galleryEpoch === __epoch && __line.startsWith('Moved 2 images') && els.galleryError.textContent === __line && !els.galleryError.hidden && total === 0 && !galleryPending"}
 ]

@@ -430,7 +430,11 @@ function prependFinished(made, { now = false, upTo = null } = {}) {
       return epoch === galleryEpoch && !sheetMode && !binMode ? resetGallery() : undefined;
     }
     // What the head says, at once: it is above the cards, and with the
-    // gallery beside the viewer above the column they scroll in.
+    // gallery beside the viewer above the column they scroll in. The read
+    // head rises now, before joinFinished's pointer wait, and stays
+    // exactly-once: a catch-up it covers skips, as that pending joinFinished
+    // adds these cards; where the page no longer joins up by then, its
+    // resetGallery nulls galleryReadHead and the gallery is read afresh.
     if (Number.isInteger(page.newest_image_id)) galleryReadHead = Math.max(galleryReadHead ?? 0, page.newest_image_id);
     total = page.total;
     els.count.textContent = total ? `(${total})` : '';

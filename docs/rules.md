@@ -1070,7 +1070,10 @@ Jobs:
   is explained, and only remembered, where every id up to it is one this
   page's watched jobs streamed or finished (`ownImageIds`, pruned at or
   below the value); is owed to this page's running job's end
-  (`elsewhereCatchUp`, the ladders asked at once); and otherwise - another
+  (`elsewhereCatchUp`; `noteUnseenImages(newest)` at once re-asks only the
+  ladders read before `newest`, and the job's end, through
+  `noteUnseenImages()` with no number, still drops every one); and
+  otherwise - another
   tab's job running included, so a chain of its jobs comes in job by job -
   is taken in by `catchUpGallery(newest - seen, newest)`: `noteUnseenImages`
   (every ladder the lightbox holds that was read before `newest` asked
@@ -4626,7 +4629,10 @@ Example's Undo, the page unmoved mid-gallery with the prompt in sight, the
 page's end, one column at 800x900, the Undo in the window at 2048x1040
 @1.25, every image in scope deleted by another tab (a real press says no
 image is left, focus on the search box), and a real sweep that takes every
-image handing focus to the search box. Every wait in it is a condition
+image handing focus to the search box, then a catch-up landing after that
+sweep's own reset read past its images (`newestImageSeen` lowered, the
+status received): no reset and the "Moved 2 images" line kept
+(`prependFinished`'s `galleryReadHead` skip). Every wait in it is a condition
 (`__until`, `__settled`), none a sleep:
 
 ```powershell
@@ -4824,7 +4830,10 @@ lowest value in view on the left, its partner cut to the right of the
 divider and in the right half; two separate Generates pairing and a 20-step
 one left out; an image with no other value held with the reason (S and a
 mode press saying it, Swipe and Side by side titled with the reason, a
-step taking it back) and their own titles back on an image with a
+step taking it back), a late catch-up for images that ladder read already
+(`newestImageSeen` lowered, the status received) keeping it, the swipe
+still saying there is none rather than "Looking for…" (`noteUnseenImages`'s
+`head >= newest`), and their own titles back on an image with a
 neighbour; the held reason "in the newest 1" for an answer cut short; a job
 landing a new CFG value for the image in view (the script's, at the fake's
 own pace: it ends between two status polls, never in `active_jobs`, and
