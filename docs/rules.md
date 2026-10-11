@@ -4762,7 +4762,10 @@ one left out; an image with no other value held with the reason (S and a
 mode press saying it, Swipe and Side by side titled with the reason, a
 step taking it back) and their own titles back on an image with a
 neighbour; the held reason "in the newest 1" for an answer cut short; a job
-landing a new CFG value for the image in view; "may be incomplete" on a
+landing a new CFG value for the image in view (the script's, which the page
+learns of as another tab's from its status poll: paced by `/api/fake/step`
+until `elsewhereBusy` shows the poll saw it - at the server's own pace a
+job ends between two polls and the page never hears of it); "may be incomplete" on a
 full page; an image opened alone held while asked ("Looking for…"), the
 request's terms, then a partner the arrows do not step to; the ladder read
 past a full page by `before=` (one-row pages); an answer held in flight
