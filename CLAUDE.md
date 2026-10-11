@@ -53,8 +53,12 @@ Backend (`backend/`):
   `startup_preferences.py` atomically saves loader/startup choices;
   `model_info.py` supplies cold catalogue details from existing sourced guides;
   `model_benchmarks.py` supplies retained timing references and speed categories
-- `schemas.py` request/response models; `model_defaults.py` per-checkpoint
-  profiles; `guides.py` each checkpoint's sourced prompting guide and its
+- `schemas.py` re-exports the request/response models, each defined in
+  `schemas_generate.py` (the generation request and `applied()`, grids, job
+  answers), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
+  `schemas_gallery.py` (records, runs, bin), `schemas_rerun.py` (Re-render,
+  Swap tags, Mass refine, More seeds) or `schemas_model.py` (model status,
+  guide, switch); `model_defaults.py` per-checkpoint profiles; `guides.py` each checkpoint's sourced prompting guide and its
   `analysis` data
 - `main.py` lifecycle, model state, switching and the model routes;
   `app_context.py` the `AppServices` getters routers read main through;

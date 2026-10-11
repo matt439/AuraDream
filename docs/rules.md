@@ -24,7 +24,21 @@ before changing it.
   plus each entry's Hugging Face access from its catalogue gate word
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
-- `backend/schemas.py` — pydantic request/response models
+- `backend/schemas.py` — re-exports the pydantic request/response models;
+  `settings` there is a binding for readers, so runtime patches target
+  `schemas_generate`
+- `backend/schemas_generate.py` — the generation request and its one
+  normalisation `applied()`, grids and their preview, `JobAccepted`,
+  `default_strength`, `effective_true_cfg`, `error_detail`; the leaf the
+  other schema modules build on
+- `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
+  the chip count, the critic's critique, Danbooru tag suggestion/validation
+- `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
+  Delete unstarred's preview, the recycle bin's bodies and answers
+- `backend/schemas_rerun.py` — Re-render, Swap tags, Mass refine and More
+  seeds: requests, statuses, results, previews, accepted answers
+- `backend/schemas_model.py` — the model status poll, the prompting guide and
+  its tag helper, critic/Expand status, the switch request
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint and
   the control tooltips; each profile hangs its prompting guide from
 - `backend/guides.py` — the guides themselves, one dict per checkpoint: prompt
@@ -788,7 +802,7 @@ Reproduction:
   by the CLI. Both recheck after loading and fail before rendering if the
   live capability would drop the requested source. `applied()` drops the source, puts `strength` back to
   the checkpoint's default with it, and drops references under a pass. That
-  default is the profile's `refine_strength` (`schemas.default_strength`,
+  default is the profile's `refine_strength` (`schemas_generate.default_strength`,
   `refine.DEFAULT_STRENGTH` where the profile names none), filled in for a
   request that gives no strength and returned by live status when an
   unprofiled pipeline supports the pass, and where the Refine dialog's

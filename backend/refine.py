@@ -21,7 +21,7 @@ Anima and NewBie pipelines.
 The source is a gallery *id*, for the reason a reference image is: a path
 from the request joined onto a directory is an arbitrary-file read.
 
-A leaf module like `seeds`: `schemas`, `grid` and `storage` all import it, so
+A leaf module like `seeds`: `schemas_generate`, `grid` and `storage` all import it, so
 it imports none of them at the top.
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 # The strength a pass runs at where the checkpoint's profile names none. Where
 # a strength starts is the profile's (`refine_strength` in `model_defaults`,
-# through `schemas.default_strength`), because a strength is an index into the
+# through `schemas_generate.default_strength`), because a strength is an index into the
 # checkpoint's own schedule: 0.4 is inside the 0.35-0.5 WAI's author documents
 # for SDXL's hires pass, and on FLUX.1 at 1.5x it repaints the face. This is
 # what is left for a checkpoint the table does not know.

@@ -204,7 +204,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("variables", "TEXT", None),
         # The scale the negative prompt ran at; NULL on older rows means
         # "guidance_scale, if there was a negative prompt" - see
-        # `schemas.effective_true_cfg`.
+        # `schemas_generate.effective_true_cfg`.
         ("true_cfg", "REAL", None),
         # sha256 of the pixels, 16 hex digits.
         ("content_hash", "TEXT", None),

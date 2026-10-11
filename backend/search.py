@@ -9,9 +9,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-# `schemas.effective_true_cfg` in SQL, for the filter and the grouping that
-# run in the database: the scale the negative prompt ran at, which on a row
-# from before the column was `guidance_scale` whenever there was one.
+# `schemas_generate.effective_true_cfg` in SQL, for the filter and the
+# grouping that run in the database: the scale the negative prompt ran at,
+# which on a row from before the column was `guidance_scale` whenever there
+# was one.
 TRUE_CFG_SQL = (
     "COALESCE(true_cfg, CASE WHEN negative_prompt IS NOT NULL AND negative_prompt <> '' "
     "THEN guidance_scale END)"

@@ -8,7 +8,7 @@ import pytest
 from huggingface_hub.errors import GatedRepoError, RepositoryNotFoundError
 from PIL import Image
 
-from backend import jobs, main, schemas
+from backend import jobs, main, schemas, schemas_generate
 from backend.backends import loading
 from backend.model_defaults import defaults_for
 from tests import fakes
@@ -23,7 +23,7 @@ TURBO = "circlestone-labs/Anima"
 def aesthetic(fake, monkeypatch):
     # As a server started with this selection: schema defaults, the gallery's
     # exact model scope and saved identities all read the same settings.
-    for module in (main, jobs, schemas, fakes):
+    for module in (main, jobs, schemas, schemas_generate, fakes):
         monkeypatch.setattr(
             module, "settings", dataclasses.replace(module.settings, model_id=AESTHETIC)
         )

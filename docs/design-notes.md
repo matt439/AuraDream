@@ -747,7 +747,7 @@ means one thing on every checkpoint: the scale the negative prompt was
 applied at, or None** - on Krea 2/SD3/klein that is `guidance_scale` when
 the negative prompt ran, so a column, a filter (`tcfg:`), a `_GROUPS` entry
 and the resume key all read the same way, and a row from before the column
-(NULL) is read through `schemas.effective_true_cfg` / `storage._TRUE_CFG_SQL`
+(NULL) is read through `schemas_generate.effective_true_cfg` / `storage._TRUE_CFG_SQL`
 as "guidance_scale if there was a negative prompt", which is what ran then.
 `CellKey` gained the element before the seed; `grid.run_id` names a cell
 by the old six-element key whenever `true_cfg` is None, so every existing
@@ -1328,7 +1328,7 @@ starts at sigma 0.85, 0.2 at 0.67, 0.15 at 0.62, 0.1 at 0.47 and 0.05 at
 and match the formula. The face held at 0.05 and 0.1 and began to change at 0.15.
 So `refine_strength` is a profile key, where the Refine dialog's Strength
 box starts on the checkpoint, filled in by the schema for a
-request that names none (`schemas.default_strength`), and what `applied()`
+request that names none (`schemas_generate.default_strength`), and what `applied()`
 puts a strength back to when there is no source. Each value starts the pass
 at about half noise for a 1.5x pass of a 1 MP image:
 
@@ -7458,7 +7458,7 @@ badges on the Prompt box and the Size presets, a `pixels` range in
 megapixels with a `pixels_word`, and the authors' `examples`. The prose
 rides in `/api/status`'s `hints` under `prompt` and `size`, beside the
 control tooltips it is shaped like; the data is `ModelStatus.guide`
-(`schemas.PromptGuide`), because the size line, Examples menu and optional tag
+(`schemas_model.PromptGuide`), because the size line, Examples menu and optional tag
 helper need numbers and lists, not a sentence. `hints_for` passes the guide's
 prose through the same `.format` as the control hints, so the paragraphs
 hold no braces. The checkpoints here disagree about nearly everything a
