@@ -3231,6 +3231,30 @@ it; maintenance now polls the file lock for `MAINTENANCE_GRACE` (0.25 s)
 before refusing, which rides out any read and still refuses a real holder
 at once to a person.
 
+Under load (eight fake servers and their browsers at once) that change
+broke three smokes, two of them by a catch-up landing late. The setup of
+smoke-compare-cfg and smoke-delete is a script's jobs, which the page never
+watched, then a reset of the gallery; the status that saw the newest id
+move could arrive seconds later, under the lightbox or after a delete. It
+asked every ladder again, so a held CFG comparison said "Looking for other
+CFG values…" for a moment in place of its "No other CFG value" note; and
+its `prependFinished` on a grid emptied by Delete unstarred - or with that
+delete's reset still out - reset the gallery again, which clears the
+gallery's line, taking away "Moved 2 images" or "The selection changed".
+Both reads had the images already. A ladder answer now keeps the newest id
+its first page read (`head`), and `noteUnseenImages(newest)` drops only
+those read before; the grid keeps the newest id its own page read
+(`galleryReadHead`), and a catch-up up to it does nothing, while one that
+meets a reset's page in flight waits for it before deciding. The third,
+smoke-model-switch, failed every time and was the server's: the status
+route read the newest id with an await after its revision/`switching`
+retry loop, so a switch could run to its end in between, and Apply & save's
+own answer came back as the old checkpoint and revision with `switching`
+false. The page took that for a switch with no background revision, forgot
+it was its own, and the revision that followed cleared the outcome ("Settings
+saved; … was unloaded", "Switched to …"). The id is now read in the same
+thread as the description, inside the loop.
+
 A page that picks up another tab's job when its own ends (`watchNext`), while
 its viewer holds this session's own results (`isForeign`), shows it in the
 progress row only - no `clearResults`, frame or stand-in - names it "Another

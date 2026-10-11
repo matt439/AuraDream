@@ -389,12 +389,26 @@ function useSeed(seed) {
 // within one round trip, so no card moves under a pointer about to press it.
 // Nothing in the recycle bin, which a job's images never join: the note
 // says they are outside this view (noteOutsideView).
-function prependFinished(made, { now = false } = {}) {
+function prependFinished(made, { now = false, upTo = null } = {}) {
   if (binMode) return Promise.resolve(undefined);
-  if (sheetMode || !galleryRecords.length) return resetGallery();
+  // A catch-up's images, up to the status's newest id (`upTo`), that the
+  // grid's own read has already (galleryReadHead): nothing to fetch, and no
+  // reset. Under load the status that sees another tab's images can land
+  // after the gallery was read again over them - a script's jobs, then
+  // Delete unstarred's reset - and the reset an empty grid takes cleared the
+  // line its caller had just written ("Moved 2 images", smoke-delete).
+  const covered = () => upTo !== null && galleryReadHead !== null && galleryReadHead >= upTo;
+  if (sheetMode) return resetGallery();
+  if (!galleryRecords.length && !galleryPending) return covered() ? Promise.resolve(undefined) : resetGallery();
   const epoch = galleryEpoch;
-  return Promise.resolve(galleryPending).then(async () => {
-    if (epoch !== galleryEpoch || sheetMode || binMode) return;
+  return (async () => {
+    // An empty grid with a page on its way is a reset already asking (Delete
+    // unstarred's 409, a filter): that page lands first, then this weighs
+    // what it read - a second reset there took "The selection changed" away.
+    // A reset made while a page was out chains its own after it.
+    while (galleryPending && epoch === galleryEpoch) await galleryPending;
+    if (epoch !== galleryEpoch || sheetMode || binMode || covered()) return;
+    if (!galleryRecords.length) return resetGallery();
     const params = new URLSearchParams({ limit: Math.min(made + PAGE, sheetPage) });
     if (els.search.value.trim()) params.set('search', els.search.value.trim());
     if (els.favOnly.checked) params.set('favorites', 'true');
@@ -417,6 +431,7 @@ function prependFinished(made, { now = false } = {}) {
     }
     // What the head says, at once: it is above the cards, and with the
     // gallery beside the viewer above the column they scroll in.
+    if (Number.isInteger(page.newest_image_id)) galleryReadHead = Math.max(galleryReadHead ?? 0, page.newest_image_id);
     total = page.total;
     els.count.textContent = total ? `(${total})` : '';
     els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
@@ -428,7 +443,7 @@ function prependFinished(made, { now = false } = {}) {
     // For noteOutsideView: the images this page holds are the gallery's, in
     // view or about to be.
     return page.items.map((r) => r.id);
-  });
+  })();
 }
 
 // Whether a page of the gallery's newest joins up with the cards it holds.

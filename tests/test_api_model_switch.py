@@ -657,6 +657,40 @@ def test_status_retries_a_description_that_crossed_a_switch(client, fake, monkey
     assert not status["switching"]
 
 
+def test_status_retries_a_newest_id_read_that_crossed_a_switch(client, fake, monkeypatch):
+    # The gallery's newest id is read off the event loop too; a switch that
+    # ran to its end meanwhile once came back as the old checkpoint and
+    # revision beside `switching` false, which the page took for a switch
+    # with no revision of its own to come.
+    initial = client.get("/api/status").json()
+    reading, release = threading.Event(), threading.Event()
+    newest = main.storage.newest_image_id
+    first = True
+
+    def waiting_newest():
+        nonlocal first
+        captured = newest()
+        if first:
+            first = False
+            reading.set()
+            assert release.wait(10)
+        return captured
+
+    monkeypatch.setattr(main.storage, "newest_image_id", waiting_newest)
+    with ThreadPoolExecutor(1) as pool:
+        try:
+            pending = pool.submit(client.get, "/api/status")
+            assert reading.wait(5)
+            changed = _switch(client, ANIMAGINE)
+        finally:
+            release.set()
+        status = pending.result(timeout=5).json()
+    assert status["model_id"] == ANIMAGINE
+    assert status["model_revision"] == changed["model_revision"] == initial["model_revision"] + 1
+    assert status["defaults"]["steps"] == defaults_for(ANIMAGINE)["steps"]
+    assert not status["switching"]
+
+
 @pytest.mark.parametrize("platform", ["linux", "win32"])
 def test_nunchaku_inventory_and_refusal_keep_the_startup_runtime(client, fake, monkeypatch, platform):
     first = main.CHECKPOINTS[0]

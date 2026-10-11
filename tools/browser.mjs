@@ -124,7 +124,11 @@ if (!(VW > 0 && VH > 0 && DPR > 0)) {
 // still alive from a run that crashed, and the next launch then hands its
 // command line to that instance and exits without ever opening the port -
 // which reads as "the browser did not come up" for every run after it.
-const PROFILE = `${tmpdir()}/local-diffusion-browser-${process.pid}`;
+// Named for this run alone, not its pid: a profile Edge still held at the
+// end is left behind, and Windows hands the pid out again - a later run on
+// the same port then opened with that run's localStorage (smoke-model-switch
+// found another run's favourites, under eight runs at once).
+const PROFILE = `${tmpdir()}/local-diffusion-browser-${process.pid}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 // Port 0: the browser picks a free one and writes it to DevToolsActivePort in
 // the profile. A port of our own choosing could be another run's - two runs on
 // one port drive each other's pages.
@@ -133,7 +137,7 @@ const proc = spawn(browser, [
   '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-gpu',
   `--user-data-dir=${PROFILE}`, 'about:blank',
 ], { stdio: 'ignore' });
-const cleanup = () => { try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* locked */ } };
+const cleanup = () => { try { rmSync(PROFILE, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch { /* locked */ } };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;

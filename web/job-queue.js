@@ -207,7 +207,8 @@ function setElsewhereBusy(on, { quiet = false } = {}) {
 
 // Images this page did not watch being made are in: another tab's job ended,
 // or one ran between two polls, or the CLI's. Every CFG ladder the lightbox
-// holds is asked again (noteUnseenImages), whatever the view takes in - a
+// holds that was read before them is asked again (noteUnseenImages),
+// whatever the view takes in - a
 // sheet, the bin, Starred or a search leave them out of `fresh` and
 // joinFinished's noteLadderImages. Not under a sheet: a sheet is a run's or a
 // search's, laid out again whole by a reset - every cell and control rebuilt
@@ -216,10 +217,11 @@ function setElsewhereBusy(on, { quiet = false } = {}) {
 // `made`: at most how many rows came in (the newest id's move), so the page
 // prependFinished asks for reaches back past them to the head this page
 // holds - an import of a hundred rows otherwise missed it and reset the
-// gallery, emptying the grid under a user paged deep into it.
-function catchUpGallery(made = 0) {
-  noteUnseenImages();
-  if (!sheetMode) void prependFinished(made);
+// gallery, emptying the grid under a user paged deep into it. `newest`: the
+// status's newest id, which a ladder read since has in it already.
+function catchUpGallery(made = 0, newest = null) {
+  noteUnseenImages(newest);
+  if (!sheetMode) void prependFinished(made, { upTo: newest });
   loadRuns();
 }
 
@@ -255,7 +257,7 @@ function followGalleryHead(newest, settled) {
   // Another tab's job ended (setElsewhereBusy).
   if (elsewhereEnded) {
     elsewhereEnded = false;
-    if (!settled) catchUpGallery(known && seen !== null && newest > seen ? newest - seen : 0);
+    if (!settled) catchUpGallery(known && seen !== null && newest > seen ? newest - seen : 0, known ? newest : null);
     if (known && seen !== null) keepGalleryHead(newest);
     return;
   }
@@ -273,8 +275,8 @@ function followGalleryHead(newest, settled) {
   if (explained) return;
   // This page's own job's end takes the gallery in (`elsewhereCatchUp`); the
   // ladders are asked now, the images being saved.
-  if (busy) { elsewhereCatchUp = true; noteUnseenImages(); return; }
-  catchUpGallery(newest - seen);
+  if (busy) { elsewhereCatchUp = true; noteUnseenImages(newest); return; }
+  catchUpGallery(newest - seen, newest);
 }
 
 function keepGalleryHead(newest) {

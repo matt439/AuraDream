@@ -429,7 +429,13 @@ Model and loader:
   Model revisions distinguish A-to-B-to-A switches and start from the
   process's start in milliseconds, so a page holding a previous process's
   revision is refused; status never pairs an old threaded description with the
-  new revision. LoRA denoiser caches must be
+  new revision. Every threaded read of `/api/status` (the description, the
+  gallery's newest id) is inside its revision/`switching` retry loop, and
+  nothing awaits between that loop and the answer: an await after it let a
+  switch finish meanwhile, and the old checkpoint and revision went out with
+  `switching` false, which the page took for a switch with no revision of its
+  own to come - the next revision wiped the Models note's outcome
+  (`test_status_retries_a_newest_id_read_that_crossed_a_switch`). LoRA denoiser caches must be
   invalidated when the selected checkpoint changes.
 - Server launch restores `startup_preferences` before config imports, without
   terminal input unless `--menu` is given. Flags override explicit environment,
@@ -1066,13 +1072,21 @@ Jobs:
   below the value); is owed to this page's running job's end
   (`elsewhereCatchUp`, the ladders asked at once); and otherwise - another
   tab's job running included, so a chain of its jobs comes in job by job -
-  is taken in by `catchUpGallery(newest - seen)`: `noteUnseenImages` (every
-  ladder the lightbox holds asked again, whatever the view takes in - a
-  sheet, the bin, Starred and a search leave the images out of `fresh`),
-  `prependFinished` with the rise as `made` so its page reaches back over
-  an import to the head held (never under a sheet nor in the bin, cards
-  held while the pointer rests on the column beside the viewer, no
-  duplicates: `joinFinished`), and `loadRuns`. Where even that page does not
+  is taken in by `catchUpGallery(newest - seen, newest)`: `noteUnseenImages`
+  (every ladder the lightbox holds that was read before `newest` asked
+  again - each answer keeps its first page's `newest_image_id` as `head`,
+  and one on its way that reads less is asked again when it lands -
+  whatever the view takes in: a sheet, the bin, Starred and a search leave
+  the images out of `fresh`), `prependFinished` with the rise as `made` so
+  its page reaches back over an import to the head held (never under a
+  sheet nor in the bin, cards held while the pointer rests on the column
+  beside the viewer, no duplicates: `joinFinished`), and `loadRuns`. A
+  catch-up whose `newest` (`upTo`) the grid has read already
+  (`galleryReadHead`, the newest id of this epoch's first page or a joined
+  head page) fetches and resets nothing - a late status after a reset over
+  those images; one that finds a reset's page on its way waits for it
+  first, never resetting again over the line that reset's caller wrote
+  (Delete unstarred's outcome or its 409). Where even that page does not
   join up, `prependFinished` resets the gallery only once the pointer has
   left the column. A job queued, run and ended between two polls never
   showed in `active_jobs`, and its images otherwise stayed out of the

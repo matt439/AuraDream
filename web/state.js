@@ -345,6 +345,12 @@ let critiquing = false;
 // on its way when the filters changed can be dropped rather than appended.
 let galleryPending = null;
 let galleryEpoch = 0;
+// The gallery's newest id as this epoch's grid last read it: its first page
+// (loadGallery) or a head page joined to it (prependFinished), each
+// `GalleryPage.newest_image_id`; null after a reset until that page lands.
+// A catch-up for images up to it has nothing to fetch (prependFinished's
+// `upTo`): the grid's own read had them.
+let galleryReadHead = null;
 // The CFG above which a negative prompt does anything: 1 on FLUX, where
 // guidance_scale is a conditioning value baked into the model and only
 // true_cfg_scale runs an uncond pass, 0 on Krea 2, which guides from 0 up. Not

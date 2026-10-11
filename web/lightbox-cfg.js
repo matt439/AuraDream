@@ -132,9 +132,13 @@ function askLadder(rec) {
 // The gallery's pages for `q`, newest first by the id cursor (`before`), as
 // the grid pages, until one says there is no more or LADDER_PAGES are read.
 async function fetchLadder(q) {
-  const flight = { match: q.match, stale: false };
+  const flight = { match: q.match, stale: false, needs: null };
   lbLadderFlights.set(q.key, flight);
   let entry;
+  // The gallery's newest id as the first page read it (`GalleryPage.
+  // newest_image_id`, under the same reservation): every image up to it is
+  // in this answer, which noteUnseenImages weighs a catch-up against.
+  let head = null;
   try {
     const records = [];
     let more = false;
@@ -142,6 +146,7 @@ async function fetchLadder(q) {
       const params = new URLSearchParams({ limit: String(LADDER_LIMIT), model: q.model, search: q.search });
       if (records.length) params.set('before', String(records.at(-1).id));
       const page = await api(`/api/gallery?${params}`);
+      if (n === 0 && Number.isInteger(page.newest_image_id)) head = page.newest_image_id;
       records.push(...page.items);
       more = !!page.has_more && page.items.length > 0;
       if (!more) break;
@@ -153,8 +158,14 @@ async function fetchLadder(q) {
   if (lbLadderFlights.get(q.key) === flight) lbLadderFlights.delete(q.key);
   if (flight.stale || !els.lightbox.open) return;
   const now = lbList[lbIndex];
+  // Read before images a catch-up said are in (noteUnseenImages): asked
+  // again, for the image in view where it is this ladder's.
+  if (!entry.failed && flight.needs !== null && head !== null && head < flight.needs) {
+    if (now && ladderQuery(now)?.key === q.key) askLadder(now);
+    return;
+  }
   entry.records = entry.records.filter((r) => !deletedIds.has(r.id));
-  lbLadders.set(q.key, { ...entry, ...q.match });
+  lbLadders.set(q.key, { ...entry, ...q.match, head });
   if (now && ladderQuery(now)?.key === q.key) ladderAnswered(now);
 }
 
@@ -225,15 +236,32 @@ function noteLadderImages(records) {
 // Images saved that this page was not handed one by one - another tab's
 // job, the CLI's, taken in by a catch-up (catchUpGallery) whose view may
 // leave them out: a sheet, the bin, Starred, a search. Any ladder may have a
-// new value, so every one held, and every answer on its way, is asked again,
-// and the image in view says what it has now. Nothing to do with the
-// lightbox shut: closing it forgets them (forgetLadders).
-function noteUnseenImages() {
+// new value, so every one held that was read before `newest` (the status's
+// newest id; an answer's `head` is the gallery's as it read it) is asked
+// again, an answer on its way is kept only if it read that far, and the
+// image in view says what it has now. A ladder read after those images were
+// saved has them already: a catch-up landing late - a slow poll after
+// another tab's jobs, the gallery already reset over them - re-asked every
+// ladder and took the comparison's note away under the viewer
+// (smoke-compare-cfg). Without a number (the server back, or restarted,
+// with the gallery held), every one. Nothing to do with the lightbox shut:
+// closing it forgets them (forgetLadders).
+function noteUnseenImages(newest = null) {
   if (!lbLadders.size && !lbLadderFlights.size) return;
-  for (const flight of lbLadderFlights.values()) flight.stale = true;
-  lbLadderFlights.clear();
-  lbLadders.clear();
+  const known = Number.isInteger(newest);
+  let dropped = false;
+  for (const [key, entry] of lbLadders) {
+    if (known && Number.isInteger(entry.head) && entry.head >= newest) continue;
+    lbLadders.delete(key);
+    dropped = true;
+  }
+  for (const [key, flight] of lbLadderFlights) {
+    if (known) { flight.needs = Math.max(flight.needs ?? newest, newest); continue; }
+    flight.stale = true;
+    lbLadderFlights.delete(key);
+  }
   const now = lbList[lbIndex];
+  if (!dropped && known) return;
   if (!els.lightbox.open || !now) return;
   askLadder(now);
   syncCompare(now);

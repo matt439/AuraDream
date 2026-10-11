@@ -10,6 +10,7 @@ function resetGallery() {
   galleryEpoch += 1;
   galleryMore = false;
   galleryRecords = [];
+  galleryReadHead = null;
   // The keyboard's card is kept where it is still loaded, but as the grid's
   // default, not a card chosen in this one (prependFinished).
   galleryChosen = false;
@@ -58,6 +59,7 @@ function loadGallery() {
       if (newestImageSeen === null && !params.has('before') && Number.isInteger(page.newest_image_id)) {
         keepGalleryHead(page.newest_image_id);
       }
+      if (!params.has('before') && Number.isInteger(page.newest_image_id)) galleryReadHead = page.newest_image_id;
       total = page.total;
       els.count.textContent = total ? `(${total})` : '';
       // What the tick would add: the same filter's matches on other

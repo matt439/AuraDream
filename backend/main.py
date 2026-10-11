@@ -396,10 +396,23 @@ async def status() -> ModelStatus:
     # good while; off the event loop it cannot stall the SSE stream with it.
     # A status poll is allowed during a switch. Never label an old threaded
     # description with a new selection/revision or with the new load's state.
+    # The gallery's newest id is read in the same thread, inside this loop:
+    # an await after it let a switch run to its end between the description
+    # and the rest, and the answer paired the old checkpoint and revision
+    # with the finished switch's `switching` false - the page took that for
+    # a switch with no revision of its own to come, and the revision that
+    # did come wiped the Models note's outcome (smoke-model-switch). From
+    # the loop's end to the return nothing awaits.
     while True:
         revision = model_selection.revision()
         switching = _switching
-        info = await asyncio.to_thread(backend.describe)
+        # The live jobs first, then the gallery's newest id: a job saves its
+        # rows before it ends, so one missing from `active` has every image
+        # counted in `newest`, and the page never sees a job gone with its
+        # images not yet in. Off the event loop: the read waits a moment for
+        # the reservation.
+        active = [job.id for job in jobs.active()]
+        info, newest = await asyncio.to_thread(_describe_with_newest)
         if revision == model_selection.revision() and switching == _switching:
             break
     state = _load_state["state"]
@@ -407,12 +420,6 @@ async def status() -> ModelStatus:
         state = "ready"
     defaults = _merged_defaults(info)
     card_holder, card_ticket = jobs.card()
-    # The live jobs first, then the gallery's newest id: a job saves its rows
-    # before it ends, so one missing from `active` has every image counted in
-    # `newest`, and the page never sees a job gone with its images not yet
-    # in. Off the event loop: the read waits a moment for the reservation.
-    active = [job.id for job in jobs.active()]
-    newest = await asyncio.to_thread(storage.newest_image_id)
     return ModelStatus(
         state=state,
         switching=_switching,
@@ -463,6 +470,11 @@ async def status() -> ModelStatus:
         prompt_critique_ready=prompt_critic.ready(),
         prompt_critic=prompt_critic.describe(),
     )
+
+
+def _describe_with_newest() -> tuple[dict, int | None]:
+    """The backend's description and the gallery's newest id, for one status."""
+    return backend.describe(), storage.newest_image_id()
 
 
 def _expander_status() -> ExpanderStatus | None:

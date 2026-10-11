@@ -215,7 +215,7 @@
     "click": "#btn-models"
   },
   {
-    "expect": "__until(() => !!__radio(__anime))"
+    "expect": "__until(() => !els.modelPicker.hidden && modelCatalogueLoaded && !modelCataloguePending && !!__radio(__anime))"
   },
   {
     "eval": "__pick(__anime);"
@@ -335,7 +335,7 @@
     "click": "#btn-models"
   },
   {
-    "expect": "__until(() => !!__radio(__anime) && modelChoice() === __flux)"
+    "expect": "__until(() => !els.modelPicker.hidden && modelCatalogueLoaded && !modelCataloguePending && !!__radio(__anime) && modelChoice() === __flux)"
   },
   {
     "eval": "__pick(__anime);"
