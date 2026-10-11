@@ -20,7 +20,7 @@ from zipfile import ZipFile
 import pytest
 from PIL import Image
 
-from backend import bundle_crypto, bundles, gallery_lock, storage
+from backend import bundle_archive, bundle_crypto, bundle_images, bundles, gallery_lock, storage
 from backend.schemas import GenerateRequest
 
 
@@ -877,7 +877,7 @@ def test_an_oversized_tracked_image_is_refused_before_it_is_read(store, monkeypa
     bundle = Path(_export()["path"])
     _destination(store, monkeypatch, tmp_path)
     snapshot = _snapshot(store)
-    monkeypatch.setattr(bundles, "_MAX_IMAGE_BYTES", 1024)
+    monkeypatch.setattr(bundle_archive, "_MAX_IMAGE_BYTES", 1024)
     with pytest.raises(bundles.BundleError, match="too large to be a gallery image"):
         bundles.import_bundle(bundle)
     assert _snapshot(store) == snapshot
@@ -1030,16 +1030,16 @@ def test_free_space_is_checked_on_each_volume_written(monkeypatch, tmp_path):
         def __init__(self, path):
             self.free = free[Path(path)]
 
-    monkeypatch.setattr(bundles.os, "stat", stat)
-    monkeypatch.setattr(bundles.shutil, "disk_usage", Usage)
-    bundles._check_space([(images, 90, "unpack this bundle"), (database, 90, "merge")])
+    monkeypatch.setattr(bundle_archive.os, "stat", stat)
+    monkeypatch.setattr(bundle_archive.shutil, "disk_usage", Usage)
+    bundle_archive._check_space([(images, 90, "unpack this bundle"), (database, 90, "merge")])
     with pytest.raises(bundles.BundleError, match="unpack this bundle"):
-        bundles._check_space([(images, 101, "unpack this bundle"), (database, 90, "merge")])
+        bundle_archive._check_space([(images, 101, "unpack this bundle"), (database, 90, "merge")])
     with pytest.raises(bundles.BundleError, match="merge"):
-        bundles._check_space([(images, 90, "unpack this bundle"), (database, 101, "merge")])
+        bundle_archive._check_space([(images, 90, "unpack this bundle"), (database, 101, "merge")])
     devices[database] = 1  # one volume: both land on it
     with pytest.raises(bundles.BundleError, match="unpack this bundle"):
-        bundles._check_space([(images, 60, "unpack this bundle"), (database, 60, "merge")])
+        bundle_archive._check_space([(images, 60, "unpack this bundle"), (database, 60, "merge")])
 
 
 def test_a_password_export_derives_its_key_once(store, monkeypatch, tmp_path):
@@ -1057,8 +1057,8 @@ def test_a_password_export_derives_its_key_once(store, monkeypatch, tmp_path):
 @pytest.mark.parametrize("mode", ["RGB", "RGBA", "L", "P", "1", "I;16", "LA"])
 def test_raw_digest_is_tobytes(mode):
     image = Image.effect_noise((37, 11), 64).convert(mode)
-    assert bundles._raw_digest(image) == hashlib.sha256(image.tobytes()).hexdigest()
-    assert bundles._raw_digest(Image.new(mode, (0, 5))) == hashlib.sha256(b"").hexdigest()
+    assert bundle_images._raw_digest(image) == hashlib.sha256(image.tobytes()).hexdigest()
+    assert bundle_images._raw_digest(Image.new(mode, (0, 5))) == hashlib.sha256(b"").hexdigest()
 
 
 def test_repeat_import_neither_decodes_nor_unpacks_what_is_already_there(store, monkeypatch, tmp_path):
@@ -1069,9 +1069,9 @@ def test_repeat_import_neither_decodes_nor_unpacks_what_is_already_there(store, 
     assert bundles.import_bundle(bundle)["imported"] == 3
     snapshot = _snapshot(store)
     decoded, staged = [], []
-    real_pixels, real_stage = bundles._pixels, bundles._write_staged
-    monkeypatch.setattr(bundles, "_pixels", lambda *a, **k: decoded.append(a) or real_pixels(*a, **k))
-    monkeypatch.setattr(bundles, "_write_staged", lambda target, *a: staged.append(target.name) or real_stage(target, *a))
+    real_pixels, real_stage = bundle_images._pixels, bundle_archive._write_staged
+    monkeypatch.setattr(bundle_images, "_pixels", lambda *a, **k: decoded.append(a) or real_pixels(*a, **k))
+    monkeypatch.setattr(bundle_archive, "_write_staged", lambda target, *a: staged.append(target.name) or real_stage(target, *a))
     assert bundles.import_bundle(bundle)["present"] == 3
     assert decoded == [] and staged == []
     assert _snapshot(store) == snapshot
@@ -1138,14 +1138,14 @@ def test_a_failed_metadata_rewrite_refuses_the_whole_merge(store, monkeypatch, t
     _destination(store, monkeypatch, tmp_path)
     _save("existing", 99)
     snapshot = _snapshot(store)
-    real = bundles._rewrite_metadata
+    real = bundle_images._rewrite_metadata
     victim = sorted(r for r in ZipFile(bundle).namelist() if r.count("/") == 1 and r.endswith(".png"))[3]
 
     def rewrite(path, metadata):
         if path.name == victim.removeprefix("images/"):
             raise bundles.BundleError(f"not a PNG image: {path.name}")
         real(path, metadata)
-    monkeypatch.setattr(bundles, "_rewrite_metadata", rewrite)
+    monkeypatch.setattr(bundle_images, "_rewrite_metadata", rewrite)
     with pytest.raises(bundles.BundleError, match="invalid metadata for"):
         bundles.import_bundle(bundle)
     assert _snapshot(store) == snapshot

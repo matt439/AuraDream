@@ -152,7 +152,12 @@ before changing it.
 - `backend/gallery_lock.py` — reentrant reservation of complete gallery
   operations across threads and cooperating server/CLI processes
 - `backend/bundles.py` — verified ZIP snapshots, source cleanup and staged
-  database/image merges; `bundle_crypto.py` the optional password layer
+  database/image merges; `bundle_archive.py` the archive format, its one
+  verifying read (`_verify_archive`), the decode pool, the staging writer and
+  the free-space check; `bundle_images.py` a tracked PNG's pixel identity,
+  row validation, embedded metadata and tEXt rewrite; `bundle_common.py` the
+  bundle errors, progress type and read-only database reads every layer
+  shares; `bundle_crypto.py` the optional password layer
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
   and exclusive maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
@@ -1072,7 +1077,7 @@ Jobs:
   chunk's: a PNG-only reindex, and an older build importing a newer bundle,
   bring binned images back live, as a PNG-only reindex loses a star;
   `reindex --database` carries `binned_at`.
-- Every archive is read once: `_verify_archive` checks CRC, manifest SHA-256
+- Every archive is read once: `bundle_archive._verify_archive` checks CRC, manifest SHA-256
   and (encrypted) every chunk tag, and tracked PNGs are decoded from the bytes
   it just read on the bounded decode pool, which also hashes them; errors are
   raised in row order. A present image whose pixel-deciding chunks equal the
@@ -3747,7 +3752,7 @@ bounds, and an unfinished writer. Password bundles, altered ciphertext (in a
 later chunk too, after members were staged), a failed encrypted
 read-back that clears nothing, and re-encoded existing images on repeat import
 are in `tests/test_bundles.py`, with the speed paths' guarantees: one scrypt
-run per password export, `_raw_digest` equal to `tobytes()`, a repeat import
+run per password export, `bundle_images._raw_digest` equal to `tobytes()`, a repeat import
 that decodes and unpacks nothing present but still validates its rows, a
 declined member that vanished, and a failed parallel metadata rewrite.
 `test_bundle_crypto.py` also covers writes of any size and the writer's key

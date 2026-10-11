@@ -3523,7 +3523,7 @@ import, unlike export's, which empties at the press; it is now cleared once
 an import is done and kept after a failure, so a mistyped one can be fixed.
 
 **No extra pass.** Export points `zipfile` at `EncryptingWriter`. Its seek
-fails, so zipfile writes data descriptors (flag bit 3, which `_verify_archive`
+fails, so zipfile writes data descriptors (flag bit 3, which `bundle_archive._verify_archive`
 accepts). The archive is therefore written once, already encrypted.
 `_verify_archive` reads through the seekable `DecryptingReader`. The single
 existing read-back authenticates every chunk with the user's password
@@ -3574,7 +3574,7 @@ re-import:
 - Export reads its sources whole (up to 16 MiB each, `_ReadAhead`) and
   hashes them on a pool, a few files ahead of the writer. The writer now only
   does the CRC, the write and the encryption.
-- Import writes, fsyncs and closes staged files on `_Stager` (16 threads,
+- Import writes, fsyncs and closes staged files on `bundle_archive._Stager` (16 threads,
   bounded by count and by 256 MiB of waiting bytes), not on the reader. Each
   tracked PNG is read whole and SHA-256 hashed on the decode pool before it
   is inspected. The metadata rewrites, each a full copy plus an fsync, run on
@@ -3591,7 +3591,7 @@ re-import:
   thumbnail, is no longer unpacked; it is compared in place with its verified
   manifest entry. If such a file disappears before installation, the import
   is refused.
-- `_raw_digest` hashes the same bytes as `tobytes()`, block by block. The
+- `bundle_images._raw_digest` hashes the same bytes as `tobytes()`, block by block. The
   whole-image copy and join had held the GIL, and with it the decode pool
   managed only about half the throughput it now gets.
 - `EncryptingWriter` encrypts whole chunks straight from the caller's buffer,

@@ -68,7 +68,10 @@ Backend (`backend/`):
   selection; `api_generate.py` generate/grid/Re-render, `api_swap.py`,
   `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
   `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
-  routes and maintenance admission; `bundles.py` verified archive/merge,
+  routes and maintenance admission; `bundles.py` verified export/merge,
+  `bundle_archive.py` the archive format and its verifying read,
+  `bundle_images.py` a tracked PNG's identity, row checks and metadata
+  rewrite, `bundle_common.py` their errors and database reads,
   `bundle_crypto.py` its optional password layer;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;

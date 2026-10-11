@@ -1,0 +1,230 @@
+"""One tracked PNG and its row in a gallery bundle.
+
+Pixel identity, the pixel-deciding chunk digest, checking a row against its
+image, the embedded reproduction metadata, and streaming rewrites of the
+PNG's local-diffusion tEXt chunk.
+"""
+from __future__ import annotations
+
+import hashlib
+import io
+import json
+import os
+import zlib
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import NamedTuple
+
+from PIL import Image, ImageFile
+
+from . import reindex, storage
+from .bundle_common import _CHUNK, _WORKERS, BundleError
+
+
+class _Pixels(NamedTuple):
+    hash: str  # storage.content_hash: the gallery's own, of the raw bytes only
+    width: int
+    height: int
+    # What decides the picture: the mode, size, palette and transparency as
+    # well as the full digest of the raw bytes. A palette image's bytes are
+    # indices, so two different pictures can share `hash`.
+    identity: str
+    # Plain RGB, no transparency: what every render is saved as, and so the
+    # only form in which `hash` alone (with the size) decides the picture.
+    rgb: bool
+
+
+def _raw_digest(image: Image.Image) -> str:
+    """SHA-256 of `image.tobytes()`, hashed block by block as Pillow encodes it.
+
+    The same bytes in the same order (`test_raw_digest_is_tobytes`), without
+    the whole-image copy and join, which serialised the decode pool.
+    """
+    digest = hashlib.sha256()
+    if image.width and image.height:
+        encoder = Image._getencoder(image.mode, "raw", image.mode)
+        encoder.setimage(image.im, (0, 0) + image.size)
+        bufsize = max(ImageFile.MAXBLOCK, image.width * 4)  # as tobytes
+        while True:
+            _, status, data = encoder.encode(bufsize)
+            digest.update(data)
+            if status:
+                break
+        if status < 0:
+            raise ValueError(f"encoder error {status} reading the pixels")
+    return digest.hexdigest()
+
+
+def _pixels(path, *, name: str | None = None) -> _Pixels:
+    name = name or path.name
+    try:
+        with Image.open(path) as image:
+            if image.format != "PNG":
+                raise BundleError(f"not a PNG image: {name}")
+            image.load()
+            raw = _raw_digest(image)
+            identity = hashlib.sha256(repr((
+                image.mode, image.size, (image.palette.mode, image.palette.tobytes()) if image.palette else None,
+                image.info.get("transparency"), raw,
+            )).encode()).hexdigest()
+            # The same digest storage.content_hash takes, without a second pass.
+            rgb = image.mode == "RGB" and "transparency" not in image.info
+            return _Pixels(raw[:16], image.width, image.height, identity, rgb)
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise BundleError(f"cannot read image {name}: {exc}") from exc
+
+
+def _critical_digest(source) -> str | None:
+    """SHA-256 of the chunks that decide a PNG's pixels (None if malformed).
+
+    Equal digests mean equal decoded pixels; metadata chunks are ignored.
+    """
+    try:
+        if source.read(8) != reindex._PNG_SIGNATURE:
+            return None
+        digest = hashlib.sha256()
+        while header := source.read(8):
+            if len(header) != 8:
+                return None
+            length, kind = int.from_bytes(header[:4], "big"), header[4:]
+            if kind in {b"IHDR", b"PLTE", b"tRNS", b"IDAT"}:
+                digest.update(header)
+                remaining = length
+                while remaining:
+                    block = source.read(min(_CHUNK, remaining))
+                    if not block:
+                        return None
+                    digest.update(block)
+                    remaining -= len(block)
+                source.seek(4, 1)
+            else:
+                source.seek(length + 4, 1)
+            if kind == b"IEND":
+                return digest.hexdigest()
+        return None
+    except (OSError, ValueError):
+        return None
+
+
+def _references(row: dict) -> list[int]:
+    value = row.get("reference")
+    if value is None:
+        return []
+    try:
+        refs = json.loads(value)
+    except (TypeError, ValueError) as exc:
+        raise BundleError(f"invalid references on image {row['id']}") from exc
+    if not isinstance(refs, list) or any(type(i) is not int or i <= 0 for i in refs):
+        raise BundleError(f"invalid references on image {row['id']}")
+    return refs
+
+
+def _validate_source_row(row: dict, source, *, name: str | None = None) -> _Pixels:
+    pixels = _pixels(source, name=name)
+    _validate_row(row, pixels.width, pixels.height, pixels.hash)
+    return pixels
+
+
+def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None:
+    if (width, height) != (row["width"], row["height"]):
+        raise BundleError(f"image dimensions disagree with the database: {row['filename']}")
+    _references(row)
+    refine = row.get("refine")
+    if refine is not None and (type(refine) is not int or refine <= 0):
+        raise BundleError(f"invalid refine source on image {row['id']}")
+    values = {key: row.get(key) for key in storage._COLUMNS}
+    values.update(id=row["id"], content_hash=content_hash)
+    try:
+        storage._row_to_record(values)
+    except (TypeError, ValueError) as exc:
+        raise BundleError(f"invalid metadata for {row['filename']}: {exc}") from exc
+
+
+def _inspect_source(row: dict, data: bytes):
+    return _validate_source_row(row, io.BytesIO(data), name=row["filename"])
+
+
+def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
+    def provenance(image_id):
+        source = by_id.get(image_id)
+        if not source:
+            return None
+        return {"filename": source["filename"], "hash": source["content_hash"],
+                "width": source["width"], "height": source["height"]}
+    refs = _references(row)
+    return {
+        "prompt": row["prompt"], "negative_prompt": row["negative_prompt"],
+        "steps": row["steps"], "guidance_scale": row["guidance_scale"], "true_cfg": row["true_cfg"],
+        "mu": row["mu"], "seed": row["seed"], "model": row["model_id"],
+        "quantization": row["quantization"], "job": row["job_id"], "run": row["run_id"],
+        "size": f"{row['width']}x{row['height']}",
+        "variables": json.loads(row["variables"]) if row["variables"] else None,
+        "hash": row["content_hash"], "reference": refs or None,
+        "reference_sources": [provenance(i) for i in refs] or None,
+        "refine": row["refine"], "refine_source": provenance(row["refine"]),
+        "strength": row["strength"], "lora": row["lora"], "lora_scale": row["lora_scale"],
+        "batch": row.get("batch"),
+    }
+
+
+def _rewrite_metadata(path: Path, metadata: dict) -> None:
+    """Replace one PNG text chunk while streaming the untouched image data."""
+    payload = reindex.PNG_METADATA_KEY.encode("ascii") + b"\0" + json.dumps(metadata).encode("ascii")
+    chunk = len(payload).to_bytes(4, "big") + b"tEXt" + payload
+    chunk += zlib.crc32(b"tEXt" + payload).to_bytes(4, "big")
+    temp = path.with_suffix(".metadata.part")
+    inserted = False
+    with path.open("rb") as source, temp.open("xb") as target:
+        signature = source.read(8)
+        if signature != reindex._PNG_SIGNATURE:
+            raise BundleError(f"not a PNG image: {path.name}")
+        target.write(signature)
+        while header := source.read(8):
+            if len(header) != 8:
+                raise BundleError(f"truncated PNG: {path.name}")
+            length, kind = int.from_bytes(header[:4], "big"), header[4:]
+            start = source.tell()
+            keyword = reindex._text_keyword(kind, source.read(min(length, 80)))
+            source.seek(start)
+            if keyword in {key.encode("ascii") for key in reindex.PNG_METADATA_KEYS}:
+                source.seek(length + 4, 1)
+                continue
+            if kind in {b"IDAT", b"IEND"} and not inserted:
+                target.write(chunk)
+                inserted = True
+            target.write(header)
+            remaining = length + 4
+            while remaining:
+                block = source.read(min(_CHUNK, remaining))
+                if not block:
+                    raise BundleError(f"truncated PNG: {path.name}")
+                target.write(block)
+                remaining -= len(block)
+            if kind == b"IEND":
+                break
+        if not inserted:
+            raise BundleError(f"PNG has no image data: {path.name}")
+        # Installation moves this file into place rather than copying it.
+        target.flush()
+        os.fsync(target.fileno())
+    temp.replace(path)
+
+
+def _rewrite_all(directory: Path, rewrites: list[tuple[str, dict]]) -> None:
+    """Rewrite staged PNGs' metadata on a pool: each is file I/O and an fsync.
+
+    Failures are raised in order, and every worker has stopped before the
+    staging directory is cleaned up.
+    """
+    with ThreadPoolExecutor(_WORKERS, thread_name_prefix="bundle-rewrite") as pool:
+        futures = [(name, pool.submit(_rewrite_metadata, directory / name, metadata))
+                   for name, metadata in rewrites]
+        for name, future in futures:
+            try:
+                future.result()
+            except (TypeError, ValueError) as exc:
+                pool.shutdown(cancel_futures=True)
+                raise BundleError(f"invalid metadata for {name}: {exc}") from exc
+            except BaseException:
+                pool.shutdown(cancel_futures=True)
+                raise

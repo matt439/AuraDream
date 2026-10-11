@@ -8,60 +8,30 @@ import json
 import os
 import shutil
 import sqlite3
-import stat
 import struct
 import tempfile
-import threading
 import uuid
 import zipfile
-import zlib
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import NamedTuple
 
-from PIL import Image, ImageFile
+from . import bundle_crypto, bundle_images, gallery_lock, storage
+from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _verify_archive
+from .bundle_common import (
+    _CHUNK,
+    _WORKERS,
+    BundleChanged,
+    BundleError,
+    Progress,
+    _basename,
+    _connect_read,
+    _quiet,
+    _rows,
+)
+from .bundle_images import _critical_digest, _inspect_source, _metadata, _references, _rewrite_all, _validate_row
 
-from . import bundle_crypto, gallery_lock, reindex, storage
-
-
-class BundleError(ValueError):
-    pass
-
-
-class BundleChanged(BundleError):
-    pass
-
-
-_FORMAT = "local-diffusion-gallery"
-_DATABASE = "database.sqlite3"
-_MANIFEST = "manifest.json"
-_CHUNK = 1024 * 1024
 _SUFFIXES = (".zip", bundle_crypto.SUFFIX)
-# Decoding every tracked PNG dominates both directions; it runs on a small
-# pool while the archive is read. Admission is bounded by the decoded size
-# the PNG header announces, so a few huge images cannot multiply memory.
-_WORKERS = max(1, min(8, (os.cpu_count() or 2) - 1))
-_DECODE_BUDGET = 1024 * 1024 * 1024
-# A tracked PNG is held in memory to be decoded, and a hostile bundle can
-# declare (and deflate to) any size; this is far above any generated image.
-_MAX_IMAGE_BYTES = 256 * 1024 * 1024
-# Export reads files up to this size whole, ahead of the writer; at most
-# 2 * _WORKERS of them are held at once. Larger ones are streamed.
-_READ_AHEAD_MAX = 16 * 1024 * 1024
-# Import writes unpacked members held whole (tracked PNGs, and others up to
-# _READ_AHEAD_MAX) on a pool: creating each file, and its fsync, is
-# per-file latency that would otherwise stall the reader.
-_STAGE_THREADS = 16
-_STAGE_BUDGET = 256 * 1024 * 1024
-
-Progress = Callable[[str, int, int], None]
-
-
-def _quiet(phase: str, done: int, total: int) -> None:
-    pass
 
 
 def _settings():
@@ -80,18 +50,6 @@ def _directory() -> Path:
     if _is_link(directory):
         raise BundleError("the bundles directory must not be a symbolic link")
     return directory
-
-
-def _basename(name: str) -> bool:
-    return (
-        isinstance(name, str) and bool(name) and name not in {".", ".."}
-        and not any(c in name for c in '/\\:\x00<>"|?*')
-        and not any(ord(c) < 32 for c in name) and not name.endswith((".", " "))
-        and name.split(".")[0].upper() not in {
-            "CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
-            *(f"LPT{i}" for i in range(1, 10)),
-        }
-    )
 
 
 def bundle_path(name: str) -> Path:
@@ -118,35 +76,6 @@ def list_bundles() -> list[dict]:
         found.append({"name": p.name, "bytes": p.stat().st_size, "created_at": p.stat().st_mtime,
                       "encrypted": encrypted})
     return sorted(found, key=lambda b: b["name"], reverse=True)
-
-
-def _connect_read(path: Path):
-    conn = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA trusted_schema=OFF")
-    return conn
-
-
-def _rows(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    conn = _connect_read(path)
-    try:
-        if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-            raise BundleError("the gallery database failed its integrity check")
-        columns = {r["name"] for r in conn.execute("PRAGMA table_info(images)")}
-        if reindex._DB_REQUIRED - columns:
-            raise BundleError("the bundle has no usable Local Diffusion images table")
-        rows = [dict(r) for r in conn.execute("SELECT * FROM images ORDER BY id")]
-        for row in rows:
-            if (not _basename(row["filename"]) or Path(row["filename"]).suffix.lower() != ".png"
-                    or not isinstance(row["id"], int) or row["id"] <= 0):
-                raise BundleError("the database contains an unsafe image filename or id")
-        return rows
-    except sqlite3.Error as exc:
-        raise BundleError(f"cannot read the gallery database: {exc}") from exc
-    finally:
-        conn.close()
 
 
 def _inventory() -> list[tuple[str, Path]]:
@@ -221,303 +150,6 @@ def _hash(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _valid_member(name: str) -> bool:
-    if name == _DATABASE:
-        return True
-    bits = name.split("/")
-    if not all(_basename(bit) for bit in bits):
-        return False
-    return (
-        len(bits) == 2 and bits[0] == "images" and Path(bits[1]).suffix.lower() in {".png", ".webp"}
-    ) or (
-        len(bits) == 3 and bits[:2] == ["images", "thumbnails"] and Path(bits[2]).suffix.lower() == ".webp"
-    )
-
-
-def _png_weight(data: bytes) -> int:
-    """Bytes held while decoding: the file plus the decoded pixels its header announces."""
-    if data[:8] == reindex._PNG_SIGNATURE and data[12:16] == b"IHDR" and len(data) >= 24:
-        width, height = struct.unpack(">II", data[16:24])
-        return len(data) + 8 * width * height
-    return len(data)
-
-
-class _Pool:
-    """Inspects tracked PNGs in parallel while the archive is still being read.
-
-    Results are collected in row order, so the first failure reported is the
-    one a serial pass would have reported.
-    """
-
-    def __init__(self):
-        self._executor = ThreadPoolExecutor(_WORKERS, thread_name_prefix="bundle-decode")
-        self._room = threading.Condition()
-        self._used = 0
-        self._pending = 0
-        self.futures = {}
-
-    def submit(self, key, weight: int, fn, *args) -> None:
-        weight = min(weight, _DECODE_BUDGET)
-        with self._room:
-            self._room.wait_for(lambda: self._pending < 2 * _WORKERS and self._used + weight <= _DECODE_BUDGET)
-            self._used += weight
-            self._pending += 1
-
-        def run():
-            try:
-                return fn(*args)
-            finally:
-                with self._room:
-                    self._used -= weight
-                    self._pending -= 1
-                    self._room.notify_all()
-        self.futures[key] = self._executor.submit(run)
-
-    def results(self, keys) -> dict:
-        return {key: self.futures[key].result() for key in keys}
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc) -> None:
-        for future in self.futures.values():
-            future.cancel()
-        self._executor.shutdown(wait=True)
-
-
-@contextmanager
-def _open_archive(path: Path, password: str | None, derived: tuple[bytes, bytes] | None = None):
-    try:
-        encrypted = bundle_crypto.is_encrypted(path)
-    except OSError as exc:
-        raise BundleError(f"cannot read the bundle: {exc}") from exc
-    if not encrypted:
-        with zipfile.ZipFile(path) as archive:
-            yield archive
-        return
-    if not password:
-        raise BundleError("this bundle is password-protected; enter its password")
-    # Plaintext exists only in memory: every chunk is authenticated as read.
-    with (bundle_crypto.DecryptingReader(path, password, derived=derived) as reader,
-          zipfile.ZipFile(reader) as archive):
-        yield archive
-
-
-def _inspect_source(row: dict, data: bytes):
-    return _validate_source_row(row, io.BytesIO(data), name=row["filename"])
-
-
-def _verify_archive(path: Path, destination: Path | None = None, *, password: str | None = None,
-                    rows: list[dict] | None = None, inspect=_inspect_source,
-                    extract: Callable[[str], bool] | None = None,
-                    merge: tuple[Path, int] | None = None,
-                    derived: tuple[bytes, bytes] | None = None,
-                    progress: Progress = _quiet) -> tuple[dict, list[dict] | None, dict]:
-    """Read every member once, verifying ZIP CRC, the manifest SHA-256 and, for
-    a password-protected bundle, every chunk's tag.
-
-    The database member is read first. Each tracked PNG (from `rows`, or from
-    the database unpacked into `destination`) is passed to `inspect` from the
-    bytes just read, on the decode pool. `extract` may decline to write a
-    member that will never be installed. `merge` names the directory where
-    the live database's copy (of the given size) will take the bundle's rows,
-    for the free-space check. `derived` is export's own (header, key), which
-    spares a second scrypt run. Returns the manifest, the rows and each tracked
-    member's inspection result.
-    """
-    try:
-        with _open_archive(path, password, derived) as archive, _Pool() as pool, _Stager() as stager:
-            infos = archive.infolist()
-            names = [info.filename for info in infos]
-            if len(names) != len(set(n.casefold() for n in names)):
-                raise BundleError("the bundle contains duplicate filenames")
-            if _MANIFEST not in names or archive.getinfo(_MANIFEST).file_size > 32 * 1024 * 1024:
-                raise BundleError("the bundle manifest is missing or too large")
-            for info in infos:
-                mode = info.external_attr >> 16
-                if info.is_dir() or stat.S_ISLNK(mode) or (stat.S_IFMT(mode) not in (0, stat.S_IFREG)):
-                    raise BundleError("the bundle contains a directory or special file")
-                if info.flag_bits & 1 or info.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
-                    raise BundleError("the bundle uses an unsupported encryption or compression")
-                if info.filename != _MANIFEST and not _valid_member(info.filename):
-                    raise BundleError(f"unsafe bundle member: {info.filename}")
-                # A whole-member read() fetches all of compress_size in one
-                # call, so padding after an early-ending deflate stream would
-                # bypass every file_size cap. Deflate never grows data by more.
-                if info.compress_size > info.file_size + info.file_size // 1000 + 1024:
-                    raise BundleError(f"{info.filename} is stored larger than its contents")
-            manifest = json.loads(archive.read(_MANIFEST))
-            if not isinstance(manifest, dict) or manifest.get("format") != _FORMAT or manifest.get("version") != 1:
-                raise BundleError("this is not a supported Local Diffusion bundle")
-            files = manifest.get("files")
-            if not isinstance(files, dict) or set(files) != set(names) - {_MANIFEST} or _DATABASE not in files:
-                raise BundleError("the bundle manifest does not match its files")
-            if destination is not None:
-                needs = [(destination, sum(info.file_size for info in infos), "unpack this bundle")]
-                if merge is not None:
-                    needs.append((merge[0], merge[1] + archive.getinfo(_DATABASE).file_size,
-                                  "merge its records beside the gallery database"))
-                _check_space(needs)
-
-            def track(found: list[dict]) -> dict[str, dict]:
-                if len(found) != manifest.get("records"):
-                    raise BundleError("the manifest's record count does not match its database")
-                for row in found:
-                    if "images/" + row["filename"] not in files:
-                        raise BundleError(f"the bundle is missing {row['filename']}")
-                return {"images/" + row["filename"]: row for row in found}
-
-            tracked = track(rows) if rows is not None else {}
-            order = sorted(files, key=lambda n: n != _DATABASE)
-            for done, name in enumerate(order, 1):
-                expected = files[name]
-                info = archive.getinfo(name)
-                if (not isinstance(expected, dict) or type(expected.get("size")) is not int
-                        or expected["size"] != info.file_size or not isinstance(expected.get("sha256"), str)):
-                    raise BundleError(f"invalid size or checksum for {name}")
-                digest = hashlib.sha256()
-                write = destination is not None and (name == _DATABASE or extract is None or extract(name))
-                target = destination.joinpath(*PurePosixPath(name).parts) if write else None
-                if target:
-                    stager.directory(target.parent)
-                row = tracked.get(name)
-                if row and info.file_size > _MAX_IMAGE_BYTES:
-                    raise BundleError(f"{name} is too large to be a gallery image")
-                # Tracked PNGs are rewritten (and synced) before installation;
-                # everything else may be installed as is, so it is synced.
-                # Both are written off the reading thread when held whole.
-                whole = row or (name != _DATABASE and info.file_size <= _READ_AHEAD_MAX)
-                data = None
-                output = target.open("xb") if target and not whole else None
-                try:
-                    with archive.open(info) as source:
-                        if whole:
-                            # A tracked PNG's size is bounded above; it is
-                            # hashed on the pool, before its inspection.
-                            data = source.read()
-                            if not row:
-                                digest.update(data)
-                            if target:
-                                stager.write(target, data, sync=not row)
-                        while not whole and (chunk := source.read(_CHUNK)):
-                            digest.update(chunk)
-                            if output:
-                                output.write(chunk)
-                    if output and name != _DATABASE:
-                        output.flush()
-                        stager.close(output)
-                        output = None
-                finally:
-                    if output:
-                        output.close()
-                if row:
-                    pool.submit(name, _png_weight(data), _checked, name, expected["sha256"], inspect, row, data)
-                    data = None  # the bytes go with their inspection, not with the next member
-                elif digest.hexdigest() != expected["sha256"]:
-                    raise BundleError(f"the bundle checksum failed for {name}")
-                if name == _DATABASE and rows is None and destination is not None:
-                    rows = _rows(destination / _DATABASE)
-                    tracked = track(rows)
-                progress("verifying", done, len(order))
-            results = pool.results(["images/" + row["filename"] for row in rows or []])
-            stager.wait()
-            return manifest, rows, results
-    except (zipfile.BadZipFile, json.JSONDecodeError, UnicodeError, EOFError) as exc:
-        raise BundleError(f"the bundle is damaged: {exc}") from exc
-    except bundle_crypto.CryptoError as exc:
-        raise BundleError(str(exc)) from exc
-
-
-def _checked(name: str, sha256: str, inspect, row: dict, data: bytes):
-    if hashlib.sha256(data).hexdigest() != sha256:
-        raise BundleError(f"the bundle checksum failed for {name}")
-    return inspect(row, data)
-
-
-class _Stager:
-    """Writes, syncs and closes unpacked members off the archive-reading thread.
-
-    Admission is bounded by count and by the bytes waiting to be written (a
-    tracked PNG may be up to `_MAX_IMAGE_BYTES`). Every queued task runs to
-    completion, on any path, so no handle is left open when the staging
-    directory is removed.
-    """
-
-    def __init__(self):
-        self._executor = ThreadPoolExecutor(_STAGE_THREADS, thread_name_prefix="bundle-stage")
-        self._room = threading.Condition()
-        self._used = 0
-        self._pending = 0
-        self._futures = []
-        self._made: set[Path] = set()
-
-    def directory(self, path: Path) -> None:
-        if path not in self._made:
-            path.mkdir(parents=True, exist_ok=True)
-            self._made.add(path)
-
-    def _submit(self, weight: int, fn, *args) -> None:
-        weight = min(weight, _STAGE_BUDGET)
-        with self._room:
-            self._room.wait_for(lambda: self._pending < 2 * _STAGE_THREADS
-                                and self._used + weight <= _STAGE_BUDGET)
-            self._used += weight
-            self._pending += 1
-
-        def run():
-            try:
-                fn(*args)
-            finally:
-                with self._room:
-                    self._used -= weight
-                    self._pending -= 1
-                    self._room.notify_all()
-        self._futures.append(self._executor.submit(run))
-
-    def write(self, target: Path, data: bytes, *, sync: bool) -> None:
-        self._submit(len(data), _write_staged, target, data, sync)
-
-    def close(self, output) -> None:
-        """Sync and close a file the reading thread wrote."""
-        self._submit(0, _sync_close, output)
-
-    def wait(self) -> None:
-        for future in self._futures:
-            future.result()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc) -> None:
-        self._executor.shutdown(wait=True)
-
-
-def _write_staged(target: Path, data: bytes, sync: bool) -> None:
-    with target.open("xb") as output:
-        output.write(data)
-        if sync:
-            output.flush()
-            os.fsync(output.fileno())
-
-
-def _sync_close(output) -> None:
-    try:
-        os.fsync(output.fileno())
-    finally:
-        output.close()
-
-
-def _check_space(needs: list[tuple[Path, int, str]]) -> None:
-    """Refuse unless each volume has room for everything written to it."""
-    volumes: dict[int, list] = {}
-    for where, size, purpose in needs:
-        volume = volumes.setdefault(os.stat(where).st_dev, [where, 0, purpose])
-        volume[1] += size
-    for where, size, purpose in volumes.values():
-        if size > shutil.disk_usage(where).free:
-            raise BundleError(f"not enough free space to {purpose}")
-
-
 def _checkpoint() -> None:
     path = _settings().db_path
     if not path.exists():
@@ -543,100 +175,6 @@ def _replace_database(staged: Path) -> None:
 def _remove_file(path: Path) -> None:
     path.unlink()
 
-
-def _rewrite_metadata(path: Path, metadata: dict) -> None:
-    """Replace one PNG text chunk while streaming the untouched image data."""
-    payload = reindex.PNG_METADATA_KEY.encode("ascii") + b"\0" + json.dumps(metadata).encode("ascii")
-    chunk = len(payload).to_bytes(4, "big") + b"tEXt" + payload
-    chunk += zlib.crc32(b"tEXt" + payload).to_bytes(4, "big")
-    temp = path.with_suffix(".metadata.part")
-    inserted = False
-    with path.open("rb") as source, temp.open("xb") as target:
-        signature = source.read(8)
-        if signature != reindex._PNG_SIGNATURE:
-            raise BundleError(f"not a PNG image: {path.name}")
-        target.write(signature)
-        while header := source.read(8):
-            if len(header) != 8:
-                raise BundleError(f"truncated PNG: {path.name}")
-            length, kind = int.from_bytes(header[:4], "big"), header[4:]
-            start = source.tell()
-            keyword = reindex._text_keyword(kind, source.read(min(length, 80)))
-            source.seek(start)
-            if keyword in {key.encode("ascii") for key in reindex.PNG_METADATA_KEYS}:
-                source.seek(length + 4, 1)
-                continue
-            if kind in {b"IDAT", b"IEND"} and not inserted:
-                target.write(chunk)
-                inserted = True
-            target.write(header)
-            remaining = length + 4
-            while remaining:
-                block = source.read(min(_CHUNK, remaining))
-                if not block:
-                    raise BundleError(f"truncated PNG: {path.name}")
-                target.write(block)
-                remaining -= len(block)
-            if kind == b"IEND":
-                break
-        if not inserted:
-            raise BundleError(f"PNG has no image data: {path.name}")
-        # Installation moves this file into place rather than copying it.
-        target.flush()
-        os.fsync(target.fileno())
-    temp.replace(path)
-
-
-def _rewrite_all(directory: Path, rewrites: list[tuple[str, dict]]) -> None:
-    """Rewrite staged PNGs' metadata on a pool: each is file I/O and an fsync.
-
-    Failures are raised in order, and every worker has stopped before the
-    staging directory is cleaned up.
-    """
-    with ThreadPoolExecutor(_WORKERS, thread_name_prefix="bundle-rewrite") as pool:
-        futures = [(name, pool.submit(_rewrite_metadata, directory / name, metadata))
-                   for name, metadata in rewrites]
-        for name, future in futures:
-            try:
-                future.result()
-            except (TypeError, ValueError) as exc:
-                pool.shutdown(cancel_futures=True)
-                raise BundleError(f"invalid metadata for {name}: {exc}") from exc
-            except BaseException:
-                pool.shutdown(cancel_futures=True)
-                raise
-
-
-def _critical_digest(source) -> str | None:
-    """SHA-256 of the chunks that decide a PNG's pixels (None if malformed).
-
-    Equal digests mean equal decoded pixels; metadata chunks are ignored.
-    """
-    try:
-        if source.read(8) != reindex._PNG_SIGNATURE:
-            return None
-        digest = hashlib.sha256()
-        while header := source.read(8):
-            if len(header) != 8:
-                return None
-            length, kind = int.from_bytes(header[:4], "big"), header[4:]
-            if kind in {b"IHDR", b"PLTE", b"tRNS", b"IDAT"}:
-                digest.update(header)
-                remaining = length
-                while remaining:
-                    block = source.read(min(_CHUNK, remaining))
-                    if not block:
-                        return None
-                    digest.update(block)
-                    remaining -= len(block)
-                source.seek(4, 1)
-            else:
-                source.seek(length + 4, 1)
-            if kind == b"IEND":
-                return digest.hexdigest()
-        return None
-    except (OSError, ValueError):
-        return None
 
 
 def _claim(source: Path, target: Path) -> None:
@@ -846,116 +384,6 @@ def export_bundle(expected: int, password: str | None = None, progress: Progress
             return result
 
 
-class _Pixels(NamedTuple):
-    hash: str  # storage.content_hash: the gallery's own, of the raw bytes only
-    width: int
-    height: int
-    # What decides the picture: the mode, size, palette and transparency as
-    # well as the full digest of the raw bytes. A palette image's bytes are
-    # indices, so two different pictures can share `hash`.
-    identity: str
-    # Plain RGB, no transparency: what every render is saved as, and so the
-    # only form in which `hash` alone (with the size) decides the picture.
-    rgb: bool
-
-
-def _raw_digest(image: Image.Image) -> str:
-    """SHA-256 of `image.tobytes()`, hashed block by block as Pillow encodes it.
-
-    The same bytes in the same order (`test_raw_digest_is_tobytes`), without
-    the whole-image copy and join, which serialised the decode pool.
-    """
-    digest = hashlib.sha256()
-    if image.width and image.height:
-        encoder = Image._getencoder(image.mode, "raw", image.mode)
-        encoder.setimage(image.im, (0, 0) + image.size)
-        bufsize = max(ImageFile.MAXBLOCK, image.width * 4)  # as tobytes
-        while True:
-            _, status, data = encoder.encode(bufsize)
-            digest.update(data)
-            if status:
-                break
-        if status < 0:
-            raise ValueError(f"encoder error {status} reading the pixels")
-    return digest.hexdigest()
-
-
-def _pixels(path, *, name: str | None = None) -> _Pixels:
-    name = name or path.name
-    try:
-        with Image.open(path) as image:
-            if image.format != "PNG":
-                raise BundleError(f"not a PNG image: {name}")
-            image.load()
-            raw = _raw_digest(image)
-            identity = hashlib.sha256(repr((
-                image.mode, image.size, (image.palette.mode, image.palette.tobytes()) if image.palette else None,
-                image.info.get("transparency"), raw,
-            )).encode()).hexdigest()
-            # The same digest storage.content_hash takes, without a second pass.
-            rgb = image.mode == "RGB" and "transparency" not in image.info
-            return _Pixels(raw[:16], image.width, image.height, identity, rgb)
-    except (OSError, ValueError, Image.DecompressionBombError) as exc:
-        raise BundleError(f"cannot read image {name}: {exc}") from exc
-
-
-def _references(row: dict) -> list[int]:
-    value = row.get("reference")
-    if value is None:
-        return []
-    try:
-        refs = json.loads(value)
-    except (TypeError, ValueError) as exc:
-        raise BundleError(f"invalid references on image {row['id']}") from exc
-    if not isinstance(refs, list) or any(type(i) is not int or i <= 0 for i in refs):
-        raise BundleError(f"invalid references on image {row['id']}")
-    return refs
-
-
-def _validate_source_row(row: dict, source, *, name: str | None = None) -> _Pixels:
-    pixels = _pixels(source, name=name)
-    _validate_row(row, pixels.width, pixels.height, pixels.hash)
-    return pixels
-
-
-def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None:
-    if (width, height) != (row["width"], row["height"]):
-        raise BundleError(f"image dimensions disagree with the database: {row['filename']}")
-    _references(row)
-    refine = row.get("refine")
-    if refine is not None and (type(refine) is not int or refine <= 0):
-        raise BundleError(f"invalid refine source on image {row['id']}")
-    values = {key: row.get(key) for key in storage._COLUMNS}
-    values.update(id=row["id"], content_hash=content_hash)
-    try:
-        storage._row_to_record(values)
-    except (TypeError, ValueError) as exc:
-        raise BundleError(f"invalid metadata for {row['filename']}: {exc}") from exc
-
-
-def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
-    def provenance(image_id):
-        source = by_id.get(image_id)
-        if not source:
-            return None
-        return {"filename": source["filename"], "hash": source["content_hash"],
-                "width": source["width"], "height": source["height"]}
-    refs = _references(row)
-    return {
-        "prompt": row["prompt"], "negative_prompt": row["negative_prompt"],
-        "steps": row["steps"], "guidance_scale": row["guidance_scale"], "true_cfg": row["true_cfg"],
-        "mu": row["mu"], "seed": row["seed"], "model": row["model_id"],
-        "quantization": row["quantization"], "job": row["job_id"], "run": row["run_id"],
-        "size": f"{row['width']}x{row['height']}",
-        "variables": json.loads(row["variables"]) if row["variables"] else None,
-        "hash": row["content_hash"], "reference": refs or None,
-        "reference_sources": [provenance(i) for i in refs] or None,
-        "refine": row["refine"], "refine_source": provenance(row["refine"]),
-        "strength": row["strength"], "lora": row["lora"], "lora_scale": row["lora_scale"],
-        "batch": row.get("batch"),
-    }
-
-
 def import_bundle(path: Path, password: str | None = None, progress: Progress = _quiet) -> dict:
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
@@ -992,7 +420,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                     _validate_row(row, width, height, existing[row["filename"].casefold()]["content_hash"])
                     return None, True
                 pixels = _inspect_source(row, data)
-                return pixels, _pixels(target).identity == pixels.identity
+                return pixels, bundle_images._pixels(target).identity == pixels.identity
 
             def extract(member: str) -> bool:
                 # An existing image wins on repeated import, so its bundle copy
