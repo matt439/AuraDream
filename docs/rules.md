@@ -3729,22 +3729,28 @@ unkept, `reference_paths` refusing, `refine_binned`), `tests/test_gallery.py`
 restore), the refine, grid, Swap, Mass refine and More seeds files (a binned
 source refused, a binned cell not remade until Empty, a picked-then-binned
 id reported "in the recycle bin", seeds past a binned one),
-`tests/test_bundles.py`/`test_api_bundles.py` (the state through a round
-trip, an old bundle live, a repeat import keeping the local state,
-`binned` in the preview), `tests/test_clear.py` (`--bin`, the whole clear
+`tests/test_bundles_repeat.py` (the state through a round trip, a repeat
+import keeping the local state), `tests/test_bundles_merge.py` (an old
+bundle live), `tests/test_api_bundles.py` (`binned` in the preview),
+`tests/test_clear.py` (`--bin`, the whole clear
 and `--where` reaching the bin) and `tests/test_reindex.py` (in place and
 `--database` keeping the state, PNG-only bringing it back live).
 
-`tests/test_bundles.py` covers archive/merge round trips, preserved favourites
-and timings, remapped image links, WAL snapshots, monotonic ids, corrupt or
-unsafe archives, conflicts, rollback (including a database replacement
-refused after every file is installed), changed source files (a same-size,
-same-mtime edit included, so only the pre-cleanup hash catches it), partial
-cleanup (a database replacement refused after files went still reports
-`deleted_ids`) and process/thread reservations, a locked database stopping the clear before
-any file goes, restoring a lost file of a known row, palette/mode identity,
-regenerated thumbnails, oversized members, the cross-volume copy, staging
-and free space per volume, and the leftover sweep. `tests/test_api_bundles.py` covers browser
+The bundle tests share helpers from `tests/bundle_helpers.py`.
+`tests/test_bundles.py` covers export and cleanup: archive/merge round trips,
+preserved favourites and timings, remapped image links, WAL snapshots,
+monotonic ids, changed source files (a same-size, same-mtime edit included,
+so only the pre-cleanup hash catches it), partial cleanup (a database
+replacement refused after files went still reports `deleted_ids`) and a
+locked database stopping the clear before any file goes.
+`tests/test_bundles_merge.py` covers corrupt or unsafe archives, conflicts,
+rollback (including a database replacement refused after every file is
+installed), the cross-volume copy and oversized or padded members.
+`tests/test_bundles_repeat.py` covers restoring a lost file of a known row,
+palette/mode identity and regenerated thumbnails.
+`tests/test_bundles_staging.py` covers staging and free space per volume and
+the leftover sweep, and `tests/test_gallery_lock.py` process/thread
+reservations. `tests/test_api_bundles.py` covers browser
 export/download/upload/import, admission during jobs, the card's editor
 work, a model switch or load lock and maintenance, another process's
 reservation failing the operation readably, origins,
@@ -3759,11 +3765,13 @@ unbounded parameters, the shipped scrypt parameters (17/8/1, 1 MiB chunks;
 `conftest` otherwise writes the cheapest cost) staying within the reader's
 bounds, and an unfinished writer. Password bundles, altered ciphertext (in a
 later chunk too, after members were staged), a failed encrypted
-read-back that clears nothing, and re-encoded existing images on repeat import
-are in `tests/test_bundles.py`, with the speed paths' guarantees: one scrypt
-run per password export, `bundle_images._raw_digest` equal to `tobytes()`, a repeat import
-that decodes and unpacks nothing present but still validates its rows, a
-declined member that vanished, and a failed parallel metadata rewrite.
+read-back that clears nothing and one scrypt run per password export are in
+`tests/test_bundles_password.py`. Re-encoded existing images on repeat
+import are in `tests/test_bundles_repeat.py`, with the speed paths'
+guarantees: `bundle_images._raw_digest` equal to `tobytes()` and a repeat
+import that decodes and unpacks nothing present but still validates its
+rows; `tests/test_bundles_merge.py` holds a declined member that vanished
+and a failed parallel metadata rewrite.
 `test_bundle_crypto.py` also covers writes of any size and the writer's key
 opening only its own header; `test_api_bundles.py` an upload in many batches.
 

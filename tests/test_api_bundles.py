@@ -12,7 +12,7 @@ from fastapi import HTTPException
 
 from backend import api_bundles, bundles, main
 from tests.api_helpers import ORIGIN, run_one
-from tests.test_bundles import _holding_child
+from tests.bundle_helpers import _holding_child
 
 
 def _finish(client, operation_id):
