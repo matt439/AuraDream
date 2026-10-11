@@ -338,7 +338,7 @@ function forgetImages(ids, { binned = false } = {}) {
   // Out of the lightbox's CFG ladders, and a CFG comparison with one of them
   // ends, saying so (lightbox-cfg.js) - before the strips close up under it.
   forgetLadderImages(gone);
-  // The Models picker's strip asks again for what is left (model-switch.js).
+  // The Models picker's strip asks again for what is left (model-shots.js).
   forgetModelShots(gone);
   const focused = document.activeElement;
   // Where the sheet's focus was, before its cells go below: the redraw puts

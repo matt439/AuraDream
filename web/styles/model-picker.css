@@ -148,7 +148,7 @@
   border-top: 1px solid var(--line); background: var(--panel); border-radius: 0 0 var(--r-md) var(--r-md);
 }
 .model-actions > button { min-width: 0; padding-inline: var(--sp-2); }
-/* The chosen checkpoint's images (model-switch.js, drawModelShots). Under
+/* The chosen checkpoint's images (model-shots.js, drawModelShots). Under
    1280 px wide, the strip under the table: a head line and one row of
    square pictures, in a height fixed by the tokens
    whatever the strip holds - pictures, the empty line, a failure, nothing

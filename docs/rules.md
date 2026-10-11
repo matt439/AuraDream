@@ -202,7 +202,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 38 classic
+- `web/` — served as-is from `/static`; `index.html` loads 39 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -218,8 +218,8 @@ before changing it.
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
-  checkpoint selection, retiring state prepared under the old model and the
-  picker's strip of the chosen checkpoint's images;
+  checkpoint selection and retiring state prepared under the old model,
+  `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog and background-operation polling;
   `gallery-select.js` the picked cards, `gallery-batch.js` a card's batch
   on hover, `tag-swap.js` Swap tags,
