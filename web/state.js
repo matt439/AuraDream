@@ -246,7 +246,8 @@ let queuedIds = [];
 // queues it.
 let elsewhereBusy = false;
 // The gallery's newest id as the last status said it (`ModelStatus.
-// newest_image_id`, binned rows included), null before the first: a job
+// newest_image_id`, binned rows included), null before the first gallery
+// page, which sets it (`GalleryPage.newest_image_id`, read with it): a job
 // queued, run and ended between two polls never showed in `active_jobs`, so
 // only this moving says another tab's (or the CLI's) images are in
 // (job-queue.js's followGalleryHead). And the ids this page's watched jobs

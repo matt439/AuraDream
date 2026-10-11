@@ -347,6 +347,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       // With another tab's images owed since this job took over (finishJob);
       // offline, the poll's first answer takes everything in (refreshStatus).
       if (!failure?.offline && (made || elsewhereCatchUp)) {
+        if (elsewhereCatchUp) noteUnseenImages();
         elsewhereCatchUp = false;
         void prependFinished(made);
         loadRuns();

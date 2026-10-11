@@ -267,6 +267,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   // come in with this job's, or alone where it made none.
   const owed = elsewhereCatchUp;
   elsewhereCatchUp = false;
+  // Under a sheet or a filter they may join no strip: the ladders ask anyway.
+  if (owed) noteUnseenImages();
   if (sheet && images.length) { showJob(jobId, { fresh: true, asker: submitted?.asker ?? null }); loadRuns(); }
   else if (images.length || owed) {
     void Promise.resolve(prependFinished(made)).then((coming) => noteOutsideView(images, coming));
@@ -406,7 +408,13 @@ function prependFinished(made, { now = false } = {}) {
       return err.offline ? undefined : resetGallery();
     }
     if (epoch !== galleryEpoch || sheetMode) return;
-    if (!joinsUp(page)) return resetGallery();
+    if (!joinsUp(page)) {
+      // More came in than one page reaches back over: the gallery starts
+      // again, but not under a pointer resting on the column beside the
+      // viewer, as joinFinished's cards wait (an import in another tab).
+      if (!now) await galleryPointerGone();
+      return epoch === galleryEpoch && !sheetMode && !binMode ? resetGallery() : undefined;
+    }
     // What the head says, at once: it is above the cards, and with the
     // gallery beside the viewer above the column they scroll in.
     total = page.total;

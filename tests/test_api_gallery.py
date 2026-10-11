@@ -572,3 +572,18 @@ def test_the_status_names_the_galleries_newest_id_binned_rows_included(client, s
     planted = _plant(store, settings.model_id, seed=8)
     assert planted.id > made
     assert client.get("/api/status").json()["newest_image_id"] == planted.id
+
+
+def test_a_gallery_page_carries_the_newest_id_read_with_it(client, store):
+    # The page's starting point for the status's newest id: read under the
+    # page's own reservation, every row's - another checkpoint's and the
+    # bin's included, whatever the view's filter.
+    page = client.get("/api/gallery").json()
+    assert page["newest_image_id"] == 0
+    mine = _plant(store, settings.model_id, seed=1)
+    theirs = _plant(store, "somebody/else", prompt="a fox", seed=2)
+    page = client.get("/api/gallery", params={"favorites": "true"}).json()
+    assert page["items"] == [] and page["newest_image_id"] == theirs.id > mine.id
+    assert client.post("/api/images/bin", json={"ids": [theirs.id]}).status_code == 200
+    assert client.get("/api/gallery").json()["newest_image_id"] == theirs.id
+    assert client.get("/api/gallery/bin").json()["newest_image_id"] == theirs.id

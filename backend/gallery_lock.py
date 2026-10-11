@@ -18,8 +18,16 @@ class GalleryBusy(RuntimeError):
 # another process's reservation before refusing. A CLI query or one save holds
 # it briefly; SQLite's own busy timeout absorbed that overlap before the
 # reservation existed. Whole maintenance operations (bundles, clear, reindex)
-# pass no wait: a long operation is refused at once rather than queued.
+# pass no wait: a long operation is refused (after MAINTENANCE_GRACE) rather
+# than queued.
 SESSION_WAIT = 30.0
+# And how long one of those maintenance operations still polls for the file
+# lock: a reader holds it for a millisecond or two (a gallery page, the status
+# poll's newest id, every 3 s per open tab), and a single attempt landing in
+# that window refused a CLI `clear` or `reindex` with the server idle. Long
+# enough to ride out a read, short enough that a real holder - another
+# maintenance operation, an export - is still refused at once to a person.
+MAINTENANCE_GRACE = 0.25
 _POLL = 0.05
 _BUSY = "another Local Diffusion process is using the gallery; try again when it finishes"
 
@@ -57,6 +65,10 @@ def hold(database: Path, *, create: bool = True, wait: float = 0.0):
                 held.remove(key)
             return
         path.parent.mkdir(parents=True, exist_ok=True)
+        # Maintenance (no wait) queued behind this process's own holders
+        # above; another process's brief read gets MAINTENANCE_GRACE.
+        if wait <= 0:
+            deadline = time.monotonic() + MAINTENANCE_GRACE
         stream = path.open("a+b")
         try:
             if stream.seek(0, 2) == 0:

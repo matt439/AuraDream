@@ -222,6 +222,23 @@ function noteLadderImages(records) {
   syncCompare(now);
 }
 
+// Images saved that this page was not handed one by one - another tab's
+// job, the CLI's, taken in by a catch-up (catchUpGallery) whose view may
+// leave them out: a sheet, the bin, Starred, a search. Any ladder may have a
+// new value, so every one held, and every answer on its way, is asked again,
+// and the image in view says what it has now. Nothing to do with the
+// lightbox shut: closing it forgets them (forgetLadders).
+function noteUnseenImages() {
+  if (!lbLadders.size && !lbLadderFlights.size) return;
+  for (const flight of lbLadderFlights.values()) flight.stale = true;
+  lbLadderFlights.clear();
+  lbLadders.clear();
+  const now = lbList[lbIndex];
+  if (!els.lightbox.open || !now) return;
+  askLadder(now);
+  syncCompare(now);
+}
+
 // Images deleted (forgetImages, before the strips close up): out of every
 // ladder, and a comparison whose partner went ends, saying so.
 function forgetLadderImages(gone) {

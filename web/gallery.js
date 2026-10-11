@@ -53,6 +53,11 @@ function loadGallery() {
   galleryPending = api(`${galleryEndpoint()}?${params}`)
     .then((page) => {
       if (epoch !== galleryEpoch) return;  // superseded by a reset
+      // The starting point for the status's newest id (followGalleryHead),
+      // read with this page: nothing saved after it is counted as seen.
+      if (newestImageSeen === null && !params.has('before') && Number.isInteger(page.newest_image_id)) {
+        keepGalleryHead(page.newest_image_id);
+      }
       total = page.total;
       els.count.textContent = total ? `(${total})` : '';
       // What the tick would add: the same filter's matches on other

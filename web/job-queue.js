@@ -179,6 +179,10 @@ function followServerJobs(ids, asked) {
 // viewer (isForeign is for one picked up after a job of this page's own).
 // `quiet` where this page's own job takes over - its end catches up.
 let elsewhereNote = null;
+// Another tab's job has ended (setElsewhereBusy): taken in by the same
+// status's followGalleryHead, which has the gallery's newest id to size the
+// page it asks for.
+let elsewhereEnded = false;
 function setElsewhereBusy(on, { quiet = false } = {}) {
   if (elsewhereBusy === on) return;
   elsewhereBusy = on;
@@ -196,11 +200,26 @@ function setElsewhereBusy(on, { quiet = false } = {}) {
   // whatever that job makes (finishJob): a job of this page's cancelled
   // before its first image left the other tab's images out until a reload.
   if (quiet) { elsewhereCatchUp = true; return; }
-  // Not under a sheet: a sheet is a run's or a search's, laid out again
-  // whole by a reset - every cell and control rebuilt - at a moment no one
-  // here chose, after a job this page never started. Sheet off resets the
-  // gallery, which takes the other tab's images in then.
-  if (!sheetMode) void prependFinished(0);
+  // Taken in by the same status's followGalleryHead (catchUpGallery), sized
+  // by how far the gallery's newest id moved meanwhile.
+  elsewhereEnded = true;
+}
+
+// Images this page did not watch being made are in: another tab's job ended,
+// or one ran between two polls, or the CLI's. Every CFG ladder the lightbox
+// holds is asked again (noteUnseenImages), whatever the view takes in - a
+// sheet, the bin, Starred or a search leave them out of `fresh` and
+// joinFinished's noteLadderImages. Not under a sheet: a sheet is a run's or a
+// search's, laid out again whole by a reset - every cell and control rebuilt
+// - at a moment no one here chose, after a job this page never started.
+// Sheet off resets the gallery, which takes the other tab's images in then.
+// `made`: at most how many rows came in (the newest id's move), so the page
+// prependFinished asks for reaches back past them to the head this page
+// holds - an import of a hundred rows otherwise missed it and reset the
+// gallery, emptying the grid under a user paged deep into it.
+function catchUpGallery(made = 0) {
+  noteUnseenImages();
+  if (!sheetMode) void prependFinished(made);
   loadRuns();
 }
 
@@ -215,31 +234,47 @@ let elsewhereCatchUp = false;
 // which never set elsewhereBusy, so its images stayed out of this gallery and
 // its CFG ladders until something else reset them. A move up that this page's
 // own watched jobs do not explain (`ownImageIds`, every id between) is taken
-// in as setElsewhereBusy's end takes another tab's job: prependFinished(0)
-// with its rules (nothing under a sheet or in the bin; cards held while the
-// pointer rests on the gallery's column; no duplicates, joinFinished), and
-// the Runs picker. While a job of this page's runs it is owed to that job's
-// end (`elsewhereCatchUp`); while another tab's runs, its end catches up and
-// this waits for that. `settled`: this status took everything in already -
-// the first one (the baseline, no refresh), a restart, the server back, a
-// checkpoint change, another tab's job just ended. Unknown (None: a bundle
+// in as another tab's job's end is (catchUpGallery: prependFinished with its
+// rules - nothing under a sheet or in the bin; cards held while the pointer
+// rests on the gallery's column; no duplicates, joinFinished - the ladders,
+// the Runs picker). While a job of this page's runs it is owed to that job's
+// end (`elsewhereCatchUp`). While another tab's runs, its images come in as
+// the status counts them: waiting for its end held a chain of them - a
+// queue of Generates, Mass refine or More seeds split into several jobs -
+// out until the last ended, hours for a grid, and a job that ended between
+// two polls with another of that tab's queued behind it. `settled`:
+// this status took everything in already - a restart, the server back, a
+// checkpoint change. The first gallery page sets the starting point (no
+// refresh); statuses before it change nothing. Unknown (None: a bundle
 // operation or a clear holds the gallery) keeps what was said. A fall - a
 // permanent delete of the newest, a clear - is only remembered: the next
 // insert lands past the old value either way.
 function followGalleryHead(newest, settled) {
-  if (!Number.isInteger(newest)) return;
+  const known = Number.isInteger(newest);
   const seen = newestImageSeen;
-  if (seen === null || settled || newest <= seen) { keepGalleryHead(newest); return; }
+  // Another tab's job ended (setElsewhereBusy).
+  if (elsewhereEnded) {
+    elsewhereEnded = false;
+    if (!settled) catchUpGallery(known && seen !== null && newest > seen ? newest - seen : 0);
+    if (known && seen !== null) keepGalleryHead(newest);
+    return;
+  }
+  // Before the first gallery page: that page sets the starting point, read
+  // with it (loadGallery, `GalleryPage.newest_image_id`) - this status's,
+  // a separate read, could count an image saved after the page's SELECT.
+  if (!known || seen === null) return;
+  if (settled || newest <= seen) { keepGalleryHead(newest); return; }
   // This page's own job on its way, or the listing that picks the next one:
-  // decided once they settle. Another tab's job running: its end catches up.
-  if (submitting || jobListing || elsewhereBusy) return;
+  // decided once they settle.
+  if (submitting || jobListing) return;
   let explained = newest - seen <= 4096;
   for (let id = seen + 1; explained && id <= newest; id += 1) explained = ownImageIds.has(id);
   keepGalleryHead(newest);
   if (explained) return;
-  if (busy) { elsewhereCatchUp = true; return; }
-  if (!sheetMode) void prependFinished(0);
-  loadRuns();
+  // This page's own job's end takes the gallery in (`elsewhereCatchUp`); the
+  // ladders are asked now, the images being saved.
+  if (busy) { elsewhereCatchUp = true; noteUnseenImages(); return; }
+  catchUpGallery(newest - seen);
 }
 
 function keepGalleryHead(newest) {

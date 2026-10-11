@@ -3210,6 +3210,27 @@ catch-up of its own. The first status, a restart, the server answering
 again, a checkpoint change and another tab's job ending in the same answer
 only set the baseline: each of those has just taken everything in.
 
+Review of that change (2026-10-12) moved five things. The baseline came
+from the first status, a read separate from the first gallery page, so an
+image saved between the two was counted as seen and never shown; the
+gallery page now carries the newest id read under its own reservation
+(`list_images_at_head`), and that sets it. A rise during another tab's job
+waited for that job's end, which for a chain of its jobs (a queue of
+Generates, Mass refine split into several) was the end of the last one,
+hours for a grid, so rises are now taken in while another tab's job runs
+too, and its images come in job by job. The catch-up's page was the newest
+48, so an import of a hundred rows in another tab did not join up and every
+idle tab reset its gallery, emptying the grid under a pointer; the rise is
+now passed as `made`, and a page that still does not join up resets only
+once the pointer has left the column. The ladders learnt of new images only
+through `fresh`, which a sheet, the bin, Starred or a search leave empty,
+so every catch-up now asks every held ladder again (`noteUnseenImages`).
+And the status poll's file lock, a millisecond or two every 3 s per tab,
+could refuse a CLI `clear` or `reindex` whose single attempt landed inside
+it; maintenance now polls the file lock for `MAINTENANCE_GRACE` (0.25 s)
+before refusing, which rides out any read and still refuses a real holder
+at once to a person.
+
 A page that picks up another tab's job when its own ends (`watchNext`), while
 its viewer holds this session's own results (`isForeign`), shows it in the
 progress row only - no `clearResults`, frame or stand-in - names it "Another

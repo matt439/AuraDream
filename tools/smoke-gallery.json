@@ -346,14 +346,31 @@
   {"eval": "resetPanel(); showError(''); els.search.value = ''; resetGallery();"},
 
   {"log": "'a job this page never saw: sent by a script at the fake\\'s full speed just after a status poll, so it is queued, run and ended before the next and never shows in active_jobs (elsewhereBusy never set) - the status\\'s newest image id moving takes it into the gallery within a poll or two, once, at the head (followGalleryHead, prependFinished, joinFinished), and the polls after it add nothing'"},
-  {"eval": "window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 20)); } }; window.__sawElsewhere = false; window.__elsewhereWatch = setInterval(() => { if (elsewhereBusy) window.__sawElsewhere = true; }, 5); window.__statusAt = 0; window.__receiveStatus = receiveStatus; receiveStatus = (...args) => { window.__statusAt = Date.now(); return window.__receiveStatus(...args); };"},
+  {"eval": "window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 20)); } }; window.__sawElsewhere = false; window.__elsewhereWatch = setInterval(() => { if (elsewhereBusy) window.__sawElsewhere = true; }, 5); window.__statusAt = 0; window.__statusCount = 0; window.__statusHeld = false; window.__receiveStatus = receiveStatus; receiveStatus = (...args) => { if (window.__statusHeld) return undefined; window.__statusAt = Date.now(); window.__statusCount += 1; return window.__receiveStatus(...args); };"},
   {"expect": "__until(() => __statusAt > 0 && Number.isInteger(newestImageSeen) && galleryPending === null && !sheetMode && galleryRecords.length > 0 && !elsewhereBusy && !busy)"},
   {"eval": "(async () => { window.__totalBefore = total; window.__headBefore = newestImageSeen; window.__cardsBefore = els.gallery.querySelectorAll('.card[data-id]').length; const last = __statusAt; await __until(() => __statusAt !== last, 10000); window.__sentAfter = __statusAt; const posted = await __post('/api/generate', {prompt: 'a heron at first light', width: 256, height: 256, seed: 300}); window.__heronJob = posted.job_id; const job = await __wait(posted.job_id); window.__endedAt = Date.now(); window.__heron = job.images[0].id; })()"},
   {"expect": "__endedAt - __sentAfter < 2000 && __heron > __headBefore && !watchedJobs.has(__heronJob) && !__sawElsewhere"},
   {"expect": "__until(() => galleryRecords.some((r) => r.id === __heron), 8000)"},
   {"log": "'and once only: two more polls change nothing'"},
-  {"eval": "window.__polls = __statusAt;"},
-  {"wait": 6500},
-  {"expect": "__statusAt !== __polls && !__sawElsewhere && galleryRecords[0].id === __heron && galleryRecords.filter((r) => r.id === __heron).length === 1 && [...els.gallery.querySelectorAll('.card[data-id]')].filter((c) => Number(c.dataset.id) === __heron).length === 1 && els.gallery.querySelectorAll('.card[data-id]').length === __cardsBefore + 1 && total === __totalBefore + 1 && newestImageSeen === __heron"},
-  {"eval": "clearInterval(__elsewhereWatch); receiveStatus = __receiveStatus;"}
+  {"eval": "window.__polls = __statusCount;"},
+  {"expect": "__until(() => __statusCount >= __polls + 2 && galleryPending === null, 12000)"},
+  {"wait": 300},
+  {"expect": "!__sawElsewhere && galleryRecords[0].id === __heron && galleryRecords.filter((r) => r.id === __heron).length === 1 && [...els.gallery.querySelectorAll('.card[data-id]')].filter((c) => Number(c.dataset.id) === __heron).length === 1 && els.gallery.querySelectorAll('.card[data-id]').length === __cardsBefore + 1 && total === __totalBefore + 1 && newestImageSeen === __heron"},
+  {"eval": "clearInterval(__elsewhereWatch);"},
+
+  {"log": "'another tab\\'s jobs one after another (a queue of Generates, Mass refine split into jobs): the first one\\'s image joins this gallery while the second still runs, not at the end of the chain'"},
+  {"eval": "(async () => { window.__pace = await __post('/api/fake/step', {seconds: 0.3}); window.__crane1Job = (await __post('/api/generate', {prompt: 'a crane in the reeds', steps: 4, width: 256, height: 256, seed: 310})).job_id; window.__crane2Job = (await __post('/api/generate', {prompt: 'a crane at night', steps: 40, width: 256, height: 256, seed: 311})).job_id; window.__crane1 = (await __wait(__crane1Job)).images[0].id; })()"},
+  {"expect": "__until(() => window.__crane1 && elsewhereBusy && galleryRecords.some((r) => r.id === __crane1), 9000)"},
+  {"eval": "(async () => { window.__crane2State = (await (await fetch('/api/jobs/' + __crane2Job)).json()).status; await __post('/api/fake/step', {seconds: __pace.previous}); window.__crane2 = (await __wait(__crane2Job)).images[0].id; })()"},
+  {"expect": "__crane2State === 'running'"},
+  {"expect": "__until(() => !elsewhereBusy && galleryRecords[0].id === __crane2 && galleryRecords[1].id === __crane1 && galleryRecords.filter((r) => r.id === __crane1).length === 1, 9000)"},
+
+  {"log": "'more images than one page reaches back over, between two polls (an import in another tab): they join the head without the gallery starting again - the old head\\'s card is the same node, and the pages scrolled in stay'"},
+  {"expect": "__until(() => galleryPending === null && !elsewhereBusy && !busy)"},
+  {"eval": "(async () => { window.__statusHeld = true; window.__oldHeadCard = els.gallery.querySelector('.card[data-id]'); window.__oldTail = galleryRecords[galleryRecords.length - 1].id; window.__lenBefore = galleryRecords.length; window.__totalBefore2 = total; window.__poppies = (await __wait((await __post('/api/generate', {prompt: 'a field of poppies', runs: 60, width: 256, height: 256, seed: 320})).job_id)).images.map((r) => r.id); window.__statusHeld = false; })()"},
+  {"expect": "__until(() => !__statusHeld, 60000)"},
+  {"expect": "__poppies.length === 60"},
+  {"expect": "__until(() => __poppies.every((id) => galleryRecords.some((r) => r.id === id)), 12000)"},
+  {"expect": "__oldHeadCard.isConnected && galleryRecords.length === __lenBefore + 60 && galleryRecords[galleryRecords.length - 1].id === __oldTail && total === __totalBefore2 + 60 && els.gallery.querySelectorAll('.card[data-id]').length === galleryRecords.length"},
+  {"eval": "receiveStatus = __receiveStatus;"}
 ]

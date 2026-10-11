@@ -944,12 +944,30 @@ def newest_image_id() -> int | None:
         with gallery_lock.hold(settings.db_path, wait=NEWEST_ID_WAIT):
             conn = _connect()
             try:
-                row = conn.execute("SELECT MAX(id) FROM images").fetchone()
+                return _newest_id(conn)
             finally:
                 conn.close()
     except (gallery_lock.GalleryBusy, sqlite3.Error, OSError):
         return None
-    return int(row[0] or 0)
+
+
+def _newest_id(conn: sqlite3.Connection) -> int:
+    return int(conn.execute("SELECT MAX(id) FROM images").fetchone()[0] or 0)
+
+
+def list_images_at_head(**kwargs: Any) -> tuple[list[ImageRecord], int, int, int]:
+    """`list_images`, and `newest_image_id` read under the same reservation.
+
+    The page's starting point for the status's newest id: taken from the
+    first status, a separate read, an image saved between the gallery's
+    SELECT and the status's was counted as seen and never shown. Every insert
+    takes the reservation, so no row lands between these two reads, and the
+    number says exactly what this page could have held."""
+    with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
+        items, total, others = list_images(**kwargs)
+        with _session() as conn:
+            newest = _newest_id(conn)
+    return items, total, others, newest
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)

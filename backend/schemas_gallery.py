@@ -142,6 +142,11 @@ class GalleryPage(BaseModel):
     # and what tells "this run made nothing" from "this run was made on the
     # other model". 0 when `all_models` is on.
     other_models: int = 0
+    # The gallery's highest id over every row, read under the same reservation
+    # as this page (`storage.list_images_at_head`), so no image lands between
+    # the two: the page's starting point for `ModelStatus.newest_image_id`,
+    # which a separate status read could put past an image this page missed.
+    newest_image_id: int | None = None
 
 
 class UnstarredPreview(BaseModel):

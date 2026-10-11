@@ -1051,22 +1051,32 @@ Jobs:
   reservation and answers None rather than queue behind a bundle operation
   or a clear (`/api/status` is exempt from maintenance admission); the
   route reads `active_jobs` first, so a job missing from it has every image
-  counted. The page's `followGalleryHead` (job-queue.js) compares it with
-  `newestImageSeen` (state.js) on every status: the first answer, a restart,
-  the server back, a checkpoint change and another tab's job just ended
-  (`wasElsewhere && !elsewhereBusy`) only set it, since that answer took
-  everything in; a fall (a permanent delete of the newest, a clear) and None
-  change nothing to show. A rise is decided later while this page submits,
-  lists (`jobListing`) or sees another tab's job (whose end catches up); is
-  explained, and only remembered, where every id up to it is one this
+  counted. `GalleryPage.newest_image_id` is the same number read under the
+  page's own reservation (`storage.list_images_at_head`): the first gallery
+  page sets `newestImageSeen` (state.js), never a status - a separate read
+  could count an image saved after the page's SELECT. The page's
+  `followGalleryHead` (job-queue.js) compares the status's with it on every
+  status: a restart, the server back and a checkpoint change only set it,
+  since that answer took everything in; a fall (a permanent delete of the
+  newest, a clear) and None change nothing to show. Another tab's job's end
+  (`setElsewhereBusy`, `elsewhereEnded`) catches up in the same status. A
+  rise is decided later while this page submits or lists (`jobListing`);
+  is explained, and only remembered, where every id up to it is one this
   page's watched jobs streamed or finished (`ownImageIds`, pruned at or
   below the value); is owed to this page's running job's end
-  (`elsewhereCatchUp`); and otherwise is taken in as another tab's job's end
-  is - `prependFinished(0)` (never under a sheet nor in the bin, cards held
-  while the pointer rests on the column beside the viewer, no duplicates:
-  `joinFinished`, `noteLadderImages` for the fresh) and `loadRuns`. A job
-  queued, run and ended between two polls never showed in `active_jobs`,
-  and its images otherwise stayed out of the gallery and the CFG ladders.
+  (`elsewhereCatchUp`, the ladders asked at once); and otherwise - another
+  tab's job running included, so a chain of its jobs comes in job by job -
+  is taken in by `catchUpGallery(newest - seen)`: `noteUnseenImages` (every
+  ladder the lightbox holds asked again, whatever the view takes in - a
+  sheet, the bin, Starred and a search leave the images out of `fresh`),
+  `prependFinished` with the rise as `made` so its page reaches back over
+  an import to the head held (never under a sheet nor in the bin, cards
+  held while the pointer rests on the column beside the viewer, no
+  duplicates: `joinFinished`), and `loadRuns`. Where even that page does not
+  join up, `prependFinished` resets the gallery only once the pointer has
+  left the column. A job queued, run and ended between two polls never
+  showed in `active_jobs`, and its images otherwise stayed out of the
+  gallery and the CFG ladders.
 - `main.Server.handle_exit` stops the active jobs (`jobs.stop_all("shutdown")`)
   and starts the critic's stop on the signal itself. The load, the critic's `prepare()`, Check's
   analysis and the critique's analysis and lint run on daemon threads
@@ -1189,8 +1199,11 @@ Jobs:
   `delete_image`, `bin_images`, `restore_images`, `init_db`) wait up to
   `gallery_lock.SESSION_WAIT` for another process's reservation; whole
   maintenance operations (bundles, `delete_matching`, `empty_bin`,
-  `clear_history`, `vacuum`, reindex/merge) refuse at once with
-  `GalleryBusy`. None of the bin's routes is in `GalleryAdmission.control`:
+  `clear_history`, `vacuum`, reindex/merge) refuse with `GalleryBusy`
+  after `MAINTENANCE_GRACE` (0.25 s) of polling for the file lock, long
+  enough to ride out another process's read (a gallery page, the status
+  poll's newest id every 3 s per open tab), never queued behind a real
+  holder. None of the bin's routes is in `GalleryAdmission.control`:
   a bundle operation refuses them, and they hold one off. The wait covers the in-process lock too (one
   deadline in `hold`), never `wait` per thread queued behind it; `jobs._save`
   retries a `GalleryBusy` save until the job is cancelled, never dropping a
@@ -4801,7 +4814,9 @@ step taking it back) and their own titles back on an image with a
 neighbour; the held reason "in the newest 1" for an answer cut short; a job
 landing a new CFG value for the image in view (the script's, at the fake's
 own pace: it ends between two status polls, never in `active_jobs`, and
-the status's `newest_image_id` moving takes it in); "may be incomplete" on a
+the status's `newest_image_id` moving takes it in), and again with Starred
+on, the new image in no strip the view holds and the ladder asked again
+all the same (`noteUnseenImages`); "may be incomplete" on a
 full page; an image opened alone held while asked ("Looking for…"), the
 request's terms, then a partner the arrows do not step to; the ladder read
 past a full page by `before=` (one-row pages); an answer held in flight
@@ -4859,7 +4874,11 @@ speed just after a status poll, ended before the next and never in
 `active_jobs` (`elsewhereBusy` never set, the page watching none of it),
 taken in by the status's `newest_image_id` (`followGalleryHead`) within a
 poll or two - once, at the head, one more card and one more in the count,
-and two more polls adding nothing:
+and two more polls (counted, not waited out) adding nothing; another tab's
+two jobs in a row, the first one's image in while the second still runs;
+and sixty images between two polls (the page's statuses held meanwhile),
+more than one page reaches back over, joining the head with the old head's
+card the same node and the paged-in tail kept, no reset:
 
 ```powershell
 uv run python tools/fake_server.py --port 7885

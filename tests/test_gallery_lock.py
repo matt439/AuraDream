@@ -48,6 +48,22 @@ def test_a_waiting_session_gets_the_gallery_once_another_process_lets_go(store):
         child.wait(timeout=15)
 
 
+def test_maintenance_rides_out_another_processs_brief_read(store):
+    # A reader holds the file lock for a millisecond or two - every open
+    # tab's status poll reads the newest id - and a maintenance call whose
+    # one attempt landed inside it was refused with the server idle.
+    child = _holding_child(store.settings.db_path)
+    try:
+        threading.Timer(0.05, lambda: (child.stdin.write("\n"), child.stdin.flush())).start()
+        started = time.monotonic()
+        with gallery_lock.hold(store.settings.db_path):
+            waited = time.monotonic() - started
+        assert waited < gallery_lock.MAINTENANCE_GRACE + 0.2
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+
+
 def test_a_waiting_session_refuses_once_its_deadline_passes(store, monkeypatch):
     child = _holding_child(store.settings.db_path)
     try:

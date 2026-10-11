@@ -115,8 +115,8 @@ def create_router(
         try:
             # One row past the page, so `has_more` is a fact rather than a guess
             # from a total that keeps growing while the page is read.
-            items, total, others = await asyncio.to_thread(
-                storage.list_images,
+            items, total, others, newest = await asyncio.to_thread(
+                storage.list_images_at_head,
                 limit=limit + 1,
                 offset=offset,
                 search=search,
@@ -133,6 +133,7 @@ def create_router(
             offset=offset,
             has_more=len(items) > limit,
             other_models=others,
+            newest_image_id=newest,
         )
 
 
@@ -209,8 +210,8 @@ def create_router(
         does not apply.
         """
         try:
-            items, total, _ = await asyncio.to_thread(
-                storage.list_images,
+            items, total, _, newest = await asyncio.to_thread(
+                storage.list_images_at_head,
                 limit=limit + 1,
                 offset=offset,
                 search=search,
@@ -226,6 +227,7 @@ def create_router(
             offset=offset,
             has_more=len(items) > limit,
             other_models=0,
+            newest_image_id=newest,
         )
 
 
