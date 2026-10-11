@@ -5,7 +5,7 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException
 
-from . import grid, more_seeds, storage, submission
+from . import gallery_reports, grid, more_seeds, storage, submission
 from .app_context import AppServices
 from .schemas import (
     ImageRecord,
@@ -180,8 +180,8 @@ def create_router(services: AppServices) -> APIRouter:
         unpriced = 0
         for (width, height), group in _batches_by_size(queued).items():
             cells = [cell for batch in group for cell in batch.cells]
-            per_step_ms = await asyncio.to_thread(storage.step_cost_ms, width, height, model)
-            refine_costs = await asyncio.to_thread(storage.refine_cost_ms, width, height, model)
+            per_step_ms = await asyncio.to_thread(gallery_reports.step_cost_ms, width, height, model)
+            refine_costs = await asyncio.to_thread(gallery_reports.refine_cost_ms, width, height, model)
             priced = grid.estimate_seconds(cells, per_step_ms, refine_costs=refine_costs)
             if priced is None:
                 unpriced += 1

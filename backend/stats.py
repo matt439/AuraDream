@@ -34,7 +34,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 try:
-    from backend import storage
+    from backend import gallery_reports
     from backend.config import settings
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
@@ -91,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--by",
         default="steps,cfg,mu",
-        help="comma-separated columns to group by: " + ", ".join(storage._GROUPS) + " (size is always included)",
+        help="comma-separated columns to group by: " + ", ".join(gallery_reports._GROUPS) + " (size is always included)",
     )
     parser.add_argument(
         "--min", type=int, default=5, metavar="N",
@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.all:
         search, label = None, "the whole gallery (indicative: settings and prompts changed together)"
     else:
-        newest = storage.runs(limit=1)
+        newest = gallery_reports.runs(limit=1)
         if not newest:
             print("No runs in the gallery; --all reads everything.", file=sys.stderr)
             return 1
@@ -122,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
 
     by = [part.strip() for part in args.by.split(",") if part.strip()]
     try:
-        rows = storage.keep_rates(search, by=by, min_made=max(1, args.min))
+        rows = gallery_reports.keep_rates(search, by=by, min_made=max(1, args.min))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2

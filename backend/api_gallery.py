@@ -7,7 +7,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import RedirectResponse
 
-from . import storage
+from . import gallery_delete, gallery_reports, storage
 from .jobs import JobManager
 from .schemas import (
     BinResult,
@@ -78,7 +78,7 @@ def create_router(
         Scoped like the gallery it lists: this checkpoint's runs unless asked for
         every one, so picking a run never opens an empty sheet.
         """
-        return await asyncio.to_thread(storage.runs, limit, model_scope(all_models))
+        return await asyncio.to_thread(gallery_reports.runs, limit, model_scope(all_models))
 
 
     @router.get("/api/gallery", response_model=GalleryPage)
@@ -182,7 +182,7 @@ def create_router(
         image out from now on. `already` is an id another press or tab binned
         first, `missing` one the gallery does not hold at all.
         """
-        result = await asyncio.to_thread(storage.bin_images, body.ids)
+        result = await asyncio.to_thread(gallery_delete.bin_images, body.ids)
         get_jobs().forget_images(result["binned"], binned=True)
         return BinResult(**result)
 
@@ -190,7 +190,7 @@ def create_router(
     @router.post("/api/images/restore", response_model=RestoreResult)
     async def restore_images(body: IdsBody) -> RestoreResult:
         """Bring images back out of the recycle bin, usable again at once."""
-        result = await asyncio.to_thread(storage.restore_images, body.ids)
+        result = await asyncio.to_thread(gallery_delete.restore_images, body.ids)
         get_jobs().restore_images(result["restored"])
         return RestoreResult(**result)
 
@@ -234,7 +234,7 @@ def create_router(
         """The bin's count and size, which binned images a live one needs, and
         whether a job is queued or running: what the footer and Empty recycle
         bin's confirmation say."""
-        found = await asyncio.to_thread(storage.bin_summary)
+        found = await asyncio.to_thread(gallery_delete.bin_summary)
         return BinSummary(**found, job_active=get_jobs().busy())
 
 
@@ -248,8 +248,8 @@ def create_router(
         fewer.
         """
         try:
-            result = await asyncio.to_thread(storage.empty_bin, expected)
-        except storage.SelectionChanged as exc:
+            result = await asyncio.to_thread(gallery_delete.empty_bin, expected)
+        except gallery_delete.SelectionChanged as exc:
             raise HTTPException(
                 status_code=409,
                 detail=f"The recycle bin changed: {exc.found} images are in it now, not the "
@@ -263,7 +263,7 @@ def create_router(
     async def delete(image_id: int) -> dict:
         """Delete one image and its PNG for good, live or binned: the bin
         view's Delete permanently. The page's ordinary delete bins."""
-        if not await asyncio.to_thread(storage.delete_image, image_id):
+        if not await asyncio.to_thread(gallery_delete.delete_image, image_id):
             raise HTTPException(status_code=404, detail="unknown image")
         # A page that reattaches to the job that made it is replayed the job's
         # records; a deleted one came back as a broken tile.
@@ -295,7 +295,7 @@ def create_router(
         "made since this page last loaded", counted as the delete counts.
         """
         found = await asyncio.to_thread(
-            storage.matching_preview, _unstarred_scope(search), model_scope(all_models), newer_than,
+            gallery_delete.matching_preview, _unstarred_scope(search), model_scope(all_models), newer_than,
             live_only=True,
         )
         return UnstarredPreview(
@@ -331,14 +331,14 @@ def create_router(
         scope = _unstarred_scope(search)
         try:
             result = await asyncio.to_thread(
-                storage.delete_matching,
+                gallery_delete.delete_matching,
                 scope,
                 keep_favorites=True,
                 expected=expected,
                 model_id=model_scope(all_models),
                 to_bin=True,
             )
-        except storage.SelectionChanged as exc:
+        except gallery_delete.SelectionChanged as exc:
             # Whether a job may move the count again is the server's to say: the
             # job is as likely another tab's as the asking page's.
             running = (

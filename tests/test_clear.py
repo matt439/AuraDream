@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from backend import clear, storage
+from backend import clear, gallery_delete, storage
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def test_the_report_is_printed_even_when_vacuum_fails(fresh, capsys, monkeypatch
     def locked():
         raise sqlite3.OperationalError("database is locked")
 
-    monkeypatch.setattr(storage, "vacuum", locked)
+    monkeypatch.setattr(gallery_delete, "vacuum", locked)
     assert clear.main(["--yes"]) == 0
     captured = capsys.readouterr()
     assert "Deleted 0 record(s), 0 file(s), 1 orphan(s)." in captured.out
@@ -73,7 +73,7 @@ def test_a_failure_after_the_deletion_has_its_own_exit_code(fresh, monkeypatch):
     def boom(keep_favorites=False):
         raise OSError("disk full")
 
-    monkeypatch.setattr(storage, "clear_history", boom)
+    monkeypatch.setattr(gallery_delete, "clear_history", boom)
     # 1 is "aborted, nothing deleted"; this is the opposite case.
     assert clear.main(["--yes"]) == 3
 
@@ -234,7 +234,7 @@ def test_bin_refuses_a_bin_that_changed_after_its_preview(fresh, capsys, monkeyp
         storage.bin_images([made["b"].id])  # binned in the browser meanwhile
         return found
 
-    monkeypatch.setattr(storage, "bin_summary", then_another)
+    monkeypatch.setattr(gallery_delete, "bin_summary", then_another)
     assert clear.main(["--bin", "--yes"]) == 1
     assert "Nothing was deleted" in capsys.readouterr().err
     assert all((fresh.outputs_dir / r.filename).exists() for r in made.values())

@@ -5,7 +5,7 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException
 
-from . import grid, storage, submission
+from . import gallery_reports, grid, submission
 from .app_context import AppServices
 from .schemas import (
     GenerateRequest,
@@ -214,13 +214,13 @@ def create_router(services: AppServices) -> APIRouter:
             )
         # Cost is per step, and a grid's cells rarely agree on how many they take.
         per_step_ms = await asyncio.to_thread(
-            storage.step_cost_ms, request.width, request.height, services.model_id()
+            gallery_reports.step_cost_ms, request.width, request.height, services.model_id()
         )
         refine_costs = await asyncio.to_thread(
-            storage.refine_cost_ms, request.width, request.height, services.model_id()
+            gallery_reports.refine_cost_ms, request.width, request.height, services.model_id()
         )
         per_image_bytes = await asyncio.to_thread(
-            storage.image_bytes, request.width, request.height, services.model_id()
+            gallery_reports.image_bytes, request.width, request.height, services.model_id()
         )
         images = len(cells) * request.num_images
         listed = len(values.get("seed", []))

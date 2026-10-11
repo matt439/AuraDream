@@ -1166,8 +1166,8 @@ estimates account for the sliced schedule: the step callback reads
 `pipe.num_timesteps` for progress events, while the initial job total uses
 `refine.steps_run` with the checkpoint's integer rounding. `refine.start_index`
 also makes the duplicate advisory count strengths that begin at the same
-step; reproduction keys retain the requested strength. `storage.step_cost_ms`
-uses direct rows only. `storage.refine_cost_ms` keeps full per-image refine
+step; reproduction keys retain the requested strength. `gallery_reports.step_cost_ms`
+uses direct rows only. `gallery_reports.refine_cost_ms` keeps full per-image refine
 durations, including encoding and decoding, grouped by actual denoised step
 count at the same size and checkpoint. A refine estimate needs matching
 history for every count; it does not extrapolate from direct renders or a
@@ -2333,7 +2333,7 @@ construction and never get the clause (U72's recommendation item 5, which the
 
 `POST /api/grid/preview` runs the same expansion without queueing it, so the
 panel's count, its resolved axes and its error text are the run's own. Its
-direct-render duration estimate is per *step* (`storage.step_cost_ms`), measured
+direct-render duration estimate is per *step* (`gallery_reports.step_cost_ms`), measured
 from recent direct gallery rows at the same size **on the same checkpoint** (klein's step is half
 of Turbo's at 1 MP): a grid's cells disagree about step count, so an average
 image duration would misstate most of them. Refine estimates instead use full
@@ -4283,7 +4283,7 @@ whole gallery when one run was meant. So the confirmation is not a yes/no:
 the dialog shows them, and asks for the number of images to be typed back.
 Typing "405" when "12" was meant is the moment the wrong scope is noticed.
 The `DELETE` then carries that number as `expected`, and
-`storage.delete_matching` compares it against a `COUNT(*)` taken under the
+`gallery_delete.delete_matching` compares it against a `COUNT(*)` taken under the
 write lock before the `DELETE ... RETURNING`: a sweep that lands more
 unstarred images while the dialog is open (the queue keeps running while
 one triages) is answered 409 with both numbers rather than swept up on a
@@ -4335,7 +4335,7 @@ pass, sweep the rest: the sweep used to delete the source's PNG, the kept
 pass then read "refine of #63 @ 0.1" for good and could never be made again,
 and nothing before the click said so. The source is part of the pass's
 reproduction set, and a klein render's references are part of its, so
-`keep_favorites` keeps them with the stars: one predicate in storage
+`keep_favorites` keeps them with the stars: one predicate in `gallery_delete`
 (`_UNKEPT`: `favorite = 0` and not the `refine` or a `json_each(reference)`
 value of any starred row, one level deep, neither arm able to yield the NULL
 that would turn `NOT IN` into NULL), shared by `delete_matching`,
@@ -4540,7 +4540,7 @@ same call from the terminal, previewed with the same summary.
 ## The morning after: runs and finished jobs
 
 **The morning after has two sources.** `GET /api/runs` groups the gallery
-by `run_id` (`storage.runs`: images, favourites, distinct prompts, jobs,
+by `run_id` (`gallery_reports.runs`: images, favourites, distinct prompts, jobs,
 first/last timestamp, and the *oldest* image's prompt and seed - the base
 seed a resume needs); it outlives the process and answers "how many and
 when". `GET /api/jobs?include_finished=true` adds the terminal jobs from
@@ -4601,7 +4601,7 @@ for anything else or a run it does not list. Every line of a session still
 read alike - "6 img · A weathered lighthouse…" for a steps × CFG grid, a
 batch and a refine sweep - so `/api/runs` now says what varied: each
 setting's count of distinct values over the run where it is above one
-(`RunSummary.axes`, from `storage._RUN_AXES`: steps, cfg, mu, true_cfg, the
+(`RunSummary.axes`, from `gallery_reports._RUN_AXES`: steps, cfg, mu, true_cfg, the
 adapter and its weight, strength, reference, seed and a comparison's
 variant label), and the source every image refines with the strengths it
 ran at (`refine`, `strengths`). The picker names the run by them ahead of
@@ -8521,7 +8521,7 @@ labelled GB and MB, which made the critic's 4,856,283,677 bytes "about
 4.5 GB" where the Hub lists 4.86 GB; they are labelled as computed now
 (2026-10-05), GiB, MiB and KiB, as nvidia-smi reads the card, rather than
 recomputed to decimal, in which a 16 GiB card would read 17.1 GB. The CLI's
-`storage.human_bytes` says the same. So `prepare()` runs before the gate, on a daemon thread
+`gallery_reports.human_bytes` says the same. So `prepare()` runs before the gate, on a daemon thread
 as the model load does (a Ctrl-C must not wait out a download), and the route
 checks the queue and the load again afterwards, since minutes may have passed.
 A cached `prepare()` is not quite offline: `hf_hub_download` builds

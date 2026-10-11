@@ -398,7 +398,7 @@ def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import grid, loras, refine, storage
+        from backend import gallery_reports, grid, loras, refine, storage
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
@@ -413,6 +413,7 @@ def _project() -> SimpleNamespace:
             '    uv run python -m backend.generate "your prompt"\n'
         )
     return SimpleNamespace(
+        gallery_reports=gallery_reports,
         grid=grid,
         loras=loras,
         refine=refine,
@@ -863,8 +864,8 @@ def main(argv: list[str] | None = None) -> int:
         if p.settings.db_path.exists():
             seconds = p.grid.estimate_seconds(
                 cells,
-                p.storage.step_cost_ms(request.width, request.height, p.settings.model_id),
-                refine_costs=p.storage.refine_cost_ms(
+                p.gallery_reports.step_cost_ms(request.width, request.height, p.settings.model_id),
+                refine_costs=p.gallery_reports.refine_cost_ms(
                     request.width, request.height, p.settings.model_id
                 ),
             )
@@ -873,7 +874,7 @@ def main(argv: list[str] | None = None) -> int:
             # And the disk, which is the other thing a night can run out of:
             # a full volume dies at the first save, and per the cell rule
             # takes every remaining cell with it.
-            per_image = p.storage.image_bytes(request.width, request.height, p.settings.model_id)
+            per_image = p.gallery_reports.image_bytes(request.width, request.height, p.settings.model_id)
             if per_image:
                 import shutil
 
@@ -882,9 +883,9 @@ def main(argv: list[str] | None = None) -> int:
                     free = shutil.disk_usage(p.settings.outputs_dir).free
                 except OSError:
                     free = None
-                line = f"disk     : about {p.storage.human_bytes(need)} of PNGs"
+                line = f"disk     : about {p.gallery_reports.human_bytes(need)} of PNGs"
                 if free is not None:
-                    line += f"; {p.storage.human_bytes(free)} free"
+                    line += f"; {p.gallery_reports.human_bytes(free)} free"
                     if need > free:
                         line += "  [NOT ENOUGH]"
                 print(line)

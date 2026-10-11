@@ -144,6 +144,11 @@ before changing it.
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/gallery_reports.py` — read-only aggregate queries: the preview's
+  cost and size estimates, keep rates, runs (reads `storage` at call time)
+- `backend/gallery_delete.py` — taking images out: the keep-favourites
+  predicates, scoped delete and its preview, per-image delete, recycle bin,
+  clear and VACUUM (under `storage._write_lock`, read at call time)
 - `backend/gallery_lock.py` — reentrant reservation of complete gallery
   operations across threads and cooperating server/CLI processes
 - `backend/bundles.py` — verified ZIP snapshots, source cleanup and staged
@@ -180,7 +185,7 @@ before changing it.
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone
-- `backend/stats.py` — the starred *rate* per setting (`storage.keep_rates`),
+- `backend/stats.py` — the starred *rate* per setting (`gallery_reports.keep_rates`),
   scoped to a run by default; `--by variant` gives a comparison's rate
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
@@ -723,8 +728,8 @@ Reproduction:
 - The recycle bin is the `binned_at` column (ISO UTC text like `created_at`,
   NULL while live, never NOT NULL: an older database or bundle reads None and
   is live). Every page-side delete bins (`POST /api/images/bin`,
-  `storage.bin_images`); only Empty recycle bin (`DELETE /api/gallery/bin`,
-  `storage.empty_bin`), `DELETE /api/images/{id}` (the bin view's Delete
+  `gallery_delete.bin_images`); only Empty recycle bin (`DELETE /api/gallery/bin`,
+  `gallery_delete.empty_bin`), `DELETE /api/images/{id}` (the bin view's Delete
   permanently, permanent for live and binned rows alike) and `clear` remove
   PNGs. Files and thumbnails never move: a bundle's inventory takes only
   `images/*` and `images/thumbnails/*`, and a Restore is one UPDATE. A binned
@@ -819,8 +824,8 @@ Reproduction:
   the schedule's length, of which about `steps * strength` run
   (`refine.steps_run`, SDXL/flow rounding from `refine.start_index`; unknown
   profiles use the floor until the callback supplies the pipeline's count).
-  A job's initial `total_steps` uses that count. `storage.step_cost_ms` prices
-  direct rows only; `storage.refine_cost_ms` prices a pass from full per-image
+  A job's initial `total_steps` uses that count. `gallery_reports.step_cost_ms` prices
+  direct rows only; `gallery_reports.refine_cost_ms` prices a pass from full per-image
   durations at the same size, checkpoint and denoised step count, with no
   estimate where matching history is absent. The duplicate advisory compares
   schedule start indices; reproduction keys retain the requested strength.
@@ -1848,7 +1853,7 @@ Frontend and CLI:
   and joined to the last word by a word joiner in its `::before`. A size is
   binary and labelled so (`humanBytes`: KiB, MiB, GiB), as every size the
   page shows is - the topbar's VRAM and free disk too - and the CLI's
-  `storage.human_bytes`; any answer, shown or
+  `gallery_reports.human_bytes`; any answer, shown or
   set aside, sets `promptCritiqueReady` at once. An answer takes focus
   (`#critic-result`, tabindex=-1) while focus is still on the button; so does
   a failed critique's row (`critiqueFailure`, never a `critiqueResult`), which
@@ -3176,7 +3181,7 @@ Frontend and CLI:
   pass's, counts all, and answers the resolved `ids`, the strength, the
   `foreign` count and `models`, `passes`, `largest` (the largest source the
   scale applies to, by pixels, `pass` and `foreign` left out), `seconds`
-  (summed per size from `storage.refine_cost_ms`, None with
+  (summed per size from `gallery_reports.refine_cost_ms`, None with
   `unpriced_sizes` where any size has no history) and
   `start_sigma_low`/`high` (`backend.start_sigma` over the distinct applied
   passes, None where any reads None or past `api_refine_batch.REFINE_BATCH_SIGMA_KEYS`, 8);
@@ -3494,7 +3499,7 @@ Frontend and CLI:
   `/api/runs?limit=200` and groups the result: "Grids and batches" (images > 1
   or jobs > 1, labelled with count, distinct, "N prompts" and what varied -
   `runAxes` over `RunSummary.axes` (each setting's count of distinct values
-  where above one, from `storage._RUN_AXES`), `refine` and `strengths`:
+  where above one, from `gallery_reports._RUN_AXES`), `refine` and `strengths`:
   "steps×CFG 3×2", "steps ×8 · 5 seeds", "strength 0.05-0.15 of #37",
   "comparison · 3 versions"), then at most
   eight "Single images" by time to the second and seed. It names the run the
@@ -3548,7 +3553,7 @@ Frontend and CLI:
   to the search box (`keepUnstarredFocus`), never `<body>`.
   `keep_favorites` keeps the live stars and what a live starred
   row was made from - its `refine` source and its `reference` ids - through
-  one predicate (`storage._UNKEPT`) that `delete_matching`, `clear_history`
+  one predicate (`gallery_delete._UNKEPT`) that `delete_matching`, `clear_history`
   and the counts share; `matching_preview` returns `sources_kept`, and the
   route's `unstarred` and both CLI counts are `records - favorites -
   sources_kept` (`favorites` the live stars), so the typed count is the
@@ -3617,9 +3622,9 @@ Frontend and CLI:
   The smokes stand in for it by assigning `askConfirm`/`askCount` and put
   back `confirmDialog`/`countDialog`; `smoke-delete.json` drives the dialog
   itself. A delete under way ignores a second
-  press of the same image (`deleting`); `storage.bin_images` looks up and
-  writes under `_write_lock`, so a second bin answers `already`, and
-  `storage.delete_image` does the same, so a second permanent delete is
+  press of the same image (`deleting`); `gallery_delete.bin_images` looks up and
+  writes under `storage._write_lock`, so a second bin answers `already`, and
+  `gallery_delete.delete_image` does the same, so a second permanent delete is
   "unknown image".
 - The recycle bin's view (`bin.js`, `styles/bin.css`; `smoke-bin.json`).
   `#btn-bin` ("Bin" and a `.count`, `aria-pressed`) sits in the footer row

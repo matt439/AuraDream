@@ -28,7 +28,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 try:
-    from backend import storage
+    from backend import gallery_delete, gallery_reports, storage
     from backend.config import settings
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     # Almost always `py clear.py` or a bare `python clear.py`, which picks the
@@ -41,7 +41,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     )
 
 
-_human = storage.human_bytes
+_human = gallery_reports.human_bytes
 
 
 def _keeping(favorites: int, sources: int) -> str:
@@ -96,7 +96,7 @@ def _clear_where(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 2
     try:
-        found = storage.matching_preview(args.where)
+        found = gallery_delete.matching_preview(args.where)
     except ValueError as exc:
         print(f"--where: {exc}", file=sys.stderr)
         return 2
@@ -135,7 +135,7 @@ def _clear_where(args: argparse.Namespace) -> int:
     if not _confirm(args.yes):
         return 1
     try:
-        result = storage.delete_matching(args.where, keep_favorites=args.keep_favorites)
+        result = gallery_delete.delete_matching(args.where, keep_favorites=args.keep_favorites)
     except Exception as exc:  # noqa: BLE001 - report, with the post-deletion code
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 3
@@ -154,7 +154,7 @@ def _clear_bin(args: argparse.Namespace) -> int:
     if not settings.db_path.exists():
         print("No gallery yet.", file=sys.stderr)
         return 1
-    found = storage.bin_summary()
+    found = gallery_delete.bin_summary()
     print(f"database : {settings.db_path}")
     print(f"images   : {settings.outputs_dir}")
     print()
@@ -175,8 +175,8 @@ def _clear_bin(args: argparse.Namespace) -> int:
     if not _confirm(args.yes):
         return 1
     try:
-        result = storage.empty_bin(expected=found["records"])
-    except storage.SelectionChanged as exc:
+        result = gallery_delete.empty_bin(expected=found["records"])
+    except gallery_delete.SelectionChanged as exc:
         print(
             f"The recycle bin changed: {exc.found} images are in it now, not the "
             f"{exc.expected} shown. Nothing was deleted; run it again.",
@@ -235,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
     # A dry run reports; it does not create the database it is reporting on.
     if not args.dry_run:
         storage.init_db()
-    before = storage.summarise()
+    before = gallery_delete.summarise()
 
     kept = before["favorites"] if args.keep_favorites else 0
     sources = before["sources_kept"] if args.keep_favorites else 0
@@ -277,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        result = storage.clear_history(keep_favorites=args.keep_favorites)
+        result = gallery_delete.clear_history(keep_favorites=args.keep_favorites)
     except Exception as exc:  # noqa: BLE001 - report, and say it is not the abort code
         # Its own code: 1 is "aborted, nothing deleted", and this is the
         # opposite - the destructive step ran and then something went wrong.
@@ -294,10 +294,10 @@ def main(argv: list[str] | None = None) -> int:
         + "."
     )
     try:
-        storage.vacuum()
+        gallery_delete.vacuum()
     except Exception as exc:  # noqa: BLE001 - best effort
         print(f"note: could not compact the database ({exc}); it will shrink later.", file=sys.stderr)
-    after = storage.summarise()
+    after = gallery_delete.summarise()
     print(f"Remaining: {after['records']} record(s), {after['files_on_disk']} file(s), "
           f"{_human(after['bytes_on_disk'])}.")
     return 0

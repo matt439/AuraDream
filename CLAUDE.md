@@ -72,6 +72,8 @@ Backend (`backend/`):
   `bundle_crypto.py` its optional password layer;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
+  `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`
+  scoped delete, recycle bin, clear;
   `search.py` search grammar; `grid.py` axes, variables, variants, cells,
   records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
   `refine_batch.py` Mass refine's per-image plan; `more_seeds.py` More

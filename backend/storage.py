@@ -1,7 +1,14 @@
-"""Gallery persistence: SQLite index plus PNGs carrying their own metadata."""
+"""Gallery persistence: SQLite index plus PNGs carrying their own metadata.
+
+The read-only aggregate queries (estimates, keep rates, runs) are
+`gallery_reports`; taking images out (scoped delete, recycle bin, clear) is
+`gallery_delete`. Both read this module's settings and helpers at call time,
+and their names still resolve here through `__getattr__` at the end.
+"""
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import logging
 import re
@@ -22,14 +29,11 @@ from .config import settings
 from . import gallery_lock
 # The three key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
-# alike. `grid` imports neither this module nor anything that does. VARIANT is
-# the variable a comparison's versions are recorded under, which `keep_rates`
-# groups by.
-from .grid import VARIANT, lora_key, reference_key, refine_key
+# alike. `grid` imports neither this module nor anything that does.
+from .grid import lora_key, reference_key, refine_key
 from .metadata import PNG_METADATA_KEY
-from .refine import start_index
-from .search import TRUE_CFG_SQL, like_escape, split_search, strict_scope
-from .schemas import ImageRecord, RunSummary, effective_true_cfg
+from .search import like_escape, split_search
+from .schemas import ImageRecord, effective_true_cfg
 
 if TYPE_CHECKING:
     from .grid import CellKey
@@ -392,17 +396,6 @@ def _insert_row(conn: sqlite3.Connection, values: dict[str, Any]) -> sqlite3.Row
     return conn.execute("SELECT * FROM images WHERE id = ?", (cur.lastrowid,)).fetchone()
 
 
-def human_bytes(n: int | float) -> str:
-    """Binary, and labelled so (KiB, MiB, GiB), as the page's humanBytes:
-    the CLI's disk line and the preview's size are the same estimate."""
-    size = float(n)
-    for unit in ("B", "KiB", "MiB", "GiB"):
-        if size < 1024 or unit == "GiB":
-            return f"{size:.1f} {unit}"
-        size /= 1024
-    return f"{size:.1f} GiB"
-
-
 def image_provenance(image_id: int | None) -> dict[str, Any] | None:
     """Portable identity for a gallery-local conditioning id in a PNG.
 
@@ -698,63 +691,6 @@ def discard_bundle_leftovers() -> int:
     return sum(1 for path in _bundle_leftovers() if path in stale and _discard(path))
 
 
-def step_cost_ms(
-    width: int, height: int, model_id: str | None = None, sample: int = 20
-) -> float | None:
-    """Median direct-render milliseconds per step at this size and checkpoint.
-
-    Per *step*, not per image: a grid varies the step count across its cells, so
-    an average image duration would over- or under-state most of them. Matched
-    on exact dimensions - cost scales with pixels and offload behaviour, neither
-    of which extrapolates honestly from a different size - and on the checkpoint,
-    since klein's step is about half of Turbo's at the same size. None when the
-    gallery has nothing to measure, which is the caller's cue to promise nothing.
-
-    Refine rows are kept out: their fixed encode/decode costs dominate at low
-    strengths and cannot price a direct render. See `refine_cost_ms`.
-    """
-    scope = "AND model_id = ?" if model_id else ""
-    scope_params = (model_id,) if model_id else ()
-    with _session() as conn:
-        rows = conn.execute(
-            f"""SELECT duration_ms, steps FROM images
-               WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0
-                 AND refine IS NULL {scope}
-               ORDER BY id DESC LIMIT ?""",
-            (width, height, *scope_params, sample),
-        ).fetchall()
-    if not rows:
-        return None
-    costs = sorted(row["duration_ms"] / row["steps"] for row in rows)
-    return costs[len(costs) // 2]
-
-
-def refine_cost_ms(
-    width: int, height: int, model_id: str, sample: int = 100,
-) -> dict[int, float]:
-    """Median full refine duration per image, grouped by denoised step count.
-
-    Same size and checkpoint only, like the direct estimate. Matching the
-    count keeps the fixed resize, text and VAE work in every image's price;
-    one strength's timing is never extrapolated as a per-step rate. Unknown
-    families provide no estimate until their schedule rounding is known.
-    """
-    with _session() as conn:
-        rows = conn.execute(
-            """SELECT duration_ms, steps, strength FROM images
-               WHERE width = ? AND height = ? AND model_id = ? AND steps > 0
-                 AND duration_ms > 0 AND refine IS NOT NULL AND strength IS NOT NULL
-               ORDER BY id DESC LIMIT ?""",
-            (width, height, model_id, sample),
-        ).fetchall()
-    durations: dict[int, list[float]] = {}
-    for row in rows:
-        start = start_index(row["steps"], row["strength"], model_id)
-        if start is not None:
-            durations.setdefault(row["steps"] - start, []).append(row["duration_ms"])
-    return {steps: sorted(values)[len(values) // 2] for steps, values in durations.items()}
-
-
 def _page(
     conn: sqlite3.Connection,
     clause: str,
@@ -969,225 +905,6 @@ def completed_cells(
     return keys
 
 
-# The images a starred one was made from: a refine pass's source and a klein
-# render's references, by id. They are part of the starred image's
-# reproduction set, and a sweep that took them left a kept pass that could
-# never be made again - with nothing before the click saying it depended on
-# them. One level: the source of a kept source is not the starred image's to
-# need. Neither arm can yield a NULL, which would turn every `NOT id IN` over
-# the set into NULL and keep - or, counted, miscount - every row.
-# Only a live star protects: a starred image in the recycle bin keeps its
-# flag, so a Restore brings the star back, but is itself unkept until then.
-_STARRED_SOURCE = (
-    "id IN (SELECT refine FROM images WHERE favorite = 1 AND binned_at IS NULL"
-    " AND refine IS NOT NULL"
-    " UNION SELECT ref.value FROM images AS starred, json_each(starred.reference) AS ref"
-    " WHERE starred.favorite = 1 AND starred.binned_at IS NULL"
-    " AND starred.reference IS NOT NULL AND ref.type = 'integer')"
-)
-# What `keep_favorites` leaves out of a delete: the live stars and their
-# sources. The one predicate `delete_matching`, `clear_history` and the
-# previews' counts share, so the number a dialog asks to have typed back is
-# the number the delete then finds under its lock.
-# The stars `keep_favorites` keeps, and the rest of what it might delete.
-_LIVE_STAR = "favorite = 1 AND binned_at IS NULL"
-_NOT_LIVE_STAR = "(favorite = 0 OR binned_at IS NOT NULL)"
-_UNKEPT = f"{_NOT_LIVE_STAR} AND NOT ({_STARRED_SOURCE})"
-
-
-def matching_preview(
-    search: str | None,
-    model_id: str | None = None,
-    newer_than: int | None = None,
-    live_only: bool = False,
-) -> dict[str, Any]:
-    """What a strict scope selects, named: counts, prompts, and the jobs and
-    checkpoints a substring term (`job:`, `model:`) actually matched.
-
-    An empty scope is the whole gallery - the browser's Delete unstarred asks
-    with the search box blank - so the "a filter is required" refusal is the
-    CLI's, at its own prompt. `model_id` is the gallery's checkpoint scope,
-    exact, and the preview has to take it because the delete does: a count
-    over images the page is not showing is the wrong number to confirm.
-
-    `sources_kept` is what `keep_favorites` keeps besides the stars - the
-    unstarred images in scope that a starred image anywhere was made from -
-    and `sources` the first few of their ids, so `records - favorites -
-    sources_kept` is the count such a delete takes. `runs`, `first` and
-    `last` describe that delete too: how many runs it reaches into and the
-    span of their creation times, which three sample prompts never say.
-
-    `newer` is how many of the images that delete takes have an id above
-    `newer_than` - the newest the asking page held - or None where it was
-    not asked: the page's own count of them could not leave out a kept
-    source past the few `sources` names.
-
-    `live_only` leaves the recycle bin out, as the browser's Delete unstarred
-    does, which moves what it takes there; the CLI's `--where` reaches the
-    bin too, and `binned` is how many of `records` are in it. `favorites` is
-    the live stars: a binned star keeps nothing.
-    """
-    filters, params = strict_scope(search)
-    if model_id:
-        filters.append("model_id = ?")
-        params.append(model_id)
-    if live_only:
-        filters.append(_LIVE)
-
-    def where(*extra: str) -> str:
-        parts = [*filters, *extra]
-        return f"WHERE {' AND '.join(parts)}" if parts else ""
-
-    clause = where()
-    with _session() as conn:
-        records, favorites, sources_kept, binned = conn.execute(
-            f"""SELECT COUNT(*), COALESCE(SUM({_LIVE_STAR}), 0),
-                       COALESCE(SUM({_NOT_LIVE_STAR} AND {_STARRED_SOURCE}), 0),
-                       COALESCE(SUM(binned_at IS NOT NULL), 0)
-                FROM images {clause}""",
-            params,
-        ).fetchone()
-        sources = [
-            row[0]
-            for row in conn.execute(
-                f"SELECT id FROM images {where(_NOT_LIVE_STAR, _STARRED_SOURCE)} ORDER BY id LIMIT 6",
-                params,
-            )
-        ]
-        runs, first, last = conn.execute(
-            f"SELECT COUNT(DISTINCT run_id), MIN(created_at), MAX(created_at) FROM images {where(_UNKEPT)}",
-            params,
-        ).fetchone()
-        newer = None
-        if newer_than is not None:
-            newer = conn.execute(
-                f"SELECT COUNT(*) FROM images {where(_UNKEPT, 'id > ?')}", (*params, newer_than)
-            ).fetchone()[0]
-        distinct = lambda column, limit: [  # noqa: E731
-            row[0]
-            for row in conn.execute(
-                f"SELECT DISTINCT {column} FROM images {clause} ORDER BY {column} LIMIT ?",
-                (*params, limit),
-            )
-        ]
-        return {
-            "records": records,
-            "favorites": favorites,
-            "sources_kept": sources_kept,
-            "sources": sources,
-            "binned": binned,
-            "runs": runs,
-            "first": first,
-            "last": last,
-            "newer": newer,
-            "prompts": distinct("prompt", 4),
-            "jobs": [j for j in distinct("job_id", 6) if j],
-            "models": distinct("model_id", 6),
-        }
-
-
-class SelectionChanged(Exception):
-    """A scoped delete was confirmed for one count and finds another."""
-
-    def __init__(self, found: int, expected: int):
-        super().__init__(f"{found} images match now, not the {expected} confirmed")
-        self.found = found
-        self.expected = expected
-
-
-@gallery_lock.protected(lambda: settings.db_path)
-def delete_matching(
-    search: str | None,
-    keep_favorites: bool = False,
-    expected: int | None = None,
-    model_id: str | None = None,
-    to_bin: bool = False,
-) -> dict[str, Any]:
-    """Delete the rows a strict scope selects, and their files - nothing else.
-
-    `DELETE ... RETURNING` in one statement, so a row committed while the
-    user was reading the confirmation prompt is not deleted from disk on the
-    strength of an id list resolved a moment earlier. `expected` is the count
-    that prompt showed: compared under the write lock, so a sweep that landed
-    more unstarred images while the dialog was open raises `SelectionChanged`
-    and deletes nothing rather than taking them on a number confirmed for
-    fewer. `keep_favorites` is a scope of its own - an otherwise empty one
-    means every unstarred image - where a delete with no scope at all is
-    refused; it keeps the images a starred one was made from as well as the
-    stars (`_UNKEPT`). No orphan sweep: a filtered clear that also removed every
-    untracked PNG would be a new all-or-nothing hazard inside the feature
-    meant to remove one. `model_id` is the gallery's checkpoint scope, the
-    same exact predicate `matching_preview` counted under.
-
-    `to_bin` moves the live rows in scope to the recycle bin instead - the
-    browser's Delete unstarred, counted by `matching_preview(live_only=True)`
-    - and touches no file, so `files` is 0. Without it the delete is
-    permanent and reaches binned rows too, as `clear --where` does.
-    """
-    filters, params = strict_scope(search)
-    if keep_favorites:
-        filters.append(_UNKEPT)
-    if model_id:
-        filters.append("model_id = ?")
-        params.append(model_id)
-    if not filters:
-        raise ValueError("a filter is required; the whole gallery is `clear` without --where")
-    if to_bin:
-        filters.append(_LIVE)
-    where = " AND ".join(filters)
-    with _write_lock, _session() as conn:
-        if expected is not None:
-            (found,) = conn.execute(f"SELECT COUNT(*) FROM images WHERE {where}", params).fetchone()
-            if found != expected:
-                raise SelectionChanged(found, expected)
-        if to_bin:
-            moved = conn.execute(
-                f"UPDATE images SET binned_at = ? WHERE {where} RETURNING id", (_now(), *params)
-            ).fetchall()
-            return {"records": len(moved), "files": 0, "ids": sorted(row["id"] for row in moved)}
-        doomed = conn.execute(
-            f"DELETE FROM images WHERE {where} RETURNING id, filename", params
-        ).fetchall()
-    removed = 0
-    for row in doomed:
-        path = settings.outputs_dir / row["filename"]
-        if path.exists() and _unlink(path):
-            removed += 1
-        _delete_thumbnails(path)
-    return {"records": len(doomed), "files": removed, "ids": [row["id"] for row in doomed]}
-
-
-def image_bytes(width: int, height: int, model_id: str | None = None, sample: int = 20) -> int | None:
-    """Median PNG size on disk at this size on this checkpoint, or None.
-
-    The third of the preview's three estimates, and the weakest: PNG size
-    varies with content far more than duration does. Same rule as the
-    others - no files, no estimate - and the same scoping, since a klein
-    render and a Turbo render of one size are not the same picture.
-    """
-    scope = "AND model_id = ?" if model_id else ""
-    scope_params = (model_id,) if model_id else ()
-    with _session() as conn:
-        names = [
-            row["filename"]
-            for row in conn.execute(
-                f"""SELECT filename FROM images WHERE width = ? AND height = ? {scope}
-                    ORDER BY id DESC LIMIT ?""",
-                (width, height, *scope_params, sample),
-            )
-        ]
-    sizes = []
-    for name in names:
-        try:
-            sizes.append((settings.outputs_dir / name).stat().st_size)
-        except OSError:
-            continue
-    if not sizes:
-        return None
-    sizes.sort()
-    return sizes[len(sizes) // 2]
-
-
 # These two and `_tracked_files` read every row, the recycle bin's included:
 # filtered to live rows, the orphan sweep would delete binned PNGs as untracked
 # and a reindex would add them back as new rows.
@@ -1304,191 +1021,6 @@ def thumbnail_for(image: Image.Image, filename: str) -> None:
             _unlink(partial)
 
 
-# The columns `keep_rates` can group by, as SQL. CFG and mu are rounded to the
-# six decimals the axis parser produces, so a value that went through REAL and
-# back does not split one setting into two buckets.
-_GROUPS: dict[str, str] = {
-    "steps": "steps",
-    "cfg": "round(guidance_scale, 6)",
-    "tcfg": f"round({TRUE_CFG_SQL}, 6)",
-    "mu": "round(mu, 6)",
-    "prompt": "prompt",
-    "negative": "negative_prompt",
-    "seed": "seed",
-    "size": "width || 'x' || height",
-    "model": "model_id",
-    "quant": "quantization",
-    # The adapter and the weight it ran at: "which settings produced my
-    # favourites" is exactly the question a LoRA weight is chosen by.
-    "lora": "lora",
-    "lorascale": "round(lora_scale, 6)",
-    # A refine pass's strength, and the image it started from: a strength
-    # sweep is starred by how much of the source it kept.
-    "strength": "round(strength, 6)",
-    "refine": "refine",
-    # A comparison's version by its label (`prompt_variants`): the starred
-    # rate per version. `prompt` cannot say it - reorders share their opening
-    # words, which is all a table cell has room for.
-    VARIANT: f"json_extract(variables, '$.{VARIANT}')",
-}
-
-
-def keep_rates(
-    search: str | None = None, by: Sequence[str] = ("steps", "cfg", "mu"), min_made: int = 1
-) -> list[dict[str, Any]]:
-    """Which settings the starred images cluster under: made, starred, and the rate.
-
-    The naive count rewards whichever setting was used most; the rate is what
-    is wanted, and every input is in the table. `search` is the gallery's own
-    `key:value` grammar and scopes the rows - a run, where `expand()` crossed
-    the axes against the same prompts and seeds, is the honest scope; all-time
-    is confounded by whatever settings were in use while the prompts happened
-    to be good. Groups with fewer than `min_made` images are dropped so a
-    lucky 1-of-1 does not take first place. The column is *starred*, not
-    kept: nothing records a rejection, so an untouched night reads 0% rather
-    than unknown. Size is always in the grouping - a 4 MP re-render is not
-    the same setting as its 1 MP source. Rows rank by rate, then by count;
-    a tie keeps the order the settings were first made in, so an untouched
-    comparison reads its versions as the grid wrote them.
-    """
-    unknown = [name for name in by if name not in _GROUPS]
-    if unknown:
-        raise ValueError(f"cannot group by {', '.join(unknown)}; one of {', '.join(_GROUPS)}")
-    columns = list(dict.fromkeys([*by, "size"]))
-    where, params = strict_scope(search)
-    # The recycle bin is a rejection the table has no column for; a binned
-    # image is neither made nor starred here.
-    where.append(_LIVE)
-    clause = f"WHERE {' AND '.join(where)}" if where else ""
-    select = ", ".join(f"{_GROUPS[name]} AS {name}" for name in columns)
-    group = ", ".join(_GROUPS[name] for name in columns)
-    with _session() as conn:
-        rows = conn.execute(
-            f"""SELECT {select}, COUNT(*) AS made, SUM(favorite) AS starred
-                FROM images {clause}
-                GROUP BY {group}
-                HAVING made >= ?
-                ORDER BY CAST(starred AS REAL) / made DESC, made DESC, MIN(id)""",
-            (*params, min_made),
-        ).fetchall()
-        if VARIANT in columns and "prompt" not in columns and rows:
-            # A run can join comparisons with swapped original/yours labels.
-            # Check complete assignments within each emitted stats group:
-            # variant x colour is an ordinary grid and may aggregate colours,
-            # and grouping by steps/seed can already separate the versions.
-            emitted = {tuple(row[name] for name in columns) for row in rows}
-            prompts = {}
-            for row in conn.execute(
-                f"SELECT {select}, variables, prompt FROM images {clause} "
-                f"GROUP BY {group}, variables, prompt", params
-            ):
-                grouped = tuple(row[name] for name in columns)
-                if grouped not in emitted or row[VARIANT] is None:
-                    continue
-                assignment = json.dumps(json.loads(row["variables"]), sort_keys=True)
-                key = (grouped, assignment)
-                if key in prompts and prompts[key] != row["prompt"]:
-                    raise ValueError(
-                        "a variant label refers to more than one prompt for the same "
-                        "variable assignment in this scope; use --by variant,prompt "
-                        "or narrow the scope with --job"
-                    )
-                prompts[key] = row["prompt"]
-    return [
-        {**{name: row[name] for name in columns}, "made": row["made"], "starred": row["starred"],
-         "rate": row["starred"] / row["made"]}
-        for row in rows
-    ]
-
-
-# The settings a run can vary, as the Runs picker names them: each one's
-# count of distinct values over the run (a NULL counted as a value of its own
-# where the column takes one), read back as RunSummary.axes.
-_RUN_AXES = {
-    "steps": "steps",
-    "cfg": "guidance_scale",
-    "mu": "COALESCE(mu, 'none')",
-    "true_cfg": "COALESCE(true_cfg, 'none')",
-    "lora_scale": "COALESCE(lora || '@' || lora_scale, 'none')",
-    "strength": "COALESCE(strength, 'none')",
-    "reference": "COALESCE(reference, 'none')",
-    "seed": "seed",
-    "variant": "CASE WHEN json_valid(variables) THEN json_extract(variables, '$.variant') END",
-}
-_AXIS_COUNTS = ", ".join(f"COUNT(DISTINCT {expr}) AS axis_{name}" for name, expr in _RUN_AXES.items())
-
-
-def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
-    """The gallery grouped by run, the most recently written first.
-
-    What `GET /api/runs` serves and the Runs picker lists: the night's output
-    as one line per grid rather than 480 cards to scroll past. Rows written
-    before runs had an id are not a run and are left out. Size, checkpoint and
-    quantizer are constant within a run - `run_id` hashes them - so they are
-    read off the oldest image along with its prompt and its seed, which is the
-    base seed the grid was started from. `model_id` keeps the list to one
-    checkpoint's runs, as the gallery it is a table of contents for is kept.
-    Binned images are left out, as the gallery leaves them out, and a run
-    entirely in the recycle bin is not listed.
-    """
-    scope = "AND model_id = ?" if model_id else ""
-    scope_params = (model_id,) if model_id else ()
-    with _session() as conn:
-        groups = conn.execute(
-            f"""SELECT run_id, COUNT(*) AS images, SUM(favorite) AS favorites,
-                      COUNT(DISTINCT prompt) AS prompts, COUNT(DISTINCT job_id) AS jobs,
-                      COUNT(content_hash) AS hashed,
-                      COUNT(DISTINCT content_hash) AS distinct_hashes,
-                      MIN(id) AS first_id, MAX(id) AS last_id,
-                      MIN(created_at) AS started_at, MAX(created_at) AS finished_at,
-                      {_AXIS_COUNTS},
-                      COUNT(DISTINCT COALESCE(refine, -1)) AS n_sources, MIN(refine) AS refine,
-                      MIN(strength) AS strength_min, MAX(strength) AS strength_max
-               FROM images WHERE run_id IS NOT NULL AND binned_at IS NULL {scope}
-               GROUP BY run_id ORDER BY last_id DESC LIMIT ?""",
-            (*scope_params, limit),
-        ).fetchall()
-        firsts: dict[int, sqlite3.Row] = {}
-        if groups:
-            marks = ",".join("?" * len(groups))
-            for row in conn.execute(
-                f"SELECT * FROM images WHERE id IN ({marks})", [g["first_id"] for g in groups]
-            ):
-                firsts[row["id"]] = row
-    summaries = []
-    for group in groups:
-        first = firsts[group["first_id"]]
-        summaries.append(
-            RunSummary(
-                run_id=group["run_id"],
-                images=group["images"],
-                # Only when every image of the run is hashed: a count over
-                # half a run is a number that looks like an answer.
-                distinct=(
-                    group["distinct_hashes"] if group["hashed"] == group["images"] else None
-                ),
-                favorites=group["favorites"],
-                prompts=group["prompts"],
-                jobs=group["jobs"],
-                prompt=first["prompt"],
-                seed=first["seed"],
-                model_id=first["model_id"],
-                quantization=first["quantization"],
-                width=first["width"],
-                height=first["height"],
-                started_at=group["started_at"],
-                finished_at=group["finished_at"],
-                axes={name: group[f"axis_{name}"] for name in _RUN_AXES if group[f"axis_{name}"] > 1},
-                refine=group["refine"] if group["n_sources"] == 1 else None,
-                strengths=(
-                    [group["strength_min"], group["strength_max"]]
-                    if group["n_sources"] == 1 and group["refine"] is not None else None
-                ),
-            )
-        )
-    return summaries
-
-
 def reference_paths(ids: Sequence[int], noun: str = "reference image") -> list:
     """The PNGs behind a request's reference ids, in the order they were given.
 
@@ -1597,152 +1129,6 @@ def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
     return get_image(image_id)
 
 
-@gallery_lock.protected(lambda: settings.db_path, waits=True)
-def delete_image(image_id: int) -> bool:
-    """Delete one image and its files for good, live or in the recycle bin."""
-    # Looked up and deleted under the one lock: two deletes of the same image
-    # (a double-click, a second tab) both found the row before either removed
-    # it, and both answered as though they had deleted it.
-    with _write_lock, _session() as conn:
-        row = conn.execute("SELECT filename FROM images WHERE id = ?", (image_id,)).fetchone()
-        if row is None:
-            return False
-        conn.execute("DELETE FROM images WHERE id = ?", (image_id,))
-    # The row is already gone, so a file someone else has open must not turn a
-    # delete that did happen into a 500. clear_history's orphan sweep collects
-    # whatever gets left behind.
-    _unlink(settings.outputs_dir / row["filename"])
-    _delete_thumbnails(settings.outputs_dir / row["filename"])
-    return True
-
-
-def _now() -> str:
-    """The time a row is binned at, written as `created_at` is."""
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _toggle_bin(ids: Sequence[int], *, to_bin: bool) -> tuple[list[int], list[int], list[int]]:
-    """Move live rows into the recycle bin or binned rows out of it: the ids
-    changed, those already on the asked side, and those the gallery does not
-    hold.
-
-    The write and the lookup of what was already there run under the one
-    lock, as `delete_image` does: a double press answers changed once and
-    already once, never changed twice. Files and thumbnails stay where they
-    are - a bundle's inventory takes only images/ and images/thumbnails/, and
-    a restore is then one UPDATE.
-    """
-    wanted = sorted(set(ids))
-    changed: list[int] = []
-    already: list[int] = []
-    if to_bin:
-        update, stays = "binned_at = ?", "binned_at IS NULL"
-        there = "binned_at IS NOT NULL"
-    else:
-        update, stays = "binned_at = NULL", "binned_at IS NOT NULL"
-        there = _LIVE
-    stamp = (_now(),) if to_bin else ()
-    with _write_lock, _session() as conn:
-        for at in range(0, len(wanted), 500):
-            chunk = wanted[at:at + 500]
-            marks = ",".join("?" * len(chunk))
-            changed.extend(row["id"] for row in conn.execute(
-                f"UPDATE images SET {update} WHERE id IN ({marks}) AND {stays} RETURNING id",
-                (*stamp, *chunk),
-            ).fetchall())
-            # After the UPDATE, so the rows it just changed are not counted.
-            moved = set(changed)
-            already.extend(
-                row["id"]
-                for row in conn.execute(
-                    f"SELECT id FROM images WHERE id IN ({marks}) AND {there}", chunk
-                )
-                if row["id"] not in moved
-            )
-    held = set(changed) | set(already)
-    return sorted(changed), sorted(already), [i for i in wanted if i not in held]
-
-
-@gallery_lock.protected(lambda: settings.db_path, waits=True)
-def bin_images(ids: Sequence[int]) -> dict[str, list[int]]:
-    """Move these images to the recycle bin: the page's delete, undone by
-    `restore_images`. A starred one keeps its flag, so a Restore brings the
-    star back; while binned it is unkept and protects nothing."""
-    binned, already, missing = _toggle_bin(ids, to_bin=True)
-    return {"binned": binned, "already": already, "missing": missing}
-
-
-@gallery_lock.protected(lambda: settings.db_path, waits=True)
-def restore_images(ids: Sequence[int]) -> dict[str, list[int]]:
-    """Bring these images back out of the recycle bin, usable at once."""
-    restored, not_binned, missing = _toggle_bin(ids, to_bin=False)
-    return {"restored": restored, "not_binned": not_binned, "missing": missing}
-
-
-def bin_summary() -> dict[str, Any]:
-    """How much is in the recycle bin, and which of it a live image needs.
-
-    `bytes` is the binned PNGs and their thumbnails as they are on disk now,
-    a file gone or locked counted as nothing. `sources_in_use` is the binned
-    ids a live image names as its refine source or a reference - the shape
-    of `_STARRED_SOURCE`'s arms - which Empty recycle bin's confirmation
-    names: those images can never be made again once it is emptied.
-    """
-    with _session() as conn:
-        names = [
-            row["filename"]
-            for row in conn.execute("SELECT filename FROM images WHERE binned_at IS NOT NULL")
-        ]
-        in_use = [
-            row[0]
-            for row in conn.execute(
-                "SELECT id FROM images WHERE binned_at IS NOT NULL AND id IN ("
-                " SELECT refine FROM images WHERE binned_at IS NULL AND refine IS NOT NULL"
-                " UNION SELECT ref.value FROM images AS live, json_each(live.reference) AS ref"
-                " WHERE live.binned_at IS NULL AND live.reference IS NOT NULL"
-                " AND ref.type = 'integer') ORDER BY id"
-            )
-        ]
-    size = 0
-    for name in names:
-        png = settings.outputs_dir / name
-        for path in (png, _thumb_path(png), png.with_suffix(".webp")):
-            try:
-                size += path.stat().st_size
-            except OSError:
-                continue
-    return {"records": len(names), "bytes": size, "sources_in_use": in_use}
-
-
-@gallery_lock.protected(lambda: settings.db_path)
-def empty_bin(expected: int | None = None) -> dict[str, Any]:
-    """Delete every image in the recycle bin, rows and files, for good.
-
-    Fails fast on a busy gallery like `delete_matching`, and like it pins
-    the count the confirmation showed: a bin another tab added to while the
-    dialog was open raises `SelectionChanged` and deletes nothing. The rows
-    go in one `DELETE ... RETURNING`, the files after the commit, counted as
-    `delete_matching` counts them. No orphan sweep and no vacuum.
-    """
-    with _write_lock, _session() as conn:
-        if expected is not None:
-            (found,) = conn.execute(
-                "SELECT COUNT(*) FROM images WHERE binned_at IS NOT NULL"
-            ).fetchone()
-            if found != expected:
-                raise SelectionChanged(found, expected)
-        doomed = conn.execute(
-            "DELETE FROM images WHERE binned_at IS NOT NULL RETURNING id, filename"
-        ).fetchall()
-    removed = 0
-    for row in doomed:
-        path = settings.outputs_dir / row["filename"]
-        if path.exists() and _unlink(path):
-            removed += 1
-        _delete_thumbnails(path)
-    return {"records": len(doomed), "files": removed, "ids": sorted(row["id"] for row in doomed)}
-
-
 def _unlink(path) -> bool:
     """Delete a file, tolerating both "already gone" and "someone has it open"."""
     try:
@@ -1752,115 +1138,33 @@ def _unlink(path) -> bool:
     return True
 
 
-def summarise() -> dict[str, int]:
-    """Counts for the clear-history preview.
-
-    An absent database reports as empty rather than being created on the spot:
-    `clear.py --dry-run` promises it changed nothing, and _connect() writes the
-    whole schema into any file it opens.
-    """
-    total = favorites = sources_kept = binned = 0
-    tracked: set[str] = set()
-    # The directory first, the rows second: `save_image` commits before it
-    # renames, so a PNG the scan can see already has a row by the time the rows
-    # are read. The other order judged an image that landed in between as an
-    # orphan.
-    files = list(settings.outputs_dir.glob("*.png"))
-    thumbs = _thumb_files()
-    if settings.db_path.exists():
-        with _session() as conn:
-            total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
-            # The live stars: a binned one is unkept, as `_UNKEPT` reads it.
-            favorites = conn.execute(
-                f"SELECT COUNT(*) FROM images WHERE {_LIVE_STAR}"
-            ).fetchone()[0]
-            # What `--keep-favorites` keeps besides them, as `_UNKEPT` reads it.
-            sources_kept = conn.execute(
-                f"SELECT COUNT(*) FROM images WHERE {_NOT_LIVE_STAR} AND {_STARRED_SOURCE}"
-            ).fetchone()[0]
-            binned = conn.execute(
-                "SELECT COUNT(*) FROM images WHERE binned_at IS NOT NULL"
-            ).fetchone()[0]
-        tracked = {r["filename"] for r in _tracked_files()}
-
-    total_bytes = 0
-    for path in files + thumbs:
-        try:
-            total_bytes += path.stat().st_size
-        except OSError:
-            # Deleted between the glob and the stat, or locked. A summary is not
-            # worth raising over.
-            continue
-
-    on_disk = {p.name for p in files}
-    return {
-        "records": total,
-        "favorites": favorites,
-        "sources_kept": sources_kept,
-        "binned": binned,
-        "files_on_disk": len(on_disk),
-        "orphan_files": len(on_disk - tracked),
-        "partial_files": len(_stale_partials()),
-        "bytes_on_disk": total_bytes,
-    }
-
-
 def _tracked_files():
     with _session() as conn:
         return conn.execute("SELECT filename FROM images").fetchall()
 
 
-@gallery_lock.protected(lambda: settings.db_path)
-def clear_history(keep_favorites: bool = False) -> dict[str, int]:
-    """Delete image records and the PNGs they point at.
-
-    Rows are deleted rather than the database file, so this is safe while the
-    server holds the connection open - dropping the file mid-run would leave a
-    locked handle on Windows and lose the schema. `keep_favorites` keeps what
-    it keeps on the `--where` path too: the stars and their sources.
-    """
-    where = f" WHERE {_UNKEPT}" if keep_favorites else ""
-    with _write_lock, _session() as conn:
-        doomed = [r["filename"] for r in conn.execute(f"SELECT filename FROM images{where}")]
-        conn.execute(f"DELETE FROM images{where}")
-
-    removed = 0
-    for filename in doomed:
-        path = settings.outputs_dir / filename
-        if path.exists() and _unlink(path):
-            removed += 1
-        _delete_thumbnails(path)
-
-    # Anything left with no row behind it: earlier deletions, interrupted runs.
-    # An image still being written is a *.png.part and matches neither glob, so
-    # a clear during a sweep can no longer delete one out from under it. The
-    # scan is materialised *before* the rows are read: a save commits its row
-    # and then renames, so any PNG the scan saw has a row by the time `keep`
-    # is built - read the other way round, an image landing in between was
-    # deleted with its row left pointing at nothing.
-    files = list(settings.outputs_dir.glob("*.png"))
-    keep = {r["filename"] for r in _tracked_files()}
-    orphans = 0
-    for path in files:
-        if path.name not in keep and _unlink(path):
-            orphans += 1
-    # A thumbnail whose PNG is gone - deleted above, or by hand.
-    for path in _thumb_files():
-        if not (settings.outputs_dir / path.with_suffix(".png").name).exists():
-            _unlink(path)
-    # Partials from a power cut or a killed process, by age - never the fresh
-    # one another process may be encoding right now.
-    partials = sum(1 for path in _stale_partials() if _discard(path))
-
-    return {"records": len(doomed), "files": removed, "orphans": orphans, "partials": partials}
+# The names `gallery_reports` and `gallery_delete` took out of this module,
+# still reachable as `storage.<name>` for the callers and tests that use them.
+# PEP 562 rather than an import at the bottom: both modules import this one at
+# their top, so a caller that imported one of them first would find it half
+# initialised. Each name resolves to the one object its module defines - an
+# `except storage.SelectionChanged` catches what `gallery_delete` raises.
+_MOVED = {
+    **dict.fromkeys(
+        ("human_bytes", "step_cost_ms", "refine_cost_ms", "image_bytes",
+         "_GROUPS", "keep_rates", "_RUN_AXES", "runs"),
+        "gallery_reports",
+    ),
+    **dict.fromkeys(
+        ("_UNKEPT", "matching_preview", "SelectionChanged", "delete_matching",
+         "delete_image", "bin_images", "restore_images", "bin_summary", "empty_bin",
+         "summarise", "clear_history", "vacuum"),
+        "gallery_delete",
+    ),
+}
 
 
-@gallery_lock.protected(lambda: settings.db_path)
-def vacuum() -> None:
-    """Shrink the database file after a bulk delete."""
-    conn = _connect()
-    try:
-        conn.isolation_level = None  # VACUUM cannot run inside a transaction
-        conn.execute("VACUUM")
-    finally:
-        conn.close()
+def __getattr__(name: str):
+    if name in _MOVED:
+        return getattr(importlib.import_module(f"{__package__}.{_MOVED[name]}"), name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
