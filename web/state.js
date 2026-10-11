@@ -240,7 +240,7 @@ let serverStartedAt = null;
 let currentJob = null;
 let queuedIds = [];
 // A job another tab or window started is on the server while this page
-// watches none (`ModelStatus.active_jobs`, generation.js's followServerJobs):
+// watches none (`ModelStatus.active_jobs`, job-queue.js's followServerJobs):
 // Unload, the critic and Expand are held with that reason, and the gallery
 // takes in its images once it has gone. Generate stays live - the server
 // queues it.

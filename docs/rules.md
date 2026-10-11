@@ -202,11 +202,13 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 41 classic
+- `web/` — served as-is from `/static`; `index.html` loads 43 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
-  previews and progress; `panel.js`, `runs.js` and `viewer.js` the settings,
+  previews and progress, with `job-progress.js` the watched job's progress,
+  mirrors and Pause, and `job-queue.js` the queue and which job the page
+  watches; `panel.js`, `runs.js` and `viewer.js` the settings,
   run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
   the cards and their actions; `gallery-search.js` the lightbox's search
   buttons; `sheet.js`, `sheet-render.js` and
