@@ -3843,9 +3843,12 @@ and, through the status,
 `tests/test_api.py::test_status_names_what_holds_the_card_and_whose_expansion`.
 
 The prompt analyser is tested the same way, with no network and no GPU:
-`test_prompt_encoding.py` (budgets, cuts, templates held to the
-installed diffusers source; its real-tokenizer cases skip when nothing is
-cached), `test_prompt_rules*.py` (the `analysis` data against the prose, the
+`test_prompt_encoding*.py` (`test_prompt_encoding.py` the encoder table,
+templates held to the installed diffusers source and the real tokenizers,
+whose cases skip when nothing is cached; `_budgets` the budgets, cuts and
+control tokens; `_syntax` the weighting syntax; `_loading` the load, cache
+and lock lifecycle; their shared fakes in `prompt_encoding_helpers.py`),
+`test_prompt_rules*.py` (the `analysis` data against the prose, the
 authors' examples raising no warning, the chips' order slots against
 `reorder_tags` and the order finding's step labels, and `reads_order`
 wherever the slots are None), `test_critic*.py` (pins, install,
