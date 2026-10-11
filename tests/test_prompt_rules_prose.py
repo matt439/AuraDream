@@ -278,9 +278,9 @@ def test_an_edit_with_no_reference_attached_is_noted_as_the_apps_reading():
 
 
 def test_the_examples_menu_reads_edits_as_the_rule_does():
-    # web/app.js marks an author's example "needs a reference image" by the
+    # web/prompt-examples.js marks an author's example "needs a reference image" by the
     # same pattern: one copy to drift would have the menu and Check disagree.
-    source = (Path(__file__).resolve().parents[1] / "web" / "app.js").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parents[1] / "web" / "prompt-examples.js").read_text(encoding="utf-8")
     match = re.search(r"^const EDIT_PROMPT = /(.+)/i;$", source, re.M)
     assert match and match.group(1) == prompt_rules.EDIT_PROMPT.pattern
     assert prompt_rules.EDIT_PROMPT.flags & re.IGNORECASE

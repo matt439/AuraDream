@@ -448,8 +448,9 @@ _IMAGE_MENTION = re.compile(
 _IMAGE_RANGE = re.compile(r"(\d+)\s*(?:-|–|to)\s*(\d+)")
 # An edit of a picture the prompt takes to be there already: "Turn this cat
 # into a dog", "Make the photo brighter". The Examples menu reads the same
-# pattern for the authors' examples (web/app.js's EDIT_PROMPT, held equal to
-# this one by tests/test_prompt_rules.py), so both say the same thing.
+# pattern for the authors' examples (web/prompt-examples.js's EDIT_PROMPT, held
+# equal to this one by tests/test_prompt_rules_prose.py), so both say the
+# same thing.
 EDIT_PROMPT = re.compile(
     r"^\s*(turn|change|make|replace|remove|put|give)\b"
     r".*\b(this|these|the (photo|image|picture)|image \d)\b",

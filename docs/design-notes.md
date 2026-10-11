@@ -7598,7 +7598,7 @@ Home and End jump, Escape hands focus back to the button, and focus leaving
 it closes it - it stayed open over the prompt after a Tab. Where the
 checkpoint takes reference images and none is attached, an example that
 edits a picture "this" prompt takes to be there (`prompt_rules.EDIT_PROMPT`,
-copied as `EDIT_PROMPT` in app.js and held equal by a test) says "needs a
+copied as `EDIT_PROMPT` in prompt-examples.js and held equal by a test) says "needs a
 reference image" beside the authors' words, which stay as written. An
 example that is a template - Z-Anime's portrait and landscape templates -
 says beside it which slots it leaves to fill ("fill in
@@ -9674,7 +9674,11 @@ named functions in `lightbox.js` (`lbImageFailed`, `lbWheel`,
 facts list (`factsList`) the viewer's column uses too. (2026-10-11: the
 facts list and settings line moved to `facts.js`, and the comparison's
 controls, divider keys and pass stepping to `lightbox-compare.js`;
-`lightbox.js` keeps the view, layout, walk and gestures.)
+`lightbox.js` keeps the view, layout, walk and gestures. The same day the
+Examples menu moved out of `app.js` into `prompt-examples.js` and ERNIE's
+Expand into `prompt-expand.js`, both declarations only, loaded after
+`tag-chips.js`; their handlers stay wired in `app.js`, which is again only
+the wiring and the boot, the last of 41 scripts.)
 
 The same pass moved `tests/test_api.py` (1,300 lines) into `tests/fakes.py`,
 the fixtures in `conftest.py`, `tests/api_helpers.py` and one `test_api*.py`

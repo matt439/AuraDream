@@ -202,7 +202,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 39 classic
+- `web/` — served as-is from `/static`; `index.html` loads 41 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -215,7 +215,8 @@ before changing it.
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
   stepping, `lightbox-cfg.js` its comparison across CFG; `refine.js` and `refine-prompt.js` the Refine dialog;
-  `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `analysis.js`,
+  `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `prompt-examples.js` the
+  Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection and retiring state prepared under the old model,
@@ -1771,7 +1772,7 @@ Frontend and CLI:
   ArrowDown, Enter or Space on the button opens it on its first item,
   arrows, Home and End walk it, Escape hands focus back to the button, and
   focus leaving closes it. Where references are supported and none is
-  attached, an example matching `EDIT_PROMPT` (app.js, held equal to
+  attached, an example matching `EDIT_PROMPT` (prompt-examples.js, held equal to
   `prompt_rules.EDIT_PROMPT` by `tests/test_prompt_rules_prose.py`) says it needs a
   reference image. An example holding one of the authors' template slots
   (Z-Anime's; NewBie's anonymous character identifiers can stay as written)
@@ -1809,7 +1810,7 @@ Frontend and CLI:
   Expand has, then …"). `syncExpandRunning` follows the status, which is
   asked 250 ms after the press and again when Expand ends, and
   `refreshStatus` asks for the line again as the holder changes. Before sending, a
-  prompt past `EXPAND_MAX_CHARS` (app.js, held equal to
+  prompt past `EXPAND_MAX_CHARS` (prompt-expand.js, held equal to
   `PromptExpansionRequest`'s `max_length` by `tests/test_ernie.py`), or a W
   or H that is not whole pixels in range, is refused at its box in the
   panel's words. The result is written through `rewriteBox` (Ctrl+Z gives
