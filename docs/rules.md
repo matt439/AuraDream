@@ -741,7 +741,7 @@ Reproduction:
   bin makes it eligible again, as a delete does.
 - A new column needs a `_migrate` entry, not a `"x" in row.keys()` read guard:
   `_row_to_record` reads every column unguarded. `save_image` and
-  `reindex.index_file` share `_insert_row` over `_COLUMNS`, and both build
+  `storage.index_file` (`reindex`'s writer) share `_insert_row` over `_COLUMNS`, and both build
   their dict explicitly, so a new column goes in both (`binned_at: None`).
 - The recycle bin is the `binned_at` column (ISO UTC text like `created_at`,
   NULL while live, never NOT NULL: an older database or bundle reads None and

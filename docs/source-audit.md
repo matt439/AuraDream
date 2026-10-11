@@ -1,123 +1,152 @@
-# Source-file audit, 2026-10-07
+# Source-file audit, 2026-10-11
 
 Audited the tracked Python, JavaScript, CSS and HTML in `backend/`, `web/`,
-`tests/` and `tools/` at `21afcdf`. Excluded dependencies, generated assets,
-review prototypes and historical documentation. Of these files, 23 exceeded
-1,000 lines, including 19 application source files. Line count was a screening
-tool: splits follow responsibilities, with no new build step or runtime feature.
+`tests/` and `tools/` at `d7c71db` (200 files). Excluded dependencies,
+generated assets, review prototypes and historical documentation. Of these
+files, 18 exceeded 1,000 lines: 16 application source files and two test
+modules. Line count was a screening tool: each file was mapped by
+responsibility first, and a file was split only where a role had grown that
+other files call or that shares no state with the rest. Splits move code
+verbatim, with no new build step or runtime feature. This is the second pass;
+the first, at `21afcdf` on 2026-10-07, is kept below and marked as such.
+
+After this pass 8 files are above 1,000 lines; the table of retained files
+says why each stays whole.
 
 ## Implemented boundaries
 
-| Original file | Lines before | Responsibilities after the split |
-| --- | ---: | --- |
-| `backend/critic.py` | 3,320 | Coordinator; `critic_runtime.py` installs/verifies the pinned runtime; `critic_server.py` owns processes and loopback requests; `critic_context.py` builds the question and budgets; `critic_reorder.py` checks pure permutations; `critic_validation.py` validates answers. |
-| `backend/prompt_rules.py` | 2,422 | Rule context and dispatch; `prompt_text.py` parses text and lettering; `prompt_order.py` places tags and checks category coverage. |
-| `backend/main.py` | 1,917 | App lifecycle and model/prompt/generation routes; `api_gallery.py` owns browsing, runs, the recycle bin and deletion; `api_jobs.py` owns status, cancel, pause and SSE. |
-| `web/style.css` | 3,032 | Tokens/base layout plus seven consecutive component sections in `web/styles/`, linked in the original cascade order. Later: `bundles.css` (gallery bundles) and `model-picker.css` (the Models picker, moved 2026-10-09 from between the topbar and layout rules and linked right after `style.css`); `style.css` is now 390 lines. |
-| `web/generation.js` | 2,209 | Submission/queue; `grid-preview.js`, `job-stream.js`, `job-results.js`. |
-| `web/sheet.js` | 1,822 | Sheet model/axes; `sheet-render.js`, `sheet-export.js`. |
-| `web/gallery.js` | 1,768 | Gallery layout/cards; `gallery-actions.js`, `reuse.js`. |
-| `web/tags.js` | 1,604 | Suggestions/editing; `tag-tokens.js`, `tag-chips.js` (chips, order slots, the Tags helper and its caret line, which presents the server's order and slots). |
-| `web/analysis.js` | 1,593 | Prompt check; `analysis-critic.js`, `comparison.js`. |
-| `web/panel.js` | 1,533 | Settings/persistence; `runs.js`, `viewer.js`. |
-| `web/refine.js` | 1,444 | Dialog/source/request lifecycle; `refine-prompt.js` owns prompt controls. |
-| `tests/test_critic.py` | 4,696 | Runtime/install/process/server/context/tokens and answer validation, lettering, issues, reordering and sources. |
-| `tests/test_prompt_rules.py` | 2,175 | Guide consistency, text/prose, lettering, order, slots and checkpoint-specific rules. |
-| `tests/test_api_analysis.py` | 1,913 | Analysis routes, tags, guides, critic and lifecycle. |
+| Pass | Original file | Lines before | Responsibilities after the split |
+| --- | --- | ---: | --- |
+| 2026-10-11 | `backend/main.py` | 2,629 | App lifecycle and model ownership (856): load state and lock, `ensure_loaded`, `_load_failure`, the switch, lifespan, status, model and LoRA routes. The service context the 2026-10-07 audit asked for is `app_context.py` (52): `AppServices`, late-bound getters over main's own globals, so tests that patch `main.backend`/`main.jobs`/`main.settings` still reach every route. `detached.py` (40) runs work on a daemon thread; `tag_lookup.py` (173) the Danbooru lookup and tag categories; `prompt_check.py` (262) the analyser's blocking layer (`analyse`, `lint`, `order_slots`, the order detail); `api_prompt.py` (368) the expand/analyze/measure/critique/tags routes; `submission.py` (168) shared submission checks and `resolve_selection`; `api_generate.py` (263) generate, grid, grid preview and Re-render; `api_swap.py` (214), `api_refine_batch.py` (233) and `api_more_seeds.py` (241) Swap tags, Mass refine and More seeds. |
+| 2026-10-11 | `backend/storage.py` | 1,866 | Schema, migrations, connections, record conversion, writers, partial files and live reads (1,170). `gallery_reports.py` (306) holds the read-only aggregates (estimates, keep rates, runs); `gallery_delete.py` (461) takes images out (scoped deletes, the recycle bin, clear and vacuum). Both import storage, never the reverse, so a patched `storage.settings` is read at call time; moved names still resolve as `storage.X` through a PEP 562 `__getattr__`. |
+| 2026-10-11 | `backend/schemas.py` | 1,586 | A re-export facade (156): `settings`, explicit imports and `__all__`. The models live by role in `schemas_generate.py` (476, `GenerateRequest` and `applied()`), `schemas_prompt.py` (375), `schemas_gallery.py` (221), `schemas_rerun.py` (341, Re-render, Swap tags, Mass refine, More seeds) and `schemas_model.py` (224). A runtime patch of the settings `applied()` reads targets `schemas_generate.settings`. |
+| 2026-10-11 | `backend/bundles.py` | 1,162 | Verified export, merge and import (590). `bundle_common.py` (76) the shared vocabulary (errors, progress, chunking, read connections); `bundle_images.py` (230) the tracked-image checks (pixels, digests, metadata rewrite); `bundle_archive.py` (334) the archive format, staging and the space check. |
+| 2026-10-11 | `backend/prompt_encoding.py` | 1,264 | Measuring a prompt with the checkpoint's own tokenizers (716), re-exporting the table. `encoder_table.py` (379) the per-checkpoint encoder recipes and their source contracts; `prompt_weighting.py` (219) the literal weighting syntax and its finding. |
+| 2026-10-11 | `web/lightbox.js` | 1,326 | Navigation, view and layout state machine (800). `facts.js` (239, loaded before it) a record's settings line and facts list, which the lightbox and the viewer share, with its reference thumbs and Refine-source link; `lightbox-compare.js` (304, loaded after it) the comparison's controls, toggles, divider and pass stepping; its geometry and state block stay in `lightbox.js`. |
+| 2026-10-11 | `web/model-switch.js` | 1,183 | The Models picker's table, favourites, selection and the switch (912). `model-shots.js` (277, loaded after it) the strip of the chosen checkpoint's gallery images. |
+| 2026-10-11 | `web/app.js` | 1,072 | Event wiring and boot, still the last script (620). `prompt-examples.js` (104) the Examples menu; `prompt-expand.js` (356) ERNIE's Expand. Both load just before `analysis.js`. |
+| 2026-10-11 | `web/generation.js` | 1,010 | Submission and the job lifecycle (495). `job-progress.js` (264) the watched job's progress, its mirrors and Pause; `job-queue.js` (257) the queue rows (`setQueue`) and which job the page watches. |
+| 2026-10-11 | `tests/test_prompt_encoding.py` | 1,209 | The encoder table and its source contracts against installed diffusers (344). `prompt_encoding_helpers.py` (180) fixtures and the failure table; `test_prompt_encoding_budgets.py` (295), `test_prompt_encoding_syntax.py` (157), `test_prompt_encoding_loading.py` (324). |
+| 2026-10-11 | `tests/test_bundles.py` | 1,206 | Export, verification and safe clearing (361). `bundle_helpers.py` (77); `test_bundles_merge.py` (316), `test_bundles_repeat.py` (210), `test_bundles_password.py` (90), `test_bundles_staging.py` (130) and `test_gallery_lock.py` (91). |
+| 2026-10-07 | `backend/critic.py` | 3,320 | Coordinator; `critic_runtime.py` installs/verifies the pinned runtime; `critic_server.py` owns processes and loopback requests; `critic_context.py` builds the question and budgets; `critic_reorder.py` checks pure permutations; `critic_validation.py` validates answers. |
+| 2026-10-07 | `backend/prompt_rules.py` | 2,422 | Rule context and dispatch; `prompt_text.py` parses text and lettering; `prompt_order.py` places tags and checks category coverage. |
+| 2026-10-07 | `backend/main.py` | 1,917 | App lifecycle and model/prompt/generation routes; `api_gallery.py` owns browsing, runs, the recycle bin and deletion; `api_jobs.py` owns status, cancel, pause and SSE. |
+| 2026-10-07 | `web/style.css` | 3,032 | Tokens/base layout plus seven consecutive component sections in `web/styles/`, linked in the original cascade order. Later: `bundles.css` (gallery bundles) and `model-picker.css` (the Models picker, moved 2026-10-09 from between the topbar and layout rules and linked right after `style.css`); `style.css` is now 390 lines. |
+| 2026-10-07 | `web/generation.js` | 2,209 | Submission/queue; `grid-preview.js`, `job-stream.js`, `job-results.js`. |
+| 2026-10-07 | `web/sheet.js` | 1,822 | Sheet model/axes; `sheet-render.js`, `sheet-export.js`. |
+| 2026-10-07 | `web/gallery.js` | 1,768 | Gallery layout/cards; `gallery-actions.js`, `reuse.js`. |
+| 2026-10-07 | `web/tags.js` | 1,604 | Suggestions/editing; `tag-tokens.js`, `tag-chips.js` (chips, order slots, the Tags helper and its caret line, which presents the server's order and slots). |
+| 2026-10-07 | `web/analysis.js` | 1,593 | Prompt check; `analysis-critic.js`, `comparison.js`. |
+| 2026-10-07 | `web/panel.js` | 1,533 | Settings/persistence; `runs.js`, `viewer.js`. |
+| 2026-10-07 | `web/refine.js` | 1,444 | Dialog/source/request lifecycle; `refine-prompt.js` owns prompt controls. |
+| 2026-10-07 | `tests/test_critic.py` | 4,696 | Runtime/install/process/server/context/tokens and answer validation, lettering, issues, reordering and sources. |
+| 2026-10-07 | `tests/test_prompt_rules.py` | 2,175 | Guide consistency, text/prose, lettering, order, slots and checkpoint-specific rules. |
+| 2026-10-07 | `tests/test_api_analysis.py` | 1,913 | Analysis routes, tags, guides, critic and lifecycle. |
 
-Added after this audit, with no split: `model-switch.js` owns the Models
-picker (the checkpoint table, loader options, favourites, the note, the switch request
-and retiring state prepared under the old checkpoint), styled by
-`styles/model-picker.css`; `bundles.js` and `styles/bundles.css` own gallery
-bundles. `gallery-select.js` (loaded after `gallery-actions.js`)
-owns the gallery's selection - Select, the picked ids and the hook that
-actions on several images read - with its rules in `styles/gallery.css`. `gallery-batch.js` (loaded after
-`gallery-select.js`) owns a card's batch shown on hover, its rules in
-`styles/gallery.css` too. `lightbox-cfg.js` (loaded after `lightbox.js`) owns the lightbox's
-comparison across CFG, and `sheet-render.js` the sheet's Swipe CFG.
-`tag-swap.js` (loaded after `bundles.js`) and `styles/swap.css` (linked
-after `bundles.css`) own Swap tags - the footer button's state and its
-dialog; the rewrite is the server's, `backend/tag_swap.py`, its routes and
-the shared selection resolver in `main.py`, and the record-to-cell helper
-`grid.cell_from_record` that Re-render shares. `refine-batch.js` (loaded
-after `tag-swap.js`) and `styles/refine-batch.css` (linked after
-`swap.css`) own Mass refine - the footer's Refine… and its dialog; what
-each image becomes is the server's, `backend/refine_batch.py` and its
-routes in `main.py`, through the same resolver and helper. `more-seeds.js`
-(loaded after `refine-batch.js`) and `styles/more-seeds.css` (linked after
-`refine-batch.css`) own More seeds - the footer's More seeds… and its
-dialog; the batches, their seeds and Batch are the server's,
-`backend/more_seeds.py` and its routes in `main.py`, through the same
-resolver and helper. `bin.js` (loaded after `more-seeds.js`) and
-`styles/bin.css` (linked after `more-seeds.css`) own the recycle bin - the
-footer's Bin, the bin's view, its undo note, Restore and Empty recycle bin;
-which reads leave the bin out is the server's, `storage.py`'s `_LIVE` and
-the bin's routes in `api_gallery.py`, and `forgetImages` and its sibling
-`unforgetImages` stay in `gallery-actions.js`. The selection target and scope line the three actions
-word alike are `gallery-select.js`'s `galleryActionTarget` and
-`galleryActionScopeLine`.
+Added between the two passes, with no split: `model-switch.js` owns the
+Models picker, styled by `styles/model-picker.css`; `bundles.js` and
+`styles/bundles.css` own gallery bundles. `gallery-select.js` owns the
+gallery's selection (Select, the picked ids, and `galleryActionTarget` /
+`galleryActionScopeLine`, which the three footer actions word alike);
+`gallery-batch.js` a card's batch on hover; `lightbox-cfg.js` (416) the
+lightbox's comparison across CFG. `tag-swap.js` + `styles/swap.css`,
+`refine-batch.js` + `styles/refine-batch.css`, `more-seeds.js` +
+`styles/more-seeds.css` and `bin.js` + `styles/bin.css` own Swap tags, Mass
+refine, More seeds and the recycle bin's page side. What each of those
+actions does is the server's: `backend/tag_swap.py`, `refine_batch.py` and
+`more_seeds.py`, reached since this pass through `api_swap.py`,
+`api_refine_batch.py` and `api_more_seeds.py`, the selection resolver
+`submission.resolve_selection` and `grid.cell_from_record`. Which reads leave
+the bin out is `storage._LIVE`; the bin's writes are `gallery_delete.py`'s and
+its routes `api_gallery.py`'s. `forgetImages` and `unforgetImages` stay in
+`gallery-actions.js`.
 
-`critic.py` is now 311 lines, with no critic module above 983. The stylesheet
-is eight files, at most 532 lines each. The largest JavaScript file is now the
-unchanged 1,070-line lightbox; the split test families top out at 800 lines.
-`main.py` is 1,639 lines after extracting its independent routes.
+How the boundaries hold:
 
-The test families use explicit imports from small helper modules; they do not
-import test modules into one another or re-collect tests through wildcard imports.
-Public critic/rule entry points remain available from their existing modules.
-Tests that patch implementation details target their new owning modules.
-
-The route factories receive the app's worker and checkpoint-scope callbacks.
-They read the current app-owned dependencies and do not create a second worker,
-load state or settings snapshot. `main.ensure_loaded()` and the generation gate
-retain their ownership and ordering.
-
-The browser still uses classic scripts sharing one global scope, with all 26
-loaded exactly once and `app.js` last. No binding was wrapped in a module or
-closure. CSS links preserve the exact original rule order, including responsive
-overrides and the final reduced-motion rule.
+- The new route modules take one `AppServices` built by `main` over its own
+  globals with late-bound getters. They hold no second worker, load state or
+  settings snapshot; `main.ensure_loaded()`, its lock and the generation gate
+  keep their ownership and ordering. Prompt routes call `detached.detached`
+  directly, so a test patching `main._detached` would not reach them; nothing
+  does today.
+- Where tests replace a module's `settings` wholesale (`storage`), the new
+  modules import the old one and never the reverse, and moved names stay
+  reachable from the old owner (`storage.__getattr__`, the `schemas` facade,
+  `prompt_encoding`'s re-exports). Tests that patch an implementation detail
+  target its new owner; `bundles` keeps unqualified from-imports so existing
+  patches on `bundles._verify_archive`, `_install` and `_replace_database`
+  still intercept.
+- Test families import from small helper modules (`prompt_encoding_helpers`,
+  `bundle_helpers`), never from one another, and re-collect nothing through
+  wildcard imports.
+- The browser still runs classic scripts sharing one global scope: 43, each
+  loaded exactly once, `app.js` last. No binding was wrapped in a module or
+  closure; each moved block keeps its comment and source order.
 
 ## Long files retained
 
-| File or group | Audit decision |
-| --- | --- |
-| `backend/main.py` | Reduced by extracting independent routes. The remaining model/prompt/generation orchestration shares the load lock, generation gate, status and injectable services. Further extraction should introduce an explicit service context first; copying globals would break lifecycle and test substitution. |
-| `backend/storage.py` (1,398) | Schema/migrations, transaction boundaries and record conversion remain together. Reporting queries are a possible later extraction with an explicit connection dependency; this pass does not alter database ownership. |
-| `backend/prompt_encoding.py` (1,253) | Encoder recipes and exact template/source contracts remain beside the tokenizer cache and measurement path. A later recipe-table extraction is possible, but splitting by arbitrary line ranges would hide those contracts. |
-| `backend/guides.py` (1,250), `prompt_sources.py` (1,206), `model_defaults.py` (1,135) | Mostly checkpoint-specific data. Keeping guide prose, cited analysis and profiles easy to compare is useful; size alone does not justify scattering them. |
-| `backend/schemas.py` (1,195) | Related request/response contracts and normalization. A domain split is possible, but requires careful handling of shared defaults and type dependencies. |
-| `backend/generate.py` (1,081) | CLI argument normalization and execution. A parser/service boundary is possible if CLI work grows; no command-line behavior changed here. |
-| `web/index.html` (1,015 after adding asset links) | One page and its dialogs, kept as a single document. Splitting markup would add a template/include mechanism to the current no-build frontend. |
-| `web/lightbox.js` (1,309) | One tightly coupled image-navigation/zoom/comparison state machine (including ← → swapping between passes of one source while compared). Retained with its existing browser coverage. The comparison across CFG - its ladder, the gallery search behind it, stepping and its controls - is `web/lightbox-cfg.js` (416, loaded right after it), split off by responsibility on 2026-10-10. |
-| `tests/test_prompt_encoding.py` (1,177) | Cohesive encoder/source-equivalence suite; preserved alongside its implementation. |
-| Remaining rule dispatch and Refine lifecycle | Still around 1,000 lines, but each now has a single role. No file-size ceiling is imposed. |
+| File | Lines | Audit decision |
+| --- | ---: | --- |
+| `backend/guides.py` | 1,455 | Data only: 22 guide dicts and the private pieces each family shares, with no functions or state. Grown from 1,250 by new checkpoints (RouWei 0.8, Anima Aesthetic v1.1, NoobAI-XL V-pred) and sourced examples, not by a new role. Guides are compared side by side and share one schema and cite convention. A split by family would need explicit re-exports of every `*_GUIDE` (`prompt_sources.guide_constants()` and the tests' `_all_guides()` enumerate the module) and of private names tests read (`_NOOBAI_PREFIX`, `_BFL_TECHNICAL`). If ever done, keep `guides.py` as the facade with explicit imports, never a star import. |
+| `backend/prompt_sources.py` | 1,358 | What the critic may cite: about 1,130 lines (83%) are per-checkpoint author excerpts and `GROUNDING`, beside about 170 lines of types, sentence splitting and resolution. Growth from 1,206 is new groundings; `author_orders` reads `GROUNDING`, so it belongs with it. Moving the resolver out would leave a 1,190-line data file, split the docstring that states the list's rules, and add an edge to the lazy `model_defaults` <-> `prompt_sources` cycle. Splitting the data by family would separate groundings that borrow from each other. |
+| `web/index.html` | 1,340 | The page's static DOM, no code. `state.js` builds `els` with about 145 lookups at parse time, so every dialog must be inline before the first script; a fragment split needs a build step, a server-side template or async fetches that race `app.js`. Grown from 1,015 by the DOM of features since added (Swap tags, Mass refine, More seeds, the bin, the CFG comparison, the Models table, bundles), each next to its trigger or as its own `<dialog>`; about 31% is comments recording why. `tests/test_profiles.py` reads literal markup from it. |
+| `backend/model_defaults.py` | 1,256 | Each checkpoint's control profile (about 840 lines of data in first-match order) and the views served from it (`defaults_for`, `guide_for`, `hints_for`, `strength_sweep`); the docstring is the schema of both. Grown from 1,135 by three profiles and `_served_tag_helper`. A data/views split would halve one role, and tests and `prompt_order`/`prompt_sources` import `_PROFILES`, `_FALLBACK` and `_profile_for` and assert identity. Revisit when a profile key gains per-checkpoint logic. |
+| `backend/storage.py` | 1,170 | Split this pass (from 1,866). What remains is the core that tests patch through `storage.settings`: schema and migrations, connections and the write lock, record conversion, writers, thumbnails, partial files and live reads. The thumbnail, partial and staging helpers are called from `save_image`, `_row_to_record` and `init_db`, so they cannot move to a module storage imports. |
+| `backend/generate.py` | 1,089 | Grown 7 lines between the audits (`include_binned=True` for the bin) and 1 in this pass (reaching `gallery_reports` through `_project()`). A parser/service seam is identified: `_build_parser`, `_image_settings`, `_apply_image_settings`, `_image_variables` and `_resolve_size` (about 350 lines, pure over argparse and the PNG's metadata, never importing config) could become `generate_args.py`. Not taken: the old trigger, CLI work growing, has not happened, and `main()` stays about 650 lines either way because its report and run loop share 15+ locals. `tests/test_profiles.py` asserts `generate.SIZES is sizes.SIZES`, which a split must retarget. |
+| `backend/prompt_rules.py` | 1,064 | What the 2026-10-07 split left (context, `check()` dispatch, the rules and their `_RULES` order); grown 4 lines since. Every rule has the same shape over one shared `_Context`; splitting guide, tag and heuristic rules would scatter one dispatch table. A `prompt_heuristics.py` of about 65 lines is the one clean seam, not worth a file yet. |
+| `web/refine.js` | 1,018 | The Refine dialog's state machine around shared lets. A `refine-rules.js` seam of about 85 lines is identified: the refine bounds, `refineScaled`, `refineFits`, `refineTight`, `openingRefineSize`, `refineKept`, `refineSizeProblem`, `refinePrefs`, `REFINE_KEY`, `SINGLE_STRENGTH` and `refineDefaultStrength`, which read only `state.js`/`sizes.js`/`status.js` globals and which `refine-batch.js`, `lightbox.js`, `generation.js` and `panel.js` call. Not worth a file yet; `REFINE_MAX_SIDE`/`REFINE_MAX_PIXELS` must stay byte-identical for `tests/test_profiles.py` wherever they live. |
+
+No split planned for this pass failed. The 2026-10-07 retains of `main.py`,
+`storage.py`, `prompt_encoding.py`, `schemas.py`, `lightbox.js` and
+`test_prompt_encoding.py` are superseded by the splits above.
 
 ## Verification
 
-- `uv run --group dev pytest -q`: **2,114 passed, 4 skipped**, 31 dependency
-  warnings, in 110.04 seconds. No GPU or weights.
-- All 904 test function names remain present with the same multiplicity.
-  The three split test families retain all 309 bodies/decorators and all
-  1,203 collected case names/parameter IDs; normalization accounts only for
-  moved module owners and the `tag-tokens.js` source-check path.
-- Backend AST comparison preserved all 223 critic and 159 prompt-rule
-  definitions/values after normalizing module qualifiers. The 15 extracted
-  route/helper bodies also match after normalizing dependency injection and
-  docstring indentation.
-- Sorted OpenAPI output is identical for all 25 paths, including operation
-  IDs, request/response schemas and parameter constraints.
-- JavaScript executable declarations and initialization order are preserved;
-  all 26 scripts pass `node --check`, including parsing the concatenation in
-  page order. CSS files concatenate byte-for-byte to the original stylesheet
-  after normalizing checkout line endings.
-- All **34 existing browser smoke files passed**, without changing their
-  expectations. Each used a fresh temporary gallery, an isolated port and a
-  separate browser profile; all test servers were stopped afterward. Coverage
-  includes jobs/races, cancellation, model-specific controls, refinement,
-  prompt analysis, grids, sheets/export, lightbox, narrow/QHD layouts and
-  Gallery beside.
-- `git diff --check` passes; `AGENTS.md` and `CLAUDE.md` remain byte-identical.
+Run on `2659e36` plus this documentation change, after all eleven split
+commits (`acf2013` .. `2659e36`).
 
-These checks establish refactor equivalence at the source, API and fake-backend
-levels. This pass does not add GPU quality or performance measurements to
-`docs/verified.md`.
+- `uv run --group dev pytest -q`: **2,588 passed, 6 skipped**, 49 warnings,
+  in 186 seconds; no GPU or weights. The first split's baseline at
+  `d7c71db` was 2,590 passed, 4 skipped. The two extra skips are
+  `test_critic_tokens.py:115` (Qwen3-4B's tokenizer) and the FLUX.2 klein
+  tokenizer check now in `test_prompt_encoding.py:277`, each "not in the Hub
+  cache"; both skip the same way on a `d7c71db` worktree today, so the
+  environment changed, not the code. Every split reported the same counts
+  before and after, and the split test families collect the same node ids
+  (157 for `test_prompt_encoding*`, 89 for the bundle families).
+- AST comparison per split: every top-level definition of each original file
+  exists exactly once across its successors (62 moved from `main.py`, 85
+  from `storage.py`, 61 from `schemas.py`, 58 from `bundles.py`, 100 from
+  `prompt_encoding.py`, 85 and 58 from the two test files). Bodies match
+  after normalising module qualifiers and the injected `services`; the
+  differences that remain are the planned ones (`model_id` passed into
+  `chip_verdicts`/`order_slots`, private-to-public renames, docstrings that
+  named a renamed symbol).
+- Sorted OpenAPI output from `backend.main.app.openapi()` is byte-identical
+  before and after the `main.py`, `schemas.py` and `storage.py` splits.
+- Every `web/*.js` passes `node --check`; the 43 scripts concatenated in
+  `index.html` order parse, so no top-level name is declared twice; the
+  scripts `index.html` loads are exactly the 43 files in `web/`, each once,
+  `app.js` last. Each JavaScript split was checked to rebuild the original
+  statements in order.
+- **Browser smokes: 47 of 49 pass.** Each ran against its own fresh fake
+  server on the port and with the `--model`/`--step` flags of the table in
+  `CLAUDE.md`, with a fresh scratch `--data` gallery, its own browser profile
+  and, for ports shared by several smokes, a new server per smoke; every
+  server was stopped afterwards. `smoke-compare-cfg.json` fails 3
+  expectations (the "CFG 6" option in Against, `lbCompare.source` being the
+  CFG 6 image, and the "1 of 2 CFG values" note) identically on a `d7c71db`
+  worktree, so it predates the splits and needs its own investigation.
+  `smoke-jobs.json` is intermittent: it passed 2 of 6 runs here and 0 of 3 on
+  `d7c71db`, failing the same two ways on both (the cancelled-load note
+  "Cancelled — the weights keep loading..." not appearing in time, or tab
+  B's "a tractor" job not landing within 40 s, which cascades through the
+  rest of the script), so that is pre-existing timing, not a split.
+- `cmp CLAUDE.md AGENTS.md`: identical. `git diff --check`: clean. References
+  in `CLAUDE.md`, `docs/rules.md` and `docs/design-notes.md` to a moved
+  function name its new owner; historical reviews and `docs/verified.md` are
+  left as written.
+
+These checks establish refactor equivalence at the source, API and
+fake-backend levels. This pass adds no GPU quality or performance
+measurements to `docs/verified.md`.

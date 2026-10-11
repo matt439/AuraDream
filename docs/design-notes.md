@@ -747,7 +747,7 @@ means one thing on every checkpoint: the scale the negative prompt was
 applied at, or None** - on Krea 2/SD3/klein that is `guidance_scale` when
 the negative prompt ran, so a column, a filter (`tcfg:`), a `_GROUPS` entry
 and the resume key all read the same way, and a row from before the column
-(NULL) is read through `schemas_generate.effective_true_cfg` / `storage._TRUE_CFG_SQL`
+(NULL) is read through `schemas_generate.effective_true_cfg` / `search.TRUE_CFG_SQL`
 as "guidance_scale if there was a negative prompt", which is what ran then.
 `CellKey` gained the element before the seed; `grid.run_id` names a cell
 by the old six-element key whenever `true_cfg` is None, so every existing
@@ -3303,7 +3303,7 @@ would close all three; it would need a new column and is not done.
 
 ## Two writers, one INSERT; strict scope; disk estimates
 
-**Two writers, one INSERT.** `save_image` and `reindex.index_file` both go
+**Two writers, one INSERT.** `save_image` and `storage.index_file` (which `reindex` calls) both go
 through `storage._insert_row` over `_COLUMNS`, so the column list exists
 once and the FTS trigger fires for both. The reindex reads
 the Local Diffusion PNG metadata, parses `created_at` from the filename prefix
