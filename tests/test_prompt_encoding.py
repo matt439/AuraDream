@@ -26,6 +26,7 @@ from jinja2 import TemplateError
 
 from backend import launch, model_defaults
 from backend import prompt_encoding as pe
+from backend import prompt_weighting
 from backend.backends import anima_loading, loading, netayume_loading, newbie_loading, single_file
 from tests import fakes
 
@@ -651,7 +652,7 @@ def test_weighting_messages_name_the_construct(tokenizers, prompt, message):
 ])
 def test_a_deeply_nested_prompt_is_measured_not_raised(tokenizers, model_id, prompt):
     tokenizers.update(tokenizer=clip(), tokenizer_2=clip())
-    assert not pe._is_json(prompt)
+    assert not prompt_weighting._is_json(prompt)
     reports, findings, detail = pe.measure(model_id, prompt, prompt)
     assert all(f.rule.startswith("encoder.") for f in findings)
     if model_id == "KBlueLeaf/Kohaku-XL-Zeta":
@@ -680,7 +681,7 @@ def test_a_failing_syntax_pass_costs_its_findings_not_the_analysis(
     def broken(text):
         raise error
 
-    monkeypatch.setattr(pe, "_weighting_spans", broken)
+    monkeypatch.setattr(prompt_weighting, "_weighting_spans", broken)
     tokenizers.update(tokenizer=clip(), tokenizer_2=clip())
     reports, findings, detail = pe.measure("KBlueLeaf/Kohaku-XL-Zeta", "(a:1.2), cat", None)
     assert [r.name for r in reports] == ["CLIP-L", "CLIP-G"]

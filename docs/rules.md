@@ -45,10 +45,17 @@ before changing it.
   and size prose, the documented megapixel range with its word, the authors'
   example prompts, and `analysis` - the prose's checkable statements as data
   for the rule checks, each citing the prose verbatim
+- `backend/encoder_table.py` — what each checkpoint's pipeline feeds its text
+  encoders: the template strings and truncation lengths copied from the
+  installed pipelines, `TokenizerSource`/`EncoderSpec`, the per-family
+  builders and the first-match lookup `encoders_for`; pure data, no tokenizer
+- `backend/prompt_weighting.py` — literal A1111/ComfyUI weighting syntax no
+  pipeline parses, found by regex in the typed text (`encoder.weighting`)
 - `backend/prompt_encoding.py` — the prompt analyser's encoder layer: each
   checkpoint's own tokenizers, on the CPU, over the exact string its pipeline
-  builds - token counts, where reading stops, template-tail loss, literal
-  weighting syntax, typed control tokens, T5's unknown characters
+  builds - token counts, where reading stops, template-tail loss, typed
+  control tokens, T5's unknown characters; `measure` adds
+  `prompt_weighting`'s findings and re-exports `encoder_table`'s names
 - `backend/prompt_text.py` — shared prompt parsing, prose/tag detection and lettering spans
 - `backend/prompt_order.py` — documented tag placement, ordering and category coverage
 - `backend/prompt_rules.py` — the analyser's rule checks against the guide's
@@ -1296,10 +1303,11 @@ Prompt analyser:
   "You are a model student…", "You are an AI artist…"), or more than one
   sentence before the marker, loses the marker alone.
 - `prompt_encoding` measures over the exact string the pipeline builds, and
-  every template string, length and `enable_thinking` switch it copies is held
-  equal to the installed diffusers source (and the repo's Anima and NewBie
-  pipelines) by `tests/test_prompt_encoding.py`. Its table is first-match
-  like `_PROFILES`, exact ids first, reusing the loaders' pinned constants.
+  every template string, length and `enable_thinking` switch it copies
+  (`encoder_table`) is held equal to the installed diffusers source (and the
+  repo's Anima and NewBie pipelines) by `tests/test_prompt_encoding.py`. The
+  table (`encoder_table.encoders_for`) is first-match like `_PROFILES`, exact
+  ids first, reusing the loaders' pinned constants.
   Tokenizer files only. Each load runs on a daemon thread outside the cache's
   lock (`_start`/`_fetch`); concurrent checks share the load in flight until
   an `unload()` forgets it, and a load is kept only if it succeeds with no
@@ -1308,7 +1316,8 @@ Prompt analyser:
   on; `unload()` never waits on a load. `measure` never raises, and
   `encoders_detail` says what went unchecked, each encoder under its own
   reason. Never from `/api/status`; `prompt_encoding.unload()` runs on
-  Unload and shutdown. `\(`/`\)` escapes are not flagged.
+  Unload and shutdown. `\(`/`\)` escapes are not flagged
+  (`prompt_weighting`).
 - Tag categories for the order and artist checks come from the chips' own
   lookup (`tag_lookup.lookup_tags`), only on a Danbooru-vocabulary guide or one whose
   rules read artists (Anima, `wants_artist_categories`, no cutoff), and only

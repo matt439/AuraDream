@@ -7809,9 +7809,9 @@ ran to the prompt's first character, so the message named the opening as where
 reading stops. Now Han and kana, and their 、，。, stand alone; Hangul does
 not, since Korean spaces its words. A walk back longer than half the
 40-character snippet (a URL, Thai, an unspaced Hangul run) quotes from the cut
-instead. Every template string, length and thinking switch copied into the
-module is held equal to the installed diffusers source - and to this repo's
-Anima and NewBie pipelines - by reading those files in
+instead. Every template string, length and thinking switch copied into
+`encoder_table` is held equal to the installed diffusers source - and to this
+repo's Anima and NewBie pipelines - by reading those files in
 `tests/test_prompt_encoding.py`, so a diffusers upgrade that moves one fails a
 test rather than the counts. The table is first-match on the id like
 `_PROFILES`, exact ids first, reusing the loaders' pinned constants; its
@@ -8709,7 +8709,7 @@ here. How the pipeline reads the prompt - a token limit, where guidance
 brings the negative prompt in, the system instruction NetaYume's loader
 adds - stays citable, because it is what runs:
 `test_no_citable_sentence_misstates_a_token_limit` holds every stated limit
-to `prompt_encoding`'s table and
+to `encoder_table`'s table and
 `test_no_citable_sentence_is_the_app_talking` keeps the UI markers out; a
 test fails if a listed sentence stops matching the prose. Krea [dev]'s
 "photo language" and "give it room" were the first two such sentences,

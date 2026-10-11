@@ -12,8 +12,8 @@ from backend import (
     critic_reorder,
     critic_validation,
     guides,
-    prompt_encoding,
     prompt_rules,
+    prompt_weighting,
 )
 from backend.schemas import GenerateRequest, PromptAnalysis
 
@@ -116,7 +116,7 @@ def test_a_reorder_moves_whole_phrases_and_keeps_rendered_text():
         split = (f"A bakery at dawn, hot coffee{closing}, a chalkboard sign reading "
                  f"{opening}Fresh bread, a cat on the step")
         assert not _kept(split, prompt), opening
-    assert critic_reorder.QUOTED is prompt_rules.QUOTED is prompt_encoding.QUOTED
+    assert critic_reorder.QUOTED is prompt_rules.QUOTED is prompt_weighting.QUOTED
 
 
 @pytest.mark.parametrize("prompt, changed, moved", [

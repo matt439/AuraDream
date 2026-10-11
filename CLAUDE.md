@@ -83,7 +83,9 @@ Backend (`backend/`):
   seeds' batches and their next seeds;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
   paths; `refine.py` the image-to-image pass; `latent_preview.py`
-- Prompt analyser: `prompt_encoding.py` (tokenizers), `prompt_text.py`,
+- Prompt analyser: `prompt_encoding.py` (tokenizers), `encoder_table.py`
+  (each checkpoint's encoders and copied pipeline templates),
+  `prompt_weighting.py` (literal weighting syntax), `prompt_text.py`,
   `prompt_order.py`, `prompt_rules.py` (rule checks), `prompt_sources.py`
   (what the critic may cite), `critic.py` + `critic_runtime.py`,
   `critic_server.py`, `critic_context.py`, `critic_reorder.py`,
@@ -183,8 +185,9 @@ Prompt analyser:
 - Every finding carries `source`/`cite`/`url`; rule config lives in the
   guide's `analysis`, never a profile key. A check no author sentence
   supports is `heuristic`. Never invent a documented order.
-- `prompt_encoding` measures the exact string the pipeline builds, held to the
-  installed diffusers source by `tests/test_prompt_encoding.py`.
+- `prompt_encoding` measures the exact string the pipeline builds; the
+  strings it copies live in `encoder_table`, held to the installed diffusers
+  source by `tests/test_prompt_encoding.py`.
 - The critic is pinned (llama.cpp build, Qwen3-4B GGUF, sizes and sha256),
   runs one loopback `llama-server` per call with its key in the environment,
   stopped as a whole process tree; its answer passes `critic.validate` before
