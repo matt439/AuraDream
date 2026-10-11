@@ -133,7 +133,9 @@ function promptSearchLine(rec) {
 // focused where the results are - the passes link's way (showPasses).
 function showGallerySearch(search) {
   if (els.lightbox.open) closeLightbox();
-  if (els.search.value.trim() !== search) {
+  // The search is the gallery's: from the recycle bin, back to it.
+  const left = leaveBin();
+  if (left || els.search.value.trim() !== search) {
     els.search.value = search;
     resetGallery();
   }

@@ -288,21 +288,22 @@ function notMadeText(lead, state) {
 }
 
 // A finished job's images the gallery's filter leaves out - a comparison's
-// or a sweep's sheet still scoped to its job:, a search, Starred - said
+// or a sweep's sheet still scoped to its job:, a search, Starred, the
+// recycle bin shown in the gallery's place (bin.js) - said
 // under the gallery's head with a way to them: Generate after a comparison
 // left the 12 images of its sheet on screen, the count unchanged, as though
 // nothing had been saved. Counted across jobs while the filter is the same
 // (`outsideView`); the gallery's line clears with the next reset.
 let outsideView = null;
 function viewFilter() {
-  return [els.search.value.trim(), els.favOnly.checked, els.allModels.checked, sheetMode].join('|');
+  return [els.search.value.trim(), els.favOnly.checked, els.allModels.checked, sheetMode, binMode].join('|');
 }
 
 // `coming`: the ids prependFinished's page holds, whose cards may still be
 // waiting for the pointer to leave the gallery's column (joinFinished) - in
 // this view all the same, and said at once.
 function noteOutsideView(images, coming) {
-  if (!els.search.value.trim() && !els.favOnly.checked) { outsideView = null; return; }
+  if (!binMode && !els.search.value.trim() && !els.favOnly.checked) { outsideView = null; return; }
   const have = new Set([...galleryRecords.map((r) => r.id), ...(Array.isArray(coming) ? coming : [])]);
   const missing = images.filter((r) => !have.has(r.id)).map((r) => r.id);
   if (!missing.length) return;
@@ -314,15 +315,17 @@ function noteOutsideView(images, coming) {
   show.type = 'button';
   show.className = 'ghost tiny';
   show.textContent = 'Show all';
-  show.title = 'Clear the search and Starred, and close the sheet, to see every image';
+  show.title = binMode ? 'Leave the recycle bin, clear the search and Starred, to see every image'
+    : 'Clear the search and Starred, and close the sheet, to see every image';
   show.onclick = showAllImages;
   els.galleryError.append(' · ', show);
 }
 
 // The gallery unfiltered: the search box emptied, Starred off, the sheet
-// closed - the escape the scope note offers.
+// closed, the recycle bin left - the escape the scope note offers.
 function showAllImages() {
   outsideView = null;
+  leaveBin();
   els.search.value = '';
   els.favOnly.checked = false;
   sheetReturn = null;
@@ -380,11 +383,14 @@ function useSeed(seed) {
 // to what it would sweep before asking. Its press was on the head's own
 // button (or a key), not on the cards, and its modal question follows
 // within one round trip, so no card moves under a pointer about to press it.
+// Nothing in the recycle bin, which a job's images never join: the note
+// says they are outside this view (noteOutsideView).
 function prependFinished(made, { now = false } = {}) {
+  if (binMode) return Promise.resolve(undefined);
   if (sheetMode || !galleryRecords.length) return resetGallery();
   const epoch = galleryEpoch;
   return Promise.resolve(galleryPending).then(async () => {
-    if (epoch !== galleryEpoch || sheetMode) return;
+    if (epoch !== galleryEpoch || sheetMode || binMode) return;
     const params = new URLSearchParams({ limit: Math.min(made + PAGE, sheetPage) });
     if (els.search.value.trim()) params.set('search', els.search.value.trim());
     if (els.favOnly.checked) params.set('favorites', 'true');

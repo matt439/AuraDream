@@ -204,7 +204,7 @@
   {"eval": "askCount = () => String(window.__n); deleteUnstarred();"},
   {"wait": 1500},
   {"expect": "total === window.__k && galleryRecords.every((r) => r.favorite) && document.querySelectorAll('.card').length === window.__k"},
-  {"expect": "els.galleryError.textContent.includes('Deleted ' + window.__n + ' images')"},
+  {"expect": "els.galleryError.textContent.includes('Moved ' + window.__n + ' images to the recycle bin') && els.bin.querySelector('.count').textContent.trim() !== ''"},
   {"eval": "els.favOnly.checked = true; els.favOnly.onchange();"},
   {"wait": 600},
   {"expect": "els.deleteUnstarred.hidden"},

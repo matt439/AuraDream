@@ -310,3 +310,12 @@ def test_the_queue_is_a_model_dependent_request_and_the_preview_is_not(client, f
     refused = client.post("/api/refine/batch", json=body, headers=stale)
     assert refused.status_code == 409 and "checkpoint changed" in refused.json()["detail"]
     assert client.post("/api/refine/batch/preview", json=body, headers=stale).status_code == 200
+
+
+def test_a_picked_image_binned_since_says_it_is_in_the_bin(client, fake, store):
+    a = plant(store, "a fox", seed=1)
+    b = plant(store, "a hare", seed=2)
+    store.bin_images([b.id])
+    images = by_id(preview(client, ids=[a.id, b.id]))
+    assert (images[b.id]["status"], images[b.id]["detail"]) == ("deleted", "in the recycle bin")
+    assert images[a.id]["status"] == "queued"

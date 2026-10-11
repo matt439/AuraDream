@@ -1,0 +1,19 @@
+/* The recycle bin (bin.js). Bin is a footer button (gallery.css's .foot-btn),
+   pressed as Select is (.ghost.small.active); its count is tabular, so a
+   count that grows by a digit moves nothing but itself. Restore picked and
+   Empty recycle bin take Delete unstarred's place in the head, the second
+   red under the pointer as it is (.ghost.danger). */
+#btn-bin .count { font-variant-numeric: tabular-nums; }
+
+/* A card of the bin's: its picture dimmed a little, so the view does not
+   read as the gallery; a starred one keeps its amber edge (.card.fav), the
+   star it gets back with a Restore. Full strength under the pointer and
+   with focus, where it is being looked at. */
+#gallery .card.binned > img { opacity: 0.8; transition: opacity 0.15s; }
+#gallery .card.binned:hover > img, #gallery .card.binned:focus-within > img { opacity: 1; }
+
+/* The held controls that are no .ghost button - Starred and Gallery beside,
+   the Runs picker - dimmed as a held button is (generation.css). */
+.gallery-head .check:has(> input[aria-disabled="true"]), .gallery-head .runs[aria-disabled="true"] {
+  opacity: 0.45; cursor: not-allowed;
+}

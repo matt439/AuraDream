@@ -123,7 +123,9 @@ async function refreshBundlePreview() {
     if (epoch !== bundlePreviewEpoch) return;
     if (bundlePreview?.records !== preview.records) els.bundleCount.value = '';
     bundlePreview = preview;
-    els.bundlePreview.textContent = `${preview.records} gallery records · ${preview.images} full-size images · ${preview.thumbnails} thumbnails · ${humanBytes(preview.bytes)}`;
+    // The recycle bin's rows are records too, and go into the bundle as binned.
+    const binned = preview.binned ? ` (${preview.binned} in the recycle bin)` : '';
+    els.bundlePreview.textContent = `${preview.records} gallery records${binned} · ${preview.images} full-size images · ${preview.thumbnails} thumbnails · ${humanBytes(preview.bytes)}`;
     els.bundleCountLabel.textContent = `Type ${preview.records} to confirm all gallery records will be removed`;
   } catch (err) {
     if (epoch !== bundlePreviewEpoch) return;
@@ -238,7 +240,7 @@ async function receiveBundleStatus(status) {
         if (status.operation === 'import' && status.state === 'done') els.bundleUnlock.value = '';
         if (status.result?.deleted_ids?.length) forgetImages(status.result.deleted_ids);
         els.bundleCount.value = '';
-        await Promise.all([resetGallery(), loadRuns()]);
+        await Promise.all([resetGallery(), loadRuns(), syncBin()]);
         if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
       } finally { bundleSettling = false; }
     }

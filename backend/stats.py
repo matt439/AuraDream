@@ -17,7 +17,9 @@ same prompts and seeds, so its rate is a fair comparison. All-time
 (`--all`) is confounded - over months it rewards whatever settings were in
 use while the prompts happened to be good - and is printed as indicative.
 The column says *starred*, not kept: nothing records a rejection, so an
-untouched night reads 0% rather than unknown.
+untouched night reads 0% rather than unknown. Images in the recycle bin are
+not counted, made or starred, and the newest run is the newest with an image
+outside it.
 
 Running the file directly (`python backend/stats.py`) works too - see the
 sys.path bootstrap below.

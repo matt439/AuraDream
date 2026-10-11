@@ -907,11 +907,14 @@ deleted it, a broken image after a reload - until Generate was refused with
 "no gallery image with id 4", an id the chips never showed. `forgetImages`,
 the one place the page drops deleted ids, drops them from `referenceIds`
 too (through `setReferences`, the one writer) and its caller says so in the
-gallery's line; the per-image confirm says "It is reference image N in the
-panel" before the delete. Reuse restores a record's references
+gallery's line; the per-image confirm said "It is reference image N in the
+panel" before the delete (since 2026-10-11 there is no per-image confirm:
+the image goes to the recycle bin and the note after it says so, and only
+Delete permanently in the bin asks). Reuse restores a record's references
 synchronously and then asks `GET /api/images/{id}` for each, dropping only
 those answered "unknown image" (see "Per-control defaults and Reuse"). The
-server still refuses a missing reference at submit (`storage.reference_paths`).
+server still refuses a missing reference at submit (`storage.reference_paths`),
+and a binned one too, "is in the recycle bin; restore it to use it".
 And a starred image keeps its references through Delete unstarred: they are
 part of what made it (see "Delete unstarred").
 
@@ -1278,6 +1281,10 @@ whose source a delete took, as the gallery's are; and the page keeps every
 id it has seen deleted (`deletedIds`, from `forgetImages`) and marks an
 arriving pass made from one (`markGoneSource`, in the stream's `show`), since
 a record saved just before the delete committed reaches the page after it.
+A source moved to the recycle bin is missing the same way, with
+`refine_binned` beside it (2026-10-11): the page says "(in the recycle
+bin)" and offers a Restore, which clears both flags in the gallery and in a
+job's replay (`jobs.restore_images`).
 
 The sweep that delete stops cannot resume. On the card, the source deleted
 during cell 2 failed cells 3-5 within milliseconds (`ValueError: no gallery
@@ -3302,7 +3309,7 @@ the Local Diffusion PNG metadata, parses `created_at` from the filename prefix
 as UTC (mtime failing that), copies a foreign file in `.part`-then-rename
 and never over a different file of the same name, records `duration_ms=0`
 (so `step_cost_ms`'s `> 0` ignores it) and loses `favorite`, which lives in
-SQLite alone. `search.strict_scope` is the `key:value`-only reading of the search
+SQLite alone, and `binned_at` with it: a binned image comes back live. `search.strict_scope` is the `key:value`-only reading of the search
 grammar for the paths where the LIKE fallback is a hazard: `clear --where`
 (`delete_matching`, `DELETE ... RETURNING` in one statement, no orphan
 sweep on that path), the gallery's Delete unstarred (the same function,
@@ -3315,7 +3322,7 @@ checkpoint, times the images) under the same no-rows-no-estimate rule.
 **A database-backed import keeps the database-only state.** `reindex --from
 <outputs> --database <local-diffusion.db>` reads the source database in read-only mode,
 copies only readable PNGs, and inserts through the same `_insert_row` seam.
-Unlike PNG-only recovery it preserves `favorite`, `duration_ms`, and every
+Unlike PNG-only recovery it preserves `favorite`, `binned_at`, `duration_ms`, and every
 newer reproduction column the source has. SQLite ids cannot be copied into a
 non-empty gallery: source rows are therefore visited in ascending id order and
 reference-image ids are translated through the source-to-destination map.
@@ -3453,6 +3460,20 @@ post-verification inventory finds a `.part` clears nothing. Raw external program
 do not take that lock, so the final inventory/hash check and SQLite checkpoint
 refusals remain necessary. No archive operation is run against the user's
 gallery as part of tests: core/API tests and browser smokes use scratch data.
+
+**The recycle bin travels with the gallery** (2026-10-11). An export is a
+snapshot of what is on disk, and binned images are on disk: they are in the
+archive, cleared from the source with the rest (in `deleted_ids`), and
+the preview's `records` stays every row, the number typed back, with
+`binned` beside it for the dialog's "(N in the recycle bin)". An imported
+new row keeps the `binned_at` it left with; a row this gallery already
+holds keeps its own state, as it keeps its star, and `binned_at` is no part
+of the identity comparison, so binning or restoring an image never turns a
+repeat import into a conflict. An old bundle has no column and imports
+live; a newer bundle into an older build does the same, which is accepted
+(see "Recycle bin: why the per-image confirm went"). A bin or restore in
+another process mid-export changes a row, and the row-equality check
+before cleanup refuses it, which is the right answer.
 
 ### Password bundles and the one-pass read-back
 
@@ -4250,7 +4271,9 @@ starred image was made from, plus the gallery's checkpoint scope unless
 `all_models=true` - which is
 `clear --where ... --keep-favorites` over HTTP, and shares `delete_matching`
 with it. Rows and their files only: no orphan sweep and no vacuum, for the
-reason the CLI's `--where` path has none.
+reason the CLI's `--where` path has none. Since 2026-10-11 it moves the
+rows to the recycle bin instead, files untouched, and counts live rows
+only; see "Recycle bin: why the per-image confirm went".
 
 **The hazard is inverted with the gesture, and the gate is built for the
 inverted one.** A per-card delete goes wrong by taking the wrong image; a
@@ -4412,6 +4435,107 @@ refusal, checking that nothing went until the right number was typed - and
 drive the dialog itself, Escape and Delete, over the lightbox and with a
 typed count; `smoke-delete.json` takes the rest to the end,
 a starred pass's source and a landed image's 409 included.
+
+**The per-image confirm has gone; the bin is the undo** (2026-10-11). See
+"Recycle bin: why the per-image confirm went". What is said above about the
+confirm's settings line, its passes and references now holds for the bin
+view's Delete permanently, and Delete unstarred moves what it takes to the
+recycle bin, keeping its typed count.
+
+## Recycle bin: why the per-image confirm went
+
+**The confirm guarded a step that could not be taken back, and so was
+asked every time.** Triage is a long run of ⌦ presses - most of a night's
+images go - and a question per press is answered without being read: the
+dialog that was meant to catch the wrong image trained the hand to press
+Delete twice. An undo catches the wrong image after the fact, when it is
+seen, at no cost to the presses that were right. So ⌦, the result's
+Delete and the lightbox's Delete (and its Del key) move the image to a
+recycle bin with no question, and the note they leave - "Moved #12 to the
+recycle bin." - carries a Restore; a run of them gathers into one note. The
+questions that remain are the ones whose step cannot be undone: Empty
+recycle bin, the bin view's Delete permanently, and Delete unstarred's
+count. The lightbox's Del, unconfirmed, ignores a held key's repeats, or
+holding it would bin a run of images.
+
+**Binned is a column, and files stay where they are.** `binned_at` is ISO
+UTC text like `created_at`, NULL while live. Text rather than a 0/1 flag,
+so a bundle merged into an older table gains it through the same ALTER
+fallback as any unlisted column (anything unlisted becomes TEXT), and so
+the time can be shown or one day drive a purge; never NOT NULL, so an
+older database or bundle reads None and is live rather than refused. The
+PNG and its thumbnail do not move to a bin folder: a bundle's inventory
+takes only `images/*` and `images/thumbnails/*`, the orphan sweep and the
+reindex would have to learn a second place, and a Restore is then one
+UPDATE. Bin state is SQLite's alone, as the star is - never in the PNG
+chunk - so a PNG-only reindex, or an older build importing a newer bundle,
+brings a binned image back live, as a PNG-only reindex loses a star. That
+is accepted: the image is not lost, only out of the bin. A repeat bundle
+import keeps this gallery's bin state for a row it already holds, as it
+keeps its star.
+
+**Gone for every live read, present for every read about what exists or
+was made.** One rule decides each query. Listings, selections, references,
+refine sources, stars, runs and stats leave the bin out (`storage._LIVE`);
+the orphan sweep, reindex, bundles, Resume's and More seeds' held keys,
+lineage, provenance and the cost and size samples read every row. Filtered
+to live rows, the orphan sweep would delete binned PNGs as untracked and a
+reindex would add them back as new rows; a binned cell left out of
+`completed_cells` would be made again by the next Resume, which is the
+render the user just rejected. Emptying the bin makes the cell eligible
+again, as a delete always has. More seeds follows on past a binned seed,
+so a Restore never brings back a duplicate. A binned image is refused as a
+reference or a refine source until it is restored (`reference_paths`,
+"is in the recycle bin; restore it to use it"), which reaches a
+submission, a queued cell and `generate.py` with no other change; a job
+queued before the bin fails that cell, as it did when the image was
+deleted. A pass whose source is binned reads `refine_missing` as before,
+and `refine_binned` beside it says which, so the page can say "(in the
+recycle bin)" and offer the Restore rather than "(deleted)". A binned star
+keeps `favorite = 1`, so a Restore brings the star back, but while binned
+it is unkept and protects nothing: the star is a promise to keep, and the
+bin is the user taking it back. It cannot be starred again until it is
+restored (404), which also keeps a stale tab from re-starring it there.
+
+**`DELETE /api/images/{id}` stays permanent.** The bin is new routes
+(`POST /api/images/bin`, `/restore`, `GET /api/gallery/bin`, its
+`/summary`, `DELETE /api/gallery/bin`), so the tests and smokes that delete
+an image by a raw `DELETE` keep meaning what they say, and the bin view's
+Delete permanently is the old route. `GET /api/images/{id}` and `/thumb`
+answer a binned image 404 "unknown image (#N is in the recycle bin)" unless
+`?binned=true`: the page's many readers of "unknown image" mean "gone from
+the gallery" and stay right, and one that wants to offer a Restore reads
+the reason after it.
+
+**No `bin:` search key.** A key would reach `strict_scope`, and through it
+Delete unstarred, `clear --where` and `keep_rates`; it would make
+`split_search` carry a flag, and the page's key list would have to learn
+it. The bin's view is a route of its own, every checkpoint's at once (the
+bin is one place, and Empty empties all of it), newest id first, narrowed
+by the search box as the gallery is; Starred does not apply. Picked images
+are a different matter: an id binned after it was picked is reported per
+image by Swap tags, Mass refine and More seeds as `deleted`, "in the
+recycle bin", never refused as a whole.
+
+**Delete unstarred bins, and keeps its count.** Every page-side delete is
+then reversible. The typed count stays: its preview of what is kept still
+catches the wrong scope, which a bin does not make harmless - a whole
+gallery restored by hand is not an undo. It counts live rows only, so what
+is already in the bin is neither counted nor binned twice; the CLI's
+`clear --where` keeps reaching the bin and deleting for good, and a binned
+star is not kept there either.
+
+**Empty is fail-fast and pinned to its count.** `empty_bin` is whole
+maintenance, refused at once on a busy gallery as `delete_matching` is,
+and it compares the count the confirmation showed under its lock, so an
+image binned in another tab while the dialog was open is answered 409
+rather than deleted on a number confirmed for fewer. Bin and restore are
+per-record writes and wait, as a star does. The confirmation says what
+cannot be made again: the binned images a live one names as its source or
+a reference (`sources_in_use`), and that a running job's cell using one
+will fail. It still deletes them - a warning, not a guard - and there is no
+automatic purge: nothing leaves the disk unless asked. `clear --bin` is the
+same call from the terminal, previewed with the same summary.
 
 ## The morning after: runs and finished jobs
 
@@ -4850,6 +4974,21 @@ well, open the lightbox only without Ctrl, Meta or
 Alt: Ctrl+Enter is Generate's from anywhere, and on a focused image - where
 the lightbox's close leaves focus - it opened the lightbox and queued a job
 behind it. The rest here is `card()`'s.
+
+**A card in the recycle bin has the tools of an image on its way out**
+(2026-10-11). In the bin's view a card has two tools: ↶ Restore, and its ⌦
+become Delete permanently, still last and still apart, now asking first;
+its picture opens the lightbox. ⤢ goes - it means Refine everywhere else -
+and so do the star, ❐, Reuse and ⊞, since a binned image can be none of
+starred, a reference, a source or a sweep's base until it is back. A restored card
+tombstones "Restored · #N" in the bin and returns into its own box in the
+gallery, so nothing moves under the pointer either way; a binned one, in
+the gallery, reads "In the recycle bin · #N" where a deleted one reads
+"Deleted · #N". The head's controls that act on live images are held with
+"Not in the recycle bin — leave it with Bin" rather than hidden, so the
+head keeps its shape - except Re-render, which is hidden, since the count it
+would show is the bin's and no render's - and Empty recycle bin takes Delete
+unstarred's slot.
 
 ## The gallery selection
 

@@ -229,10 +229,16 @@ def test_the_selection_resolver_reports_ids_gone_and_sorts_oldest_first(client, 
 
     a = plant(store, "one", seed=1)
     b = plant(store, "two", seed=2)
-    records, gone = asyncio.run(main._resolve_selection(
+    records, gone, binned = asyncio.run(main._resolve_selection(
         ids=[b.id, 77, a.id, b.id], search=None, favorites=False, all_models=False,
     ))
-    assert ([r.id for r in records], gone) == ([a.id, b.id], [77])
+    assert ([r.id for r in records], gone, binned) == ([a.id, b.id], [77], set())
+    # A binned one is gone from the selection, and the third list says why.
+    store.bin_images([a.id])
+    records, gone, binned = asyncio.run(main._resolve_selection(
+        ids=[b.id, 77, a.id], search=None, favorites=False, all_models=False,
+    ))
+    assert ([r.id for r in records], gone, binned) == ([b.id], [a.id, 77], {a.id})
 
 
 def test_a_foreign_record_through_all_models_is_reported_not_refused(client, fake, store):
@@ -242,3 +248,18 @@ def test_a_foreign_record_through_all_models_is_reported_not_refused(client, fak
     answer = preview(client, favorites=False, all_models=True)
     images = by_id(answer)
     assert images[mine.id]["status"] == "queued" and answer["counts"]["foreign"] == 1
+
+
+def test_a_picked_image_binned_since_says_it_is_in_the_bin(client, fake, store):
+    a = plant(store, "1girl, red hair, long hair", seed=1)
+    b = plant(store, "1girl, red hair, smile", seed=2)
+    source = plant(store, "1girl, red hair", seed=3)
+    passed = plant(store, "1girl, red hair, long hair", seed=4, refine=source.id, strength=0.5)
+    store.bin_images([b.id, source.id])
+    images = by_id(preview(client, ids=[a.id, b.id, passed.id, 999]))
+    assert (images[b.id]["status"], images[b.id]["detail"]) == ("deleted", "in the recycle bin")
+    assert (images[999]["status"], images[999]["detail"]) == ("deleted", "no longer in the gallery")
+    # A pass whose source is binned cannot be made again until a Restore.
+    assert images[passed.id]["status"] == "source_deleted"
+    assert "recycle bin" in images[passed.id]["detail"]
+    assert images[a.id]["status"] == "queued"

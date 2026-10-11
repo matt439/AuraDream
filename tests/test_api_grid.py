@@ -972,3 +972,18 @@ def test_the_pixel_budget_is_enforced(client):
         "/api/generate", json={"prompt": "x", "width": 2816, "height": 2816}
     )
     assert response.status_code == 422
+
+
+def test_a_resume_counts_a_binned_cell_as_made_until_the_bin_is_emptied(client, fake):
+    # A binned cell is a render rejected, not one the night never reached:
+    # Resume leaves it, and only an emptied bin makes it a hole again.
+    body = {"prompt": "a fox", "width": 256, "height": 256, "steps_axis": "6,8", "seed": 9}
+    images = stream_job(client, client.post("/api/grid", json=body).json()["job_id"])[-1]["images"]
+    client.post("/api/images/bin", json={"ids": [images[0]["id"]]})
+    preview = client.post("/api/grid/preview", json={**body, "resume": True}).json()
+    assert (preview["cells"], preview["skipped"]) == (0, 2)
+    assert client.post("/api/grid", json={**body, "resume": True}).status_code == 409
+
+    client.delete("/api/gallery/bin?expected=1")
+    preview = client.post("/api/grid/preview", json={**body, "resume": True}).json()
+    assert (preview["cells"], preview["skipped"]) == (1, 1)

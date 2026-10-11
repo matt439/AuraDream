@@ -493,7 +493,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.refine is not None and (args.scale is not None or not sized):
         # Only against a gallery that exists, like the reference check below:
         # a --dry-run promises to create nothing, the database included.
-        refined_from = p.storage.get_image(args.refine) if p.settings.db_path.exists() else None
+        # Binned too: the source check below then says it is in the recycle
+        # bin, where this would have said there is no such image.
+        refined_from = (
+            p.storage.get_image(args.refine, include_binned=True)
+            if p.settings.db_path.exists() else None
+        )
         if refined_from is None:
             print(
                 f"no gallery image with id {args.refine} in {p.settings.db_path} to refine",

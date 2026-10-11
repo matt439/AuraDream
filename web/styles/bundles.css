@@ -4,6 +4,12 @@
   margin-top: calc(var(--sp-1) - var(--sp-3));
 }
 .gallery-footer #gallery-error { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+/* On a phone the row's buttons - Select, More seeds…, Bin, Bundles… - are
+   wider than the column: what does not fit takes a second line, rather than
+   running the page past the screen's edge. One line from 600 px up. */
+@media (max-width: 520px) {
+  .gallery-footer { flex-wrap: wrap; row-gap: var(--sp-1); }
+}
 /* No taller than the line it shares: as a small button (26 px) it grew the
    18 px line and moved the grid down 8 px. In the controls' row instead, it
    wrapped Delete unstarred onto a row of its own whenever a filter showed it. */

@@ -12,7 +12,7 @@ tool: splits follow responsibilities, with no new build step or runtime feature.
 | --- | ---: | --- |
 | `backend/critic.py` | 3,320 | Coordinator; `critic_runtime.py` installs/verifies the pinned runtime; `critic_server.py` owns processes and loopback requests; `critic_context.py` builds the question and budgets; `critic_reorder.py` checks pure permutations; `critic_validation.py` validates answers. |
 | `backend/prompt_rules.py` | 2,422 | Rule context and dispatch; `prompt_text.py` parses text and lettering; `prompt_order.py` places tags and checks category coverage. |
-| `backend/main.py` | 1,917 | App lifecycle and model/prompt/generation routes; `api_gallery.py` owns browsing, runs and deletion; `api_jobs.py` owns status, cancel, pause and SSE. |
+| `backend/main.py` | 1,917 | App lifecycle and model/prompt/generation routes; `api_gallery.py` owns browsing, runs, the recycle bin and deletion; `api_jobs.py` owns status, cancel, pause and SSE. |
 | `web/style.css` | 3,032 | Tokens/base layout plus seven consecutive component sections in `web/styles/`, linked in the original cascade order. Later: `bundles.css` (gallery bundles) and `model-picker.css` (the Models picker, moved 2026-10-09 from between the topbar and layout rules and linked right after `style.css`); `style.css` is now 390 lines. |
 | `web/generation.js` | 2,209 | Submission/queue; `grid-preview.js`, `job-stream.js`, `job-results.js`. |
 | `web/sheet.js` | 1,822 | Sheet model/axes; `sheet-render.js`, `sheet-export.js`. |
@@ -48,7 +48,12 @@ routes in `main.py`, through the same resolver and helper. `more-seeds.js`
 `refine-batch.css`) own More seeds - the footer's More seeds… and its
 dialog; the batches, their seeds and Batch are the server's,
 `backend/more_seeds.py` and its routes in `main.py`, through the same
-resolver and helper. The selection target and scope line the three actions
+resolver and helper. `bin.js` (loaded after `more-seeds.js`) and
+`styles/bin.css` (linked after `more-seeds.css`) own the recycle bin - the
+footer's Bin, the bin's view, its undo note, Restore and Empty recycle bin;
+which reads leave the bin out is the server's, `storage.py`'s `_LIVE` and
+the bin's routes in `api_gallery.py`, and `forgetImages` and its sibling
+`unforgetImages` stay in `gallery-actions.js`. The selection target and scope line the three actions
 word alike are `gallery-select.js`'s `galleryActionTarget` and
 `galleryActionScopeLine`.
 

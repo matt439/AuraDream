@@ -49,7 +49,7 @@ function batchMates(rec) {
   const seen = new Set();
   const mates = [];
   for (const r of [rec, ...galleryRecords, ...viewerRecords, ...sessionRecords, ...fetched]) {
-    if (seen.has(r.id) || deletedIds.has(r.id)) continue;
+    if (seen.has(r.id) || isGone(r.id)) continue;
     seen.add(r.id);
     if (peekRun(r) === run && sameExcept(r, rec, ['seed'])) mates.push(r);
   }
@@ -81,7 +81,8 @@ function batchPeekOver(e) {
   const cardEl = e.target.closest?.('.card');
   if (cardEl === peekOver) return;
   hideBatchPeek();
-  if (!cardEl || cardEl.classList.contains('gone') || sheetMode) return;
+  // Not in the recycle bin, whose images are no batch's any longer (bin.js).
+  if (!cardEl || cardEl.classList.contains('gone') || sheetMode || binMode) return;
   const rec = peekRecord(cardEl);
   if (!peekRun(rec)) return;
   peekOver = cardEl;

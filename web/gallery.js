@@ -43,13 +43,14 @@ function loadGallery() {
   const last = galleryRecords[galleryRecords.length - 1];
   if (!sheetMode && last) params.set('before', last.id);
   if (els.search.value.trim()) params.set('search', els.search.value.trim());
-  if (els.favOnly.checked) params.set('favorites', 'true');
-  if (els.allModels.checked) params.set('all_models', 'true');
+  // The recycle bin is every checkpoint's, and Starred is held there.
+  if (els.favOnly.checked && !binMode) params.set('favorites', 'true');
+  if (els.allModels.checked && !binMode) params.set('all_models', 'true');
   els.more.disabled = true;
   els.more.textContent = 'Loading…';
   els.lbNext.disabled = true;
 
-  galleryPending = api(`/api/gallery?${params}`)
+  galleryPending = api(`${galleryEndpoint()}?${params}`)
     .then((page) => {
       if (epoch !== galleryEpoch) return;  // superseded by a reset
       total = page.total;
@@ -110,6 +111,12 @@ function loadGallery() {
   return galleryPending;
 }
 
+// Where the grid's pages come from: the gallery, or in the recycle bin
+// (bin.js) the bin, paged and searched the same way.
+function galleryEndpoint() {
+  return binMode ? '/api/gallery/bin' : '/api/gallery';
+}
+
 // The gallery with nothing to show, said under its head: on a first visit it
 // was a blank screen beside a disabled "No runs yet", with nothing saying it
 // fills as images are made. What fills it, and the authors' examples a press
@@ -124,6 +131,10 @@ function syncGalleryEmpty() {
   els.galleryEmpty.hidden = !empty;
   if (!empty) return;
   const search = els.search.value.trim();
+  if (binMode) {
+    els.galleryEmpty.replaceChildren(search ? 'No image in the recycle bin matches this search.' : 'The recycle bin is empty.');
+    return;
+  }
   const others = galleryOthers && !els.allModels.checked
     ? ` ${plural(galleryOthers, 'image')} on other checkpoints: tick All models.` : '';
   if (search || els.favOnly.checked) {
@@ -252,7 +263,7 @@ function syncBeside() {
 function syncBesideTitle() {
   const label = els.besideTick.closest('label');
   label.dataset.title ??= label.title;
-  label.title = sheetMode
+  label.title = binMode ? BIN_HELD : sheetMode
     ? `${label.dataset.title}. With the sheet open, as now, it takes effect when the sheet closes`
     : label.dataset.title;
 }
@@ -389,6 +400,8 @@ function card(rec) {
   // Its press picks it instead in select mode (cardPress, gallery-select.js).
   const img = thumb(rec, galleryRecords, undefined, (e) => cardPress(div, rec, e));
   img.setAttribute('aria-keyshortcuts', 'F');
+  // A card of the recycle bin's has its own tools (bin.js).
+  if (rec.binned_at) return binCard(div, img, rec);
 
   // The star is a button of its own over the picture's corner, where a
   // starred card's badge always was - a click on that badge went through to
@@ -411,7 +424,7 @@ function card(rec) {
   const reference = tool('❐', '', () => toggleReference(div, rec));
   reference.classList.add('ref-tool');
   syncReferenceTool(reference, rec.id);
-  const del = tool('⌦', `Delete #${rec.id}`, () => deleteImage(rec), 'Delete');
+  const del = tool('⌦', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec), 'Move to recycle bin');
   del.classList.add('del');
 
   const tools = document.createElement('div');
@@ -454,7 +467,7 @@ function tool(label, title, onClick, tip = '') {
   b.title = title;
   // A button is named by its contents, and `title` is never exposed - so these
   // announced as their glyph, or as a bare "button" for a glyph the screen
-  // reader has no word for. The last of them deletes the image.
+  // reader has no word for. The last of them moves the image to the recycle bin.
   b.setAttribute('aria-label', title);
   if (tip) b.dataset.tip = tip;
   b.onclick = onClick;
@@ -521,7 +534,8 @@ function syncReferenceTool(button, id) {
 }
 
 function syncCardTools() {
-  els.gallery.querySelectorAll('.card[data-id]').forEach((div) => {
+  // Not on the recycle bin's cards, which have neither (binCard).
+  els.gallery.querySelectorAll('.card[data-id]:not(.binned)').forEach((div) => {
     syncRefineTool(div.querySelector('.refine-tool'));
     syncReferenceTool(div.querySelector('.ref-tool'), +div.dataset.id);
   });
@@ -762,6 +776,7 @@ function syncReuseButton(button, rec, compact = false) {
   // promising a dialog on an image that is gone.
   const gone = pass != null && !!rec.refine_missing;
   button.dataset.reusePassGone = String(gone);
+  button.dataset.reusePassBinned = String(gone && !!rec.refine_binned);
   if (pass != null && !gone) {
     button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse pass…`;
     button.title = mismatch ? `Warning: ${warning}`
@@ -773,7 +788,9 @@ function syncReuseButton(button, rec, compact = false) {
     return;
   }
   const lost = mismatch ? notCarried(rec) : '';
-  const why = gone ? `; #${pass}, its source, has been deleted, so the pass cannot be made again` : '';
+  const why = !gone ? '' : rec.refine_binned
+    ? `; #${pass}, its source, is in the recycle bin - restore it to make the pass again`
+    : `; #${pass}, its source, has been deleted, so the pass cannot be made again`;
   button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse settings`;
   button.title = mismatch ? `Warning: ${warning}${lost}${why}` : `Load these settings into the panel${why}`;
   button.setAttribute('aria-label', mismatch ? `Reuse settings (warning: ${warning}${lost}${why})` : 'Reuse settings');
@@ -782,11 +799,18 @@ function syncReuseButton(button, rec, compact = false) {
 
 // A card's image title: the facts that tell it from the card beside it, a
 // pass's source and strength among them - "(deleted)" where the source has
-// gone, as the lightbox's facts say it.
+// gone, "(in the recycle bin)" where it waits there (goneWord), as the
+// lightbox's facts say it.
 function cardTitle(rec) {
   const pass = rec.refine != null
-    ? ` · refine of #${rec.refine}${rec.refine_missing ? ' (deleted)' : ''} @ ${rec.strength}` : '';
+    ? ` · refine of #${rec.refine}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}` : '';
   return `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}${pass}\n${rec.prompt}`;
+}
+
+// Where a pass's gone source went (`refine_missing`): "deleted", or "in the
+// recycle bin" (`refine_binned`), from which a Restore brings it back.
+function goneWord(rec) {
+  return rec.refine_binned ? 'in the recycle bin' : 'deleted';
 }
 
 // What a Reuse here leaves behind, as fillPanel decides it - references where
@@ -815,6 +839,7 @@ function syncReuseButtons() {
       model_id: kept.reuseModel,
       refine: kept.reusePass ? +kept.reusePass : null,
       refine_missing: kept.reusePassGone === 'true',
+      refine_binned: kept.reusePassBinned === 'true',
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
       lora: kept.reuseLora || null,
     }, kept.reuseCompact === 'true');

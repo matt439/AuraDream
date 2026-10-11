@@ -303,7 +303,7 @@ function resultFigure(rec) {
   reference.classList.add('ref-tool');
   syncReferenceTool(reference, rec.id);
   reference.hidden = !referenceSupported;
-  const del = tool('⌦', `Delete #${rec.id}`, () => deleteImage(rec), 'Delete');
+  const del = tool('⌦', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec), 'Move to recycle bin');
   del.classList.add('del');
   const tools = document.createElement('div');
   tools.className = 'tools';
@@ -361,7 +361,7 @@ function resultSide(rec, figure) {
   // Delete in words at the row's end, red under the pointer, as the page's
   // other destructive buttons: a lone ⌦ under the picture's corner was the
   // one tool the column did not have.
-  const del = action(tool('Delete', `Delete #${rec.id}`, () => deleteImage(rec)));
+  const del = action(tool('Delete', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec)));
   del.classList.add('del', 'danger');
   const actions = document.createElement('div');
   actions.className = 'result-actions';
@@ -401,7 +401,7 @@ function compareButton(rec, figure) {
 
 function syncCompareResult(button, rec) {
   button.setAttribute('aria-disabled', String(!!rec.refine_missing));
-  button.title = rec.refine_missing ? `#${rec.refine}, the image this was refined from, has been deleted`
+  button.title = rec.refine_missing ? `#${rec.refine}, the image this was refined from, ${rec.refine_binned ? 'is in the recycle bin' : 'has been deleted'}`
     : `Compare this pass with #${rec.refine}, the image it was refined from, in the lightbox`;
 }
 
@@ -416,7 +416,7 @@ function passLineage(rec) {
 // A pass's source as the page names it: a press opens it in the lightbox
 // with the pass after it (lightbox.js's openRefineSource), unless it has gone.
 function sourceLink(rec) {
-  if (rec.refine_missing) return `#${rec.refine} (deleted)`;
+  if (rec.refine_missing) return `#${rec.refine} (${goneWord(rec)})`;
   return factButton(`#${rec.refine}`, `Open #${rec.refine}, the image this was refined from; → comes back to the pass`,
     () => { void openRefineSource(rec); });
 }
@@ -424,12 +424,13 @@ function sourceLink(rec) {
 // A pass's source deleted while the pass is in the strip (forgetImages, once
 // its records say `refine_missing`): the note and the column's lineage and
 // facts say "#N (deleted)" rather than keep a button whose press said only,
-// in the panel's line a screen away, that #N had gone.
+// in the panel's line a screen away, that #N had gone. And back, where the
+// source is restored out of the recycle bin (unforgetImages).
 function viewerSourcesGone() {
   noteViewer();
   els.viewer.querySelectorAll('.result > .result-side').forEach((side) => {
     const rec = viewerRecords.find((r) => r.id === +side.parentElement.dataset.id);
-    if (!rec?.refine_missing) return;
+    if (rec?.refine == null) return;
     side.querySelector('.lineage')?.replaceWith(passLineage(rec));
     side.querySelector('.facts')?.replaceWith(factsList(rec));
     const compare = side.querySelector('.compare-source');
@@ -569,9 +570,10 @@ function viewerWaiting(clock) {
 // A gallery with nothing in it at all - no image on any checkpoint, nothing
 // filtered out - is a first run: the empty viewer stays the tall box, with
 // the authors' examples a press away (`viewerExamples`), rather than the one
-// line every later visit gets. From each unfiltered gallery page.
+// line every later visit gets. From each unfiltered gallery page - not the
+// recycle bin's (bin.js), whose emptiness says nothing of the gallery's.
 function syncEmptyInstall(page) {
-  if (els.search.value.trim() || els.favOnly.checked) return;
+  if (els.search.value.trim() || els.favOnly.checked || binMode) return;
   els.viewer.classList.toggle('empty-install', page.total === 0 && !page.other_models);
 }
 

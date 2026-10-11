@@ -238,8 +238,11 @@ See [gallery bundles](docs/usage.md#gallery-bundles).
 `local-diffusion.db` indexes the gallery. Each PNG
 contains its generation settings in a `local-diffusion` JSON chunk and an
 A1111-style `parameters` block. Back up **both the PNGs and database** to retain
-favourites and timings. See [gallery maintenance](docs/usage.md#clear-or-recover-a-gallery)
-for clearing history, rebuilding a lost index or importing another gallery.
+favourites, timings and the recycle bin. Deleting an image in the browser
+moves it to the recycle bin, where it can be restored until the bin is
+emptied. See [gallery maintenance](docs/usage.md#clear-or-recover-a-gallery)
+for the recycle bin, clearing history, rebuilding a lost index or importing
+another gallery.
 
 ## Development
 

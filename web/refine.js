@@ -341,7 +341,7 @@ function openRefine(rec, pass = null) {
 function writeRefineSourceLine(rec, gone = false) {
   els.refineSourceLine.textContent = [
     `${rec.width}×${rec.height}`, `seed ${rec.seed}`, checkpointName(rec.model_id),
-    rec.refine != null ? `itself a refine of #${rec.refine}${rec.refine_missing ? ', since deleted' : ''}` : '',
+    rec.refine != null ? `itself a refine of #${rec.refine}${rec.refine_missing ? `, since ${rec.refine_binned ? 'binned' : 'deleted'}` : ''}` : '',
     gone ? `#${rec.id} (deleted)` : '',
   ].filter(Boolean).join(' · ');
 }

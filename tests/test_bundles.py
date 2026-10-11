@@ -1149,3 +1149,58 @@ def test_a_failed_metadata_rewrite_refuses_the_whole_merge(store, monkeypatch, t
     with pytest.raises(bundles.BundleError, match="invalid metadata for"):
         bundles.import_bundle(bundle)
     assert _snapshot(store) == snapshot
+
+
+def test_the_recycle_bin_comes_across_and_a_repeat_import_keeps_the_local_state(store, monkeypatch, tmp_path):
+    live = _save("live", 1)
+    binned = _save("binned", 2)
+    store.bin_images([binned.id])
+    preview = bundles.preview()
+    assert (preview["records"], preview["binned"]) == (2, 1)
+    archive = _export()
+    # The bin is exported and cleared with the rest.
+    assert (archive["records"], archive["binned"]) == (2, 1)
+    assert set(archive["deleted_ids"]) == {live.id, binned.id}
+    assert store.list_images(binned=True)[1] == 0
+
+    _destination(store, monkeypatch, tmp_path)
+    imported = bundles.import_bundle(Path(archive["path"]))
+    assert (imported["imported"], imported["binned"]) == (2, 1)
+    assert [r.filename for r in store.list_images()[0]] == [live.filename]
+    (back,) = store.list_images(binned=True)[0]
+    assert back.filename == binned.filename and back.binned_at is not None
+
+    # This gallery's choice wins on a repeat import, as its stars do.
+    store.restore_images([back.id])
+    store.bin_images([store.list_images(search="live")[0][0].id])
+    again = bundles.import_bundle(Path(archive["path"]))
+    assert (again["imported"], again["present"], again["binned"]) == (0, 2, 0)
+    assert [r.filename for r in store.list_images()[0]] == [binned.filename]
+    assert [r.filename for r in store.list_images(binned=True)[0]] == [live.filename]
+
+
+def test_a_bundle_from_before_the_bin_imports_its_images_live(store, monkeypatch, tmp_path):
+    row = _save("source", 1)
+    bundle = Path(_export()["path"])
+    with ZipFile(bundle) as archive:
+        members = {info.filename: archive.read(info) for info in archive.infolist()}
+    database = tmp_path / "bundle.sqlite3"
+    database.write_bytes(members["database.sqlite3"])
+    with closing(sqlite3.connect(database)) as conn:
+        conn.execute("DROP INDEX IF EXISTS idx_images_binned")
+        conn.execute("ALTER TABLE images DROP COLUMN binned_at")
+        conn.commit()
+    members["database.sqlite3"] = database.read_bytes()
+    manifest = json.loads(members["manifest.json"])
+    manifest["files"]["database.sqlite3"] = {"size": len(members["database.sqlite3"]),
+                                             "sha256": hashlib.sha256(members["database.sqlite3"]).hexdigest()}
+    members["manifest.json"] = json.dumps(manifest).encode()
+    older = tmp_path / "older.zip"
+    with ZipFile(older, "w") as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    _destination(store, monkeypatch, tmp_path)
+    imported = bundles.import_bundle(older)
+    assert (imported["imported"], imported["binned"]) == (1, 0)
+    (record,) = store.list_images()[0]
+    assert record.filename == row.filename and record.binned_at is None

@@ -1,4 +1,4 @@
-"""Gallery browsing, favourites and scoped deletion routes."""
+"""Gallery browsing, favourites, the recycle bin and scoped deletion routes."""
 from __future__ import annotations
 
 import asyncio
@@ -9,7 +9,16 @@ from fastapi.responses import RedirectResponse
 
 from . import storage
 from .jobs import JobManager
-from .schemas import GalleryPage, ImageRecord, RunSummary, UnstarredPreview
+from .schemas import (
+    BinResult,
+    BinSummary,
+    GalleryPage,
+    IdsBody,
+    ImageRecord,
+    RestoreResult,
+    RunSummary,
+    UnstarredPreview,
+)
 from .search import strict_scope
 
 
@@ -28,6 +37,23 @@ def _unstarred_scope(search: str | None) -> str | None:
             detail=f"Delete unstarred takes key:value terms or an empty search - {exc}",
         ) from exc
     return search or None
+
+
+async def _record_or_404(image_id: int, binned: bool) -> ImageRecord:
+    """One image's record, the recycle bin's only when asked for.
+
+    A binned image answers 404 like a deleted one - the page's many readers
+    of "unknown image" mean "gone from the gallery", and are right - with
+    the reason after it, for the reader that wants to offer a Restore.
+    """
+    record = await asyncio.to_thread(storage.get_image, image_id, True)
+    if record is None:
+        raise HTTPException(status_code=404, detail="unknown image")
+    if record.binned_at is not None and not binned:
+        raise HTTPException(
+            status_code=404, detail=f"unknown image (#{image_id} is in the recycle bin)"
+        )
+    return record
 
 
 def create_router(
@@ -111,47 +137,132 @@ def create_router(
 
 
     @router.get("/api/images/{image_id}", response_model=ImageRecord)
-    async def image_record(image_id: int) -> ImageRecord:
+    async def image_record(image_id: int, binned: bool = False) -> ImageRecord:
         """One image's record, by id.
 
         The panel's refine source is an id like a reference chip's, but it needs
         more than a picture: the source's own size is what the scale buttons
         multiply, and a source restored from localStorage or from a refined
         record's `refine` may be on no gallery page the browser has loaded. A 404
-        is how the panel learns the source has been deleted.
+        is how the panel learns the source has been deleted - or binned, which
+        the detail says; `binned` answers for an image in the recycle bin too.
         """
-        record = await asyncio.to_thread(storage.get_image, image_id)
-        if record is None:
-            raise HTTPException(status_code=404, detail="unknown image")
-        return record
+        return await _record_or_404(image_id, binned)
 
 
     @router.get("/api/images/{image_id}/thumb")
-    async def image_thumb(image_id: int):
+    async def image_thumb(image_id: int, binned: bool = False):
         """The thumbnail for one image, by id.
 
         The panel's reference chips hold ids and nothing else - a reference
         restored from a record or from localStorage may name an image no loaded
         gallery page contains - so they need one request that turns an id into a
         picture. A redirect rather than a read: the file is already served by the
-        `/outputs` mount, with its caching.
+        `/outputs` mount, with its caching. 404 for a binned image unless `binned`.
         """
-        record = await asyncio.to_thread(storage.get_image, image_id)
-        if record is None:
-            raise HTTPException(status_code=404, detail="unknown image")
+        record = await _record_or_404(image_id, binned)
         return RedirectResponse(record.thumb_url or record.url)
 
 
     @router.post("/api/images/{image_id}/favorite")
     async def favorite(image_id: int, value: bool = True):
+        # 404 for an image in the recycle bin too: it is starred or not as
+        # it was binned, until a Restore.
         record = await asyncio.to_thread(storage.set_favorite, image_id, value)
         if record is None:
             raise HTTPException(status_code=404, detail="unknown image")
         return record
 
 
+    @router.post("/api/images/bin", response_model=BinResult)
+    async def bin_images(body: IdsBody) -> BinResult:
+        """Move images to the recycle bin: the page's delete, which Restore undoes.
+
+        Rows and files stay as they are; every live-facing read leaves the
+        image out from now on. `already` is an id another press or tab binned
+        first, `missing` one the gallery does not hold at all.
+        """
+        result = await asyncio.to_thread(storage.bin_images, body.ids)
+        get_jobs().forget_images(result["binned"], binned=True)
+        return BinResult(**result)
+
+
+    @router.post("/api/images/restore", response_model=RestoreResult)
+    async def restore_images(body: IdsBody) -> RestoreResult:
+        """Bring images back out of the recycle bin, usable again at once."""
+        result = await asyncio.to_thread(storage.restore_images, body.ids)
+        get_jobs().restore_images(result["restored"])
+        return RestoreResult(**result)
+
+
+    @router.get("/api/gallery/bin", response_model=GalleryPage)
+    async def recycle_bin(
+        limit: int = Query(48, ge=1, le=max(1024, max_grid_images)),
+        offset: int = Query(0, ge=0),
+        before: int | None = Query(None, ge=1),
+        search: str | None = None,
+    ) -> GalleryPage:
+        """The recycle bin, paged as the gallery is, newest id first.
+
+        Every checkpoint's: the bin is one place, and Empty recycle bin empties
+        all of it. The search box narrows it as it does the gallery; Starred
+        does not apply.
+        """
+        try:
+            items, total, _ = await asyncio.to_thread(
+                storage.list_images,
+                limit=limit + 1,
+                offset=offset,
+                search=search,
+                before=before,
+                binned=True,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return GalleryPage(
+            items=items[:limit],
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=len(items) > limit,
+            other_models=0,
+        )
+
+
+    @router.get("/api/gallery/bin/summary", response_model=BinSummary)
+    async def recycle_bin_summary() -> BinSummary:
+        """The bin's count and size, which binned images a live one needs, and
+        whether a job is queued or running: what the footer and Empty recycle
+        bin's confirmation say."""
+        found = await asyncio.to_thread(storage.bin_summary)
+        return BinSummary(**found, job_active=get_jobs().busy())
+
+
+    @router.delete("/api/gallery/bin")
+    async def empty_recycle_bin(expected: int = Query(ge=0)) -> dict:
+        """Empty recycle bin: every binned image deleted from disk, for good.
+
+        `expected` is the count the confirmation showed, compared under the
+        delete's lock, so an image binned in another tab while the dialog was
+        open is answered 409 rather than deleted on a number confirmed for
+        fewer.
+        """
+        try:
+            result = await asyncio.to_thread(storage.empty_bin, expected)
+        except storage.SelectionChanged as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"The recycle bin changed: {exc.found} images are in it now, not the "
+                f"{exc.expected} confirmed. Nothing was deleted; look again.",
+            ) from exc
+        get_jobs().forget_images(result["ids"])
+        return {"deleted": result["ids"], "files": result["files"]}
+
+
     @router.delete("/api/images/{image_id}")
     async def delete(image_id: int) -> dict:
+        """Delete one image and its PNG for good, live or binned: the bin
+        view's Delete permanently. The page's ordinary delete bins."""
         if not await asyncio.to_thread(storage.delete_image, image_id):
             raise HTTPException(status_code=404, detail="unknown image")
         # A page that reattaches to the job that made it is replayed the job's
@@ -184,7 +295,8 @@ def create_router(
         "made since this page last loaded", counted as the delete counts.
         """
         found = await asyncio.to_thread(
-            storage.matching_preview, _unstarred_scope(search), model_scope(all_models), newer_than
+            storage.matching_preview, _unstarred_scope(search), model_scope(all_models), newer_than,
+            live_only=True,
         )
         return UnstarredPreview(
             unstarred=found["records"] - found["favorites"] - found["sources_kept"],
@@ -197,7 +309,8 @@ def create_router(
     async def delete_unstarred(
         search: str | None = None, expected: int = Query(ge=0), all_models: bool = False
     ) -> dict:
-        """The gallery's Delete unstarred: `clear --where <search> --keep-favorites` over HTTP.
+        """The gallery's Delete unstarred: `clear --where <search> --keep-favorites`
+        over HTTP, into the recycle bin rather than off the disk.
 
         The one bulk delete the page offers, and the inverse of the per-card one:
         star what is worth keeping, then remove the rest of the run in one gesture
@@ -207,10 +320,13 @@ def create_router(
         more unstarred images while it was open is answered 409 rather than
         swept up on a number confirmed for fewer. A starred image keeps what it
         was made from - a pass its source, a render its references - since the
-        star is a promise to keep it reproducible. Rows and their files only: no
-        orphan sweep and no vacuum, which stay the CLI's. The checkpoint scope
-        is the page's: with All models off, another checkpoint's images are not
-        on the screen, and a sweep must not reach what is not on the screen.
+        star is a promise to keep it reproducible. The images move to the
+        recycle bin, files untouched, so a Restore undoes it; only Empty recycle
+        bin removes them from disk. Images already in the bin are not counted.
+        The checkpoint scope is the page's: with All models off, another
+        checkpoint's images are not on the screen, and a sweep must not reach
+        what is not on the screen. `deleted` repeats `binned` for a page from
+        before the bin.
         """
         scope = _unstarred_scope(search)
         try:
@@ -220,6 +336,7 @@ def create_router(
                 keep_favorites=True,
                 expected=expected,
                 model_id=model_scope(all_models),
+                to_bin=True,
             )
         except storage.SelectionChanged as exc:
             # Whether a job may move the count again is the server's to say: the
@@ -232,10 +349,10 @@ def create_router(
             raise HTTPException(
                 status_code=409,
                 detail=f"The selection changed: {exc.found} unstarred images match now, "
-                f"not the {exc.expected} confirmed. Nothing was deleted; look again.{running}",
+                f"not the {exc.expected} confirmed. Nothing was moved; look again.{running}",
             ) from exc
-        get_jobs().forget_images(result["ids"])
-        return {"deleted": result["ids"], "files": result["files"]}
+        get_jobs().forget_images(result["ids"], binned=True)
+        return {"binned": result["ids"], "deleted": result["ids"], "files": result["files"]}
 
 
     return router

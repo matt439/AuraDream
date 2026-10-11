@@ -58,6 +58,42 @@ def test_a_deleted_image_is_counted_but_not_replayed(client, fake):
     assert client.get(f"/api/jobs/{other}").json()["deleted_count"] == 1
 
 
+def test_a_binned_image_leaves_the_replay_until_it_is_restored(client, fake):
+    # The bin is gone from the gallery as a delete is, so the job forgets it
+    # the same way - and a Restore puts it back, in the replay and the count.
+    job_id, events = run_one(client, num_images=3, seed=3)
+    made = [image["id"] for image in events[-1]["images"]]
+    client.post("/api/images/bin", json={"ids": [made[0], made[2]]})
+    snapshot = client.get(f"/api/jobs/{job_id}").json()
+    assert [image["id"] for image in snapshot["images"]] == [made[1]]
+    assert (snapshot["image_count"], snapshot["deleted_count"]) == (3, 2)
+
+    client.post("/api/images/restore", json={"ids": [made[0]]})
+    snapshot = client.get(f"/api/jobs/{job_id}").json()
+    assert [image["id"] for image in snapshot["images"]] == made[:2]
+    assert snapshot["deleted_count"] == 1
+    # Emptied, it is gone for good: restoring what is no longer there is no-op.
+    client.delete("/api/gallery/bin?expected=1")
+    assert client.post("/api/images/restore", json={"ids": [made[2]]}).json()["missing"] == [made[2]]
+    assert client.get(f"/api/jobs/{job_id}").json()["deleted_count"] == 1
+
+
+def test_a_pass_replayed_says_its_source_is_binned_then_restored(client, fake):
+    job_id, events = run_one(client, seed=1)
+    source = events[-1]["images"][0]["id"]
+    job_id, _ = run_one(client, refine=source, strength=0.5, steps=10)
+    client.post("/api/images/bin", json={"ids": [source]})
+    replay = client.get(f"/api/jobs/{job_id}").json()["images"]
+    assert [(r["refine_missing"], r["refine_binned"]) for r in replay] == [(True, True)]
+    client.post("/api/images/restore", json={"ids": [source]})
+    replay = client.get(f"/api/jobs/{job_id}").json()["images"]
+    assert [(r["refine_missing"], r["refine_binned"]) for r in replay] == [(False, False)]
+    client.post("/api/images/bin", json={"ids": [source]})
+    client.delete("/api/gallery/bin?expected=1")
+    replay = client.get(f"/api/jobs/{job_id}").json()["images"]
+    assert [(r["refine_missing"], r["refine_binned"]) for r in replay] == [(True, False)]
+
+
 def test_active_jobs_are_listed_without_their_images(client, fake):
     fake.step_seconds = 0.02
     job_id = client.post(

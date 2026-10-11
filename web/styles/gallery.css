@@ -456,6 +456,10 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #gallery-error[hidden] { display: block !important; visibility: hidden; }
+/* A note's button in the line - Show all, the recycle bin's Restore - no
+   taller than the line: a tiny button 19 px high grew it by two and moved
+   the grid under the tombstone a delete had just left. */
+#gallery-error .ghost.tiny { padding-block: 0; vertical-align: top; }
 /* What F did, for a screen reader (sayStar): out of sight, and out of the
    head's flex rows, so it adds no gap. The lightbox's copy is the same. */
 .star-said {

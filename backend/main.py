@@ -1766,24 +1766,31 @@ def _foreign_refusal(count: int, foreign: list[str]) -> str:
 
 async def _resolve_selection(
     *, ids: list[int] | None, search: str | None, favorites: bool, all_models: bool,
-) -> tuple[list[ImageRecord], list[int]]:
-    """The images an action on several of them acts on, oldest first, and
-    the picked ids the gallery no longer holds.
+) -> tuple[list[ImageRecord], list[int], set[int]]:
+    """The images an action on several of them acts on, oldest first, the
+    picked ids the gallery no longer holds, and those of them that are in
+    the recycle bin.
 
     With `ids` - the gallery's picked cards (`gallery-select.js`) - exactly
-    those, whatever the filter; an id deleted since it was picked is
-    returned in the second list for the action to report per image, not
-    refused. Without them, the gallery's filter as Re-render has always taken
-    it: the search, Starred and the checkpoint scope (`_model_scope`), 404
-    where nothing matches and 422 past `max_grid_images` - by count, never
-    truncated to the newest N. Re-render, Swap tags and Mass refine share it;
+    those, whatever the filter; an id deleted or binned since it was picked
+    is returned in the second list for the action to report per image, not
+    refused, and the third says which were binned (`_gone_detail`). Without
+    them, the gallery's filter as Re-render has always taken it: the search,
+    Starred and the checkpoint scope (`_model_scope`), 404 where nothing
+    matches and 422 past `max_grid_images` - by count, never truncated to
+    the newest N. The recycle bin is never part of a filter's selection. Re-render, Swap tags and Mass refine share it;
     what to do with another checkpoint's records is each caller's.
     """
     if ids is not None:
         wanted = list(dict.fromkeys(ids))
         records = await asyncio.to_thread(storage.get_images, wanted)
         held = {record.id for record in records}
-        return records, sorted(image_id for image_id in wanted if image_id not in held)
+        gone = sorted(image_id for image_id in wanted if image_id not in held)
+        binned = (
+            {record.id for record in await asyncio.to_thread(storage.get_images, gone, True)}
+            if gone else set()
+        )
+        return records, gone, binned
     # One past the ceiling, so an oversize selection is refused by count rather
     # than silently truncated to the newest N.
     records, total, _ = await asyncio.to_thread(
@@ -1800,7 +1807,12 @@ async def _resolve_selection(
             status_code=422,
             detail=f"{total} images match; a job may queue {settings.max_grid_images}. Narrow the search.",
         )
-    return list(reversed(records)), []
+    return list(reversed(records)), [], set()
+
+
+def _gone_detail(image_id: int, binned: set[int]) -> str:
+    """Why a picked id is `deleted`: binned since it was picked, or gone."""
+    return "in the recycle bin" if image_id in binned else "no longer in the gallery"
 
 
 @app.post("/api/rerender", response_model=JobAccepted)
@@ -1820,7 +1832,7 @@ async def rerender(request: RerenderRequest) -> JobAccepted:
         probe.check_budget()
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    records, _ = await _resolve_selection(
+    records, _, _ = await _resolve_selection(
         ids=None, search=request.search, favorites=request.favorites, all_models=request.all_models,
     )
     # Steps, CFG and mu are checkpoint-specific - Turbo's 8 / 0 / 1.15 on FLUX
@@ -1891,13 +1903,14 @@ async def _swap_plan(request: SwapTagsRequest) -> tuple[list[int], list[SwapResu
                 detail=f"{info['model_id']} takes no negative prompt; swap tags in the prompt",
             )
     rows = tag_swap.parse_rows([(row.find, row.replace) for row in request.swaps])
-    records, gone = await _resolve_selection(
+    records, gone, binned = await _resolve_selection(
         ids=request.ids, search=request.search, favorites=request.favorites,
         all_models=request.all_models,
     )
     running = current_model_id(settings)
     results: list[SwapResult] = [
-        SwapResult(id=image_id, status="deleted", detail="no longer in the gallery") for image_id in gone
+        SwapResult(id=image_id, status="deleted", detail=_gone_detail(image_id, binned))
+        for image_id in gone
     ]
     queued: list[tuple[SwapResult, grid.Cell]] = []
     checked: dict[tuple, tuple[str, str] | None] = {}
@@ -2075,7 +2088,7 @@ async def _refine_batch_plan(
     reason = await _refine_unavailable()
     if reason is not None:
         raise HTTPException(status_code=422, detail=reason)
-    records, gone = await _resolve_selection(
+    records, gone, binned = await _resolve_selection(
         ids=request.ids, search=request.search, favorites=request.favorites,
         all_models=request.all_models,
     )
@@ -2131,7 +2144,7 @@ async def _refine_batch_plan(
             p.status, p.detail = "rendered", "already has this pass in the gallery"
             p.cell = None
     results = [
-        RefineBatchResult(id=image_id, status="deleted", detail="no longer in the gallery")
+        RefineBatchResult(id=image_id, status="deleted", detail=_gone_detail(image_id, binned))
         for image_id in gone
     ] + [
         RefineBatchResult(
@@ -2282,7 +2295,7 @@ async def _more_seeds_plan(
     Returns the ids the selection resolved (what `expected` pins), every
     result in id order, and the batches, queued or not.
     """
-    records, gone = await _resolve_selection(
+    records, gone, binned = await _resolve_selection(
         ids=request.ids, search=request.search, favorites=request.favorites,
         all_models=request.all_models,
     )
@@ -2353,7 +2366,7 @@ async def _more_seeds_plan(
                 kind, why = checked[spec]
                 batch.status, batch.detail = _SWAP_UNUSABLE.get(kind, "invalid"), why
     results = [
-        MoreSeedsResult(id=image_id, status="deleted", detail="no longer in the gallery")
+        MoreSeedsResult(id=image_id, status="deleted", detail=_gone_detail(image_id, binned))
         for image_id in gone
     ] + [_more_seeds_result(batch) for batch in batches]
     results.sort(key=lambda result: result.id)

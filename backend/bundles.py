@@ -184,7 +184,10 @@ def preview() -> dict:
             if "images/" + row["filename"] not in names:
                 raise BundleError(f"the original image is missing: {row['filename']}; nothing was archived")
         return {
+            # Every row, the recycle bin's included, which the export carries
+            # and clears with the rest; `binned` says how many of them are.
             "records": len(rows),
+            "binned": sum(bool(r.get("binned_at")) for r in rows),
             "images": sum(p.suffix.lower() == ".png" for _, p in files),
             "thumbnails": sum(p.suffix.lower() == ".webp" for _, p in files),
             "bytes": sum(p.stat().st_size for _, p in files)
@@ -786,7 +789,7 @@ def export_bundle(expected: int, password: str | None = None, progress: Progress
 
             result = {
                 "name": name, "path": str(final), "images": before["images"],
-                "records": len(rows), "bytes": final.stat().st_size,
+                "records": len(rows), "binned": before["binned"], "bytes": final.stat().st_size,
                 "cleared": False, "retained": [], "deleted_ids": [],
             }
             try:
@@ -1148,7 +1151,10 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                     for target in reversed(installed):
                         target.unlink(missing_ok=True)
                     raise
+                # A new row keeps the bin state it was exported with; a
+                # known one keeps this gallery's, as it keeps its star.
                 return {"imported": len(pending), "present": present, "restored": len(restoring),
+                        "binned": sum(bool(values.get("binned_at")) for _, values in pending),
                         "images": sum(name.startswith("images/") and name.lower().endswith(".png") for name in manifest["files"]),
                         "unresolved_references": unresolved}
             finally:

@@ -141,6 +141,10 @@ Reproduction and storage:
   chunk; `CellKey`/`run_id` widen without changing existing ids.
 - A new column needs a `_migrate` entry; `_row_to_record` reads unguarded.
 - `save_image` writes `.png.part` and renames after the row commits.
+- Page deletes bin (`binned_at`); live reads exclude it,
+  `_tracked_files`/`existing_*`/bundles/`clear`/`completed_cells`/`lineage_images`
+  read every row; only Empty bin, `DELETE /api/images/{id}` and `clear`
+  remove PNGs.
 - Gallery bundles are verified before source cleanup; imports are staged
   before merging. Keep gallery ids monotonic when replacing a cleared DB.
   Whole storage operations take the gallery reservation before the write
@@ -184,7 +188,8 @@ Frontend:
 - Whole-box writes to the prompt or negative go through `writeBox` /
   `rewriteBox` / `replaceBoxText`, never `.value`, so Ctrl+Z works.
 - `setReferences` is the one writer of references; `forgetImages` is the one
-  place the page drops deleted ids; `setQueue` the queue rows'.
+  place the page drops deleted or binned ids; `setQueue` the queue rows'.
+- The per-image delete never confirms; Empty bin and Delete permanently do.
 - `localStorage`/`sessionStorage` access is always in try/catch.
 - The page never scrolls by itself and never moves a control under the
   pointer; never `overflow-y: auto` on the panel.
@@ -263,6 +268,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7900 | animagine-xl-4.0, fresh scratch `--data` | `smoke-swap` |
 | 7901 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-refine-batch` |
 | 7902 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-more-seeds` |
+| 7903 | default, fresh scratch `--data` | `smoke-bin` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

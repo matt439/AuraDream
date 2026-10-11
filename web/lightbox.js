@@ -461,16 +461,24 @@ function renderLightbox() {
   els.lbFav.title = starTitle(!!rec.favorite, els.lbFav);
   els.lbFav.setAttribute('aria-pressed', String(!!rec.favorite));
   els.lbFav.classList.toggle('active', !!rec.favorite);
+  // An image in the recycle bin (bin.js): Restore, Delete permanently, and
+  // Star and Refine held until it is restored - their presses say why.
+  const binned = !!rec.binned_at;
+  els.lbRestore.hidden = !binned;
+  els.lbDelete.textContent = binned ? '⌦ Delete permanently' : '⌦ Delete';
+  els.lbDelete.title = binned ? 'Delete permanently (Del)' : 'Move to the recycle bin (Del)';
+  els.lbFav.setAttribute('aria-disabled', String(binned));
+  if (binned) els.lbFav.title = 'In the recycle bin: restore it to star it';
   // Kept facts keep their buttons, whose state follows the checkpoint's.
   for (const use of els.lbSettings.querySelectorAll('.lb-use-refs')) syncUseReferences(use);
   // The record, not its model id: a pass's Reuse names the Refine dialog.
   syncReuseButton(els.lbReuse, rec);
   // aria-disabled, so the button keeps its place in the tab order and its
   // click can still say why: the reason is the checkpoint's, not the image's.
-  els.lbRefine.setAttribute('aria-disabled', String(!refineSupported));
-  els.lbRefine.title = refineSupported
-    ? 'Refine this image: scale it up and re-denoise it part of the way'
-    : 'This checkpoint has no refine pass';
+  els.lbRefine.setAttribute('aria-disabled', String(!refineSupported || binned));
+  els.lbRefine.title = binned ? 'In the recycle bin: restore it to refine it'
+    : refineSupported ? 'Refine this image: scale it up and re-denoise it part of the way'
+      : 'This checkpoint has no refine pass';
   syncCompare(rec);
   // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();
@@ -510,7 +518,7 @@ function settingsLine(rec) {
     (rec.reference?.length ? `ref ${rec.reference.map((id) => `#${id}`).join('+')}, ` : '') +
     // A refine pass: the image it started from and how far it was re-denoised,
     // and whether that image is still in the gallery to make it again from.
-    (rec.refine != null ? `refine of #${rec.refine}${rec.refine_missing ? ' (deleted)' : ''} @ ${rec.strength}, ` : '') +
+    (rec.refine != null ? `refine of #${rec.refine}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
   );
 }
@@ -555,11 +563,15 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
   if (rec.lora) row('LoRA', `${rec.lora} @ ${rec.lora_scale}`);
   if (rec.reference?.length) row('References', referenceThumbs(rec));
   if (rec.refine != null) {
-    // A source that has gone cannot be opened: said, not linked.
-    const from = rec.refine_missing ? `#${rec.refine} (deleted)`
+    // A source that has gone cannot be opened: said, not linked - with a
+    // Restore where it waits in the recycle bin (bin.js).
+    const from = rec.refine_missing ? `#${rec.refine} (${goneWord(rec)})`
       : factButton(`#${rec.refine}`, `Open #${rec.refine}, the image this was refined from; → comes back here`,
         () => { void openRefineSource(rec); });
-    row('Refined from', from, ` @ ${rec.strength}`);
+    const restore = rec.refine_missing && rec.refine_binned
+      ? [' · ', factButton('Restore', `Move #${rec.refine} back out of the recycle bin`, () => { void restoreImages([rec.refine]); })]
+      : [];
+    row('Refined from', from, ` @ ${rec.strength}`, ...restore);
   }
   const vars = Object.entries(rec.variables ?? {});
   if (vars.length) {
@@ -627,15 +639,19 @@ function referenceThumbs(rec) {
     img.src = `/api/images/${id}/thumb`;
     img.alt = '';
     img.loading = 'lazy';
-    // Only the server's "unknown image" is a deleted one: then the slot says
-    // so and opens nothing.
+    // Only the server's "unknown image" is a deleted one - or one in the
+    // recycle bin, where it says so: then the slot says which and opens
+    // nothing.
     const gone = (err) => {
       if (!/unknown image/.test(err.message)) return false;
+      const binned = /recycle bin/.test(err.message);
       if (img.isConnected) {
-        img.replaceWith(Object.assign(document.createElement('span'), { className: 'gone', textContent: 'deleted' }));
+        img.replaceWith(Object.assign(document.createElement('span'), {
+          className: 'gone', textContent: binned ? 'in the bin' : 'deleted',
+        }));
       }
       b.setAttribute('aria-disabled', 'true');
-      b.title = `#${id}, reference image ${i + 1}, has been deleted`;
+      b.title = `#${id}, reference image ${i + 1}, ${binned ? 'is in the recycle bin' : 'has been deleted'}`;
       syncUseReferences(use);
       return true;
     };
@@ -789,7 +805,7 @@ function syncCompare(rec) {
   // a pass with its source, any other image across CFG, or says why it
   // cannot. In the title and the button's hint alone, it was found only by
   // hovering. Likewise what the arrows do while comparing.
-  const keys = lbKeysLine({ passes, cfg: cfgSteps, divider });
+  const keys = lbKeysLine({ passes, cfg: cfgSteps, divider, binned: !!rec.binned_at });
   if (els.lbKeys.textContent !== keys) els.lbKeys.textContent = keys;
   if (passes || cfgSteps) {
     els.lbSplit.setAttribute('aria-keyshortcuts', 'Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End');
@@ -846,7 +862,7 @@ function syncSourceCompare(rec, on) {
   const gone = rec.refine_missing || lbSources.get(rec.refine) === null;
   els.lbCompareOn.setAttribute('aria-pressed', String(on));
   els.lbCompareOn.setAttribute('aria-disabled', String(gone));
-  const why = gone ? `#${rec.refine}, the image this was refined from, has been deleted` : '';
+  const why = gone ? `#${rec.refine}, the image this was refined from, ${rec.refine_binned ? 'is in the recycle bin' : 'has been deleted'}` : '';
   els.lbCompareOn.title = why || `Compare this pass with #${rec.refine}, the image it was refined from, at the same crop (S)`;
   return why;
 }
@@ -855,7 +871,7 @@ function syncSourceCompare(rec, on) {
 // source has gone.
 function sourceNote(rec, source) {
   if (rec.refine == null) return '';
-  if (rec.refine_missing || lbSources.get(rec.refine) === null) return `source #${rec.refine} deleted`;
+  if (rec.refine_missing || lbSources.get(rec.refine) === null) return `source #${rec.refine} ${goneWord(rec)}`;
   if (!source) return '';
   const kept = refineKept(source.width, source.height, rec.width, rec.height);
   const cropped = kept.w < 1 || kept.h < 1;
@@ -868,10 +884,11 @@ function sourceNote(rec, source) {
 // longer line of a pass split "+/" from "−" at 1400 px. Comparing, the arrows
 // read "passes" where they swap passes of the source (`passes`), "CFG" where
 // they step along CFG (`cfg`), and Shift+arrows move a swipe's divider
-// (`divider`).
-function lbKeysLine({ passes = false, cfg = false, divider = false } = {}) {
+// (`divider`). Del moves the image to the recycle bin, and deletes one
+// already there for good (`binned`).
+function lbKeysLine({ passes = false, cfg = false, divider = false, binned = false } = {}) {
   const keys = [['← →', passes ? 'passes' : cfg ? 'CFG' : 'walk'], ...(divider ? [['Shift+← →', 'divider']] : []),
-    ['F', 'star'], ['S', 'compare'], ['Del', 'delete'],
+    ['F', 'star'], ['S', 'compare'], ['Del', binned ? 'delete permanently' : 'bin'],
     ['0', 'fit'], ['1', '1:1'], ['+/−', 'zoom'], ['Esc', 'close']];
   return keys.map(([key, does]) => `${key.replaceAll(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
     .join('\u00a0· ');

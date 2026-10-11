@@ -340,7 +340,9 @@ def main() -> int:
 
     storage.init_db()
     other = "krea/Krea-2-Turbo" if args.model != "krea/Krea-2-Turbo" else "Tongyi-MAI/Z-Image-Turbo"
-    if storage.list_images(limit=1, model_id=other)[1] == 0:
+    # Planted once, the recycle bin's included: a smoke that binned them must
+    # not find a second pair on the next start.
+    if not any(storage.list_images(limit=1, model_id=other, binned=binned)[1] for binned in (False, True)):
         request = GenerateRequest(prompt="a lighthouse on another checkpoint", width=256, height=256)
         planted = [
             storage.save_image(

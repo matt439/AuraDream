@@ -366,8 +366,7 @@ function renderReferences() {
       chip.classList.add('gone');
       chip.title = img.alt = `Reference image ${i + 1} (gallery #${id}, deleted)`;
       void dropGoneReferences([id]).then((dead) => {
-        if (!dead.length) return;
-        const note = forgetImages(dead);
+        const note = forgetReferences(dead);
         if (note) showError(note.trim(), true);
       });
     };
@@ -463,15 +462,24 @@ function focusReference(index) {
 // passing failure - no server - keeps a live one, marked as the chip's
 // picture failing marks it. The caller forgets them (forgetImages), which
 // takes them out through setReferences, says so and unmarks the cards.
-// Each id is asked once at a time.
+// Each id is asked once at a time. Answers the ids, and among them those the
+// server says are in the recycle bin (`binned`), which are not deleted.
 const referenceChecks = new Set();
 async function dropGoneReferences(ids) {
   const asked = ids.filter((id) => referenceIds.includes(id) && !referenceChecks.has(id));
   asked.forEach((id) => referenceChecks.add(id));
   const answers = await Promise.all(asked.map((id) => api(`/api/images/${id}`)
-    .then(() => null, (err) => (/unknown image/.test(err.message) ? id : null))));
+    .then(() => null, (err) => (/unknown image/.test(err.message) ? { id, binned: /recycle bin/.test(err.message) } : null))));
   asked.forEach((id) => referenceChecks.delete(id));
-  return answers.filter((id) => id != null && referenceIds.includes(id));
+  const dead = answers.filter((a) => a != null && referenceIds.includes(a.id));
+  return { ids: dead.map((a) => a.id), binned: dead.filter((a) => a.binned).map((a) => a.id) };
+}
+
+// dropGoneReferences' answer forgotten (forgetImages): the binned ones as in
+// the recycle bin, the rest as deleted. Answers forgetImages' sentences.
+function forgetReferences({ ids, binned }) {
+  const deleted = ids.filter((id) => !binned.includes(id));
+  return (deleted.length ? forgetImages(deleted) : '') + (binned.length ? forgetImages(binned, { binned: true }) : '');
 }
 
 function setReferences(ids) {

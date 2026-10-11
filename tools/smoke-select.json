@@ -11,7 +11,7 @@
   {"expect": "__until(() => total === 60 && galleryRecords.length === 48 && galleryMore && __cards().length === 48)"},
 
   {"log": "'Select sits in the footer row with Bundles, unpressed; no count, no Clear, and the grid where it was'"},
-  {"expect": "els.select.parentElement.classList.contains('gallery-footer') && els.select.nextElementSibling === els.swap && els.swap.nextElementSibling === els.refineBatch && els.refineBatch.nextElementSibling === els.moreSeeds && els.moreSeeds.nextElementSibling === els.bundles && els.select.getAttribute('aria-pressed') === 'false' && els.selectCount.textContent === '' && els.selectClear.hidden && !els.gallery.classList.contains('selecting') && selectedIds().length === 0"},
+  {"expect": "els.select.parentElement.classList.contains('gallery-footer') && els.select.nextElementSibling === els.swap && els.swap.nextElementSibling === els.refineBatch && els.refineBatch.nextElementSibling === els.moreSeeds && els.moreSeeds.nextElementSibling === els.bin && els.bin.nextElementSibling === els.bundles && els.select.getAttribute('aria-pressed') === 'false' && els.selectCount.textContent === '' && els.selectClear.hidden && !els.gallery.classList.contains('selecting') && selectedIds().length === 0"},
   {"eval": "scrollTo(0, 0); window.__selectAt = JSON.stringify(els.select.getBoundingClientRect()); window.__gridTop = els.gallery.getBoundingClientRect().top; window.__footH = els.select.parentElement.getBoundingClientRect().height; window.__bundlesH = els.bundles.getBoundingClientRect().height;"},
   {"expect": "Math.abs(els.select.getBoundingClientRect().height - __bundlesH) < 1"},
 
@@ -86,10 +86,10 @@
   {"expect": "[45, 46, 47, 48, 49, 50].every((i) => isSelected(__id(i)) && __cards()[i].classList.contains('selected')) && selectedIds().length === 14 && els.selectCount.textContent === '14 selected'"},
 
   {"log": "'a picked image deleted (by its own Delete tool) leaves the selection, through forgetImages'"},
-  {"eval": "window.__gone = __id(50); askConfirm = () => true; __cards()[50].querySelector('.tools button:last-child').click();"},
+  {"eval": "window.__gone = __id(50); __cards()[50].querySelector('.tools button:last-child').click();"},
   {"expect": "__until(() => !isSelected(__gone) && total === 59)"},
   {"expect": "selectedIds().length === 13 && els.selectCount.textContent === '13 selected' && __heard.at(-1) === selectedIds().join(',')"},
-  {"eval": "askConfirm = confirmDialog; showError('', false, {slot: els.galleryError});"},
+  {"eval": "showError('', false, {slot: els.galleryError});"},
 
   {"log": "'the cap is the server\\'s grid ceiling: a range past it picks what fits and says so'"},
   {"eval": "window.__cap = sheetPage; sheetPage = 15; __img(20).click(); __shift(25);"},

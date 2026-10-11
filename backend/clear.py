@@ -5,12 +5,15 @@
     uv run python -m backend.clear --keep-favorites # spare starred images
     uv run python -m backend.clear --dry-run        # report only
     uv run python -m backend.clear --where "job:ab12cd"   # one run, not the gallery
+    uv run python -m backend.clear --bin            # empty the recycle bin only
 
 Running the file directly (`python backend/clear.py`, or an editor's Run button)
 works too - see the sys.path bootstrap below.
 
 Safe to run while the server is up: rows are deleted rather than the database
-file, so no open handle is invalidated.
+file, so no open handle is invalidated. Every path deletes for good, the
+recycle bin's images included: the whole clear and `--where` reach them as
+any other row (a binned star is not kept), and `--bin` deletes them alone.
 """
 from __future__ import annotations
 
@@ -101,7 +104,10 @@ def _clear_where(args: argparse.Namespace) -> int:
     print(f"images   : {settings.outputs_dir}")
     print(f"filter   : {args.where}")
     print()
-    print(f"  {found['records']:>6} records match ({found['favorites']} favorite)")
+    print(
+        f"  {found['records']:>6} records match ({found['favorites']} favorite)"
+        + (f" ({found['binned']} in the recycle bin)" if found["binned"] else "")
+    )
     if found["jobs"]:
         print(f"         jobs: {', '.join(found['jobs'])}")
     if len(found["models"]) > 1 or (found["models"] and "model:" in args.where):
@@ -130,6 +136,53 @@ def _clear_where(args: argparse.Namespace) -> int:
         return 1
     try:
         result = storage.delete_matching(args.where, keep_favorites=args.keep_favorites)
+    except Exception as exc:  # noqa: BLE001 - report, with the post-deletion code
+        print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        return 3
+    print(f"\nDeleted {result['records']} record(s), {result['files']} file(s).")
+    return 0
+
+
+def _clear_bin(args: argparse.Namespace) -> int:
+    """Empty the recycle bin: its rows and their files, nothing else.
+
+    The browser's Empty recycle bin, from the terminal, through the same
+    storage call: the count previewed is the count the delete is pinned to,
+    so an image binned in the browser meanwhile is refused rather than taken.
+    No orphan sweep and no vacuum, as on the `--where` path.
+    """
+    if not settings.db_path.exists():
+        print("No gallery yet.", file=sys.stderr)
+        return 1
+    found = storage.bin_summary()
+    print(f"database : {settings.db_path}")
+    print(f"images   : {settings.outputs_dir}")
+    print()
+    print(f"  {found['records']:>6} images in the recycle bin, {_human(found['bytes'])}")
+    if found["sources_in_use"]:
+        print(
+            f"  {len(found['sources_in_use']):>6} of them a live image was made from "
+            "(a refine pass's source, a render's reference), which then cannot be made again"
+        )
+    print()
+    if found["records"] == 0:
+        print("The recycle bin is empty.")
+        return 0
+    print(f"Would delete {found['records']} record(s) and their files.")
+    if args.dry_run:
+        print("\nDry run - nothing changed.")
+        return 0
+    if not _confirm(args.yes):
+        return 1
+    try:
+        result = storage.empty_bin(expected=found["records"])
+    except storage.SelectionChanged as exc:
+        print(
+            f"The recycle bin changed: {exc.found} images are in it now, not the "
+            f"{exc.expected} shown. Nothing was deleted; run it again.",
+            file=sys.stderr,
+        )
+        return 1
     except Exception as exc:  # noqa: BLE001 - report, with the post-deletion code
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 3
@@ -166,8 +219,16 @@ def main(argv: list[str] | None = None) -> int:
         "`run:ab12cd seed:42`, `date:yesterday` - and their files; no orphan sweep, "
         "and free text is refused",
     )
+    parser.add_argument(
+        "--bin", action="store_true",
+        help="empty the recycle bin only: the images the browser moved there, and their files",
+    )
     args = parser.parse_args(argv)
 
+    if args.bin:
+        if args.where is not None or args.keep_favorites:
+            parser.error("--bin empties the recycle bin alone; it takes neither --where nor --keep-favorites")
+        return _clear_bin(args)
     if args.where:
         return _clear_where(args)
 
@@ -183,6 +244,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"images   : {settings.outputs_dir}")
     print()
     print(f"  {before['records']:>6} records ({before['favorites']} favorite)")
+    if before["binned"]:
+        print(f"  {before['binned']:>6} of those are in the recycle bin")
     print(f"  {before['files_on_disk']:>6} PNG files, {_human(before['bytes_on_disk'])}")
     if before["orphan_files"]:
         print(f"  {before['orphan_files']:>6} of those have no database row")

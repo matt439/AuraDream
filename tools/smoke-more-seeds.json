@@ -13,7 +13,7 @@
 
   {"log": "'More seeds… sits after Refine… and before Bundles…, at their height, held with its reason while nothing is picked and no filter narrows the gallery; a press says it'"},
   {"eval": "scrollTo(0, 0); window.__btnAt = JSON.stringify(els.moreSeeds.getBoundingClientRect()); window.__footH = els.moreSeeds.parentElement.getBoundingClientRect().height; window.__gridTop = els.gallery.getBoundingClientRect().top;"},
-  {"expect": "els.moreSeeds.previousElementSibling === els.refineBatch && els.moreSeeds.nextElementSibling === els.bundles && els.moreSeeds.textContent === 'More seeds…' && els.moreSeeds.getAttribute('aria-disabled') === 'true' && els.moreSeeds.title === 'Pick cards with Select, or narrow the gallery with a search or Starred, to choose the batches to make more of'"},
+  {"expect": "els.moreSeeds.previousElementSibling === els.refineBatch && els.moreSeeds.nextElementSibling === els.bin && els.bin.nextElementSibling === els.bundles && els.moreSeeds.textContent === 'More seeds…' && els.moreSeeds.getAttribute('aria-disabled') === 'true' && els.moreSeeds.title === 'Pick cards with Select, or narrow the gallery with a search or Starred, to choose the batches to make more of'"},
   {"expect": "Math.abs(els.moreSeeds.getBoundingClientRect().height - els.bundles.getBoundingClientRect().height) < 1 && els.moreSeeds.getBoundingClientRect().right <= els.bundles.getBoundingClientRect().left && els.refineBatch.getBoundingClientRect().right <= els.moreSeeds.getBoundingClientRect().left"},
   {"click": "#btn-more-seeds"},
   {"expect": "!els.moreSeedsDialog.open && els.galleryError.textContent === els.moreSeeds.title"},
@@ -89,7 +89,7 @@
   {"click": "#btn-more-seeds"},
   {"expect": "__until(() => els.moreSeedsDialog.open && els.moreSeedsCount.value === '3')"},
   {"expect": "__rows().map(__line).join(' | ') === 'queued 4 images, seeds 7–10 → seeds 11–13 · Batch 1 | queued 7 images, seeds 100–106 → seeds 107–109 · Batch 2'"},
-  {"eval": "askConfirm = () => true; void deleteImage(galleryRecords.find((r) => r.id === __fox.id))"},
+  {"eval": "void deleteImage(galleryRecords.find((r) => r.id === __fox.id))"},
   {"expect": "__until(() => __rows().length === 2 && __rows().some((li) => li.dataset.status === 'deleted' && +li.dataset.id === __fox.id))"},
   {"expect": "__until(() => els.moreSeedsLine.textContent === '3 images in 1 batch · 1 deleted' && els.moreSeedsRun.textContent === 'Queue 3 images')"},
 

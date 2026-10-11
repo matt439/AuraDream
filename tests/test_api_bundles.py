@@ -310,3 +310,11 @@ def test_an_upload_in_many_batches_arrives_byte_for_byte(client, store, monkeypa
     merged = _finish(client, response.json()["id"])
     assert merged["state"] == "done", merged
     assert written == [blob] and merged["result"]["imported"] == 1
+
+
+def test_the_preview_counts_the_recycle_bin_among_its_records(client, store):
+    _, events = run_one(client, seed=19, num_images=2)
+    first = events[-1]["images"][0]["id"]
+    assert client.post("/api/images/bin", json={"ids": [first]}).status_code == 200
+    preview = client.get("/api/gallery/bundles/preview").json()
+    assert (preview["records"], preview["images"], preview["binned"]) == (2, 2, 1)

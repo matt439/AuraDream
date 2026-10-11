@@ -205,3 +205,39 @@ def test_the_report_writes_utf8_where_its_output_is_redirected(store, monkeypatc
     assert reindex.main(["--from", str(source), "--dry-run"]) == 0
     sys.stdout.flush()
     assert f"source   : {source}" in redirected.getvalue().decode("utf-8")
+
+
+def test_the_recycle_bin_survives_a_reindex_and_a_database_merge_but_not_a_png_only_one(
+    store, monkeypatch, tmp_path
+):
+    mine = store.settings
+    monkeypatch.setattr(reindex, "settings", mine)
+    # In place: the binned row is in the index, so it is skipped, still binned,
+    # and its PNG is no new file to add.
+    binned = _make(store, "in the bin", 1)
+    store.bin_images([binned.id])
+    assert reindex.reindex(mine.outputs_dir)["indexed"] == 0
+    assert store.get_image(binned.id, include_binned=True).binned_at is not None
+
+    elsewhere = tmp_path / "backup" / "outputs"
+    elsewhere.mkdir(parents=True)
+    source_db = elsewhere.parent / "local-diffusion.db"
+    other = dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
+    monkeypatch.setattr(storage, "settings", other)
+    storage.init_db()
+    gone = _make(storage, "binned elsewhere", 2)
+    live = _make(storage, "live elsewhere", 3)
+    storage.bin_images([gone.id])
+    monkeypatch.setattr(storage, "settings", mine)
+
+    # With the database, the bin comes across as the star does.
+    assert reindex.reindex(elsewhere, database=source_db)["indexed"] == 2
+    assert [r.prompt for r in store.list_images(binned=True)[0]] == ["binned elsewhere", "in the bin"]
+    assert store.list_images(search="live")[1] == 1
+
+    # From the PNGs alone it cannot: the bin is SQLite's, and the image comes back live.
+    store.settings.db_path.unlink()
+    assert reindex.main([]) == 0
+    assert store.list_images(binned=True)[1] == 0
+    assert store.list_images()[1] == 3
+    assert live.filename in {r.filename for r in store.list_images()[0]}

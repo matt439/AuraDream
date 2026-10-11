@@ -198,3 +198,61 @@ def test_the_preview_writes_utf8_where_its_output_is_redirected(fresh, monkeypat
     assert clear.main(["--where", "job:night01", "--dry-run"]) == 0
     sys.stdout.flush()
     assert "- 一只狐狸 🦊" in redirected.getvalue().decode("utf-8")
+
+
+def test_bin_empties_the_recycle_bin_alone(fresh, capsys):
+    made = _seed(fresh, a=(1, "n"), b=(2, "n"), c=(3, "n"))
+    storage.bin_images([made["a"].id, made["b"].id])
+    (fresh.outputs_dir / "orphan.png").write_bytes(b"png")  # not swept on this path
+
+    assert clear.main(["--bin", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "2 images in the recycle bin" in out and "Would delete 2 record(s)" in out
+    assert storage.bin_summary()["records"] == 2
+
+    assert clear.main(["--bin", "--yes"]) == 0
+    assert "Deleted 2 record(s), 2 file(s)." in capsys.readouterr().out
+    assert [r.id for r in storage.list_images()[0]] == [made["c"].id]
+    assert not (fresh.outputs_dir / made["a"].filename).exists()
+    assert (fresh.outputs_dir / "orphan.png").exists()
+    assert clear.main(["--bin", "--yes"]) == 0
+    assert "The recycle bin is empty." in capsys.readouterr().out
+    # The bin alone: a scope or a keep is another path's.
+    with pytest.raises(SystemExit):
+        clear.main(["--bin", "--where", "job:n"])
+    with pytest.raises(SystemExit):
+        clear.main(["--bin", "--keep-favorites"])
+
+
+def test_bin_refuses_a_bin_that_changed_after_its_preview(fresh, capsys, monkeypatch):
+    made = _seed(fresh, a=(1, "n"), b=(2, "n"))
+    storage.bin_images([made["a"].id])
+    summary = storage.bin_summary
+
+    def then_another(*args, **kwargs):
+        found = summary()
+        storage.bin_images([made["b"].id])  # binned in the browser meanwhile
+        return found
+
+    monkeypatch.setattr(storage, "bin_summary", then_another)
+    assert clear.main(["--bin", "--yes"]) == 1
+    assert "Nothing was deleted" in capsys.readouterr().err
+    assert all((fresh.outputs_dir / r.filename).exists() for r in made.values())
+
+
+def test_the_whole_clear_and_where_reach_the_recycle_bin(fresh, capsys):
+    made = _seed(fresh, a=(1, "n"), b=(2, "n"), c=(3, "m"))
+    storage.set_favorite(made["a"].id, True)
+    storage.bin_images([made["a"].id, made["c"].id])
+
+    assert clear.main(["--where", "job:n", "--dry-run"]) == 0
+    assert "(1 in the recycle bin)" in capsys.readouterr().out
+    assert clear.main(["--dry-run"]) == 0
+    out = capsys.readouterr().out
+    # A binned star is no favourite: --keep-favorites would not keep it.
+    assert "3 records (0 favorite)" in out and "2 of those are in the recycle bin" in out
+    assert clear.main(["--where", "job:n", "--keep-favorites", "--yes"]) == 0
+    assert "Deleted 2 record(s), 2 file(s)." in capsys.readouterr().out
+    assert clear.main(["--yes"]) == 0
+    assert "Deleted 1 record(s), 1 file(s)" in capsys.readouterr().out
+    assert storage.summarise()["records"] == 0

@@ -202,7 +202,8 @@ the card's **Reference** button or `--reference 12,15` in the CLI. Their order
 defines “image 1”, “image 2” in the prompt; drag chips or use Alt+Left/Right
 to reorder them. Reference import from personal files is not implemented.
 Deleted references are removed after verification; submit again to run
-without them.
+without them. An image in the recycle bin cannot be used as a reference or
+a refine source until it is restored.
 
 Place `.safetensors` LoRAs in `loras/`, then select an adapter and weight.
 Weights can be swept without reloading the checkpoint. Incompatible adapters
@@ -233,7 +234,9 @@ Refine uses the loaded weights and a plain resize, not an external upscaler.
 Direct rendering at a larger size changes the noise shape and composition
 even with the same seed. In the lightbox, **Compare with source** shows a
 divider or side-by-side comparison. Deleting the source leaves its passes
-in the gallery, but they can no longer be reproduced from that source.
+in the gallery, but they can no longer be reproduced from that source; a
+source in the recycle bin is named as such, and restoring it makes its
+passes reproducible again.
 
 ## Sweep settings with Grid search
 
@@ -318,8 +321,8 @@ action on several images: in select mode a click or Space picks a card,
 Shift picks a range from the last card picked, and Enter still opens the
 lightbox. The selection survives searches, filters and paging; its count
 says how many picked images the current view does not show. **Clear** or
-Esc empties it, and a second Esc leaves select mode. Deleted images leave
-the selection on their own.
+Esc empties it, and a second Esc leaves select mode. Deleted images, and
+images moved to the recycle bin, leave the selection on their own.
 
 **Swap tags…** (beside **Select**) runs the selected images again - or,
 with nothing selected, what the filter matches - with some tags swapped:
@@ -368,7 +371,7 @@ queued per run, and the new images join it: the batch's hover, the
 | --- | --- |
 | Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues |
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
-| Lightbox | Left/Right browse, F stars, S compares a pass with its source, Delete asks to delete, Esc closes |
+| Lightbox | Left/Right browse, F stars, S compares a pass with its source, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Contact sheet | F stars the focused cell |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
@@ -434,8 +437,9 @@ if labels have different meanings across jobs, narrow the scope or group by
 ## Gallery bundles
 
 Open **Gallery bundles** beside the gallery controls. Its counts cover the
-entire gallery: every checkpoint and favourite, regardless of the current
-search or filters. Type the displayed record count and press **Bundle & clear
+entire gallery: every checkpoint, every favourite and the recycle bin,
+regardless of the current search or filters; the preview says how many of
+the records are in the recycle bin. Type the displayed record count and press **Bundle & clear
 gallery**. To protect the bundle, enter a password twice first: the bundle is
 then saved as an encrypted `.ldbundle` file that only Local Diffusion can
 open (file names included). The password is not saved anywhere and cannot be
@@ -449,8 +453,9 @@ part of a protected bundle), and only then removes the original PNGs and
 thumbnails. The old database is replaced with a compact empty gallery, ready
 for new images. The bundle includes the database, full-size PNGs, thumbnails
 and unindexed PNGs; generation settings, favourites, timings and image
-relationships are retained. Model weights, LoRAs and browser preferences are
-not part of a gallery bundle.
+relationships are retained, and images in the recycle bin come back in it.
+Model weights, LoRAs and browser preferences are not part of a gallery
+bundle.
 
 The dialog lists saved bundles with **Download** and **Import** controls.
 You can also choose a bundle file from your computer and import it. Saved
@@ -458,7 +463,8 @@ bundles marked **Protected**, and selected `.ldbundle` files, need the
 password under **Password for protected bundles**; a wrong password is
 refused before a selected file is uploaded. Import
 merges into the current gallery, keeps existing images, remaps source-image
-links, and skips images already present. An image the gallery still lists
+links, and skips images already present (an image already present keeps
+this gallery's star and recycle-bin state). An image the gallery still lists
 but whose file is gone is restored from the bundle when the bundle holds that
 same picture. Different files using the same name
 are refused before changing the gallery. Missing source images cannot be
@@ -481,19 +487,50 @@ gallery is open.
 
 ## Clear or recover a gallery
 
-**Delete unstarred** removes unstarred images matching the current gallery
-scope after showing a preview and asking for the count. It preserves starred
-images and their sources/references. Use an empty search or `key:value` terms;
-free text is refused for deletion. With All models off, deletion stays within
+Deleting an image in the browser - a card's **⌦**, a result's **Delete**,
+the lightbox's **Delete** or its Delete key - moves it to the **recycle
+bin** without asking. The note it leaves ("Moved #12 to the recycle bin.")
+has a **Restore** button; deletes in a row gather into one note. Nothing
+leaves the disk until the bin is emptied. While an image is in the bin it
+is left out of the gallery, the runs list, search results, `stats` and
+every action on several images; it cannot be starred, used as a reference
+or refined from, and a queued job that uses it fails that image. A starred
+image keeps its star in the bin and gets it back when restored, but while
+binned it does not protect the images it was made from.
+
+**Bin** (in the footer row, between **More seeds…** and **Bundles…**) shows
+how many images the bin holds and opens it: every checkpoint's binned
+images, newest first, narrowed by the search box. Each card offers
+**Restore** and **Delete permanently**, which asks first; **Restore picked**
+restores the cards picked with **Select**. **Empty recycle bin** deletes
+every image in the bin from disk, whatever the search shows, after a
+confirmation that gives the count and size and says which of them a live
+image was made from (those can no longer be made again). Actions that work
+on live images are held while the bin is open, the **Runs** picker among
+them; typing in the search box narrows the bin rather than leaving it.
+Press **Bin** again or **Show all** to leave it, or follow a search or run
+link from an image. There is no automatic purge.
+
+**Delete unstarred** moves unstarred images matching the current gallery
+scope to the recycle bin after showing a preview and asking for the count.
+It preserves starred images and their sources/references, and leaves images
+already in the bin alone. Use an empty search or `key:value` terms; free
+text is refused for deletion. With All models off, deletion stays within
 the current checkpoint. From the terminal:
 
 ```powershell
 uv run python -m backend.clear --dry-run
 uv run python -m backend.clear --where "run:ab12cd" --keep-favorites
 uv run python -m backend.clear --keep-favorites
+uv run python -m backend.clear --bin
 ```
 
-`clear` previews and asks before deleting; `--yes` skips confirmation.
+`clear` previews and asks before deleting; `--yes` skips confirmation. It
+deletes for good, and reaches the recycle bin as well: the whole clear and
+`--where` delete binned images like any other (the preview says how many),
+and `--keep-favorites` does not keep a starred image that is in the bin.
+`--bin` empties the recycle bin alone, as **Empty recycle bin** does; it
+takes neither `--where` nor `--keep-favorites`.
 Without `--where`, it also removes orphan PNGs, which have no favorite flag
 to preserve. Scoped deletion removes matching rows and files without that
 orphan sweep. The Windows and WSL galleries are separate; run the command
@@ -507,10 +544,11 @@ uv run python -m backend.reindex --from D:\backup\outputs --database D:\backup\l
 
 Reindex rebuilds the index from Local Diffusion PNG metadata, or copies in
 another gallery with `--from`. Existing filenames are skipped and conflicts
-reported without overwriting. PNG-only recovery loses favorites and durations.
+reported without overwriting. PNG-only recovery loses favorites and durations,
+and brings images that were in the recycle bin back into the gallery.
 It restores reference/refine links only when recorded source identities can
 be verified; older or missing sources lose those links and refine strength.
-Use `--from` with the matching `--database` to preserve favorites and durations
-and remap source ids. Remapped ids are also written into PNG metadata.
+Use `--from` with the matching `--database` to preserve favorites, the recycle
+bin and durations and remap source ids. Remapped ids are also written into PNG metadata.
 Keep both the database and PNGs for a complete backup. See
 [design notes](design-notes.md) for implementation details and limitations.

@@ -1002,7 +1002,7 @@ async function fetchModelShots(id, epoch) {
     if (epoch !== modelShotsEpoch) return;
     modelShotsFailedAt = 0;
     // A delete this page made may not have reached the reply's read.
-    const records = page.items.filter((rec) => !deletedIds.has(rec.id));
+    const records = page.items.filter((rec) => !isGone(rec.id));
     Object.assign(modelShots, {
       records, total: Math.max(records.length, page.total - (page.items.length - records.length)),
       state: 'ready', reason: '',
@@ -1169,6 +1169,7 @@ function showModelShotsGallery() {
   if (!search || modelShots.state !== 'ready' || !modelShots.total) return;
   showModelPicker(false, { focus: false });
   outsideView = null;
+  leaveBin();
   els.search.value = search;
   els.favOnly.checked = false;
   els.allModels.checked = true;

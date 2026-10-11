@@ -154,13 +154,17 @@ def test_delete_unstarred_keeps_the_stars_and_names_the_rest(client, fake, store
 
     response = client.delete("/api/gallery/unstarred?expected=4")
     assert response.status_code == 200, response.text
-    assert sorted(response.json()["deleted"]) == [r["id"] for r in images[2:]]
-    assert response.json()["files"] == 4
+    # Into the recycle bin, files untouched: Restore undoes it.
+    assert response.json()["binned"] == [r["id"] for r in images[2:]]
+    assert response.json()["deleted"] == response.json()["binned"]
+    assert response.json()["files"] == 0
     page = client.get("/api/gallery").json()
     assert [r["id"] for r in page["items"]] == [images[1]["id"], images[0]["id"]]
+    binned = client.get("/api/gallery/bin").json()
+    assert sorted(r["id"] for r in binned["items"]) == [r["id"] for r in images[2:]]
     outputs = store.settings.outputs_dir
     assert (outputs / images[0]["filename"]).exists()
-    assert not (outputs / images[5]["filename"]).exists()
+    assert (outputs / images[5]["filename"]).exists()
 
 
 def test_delete_unstarred_is_scoped_by_the_search_box(client, fake):
@@ -423,3 +427,127 @@ def test_the_cfg_ladder_query_pages_past_a_full_page_of_other_prompts(client, fa
         seen.extend(page["items"])
     assert len(seen) == 7 == len({r["id"] for r in seen})
     assert {r["id"] for r in mill} <= {r["id"] for r in seen}
+
+
+# ---------------------------------------------------------------- recycle bin
+
+
+def test_binning_and_restoring_answer_per_id_and_hold_the_record_back(client, store):
+    image = _plant(store, settings.model_id, seed=1)
+    other = _plant(store, settings.model_id, seed=2)
+    response = client.post("/api/images/bin", json={"ids": [image.id, 9999]})
+    assert response.status_code == 200, response.text
+    assert response.json() == {"binned": [image.id], "already": [], "missing": [9999]}
+    # A second press, another tab: idempotent, and says so.
+    assert client.post("/api/images/bin", json={"ids": [image.id]}).json()["already"] == [image.id]
+    assert [r["id"] for r in client.get("/api/gallery").json()["items"]] == [other.id]
+
+    # By id it is gone, with the reason after the words the page reads,
+    # unless asked for the bin's.
+    record = client.get(f"/api/images/{image.id}")
+    assert record.status_code == 404
+    assert record.json()["detail"] == f"unknown image (#{image.id} is in the recycle bin)"
+    assert client.get(f"/api/images/{image.id}/thumb", follow_redirects=False).status_code == 404
+    shown = client.get(f"/api/images/{image.id}?binned=true").json()
+    assert shown["id"] == image.id and shown["binned_at"]
+    assert client.get(
+        f"/api/images/{image.id}/thumb?binned=true", follow_redirects=False
+    ).status_code in (302, 307)
+    assert client.get("/api/images/9999?binned=true").json()["detail"] == "unknown image"
+    # Not starred while it is binned.
+    assert client.post(f"/api/images/{image.id}/favorite?value=true").status_code == 404
+
+    response = client.post("/api/images/restore", json={"ids": [image.id, other.id, 9999]})
+    assert response.json() == {"restored": [image.id], "not_binned": [other.id], "missing": [9999]}
+    assert client.get(f"/api/images/{image.id}").json()["binned_at"] is None
+    assert client.post(f"/api/images/{image.id}/favorite?value=true").status_code == 200
+    # An empty or oversize list is refused before storage is asked.
+    assert client.post("/api/images/bin", json={"ids": []}).status_code == 422
+    too_many = list(range(1, settings.max_grid_images + 2))
+    assert client.post("/api/images/restore", json={"ids": too_many}).status_code == 422
+
+
+def test_the_bin_lists_every_checkpoints_binned_images_and_its_summary(client, store):
+    mine = _plant(store, settings.model_id, prompt="a fox", seed=1)
+    theirs = _plant(store, "somebody/else", prompt="a fox", seed=2)
+    live = _plant(store, settings.model_id, prompt="a fox", seed=3)
+    used = _plant(store, settings.model_id, prompt="a hare", seed=4)
+    _made_from(store, seed=5, refine=used.id, strength=0.5)
+    client.post("/api/images/bin", json={"ids": [mine.id, theirs.id, used.id]})
+
+    page = client.get("/api/gallery/bin").json()
+    assert [r["id"] for r in page["items"]] == [used.id, theirs.id, mine.id]
+    assert (page["total"], page["other_models"], page["has_more"]) == (3, 0, False)
+    assert all(r["binned_at"] for r in page["items"])
+    page = client.get("/api/gallery/bin?search=fox&limit=1").json()
+    assert ([r["id"] for r in page["items"]], page["total"], page["has_more"]) == ([theirs.id], 2, True)
+    page = client.get(f"/api/gallery/bin?search=fox&limit=1&before={theirs.id}").json()
+    assert [r["id"] for r in page["items"]] == [mine.id]
+    assert client.get("/api/gallery/bin?search=seed:many").status_code == 422
+    assert live.id not in {r["id"] for r in client.get("/api/gallery/bin").json()["items"]}
+
+    summary = client.get("/api/gallery/bin/summary").json()
+    assert summary["records"] == 3 and summary["bytes"] > 0
+    assert (summary["sources_in_use"], summary["job_active"]) == ([used.id], False)
+
+
+def test_emptying_the_bin_is_pinned_to_its_count(client, store):
+    outputs = store.settings.outputs_dir
+    image = _plant(store, settings.model_id, seed=1)
+    live = _plant(store, settings.model_id, seed=2)
+    client.post("/api/images/bin", json={"ids": [image.id]})
+    assert client.delete("/api/gallery/bin").status_code == 422
+    response = client.delete("/api/gallery/bin?expected=2")
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "The recycle bin changed: 1 images are in it now, not the 2 confirmed. "
+        "Nothing was deleted; look again."
+    )
+    assert (outputs / image.filename).exists()
+
+    response = client.delete("/api/gallery/bin?expected=1")
+    assert response.json() == {"deleted": [image.id], "files": 1}
+    assert not (outputs / image.filename).exists() and (outputs / live.filename).exists()
+    assert client.get(f"/api/images/{image.id}?binned=true").status_code == 404
+    assert client.get("/api/gallery/bin/summary").json()["records"] == 0
+    assert client.delete("/api/gallery/bin?expected=0").json() == {"deleted": [], "files": 0}
+
+
+def test_the_permanent_delete_takes_a_binned_image_too(client, store):
+    image = _plant(store, settings.model_id, seed=1)
+    client.post("/api/images/bin", json={"ids": [image.id]})
+    assert client.delete(f"/api/images/{image.id}").json() == {"deleted": image.id}
+    assert not (store.settings.outputs_dir / image.filename).exists()
+
+
+def test_delete_unstarred_leaves_what_is_already_in_the_bin_out(client, fake):
+    _, events = run_grid(client, steps_axis="6,8,10", seed=5)
+    images = sorted(events[-1]["images"], key=lambda r: r["id"])
+    client.post("/api/images/bin", json={"ids": [images[0]["id"]]})
+    preview = client.get("/api/gallery/unstarred").json()
+    assert (preview["records"], preview["unstarred"]) == (2, 2)
+    response = client.delete("/api/gallery/unstarred?expected=2")
+    assert response.status_code == 200, response.text
+    assert response.json()["binned"] == [r["id"] for r in images[1:]]
+    assert client.get("/api/gallery").json()["total"] == 0
+    assert client.get("/api/gallery/bin").json()["total"] == 3
+    response = client.delete("/api/gallery/unstarred?expected=1")
+    assert response.status_code == 409 and "Nothing was moved" in response.json()["detail"]
+
+
+def test_a_pass_whose_source_is_in_the_bin_says_so_until_it_is_restored(client, store):
+    source = _plant(store, settings.model_id, seed=1)
+    refined = _made_from(store, seed=2, refine=source.id, strength=0.5)
+    client.post("/api/images/bin", json={"ids": [source.id]})
+    items = {r["id"]: r for r in client.get("/api/gallery").json()["items"]}
+    assert (items[refined.id]["refine_missing"], items[refined.id]["refine_binned"]) == (True, True)
+    record = client.get(f"/api/images/{refined.id}").json()
+    assert (record["refine_missing"], record["refine_binned"]) == (True, True)
+
+    client.post("/api/images/restore", json={"ids": [source.id]})
+    record = client.get(f"/api/images/{refined.id}").json()
+    assert (record["refine_missing"], record["refine_binned"]) == (False, False)
+    # Deleted for good: missing, and no Restore to offer.
+    client.delete(f"/api/images/{source.id}")
+    record = client.get(f"/api/images/{refined.id}").json()
+    assert (record["refine_missing"], record["refine_binned"]) == (True, False)

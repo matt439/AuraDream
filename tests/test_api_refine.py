@@ -463,3 +463,22 @@ def test_preview_prices_refine_from_matching_full_durations(client, fake, store)
     assert direct["seconds"] == 101.3
     assert refined["seconds"] == 16.9
     assert unmeasured["seconds"] is None
+
+
+def test_a_binned_source_is_refused_until_it_is_restored(client, fake, store):
+    first = _first(client)
+    run_one(client, refine=first["id"], strength=0.5, width=384, height=384, steps=10)
+    client.post("/api/images/bin", json={"ids": [first["id"]]})
+    body = {"prompt": "a fox", "width": 384, "height": 384, "steps": 10, "refine": first["id"], "strength": 0.5}
+    response = client.post("/api/generate", json=body)
+    assert response.status_code == 422
+    assert f"source image {first['id']} is in the recycle bin; restore it" in response.json()["detail"]
+    # Re-render of a pass whose source is binned: refused the same way.
+    selection = {"search": f"refine:{first['id']}", "favorites": False, "width": 512, "height": 512}
+    response = client.post("/api/rerender", json=selection)
+    assert response.status_code == 422 and "recycle bin" in response.json()["detail"]
+
+    client.post("/api/images/restore", json={"ids": [first["id"]]})
+    response = client.post("/api/generate", json=body)
+    assert response.status_code == 200, response.text
+    stream_job(client, response.json()["job_id"])

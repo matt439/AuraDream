@@ -750,6 +750,8 @@ setupSwap();
 setupRefineBatch();
 // More seeds after it, and its dialog (more-seeds.js).
 setupMoreSeeds();
+// Bin after them: the recycle bin, shown in the gallery's place (bin.js).
+setupBin();
 // The picker then names the run on screen: resetGallery follows the search box.
 // Browsed from the keyboard, a run opens on Enter or as focus leaves (runs.js).
 els.runList.onchange = runListChange;
@@ -786,9 +788,14 @@ els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { closeLight
 // that runs nothing gives it back (refineClosed). Where the checkpoint has no
 // such pass the lightbox stays open, since the note saying so is mirrored
 // into it.
-els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec) openRefine(rec); };
+els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec && !refuseBinned(rec, 'refine')) openRefine(rec); };
 els.lbFav.onclick = () => { const rec = lbList[lbIndex]; if (rec) setFavorite(rec, !rec.favorite); };
 els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage(rec); };
+// Nor a held Enter's repeats on the focused button, which press it again for
+// each - the image after the one just binned, and the next - as Del's would.
+els.lbDelete.addEventListener('keydown', (e) => {
+  if (e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault();
+});
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) dismissLightbox(); };
 // A pass against its source, or any image across CFG (lightbox-cfg.js):
 // each kind's button turns it on and off, or switches to its kind; a mode
@@ -961,7 +968,9 @@ document.addEventListener('keydown', (e) => {
   // on that button (setFavorite's `say`): its state alone changed.
   if (e.key === 'f' || e.key === 'F') { const rec = lbList[lbIndex]; if (rec) void setFavorite(rec, !rec.favorite, { say: true }); }
   else if (e.key === 's' || e.key === 'S') void toggleCompare();
-  else if (e.key === 'Delete') els.lbDelete.click();
+  // Not a held key's repeats: the delete asks nothing now (it moves the
+  // image to the recycle bin), and Del held down would bin a run of images.
+  else if (e.key === 'Delete' && !e.repeat) els.lbDelete.click();
   else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomLightbox(ZOOM_STEP); }
   else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomLightbox(1 / ZOOM_STEP); }
   else if (e.key === '0') zoomFit();

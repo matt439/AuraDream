@@ -223,7 +223,7 @@ function syncRunList() {
   els.runList.value = shown && [...els.runList.options].some((o) => o.value === shown) ? shown : '';
   // The closed picker is narrower than its labels (style.css, --runs-w): the
   // picked run's is whole in the title.
-  els.runList.title = els.runList.value ? els.runList.selectedOptions[0].text : 'Recent runs';
+  els.runList.title = binMode ? BIN_HELD : els.runList.value ? els.runList.selectedOptions[0].text : 'Recent runs';
 }
 // A pick opens its run at once: a click in the open list, or Alt+Down and
 // Enter, which change the picker with no key on it first. Browsed from the
@@ -307,6 +307,8 @@ function showJob(jobId, { fresh = false, asker } = {}) {
 // sheet, the one its submission was pressed on) is left out of sight, or
 // focus has fallen out of the page (sheet-render.js's focusSheet).
 function showSheetScope(search, { fresh = false, notice = null, scroll = true, asker = document.activeElement } = {}) {
+  // A sheet is the gallery's: opened from the recycle bin, the bin closes.
+  leaveBin();
   const unticked = fresh && els.favOnly.checked;
   if (unticked) els.favOnly.checked = false;
   if (!sheetMode || !sheetReturn || els.search.value.trim() !== sheetReturn.wrote) {

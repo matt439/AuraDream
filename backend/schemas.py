@@ -1078,6 +1078,11 @@ class ImageRecord(BaseModel):
     # kept, and so is the id, but it cannot be made again. Read, not stored -
     # the gallery's pages and `GET /api/images/{id}` look the source up.
     refine_missing: bool = False
+    # True when that source is in the recycle bin rather than deleted:
+    # `refine_missing` is True with it, since a binned source cannot be used
+    # either, but a Restore brings it back. Read, not stored, like
+    # `refine_missing`.
+    refine_binned: bool = False
     # How many images the pipeline call that made this one held (the panel's
     # Batch). No part of the reproduction set - each image has its own
     # generator - but what More seeds runs the batch's next images at. Null
@@ -1105,6 +1110,10 @@ class ImageRecord(BaseModel):
     duration_ms: int
     created_at: str
     favorite: bool = False
+    # When the image was moved to the recycle bin, as an ISO UTC string like
+    # `created_at`; None while it is live. Only the bin's own listing and
+    # `GET /api/images/{id}?binned=true` serve a record with one.
+    binned_at: str | None = None
 
 
 class RunSummary(BaseModel):
@@ -1195,6 +1204,46 @@ class UnstarredPreview(BaseModel):
     # Whether a job is queued or running on the server - this page's or
     # another's - which can land an image in scope before the count is typed
     # back, and the pinned delete would then refuse.
+    job_active: bool = False
+
+
+class IdsBody(BaseModel):
+    """Gallery ids to move to the recycle bin or back out of it."""
+
+    ids: list[int] = Field(min_length=1, max_length=settings.max_grid_images)
+
+
+class BinResult(BaseModel):
+    """What `POST /api/images/bin` did with each id: moved now, in the bin
+    already (a second tab, a double press), or not in the gallery at all."""
+
+    binned: list[int]
+    already: list[int]
+    missing: list[int]
+
+
+class RestoreResult(BaseModel):
+    """What `POST /api/images/restore` did with each id: back in the gallery
+    now, never in the bin (live already), or not in the gallery at all."""
+
+    restored: list[int]
+    not_binned: list[int]
+    missing: list[int]
+
+
+class BinSummary(BaseModel):
+    """The recycle bin's footer count and what Empty recycle bin's
+    confirmation says before it deletes from disk.
+
+    `bytes` is the PNGs and thumbnails of the binned images; `sources_in_use`
+    the binned ids a live image names as its refine source or a reference,
+    which cannot be made again once the bin is emptied. `job_active` is
+    whether a job is queued or running, whose cell using one would fail.
+    """
+
+    records: int
+    bytes: int
+    sources_in_use: list[int] = Field(default_factory=list)
     job_active: bool = False
 
 

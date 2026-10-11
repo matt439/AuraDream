@@ -87,6 +87,10 @@ def test_a_database_from_before_job_ids_gains_the_column(tmp_path, monkeypatch):
     assert (record.job_id, record.run_id) == ("abc123", "run001")
     items, total, _ = storage.list_images()
     assert total == 1 and (items[0].job_id, items[0].run_id) == ("abc123", "run001")
+    # The recycle bin's column too, NULL - live - on every older row.
+    with storage._session() as conn:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
+    assert "binned_at" in columns and items[0].binned_at is None
 
 
 # ---------------------------------------------------------------- the rename
@@ -470,3 +474,104 @@ def test_a_row_from_before_true_cfg_reads_back_the_scale_it_ran_at(store):
     # A row written now carries the value outright and reads back the same.
     fresh = keep(store, seed=3, negative_prompt="blurry", guidance_scale=2.0)
     assert fresh.true_cfg == 2.0 and store.get_image(fresh.id).true_cfg == 2.0
+
+
+# ---------------------------------------------------------------- recycle bin
+
+
+def test_the_gallery_leaves_the_recycle_bin_out_and_the_bin_lists_only_it(store):
+    # Total, page and the other-checkpoint count all read one predicate, the
+    # LIKE fallback's included: a `26"` search swaps only the search term.
+    live = keep(store, prompt='a 26" monitor on a desk', seed=1)
+    gone = keep(store, prompt='a 26" monitor in a shop', seed=2)
+    other = keep(store, prompt='a 26" monitor elsewhere', seed=3, model_id="other/model")
+    binned_other = keep(store, prompt='a 26" monitor binned', seed=4, model_id="other/model")
+    store.bin_images([gone.id, binned_other.id])
+
+    items, total, others = store.list_images(search='26"', model_id="krea/Krea-2-Turbo")
+    assert ([r.id for r in items], total, others) == ([live.id], 1, 1)
+    items, total, _ = store.list_images(search='26"', binned=True)
+    assert ([r.id for r in items], total) == ([binned_other.id, gone.id], 2)
+    assert all(r.binned_at for r in items)
+    items, total, others = store.list_images(binned=True, model_id="krea/Krea-2-Turbo")
+    assert ([r.id for r in items], total, others) == ([gone.id], 1, 1)
+    assert store.get_image(gone.id) is None
+    assert store.get_image(gone.id, include_binned=True).binned_at is not None
+    assert [r.id for r in store.get_images([live.id, gone.id, other.id])] == [live.id, other.id]
+    assert len(store.get_images([gone.id], include_binned=True)) == 1
+
+
+def test_runs_and_keep_rates_leave_the_bin_out_but_resume_and_lineage_do_not(store):
+    kept = keep(store, seed=1, run_id="night", job_id="j")
+    binned = keep(store, seed=2, run_id="night", job_id="j")
+    alone = keep(store, seed=3, run_id="gone", job_id="k")
+    store.set_favorite(kept.id, True)
+    store.bin_images([binned.id, alone.id])
+
+    runs = store.runs()
+    assert [(r.run_id, r.images) for r in runs] == [("night", 1)]
+    rows = store.keep_rates(None, by=["steps"])
+    assert [(r["made"], r["starred"]) for r in rows] == [(1, 1)]
+    # A binned cell was made: a resume does not make it again.
+    done = store.completed_cells(["a fox in the snow"], 256, 256, "krea/Krea-2-Turbo")
+    assert {key[-1] for key in done} == {1, 2, 3}
+    assert [r.id for r in store.lineage_images(["night"], [])] == [kept.id, binned.id]
+
+
+def test_a_binned_star_is_unkept_and_protects_no_source(store):
+    source = keep(store, seed=1)
+    star = keep(store, seed=2, refine=source.id, strength=0.5)
+    store.set_favorite(star.id, True)
+    preview = store.matching_preview(None)
+    assert (preview["favorites"], preview["sources_kept"], preview["binned"]) == (1, 1, 0)
+
+    store.bin_images([star.id])
+    # The flag stays, so a Restore brings the star back; until then nothing
+    # is kept for it, and it cannot be starred again.
+    assert store.get_image(star.id, include_binned=True).favorite is True
+    assert store.set_favorite(star.id, True) is None
+    preview = store.matching_preview(None)
+    assert (preview["favorites"], preview["sources_kept"], preview["binned"]) == (0, 0, 1)
+    assert store.matching_preview(None, live_only=True)["records"] == 1
+    summary = store.summarise()
+    assert (summary["favorites"], summary["sources_kept"], summary["binned"]) == (0, 0, 1)
+    result = store.delete_matching(None, keep_favorites=True, expected=2)
+    assert sorted(result["ids"]) == [source.id, star.id]
+
+
+def test_delete_matching_into_the_bin_counts_and_moves_only_live_rows(store):
+    first = keep(store, seed=1)
+    second = keep(store, seed=2)
+    already = keep(store, seed=3)
+    store.bin_images([already.id])
+    with pytest.raises(store.SelectionChanged):
+        store.delete_matching(None, keep_favorites=True, expected=3, to_bin=True)
+    result = store.delete_matching(None, keep_favorites=True, expected=2, to_bin=True)
+    assert (result["ids"], result["files"]) == ([first.id, second.id], 0)
+    assert all((store.settings.outputs_dir / r.filename).exists() for r in (first, second))
+    assert store.list_images(binned=True)[1] == 3
+
+
+def test_a_binned_image_is_refused_as_a_reference_or_source(store):
+    live = keep(store, seed=1)
+    gone = keep(store, seed=2)
+    store.bin_images([gone.id])
+    with pytest.raises(ValueError, match=f"source image {gone.id} is in the recycle bin; restore it"):
+        store.reference_paths([gone.id], "source image")
+    with pytest.raises(ValueError, match="recycle bin"):
+        store.reference_paths([live.id, gone.id])
+    store.restore_images([gone.id])
+    assert len(store.reference_paths([live.id, gone.id])) == 2
+
+
+def test_a_pass_says_its_source_is_in_the_bin(store):
+    source = keep(store, seed=1)
+    made = keep(store, seed=2, refine=source.id, strength=0.5)
+    assert (made.refine_missing, made.refine_binned) == (False, False)
+    store.bin_images([source.id])
+    record = store.get_image(made.id)
+    assert (record.refine_missing, record.refine_binned) == (True, True)
+    assert store.list_images()[0][0].refine_binned is True
+    store.delete_image(source.id)
+    record = store.get_image(made.id)
+    assert (record.refine_missing, record.refine_binned) == (True, False)

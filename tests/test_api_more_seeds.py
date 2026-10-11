@@ -218,3 +218,17 @@ def test_the_batch_survives_a_reindex(client, fake, store):
     record = store.index_file("copy.png", {**chunk, "batch": "3"}, 256, 256, store.datetime.now())
     # Garbage in a block written elsewhere is not a Batch.
     assert record.batch is None
+
+
+def test_seeds_follow_on_past_a_binned_seed_and_a_binned_pick_says_so(client, fake):
+    # The highest seed of the batch is in the bin: it was made, so the next
+    # seeds start above it, and restoring it never duplicates one.
+    images = batch_of(client, seed=200, num_images=1, runs=3)
+    assert [image["seed"] for image in images] == [200, 201, 202]
+    client.post("/api/images/bin", json={"ids": [images[2]["id"]]})
+    answer = preview(client, ids=[images[0]["id"], images[2]["id"]], count=2)
+    rows = {row["id"]: row for row in answer["results"]}
+    gone = rows[images[2]["id"]]
+    assert (gone["status"], gone["detail"]) == ("deleted", "in the recycle bin")
+    row = rows[images[0]["id"]]
+    assert row["status"] == "queued" and (row["first"], row["last"]) == (203, 204)

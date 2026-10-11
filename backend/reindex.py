@@ -21,7 +21,8 @@ id order. PNG-only imports use each source's recorded filename, pixel hash and
 size to recover its new id; legacy links without this provenance are dropped
 and counted, never treated as destination ids. Without a database, the
 favorite cannot come back and duration is recorded as 0 so the
-time estimate ignores it. The timestamp is parsed from the filename prefix as
+time estimate ignores it; nor can the recycle bin, so an image that was in
+it comes back live. The timestamp is parsed from the filename prefix as
 UTC, which is how it was written; failing that, the file's own mtime.
 
 Not `import.py`: `from backend import import` is a SyntaxError, so no test
@@ -345,6 +346,9 @@ def merge_database(
             "refine": refine,
             "strength": row.get("strength") if refine is not None else None,
             "batch": storage._batch(row.get("batch")),
+            # The recycle bin is SQLite's alone, as the star is: carried with
+            # the database, and None (live) from one that predates it.
+            "binned_at": row.get("binned_at"),
         }
         copied = source != outputs
         try:

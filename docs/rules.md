@@ -139,17 +139,18 @@ before changing it.
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates (`size:WxH` both sides exact), the LIKE escape, `strict_scope`
 - `backend/main.py` — app lifecycle, model/prompt routes and generation submission;
-  `api_gallery.py` owns gallery browsing, runs and deletion, and `api_jobs.py`
+  `api_gallery.py` owns gallery browsing, runs, the recycle bin and deletion, and `api_jobs.py`
   job inspection, cancellation, pause and SSE, with app-owned dependencies
   supplied by router factories
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
-- `backend/clear.py` — deletes rows, their PNGs and any orphans
+- `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
+  bin's with the rest; `--bin` empties the bin alone
 - `backend/stats.py` — the starred *rate* per setting (`storage.keep_rates`),
   scoped to a run by default; `--by variant` gives a comparison's rate
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 35 classic
+- `web/` — served as-is from `/static`; `index.html` loads 36 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -167,7 +168,8 @@ before changing it.
   `bundles.js` owns the gallery bundle dialog and background-operation polling;
   `gallery-select.js` the picked cards, `gallery-batch.js` a card's batch
   on hover, `tag-swap.js` Swap tags,
-  `refine-batch.js` Mass refine and `more-seeds.js` More seeds. The stylesheet is
+  `refine-batch.js` Mass refine, `more-seeds.js` More seeds and `bin.js` the
+  recycle bin's view, undo note and Empty. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
   `style.css`); preserve that cascade. See `docs/source-audit.md`
@@ -361,7 +363,9 @@ Model and loader:
   `test_switch_names_a_model_request_that_outlasts_its_wait`). The page's `api()` sends its revision on every `/api/`
   request; the middleware alone lists the guarded routes and ignores the
   header elsewhere (`test_routes_that_read_no_checkpoint_ignore_the_revision_header`).
-  Include scoped bulk deletion in this guard. Startup
+  Include scoped bulk deletion in this guard; the recycle bin's routes
+  (bin, restore, the bin's listing, summary and Empty) read no checkpoint
+  and stay out of it. Startup
   `Settings` stays frozen; runtime model reads use `current_model_id(settings)`
   and loader/quantization/offload reads use `current_settings(settings)`.
   Model revisions distinguish A-to-B-to-A switches and start from the
@@ -633,7 +637,8 @@ Reproduction:
   request's) and the cell's caption through `label`. Re-render, Swap tags,
   Mass refine and More seeds use it. Their
   images are `main._resolve_selection`'s: with `ids` (the picked cards),
-  exactly those, oldest first, and the ids gone reported per image, never a
+  exactly those, oldest first, and the ids gone (deleted, or binned since
+  they were picked: the third list) reported per image, never a
   refusal; without, the gallery's filter (search, Starred, `_model_scope`),
   404 for none, 422 past `max_grid_images` by count. What to do with
   another checkpoint's records is the caller's (Re-render refuses the
@@ -673,17 +678,52 @@ Reproduction:
   the seed axis is a list, and answers 409 when nothing is left. Without
   Resume, `/api/grid/preview` asks the same lookup (`main._not_yet_rendered`)
   only for an explicit seed or a seed list, reports it as
-  `GridPreview.in_gallery` and drops nothing.
+  `GridPreview.in_gallery` and drops nothing. A cell in the recycle bin
+  counts as rendered (a rejected render, not a missing one); Empty recycle
+  bin makes it eligible again, as a delete does.
 - A new column needs a `_migrate` entry, not a `"x" in row.keys()` read guard:
   `_row_to_record` reads every column unguarded. `save_image` and
-  `reindex.index_file` share `_insert_row` over `_COLUMNS`.
+  `reindex.index_file` share `_insert_row` over `_COLUMNS`, and both build
+  their dict explicitly, so a new column goes in both (`binned_at: None`).
+- The recycle bin is the `binned_at` column (ISO UTC text like `created_at`,
+  NULL while live, never NOT NULL: an older database or bundle reads None and
+  is live). Every page-side delete bins (`POST /api/images/bin`,
+  `storage.bin_images`); only Empty recycle bin (`DELETE /api/gallery/bin`,
+  `storage.empty_bin`), `DELETE /api/images/{id}` (the bin view's Delete
+  permanently, permanent for live and binned rows alike) and `clear` remove
+  PNGs. Files and thumbnails never move: a bundle's inventory takes only
+  `images/*` and `images/thumbnails/*`, and a Restore is one UPDATE. A binned
+  image is gone for every live-facing read and present for every read about
+  what exists or was made. `storage._LIVE` (`binned_at IS NULL`) is added by
+  `list_images` (before the search predicate, which the LIKE fallback swaps
+  as the last; `binned=True` lists the bin alone), `get_image`/`get_images`
+  (unless `include_binned`), `reference_paths` (a binned id is refused,
+  "is in the recycle bin; restore it to use it", before the file check - so a
+  submission, a queued cell and `generate.py` alike), `set_favorite` (404
+  while binned), `runs`, `keep_rates`, `_STARRED_SOURCE` (only a live star
+  protects) and `_UNKEPT` (a binned star is unkept), and by
+  `matching_preview(live_only=True)` / `delete_matching(to_bin=True)` for
+  Delete unstarred. `_tracked_files`, `existing_filenames`,
+  `existing_file_ids`, bundles, `clear`, `completed_cells`, `lineage_images`,
+  `image_provenance` and the cost/size samples read every row: filtered to
+  live rows, the orphan sweep would delete binned PNGs and a reindex would
+  add them back as new rows. There is no `bin:` search key - it would reach
+  `strict_scope`, and through it Delete unstarred, `clear --where` and
+  `keep_rates`; the bin's view is its own route. A starred image binned
+  keeps `favorite = 1`, so a Restore brings the star back.
+  `bin_images`/`restore_images` look up and write under one lock (a double
+  press answers `binned` once and `already` once) and answer
+  `{binned|restored, already|not_binned, missing}`.
 - Reference images are gallery ids, never paths. The page's chips are
   numbered in `referenceIds` order, since that order is what a prompt's
   "image 2" means; every reorder or removal (a drag, Alt+Left/Right or Delete
   on a chip's ×) builds a new array through `setReferences`, the one writer,
   and chip nodes are never moved. A chip whose picture fails is marked
   `.gone` and asks `GET /api/images/{id}` (`dropGoneReferences`); only
-  "unknown image" forgets it (`forgetImages`, with its note in `#error`). A
+  "unknown image" forgets it (`forgetImages` through `forgetReferences`,
+  binned where the detail says "in the recycle bin", with its note in
+  `#error`; the lightbox's reference slot likewise reads "in the bin" or
+  "deleted"). A
   submit refused with "no gallery image with id N" for one of the payload's
   references does the same (`dropRefusedReferences`) and says "Nothing was
   queued: reference #N has been deleted, so it was taken out of the
@@ -807,7 +847,10 @@ Reproduction:
   from `list_images`, `get_image` and `save_image`, which asks under the write
   lock, so a pass whose source was deleted while it ran lands saying so;
   `jobs.forget_images` marks a job's replayed passes), and is not in the
-  reproduction set.
+  reproduction set. A binned source is missing too, since it cannot be used
+  until restored; `refine_binned` (read, not stored, from the same lookup)
+  says which, so the page reads "refine of #N (in the recycle bin)" and
+  offers Restore, which clears both.
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.
@@ -881,9 +924,13 @@ Jobs:
   redraw (`setQueue`) and a Pause press say it again rather than wiping it
   under a progress line still saying "waiting". A
   snapshot's `images` are the job's live records:
-  the delete routes call `jobs.forget_images`, which takes deleted ones out
-  of every job's replay and counts them in `deleted_count`; `image_count`
-  stays what the job produced. Snapshots also carry `prompt` (its first 120
+  the delete and bin routes call `jobs.forget_images` (`binned=True` from
+  bin and Delete unstarred, which also sets a replayed pass's
+  `refine_binned`), which takes those images out of every job's replay and
+  counts them in `deleted_count` - gone from the gallery, deleted or binned;
+  the restore route calls `jobs.restore_images`, which puts them back and
+  clears a pass's `refine_missing`/`refine_binned`. Both run on the event
+  loop. `image_count` stays what the job produced. Snapshots also carry `prompt` (its first 120
   characters), `refine`, `width`, `height`, `planned_images`, `grid`,
   `comparison` (`run_grid`'s `bool(prompt_variants)`) and `prompt_template`
   (a grid's prompt as submitted, its variables unfilled, from `/api/grid`;
@@ -971,6 +1018,20 @@ Jobs:
   equals the row's `content_hash` and its identity metadata matches (the
   short hash covers raw bytes only); the row is left unchanged and its PNG chunk rewritten
   from it. Anything else is refused.
+- Bundles and the recycle bin: export carries every row, binned ones
+  included (`preview()`'s `records` stays all rows, for the typed
+  confirmation, and `binned` says how many are in the bin; the export
+  result carries it too), and source cleanup deletes them with the rest,
+  in `deleted_ids`. A new imported row keeps the `binned_at` it was exported
+  with (through `_COLUMNS`; the ALTER fallback gives an older table TEXT); a
+  known row keeps this gallery's state, as it keeps its star, and
+  `binned_at` is not in the identity comparison. The import result's
+  `binned` counts new rows arriving binned. A bundle from before the column
+  imports live; `binned_at` is not in `reindex._DB_REQUIRED` and the
+  manifest stays `version: 1`. Bin state is SQLite's alone, never the PNG
+  chunk's: a PNG-only reindex, and an older build importing a newer bundle,
+  bring binned images back live, as a PNG-only reindex loses a star;
+  `reindex --database` carries `binned_at`.
 - Every archive is read once: `_verify_archive` checks CRC, manifest SHA-256
   and (encrypted) every chunk tag, and tracked PNGs are decoded from the bytes
   it just read on the bounded decode pool, which also hashes them; errors are
@@ -1040,10 +1101,12 @@ Jobs:
   `gallery_lock` also covers whole storage/reindex writes and SQLite sessions
   across processes. SQLite sessions and per-record writers (`save_image`,
   `thumbnail_for`, `import_file`, `index_file`, `set_favorite`,
-  `delete_image`, `init_db`) wait up to `gallery_lock.SESSION_WAIT` for
-  another process's reservation; whole maintenance operations (bundles,
-  `delete_matching`, `clear_history`, `vacuum`, reindex/merge) refuse at
-  once with `GalleryBusy`. The wait covers the in-process lock too (one
+  `delete_image`, `bin_images`, `restore_images`, `init_db`) wait up to
+  `gallery_lock.SESSION_WAIT` for another process's reservation; whole
+  maintenance operations (bundles, `delete_matching`, `empty_bin`,
+  `clear_history`, `vacuum`, reindex/merge) refuse at once with
+  `GalleryBusy`. None of the bin's routes is in `GalleryAdmission.control`:
+  a bundle operation refuses them, and they hold one off. The wait covers the in-process lock too (one
   deadline in `hold`), never `wait` per thread queued behind it; `jobs._save`
   retries a `GalleryBusy` save until the job is cancelled, never dropping a
   finished render. `save_image` and `thumbnail_for` encode their
@@ -2382,7 +2445,8 @@ Frontend and CLI:
 - `showError(message, note, { slot, mirror, offline })` says each message in
   one slot (both are role=alert). What a gallery control did - Delete
   unstarred, a failed gallery page, Re-render's submit errors, a card's ❐,
-  ⊞ and ⤢ refusals and a pass's Compare with source refusal, deletes, a
+  ⊞ and ⤢ refusals and a pass's Compare with source refusal, deletes and
+  the recycle bin's note with its Restore (`noteBinned`), Empty recycle bin, a
   star's failure (a card's, a viewer result's, a sheet cell's or the
   lightbox's), the sheet's Resume this run refusals, Fill width pressed on
   a wrapped row, an export pressed while one runs, Export all's outcome and
@@ -2502,7 +2566,7 @@ Frontend and CLI:
   (`resultFigure`), holding `thumb()`'s image and the
   card's tools: `reuseButton`, ⤢ (`refineResult`), ❐ (`toggleReference`,
   hidden where the checkpoint takes no references), a `.star` via
-  `setFavorite`, and ⌦ via `deleteImage`; no ⊞. Alone in the strip, a
+  `setFavorite`, and ⌦ via `deleteImage` (to the recycle bin); no ⊞. Alone in the strip, a
   result carries `.result-side` from 1800 px: the lineage chip
   (`passLineage`), Star / Refine… / Reuse / ❐ Reference / on a pass Compare
   with source (`compareButton`: the lightbox through `openViewerImage`, then
@@ -2883,7 +2947,8 @@ Frontend and CLI:
   under the gallery's head, or `#lb-star-said` inside the lightbox while it
   is up, since the page behind a modal dialog is inert - emptied first,
   written on the next frame, and emptied again after 5 s. A star answered
-  "unknown image" (deleted in another tab) does what ⌦ does:
+  "unknown image" (deleted or binned in another tab; `set_favorite` refuses
+  a binned image) does what ⌦ does with a gone id:
   `forgetImages`, then "#N was already deleted." in `#gallery-error`, or
   through `noteLightboxDelete` while the lightbox is open, and the Runs
   picker is asked again (`loadRuns`); its other failures go to
@@ -2998,7 +3063,8 @@ Frontend and CLI:
   the cell at its size), `invalid` (pydantic, the budget, the refine steps:
   `error_detail`), `source_deleted`, `lora_missing`, `duplicate` ("same as
   #N": cell keys as `applied()` runs them, plus the size), `by_hand`,
-  `structured`, `deleted` (an id gone), `foreign`. The preview lists the
+  `structured`, `deleted` (an id gone, or binned since it was picked:
+  detail "in the recycle bin", `main._gone_detail`), `foreign`. The preview lists the
   first `SWAP_PREVIEW_ROWS` (200) of them - each with its text, the
   original where it is not changed, so a missing image can be read - and
   counts all, with the ids the
@@ -3068,7 +3134,7 @@ Frontend and CLI:
   over axes, so `grid.expand()` stays the one cell loop. The route adds
   `file_missing` (`storage.missing_files`), `lora_missing` (a same
   checkpoint's adapter, `_unusable_input` once per name), `rendered`
-  (`_not_yet_rendered` per size) and `deleted` (an id gone). Only a
+  (`_not_yet_rendered` per size) and `deleted` (an id gone or binned). Only a
   checkpoint with no pass refuses the whole of it (422,
   `_refine_unavailable`, the single pass's words). The preview lists the
   first `REFINE_BATCH_PREVIEW_ROWS` (200) with each source's size and the
@@ -3140,7 +3206,8 @@ Frontend and CLI:
   of one batch are one batch, in the order of their oldest. Per batch, in
   the resolver's order: `foreign` (another checkpoint's), else
   `more_seeds.plan` over every image the gallery holds of its lineage
-  (`storage.lineage_images`, picked or not): the Batch is the largest
+  (`storage.lineage_images`, picked or not, binned ones included, so the
+  seeds follow on past a binned seed and its Restore never duplicates one): the Batch is the largest
   `batch` recorded on them (a call that ends a batch holds fewer), else the
   request's `batch` (the panel's), noted, and held to `max_batch_pixels` at
   its size (`fitting`; a refine pass is not), noted; the seeds are
@@ -3153,7 +3220,7 @@ Frontend and CLI:
   `seeds a–b` label, `invalid` where that or `check_budget`/
   `check_refine_steps` refuses. The route then adds `source_deleted` and
   `lora_missing` (`_unusable_input` once per spec), a note where the batch
-  was made under another quantizer, and `deleted` (an id gone); nothing is
+  was made under another quantizer, and `deleted` (an id gone or binned); nothing is
   ever `rendered`. Past `max_grid_images` images in all (batches ×
   `count`) is a 422 for the whole, by count. The preview lists the first
   `MORE_SEEDS_PREVIEW_ROWS` (200) by id - each batch's newest picked image,
@@ -3174,7 +3241,7 @@ Frontend and CLI:
   line gives the seed span (min–max) as a plain job's does, without Use
   seed, and a split job's says "Job k of n of these more seeds, at WxH".
   The button is `#btn-more-seeds` ("More seeds…"), in the footer row
-  after Refine… and before Bundles…, always shown, held with
+  after Refine… and before Bin and Bundles…, always shown, held with
   `galleryActionTarget`'s reason; synced from `syncRerender` and
   `onSelectionChange` (`syncMoreSeedsButton`), a held press said in
   `#gallery-error`. The dialog opens on the first answer, the count at the
@@ -3418,9 +3485,17 @@ Frontend and CLI:
   (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
   --keep-favorites` over HTTP, the search box strict or empty, gated on the
   count typed back and pinned to it as `expected`, which `delete_matching`
-  checks under the write lock and answers 409 on a mismatch - adding that a
-  job is still running and may add more where `jobs.busy()`; rows and files
-  only, no orphan sweep. Outside the sheet, the page first brings the grid
+  checks under the write lock and answers 409 on a mismatch ("Nothing was
+  moved; look again.") - adding that a
+  job is still running and may add more where `jobs.busy()`. It moves the
+  rows to the recycle bin (`to_bin=True`, files untouched; the answer's
+  `binned`, with `deleted` kept as an alias and `files` 0) and counts live
+  rows only (`live_only=True`), so a Restore undoes it; the dialog says
+  "They move to the recycle bin; Empty recycle bin removes them from disk."
+  and the outcome "Moved N images to the recycle bin, keeping K starred"
+  (and the sources it keeps). The CLI's `--where` keeps
+  the defaults: every row, the bin's included, deleted for good, and a
+  binned star is not kept. Outside the sheet, the page first brings the grid
   up to what the sweep reaches with `prependFinished(0, { now: true })`
   (the same filters, without waiting for the pointer to leave the gallery's
   column), then asks the preview with `newer_than`, the grid's head before
@@ -3436,20 +3511,35 @@ Frontend and CLI:
   image is starred, and where a reload hides the focused button - nothing
   left, a sweep that took every image, a 409, a failed preview - focus goes
   to the search box (`keepUnstarredFocus`), never `<body>`.
-  `keep_favorites` keeps the stars and what a starred
+  `keep_favorites` keeps the live stars and what a live starred
   row was made from - its `refine` source and its `reference` ids - through
   one predicate (`storage._UNKEPT`) that `delete_matching`, `clear_history`
   and the counts share; `matching_preview` returns `sources_kept`, and the
   route's `unstarred` and both CLI counts are `records - favorites -
-  sources_kept`, so the typed count is the delete's. A 409 reloads the
-  gallery and the Runs picker. `forgetImages` is the one place the page
-  drops deleted ids - every list, the sheet, the panel's references and a
+  sources_kept` (`favorites` the live stars), so the typed count is the
+  delete's. A 409 reloads the
+  gallery and the Runs picker. `forgetImages(ids, { binned })` is the one
+  place the page drops deleted or binned ids - every list, the sheet, the
+  panel's references and a
   Reuse's Undo snapshot (it answers the sentence the caller's note adds) -
-  and marks at once the passes of what it deleted (records, card titles,
+  and marks at once the passes of what it took (records, card titles,
   every Reuse, the lightbox's facts and `lbSources`); it keeps every id it
-  has seen deleted (`deletedIds`), and the stream marks a pass arriving
-  after its source went (`markGoneSource`, in `show`). A single card or viewer
-  tile keeps its slot as a tombstone (`tombstone`, "Deleted · #N"), which
+  has seen deleted (`deletedIds`) and, apart, every id it has seen binned
+  (`binnedIds`), and the stream marks a pass arriving
+  after its source went (`markGoneSource`, in `show`: `refine_missing` for
+  both sets, `refine_binned` too for a binned source). Its notes, the
+  viewer's placeholder ("…moved to the recycle bin") and the
+  reference-dropped sentence take the word. `unforgetImages(ids)`, its
+  sibling, is the Restore: the ids leave both sets, the passes of a
+  restored source are unmarked and retitled (`syncReuseButtons`,
+  `viewerSourcesGone`, `sheetSources`/`lbSources` reset), and a tomb whose
+  record the page held when it binned it (`binnedRecs`, captured before
+  `forgetImages`) is replaced by a fresh `card(rec)` in its own box, the
+  record spliced back into `galleryRecords` by id, the total and the head
+  resynced; nothing scrolls. References are never re-added - only
+  `setReferences` writes them. A single card or viewer
+  tile keeps its slot as a tombstone (`tombstone`, "Deleted · #N", or "In
+  the recycle bin · #N" for a binned one, which keeps `data-tomb-id`), which
   drops the card's fav, ref and refined marks and keeps its `data-made`;
   focus and the keyboard's current card move to the next live image. A
   viewer whose last image went with no job running gets its placeholder back
@@ -3459,9 +3549,32 @@ Frontend and CLI:
   (`pageInBehind`), never stepping back; one that takes the lightbox's only
   image closes it with focus where the walk came from
   (`closeLightboxAfterDelete`: the viewer's held line or tombstone, the
-  grid's current card, else the search box), never `<body>`. Both questions
-  - the per-image confirm and Delete unstarred's count - are the page's own
-  `<dialog id="confirm-dialog">` (`openAsk`, placed beside what was pressed
+  grid's current card, else the search box), never `<body>`. The per-image
+  delete (⌦, the result's Delete, the lightbox's Delete and its Del key)
+  never confirms: it moves the image to the recycle bin
+  (`POST /api/images/bin`), and the undo is the note it leaves - "Moved #12
+  to the recycle bin." and a `ghost tiny` Restore (`noteBinned`, in
+  `#gallery-error` as `noteOutsideView` writes, a run of bins gathered into
+  one note, "Moved #12, #13 to the recycle bin.", until the next unrelated
+  message; in the lightbox through `noteLightboxDelete`, whose
+  `pointerdown`/`keydown` clearing skips its own Restore,
+  `[data-bin-restore]`, and a press of Delete itself, so a run of presses
+  gathers one note as Del does; its Restore says "Restored #N." and puts the
+  record back only into a list it came from - the grid's records while the
+  grid is still the query it was binned from, the viewer's strip, #recent's
+  - with `lbIndex` moved so the image in view stays). The answer's `missing`
+  reads "#N was already deleted", its `already` "#N was already in the
+  recycle bin". A Restore answered `missing` (emptied elsewhere) forgets
+  those ids for good (`forgetImages`), and one answered `not_binned`
+  (restored elsewhere) unforgets them, so no pass keeps saying "(in the
+  recycle bin)". A delete for good - Empty, Delete permanently - rewrites the
+  "In the recycle bin" tombstones and the viewer's held line of those ids to
+  "Deleted". The lightbox's Del ignores a held key's repeats (`!e.repeat`),
+  and `#lb-delete` a held Enter's or Space's, so holding either bins one
+  image, not a run. The questions - Delete unstarred's count,
+  Empty recycle bin and Delete permanently - are the page's own
+  `<dialog id="confirm-dialog">` (`openAsk`, its `okLabel` defaulting to
+  "Delete", placed beside what was pressed
   by `placeAsk`, inside `documentElement`'s clientWidth/clientHeight -
   `innerWidth` counts the scrollbar), never `window.confirm` or `window.prompt`: Cancel focused,
   or the count's box; Escape and a press outside are Cancel; while it is up
@@ -3469,9 +3582,63 @@ Frontend and CLI:
   The smokes stand in for it by assigning `askConfirm`/`askCount` and put
   back `confirmDialog`/`countDialog`; `smoke-delete.json` drives the dialog
   itself. A delete under way ignores a second
-  press of the same image (`deleting`), and `storage.delete_image` looks up
-  and deletes under `_write_lock`, so a second delete is "unknown image". The
-  gallery pages by id, never by offset,
+  press of the same image (`deleting`); `storage.bin_images` looks up and
+  writes under `_write_lock`, so a second bin answers `already`, and
+  `storage.delete_image` does the same, so a second permanent delete is
+  "unknown image".
+- The recycle bin's view (`bin.js`, `styles/bin.css`; `smoke-bin.json`).
+  `#btn-bin` ("Bin" and a `.count`, `aria-pressed`) sits in the footer row
+  between More seeds… and Bundles…; its title, from
+  `GET /api/gallery/bin/summary` (`syncBin`, after every bin, restore and
+  Empty), reads "Recycle bin: N images (X MB). Restore them, or empty it to
+  delete from disk". Its text stays short so the row does not wrap from
+  600 px up; at 520 px and under (a phone) the footer wraps
+  (`flex-wrap`, bundles.css) rather than run the page past the screen.
+  `enterBin()` sets `binMode`, clears the selection and `resetGallery()`s;
+  `loadGallery` then asks `/api/gallery/bin` (`galleryEndpoint()`), every
+  checkpoint's binned images newest id first under the search box (Starred
+  does not apply), the head reads "Recycle bin" (`#gallery-title`) with its
+  `#count` "(N)", and an empty one "The
+  recycle bin is empty.". In bin mode Delete unstarred is hidden
+  (`syncDeleteUnstarred` adds `!binMode`) and **Empty recycle bin**
+  (`#btn-empty-bin`, `.danger`) takes its slot, aria-disabled "The recycle
+  bin is empty" at 0; Sheet, Starred, Runs, Gallery beside, Swap tags…,
+  Refine… and More seeds… are held aria-disabled "Not in the recycle bin —
+  leave it with Bin", never `disabled`, and Re-render is hidden, since its
+  count would be the bin's; `galleryActionTarget` refuses;
+  Select stays, with **Restore picked** before Empty, held while nothing is
+  picked. A bin card's tools are ↶ Restore (`.restore`) and ⌦ Delete
+  permanently (`.del`, confirmed, last); its picture opens the lightbox; no
+  ⤢ (Refine everywhere else), star, ❐, Reuse or ⊞. Restore
+  tombstones the card "Restored · #N" (out of the bin's records, not into
+  `deletedIds`); Delete permanently (`DELETE /api/images/{id}`) tombstones
+  it "Deleted · #N" through `forgetImages`. In the lightbox `#lb-delete`
+  reads "⌦ Delete permanently" (title "Delete permanently (Del)"),
+  confirmed and placed by `placeAsk`, `#lb-restore` ("↶ Restore", no key)
+  is shown only there, and `lbKeysLine` says "Del delete permanently" (else
+  "Del bin"); Del never bins a binned image again. `emptyBin()` asks the
+  summary, then `askConfirm` with "Empty bin" as the OK label: "Permanently
+  delete all N images in the recycle bin (X MB)?", then "That is every one
+  of them, not only those this search shows." under a search, "K of them are the source
+  or a reference of an image outside the bin; those can't be made again."
+  for `sources_in_use`, "A job is running; a cell that uses one of them will
+  fail." for `job_active`, and "This cannot be undone."; it sends
+  `DELETE /api/gallery/bin?expected=N` and shows a 409's detail, else
+  `forgetImages`, `syncBin()` and `loadRuns()`. `leaveBin()` runs from Show
+  all (`showAllImages`), the Models picker's See all, `showSheetScope` (a
+  run opened from an image or a job: `showRun`, a run fact, ⊞),
+  `showGallerySearch` (an image's search links) and a second press of Bin;
+  the search box narrows the bin rather than leaving it, and the Runs
+  picker is held; `prependFinished` returns
+  at once in bin mode and `viewFilter()` counts it. Bin mode is not
+  persisted. Every other gallery query keeps the live listing, which the
+  server gives by default. A record from `GET /api/images/{id}` (and
+  `/thumb`) of a binned image is a 404 "unknown image (#N is in the
+  recycle bin)" unless `?binned=true`, so every reader of "unknown image"
+  still reads it as gone. The bundles dialog's preview line adds "(N in the
+  recycle bin)", and after an export-clear `syncBin()` follows
+  `forgetImages`.
+- The gallery pages by id, never by offset,
   and pages itself as "Load more" scrolls near the viewport, or near the
   foot of the gallery's own column with Gallery beside (`moreWatcher`, made
   by `armMore` with its root where the gallery scrolls - the window or
@@ -3494,6 +3661,25 @@ and adapter paths before anything imports `backend`, so a sourced
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
 HTTP guards.
+
+The recycle bin is covered where each read lives: `tests/test_storage.py`
+(the migration, `list_images` live and `binned=True` with total, page and
+`others` agreeing through the LIKE fallback, `runs`/`keep_rates` leaving the
+bin out and `completed_cells`/`lineage_images` keeping it, a binned star
+unkept, `reference_paths` refusing, `refine_binned`), `tests/test_gallery.py`
+(a double bin answered once, restore, `empty_bin` with its files and its
+`SelectionChanged`, the orphan sweep sparing binned PNGs),
+`tests/test_api_gallery.py` (every bin route, the 404s without
+`?binned=true`, the favourite's 404, Delete unstarred binning),
+`tests/test_api_jobs.py` (the replay and `deleted_count` through a bin and a
+restore), the refine, grid, Swap, Mass refine and More seeds files (a binned
+source refused, a binned cell not remade until Empty, a picked-then-binned
+id reported "in the recycle bin", seeds past a binned one),
+`tests/test_bundles.py`/`test_api_bundles.py` (the state through a round
+trip, an old bundle live, a repeat import keeping the local state,
+`binned` in the preview), `tests/test_clear.py` (`--bin`, the whole clear
+and `--where` reaching the bin) and `tests/test_reindex.py` (in place and
+`--database` keeping the state, PNG-only bringing it back live).
 
 `tests/test_bundles.py` covers archive/merge round trips, preserved favourites
 and timings, remapped image links, WAL snapshots, monotonic ids, corrupt or
@@ -3686,7 +3872,7 @@ the reference chips (numbered and
 named by gallery id, reordered by Alt+Arrow and by a drag, dropped by Delete
 with focus kept in the field, the last one's × clicked leaving the emptied
 row focused and the tip closed, a deleted image's chip marked), a deleted
-reference leaving the chips (and named in the confirm), Reuse dropping a
+reference leaving the chips (and named in the note after the bin), Reuse dropping a
 reference the server no longer has, a reference deleted while a Reuse can be
 undone staying out after the Undo, a fifth reference refused under the
 gallery (the other cards' ❐ aria-disabled at four, the card note's gist
@@ -3697,8 +3883,8 @@ the card's and the viewer result's ⤢ aria-disabled with the reason, their
 refusal in `#gallery-error` and over the tile, nothing opened, the
 lightbox's description reading `ref #N` and its References row (numbered as
 the panel's chip, opening it with the result after it, and Use these
-references, which leaves a deleted reference out with a note and goes dead
-with the reason on a checkpoint without references), the adapter select and
+references, which leaves a binned reference out with a note - its slot
+reading "in the bin" - and goes dead with the reason on a checkpoint without references), the adapter select and
 its tip, a weight sweep (its preview naming the adapter), the prompt
 check going stale when the references change (chips, a reorder, Reuse),
 the references finding's "image N" links focusing and flashing that chip
@@ -4280,9 +4466,12 @@ node tools/browser.mjs tools/smoke-sheet-klein.json
 
 `smoke-delete.json` checks deletes taken to completion on a FLUX.1 Krea
 [dev] fake on 7881 (a checkpoint with a refine pass, so a starred pass can
-keep its source): the per-image confirm - the page's own dialog beside the
-card's ⌦, Escape as Cancel, over the lightbox too - and its count box for
-Delete unstarred, a lightbox of one image deleted (reopened at once after a
+keep its source): the per-image delete moving to the recycle bin with no
+dialog, and its wording; the page's own dialog for the bin view's Delete
+permanently, beside the card's ⌦ and over the lightbox's, Escape as Cancel,
+in the danger colour, and its count box for
+Delete unstarred, with its "They move to the recycle bin" line and outcome,
+a lightbox of one image deleted (reopened at once after a
 close, the check waiting for the delete itself and
 `closeLightboxAfterDelete`'s focus), Delete unstarred keeping a starred
 pass's source with the typed count, a landed image's 409; images another
@@ -4291,13 +4480,13 @@ counted in the dialog by the server's `newer`; the All models/running-job
 dialog and the 409's running-job sentence for a job another tab started
 (the server's `job_active`, not the page's `busy`); the dialog kept inside
 the scrollbar, by real presses, for a row's last card and for the
-lightbox's Delete; a pass whose source has gone - marked at once on
+lightbox's Delete permanently; a pass whose source has gone - marked at once on
 the page that deleted it (record, card title, Reuse) - tombstones
 ("Deleted · #N"), focus and the emptied viewer's placeholder, an image already deleted,
 a tile deleted elsewhere (once the viewer's PNGs have loaded: on Windows the
 server keeps a file it is still streaming) and the job's replay, the
 lightbox paging in behind a delete (its counter reading the gallery's total
-and the id), a double-clicked delete, and Reuse: Ctrl+Z and its Undo, the
+and the id), a double-clicked delete binned once, and Reuse: Ctrl+Z and its Undo, the
 Undo retired by a change (Ctrl+Z, a seed, an Example) and a Reuse taking an
 Example's Undo, the page unmoved mid-gallery with the prompt in sight, the
 page's end, one column at 800x900, the Undo in the window at 2048x1040
@@ -4428,7 +4617,8 @@ node tools/browser.mjs tools/smoke-results.json
 `smoke-lightbox.json` checks the lightbox on a FLUX.1 Krea [dev] fake on
 7884: the facts list and its rows, the Seed row's Use seed (said in the
 lightbox's line, the panel's kept, taken back by a step to another image);
-the keys line, naming S on every image with each key bound to its action,
+the keys line, naming S on every image with each key bound to its action
+("Del bin"),
 and the toggle's S by Generate's hint rule; the star ("★ Star",
 `aria-label` Star; F said in `#lb-star-said` away from Star, not on it); a
 pass's Reuse pass… name; a pass compared with its source (S, the button, a
@@ -4683,6 +4873,32 @@ saying what is left; Escape closing it with focus on More seeds…:
 ```powershell
 uv run python tools/fake_server.py --port 7902 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-more-seeds.json
+```
+
+`smoke-bin.json` checks the recycle bin on a fake of the default checkpoint
+on 7903 with a fresh `--data`: ⌦ binning with no dialog (nothing asked),
+the tombstone "In the recycle bin · #N" and the note's Restore putting the
+card back in its own box; the lightbox's Del binning one image, a held key
+binning no more, and the note's Restore surviving its own press; its
+Delete pressed twice with the mouse gathering one note, and a held Enter's
+repeat on it prevented; the bin view - Bin's count and title, the head's
+"Recycle bin" and its "(N)", the held
+controls and their titles, a card's Restore, Delete permanently with its
+confirm, and Empty recycle bin with the count, its "Empty bin" label, the
+danger colour, Cancel, a 409 when the bin changed and the empty state
+"The recycle bin is empty."; leaving the bin by a second press of Bin, by
+a search from an image (`showGallerySearch`) and by a run opened as a sheet
+(`showRun`); the bundles dialog's preview line counting the bin; a Delete
+and its Restore in a lightbox walking the viewer's strip keeping the image
+in view; and a viewer tile's "In the recycle bin" tombstone becoming
+"Deleted · #N" once the bin is emptied, from another tab (a Restore then
+answering "already deleted") and from the page. Re-run
+`smoke-select.json` at 600 and 1400 px wide after a footer change, so the
+row with Bin does not wrap:
+
+```powershell
+uv run python tools/fake_server.py --port 7903 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-bin.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

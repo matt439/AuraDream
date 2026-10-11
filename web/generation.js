@@ -732,16 +732,19 @@ async function dropRefusedReferences(err, path, payload, slot) {
   const named = /^no gallery image with id ([\d, ]+)$/.exec(err.message);
   if (!named) return;
   const ids = named[1].split(',').map((id) => +id.trim()).filter((id) => payload.reference?.includes(id));
-  const dead = await dropGoneReferences(ids);
+  const found = await dropGoneReferences(ids);
+  const dead = found.ids;
   if (!dead.length) return;
-  forgetImages(dead);
+  forgetReferences(found);
   // Unless something else has been said there meanwhile.
   if (slot.textContent !== err.message) return;
   const one = dead.length === 1;
   // The comparison's Run sends a grid of its versions: named as what was pressed.
   const again = payload.prompt_variants?.length ? 'Run the comparison again'
     : path === '/api/grid' ? 'Run the grid again' : 'Generate again';
-  showError(`Nothing was queued: reference ${imageNames(dead)} ${one ? 'has' : 'have'} been deleted, `
+  // Binned meanwhile, every one of them: in the recycle bin, not deleted.
+  const went = found.binned.length === dead.length ? 'been moved to the recycle bin' : 'been deleted';
+  showError(`Nothing was queued: reference ${imageNames(dead)} ${one ? 'has' : 'have'} ${went}, `
     + `so ${one ? 'it was' : 'they were'} taken out of the references. ${again} to run without ${one ? 'it' : 'them'}.`,
   false, { slot });
 }
@@ -992,7 +995,8 @@ function rerenderSelection() {
 
 function syncRerender() {
   const filtered = els.favOnly.checked || els.search.value.trim() !== '';
-  const show = filtered && total > 0 && total <= sheetPage;
+  // Not in the recycle bin, whose count is not a render's (bin.js).
+  const show = filtered && !binMode && total > 0 && total <= sheetPage;
   els.rerender.hidden = !show;
   if (show) {
     els.rerender.textContent =

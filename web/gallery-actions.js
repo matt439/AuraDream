@@ -1,4 +1,5 @@
-// Local Diffusion's page script: starring, deleting and forgetting gallery images.
+// Local Diffusion's page script: starring, deleting (into the recycle bin) and
+// forgetting gallery images, and taking them back once restored.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -14,6 +15,9 @@ function recordsWithId(id) {
 // sheet cell or lightbox, and only a press on the star itself changes the
 // state of what has focus - so otherwise the outcome is said (sayStar).
 async function setFavorite(rec, value, { say = false } = {}) {
+  // The server refuses a star in the recycle bin as an unknown image, which
+  // below would forget the card; said instead (bin.js).
+  if (refuseBinned(rec, 'star')) return;
   try {
     await api(`/api/images/${rec.id}/favorite?value=${value}`, { method: 'POST' });
   } catch (err) {
@@ -80,10 +84,12 @@ function imageNames(ids) {
 // `message` is the question's lines as they used to be shown: the first is
 // the title, a count's last is its box's label, the rest its paragraphs.
 // confirmDialog answers true for Delete and false for Cancel, Escape or a
-// press outside it; countDialog the typed text, or null. The smokes stand in
-// for them through `askConfirm` and `askCount`, and put these back.
+// press outside it; countDialog the typed text, or null. `okLabel` is the
+// OK button's words, "Delete" unless the question names its own (Empty
+// recycle bin's "Empty bin"). The smokes stand in for them through
+// `askConfirm` and `askCount`, and put these back.
 let askAnswer = null;
-function openAsk(message, { count = false } = {}) {
+function openAsk(message, { count = false, okLabel = 'Delete' } = {}) {
   // One question at a time: an earlier one still up is answered Cancel.
   if (els.confirmDialog.open) {
     const earlier = askAnswer;
@@ -102,6 +108,7 @@ function openAsk(message, { count = false } = {}) {
   els.confirmCountField.hidden = !count;
   els.confirmCountLabel.textContent = label;
   els.confirmCount.value = '';
+  els.confirmOk.textContent = okLabel;
   const anchor = document.activeElement !== document.body ? document.activeElement : null;
   return new Promise((resolve) => {
     askAnswer = resolve;
@@ -112,8 +119,8 @@ function openAsk(message, { count = false } = {}) {
   });
 }
 
-function confirmDialog(message) {
-  return openAsk(message).then((answer) => answer === 'ok');
+function confirmDialog(message, { okLabel } = {}) {
+  return openAsk(message, { okLabel }).then((answer) => answer === 'ok');
 }
 
 function countDialog(message) {
@@ -171,12 +178,14 @@ function askBackdrop(event) {
   if (!inside) els.confirmDialog.close('');
 }
 
-// The delete removes the PNG as well as the row, and on a card the button sits
-// a few pixels from the star. Say which image, so a slip is caught here: the
-// cells of a sweep share a prompt and a seed, and a pass shares both with its
-// source, so the settings line is what tells them apart. And say what else it
-// costs - `passes` is the gallery's answer to `refine:<id>`, the passes made
-// from this image, which could not be made again without it.
+// The recycle bin's Delete permanently (bin.js) removes the PNG as well as the
+// row, for good. Say which image, so a slip is caught here: the cells of a
+// sweep share a prompt and a seed, and a pass shares both with its source, so
+// the settings line is what tells them apart. And say what else it costs -
+// `passes` is the gallery's answer to `refine:<id>`, the live passes made
+// from this image, which could not be made again without it. The page's
+// ordinary delete asks nothing: it moves the image to the bin, and the note
+// it leaves has Restore.
 function confirmDelete(rec, passes) {
   const snippet = rec.prompt.length > 60 ? `${rec.prompt.slice(0, 57)}…` : rec.prompt;
   const costs = [];
@@ -189,20 +198,19 @@ function confirmDelete(rec, passes) {
   const at = referenceIds.indexOf(rec.id);
   if (at >= 0) costs.push(`It is reference image ${at + 1} in the panel, and leaves the references with it.`);
   return askConfirm([
-    `Delete #${rec.id}${rec.favorite ? ' (starred)' : ''}?`,
+    `Delete permanently #${rec.id}${rec.favorite ? ' (starred)' : ''}?`,
     '',
     settingsLine(rec),
     `"${snippet}"`,
     ...(costs.length ? ['', ...costs] : []),
     '',
-    'The PNG is deleted from disk, not moved to a recycle bin.',
+    'The PNG is deleted from disk; this cannot be undone.',
   ].join('\n'));
 }
 
-// The ids whose delete is under way, from the press to the server's answer.
-// The confirm waits on the question about passes now, and a second press in
-// that time - a double-click on ⌦, the lightbox's Delete held down - asked
-// about the same image twice and sent two deletes.
+// The ids whose delete is under way, from the press to the server's answer:
+// a second press in that time - a double-click on ⌦ - sent a second request
+// for the same image, and Delete permanently asked about it twice.
 const deleting = new Set();
 
 async function deleteImage(rec) {
@@ -215,44 +223,61 @@ async function deleteImage(rec) {
   }
 }
 
+// ⌦, the lightbox's Delete and Del: into the recycle bin, at once and asking
+// nothing - the note it leaves has Restore. An image already in the bin (the
+// bin's own cards, the lightbox walking them) is deleted for good instead,
+// after its question (deletePermanently, bin.js).
 async function deleteOne(rec) {
-  // Asked before the confirm, so it can name the passes - on any checkpoint.
-  // A failed look asks without them; the delete then says what is wrong.
-  let passes = null;
-  try {
-    passes = await api(`/api/gallery?limit=3&all_models=true&search=refine:${rec.id}`);
-  } catch { /* asked without */ }
-  if (!await confirmDelete(rec, passes)) return;
+  if (rec.binned_at) { await deletePermanently(rec); return; }
   const fromLightbox = els.lightbox.open;
-  let already = false;
+  let result;
   try {
-    await api(`/api/images/${rec.id}`, { method: 'DELETE' });
+    result = await api('/api/images/bin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [rec.id] }),
+    });
   } catch (err) {
-    if (!/unknown image/.test(err.message)) {
-      showError(err.message, false, { slot: els.galleryError });
-      return;
-    }
-    // Gone already - from another tab, or a record a reattached job had
-    // replayed: what the delete was for has happened, so it is a note.
-    already = true;
+    showError(err.message, false, { slot: els.galleryError });
+    return;
   }
-  const also = forgetImages([rec.id]);
-  const said = already ? `#${rec.id} was already deleted.` : `Deleted #${rec.id} (seed ${rec.seed}).`;
-  // A card's tombstone says it in place. The lightbox has moved on to the
-  // next image, so it says which one went, until the next step.
-  if (fromLightbox && els.lightbox.open) noteLightboxDelete(said + also);
-  else if (already || also) showError((already ? said + also : also).trim(), true, { slot: els.galleryError });
+  // Gone already - from another tab, or a record a reattached job had
+  // replayed: what the delete was for has happened, so it is a note.
+  const missing = result.missing.includes(rec.id);
+  const already = result.already.includes(rec.id);
+  // Kept before it is forgotten, so a Restore can put its card back.
+  if (!missing) keepBinned(rec);
+  const also = forgetImages([rec.id], { binned: !missing });
+  if (missing || already) {
+    const said = `#${rec.id} was already ${missing ? 'deleted' : 'in the recycle bin'}.${also}`;
+    if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
+    else showError(said, true, { slot: els.galleryError });
+  } else {
+    // A card's tombstone says it in place, and the note under the head
+    // offers it back; the lightbox has moved on to the next image, so its
+    // note says which one went, until the next step.
+    noteBinned([rec], { also, fromLightbox: fromLightbox && els.lightbox.open });
+  }
   // The Runs picker counts images; it is the gallery's table of contents.
   loadRuns();
+  void syncBin();
 }
 
 // After a delete in the lightbox the next image is in view at the same zoom,
 // and on a sweep's near-identical cells nothing showed that anything had
 // happened. Said in the gallery's slot, which mirrors into the lightbox's
 // role=alert line, and taken back at the next key or press in the lightbox.
+// `decorate(slot)` adds to each copy what text alone cannot carry - the
+// recycle bin's Restore (noteBinned), whose own press and keys leave the
+// note up, as do Del and the Delete button's own press, whose next note adds
+// to it (noteBinned) or replaces it.
 let lightboxDeleteNote = null;
-function noteLightboxDelete(text) {
+function noteLightboxDelete(text, decorate = null) {
   showError(text, true, { slot: els.galleryError });
+  if (decorate) {
+    decorate(els.galleryError);
+    if (els.lightbox.open) decorate(els.lbError);
+  }
+  const shown = els.galleryError.textContent;
+  const mirrored = els.lbError.textContent;
   // Each copy only while it still says this: a job ending meanwhile resets
   // the gallery's line and leaves the lightbox's. The key and the press are
   // one listener pair, both taken off by whichever comes first - and by the
@@ -260,11 +285,12 @@ function noteLightboxDelete(text) {
   lightboxDeleteNote?.abort();
   const note = new AbortController();
   lightboxDeleteNote = note;
-  const clear = () => {
+  const clear = (e) => {
+    if (e?.target?.closest?.('[data-bin-restore], #lb-delete') || e?.key === 'Delete') return;
     note.abort();
     if (lightboxDeleteNote === note) lightboxDeleteNote = null;
-    if (els.galleryError.textContent === text) showError('', false, { slot: els.galleryError });
-    else if (els.lbError.textContent === text) { els.lbError.hidden = true; els.lbError.textContent = ''; }
+    if (els.galleryError.textContent === shown) showError('', false, { slot: els.galleryError });
+    else if (els.lbError.textContent === mirrored) { els.lbError.hidden = true; els.lbError.textContent = ''; }
   };
   els.lightbox.addEventListener('keydown', clear, { signal: note.signal });
   els.lightbox.addEventListener('pointerdown', clear, { signal: note.signal });
@@ -278,24 +304,37 @@ function noteLightboxDelete(text) {
 // after the delete, or its job's stream sent it late or replays it - is
 // marked as forgetImages marked the records already here (markGoneSource,
 // from the stream's show): it read "refine of #N" with no "(deleted)" and
-// offered the Refine dialog on a source that was gone, until a reload.
+// offered the Refine dialog on a source that was gone, until a reload. And
+// every id it has seen moved to the recycle bin (`binnedIds`), which is gone
+// as far as the gallery goes - a pass of one says "(in the recycle bin)"
+// (`refine_binned`) - until a Restore takes it out of both (unforgetImages).
 const deletedIds = new Set();
+const binnedIds = new Set();
+const isGone = (id) => deletedIds.has(id) || binnedIds.has(id);
 function markGoneSource(rec) {
-  if (rec.refine != null && deletedIds.has(rec.refine)) rec.refine_missing = true;
+  if (rec.refine != null && isGone(rec.refine)) {
+    rec.refine_missing = true;
+    rec.refine_binned = binnedIds.has(rec.refine);
+  }
   return rec;
 }
 
 // Every trace of these ids on the page, once the server has let them go: the
 // cards, the sheet cells, the viewer tiles, the panel's references and the
 // records behind them. Shared by the card's delete, the lightbox's, Delete
-// unstarred and a tile whose picture has gone. A card and a viewer tile keep
-// their place as a tombstone: removed, the next card slid under the pointer
-// that pressed ⌦ - its own ⌦ lit - and an emptied viewer shrank the page by
-// half a screen. Answers a sentence for the caller's note when references
-// went with them, else ''.
-function forgetImages(ids) {
+// unstarred, the recycle bin's deletes and a tile whose picture has gone. A
+// card and a viewer tile keep their place as a tombstone: removed, the next
+// card slid under the pointer that pressed ⌦ - its own ⌦ lit - and an
+// emptied viewer shrank the page by half a screen. `binned` is a move to the
+// recycle bin rather than off the disk, which the tombstones and notes say.
+// Answers a sentence for the caller's note when references went with them,
+// else ''.
+function forgetImages(ids, { binned = false } = {}) {
   const gone = new Set(ids);
-  for (const id of gone) deletedIds.add(id);
+  for (const id of gone) {
+    (binned ? binnedIds : deletedIds).add(id);
+    (binned ? deletedIds : binnedIds).delete(id);
+  }
   // Out of the lightbox's CFG ladders, and a CFG comparison with one of them
   // ends, saying so (lightbox-cfg.js) - before the strips close up under it.
   forgetLadderImages(gone);
@@ -311,9 +350,26 @@ function forgetImages(ids) {
     if (!gone.has(+el.dataset.id)) return;
     if (!el.classList.contains('card') && el.parentElement !== els.viewer) { el.remove(); return; }
     const held = el.contains(focused);
-    const kept = tombstone(el);
+    const kept = tombstone(el, binned ? 'In the recycle bin' : 'Deleted');
     if (held) lost = kept;
   });
+  // Gone for good out of the recycle bin (Empty, Delete permanently, another
+  // tab): the tombstones and the viewer's held line that said "in the
+  // recycle bin" say "Deleted" now, and a Restore has nothing to put back.
+  if (!binned) {
+    for (const id of gone) binnedRecs.delete(id);
+    document.querySelectorAll('[data-tomb-id]').forEach((el) => {
+      const tomb = el.matches('.tomb') ? el : el.querySelector('.tomb');
+      if (tomb && gone.has(+el.dataset.tombId) && tomb.textContent.startsWith('In the recycle bin')) {
+        tomb.textContent = `Deleted · ${imageNames([+el.dataset.tombId])}`;
+      }
+    });
+    const held = els.viewer.querySelector(':scope > .placeholder.held[data-binned-ids]');
+    if (held && held.dataset.binnedIds.split(',').every((id) => deletedIds.has(+id))) {
+      held.textContent = held.textContent.replace('moved to the recycle bin', 'deleted');
+      delete held.dataset.binnedIds;
+    }
+  }
   // Only the grid's counters mirror the server's: the viewer holds whatever
   // this session made, and the sheet lays itself out from the grid's records.
   const inGallery = galleryRecords.filter((r) => gone.has(r.id)).length;
@@ -367,7 +423,10 @@ function forgetImages(ids) {
     placeholder.className = 'placeholder held';
     placeholder.style.minHeight = `${els.viewer.clientHeight - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)}px`;
     const names = fromViewer.length > 3 ? `${fromViewer.length} images` : imageNames(fromViewer);
-    placeholder.textContent = `${names} ${fromViewer.length === 1 ? 'was' : 'were'} deleted. Generated images appear here.`;
+    placeholder.textContent = `${names} ${fromViewer.length === 1 ? 'was' : 'were'} `
+      + `${binned ? 'moved to the recycle bin' : 'deleted'}. Generated images appear here.`;
+    // Which ids it names, for the line to say "deleted" once they all are.
+    if (binned) placeholder.dataset.binnedIds = fromViewer.join(',');
     const focusHere = els.viewer.contains(document.activeElement);
     els.viewer.replaceChildren(placeholder);
     els.viewer.classList.remove('multi', 'many');
@@ -383,16 +442,20 @@ function forgetImages(ids) {
   // so, as a reload's would (`refine_missing`), and so do every image's title
   // (thumb's, on a card, in the viewer, #recent and the sheet), the viewer's
   // note and column, every Reuse that would have opened the dialog on the
-  // source, and the lightbox's facts and comparison.
+  // source, and the lightbox's facts and comparison - "(in the recycle bin)"
+  // for a source binned (`refine_binned`), and again when it goes for good.
   const orphans = new Set([...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList]
-    .filter((r) => r.refine != null && gone.has(r.refine) && !r.refine_missing));
+    .filter((r) => r.refine != null && gone.has(r.refine) && (!r.refine_missing || !!r.refine_binned !== binned)));
   for (const r of orphans) {
     r.refine_missing = true;
+    r.refine_binned = binned;
     document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
   }
   if (orphans.size) {
     document.querySelectorAll('.reuse-settings').forEach((b) => {
-      if (b.dataset.reusePass && gone.has(+b.dataset.reusePass)) b.dataset.reusePassGone = 'true';
+      if (!b.dataset.reusePass || !gone.has(+b.dataset.reusePass)) return;
+      b.dataset.reusePassGone = 'true';
+      b.dataset.reusePassBinned = String(binned);
     });
     syncReuseButtons();
     viewerSourcesGone();
@@ -414,14 +477,102 @@ function forgetImages(ids) {
   const note = !dropped.length ? ''
     : dropped.length === 1 ? ` ${imageNames(dropped)} was a reference image; it is no longer in the references.`
       : ` ${imageNames(dropped)} were reference images; they are no longer in the references.`;
-  if (!els.lightbox.open) return note;
+  lightboxAfterGone();
+  return note;
+}
+
+// The lightbox once images have left the strip it walks - deleted, binned,
+// or restored out of the recycle bin's (bin.js).
+function lightboxAfterGone() {
+  if (!els.lightbox.open) return;
   // The strip has closed up under the viewer: the next image already sits at
   // this index - unless this was the last one loaded and the server has more,
   // when the next is on its next page, not the image before.
   if (lbIndex >= lbList.length && canPage()) pageInBehind();
   else if (!lbList.length) closeLightboxAfterDelete();
   else { lbIndex = Math.min(lbIndex, lbList.length - 1); renderLightbox(); }
-  return note;
+}
+
+// forgetImages' sibling, for images restored out of the recycle bin
+// (bin.js's restoreImages): no longer gone, and a pass of one can be made
+// again - its records, titles, every Reuse, the viewer's lineage and the
+// lightbox's facts say so. A card or a viewer tile this page binned, still a
+// tombstone in its own box, is drawn again there and nothing else moves; its
+// record goes back into the grid's records where the grid is still the query
+// it was binned from (`binnedRecs`), and into the viewer's and #recent's - a
+// lightbox walking any of them keeps the image in view. The panel's
+// references are not put back: only setReferences writes them.
+function unforgetImages(ids) {
+  const back = new Set(ids);
+  if (!back.size) return;
+  for (const id of back) { binnedIds.delete(id); deletedIds.delete(id); }
+  const passes = new Set([...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList]
+    .filter((r) => r.refine != null && back.has(r.refine) && r.refine_missing));
+  for (const r of passes) {
+    r.refine_missing = false;
+    r.refine_binned = false;
+    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
+  }
+  document.querySelectorAll('.reuse-settings').forEach((b) => {
+    if (!b.dataset.reusePass || !back.has(+b.dataset.reusePass)) return;
+    b.dataset.reusePassGone = 'false';
+    b.dataset.reusePassBinned = 'false';
+  });
+  for (const id of back) { sheetSources.delete(id); lbSources.delete(id); }
+  let toGallery = 0;
+  for (const id of back) {
+    const kept = binnedRecs.get(id);
+    if (!kept) continue;
+    binnedRecs.delete(id);
+    // Into the grid's records in id order, newest first - the lightbox
+    // walking them keeps its image - and its card into its tombstone.
+    if (kept.gallery && kept.epoch === galleryEpoch && !binMode && !galleryRecords.some((r) => r.id === id)) {
+      const found = galleryRecords.findIndex((r) => r.id < id);
+      const at = found < 0 ? galleryRecords.length : found;
+      galleryRecords.splice(at, 0, kept.gallery);
+      if (lbList === galleryRecords && els.lightbox.open && at <= lbIndex) lbIndex += 1;
+      toGallery += 1;
+      const tomb = els.gallery.querySelector(`.card.gone[data-tomb-id="${id}"]`);
+      if (tomb) tomb.replaceWith(card(kept.gallery));
+    }
+    // The viewer's tile, where its tombstone still holds the place: not where
+    // the strip's placeholder has taken them all.
+    const tomb = kept.viewer && els.viewer.querySelector(`:scope > .tomb[data-tomb-id="${id}"]`);
+    if (tomb && !viewerRecords.some((r) => r.id === id)) {
+      const figure = resultFigure(kept.viewer);
+      tomb.replaceWith(figure);
+      // Its index among the strip's records: the ones the strip has let go
+      // of (VIEWER_MAX) and then the tiles before it.
+      const hidden = viewerRecords.length - els.viewer.querySelectorAll(':scope > [data-id]').length + 1;
+      const before = [...els.viewer.children].slice(0, [...els.viewer.children].indexOf(figure))
+        .filter((el) => el.matches('[data-id]')).length;
+      const at = Math.max(0, hidden) + before;
+      viewerRecords.splice(at, 0, kept.viewer);
+      // The lightbox walking the strip keeps its image, as on the grid's.
+      if (lbList === viewerRecords && els.lightbox.open && at <= lbIndex) lbIndex += 1;
+      if (viewerRecords.length === 1 && viewerJob.expected <= 1) figure.append(resultSide(kept.viewer, figure));
+    }
+    if (kept.session && !sessionRecords.some((r) => r.id === id)) {
+      const shown = lbList === sessionRecords && els.lightbox.open ? lbList[lbIndex] : null;
+      sessionRecords.push(kept.session);
+      sessionRecords.sort((a, b) => b.id - a.id);
+      if (shown) lbIndex = sessionRecords.indexOf(shown);
+    }
+  }
+  if (toGallery) {
+    total += toGallery;
+    els.count.textContent = total ? `(${total})` : '';
+    syncRerender();
+    syncDeleteUnstarred();
+    syncGalleryEmpty();
+    keepCurrentCard();
+    if (sheetMode) renderSheet();
+  }
+  syncReuseButtons();
+  noteViewer();
+  viewerSourcesGone();
+  renderRecent();
+  if (els.lightbox.open && lbList[lbIndex]) { lbDrawn = null; renderLightbox(); }
 }
 
 // The lightbox's only image went - a strip of one, a gallery or a search of
@@ -446,12 +597,17 @@ function closeLightboxAfterDelete() {
 // so. Out of the id-tagged set and of the pointer's way: nothing acts on it.
 // Named as the page names images, by gallery id: the cells of a sweep share a
 // seed, and "Deleted · seed …" on each of them said nothing of which went.
-// Answers the element that holds the place now.
-function tombstone(el) {
+// `word` is what happened to it: "Deleted", "In the recycle bin", or in the
+// bin "Restored". The id it held stays as `data-tomb-id`, which nothing
+// that acts on images reads: a Restore puts the card back in its own box
+// (unforgetImages). Answers the element that holds the place now.
+function tombstone(el, word = 'Deleted') {
   const tomb = document.createElement('div');
   tomb.className = 'tomb';
-  tomb.textContent = `Deleted · ${imageNames([+el.dataset.id])}`;
+  const id = +el.dataset.id;
+  tomb.textContent = `${word} · ${imageNames([id])}`;
   if (el.classList.contains('card')) {
+    el.dataset.tombId = id;
     el.replaceChildren(tomb);
     // Nor any mark of what the image was: a star, a reference, a pass, a
     // pick - nor the group (card()), which has no tools left to name; its
@@ -467,6 +623,7 @@ function tombstone(el) {
   const box = el.getBoundingClientRect();
   tomb.style.width = `${box.width}px`;
   tomb.style.height = `${box.height}px`;
+  tomb.dataset.tombId = id;
   el.replaceWith(tomb);
   return tomb;
 }
@@ -493,20 +650,21 @@ function pageInBehind() {
 
 // A viewer tile whose picture would not load: deleted from another tab, or
 // replayed by a job from before its delete - or the server is only out of
-// reach. Asked, and only "unknown image" forgets it.
+// reach. Asked, and only "unknown image" forgets it - as binned where the
+// server says it is in the recycle bin.
 async function forgetIfGone(id) {
   try {
     await api(`/api/images/${id}`);
   } catch (err) {
     if (!/unknown image/.test(err.message)) return;
-    const note = forgetImages([id]);
+    const note = forgetImages([id], { binned: /recycle bin/.test(err.message) });
     if (note) showError(note.trim(), true, { slot: els.galleryError });
   }
 }
 
 // The inverse of the card's delete, for the night that made hundreds and
-// earned a few stars: star those, then remove everything else the filter
-// matches in one gesture. Counted server-side, as Re-render's selection is -
+// earned a few stars: star those, then move everything else the filter
+// matches to the recycle bin in one gesture. Counted server-side, as Re-render's selection is -
 // the browser holds one page - and gated on typing that count back: the
 // hazard is no longer "the wrong image" but "the wrong scope", a run not yet
 // looked at, and the number is what tells them apart. The delete is pinned
@@ -591,16 +749,16 @@ async function deleteUnstarred() {
     // answer refuses the whole sweep, and that is better known before typing.
     // The server's answer, since the job may be another tab's.
     ...(found.job_active ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
-    `The files are removed from disk. Type ${found.unstarred} to continue:`,
+    `They move to the recycle bin; Empty recycle bin removes them from disk. Type ${found.unstarred} to continue:`,
   ].join('\n');
   const typed = await askCount(message);
   if (typed === null) return;
   if (revision !== modelRevision) {
-    showError('Nothing deleted: the checkpoint changed. Review the new gallery before deleting.', true, slot);
+    showError('Nothing moved: the checkpoint changed. Review the new gallery before deleting.', true, slot);
     return;
   }
   if (typed.trim() !== String(found.unstarred)) {
-    showError(`Nothing deleted: "${typed.trim()}" is not ${found.unstarred}.`, true, slot);
+    showError(`Nothing moved: "${typed.trim()}" is not ${found.unstarred}.`, true, slot);
     return;
   }
   params.set('expected', found.unstarred);
@@ -621,14 +779,17 @@ async function deleteUnstarred() {
     showError(err.message, false, slot);
     return;
   }
-  const also = forgetImages(result.deleted);
+  // Into the recycle bin; `deleted` is the same ids, from a server before it.
+  const moved = result.binned ?? result.deleted;
+  const also = forgetImages(moved, { binned: true });
   // The page is now mostly holes; ask for it again from the top, which also
   // brings the badge back to the server's count - and clears the slot, so
   // the outcome is written after it.
   void resetGallery().then(keepUnstarredFocus);
   loadRuns();
-  const went = result.deleted.length;
-  showError(`Deleted ${went} image${went === 1 ? '' : 's'}, ${keeping}.${also}`, true, slot);
+  const went = moved.length;
+  showError(`Moved ${went} image${went === 1 ? '' : 's'} to the recycle bin, ${keeping}.${also}`, true, slot);
+  void syncBin();
 }
 
 // A reload that leaves nothing in scope hides the button (syncDeleteUnstarred)
@@ -659,7 +820,7 @@ function freshLine(head, n) {
 // Shown while there is something it could act on: the filter matches images
 // and the Starred tick is off, since with it on every match is a keeper.
 // Whether the search box reads as a strict scope is the server's call, at
-// the click.
+// the click. Not in the recycle bin, where Empty recycle bin has its place.
 function syncDeleteUnstarred() {
-  els.deleteUnstarred.hidden = els.favOnly.checked || total <= 0;
+  els.deleteUnstarred.hidden = binMode || els.favOnly.checked || total <= 0;
 }

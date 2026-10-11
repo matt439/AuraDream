@@ -208,6 +208,8 @@ function forgetSelected(gone) {
 // names a single run of the action ("one swap"). `scope` is what the
 // request sends: `{ids}` or the filter.
 function galleryActionTarget(purpose, one) {
+  // The recycle bin's images are no scope for an action (bin.js).
+  if (binMode) return { why: BIN_HELD };
   const ids = selectedIds();
   if (ids.length) {
     return { scope: { ids }, n: ids.length, words: `the ${ids.length === 1 ? 'selected image' : `${ids.length} selected images`}` };

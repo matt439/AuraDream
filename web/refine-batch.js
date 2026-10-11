@@ -68,6 +68,7 @@ let rbOpening = null;
 
 // Why the button is held, or the target it acts on (galleryActionTarget).
 function refineBatchTarget() {
+  if (binMode) return { why: BIN_HELD };
   if (!refineSupported) {
     return {
       why: lastDefaults?.refine_settled ? REFINE_NONE

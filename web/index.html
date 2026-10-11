@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="/static/styles/swap.css">
 <link rel="stylesheet" href="/static/styles/refine-batch.css">
 <link rel="stylesheet" href="/static/styles/more-seeds.css">
+<link rel="stylesheet" href="/static/styles/bin.css">
 </head>
 <body>
 <header class="topbar">
@@ -704,7 +705,8 @@
          viewer, in its column or across its grid, as they always were. -->
     <div class="library" id="library">
       <div class="gallery-head">
-        <h2>Gallery <span id="gallery-count"></span></h2>
+        <!-- "Recycle bin" while the bin is shown in the gallery's place (bin.js). -->
+        <h2><span id="gallery-title">Gallery</span> <span id="gallery-count"></span></h2>
         <!-- How the cards are drawn, from 1800 px, where the grid has the
              width to choose and the head the room (gallery.js, cardView):
              smaller cards, more to a row; the whole picture or the card
@@ -770,11 +772,17 @@
         <label class="check beside-tick" id="beside-label"
           title="Show the gallery in a column of its own beside the image just made, scrolling by itself. The contact sheet still opens across the whole width"><input
           type="checkbox" id="gallery-beside"> Gallery beside</label>
-        <!-- The inverse of the card's delete: star what stays, then remove the
-             rest of what the filter matches in one confirmed gesture. Last in
-             the bar, away from the view toggle. -->
+        <!-- The inverse of the card's delete: star what stays, then move the
+             rest of what the filter matches to the recycle bin in one
+             confirmed gesture. Last in the bar, away from the view toggle. -->
         <button class="ghost small danger" id="btn-delete-unstarred" hidden
-          title="Delete every image the filter matches that is not starred, after a confirmation that shows the count. Takes key:value terms or an empty search; the files are removed from disk">⌦ Delete unstarred</button>
+          title="Move every image the filter matches that is not starred to the recycle bin, after a confirmation that shows the count. Takes key:value terms or an empty search; Empty recycle bin removes them from disk">⌦ Delete unstarred</button>
+        <!-- In the recycle bin (bin.js), in Delete unstarred's place: the
+             picked cards back to the gallery, and the bin deleted from disk,
+             last, after a confirmation that says how much. Each held with
+             its reason where there is nothing to act on. -->
+        <button type="button" class="ghost small" id="btn-restore-picked" hidden aria-disabled="true">↶ Restore picked</button>
+        <button type="button" class="ghost small danger" id="btn-empty-bin" hidden aria-disabled="true">⌦ Empty recycle bin</button>
         <!-- What the gallery's own controls have to say - a sweep's outcome, a
              search term that is not a number, a card's refusal - said here, by
              them, rather than in the panel's line a column away. A row of the
@@ -811,6 +819,11 @@
                is nothing to act on. -->
           <button type="button" class="ghost small foot-btn" id="btn-more-seeds" aria-haspopup="dialog"
             aria-disabled="true">More seeds…</button>
+          <!-- The recycle bin (bin.js): pressed, the gallery shows what the
+               page's deletes moved there, to restore or delete from disk;
+               pressed again, the gallery. Its count is the bin's, every
+               checkpoint's. Short, so the row never wraps. -->
+          <button type="button" class="ghost small foot-btn" id="btn-bin" aria-pressed="false">Bin<span class="count"></span></button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
             title="Bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
         </div>
@@ -917,7 +930,7 @@
       </div>
       <label class="lb-against" id="lb-against">Against <select id="lb-compare-against"></select></label>
     </div>
-    <p class="hint lb-keys" id="lb-keys">←&nbsp;→&nbsp;walk&nbsp;· F&nbsp;star&nbsp;· S&nbsp;compare&nbsp;· Del&nbsp;delete&nbsp;· 0&nbsp;fit&nbsp;· 1&nbsp;1:1&nbsp;· +/&#8288;−&nbsp;zoom&nbsp;· Esc&nbsp;close</p>
+    <p class="hint lb-keys" id="lb-keys">←&nbsp;→&nbsp;walk&nbsp;· F&nbsp;star&nbsp;· S&nbsp;compare&nbsp;· Del&nbsp;bin&nbsp;· 0&nbsp;fit&nbsp;· 1&nbsp;1:1&nbsp;· +/&#8288;−&nbsp;zoom&nbsp;· Esc&nbsp;close</p>
     <div class="lb-zoom-group">
       <button class="ghost" id="lb-fit" title="Fit to the window (0)">Fit</button>
       <button class="ghost" id="lb-one" title="One image pixel per screen pixel (1)">1:1</button>
@@ -935,7 +948,10 @@
       <!-- Opens the Refine dialog on this image: scale it up and re-denoise
            it part of the way. -->
       <button class="ghost" id="lb-refine" title="Refine this image: scale it up and re-denoise it part of the way">⤢ Refine</button>
-      <button class="ghost" id="lb-delete" title="Delete (Del)">⌦ Delete</button>
+      <!-- On an image in the recycle bin (bin.js): Restore, and Delete reads
+           Delete permanently, which asks first. -->
+      <button class="ghost" id="lb-restore" title="Move this image back to the gallery" hidden>↶ Restore</button>
+      <button class="ghost" id="lb-delete" title="Move to the recycle bin (Del)">⌦ Delete</button>
     </div>
   </div>
 </dialog>
@@ -1094,10 +1110,12 @@
   </div>
 </dialog>
 
-<!-- The questions a delete asks (gallery.js: confirmDialog, countDialog),
-     in the page's own dialog beside what was pressed rather than the
-     browser's light box at the top of the window. Cancel has focus; a count
-     to type back has its box. Escape and a press outside it are Cancel. -->
+<!-- The questions a delete asks (gallery-actions.js: confirmDialog,
+     countDialog) - Delete unstarred's count, and in the recycle bin Delete
+     permanently and Empty recycle bin - in the page's own dialog beside what
+     was pressed rather than the browser's light box at the top of the
+     window. Cancel has focus; a count to type back has its box. Escape and a
+     press outside it are Cancel. The OK button's words are the question's. -->
 <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title"
         aria-describedby="confirm-text">
   <h2 id="confirm-title"></h2>
@@ -1231,7 +1249,7 @@
       <h3 id="bundle-export-title">Bundle &amp; clear</h3>
       <button type="button" class="ghost small" id="bundle-refresh">Refresh counts</button>
     </div>
-    <p class="hint">Includes every model and starred image. The gallery's search and filters do not limit this action.</p>
+    <p class="hint">Includes every model, every starred image and the recycle bin. The gallery's search and filters do not limit this action.</p>
     <p id="bundle-preview">Reading the gallery…</p>
     <p class="hint">The bundle is saved on the server and verified before the originals and old database are removed. A new empty database is created so you can keep generating. You can download the bundle afterwards.</p>
     <div class="bundle-password">
@@ -1309,6 +1327,7 @@
 <script src="/static/tag-swap.js"></script>
 <script src="/static/refine-batch.js"></script>
 <script src="/static/more-seeds.js"></script>
+<script src="/static/bin.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

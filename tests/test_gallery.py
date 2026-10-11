@@ -295,3 +295,97 @@ def test_delete_matching_needs_a_scope_and_holds_to_its_count(store):
     result = store.delete_matching(None, keep_favorites=True, expected=1)
     assert result["records"] == 1 and len(result["ids"]) == 1
     assert [r.id for r in store.list_images()[0]] == [starred.id]
+
+
+def test_two_bins_of_one_image_answer_once(store):
+    # As two deletes do: the lookup and the write share the lock, so a
+    # double press says binned once and already once.
+    import threading
+
+    record = _add(store, "binned twice")
+    start = threading.Barrier(6)
+    answers: list[dict] = []
+
+    def bin_it() -> None:
+        start.wait()
+        answers.append(store.bin_images([record.id, 9999]))
+
+    threads = [threading.Thread(target=bin_it) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(len(a["binned"]) for a in answers) == [0] * 5 + [1]
+    assert sorted(len(a["already"]) for a in answers) == [0] + [1] * 5
+    assert all(a["missing"] == [9999] for a in answers)
+    # Nothing moves on disk: a restore is one UPDATE.
+    assert (store.settings.outputs_dir / record.filename).exists()
+
+
+def test_restore_brings_a_binned_image_back(store):
+    record = _add(store, "back again", favorite=True)
+    live = _add(store, "never binned")
+    store.bin_images([record.id])
+    assert store.restore_images([record.id, live.id, 9999]) == {
+        "restored": [record.id], "not_binned": [live.id], "missing": [9999],
+    }
+    back = store.get_image(record.id)
+    assert back.binned_at is None and back.favorite is True
+    assert store.restore_images([record.id])["not_binned"] == [record.id]
+
+
+def test_emptying_the_bin_deletes_its_rows_and_files_and_holds_to_its_count(store):
+    outputs = store.settings.outputs_dir
+    live = _add(store, "stays")
+    gone = [_add(store, "goes", seed=seed) for seed in (1, 2)]
+    store.bin_images([r.id for r in gone])
+    summary = store.bin_summary()
+    assert summary["records"] == 2 and summary["bytes"] > 0 and summary["sources_in_use"] == []
+
+    with pytest.raises(store.SelectionChanged) as caught:
+        store.empty_bin(expected=1)
+    assert (caught.value.found, caught.value.expected) == (2, 1)
+    assert all((outputs / r.filename).exists() for r in gone)
+
+    result = store.empty_bin(expected=2)
+    assert (result["records"], result["files"], result["ids"]) == (2, 2, [r.id for r in gone])
+    for record in gone:
+        assert not (outputs / record.filename).exists()
+        assert not (outputs / "thumbnails" / record.filename.replace(".png", ".webp")).exists()
+    assert (outputs / live.filename).exists()
+    assert store.bin_summary()["records"] == 0 and store.summarise()["records"] == 1
+
+
+def test_the_bin_summary_names_binned_images_a_live_one_needs(store):
+    source = _add(store, "source")
+    reference = _add(store, "reference", seed=2)
+    unused = _add(store, "unused", seed=3)
+    store.save_image(
+        Image.new("RGB", (16, 16)),
+        GenerateRequest(prompt="a pass", width=256, height=256, refine=source.id, strength=0.5,
+                        reference=[reference.id]),
+        seed=4, duration_ms=100, model_id="test/model",
+    )
+    store.bin_images([source.id, reference.id, unused.id])
+    assert store.bin_summary()["sources_in_use"] == [source.id, reference.id]
+
+
+def test_clear_history_does_not_sweep_binned_images_as_orphans(store):
+    # The sweep reads every row: a live-only read would take a binned PNG as
+    # untracked and delete it under its row. A binned source of a live star
+    # is kept as a row, so its file has to survive the sweep.
+    source = _add(store, "a source, binned")
+    star = store.save_image(
+        Image.new("RGB", (16, 16)),
+        GenerateRequest(prompt="a starred pass", width=256, height=256, refine=source.id, strength=0.5),
+        seed=2, duration_ms=100, model_id="test/model",
+    )
+    store.set_favorite(star.id, True)
+    unkept = _add(store, "binned, unkept", seed=3)
+    store.bin_images([source.id, unkept.id])
+    assert store.summarise()["orphan_files"] == 0
+    result = store.clear_history(keep_favorites=True)
+    assert (result["records"], result["orphans"]) == (1, 0)
+    assert (store.settings.outputs_dir / source.filename).exists()
+    assert not (store.settings.outputs_dir / unkept.filename).exists()
+    assert store.get_image(source.id, include_binned=True).binned_at is not None
