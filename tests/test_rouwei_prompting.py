@@ -1,7 +1,7 @@
 """RouWei's own prompt conventions through its profile, rules and HTTP helper."""
 from __future__ import annotations
 
-from backend import main, prompt_encoding, prompt_rules, prompt_sources, tags
+from backend import prompt_encoding, prompt_rules, prompt_sources, tag_lookup, tags
 from backend.model_defaults import _FALLBACK, _profile_for, defaults_for, guide_for
 from tests.api_analysis_helpers import Vocabulary, analyse, claim, rules
 from tests.prompt_rules_helpers import only, run
@@ -72,7 +72,7 @@ def test_rouwei_prefixed_artist_chips_query_only_the_name(client, fake, monkeypa
             {"name": "future", "category": 1, "post_count": 100, "created_at": "2025-05-01"},
         ]
 
-    monkeypatch.setattr(main, "tag_vocabulary", tags.DanbooruTagVocabulary(fetch))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", tags.DanbooruTagVocabulary(fetch))
     response = client.post("/api/tags/validate", json={"tags": ["by wlop", "by smile", "by future", "best quality"]})
     assert response.status_code == 200, response.text
     artist, nonartist, too_new, quality = response.json()["results"]
@@ -82,7 +82,7 @@ def test_rouwei_prefixed_artist_chips_query_only_the_name(client, fake, monkeypa
     assert quality["valid"] and quality["source"] == "model"
     assert set(seen[0]["search[name_normalize]"].split(",")) == {"wlop", "smile", "future"}
     # A failure remains unchecked for the original, prefixed chip.
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     offline = client.post("/api/tags/validate", json={"tags": ["by wlop"]}).json()
     assert not offline["available"] and offline["results"][0]["valid"] is None
     assert offline["results"][0]["tag"] == "by wlop"
@@ -100,7 +100,7 @@ def test_rouwei_artist_suggestions_add_prefix_and_respect_a_typed_one(client, fa
                 {"text": "wlop style", "canonical": "wlop_style", "category": "general", "post_count": 5},
             ]
 
-    monkeypatch.setattr(main, "tag_vocabulary", Suggestions())
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Suggestions())
     for query, expected in (("wlo", ["by wlop", "wlop style"]), ("by wlo", ["by wlop"])):
         response = client.get("/api/tags/suggest", params={"q": query})
         assert response.status_code == 200, response.text
@@ -112,12 +112,12 @@ def test_rouwei_artist_prefix_is_not_part_of_the_tag_name_bound(client, fake, mo
     claim(monkeypatch, fake, ROUWEI)
     name = "a" * tags.TAG_NAME_MAX
     vocabulary = Vocabulary({name: "artist"})
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
-    results = main._lookup_tags(guide_for(ROUWEI)["tag_helper"], ["by " + name, "by " + name + "x"])
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
+    results = tag_lookup.lookup_tags(guide_for(ROUWEI)["tag_helper"], ["by " + name, "by " + name + "x"])
     assert results[0]["valid"] and results[0]["tag"] == "by " + name
     assert results[1]["valid"] is False and results[1]["reason"] == "longer than any Danbooru tag"
     assert vocabulary.calls[0][0] == [name]
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     offline = client.post("/api/tags/validate", json={"tags": ["by " + name, "by " + name + "x", "by masterpiece"]}).json()
     assert not offline["available"]
     assert [result["valid"] for result in offline["results"]] == [None, False, None]
@@ -125,7 +125,7 @@ def test_rouwei_artist_prefix_is_not_part_of_the_tag_name_bound(client, fake, mo
 
 def test_rouwei_analysis_keeps_prefix_and_reports_literal_break(client, fake, monkeypatch):
     claim(monkeypatch, fake, ROUWEI)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({"wlop": "artist"}))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary({"wlop": "artist"}))
     body = analyse(client, prompt="1girl, by wlop, BREAK, smile")
     assert not rules(body["findings"], "guide.artist_prefix")
     assert any("BREAK starts no new chunk" in f["message"] for f in body["findings"])

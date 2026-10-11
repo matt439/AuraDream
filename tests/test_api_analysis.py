@@ -5,7 +5,7 @@ import threading
 
 import pytest
 
-from backend import main, prompt_encoding, prompt_rules
+from backend import main, prompt_check, prompt_encoding, prompt_rules, tag_lookup
 from backend.model_defaults import guide_for
 
 from tests.api_analysis_helpers import (
@@ -46,7 +46,7 @@ def test_the_check_answers_beside_a_running_job_off_the_loop(client, fake, monke
     # stream, Cancel and Pause for the length of the fetch.
     claim(monkeypatch, fake, FLUX)
     where: dict[str, list[bool]] = {"analyse": [], "tokenizer": []}
-    real_analyse = main._analyse
+    real_analyse = prompt_check.analyse
 
     def watched_analyse(*args):
         where["analyse"].append(on_the_loop())
@@ -56,7 +56,7 @@ def test_the_check_answers_beside_a_running_job_off_the_loop(client, fake, monke
         where["tokenizer"].append(on_the_loop())
         return fake_tokenizer(source)
 
-    monkeypatch.setattr(main, "_analyse", watched_analyse)
+    monkeypatch.setattr(prompt_check, "analyse", watched_analyse)
     monkeypatch.setattr(prompt_encoding, "_load_tokenizer", watched_tokenizer)
     running, release = threading.Event(), threading.Event()
     generate = fake.generate
@@ -88,7 +88,7 @@ def test_the_check_answers_beside_a_running_job_off_the_loop(client, fake, monke
     ("/api/prompt/critique", 2),
 ])
 def test_check_runs_on_a_daemon_thread(client, fake, monkeypatch, route, measures):
-    # `main._detached`'s own thread, which dies with the process - not the
+    # `detached.detached`'s own thread, which dies with the process - not the
     # default executor's, which interpreter exit joins. (Its daemon flag alone
     # proves nothing here: TestClient's loop thread is a daemon, and an
     # executor's workers inherit that.)
@@ -119,12 +119,12 @@ def test_the_measure_is_the_encoder_layer_alone(client, fake, monkeypatch):
     def never(*args, **kwargs):
         raise AssertionError("the measure ran a rule or asked the tag index")
 
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary())
     prompt = ", ".join(f"tag{i}" for i in range(50))
     expected = analyse(client, prompt=prompt)["encoders"]
     vocabulary = Vocabulary()
     monkeypatch.setattr(vocabulary, "validate", never)
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     monkeypatch.setattr(prompt_rules, "check", never)
     threads: list[tuple[str, bool]] = []
     measure = prompt_encoding.measure

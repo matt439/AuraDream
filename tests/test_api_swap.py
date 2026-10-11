@@ -6,7 +6,7 @@ import json
 
 from PIL import Image
 
-from backend import main
+from backend import main, submission
 from backend.config import settings
 from backend.schemas import GenerateRequest
 from tests.api_helpers import run_one, stream_job
@@ -229,13 +229,15 @@ def test_the_selection_resolver_reports_ids_gone_and_sorts_oldest_first(client, 
 
     a = plant(store, "one", seed=1)
     b = plant(store, "two", seed=2)
-    records, gone, binned = asyncio.run(main._resolve_selection(
+    records, gone, binned = asyncio.run(submission.resolve_selection(
+        main.services,
         ids=[b.id, 77, a.id, b.id], search=None, favorites=False, all_models=False,
     ))
     assert ([r.id for r in records], gone, binned) == ([a.id, b.id], [77], set())
     # A binned one is gone from the selection, and the third list says why.
     store.bin_images([a.id])
-    records, gone, binned = asyncio.run(main._resolve_selection(
+    records, gone, binned = asyncio.run(submission.resolve_selection(
+        main.services,
         ids=[b.id, 77, a.id], search=None, favorites=False, all_models=False,
     ))
     assert ([r.id for r in records], gone, binned) == ([b.id], [a.id, 77], {a.id})

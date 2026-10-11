@@ -1,6 +1,6 @@
 """Mass refine: what a refine pass of each of several gallery records would be.
 
-Pure, like `tag_swap`: the routes (`main._refine_batch_plan`) resolve the
+Pure, like `tag_swap`: the routes (`api_refine_batch.refine_batch_plan`) resolve the
 selection, check what needs the disk or the backend (the record's file, its
 adapter, what the gallery already holds) and queue. Here each record becomes
 one cell or a reason it cannot, decided from the record alone - never a

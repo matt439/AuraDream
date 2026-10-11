@@ -7,7 +7,7 @@
 // matches. A batch is what a card's hover shows (gallery-batch.js): one run's
 // images that agree on everything but the seed, so two picked images of one
 // batch ask for N more of it, not N of each. The server decides everything
-// (`more_seeds.py`, `main._more_seeds_plan`): the batches, their next seeds
+// (`more_seeds.py`, `api_more_seeds.more_seeds_plan`): the batches, their next seeds
 // - one past the highest the gallery holds of each, stepping over any
 // already made or queued - the Batch they run at (the batch's own where its
 // images recorded it, else the panel's), and what cannot run: another

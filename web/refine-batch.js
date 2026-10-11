@@ -6,7 +6,7 @@
 // selection holds (gallery-select.js), else what the filter matches - each
 // from its own pixels under its own prompt, negative prompt, seed, CFG, mu
 // and LoRA, at one strength and one scale. The server decides, per image,
-// what it would do (`refine_batch.py`, `main._refine_batch_plan`): queued, a
+// what it would do (`refine_batch.py`, `api_refine_batch.refine_batch_plan`): queued, a
 // refine pass skipped, another checkpoint's left out unless asked for, too
 // large at this scale, no step left at this strength, its file or its LoRA
 // gone, or the pass already in the gallery. The page lists the answer and

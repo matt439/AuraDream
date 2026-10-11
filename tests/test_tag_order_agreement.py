@@ -12,7 +12,7 @@ one source.
 """
 from __future__ import annotations
 
-from backend import launch, main
+from backend import launch, tag_lookup
 from backend.model_defaults import _profile_for, guide_for
 from backend.prompt_order import documented_order
 from backend.prompt_sources import author_orders
@@ -107,7 +107,7 @@ def test_the_prompt_help_never_moves_a_step_against_the_order():
 
 
 def test_check_and_the_menu_answer_the_same_order(client, fake, monkeypatch):
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary())
     for repo in _tag_repos():
         claim(monkeypatch, fake, repo)
         body = analyse(client, prompt="1girl, solo, masterpiece")

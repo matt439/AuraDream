@@ -71,7 +71,7 @@ reaches the row**: `GenerateRequest.applied()` is the one normalisation
 (negative prompt gone where unsupported or at/below the threshold, mu gone
 where the pipeline has no way to take one), `backend.applied()` answers it
 from the loaded parameter list or, unloaded, from the profile, and both save
-paths write `applied()` rather than the request. `main._expand` and the CLI
+paths write `applied()` rather than the request. `api_generate.expand_grid` and the CLI
 run the same normalisation over the cells before `prune_done`, so a resume
 whose negative prompt the pipeline never saw still matches the rows it
 wrote. The UI's `collect()` sends null for a greyed-out field, and the field
@@ -867,7 +867,7 @@ of **gallery ids**, never paths - a path joined onto `outputs_dir` is an
 arbitrary-file read reachable from `/api/generate` - and
 `storage.reference_paths` resolves them, naming an id that is missing and a
 file that is gone. `applied()` drops them where the pipeline has none, and
-`main._refuse_unusable_inputs` refuses at *submit* rather than at cell 1 of
+`submission.refuse_unusable_inputs` refuses at *submit* rather than at cell 1 of
 64: unlike a negative prompt, a dropped reference renders a plain
 text-to-image that looks like a success. The module imports `Image` as the
 class for typing, so `_reference_images` opens through a local
@@ -2013,7 +2013,7 @@ off the loop rather than `unload()`, which blocks behind a load in progress
 and then discards what it built; `POST /api/model/unload` answers 409 while
 a load is in flight for the same reason.
 
-The load runs on a **daemon thread** (`main._detached`), not
+The load runs on a **daemon thread** (`detached.detached`), not
 `asyncio.to_thread`: that pool is joined at interpreter exit, so a Ctrl-C
 four minutes into a 32 GB download waited the download out. The critic's
 `prepare()` runs on one too (`critic-prepare`), for the same reason: a first
@@ -2461,7 +2461,7 @@ and a lookup for it would be a scan per keystroke for a zero.
 Every image records the `job_id` that made it - a browser job's id, or one
 minted per CLI invocation - **and the `run_id` of the grid it belongs to**
 (`grid.run_id`: a hash of the checkpoint, quantization, size, batch and every
-cell key of the *full* grid, computed in `main._expand` and `generate.py`
+cell key of the *full* grid, computed in `api_generate.expand_grid` and `generate.py`
 before resume prunes anything). A resumed night therefore lands under a second
 job id but the same run id, and the gallery's `run:` filter - which is what
 the card's ⊞ button sets - shows the whole matrix where `job:` shows one
@@ -3925,7 +3925,7 @@ one.
 another checkpoint's records, it said "add model:Anima to the search", the
 id's tail. `model:` is a substring LIKE, so Animagine stayed in the selection
 and following the advice gave the same refusal - the trap the profiles avoid
-with exact ids. `main._foreign_refusal` offers `model:<the whole running id>`
+with exact ids. `api_generate.foreign_refusal` offers `model:<the whole running id>`
 only where that id, lowercased, is contained in none of the foreign ids the
 selection reached and has no whitespace, which would split the term; then
 adding it leaves every one of them out. Otherwise it says only "Untick All
@@ -3945,7 +3945,7 @@ fourth producer of cells, beside Generate, Run grid and Re-render.
 **What it acts on.** The picked cards where there are any (the gallery
 selection, `ids`), else the filter as Re-render takes it, and the button's
 title says which. Re-render, Swap tags and Mass refine read
-their images through one resolver (`main._resolve_selection`) and build
+their images through one resolver (`submission.resolve_selection`) and build
 their cells through one helper (`grid.cell_from_record`), so what "the
 selection" means and what a record carries into its new cell cannot drift
 between them; Re-render's behaviour, refusals and tests are unchanged by
@@ -4651,7 +4651,7 @@ has to be exact: a full id matches every longer id that extends it, and
 `krea/Krea-2-Turbo` is one suffix away from a catalogue entry that a
 substring scope would show under it. So `storage.list_images` takes
 `model_id` as a predicate of its own, kept out of the `where` list the FTS
-fallback rewrites, and `main._model_scope` turns the flag into
+fallback rewrites, and `AppServices.model_scope` turns the flag into
 `current_model_id(settings)` or None.
 
 **`other_models` is on every page.** `list_images` answers a third number:
@@ -6404,7 +6404,7 @@ and so always take a line of the flow. Each expires after its time unless focus
 is on its buttons, and `onDrop` runs whatever takes it; a Reuse's Undo and this
 note retire each other. Its failures go to the panel's line, said as Expand's
 ("Expand did not finish: <reason>. The prompt is unchanged.", the class name
-dropped server-side by `main._expand_detail`, which keeps it for a message of
+dropped server-side by `api_prompt.expand_detail`, which keeps it for a message of
 one word, the log always), and while a Reuse's Undo holds that line they go
 under the prompt instead, as a 20 s note (`expandSay`). A load that failed is a
 503, which the page answers with a pointer to the viewer's card: repeated in red
@@ -6567,7 +6567,7 @@ evidence, not proof that a particular caption reached training. The one
 exception needs no index: an item longer than any tag (`tags.TAG_NAME_MAX`,
 200 characters, such as a hybrid prompt's sentence) is answered unknown
 (`tags.too_long_result`: `code` not_found, "longer than any Danbooru tag")
-without asking it, reachable or not (`main._lookup_tags`,
+without asking it, reachable or not (`tag_lookup.lookup_tags`,
 `tags.unchecked_results`), and only a blank item or one past 4000 characters
 is refused (`TagValidationRequest`). Every item had been bounded at 200, so
 one 213-character sentence on Kohaku refused the whole request (a 422), and
@@ -8264,7 +8264,7 @@ unchanged: the rewrite's new tags have no category.
 **A slot is one finding, quoting its own line.** The same review found a
 template slot standing as a whole comma item (`[character], soft rim lighting`)
 reported twice on one span, as the author's slot and as A1111 de-emphasis. The
-assembled check (`main._checked`) now drops the encoder layer's weighting
+assembled check (`prompt_check.checked`) now drops the encoder layer's weighting
 finding on exactly an author slot's span, that finding's own message having
 already allowed it might be a slot. The card's "Backgrounds & Landscapes"
 template is a second Z-Anime Example, and its four slots are the author's.
@@ -8645,7 +8645,7 @@ none, and the 2026-09-28 review found its first critique downloading about
 is False below glibc 2.38, as on Ubuntu 22.04 and Debian 12, unless a server
 of one's own is named; the version is `os.confstr`'s, a libc call cheap enough
 for the status poll. A direct call to the critique route then gets a 422
-saying so (`critic.pinned_build_refusal`, read by `main._critic_unsupported`),
+saying so (`critic.pinned_build_refusal`, read by `api_prompt.critic_unsupported`),
 not that no build is published for the platform. `critic.preflight`, called
 from `prepare()` ahead of both downloads, asks the dynamic loader for the
 three libraries in a child interpreter (`ctypes.CDLL` there, so no second
@@ -9152,7 +9152,7 @@ on the rewrite says whether the prompt has one under the same rule and field
 rewrite no longer has follow as "No longer flagged: ..."; they are matched,
 never collapsed, by rule, since the same rule can be another instance - on
 Animagine the rewrite's order finding names other tags than the prompt's.
-The rewrite's check asks the tag index nothing of its own (`main._lint`), so a
+The rewrite's check asks the tag index nothing of its own (`prompt_check.lint`), so a
 prompt finding that rests on it - the order, the style a known name reads as,
 an artist's @ (`readsTagIndex`) - is never called fixed: gone from the rewrite,
 it is listed as "Not flagged on the rewrite, whose check asks the tag index
@@ -9487,7 +9487,7 @@ mark of the reason's own, so a question no longer ends in "?.".
 Expand and Unload were held while the server did not answer, and Unload while
 the image model loaded, but the critic was left live for both: a press got the
 offline sentence in its block for good, or the route's 409 about the load
-(`main._refuse_critique_now`; Expand, by contrast, waits for the load). It is now held (`criticHold`) while the server does not answer and
+(`api_prompt.refuse_critique_now`; Expand, by contrast, waits for the load). It is now held (`criticHold`) while the server does not answer and
 while the image model loads, then for a job (this page's or another tab's)
 and for Expand, aria-disabled with the reason as its title and on
 `#critic-cost`; `goOffline`, the poll that answers again and a change of the

@@ -2,7 +2,7 @@
 
 An editing tool, not an analyser rule: nothing here is a finding, so the
 analyser's `source`/`cite` contract does not apply, and nothing here is a
-checkpoint's profile key. Pure functions over text; the route in `main.py`
+checkpoint's profile key. Pure functions over text; the route in `api_swap.py`
 reads the records and queues the cells.
 
 A row is "find these comma items, put this in their place". The unit is the

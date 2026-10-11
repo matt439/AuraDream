@@ -431,7 +431,7 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
 
     def critique(prompt: str, reordered: str):
         request = GenerateRequest(prompt=prompt)
-        # As `main._analyse` builds it: the categories the rules placed with
+        # As `prompt_check.analyse` builds it: the categories the rules placed with
         # travel with the analysis, for the critic to place with the same.
         analysis = PromptAnalysis(
             model_id=animagine, style=prompt_rules.detect_style(prompt, categories), words=8,

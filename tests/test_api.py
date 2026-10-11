@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from backend import main
+from backend import api_prompt, main, tag_lookup
 from backend.config import settings
 from backend.model_defaults import defaults_for, hints_for
 from backend.tags import TagLookupUnavailable
@@ -298,8 +298,8 @@ def test_tag_vocabulary_endpoints_are_checkpoint_scoped_and_read_only(client, mo
                 "source": "model", "category": None, "post_count": None,
             } for tag in tags]
 
-    monkeypatch.setattr(main, "_tag_helper_config", lambda: helper)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    monkeypatch.setattr(api_prompt, "tag_helper_config", lambda model_id: helper)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary())
     suggestions = client.get("/api/tags/suggest?q=green%20h").json()
     assert suggestions == {
         "available": True,
@@ -330,8 +330,8 @@ def test_an_offline_tag_index_leaves_unknown_tags_unchecked(client, monkeypatch)
             assert allow_year_tag is False
             raise TagLookupUnavailable("offline")
 
-    monkeypatch.setattr(main, "_tag_helper_config", lambda: helper)
-    monkeypatch.setattr(main, "tag_vocabulary", OfflineVocabulary())
+    monkeypatch.setattr(api_prompt, "tag_helper_config", lambda model_id: helper)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", OfflineVocabulary())
     suggestions = client.get("/api/tags/suggest?q=great").json()
     assert suggestions["available"] is False
     assert suggestions["suggestions"][0]["text"] == "great score"
@@ -365,8 +365,8 @@ def test_suggestions_never_lead_with_the_recommended_negative(client, monkeypatc
                 for name, count in rows
             ]
 
-    monkeypatch.setattr(main, "_tag_helper_config", lambda: helper)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    monkeypatch.setattr(api_prompt, "tag_helper_config", lambda model_id: helper)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary())
     lo = [item["text"] for item in client.get("/api/tags/suggest?q=lo").json()["suggestions"]]
     assert lo[0] == "long hair" and set(lo) == {"long hair", "lowres", "low quality"}
     gre = [item["text"] for item in client.get("/api/tags/suggest?q=gre").json()["suggestions"]]
@@ -375,7 +375,7 @@ def test_suggestions_never_lead_with_the_recommended_negative(client, monkeypatc
 
 def test_tag_specials_allow_a_profile_without_quick_actions():
     helper = {"groups": [{"tags": ["masterpiece"]}]}
-    assert main._special_tags(helper) == {"masterpiece"}
+    assert tag_lookup.special_tags(helper) == {"masterpiece"}
 
 
 def test_prompt_expansion_loads_the_model_and_returns_reviewable_text(client, fake):

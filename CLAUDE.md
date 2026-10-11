@@ -56,8 +56,14 @@ Backend (`backend/`):
 - `schemas.py` request/response models; `model_defaults.py` per-checkpoint
   profiles; `guides.py` each checkpoint's sourced prompting guide and its
   `analysis` data
-- `main.py` lifecycle, model/prompt/generation routes; `api_gallery.py`,
-  `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
+- `main.py` lifecycle, model state, switching and the model routes;
+  `app_context.py` the `AppServices` getters routers read main through;
+  `detached.py` daemon-thread calls; `api_prompt.py` tag helper and prompt
+  routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
+  lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
+  selection; `api_generate.py` generate/grid/Re-render, `api_swap.py`,
+  `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
+  `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
   routes and maintenance admission; `bundles.py` verified archive/merge,
   `bundle_crypto.py` its optional password layer;
   `gallery_lock.py` reservations across storage threads and processes
@@ -136,7 +142,7 @@ Reproduction and storage:
   keep deliberate copies, held equal by `tests/test_cli.py`. Gallery records
   run again (Re-render, Swap tags, Mass refine, More seeds) become cells only
   through `grid.cell_from_record`, their images through
-  `main._resolve_selection`.
+  `submission.resolve_selection`.
 - The reproduction set lives on the row and in the PNG's `local-diffusion`
   chunk; `CellKey`/`run_id` widen without changing existing ids.
 - A new column needs a `_migrate` entry; `_row_to_record` reads unguarded.

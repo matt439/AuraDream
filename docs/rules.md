@@ -121,11 +121,11 @@ before changing it.
   variants, and the cell expansion, shared; `cell_from_record` /
   `cells_from_records`, a gallery record as a cell
 - `backend/tag_swap.py` — Swap tags' rewrite of a record's prompt or
-  negative prompt (pure; the routes are `main.py`'s)
+  negative prompt (pure; the routes are `api_swap.py`'s)
 - `backend/refine_batch.py` — Mass refine's plan of one record: the pass
-  it becomes or why not (pure; the routes are `main.py`'s)
+  it becomes or why not (pure; the routes are `api_refine_batch.py`'s)
 - `backend/more_seeds.py` — More seeds' batches of a selection, each one's
-  next seeds, Batch and cells (pure; the routes are `main.py`'s)
+  next seeds, Batch and cells (pure; the routes are `api_more_seeds.py`'s)
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
@@ -138,10 +138,31 @@ before changing it.
   and exclusive maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates (`size:WxH` both sides exact), the LIKE escape, `strict_scope`
-- `backend/main.py` — app lifecycle, model/prompt routes and generation submission;
-  `api_gallery.py` owns gallery browsing, runs, the recycle bin and deletion, and `api_jobs.py`
-  job inspection, cancellation, pause and SSE, with app-owned dependencies
-  supplied by router factories
+- `backend/main.py` — app lifecycle and model ownership: load state and
+  lock, `ensure_loaded`, the load-failure wording, model switching, status,
+  the model and adapter routes, the middlewares, and the `services`
+  (`app_context.AppServices`) every router factory reads main's state
+  through; `api_gallery.py` owns gallery browsing, runs, the recycle bin and
+  deletion, and `api_jobs.py` job inspection, cancellation, pause and SSE
+- `backend/app_context.py` — `AppServices`, late-bound getters over main's
+  globals (settings, backend, jobs, critic, translator, `ensure_loaded`,
+  the load lock, the merged defaults), so a test or the fake server that
+  rebinds one on main is seen by every route; `model_scope` is the
+  gallery's checkpoint scope
+- `backend/detached.py` — `detached`, a blocking call on a daemon thread
+  that interpreter exit never joins (the model load, the prompt routes)
+- `backend/api_prompt.py` — the tag helper and prompt routes (suggest,
+  validate, Expand, Check, measure, the critic) and their refusal wording;
+  `backend/prompt_check.py` layer 1 of Check (encoder reports and rule
+  findings, the order detail, the chips' order slots, the rewrite's lint),
+  blocking and CPU only; `backend/tag_lookup.py` the Danbooru lookup the
+  chips and Check share, and owner of the patchable `tag_vocabulary`
+- `backend/submission.py` — what every cell producer checks before it
+  queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
+  `not_yet_rendered`) and the gallery selection (`resolve_selection`);
+  `backend/api_generate.py` Generate, Run grid, its preview and Re-render;
+  `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py` the Swap tags,
+  Mass refine and More seeds plans, previews and submissions
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone
@@ -530,7 +551,7 @@ Model and loader:
   expander's counterpart of the critic's `describe()`. The route answers a
   load that failed with 503 and the status's sentence; its other failures,
   and a translation's, come without the class name in front
-  (`main._expand_detail`) - a message of one word keeps the class, and the
+  (`api_prompt.expand_detail`) - a message of one word keeps the class, and the
   log always does. `generate()`
   still sets `use_pe=False` wherever the switch exists. The tests'
   conftest refuses `loading.hub_file` for every test; one that needs an index stubs it.
@@ -636,17 +657,17 @@ Reproduction:
   TypeError; a `seed` there is the cell's base seed as well as the
   request's) and the cell's caption through `label`. Re-render, Swap tags,
   Mass refine and More seeds use it. Their
-  images are `main._resolve_selection`'s: with `ids` (the picked cards),
+  images are `submission.resolve_selection`'s: with `ids` (the picked cards),
   exactly those, oldest first, and the ids gone (deleted, or binned since
   they were picked: the third list) reported per image, never a
-  refusal; without, the gallery's filter (search, Starred, `_model_scope`),
+  refusal; without, the gallery's filter (search, Starred, `AppServices.model_scope`),
   404 for none, 422 past `max_grid_images` by count. What to do with
   another checkpoint's records is the caller's (Re-render refuses the
-  selection, `_foreign_refusal`; Swap tags reports each image `foreign`;
+  selection, `api_generate.foreign_refusal`; Swap tags reports each image `foreign`;
   Mass refine reports it `foreign` unless `include_foreign`, then
   substitutes the running profile; More seeds reports each batch
   `foreign`).
-  `_unusable_input` is `_refuse_unusable_inputs`' finding without the
+  `submission.unusable_input` is `submission.refuse_unusable_inputs`' finding without the
   refusal, (kind, why), for a per-image status.
 - The reproduction set - prompt pair, size, steps, CFG, true CFG, mu, seed,
   checkpoint, quantization, references, LoRA and weight, refine source and
@@ -676,7 +697,7 @@ Reproduction:
 - Resume keys on settings (`storage.completed_cells`, six-decimal rounding,
   scoped by size, checkpoint and quantizer), requires an explicit seed unless
   the seed axis is a list, and answers 409 when nothing is left. Without
-  Resume, `/api/grid/preview` asks the same lookup (`main._not_yet_rendered`)
+  Resume, `/api/grid/preview` asks the same lookup (`submission.not_yet_rendered`)
   only for an explicit seed or a seed list, reports it as
   `GridPreview.in_gallery` and drops nothing. A cell in the recycle bin
   counts as rendered (a rejected render, not a missing one); Empty recycle
@@ -985,7 +1006,7 @@ Jobs:
 - `main.Server.handle_exit` stops the active jobs (`jobs.stop_all("shutdown")`)
   and starts the critic's stop on the signal itself. The load, the critic's `prepare()`, Check's
   analysis and the critique's analysis and lint run on daemon threads
-  (`_detached`), as does each tokenizer load, so interpreter exit joins none
+  (`detached.detached`), as does each tokenizer load, so interpreter exit joins none
   of them; a first use's tokenizer fetch holds a Check, and so a Ctrl-C's
   drain, for `prompt_encoding.LOAD_WAIT` at most. Lifespan stops the critic,
   then `jobs.shutdown()`, then calls `try_unload()`.
@@ -1130,7 +1151,7 @@ Prompt analyser:
 - Three layers over the body Generate sends (`PromptAnalysisRequest`): Check
   (`POST /api/prompt/analyze`), the critic (`POST /api/prompt/critique`) and
   the comparison grid (`prompt_variants`). Check works cold: CPU tokenizers
-  and rules on a `_detached` daemon thread off the loop, never
+  and rules on a `detached.detached` daemon thread off the loop, never
   `ensure_loaded`, never the gate, `applied()` from the profile before a
   load. The negative prompt is measured and checked only as `applied()` runs
   it. `POST /api/prompt/measure` is its encoder layer alone
@@ -1186,7 +1207,7 @@ Prompt analyser:
   where it shows the slot, else the shortest example line holding it
   (`_slot_cite`; `test_each_slot_cites_the_authors_own_words`), and says
   what to put there (the entry's `fill`). One span, one finding:
-  `main._checked` drops an `encoder.weighting` finding on exactly an
+  `prompt_check.checked` drops an `encoder.weighting` finding on exactly an
   `author.placeholder` span. The page's summary says characters for Han and
   kana (`PromptAnalysis.characters`, of `words`; `wordsLine`). The style
   note counts the pieces the style is read from (commas, "，", line breaks;
@@ -1265,7 +1286,7 @@ Prompt analyser:
   reason. Never from `/api/status`; `prompt_encoding.unload()` runs on
   Unload and shutdown. `\(`/`\)` escapes are not flagged.
 - Tag categories for the order and artist checks come from the chips' own
-  lookup (`_lookup_tags`), only on a Danbooru-vocabulary guide or one whose
+  lookup (`tag_lookup.lookup_tags`), only on a Danbooru-vocabulary guide or one whose
   rules read artists (Anima, `wants_artist_categories`, no cutoff), and only
   for the items `prompt_rules.lookup_items` names: a tag or hybrid prompt's
   `category_items`, or - where the rules read artists - a prose prompt's
@@ -1309,7 +1330,7 @@ Prompt analyser:
   the prompt, past the lookup's 64 too, each with the step
   `prompt_rules.order_slots` places it in - through `_places`, the one
   placement the order rule, `reorder_tags` and `unplaced_items` read, with
-  `_tag_categories`' categories for that prompt. Those come from the cache
+  `tag_lookup.tag_categories`' categories for that prompt. Those come from the cache
   the chips' lookup just filled, except names past the chips' 64 that
   Check's own 64 reach (guide tags are not asked about): the validate route
   fetches those once, as a Check would, and caches misses. Offline the
@@ -1384,7 +1405,7 @@ Prompt analyser:
   status, whose "unloaded" is the image model's and whose VRAM is read off
   the image model's card (the server is pinned to no card, so only on a
   one-card machine does what it still holds show there).
-  `CriticUnavailable` is 503, `CriticError` 502; `_prompt_failure` sends
+  `CriticUnavailable` is 503, `CriticError` 502; `api_prompt.prompt_failure` sends
   their messages without the class-name prefix (the log line keeps it).
 - The critic's answer is checked before it is shown (`critic.validate`):
   `cite_id` is an enum of the numbered G and A sources in the answer's JSON
@@ -1465,7 +1486,7 @@ Prompt analyser:
   text (`<|...|>`, `<think>`, `<tool_call>`, `<tool_response>` and closers)
   reaches llama-server defused by a zero-width joiner after the `<`, which
   `validate` takes out of the answer. The rewrite is linted by layer 1 in
-  the route after the gate opens (`_lint`, no tag lookup of its own: where
+  the route after the gate opens (`prompt_check.lint`, no tag lookup of its own: where
   the rules read artists it gets the analysis's artist categories), since a
   lint can fetch a tokenizer. `PromptCritique.rewrite_artists_checked` says
   whether that check read every artist the rewrite may name
@@ -1935,7 +1956,7 @@ Frontend and CLI:
   marks the rest unchecked. An item longer than any tag
   (`tags.TAG_NAME_MAX`, 200 characters: a hybrid prompt's sentence) is
   answered unknown (`tags.too_long_result`: `code` not_found, "longer than
-  any Danbooru tag") without asking the index, reachable or not (`main._lookup_tags`,
+  any Danbooru tag") without asking the index, reachable or not (`tag_lookup.lookup_tags`,
   `tags.unchecked_results`); only a blank item or one past 4000 characters
   is refused (`TagValidationRequest`). One 213-character sentence used to
   make the whole tray read "Danbooru unreachable" (a 422). Verdicts are
@@ -3064,8 +3085,8 @@ Frontend and CLI:
   `error_detail`), `source_deleted`, `lora_missing`, `duplicate` ("same as
   #N": cell keys as `applied()` runs them, plus the size), `by_hand`,
   `structured`, `deleted` (an id gone, or binned since it was picked:
-  detail "in the recycle bin", `main._gone_detail`), `foreign`. The preview lists the
-  first `SWAP_PREVIEW_ROWS` (200) of them - each with its text, the
+  detail "in the recycle bin", `submission.gone_detail`), `foreign`. The preview lists the
+  first `api_swap.SWAP_PREVIEW_ROWS` (200) of them - each with its text, the
   original where it is not changed, so a missing image can be read - and
   counts all, with the ids the
   selection resolved (`ids`), how many are queued and in how many jobs; it
@@ -3133,18 +3154,18 @@ Frontend and CLI:
   record, one cell, in the resolver's order (oldest first), never a loop
   over axes, so `grid.expand()` stays the one cell loop. The route adds
   `file_missing` (`storage.missing_files`), `lora_missing` (a same
-  checkpoint's adapter, `_unusable_input` once per name), `rendered`
-  (`_not_yet_rendered` per size) and `deleted` (an id gone or binned). Only a
+  checkpoint's adapter, `submission.unusable_input` once per name), `rendered`
+  (`submission.not_yet_rendered` per size) and `deleted` (an id gone or binned). Only a
   checkpoint with no pass refuses the whole of it (422,
-  `_refine_unavailable`, the single pass's words). The preview lists the
-  first `REFINE_BATCH_PREVIEW_ROWS` (200) with each source's size and the
+  `submission.refine_unavailable`, the single pass's words). The preview lists the
+  first `api_refine_batch.REFINE_BATCH_PREVIEW_ROWS` (200) with each source's size and the
   pass's, counts all, and answers the resolved `ids`, the strength, the
   `foreign` count and `models`, `passes`, `largest` (the largest source the
   scale applies to, by pixels, `pass` and `foreign` left out), `seconds`
   (summed per size from `storage.refine_cost_ms`, None with
   `unpriced_sizes` where any size has no history) and
   `start_sigma_low`/`high` (`backend.start_sigma` over the distinct applied
-  passes, None where any reads None or past `REFINE_BATCH_SIGMA_KEYS`, 8);
+  passes, None where any reads None or past `api_refine_batch.REFINE_BATCH_SIGMA_KEYS`, 8);
   it has no side effects, is not model-dependent and is advisory in `api`.
   The queueing route is model-dependent, refuses 409 when `expected` is
   not the ids resolved now, prunes what the gallery holds (`pruned`),
@@ -3219,11 +3240,11 @@ Frontend and CLI:
   of its newest picked image with `seed` and `num_images` named and a
   `seeds a–b` label, `invalid` where that or `check_budget`/
   `check_refine_steps` refuses. The route then adds `source_deleted` and
-  `lora_missing` (`_unusable_input` once per spec), a note where the batch
+  `lora_missing` (`submission.unusable_input` once per spec), a note where the batch
   was made under another quantizer, and `deleted` (an id gone or binned); nothing is
   ever `rendered`. Past `max_grid_images` images in all (batches ×
   `count`) is a 422 for the whole, by count. The preview lists the first
-  `MORE_SEEDS_PREVIEW_ROWS` (200) by id - each batch's newest picked image,
+  `api_more_seeds.MORE_SEEDS_PREVIEW_ROWS` (200) by id - each batch's newest picked image,
   its picked `ids`, the prompt (300 characters), the images and seed range
   it holds, `first`/`last` new seed, `skipped`, `batch` and `recorded` -
   counts all, and answers the resolved `ids`, `queued` (images),
@@ -3233,7 +3254,7 @@ Frontend and CLI:
   advisory in `api`. The queueing route is model-dependent, refuses 409
   when `expected` is not the ids resolved now, 422 naming every count when
   no batch is queued, and submits one job per lineage and size
-  (`_more_seeds_jobs`; `jobs.submit_cells(..., run_id=<the batch's run>,
+  (`api_more_seeds._more_seeds_jobs`; `jobs.submit_cells(..., run_id=<the batch's run>,
   more_seeds=count)`), so the images join the run they extend and every
   job keeps one size; a batch with no run id gets a run of its own. The
   snapshot's `more_seeds` names the job ("more seeds · <first prompt>",
@@ -3445,14 +3466,14 @@ Frontend and CLI:
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender` and
   `POST /api/swap-tags[/preview]`, `POST /api/refine/batch[/preview]` and
   `POST /api/more-seeds[/preview]` without `ids` scope to
-  `current_model_id(settings)` (`main._model_scope`, an exact predicate, never the
+  `current_model_id(settings)` (`AppServices.model_scope`, an exact predicate, never the
   `model:` LIKE) unless `all_models=true`; `GET /api/gallery?model=<id>` is the
   same exact scope for any id, in place of both, and `model:=<id>` in the
   search (a leading `=` on any text key) its exact form; the page's All models tick is the
   one switch, unpersisted like Starred, and `GalleryPage.other_models` is
   what the same filter matches elsewhere. Delete unstarred takes the scope
   because its count must be the grid's. Re-render's refusal of another
-  checkpoint's images (`main._foreign_refusal`) advises unticking All
+  checkpoint's images (`api_generate.foreign_refusal`) advises unticking All
   models; it offers `model:<the whole running id>` only where that id is
   contained in none of the foreign ids selected (`model:Anima` is
   Animagine too), and its verb agrees with the count. The Runs picker asks

@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 import re
 
-from backend import main, prompt_rules, tags
+from backend import api_prompt, main, prompt_check, prompt_rules, tag_lookup, tags
 from backend.critic import build_context
 from backend.model_defaults import guide_for
 from backend.schemas import (
@@ -36,14 +36,14 @@ KOHAKU = "KBlueLeaf/Kohaku-XL-Zeta"
 def test_a_tag_checkpoint_orders_by_the_categories_the_chips_see(client, fake, monkeypatch):
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary({"green hair": "general", FIREFLY: "character"})
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     body = analyse(client, prompt=TAG_PROMPT)
     # Asked the way POST /api/tags/validate asks: the guide's cutoff, its
     # special tags and year form - and only about what a rule would read.
     helper = guide_for(ANIMAGINE)["tag_helper"]
     ((tags, special, cutoff, year),) = vocabulary.calls
     assert tags == ["green hair", FIREFLY]
-    assert special == main._special_tags(helper) and "absurdres" in special
+    assert special == tag_lookup.special_tags(helper) and "absurdres" in special
     assert (cutoff, year) == (helper["vocabulary_cutoff"], True)
 
     assert body["style"] == "tags"
@@ -57,7 +57,7 @@ def test_a_tag_checkpoint_orders_by_the_categories_the_chips_see(client, fake, m
 def test_an_unreachable_tag_index_costs_the_order_check_not_the_answer(client, fake, monkeypatch):
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary(offline=True)
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     body = analyse(client, prompt=TAG_PROMPT)
     assert len(vocabulary.calls) == 1
     assert rules(body["findings"], "guide.order") == [] and body["reordered"] is None
@@ -70,7 +70,7 @@ def test_an_unreachable_tag_index_costs_the_order_check_not_the_answer(client, f
         "the tag index was unreachable, so no tag has its Danbooru category"
     )
     monkeypatch.setattr(
-        main, "tag_vocabulary", Vocabulary({"green hair": "general", FIREFLY: "character"})
+        tag_lookup, "tag_vocabulary", Vocabulary({"green hair": "general", FIREFLY: "character"})
     )
     in_order = analyse(client, prompt=IN_ORDER)
     assert in_order["order_checked"] is True and in_order["categories_detail"] is None
@@ -88,7 +88,7 @@ def test_an_unreachable_tag_index_costs_the_order_check_not_the_answer(client, f
 def test_a_broken_tag_index_reply_costs_the_order_check_not_the_answer(client, fake, monkeypatch):
     claim(monkeypatch, fake, ANIMAGINE)
     # A chunked reply cut off mid-body is http.client's error, not an OSError.
-    monkeypatch.setattr(main, "tag_vocabulary", tags.DanbooruTagVocabulary())
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", tags.DanbooruTagVocabulary())
     monkeypatch.setattr(tags, "urlopen", lambda request, timeout: CutReply())
     body = analyse(client, prompt=TAG_PROMPT)
     assert rules(body["findings"], "guide.order") == [] and body["reordered"] is None
@@ -100,7 +100,7 @@ def test_a_broken_tag_index_reply_costs_the_order_check_not_the_answer(client, f
     assert chips.status_code == 200 and chips.json()["available"] is False
     # A reply that parses into rows the lookup cannot read costs no more.
     monkeypatch.setattr(
-        main, "tag_vocabulary", tags.DanbooruTagVocabulary(lambda path, params: ["not a row"])
+        tag_lookup, "tag_vocabulary", tags.DanbooruTagVocabulary(lambda path, params: ["not a row"])
     )
     body = analyse(client, prompt=TAG_PROMPT)
     assert rules(body["findings"], "guide.order") == [] and body["reordered"] is None
@@ -120,7 +120,7 @@ def test_a_broken_tag_index_reply_costs_the_order_check_not_the_answer(client, f
         (TimeoutError("timed out"), "the tag index was unreachable, "
          "so no tag has its Danbooru category"),
     ]:
-        monkeypatch.setattr(main, "tag_vocabulary", tags.DanbooruTagVocabulary())
+        monkeypatch.setattr(tag_lookup, "tag_vocabulary", tags.DanbooruTagVocabulary())
         monkeypatch.setattr(tags, "urlopen", failing(error))
         assert analyse(client, prompt=TAG_PROMPT)["categories_detail"] == detail, error
 
@@ -130,20 +130,20 @@ def test_the_tag_lookup_is_capped_at_the_chips_limit_and_skipped_for_prose(
 ):
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary()
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     body = analyse(client, prompt=", ".join(f"tag{i}" for i in range(80)))
     ((tags, *_),) = vocabulary.calls
-    assert len(tags) == main._MAX_TAG_ITEMS == 64
+    assert len(tags) == tag_lookup.MAX_TAG_ITEMS == 64
     # The 16 past the cap are placed by the guide's groups alone, and the
     # answer says so rather than passing them.
     assert body["order_checked"] is True and body["categories_detail"] == (
         "the tag index was asked about the first 64 of 80 tags only, so the rest have "
         "no Danbooru category"
     )
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary())
     at_the_cap = analyse(client, prompt=", ".join(f"tag{i}" for i in range(64)))
     assert at_the_cap["categories_detail"] is None
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     # Prose is not a tag list to categorise, even in comma pieces the order
     # rule would ask about - the user's sentences are not sent to Danbooru -
     # and FLUX.1 has no tag index.
@@ -172,7 +172,7 @@ def test_the_chips_slots_are_checks_order(client, fake, monkeypatch):
     # of the page's: the reorder Check offers puts the slots in order.
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary({"green hair": "general", FIREFLY: "character"})
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     body = chips(client, TAG_PROMPT)
     assert body["available"] is True
     assert body["order_steps"] == guide_for(ANIMAGINE)["tag_helper"]["order"]
@@ -201,7 +201,7 @@ def test_the_chips_slots_are_checks_order(client, fake, monkeypatch):
 def test_a_chip_the_rules_cannot_place_has_no_slot(client, fake, monkeypatch):
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary({"green hair": "general"})
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     # An unknown tag, an @ name and lettering, each beside placed tags.
     body = chips(client, '1girl, zzkx oc, @wlop, "hello, world", green hair, masterpiece')
     assert [s["slot"] for s in body["slots"]] == [
@@ -256,7 +256,7 @@ SENTENCE = (
 def test_an_item_longer_than_any_tag_is_unknown_without_asking(client, fake, monkeypatch):
     claim(monkeypatch, fake, KOHAKU)
     vocabulary = Vocabulary({"1girl": "general"})
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     assert len(SENTENCE) > 200
     body = chips(client, f"1girl, {SENTENCE}, masterpiece, safe")
     assert body["available"] is True
@@ -269,7 +269,7 @@ def test_an_item_longer_than_any_tag_is_unknown_without_asking(client, fake, mon
     assert body["slots"] is not None
     # Unreachable, the guide's own tags are still the model's, and the long
     # item is still unknown: no index is needed to say so.
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     offline = chips(client, f"1girl, {SENTENCE}, masterpiece, safe")
     verdicts = {r["tag"]: r for r in offline["results"]}
     assert offline["available"] is False
@@ -298,7 +298,7 @@ def test_an_unreachable_index_costs_the_slots_one_wait(client, fake, monkeypatch
     # placed, the rest have no slot - and the index is not asked twice.
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary(offline=True)
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     body = chips(client, TAG_PROMPT)
     assert body["available"] is False and len(vocabulary.calls) == 1
     assert [s["slot"] for s in body["slots"]] == [
@@ -310,7 +310,7 @@ def test_a_failure_in_the_slots_never_costs_the_verdicts(client, fake, monkeypat
     # The slots are advisory, as the lookup is: a fault placing them leaves
     # the chips' verdicts answered, and the page's chips checked.
     claim(monkeypatch, fake, ANIMAGINE)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({"green hair": "general"}))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary({"green hair": "general"}))
 
     def broken(*args, **kwargs):
         raise ValueError("placement fault")
@@ -330,8 +330,8 @@ def test_no_slots_where_the_guide_states_no_order(client, fake, monkeypatch):
     # and states none.
     claim(monkeypatch, fake, ANIMA)
     assert prompt_rules.documented_order(ANIMA) is None
-    monkeypatch.setattr(main, "_tag_helper_config", lambda: main._BARE_DANBOORU)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({"green hair": "general"}))
+    monkeypatch.setattr(api_prompt, "tag_helper_config", lambda model_id: tag_lookup.BARE_DANBOORU)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary({"green hair": "general"}))
     body = chips(client, "1girl, green hair, masterpiece")
     assert body["results"] and body["slots"] is None and body["order_steps"] is None
 
@@ -350,7 +350,7 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
     # Check could not place every tag.
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary({"green hair": "general", FIREFLY: "character"})
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     unknown = (
         'the tag index has no usable Danbooru category for 1 tag, so it is not placed: "zzkx oc"'
     )
@@ -398,7 +398,7 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
         "new_hero_(game)": {"name": "new_hero_(game)", "category": 4, "post_count": 5,
                             "created_at": "2099-01-01"},
     }
-    monkeypatch.setattr(main, "tag_vocabulary", tags.DanbooruTagVocabulary(
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", tags.DanbooruTagVocabulary(
         fetch_json=lambda path, params: [
             rows[name] for name in params["search[name_normalize]"].split(",") if name in rows
         ]
@@ -409,7 +409,7 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
         "the tag index has no usable Danbooru category for 2 tags, so they are not placed: "
         '"old tag", "new hero \\(game\\)"'
     )
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     # Prose is never looked up, and a clause that is not a whole sentence is
     # placed by nothing; whole sentences sit in the general slot.
     vocabulary.calls.clear()
@@ -432,13 +432,13 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
         '""OPEN"", "@wlop"'
     )
     # The lookup's own reasons lead, with the items they cost.
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     body = analyse(client, prompt=TAG_PROMPT)
     assert body["order_detail"] == (
         "the tag index was unreachable, so no tag has its Danbooru category, and 2 tags are "
         f'not placed: "green hair", "{FIREFLY}"'
     )
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary())
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary())
     body = analyse(client, prompt=", ".join(f"tag{i}" for i in range(70)))
     assert body["order_detail"] == (
         "the tag index was asked about the first 64 of 70 tags only, so the rest have no "
@@ -449,14 +449,14 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
     # The lookup's detail alone is no partial order: past the cap sits only a
     # phrase the rules place as prose, and every tag before it is known.
     known = [f"tag{i}" for i in range(64)]
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(dict.fromkeys(known, "general")))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(dict.fromkeys(known, "general")))
     body = analyse(client, prompt=", ".join([*known, "looking at the viewer"]))
     assert body["categories_detail"].startswith("the tag index was asked about the first 64 of 65")
     assert body["order_checked"] is True and body["order_detail"] is None
     # Where the guide states no order, there is none to have checked partly:
     # the artist check's note is `categories_detail` alone.
     claim(monkeypatch, fake, ANIMA)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     body = analyse(client, prompt="1girl, wlop, smile")
     assert body["order"] is None and body["order_detail"] is None
     assert body["categories_detail"].startswith("the tag index was unreachable")
@@ -488,10 +488,10 @@ def test_the_page_and_the_critic_read_partial_placement_alike(client, fake, monk
         for vocabulary in (
             Vocabulary({"green hair": "general", FIREFLY: "character"}), Vocabulary(offline=True),
         ):
-            monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+            monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
             for prompt in prompts:
                 request = PromptAnalysisRequest(prompt=prompt or "a lighthouse")
-                analysis = main._analyse(request)
+                analysis = prompt_check.analyse(model_id, request, main.backend.applied(request))
                 context = build_context(model_id, request, request, analysis)
                 assert context.placed_partly == (analysis.order_detail is not None), prompt
                 assert analysis.order_detail is None or analysis.order_checked, prompt

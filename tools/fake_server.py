@@ -103,7 +103,7 @@ def main() -> int:
         load_failure: str | None = None
 
         def load(self) -> None:
-            # On the load's own daemon thread (main._detached), as the real one.
+            # On the load's own daemon thread (detached.detached), as the real one.
             import time
 
             time.sleep(self.load_seconds)
@@ -328,7 +328,9 @@ def main() -> int:
                     )
             return results
 
-    app_main.tag_vocabulary = FakeTagVocabulary()
+    from backend import tag_lookup
+
+    tag_lookup.tag_vocabulary = FakeTagVocabulary()
 
     # Two images made on another checkpoint, so the gallery's scope has
     # something to hide: by default the page shows the claimed checkpoint's

@@ -8,7 +8,7 @@ import json
 
 from PIL import Image
 
-from backend import main, refine as refine_module, refine_batch
+from backend import api_refine_batch, refine as refine_module, refine_batch, submission
 from backend.config import settings
 from backend.model_defaults import defaults_for
 from backend.model_selection import current_model_id
@@ -179,10 +179,10 @@ def test_a_live_capability_drop_fails_the_job_before_any_image(client, fake, sto
     b = plant(store, "a hare", seed=2)
     # Accepted as though the pass were there; the worker's own check is what
     # stops it, before cell 1 saves anything.
-    async def available():
+    async def available(services):
         return None
 
-    monkeypatch.setattr(main, "_refine_unavailable", available)
+    monkeypatch.setattr(submission, "refine_unavailable", available)
     fake.refine_supported = False
     response = client.post("/api/refine/batch", json={"ids": [a.id, b.id]})
     assert response.status_code == 200, response.text
@@ -282,7 +282,7 @@ def test_the_start_sigma_is_a_range_over_the_passes_sizes(client, fake, store, m
     answer = preview(client, ids=[small.id, wide.id], scale=1.5)
     assert answer["start_sigma_low"] is None and answer["start_sigma_high"] is None
     # Past the cap of distinct passes, none is read.
-    monkeypatch.setattr(main, "REFINE_BATCH_SIGMA_KEYS", 1)
+    monkeypatch.setattr(api_refine_batch, "REFINE_BATCH_SIGMA_KEYS", 1)
     monkeypatch.setattr(fake, "start_sigma", lambda request: 0.5)
     assert preview(client, ids=[small.id, wide.id])["start_sigma_low"] is None
     assert preview(client, ids=[small.id])["start_sigma_low"] == 0.5

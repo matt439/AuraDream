@@ -9,7 +9,7 @@
 // Another tab's job holds it as this page's does (elsewhereBusy): the server
 // refused it then, in words naming a job this page did not show.
 const CRITIC_ELSEWHERE = 'A job started in another tab or window is running. The critic needs the card to itself, so it waits for that job to finish.';
-// And what the server would refuse it under (main._refuse_critique_now) or
+// And what the server would refuse it under (api_prompt.refuse_critique_now) or
 // could not be asked at all: Expand and Unload are held for both, and the
 // critic was the one editor action left live - a press got "No answer from
 // the Local Diffusion server — is it still running?." in the critic's block
@@ -235,7 +235,7 @@ function takeBackCriticLoadNote() {
 // artists (`prompt_rules._place`, `_detect_style`, `_artist_prefix`). The
 // prompt's check asks the index for a tag or hybrid prompt on a Danbooru
 // checkpoint, and the artist rule fires only with its answer; the rewrite's
-// check never asks (`main._lint`). Such a finding gone from the rewrite may
+// check never asks (`prompt_check.lint`). Such a finding gone from the rewrite may
 // be one its check could not see, so it is not called fixed - except the
 // artist rule's where the server says the rewrite's artist check, with the
 // analysis's own answer, read every artist the rewrite may name

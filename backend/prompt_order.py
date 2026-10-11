@@ -492,7 +492,7 @@ def lookup_items(model_id: str, prompt: str) -> list[str]:
     artist's name; asking about every clause would cost the index a request
     for each one Check. Prose is never looked up for the order rules: their
     "partly checked" names a prose prompt's clauses as never asked
-    (`main._order_detail`), and no guide that states an order reads artists
+    (`prompt_check.order_detail`), and no guide that states an order reads artists
     (`tests/test_prompt_rules.py` holds that). Nothing for XML or JSON."""
     style = prompt_text.detect_style(prompt)
     if style in ("tags", "hybrid"):
@@ -520,7 +520,7 @@ def artists_read(
     """Whether the artist rule, reading `text` with the categories a lookup
     of `asked` answered with - `artists` the items it called artists - reads
     every artist `text` may name: the critic's rewrite, checked with its
-    analysis's own categories and no lookup of its own (`main._lint`).
+    analysis's own categories and no lookup of its own (`prompt_check.lint`).
 
     Every item a Danbooru name could be (`category_items`, a prose text's
     clauses included, which a check of it never asks about) must be among

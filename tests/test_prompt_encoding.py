@@ -1166,7 +1166,7 @@ def test_real_tokenizers_agree_with_the_pipelines_own_truncation(monkeypatch, mo
     # The authors' own examples fit their encoders. A template's slot that
     # stands as a whole comma item ("[lighting]") reads as A1111's brackets
     # here; the assembled check reports that span once, as the author's slot
-    # (`main._checked`), so it is no warning of the encoder layer's.
+    # (`prompt_check.checked`), so it is no warning of the encoder layer's.
     slots = model_defaults.guide_for(model_id)["slots"]
     for example in model_defaults._profile_for(model_id)["guide"]["examples"]:
         _, findings, _ = pe.measure(model_id, example, None)

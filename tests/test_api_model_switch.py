@@ -13,7 +13,7 @@ import pytest
 import httpx
 from PIL import Image
 
-from backend import main, model_selection, startup_preferences
+from backend import main, model_selection, startup_preferences, submission
 from backend.model_defaults import defaults_for, guide_for
 from backend.schemas import PromptGuide
 from tests.api_helpers import ORIGIN, run_one, stream_job, wait_for
@@ -501,14 +501,14 @@ def test_switch_reserves_teardown_and_loading_against_new_model_work(client, fak
 def test_switch_refuses_a_request_between_validation_and_job_submission(client, fake, monkeypatch):
     initial = client.get("/api/status").json()
     validating, release = threading.Event(), threading.Event()
-    validate = main._refuse_unusable_inputs
+    validate = submission.refuse_unusable_inputs
 
-    async def waiting_validation(request):
+    async def waiting_validation(services, request):
         validating.set()
         assert await asyncio.to_thread(release.wait, 10)
-        await validate(request)
+        await validate(services, request)
 
-    monkeypatch.setattr(main, "_refuse_unusable_inputs", waiting_validation)
+    monkeypatch.setattr(submission, "refuse_unusable_inputs", waiting_validation)
     with ThreadPoolExecutor(1) as pool:
         try:
             pending = pool.submit(client.post, "/api/generate", json=PAYLOAD)

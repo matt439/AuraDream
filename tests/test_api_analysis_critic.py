@@ -13,7 +13,7 @@ import time
 import httpx
 import pytest
 
-from backend import main, prompt_encoding
+from backend import main, prompt_check, prompt_encoding, tag_lookup
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable, PromptCritic
 from backend.jobs import BackendBusy, JobManager
@@ -147,7 +147,7 @@ def test_a_load_started_while_the_critic_is_fetched_is_a_409(client, fake, monke
 def test_prepare_runs_outside_the_gate_and_before_the_analysis(client, fake, monkeypatch):
     critic = fake.critic
     gate: dict[str, bool] = {}
-    prepare, critique, real_analyse = critic.prepare, critic.critique, main._analyse
+    prepare, critique, real_analyse = critic.prepare, critic.critique, prompt_check.analyse
 
     def watched_prepare():
         gate["prepare"] = main.jobs._gate.locked()
@@ -163,7 +163,7 @@ def test_prepare_runs_outside_the_gate_and_before_the_analysis(client, fake, mon
 
     monkeypatch.setattr(critic, "prepare", watched_prepare)
     monkeypatch.setattr(critic, "critique", watched_critique)
-    monkeypatch.setattr(main, "_analyse", watched_analyse)
+    monkeypatch.setattr(prompt_check, "analyse", watched_analyse)
     response = client.post("/api/prompt/critique", json={"prompt": "a lighthouse in fog"})
     assert response.status_code == 200, response.text
     assert critic.events == ["prepare", "analyse", "critique", "critique done"]
@@ -354,7 +354,7 @@ def test_the_rewrite_is_linted_without_asking_the_tag_index(client, fake, monkey
     # check places what the guide's own groups know.
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary({"green hair": "general", FIREFLY: "character"})
-    monkeypatch.setattr(main, "tag_vocabulary", vocabulary)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     response = client.post("/api/prompt/critique", json={"prompt": TAG_PROMPT})
     assert response.status_code == 200, response.text
     assert len(vocabulary.calls) == 1
@@ -369,7 +369,7 @@ def test_the_critic_holds_its_reorder_to_the_categories_check_placed_with(
     # green hair or before it: the critic's reorder stands, and the page
     # shows what the server kept.
     claim(monkeypatch, fake, ANIMAGINE)
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
 
     def critique(prompt):
         response = client.post("/api/prompt/critique", json={"prompt": prompt})
@@ -385,14 +385,14 @@ def test_the_critic_holds_its_reorder_to_the_categories_check_placed_with(
     )
     # Online, with every tag looked up and none known - an OC's name - no
     # lookup failed, and the tags are placed no better: the same answer.
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary({}))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary({}))
     body = critique("firefly, my oc")
     assert (body["reordered"], body["reordered_kind"], body["set_aside"]) == (
         "my oc, firefly", "allowed", [],
     )
     analysis = fake.critic.critiques[-1][3]
     assert analysis.categories == {} and analysis.categories_detail is None
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(offline=True))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     # 1girl leads by the guide's own groups, and the rule flags a tag put
     # before it.
     flagged = critique("1girl, green hair, firefly")
@@ -405,7 +405,7 @@ def test_the_critic_holds_its_reorder_to_the_categories_check_placed_with(
     # Every tag placed, Check's order is the documented one, and the same
     # reorder is some other order.
     placed = {"firefly": "character", "green hair": "general"}
-    monkeypatch.setattr(main, "tag_vocabulary", Vocabulary(placed))
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(placed))
     full = critique("firefly, green hair")
     assert full["reordered"] is None and full["reordered_kind"] is None
     assert full["set_aside"] == [
