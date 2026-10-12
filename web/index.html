@@ -799,7 +799,22 @@
                of Select, so its coming and going never moves the toggle. -->
           <span class="select-count" id="select-count" role="status"></span>
           <button type="button" class="ghost small foot-btn" id="btn-select-clear" hidden
-            title="Empty the selection (Escape)">Clear</button>
+            title="Empty the selection (Escape)"><span class="word">Clear</span><span class="glyph" aria-hidden="true">✕</span></button>
+          <!-- What the picked cards take together (gallery-select.js): star,
+               unstar or move to the recycle bin, in a menu - three buttons
+               were wider than the row has to spare at 600 px and beside the
+               viewer. Always here, between Clear and Select, held with its
+               reason while nothing is picked, so it never comes and goes; its
+               word gives way to the arrow where the row is short. -->
+          <span class="picked" id="picked">
+            <button type="button" class="ghost small foot-btn" id="btn-picked" aria-haspopup="menu"
+              aria-expanded="false" aria-disabled="true"><span class="word">Picked</span><span aria-hidden="true"> ▾</span></button>
+            <ul class="menu" id="picked-menu" role="menu" aria-labelledby="btn-picked" hidden>
+              <li role="menuitem" tabindex="-1" data-picked="star">★ Star picked</li>
+              <li role="menuitem" tabindex="-1" data-picked="unstar">☆ Unstar picked</li>
+              <li role="menuitem" tabindex="-1" data-picked="bin">⌦ Bin picked</li>
+            </ul>
+          </span>
           <button type="button" class="ghost small foot-btn" id="btn-select" aria-pressed="false"
             aria-keyshortcuts="Escape"
             title="Pick cards to act on together: a click or Space picks a card, Shift picks a range; Escape clears">Select</button>

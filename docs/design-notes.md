@@ -4251,6 +4251,50 @@ not counted: Bin there swaps Delete unstarred for the bin's two buttons as a
 whole, at once (`syncBinControls`), and a hold there kept Delete unstarred out
 after the bin closed, since the gallery's page lands after the switch.
 
+**It takes the picked cards** (2026-10-12). Swap tags, Mass refine and More
+seeds took the picks from the day the selection came, and Re-render, the
+oldest action on several images, stayed on the filter: with Starred ticked
+and one card picked the head offered "Re-render 3 at 1024×1024" beside
+three buttons titled "the selected image", and with picks but no filter it
+was hidden. Two keepers picked to render at full size were every match of
+a search or nothing. `RerenderRequest` now takes `ids`, through
+`resolve_selection` as the others do, and the page's target is
+`galleryActionTarget`'s (`rerenderTarget`): the picks where there are any,
+"Re-render 2 selected at 1024×1024", whatever the filter. A pick binned or
+deleted since is left out and answered in `deleted` with the resolver's
+words, as Swap tags lists it `deleted` - there is no preview here to list
+it in, so the page says it under the head ("Re-rendering the rest: #7 is
+in the recycle bin.") and forgets it. Another checkpoint's picks are still
+refused, the whole selection as before rather than per image: Re-render is
+one confirmed count, and a job that rendered fewer than its label said
+would make the label a lie. The refusal's ways out were a filter's - untick
+All models, a `model:` term - and neither reaches a pick, so for picks it
+names them to unpick.
+
+**A pick keeps the head's rows** (2026-10-12). Shown for picks, Re-render
+comes with no filter at all, beside Delete unstarred, and at 1400 px those
+two take two rows where either alone takes one: the first pick wrapped the
+row and moved the grid 38 px under the pointer that had just picked, so the
+next click picked another card. The head's coming-and-going hold
+(`showInHead`) is for a pointer on the head; this one is on a card. Holding
+Re-render back until the pointer left the grid was tried in thought and
+dropped: the way to it crosses the footer, where the wrap would then land
+under the pointer, and a hold reaching the head too would keep it out of
+sight wherever the user looks for it. So Delete unstarred gives Re-render
+its place while cards are picked - the sweep of a whole filter is the
+action least wanted beside picks, and Clear brings it back - but only
+where that keeps the rows: on a filter whose own Re-render already shows
+beside it, the head was one row or two by the labels' widths, and the
+picks' longer label wrapped a one-row head as surely (`smoke-select`
+caught it), while at 2560 px both fit on the row and nothing need give
+way. What fits is the widths', as `.held`'s one-row test is, so it is
+measured (`syncHeadForPicks`): Delete unstarred stays, and where the head's
+height changed with it, it gives way - within the one task, so nothing is
+painted between. Only a change of the picks does this; typing a filter
+while cards are picked lays the head out as typing always has, and Clear
+puts back the head the first pick found unless the filter changed
+meanwhile.
+
 ## Swap tags
 
 **"Redo with tags swapped"** (2026-10-10): a night's keepers again with
@@ -5408,6 +5452,46 @@ everywhere, the "Click cards" hint touched Select's border once Clear was
 hidden. On a sheet the cells are not picked: Select is held there
 (aria-disabled with the reason) rather than hidden, and a selection made
 before is kept and counted.
+
+**Stars and the bin for the picks, in a menu** (2026-10-12). Swap tags,
+Mass refine and More seeds were the selection's only takers; starring the
+keepers of a sweep was still F on each, and binning the rejects ⌦ on each.
+Star picked, Unstar picked and Bin picked act on the picks alone - never the
+filter, whose stars are a card's F and whose bin is Delete unstarred. F
+stays the card's in select mode, as above: the keyboard's star is where its
+focus is. Starring goes in one request (`POST /api/images/favorite`, `ids`
+and `value`) rather than one per image: a hundred picks were a hundred
+requests and a hundred chances for one to fail half way, and the server
+answers per id as the bin does - changed, already, binned (left with the
+flag it was binned with, as a single star's 404 leaves it), missing - so an
+image another tab binned is said and forgotten and the rest are starred.
+Bin picked asks nothing, as ⌦ does; its note's Restore takes all of them
+back. The three went into one menu, Picked ▾, between Clear and Select:
+as buttons they were 320 px, and with a card picked the row had 22 px to
+spare in a 600 px window and 95 beside the viewer at QHD. Always shown and
+held with its reason while nothing is picked (and in the bin, whose picks
+are Restore picked's), it never comes or goes beside Select, as Swap
+tags… does not. Even the arrow alone cut the count's number at 600 and its
+"not shown" beside the viewer with the bin's count in the row, so where the
+footer is short Clear's word gives way to a ✕ as " selected" gives way to a
+✓ - both still their names - and both sit 4 px from their neighbours. The
+menu hangs from the button's left edge, over the grid (from its right edge
+it ran off a 600 px window), and opens over the button where the window has
+no room below.
+
+**No sheet of the picks.** The review asked for one as an option, a
+wrapped sheet of the picked images in id order. The sheet is a view of the
+gallery's query: `drawSheet` lays out `galleryRecords`, the page the search
+box and Starred fetched (`sheetPage` at a time), and everything round it
+assumes so - its landing, its paging, the search it writes and Sheet off
+puts back (`sheetReturn`), its redraw after `forgetImages`, a job's sheet.
+Picks are ids from any number of searches. A sheet of them would need
+either a search term naming a set of ids (`id:` takes one or a span; a list
+of a thousand ids is no search box's text, and the term would reach
+`strict_scope`, Delete unstarred and `clear --where`) or a sheet whose
+records come from somewhere else, with each of those paths taught about
+it. That is a redesign of the sheet, not an action on the picks, so it is
+left out; a run's sheet is `run:` or `job:` as before.
 
 **Marks.** The top-left corner holds a pass's strength and a reference's
 number and the top-right the star, so the pick's mark is a ring at the top

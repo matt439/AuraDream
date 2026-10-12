@@ -143,6 +143,7 @@ els.prompt.addEventListener('keydown', (event) => {
 });
 document.addEventListener('click', (e) => {
   if (!els.examplesMenu.hidden && !e.target.closest('#examples')) showExamples(false);
+  if (!els.pickedMenu.hidden && !e.target.closest('#picked')) showPickedMenu(false);
   // The helper hangs under the prompt, which takes clicks to move its caret.
   if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper, #tags-menu, #prompt')) showTagHelper(false);
   // The token line is in the editor (under the box) but no part of typing.
@@ -306,6 +307,17 @@ const galleryHead = els.library.querySelector('.gallery-head');
 galleryHead.addEventListener('pointerover', (e) => pointHead(!e.target.closest('.gallery-footer')));
 galleryHead.addEventListener('pointerleave', () => pointHead(false));
 initBundles();
+// The Picked menu between Clear and Select (gallery-select.js): its keyboard
+// is a menu's, and leaving it closes it.
+els.pickedBtn.onclick = pickedPress;
+els.picked.addEventListener('keydown', pickedKey);
+els.pickedMenu.addEventListener('click', (e) => pickedChoose(e.target));
+els.picked.addEventListener('focusout', (e) => {
+  if (!els.pickedMenu.hidden && !els.picked.contains(e.relatedTarget)) showPickedMenu(false);
+});
+// Re-render takes the picked cards, and the head keeps its rows as they
+// change (syncHeadForPicks, gallery-actions.js).
+onSelectionChange(syncHeadForPicks);
 // Swap tags in the gallery's footer row and its dialog (tag-swap.js).
 setupSwap();
 // Mass refine in the same row, and its dialog (refine-batch.js).

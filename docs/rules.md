@@ -34,7 +34,8 @@ before changing it.
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
-  Delete unstarred's preview, the recycle bin's bodies and answers
+  Delete unstarred's preview, the recycle bin's bodies and answers, the
+  picked cards' stars (`FavoritesBody`, `FavoritesResult`)
 - `backend/schemas_rerun.py` — Re-render, Swap tags, Mass refine and More
   seeds: requests, statuses, results, previews, accepted answers
 - `backend/schemas_model.py` — the model status poll, the prompting guide and
@@ -178,8 +179,8 @@ before changing it.
   lock, `ensure_loaded`, the load-failure wording, model switching, status,
   the model and adapter routes, the middlewares, and the `services`
   (`app_context.AppServices`) every router factory reads main's state
-  through; `api_gallery.py` owns gallery browsing, runs, the recycle bin and
-  deletion, and `api_jobs.py` job inspection, cancellation, pause and SSE
+  through; `api_gallery.py` owns gallery browsing, runs, stars, the recycle
+  bin and deletion, and `api_jobs.py` job inspection, cancellation, pause and SSE
 - `backend/app_context.py` — `AppServices`, late-bound getters over main's
   globals (settings, backend, jobs, critic, translator, `ensure_loaded`,
   the load lock, the merged defaults), so a test or the fake server that
@@ -229,7 +230,7 @@ before changing it.
   checkpoint selection and retiring state prepared under the old model,
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog and background-operation polling;
-  `gallery-select.js` the picked cards, `gallery-batch.js` a card's batch
+  `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a card's batch
   on hover, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty. The stylesheet is
@@ -742,7 +743,8 @@ Reproduction:
   refusal; without, the gallery's filter (search, Starred, `AppServices.model_scope`),
   404 for none, 422 past `max_grid_images` by count. What to do with
   another checkpoint's records is the caller's (Re-render refuses the
-  selection, `api_generate.foreign_refusal`; Swap tags reports each image `foreign`;
+  selection, `api_generate.foreign_refusal`, naming picked ones to unpick;
+  Swap tags reports each image `foreign`;
   Mass refine reports it `foreign` unless `include_foreign`, then
   substitutes the running profile; More seeds reports each batch
   `foreign`).
@@ -803,7 +805,8 @@ Reproduction:
   (unless `include_binned`), `reference_paths` (a binned id is refused,
   "is in the recycle bin; restore it to use it", before the file check - so a
   submission, a queued cell and `generate.py` alike), `set_favorite` (404
-  while binned), `runs`, `keep_rates`, `_STARRED_SOURCE` (only a live star
+  while binned) and `set_favorites` (a binned id answered `binned`, its flag
+  as it was), `runs`, `keep_rates`, `_STARRED_SOURCE` (only a live star
   protects) and `_UNKEPT` (a binned star is unkept), and by
   `matching_preview(live_only=True)` / `delete_matching(to_bin=True)` for
   Delete unstarred. `_tracked_files`, `existing_filenames`,
@@ -1317,7 +1320,7 @@ Jobs:
   `gallery_lock` also covers whole storage/reindex writes and SQLite sessions
   across processes. SQLite sessions and per-record writers (`save_image`,
   `thumbnail_for`, `import_file`, `index_file`, `set_favorite`,
-  `delete_image`, `bin_images`, `restore_images`, `init_db`) wait up to
+  `set_favorites`, `delete_image`, `bin_images`, `restore_images`, `init_db`) wait up to
   `gallery_lock.SESSION_WAIT` for another process's reservation; whole
   maintenance operations (bundles, `delete_matching`, `empty_bin`,
   `clear_history`, `vacuum`, reindex/merge) refuse with `GalleryBusy`
@@ -3305,6 +3308,33 @@ Frontend and CLI:
   "Select #N: …"). `syncSelection` derives all of it from the state; call it
   after anything that adds cards other than through `card()` and
   `loadGallery`.
+- The Picked menu (`#picked`: `#btn-picked`, `aria-haspopup="menu"`, and
+  `#picked-menu`, `role="menu"`) stands between Clear and Select, always
+  shown, and acts on the picks alone, never the filter: **Star picked** and
+  **Unstar picked** (`starPicked`, one `POST /api/images/favorite` with
+  `{ids, value}`, `storage.set_favorites`, answered per id `{changed,
+  already, binned, missing}`; `markFavorite` marks each card, cell, result
+  and the lightbox as a single star does; binned and missing ids go
+  through `forgetImages`; the picks stay) and **Bin picked** (`binPicked`,
+  `POST /api/images/bin` with the ids, `keepBinned`, `forgetImages`
+  binned, and `noteBinned` with Restore for all of them; no question, as
+  ⌦ asks none). Each outcome is said in `#gallery-error`, ids named up to
+  six in id order, then counted. F stays the focused card's. The button is
+  aria-disabled with `PICKED_NONE` while nothing is picked and `BIN_HELD`
+  in the bin (`syncPickedButton`, from `syncSelection` and
+  `syncBinControls`), a held press saying it; its title and its items'
+  name the count. It keeps Examples' menu keyboard (`pickedKey`: ArrowDown
+  on the button opens on the first item, the arrows, Home and End walk,
+  Enter or Space chooses, Escape closes, focus back on the button; a
+  keyboard click goes in on the first item), closes on a click elsewhere
+  and on focus leaving `#picked`, and opens over the button (`.up`) where
+  the window has no room under it. Escape on the closed button empties the
+  selection, as on Select and Clear (`selectKey`). The menu hangs from the
+  button's left edge, over the grid, and moves nothing. Under the footer's
+  800 px container size its word and Clear's go out of sight (still their
+  names) for ▾ and ✕, 3 px padding, 4 px from a shown Clear and from
+  Select: the row has no room for more. There is no sheet of the picks
+  (design-notes, The gallery selection).
 - Swap tags (`POST /api/swap-tags/preview`, `POST /api/swap-tags`,
   `tag_swap.py`, `tag-swap.js`, `styles/swap.css`) is the fourth producer of
   cells. The server rewrites, the page shows: rows of `find` (comma items)
@@ -3759,7 +3789,30 @@ Frontend and CLI:
   checkpoint's images (`api_generate.foreign_refusal`) advises unticking All
   models; it offers `model:<the whole running id>` only where that id is
   contained in none of the foreign ids selected (`model:Anima` is
-  Animagine too), and its verb agrees with the count. The Runs picker asks
+  Animagine too), and its verb agrees with the count. For picked cards,
+  which no filter reaches, it names them to unpick ("Unpick #4 and #9", six
+  by number, then "N more") - All models does not scope `ids`, so it is
+  refused with or without the tick.
+- Re-render takes the picked cards (`ids` on `RerenderRequest`, through
+  `submission.resolve_selection`) where there are any, else the filter, by
+  `galleryActionTarget` as the footer's actions do (`rerenderTarget`): it
+  shows whenever there are picks, outside the bin, labelled "Re-render N
+  selected at WxH" with a title naming them, and on the filter "Re-render N
+  at WxH" with `RERENDER_FILTER_TITLE`. A picked id gone since (binned or
+  deleted) is left out and answered in `RerenderAccepted.deleted` (`{id,
+  detail}`, `submission.gone_detail`'s words); `startJob` hands
+  `onAccepted` the whole answer, and `sayRerenderGone` says them in
+  `#gallery-error` ("Re-rendering the rest: #7 is in the recycle bin.")
+  and drops them through `forgetImages` (binned or not by the detail).
+  Every pick gone is 404, naming each. A change of the picks keeps the
+  head's rows (`syncHeadForPicks`, `onSelectionChange`): at 1400 Re-render
+  and Delete unstarred side by side take two rows where either alone takes
+  one, so after any change of the picks the head's height is measured and,
+  where it changed, Delete unstarred gives Re-render its place, or comes
+  back where that keeps it (`unstarredGivesWay`, false at a first pick, read
+  by `syncDeleteUnstarred` only while something is picked, reset when
+  nothing is; where neither way keeps the height it stays as it was). A
+  filter typed, a tick or a job landing lays the head out as before. The Runs picker asks
   `/api/runs?limit=200` and groups the result: "Grids and batches" (images > 1
   or jobs > 1, labelled with count, distinct, "N prompts" and what varied -
   `runAxes` over `RunSummary.axes` (each setting's count of distinct values
@@ -3912,7 +3965,9 @@ Frontend and CLI:
   bin is empty" at 0; Sheet, Starred, Runs, Gallery beside, Swap tags…,
   Refine… and More seeds… are held aria-disabled "Not in the recycle bin —
   leave it with Bin", never `disabled`, and Re-render is hidden, since its
-  count would be the bin's; `galleryActionTarget` refuses;
+  count would be the bin's; `galleryActionTarget` refuses; the Picked menu's
+  button is held with the same reason (`syncPickedButton`, from
+  `syncBinControls`), the bin's picks being Restore picked's;
   Select stays, with **Restore picked** before Empty, held while nothing is
   picked. A bin card's tools are ↶ Restore (`.restore`) and ⌦ Delete
   permanently (`.del`, confirmed, last); its picture opens the lightbox; no
@@ -3982,8 +4037,9 @@ unkept, `reference_paths` refusing, `refine_binned`), `tests/test_gallery.py`
 (a double bin answered once, restore, `empty_bin` with its files and its
 `SelectionChanged`, the orphan sweep sparing binned PNGs),
 `tests/test_api_gallery.py` (every bin route, the 404s without
-`?binned=true`, the favourite's 404, Delete unstarred binning, Empty recycle
-bin's count and its pin),
+`?binned=true`, the favourite's 404, the picked cards' stars answered per
+id - a binned one `binned`, its flag kept - Delete unstarred binning, Empty
+recycle bin's count and its pin),
 `tests/test_api_jobs.py` (the replay and `deleted_count` through a bin and a
 restore), the refine, grid, Swap, Mass refine and More seeds files (a binned
 source refused, a binned cell not remade until Empty, a picked-then-binned
@@ -4086,7 +4142,11 @@ underscores, strictness, rows at once, phrases and lettering, Han, XML,
 variables) and `tests/test_api_swap.py` (every per-image status, one job
 per size keeping seeds, sizes and settings, `expected`, `pruned`, the
 filter scope, the negative field, the revision header, the resolver, and
-Re-render over mixed sizes through `cells_from_records`). Mass refine
+Re-render over mixed sizes through `cells_from_records`); Re-render's
+picked cards are `tests/test_api_grid.py` (exactly the picks whatever the
+filter, oldest first, a binned and a deleted pick named in `deleted`, all
+gone a 404 naming each, `ids` validated, and another checkpoint's picks
+refused with or without All models, named to unpick). Mass refine
 is `tests/test_refine_batch.py` (the per-record plan's order, the cell it
 builds, the profile a foreign record takes, `cell_from_record`'s named
 changes) and `tests/test_api_refine_batch.py` (every per-image status, one
@@ -5189,7 +5249,20 @@ message in the gallery's line beside a long count staying one line - the
 footer, Select and the grid unmoved, the text the title - at 1400, at 600
 and beside the viewer at 2560, the count's number whole each time, its
 words whole at 1400, " selected" a ✓ at 600 and beside the viewer, where
-"✓ 2 · 1 not shown" fits whole:
+"✓ 2 · 1 not shown" fits whole, Picked a ▾ and Clear a ✕ there, 4 px apart
+and the row inside the column. Then the Picked menu between Clear and
+Select, held with its reason and said when pressed; a first pick with no
+filter showing "Re-render 1 selected at WxH" while Delete unstarred gives
+way, the head's height, the grid and Select unmoved, and Clear putting it
+back; on a filter whose own Re-render shows, a pick keeping the head's
+height and taking the label; the menu opening over the grid without moving
+it, inside the window, its Escape, ArrowDown, ArrowUp and Enter; Star picked
+(both cards marked, the server's favourites, the picks kept), again
+("already starred"), Unstar picked, and F starring only the focused card;
+Re-render of two picks one of which another tab binned (said, dropped,
+the other rendered again); Bin picked (tombstones, the note's Restore, the
+bin's records, the head unmoved) and Restore; the menu opening over its
+button low in the window; and Picked held with the bin's reason in it:
 
 ```powershell
 uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>

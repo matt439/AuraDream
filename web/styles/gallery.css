@@ -439,6 +439,30 @@
      pixel short. */
   .select-count .num::before { content: "✓" / ""; margin-right: 2px; }
 }
+/* The Picked menu (gallery-select.js): a footer button as Select is, its
+   menu hung under it from its left edge, over the grid, so opening it moves
+   nothing (from its right edge it ran off a 600 px window; Select and the
+   row's five buttons after it keep its left edge well inside every width).
+   Where the footer is short - the count's ✓ size - its word goes out of
+   sight, still its name, for the arrow alone, 4 px from a shown Clear and
+   from Select, and Clear's word does the same for a ✕: with a card picked
+   and the bin not empty the row had 13 px to spare in a 600 px window and
+   86 beside the viewer at QHD, and the arrow alone cut the count's number
+   at 600 and its "not shown" beside the viewer, which the ✕ gives back. */
+.gallery-footer .picked { position: relative; flex: none; display: flex; }
+#picked-menu { width: max-content; }
+#picked-menu.up { top: auto; bottom: calc(100% + 6px); }
+#btn-select-clear .glyph { display: none; }
+@container gallery-footer (max-width: 799px) {
+  .picked .word, #btn-select-clear .word {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+  }
+  #btn-select-clear .glyph { display: inline; }
+  .gallery-footer #btn-picked, .gallery-footer #btn-select-clear { padding-inline: 3px; }
+  .gallery-footer .picked, .gallery-footer #btn-select-clear:not([hidden]) {
+    margin-right: calc(var(--sp-1) - var(--sp-3));
+  }
+}
 
 /* Back in a strip whose last image was deleted, held at the strip's height
    (inline, measured) with its line in the middle, as on a fresh page. */

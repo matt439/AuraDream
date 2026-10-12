@@ -1,5 +1,6 @@
 // Local Diffusion's page script: starring, deleting (into the recycle bin) and
-// forgetting gallery images, and taking them back once restored.
+// forgetting gallery images - one, or the picked cards together - and taking
+// them back once restored.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -39,20 +40,100 @@ async function setFavorite(rec, value, { say = false } = {}) {
     loadRuns();
     return;
   }
-  recordsWithId(rec.id).forEach((r) => { r.favorite = value; });
-  // Every element showing the image - a card, a sheet cell, a result beside
-  // the viewer - by class and by its own star button, never by re-rendering:
-  // the sheet rebuilds up to a thousand <img> nodes and resets the scroll per
-  // keypress.
-  const shown = `.card[data-id="${rec.id}"], .sheet-cell[data-id="${rec.id}"], .result[data-id="${rec.id}"]`;
+  markFavorite(rec.id, value);
+  // A star with focus says its own new state (aria-pressed); anywhere else
+  // F changed a button nobody was on, and nothing was heard.
+  if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
+}
+
+// A star the server has taken, on every record that carries the id and every
+// element showing the image - a card, a sheet cell, a result beside the
+// viewer - by class and by its own star button, never by re-rendering: the
+// sheet rebuilds up to a thousand <img> nodes and resets the scroll per
+// keypress.
+function markFavorite(id, value) {
+  recordsWithId(id).forEach((r) => { r.favorite = value; });
+  const shown = `.card[data-id="${id}"], .sheet-cell[data-id="${id}"], .result[data-id="${id}"]`;
   document.querySelectorAll(shown).forEach((el) => {
     el.classList.toggle('fav', value);
     el.querySelectorAll('.star').forEach((star) => syncStar(star, value));
   });
-  if (els.lightbox.open && lbList[lbIndex]?.id === rec.id) renderLightbox();
-  // A star with focus says its own new state (aria-pressed); anywhere else
-  // F changed a button nobody was on, and nothing was heard.
-  if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
+  if (els.lightbox.open && lbList[lbIndex]?.id === id) renderLightbox();
+}
+
+// Ids as a note names them: up to six by number, more by count, as the
+// recycle bin's notes do (noteBinned, restoreImages).
+const namesOrCount = (ids) => (ids.length > 6 ? plural(ids.length, 'image') : imageNames(ids));
+const isAre = (ids) => (ids.length === 1 ? 'is' : 'are');
+const wasWere = (ids) => (ids.length === 1 ? 'was' : 'were');
+
+// Star picked and Unstar picked (the footer's Picked menu): the gallery's
+// picked cards in one request (`POST /api/images/favorite`), each mark set
+// as a card's star sets it. The server answers per id, as the bin does: one
+// binned or deleted meanwhile - another tab - is said and forgotten
+// (forgetImages), and the rest are starred all the same. F stays the card's
+// own, in select mode too (gallery-select.js). The picks stay picked.
+async function starPicked(value) {
+  const slot = { slot: els.galleryError };
+  const ids = selectedIds();
+  if (!ids.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
+  let result;
+  try {
+    result = await api('/api/images/favorite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, value }),
+    });
+  } catch (err) {
+    showError(err.message, false, slot);
+    return;
+  }
+  const { changed, already, binned, missing } = result;
+  for (const id of [...changed, ...already]) markFavorite(id, value);
+  const also = (binned.length ? forgetImages(binned, { binned: true }) : '')
+    + (missing.length ? forgetImages(missing) : '');
+  const said = [
+    changed.length ? `${value ? 'Starred' : 'Unstarred'} ${namesOrCount(changed)}.` : '',
+    already.length ? `${namesOrCount(already)} ${wasWere(already)} ${value ? 'already starred' : 'not starred'}.` : '',
+    binned.length ? `${namesOrCount(binned)} ${isAre(binned)} in the recycle bin.` : '',
+    missing.length ? `${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
+  ].filter(Boolean).join(' ') + also;
+  showError(said, true, slot);
+  if (binned.length || missing.length) loadRuns();
+}
+
+// Bin picked (the Picked menu): the picked cards into the recycle bin at
+// once, asking nothing, as a card's ⌦ does - the note it leaves has Restore
+// for all of them (noteBinned). Through forgetImages, which takes them out
+// of the selection and leaves each card a tombstone in its place, so nothing
+// slides under the pointer. Already in the bin (another tab) or deleted is
+// said after the note, and forgotten as well.
+async function binPicked() {
+  const slot = { slot: els.galleryError };
+  const recs = selectedRecords();
+  if (!recs.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
+  let result;
+  try {
+    result = await api('/api/images/bin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: recs.map((r) => r.id) }),
+    });
+  } catch (err) {
+    showError(err.message, false, slot);
+    return;
+  }
+  const { binned, already, missing } = result;
+  // Kept before they are forgotten, so a Restore can put their cards back.
+  const moved = recs.filter((r) => binned.includes(r.id)).sort((a, b) => a.id - b.id);
+  for (const rec of moved) keepBinned(rec);
+  let also = forgetImages([...binned, ...already], { binned: true })
+    + (missing.length ? forgetImages(missing) : '');
+  also += [
+    already.length ? ` ${namesOrCount(already)} ${wasWere(already)} already in the recycle bin.` : '',
+    missing.length ? ` ${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
+  ].join('');
+  if (moved.length) noteBinned(moved, { also });
+  else showError(also.trim(), true, slot);
+  loadRuns();
+  void syncBin();
 }
 
 // What F did, for a screen reader: "Starred #12", "Unstarred #12", in a
@@ -884,6 +965,43 @@ function releaseHead() {
 // and the Starred tick is off, since with it on every match is a keeper.
 // Whether the search box reads as a strict scope is the server's call, at
 // the click. Not in the recycle bin, where Empty recycle bin has its place.
+// While cards are picked it may give its place to Re-render of them
+// (`unstarredGivesWay`, syncHeadForPicks).
 function syncDeleteUnstarred(now = false) {
-  showInHead(els.deleteUnstarred, !(binMode || els.favOnly.checked || total <= 0), now);
+  const givesWay = unstarredGivesWay && selectedIds().length > 0;
+  showInHead(els.deleteUnstarred, !(binMode || els.favOnly.checked || total <= 0 || givesWay), now);
+}
+
+// A change of the picks (onSelectionChange), with the pointer most often on
+// the card just picked: Re-render takes the picks, shown whatever the filter
+// and its label longer ("Re-render 8 selected at…"), and the head's controls
+// keep the rows they had. At 1400 px Re-render and Delete unstarred side by
+// side take two rows where either alone takes one: a first pick that brought
+// Re-render in beside it wrapped the row and moved the grid 38 px under the
+// pointer, and on a filter that showed both on one row the longer label
+// wrapped it alike. So Delete unstarred stays where the head keeps its
+// height with it, and gives Re-render its place where it does not - measured
+// within the one task, so nothing is painted between: what fits is the
+// widths' (the labels, the search, the window, Gallery beside), as `.held`'s
+// one row is (pointHead). Where neither keeps it, Delete unstarred stays as
+// it was. Only for a change of the picks: a filter typed, a tick or a job
+// landing lays the head out as it always has, and the sweep is back the
+// moment nothing is picked.
+let unstarredGivesWay = false;
+let headPicked = false;
+function syncHeadForPicks() {
+  const picked = selectedIds().length > 0;
+  const first = picked && !headPicked;
+  headPicked = picked;
+  if (!picked || first) unstarredGivesWay = false;
+  const head = els.search.closest('.gallery-head');
+  const before = head.getBoundingClientRect().height;
+  syncRerender();
+  syncDeleteUnstarred();
+  if (!picked || head.getBoundingClientRect().height === before) return;
+  unstarredGivesWay = !unstarredGivesWay;
+  syncDeleteUnstarred();
+  if (head.getBoundingClientRect().height === before) return;
+  unstarredGivesWay = !unstarredGivesWay;
+  syncDeleteUnstarred();
 }

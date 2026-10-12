@@ -3,7 +3,8 @@
 'use strict';
 
 // The gallery's selection: cards picked one by one for an action that takes
-// several images at once (Swap tags, Mass refine), where the filter alone was
+// several images at once (Re-render, Swap tags, Mass refine, More seeds, and
+// the Picked menu's star, unstar and bin), where the filter alone was
 // the only scope - a search that matched exactly the right images was often
 // not to be had. The head's Select (in its footer row, beside Bundles…) turns
 // a card's press into picking it; out of that mode a card does what it always
@@ -125,6 +126,7 @@ function syncSelection() {
   // so it does not fall to <body>.
   if (!n && document.activeElement === els.selectClear) els.select.focus({ preventScroll: true });
   els.selectClear.hidden = !n;
+  syncPickedButton();
   const ids = selectedIds();
   for (const fn of selectionListeners) {
     try { fn(ids); } catch (err) { console.error(err); }
@@ -227,8 +229,8 @@ function selectKey(e) {
   if (e.key !== 'Escape' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
   // On a card or on the selection's own controls only: the search box's
   // Escape empties it, the Runs picker's is its own, and the sheet's cells
-  // are not picked.
-  if (!e.target.closest?.('#gallery .card, #btn-select, #btn-select-clear')) return;
+  // are not picked. The Picked menu's, open, closes it first (pickedKey).
+  if (!e.target.closest?.('#gallery .card, #btn-select, #btn-select-clear, #btn-picked')) return;
   if (selectEscape()) e.preventDefault();
 }
 
@@ -245,6 +247,93 @@ function forgetSelected(gone, { stashed = true } = {}) {
     if (gone.has(stashedSelection.anchor)) stashedSelection.anchor = null;
   }
   if (changed) syncSelection();
+}
+
+// The Picked menu (#btn-picked, between Clear and Select): what the picked
+// cards take together that is no job - Star picked, Unstar picked, Bin picked
+// (starPicked, binPicked: gallery-actions.js). Picks only, never the filter:
+// a filter's stars are a card's F each, and its bin is Delete unstarred. A
+// menu, not three buttons: those were some 320 px, and with a card picked the
+// row had 22 px to spare in a 600 px window and 95 beside the viewer at QHD
+// (where it is short, gallery.css leaves the button its arrow and Clear a
+// ✕, so the count keeps its number and its "not shown"). Always shown,
+// held with its reason where nothing is picked and in the recycle bin (whose
+// picks are Restore picked's), so the row never changes under the pointer.
+// It is a role=menu and keeps that promise as Examples does: ArrowDown on the
+// button opens it on its first item, the arrows walk it, Escape or a choice
+// closes it with focus back on the button, and leaving it closes it.
+const PICKED_NONE = 'Pick cards with Select to star, unstar or bin them together';
+
+function syncPickedButton() {
+  const n = selection.size;
+  const why = binMode ? BIN_HELD : n ? '' : PICKED_NONE;
+  els.pickedBtn.setAttribute('aria-disabled', String(!!why));
+  const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
+  els.pickedBtn.title = why || `Star, unstar or bin ${them}`;
+  const titles = {
+    star: `Star ${them}`,
+    unstar: `Unstar ${them}`,
+    bin: `Move ${them} to the recycle bin; the note it leaves has Restore`,
+  };
+  for (const item of els.pickedMenu.querySelectorAll('[data-picked]')) item.title = titles[item.dataset.picked];
+  if (why && !els.pickedMenu.hidden) showPickedMenu(false);
+}
+
+// Over the button where the window has no room for it under the footer -
+// the gallery's head low under a tall viewer - rather than out of sight.
+function showPickedMenu(open) {
+  const inside = els.pickedMenu.contains(document.activeElement);
+  els.pickedBtn.setAttribute('aria-expanded', String(open));
+  els.pickedMenu.hidden = !open;
+  if (!open) {
+    if (inside) els.pickedBtn.focus({ preventScroll: true });
+    return;
+  }
+  els.pickedMenu.classList.remove('up');
+  const box = els.pickedMenu.getBoundingClientRect();
+  const top = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  if (box.bottom > innerHeight && els.pickedBtn.getBoundingClientRect().top - box.height - 6 >= top) {
+    els.pickedMenu.classList.add('up');
+  }
+}
+
+// A press: the menu, or the reason it is held. From the keyboard (a click of
+// detail 0, Enter or Space) focus goes in on the first item, as ArrowDown's
+// does: the items are no Tab stops.
+function pickedPress(e) {
+  if (els.pickedBtn.getAttribute('aria-disabled') === 'true') {
+    showError(`${els.pickedBtn.title}.`, true, { slot: els.galleryError });
+    return;
+  }
+  const open = els.pickedMenu.hidden;
+  showPickedMenu(open);
+  if (open && e.detail === 0) els.pickedMenu.querySelector('[role="menuitem"]')?.focus();
+}
+
+function pickedKey(e) {
+  if (e.key === 'Escape' && !els.pickedMenu.hidden) { e.preventDefault(); showPickedMenu(false); return; }
+  if (e.target === els.pickedBtn) {
+    if (e.key !== 'ArrowDown' || els.pickedBtn.getAttribute('aria-disabled') === 'true') return;
+    e.preventDefault();
+    showPickedMenu(true);
+    els.pickedMenu.querySelector('[role="menuitem"]')?.focus();
+    return;
+  }
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickedChoose(e.target); return; }
+  const items = [...els.pickedMenu.querySelectorAll('[role="menuitem"]')];
+  const at = items.indexOf(document.activeElement);
+  const next = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: items.length - 1 }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  items[(next + items.length) % items.length].focus();
+}
+
+function pickedChoose(item) {
+  const act = item?.closest?.('[data-picked]')?.dataset.picked;
+  if (!act) return;
+  showPickedMenu(false);
+  if (act === 'bin') void binPicked();
+  else void starPicked(act === 'star');
 }
 
 // What an action on several images (Swap tags, Mass refine) would act on

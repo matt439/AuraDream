@@ -111,6 +111,8 @@ function syncBinControls() {
   syncRerender(true);
   syncEmptyBin();
   syncRestorePicked();
+  // The Picked menu is the gallery's picks' (gallery-select.js).
+  syncPickedButton();
 }
 
 // A press on a held control: nothing changes, and the gallery's line says
