@@ -56,6 +56,9 @@ let swapProblem = '';
 let swapRefused = false;
 let swapAsking = null;
 let swapTimer = null;
+// A Queue press waiting on its check: a second press does nothing. Two
+// waits aborted each other's check in a loop that never yielded.
+let swapWaiting = false;
 
 // The rows as the server's summary words them ("red hair, long hair → silver
 // hair"), for the queue row until the server's own name lands.
@@ -406,11 +409,12 @@ function syncSwapQueue() {
 // refine do, then queues - a press made before the typing's check had
 // landed was said as "Checking the swaps…", wiped by that check, and lost.
 async function queueSwap() {
-  if (!els.swapDialog.open || submitting) return;
+  if (!els.swapDialog.open || submitting || swapWaiting) return;
   swapRefused = false;
   while (swapPayload().swaps.length && (swapAsking || JSON.stringify(swapPayload()) !== swapAnswerKey)) {
     clearTimeout(swapTimer);
-    await runSwapCheck();
+    swapWaiting = true;
+    try { await runSwapCheck(); } finally { swapWaiting = false; }
     if (!els.swapDialog.open || submitting) return;
   }
   const hold = swapHold();

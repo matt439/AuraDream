@@ -92,6 +92,17 @@ def test_what_the_rows_took_out_is_named_as_it_was_written():
     assert run("1girl, smile", ("red hair", ""))[0].removed == []
 
 
+def test_a_tag_the_swap_puts_back_is_not_taken_out():
+    # An identity row beside a changing one, a reorder, a phrase put back as
+    # it was: each tag is still in the new text, so none is named.
+    outcome, _ = run("1girl, red hair, smile", ("red hair", "red hair"), ("smile", "grin"))
+    assert (outcome.text, outcome.removed) == ("1girl, red hair, grin", ["smile"])
+    outcome, _ = run("1girl, red hair, smile", ("red hair, smile", "smile, red hair"))
+    assert (outcome.text, outcome.removed) == ("1girl, smile, red hair", [])
+    outcome, _ = run("a girl with red hair", ("red hair", "red hair"), ("girl", "boy"))
+    assert (outcome.text, outcome.removed) == ("a boy with red hair", ["girl"])
+
+
 def test_a_tag_never_matches_inside_another_tag():
     outcome, marked = run("hair, red hair", ("hair", "x"))
     assert outcome.text == "x, red hair" and marked == ["x"]

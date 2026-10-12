@@ -164,7 +164,8 @@ class Outcome:
     the page marks them, and adds nothing of its own. `removed` is what the
     rows took out of the original, as it was written there (a weight and
     all) and in its order - items dropped or written over, phrases replaced
-    - which the new text alone cannot show. `missing` names the
+    - which the new text alone cannot show; an item whose tag the new text
+    still has (an identity or a reorder row) is not taken out. `missing` names the
     finds a row needed and the text lacks; `by_hand`, the rows that would
     have had to rewrite a phrase many-to-one.
     """
@@ -286,7 +287,9 @@ def swap(text: str | None, rows: list[Row]) -> Outcome:
 
     out: list[str] = []
     spans: list[tuple[int, int]] = []
-    removed: list[str] = []
+    # (as written, key): an item written over, or a phrase replaced, which
+    # the new text may still hold (an identity row, a reorder).
+    removed: list[tuple[str, str | None]] = []
     length = 0
 
     def put(piece: str, mark: bool = False) -> None:
@@ -302,7 +305,7 @@ def swap(text: str | None, rows: list[Row]) -> Outcome:
     first = True
     for i, read in enumerate(reads):
         if i in fate:
-            removed.append(read.item.text)
+            removed.append((read.item.text, read.key))
             if fate[i] is None:
                 continue
         if not first:
@@ -321,7 +324,11 @@ def swap(text: str | None, rows: list[Row]) -> Outcome:
         spans = []
     if new == text:
         return Outcome(new, "unchanged", spans=spans, notes=notes)
-    return Outcome(new, "changed", spans=spans, removed=removed, notes=notes)
+    # Only what is gone: an item whose tag the new text still has as an item,
+    # or a phrase put back as it was, was not taken out.
+    kept = {_norm(_unwrap(item.text)[0]) for item in comma_items(new)}
+    gone = [written for written, key in removed if key is None or key not in kept]
+    return Outcome(new, "changed", spans=spans, removed=gone, notes=notes)
 
 
 def _applied_phrases(phrases: list[list[tuple[int, int, int]]]) -> set[int]:
@@ -345,14 +352,15 @@ def _applied_phrases(phrases: list[list[tuple[int, int, int]]]) -> set[int]:
 
 def _put_phrases(text: str, item: Item, edits: list[tuple[int, int, str]], put, took) -> None:
     """One prose item with its phrase matches replaced, in place, each phrase
-    replaced handed to `took`. Overlapping matches (two rows' finds in one
+    replaced by something else handed to `took` as (as written, None). Overlapping matches (two rows' finds in one
     phrase) keep the earlier one. A phrase removed takes one space beside it
     with it, so no double space is left."""
     position = item.start
     for start, end, replacement in sorted(edits, key=lambda edit: (edit[0], edit[1])):
         if start < position:
             continue
-        took(text[start:end])
+        if _norm(text[start:end]) != _norm(replacement):
+            took((text[start:end], None))
         if not replacement:
             if start > item.start and text[start - 1] == " " and (
                 end >= item.end or text[end] in " ,.;:!?"

@@ -112,6 +112,11 @@
   {"expect": "!els.moreSeedsCount.hasAttribute('aria-invalid') && els.moreSeedsError.textContent === ''"},
   {"expect": "__until(() => els.moreSeedsRun.getAttribute('aria-disabled') === 'false' && els.moreSeedsTitle.textContent === '4 more images' && __rows().length === 2 && !els.moreSeedsLine.classList.contains('failed'))"},
   {"expect": "__edge(els.moreSeedsRun) === __runAt2"},
-  {"key": "Escape"},
-  {"expect": "__until(() => !els.moreSeedsDialog.open)"}
+
+  {"log": "'two presses in one tick, while the check of a new count is out: the second does nothing, the first queues once and closes the dialog (two waits aborted the check of the other and froze the tab)'"},
+  {"eval": "window.__msPosts = 0; window.__msApi = api; api = (path, options) => { if (path === '/api/more-seeds') __msPosts++; return __msApi(path, options); }; els.moreSeedsCount.value = '1'; els.moreSeedsCount.dispatchEvent(new Event('input', {bubbles: true})); void runMoreSeeds(); void runMoreSeeds();"},
+  {"expect": "__until(() => !els.moreSeedsDialog.open)"},
+  {"expect": "__until(() => !busy && queuedIds.length === 0, 30000)"},
+  {"expect": "__msPosts === 1"},
+  {"eval": "api = __msApi;"}
 ]

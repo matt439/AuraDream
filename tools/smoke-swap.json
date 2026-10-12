@@ -178,5 +178,19 @@
   {"expect": "!__said.includes('Checking the swaps…')"},
   {"expect": "__until(() => !busy && queuedIds.length === 0, 30000)"},
   {"expect": "__seen('/api/gallery?limit=10&search=lakeside').then((p) => p.items.some((r) => r.prompt === '1girl, lakeside, day' && r.seed === 22))"},
-  {"eval": "__swapWatch.disconnect(); els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true}))"}
+  {"eval": "__swapWatch.disconnect();"},
+
+  {"log": "'two presses in one tick, while the check is out: the second does nothing, the first queues once and closes the dialog (two waits aborted the check of the other and froze the tab)'"},
+  {"eval": "els.swapRows.replaceChildren(); window.__swapPosts = 0; window.__swapApi = api; api = (path, options) => { if (path === '/api/swap-tags') __swapPosts++; return __swapApi(path, options); };"},
+  {"click": "#btn-swap"},
+  {"expect": "__until(() => els.swapDialog.open && document.activeElement === els.swapRows.querySelector('.swap-find'))"},
+  {"type": "day"},
+  {"key": "Tab"},
+  {"type": "dusk"},
+  {"eval": "void queueSwap(); void queueSwap();"},
+  {"expect": "__until(() => !els.swapDialog.open)"},
+  {"expect": "__until(() => !busy && queuedIds.length === 0, 30000)"},
+  {"expect": "__swapPosts === 1"},
+  {"expect": "__seen('/api/gallery?limit=10&search=lakeside').then((p) => p.items.filter((r) => r.prompt === '1girl, lakeside, dusk').length === 1)"},
+  {"eval": "api = __swapApi; els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true}))"}
 ]

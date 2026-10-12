@@ -50,6 +50,9 @@ let msTimer = null;
 // The POST is out: the dialog closes on its answer, and Escape and Cancel
 // wait for it.
 let msSending = false;
+// A press waiting on its check: a second press does nothing. Two waits
+// aborted each other's check in a loop that never yielded.
+let msWaiting = false;
 // An open waiting on its first check: a second press does nothing.
 let msOpening = null;
 
@@ -343,11 +346,12 @@ function syncMoreSeedsRun() {
 // the press says why in the error line and points at the count where that
 // is what holds it.
 async function runMoreSeeds() {
-  if (!els.moreSeedsDialog.open || msSending || submitting) return;
+  if (!els.moreSeedsDialog.open || msSending || submitting || msWaiting) return;
   msRefused = false;
   while (!msCountProblem() && (msAsking || JSON.stringify(msPayload()) !== msAnswerKey)) {
     clearTimeout(msTimer);
-    await runMoreSeedsCheck();
+    msWaiting = true;
+    try { await runMoreSeedsCheck(); } finally { msWaiting = false; }
     if (!els.moreSeedsDialog.open || msSending || submitting) return;
   }
   const hold = moreSeedsHold();

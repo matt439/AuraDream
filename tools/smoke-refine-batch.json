@@ -141,8 +141,13 @@
   {"log": "'an image deleted while the dialog is open: forgetImages has it checked again and listed as deleted'"},
   {"eval": "(async () => { await api('/api/images/' + __made[2].id, {method: 'DELETE'}); forgetImages([__made[2].id]); })()"},
   {"expect": "__until(() => __rows().find((li) => +li.dataset.id === __made[2].id)?.dataset.status === 'deleted' && els.refineBatchCount.textContent.includes('1 will be refined') && els.refineBatchCount.textContent.includes('1 deleted'))"},
-  {"key": "Escape"},
+
+  {"log": "'two presses in one tick, while the check of a new strength is out: the second does nothing, the first queues once and closes the dialog (two waits aborted the check of the other and froze the tab)'"},
+  {"eval": "window.__rbPosts = 0; window.__rbApi = api; api = (path, options) => { if (path === '/api/refine/batch') __rbPosts++; return __rbApi(path, options); }; els.refineBatchStrength.value = '0.2'; els.refineBatchStrength.dispatchEvent(new Event('input', {bubbles: true})); void runRefineBatch(); void runRefineBatch();"},
   {"expect": "__until(() => !els.refineBatchDialog.open)"},
+  {"expect": "__until(() => !busy && queuedIds.length === 0, 30000)"},
+  {"expect": "__rbPosts === 1"},
+  {"eval": "api = __rbApi;"},
 
   {"log": "'the model picker opened under the dialog without focus, as offerModelPicker opens it: Escape in the dialog closes the dialog, not the picker'"},
   {"click": "#btn-refine-batch"},

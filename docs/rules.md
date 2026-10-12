@@ -3222,7 +3222,10 @@ Frontend and CLI:
   payload typed now), the server's refusal, "The checkpoint changed…" or
   "No image would change"; a press (Queue, Enter in a box, Ctrl+Enter)
   first waits for the check of what the rows say, as More seeds' and Mass
-  refine's do (`queueSwap`), then says a hold in `#swap-error`, and sends
+  refine's do (`queueSwap`; a second press while one waits does nothing -
+  `swapWaiting`, `msWaiting`, `rbWaiting` - since two waits aborted each
+  other's check in a loop that never yielded), then says a hold in
+  `#swap-error`, and sends
   the answer's `ids` as `expected`; accepted, the dialog closes, refused,
   the old answer is dropped and it checks again, the server's reason kept in
   `#swap-error` (`swapRefused`) until the next edit (`swapEdited`) or
@@ -3230,7 +3233,8 @@ Frontend and CLI:
   server's `spans`, and under a changed text "Took out: …" lists the
   server's `removed` (`tag_swap.Outcome.removed`: every item dropped or
   written over and every phrase replaced, as the original wrote it, in its
-  order) struck through (`swapTookOut`), since a removal leaves nothing to
+  order, leaving out a tag the new text still has as an item - an identity
+  or a reorder row) struck through (`swapTookOut`), since a removal leaves nothing to
   mark; the rows box and the results list have fixed heights
   and scroll inside the dialog, the count line keeps two lines and
   `#swap-error` one, so neither a row added nor a check moves anything
@@ -3729,7 +3733,8 @@ Frontend and CLI:
   (`flex-wrap`, bundles.css) rather than run the page past the screen.
   `enterBin()` sets `binMode`, sets the gallery's selection aside
   (`stashSelection`; `leaveBin()` puts it back, less what was binned or
-  deleted meanwhile, and drops the bin's picks) and `resetGallery()`s;
+  deleted meanwhile - and less any its view listed, binned by another tab
+  unheard of - and drops the bin's picks) and `resetGallery()`s;
   `loadGallery` then asks `/api/gallery/bin` (`galleryEndpoint()`), every
   checkpoint's binned images newest id first under the search box (Starred
   does not apply), the head reads "Recycle bin" (`#gallery-title`) with its
@@ -5074,7 +5079,8 @@ danger colour, Cancel, a 409 when the bin changed and the empty state
 a search from an image (`showGallerySearch`) and by a run opened as a sheet
 (`showRun`); three gallery picks set aside while the bin is shown (its own
 pick in their place) and back on leaving it, less one of them binned
-meanwhile, the bin's pick not brought along; the bundles dialog's preview
+meanwhile and one binned behind the page's back that the bin's view listed,
+the bin's pick not brought along; the bundles dialog's preview
 line counting the bin; a Delete
 and its Restore in a lightbox walking the viewer's strip keeping the image
 in view; and a viewer tile's "In the recycle bin" tombstone becoming

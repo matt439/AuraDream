@@ -145,7 +145,9 @@ function enterBin() {
 function leaveBin() {
   if (!binMode) return false;
   binMode = false;
-  unstashSelection();
+  // Read before the gallery's own records replace the bin's: a pick another
+  // tab binned is a card this view showed.
+  unstashSelection(new Set(galleryRecords.filter((r) => r.binned_at).map((r) => r.id)));
   syncBinControls();
   return true;
 }

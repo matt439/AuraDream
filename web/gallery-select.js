@@ -62,14 +62,16 @@ function stashSelection() {
   clearSelection();
 }
 
-function unstashSelection() {
+// `binned`: ids the bin's view showed, binned elsewhere meanwhile, which
+// forgetImages never heard of; they stay out.
+function unstashSelection(binned = new Set()) {
   const stash = stashedSelection;
   stashedSelection = null;
   selection.clear();
   selectAnchor = null;
   if (stash) {
-    for (const [id, rec] of stash.picks) selection.set(id, rec);
-    selectAnchor = stash.anchor;
+    for (const [id, rec] of stash.picks) if (!binned.has(id)) selection.set(id, rec);
+    selectAnchor = binned.has(stash.anchor) ? null : stash.anchor;
   }
   syncSelection();
 }
