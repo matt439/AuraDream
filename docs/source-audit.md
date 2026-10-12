@@ -64,6 +64,16 @@ the bin out is `storage._LIVE`; the bin's writes are `gallery_delete.py`'s and
 its routes `api_gallery.py`'s. `forgetImages` and `unforgetImages` stay in
 `gallery-actions.js`.
 
+Added since this pass, with no split: `png-settings.js` (loaded right
+after `reuse.js`) owns Load settings from PNG's page side - reading a PNG's
+text chunks, the drop (never a drag that began on the page) and the
+picker's file - and fills the panel through
+`reuse.js`'s `reuseIntoPanel`, which now takes the note's name and whether
+the sampling values carry. The route is `api_png.py`; the reading
+`--from-image` did in `generate.py` (`_image_settings`, now a wrapper that
+turns refusals into argument errors) moved to `png_settings.py`, pure like
+`metadata.py`, so the parser/service seam below has one function less.
+
 How the boundaries hold:
 
 - The new route modules take one `AppServices` built by `main` over its own
@@ -82,8 +92,9 @@ How the boundaries hold:
 - Test families import from small helper modules (`prompt_encoding_helpers`,
   `bundle_helpers`), never from one another, and re-collect nothing through
   wildcard imports.
-- The browser still runs classic scripts sharing one global scope: 43, each
-  loaded exactly once, `app.js` last. No binding was wrapped in a module or
+- The browser still runs classic scripts sharing one global scope: 43 at
+  this pass, 44 since `png-settings.js`, each loaded exactly once, `app.js`
+  last. No binding was wrapped in a module or
   closure; each moved block keeps its comment and source order.
 
 ## Long files retained

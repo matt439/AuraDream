@@ -151,6 +151,32 @@ per checkpoint. **Reset** restores defaults. Resume is never remembered as
 ticked. **Reuse** on an image restores its settings; check the warning when
 reusing one from another checkpoint. Prompt replacements support Ctrl+Z.
 
+### Load settings from a PNG
+
+Drop a PNG anywhere on the page, or press **Load settings from PNG…** under
+**Generate**, to fill the panel from a file - a PNG from the
+other gallery (Windows and WSL keep separate ones), from a backup, or from
+another tool. It works like Reuse: the note offers **Undo**, Ctrl+Z gives
+back the prompt boxes, and a PNG made on another checkpoint says so.
+
+- A **Local Diffusion PNG** gives back every setting it was made with:
+  prompt, negative prompt, size, steps, CFG, Mu, seed and adapter. Its
+  reference images come along only if this gallery holds the very same
+  pictures under the same numbers; a refine pass fills the panel as a
+  normal render at the panel's own size.
+- An **A1111, Forge or Civitai PNG** (its `parameters` text) gives the
+  prompt, negative prompt and size. Its steps, sampler, CFG scale, seed and
+  checkpoint do not carry over: another tool's sampler and checkpoint do not
+  make the same picture from the same numbers, so the panel keeps its own,
+  and the note lists them. Whether its negative prompt runs is judged at
+  the panel's own CFG.
+- A JPEG, a ComfyUI PNG (its workflow is not settings this app reads) or a
+  PNG without settings is refused with a reason.
+
+Only the PNG's text is read and sent to the server; the image itself is not
+uploaded, not added to the gallery and not used as a reference. Dragging a
+gallery image onto the panel does nothing: use its **Reuse** instead.
+
 ## Write and check prompts
 
 **Examples** supplies the authors' prompts; templates select the first slot
@@ -407,7 +433,7 @@ queued per run, and the new images join it: the batch's hover, the
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Contact sheet | F stars the focused cell |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
-| Prompt replacements | Ctrl+Z restores text after Apply, Reuse, Expand, Examples or a chip edit |
+| Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
 | Refine | Enter in a one-line field runs; Strength arrows step by 0.05, or 0.01 with Shift |
 
 Lightbox zoom and position carry between images of the same shape, useful

@@ -168,6 +168,12 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 .sub i { font-style: normal; font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: 5px; }
 
+/* Load settings from PNG, over the panel's outcome line (index.html): the
+   button and what else does the same, on one line where the panel has room
+   for both. */
+.png-load { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.png-load .hint { margin: 0; min-height: 0; }
+
 /* An explicit hover target for the per-checkpoint help. A native `title` is
    invisible until you happen to rest on the right pixels, and plenty of setups
    never show one at all - so this is a badge you can see and a panel we draw. */

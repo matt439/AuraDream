@@ -108,7 +108,8 @@ For everyday use:
   **Grid search** varies settings, prompts and seeds, with resume support.
 - Star favourites, reuse settings and compare images in the gallery or a contact
   sheet; in the full view, compare a pass with its source or an image with its
-  CFG neighbours. PNGs retain their generation settings.
+  CFG neighbours. PNGs retain their generation settings: drop one on the
+  page (or an A1111, Forge or Civitai PNG) to load them into the panel.
 - **Select** picks gallery cards to act on together: re-render them at another
   size, swap tags, refine, make more seeds, or star, unstar or bin them at once.
 - **Ctrl/Cmd + Enter** generates; inside Grid search or Refine, it runs that action.
@@ -243,7 +244,9 @@ See [gallery bundles](docs/usage.md#gallery-bundles).
 
 `local-diffusion.db` indexes the gallery. Each PNG
 contains its generation settings in a `local-diffusion` JSON chunk and an
-A1111-style `parameters` block. Back up **both the PNGs and database** to retain
+A1111-style `parameters` block; see
+[load settings from a PNG](docs/usage.md#load-settings-from-a-png).
+Back up **both the PNGs and database** to retain
 favourites, timings and the recycle bin. Deleting an image in the browser
 moves it to the recycle bin, where it can be restored until the bin is
 emptied. See [gallery maintenance](docs/usage.md#clear-or-recover-a-gallery)

@@ -498,6 +498,20 @@
       <ul class="queue-list" id="queue-list"></ul>
       <button class="ghost small danger" id="btn-cancel-queued" title="Cancel every job waiting behind this one">Cancel queued</button>
     </div>
+    <!-- Load settings from PNG (png-settings.js): the keyboard's way to what
+         a PNG dropped anywhere on the page does. The file's text is read in
+         the browser and only that is sent; the image is never stored or made
+         a reference. Directly over #error, where its note is written: a load
+         grows the panel under the button, never over it, so a second pick
+         finds it where the first was. Below Generate - a line above it would
+         push it below a 900 px window - and not in the prompt's caption,
+         which has no room beside Tags or Expand in a 330 px panel. -->
+    <div class="png-load">
+      <button type="button" class="ghost small" id="btn-png" aria-describedby="png-hint"
+              title="This app's own PNGs give back every setting; an A1111, Forge or Civitai PNG its prompt, negative prompt and size">Load settings from PNG…</button>
+      <span class="hint" id="png-hint">or drop a PNG on the page</span>
+      <input type="file" id="png-file" accept="image/png,.png" hidden>
+    </div>
     <!-- role=alert: a failure written here has to be announced, not just
          painted. app.js unhides it *before* writing the text, since a node
          still display:none announces nothing. -->
@@ -1338,6 +1352,7 @@
 <script src="/static/gallery-select.js"></script>
 <script src="/static/gallery-batch.js"></script>
 <script src="/static/reuse.js"></script>
+<script src="/static/png-settings.js"></script>
 <script src="/static/sheet.js"></script>
 <script src="/static/sheet-render.js"></script>
 <script src="/static/sheet-export.js"></script>

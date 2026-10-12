@@ -341,6 +341,21 @@ def test_from_image_refuses_a_file_without_the_record(cli, tmp_path):
     assert exc.value.code == 2
 
 
+def test_from_image_refuses_a_record_that_is_not_one(cli, tmp_path, capsys):
+    # Through png_settings, which the page's Load settings from PNG shares: a
+    # record that is JSON but no object is an argument error, not a traceback.
+    from PIL import Image, PngImagePlugin
+
+    info = PngImagePlugin.PngInfo()
+    info.add_text("local-diffusion", "[1, 2]")
+    odd = tmp_path / "odd.png"
+    Image.new("RGB", (8, 8)).save(odd, pnginfo=info)
+    with pytest.raises(SystemExit) as exc:
+        generate.main(["--from-image", str(odd), "--dry-run"])
+    assert exc.value.code == 2
+    assert "is not a settings record" in capsys.readouterr().err
+
+
 def test_a_server_holding_the_gpu_is_refused_with_its_own_code(cli, store, monkeypatch, capsys):
     # A second copy of the weights beside a server's resident copy is an OOM
     # after a multi-minute load. Advisory, after the dry-run guard, exit 4.

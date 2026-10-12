@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_generate, api_jobs, api_more_seeds, api_prompt, api_refine_batch, api_swap, app_context, bundle_common, bundles, gallery_lock, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_bundles, api_gallery, api_generate, api_jobs, api_more_seeds, api_png, api_prompt, api_refine_batch, api_swap, app_context, bundle_common, bundles, gallery_lock, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
@@ -340,7 +340,7 @@ async def hold_model_for_request(request: Request, call_next):
     path = request.url.path
     depends_on_model = path in {
         "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
-        "/api/loras",
+        "/api/loras", "/api/png/settings",
         "/api/model/load", "/api/model/unload",
         "/api/gallery/unstarred",
     } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/"))
@@ -826,6 +826,7 @@ app.include_router(api_generate.create_router(services))
 app.include_router(api_swap.create_router(services))
 app.include_router(api_refine_batch.create_router(services))
 app.include_router(api_more_seeds.create_router(services))
+app.include_router(api_png.create_router(services))
 app.include_router(api_jobs.create_router(lambda: jobs))
 app.include_router(api_bundles.create_router(lambda: bundle_manager, services))
 app.include_router(api_gallery.create_router(

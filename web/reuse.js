@@ -88,7 +88,11 @@ function syncReuseUndo() {
   note.button?.remove();
 }
 
-function reuseIntoPanel(rec, withSize, note = '') {
+// `name` is what the note calls the record - a gallery id, or a PNG's file
+// name for Load settings from PNG (png-settings.js) - and `sampling` false
+// writes only the prompt pair and the seed, as `fillPanel` takes it: an
+// A1111 block's steps and CFG are another sampler's.
+function reuseIntoPanel(rec, withSize, note = '', { name = `#${rec.id}`, sampling = true } = {}) {
   // One Undo on offer at a time: an Example's, for the text this replaces,
   // goes with it.
   dropPromptUndo();
@@ -100,7 +104,7 @@ function reuseIntoPanel(rec, withSize, note = '') {
     values: { steps: els.steps.value, cfg: els.cfg.value, mu: els.mu.value, trueCfg: els.trueCfg.value },
     owned: { ...owned },
   };
-  fillPanel(rec, true);
+  fillPanel(rec, sampling);
   if (withSize) {
     els.width.value = rec.width;
     els.height.value = rec.height;
@@ -118,12 +122,14 @@ function reuseIntoPanel(rec, withSize, note = '') {
   // the note is at the panel's foot, and where the window shows the prompt
   // and only the start of the note, the start is what is in sight.
   const replaced = before.state.prompt.trim() !== '' && before.state.prompt !== rec.prompt;
-  const lead = `Settings from #${rec.id} loaded${replaced ? ' - your prompt was replaced' : ''}.`;
+  const lead = `Settings from ${name} loaded${replaced ? ' - your prompt was replaced' : ''}.`;
   const notes = [note];
   // Steps, CFG and mu are checkpoint-specific: Turbo's 8 / 0 / 1.15 on FLUX is
   // a visibly broken image recorded under FLUX. The checkpoint is part of the
   // reproduction set as much as the seed, so say so - as a note, not a failure.
-  if (loadedModel && rec.model_id !== loadedModel) {
+  // A PNG from another tool names no checkpoint of this app's: its note
+  // says itself what does not carry.
+  if (loadedModel && rec.model_id && rec.model_id !== loadedModel) {
     // Mu named only where its box can be checked: on Anima it is greyed.
     const knobs = muSupported ? 'steps, CFG and mu' : 'steps and CFG';
     notes.push(
@@ -144,7 +150,7 @@ function reuseIntoPanel(rec, withSize, note = '') {
       + 'so this renders from the prompt alone.',
     );
   }
-  reuseNote = { lead, parts: notes, before, after: reuseFields(), id: rec.id, button: null };
+  reuseNote = { lead, parts: notes, before, after: reuseFields(), name, button: null };
   showReuseNote();
   revealReused(reuseNote);
   void checkReused(reuseNote, rec);
@@ -295,7 +301,7 @@ function undoReuse(note) {
   schedulePreview();
   scheduleTagValidation(0);
   persistPanel();
-  showError(`Reuse of #${note.id} undone: the panel is as it was.`, true);
+  showError(`Reuse of ${note.name} undone: the panel is as it was.`, true);
 }
 
 // A refined record holds its source's id, not the source: asked for, so the

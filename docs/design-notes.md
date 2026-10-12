@@ -1971,6 +1971,106 @@ and the Undo in sight at 2048x1040 at 125%. The lightbox's Reuse closes the
 lightbox first: a modal dialog keeps focus to itself, and `replaceBoxText`
 needs the prompt focused.
 
+## Load settings from PNG
+
+The Windows and WSL galleries are separate, a backup is a folder of PNGs,
+and every other tool's PNG carries an A1111 'parameters' line - yet the
+page refused any file dropped on it (dropEffect `none`), and only the CLI's
+`--from-image` could read a PNG, and only this app's (2026-10-12 review,
+F4). Now a dropped or picked PNG fills the panel.
+
+**The image never leaves the browser.** The page walks the chunk headers
+itself (`pngTextChunks`: tEXt, zTXt through `DecompressionStream`, iTXt)
+and posts only `{name, chunks}`. Uploading the file would have been less
+page code, but it is megabytes the server would hold for nothing, an
+upload path that is not the gallery's, and the first step towards
+"import a photo as a reference" - U61 B, which the user deferred. So the
+picture is never stored, never in the gallery and never a reference, and
+the route's body is capped at 1 MiB of text (a settings record is a few
+kilobytes; a ComfyUI graph, read only to name it in the refusal, rarely
+past a few hundred).
+
+**The server decides, through what already decides.** `--from-image`'s
+reading moved into `png_settings.py` (pure, like `metadata.py`, so the CLI
+still imports it before `apply_env`), and `api_png.py` builds a
+`GenerateRequest` from it and answers it after `backend.applied()` on the
+running checkpoint: the profile fills what the PNG does not say, a size a
+direct render does not take is left with its reason rather than refused
+whole, and what `applied()` drops - references, an adapter - is said in a
+note. The page adds nothing of its own beyond the file's name, the
+panel's seed where none carries, and the panel's steps, CFG, true CFG and
+Mu: for another tool's PNG those stay the panel's, so the request is built
+with them and `applied()` judges what Generate will run. Built with the
+profile's instead, a Turbo panel at CFG 4 was told its A1111 negative
+"does not run here" while the box, judged at 4, ran it (fixed in review).
+It sends the text of the keywords the server reads and only the names of
+the rest: an XMP packet or a long comment beside a settings block had
+taken the body past the 1 MiB cap and refused a PNG whose settings were
+a few hundred bytes.
+
+**It is a Reuse.** The answer is filled in through `reuseIntoPanel`, with a
+name ("Settings from lighthouse.png loaded") and, for another tool's PNG,
+`sampling` off, so everything Reuse learned applies unchanged: `writeBox`
+and Ctrl+Z, the note's Undo and its retirement on the first change, where
+the page goes, the other-checkpoint sentence (only where the record names a
+checkpoint of this app's), the LoRA box's `/api/loras` reason. One
+difference is the negative prompt: `applied()` drops one that would not
+run - an A1111 negative on Turbo at CFG 0, say - and the gallery's records
+never hold one, but a file's text is all the user has of it. So the
+answer carries the PNG's own `negative_prompt` beside `settings`, the box
+keeps it greyed as it keeps a typed one, and a note says it does not run
+at these settings.
+
+**Ids from a file are another gallery's.** A record's references and
+refine source are gallery ids, and a PNG from WSL's gallery or a backup
+names ids that here are other pictures. A reference carries only where
+this gallery's live row under that id has the decoded-pixel hash and size
+the record's `reference_sources` gives (`storage.image_provenance`, written
+for PNG recovery); otherwise it is left out with a note. A refine pass is
+the Refine dialog's, made from its source in a gallery, so a file's pass
+fills the panel as a direct render at the panel's own size - what Reuse
+does when a pass's source has gone.
+
+**An A1111 block gives the prompt, the negative and the size, nothing
+mapped.** It is parsed as A1111 parses it (`parse_parameters`, its own
+regex and line rule), and Steps, Sampler, Schedule type, CFG scale, Seed and
+Model are read only to be named: another sampler on another checkpoint
+does not make the same picture from the same numbers, and a table from
+"DPM++ 2M Karras" to a scheduler here, or CFG 7 on SDXL to a Krea 2 CFG,
+would be one this app invented. The panel keeps its own steps, CFG and
+seed (`sampling` false), and the note lists the rest as "Not read". This
+app's own PNGs carry a 'parameters' line too; the `local-diffusion` record
+wins over it.
+
+**Where the button is.** The drop is the main way in; the keyboard needs a
+control. The prompt's caption, beside Reset, was the first choice - both
+act on the whole panel - but at the 330 px panel it wrapped Reset onto a
+second line wherever Tags or Expand is shown (Animagine, ERNIE), moving
+the prompt box once the status arrived. A line above Generate would push
+it below a 900 px window, which the Output caption was hidden to prevent.
+The panel's last line, after LoRA, came next, and review found the note
+moved it: Reuse writes into `#error`, above it, so a picked load pushed
+the button 206 px down, past the foot of a 2560x1305 window that does not
+scroll, and a second pick needed a scroll to find it. So "Load settings
+from PNG…", with "or drop a PNG on the page" beside it, sits under
+Generate directly over `#error`: the note grows the panel under the
+button. Only a job moves it, as it moves the run hint, and Reuse's own lift
+of a stuck panel to show the note's Undo (20 px at 1400x900). Not between
+Generate and `#progress`, where the run hint would part from Generate and
+a job's bars come lower. The drag outline is a pseudo-element over the
+window that takes no pointer, so nothing moves under it.
+
+**A drag from the page is not a file.** Chromium lists 'Files' among the
+types of an `<img>` dragged from the page itself, so a gallery card
+dragged onto the panel - perhaps in the hope of a Reuse - outlined the
+window and was then refused as "a .webp is not a PNG". The page notes a
+drag that starts on it (`dragstart`) and treats it as before the feature:
+no outline, no drop. `draggable=false` on every card would have done for
+the gallery but not the sheet, the strip or a link; the flag covers them
+all. It clears at `dragend`, at the drop, and at the next mouse move,
+since a card the gallery re-renders mid-drag sends its `dragend` nowhere
+the document hears.
+
 ## One worker thread
 
 Generation is serialized through a one-thread pool — the GPU cannot usefully
@@ -3967,7 +4067,9 @@ never fires anyway, since import rewrites their metadata chunk.
 ## The CLI reads PNGs and probes the server
 
 **The CLI reads PNGs and probes the server.** `--from-image` reads
-the app's PNG metadata from `.info` - not `.text`, which decodes every pixel - and
+the app's PNG metadata from `.info` - not `.text`, which decodes every pixel -
+through `png_settings.image_settings`, which the page's Load settings from
+PNG shares (see "Load settings from PNG"), and
 fills what the flags left unset *before* `apply_env`, so the record's
 checkpoint reaches `LOCAL_DIFFUSION_MODEL_ID`; quantization is deliberately not
 carried (a Nunchaku PNG on Windows would ask for a mode the machine cannot

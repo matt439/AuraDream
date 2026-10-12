@@ -154,7 +154,13 @@ before changing it.
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/metadata.py` — the PNG chunk's key (`local-diffusion`) and
   `embedded_metadata`, which still reads the pre-rename `krea` key; shared
-  by storage, `generate.py` and `reindex.py`
+  by storage, `png_settings.py` (so `generate.py` and `api_png.py`) and
+  `reindex.py`
+- `backend/png_settings.py` — settings read back from a PNG's text chunks:
+  this app's record (`record`, and `image_settings` for a file on disk,
+  which `--from-image` reads through) and A1111's 'parameters' block
+  (`parse_parameters`, A1111's own reading of it); pure, no config, Pillow
+  only where a file is opened
 - `backend/gallery_reports.py` — read-only aggregate queries: the preview's
   cost and size estimates, keep rates, runs (reads `storage` at call time)
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
@@ -202,6 +208,10 @@ before changing it.
   `backend/api_generate.py` Generate, Run grid, its preview and Re-render;
   `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py` the Swap tags,
   Mass refine and More seeds plans, previews and submissions
+- `backend/api_png.py` — Load settings from PNG (`POST /api/png/settings`):
+  a PNG's text chunks, as the page read them, answered as the panel's
+  settings after `applied()`, with the notes on what did not carry; the
+  body capped at `MAX_BODY`
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone
@@ -210,7 +220,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 43 classic
+- `web/` — served as-is from `/static`; `index.html` loads 44 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -218,7 +228,9 @@ before changing it.
   mirrors and Pause, and `job-queue.js` the queue and which job the page
   watches; `panel.js`, `runs.js` and `viewer.js` the settings,
   run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
-  the cards and their actions; `gallery-search.js` the lightbox's search
+  the cards and their actions; `png-settings.js` Load settings from PNG
+  (a dropped or picked PNG's text chunks read, sent and filled in through
+  Reuse); `gallery-search.js` the lightbox's search
   buttons; `sheet.js`, `sheet-render.js` and
   `sheet-export.js` the contact sheet; `facts.js` a record's settings line
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
@@ -1917,7 +1929,8 @@ Frontend and CLI:
   1400x900, 1920x947 and 2048x1040@1.25.
 - The panel's order is Prompt, Negative, Size, Sampling, Output, Generate
   and what a job adds under it (`#progress`, then the run hint, the finish
-  line, the queue, `#error`, the last-run banner), the grid fold, then Reference images
+  line, the queue, Load settings from PNG… (`.png-load`), `#error`, the
+  last-run banner), the grid fold, then Reference images
   (`#reference-field`) and LoRA (`#lora-field`) last. Nothing rarely used
   goes between Sampling and Generate: at scroll 0 the panel is in the
   page's flow and its sticky top cannot lift it, so every line above
@@ -2816,6 +2829,65 @@ Frontend and CLI:
   `syncReuseButtons` where the checkpoint changes, where
   `reference_supported` or `lora_supported` flips, and at the end of
   `refreshLoras`.
+- Load settings from PNG (`png-settings.js`, `api_png.py`,
+  `png_settings.py`; `smoke-png-settings.json`, `tests/test_api_png.py`).
+  A file dragged over the page outlines the window (`body.png-drop::after`,
+  "Drop a PNG to load its settings", `pointer-events: none`, dropEffect
+  `copy`) and a drop anywhere reads it; over a modal dialog
+  (`dialog[open]:modal`) the dropEffect is `none` and nothing is read, as
+  every file drop was before. A drag that starts on the page - a gallery
+  card's image, whose types Chromium lists with 'Files' - is none of this
+  (`pageDrag`, set at `dragstart`, cleared at `dragend`, the drop or the
+  next mouse move): no outline, nothing read. "Load settings from PNG…"
+  (`#btn-png`, `aria-describedby` its hint "or drop a PNG on the page")
+  sits under Generate directly over `#error`, where its note is written,
+  so a load grows the panel under the button and never moves it there -
+  not at the panel's end, where the note above pushed it out of a
+  2560x1305 window, nor in the prompt's caption, which has no room beside
+  Tags or Expand at 330 px - and clicks the hidden
+  `#png-file`, emptied once read so the same file reads again; its
+  `change`/`input` never reach `persistPanel`. Two files are refused
+  ("drop one PNG at a time"), a file without the PNG signature in words
+  ("x.jpg is not a PNG: …") and nothing is sent. `pngTextChunks` walks the
+  chunk headers to IEND and keeps tEXt (Latin-1), zTXt (zlib through
+  `DecompressionStream('deflate')`) and iTXt (UTF-8, compressed or not),
+  the last of a repeated keyword as Pillow's `.info` does; a chunk that
+  does not parse is skipped. Only `{name, chunks}` is posted - never the
+  image, which is never stored or made a reference (U61 B stays
+  deferred); a keyword the server does not read (anything but
+  `local-diffusion`, `krea`, `parameters`, `workflow`, `prompt`) goes by
+  its name with empty text, so an XMP packet beside a settings block does
+  not take the body past the cap. The page sends `panel`, `collect()`'s
+  steps, CFG, true CFG and Mu, which an A1111 block's request takes
+  (`_panel_sampling`; a value Generate would refuse is the profile's), so
+  `applied()` judges the negative prompt at the CFG the panel holds. The
+  route is model-dependent (`hold_model_for_request`,
+  advisory in `api()`), caps the body at 1 MiB (413, before or while it
+  arrives) and 64 keywords of 1-79 characters, and answers `PngSettings`:
+  `settings` after `backend.applied()`, `size` (the PNG's where a direct
+  render takes it - else the reason as a note and the panel's own),
+  `sampling`, `model_id`, the PNG's own `negative_prompt` (the box keeps
+  one `applied()` leaves out, greyed, with a note) and `notes`. This
+  app's record (`local-diffusion`, or the legacy `krea`) wins over its
+  own 'parameters' line and carries what Reuse does; its reference ids
+  carry only where this gallery's live row under the id has the
+  record's `reference_sources` hash and size, else a note; a refine pass
+  fills the panel as a direct render at the panel's size, with a note;
+  an adapter `applied()` drops is named with the installation's reason.
+  An A1111/Forge/Civitai 'parameters' block is read as A1111 reads it
+  (`parse_parameters`: the prompt to "Negative prompt:", the last line
+  settings when it holds three `Key: value` pairs, JSON-quoted values)
+  and gives the prompt, the negative and Size only (`sampling` false, the
+  seed None): its Steps, Sampler, Schedule type, CFG scale, Seed and
+  Model are named in a note as not carrying over - another sampler and
+  checkpoint do not make the same picture from them - and never mapped,
+  and its other keys are listed "Not read". A ComfyUI workflow and a PNG
+  with neither block are refusals in words (422), naming the file. The
+  page builds the record Reuse takes (the panel's seed where none
+  carries) and calls `reuseIntoPanel(rec, size, notes, {name, sampling})`,
+  so the note reads "Settings from <file> loaded", its Undo "Reuse of
+  <file> undone", Ctrl+Z walks back the boxes, and the other-checkpoint
+  sentence is Reuse's own - only where the record names a checkpoint.
 - The results viewer (panel.js). `clearResults(job)` runs at a job's first
   frame or image: it moves what the strip held into `sessionRecords` (newest
   first, not the same job's) and sets the tier from the job's
@@ -4218,7 +4290,19 @@ of one batch as one, the batch's own Batch and run, a second press past
 the first, seeds the gallery or a live job holds stepped over, the panel's
 Batch for an unrecorded batch and the budget's cap, a grid's cells as
 batches of one job, one job per run, every per-batch status, `expected`,
-the whole refusals, the filter scope, and `batch` through a reindex). What holds the
+the whole refusals, the filter scope, and `batch` through a reindex).
+Load settings from PNG is `tests/test_api_png.py` (a gallery PNG's whole
+record back, an explicit null Mu, the legacy key, a reference carried only
+where this gallery holds the same picture, one on a checkpoint that takes
+none, a refine pass at the panel's size, an adapter the installation
+cannot load, a negative `applied()` leaves out kept for the box, an A1111
+block's negative judged at the panel's CFG rather than the profile's, an A1111
+block's prompt, negative and size with its not-carried and not-read
+notes, the record winning over its own 'parameters' line, sizes a direct
+render does not take, every refusal's words, the 1 MiB and keyword caps,
+a stale revision, and `parse_parameters` against A1111's reading) and
+`tests/test_cli.py::test_from_image_refuses_a_record_that_is_not_one`
+(`--from-image` through the shared `png_settings`). What holds the
 card, and whose expansion it is, is
 `tests/test_jobs.py::test_the_card_names_its_holder_and_an_editor_actions_ticket`
 and, through the status,
@@ -5449,6 +5533,37 @@ row with Bin does not wrap:
 ```powershell
 uv run python tools/fake_server.py --port 7903 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-bin.json
+```
+
+`smoke-png-settings.json` checks Load settings from PNG on a fake of the
+default checkpoint on 7904 with a fresh `--data`, with PNGs built in the
+page - signature, IHDR, hand-written tEXt, zTXt and iTXt chunks with their
+CRCs, one IDAT pixel, IEND - and one the fake rendered (Pillow writes its
+CJK 'parameters' line as iTXt): that PNG dropped over a half-written prompt
+filling every setting with Reuse's note, its Undo and Ctrl+Z, the page
+unmoved, and the posted body only `{name, chunks, panel}`, the panel's
+sampling; another checkpoint's
+hand-written record bringing Reuse's other-checkpoint sentence; an A1111
+block in tEXt filling the prompt, negative and size while steps, CFG and
+the seed stay the panel's, its note naming what does not carry over and
+what is not read and saying nothing of the negative at the panel's CFG
+1.5, an XMP packet beside it sent by its name alone, and at the panel's
+CFG 0 the negative greyed with the note saying so; the same read from
+zTXt and a CJK iTXt; a JPEG, a PNG with no text, a ComfyUI workflow and
+two files refused in words with the panel untouched; a gallery card's
+image dragged with the mouse onto the prompt box bringing no outline, no
+request and no words, and a file dropped after it read; Load settings
+from PNG… after Generate and directly over `#error`, opening the picker,
+a picked file loading and the same file picked again reloading; the drag
+outline and its words, gone on leaving the window, and none and no drop
+over a modal dialog; the gallery's count unchanged; the button with its
+hint on one line in the panel below Generate, no sideways scroll, at
+1400, 2560x1305 and 600 px; and at 2560x1305 a picked A1111 PNG's note
+written under the button, which stays where it was:
+
+```powershell
+uv run python tools/fake_server.py --port 7904 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-png-settings.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on
