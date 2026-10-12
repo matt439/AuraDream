@@ -2569,8 +2569,10 @@ Frontend and CLI:
   a wrapped row, an export pressed while one runs, Export all's outcome and
   refusals, and its export failure - is said in `#gallery-error` (`els.galleryError`), which
   `resetGallery` clears; Reuse's notes stay in the panel's `#error`.
-  `#gallery-error` is the gallery head's last row (a full-width flex item
-  inside `.gallery-head`), and its line is kept while it is empty
+  `#gallery-error` is the first item of the gallery head's last row
+  (`.gallery-footer`, a full-width flex item inside `.gallery-head`, styled
+  in gallery.css with the footer's buttons; bundles.css holds only
+  Bundles…), taking what the buttons leave, and its line is kept while it is empty
   (`#gallery-error[hidden]` is `visibility: hidden`, not `display: none`), so
   a message never moves the grid under the pointer. It is one line whatever
   the message (`white-space: nowrap` with an ellipsis): a long one is cut,
@@ -3713,7 +3715,7 @@ Frontend and CLI:
   Empty), reads "Recycle bin: N images (X MB). Restore them, or empty it to
   delete from disk". Its text stays short so the row does not wrap from
   600 px up; at 520 px and under (a phone) the footer wraps
-  (`flex-wrap`, bundles.css) rather than run the page past the screen.
+  (`flex-wrap`, gallery.css) rather than run the page past the screen.
   `enterBin()` sets `binMode`, clears the selection and `resetGallery()`s;
   `loadGallery` then asks `/api/gallery/bin` (`galleryEndpoint()`), every
   checkpoint's binned images newest id first under the search box (Starred

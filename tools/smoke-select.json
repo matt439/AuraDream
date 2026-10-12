@@ -143,6 +143,8 @@
   {"eval": "setSelectMode(true); __img(0).click(); __img(1).click(); window.__pickedFirst = __id(0); els.search.value = 'id:' + __pickedFirst; els.search.oninput();"},
   {"expect": "__until(() => !galleryPending && __cards().length === 1 && els.selectCount.textContent === '2 selected · 1 not shown')"},
   {"expect": "__lineCheck()"},
+  {"log": "'the line is the footer\\'s first item (gallery.css, the footer\\'s own rules beside it), taking what the count and buttons leave, with no margin of its own: the footer row is what sits 4 px under the head\\'s controls'"},
+  {"expect": "(() => { const foot = getComputedStyle(els.select.parentElement), line = getComputedStyle(els.galleryError); return els.galleryError.parentElement === els.select.parentElement && foot.display === 'flex' && foot.flexBasis === '100%' && foot.marginTop === '-8px' && line.flex === '1 1 auto' && line.marginTop === '0px' && els.galleryError.getBoundingClientRect().right <= els.selectCount.getBoundingClientRect().left; })()"},
   {"viewport": [600, 900]},
   {"expect": "__lineCheck()"},
   {"viewport": [2560, 1305]},

@@ -382,6 +382,19 @@
 }
 #gallery .card.selected:not(.gone)::after { content: "✓"; background: var(--accent-strong); border-color: var(--accent-strong); }
 #gallery .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+/* The footer (.gallery-footer): a row of the head's own, 4 px under its
+   controls - the gallery's line, then the selection's count and the footer
+   buttons (.foot-btn, and Bundles…, bundles.css), right-aligned. */
+.gallery-footer {
+  display: flex; align-items: center; gap: var(--sp-3); flex: 1 0 100%; min-width: 0;
+  margin-top: calc(var(--sp-1) - var(--sp-3));
+}
+/* On a phone the row's buttons - Select, More seeds…, Bin, Bundles… - are
+   wider than the column: what does not fit takes a second line, rather than
+   running the page past the screen's edge. One line from 600 px up. */
+@media (max-width: 520px) {
+  .gallery-footer { flex-wrap: wrap; row-gap: var(--sp-1); }
+}
 /* Select and Clear share the footer's line as Bundles… does (bundles.css),
    no taller than it, so neither moves the grid; pressed, Select takes the
    accent (.ghost.small.active). The count sits to their left. */
@@ -440,9 +453,9 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .gallery-head .runs:disabled { opacity: 0.45; }
-/* The gallery's line (#gallery-error): a row of the head's own, 4 px under
-   its controls, whose line is kept while it is empty. Shown between the head
-   and the grid, a card tool's refusal pushed the grid down 38 px, and a
+/* The gallery's line (#gallery-error): the footer's first item, taking what
+   its buttons leave, whose line is kept while it is empty. Shown between the
+   head and the grid, a card tool's refusal pushed the grid down 38 px, and a
    second press on the same dead tool opened the image under it instead. It
    is one line, whatever the message: one that wrapped - often once Select,
    its count and Clear shared the row - grew it by a second line and moved
@@ -450,9 +463,8 @@
    and its whole text is the title (showError, `.one-line`); the alert reads
    it all. */
 #gallery-error {
-  flex: 1 0 100%;
+  flex: 1 1 auto; min-width: 0;
   min-height: calc(var(--fs-label) * var(--lh));
-  margin-top: calc(var(--sp-1) - var(--sp-3));
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #gallery-error[hidden] { display: block !important; visibility: hidden; }
