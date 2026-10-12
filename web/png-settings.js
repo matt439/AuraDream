@@ -73,6 +73,16 @@ async function pngTextChunks(buffer) {
 // answer is not written over it.
 let pngEpoch = 0;
 
+// A drag that started on the page (app.js): its 'Files' are a card's image,
+// not a file brought to the page.
+let pageDrag = false;
+
+// The keywords the server reads (api_png.py: this app's record, the legacy
+// one, A1111's 'parameters', ComfyUI's two to name it). Any other is sent by
+// its name alone, for the refusal's words: an XMP packet or a long comment
+// beside a settings block took the body past the server's cap.
+const PNG_SETTINGS_KEYS = new Set(['local-diffusion', 'krea', 'parameters', 'workflow', 'prompt']);
+
 // Load settings from PNG: the file read here, its text chunks - never the
 // image - sent to the server, which answers them as the panel's settings
 // after `applied()` (api_png.py), and the panel filled through Reuse, so
@@ -90,11 +100,16 @@ async function loadPngSettings(file) {
     showError(`${name} is not a PNG: settings are read from a PNG's text, so only a PNG can fill the panel.`);
     return;
   }
+  const sent = Object.fromEntries(Object.entries(chunks).map(([key, text]) => [key, PNG_SETTINGS_KEYS.has(key) ? text : '']));
+  // The panel's own sampling, which another tool's PNG leaves in place: the
+  // server judges against it what Generate will run, such as whether the
+  // negative prompt does (`collect`'s, so a blank box is the profile's).
+  const { steps, guidance_scale, true_cfg, mu } = collect();
   let answer;
   try {
     answer = await api('/api/png/settings', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.slice(0, 255), chunks }),
+      body: JSON.stringify({ name: name.slice(0, 255), chunks: sent, panel: { steps, guidance_scale, true_cfg, mu } }),
     });
   } catch (err) {
     if (epoch === pngEpoch) showError(err.message);
@@ -112,9 +127,10 @@ async function loadPngSettings(file) {
 }
 
 // What a file dragged over the page would do: a modal dialog keeps the page
-// to itself, so there - and for anything but files - nothing.
+// to itself, so there - and for anything but files, or a drag that began on
+// the page - nothing.
 function pngDropTarget(e) {
-  return !!e.dataTransfer?.types?.includes('Files') && !document.querySelector('dialog[open]:modal');
+  return !pageDrag && !!e.dataTransfer?.types?.includes('Files') && !document.querySelector('dialog[open]:modal');
 }
 
 // The drop: one file, read as a PNG; more than one is said, since one panel

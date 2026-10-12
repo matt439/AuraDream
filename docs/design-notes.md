@@ -1997,8 +1997,16 @@ still imports it before `apply_env`), and `api_png.py` builds a
 running checkpoint: the profile fills what the PNG does not say, a size a
 direct render does not take is left with its reason rather than refused
 whole, and what `applied()` drops - references, an adapter - is said in a
-note. The page adds nothing of its own beyond the file's name and the
-panel's seed where none carries.
+note. The page adds nothing of its own beyond the file's name, the
+panel's seed where none carries, and the panel's steps, CFG, true CFG and
+Mu: for another tool's PNG those stay the panel's, so the request is built
+with them and `applied()` judges what Generate will run. Built with the
+profile's instead, a Turbo panel at CFG 4 was told its A1111 negative
+"does not run here" while the box, judged at 4, ran it (fixed in review).
+It sends the text of the keywords the server reads and only the names of
+the rest: an XMP packet or a long comment beside a settings block had
+taken the body past the 1 MiB cap and refused a PNG whose settings were
+a few hundred bytes.
 
 **It is a Reuse.** The answer is filled in through `reuseIntoPanel`, with a
 name ("Settings from lighthouse.png loaded") and, for another tool's PNG,
@@ -2040,9 +2048,28 @@ act on the whole panel - but at the 330 px panel it wrapped Reset onto a
 second line wherever Tags or Expand is shown (Animagine, ERNIE), moving
 the prompt box once the status arrived. A line above Generate would push
 it below a 900 px window, which the Output caption was hidden to prevent.
-So "Load settings from PNG…" is the panel's last line, after LoRA, with
-"or drop a PNG on the page" beside it; the drag outline is a pseudo-element
-over the window that takes no pointer, so nothing moves under it.
+The panel's last line, after LoRA, came next, and review found the note
+moved it: Reuse writes into `#error`, above it, so a picked load pushed
+the button 206 px down, past the foot of a 2560x1305 window that does not
+scroll, and a second pick needed a scroll to find it. So "Load settings
+from PNG…", with "or drop a PNG on the page" beside it, sits under
+Generate directly over `#error`: the note grows the panel under the
+button. Only a job moves it, as it moves the run hint, and Reuse's own lift
+of a stuck panel to show the note's Undo (20 px at 1400x900). Not between
+Generate and `#progress`, where the run hint would part from Generate and
+a job's bars come lower. The drag outline is a pseudo-element over the
+window that takes no pointer, so nothing moves under it.
+
+**A drag from the page is not a file.** Chromium lists 'Files' among the
+types of an `<img>` dragged from the page itself, so a gallery card
+dragged onto the panel - perhaps in the hope of a Reuse - outlined the
+window and was then refused as "a .webp is not a PNG". The page notes a
+drag that starts on it (`dragstart`) and treats it as before the feature:
+no outline, no drop. `draggable=false` on every card would have done for
+the gallery but not the sheet, the strip or a link; the flag covers them
+all. It clears at `dragend`, at the drop, and at the next mouse move,
+since a card the gallery re-renders mid-drag sends its `dragend` nowhere
+the document hears.
 
 ## One worker thread
 

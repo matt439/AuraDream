@@ -558,13 +558,22 @@ for (const type of ['dragenter', 'dragover']) {
 // Out of the window: the drag's leave names nothing it entered.
 document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.body.classList.remove('png-drop'); });
 document.addEventListener('drop', (e) => {
+  const page = pageDrag;
+  pageDrag = false;
   if (!e.dataTransfer?.types?.includes('Files')) return;
   e.preventDefault();
-  if (pngDropTarget(e)) dropPng(e);
+  if (!page && pngDropTarget(e)) dropPng(e);
   else document.body.classList.remove('png-drop');
 });
-// Load settings from PNG…, the panel's last line: the same, picked. The input is emptied once
-// read, so the same file picked again is read again.
+// A drag that starts on the page - a gallery card's image, a link - is
+// none of the above, though Chromium lists 'Files' in its types: the card
+// is no file the user brought. Over at its end, its drop, or the next
+// mouse move where a removed card's end never reached the document.
+document.addEventListener('dragstart', () => { pageDrag = true; });
+for (const type of ['dragend', 'mousemove']) document.addEventListener(type, () => { pageDrag = false; });
+// Load settings from PNG…, beside the panel's outcome line: the same,
+// picked. The input is emptied once read, so the same file picked again is
+// read again.
 els.pngButton.addEventListener('click', () => els.pngFile.click());
 els.pngFile.addEventListener('change', (e) => {
   e.stopPropagation();

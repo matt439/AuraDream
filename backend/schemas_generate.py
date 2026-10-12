@@ -503,11 +503,26 @@ class JobAccepted(BaseModel):
 MAX_PNG_CHUNKS = 64
 
 
+class PngPanelSampling(BaseModel):
+    """The panel's own steps, CFG, true CFG and Mu, as Generate would send
+    them - kept for another tool's PNG, whose sampling does not carry, so
+    `applied()` judges what will run. Unbounded here: a value Generate would
+    refuse leaves the answer at the profile's rather than refusing the file.
+    """
+
+    steps: int | None = None
+    guidance_scale: float | None = None
+    true_cfg: float | None = None
+    mu: float | None = None
+
+
 class PngSettingsRequest(BaseModel):
-    """A PNG's text chunks by keyword, and the file's name for the answer's words."""
+    """A PNG's text chunks by keyword, the file's name for the answer's
+    words, and the panel's sampling (`PngPanelSampling`)."""
 
     name: str = Field(default="the PNG", min_length=1, max_length=255)
     chunks: dict[str, str] = Field(max_length=MAX_PNG_CHUNKS)
+    panel: PngPanelSampling | None = None
 
     @field_validator("chunks")
     @classmethod
@@ -525,8 +540,8 @@ class PngSettings(BaseModel):
     and `sampling` say which of it is the PNG's: the size where it fits a
     direct render here, and the steps, CFG, true CFG, Mu, seed and
     conditioning only from this app's own record - an A1111 block's are
-    another sampler's and another checkpoint's, so those are the profile's
-    and the seed is None. `negative_prompt` is the text the PNG carries,
+    another sampler's and another checkpoint's, so those are the panel's
+    as it sent them (else the profile's) and the seed is None. `negative_prompt` is the text the PNG carries,
     which the box keeps (greyed) where `applied()` leaves it out, as the
     panel keeps a typed one. `notes` are the sentences that say what did
     not carry over and why.

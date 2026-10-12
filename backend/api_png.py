@@ -6,7 +6,8 @@ sends only those; the image is never sent, stored or made a reference. This
 app's record carries the whole reproduction set, as `--from-image` reads it
 (`png_settings`); an A1111/Forge/Civitai 'parameters' block carries the
 prompt, the negative and the size, and says which of its other settings do
-not carry over. Either way the answer has gone through `applied()` on the
+not carry over; there the panel's own sampling, which the page sends, is
+what runs. Either way the answer has gone through `applied()` on the
 running checkpoint, and its `notes` say what did not carry.
 """
 from __future__ import annotations
@@ -23,7 +24,7 @@ from . import png_settings, storage
 from .app_context import AppServices
 from .metadata import PNG_METADATA_KEY
 from .png_settings import PARAMETERS_KEY, PngSettingsError
-from .schemas import GenerateRequest, PngSettings, PngSettingsRequest, error_detail
+from .schemas import GenerateRequest, PngPanelSampling, PngSettings, PngSettingsRequest, error_detail
 
 # The whole body, every chunk's text with its keyword. This app's record is a
 # few kilobytes, an A1111 block less; a ComfyUI workflow - read only to be
@@ -178,7 +179,25 @@ def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
     return fields, size, True, notes
 
 
-def _from_parameters(text: str, name: str) -> tuple[dict, dict, bool, list[str]]:
+def _panel_sampling(fields: dict[str, Any], panel: PngPanelSampling | None) -> dict[str, Any]:
+    """The panel's steps, CFG, true CFG and Mu as it sent them, or none.
+
+    What Generate will run where another tool's sampling does not carry, so
+    `applied()` judges the negative prompt against the CFG the panel holds,
+    not the profile's. Values Generate itself would refuse are left to the
+    profile, as a blank box is: the file is not refused for the panel.
+    """
+    sent = panel.model_dump(exclude_unset=True) if panel is not None else {}
+    try:
+        GenerateRequest(**fields, **sent)
+    except ValueError:
+        return {}
+    return sent
+
+
+def _from_parameters(
+    text: str, name: str, panel: PngPanelSampling | None
+) -> tuple[dict, dict, bool, list[str]]:
     """An A1111 'parameters' block as request fields, the size, notes."""
     prompt, negative, params = png_settings.parse_parameters(text)
     if not prompt:
@@ -186,6 +205,7 @@ def _from_parameters(text: str, name: str) -> tuple[dict, dict, bool, list[str]]
     fields: dict[str, Any] = {"prompt": prompt}
     if negative:
         fields["negative_prompt"] = negative
+    fields.update(_panel_sampling(fields, panel))
     size = _size(params.get("Size"))
     read = ["the prompt"] + (["negative prompt"] if negative else []) + (["size"] if size else [])
     notes = [f"Read from its A1111-style 'parameters' text: {_series(read)}."]
@@ -218,7 +238,7 @@ def read_settings(services: AppServices, asked: PngSettingsRequest) -> PngSettin
         model = meta.get("model") if isinstance(meta.get("model"), str) else None
     elif chunks.get(PARAMETERS_KEY, "").strip():
         source = PARAMETERS_KEY
-        fields, size, sampling, notes = _from_parameters(chunks[PARAMETERS_KEY], name)
+        fields, size, sampling, notes = _from_parameters(chunks[PARAMETERS_KEY], name, asked.panel)
         model = None
     elif _workflow(chunks):
         raise PngSettingsError(

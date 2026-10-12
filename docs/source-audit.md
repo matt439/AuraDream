@@ -63,7 +63,8 @@ its routes `api_gallery.py`'s. `forgetImages` and `unforgetImages` stay in
 
 Added since this pass, with no split: `png-settings.js` (loaded right
 after `reuse.js`) owns Load settings from PNG's page side - reading a PNG's
-text chunks, the drop and the picker's file - and fills the panel through
+text chunks, the drop (never a drag that began on the page) and the
+picker's file - and fills the panel through
 `reuse.js`'s `reuseIntoPanel`, which now takes the note's name and whether
 the sampling values carry. The route is `api_png.py`; the reading
 `--from-image` did in `generate.py` (`_image_settings`, now a wrapper that

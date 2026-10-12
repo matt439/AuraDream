@@ -153,8 +153,8 @@ reusing one from another checkpoint. Prompt replacements support Ctrl+Z.
 
 ### Load settings from a PNG
 
-Drop a PNG anywhere on the page, or press **Load settings from PNG…** at the
-end of the settings panel, to fill the panel from a file - a PNG from the
+Drop a PNG anywhere on the page, or press **Load settings from PNG…** under
+**Generate**, to fill the panel from a file - a PNG from the
 other gallery (Windows and WSL keep separate ones), from a backup, or from
 another tool. It works like Reuse: the note offers **Undo**, Ctrl+Z gives
 back the prompt boxes, and a PNG made on another checkpoint says so.
@@ -168,12 +168,14 @@ back the prompt boxes, and a PNG made on another checkpoint says so.
   prompt, negative prompt and size. Its steps, sampler, CFG scale, seed and
   checkpoint do not carry over: another tool's sampler and checkpoint do not
   make the same picture from the same numbers, so the panel keeps its own,
-  and the note lists them.
+  and the note lists them. Whether its negative prompt runs is judged at
+  the panel's own CFG.
 - A JPEG, a ComfyUI PNG (its workflow is not settings this app reads) or a
   PNG without settings is refused with a reason.
 
 Only the PNG's text is read and sent to the server; the image itself is not
-uploaded, not added to the gallery and not used as a reference.
+uploaded, not added to the gallery and not used as a reference. Dragging a
+gallery image onto the panel does nothing: use its **Reuse** instead.
 
 ## Write and check prompts
 

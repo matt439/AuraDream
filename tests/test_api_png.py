@@ -163,6 +163,39 @@ def test_an_a1111_block_carries_the_prompt_negative_and_size_and_says_what_does_
     assert client.get("/api/gallery?all_models=true").json()["total"] == 0
 
 
+def test_an_a1111_negative_is_judged_at_the_panels_cfg_not_the_profiles(client, fake, store):
+    # The page keeps its own steps and CFG for another tool's PNG, so the
+    # note on the negative is about the CFG Generate will send: at the
+    # panel's 6 over a threshold of 5 it runs, at its 4 it does not.
+    fake.cfg_threshold = 5.0
+    block = "a castle\nNegative prompt: lowres\nSteps: 30, CFG scale: 7, Seed: 1, Size: 512x512"
+
+    def asked(panel):
+        response = client.post(
+            "/api/png/settings", json={"name": "c.png", "chunks": {"parameters": block}, "panel": panel},
+        )
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    said = "Its negative prompt does not run here at these settings"
+    answer = asked({"steps": 12, "guidance_scale": 6, "true_cfg": None, "mu": None})
+    ran = answer["settings"]
+    assert (ran["steps"], ran["guidance_scale"], ran["negative_prompt"]) == (12, 6, "lowres")
+    assert not any(said in note for note in answer["notes"])
+    answer = asked({"guidance_scale": 4})
+    assert answer["settings"]["negative_prompt"] is None and answer["negative_prompt"] == "lowres"
+    assert any(said in note for note in answer["notes"])
+    # A panel value Generate would refuse is the profile's, not a refusal.
+    answer = asked({"steps": 500, "guidance_scale": 6})
+    assert answer["settings"]["steps"] == defaults_for(settings.model_id)["steps"]
+    # This app's own record runs as recorded, whatever the panel holds.
+    record = plant(store, negative_prompt="blurry", guidance_scale=4)
+    response = client.post("/api/png/settings", json={
+        "chunks": chunks_of(store, record), "panel": {"guidance_scale": 9},
+    })
+    assert response.json()["settings"]["guidance_scale"] == 4
+
+
 def test_this_apps_record_wins_over_its_own_parameters_line(client, fake, store):
     record = plant(store, seed=9)
     chunks = chunks_of(store, record)

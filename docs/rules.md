@@ -1902,9 +1902,9 @@ Frontend and CLI:
   1400x900, 1920x947 and 2048x1040@1.25.
 - The panel's order is Prompt, Negative, Size, Sampling, Output, Generate
   and what a job adds under it (`#progress`, then the run hint, the finish
-  line, the queue, `#error`, the last-run banner), the grid fold, then Reference images
-  (`#reference-field`) and LoRA (`#lora-field`), and last Load settings
-  from PNG… (`.png-load`). Nothing rarely used
+  line, the queue, Load settings from PNG… (`.png-load`), `#error`, the
+  last-run banner), the grid fold, then Reference images
+  (`#reference-field`) and LoRA (`#lora-field`) last. Nothing rarely used
   goes between Sampling and Generate: at scroll 0 the panel is in the
   page's flow and its sticky top cannot lift it, so every line above
   Generate pushes a running job's bars and its elapsed line (`#cell-note`)
@@ -2808,10 +2808,16 @@ Frontend and CLI:
   "Drop a PNG to load its settings", `pointer-events: none`, dropEffect
   `copy`) and a drop anywhere reads it; over a modal dialog
   (`dialog[open]:modal`) the dropEffect is `none` and nothing is read, as
-  every file drop was before. "Load settings from PNG…" (`#btn-png`,
-  `aria-describedby` its hint "or drop a PNG on the page") is the panel's
-  last line, after LoRA and below Generate - the prompt's caption has no
-  room beside Tags or Expand at 330 px - and clicks the hidden
+  every file drop was before. A drag that starts on the page - a gallery
+  card's image, whose types Chromium lists with 'Files' - is none of this
+  (`pageDrag`, set at `dragstart`, cleared at `dragend`, the drop or the
+  next mouse move): no outline, nothing read. "Load settings from PNG…"
+  (`#btn-png`, `aria-describedby` its hint "or drop a PNG on the page")
+  sits under Generate directly over `#error`, where its note is written,
+  so a load grows the panel under the button and never moves it there -
+  not at the panel's end, where the note above pushed it out of a
+  2560x1305 window, nor in the prompt's caption, which has no room beside
+  Tags or Expand at 330 px - and clicks the hidden
   `#png-file`, emptied once read so the same file reads again; its
   `change`/`input` never reach `persistPanel`. Two files are refused
   ("drop one PNG at a time"), a file without the PNG signature in words
@@ -2821,7 +2827,14 @@ Frontend and CLI:
   the last of a repeated keyword as Pillow's `.info` does; a chunk that
   does not parse is skipped. Only `{name, chunks}` is posted - never the
   image, which is never stored or made a reference (U61 B stays
-  deferred). The route is model-dependent (`hold_model_for_request`,
+  deferred); a keyword the server does not read (anything but
+  `local-diffusion`, `krea`, `parameters`, `workflow`, `prompt`) goes by
+  its name with empty text, so an XMP packet beside a settings block does
+  not take the body past the cap. The page sends `panel`, `collect()`'s
+  steps, CFG, true CFG and Mu, which an A1111 block's request takes
+  (`_panel_sampling`; a value Generate would refuse is the profile's), so
+  `applied()` judges the negative prompt at the CFG the panel holds. The
+  route is model-dependent (`hold_model_for_request`,
   advisory in `api()`), caps the body at 1 MiB (413, before or while it
   arrives) and 64 keywords of 1-79 characters, and answers `PngSettings`:
   `settings` after `backend.applied()`, `size` (the PNG's where a direct
@@ -4169,6 +4182,7 @@ record back, an explicit null Mu, the legacy key, a reference carried only
 where this gallery holds the same picture, one on a checkpoint that takes
 none, a refine pass at the panel's size, an adapter the installation
 cannot load, a negative `applied()` leaves out kept for the box, an A1111
+block's negative judged at the panel's CFG rather than the profile's, an A1111
 block's prompt, negative and size with its not-carried and not-read
 notes, the record winning over its own 'parameters' line, sizes a direct
 render does not take, every refusal's words, the 1 MiB and keyword caps,
@@ -4760,8 +4774,8 @@ on screen after a wheel over the stage and at the end of a 160-image
 gallery, the panel holding its bottom a gutter above the window's (the
 gutter and the resting top read off the page; at 1400x900, where References
 and LoRA run on under the fold, stuck with Run grid in view), the panel's
-order - the run hint under `#progress`, References and LoRA under the
-grid fold, only Load settings from PNG… after them - and a hand-drawn running
+order - the run hint under `#progress`, References and LoRA last, under
+the grid fold - and a hand-drawn running
 batch's Now line, both bars and elapsed line in the window at scroll 0 at
 2048x1040@1.25, the panel coming back down
 as far as a wheel scrolls up, the prompt and Examples focused from deep in
@@ -5396,18 +5410,25 @@ page - signature, IHDR, hand-written tEXt, zTXt and iTXt chunks with their
 CRCs, one IDAT pixel, IEND - and one the fake rendered (Pillow writes its
 CJK 'parameters' line as iTXt): that PNG dropped over a half-written prompt
 filling every setting with Reuse's note, its Undo and Ctrl+Z, the page
-unmoved, and the posted body only `{name, chunks}`; another checkpoint's
+unmoved, and the posted body only `{name, chunks, panel}`, the panel's
+sampling; another checkpoint's
 hand-written record bringing Reuse's other-checkpoint sentence; an A1111
 block in tEXt filling the prompt, negative and size while steps, CFG and
 the seed stay the panel's, its note naming what does not carry over and
-what is not read, and the same read from zTXt and a CJK iTXt; a JPEG, a
-PNG with no text, a ComfyUI workflow and two files refused in words with
-the panel untouched; Load settings from PNG… as the panel's last tab
-stop, opening the picker, a picked file loading and the same file picked
-again reloading; the drag outline and its words, gone on leaving the
-window, and none and no drop over a modal dialog; the gallery's count
-unchanged; and the button with its hint on one line in the panel below
-Generate, no sideways scroll, at 1400, 2560x1305 and 600 px:
+what is not read and saying nothing of the negative at the panel's CFG
+1.5, an XMP packet beside it sent by its name alone, and at the panel's
+CFG 0 the negative greyed with the note saying so; the same read from
+zTXt and a CJK iTXt; a JPEG, a PNG with no text, a ComfyUI workflow and
+two files refused in words with the panel untouched; a gallery card's
+image dragged with the mouse onto the prompt box bringing no outline, no
+request and no words, and a file dropped after it read; Load settings
+from PNG… after Generate and directly over `#error`, opening the picker,
+a picked file loading and the same file picked again reloading; the drag
+outline and its words, gone on leaving the window, and none and no drop
+over a modal dialog; the gallery's count unchanged; the button with its
+hint on one line in the panel below Generate, no sideways scroll, at
+1400, 2560x1305 and 600 px; and at 2560x1305 a picked A1111 PNG's note
+written under the button, which stays where it was:
 
 ```powershell
 uv run python tools/fake_server.py --port 7904 --data <new-scratch-directory>

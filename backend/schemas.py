@@ -30,6 +30,7 @@ from .schemas_generate import (
     GridPreview,
     JobAccepted,
     MAX_PNG_CHUNKS,
+    PngPanelSampling,
     PngSettingsRequest,
     PngSettings,
 )
@@ -106,6 +107,7 @@ __all__ = [
     "GridPreview",
     "JobAccepted",
     "MAX_PNG_CHUNKS",
+    "PngPanelSampling",
     "PngSettingsRequest",
     "PngSettings",
     "PromptExpansionRequest",
