@@ -166,6 +166,24 @@ class Job:
     deadline: float | None = None
     stopped_by: str | None = None
 
+    @property
+    def unit(self) -> str:
+        """What the job's units are called, as the page's `unitWord` says:
+        a grid's cells; a plain job's images, or batches where each repeat
+        makes several. "cell" is a grid's word - a plain job of three
+        failing images said "after 3 cells failed"."""
+        if self.grid:
+            return "cell"
+        if sum(cell.request.num_images for cell in self.cells) > self.total_runs:
+            return "batch"
+        return "image"
+
+    def units(self, count: int) -> str:
+        """`count` of the job's units: "1 image", "3 batches"."""
+        if count == 1:
+            return f"1 {self.unit}"
+        return f"{count} {'batches' if self.unit == 'batch' else self.unit + 's'}"
+
     def publish(self, event: dict) -> None:
         """Hand an event to every attached stream. Event-loop thread only."""
         for queue in self.subscribers:
@@ -264,6 +282,9 @@ class JobManager:
         # `waiting_on` follows the holder. A job still awaiting the load keeps
         # saying so, whatever holds the gate.
         self._at_gate: set[str] = set()
+        # The loop the jobs run on, taken at the first submission: `stop_all`
+        # is called on a signal's thread and finishes queued jobs on it.
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
@@ -410,10 +431,31 @@ class JobManager:
     def stop_all(self, reason: str = "shutdown") -> None:
         """Ask every live job to stop, saying why (`stopped_by`): the server
         is going, which a page must not report as a Cancel pressed in some
-        other tab. The cancel itself is the button's, cooperative."""
+        other tab. The cancel itself is the button's, cooperative.
+
+        A job still queued is finished here, as `cancel()` finishes one: one
+        waiting on the load otherwise held its stream open until the load
+        ended, and uvicorn drains streams before the lifespan runs - a
+        Ctrl-C during a first load waited out the 30 s graceful timeout, and
+        the stream was cut with no `done`. Called on the signal's thread, so
+        the finish goes to the loop the jobs run on; `_run` then returns
+        quietly behind `_finish`'s guard, wherever the load leaves it.
+        """
+        loop = self._loop
         for job in self.active():
             job.stopped_by = job.stopped_by or reason
             job.cancel_requested = True
+            if job.status == "queued" and loop is not None:
+                try:
+                    loop.call_soon_threadsafe(self._finish_queued, loop, job)
+                except RuntimeError:  # the loop has closed: nothing listens
+                    pass
+
+    def _finish_queued(self, loop: asyncio.AbstractEventLoop, job: Job) -> None:
+        """`stop_all`'s finish, on the loop: still queued by the time it runs
+        - a job that took its turn meanwhile stops at its next step."""
+        if job.status == "queued":
+            self._finish(loop, job, "cancelled")
 
     async def wait_for_gate(self) -> None:
         """Return once nothing holds the generation gate, without keeping it.
@@ -483,6 +525,7 @@ class JobManager:
         Swap tags' rows (`swap`), Mass refine's scale (`refine_batch`) and
         More seeds' count (`more_seeds`).
         """
+        self._loop = asyncio.get_running_loop()
         selected = current_settings(settings)
         job = Job(
             id=uuid.uuid4().hex[:12],
@@ -537,8 +580,10 @@ class JobManager:
 
         The hold lands between cells, where `backend.generate()` has returned
         and the card holds little but allocator reserve, which the worker then
-        hands back. A running job is the only kind this means anything for; a
-        queued one holds its place either way, and a finished one is left alone.
+        hands back. A queued job keeps the request and holds before its first
+        cell once its turn comes - keeping the gate, as any pause does - which
+        is the boundary a job not yet started has; a finished one is left
+        alone.
         """
         job = self._jobs.get(job_id)
         if job is None or job.status in _TERMINAL:
@@ -649,8 +694,8 @@ class JobManager:
                 # what was kept come first; Resume runs the rest.
                 kept = len(job.images)
                 error = (
-                    f"Stopped at cell {job.run} of {job.total_runs} after {job.failures} "
-                    f"cells failed; {kept} image{'' if kept == 1 else 's'} kept. Last: {error}"
+                    f"Stopped at {job.unit} {job.run} of {job.total_runs} after {job.units(job.failures)} "
+                    f"failed; {kept} image{'' if kept == 1 else 's'} kept. Last: {error}"
                 )
             self._finish(loop, job, "error", error)
             return
@@ -658,7 +703,8 @@ class JobManager:
         # lands after the last step - during the decode or the encode -
         # changes nothing, and used to relabel a complete run anyway.
         if job.failures and not stopped:
-            job.error = f"{job.failures} cell(s) failed and were skipped; last: {job.error}"
+            were = "was" if job.failures == 1 else "were"
+            job.error = f"{job.units(job.failures)} failed and {were} skipped; last: {job.error}"
         self._finish(loop, job, "cancelled" if stopped else "done")
 
     # A cell that raises is skipped and the next one runs - up to this many in a
@@ -818,8 +864,16 @@ class JobManager:
         log.info("job %s paused before cell %d/%d", job.id, index + 1, len(job.cells))
         self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
         loop.call_soon_threadsafe(self._relabel_queued, loop)
+        held_from = time.monotonic()
         while job.pause_requested and not job.cancel_requested:
             time.sleep(0.25)
+        # A time budget is working time: the pause moves the deadline on by
+        # as long as it held. Left where it was, a grid paused past its
+        # budget ended at the Resume with no cell run, "Time budget reached".
+        # Before the resume's frame, which carries the new deadline to the
+        # page's "left (budget)".
+        if job.deadline is not None:
+            job.deadline += time.monotonic() - held_from
         job.paused = False
         if not job.cancel_requested:
             log.info("job %s resumed at cell %d/%d", job.id, index + 1, len(job.cells))

@@ -159,7 +159,9 @@ function showCell(data, { job = null, budget = null, note = '', jobId = null } =
       parts.push(`${queuedIds.length === 1 ? '1 job waits' : `${queuedIds.length} jobs wait`} behind it`);
     }
   } else if (els.pause.textContent === 'Pausing…') {
-    parts.push(`pausing after this ${unit}…`);
+    // A queued job has no image under way: its pause holds it before its
+    // first one, once its turn comes (and it keeps the queue there).
+    parts.push(job?.status === 'queued' ? `will hold before its first ${unit}` : `pausing after this ${unit}…`);
   }
   if (note) parts.push(note);
   if (data.label) parts.push(`cell ${data.run}/${data.total_runs} · ${data.label}`);
@@ -260,6 +262,7 @@ function syncPause(job) {
   const single = job.status === 'running' && (job.total_runs || 1) === 1 && !job.paused;
   els.pause.setAttribute('aria-disabled', String(single));
   els.pause.title = single ? `A single ${unit} has no pause point — Cancel stops it`
+    : job.status === 'queued' ? 'Hold this job before it starts; Resume lets it run'
     : `Hold after the current ${unit} and hand the GPU back; Resume carries on`;
 }
 

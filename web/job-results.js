@@ -248,7 +248,9 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   if (foreign) {
     if (titleHeld !== null) setTitle(titleHeld);
   } else {
-    holdTitle(data.status === 'done' ? `✓ Finished ${plural(made, 'image')}`
+    // Done with nothing made - every image skipped - is no ✓: "✓ Finished 0
+    // images" read as a success in the tab strip.
+    holdTitle(data.status === 'done' ? (made ? `✓ Finished ${plural(made, 'image')}` : 'Nothing made')
       : data.stopped_by === 'budget' ? 'Time budget reached'
       : data.stopped_by === 'shutdown' ? 'Server stopped'
       : data.status === 'cancelled' ? (cancelledElsewhere ? 'Cancelled elsewhere' : 'Cancelled')
@@ -340,13 +342,16 @@ function showAllImages() {
 
 // The cells a grid skipped, by name: which settings, which seed, and the
 // error - "1 cell(s) failed" left the hole in the sheet to be found by eye.
+// In the job's own units (unitWord): a plain job's are images or batches.
 function skippedCells(data) {
   const cells = data.failed_cells ?? [];
   if (!cells.length) return data.error;
   const named = cells.slice(0, 3).map((c) => [c.label, `seed ${c.seed}`].filter(Boolean).join(', '));
   const more = cells.length > 3 ? `; and ${cells.length - 3} more` : '';
   const last = cells.at(-1).error;
-  return `${cells.length} of ${data.total_runs} cells ${cells.length === 1 ? 'was' : 'were'} skipped: `
+  const unit = unitWord(data);
+  const units = data.total_runs === 1 ? unit : unit === 'batch' ? 'batches' : `${unit}s`;
+  return `${cells.length} of ${data.total_runs} ${units} ${cells.length === 1 ? 'was' : 'were'} skipped: `
     + `${named.join('; ')}${more} (${cells.length === 1 ? '' : 'last: '}${last})`;
 }
 
