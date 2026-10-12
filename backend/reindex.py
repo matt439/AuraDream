@@ -470,6 +470,11 @@ def merge_database(
             try:
                 spec = storage.OutpaintSpec.parse_key(row["outpaint"])
             except ValueError:
+                spec = None
+            # One rule with the chunk's and the bundle's: a spec no request
+            # could make (no side extended, a band past the bound) is left off.
+            if spec is None or not spec.wellformed():
+                spec = None
                 counts["outpaint_malformed"] += 1
         spec = _outpaint(mask, spec, image, width, height, sizes.get(row.get("refine")), counts)
         masks.resolve(mask, source / storage.MASKS_DIR, image, spec, (width, height))

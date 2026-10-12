@@ -224,6 +224,20 @@ def test_the_kept_rectangle():
     assert outpaint.kept_size(64, 48, Outpaint(left=16, right=16, band=32)) == (0, 48)
 
 
+def test_a_band_too_wide_is_said_by_its_axis_and_padded_sides():
+    # One padded side: the band comes off that side alone.
+    assert outpaint.band_too_wide(256, 256, Outpaint(left=16, band=248), "#4") == (
+        "a band of 248 px on the left side leaves 8 px of #4's width unrepainted; "
+        "at least 16 must be kept, so narrow the band"
+    )
+    assert outpaint.band_too_wide(256, 64, Outpaint(top=16, bottom=16, band=32), "#4") == (
+        "a band of 32 px on the top and bottom sides leaves 0 px of #4's height unrepainted; "
+        "at least 16 must be kept, so narrow the band"
+    )
+    # Exactly MIN_KEPT kept is enough.
+    assert outpaint.band_too_wide(64, 48, Outpaint(left=16, right=16, band=24)) is None
+
+
 # ------------------------------------------------------------------- the fill
 
 

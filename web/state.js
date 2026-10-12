@@ -201,6 +201,7 @@ const els = {
   outpaintBandEdge: $('outpaint-band-edge'), outpaintFrameLine: $('outpaint-frame-line'),
   outpaintStatus: $('outpaint-status'), outpaintGrow: $('outpaint-grow'), outpaintWide: $('outpaint-wide'),
   outpaintTall: $('outpaint-tall'), outpaintShape: $('outpaint-shape'),
+  outpaintShapeApply: $('outpaint-shape-apply'),
   outpaintBand: $('outpaint-band'), outpaintBandNote: $('outpaint-band-note'),
   outpaintSourceLine: $('outpaint-source-line'), outpaintReused: $('outpaint-reused'),
   outpaintDraft: $('outpaint-draft'), outpaintDraftText: $('outpaint-draft-text'),

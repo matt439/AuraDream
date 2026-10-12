@@ -282,9 +282,12 @@
   .lb-actions { flex-direction: row; }
   .lb-actions .ghost { width: auto; }
   /* One row with the zoom here has no room for a sixth button: Inpaint…
-     is the card's ✎ and the result's at this width (inpaint.js), and
-     Outpaint… goes with it (Reuse of an outpaint still opens its dialog). */
-  #lb-inpaint, #lb-outpaint { display: none; }
+     is the card's ✎ and the result's at this width (inpaint.js). Outpaint…
+     stays - a gallery image has no card tool for it, so the lightbox is
+     its way in here, beside the result's ⬚ and Reuse of an outpaint. */
+  #lb-inpaint { display: none; }
+  /* The pair's two left at their own widths, so Outpaint… is never cut. */
+  .lb-pair .ghost { flex: 0 0 auto; }
 }
 /* The wide tier: a column of 340-400 px rather than 280 (--lb-side-w), where
    the facts get a line each - square and portrait pictures are bound by the

@@ -818,7 +818,11 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                     if values.get("mask") is None or values.get("refine") is None:
                         # An outpaint never without its source and its mask.
                         values["outpaint"] = None
-                    elif values.get("outpaint") is None:
+                    elif values.get("outpaint") is not None:
+                        # Stored in `key()`'s one spelling (`0400` is `400`),
+                        # so the row keys as its own re-render does.
+                        values["outpaint"] = storage.OutpaintSpec.parse_key(values["outpaint"]).key()
+                    else:
                         # An older build's import drops the column and the
                         # chunk keys; the A1111 line it left gives the spec
                         # back where the rebuilt mask is the row's.

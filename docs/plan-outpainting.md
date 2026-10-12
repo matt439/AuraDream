@@ -1,8 +1,15 @@
 # Plan: outpainting
 
 **Status, 2026-10-13: phases 1 (backend) and 2 (the dialog) are built on
-`feat-outpainting`; phase 3 waits on the card's measurements. Below is the
-plan as it was written.** Written on
+`feat-outpainting`, and a review of the build fixed on the same branch
+(a `--from-image --band` wrongly refused; the band refusal's wording and
+the page's kept-size limit, now the server's 16 px; reruns refusing a spec
+that does not build its row's mask; one well-formedness rule for stored
+specs and their one spelling; To shape… applying only on Apply; Outpaint…
+kept in the lightbox under 901 px; late presets answers and binned sources;
+the real backend's outpaint branch under test). Phase 3 waits on the
+card's measurements (`docs/verified.md`, Outpaint). Below is the plan as it
+was written.** Written on
 `feat-outpainting`, branched from main at b3bc975 right after inpainting was
 merged, and revised the same day against an eighteen-point review of the
 first draft (each point and what became of it is listed at the end, under

@@ -138,14 +138,15 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     if mask is not None and (not isinstance(mask, str) or not MASK_HASH.fullmatch(mask) or refine is None):
         raise BundleError(f"invalid inpaint mask on image {row['id']}")
     # An outpaint's spec, only beside its source and its mask, well formed
-    # and extending at least one side.
+    # (`OutpaintSpec.wellformed`: a side extended, the band within bound).
     outpaint = row.get("outpaint")
+    spec = None
     if outpaint is not None:
         try:
             spec = storage.OutpaintSpec.parse_key(outpaint)
         except (TypeError, ValueError):
             spec = None
-        if spec is None or refine is None or mask is None or not (spec.left or spec.top or spec.right or spec.bottom):
+        if spec is None or refine is None or mask is None or not spec.wellformed():
             raise BundleError(f"invalid outpaint on image {row['id']}")
     values = {key: row.get(key) for key in storage._COLUMNS}
     values.update(id=row["id"], content_hash=content_hash)

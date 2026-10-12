@@ -69,7 +69,9 @@ Backend (`backend/`):
   `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
   `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's
   settings, after `applied()`); `api_masks.py` an inpaint's mask stored
-  and served by its hash;
+  and served by its hash, and an outpaint's presets
+  (`GET /api/images/{id}/outpaint-presets`); `outpaint.py` an outpaint's
+  pure parts (the padded source and its fills, the built mask, the presets);
   `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
   routes and maintenance admission; `bundles.py` verified export/merge,
   `bundle_archive.py` the archive format and its verifying read,
@@ -188,11 +190,21 @@ Reproduction and storage:
   the source's size and is always composited over the source
   (`refine.composite`; chunk `mask_blend: "overlay"`); the mask's PNG rides
   in `local-diffusion-mask`. `grid.mask_key` is `CellKey`'s fifth extension
-  (existing run ids unchanged); Mass refine drops the mask.
+  (existing run ids unchanged); Mass refine drops the mask. An outpaint is
+  the exception to the size: it runs at the source plus its padding
+  (`refine.outpaint_source`).
   `gallery_delete.sweep_masks` spares a mask any row (live or binned) or
   live job names, or younger than the settle window. Only profiles with
   `inpaint_supported` run one; `model_defaults.INPAINT_DEFERRED` families
   are refused though diffusers has the class.
+- An outpaint is an inpaint over a padded source whose mask the server
+  builds (`outpaint.mask`): stamped - built and stored - first in
+  `submit_cells`, before `Job(...)`, and a stamped request (mask and
+  outpaint together, which the validator refuses) is never revalidated. It
+  is never on a row without `refine` and `mask`; it keys by its spec
+  (`outpaint:` + `OutpaintSpec.key()`), and a row whose spec does not build
+  its own mask is refused by every rerun. Each `FILLS` entry and
+  `outpaint.mask` are frozen: a changed fill gets a new name.
 
 Jobs:
 

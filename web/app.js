@@ -520,11 +520,11 @@ els.outpaintBand.addEventListener('change', () => commitOutpaintBand());
 for (const button of [els.outpaintGrow, els.outpaintWide, els.outpaintTall]) {
   button.onclick = () => applyOutpaintPreset(button.dataset.preset);
 }
-els.outpaintShape.addEventListener('change', () => {
-  const name = els.outpaintShape.value;
-  els.outpaintShape.value = '';
-  applyOutpaintPreset(name);
-});
+// The To shape… list only picks: an arrow key moves a closed select and
+// fires change on every press, so the preset applies on Apply (or Enter in
+// the list), never on change - a keyboard user can reach every aspect.
+els.outpaintShape.addEventListener('change', syncOutpaintPresets);
+els.outpaintShapeApply.onclick = applyOutpaintShape;
 for (const el of [els.outpaintStrength, els.outpaintVersions, els.outpaintSeed, els.outpaintPrompt,
                   els.outpaintNegative, els.outpaintSteps, els.outpaintCfg, els.outpaintMu, els.outpaintTrueCfg]) {
   el.addEventListener('input', outpaintChanged);

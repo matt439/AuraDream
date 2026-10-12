@@ -1041,7 +1041,7 @@ def test_outpaint_flags_are_refused_where_they_cannot_run(cli, store, monkeypatc
     assert generate.main(["a fox", *refine, "--outpaint", "32,0,0,0", "--band", "12"]) == 2
     assert "12 is not a multiple of 8" in capsys.readouterr().err
     assert generate.main(["a fox", *refine, "--outpaint", "32,0,32,0", "--band", "128"]) == 2
-    assert "repaints the whole of" in capsys.readouterr().err
+    assert "on the left and right sides leaves 0 px of" in capsys.readouterr().err
     # And a checkpoint whose inpaint is not enabled, in the outpaint's words.
     monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.1-Krea-dev"))
     assert generate.main(["a fox", *refine, "--outpaint", "32,0,0,0"]) == 2
@@ -1082,6 +1082,25 @@ def test_from_image_reproduces_an_outpaint_by_its_spec(cli, store, monkeypatch, 
     with pytest.raises(SystemExit):
         generate.main(["--from-image", made, "--width", "512", "--height", "512"])
     assert "--outpaint and --width/--height/--aspect/--mp" in capsys.readouterr().err
+
+
+def test_from_image_of_an_outpaint_takes_a_band_of_its_own(cli, store, monkeypatch, capsys):
+    source = _to_refine(store)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    assert generate.main(["a wider view", "--refine", str(source.id), "--outpaint", "32,0,16,0",
+                          "--seed", "4", "-q"]) == 0
+    made = capsys.readouterr().out.split("  seed ")[0]
+    first = cli.requests[-1]
+    # Another band builds another mask - what was asked, never refused as
+    # a mask this build builds differently.
+    assert generate.main(["--from-image", made, "--band", "16", "-q"]) == 0
+    again = cli.requests[-1]
+    assert again.outpaint.band == 16 and first.outpaint.band != 16
+    assert (again.outpaint.left, again.outpaint.top, again.outpaint.right, again.outpaint.bottom) == (
+        first.outpaint.left, first.outpaint.top, first.outpaint.right, first.outpaint.bottom
+    )
+    assert again.mask != first.mask
+    assert again.mask == store.outpaint_mask_hash(again.width, again.height, again.outpaint)
 
 
 def _rewrite_record(path, change) -> None:

@@ -11,7 +11,9 @@
 //   {"log": js}                  run JavaScript and print its value
 //   {"expect": js}               run JavaScript; a falsy value fails the run
 //   {"key": "1"}                 press a key (single characters and names like "Escape";
-//                                Escape also closes a modal <dialog>, as a real press does)
+//                                Escape also closes a modal <dialog>, as a real press does;
+//                                with "native": true an ArrowDown/ArrowUp carries its key
+//                                code, so a focused <select> moves as on a real press)
 //   {"keycombo": ["Control", "Enter"]}   press a key with a modifier held
 //   {"type": "text"}             type text into the focused element
 //   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
@@ -230,6 +232,12 @@ async function point(at) {
 // that); in a keycombo, Enter is sent as the real key, text and all.
 const ESCAPE = { code: 'Escape', windowsVirtualKeyCode: 27 };
 const COMBO_KEYS = { Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' }, Escape: ESCAPE };
+// The codes a {"key", "native": true} step adds, so the focused control's
+// own default action runs as on a real press (a closed <select>'s arrows).
+const NATIVE_KEYS = {
+  ArrowDown: { code: 'ArrowDown', windowsVirtualKeyCode: 40 },
+  ArrowUp: { code: 'ArrowUp', windowsVirtualKeyCode: 38 },
+};
 
 for (const [n, step] of steps.entries()) {
   at = `step ${n + 1}: ${JSON.stringify(step).slice(0, 160)}`;
@@ -243,7 +251,7 @@ for (const [n, step] of steps.entries()) {
     console.log(`  ${value ? 'ok  ' : 'FAIL'} ${step.expect}`);
   } else if (step.key) {
     const text = step.key.length === 1 ? step.key : undefined;
-    const code = step.key === 'Escape' ? ESCAPE : {};
+    const code = step.key === 'Escape' ? ESCAPE : step.native ? (NATIVE_KEYS[step.key] ?? {}) : {};
     await send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, text, ...code });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, ...code });
     await sleep(100);

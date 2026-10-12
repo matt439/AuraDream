@@ -163,10 +163,17 @@ def create_router(services: AppServices) -> APIRouter:
         "to a:b" per aspect of the size presets, each with its four sides,
         its canvas and the words that hold it - already at the ratio, past
         the refine guard, or a source off the 16-pixel grid (`off_grid`,
-        which holds every one). 404 for an image that is gone or binned."""
-        record = await asyncio.to_thread(storage.get_image, image_id)
+        which holds every one). 404 for an image that is gone or binned, a
+        binned one saying so - the page offers a Restore rather than calling
+        it deleted."""
+        record = await asyncio.to_thread(storage.get_image, image_id, True)
         if record is None:
             raise HTTPException(status_code=404, detail=f"no gallery image with id {image_id}")
+        if record.binned_at is not None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"no gallery image with id {image_id} (#{image_id} is in the recycle bin)",
+            )
         limits = services.settings()
         name = f"#{record.id}"
         answers = outpaint.presets(
@@ -177,7 +184,7 @@ def create_router(services: AppServices) -> APIRouter:
             id=record.id, width=record.width, height=record.height,
             off_grid=outpaint.source_off_grid(record.width, record.height, name),
             max_side=limits.refine_max_side, max_pixels=limits.refine_max_pixels,
-            fill=outpaint.FILL, band=outpaint.BAND, max_band=outpaint.MAX_BAND,
+            fill=outpaint.FILL, band=outpaint.BAND, max_band=outpaint.MAX_BAND, min_kept=outpaint.MIN_KEPT,
             presets=[OutpaintPreset(**answer) for answer in answers],
         )
 

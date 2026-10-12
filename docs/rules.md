@@ -222,7 +222,11 @@ before changing it.
   read by `refine.canonical_mask` and kept as `L` by `storage.store_mask`,
   answered by its hash), `POST /api/masks/{hash}/keep` (`storage.touch_mask`:
   the settle window restarted, as a re-upload would; 404 where it has gone)
-  and `GET /api/masks/{hash}` (through `storage.mask_path`); model-free
+  and `GET /api/masks/{hash}` (through `storage.mask_path`); and an
+  outpaint's presets, `GET /api/images/{id}/outpaint-presets`
+  (`outpaint.presets` under the refine guard's limits, with `off_grid`,
+  the fill, the band's default and bound and `min_kept`; a binned source a
+  404 that says it is in the recycle bin); model-free
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone
@@ -1090,7 +1094,7 @@ Reproduction:
   refusal where `--strength`, `--scale` or `--mask` asked for the pass).
   Search: `mask:<hex>`, `mask:none`, `inpaint:yes|no`; stats
   `--by mask`.
-- An outpaint (`docs/plan-outpainting.md`, phase 1 built) is an inpaint
+- An outpaint (`docs/plan-outpainting.md`, phases 1 and 2 built) is an inpaint
   over a padded copy of its source. Two types: `OutpaintSpec` is the stored
   one (`ImageRecord.outpaint`, the `_migrate` column `images.outpaint`
   holding `OutpaintSpec.key()`, `fill:L,T,R,B@band`), plain ints with grid
@@ -1105,7 +1109,23 @@ Reproduction:
   `mask`; every carry site drops it with either. The size is the source's
   plus the padding exactly (`submission.outpaint_unusable`, kind
   `outpaint`, status `outpaint` in Swap tags and More seeds: an off-grid
-  source, an unknown fill by name, the size, the band's kept rectangle).
+  source, an unknown fill by name, the size, the band's kept rectangle -
+  under `outpaint.MIN_KEPT` either way, said by `outpaint.band_too_wide`
+  with the short axis and the padded sides the band comes off). One
+  well-formedness rule for a stored spec, `OutpaintSpec.wellformed()` (a
+  side extended, the band within `MAX_BAND`): the chunk
+  (`storage.chunk_outpaint`), a merged database (`reindex.merge_database`,
+  counted `outpaint_malformed`) and a bundle row (`_validate_row`, refused)
+  all hold to it, so a row's spec always runs again as an `Outpaint`;
+  Re-render still answers a row the request models refuse as a worded 422.
+  A bundle import stores the key in `key()`'s one spelling, and
+  `completed_cells` keys the column through it, so a `0400` row keys as its
+  re-render. A row whose spec does not build its own mask (a bundle's
+  `masks_missing` row, a reindexed chunk, another build's mask code) is
+  refused by every rerun (`submission.mismatched_outpaints`: Re-render's
+  422, Swap tags' and More seeds' status `outpaint`), as `--from-image`
+  refuses it; `--from-image` with a `--band` of its own builds the new
+  band's mask and holds nothing to the record's.
   The mask is the server's: `storage.stamp_outpaints` builds
   (`outpaint.mask`) and stores it as the **first step** of
   `JobManager.submit_cells`, before `Job(...)` (`OSError`/`GalleryBusy` a
@@ -2766,8 +2786,9 @@ Frontend and CLI:
   the panel's and never a mode of the Inpaint dialog: `collect()` sends no
   outpaint. `openOutpaint(rec, from)` (async: it asks `GET
   /api/images/{id}/outpaint-presets` first) - the lightbox's Outpaint… in the
-  Refine/Inpaint row (one row, never wrapping; hidden under 901 px with
-  Inpaint…), a viewer result column's ⬚ Outpaint… and Reuse on an
+  Refine/Inpaint row (one row, never wrapping; under 901 px Inpaint… hides
+  and Outpaint… stays, the pair at their own widths, since a gallery image
+  has no card glyph for it), a viewer result column's ⬚ Outpaint… and Reuse on an
   outpainted record ("Reuse outpaint…", asked before the inpaint's since the
   row has a mask too; `dataset.reuseOutpaint` holds `OutpaintSpec.key()`, so
   `syncReuseButtons` rebuilds it). No card glyph. Where the checkpoint has
@@ -2779,11 +2800,23 @@ Frontend and CLI:
   sides, canvas and `held` words, `off_grid` and the guard's limits. A
   side box is committed (change, Enter, blur) rounded to 16 half up, and
   the band to 8 within `max_band`, the status line saying the rounding; a
-  number already on the grid is taken as typed. A preset replaces the
-  four sides and keeps the band. Outpaint is `aria-disabled` with its
+  number already on the grid is taken as typed, and a typed side that
+  moves the canvas clears what a preset or a rounding said. A preset
+  replaces the four sides and keeps the band. To shape… only picks - an
+  arrow key on a closed select fires change on every press - and its
+  Apply (or Enter in the list) applies the pick, held with "Pick a shape
+  first" or the preset's `held` words. Outpaint is `aria-disabled` with its
   reason while no side is extended, the source is off the grid, the canvas
-  passes `max_side` or `max_pixels`, the band leaves nothing kept, the
-  preview refuses (an unknown fill by name) or the checkpoint has none.
+  passes `max_side` or `max_pixels`, the band leaves less than `min_kept`
+  kept (in the server's words), the preview refuses (an unknown fill by
+  name; a source gone or binned, said as `sourceGoneWords`), a submit is in
+  flight ("Wait for the last submit to be taken") or the checkpoint has
+  none. A presets answer that lands after the user moved on - the lightbox
+  it was pressed in dismissed or on another image, or another dialog
+  opened - opens nothing; Start over reopens past the support gate, so the
+  dialog resets and its unavailable line says why. A presets 404 or a
+  Reuse whose source is binned says "restore it to outpaint it" (Reuse
+  reads the source with `?binned=true`, as Reuse of an inpaint does).
   The frame is a box of a fixed size with the side boxes round it at fixed
   places; the status, frame, presets and band rows have fixed heights, the
   empty preview line holds its height and a refusal takes its place, and
@@ -4560,6 +4593,42 @@ building held to their text-to-image classes' in
 `tests/test_prompt_encoding.py`, and the `--mask` (an RGBA, 16-bit or CMYK
 file; no strength) and `--from-image` (a source that is another picture
 here) cases in `tests/test_cli.py`.
+
+The outpaint is covered by `tests/test_outpaint.py` (both types' grid and
+bound checks, the fill name, the key round trip, the validator's refusals,
+`applied()` dropping it with its source; every preset's integer arithmetic,
+the odd 16, each aspect held at its own tiers, within 16 px, past the guard
+and off the grid; the mask's levels, corners and hard edge, its pipeline
+mask; the kept rectangle and `band_too_wide`'s axis and sides; the fill
+keeping every source pixel and stretching the edge; an unknown fill; the
+fill's and the mask's pinned SHA-256; the composite over the padded
+canvas), `tests/test_api_outpaint.py` (a run over the padded source and its
+record; the stamp before the job, a worded 503, a lost mask file healed and
+one gone mid-run; every submit refusal, the one-sided band among them; the
+refine budget, a binned source, a checkpoint without the class, an off-grid
+source; the presets route, `min_kept` and a binned source's 404; a strength
+sweep resumed by its spec; Re-render carrying the outpaint, refusing another
+size, checking each fill apart under one mask, refusing a row whose spec
+does not build its mask (with Swap tags' and More seeds' `outpaint` status)
+and answering a row no request could make with a worded 422; Swap tags and
+More seeds checking it apart from a refine; Mass refine dropping it; Load
+settings from its PNG; the status types), `tests/test_outpaint_storage.py`
+(the `_migrate` column, the row, chunk and A1111 line; `index_file`'s
+invariant; reindex from PNGs, an unknown fill kept, a malformed spec left off
+and counted, a lost mask built again, a stripped spec recovered only where the
+mask hashes; `wellformed()` and a merge leaving off a spec no request could
+make; a database merge carrying and dropping it; bundles carrying it, a
+broken row refused (a band past the bound among them), a lost mask built
+again or counted missing, the key stored in its one spelling, a leading-zero
+key keyed as its re-render), `tests/test_inpaint.py` (the real backend's
+outpaint branch: the padded canvas at the outpaint's size, the built mask's
+pipeline mask, the kept rectangle composited exactly; `outpaint_source`'s
+size refusal; an unstamped outpaint refused by `check_refine_supported` in
+the inpaint's words; an outpaint without a strength at the class's default),
+the outpaint key and run-id cases in `tests/test_conditioning.py`, the
+dialog's statuses in `tests/test_inpaint_ui.py`, and the `--outpaint`,
+`--band` and `--from-image` cases in `tests/test_cli.py` (a `--band` of its
+own beside a carried outpaint running, a rewritten mask hash refused).
 `tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
 databases, missing or mismatched source identities and safe in-place metadata
 remapping. API tests hold a fake before its first callback to check initial
@@ -5913,7 +5982,11 @@ it; a typed 50 committed as 48 on Enter with "left 50 → 48, a multiple of
 +0/+256/+0/+256), the To shape… list, held presets on the 16:9 preset image
 and on 1376 x 768 (within 16 px), a stubbed off-grid answer; the frame's
 source and band placement; holds past the side budget, a preview refusal, a
-band leaving nothing kept and a band past 256; every box's rect and the
+band leaving nothing kept, a one-sided band leaving 8 px (held at
+`min_kept`, naming the left side alone, as the server's preview refusal
+does) and a band past 256; To shape… moved by real arrow presses without
+applying, Apply held and applying; a side typed after a preset clearing its
+words; every box's rect and the
 scrollTop unchanged; Escape closing only the dialog over the model picker;
 Ctrl+Enter in a side box running the outpaint, not the panel; the result
 an outpaint of #N +400/+0/+400/+0 whose kept pixels are the source's at
@@ -5921,7 +5994,14 @@ its offset and whose border is wholly masked; the card's badge, title and
 Reuse outpaint… after `syncReuseButtons`; the facts rows; Against source
 at the offset; Reuse reopening with the sides, band, strength and seed; a
 strength list opening a sheet; an unknown fill refused by name; Start
-over; `outpaint:yes`:
+over; `outpaint:yes`; the source binned with the dialog open (Outpaint
+held with the recycle-bin words, a press saying it) and restored; a submit
+in flight holding Outpaint with its reason and a press saying it, and the
+job line's "the outpaint of #N"; a late presets answer opening nothing after
+the lightbox closed or over the Inpaint dialog; a presets 404 for a source
+binned elsewhere saying recycle bin; the lightbox's Outpaint… kept, uncut,
+at 800 px. `browser.mjs`'s `{"key": "ArrowDown", "native": true}` sends the
+key code, so a focused select moves as on a real press:
 
 ```powershell
 uv run python tools/fake_server.py --port 7907 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>

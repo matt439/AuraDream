@@ -138,6 +138,26 @@ def kept_size(source_width: int, source_height: int, spec: Spec) -> tuple[int, i
     )
 
 
+def band_too_wide(source_width: int, source_height: int, spec: Spec, name: str = "the source") -> str | None:
+    """Why the band leaves too little of the source unrepainted, or None:
+    the short axis, the padded sides the band is taken off and what it
+    leaves, against `MIN_KEPT`."""
+    kept_width, kept_height = kept_size(source_width, source_height, spec)
+    if kept_width >= MIN_KEPT and kept_height >= MIN_KEPT:
+        return None
+    if kept_width < MIN_KEPT:
+        axis, kept, named = "width", kept_width, (("left", spec.left), ("right", spec.right))
+    else:
+        axis, kept, named = "height", kept_height, (("top", spec.top), ("bottom", spec.bottom))
+    padded_sides = [side for side, pad in named if pad > 0]
+    plural = "s" if len(padded_sides) > 1 else ""
+    return (
+        f"a band of {spec.band} px on the {' and '.join(padded_sides)} side{plural} leaves "
+        f"{max(kept, 0)} px of {name}'s {axis} unrepainted; at least {MIN_KEPT} must be kept, "
+        "so narrow the band"
+    )
+
+
 def mask(width: int, height: int, spec: Spec) -> "Image":
     """The outpaint's mask, mode `L` at the canvas's size, white repainted.
 

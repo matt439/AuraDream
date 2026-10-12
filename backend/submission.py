@@ -149,6 +149,37 @@ def missing_masks(records) -> list[int]:
     return lost
 
 
+def mismatched_outpaints(records) -> list[int]:
+    """The ids of the outpaints among `records` whose spec does not build the
+    mask the row was made under - a bundle's `masks_missing` row, a reindexed
+    chunk, another build's mask code. Run again, such a row would paint
+    under another mask while keeping its key, so resume and More seeds would
+    take the new image for the same reproduction set; `--from-image` refuses
+    it the same way. One build per distinct canvas and spec. Blocking: builds
+    masks."""
+    built: dict[tuple[int, int, str], str | None] = {}
+    mismatched = []
+    for record in records:
+        if record.refine is None or record.outpaint is None:
+            continue
+        key = (record.width, record.height, record.outpaint.key())
+        if key not in built:
+            built[key] = storage.outpaint_mask_hash(record.width, record.height, record.outpaint)
+        if record.mask is None or built[key] != record.mask:
+            mismatched.append(record.id)
+    return mismatched
+
+
+def mismatched_outpaint_detail(ids: list[int]) -> str:
+    """Why a selection with those outpaints is refused, naming each one."""
+    said = "; ".join(
+        f"the outpaint of #{image_id} was made under a mask this build does not build from its spec"
+        for image_id in ids[:6]
+    )
+    more = f"; and {len(ids) - 6} more" if len(ids) > 6 else ""
+    return f"{said}{more} - run again, it would paint under another mask; outpaint its source again instead"
+
+
 def unusable_detail(kind: str, why: str, image_id: int) -> str:
     """What a gallery action says of image `image_id` for an `unusable_input`
     finding: its own words, but a missing mask by the image it belongs to."""
@@ -227,10 +258,7 @@ def outpaint_unusable(request: GenerateRequest) -> str | None:
             f"an outpaint of {name} ({source.width}x{source.height}) by {spec.sides()} is "
             f"{width}x{height}, not the {request.width}x{request.height} asked for"
         )
-    kept = outpaint.kept_size(source.width, source.height, spec)
-    if min(kept) < outpaint.MIN_KEPT:
-        return f"a band of {spec.band} px on both sides repaints the whole of {name}; narrow it"
-    return None
+    return outpaint.band_too_wide(source.width, source.height, spec, name)
 
 
 def mask_unusable(request: GenerateRequest) -> str | None:

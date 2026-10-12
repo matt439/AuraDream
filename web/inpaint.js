@@ -931,7 +931,9 @@ function inpaintClosed() {
 async function reuseInpaint(rec) {
   let source;
   try {
-    source = await api(`/api/images/${rec.refine}`);
+    // The bin's rows too, so a binned source is offered a Restore rather
+    // than said to be gone for good.
+    source = await api(`/api/images/${rec.refine}?binned=true`);
   } catch (err) {
     if (!/unknown image/.test(err.message)) { showError(err.message); return; }
     reuseIntoPanel(rec, false,
@@ -939,6 +941,7 @@ async function reuseInpaint(rec) {
       + 'so the inpaint cannot be made again. The size is left as it was.');
     return;
   }
+  if (source.binned_at) { showError(sourceGoneWords(source, 'binned', 'inpaint'), true); return; }
   openInpaint(source, rec);
 }
 

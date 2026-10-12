@@ -199,6 +199,11 @@ def create_router(services: AppServices) -> APIRouter:
         lost = await asyncio.to_thread(submission.missing_masks, records)
         if lost:
             raise HTTPException(status_code=422, detail=submission.missing_mask_detail(lost))
+        # And an outpaint whose spec does not build its own row's mask: run
+        # again it would paint under another mask under the same key.
+        mismatched = await asyncio.to_thread(submission.mismatched_outpaints, records)
+        if mismatched:
+            raise HTTPException(status_code=422, detail=submission.mismatched_outpaint_detail(mismatched))
         # So is an inpaint at another size than its own - its source's, which
         # its mask covers - where the per-combination check would name the
         # source the user never picked.
@@ -210,7 +215,12 @@ def create_router(services: AppServices) -> APIRouter:
             ))
         # Oldest first (the resolver's order), so the re-render lands in the
         # order the originals did; every record's reproduction set but its size.
-        cells = grid.cells_from_records(records, width=request.width, height=request.height)
+        # A row the request models refuse (a spec another build or an import
+        # let through) is a worded refusal, never a 500.
+        try:
+            cells = grid.cells_from_records(records, width=request.width, height=request.height)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
         # One check per distinct combination rather than per cell: a selection of
         # 400 images carries at most a handful of adapters and sources between them.
         # Every cell is at the one size asked for, so an inpaint's mask is held

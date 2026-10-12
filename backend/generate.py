@@ -359,9 +359,12 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
             args.outpaint = f"{left},{top},{right},{bottom}"
             args.outpaint_fill = fill
             args.carried_outpaint = True
+            # The record's mask stands for this rebuild only when the band
+            # is the record's too: a --band of its own builds another mask,
+            # which is what was asked for, not a sign of another build.
             if args.band is None:
                 args.band = band
-            args.carried_outpaint_mask = meta.get("mask") if isinstance(meta.get("mask"), str) else None
+                args.carried_outpaint_mask = meta.get("mask") if isinstance(meta.get("mask"), str) else None
         elif args.mask is None and args.outpaint is None and isinstance(meta.get("mask"), str):
             args.mask_hash = meta["mask"]
     if args.model is None and meta.get("model"):

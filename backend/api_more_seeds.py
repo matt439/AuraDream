@@ -88,6 +88,11 @@ async def more_seeds_plan(
         )
         held[(width, height)] = done | planned.get((width, height), set())
     checked: dict[tuple, tuple[str, str] | None] = {}
+    # A batch whose outpaint spec does not build its row's mask would paint
+    # its new seeds under another mask, held as the same set.
+    mismatched = set(await asyncio.to_thread(
+        submission.mismatched_outpaints, [batch.template for batch in mine]
+    ))
     for batch in mine:
         template = batch.template
         more_seeds.plan(
@@ -95,6 +100,10 @@ async def more_seeds_plan(
             held=held[(template.width, template.height)],
         )
         if batch.status != more_seeds.QUEUED:
+            continue
+        if template.id in mismatched:
+            batch.status = "outpaint"
+            batch.detail = submission.mismatched_outpaint_detail([template.id])
             continue
         # New seeds are new pictures under any quantizer, but the batch's
         # images were all made under one; said, not refused.

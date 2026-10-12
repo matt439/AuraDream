@@ -198,7 +198,12 @@ def test_an_outpaint_is_refused_at_submit_where_it_cannot_run(client, fake, stor
         ({**body(source), "width": 320}, f"an outpaint of #{source.id} (256x256) by +32/+0/+16/+0 is 304x256, "
                                          "not the 320x256 asked for"),
         (body(source, {"left": 32, "right": 32, "band": 128}),
-         f"a band of 128 px on both sides repaints the whole of #{source.id}; narrow it"),
+         f"a band of 128 px on the left and right sides leaves 0 px of #{source.id}'s width unrepainted; "
+         "at least 16 must be kept, so narrow the band"),
+        # One padded side: the band comes off that side alone.
+        (body(source, {"left": 16, "band": 248}),
+         f"a band of 248 px on the left side leaves 8 px of #{source.id}'s width unrepainted; "
+         "at least 16 must be kept, so narrow the band"),
         (body(source, {**SPEC, "fill": "edge-box5-r8"}),
          "this build has no outpaint fill 'edge-box5-r8'; it fills with edge-box3-r16"),
         (body(source, {**SPEC, "band": 264}), "less than or equal to 256"),
@@ -263,7 +268,7 @@ def test_the_presets_route_answers_the_servers_numbers(client, fake, store):
     assert answer.status_code == 200, answer.text
     answer = answer.json()
     assert (answer["width"], answer["height"], answer["off_grid"]) == (1024, 1024, None)
-    assert (answer["fill"], answer["band"], answer["max_band"]) == ("edge-box3-r16", 32, 256)
+    assert (answer["fill"], answer["band"], answer["max_band"], answer["min_kept"]) == ("edge-box3-r16", 32, 256, 16)
     presets = {p["name"]: p for p in answer["presets"]}
     assert [presets["16:9"][k] for k in ("left", "top", "right", "bottom", "width")] == [400, 0, 400, 0, 1824]
     assert presets["16:9"]["held"] is None
@@ -272,9 +277,13 @@ def test_the_presets_route_answers_the_servers_numbers(client, fake, store):
     held = client.get(f"/api/images/{off.id}/outpaint-presets").json()
     assert held["off_grid"] == f"#{off.id} is 1016 x 1016, off the 16-px grid, so no outpaint of it is either"
     assert {p["held"] for p in held["presets"]} == {held["off_grid"]}
-    assert client.get("/api/images/9999/outpaint-presets").status_code == 404
+    gone = client.get("/api/images/9999/outpaint-presets")
+    assert gone.status_code == 404 and gone.json()["detail"] == "no gallery image with id 9999"
     assert client.post("/api/images/bin", json={"ids": [source.id]}).status_code == 200
-    assert client.get(f"/api/images/{source.id}/outpaint-presets").status_code == 404
+    # A binned source says so, so the page offers a Restore, never "deleted".
+    binned = client.get(f"/api/images/{source.id}/outpaint-presets")
+    assert binned.status_code == 404
+    assert binned.json()["detail"] == f"no gallery image with id {source.id} (#{source.id} is in the recycle bin)"
 
 
 # ------------------------------------------------------------ grid and resume
@@ -316,6 +325,57 @@ def test_rerender_carries_the_outpaint_and_refuses_another_size(client, fake, st
     detail = refused.json()["detail"]
     assert f"#{row.id} is an outpaint of #{source.id} at 304x256" in detail
     assert "an outpaint runs at its source's size plus its padding" in detail
+
+
+def _set_outpaint(store, row, key, mask=None) -> None:
+    with store._session() as conn:
+        conn.execute("UPDATE images SET outpaint = ?, mask = COALESCE(?, mask) WHERE id = ?", (key, mask, row.id))
+
+
+def test_rerender_checks_each_outpaints_fill_apart_under_one_mask(client, fake, store):
+    source = plant(store)
+    good = plant_outpaint(store, source, quantization="elsewhere")
+    other = plant_outpaint(store, source, seed=3, quantization="elsewhere")
+    # The same sides and band, so the same mask: only the fill tells them apart.
+    _set_outpaint(store, other, "edge-zz9:32,0,16,0@16")
+    response = client.post("/api/rerender", json={"ids": [good.id, other.id], "width": 304, "height": 256})
+    assert response.status_code == 422, response.text
+    assert "this build has no outpaint fill 'edge-zz9'" in response.json()["detail"]
+    assert not fake.requests
+
+
+def test_an_outpaint_whose_spec_does_not_build_its_mask_is_refused_by_every_rerun(client, fake, store):
+    source = plant(store, "a hill")
+    row = plant_outpaint(store, source, quantization="elsewhere")
+    # As a bundle's `masks_missing` row or a reindexed chunk can be: the
+    # spec's band is not the one its mask was built with.
+    _set_outpaint(store, row, "edge-box3-r16:32,0,16,0@24")
+    words = f"the outpaint of #{row.id} was made under a mask this build does not build from its spec"
+    response = client.post("/api/rerender", json={"ids": [row.id], "width": 304, "height": 256})
+    assert response.status_code == 422 and words in response.json()["detail"], response.text
+    swaps = [{"find": "red hair, long hair", "replace": "silver hair"}]
+    answer = client.post("/api/swap-tags/preview", json={"swaps": swaps, "ids": [row.id]}).json()
+    (image,) = answer["images"]
+    assert (image["status"], words in image["detail"]) == ("outpaint", True)
+    answer = client.post("/api/more-seeds/preview", json={"ids": [row.id], "count": 2}).json()
+    (result,) = answer["results"]
+    assert (result["status"], words in result["detail"]) == ("outpaint", True)
+    assert not fake.requests
+
+
+@pytest.mark.parametrize("key, words", [
+    ("edge-box3-r16:0,0,0,0@16", "an outpaint extends at least one side"),
+    ("edge-box3-r16:32,0,16,0@264", "less than or equal to 256"),
+])
+def test_rerender_of_a_row_no_request_could_make_is_a_worded_422(client, fake, store, key, words):
+    source = plant(store)
+    row = plant_outpaint(store, source, quantization="elsewhere")
+    # Its mask the one its spec builds, so only the request model refuses it.
+    spec = storage.OutpaintSpec.parse_key(key)
+    _set_outpaint(store, row, key, storage.outpaint_mask_hash(row.width, row.height, spec))
+    response = client.post("/api/rerender", json={"ids": [row.id], "width": row.width, "height": row.height})
+    assert response.status_code == 422 and words in response.json()["detail"], response.text
+    assert not fake.requests
 
 
 def test_a_record_runs_again_as_its_outpaint_with_no_mask_of_its_own():

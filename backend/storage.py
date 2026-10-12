@@ -1031,7 +1031,7 @@ def completed_cells(
                         reference_key(json.loads(row["reference"]) if row["reference"] else None),
                         lora_key(row["lora"], row["lora_scale"]),
                         refine_key(row["refine"], row["strength"]),
-                        mask_key(row["mask"], row["outpaint"]),
+                        mask_key(row["mask"], _canonical_outpaint(row["outpaint"])),
                         row["seed"],
                     )
                 )
@@ -1416,6 +1416,18 @@ def outpaint_parameters(spec: OutpaintSpec) -> str:
     )
 
 
+def _canonical_outpaint(text: str | None) -> str | None:
+    """A column's outpaint key in `OutpaintSpec.key()`'s one spelling - a
+    row an older import stored as given (`0400`) keys as its re-render
+    does - or the text itself where it is no key."""
+    if not text:
+        return text
+    try:
+        return OutpaintSpec.parse_key(text).key()
+    except ValueError:
+        return text
+
+
 def chunk_outpaint(meta: dict[str, Any]) -> OutpaintSpec | None:
     """A PNG chunk's `outpaint` and `outpaint_fill` as the stored spec, or
     None where it carries none or a malformed one. Any well-formed fill is
@@ -1431,7 +1443,7 @@ def chunk_outpaint(meta: dict[str, Any]) -> OutpaintSpec | None:
         spec = OutpaintSpec(fill=fill, left=sides[0], top=sides[1], right=sides[2], bottom=sides[3], band=sides[4])
     except ValueError:
         return None
-    return spec if spec.left or spec.top or spec.right or spec.bottom else None
+    return spec if spec.wellformed() else None
 
 
 def malformed_outpaint(meta: dict[str, Any]) -> bool:

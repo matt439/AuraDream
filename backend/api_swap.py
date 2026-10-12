@@ -62,6 +62,9 @@ async def swap_plan(
     queued: list[tuple[SwapResult, grid.Cell]] = []
     checked: dict[tuple, tuple[str, str] | None] = {}
     seen: dict[tuple, int] = {}
+    # Outpaints whose spec does not build their row's mask: run again, each
+    # would paint under another mask under the same key.
+    mismatched = set(await asyncio.to_thread(submission.mismatched_outpaints, records))
     for record in records:
         result = SwapResult(
             id=record.id, thumb_url=record.thumb_url, width=record.width, height=record.height,
@@ -91,6 +94,9 @@ async def swap_plan(
             result.status, result.detail = outcome.status, _SWAP_SAYS[outcome.status]
             continue
         result.text, result.spans, result.removed = outcome.text, outcome.spans, outcome.removed
+        if record.id in mismatched:
+            result.status, result.detail = "outpaint", submission.mismatched_outpaint_detail([record.id])
+            continue
         try:
             cell = grid.cell_from_record(
                 record, prompt=swapped.prompt, negative_prompt=swapped.negative_prompt,

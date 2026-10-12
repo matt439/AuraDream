@@ -41,6 +41,8 @@ let outpaintReturnKeep = null;
 let outpaintLora = null;
 let outpaintRan = false;
 let outpaintSending = false;
+// What holds Outpaint while a submit is in flight.
+const OUTPAINT_IN_FLIGHT = 'Wait for the last submit to be taken';
 let outpaintWaiting = false;
 let outpaintFilled = null;
 let outpaintStrengthStandIn = null;
@@ -142,25 +144,33 @@ function outpaintFromCard(rec, div) {
 // sampling and seed, no side extended, the server's band and the starting
 // strength - or, after a close that left sides or settings unsent on this
 // image, those, which it says. The presets are the server's, asked first:
-// they carry the source's size check and the guard's limits as well. Answers
-// whether it opened.
-async function openOutpaint(rec, from = null) {
-  if (!inpaintSupported && !from) {
+// they carry the source's size check and the guard's limits as well. A
+// `restart` (Start over, from inside the open dialog) skips the support
+// gate: the dialog resets and its own unavailable line says why it cannot
+// run. Answers whether it opened.
+async function openOutpaint(rec, from = null, restart = false) {
+  if (!inpaintSupported && !from && !restart) {
     showError(inpaintNone(true), true);
     return false;
   }
   const opened = ++outpaintOpenEpoch;
+  const fromLightbox = els.lightbox.open;
   let presets;
   try {
     presets = await api(`/api/images/${rec.id}/outpaint-presets`);
   } catch (err) {
     if (opened !== outpaintOpenEpoch) return false;
-    const gone = /^no gallery image with id/.test(err.message ?? '');
-    const said = gone ? sourceGoneWords(rec, rec.binned_at ? 'binned' : 'deleted', 'outpaint') : err.message;
+    const message = err.message ?? '';
+    const gone = /^no gallery image with id/.test(message);
+    // The server says a binned source is in the bin: this page's copy of
+    // the record may be older than that.
+    const kind = /recycle bin/.test(message) || rec.binned_at ? 'binned' : 'deleted';
+    const said = gone ? sourceGoneWords(rec, kind, 'outpaint') : message;
+    if (outpaintMovedOn(rec, fromLightbox, restart)) return false;
     showError(said, true, els.lightbox.open ? undefined : { slot: els.galleryError });
     return false;
   }
-  if (opened !== outpaintOpenEpoch) return false;
+  if (opened !== outpaintOpenEpoch || outpaintMovedOn(rec, fromLightbox, restart)) return false;
   outpaintReturn = lightboxPlace();
   if (els.lightbox.open) closeLightbox();
   showError('');
@@ -245,6 +255,16 @@ async function openOutpaint(rec, from = null) {
   return true;
 }
 
+// Whether the user moved on while the presets came: the lightbox it was
+// pressed in was dismissed or moved to another image, or another dialog has
+// opened since. A late answer then opens nothing over it.
+function outpaintMovedOn(rec, fromLightbox, restart) {
+  if (restart) return false;
+  if (fromLightbox && (!els.lightbox.open || lbList[lbIndex]?.id !== rec.id)) return true;
+  return [...document.querySelectorAll('dialog[open]')]
+    .some((dialog) => dialog !== els.lightbox && dialog !== els.outpaintDialog);
+}
+
 function writeOutpaintSourceLine(rec, gone = null) {
   els.outpaintSourceLine.textContent = [
     `${rec.width}×${rec.height}`, `seed ${rec.seed}`, checkpointName(rec.model_id),
@@ -312,7 +332,7 @@ function startOutpaintOver() {
   if (!rec || outpaintSending) return;
   outpaintKept.delete(rec.id);
   outpaintReturnKeep = outpaintReturn;
-  void openOutpaint(rec, outpaintFrom).then(() => {
+  void openOutpaint(rec, outpaintFrom, true).then(() => {
     outpaintReturn = outpaintReturnKeep;
     outpaintReturnKeep = null;
   });
@@ -355,7 +375,9 @@ function commitOutpaintSide(side, { typing = false } = {}) {
   if (!typing && String(rounded) !== text) {
     outpaintSaid = { text: `${side} ${text === '' ? 'empty' : text} → ${rounded}, a multiple of ${OUTPAINT_GRID}`, warn: false };
     el.value = String(rounded);
-  } else if (!typing) {
+  } else if (!typing || outpaintSides[side] !== rounded) {
+    // A typed side that moves the canvas makes what a preset or a rounding
+    // said stale: the status says what the boxes now hold.
     outpaintSaid = null;
   }
   if (outpaintSides[side] === rounded && !outpaintSaid) { syncOutpaint(); return; }
@@ -380,7 +402,7 @@ function commitOutpaintBand({ typing = false } = {}) {
       warn: false,
     };
     el.value = String(rounded);
-  } else if (!typing) {
+  } else if (!typing || outpaintBandPx !== rounded) {
     outpaintSaid = null;
   }
   if (outpaintBandPx === rounded && !outpaintSaid) { syncOutpaint(); return; }
@@ -470,6 +492,23 @@ function syncOutpaintPresets() {
     button.setAttribute('aria-disabled', String(!!held));
     button.title = held || `Extend to ${preset.width} × ${preset.height}: ${outpaintSidesText(preset)} (replaces the four sides)`;
   }
+  const picked = els.outpaintShape.value ? outpaintPreset(els.outpaintShape.value) : null;
+  const held = !els.outpaintShape.value ? 'Pick a shape first' : !picked ? 'Wait for the presets to load' : picked.held;
+  els.outpaintShapeApply.setAttribute('aria-disabled', String(!!held));
+  els.outpaintShapeApply.title = held
+    || `Extend to ${picked.width} × ${picked.height}: ${outpaintSidesText(picked)} (replaces the four sides)`;
+}
+
+// Apply beside To shape…: the picked aspect's preset. Held, it says why in
+// the status line, as a held preset button does.
+function applyOutpaintShape() {
+  if (!outpaintSource) return;
+  if (!els.outpaintShape.value) {
+    outpaintSaid = { text: 'Pick a shape in the list first, then Apply.', warn: true };
+    syncOutpaint();
+    return;
+  }
+  applyOutpaintPreset(els.outpaintShape.value);
 }
 
 // What holds Outpaint because of the sides, the band or the source, or ''.
@@ -486,9 +525,22 @@ function outpaintExtendProblem() {
   if (cw * ch > presets.max_pixels) {
     return `${cw} × ${ch} is past the ${presets.max_pixels.toLocaleString('en-US')} pixels a refine pass takes`;
   }
+  return outpaintBandProblem() ?? '';
+}
+
+// Whether the band leaves too little kept: the server's least kept side
+// (`min_kept`), in its words - the short axis and the padded sides the band
+// comes off - or null.
+function outpaintBandProblem() {
+  const src = outpaintSource;
+  const least = outpaintPresets?.min_kept ?? 16;
   const [kw, kh] = outpaintKeptSize();
-  if (kw <= 0 || kh <= 0) return `A band of ${outpaintBandPx} px repaints the whole of #${src.id}; narrow it`;
-  return '';
+  if (!src || (kw >= least && kh >= least)) return null;
+  const width = kw < least;
+  const sides = (width ? ['left', 'right'] : ['top', 'bottom']).filter((side) => outpaintSides[side] > 0);
+  return `A band of ${outpaintBandPx} px on the ${sides.join(' and ')} side${sides.length > 1 ? 's' : ''} `
+    + `leaves ${Math.max(width ? kw : kh, 0)} px of #${src.id}'s ${width ? 'width' : 'height'} unrepainted; `
+    + `at least ${least} must be kept, so narrow the band`;
 }
 
 // The status line: what the last commit or preset said, else what the
@@ -507,10 +559,10 @@ function syncOutpaintStatus() {
     text = 'Nothing extended yet: set a side, or pick a preset.';
   } else {
     const [kw, kh] = outpaintKeptSize();
-    text = kw > 0 && kh > 0
-      ? `The new area and a ${outpaintBandPx}-px band are repainted; ${kw} × ${kh} of #${src.id} is kept exactly.`
-      : `A band of ${outpaintBandPx} px leaves nothing of #${src.id} kept.`;
-    warn = !(kw > 0 && kh > 0);
+    const problem = outpaintBandProblem();
+    text = problem ? `${problem}.`
+      : `The new area and a ${outpaintBandPx}-px band are repainted; ${kw} × ${kh} of #${src.id} is kept exactly.`;
+    warn = !!problem;
   }
   if (els.outpaintStatus.textContent !== text) els.outpaintStatus.textContent = text;
   els.outpaintStatus.classList.toggle('warn', warn);
@@ -563,7 +615,7 @@ function outpaintSampling() {
 // preview's refusal (its words, an unknown fill's included).
 function syncOutpaintRun() {
   if (!els.outpaintRun || !outpaintSource) return;
-  const problem = submitHold()
+  const problem = submitHold() || (submitting ? OUTPAINT_IN_FLIGHT : '')
     || (!inpaintSupported ? inpaintNone(true).replace(/\.$/, '').split('. ')[0]
       : outpaintExtendProblem() || outpaintProblem);
   els.outpaintRun.setAttribute('aria-disabled', String(!!problem));
@@ -584,6 +636,11 @@ function outpaintChanged() {
 function outpaintKeydown(event) {
   if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
   const side = OUTPAINT_SIDES.find((s) => outpaintBox(s) === event.target);
+  if (event.key === 'Enter' && event.target === els.outpaintShape) {
+    event.preventDefault();
+    applyOutpaintShape();
+    return;
+  }
   if (event.key === 'Enter' && (side || event.target === els.outpaintBand)) {
     event.preventDefault();
     if (side) commitOutpaintSide(side); else commitOutpaintBand();
@@ -729,7 +786,10 @@ async function dropOutpaintLora(message, source = outpaintSource) {
 // Outpaint: the job queues like the Inpaint dialog's, and the dialog closes
 // once the server has taken it. A sweep opens as its sheet when done.
 async function runOutpaint() {
-  if (!outpaintSource || !els.outpaintDialog.open || submitting || outpaintWaiting) return;
+  if (!outpaintSource || !els.outpaintDialog.open || outpaintWaiting) return;
+  // A submit in flight - this dialog's or the panel's - holds Outpaint; a
+  // press says so rather than doing nothing.
+  if (submitting) { outpaintFailed(`${OUTPAINT_IN_FLIGHT}.`); return; }
   commitOutpaintBoxes();
   const drops = outpaintLoraDrops;
   while (outpaintPreviewed !== JSON.stringify(outpaintRequest().preview)) {
@@ -858,7 +918,9 @@ function outpaintClosed() {
 async function reuseOutpaint(rec) {
   let source;
   try {
-    source = await api(`/api/images/${rec.refine}`);
+    // The bin's rows too, so a binned source is offered a Restore rather
+    // than said to be gone for good.
+    source = await api(`/api/images/${rec.refine}?binned=true`);
   } catch (err) {
     if (!/unknown image/.test(err.message)) { showError(err.message); return; }
     reuseIntoPanel(rec, false,

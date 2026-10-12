@@ -1993,7 +1993,33 @@ off-grid source and the guard's limits all come from `GET
 reads through the same `outpaint.presets`; a copy in the page would drift.
 The page rounds what is typed to the grids (16 for a side, 8 for the band)
 only so the frame and the preview show what will be sent, and the submit
-check says the rest.
+check says the rest. The one limit it holds itself, the band's kept
+rectangle, takes the server's number (`min_kept`) and words: the first
+build held only at nothing kept while the server refused under 16 px, so
+a one-sided band leaving 8 px read "kept exactly" with Outpaint live, and
+the server's refusal said "on both sides" though the band came off one.
+`outpaint.band_too_wide` now names the short axis and the padded sides.
+
+**Why To shape… has an Apply.** The list applied its preset on `change`
+and snapped back to its placeholder. On Windows a closed select's arrow
+keys fire `change` on every press, so a keyboard user applied the first
+aspect over their typed sides each time and never reached the second. The
+list now only picks; Apply (or Enter in the list) applies, held until a
+shape is picked, as the preset buttons are with their `held` words.
+
+**Why a rerun refuses a spec that does not build its mask.** An outpaint
+keys by its spec, never its mask hash, so a stamped and an unstamped cell
+key alike. A row whose spec does not build the mask it was made under (a
+bundle's `masks_missing` row, a reindexed chunk, another build's mask
+code) would run again under another mask under the same key, and resume
+and More seeds would take the new picture for the same reproduction set.
+`--from-image` refused that from the first build; the server's reruns now
+do too (`submission.mismatched_outpaints`). `--from-image` with a `--band`
+of its own was refused by the same check in the first build - the new
+band builds another mask, which is what was asked - so the record's hash is
+held only when the band is the record's. For the same reason every way a
+stored spec reaches a row holds it to `OutpaintSpec.wellformed()`, so a
+row's spec always runs again as a request.
 
 **Why nothing moves.** The frame is a fixed box whatever the canvas's
 shape, and the side boxes sit round it at fixed places; the status line,
@@ -2004,10 +2030,12 @@ scrollbar that moved every control 7 px sideways (seen in the first smoke).
 The lightbox's Refine/Inpaint/Outpaint row's buttons have 4 px side padding
 so "⬚ Outpaint…" fits a third of the 280 px column without cutting.
 
-**What this pass leaves.** No card glyph (an open question of the plan);
-under 901 px the lightbox's Outpaint… hides with Inpaint…, so an outpaint
-is reached from Reuse there; the frame shows no preview of the server's
-fill. Nothing about an outpaint's memory, time or pictures is known until
+**What this pass leaves.** No card glyph (an open question of the plan).
+The first build hid the lightbox's Outpaint… with Inpaint… under 901 px,
+leaving an older gallery image no way to be outpainted there (Inpaint has
+the card's ✎; Outpaint has only the lightbox, a fresh result's ⬚ Outpaint…
+and Reuse of an outpaint); now Inpaint… alone hides and the pair sit at
+their own widths. The frame shows no preview of the server's fill. Nothing about an outpaint's memory, time or pictures is known until
 the card measures it (`verified.md`, Outpaint).
 
 ## CellKey and run_id

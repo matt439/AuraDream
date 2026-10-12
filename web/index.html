@@ -1327,9 +1327,11 @@
       <button type="button" class="ghost small" id="outpaint-grow" data-preset="+25%">+25% all round</button>
       <button type="button" class="ghost small" id="outpaint-wide" data-preset="16:9">to 16:9</button>
       <button type="button" class="ghost small" id="outpaint-tall" data-preset="2:3">to 2:3</button>
-      <select id="outpaint-shape" aria-label="To shape: extend to another aspect">
+      <select id="outpaint-shape" aria-label="To shape: pick another aspect, then Apply">
         <option value="" selected>To shape…</option>
       </select>
+      <button type="button" class="ghost small" id="outpaint-shape-apply" aria-disabled="true"
+              title="Pick a shape first">Apply</button>
     </div>
     <div class="op-band-row">
       <label class="op-side" for="outpaint-band"><span>Band</span></label>

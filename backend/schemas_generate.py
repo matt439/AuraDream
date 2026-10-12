@@ -129,6 +129,14 @@ class OutpaintSpec(BaseModel):
         """`+L/+T/+R/+B`, as the page and the CLI say the padding."""
         return outpaint_rules.sides(self)
 
+    def wellformed(self) -> bool:
+        """Whether a request could have made this spec: at least one side
+        extended and the band within `MAX_BAND` - what `Outpaint` adds to
+        the stored type's grid checks. Every way a spec reaches a row (a
+        chunk, a merged database, a bundle) holds it to this, so a row's
+        spec always runs again as an `Outpaint`."""
+        return bool(self.left or self.top or self.right or self.bottom) and self.band <= outpaint_rules.MAX_BAND
+
 
 class Outpaint(OutpaintSpec):
     """A request's outpaint: the stored spec with the fill defaulted to
@@ -694,8 +702,9 @@ class OutpaintPreset(BaseModel):
 class OutpaintPresets(BaseModel):
     """`GET /api/images/{id}/outpaint-presets`' answer: the source's size,
     why no outpaint of it can run where it is off the 16-pixel grid, the
-    refine guard's limits the canvas is held to, this build's fill and the
-    band's default and bound, and every preset. Model-free: the server
+    refine guard's limits the canvas is held to, this build's fill, the
+    band's default and bound, the kept rectangle's least side, and every
+    preset. Model-free: the server
     decides the numbers, the page holds no copy of the arithmetic."""
 
     id: int
@@ -707,6 +716,8 @@ class OutpaintPresets(BaseModel):
     fill: str
     band: int
     max_band: int
+    # The fewest pixels each way the band must leave kept (`outpaint.MIN_KEPT`).
+    min_kept: int
     presets: list[OutpaintPreset]
 
 

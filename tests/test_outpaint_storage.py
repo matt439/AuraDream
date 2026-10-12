@@ -225,6 +225,36 @@ def test_no_recovery_where_the_rebuilt_mask_is_not_the_rows(store, monkeypatch):
     assert row.outpaint is None and row.mask == made.mask
 
 
+def test_one_wellformedness_rule_for_every_spec_that_reaches_a_row():
+    # What `Outpaint` refuses beyond the stored type's grid checks.
+    assert storage.OutpaintSpec.parse_key(KEY).wellformed()
+    assert not storage.OutpaintSpec.parse_key("edge-box3-r16:0,0,0,0@16").wellformed()
+    assert not storage.OutpaintSpec.parse_key("edge-box3-r16:32,0,0,0@264").wellformed()
+    chunk = {"outpaint": {"left": 32, "top": 0, "right": 0, "bottom": 0, "band": 264}, "outpaint_fill": "edge-box3-r16"}
+    assert storage.chunk_outpaint(chunk) is None and storage.malformed_outpaint(chunk)
+
+
+@pytest.mark.parametrize("bad", ["edge-box3-r16:0,0,0,0@32", "edge-box3-r16:32,0,16,0@512"])
+def test_a_database_merge_leaves_off_a_spec_no_request_could_make(store, monkeypatch, tmp_path, bad):
+    mine = store.settings
+    monkeypatch.setattr(reindex, "settings", mine)
+    elsewhere = tmp_path / "backup" / "outputs"
+    elsewhere.mkdir(parents=True)
+    source_db = elsewhere.parent / "local-diffusion.db"
+    monkeypatch.setattr(storage, "settings", dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere))
+    storage.init_db()
+    source, made = _gallery()
+    with storage._session() as conn:
+        conn.execute("UPDATE images SET outpaint = ? WHERE id = ?", (bad, made.id))
+    monkeypatch.setattr(storage, "settings", mine)
+    # Counted and left off; the A1111 line may give the real spec back
+    # exactly, never the one no request could make.
+    counts = reindex.reindex(elsewhere, database=source_db)
+    assert counts["outpaint_malformed"] == 1
+    row = next(r for r in store.list_images(limit=10)[0] if r.filename == made.filename)
+    assert row.outpaint is None or row.outpaint.wellformed()
+
+
 def test_a_database_merge_carries_and_drops_the_outpaint(store, monkeypatch, tmp_path):
     mine = store.settings
     monkeypatch.setattr(reindex, "settings", mine)
@@ -280,13 +310,14 @@ def test_a_bundle_without_the_source_clears_the_outpaint(store, monkeypatch, tmp
     assert (meta["outpaint"], meta["outpaint_fill"]) == (None, None)
 
 
-@pytest.mark.parametrize("change", ["garbage", "no mask", "no side"])
+@pytest.mark.parametrize("change", ["garbage", "no mask", "no side", "band past bound"])
 def test_a_bundle_row_with_a_broken_outpaint_is_refused(store, change):
     source, made = _gallery()
     update = {
         "garbage": ("UPDATE images SET outpaint = '../x' WHERE id = ?", ()),
         "no mask": ("UPDATE images SET mask = NULL WHERE id = ?", ()),
         "no side": ("UPDATE images SET outpaint = 'edge-box3-r16:0,0,0,0@16' WHERE id = ?", ()),
+        "band past bound": ("UPDATE images SET outpaint = 'edge-box3-r16:32,0,16,0@512' WHERE id = ?", ()),
     }[change]
     with store._session() as conn:
         conn.execute(update[0], (made.id,))
@@ -319,6 +350,29 @@ def test_an_import_whose_spec_does_not_build_the_rows_mask_counts_it_missing(sto
     _destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert (imported["outpaint_masks_rebuilt"], imported["masks_missing"]) == (0, 1)
+
+
+def test_an_import_stores_the_key_in_its_one_spelling(store, monkeypatch, tmp_path):
+    source, made = _gallery()
+    with store._session() as conn:
+        conn.execute("UPDATE images SET outpaint = 'edge-box3-r16:032,0,016,0@016' WHERE id = ?", (made.id,))
+    archive = bundles.export_bundle(keep_gallery=True)
+    _destination(store, monkeypatch, tmp_path)
+    bundles.import_bundle(Path(archive["path"]))
+    with store._session() as conn:
+        (stored,) = conn.execute("SELECT outpaint FROM images WHERE outpaint IS NOT NULL").fetchone()
+    assert stored == KEY
+
+
+def test_a_leading_zero_key_still_keys_as_its_re_render(store):
+    source, made = _gallery()
+    with store._session() as conn:
+        conn.execute("UPDATE images SET outpaint = 'edge-box3-r16:032,0,16,0@16' WHERE id = ?", (made.id,))
+    record = store.get_image(made.id)
+    cell = grid.cell_from_record(record)
+    stamped = storage.stamp_outpaints([cell])[0]
+    held = storage.completed_cells([record.prompt], record.width, record.height, record.model_id, None)
+    assert set(grid.cell_keys(stamped)) <= held
 
 
 def test_an_import_recovers_an_outpaint_an_older_build_stripped(store, monkeypatch, tmp_path):
