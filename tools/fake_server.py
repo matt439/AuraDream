@@ -163,7 +163,18 @@ def main() -> int:
             super().generate(request, seed, progress, should_cancel)
             return out
 
+        def describe(self) -> dict:
+            # The inpaint class's own strength default, as the real backend
+            # reads it (`refine.library_strength`), so the Inpaint dialog
+            # opens at the library's number on this fake too.
+            return {**super().describe(), "inpaint_strength": inpaint_strength if self.inpaint_supported else None}
+
         def _draw(self, request, seed):
+            # An inpaint changes only what its mask covers, through the real
+            # composite (the tests' fake fill by seed): no stamp, so a smoke
+            # can read every unmasked pixel against the source's.
+            if request.refine is not None and request.mask is not None and self.inpaint_supported:
+                return FakeBackend._inpaint(request, seed)
             # A refine pass starts from its source, as the real one does: the
             # gallery image at the requested size - cropped where the shape
             # differs - under a stamp saying whose refinement it is and at
@@ -215,8 +226,18 @@ def main() -> int:
     # the claimed checkpoint: greyed on a Krea 2 or klein fake, live on a
     # FLUX.1, SDXL, Z-Image or Qwen-Image one.
     fake.refine_supported = profile["refine_supported"]
-    # And an inpaint only where the profile enables one (SDXL and Z-Image).
+    # And an inpaint only where the profile enables one (SDXL and Z-Image),
+    # starting at the strength the installed inpaint class defaults to - the
+    # one diffusers read here is the family's: SDXL's or Z-Image's.
     fake.inpaint_supported = profile["inpaint_supported"]
+    inpaint_strength = None
+    if fake.inpaint_supported:
+        import diffusers
+
+        from backend import refine
+
+        family = "ZImagePipeline" if "z-" in args.model.lower() else "StableDiffusionXLPipeline"
+        inpaint_strength = refine.library_strength(refine.sibling(getattr(diffusers, family), "Inpaint"))
     # A Mu only where the claimed checkpoint's schedule can take one: on an
     # Anima or SDXL fake the row drops it, as the real applied() does.
     fake.mu_supported = profile["mu_supported"]

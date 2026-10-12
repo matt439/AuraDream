@@ -193,6 +193,7 @@ function resetPanel() {
   // The Refine dialog's scale, versions and per-checkpoint strengths too, and
   // anything left unsent in it.
   forgetRefine();
+  forgetInpaint();
   samplingByModel = {};
   for (const key of Object.keys(owned)) owned[key] = false;
   // Emptied as typing would empty them (`rewriteBox`), so Ctrl+Z in the

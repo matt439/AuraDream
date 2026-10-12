@@ -482,6 +482,7 @@ function renderLightbox() {
   els.lbRefine.title = binned ? 'In the recycle bin: restore it to refine it'
     : refineSupported ? 'Refine this image: scale it up and re-denoise it part of the way'
       : 'This checkpoint has no refine pass';
+  syncLightboxInpaint(rec);
   syncCompare(rec);
   // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();

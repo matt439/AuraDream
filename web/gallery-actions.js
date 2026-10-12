@@ -693,7 +693,7 @@ function tombstone(el, word = 'Deleted') {
     // Nor any mark of what the image was: a star, a reference, a pass, a
     // pick - nor the group (card()), which has no tools left to name; its
     // text says it.
-    el.classList.remove('fav', 'ref', 'refined', 'selected');
+    el.classList.remove('fav', 'ref', 'refined', 'inpainted', 'selected');
     el.classList.add('gone');
     el.removeAttribute('role');
     el.removeAttribute('aria-label');

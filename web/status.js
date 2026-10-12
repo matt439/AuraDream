@@ -654,6 +654,8 @@ function receiveStatus(s, asked = Date.now()) {
     // The dialog's negative prompt, Mu and True CFG follow the same answers
     // as the panel's boxes above.
     if (refineSource) syncRefine();
+    // And the inpaint's, with the tools that open it (inpaint.js).
+    if (s.defaults) syncInpaintCapability(s.defaults);
     // Mass refine's Refine… says the hedge or the final answer as the status
     // settles it, and an open dialog's Refine what holds it now.
     syncRefineBatchButton();
@@ -675,6 +677,7 @@ function receiveStatus(s, asked = Date.now()) {
     if (els.dot.classList.contains('ready') !== (s.state === 'ready')) {
       schedulePreview();
       if (refineSource) scheduleRefinePreview();
+      if (inpaintSource) scheduleInpaintPreview();
     }
     els.dot.className = `dot ${s.state}`;
     const was = modelState;

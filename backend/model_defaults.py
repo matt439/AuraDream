@@ -69,7 +69,9 @@ Z-Image, Qwen-Image and FLUX.2 [klein], and only SDXL and Z-Image are enabled
 so far. The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
 phases) and answer False even loaded, so a False here is final;
 `tests/test_inpaint.py` holds every True to an installed class and every
-class left off to that list.
+class left off to that list. Their profiles also carry `inpaint_deferred`,
+so the Inpaint dialog says "not enabled yet" rather than "no such pipeline"
+(`tests/test_inpaint_ui.py` holds it to the same list).
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -219,6 +221,8 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "reference_supported": True,
             "refine_supported": False,
             "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             "refine_strength": None,
             "true_cfg_supported": False,
             "guide": guides.KLEIN_GUIDE,
@@ -254,6 +258,8 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "reference_supported": True,
             "refine_supported": False,
             "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             "refine_strength": None,
             "true_cfg_supported": False,
             "guide": guides.KLEIN_GUIDE,
@@ -291,6 +297,8 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             "refine_strength": 0.5,
             # Measured: 1536x1536 within a gigabyte of the card's top, as Krea
             # dev's same transformer is; nothing larger was run.
@@ -332,6 +340,8 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             # Measured on Krea dev: at 1.5x of a 1 MP image the shift is
             # already mu 2.0, so 0.1 starts the pass at sigma 0.47 and keeps
             # the face; 0.15 (0.62) and up repaint it.
@@ -517,6 +527,8 @@ _PROFILES.append(
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             "refine_strength": 0.3,
             # Measured under Nunchaku, the only way it fits this card:
             # 1280x1280 with true CFG at 15.0 GB of the card; nothing larger.
@@ -1063,6 +1075,10 @@ def defaults_for(model_id: str) -> dict[str, Any]:
         # A load can only take an inpaint away (the backend needs the profile's
         # True and the class), never add one, so a False is final already.
         "inpaint_settled": not profile["inpaint_supported"],
+        # Whether a False is a deferral (`INPAINT_DEFERRED`: diffusers has the
+        # class, this app has not enabled the family yet) rather than no
+        # class at all, so the Inpaint dialog's refusal says which.
+        "inpaint_deferred": bool(profile.get("inpaint_deferred", False)),
     }
 
 

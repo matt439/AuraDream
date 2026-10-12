@@ -123,7 +123,7 @@ function setBusy(on) {
 function describeJob(job, length = 60, { markup = false } = {}) {
   const what = job.refine_batch != null ? `refine ×${job.refine_batch} at strength ${job.strength}`
     : job.more_seeds != null ? `more seeds · ${snippet(job.prompt ?? '', length, { markup })}`
-    : job.refine != null ? `refine of #${job.refine}`
+    : job.refine != null ? `${job.mask ? 'inpaint' : 'refine'} of #${job.refine}`
     : !job.grid ? snippet(job.prompt ?? '', length, { markup })
     : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length, { markup })}`
     : job.swap != null ? `swap · ${snippet(job.swap, length, { markup: true })}`
@@ -250,6 +250,7 @@ function syncSubmitButtons() {
   // The Refine dialogs' Refine say the same while the server is gone, and
   // the comparison's Run as Generate does.
   syncRefineRun();
+  syncInpaintRun();
   syncRefineBatchRun();
   syncMoreSeedsRun();
   syncCompareRun();

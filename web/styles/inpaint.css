@@ -1,0 +1,139 @@
+/* --------------------------------------------------------- inpaint dialog */
+
+/* The Inpaint dialog (inpaint.js): the Refine dialog's dark box, anchored at
+   a fixed top and grown downward rather than centred by the UA, so a line
+   that comes or goes never moves the picture or the tools under the
+   pointer. The picture is its first row, as large as fits with the tools
+   under it (--ip-image-h); it scrolls rather than squeezing on a short
+   screen, as the Refine dialog does. */
+.inpaint-dialog {
+  --ip-narrow: 760px;
+  --ip-top: max(var(--sp-4), 4vh);
+  --ip-image-h: 36vh;
+  width: min(var(--ip-narrow), calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - var(--ip-top) - var(--sp-4));
+  margin-top: var(--ip-top);
+  margin-bottom: auto;
+  overflow-y: auto;
+  padding: var(--gutter);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--text);
+}
+/* Our display would beat the UA's `dialog:not([open]) { display: none }`.
+   The two wrappers are the wide tier's panes; in one column their children
+   are the dialog's own. */
+.inpaint-dialog[open] { display: flex; flex-direction: column; gap: var(--panel-gap); }
+.ip-paint, .ip-controls { display: contents; }
+.inpaint-dialog[open] > *, .ip-paint > *, .ip-controls > * { flex-shrink: 0; }
+.inpaint-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.ip-head { display: flex; align-items: center; justify-content: space-between; }
+.ip-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+
+/* The picture and the mask over it, at the source's shape (--ip-ratio, set
+   by inpaint.js): the <img> is the source, the canvas the same box with a
+   bitmap of the source's pixels holding only the mask. Its size follows the
+   dialog and the window alone, never what is painted, so it cannot move
+   under a stroke. The canvas alone takes touch: painting with a finger
+   never scrolls, and a wheel over it still does. */
+.ip-stage {
+  position: relative; align-self: center;
+  width: min(100%, calc(var(--ip-image-h) * var(--ip-ratio, 1)));
+  aspect-ratio: var(--ip-ratio, 1);
+  background: var(--panel-2);
+  outline: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.ip-stage img, .ip-stage canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+}
+.ip-stage img { user-select: none; pointer-events: none; }
+.ip-stage canvas { touch-action: none; cursor: crosshair; }
+.ip-stage canvas:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+/* The brush's ring, at its size as the picture is shown: light with a dark
+   edge, so it reads on any picture. */
+.ip-brush {
+  position: absolute; transform: translate(-50%, -50%);
+  border: 1px solid var(--text); border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* Two rows of a fixed height each, whatever the tools say: the tools,
+   then the sliders. */
+.ip-tools {
+  display: flex; flex-direction: column; gap: var(--sp-1);
+  height: calc(2 * var(--h-sm) + var(--sp-1));
+}
+.ip-row { display: flex; align-items: center; gap: var(--sp-2); height: var(--h-sm); white-space: nowrap; }
+.ip-group { display: flex; gap: var(--sp-1); }
+/* The tool in use is pressed, in the presets' accent. */
+.ip-tools .ghost.small[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.ip-show { margin-left: auto; font-size: var(--fs-label); }
+.ip-slider {
+  display: flex; align-items: center; gap: var(--sp-2); flex: 1 1 0; min-width: 0;
+  font-size: var(--fs-label); color: var(--muted);
+}
+.ip-slider + .ip-slider { margin-left: var(--sp-3); }
+.ip-slider input { flex: 1; min-width: 0; }
+.ip-slider output { min-width: 6ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-readout); }
+/* One line, cut with an ellipsis rather than wrapping onto a second. */
+.ip-status {
+  margin: 0; height: calc(var(--lh) * var(--fs-label));
+  font-size: var(--fs-label); line-height: var(--lh); color: var(--text-readout);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+/* The canvas's keys, for a screen reader (its description); the buttons'
+   titles name them on screen. Out of the flow, so it adds no gap. */
+.ip-said {
+  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* The controls under the picture are the Refine dialog's (refine.css's .rf-
+   classes); what refine.css scopes to its own dialog, again here. */
+.inpaint-dialog select {
+  width: 100%; padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 6px; font: inherit;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md); color: var(--text);
+}
+.inpaint-dialog .help.above .tip { top: auto; bottom: calc(100% + 7px); }
+#inpaint-negative-field.disabled textarea { opacity: 0.45; }
+#inpaint-preview { font-size: var(--fs-body-sm); color: var(--text); }
+#inpaint-preview.warn { color: var(--warn); }
+/* A refused press says it here in the preview's place, at its size. */
+#inpaint-error { font-size: var(--fs-body-sm); margin-top: 2px; white-space: pre-line; }
+
+/* An inpaint's card badge: a pass with a mask, at its strength (the refined
+   badge's place and look, sheet.css). */
+.card.refined.inpainted::before { content: "✎ " attr(data-strength); }
+
+/* The wide tier: the picture a pane of its own on the left, as tall as the
+   window leaves, the tools under it; the controls at the one-column
+   dialog's controls' width on the right. Nothing changes under 1800 px. */
+@media (min-width: 1800px) {
+  .inpaint-dialog {
+    --ip-side: min(540px, calc(460px + 80 * var(--ramp)));
+    --ip-image-h: calc(100vh - var(--ip-top) - var(--sp-4) - 2 * var(--gutter) - 2 * var(--h-sm)
+      - var(--lh) * var(--fs-label) - 3 * var(--sp-2) - var(--sp-1) - 2px);
+    width: min(1800px, calc(100vw - 4 * var(--sp-4)));
+  }
+  .inpaint-dialog[open] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--ip-side);
+    grid-template-rows: auto 1fr;
+    column-gap: calc(var(--gutter) + var(--sp-1));
+    row-gap: var(--panel-gap);
+  }
+  .ip-head { grid-column: 2; grid-row: 1; }
+  .ip-paint {
+    grid-column: 1; grid-row: 1 / -1; align-self: start;
+    display: flex; flex-direction: column; gap: var(--sp-2);
+  }
+  .ip-controls {
+    grid-column: 2; grid-row: 2; align-self: start;
+    display: flex; flex-direction: column; gap: var(--panel-gap);
+  }
+}

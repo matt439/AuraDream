@@ -26,7 +26,8 @@ function settingsLine(rec) {
     (rec.reference?.length ? `ref ${rec.reference.map((id) => `#${id}`).join('+')}, ` : '') +
     // A refine pass: the image it started from and how far it was re-denoised,
     // and whether that image is still in the gallery to make it again from.
-    (rec.refine != null ? `refine of #${rec.refine}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}, ` : '') +
+    // An inpaint is a pass with a mask, and says so: "inpaint of #N @ 0.6".
+    (rec.refine != null ? `${rec.mask ? 'inpaint' : 'refine'} of #${rec.refine}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
   );
 }
@@ -79,7 +80,10 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
     const restore = rec.refine_missing && rec.refine_binned
       ? [' · ', factButton('Restore', `Move #${rec.refine} back out of the recycle bin`, () => { void restoreImages([rec.refine]); })]
       : [];
-    row('Refined from', from, ` @ ${rec.strength}`, ...restore);
+    row(rec.mask ? 'Inpainted from' : 'Refined from', from, ` @ ${rec.strength}`, ...restore);
+    // The mask by the start of its hash, as the A1111 line names it; its
+    // picture is a click away in Reuse inpaint….
+    if (rec.mask) row('Mask', rec.mask.slice(0, 16)).title = rec.mask;
   }
   const vars = Object.entries(rec.variables ?? {});
   if (vars.length) {

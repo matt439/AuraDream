@@ -297,6 +297,9 @@ function resultFigure(rec) {
   const refine = tool('⤢', '', () => refineResult(rec, tile));
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
+  const inpaint = tool('✎', '', () => inpaintFromCard(rec, tile));
+  inpaint.classList.add('inpaint-tool');
+  syncInpaintTool(inpaint);
   // A card's ❐, where the checkpoint takes references (syncCardTools keeps
   // it to the status): on klein a reference had to come from a card.
   const reference = tool('❐', '', () => toggleReference(tile, rec));
@@ -307,7 +310,7 @@ function resultFigure(rec) {
   del.classList.add('del');
   const tools = document.createElement('div');
   tools.className = 'tools';
-  tools.append(reuseButton(rec, true), refine, reference, star, del);
+  tools.append(reuseButton(rec, true), refine, reference, star, inpaint, del);
   // Out of the tab order in a long run's strip (viewerTier).
   if (els.viewer.classList.contains('many')) tools.querySelectorAll('button').forEach((b) => { b.tabIndex = -1; });
   tile.append(img, tools);
@@ -341,6 +344,9 @@ function resultSide(rec, figure) {
   const refine = action(tool('⤢ Refine…', '', () => refineResult(rec, figure.querySelector('.tile'))));
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
+  const inpaint = action(tool('✎ Inpaint…', '', () => inpaintFromCard(rec, figure.querySelector('.tile'))));
+  inpaint.classList.add('inpaint-tool');
+  syncInpaintTool(inpaint);
   const reference = action(tool('❐ Reference', '', () => toggleReference(figure.querySelector('.tile'), rec)));
   reference.classList.add('ref-tool');
   syncReferenceTool(reference, rec.id);
@@ -365,7 +371,7 @@ function resultSide(rec, figure) {
   del.classList.add('del', 'danger');
   const actions = document.createElement('div');
   actions.className = 'result-actions';
-  actions.append(star, refine, action(reuseButton(rec)), reference);
+  actions.append(star, refine, inpaint, action(reuseButton(rec)), reference);
   if (rec.refine != null) actions.append(compareButton(rec, figure));
   actions.append(seed, brief, del);
   const prompt = document.createElement('p');
@@ -409,7 +415,7 @@ function syncCompareResult(button, rec) {
 function passLineage(rec) {
   const line = document.createElement('p');
   line.className = 'lineage';
-  line.append('⤢ Refine pass of ', sourceLink(rec), ` at strength ${rec.strength}`);
+  line.append(rec.mask ? '✎ Inpaint of ' : '⤢ Refine pass of ', sourceLink(rec), ` at strength ${rec.strength}`);
   return line;
 }
 
