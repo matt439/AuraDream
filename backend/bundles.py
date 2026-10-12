@@ -10,6 +10,7 @@ import shutil
 import sqlite3
 import struct
 import tempfile
+import time
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -78,6 +79,47 @@ def list_bundles() -> list[dict]:
     return sorted(found, key=lambda b: b["name"], reverse=True)
 
 
+class MissingImage(BundleError):
+    """A gallery row whose PNG is not on disk, which no bundle can carry.
+
+    Named by its id, which the gallery's `id:` search finds (a filename is
+    no search key), with the two ways out: the file back, or the row gone -
+    and only Delete permanently removes a row, from the recycle bin. Its
+    thumbnail can outlive the PNG, so the card looks whole. `image_id` and
+    `binned` travel in the 422 beside `detail` (main's handler), for the
+    dialog's Show it.
+    """
+
+    def __init__(self, row: dict, outputs: Path):
+        self.image_id = row["id"]
+        self.binned = bool(row.get("binned_at"))
+        way = ("delete it permanently from the recycle bin" if self.binned
+               else "move it to the recycle bin and delete it permanently there")
+        super().__init__(
+            f"image #{self.image_id} ({row['filename']}) has no file in {outputs}; {way}, "
+            "or put the file back; nothing was archived"
+        )
+
+
+def _partial_refusal(path: Path) -> str:
+    """Why a `.part` beside the images stops a bundle, and what to do.
+
+    `storage.settle_partials` has run first, so one still here is an encode
+    in flight or one it could not move: a stale one is finished (a committed
+    image's) or discarded an hour after it was written, and only a file
+    another program holds open outlives that.
+    """
+    try:
+        settled = path.stat().st_mtime < time.time() - storage.PARTIAL_SETTLE_SECONDS
+    except OSError:
+        settled = False
+    if settled:
+        return (f"{path.name} in {path.parent} is an interrupted image write that could not be "
+                "finished or removed; close any program that has it open and try again")
+    return (f"{path.name} in {path.parent} is an image write still in progress; try again when "
+            "the render finishes (one a crash left behind is settled an hour after it began)")
+
+
 def _inventory() -> list[tuple[str, Path]]:
     outputs = _settings().outputs_dir
     found = []
@@ -91,7 +133,7 @@ def _inventory() -> list[tuple[str, Path]]:
             raise BundleError("image directories must not be symbolic links during a bundle operation")
         for path in sorted(directory.iterdir()):
             if path.name.lower().endswith(".part"):
-                raise BundleError(f"finish or recover the incomplete image write first: {path.name}")
+                raise BundleError(_partial_refusal(path))
             if path.suffix.lower() not in suffixes:
                 continue
             if _is_link(path) or not path.is_file() or not _basename(path.name):
@@ -106,12 +148,17 @@ def _inventory() -> list[tuple[str, Path]]:
 def preview() -> dict:
     settings = _settings()
     with gallery_lock.hold(settings.db_path, create=False):
+        # A stale partial refused every count until something swept it, and
+        # nothing in the page could: a killed save's committed image is
+        # finished here, debris discarded, and only a write in flight remains.
+        if settings.db_path.exists():
+            storage.settle_partials()
         rows = _rows(settings.db_path)
         files = _inventory()
         names = {name for name, _ in files}
         for row in rows:
             if "images/" + row["filename"] not in names:
-                raise BundleError(f"the original image is missing: {row['filename']}; nothing was archived")
+                raise MissingImage(row, settings.outputs_dir)
         return {
             # Every row, the recycle bin's included, which the export carries
             # and clears with the rest; `binned` says how many of them are.
@@ -169,7 +216,6 @@ def _replace_database(staged: Path) -> None:
     for suffix in ("-wal", "-shm"):
         Path(str(path) + suffix).unlink(missing_ok=True)
     staged.replace(path)
-    storage._migrated = None
 
 
 def _remove_file(path: Path) -> None:
@@ -262,8 +308,7 @@ def _unchanged(path: Path, saved: dict) -> bool:
 def export_bundle(expected: int, password: str | None = None, progress: Progress = _quiet) -> dict:
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
-        storage.discard_bundle_leftovers()
-        before = preview()
+        before = preview()  # which settles stale partials first
         if before["records"] != expected:
             raise BundleChanged("the gallery changed; review its new count before creating a bundle")
         files = _inventory()
@@ -387,7 +432,7 @@ def export_bundle(expected: int, password: str | None = None, progress: Progress
 def import_bundle(path: Path, password: str | None = None, progress: Progress = _quiet) -> dict:
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
-        storage.discard_bundle_leftovers()
+        storage.settle_partials()
         _inventory()  # A partial write or linked destination is not an import target.
         settings.db_path.parent.mkdir(parents=True, exist_ok=True)
         # Members unpack on the images' volume, so installing one is a rename

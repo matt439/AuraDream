@@ -5,6 +5,7 @@ import dataclasses
 import io
 import sqlite3
 import sys
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -69,19 +70,23 @@ def test_a_database_from_before_job_ids_gains_the_column(tmp_path, monkeypatch):
     # migration every insert into an older gallery fails on the missing column.
     outputs = tmp_path / "outputs"
     outputs.mkdir()
-    db = tmp_path / "old.db"
-    conn = sqlite3.connect(db)
-    conn.executescript(OLD_SCHEMA)
-    conn.close()
-
+    db = tmp_path / "local-diffusion.db"
     monkeypatch.setattr(
         storage,
         "settings",
         dataclasses.replace(storage.settings, db_path=db, outputs_dir=outputs),
     )
-    # No reset of the once-per-process flag: another test has migrated *its*
-    # database already, and a file swapped under a running server - restored
-    # from a backup, say - has to be checked again regardless.
+    # This process has already checked the file at this path: the server ran
+    # on it. Then last week's backup is restored over it, at the same path,
+    # under the running server. A once-per-process check, keyed on the path,
+    # never looked again, and every gallery read failed on `binned_at`.
+    storage.init_db()
+    keep(storage, job_id="new")
+    for suffix in ("", "-wal", "-shm"):
+        Path(str(db) + suffix).unlink(missing_ok=True)
+    conn = sqlite3.connect(db)
+    conn.executescript(OLD_SCHEMA)
+    conn.close()
 
     record = keep(storage, job_id="abc123", run_id="run001")
     assert (record.job_id, record.run_id) == ("abc123", "run001")

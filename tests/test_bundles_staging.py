@@ -46,7 +46,7 @@ def test_what_a_killed_bundle_operation_left_is_swept_once_settled(store, sweep)
     made, kept = _leftovers(store)
     assert store.summarise()["partial_files"] == len(made)
     if sweep == "startup":
-        assert store.discard_bundle_leftovers() == len(made)
+        assert store.settle_partials() == {"recovered": 0, "discarded": len(made)}
     elif sweep == "export":
         bundle = Path(_export()["path"])
     elif sweep == "import":
@@ -99,7 +99,7 @@ def test_staging_moves_inside_an_images_directory_that_is_its_own_volume(store, 
     # The inventory skips the directory, and an upload inside it.
     (staging / ".bundle-upload-ab12cd34.part").write_bytes(b"arriving")
     assert bundles.preview()["images"] == 1
-    assert store.discard_bundle_leftovers() == 0
+    assert store.settle_partials() == {"recovered": 0, "discarded": 0}
 
 
 def test_free_space_is_checked_on_each_volume_written(monkeypatch, tmp_path):
@@ -128,3 +128,89 @@ def test_free_space_is_checked_on_each_volume_written(monkeypatch, tmp_path):
     devices[database] = 1  # one volume: both land on it
     with pytest.raises(bundles.BundleError, match="unpack this bundle"):
         bundle_archive._check_space([(images, 60, "unpack this bundle"), (database, 60, "merge")])
+
+
+def _age(*paths):
+    old = time.time() - storage.PARTIAL_SETTLE_SECONDS - 60
+    for path in paths:
+        os.utime(path, (old, old))
+
+
+@pytest.mark.parametrize("sweep", ["preview", "startup", "export", "import"])
+def test_a_stale_image_partial_no_longer_blocks_every_bundle_operation(store, sweep):
+    # A power cut mid-encode leaves a *.png.part with no row, and its
+    # thumbnail's *.webp.part. Only `clear` swept them, so the bundle counts,
+    # export and import were refused for good, restarts included.
+    _save("source", 1)
+    outputs = store.settings.outputs_dir
+    debris = [outputs / "20261001-000000-5-abc.png.part",
+              outputs / "thumbnails" / "20261001-000000-5-abc.webp.part"]
+    for path in debris:
+        path.write_bytes(b"half an encode")
+    _age(*debris)
+    if sweep == "preview":
+        assert bundles.preview()["records"] == 1
+    elif sweep == "startup":
+        assert store.settle_partials() == {"recovered": 0, "discarded": 2}
+    elif sweep == "export":
+        assert Path(_export()["path"]).is_file()
+    else:
+        # Refused for what the file is, past the inventory that used to stop it.
+        bad = store.settings.db_path.parent / "broken.zip"
+        bad.write_bytes(b"not a ZIP archive")
+        with pytest.raises(bundles.BundleError) as refused:
+            bundles.import_bundle(bad)
+        assert "image write" not in str(refused.value)
+    assert not any(path.exists() for path in debris)
+
+
+def test_a_committed_images_interrupted_save_is_finished_not_discarded(store):
+    # `save_image` commits the row, then renames: a crash between the two
+    # leaves the only copy of a gallery image as .part. The sweep puts it,
+    # and its thumbnail, in place.
+    record = _save("source", 1)
+    png = store.settings.outputs_dir / record.filename
+    thumb = store._thumb_path(png)
+    pixels, small = png.read_bytes(), thumb.read_bytes()
+    partials = [png.with_name(png.name + ".part"), thumb.with_name(thumb.name + ".part")]
+    png.replace(partials[0])
+    thumb.replace(partials[1])
+    _age(*partials)
+    preview = bundles.preview()
+    assert (preview["records"], preview["images"], preview["thumbnails"]) == (1, 1, 1)
+    assert png.read_bytes() == pixels and thumb.read_bytes() == small
+    assert not any(path.exists() for path in partials)
+    # One whose file is already in place is debris like any other.
+    partials[0].write_bytes(b"a second copy")
+    _age(partials[0])
+    assert store.settle_partials() == {"recovered": 0, "discarded": 1}
+    assert png.read_bytes() == pixels
+
+
+def test_a_fresh_partial_names_its_folder_and_what_to_do(store):
+    _save("source", 1)
+    fresh = store.settings.outputs_dir / "20261012-000000-7-abc.png.part"
+    fresh.write_bytes(b"encoding right now")
+    with pytest.raises(bundles.BundleError) as refused:
+        bundles.preview()
+    message = str(refused.value)
+    assert f"20261012-000000-7-abc.png.part in {store.settings.outputs_dir}" in message
+    assert "still in progress; try again when the render finishes" in message
+    assert fresh.exists()
+
+
+def test_a_missing_image_is_named_by_its_id_and_the_way_out(store):
+    # Its thumbnail outlives the PNG, so the card looks whole, and a filename
+    # is no search key: the refusal names the id the gallery's `id:` finds.
+    live, binned = _save("source", 1), _save("source", 2)
+    storage.bin_images([binned.id])
+    (store.settings.outputs_dir / binned.filename).unlink()
+    with pytest.raises(bundles.MissingImage) as refused:
+        bundles.preview()
+    assert (refused.value.image_id, refused.value.binned) == (binned.id, True)
+    assert str(refused.value).startswith(f"image #{binned.id} ({binned.filename}) has no file in ")
+    assert "delete it permanently from the recycle bin, or put the file back" in str(refused.value)
+    storage.delete_image(binned.id)
+    (store.settings.outputs_dir / live.filename).unlink()
+    with pytest.raises(bundles.MissingImage, match="move it to the recycle bin and delete it permanently there"):
+        bundles.preview()

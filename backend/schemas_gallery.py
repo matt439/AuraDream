@@ -218,9 +218,13 @@ class BinSummary(BaseModel):
     the binned ids a live image names as its refine source or a reference,
     which cannot be made again once the bin is emptied. `job_active` is
     whether a job is queued or running, whose cell using one would fail.
+    `pin` names the binned ids (`gallery_delete.bin_pin`): Empty recycle
+    bin sends it back, so a bin whose count is the same but whose images
+    are not is refused.
     """
 
     records: int
     bytes: int
     sources_in_use: list[int] = Field(default_factory=list)
+    pin: str = ""
     job_active: bool = False

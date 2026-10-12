@@ -10,6 +10,7 @@ and a save still serialise on the same lock.
 """
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any
@@ -136,10 +137,14 @@ def matching_preview(
 
 
 class SelectionChanged(Exception):
-    """A scoped delete was confirmed for one count and finds another."""
+    """A scoped delete was confirmed for one count and finds another - or,
+    for Empty recycle bin's pin, the same count of other images."""
 
     def __init__(self, found: int, expected: int):
-        super().__init__(f"{found} images match now, not the {expected} confirmed")
+        super().__init__(
+            f"{found} images match now, not the {expected} confirmed" if found != expected
+            else f"other images match now than the {expected} confirmed"
+        )
         self.found = found
         self.expected = expected
 
@@ -298,10 +303,8 @@ def bin_summary() -> dict[str, Any]:
     names: those images can never be made again once it is emptied.
     """
     with storage._session() as conn:
-        names = [
-            row["filename"]
-            for row in conn.execute("SELECT filename FROM images WHERE binned_at IS NOT NULL")
-        ]
+        rows = conn.execute("SELECT id, filename FROM images WHERE binned_at IS NOT NULL").fetchall()
+        names = [row["filename"] for row in rows]
         in_use = [
             row[0]
             for row in conn.execute(
@@ -320,26 +323,40 @@ def bin_summary() -> dict[str, Any]:
                 size += path.stat().st_size
             except OSError:
                 continue
-    return {"records": len(names), "bytes": size, "sources_in_use": in_use}
+    return {"records": len(names), "bytes": size, "sources_in_use": in_use,
+            "pin": bin_pin(row["id"] for row in rows)}
+
+
+def bin_pin(ids) -> str:
+    """Which images are in the bin, in 16 hex digits: the set, not its size.
+
+    A count alone let a Restore in another tab and a bin of a different image
+    keep it equal, and Empty recycle bin then deleted for good an image its
+    confirmation never covered.
+    """
+    joined = ",".join(str(i) for i in sorted(ids))
+    return hashlib.sha256(joined.encode("ascii")).hexdigest()[:16]
 
 
 @gallery_lock.protected(lambda: storage.settings.db_path)
-def empty_bin(expected: int | None = None) -> dict[str, Any]:
+def empty_bin(expected: int | None = None, pin: str | None = None) -> dict[str, Any]:
     """Delete every image in the recycle bin, rows and files, for good.
 
     Fails fast on a busy gallery like `delete_matching`, and like it pins
-    the count the confirmation showed: a bin another tab added to while the
-    dialog was open raises `SelectionChanged` and deletes nothing. The rows
-    go in one `DELETE ... RETURNING`, the files after the commit, counted as
-    `delete_matching` counts them. No orphan sweep and no vacuum.
+    what the confirmation showed: `expected`, its count, and `pin`, its ids
+    (`bin_summary`'s `bin_pin`). A bin another tab changed while the dialog
+    was open raises `SelectionChanged` and deletes nothing - with the count
+    unchanged too, as a Restore and a bin of another image leave it. The
+    rows go in one `DELETE ... RETURNING`, the files after the commit,
+    counted as `delete_matching` counts them. No orphan sweep and no vacuum.
     """
     with storage._write_lock, storage._session() as conn:
-        if expected is not None:
-            (found,) = conn.execute(
-                "SELECT COUNT(*) FROM images WHERE binned_at IS NOT NULL"
-            ).fetchone()
-            if found != expected:
-                raise SelectionChanged(found, expected)
+        if expected is not None or pin is not None:
+            ids = [row[0] for row in conn.execute("SELECT id FROM images WHERE binned_at IS NOT NULL")]
+            if expected is not None and len(ids) != expected:
+                raise SelectionChanged(len(ids), expected)
+            if pin is not None and bin_pin(ids) != pin:
+                raise SelectionChanged(len(ids), len(ids) if expected is None else expected)
         doomed = conn.execute(
             "DELETE FROM images WHERE binned_at IS NOT NULL RETURNING id, filename"
         ).fetchall()
@@ -382,6 +399,11 @@ def summarise() -> dict[str, int]:
                 "SELECT COUNT(*) FROM images WHERE binned_at IS NOT NULL"
             ).fetchone()[0]
         tracked = {r["filename"] for r in storage._tracked_files()}
+    # What a sweep would finish (a committed image's interrupted save) and
+    # what it would discard; with no database, nothing is committed.
+    plan = storage._settle_plan(storage._stale_partials(), tracked)
+    recoverable = sum(target is not None for _, target in plan)
+    partials = len(plan) - recoverable
 
     total_bytes = 0
     for path in files + thumbs:
@@ -400,7 +422,8 @@ def summarise() -> dict[str, int]:
         "binned": binned,
         "files_on_disk": len(on_disk),
         "orphan_files": len(on_disk - tracked),
-        "partial_files": len(storage._stale_partials()),
+        "partial_files": partials,
+        "recoverable_partials": recoverable,
         "bytes_on_disk": total_bytes,
     }
 
@@ -426,6 +449,13 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
             removed += 1
         storage._delete_thumbnails(path)
 
+    # Partials from a power cut or a killed process, by age - never the fresh
+    # one another process may be encoding right now. A kept row's committed
+    # image is finished rather than swept (`storage._settle_plan`), and
+    # before the thumbnail sweep below, which would take its thumbnail for
+    # one whose PNG is gone.
+    recovered, partials = storage._settle(storage._stale_partials())
+
     # Anything left with no row behind it: earlier deletions, interrupted runs.
     # An image still being written is a *.png.part and matches neither glob, so
     # a clear during a sweep can no longer delete one out from under it. The
@@ -443,11 +473,9 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
     for path in storage._thumb_files():
         if not (storage.settings.outputs_dir / path.with_suffix(".png").name).exists():
             storage._unlink(path)
-    # Partials from a power cut or a killed process, by age - never the fresh
-    # one another process may be encoding right now.
-    partials = sum(1 for path in storage._stale_partials() if storage._discard(path))
 
-    return {"records": len(doomed), "files": removed, "orphans": orphans, "partials": partials}
+    return {"records": len(doomed), "files": removed, "orphans": orphans, "partials": partials,
+            "recovered": recovered}
 
 
 @gallery_lock.protected(lambda: storage.settings.db_path)

@@ -745,6 +745,9 @@ Reproduction:
   `GridPreview.in_gallery` and drops nothing. A cell in the recycle bin
   counts as rendered (a rejected render, not a missing one); Empty recycle
   bin makes it eligible again, as a delete does.
+- `_connect` runs `_migrate` on every connection (`PRAGMA table_info`, no
+  once-per-process flag): an older file restored over the same path under a
+  running server gains its columns at its next connection.
 - A new column needs a `_migrate` entry, not a `"x" in row.keys()` read guard:
   `_row_to_record` reads every column unguarded. `save_image` and
   `storage.index_file` (`reindex`'s writer) share `_insert_row` over `_COLUMNS`, and both build
@@ -779,6 +782,16 @@ Reproduction:
   `bin_images`/`restore_images` look up and write under one lock (a double
   press answers `binned` once and `already` once) and answer
   `{binned|restored, already|not_binned, missing}`.
+- Empty recycle bin is pinned to the images its confirmation covered, not
+  only their count: `bin_summary` answers `pin` (`gallery_delete.bin_pin`,
+  16 hex digits of the sorted binned ids), the page and `clear --bin` send
+  it back with `expected`, and `empty_bin` compares both under the write
+  lock. A Restore and a bin of another image in another tab keep the count
+  and change the pin: 409 "The recycle bin changed: other images are in it
+  now than the N confirmed. Nothing was deleted; look again." `clear
+  --where` pins the count its prompt showed (`expected`, net of what
+  `--keep-favorites` keeps) and answers a `SelectionChanged` with exit 1 and
+  nothing deleted, as `--bin` does.
 - Reference images are gallery ids, never paths. The page's chips are
   numbered in `referenceIds` order, since that order is what a prompt's
   "image 2" means; every reorder or removal (a drag, Alt+Left/Right or Delete
@@ -1103,6 +1116,12 @@ Jobs:
   then `jobs.shutdown()`, then calls `try_unload()`.
 - `save_image` writes `.png.part` and renames after the row commits, retrying
   the rename; the orphan sweep leaves `.part` files younger than an hour.
+  A stale `<name>.png.part` whose row exists and whose `<name>.png` does not
+  is the only copy of a committed image (the rename failed, or the process
+  died between the two), as is its `thumbnails/<name>.webp.part`:
+  `storage._settle` renames those into place and discards every other stale
+  partial (`settle_partials`, and `clear_history` before its thumbnail
+  sweep). Never discard one; a failed rename leaves it for the next sweep.
 - Full-size PNGs stay in the output root; WebP previews live in its
   `thumbnails/` subfolder. `init_db` moves indexed legacy previews there,
   and `thumbnail_for` does the same during PNG-only recovery. A locked legacy
@@ -1172,8 +1191,19 @@ Jobs:
   directory beside the live one. Free space is checked per volume. Bundle
   leftovers (`bundles/*.part`, `.bundle-*` work directories beside the
   database, staging entries) are stale partials: counted by `summarise`, and
-  swept once older than `PARTIAL_SETTLE_SECONDS` at startup, before every
-  bundle operation and by `clear_history`, always under the reservation.
+  swept once older than `PARTIAL_SETTLE_SECONDS` at startup, at every bundle
+  preview, before every bundle operation and by `clear_history`, always under
+  the reservation - with the image and thumbnail partials, a committed
+  image's finished rather than discarded (`storage.settle_partials`). A
+  `.part` the inventory still finds is a write in flight (or one another
+  program holds open) and is refused with its name, its folder and what to
+  do (`bundles._partial_refusal`). A row whose PNG is missing refuses the
+  preview as `bundles.MissingImage`: "image #N (name) has no file in
+  <folder>", with the way out (put the file back, or delete it permanently
+  from the recycle bin, binning it first); its 422 carries `image_id` and
+  `binned` beside `detail`, which the dialog's inline "Show #N" button reads
+  (`api()` keeps the error's `body`) to close the dialog and search the
+  gallery, or the bin, for `id:N` on every checkpoint, Starred off.
 - A password bundle (`.ldbundle`) is the ordinary ZIP streamed through
   `bundle_crypto`; no plaintext archive ever reaches disk, and export verifies
   it by decrypting before anything is cleared. The password is never stored,
@@ -1223,7 +1253,9 @@ Jobs:
   holder. None of the bin's routes is in `GalleryAdmission.control`:
   a bundle operation refuses them, and they hold one off. The wait covers the in-process lock too (one
   deadline in `hold`), never `wait` per thread queued behind it; `jobs._save`
-  retries a `GalleryBusy` save until the job is cancelled, never dropping a
+  retries a `GalleryBusy` save until the job is cancelled, and `generate.py`
+  until a second Ctrl-C (saying once "gallery busy in another process; still
+  waiting to save"; its `--resume` lookup refuses in one line, exit 1), never dropping a
   finished render. `save_image` and `thumbnail_for` encode their
   `.part` files before taking the reservation and reserve only the row and
   the renames. Keep lock ordering consistent: gallery reservation before
@@ -3741,7 +3773,7 @@ Frontend and CLI:
   or a reference of an image outside the bin; those can't be made again."
   for `sources_in_use`, "A job is running; a cell that uses one of them will
   fail." for `job_active`, and "This cannot be undone."; it sends
-  `DELETE /api/gallery/bin?expected=N` and shows a 409's detail, else
+  `DELETE /api/gallery/bin?expected=N&pin=P` and shows a 409's detail, else
   `forgetImages`, `syncBin()` and `loadRuns()`. `leaveBin()` runs from Show
   all (`showAllImages`), the Models picker's See all, `showSheetScope` (a
   run opened from an image or a job: `showRun`, a run fact, ⊞),
@@ -3788,7 +3820,8 @@ unkept, `reference_paths` refusing, `refine_binned`), `tests/test_gallery.py`
 (a double bin answered once, restore, `empty_bin` with its files and its
 `SelectionChanged`, the orphan sweep sparing binned PNGs),
 `tests/test_api_gallery.py` (every bin route, the 404s without
-`?binned=true`, the favourite's 404, Delete unstarred binning),
+`?binned=true`, the favourite's 404, Delete unstarred binning, Empty recycle
+bin's count and its pin),
 `tests/test_api_jobs.py` (the replay and `deleted_count` through a bin and a
 restore), the refine, grid, Swap, Mass refine and More seeds files (a binned
 source refused, a binned cell not remade until Empty, a picked-then-binned
@@ -3796,8 +3829,8 @@ id reported "in the recycle bin", seeds past a binned one),
 `tests/test_bundles_repeat.py` (the state through a round trip, a repeat
 import keeping the local state), `tests/test_bundles_merge.py` (an old
 bundle live), `tests/test_api_bundles.py` (`binned` in the preview),
-`tests/test_clear.py` (`--bin`, the whole clear
-and `--where` reaching the bin) and `tests/test_reindex.py` (in place and
+`tests/test_clear.py` (`--bin` and its pin, the whole clear
+and `--where` reaching the bin, `--where` pinned to its count) and `tests/test_reindex.py` (in place and
 `--database` keeping the state, PNG-only bringing it back live).
 
 The bundle tests share helpers from `tests/bundle_helpers.py`.
@@ -3848,8 +3881,9 @@ password refused before upload (the unlock field kept), protected import
 (the unlock field cleared), Cancel upload (refused with its reason while idle;
 mid-send it aborts, with a stubbed upload fetch), progress counts outside
 the live region, a reopened dialog's result labelled as past, narrow layout,
-and an export replayed to a reloaded page shown as past without forgetting
-ids:
+an export replayed to a reloaded page shown as past without forgetting
+ids, and a missing file's preview (stubbed with `MissingImage`'s 422) whose
+inline Show #N finds the row in the gallery and, binned, in the bin:
 
 ```powershell
 uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>
@@ -5043,7 +5077,8 @@ repeat on it prevented; the bin view - Bin's count and title, the head's
 "Recycle bin" and its "(N)", the held
 controls and their titles, a card's Restore, Delete permanently with its
 confirm, and Empty recycle bin with the count, its "Empty bin" label, the
-danger colour, Cancel, a 409 when the bin changed and the empty state
+danger colour, Cancel, a 409 when the bin changed (its count, and the same
+count of other images: the pin) and the empty state
 "The recycle bin is empty."; leaving the bin by a second press of Bin, by
 a search from an image (`showGallerySearch`) and by a run opened as a sheet
 (`showRun`); the bundles dialog's preview line counting the bin; a Delete

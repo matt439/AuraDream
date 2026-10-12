@@ -398,7 +398,7 @@ def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import gallery_reports, grid, loras, refine, storage
+        from backend import gallery_lock, gallery_reports, grid, loras, refine, storage
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
@@ -413,6 +413,7 @@ def _project() -> SimpleNamespace:
             '    uv run python -m backend.generate "your prompt"\n'
         )
     return SimpleNamespace(
+        gallery_lock=gallery_lock,
         gallery_reports=gallery_reports,
         grid=grid,
         loras=loras,
@@ -701,13 +702,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.resume and p.settings.db_path.exists():
         # The lookup's connection checks the schema. Leave output setup and
         # thumbnail migration to init_db() below, after the dry-run guard.
-        done = p.storage.completed_cells(
-            p.grid.prompts_of(cells),
-            request.width,
-            request.height,
-            p.settings.model_id,
-            p.settings.quantization,
-        )
+        try:
+            done = p.storage.completed_cells(
+                p.grid.prompts_of(cells),
+                request.width,
+                request.height,
+                p.settings.model_id,
+                p.settings.quantization,
+            )
+        except p.gallery_lock.GalleryBusy as exc:
+            # Nothing is rendered yet, so nothing is lost: say so, not a traceback.
+            print(f"--resume: {exc}", file=sys.stderr)
+            return 1
         before = len(cells)
         cells = [
             cell
@@ -1044,18 +1050,32 @@ def main(argv: list[str] | None = None) -> int:
                 # Each image in a batch gets its own reproducible seed, wrapped
                 # with the same helper the generator uses so the recorded seed
                 # and the seed actually drawn cannot disagree.
-                record = p.storage.save_image(
-                    image,
-                    ran,
-                    seed=wrap_seed(run_seed + offset),
-                    duration_ms=elapsed_ms // max(len(images), 1),
-                    model_id=p.settings.model_id,
-                    job_id=job_id,
-                    run_id=run_id,
-                    quantization=p.settings.quantization,
-                    variables=cell.variables,
-                    batch=cell.request.num_images,
-                )
+                waiting = False
+                while True:
+                    try:
+                        record = p.storage.save_image(
+                            image,
+                            ran,
+                            seed=wrap_seed(run_seed + offset),
+                            duration_ms=elapsed_ms // max(len(images), 1),
+                            model_id=p.settings.model_id,
+                            job_id=job_id,
+                            run_id=run_id,
+                            quantization=p.settings.quantization,
+                            variables=cell.variables,
+                            batch=cell.request.num_images,
+                        )
+                        break
+                    except p.gallery_lock.GalleryBusy:
+                        # Another process has held the gallery past one
+                        # SESSION_WAIT (a browser bundle export, a reindex).
+                        # The render is in memory: wait again rather than
+                        # lose it and every cell after it, as the server's
+                        # job worker does. A second Ctrl-C still ends it.
+                        if not waiting:
+                            print("  gallery busy in another process; still waiting to save",
+                                  file=sys.stderr, flush=True)
+                            waiting = True
                 saved += 1
                 if record.content_hash:
                     distinct.add(record.content_hash)

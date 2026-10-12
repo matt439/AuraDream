@@ -125,17 +125,28 @@ def _clear_where(args: argparse.Namespace) -> int:
     # `delete_matching` takes exactly the rest.
     kept = found["favorites"] if args.keep_favorites else 0
     sources = found["sources_kept"] if args.keep_favorites else 0
-    print(
-        f"Would delete {found['records'] - kept - sources} record(s) and their files"
-        + _keeping(kept, sources)
-    )
+    doomed = found["records"] - kept - sources
+    print(f"Would delete {doomed} record(s) and their files" + _keeping(kept, sources))
     if args.dry_run:
         print("\nDry run - nothing changed.")
         return 0
     if not _confirm(args.yes):
         return 1
+    # Pinned to the count confirmed, as the browser's Delete unstarred and
+    # `--bin` are: a matching image that landed while the prompt waited - the
+    # server or a CLI grid still writing the run being cleared - refuses the
+    # delete rather than going with the rest.
     try:
-        result = gallery_delete.delete_matching(args.where, keep_favorites=args.keep_favorites)
+        result = gallery_delete.delete_matching(
+            args.where, keep_favorites=args.keep_favorites, expected=doomed
+        )
+    except gallery_delete.SelectionChanged as exc:
+        print(
+            f"The gallery changed: {exc.found} record(s) match now, not the {exc.expected} "
+            "shown. Nothing was deleted; run it again.",
+            file=sys.stderr,
+        )
+        return 1
     except Exception as exc:  # noqa: BLE001 - report, with the post-deletion code
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 3
@@ -147,8 +158,9 @@ def _clear_bin(args: argparse.Namespace) -> int:
     """Empty the recycle bin: its rows and their files, nothing else.
 
     The browser's Empty recycle bin, from the terminal, through the same
-    storage call: the count previewed is the count the delete is pinned to,
-    so an image binned in the browser meanwhile is refused rather than taken.
+    storage call: the images previewed - their count and their ids' pin - are
+    what the delete is pinned to, so an image binned in the browser meanwhile
+    is refused rather than taken.
     No orphan sweep and no vacuum, as on the `--where` path.
     """
     if not settings.db_path.exists():
@@ -175,11 +187,12 @@ def _clear_bin(args: argparse.Namespace) -> int:
     if not _confirm(args.yes):
         return 1
     try:
-        result = gallery_delete.empty_bin(expected=found["records"])
+        result = gallery_delete.empty_bin(expected=found["records"], pin=found["pin"])
     except gallery_delete.SelectionChanged as exc:
+        now = (f"{exc.found} images are in it now, not the {exc.expected} shown"
+               if exc.found != exc.expected else f"other images are in it now than the {exc.expected} shown")
         print(
-            f"The recycle bin changed: {exc.found} images are in it now, not the "
-            f"{exc.expected} shown. Nothing was deleted; run it again.",
+            f"The recycle bin changed: {now}. Nothing was deleted; run it again.",
             file=sys.stderr,
         )
         return 1
@@ -253,6 +266,13 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"  {before['partial_files']:>6} stale .part file(s) from interrupted writes"
         )
+    if before["recoverable_partials"]:
+        # Its row committed and the rename did not: a recorded image, finished
+        # where its record is kept and deleted with it otherwise.
+        print(
+            f"  {before['recoverable_partials']:>6} recorded image(s) still named .part"
+            " after an interrupted save"
+        )
     print()
 
     if before["records"] == 0 and before["files_on_disk"] == 0 and not before["partial_files"]:
@@ -292,6 +312,8 @@ def main(argv: list[str] | None = None) -> int:
         + (f", {result['orphans']} orphan(s)" if result["orphans"] else "")
         + (f", {result['partials']} stale .part file(s)" if result["partials"] else "")
         + "."
+        # A kept image whose save was cut off between its row and its rename.
+        + (f" Finished {result['recovered']} interrupted save(s)." if result["recovered"] else "")
     )
     try:
         gallery_delete.vacuum()

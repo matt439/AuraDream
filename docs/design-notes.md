@@ -1966,9 +1966,35 @@ milliseconds, because on Windows a just-closed PNG is exactly what Defender
 or an indexer holds open. The orphan sweep and `summarise()` glob the
 directory *before* reading the rows (a file the scan saw has a row by then),
 and sweep `.part` files only past `PARTIAL_SETTLE_SECONDS` (an hour): a
-fresh one may be another process mid-encode. `_migrate`'s once-per-process
-flag is keyed on the database path, so a file restored under a running
-server gets its columns again.
+fresh one may be another process mid-encode. `_migrate` reads
+`PRAGMA table_info` on every connection: its once-per-process flag, keyed on
+the database path since 2026-09-07, still skipped an older backup restored
+over the *same* path, and with `binned_at` in every live read the whole
+gallery failed until a restart (review 2026-10-12, R36).
+
+A stale partial is not always debris (2026-10-12). Past the commit the
+`.png.part` is the image, and a crash or a failed rename between the row and
+the rename leaves exactly that: `storage._settle` renames a stale
+`<name>.png.part` whose row exists and whose `<name>.png` does not into
+place, and its `thumbnails/<name>.webp.part` beside it, and discards the
+rest. Bundle operations swept only their own leftovers, and the bundle
+inventory refuses any `.part`, so one killed save refused the counts,
+export and import for good, restarts included, with a message naming
+neither the folder nor anything the page could do. `settle_partials` now
+covers image and thumbnail partials at startup, at every bundle preview and
+before each operation, and `clear_history` settles before its thumbnail
+sweep (which would take the thumbnail of a PNG still named `.part`). A
+`.part` the inventory still finds is a write in flight, and the refusal
+says so with its folder.
+
+A row whose PNG is gone refuses the bundle preview too, and its thumbnail
+can outlive it, so the card looks whole. The refusal named only the file,
+which no search key matches. `bundles.MissingImage` names `#N`, the folder
+and the way out (the file back, or Delete permanently from the bin, which
+is the only route that removes a row), and its 422 carries `image_id` and
+`binned` beside `detail`, so the dialog's inline **Show #N** can search
+`id:N` in the gallery or the bin. Archiving without such rows would be a
+silent loss inside an operation that clears the gallery, so it is not done.
 
 ## Thumbnails have their own directory
 
@@ -3542,7 +3568,12 @@ the in-process lock, and four threads queued behind it without a limit were
 refused at 1, 2, 3 and 4 x `wait`, tying up the route thread pool for minutes.
 A job's `save_image` that is still refused after one `SESSION_WAIT` is retried
 by `jobs._save` until the job is cancelled: the render is in memory and an
-operation in another process can outlast 30 s. The reservation is also a per-process RLock
+operation in another process can outlast 30 s. `generate.py` retries the
+same way, saying once that it is waiting, until a second Ctrl-C: its save
+sat outside the per-cell `try`, so a `GalleryBusy` reached the outer
+handler, discarded the image and ended the night with exit 1 (review
+2026-10-12, R35). Its `--resume` lookup, before anything renders, refuses
+in one line instead of a traceback. The reservation is also a per-process RLock
 that every read takes, so `save_image` encodes its PNG and WEBP to `.part`
 files before reserving: held through a 2048x2048 encode, a 3 ms `get_image`
 on another thread took 330 ms. The sweeps do glob `*.part`; only their
@@ -4380,7 +4411,11 @@ write lock before the `DELETE ... RETURNING`: a sweep that lands more
 unstarred images while the dialog is open (the queue keeps running while
 one triages) is answered 409 with both numbers rather than swept up on a
 count confirmed for fewer. `expected` is required, not optional - the gate
-is the route's contract, not the page's manners.
+is the route's contract, not the page's manners. `clear --where` pins the
+count its prompt showed the same way (net of what `--keep-favorites`
+keeps); it called `delete_matching` without it, and a run still being
+written while the prompt waited lost its newest images too (review
+2026-10-12, R34).
 
 **The scope is strict, judged at the click.** The button shows whenever
 the filter matches something and the Starred tick is off (with it on,
@@ -4617,11 +4652,17 @@ is already in the bin is neither counted nor binned twice; the CLI's
 `clear --where` keeps reaching the bin and deleting for good, and a binned
 star is not kept there either.
 
-**Empty is fail-fast and pinned to its count.** `empty_bin` is whole
+**Empty is fail-fast and pinned to its images.** `empty_bin` is whole
 maintenance, refused at once on a busy gallery as `delete_matching` is,
 and it compares the count the confirmation showed under its lock, so an
 image binned in another tab while the dialog was open is answered 409
-rather than deleted on a number confirmed for fewer. Bin and restore are
+rather than deleted on a number confirmed for fewer. The count alone was
+not the set: a Restore and a bin of a different image in another tab kept
+it equal, and the newly binned image was deleted for good under a
+confirmation that never covered it (review 2026-10-12, R6). The summary
+also answers `pin`, 16 hex digits of a sha256 over the sorted binned ids,
+which the page and `clear --bin` send back and `empty_bin` recomputes under
+the same lock: a digest, not the ids, because a bin can hold thousands. Bin and restore are
 per-record writes and wait, as a star does. The confirmation says what
 cannot be made again: the binned images a live one names as its source or
 a reference (`sources_in_use`), and that a running job's cell using one

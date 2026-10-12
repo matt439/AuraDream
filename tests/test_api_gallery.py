@@ -513,6 +513,34 @@ def test_emptying_the_bin_is_pinned_to_its_count(client, store):
     assert client.delete("/api/gallery/bin?expected=0").json() == {"deleted": [], "files": 0}
 
 
+def test_emptying_the_bin_is_pinned_to_its_ids_not_only_their_count(client, store):
+    # Another tab restores one and bins a different one while the dialog is
+    # open: the count is unchanged, and the image binned after the summary
+    # was read must not be deleted for good on a confirmation that never
+    # covered it.
+    outputs = store.settings.outputs_dir
+    first, second, later = (_plant(store, settings.model_id, seed=s) for s in (1, 2, 3))
+    client.post("/api/images/bin", json={"ids": [first.id, second.id]})
+    summary = client.get("/api/gallery/bin/summary").json()
+    assert summary["records"] == 2 and len(summary["pin"]) == 16
+    client.post("/api/images/restore", json={"ids": [first.id]})
+    client.post("/api/images/bin", json={"ids": [later.id]})
+
+    response = client.delete(f"/api/gallery/bin?expected=2&pin={summary['pin']}")
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "The recycle bin changed: other images are in it now than the 2 confirmed. "
+        "Nothing was deleted; look again."
+    )
+    assert (outputs / later.filename).exists() and (outputs / second.filename).exists()
+
+    again = client.get("/api/gallery/bin/summary").json()
+    assert again["pin"] != summary["pin"]
+    response = client.delete(f"/api/gallery/bin?expected=2&pin={again['pin']}")
+    assert response.json() == {"deleted": sorted([second.id, later.id]), "files": 2}
+    assert (outputs / first.filename).exists()
+
+
 def test_the_permanent_delete_takes_a_binned_image_too(client, store):
     image = _plant(store, settings.model_id, seed=1)
     client.post("/api/images/bin", json={"ids": [image.id]})
