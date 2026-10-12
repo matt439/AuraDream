@@ -10,7 +10,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 from . import critic_runtime, critic_server
-from .prompt_order import places_every_item
+from .prompt_order import holds_grid_variable, places_every_item
 from .prompt_sources import Sources, sources_for
 from .schemas import GenerateRequest, PromptAnalysis, PromptFinding
 
@@ -546,9 +546,13 @@ def build_context(
         # order (`unplaced_items`): where none does, the rules' order is the
         # documented one whatever the categories. The same predicate sets
         # `analysis.order_detail`, so the page says "Partly checked" exactly
-        # where this is true.
-        placed_partly=analysis.order_checked and not places_every_item(
-            model_id, request.prompt, analysis.categories
+        # where this is true - but for a grid placeholder (`{hair}`), which
+        # is no tag to place: where it sits is the user's, kept by Check's
+        # reorder, and a critic's that sits it elsewhere is another order the
+        # documented one allows.
+        placed_partly=analysis.order_checked and (
+            not places_every_item(model_id, request.prompt, analysis.categories)
+            or holds_grid_variable(model_id, request.prompt)
         ),
         categories=analysis.categories,
         # The prompt's own: an issue is about the prompt, and one asking for

@@ -199,8 +199,18 @@ def _reordered(text: str, items: list[prompt_text.Item], places: list[frozenset[
     """`text` with `items` moved into the order `places` allow, or None where
     nothing moves - or where the move would change what is quoted: a stray
     mark (12" figure) moved ahead of a quotation would pair with its opening
-    one, and the page would offer that as the same words reordered."""
-    order = _ordered(places)
+    one, and the page would offer that as the same words reordered.
+
+    A grid placeholder (`{hair}`) keeps its position and the other items are
+    ordered around it: it takes every slot (`_place`), so `_ordered` would
+    take it first, ahead of the Person count, and every value the grid fills
+    in would then sit where Check of the filled-in prompt flags it. Its
+    values' slots are the grid's to say, so the user's placement stands.
+    """
+    fixed = [prompt_text.is_grid_variable(item.text) for item in items]
+    free = [index for index, held in enumerate(fixed) if not held]
+    moved = iter(free[position] for position in _ordered([places[index] for index in free]))
+    order = [index if held else next(moved) for index, held in enumerate(fixed)]
     if order == list(range(len(items))):
         return None
     moved = prompt_text._rebuild(text, items, [items[index].text for index in order])
@@ -360,11 +370,26 @@ def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | N
     (`unplaced_items` empty): every item has one slot, or none left open
     where it decides the order. Where they read the order (`order_checked`),
     `reorder_tags`' order - or its "nothing to move" - is then the documented
-    order itself, not one order it allows; where they read it and this is
+    order itself, not one order it allows (but beside a grid placeholder,
+    which it leaves where it was: `holds_grid_variable`); where they read it and this is
     false, the order was only partly checked, which the analysis says and
     the page shows (`PromptAnalysis.order_detail`).
     """
     return not unplaced_items(model_id, prompt, categories)
+
+
+def holds_grid_variable(model_id: str, prompt: str) -> bool:
+    """Whether an item the order rules read in `prompt` is a grid placeholder
+    (`{hair}`): it is never "not placed" (`unplaced_items`), but where it
+    sits is the user's, which `reorder_tags` keeps - one order the
+    documented order allows, not the only one, for the critic's reorder."""
+    if _order_spec(_guide(model_id)) is None:
+        return False
+    items, lettered, _ = _tag_items(prompt)
+    return any(
+        not held and prompt_text.is_grid_variable(item.text)
+        for item, held in zip(items, lettered, strict=True)
+    )
 
 
 def _order_reading(

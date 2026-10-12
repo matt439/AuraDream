@@ -303,6 +303,15 @@ def test_a_grid_variable_is_no_tag_to_look_up_or_place(client, fake, monkeypatch
     assert rules(body["findings"], "guide.order") == []
     body = analyse(client, prompt="1girl, masterpiece, {hair}")
     assert rules(body["findings"], "guide.order") == [] and body["order_detail"] is None
+    # Check's reorder leaves it where it was typed and orders the rest round
+    # it: taking every slot, it was moved first, ahead of 1girl, where each
+    # value the grid fills in is out of order.
+    body = analyse(client, prompt="smile, {hair}, 1girl, masterpiece")
+    assert body["reordered"] == "1girl, {hair}, smile, masterpiece" and body["order_detail"] is None
+    assert prompt_rules.reorder_tags(ANIMAGINE, "masterpiece, {hair}, 1girl", {}) == (
+        "1girl, {hair}, masterpiece"
+    )
+    assert prompt_rules.reorder_tags(ANIMAGINE, "1girl, {hair}, smile", {"smile": "general"}) is None
     # Not a placeholder's shape: still a tag, asked and unknown.
     assert chips(client, "1girl, {red hair}")["results"][1]["valid"] is False
     # Offline, it is still the grid's: no index is needed to say so.

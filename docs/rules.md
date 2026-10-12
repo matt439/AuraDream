@@ -1409,7 +1409,9 @@ Prompt analyser:
   clause that is not a whole sentence (prose is never looked up), lettering
   or an @ name. A grid placeholder whole (`{hair}`,
   `prompt_text.is_grid_variable`) is none of these: it takes every slot, is
-  never looked up or listed unplaced, and its chip is the grid's (code
+  never looked up or listed unplaced, keeps its position in Check's reorder
+  (the rest ordered round it; the critic's `placed_partly` is true beside
+  it, `holds_grid_variable`), and its chip is the grid's (code
   `grid_variable`, no verdict; its tip names the open fold's values and
   their verdicts). `PromptAnalysis.order_detail` is set exactly there, naming
   those items and why; the page then shows "Partly checked: <order_detail>" under the
@@ -4137,8 +4139,9 @@ caption, title, label and the tray's legend; none for an unknown tag, an @
 name or lettering; kept on its tag across a move while the answer is held;
 none where a line break stands the order down; every chip one line at
 1400x900; and a grid `{hair}` drawn as the grid's chip (no verdict, no
-step, "1 grid variable" in the summary), its declared values asked beside
-the chips and named in its tip with their verdicts, and the tip saying
+step, "1 grid variable" in the summary, not among its prompt tags), its
+declared values asked beside the chips and named in its tip with their
+verdicts, and the tip saying
 nothing fills it once the fold is shut.
 `smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
 prompting, the native 1-2.25 MP size range, 4 MP warning against the 2.25

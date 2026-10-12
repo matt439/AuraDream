@@ -340,10 +340,11 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     const unknown = results.filter((result, index) => result.valid === false && index !== typing).length;
     const variables = results.filter((result) => result.code === 'grid_variable').length;
     // A spoken line, so "1 prompt tag", never "1 prompt tags" (analysis.js's
-    // `plural`, read at call time).
+    // `plural`, read at call time). A grid variable is no tag: counted apart.
+    const tags = results.length - variables;
     const summary = (state === 'offline'
-      ? `${plural(results.length, 'prompt tag')}, not checked: Danbooru unreachable`
-      : `${plural(results.length, 'prompt tag')}: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
+      ? `${plural(tags, 'prompt tag')}, not checked: Danbooru unreachable`
+      : `${plural(tags, 'prompt tag')}: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
       + (variables ? `, ${plural(variables, 'grid variable')}` : '')
       + (past ? `, ${past} past the encoders' token limit` : '');
     if (els.tagSummary.textContent !== summary) els.tagSummary.textContent = summary;

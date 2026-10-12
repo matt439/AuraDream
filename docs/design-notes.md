@@ -6706,7 +6706,17 @@ never out of order and never "not placed", and Check does not look it up
 (`category_items`). It had been a red ? chip counted among the unknown, and
 Check's order "Partly checked: … no usable Danbooru category for … "{hair}""
 (2026-10-12 review, R28). Its values are not placed in the order: each
-resolved prompt is the grid's, which a Check of that prompt reads. The tray
+resolved prompt is the grid's, which a Check of that prompt reads. So
+Check's reorder leaves it where it was typed and orders the rest round it
+(`_reordered`): taking every slot, it had been moved first, and "smile,
+{hair}, 1girl" became "{hair}, 1girl, smile", every value then ahead of
+1girl. Where it sits is the user's, so a critic's reorder that puts it
+elsewhere is another order the documented one allows, held to the order
+rule as one beside an unplaced tag is (`placed_partly`,
+`prompt_order.holds_grid_variable`), not set aside as "not that one"; the
+page still shows no "Partly checked", since every tag was placed. The
+summary counts it apart from the prompt tags ("2 prompt tags: 2 known, 1
+grid variable"). The tray
 says which of three states it is in (`data-state`): checking (… on the
 chips waiting, title "Checking Danbooru…"), checked, or unreachable - the
 label amber, "Danbooru unreachable, not checked", never red, guide tags

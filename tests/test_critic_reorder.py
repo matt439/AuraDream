@@ -652,3 +652,40 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
             "The critic's reordered version was left out: Check places these tags in the "
             "documented order itself, and the critic's order is not that one."
         ]
+
+
+def test_a_grid_variable_is_where_the_user_put_it_and_the_critic_may_put_it_elsewhere():
+    # `{hair}` takes every slot, so Check never flags it and never calls it
+    # unplaced - but where it sits is the user's, not the documented order's:
+    # Check's reorder leaves it there, and a critic's that leaves it beside
+    # smile instead is another order the documented one allows, not one set
+    # aside as "not that one".
+    animagine = "cagliostrolab/animagine-xl-4.0"
+    prompt = "smile, {hair}, 1girl, masterpiece"
+    categories = {"smile": "general"}
+    request = GenerateRequest(prompt=prompt)
+    analysis = PromptAnalysis(
+        model_id=animagine, style=prompt_rules.detect_style(prompt, categories), words=5,
+        order=prompt_rules.documented_order(animagine),
+        order_checked=prompt_rules.order_checked(animagine, prompt),
+        categories=categories,
+        reordered=prompt_rules.reorder_tags(animagine, prompt, categories),
+    )
+    assert analysis.reordered == "1girl, {hair}, smile, masterpiece"
+    assert prompt_rules.places_every_item(animagine, prompt, categories)
+    context = critic_context.build_context(animagine, request, request, analysis)
+    assert context.placed_partly
+
+    def critique(reordered):
+        answer = _answer(issues=[], parts={}, rewrite=None, reordered=reordered)
+        return critic_validation.validate(answer, context, prompt, model="test", seconds=0.0)
+
+    beside = critique("1girl, smile, {hair}, masterpiece")
+    assert (beside.reordered, beside.reordered_kind, beside.set_aside) == (
+        "1girl, smile, {hair}, masterpiece", "allowed", []
+    )
+    ours = critique("1girl, {hair}, smile, masterpiece")
+    assert (ours.reordered, ours.reordered_kind) == ("1girl, {hair}, smile, masterpiece", "check")
+    # What the rule flags among the tags still stays out.
+    flagged = critique("smile, {hair}, masterpiece, 1girl")
+    assert flagged.reordered is None and flagged.set_aside
