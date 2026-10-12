@@ -236,7 +236,7 @@ def test_one_failed_cell_does_not_end_the_grid(client, fake):
     done = events[-1]
     assert done["status"] == "done"
     assert done["failures"] == 1
-    assert "1 cell(s) failed" in done["error"] and "blew up" in done["error"]
+    assert done["error"] == "1 cell failed and was skipped; last: RuntimeError: cell 2 blew up"
     # The two other cells rendered; the failed one is what resume will find missing.
     assert [r.steps for r in fake.requests] == [6, 8, 10]
     assert sorted(r["steps"] for r in done["images"]) == [6, 10]
@@ -254,6 +254,23 @@ def test_three_failures_in_a_row_end_the_job(client, fake):
     assert done["error"] == (
         "Stopped at cell 3 of 4 after 3 cells failed; 0 images kept. Last: RuntimeError: cell 3 blew up"
     )
+
+
+def test_a_plain_jobs_failures_are_said_in_images_or_batches(client, fake):
+    # "cell" is a grid's word: a plain job of three failing images said
+    # "after 3 cells failed", and one skipped image "1 cell(s) failed".
+    fake.fail_on = {1, 2, 3}
+    _, events = run_one(client, runs=3, seed=1)
+    assert events[-1]["error"] == (
+        "Stopped at image 3 of 3 after 3 images failed; 0 images kept. Last: RuntimeError: cell 3 blew up"
+    )
+    fake.fail_on = {5}
+    _, events = run_one(client, runs=2, seed=1)
+    assert events[-1]["error"] == "1 image failed and was skipped; last: RuntimeError: cell 5 blew up"
+    # Where each repeat makes several, a repeat is a batch.
+    fake.fail_on = {6, 7}
+    _, events = run_one(client, runs=3, num_images=2, seed=1)
+    assert events[-1]["error"] == "2 batches failed and were skipped; last: RuntimeError: cell 7 blew up"
 
 
 def test_a_skipped_cell_is_named_by_its_label_and_seed(client, fake):

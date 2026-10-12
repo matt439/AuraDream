@@ -313,6 +313,39 @@ def test_the_exit_signal_cancels_the_jobs_and_stops_the_critic(client, fake, mon
     assert stream_job(client, job_id)[-1]["status"] == "cancelled"
 
 
+def test_the_exit_signal_ends_a_job_waiting_on_the_load_at_once(client, fake, monkeypatch):
+    # Asked to stop, a job awaiting the load stayed queued until the load
+    # ended, and its stream with it: uvicorn drains streams before the
+    # lifespan, so a Ctrl-C during a first load waited out the 30 s graceful
+    # timeout and the stream was cut with no done. Finished on the signal,
+    # as a Cancel finishes a queued job, and said as the server's stop.
+    fake.loaded = False
+    release = threading.Event()
+    load = fake.load
+
+    def slow_load():
+        assert release.wait(10)
+        load()
+
+    monkeypatch.setattr(fake, "load", slow_load)
+    job_id = client.post(
+        "/api/generate", json={"prompt": "a lighthouse", "width": 256, "height": 256}
+    ).json()["job_id"]
+    try:
+        wait_for(client, job_id, lambda snapshot: snapshot["waiting_on"] == "load")
+        server = main.Server(uvicorn.Config(main.app, log_config=None))
+        server.handle_exit(signal.SIGINT, None)
+        done = stream_job(client, job_id)[-1]
+        assert not release.is_set()
+        assert (done["type"], done["status"], done["stopped_by"]) == ("done", "cancelled", "shutdown")
+    finally:
+        release.set()
+    # The load finishing afterwards changes nothing: no image, no second end.
+    wait_for(client, job_id, lambda snapshot: client.get("/api/status").json()["state"] == "ready")
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "cancelled"
+    assert fake.requests == []
+
+
 def test_ctrl_c_ends_the_server_with_130_and_no_traceback(fake, monkeypatch):
     # uvicorn re-raises the signal it captured once shutdown is done, and
     # `run()` calls the server directly rather than through `uvicorn.run()`,

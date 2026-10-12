@@ -134,6 +134,8 @@ quantizer, size and other inputs. Nunchaku is not bitwise reproducible.
 - **Cancel** stops after the current denoising step and keeps saved images.
 - **Pause** waits for the current cell to finish. It needs a job with another
   cell to run; a single batch has no such boundary. Resume continues it.
+  Pressed on a queued job, it holds that job before its first image once its
+  turn comes, keeping its place in the queue.
   The model remains loaded, so Unload is unavailable while paused.
 
 The browser remembers prompts and controls; sampling settings are remembered
@@ -281,8 +283,8 @@ a drawn grid seed in the Seed box; if recovering it from images, use the
 oldest image's seed, not the newest. **Resume this run** helps restore the
 seed and size, but the panel must still contain the matching grid.
 
-Budget includes loading and queued waiting; a cell started before expiry
-finishes. Saved images remain after cancellation, a failure or a restart.
+Budget includes loading and queued waiting, but not time spent paused; a
+cell started before expiry finishes. Saved images remain after cancellation, a failure or a restart.
 The finished-job line offers retrying skipped cells where possible.
 
 ## Browse, compare and keep results

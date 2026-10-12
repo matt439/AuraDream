@@ -939,23 +939,36 @@ Jobs:
   contradicts its own press while that POST is out (`pauseAsking`); the
   label is the state, so it has no `aria-pressed` (the toggle rule,
   Frontend). A
-  running job of one cell has Pause `aria-disabled` with the reason. A plain
+  running job of one cell has Pause `aria-disabled` with the reason. A queued
+  job's pause is kept (`JobManager.pause`) and holds it before its first unit
+  once its turn comes, keeping the gate; its cell line says "will hold before
+  its first image" and Pause's title "Hold this job before it starts; Resume
+  lets it run", never "pausing after this image". A pause stops a time
+  budget's clock: `_hold` moves `Job.deadline` on by the time it held, before
+  the resume's frame. A plain
   job's units are images, or batches where a repeat makes several
-  (`unitWord`, from the snapshot's `grid` and `planned_images`), in the
-  progress, the finish line and the last-run banner ("stopped at image 2 of
-  3", "(2/3 batches)"); "cell" is a grid's word.
+  (`unitWord`, from the snapshot's `grid` and `planned_images`; `Job.unit`
+  on the server), in the
+  progress, the finish line, the skipped units, the server's failure errors
+  and the last-run banner ("stopped at image 2 of
+  3", "(2/3 batches)"); "cell" is a grid's word. A finished job that made
+  nothing holds the title "Nothing made", with no ✓.
 - A job is a list of cells; seeds are the outermost loop, prompts next. A
   cell's failure skips the cell; three in a row or more than a third of the
   grid ends the job. Every terminal transition goes through `_finish`, and a
   budget stop returns through the cancel path rather than a fourth status,
   as does a shutdown's (`JobManager.stop_all("shutdown")`, from
   `shutdown()` and `Server.handle_exit`, `stopped_by` "shutdown"), which the
-  page says as the server's stop, never as a cancel.
+  page says as the server's stop, never as a cancel. `stop_all` finishes a
+  job still queued at once, as `cancel()` does, through `_finish` on the
+  jobs' loop (`call_soon_threadsafe`: the signal's thread), so a stream
+  waiting on the load ends before uvicorn's drain.
   Each skipped cell is kept in `Job.failed_cells` ({label, seed, error}),
   sent only with the records (the full snapshot). When the failure rule ends
   a job, `stopped_by` is "failures" (status still `error`, through
   `_finish`) and its error reads "Stopped at cell X of Y after N cells
-  failed; K images kept. Last: <short_error>". The page's Retry ("Retry the
+  failed; K images kept. Last: <short_error>" (a plain job's in images or
+  batches, `Job.units`). The page's Retry ("Retry the
   N skipped cells") and Resume ("Resume the remaining N cells") send the
   job's own submitted payload (`submissions`) again with `resume: true` and
   `payload.seed ?? JobAccepted.seed` (none beside a seed list) - never the
@@ -3935,7 +3948,8 @@ the page's `PROMPT_MAX_CHARS` held to every request's `max_length`
 (`test_the_pages_measured_length_is_every_requests`), the gate
 (Check beside a running job, off the loop; the critique's re-check after
 `prepare()`), the status flags (status never loads a tokenizer) and
-shutdown (the lifespan's order, `main.Server.handle_exit`). Where the point
+shutdown (the lifespan's order, `main.Server.handle_exit`, which ends a job
+waiting on a load at once). Where the point
 is the real thing, `test_critic_process.py` and `test_critic_server.py`
 start Python children and loopback servers: a wrapped stand-in llama-server's process tree, its listener and
 its counts, and the proxy bypass. The job-object cases run on Windows only;
@@ -4649,7 +4663,9 @@ its note gone with its job; the finish line's seed with Use seed and the
 fixed-seed hint; a grid named by its own prompt, skipping a `[fail]` cell
 live, with Show sheet and a Retry that sends its own payload with Resume and
 the base seed, once, keeping focus; the failure rule's "Stopped at cell" and
-Resume, kept as the previous job's while a queued job runs; a cancelled
+Resume, kept as the previous job's while a queued job runs; a plain job
+whose every image failed, said in images ("1 of 1 image was skipped",
+"Stopped at image 3 of 3") and titled "Nothing made"; a cancelled
 job's outcome led by "Previous job:" while the next runs and gone at its
 end; focus after Cancel (Generate) and after Pause held to the end (Use
 seed); a time budget's held ETA and count; the gallery kept where it was
@@ -4693,8 +4709,9 @@ tab's own finished title given back until a key), the estimate leaving the
 first step out once a second has landed (none at step 1, a one-step job
 none, a sweep of one-step cells from its second),
 a cancel and a queued row's cancel from that tab, a pause here with its job
-behind ("waiting: job ahead paused" there; its row marked as another tab's
-here, Cancel queued's title, the count), Cancel queued here said there as a
+behind ("waiting: job ahead paused" there, where Pause on that queued job
+says it will hold before its first image and a second press withdraws it;
+its row marked as another tab's here, Cancel queued's title, the count), Cancel queued here said there as a
 cancel from elsewhere, a job that ended at the load reworded once that
 tab's Load lands, with the panel line's reason taken back, and, on a page
 opened afresh, one that ended at the load over the card said on

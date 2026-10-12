@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import time
 
 import pytest
 from PIL import Image
@@ -12,7 +13,7 @@ from backend import grid, main
 from backend.config import settings
 from backend.model_defaults import defaults_for
 from backend.schemas import GenerateRequest
-from tests.api_helpers import run_grid, run_one, stream_job
+from tests.api_helpers import run_grid, run_one, stream_job, wait_for
 
 
 # ---------------------------------------------------------------- grid search
@@ -167,6 +168,27 @@ def test_a_grid_stops_at_its_time_budget_and_says_so(client, fake):
     ).json()
     assert preview["skipped"] == len(done["images"])
     assert preview["cells"] == 4 - len(done["images"])
+
+
+def test_a_pause_stops_the_time_budgets_clock(client, fake):
+    # The budget is working time. Its deadline was fixed at submission, so a
+    # grid paused past it ended at the Resume with no cell run - "Time
+    # budget reached" - however little of the budget it had used.
+    fake.step_seconds = 0.01
+    job_id = client.post("/api/grid", json={
+        "prompt": "x", "width": 256, "height": 256, "steps": 4, "steps_axis": "4,5,6,7,8,9",
+        "seed": 1, "budget_minutes": 1.5 / 60,  # 1.5 s; the six cells take about 0.4 s
+    }).json()["job_id"]
+    wait_for(client, job_id, lambda s: len(s["images"]) >= 1)
+    client.post(f"/api/jobs/{job_id}/pause")
+    held = wait_for(client, job_id, lambda s: s["paused"])
+    time.sleep(2.0)
+    assert time.time() > held["deadline"]
+    client.post(f"/api/jobs/{job_id}/pause?value=false")
+    done = stream_job(client, job_id)[-1]
+    assert done["status"] == "done" and done["stopped_by"] is None and len(done["images"]) == 6
+    # Moved on by the pause, which the page's "left (budget)" reads.
+    assert done["deadline"] - held["deadline"] >= 2.0
 
 
 def test_the_preview_shows_the_prompts_it_would_render(client):

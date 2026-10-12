@@ -2005,7 +2005,12 @@ The `stopped_by` is for the page: a shutdown read as a plain cancel, which a
 second tab then reported as one pressed somewhere else (Two tabs on one
 server); it says the server's stop now. `run()` sets
 `timeout_graceful_shutdown=30` for a client
-that stops reading. `Server` sits at module level so
+that stops reading. A job still queued is finished there and then, as
+`cancel()` finishes one (`_finish` on the jobs' loop, `call_soon_threadsafe`
+from the signal's thread): one waiting on a first load otherwise held its
+stream until the load ended - a Ctrl-C a minute into a load waited out the 30
+s, and the stream was cut with no `done`, which the page later called a lost
+job rather than the server's stop. `Server` sits at module level so
 `tests/test_api_analysis.py` can call `handle_exit`; that file also pins the
 lifespan's order: the critic's server, then `jobs.shutdown()`, then the
 weights. Lifespan calls `backend.try_unload()` (non-blocking lock acquire)
@@ -2096,6 +2101,11 @@ error leads with where and why - "Stopped at cell 4 of 5 after 3 cells failed;
 1 image kept. Last: <the exception>" - since three in a row or a third of the
 grid read as one bad cell when only the last exception was shown; the page
 offers "Resume the remaining N cells" (the total less the cells that rendered).
+A plain job says both in its own units (`Job.unit`, the page's `unitWord` on
+the server): "Stopped at image 3 of 3 after 3 images failed", "1 image failed
+and was skipped", and the page's "1 of 1 image was skipped" - "cell" was a
+grid's word in a plain job's error. One that made nothing at all holds the
+title "Nothing made", never "✓ Finished 0 images".
 Both live in the finish line, `#finish-note`, apart from the cell line: when
 they shared `#cell-note`, the next queued job's start cleared it the moment the
 grid ended, and the Retry with it - in the overnight queue the button exists
@@ -2957,7 +2967,11 @@ after this image…", and once paused "Paused after image 1/3 · GPU handed
 back", while the counter beside the bar stays the counter - written there, the
 long text squeezed the bar to 5 px. A running job of one cell has no boundary
 to stop at (a queued one does: `_generate` checks before cell 0), so its Pause
-is `aria-disabled` and a press says why. A plain job's units are images, or
+is `aria-disabled` and a press says why. A queued job's pause is kept and holds
+it before its first unit once its turn comes, keeping the gate as any pause
+does; its cell line says "will hold before its first image" and Pause's title
+"Hold this job before it starts" - "pausing after this image…" named an image
+that had not started. A plain job's units are images, or
 batches where a repeat makes several (`unitWord`, from the snapshot's `grid`
 and `planned_images`): "cell" is a grid's word, and "run 2/3" was a fourth
 meaning of run.
@@ -3306,7 +3320,10 @@ early through the *cancel* path: a fourth terminal status would have left
 `active()`/`busy()` holding on and unload answering 409 for the session.
 The UI reads `stopped_by` to say the plan worked and a Resume finishes the
 rest; the CLI's `--budget` mirrors it and exits 130 like any other stop
-short of the full count. Its count is `run`, which at a budget stop is already
+short of the full count. A pause stops the budget's clock: `_hold` moves the
+deadline on by as long as it held, before the resume's frame, so the page's
+"left (budget)" moves with it. Fixed at submission, a grid paused past its
+deadline ended at the Resume with no cell run, "Time budget reached". Its count is `run`, which at a budget stop is already
 the cells finished (the deadline is checked before `run` moves on) - the page's
 `run - 1` said 34 beside 35 images - and the banner says "stopped at its time
 budget" rather than "was cancelled".
