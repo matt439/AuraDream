@@ -131,10 +131,45 @@ async function refreshBundlePreview() {
     if (epoch !== bundlePreviewEpoch) return;
     bundlePreview = null;
     els.bundlePreview.textContent = 'The gallery counts could not be read.';
+    // A row with no file names its id (`bundles.MissingImage`): Show it,
+    // inline, so nothing below the line moves.
+    const missing = err.body?.image_id;
+    if (Number.isInteger(missing)) {
+      const show = document.createElement('button');
+      show.type = 'button';
+      show.className = 'ghost small';
+      show.id = 'bundle-show-missing';
+      show.textContent = `Show #${missing}`;
+      show.title = `Close this and search the ${err.body.binned ? 'recycle bin' : 'gallery'} for #${missing}`;
+      show.onclick = () => showBundleMissing(missing, !!err.body.binned);
+      els.bundlePreview.append(' ', show);
+    }
     bundleSay(err.message, true);
   } finally {
     if (epoch === bundlePreviewEpoch) { bundleReading = false; syncBundleControls(); }
   }
+}
+
+// Show #N: the dialog closes and the gallery - the recycle bin, for a binned
+// row - is searched for the one id the preview named, every checkpoint's and
+// Starred off (the Models picker's See all way), so its card is there to bin
+// or delete permanently. Its thumbnail can outlive the PNG; a filename is no
+// search key.
+function showBundleMissing(id, binned) {
+  els.bundlesDialog.close();
+  outsideView = null;
+  if (!binned) leaveBin();
+  els.search.value = `id:${id}`;
+  els.favOnly.checked = false;
+  els.allModels.checked = true;
+  sheetReturn = null;
+  if (binned && !binMode) enterBin();
+  else if (sheetMode) void setSheet(false);
+  else void resetGallery();
+  if (!binned) loadRuns();
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  els.search.focus({ preventScroll: true });
 }
 
 async function refreshBundleList() {

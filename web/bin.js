@@ -302,8 +302,9 @@ async function deletePermanently(rec) {
 // Empty recycle bin: every image in it, every checkpoint's and whatever the
 // search shows, deleted from disk after a question that says how many and
 // how much, what of the live gallery leans on them, and whether a job is
-// running. The count is pinned (`expected`): an image binned meanwhile - in
-// another tab - refuses the whole delete.
+// running. The images are pinned (`expected`, and `pin` for their ids): an
+// image binned meanwhile - in another tab - refuses the whole delete, even
+// where a Restore there kept the count the same.
 async function emptyBin() {
   const slot = { slot: els.galleryError };
   let found;
@@ -328,7 +329,7 @@ async function emptyBin() {
   if (!await askConfirm(message, { okLabel: 'Empty bin' })) return;
   let result;
   try {
-    result = await api(`/api/gallery/bin?expected=${n}`, { method: 'DELETE' });
+    result = await api(`/api/gallery/bin?expected=${n}${found.pin ? `&pin=${encodeURIComponent(found.pin)}` : ''}`, { method: 'DELETE' });
   } catch (err) {
     // The bin changed since the question: shown again as it is now.
     if (err.status === 409 && binMode) void resetGallery().then(() => showError(err.message, false, slot));

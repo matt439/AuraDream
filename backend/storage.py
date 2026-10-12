@@ -179,26 +179,20 @@ END;
 """
 
 
-# Which database file the running process has checked; the ALTER is a schema
-# change, not something to attempt on every connection. Keyed on the path, not
-# a bare flag: `_connect` re-creates the schema per connection precisely because
-# the file can be replaced under a running server - restored from a backup, say
-# - and a restored older file needs its columns again.
-_migrated: str | None = None
-
-
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns that a database written by an older build has not got.
 
     `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it was, so
     a gallery from before this column simply never gains it - and every INSERT
-    then fails. Cheap enough to check once per process; the ALTER itself runs
-    at most once, and races with another process end in "duplicate column",
-    which is the outcome we wanted anyway.
+    then fails. Checked on every connection, as the table's existence is: the
+    file can be replaced under a running server - restored from a backup at
+    the same path - and a once-per-process flag, even one keyed on the path,
+    left that older file unmigrated until a restart, every gallery read
+    failing on `binned_at`. `PRAGMA table_info` costs what the sqlite_master
+    lookup beside it does; the ALTER itself runs at most once per file, and
+    races with another process end in "duplicate column", which is the
+    outcome we wanted anyway.
     """
-    global _migrated
-    if _migrated == str(settings.db_path):
-        return
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
     added = (
         ("job_id", "TEXT", "idx_images_job"),
@@ -241,7 +235,6 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 conn.execute(f"CREATE INDEX IF NOT EXISTS {index} ON images ({column})")
         except sqlite3.OperationalError:  # another process got there first
             pass
-    _migrated = str(settings.db_path)
 
 
 def ensure_outputs_dir() -> None:
@@ -256,10 +249,6 @@ def ensure_outputs_dir() -> None:
 
 
 def _connect() -> sqlite3.Connection:
-    # A restored or replaced file has a fresh identity; forget the old check.
-    global _migrated
-    if _migrated is not None and _migrated != str(settings.db_path):
-        _migrated = None
     conn = sqlite3.connect(settings.db_path, timeout=15)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -684,11 +673,61 @@ def _discard(path) -> bool:
     return _unlink(path)
 
 
+def _settle_plan(stale: Sequence, tracked: set[str] | None = None) -> list:
+    """Each stale partial with the name it should be renamed to, or None.
+
+    `save_image` commits the row and then renames, so a `<name>.png.part`
+    whose row exists and whose `<name>.png` does not is the only copy of a
+    committed image - the rename failed, or the process died between the two.
+    That one is finished, never discarded; every other stale partial is
+    debris. A thumbnail's `.webp.part` is debris too, even beside a committed
+    row: `thumbnail_for` encodes for rows already tracked, so one may be cut
+    short, and a placed thumbnail is never encoded again. The card falls back
+    to the PNG until a reindex writes a whole one.
+    """
+    if tracked is None:
+        tracked = {row["filename"] for row in _tracked_files()}
+    outputs = settings.outputs_dir
+    plan = []
+    for path in stale:
+        name = path.name[: -len(".part")] if path.name.endswith(".part") else None
+        target = None
+        if name and path.parent == outputs and name.endswith(".png") and name in tracked:
+            target = path.with_name(name)
+        plan.append((path, None if target is None or target.exists() else target))
+    return plan
+
+
+def _settle(stale: Sequence) -> tuple[int, int]:
+    """Finish or discard stale partials, under the reservation the caller holds.
+
+    Returns (recovered, discarded). A recovery that fails leaves the partial
+    where it is: it is the image, and the next sweep tries again.
+    """
+    recovered = discarded = 0
+    for path, target in _settle_plan(stale):
+        if target is None:
+            discarded += _discard(path)
+            continue
+        try:
+            _rename_with_retry(path, target)
+            recovered += 1
+            log.info("recovered %s from an interrupted save", target.name)
+        except OSError:
+            log.warning("could not finish the interrupted save of %s", target.name, exc_info=True)
+    return recovered, discarded
+
+
 @gallery_lock.protected(lambda: settings.db_path)
-def discard_bundle_leftovers() -> int:
-    """Sweep what killed bundle operations left; at startup and before each one."""
-    stale = set(_stale_partials())
-    return sum(1 for path in _bundle_leftovers() if path in stale and _discard(path))
+def settle_partials() -> dict[str, int]:
+    """Finish or sweep what killed saves and bundle operations left.
+
+    At startup, at every bundle preview and before each bundle operation. Only
+    partials older than PARTIAL_SETTLE_SECONDS: a fresh one may be an encode
+    in flight, which a bundle inventory refuses instead.
+    """
+    recovered, discarded = _settle(_stale_partials())
+    return {"recovered": recovered, "discarded": discarded}
 
 
 def _page(

@@ -413,7 +413,10 @@ stops if it is ready, loading or times out; unload the server model first.
 across the Windows/WSL boundary. Ctrl+C cancels cooperatively and preserves
 saved images. Exit codes: 0 complete, 130 cancelled, 2 bad arguments, 1 failed
 load or skipped cells, 4 server holding the GPU. Failed cells are reported
-and skipped; repeated failures stop the run.
+and skipped; repeated failures stop the run. If another Local Diffusion
+process holds the gallery (a bundle export, say) when an image is ready, the
+CLI says once that it is still waiting to save and keeps the image until the
+gallery is free; a second Ctrl+C ends it.
 
 Redirected CLI output is UTF-8. In Windows PowerShell, set
 `[Console]::OutputEncoding = [Text.Encoding]::UTF8` before using `>` or `|`
@@ -481,7 +484,16 @@ for the archive and staged files: the bundle and the merged database on the
 database's drive, uploads and unpacked images in `.local-diffusion-staging`
 on the images' drive. If an image is locked or files change during
 export, the verified bundle remains available and the dialog lists what was
-not cleared. The status line shows the current step and how far it has got. Review that result before removing anything by hand. In Windows
+not cleared. The status line shows the current step and how far it has got. Review that result before removing anything by hand.
+A gallery image whose PNG is missing from disk stops the counts: the line
+names it as `#N` with its file name, and **Show #N** closes the dialog and
+searches the gallery (or the recycle bin) for it. Put the file back, or
+move the image to the recycle bin and delete it permanently there. A
+`.part` file in the images folder is an image still being written: try
+again when the render finishes. One left by a crash or a power cut is
+settled an hour after it was written, at the next server start or dialog
+refresh: put in place when it is an image the gallery already lists,
+removed otherwise. In Windows
 and WSL, the saved-bundle directory belongs to the server environment whose
 gallery is open.
 
@@ -530,7 +542,11 @@ deletes for good, and reaches the recycle bin as well: the whole clear and
 `--where` delete binned images like any other (the preview says how many),
 and `--keep-favorites` does not keep a starred image that is in the bin.
 `--bin` empties the recycle bin alone, as **Empty recycle bin** does; it
-takes neither `--where` nor `--keep-favorites`.
+takes neither `--where` nor `--keep-favorites`. `--where` and `--bin`
+delete only what their preview showed: if an image matching it arrives (or,
+for the bin, a different image is binned) while the prompt waits, nothing
+is deleted and the command exits 1 so it can be run again; **Empty recycle
+bin** refuses the same way.
 Without `--where`, it also removes orphan PNGs, which have no favorite flag
 to preserve. Scoped deletion removes matching rows and files without that
 orphan sweep. The Windows and WSL galleries are separate; run the command

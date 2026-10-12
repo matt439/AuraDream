@@ -530,10 +530,12 @@ async function api(path, options) {
   }
   if (!res.ok) {
     let detail = res.statusText;
-    try { detail = (await res.json()).detail ?? detail; } catch { /* non-JSON body */ }
+    let body = null;
+    try { body = await res.json(); detail = body?.detail ?? detail; } catch { /* non-JSON body */ }
     // The status too, for a caller that tells "gone" from "refused" (a job
-    // the server no longer knows is a 404).
-    throw Object.assign(new Error(readableDetail(detail)), { status: res.status });
+    // the server no longer knows is a 404), and the body for one that reads a
+    // field beside `detail` (the bundle preview's missing `image_id`).
+    throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body });
   }
   const body = res.status === 204 ? null : await res.json();
   const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$)/.test(path.split('?')[0]);

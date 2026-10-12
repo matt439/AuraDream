@@ -240,6 +240,84 @@ def test_bin_refuses_a_bin_that_changed_after_its_preview(fresh, capsys, monkeyp
     assert all((fresh.outputs_dir / r.filename).exists() for r in made.values())
 
 
+def test_bin_refuses_a_bin_with_the_same_count_of_other_images(fresh, capsys, monkeypatch):
+    # A Restore and a bin of a different image in the browser keep the count:
+    # the newly binned image was never in the preview, and must not go.
+    made = _seed(fresh, a=(1, "n"), b=(2, "n"))
+    storage.bin_images([made["a"].id])
+    summary = storage.bin_summary
+
+    def then_swapped(*args, **kwargs):
+        found = summary()
+        storage.restore_images([made["a"].id])
+        storage.bin_images([made["b"].id])
+        return found
+
+    monkeypatch.setattr(gallery_delete, "bin_summary", then_swapped)
+    assert clear.main(["--bin", "--yes"]) == 1
+    assert "other images are in it now than the 1 shown" in capsys.readouterr().err
+    assert all((fresh.outputs_dir / r.filename).exists() for r in made.values())
+
+
+def test_where_refuses_a_row_that_arrived_while_the_prompt_waited(fresh, capsys, monkeypatch):
+    # The server or a CLI grid still writing the run being cleared: a third
+    # image of the job lands between "Would delete 2" and the 'clear' typed.
+    from PIL import Image
+
+    from backend.schemas import GenerateRequest
+
+    made = _seed(fresh, a=(1, "abcdef12"), b=(2, "abcdef12"))
+
+    def then_another(_yes):
+        made["c"] = storage.save_image(
+            Image.new("RGB", (16, 16)), GenerateRequest(prompt="c prompt", width=256, height=256),
+            seed=3, duration_ms=1, model_id="m", job_id="abcdef12",
+        )
+        return True
+
+    monkeypatch.setattr(clear, "_confirm", then_another)
+    assert clear.main(["--where", "job:abcdef12"]) == 1
+    captured = capsys.readouterr()
+    assert "Would delete 2 record(s)" in captured.out
+    assert "3 record(s) match now, not the 2 shown. Nothing was deleted" in captured.err
+    assert storage.list_images()[1] == 3
+    assert all((fresh.outputs_dir / r.filename).exists() for r in made.values())
+    # Asked again, the preview is the new count and the delete goes ahead.
+    monkeypatch.setattr(clear, "_confirm", lambda _yes: True)
+    assert clear.main(["--where", "job:abcdef12", "--yes"]) == 0
+    assert "Deleted 3 record(s), 3 file(s)." in capsys.readouterr().out
+
+
+def test_the_whole_clear_finishes_a_kept_images_interrupted_save(fresh, capsys):
+    # The row committed and the rename did not: the .part is the only copy of
+    # a starred image the clear keeps, and is put in place, not swept.
+    import os
+    import time
+
+    made = _seed(fresh, a=(1, "n"), b=(2, "n"))
+    storage.set_favorite(made["a"].id, True)
+    png = fresh.outputs_dir / made["a"].filename
+    partial = png.with_name(png.name + ".part")
+    png.replace(partial)
+    # Its thumbnail's partial too: debris, and no second image to finish.
+    thumb = storage._thumb_path(png)
+    thumb_partial = thumb.with_name(thumb.name + ".part")
+    thumb.replace(thumb_partial)
+    old = time.time() - 2 * storage.PARTIAL_SETTLE_SECONDS
+    os.utime(partial, (old, old))
+    os.utime(thumb_partial, (old, old))
+    assert storage.summarise()["recoverable_partials"] == 1
+    assert storage.summarise()["partial_files"] == 1
+    thumb_partial.replace(thumb)
+
+    assert clear.main(["--keep-favorites", "--yes"]) == 0
+    assert "Finished 1 interrupted save(s)." in capsys.readouterr().out
+    assert png.is_file() and not partial.exists()
+    # Before the thumbnail sweep, which takes a thumbnail whose PNG is gone.
+    assert thumb.is_file()
+    assert [r.id for r in storage.list_images()[0]] == [made["a"].id]
+
+
 def test_the_whole_clear_and_where_reach_the_recycle_bin(fresh, capsys):
     made = _seed(fresh, a=(1, "n"), b=(2, "n"), c=(3, "m"))
     storage.set_favorite(made["a"].id, True)

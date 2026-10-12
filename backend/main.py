@@ -230,7 +230,7 @@ def _stop_critic() -> None:
 async def lifespan(app: FastAPI):
     storage.init_db()
     try:
-        storage.discard_bundle_leftovers()
+        storage.settle_partials()
     except gallery_lock.GalleryBusy:
         pass  # another process is mid-operation; the next bundle operation sweeps
     if settings.load_on_startup:
@@ -267,7 +267,11 @@ async def gallery_busy(request: Request, exc: gallery_lock.GalleryBusy):
 
 @app.exception_handler(bundles.BundleError)
 async def invalid_bundle(request: Request, exc: bundles.BundleError):
-    return JSONResponse({"detail": str(exc)}, status_code=409 if isinstance(exc, bundles.BundleChanged) else 422)
+    body = {"detail": str(exc)}
+    if isinstance(exc, bundles.MissingImage):
+        # Which row, for the dialog's Show it.
+        body.update(image_id=exc.image_id, binned=exc.binned)
+    return JSONResponse(body, status_code=409 if isinstance(exc, bundles.BundleChanged) else 422)
 
 # DNS rebinding: a hostile page served from evil.example, whose record is
 # re-answered as 127.0.0.1, talks to this API as same-origin - CORS never gets a

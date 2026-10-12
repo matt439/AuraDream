@@ -241,21 +241,27 @@ def create_router(
 
 
     @router.delete("/api/gallery/bin")
-    async def empty_recycle_bin(expected: int = Query(ge=0)) -> dict:
+    async def empty_recycle_bin(
+        expected: int = Query(ge=0),
+        pin: str | None = Query(default=None, max_length=64),
+    ) -> dict:
         """Empty recycle bin: every binned image deleted from disk, for good.
 
-        `expected` is the count the confirmation showed, compared under the
-        delete's lock, so an image binned in another tab while the dialog was
-        open is answered 409 rather than deleted on a number confirmed for
-        fewer.
+        `expected` is the count the confirmation showed and `pin` the summary's
+        `pin` for its ids, both compared under the delete's lock, so an image
+        binned in another tab while the dialog was open is answered 409 rather
+        than deleted on a confirmation that never covered it - even where a
+        Restore there kept the count the same.
         """
         try:
-            result = await asyncio.to_thread(gallery_delete.empty_bin, expected)
+            result = await asyncio.to_thread(gallery_delete.empty_bin, expected, pin)
         except gallery_delete.SelectionChanged as exc:
+            now = (f"{exc.found} images are in it now, not the {exc.expected} confirmed"
+                   if exc.found != exc.expected
+                   else f"other images are in it now than the {exc.expected} confirmed")
             raise HTTPException(
                 status_code=409,
-                detail=f"The recycle bin changed: {exc.found} images are in it now, not the "
-                f"{exc.expected} confirmed. Nothing was deleted; look again.",
+                detail=f"The recycle bin changed: {now}. Nothing was deleted; look again.",
             ) from exc
         get_jobs().forget_images(result["ids"])
         return {"deleted": result["ids"], "files": result["files"]}

@@ -25,6 +25,18 @@ def _finish(client, operation_id):
     raise AssertionError("bundle operation did not finish")
 
 
+def test_a_missing_image_answers_with_its_id_beside_the_detail(client, store):
+    # For the dialog's Show #N: which row, and whether it is in the bin.
+    run_one(client, seed=19)
+    record = store.list_images()[0][0]
+    (store.settings.outputs_dir / record.filename).unlink()
+    response = client.get("/api/gallery/bundles/preview")
+    assert response.status_code == 422
+    body = response.json()
+    assert (body["image_id"], body["binned"]) == (record.id, False)
+    assert body["detail"].startswith(f"image #{record.id} ({record.filename}) has no file in ")
+
+
 def test_browser_export_download_and_uploaded_merge(client, store):
     job_id, _ = run_one(client, seed=19)
     record = store.list_images()[0][0]
