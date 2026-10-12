@@ -19,6 +19,7 @@ Inpaint). The user's answers to the open questions at the end:
    or binned) and no live job names the mask and it is past the settle
    window.
 7. Not answered; outpainting and FLUX.1 Fill [dev] stay under "Later".
+   Outpainting has since been planned in `docs/plan-outpainting.md`.
 
 Built differently from the text below: the mask's hash covers its size as
 well as its levels (`storage.mask_hash`: `"L WxH\n"` then the bytes), since an all-white
