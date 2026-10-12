@@ -119,6 +119,21 @@ def test_a_missing_file_stops_a_chosen_bundle_only_when_it_is_chosen(store):
         bundles.export_bundle(keep_gallery=True, ids=[chosen.id, lost.id])
 
 
+def test_a_chosen_bundle_needs_room_for_the_log_and_the_vacuumed_copy(store, monkeypatch):
+    # One image, so the whole gallery and the selection archive the same
+    # files: only the selection's second copy of the database tells them apart.
+    saved = _save()
+    db = store.settings.db_path
+    wal = db.with_name(db.name + "-wal")
+    database = db.stat().st_size + (wal.stat().st_size if wal.exists() else 0)
+    files = sum(p.stat().st_size for _, p in bundles._inventory())
+    room = shutil.disk_usage(store.settings.db_path.parent)._replace(free=files + 2 * database + 1)
+    monkeypatch.setattr(bundle_archive.shutil, "disk_usage", lambda where: room)
+    with pytest.raises(BundleError, match="not enough free space to write the bundle"):
+        bundles.export_bundle(keep_gallery=True, ids=[saved.id])
+    assert bundles.export_bundle(keep_gallery=True)["records"] == 1
+
+
 @pytest.mark.parametrize("keep", [True, False])
 def test_an_export_without_room_for_its_files_is_refused_before_it_writes(store, monkeypatch, keep):
     _save()

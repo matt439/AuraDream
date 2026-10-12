@@ -528,10 +528,11 @@ imported and the partial upload is removed. Once the upload has arrived the
 import is the server's to finish. If another Local Diffusion process (such as
 a running `reindex`) is using the gallery, the operation fails at once and
 can be retried when it ends. Creating and importing a bundle need free space
-for the archive and staged files, and an export without room for every file
-it would copy is refused before it writes anything: the bundle and the merged database on the
+for the archive and staged files: the bundle and the merged database on the
 database's drive, uploads and unpacked images in `.local-diffusion-staging`
-on the images' drive. If an image is locked or files change during
+on the images' drive. An export without room for every file it would copy
+(the images, the database and its working copies) is refused before it
+writes anything. If an image is locked or files change during
 export, the verified bundle remains available and the dialog lists what was
 not cleared. The status line shows the current step and how far it has got. Review that result before removing anything by hand.
 A gallery image whose PNG is missing from disk stops the counts: the line

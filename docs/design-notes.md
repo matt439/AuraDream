@@ -3803,6 +3803,16 @@ did not choose, which is wrong for a bundle given away.
 Every export now checks free space before it writes: the bundle directory's
 volume for the files and the database, and the database's for the snapshot.
 Without it a full disk stopped an export only partway through a write the size of the gallery.
+The database is counted with its write-ahead log, which the snapshot folds
+in, and a chosen bundle's snapshot twice, for VACUUM's copy; the archive's
+overhead per member and the password layer's are not.
+
+A finished backup still reads the gallery views again, though it changed
+nothing in them: while it ran every gallery read was refused, and a search
+typed then emptied the grid under the "in progress" refusal, which nothing
+else would have repaired. Only the typed count and the forgotten ids are a
+clear's.
+
 No CLI export was added: the browser's bundle admission (jobs idle, model
 not loading, no reader in flight) and the scope's `resolve_selection` live
 in the server, and a CLI would have needed its own copies of both.

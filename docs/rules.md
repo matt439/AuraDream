@@ -1241,7 +1241,9 @@ Jobs:
   `links_outside` counts references and refine sources the bundle lacks;
   import clears and counts them as `unresolved_references`, said as a fact,
   not a failure. Every export checks free space (`_check_space`) for its
-  files and database copy before it writes.
+  files and database copy (with its `-wal`; twice for a chosen bundle's
+  VACUUM) before it writes. A finished backup reloads the gallery views,
+  as every bundle operation does, but keeps the typed count.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -4063,11 +4065,13 @@ nothing), only the chosen rows, PNGs and thumbnails archived with no other
 prompt in the database bytes, `left_out` and `links_outside`, the import's
 `unresolved_references`, a binned chosen row carried, a selection never a
 clear, a missing file refusing only when chosen, and too little free space
+(a chosen bundle's database counted with its log and twice)
 refused before anything is written. `tests/test_api_bundles.py` covers the
 routes: a backup keeping the gallery and its jobs' images, picked (a binned
 and an unknown id left out) and starred (the bin's star not counted; none
-starred a 404), the preview's `starred`, and every out-of-shape request
-refused before any work.
+starred a 404), the preview's `starred`, every out-of-shape request
+refused before any work (a selection with a typed count included), and a
+chosen bundle refused as busy before its selection is read.
 
 `smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog,
 all-model scope, typed confirmation, a bundle name stamped in local time,
@@ -4085,7 +4089,9 @@ Back up: the entire gallery with no typed count and a result that is no
 failure, Picked and Starred with their counts, Bundle & clear held for a
 selection, the scope moving no control, the gallery's picks used while the
 bin is shown with one binned from another tab left out, an import's
-missing-source count said as a fact, the holds with nothing picked or
+missing-source count said as a fact, a gallery read refused mid-backup
+(stubbed 409) repaired when the backup ends with the typed count kept, the
+holds with nothing picked or
 starred, and the layout at 600x900 and 2560x1305:
 
 ```powershell

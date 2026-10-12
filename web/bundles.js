@@ -332,12 +332,11 @@ async function receiveBundleStatus(status) {
         // be corrected, and goes once an import has used it.
         if (status.operation === 'import' && status.state === 'done') els.bundleUnlock.value = '';
         if (status.result?.deleted_ids?.length) forgetImages(status.result.deleted_ids);
-        // A backup changes nothing in the gallery: only the counts and the
-        // saved list are read again, and the typed count stays.
-        if (status.operation !== 'backup') {
-          els.bundleCount.value = '';
-          await Promise.all([resetGallery(), loadRuns(), syncBin()]);
-        }
+        // A backup changes nothing in the gallery, so the typed count stays;
+        // the views are still read again, since any gallery read made while
+        // it ran was refused and left the grid empty under that refusal.
+        if (status.operation !== 'backup') els.bundleCount.value = '';
+        await Promise.all([resetGallery(), loadRuns(), syncBin()]);
         if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
       } finally { bundleSettling = false; }
     }

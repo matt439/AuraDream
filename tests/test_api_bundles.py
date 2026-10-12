@@ -96,6 +96,10 @@ def test_running_bundle_blocks_mutations_but_status_stays_available(client, monk
         assert client.post("/api/generate", json={"prompt": "a fox"}).status_code == 409
         assert client.post("/api/images/1/favorite").status_code == 409
         assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
+        # A chosen bundle is refused before its selection is read: nothing is
+        # starred here, which that read would answer with a 404.
+        assert client.post("/api/gallery/bundles/export",
+                           json={"keep_gallery": True, "scope": "starred"}).json()["detail"] == api_bundles.BUSY
     finally:
         release.set()
     assert _finish(client, start.json()["id"])["state"] == "done"
@@ -401,8 +405,9 @@ def test_a_bundle_of_the_picked_or_the_starred_reports_what_it_left_out(client, 
 
 
 @pytest.mark.parametrize("body, status", [
-    ({"scope": "picked", "ids": [1]}, 422),  # a selection is never cleared
-    ({"scope": "starred"}, 422),
+    # A selection is never cleared, even with its typed count.
+    ({"scope": "picked", "ids": [1], "expected": 1}, 422),
+    ({"scope": "starred", "expected": 1}, 422),
     ({"keep_gallery": True, "scope": "picked"}, 422),  # picked needs its ids
     ({"keep_gallery": True, "ids": [1]}, 422),  # and ids need picked
     ({}, 422),  # a clear needs its typed count

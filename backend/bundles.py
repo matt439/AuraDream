@@ -394,11 +394,14 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
         directory = _directory()
         directory.mkdir(parents=True, exist_ok=True)
         # The archive holds every file whole, and the snapshot is a full copy
-        # of the database before a selection is cut from it: refuse here
+        # of the database - its write-ahead log folded in - before a
+        # selection is cut from it, which VACUUM copies once more: refuse here
         # rather than fill the disk partway through.
-        database = settings.db_path.stat().st_size if settings.db_path.exists() else 0
+        wal = settings.db_path.with_name(settings.db_path.name + "-wal")
+        database = sum(p.stat().st_size for p in (settings.db_path, wal) if p.exists())
         _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
-                      (settings.db_path.parent, database, "copy the gallery database for the bundle")])
+                      (settings.db_path.parent, database * (1 if ids is None else 2),
+                       "copy the gallery database for the bundle")])
         # The name is for the person saving it, on their own machine: local
         # wall-clock time. Nothing reads a time back out of the name.
         name = f"local-diffusion-{datetime.now().astimezone():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
