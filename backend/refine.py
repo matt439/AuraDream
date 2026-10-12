@@ -288,6 +288,31 @@ def inpaint_source(image_id: int, width: int, height: int) -> "Image":
     return image
 
 
+def outpaint_source(image_id: int, spec: Any, width: int, height: int) -> "Image":
+    """The picture an outpaint hands the inpaint class: the gallery image on
+    its padded canvas, the new area holding the fill `spec` names
+    (`outpaint.padded`), at exactly `width` x `height`.
+
+    The source is never resized, as an inpaint's is not; a request whose
+    size is not the source's plus the padding is a mistake the submit check
+    names first, and here it raises rather than misplacing the source.
+    """
+    from PIL import Image as PILImage
+
+    from . import outpaint, storage
+
+    (path,) = storage.reference_paths([image_id], noun="source image")
+    with PILImage.open(path) as handle:
+        image = handle.convert("RGB")
+    canvas = (image.width + spec.left + spec.right, image.height + spec.top + spec.bottom)
+    if canvas != (width, height):
+        raise ValueError(
+            f"source image {image_id} is {image.width}x{image.height}; an outpaint of it by "
+            f"{outpaint.sides(spec)} runs at {canvas[0]}x{canvas[1]}, not {width}x{height}"
+        )
+    return outpaint.padded(image, spec)
+
+
 def canonical_mask(image: "Image") -> "Image":
     """Any picture given as a mask, as the one `L` channel a mask is kept in.
 

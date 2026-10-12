@@ -34,7 +34,7 @@ from . import gallery_lock, refine
 from .grid import lora_key, mask_key, reference_key, refine_key
 from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY
 from .search import like_escape, split_search
-from .schemas import ImageRecord, effective_true_cfg
+from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 
 if TYPE_CHECKING:
     from .grid import CellKey
@@ -166,7 +166,8 @@ CREATE TABLE IF NOT EXISTS images (
     strength        REAL,
     batch           INTEGER,
     binned_at       TEXT,
-    mask            TEXT
+    mask            TEXT,
+    outpaint        TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -181,6 +182,7 @@ CREATE TRIGGER IF NOT EXISTS images_ad AFTER DELETE ON images BEGIN
     INSERT INTO images_fts(images_fts, rowid, prompt) VALUES('delete', old.id, old.prompt);
 END;
 CREATE INDEX IF NOT EXISTS idx_images_mask ON images (mask);
+CREATE INDEX IF NOT EXISTS idx_images_outpaint ON images (outpaint);
 """
 
 # The inpaint masks the server holds, by the hash `mask_hash` names each one
@@ -262,6 +264,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
         # An inpaint's mask, the hash of a `masks` row; NULL on every row
         # that is not one, and only ever set beside `refine`.
         ("mask", "TEXT", "idx_images_mask"),
+        # An outpaint's spec, `OutpaintSpec.key()`: NULL on every row that
+        # is not one, and only ever set beside `refine` and `mask`.
+        ("outpaint", "TEXT", "idx_images_outpaint"),
     )
     for column, kind, index in added:
         if column in columns:
@@ -381,6 +386,9 @@ def _row_to_record(
         content_hash=row["content_hash"],
         binned_at=row["binned_at"],
         mask=row["mask"],
+        # Unguarded, as every column: the stored type has no bound a setting
+        # could move, and only validated keys are ever written.
+        outpaint=OutpaintSpec.parse_key(row["outpaint"]) if row["outpaint"] else None,
     )
 
 
@@ -390,7 +398,7 @@ _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
-    "refine", "strength", "batch", "binned_at", "mask",
+    "refine", "strength", "batch", "binned_at", "mask", "outpaint",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -469,6 +477,8 @@ def save_image(
     created = datetime.now(timezone.utc)
     variables_json = json.dumps(variables) if variables else None
     mask = request.mask if request.refine is not None else None
+    # An outpaint never without its source and its stamped mask.
+    outpaint = request.outpaint if mask is not None else None
     digest = content_hash(image)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
     # The directory can disappear under a running server - renamed, deleted by
@@ -518,6 +528,10 @@ def save_image(
         "mask": mask,
         "mask_source": mask_provenance(mask, image.width, image.height),
         "mask_blend": "overlay" if mask is not None else None,
+        # An outpaint's padding and band, and the fill that made its new
+        # area, null together on every other row.
+        "outpaint": outpaint_chunk(outpaint),
+        "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": batch,
     }
     info = PngImagePlugin.PngInfo()
@@ -551,7 +565,8 @@ def save_image(
             if request.refine is not None
             else ""
         )
-        + (f", Inpaint mask: {mask[:16]}" if mask is not None else ""),
+        + (f", Inpaint mask: {mask[:16]}" if mask is not None else "")
+        + (outpaint_parameters(outpaint) if outpaint is not None else ""),
     )
     info.add_text(PNG_METADATA_KEY, json.dumps(meta))
     # The mask itself, so this PNG alone reproduces the image (`PNG_MASK_KEY`).
@@ -605,6 +620,7 @@ def save_image(
                         "batch": batch,
                         "binned_at": None,
                         "mask": mask,
+                        "outpaint": outpaint.key() if outpaint is not None else None,
                     },
                 )
                 # A pass whose source was deleted while it ran - read as the
@@ -992,7 +1008,7 @@ def completed_cells(
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
-                           reference, lora, lora_scale, refine, strength, mask, seed
+                           reference, lora, lora_scale, refine, strength, mask, outpaint, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -1015,7 +1031,7 @@ def completed_cells(
                         reference_key(json.loads(row["reference"]) if row["reference"] else None),
                         lora_key(row["lora"], row["lora_scale"]),
                         refine_key(row["refine"], row["strength"]),
-                        mask_key(row["mask"]),
+                        mask_key(row["mask"], row["outpaint"]),
                         row["seed"],
                     )
                 )
@@ -1121,6 +1137,9 @@ def index_file(
     caller decoded them, which is the truth; the block's own `hash` stands in
     for it when the caller did not decode.
     """
+    mask = _mask(meta.get("mask")) if meta.get("refine") is not None else None
+    # Never without its source and its mask; a malformed one is left off.
+    outpaint = chunk_outpaint(meta) if mask is not None else None
     with _write_lock, _session() as conn:
         row = _insert_row(
             conn,
@@ -1153,7 +1172,8 @@ def index_file(
                 # Bin state lives in SQLite alone, as `favorite` does: a PNG
                 # recovered from its own chunk comes back live.
                 "binned_at": None,
-                "mask": _mask(meta.get("mask")) if meta.get("refine") is not None else None,
+                "mask": mask,
+                "outpaint": outpaint.key() if outpaint is not None else None,
             },
         )
     return _row_to_record(row)
@@ -1377,6 +1397,131 @@ def _store_mask(mask: Image.Image, digest: str, path: Path, partial: Path) -> tu
         if encoded and committed and partial.exists() and path.is_file():
             _unlink(partial)
     return digest, created
+
+
+def outpaint_chunk(spec: OutpaintSpec | None) -> dict[str, int] | None:
+    """An outpaint's `outpaint` key in a result's PNG chunk: its padding and
+    band (the fill rides beside it as `outpaint_fill`), or None."""
+    if spec is None:
+        return None
+    return {"left": spec.left, "top": spec.top, "right": spec.right, "bottom": spec.bottom, "band": spec.band}
+
+
+def outpaint_parameters(spec: OutpaintSpec) -> str:
+    """The A1111 line's outpaint, slashes where A1111 would split on a comma:
+    the one copy of the spec an older build's import leaves in place."""
+    return (
+        f", Outpaint: {spec.left}/{spec.top}/{spec.right}/{spec.bottom}, "
+        f"Outpaint band: {spec.band}, Outpaint fill: {spec.fill}"
+    )
+
+
+def chunk_outpaint(meta: dict[str, Any]) -> OutpaintSpec | None:
+    """A PNG chunk's `outpaint` and `outpaint_fill` as the stored spec, or
+    None where it carries none or a malformed one. Any well-formed fill is
+    kept, known to this build or not: the submit refuses an unknown one by
+    name, so the row still shows as what it is."""
+    value, fill = meta.get("outpaint"), meta.get("outpaint_fill")
+    if not isinstance(value, dict) or not isinstance(fill, str):
+        return None
+    sides = [value.get(name) for name in ("left", "top", "right", "bottom", "band")]
+    if any(type(side) is not int for side in sides):
+        return None
+    try:
+        spec = OutpaintSpec(fill=fill, left=sides[0], top=sides[1], right=sides[2], bottom=sides[3], band=sides[4])
+    except ValueError:
+        return None
+    return spec if spec.left or spec.top or spec.right or spec.bottom else None
+
+
+def malformed_outpaint(meta: dict[str, Any]) -> bool:
+    """Whether a chunk names an outpaint that `chunk_outpaint` cannot read."""
+    return meta.get("outpaint") is not None and chunk_outpaint(meta) is None
+
+
+_PARAMETERS_OUTPAINT = re.compile(
+    r"Outpaint: (\d{1,6})/(\d{1,6})/(\d{1,6})/(\d{1,6}), Outpaint band: (\d{1,6}), "
+    r"Outpaint fill: ([a-z0-9][a-z0-9-]{0,31})(?:,|$|\s)"
+)
+
+
+def outpaint_mask_hash(width: int, height: int, spec: OutpaintSpec) -> str | None:
+    """The hash of the mask an outpaint of this canvas and spec builds, or
+    None where the canvas cannot hold it."""
+    from . import outpaint
+
+    try:
+        return mask_hash(outpaint.mask(width, height, spec))
+    except ValueError:
+        return None
+
+
+def recovered_outpaint(
+    parameters: Any, width: int, height: int, mask: str | None, source_size: tuple[int, int] | None,
+) -> OutpaintSpec | None:
+    """An outpaint an older build's import stripped, from the A1111 line it
+    left in place - exact or nothing: only where the row has a mask, the
+    canvas is the source's size plus the parsed padding (and so not the
+    source's own), and the mask this build builds for it hashes to the
+    row's."""
+    if not isinstance(parameters, str) or mask is None or source_size is None:
+        return None
+    if (width, height) == tuple(source_size):
+        return None
+    match = _PARAMETERS_OUTPAINT.search(parameters)
+    if match is None:
+        return None
+    left, top, right, bottom, band = (int(value) for value in match.groups()[:5])
+    try:
+        spec = OutpaintSpec(fill=match.group(6), left=left, top=top, right=right, bottom=bottom, band=band)
+    except ValueError:
+        return None
+    if not (spec.left or spec.top or spec.right or spec.bottom):
+        return None
+    if (width - left - right, height - top - bottom) != tuple(source_size):
+        return None
+    return spec if outpaint_mask_hash(width, height, spec) == mask else None
+
+
+def rebuilt_outpaint_mask(width: int, height: int, spec: OutpaintSpec, digest: str) -> Image.Image | None:
+    """An outpaint's mask built again from its spec and the row's size,
+    where it hashes to the row's `digest`; None where it does not."""
+    from . import outpaint
+
+    try:
+        built = outpaint.mask(width, height, spec)
+    except ValueError:
+        return None
+    return built if mask_hash(built) == digest else None
+
+
+def stamp_outpaints(cells: Sequence[Any]) -> list[Any]:
+    """`cells` with each outpaint's mask built and stored: one build per
+    distinct canvas and spec (normally one per job), kept by `store_mask`
+    (idempotent, content addressed; it takes the gallery reservation and
+    restarts the settle window), and each outpaint cell answered with
+    `mask` set to its hash. The first step of `JobManager.submit_cells`, and
+    the CLI's before its load, so every later step - the job's cells, the
+    holds, the cell's check as it begins, the row - sees the stamped cell.
+    `model_copy`, which does not validate: a stamped request holds a mask
+    and an outpaint together, which no client may send. Blocking: encodes
+    and writes. Raises what `store_mask` raises (`OSError`, `GalleryBusy`)."""
+    import dataclasses
+
+    from . import outpaint
+
+    hashes: dict[tuple[int, int, str], str] = {}
+    stamped = []
+    for cell in cells:
+        request = cell.request
+        if request.outpaint is None or request.refine is None:
+            stamped.append(cell)
+            continue
+        key = (request.width, request.height, request.outpaint.key())
+        if key not in hashes:
+            hashes[key], _ = store_mask(outpaint.mask(request.width, request.height, request.outpaint))
+        stamped.append(dataclasses.replace(cell, request=request.model_copy(update={"mask": hashes[key]})))
+    return stamped
 
 
 def touch_mask(mask: str) -> Path:

@@ -174,7 +174,10 @@ def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
     # source for it to cover, and only the Inpaint dialog sends one.
     if meta.get("refine") is not None:
         size = {}
-        what = "an inpaint" if meta.get("mask") is not None else "a refine pass"
+        what = (
+            "an outpaint" if meta.get("outpaint") is not None
+            else "an inpaint" if meta.get("mask") is not None else "a refine pass"
+        )
         notes.append(
             f"It is {what}, which is made again from its source in the gallery, not from a file: "
             "its prompt and settings fill the panel as a direct render, at the panel's own size."

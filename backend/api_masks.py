@@ -8,6 +8,11 @@ reference or a source, and what is stored can only ever be used as a mask
 over the image it was sized to, so the upload is not a way to import a
 picture. Model-free: nothing here reads the checkpoint, so the switch never
 waits on it; `api_bundles.GalleryAdmission` counts it as a gallery reader.
+
+An outpaint's mask is never uploaded - the server builds it at submit
+(`storage.stamp_outpaints`) - but its presets are answered here
+(`GET /api/images/{id}/outpaint-presets`): the padding each one gives over a
+source, decided by the server (`outpaint.presets`), model-free like the rest.
 """
 from __future__ import annotations
 
@@ -17,9 +22,9 @@ import io
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from fastapi.responses import FileResponse
 
-from . import refine, storage
+from . import outpaint, refine, storage
 from .app_context import AppServices
-from .schemas import MaskStored
+from .schemas import MaskStored, OutpaintPreset, OutpaintPresets
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -151,5 +156,29 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         # Content-addressed: the bytes behind a hash never change.
         return FileResponse(path, media_type="image/png", headers={"Cache-Control": "max-age=31536000, immutable"})
+
+    @router.get("/api/images/{image_id}/outpaint-presets", response_model=OutpaintPresets)
+    async def outpaint_presets(image_id: int = Path(ge=1)) -> OutpaintPresets:
+        """Every outpaint preset over gallery image `image_id`: "+25%" and a
+        "to a:b" per aspect of the size presets, each with its four sides,
+        its canvas and the words that hold it - already at the ratio, past
+        the refine guard, or a source off the 16-pixel grid (`off_grid`,
+        which holds every one). 404 for an image that is gone or binned."""
+        record = await asyncio.to_thread(storage.get_image, image_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail=f"no gallery image with id {image_id}")
+        limits = services.settings()
+        name = f"#{record.id}"
+        answers = outpaint.presets(
+            record.width, record.height, max_side=limits.refine_max_side,
+            max_pixels=limits.refine_max_pixels, name=name,
+        )
+        return OutpaintPresets(
+            id=record.id, width=record.width, height=record.height,
+            off_grid=outpaint.source_off_grid(record.width, record.height, name),
+            max_side=limits.refine_max_side, max_pixels=limits.refine_max_pixels,
+            fill=outpaint.FILL, band=outpaint.BAND, max_band=outpaint.MAX_BAND,
+            presets=[OutpaintPreset(**answer) for answer in answers],
+        )
 
     return router

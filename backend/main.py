@@ -32,7 +32,7 @@ from .model_selection import current_model_id, current_settings  # noqa: E402
 from .model_info import details_for  # noqa: E402
 from .config import settings  # noqa: E402
 from .critic import CriticError, prompt_critic  # noqa: E402
-from .jobs import JobManager, LoadFailed, MaskGone, short_error  # noqa: E402
+from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, short_error  # noqa: E402
 from .launch import CHECKPOINTS  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
@@ -275,6 +275,13 @@ async def gallery_busy(request: Request, exc: gallery_lock.GalleryBusy):
 async def mask_gone(request: Request, exc: MaskGone):
     message = str(exc)
     return JSONResponse({"detail": message[:1].upper() + message[1:] + "."}, status_code=422)
+
+
+@app.exception_handler(OutpaintStampFailed)
+async def outpaint_stamp_failed(request: Request, exc: OutpaintStampFailed):
+    # As `POST /api/masks` says one: the disk, or the gallery reserved.
+    message = str(exc)
+    return JSONResponse({"detail": message[:1].upper() + message[1:] + "."}, status_code=503)
 
 
 @app.exception_handler(bundles.BundleError)

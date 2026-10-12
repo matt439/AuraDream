@@ -236,6 +236,74 @@ def test_the_mask_widens_the_key_without_renaming_a_run():
     assert grid.cell_key(masked[0])[-1] == 1
     ids = {grid.run_id(cells(refine=7, strength=0.35, mask=m), "m", "fp8") for m in (one, two)}
     assert len(ids) == 2 and "a088a16678a1" not in ids
+    # An inpaint's run keeps the name it had before outpainting.
+    assert grid.run_id(cells(refine=7, strength=0.35, mask=one), "m", "fp8") == "59b069324f8d"
+
+
+OUTPAINT = {"left": 32, "right": 16, "band": 16}
+
+
+def _outpaint_cells(outpaint=OUTPAINT, **extra):
+    width = 256 + outpaint.get("left", 0) + outpaint.get("right", 0)
+    height = 256 + outpaint.get("top", 0) + outpaint.get("bottom", 0)
+    return grid.expand(
+        GenerateRequest(
+            prompt="a fox", width=width, height=height, seed=1, refine=7, strength=0.35, outpaint=outpaint, **extra,
+        ),
+        steps="4,8",
+    )
+
+
+def test_an_outpaint_is_the_mask_element_by_its_spec_with_its_fill():
+    assert grid.mask_key(None) is None and grid.mask_key("ab" * 32) == "ab" * 32
+    assert grid.mask_key("ab" * 32, "edge-box3-r16:32,0,16,0@16") == "outpaint:edge-box3-r16:32,0,16,0@16"
+    cells = _outpaint_cells()
+    assert grid.cell_key(cells[0])[9] == "outpaint:edge-box3-r16:32,0,16,0@16"
+    assert grid.run_id(cells, "m", "fp8") == "7a8f443e44e1"
+    # Another fill over the same padding is another run.
+    other = _outpaint_cells({**OUTPAINT, "fill": "edge-box5-r8"})
+    assert grid.cell_key(other[0])[9] == "outpaint:edge-box5-r8:32,0,16,0@16"
+    assert grid.run_id(other, "m", "fp8") != "7a8f443e44e1"
+
+
+def test_stamped_and_unstamped_cells_are_one_run(store):
+    cells = _outpaint_cells()
+    stamped = store.stamp_outpaints(cells)
+    assert {cell.request.mask for cell in stamped} == {store.outpaint_mask_hash(304, 256, cells[0].request.outpaint)}
+    assert all(cell.request.mask is None for cell in cells)
+    assert grid.run_id(stamped, "m", "fp8") == grid.run_id(cells, "m", "fp8")
+    assert [grid.cell_key(c) for c in stamped] == [grid.cell_key(c) for c in cells]
+    # A stamped request keeps both - which no client may send together.
+    assert stamped[0].request.outpaint == cells[0].request.outpaint
+
+
+def test_two_paddings_bands_or_fills_over_one_source_are_two_pictures():
+    from tests.fakes import FakeBackend
+
+    applied = FakeBackend().applied
+    cells = [
+        *_outpaint_cells(),
+        *_outpaint_cells({**OUTPAINT, "band": 24}),
+        *_outpaint_cells({**OUTPAINT, "fill": "edge-box5-r8"}),
+        *_outpaint_cells({"left": 32, "right": 32, "band": 16}),
+    ]
+    assert grid.duplicate_count(cells, applied) == 0
+    assert grid.duplicate_count(cells + _outpaint_cells(), applied) == 2
+
+
+def test_more_seeds_keys_an_outpaint_row_as_resume_does(store):
+    from backend import more_seeds
+
+    (cell, *_) = store.stamp_outpaints(_outpaint_cells())
+    store.save_image(Image.new("RGB", (64, 64)), GenerateRequest(prompt="src", width=256, height=256),
+                     seed=9, duration_ms=1, model_id="m")
+    record = store.save_image(
+        Image.new("RGB", (304, 256)), cell.request, seed=1, duration_ms=1, model_id="m",
+    )
+    assert record.outpaint.key() == "edge-box3-r16:32,0,16,0@16"
+    (key,) = store.completed_cells(["a fox"], 304, 256, "m")
+    assert more_seeds.settings_key(record) == key[:-1]
+    assert key == grid.cell_key(grid.Cell(request=cell.request, seed=1))
 
 
 def test_a_weight_axis_needs_an_adapter_to_be_an_axis():

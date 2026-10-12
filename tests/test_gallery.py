@@ -55,6 +55,7 @@ def test_the_png_carries_the_whole_reproduction_set(store):
         "model", "quantization", "job", "run", "size", "variables", "hash",
         "reference", "lora", "lora_scale", "refine", "strength",
         "reference_sources", "refine_source", "batch", "mask", "mask_source", "mask_blend",
+        "outpaint", "outpaint_fill",
     }
     assert (meta["seed"], meta["mu"], meta["run"], meta["quantization"]) == (5, 1.15, "run1", "fp8")
     assert meta["batch"] == record.batch == 4

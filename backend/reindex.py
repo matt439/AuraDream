@@ -251,15 +251,24 @@ class _Masks:
             if not self.held(digest):
                 self.restore(digest, mask)
 
-    def resolve(self, digest: str | None, directory: Path, image: Image.Image | None) -> None:
+    def resolve(
+        self, digest: str | None, directory: Path, image: Image.Image | None,
+        outpaint=None, size: tuple[int, int] | None = None,
+    ) -> None:
         """Make sure a result's mask is held: from its file in `directory`,
-        else from the result's own embedded copy; counted where neither."""
+        else from the result's own embedded copy, else - an outpaint's - built
+        again from its spec at the result's `size` where it hashes to the
+        name; counted where none of them."""
         if digest is None or self.held(digest):
             return
         path = directory / f"{digest}.png"
         mask = _open_mask(path, digest) if path.is_file() else None
         if mask is None:
             mask = _embedded_mask(image, digest)
+        if mask is None and outpaint is not None and size is not None:
+            mask = storage.rebuilt_outpaint_mask(size[0], size[1], outpaint, digest)
+            if mask is not None:
+                self.counts["outpaint_masks_rebuilt"] += 1
         if mask is None:
             self.counts["unresolved_masks"] += 1
             print(f"  note  mask {digest[:16]} was found neither in masks/ nor in its result", file=self.out)
@@ -297,9 +306,33 @@ def _json_list(value) -> list:
     return decoded if isinstance(decoded, list) else []
 
 
+def _outpaint(mask: str | None, spec, image: Image.Image | None, width: int, height: int,
+              source_size: tuple[int, int] | None, counts: dict[str, int]):
+    """A result's outpaint as this reindex records it: its spec only beside
+    a mask (and so a source); where none came with it, one an older build's
+    import stripped, from the A1111 line, where the rebuilt mask is the
+    row's (`storage.recovered_outpaint`), counted."""
+    if mask is None:
+        return None
+    if spec is not None:
+        return spec
+    parameters = image.info.get("parameters") if image is not None else None
+    recovered = storage.recovered_outpaint(parameters, width, height, mask, source_size)
+    if recovered is not None:
+        counts["outpaints_recovered"] += 1
+    return recovered
+
+
+def _provenance_size(provenance) -> tuple[int, int] | None:
+    if not isinstance(provenance, dict):
+        return None
+    width, height = provenance.get("width"), provenance.get("height")
+    return (width, height) if type(width) is int and type(height) is int else None
+
+
 def _database_meta(
     row: dict, width: int, height: int, digest: str, references: list[int], refine: int | None,
-    mask: str | None = None,
+    mask: str | None = None, outpaint=None,
 ) -> dict:
     variables = _json_list(row.get("variables"))
     if not variables and row.get("variables"):
@@ -333,6 +366,8 @@ def _database_meta(
         "mask": mask,
         "mask_source": storage.mask_provenance(mask, width, height),
         "mask_blend": "overlay" if mask is not None else None,
+        "outpaint": storage.outpaint_chunk(outpaint),
+        "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": storage._batch(row.get("batch")),
     }
 
@@ -352,8 +387,12 @@ def merge_database(
         "masks": 0,
         "bad_masks": 0,
         "unresolved_masks": 0,
+        "outpaint_malformed": 0,
+        "outpaints_recovered": 0,
+        "outpaint_masks_rebuilt": 0,
     }
     rows = _source_rows(database)
+    sizes = {row["id"]: (row["width"], row["height"]) for row in rows}
     outputs = settings.outputs_dir.resolve()
     source = source.resolve()
     existing = storage.existing_file_ids() if settings.db_path.exists() else {}
@@ -425,7 +464,15 @@ def merge_database(
         # A mask only beside the source it covers, as a hash and never
         # anything else; one this gallery cannot find keeps its hash.
         mask = storage._mask(row.get("mask")) if refine is not None else None
-        masks.resolve(mask, source / storage.MASKS_DIR, image)
+        # And an outpaint only beside them both, as its key.
+        spec = None
+        if mask is not None and row.get("outpaint") is not None:
+            try:
+                spec = storage.OutpaintSpec.parse_key(row["outpaint"])
+            except ValueError:
+                counts["outpaint_malformed"] += 1
+        spec = _outpaint(mask, spec, image, width, height, sizes.get(row.get("refine")), counts)
+        masks.resolve(mask, source / storage.MASKS_DIR, image, spec, (width, height))
         digest = storage.content_hash(image)
         counts["indexed"] += 1
         if dry_run:
@@ -436,7 +483,7 @@ def merge_database(
             id_map[source_id] = source_id
             continue
 
-        meta = _database_meta(row, width, height, digest, references, refine, mask)
+        meta = _database_meta(row, width, height, digest, references, refine, mask, spec)
         values = {
             "filename": filename,
             "prompt": row["prompt"],
@@ -467,6 +514,7 @@ def merge_database(
             # the database, and None (live) from one that predates it.
             "binned_at": row.get("binned_at"),
             "mask": mask,
+            "outpaint": spec.key() if spec is not None else None,
         }
         copied = source != outputs
         try:
@@ -492,6 +540,7 @@ def reindex(
     counts = {
         "indexed": 0, "present": 0, "no_metadata": 0, "conflicts": 0,
         "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
+        "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
     }
     source = source.resolve()
     outputs = settings.outputs_dir.resolve()
@@ -581,12 +630,21 @@ def reindex(
         visiting.remove(path.name)
         # A mask goes where its source went: it covers that image's pixels.
         mask = storage._mask(meta.get("mask")) if refine is not None else None
-        masks.resolve(mask, source / storage.MASKS_DIR, image)
+        # An outpaint goes where its mask went; a malformed one is left off.
+        spec = storage.chunk_outpaint(meta) if mask is not None else None
+        if mask is not None and storage.malformed_outpaint(meta):
+            counts["outpaint_malformed"] += 1
+        spec = _outpaint(mask, spec, image, width, height, _provenance_size(meta.get("refine_source")), counts)
+        masks.resolve(mask, source / storage.MASKS_DIR, image, spec, (width, height))
+        outpaint_meta = storage.outpaint_chunk(spec)
+        outpaint_fill = spec.fill if spec is not None else None
         links_changed = (
             meta.get("reference") != (references or None)
             or meta.get("refine") != refine
             or (refine is None and meta.get("strength") is not None)
             or meta.get("mask") != mask
+            or meta.get("outpaint") != outpaint_meta
+            or meta.get("outpaint_fill") != outpaint_fill
         )
         meta = {
             **meta,
@@ -598,6 +656,8 @@ def reindex(
             "mask": mask,
             "mask_source": storage.mask_provenance(mask, width, height),
             "mask_blend": "overlay" if mask is not None else None,
+            "outpaint": outpaint_meta,
+            "outpaint_fill": outpaint_fill,
         }
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
@@ -708,6 +768,12 @@ def main(argv: list[str] | None = None) -> int:
         summary += f", {counts['bad_masks']} mask file(s) not named by their pixels"
     if counts["unresolved_masks"]:
         summary += f", {counts['unresolved_masks']} inpaint mask(s) found nowhere"
+    if counts["outpaint_masks_rebuilt"]:
+        summary += f", {counts['outpaint_masks_rebuilt']} outpaint mask(s) built again from their spec"
+    if counts["outpaints_recovered"]:
+        summary += f", {counts['outpaints_recovered']} outpaint(s) recovered from the A1111 line"
+    if counts["outpaint_malformed"]:
+        summary += f", {counts['outpaint_malformed']} malformed outpaint(s) left off"
     summary += f", {counts['conflicts']} name conflict(s)" if counts["conflicts"] else ""
     print(summary + f". {time.perf_counter() - started:.1f}s.")
     if args.dry_run:

@@ -262,6 +262,41 @@ def _merge_masks(conn: sqlite3.Connection, bundle: dict[str, dict], members: dic
     return {digest for digest in here if (directory / f"{digest}.png").is_file()} | set(members)
 
 
+def _rebuilt_member(work: Path, values: dict) -> Path | None:
+    """A new outpaint row's mask, built again from its spec and the row's
+    size and written beside the unpacked members as one, where it hashes to
+    the row's mask; None where it does not (the row then counts in
+    `masks_missing`, as any inpaint's lost mask does)."""
+    digest = values["mask"]
+    try:
+        spec = storage.OutpaintSpec.parse_key(values["outpaint"])
+    except ValueError:
+        return None
+    mask = storage.rebuilt_outpaint_mask(values["width"], values["height"], spec, digest)
+    if mask is None:
+        return None
+    target = work / storage.MASKS_DIR / f"{digest}.png"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    mask.save(target, format="PNG", compress_level=6)
+    return target
+
+
+def _recovered_outpaint(work: Path, values: dict, source: dict | None):
+    """An outpaint spec an older build's merge stripped from a new row,
+    from its staged PNG's A1111 line (`storage.recovered_outpaint`), or None."""
+    if source is None:
+        return None
+    staged = work / "images" / values["filename"]
+    try:
+        with Image.open(staged) as image:
+            parameters = image.info.get("parameters")
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+    return storage.recovered_outpaint(
+        parameters, values["width"], values["height"], values["mask"], (source["width"], source["height"])
+    )
+
+
 def _embedded_member(work: Path, values: dict) -> Path | None:
     """A new row's mask, from the copy its own staged PNG carries, written
     beside the unpacked members as one; None where the PNG holds no copy of
@@ -760,6 +795,8 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         pending.append((row, values))
                 unresolved = 0
                 masks_missing = 0
+                outpaints_recovered = 0
+                outpaint_masks_rebuilt = 0
                 # Masks recovered from their results' PNGs, staged as members.
                 embedded: dict[str, Path] = {}
                 by_id = {r["id"]: r for r in current}
@@ -778,11 +815,26 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         # Its mask covered that source's pixels, and a mask is
                         # never kept without the source it covers.
                         values["mask"] = None
+                    if values.get("mask") is None or values.get("refine") is None:
+                        # An outpaint never without its source and its mask.
+                        values["outpaint"] = None
+                    elif values.get("outpaint") is None:
+                        # An older build's import drops the column and the
+                        # chunk keys; the A1111 line it left gives the spec
+                        # back where the rebuilt mask is the row's.
+                        spec = _recovered_outpaint(work, values, by_id.get(values["refine"]))
+                        if spec is not None:
+                            values["outpaint"] = spec.key()
+                            outpaints_recovered += 1
                     if values.get("mask") is not None and values["mask"] not in carried:
                         # Lost in the gallery it came from, so no member - but
                         # the result's own PNG carries it (`PNG_MASK_KEY`),
-                        # which is the picture where it hashes to the name.
+                        # which is the picture where it hashes to the name;
+                        # an outpaint's is built again from its spec.
                         recovered = _embedded_member(work, values)
+                        if recovered is None and values.get("outpaint") is not None:
+                            recovered = _rebuilt_member(work, values)
+                            outpaint_masks_rebuilt += recovered is not None
                         if recovered is not None:
                             conn.execute(
                                 "INSERT OR IGNORE INTO masks (hash, width, height, created_at) VALUES (?, ?, ?, ?)",
@@ -888,7 +940,9 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         "images": sum(name.startswith("images/") and name.lower().endswith(".png") for name in manifest["files"]),
                         "unresolved_references": unresolved,
                         "masks": sum(target.parent.name == storage.MASKS_DIR for _, target in targets),
-                        "masks_missing": masks_missing}
+                        "masks_missing": masks_missing,
+                        "outpaint_masks_rebuilt": outpaint_masks_rebuilt,
+                        "outpaints_recovered": outpaints_recovered}
             finally:
                 if conn is not None:
                     conn.close()

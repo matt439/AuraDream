@@ -87,7 +87,10 @@ def plan(
     out.foreign = foreign
     if record.refine is not None and skip_passes:
         out.status = "pass"
-        what = "an inpaint" if record.mask is not None else "a refine pass"
+        what = (
+            "an outpaint" if record.outpaint is not None
+            else "an inpaint" if record.mask is not None else "a refine pass"
+        )
         out.detail = f"{what} of #{record.refine}; untick Skip refine passes to refine it again"
         return out
     if foreign and not include_foreign:
@@ -107,8 +110,10 @@ def plan(
         "strength": strength,
         "reference": [],
         # The record is the new source; an inpaint's mask was painted on the
-        # old one's pixels, at the old size, and means nothing over these.
+        # old one's pixels, at the old size, and means nothing over these;
+        # an outpaint's padding goes with it.
         "mask": None,
+        "outpaint": None,
     }
     if foreign:
         changes.update(

@@ -158,6 +158,23 @@ def _build_parser() -> argparse.ArgumentParser:
         "inpaint runs at; kept in the gallery's masks by its hash, which the image records",
     )
     conditioning.add_argument(
+        "--outpaint",
+        metavar="L,T,R,B|PRESET",
+        help="with --refine: outpaint - extend the source's canvas by these four sides (each a "
+        "multiple of 16, in pixels: left, top, right, bottom) and paint the new area, as an inpaint "
+        "over the source on the larger canvas, its new area filled from the source's edge, under a "
+        "mask the run builds itself (the new border and a band into the original). Or a preset: "
+        "+25%%, or an aspect of --aspect's (16:9, 2:3, ...) to extend to. The size is the source's "
+        "plus the padding; on a checkpoint whose inpaint is enabled here (the SDXL and Z-Image ones)",
+    )
+    conditioning.add_argument(
+        "--band",
+        type=int,
+        metavar="PX",
+        help="with --outpaint: how far into the original the mask's feathered band reaches, a "
+        "multiple of 8 from 0 to 256 (default 32 - this app's starting value, not a measured one)",
+    )
+    conditioning.add_argument(
         "--scale",
         type=float,
         metavar="F",
@@ -332,7 +349,20 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         # names, which `_mask_from_record` finds in the gallery or in the
         # PNG's own copy. Only with the source it covers - a --refine of
         # another image takes no mask from this one.
-        if args.mask is None and isinstance(meta.get("mask"), str):
+        # An outpaint reproduces over the same padding, band and fill, its
+        # mask built again - never carried as a mask hash, which the request
+        # would then refuse beside the outpaint. The record's mask is kept
+        # aside only to hold the rebuilt one to.
+        carried_outpaint = _carried_outpaint(meta)
+        if args.mask is None and args.outpaint is None and carried_outpaint is not None:
+            left, top, right, bottom, band, fill = carried_outpaint
+            args.outpaint = f"{left},{top},{right},{bottom}"
+            args.outpaint_fill = fill
+            args.carried_outpaint = True
+            if args.band is None:
+                args.band = band
+            args.carried_outpaint_mask = meta.get("mask") if isinstance(meta.get("mask"), str) else None
+        elif args.mask is None and args.outpaint is None and isinstance(meta.get("mask"), str):
             args.mask_hash = meta["mask"]
     if args.model is None and meta.get("model"):
         args.model = meta["model"]
@@ -342,6 +372,43 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         width, _, height = size.partition("x")
         if width.isdigit() and height.isdigit():
             args.width, args.height = int(width), int(height)
+
+
+def _carried_outpaint(meta: dict) -> tuple[int, int, int, int, int, str] | None:
+    """A PNG record's outpaint as (left, top, right, bottom, band, fill),
+    where it carries a well-formed one beside its mask, else None. The fill
+    is kept whatever it is: an unknown one is refused by name below."""
+    value, fill = meta.get("outpaint"), meta.get("outpaint_fill")
+    if not isinstance(value, dict) or not isinstance(fill, str) or meta.get("mask") is None:
+        return None
+    sides = [value.get(name) for name in ("left", "top", "right", "bottom", "band")]
+    if any(type(side) is not int or side < 0 for side in sides):
+        return None
+    return (*sides, fill)
+
+
+def _outpaint_sides(text: str, parser: argparse.ArgumentParser) -> tuple[int, int, int, int] | str:
+    """--outpaint's four sides, or the preset it names (resolved once the
+    source's size is read). A side off the grid is refused with its
+    neighbours, never rounded silently."""
+    from backend.sizes import SIZES
+
+    if text in SIZES or text == "+25%":
+        return text
+    parts = text.split(",")
+    if len(parts) != 4 or not all(part.strip().isdigit() for part in parts):
+        parser.error(
+            f"--outpaint: {text!r} is neither four sides L,T,R,B in pixels nor a preset "
+            f"(+25%, {', '.join(SIZES)})"
+        )
+    sides = tuple(int(part) for part in parts)
+    for side in sides:
+        if side % 16:
+            below = side - side % 16
+            parser.error(f"--outpaint: {side} is not a multiple of 16: {below} or {below + 16}")
+    if not any(sides):
+        parser.error("--outpaint: an outpaint extends at least one side")
+    return sides
 
 
 def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: argparse.ArgumentParser) -> bool:
@@ -371,8 +438,15 @@ def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: 
         # No row under the id is refused in words below, as it always was.
         return False
     said = "is not the image"
-    what = "an inpaint" if args.mask_hash is not None else "a refine pass"
-    if (args.strength is not None and not args.carried_strength) or args.scale is not None or args.mask is not None:
+    what = (
+        "an outpaint" if args.carried_outpaint
+        else "an inpaint" if args.mask_hash is not None else "a refine pass"
+    )
+    named_outpaint = args.outpaint_given or args.band_given
+    if (
+        (args.strength is not None and not args.carried_strength) or args.scale is not None
+        or args.mask is not None or named_outpaint
+    ):
         parser.error(
             f"--from-image: source image {args.refine} {said} the PNG was made from, so it cannot "
             f"be run again as {what}; name the source with --refine"
@@ -384,6 +458,14 @@ def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: 
     )
     args.refine = None
     args.mask_hash = None
+    # An outpaint goes with its source, or the run would be a plain render
+    # at the canvas's size.
+    if args.carried_outpaint:
+        args.outpaint = None
+        args.outpaint_fill = None
+        args.carried_outpaint = False
+        args.carried_outpaint_mask = None
+        args.band = None
     if args.carried_strength:
         args.strength = None
     return True
@@ -507,11 +589,11 @@ def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import gallery_lock, gallery_reports, grid, loras, refine, storage
+        from backend import gallery_lock, gallery_reports, grid, loras, outpaint, refine, storage
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
-        from backend.schemas import GenerateRequest, PromptVariant, error_detail
+        from backend.schemas import GenerateRequest, Outpaint, PromptVariant, error_detail
     except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
         # Almost always `py generate.py` or a bare `python generate.py`, which
         # picks the system interpreter rather than the project's .venv.
@@ -526,6 +608,7 @@ def _project() -> SimpleNamespace:
         gallery_reports=gallery_reports,
         grid=grid,
         loras=loras,
+        outpaint=outpaint,
         refine=refine,
         storage=storage,
         Cancelled=Cancelled,
@@ -533,6 +616,7 @@ def _project() -> SimpleNamespace:
         settings=settings,
         defaults_for=defaults_for,
         GenerateRequest=GenerateRequest,
+        Outpaint=Outpaint,
         PromptVariant=PromptVariant,
         error_detail=error_detail,
     )
@@ -595,6 +679,14 @@ def main(argv: list[str] | None = None) -> int:
     args.mask_hash = None
     args.carried_source = None
     args.carried_strength = False
+    # An outpaint the command line names, or one --from-image carried: its
+    # fill (this build's for one named here), and the record's mask hash,
+    # kept aside to hold the rebuilt mask to.
+    args.outpaint_given = args.outpaint is not None
+    args.band_given = args.band is not None
+    args.outpaint_fill = None
+    args.carried_outpaint = False
+    args.carried_outpaint_mask = None
     # Whether the command line itself names a size, before a PNG fills one in:
     # --scale is an alternative to these, but not to the size of --from-image.
     size_flags = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
@@ -614,6 +706,24 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--scale needs --refine: it multiplies the source's size")
         if args.mask is not None:
             parser.error("--mask needs --refine: a mask covers the image it was painted on")
+    if args.outpaint is None and args.band is not None:
+        parser.error("--band needs --outpaint: the band is how far an outpaint's mask reaches into the original")
+    outpaint_sides = None
+    if args.outpaint is not None:
+        if args.refine is None:
+            parser.error("--outpaint needs --refine: an outpaint extends a gallery image")
+        if args.mask is not None:
+            parser.error("--outpaint and --mask are alternatives: an outpaint builds its own mask")
+        if args.scale is not None:
+            parser.error("--outpaint and --scale are alternatives: an outpaint runs at its source's size plus its padding")
+        # The user's own size flags, never the ones a PNG filled in: the
+        # canvas is always the source's size plus the padding.
+        if size_flags:
+            parser.error(
+                "--outpaint and --width/--height/--aspect/--mp are alternatives: an outpaint runs at "
+                "its source's size plus its padding"
+            )
+        outpaint_sides = _outpaint_sides(args.outpaint, parser)
     inpainting = args.mask is not None or args.mask_hash is not None
     if inpainting and args.scale is not None:
         parser.error("--scale and --mask are alternatives: an inpaint runs at its source's own size")
@@ -632,21 +742,28 @@ def main(argv: list[str] | None = None) -> int:
     p = _project()
     if _check_carried_source(args, p, parser):
         inpainting = False
+        outpaint_sides = None
+    outpainting = outpaint_sides is not None
 
     # A checkpoint with no refine pass is refused first, by the profile and
     # before anything is built from the flags: a strength that also happens
     # to leave no step of that checkpoint's few would otherwise be the error
     # reported, about a pass that could never have run.
-    if inpainting and not p.defaults_for(p.settings.model_id)["inpaint_supported"]:
-        # The inpaint class's question, as `applied()` asks it with a mask.
+    if (inpainting or outpainting) and not p.defaults_for(p.settings.model_id)["inpaint_supported"]:
+        # The inpaint class's question, as `applied()` asks it with a mask
+        # or an outpaint.
+        through = ", which an outpaint runs through" if outpainting else ""
         print(
             f"{p.settings.model_id} has no inpaint in this app - its pipeline has no inpaint class "
-            "in the installed diffusers, or its family's is not enabled yet. The SDXL and "
+            f"in the installed diffusers{through}, or its family's is not enabled yet. The SDXL and "
             "Z-Image checkpoints have one.",
             file=sys.stderr,
         )
         return 2
-    if not inpainting and args.refine is not None and not p.defaults_for(p.settings.model_id)["refine_supported"]:
+    if (
+        not inpainting and not outpainting and args.refine is not None
+        and not p.defaults_for(p.settings.model_id)["refine_supported"]
+    ):
         print(
             f"{p.settings.model_id} has no refine pass in this app - its integration has no "
             "compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints "
@@ -656,7 +773,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     refined_from = None
-    if args.refine is not None and (args.scale is not None or not sized or inpainting):
+    outpaint_spec = None
+    if args.refine is not None and (args.scale is not None or not sized or inpainting or outpainting):
         # Only against a gallery that exists, like the reference check below:
         # a --dry-run promises to create nothing, the database included.
         # Binned too: the source check below then says it is in the recycle
@@ -671,7 +789,43 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
-        if inpainting:
+        if outpainting:
+            # The canvas is the source's size plus the padding, whatever size
+            # a PNG carried; an off-grid source is named before any request.
+            off_grid = p.outpaint.source_off_grid(
+                refined_from.width, refined_from.height, f"#{refined_from.id}"
+            )
+            if off_grid is not None:
+                print(off_grid, file=sys.stderr)
+                return 2
+            if isinstance(outpaint_sides, str):
+                try:
+                    chosen = p.outpaint.preset(
+                        refined_from.width, refined_from.height, outpaint_sides,
+                        max_side=p.settings.refine_max_side, max_pixels=p.settings.refine_max_pixels,
+                        name=f"#{refined_from.id}",
+                    )
+                except ValueError as exc:
+                    parser.error(f"--outpaint: {exc}")
+                if chosen["held"] is not None:
+                    print(f"--outpaint {outpaint_sides}: {chosen['held']}", file=sys.stderr)
+                    return 2
+                outpaint_sides = (chosen["left"], chosen["top"], chosen["right"], chosen["bottom"])
+            fill = args.outpaint_fill or p.outpaint.FILL
+            if fill not in p.outpaint.FILLS:
+                print(p.outpaint.unknown_fill(fill), file=sys.stderr)
+                return 2
+            left, top, right, bottom = outpaint_sides
+            try:
+                outpaint_spec = p.Outpaint(
+                    fill=fill, left=left, top=top, right=right, bottom=bottom,
+                    band=args.band if args.band is not None else p.outpaint.BAND,
+                )
+            except ValueError as exc:
+                print(f"--outpaint: {p.error_detail(exc)}", file=sys.stderr)
+                return 2
+            width, height = refined_from.width + left + right, refined_from.height + top + bottom
+        elif inpainting:
             # The mask was painted on the source's pixels: its own size, never
             # scaled. A size given that differs is refused with the mask below.
             if not sized:
@@ -745,6 +899,7 @@ def main(argv: list[str] | None = None) -> int:
             # None is "not given": the checkpoint's own starting strength.
             strength=args.strength,
             mask=mask,
+            outpaint=outpaint_spec,
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
@@ -844,6 +999,24 @@ def main(argv: list[str] | None = None) -> int:
         reason = _mask_unusable(p, request, mask_image, store=not args.dry_run)
         if reason is not None:
             print(reason, file=sys.stderr)
+            return 2
+    if request.outpaint is not None:
+        # The server's submit check, and - for one --from-image carried - the
+        # mask this build builds held to the one the image was made under.
+        from backend.submission import outpaint_unusable
+
+        reason = outpaint_unusable(request)
+        if reason is not None:
+            print(reason, file=sys.stderr)
+            return 2
+        if args.carried_outpaint_mask is not None and p.storage.outpaint_mask_hash(
+            request.width, request.height, request.outpaint
+        ) != args.carried_outpaint_mask:
+            print(
+                "--from-image: this build builds an outpaint's mask differently from the one that "
+                "made this image",
+                file=sys.stderr,
+            )
             return 2
     if references and not profile["reference_supported"]:
         print(
@@ -996,7 +1169,13 @@ def main(argv: list[str] | None = None) -> int:
             # The steps that run, since `sampling` above states the schedule's
             # length; the source's own size when the size was derived from it.
             ran = p.grid.denoised_steps(request)
-            if request.mask is not None:
+            if request.outpaint is not None:
+                print(
+                    f"outpaint : {request.outpaint.sides()}, band {request.outpaint.band} px, fill "
+                    f"{request.outpaint.fill}; canvas {request.width}x{request.height}, under a mask "
+                    "built for it, composited over the padded source"
+                )
+            elif request.mask is not None:
                 print(f"inpaint  : under mask {request.mask[:16]}, composited over the source")
             print(
                 f"refine   : image {request.refine} at strength {request.strength:g}  "
@@ -1126,6 +1305,19 @@ def main(argv: list[str] | None = None) -> int:
             return 4
 
     p.storage.init_db()
+    # An outpaint's mask, built and stored before the load (never under
+    # --dry-run, which returned above): the cells then read it like any
+    # stored mask. No `mask_holds` rows - this process runs them straight
+    # after, and the store restarts the settle window that keeps a sweep off.
+    if any(cell.request.outpaint is not None for cell in cells):
+        try:
+            cells = p.storage.stamp_outpaints(cells)
+        except p.gallery_lock.GalleryBusy as exc:
+            print(f"--outpaint: the outpaint's mask could not be stored: {exc}", file=sys.stderr)
+            return 2
+        except OSError as exc:
+            print(f"--outpaint: the outpaint's mask could not be written: {exc.strerror or exc}", file=sys.stderr)
+            return 2
     # Every image of this invocation carries it, so a CLI grid groups in the
     # gallery exactly as a browser one does.
     job_id = uuid.uuid4().hex[:12]
@@ -1222,7 +1414,14 @@ def main(argv: list[str] | None = None) -> int:
                 # As the server's worker does: a mask lost since the checks
                 # fails this cell in words, before the backend reads it.
                 if cell.request.refine is not None and cell.request.mask is not None:
-                    p.storage.mask_path(cell.request.mask)
+                    try:
+                        p.storage.mask_path(cell.request.mask)
+                    except ValueError as exc:
+                        if cell.request.outpaint is None:
+                            raise
+                        raise ValueError(
+                            "the outpaint's mask has gone from this gallery; run it again"
+                        ) from exc
                 images = backend.generate(
                     cell.request,
                     seed=run_seed,

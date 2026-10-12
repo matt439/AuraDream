@@ -117,10 +117,11 @@ class GenerationBackend(abc.ABC):
         Normalization must not turn an accepted refine job into direct renders.
         """
         if request.refine is not None and self.applied(request).refine != request.refine:
-            if request.mask is not None:
+            if request.inpainting:
+                through = ", which an outpaint runs through" if request.outpaint is not None else ""
                 raise ValueError(
                     f"{self.describe()['model_id']} has no inpaint in this app; the loaded "
-                    "pipeline has no inpaint class, or its family is not enabled yet"
+                    f"pipeline has no inpaint class{through}, or its family is not enabled yet"
                 )
             raise ValueError(
                 f"{self.describe()['model_id']} has no refine pass in this app; "

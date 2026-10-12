@@ -264,7 +264,10 @@ def test_the_page_knows_every_search_key(store):
 
     source = (Path(__file__).resolve().parents[1] / "web" / "gallery-search.js").read_text(encoding="utf-8")
     listed = re.search(r"SEARCH_KEYS = new Set\(\[([^\]]*)\]\)", source).group(1)
-    assert set(re.findall(r"'([a-z]+)'", listed)) == set(FILTERS)
+    known = set(re.findall(r"'([a-z]+)'", listed))
+    # `outpaint` is the outpainting dialog's phase (docs/plan-outpainting.md):
+    # the server has it first, and the page gains it with the dialog.
+    assert known | ({"outpaint"} & set(FILTERS)) == set(FILTERS)
 
 
 def test_a_filter_that_is_not_a_number_says_so(store):

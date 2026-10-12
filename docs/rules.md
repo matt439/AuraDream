@@ -101,6 +101,11 @@ before changing it.
   ships beside a pipeline's own (`sibling`), that class built over the loaded
   components (`build`), the steps a strength leaves, and the source scaled to
   cover the requested size and cropped; a leaf module like `seeds`
+- `backend/outpaint.py` — an outpaint's pure parts: the fills (`FILLS`,
+  `padded`), the server-built mask (`mask`), the presets (`presets`, the
+  refine guard's limits passed in) and the off-grid words
+  (`source_off_grid`); numpy, Pillow and `sizes` only. Each fill and the
+  mask are frozen, their bytes pinned by `tests/test_outpaint.py`
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
@@ -1084,6 +1089,40 @@ Reproduction:
   refusal where `--strength`, `--scale` or `--mask` asked for the pass).
   Search: `mask:<hex>`, `mask:none`, `inpaint:yes|no`; stats
   `--by mask`.
+- An outpaint (`docs/plan-outpainting.md`, phase 1 built) is an inpaint
+  over a padded copy of its source. Two types: `OutpaintSpec` is the stored
+  one (`ImageRecord.outpaint`, the `_migrate` column `images.outpaint`
+  holding `OutpaintSpec.key()`, `fill:L,T,R,B@band`), plain ints with grid
+  checks only (sides multiples of 16, band of 8) and no bound read from
+  settings; `Outpaint` is the request's (`GenerateRequest.outpaint`), with
+  the default fill, `outpaint.MAX_BAND` and at least one side, its canvas
+  bounded by `check_budget`. The validator refuses one without `refine`
+  and one with a `mask`; `GenerateRequest.inpainting` (a source with a mask
+  or an outpaint) chooses the inpaint class, its strength, its words and its
+  costs, while the stored mask file's checks ask `mask is not None`.
+  **Invariant:** an outpaint is never on a row without both `refine` and
+  `mask`; every carry site drops it with either. The size is the source's
+  plus the padding exactly (`submission.outpaint_unusable`, kind
+  `outpaint`, status `outpaint` in Swap tags and More seeds: an off-grid
+  source, an unknown fill by name, the size, the band's kept rectangle).
+  The mask is the server's: `storage.stamp_outpaints` builds
+  (`outpaint.mask`) and stores it as the **first step** of
+  `JobManager.submit_cells`, before `Job(...)` (`OSError`/`GalleryBusy` a
+  worded 503, `jobs.OutpaintStampFailed`), and in `generate.py` after the
+  resume prune and before the load (never under `--dry-run`; no
+  `mask_holds` rows). A stamped request holds a mask and an outpaint by
+  `model_copy`; never revalidate one. `grid.mask_key(mask, outpaint)` folds
+  the outpaint into the fifth key element as `outpaint:<key>`, so stamped
+  and unstamped cells key and name one run, and no existing `run_id`
+  changes. **Each fill in `outpaint.FILLS` and `outpaint.mask` are frozen**
+  (pinned by SHA-256 in `tests/test_outpaint.py`): a changed fill is a new
+  name. The chunk carries `outpaint` and `outpaint_fill`, the A1111 block
+  `, Outpaint: L/T/R/B, Outpaint band: B, Outpaint fill: NAME`; bundles and
+  reindex carry them, build a lost mask again from the spec where it hashes
+  to the row's, and recover a spec an older build stripped from the A1111
+  line only where the rebuilt mask hashes to the row's. Presets are the
+  server's (`GET /api/images/{id}/outpaint-presets`, `outpaint.presets`).
+  Search `outpaint:yes|no`; stats `--by outpaint`.
 - Inpainting is a decision as well as a capability. `refine.sibling(pipe,
   "Inpaint")` finds the class under the exact-export rule, its call taking
   `refine.INPAINT_REQUIRED` (`REQUIRED` and `mask_image`) and `CARRIED`;

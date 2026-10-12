@@ -7,6 +7,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from .config import settings
+from .schemas_generate import OutpaintSpec
 
 class ImageRecord(BaseModel):
     id: int
@@ -61,6 +62,10 @@ class ImageRecord(BaseModel):
     # set only beside `refine`, which stays the source the mask was painted
     # on, so every piece of source machinery reads an inpaint as a pass.
     mask: str | None = None
+    # An outpaint's spec - its fill, the padding on each side, the band -
+    # set only beside `refine` and `mask` (the mask the server built from
+    # it): `refine` is the unpadded source and `width` x `height` the canvas.
+    outpaint: OutpaintSpec | None = None
     # How many images the pipeline call that made this one held (the panel's
     # Batch). No part of the reproduction set - each image has its own
     # generator - but what More seeds runs the batch's next images at. Null
