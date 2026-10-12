@@ -34,7 +34,7 @@ def test_a_missing_image_answers_with_its_id_beside_the_detail(client, store):
     assert response.status_code == 422
     body = response.json()
     assert (body["image_id"], body["binned"]) == (record.id, False)
-    assert body["detail"].startswith(f"image #{record.id} ({record.filename}) has no file in ")
+    assert body["detail"].startswith(f"Image #{record.id} ({record.filename}) has no file in ")
 
 
 def test_browser_export_download_and_uploaded_merge(client, store):
@@ -218,7 +218,8 @@ def test_a_refusal_answered_over_http_is_a_sentence_too(client, store):
     (store.settings.outputs_dir / "x.png.part").write_bytes(b"")
     preview = client.get("/api/gallery/bundles/preview")
     assert preview.status_code == 422
-    assert preview.json()["detail"] == "Finish or recover the incomplete image write first: x.png.part."
+    assert preview.json()["detail"].startswith("The image write x.png.part in ")
+    assert preview.json()["detail"].endswith("(one a crash left behind is settled an hour after it began).")
     named = client.post("/api/gallery/bundles/import", json={"name": "x.txt"})
     assert named.status_code == 422
     assert named.json()["detail"] == f"Choose a bundle filename ending in .zip or {bundle_crypto.SUFFIX}."

@@ -114,9 +114,9 @@ def _partial_refusal(path: Path) -> str:
     except OSError:
         settled = False
     if settled:
-        return (f"{path.name} in {path.parent} is an interrupted image write that could not be "
+        return (f"The interrupted image write {path.name} in {path.parent} could not be "
                 "finished or removed; close any program that has it open and try again")
-    return (f"{path.name} in {path.parent} is an image write still in progress; try again when "
+    return (f"The image write {path.name} in {path.parent} is still in progress; try again when "
             "the render finishes (one a crash left behind is settled an hour after it began)")
 
 

@@ -310,7 +310,7 @@ def test_export_reservation_holds_until_clear_so_a_new_image_cannot_be_lost(stor
         result = export.result(timeout=10)
         new = save.result(timeout=10)
     assert result["deleted_ids"] == [] and result["cleared"] is False
-    assert "image write still in progress" in result["cleanup_error"]
+    assert "is still in progress; try again" in result["cleanup_error"]
     assert Path(result["path"]).is_file()
     assert new.id > original.id
     assert store.list_images()[1] == 2
