@@ -830,12 +830,25 @@ function freshLine(head, n) {
 // its way in and out of the bin is `now`. All models' count of the filter's
 // matches elsewhere, " (+3)", is that tick's width, before them too: a
 // search that left none moved the search box and Starred 24 px, so its
-// change waits with them (`headOthers`).
+// change waits with them (`headOthers`). What still changes there - the
+// gallery's count, Re-render's label (syncRerender) - must not break the
+// row either: with both buttons shown the controls fill it at 1400, and
+// "(3)" to "(24)" wrapped Delete unstarred onto a row of its own and slid
+// Starred 130 px. So while the pointer rests on a head whose controls are
+// one row, the search gives way to them (`.held`: its basis and floor
+// gone, so the row it is on never breaks), its right edge where it was.
 let headPointer = false;
 let headOthers = null;
 function pointHead(on) {
-  if (on) headPointer = true;
-  else if (headPointer) releaseHead();
+  if (on && !headPointer) {
+    headPointer = true;
+    const head = els.search.closest('.gallery-head');
+    // The flex rows' items: not the footer's row, nor #star-said, out of them.
+    const mids = [...head.children].filter((el) => !el.classList.contains('gallery-footer')
+        && el.getClientRects().length && getComputedStyle(el).position !== 'absolute')
+      .map((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; });
+    head.classList.toggle('held', Math.max(...mids) - Math.min(...mids) < 1);
+  } else if (!on && headPointer) releaseHead();
 }
 
 function showInHead(el, show, now = false) {
@@ -860,6 +873,7 @@ function showOtherModels(n) {
 
 function releaseHead() {
   headPointer = false;
+  els.search.closest('.gallery-head').classList.remove('held');
   if (headOthers !== null) els.otherModels.textContent = headOthers;
   headOthers = null;
   syncRerender();

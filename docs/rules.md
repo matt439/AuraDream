@@ -1035,7 +1035,8 @@ Jobs:
   pointer rests on the list or anything under it that it would move
   (`queuePointer`, from the page's pointerover: in the panel, and in one
   column the whole page below; never `:hover`), the latest change kept in
-  `queueWaiting` and asked again as the pointer leaves (`releaseQueue`);
+  `queueWaiting` and asked again as the pointer leaves (`releaseQueue`),
+  and dropped by a poll that finds the queue back as it is shown;
   this page's own rows - a submission, an × - go in at once. A job `watchNext` picks up that this page did not
   submit, while its viewer holds this session's own results (`isForeign`),
   is shown in the progress row only - no `clearResults`, frame or stand-in -
@@ -3157,7 +3158,8 @@ Frontend and CLI:
   after the gallery's message; its number is never cut, " selected" goes
   out of sight for a ✓ (alt text empty) where the footer, a size container,
   is under 800 px, and only then does the "M not shown" tail end in an
-  ellipsis. A picked card is `.selected` (its group named "#N
+  ellipsis. Before a shown Clear it keeps 4 px, Clear's own padding on that
+  side halved; with Clear hidden, the row's gap before Select. A picked card is `.selected` (its group named "#N
   (selected)"); in select mode `#gallery.selecting` draws a ring at each
   card's top centre and the image is a toggle (`aria-pressed`, named
   "Select #N: …"). `syncSelection` derives all of it from the state; call it
@@ -3588,6 +3590,11 @@ Frontend and CLI:
   the pointer leaves (`releaseHead`), so nothing before them slides under
   it, and All models' " (+N)" (`showOtherModels`, `headOthers`) waits with
   them; the bin's way in and out (`syncBinControls`, `now`) is at once.
+  What is written there meanwhile does not break the row: on a head whose
+  controls are one row, the search gives way (`.held`, its basis and floor
+  gone) to the gallery's count growing, and Re-render's label, its
+  confirmation, is written at once in the width its box had (inline, an
+  ellipsis inside), both put right by `releaseHead`.
   Re-render's refusal of another
   checkpoint's images (`api_generate.foreign_refusal`) advises unticking All
   models; it offers `model:<the whole running id>` only where that id is
@@ -4653,9 +4660,12 @@ sweep's own reset read past its images (`newestImageSeen` lowered, the
 status received): no reset and the "Moved 2 images" line kept
 (`prependFinished`'s `galleryReadHead` skip); and the head holding still
 under real clicks: Starred ticked with Delete unstarred's box kept, a
-second click at the same point unticking it rather than focusing the
-search, a search typed with the pointer on the box keeping Re-render (and
-All models' count) back, and the pointer leaving putting them right. Every wait in it is a condition
+point it was clicked at still Starred's, a second click unticking it
+rather than focusing the search, a search typed with the pointer on the box
+keeping Re-render (and All models' count) back, the pointer leaving putting
+them right, and with both buttons shown another job's twelve images landing
+under the pointer: the count and Re-render's label written, Starred, All
+models and Delete unstarred unmoved, the search narrower (`.held`). Every wait in it is a condition
 (`__until`, `__settled`), none a sleep:
 
 ```powershell
@@ -4726,7 +4736,8 @@ scrolled gallery's step moves the pointer off the cards first, which would
 otherwise hold the new card; and at 2560x1305, with the pointer resting on
 the Grid search summary under this page's running job, another tab's
 queued job waiting (`queueWaiting`, the summary unmoved, no row) until the
-pointer leaves, then listed:
+pointer leaves, then listed, and one queued and cancelled there while the
+pointer rests dropped from `queueWaiting`, no row as it leaves:
 
 ```powershell
 uv run python tools/fake_server.py --port 7882 --step 0.3
@@ -4956,7 +4967,8 @@ node tools/browser.mjs tools/smoke-batch-peek.json
 with a fresh `--data` (it builds a 60-image grid): Select in the footer row
 before Swap tags…, Refine…, More seeds… and Bundles…, at Bundles…'s height; a click opening the lightbox out of
 select mode; Select pressed with neither it nor the grid moving as the count
-appears; a click, Space, Shift+click and Shift+Space (a range from the anchor
+appears, its hint the row's gap from Select and the count 4 px from a
+shown Clear; a click, Space, Shift+click and Shift+Space (a range from the anchor
 out, backwards too) picking, a second click unpicking, the image's
 `aria-pressed` and name and the group's "(selected)"; Enter still opening
 the lightbox and F still starring; a search showing one of eight counted as

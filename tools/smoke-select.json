@@ -26,6 +26,8 @@
   {"click": "#btn-select"},
   {"expect": "selectMode && els.select.getAttribute('aria-pressed') === 'true' && els.select.classList.contains('active') && els.gallery.classList.contains('selecting') && els.selectCount.textContent === 'Click cards to pick them' && els.selectClear.hidden"},
   {"expect": "JSON.stringify(els.select.getBoundingClientRect()) === __selectAt && els.gallery.getBoundingClientRect().top === __gridTop && els.select.parentElement.getBoundingClientRect().height === __footH"},
+  {"log": "'with Clear hidden the hint keeps the gap of the row before the border of Select; flush, it touched it'"},
+  {"expect": "els.select.getBoundingClientRect().left - els.selectCount.getBoundingClientRect().right >= 11.5"},
   {"expect": "__img(0).getAttribute('aria-pressed') === 'false' && __img(0).getAttribute('aria-label').startsWith('Select #' + __id(0) + ': ') && getComputedStyle(__cards()[0], '::after').content === '\"\"'"},
 
   {"log": "'a click picks a card instead of opening it; another picks a second; a click on a picked one unpicks it'"},
@@ -33,6 +35,8 @@
   {"eval": "window.__first = +document.querySelector('#gallery .card[data-id]:nth-child(3)').dataset.id;"},
   {"expect": "!els.lightbox.open && selectedIds().join(',') === String(__first) && document.querySelector('#gallery .card[data-id=\"' + __first + '\"]').classList.contains('selected') && document.querySelector('#gallery .card[data-id=\"' + __first + '\"]').getAttribute('aria-label') === '#' + __first + ' (selected)' && document.querySelector('#gallery .card[data-id=\"' + __first + '\"] > img').getAttribute('aria-pressed') === 'true'"},
   {"expect": "els.selectCount.textContent === '1 selected' && !els.selectClear.hidden && JSON.stringify(els.select.getBoundingClientRect()) === __selectAt && els.gallery.getBoundingClientRect().top === __gridTop && __heard.at(-1) === String(__first)"},
+  {"log": "'before a shown Clear the count keeps 4 px, so the border of Clear, hovered, does not touch it'"},
+  {"expect": "Math.abs(els.selectClear.getBoundingClientRect().left - els.selectCount.getBoundingClientRect().right - 4) < 0.5"},
   {"expect": "getComputedStyle(document.querySelector('#gallery .card.selected'), '::after').content === '\"✓\"'"},
 
   {"log": "'Shift picks every loaded card from the last one picked to this one, in the gallery\\'s order'"},

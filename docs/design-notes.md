@@ -3283,7 +3283,10 @@ it instead. So the poll's change waits while the pointer is on the list or
 anything it would move (`queuePointer`, from the page's pointerover: the
 panel's foot, and in one column the whole page under it), and is asked again
 with the latest status as the pointer leaves (`queueWaiting`,
-`releaseQueue`). The panel's own rule - nothing moves while the pointer is
+`releaseQueue`). A poll that finds the queue back as it is shown drops the
+held change: replayed, a job queued and cancelled elsewhere under the
+pointer came in as it left, its × a cancelled job's, and went at the next
+poll. The panel's own rule - nothing moves while the pointer is
 over it - held the panel's place only, not what reflows inside it. This
 page's own rows, a submission or an ×, are its own presses and go in at once.
 A cancel this
@@ -4052,7 +4055,16 @@ pointer rests on the head's controls one that goes keeps its box, hidden
 (`.kept`), and one that comes waits; the pointer leaving puts both right
 (`showInHead`, `releaseHead`). All models' count of the filter's matches
 elsewhere is that tick's width, and a search that left none moved the search
-box and Starred 24 px, so it waits with them (`showOtherModels`). Where the pointer is comes from the head's
+box and Starred 24 px, so it waits with them (`showOtherModels`). What is
+still written there must not break the row either: with both buttons shown
+the controls fill it at 1400, and the gallery's count going "(3)" to "(24)",
+or Re-render's label with it, wrapped Delete unstarred onto a row of its own
+and slid Starred 130 px. Re-render's label is its confirmation, the count
+the press renders, so it is never held back stale; it is written at once in
+the width its box had, an ellipsis inside, and on a one-row head the search
+loses its basis and floor (`.held`), so it narrows from the left for what
+grows before it and the row never breaks. The search's width is the same
+until then: on one line it grows to the room either way. Where the pointer is comes from the head's
 pointerover and leave, never `:hover`. The footer row under the controls is
 not counted: Bin there swaps Delete unstarred for the bin's two buttons as a
 whole, at once (`syncBinControls`), and a hold there kept Delete unstarred out
@@ -5168,8 +5180,11 @@ shown" warning the part lost), "12…" once a message shared the row, and "1 se�
 at 600 px. It now gives way only after the message, and in order
 (`countParts`): its number never; " selected", out of sight but still read,
 for a ✓ before the number where the footer (a size container) is under 800
-px; then the tail's end. It sits closer to Clear than the row's gap, so "✓ 12 ·
-9 not shown" fits beside the viewer at QHD. On a sheet the cells are not picked: Select is held there
+px; then the tail's end. It sits closer to a shown Clear than the row's gap,
+4 px, with Clear's padding on that side halved, so "✓ 12 · 9 not shown" fits
+beside the viewer at QHD and Clear's border, hovered, still clears it; flush
+everywhere, the "Click cards" hint touched Select's border once Clear was
+hidden. On a sheet the cells are not picked: Select is held there
 (aria-disabled with the reason) rather than hidden, and a selection made
 before is kept and counted.
 

@@ -295,7 +295,7 @@ async function resyncQueue(ids, asked) {
   const watched = currentJob;
   const at = ids.indexOf(watched);
   // Ended: its stream says so, and the next listing picks the queue up.
-  if (at < 0) return;
+  if (at < 0) { queueWaiting = null; return; }
   const behind = ids.slice(at + 1);
   if (behind.some((id) => !jobLabels.has(id))) {
     queueResyncing = true;
@@ -310,7 +310,10 @@ async function resyncQueue(ids, asked) {
   }
   const mine = queuedIds.filter((id) => !behind.includes(id) && (queuedAt.get(id) ?? 0) > asked);
   const next = [...behind, ...mine];
-  if (next.length === queuedIds.length && next.every((id, i) => id === queuedIds[i])) return;
+  // Back where it is shown, a change held for the pointer is gone with it:
+  // replayed, a job queued and cancelled elsewhere came in as the pointer
+  // left, its × a cancelled job's, and went at the next poll.
+  if (next.length === queuedIds.length && next.every((id, i) => id === queuedIds[i])) { queueWaiting = null; return; }
   // Under a resting pointer it waits, asked again as it leaves (queuePointer).
   if (queuePointer) { queueWaiting = { ids, asked }; return; }
   for (const id of queuedIds) if (!next.includes(id)) forgetJob(id);
