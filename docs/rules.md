@@ -3561,6 +3561,11 @@ Frontend and CLI:
   `--model/--quant/--offload` to `os.environ` before importing
   `backend.config`, as `launch.configure()` does for the server; both take the
   flags from `launch.add_model_arguments`.
+- `generate.py`'s header shows what `applied()` will run: a negative
+  prompt, `--true-cfg` or Mu the checkpoint drops is printed with
+  `[ignored: ...]` (a `--grid-mu` axis too), and the duplicate warning names
+  a Mu where it takes none
+  (`test_a_mu_the_checkpoint_cannot_take_is_reported_as_ignored`).
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender` and
   `POST /api/swap-tags[/preview]`, `POST /api/refine/batch[/preview]` and
@@ -4865,7 +4870,7 @@ labels (what each run varied: "steps ×8 · 5 seeds", "2 seeds") and sync with
 the search box (a pick, a card's ⊞, typing, Sheet off), the picker browsed
 from the keyboard (no fetch while arrowing, Escape, Enter, leaving it),
 at its own width with the search box whole and the picked run in its title;
-`id:` and the search tip; the Starred tick and Re-render's label; each card
+`id:` and the search tip (with `mu:none` as the pipeline's own shift); the Starred tick and Re-render's label; each card
 a group named #N; the five tools and their names on hover and focus inside
 the card, with Delete's over Delete, and the image's facts-only
 description; the card's #N · W×H · seed caption on hover and focus, hidden

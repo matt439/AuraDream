@@ -98,7 +98,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     # Exclusive: `--mu 1.15 --no-mu` used to parse and silently run with no shift.
     shift = sampling.add_mutually_exclusive_group()
-    shift.add_argument("--mu", type=float, help="flow-matching shift; Turbo only")
+    shift.add_argument(
+        "--mu",
+        type=float,
+        help="flow-matching shift, on checkpoints whose scheduler takes one",
+    )
     shift.add_argument("--no-mu", action="store_true", help="let the pipeline pick its own shift")
     sampling.add_argument("--seed", type=int, help="base seed; random when omitted")
 
@@ -167,7 +171,10 @@ def _build_parser() -> argparse.ArgumentParser:
     sweep.add_argument("--grid-steps", metavar="SPEC", default="", help="step counts to sweep")
     sweep.add_argument("--grid-cfg", metavar="SPEC", default="", help="guidance scales to sweep")
     sweep.add_argument(
-        "--grid-mu", metavar="SPEC", default="", help="shifts to sweep; `none` for no shift"
+        "--grid-mu",
+        metavar="SPEC",
+        default="",
+        help="shifts to sweep; `none` for the pipeline's own shift",
     )
     # A count from the base, or exactly these: the two cannot both be meant.
     which_seeds = sweep.add_mutually_exclusive_group()
@@ -771,12 +778,21 @@ def main(argv: list[str] | None = None) -> int:
             f"size     : {request.width}x{request.height} "
             f"({request.width * request.height / 1e6:.1f} MP)"
         )
+        # A Mu this checkpoint cannot take is dropped by `applied()` and the
+        # row records none, so the report says so rather than show it as run.
+        # Asked with a Mu of its own, since the base request may carry none.
+        mu_ignored = backend.applied(request.model_copy(update={"mu": 1.0})).mu is None
         print(
             f"sampling : {request.steps} steps, CFG {request.guidance_scale}, "
             f"mu {'-' if request.mu is None else request.mu}"
             + (
                 f", true CFG {args.true_cfg:g}"
                 if args.true_cfg is not None and profile["true_cfg_supported"]
+                else ""
+            )
+            + (
+                "  [ignored: this checkpoint takes no Mu]"
+                if request.mu is not None and mu_ignored
                 else ""
             )
         )
@@ -831,6 +847,8 @@ def main(argv: list[str] | None = None) -> int:
                 axes.append(("strength", "strength"))
             for axis, shown in axes:
                 listed = ", ".join("off" if v is None else f"{v:g}" for v in values[axis])
+                if axis == "mu" and mu_ignored and any(v is not None for v in values[axis]):
+                    listed += "  [ignored: this checkpoint takes no Mu]"
                 print(f"  {shown:<7}: {listed}")
             if not seed_list:
                 print(f"  seeds  : {args.grid_seeds} from {seed}")
@@ -849,8 +867,8 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"WARNING  : {duplicates} of {total_images} image(s) would be identical to "
                 "an earlier one - an axis this checkpoint ignores (a negative-prompt "
-                "variable, a CFG at or below the threshold), or strengths selecting "
-                "the same denoising start"
+                "variable, a CFG at or below the threshold, a Mu where it takes none), "
+                "or strengths selecting the same denoising start"
             )
         print(
             f"output   : {total_images} image(s) - {len(cells)} run(s) x "

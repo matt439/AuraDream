@@ -66,6 +66,7 @@
   {"wait": 800},
   {"expect": "total === 3 && galleryRecords.every((r) => Math.abs(r.id - __id) <= 1)"},
   {"expect": "document.getElementById('search-tip').textContent.includes('id:12 is the image the page calls #12')"},
+  {"expect": "document.getElementById('search-tip').textContent.includes(\"mu:none (the pipeline's own shift, none of ours) is not mu:0\")"},
   {"log": "'the one term is star: the tick says Starred, and Re-render is not the Reuse glyph'"},
   {"expect": "els.favOnly.parentElement.textContent.trim() === 'Starred' && els.rerender.textContent.startsWith('Re-render 3 at ')"},
   {"eval": "els.search.value = ''; resetGallery();"},
