@@ -370,6 +370,8 @@ els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec && !refuseBi
 // Inpaint likewise (inpaint.js): a close that runs nothing gives the lightbox
 // back, and a held one says why in the lightbox's line.
 els.lbInpaint.onclick = pressLightboxInpaint;
+// And Outpaint (outpaint.js), the same way.
+els.lbOutpaint.onclick = pressLightboxOutpaint;
 els.lbFav.onclick = () => { const rec = lbList[lbIndex]; if (rec) setFavorite(rec, !rec.favorite); };
 els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage(rec); };
 // Nor a held Enter's repeats on the focused button, which press it again for
@@ -497,6 +499,42 @@ els.inpaintShow.addEventListener('change', drawMaskSoon);
 els.inpaintSize.addEventListener('input', () => setMaskSize(+els.inpaintSize.value));
 els.inpaintFeather.addEventListener('input', () => setMaskFeather(+els.inpaintFeather.value));
 
+// The Outpaint dialog (outpaint.js). A side or band box is committed -
+// rounded to its grid - on change (Enter, blur, an arrow's step), and a
+// number already on the grid as it is typed; the presets replace the four
+// sides; the frame follows its box's size in the wide tier.
+els.outpaintRun.onclick = () => { void runOutpaint(); };
+els.outpaintCancel.onclick = els.outpaintClose.onclick = closeOutpaint;
+els.outpaintDialog.addEventListener('cancel', outpaintCancelEvent);
+els.outpaintDialog.addEventListener('close', outpaintClosed);
+els.outpaintDialog.addEventListener('keydown', outpaintKeydown);
+els.outpaintDice.onclick = () => { els.outpaintSeed.value = ''; outpaintChanged(); };
+els.outpaintStartOver.onclick = startOutpaintOver;
+for (const side of OUTPAINT_SIDES) {
+  const box = outpaintBox(side);
+  box.addEventListener('input', () => commitOutpaintSide(side, { typing: true }));
+  box.addEventListener('change', () => commitOutpaintSide(side));
+}
+els.outpaintBand.addEventListener('input', () => commitOutpaintBand({ typing: true }));
+els.outpaintBand.addEventListener('change', () => commitOutpaintBand());
+for (const button of [els.outpaintGrow, els.outpaintWide, els.outpaintTall]) {
+  button.onclick = () => applyOutpaintPreset(button.dataset.preset);
+}
+// The To shape… list only picks: an arrow key moves a closed select and
+// fires change on every press, so the preset applies on Apply (or Enter in
+// the list), never on change - a keyboard user can reach every aspect.
+els.outpaintShape.addEventListener('change', syncOutpaintPresets);
+els.outpaintShapeApply.onclick = applyOutpaintShape;
+for (const el of [els.outpaintStrength, els.outpaintVersions, els.outpaintSeed, els.outpaintPrompt,
+                  els.outpaintNegative, els.outpaintSteps, els.outpaintCfg, els.outpaintMu, els.outpaintTrueCfg]) {
+  el.addEventListener('input', outpaintChanged);
+}
+els.outpaintVersions.addEventListener('change', outpaintChanged);
+for (const el of [els.outpaintPrompt, els.outpaintNegative, els.outpaintCfg, els.outpaintTrueCfg]) {
+  el.addEventListener('input', () => { syncOutpaintCheck(); scheduleOutpaintCheck(); });
+}
+new ResizeObserver(() => { if (outpaintSource) drawOutpaintFrame(); }).observe(els.outpaintFrame);
+
 // A delete's question (gallery-actions.js): Delete, Cancel, Enter in the count's box,
 // a press outside it. Escape is the dialog's own cancel, answered as Cancel.
 els.confirmOk.onclick = () => els.confirmDialog.close('ok');
@@ -518,7 +556,7 @@ document.addEventListener('keydown', (e) => {
   // Not under a dialog: Escape there is the dialog's (Refine, Mass refine,
   // Swap tags, More seeds), the picker staying open under it.
   if (e.key === 'Escape' && !e.defaultPrevented && !els.modelPicker.hidden
-      && !els.lightbox.open && !els.refineDialog.open && !els.inpaintDialog.open
+      && !els.lightbox.open && !els.refineDialog.open && !els.inpaintDialog.open && !els.outpaintDialog.open
       && !els.refineBatchDialog.open && !els.swapDialog.open && !els.moreSeedsDialog.open) {
     e.preventDefault();
     showModelPicker(false);
@@ -535,6 +573,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (els.refineDialog.open) void runRefine();
     else if (els.inpaintDialog.open) void runInpaint();
+    else if (els.outpaintDialog.open) void runOutpaint();
     else if (els.refineBatchDialog.open) void runRefineBatch();
     else if (els.swapDialog.open) void queueSwap();
     else if (els.moreSeedsDialog.open) void runMoreSeeds();
@@ -557,7 +596,7 @@ document.addEventListener('keydown', (e) => {
   // Escape is its own (the lightbox's below), nor in the middle of a
   // composition, nor in a search box with text, which Escape empties.
   if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && !els.promptAnalysis.hidden
-      && !els.lightbox.open && !els.refineDialog.open && !els.inpaintDialog.open
+      && !els.lightbox.open && !els.refineDialog.open && !els.inpaintDialog.open && !els.outpaintDialog.open
       && !els.refineBatchDialog.open && !els.swapDialog.open && !els.moreSeedsDialog.open
       && !(e.target.matches?.('input[type="search"]') && e.target.value)) {
     escapeAnalysis();

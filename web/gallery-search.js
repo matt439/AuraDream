@@ -8,7 +8,7 @@
 
 // `search.FILTERS`' keys, held equal by tests/test_storage.py: a word whose
 // key is one of these is a filter, anything else is prompt text.
-const SEARCH_KEYS = new Set(['id', 'seed', 'steps', 'cfg', 'tcfg', 'mu', 'model', 'quant', 'lora', 'refine', 'strength', 'mask', 'inpaint', 'job', 'run', 'hash', 'date', 'size']);
+const SEARCH_KEYS = new Set(['id', 'seed', 'steps', 'cfg', 'tcfg', 'mu', 'model', 'quant', 'lora', 'refine', 'strength', 'mask', 'inpaint', 'outpaint', 'job', 'run', 'hash', 'date', 'size']);
 
 // The filter a search word is, by `split_search`'s reading: `key:value` with
 // a known key and a value, else null (free text, `portrait:` included).

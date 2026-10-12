@@ -91,6 +91,10 @@ def test_an_inpaint_without_a_strength_starts_at_its_classs_default(model_id, cl
     # Given, it is the request's; a refine pass without a mask is unchanged.
     assert GenerateRequest(prompt="a fox", refine=3, mask=MASK, strength=0.5).strength == 0.5
     assert GenerateRequest(prompt="a fox", refine=3).strength == default_strength()
+    # An outpaint is an inpaint before its stamp too: no mask yet, the same
+    # class's default - never the refine strength.
+    outpainted = GenerateRequest(prompt="a fox", refine=3, width=1072, height=1024, outpaint={"left": 48})
+    assert outpainted.mask is None and outpainted.strength == wanted
 
 
 def test_every_catalogue_checkpoint_is_one_of_the_cases():
@@ -405,6 +409,65 @@ def backend_source_path(record):
     from backend import storage
 
     return storage.settings.outputs_dir / record.filename
+
+
+def test_an_outpaint_runs_the_class_over_its_padded_source(inpaintable, store, monkeypatch, tmp_path):
+    from backend import outpaint
+    from backend.schemas import Outpaint
+
+    backend, record, _ = inpaintable
+    spec = Outpaint(left=32, right=16, band=16)
+    width, height = record.width + 48, record.height
+    built = outpaint.mask(width, height, spec)
+    digest = store.mask_hash(built)
+    path = tmp_path / f"{digest}.png"
+    built.save(path)
+    monkeypatch.setattr(store, "mask_path", lambda h: path if h == digest else None)
+    # The request as the stamp leaves it: the spec and its built mask
+    # together, which no client may send (`model_copy` does not validate).
+    request = GenerateRequest(
+        prompt="a wider view", width=width, height=height, steps=10, refine=record.id, strength=0.9,
+        outpaint=spec,
+    ).model_copy(update={"mask": digest})
+    (image,) = backend.generate(request, seed=7)
+    (call,) = backend._inpaint_pipe.calls
+    with Image.open(backend_source_path(record)) as handle:
+        source = handle.convert("RGB")
+    # The class gets the padded canvas at the outpaint's size and the built
+    # mask widened to its latent cells.
+    assert call["size"] == (width, height) and call["image"].size == (width, height)
+    assert call["image"].tobytes() == outpaint.padded(source, spec).tobytes()
+    assert call["mask_image"].tobytes() == refine.pipeline_mask(built, refine.LATENT_BLOCK).tobytes()
+    # The composite: the kept rectangle is the source's pixels exactly; the
+    # new area is the class's.
+    kept_w, kept_h = outpaint.kept_size(record.width, record.height, spec)
+    left = spec.left + spec.band
+    assert image.size == (width, height)
+    assert (image.crop((left, 0, left + kept_w, kept_h)).tobytes()
+            == source.crop((spec.band, 0, spec.band + kept_w, kept_h)).tobytes())
+    assert image.getpixel((0, 100)) == fake_fill(7)
+
+
+def test_an_outpaint_source_at_the_wrong_size_raises(inpaintable):
+    from backend.schemas import Outpaint
+
+    _, record, _ = inpaintable
+    with pytest.raises(ValueError, match=r"an outpaint of it by \+32/\+0/\+16/\+0 runs at 304x256, not 320x256"):
+        refine.outpaint_source(record.id, Outpaint(left=32, right=16), 320, 256)
+
+
+def test_an_unstamped_outpaint_is_refused_in_the_inpaints_words(inpaintable, monkeypatch):
+    backend, record, _ = inpaintable
+    monkeypatch.setattr(
+        module, "settings",
+        dataclasses.replace(module.settings, model_id="black-forest-labs/FLUX.1-Krea-dev"),
+    )
+    # No mask yet - an outpaint before its stamp is still an inpaint's question.
+    request = GenerateRequest(prompt="x", width=304, height=256, steps=10, refine=record.id, strength=0.9,
+                              outpaint={"left": 32, "right": 16})
+    assert request.mask is None
+    with pytest.raises(ValueError, match="has no inpaint in this app.*, which an outpaint runs through"):
+        backend.check_refine_supported(request)
 
 
 def test_an_inpaint_runs_at_its_sources_size(inpaintable):

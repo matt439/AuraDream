@@ -1962,9 +1962,81 @@ partial of a lost file being written again sits beside a committed row.
 the dialog has no "starts at N% noise" line; no mask outline over the
 source's thumbnail (the facts give the hash's first 16 digits); no
 `inpaint_measured` row or measured strength. FLUX.1, klein, Qwen-Image,
-outpainting, FLUX.1 Fill [dev] and the masked-area crop are later phases of
-the plan. Nothing about an inpaint's memory, time or pictures is known
+FLUX.1 Fill [dev] and the masked-area crop are later phases of the plan;
+outpainting is built (below). Nothing about an inpaint's memory, time or pictures is known
 until the card measures it (`verified.md`).
+
+## Outpainting
+
+**An outpaint is an inpaint over a padded copy of its source.** The design
+is `docs/plan-outpainting.md` (binding, with its review of 2026-10-13). The
+user decided the controls (a pixel box per side on the 16-px grid, presets,
+a frame showing where the original lands), the fill (the source's edge
+pixels stretched and blurred, by the server), the mask (the new border plus
+a feathered band into the original, built by the server; the user sets the
+band, never paints), the checkpoints (the inpainting ones, gated on
+`inpaint_supported`) and the composite (over the padded source, so every
+kept original pixel is the source's).
+
+**Why a dialog of its own, not an Extend mode of Inpaint's.** The Inpaint
+dialog's stage is the source under a mask canvas and its tools are all
+about painting; in a mode every one would be held, and the stage would
+swap for a frame of another shape, moving every control under the pointer
+as the tab changed. What is the same is shared by generalising inpaint.js
+in place (the sampling boxes' rules, the check's lines, the library
+strength, the gone-source words) and wearing its box and panes in CSS.
+
+**Why the page does no arithmetic.** The presets' numbers, their held
+words ("already 16:9 - the 16:9 preset at 1 MP", "within 16 px"), an
+off-grid source and the guard's limits all come from `GET
+/api/images/{id}/outpaint-presets`, which the CLI's `--outpaint 16:9`
+reads through the same `outpaint.presets`; a copy in the page would drift.
+The page rounds what is typed to the grids (16 for a side, 8 for the band)
+only so the frame and the preview show what will be sent, and the submit
+check says the rest. The one limit it holds itself, the band's kept
+rectangle, takes the server's number (`min_kept`) and words: the first
+build held only at nothing kept while the server refused under 16 px, so
+a one-sided band leaving 8 px read "kept exactly" with Outpaint live, and
+the server's refusal said "on both sides" though the band came off one.
+`outpaint.band_too_wide` now names the short axis and the padded sides.
+
+**Why To shape… has an Apply.** The list applied its preset on `change`
+and snapped back to its placeholder. On Windows a closed select's arrow
+keys fire `change` on every press, so a keyboard user applied the first
+aspect over their typed sides each time and never reached the second. The
+list now only picks; Apply (or Enter in the list) applies, held until a
+shape is picked, as the preset buttons are with their `held` words.
+
+**Why a rerun refuses a spec that does not build its mask.** An outpaint
+keys by its spec, never its mask hash, so a stamped and an unstamped cell
+key alike. A row whose spec does not build the mask it was made under (a
+bundle's `masks_missing` row, a reindexed chunk, another build's mask
+code) would run again under another mask under the same key, and resume
+and More seeds would take the new picture for the same reproduction set.
+`--from-image` refused that from the first build; the server's reruns now
+do too (`submission.mismatched_outpaints`). `--from-image` with a `--band`
+of its own was refused by the same check in the first build - the new
+band builds another mask, which is what was asked - so the record's hash is
+held only when the band is the record's. For the same reason every way a
+stored spec reaches a row holds it to `OutpaintSpec.wellformed()`, so a
+row's spec always runs again as a request.
+
+**Why nothing moves.** The frame is a fixed box whatever the canvas's
+shape, and the side boxes sit round it at fixed places; the status line,
+presets and band rows have fixed heights; the empty preview line keeps its
+height and a refusal takes its place; and the dialog keeps its scrollbar
+gutter, since a refusal line pushing it past its height brought a
+scrollbar that moved every control 7 px sideways (seen in the first smoke).
+The lightbox's Refine/Inpaint/Outpaint row's buttons have 4 px side padding
+so "⬚ Outpaint…" fits a third of the 280 px column without cutting.
+
+**What this pass leaves.** No card glyph (an open question of the plan).
+The first build hid the lightbox's Outpaint… with Inpaint… under 901 px,
+leaving an older gallery image no way to be outpainted there (Inpaint has
+the card's ✎; Outpaint has only the lightbox, a fresh result's ⬚ Outpaint…
+and Reuse of an outpaint); now Inpaint… alone hides and the pair sit at
+their own widths. The frame shows no preview of the server's fill. Nothing about an outpaint's memory, time or pictures is known until
+the card measures it (`verified.md`, Outpaint).
 
 ## CellKey and run_id
 

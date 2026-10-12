@@ -133,14 +133,16 @@ class FakeBackend(GenerationBackend):
             changes["mu"] = None
         if request.lora and not self.lora_supported():
             changes["lora"] = None
-        inpaint = request.refine is not None and request.mask is not None
+        inpaint = request.inpainting
         if request.refine is not None and not (
             self.inpaint_supported if inpaint else self.refine_supported
         ):
             changes["refine"] = None
             changes["strength"] = default_strength()
-        if request.mask is not None and (not inpaint or "refine" in changes):
+        if request.mask is not None and (request.refine is None or "refine" in changes):
             changes["mask"] = None
+        if request.outpaint is not None and (request.refine is None or "refine" in changes):
+            changes["outpaint"] = None
         if changes:
             request = request.model_copy(update=changes)
         if self.cfg_threshold is None:
@@ -208,7 +210,12 @@ class FakeBackend(GenerationBackend):
         result against the source."""
         from backend import refine
 
-        source = refine.inpaint_source(request.refine, request.width, request.height)
+        # An outpaint's picture is its padded source, so the kept rectangle
+        # reads against the source and the new area against the seed's fill.
+        if request.outpaint is not None:
+            source = refine.outpaint_source(request.refine, request.outpaint, request.width, request.height)
+        else:
+            source = refine.inpaint_source(request.refine, request.width, request.height)
         mask = refine.mask_image(request.mask, request.width, request.height)
         return [
             refine.composite(mask, source, Image.new("RGB", source.size, fake_fill(seed + offset)))

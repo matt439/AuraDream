@@ -40,6 +40,12 @@ class MaskGone(ValueError):
     job is not queued, and the route answers 422 with these words."""
 
 
+class OutpaintStampFailed(RuntimeError):
+    """An outpaint's mask could not be stored as its job was submitted -
+    the disk, or the gallery reserved by another operation: the job is not
+    queued, and the route answers 503 with these words."""
+
+
 class LoadFailed(RuntimeError):
     """The image model's load failed. `detail` is the sentence the status
     gives for it (`main.ensure_loaded`), what to do included, so a job that
@@ -177,16 +183,17 @@ class Job:
     holds_masks: bool = False
 
     @functools.cached_property
-    def one_source(self) -> tuple[int | None, str | None]:
-        """The refine source and mask every cell shares, else (None, None):
-        what names the job "refine of #N" or "inpaint of #N". A job's cells
-        are fixed when it is made; a batch refine is named by its scale."""
+    def one_source(self) -> tuple[int | None, str | None, Any]:
+        """The refine source, mask and outpaint every cell shares, else
+        (None, None, None): what names the job "refine of #N", "inpaint of
+        #N" or "outpaint of #N". A job's cells are fixed when it is made; a
+        batch refine is named by its scale."""
         if self.refine_batch is not None:
-            return None, None
-        shared = {(cell.request.refine, cell.request.mask) for cell in self.cells} or {
-            (self.request.refine, self.request.mask)
+            return None, None, None
+        shared = {(cell.request.refine, cell.request.mask, cell.request.outpaint) for cell in self.cells} or {
+            (self.request.refine, self.request.mask, self.request.outpaint)
         }
-        return shared.pop() if len(shared) == 1 else (None, None)
+        return shared.pop() if len(shared) == 1 else (None, None, None)
 
     @property
     def unit(self) -> str:
@@ -239,6 +246,8 @@ class Job:
             "refine": self.one_source[0],
             # Beside it, an inpaint's mask: the page names the job "inpaint of #N".
             "mask": self.one_source[1],
+            # And an outpaint's spec: "outpaint of #N +400/+0/+400/+0".
+            "outpaint": None if self.one_source[2] is None else self.one_source[2].model_dump(),
             "refine_batch": self.refine_batch,
             "strength": self.request.strength if self.refine_batch is not None else None,
             "width": self.request.width,
@@ -582,6 +591,21 @@ class JobManager:
         """
         self._loop = asyncio.get_running_loop()
         selected = current_settings(settings)
+        # An outpaint's mask, built and stored before anything reads the
+        # cells - the job's own list, its request, the holds below - so the
+        # worker runs the stamped cell (`storage.stamp_outpaints`). The run
+        # id keys an outpaint by its spec, so it is the same either side.
+        if any(cell.request.outpaint is not None for cell in cells):
+            try:
+                cells = await asyncio.to_thread(storage.stamp_outpaints, cells)
+            except gallery_lock.GalleryBusy as exc:
+                raise OutpaintStampFailed(
+                    "the gallery is busy with another operation; submit the outpaint again"
+                ) from exc
+            except OSError as exc:
+                raise OutpaintStampFailed(
+                    f"the outpaint's mask could not be written: {exc.strerror or exc}"
+                ) from exc
         job = Job(
             id=uuid.uuid4().hex[:12],
             request=cells[0].request,
@@ -606,8 +630,14 @@ class JobManager:
             gone = await asyncio.to_thread(storage.hold_masks, job.id, masks)
             if gone:
                 await asyncio.to_thread(storage.release_masks, job.id)
+                # An outpaint's user never painted: its mask is built again
+                # by submitting it again.
+                built = any(
+                    cell.request.mask == gone[0] and cell.request.outpaint is not None for cell in cells
+                )
                 raise MaskGone(
-                    f"mask {gone[0][:16]} has just gone from this gallery; paint it again"
+                    f"mask {gone[0][:16]} has just gone from this gallery; "
+                    + ("submit it again" if built else "paint it again")
                 )
             job.holds_masks = True
         self._jobs[job.id] = job
@@ -891,7 +921,14 @@ class JobManager:
                 # lost since the submit fails this cell in words as it
                 # begins, before any backend reads it.
                 if req.refine is not None and req.mask is not None:
-                    storage.mask_path(req.mask)
+                    try:
+                        storage.mask_path(req.mask)
+                    except ValueError as exc:
+                        if req.outpaint is None:
+                            raise
+                        raise ValueError(
+                            "the outpaint's mask has gone from this gallery; submit it again"
+                        ) from exc
                 images = self.backend.generate(
                     req,
                     seed=seed,

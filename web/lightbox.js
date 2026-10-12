@@ -320,9 +320,16 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
   const halves = ports.length > 1;
   const partnerPort = halves && swapped ? ports.at(-1) : ports[0];
   const at = halves ? boxIn(partnerPort) : pass;
-  // Two images of one size in a CFG comparison: the whole frame.
-  const kept = lbCompare.kind === 'source' ? refineKept(source.width, source.height, rec.width, rec.height)
-    : { x: 0, y: 0, w: 1, h: 1 };
+  // Two images of one size in a CFG comparison: the whole frame. An
+  // outpaint's source is drawn at its place on the canvas, at the result's
+  // scale - (left, top) and its own size - so the divider shows the original
+  // against the kept rectangle pixel for pixel.
+  const kept = lbCompare.kind !== 'source' ? { x: 0, y: 0, w: 1, h: 1 }
+    : rec.outpaint ? {
+      x: -rec.outpaint.left / source.width, y: -rec.outpaint.top / source.height,
+      w: rec.width / source.width, h: rec.height / source.height,
+    }
+      : refineKept(source.width, source.height, rec.width, rec.height);
   const full = { w: at.w / kept.w, h: at.h / kept.h };
   const box = { left: at.left - kept.x * full.w, top: at.top - kept.y * full.h, ...full };
   placeBox(els.lbSrcImg, box);
@@ -483,6 +490,7 @@ function renderLightbox() {
     : refineSupported ? 'Refine this image: scale it up and re-denoise it part of the way'
       : 'This checkpoint has no refine pass';
   syncLightboxInpaint(rec);
+  syncLightboxOutpaint(rec);
   syncCompare(rec);
   // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();

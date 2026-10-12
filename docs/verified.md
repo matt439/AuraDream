@@ -658,6 +658,31 @@ from the plan's open measurements:
 - for the deferred families (FLUX.1, FLUX.2 [klein], Qwen-Image), the
   measurements their phases name before they are enabled.
 
+## Outpaint
+
+Nothing measured yet. Outpainting's backend and its dialog are built
+(`docs/plan-outpainting.md`, phases 1 and 2) and checked on the CPU and in
+a browser only: `tests/test_outpaint*.py`, `tests/test_api_outpaint.py`,
+the outpaint tests in `tests/test_cli.py`, the real backend's outpaint
+branch against a stand-in inpaint class in `tests/test_inpaint.py` (what it
+is handed and what the composite keeps, never what a model paints), and
+`tools/smoke-outpaint.json` on a fake that repaints the masked pixels with a
+flat colour. Not yet measured on the card, from the plan's open
+measurements:
+
+- peak memory and time per step at outpainted sizes for WAI and one other
+  SDXL checkpoint, Z-Image Turbo and Z-Anime, one size per run, stopping at
+  the first that fills the card;
+- determinism: the same outpaint twice, batch image *i* against a solo run
+  of its seed, cancel-then-rerun, the text-to-image hash afterwards;
+- what the fill contributes at the library default (0.9999 on SDXL, 1.0 on
+  Z-Image) and at lower strengths;
+- the seam at band widths 0, 32, 64 and 128 px per family;
+- a starting band width, if one is measured to join better than 32;
+- the embedded mask's size in an outpaint's PNG;
+- the fill's and the mask's build time on the CPU at the refine guard's
+  largest canvas.
+
 ## Prompt analyser
 
 Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port

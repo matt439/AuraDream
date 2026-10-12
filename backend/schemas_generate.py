@@ -12,9 +12,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
+from . import outpaint as outpaint_rules
 from .model_selection import current_model_id
 from .config import settings
 from .model_defaults import defaults_for, inpaint_family
@@ -60,6 +63,100 @@ def default_inpaint_strength() -> float | None:
     pipeline = getattr(diffusers, family, None)
     cls = refine.sibling(pipeline, "Inpaint") if pipeline is not None else None
     return refine.library_strength(cls) if cls is not None else None
+
+
+_FILL_NAME = r"^[a-z0-9][a-z0-9-]{0,31}$"
+_OUTPAINT_KEY = re.compile(r"^([a-z0-9][a-z0-9-]{0,31}):(\d{1,6}),(\d{1,6}),(\d{1,6}),(\d{1,6})@(\d{1,6})$")
+
+
+def _on_grid(value: int, grid: int, what: str) -> int:
+    """`value` where it is a multiple of `grid`, else the custom error the
+    size uses, with the value and its two neighbours."""
+    if value % grid:
+        below = value - value % grid
+        raise PydanticCustomError(
+            f"multiple_of_{grid}",
+            "{value} is not a multiple of {grid}: {below} or {above}" + what,
+            {"value": value, "grid": grid, "below": below, "above": below + grid},
+        )
+    return value
+
+
+class OutpaintSpec(BaseModel):
+    """An outpaint as a row stores it (`ImageRecord.outpaint`, the
+    `images.outpaint` column): the fill that made the new area, the padding
+    on each side and the band of the original it blends over.
+
+    Plain ints with grid checks only - no bound read from settings, so a row
+    written under one `refine_max_side` still parses under another. The
+    request's limits are `Outpaint`'s. Frozen, so a check cache can key on
+    it. `key()` is its one spelling: the column, the resume key's mask
+    element, `run_id` and the CLI's echo all read it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    fill: str = Field(pattern=_FILL_NAME)
+    left: int = Field(ge=0)
+    top: int = Field(ge=0)
+    right: int = Field(ge=0)
+    bottom: int = Field(ge=0)
+    band: int = Field(ge=0)
+
+    @field_validator("left", "top", "right", "bottom")
+    @classmethod
+    def _sides_on_the_grid(cls, v: int) -> int:
+        return _on_grid(v, outpaint_rules.GRID, "")
+
+    @field_validator("band")
+    @classmethod
+    def _band_on_the_grid(cls, v: int) -> int:
+        return _on_grid(v, outpaint_rules.BAND_GRID, ", the latent grid a band ends on")
+
+    def key(self) -> str:
+        """`fill:L,T,R,B@band`, e.g. `edge-box3-r16:400,0,400,0@32`."""
+        return f"{self.fill}:{self.left},{self.top},{self.right},{self.bottom}@{self.band}"
+
+    @classmethod
+    def parse_key(cls, text: str) -> "OutpaintSpec":
+        """`key()`'s inverse; ValueError for text that is no key."""
+        match = _OUTPAINT_KEY.fullmatch(text) if isinstance(text, str) else None
+        if match is None:
+            raise ValueError(f"{str(text)[:60]!r} is not an outpaint key")
+        fill, left, top, right, bottom, band = match.groups()
+        return cls(fill=fill, left=int(left), top=int(top), right=int(right), bottom=int(bottom), band=int(band))
+
+    def sides(self) -> str:
+        """`+L/+T/+R/+B`, as the page and the CLI say the padding."""
+        return outpaint_rules.sides(self)
+
+    def wellformed(self) -> bool:
+        """Whether a request could have made this spec: at least one side
+        extended and the band within `MAX_BAND` - what `Outpaint` adds to
+        the stored type's grid checks. Every way a spec reaches a row (a
+        chunk, a merged database, a bundle) holds it to this, so a row's
+        spec always runs again as an `Outpaint`."""
+        return bool(self.left or self.top or self.right or self.bottom) and self.band <= outpaint_rules.MAX_BAND
+
+
+class Outpaint(OutpaintSpec):
+    """A request's outpaint: the stored spec with the fill defaulted to
+    this build's, the band's default and constant bound, and at least one
+    side extended. No side has a bound of its own: the canvas is the
+    request's width x height, which `check_budget` holds to the refine
+    guard."""
+
+    fill: str = Field(default=outpaint_rules.FILL, pattern=_FILL_NAME)
+    left: int = Field(default=0, ge=0)
+    top: int = Field(default=0, ge=0)
+    right: int = Field(default=0, ge=0)
+    bottom: int = Field(default=0, ge=0)
+    band: int = Field(default=outpaint_rules.BAND, ge=0, le=outpaint_rules.MAX_BAND)
+
+    @model_validator(mode="after")
+    def _extends_a_side(self) -> "Outpaint":
+        if not (self.left or self.top or self.right or self.bottom):
+            raise ValueError("an outpaint extends at least one side")
+        return self
 
 
 class GenerateRequest(BaseModel):
@@ -134,6 +231,12 @@ class GenerateRequest(BaseModel):
     # path (`storage.mask_path` resolves it), and means nothing without the
     # source it was painted on: `applied()` drops it with the source.
     mask: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    # An outpaint: an inpaint over a padded copy of the source, at the
+    # source's size plus the padding, whose mask the server builds (the new
+    # border and a band into the original) and stores at submit
+    # (`storage.stamp_outpaints`). Never sent with a mask; dropped by
+    # `applied()` with the source, as a mask is.
+    outpaint: Outpaint | None = None
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
@@ -157,9 +260,16 @@ class GenerateRequest(BaseModel):
         if self.strength is None:
             # An inpaint starts where the inpaint class's own default does -
             # where the Inpaint dialog starts - not at the refine strength.
-            inpainting = self.mask is not None and self.refine is not None
-            self.strength = (inpainting and default_inpaint_strength()) or default_strength()
+            self.strength = (self.inpainting and default_inpaint_strength()) or default_strength()
         return self
+
+    @property
+    def inpainting(self) -> bool:
+        """Whether this request runs the inpaint class: a source with a mask,
+        or with an outpaint (whose mask the server builds). What chooses the
+        class, its numbers and its words; the stored mask file's own checks
+        ask `mask is not None`."""
+        return self.refine is not None and (self.mask is not None or self.outpaint is not None)
 
     @model_validator(mode="after")
     def _direct_renders_stay_in_the_presets(self) -> "GenerateRequest":
@@ -181,6 +291,17 @@ class GenerateRequest(BaseModel):
         # `model_copy` reaches without this check.
         if self.mask is not None and self.refine is None:
             raise ValueError("a mask needs the image it covers")
+        return self
+
+    @model_validator(mode="after")
+    def _an_outpaint_extends_its_source(self) -> "GenerateRequest":
+        # Exclusive with a mask in every request a client sends; the
+        # server's stamp adds the derived hash by `model_copy`, which does
+        # not validate.
+        if self.outpaint is not None and self.refine is None:
+            raise ValueError("an outpaint needs the image it extends")
+        if self.outpaint is not None and self.mask is not None:
+            raise ValueError("an outpaint builds its own mask; send none with it")
         return self
 
     def check_refine_steps(self) -> None:
@@ -354,13 +475,18 @@ class GenerateRequest(BaseModel):
         # With a mask the question is the inpaint class's, without one the
         # image-to-image class's; where the source goes its mask goes too, and
         # a mask with no source is not a setting at all.
-        refine, mask = self.refine, self.mask
-        if refine is not None and not (inpaint_supported if mask is not None else refine_supported):
+        # An outpaint is the inpaint class's question too, and goes with its
+        # source (and its mask) wherever the source goes.
+        refine, mask, outpaint = self.refine, self.mask, self.outpaint
+        if refine is not None and not (inpaint_supported if self.inpainting else refine_supported):
             refine = None
             changes["refine"] = None
         if mask is not None and refine is None:
             mask = None
             changes["mask"] = None
+        if outpaint is not None and refine is None:
+            outpaint = None
+            changes["outpaint"] = None
         if refine is None and self.strength != default_strength():
             changes["strength"] = default_strength()
         # The sibling's `image` is the source, so references have nowhere to
@@ -555,6 +681,44 @@ class MaskStored(BaseModel):
     height: int
     # Whether this upload wrote it, or the server already held it.
     created: bool
+
+
+class OutpaintPreset(BaseModel):
+    """One preset's padding over a source (`outpaint.presets`): its name
+    ("+25%" or an aspect such as "16:9"), the words for it, the four
+    sides, the canvas they make, and what holds it, or None."""
+
+    name: str
+    label: str
+    left: int
+    top: int
+    right: int
+    bottom: int
+    width: int
+    height: int
+    held: str | None = None
+
+
+class OutpaintPresets(BaseModel):
+    """`GET /api/images/{id}/outpaint-presets`' answer: the source's size,
+    why no outpaint of it can run where it is off the 16-pixel grid, the
+    refine guard's limits the canvas is held to, this build's fill, the
+    band's default and bound, the kept rectangle's least side, and every
+    preset. Model-free: the server
+    decides the numbers, the page holds no copy of the arithmetic."""
+
+    id: int
+    width: int
+    height: int
+    off_grid: str | None = None
+    max_side: int
+    max_pixels: int
+    fill: str
+    band: int
+    max_band: int
+    # The fewest pixels each way the band must leave kept (`outpaint.MIN_KEPT`).
+    min_kept: int
+    presets: list[OutpaintPreset]
 
 
 # Load settings from PNG's body (`api_png.py`): what the page read out of a

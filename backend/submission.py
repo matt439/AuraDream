@@ -6,13 +6,15 @@ import asyncio
 
 from fastapi import HTTPException
 
-from . import grid, loras, storage
+from . import grid, loras, outpaint, storage
 from .app_context import AppServices
 from .schemas import GenerateRequest, ImageRecord
 
 
 # The per-image status a reason from `unusable_input` becomes.
-UNUSABLE_STATUS = {"source": "source_deleted", "lora": "lora_missing", "mask_missing": "mask_missing"}
+UNUSABLE_STATUS = {
+    "source": "source_deleted", "lora": "lora_missing", "mask_missing": "mask_missing", "outpaint": "outpaint",
+}
 
 
 async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest) -> None:
@@ -39,19 +41,29 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     refused for one; a `mask_missing` is said per image with
     `missing_mask_detail`, which names it.
 
-    Whether a pass can run from a source splits on the mask: with one it is
-    the inpaint class's question, without one the image-to-image class's, as
-    `applied()` asks it."""
+    Whether a pass can run from a source splits on `request.inpainting`: with
+    a mask or an outpaint it is the inpaint class's question, else the
+    image-to-image class's, as `applied()` asks it. The mask file's checks
+    run where there is a mask - an outpaint has none until its stamp - and
+    an outpaint's own (`outpaint_unusable`, kind `outpaint`) where there is
+    one."""
     if request.refine is not None:
-        inpainting = request.mask is not None
-        reason = await (inpaint_unavailable(services) if inpainting else refine_unavailable(services))
+        inpainting = request.inpainting
+        if inpainting:
+            reason = await inpaint_unavailable(services, outpainting=request.outpaint is not None)
+        else:
+            reason = await refine_unavailable(services)
         if reason is not None:
             return ("inpaint" if inpainting else "refine"), reason
         try:
             await asyncio.to_thread(storage.reference_paths, [request.refine], "source image")
         except ValueError as exc:
             return "source", str(exc)
-        if inpainting:
+        if request.outpaint is not None:
+            reason = await asyncio.to_thread(outpaint_unusable, request)
+            if reason is not None:
+                return "outpaint", reason
+        if request.mask is not None:
             # A mask this gallery cannot find is its own kind: the gallery
             # actions name it by the image (`missing_mask_detail`), never by
             # its hash, and the way back is the bundle as often as the brush.
@@ -103,16 +115,18 @@ async def refine_unavailable(services: AppServices) -> str | None:
     )
 
 
-async def inpaint_unavailable(services: AppServices) -> str | None:
+async def inpaint_unavailable(services: AppServices, outpainting: bool = False) -> str | None:
     """Why this server has no inpaint, or None where it has one: what an
-    inpaint's submission is refused with. The profile's answer before a load,
-    the loaded class's after, as `refine_unavailable` asks."""
+    inpaint's submission is refused with - and an outpaint's, which runs
+    through the same class. The profile's answer before a load, the loaded
+    class's after, as `refine_unavailable` asks."""
     info = await asyncio.to_thread(services.backend().describe)
     if services.merged_defaults(info)["inpaint_supported"]:
         return None
+    through = ", which an outpaint runs through" if outpainting else ""
     return (
         f"{info['model_id']} has no inpaint in this app - its pipeline has no inpaint class "
-        "in the installed diffusers, or its family's is not enabled yet. The SDXL and "
+        f"in the installed diffusers{through}, or its family's is not enabled yet. The SDXL and "
         "Z-Image checkpoints have one."
     )
 
@@ -124,13 +138,46 @@ def missing_masks(records) -> list[int]:
     picture. Blocking: reads the database."""
     lost = []
     for record in records:
-        if record.refine is None or record.mask is None:
+        # An outpaint's mask is a function of its request, built again at
+        # the submit - which heals a lost file, so it is never missing.
+        if record.refine is None or record.mask is None or record.outpaint is not None:
             continue
         try:
             storage.mask_path(record.mask)
         except ValueError:
             lost.append(record.id)
     return lost
+
+
+def mismatched_outpaints(records) -> list[int]:
+    """The ids of the outpaints among `records` whose spec does not build the
+    mask the row was made under - a bundle's `masks_missing` row, a reindexed
+    chunk, another build's mask code. Run again, such a row would paint
+    under another mask while keeping its key, so resume and More seeds would
+    take the new image for the same reproduction set; `--from-image` refuses
+    it the same way. One build per distinct canvas and spec. Blocking: builds
+    masks."""
+    built: dict[tuple[int, int, str], str | None] = {}
+    mismatched = []
+    for record in records:
+        if record.refine is None or record.outpaint is None:
+            continue
+        key = (record.width, record.height, record.outpaint.key())
+        if key not in built:
+            built[key] = storage.outpaint_mask_hash(record.width, record.height, record.outpaint)
+        if record.mask is None or built[key] != record.mask:
+            mismatched.append(record.id)
+    return mismatched
+
+
+def mismatched_outpaint_detail(ids: list[int]) -> str:
+    """Why a selection with those outpaints is refused, naming each one."""
+    said = "; ".join(
+        f"the outpaint of #{image_id} was made under a mask this build does not build from its spec"
+        for image_id in ids[:6]
+    )
+    more = f"; and {len(ids) - 6} more" if len(ids) > 6 else ""
+    return f"{said}{more} - run again, it would paint under another mask; outpaint its source again instead"
 
 
 def unusable_detail(kind: str, why: str, image_id: int) -> str:
@@ -156,15 +203,24 @@ def resized_inpaint_detail(
     the way out where the selection holds `others`: unpicking them, or
     leaving inpaints out of the filter."""
     said = "; ".join(
-        f"#{record.id} is an inpaint of #{record.refine} at {record.width}x{record.height}"
+        f"#{record.id} is an {'outpaint' if record.outpaint is not None else 'inpaint'} of "
+        f"#{record.refine} at {record.width}x{record.height}"
         for record in records[:6]
+    )
+    outpaints = any(record.outpaint is not None for record in records)
+    rule = (
+        "an outpaint runs at its source's size plus its padding"
+        if outpaints and all(record.outpaint is not None for record in records)
+        else "an inpaint runs at its source's size" + (
+            ", and an outpaint at its source's size plus its padding" if outpaints else ""
+        )
     )
     more = f"; and {len(records) - 6} more" if len(records) > 6 else ""
     names = ", ".join(f"#{record.id}" for record in records[:6]) + (" and the rest" if len(records) > 6 else "")
     way = f"Unpick {names}" if picked else "Add inpaint:no to the search"
     tail = f" {way} to re-render the others." if others else ""
     return (
-        f"{said}{more} - an inpaint runs at its source's size, so it cannot be re-rendered at "
+        f"{said}{more} - {rule}, so it cannot be re-rendered at "
         f"{width}x{height}.{tail}"
     )
 
@@ -178,6 +234,31 @@ def missing_mask_detail(ids: list[int]) -> str:
         f"{said}{more} - its inpaint cannot run again until the mask is back: import the "
         "bundle that carries it, or paint it again on the source"
     )
+
+
+def outpaint_unusable(request: GenerateRequest) -> str | None:
+    """Why an outpaint cannot run over its source, or None. In order: the
+    source is on the 16-pixel grid, the fill is one this build has, the
+    request's size is the source's plus the padding, and the band leaves a
+    kept rectangle of at least 16 px each way. The source has been checked
+    live first. Blocking: reads the database."""
+    spec = request.outpaint
+    source = storage.get_image(request.refine)
+    if source is None:
+        return f"source image {request.refine} has just gone"
+    name = f"#{source.id}"
+    off_grid = outpaint.source_off_grid(source.width, source.height, name)
+    if off_grid is not None:
+        return off_grid
+    if spec.fill not in outpaint.FILLS:
+        return outpaint.unknown_fill(spec.fill)
+    width, height = source.width + spec.left + spec.right, source.height + spec.top + spec.bottom
+    if (request.width, request.height) != (width, height):
+        return (
+            f"an outpaint of {name} ({source.width}x{source.height}) by {spec.sides()} is "
+            f"{width}x{height}, not the {request.width}x{request.height} asked for"
+        )
+    return outpaint.band_too_wide(source.width, source.height, spec, name)
 
 
 def mask_unusable(request: GenerateRequest) -> str | None:

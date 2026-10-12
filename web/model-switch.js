@@ -927,6 +927,7 @@ function checkpointChanged(previousModel) {
       showError('The checkpoint changed. Reopen Refine to use its new sampling settings.', true);
     }
     inpaintCheckpointChanged();
+    outpaintCheckpointChanged();
     els.gridResume.checked = false;
     pendingLora = '';
     els.lora.replaceChildren(new Option('none', ''));

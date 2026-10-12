@@ -458,7 +458,7 @@ class DiffusersBackend(GenerationBackend):
         pipe = self._pipe
         if pipe is None or request.refine is None or request.strength is None:
             return None
-        inpaint = request.mask is not None
+        inpaint = request.inpainting
         start = refine.start_index(
             request.steps, request.strength, current_model_id(settings), inpaint
         )
@@ -653,7 +653,8 @@ class DiffusersBackend(GenerationBackend):
         # instead; `applied()` has dropped a mask the pipeline cannot take
         # along with its source, so a mask here means there is one.
         refining = request.refine is not None
-        inpainting = refining and request.mask is not None
+        # An outpaint is an inpaint over a padded copy of its source.
+        inpainting = request.inpainting
         if inpainting:
             runner, params = self._inpainter(pipe), self._inpaint_params
         elif refining:
@@ -762,8 +763,16 @@ class DiffusersBackend(GenerationBackend):
         # it repaints everywhere the composite below blends with the painted
         # grey levels - which it is given instead.
         painted = None
+        # An outpaint's picture is its source on the padded canvas, the new
+        # area holding the fill (`refine.outpaint_source`); its mask is the
+        # one the submit built and stored, read like any other.
         if inpainting:
-            kwargs["image"] = refine.inpaint_source(request.refine, request.width, request.height)
+            if request.outpaint is not None:
+                kwargs["image"] = refine.outpaint_source(
+                    request.refine, request.outpaint, request.width, request.height
+                )
+            else:
+                kwargs["image"] = refine.inpaint_source(request.refine, request.width, request.height)
             painted = refine.mask_image(request.mask, request.width, request.height)
             block = getattr(runner, "vae_scale_factor", None)
             kwargs["mask_image"] = refine.pipeline_mask(

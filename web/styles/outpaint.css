@@ -1,0 +1,99 @@
+/* --------------------------------------------------------- outpaint dialog */
+
+/* The Outpaint dialog (outpaint.js) wears the Inpaint dialog's box, its
+   fixed top and its two panes from 1800 px (inpaint.css's .inpaint-dialog,
+   .ip-paint, .ip-controls); what is its own is here. The frame is a box of a
+   fixed size whatever the canvas's shape, and the four side boxes sit round
+   it at fixed places, so a number that changes moves only what is drawn in
+   the frame - never a control under the pointer. */
+.outpaint-dialog {
+  --op-frame-w: 360px;
+  --op-frame-h: 160px;
+  --op-box-w: 9ch;
+  /* A scrollbar that comes with a line - a refusal, the check's - takes no
+     width from the controls, so none moves sideways under the pointer. */
+  scrollbar-gutter: stable;
+}
+
+/* The cross: Top above the frame, Left and Right beside it, Bottom below. */
+.op-cross {
+  display: grid;
+  grid-template-columns: 1fr var(--op-frame-w) 1fr;
+  grid-template-rows: var(--h-sm) var(--op-frame-h) var(--h-sm);
+  gap: var(--sp-2);
+  align-items: center;
+}
+.op-top { grid-column: 2; grid-row: 1; justify-self: center; }
+.op-left { grid-column: 1; grid-row: 2; justify-self: end; }
+.op-frame { grid-column: 2; grid-row: 2; }
+.op-right { grid-column: 3; grid-row: 2; justify-self: start; }
+.op-bottom { grid-column: 2; grid-row: 3; justify-self: center; }
+.op-side {
+  display: flex; align-items: center; gap: var(--sp-2); height: var(--h-sm);
+  font-size: var(--fs-label); color: var(--muted); white-space: nowrap;
+}
+.op-side input, .op-band-row input {
+  width: var(--op-box-w); height: var(--h-sm); padding: 0 6px; font: inherit; color: var(--text);
+  font-variant-numeric: tabular-nums;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+}
+
+/* The frame and the canvas letterboxed in it (sized by outpaint.js): the
+   new area hatched - the page draws no fill of its own, the fill is the
+   server's - the source at its place, and the band's inner edge dashed. */
+.op-frame {
+  width: var(--op-frame-w); height: var(--op-frame-h);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); outline: 1px solid var(--line); border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.op-canvas {
+  position: relative; flex: none;
+  background: repeating-linear-gradient(45deg, var(--panel-2) 0 6px, var(--line) 6px 12px);
+  outline: 1px solid var(--line-strong);
+}
+.op-canvas img { position: absolute; display: block; user-select: none; pointer-events: none; }
+.op-band {
+  position: absolute; box-sizing: border-box; pointer-events: none;
+  border: 1px dashed var(--accent-2);
+}
+.op-band[hidden] { display: none; }
+
+/* What a commit rounded, a preset gave or held, as a warning where it holds. */
+#outpaint-status.warn { color: var(--warn); }
+
+/* The presets: one fixed row; a preset replaces the four sides. */
+.op-presets { display: flex; align-items: center; gap: var(--sp-2); height: var(--h-sm); white-space: nowrap; }
+.outpaint-dialog .op-presets select {
+  width: auto; min-width: 0; height: var(--h-sm); padding: 0 6px; font-size: var(--fs-label);
+}
+
+/* The band: its box and its note in one row of a fixed height. */
+.op-band-row { display: flex; align-items: center; gap: var(--sp-2); height: var(--h-sm); }
+.op-band-row .hint {
+  margin: 0; min-width: 0; flex: 1 1 auto;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+#outpaint-negative-field.disabled textarea { opacity: 0.45; }
+/* The preview line holds its line while empty, and a refusal said in its
+   place takes the same, so Outpaint stays where it was. */
+#outpaint-preview { font-size: var(--fs-body-sm); color: var(--text); min-height: calc(var(--lh) * var(--fs-body-sm)); }
+#outpaint-preview.warn { color: var(--warn); }
+#outpaint-error {
+  font-size: var(--fs-body-sm); margin: 2px 0 0; white-space: pre-line;
+  min-height: calc(var(--lh) * var(--fs-body-sm));
+}
+
+/* An outpaint's card badge: an inpaint whose mask the server built, at its
+   strength (the inpainted badge's place and look). */
+.card.refined.inpainted.outpainted::before { content: "⬚ " attr(data-strength); }
+
+/* The wide tier: the frame as large as its pane leaves, the boxes round it.
+   Nothing changes under 1800 px. */
+@media (min-width: 1800px) {
+  .outpaint-dialog {
+    --op-frame-w: min(900px, calc(100vw - 4 * var(--sp-4) - var(--ip-side) - 3 * var(--gutter) - 2 * var(--op-box-w) - 160px));
+    --op-frame-h: calc(var(--ip-image-h) - 2 * var(--h-sm) - 4 * var(--sp-2));
+  }
+}

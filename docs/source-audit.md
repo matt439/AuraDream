@@ -91,6 +91,22 @@ profile, `INPAINT_DEFERRED`) and `index.html` 1,518 (the dialog's DOM).
 None has gained a new role; their table rows below are as audited. The page
 loads 46 classic scripts.
 
+Added since, with no split (outpainting, `feat-outpainting`): `outpaint.js`
+(994) owns the Outpaint dialog - the extend controls and frame, the
+presets, the preview, submission, close and Reuse - and
+`styles/outpaint.css` (99) its frame, the box and panes being
+`inpaint.css`'s. What it shares with the Inpaint dialog was generalised in
+place in `inpaint.js` (1,070) rather than copied: `syncPassSampling`,
+`renderPassCheck`, `syncPassCheck`, `selectPassFrom`, `libraryStrengthInto`,
+`sourceGoneKind`/`sourceGoneWords`, and `inpaintNone(outpainting)`. The page
+loads 47 classic scripts. On the server, `backend/outpaint.py`
+(298) is a leaf - numpy, Pillow and `sizes` only - holding an outpaint's
+pure parts: the padded source and its frozen fills, the built mask, the
+kept rectangle and `band_too_wide`'s words, and the presets' integer
+arithmetic; the stamp that stores a mask is `storage.stamp_outpaints`, the
+submit checks (`outpaint_unusable`, `mismatched_outpaints`) are
+`submission.py`'s, and the presets route is `api_masks.py`'s.
+
 How the boundaries hold:
 
 - The new route modules take one `AppServices` built by `main` over its own

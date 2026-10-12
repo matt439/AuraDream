@@ -347,6 +347,10 @@ function resultSide(rec, figure) {
   const inpaint = action(tool('✎ Inpaint…', '', () => inpaintFromCard(rec, figure.querySelector('.tile'))));
   inpaint.classList.add('inpaint-tool');
   syncInpaintTool(inpaint);
+  // Outpaint… beside it (outpaint.js), held the same way.
+  const outpaint = action(tool('⬚ Outpaint…', '', () => outpaintFromCard(rec, figure.querySelector('.tile'))));
+  outpaint.classList.add('outpaint-tool');
+  syncOutpaintTool(outpaint);
   const reference = action(tool('❐ Reference', '', () => toggleReference(figure.querySelector('.tile'), rec)));
   reference.classList.add('ref-tool');
   syncReferenceTool(reference, rec.id);
@@ -371,7 +375,7 @@ function resultSide(rec, figure) {
   del.classList.add('del', 'danger');
   const actions = document.createElement('div');
   actions.className = 'result-actions';
-  actions.append(star, refine, inpaint, action(reuseButton(rec)), reference);
+  actions.append(star, refine, inpaint, outpaint, action(reuseButton(rec)), reference);
   if (rec.refine != null) actions.append(compareButton(rec, figure));
   actions.append(seed, brief, del);
   const prompt = document.createElement('p');
@@ -415,7 +419,8 @@ function syncCompareResult(button, rec) {
 function passLineage(rec) {
   const line = document.createElement('p');
   line.className = 'lineage';
-  line.append(rec.mask ? '✎ Inpaint of ' : '⤢ Refine pass of ', sourceLink(rec), ` at strength ${rec.strength}`);
+  line.append(rec.outpaint ? '⬚ Outpaint of ' : rec.mask ? '✎ Inpaint of ' : '⤢ Refine pass of ', sourceLink(rec),
+    rec.outpaint ? ` by ${outpaintSidesText(rec.outpaint)}` : '', ` at strength ${rec.strength}`);
   return line;
 }
 

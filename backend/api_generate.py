@@ -199,6 +199,11 @@ def create_router(services: AppServices) -> APIRouter:
         lost = await asyncio.to_thread(submission.missing_masks, records)
         if lost:
             raise HTTPException(status_code=422, detail=submission.missing_mask_detail(lost))
+        # And an outpaint whose spec does not build its own row's mask: run
+        # again it would paint under another mask under the same key.
+        mismatched = await asyncio.to_thread(submission.mismatched_outpaints, records)
+        if mismatched:
+            raise HTTPException(status_code=422, detail=submission.mismatched_outpaint_detail(mismatched))
         # So is an inpaint at another size than its own - its source's, which
         # its mask covers - where the per-combination check would name the
         # source the user never picked.
@@ -210,17 +215,26 @@ def create_router(services: AppServices) -> APIRouter:
             ))
         # Oldest first (the resolver's order), so the re-render lands in the
         # order the originals did; every record's reproduction set but its size.
-        cells = grid.cells_from_records(records, width=request.width, height=request.height)
+        # A row the request models refuse (a spec another build or an import
+        # let through) is a worded refusal, never a 500.
+        try:
+            cells = grid.cells_from_records(records, width=request.width, height=request.height)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
         # One check per distinct combination rather than per cell: a selection of
         # 400 images carries at most a handful of adapters and sources between them.
         # Every cell is at the one size asked for, so an inpaint's mask is held
-        # to it here: re-rendered elsewhere, its mask no longer covers it.
+        # to it here: re-rendered elsewhere, its mask no longer covers it. An
+        # outpaint (frozen, so it keys) is checked at that size per padding,
+        # never sharing a plain refine's verdict over the same source.
         for spec in {
-            (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask) for c in cells
+            (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask, c.request.outpaint)
+            for c in cells
         }:
-            if spec != (None, (), None, None):
+            if spec != (None, (), None, None, None):
                 await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(
-                    update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3]}
+                    update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3],
+                            "outpaint": spec[4]}
                 ))
         try:
             for cell in cells:
@@ -269,7 +283,7 @@ def create_router(services: AppServices) -> APIRouter:
                 gallery_reports.refine_cost_ms, request.width, request.height, services.model_id(),
                 inpaint=True,
             )
-            if request.refine is not None and request.mask is not None
+            if request.inpainting
             else None
         )
         per_image_bytes = await asyncio.to_thread(

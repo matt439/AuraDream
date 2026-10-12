@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/static/styles/lightbox.css">
 <link rel="stylesheet" href="/static/styles/refine.css">
 <link rel="stylesheet" href="/static/styles/inpaint.css">
+<link rel="stylesheet" href="/static/styles/outpaint.css">
 <link rel="stylesheet" href="/static/styles/bundles.css">
 <link rel="stylesheet" href="/static/styles/swap.css">
 <link rel="stylesheet" href="/static/styles/refine-batch.css">
@@ -982,10 +983,13 @@
       <!-- Refine beside Inpaint… in one row, so the column is no taller for
            it. Inpaint opens its dialog on this image: paint a mask, and only
            that part is denoised again (inpaint.js); held, with the reason as
-           its title, where the checkpoint has no inpaint. -->
+           its title, where the checkpoint has no inpaint. Outpaint… beside
+           them extends the canvas past the image's edges (outpaint.js),
+           held the same way. -->
       <div class="lb-pair">
         <button class="ghost" id="lb-refine" title="Refine this image: scale it up and re-denoise it part of the way">⤢ Refine</button>
         <button class="ghost" id="lb-inpaint" aria-haspopup="dialog">✎ Inpaint…</button>
+        <button class="ghost" id="lb-outpaint" aria-haspopup="dialog">⬚ Outpaint…</button>
       </div>
       <!-- On an image in the recycle bin (bin.js): Restore, and Delete reads
            Delete permanently, which asks first. -->
@@ -1276,6 +1280,131 @@
   </div>
 </dialog>
 
+<!-- Outpainting, a dialog of its own (outpaint.js): a gallery image's canvas
+     extended past its edges and the new area painted - an inpaint over a
+     padded copy of the source, run through the same inpaint pipeline. The
+     server fills the new area (the source's edge pixels stretched and
+     blurred) and builds the mask (the new border and a feathered band
+     reaching into the original); nothing is painted here. Opened by the
+     lightbox's Outpaint…, a viewer result's, and Reuse on an outpainted
+     image. The frame shows where the original lands on the new canvas, in a
+     box of a fixed size whatever the canvas's shape, with the four side
+     boxes round it at fixed places; every line under it has a fixed height,
+     so nothing moves under the pointer as a number changes. It wears the
+     Inpaint dialog's box and panes (inpaint.css), and its own frame
+     (outpaint.css). -->
+<dialog class="inpaint-dialog outpaint-dialog" id="outpaint-dialog" aria-labelledby="outpaint-title"
+        aria-describedby="outpaint-source-line">
+  <div class="ip-head">
+    <h2 id="outpaint-title">Outpaint</h2>
+    <button type="button" class="close" id="outpaint-close" aria-label="Close (Escape)">✕</button>
+  </div>
+  <div class="ip-paint op-extend">
+    <!-- The new canvas letterboxed into the frame: its new area hatched (the
+         fill is the server's, never drawn here), the source at its place,
+         and the band's inner edge dashed. -->
+    <div class="op-cross" role="group" aria-label="Extend each side, in pixels">
+      <label class="op-side op-top"><span>Top</span>
+        <input type="number" id="outpaint-top" min="0" step="16" inputmode="numeric" aria-describedby="outpaint-status"></label>
+      <label class="op-side op-left"><span>Left</span>
+        <input type="number" id="outpaint-left" min="0" step="16" inputmode="numeric" aria-describedby="outpaint-status"></label>
+      <div class="op-frame" id="outpaint-frame" aria-hidden="true">
+        <div class="op-canvas" id="outpaint-canvas">
+          <img id="outpaint-image" alt="" draggable="false">
+          <div class="op-band" id="outpaint-band-edge"></div>
+        </div>
+      </div>
+      <label class="op-side op-right"><span>Right</span>
+        <input type="number" id="outpaint-right" min="0" step="16" inputmode="numeric" aria-describedby="outpaint-status"></label>
+      <label class="op-side op-bottom"><span>Bottom</span>
+        <input type="number" id="outpaint-bottom" min="0" step="16" inputmode="numeric" aria-describedby="outpaint-status"></label>
+    </div>
+    <!-- The canvas and where the source sits on it, then what a commit
+         rounded or a preset said: one line each, never more. -->
+    <p class="ip-status" id="outpaint-frame-line"></p>
+    <p class="ip-status" id="outpaint-status" role="status"></p>
+    <div class="op-presets" role="group" aria-label="Presets: each replaces the four sides">
+      <button type="button" class="ghost small" id="outpaint-grow" data-preset="+25%">+25% all round</button>
+      <button type="button" class="ghost small" id="outpaint-wide" data-preset="16:9">to 16:9</button>
+      <button type="button" class="ghost small" id="outpaint-tall" data-preset="2:3">to 2:3</button>
+      <select id="outpaint-shape" aria-label="To shape: pick another aspect, then Apply">
+        <option value="" selected>To shape…</option>
+      </select>
+      <button type="button" class="ghost small" id="outpaint-shape-apply" aria-disabled="true"
+              title="Pick a shape first">Apply</button>
+    </div>
+    <div class="op-band-row">
+      <label class="op-side" for="outpaint-band"><span>Band</span></label>
+      <input type="number" id="outpaint-band" min="0" max="256" step="8" inputmode="numeric"
+             aria-describedby="outpaint-band-note">
+      <p class="hint" id="outpaint-band-note"></p>
+    </div>
+  </div>
+  <div class="ip-controls">
+    <p class="rf-source-line" id="outpaint-source-line"></p>
+    <!-- Reuse of an outpaint opens on its source: which one, and what it ran at. -->
+    <p class="rf-source-line" id="outpaint-reused" hidden></p>
+    <!-- What a close without Outpaint left behind on this image, put back. -->
+    <p class="hint rf-draft" id="outpaint-draft" hidden><span id="outpaint-draft-text"></span>
+      <button type="button" class="ghost tiny" id="outpaint-start-over">Start over</button></p>
+    <p class="hint warn" id="outpaint-unavailable" hidden></p>
+    <div class="field rf-strength">
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="outpaint-strength">Strength</label>
+            <span class="help above" tabindex="0" role="note" aria-label="Outpaint strength help" aria-describedby="outpaint-strength-tip">?<span
+              class="tip wide" id="outpaint-strength-tip">How much of the new area and the band is redrawn. The new area starts as the server's fill, so a high strength is what is expected there. The original inside the band is kept pixel for pixel. Several values, comma-separated, run side by side and open as a sheet.</span></span></i>
+          <input type="text" id="outpaint-strength" autocomplete="off" inputmode="decimal"
+                 aria-describedby="outpaint-strength-note">
+        </div>
+        <div class="sub narrow">
+          <i><label for="outpaint-versions">Versions</label></i>
+          <select id="outpaint-versions" autocomplete="off" aria-describedby="outpaint-seed-hint">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        <div class="sub grow">
+          <i><label for="outpaint-seed">Seed</label></i>
+          <input type="number" id="outpaint-seed" min="0" placeholder="random" aria-describedby="outpaint-seed-hint">
+        </div>
+        <button type="button" class="ghost square" id="outpaint-dice" title="Clear the seed (random)"
+                aria-label="Clear the seed, so the outpaint draws a random one">🎲</button>
+      </div>
+      <p class="hint" id="outpaint-seed-hint"></p>
+      <p class="hint" id="outpaint-strength-note"></p>
+    </div>
+    <details class="section rf-more" id="outpaint-more">
+      <summary>Prompt and sampling <em id="outpaint-more-note"></em></summary>
+      <label class="field">
+        <span>Prompt</span>
+        <textarea id="outpaint-prompt" rows="3" spellcheck="false"></textarea>
+      </label>
+      <label class="field" id="outpaint-negative-field">
+        <span>Negative prompt <em id="outpaint-neg-note"></em></span>
+        <textarea id="outpaint-negative" rows="2" spellcheck="false"></textarea>
+      </label>
+      <div class="row">
+        <label class="sub grow"><i>Steps</i><input type="number" id="outpaint-steps" min="1" max="100"></label>
+        <label class="sub grow"><i>CFG</i><input type="number" id="outpaint-cfg" min="0" max="20" step="0.1"></label>
+        <label class="sub grow" id="outpaint-mu-field"><i>Mu</i><input type="number" id="outpaint-mu" min="0" max="10" step="0.05"></label>
+        <label class="sub grow" id="outpaint-true-cfg-field"><i>True CFG</i><input type="number" id="outpaint-true-cfg"
+               min="1" max="20" step="0.1" placeholder="off"></label>
+      </div>
+      <p class="hint" id="outpaint-carried"></p>
+    </details>
+    <div class="rf-check" id="outpaint-check" hidden></div>
+    <p class="rf-said" id="outpaint-check-said" aria-live="polite"></p>
+    <p class="hint pre" id="outpaint-preview" aria-live="polite"></p>
+    <p class="error" id="outpaint-error" role="alert" hidden></p>
+    <div class="rf-actions">
+      <button type="button" class="ghost" id="outpaint-cancel">Cancel</button>
+      <button type="button" class="primary" id="outpaint-run" aria-keyshortcuts="Control+Enter" aria-disabled="true">Outpaint</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- The questions a delete asks (gallery-actions.js: confirmDialog,
      countDialog) - Delete unstarred's count, and in the recycle bin Delete
      permanently and Empty recycle bin - in the page's own dialog beside what
@@ -1500,6 +1629,7 @@
 <script src="/static/refine-prompt.js"></script>
 <script src="/static/inpaint-mask.js"></script>
 <script src="/static/inpaint.js"></script>
+<script src="/static/outpaint.js"></script>
 <script src="/static/tags.js"></script>
 <script src="/static/tag-tokens.js"></script>
 <script src="/static/tag-chips.js"></script>

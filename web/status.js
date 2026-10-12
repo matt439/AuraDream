@@ -678,6 +678,7 @@ function receiveStatus(s, asked = Date.now()) {
       schedulePreview();
       if (refineSource) scheduleRefinePreview();
       if (inpaintSource) scheduleInpaintPreview();
+      if (outpaintSource) scheduleOutpaintPreview();
     }
     els.dot.className = `dot ${s.state}`;
     const was = modelState;

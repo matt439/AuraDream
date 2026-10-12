@@ -137,6 +137,17 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     mask = row.get("mask")
     if mask is not None and (not isinstance(mask, str) or not MASK_HASH.fullmatch(mask) or refine is None):
         raise BundleError(f"invalid inpaint mask on image {row['id']}")
+    # An outpaint's spec, only beside its source and its mask, well formed
+    # (`OutpaintSpec.wellformed`: a side extended, the band within bound).
+    outpaint = row.get("outpaint")
+    spec = None
+    if outpaint is not None:
+        try:
+            spec = storage.OutpaintSpec.parse_key(outpaint)
+        except (TypeError, ValueError):
+            spec = None
+        if spec is None or refine is None or mask is None or not spec.wellformed():
+            raise BundleError(f"invalid outpaint on image {row['id']}")
     values = {key: row.get(key) for key in storage._COLUMNS}
     values.update(id=row["id"], content_hash=content_hash)
     try:
@@ -190,6 +201,9 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         return {"filename": source["filename"], "hash": source["content_hash"],
                 "width": source["width"], "height": source["height"]}
     refs = _references(row)
+    outpaint = (
+        storage.OutpaintSpec.parse_key(row["outpaint"]) if row.get("outpaint") and row.get("mask") else None
+    )
     return {
         "prompt": row["prompt"], "negative_prompt": row["negative_prompt"],
         "steps": row["steps"], "guidance_scale": row["guidance_scale"], "true_cfg": row["true_cfg"],
@@ -206,6 +220,10 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "mask": row.get("mask"),
         "mask_source": storage.mask_provenance(row.get("mask"), row["width"], row["height"]),
         "mask_blend": "overlay" if row.get("mask") else None,
+        # And an outpaint's spec, null together on every other row: an
+        # imported outpaint's PNG keeps what it is, for a later reindex.
+        "outpaint": storage.outpaint_chunk(outpaint),
+        "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": row.get("batch"),
     }
 

@@ -45,6 +45,9 @@ FILTERS: dict[str, tuple[str, Any]] = {
     # Handled by inpaint_clause: `inpaint:yes` / `inpaint:no`, the passes
     # that had a mask and the ones that did not, without a hash to type.
     "inpaint": ("mask", None),
+    # Handled by outpaint_clause: `outpaint:yes` / `outpaint:no`. An outpaint
+    # has a mask too, so `inpaint:yes outpaint:no` is the painted ones.
+    "outpaint": ("outpaint", None),
     "job": ("job_id", str),
     "run": ("run_id", str),
     # Every image with these pixels - a substring, so a prefix of one is enough.
@@ -102,6 +105,21 @@ def size_clause(raw: str) -> tuple[str, list]:
     return "(width = ? AND height = ?)", [_in_range("size", raw, int(width)), _in_range("size", raw, int(height))]
 
 
+def _yes_no_clause(key: str, column: str, raw: str) -> tuple[str, list]:
+    lowered = raw.lower()
+    if lowered in {"yes", "true", "1"}:
+        return f"{column} IS NOT NULL", []
+    if lowered in {"no", "false", "0"} or lowered in NULL_TOKENS:
+        return f"{column} IS NULL", []
+    raise ValueError(f"{key}: {raw!r} is not yes or no")
+
+
+def outpaint_clause(raw: str) -> tuple[str, list]:
+    """`outpaint:yes` and `outpaint:no`: an outpaint's spec on the row or
+    none. Every outpaint is an inpaint too (`inpaint:yes`), mechanically."""
+    return _yes_no_clause("outpaint", "outpaint", raw)
+
+
 def inpaint_clause(raw: str) -> tuple[str, list]:
     """`inpaint:yes` (or `true`, `1`) and `inpaint:no` (`false`, `0`, `none`):
     a mask on the row or none. The mask is only ever set beside a source, so
@@ -130,6 +148,8 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
         return size_clause(raw)
     if key == "inpaint":
         return inpaint_clause(raw)
+    if key == "outpaint":
+        return outpaint_clause(raw)
     column, cast = FILTERS[key]
     if cast is str:
         # `model:=<id>` is the whole id, exactly - the gallery's own checkpoint

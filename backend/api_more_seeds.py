@@ -88,6 +88,11 @@ async def more_seeds_plan(
         )
         held[(width, height)] = done | planned.get((width, height), set())
     checked: dict[tuple, tuple[str, str] | None] = {}
+    # A batch whose outpaint spec does not build its row's mask would paint
+    # its new seeds under another mask, held as the same set.
+    mismatched = set(await asyncio.to_thread(
+        submission.mismatched_outpaints, [batch.template for batch in mine]
+    ))
     for batch in mine:
         template = batch.template
         more_seeds.plan(
@@ -96,13 +101,17 @@ async def more_seeds_plan(
         )
         if batch.status != more_seeds.QUEUED:
             continue
+        if template.id in mismatched:
+            batch.status = "outpaint"
+            batch.detail = submission.mismatched_outpaint_detail([template.id])
+            continue
         # New seeds are new pictures under any quantizer, but the batch's
         # images were all made under one; said, not refused.
         if template.quantization and quantization and template.quantization != quantization:
             batch.notes.append(f"made under {template.quantization}; these run under {quantization}")
         first = batch.cells[0].request
-        spec = (first.lora, tuple(first.reference), first.refine, first.mask)
-        if spec != (None, (), None, None):
+        spec = (first.lora, tuple(first.reference), first.refine, first.mask, first.outpaint)
+        if spec != (None, (), None, None, None):
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, first)
             if checked[spec] is not None:
@@ -185,7 +194,7 @@ def create_router(services: AppServices) -> APIRouter:
             refine_costs = await asyncio.to_thread(gallery_reports.refine_cost_ms, width, height, model)
             inpaint_costs = (
                 await asyncio.to_thread(gallery_reports.refine_cost_ms, width, height, model, inpaint=True)
-                if any(cell.request.mask is not None for cell in cells) else None
+                if any(cell.request.inpainting for cell in cells) else None
             )
             priced = grid.estimate_seconds(
                 cells, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs

@@ -152,6 +152,9 @@ _GROUPS: dict[str, str] = {
     # An inpaint's mask, by the 16 digits the A1111 line prints: which region
     # of a source the kept passes repainted. NULL on everything else.
     "mask": "substr(mask, 1, 16)",
+    # An outpaint by its spec (`fill:L,T,R,B@band`): which padding the kept
+    # outpaints were made with. NULL on everything else.
+    "outpaint": "outpaint",
     # A comparison's version by its label (`prompt_variants`): the starred
     # rate per version. `prompt` cannot say it - reorders share their opening
     # words, which is all a table cell has room for.

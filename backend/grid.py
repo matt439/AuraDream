@@ -147,16 +147,29 @@ def refine_key(source: int | None, strength: float | None) -> str | None:
     return None if source is None else f"{source}@{round(float(strength), 6):g}"
 
 
-def mask_key(mask: str | None) -> str | None:
-    """An inpaint's mask as one key element: its whole 64-digit hash, or None.
+def mask_key(mask: str | None, outpaint: str | None = None) -> str | None:
+    """Which region is repainted, as one key element: an inpaint's mask by
+    its whole 64-digit hash, an outpaint by `outpaint:` and its spec's key
+    (`OutpaintSpec.key()`, the fill included) whatever its mask, or None.
 
     Content-addressed, so the hash is the same in every gallery and needs no
     rounding or remapping; spelled here once all the same, since the element
-    is built from a request here and from the column in
-    `storage.completed_cells`. A mask is never without its source
-    (`applied()`), so it rides beside `refine_key` rather than inside it.
+    is built from a request here and from the columns in
+    `storage.completed_cells` and `more_seeds.settings_key`. A mask is never
+    without its source (`applied()`), so it rides beside `refine_key` rather
+    than inside it. An outpaint is named by its spec, never by its stamped
+    hash, so an unstamped cell, a stamped one and a `--dry-run` key alike;
+    an outpaint and a painted mask never meet in one request, so they
+    share the element rather than adding a sixth.
     """
+    if outpaint:
+        return f"outpaint:{outpaint}"
     return mask or None
+
+
+def _outpaint_text(outpaint: Any) -> str | None:
+    """A request's or a record's outpaint as its key text, or None."""
+    return outpaint.key() if outpaint is not None else None
 
 
 @dataclass(frozen=True)
@@ -621,7 +634,7 @@ def cell_key(cell: "Cell") -> CellKey:
         reference_key(request.reference),
         lora_key(request.lora, request.lora_scale),
         refine_key(request.refine, request.strength),
-        mask_key(request.mask),
+        mask_key(request.mask, _outpaint_text(request.outpaint)),
         cell.seed,
     )
 
@@ -650,7 +663,7 @@ def duplicate_count(
             if ran.request.refine is not None:
                 start = start_index(
                     ran.request.steps, ran.request.strength, model_id or current_model_id(settings),
-                    inpaint=ran.request.mask is not None,
+                    inpaint=ran.request.inpainting,
                 )
                 # Everything after the refine element kept, the mask with the
                 # seed: two masks over one source are two pictures.
@@ -746,8 +759,13 @@ def cell_from_record(
         "lora_scale": record.lora_scale if record.lora_scale is not None else 1.0,
         "refine": record.refine,
         "strength": record.strength if record.refine is not None else None,
-        # An inpaint runs again over the same region of the same source.
-        "mask": record.mask if record.refine is not None else None,
+        # An inpaint runs again over the same region of the same source; an
+        # outpaint over the same padding, its mask built again at the stamp
+        # (and refused beside one by the validator).
+        "mask": record.mask if record.refine is not None and record.outpaint is None else None,
+        "outpaint": (
+            record.outpaint.model_dump() if record.refine is not None and record.outpaint is not None else None
+        ),
         "seed": record.seed,
     }
     unknown = set(changes) - set(GenerateRequest.model_fields)
@@ -778,7 +796,7 @@ def denoised_steps(request: GenerateRequest) -> int:
     if request.refine is None:
         return request.steps
     return steps_run(
-        request.steps, request.strength, current_model_id(settings), inpaint=request.mask is not None
+        request.steps, request.strength, current_model_id(settings), inpaint=request.inpainting
     )
 
 
@@ -829,7 +847,7 @@ def _cell_ms(
                 return None
             image_ms = per_step_ms * request.steps
         else:
-            costs = inpaint_costs if request.mask is not None else refine_costs
+            costs = inpaint_costs if request.inpainting else refine_costs
             image_ms = (costs or {}).get(denoised_steps(request))
             if image_ms is None:
                 return None
