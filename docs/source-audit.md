@@ -48,7 +48,9 @@ Models picker, styled by `styles/model-picker.css`; `bundles.js` and
 `styles/bundles.css` own gallery bundles (the backup and its scope, picked or
 starred, included; the picked ids are read from `gallery-select.js`). `gallery-select.js` owns the
 gallery's selection (Select, the picked ids, and `galleryActionTarget` /
-`galleryActionScopeLine`, which the three footer actions word alike);
+`galleryActionScopeLine`, which the three footer actions and Re-render word
+alike) and, since 2026-10-12, the Picked menu, whose star and bin
+(`starPicked`, `binPicked`) are `gallery-actions.js`'s beside a card's;
 `gallery-batch.js` a card's batch on hover; `lightbox-cfg.js` (416) the
 lightbox's comparison across CFG. `tag-swap.js` + `styles/swap.css`,
 `refine-batch.js` + `styles/refine-batch.css`, `more-seeds.js` +

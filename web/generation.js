@@ -164,7 +164,8 @@ function snippet(text, length = 60, { markup = false } = {}) {
 // own, and a grid's image count is the server's to work out.
 function submissionLabel(path, payload) {
   if (path === '/api/rerender') {
-    return `re-render of the gallery's selection at ${payload.width}×${payload.height}`;
+    const what = payload.ids ? plural(payload.ids.length, 'selected image') : "the gallery's selection";
+    return `re-render of ${what} at ${payload.width}×${payload.height}`;
   }
   if (path === '/api/swap-tags') {
     return describeJob({ grid: true, swap: swapSummary(payload) });
@@ -282,8 +283,10 @@ function handJobFocus(to) {
 // strength sweep, whose answer is the sheet rather than the strip. `panel`
 // says the payload is the panel's own, whose Seed box a grid writes back to.
 // `slot` is where a refusal is said: Re-render's, from the gallery's head,
-// in the gallery's line; a pass's, in the Refine dialog. `onAccepted(jobId)`
-// runs once the server has taken the job, before startJob watches it -
+// in the gallery's line; a pass's, in the Refine dialog. `onAccepted(jobId,
+// answer)` - the server's whole answer, where Re-render's names the picked
+// images it left out - runs once the server has taken the job, before
+// startJob watches it -
 // though a listing between jobs (`jobListing`) may be streaming it already -
 // the dialog closes there, and a refusal leaves it open - and `placeholder`
 // is what the viewer shows of it until its first frame (streamJob, which
@@ -340,11 +343,12 @@ async function startJob(path, payload, {
   }
 
   try {
-    const { job_id, seed, more = [] } = await api(path, {
+    const answer = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(revision === null ? {} : { 'X-Local-Diffusion-Model-Revision': String(revision) }) },
       body: JSON.stringify(payload),
     });
+    const { job_id, seed, more = [] } = answer;
     setSubmitting(false);
     ownJobs.add(job_id);
     // The topbar's "loading…" now, not at the next poll, beside the panel's
@@ -368,7 +372,7 @@ async function startJob(path, payload, {
     const extras = () => more.map((extra) => extra.job_id).filter((id) => !queuedIds.includes(id));
     if (placeholder) jobPlaceholders.set(job_id, placeholder);
     if (sheet) jobsToShow.add(job_id);
-    onAccepted?.(job_id);
+    onAccepted?.(job_id, answer);
     // A grid started from a blank Seed box drew its own base, and every image
     // it produces carries a *derived* seed - so the base is written back here,
     // where Resume will need it. Only for a grid: a plain Generate left blank is
@@ -505,28 +509,56 @@ function generate() {
   return startJob('/api/generate', body);
 }
 
-// The gallery's current selection - the search box, the Starred tick and
-// the checkpoint scope - rendered again at the panel's size. Taken
-// server-side, since the browser holds only the page it has scrolled to; the
-// count in the button is the server's total for the filter, so it is also
-// the confirmation.
+// The gallery's picked cards, else its current filter - the search box, the
+// Starred tick and the checkpoint scope - rendered again at the panel's size
+// (galleryActionTarget, as Swap tags…, Refine… and More seeds… take it). A
+// filter is taken server-side, since the browser holds only the page it has
+// scrolled to; the count in the button is the picks', or the server's total
+// for the filter, so it is also the confirmation. A picked image binned or
+// deleted since it was picked is left out by the server and named in its
+// answer (`deleted`), said here and forgotten as every other gone id is.
+function rerenderTarget() {
+  return galleryActionTarget('to choose the images to render again', 'one re-render');
+}
+// The button's title on the filter (index.html's); on picks it names them.
+const RERENDER_FILTER_TITLE = 'Render every image the filter matches again, at the size set in the panel - same prompt, settings and seed';
+
 function rerenderSelection() {
+  const target = rerenderTarget();
+  const slot = { slot: els.galleryError };
+  if (!target.scope) { showError(target.why, true, slot); return; }
   return startJob('/api/rerender', {
-    search: els.search.value.trim() || null,
-    favorites: els.favOnly.checked,
-    all_models: els.allModels.checked,
-    width: +els.width.value,
-    height: +els.height.value,
-  }, { slot: els.galleryError });
+    ...target.scope, width: +els.width.value, height: +els.height.value,
+  }, { slot: els.galleryError, onAccepted: (_, answer) => sayRerenderGone(answer.deleted ?? []) });
+}
+
+// The picks Re-render left out: "#7 is in the recycle bin", "#9 is no longer
+// in the gallery" - the server's words - in the gallery's line, the job
+// going ahead with the rest; and out of the page, as forgetImages takes any
+// image the server has let go of.
+function sayRerenderGone(gone) {
+  if (!gone.length) return;
+  const binned = gone.filter((item) => /recycle bin/.test(item.detail)).map((item) => item.id);
+  const deleted = gone.filter((item) => !binned.includes(item.id)).map((item) => item.id);
+  const also = (binned.length ? forgetImages(binned, { binned: true }) : '') + (deleted.length ? forgetImages(deleted) : '');
+  const are = (ids) => (ids.length === 1 ? 'is' : 'are');
+  const names = (ids) => (ids.length > 6 ? plural(ids.length, 'image') : imageNames(ids));
+  const said = [
+    binned.length ? `${names(binned)} ${are(binned)} in the recycle bin` : '',
+    deleted.length ? `${names(deleted)} ${are(deleted)} no longer in the gallery` : '',
+  ].filter(Boolean).join(', and ');
+  showError(`Re-rendering the rest: ${said}.${also}`, true, { slot: els.galleryError });
 }
 
 // Coming and going with the pointer on the head's controls waits for it to
 // leave them (showInHead); `now` for the bin's way in and out.
 function syncRerender(now = false) {
-  const filtered = els.favOnly.checked || els.search.value.trim() !== '';
   // Not in the recycle bin, whose count is not a render's (bin.js).
-  const show = filtered && !binMode && total > 0 && total <= sheetPage;
-  const label = show ? `Re-render ${total} at ${els.width.value}×${els.height.value}` : els.rerender.textContent;
+  const target = rerenderTarget();
+  const show = !!target.scope;
+  const size = `${els.width.value}×${els.height.value}`;
+  const label = !show ? els.rerender.textContent
+    : target.scope.ids ? `Re-render ${target.n} selected at ${size}` : `Re-render ${target.n} at ${size}`;
   // Its label is the confirmation, so it is never held back: under a
   // resting pointer the box keeps its width instead and the label ends in
   // an ellipsis there (gallery.css). "Re-render 3" to "Re-render 24" wrapped
@@ -538,7 +570,12 @@ function syncRerender(now = false) {
     els.rerender.style.width = `${els.rerender.getBoundingClientRect().width}px`;
   }
   showInHead(els.rerender, show, now);
-  if (show) els.rerender.textContent = label;
+  if (show) {
+    els.rerender.textContent = label;
+    els.rerender.title = target.scope.ids
+      ? `Render ${target.words} again, at the size set in the panel - same prompt, settings and seed`
+      : RERENDER_FILTER_TITLE;
+  }
   // Swap tags, Mass refine and More seeds take the same filter where nothing
   // is picked (tag-swap.js, refine-batch.js, more-seeds.js).
   syncSwapButton();

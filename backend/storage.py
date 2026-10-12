@@ -1218,6 +1218,38 @@ def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
     return get_image(image_id)
 
 
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
+def set_favorites(image_ids: Sequence[int], favorite: bool) -> dict[str, list[int]]:
+    """Star or unstar several live images at once (the gallery's picked
+    cards): the ids changed, those already so, those in the recycle bin -
+    left with the flag they were binned with, as `set_favorite` leaves one -
+    and those the gallery does not hold. The lookup runs under the write's
+    lock, so a second press answers already, never changed twice."""
+    wanted = sorted(set(image_ids))
+    changed: list[int] = []
+    already: list[int] = []
+    binned: list[int] = []
+    with _write_lock, _session() as conn:
+        for at in range(0, len(wanted), 500):
+            chunk = wanted[at:at + 500]
+            marks = ",".join("?" * len(chunk))
+            changed.extend(row["id"] for row in conn.execute(
+                f"UPDATE images SET favorite = ? WHERE id IN ({marks}) AND {_LIVE}"
+                " AND favorite != ? RETURNING id",
+                (int(favorite), *chunk, int(favorite)),
+            ).fetchall())
+            moved = set(changed)
+            for row in conn.execute(f"SELECT id, binned_at FROM images WHERE id IN ({marks})", chunk):
+                if row["id"] in moved:
+                    continue
+                (already if row["binned_at"] is None else binned).append(row["id"])
+    held = set(changed) | set(already) | set(binned)
+    return {
+        "changed": sorted(changed), "already": sorted(already), "binned": sorted(binned),
+        "missing": [image_id for image_id in wanted if image_id not in held],
+    }
+
+
 def _unlink(path) -> bool:
     """Delete a file, tolerating both "already gone" and "someone has it open"."""
     try:

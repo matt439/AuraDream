@@ -317,9 +317,16 @@ Search combines these terms with free text matching the prompt:
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
 
 **Re-render** renders the filtered images at the panel's size with their
-recorded settings and skips completed cells. It refuses images from another
-checkpoint. Star favorites at a smaller size, filter by Starred and choose
-a larger size; expect new compositions for direct renders.
+recorded settings and skips completed cells - or, with cards picked with
+**Select**, exactly those, whatever the filter ("Re-render 2 selected at
+1024×1024"). A picked image moved to the recycle bin or deleted since is
+left out and named. It refuses images from another checkpoint (picked ones
+by number, to unpick). Star favorites at a smaller size, filter by Starred
+or pick the keepers, and choose a larger size; expect new compositions for
+direct renders. Where the row has no room for both, **Delete unstarred**
+gives Re-render its place while cards are picked, so a pick never moves the
+gallery; Clear brings it back (once the pointer has left the gallery, where
+bringing it back would move the row under it).
 
 **Sheet** lays out varying settings as rows, columns and selectors. Prompt
 comparison versions take the rows; refine sweeps include their source.
@@ -335,6 +342,16 @@ lightbox. The selection survives searches, filters and paging; its count
 says how many picked images the current view does not show. **Clear** or
 Esc empties it, and a second Esc leaves select mode. Deleted images, and
 images moved to the recycle bin, leave the selection on their own.
+
+**Picked ▾** (between **Clear** and **Select**; just ▾, with Clear a ✕,
+where the row is narrow) is a menu for the picked cards: **Star picked**
+and **Unstar picked** star or unstar all of them at once, and **Bin
+picked** moves them to the recycle bin at once, as a card's ⌦ does - the
+note it leaves has **Restore** for all of them. It is held, with the
+reason, while nothing is picked and in the recycle bin. F still stars only
+the card it is pressed on, in select mode too. There is no sheet of the
+picked cards: a sheet lays out what the search box finds, and a run's
+`run:` or `job:` search is the way to one.
 
 **Swap tags…** (beside **Select**) runs the selected images again - or,
 with nothing selected, what the filter matches - with some tags swapped:

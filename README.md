@@ -109,6 +109,8 @@ For everyday use:
 - Star favourites, reuse settings and compare images in the gallery or a contact
   sheet; in the full view, compare a pass with its source or an image with its
   CFG neighbours. PNGs retain their generation settings.
+- **Select** picks gallery cards to act on together: re-render them at another
+  size, swap tags, refine, make more seeds, or star, unstar or bin them at once.
 - **Ctrl/Cmd + Enter** generates; inside Grid search or Refine, it runs that action.
 
 See the [usage guide](docs/usage.md) for these workflows, keyboard shortcuts,

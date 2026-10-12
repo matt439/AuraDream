@@ -192,6 +192,24 @@ class IdsBody(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=settings.max_grid_images)
 
 
+class FavoritesBody(IdsBody):
+    """Gallery ids to star (`value` true) or unstar together: the gallery's
+    picked cards, Star picked and Unstar picked."""
+
+    value: bool = True
+
+
+class FavoritesResult(BaseModel):
+    """What `POST /api/images/favorite` did with each id: starred or
+    unstarred now, so already, in the recycle bin (which keeps the flag it
+    was binned with, as a single star's 404 says), or not in the gallery."""
+
+    changed: list[int]
+    already: list[int]
+    binned: list[int]
+    missing: list[int]
+
+
 class BinResult(BaseModel):
     """What `POST /api/images/bin` did with each id: moved now, in the bin
     already (a second tab, a double press), or not in the gallery at all."""

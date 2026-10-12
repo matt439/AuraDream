@@ -12,6 +12,8 @@ from .schemas import (
     GridPreview,
     GridRequest,
     JobAccepted,
+    RerenderAccepted,
+    RerenderGone,
     RerenderRequest,
     error_detail,
 )
@@ -74,7 +76,9 @@ async def expand_grid(
     return kept, values, len(cells) - len(kept), run_id
 
 
-def foreign_refusal(services: AppServices, count: int, foreign: list[str]) -> str:
+def foreign_refusal(
+    services: AppServices, count: int, foreign: list[str], picked: list[int] | None = None
+) -> str:
     """Re-render's refusal of a selection that reaches other checkpoints, with the way out.
 
     Unticking All models is the exact way: the gallery's scope is the running
@@ -82,18 +86,28 @@ def foreign_refusal(services: AppServices, count: int, foreign: list[str]) -> st
     it is offered only where the running id, whole, is in none of the other
     ids selected - and only then does adding it leave them out. The id's tail
     was offered, and `model:Anima` is Animagine too; nor is the whole id safe
-    everywhere (`Qwen/Qwen-Image` is in `Qwen/Qwen-Image-Edit`).
+    everywhere (`Qwen/Qwen-Image` is in `Qwen/Qwen-Image-Edit`). Picked cards
+    are no filter's - neither way out reaches them - so for those (`picked`,
+    the foreign ids) the way out is unpicking them, named as the page names
+    images, the first six.
     """
     running = services.model_id()
+    lead = (
+        f"{count} of the selected images {'was' if count == 1 else 'were'} made on "
+        f"{', '.join(foreign)}; the server is running {running}, whose steps, CFG and mu "
+        f"differ."
+    )
+    if picked is not None:
+        names = [f"#{image_id}" for image_id in picked[:6]]
+        if len(picked) > 6:
+            names.append(f"{len(picked) - 6} more")
+        listed = f"{', '.join(names[:-1])} and {names[-1]}" if len(names) > 1 else names[0]
+        return f"{lead} Unpick {listed}."
     narrows = not any(ch.isspace() for ch in running) and not any(
         running.lower() in other.lower() for other in foreign
     )
     search = f", or add model:{running} to the search" if narrows else ""
-    return (
-        f"{count} of the selected images {'was' if count == 1 else 'were'} made on "
-        f"{', '.join(foreign)}; the server is running {running}, whose steps, CFG and mu "
-        f"differ. Untick All models{search}."
-    )
+    return f"{lead} Untick All models{search}."
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -140,8 +154,8 @@ def create_router(services: AppServices) -> APIRouter:
         return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 
-    @router.post("/api/rerender", response_model=JobAccepted)
-    async def rerender(request: RerenderRequest) -> JobAccepted:
+    @router.post("/api/rerender", response_model=RerenderAccepted)
+    async def rerender(request: RerenderRequest) -> RerenderAccepted:
         """Queue the gallery's current selection again at another size, as one job.
 
         The documented workflow ends at "star the winners"; getting them at full
@@ -150,24 +164,36 @@ def create_router(services: AppServices) -> APIRouter:
         a cell with its own settings and seed, deduplicated against what the
         gallery already holds at the target size, so a re-render can itself be
         resumed. A sibling of `run_grid`, and it shares the run-id and resume
-        machinery with it.
+        machinery with it. The selection is the picked cards where `ids` names
+        them, else the filter (`submission.resolve_selection`); a picked image
+        gone since is left out and named in `deleted`, and with none left the
+        answer is 404 naming them all.
         """
         probe = GenerateRequest(prompt="x", width=request.width, height=request.height)
         try:
             probe.check_budget()
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        records, _, _ = await submission.resolve_selection(
-            services, ids=None, search=request.search, favorites=request.favorites, all_models=request.all_models,
+        records, gone, binned = await submission.resolve_selection(
+            services, ids=request.ids, search=request.search, favorites=request.favorites,
+            all_models=request.all_models,
         )
+        deleted = [RerenderGone(id=image_id, detail=submission.gone_detail(image_id, binned)) for image_id in gone]
+        if not records:
+            said = "; ".join(f"#{item.id} is {item.detail}" for item in deleted[:6])
+            more = f"; and {len(deleted) - 6} more" if len(deleted) > 6 else ""
+            raise HTTPException(status_code=404, detail=f"none of the selected images is left: {said}{more}")
         # Steps, CFG and mu are checkpoint-specific - Turbo's 8 / 0 / 1.15 on FLUX
         # is a broken image recorded under FLUX - so a record from another
-        # checkpoint is refused rather than rendered wrong. Only reachable with
-        # `all_models`: the scope keeps them out of the selection otherwise.
+        # checkpoint is refused rather than rendered wrong. From a filter, only
+        # reachable with `all_models`: the scope keeps them out of it otherwise;
+        # picked cards are another checkpoint's wherever they were picked.
         foreign = sorted({r.model_id for r in records if r.model_id != services.model_id()})
         if foreign:
-            count = sum(r.model_id != services.model_id() for r in records)
-            raise HTTPException(status_code=422, detail=foreign_refusal(services, count, foreign))
+            others = [r.id for r in records if r.model_id != services.model_id()]
+            raise HTTPException(status_code=422, detail=foreign_refusal(
+                services, len(others), foreign, others if request.ids is not None else None,
+            ))
         # Oldest first (the resolver's order), so the re-render lands in the
         # order the originals did; every record's reproduction set but its size.
         cells = grid.cells_from_records(records, width=request.width, height=request.height)
@@ -191,7 +217,7 @@ def create_router(services: AppServices) -> APIRouter:
                 detail=f"every selected image is already rendered at {request.width}x{request.height}",
             )
         job = await services.jobs().submit_cells(kept, run_id=run_id)
-        return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
+        return RerenderAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id, deleted=deleted)
 
 
     @router.post("/api/grid/preview", response_model=GridPreview)
