@@ -1772,7 +1772,11 @@ recorded while the box still showed the one typed (2026-10-12 review, R24).
 `startJob` now refuses an integer seed that is not `Number.isSafeInteger`
 ("use a smaller seed, or the CLI"), and the Seed box's `max` is that bound.
 The refusal is the smaller change: the rest of the page holds seeds as
-numbers, so sending the box as a string would fix one path of many.
+numbers, so sending the box as a string would fix one path of many. It
+refuses the few seeds past that bound a double does hold exactly (`2**60`)
+too: once a seed is a number, the page cannot tell one that was itself from
+one already rounded - a CLI record's 19-digit seed comes back from
+`res.json()` rounded, and Use seed would put that neighbour in the box.
 
 ## One generator per image
 
