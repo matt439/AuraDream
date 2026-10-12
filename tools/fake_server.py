@@ -215,6 +215,8 @@ def main() -> int:
     # the claimed checkpoint: greyed on a Krea 2 or klein fake, live on a
     # FLUX.1, SDXL, Z-Image or Qwen-Image one.
     fake.refine_supported = profile["refine_supported"]
+    # And an inpaint only where the profile enables one (SDXL and Z-Image).
+    fake.inpaint_supported = profile["inpaint_supported"]
     # A Mu only where the claimed checkpoint's schedule can take one: on an
     # Anima or SDXL fake the row drops it, as the real applied() does.
     fake.mu_supported = profile["mu_supported"]

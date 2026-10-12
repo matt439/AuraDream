@@ -1153,6 +1153,18 @@ def reference_paths(ids: Sequence[int], noun: str = "reference image") -> list:
     return [by_id[image_id] for image_id in ids]
 
 
+def mask_path(mask: str) -> Path:
+    """The stored PNG behind a request's mask hash: the counterpart of
+    `reference_paths`, and the one place a hash becomes a file.
+
+    The masks table and `outputs_dir/masks/` are the next step of
+    docs/plan-inpainting.md; until they exist nothing is stored, so every
+    hash is unknown and an inpaint fails its cell in words rather than
+    running over a file the request could have named.
+    """
+    raise ValueError(f"no stored mask {mask[:16]}")
+
+
 def missing_files(records: Sequence[ImageRecord]) -> set[int]:
     """The ids of those `records` whose PNG is not in the gallery directory:
     a row whose file went - deleted by hand, a disk restored without it -

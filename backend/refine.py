@@ -18,6 +18,16 @@ Which checkpoints have one is therefore the installed diffusers' answer
 2, FLUX.2 [klein], ERNIE-Image and Lumina 2 do not, and neither do the local
 Anima and NewBie pipelines.
 
+An inpaint is a refine pass with a mask: the same source and strength, at the
+source's own size, through the inpaint class diffusers ships beside the
+pipeline (`sibling(..., "Inpaint")`, the same naming and exact-export rule),
+built the same way (`build`). The classes re-impose the kept region on the
+latents every step, but decode the whole picture, so what they keep is the
+VAE's round trip of the source; `composite` pastes the result back over the
+source's own pixels with the mask as alpha. Which checkpoints get one is the
+profile's (`inpaint_supported`) as well as the library's: see
+`model_defaults.INPAINT_DEFERRED`.
+
 The source is a gallery *id*, for the reason a reference image is: a path
 from the request joined onto a directory is an arbitrary-file read.
 
@@ -49,6 +59,13 @@ DEFAULT_SCALE = 1.5
 # of any pipeline - the per-image seed and the cancellation point.
 REQUIRED = frozenset({"image", "strength", "generator", "callback_on_step_end"})
 
+# And an inpaint's: the same, and the mask. Every inpaint class diffusers 0.40
+# exports for the catalogue's pipelines takes all of it.
+INPAINT_REQUIRED = REQUIRED | {"mask_image"}
+
+# The sibling kinds, by the infix diffusers names each class with.
+KINDS = ("Img2Img", "Inpaint")
+
 # The arguments `DiffusersBackend.generate` hands a pipeline besides the size,
 # which the source image carries (SDXL's image-to-image call has no width or
 # height at all). A sibling must take every one of these its text-to-image
@@ -71,24 +88,28 @@ CARRIED = frozenset(
 )
 
 
-def sibling(pipeline: type) -> type | None:
-    """The image-to-image class diffusers ships beside this pipeline class.
+def sibling(pipeline: type, kind: str = "Img2Img") -> type | None:
+    """The image-to-image (or inpaint) class diffusers ships beside this one.
 
     Found by the library's own naming - `StableDiffusionXLPipeline`'s is
-    `StableDiffusionXLImg2ImgPipeline` - and only for the class diffusers
+    `StableDiffusionXLImg2ImgPipeline`, its inpaint class
+    `StableDiffusionXLInpaintPipeline` - and only for the class diffusers
     itself exports under that name: a local pipeline that merely shares one
     (the tests' stand-ins, a custom class) has components nobody checked
     against the sibling's. None where there is no such class, or where its
-    call could not run what the text-to-image one runs (`REQUIRED`, `CARRIED`).
+    call could not run what the text-to-image one runs (`REQUIRED`, or
+    `INPAINT_REQUIRED` for an inpaint, and `CARRIED`).
     """
+    if kind not in KINDS:
+        raise ValueError(f"no sibling kind {kind!r}; one of {', '.join(KINDS)}")
     name = getattr(pipeline, "__name__", "")
-    if not name.endswith("Pipeline") or "Img2Img" in name:
+    if not name.endswith("Pipeline") or any(infix in name for infix in KINDS):
         return None
     import diffusers
 
     if getattr(diffusers, name, None) is not pipeline:
         return None
-    found = getattr(diffusers, f"{name[: -len('Pipeline')]}Img2ImgPipeline", None)
+    found = getattr(diffusers, f"{name[: -len('Pipeline')]}{kind}Pipeline", None)
     if found is None:
         return None
     try:
@@ -96,9 +117,29 @@ def sibling(pipeline: type) -> type | None:
         params = set(inspect.signature(found.__call__).parameters)
     except (TypeError, ValueError):
         return None
-    if not REQUIRED <= params or (CARRIED & own) - params:
+    required = INPAINT_REQUIRED if kind == "Inpaint" else REQUIRED
+    if not required <= params or (CARRIED & own) - params:
         return None
     return found
+
+
+def library_strength(cls: type) -> float | None:
+    """The `strength` default of a sibling's own call signature, or None.
+
+    Where an inpaint's Strength box starts until a profile has a measured
+    value: no catalogue author documents inpainting with base weights, so the
+    only number there is is the library's, and it is said as the library's,
+    never the checkpoint's. Read rather than copied, so an upgrade of
+    diffusers cannot leave it stale.
+    """
+    try:
+        param = inspect.signature(cls.__call__).parameters.get("strength")
+    except (TypeError, ValueError):
+        return None
+    default = None if param is None else param.default
+    if isinstance(default, bool) or not isinstance(default, (int, float)):
+        return None
+    return float(default)
 
 
 def build(pipe: Any, cls: type) -> Any:
@@ -129,32 +170,37 @@ def build(pipe: Any, cls: type) -> Any:
     return cls(**kwargs)
 
 
-def start_index(steps: int, strength: float, model_id: str) -> int | None:
+def start_index(steps: int, strength: float, model_id: str, inpaint: bool = False) -> int | None:
     """The supported checkpoint's integer start in its denoising schedule.
 
     SDXL floors the steps that run; the flow siblings floor those skipped.
-    Keep the operations in diffusers' order: rearranging the multiplication
-    changes boundary cases through floating-point rounding. Unknown profiles
-    return None rather than promising two strengths produce the same image.
+    The inpaint classes round as their image-to-image ones do (each one's
+    `get_timesteps` is the same arithmetic), so `inpaint` only changes which
+    capability the profile has to have. Keep the operations in diffusers'
+    order: rearranging the multiplication changes boundary cases through
+    floating-point rounding. Unknown profiles return None rather than
+    promising two strengths produce the same image.
     """
     # Imported here to keep this a leaf during model_defaults' initialization.
     from .model_defaults import defaults_for
 
     profile = defaults_for(model_id)
-    if not profile["refine_supported"]:
+    if not profile["inpaint_supported" if inpaint else "refine_supported"]:
         return None
     if profile["mu_supported"]:
         return int(max(steps - min(steps * strength, steps), 0))
     return max(steps - min(int(steps * strength), steps), 0)
 
 
-def steps_run(steps: int, strength: float, model_id: str | None = None) -> int:
+def steps_run(
+    steps: int, strength: float, model_id: str | None = None, inpaint: bool = False
+) -> int:
     """The profiled sibling's count, or the floor until its family is known.
 
     The progress callback still reads the actual pipeline's num_timesteps;
     this count is for the bar before that first callback and timing history.
     """
-    start = start_index(steps, strength, model_id) if model_id is not None else None
+    start = start_index(steps, strength, model_id, inpaint) if model_id is not None else None
     return max(1, int(steps * strength) if start is None else steps - start)
 
 
@@ -218,3 +264,70 @@ def source_image(image_id: int, width: int, height: int) -> "Image":
     (path,) = storage.reference_paths([image_id], noun="source image")
     with PILImage.open(path) as handle:
         return fitted(handle.convert("RGB"), width, height)
+
+
+def inpaint_source(image_id: int, width: int, height: int) -> "Image":
+    """The gallery image an inpaint starts from, at its own size.
+
+    Never resized: the mask was painted on these pixels, and the composite
+    puts them back exactly. A request at another size is a mistake the
+    submit check names first; here it raises rather than misaligning the mask.
+    """
+    from PIL import Image as PILImage
+
+    from . import storage
+
+    (path,) = storage.reference_paths([image_id], noun="source image")
+    with PILImage.open(path) as handle:
+        image = handle.convert("RGB")
+    if image.size != (width, height):
+        raise ValueError(
+            f"source image {image_id} is {image.width}x{image.height}; "
+            f"an inpaint runs at its source's size, not {width}x{height}"
+        )
+    return image
+
+
+def mask_image(mask: str, width: int, height: int) -> "Image":
+    """The stored mask a request names by hash, as one luminance channel.
+
+    Resolved by `storage.mask_path`, the one place a hash becomes a file -
+    never a path from the request. White is repainted and black kept, as
+    every inpaint class reads it; grey levels are the feather, which the
+    classes binarise and `composite` blends with.
+    """
+    from PIL import Image as PILImage
+
+    from . import storage
+
+    path = storage.mask_path(mask)
+    with PILImage.open(path) as handle:
+        image = handle.convert("L")
+    if image.size != (width, height):
+        raise ValueError(
+            f"mask {mask[:16]} is {image.width}x{image.height}, not the {width}x{height} it covers"
+        )
+    return image
+
+
+def composite(mask: "Image", source: "Image", image: "Image", processor: Any = None) -> "Image":
+    """`image` over `source` where `mask` is white, `source` where it is black.
+
+    The library's own `VaeImageProcessor.apply_overlay` - what the inpaint
+    classes call themselves with `padding_mask_crop` - with the mask's grey
+    levels as the alpha, so a feathered edge blends and every unmasked pixel
+    is the source's exactly rather than its VAE round trip. Always, not a
+    setting: it is what an inpaint is in this app, and the PNG records it as
+    `"mask_blend": "overlay"`. `processor` is the runner's own where there is
+    one; any `VaeImageProcessor` does the same without crop coordinates.
+    """
+    if not (mask.size == source.size == image.size):
+        raise ValueError(
+            f"cannot composite a {image.width}x{image.height} result over a "
+            f"{source.width}x{source.height} source with a {mask.width}x{mask.height} mask"
+        )
+    if not callable(getattr(processor, "apply_overlay", None)):
+        from diffusers.image_processor import VaeImageProcessor
+
+        processor = VaeImageProcessor()
+    return processor.apply_overlay(mask.convert("L"), source.convert("RGB"), image.convert("RGB"))

@@ -44,6 +44,31 @@ def test_profiled_start_index_matches_the_real_siblings_scheduler(model_id, clas
             assert timesteps.equal(scheduler.timesteps[scheduler.begin_index:])
 
 
+@pytest.mark.parametrize("model_id, class_name", CASES)
+def test_the_inpaint_start_index_matches_the_real_inpaint_classes_scheduler(model_id, class_name):
+    # An inpaint rounds as its class's own get_timesteps does; only the
+    # enabled families are promised an index, the deferred ones none.
+    inpaint = refine.sibling(getattr(diffusers, class_name), "Inpaint")
+    if not defaults_for(model_id)["inpaint_supported"]:
+        assert refine.start_index(10, 0.5, model_id, inpaint=True) is None
+        return
+    sdxl = class_name == "StableDiffusionXLPipeline"
+    scheduler = (
+        diffusers.EulerDiscreteScheduler()
+        if sdxl else diffusers.FlowMatchEulerDiscreteScheduler()
+    )
+    pipe = SimpleNamespace(scheduler=scheduler)
+    for steps in (4, 8, 10, 28):
+        scheduler.set_timesteps(steps, device="cpu")
+        for strength in (0.05, 0.1, 0.2, 0.3, 0.4, 0.45, 0.6, 0.7, 0.9, 0.9999, 1.0):
+            if not refine.leaves_a_step(steps, strength):
+                continue
+            timesteps, count = inpaint.get_timesteps(pipe, steps, strength, "cpu")
+            assert refine.start_index(steps, strength, model_id, inpaint=True) == scheduler.begin_index
+            assert refine.steps_run(steps, strength, model_id, inpaint=True) == count == len(timesteps)
+            assert timesteps.equal(scheduler.timesteps[scheduler.begin_index:])
+
+
 @pytest.mark.parametrize("model_id, steps, axis, expected", [
     ("black-forest-labs/FLUX.1-Krea-dev", 28, "0.05-0.15x0.01", 7),
     ("black-forest-labs/FLUX.1-schnell", 4, "0.5-0.9x0.1", 2),

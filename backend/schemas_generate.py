@@ -107,6 +107,12 @@ class GenerateRequest(BaseModel):
     # In (0, 1], checked by `_a_fraction` below rather than by gt/le, whose
     # "Input should be less than or equal to 1" the Refine dialog would show.
     strength: float | None = None
+    # An inpaint: a refine pass at the source's own size through the inpaint
+    # class beside the pipeline, repainting where this mask is white. The
+    # mask is a stored picture named by the SHA-256 of its pixels, never a
+    # path (`storage.mask_path` resolves it), and means nothing without the
+    # source it was painted on: `applied()` drops it with the source.
+    mask: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
@@ -256,6 +262,7 @@ class GenerateRequest(BaseModel):
         reference_supported: bool = False,
         lora_supported: bool = True,
         refine_supported: bool = False,
+        inpaint_supported: bool = False,
     ) -> "GenerateRequest":
         """This request as the pipeline will actually run it.
 
@@ -310,14 +317,21 @@ class GenerateRequest(BaseModel):
         # got past that is not recorded as a refinement of an image the
         # pipeline never saw. The strength goes with it, as the LoRA scale
         # goes with the adapter.
-        refine = self.refine
-        if refine is not None and not refine_supported:
+        # With a mask the question is the inpaint class's, without one the
+        # image-to-image class's; where the source goes its mask goes too, and
+        # a mask with no source is not a setting at all.
+        refine, mask = self.refine, self.mask
+        if refine is not None and not (inpaint_supported if mask is not None else refine_supported):
             refine = None
             changes["refine"] = None
+        if mask is not None and refine is None:
+            mask = None
+            changes["mask"] = None
         if refine is None and self.strength != default_strength():
             changes["strength"] = default_strength()
         # The sibling's `image` is the source, so references have nowhere to
-        # go on a refine pass even where the text-to-image call takes them.
+        # go on a refine pass (or an inpaint: SDXL's and Z-Image's classes take
+        # none) even where the text-to-image call takes them.
         if refine is not None and self.reference and reference_supported:
             changes["reference"] = []
         return self.model_copy(update=changes) if changes else self

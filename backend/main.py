@@ -521,6 +521,7 @@ def _merged_defaults(info: dict) -> dict:
         "true_cfg_supported",
         "reference_supported",
         "refine_supported",
+        "inpaint_supported",
     ):
         if info.get(key) is not None:
             defaults[key] = info[key]
@@ -530,6 +531,16 @@ def _merged_defaults(info: dict) -> dict:
     # The Refine dialog's "a load answers for certain" is for the rest.
     defaults["refine_settled"] = (
         bool(defaults.get("refine_settled")) or info.get("refine_supported") is not None
+    )
+    # The same for an inpaint, whose False is final before a load anyway
+    # (`model_defaults.inpaint_settled`).
+    defaults["inpaint_settled"] = (
+        bool(defaults.get("inpaint_settled")) or info.get("inpaint_supported") is not None
+    )
+    # The loaded inpaint class's own strength default - the library's number,
+    # which is all there is until a profile measures one - or None.
+    defaults["inpaint_strength"] = (
+        info.get("inpaint_strength") if defaults["inpaint_supported"] else None
     )
     # Whose the strength is: the profile's own, or the general default filled
     # in below for an unprofiled pipeline that has a pass. The Refine dialog

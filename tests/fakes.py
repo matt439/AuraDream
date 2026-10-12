@@ -47,6 +47,8 @@ class FakeBackend(GenerationBackend):
         self.reference_supported = True
         # And it has an image-to-image sibling, so a refine pass runs.
         self.refine_supported = True
+        # And an inpaint class: an inpaint repaints only under its mask.
+        self.inpaint_supported = True
         # And a flow schedule a requested mu can reach. Off, the mu goes
         # from the row, as the real backend's `applied()` drops it.
         self.mu_supported = True
@@ -86,7 +88,7 @@ class FakeBackend(GenerationBackend):
         self._profile_model = model_id
         for key in (
             "cfg_threshold", "true_cfg_supported", "negative_prompt_supported",
-            "reference_supported", "refine_supported", "mu_supported",
+            "reference_supported", "refine_supported", "inpaint_supported", "mu_supported",
         ):
             setattr(self, key, profile[key])
         self.lora_reason = lora_refusal(model_id)
@@ -131,9 +133,14 @@ class FakeBackend(GenerationBackend):
             changes["mu"] = None
         if request.lora and not self.lora_supported():
             changes["lora"] = None
-        if request.refine is not None and not self.refine_supported:
+        inpaint = request.refine is not None and request.mask is not None
+        if request.refine is not None and not (
+            self.inpaint_supported if inpaint else self.refine_supported
+        ):
             changes["refine"] = None
             changes["strength"] = default_strength()
+        if request.mask is not None and (not inpaint or "refine" in changes):
+            changes["mask"] = None
         if changes:
             request = request.model_copy(update=changes)
         if self.cfg_threshold is None:
@@ -146,6 +153,7 @@ class FakeBackend(GenerationBackend):
             reference_supported=self.reference_supported,
             lora_supported=self.lora_supported(),
             refine_supported=self.refine_supported,
+            inpaint_supported=self.inpaint_supported,
         )
 
     def load(self) -> None:
@@ -184,11 +192,27 @@ class FakeBackend(GenerationBackend):
                 raise Cancelled
         if self.after_generate is not None:
             self.after_generate()
+        if request.refine is not None and request.mask is not None:
+            return self._inpaint(request, seed)
         # At the size that was asked for: the row records the image's own
         # dimensions, so anything matching on them - resume, the duration
         # estimate - needs a double that does not quietly render 16x16.
         return [
             Image.new("RGB", (request.width, request.height)) for _ in range(request.num_images)
+        ]
+
+    @staticmethod
+    def _inpaint(request, seed):
+        """The source with only its masked pixels changed: a flat fill by each
+        image's seed, through the real composite, so a test can read the
+        result against the source."""
+        from backend import refine
+
+        source = refine.inpaint_source(request.refine, request.width, request.height)
+        mask = refine.mask_image(request.mask, request.width, request.height)
+        return [
+            refine.composite(mask, source, Image.new("RGB", source.size, fake_fill(seed + offset)))
+            for offset in range(request.num_images)
         ]
 
     def describe(self) -> dict:
@@ -201,11 +225,17 @@ class FakeBackend(GenerationBackend):
             "cfg_threshold": None,
             "reference_supported": self.reference_supported,
             "refine_supported": self.refine_supported,
+            "inpaint_supported": self.inpaint_supported,
             "lora_supported": self.lora_supported(),
         }
 
     def free_cache(self) -> None:
         self.cache_freed = getattr(self, "cache_freed", 0) + 1
+
+
+def fake_fill(seed: int) -> tuple[int, int, int]:
+    """The colour the fake inpaint paints a masked region for this seed."""
+    return (seed * 37 % 256, seed * 91 % 256, seed * 53 % 256)
 
 
 class FakeTranslator:

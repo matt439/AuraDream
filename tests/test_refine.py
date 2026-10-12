@@ -114,8 +114,9 @@ def test_carried_names_every_argument_generate_passes():
     literal = source[source.index("kwargs: dict[str, Any] = {"):]
     literal = literal[: literal.index("}")]
     passed = set(re.findall(r'"(\w+)":', literal)) | set(re.findall(r'kwargs\["(\w+)"\]', source))
-    # The size is the source image's, and `image` and `strength` are the pass.
-    assert passed - {"width", "height", "image", "strength"} == set(refine.CARRIED)
+    # The size is the source image's, and `image`, `strength` and an
+    # inpaint's `mask_image` are the pass.
+    assert passed - {"width", "height", "image", "strength", "mask_image"} == set(refine.CARRIED)
 
 
 # ------------------------------------------------------------- the arithmetic
@@ -546,7 +547,7 @@ def _loaded(pipe) -> DiffusersBackend:
 @pytest.fixture
 def refinable(store, monkeypatch):
     """A loaded backend whose pipeline has a sibling, and a source to refine."""
-    monkeypatch.setattr(refine, "sibling", lambda cls: Img2ImgStub if cls is RefinableMain else None)
+    monkeypatch.setattr(refine, "sibling", lambda cls, kind="Img2Img": Img2ImgStub if cls is RefinableMain and kind == "Img2Img" else None)
     backend = _loaded(RefinableMain())
     source = store.save_image(
         Image.new("RGB", (64, 96)), GenerateRequest(prompt="a fox", width=256, height=384),
@@ -712,7 +713,7 @@ def test_a_requested_mu_is_the_whole_shift_on_a_refine_pass_too(store, monkeypat
     # a static scheduler is handed the pre-shifted schedule instead, less its
     # own shift. Either way the schedule that lands is e^mu, as it is for a
     # text-to-image call.
-    monkeypatch.setattr(refine, "sibling", lambda cls: MuSibling if cls is MuMain else None)
+    monkeypatch.setattr(refine, "sibling", lambda cls, kind="Img2Img": MuSibling if cls is MuMain and kind == "Img2Img" else None)
     scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=dynamic, shift=1.0 if dynamic else 3.0)
     backend = _loaded(MuMain(scheduler))
     source = store.save_image(

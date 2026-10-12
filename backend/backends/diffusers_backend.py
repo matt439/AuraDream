@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from .. import latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import settings
-from ..model_defaults import defaults_for
+from ..model_defaults import INPAINT_DEFERRED, defaults_for
 from ..seeds import wrap_seed
 from . import anima_loading, loading, netayume_loading, newbie_loading, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
@@ -92,6 +92,12 @@ class DiffusersBackend(GenerationBackend):
         self._refine_class: tuple[type, type | None] | None = None
         self._refine_pipe: Any = None
         self._refine_params: set[str] = set()
+        # The inpaint class, the same way: asked once per pipeline class,
+        # built over the same components on the first inpaint, and dropped
+        # with the pipeline.
+        self._inpaint_class: tuple[type, type | None] | None = None
+        self._inpaint_pipe: Any = None
+        self._inpaint_params: set[str] = set()
         # diffusers draws its own tqdm bar per denoising loop. Kept on by
         # default; the CLI turns it off because it renders its own status line.
         self._console_progress = True
@@ -250,8 +256,9 @@ class DiffusersBackend(GenerationBackend):
         self._console_progress = enabled
         if self._pipe is not None:
             self._apply_console_progress(self._pipe)
-        if self._refine_pipe is not None:
-            self._apply_console_progress(self._refine_pipe)
+        for runner in (self._refine_pipe, self._inpaint_pipe):
+            if runner is not None:
+                self._apply_console_progress(runner)
 
     def unload(self) -> None:
         with self._lock:
@@ -263,6 +270,7 @@ class DiffusersBackend(GenerationBackend):
             # refine pipeline is a second set of references to its modules.
             self._lora = None
             self._refine_pipe, self._refine_params = None, set()
+            self._inpaint_pipe, self._inpaint_params = None, set()
         self._release()
 
     def try_unload(self) -> bool:
@@ -279,6 +287,7 @@ class DiffusersBackend(GenerationBackend):
             loaded, self._pipe, self._call_params = self._pipe is not None, None, set()
             self._lora = None
             self._refine_pipe, self._refine_params = None, set()
+            self._inpaint_pipe, self._inpaint_params = None, set()
         finally:
             self._lock.release()
         if loaded:
@@ -330,6 +339,7 @@ class DiffusersBackend(GenerationBackend):
                 # fact about this installation, not about the checkpoint.
                 lora_supported=self.lora_supported(),
                 refine_supported=profile["refine_supported"],
+                inpaint_supported=profile["inpaint_supported"],
             )
         return request.applied(
             negative_prompt_supported="negative_prompt" in self._call_params,
@@ -339,6 +349,7 @@ class DiffusersBackend(GenerationBackend):
             reference_supported=self._reference_supported(),
             lora_supported=self.lora_supported(),
             refine_supported=self._refine_supported(),
+            inpaint_supported=self._inpaint_supported(),
         )
 
     def _reference_supported(self) -> bool:
@@ -391,6 +402,48 @@ class DiffusersBackend(GenerationBackend):
             )
         return self._refine_pipe
 
+    def _inpaint_supported(self) -> bool:
+        """Can this pipeline run an inpaint?
+
+        Where diffusers ships an inpaint class beside the loaded pipeline's
+        (`refine.sibling(..., "Inpaint")`) *and* the checkpoint's profile
+        enables it. The library exports one for families this app has not
+        enabled yet (`INPAINT_DEFERRED`), and a class alone is not the
+        decision: an inpaint there is refused, never run unmeasured.
+        """
+        pipe = self._pipe
+        if pipe is None:
+            return False
+        if self._inpaint_class is None or self._inpaint_class[0] is not type(pipe):
+            self._inpaint_class = (type(pipe), refine.sibling(type(pipe), "Inpaint"))
+        return (
+            self._inpaint_class[1] is not None
+            and type(pipe).__name__ not in INPAINT_DEFERRED
+            and bool(defaults_for(current_model_id(settings))["inpaint_supported"])
+        )
+
+    def _inpainter(self, pipe: Any) -> Any:
+        """The inpaint class over the live pipeline's components, as `_refiner`."""
+        if self._inpaint_pipe is None:
+            if not self._inpaint_supported():
+                raise RuntimeError(f"{type(pipe).__name__} has no inpaint pass in this app")
+            runner = refine.build(pipe, self._inpaint_class[1])
+            self._apply_console_progress(runner)
+            self._inpaint_params = set(inspect.signature(runner.__call__).parameters)
+            self._inpaint_pipe = runner
+            log.info("inpaint: %s over %s's components", type(runner).__name__, type(pipe).__name__)
+        return self._inpaint_pipe
+
+    def inpaint_strength(self) -> float | None:
+        """The loaded inpaint class's own `strength` default, or None.
+
+        The library's number, not the checkpoint's (`refine.library_strength`):
+        where an inpaint's Strength box can start until a profile measures one.
+        """
+        if not self._inpaint_supported():
+            return None
+        return refine.library_strength(self._inpaint_class[1])
+
     def start_sigma(self, request: "GenerateRequest") -> float | None:
         """How much noise this refine pass starts at, read off the schedule.
 
@@ -399,16 +452,22 @@ class DiffusersBackend(GenerationBackend):
         is None for a checkpoint the table does not know). None before a
         load, without a sibling, on a scheduler that is not flow matching,
         and where reading it fails: it is the preview's advice, and a
-        preview it broke would refuse the pass.
+        preview it broke would refuse the pass. An inpaint asks its own class,
+        which has no recipe in `schedule.START_RECIPES` yet, so no answer.
         """
         pipe = self._pipe
         if pipe is None or request.refine is None or request.strength is None:
             return None
-        start = refine.start_index(request.steps, request.strength, current_model_id(settings))
-        if start is None or not self._refine_supported():
+        inpaint = request.mask is not None
+        start = refine.start_index(
+            request.steps, request.strength, current_model_id(settings), inpaint
+        )
+        supported = self._inpaint_supported() if inpaint else self._refine_supported()
+        if start is None or not supported:
             return None
+        sibling = (self._inpaint_class if inpaint else self._refine_class)[1]
         try:
-            return schedule.start_sigma(pipe, self._refine_class[1], request, start)
+            return schedule.start_sigma(pipe, sibling, request, start)
         except Exception:  # noqa: BLE001 - advice: no answer rather than a refused preview
             log.debug("no start sigma for this pass", exc_info=True)
             return None
@@ -590,9 +649,17 @@ class DiffusersBackend(GenerationBackend):
         # the same components; everything below hands `runner` what it would
         # have handed `pipe`. `applied()` has already dropped the source where
         # there is no sibling, so a source here means there is one.
+        # An inpaint is a refine pass with a mask, through the inpaint class
+        # instead; `applied()` has dropped a mask the pipeline cannot take
+        # along with its source, so a mask here means there is one.
         refining = request.refine is not None
-        runner = self._refiner(pipe) if refining else pipe
-        params = self._refine_params if refining else self._call_params
+        inpainting = refining and request.mask is not None
+        if inpainting:
+            runner, params = self._inpainter(pipe), self._inpaint_params
+        elif refining:
+            runner, params = self._refiner(pipe), self._refine_params
+        else:
+            runner, params = pipe, self._call_params
         total = request.steps
         # Before the cancel check and the kwargs: a swap that fails must fail
         # the cell, not run it under whatever adapter the last cell left on.
@@ -689,7 +756,13 @@ class DiffusersBackend(GenerationBackend):
         # requested size here, since SDXL's image-to-image call takes its size
         # from the image and no width or height at all - and `strength` is how
         # far down the schedule the pipeline noises it before denoising back.
-        if refining:
+        # An inpaint's source is not resized - it runs at its source's size,
+        # which the mask was painted at - and `mask_image` is the stored mask.
+        if inpainting:
+            kwargs["image"] = refine.inpaint_source(request.refine, request.width, request.height)
+            kwargs["mask_image"] = refine.mask_image(request.mask, request.width, request.height)
+            kwargs["strength"] = request.strength
+        elif refining:
             kwargs["image"] = refine.source_image(request.refine, request.width, request.height)
             kwargs["strength"] = request.strength
         elif request.reference and self._reference_supported():
@@ -728,9 +801,19 @@ class DiffusersBackend(GenerationBackend):
         # here. Verified identical outputs for both fp8 and int8.
         with torch.no_grad(), schedule.forced_mu(pipe, mu):
             if refining:
-                return self._refine(pipe, runner, kwargs, generator, batch, should_cancel)
-            result = pipe(**kwargs)
-        return list(result.images)
+                images = self._refine(pipe, runner, kwargs, generator, batch, should_cancel)
+            else:
+                return list(pipe(**kwargs).images)
+        if not inpainting:
+            return images
+        # The class decoded the whole picture, so its "kept" region is the
+        # VAE's round trip of the source; put the source's own pixels back
+        # wherever the mask does not reach (`refine.composite`).
+        processor = getattr(runner, "image_processor", None)
+        return [
+            refine.composite(kwargs["mask_image"], kwargs["image"], image, processor)
+            for image in images
+        ]
 
     def _refine(
         self,
@@ -840,6 +923,10 @@ class DiffusersBackend(GenerationBackend):
             # The pipeline's class is the answer here: whether diffusers
             # ships an image-to-image sibling for it.
             "refine_supported": self._refine_supported() if self._pipe is not None else None,
+            # The inpaint class and the profile's decision together.
+            "inpaint_supported": self._inpaint_supported() if self._pipe is not None else None,
+            # And where its Strength box can start: the class's own default.
+            "inpaint_strength": self.inpaint_strength(),
             # Never None: peft and the quantization mode decide this one, and
             # both are known before a single weight is downloaded.
             "lora_supported": self.lora_supported(),
