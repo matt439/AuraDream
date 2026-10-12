@@ -68,7 +68,8 @@ Backend (`backend/`):
   selection; `api_generate.py` generate/grid/Re-render, `api_swap.py`,
   `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
   `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's
-  settings, after `applied()`);
+  settings, after `applied()`); `api_masks.py` an inpaint's mask stored
+  and served by its hash;
   `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
   routes and maintenance admission; `bundles.py` verified export/merge,
   `bundle_archive.py` the archive format and its verifying read,

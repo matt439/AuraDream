@@ -7,6 +7,7 @@ and their names still resolve here through `__getattr__` at the end.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import importlib
 import json
@@ -27,11 +28,11 @@ from PIL import Image, PngImagePlugin
 
 from .config import settings
 from . import gallery_lock
-# The three key elements that are built from columns here and from a request
+# The four key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
-from .grid import lora_key, reference_key, refine_key
-from .metadata import PNG_METADATA_KEY
+from .grid import lora_key, mask_key, reference_key, refine_key
+from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY
 from .search import like_escape, split_search
 from .schemas import ImageRecord, effective_true_cfg
 
@@ -42,6 +43,8 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _write_lock = threading.Lock()
+# `store_mask`'s, held across its encode, which `_write_lock` is not.
+_mask_lock = threading.Lock()
 
 # The long side of the WEBP written in outputs/thumbnails. The gallery's cards are
 # 160 px squares under 1800 px and 200-260 CSS px from there (--thumb-min's
@@ -162,7 +165,8 @@ CREATE TABLE IF NOT EXISTS images (
     refine          INTEGER,
     strength        REAL,
     batch           INTEGER,
-    binned_at       TEXT
+    binned_at       TEXT,
+    mask            TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -176,6 +180,21 @@ END;
 CREATE TRIGGER IF NOT EXISTS images_ad AFTER DELETE ON images BEGIN
     INSERT INTO images_fts(images_fts, rowid, prompt) VALUES('delete', old.id, old.prompt);
 END;
+CREATE INDEX IF NOT EXISTS idx_images_mask ON images (mask);
+"""
+
+# The inpaint masks the server holds, by the hash `mask_hash` names each one
+# by. Not gallery images: no row in `images`, no card, no bin state, never a
+# reference or a source. Created on every connection, as `_migrate` runs on
+# every one: a database file replaced under a running server - restored
+# from a backup - has no such table until it is given one.
+_MASKS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS masks (
+    hash        TEXT    PRIMARY KEY,
+    width       INTEGER NOT NULL,
+    height      INTEGER NOT NULL,
+    created_at  TEXT    NOT NULL
+)
 """
 
 
@@ -225,6 +244,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
         # fallback as any other unlisted column, and never NOT NULL: a row
         # from an older database or bundle reads None and is live.
         ("binned_at", "TEXT", "idx_images_binned"),
+        # An inpaint's mask, the hash of a `masks` row; NULL on every row
+        # that is not one, and only ever set beside `refine`.
+        ("mask", "TEXT", "idx_images_mask"),
     )
     for column, kind, index in added:
         if column in columns:
@@ -262,6 +284,7 @@ def _connect() -> sqlite3.Connection:
     ).fetchone() is None:
         conn.executescript(_SCHEMA)
     _migrate(conn)
+    conn.execute(_MASKS_SCHEMA)
     return conn
 
 
@@ -341,6 +364,7 @@ def _row_to_record(
         favorite=bool(row["favorite"]),
         content_hash=row["content_hash"],
         binned_at=row["binned_at"],
+        mask=row["mask"],
     )
 
 
@@ -350,7 +374,7 @@ _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
-    "refine", "strength", "batch", "binned_at",
+    "refine", "strength", "batch", "binned_at", "mask",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -428,6 +452,7 @@ def save_image(
     """
     created = datetime.now(timezone.utc)
     variables_json = json.dumps(variables) if variables else None
+    mask = request.mask if request.refine is not None else None
     digest = content_hash(image)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
     # The directory can disappear under a running server - renamed, deleted by
@@ -470,6 +495,13 @@ def save_image(
         "refine": request.refine,
         "refine_source": image_provenance(request.refine),
         "strength": request.strength if request.refine is not None else None,
+        # An inpaint's mask and what it was, null together on every other
+        # row as the source is: `applied()` never leaves a mask without its
+        # source. The composite over the source is what an inpaint is here,
+        # not a setting, and is named so that a later rule can be told apart.
+        "mask": mask,
+        "mask_source": mask_provenance(mask, image.width, image.height),
+        "mask_blend": "overlay" if mask is not None else None,
         "batch": batch,
     }
     info = PngImagePlugin.PngInfo()
@@ -502,9 +534,14 @@ def save_image(
             f", Denoising strength: {request.strength:g}, Refine: {request.refine}"
             if request.refine is not None
             else ""
-        ),
+        )
+        + (f", Inpaint mask: {mask[:16]}" if mask is not None else ""),
     )
     info.add_text(PNG_METADATA_KEY, json.dumps(meta))
+    # The mask itself, so this PNG alone reproduces the image (`PNG_MASK_KEY`).
+    embedded = mask_png(mask) if mask is not None else None
+    if embedded is not None:
+        info.add_text(PNG_MASK_KEY, base64.b64encode(embedded).decode("ascii"))
 
     committed = False
     thumb_path = _thumb_path(path)
@@ -551,6 +588,7 @@ def save_image(
                         "strength": request.strength if request.refine is not None else None,
                         "batch": batch,
                         "binned_at": None,
+                        "mask": mask,
                     },
                 )
                 # A pass whose source was deleted while it ran - read as the
@@ -654,6 +692,7 @@ def _stale_partials() -> list:
     paths = [
         *settings.outputs_dir.glob("*.part"),
         *(settings.outputs_dir / "thumbnails").glob("*.part"),
+        *masks_dir().glob("*.part"),
         *_bundle_leftovers(),
     ]
     for path in paths:
@@ -683,16 +722,22 @@ def _settle_plan(stale: Sequence, tracked: set[str] | None = None) -> list:
     debris. A thumbnail's `.webp.part` is debris too, even beside a committed
     row: `thumbnail_for` encodes for rows already tracked, so one may be cut
     short, and a placed thumbnail is never encoded again. The card falls back
-    to the PNG until a reindex writes a whole one.
+    to the PNG until a reindex writes a whole one. A mask's `.png.part` whose
+    `masks` row exists is finished likewise: `store_mask` commits the row
+    before the rename too.
     """
     if tracked is None:
         tracked = {row["filename"] for row in _tracked_files()}
     outputs = settings.outputs_dir
+    masks = masks_dir()
+    held = _tracked_masks() if any(path.parent == masks for path in stale) else set()
     plan = []
     for path in stale:
         name = path.name[: -len(".part")] if path.name.endswith(".part") else None
         target = None
         if name and path.parent == outputs and name.endswith(".png") and name in tracked:
+            target = path.with_name(name)
+        elif name and path.parent == masks and name.endswith(".png") and name[: -len(".png")] in held:
             target = path.with_name(name)
         plan.append((path, None if target is None or target.exists() else target))
     return plan
@@ -881,7 +926,7 @@ def completed_cells(
     quantization: str | None = None,
 ) -> set[CellKey]:
     """The key of everything already rendered: the prompt pair, the settings,
-    the references, adapter and refine source, the seed.
+    the references, adapter, refine source and mask, the seed.
 
     What a resumed grid subtracts from its cells. Keyed on the settings that
     make the image rather than on the job that made it, so a night that died
@@ -915,7 +960,7 @@ def completed_cells(
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
-                           reference, lora, lora_scale, refine, strength, seed
+                           reference, lora, lora_scale, refine, strength, mask, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -938,6 +983,7 @@ def completed_cells(
                         reference_key(json.loads(row["reference"]) if row["reference"] else None),
                         lora_key(row["lora"], row["lora_scale"]),
                         refine_key(row["refine"], row["strength"]),
+                        mask_key(row["mask"]),
                         row["seed"],
                     )
                 )
@@ -1075,9 +1121,20 @@ def index_file(
                 # Bin state lives in SQLite alone, as `favorite` does: a PNG
                 # recovered from its own chunk comes back live.
                 "binned_at": None,
+                "mask": _mask(meta.get("mask")) if meta.get("refine") is not None else None,
             },
         )
     return _row_to_record(row)
+
+
+_MASK_HASH = re.compile(r"[0-9a-f]{64}")
+
+
+def _mask(value: Any) -> str | None:
+    """A PNG chunk's `mask`, where it is a mask hash: the same shape the
+    request's field takes, so a hand-written block cannot put a path, or
+    anything else `mask_path` was never meant to look up, on a row."""
+    return value if isinstance(value, str) and _MASK_HASH.fullmatch(value) else None
 
 
 def _batch(value: Any) -> int | None:
@@ -1153,16 +1210,137 @@ def reference_paths(ids: Sequence[int], noun: str = "reference image") -> list:
     return [by_id[image_id] for image_id in ids]
 
 
+# Where the masks live: a directory of their own inside the images', which
+# no gallery glob (`*.png` in the images directory) reaches.
+MASKS_DIR = "masks"
+
+
+def masks_dir() -> Path:
+    return settings.outputs_dir / MASKS_DIR
+
+
+def mask_hash(mask: Image.Image) -> str:
+    """The name a mask is stored and asked for by: all 64 hex digits of the
+    SHA-256 of its size and its decoded `L` levels.
+
+    Of the pixels, not the file, as `content_hash` is - the encoder's settings
+    and the chunks would otherwise split one painting into two names - and the
+    whole digest, since a mask is an input looked up by this name, which the
+    16-digit `content_hash` is too short to be. The size is hashed with the
+    levels because the levels alone do not say it: an all-white 832x1216 and
+    an all-white 1216x832 are the same bytes and different masks.
+    """
+    if mask.mode != "L":
+        raise ValueError(f"a mask is one luminance channel, not {mask.mode}")
+    digest = hashlib.sha256(f"L {mask.width}x{mask.height}\n".encode("ascii"))
+    digest.update(mask.tobytes())
+    return digest.hexdigest()
+
+
+def mask_provenance(mask: str | None, width: int, height: int) -> dict[str, Any] | None:
+    """A result's `mask_source` in its PNG chunk: the mask's file, its hash
+    and its size - which is the result's own, since an inpaint runs at its
+    source's size - or None where the row is no inpaint."""
+    if mask is None:
+        return None
+    return {"filename": f"{mask}.png", "hash": mask, "width": width, "height": height}
+
+
+def _mask_row(conn: sqlite3.Connection, mask: str) -> sqlite3.Row | None:
+    return conn.execute("SELECT hash, width, height FROM masks WHERE hash = ?", (mask,)).fetchone()
+
+
+def mask_size(mask: str) -> tuple[int, int] | None:
+    """The size a stored mask was painted at, or None for a hash this server
+    holds no mask under. The table's answer; `mask_path` checks the file."""
+    with _session() as conn:
+        row = _mask_row(conn, mask)
+    return None if row is None else (row["width"], row["height"])
+
+
 def mask_path(mask: str) -> Path:
     """The stored PNG behind a request's mask hash: the counterpart of
     `reference_paths`, and the one place a hash becomes a file.
 
-    The masks table and `outputs_dir/masks/` are the next step of
-    docs/plan-inpainting.md; until they exist nothing is stored, so every
-    hash is unknown and an inpaint fails its cell in words rather than
-    running over a file the request could have named.
+    Through the `masks` table, never by joining request text onto a
+    directory: the hash is the table's key, and only a row this app wrote
+    names a file. An unknown hash and a missing file are both refused in
+    words, so a submission says which mask it could not find, and a queued
+    cell whose mask went fails in a sentence rather than in Pillow.
     """
-    raise ValueError(f"no stored mask {mask[:16]}")
+    with _session() as conn:
+        row = _mask_row(conn, mask)
+    if row is None:
+        raise ValueError(f"no stored mask {mask[:16]}; paint it again")
+    path = masks_dir() / f"{row['hash']}.png"
+    if not path.is_file():
+        raise ValueError(f"the file for mask {mask[:16]} is missing from the masks directory")
+    return path
+
+
+def store_mask(mask: Image.Image) -> tuple[str, bool]:
+    """Keep a mask in canonical form - `L` levels, 0 to 255, white repainted -
+    and answer its hash, and whether this call wrote it.
+
+    Content-addressed: the same picture is the same hash and one file, so the
+    Inpaint dialog's upload after every stroke costs a lookup once the mask
+    is held. Written as `save_image` writes an image: encoded to `.png.part`
+    outside the gallery reservation, then the row, then the rename after the
+    row commits, so a sweep never sees a file whose row is not there yet. A
+    row whose file was lost is given its file again; a file whose row was lost
+    (a database replaced under the server) its row.
+    """
+    mask = mask if mask.mode == "L" else mask.convert("L")
+    digest = mask_hash(mask)
+    ensure_outputs_dir()
+    directory = masks_dir()
+    directory.mkdir(exist_ok=True)
+    path = directory / f"{digest}.png"
+    partial = path.with_name(path.name + ".part")
+    # One upload at a time in this process: two of the same picture would
+    # otherwise encode into the one partial name together.
+    with _mask_lock:
+        return _store_mask(mask, digest, path, partial)
+
+
+def _store_mask(mask: Image.Image, digest: str, path: Path, partial: Path) -> tuple[str, bool]:
+    encoded = False
+    committed = False
+    try:
+        if not path.is_file():
+            mask.save(partial, format="PNG", compress_level=6)
+            encoded = True
+        with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
+            with _write_lock, _session() as conn:
+                created = conn.execute(
+                    "INSERT OR IGNORE INTO masks (hash, width, height, created_at) VALUES (?, ?, ?, ?)",
+                    (digest, mask.width, mask.height, datetime.now(timezone.utc).isoformat()),
+                ).rowcount == 1
+            committed = True
+            if encoded and not path.is_file():
+                _rename_with_retry(partial, path)
+                created = True
+    except BaseException:
+        if not committed:
+            _unlink(partial)
+        raise
+    finally:
+        # Another upload of the same picture placed the file first; a partial
+        # whose rename failed is the only copy, which the sweep finishes.
+        if encoded and committed and partial.exists() and path.is_file():
+            _unlink(partial)
+    return digest, created
+
+
+def mask_png(mask: str) -> bytes | None:
+    """The stored mask's own PNG bytes, for the result's embedded copy, or
+    None where it cannot be read - the copy is the backstop, never a reason
+    to lose the image it would have gone into."""
+    try:
+        return mask_path(mask).read_bytes()
+    except (ValueError, OSError, sqlite3.Error):
+        log.warning("mask %s could not be embedded in its result", mask[:16], exc_info=True)
+        return None
 
 
 def missing_files(records: Sequence[ImageRecord]) -> set[int]:
@@ -1274,6 +1452,12 @@ def _unlink(path) -> bool:
 def _tracked_files():
     with _session() as conn:
         return conn.execute("SELECT filename FROM images").fetchall()
+
+
+def _tracked_masks() -> set[str]:
+    """Every mask hash the `masks` table holds."""
+    with _session() as conn:
+        return {row["hash"] for row in conn.execute("SELECT hash FROM masks")}
 
 
 # The names `gallery_reports` and `gallery_delete` took out of this module,

@@ -101,8 +101,8 @@ async def swap_plan(
         except ValueError as exc:
             result.status, result.detail = "invalid", error_detail(exc)
             continue
-        spec = (cell.request.lora, tuple(cell.request.reference), cell.request.refine)
-        if spec != (None, (), None):
+        spec = (cell.request.lora, tuple(cell.request.reference), cell.request.refine, cell.request.mask)
+        if spec != (None, (), None, None):
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, cell.request)
             if checked[spec] is not None:

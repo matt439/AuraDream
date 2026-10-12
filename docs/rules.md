@@ -204,7 +204,7 @@ before changing it.
   chips and Check share, and owner of the patchable `tag_vocabulary`
 - `backend/submission.py` — what every cell producer checks before it
   queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
-  `not_yet_rendered`) and the gallery selection (`resolve_selection`);
+  `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`);
   `backend/api_generate.py` Generate, Run grid, its preview and Re-render;
   `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py` the Swap tags,
   Mass refine and More seeds plans, previews and submissions
@@ -212,6 +212,10 @@ before changing it.
   a PNG's text chunks, as the page read them, answered as the panel's
   settings after `applied()`, with the notes on what did not carry; the
   body capped at `MAX_BODY`
+- `backend/api_masks.py` — an inpaint's mask: `POST /api/masks` (a PNG
+  body over gallery image `source`, decoded under `refine_max_pixels`,
+  kept as `L` by `storage.store_mask` and answered by its hash) and
+  `GET /api/masks/{hash}` (through `storage.mask_path`); model-free
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone
@@ -994,6 +998,36 @@ Reproduction:
   until restored; `refine_binned` (read, not stored, from the same lookup)
   says which, so the page reads "refine of #N (in the recycle bin)" and
   offers Restore, which clears both.
+- An inpaint is a refine pass with `GenerateRequest.mask`: a stored mask
+  named by `storage.mask_hash` (all 64 hex digits of the SHA-256 of its
+  size and `L` levels), never a path; `storage.mask_path` is the one
+  resolver, through the `masks` table (created on every connection beside
+  `_migrate`), naming an unknown hash and a missing file. Masks live in
+  `outputs_dir/masks/`, written by `storage.store_mask` (`.png.part`,
+  renamed after the row commits; the stale-partial sweep finishes one whose
+  row exists), uploaded through `POST /api/masks` (a PNG over a live
+  gallery `source`, at its size, under `refine_max_pixels`, refused when it
+  paints nothing) and served by `GET /api/masks/{hash}`; both model-free.
+  A mask is no gallery image, never a reference or a source. The validator
+  refuses a mask without `refine` ("a mask needs the image it covers");
+  `applied()` asks `inpaint_supported` with a mask and `refine_supported`
+  without, and drops the mask with its source. At submit
+  (`submission.unusable_input`, kind `mask`) the source is live, the mask
+  held, and mask, source and request are one size; a cell checks its mask
+  file as it begins (`jobs`) and fails in words. `images.mask` is a
+  `_migrate` column beside `refine`; the chunk carries `mask`,
+  `mask_source` (`storage.mask_provenance`) and `mask_blend: "overlay"`,
+  null together otherwise, the A1111 block `, Inpaint mask: <16 hex>`, and
+  the mask's own PNG rides in the `local-diffusion-mask` text chunk
+  (`metadata.PNG_MASK_KEY`; best effort, the hash still says what ran).
+  `grid.mask_key` is `CellKey`'s fifth optional element, after refine;
+  `run_id` is unchanged for every run without one (pinned in
+  `tests/test_conditioning.py`), and `duplicate_count` keeps every element
+  after the refine one. `gallery_reports.refine_cost_ms` splits on
+  `mask IS NULL` (`inpaint=`), and the estimates price an inpaint cell
+  from inpaints alone (`inpaint_costs`). `cell_from_record` carries the
+  mask with its source; Mass refine drops it, since the record is the new
+  source. Load settings from PNG carries no mask, as it carries no source.
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.

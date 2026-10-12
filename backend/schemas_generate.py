@@ -149,6 +149,16 @@ class GenerateRequest(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _a_mask_covers_its_source(self) -> "GenerateRequest":
+        # A mask is painted on a picture's pixels, as a strength indexes a
+        # source's schedule; asked for alone it would be no setting at all.
+        # `applied()` drops one whose source a pipeline cannot take, which
+        # `model_copy` reaches without this check.
+        if self.mask is not None and self.refine is None:
+            raise ValueError("a mask needs the image it covers")
+        return self
+
     def check_refine_steps(self) -> None:
         # Check after capability validation, on actual cells: a grid's axes
         # can replace an otherwise unusable base steps/strength pair.
@@ -509,6 +519,18 @@ class JobAccepted(BaseModel):
     # needs the base.
     seed: int
     run_id: str
+
+
+class MaskStored(BaseModel):
+    """`POST /api/masks`' answer: the hash an inpaint's `mask` names, and the
+    size it was stored at - its source's. The same picture answers the same
+    hash, so an upload repeated after every stroke costs nothing new."""
+
+    hash: str
+    width: int
+    height: int
+    # Whether this upload wrote it, or the server already held it.
+    created: bool
 
 
 # Load settings from PNG's body (`api_png.py`): what the page read out of a

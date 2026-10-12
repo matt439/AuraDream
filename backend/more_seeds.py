@@ -52,7 +52,7 @@ def settings_key(record: ImageRecord) -> tuple:
     """The resume key's elements but the seed, read off a record as
     `storage.completed_cells` reads them off a row: the prompt pair, steps,
     CFG, mu, true CFG, references, the adapter and its weight, the refine
-    source and its strength, rounded alike."""
+    source and its strength, the mask, rounded alike."""
     return (
         record.prompt,
         record.negative_prompt or None,
@@ -63,6 +63,7 @@ def settings_key(record: ImageRecord) -> tuple:
         grid.reference_key(record.reference),
         grid.lora_key(record.lora, record.lora_scale),
         grid.refine_key(record.refine, record.strength),
+        grid.mask_key(record.mask),
     )
 
 

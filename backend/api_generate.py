@@ -199,10 +199,14 @@ def create_router(services: AppServices) -> APIRouter:
         cells = grid.cells_from_records(records, width=request.width, height=request.height)
         # One check per distinct combination rather than per cell: a selection of
         # 400 images carries at most a handful of adapters and sources between them.
-        for spec in {(c.request.lora, tuple(c.request.reference), c.request.refine) for c in cells}:
-            if spec != (None, (), None):
+        # Every cell is at the one size asked for, so an inpaint's mask is held
+        # to it here: re-rendered elsewhere, its mask no longer covers it.
+        for spec in {
+            (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask) for c in cells
+        }:
+            if spec != (None, (), None, None):
                 await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(
-                    update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2]}
+                    update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3]}
                 ))
         try:
             for cell in cells:
@@ -245,6 +249,15 @@ def create_router(services: AppServices) -> APIRouter:
         refine_costs = await asyncio.to_thread(
             gallery_reports.refine_cost_ms, request.width, request.height, services.model_id()
         )
+        # An inpaint's price is inpaints' alone; a mask is fixed across a job.
+        inpaint_costs = (
+            await asyncio.to_thread(
+                gallery_reports.refine_cost_ms, request.width, request.height, services.model_id(),
+                inpaint=True,
+            )
+            if request.refine is not None and request.mask is not None
+            else None
+        )
         per_image_bytes = await asyncio.to_thread(
             gallery_reports.image_bytes, request.width, request.height, services.model_id()
         )
@@ -255,7 +268,7 @@ def create_router(services: AppServices) -> APIRouter:
         budget_seeds = (
             grid.seeds_within_budget(
                 cells, listed or request.seeds, per_step_ms, request.budget_minutes * 60,
-                refine_costs=refine_costs,
+                refine_costs=refine_costs, inpaint_costs=inpaint_costs,
             )
             if request.budget_minutes and not request.resume
             else None
@@ -280,7 +293,9 @@ def create_router(services: AppServices) -> APIRouter:
             # into one picture before the night is spent finding out.
             duplicates=grid.duplicate_count(cells, services.backend().applied),
             summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
-            seconds=grid.estimate_seconds(cells, per_step_ms, refine_costs=refine_costs),
+            seconds=grid.estimate_seconds(
+                cells, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs
+            ),
             budget_seeds=budget_seeds,
             bytes=per_image_bytes * images if per_image_bytes else None,
             start_sigma=start_sigma,

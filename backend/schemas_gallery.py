@@ -57,6 +57,10 @@ class ImageRecord(BaseModel):
     # either, but a Restore brings it back. Read, not stored, like
     # `refine_missing`.
     refine_binned: bool = False
+    # An inpaint's mask, by the 64-digit hash `storage.mask_path` resolves:
+    # set only beside `refine`, which stays the source the mask was painted
+    # on, so every piece of source machinery reads an inpaint as a pass.
+    mask: str | None = None
     # How many images the pipeline call that made this one held (the panel's
     # Batch). No part of the reproduction set - each image has its own
     # generator - but what More seeds runs the batch's next images at. Null

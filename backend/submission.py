@@ -16,8 +16,8 @@ UNUSABLE_STATUS = {"source": "source_deleted", "lora": "lora_missing"}
 
 
 async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest) -> None:
-    """Refuse a reference, an adapter or a refine source this server cannot
-    run - at submit.
+    """Refuse a reference, an adapter, a refine source or an inpaint's mask
+    this server cannot run - at submit.
 
     All three are all-or-nothing inputs, unlike a negative prompt: a night
     queued with references against a pipeline that takes none, with an adapter
@@ -33,17 +33,26 @@ async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest
 
 async def unusable_input(services: AppServices, request: GenerateRequest) -> tuple[str, str] | None:
     """`refuse_unusable_inputs`' finding without the refusal: (kind, why) or
-    None. The kind - `refine`, `source`, `reference`, `references`, `lora` -
-    is what Swap tags reports per image (a deleted source, a missing adapter)
-    where a whole submission is refused for one."""
+    None. The kind - `refine`, `inpaint`, `source`, `mask`, `reference`,
+    `references`, `lora` - is what Swap tags reports per image (a deleted
+    source, a missing adapter) where a whole submission is refused for one.
+
+    Whether a pass can run from a source splits on the mask: with one it is
+    the inpaint class's question, without one the image-to-image class's, as
+    `applied()` asks it."""
     if request.refine is not None:
-        reason = await refine_unavailable(services)
+        inpainting = request.mask is not None
+        reason = await (inpaint_unavailable(services) if inpainting else refine_unavailable(services))
         if reason is not None:
-            return "refine", reason
+            return ("inpaint" if inpainting else "refine"), reason
         try:
             await asyncio.to_thread(storage.reference_paths, [request.refine], "source image")
         except ValueError as exc:
             return "source", str(exc)
+        if inpainting:
+            reason = await asyncio.to_thread(mask_unusable, request)
+            if reason is not None:
+                return "mask", reason
     if request.reference:
         info = await asyncio.to_thread(services.backend().describe)
         if not services.merged_defaults(info)["reference_supported"]:
@@ -83,6 +92,48 @@ async def refine_unavailable(services: AppServices) -> str | None:
         "has no compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and "
         "Qwen-Image checkpoints have one."
     )
+
+
+async def inpaint_unavailable(services: AppServices) -> str | None:
+    """Why this server has no inpaint, or None where it has one: what an
+    inpaint's submission is refused with. The profile's answer before a load,
+    the loaded class's after, as `refine_unavailable` asks."""
+    info = await asyncio.to_thread(services.backend().describe)
+    if services.merged_defaults(info)["inpaint_supported"]:
+        return None
+    return (
+        f"{info['model_id']} has no inpaint in this app - its pipeline has no inpaint class "
+        "in the installed diffusers, or its family's is not enabled yet. The SDXL and "
+        "Z-Image checkpoints have one."
+    )
+
+
+def mask_unusable(request: GenerateRequest) -> str | None:
+    """Why an inpaint's mask cannot run over its source, or None: the mask is
+    held and its file there (`storage.mask_path`), and the mask, the source
+    and the request are one size - an inpaint runs at its source's size,
+    which the mask was painted at. The source has been checked live first.
+    Blocking: reads the database."""
+    try:
+        storage.mask_path(request.mask)
+    except ValueError as exc:
+        return str(exc)
+    size = storage.mask_size(request.mask)
+    source = storage.get_image(request.refine)
+    if size is None or source is None:
+        # Gone between the two reads; the cell's own check says which.
+        return f"mask {request.mask[:16]} or source image {request.refine} has just gone"
+    if size != (source.width, source.height):
+        return (
+            f"mask {request.mask[:16]} is {size[0]}x{size[1]}, but source image {request.refine} "
+            f"is {source.width}x{source.height}; paint the mask on that image again"
+        )
+    if (request.width, request.height) != size:
+        return (
+            f"an inpaint runs at its source's size: source image {request.refine} is "
+            f"{source.width}x{source.height}, not {request.width}x{request.height}"
+        )
+    return None
 
 
 async def not_yet_rendered(

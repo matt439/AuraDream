@@ -213,6 +213,8 @@ class Job:
             # size, and how many images the whole job makes.
             "prompt": self.request.prompt[:120],
             "refine": None if self.refine_batch is not None else self.request.refine,
+            # Beside it, an inpaint's mask: the page names the job "inpaint of #N".
+            "mask": None if self.refine_batch is not None else self.request.mask,
             "refine_batch": self.refine_batch,
             "strength": self.request.strength if self.refine_batch is not None else None,
             "width": self.request.width,
@@ -814,6 +816,11 @@ class JobManager:
 
             started = time.perf_counter()
             try:
+                # An inpaint's mask is a file beside the rows, not one: one
+                # lost since the submit fails this cell in words as it
+                # begins, before any backend reads it.
+                if req.refine is not None and req.mask is not None:
+                    storage.mask_path(req.mask)
                 images = self.backend.generate(
                     req,
                     seed=seed,

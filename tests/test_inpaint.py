@@ -434,6 +434,16 @@ def test_the_fake_repaints_only_under_the_mask(store, monkeypatch, tmp_path):
     assert fake.applied(request).mask is None and fake.applied(request).refine is None
 
 
-def test_until_masks_are_stored_every_hash_is_unknown(store):
+def test_a_hash_the_server_holds_no_mask_under_is_named(store):
     with pytest.raises(ValueError, match="no stored mask abababababababab"):
         refine.mask_image(MASK, 256, 256)
+
+
+def test_a_stored_mask_is_read_as_one_channel_at_its_size(store):
+    mask = Image.new("L", (256, 128), 0)
+    mask.paste(200, (0, 0, 64, 64))
+    digest, _ = store.store_mask(mask)
+    read = refine.mask_image(digest, 256, 128)
+    assert read.mode == "L" and read.tobytes() == mask.tobytes()
+    with pytest.raises(ValueError, match="not the 256x256 it covers"):
+        refine.mask_image(digest, 256, 256)

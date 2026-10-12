@@ -163,6 +163,11 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "reference_sources": [provenance(i) for i in refs] or None,
         "refine": row["refine"], "refine_source": provenance(row["refine"]),
         "strength": row["strength"], "lora": row["lora"], "lora_scale": row["lora_scale"],
+        # A mask is content-addressed, so a merge never renumbers it; a row
+        # from a build before masks has none.
+        "mask": row.get("mask"),
+        "mask_source": storage.mask_provenance(row.get("mask"), row["width"], row["height"]),
+        "mask_blend": "overlay" if row.get("mask") else None,
         "batch": row.get("batch"),
     }
 

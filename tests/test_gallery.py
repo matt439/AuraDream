@@ -54,7 +54,7 @@ def test_the_png_carries_the_whole_reproduction_set(store):
         "prompt", "negative_prompt", "steps", "guidance_scale", "true_cfg", "mu", "seed",
         "model", "quantization", "job", "run", "size", "variables", "hash",
         "reference", "lora", "lora_scale", "refine", "strength",
-        "reference_sources", "refine_source", "batch",
+        "reference_sources", "refine_source", "batch", "mask", "mask_source", "mask_blend",
     }
     assert (meta["seed"], meta["mu"], meta["run"], meta["quantization"]) == (5, 1.15, "run1", "fp8")
     assert meta["batch"] == record.batch == 4
@@ -65,6 +65,8 @@ def test_the_png_carries_the_whole_reproduction_set(store):
     assert (meta["reference"], meta["lora"], meta["lora_scale"]) == (None, None, None)
     # And it is not a refine pass: no source, and so no strength either.
     assert (meta["refine"], meta["strength"]) == (None, None)
+    # Nor an inpaint: its mask and what it was are null together.
+    assert (meta["mask"], meta["mask_source"], meta["mask_blend"]) == (None, None, None)
     assert meta["hash"] == record.content_hash and len(meta["hash"]) == 16
 
 
