@@ -87,7 +87,7 @@ function excerpt(text, max = 36) {
 // Sends what Generate would send: the negative prompt, the CFG and True CFG
 // decide whether that negative ever runs, and the answer depends on it.
 async function checkPrompt(payload = collect()) {
-  if (modelChangeHold()) { showError(`${modelChangeHold()}.`, true); return null; }
+  if (modelChangeHold()) { sayModelChangeHold(); return null; }
   if (!payload.prompt) { showError('Enter a prompt first.'); els.prompt.focus(); return null; }
   const epoch = ++analysisEpoch;
   const effectiveNegative = analysisNegative(payload);

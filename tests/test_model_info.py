@@ -35,11 +35,27 @@ def test_lite_variants_share_canonical_facts_and_favourites(fmt):
             def shared(detail):
                 return {
                     key: value for key, value in detail.items()
-                    if not key.startswith(("speed_", "access"))
+                    if not key.startswith(("speed_", "access", "fit"))
                 }
             assert shared(lite) == shared(native)
             assert lite["access"] == "Open"
             assert "lite-infer" in lite["access_note"]
+            assert lite["fit"] == lite["fit_note"] == ""
+
+
+def test_qwen_image_says_its_torchao_builds_are_larger_than_the_card():
+    # Only the 4-bit re-upload fits 16 GB (launch.CHECKPOINTS, verified.md);
+    # the official repo's row, which FP8/INT8/BF16 load, must say so.
+    official = model_info.details_for("Qwen/Qwen-Image", quantization="fp8")
+    assert official["fit"] == "Over 16 GB"
+    assert "Nunchaku" in official["fit_note"] and "20B" in official["fit_note"]
+    lite = next(entry for entry in CHECKPOINTS if entry.repo == "Qwen/Qwen-Image").lite_repo("nvfp4")
+    assert model_info.details_for(lite, quantization="nunchaku")["fit"] == ""
+    assert set(model_info._FIT) <= set(model_info._FACTS)
+    for entry in CHECKPOINTS:
+        if entry.repo not in model_info._FIT:
+            assert model_info.details_for(entry.repo)["fit"] == "", entry.repo
+    assert model_info.details_for("local/custom-checkpoint")["fit"] == ""
 
 
 def test_every_catalogue_entry_reports_its_hugging_face_access():
@@ -131,6 +147,11 @@ def test_browser_loader_options_are_short_and_keep_their_explanations(monkeypatc
     assert "recommended for a 16 GB card" in descriptions["quantizations"]["fp8"]
     assert "recommended for a 16 GB card" in descriptions["offloads"]["model"]
     assert "may not fit 16 GB" in descriptions["quantizations"]["none"]
+    # Both are one byte a weight, and no INT8 image has been compared on the
+    # card: no unmeasured quality claim steers the choice.
+    assert "same size as FP8" in descriptions["quantizations"]["int8"]
+    assert "not yet compared" in descriptions["quantizations"]["int8"]
+    assert "softer" not in descriptions["quantizations"]["int8"]
     assert "24 GB+" in descriptions["offloads"]["none"]
     # The terminal menu prints the same words.
     assert dict(launch.QUANTIZATIONS) == descriptions["quantizations"]

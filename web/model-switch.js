@@ -212,6 +212,14 @@ function modelNameCell(entry, info, favourite) {
     if (info.access_note) access.title = info.access_note;
     line.append(access);
   }
+  // A checkpoint these builds do not fit on the card says so beside it.
+  if (info.fit) {
+    const fit = document.createElement('span');
+    fit.className = 'model-fit';
+    fit.textContent = info.fit;
+    if (info.fit_note) fit.title = info.fit_note;
+    line.append(fit);
+  }
   const state = document.createElement('span');
   state.className = 'model-state';
   const dot = document.createElement('span');
@@ -265,7 +273,7 @@ function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
   }
   // The cells' title notes, for a keyboard or a screen reader too: the radio
   // is described by them (a title on a span inside its label is not).
-  const notes = [['Access', info.access_note], ['Refine', info.refine_note],
+  const notes = [['Access', info.access_note], ['Memory', info.fit_note], ['Refine', info.refine_note],
     ['Size', info.megapixels_note], ['Speed', info.speed_note]]
     .filter(([, note]) => note).map(([label, note]) => `${label}: ${note}`).join(' ');
   if (notes) {
@@ -410,6 +418,25 @@ function modelChangeHold() {
   return modelSwitchSending || modelSwitching ? 'Wait for the model settings change to finish' : '';
 }
 
+// A press the change holds says so as a note in its slot, and the words go
+// once the change ends (`clearModelChangeHolds`, from syncSubmitButtons), as
+// the offline ones do: Generate's stayed in red after the switch finished.
+const modelHoldNotes = new Map();
+function sayModelChangeHold(slot = els.error) {
+  const said = `${modelChangeHold()}.`;
+  showError(said, true, { slot });
+  modelHoldNotes.set(slot, said);
+}
+
+function clearModelChangeHolds() {
+  if (modelChangeHold()) return;
+  for (const [slot, said] of modelHoldNotes) {
+    if (slot.textContent === said) showError('', false, { slot, mirror: false });
+    if (els.lbError.textContent === said) { els.lbError.hidden = true; els.lbError.textContent = ''; }
+  }
+  modelHoldNotes.clear();
+}
+
 function modelPickerSettings() {
   return {
     model_id: modelChoice(),
@@ -529,7 +556,12 @@ function modelPickerNote() {
     : lead || modelState === 'error' ? ''
     : modelState === 'ready' ? `${current} is loaded.`
     : `${current} is not loaded. ${firstLoad}`;
-  return { text: [lead, state].filter(Boolean).join(' '), unsaved };
+  // A chosen build larger than the card says so before Switch & load is
+  // pressed, not only in its row's title.
+  const chosen = modelChoice();
+  const fitNote = modelCatalogueDetails[chosen]?.fit_note;
+  const fit = fitNote ? `${modelLabel(chosen)}: ${fitNote}` : '';
+  return { text: [lead, fit, state].filter(Boolean).join(' '), unsaved };
 }
 
 function syncModelSwitch() {
@@ -602,6 +634,18 @@ function modelPickerEdited(key, { catalogue = false } = {}) {
   if (catalogue) void refreshModelCatalogue();
 }
 
+// The unsaved edits a revision from elsewhere retires, in words: the edited
+// checkpoint by name, else the loader edits; none that the new settings match.
+function modelDroppedEdits() {
+  const selected = modelPickerSettings();
+  const lost = [...modelPickerEditedKeys].filter((key) => key in selected
+    && selected[key] !== modelRuntimeSettings[key]);
+  if (!lost.length) return '';
+  return lost.includes('model_id') && selected.model_id
+    ? `your unsaved choice (${modelLabel(selected.model_id)}) was dropped`
+    : 'your unsaved changes were dropped';
+}
+
 // Polls update the current settings without erasing unsubmitted picker edits.
 // A changed server revision retires those edits along with the old checkpoint.
 function receiveModelSettings(status, { reset = false } = {}) {
@@ -627,11 +671,18 @@ function receiveModelSettings(status, { reset = false } = {}) {
     modelPickerMessage = null;
   }
   if (reset) {
+    // The controls still hold the edits a change made elsewhere retires.
+    const dropped = modelDroppedEdits();
     modelPickerEditedKeys.clear();
     // The revision this page's own switch made keeps the note saying so.
     const own = modelOwnSwitch && ['model_id', 'quantization', 'offload']
       .every((key) => modelOwnSwitch[key] === modelRuntimeSettings[key]);
-    if (!own) modelPickerMessage = null;
+    // Otherwise an unsaved choice went without a word (review, 2026-10-12).
+    if (!own) {
+      modelPickerMessage = dropped
+        ? `${modelLabel(modelRuntimeSettings.model_id)} was selected in another tab or window; ${dropped}.`
+        : null;
+    }
     modelOwnSwitch = null;
   }
   if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden

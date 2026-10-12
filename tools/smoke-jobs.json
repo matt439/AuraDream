@@ -172,6 +172,12 @@
   {"eval": "els.cancel.click();"},
   {"expect": "__until(() => !busy && els.error.textContent === 'Cancelled — the weights keep loading, so the next Generate starts sooner.')"},
   {"expect": "__until(() => els.statusText.textContent === 'Krea 2 Turbo', 8000)"},
+  {"log": "'Unload pressed during a load with no job says why as a note, and the note goes once the load lands and Unload is free again'"},
+  {"eval": "(async () => { showError(''); await __post('/api/fake/load', {seconds: 3}); await fetch('/api/model/unload', {method: 'POST'}); await refreshStatus(); els.load.click(); })()"},
+  {"expect": "__until(() => els.statusText.textContent === 'Krea 2 Turbo · loading…' && !els.unload.hidden && els.unload.getAttribute('aria-disabled') === 'true' && els.unload.title === 'The weights are still loading')"},
+  {"eval": "els.unload.click();"},
+  {"expect": "els.error.textContent === 'The weights are still loading.' && els.error.classList.contains('note') && !els.error.hidden"},
+  {"expect": "__until(() => els.statusText.textContent === 'Krea 2 Turbo' && els.unload.getAttribute('aria-disabled') === 'false' && els.error.textContent === '' && els.error.hidden, 8000)"},
 
   {"log": "'the load with nothing in the viewer yet: its one line says so with the clock - aria-hidden, as the progress row\\'s, and still one line - its own words, Examples and all, come back when a cancel ends the wait, and the first image clears it'"},
   {"navigate": "http://127.0.0.1:7882/"},

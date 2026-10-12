@@ -485,16 +485,29 @@ def test_switch_reserves_teardown_and_loading_against_new_model_work(client, fak
         assert not fake.requests and fake.loaded
         release_unload.set()
         assert loading.wait(5)
+        # Selected: the rest is an ordinary load, as after Apply & save then
+        # Load. Cold work answers and a Generate queues behind the weights;
+        # another switch and an unload are still refused.
         status = client.get("/api/status").json()
         assert (status["model_id"], status["switching"], status["state"]) == (
-            ANIMAGINE, True, "loading",
+            ANIMAGINE, False, "loading",
         )
-        assert client.post("/api/generate", json=PAYLOAD).status_code == 409
+        analyzed = client.post("/api/prompt/analyze", json=PAYLOAD)
+        assert analyzed.status_code == 200, analyzed.text
+        assert client.get("/api/loras").status_code == 200
+        queued = client.post("/api/generate", json={**PAYLOAD, "steps": 2})
+        assert queued.status_code == 200, queued.text
+        assert client.post("/api/model/switch", json={"model_id": TURBO}).status_code == 409
+        assert client.post("/api/model/unload").status_code == 409
+        assert not fake.requests
     finally:
         release_unload.set()
         release_load.set()
     _settled(client, ANIMAGINE)
     assert fake.loads == 1
+    done = stream_job(client, queued.json()["job_id"])[-1]
+    assert done["status"] == "done", done
+    assert done["images"][0]["model_id"] == ANIMAGINE
     run_one(client, steps=2)
 
 

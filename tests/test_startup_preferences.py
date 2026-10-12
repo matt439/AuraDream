@@ -1,6 +1,7 @@
 """Browser choices survive a server restart without overriding explicit startup."""
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
@@ -85,6 +86,31 @@ def test_another_explicit_model_sets_the_whole_saved_choice_aside(remembered, mo
     assert "Ignoring saved startup settings for black-forest-labs/FLUX.2-klein-4B" in caplog.text
     source = "--model" if by == "flag" else "LOCAL_DIFFUSION_MODEL_ID"
     assert preferences.startup_overrides() == {"model_id": source}
+
+
+def test_a_menu_pick_of_another_model_sets_the_saved_auto_load_aside(remembered):
+    # Anima saved with BF16, no offload and auto-load; the menu's Enters keep
+    # BF16 and no offload, and its pick is FLUX.1 Krea dev. Starting that at
+    # once was what an explicit --model for it never does.
+    db_path, _ = remembered
+    preferences.save(db_path, preferences.StartupPreferences("circlestone-labs/Anima", "none", "none", True))
+    number = str(1 + [entry.repo for entry in launch.CHECKPOINTS].index(MODEL))
+    asked = iter(["", number, ""])
+    choice = launch.configure(["--menu"], ask=lambda _prompt: next(asked), out=io.StringIO())
+    assert choice.model_id == MODEL
+    assert os.environ.get("LOCAL_DIFFUSION_PRELOAD") != "true"
+    assert preferences.startup_overrides() == {
+        "model_id": "--menu", "quantization": "--menu", "offload": "--menu", "load_on_startup": "--menu",
+    }
+
+
+def test_a_menu_pick_of_the_saved_model_keeps_its_auto_load(remembered):
+    _, choice = remembered
+    asked = iter(["", "", ""])
+    picked = launch.configure(["--menu"], ask=lambda _prompt: next(asked), out=io.StringIO())
+    assert picked.model_id == choice.model_id
+    assert os.environ["LOCAL_DIFFUSION_PRELOAD"] == "true"
+    assert "load_on_startup" not in preferences.startup_overrides()
 
 
 def test_explicit_loader_options_still_apply_with_another_model(remembered):
@@ -255,6 +281,7 @@ def test_api_preference_survives_fresh_process_and_controls_lifespan_loading(cli
     )
     script = '''
 import asyncio
+import io
 import json
 from backend.launch import configure
 configure([], ask=lambda _: (_ for _ in ()).throw(AssertionError("terminal question")))

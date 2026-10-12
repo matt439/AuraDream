@@ -27,6 +27,10 @@ class Sample:
     format: str | None = None
     offload: str = "model"
     basis: str = "Measured"
+    # A first image of a process on a busy PC is not the checkpoint's speed:
+    # architectural twins read Medium and Fast from such samples, so it gets
+    # no category.
+    warm: bool = True
 
     @property
     def settings(self) -> str:
@@ -38,9 +42,10 @@ class Sample:
 
 _AFTER_CANCEL = "First completed image after cancellation and a repeat, respectively."
 _BUSY_CPU = (
-    "First image of a process; CPU about 75% busy with other work, so this is an "
-    "upper-bound sample, not a warm timing."
+    "First image of a process; CPU about 75% busy with other work, so not a warm "
+    "timing."
 )
+_BUSY = {"caveat": _BUSY_CPU, "basis": "First run, busy PC", "warm": False}
 _NVFP4 = {"quantization": "nunchaku", "platform": "linux", "format": "nvfp4", "size": "1 MP"}
 
 # The table's approximately 1 MP direct renders, at the model's normal step
@@ -57,16 +62,16 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
                caveat="The recorded no-offload setup spilled into system RAM; 2 MP took 72 s.", **_NVFP4),
     ),
     "cagliostrolab/animagine-xl-4.0": (
-        Sample(17.2, "~17 s · 1 MP", 28, "2026-10-05", "17.2 s", guidance="CFG 5",
-               caveat=_BUSY_CPU, basis="First run, busy PC"),
+        Sample(17.2, "~17 s · 1 MP", 28, "2026-10-05",
+               "17.2 s; 0.22 s a step after the first", guidance="CFG 5", **_BUSY),
     ),
     "KBlueLeaf/Kohaku-XL-Zeta": (
         Sample(9.68, "~10 s · 1 MP", 28, "2026-09-26", "9.33 / 9.68 s", guidance="CFG 5",
                caveat=_AFTER_CANCEL),
     ),
     "OnomaAIResearch/Illustrious-XL-v2.0": (
-        Sample(11.1, "~11 s · 1 MP", 28, "2026-10-05", "11.1 s", guidance="CFG 5",
-               caveat=_BUSY_CPU, basis="First run, busy PC"),
+        Sample(11.1, "~11 s · 1 MP", 28, "2026-10-05", "11.1 s; 0.22 s a step",
+               guidance="CFG 5", **_BUSY),
     ),
     "LyliaEngine/waiIllustriousSDXL_v170": (
         Sample(9.64, "~10 s · 1.38 MP", 28, "2026-09-26", "9.25 / 9.64 s",
@@ -104,8 +109,8 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
         Sample(30, "~30 s · 1 MP", 28, "2026-09-08", "30 s", **_NVFP4),
     ),
     "black-forest-labs/FLUX.1-schnell": (
-        Sample(27.3, "~27 s · 1 MP", 4, "2026-10-05", "27.3 s", caveat=_BUSY_CPU,
-               basis="First run, busy PC"),
+        Sample(27.3, "~27 s · 1 MP", 4, "2026-10-05",
+               "27.3 s, 19.5 s of it the first step; 1.4 s a step after", **_BUSY),
         Sample(23, "~16–23 s · 1 MP", 4, "2026-09-08", "16–23 s", **_NVFP4),
     ),
     "black-forest-labs/FLUX.2-klein-4B": (
@@ -113,8 +118,8 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
         Sample(4, "~4 s · 1 MP", 4, "2026-09-05", "4.0 s", **_NVFP4),
     ),
     "Tongyi-MAI/Z-Image-Turbo": (
-        Sample(14.3, "~14 s · 1 MP", 8, "2026-10-05", "14.3 s", caveat=_BUSY_CPU,
-               basis="First run, busy PC"),
+        Sample(14.3, "~14 s · 1 MP", 8, "2026-10-05",
+               "14.3 s; 0.9 s a step after the first", **_BUSY),
         Sample(10.6, "~8–11 s · 1 MP", 8, "2026-09-08", "8 s and 10.6 s",
                caveat="Two same-day samples. A dropped WSL page cache also produced 17–19 s before warming.", **_NVFP4),
     ),
@@ -169,13 +174,18 @@ def speed_for(
         sample.quantization == quantization and sample.format == fmt
         and sample.platform == sys.platform and sample.offload == offload
     )
-    if matched:
+    if matched and sample.warm:
         label = "Fast" if sample.seconds <= 15 else "Medium" if sample.seconds <= 45 else "Slow"
+    elif matched:
+        label = "Reference"
     else:
         label = "Unmeasured" if quantization == "none" or offload == "sequential" else "Reference"
     guidance = f", {sample.guidance}" if sample.guidance else ""
-    context = "" if matched else (
-        "Reference from a different setup; this selection has no matching timing, "
+    context = (
+        "" if matched and sample.warm
+        else "Reference only: a first image on a busy PC, not a warm timing, so it "
+        "gets no speed category. " if matched
+        else "Reference from a different setup; this selection has no matching timing, "
         "so it gets no speed category. "
     )
     return {

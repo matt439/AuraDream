@@ -145,6 +145,18 @@ _SIZE_LABELS = {
 }
 
 
+# Checkpoints whose torchao builds are larger than this 16 GB card: the
+# official repo's row says so, the lite-infer 4-bit row does not. From the
+# catalogue's own record (launch.CHECKPOINTS' comment, docs/verified.md).
+_FIT = {
+    "Qwen/Qwen-Image": ("Over 16 GB", (
+        "Larger than a 16 GB card at FP8, INT8 or BF16 (the 20B transformer "
+        "alone is about 20 GB at one byte a weight). Only the 4-bit Nunchaku build (WSL) has run "
+        "on this card, at about 12 GiB; sequential offload is unmeasured."
+    )),
+}
+
+
 _LOGIN = "then sign in once with `uv run hf auth login` and a read token"
 # Hugging Face access before the first download, from the catalogue's own gate
 # word (launch.CHECKPOINTS, as the --menu prints it). lite-infer's re-uploads
@@ -183,6 +195,7 @@ def details_for(
             "favourite_id": model_id, "url": "",
             "access": "Unknown",
             "access_note": "Not in the catalogue; its model page says whether it is gated.",
+            "fit": "", "fit_note": "",
             **speed_for(model_id, quantization, offload),
         }
     style, (megapixels, note) = _FACTS[checkpoint.repo]
@@ -191,6 +204,7 @@ def details_for(
         value for prefix, value in _ACCESS.items() if checkpoint.gate.startswith(prefix)
     ), _OPEN)
     profile = defaults_for(model_id)
+    fit, fit_note = ("", "") if lite else _FIT.get(checkpoint.repo, ("", ""))
     return {
         "style": style,
         "refine": "Yes" if profile["refine_supported"] else "No",
@@ -207,5 +221,7 @@ def details_for(
         "url": f"https://huggingface.co/{checkpoint.repo.split('@', 1)[0]}",
         "access": access,
         "access_note": access_note,
+        "fit": fit,
+        "fit_note": fit_note,
         **speed_for(model_id, quantization, offload),
     }

@@ -67,7 +67,7 @@ function syncCritic() {
 
 async function askCritic() {
   if (critiquing) return;
-  if (modelChangeHold()) { showError(`${modelChangeHold()}.`, true); return; }
+  if (modelChangeHold()) { sayModelChangeHold(); return; }
   // Held (criticHold): the press says why, each as its sibling buttons'
   // presses do. No answer is said in the offline words, which the poll's
   // first answer takes back, and the poll asks again at once.

@@ -273,6 +273,18 @@ reports `switch_error` ("Could not switch to B: ...; A is still selected")
 instead of a load error. Revisions start from the process's start time, so
 a long-hidden tab's revision 0 is no longer accepted by a restarted server.
 
+The reservation used to last through the load too, so for a Switch & load's
+whole load - a first download can take many minutes - Check, tag lookup,
+LoRAs and Generate all answered 409 "the checkpoint is switching", while
+Apply & save followed by Load reached the same state with all of them
+working and Generate queued behind the weights (review, 2026-10-12). Nothing
+needed the hold: the selection is committed at `select()`, and a second
+switch is refused by the load lock and then the loading state anyway. The
+switch now clears `_switching` under the lock once it has selected and set
+the state to loading, so the rest is the Load button's load; `switch_error`
+still reports only failures before `select()`, and a failed load after it
+is the load's own error.
+
 The page follows both the model id and revision, including an A-to-B-to-A
 change between polls. It retires old prompt answers and prepared Refine state,
 refreshes guides, controls, adapters and gallery scope, and restores sampling
@@ -409,7 +421,13 @@ with the sample's time kept and a plain basis naming what differs ("timed on
 4-bit Linux build", "timed with FP8, model offload"). The closest sample is
 picked by exact quantization/format, then its family (4-bit against torchao),
 then platform, then offload, so INT8 on Linux borrows the Windows FP8 sample
-rather than NVFP4. Busy-CPU first-image samples say First run, busy PC.
+rather than NVFP4. Busy-CPU first-image samples say First run, busy PC, and since 2026-10-12
+get no category either, only Reference with the time kept: Animagine and
+Illustrious, SDXL twins at 0.22 s a step, read Medium and Fast from them,
+and schnell's 27.3 s, 19.5 s of it the first step, read barely faster than
+Krea dev's warm 42 s. Their notes give the recorded per-step figures and no
+longer call them upper bounds (Illustrious took 15 s at the same settings
+on 2026-09-17).
 Missing timings say Unmeasured and show default steps, never an extrapolated
 speed from those steps. The tooltip preserves settings, date and warm/cold
 caveats, without file paths. These are single prior runs, not a controlled
@@ -424,6 +442,22 @@ word: click-through is Accept licence, manual approval is Needs approval
 id Unknown; the note says what to do on the model page. It is a catalogue
 fact, not a Hub or cache check: a network check would hold up the cold
 catalogue, and a pre-unload access check is left for later.
+
+That Qwen-Image fits this card only as its 4-bit Nunchaku build was said
+only in a code comment; on Windows its row offered FP8, INT8 and BF16 with
+the first-load sentence and nothing else, so a first try could start a
+download of tens of GB that ends in an out-of-memory error or a spill
+(review, 2026-10-12). `details_for` now carries a `fit` word and note from
+the catalogue's own record for the official repo ("Over 16 GB"; the 20B
+transformer is about 20 GB at one byte a weight), shown beside the access
+label and in the picker note while the row is chosen. Switch & load is not
+held for it: sequential offload is unmeasured, not known to fail, and the
+note is in front of the button before the press.
+
+The INT8 description said "slightly softer", which nothing on the card
+measured and the loader's own comment contradicts (int8 tends to be more
+accurate, fp8 keeps more range). It now says what is known: the same size as
+FP8, not yet compared on this card.
 
 The quantization and offload explanations were vaguer in the browser than in
 the menu, while the menu's figures were Krea 2's (~13 GB peak, ~25 GB in BF16)
@@ -447,7 +481,12 @@ stars while the page reports that they could not be saved. Other tabs' storage
 changes update the stars, and the grouping at the next opening.
 
 These details require no weights or tokenizer load. Unsaved picker edits
-survive status polling; a changed server revision retires them. Until
+survive status polling; a changed server revision retires them. Another
+tab's switch did that without a word: the chosen row simply moved to the
+new checkpoint (review, 2026-10-12). The note now says "<new> was selected
+in another tab or window; your unsaved choice (<old>) was dropped." (or
+"your unsaved changes were dropped" for loader edits alone), unless the
+new settings are what was chosen. Until
 2026-10-09 one dirty flag froze every field, so after an offload edit another
 tab's checkbox-only save (no revision change) never showed, and the next
 Apply & save sent the old checkbox back. Edits are now per field, and the
@@ -1720,6 +1759,14 @@ quantization first because it decides the repo family:
 `nunchaku` (offered on Linux only) lists the lite-infer re-uploads for the
 families that have one and asks nvfp4 or int4; the environment's values are
 the marked defaults, so `wsl/env.sh` still gets what it set on a bare Enter.
+The saved choice fills those defaults too, so the menu's model never met
+the saved one: with Anima saved as BF16, no offload and auto-load, Enter,
+FLUX.1 Krea [dev], Enter auto-loaded FLUX in BF16 unoffloaded, while the
+command the menu printed for the same start would not have, and the page
+said the saved options were set aside (review, 2026-10-12). A menu pick of
+another checkpoint now sets the saved auto-load aside, recorded as `--menu`,
+as an explicit `--model` does; quantization and offload are the menu's own
+answers.
 `wsl/serve.sh` forwards its arguments. `wsl/env.sh` marks loader values it supplied
 as defaults, allowing saved browser settings to replace those unchanged defaults;
 actual environment overrides keep precedence. The standalone CLI still receives

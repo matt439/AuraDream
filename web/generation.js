@@ -253,6 +253,7 @@ function syncSubmitButtons() {
   syncMoreSeedsRun();
   syncCompareRun();
   syncModelSwitch();
+  clearModelChangeHolds();
 }
 
 function setSubmitting(on) {
@@ -296,7 +297,8 @@ async function startJob(path, payload, {
   model = loadedModel, revision = modelRevision,
 } = {}) {
   if (submitting) return;
-  const modelHold = modelChangeHold() || submissionModelHold({ model, revision });
+  if (modelChangeHold()) { sayModelChangeHold(slot); return; }
+  const modelHold = submissionModelHold({ model, revision });
   if (modelHold) { showError(modelHold, false, { slot }); return; }
   // A saved request can run again after switching back to its checkpoint.
   // Bind this new submission to the current selection so another tab cannot
