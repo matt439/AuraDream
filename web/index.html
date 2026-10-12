@@ -140,8 +140,7 @@
              disabled (status.js, syncExpandButton): a first use can take
              minutes, and a disabled button dropped a keyboard user's focus. -->
         <button type="button" class="ghost tiny" id="btn-expand" hidden
-                title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
-        <!-- The whole panel, not the prompt: back to the checkpoint's
+                title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>        <!-- The whole panel, not the prompt: back to the checkpoint's
              defaults, and the browser forgets what it had remembered. Red
              under the pointer, as the page's other destructive buttons are,
              and followed for a while by an Undo (panel.js, resetPanel). -->
@@ -658,6 +657,20 @@
         <input type="number" id="lora-scale" value="1" min="0" max="2" step="0.05"
                aria-describedby="lora-tip">
       </div>
+    </div>
+
+    <!-- Load settings from PNG (png-settings.js): the keyboard's way to what
+         a PNG dropped anywhere on the page does. The file's text is read in
+         the browser and only that is sent; the image is never stored or made
+         a reference. At the panel's end, under all it fills and below
+         Generate: the prompt's caption has no room for it beside Tags or
+         Expand in a 330 px panel, and a line above Generate would push it
+         below the window. -->
+    <div class="png-load">
+      <button type="button" class="ghost small" id="btn-png" aria-describedby="png-hint"
+              title="This app's own PNGs give back every setting; an A1111, Forge or Civitai PNG its prompt, negative prompt and size">Load settings from PNG…</button>
+      <span class="hint" id="png-hint">or drop a PNG on the page</span>
+      <input type="file" id="png-file" accept="image/png,.png" hidden>
     </div>
   </section>
 
@@ -1314,6 +1327,7 @@
 <script src="/static/gallery-select.js"></script>
 <script src="/static/gallery-batch.js"></script>
 <script src="/static/reuse.js"></script>
+<script src="/static/png-settings.js"></script>
 <script src="/static/sheet.js"></script>
 <script src="/static/sheet-render.js"></script>
 <script src="/static/sheet-export.js"></script>

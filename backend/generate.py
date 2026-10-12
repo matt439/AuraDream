@@ -44,7 +44,7 @@ if __package__ in (None, ""):
 # launch.py owns --model/--quant/--offload for the server and this CLI alike;
 # sizes.py owns the preset table the browser's copy is asserted against.
 from backend.launch import add_model_arguments, apply_env  # noqa: E402
-from backend.metadata import embedded_metadata  # noqa: E402
+from backend.png_settings import PngSettingsError, image_settings  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
 from backend.sizes import SIZES, TIERS  # noqa: E402
 
@@ -258,31 +258,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _image_settings(path: str, parser: argparse.ArgumentParser) -> dict:
-    """The Local Diffusion metadata block a gallery PNG carries, as a dict.
+    """The Local Diffusion record a gallery PNG carries, as a dict.
 
-    `Image.open(p).info` - not `.text`, which is a property that calls `load()`
-    and decodes every pixel to answer a question the header settles. A JPEG
-    has no such block and neither has a PNG from another tool; both are
-    argument errors, not tracebacks.
+    `png_settings.image_settings`, shared with the page's Load settings from
+    PNG; its refusals - a JPEG, another tool's PNG, a record that is not
+    JSON - are argument errors here, not tracebacks.
     """
-    import json
-
-    from PIL import Image
-
     try:
-        with Image.open(path) as image:
-            raw = embedded_metadata(image.info)
-    except (OSError, ValueError) as exc:
-        parser.error(f"--from-image: cannot open {path}: {exc}")
-    if not raw:
-        parser.error(
-            f"--from-image: {path} carries no Local Diffusion metadata; "
-            "only this app's PNGs do"
-        )
-    try:
-        return json.loads(raw)
-    except ValueError:
-        parser.error(f"--from-image: the Local Diffusion metadata in {path} is not JSON")
+        return image_settings(path)
+    except PngSettingsError as exc:
+        parser.error(f"--from-image: {exc}")
 
 
 def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:

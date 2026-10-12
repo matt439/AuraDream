@@ -542,15 +542,38 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '1') zoomOneToOne();
 });
 
-// A file dragged over the page is dropped nowhere: the page takes no files,
-// and the browser's own drop opened the file in the app's place.
-for (const type of ['dragover', 'drop']) {
+// A file dragged over the page is a PNG whose settings fill the panel
+// (png-settings.js), wherever it is dropped; the outline over the window
+// says so. Never the browser's own drop, which opened the file in the app's
+// place - and over a modal dialog, which keeps the page to itself, nothing.
+for (const type of ['dragenter', 'dragover']) {
   document.addEventListener(type, (e) => {
     if (!e.dataTransfer?.types?.includes('Files')) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'none';
+    const take = pngDropTarget(e);
+    e.dataTransfer.dropEffect = take ? 'copy' : 'none';
+    document.body.classList.toggle('png-drop', take);
   });
 }
+// Out of the window: the drag's leave names nothing it entered.
+document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.body.classList.remove('png-drop'); });
+document.addEventListener('drop', (e) => {
+  if (!e.dataTransfer?.types?.includes('Files')) return;
+  e.preventDefault();
+  if (pngDropTarget(e)) dropPng(e);
+  else document.body.classList.remove('png-drop');
+});
+// Load settings from PNG…, the panel's last line: the same, picked. The input is emptied once
+// read, so the same file picked again is read again.
+els.pngButton.addEventListener('click', () => els.pngFile.click());
+els.pngFile.addEventListener('change', (e) => {
+  e.stopPropagation();
+  const file = els.pngFile.files[0];
+  els.pngFile.value = '';
+  if (file) void loadPngSettings(file);
+});
+// Not a panel change for `persistPanel`: what the file holds is, once read.
+els.pngFile.addEventListener('input', (e) => e.stopPropagation());
 
 window.addEventListener('resize', placeTagValidation);
 placeTagValidation();

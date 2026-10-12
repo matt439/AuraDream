@@ -268,6 +268,20 @@ body {
   font: var(--fs-md)/var(--lh) "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
+/* A file dragged over the page (app.js, png-settings.js): an outline over
+   the window and what the drop does. Drawn over everything and taking no
+   pointer, so nothing under it moves or stops being a drop target. Above the
+   lightbox's 50; a modal dialog's top layer is above it, and the page then
+   takes no drop. */
+body.png-drop::after {
+  content: "Drop a PNG to load its settings";
+  position: fixed; inset: var(--sp-2); z-index: 60; pointer-events: none;
+  display: grid; place-items: center;
+  border: 2px dashed var(--accent); border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  color: var(--text); font-size: var(--fs-xl); font-weight: 600;
+}
+
 /* ---------------------------------------------------------------- topbar */
 
 .topbar {

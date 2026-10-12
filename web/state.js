@@ -68,7 +68,7 @@ const els = {
   modelPickerBody: $('model-picker-body'),
   modelShots: $('model-shots'), modelShotsLabel: $('model-shots-label'), modelShotsAll: $('btn-model-shots-all'),
   modelShotsList: $('model-shots-list'), modelShotsEmpty: $('model-shots-empty'),
-  reset: $('btn-reset'),
+  reset: $('btn-reset'), pngButton: $('btn-png'), pngFile: $('png-file'),
   cancel: $('btn-cancel'), pause: $('btn-pause'),
   queueNote: $('queue-note'), queueText: $('queue-text'), queueList: $('queue-list'),
   cancelQueued: $('btn-cancel-queued'),
@@ -538,7 +538,7 @@ async function api(path, options) {
     throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body });
   }
   const body = res.status === 204 ? null : await res.json();
-  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$)/.test(path.split('?')[0]);
+  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$)/.test(path.split('?')[0]);
   if (advisory && revision !== null && revision !== modelRevision) {
     throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
   }

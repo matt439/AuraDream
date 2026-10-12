@@ -55,7 +55,7 @@ Backend (`backend/`):
   `model_benchmarks.py` supplies retained timing references and speed categories
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
-  answers), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
+  answers, Load settings from PNG's), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
   `schemas_gallery.py` (records, runs, bin), `schemas_rerun.py` (Re-render,
   Swap tags, Mass refine, More seeds) or `schemas_model.py` (model status,
   guide, switch); `model_defaults.py` per-checkpoint profiles; `guides.py` each checkpoint's sourced prompting guide and its
@@ -67,6 +67,8 @@ Backend (`backend/`):
   lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
   selection; `api_generate.py` generate/grid/Re-render, `api_swap.py`,
   `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
+  `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's
+  settings, after `applied()`);
   `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
   routes and maintenance admission; `bundles.py` verified export/merge,
   `bundle_archive.py` the archive format and its verifying read,
@@ -76,6 +78,8 @@ Backend (`backend/`):
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `metadata.py` the PNG chunk's key and its legacy `krea` reader;
+  `png_settings.py` a PNG's record and A1111 'parameters' block read back
+  (`--from-image` and `api_png.py` share it);
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`
   scoped delete, recycle bin, clear;
   `search.py` search grammar; `grid.py` axes, variables, variants, cells,
@@ -172,6 +176,10 @@ Reproduction and storage:
   lock; maintenance stays reserved until its worker has finished.
 - References and refine sources are gallery ids, never paths. A LoRA is a
   bare name only `loras.py` turns into a path, hot-swapped in `generate()`.
+- Load settings from PNG sends a PNG's text chunks only, never its image,
+  which is never stored or made a reference. A file's reference ids carry
+  only where this gallery's row matches the record's provenance hash; an
+  A1111 block gives the prompt, negative and size, never a mapped sampler.
 
 Jobs:
 
@@ -294,6 +302,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7901 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-refine-batch` |
 | 7902 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-more-seeds` |
 | 7903 | default, fresh scratch `--data` | `smoke-bin` |
+| 7904 | default, fresh scratch `--data` | `smoke-png-settings` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

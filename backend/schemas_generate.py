@@ -495,3 +495,48 @@ class JobAccepted(BaseModel):
     # needs the base.
     seed: int
     run_id: str
+
+
+# Load settings from PNG's body (`api_png.py`): what the page read out of a
+# PNG's tEXt, zTXt and iTXt chunks - the image itself never leaves the
+# browser. A PNG keyword is at most 79 bytes; the route caps the whole body.
+MAX_PNG_CHUNKS = 64
+
+
+class PngSettingsRequest(BaseModel):
+    """A PNG's text chunks by keyword, and the file's name for the answer's words."""
+
+    name: str = Field(default="the PNG", min_length=1, max_length=255)
+    chunks: dict[str, str] = Field(max_length=MAX_PNG_CHUNKS)
+
+    @field_validator("chunks")
+    @classmethod
+    def _keywords(cls, v: dict[str, str]) -> dict[str, str]:
+        for key in v:
+            if not 1 <= len(key) <= 79:
+                raise ValueError(f"{key[:20]!r} is not a PNG text keyword")
+        return v
+
+
+class PngSettings(BaseModel):
+    """A PNG's settings as the panel takes them, after `applied()`.
+
+    `settings` is what Generate would run on the running checkpoint. `size`
+    and `sampling` say which of it is the PNG's: the size where it fits a
+    direct render here, and the steps, CFG, true CFG, Mu, seed and
+    conditioning only from this app's own record - an A1111 block's are
+    another sampler's and another checkpoint's, so those are the profile's
+    and the seed is None. `negative_prompt` is the text the PNG carries,
+    which the box keeps (greyed) where `applied()` leaves it out, as the
+    panel keeps a typed one. `notes` are the sentences that say what did
+    not carry over and why.
+    """
+
+    source: str
+    name: str
+    model_id: str | None = None
+    settings: GenerateRequest
+    negative_prompt: str | None = None
+    size: bool
+    sampling: bool
+    notes: list[str]
