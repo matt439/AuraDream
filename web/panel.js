@@ -501,7 +501,8 @@ function revealGridRun() {
 }
 
 // A help's tip opens under its badge, and over it where under would run past
-// the window's bottom and over has more room: the grid fold's last rows sit
+// the window's bottom and over has more room (and where neither holds it,
+// under and risen into the window): the grid fold's last rows sit
 // at the window's bottom while the panel is held there, and their tips ran
 // off it. Measured as the tip opens, shown for the measurement, since it is
 // display: none until the badge is hovered or focused.
@@ -531,14 +532,22 @@ function placeTip(help) {
   const badge = help.getBoundingClientRect();
   const shown = tip.getBoundingClientRect();
   tip.style.display = '';
-  const above = badge.top - (shown.top - badge.bottom) - document.querySelector('.topbar').getBoundingClientRect().bottom;
-  if (shown.bottom > innerHeight && above > innerHeight - shown.top) help.classList.add('up');
+  const topbar = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const above = badge.top - (shown.top - badge.bottom) - topbar;
+  const up = shown.bottom > innerHeight && above > innerHeight - shown.top;
+  if (up) help.classList.add('up');
+  // Too tall for either side of a badge mid-window (the Search tip at 600x900,
+  // once it listed lora: and quant:): it stays under, and rises by what it
+  // would run past the window's foot, never above the topbar. It may then lie
+  // over its own badge, which keeps it open: the tip is inside the .help.
+  const rise = up ? 0 : Math.max(0, Math.min(shown.bottom - (innerHeight - TIP_EDGE), shown.top - topbar - TIP_EDGE));
   const right = document.documentElement.clientWidth - TIP_EDGE;
   const past = shown.right > right ? right - shown.right : 0;
   const shift = shown.left + past < TIP_EDGE ? TIP_EDGE - shown.left : past;
   // Rounded away from the edge it clears: rounded to nearest, a 17.4 px shift
   // left a tip 7.6 px from the window's left edge.
-  if (Math.abs(shift) >= 1) tip.style.translate = `${shift > 0 ? Math.ceil(shift) : Math.floor(shift)}px 0`;
+  const x = Math.abs(shift) >= 1 ? (shift > 0 ? Math.ceil(shift) : Math.floor(shift)) : 0;
+  if (x || rise >= 1) tip.style.translate = `${x}px ${-Math.ceil(rise)}px`;
 }
 
 // The box round a badge that clips what overflows it, short of the page.

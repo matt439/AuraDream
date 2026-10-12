@@ -4728,8 +4728,9 @@ lets its tabindex go on blur; after a job, focus arriving in the panel
 keeping the pill, and a typed character or a real press on the prompt
 withdrawing it; the topbar's mirror whole with its load clock at 600 px,
 the status on one line and Unload at the bar's end, with the free space
-back at 1400; the Search tip inside the window at 600 and 700 px and
-unshifted at 1400; the grid's LoRA weight tip clear of the left edge at
+back at 1400; the Search tip inside the window at 600 and 700 px (risen
+by `placeTip` where it fits neither under nor over its badge) and
+unshifted sideways at 1400; the grid's LoRA weight tip clear of the left edge at
 1400 and 2560x1305; a fitting `.end` tip unshifted; and in two columns New
 image offered for a viewer scrolled above the window, static in the panel
 after the finish line and kept past the job's end; and, at scroll 0, Batch
