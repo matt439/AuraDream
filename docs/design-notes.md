@@ -4194,7 +4194,23 @@ server, and the result is what runs: the preview is the server's own
 answer per image (`tag_swap.swap`), with the offsets of what it wrote in
 for the page to mark, and the queue recomputes it. Every row matches the
 original prompt at the same time, so two rows can swap two tags with each
-other and a replacement is never matched again.
+other and a replacement is never matched again. What was written in is
+marked; what was taken out cannot be, since it is no longer in the text, so
+the server also names it (`removed`, as the prompt wrote it; a tag an
+identity or reorder row puts back is still there, so not named) and the page
+strikes it through under the text - an empty replacement, or the other
+finds of a many-to-one row, showed nothing at all, and checking a batch
+before queueing meant recalling each original prompt (review, 2026-10-12).
+
+**A press waits for the check.** Queue is held until the answer is to what
+the rows say, and a press made in the 400 ms before the check (type, then
+Enter) used to say "Checking the swaps…" and return; the check then landed
+and cleared the line, so the press was lost without a word. It now waits
+for that check and queues, as More seeds and Mass refine always did. Only
+one press waits: two (a double-click, Enter then Ctrl+Enter) each aborted
+the other's check, and an aborted fetch rejects at once, so the two went
+round in microtasks and the tab froze - in More seeds and Mass refine too,
+which now hold a second press the same way (`msWaiting`, `rbWaiting`).
 
 **Strict, no partial.** An image that lacks any find of any row is left out
 as `missing`, listed with what it lacks. A "queue the ones that have some"
@@ -4490,6 +4506,15 @@ count a text box refused in words on the page, Queue held until the
 answer is to what the box says, the ids pinned by `expected`. The count
 opens at the number last queued, else 4. Not "More…": in a row of
 buttons that reads as an overflow menu.
+
+**A count too large opens the dialog anyway** (review, 2026-10-12). A
+failed first check is said in the gallery's line and opens nothing - a
+dialog with nothing to queue is no help - but the refusal by count (batches
+× count past `max_grid_images`) is the one whose remedy is in the dialog:
+"ask for fewer" with the count box out of reach left a remembered 64, or
+the default 4 over 257 batches, able only to pick fewer batches or clear
+site storage. It opens on that refusal as an edit's check would have said
+it, the box marked, and the next count that fits lists the batches.
 
 ## Delete unstarred
 
@@ -5263,7 +5288,12 @@ cannot see. A deleted image leaves it in `forgetImages`, which stays the one
 place the page drops deleted ids; its tombstone drops the mark. Leaving
 select mode keeps the selection, marked and counted - turning a mode off is
 no request to throw away forty picks - and Clear or Escape empties it; a
-second Escape leaves the mode. The cap is the grid ceiling the server holds
+second Escape leaves the mode. The recycle bin needs picks of its own for
+Restore picked, so it cannot share the gallery's; it sets them aside while
+it is shown and puts them back when it is left, less any binned or deleted
+meanwhile - here, or in another tab, which the bin's own view then showed
+(its records' `binned_at`, read as it is left). It used to clear them, so a look into the bin for one keeper
+cost the whole selection without a word (review, 2026-10-12). The cap is the grid ceiling the server holds
 the actions' `ids` to (`max_grid_images`, the sheet's page), said when a
 pick would pass it rather than at submit. The record kept with each id is
 only a fallback: `selectedRecords()` reads the loaded page's copy where

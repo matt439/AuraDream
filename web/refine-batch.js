@@ -63,6 +63,9 @@ let rbTimer = null;
 // The POST is out: the dialog closes on its answer, and Escape and Cancel
 // wait for it, as the single dialog's do.
 let rbSending = false;
+// A press waiting on its check: a second press does nothing. Two waits
+// aborted each other's check in a loop that never yielded.
+let rbWaiting = false;
 // An open waiting on its first check: a second press does nothing.
 let rbOpening = null;
 
@@ -426,11 +429,12 @@ function syncRefineBatchRun() {
 // dialog's Refine does, then queues. Held, the press says why in the error
 // line and points at the field it is about.
 async function runRefineBatch() {
-  if (!els.refineBatchDialog.open || rbSending || submitting) return;
+  if (!els.refineBatchDialog.open || rbSending || submitting || rbWaiting) return;
   rbRefused = false;
   while (!rbFieldProblem() && (rbAsking || JSON.stringify(rbPayload()) !== rbAnswerKey)) {
     clearTimeout(rbTimer);
-    await runRefineBatchCheck();
+    rbWaiting = true;
+    try { await runRefineBatchCheck(); } finally { rbWaiting = false; }
     if (!els.refineBatchDialog.open || rbSending || submitting) return;
   }
   const hold = refineBatchHold();

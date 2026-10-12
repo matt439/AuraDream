@@ -74,6 +74,35 @@ def test_an_empty_replacement_removes_with_the_separator_before_it():
     assert (outcome.status, outcome.text) == ("changed", "")
 
 
+def test_what_the_rows_took_out_is_named_as_it_was_written():
+    # A removal leaves nothing to mark: `removed` is what says it.
+    outcome, marked = run("1girl, long hair, blue eyes, smile", ("long hair", ""))
+    assert (outcome.text, marked, outcome.removed) == ("1girl, blue eyes, smile", [], ["long hair"])
+    # Many to one: the item written over and the one dropped, in the prompt's order.
+    outcome, marked = run("1girl, long hair, blue eyes, smile", ("smile, long hair", "ponytail"))
+    assert (outcome.text, marked, outcome.removed) == ("1girl, ponytail, blue eyes", ["ponytail"], ["long hair", "smile"])
+    # As written, weight and underscores and all; a replacement already there drops the item too.
+    outcome, _ = run("1girl, (red_hair:1.2), silver hair", ("red hair", "silver hair"))
+    assert (outcome.text, outcome.removed) == ("1girl, silver hair", ["(red_hair:1.2)"])
+    # A phrase in prose, without the space that went with it.
+    outcome, _ = run("a girl with Red Hair standing in the rain", ("red hair", ""))
+    assert (outcome.text, outcome.removed) == ("a girl with standing in the rain", ["Red Hair"])
+    # Nothing changed, nothing taken out; a missing image names what it lacks instead.
+    assert run("1girl, red hair", ("red hair", "red hair"))[0].removed == []
+    assert run("1girl, smile", ("red hair", ""))[0].removed == []
+
+
+def test_a_tag_the_swap_puts_back_is_not_taken_out():
+    # An identity row beside a changing one, a reorder, a phrase put back as
+    # it was: each tag is still in the new text, so none is named.
+    outcome, _ = run("1girl, red hair, smile", ("red hair", "red hair"), ("smile", "grin"))
+    assert (outcome.text, outcome.removed) == ("1girl, red hair, grin", ["smile"])
+    outcome, _ = run("1girl, red hair, smile", ("red hair, smile", "smile, red hair"))
+    assert (outcome.text, outcome.removed) == ("1girl, smile, red hair", [])
+    outcome, _ = run("a girl with red hair", ("red hair", "red hair"), ("girl", "boy"))
+    assert (outcome.text, outcome.removed) == ("a boy with red hair", ["girl"])
+
+
 def test_a_tag_never_matches_inside_another_tag():
     outcome, marked = run("hair, red hair", ("hair", "x"))
     assert outcome.text == "x, red hair" and marked == ["x"]

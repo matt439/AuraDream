@@ -77,6 +77,8 @@
 .swap-detail { color: var(--text-3); overflow-wrap: anywhere; }
 .swap-text { color: var(--text-2); overflow-wrap: anywhere; white-space: pre-wrap; }
 .swap-text mark { background: var(--accent-soft); color: var(--text); border-radius: 2px; outline: 1px solid var(--accent); }
+.swap-removed { color: var(--text-3); overflow-wrap: anywhere; white-space: pre-wrap; }
+.swap-removed del { color: var(--text-2); text-decoration-color: var(--danger); }
 .swap-notes { color: var(--text-3); font-size: var(--fs-label); }
 
 #swap-error {

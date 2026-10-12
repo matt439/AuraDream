@@ -90,7 +90,7 @@ async def swap_plan(
         if outcome.status != "changed":
             result.status, result.detail = outcome.status, _SWAP_SAYS[outcome.status]
             continue
-        result.text, result.spans = outcome.text, outcome.spans
+        result.text, result.spans, result.removed = outcome.text, outcome.spans, outcome.removed
         try:
             cell = grid.cell_from_record(
                 record, prompt=swapped.prompt, negative_prompt=swapped.negative_prompt,

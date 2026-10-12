@@ -56,6 +56,9 @@ let swapProblem = '';
 let swapRefused = false;
 let swapAsking = null;
 let swapTimer = null;
+// A Queue press waiting on its check: a second press does nothing. Two
+// waits aborted each other's check in a loop that never yielded.
+let swapWaiting = false;
 
 // The rows as the server's summary words them ("red hair, long hair → silver
 // hair"), for the queue row until the server's own name lands.
@@ -341,6 +344,7 @@ function swapResultRow(image) {
   }
   body.append(head);
   if (image.text) body.append(swapMarked(image.text, image.spans));
+  if (image.removed?.length) body.append(swapTookOut(image.removed));
   if (image.notes?.length) {
     body.append(Object.assign(document.createElement('p'), { className: 'swap-notes', textContent: image.notes.join(' · ') }));
   }
@@ -359,6 +363,20 @@ function swapMarked(text, spans) {
     at = end;
   }
   p.append(text.slice(at));
+  return p;
+}
+
+// What the swap took out of the original, struck through, as the server
+// names it: a removal or a many-to-one row's other finds leave nothing in
+// the new text to mark.
+function swapTookOut(removed) {
+  const p = document.createElement('p');
+  p.className = 'swap-removed';
+  p.append('Took out: ');
+  removed.forEach((item, i) => {
+    if (i) p.append(', ');
+    p.append(Object.assign(document.createElement('del'), { textContent: item }));
+  });
   return p;
 }
 
@@ -387,8 +405,18 @@ function syncSwapQueue() {
   if (!hold && !swapRefused && els.swapError.textContent) showError('', false, { slot: els.swapError });
 }
 
-function queueSwap() {
+// Queue: waits for the check of what the dialog says, as More seeds and Mass
+// refine do, then queues - a press made before the typing's check had
+// landed was said as "Checking the swaps…", wiped by that check, and lost.
+async function queueSwap() {
+  if (!els.swapDialog.open || submitting || swapWaiting) return;
   swapRefused = false;
+  while (swapPayload().swaps.length && (swapAsking || JSON.stringify(swapPayload()) !== swapAnswerKey)) {
+    clearTimeout(swapTimer);
+    swapWaiting = true;
+    try { await runSwapCheck(); } finally { swapWaiting = false; }
+    if (!els.swapDialog.open || submitting) return;
+  }
   const hold = swapHold();
   if (hold) { showError(hold, false, { slot: els.swapError }); return; }
   const payload = { ...swapPayload(), expected: swapAnswer.ids };
@@ -427,7 +455,7 @@ function setupSwap() {
   els.swap.onclick = openSwapDialog;
   els.swapAdd.onclick = addSwapRow;
   els.swapCancel.onclick = () => els.swapDialog.close();
-  els.swapQueue.onclick = queueSwap;
+  els.swapQueue.onclick = () => { void queueSwap(); };
   els.swapDialog.addEventListener('click', swapBackdrop);
   els.swapRows.addEventListener('input', () => swapEdited());
   // Out of the rows, the slots removed rows kept can go: nothing in there is
@@ -436,7 +464,7 @@ function setupSwap() {
   els.swapDialog.addEventListener('change', (e) => { if (e.target.name === 'swap-field') swapEdited(0); });
   // Enter in a box is Queue's press, as in any form.
   els.swapRows.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.isComposing && e.target.matches('input')) { e.preventDefault(); queueSwap(); }
+    if (e.key === 'Enter' && !e.isComposing && e.target.matches('input')) { e.preventDefault(); void queueSwap(); }
   });
   els.swapDialog.addEventListener('close', () => {
     clearTimeout(swapTimer);
