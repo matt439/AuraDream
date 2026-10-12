@@ -19,7 +19,9 @@ slows ERNIE's Expand on the server (`seconds`), holds it until the next call
 (`hold`), makes it fail (`fail`, the message of a RuntimeError) or puts its
 rewriter and translator back off disk (`fresh`); `POST /api/fake/model`
 sets the startup overrides the status reports (`overrides`) and a critic
-that will not stop, failing a switch's teardown (`stuck_critic`). The
+that will not stop, failing a switch's teardown (`stuck_critic`); `POST
+/api/fake/lora` moves an adapter out of the directory and back
+(`present`). The
 prompt check reads the tests' word tokenizers - a token per word or mark, at
 each encoder's real budget - and the critic is the tests' FakeCritic, whose
 answer is built from the prompt. The gallery lives under the system temp directory (or --data),
@@ -421,6 +423,19 @@ def main() -> int:
         app_main._startup_overrides = overrides
         critic.unload = stuck_unload if stuck_critic else critic_unload
         return {"overrides": overrides, "stuck_critic": stuck_critic}
+
+    # An adapter taken out of the directory while a page holds it, and put
+    # back (`present`): moved aside under a name the listing skips, as a
+    # rename or a delete by hand would leave it. Answers whether it is there.
+    @app_main.app.post("/api/fake/lora", include_in_schema=False)
+    async def fake_lora(name: str = Body(...), present: bool = Body(True)) -> dict:
+        path = loras / Path(name).name
+        aside = path.with_name(path.name + ".aside")
+        if present and aside.exists():
+            aside.replace(path)
+        elif not present and path.exists():
+            path.replace(aside)
+        return {"name": path.name, "present": path.exists()}
 
     import uvicorn
 

@@ -337,25 +337,56 @@ function openRefine(rec, pass = null) {
 
 // The source's size, seed and checkpoint, and its own source where it is a
 // pass - and, once the server has refused it as gone (`refineSourceGone`),
-// that it is: "#28 (deleted)", as the viewer and the lightbox say it.
-function writeRefineSourceLine(rec, gone = false) {
+// that it is: "#28 (deleted)" or "#28 (in the recycle bin)" (`gone`), as the
+// viewer and the lightbox say it.
+function writeRefineSourceLine(rec, gone = null) {
   els.refineSourceLine.textContent = [
     `${rec.width}×${rec.height}`, `seed ${rec.seed}`, checkpointName(rec.model_id),
     rec.refine != null ? `itself a refine of #${rec.refine}${rec.refine_missing ? `, since ${rec.refine_binned ? 'binned' : 'deleted'}` : ''}` : '',
-    gone ? `#${rec.id} (deleted)` : '',
+    gone ? `#${rec.id} (${gone === 'binned' ? 'in the recycle bin' : 'deleted'})` : '',
   ].filter(Boolean).join(' · ');
 }
 
-// A refusal of the source itself - deleted from another tab while the
-// dialog was open - in the page's words, with the source line marked: the
-// server's "no gallery image with id 28" read as a setting gone wrong, in a
-// dialog still titled "Refine #28" over the picture. The dialog stays open
-// with its edits, as for any refusal. Any other message is returned as it is.
+// A refusal of the source itself - deleted or binned from another tab while
+// the dialog was open - in the page's words, with the source line marked:
+// the server's "no gallery image with id 28" read as a setting gone wrong, in
+// a dialog still titled "Refine #28" over the picture, and its "source image
+// 28 is in the recycle bin; restore it to use it" as bin.js says it. The
+// dialog stays open with its edits, as for any refusal. Any other message is
+// returned as it is.
 function refineSourceGone(message, source = refineSource) {
-  const match = /^no gallery image with id (\d+)$/.exec(message ?? '');
+  const deleted = /^no gallery image with id (\d+)$/.exec(message ?? '');
+  const binned = /^source image (\d+) is in the recycle bin; /.exec(message ?? '');
+  const match = deleted ?? binned;
   if (!source || !match || +match[1] !== source.id) return message;
-  if (refineSource === source) writeRefineSourceLine(source, true);
-  return `#${source.id} has been deleted, so it cannot be refined.`;
+  if (refineSource === source) writeRefineSourceLine(source, binned ? 'binned' : 'deleted');
+  return binned ? `#${source.id} is in the recycle bin; restore it to refine it.`
+    : `#${source.id} has been deleted, so it cannot be refined.`;
+}
+
+// The dialog's adapter, refused as gone - renamed or removed while the page
+// was open, or no longer fitting the checkpoint: it has no control of its
+// own, so every press was refused with the server's sentence until a reload.
+// A refusal naming it reads the list again (refreshLoras), and one no longer
+// offered leaves the pass, the line under the prompt saying so as an open on
+// a record whose adapter is not listed does, and the refusal in the page's
+// words. Answers whether it went. `refineLoraDrops` counts them, so a press
+// that waited on the preview which found it gone runs nothing (runRefine):
+// the pass it would run is not the one the press was for.
+let refineLoraDrops = 0;
+async function dropRefineLora(message, source = refineSource) {
+  const name = refineLora?.name;
+  if (!name || !message?.includes(name)) return false;
+  const body = await refreshLoras();
+  if (!body || refineSource !== source || refineLora?.name !== name) return false;
+  const entry = (body.loras ?? []).find((e) => e.name === name);
+  if (entry && !entry.detail) return false;
+  refineLora = null;
+  refineLoraDrops++;
+  els.refineCarried.textContent = `LoRA ${name} is not applied: it is not in the adapter list now.`;
+  refineFailed(`${name} ${entry ? 'no longer fits this checkpoint' : 'is no longer in the LoRA folder'}, `
+    + 'so it was taken out of this pass; Refine runs it without the adapter.');
+  return true;
 }
 
 // Every box openRefine fills, by name: what a close compares with what it
@@ -759,6 +790,9 @@ async function previewRefine() {
       + (sweep ? '\nOpens as a sheet when it is done.' : '');
   } catch (err) {
     if (epoch !== refineEpoch) return;
+    // The adapter gone: asked again without it, the refusal said instead.
+    if (await dropRefineLora(err.message)) return previewRefine();
+    if (epoch !== refineEpoch) return;
     refineProblem = refineSourceGone(err.message);
     els.refinePreview.classList.add('warn');
     els.refinePreview.textContent = refineProblem;
@@ -777,12 +811,14 @@ async function runRefine() {
   // and it waits out the typing: Enter straight after "1.5" ran ahead of it,
   // closed the dialog and put the server's refusal in the panel, the typed
   // settings gone with it. So the preview of what the boxes hold answers
-  // first - again if they changed while it was asked.
+  // first - again if they changed while it was asked. One that took the
+  // adapter out (dropRefineLora) has said so, and this press stops there.
+  const drops = refineLoraDrops;
   while (refinePreviewed !== JSON.stringify(refineRequest().preview)) {
     clearTimeout(refineTimer);
     refineWaiting = true;
     try { await previewRefine(); } finally { refineWaiting = false; }
-    if (!refineSource || !els.refineDialog.open || submitting) return;
+    if (!refineSource || !els.refineDialog.open || submitting || refineLoraDrops !== drops) return;
   }
   if (els.refineRun.getAttribute('aria-disabled') === 'true') {
     // What holds Generate too, said as a sentence in the dialog, where it is
@@ -863,6 +899,9 @@ async function runRefine() {
   const refused = els.refineError.textContent;
   const said = refineSourceGone(refused, source);
   if (said !== refused) refineFailed(said);
+  // An adapter gone since the last preview: taken out, said, and the
+  // preview asked again without it.
+  else if (await dropRefineLora(refused, source)) scheduleRefinePreview(0);
   // Refused with the dialog gone: its line is out of sight, so the panel's says it.
   if (!els.refineDialog.open && els.refineError.textContent) showError(els.refineError.textContent);
 }

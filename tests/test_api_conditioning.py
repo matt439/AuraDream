@@ -64,6 +64,21 @@ def test_an_unknown_reference_id_is_named(client, fake, store):
     assert "no gallery image with id 4242" in response.json()["detail"]
 
 
+def test_a_binned_reference_is_refused_in_the_words_the_page_reads(client, fake, store):
+    # The page takes the chip out on this sentence (dropRefusedReferences),
+    # by its start: "reference image N", N the gallery id, then the bin.
+    run_one(client)
+    run_one(client)
+    newest, older = (item["id"] for item in client.get("/api/gallery").json()["items"][:2])
+    assert client.post("/api/images/bin", json={"ids": [older]}).json()["binned"] == [older]
+    response = client.post(
+        "/api/generate",
+        json={"prompt": "x", "width": 256, "height": 256, "reference": [newest, older]},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith(f"reference image {older} is in the recycle bin; ")
+
+
 def test_a_reference_reaches_the_backend_and_the_row(client, fake, store):
     run_one(client)  # something to point at
     first = client.get("/api/gallery").json()["items"][0]
@@ -100,6 +115,8 @@ def test_an_adapter_that_is_not_there_is_refused_by_name(client, fake, lora_dir)
         json={"prompt": "x", "width": 256, "height": 256, "lora": "missing.safetensors"},
     )
     assert response.status_code == 422 and "no LoRA named" in response.json()["detail"]
+    # Named, which is what the page reads the list again on (dropRefusedLora).
+    assert "missing.safetensors" in response.json()["detail"]
     # And a path never reaches the directory at all - the schema refuses it.
     assert client.post(
         "/api/generate",

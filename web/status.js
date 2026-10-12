@@ -648,7 +648,8 @@ function receiveStatus(s, asked = Date.now()) {
     // The adapter list is a directory read, so it rides on the first status
     // rather than on the 3 s poll: files appear when the user drops one in,
     // which is a page reload away either way. Once more when the load lands,
-    // for the fit the live denoiser answers where the configs could not.
+    // for the fit the live denoiser answers where the configs could not; and
+    // at a refusal naming the chosen adapter (dropRefusedLora, dropRefineLora).
     if (!modelSwitching && (!lorasLoaded || (s.state === 'ready' && !lorasLive))) {
       lorasLoaded = true;
       lorasLive = s.state === 'ready';
@@ -752,13 +753,15 @@ function receiveStatus(s, asked = Date.now()) {
 // server that would refuse it. An adapter for another checkpoint (a `detail`
 // on the entry) is not offered at all: the tooltip names it and says why, so
 // a file dropped into the directory that never shows up is explained rather
-// than missing.
+// than missing. Answers the listing it applied, or null where it applied none
+// (no answer, or a later read overtook it): a refusal of a gone adapter reads
+// the entry there (dropRefusedLora, dropRefineLora).
 let loraEpoch = 0;
 async function refreshLoras() {
   const epoch = ++loraEpoch;
   try {
     const body = await api('/api/loras');
-    if (epoch !== loraEpoch) return;
+    if (epoch !== loraEpoch) return null;
     // The panel is restored at start-up and this list arrives later, so a
     // remembered name is a value the select has no option for yet - assigning
     // it silently does nothing. `pendingLora` carries it across the gap.
@@ -801,5 +804,9 @@ async function refreshLoras() {
     syncConditioning();
     // A ⚠ Reuse names an adapter this list does not offer.
     syncReuseButtons();
-  } catch { /* the list is a convenience; the field simply stays empty */ }
+    return body;
+  } catch {
+    // The list is a convenience; the field simply stays empty.
+    return null;
+  }
 }

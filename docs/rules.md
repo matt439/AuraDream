@@ -789,11 +789,22 @@ Reproduction:
   binned where the detail says "in the recycle bin", with its note in
   `#error`; the lightbox's reference slot likewise reads "in the bin" or
   "deleted"). A
-  submit refused with "no gallery image with id N" for one of the payload's
-  references does the same (`dropRefusedReferences`) and says "Nothing was
-  queued: reference #N has been deleted, so it was taken out of the
-  references. Generate again to run without it." ("Run the grid again",
-  "Run the comparison again" after those). After a removal focus goes to the next ×,
+  submit refused with "no gallery image with id N", or with "reference image
+  N is in the recycle bin; …" (N the gallery id, not the chip's number), for
+  one of the payload's references does the same (`dropRefusedReferences`)
+  and says "Nothing was queued: reference #N has been deleted, so it was
+  taken out of the references. Generate again to run without it." ("has
+  been moved to the recycle bin" for a binned one; "Run the grid again",
+  "Run the comparison again" after those, `pressAgain`). A submit from the
+  panel refused with a sentence naming its chosen adapter reads `/api/loras`
+  again (`dropRefusedLora`, through `refreshLoras`, which answers the
+  listing it applied); one no longer offered has left LoRA, the panel is
+  saved, and the refusal reads "Nothing was queued: NAME is no longer in the
+  LoRA folder, so it was taken out of LoRA. Generate again to run without
+  it." ("no longer fits this checkpoint (the LoRA tip says why)" where the
+  file is still there for another checkpoint) - never the server's sentence
+  with the directory's path and `LOCAL_DIFFUSION_LORAS_DIR`. One still
+  offered keeps the server's sentence. After a removal focus goes to the next ×,
   else the previous, else the emptied `#reference-list` (tabindex -1), never
   the field's badge, whose tip a focus opens. A LoRA is a bare name that
   only `loras.py` turns into a path, `.safetensors` only, and it is
@@ -2330,8 +2341,17 @@ Frontend and CLI:
   elsewhere) stays in `#refine-error` with the dialog's edits - a gone
   source in the page's words, "#N has been deleted, so it cannot be
   refined." (`refineSourceGone`, the preview's refusal and Refine's title
-  too), the source line ending "#N (deleted)" - and the
-  placeholder is the source's full image (`url`). While the POST is out the
+  too), the source line ending "#N (deleted)"; a binned one "#N is in the
+  recycle bin; restore it to refine it.", as bin.js says it, the line ending
+  "#N (in the recycle bin)". The carried adapter (`refineLora`, no control
+  of its own) refused by name, at the preview or at submit, reads
+  `/api/loras` again (`dropRefineLora`); one no longer offered leaves the
+  pass, `#refine-carried` reads "LoRA NAME is not applied: it is not in the
+  adapter list now." and `#refine-error` "NAME is no longer in the LoRA
+  folder, so it was taken out of this pass; Refine runs it without the
+  adapter." The preview is asked again without it, and a press that was
+  waiting on the preview that took it out runs nothing (`refineLoraDrops`).
+  The placeholder is the source's full image (`url`). While the POST is out the
   dialog holds (`refineSending`): Refine reads "Sending…", and `closeRefine`
   (Cancel, ✕), the dialog's prevented `cancel` (Escape) and the passes strip
   wait for the answer; a close the browser will not hold counts as a run in
@@ -3968,7 +3988,8 @@ own round trips - a cancel, a stream attaching - and `POST /api/fake/expand`
 on the server: slows it, holds it until the next call (30 s at most), makes
 it fail with a RuntimeError of that message, or puts the rewriter and
 translator back off disk so a first use shows again on a server already
-used; the fake's rewriter and translator count as downloaded from their
+used; `POST /api/fake/lora` (`{name, present}`) moves an adapter out of the
+fake's directory and back, as a rename by hand would; the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the
@@ -4003,7 +4024,10 @@ with focus kept in the field, the last one's × clicked leaving the emptied
 row focused and the tip closed, a deleted image's chip marked), a deleted
 reference leaving the chips (and named in the note after the bin), Reuse dropping a
 reference the server no longer has, a reference deleted while a Reuse can be
-undone staying out after the Undo, a fifth reference refused under the
+undone staying out after the Undo, a reference deleted or binned in another
+tab and an adapter moved out of the directory (`/api/fake/lora`) each
+taken out by the Generate they refuse, in the page's words, the next one
+running without it, a fifth reference refused under the
 gallery (the other cards' ❐ aria-disabled at four, the card note's gist
 "Four is the most"), the card's ❐ as a toggle named "Reference image" with
 its number in `aria-description` (the card ringed, numbered and pressed, its
@@ -4382,7 +4406,11 @@ for a pass whose frames are dropped - full size, in the result's own box,
 captioned in the tile's `.foot` "Refining #N → W×H · strength s · step 1/…" -
 focus off `<body>` after that pass, opened from script, ran - a source
 deleted while the dialog is open refused in the dialog's own line, in the
-page's words with the source line marked, with the dialog kept open, the
+page's words with the source line marked, with the dialog kept open, and
+one binned the same way in bin.js's words, the carried adapter moved out
+of the directory (`/api/fake/lora`) taken out of the pass at a refused
+Refine and at a preview a press waited on, said, with nothing run until the
+next press, which runs without it, the
 dialog with no sideways scroll at 1400x900 and 2560x1305, the scale
 buttons' aria-pressed, a first open passing over the usual 1.5x (its title
 and the size line's why), a foreign pass's reused line naming FLUX.1 Krea
