@@ -232,8 +232,10 @@ search the output folder for `*.png`.
 
 **Bundles…**, at the end of the row under the gallery's search box, opens
 the Gallery bundles dialog: it saves all images and the gallery database
-in one verified ZIP, optionally encrypted with a password, then clears the
-gallery. Download a saved bundle or import
+in one verified ZIP, optionally encrypted with a password, either as a
+backup that keeps the gallery or as a bundle that then clears it. **Back up
+(keep gallery)** also bundles just the picked or the starred images, to keep
+or to give to someone. Download a saved bundle or import
 one to merge its images, favourites and timings into the current gallery.
 See [gallery bundles](docs/usage.md#gallery-bundles).
 

@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 
 from . import bundle_crypto, bundle_images, gallery_lock, storage
-from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _verify_archive
+from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
     _WORKERS,
@@ -164,6 +164,9 @@ def preview() -> dict:
             # and clears with the rest; `binned` says how many of them are.
             "records": len(rows),
             "binned": sum(bool(r.get("binned_at")) for r in rows),
+            # The live starred images, every checkpoint's: what a bundle of
+            # the starred takes (`submission.resolve_selection`'s filter).
+            "starred": sum(bool(r["favorite"]) and not r.get("binned_at") for r in rows),
             "images": sum(p.suffix.lower() == ".png" for _, p in files),
             "thumbnails": sum(p.suffix.lower() == ".webp" for _, p in files),
             "bytes": sum(p.stat().st_size for _, p in files)
@@ -305,15 +308,100 @@ def _unchanged(path: Path, saved: dict) -> bool:
     return path.stat().st_size == saved["size"] and _hash(path) == saved["sha256"]
 
 
-def export_bundle(expected: int, password: str | None = None, progress: Progress = _quiet) -> dict:
+def _chosen(ids: list[int]) -> tuple[list[dict], list[tuple[str, Path]]]:
+    """The rows of `ids` a bundle of a selection carries, and their files.
+
+    Each row's PNG and its thumbnail where it has one (in thumbnails/, or an
+    old one beside the PNG); never an unindexed image or another row's. A
+    chosen row whose PNG is missing refuses as the whole gallery's preview
+    does; a row the selection leaves out does not stop it.
+    """
+    settings = _settings()
+    if settings.db_path.exists():
+        storage.settle_partials()
+    wanted = set(ids)
+    rows = [row for row in _rows(settings.db_path) if row["id"] in wanted]
+    found = dict(_inventory())
+    files = []
+    for row in rows:
+        member = "images/" + row["filename"]
+        if member not in found:
+            raise MissingImage(row, settings.outputs_dir)
+        files.append((member, found[member]))
+        stem = Path(row["filename"]).stem
+        files += [(name, found[name]) for name in (f"images/thumbnails/{stem}.webp", f"images/{stem}.webp")
+                  if name in found]
+    return rows, files
+
+
+def _restrict(snapshot: Path, keep: set[int]) -> None:
+    """Leave only the chosen rows in export's private copy of the database.
+
+    FTS5 keeps a deleted row's tokens in its segments until they merge and
+    SQLite keeps freed pages, so the index is rebuilt and the copy vacuumed:
+    a bundle of ten images given to someone carries no other prompt.
+    """
+    conn = sqlite3.connect(snapshot)
+    try:
+        conn.execute("CREATE TEMP TABLE chosen (id INTEGER PRIMARY KEY)")
+        conn.executemany("INSERT INTO chosen VALUES (?)", [(i,) for i in keep])
+        conn.execute("DELETE FROM images WHERE id NOT IN (SELECT id FROM chosen)")
+        conn.execute("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
+        conn.commit()
+        conn.execute("VACUUM")
+    finally:
+        conn.close()
+
+
+def _links_outside(rows: list[dict]) -> int:
+    """References and refine sources naming an image the bundle does not hold.
+
+    An import clears and counts each one (`unresolved_references`); export
+    says so first, since a bundle of picked images leaves their sources out
+    unless they were picked too.
+    """
+    held = {row["id"] for row in rows}
+    return sum(
+        sum(i not in held for i in _references(row)) + (row.get("refine") is not None and row["refine"] not in held)
+        for row in rows
+    )
+
+
+def export_bundle(expected: int | None = None, password: str | None = None, progress: Progress = _quiet, *,
+                  keep_gallery: bool = False, ids: list[int] | None = None) -> dict:
+    """Write and verify a bundle; then, unless `keep_gallery`, clear the gallery.
+
+    `expected` is the record count typed into the dialog, held to the
+    gallery only when it is to be cleared. A backup (`keep_gallery`) keeps
+    the one verifying read-back and skips only the second inventory and the
+    cleanup. `ids` bundles just those rows, with their PNGs and thumbnails,
+    and is always a backup: a part of the gallery is never cleared.
+    """
+    if ids is not None and not keep_gallery:
+        raise BundleError("only a bundle of the whole gallery can clear it; a selection is backed up and kept")
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
-        before = preview()  # which settles stale partials first
-        if before["records"] != expected:
-            raise BundleChanged("the gallery changed; review its new count before creating a bundle")
-        files = _inventory()
+        if ids is None:
+            before = preview()  # which settles stale partials first
+            if not keep_gallery and before["records"] != expected:
+                raise BundleChanged("the gallery changed; review its new count before creating a bundle")
+            files = _inventory()
+        else:
+            chosen, files = _chosen(ids)
+            if not chosen:
+                raise BundleError("none of the chosen images is in the gallery any more; nothing was archived")
+            before = {"images": len(chosen), "binned": sum(bool(r.get("binned_at")) for r in chosen)}
         directory = _directory()
         directory.mkdir(parents=True, exist_ok=True)
+        # The archive holds every file whole, and the snapshot is a full copy
+        # of the database - its write-ahead log folded in - before a
+        # selection is cut from it, which VACUUM copies once more: refuse here
+        # rather than fill the disk partway through.
+        wal = settings.db_path.with_name(settings.db_path.name + "-wal")
+        database = sum(p.stat().st_size for p in (settings.db_path, wal) if p.exists())
+        _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
+                      (settings.db_path.parent, database * (1 if ids is None else 2),
+                       "copy the gallery database for the bundle")])
         # The name is for the person saving it, on their own machine: local
         # wall-clock time. Nothing reads a time back out of the name.
         name = f"local-diffusion-{datetime.now().astimezone():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
@@ -324,7 +412,11 @@ def export_bundle(expected: int, password: str | None = None, progress: Progress
             work = Path(work)
             snapshot = work / _DATABASE
             _backup(settings.db_path, snapshot)
+            if ids is not None:
+                _restrict(snapshot, {row["id"] for row in chosen})
             rows = _rows(snapshot)
+            if ids is not None and rows != chosen:
+                raise BundleChanged("the gallery changed while its bundle was prepared; try again")
             manifest = {"format": _FORMAT, "version": 1, "records": len(rows), "files": {}}
             members = [(_DATABASE, snapshot), *files]
             try:
@@ -373,8 +465,15 @@ def export_bundle(expected: int, password: str | None = None, progress: Progress
             result = {
                 "name": name, "path": str(final), "images": before["images"],
                 "records": len(rows), "binned": before["binned"], "bytes": final.stat().st_size,
-                "cleared": False, "retained": [], "deleted_ids": [],
+                "cleared": False, "retained": [], "deleted_ids": [], "kept": keep_gallery,
+                # Chosen ids that had gone by the time the gallery was reserved.
+                "left_out": sorted(set(ids) - {row["id"] for row in rows}) if ids is not None else [],
+                "links_outside": _links_outside(rows),
             }
+            if keep_gallery:
+                # A backup ends at the verified read-back: nothing is cleared,
+                # so there is nothing for the second inventory to protect.
+                return result
             try:
                 current_files = _inventory()
                 if ({name for name, _ in current_files} != {name for name, _ in files}

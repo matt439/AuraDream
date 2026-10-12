@@ -161,14 +161,16 @@ before changing it.
   clear and VACUUM (under `storage._write_lock`, read at call time)
 - `backend/gallery_lock.py` — reentrant reservation of complete gallery
   operations across threads and cooperating server/CLI processes
-- `backend/bundles.py` — verified ZIP snapshots, source cleanup and staged
-  database/image merges; `bundle_archive.py` the archive format, its one
+- `backend/bundles.py` — verified ZIP snapshots (of the whole gallery, or
+  of chosen rows cut from a private copy: `_chosen`, `_restrict`), source
+  cleanup, skipped for a backup, and staged database/image merges; `bundle_archive.py` the archive format, its one
   verifying read (`_verify_archive`), the decode pool, the staging writer and
   the free-space check; `bundle_images.py` a tracked PNG's pixel identity,
   row validation, embedded metadata and tEXt rewrite; `bundle_common.py` the
   bundle errors, progress type and read-only database reads every layer
   shares; `bundle_crypto.py` the optional password layer
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
+  (the export's scope resolved through `submission.resolve_selection`)
   and exclusive maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates (`size:WxH` both sides exact; `lora:none` is IS NULL, every
@@ -228,7 +230,8 @@ before changing it.
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection and retiring state prepared under the old model,
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
-  `bundles.js` owns the gallery bundle dialog and background-operation polling;
+  `bundles.js` owns the gallery bundle dialog (Back up and its scope
+  included) and background-operation polling;
   `gallery-select.js` the picked cards, `gallery-batch.js` a card's batch
   on hover, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `more-seeds.js` More seeds and `bin.js` the
@@ -1220,6 +1223,27 @@ Jobs:
   equals the row's `content_hash` and its identity metadata matches (the
   short hash covers raw bytes only); the row is left unchanged and its PNG chunk rewritten
   from it. Anything else is refused.
+- A backup (`keep_gallery`, the dialog's Back up (keep gallery), operation
+  `backup`) is an export that ends at the verified read-back: no typed
+  count (`expected` is the clear's gate alone), no second inventory, no
+  cleanup, `deleted_ids` empty and `kept` true. Never drop the read-back
+  for it. A bundle of the picked `ids` or of the starred (`scope`) is
+  always a backup; the route refuses one that would clear (422), and
+  `export_bundle(ids=...)` refuses it too. Its ids come only from
+  `submission.resolve_selection` (Starred over every checkpoint, no search,
+  never the bin; picked ids whatever the filter, one binned or gone since
+  in `left_out`), read before the reservation and refused at once while a
+  bundle operation runs. Under the reservation the rows are cut from
+  export's private copy (`_restrict`: DELETE, FTS `rebuild`, VACUUM, so no
+  other prompt survives in the index or in free pages), held equal to the
+  live rows, and only their PNGs and thumbnails are archived; a chosen row
+  with no file refuses as `MissingImage`, an unchosen one does not.
+  `links_outside` counts references and refine sources the bundle lacks;
+  import clears and counts them as `unresolved_references`, said as a fact,
+  not a failure. Every export checks free space (`_check_space`) for its
+  files and database copy (with its `-wal`; twice for a chosen bundle's
+  VACUUM) before it writes. A finished backup reloads the gallery views,
+  as every bundle operation does, but keeps the typed count.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -4034,6 +4058,21 @@ and a failed parallel metadata rewrite.
 `test_bundle_crypto.py` also covers writes of any size and the writer's key
 opening only its own header; `test_api_bundles.py` an upload in many batches.
 
+`tests/test_bundles_backup.py` covers the backup and the chosen bundle: a
+backup leaving every file and row byte for byte and importing like any
+bundle, no count gate but the read-back kept (a failed one publishes
+nothing), only the chosen rows, PNGs and thumbnails archived with no other
+prompt in the database bytes, `left_out` and `links_outside`, the import's
+`unresolved_references`, a binned chosen row carried, a selection never a
+clear, a missing file refusing only when chosen, and too little free space
+(a chosen bundle's database counted with its log and twice)
+refused before anything is written. `tests/test_api_bundles.py` covers the
+routes: a backup keeping the gallery and its jobs' images, picked (a binned
+and an unknown id left out) and starred (the bin's star not counted; none
+starred a 404), the preview's `starred`, every out-of-shape request
+refused before any work (a selection with a typed count included), and a
+chosen bundle refused as busy before its selection is read.
+
 `smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog,
 all-model scope, typed confirmation, a bundle name stamped in local time,
 preserved favourites and metadata,
@@ -4044,8 +4083,16 @@ password refused before upload (the unlock field kept), protected import
 mid-send it aborts, with a stubbed upload fetch), progress counts outside
 the live region, a reopened dialog's result labelled as past, narrow layout,
 an export replayed to a reloaded page shown as past without forgetting
-ids, and a missing file's preview (stubbed with `MissingImage`'s 422) whose
-inline Show #N finds the row in the gallery and, binned, in the bin:
+ids, a missing file's preview (stubbed with `MissingImage`'s 422) whose
+inline Show #N finds the row in the gallery and, binned, in the bin, and
+Back up: the entire gallery with no typed count and a result that is no
+failure, Picked and Starred with their counts, Bundle & clear held for a
+selection, the scope moving no control, the gallery's picks used while the
+bin is shown with one binned from another tab left out, an import's
+missing-source count said as a fact, a gallery read refused mid-backup
+(stubbed 409) repaired when the backup ends with the typed count kept, the
+holds with nothing picked or
+starred, and the layout at 600x900 and 2560x1305:
 
 ```powershell
 uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>

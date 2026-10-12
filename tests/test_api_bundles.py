@@ -78,7 +78,7 @@ def test_browser_export_download_and_uploaded_merge(client, store):
 def test_running_bundle_blocks_mutations_but_status_stays_available(client, monkeypatch):
     entered, release = threading.Event(), threading.Event()
 
-    def held(expected, password=None, progress=None):
+    def held(expected, password=None, progress=None, **scope):
         progress("writing", 1, 3)
         entered.set()
         assert release.wait(5)
@@ -96,6 +96,10 @@ def test_running_bundle_blocks_mutations_but_status_stays_available(client, monk
         assert client.post("/api/generate", json={"prompt": "a fox"}).status_code == 409
         assert client.post("/api/images/1/favorite").status_code == 409
         assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
+        # A chosen bundle is refused before its selection is read: nothing is
+        # starred here, which that read would answer with a 404.
+        assert client.post("/api/gallery/bundles/export",
+                           json={"keep_gallery": True, "scope": "starred"}).json()["detail"] == api_bundles.BUSY
     finally:
         release.set()
     assert _finish(client, start.json()["id"])["state"] == "done"
@@ -361,3 +365,58 @@ def test_the_preview_counts_the_recycle_bin_among_its_records(client, store):
     assert client.post("/api/images/bin", json={"ids": [first]}).status_code == 200
     preview = client.get("/api/gallery/bundles/preview").json()
     assert (preview["records"], preview["images"], preview["binned"]) == (2, 2, 1)
+
+
+def _backup(client, **body):
+    response = client.post("/api/gallery/bundles/export", json={"keep_gallery": True, **body})
+    assert response.status_code == 202, response.text
+    assert response.json()["operation"] == "backup"
+    state = _finish(client, response.json()["id"])
+    assert state["state"] == "done", state
+    return state["result"]
+
+
+def test_a_backup_keeps_the_gallery_and_its_jobs_images(client, store):
+    job_id, _ = run_one(client, seed=19, num_images=2)
+    gallery = client.get("/api/gallery").json()
+    result = _backup(client)
+    assert (result["kept"], result["cleared"], result["deleted_ids"], result["scope"]) == (True, False, [], "all")
+    assert result["records"] == 2
+    assert client.get("/api/gallery").json() == gallery
+    assert len(client.get(f"/api/jobs/{job_id}").json()["images"]) == 2
+    assert any(item["name"] == result["name"] for item in client.get("/api/gallery/bundles").json()["bundles"])
+
+
+def test_a_bundle_of_the_picked_or_the_starred_reports_what_it_left_out(client, store):
+    _, events = run_one(client, seed=19, num_images=3)
+    first, second, third = (image["id"] for image in events[-1]["images"])
+    assert client.post("/api/images/bin", json={"ids": [second]}).status_code == 200
+    picked = _backup(client, scope="picked", ids=[third, second, 999])
+    assert (picked["records"], picked["scope"], picked["left_out"]) == (1, "picked", [second, 999])
+
+    none = client.post("/api/gallery/bundles/export", json={"keep_gallery": True, "scope": "starred"})
+    assert none.status_code == 404 and none.json()["detail"].startswith("No image is starred")
+    store.set_favorite(first, True)
+    store.set_favorite(second, True)  # in the bin: never part of the starred
+    assert client.get("/api/gallery/bundles/preview").json()["starred"] == 1
+    starred = _backup(client, scope="starred")
+    assert (starred["records"], starred["images"], starred["left_out"]) == (1, 1, [])
+    assert store.list_images()[1] == 2 and store.list_images(binned=True)[1] == 1
+
+
+@pytest.mark.parametrize("body, status", [
+    # A selection is never cleared, even with its typed count.
+    ({"scope": "picked", "ids": [1], "expected": 1}, 422),
+    ({"scope": "starred", "expected": 1}, 422),
+    ({"keep_gallery": True, "scope": "picked"}, 422),  # picked needs its ids
+    ({"keep_gallery": True, "ids": [1]}, 422),  # and ids need picked
+    ({}, 422),  # a clear needs its typed count
+    ({"keep_gallery": True, "scope": "picked", "ids": [999]}, 404),
+])
+def test_an_export_request_out_of_shape_is_refused_before_any_work(client, store, body, status):
+    run_one(client, seed=19)
+    response = client.post("/api/gallery/bundles/export", json=body)
+    assert response.status_code == status, response.text
+    assert client.get("/api/gallery/bundles/status").json()["state"] == "idle"
+    assert client.get("/api/gallery/bundles").json()["bundles"] == []
+    assert store.list_images()[1] == 1

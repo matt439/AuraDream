@@ -121,6 +121,8 @@ const els = {
   bundleProgress: $('bundle-progress'), bundleDownload: $('bundle-download'),
   bundleRetained: $('bundle-retained'), bundleDirectory: $('bundle-directory'), bundleList: $('bundle-list'),
   bundlePassword: $('bundle-password'), bundlePasswordAgain: $('bundle-password-again'), bundleUnlock: $('bundle-unlock'),
+  bundleBackup: $('bundle-backup'), bundleScopePicked: $('bundle-scope-picked'),
+  bundleScopeStarred: $('bundle-scope-starred'), bundleScopeHint: $('bundle-scope-hint'),
   sheet: $('sheet'), sheetControls: $('sheet-controls'),
   sheetFixed: $('sheet-fixed'), sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'), sheetSaid: $('sheet-said'),
   runHint: $('run-hint'),

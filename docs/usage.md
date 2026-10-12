@@ -468,8 +468,30 @@ Press **Bundles…** at the end of the row under the search box to open the
 Gallery bundles dialog. Its counts cover the
 entire gallery: every checkpoint, every favourite and the recycle bin,
 regardless of the current search or filters; the preview says how many of
-the records are in the recycle bin. Type the displayed record count and press **Bundle & clear
-gallery**. To protect the bundle, enter a password twice first: the bundle is
+the records are in the recycle bin.
+
+**Back up (keep gallery)** saves and verifies a bundle and leaves the
+gallery exactly as it was: no count to type, nothing removed. Choose what it
+holds under **Bundle**:
+
+- **Entire gallery**: everything Bundle & clear would take (below).
+- **Picked (N)**: the cards picked with **Select**, whatever the search or
+  filter. Picks made before opening the recycle bin still count while it is
+  shown. A picked image binned or deleted since is left out, and the result
+  says how many were.
+- **Starred (N)**: the starred images of every checkpoint, outside the
+  recycle bin (up to the grid limit, 1024 by default).
+
+A picked or starred bundle holds those images, their thumbnails and their
+gallery records only: no other prompt travels in it, which makes it the way
+to give someone ten images with their settings. A refine source or a
+reference image travels only when it is chosen too; the result counts the
+links that point outside the bundle, and an import of it says the same and
+leaves those links empty.
+
+To move the whole gallery out, keep **Entire gallery**, type the displayed
+record count and press **Bundle & clear gallery** (a picked or starred
+bundle never clears anything). To protect the bundle, enter a password twice first: the bundle is
 then saved as an encrypted `.ldbundle` file that only Local Diffusion can
 open (file names included). The password is not saved anywhere and cannot be
 recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work
@@ -496,8 +518,8 @@ links, and skips images already present (an image already present keeps
 this gallery's star and recycle-bin state). An image the gallery still lists
 but whose file is gone is restored from the bundle when the bundle holds that
 same picture. Different files using the same name
-are refused before changing the gallery. Missing source images cannot be
-restored; the result reports links that could not be recovered.
+are refused before changing the gallery. Source images the bundle does not
+hold cannot be linked; the result counts those links, which are left empty.
 
 Keep the server running until the operation finishes; closing the dialog or
 browser does not cancel it. **Cancel upload** stops a selected file only
@@ -508,7 +530,9 @@ a running `reindex`) is using the gallery, the operation fails at once and
 can be retried when it ends. Creating and importing a bundle need free space
 for the archive and staged files: the bundle and the merged database on the
 database's drive, uploads and unpacked images in `.local-diffusion-staging`
-on the images' drive. If an image is locked or files change during
+on the images' drive. An export without room for every file it would copy
+(the images, the database and its working copies) is refused before it
+writes anything. If an image is locked or files change during
 export, the verified bundle remains available and the dialog lists what was
 not cleared. The status line shows the current step and how far it has got. Review that result before removing anything by hand.
 A gallery image whose PNG is missing from disk stops the counts: the line

@@ -3754,6 +3754,69 @@ read as two images lost, with only the footer's Bin 2 to explain it. A bin or re
 another process mid-export changes a row, and the row-equality check
 before cleanup refuses it, which is the right answer.
 
+### A backup that keeps the gallery, and bundles of the picked or starred (2026-10-12)
+
+The only export cleared the gallery, so a routine backup, or ten starred
+images given to someone, meant clearing it or copying PNGs by hand, which
+loses stars and timings (review 2026-10-12, F1). Export already did all the
+work of a backup; **Back up (keep gallery)** is that export with one step
+skipped. It keeps the one verified read-back, every member checked and the
+tracked PNGs decoded, and stops before the second inventory and the
+cleanup, which exist only to make a clear safe. For the same reason it has
+no typed count: the count is the clear's confirmation, and a backup of a
+gallery that grew meanwhile is still a correct backup. Its operation is
+`backup`, not `export`, so the page words it as a success ("The gallery is
+unchanged.") where the old renderer read `cleared: false` as a failure, and
+skips the gallery reload a clear needs.
+
+A bundle of the **picked** or the **starred** images takes its ids from
+`submission.resolve_selection`, as Re-render, Swap tags, Mass refine and
+More seeds do, so "picked" and "starred" mean here what they mean there:
+picked ids whatever the filter (one binned or deleted since is reported, not
+refused), Starred outside the bin and capped at `max_grid_images`. Starred
+is taken over every checkpoint with no search, since the dialog's scope has
+always been the whole gallery whatever the filter; a "the current filter"
+scope was left out for the same reason. The ids are read before the
+reservation (the read takes the gallery lock the worker would hold) and
+held to the live rows under it.
+
+The bundle is the whole-gallery format with fewer rows, so import needed no
+change: the database member is export's private snapshot with the other
+rows deleted. A DELETE alone is not enough for something given away: the
+FTS5 index keeps a deleted row's tokens in its segments until they merge,
+and SQLite keeps freed pages, so the copy's index is rebuilt and the copy
+vacuumed (the test looks for the other prompts in the archived bytes). The
+`sqlite_sequence` high-water mark stays; it says only how many images were
+ever made. Only the chosen rows' PNGs and thumbnails go in, never the
+unindexed images a whole-gallery bundle carries. A chosen bundle is never a
+clear: clearing part of a gallery is what the bin and Delete permanently
+are for, and a partial clear would need its own inventory and confirmation.
+
+A picked pass without its source leaves a link the bundle cannot honour.
+Import already cleared and counted such links (`unresolved_references`)
+rather than point them at an unrelated id; export now counts them too
+(`links_outside`), and the dialog says both as facts, since for a chosen
+bundle they are expected. Carrying the sources along automatically was
+considered and left out: it would put images in a bundle that the person
+did not choose, which is wrong for a bundle given away.
+
+Every export now checks free space before it writes: the bundle directory's
+volume for the files and the database, and the database's for the snapshot.
+Without it a full disk stopped an export only partway through a write the size of the gallery.
+The database is counted with its write-ahead log, which the snapshot folds
+in, and a chosen bundle's snapshot twice, for VACUUM's copy; the archive's
+overhead per member and the password layer's are not.
+
+A finished backup still reads the gallery views again, though it changed
+nothing in them: while it ran every gallery read was refused, and a search
+typed then emptied the grid under the "in progress" refusal, which nothing
+else would have repaired. Only the typed count and the forgotten ids are a
+clear's.
+
+No CLI export was added: the browser's bundle admission (jobs idle, model
+not loading, no reader in flight) and the scope's `resolve_selection` live
+in the server, and a CLI would have needed its own copies of both.
+
 ### Password bundles and the one-pass read-back
 
 **Why not an encrypted ZIP.** Python's `zipfile` cannot write encrypted
