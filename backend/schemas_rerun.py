@@ -15,9 +15,10 @@ from .schemas_generate import GenerateRequest, JobAccepted
 class RerenderRequest(BaseModel):
     """Render a gallery selection again at another size.
 
-    The selection is the gallery's own filter - the search box and the
-    Favorites tick - taken server-side, because the browser holds only the
-    page it has scrolled to. Every record carries the complete reproduction
+    The selection is the gallery's picked cards (`ids`) where the page has
+    picked some, else its own filter - the search box and the Favorites
+    tick - taken server-side, because the browser holds only the page it
+    has scrolled to. Every record carries the complete reproduction
     set, so each becomes one cell of one job: the prompt, the negative prompt,
     steps, CFG, true CFG, mu, the references, the adapter and its weight, the
     refine source and its strength, the seed and the variables - what the
@@ -29,17 +30,42 @@ class RerenderRequest(BaseModel):
     is the whole value; for a seeds-only grid the selection is thrown away.
     """
 
+    # The picked cards, exactly those whatever the filter; a picked image
+    # deleted or binned since is left out and named in the answer
+    # (`RerenderAccepted.deleted`), as Swap tags reports it.
+    ids: list[int] | None = Field(default=None, min_length=1, max_length=settings.max_grid_images)
     search: str | None = Field(default=None, max_length=2000)
     favorites: bool = True
     # The gallery's third filter: off, the selection is this checkpoint's
     # images alone, as the grid shows them; on, another checkpoint's records
     # are selected too and refused below, since their steps and CFG are not
-    # this checkpoint's.
+    # this checkpoint's. Picked cards are not scoped by it: another
+    # checkpoint's among them are refused all the same.
     all_models: bool = False
     width: int = Field(ge=256, le=settings.max_side)
     height: int = Field(ge=256, le=settings.max_side)
 
     _multiple_of_16 = GenerateRequest._multiple_of_16
+
+    # Written out: a validator assigned from another model is not run.
+    @field_validator("ids")
+    @classmethod
+    def _positive_ids(cls, value: list[int] | None) -> list[int] | None:
+        return SwapTagsRequest._positive_ids.__func__(cls, value)
+
+
+class RerenderGone(BaseModel):
+    """A picked image Re-render left out: deleted, or binned since it was
+    picked (`detail`, `submission.gone_detail`'s words)."""
+
+    id: int
+    detail: str
+
+
+class RerenderAccepted(JobAccepted):
+    """Re-render's job, and the picked images it could not take."""
+
+    deleted: list[RerenderGone] = Field(default_factory=list)
 
 
 class TagSwap(BaseModel):

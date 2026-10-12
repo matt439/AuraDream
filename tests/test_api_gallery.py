@@ -467,6 +467,35 @@ def test_binning_and_restoring_answer_per_id_and_hold_the_record_back(client, st
     assert client.post("/api/images/restore", json={"ids": too_many}).status_code == 422
 
 
+def test_picked_images_are_starred_and_unstarred_together_per_id(client, store):
+    # Star picked: one request for the gallery's picks, answered per id as
+    # the bin answers - one binned or deleted meanwhile is said, and the rest
+    # are starred all the same.
+    first, second, third = (_plant(store, settings.model_id, seed=s) for s in (1, 2, 3))
+    client.post(f"/api/images/{second.id}/favorite?value=true")
+    client.post("/api/images/bin", json={"ids": [third.id]})
+    picked = [second.id, first.id, third.id, 9999]
+    response = client.post("/api/images/favorite", json={"ids": picked})
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "changed": [first.id], "already": [second.id], "binned": [third.id], "missing": [9999],
+    }
+    starred = client.get("/api/gallery", params={"favorites": "true"}).json()["items"]
+    assert sorted(r["id"] for r in starred) == [first.id, second.id]
+    # Unstar picked; a binned image keeps the flag it was binned with, so a
+    # Restore brings back what it had.
+    response = client.post("/api/images/favorite", json={"ids": picked, "value": False})
+    assert response.json() == {
+        "changed": [first.id, second.id], "already": [], "binned": [third.id], "missing": [9999],
+    }
+    assert client.get("/api/gallery", params={"favorites": "true"}).json()["items"] == []
+    assert client.get(f"/api/images/{third.id}?binned=true").json()["favorite"] is False
+    # As the bin's list: none, or more than a job takes, is refused.
+    assert client.post("/api/images/favorite", json={"ids": []}).status_code == 422
+    too_many = list(range(1, settings.max_grid_images + 2))
+    assert client.post("/api/images/favorite", json={"ids": too_many}).status_code == 422
+
+
 def test_the_bin_lists_every_checkpoints_binned_images_and_its_summary(client, store):
     mine = _plant(store, settings.model_id, prompt="a fox", seed=1)
     theirs = _plant(store, "somebody/else", prompt="a fox", seed=2)

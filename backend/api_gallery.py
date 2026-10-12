@@ -12,6 +12,8 @@ from .jobs import JobManager
 from .schemas import (
     BinResult,
     BinSummary,
+    FavoritesBody,
+    FavoritesResult,
     GalleryPage,
     IdsBody,
     ImageRecord,
@@ -173,6 +175,14 @@ def create_router(
         if record is None:
             raise HTTPException(status_code=404, detail="unknown image")
         return record
+
+
+    @router.post("/api/images/favorite", response_model=FavoritesResult)
+    async def favorites(body: FavoritesBody) -> FavoritesResult:
+        """Star or unstar the gallery's picked cards in one request (Star
+        picked, Unstar picked), per id as the bin answers: one image binned
+        or deleted meanwhile is said, not a refusal of the rest."""
+        return FavoritesResult(**await asyncio.to_thread(storage.set_favorites, body.ids, body.value))
 
 
     @router.post("/api/images/bin", response_model=BinResult)

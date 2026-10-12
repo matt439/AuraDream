@@ -933,6 +933,77 @@ def test_a_rerender_refusal_offers_only_a_search_that_leaves_the_others_out(
     )
 
 
+def test_a_rerender_takes_the_picked_cards_whatever_the_filter(client, fake, store):
+    # Two keepers picked to render at full size: the filter (Starred, which
+    # matches none of them) used to be the only scope, so it was every match
+    # or nothing. With `ids`, exactly the picks, oldest first however they
+    # were picked; one binned and one deleted since are left out and named,
+    # as Swap tags names them, not a refusal of the rest.
+    _, events = run_grid(client, steps_axis="6,8,10", cfg_axis="0,1", seed=5)
+    images = sorted(events[-1]["images"], key=lambda r: r["id"])
+    keep, also, binned, deleted = (images[i]["id"] for i in (4, 1, 2, 3))
+    assert client.post("/api/images/bin", json={"ids": [binned]}).status_code == 200
+    assert client.delete(f"/api/images/{deleted}").status_code == 200
+    fake.requests.clear()
+
+    picked = {"ids": [keep, binned, also, deleted], "width": 512, "height": 512}
+    accepted = client.post("/api/rerender", json=picked)
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["deleted"] == [
+        {"id": binned, "detail": "in the recycle bin"},
+        {"id": deleted, "detail": "no longer in the gallery"},
+    ]
+    done = stream_job(client, accepted.json()["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 2
+    assert [(r.steps, r.guidance_scale, r.seed, r.width) for r in fake.requests] == [
+        (images[1]["steps"], images[1]["guidance_scale"], 5, 512),
+        (images[4]["steps"], images[4]["guidance_scale"], 5, 512),
+    ]
+    # Done is done, as for a filter.
+    assert client.post("/api/rerender", json=picked).status_code == 409
+    # With nothing left of the picks, nothing to queue, each said.
+    response = client.post("/api/rerender", json={**picked, "ids": [binned, deleted]})
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        f"none of the selected images is left: #{binned} is in the recycle bin; "
+        f"#{deleted} is no longer in the gallery"
+    )
+    # A filter's answer names none.
+    star = client.post(f"/api/images/{keep}/favorite?value=true")
+    assert star.status_code == 200
+    filtered = client.post("/api/rerender", json={"width": 768, "height": 768})
+    assert filtered.status_code == 200 and filtered.json()["deleted"] == []
+    # As every other action's `ids`: none, or an id below 1, is refused.
+    assert client.post("/api/rerender", json={**picked, "ids": []}).status_code == 422
+    assert client.post("/api/rerender", json={**picked, "ids": [0]}).status_code == 422
+
+
+def test_a_rerender_of_picks_refuses_another_checkpoints_and_says_which(client, fake, store):
+    # Picked cards are no filter: All models does not scope them, so another
+    # checkpoint's pick is refused with or without it - and the way out is
+    # unpicking it, by name, not a search or a tick that cannot reach it.
+    def plant(model_id, seed):
+        return store.save_image(
+            Image.new("RGB", (256, 256)),
+            GenerateRequest(prompt="x", width=256, height=256),
+            seed=seed, duration_ms=1, model_id=model_id,
+        ).id
+
+    mine = plant(settings.model_id, 1)
+    theirs = [plant("somebody/else", seed) for seed in range(2, 10)]
+    response = client.post("/api/rerender", json={"ids": [mine, theirs[0]], "width": 512, "height": 512})
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        f"1 of the selected images was made on somebody/else; the server is running "
+        f"{settings.model_id}, whose steps, CFG and mu differ. Unpick #{theirs[0]}."
+    )
+    # Named up to six, then counted.
+    response = client.post("/api/rerender", json={"ids": [mine, *theirs], "width": 512, "height": 512})
+    names = ", ".join(f"#{image_id}" for image_id in theirs[:6])
+    assert response.json()["detail"].endswith(f"differ. Unpick {names} and 2 more.")
+    assert not fake.requests
+
+
 def test_finished_jobs_are_listed_on_request_with_their_outcome(client, fake):
     # The morning after: /api/jobs alone is empty once the night is over, and
     # nothing said whether the grid finished, stopped or died - or how much it
