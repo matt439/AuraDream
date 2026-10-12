@@ -165,22 +165,24 @@ def startup_overrides(env: MutableMapping[str, str] | None = None) -> dict[str, 
 
 def apply_saved_environment(
     env: MutableMapping[str, str] | None = None, *, model: str | None = None,
-) -> None:
+) -> StartupPreferences | None:
     """Fill absent startup variables, without importing config or changing disk.
 
     The four values are one choice made for one checkpoint. When the model is
     explicit (`model`, the --model flag applied afterwards, or the
     environment) and is not the saved one, none of them applies: a saved
     BF16/no offload/auto-load for a small model must not load a large one so.
+    Returns the preferences applied, for a later choice (the --menu's) to
+    check against; None when none were.
     """
     env = os.environ if env is None else env
     db_path = Path(env.get("LOCAL_DIFFUSION_DB_PATH", str(_ROOT / "local-diffusion.db")))
     preferences = load(db_path)
     if preferences is None:
-        return
+        return None
     if preferences.quantization == "nunchaku" and sys.platform != "linux":
         log.warning("Ignoring saved Nunchaku startup settings: Nunchaku requires Linux/WSL")
-        return
+        return None
     if model is None and _explicit(env, "LOCAL_DIFFUSION_MODEL_ID"):
         model = env["LOCAL_DIFFUSION_MODEL_ID"]
     if model is not None and model != preferences.model_id:
@@ -188,7 +190,8 @@ def apply_saved_environment(
             "Ignoring saved startup settings for %s: this start names %s",
             preferences.model_id, model,
         )
-        return
+        return None
     for name, value in preferences.environ().items():
         if not _explicit(env, name):
             env[name] = value
+    return preferences

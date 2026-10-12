@@ -200,7 +200,7 @@
     "expect": "viewerRecords[0].model_id === __flux && viewerRecords[0].steps === 31 && viewerRecords[0].guidance_scale === 4"
   },
   {
-    "eval": "(async () => { window.__fluxImage = viewerRecords[0].id; await api('/api/fake/load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 0.8})}); })()"
+    "eval": "(async () => { window.__fluxImage = viewerRecords[0].id; await api('/api/fake/load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: 2})}); })()"
   },
   {
     "eval": "window.__realApi = api; window.__releaseLoras = null; window.__releaseRuns = null; api = async (path, options) => { const body = await __realApi(path, options); if (path === '/api/loras' && !__releaseLoras) return new Promise((resolve) => { __releaseLoras = () => resolve({loras: [{name: 'stale.safetensors', bytes: 1}], supported: true}); }); if (path.startsWith('/api/runs?') && !__releaseRuns) return new Promise((resolve) => { __releaseRuns = () => resolve([{run_id: 'stale-run', images: 1, jobs: 1, seed: 1, started_at: new Date().toISOString(), prompt: 'stale model response'}]); }); return body; }; void refreshLoras(); void loadRuns();"
@@ -224,10 +224,10 @@
     "click": "#btn-model-switch"
   },
   {
-    "expect": "__until(() => modelSwitchSending || modelSwitching)"
+    "expect": "__until(async () => { await refreshStatus(); return loadedModel === __anime && modelState === 'loading' && !modelSwitching && !modelSwitchSending; })"
   },
   {
-    "expect": "els.generate.getAttribute('aria-disabled') === 'true' && els.modelSwitch.getAttribute('aria-disabled') === 'true' && document.activeElement === els.modelSwitch"
+    "expect": "els.generate.getAttribute('aria-disabled') === 'false' && els.generate.title === GENERATE_TITLE && els.modelSwitch.getAttribute('aria-disabled') === 'true' && document.activeElement === els.modelSwitch"
   },
   {
     "expect": "__until(async () => { await refreshStatus(); return __row(__anime)?.dataset.state === 'loading' && __row(__anime).querySelector('.model-state-word').textContent === 'Loading…' && !__row(__flux).hasAttribute('data-state'); })"
@@ -742,5 +742,39 @@
   {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __anime && modelState === 'ready' && !modelSwitching && !modelSwitchSending; })"},
   {"expect": "els.error.textContent !== __refusal && !__note().includes(__refusal) && __note().startsWith(`Switched to ${__animeName()}`)"},
   {"key": "Escape"},
-  {"expect": "els.modelPicker.hidden"}
+  {"expect": "els.modelPicker.hidden"},
+  {"log": "'A Generate pressed while a switch is being sent says so as a note, which goes once the change ends; through the load after it Check answers and Generate is not held but queues behind the weights'"},
+  {"eval": "(async () => { showError(''); await __fake('/api/fake/load', {seconds: 6}); window.__realApi = api; window.api = async (path, ...rest) => { if (path === '/api/model/switch') { window.api = __realApi; await new Promise((r) => setTimeout(r, 800)); } return __realApi(path, ...rest); }; })()"},
+  {"click": "#btn-models"},
+  {"expect": "__until(() => !els.modelPicker.hidden && modelCatalogueLoaded && !modelCataloguePending && !!__radio(__flux))"},
+  {"eval": "__radio(__flux).click()"},
+  {"click": "#btn-model-switch"},
+  {"expect": "modelSwitchSending && els.generate.getAttribute('aria-disabled') === 'true' && els.generate.title === 'Wait for the model settings change to finish'"},
+  {"eval": "els.prompt.value = 'a lighthouse in the rain'; void startJob('/api/generate', collect());"},
+  {"expect": "els.error.textContent === 'Wait for the model settings change to finish.' && els.error.classList.contains('note') && !els.error.hidden && !busy"},
+  {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __flux && modelState === 'loading' && !modelSwitching && !modelSwitchSending; })"},
+  {"expect": "els.error.textContent === '' && els.error.hidden && els.generate.getAttribute('aria-disabled') === 'false' && els.generate.title === GENERATE_TITLE && __note().includes(`Loading ${__fluxName()}…`)"},
+  {"expect": "(async () => { const reply = await api('/api/prompt/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a lighthouse in the rain', width: 1024, height: 1024})}); await refreshStatus(); return !!reply && modelState === 'loading' && !modelSwitching; })()"},
+  {"eval": "void startJob('/api/generate', collect());"},
+  {"expect": "__until(() => busy && els.error.textContent === '')"},
+  {"expect": "__until(async () => { await refreshStatus(); return !busy && modelState === 'ready' && loadedModel === __flux; }, 30000)"},
+  {"eval": "__fake('/api/fake/load', {seconds: 0})"},
+  {"eval": "if (els.modelPicker.hidden) els.models.click();"},
+  {"log": "'Another tab or window switching drops this tab\\'s unsaved choice and the note says so, naming both'"},
+  {"expect": "__until(() => !els.modelPicker.hidden && modelCatalogueLoaded && !modelCataloguePending && !!__radio(__anime))"},
+  {"eval": "__radio(__anime).click()"},
+  {"expect": "__note().startsWith('Unsaved changes.') && !els.modelRevert.hidden"},
+  {"eval": "window.__kohaku = 'KBlueLeaf/Kohaku-XL-Zeta'; void fetch('/api/model/switch', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_id: __kohaku, load: false})});"},
+  {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __kohaku && !modelSwitching; }, 20000)"},
+  {"expect": "__note() === `${modelLabel(__kohaku)} was selected in another tab or window; your unsaved choice (${__animeName()}) was dropped.` && els.modelRevert.hidden && modelChoice() === __kohaku"},
+  {"log": "'Qwen-Image says in its row and, chosen, in the note that its FP8, INT8 and BF16 builds are larger than the card; no other row does'"},
+  {"eval": "window.__qwen = 'Qwen/Qwen-Image'; __radio(__qwen).click()"},
+  {"expect": "(() => { const fit = __row(__qwen).querySelector('.model-name small .model-fit'); return els.modelQuantization.value !== 'nunchaku' && els.modelTable.querySelectorAll('.model-fit').length === 1 && fit?.textContent === 'Over 16 GB' && fit.title === modelCatalogueDetails[__qwen].fit_note && fit.getClientRects().length === 1 && document.getElementById(__radio(__qwen).getAttribute('aria-describedby')).textContent.includes(`Memory: ${modelCatalogueDetails[__qwen].fit_note}`) && __note().startsWith(`Qwen-Image: ${modelCatalogueDetails[__qwen].fit_note}`) && __note().includes('Unsaved changes.') && els.modelSwitch.getAttribute('aria-disabled') === 'false'; })()"},
+  {"eval": "__radio(__kohaku).click()"},
+  {"expect": "!__note().includes('Qwen-Image:')"},
+  {"key": "Escape"},
+  {"expect": "els.modelPicker.hidden"},
+  {"log": "'Animagine loaded again, as the smokes that follow on this fake expect'"},
+  {"eval": "void fetch('/api/model/switch', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_id: __anime, load: true})});"},
+  {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __anime && modelState === 'ready' && !modelSwitching && !modelSwitchSending; }, 20000)"}
 ]

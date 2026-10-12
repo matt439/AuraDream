@@ -24,8 +24,9 @@ MP does not guarantee equal quality for every aspect ratio. The model-page link 
 Finish or cancel the
 image queue first, including paused jobs, and wait for any current load, prompt
 check, critic or Expand request to finish. The old weights are released before
-the selected checkpoint loads. A failed load shows its reason and **Retry load**;
-you can also select another checkpoint.
+the selected checkpoint loads. While it loads, Check, tag lookup and adapters
+work, and Generate queues behind the load. A failed load shows its reason and
+**Retry load**; you can also select another checkpoint.
 
 Prompts and saved images stay available. Sampling starts from that checkpoint's
 defaults or its remembered settings, and the guide, supported controls, adapters
@@ -51,7 +52,8 @@ checkpoint in the gallery (it ticks **All models**, clears **Starred** and
 searches for `model:=<id>`). A checkpoint with no images says so instead.
 
 **Quantization** trades memory for precision: FP8 and INT8 keep 8-bit weights
-(INT8 a little softer), BF16 is full precision and the largest, and Nunchaku
+(the same size; INT8's output is not yet compared with FP8's on the card),
+BF16 is full precision and the largest, and Nunchaku
 4-bit builds are the smallest but run only on Linux or WSL. **Offload** trades
 memory for speed: Model offload keeps one component on the GPU at a time,
 Sequential moves smaller pieces and is much slower, and No offload is fastest
@@ -66,7 +68,9 @@ radio), so Tab reaches the actions without passing every row. Opening the
 picker focuses the chosen row and scrolls the table to it. If a quantization
 or format has no build of the chosen model, no row is chosen; the model is
 chosen again when a list has it. A field you changed keeps your value until
-you apply it; the others follow changes saved in another tab.
+you apply it; the others follow changes saved in another tab. A switch made
+in another tab drops your unsaved changes, and the line under the buttons
+says which choice was dropped.
 
 **Speed** uses recorded RTX 5080 samples around 1 MP (WAI's portrait is 1.38 MP):
 **Fast** is up to 15 seconds, **Medium** over 15 through 45 seconds, and **Slow**
@@ -75,7 +79,7 @@ category appears only when the sample used your chosen quantization, offload
 and platform. Otherwise the word is **Reference**, or **Unmeasured** for BF16
 or sequential offload, and "timed with FP8" or "timed on 4-bit Linux build"
 says how the sample differs; these read dimmer than a category. **First run, busy PC** marks the busy-CPU first
-images. The tooltip gives steps, settings and date. **Unmeasured** models
+images, which are **Reference** too: a first image is not a warm timing. The tooltip gives steps, settings and date. **Unmeasured** models
 without a sample show default steps instead of an invented timing. These are
 previous runs, not estimates for your current prompt, size or steps; loading
 time is separate.
@@ -85,6 +89,9 @@ need their licence accepted on the model page; Krea 2 Turbo and Raw need the
 authors' approval, which can take days. Then sign in once with
 `uv run hf auth login`. The 4-bit lite-infer builds are not gated. Each
 row says **Open**, **Accept licence** or **Needs approval** under the name.
+Qwen-Image's row also says **Over 16 GB**: only its 4-bit Nunchaku build (WSL)
+fits this card, and choosing it under FP8, INT8 or BF16 says so under the
+buttons before you press one.
 Until access is granted, loading a gated model fails and says why; a page
 opened after that failure shows the picker with the reason. Choose an open
 model in **Models**, or press **Retry load** once access is granted.
@@ -111,7 +118,8 @@ variables override remembered settings. Starting with a different model
 (`--model` or `LOCAL_DIFFUSION_MODEL_ID`) ignores the whole saved choice,
 since its quantization, offload and auto-load were picked for its own model.
 `--defaults` ignores the saved file and `--menu` opens the optional terminal
-picker. If a switch cannot release the running model, that model stays
+picker, with the saved choice as its defaults; picking another model there
+does not load automatically at startup either. If a switch cannot release the running model, that model stays
 selected and loaded and the saved settings are left as they were. The preference file is
 `local-diffusion.settings.json`, beside the gallery database.
 

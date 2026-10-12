@@ -51,7 +51,8 @@ class Settings:
     model_id: str = os.getenv("LOCAL_DIFFUSION_MODEL_ID", DEFAULT_MODEL_ID)
 
     # "fp8"  - torchao float8 weight-only on the transformer (~12GB, fits 16GB cards)
-    # "int8" - torchao int8 weight-only, smaller still, slightly softer output
+    # "int8" - torchao int8 weight-only, the same size as fp8; its output is not
+    #          yet compared with fp8's on the card
     # "none" - full bfloat16, needs ~25GB VRAM
     # "nunchaku" - a checkpoint that is already quantized (Nunchaku Lite, SVDQuant
     #          4-bit, e.g. lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-

@@ -651,6 +651,11 @@ async def _switch_model(target, *, load: bool, previous, previous_preload) -> No
                 target.model_id, quantization=target.quantization, offload=target.offload,
             )
             _load_state.update(state="loading" if load else "unloaded", detail=None)
+            # The selection is committed: from here on this is an ordinary
+            # load, which Check, tags, LoRAs and a queued Generate wait out as
+            # they do the Load button's. A second switch is still refused, by
+            # the lock and then the loading state (`_refuse_busy_switch`).
+            _switching = False
         # The only weight-loading path, retaining load-lock -> gate ordering.
         if load:
             await ensure_loaded()

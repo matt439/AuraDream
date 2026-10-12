@@ -50,18 +50,40 @@ def test_anima_releases_keep_their_own_measurements():
     assert "CPU test suite" in aesthetic["speed_note"]
 
 
+def test_first_run_busy_samples_get_no_speed_category():
+    # Animagine and Illustrious are SDXL twins at 0.22 s a step; their first
+    # images of a process read Medium and Fast, and schnell's 27.3 s (19.5 s
+    # of it the first step) read barely faster than Krea dev's warm 42 s.
+    for model_id in (
+        "cagliostrolab/animagine-xl-4.0", "OnomaAIResearch/Illustrious-XL-v2.0",
+        "black-forest-labs/FLUX.1-schnell", "Tongyi-MAI/Z-Image-Turbo",
+    ):
+        detail = model_info.details_for(model_id)
+        assert detail["speed_label"] == "Reference", model_id
+        assert detail["speed_basis"] == "First run, busy PC"
+        assert "not a warm timing" in detail["speed_note"]
+        assert "a step" in detail["speed_note"]
+    assert "19.5 s of it the first step" in model_info.details_for("black-forest-labs/FLUX.1-schnell")["speed_note"]
+    assert all(
+        sample.warm == (sample.basis != "First run, busy PC")
+        for samples in model_benchmarks._SAMPLES.values() for sample in samples
+    )
+
+
 def test_speed_tooltip_retains_noncomparable_size_and_cold_cpu_caveats():
     wai = model_info.details_for("LyliaEngine/waiIllustriousSDXL_v170")
     assert "1.38 MP" in wai["speed_summary"]
     assert "1024×1344" in wai["speed_note"]
     animagine = model_info.details_for("cagliostrolab/animagine-xl-4.0")
-    assert animagine["speed_label"] == "Medium"
+    assert animagine["speed_label"] == "Reference"
     assert animagine["speed_basis"] == "First run, busy PC"
     assert "17.2 s" in animagine["speed_note"]
     assert "2026-10-05" in animagine["speed_note"]
     assert "First image of a process" in animagine["speed_note"]
     assert "CPU about 75% busy" in animagine["speed_note"]
-    assert "upper-bound" in animagine["speed_note"]
+    # Not an upper bound: Illustrious took 15 s at the same settings on
+    # 2026-09-17, more than its 11.1 s first run.
+    assert "upper-bound" not in animagine["speed_note"]
     int8 = model_info.details_for("cagliostrolab/animagine-xl-4.0", "int8")
     assert (int8["speed_label"], int8["speed_basis"]) == ("Reference", "timed with FP8")
 

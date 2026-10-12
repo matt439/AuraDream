@@ -118,7 +118,9 @@ Model and loader:
   `jobs.wait_for_gate`. `generate()` raises on a missing pipeline; unload is
   409 while a job or load is live. Load failures go through
   `main._load_failure`.
-- Switching reserves the idle server through cleanup and `ensure_loaded`.
+- Switching reserves the idle server through cleanup and `select()`; its load
+  is then an ordinary `ensure_loaded` (Check, tags and LoRAs answer, Generate
+  queues, a second switch is refused).
   Model-dependent requests are counted before validation; stale browser
   revisions are refused before submission. Never mutate frozen startup settings.
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or

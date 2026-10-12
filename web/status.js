@@ -258,6 +258,10 @@ function syncUnload() {
     : '';
   els.unload.setAttribute('aria-disabled', String(!!why));
   els.unload.title = why || 'Free VRAM';
+  if (unloadHeldNote !== null && unloadHeldNote !== `${why}.`) {
+    if (els.error.textContent === unloadHeldNote) showError('');
+    unloadHeldNote = null;
+  }
   syncModelSwitch();
 }
 
@@ -270,7 +274,7 @@ function syncUnload() {
 // expandSay), go too.
 let loadLine = null;
 async function loadModel() {
-  if (modelChangeHold()) { showError(`${modelChangeHold()}.`, true); return; }
+  if (modelChangeHold()) { sayModelChangeHold(); return; }
   try {
     await api('/api/model/load', { method: 'POST' });
     const said = els.error.textContent;
@@ -287,6 +291,10 @@ async function loadModel() {
 // An Unload the server refused - a load another tab started - is said until
 // the load lands, when it no longer says anything true.
 let unloadRefusal = null;
+// A press held for a reason of this page's (a load, Expand, the critic, a
+// model change) is said until that reason stops holding it (syncUnload): the
+// load's sentence stayed in the line after the weights had landed.
+let unloadHeldNote = null;
 async function unloadModel() {
   if (els.unload.getAttribute('aria-disabled') === 'true') {
     // As Generate's press: no answer is said in the offline words, which the
@@ -300,7 +308,11 @@ async function unloadModel() {
       const said = `${els.unload.title}.`;
       showError(said, true);
       elsewhereNote = said;
-    } else showError(`${els.unload.title}.`, true);
+    } else {
+      const said = `${els.unload.title}.`;
+      showError(said, true);
+      unloadHeldNote = said;
+    }
     return;
   }
   try {

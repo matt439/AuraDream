@@ -403,8 +403,13 @@ Model and loader:
   and leaves the selection and existing preference file intact.
   The server reserves `_switching` before any await and holds it through
   prompt-helper cleanup (critic, translator, tokenizers - before the weights, so
-  one that will not stop leaves them loaded), unload, selection and
-  `ensure_loaded`. Any failure before `select()` restores the previous
+  one that will not stop leaves them loaded), unload and selection; it clears
+  it under the load lock once `select()` has run and the state says loading.
+  The load after it is an ordinary `ensure_loaded`: Check, tag lookup and
+  LoRAs answer and a Generate queues behind it, as after Apply & save then
+  Load, while a second switch is still refused by `_refuse_busy_switch` (the
+  lock, then the loading state) and Unload by the lock
+  (`test_switch_reserves_teardown_and_loading_against_new_model_work`). Any failure before `select()` restores the previous
   preference file (or removes the new one) and `load_on_startup`, leaves the
   load state alone and reports `switch_error`, never a load error of the old
   checkpoint; the next switch, load or unload clears it. The background task owns
@@ -442,7 +447,12 @@ Model and loader:
   then saved preferences, then defaults; `--defaults` skips preferences. The
   four are one choice: an explicit model (flag or environment, not env.sh's
   marked default) other than the saved one sets all of them aside, with a
-  warning. `launch.configure` records what was explicit in
+  warning. The saved choice fills `--menu`'s marked defaults; a menu pick of
+  another checkpoint than the saved one sets the saved `load_on_startup`
+  aside too (recorded as `--menu`), so the pick never auto-loads under the
+  other model's settings and the menu's printed command starts the same way
+  (`test_a_menu_pick_of_another_model_sets_the_saved_auto_load_aside`).
+  `launch.configure` records what was explicit in
   `LOCAL_DIFFUSION_STARTUP_OVERRIDES`; status and `/api/models` report it as
   `startup_overrides` (empty when `backend.main` is imported). Malformed
   preferences warn and fall back. Only model id, quantization, offload and
@@ -528,10 +538,13 @@ Model and loader:
   reopens), `switch_error`, a failed load's detail, then
   `modelPickerMessage`; after it Loading, the unsaved edits with Revert, or
   the loaded/not-loaded line. Holds go in the actions' titles and
-  `aria-disabled` only, never the note. `modelPickerMessage` is set only by
-  an accepted press, names what it did and the `startup_overrides` it cannot
-  beat; a new failure clears it, and the revision reset keeps it only for
-  this page's own switch (`modelOwnSwitch`). Revert clears the edited keys,
+  `aria-disabled` only, never the note. `modelPickerMessage` is set by an
+  accepted press, naming what it did and the `startup_overrides` it cannot
+  beat, or by a revision from elsewhere that retires unsaved edits the new
+  settings do not match (`modelDroppedEdits`: "<new> was selected in another
+  tab or window; your unsaved choice (<old>) was dropped."); a new failure
+  clears it, and the revision reset keeps a press's only for this page's own
+  switch (`modelOwnSwitch`). Revert clears the edited keys,
   reapplies the server's settings and focuses the chosen radio. The help
   describing the table is `.sr-only` and not live. A failed catalogue keeps
   its rows, dimmed by the shared stale rule (0.8, `--muted` raised) and
@@ -548,9 +561,11 @@ Model and loader:
   (`setModelOptions`); polls write only fields changed since the last applied
   snapshot. A runtime id missing from its own catalogue is requested once.
 - Picker speed facts use retained `docs/verified.md` measurements at their
-  recorded size and steps. Only a sample matching quantization, format,
+  recorded size and steps. Only a warm sample matching quantization, format,
   platform and offload gets Fast (at most 15 s), Medium (over 15 through
-  45 s) or Slow (over 45 s), from the sample's upper time. Any other is
+  45 s) or Slow (over 45 s), from the sample's upper time. A first image of
+  a process on a busy PC (`Sample.warm=False`) matched is Reference with its
+  basis "First run, busy PC" and its per-step figures in the note. Any other is
   Reference, or Unmeasured for BF16 or sequential offload, with a "timed
   with/on ..." basis naming what differs; the closest sample is chosen by
   exact quantization/format, then 4-bit or torchao family, then platform,
@@ -560,9 +575,18 @@ Model and loader:
   `Checkpoint.gate`: click-through is Accept licence, manual is Needs approval,
   anything else and every lite-infer build Open, a custom id Unknown. Nothing
   checks the Hub or the cache for it.
+- A checkpoint whose torchao builds are larger than the card has a
+  `details_for` `fit`/`fit_note` from `model_info._FIT` (Qwen-Image only,
+  from the catalogue's own record); its lite-infer build and every other
+  entry have empty ones. The row shows `fit` beside the access label
+  (`.model-fit`, the note its title and part of the radio's description),
+  and the picker note says it, before the state line, while that row is
+  chosen. It does
+  not hold Switch & load: sequential offload is unmeasured, not refused.
 - Quantization and offload descriptions live in `loader_choices.py` and are
   shared by the menu and the picker; only figures true of every catalogue
-  checkpoint go there.
+  checkpoint go there, and no unmeasured quality claim (INT8 is "the same
+  size as FP8; not yet compared on this card").
 - On Linux, the server launcher prepares `DIFFUSERS_TRUST_REMOTE_KERNELS=true`
   before diffusers imports for optional browser Nunchaku selection; an explicit
   false remains authoritative and refuses Nunchaku before unload. The standalone
@@ -2567,7 +2591,13 @@ Frontend and CLI:
   next picture that loads. `syncUnload` is Unload's one writer (busy,
   another tab's job (`elsewhereBusy`), Expand, the critic, a load, offline):
   `aria-disabled` with the reason as its title,
-  never `disabled`, and a press says why. Unload is hidden while Load is
+  never `disabled`, and a press says why. A press held by this page's own
+  reason (a load, Expand, the critic, a model change: `unloadHeldNote`) is
+  taken back from `#error` once `syncUnload` finds that reason gone, as the
+  job's and another tab's are. A press a model change holds (Generate and
+  every `startJob`, Load, Check, the critic) says so as a note through
+  `sayModelChangeHold(slot)`, which `syncSubmitButtons` takes back
+  (`clearModelChangeHolds`) once `modelChangeHold()` is empty. Unload is hidden while Load is
   shown, and the press that hides one of the two hands focus to the other. A
   failed load is a card in the viewer's empty state (`syncLoadFailure`:
   heading, detail, model page link, a primary Retry load calling
@@ -4262,6 +4292,12 @@ reason does, Apply & save's unload title, the unsaved line with Revert
 load progress, the `startup_overrides` sentence, a failed load and a failed
 switch in place of the outcome, a failed list kept dimmed, and a refused
 switch whose words leave the error line once a later press switches.
+Through a switch's load Generate is not held and Check answers, and a
+Generate pressed while the switch is being sent says so as a note that goes
+once the change ends; another tab's switch names the unsaved choice it
+dropped; Qwen-Image's row and note say its torchao builds are larger than
+the card, and no other row does. It ends with Animagine loaded, as
+smoke-model-startup expects.
 For the checkpoint table it checks every catalogue model's row and facts
 (style, refine with its note, size with its label, speed with its sample
 and basis) without choosing any, focus on the chosen radio at the first
@@ -4328,9 +4364,9 @@ teardown keeping the running model and saved file, and Switch & load retrying
 the selected model; `POST /api/fake/model` sets the fake's `overrides` and a
 `stuck_critic` for page checks;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
-no category for an unmatched setup; `test_model_info.py` covers compact facts
+no category for an unmatched setup or a first run on a busy PC; `test_model_info.py` covers compact facts
 for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
-access, size labels that never claim an unsourced maximum and the shared
+access, Qwen-Image's fit, size labels that never claim an unsourced maximum and the shared
 loader descriptions:
 
 ```powershell
@@ -4726,7 +4762,9 @@ node tools/browser.mjs tools/smoke-delete.json
 `smoke-jobs.json` runs against the default Turbo fake on 7882 at
 `--step 0.3` (it passes at `--step 0.15` too): the tab title and topbar mirror; the one-line Now row, count
 first, with Pause and Cancel and its title; the queue's named rows, a
-per-row cancel and the single "Next:" row; Unload held with its reason;
+per-row cancel and the single "Next:" row; Unload held with its reason,
+and a press held by a load with no job said as a note that goes once the
+load lands;
 Pause answered at once with no aria-pressed and held on a one-image job,
 its note gone with its job; the finish line's seed with Use seed and the
 fixed-seed hint; a grid named by its own prompt, skipping a `[fail]` cell

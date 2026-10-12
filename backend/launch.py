@@ -264,10 +264,11 @@ def configure(
         "LOCAL_DIFFUSION_QUANT": args.quant,
         "LOCAL_DIFFUSION_OFFLOAD": args.offload,
     })
+    saved = None
     if args.defaults:
         overrides = dict.fromkeys(("model_id", "quantization", "offload", "load_on_startup"), "--defaults") | overrides
     else:
-        apply_saved_environment(model=args.model)
+        saved = apply_saved_environment(model=args.model)
     apply_env(args)
     # The Linux browser can choose Nunchaku later, after diffusers has already
     # read this flag at import. Its loader still requires an explicit supported
@@ -275,9 +276,18 @@ def configure(
     if sys.platform == "linux":
         os.environ.setdefault("DIFFUSERS_TRUST_REMOTE_KERNELS", "true")
     if args.menu:
+        # The saved choice fills the menu's marked defaults; its quantization
+        # and offload are then the menu's own answers.
         choice = prompt(ask=ask, out=out or sys.stdout)
         os.environ.update(choice.environ())
         overrides |= dict.fromkeys(("model_id", "quantization", "offload"), "--menu")
+        if saved is not None and choice.model_id != saved.model_id and "load_on_startup" not in overrides:
+            # Another checkpoint than the saved one: its auto-load is set aside,
+            # as an explicit --model sets it aside, so the menu's pick does not
+            # start loading under the other model's settings, and the menu's
+            # printed command starts the same way.
+            os.environ.pop("LOCAL_DIFFUSION_PRELOAD", None)
+            overrides["load_on_startup"] = "--menu"
     else:
         choice = None
     os.environ[OVERRIDES_VARIABLE] = json.dumps(overrides)
