@@ -4074,7 +4074,8 @@ ends; the English in the panel at 1400x900, at the head of the results with
 its note and Generate in the window at 2048x1040@1.25, and beside the
 docked check at 2560x1305; Baidu's seven sizes (the seven framings marked,
 12:5 named, a typed 768x1376 recognised, 1008x1008 not one of the sizes,
-and 1400x800 and 784x1360 read by the nearest framing, 7:4 and 4:7); and
+and 1400x800 and 784x1360 read by the nearest framing, 7:4 and 4:7, the
+1400 also named off the 16 grid); and
 the check's character counts and tag-list note on a fullwidth-comma and a
 one-per-line list; Expand pressed during this page's job under a Reuse's
 Undo, said under the prompt with the Undo kept, and the critic's press then
